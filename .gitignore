@@ -3,8 +3,17 @@ node_modules/
 .env.*
 coverage/
 dist/
+.next/
+.turbo/
+.vercel/
+.cache/
 .DS_Store
 storage/temp/
 storage/uploads/
 storage/exports/
+storage/runtime/
+apps/api/storage/uploads/
+apps/api/storage/exports/
+apps/api/storage/temp/
+tmp-*.log
 *.log
