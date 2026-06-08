@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node src/main.js"
+    "build:editor-bundle": "node ../../scripts/build-milkdown-bundle.mjs",
+    "dev": "npm run build:editor-bundle && node src/main.js"
+  },
+  "dependencies": {
+    "@milkdown/kit": "^7.21.2",
+    "esbuild": "^0.28.0"
   }
 }

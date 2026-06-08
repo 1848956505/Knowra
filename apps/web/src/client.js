@@ -1,5 +1,5 @@
-import { applyMarkdownFormat, extractMarkdownHeadings, renderMarkdownPreview } from '../lib/markdown.js';
 import { knowledgeBaseSeed } from '../lib/mock-knowledge-base.js';
+import { createMilkdownHost } from '../lib/editor/milkdown-bundle.js';
 import {
   createBackendSnapshot,
   selectInitialWorkspaceSource,
@@ -20,6 +20,7 @@ import {
 } from '../lib/tree-workspace.js';
 
 const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
+const AUTOSAVE_DELAY_MS = 700;
 
 const SECONDARY_SECTION_ITEMS = [
   { key: 'tags', label: '标签' },
@@ -39,7 +40,6 @@ const state = {
   tags: [],
   selectedNoteId: null,
   selectedFolderId: null,
-  sourceOpen: false,
   navSections: {
     materials: true,
     tags: false,
@@ -76,6 +76,8 @@ const state = {
     overKind: null,
     overId: null
   },
+  saveState: 'idle',
+  lastSavedAt: null,
   statusMessage: '正在加载知识库...'
 };
 
@@ -91,16 +93,21 @@ const railItems = [
 const formatButtons = [
   { key: 'heading-1', label: 'H1' },
   { key: 'heading-2', label: 'H2' },
+  { key: 'heading-3', label: 'H3' },
   { key: 'bold', label: 'Bold' },
   { key: 'italic', label: 'Italic' },
   { key: 'quote', label: 'Quote' },
   { key: 'bullet', label: 'List' },
   { key: 'code', label: 'Code' },
-  { key: 'codeblock', label: 'Block' },
-  { key: 'link', label: 'Link' }
+  { key: 'codeblock', label: 'Block' }
 ];
 
 const elements = {};
+let autosaveTimer = null;
+let currentEditorHost = null;
+let currentEditorNoteId = null;
+let pendingEditorNoteId = null;
+let editorMountToken = 0;
 
 initialize();
 
@@ -135,11 +142,7 @@ function cacheElements() {
   elements.secondaryNavToggle = document.getElementById('secondary-nav-toggle');
   elements.contextMenu = document.getElementById('library-context-menu');
   elements.sectionMenu = document.getElementById('library-section-menu');
-  elements.editorTitle = document.getElementById('editor-title');
-  elements.toggleSource = document.getElementById('toggle-source');
   elements.editorContent = document.getElementById('editor-content');
-  elements.previewToc = document.getElementById('preview-toc');
-  elements.previewContent = document.getElementById('preview-content');
   elements.noteInfo = document.getElementById('note-info');
   elements.tagCount = document.getElementById('tag-count');
   elements.noteTags = document.getElementById('note-tags');
@@ -162,17 +165,6 @@ function bindEvents() {
     state.sectionMenuOpen = !state.sectionMenuOpen;
     closeContextMenu();
     renderFolders();
-  });
-
-  elements.toggleSource?.addEventListener('click', () => {
-    state.sourceOpen = !state.sourceOpen;
-    renderAll();
-
-    if (state.sourceOpen) {
-      window.requestAnimationFrame(() => {
-        document.getElementById('markdown-editor')?.focus();
-      });
-    }
   });
 
   elements.folderTree?.addEventListener('click', (event) => {
@@ -415,22 +407,12 @@ function bindEvents() {
     }
   });
 
-  document.addEventListener('input', (event) => {
-    if (event.target?.id !== 'markdown-editor') {
-      return;
-    }
-    state.draftMarkdown = event.target.value;
-    renderPreviewOnly();
-  });
-
   document.addEventListener('click', (event) => {
-    const commitButton = event.target.closest('[data-commit-source]');
-    if (!commitButton) {
+    const saveButton = event.target.closest('[data-save-now]');
+    if (!saveButton) {
       return;
     }
-    state.sourceOpen = false;
-    renderAll();
-    flashStatus('已应用当前编辑内容');
+    void persistDraft({ immediate: true });
   });
 }
 
@@ -611,6 +593,8 @@ function reconcileSelection() {
 
   const currentNote = getCurrentNote();
   state.draftMarkdown = currentNote?.rawMarkdown ?? '';
+  state.saveState = currentNote ? 'saved' : 'idle';
+  state.lastSavedAt = currentNote?.updatedAt ?? null;
 }
 
 async function loadCurrentNoteSideData() {
@@ -1225,13 +1209,12 @@ function renderNoteIcon(iconKind = 'markdown') {
 }
 
 function renderEditor(note) {
-  if (!elements.editorTitle || !elements.toggleSource || !elements.editorContent) {
+  if (!elements.editorContent) {
     return;
   }
 
   if (!note) {
-    elements.editorTitle.textContent = '暂无笔记';
-    elements.toggleSource.textContent = '显示源码编辑器';
+    void teardownEditorHost();
     elements.editorContent.dataset.sourceOpen = 'false';
     elements.editorContent.innerHTML = `
       <section class="preview-pane preview-frame">
@@ -1243,64 +1226,29 @@ function renderEditor(note) {
     return;
   }
 
-  const markdown = state.sourceOpen ? state.draftMarkdown : note.rawMarkdown;
-  const headings = extractMarkdownHeadings(markdown);
-
-  elements.editorTitle.textContent = note.title;
-  elements.toggleSource.textContent = state.sourceOpen ? '隐藏源码编辑器' : '显示源码编辑器';
-  elements.editorContent.dataset.sourceOpen = String(state.sourceOpen);
-
-  if (state.sourceOpen) {
-    elements.editorContent.innerHTML = `
-      <section class="editor-pane">
-        <div class="pane-body">
-          <div class="source-toolbar">
-            ${formatButtons
-              .map((button) => `<button type="button" class="chip-button" data-format="${button.key}">${button.label}</button>`)
-              .join('')}
-            <button type="button" class="solid-button" data-commit-source>应用预览</button>
-          </div>
-          <textarea id="markdown-editor" class="markdown-input" spellcheck="false">${escapeHtml(markdown)}</textarea>
-        </div>
-      </section>
-      <section class="preview-pane preview-frame">
-        <div class="pane-body">
-          <div class="toc-list" id="preview-toc" aria-label="目录"></div>
-          <article class="preview-rendered" id="preview-content"></article>
-        </div>
-      </section>
-    `;
-  } else {
-    elements.editorContent.innerHTML = `
-      <section class="preview-pane preview-frame">
-        <div class="pane-body">
-          <div class="toc-list" id="preview-toc" aria-label="目录"></div>
-          <article class="preview-rendered" id="preview-content"></article>
-        </div>
-      </section>
-    `;
-  }
-
-  elements.previewToc = document.getElementById('preview-toc');
-  elements.previewContent = document.getElementById('preview-content');
-  elements.previewToc.innerHTML = headings.length
-    ? headings.map((heading) => `<a class="toc-item" data-level="${heading.level}" href="#${heading.id}">${escapeHtml(heading.title)}</a>`).join('')
-    : '';
-  elements.previewContent.innerHTML = renderMarkdownPreview(markdown);
-}
-
-function renderPreviewOnly() {
-  if (!state.sourceOpen || !elements.previewToc || !elements.previewContent) {
+  if (currentEditorHost && currentEditorNoteId === note.id) {
+    renderEditorSaveIndicator();
     return;
   }
 
-  const markdown = state.draftMarkdown;
-  const headings = extractMarkdownHeadings(markdown);
+  elements.editorContent.dataset.sourceOpen = 'true';
+  elements.editorContent.innerHTML = `
+    <section class="editor-pane editor-pane-single">
+      <div class="pane-body pane-body-editor">
+        <div class="source-toolbar">
+          ${formatButtons
+            .map((button) => `<button type="button" class="chip-button" data-format="${button.key}">${button.label}</button>`)
+            .join('')}
+          <span class="editor-save-indicator" id="editor-save-indicator"></span>
+          <button type="button" class="subtle-button editor-save-button" data-save-now>保存</button>
+        </div>
+        <div class="milkdown-host" id="milkdown-editor"></div>
+      </div>
+    </section>
+  `;
 
-  elements.previewToc.innerHTML = headings.length
-    ? headings.map((heading) => `<a class="toc-item" data-level="${heading.level}" href="#${heading.id}">${escapeHtml(heading.title)}</a>`).join('')
-    : '';
-  elements.previewContent.innerHTML = renderMarkdownPreview(markdown);
+  renderEditorSaveIndicator();
+  mountEditorHost(note.id, state.draftMarkdown);
 }
 
 function renderSidebar(note) {
@@ -1402,26 +1350,11 @@ function renderStatus() {
 }
 
 function handleFormat(format) {
-  if (!state.sourceOpen) {
-    state.sourceOpen = true;
-    renderAll();
-  }
-
-  const editor = document.getElementById('markdown-editor');
-  if (!editor) {
+  if (!currentEditorHost) {
     return;
   }
-
-  const selectionStart = editor.selectionStart ?? editor.value.length;
-  const selectionEnd = editor.selectionEnd ?? editor.value.length;
-  const result = applyMarkdownFormat(editor.value, selectionStart, selectionEnd, format);
-
-  state.draftMarkdown = result.nextValue;
-  editor.value = result.nextValue;
-  editor.selectionStart = result.nextSelectionStart;
-  editor.selectionEnd = result.nextSelectionEnd;
-  renderPreviewOnly();
-  editor.focus();
+  void currentEditorHost.run(format);
+  void currentEditorHost.focus();
 }
 
 async function handleContextMenuAction(action) {
@@ -1912,6 +1845,7 @@ async function moveNote(noteId, nextFolderId) {
 }
 
 async function selectFolder(folderId) {
+  await persistDraft({ immediate: true });
   state.selectedFolderId = folderId;
 
   const visibleNotes = getVisibleNotes();
@@ -1942,9 +1876,11 @@ async function selectNote(noteId, { syncFolder = false } = {}) {
     return;
   }
 
+  await persistDraft({ immediate: true });
   state.selectedNoteId = noteId;
   state.draftMarkdown = note.rawMarkdown ?? '';
-  state.sourceOpen = false;
+  state.saveState = 'saved';
+  state.lastSavedAt = note.updatedAt ?? null;
 
   if (syncFolder && note.folderId) {
     state.selectedFolderId = note.folderId;
@@ -2033,6 +1969,207 @@ function getCurrentNote() {
   }
 
   return state.allNotes.find((note) => note.id === state.selectedNoteId) ?? null;
+}
+
+async function teardownEditorHost() {
+  pendingEditorNoteId = null;
+  currentEditorNoteId = null;
+  editorMountToken += 1;
+
+  if (!currentEditorHost) {
+    return;
+  }
+
+  const host = currentEditorHost;
+  currentEditorHost = null;
+  await host.destroy();
+}
+
+function mountEditorHost(noteId, markdown) {
+  const root = document.getElementById('milkdown-editor');
+  if (!root) {
+    return;
+  }
+
+  if (pendingEditorNoteId === noteId) {
+    return;
+  }
+
+  const token = ++editorMountToken;
+  pendingEditorNoteId = noteId;
+  const previousHost = currentEditorHost;
+  currentEditorHost = null;
+  currentEditorNoteId = null;
+
+  void (async () => {
+    if (previousHost) {
+      await previousHost.destroy();
+    }
+
+    const host = createMilkdownHost({
+      root,
+      markdown,
+      onChange: handleEditorMarkdownChange
+    });
+
+    await host.ready;
+
+    if (token !== editorMountToken || state.selectedNoteId !== noteId) {
+      await host.destroy();
+      return;
+    }
+
+    currentEditorHost = host;
+    currentEditorNoteId = noteId;
+    pendingEditorNoteId = null;
+    renderEditorSaveIndicator();
+    renderStatus();
+  })().catch((error) => {
+    pendingEditorNoteId = null;
+    flashStatus(error.message || '编辑器加载失败');
+  });
+}
+
+function handleEditorMarkdownChange(markdown) {
+  if (!currentEditorNoteId || currentEditorNoteId !== state.selectedNoteId) {
+    return;
+  }
+
+  state.draftMarkdown = markdown;
+  scheduleAutosave();
+}
+
+function deriveNoteTitleFromMarkdown(markdown, fallbackTitle = 'Untitled Note') {
+  const headingMatch = String(markdown ?? '').match(/^\s*#\s+(.+)$/m);
+  if (headingMatch?.[1]?.trim()) {
+    return headingMatch[1].trim();
+  }
+
+  const firstLine = String(markdown ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  return firstLine || fallbackTitle;
+}
+
+function getSaveStateLabel() {
+  switch (state.saveState) {
+    case 'pending':
+      return '待保存';
+    case 'saving':
+      return '保存中...';
+    case 'saved':
+      return state.lastSavedAt ? `已保存 ${formatDate(state.lastSavedAt)}` : '已保存';
+    case 'error':
+      return '保存失败';
+    default:
+      return '实时编辑';
+  }
+}
+
+function renderEditorSaveIndicator() {
+  const indicator = document.getElementById('editor-save-indicator');
+  if (!indicator) {
+    return;
+  }
+
+  indicator.dataset.saveState = state.saveState;
+  indicator.textContent = getSaveStateLabel();
+}
+
+function scheduleAutosave() {
+  if (!getCurrentNote()) {
+    return;
+  }
+
+  state.saveState = 'pending';
+  renderEditorSaveIndicator();
+  renderStatus();
+
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+  }
+
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    void persistDraft();
+  }, AUTOSAVE_DELAY_MS);
+}
+
+async function persistDraft({ immediate = false } = {}) {
+  const note = getCurrentNote();
+  if (!note) {
+    return;
+  }
+
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+  }
+
+  const nextMarkdown = state.draftMarkdown;
+  const nextTitle = deriveNoteTitleFromMarkdown(nextMarkdown, note.title);
+  if (note.rawMarkdown === nextMarkdown && note.title === nextTitle) {
+    state.saveState = 'saved';
+    renderEditorSaveIndicator();
+    renderStatus();
+    return;
+  }
+
+  state.saveState = 'saving';
+  renderEditorSaveIndicator();
+  renderStatus();
+
+  try {
+    let updatedNote;
+
+    if (state.dataMode === 'api') {
+      const payload = await fetchJson(`/api/knowledge/notes/${encodeURIComponent(note.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: nextTitle,
+          rawMarkdown: nextMarkdown
+        })
+      });
+      updatedNote = payload.data;
+    } else {
+      updatedNote = {
+        ...note,
+        title: nextTitle,
+        rawMarkdown: nextMarkdown,
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    state.allNotes = state.allNotes.map((item) => (
+      item.id === updatedNote.id
+        ? {
+            ...item,
+            ...updatedNote,
+            title: updatedNote.title ?? nextTitle,
+            rawMarkdown: updatedNote.rawMarkdown ?? nextMarkdown
+          }
+        : item
+    ));
+    state.saveState = 'saved';
+    state.lastSavedAt = updatedNote.updatedAt ?? new Date().toISOString();
+
+    renderFolders();
+    renderSidebar(getCurrentNote());
+    renderEditorSaveIndicator();
+    renderStatus();
+    persistBackendCache();
+
+    if (immediate) {
+      flashStatus('已保存当前笔记');
+    }
+  } catch (error) {
+    state.saveState = 'error';
+    renderEditorSaveIndicator();
+    renderStatus();
+    flashStatus(error.message || '保存失败');
+  }
 }
 
 function getVisibleNotes() {
@@ -2175,3 +2312,5 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+

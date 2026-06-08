@@ -360,7 +360,7 @@ body {
 
 .kb-workspace {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 260px;
+  grid-template-columns: 256px minmax(0, 1fr) 260px;
   gap: 0;
   min-height: 0;
   height: 100%;
@@ -945,7 +945,7 @@ body {
 
 .editor-shell {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   height: 100%;
   overflow: hidden;
@@ -961,6 +961,10 @@ body {
   background: rgba(255, 255, 255, 0.84);
 }
 
+.editor-toolbar[hidden] {
+  display: none !important;
+}
+
 .editor-toolbar h2 {
   margin: 0;
   font-size: 18px;
@@ -974,10 +978,6 @@ body {
   height: 100%;
   padding: 0;
   overflow: hidden;
-}
-
-.editor-content[data-source-open='true'] {
-  grid-template-columns: minmax(0, 0.98fr) minmax(360px, 1fr);
 }
 
 .editor-pane,
@@ -1008,32 +1008,135 @@ body {
   height: 100%;
 }
 
+.pane-body-editor {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.editor-pane-single {
+  border-left: 0 !important;
+}
+
 .source-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+  align-items: center;
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.markdown-input {
-  width: 100%;
+.editor-save-indicator {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.editor-save-indicator[data-save-state='pending'],
+.editor-save-indicator[data-save-state='saving'] {
+  color: var(--color-accent-strong);
+}
+
+.editor-save-indicator[data-save-state='error'] {
+  color: #b42318;
+}
+
+.editor-save-button {
+  padding-inline: 12px;
+}
+
+.milkdown-host {
   min-height: 0;
   height: 100%;
-  resize: none;
-  border: 1px solid var(--color-border);
-  border-radius: 0;
-  padding: 16px;
-  color: var(--color-text);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 255, 0.92)),
-    linear-gradient(90deg, rgba(60, 104, 255, 0.04) 0 100%);
-  outline: none;
-  line-height: 1.75;
+  overflow: auto;
+  padding: 0 8px 12px;
 }
 
-.markdown-input:focus {
-  border-color: rgba(60, 104, 255, 0.34);
-  box-shadow: 0 0 0 4px rgba(60, 104, 255, 0.1);
+.milkdown-host[data-editor-ready='true'] {
+  cursor: text;
+}
+
+.milkdown-host .ProseMirror {
+  min-height: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 8px 16px 80px;
+  color: var(--color-text);
+  font-size: 17px;
+  line-height: 1.9;
+  outline: none;
+}
+
+.milkdown-host .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.milkdown-host .ProseMirror h1,
+.milkdown-host .ProseMirror h2,
+.milkdown-host .ProseMirror h3 {
+  margin: 1.1em 0 0.45em;
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+  line-height: 1.28;
+}
+
+.milkdown-host .ProseMirror h1 {
+  font-size: 42px;
+}
+
+.milkdown-host .ProseMirror h2 {
+  font-size: 32px;
+}
+
+.milkdown-host .ProseMirror h3 {
+  font-size: 24px;
+}
+
+.milkdown-host .ProseMirror p,
+.milkdown-host .ProseMirror ul,
+.milkdown-host .ProseMirror ol,
+.milkdown-host .ProseMirror blockquote,
+.milkdown-host .ProseMirror pre {
+  margin: 0 0 1em;
+}
+
+.milkdown-host .ProseMirror ul,
+.milkdown-host .ProseMirror ol {
+  padding-left: 1.4em;
+}
+
+.milkdown-host .ProseMirror li + li {
+  margin-top: 0.24em;
+}
+
+.milkdown-host .ProseMirror blockquote {
+  padding: 8px 0 8px 16px;
+  border-left: 3px solid rgba(60, 104, 255, 0.28);
+  color: var(--color-text-muted);
+}
+
+.milkdown-host .ProseMirror code {
+  padding: 0.12rem 0.34rem;
+  background: rgba(60, 104, 255, 0.08);
+  border-radius: 6px;
+  font-family: 'Consolas', 'SFMono-Regular', monospace;
+}
+
+.milkdown-host .ProseMirror pre {
+  padding: 16px 18px;
+  background: #10182b;
+  color: #eff4ff;
+  overflow: auto;
+}
+
+.milkdown-host .ProseMirror pre code {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  color: inherit;
 }
 
 .preview-frame {
@@ -1118,10 +1221,7 @@ body {
 }
 
 .toc-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 12px;
+  display: none;
 }
 
 .toc-item {
@@ -1230,6 +1330,10 @@ body {
   }
 
   .kb-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-content {
     grid-template-columns: 1fr;
   }
 

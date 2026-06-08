@@ -23,6 +23,7 @@ function renderHtml(initialWorkspaceScript = '') {
   <title>Study Accelerator</title>
   <meta name="description" content="A modular learning workspace centered on knowledge bases" />
   <link rel="stylesheet" href="/src/styles.css" />
+  <link rel="stylesheet" href="/lib/editor/milkdown-bundle.css" />
 </head>
 <body>
   <div id="app">
@@ -75,16 +76,9 @@ function renderHtml(initialWorkspaceScript = '') {
             </aside>
             <section class="kb-editor">
               <section class="editor-shell">
-                <div class="editor-toolbar">
-                  <div>
-                    <h2 id="editor-title">-</h2>
-                  </div>
-                  <button type="button" class="ghost-button" id="toggle-source">显示源码编辑器</button>
-                </div>
                 <div class="editor-content" id="editor-content" data-source-open="false">
                   <section class="preview-pane preview-frame">
                     <div class="pane-body">
-                      <div class="toc-list" id="preview-toc" aria-label="目录"></div>
                       <article class="preview-rendered" id="preview-content"></article>
                     </div>
                   </section>

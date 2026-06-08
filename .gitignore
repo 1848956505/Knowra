@@ -17,3 +17,7 @@ apps/api/storage/exports/
 apps/api/storage/temp/
 tmp-*.log
 *.log
+apps/web/lib/editor/milkdown-bundle.js
+apps/web/lib/editor/milkdown-bundle.css
+apps/web/lib/editor/milkdown-bundle.js.map
+apps/web/lib/editor/milkdown-bundle.css.map
