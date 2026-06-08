@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   createInitialWorkspaceScript,
   createBackendSnapshot,
+  mergeWorkspaceSnapshots,
   selectInitialWorkspaceSource,
   selectLoadRecovery
 } from '../lib/workspace-loading.js';
@@ -50,6 +51,7 @@ runTest('createBackendSnapshot keeps the backend tree payload needed for recover
     tags: [{ id: 'tag-1' }],
     allNotes: [{ id: 'note-1' }],
     openFolders: { 'folder-1': true },
+    openNoteTabs: ['note-1', 'note-2'],
     selectedFolderId: 'folder-1',
     selectedNoteId: 'note-1'
   });
@@ -57,6 +59,36 @@ runTest('createBackendSnapshot keeps the backend tree payload needed for recover
   assert.equal(snapshot.currentSpaceId, 'space-1');
   assert.equal(snapshot.folderTree[0].id, 'folder-1');
   assert.equal(snapshot.allNotes[0].id, 'note-1');
+  assert.deepEqual(snapshot.openNoteTabs, ['note-1', 'note-2']);
+});
+
+runTest('mergeWorkspaceSnapshots keeps live backend data but restores cached tab state', () => {
+  const merged = mergeWorkspaceSnapshots(
+    {
+      currentSpaceId: 'space-1',
+      folderTree: [{ id: 'folder-new', children: [] }],
+      allNotes: [{ id: 'note-1' }, { id: 'note-2' }],
+      openFolders: {},
+      openNoteTabs: [],
+      selectedFolderId: null,
+      selectedNoteId: 'note-1'
+    },
+    {
+      currentSpaceId: 'space-1',
+      folderTree: [{ id: 'folder-old', children: [] }],
+      allNotes: [{ id: 'stale-note' }],
+      openFolders: { 'folder-new': true },
+      openNoteTabs: ['note-1', 'note-2'],
+      selectedFolderId: 'folder-new',
+      selectedNoteId: 'note-2'
+    }
+  );
+
+  assert.equal(merged.folderTree[0].id, 'folder-new');
+  assert.equal(merged.allNotes[1].id, 'note-2');
+  assert.deepEqual(merged.openNoteTabs, ['note-1', 'note-2']);
+  assert.equal(merged.selectedNoteId, 'note-2');
+  assert.equal(merged.selectedFolderId, 'folder-new');
 });
 
 runTest('createInitialWorkspaceScript safely embeds a backend snapshot', () => {

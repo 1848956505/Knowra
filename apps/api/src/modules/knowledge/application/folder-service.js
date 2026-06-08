@@ -2,7 +2,10 @@ import { Folder } from '../domain/folder.js';
 import { buildCreateFolderDto, buildUpdateFolderDto } from './dto/folder.dto.js';
 import { createInMemoryFolderRepository } from '../infrastructure/folder-repository.js';
 
-export function createFolderService({ repository = createInMemoryFolderRepository() } = {}) {
+export function createFolderService({
+  repository = createInMemoryFolderRepository(),
+  validateSiblingNameConflict = null
+} = {}) {
   function requireFolder(folderId) {
     const folder = repository.findById(folderId);
 
@@ -99,6 +102,12 @@ export function createFolderService({ repository = createInMemoryFolderRepositor
   return {
     createFolder(input) {
       const dto = buildCreateFolderDto(input);
+      validateSiblingNameConflict?.({
+        spaceId: dto.spaceId,
+        parentId: dto.parentId ?? null,
+        name: dto.name,
+        currentFolderId: null
+      });
       const parentFolder = validateParent(dto.spaceId, dto.parentId);
       const folder = new Folder({
         ...dto,
@@ -114,6 +123,12 @@ export function createFolderService({ repository = createInMemoryFolderRepositor
       const currentFolder = requireFolder(folderId);
       const dto = buildUpdateFolderDto(updates);
       const nextParentId = dto.parentId !== undefined ? dto.parentId : currentFolder.parentId;
+      validateSiblingNameConflict?.({
+        spaceId: currentFolder.spaceId,
+        parentId: nextParentId ?? null,
+        name: dto.name ?? currentFolder.name,
+        currentFolderId: currentFolder.id
+      });
       const parentFolder = validateParent(currentFolder.spaceId, nextParentId, currentFolder.id);
       const updatedFolder = new Folder({
         ...currentFolder,

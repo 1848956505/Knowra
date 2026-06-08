@@ -1,7 +1,16 @@
 import { knowledgeBaseSeed } from '../lib/mock-knowledge-base.js';
 import { createMilkdownHost } from '../lib/editor/milkdown-bundle.js';
 import {
+  buildNoteTabPath,
+  closeOtherTabs,
+  closeTab,
+  ensureOpenTab,
+  reorderTabs
+} from '../lib/editor/tab-workspace.js';
+import { validateSiblingName } from '../lib/tree-name-validation.js';
+import {
   createBackendSnapshot,
+  mergeWorkspaceSnapshots,
   selectInitialWorkspaceSource,
   selectLoadRecovery
 } from '../lib/workspace-loading.js';
@@ -60,6 +69,7 @@ const state = {
   searchQuery: '',
   linkedNotes: [],
   attachments: [],
+  openNoteTabs: [],
   sectionMenuOpen: false,
   contextMenu: {
     open: false,
@@ -68,12 +78,22 @@ const state = {
     targetKind: null,
     targetId: null
   },
+  tabMenu: {
+    open: false,
+    x: 0,
+    y: 0,
+    noteId: null
+  },
   treeEditor: null,
   deleteIntent: null,
   dragState: {
     activeKind: null,
     activeId: null,
     overKind: null,
+    overId: null
+  },
+  tabDragState: {
+    activeId: null,
     overId: null
   },
   saveState: 'idle',
@@ -118,7 +138,7 @@ function initialize() {
 
   const initialSnapshot = readInitialWorkspaceSnapshot();
   const cachedSnapshot = readBackendCache();
-  const startupSnapshot = initialSnapshot ?? cachedSnapshot;
+  const startupSnapshot = mergeWorkspaceSnapshots(initialSnapshot, cachedSnapshot);
 
   if (selectInitialWorkspaceSource({ cachedSnapshot: startupSnapshot }) === 'cache') {
     state.dataMode = 'cache';
@@ -142,6 +162,8 @@ function cacheElements() {
   elements.secondaryNavToggle = document.getElementById('secondary-nav-toggle');
   elements.contextMenu = document.getElementById('library-context-menu');
   elements.sectionMenu = document.getElementById('library-section-menu');
+  elements.noteTabs = document.getElementById('note-tabs');
+  elements.noteTabMenu = document.getElementById('note-tab-menu');
   elements.editorContent = document.getElementById('editor-content');
   elements.noteInfo = document.getElementById('note-info');
   elements.tagCount = document.getElementById('tag-count');
@@ -395,16 +417,98 @@ function bindEvents() {
   document.addEventListener('click', (event) => {
     if (event.target.closest('#library-context-menu')) return;
     if (event.target.closest('#library-section-menu')) return;
+    if (event.target.closest('#note-tab-menu')) return;
     if (event.target.closest('#secondary-nav-toggle')) return;
     closeContextMenu();
     closeSectionMenu();
+    closeTabMenu();
   });
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       closeContextMenu();
       closeSectionMenu();
+      closeTabMenu();
     }
+  });
+
+  elements.noteTabs?.addEventListener('click', (event) => {
+    const closeButton = event.target.closest('[data-tab-close]');
+    if (closeButton?.dataset.tabClose) {
+      event.stopPropagation();
+      void handleTabClose(closeButton.dataset.tabClose);
+      return;
+    }
+
+    const tabButton = event.target.closest('[data-tab-note-id]');
+    if (tabButton?.dataset.tabNoteId) {
+      void selectNote(tabButton.dataset.tabNoteId, { syncFolder: true, ensureTab: true });
+    }
+  });
+
+  elements.noteTabs?.addEventListener('contextmenu', (event) => {
+    const tabButton = event.target.closest('[data-tab-note-id]');
+    if (!tabButton?.dataset.tabNoteId) {
+      return;
+    }
+
+    event.preventDefault();
+    openTabMenu({
+      x: event.clientX,
+      y: event.clientY,
+      noteId: tabButton.dataset.tabNoteId
+    });
+  });
+
+  elements.noteTabs?.addEventListener('dragstart', (event) => {
+    const tabButton = event.target.closest('[data-tab-note-id]');
+    if (!tabButton?.dataset.tabNoteId) {
+      return;
+    }
+
+    state.tabDragState.activeId = tabButton.dataset.tabNoteId;
+    state.tabDragState.overId = null;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', tabButton.dataset.tabNoteId);
+    syncTabDragIndicators();
+  });
+
+  elements.noteTabs?.addEventListener('dragover', (event) => {
+    const tabButton = event.target.closest('[data-tab-note-id]');
+    if (!tabButton?.dataset.tabNoteId || !state.tabDragState.activeId) {
+      return;
+    }
+
+    event.preventDefault();
+    state.tabDragState.overId = tabButton.dataset.tabNoteId;
+    syncTabDragIndicators();
+  });
+
+  elements.noteTabs?.addEventListener('drop', (event) => {
+    const tabButton = event.target.closest('[data-tab-note-id]');
+    if (!tabButton?.dataset.tabNoteId || !state.tabDragState.activeId) {
+      return;
+    }
+
+    event.preventDefault();
+    state.openNoteTabs = reorderTabs(
+      state.openNoteTabs,
+      state.tabDragState.activeId,
+      tabButton.dataset.tabNoteId
+    );
+    resetTabDragState();
+  });
+
+  elements.noteTabs?.addEventListener('dragend', () => {
+    resetTabDragState();
+  });
+
+  elements.noteTabMenu?.addEventListener('click', (event) => {
+    const actionButton = event.target.closest('[data-tab-menu-action]');
+    if (!actionButton) {
+      return;
+    }
+    void handleTabMenuAction(actionButton.dataset.tabMenuAction);
   });
 
   document.addEventListener('click', (event) => {
@@ -536,6 +640,7 @@ function loadCachedWorkspaceData(snapshot) {
     ...Object.fromEntries(Object.keys(state.foldersById).map((folderId) => [folderId, true])),
     ...(snapshot.openFolders ?? {})
   };
+  state.openNoteTabs = Array.isArray(snapshot.openNoteTabs) ? snapshot.openNoteTabs : [];
   state.selectedFolderId = snapshot.selectedFolderId ?? null;
   state.selectedNoteId = snapshot.selectedNoteId ?? null;
   reconcileSelection();
@@ -577,6 +682,9 @@ function reconcileSelection() {
     state.selectedFolderId = null;
   }
 
+  const existingNoteIds = new Set(state.allNotes.map((note) => note.id));
+  state.openNoteTabs = state.openNoteTabs.filter((noteId) => existingNoteIds.has(noteId));
+
   const visibleNotes = getVisibleNotes();
 
   if (visibleNotes.length === 0) {
@@ -584,6 +692,7 @@ function reconcileSelection() {
     state.draftMarkdown = '';
     state.linkedNotes = [];
     state.attachments = [];
+    state.openNoteTabs = [];
     return;
   }
 
@@ -592,6 +701,7 @@ function reconcileSelection() {
   }
 
   const currentNote = getCurrentNote();
+  state.openNoteTabs = ensureOpenTab(state.openNoteTabs, currentNote?.id ?? null);
   state.draftMarkdown = currentNote?.rawMarkdown ?? '';
   state.saveState = currentNote ? 'saved' : 'idle';
   state.lastSavedAt = currentNote?.updatedAt ?? null;
@@ -742,6 +852,7 @@ function renderRailIcon(key) {
 
 function renderAll() {
   renderFolders();
+  renderTabs();
   renderEditor(getCurrentNote());
   renderSidebar(getCurrentNote());
   renderStatus();
@@ -841,6 +952,78 @@ function renderFolders() {
   renderContextMenu();
   renderSectionMenu();
   focusInlineEditor();
+}
+
+function renderTabs() {
+  if (!elements.noteTabs) {
+    return;
+  }
+
+  const openNotes = state.openNoteTabs
+    .map((noteId) => state.allNotes.find((note) => note.id === noteId))
+    .filter(Boolean);
+
+  if (openNotes.length === 0) {
+    elements.noteTabs.innerHTML = `
+      <div class="note-tabs-empty">
+        <span class="note-tabs-empty-label">No open notes</span>
+      </div>
+    `;
+    renderTabMenu();
+    return;
+  }
+
+  elements.noteTabs.innerHTML = openNotes
+    .map((note) => {
+      const isActive = note.id === state.selectedNoteId;
+      const isDirty = isActive && ['pending', 'saving', 'error'].includes(state.saveState);
+      const isDragging = state.tabDragState.activeId === note.id;
+      const isDropTarget = state.tabDragState.overId === note.id;
+      return `
+        <button
+          type="button"
+          class="note-tab"
+          data-tab-note-id="${note.id}"
+          data-active="${isActive}"
+          data-dirty="${isDirty}"
+          data-dragging="${isDragging}"
+          data-drop-target="${isDropTarget}"
+          title="${escapeAttribute(buildNoteTabPath(note, state.foldersById))}"
+          draggable="true"
+        >
+          <span class="note-tab-label">${escapeHtml(note.title)}</span>
+          <span class="note-tab-dirty">${isDirty ? '●' : ''}</span>
+          <span class="note-tab-close" data-tab-close="${note.id}" aria-label="Close tab" title="Close tab">×</span>
+        </button>
+      `;
+    })
+    .join('');
+
+  renderTabMenu();
+  syncTabDragIndicators();
+  persistBackendCache();
+}
+
+function renderTabMenu() {
+  if (!elements.noteTabMenu) {
+    return;
+  }
+
+  if (!state.tabMenu.open || !state.tabMenu.noteId) {
+    elements.noteTabMenu.hidden = true;
+    elements.noteTabMenu.innerHTML = '';
+    return;
+  }
+
+  elements.noteTabMenu.hidden = false;
+  elements.noteTabMenu.style.left = `${state.tabMenu.x}px`;
+  elements.noteTabMenu.style.top = `${state.tabMenu.y}px`;
+  elements.noteTabMenu.innerHTML = `
+    <button type="button" class="note-tab-menu-item" data-tab-menu-action="close">\u5173\u95ed</button>
+    <button type="button" class="note-tab-menu-item" data-tab-menu-action="close-others">\u5173\u95ed\u5176\u4ed6</button>
+    <div class="note-tab-menu-divider" aria-hidden="true"></div>
+    <button type="button" class="note-tab-menu-item" data-tab-menu-action="copy-path">\u590d\u5236\u8def\u5f84</button>
+  `;
 }
 
 function renderNavSection({ key, label, count, children }) {
@@ -1449,9 +1632,11 @@ async function submitTreeEditor() {
   }
 
   const editor = state.treeEditor;
-  state.treeEditor = null;
 
   try {
+    validateTreeEditorName(editor, trimmedValue);
+    state.treeEditor = null;
+
     switch (editor.mode) {
       case 'create-folder':
         await createFolder(editor.parentId, trimmedValue);
@@ -1862,6 +2047,7 @@ async function selectFolder(folderId) {
   const currentNoteStillVisible = visibleNotes.some((note) => note.id === state.selectedNoteId);
   if (!currentNoteStillVisible) {
     state.selectedNoteId = visibleNotes[0].id;
+    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, visibleNotes[0].id);
     state.draftMarkdown = visibleNotes[0].rawMarkdown ?? '';
     await loadCurrentNoteSideData();
   }
@@ -1870,7 +2056,7 @@ async function selectFolder(folderId) {
   flashStatus(`已切换到目录：${state.foldersById[folderId]?.name ?? ''}`);
 }
 
-async function selectNote(noteId, { syncFolder = false } = {}) {
+async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {}) {
   const note = state.allNotes.find((item) => item.id === noteId);
   if (!note) {
     return;
@@ -1878,6 +2064,9 @@ async function selectNote(noteId, { syncFolder = false } = {}) {
 
   await persistDraft({ immediate: true });
   state.selectedNoteId = noteId;
+  if (ensureTab) {
+    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, noteId);
+  }
   state.draftMarkdown = note.rawMarkdown ?? '';
   state.saveState = 'saved';
   state.lastSavedAt = note.updatedAt ?? null;
@@ -1939,6 +2128,174 @@ function closeSectionMenu() {
   state.sectionMenuOpen = false;
   renderSectionMenu();
   renderHeaderToggle();
+}
+
+function openTabMenu({ x, y, noteId }) {
+  closeContextMenu();
+  closeSectionMenu();
+  state.tabMenu = {
+    open: true,
+    x,
+    y,
+    noteId
+  };
+  renderTabMenu();
+}
+
+function closeTabMenu() {
+  if (!state.tabMenu.open) {
+    return;
+  }
+
+  state.tabMenu = {
+    open: false,
+    x: 0,
+    y: 0,
+    noteId: null
+  };
+  renderTabMenu();
+}
+
+async function handleTabMenuAction(action) {
+  const noteId = state.tabMenu.noteId;
+  closeTabMenu();
+
+  if (!noteId) {
+    return;
+  }
+
+  if (action === 'close') {
+    await handleTabClose(noteId);
+    return;
+  }
+
+  if (action === 'close-others') {
+    state.openNoteTabs = closeOtherTabs(state.openNoteTabs, noteId).openTabs;
+    if (state.selectedNoteId !== noteId) {
+      await selectNote(noteId, { syncFolder: true, ensureTab: true });
+      return;
+    }
+    renderTabs();
+    return;
+  }
+
+  if (action === 'copy-path') {
+    const note = state.allNotes.find((item) => item.id === noteId);
+    const notePath = buildNoteTabPath(note, state.foldersById);
+    if (notePath && navigator?.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(notePath);
+        flashStatus('\u5df2\u590d\u5236\u7b14\u8bb0\u8def\u5f84');
+        return;
+      } catch (error) {
+        // Fall through to status feedback below.
+      }
+    }
+
+    flashStatus(notePath || '\u672a\u627e\u5230\u7b14\u8bb0\u8def\u5f84');
+  }
+}
+
+function validateTreeEditorName(editor, candidateName) {
+  if (editor.mode === 'create-folder' || editor.mode === 'create-note') {
+    const parentId = editor.parentId ?? null;
+    const siblingFolders = parentId
+      ? state.foldersById[parentId]?.children ?? []
+      : state.folderTree;
+    const siblingNotes = state.allNotes.filter((note) => note.folderId === parentId);
+
+    validateSiblingName({
+      candidateName,
+      siblingFolders,
+      siblingNotes
+    });
+    return;
+  }
+
+  if (editor.mode === 'rename-folder') {
+    const folder = state.foldersById[editor.targetId];
+    const parentId = folder?.parentId ?? null;
+    const siblingFolders = parentId
+      ? state.foldersById[parentId]?.children ?? []
+      : state.folderTree;
+    const siblingNotes = state.allNotes.filter((note) => note.folderId === parentId);
+
+    validateSiblingName({
+      candidateName,
+      siblingFolders,
+      siblingNotes,
+      currentFolderId: editor.targetId
+    });
+    return;
+  }
+
+  if (editor.mode === 'rename-note') {
+    const note = state.allNotes.find((item) => item.id === editor.targetId);
+    const folderId = note?.folderId ?? null;
+    const siblingFolders = folderId
+      ? state.foldersById[folderId]?.children ?? []
+      : state.folderTree;
+    const siblingNotes = state.allNotes.filter((item) => item.folderId === folderId);
+
+    validateSiblingName({
+      candidateName,
+      siblingFolders,
+      siblingNotes,
+      currentNoteId: editor.targetId
+    });
+  }
+}
+
+async function handleTabClose(noteId) {
+  const { openTabs, nextActiveId } = closeTab(state.openNoteTabs, noteId, state.selectedNoteId);
+  state.openNoteTabs = openTabs;
+
+  if (state.selectedNoteId !== noteId) {
+    renderTabs();
+    return;
+  }
+
+  if (!nextActiveId) {
+    await persistDraft({ immediate: true });
+    state.selectedNoteId = null;
+    state.draftMarkdown = '';
+    state.linkedNotes = [];
+    state.attachments = [];
+    renderAll();
+    return;
+  }
+
+  await selectNote(nextActiveId, { syncFolder: true, ensureTab: false });
+}
+
+function resetTabDragState({ rerender = true } = {}) {
+  if (!state.tabDragState.activeId && !state.tabDragState.overId) {
+    return;
+  }
+
+  state.tabDragState = {
+    activeId: null,
+    overId: null
+  };
+
+  if (rerender) {
+    renderTabs();
+    return;
+  }
+
+  syncTabDragIndicators();
+}
+
+function syncTabDragIndicators() {
+  if (!elements.noteTabs) {
+    return;
+  }
+
+  elements.noteTabs.querySelectorAll('[data-tab-note-id]').forEach((node) => {
+    const noteId = node.dataset.tabNoteId;
+    node.dataset.dragging = String(state.tabDragState.activeId === noteId);
+    node.dataset.dropTarget = String(state.tabDragState.overId === noteId);
+  });
 }
 
 function focusInlineEditor() {

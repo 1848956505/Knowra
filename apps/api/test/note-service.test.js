@@ -649,5 +649,29 @@ export const noteServiceTests = [
         noteService.assignTagToNote('missing-note', 'tag-1');
       }, /note not found/i);
     }
+  },
+  {
+    name: 'createNote rejects sibling names that conflict with folder names',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService({
+        validateSiblingNameConflict({ spaceId, folderId, title }) {
+          assert.equal(spaceId, 'space-1');
+          assert.equal(folderId, 'folder-1');
+          assert.equal(title, 'test');
+          throw new Error('A file or folder with the same name already exists');
+        }
+      });
+
+      assert.throws(() => {
+        noteService.createNote({
+          id: 'note-conflict',
+          title: 'test',
+          rawMarkdown: '# test',
+          folderId: 'folder-1',
+          spaceId: 'space-1'
+        });
+      }, /same name already exists/i);
+    }
   }
 ];

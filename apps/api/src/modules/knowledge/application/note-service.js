@@ -2,7 +2,10 @@ import { Note } from '../domain/note.js';
 import { buildCreateNoteDto, buildUpdateNoteDto } from './dto/note.dto.js';
 import { createInMemoryNoteRepository } from '../infrastructure/note-repository.js';
 
-export function createNoteService({ repository = createInMemoryNoteRepository() } = {}) {
+export function createNoteService({
+  repository = createInMemoryNoteRepository(),
+  validateSiblingNameConflict = null
+} = {}) {
   function requireNote(noteId, options = {}) {
     const note = repository.findById(noteId);
 
@@ -28,6 +31,12 @@ export function createNoteService({ repository = createInMemoryNoteRepository() 
   return {
     createNote(input) {
       const dto = buildCreateNoteDto(input);
+      validateSiblingNameConflict?.({
+        spaceId: dto.spaceId,
+        folderId: dto.folderId ?? null,
+        title: dto.title,
+        currentNoteId: null
+      });
       const note = new Note(dto);
       repository.save(note);
       return note;
@@ -57,14 +66,21 @@ export function createNoteService({ repository = createInMemoryNoteRepository() 
     updateNote(noteId, updates) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
       const dto = buildUpdateNoteDto(updates);
+      const nextFolderId = Object.prototype.hasOwnProperty.call(dto, 'folderId')
+        ? dto.folderId
+        : currentNote.folderId;
+      validateSiblingNameConflict?.({
+        spaceId: dto.spaceId ?? currentNote.spaceId,
+        folderId: nextFolderId ?? null,
+        title: dto.title ?? currentNote.title,
+        currentNoteId: currentNote.id
+      });
       const updatedNote = new Note({
         ...currentNote,
         ...dto,
         id: currentNote.id,
         spaceId: dto.spaceId ?? currentNote.spaceId,
-        folderId: Object.prototype.hasOwnProperty.call(dto, 'folderId')
-          ? dto.folderId
-          : currentNote.folderId,
+        folderId: nextFolderId,
         favorite: dto.favorite ?? currentNote.favorite,
         deleted: currentNote.deleted,
         tagIds: dto.tagIds ?? currentNote.tagIds,

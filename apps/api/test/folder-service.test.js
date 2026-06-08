@@ -214,5 +214,27 @@ export const folderServiceTests = [
       assert.equal(deleted[0].id, 'folder-delete-1');
       assert.equal(folderService.listFolders({ spaceId: 'space-1' }).length, 0);
     }
+  },
+  {
+    name: 'createFolder rejects sibling names that conflict with note titles',
+    async run() {
+      const { createFolderService } = await import('../src/modules/knowledge/application/folder-service.js');
+      const folderService = createFolderService({
+        validateSiblingNameConflict({ spaceId, parentId, name }) {
+          assert.equal(spaceId, 'space-1');
+          assert.equal(parentId, null);
+          assert.equal(name, 'test');
+          throw new Error('A file or folder with the same name already exists');
+        }
+      });
+
+      assert.throws(() => {
+        folderService.createFolder({
+          id: 'folder-conflict',
+          spaceId: 'space-1',
+          name: 'test'
+        });
+      }, /same name already exists/i);
+    }
   }
 ];

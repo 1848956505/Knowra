@@ -6,6 +6,7 @@ export function createBackendSnapshot(state) {
     tags: Array.isArray(state.tags) ? state.tags : [],
     allNotes: Array.isArray(state.allNotes) ? state.allNotes : [],
     openFolders: state.openFolders ?? {},
+    openNoteTabs: Array.isArray(state.openNoteTabs) ? state.openNoteTabs : [],
     selectedFolderId: state.selectedFolderId ?? null,
     selectedNoteId: state.selectedNoteId ?? null
   };
@@ -25,6 +26,24 @@ export function selectLoadRecovery({ backendAvailable, cachedSnapshot }) {
 
 export function selectInitialWorkspaceSource({ cachedSnapshot }) {
   return cachedSnapshot ? 'cache' : 'loading';
+}
+
+export function mergeWorkspaceSnapshots(initialSnapshot, cachedSnapshot) {
+  if (!initialSnapshot) {
+    return cachedSnapshot ?? null;
+  }
+
+  if (!cachedSnapshot) {
+    return initialSnapshot;
+  }
+
+  return {
+    ...initialSnapshot,
+    openFolders: cachedSnapshot.openFolders ?? initialSnapshot.openFolders ?? {},
+    openNoteTabs: cachedSnapshot.openNoteTabs ?? initialSnapshot.openNoteTabs ?? [],
+    selectedFolderId: cachedSnapshot.selectedFolderId ?? initialSnapshot.selectedFolderId ?? null,
+    selectedNoteId: cachedSnapshot.selectedNoteId ?? initialSnapshot.selectedNoteId ?? null
+  };
 }
 
 export function createInitialWorkspaceScript(snapshot) {

@@ -75,6 +75,7 @@ function renderHtml(initialWorkspaceScript = '') {
               </section>
             </aside>
             <section class="kb-editor">
+              <div class="note-tabs" id="note-tabs"></div>
               <section class="editor-shell">
                 <div class="editor-content" id="editor-content" data-source-open="false">
                   <section class="preview-pane preview-frame">
@@ -113,6 +114,7 @@ function renderHtml(initialWorkspaceScript = '') {
   </div>
   <div class="library-context-menu" id="library-context-menu" hidden></div>
   <div class="library-context-menu library-section-menu" id="library-section-menu" hidden></div>
+  <div class="note-tab-menu" id="note-tab-menu" hidden></div>
   ${initialWorkspaceScript}
   <script type="module" src="/src/client.js"></script>
 </body>
