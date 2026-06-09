@@ -1,4 +1,4 @@
-import { knowledgeBaseSeed } from '../lib/mock-knowledge-base.js';
+﻿import { knowledgeBaseSeed } from '../lib/mock-knowledge-base.js';
 import { createMilkdownHost } from '../lib/editor/milkdown-bundle.js';
 import {
   buildNoteTabPath,
@@ -7,6 +7,15 @@ import {
   ensureOpenTab,
   reorderTabs
 } from '../lib/editor/tab-workspace.js';
+import {
+  buildExportFileName,
+  createDuplicateTitle,
+  createUntitledName
+} from '../lib/editor/file-menu.js';
+import {
+  applyEditorPanelMatchResult,
+  createOpenedEditorPanelState
+} from '../lib/editor/editor-panel-state.js';
 import { validateSiblingName } from '../lib/tree-name-validation.js';
 import {
   createBackendSnapshot,
@@ -70,6 +79,16 @@ const state = {
   linkedNotes: [],
   attachments: [],
   openNoteTabs: [],
+  editorMenuOpen: null,
+  editorPanel: {
+    open: false,
+    mode: null,
+    query: '',
+    replacement: '',
+    matchIndex: -1,
+    matchCount: 0,
+    autoFocusInput: false
+  },
   sectionMenuOpen: false,
   contextMenu: {
     open: false,
@@ -122,6 +141,35 @@ const formatButtons = [
   { key: 'codeblock', label: 'Block' }
 ];
 
+const editMenuItems = [
+  { key: 'undo', label: '撤销' },
+  { key: 'redo', label: '重做' },
+  { key: 'separator' },
+  { key: 'cut', label: '剪切' },
+  { key: 'copy', label: '复制' },
+  { key: 'paste', label: '粘贴' },
+  { key: 'separator' },
+  { key: 'find', label: '查找' },
+  { key: 'replace', label: '替换' },
+  { key: 'select-all', label: '全选' }
+];
+
+
+const paragraphMenuItems = [
+  { key: 'heading-1', label: '一级标题' },
+  { key: 'heading-2', label: '二级标题' },
+  { key: 'heading-3', label: '三级标题' },
+  { key: 'heading-4', label: '四级标题' },
+  { key: 'separator' },
+  { key: 'bullet', label: '无序列表' },
+  { key: 'ordered', label: '有序列表' },
+  { key: 'task-list', label: '任务列表' },
+  { key: 'separator' },
+  { key: 'quote', label: '引用块' },
+  { key: 'codeblock', label: '代码块' },
+  { key: 'hr', label: '分割线' }
+];
+
 const elements = {};
 let autosaveTimer = null;
 let currentEditorHost = null;
@@ -163,6 +211,7 @@ function cacheElements() {
   elements.contextMenu = document.getElementById('library-context-menu');
   elements.sectionMenu = document.getElementById('library-section-menu');
   elements.noteTabs = document.getElementById('note-tabs');
+  elements.editorMenuBar = document.getElementById('editor-menu-bar');
   elements.noteTabMenu = document.getElementById('note-tab-menu');
   elements.editorContent = document.getElementById('editor-content');
   elements.noteInfo = document.getElementById('note-info');
@@ -418,10 +467,12 @@ function bindEvents() {
     if (event.target.closest('#library-context-menu')) return;
     if (event.target.closest('#library-section-menu')) return;
     if (event.target.closest('#note-tab-menu')) return;
+    if (event.target.closest('#editor-menu-bar')) return;
     if (event.target.closest('#secondary-nav-toggle')) return;
     closeContextMenu();
     closeSectionMenu();
     closeTabMenu();
+    closeEditorMenuBar();
   });
 
   document.addEventListener('keydown', (event) => {
@@ -429,6 +480,7 @@ function bindEvents() {
       closeContextMenu();
       closeSectionMenu();
       closeTabMenu();
+      closeEditorMenuBar();
     }
   });
 
@@ -511,7 +563,67 @@ function bindEvents() {
     void handleTabMenuAction(actionButton.dataset.tabMenuAction);
   });
 
+  elements.editorMenuBar?.addEventListener('click', (event) => {
+    event.stopPropagation();
+
+    const menuToggle = event.target.closest('[data-editor-menu-toggle]');
+    if (menuToggle?.dataset.editorMenuToggle) {
+      const menuKey = menuToggle.dataset.editorMenuToggle;
+      state.editorMenuOpen = state.editorMenuOpen === menuKey ? null : menuKey;
+      renderEditorMenuBar();
+      return;
+    }
+
+    const menuAction = event.target.closest('[data-file-menu-action]');
+    if (menuAction?.dataset.fileMenuAction) {
+      void handleFileMenuAction(menuAction.dataset.fileMenuAction);
+      return;
+    }
+
+    const editMenuAction = event.target.closest('[data-edit-menu-action]');
+    if (editMenuAction?.dataset.editMenuAction) {
+      void handleEditMenuAction(editMenuAction.dataset.editMenuAction);
+    }
+
+    const paragraphMenuAction = event.target.closest('[data-paragraph-menu-action]');
+    if (paragraphMenuAction?.dataset.paragraphMenuAction) {
+      void handleParagraphMenuAction(paragraphMenuAction.dataset.paragraphMenuAction);
+    }
+  });
+
+  document.addEventListener('input', (event) => {
+    const panel = event.target.closest?.('#editor-utility-panel');
+    if (!panel) {
+      return;
+    }
+
+    const target = event.target;
+    if (!target?.dataset?.panelField) {
+      return;
+    }
+
+    if (target.dataset.panelField === 'query') {
+      state.editorPanel.query = target.value;
+      state.editorPanel.matchIndex = -1;
+      state.editorPanel.matchCount = 0;
+    } else if (target.dataset.panelField === 'replacement') {
+      state.editorPanel.replacement = target.value;
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeEditorPanel();
+    }
+  });
+
   document.addEventListener('click', (event) => {
+    const panelAction = event.target.closest('[data-editor-panel-action]');
+    if (panelAction?.dataset.editorPanelAction) {
+      void handleEditorPanelAction(panelAction.dataset.editorPanelAction);
+      return;
+    }
+
     const saveButton = event.target.closest('[data-save-now]');
     if (!saveButton) {
       return;
@@ -853,6 +965,7 @@ function renderRailIcon(key) {
 function renderAll() {
   renderFolders();
   renderTabs();
+  renderEditorMenuBar();
   renderEditor(getCurrentNote());
   renderSidebar(getCurrentNote());
   renderStatus();
@@ -1002,6 +1115,110 @@ function renderTabs() {
   renderTabMenu();
   syncTabDragIndicators();
   persistBackendCache();
+}
+
+function renderEditorMenuBar() {
+  if (!elements.editorMenuBar) {
+    return;
+  }
+
+  const note = getCurrentNote();
+  const fileMenuOpen = state.editorMenuOpen === 'file';
+  const paragraphMenuOpen = state.editorMenuOpen === 'paragraph';
+  const editMenuOpen = state.editorMenuOpen === 'edit';
+
+  elements.editorMenuBar.innerHTML = `
+    <div class="editor-menu-shell">
+      <div class="editor-menu-group">
+        <button
+          type="button"
+          class="editor-menu-text"
+          data-editor-menu-toggle="file"
+          data-open="${fileMenuOpen}"
+        >
+          文件
+        </button>
+        ${fileMenuOpen ? renderFileMenu(note) : ''}
+      </div>
+      <div class="editor-menu-group">
+        <button
+          type="button"
+          class="editor-menu-text"
+          data-editor-menu-toggle="paragraph"
+          data-open="${paragraphMenuOpen}"
+        >
+          段落
+        </button>
+        ${paragraphMenuOpen ? renderParagraphMenu(note) : ''}
+      </div>
+      <div class="editor-menu-group">
+        <button
+          type="button"
+          class="editor-menu-text"
+          data-editor-menu-toggle="edit"
+          data-open="${editMenuOpen}"
+        >
+          编辑
+        </button>
+        ${editMenuOpen ? renderEditMenu(note) : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderEditMenu(note) {
+  const hasNote = Boolean(note);
+
+  return `
+    <div class="editor-menu-popover" data-editor-menu="edit">
+      ${editMenuItems
+        .map((item) => {
+          if (item.key === 'separator') {
+            return '<div class="editor-menu-divider" aria-hidden="true"></div>';
+          }
+
+          return `<button type="button" class="editor-menu-item" data-edit-menu-action="${item.key}" ${hasNote ? '' : 'disabled'}>${item.label}</button>`;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+
+function renderParagraphMenu(note) {
+  const hasNote = Boolean(note);
+
+  return `
+    <div class="editor-menu-popover" data-editor-menu="paragraph">
+      ${paragraphMenuItems
+        .map((item) => {
+          if (item.key === 'separator') {
+            return '<div class="editor-menu-divider" aria-hidden="true"></div>';
+          }
+
+          return `<button type="button" class="editor-menu-item" data-paragraph-menu-action="${item.key}" ${hasNote ? '' : 'disabled'}>${item.label}</button>`;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function renderFileMenu(note) {
+  const hasNote = Boolean(note);
+
+  return `
+    <div class="editor-menu-popover" data-editor-menu="file">
+      <button type="button" class="editor-menu-item" data-file-menu-action="new-note">新建笔记</button>
+      <button type="button" class="editor-menu-item" data-file-menu-action="new-folder">新建文件夹</button>
+      <div class="editor-menu-divider" aria-hidden="true"></div>
+      <button type="button" class="editor-menu-item" data-file-menu-action="save" ${hasNote ? '' : 'disabled'}>保存</button>
+      <button type="button" class="editor-menu-item" data-file-menu-action="save-as" ${hasNote ? '' : 'disabled'}>另存为</button>
+      <button type="button" class="editor-menu-item" data-file-menu-action="rename" ${hasNote ? '' : 'disabled'}>重命名</button>
+      <div class="editor-menu-divider" aria-hidden="true"></div>
+      <button type="button" class="editor-menu-item" data-file-menu-action="export-markdown" ${hasNote ? '' : 'disabled'}>导出 Markdown</button>
+      <button type="button" class="editor-menu-item" data-file-menu-action="export-pdf" ${hasNote ? '' : 'disabled'}>导出 PDF</button>
+    </div>
+  `;
 }
 
 function renderTabMenu() {
@@ -1417,20 +1634,15 @@ function renderEditor(note) {
   elements.editorContent.dataset.sourceOpen = 'true';
   elements.editorContent.innerHTML = `
     <section class="editor-pane editor-pane-single">
-      <div class="pane-body pane-body-editor">
-        <div class="source-toolbar">
-          ${formatButtons
-            .map((button) => `<button type="button" class="chip-button" data-format="${button.key}">${button.label}</button>`)
-            .join('')}
-          <span class="editor-save-indicator" id="editor-save-indicator"></span>
-          <button type="button" class="subtle-button editor-save-button" data-save-now>保存</button>
-        </div>
+      <div class="pane-body">
+        <div class="editor-utility-panel" id="editor-utility-panel" hidden></div>
         <div class="milkdown-host" id="milkdown-editor"></div>
       </div>
     </section>
   `;
 
   renderEditorSaveIndicator();
+  renderEditorPanel();
   mountEditorHost(note.id, state.draftMarkdown);
 }
 
@@ -1538,6 +1750,165 @@ function handleFormat(format) {
   }
   void currentEditorHost.run(format);
   void currentEditorHost.focus();
+}
+
+
+async function handleParagraphMenuAction(action) {
+  closeEditorMenuBar();
+
+  const note = getCurrentNote();
+  if (!note) {
+    flashStatus('请先选择一篇笔记');
+    return;
+  }
+
+  if (!currentEditorHost) {
+    flashStatus('编辑器尚未就绪');
+    return;
+  }
+
+  void currentEditorHost.run(action);
+  void currentEditorHost.focus();
+}
+
+async function handleEditMenuAction(action) {
+  closeEditorMenuBar();
+
+  const note = getCurrentNote();
+  if (!note) {
+    flashStatus('请先选择一篇笔记');
+    return;
+  }
+
+  const editorHost = currentEditorHost;
+  const focusEditor = async () => {
+    if (editorHost) {
+      await editorHost.focus();
+    }
+  };
+
+  switch (action) {
+    case 'undo':
+    case 'redo':
+    case 'cut':
+    case 'copy':
+    case 'select-all': {
+      await focusEditor();
+      const command = action === 'select-all' ? 'selectAll' : action;
+      const success = document.execCommand(command);
+      if (!success) {
+        flashStatus('当前环境暂不支持该编辑操作');
+      }
+      return;
+    }
+    case 'paste': {
+      await focusEditor();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) {
+          flashStatus('剪贴板为空');
+          return;
+        }
+
+        const inserted = document.execCommand('insertText', false, text);
+        if (!inserted) {
+          flashStatus('当前环境暂不支持粘贴');
+        }
+      } catch {
+        flashStatus('无法读取剪贴板内容');
+      }
+      return;
+    }
+    case 'find': {
+      openEditorPanel('find');
+      return;
+    }
+    case 'replace': {
+      openEditorPanel('replace');
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+async function handleEditorPanelAction(action) {
+  const note = getCurrentNote();
+  if (!note) {
+    closeEditorPanel();
+    flashStatus('请先选择一篇笔记');
+    return;
+  }
+
+  if (action === 'close') {
+    closeEditorPanel();
+    return;
+  }
+
+  const query = state.editorPanel.query.trim();
+  if (!query) {
+    flashStatus('请输入查找内容');
+    return;
+  }
+
+  const editorHost = currentEditorHost;
+
+  if (action === 'submit') {
+    if (state.editorPanel.mode === 'find') {
+      const result = await editorHost?.findAndSelectNext(query, state.editorPanel.matchIndex);
+      if (!result) {
+        flashStatus('当前编辑器未就绪');
+        return;
+      }
+
+      state.editorPanel = applyEditorPanelMatchResult(state.editorPanel, result);
+      renderEditorPanel();
+
+      if (!result.found) {
+        flashStatus(`未找到：${query}`);
+        return;
+      }
+      flashStatus(`已查找 ${result.index + 1}/${result.count}：${query}`);
+      return;
+    }
+
+    if (state.editorPanel.mode === 'replace') {
+      const replacement = state.editorPanel.replacement;
+      const nextMarkdown = state.draftMarkdown.replace(query, replacement);
+      if (nextMarkdown === state.draftMarkdown) {
+        flashStatus(`未找到：${query}`);
+        return;
+      }
+
+      state.draftMarkdown = nextMarkdown;
+      if (editorHost) {
+        await editorHost.setMarkdown(nextMarkdown);
+        await editorHost.focus();
+      }
+      scheduleAutosave();
+      flashStatus(`已替换：${query}`);
+      renderEditorPanel();
+      return;
+    }
+  }
+
+  if (action === 'replace-all' && state.editorPanel.mode === 'replace') {
+    const replacement = state.editorPanel.replacement;
+    if (!state.draftMarkdown.includes(query)) {
+      flashStatus(`未找到：${query}`);
+      return;
+    }
+
+    const nextMarkdown = state.draftMarkdown.split(query).join(replacement);
+    state.draftMarkdown = nextMarkdown;
+    if (editorHost) {
+      await editorHost.setMarkdown(nextMarkdown);
+      await editorHost.focus();
+    }
+    scheduleAutosave();
+    flashStatus(`已全部替换：${query}`);
+    renderEditorPanel();
+  }
 }
 
 async function handleContextMenuAction(action) {
@@ -2130,6 +2501,30 @@ function closeSectionMenu() {
   renderHeaderToggle();
 }
 
+function closeEditorMenuBar() {
+  if (!state.editorMenuOpen) {
+    return;
+  }
+
+  state.editorMenuOpen = null;
+  renderEditorMenuBar();
+}
+
+function openEditorPanel(mode) {
+  state.editorPanel = createOpenedEditorPanelState(state.editorPanel, mode);
+  closeEditorMenuBar();
+  renderEditorPanel();
+}
+
+function closeEditorPanel() {
+  if (!state.editorPanel.open) {
+    return;
+  }
+
+  state.editorPanel.open = false;
+  renderEditorPanel();
+}
+
 function openTabMenu({ x, y, noteId }) {
   closeContextMenu();
   closeSectionMenu();
@@ -2194,6 +2589,259 @@ async function handleTabMenuAction(action) {
 
     flashStatus(notePath || '\u672a\u627e\u5230\u7b14\u8bb0\u8def\u5f84');
   }
+}
+
+async function handleFileMenuAction(action) {
+  closeEditorMenuBar();
+
+  const note = getCurrentNote();
+  const folderId = getMenuTargetFolderId();
+
+  switch (action) {
+    case 'new-note': {
+      const title = createUntitledName(getSiblingNames(folderId), 'Untitled Note');
+      await createNote(folderId, title);
+      flashStatus(`已创建笔记：${title}`);
+      return;
+    }
+    case 'new-folder': {
+      const title = createUntitledName(getSiblingNames(folderId), 'Untitled Folder');
+      startTreeEditor({ mode: 'create-folder', parentId: folderId, value: title });
+      return;
+    }
+    case 'save':
+      await persistDraft({ immediate: true });
+      return;
+    case 'save-as':
+      await duplicateCurrentNote(note);
+      return;
+    case 'rename':
+      if (note) {
+        startTreeEditor({ mode: 'rename-note', targetId: note.id, value: note.title });
+      }
+      return;
+    case 'export-markdown':
+      exportCurrentNoteAsMarkdown(note);
+      return;
+    case 'export-pdf':
+      exportCurrentNoteAsPdfStable(note);
+      return;
+    default:
+      return;
+  }
+}
+
+function getMenuTargetFolderId() {
+  if (state.selectedFolderId) {
+    return state.selectedFolderId;
+  }
+
+  return getCurrentNote()?.folderId ?? null;
+}
+
+function getSiblingNames(folderId) {
+  const folderNames = (folderId ? state.foldersById[folderId]?.children ?? [] : state.folderTree)
+    .map((folder) => folder.name);
+  const noteNames = state.allNotes
+    .filter((note) => note.folderId === folderId)
+    .map((note) => note.title);
+
+  return [...folderNames, ...noteNames];
+}
+
+async function duplicateCurrentNote(note) {
+  if (!note) {
+    return;
+  }
+
+  await persistDraft({ immediate: true });
+  const refreshedNote = getCurrentNote() ?? note;
+  const nextTitle = createDuplicateTitle(getSiblingNames(refreshedNote.folderId ?? null), refreshedNote.title);
+
+  if (state.dataMode === 'api') {
+    const created = await fetchJson('/api/knowledge/notes', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: nextTitle,
+        rawMarkdown: state.draftMarkdown || refreshedNote.rawMarkdown,
+        folderId: refreshedNote.folderId ?? null,
+        spaceId: state.currentSpaceId,
+        sourceType: refreshedNote.sourceType ?? 'manual',
+        status: refreshedNote.status ?? 'draft'
+      })
+    });
+
+    state.selectedNoteId = created.data.id;
+    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, created.data.id);
+    await refreshKnowledgeData();
+    await loadCurrentNoteSideData();
+    renderAll();
+    flashStatus(`已另存为：${nextTitle}`);
+    return;
+  }
+
+  const nextNote = {
+    ...refreshedNote,
+    id: `note-${Date.now().toString(36)}`,
+    title: nextTitle,
+    rawMarkdown: state.draftMarkdown || refreshedNote.rawMarkdown,
+    updatedAt: new Date().toISOString()
+  };
+
+  state.allNotes = insertLocalNote(state.allNotes, nextNote);
+  state.selectedNoteId = nextNote.id;
+  state.openNoteTabs = ensureOpenTab(state.openNoteTabs, nextNote.id);
+  syncLocalWorkspace();
+  flashStatus(`已另存为：${nextTitle}`);
+}
+
+function exportCurrentNoteAsMarkdown(note) {
+  if (!note) {
+    return;
+  }
+
+  const fileName = buildExportFileName(note.title, 'md');
+  triggerFileDownload(fileName, state.draftMarkdown || note.rawMarkdown, 'text/markdown;charset=utf-8');
+  flashStatus(`已导出：${fileName}`);
+}
+
+function exportCurrentNoteAsPdf(note) {
+  if (!note) {
+    return;
+  }
+
+  const editorBody = document.querySelector('#milkdown-editor .ProseMirror');
+  const previewHtml = editorBody?.innerHTML ?? `<pre>${escapeHtml(state.draftMarkdown || note.rawMarkdown)}</pre>`;
+  const previewFileName = buildExportFileName(note.title, 'pdf');
+  const printableHtml = `
+    <!doctype html>
+    <html lang="zh-CN">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(previewFileName)}</title>
+        <style>
+          body { font-family: "Segoe UI", "PingFang SC", sans-serif; margin: 40px auto; max-width: 760px; color: #142033; line-height: 1.8; }
+          h1, h2, h3 { line-height: 1.3; }
+          pre { padding: 16px; background: #10182b; color: #eff4ff; overflow: auto; }
+          code { font-family: Consolas, monospace; }
+          blockquote { border-left: 3px solid #4c72ff; padding-left: 14px; color: #51607a; }
+          img { max-width: 100%; }
+        </style>
+      </head>
+      <body>
+        <article>${previewHtml}</article>
+        <script>
+          window.addEventListener('load', function () {
+            window.setTimeout(function () {
+              window.focus();
+              window.print();
+            }, 120);
+          });
+        </script>
+      </body>
+    </html>
+  `;
+  const exportBlob = new Blob([printableHtml], { type: 'text/html;charset=utf-8' });
+  const exportUrl = URL.createObjectURL(exportBlob);
+  const exportWindow = window.open(exportUrl, '_blank');
+
+  if (!exportWindow) {
+    flashStatus('导出 PDF 失败：浏览器拦截了弹窗');
+    return;
+  }
+
+  const fileName = buildExportFileName(note.title, 'pdf');
+  exportWindow.document.write(`
+    <!doctype html>
+    <html lang="zh-CN">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(fileName)}</title>
+        <style>
+          body { font-family: "Segoe UI", "PingFang SC", sans-serif; margin: 40px auto; max-width: 760px; color: #142033; line-height: 1.8; }
+          h1, h2, h3 { line-height: 1.3; }
+          pre { padding: 16px; background: #10182b; color: #eff4ff; overflow: auto; }
+          code { font-family: Consolas, monospace; }
+          blockquote { border-left: 3px solid #4c72ff; padding-left: 14px; color: #51607a; }
+          img { max-width: 100%; }
+        </style>
+      </head>
+      <body>
+        <article>${previewHtml}</article>
+        <script>
+          window.addEventListener('load', function () {
+            window.print();
+          });
+        </script>
+      </body>
+    </html>
+  `);
+  exportWindow.document.close();
+  flashStatus(`已准备导出：${fileName}`);
+}
+
+function exportCurrentNoteAsPdfStable(note) {
+  if (!note) {
+    return;
+  }
+
+  const editorBody = document.querySelector('#milkdown-editor .ProseMirror');
+  const previewHtml = editorBody?.innerHTML ?? `<pre>${escapeHtml(state.draftMarkdown || note.rawMarkdown)}</pre>`;
+  const exportName = buildExportFileName(note.title, 'pdf');
+  const printableHtml = `
+    <!doctype html>
+    <html lang="zh-CN">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(exportName)}</title>
+        <style>
+          body { font-family: "Segoe UI", "PingFang SC", sans-serif; margin: 40px auto; max-width: 760px; color: #142033; line-height: 1.8; }
+          h1, h2, h3 { line-height: 1.3; }
+          pre { padding: 16px; background: #10182b; color: #eff4ff; overflow: auto; }
+          code { font-family: Consolas, monospace; }
+          blockquote { border-left: 3px solid #4c72ff; padding-left: 14px; color: #51607a; }
+          img { max-width: 100%; }
+        </style>
+      </head>
+      <body>
+        <article>${previewHtml}</article>
+        <script>
+          window.addEventListener('load', function () {
+            window.setTimeout(function () {
+              window.focus();
+              window.print();
+            }, 120);
+          });
+        </script>
+      </body>
+    </html>
+  `;
+  const exportBlob = new Blob([printableHtml], { type: 'text/html;charset=utf-8' });
+  const exportUrl = URL.createObjectURL(exportBlob);
+  const exportWindow = window.open(exportUrl, '_blank');
+
+  if (!exportWindow) {
+    URL.revokeObjectURL(exportUrl);
+    flashStatus('导出 PDF 失败：浏览器拦截了弹窗');
+    return;
+  }
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(exportUrl);
+  }, 60000);
+  flashStatus(`已准备导出：${exportName}`);
+}
+
+function triggerFileDownload(fileName, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function validateTreeEditorName(editor, candidateName) {
@@ -2435,6 +3083,81 @@ function renderEditorSaveIndicator() {
   indicator.textContent = getSaveStateLabel();
 }
 
+function renderEditorPanel() {
+  const panel = document.getElementById('editor-utility-panel');
+  if (!panel) {
+    return;
+  }
+
+  const note = getCurrentNote();
+  if (!state.editorPanel.open || !note) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+
+  const isReplace = state.editorPanel.mode === 'replace';
+  const queryValue = escapeHtml(state.editorPanel.query ?? '');
+  const replacementValue = escapeHtml(state.editorPanel.replacement ?? '');
+  const statusText = state.editorPanel.query
+    ? (state.editorPanel.matchCount > 0
+      ? `已找到 ${state.editorPanel.matchCount} 处`
+      : '未找到匹配项')
+    : '输入内容后开始查找';
+
+  panel.hidden = false;
+  panel.dataset.mode = state.editorPanel.mode;
+  panel.innerHTML = `
+    <div class="editor-utility-panel-head">
+      <div class="editor-utility-panel-title">${isReplace ? '替换' : '查找'}</div>
+      <button type="button" class="editor-utility-close" data-editor-panel-action="close" aria-label="关闭查找面板">×</button>
+    </div>
+    <div class="editor-utility-panel-body">
+      <label class="editor-utility-field">
+        <span>查找内容</span>
+        <input
+          type="text"
+          class="editor-utility-input"
+          data-panel-field="query"
+          value="${queryValue}"
+          placeholder="输入要查找的文字"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </label>
+      ${isReplace ? `
+        <label class="editor-utility-field">
+          <span>替换为</span>
+          <input
+            type="text"
+            class="editor-utility-input"
+            data-panel-field="replacement"
+            value="${replacementValue}"
+            placeholder="输入替换后的文字"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+      ` : ''}
+      <div class="editor-utility-panel-status">${escapeHtml(statusText)}</div>
+    </div>
+    <div class="editor-utility-panel-actions">
+      <button type="button" class="subtle-button" data-editor-panel-action="submit">${isReplace ? '替换一次' : '查找下一个'}</button>
+      ${isReplace ? '<button type="button" class="subtle-button" data-editor-panel-action="replace-all">全部替换</button>' : ''}
+      <button type="button" class="ghost-button" data-editor-panel-action="close">关闭</button>
+    </div>
+  `;
+
+  if (state.editorPanel.autoFocusInput) {
+    window.requestAnimationFrame(() => {
+      const input = panel.querySelector('[data-panel-field="query"]');
+      input?.focus();
+      input?.select();
+      state.editorPanel.autoFocusInput = false;
+    });
+  }
+}
+
 function scheduleAutosave() {
   if (!getCurrentNote()) {
     return;
@@ -2669,5 +3392,7 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+
 
 
