@@ -9,12 +9,55 @@ function escapeHtml(value) {
 
 function renderInlineMarkdown(text) {
   let html = escapeHtml(text);
+  html = html.replace(/\\&lt;br\s*\/?&gt;/gi, '<br />');
+  html = html.replace(/&lt;br\s*\/?&gt;/gi, '<br />');
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
   return html;
+}
+
+function isMarkdownTable(lines) {
+  if (lines.length < 2) {
+    return false;
+  }
+
+  const separatorLine = lines[1].trim();
+  if (!/^\|?[\s:-]+\|[\s|:-]*$/.test(separatorLine)) {
+    return false;
+  }
+
+  return lines.every((line) => /\|/.test(line));
+}
+
+function parseMarkdownTableRow(line) {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+function renderMarkdownTable(lines) {
+  const [headerLine, , ...bodyLines] = lines;
+  const headers = parseMarkdownTableRow(headerLine);
+  const bodyRows = bodyLines
+    .filter((line) => line.trim().length > 0)
+    .map(parseMarkdownTableRow);
+
+  return `
+    <table>
+      <thead>
+        <tr>${headers.map((cell) => `<th>${renderInlineMarkdown(cell)}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${renderInlineMarkdown(cell)}</td>`).join('')}</tr>`).join('')}
+      </tbody>
+    </table>
+  `.replace(/\n\s*/g, '');
 }
 
 function slugifyHeading(text, fallbackIndex) {
@@ -77,9 +120,17 @@ export function renderMarkdownPreview(markdown) {
         return `<ol>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ol>`;
       }
 
+      if (lines.length === 1 && /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lines[0])) {
+        return '<hr />';
+      }
+
       if (lines[0].startsWith('```') && lines[lines.length - 1].startsWith('```')) {
         const code = lines.slice(1, -1).join('\n');
         return `<pre><code>${escapeHtml(code)}</code></pre>`;
+      }
+
+      if (isMarkdownTable(lines)) {
+        return renderMarkdownTable(lines);
       }
 
       const headingMatch = lines[0].match(/^(#{1,3})\s+(.+)$/);
