@@ -142,7 +142,7 @@ const railItems = [
 ];
 
 const formatButtons = [
-  { key: 'internal-link', label: '鍐呴儴閾炬帴' },
+  { key: 'internal-link', label: '内部链接' },
   { key: 'bold', label: '加粗' },
   { key: 'italic', label: '斜体' },
   { key: 'quote', label: '引用' },
@@ -165,6 +165,7 @@ const editMenuItems = [
 
 
 const paragraphMenuItems = [
+  { key: 'paragraph', label: 'H0' },
   { key: 'heading-1', label: 'H1' },
   { key: 'heading-2', label: 'H2' },
   { key: 'heading-3', label: 'H3' },

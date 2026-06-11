@@ -12,9 +12,13 @@ import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import {
   commonmark,
   createCodeBlockCommand,
+  liftListItemCommand,
+  setBlockTypeCommand,
+  sinkListItemCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
   toggleStrongCommand,
+  turnIntoTextCommand,
   wrapInBlockquoteCommand,
   wrapInBulletListCommand,
   wrapInHeadingCommand,
@@ -105,6 +109,7 @@ const turnIntoTaskListCommand = $command('TurnIntoTaskList', (ctx) => () => (sta
 });
 
 const commandResolvers = {
+  'paragraph': () => ({ key: turnIntoTextCommand.key }),
   'heading-1': () => ({ key: wrapInHeadingCommand.key, payload: 1 }),
   'heading-2': () => ({ key: wrapInHeadingCommand.key, payload: 2 }),
   'heading-3': () => ({ key: wrapInHeadingCommand.key, payload: 3 }),
@@ -129,6 +134,144 @@ const commandResolvers = {
   redo: () => ({ key: redoCommand.key })
 };
 const findHighlightPluginKey = new PluginKey('STUDY_FIND_HIGHLIGHTS');
+
+function findAncestorOfType($pos, typeNames) {
+  const names = typeNames instanceof Set ? typeNames : new Set(typeNames);
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const node = $pos.node(depth);
+    if (names.has(node.type.name)) {
+      return {
+        depth,
+        node,
+        pos: $pos.before(depth)
+      };
+    }
+  }
+
+  return null;
+}
+
+function isSelectionInsideSingleTextblock(state, typeName, attrs = null) {
+  const { $from, $to } = state.selection;
+  if ($from.parent !== $to.parent || $from.parent.type.name !== typeName) {
+    return false;
+  }
+
+  if (!attrs) {
+    return true;
+  }
+
+  return Object.entries(attrs).every(([key, value]) => $from.parent.attrs?.[key] === value);
+}
+
+function toggleParagraph(editor, schema) {
+  const paragraphNodeType = getNodeFromSchema('paragraph', schema);
+  if (!paragraphNodeType) {
+    return false;
+  }
+
+  return executeCallCommand(editor, setBlockTypeCommand.key, {
+    nodeType: paragraphNodeType,
+    attrs: null
+  });
+}
+
+function setHeadingLevel(editor, schema, level) {
+  const headingNodeType = getNodeFromSchema('heading', schema);
+  if (!headingNodeType) {
+    return false;
+  }
+
+  return executeCallCommand(editor, setBlockTypeCommand.key, {
+    nodeType: headingNodeType,
+    attrs: { level }
+  });
+}
+
+function executeCallCommand(editor, key, payload) {
+  return editor.action(callCommand(key, payload));
+}
+
+async function handleHeadingShortcut(editor, level) {
+  const view = editor.ctx.get(editorViewCtx);
+  const schema = editor.ctx.get(schemaCtx);
+
+  if (isSelectionInsideSingleTextblock(view.state, 'heading', { level })) {
+    return toggleParagraph(editor, schema);
+  }
+
+  return setHeadingLevel(editor, schema, level);
+}
+
+async function handleParagraphShortcut(editor) {
+  const schema = editor.ctx.get(schemaCtx);
+  return toggleParagraph(editor, schema);
+}
+
+async function handleListShortcut(editor, commandKey) {
+  const view = editor.ctx.get(editorViewCtx);
+  const schema = editor.ctx.get(schemaCtx);
+  const targetTypeName = commandKey === 'ordered' ? 'ordered_list' : 'bullet_list';
+  const otherTypeName = commandKey === 'ordered' ? 'bullet_list' : 'ordered_list';
+  const targetNodeType = getNodeFromSchema(targetTypeName, schema);
+  const listAncestor = findAncestorOfType(view.state.selection.$from, new Set(['bullet_list', 'ordered_list']));
+
+  if (!targetNodeType) {
+    return false;
+  }
+
+  if (listAncestor?.node.type.name === targetTypeName) {
+    return executeCallCommand(editor, liftListItemCommand.key);
+  }
+
+  if (listAncestor?.node.type.name === otherTypeName) {
+    const attrs = targetTypeName === 'ordered_list'
+      ? { order: 1, spread: listAncestor.node.attrs?.spread ?? false }
+      : { spread: listAncestor.node.attrs?.spread ?? false };
+    const tr = view.state.tr.setNodeMarkup(listAncestor.pos, targetNodeType, attrs);
+    view.dispatch(tr.scrollIntoView());
+    return true;
+  }
+
+  const wrapCommand = commandKey === 'ordered' ? wrapInOrderedListCommand.key : wrapInBulletListCommand.key;
+  return executeCallCommand(editor, wrapCommand);
+}
+
+async function handleIndentShortcut(editor) {
+  const view = editor.ctx.get(editorViewCtx);
+  const listItemAncestor = findAncestorOfType(view.state.selection.$from, new Set(['list_item']));
+  if (listItemAncestor) {
+    return executeCallCommand(editor, sinkListItemCommand.key);
+  }
+
+  const tr = view.state.tr.insertText('    ', view.state.selection.from, view.state.selection.to);
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+async function handleOutdentShortcut(editor) {
+  const view = editor.ctx.get(editorViewCtx);
+  const listItemAncestor = findAncestorOfType(view.state.selection.$from, new Set(['list_item']));
+  if (listItemAncestor) {
+    return executeCallCommand(editor, liftListItemCommand.key);
+  }
+
+  const { state } = view;
+  if (!isSelectionInsideSingleTextblock(state, state.selection.$from.parent.type.name)) {
+    return false;
+  }
+
+  const text = state.selection.$from.parent.textContent;
+  const removeLength = text.startsWith('\t') ? 1 : text.startsWith('  ') ? 2 : text.startsWith(' ') ? 1 : 0;
+  if (removeLength === 0) {
+    return false;
+  }
+
+  const start = state.selection.$from.start();
+  const tr = state.tr.delete(start, start + removeLength);
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
 
 function normalizeMarkdown(markdown) {
   return typeof markdown === 'string' ? markdown : '';
@@ -440,13 +583,35 @@ export class MilkdownHost {
 
   async run(commandKey) {
     await this.ready;
+    const view = this.editor.ctx.get(editorViewCtx);
+    if (commandKey === 'indent') {
+      return handleIndentShortcut(this.editor);
+    }
+    if (commandKey === 'outdent') {
+      return handleOutdentShortcut(this.editor);
+    }
+    if (commandKey === 'paragraph') {
+      return handleParagraphShortcut(this.editor);
+    }
+    if (commandKey.startsWith('heading-')) {
+      const level = Number(commandKey.split('-')[1]);
+      if (Number.isInteger(level) && level >= 1 && level <= 6) {
+        return handleHeadingShortcut(this.editor, level);
+      }
+    }
+    if (commandKey === 'bullet' || commandKey === 'ordered') {
+      return handleListShortcut(this.editor, commandKey);
+    }
+
     const resolve = commandResolvers[commandKey];
     if (!resolve) {
       return false;
     }
 
     const { key, payload } = resolve();
-    return this.editor.action(callCommand(key, payload));
+    const result = await this.editor.action(callCommand(key, payload));
+    view.focus();
+    return result;
   }
 
   async focus() {

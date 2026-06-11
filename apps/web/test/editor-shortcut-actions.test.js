@@ -5,9 +5,28 @@ import {
 } from '../lib/editor/shortcut-actions.js';
 
 assert.equal(getEditorShortcutLabel('bold'), 'Ctrl+B');
+assert.equal(getEditorShortcutLabel('paragraph'), 'Ctrl+0');
 assert.equal(getEditorShortcutLabel('heading-6'), 'Ctrl+6');
-assert.equal(getEditorShortcutLabel('ordered'), 'Ctrl+Shift+7');
+assert.equal(getEditorShortcutLabel('ordered'), 'Ctrl+Shift+{');
+assert.equal(getEditorShortcutLabel('bullet'), 'Ctrl+Shift+}');
+assert.equal(getEditorShortcutLabel('outdent'), 'Shift+Tab');
 assert.equal(getEditorShortcutLabel('missing'), '');
+
+assert.equal(
+  resolveEditorShortcutAction({ key: 'Tab' }),
+  'indent',
+  'Tab should trigger indent inside the editor surface'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: 'Tab', shiftKey: true }),
+  'outdent',
+  'Shift+Tab should trigger outdent inside the editor surface'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: '0', ctrlKey: true }),
+  'paragraph',
+  'Ctrl+0 should reset the current block to H0/paragraph'
+);
 
 assert.equal(
   resolveEditorShortcutAction({ key: 'b', ctrlKey: true }),
@@ -25,14 +44,34 @@ assert.equal(
   'Cmd+6 should trigger H6 on mac-style modifier handling'
 );
 assert.equal(
-  resolveEditorShortcutAction({ key: '7', ctrlKey: true, shiftKey: true }),
+  resolveEditorShortcutAction({ key: '{', ctrlKey: true, shiftKey: true }),
   'ordered',
-  'Ctrl+Shift+7 should trigger ordered list'
+  'Ctrl+Shift+{ should trigger ordered list'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: '}', ctrlKey: true, shiftKey: true }),
+  'bullet',
+  'Ctrl+Shift+} should trigger bullet list'
+);
+assert.equal(
+  resolveEditorShortcutAction({ code: 'BracketLeft', ctrlKey: true, shiftKey: true }),
+  'ordered',
+  'Ctrl+Shift+[ physical key should also reach the ordered-list shortcut path'
+);
+assert.equal(
+  resolveEditorShortcutAction({ code: 'BracketRight', ctrlKey: true, shiftKey: true }),
+  'bullet',
+  'Ctrl+Shift+] physical key should also reach the bullet-list shortcut path'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: '7', ctrlKey: true, shiftKey: true }),
+  null,
+  'legacy ordered-list shortcut should no longer be used'
 );
 assert.equal(
   resolveEditorShortcutAction({ key: '8', ctrlKey: true, shiftKey: true }),
-  'bullet',
-  'Ctrl+Shift+8 should trigger bullet list'
+  null,
+  'legacy bullet-list shortcut should no longer be used'
 );
 assert.equal(
   resolveEditorShortcutAction({ key: 'b', ctrlKey: true, altKey: true }),

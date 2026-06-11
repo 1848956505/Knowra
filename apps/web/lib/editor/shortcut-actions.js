@@ -5,15 +5,17 @@ export const EDITOR_SHORTCUT_LABELS = {
   paste: 'Ctrl+V',
   'select-all': 'Ctrl+A',
   bold: 'Ctrl+B',
+  paragraph: 'Ctrl+0',
   'heading-1': 'Ctrl+1',
   'heading-2': 'Ctrl+2',
   'heading-3': 'Ctrl+3',
   'heading-4': 'Ctrl+4',
   'heading-5': 'Ctrl+5',
   'heading-6': 'Ctrl+6',
-  ordered: 'Ctrl+Shift+7',
-  bullet: 'Ctrl+Shift+8',
-  indent: 'Tab'
+  ordered: 'Ctrl+Shift+{',
+  bullet: 'Ctrl+Shift+}',
+  indent: 'Tab',
+  outdent: 'Shift+Tab'
 };
 
 export function getEditorShortcutLabel(action) {
@@ -22,13 +24,19 @@ export function getEditorShortcutLabel(action) {
 
 export function resolveEditorShortcutAction({
   key = '',
+  code = '',
   ctrlKey = false,
   metaKey = false,
   shiftKey = false,
   altKey = false
 } = {}) {
   const normalizedKey = String(key).toLowerCase();
+  const normalizedCode = String(code);
   const hasModifier = ctrlKey || metaKey;
+
+  if (normalizedKey === 'tab') {
+    return shiftKey ? 'outdent' : 'indent';
+  }
 
   if (!hasModifier || altKey) {
     return null;
@@ -38,6 +46,8 @@ export function resolveEditorShortcutAction({
     switch (normalizedKey) {
       case 'b':
         return 'bold';
+      case '0':
+        return 'paragraph';
       case '1':
         return 'heading-1';
       case '2':
@@ -56,9 +66,18 @@ export function resolveEditorShortcutAction({
   }
 
   switch (normalizedKey) {
-    case '7':
+    case '{':
       return 'ordered';
-    case '8':
+    case '}':
+      return 'bullet';
+    default:
+      break;
+  }
+
+  switch (normalizedCode) {
+    case 'BracketLeft':
+      return 'ordered';
+    case 'BracketRight':
       return 'bullet';
     default:
       return null;

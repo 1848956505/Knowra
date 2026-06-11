@@ -11,8 +11,13 @@ const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/compone
 
 assert.match(
   clientJs,
-  /const paragraphMenuItems = \[[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
-  'paragraph menu should expose H1-H6 so the heading shortcuts have visible targets'
+  /const paragraphMenuItems = \[[\s\S]*label: 'H0'[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
+  'paragraph menu should expose H0-H6 so the heading shortcuts have visible targets'
+);
+assert.match(
+  clientJs,
+  /label: '内部链接'/,
+  'format menu should render readable Chinese labels instead of mojibake'
 );
 assert.match(
   clientJs,
@@ -36,6 +41,11 @@ assert.match(
 );
 assert.match(
   milkdownEntry,
+  /'paragraph': \(\) => \(\{ key: turnIntoTextCommand\.key \}\)/,
+  'editor command resolver should support H0/paragraph shortcuts'
+);
+assert.match(
+  milkdownEntry,
   /'heading-5': \(\) => \(\{ key: wrapInHeadingCommand\.key, payload: 5 \}\)/,
   'editor command resolver should support H5 shortcuts'
 );
@@ -43,6 +53,16 @@ assert.match(
   milkdownEntry,
   /'heading-6': \(\) => \(\{ key: wrapInHeadingCommand\.key, payload: 6 \}\)/,
   'editor command resolver should support H6 shortcuts'
+);
+assert.match(
+  milkdownEntry,
+  /sinkListItemCommand\.key/,
+  'editor shortcut execution should support Tab-based list indentation'
+);
+assert.match(
+  milkdownEntry,
+  /liftListItemCommand\.key/,
+  'editor shortcut execution should support Shift\+Tab outdent and list toggle removal'
 );
 assert.match(
   componentsCss,
