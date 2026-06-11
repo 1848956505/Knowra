@@ -40,6 +40,16 @@ assert.match(
   'opening the source editor should switch back into edit mode'
 );
 assert.match(
+  clientJs,
+  /case 'mode-edit':[\s\S]*state\.view\.showSourceEditor = false;/,
+  'switching back to edit mode should close the source editor'
+);
+assert.match(
+  clientJs,
+  /case 'mode-focus':[\s\S]*state\.view\.showSourceEditor = false;/,
+  'switching to focus mode should close the source editor'
+);
+assert.match(
   mainJs,
   /class="kb-sidebar" id="kb-sidebar"/,
   'left knowledge sidebar needs a stable DOM id for view toggles'

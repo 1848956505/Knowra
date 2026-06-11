@@ -142,6 +142,7 @@ const railItems = [
 ];
 
 const formatButtons = [
+  { key: 'internal-link', label: '鍐呴儴閾炬帴' },
   { key: 'bold', label: '加粗' },
   { key: 'italic', label: '斜体' },
   { key: 'quote', label: '引用' },
@@ -225,6 +226,7 @@ function cacheElements() {
   elements.noteTabs = document.getElementById('note-tabs');
   elements.editorMenuBar = document.getElementById('editor-menu-bar');
   elements.noteTabMenu = document.getElementById('note-tab-menu');
+  elements.markdownImportInput = document.getElementById('markdown-import-input');
   elements.editorContent = document.getElementById('editor-content');
   elements.aside = document.getElementById('kb-aside');
   elements.noteInfo = document.getElementById('note-info');
@@ -249,6 +251,21 @@ function bindEvents() {
     state.sectionMenuOpen = !state.sectionMenuOpen;
     closeContextMenu();
     renderFolders();
+  });
+
+  elements.markdownImportInput?.addEventListener('change', async (event) => {
+    const files = event.target.files;
+    event.target.value = '';
+
+    if (!files?.length) {
+      return;
+    }
+
+    try {
+      await importMarkdownFiles(files);
+    } catch (error) {
+      flashStatus(error?.message || 'Markdown 导入失败');
+    }
   });
 
   elements.folderTree?.addEventListener('click', (event) => {
@@ -1371,6 +1388,7 @@ function renderViewMenu(note, effectiveView) {
       <button type="button" class="editor-menu-item" data-view-menu-action="mode-read" data-active="${effectiveView.mode === 'read'}">阅读模式</button>
       <button type="button" class="editor-menu-item" data-view-menu-action="mode-edit" data-active="${effectiveView.mode === 'edit'}">编辑模式</button>
       <button type="button" class="editor-menu-item" data-view-menu-action="mode-focus" data-active="${effectiveView.mode === 'focus'}">专注模式</button>
+      <button type="button" class="editor-menu-item" data-file-menu-action="import-markdown">导入 Markdown</button>
       <div class="editor-menu-divider" aria-hidden="true"></div>
       <button type="button" class="editor-menu-item" data-view-menu-action="toggle-left-sidebar" data-active="${effectiveView.showLeftSidebar}">${effectiveView.showLeftSidebar ? '隐藏左侧目录区' : '显示左侧目录区'}</button>
       <button type="button" class="editor-menu-item" data-view-menu-action="toggle-right-sidebar" data-active="${effectiveView.showRightSidebar}">${effectiveView.showRightSidebar ? '隐藏右侧辅助区' : '显示右侧辅助区'}</button>
@@ -2094,10 +2112,12 @@ async function handleViewMenuAction(action) {
       return;
     case 'mode-edit':
       state.view.mode = 'edit';
+      state.view.showSourceEditor = false;
       renderAll();
       return;
     case 'mode-focus':
       state.view.mode = 'focus';
+      state.view.showSourceEditor = false;
       renderAll();
       return;
     case 'toggle-left-sidebar':
@@ -2973,6 +2993,9 @@ async function handleFileMenuAction(action) {
       startTreeEditor({ mode: 'create-folder', parentId: folderId, value: title });
       return;
     }
+    case 'import-markdown':
+      elements.markdownImportInput?.click();
+      return;
     case 'save':
       await persistDraft({ immediate: true });
       return;
@@ -2993,6 +3016,96 @@ async function handleFileMenuAction(action) {
     default:
       return;
   }
+}
+
+async function importMarkdownFiles(files) {
+  const folderId = getMenuTargetFolderId();
+  const normalizedFiles = Array.from(files ?? []).filter(Boolean);
+
+  if (normalizedFiles.length === 0) {
+    throw new Error('请先选择 Markdown 文件');
+  }
+
+  const importedItems = await Promise.all(normalizedFiles.map(async (file, index) => {
+    const rawMarkdown = await file.text();
+    return {
+      id: `note-import-${Date.now().toString(36)}-${index.toString(36)}`,
+      title: deriveMarkdownImportTitle(file.name, rawMarkdown),
+      rawMarkdown,
+      sourceType: 'markdown-import'
+    };
+  }));
+
+  if (state.dataMode === 'api') {
+    const endpoint = importedItems.length > 1
+      ? '/api/knowledge/notes/import-markdown-batch'
+      : '/api/knowledge/notes/import-markdown';
+    const payload = importedItems.length > 1
+      ? { items: importedItems.map((item) => ({
+          title: item.title,
+          rawMarkdown: item.rawMarkdown,
+          folderId,
+          spaceId: state.currentSpaceId,
+          sourceType: item.sourceType
+        })) }
+      : {
+          title: importedItems[0].title,
+          rawMarkdown: importedItems[0].rawMarkdown,
+          folderId,
+          spaceId: state.currentSpaceId,
+          sourceType: importedItems[0].sourceType
+        };
+
+    const response = await fetchJson(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    await refreshKnowledgeData();
+
+    const importedResponseItems = Array.isArray(response.data) ? response.data : [response.data];
+    const firstImported = importedResponseItems.find((item) => item?.id) ?? null;
+    if (firstImported?.id) {
+      await selectNote(firstImported.id, { syncFolder: true, ensureTab: true });
+    } else {
+      await loadCurrentNoteSideData();
+      renderAll();
+    }
+
+    flashStatus(
+      importedItems.length > 1
+        ? `已导入 ${importedItems.length} 个 Markdown 文件`
+        : `已导入 Markdown 笔记：${firstImported?.title ?? importedItems[0].title}`
+    );
+    return;
+  }
+
+  state.allNotes = importedItems.reduce((notes, item) => insertLocalNote(notes, {
+    id: item.id,
+    title: item.title,
+    rawMarkdown: item.rawMarkdown,
+    folderId,
+    spaceId: state.currentSpaceId,
+    favorite: false,
+    status: 'draft',
+    sourceType: item.sourceType,
+    tagIds: [],
+    internalLinks: [],
+    updatedAt: new Date().toISOString()
+  }), state.allNotes);
+  state.selectedNoteId = importedItems[0]?.id ?? state.selectedNoteId;
+  state.selectedFolderId = folderId ?? null;
+  state.openNoteTabs = importedItems.reduce(
+    (tabs, item) => ensureOpenTab(tabs, item.id),
+    state.openNoteTabs
+  );
+  syncLocalWorkspace();
+
+  flashStatus(
+    importedItems.length > 1
+      ? `已导入 ${importedItems.length} 个 Markdown 文件`
+      : `已导入 Markdown 笔记：${importedItems[0].title}`
+  );
 }
 
 function getMenuTargetFolderId() {
@@ -3420,6 +3533,14 @@ function deriveNoteTitleFromMarkdown(markdown, fallbackTitle = 'Untitled Note') 
     .find(Boolean);
 
   return firstLine || fallbackTitle;
+}
+
+function deriveMarkdownImportTitle(fileName, markdown) {
+  const fallbackTitle = String(fileName ?? '')
+    .replace(/\.[^.]+$/, '')
+    .trim() || 'Imported Note';
+
+  return deriveNoteTitleFromMarkdown(markdown, fallbackTitle);
 }
 
 function getSaveStateLabel() {

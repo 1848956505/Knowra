@@ -116,6 +116,7 @@ function renderHtml(initialWorkspaceScript = '') {
   <div class="library-context-menu" id="library-context-menu" hidden></div>
   <div class="library-context-menu library-section-menu" id="library-section-menu" hidden></div>
   <div class="note-tab-menu" id="note-tab-menu" hidden></div>
+  <input id="markdown-import-input" type="file" accept=".md,.markdown,text/markdown,text/plain" multiple hidden />
   ${initialWorkspaceScript}
   <script type="module" src="/src/client.js"></script>
 </body>

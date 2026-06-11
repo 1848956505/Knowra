@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
 
 assert.doesNotMatch(clientJs, /window\.prompt\(/, 'editor find/replace must not use browser prompt dialogs');
@@ -61,6 +62,18 @@ assert.match(
   componentsCss,
   /\.editor-find-match-active/,
   'active find matches should have a dedicated highlight style'
+);
+
+assert.match(
+  clientJs,
+  /label: '鍐呴儴閾炬帴'/,
+  'editor format menu should expose an internal link action'
+);
+
+assert.match(
+  milkdownEntry,
+  /'internal-link': \(\) => \(\{ key: insertInternalLinkCommand\.key \}\)/,
+  'milkdown command resolver should expose an internal link command'
 );
 
 console.log('ok - editor utility panel uses in-app UI instead of browser prompts');

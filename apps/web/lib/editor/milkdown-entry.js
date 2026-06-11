@@ -62,6 +62,23 @@ const insertImageCommand = $command('InsertImage', (ctx) => () => (state, dispat
   dispatch(tr.scrollIntoView());
   return true;
 });
+const insertInternalLinkCommand = $command('InsertInternalLink', (ctx) => () => (state, dispatch) => {
+  const { selection } = state;
+  const { $from, $to, empty } = selection;
+
+  const linkText = empty ? '内部链接' : state.doc.textBetween($from.pos, $to.pos);
+  const markdown = `[[${linkText}]]`;
+
+  const tr = empty
+    ? state.tr.insertText(markdown, $from.pos)
+    : state.tr.replaceWith($from.pos, $to.pos, state.schema.text(markdown));
+
+  const linkStart = $from.pos + 2;
+  const linkEnd = linkStart + linkText.length;
+  tr.setSelection(TextSelection.create(tr.doc, linkStart, linkEnd));
+  dispatch(tr.scrollIntoView());
+  return true;
+});
 const turnIntoTaskListCommand = $command('TurnIntoTaskList', (ctx) => () => (state, dispatch) => {
   const schema = ctx.get(schemaCtx);
   const paragraphNodeType = getNodeFromSchema('paragraph', schema);
@@ -106,6 +123,7 @@ const commandResolvers = {
   strikethrough: () => ({ key: toggleStrikethroughCommand.key }),
   link: () => ({ key: insertLinkCommand.key }),
   image: () => ({ key: insertImageCommand.key }),
+  'internal-link': () => ({ key: insertInternalLinkCommand.key }),
   table: () => ({ key: insertTableCommand.key, payload: { row: 3, col: 3 } }),
   undo: () => ({ key: undoCommand.key }),
   redo: () => ({ key: redoCommand.key })
