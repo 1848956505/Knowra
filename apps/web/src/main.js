@@ -34,15 +34,7 @@ function renderHtml(initialWorkspaceScript = '') {
       </aside>
       <div class="workspace-main">
         <header class="top-bar">
-          <label class="top-bar-search" aria-label="全局搜索">
-            <span class="top-bar-search-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="6"></circle>
-                <path d="M16 16l4 4"></path>
-              </svg>
-            </span>
-            <input id="global-search" placeholder="搜索笔记、标签、附件、AI 结果" />
-          </label>
+          <div class="top-bar-search" id="global-search-shell" aria-label="全局搜索"></div>
           <button type="button" class="top-bar-user" aria-label="用户入口">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path>

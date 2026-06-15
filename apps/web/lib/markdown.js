@@ -72,18 +72,24 @@ function slugifyHeading(text, fallbackIndex) {
 export function extractMarkdownHeadings(markdown) {
   const source = String(markdown ?? '').replace(/\r\n/g, '\n');
   const headings = [];
+  const slugCounts = new Map();
 
   source.split('\n').forEach((line) => {
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (!headingMatch) {
       return;
     }
 
     const title = headingMatch[2].trim();
+    const baseId = slugifyHeading(title, headings.length + 1);
+    const duplicateCount = slugCounts.get(baseId) ?? 0;
+    slugCounts.set(baseId, duplicateCount + 1);
+
     headings.push({
+      index: headings.length,
       level: headingMatch[1].length,
       title,
-      id: slugifyHeading(title, headings.length + 1)
+      id: duplicateCount ? `${baseId}-${duplicateCount + 1}` : baseId
     });
   });
 
@@ -133,7 +139,7 @@ export function renderMarkdownPreview(markdown) {
         return renderMarkdownTable(lines);
       }
 
-      const headingMatch = lines[0].match(/^(#{1,3})\s+(.+)$/);
+      const headingMatch = lines[0].match(/^(#{1,6})\s+(.+)$/);
       if (headingMatch) {
         const level = headingMatch[1].length;
         const content = renderInlineMarkdown(headingMatch[2]);

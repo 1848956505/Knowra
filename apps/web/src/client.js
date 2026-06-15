@@ -46,7 +46,6 @@ const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
 const AUTOSAVE_DELAY_MS = 700;
 
 const SECONDARY_SECTION_ITEMS = [
-  { key: 'tags', label: '标签' },
   { key: 'favorites', label: '收藏' },
   { key: 'recent', label: '最近' },
   { key: 'recycle', label: '回收站' }
@@ -117,13 +116,11 @@ const state = {
   selectedFolderId: null,
   navSections: {
     materials: true,
-    tags: false,
     favorites: false,
     recent: false,
     recycle: false
   },
   secondarySections: {
-    tags: true,
     favorites: true,
     recent: true,
     recycle: true
@@ -131,7 +128,15 @@ const state = {
   asideTab: 'info',
   openFolders: {},
   draftMarkdown: '',
-  searchQuery: '',
+  search: {
+    keyword: '',
+    selectedTagIds: [],
+    isOpen: false
+  },
+  noteTagComposer: {
+    draft: '',
+    isExpanded: false
+  },
   linkedNotes: [],
   attachments: [],
   openNoteTabs: [],
@@ -271,7 +276,7 @@ function initialize() {
 }
 
 function cacheElements() {
-  elements.globalSearch = document.getElementById('global-search');
+  elements.globalSearchShell = document.getElementById('global-search-shell');
   elements.moduleRail = document.getElementById('module-rail');
   elements.workspace = document.getElementById('kb-workspace');
   elements.sidebar = document.getElementById('kb-sidebar');
@@ -293,9 +298,80 @@ function cacheElements() {
 }
 
 function bindEvents() {
-  elements.globalSearch?.addEventListener('input', (event) => {
-    state.searchQuery = event.target.value.trim().toLowerCase();
+  elements.globalSearchShell?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const chipRemoveButton = event.target.closest('[data-search-chip-remove]');
+    if (chipRemoveButton?.dataset.searchChipRemove) {
+        toggleSearchTagFilter(chipRemoveButton.dataset.searchChipRemove);
+        focusSearchInput();
+        return;
+    }
+
+    const tagButton = event.target.closest('[data-search-tag-id]');
+    if (tagButton?.dataset.searchTagId) {
+        toggleSearchTagFilter(tagButton.dataset.searchTagId);
+        focusSearchInput();
+        return;
+    }
+
+    const noteButton = event.target.closest('[data-search-note-id]');
+    if (noteButton?.dataset.searchNoteId) {
+        state.search.isOpen = false;
+        void selectNote(noteButton.dataset.searchNoteId, { syncFolder: true });
+        return;
+    }
+
+    const clearButton = event.target.closest('[data-search-clear]');
+    if (clearButton) {
+        clearSearchFilters();
+        return;
+    }
+
+    if (!state.search.isOpen) {
+      state.search.isOpen = true;
+      renderSearchShell();
+    }
+
+    focusSearchInput();
+  });
+
+  elements.globalSearchShell?.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-search-input]');
+    if (!input) {
+      return;
+    }
+
+    state.search.keyword = input.value.trim().toLowerCase();
+    state.search.isOpen = true;
+    reconcileSelection();
     renderAll();
+  });
+
+  elements.globalSearchShell?.addEventListener('keydown', (event) => {
+    const input = event.target.closest('[data-search-input]');
+    if (!input) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      state.search.isOpen = false;
+      renderSearchShell();
+      return;
+    }
+
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    const results = getSearchResultNotes();
+    if (!results.length) {
+      return;
+    }
+
+    event.preventDefault();
+    state.search.isOpen = false;
+    void selectNote(results[0].id, { syncFolder: true });
   });
 
   elements.secondaryNavToggle?.addEventListener('click', (event) => {
@@ -565,12 +641,42 @@ function bindEvents() {
       return;
     }
 
+    const noteTagAddButton = event.target.closest('[data-note-tag-add]');
+    if (noteTagAddButton?.dataset.noteTagAdd) {
+      state.noteTagComposer.isExpanded = true;
+      void addTagToCurrentNote(noteTagAddButton.dataset.noteTagAdd);
+      return;
+    }
+
+    const noteTagRemoveButton = event.target.closest('[data-note-tag-remove]');
+    if (noteTagRemoveButton?.dataset.noteTagRemove) {
+      void removeTagFromCurrentNote(noteTagRemoveButton.dataset.noteTagRemove);
+      return;
+    }
+
+    const noteTagToggleButton = event.target.closest('[data-note-tag-toggle]');
+    if (noteTagToggleButton) {
+      state.noteTagComposer.isExpanded = !state.noteTagComposer.isExpanded;
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const noteTagCreateButton = event.target.closest('[data-note-tag-create]');
+    if (noteTagCreateButton) {
+      void createTagAndAssignToCurrentNote(state.noteTagComposer.draft);
+      return;
+    }
+
     const outlineButton = event.target.closest('[data-outline-id]');
     if (!outlineButton?.dataset.outlineId) {
       return;
     }
 
-    const targetHeading = document.getElementById(outlineButton.dataset.outlineId);
+    const outlineIndex = Number.parseInt(outlineButton.dataset.outlineIndex ?? '', 10);
+    const targetHeading = findOutlineHeadingTarget(
+      outlineButton.dataset.outlineId,
+      Number.isNaN(outlineIndex) ? -1 : outlineIndex
+    );
     if (!targetHeading) {
       flashStatus('当前标题尚未出现在预览区');
       return;
@@ -615,6 +721,10 @@ function bindEvents() {
   });
 
   document.addEventListener('click', (event) => {
+    if (!event.target.closest('#global-search-shell') && state.search.isOpen) {
+      state.search.isOpen = false;
+      renderSearchShell();
+    }
     if (event.target.closest('#library-context-menu')) return;
     if (event.target.closest('#library-section-menu')) return;
     if (event.target.closest('#note-tab-menu')) return;
@@ -630,12 +740,35 @@ function bindEvents() {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (state.search.isOpen) {
+        state.search.isOpen = false;
+        renderSearchShell();
+      }
       closeContextMenu();
       closeSectionMenu();
       closeTabMenu();
       closeEditorMenuBar();
       closeEditorContextMenu();
     }
+  });
+
+  elements.asideContent?.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-note-tag-input]');
+    if (!input) {
+      return;
+    }
+
+    state.noteTagComposer.draft = input.value;
+  });
+
+  elements.asideContent?.addEventListener('keydown', (event) => {
+    const input = event.target.closest('[data-note-tag-input]');
+    if (!input || event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    void createTagAndAssignToCurrentNote(input.value);
   });
 
   elements.noteTabs?.addEventListener('click', (event) => {
@@ -1015,6 +1148,7 @@ function reconcileSelection() {
 
   if (!state.selectedNoteId || !visibleNotes.some((note) => note.id === state.selectedNoteId)) {
     state.selectedNoteId = visibleNotes[0].id;
+    state.noteTagComposer.draft = '';
   }
 
   const currentNote = getCurrentNote();
@@ -1168,6 +1302,7 @@ function renderRailIcon(key) {
 }
 
 function renderAll() {
+  renderSearchShell();
   renderWorkspaceViewState();
   renderFolders();
   renderTabs();
@@ -1176,6 +1311,135 @@ function renderAll() {
   renderSidebar(getCurrentNote());
   renderEditorContextMenu();
   renderStatus();
+}
+
+function renderSearchShell() {
+  if (!elements.globalSearchShell) {
+    return;
+  }
+
+  const hasFilters = hasActiveSearchFilters();
+  const selectedTags = getSelectedSearchTags();
+  const visibleInlineTags = selectedTags.slice(0, 2);
+  const overflowTagCount = Math.max(0, selectedTags.length - visibleInlineTags.length);
+
+  if (!elements.globalSearchShell.querySelector('.top-bar-search-control')) {
+    elements.globalSearchShell.innerHTML = `
+      <div class="top-bar-search-control" data-open="false">
+        <span class="top-bar-search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="M16 16l4 4"></path>
+          </svg>
+        </span>
+        <div class="top-search-chip-track" data-search-chip-track></div>
+        <input
+          id="global-search"
+          data-search-input
+          type="text"
+          placeholder="搜索笔记、标签、附件、AI 结果"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="button" class="top-search-clear" data-search-clear hidden>清空</button>
+      </div>
+      <div class="search-panel-host"></div>
+    `;
+  }
+
+  elements.globalSearchShell.dataset.open = String(state.search.isOpen);
+
+  const control = elements.globalSearchShell.querySelector('.top-bar-search-control');
+  const input = elements.globalSearchShell.querySelector('[data-search-input]');
+  const chipTrack = elements.globalSearchShell.querySelector('[data-search-chip-track]');
+  const clearButton = elements.globalSearchShell.querySelector('[data-search-clear]');
+  const panelHost = elements.globalSearchShell.querySelector('.search-panel-host');
+
+  if (control) {
+    control.dataset.open = String(state.search.isOpen);
+  }
+
+  if (input && input.value !== state.search.keyword) {
+    input.value = state.search.keyword;
+  }
+
+  if (chipTrack) {
+    chipTrack.innerHTML = visibleInlineTags
+      .map(
+        (tag) => `
+          <button type="button" class="top-search-chip" data-search-chip-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
+            <span class="top-search-chip-dot" style="background:${escapeHtml(tag.color || '#3c68ff')};"></span>
+            <span class="top-search-chip-label">${escapeHtml(tag.name)}</span>
+            <span class="top-search-chip-remove" aria-hidden="true">×</span>
+          </button>
+        `
+      )
+      .join('');
+
+    if (overflowTagCount > 0) {
+      chipTrack.innerHTML += `
+        <span class="top-search-chip top-search-chip-summary" title="还有 ${overflowTagCount} 个已选标签">+${overflowTagCount}</span>
+      `;
+    }
+  }
+
+  if (clearButton) {
+    clearButton.hidden = !hasFilters;
+  }
+
+  if (panelHost) {
+    panelHost.innerHTML = state.search.isOpen || hasFilters ? renderSearchPanel() : '';
+  }
+}
+
+function renderSearchPanel() {
+  if (!state.search.isOpen && !hasActiveSearchFilters()) {
+    return '';
+  }
+
+  const selectedTags = getSelectedSearchTags();
+  const visibleTags = getVisibleSearchTags();
+
+  return `
+    <div class="search-panel">
+      <div class="search-panel-header">
+        <div class="search-panel-title">标签筛选</div>
+        ${hasActiveSearchFilters() ? '<button type="button" class="top-search-clear" data-search-clear>清空筛选</button>' : ''}
+      </div>
+      ${selectedTags.length ? `
+        <section class="search-panel-section">
+          <div class="search-panel-title">已选标签</div>
+          <div class="search-panel-chips">
+            ${selectedTags.map((tag) => renderSearchTagOption(tag, true)).join('')}
+          </div>
+        </section>
+      ` : ''}
+      <section class="search-panel-section">
+        <div class="search-panel-title">全部标签</div>
+        <div class="search-panel-chips">
+          ${visibleTags.length
+            ? visibleTags.map((tag) => renderSearchTagOption(tag, state.search.selectedTagIds.includes(tag.id))).join('')
+            : '<div class="search-panel-empty">没有匹配标签</div>'}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderSearchTagOption(tag, selected = false) {
+  return `
+    <button
+      type="button"
+      class="search-tag-option"
+      data-search-tag-id="${escapeAttribute(tag.id)}"
+      data-selected="${String(selected)}"
+      title="筛选标签：${escapeAttribute(tag.name)}"
+    >
+      <span class="search-tag-dot" style="background:${escapeHtml(tag.color || '#3c68ff')};"></span>
+      <span>${escapeHtml(tag.name)}</span>
+      <span class="search-tag-count">${getTagUsageCount(tag.id)}</span>
+    </button>
+  `;
 }
 
 function getEffectiveViewState() {
@@ -1212,17 +1476,11 @@ function renderFolders() {
   }
 
   const activeNotes = getActiveNotes();
+  const filteredActiveNotes = activeNotes.filter((note) => noteMatchesSelectedTags(note));
   const recycleNotes = getRecycleNotes();
   const topFolders = state.folderTree.filter((folder) => matchesFolderSearch(folder));
-  const tagItems = state.tags
-    .map((tag) => ({
-      id: tag.id,
-      label: tag.name,
-      meta: String(activeNotes.filter((note) => (note.tagIds ?? []).includes(tag.id)).length)
-    }))
-    .filter((tag) => matchesSearch(tag.label));
-  const favoriteNotes = activeNotes.filter((note) => note.favorite && matchesSearch(note.title));
-  const recentNotes = [...activeNotes]
+  const favoriteNotes = filteredActiveNotes.filter((note) => note.favorite && matchesSearch(note.title));
+  const recentNotes = [...filteredActiveNotes]
     .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
     .filter((note) => matchesSearch(note.title))
     .slice(0, 5);
@@ -1235,19 +1493,6 @@ function renderFolders() {
       children: renderMaterialsTree(topFolders)
     })
   ];
-
-  if (state.secondarySections.tags) {
-    sections.push(
-      renderNavSection({
-        key: 'tags',
-        label: '标签',
-        count: tagItems.length,
-        children: tagItems.length
-          ? tagItems.map((item) => renderStaticItem(item.label, item.meta)).join('')
-          : renderEmptyItem('暂无标签')
-      })
-    );
-  }
 
   if (state.secondarySections.favorites) {
     sections.push(
@@ -1411,7 +1656,7 @@ function renderEditorMenuBar() {
           data-editor-menu-toggle="view"
           data-open="${viewMenuOpen}"
         >
-          瑙嗗浘
+          视图
         </button>
         ${viewMenuOpen ? renderViewMenu(note, effectiveView) : ''}
       </div>
@@ -1599,7 +1844,7 @@ function renderNavSection({ key, label, count, children }) {
 
 function renderMaterialsTree(topFolders) {
   const parts = [];
-  const rootNotes = getDirectNotesForFolder(null).filter((note) => matchesSearch(note.title));
+  const rootNotes = getDirectNotesForFolder(null).filter((note) => matchesSearch(note.title) && noteMatchesSelectedTags(note));
 
   if (isCreateEditorForParent(null)) {
     parts.push(renderInlineEditorRow(1, state.treeEditor.mode, state.treeEditor.value));
@@ -1617,7 +1862,7 @@ function renderMaterialsTree(topFolders) {
 
 function renderFolderNode(folder, level) {
   const childFolders = (folder.children ?? []).filter((childFolder) => matchesFolderSearch(childFolder));
-  const childNotes = getDirectNotesForFolder(folder.id).filter((note) => matchesSearch(note.title));
+  const childNotes = getDirectNotesForFolder(folder.id).filter((note) => matchesSearch(note.title) && noteMatchesSelectedTags(note));
   const hasChildren = childFolders.length > 0 || childNotes.length > 0 || isCreateEditorForParent(folder.id);
   const isOpen = state.openFolders[folder.id] ?? true;
   const selected = folder.id === state.selectedFolderId;
@@ -1786,15 +2031,18 @@ function renderDeleteIntentRow(level, kind, targetId, name) {
   `;
 }
 
-function renderStaticItem(label, meta = '') {
+function renderStaticItem(label, meta = '', options = {}) {
+  const attrs = options.attrs ? ` ${options.attrs}` : '';
+  const selected = options.selected ? 'true' : 'false';
+  const interactive = options.interactive ? 'true' : 'false';
   return `
-    <div class="library-node library-static-node" data-level="1">
+    <button type="button" class="library-node library-static-node" data-level="1" data-selected="${selected}" data-interactive="${interactive}"${attrs}>
       <span class="library-node-leading">
         <span class="library-node-spacer"></span>
       </span>
       <span class="library-node-label">${escapeHtml(label)}</span>
       ${meta ? `<span class="library-section-meta">${escapeHtml(meta)}</span>` : ''}
-    </div>
+    </button>
   `;
 }
 
@@ -2117,6 +2365,29 @@ function syncSourcePreview() {
   }
 }
 
+function findOutlineHeadingTarget(outlineId, outlineIndex) {
+  if (!elements.editorContent) {
+    return null;
+  }
+
+  if (outlineId) {
+    const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(outlineId)
+      : outlineId.replace(/"/g, '\\"');
+    const directMatch = elements.editorContent.querySelector(`#${escapedId}`);
+    if (directMatch) {
+      return directMatch;
+    }
+  }
+
+  if (!Number.isInteger(outlineIndex) || outlineIndex < 0) {
+    return null;
+  }
+
+  const renderedHeadings = elements.editorContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  return renderedHeadings.item(outlineIndex) ?? null;
+}
+
 function renderSidebar(note) {
   if (!elements.asideTabs || !elements.asideContent) {
     return;
@@ -2166,9 +2437,6 @@ function renderAsideEmptyState() {
 }
 
 function renderInfoTab(note) {
-  const tags = (note.tagIds ?? [])
-    .map((tagId) => state.tags.find((tag) => tag.id === tagId))
-    .filter(Boolean);
   const stats = getNoteStats(state.draftMarkdown || note.rawMarkdown || '');
 
   return `
@@ -2189,11 +2457,9 @@ function renderInfoTab(note) {
       <section class="aside-card">
         <div class="aside-card-header">
           <span>标签</span>
-          <strong>${tags.length}</strong>
+          <strong>${(note.tagIds ?? []).length}</strong>
         </div>
-        <div class="pill-row">
-          ${tags.length ? renderTagPills(tags) : renderAsideEmptyInline('暂无标签')}
-        </div>
+        ${renderNoteTagComposer(note)}
       </section>
       <section class="aside-card">
         <div class="aside-card-header">
@@ -2231,7 +2497,7 @@ function renderOutlineTab() {
             ? headings
                 .map(
                   (heading) => `
-                    <button type="button" class="outline-item" data-outline-id="${escapeAttribute(heading.id)}" data-level="${heading.level}">
+                    <button type="button" class="outline-item" data-outline-id="${escapeAttribute(heading.id)}" data-outline-index="${heading.index}" data-level="${heading.level}">
                       <span>${escapeHtml(heading.title)}</span>
                     </button>
                   `
@@ -2241,6 +2507,53 @@ function renderOutlineTab() {
         </div>
       </section>
     </section>
+  `;
+}
+
+function renderNoteTagComposer(note) {
+  const assignedTags = (note.tagIds ?? [])
+    .map((tagId) => state.tags.find((tag) => tag.id === tagId))
+    .filter(Boolean);
+  const availableTags = state.tags.filter((tag) => !(note.tagIds ?? []).includes(tag.id));
+  const draft = state.noteTagComposer.draft.trim();
+  const draftLowerCase = draft.toLowerCase();
+  const matchingTags = draftLowerCase
+    ? availableTags.filter((tag) => tag.name.toLowerCase().includes(draftLowerCase))
+    : availableTags.slice(0, 8);
+  const existingExactTag = state.tags.find((tag) => tag.name.trim().toLowerCase() === draftLowerCase);
+  const canCreateTag = Boolean(draft) && !existingExactTag;
+
+  return `
+    <div class="note-tag-composer">
+      <div class="note-tag-toolbar">
+        <div class="pill-row">
+          ${assignedTags.length ? renderAssignedTagPills(assignedTags) : '<span class="note-tag-empty">暂无标签</span>'}
+        </div>
+        <button type="button" class="subtle-button note-tag-toggle" data-note-tag-toggle>
+          ${state.noteTagComposer.isExpanded ? '收起' : '添加标签'}
+        </button>
+      </div>
+      ${state.noteTagComposer.isExpanded ? `
+        <div class="note-tag-composer-body">
+          <label class="note-tag-input-shell">
+            <input
+              type="text"
+              value="${escapeAttribute(state.noteTagComposer.draft)}"
+              data-note-tag-input
+              placeholder="输入标签名，回车可创建并绑定"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            ${canCreateTag ? '<button type="button" class="subtle-button note-tag-create" data-note-tag-create>创建</button>' : ''}
+          </label>
+          ${matchingTags.length ? `
+            <div class="pill-row note-tag-suggestions">
+              ${renderAvailableTagPills(matchingTags)}
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+    </div>
   `;
 }
 
@@ -2280,6 +2593,34 @@ function renderTagPills(tags) {
           <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
           ${escapeHtml(tag.name)}
         </span>
+      `
+    )
+    .join('');
+}
+
+function renderAssignedTagPills(tags) {
+  return tags
+    .map(
+      (tag) => `
+        <button type="button" class="pill pill-button" data-accent="true" data-note-tag-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          <span>${escapeHtml(tag.name)}</span>
+          <span class="pill-action" aria-hidden="true">×</span>
+        </button>
+      `
+    )
+    .join('');
+}
+
+function renderAvailableTagPills(tags) {
+  return tags
+    .map(
+      (tag) => `
+        <button type="button" class="pill pill-button" data-note-tag-add="${escapeAttribute(tag.id)}" title="添加标签：${escapeAttribute(tag.name)}">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          <span>${escapeHtml(tag.name)}</span>
+          <span class="pill-action" aria-hidden="true">+</span>
+        </button>
       `
     )
     .join('');
@@ -2873,7 +3214,7 @@ async function handleEditorPanelAction(action) {
         flashStatus(`未找到：${query}`);
         return;
       }
-      flashStatus(`宸叉煡鎵?${result.index + 1}/${result.count}锛?{query}`);
+      flashStatus(`已查找 ${result.index + 1}/${result.count}：${query}`);
       return;
     }
 
@@ -3539,7 +3880,7 @@ async function selectFolder(folderId) {
     state.attachments = [];
     state.draftMarkdown = '';
     renderAll();
-    flashStatus(`宸插垏鎹㈠埌鐩綍锛?{state.foldersById[folderId]?.name ?? ''}`);
+    flashStatus(`已切换到目录：${state.foldersById[folderId]?.name ?? ''}`);
     return;
   }
 
@@ -3552,7 +3893,7 @@ async function selectFolder(folderId) {
   }
 
   renderAll();
-  flashStatus(`宸插垏鎹㈠埌鐩綍锛?{state.foldersById[folderId]?.name ?? ''}`);
+  flashStatus(`已切换到目录：${state.foldersById[folderId]?.name ?? ''}`);
 }
 
 async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {}) {
@@ -3563,6 +3904,7 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
 
   await persistDraft({ immediate: true });
   state.selectedNoteId = noteId;
+  state.noteTagComposer.draft = '';
   if (ensureTab) {
     state.openNoteTabs = ensureOpenTab(state.openNoteTabs, noteId);
   }
@@ -3577,7 +3919,7 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
 
   await loadCurrentNoteSideData();
   renderAll();
-  flashStatus(`宸插垏鎹㈠埌锛?{note.title}`);
+  flashStatus(`已切换到：${note.title}`);
 }
 
 function toggleFolderOpen(folderId) {
@@ -3931,7 +4273,7 @@ async function duplicateCurrentNote(note) {
     await refreshKnowledgeData();
     await loadCurrentNoteSideData();
     renderAll();
-    flashStatus(`宸插彟瀛樹负锛?{nextTitle}`);
+    flashStatus(`已另存为：${nextTitle}`);
     return;
   }
 
@@ -3947,7 +4289,7 @@ async function duplicateCurrentNote(note) {
   state.selectedNoteId = nextNote.id;
   state.openNoteTabs = ensureOpenTab(state.openNoteTabs, nextNote.id);
   syncLocalWorkspace();
-  flashStatus(`宸插彟瀛樹负锛?{nextTitle}`);
+  flashStatus(`已另存为：${nextTitle}`);
 }
 
 function exportCurrentNoteAsMarkdown(note) {
@@ -4557,7 +4899,35 @@ async function persistDraft({ immediate = false } = {}) {
 }
 
 function getVisibleNotes() {
-  return state.allNotes.filter((note) => !note.deleted && isNoteVisible(note) && matchesSearch(note.title));
+  return state.allNotes.filter((note) => !note.deleted && isNoteVisible(note) && matchesSearch(note.title) && noteMatchesSelectedTags(note));
+}
+
+function getSearchResultNotes() {
+  return getVisibleNotes()
+    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+}
+
+function getSelectedSearchTags() {
+  return state.search.selectedTagIds
+    .map((tagId) => state.tags.find((tag) => tag.id === tagId))
+    .filter(Boolean);
+}
+
+function getVisibleSearchTags() {
+  const keyword = state.search.keyword;
+  if (!keyword) {
+    return [...state.tags];
+  }
+
+  return state.tags.filter((tag) => String(tag.name ?? '').toLowerCase().includes(keyword));
+}
+
+function getTagUsageCount(tagId) {
+  return getActiveNotes().filter((note) => (note.tagIds ?? []).includes(tagId)).length;
+}
+
+function hasActiveSearchFilters() {
+  return Boolean(state.search.keyword || state.search.selectedTagIds.length);
 }
 
 function getDirectNotesForFolder(folderId) {
@@ -4565,10 +4935,23 @@ function getDirectNotesForFolder(folderId) {
 }
 
 function isNoteVisible(note) {
+  if (hasActiveSearchFilters()) {
+    return true;
+  }
+
   if (!state.selectedFolderId) {
     return true;
   }
   return isFolderWithinSelection(note.folderId);
+}
+
+function noteMatchesSelectedTags(note) {
+  if (!state.search.selectedTagIds.length) {
+    return true;
+  }
+
+  const noteTagIds = note.tagIds ?? [];
+  return state.search.selectedTagIds.every((tagId) => noteTagIds.includes(tagId));
 }
 
 function isFolderWithinSelection(folderId) {
@@ -4591,27 +4974,62 @@ function isFolderWithinSelection(folderId) {
 }
 
 function matchesSearch(value) {
-  if (!state.searchQuery) {
+  if (!state.search.keyword) {
     return true;
   }
 
-  return String(value ?? '').toLowerCase().includes(state.searchQuery);
+  return String(value ?? '').toLowerCase().includes(state.search.keyword);
 }
 
 function matchesFolderSearch(folder) {
-  if (!state.searchQuery) {
+  if (!state.search.keyword && !state.search.selectedTagIds.length) {
     return true;
   }
 
-  if (matchesSearch(folder.name)) {
+  if (matchesSearch(folder.name) && !state.search.selectedTagIds.length) {
     return true;
   }
 
-  if (getDirectNotesForFolder(folder.id).some((note) => matchesSearch(note.title))) {
+  if (getDirectNotesForFolder(folder.id).some((note) => matchesSearch(note.title) && noteMatchesSelectedTags(note))) {
     return true;
   }
 
   return (folder.children ?? []).some((child) => matchesFolderSearch(child));
+}
+
+function toggleSearchTagFilter(tagId) {
+  if (!tagId) {
+    return;
+  }
+
+  if (state.search.selectedTagIds.includes(tagId)) {
+    state.search.selectedTagIds = state.search.selectedTagIds.filter((currentTagId) => currentTagId !== tagId);
+  } else {
+    state.search.selectedTagIds = [...state.search.selectedTagIds, tagId];
+  }
+
+  state.search.isOpen = true;
+  reconcileSelection();
+  renderAll();
+}
+
+function clearSearchFilters() {
+  state.search.keyword = '';
+  state.search.selectedTagIds = [];
+  state.search.isOpen = false;
+  reconcileSelection();
+  renderAll();
+}
+
+function focusSearchInput() {
+  const input = elements.globalSearchShell?.querySelector('[data-search-input]');
+  if (!input) {
+    return;
+  }
+
+  input.focus();
+  const cursor = input.value.length;
+  input.setSelectionRange(cursor, cursor);
 }
 
 function isCreateEditorForParent(parentId) {
@@ -4647,6 +5065,199 @@ function normalizeNotes(notes) {
       favorite: Boolean(note.favorite),
       deleted: Boolean(note.deleted)
     }));
+}
+
+function replaceNoteInState(updatedNote) {
+  const normalizedNote = normalizeNotes([updatedNote])[0];
+  if (!normalizedNote) {
+    return;
+  }
+
+  state.allNotes = state.allNotes.map((note) => (
+    note.id === normalizedNote.id
+      ? {
+        ...note,
+        ...normalizedNote
+      }
+      : note
+  ));
+
+  reconcileSelection();
+  persistBackendCache();
+  renderAll();
+}
+
+function replaceTagInState(updatedTag) {
+  const existingTagIndex = state.tags.findIndex((tag) => tag.id === updatedTag.id);
+  if (existingTagIndex === -1) {
+    state.tags = [...state.tags, updatedTag];
+  } else {
+    state.tags = state.tags.map((tag) => (tag.id === updatedTag.id ? updatedTag : tag));
+  }
+
+  persistBackendCache();
+}
+
+function removeTagFromState(tagId) {
+  state.tags = state.tags.filter((tag) => tag.id !== tagId);
+  state.allNotes = state.allNotes.map((note) => ({
+    ...note,
+    tagIds: (note.tagIds ?? []).filter((currentTagId) => currentTagId !== tagId)
+  }));
+  state.search.selectedTagIds = state.search.selectedTagIds.filter((currentTagId) => currentTagId !== tagId);
+  persistBackendCache();
+}
+
+function buildTagId(name) {
+  const normalized = String(name ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\u4e00-\u9fa5_-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const baseId = normalized || `tag-${Date.now()}`;
+  let candidateId = `tag-${baseId}`;
+  let counter = 2;
+
+  while (state.tags.some((tag) => tag.id === candidateId)) {
+    candidateId = `tag-${baseId}-${counter}`;
+    counter += 1;
+  }
+
+  return candidateId;
+}
+
+async function addTagToCurrentNote(tagId) {
+  const currentNote = getCurrentNote();
+  if (!currentNote || currentNote.deleted || !tagId) {
+    return;
+  }
+
+  const nextTagIds = [...new Set([...(currentNote.tagIds ?? []), tagId])];
+
+  try {
+    if (state.dataMode === 'local') {
+      replaceNoteInState({
+        ...currentNote,
+        tagIds: nextTagIds,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      const payload = await fetchJson(`/api/knowledge/notes/${encodeURIComponent(currentNote.id)}/tags`, {
+        method: 'PUT',
+        body: JSON.stringify({ tagIds: nextTagIds })
+      });
+      replaceNoteInState(payload.data);
+    }
+
+    flashStatus('标签已添加到当前笔记');
+  } catch (error) {
+    flashStatus(error.message || '添加标签失败');
+  }
+}
+
+async function removeTagFromCurrentNote(tagId) {
+  const currentNote = getCurrentNote();
+  if (!currentNote || currentNote.deleted || !tagId) {
+    return;
+  }
+
+  try {
+    let updatedNote;
+
+    if (state.dataMode === 'local') {
+      updatedNote = {
+        ...currentNote,
+        tagIds: (currentNote.tagIds ?? []).filter((currentTagId) => currentTagId !== tagId),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      const payload = await fetchJson(
+        `/api/knowledge/notes/${encodeURIComponent(currentNote.id)}/tags/${encodeURIComponent(tagId)}`,
+        { method: 'DELETE' }
+      );
+      updatedNote = payload.data;
+    }
+
+    replaceNoteInState(updatedNote);
+    await cleanupOrphanTag(tagId);
+    flashStatus('标签已从当前笔记移除');
+  } catch (error) {
+    flashStatus(error.message || '移除标签失败');
+  }
+}
+
+async function createTagAndAssignToCurrentNote(name) {
+  const normalizedName = String(name ?? '').trim();
+  const currentNote = getCurrentNote();
+  if (!currentNote || currentNote.deleted || !normalizedName) {
+    return;
+  }
+
+  const existingTag = state.tags.find((tag) => tag.name.trim().toLowerCase() === normalizedName.toLowerCase());
+  if (existingTag) {
+    state.noteTagComposer.draft = '';
+    state.noteTagComposer.isExpanded = true;
+    await addTagToCurrentNote(existingTag.id);
+    renderSidebar(getCurrentNote());
+    return;
+  }
+
+  try {
+    const tagInput = {
+      id: buildTagId(normalizedName),
+      spaceId: state.currentSpaceId,
+      name: normalizedName,
+      color: '#3c68ff'
+    };
+
+    let createdTag;
+    if (state.dataMode === 'local') {
+      createdTag = {
+        ...tagInput,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      const payload = await fetchJson('/api/knowledge/tags', {
+        method: 'POST',
+        body: JSON.stringify(tagInput)
+      });
+      createdTag = payload.data;
+    }
+
+    replaceTagInState(createdTag);
+    state.noteTagComposer.draft = '';
+    state.noteTagComposer.isExpanded = true;
+    await addTagToCurrentNote(createdTag.id);
+    renderSidebar(getCurrentNote());
+    flashStatus('新标签已创建并绑定到当前笔记');
+  } catch (error) {
+    flashStatus(error.message || '创建标签失败');
+  }
+}
+
+async function cleanupOrphanTag(tagId) {
+  if (!tagId || state.allNotes.some((note) => (note.tagIds ?? []).includes(tagId))) {
+    return;
+  }
+
+  try {
+    if (state.dataMode === 'local') {
+      removeTagFromState(tagId);
+    } else {
+      await fetchJson(`/api/knowledge/tags/${encodeURIComponent(tagId)}`, {
+        method: 'DELETE'
+      });
+      removeTagFromState(tagId);
+    }
+
+    renderAll();
+  } catch (error) {
+    flashStatus(error.message || '清理孤立标签失败');
+  }
 }
 
 async function fetchJson(url, options = {}) {

@@ -10,8 +10,8 @@ const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8'
 
 assert.match(
   clientJs,
-  /const SECONDARY_SECTION_ITEMS = \[\s*\{ key: 'tags', label: '标签' },\s*\{ key: 'favorites', label: '收藏' },\s*\{ key: 'recent', label: '最近' },\s*\{ key: 'recycle', label: '回收站' }\s*\];/,
-  'left navigation section toggles should only keep tags, favorites, recent, and recycle sections'
+  /const SECONDARY_SECTION_ITEMS = \[\s*\{ key: 'favorites', label: '收藏' },\s*\{ key: 'recent', label: '最近' },\s*\{ key: 'recycle', label: '回收站' }\s*\];/,
+  'left navigation section toggles should only keep favorites, recent, and recycle sections after the tag redesign'
 );
 
 assert.match(
