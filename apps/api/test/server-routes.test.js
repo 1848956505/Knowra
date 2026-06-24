@@ -15,6 +15,119 @@ function requestJson({ port, method, path, body }) {
 
 export const serverRouteTests = [
   {
+    name: 'knowledge point routes create list update source and soft delete',
+    async run() {
+      const { createAppContext } = await import('../src/app.factory.js');
+      const { createServer } = await import('../src/server.js');
+
+      const appContext = createAppContext();
+      const server = createServer({ appContext });
+
+      await new Promise((resolve) => server.listen(0, resolve));
+      const port = server.address().port;
+
+      try {
+        const created = await requestJson({
+          port,
+          method: 'POST',
+          path: '/api/knowledge/knowledge-points',
+          body: {
+            id: 'route-kp-1',
+            spaceId: 'space-kp',
+            noteId: 'note-kp',
+            title: 'Route knowledge point',
+            sources: [{ id: 'route-source-1', noteId: 'note-kp', sourceText: 'route source' }]
+          }
+        });
+        const listed = await requestJson({
+          port,
+          method: 'GET',
+          path: '/api/knowledge/knowledge-points?spaceId=space-kp&noteId=note-kp'
+        });
+        const updated = await requestJson({
+          port,
+          method: 'PATCH',
+          path: '/api/knowledge/knowledge-points/route-kp-1',
+          body: {
+            title: 'Updated route point',
+            tagIds: ['tag-route']
+          }
+        });
+        const withSource = await requestJson({
+          port,
+          method: 'POST',
+          path: '/api/knowledge/knowledge-points/route-kp-1/sources',
+          body: {
+            id: 'route-source-2',
+            noteId: 'note-kp',
+            sourceText: 'second route source'
+          }
+        });
+        const removedSource = await requestJson({
+          port,
+          method: 'DELETE',
+          path: '/api/knowledge/knowledge-point-sources/route-source-2'
+        });
+        const deleted = await requestJson({
+          port,
+          method: 'DELETE',
+          path: '/api/knowledge/knowledge-points/route-kp-1'
+        });
+        const active = await requestJson({
+          port,
+          method: 'GET',
+          path: '/api/knowledge/knowledge-points?spaceId=space-kp'
+        });
+        const all = await requestJson({
+          port,
+          method: 'GET',
+          path: '/api/knowledge/knowledge-points?spaceId=space-kp&includeDeleted=true'
+        });
+
+        assert.equal(created.status, 201);
+        assert.equal(created.payload.data.id, 'route-kp-1');
+        assert.equal(listed.status, 200);
+        assert.equal(listed.payload.data.length, 1);
+        assert.equal(updated.payload.data.title, 'Updated route point');
+        assert.deepEqual(updated.payload.data.tagIds, ['tag-route']);
+        assert.equal(withSource.payload.data.sources.length, 2);
+        assert.equal(removedSource.payload.data.sources.length, 1);
+        assert.ok(deleted.payload.data.deletedAt);
+        assert.equal(active.payload.data.length, 0);
+        assert.equal(all.payload.data.length, 1);
+      } finally {
+        await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      }
+    }
+  },
+  {
+    name: 'knowledge point tag group route returns built-in groups',
+    async run() {
+      const { createAppContext } = await import('../src/app.factory.js');
+      const { createServer } = await import('../src/server.js');
+
+      const appContext = createAppContext();
+      const server = createServer({ appContext });
+
+      await new Promise((resolve) => server.listen(0, resolve));
+      const port = server.address().port;
+
+      try {
+        const result = await requestJson({
+          port,
+          method: 'GET',
+          path: '/api/knowledge/knowledge-point-tag-groups?spaceId=space-route-tags'
+        });
+
+        assert.equal(result.status, 200);
+        assert.deepEqual(result.payload.data.map((group) => group.code), ['ordinary', 'mastery', 'importance', 'purpose']);
+        assert.equal(result.payload.data.find((group) => group.code === 'mastery').tags.length, 3);
+      } finally {
+        await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      }
+    }
+  },
+  {
     name: 'DELETE note tag route removes tag without deleting note',
     async run() {
       const { createAppContext } = await import('../src/app.factory.js');

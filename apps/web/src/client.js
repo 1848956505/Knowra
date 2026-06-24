@@ -17,6 +17,12 @@ import {
   createOpenedEditorPanelState
 } from '../lib/editor/editor-panel-state.js';
 import { resolveEditorPanelKeyboardAction } from '../lib/editor/find-navigation.js';
+import {
+  captureScrollPosition,
+  getSavedScrollTop,
+  readScrollPositions,
+  writeScrollPositions
+} from '../lib/editor/scroll-positions.js';
 import { extractMarkdownHeadings, renderMarkdownPreview } from '../lib/markdown.js';
 import { validateSiblingName } from '../lib/tree-name-validation.js';
 import {
@@ -26,7 +32,13 @@ import {
   selectLoadRecovery
 } from '../lib/workspace-loading.js';
 import {
-  buildTreeFromFlatFolders,
+  clearWorkspaceCache,
+  readInitialWorkspaceSnapshot as readInitialWorkspaceSnapshotFromSource,
+  readWorkspaceCache,
+  writeWorkspaceCache
+} from '../lib/workspace-cache.js';
+import { buildMockWorkspaceState } from '../lib/mock-workspace.js';
+import {
   deleteFolder as deleteLocalFolderTree,
   flattenFolderTree,
   insertFolder as insertLocalFolder,
@@ -41,15 +53,85 @@ import {
   getEditorShortcutLabel,
   resolveEditorShortcutAction
 } from '../lib/editor/shortcut-actions.js';
+import { renderKnowledgePointPanel } from '../lib/knowledge-points/panel.js';
+import {
+  buildKnowledgePointInputFromSelection,
+  buildKnowledgePointSourceInputFromSelection
+} from '../lib/knowledge-points/selection.js';
+import {
+  buildCurrentNoteKnowledgePointSources,
+  insertKnowledgePointCollections,
+  removeKnowledgePointCollections,
+  replaceKnowledgePointCollections,
+  syncKnowledgePointMembershipCollections
+} from '../lib/knowledge-points/state.js';
+import {
+  buildUniqueTagId,
+  removeTagFromCollections,
+  upsertTag
+} from '../lib/tags/state.js';
+import {
+  getSelectedSearchTags as selectSearchTags,
+  getTagUsageCount as countTagUsage,
+  getVisibleSearchTags as selectVisibleSearchTags,
+  hasActiveSearchFilters as hasSearchFilters,
+  matchesSearch as valueMatchesSearch,
+  noteMatchesSelectedTags as noteHasSelectedSearchTags,
+  toggleSearchTagId,
+  withTagUsageCounts
+} from '../lib/search/state.js';
+import {
+  renderSearchPanel as renderSearchPanelMarkup,
+  renderSelectedSearchChips
+} from '../lib/search/renderers.js';
+import {
+  renderDeleteIntentRow as renderDeleteIntentRowMarkup,
+  renderEmptyTreeItem,
+  renderFolderIcon,
+  renderInlineEditorRow as renderInlineEditorRowMarkup,
+  renderNavigationSection,
+  renderNoteIcon,
+  renderNoteNode as renderNoteNodeMarkup,
+  renderRecycleNoteNode as renderRecycleNoteNodeMarkup
+} from '../lib/navigation/tree-renderers.js';
+import {
+  getDirectNotesForFolder as selectDirectNotesForFolder,
+  getSearchResultNotes as selectSearchResultNotes,
+  getVisibleNavigationNotes,
+  matchesFolderSearch as folderMatchesNavigationSearch
+} from '../lib/navigation/visibility.js';
+import {
+  canDropOnTarget as canDropOnNavigationTarget,
+  resolveDropTarget as resolveNavigationDropTarget
+} from '../lib/navigation/drag-drop.js';
+import { resolveClickTarget } from '../lib/navigation/click-target.js';
+import {
+  getContextMenuItems as getNavigationContextMenuItems,
+  resolveContextMenuTarget
+} from '../lib/navigation/context-menu.js';
+import { renderContextMenuItems } from '../lib/navigation/context-menu-renderers.js';
+import {
+  SECONDARY_SECTION_ITEMS,
+  renderSectionMenuItems
+} from '../lib/navigation/section-menu-renderers.js';
+import { createClearedNoteSideData } from '../lib/sidebar/state.js';
+import {
+  renderAiTab,
+  renderAsideEmptyInline,
+  renderAsideEmptyState
+} from '../lib/sidebar/renderers.js';
+import { renderInfoTab as renderInfoTabMarkup } from '../lib/sidebar/info-panel.js';
+import { renderOutlineTab as renderOutlineTabMarkup } from '../lib/sidebar/outline-panel.js';
+import {
+  openFolderBranch as expandFolderBranch,
+  resolveFolderSelection,
+  resolveNavigationSelection,
+  toggleFolderOpen as toggleOpenFolderState
+} from '../lib/navigation/selection.js';
+import { knowledgeApi } from './services/knowledge-api.js';
 
 const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
 const AUTOSAVE_DELAY_MS = 700;
-
-const SECONDARY_SECTION_ITEMS = [
-  { key: 'favorites', label: '收藏' },
-  { key: 'recent', label: '最近' },
-  { key: 'recycle', label: '回收站' }
-];
 
 const ASIDE_TABS = [
   { key: 'info', label: '信息' },
@@ -59,7 +141,7 @@ const ASIDE_TABS = [
 ];
 
 const editorContextPrimaryActions = ['cut', 'copy', 'paste', 'delete'];
-const editorContextFormatActions = ['bold', 'italic', 'codeblock', 'quote'];
+const editorContextFormatActions = ['bold', 'italic', 'highlight', 'codeblock', 'quote'];
 const editorContextListActions = ['ordered', 'bullet', 'task-list'];
 const editorContextIndentActions = ['outdent', 'indent'];
 const editorContextParagraphItems = [
@@ -72,6 +154,7 @@ const editorContextParagraphItems = [
   'heading-6'
 ];
 const editorContextInsertItems = [
+  'create-knowledge-point',
   'table',
   'hr',
   'image',
@@ -87,6 +170,7 @@ const editorContextActionMeta = {
   delete: { label: '删除', icon: 'delete' },
   bold: { label: '加粗', icon: 'bold' },
   italic: { label: '斜体', icon: 'italic' },
+  highlight: { label: '高亮', icon: 'highlight' },
   codeblock: { label: '代码块', icon: 'codeblock' },
   quote: { label: '引用', icon: 'quote' },
   ordered: { label: '有序列表', icon: 'ordered' },
@@ -102,6 +186,7 @@ const editorContextActionMeta = {
   'heading-5': { label: 'H5' },
   'heading-6': { label: 'H6' },
   table: { label: '表格', icon: 'table' },
+  'create-knowledge-point': { label: '创建知识点' },
   hr: { label: '水平分割线' },
   'paragraph-above': { label: '段落（上方）' },
   'paragraph-below': { label: '段落（下方）' },
@@ -143,6 +228,20 @@ const state = {
   },
   linkedNotes: [],
   attachments: [],
+  knowledgePoints: [],
+  allKnowledgePoints: [],
+  knowledgePointTagGroups: [],
+  knowledgePointFilters: {
+    query: '',
+    tagIds: [],
+    isOpen: false
+  },
+  knowledgePointAttachComposer: {
+    query: '',
+    isOpen: false
+  },
+  expandedKnowledgePointIds: {},
+  knowledgePointEditing: null,
   openNoteTabs: [],
   editorMenuOpen: null,
   view: {
@@ -212,15 +311,16 @@ const railItems = [
 ];
 
 const formatButtons = [
-  { key: 'table', label: '表格' },
-  { key: 'internal-link', label: '内部链接' },
+  // 插入
   { key: 'image', label: '图片' },
-  { key: 'task-list', label: '任务列表' },
+  { key: 'internal-link', label: '内部链接' },
+  { key: 'separator' },
+  // 文字格式
   { key: 'bold', label: '加粗' },
   { key: 'italic', label: '斜体' },
-  { key: 'quote', label: '引用' },
-  { key: 'bullet', label: '列表' },
-  { key: 'code', label: '行内代码' }
+  { key: 'strikethrough', label: '删除线' },
+  { key: 'code', label: '行内代码' },
+  { key: 'highlight', label: '高亮' }
 ];
 
 const editMenuItems = [
@@ -238,7 +338,7 @@ const editMenuItems = [
 
 
 const paragraphMenuItems = [
-  { key: 'paragraph', label: 'H0' },
+  { key: 'paragraph', label: '正文' },
   { key: 'heading-1', label: 'H1' },
   { key: 'heading-2', label: 'H2' },
   { key: 'heading-3', label: 'H3' },
@@ -252,7 +352,8 @@ const paragraphMenuItems = [
   { key: 'separator' },
   { key: 'quote', label: '引用块' },
   { key: 'codeblock', label: '代码块' },
-  { key: 'hr', label: '分割线' }
+  { key: 'hr', label: '分割线' },
+  { key: 'table', label: '表格' }
 ];
 
 const elements = {};
@@ -268,15 +369,15 @@ const SCROLL_POSITIONS_KEY = 'study-accelerator.editor-scroll-positions';
 
 function saveCurrentEditorScrollPosition() {
   const root = document.getElementById('milkdown-editor');
-  if (root && currentEditorNoteId && root.scrollTop > 0) {
-    editorScrollPositions[currentEditorNoteId] = root.scrollTop;
+  if (root) {
+    captureScrollPosition(editorScrollPositions, currentEditorNoteId, root.scrollTop);
   }
 }
 
 function restoreEditorScrollPosition(noteId) {
   const root = document.getElementById('milkdown-editor');
-  const saved = editorScrollPositions[noteId];
-  if (root && typeof saved === 'number' && saved > 0) {
+  const saved = getSavedScrollTop(editorScrollPositions, noteId);
+  if (root && saved) {
     requestAnimationFrame(() => {
       root.scrollTop = saved;
     });
@@ -284,29 +385,18 @@ function restoreEditorScrollPosition(noteId) {
 }
 
 function persistScrollPositions() {
-  try {
-    window.localStorage.setItem(SCROLL_POSITIONS_KEY, JSON.stringify(editorScrollPositions));
-  } catch (error) {
-    // Ignore cache failures.
-  }
+  writeScrollPositions(window.localStorage, SCROLL_POSITIONS_KEY, editorScrollPositions);
 }
 
 function loadScrollPositions() {
-  try {
-    const raw = window.localStorage.getItem(SCROLL_POSITIONS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      Object.assign(editorScrollPositions, parsed);
-    }
-  } catch (error) {
-    // Ignore cache failures.
-  }
+  Object.assign(editorScrollPositions, readScrollPositions(window.localStorage, SCROLL_POSITIONS_KEY));
 }
 
 initialize();
 
 function initialize() {
   cacheElements();
+  bindRuntimeErrorHandlers();
   renderRail();
   bindEvents();
 
@@ -315,21 +405,44 @@ function initialize() {
 
   const initialSnapshot = readInitialWorkspaceSnapshot();
   const cachedSnapshot = readBackendCache();
-  const startupSnapshot = mergeWorkspaceSnapshots(initialSnapshot, cachedSnapshot);
+  let startupSnapshot = mergeWorkspaceSnapshots(initialSnapshot, cachedSnapshot);
 
   if (selectInitialWorkspaceSource({ cachedSnapshot: startupSnapshot }) === 'cache') {
     state.dataMode = 'cache';
     state.statusMessage = initialSnapshot ? '后端资料已同步' : '正在同步后端资料...';
-    loadCachedWorkspaceData(startupSnapshot);
+    try {
+      loadCachedWorkspaceData(startupSnapshot);
 
-    if (initialSnapshot) {
-      persistBackendCache();
+      if (initialSnapshot) {
+        persistBackendCache();
+      }
+    } catch (error) {
+      clearWorkspaceCache(window.localStorage, BACKEND_CACHE_KEY);
+      startupSnapshot = null;
+      resetWorkspaceDataForStartupRecovery();
+      flashStatus('本地缓存已失效，正在重新加载资料...');
     }
   } else {
     renderAll();
   }
 
   void loadWorkspaceData({ cachedSnapshot: startupSnapshot });
+}
+
+function resetWorkspaceDataForStartupRecovery() {
+  state.dataMode = 'loading';
+  state.spaces = [];
+  state.currentSpaceId = null;
+  state.folderTree = [];
+  state.foldersById = {};
+  state.tags = [];
+  state.allNotes = [];
+  state.selectedFolderId = null;
+  state.selectedNoteId = null;
+  state.openFolders = {};
+  state.openNoteTabs = [];
+  Object.assign(state, createClearedNoteSideData());
+  renderAll();
 }
 
 function cacheElements() {
@@ -352,6 +465,22 @@ function cacheElements() {
   elements.asideContent = document.getElementById('aside-content');
   elements.statusIndicators = document.getElementById('status-indicators');
   elements.statusMeta = document.getElementById('status-meta');
+}
+
+function bindRuntimeErrorHandlers() {
+  window.addEventListener('error', (event) => {
+    reportRuntimeError('runtime', event.error || event.message);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    reportRuntimeError('promise', event.reason);
+  });
+}
+
+function reportRuntimeError(scope, error) {
+  const message = error?.message || String(error || '未知错误');
+  state.statusMessage = `前端运行异常（${scope}）：${message}`;
+  renderStatus();
+  console.error(`[study:${scope}]`, error);
 }
 
 function bindEvents() {
@@ -454,94 +583,52 @@ function bindEvents() {
   });
 
   elements.folderTree?.addEventListener('click', (event) => {
-    const navSection = event.target.closest('[data-nav-section]');
-    if (navSection) {
-      const sectionKey = navSection.dataset.navSection;
-      state.navSections[sectionKey] = !(state.navSections[sectionKey] ?? false);
+    const clickTarget = resolveClickTarget(event.target);
+    if (!clickTarget) {
+      return;
+    }
+
+    if (clickTarget.type === 'toggle-section') {
+      state.navSections[clickTarget.sectionKey] = !(state.navSections[clickTarget.sectionKey] ?? false);
       closeContextMenu();
       renderFolders();
       return;
     }
 
-    const folderToggle = event.target.closest('[data-folder-toggle]');
-    if (folderToggle?.dataset.folderToggle) {
+    if (clickTarget.type === 'toggle-folder') {
       event.stopPropagation();
-      toggleFolderOpen(folderToggle.dataset.folderToggle);
+      toggleFolderOpen(clickTarget.folderId);
       return;
     }
 
-    const folderButton = event.target.closest('[data-folder-id]');
-    if (folderButton?.dataset.folderId) {
-      void selectFolder(folderButton.dataset.folderId);
+    if (clickTarget.type === 'select-folder') {
+      void selectFolder(clickTarget.folderId);
       return;
     }
 
-    const noteButton = event.target.closest('[data-note-id]');
-    if (noteButton?.dataset.noteId) {
-      void selectNote(noteButton.dataset.noteId, { syncFolder: true });
+    if (clickTarget.type === 'select-note') {
+      void selectNote(clickTarget.noteId, { syncFolder: true });
     }
   });
 
   elements.folderTree?.addEventListener('contextmenu', (event) => {
-    const noteButton = event.target.closest('[data-note-id]');
-    const recycleNoteButton = event.target.closest('[data-recycle-note-id]');
-    const recycleSection = event.target.closest('[data-recycle-section]');
-    const folderButton = event.target.closest('[data-folder-id]');
-    const materialsSection = event.target.closest('[data-materials-section]');
-
-    if (!noteButton && !recycleNoteButton && !recycleSection && !folderButton && !materialsSection) {
+    const contextTarget = resolveContextMenuTarget(event.target);
+    if (!contextTarget) {
       return;
     }
 
     event.preventDefault();
 
-    if (noteButton?.dataset.noteId) {
-      openContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        targetKind: 'note',
-        targetId: noteButton.dataset.noteId
-      });
-      return;
-    }
-
-    if (recycleNoteButton?.dataset.recycleNoteId) {
-      openContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        targetKind: 'note',
-        targetId: recycleNoteButton.dataset.recycleNoteId
-      });
-      return;
-    }
-
-    if (recycleSection) {
-      openContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        targetKind: 'recycle-section',
-        targetId: 'recycle'
-      });
-      return;
-    }
-
-    if (folderButton?.dataset.folderId) {
-      state.selectedFolderId = folderButton.dataset.folderId;
-      openContextMenu({
-        x: event.clientX,
-        y: event.clientY,
-        targetKind: 'folder',
-        targetId: folderButton.dataset.folderId
-      });
+    if (contextTarget.selectFolderId) {
+      state.selectedFolderId = contextTarget.selectFolderId;
       renderStatus();
-      return;
     }
 
     openContextMenu({
       x: event.clientX,
       y: event.clientY,
-      targetKind: 'materials',
-      targetId: null
+      targetKind: contextTarget.kind,
+      targetId: contextTarget.id
     });
   });
 
@@ -724,6 +811,109 @@ function bindEvents() {
       return;
     }
 
+    const knowledgePointFilterToggle = event.target.closest('[data-knowledge-point-filter-toggle]');
+    if (knowledgePointFilterToggle) {
+      state.knowledgePointFilters.isOpen = !state.knowledgePointFilters.isOpen;
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointFilterClear = event.target.closest('[data-knowledge-point-filter-clear]');
+    if (knowledgePointFilterClear) {
+      state.knowledgePointFilters = { query: '', tagIds: [], isOpen: false };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointFilterTag = event.target.closest('[data-knowledge-point-filter-tag]');
+    if (knowledgePointFilterTag?.dataset.knowledgePointFilterTag) {
+      const tagId = knowledgePointFilterTag.dataset.knowledgePointFilterTag;
+      const selectedTagIds = new Set(state.knowledgePointFilters.tagIds ?? []);
+      if (selectedTagIds.has(tagId)) {
+        selectedTagIds.delete(tagId);
+      } else {
+        selectedTagIds.add(tagId);
+      }
+      state.knowledgePointFilters = {
+        ...state.knowledgePointFilters,
+        tagIds: [...selectedTagIds],
+        isOpen: true
+      };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointToggle = event.target.closest('[data-knowledge-point-toggle]');
+    if (knowledgePointToggle?.dataset.knowledgePointToggle) {
+      const pointId = knowledgePointToggle.dataset.knowledgePointToggle;
+      state.expandedKnowledgePointIds = {
+        ...state.expandedKnowledgePointIds,
+        [pointId]: !state.expandedKnowledgePointIds[pointId]
+      };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointEdit = event.target.closest('[data-knowledge-point-edit]');
+    if (knowledgePointEdit?.dataset.knowledgePointEdit) {
+      const point = state.knowledgePoints.find((item) => item.id === knowledgePointEdit.dataset.knowledgePointEdit);
+      if (!point) {
+        return;
+      }
+      state.knowledgePointEditing = {
+        id: point.id,
+        title: point.title,
+        comment: point.comment ?? ''
+      };
+      state.expandedKnowledgePointIds = {
+        ...state.expandedKnowledgePointIds,
+        [point.id]: true
+      };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointEditCancel = event.target.closest('[data-knowledge-point-edit-cancel]');
+    if (knowledgePointEditCancel) {
+      state.knowledgePointEditing = null;
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointAttachToggle = event.target.closest('[data-knowledge-point-attach-toggle]');
+    if (knowledgePointAttachToggle) {
+      state.knowledgePointAttachComposer = {
+        ...state.knowledgePointAttachComposer,
+        isOpen: !state.knowledgePointAttachComposer.isOpen
+      };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointAttachExisting = event.target.closest('[data-knowledge-point-attach-existing]');
+    if (knowledgePointAttachExisting?.dataset.knowledgePointAttachExisting) {
+      void attachSelectionToExistingKnowledgePoint(knowledgePointAttachExisting.dataset.knowledgePointAttachExisting);
+      return;
+    }
+
+    const knowledgePointSourceRemove = event.target.closest('[data-knowledge-point-source-remove]');
+    if (knowledgePointSourceRemove?.dataset.knowledgePointSourceRemove) {
+      void removeKnowledgePointSourceFromCurrentNote(knowledgePointSourceRemove.dataset.knowledgePointSourceRemove);
+      return;
+    }
+
+    const knowledgePointDelete = event.target.closest('[data-knowledge-point-delete]');
+    if (knowledgePointDelete?.dataset.knowledgePointDelete) {
+      void deleteKnowledgePointFromLibrary(knowledgePointDelete.dataset.knowledgePointDelete);
+      return;
+    }
+
+    const knowledgePointSourceJump = event.target.closest('[data-knowledge-point-source-jump]');
+    if (knowledgePointSourceJump?.dataset.knowledgePointSourceJump) {
+      void selectKnowledgePointSource(knowledgePointSourceJump.dataset.knowledgePointSourceJump);
+      return;
+    }
+
     const outlineButton = event.target.closest('[data-outline-id]');
     if (!outlineButton?.dataset.outlineId) {
       return;
@@ -757,6 +947,15 @@ function bindEvents() {
       x: event.clientX,
       y: event.clientY
     });
+  });
+
+  elements.editorContent?.addEventListener('knowledge-point-marker-click', (event) => {
+    const { sourceId, knowledgePointId } = event.detail ?? {};
+    if (!sourceId && !knowledgePointId) {
+      return;
+    }
+
+    focusKnowledgePointFromMarker({ sourceId, knowledgePointId });
   });
 
   elements.editorContextMenu?.addEventListener('click', (event) => {
@@ -812,12 +1011,55 @@ function bindEvents() {
   });
 
   elements.asideContent?.addEventListener('input', (event) => {
+    const knowledgePointFilterInput = event.target.closest('[data-knowledge-point-filter-input]');
+    if (knowledgePointFilterInput) {
+      state.knowledgePointFilters = {
+        ...state.knowledgePointFilters,
+        query: knowledgePointFilterInput.value,
+        isOpen: true
+      };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
+    const knowledgePointEditForm = event.target.closest('[data-knowledge-point-edit-form]');
+    if (knowledgePointEditForm && state.knowledgePointEditing) {
+      const formData = new FormData(knowledgePointEditForm);
+      state.knowledgePointEditing = {
+        ...state.knowledgePointEditing,
+        title: String(formData.get('title') ?? ''),
+        comment: String(formData.get('comment') ?? '')
+      };
+      return;
+    }
+
+    const knowledgePointAttachQuery = event.target.closest('[data-knowledge-point-attach-query]');
+    if (knowledgePointAttachQuery) {
+      state.knowledgePointAttachComposer = {
+        ...state.knowledgePointAttachComposer,
+        query: knowledgePointAttachQuery.value,
+        isOpen: true
+      };
+      renderSidebar(getCurrentNote());
+      return;
+    }
+
     const input = event.target.closest('[data-note-tag-input]');
     if (!input) {
       return;
     }
 
     state.noteTagComposer.draft = input.value;
+  });
+
+  elements.asideContent?.addEventListener('submit', (event) => {
+    const knowledgePointEditForm = event.target.closest('[data-knowledge-point-edit-form]');
+    if (!knowledgePointEditForm?.dataset.knowledgePointEditForm) {
+      return;
+    }
+
+    event.preventDefault();
+    void updateCurrentKnowledgePoint(knowledgePointEditForm.dataset.knowledgePointEditForm, knowledgePointEditForm);
   });
 
   elements.asideContent?.addEventListener('keydown', (event) => {
@@ -1018,8 +1260,7 @@ function bindEvents() {
       }
     }
 
-    const panel = event.target.closest?.('#editor-utility-panel');
-    if (panel && state.editorPanel.open && state.editorPanel.mode === 'find') {
+    if (state.editorPanel.open && state.editorPanel.mode === 'find') {
       const action = resolveEditorPanelKeyboardAction(event);
       if (action) {
         event.preventDefault();
@@ -1091,10 +1332,15 @@ async function loadWorkspaceData({ cachedSnapshot = null } = {}) {
     });
 
     if (recoveryMode === 'cache') {
-      loadCachedWorkspaceData(recoverySnapshot);
-      state.dataMode = 'cache';
-      flashStatus('后端暂时不可用，已显示最近一次成功加载的资料');
-      return;
+      try {
+        loadCachedWorkspaceData(recoverySnapshot);
+        state.dataMode = 'cache';
+        flashStatus('后端暂时不可用，已显示最近一次成功加载的资料');
+        return;
+      } catch (cacheError) {
+        clearWorkspaceCache(window.localStorage, BACKEND_CACHE_KEY);
+        resetWorkspaceDataForStartupRecovery();
+      }
     }
 
     loadMockWorkspaceData();
@@ -1104,8 +1350,7 @@ async function loadWorkspaceData({ cachedSnapshot = null } = {}) {
 }
 
 async function ensureSpaceId() {
-  const spacesPayload = await fetchJson('/api/knowledge/spaces');
-  const spaces = Array.isArray(spacesPayload.data) ? spacesPayload.data : [];
+  const spaces = await knowledgeApi.listKnowledgeSpaces();
 
   if (spaces.length > 0) {
     state.spaces = spaces;
@@ -1113,27 +1358,19 @@ async function ensureSpaceId() {
     return state.currentSpaceId;
   }
 
-  const createdPayload = await fetchJson('/api/knowledge/spaces/default', {
-    method: 'POST',
-    body: JSON.stringify({ userId: 'demo' })
-  });
-  const createdSpace = createdPayload.data;
+  const createdSpace = await knowledgeApi.createDefaultKnowledgeSpace({ userId: 'demo' });
   state.spaces = [createdSpace];
   state.currentSpaceId = createdSpace.id;
   return state.currentSpaceId;
 }
 
 async function refreshKnowledgeData(spaceId = state.currentSpaceId) {
-  const [folderTreePayload, notesPayload, tagsPayload] = await Promise.all([
-    fetchJson(`/api/knowledge/folders/tree?spaceId=${encodeURIComponent(spaceId)}`),
-    fetchJson(`/api/knowledge/notes?spaceId=${encodeURIComponent(spaceId)}&includeDeleted=true`),
-    fetchJson(`/api/knowledge/tags?spaceId=${encodeURIComponent(spaceId)}`)
-  ]);
+  const resources = await knowledgeApi.loadWorkspaceResources(spaceId);
 
-  state.folderTree = normalizeFolderTree(folderTreePayload.data ?? []);
+  state.folderTree = normalizeFolderTree(resources.folderTree);
   state.foldersById = flattenFolderTree(state.folderTree);
-  state.tags = Array.isArray(tagsPayload.data) ? tagsPayload.data : [];
-  state.allNotes = normalizeNotes(notesPayload.data ?? []);
+  state.tags = resources.tags;
+  state.allNotes = normalizeNotes(resources.notes);
   state.openFolders = {
     ...Object.fromEntries(Object.keys(state.foldersById).map((folderId) => [folderId, true])),
     ...state.openFolders
@@ -1145,43 +1382,17 @@ async function refreshKnowledgeData(spaceId = state.currentSpaceId) {
 }
 
 function persistBackendCache() {
-  try {
-    window.localStorage.setItem(
-      BACKEND_CACHE_KEY,
-      JSON.stringify(createBackendSnapshot(state))
-    );
-  } catch (error) {
-    // Ignore cache failures in restricted browser contexts.
-  }
+  writeWorkspaceCache(window.localStorage, BACKEND_CACHE_KEY, createBackendSnapshot(state));
   saveCurrentEditorScrollPosition();
   persistScrollPositions();
 }
 
 function readBackendCache() {
-  try {
-    const raw = window.localStorage.getItem(BACKEND_CACHE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.folderTree) || !Array.isArray(parsed.allNotes)) {
-      return null;
-    }
-
-    return parsed;
-  } catch (error) {
-    return null;
-  }
+  return readWorkspaceCache(window.localStorage, BACKEND_CACHE_KEY);
 }
 
 function readInitialWorkspaceSnapshot() {
-  const snapshot = window.__STUDY_INITIAL_WORKSPACE__;
-  if (!snapshot || !Array.isArray(snapshot.folderTree) || !Array.isArray(snapshot.allNotes)) {
-    return null;
-  }
-
-  return snapshot;
+  return readInitialWorkspaceSnapshotFromSource(window);
 }
 
 function loadCachedWorkspaceData(snapshot) {
@@ -1204,28 +1415,14 @@ function loadCachedWorkspaceData(snapshot) {
 }
 
 function loadMockWorkspaceData() {
-  const mockSpace = {
-    id: 'space-local-preview',
-    name: '本地演示空间'
-  };
-  const folders = knowledgeBaseSeed.folders.map((folder) => ({
-    ...folder,
-    spaceId: mockSpace.id
-  }));
-  const notes = knowledgeBaseSeed.notes.map((note) => ({
-    ...note,
-    spaceId: mockSpace.id,
-    tagIds: [...(note.tagIds ?? [])],
-    internalLinks: [...(note.internalLinks ?? [])]
-  }));
-
-  state.spaces = [mockSpace];
-  state.currentSpaceId = mockSpace.id;
-  state.folderTree = buildTreeFromFlatFolders(folders);
-  state.foldersById = flattenFolderTree(state.folderTree);
-  state.tags = [...knowledgeBaseSeed.tags];
-  state.allNotes = normalizeNotes(notes);
-  state.openFolders = Object.fromEntries(Object.keys(state.foldersById).map((folderId) => [folderId, true]));
+  const mockState = buildMockWorkspaceState(knowledgeBaseSeed);
+  state.spaces = mockState.spaces;
+  state.currentSpaceId = mockState.currentSpaceId;
+  state.folderTree = mockState.folderTree;
+  state.foldersById = mockState.foldersById;
+  state.tags = mockState.tags;
+  state.allNotes = normalizeNotes(mockState.allNotes);
+  state.openFolders = mockState.openFolders;
 
   reconcileSelection();
   loadLocalNoteSideData(state.selectedNoteId);
@@ -1233,34 +1430,38 @@ function loadMockWorkspaceData() {
 }
 
 function reconcileSelection() {
-  if (state.selectedFolderId && !state.foldersById[state.selectedFolderId]) {
-    state.selectedFolderId = null;
+  const validSelectedFolderId = state.selectedFolderId && !state.foldersById[state.selectedFolderId]
+    ? null
+    : state.selectedFolderId;
+  const selection = resolveNavigationSelection({
+    selectedFolderId: state.selectedFolderId,
+    foldersById: state.foldersById,
+    activeNotes: getActiveNotes(),
+    visibleNotes: getVisibleNavigationNotes({
+      notes: state.allNotes,
+      foldersById: state.foldersById,
+      selectedFolderId: validSelectedFolderId,
+      search: state.search
+    }),
+    selectedNoteId: state.selectedNoteId,
+    openNoteTabs: state.openNoteTabs
+  });
+
+  state.selectedFolderId = selection.selectedFolderId;
+  state.selectedNoteId = selection.selectedNoteId;
+  state.openNoteTabs = selection.openNoteTabs;
+  state.draftMarkdown = selection.draftMarkdown;
+  state.saveState = selection.saveState;
+  state.lastSavedAt = selection.lastSavedAt;
+
+  if (selection.noteTagDraft !== undefined) {
+    state.noteTagComposer.draft = selection.noteTagDraft;
   }
 
-  const existingNoteIds = new Set(getActiveNotes().map((note) => note.id));
-  state.openNoteTabs = state.openNoteTabs.filter((noteId) => existingNoteIds.has(noteId));
-
-  const visibleNotes = getVisibleNotes();
-
-  if (visibleNotes.length === 0) {
+  if (selection.shouldClearSideData) {
     state.selectedNoteId = null;
-    state.draftMarkdown = '';
-    state.linkedNotes = [];
-    state.attachments = [];
-    state.openNoteTabs = [];
-    return;
+    clearNoteSideData();
   }
-
-  if (!state.selectedNoteId || !visibleNotes.some((note) => note.id === state.selectedNoteId)) {
-    state.selectedNoteId = visibleNotes[0].id;
-    state.noteTagComposer.draft = '';
-  }
-
-  const currentNote = getCurrentNote();
-  state.openNoteTabs = ensureOpenTab(state.openNoteTabs, currentNote?.id ?? null);
-  state.draftMarkdown = currentNote?.rawMarkdown ?? '';
-  state.saveState = currentNote ? 'saved' : 'idle';
-  state.lastSavedAt = currentNote?.updatedAt ?? null;
 }
 
 async function loadCurrentNoteSideData() {
@@ -1273,29 +1474,32 @@ async function loadCurrentNoteSideData() {
 
 async function loadApiNoteSideData(noteId) {
   if (!noteId) {
-    state.linkedNotes = [];
-    state.attachments = [];
+    clearNoteSideData();
+    syncKnowledgePointMarkers();
     return;
   }
 
   try {
-    const [linkedPayload, attachmentsPayload] = await Promise.all([
-      fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/links`),
-      fetchJson(`/api/storage/attachments?noteId=${encodeURIComponent(noteId)}`)
-    ]);
-    state.linkedNotes = Array.isArray(linkedPayload.data) ? linkedPayload.data : [];
-    state.attachments = Array.isArray(attachmentsPayload.data) ? attachmentsPayload.data : [];
+    const note = state.allNotes.find((item) => item.id === noteId);
+    const spaceId = note?.spaceId ?? state.currentSpaceId;
+    const sideData = await knowledgeApi.loadNoteSideData({ noteId, spaceId });
+    state.linkedNotes = sideData.linkedNotes;
+    state.attachments = sideData.attachments;
+    state.knowledgePoints = sideData.knowledgePoints;
+    state.allKnowledgePoints = sideData.allKnowledgePoints;
+    state.knowledgePointTagGroups = sideData.knowledgePointTagGroups;
+    syncKnowledgePointMarkers();
   } catch (error) {
-    state.linkedNotes = [];
-    state.attachments = [];
+    clearNoteSideData({ keepEditing: true });
+    syncKnowledgePointMarkers();
     flashStatus(`附加信息加载失败：${error.message}`);
   }
 }
 
 function loadLocalNoteSideData(noteId) {
   if (!noteId) {
-    state.linkedNotes = [];
-    state.attachments = [];
+    clearNoteSideData();
+    syncKnowledgePointMarkers();
     return;
   }
 
@@ -1304,6 +1508,17 @@ function loadLocalNoteSideData(noteId) {
     .map((linkedId) => state.allNotes.find((item) => item.id === linkedId))
     .filter(Boolean);
   state.attachments = knowledgeBaseSeed.attachments.filter((attachment) => attachment.noteId === noteId);
+  state.knowledgePoints = [];
+  state.allKnowledgePoints = [];
+  state.knowledgePointTagGroups = [];
+  syncKnowledgePointMarkers();
+}
+
+function clearNoteSideData({ keepEditing = false } = {}) {
+  Object.assign(state, createClearedNoteSideData({
+    editing: state.knowledgePointEditing,
+    keepEditing
+  }));
 }
 
 function renderRail() {
@@ -1407,15 +1622,24 @@ function renderRailIcon(key) {
 }
 
 function renderAll() {
-  renderSearchShell();
-  renderWorkspaceViewState();
-  renderFolders();
-  renderTabs();
-  renderEditorMenuBar();
-  renderEditor(getCurrentNote());
-  renderSidebar(getCurrentNote());
-  renderEditorContextMenu();
-  renderStatus();
+  const currentNote = getCurrentNote();
+  safeRenderStep('search', renderSearchShell);
+  safeRenderStep('workspace-view', renderWorkspaceViewState);
+  safeRenderStep('navigation', renderFolders);
+  safeRenderStep('tabs', renderTabs);
+  safeRenderStep('editor-menu', renderEditorMenuBar);
+  safeRenderStep('editor', () => renderEditor(currentNote));
+  safeRenderStep('sidebar', () => renderSidebar(currentNote));
+  safeRenderStep('editor-context-menu', renderEditorContextMenu);
+  safeRenderStep('status', renderStatus);
+}
+
+function safeRenderStep(name, renderStep) {
+  try {
+    renderStep();
+  } catch (error) {
+    reportRuntimeError(name, error);
+  }
 }
 
 function renderSearchShell() {
@@ -1425,8 +1649,6 @@ function renderSearchShell() {
 
   const hasFilters = hasActiveSearchFilters();
   const selectedTags = getSelectedSearchTags();
-  const visibleInlineTags = selectedTags.slice(0, 2);
-  const overflowTagCount = Math.max(0, selectedTags.length - visibleInlineTags.length);
 
   if (!elements.globalSearchShell.querySelector('.top-bar-search-control')) {
     elements.globalSearchShell.innerHTML = `
@@ -1469,23 +1691,7 @@ function renderSearchShell() {
   }
 
   if (chipTrack) {
-    chipTrack.innerHTML = visibleInlineTags
-      .map(
-        (tag) => `
-          <button type="button" class="top-search-chip" data-search-chip-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
-            <span class="top-search-chip-dot" style="background:${escapeHtml(tag.color || '#3c68ff')};"></span>
-            <span class="top-search-chip-label">${escapeHtml(tag.name)}</span>
-            <span class="top-search-chip-remove" aria-hidden="true">×</span>
-          </button>
-        `
-      )
-      .join('');
-
-    if (overflowTagCount > 0) {
-      chipTrack.innerHTML += `
-        <span class="top-search-chip top-search-chip-summary" title="还有 ${overflowTagCount} 个已选标签">+${overflowTagCount}</span>
-      `;
-    }
+    chipTrack.innerHTML = renderSelectedSearchChips(selectedTags);
   }
 
   if (clearButton) {
@@ -1498,53 +1704,15 @@ function renderSearchShell() {
 }
 
 function renderSearchPanel() {
-  if (!state.search.isOpen && !hasActiveSearchFilters()) {
-    return '';
-  }
-
   const selectedTags = getSelectedSearchTags();
   const visibleTags = getVisibleSearchTags();
-
-  return `
-    <div class="search-panel">
-      <div class="search-panel-header">
-        <div class="search-panel-title">标签筛选</div>
-        ${hasActiveSearchFilters() ? '<button type="button" class="top-search-clear" data-search-clear>清空筛选</button>' : ''}
-      </div>
-      ${selectedTags.length ? `
-        <section class="search-panel-section">
-          <div class="search-panel-title">已选标签</div>
-          <div class="search-panel-chips">
-            ${selectedTags.map((tag) => renderSearchTagOption(tag, true)).join('')}
-          </div>
-        </section>
-      ` : ''}
-      <section class="search-panel-section">
-        <div class="search-panel-title">全部标签</div>
-        <div class="search-panel-chips">
-          ${visibleTags.length
-            ? visibleTags.map((tag) => renderSearchTagOption(tag, state.search.selectedTagIds.includes(tag.id))).join('')
-            : '<div class="search-panel-empty">没有匹配标签</div>'}
-        </div>
-      </section>
-    </div>
-  `;
-}
-
-function renderSearchTagOption(tag, selected = false) {
-  return `
-    <button
-      type="button"
-      class="search-tag-option"
-      data-search-tag-id="${escapeAttribute(tag.id)}"
-      data-selected="${String(selected)}"
-      title="筛选标签：${escapeAttribute(tag.name)}"
-    >
-      <span class="search-tag-dot" style="background:${escapeHtml(tag.color || '#3c68ff')};"></span>
-      <span>${escapeHtml(tag.name)}</span>
-      <span class="search-tag-count">${getTagUsageCount(tag.id)}</span>
-    </button>
-  `;
+  return renderSearchPanelMarkup({
+    selectedTags,
+    visibleTags,
+    selectedTagIds: state.search.selectedTagIds,
+    hasFilters: hasActiveSearchFilters(),
+    isOpen: state.search.isOpen
+  });
 }
 
 function getEffectiveViewState() {
@@ -1822,12 +1990,18 @@ function renderFormatMenu(note) {
   return `
     <div class="editor-menu-popover" data-editor-menu="format">
       ${formatButtons
-        .map((item) => renderEditorMenuItem({
-          actionAttr: 'data-format-menu-action',
-          actionKey: item.key,
-          disabled: !hasNote,
-          label: item.label
-        }))
+        .map((item) => {
+          if (item.key === 'separator') {
+            return '<div class="editor-menu-divider" aria-hidden="true"></div>';
+          }
+
+          return renderEditorMenuItem({
+            actionAttr: 'data-format-menu-action',
+            actionKey: item.key,
+            disabled: !hasNote,
+            label: item.label
+          });
+        })
         .join('')}
     </div>
   `;
@@ -1918,33 +2092,14 @@ function renderTabMenu() {
 
 function renderNavSection({ key, label, count, children }) {
   const open = state.navSections[key] ?? false;
-  const isMaterials = key === 'materials';
-  const isRecycle = key === 'recycle';
-  const isDropTarget = isMaterials && isRootDropActive();
-
-  return `
-    <div class="library-node-group library-section-group">
-      <button
-        type="button"
-        class="library-node library-section-node"
-        data-nav-section="${key}"
-        data-open="${open}"
-        data-level="0"
-        data-drop-target="${isDropTarget}"
-        ${isMaterials ? 'data-materials-section="true"' : ''}
-        ${isRecycle ? 'data-recycle-section="true"' : ''}
-      >
-        <span class="library-node-leading">
-          <svg viewBox="0 0 16 16" aria-hidden="true" class="library-chevron" data-open="${open}">
-            <path d="M5 3.5 10 8l-5 4.5"></path>
-          </svg>
-        </span>
-        <span class="library-node-label library-section-label">${escapeHtml(label)}</span>
-        <span class="library-section-meta">${escapeHtml(count)}</span>
-      </button>
-      ${open ? `<div class="library-node-children">${children}</div>` : ''}
-    </div>
-  `;
+  return renderNavigationSection({
+    key,
+    label,
+    count,
+    children,
+    open,
+    isDropTarget: key === 'materials' && isRootDropActive()
+  });
 }
 
 function renderMaterialsTree(topFolders) {
@@ -2040,26 +2195,7 @@ function renderNoteNode(note, level) {
 
   const rowMarkup = isRenaming
     ? renderInlineEditorRow(level, 'rename-note', state.treeEditor.value)
-    : `
-      <button
-        type="button"
-        class="library-node library-note-node"
-        data-note-id="${note.id}"
-        data-level="${level}"
-        data-selected="${selected}"
-        data-drag-kind="note"
-        data-drag-id="${note.id}"
-        data-dragging="${isDragging}"
-        title="${escapeHtml(note.title)}"
-        draggable="true"
-      >
-        <span class="library-node-leading">
-          <span class="library-node-spacer"></span>
-          ${renderNoteIcon(iconKind)}
-        </span>
-        <span class="library-node-label">${escapeHtml(note.title)}</span>
-      </button>
-    `;
+    : renderNoteNodeMarkup({ note, level, selected, isDragging, iconKind });
 
   if (!isDeleting) {
     return rowMarkup;
@@ -2076,90 +2212,23 @@ function renderNoteNode(note, level) {
 }
 
 function renderRecycleNoteNode(note, level) {
-  return `
-    <div class="library-node-group">
-      <button
-        type="button"
-        class="library-node library-note-node library-note-node-recycle"
-        data-recycle-note-id="${note.id}"
-        data-level="${level}"
-        title="${escapeHtml(note.title)}"
-      >
-        <span class="library-node-leading">
-          <span class="library-node-spacer"></span>
-          ${renderNoteIcon(resolveNoteVisualType(note))}
-        </span>
-        <span class="library-node-label">${escapeHtml(note.title)}</span>
-      </button>
-    </div>
-  `;
+  return renderRecycleNoteNodeMarkup({
+    note,
+    level,
+    iconKind: resolveNoteVisualType(note)
+  });
 }
 
 function renderInlineEditorRow(level, mode, value) {
-  const placeholder = mode.includes('folder') ? '输入目录名称' : '输入文件名称';
-
-  return `
-    <div class="library-inline-editor" style="--tree-level:${level}">
-      <form class="library-inline-form" data-inline-editor-form>
-        <span class="library-inline-icon" aria-hidden="true">
-          ${mode.includes('folder') ? renderFolderIcon(true) : renderNoteIcon('markdown')}
-        </span>
-        <input
-          type="text"
-          class="library-inline-input"
-          data-inline-editor-input
-          value="${escapeAttribute(value)}"
-          placeholder="${placeholder}"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <div class="library-inline-actions">
-          <button type="submit" class="library-inline-action" title="确认">✓</button>
-          <button type="button" class="library-inline-action" data-editor-cancel title="取消">×</button>
-        </div>
-      </form>
-    </div>
-  `;
+  return renderInlineEditorRowMarkup({ level, mode, value });
 }
 
 function renderDeleteIntentRow(level, kind, targetId, name) {
-  return `
-    <div class="library-inline-confirm" style="--tree-level:${level}">
-      <div class="library-inline-confirm-body">
-        <span class="library-inline-confirm-text">删除“${escapeHtml(name)}”后将立即生效</span>
-        <div class="library-inline-actions">
-          <button type="button" class="library-inline-action library-inline-action-danger" data-delete-confirm="${kind}" data-target-id="${targetId}">删除</button>
-          <button type="button" class="library-inline-action" data-delete-cancel>取消</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderStaticItem(label, meta = '', options = {}) {
-  const attrs = options.attrs ? ` ${options.attrs}` : '';
-  const selected = options.selected ? 'true' : 'false';
-  const interactive = options.interactive ? 'true' : 'false';
-  return `
-    <button type="button" class="library-node library-static-node" data-level="1" data-selected="${selected}" data-interactive="${interactive}"${attrs}>
-      <span class="library-node-leading">
-        <span class="library-node-spacer"></span>
-      </span>
-      <span class="library-node-label">${escapeHtml(label)}</span>
-      ${meta ? `<span class="library-section-meta">${escapeHtml(meta)}</span>` : ''}
-    </button>
-  `;
+  return renderDeleteIntentRowMarkup({ level, kind, targetId, name });
 }
 
 function renderEmptyItem(label) {
-  return `
-    <div class="library-node library-static-node library-empty-node" data-level="1">
-      <span class="library-node-leading">
-        <span class="library-node-spacer"></span>
-      </span>
-      <span class="library-node-label">${escapeHtml(label)}</span>
-    </div>
-  `;
+  return renderEmptyTreeItem(label);
 }
 
 function renderHeaderToggle() {
@@ -2191,78 +2260,16 @@ function renderContextMenu() {
   elements.contextMenu.hidden = false;
   elements.contextMenu.style.left = `${state.contextMenu.x}px`;
   elements.contextMenu.style.top = `${state.contextMenu.y}px`;
-  elements.contextMenu.innerHTML = items
-    .map((item) => {
-      if (item.type === 'divider') {
-        return '<div class="library-context-divider" aria-hidden="true"></div>';
-      }
-
-      return `
-        <button type="button" class="library-context-item" data-context-action="${item.action}">
-          <span>${escapeHtml(item.label)}</span>
-        </button>
-      `;
-    })
-    .join('');
+  elements.contextMenu.innerHTML = renderContextMenuItems(items);
 }
 
 function getContextMenuItems() {
-  switch (state.contextMenu.targetKind) {
-    case 'materials':
-      return [
-        { action: 'create-folder-root', label: '新建目录' },
-        { action: 'create-note-root', label: '新建文件' }
-      ];
-    case 'folder':
-      return [
-        { action: 'create-folder-child', label: '新建子目录' },
-        { action: 'create-note-child', label: '新建文件' },
-        { type: 'divider' },
-        { action: 'rename-folder', label: '重命名' },
-        { action: 'delete-folder', label: '删除' }
-      ];
-    case 'note':
-      return getMenuTargetNoteItems();
-    case 'recycle-section':
-      return getRecycleSectionMenuItems();
-    default:
-      return [];
-  }
-}
-
-function getMenuTargetNoteItems() {
-  const note = getNoteById(state.contextMenu.targetId);
-  if (!note) {
-    return [];
-  }
-
-  if (note.deleted) {
-    return [
-      { action: 'restore-note', label: '恢复笔记' },
-      { type: 'divider' },
-      { action: 'permanently-delete-note', label: '彻底删除' }
-    ];
-  }
-
-  return [
-    {
-      action: 'favorite-note',
-      label: note.favorite ? '取消收藏' : '收藏笔记'
-    },
-    { type: 'divider' },
-    { action: 'rename-note', label: '重命名' },
-    { action: 'delete-note', label: '删除' }
-  ];
-}
-
-function getRecycleSectionMenuItems() {
-  if (getRecycleNotes().length === 0) {
-    return [];
-  }
-
-  return [
-    { action: 'empty-recycle-bin', label: '清空回收站' }
-  ];
+  return getNavigationContextMenuItems({
+    targetKind: state.contextMenu.targetKind,
+    targetId: state.contextMenu.targetId,
+    notes: state.allNotes,
+    recycleNotes: getRecycleNotes()
+  });
 }
 
 function renderSectionMenu() {
@@ -2280,64 +2287,10 @@ function renderSectionMenu() {
   elements.sectionMenu.hidden = false;
   elements.sectionMenu.style.left = `${Math.max(8, rect.right - 188)}px`;
   elements.sectionMenu.style.top = `${rect.bottom + 6}px`;
-  elements.sectionMenu.innerHTML = SECONDARY_SECTION_ITEMS
-    .map(
-      (item) => `
-        <button type="button" class="library-context-item library-check-item" data-section-toggle="${item.key}">
-          <span class="library-checkmark">${state.secondarySections[item.key] ? '✓' : ''}</span>
-          <span>${escapeHtml(item.label)}</span>
-        </button>
-      `
-    )
-    .join('');
-}
-
-function renderFolderIcon(open) {
-  return open
-    ? `
-        <svg viewBox="0 0 16 16" aria-hidden="true" class="library-tree-icon">
-          <path d="M1.5 5.5h5l1.2 1.3H14v5.7a1 1 0 0 1-1 1H3a1.5 1.5 0 0 1-1.5-1.5z"></path>
-          <path d="M1.5 5V4a1 1 0 0 1 1-1h3l1.1 1.2H13A1 1 0 0 1 14 5v1.3"></path>
-        </svg>
-      `
-    : `
-        <svg viewBox="0 0 16 16" aria-hidden="true" class="library-tree-icon">
-          <path d="M2 4h3.4l1.1 1.2H13A1 1 0 0 1 14 6v5.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"></path>
-          <path d="M2 6h12"></path>
-        </svg>
-      `;
-}
-
-function renderNoteIcon(iconKind = 'markdown') {
-  if (iconKind === 'pdf') {
-    return `
-      <svg viewBox="0 0 16 16" aria-hidden="true" class="library-tree-icon library-tree-icon-pdf">
-        <path d="M4 2.5h5l3 3v7.8a.7.7 0 0 1-.7.7H4.7a.7.7 0 0 1-.7-.7z"></path>
-        <path d="M9 2.5v3h3"></path>
-        <path d="M4.8 10.5h6.4"></path>
-        <path d="M5.2 12.2h5.6"></path>
-      </svg>
-    `;
-  }
-
-  if (iconKind === 'resource') {
-    return `
-      <svg viewBox="0 0 16 16" aria-hidden="true" class="library-tree-icon library-tree-icon-resource">
-        <path d="M4 2.5h5l3 3v7.8a.7.7 0 0 1-.7.7H4.7a.7.7 0 0 1-.7-.7z"></path>
-        <path d="M9 2.5v3h3"></path>
-        <path d="M5.1 9.9 7 8.5l1.4 1.2 2-2"></path>
-      </svg>
-    `;
-  }
-
-  return `
-    <svg viewBox="0 0 16 16" aria-hidden="true" class="library-tree-icon library-tree-icon-markdown">
-      <path d="M4 2.5h5l3 3v7.8a.7.7 0 0 1-.7.7H4.7a.7.7 0 0 1-.7-.7z"></path>
-      <path d="M9 2.5v3h3"></path>
-      <path d="M5.1 11.8V9.1l1.2 1.5 1.2-1.5v2.7"></path>
-      <path d="M8.9 11.8V9.1l2.1 2.7V9.1"></path>
-    </svg>
-  `;
+  elements.sectionMenu.innerHTML = renderSectionMenuItems({
+    items: SECONDARY_SECTION_ITEMS,
+    sections: state.secondarySections
+  });
 }
 
 function renderPreviewPane(markdown) {
@@ -2538,259 +2491,35 @@ function renderSidebar(note) {
   }
 }
 
-function renderAsideEmptyState() {
-  return `
-    <section class="aside-panel-empty">
-      <strong>未打开笔记</strong>
-      <span>请先在左侧选择一个文件。</span>
-    </section>
-  `;
-}
-
 function renderInfoTab(note) {
-  const stats = getNoteStats(state.draftMarkdown || note.rawMarkdown || '');
-
-  return `
-    <section class="aside-panel-stack">
-      <section class="aside-card note-info-card">
-        <div class="aside-card-header">
-          <span>笔记信息</span>
-        </div>
-        <div class="info-grid">
-          <div class="info-row"><span>标题</span><strong>${escapeHtml(note.title)}</strong></div>
-          <div class="info-row"><span>路径</span><strong>${escapeHtml(buildFolderPath(note.folderId))}</strong></div>
-          <div class="info-row"><span>字数</span><strong>${stats.characterCount}</strong></div>
-          <div class="info-row"><span>更新时间</span><strong>${formatDate(note.updatedAt)}</strong></div>
-          <div class="info-row"><span>创建时间</span><strong>${formatDate(note.createdAt)}</strong></div>
-          <div class="info-row"><span>收藏状态</span><strong>${note.favorite ? '已收藏' : '未收藏'}</strong></div>
-        </div>
-      </section>
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>标签</span>
-          <strong>${(note.tagIds ?? []).length}</strong>
-        </div>
-        ${renderNoteTagComposer(note)}
-      </section>
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>关联笔记</span>
-          <strong>${state.linkedNotes.length}</strong>
-        </div>
-        <div class="linked-list">
-          ${state.linkedNotes.length ? renderLinkedNotes(state.linkedNotes) : renderAsideEmptyInline('暂无关联笔记')}
-        </div>
-      </section>
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>附件</span>
-          <strong>${state.attachments.length}</strong>
-        </div>
-        <div class="resource-list">
-          ${state.attachments.length ? renderAttachments(state.attachments) : renderAsideEmptyInline('暂无附件')}
-        </div>
-      </section>
-    </section>
-  `;
+  return renderInfoTabMarkup({
+    note,
+    markdown: state.draftMarkdown || note.rawMarkdown || '',
+    folderPath: buildFolderPath(note.folderId),
+    tags: state.tags,
+    tagComposer: state.noteTagComposer,
+    linkedNotes: state.linkedNotes,
+    attachments: state.attachments,
+    formatDate
+  });
 }
 
 function renderOutlineTab() {
   const headings = extractMarkdownHeadings(state.draftMarkdown || '');
-  return `
-    <section class="aside-panel-stack">
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>正文大纲</span>
-          <strong>${headings.length}</strong>
-        </div>
-        <div class="outline-list">
-          ${headings.length
-            ? headings
-                .map(
-                  (heading) => `
-                    <button type="button" class="outline-item" data-outline-id="${escapeAttribute(heading.id)}" data-outline-index="${heading.index}" data-level="${heading.level}">
-                      <span>${escapeHtml(heading.title)}</span>
-                    </button>
-                  `
-                )
-                .join('')
-            : renderAsideEmptyInline('当前笔记还没有标题')}
-        </div>
-      </section>
-    </section>
-  `;
-}
-
-function renderNoteTagComposer(note) {
-  const assignedTags = (note.tagIds ?? [])
-    .map((tagId) => state.tags.find((tag) => tag.id === tagId))
-    .filter(Boolean);
-  const availableTags = state.tags.filter((tag) => !(note.tagIds ?? []).includes(tag.id));
-  const draft = state.noteTagComposer.draft.trim();
-  const draftLowerCase = draft.toLowerCase();
-  const matchingTags = draftLowerCase
-    ? availableTags.filter((tag) => tag.name.toLowerCase().includes(draftLowerCase))
-    : availableTags.slice(0, 8);
-  const existingExactTag = state.tags.find((tag) => tag.name.trim().toLowerCase() === draftLowerCase);
-  const canCreateTag = Boolean(draft) && !existingExactTag;
-
-  return `
-    <div class="note-tag-composer">
-      <div class="note-tag-toolbar">
-        <div class="pill-row">
-          ${assignedTags.length ? renderAssignedTagPills(assignedTags) : '<span class="note-tag-empty">暂无标签</span>'}
-        </div>
-        <button type="button" class="subtle-button note-tag-toggle" data-note-tag-toggle>
-          ${state.noteTagComposer.isExpanded ? '收起' : '添加标签'}
-        </button>
-      </div>
-      ${state.noteTagComposer.isExpanded ? `
-        <div class="note-tag-composer-body">
-          <label class="note-tag-input-shell">
-            <input
-              type="text"
-              value="${escapeAttribute(state.noteTagComposer.draft)}"
-              data-note-tag-input
-              placeholder="输入标签名，回车可创建并绑定"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            ${canCreateTag ? '<button type="button" class="subtle-button note-tag-create" data-note-tag-create>创建</button>' : ''}
-          </label>
-          ${matchingTags.length ? `
-            <div class="pill-row note-tag-suggestions">
-              ${renderAvailableTagPills(matchingTags)}
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
-    </div>
-  `;
+  return renderOutlineTabMarkup({ headings });
 }
 
 function renderConceptsTab(note) {
-  return `
-    <section class="aside-panel-stack">
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>知识点</span>
-          <strong>${escapeHtml(note.title)}</strong>
-        </div>
-        <div class="aside-placeholder">知识点面板将在 V1.4 后续迭代接入。</div>
-      </section>
-    </section>
-  `;
-}
-
-function renderAiTab(note) {
-  return `
-    <section class="aside-panel-stack">
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>AI</span>
-          <strong>${escapeHtml(note.title)}</strong>
-        </div>
-        <div class="aside-placeholder">AI 辅助区将在右侧面板内继续扩展。</div>
-      </section>
-    </section>
-  `;
-}
-
-function renderTagPills(tags) {
-  return tags
-    .map(
-      (tag) => `
-        <span class="pill" data-accent="true">
-          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
-          ${escapeHtml(tag.name)}
-        </span>
-      `
-    )
-    .join('');
-}
-
-function renderAssignedTagPills(tags) {
-  return tags
-    .map(
-      (tag) => `
-        <button type="button" class="pill pill-button" data-accent="true" data-note-tag-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
-          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
-          <span>${escapeHtml(tag.name)}</span>
-          <span class="pill-action" aria-hidden="true">×</span>
-        </button>
-      `
-    )
-    .join('');
-}
-
-function renderAvailableTagPills(tags) {
-  return tags
-    .map(
-      (tag) => `
-        <button type="button" class="pill pill-button" data-note-tag-add="${escapeAttribute(tag.id)}" title="添加标签：${escapeAttribute(tag.name)}">
-          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
-          <span>${escapeHtml(tag.name)}</span>
-          <span class="pill-action" aria-hidden="true">+</span>
-        </button>
-      `
-    )
-    .join('');
-}
-
-function renderLinkedNotes(linkedNotes) {
-  return linkedNotes
-    .map(
-      (linkedNote) => `
-        <div class="linked-row">
-          <button type="button" data-linked-id="${linkedNote.id}">
-            <div class="linked-meta">
-              <strong>${escapeHtml(linkedNote.title)}</strong>
-              <span>${escapeHtml(linkedNote.summary || linkedNote.plainText || '')}</span>
-            </div>
-          </button>
-        </div>
-      `
-    )
-    .join('');
-}
-
-function renderAttachments(attachments) {
-  return attachments
-    .map(
-      (attachment) => `
-        <div class="resource-row">
-          <button type="button" data-attachment-name="${escapeAttribute(attachment.fileName)}">
-            <div class="resource-meta">
-              <strong>${escapeHtml(attachment.fileName)}</strong>
-              <span>${escapeHtml(attachment.mimeType)}</span>
-            </div>
-          </button>
-        </div>
-      `
-    )
-    .join('');
-}
-
-function renderAsideEmptyInline(label) {
-  return `<div class="aside-empty-inline">${escapeHtml(label)}</div>`;
-}
-
-function getNoteStats(markdown) {
-  const normalized = typeof markdown === 'string' ? markdown : '';
-  const characterCount = normalized
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`[^`]*`/g, ' ')
-    .replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
-    .replace(/\[[^\]]*]\([^)]*\)/g, ' ')
-    .replace(/^>\s?/gm, '')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/[*_~\-|]/g, ' ')
-    .replace(/\s+/g, '')
-    .length;
-
-  return {
-    characterCount
-  };
+  return renderKnowledgePointPanel({
+    note,
+    points: state.knowledgePoints,
+    tagGroups: state.knowledgePointTagGroups,
+    availablePoints: state.allKnowledgePoints,
+    filters: state.knowledgePointFilters,
+    attachComposer: state.knowledgePointAttachComposer,
+    expandedIds: state.expandedKnowledgePointIds,
+    editing: state.knowledgePointEditing
+  });
 }
 
 function renderEditorContextMenu() {
@@ -2924,6 +2653,12 @@ function renderEditorContextIconSvg(icon) {
     case 'italic':
       content = `
         <path d="M13.8 5.5h-4.4M14.6 18.5h-4.4M12.3 5.5 9.7 18.5" ${strokeAttrs}></path>
+      `;
+      break;
+    case 'highlight':
+      content = `
+        <path d="M5 17.5h6M9 16.2 16 9.2l2.8 2.8-7 7z" ${strokeAttrs}></path>
+        <path d="M13.5 6.5 16.5 9l1.5-1.5a1.6 1.6 0 0 0 0-2.3l-1.2-1.2a1.6 1.6 0 0 0-2.3 0z" ${strokeAttrs}></path>
       `;
       break;
     case 'codeblock':
@@ -3066,6 +2801,11 @@ async function handleEditorContextMenuAction(action) {
 
   if (action === 'table') {
     openTableInsertDialog();
+    return;
+  }
+
+  if (action === 'create-knowledge-point') {
+    await createKnowledgePointFromCurrentSelection(note);
     return;
   }
 
@@ -3626,62 +3366,16 @@ function syncDragIndicators() {
 }
 
 function resolveDropTarget(target) {
-  const folderButton = target.closest('[data-folder-id]');
-  if (folderButton?.dataset.folderId) {
-    return { kind: 'folder', id: folderButton.dataset.folderId };
-  }
-
-  const materialsSection = target.closest('[data-materials-section]');
-  if (materialsSection) {
-    return { kind: 'materials', id: null };
-  }
-
-  return null;
+  return resolveNavigationDropTarget(target);
 }
 
 function canDropOnTarget(dragState, dropTarget) {
-  if (!dragState.activeKind || !dragState.activeId || !dropTarget) {
-    return false;
-  }
-
-  if (dragState.activeKind === 'folder') {
-    if (dropTarget.kind === 'materials') {
-      return Boolean(state.foldersById[dragState.activeId]?.parentId);
-    }
-
-    if (dropTarget.kind !== 'folder') {
-      return false;
-    }
-
-    if (dropTarget.id === dragState.activeId) {
-      return false;
-    }
-
-    let cursor = state.foldersById[dropTarget.id] ?? null;
-    while (cursor) {
-      if (cursor.id === dragState.activeId) {
-        return false;
-      }
-      cursor = cursor.parentId ? state.foldersById[cursor.parentId] : null;
-    }
-
-    return state.foldersById[dragState.activeId]?.parentId !== dropTarget.id;
-  }
-
-  if (dragState.activeKind === 'note') {
-    const note = state.allNotes.find((item) => item.id === dragState.activeId);
-    if (!note) {
-      return false;
-    }
-
-    if (dropTarget.kind === 'materials') {
-      return note.folderId !== null;
-    }
-
-    return dropTarget.kind === 'folder' && note.folderId !== dropTarget.id;
-  }
-
-  return false;
+  return canDropOnNavigationTarget({
+    dragState,
+    dropTarget,
+    foldersById: state.foldersById,
+    notes: state.allNotes
+  });
 }
 
 function isRootDropActive() {
@@ -3700,19 +3394,16 @@ function clearDeleteIntent({ rerender = true } = {}) {
 
 async function createFolder(parentId, name) {
   if (state.dataMode === 'api') {
-    const created = await fetchJson('/api/knowledge/folders', {
-      method: 'POST',
-      body: JSON.stringify({
-        spaceId: state.currentSpaceId,
-        parentId,
-        name
-      })
+    const created = await knowledgeApi.createFolder({
+      spaceId: state.currentSpaceId,
+      parentId,
+      name
     });
 
     if (parentId) {
       state.openFolders[parentId] = true;
     }
-    state.selectedFolderId = created.data.id;
+    state.selectedFolderId = created.id;
     await refreshKnowledgeData();
     return;
   }
@@ -3734,12 +3425,9 @@ async function createFolder(parentId, name) {
 async function renameFolder(folderId, name) {
   if (state.dataMode === 'api') {
     const folder = state.foldersById[folderId];
-    await fetchJson(`/api/knowledge/folders/${encodeURIComponent(folderId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        name,
-        parentId: folder?.parentId ?? null
-      })
+    await knowledgeApi.updateFolder(folderId, {
+      name,
+      parentId: folder?.parentId ?? null
     });
     await refreshKnowledgeData();
     return;
@@ -3752,9 +3440,7 @@ async function renameFolder(folderId, name) {
 async function deleteFolder(folderId) {
   if (state.dataMode === 'api') {
     const nextSelectedFolderId = state.foldersById[folderId]?.parentId ?? null;
-    await fetchJson(`/api/knowledge/folders/${encodeURIComponent(folderId)}`, {
-      method: 'DELETE'
-    });
+    await knowledgeApi.deleteFolder(folderId);
     state.selectedFolderId = nextSelectedFolderId;
     await refreshKnowledgeData();
     return;
@@ -3771,12 +3457,9 @@ async function deleteFolder(folderId) {
 async function moveFolder(folderId, nextParentId) {
   if (state.dataMode === 'api') {
     const folder = state.foldersById[folderId];
-    await fetchJson(`/api/knowledge/folders/${encodeURIComponent(folderId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        name: folder?.name,
-        parentId: nextParentId
-      })
+    await knowledgeApi.updateFolder(folderId, {
+      name: folder?.name,
+      parentId: nextParentId
     });
     if (nextParentId) {
       openFolderBranch(nextParentId);
@@ -3794,19 +3477,16 @@ async function moveFolder(folderId, nextParentId) {
 
 async function createNote(folderId, title) {
   if (state.dataMode === 'api') {
-    const created = await fetchJson('/api/knowledge/notes', {
-      method: 'POST',
-      body: JSON.stringify({
-        title,
-        rawMarkdown: `# ${title}\n\n`,
-        folderId,
-        spaceId: state.currentSpaceId,
-        sourceType: 'manual',
-        status: 'draft'
-      })
+    const created = await knowledgeApi.createNote({
+      title,
+      rawMarkdown: `# ${title}\n\n`,
+      folderId,
+      spaceId: state.currentSpaceId,
+      sourceType: 'manual',
+      status: 'draft'
     });
 
-    state.selectedNoteId = created.data.id;
+    state.selectedNoteId = created.id;
     state.selectedFolderId = folderId ?? null;
     if (folderId) {
       openFolderBranch(folderId);
@@ -3841,12 +3521,7 @@ async function createNote(folderId, title) {
 
 async function renameNote(noteId, title) {
   if (state.dataMode === 'api') {
-    await fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        title
-      })
-    });
+    await knowledgeApi.updateNote(noteId, { title });
     await refreshKnowledgeData();
     await loadCurrentNoteSideData();
     renderAll();
@@ -3863,9 +3538,7 @@ async function renameNote(noteId, title) {
 
 async function deleteNote(noteId) {
   if (state.dataMode === 'api') {
-    await fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}`, {
-      method: 'DELETE'
-    });
+    await knowledgeApi.deleteNote(noteId);
     if (state.selectedNoteId === noteId) {
       state.selectedNoteId = null;
     }
@@ -3888,9 +3561,7 @@ async function deleteNote(noteId) {
 
 async function permanentlyDeleteNote(noteId) {
   if (state.dataMode === 'api') {
-    await fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/permanent`, {
-      method: 'DELETE'
-    });
+    await knowledgeApi.permanentlyDeleteNote(noteId);
     if (state.selectedNoteId === noteId) {
       state.selectedNoteId = null;
     }
@@ -3909,9 +3580,7 @@ async function permanentlyDeleteNote(noteId) {
 
 async function restoreNote(noteId) {
   if (state.dataMode === 'api') {
-    await fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/restore`, {
-      method: 'POST'
-    });
+    await knowledgeApi.restoreNote(noteId);
     if (state.selectedNoteId === noteId) {
       state.selectedNoteId = null;
     }
@@ -3931,9 +3600,7 @@ async function restoreNote(noteId) {
 
 async function emptyRecycleBin() {
   if (state.dataMode === 'api') {
-    await fetchJson(`/api/knowledge/notes/recycle-bin?spaceId=${encodeURIComponent(state.currentSpaceId)}`, {
-      method: 'DELETE'
-    });
+    await knowledgeApi.emptyRecycleBin(state.currentSpaceId);
     if (state.selectedNoteId && getNoteById(state.selectedNoteId)?.deleted) {
       state.selectedNoteId = null;
     }
@@ -3952,12 +3619,7 @@ async function emptyRecycleBin() {
 
 async function setNoteFavorite(noteId, favorite) {
   if (state.dataMode === 'api') {
-    await fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/favorite`, {
-      method: 'POST',
-      body: JSON.stringify({
-        favorite
-      })
-    });
+    await knowledgeApi.setNoteFavorite(noteId, favorite);
     await refreshKnowledgeData();
     await loadCurrentNoteSideData();
     renderAll();
@@ -3975,12 +3637,9 @@ async function setNoteFavorite(noteId, favorite) {
 async function moveNote(noteId, nextFolderId) {
   if (state.dataMode === 'api') {
     const note = state.allNotes.find((item) => item.id === noteId);
-    await fetchJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        title: note?.title,
-        folderId: nextFolderId
-      })
+    await knowledgeApi.updateNote(noteId, {
+      title: note?.title,
+      folderId: nextFolderId
     });
     if (nextFolderId) {
       openFolderBranch(nextFolderId);
@@ -4004,24 +3663,31 @@ async function moveNote(noteId, nextFolderId) {
 
 async function selectFolder(folderId) {
   await persistDraft({ immediate: true });
-  state.selectedFolderId = folderId;
+  const selection = resolveFolderSelection({
+    folderId,
+    selectedNoteId: state.selectedNoteId,
+    visibleNotes: getVisibleNavigationNotes({
+      notes: state.allNotes,
+      foldersById: state.foldersById,
+      selectedFolderId: folderId,
+      search: state.search
+    }),
+    openNoteTabs: state.openNoteTabs
+  });
 
-  const visibleNotes = getVisibleNotes();
-  if (visibleNotes.length === 0) {
-    state.selectedNoteId = null;
-    state.linkedNotes = [];
-    state.attachments = [];
-    state.draftMarkdown = '';
-    renderAll();
-    flashStatus(`已切换到目录：${state.foldersById[folderId]?.name ?? ''}`);
-    return;
+  state.selectedFolderId = selection.selectedFolderId;
+  state.selectedNoteId = selection.selectedNoteId;
+  state.openNoteTabs = selection.openNoteTabs;
+
+  if (selection.draftMarkdown !== undefined) {
+    state.draftMarkdown = selection.draftMarkdown;
   }
 
-  const currentNoteStillVisible = visibleNotes.some((note) => note.id === state.selectedNoteId);
-  if (!currentNoteStillVisible) {
-    state.selectedNoteId = visibleNotes[0].id;
-    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, visibleNotes[0].id);
-    state.draftMarkdown = visibleNotes[0].rawMarkdown ?? '';
+  if (selection.shouldClearSideData) {
+    clearNoteSideData();
+  }
+
+  if (selection.shouldLoadSideData) {
     await loadCurrentNoteSideData();
   }
 
@@ -4057,16 +3723,16 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
 }
 
 function toggleFolderOpen(folderId) {
-  state.openFolders[folderId] = !(state.openFolders[folderId] ?? true);
+  state.openFolders = toggleOpenFolderState(state.openFolders, folderId);
   renderFolders();
 }
 
 function openFolderBranch(folderId) {
-  let cursor = state.foldersById[folderId] ?? null;
-  while (cursor) {
-    state.openFolders[cursor.id] = true;
-    cursor = cursor.parentId ? state.foldersById[cursor.parentId] : null;
-  }
+  state.openFolders = expandFolderBranch({
+    openFolders: state.openFolders,
+    foldersById: state.foldersById,
+    folderId
+  });
 }
 
 function openContextMenu({ x, y, targetKind, targetId }) {
@@ -4277,31 +3943,13 @@ async function importMarkdownFiles(files) {
   }));
 
   if (state.dataMode === 'api') {
-    const endpoint = importedItems.length > 1
-      ? '/api/knowledge/notes/import-markdown-batch'
-      : '/api/knowledge/notes/import-markdown';
-    const payload = importedItems.length > 1
-      ? { items: importedItems.map((item) => ({
-          title: item.title,
-          rawMarkdown: item.rawMarkdown,
-          folderId,
-          spaceId: state.currentSpaceId,
-          sourceType: item.sourceType
-        })) }
-      : {
-          title: importedItems[0].title,
-          rawMarkdown: importedItems[0].rawMarkdown,
-          folderId,
-          spaceId: state.currentSpaceId,
-          sourceType: importedItems[0].sourceType
-        };
-
-    const response = await fetchJson(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-
-    const importedResponseItems = Array.isArray(response.data) ? response.data : [response.data];
+    const importedResponseItems = await knowledgeApi.importMarkdownNotes(importedItems.map((item) => ({
+      title: item.title,
+      rawMarkdown: item.rawMarkdown,
+      folderId,
+      spaceId: state.currentSpaceId,
+      sourceType: item.sourceType
+    })));
     const firstImported = importedResponseItems.find((item) => item?.id) ?? null;
 
     if (firstImported?.id) {
@@ -4390,20 +4038,17 @@ async function duplicateCurrentNote(note) {
   const nextTitle = createDuplicateTitle(getSiblingNames(refreshedNote.folderId ?? null), refreshedNote.title);
 
   if (state.dataMode === 'api') {
-    const created = await fetchJson('/api/knowledge/notes', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: nextTitle,
-        rawMarkdown: state.draftMarkdown || refreshedNote.rawMarkdown,
-        folderId: refreshedNote.folderId ?? null,
-        spaceId: state.currentSpaceId,
-        sourceType: refreshedNote.sourceType ?? 'manual',
-        status: refreshedNote.status ?? 'draft'
-      })
+    const created = await knowledgeApi.createNote({
+      title: nextTitle,
+      rawMarkdown: state.draftMarkdown || refreshedNote.rawMarkdown,
+      folderId: refreshedNote.folderId ?? null,
+      spaceId: state.currentSpaceId,
+      sourceType: refreshedNote.sourceType ?? 'manual',
+      status: refreshedNote.status ?? 'draft'
     });
 
-    state.selectedNoteId = created.data.id;
-    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, created.data.id);
+    state.selectedNoteId = created.id;
+    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, created.id);
     await refreshKnowledgeData();
     await loadCurrentNoteSideData();
     renderAll();
@@ -4763,6 +4408,7 @@ function mountEditorHost(noteId, markdown) {
     currentEditorHost = host;
     currentEditorNoteId = noteId;
     pendingEditorNoteId = null;
+    syncKnowledgePointMarkers();
     renderEditorSaveIndicator();
     renderStatus();
 
@@ -4908,7 +4554,7 @@ function renderEditorPanel() {
         </label>
       ` : ''}
       <div class="editor-utility-panel-status">${escapeHtml(statusText)}</div>
-      ${!isReplace ? '<div class="editor-utility-panel-hint">Enter 下一个，Shift+Enter 上一个</div>' : ''}
+      ${!isReplace ? '<div class="editor-utility-panel-hint">F3 下一个，Shift+F3 上一个</div>' : ''}
     </div>
     <div class="editor-utility-panel-actions">
       ${!isReplace ? '<button type="button" class="ghost-button" data-editor-panel-action="submit-previous">查找上一个</button>' : ''}
@@ -5083,14 +4729,10 @@ async function persistDraft({ immediate = false } = {}) {
     let updatedNote;
 
     if (state.dataMode === 'api') {
-      const payload = await fetchJson(`/api/knowledge/notes/${encodeURIComponent(note.id)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          title: nextTitle,
-          rawMarkdown: nextMarkdown
-        })
+      updatedNote = await knowledgeApi.updateNote(note.id, {
+        title: nextTitle,
+        rawMarkdown: nextMarkdown
       });
-      updatedNote = payload.data;
     } else {
       updatedNote = {
         ...note,
@@ -5131,102 +4773,57 @@ async function persistDraft({ immediate = false } = {}) {
 }
 
 function getVisibleNotes() {
-  return state.allNotes.filter((note) => !note.deleted && isNoteVisible(note) && matchesSearch(note.title) && noteMatchesSelectedTags(note));
+  return getVisibleNavigationNotes({
+    notes: state.allNotes,
+    foldersById: state.foldersById,
+    selectedFolderId: state.selectedFolderId,
+    search: state.search
+  });
 }
 
 function getSearchResultNotes() {
-  return getVisibleNotes()
-    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+  return selectSearchResultNotes({
+    notes: state.allNotes,
+    foldersById: state.foldersById,
+    selectedFolderId: state.selectedFolderId,
+    search: state.search
+  });
 }
 
 function getSelectedSearchTags() {
-  return state.search.selectedTagIds
-    .map((tagId) => state.tags.find((tag) => tag.id === tagId))
-    .filter(Boolean);
+  return withTagUsageCounts(selectSearchTags(state.tags, state.search), getActiveNotes());
 }
 
 function getVisibleSearchTags() {
-  const keyword = state.search.keyword;
-  if (!keyword) {
-    return [...state.tags];
-  }
-
-  return state.tags.filter((tag) => String(tag.name ?? '').toLowerCase().includes(keyword));
+  return withTagUsageCounts(selectVisibleSearchTags(state.tags, state.search), getActiveNotes());
 }
 
 function getTagUsageCount(tagId) {
-  return getActiveNotes().filter((note) => (note.tagIds ?? []).includes(tagId)).length;
+  return countTagUsage(getActiveNotes(), tagId);
 }
 
 function hasActiveSearchFilters() {
-  return Boolean(state.search.keyword || state.search.selectedTagIds.length);
+  return hasSearchFilters(state.search);
 }
 
 function getDirectNotesForFolder(folderId) {
-  return state.allNotes.filter((note) => !note.deleted && note.folderId === folderId);
-}
-
-function isNoteVisible(note) {
-  if (hasActiveSearchFilters()) {
-    return true;
-  }
-
-  if (!state.selectedFolderId) {
-    return true;
-  }
-  return isFolderWithinSelection(note.folderId);
+  return selectDirectNotesForFolder(state.allNotes, folderId);
 }
 
 function noteMatchesSelectedTags(note) {
-  if (!state.search.selectedTagIds.length) {
-    return true;
-  }
-
-  const noteTagIds = note.tagIds ?? [];
-  return state.search.selectedTagIds.every((tagId) => noteTagIds.includes(tagId));
-}
-
-function isFolderWithinSelection(folderId) {
-  if (!state.selectedFolderId) {
-    return true;
-  }
-  if (!folderId) {
-    return false;
-  }
-
-  let cursor = state.foldersById[folderId] ?? null;
-  while (cursor) {
-    if (cursor.id === state.selectedFolderId) {
-      return true;
-    }
-    cursor = cursor.parentId ? state.foldersById[cursor.parentId] : null;
-  }
-
-  return false;
+  return noteHasSelectedSearchTags(note, state.search);
 }
 
 function matchesSearch(value) {
-  if (!state.search.keyword) {
-    return true;
-  }
-
-  return String(value ?? '').toLowerCase().includes(state.search.keyword);
+  return valueMatchesSearch(value, state.search);
 }
 
 function matchesFolderSearch(folder) {
-  if (!state.search.keyword && !state.search.selectedTagIds.length) {
-    return true;
-  }
-
-  if (matchesSearch(folder.name) && !state.search.selectedTagIds.length) {
-    return true;
-  }
-
-  if (getDirectNotesForFolder(folder.id).some((note) => matchesSearch(note.title) && noteMatchesSelectedTags(note))) {
-    return true;
-  }
-
-  return (folder.children ?? []).some((child) => matchesFolderSearch(child));
+  return folderMatchesNavigationSearch({
+    folder,
+    notes: state.allNotes,
+    search: state.search
+  });
 }
 
 function toggleSearchTagFilter(tagId) {
@@ -5234,12 +4831,7 @@ function toggleSearchTagFilter(tagId) {
     return;
   }
 
-  if (state.search.selectedTagIds.includes(tagId)) {
-    state.search.selectedTagIds = state.search.selectedTagIds.filter((currentTagId) => currentTagId !== tagId);
-  } else {
-    state.search.selectedTagIds = [...state.search.selectedTagIds, tagId];
-  }
-
+  state.search.selectedTagIds = toggleSearchTagId(state.search.selectedTagIds, tagId);
   state.search.isOpen = true;
   reconcileSelection();
   renderAll();
@@ -5277,10 +4869,16 @@ function normalizeFolderTree(nodes) {
     return [];
   }
 
-  return nodes.map((node) => ({
-    ...node,
-    children: normalizeFolderTree(node.children ?? [])
-  }));
+  return nodes
+    .filter((node) => node && typeof node === 'object' && !Array.isArray(node))
+    .map((node) => ({
+      ...node,
+      id: String(node.id ?? ''),
+      name: String(node.name ?? '未命名目录'),
+      parentId: node.parentId ?? null,
+      children: normalizeFolderTree(node.children ?? [])
+    }))
+    .filter((node) => node.id);
 }
 
 function normalizeNotes(notes) {
@@ -5289,14 +4887,19 @@ function normalizeNotes(notes) {
   }
 
   return notes
+    .filter((note) => note && typeof note === 'object' && !Array.isArray(note))
     .map((note) => ({
       ...note,
-      tagIds: [...(note.tagIds ?? [])],
-      internalLinks: [...(note.internalLinks ?? [])],
+      id: String(note.id ?? ''),
+      title: String(note.title ?? '未命名笔记'),
+      folderId: note.folderId ?? null,
+      tagIds: Array.isArray(note.tagIds) ? [...note.tagIds] : [],
+      internalLinks: Array.isArray(note.internalLinks) ? [...note.internalLinks] : [],
       rawMarkdown: note.rawMarkdown ?? '',
       favorite: Boolean(note.favorite),
       deleted: Boolean(note.deleted)
-    }));
+    }))
+    .filter((note) => note.id);
 }
 
 function replaceNoteInState(updatedNote) {
@@ -5320,45 +4923,28 @@ function replaceNoteInState(updatedNote) {
 }
 
 function replaceTagInState(updatedTag) {
-  const existingTagIndex = state.tags.findIndex((tag) => tag.id === updatedTag.id);
-  if (existingTagIndex === -1) {
-    state.tags = [...state.tags, updatedTag];
-  } else {
-    state.tags = state.tags.map((tag) => (tag.id === updatedTag.id ? updatedTag : tag));
-  }
-
+  state.tags = upsertTag(state.tags, updatedTag);
   persistBackendCache();
 }
 
 function removeTagFromState(tagId) {
-  state.tags = state.tags.filter((tag) => tag.id !== tagId);
-  state.allNotes = state.allNotes.map((note) => ({
-    ...note,
-    tagIds: (note.tagIds ?? []).filter((currentTagId) => currentTagId !== tagId)
-  }));
-  state.search.selectedTagIds = state.search.selectedTagIds.filter((currentTagId) => currentTagId !== tagId);
+  const nextCollections = removeTagFromCollections(
+    {
+      tags: state.tags,
+      allNotes: state.allNotes,
+      selectedTagIds: state.search.selectedTagIds
+    },
+    tagId
+  );
+
+  state.tags = nextCollections.tags;
+  state.allNotes = nextCollections.allNotes;
+  state.search.selectedTagIds = nextCollections.selectedTagIds;
   persistBackendCache();
 }
 
 function buildTagId(name) {
-  const normalized = String(name ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\u4e00-\u9fa5_-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-
-  const baseId = normalized || `tag-${Date.now()}`;
-  let candidateId = `tag-${baseId}`;
-  let counter = 2;
-
-  while (state.tags.some((tag) => tag.id === candidateId)) {
-    candidateId = `tag-${baseId}-${counter}`;
-    counter += 1;
-  }
-
-  return candidateId;
+  return buildUniqueTagId(name, state.tags);
 }
 
 async function addTagToCurrentNote(tagId) {
@@ -5377,11 +4963,7 @@ async function addTagToCurrentNote(tagId) {
         updatedAt: new Date().toISOString()
       });
     } else {
-      const payload = await fetchJson(`/api/knowledge/notes/${encodeURIComponent(currentNote.id)}/tags`, {
-        method: 'PUT',
-        body: JSON.stringify({ tagIds: nextTagIds })
-      });
-      replaceNoteInState(payload.data);
+      replaceNoteInState(await knowledgeApi.setNoteTags(currentNote.id, nextTagIds));
     }
 
     flashStatus('标签已添加到当前笔记');
@@ -5406,11 +4988,7 @@ async function removeTagFromCurrentNote(tagId) {
         updatedAt: new Date().toISOString()
       };
     } else {
-      const payload = await fetchJson(
-        `/api/knowledge/notes/${encodeURIComponent(currentNote.id)}/tags/${encodeURIComponent(tagId)}`,
-        { method: 'DELETE' }
-      );
-      updatedNote = payload.data;
+      updatedNote = await knowledgeApi.removeTagFromNote(currentNote.id, tagId);
     }
 
     replaceNoteInState(updatedNote);
@@ -5453,11 +5031,7 @@ async function createTagAndAssignToCurrentNote(name) {
         updatedAt: new Date().toISOString()
       };
     } else {
-      const payload = await fetchJson('/api/knowledge/tags', {
-        method: 'POST',
-        body: JSON.stringify(tagInput)
-      });
-      createdTag = payload.data;
+      createdTag = await knowledgeApi.createTag(tagInput);
     }
 
     replaceTagInState(createdTag);
@@ -5480,9 +5054,7 @@ async function cleanupOrphanTag(tagId) {
     if (state.dataMode === 'local') {
       removeTagFromState(tagId);
     } else {
-      await fetchJson(`/api/knowledge/tags/${encodeURIComponent(tagId)}`, {
-        method: 'DELETE'
-      });
+      await knowledgeApi.deleteTag(tagId);
       removeTagFromState(tagId);
     }
 
@@ -5492,22 +5064,315 @@ async function cleanupOrphanTag(tagId) {
   }
 }
 
-async function fetchJson(url, options = {}) {
-  const response = await fetch(url, {
-    method: options.method ?? 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {})
-    },
-    body: options.body
-  });
+function replaceKnowledgePointInState(point) {
+  const nextCollections = replaceKnowledgePointCollections(state, point);
+  state.knowledgePoints = nextCollections.knowledgePoints;
+  state.allKnowledgePoints = nextCollections.allKnowledgePoints;
+}
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || `Request failed: ${response.status}`);
+function insertKnowledgePointInState(point) {
+  const nextCollections = insertKnowledgePointCollections(state, point);
+  state.knowledgePoints = nextCollections.knowledgePoints;
+  state.allKnowledgePoints = nextCollections.allKnowledgePoints;
+}
+
+function removeKnowledgePointFromState(pointId) {
+  const nextCollections = removeKnowledgePointCollections(state, pointId);
+  state.knowledgePoints = nextCollections.knowledgePoints;
+  state.allKnowledgePoints = nextCollections.allKnowledgePoints;
+}
+
+function syncKnowledgePointMembership(point) {
+  const nextCollections = syncKnowledgePointMembershipCollections(
+    state,
+    point,
+    getCurrentNote()?.id ?? null
+  );
+  state.knowledgePoints = nextCollections.knowledgePoints;
+  state.allKnowledgePoints = nextCollections.allKnowledgePoints;
+}
+
+function getCurrentKnowledgePointSources() {
+  return buildCurrentNoteKnowledgePointSources(state.knowledgePoints, getCurrentNote()?.id ?? null);
+}
+
+function syncKnowledgePointMarkers() {
+  void currentEditorHost?.setKnowledgePointSources(getCurrentKnowledgePointSources());
+}
+
+function scrollKnowledgePointCardIntoView(pointId) {
+  requestAnimationFrame(() => {
+    const cards = Array.from(elements.asideContent?.querySelectorAll('[data-knowledge-point-id]') ?? []);
+    const card = cards.find((item) => item.dataset.knowledgePointId === pointId);
+    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+}
+
+function focusKnowledgePointFromMarker({ sourceId, knowledgePointId }) {
+  const point = knowledgePointId
+    ? state.knowledgePoints.find((item) => item.id === knowledgePointId)
+    : state.knowledgePoints.find((item) => (item.sources ?? []).some((source) => source.id === sourceId));
+  if (!point) {
+    return;
   }
 
-  return payload;
+  state.asideTab = 'concepts';
+  state.expandedKnowledgePointIds = {
+    ...state.expandedKnowledgePointIds,
+    [point.id]: true
+  };
+  renderSidebar(getCurrentNote());
+  scrollKnowledgePointCardIntoView(point.id);
+}
+
+async function selectKnowledgePointSource(sourceId) {
+  if (!currentEditorHost) {
+    flashStatus('编辑器尚未就绪');
+    return;
+  }
+
+  const sourcePoint = state.knowledgePoints.find((point) => (
+    (point.sources ?? []).some((source) => source.id === sourceId)
+  ));
+  if (sourcePoint) {
+    state.expandedKnowledgePointIds = {
+      ...state.expandedKnowledgePointIds,
+      [sourcePoint.id]: true
+    };
+    renderSidebar(getCurrentNote());
+  }
+
+  const selected = await currentEditorHost.selectKnowledgePointSource(sourceId);
+  flashStatus(selected ? '已定位到正文片段' : '未能在正文中定位该片段');
+}
+
+function createLocalKnowledgePointAggregate(input) {
+  const createdAt = new Date().toISOString();
+  return {
+    id: input.id,
+    spaceId: input.spaceId,
+    title: input.title,
+    comment: input.comment ?? '',
+    status: 'active',
+    deletedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+    sources: input.sources.map((source) => ({
+      ...source,
+      knowledgePointId: input.id,
+      sortOrder: source.sortOrder ?? 1,
+      isAnchorValid: true,
+      createdAt,
+      updatedAt: createdAt
+    })),
+    tagIds: input.tagIds ?? [],
+    noteIds: [input.noteId]
+  };
+}
+
+async function createKnowledgePointFromCurrentSelection(note) {
+  if (!currentEditorHost) {
+    flashStatus('编辑器尚未就绪');
+    return;
+  }
+
+  const selection = await currentEditorHost.getSelectionSnapshot();
+  if (!selection) {
+    flashStatus('请先选中正文片段');
+    return;
+  }
+
+  const input = buildKnowledgePointInputFromSelection({
+    note: {
+      ...note,
+      spaceId: note.spaceId ?? state.currentSpaceId
+    },
+    selection
+  });
+
+  try {
+    let created;
+    if (state.dataMode === 'local' || state.dataMode === 'cache') {
+      created = createLocalKnowledgePointAggregate(input);
+    } else {
+      created = await knowledgeApi.createKnowledgePoint(input);
+    }
+
+    insertKnowledgePointInState(created);
+    syncKnowledgePointMarkers();
+    state.asideTab = 'concepts';
+    state.expandedKnowledgePointIds = {
+      ...state.expandedKnowledgePointIds,
+      [created.id]: true
+    };
+    renderSidebar(getCurrentNote());
+    flashStatus('已从选区创建知识点');
+  } catch (error) {
+    flashStatus(error.message || '创建知识点失败');
+  }
+}
+
+async function attachSelectionToExistingKnowledgePoint(pointId) {
+  const note = getCurrentNote();
+  if (!note || !currentEditorHost) {
+    flashStatus('请先打开笔记并选中正文片段');
+    return;
+  }
+
+  const selection = await currentEditorHost.getSelectionSnapshot();
+  if (!selection) {
+    flashStatus('请先选中要加入知识点的正文片段');
+    return;
+  }
+
+  const sourceInput = buildKnowledgePointSourceInputFromSelection({
+    note: {
+      ...note,
+      spaceId: note.spaceId ?? state.currentSpaceId
+    },
+    selection
+  });
+
+  try {
+    let updated;
+    if (state.dataMode === 'local' || state.dataMode === 'cache') {
+      const point = state.allKnowledgePoints.find((item) => item.id === pointId);
+      if (!point) {
+        flashStatus('未找到要加入的知识点');
+        return;
+      }
+      updated = {
+        ...point,
+        sources: [
+          ...(point.sources ?? []),
+          {
+            ...sourceInput,
+            knowledgePointId: point.id,
+            sortOrder: (point.sources ?? []).length + 1,
+            isAnchorValid: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        ],
+        noteIds: [...new Set([...(point.noteIds ?? []), note.id])],
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      updated = await knowledgeApi.addSourceToKnowledgePoint(pointId, sourceInput);
+    }
+
+    syncKnowledgePointMembership(updated);
+    state.asideTab = 'concepts';
+    state.knowledgePointAttachComposer = { query: '', isOpen: false };
+    state.expandedKnowledgePointIds = {
+      ...state.expandedKnowledgePointIds,
+      [updated.id]: true
+    };
+    syncKnowledgePointMarkers();
+    renderSidebar(getCurrentNote());
+    flashStatus('已加入已有知识点');
+  } catch (error) {
+    flashStatus(error.message || '加入已有知识点失败');
+  }
+}
+
+async function removeKnowledgePointSourceFromCurrentNote(sourceId) {
+  try {
+    let updated;
+    if (state.dataMode === 'local' || state.dataMode === 'cache') {
+      const point = state.allKnowledgePoints.find((item) => (item.sources ?? []).some((source) => source.id === sourceId));
+      if (!point) {
+        return;
+      }
+      const source = (point.sources ?? []).find((item) => item.id === sourceId);
+      const nextSources = (point.sources ?? []).filter((item) => item.id !== sourceId);
+      if (nextSources.length === 0) {
+        flashStatus('知识点至少需要保留一个原文片段');
+        return;
+      }
+      const currentNote = getCurrentNote();
+      const hasCurrentNoteSources = nextSources.some((item) => item.noteId === currentNote?.id);
+      updated = {
+        ...point,
+        sources: nextSources,
+        noteIds: hasCurrentNoteSources || source?.noteId !== currentNote?.id
+          ? point.noteIds
+          : (point.noteIds ?? []).filter((noteId) => noteId !== currentNote?.id),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      updated = await knowledgeApi.deleteKnowledgePointSource(sourceId);
+    }
+
+    syncKnowledgePointMembership(updated);
+    syncKnowledgePointMarkers();
+    renderSidebar(getCurrentNote());
+    flashStatus('已从当前笔记移除该原文片段');
+  } catch (error) {
+    flashStatus(error.message || '移除原文片段失败');
+  }
+}
+
+async function deleteKnowledgePointFromLibrary(pointId) {
+  try {
+    if (state.dataMode === 'local' || state.dataMode === 'cache') {
+      removeKnowledgePointFromState(pointId);
+    } else {
+      await knowledgeApi.deleteKnowledgePoint(pointId);
+      removeKnowledgePointFromState(pointId);
+    }
+
+    syncKnowledgePointMarkers();
+    renderSidebar(getCurrentNote());
+    flashStatus('知识点已删除');
+  } catch (error) {
+    flashStatus(error.message || '删除知识点失败');
+  }
+}
+
+function getKnowledgePointFormUpdates(form) {
+  const formData = new FormData(form);
+  const checkedTagIds = Array.from(form.querySelectorAll('[data-knowledge-point-edit-tag-input]:checked'))
+    .map((input) => input.value)
+    .filter(Boolean);
+  const hiddenTagIds = formData.getAll('tagIds').map((tagId) => String(tagId)).filter(Boolean);
+  return {
+    title: String(formData.get('title') ?? '').trim(),
+    comment: String(formData.get('comment') ?? '').trim(),
+    tagIds: [...new Set([...hiddenTagIds, ...checkedTagIds])]
+  };
+}
+
+async function updateCurrentKnowledgePoint(pointId, form) {
+  const point = state.knowledgePoints.find((item) => item.id === pointId);
+  if (!point) {
+    return;
+  }
+
+  const updates = getKnowledgePointFormUpdates(form);
+  if (!updates.title) {
+    flashStatus('知识点标题不能为空');
+    return;
+  }
+
+  try {
+    if (state.dataMode === 'local' || state.dataMode === 'cache') {
+      replaceKnowledgePointInState({
+        ...point,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      replaceKnowledgePointInState(await knowledgeApi.updateKnowledgePoint(pointId, updates));
+    }
+
+    state.knowledgePointEditing = null;
+    syncKnowledgePointMarkers();
+    renderSidebar(getCurrentNote());
+    flashStatus('知识点已更新');
+  } catch (error) {
+    flashStatus(error.message || '更新知识点失败');
+  }
 }
 
 function formatDate(value) {

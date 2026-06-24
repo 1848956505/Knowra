@@ -7,10 +7,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
+const sectionMenuRenderersJs = fs.readFileSync(
+  path.resolve(__dirname, '../lib/navigation/section-menu-renderers.js'),
+  'utf8'
+);
+const sidebarStatsJs = fs.readFileSync(path.resolve(__dirname, '../lib/sidebar/stats.js'), 'utf8');
 
 assert.match(
-  clientJs,
-  /const SECONDARY_SECTION_ITEMS = \[\s*\{ key: 'favorites', label: '收藏' },\s*\{ key: 'recent', label: '最近' },\s*\{ key: 'recycle', label: '回收站' }\s*\];/,
+  sectionMenuRenderersJs,
+  /SECONDARY_SECTION_ITEMS = \[\s*\{ key: 'favorites', label: '收藏' },\s*\{ key: 'recent', label: '最近' },\s*\{ key: 'recycle', label: '回收站' }\s*\]/,
   'left navigation section toggles should only keep favorites, recent, and recycle sections after the tag redesign'
 );
 
@@ -27,9 +32,9 @@ assert.match(
 );
 
 assert.match(
-  clientJs,
+  sidebarStatsJs,
   /function getNoteStats\(markdown\)/,
-  'info tab should derive note statistics from the current markdown draft'
+  'info tab should derive note statistics through the sidebar stats module'
 );
 
 assert.match(

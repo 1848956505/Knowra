@@ -11,6 +11,7 @@ export const knowledgeModuleTests = [
       assert.equal(typeof module.noteService.createNote, 'function');
       assert.equal(typeof module.folderService.createFolder, 'function');
       assert.equal(typeof module.tagService.createTag, 'function');
+      assert.equal(typeof module.knowledgePointService.createKnowledgePoint, 'function');
       assert.equal(typeof module.knowledgeSpaceService.createDefaultKnowledgeSpace, 'function');
       assert.equal(typeof module.searchService.searchNotes, 'function');
     }

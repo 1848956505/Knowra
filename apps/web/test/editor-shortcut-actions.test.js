@@ -9,6 +9,7 @@ assert.equal(getEditorShortcutLabel('paragraph'), 'Ctrl+0');
 assert.equal(getEditorShortcutLabel('heading-6'), 'Ctrl+6');
 assert.equal(getEditorShortcutLabel('ordered'), 'Ctrl+Shift+{');
 assert.equal(getEditorShortcutLabel('bullet'), 'Ctrl+Shift+}');
+assert.equal(getEditorShortcutLabel('highlight'), 'Ctrl+Shift+H');
 assert.equal(getEditorShortcutLabel('outdent'), 'Shift+Tab');
 assert.equal(getEditorShortcutLabel('missing'), '');
 
@@ -52,6 +53,16 @@ assert.equal(
   resolveEditorShortcutAction({ key: '}', ctrlKey: true, shiftKey: true }),
   'bullet',
   'Ctrl+Shift+} should trigger bullet list'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: 'h', ctrlKey: true, shiftKey: true }),
+  'highlight',
+  'Ctrl+Shift+H should trigger highlight'
+);
+assert.equal(
+  resolveEditorShortcutAction({ code: 'KeyH', ctrlKey: true, shiftKey: true }),
+  'highlight',
+  'Ctrl+Shift+H physical key should also reach the highlight shortcut path'
 );
 assert.equal(
   resolveEditorShortcutAction({ code: 'BracketLeft', ctrlKey: true, shiftKey: true }),

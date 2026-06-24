@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,15 +9,16 @@ const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'u
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
+const sidebarInfoPanelJs = fs.readFileSync(path.resolve(__dirname, '../lib/sidebar/info-panel.js'), 'utf8');
 
 assert.match(
-  clientJs,
-  /<div class="info-row"><span>字数<\/span><strong>\$\{stats\.characterCount\}<\/strong><\/div>/,
+  sidebarInfoPanelJs,
+  /stats\.characterCount/,
   'info tab should only show a single character-count row in V1.4.1'
 );
 assert.doesNotMatch(
-  clientJs,
-  /字数统计.*paragraphCount|段 · .*标题/,
+  sidebarInfoPanelJs,
+  /paragraphCount|headingCount/,
   'info tab should no longer show paragraph and heading counts'
 );
 

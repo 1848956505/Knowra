@@ -8,6 +8,8 @@ const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
+const searchRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/search/renderers.js'), 'utf8');
+const searchStateJs = fs.readFileSync(path.resolve(__dirname, '../lib/search/state.js'), 'utf8');
 
 assert.doesNotMatch(
   clientJs,
@@ -40,19 +42,19 @@ assert.match(
 );
 
 assert.match(
-  clientJs,
-  /selectedTags\.slice\(0,\s*2\)/,
+  searchRenderersJs,
+  /inlineLimit\s*=\s*2[\s\S]*selectedTags\.slice\(0,\s*inlineLimit\)/,
   'top bar should only embed a compact subset of selected tags into the fixed-width search shell'
 );
 
 assert.match(
-  clientJs,
+  searchRenderersJs,
   /class="top-search-chip"/,
   'selected search tags should render as compact chips inside the top bar search shell'
 );
 
 assert.match(
-  clientJs,
+  searchRenderersJs,
   /data-search-chip-remove="\$\{escapeAttribute\(tag\.id\)\}"/,
   'embedded search chips should support removing a selected tag'
 );
@@ -64,7 +66,7 @@ assert.match(
 );
 
 assert.match(
-  clientJs,
+  searchRenderersJs,
   /data-search-tag-id="\$\{escapeAttribute\(tag\.id\)\}"/,
   'search panel should render clickable global tag options'
 );
@@ -76,8 +78,8 @@ assert.doesNotMatch(
 );
 
 assert.match(
-  clientJs,
-  /function toggleSearchTagFilter\(tagId\)/,
+  searchStateJs,
+  /function toggleSearchTagId\(selectedTagIds, tagId\)/,
   'global tag selection should be handled by a dedicated search filter toggle helper'
 );
 

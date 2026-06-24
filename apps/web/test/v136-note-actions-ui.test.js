@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const navigationTreeRenderersJs = fs.readFileSync(
+  path.resolve(__dirname, '../lib/navigation/tree-renderers.js'),
+  'utf8'
+);
+const navigationContextMenuJs = fs.readFileSync(
+  path.resolve(__dirname, '../lib/navigation/context-menu.js'),
+  'utf8'
+);
 
 assert.match(
   clientJs,
@@ -23,32 +31,32 @@ assert.match(
   'file menu should expose a restore note action for deleted notes'
 );
 assert.match(
-  clientJs,
+  navigationContextMenuJs,
   /action: 'favorite-note'/,
   'note context menu should expose a favorite note action'
 );
 assert.match(
-  clientJs,
+  navigationContextMenuJs,
   /action: 'restore-note'/,
   'note context menu should expose a restore note action'
 );
 assert.match(
-  clientJs,
+  navigationContextMenuJs,
   /action: 'permanently-delete-note'/,
   'recycle note context menu should expose a permanent delete action'
 );
 assert.match(
-  clientJs,
+  navigationContextMenuJs,
   /action: 'empty-recycle-bin'/,
   'recycle section context menu should expose an empty recycle bin action'
 );
 assert.match(
-  clientJs,
+  navigationTreeRenderersJs,
   /data-recycle-note-id=/,
   'recycle bin should render deleted notes as dedicated targets'
 );
 assert.match(
-  clientJs,
+  navigationTreeRenderersJs,
   /data-recycle-section="true"/,
   'recycle section should render a dedicated target for section-level context menu actions'
 );
@@ -59,8 +67,8 @@ assert.match(
 );
 assert.match(
   clientJs,
-  /fetchJson\(`\/api\/knowledge\/notes\?spaceId=\$\{encodeURIComponent\(spaceId\)\}&includeDeleted=true`\)/,
-  'workspace refresh should request deleted notes so recycle bin can render backend state'
+  /knowledgeApi\.loadWorkspaceResources\(spaceId\)/,
+  'workspace refresh should load backend workspace resources through the API service'
 );
 
 console.log('ok - v1.3.6 note action hooks are present');

@@ -6,6 +6,13 @@ import { createInMemoryNoteRepository } from './modules/knowledge/infrastructure
 import { createInMemoryFolderRepository } from './modules/knowledge/infrastructure/folder-repository.js';
 import { createInMemoryTagRepository } from './modules/knowledge/infrastructure/tag-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './modules/knowledge/infrastructure/knowledge-space-repository.js';
+import {
+  createInMemoryKnowledgePointRepository,
+  createInMemoryKnowledgePointSourceRepository,
+  createInMemoryKnowledgePointTagRepository,
+  createInMemoryNoteKnowledgePointRepository,
+  createInMemoryTagGroupRepository
+} from './modules/knowledge/infrastructure/knowledge-point-repository.js';
 
 export function createAppContext(options = {}) {
   const dataStore = options.dataStore;
@@ -38,6 +45,36 @@ export function createAppContext(options = {}) {
     knowledgeSpaceRepository: options.knowledgeSpaceRepository ?? (dataStore
       ? createInMemoryKnowledgeSpaceRepository({
           records: dataStore.state.spaces,
+          onChange: dataStore.flush
+        })
+      : undefined),
+    knowledgePointRepository: options.knowledgePointRepository ?? (dataStore
+      ? createInMemoryKnowledgePointRepository({
+          records: dataStore.state.knowledgePoints,
+          onChange: dataStore.flush
+        })
+      : undefined),
+    knowledgePointSourceRepository: options.knowledgePointSourceRepository ?? (dataStore
+      ? createInMemoryKnowledgePointSourceRepository({
+          records: dataStore.state.knowledgePointSources,
+          onChange: dataStore.flush
+        })
+      : undefined),
+    tagGroupRepository: options.tagGroupRepository ?? (dataStore
+      ? createInMemoryTagGroupRepository({
+          records: dataStore.state.tagGroups,
+          onChange: dataStore.flush
+        })
+      : undefined),
+    knowledgePointTagRepository: options.knowledgePointTagRepository ?? (dataStore
+      ? createInMemoryKnowledgePointTagRepository({
+          records: dataStore.state.knowledgePointTags,
+          onChange: dataStore.flush
+        })
+      : undefined),
+    noteKnowledgePointRepository: options.noteKnowledgePointRepository ?? (dataStore
+      ? createInMemoryNoteKnowledgePointRepository({
+          records: dataStore.state.noteKnowledgePoints,
           onChange: dataStore.flush
         })
       : undefined)

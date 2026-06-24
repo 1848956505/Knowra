@@ -14,6 +14,8 @@ import { folderDtoTests } from './folder-dto.test.js';
 import { folderRepositoryTests } from './folder-repository.test.js';
 import { tagDtoTests } from './tag-dto.test.js';
 import { tagRepositoryTests } from './tag-repository.test.js';
+import { knowledgePointServiceTests } from './knowledge-point-service.test.js';
+import { knowledgePointHttpTests } from './knowledge-point-http.test.js';
 import { knowledgeSpaceDtoTests } from './knowledge-space-dto.test.js';
 import { knowledgeSpaceRepositoryTests } from './knowledge-space-repository.test.js';
 import { knowledgeModuleTests } from './knowledge-module.test.js';
@@ -33,6 +35,7 @@ const tests = [
   ...folderRepositoryTests,
   ...tagDtoTests,
   ...tagRepositoryTests,
+  ...knowledgePointServiceTests,
   ...knowledgeSpaceDtoTests,
   ...knowledgeSpaceRepositoryTests,
   ...noteServiceTests,
@@ -42,6 +45,7 @@ const tests = [
   ...searchServiceTests,
   ...knowledgeModuleTests,
   ...knowledgeHttpTests,
+  ...knowledgePointHttpTests,
   ...appFactoryTests,
   ...serverRouteTests
 ];

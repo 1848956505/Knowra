@@ -6,7 +6,12 @@ const DEFAULT_STATE = {
   folders: [],
   tags: [],
   notes: [],
-  attachments: []
+  attachments: [],
+  knowledgePoints: [],
+  knowledgePointSources: [],
+  tagGroups: [],
+  knowledgePointTags: [],
+  noteKnowledgePoints: []
 };
 
 function ensureParentDirectory(filePath) {
@@ -20,7 +25,12 @@ function cloneDefaultState() {
     folders: [],
     tags: [],
     notes: [],
-    attachments: []
+    attachments: [],
+    knowledgePoints: [],
+    knowledgePointSources: [],
+    tagGroups: [],
+    knowledgePointTags: [],
+    noteKnowledgePoints: []
   };
 }
 
@@ -30,7 +40,12 @@ function normalizeState(input = {}) {
     folders: Array.isArray(input.folders) ? input.folders : [],
     tags: Array.isArray(input.tags) ? input.tags : [],
     notes: Array.isArray(input.notes) ? input.notes : [],
-    attachments: Array.isArray(input.attachments) ? input.attachments : []
+    attachments: Array.isArray(input.attachments) ? input.attachments : [],
+    knowledgePoints: Array.isArray(input.knowledgePoints) ? input.knowledgePoints : [],
+    knowledgePointSources: Array.isArray(input.knowledgePointSources) ? input.knowledgePointSources : [],
+    tagGroups: Array.isArray(input.tagGroups) ? input.tagGroups : [],
+    knowledgePointTags: Array.isArray(input.knowledgePointTags) ? input.knowledgePointTags : [],
+    noteKnowledgePoints: Array.isArray(input.noteKnowledgePoints) ? input.noteKnowledgePoints : []
   };
 }
 
@@ -57,7 +72,12 @@ export function createFileDataStore(filePath) {
     folders: normalized.folders,
     tags: normalized.tags,
     notes: normalized.notes,
-    attachments: normalized.attachments
+    attachments: normalized.attachments,
+    knowledgePoints: normalized.knowledgePoints,
+    knowledgePointSources: normalized.knowledgePointSources,
+    tagGroups: normalized.tagGroups,
+    knowledgePointTags: normalized.knowledgePointTags,
+    noteKnowledgePoints: normalized.noteKnowledgePoints
   };
 
   function flush() {
@@ -85,6 +105,11 @@ export function createFileDataStore(filePath) {
     replaceCollection(state.tags, normalizedState.tags);
     replaceCollection(state.notes, normalizedState.notes);
     replaceCollection(state.attachments, normalizedState.attachments);
+    replaceCollection(state.knowledgePoints, normalizedState.knowledgePoints);
+    replaceCollection(state.knowledgePointSources, normalizedState.knowledgePointSources);
+    replaceCollection(state.tagGroups, normalizedState.tagGroups);
+    replaceCollection(state.knowledgePointTags, normalizedState.knowledgePointTags);
+    replaceCollection(state.noteKnowledgePoints, normalizedState.noteKnowledgePoints);
     flush();
 
     return exportSnapshot();

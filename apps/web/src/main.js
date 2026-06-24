@@ -122,8 +122,17 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'GET' && url.pathname === '/') {
       const initialWorkspace = await loadInitialWorkspaceSnapshot();
-      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
       response.end(renderHtml(createInitialWorkspaceScript(initialWorkspace)));
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/favicon.ico') {
+      response.writeHead(204, { 'Cache-Control': 'no-store' });
+      response.end();
       return;
     }
 
@@ -146,6 +155,7 @@ const server = http.createServer(async (request, response) => {
     if (
       url.pathname === '/src/client.js' ||
       url.pathname === '/src/styles.css' ||
+      url.pathname.startsWith('/src/services/') ||
       url.pathname.startsWith('/lib/') ||
       url.pathname.startsWith('/styles/')
     ) {
@@ -166,7 +176,8 @@ const server = http.createServer(async (request, response) => {
       const content = fs.readFileSync(filePath);
       const ext = path.extname(filePath).toLowerCase();
       response.writeHead(200, {
-        'Content-Type': mimeTypes.get(ext) || 'text/plain; charset=utf-8'
+        'Content-Type': mimeTypes.get(ext) || 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
       });
       response.end(content);
       return;

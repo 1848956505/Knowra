@@ -41,8 +41,8 @@ assert.doesNotMatch(
 );
 assert.match(
   formatButtonsMatch[1],
-  /label: '加粗'[\s\S]*label: '斜体'[\s\S]*label: '引用'[\s\S]*label: '列表'[\s\S]*label: '行内代码'/,
-  'editor format menu should use Chinese labels'
+  /label: '加粗'[\s\S]*label: '斜体'[\s\S]*label: '删除线'[\s\S]*label: '行内代码'[\s\S]*label: '高亮'/,
+  'editor format menu should use Chinese labels and expose a highlight action'
 );
 assert.match(
   clientJs,

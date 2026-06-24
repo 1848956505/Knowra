@@ -1717,6 +1717,199 @@ body {
   gap: 6px;
 }
 
+.knowledge-point-panel {
+  gap: 10px;
+}
+
+.knowledge-point-toolbar,
+.knowledge-point-actions,
+.knowledge-point-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.knowledge-point-filter,
+.knowledge-point-list,
+.knowledge-point-attach-panel,
+.knowledge-point-attach-list,
+.knowledge-point-edit-form,
+.knowledge-point-edit-tags,
+.knowledge-point-sources {
+  display: grid;
+  gap: 10px;
+}
+
+.knowledge-point-search,
+.knowledge-point-edit-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.knowledge-point-attach-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.knowledge-point-attach-item:hover {
+  border-color: rgba(60, 104, 255, 0.28);
+  background: rgba(60, 104, 255, 0.07);
+}
+
+.knowledge-point-attach-item strong {
+  font-size: 12px;
+}
+
+.knowledge-point-attach-item span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.knowledge-point-search input,
+.knowledge-point-edit-form input,
+.knowledge-point-edit-form textarea {
+  width: 100%;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--color-text);
+  font: inherit;
+  outline: none;
+}
+
+.knowledge-point-edit-form textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.knowledge-point-search input:focus,
+.knowledge-point-edit-form input:focus,
+.knowledge-point-edit-form textarea:focus {
+  border-color: rgba(60, 104, 255, 0.42);
+  box-shadow: 0 0 0 3px rgba(60, 104, 255, 0.08);
+}
+
+.knowledge-point-filter-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.knowledge-point-filter-group,
+.knowledge-point-edit-tag-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.knowledge-point-filter-title,
+.knowledge-point-edit-tags > span,
+.knowledge-point-edit-tag-group legend,
+.knowledge-point-card-subtitle {
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.knowledge-point-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.knowledge-point-card[data-expanded='true'] {
+  border-color: rgba(60, 104, 255, 0.22);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.knowledge-point-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.knowledge-point-title {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.knowledge-point-title:hover {
+  color: var(--color-accent-strong);
+}
+
+.knowledge-point-comment,
+.knowledge-point-card-meta,
+.knowledge-point-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.knowledge-point-source {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-left: 3px solid rgba(60, 104, 255, 0.24);
+  background: rgba(60, 104, 255, 0.06);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+}
+
+.knowledge-point-source-row {
+  display: grid;
+  gap: 6px;
+}
+
+.knowledge-point-source-row > .subtle-button {
+  justify-self: flex-start;
+}
+
+.knowledge-point-source:hover {
+  background: rgba(60, 104, 255, 0.1);
+}
+
+.knowledge-point-edit-tag {
+  cursor: pointer;
+}
+
+.knowledge-point-edit-tag input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
 .editor-shell {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -2111,6 +2304,25 @@ body {
   background: rgba(60, 104, 255, 0.08);
   border-radius: 6px;
   font-family: 'Consolas', 'SFMono-Regular', monospace;
+}
+
+.milkdown-host .ProseMirror mark {
+  background-color: rgba(255, 213, 79, 0.55);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.milkdown-host .ProseMirror .knowledge-point-marker {
+  border-radius: 3px;
+  background: rgba(60, 104, 255, 0.13);
+  box-shadow: inset 0 -1px 0 rgba(60, 104, 255, 0.32);
+  cursor: pointer;
+}
+
+.milkdown-host .ProseMirror .knowledge-point-marker-active {
+  background: rgba(60, 104, 255, 0.24);
+  box-shadow: inset 0 -2px 0 rgba(60, 104, 255, 0.55);
 }
 
 .milkdown-host .ProseMirror pre {

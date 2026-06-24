@@ -11,8 +11,8 @@ const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/compone
 
 assert.match(
   clientJs,
-  /const paragraphMenuItems = \[[\s\S]*label: 'H0'[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
-  'paragraph menu should expose H0-H6 so the heading shortcuts have visible targets'
+  /const paragraphMenuItems = \[[\s\S]*label: '正文'[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
+  'paragraph menu should expose 正文+H1-H6 so the heading shortcuts have visible targets'
 );
 assert.match(
   clientJs,

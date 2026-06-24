@@ -5,7 +5,7 @@ import { clipboard } from '@milkdown/plugin-clipboard';
 import { history, redoCommand, undoCommand } from '@milkdown/plugin-history';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { getNodeFromSchema } from '@milkdown/prose';
-import { lift, liftEmptyBlock, splitBlock } from '@milkdown/prose/commands';
+import { lift, liftEmptyBlock, splitBlock, toggleMark } from '@milkdown/prose/commands';
 import { Slice } from '@milkdown/prose/model';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
@@ -38,7 +38,7 @@ import {
 } from '@milkdown/preset-gfm';
 import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block';
 import { imageBlockConfig, defaultImageBlockConfig } from '@milkdown/components/image-block';
-import { $command, $prose, callCommand, getMarkdown, replaceAll } from '@milkdown/utils';
+import { $command, $markSchema, $prose, $remark, callCommand, getMarkdown, replaceAll } from '@milkdown/utils';
 import { enhancedImageBlockComponent } from './enhanced-image-block.js';
 import {
   resolveBackspaceBehavior,
@@ -866,6 +866,54 @@ class TableHandleController {
   }
 }
 
+const highlightRemark = $remark('highlight', () => () => (tree) => {
+  const visit = (node) => {
+    if (node.type === 'text' && typeof node.value === 'string' && /==[^=\n]+?==/.test(node.value)) {
+      const out = [];
+      const re = /==([^=\n]+?)==/g;
+      let last = 0;
+      let m;
+      while ((m = re.exec(node.value)) !== null) {
+        if (m.index > last) out.push({ type: 'text', value: node.value.slice(last, m.index) });
+        out.push({ type: 'highlight', children: [{ type: 'text', value: m[1] }] });
+        last = m.index + m[0].length;
+      }
+      if (last < node.value.length) out.push({ type: 'text', value: node.value.slice(last) });
+      return out;
+    }
+    if (Array.isArray(node.children)) {
+      node.children = node.children.flatMap(visit);
+    }
+    return [node];
+  };
+  tree.children = tree.children.flatMap(visit);
+});
+
+const highlightSchema = $markSchema('highlight', () => ({
+  parseDOM: [{ tag: 'mark' }],
+  toDOM: () => ['mark', 0],
+  parseMarkdown: {
+    match: (node) => node.type === 'highlight',
+    runner: (state, node, markType) => {
+      state.openMark(markType);
+      state.next(node.children);
+      state.closeMark(markType);
+    }
+  },
+  toMarkdown: {
+    match: (mark) => mark.type.name === 'highlight',
+    runner: (state, mark, node) => {
+      state.addNode('text', undefined, '==');
+      state.addNode('text', undefined, node.text || '');
+      state.addNode('text', undefined, '==');
+    }
+  }
+}));
+
+const toggleHighlightCommand = $command('ToggleHighlight', (ctx) => () => {
+  return toggleMark(highlightSchema.type(ctx));
+});
+
 const commandResolvers = {
   'paragraph': () => ({ key: turnIntoTextCommand.key }),
   'heading-1': () => ({ key: wrapInHeadingCommand.key, payload: 1 }),
@@ -884,6 +932,7 @@ const commandResolvers = {
   hr: () => ({ key: insertHrCommand.key }),
   'task-list': () => ({ key: turnIntoTaskListCommand.key }),
   strikethrough: () => ({ key: toggleStrikethroughCommand.key }),
+  highlight: () => ({ key: toggleHighlightCommand.key }),
   link: () => ({ key: insertLinkCommand.key }),
   image: () => ({ key: insertImageBlockCommand.key }),
   'internal-link': () => ({ key: insertInternalLinkCommand.key }),
@@ -908,6 +957,7 @@ const commandResolvers = {
   redo: () => ({ key: redoCommand.key })
 };
 const findHighlightPluginKey = new PluginKey('STUDY_FIND_HIGHLIGHTS');
+const knowledgePointHighlightPluginKey = new PluginKey('STUDY_KNOWLEDGE_POINT_HIGHLIGHTS');
 
 function findAncestorOfType($pos, typeNames) {
   const names = typeNames instanceof Set ? typeNames : new Set(typeNames);
@@ -1693,6 +1743,60 @@ const findHighlightBehavior = $prose(() => new Plugin({
   }
 }));
 
+const knowledgePointHighlightBehavior = $prose(() => new Plugin({
+  key: knowledgePointHighlightPluginKey,
+  state: {
+    init: () => ({
+      sources: [],
+      activeSourceId: null,
+      decorations: DecorationSet.empty
+    }),
+    apply(transaction, pluginState) {
+      const meta = transaction.getMeta(knowledgePointHighlightPluginKey);
+      const sources = Array.isArray(meta?.sources)
+        ? normalizeKnowledgePointSources(meta.sources)
+        : pluginState.sources;
+      const activeSourceId = Object.hasOwn(meta ?? {}, 'activeSourceId')
+        ? meta.activeSourceId
+        : pluginState.activeSourceId;
+
+      if (!meta && !transaction.docChanged) {
+        return pluginState;
+      }
+
+      return {
+        sources,
+        activeSourceId,
+        decorations: buildKnowledgePointDecorations(transaction.doc, sources, activeSourceId)
+      };
+    }
+  },
+  props: {
+    decorations(state) {
+      return knowledgePointHighlightPluginKey.getState(state)?.decorations ?? null;
+    },
+    handleDOMEvents: {
+      click(view, event) {
+        const target = event.target instanceof Element ? event.target : null;
+        const marker = target?.closest?.('[data-knowledge-point-source-id]');
+        if (!marker) {
+          return false;
+        }
+
+        event.preventDefault();
+        view.dom.dispatchEvent(new CustomEvent('knowledge-point-marker-click', {
+          bubbles: true,
+          detail: {
+            sourceId: marker.dataset.knowledgePointSourceId,
+            knowledgePointId: marker.dataset.knowledgePointId
+          }
+        }));
+        return true;
+      }
+    }
+  }
+}));
+
 const taskListClickBehavior = $prose(() => new Plugin({
   key: new PluginKey('STUDY_TASK_LIST_CLICK'),
   props: {
@@ -1795,7 +1899,10 @@ export class MilkdownHost {
       .use(tableBlock)
       .use(enhancedEnterBehavior)
       .use(findHighlightBehavior)
-      .use(taskListClickBehavior);
+      .use(knowledgePointHighlightBehavior)
+      .use(taskListClickBehavior)
+      .use(highlightRemark)
+      .use(highlightSchema);
 
     await this.editor.create();
     this.root.dataset.editorReady = 'true';
@@ -1867,6 +1974,44 @@ export class MilkdownHost {
     await this.ready;
     const view = this.editor.ctx.get(editorViewCtx);
     view.focus();
+  }
+
+  async getSelectionSnapshot({ contextChars = 80 } = {}) {
+    await this.ready;
+    const view = this.editor.ctx.get(editorViewCtx);
+    const { selection, doc } = view.state;
+    if (selection.empty) {
+      return null;
+    }
+
+    const from = Math.min(selection.from, selection.to);
+    const to = Math.max(selection.from, selection.to);
+    const sourceText = doc.textBetween(from, to, '\n', '\n').replace(/\s+/g, ' ').trim();
+    if (!sourceText) {
+      return null;
+    }
+
+    const contextBefore = doc
+      .textBetween(Math.max(0, from - contextChars), from, '\n', '\n')
+      .replace(/\s+/g, ' ')
+      .slice(-contextChars);
+    const contextAfter = doc
+      .textBetween(to, Math.min(doc.content.size, to + contextChars), '\n', '\n')
+      .replace(/\s+/g, ' ')
+      .slice(0, contextChars);
+
+    return {
+      sourceText,
+      startOffset: from,
+      endOffset: to,
+      contextBefore,
+      contextAfter,
+      anchor: {
+        type: 'prosemirror-text-range',
+        from,
+        to
+      }
+    };
   }
 
   repairTableAfterDelete(pinnedSnapshot) {
@@ -2081,6 +2226,48 @@ export class MilkdownHost {
     };
   }
 
+  async setKnowledgePointSources(sources = []) {
+    await this.ready;
+    const view = this.editor.ctx.get(editorViewCtx);
+    view.dispatch(
+      view.state.tr
+        .setMeta(knowledgePointHighlightPluginKey, {
+          sources: normalizeKnowledgePointSources(sources),
+          activeSourceId: null
+        })
+        .setMeta('addToHistory', false)
+    );
+  }
+
+  async selectKnowledgePointSource(sourceId) {
+    await this.ready;
+    const view = this.editor.ctx.get(editorViewCtx);
+    const pluginState = knowledgePointHighlightPluginKey.getState(view.state);
+    const source = pluginState?.sources?.find((item) => item.id === sourceId);
+    if (!source) {
+      return false;
+    }
+
+    const range = resolveKnowledgePointSourceRange(view.state.doc, source);
+    if (!range) {
+      return false;
+    }
+
+    const selection = TextSelection.create(view.state.doc, range.from, range.to);
+    view.dispatch(
+      view.state.tr
+        .setSelection(selection)
+        .setMeta(knowledgePointHighlightPluginKey, {
+          sources: pluginState.sources,
+          activeSourceId: sourceId
+        })
+        .setMeta('addToHistory', false)
+        .scrollIntoView()
+    );
+    view.focus();
+    return true;
+  }
+
   async clearSearchHighlights() {
     await this.ready;
     const view = this.editor.ctx.get(editorViewCtx);
@@ -2167,4 +2354,66 @@ function buildFindDecorations(doc, query, activeIndex) {
         : 'editor-find-match'
     }))
   );
+}
+
+function normalizeKnowledgePointSources(sources = []) {
+  return sources
+    .filter((source) => source?.id && source?.sourceText)
+    .map((source) => ({
+      id: source.id,
+      knowledgePointId: source.knowledgePointId ?? '',
+      sourceText: String(source.sourceText ?? '').replace(/\s+/g, ' ').trim(),
+      anchor: source.anchor ?? null,
+      startOffset: Number.isInteger(source.startOffset) ? source.startOffset : null,
+      endOffset: Number.isInteger(source.endOffset) ? source.endOffset : null
+    }));
+}
+
+function rangeMatchesSource(doc, range, sourceText) {
+  if (!range || range.from >= range.to) {
+    return false;
+  }
+
+  const text = doc.textBetween(range.from, range.to, '\n', '\n').replace(/\s+/g, ' ').trim();
+  return text === sourceText;
+}
+
+function resolveKnowledgePointSourceRange(doc, source) {
+  const anchoredRange = Number.isInteger(source.anchor?.from) && Number.isInteger(source.anchor?.to)
+    ? { from: source.anchor.from, to: source.anchor.to }
+    : null;
+  if (rangeMatchesSource(doc, anchoredRange, source.sourceText)) {
+    return anchoredRange;
+  }
+
+  const offsetRange = Number.isInteger(source.startOffset) && Number.isInteger(source.endOffset)
+    ? { from: source.startOffset, to: source.endOffset }
+    : null;
+  if (rangeMatchesSource(doc, offsetRange, source.sourceText)) {
+    return offsetRange;
+  }
+
+  return collectDocumentTextMatches(doc, source.sourceText)[0] ?? null;
+}
+
+function buildKnowledgePointDecorations(doc, sources, activeSourceId) {
+  const decorations = sources
+    .map((source) => {
+      const range = resolveKnowledgePointSourceRange(doc, source);
+      if (!range) {
+        return null;
+      }
+
+      return Decoration.inline(range.from, range.to, {
+        class: source.id === activeSourceId
+          ? 'knowledge-point-marker knowledge-point-marker-active'
+          : 'knowledge-point-marker',
+        'data-knowledge-point-source-id': source.id,
+        'data-knowledge-point-id': source.knowledgePointId,
+        title: '知识点原文片段'
+      });
+    })
+    .filter(Boolean);
+
+  return decorations.length ? DecorationSet.create(doc, decorations) : DecorationSet.empty;
 }

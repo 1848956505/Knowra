@@ -26,19 +26,44 @@ assert.equal(
 );
 
 assert.equal(
-  resolveEditorPanelKeyboardAction({ key: 'Enter', shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }),
+  resolveEditorPanelKeyboardAction({ key: 'F3', shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }),
   'next',
-  'plain Enter should find the next match'
+  'F3 should find the next match'
 );
 assert.equal(
-  resolveEditorPanelKeyboardAction({ key: 'Enter', shiftKey: true, altKey: false, ctrlKey: false, metaKey: false }),
+  resolveEditorPanelKeyboardAction({ key: 'F3', shiftKey: true, altKey: false, ctrlKey: false, metaKey: false }),
   'previous',
-  'Shift+Enter should find the previous match'
+  'Shift+F3 should find the previous match'
 );
 assert.equal(
-  resolveEditorPanelKeyboardAction({ key: 'Enter', shiftKey: false, altKey: false, ctrlKey: true, metaKey: false }),
+  resolveEditorPanelKeyboardAction({ key: 'F3', shiftKey: false, altKey: false, ctrlKey: true, metaKey: false }),
   null,
-  'modified Enter shortcuts should be ignored'
+  'Ctrl+F3 should be ignored'
+);
+assert.equal(
+  resolveEditorPanelKeyboardAction({ key: 'F3', shiftKey: false, altKey: true, ctrlKey: false, metaKey: false }),
+  null,
+  'Alt+F3 should be ignored'
+);
+assert.equal(
+  resolveEditorPanelKeyboardAction({ key: 'ArrowDown', shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }),
+  null,
+  'ArrowDown should be ignored (no conflict with cursor movement)'
+);
+assert.equal(
+  resolveEditorPanelKeyboardAction({ key: 'ArrowUp', shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }),
+  null,
+  'ArrowUp should be ignored (no conflict with cursor movement)'
+);
+assert.equal(
+  resolveEditorPanelKeyboardAction({ key: 'Enter', shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }),
+  null,
+  'plain Enter should be ignored (no conflict with new line)'
+);
+assert.equal(
+  resolveEditorPanelKeyboardAction({ key: 'Escape', shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }),
+  null,
+  'other keys should be ignored'
 );
 
 console.log('ok - editor find behavior resolves navigation direction correctly');

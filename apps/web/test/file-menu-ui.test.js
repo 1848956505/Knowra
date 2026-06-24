@@ -41,8 +41,8 @@ assert.match(
 );
 assert.match(
   clientJs,
-  /\/api\/knowledge\/notes\/import-markdown/,
-  'API mode should use the markdown import endpoint'
+  /knowledgeApi\.importMarkdownNotes/,
+  'API mode should import markdown through the API service'
 );
 assert.match(
   mainJs,

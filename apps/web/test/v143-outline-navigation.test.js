@@ -7,6 +7,7 @@ import { extractMarkdownHeadings, renderMarkdownPreview } from '../lib/markdown.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const outlinePanelJs = fs.readFileSync(path.resolve(__dirname, '../lib/sidebar/outline-panel.js'), 'utf8');
 
 const headings = extractMarkdownHeadings(`# 一级
 ## 二级
@@ -54,7 +55,7 @@ assert.match(
 );
 
 assert.match(
-  clientJs,
+  outlinePanelJs,
   /data-outline-index="\$\{heading\.index\}"/,
   'outline items should keep their heading order so rich editor jumps can fall back to DOM heading position'
 );

@@ -1,0 +1,114 @@
+export function renderAsideEmptyState() {
+  return `
+    <section class="aside-panel-empty">
+      <strong>未打开笔记</strong>
+      <span>请先在左侧选择一个文件。</span>
+    </section>
+  `;
+}
+
+export function renderAiTab(note) {
+  return `
+    <section class="aside-panel-stack">
+      <section class="aside-card">
+        <div class="aside-card-header">
+          <span>AI</span>
+          <strong>${escapeHtml(note.title)}</strong>
+        </div>
+        <div class="aside-placeholder">AI 辅助区将在右侧面板内继续扩展。</div>
+      </section>
+    </section>
+  `;
+}
+
+export function renderTagPills(tags) {
+  return tags
+    .map(
+      (tag) => `
+        <span class="pill" data-accent="true">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          ${escapeHtml(tag.name)}
+        </span>
+      `
+    )
+    .join('');
+}
+
+export function renderAssignedTagPills(tags) {
+  return tags
+    .map(
+      (tag) => `
+        <button type="button" class="pill pill-button" data-accent="true" data-note-tag-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          <span>${escapeHtml(tag.name)}</span>
+          <span class="pill-action" aria-hidden="true">×</span>
+        </button>
+      `
+    )
+    .join('');
+}
+
+export function renderAvailableTagPills(tags) {
+  return tags
+    .map(
+      (tag) => `
+        <button type="button" class="pill pill-button" data-note-tag-add="${escapeAttribute(tag.id)}" title="添加标签：${escapeAttribute(tag.name)}">
+          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          <span>${escapeHtml(tag.name)}</span>
+          <span class="pill-action" aria-hidden="true">+</span>
+        </button>
+      `
+    )
+    .join('');
+}
+
+export function renderLinkedNotes(linkedNotes) {
+  return linkedNotes
+    .map(
+      (linkedNote) => `
+        <div class="linked-row">
+          <button type="button" data-linked-id="${escapeAttribute(linkedNote.id)}">
+            <div class="linked-meta">
+              <strong>${escapeHtml(linkedNote.title)}</strong>
+              <span>${escapeHtml(linkedNote.summary || linkedNote.plainText || '')}</span>
+            </div>
+          </button>
+        </div>
+      `
+    )
+    .join('');
+}
+
+export function renderAttachments(attachments) {
+  return attachments
+    .map(
+      (attachment) => `
+        <div class="resource-row">
+          <button type="button" data-attachment-name="${escapeAttribute(attachment.fileName)}">
+            <div class="resource-meta">
+              <strong>${escapeHtml(attachment.fileName)}</strong>
+              <span>${escapeHtml(attachment.mimeType)}</span>
+            </div>
+          </button>
+        </div>
+      `
+    )
+    .join('');
+}
+
+export function renderAsideEmptyInline(label) {
+  return `<div class="aside-empty-inline">${escapeHtml(label)}</div>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/`/g, '&#096;');
+}

@@ -27,9 +27,16 @@ export function resolveEditorPanelKeyboardAction({
   ctrlKey = false,
   metaKey = false
 } = {}) {
-  if (key !== 'Enter' || altKey || ctrlKey || metaKey) {
+  if (ctrlKey || metaKey || altKey) {
     return null;
   }
 
-  return shiftKey ? 'previous' : 'next';
+  if (key === 'F3' && !shiftKey) {
+    return 'next';
+  }
+  if (key === 'F3' && shiftKey) {
+    return 'previous';
+  }
+
+  return null;
 }
