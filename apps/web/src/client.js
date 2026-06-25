@@ -199,6 +199,7 @@ import { validateTreeEditorName as validateNavigationTreeEditorName } from '../l
 import { bindSearchEvents } from '../lib/events/search-events.js';
 import { bindWindowEvents } from '../lib/events/window-events.js';
 import { bindDocumentClickEvents } from '../lib/events/document-click-events.js';
+import { bindDocumentKeyboardEvents } from '../lib/events/document-keyboard-events.js';
 import { knowledgeApi } from './services/knowledge-api.js';
 
 const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
@@ -476,6 +477,11 @@ function bindEvents() {
     // document.click 外部点击
     handleFormat, closeSectionMenu, closeTabMenu,
     closeEditorMenuBar, closeEditorContextMenu,
+    // document.keydown：Escape 关闭链 + 捕获阶段编辑器快捷键/表格/查找
+    closeTableInsertDialog, submitTableInsertDialog,
+    resolveEditorPanelKeyboardAction, handleEditorPanelAction,
+    resolveEditorShortcutAction, shouldHandleEditorShortcut,
+    handleResolvedEditorShortcut, closeEditorPanel,
     // 滚动位置（window beforeunload）
     saveCurrentEditorScrollPosition, persistScrollPositions
   };
@@ -483,8 +489,9 @@ function bindEvents() {
   bindSearchEvents({ state, elements, deps });
   bindWindowEvents({ state, elements, deps });
   bindDocumentClickEvents({ state, elements, deps });
-  // window / document / menu / folder-tree / note-tab / editor-content / aside
-  // 由后续拆分 commit 逐步加入。
+  bindDocumentKeyboardEvents({ state, elements, deps });
+  // document-input / document-action / menu / folder-tree / note-tab /
+  // editor-content / aside 由后续拆分 commit 逐步加入。
   elements.folderTree?.addEventListener('click', (event) => {
     const clickTarget = resolveClickTarget(event.target);
     if (!clickTarget) {
@@ -875,21 +882,10 @@ function bindEvents() {
   // 原本的两段 document.click 监听器（格式化按钮 + 外部点击关闭菜单）
   // 移至 apps/web/lib/events/document-click-events.js。
   // 行为不变：选择器、事件名、关闭顺序均保持。
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      if (state.search.isOpen) {
-        state.search.isOpen = false;
-        renderSearchShell();
-      }
-      closeContextMenu();
-      closeSectionMenu();
-      closeTabMenu();
-      closeEditorMenuBar();
-      closeEditorContextMenu();
-      closeTableInsertDialog();
-    }
-  });
+  // Claude Code 拆分 bindEvents 时迁出（commit 4，2026-06-25）：
+  // 原本的两段 document.keydown 监听器（Escape 关闭链 + 捕获阶段编辑
+  // 器快捷键/表格对话框/查找面板）移至 apps/web/lib/events/document-keyboard-events.js。
+  // 关键：第二个监听器 `, true` 捕获阶段已保留。
 
   elements.asideContent?.addEventListener('input', (event) => {
     const knowledgePointFilterInput = event.target.closest('[data-knowledge-point-filter-input]');
@@ -1123,46 +1119,8 @@ function bindEvents() {
     }
   });
 
-  document.addEventListener('keydown', (event) => {
-    const tableDialog = event.target.closest?.('#editor-table-dialog');
-    if (tableDialog && state.editorTableDialog.open) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        event.stopPropagation();
-        void submitTableInsertDialog();
-        return;
-      }
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        closeTableInsertDialog();
-        return;
-      }
-    }
-
-    if (state.editorPanel.open && state.editorPanel.mode === 'find') {
-      const action = resolveEditorPanelKeyboardAction(event);
-      if (action) {
-        event.preventDefault();
-        event.stopPropagation();
-        void handleEditorPanelAction(action === 'previous' ? 'submit-previous' : 'submit');
-        return;
-      }
-    }
-
-    const shortcutAction = resolveEditorShortcutAction(event);
-    if (shortcutAction && shouldHandleEditorShortcut(event)) {
-      event.preventDefault();
-      event.stopPropagation();
-      void handleResolvedEditorShortcut(shortcutAction);
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      closeEditorPanel();
-    }
-  }, true);
+  // Claude Code 拆分 bindEvents 时迁出（commit 4，2026-06-25）：
+  // 上一段已被 document-keyboard-events.js 中的捕获阶段监听器替代。
 
   document.addEventListener('click', (event) => {
     const tableDialogAction = event.target.closest('[data-editor-table-dialog-action]');
