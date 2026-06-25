@@ -200,6 +200,7 @@ import { bindSearchEvents } from '../lib/events/search-events.js';
 import { bindWindowEvents } from '../lib/events/window-events.js';
 import { bindDocumentClickEvents } from '../lib/events/document-click-events.js';
 import { bindDocumentKeyboardEvents } from '../lib/events/document-keyboard-events.js';
+import { bindDocumentInputEvents } from '../lib/events/document-input-events.js';
 import { knowledgeApi } from './services/knowledge-api.js';
 
 const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
@@ -482,6 +483,9 @@ function bindEvents() {
     resolveEditorPanelKeyboardAction, handleEditorPanelAction,
     resolveEditorShortcutAction, shouldHandleEditorShortcut,
     handleResolvedEditorShortcut, closeEditorPanel,
+    // document.input：表格对话框字段 + 查找面板字段（host 通过 getter
+    // 保持 live binding，编辑器切换时拿到新实例）
+    getCurrentEditorHost: () => currentEditorHost,
     // 滚动位置（window beforeunload）
     saveCurrentEditorScrollPosition, persistScrollPositions
   };
@@ -490,7 +494,8 @@ function bindEvents() {
   bindWindowEvents({ state, elements, deps });
   bindDocumentClickEvents({ state, elements, deps });
   bindDocumentKeyboardEvents({ state, elements, deps });
-  // document-input / document-action / menu / folder-tree / note-tab /
+  bindDocumentInputEvents({ state, elements, deps });
+  // document-action / menu / folder-tree / note-tab /
   // editor-content / aside 由后续拆分 commit 逐步加入。
   elements.folderTree?.addEventListener('click', (event) => {
     const clickTarget = resolveClickTarget(event.target);
@@ -1087,40 +1092,10 @@ function bindEvents() {
     void persistDraft({ immediate: true });
   });
 
-  document.addEventListener('input', (event) => {
-    const tableDialog = event.target.closest?.('#editor-table-dialog');
-    if (tableDialog) {
-      const target = event.target;
-      if (target?.dataset?.tableDialogField === 'rows') {
-        state.editorTableDialog.rows = target.value;
-      } else if (target?.dataset?.tableDialogField === 'cols') {
-        state.editorTableDialog.cols = target.value;
-      }
-      return;
-    }
-
-    const panel = event.target.closest?.('#editor-utility-panel');
-    if (!panel) {
-      return;
-    }
-
-    const target = event.target;
-    if (!target?.dataset?.panelField) {
-      return;
-    }
-
-    if (target.dataset.panelField === 'query') {
-      state.editorPanel.query = target.value;
-      state.editorPanel.matchIndex = -1;
-      state.editorPanel.matchCount = 0;
-      void currentEditorHost?.clearSearchHighlights();
-    } else if (target.dataset.panelField === 'replacement') {
-      state.editorPanel.replacement = target.value;
-    }
-  });
-
-  // Claude Code 拆分 bindEvents 时迁出（commit 4，2026-06-25）：
-  // 上一段已被 document-keyboard-events.js 中的捕获阶段监听器替代。
+  // Claude Code 拆分 bindEvents 时迁出（commit 5，2026-06-25）：
+  // 原本的 document.input 监听器（表格对话框字段 + 查找面板字段）移至
+  // apps/web/lib/events/document-input-events.js。host 通过 deps 中的
+  // getter 注入，保持 live binding。
 
   document.addEventListener('click', (event) => {
     const tableDialogAction = event.target.closest('[data-editor-table-dialog-action]');
