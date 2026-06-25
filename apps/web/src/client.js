@@ -197,6 +197,7 @@ import {
 } from '../lib/navigation/selection.js';
 import { validateTreeEditorName as validateNavigationTreeEditorName } from '../lib/navigation/tree-editor.js';
 import { bindSearchEvents } from '../lib/events/search-events.js';
+import { bindWindowEvents } from '../lib/events/window-events.js';
 import { knowledgeApi } from './services/knowledge-api.js';
 
 const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
@@ -470,10 +471,13 @@ function bindEvents() {
     // 搜索
     toggleSearchTagFilter, focusSearchInput, renderSearchShell, clearSearchFilters,
     getSearchResultNotes, selectNote, closeContextMenu, renderFolders,
-    reconcileSelection, renderAll, importMarkdownFiles, flashStatus
+    reconcileSelection, renderAll, importMarkdownFiles, flashStatus,
+    // 滚动位置（window beforeunload）
+    saveCurrentEditorScrollPosition, persistScrollPositions
   };
 
   bindSearchEvents({ state, elements, deps });
+  bindWindowEvents({ state, elements, deps });
   // window / document / menu / folder-tree / note-tab / editor-content / aside
   // 由后续拆分 commit 逐步加入。
   elements.folderTree?.addEventListener('click', (event) => {
