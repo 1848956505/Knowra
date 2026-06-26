@@ -32,11 +32,13 @@ assert.match(html, /data-knowledge-point-id="kp-v204"/);
 assert.match(html, /点击原文片段应回到正文选区/);
 
 const clientJs = readFileSync(new URL('../src/client.js', import.meta.url), 'utf8');
+const asideClickEventsJs = readFileSync(new URL('../lib/events/aside-events/click.js', import.meta.url), 'utf8');
+const editorContentEventsJs = readFileSync(new URL('../lib/events/editor-content-events.js', import.meta.url), 'utf8');
 assert.match(clientJs, /syncKnowledgePointMarkers/);
 assert.match(clientJs, /setKnowledgePointSources/);
 assert.match(clientJs, /selectKnowledgePointSource/);
-assert.match(clientJs, /data-knowledge-point-source-jump/);
-assert.match(clientJs, /knowledge-point-marker-click/);
+assert.match(asideClickEventsJs, /data-knowledge-point-source-jump/);
+assert.match(editorContentEventsJs, /knowledge-point-marker-click/);
 assert.match(clientJs, /scrollKnowledgePointCardIntoView/);
 
 const milkdownEntry = readFileSync(new URL('../lib/editor/milkdown-entry.js', import.meta.url), 'utf8');

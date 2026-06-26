@@ -207,6 +207,8 @@ import { bindFolderTreeEvents } from '../lib/events/folder-tree-events.js';
 import { bindNoteTabEvents } from '../lib/events/note-tab-events.js';
 import { bindEditorContentEvents } from '../lib/events/editor-content-events.js';
 import { bindAsideEvents } from '../lib/events/aside-events/index.js';
+import { createNavigationController } from './controllers/navigation-controller.js';
+import { createEditorController } from './controllers/editor-controller.js';
 import { knowledgeApi } from './services/knowledge-api.js';
 
 const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
@@ -330,11 +332,15 @@ const railItems = [
 ];
 
 const elements = {};
-let autosaveTimer = null;
-let currentEditorHost = null;
-let currentEditorNoteId = null;
-let pendingEditorNoteId = null;
-let editorMountToken = 0;
+const editorRuntime = {
+  autosaveTimer: null,
+  currentEditorHost: null,
+  currentEditorNoteId: null,
+  pendingEditorNoteId: null,
+  editorMountToken: 0
+};
+let navigationController = null;
+let editorController = null;
 
 /** 笔记编辑器滚动位置记录（noteId → scrollTop） */
 const editorScrollPositions = {};
@@ -343,7 +349,7 @@ const SCROLL_POSITIONS_KEY = 'study-accelerator.editor-scroll-positions';
 function saveCurrentEditorScrollPosition() {
   const root = document.getElementById('milkdown-editor');
   if (root) {
-    captureScrollPosition(editorScrollPositions, currentEditorNoteId, root.scrollTop);
+    captureScrollPosition(editorScrollPositions, editorRuntime.currentEditorNoteId, root.scrollTop);
   }
 }
 
@@ -369,6 +375,7 @@ initialize();
 
 function initialize() {
   cacheElements();
+  createControllers();
   bindRuntimeErrorHandlers();
   renderRail();
   bindEvents();
@@ -440,6 +447,58 @@ function cacheElements() {
   elements.statusMeta = document.getElementById('status-meta');
 }
 
+function createControllers() {
+  navigationController = createNavigationController({
+    state,
+    elements,
+    knowledgeApi,
+    getActiveNotes,
+    getRecycleNotes,
+    getNoteById,
+    noteMatchesSelectedTags,
+    matchesSearch,
+    matchesFolderSearch,
+    renderAll,
+    renderStatus,
+    refreshKnowledgeData,
+    loadCurrentNoteSideData,
+    clearNoteSideData,
+    persistDraft,
+    syncLocalWorkspace,
+    saveCurrentEditorScrollPosition,
+    flashStatus,
+    escapeHtml
+  });
+  editorController = createEditorController({
+    state,
+    elements,
+    editorRuntime,
+    knowledgeApi,
+    autosaveDelayMs: AUTOSAVE_DELAY_MS,
+    getCurrentNote,
+    getEffectiveViewState,
+    renderAll,
+    renderTabs,
+    renderFolders,
+    renderSidebar,
+    renderStatus,
+    persistBackendCache,
+    refreshKnowledgeData,
+    loadCurrentNoteSideData,
+    syncLocalWorkspace,
+    openFolderBranch,
+    closeContextMenu,
+    closeSectionMenu,
+    closeTabMenu,
+    createKnowledgePointFromCurrentSelection,
+    syncKnowledgePointMarkers,
+    getCurrentKnowledgePointSources,
+    flashStatus,
+    escapeHtml,
+    escapeAttribute
+  });
+}
+
 function bindRuntimeErrorHandlers() {
   window.addEventListener('error', (event) => {
     reportRuntimeError('runtime', event.error || event.message);
@@ -491,7 +550,7 @@ function bindEvents() {
     handleResolvedEditorShortcut, closeEditorPanel,
     // document.input：表格对话框字段 + 查找面板字段（host 通过 getter
     // 保持 live binding，编辑器切换时拿到新实例）
-    getCurrentEditorHost: () => currentEditorHost,
+    getCurrentEditorHost: () => editorRuntime.currentEditorHost,
     // 笔记标签：tab 关闭/选中/拖拽重排 + 右键菜单
     handleTabClose, openTabMenu, syncTabDragIndicators,
     reorderTabs, resetTabDragState, handleTabMenuAction,
@@ -899,74 +958,8 @@ function renderWorkspaceViewState() {
   }
 }
 
-function renderFolders() {
-  if (!elements.folderTree) {
-    return;
-  }
-
-  const activeNotes = getActiveNotes();
-  const filteredActiveNotes = activeNotes.filter((note) => noteMatchesSelectedTags(note));
-  const recycleNotes = getRecycleNotes();
-  const topFolders = state.folderTree.filter((folder) => matchesFolderSearch(folder));
-  const favoriteNotes = filteredActiveNotes.filter((note) => note.favorite && matchesSearch(note.title));
-  const recentNotes = [...filteredActiveNotes]
-    .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
-    .filter((note) => matchesSearch(note.title))
-    .slice(0, 5);
-
-  const sections = [
-    renderNavSection({
-      key: 'materials',
-      label: '资料',
-      count: topFolders.length,
-      children: renderMaterialsTree(topFolders)
-    })
-  ];
-
-  if (state.secondarySections.favorites) {
-    sections.push(
-      renderNavSection({
-        key: 'favorites',
-        label: '收藏',
-        count: favoriteNotes.length,
-        children: favoriteNotes.length
-          ? favoriteNotes.map((note) => renderNoteNode(note, 1)).join('')
-          : renderEmptyItem('暂无收藏')
-      })
-    );
-  }
-
-  if (state.secondarySections.recent) {
-    sections.push(
-      renderNavSection({
-        key: 'recent',
-        label: '最近',
-        count: recentNotes.length,
-        children: recentNotes.length
-          ? recentNotes.map((note) => renderNoteNode(note, 1)).join('')
-          : renderEmptyItem('暂无最近笔记')
-      })
-    );
-  }
-
-  if (state.secondarySections.recycle) {
-    sections.push(
-      renderNavSection({
-        key: 'recycle',
-        label: '回收站',
-        count: recycleNotes.length,
-        children: recycleNotes.length
-          ? recycleNotes.map((note) => renderRecycleNoteNode(note, 1)).join('')
-          : renderEmptyItem('暂无回收站文件')
-      })
-    );
-  }
-
-  elements.folderTree.innerHTML = sections.join('');
-  renderHeaderToggle();
-  renderContextMenu();
-  renderSectionMenu();
-  focusInlineEditor();
+function renderFolders(...args) {
+  return navigationController.renderFolders(...args);
 }
 
 function renderTabs() {
@@ -998,19 +991,8 @@ function renderTabs() {
   persistBackendCache();
 }
 
-function renderEditorMenuBar() {
-  if (!elements.editorMenuBar) {
-    return;
-  }
-
-  const note = getCurrentNote();
-  const effectiveView = getEffectiveViewState();
-  elements.editorMenuBar.innerHTML = renderEditorMenuBarMarkup({
-    note,
-    effectiveView,
-    openMenu: state.editorMenuOpen,
-    getShortcutLabel: getEditorShortcutLabel
-  });
+function renderEditorMenuBar(...args) {
+  return editorController.renderEditorMenuBar(...args);
 }
 
 function renderTabMenu() {
@@ -1030,302 +1012,72 @@ function renderTabMenu() {
   elements.noteTabMenu.innerHTML = renderNoteTabMenuItems();
 }
 
-function renderNavSection({ key, label, count, children }) {
-  const open = state.navSections[key] ?? false;
-  return renderNavigationSection({
-    key,
-    label,
-    count,
-    children,
-    open,
-    isDropTarget: key === 'materials' && isRootDropActive()
-  });
+function renderNavSection(...args) {
+  return navigationController.renderNavSection(...args);
 }
 
-function renderMaterialsTree(topFolders) {
-  const parts = [];
-  const rootNotes = getDirectNotesForFolder(null).filter((note) => matchesSearch(note.title) && noteMatchesSelectedTags(note));
-
-  if (isCreateEditorForParent(null)) {
-    parts.push(renderInlineEditorRow(1, state.treeEditor.mode, state.treeEditor.value));
-  }
-
-  if (topFolders.length === 0 && rootNotes.length === 0) {
-    parts.push(renderEmptyItem(state.dataMode === 'loading' ? '正在加载资料...' : '暂无目录'));
-  } else {
-    parts.push(...topFolders.map((folder) => renderFolderNode(folder, 1)));
-    parts.push(...rootNotes.map((note) => renderNoteNode(note, 1)));
-  }
-
-  return parts.join('');
+function renderMaterialsTree(...args) {
+  return navigationController.renderMaterialsTree(...args);
 }
 
-function renderFolderNode(folder, level) {
-  const childFolders = (folder.children ?? []).filter((childFolder) => matchesFolderSearch(childFolder));
-  const childNotes = getDirectNotesForFolder(folder.id).filter((note) => matchesSearch(note.title) && noteMatchesSelectedTags(note));
-  const hasChildren = childFolders.length > 0 || childNotes.length > 0 || isCreateEditorForParent(folder.id);
-  const isOpen = state.openFolders[folder.id] ?? true;
-  const selected = folder.id === state.selectedFolderId;
-  const isRenaming = state.treeEditor?.mode === 'rename-folder' && state.treeEditor.targetId === folder.id;
-  const isDeleting = state.deleteIntent?.kind === 'folder' && state.deleteIntent.targetId === folder.id;
-  const isDragging = state.dragState.activeKind === 'folder' && state.dragState.activeId === folder.id;
-  const isDropTarget = state.dragState.overKind === 'folder' && state.dragState.overId === folder.id;
-
-  const rowMarkup = isRenaming
-    ? renderInlineEditorRow(level, 'rename-folder', state.treeEditor.value)
-    : `
-      <button
-        type="button"
-        class="library-node library-folder-node"
-        data-folder-id="${folder.id}"
-        data-level="${level}"
-        data-selected="${selected}"
-        data-drag-kind="folder"
-        data-drag-id="${folder.id}"
-        data-dragging="${isDragging}"
-        data-drop-target="${isDropTarget}"
-        title="${escapeHtml(folder.name)}"
-        draggable="true"
-      >
-        <span class="library-node-leading">
-          <span class="library-chevron-hitbox" data-folder-toggle="${folder.id}">
-            ${hasChildren
-              ? `
-                <svg viewBox="0 0 16 16" aria-hidden="true" class="library-chevron" data-open="${isOpen}">
-                  <path d="M5 3.5 10 8l-5 4.5"></path>
-                </svg>
-              `
-              : '<span class="library-node-spacer"></span>'}
-          </span>
-          ${renderFolderIcon(isOpen)}
-        </span>
-        <span class="library-node-label">${escapeHtml(folder.name)}</span>
-      </button>
-    `;
-
-  const childrenMarkup = [];
-
-  if (isOpen) {
-    if (isCreateEditorForParent(folder.id)) {
-      childrenMarkup.push(renderInlineEditorRow(level + 1, state.treeEditor.mode, state.treeEditor.value));
-    }
-
-    childrenMarkup.push(...childFolders.map((childFolder) => renderFolderNode(childFolder, level + 1)));
-    childrenMarkup.push(...childNotes.map((note) => renderNoteNode(note, level + 1)));
-  }
-
-  if (isDeleting) {
-    childrenMarkup.unshift(renderDeleteIntentRow(level + 1, 'folder', folder.id, folder.name));
-  }
-
-  return `
-    <div class="library-node-group">
-      ${rowMarkup}
-      ${isOpen || isDeleting ? `<div class="library-node-children">${childrenMarkup.join('')}</div>` : ''}
-    </div>
-  `;
+function renderFolderNode(...args) {
+  return navigationController.renderFolderNode(...args);
 }
 
-function renderNoteNode(note, level) {
-  const selected = note.id === state.selectedNoteId;
-  const isRenaming = state.treeEditor?.mode === 'rename-note' && state.treeEditor.targetId === note.id;
-  const isDeleting = state.deleteIntent?.kind === 'note' && state.deleteIntent.targetId === note.id;
-  const isDragging = state.dragState.activeKind === 'note' && state.dragState.activeId === note.id;
-  const iconKind = resolveNoteVisualType(note);
-
-  const rowMarkup = isRenaming
-    ? renderInlineEditorRow(level, 'rename-note', state.treeEditor.value)
-    : renderNoteNodeMarkup({ note, level, selected, isDragging, iconKind });
-
-  if (!isDeleting) {
-    return rowMarkup;
-  }
-
-  return `
-    <div class="library-node-group">
-      ${rowMarkup}
-      <div class="library-node-children">
-        ${renderDeleteIntentRow(level + 1, 'note', note.id, note.title)}
-      </div>
-    </div>
-  `;
+function renderNoteNode(...args) {
+  return navigationController.renderNoteNode(...args);
 }
 
-function renderRecycleNoteNode(note, level) {
-  return renderRecycleNoteNodeMarkup({
-    note,
-    level,
-    iconKind: resolveNoteVisualType(note)
-  });
+function renderRecycleNoteNode(...args) {
+  return navigationController.renderRecycleNoteNode(...args);
 }
 
-function renderInlineEditorRow(level, mode, value) {
-  return renderInlineEditorRowMarkup({ level, mode, value });
+function renderInlineEditorRow(...args) {
+  return navigationController.renderInlineEditorRow(...args);
 }
 
-function renderDeleteIntentRow(level, kind, targetId, name) {
-  return renderDeleteIntentRowMarkup({ level, kind, targetId, name });
+function renderDeleteIntentRow(...args) {
+  return navigationController.renderDeleteIntentRow(...args);
 }
 
-function renderEmptyItem(label) {
-  return renderEmptyTreeItem(label);
+function renderEmptyItem(...args) {
+  return navigationController.renderEmptyItem(...args);
 }
 
-function renderHeaderToggle() {
-  if (!elements.secondaryNavToggle) {
-    return;
-  }
-
-  elements.secondaryNavToggle.dataset.open = String(state.sectionMenuOpen);
+function renderHeaderToggle(...args) {
+  return navigationController.renderHeaderToggle(...args);
 }
 
-function renderContextMenu() {
-  if (!elements.contextMenu) {
-    return;
-  }
-
-  if (!state.contextMenu.open) {
-    elements.contextMenu.hidden = true;
-    elements.contextMenu.innerHTML = '';
-    return;
-  }
-
-  const items = getContextMenuItems();
-  if (items.length === 0) {
-    elements.contextMenu.hidden = true;
-    elements.contextMenu.innerHTML = '';
-    return;
-  }
-
-  elements.contextMenu.hidden = false;
-  elements.contextMenu.style.left = `${state.contextMenu.x}px`;
-  elements.contextMenu.style.top = `${state.contextMenu.y}px`;
-  elements.contextMenu.innerHTML = renderContextMenuItems(items);
+function renderContextMenu(...args) {
+  return navigationController.renderContextMenu(...args);
 }
 
-function getContextMenuItems() {
-  return getNavigationContextMenuItems({
-    targetKind: state.contextMenu.targetKind,
-    targetId: state.contextMenu.targetId,
-    notes: state.allNotes,
-    recycleNotes: getRecycleNotes()
-  });
+function getContextMenuItems(...args) {
+  return navigationController.getContextMenuItems(...args);
 }
 
-function renderSectionMenu() {
-  if (!elements.sectionMenu || !elements.secondaryNavToggle) {
-    return;
-  }
-
-  if (!state.sectionMenuOpen) {
-    elements.sectionMenu.hidden = true;
-    elements.sectionMenu.innerHTML = '';
-    return;
-  }
-
-  const rect = elements.secondaryNavToggle.getBoundingClientRect();
-  elements.sectionMenu.hidden = false;
-  elements.sectionMenu.style.left = `${Math.max(8, rect.right - 188)}px`;
-  elements.sectionMenu.style.top = `${rect.bottom + 6}px`;
-  elements.sectionMenu.innerHTML = renderSectionMenuItems({
-    items: SECONDARY_SECTION_ITEMS,
-    sections: state.secondarySections
-  });
+function renderSectionMenu(...args) {
+  return navigationController.renderSectionMenu(...args);
 }
 
-function renderPreviewPane(markdown) {
-  const headings = extractMarkdownHeadings(markdown);
-  const previewHtml = renderMarkdownPreview(markdown);
-  return renderPreviewPaneMarkup({ headings, previewHtml });
+function renderPreviewPane(...args) {
+  return editorController.renderPreviewPane(...args);
 }
 
-function renderSourceEditorPane() {
-  return renderSourceEditorPaneMarkup({ markdown: state.draftMarkdown });
+function renderSourceEditorPane(...args) {
+  return editorController.renderSourceEditorPane(...args);
 }
 
-function renderSourceEditorView() {
-  return renderSourceEditorViewMarkup({ markdown: state.draftMarkdown });
+function renderSourceEditorView(...args) {
+  return editorController.renderSourceEditorView(...args);
 }
 
-function renderEditor(note) {
-  if (!elements.editorContent) {
-    return;
-  }
-
-  const effectiveView = getEffectiveViewState();
-  const renderState = resolveEditorRenderState({
-    note,
-    effectiveView,
-    currentEditorNoteId,
-    hasCurrentEditorHost: Boolean(currentEditorHost)
-  });
-
-  if (renderState.shouldTeardownHost) {
-    void teardownEditorHost();
-  }
-  if (renderState.shouldCloseTableDialog) {
-    state.editorTableDialog.open = false;
-  }
-
-  elements.editorContent.dataset.sourceOpen = String(renderState.sourceOpen);
-  elements.editorContent.dataset.viewMode = renderState.viewMode;
-
-  if (renderState.kind === 'empty') {
-    elements.editorContent.innerHTML = renderPreviewPane('');
-    return;
-  }
-
-  if (renderState.kind === 'recycle') {
-    elements.editorContent.innerHTML = renderPreviewPane(note.rawMarkdown || '');
-    return;
-  }
-
-  if (renderState.kind === 'reuse-rich-editor') {
-    renderEditorSaveIndicator();
-    renderEditorPanel();
-    renderTableInsertDialog();
-    return;
-  }
-
-  const markdown = state.draftMarkdown || note.rawMarkdown || '';
-
-  if (renderState.kind === 'source-preview' || renderState.kind === 'preview') {
-    elements.editorContent.innerHTML = renderState.kind === 'source-preview'
-      ? `${renderSourceEditorView()}${renderPreviewPane(markdown)}`
-      : renderPreviewPane(markdown);
-    renderEditorSaveIndicator();
-    return;
-  }
-
-  elements.editorContent.innerHTML = renderRichEditorHost();
-
-  renderEditorSaveIndicator();
-  renderEditorPanel();
-  renderTableInsertDialog();
-  mountEditorHost(note.id, state.draftMarkdown);
+function renderEditor(...args) {
+  return editorController.renderEditor(...args);
 }
 
-function syncSourcePreview() {
-  if (!elements.editorContent || !state.view.showSourceEditor) {
-    return;
-  }
-
-  const previewContent = elements.editorContent.querySelector('[data-preview-content]');
-  const previewToc = elements.editorContent.querySelector('[data-preview-toc]');
-  if (!previewContent) {
-    return;
-  }
-
-  const markdown = state.draftMarkdown;
-  previewContent.innerHTML = renderMarkdownPreview(markdown);
-
-  if (previewToc) {
-    const headings = extractMarkdownHeadings(markdown);
-    previewToc.innerHTML = headings
-      .map((heading) => `<a class="toc-item" data-level="${heading.level}" href="#${escapeAttribute(heading.id)}">${escapeHtml(heading.title)}</a>`)
-      .join('');
-    previewToc.hidden = headings.length === 0;
-  }
+function syncSourcePreview(...args) {
+  return editorController.syncSourcePreview(...args);
 }
 
 function findOutlineHeadingTarget(outlineId, outlineIndex) {
@@ -1421,121 +1173,24 @@ function renderConceptsTab(note) {
   });
 }
 
-function renderEditorContextMenu() {
-  if (!elements.editorContextMenu) {
-    return;
-  }
-
-  if (!state.editorContextMenu.open || !getCurrentNote() || state.view.showSourceEditor) {
-    elements.editorContextMenu.hidden = true;
-    elements.editorContextMenu.innerHTML = '';
-    return;
-  }
-
-  elements.editorContextMenu.hidden = false;
-  elements.editorContextMenu.innerHTML = renderEditorContextMenuMarkup({
-    getShortcutLabel: getEditorShortcutLabel
-  });
-  syncEditorContextMenuPosition();
-  syncEditorContextSubmenuLayout();
+function renderEditorContextMenu(...args) {
+  return editorController.renderEditorContextMenu(...args);
 }
 
-function syncEditorContextSubmenuLayout() {
-  if (!elements.editorContextMenu || elements.editorContextMenu.hidden) {
-    return;
-  }
-
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  const submenuGroups = elements.editorContextMenu.querySelectorAll('.editor-context-submenu-group');
-  submenuGroups.forEach((submenuGroup) => {
-    const trigger = submenuGroup.querySelector('.editor-context-submenu-trigger');
-    const submenu = submenuGroup.querySelector('.editor-context-submenu');
-    if (!trigger || !submenu) {
-      return;
-    }
-
-    submenuGroup.dataset.submenuSide = 'right';
-    submenuGroup.dataset.submenuAlign = 'top';
-    submenuGroup.style.setProperty('--submenu-offset-y', '-8px');
-
-    const previousDisplay = submenu.style.display;
-    const previousVisibility = submenu.style.visibility;
-    submenu.style.display = 'grid';
-    submenu.style.visibility = 'hidden';
-
-    const triggerRect = trigger.getBoundingClientRect();
-    const submenuRect = submenu.getBoundingClientRect();
-    const fitsRight = triggerRect.right + submenuRect.width - 4 <= viewportWidth - 12;
-    submenuGroup.dataset.submenuSide = fitsRight ? 'right' : 'left';
-
-    let offsetY = -8;
-    if (triggerRect.top + offsetY < 12) {
-      offsetY = 12 - triggerRect.top;
-    }
-    if (triggerRect.top + offsetY + submenuRect.height > viewportHeight - 12) {
-      offsetY = viewportHeight - 12 - triggerRect.top - submenuRect.height;
-      submenuGroup.dataset.submenuAlign = 'bottom';
-    }
-    submenuGroup.style.setProperty('--submenu-offset-y', `${Math.round(offsetY)}px`);
-
-    submenu.style.display = previousDisplay;
-    submenu.style.visibility = previousVisibility;
-  });
+function syncEditorContextSubmenuLayout(...args) {
+  return editorController.syncEditorContextSubmenuLayout(...args);
 }
 
-function openEditorContextMenu({ x, y }) {
-  state.editorContextMenu.open = true;
-  state.editorContextMenu.x = x;
-  state.editorContextMenu.y = y;
-  state.editorMenuOpen = null;
-  closeContextMenu();
-  closeSectionMenu();
-  closeTabMenu();
-  renderEditorMenuBar();
-  renderEditorContextMenu();
+function openEditorContextMenu(...args) {
+  return editorController.openEditorContextMenu(...args);
 }
 
-function closeEditorContextMenu() {
-  if (!state.editorContextMenu.open) {
-    return;
-  }
-
-  state.editorContextMenu.open = false;
-  renderEditorContextMenu();
+function closeEditorContextMenu(...args) {
+  return editorController.closeEditorContextMenu(...args);
 }
 
-async function handleEditorContextMenuAction(action) {
-  closeEditorContextMenu();
-
-  const note = getCurrentNote();
-  if (!note) {
-    flashStatus('请先选择一篇笔记');
-    return;
-  }
-
-  if (!currentEditorHost) {
-    flashStatus('编辑器尚未就绪');
-    return;
-  }
-
-  if (action === 'table') {
-    openTableInsertDialog();
-    return;
-  }
-
-  if (action === 'create-knowledge-point') {
-    await createKnowledgePointFromCurrentSelection(note);
-    return;
-  }
-
-  if (EDITOR_CONTEXT_PRIMARY_ACTIONS.includes(action)) {
-    await handleEditMenuAction(action);
-    return;
-  }
-
-  await currentEditorHost.run(action);
-  await currentEditorHost.focus();
+async function handleEditorContextMenuAction(...args) {
+  return editorController.handleEditorContextMenuAction(...args);
 }
 
 function renderStatus() {
@@ -1557,918 +1212,172 @@ function renderStatus() {
   }
 }
 
-async function handleFormat(format) {
-  if (!currentEditorHost) {
-    return;
-  }
-
-  if (format === 'table') {
-    openTableInsertDialog();
-    return;
-  }
-
-  await currentEditorHost.run(format);
-  await currentEditorHost.focus();
+async function handleFormat(...args) {
+  return editorController.handleFormat(...args);
 }
 
-function shouldHandleEditorShortcut(event) {
-  if (!currentEditorHost || !getCurrentNote() || state.view.showSourceEditor) {
-    return false;
-  }
-
-  const target = event.target instanceof Element ? event.target : event.target?.parentElement;
-  if (!target?.closest) {
-    return false;
-  }
-
-  if (target.closest('#editor-utility-panel') || target.closest('[data-source-editor-input]')) {
-    return false;
-  }
-
-  return Boolean(target.closest('#editor-content'));
+function shouldHandleEditorShortcut(...args) {
+  return editorController.shouldHandleEditorShortcut(...args);
 }
 
-async function handleResolvedEditorShortcut(action) {
-  if (!currentEditorHost) {
-    return;
-  }
-
-  await currentEditorHost.run(action);
-  await currentEditorHost.focus();
+async function handleResolvedEditorShortcut(...args) {
+  return editorController.handleResolvedEditorShortcut(...args);
 }
 
-
-async function handleParagraphMenuAction(action) {
-  closeEditorMenuBar();
-
-  const note = getCurrentNote();
-  if (!note) {
-    flashStatus('请先选择一篇笔记');
-    return;
-  }
-
-  if (!currentEditorHost) {
-    flashStatus('编辑器尚未就绪');
-    return;
-  }
-
-  await currentEditorHost.run(action);
-  await currentEditorHost.focus();
+async function handleParagraphMenuAction(...args) {
+  return editorController.handleParagraphMenuAction(...args);
 }
 
-async function handleFormatMenuAction(action) {
-  closeEditorMenuBar();
-
-  const note = getCurrentNote();
-  if (!note) {
-    flashStatus('请先选择一篇笔记');
-    return;
-  }
-
-  if (!currentEditorHost) {
-    flashStatus('编辑器尚未就绪');
-    return;
-  }
-
-  if (action === 'table') {
-    openTableInsertDialog();
-    return;
-  }
-
-  await currentEditorHost.run(action);
-  await currentEditorHost.focus();
+async function handleFormatMenuAction(...args) {
+  return editorController.handleFormatMenuAction(...args);
 }
 
-async function handleViewMenuAction(action) {
-  closeEditorMenuBar();
-
-  switch (action) {
-    case 'mode-read':
-      state.view.mode = 'read';
-      state.view.showSourceEditor = false;
-      renderAll();
-      return;
-    case 'mode-edit':
-      state.view.mode = 'edit';
-      state.view.showSourceEditor = false;
-      renderAll();
-      return;
-    case 'mode-focus':
-      state.view.mode = 'focus';
-      state.view.showSourceEditor = false;
-      renderAll();
-      return;
-    case 'toggle-left-sidebar':
-      state.view.showLeftSidebar = !state.view.showLeftSidebar;
-      renderWorkspaceViewState();
-      renderEditorMenuBar();
-      return;
-    case 'toggle-right-sidebar':
-      state.view.showRightSidebar = !state.view.showRightSidebar;
-      renderWorkspaceViewState();
-      renderEditorMenuBar();
-      return;
-    case 'toggle-source-editor':
-      if (!getCurrentNote()) {
-        flashStatus('请先选择一篇笔记');
-        return;
-      }
-      state.view.mode = 'edit';
-      state.view.showSourceEditor = !state.view.showSourceEditor;
-      renderEditor(getCurrentNote());
-      renderEditorMenuBar();
-      return;
-    default:
-      return;
-  }
+async function handleViewMenuAction(...args) {
+  return editorController.handleViewMenuAction(...args);
 }
 
-async function handleEditMenuAction(action) {
-  closeEditorMenuBar();
-  closeEditorContextMenu();
-
-  const note = getCurrentNote();
-  if (!note) {
-    flashStatus('请先选择一篇笔记');
-    return;
-  }
-
-  const editorHost = currentEditorHost;
-  const focusEditor = async () => {
-    if (editorHost) {
-      await editorHost.focus();
-    }
-  };
-
-  switch (action) {
-    case 'cut':
-    case 'copy':
-    case 'delete':
-    case 'select-all': {
-      await focusEditor();
-      const command = action === 'select-all' ? 'selectAll' : action;
-      const success = document.execCommand(command);
-      if (!success) {
-        flashStatus('当前环境暂不支持该编辑操作');
-      }
-      return;
-    }
-    case 'undo':
-    case 'redo': {
-      if (!editorHost) {
-        flashStatus('编辑器尚未就绪');
-        return;
-      }
-      await editorHost.run(action);
-      await focusEditor();
-      return;
-    }
-    case 'paste': {
-      await focusEditor();
-      try {
-        const text = await navigator.clipboard.readText();
-        if (!text) {
-          flashStatus('剪贴板为空');
-          return;
-        }
-
-        const inserted = await currentEditorHost?.pasteMarkdown(text);
-        if (!inserted) {
-          flashStatus('当前环境暂不支持粘贴');
-        }
-      } catch {
-        flashStatus('无法读取剪贴板内容');
-      }
-      return;
-    }
-    case 'find': {
-      openEditorPanel('find');
-      return;
-    }
-    case 'replace': {
-      openEditorPanel('replace');
-      return;
-    }
-    default:
-      return;
-  }
+async function handleEditMenuAction(...args) {
+  return editorController.handleEditMenuAction(...args);
 }
 
-async function handleEditorPanelAction(action) {
-  const note = getCurrentNote();
-  if (!note) {
-    closeEditorPanel();
-    flashStatus('请先选择一篇笔记');
-    return;
-  }
-
-  if (action === 'close') {
-    closeEditorPanel();
-    return;
-  }
-
-  const query = state.editorPanel.query.trim();
-  if (!query) {
-    flashStatus('请输入查找内容');
-    return;
-  }
-
-  const editorHost = currentEditorHost;
-
-  if (action === 'submit' || action === 'submit-previous') {
-    if (state.editorPanel.mode === 'find') {
-      const direction = action === 'submit-previous' ? 'previous' : 'next';
-      const result = await editorHost?.findAndSelect(query, state.editorPanel.matchIndex, direction);
-      if (!result) {
-        flashStatus('当前编辑器未就绪');
-        return;
-      }
-
-      state.editorPanel = applyEditorPanelMatchResult(state.editorPanel, result);
-      renderEditorPanel();
-
-      if (!result.found) {
-        flashStatus(`未找到：${query}`);
-        return;
-      }
-      flashStatus(`已查找 ${result.index + 1}/${result.count}：${query}`);
-      return;
-    }
-
-    if (state.editorPanel.mode === 'replace') {
-      const replacement = state.editorPanel.replacement;
-      const nextMarkdown = state.draftMarkdown.replace(query, replacement);
-      if (nextMarkdown === state.draftMarkdown) {
-        flashStatus(`未找到：${query}`);
-        return;
-      }
-
-      state.draftMarkdown = nextMarkdown;
-      if (editorHost) {
-        await editorHost.setMarkdown(nextMarkdown);
-        await editorHost.focus();
-      }
-      scheduleAutosave();
-      flashStatus(`宸叉浛鎹細${query}`);
-      renderEditorPanel();
-      return;
-    }
-  }
-
-  if (action === 'replace-all' && state.editorPanel.mode === 'replace') {
-    const replacement = state.editorPanel.replacement;
-    if (!state.draftMarkdown.includes(query)) {
-      flashStatus(`未找到：${query}`);
-      return;
-    }
-
-    const nextMarkdown = state.draftMarkdown.split(query).join(replacement);
-    state.draftMarkdown = nextMarkdown;
-    if (editorHost) {
-      await editorHost.setMarkdown(nextMarkdown);
-      await editorHost.focus();
-    }
-    scheduleAutosave();
-    flashStatus(`宸插叏閮ㄦ浛鎹細${query}`);
-    renderEditorPanel();
-  }
+async function handleEditorPanelAction(...args) {
+  return editorController.handleEditorPanelAction(...args);
 }
 
-async function handleContextMenuAction(action) {
-  const { targetId } = state.contextMenu;
-  closeContextMenu();
-  clearDeleteIntent();
-
-  switch (action) {
-    case 'create-folder-root':
-      startTreeEditor({ mode: 'create-folder', parentId: null, value: '' });
-      return;
-    case 'create-note-root':
-      startTreeEditor({ mode: 'create-note', parentId: null, value: '' });
-      return;
-    case 'create-folder-child':
-      startTreeEditor({ mode: 'create-folder', parentId: targetId, value: '' });
-      openFolderBranch(targetId);
-      return;
-    case 'create-note-child':
-      startTreeEditor({ mode: 'create-note', parentId: targetId, value: '' });
-      openFolderBranch(targetId);
-      return;
-    case 'rename-folder': {
-      const folder = state.foldersById[targetId];
-      if (!folder) {
-        return;
-      }
-      startTreeEditor({ mode: 'rename-folder', targetId: folder.id, value: folder.name });
-      return;
-    }
-    case 'rename-note': {
-      const note = getNoteById(targetId);
-      if (!note || note.deleted) {
-        return;
-      }
-      startTreeEditor({ mode: 'rename-note', targetId: note.id, value: note.title });
-      return;
-    }
-    case 'favorite-note': {
-      const note = getNoteById(targetId);
-      if (!note || note.deleted) {
-        return;
-      }
-      const nextFavorite = !note.favorite;
-      await setNoteFavorite(note.id, nextFavorite);
-      flashStatus(nextFavorite ? '已收藏笔记' : '已取消收藏');
-      return;
-    }
-    case 'restore-note': {
-      const note = getNoteById(targetId);
-      if (!note || !note.deleted) {
-        return;
-      }
-      await restoreNote(note.id);
-      flashStatus('笔记已恢复');
-      return;
-    }
-    case 'permanently-delete-note': {
-      const note = getNoteById(targetId);
-      if (!note || !note.deleted) {
-        return;
-      }
-      await permanentlyDeleteNote(note.id);
-      flashStatus('笔记已彻底删除');
-      return;
-    }
-    case 'empty-recycle-bin': {
-      await emptyRecycleBin();
-      flashStatus('回收站已清空');
-      return;
-    }
-    case 'delete-folder': {
-      const folder = state.foldersById[targetId];
-      if (!folder) {
-        return;
-      }
-      state.deleteIntent = { kind: 'folder', targetId: folder.id };
-      renderFolders();
-      return;
-    }
-    case 'delete-note': {
-      const note = getNoteById(targetId);
-      if (!note || note.deleted) {
-        return;
-      }
-      state.deleteIntent = { kind: 'note', targetId: note.id };
-      renderFolders();
-      return;
-    }
-    default:
-      break;
-  }
+async function handleContextMenuAction(...args) {
+  return navigationController.handleContextMenuAction(...args);
 }
 
-function startTreeEditor({ mode, parentId = null, targetId = null, value = '' }) {
-  state.treeEditor = {
-    mode,
-    parentId,
-    targetId,
-    value
-  };
-  clearDeleteIntent({ rerender: false });
-  closeContextMenu();
-  renderFolders();
+function startTreeEditor(...args) {
+  return navigationController.startTreeEditor(...args);
 }
 
-function cancelTreeEditor() {
-  if (!state.treeEditor) {
-    return;
-  }
-  state.treeEditor = null;
-  renderFolders();
+function cancelTreeEditor(...args) {
+  return navigationController.cancelTreeEditor(...args);
 }
 
-async function submitTreeEditor() {
-  if (!state.treeEditor) {
-    return;
-  }
-
-  const trimmedValue = state.treeEditor.value.trim();
-  if (!trimmedValue) {
-    flashStatus('请输入名称');
-    focusInlineEditor();
-    return;
-  }
-
-  const editor = state.treeEditor;
-
-  try {
-    validateTreeEditorName(editor, trimmedValue);
-    state.treeEditor = null;
-
-    switch (editor.mode) {
-      case 'create-folder':
-        await createFolder(editor.parentId, trimmedValue);
-        flashStatus(`目录已创建：${trimmedValue}`);
-        return;
-      case 'rename-folder':
-        await renameFolder(editor.targetId, trimmedValue);
-        flashStatus(`目录已重命名：${trimmedValue}`);
-        return;
-      case 'create-note':
-        await createNote(editor.parentId, trimmedValue);
-        flashStatus(`文件已创建：${trimmedValue}`);
-        return;
-      case 'rename-note':
-        await renameNote(editor.targetId, trimmedValue);
-        flashStatus(`文件已重命名：${trimmedValue}`);
-        return;
-      default:
-        return;
-    }
-  } catch (error) {
-    flashStatus(error.message || '操作失败');
-    state.treeEditor = editor;
-    renderFolders();
-  }
+async function submitTreeEditor(...args) {
+  return navigationController.submitTreeEditor(...args);
 }
 
-async function commitDelete(kind, targetId) {
-  clearDeleteIntent({ rerender: false });
-
-  try {
-    if (kind === 'folder') {
-      await deleteFolder(targetId);
-      flashStatus('目录已删除');
-    } else if (kind === 'note') {
-      await deleteNote(targetId);
-      flashStatus('文件已删除');
-    }
-  } catch (error) {
-    flashStatus(error.message || '删除失败');
-  }
+async function commitDelete(...args) {
+  return navigationController.commitDelete(...args);
 }
 
-async function commitDrop(dropTarget) {
-  const { activeKind, activeId } = state.dragState;
-  if (!activeKind || !activeId) {
-    return;
-  }
-
-  resetDragState({ rerender: false });
-
-  try {
-    if (activeKind === 'folder') {
-      await moveFolder(activeId, dropTarget.kind === 'materials' ? null : dropTarget.id);
-      flashStatus('目录位置已更新');
-    } else if (activeKind === 'note') {
-      await moveNote(activeId, dropTarget.kind === 'materials' ? null : dropTarget.id);
-      flashStatus('文件位置已更新');
-    }
-  } catch (error) {
-    flashStatus(error.message || '移动失败');
-  }
+async function commitDrop(...args) {
+  return navigationController.commitDrop(...args);
 }
 
-function resetDragState({ rerender = true } = {}) {
-  state.dragState = {
-    activeKind: null,
-    activeId: null,
-    overKind: null,
-    overId: null
-  };
-
-  if (rerender) {
-    renderFolders();
-    return;
-  }
-
-  syncDragIndicators();
+function resetDragState(...args) {
+  return navigationController.resetDragState(...args);
 }
 
-function syncDragIndicators() {
-  const folderTree = elements.folderTree;
-  if (!folderTree) {
-    return;
-  }
-
-  folderTree.querySelectorAll('[data-drag-kind][data-drag-id]').forEach((node) => {
-    const isDragging = (
-      state.dragState.activeKind === node.dataset.dragKind
-      && state.dragState.activeId === node.dataset.dragId
-    );
-    node.dataset.dragging = isDragging ? 'true' : 'false';
-  });
-
-  folderTree.querySelectorAll('[data-drop-target]').forEach((node) => {
-    const folderId = node.dataset.folderId ?? null;
-    const isRootTarget = node.dataset.materialsSection === 'true';
-    const isDropTarget = (
-      (isRootTarget && state.dragState.overKind === 'materials')
-      || (folderId && state.dragState.overKind === 'folder' && state.dragState.overId === folderId)
-    );
-    node.dataset.dropTarget = isDropTarget ? 'true' : 'false';
-  });
+function syncDragIndicators(...args) {
+  return navigationController.syncDragIndicators(...args);
 }
 
-function resolveDropTarget(target) {
-  return resolveNavigationDropTarget(target);
+function resolveDropTarget(...args) {
+  return navigationController.resolveDropTarget(...args);
 }
 
-function canDropOnTarget(dragState, dropTarget) {
-  return canDropOnNavigationTarget({
-    dragState,
-    dropTarget,
-    foldersById: state.foldersById,
-    notes: state.allNotes
-  });
+function canDropOnTarget(...args) {
+  return navigationController.canDropOnTarget(...args);
 }
 
-function isRootDropActive() {
-  return state.dragState.overKind === 'materials';
+function isRootDropActive(...args) {
+  return navigationController.isRootDropActive(...args);
 }
 
-function clearDeleteIntent({ rerender = true } = {}) {
-  if (!state.deleteIntent) {
-    return;
-  }
-  state.deleteIntent = null;
-  if (rerender) {
-    renderFolders();
-  }
+function clearDeleteIntent(...args) {
+  return navigationController.clearDeleteIntent(...args);
 }
 
-async function createFolder(parentId, name) {
-  if (state.dataMode === 'api') {
-    const created = await knowledgeApi.createFolder({
-      spaceId: state.currentSpaceId,
-      parentId,
-      name
-    });
-
-    if (parentId) {
-      state.openFolders[parentId] = true;
-    }
-    state.selectedFolderId = created.id;
-    await refreshKnowledgeData();
-    return;
-  }
-
-  const nextFolder = createLocalFolderInput({
-    name,
-    parentId,
-    spaceId: state.currentSpaceId
-  });
-  state.folderTree = insertLocalFolder(state.folderTree, nextFolder);
-  if (parentId) {
-    state.openFolders[parentId] = true;
-  }
-  state.selectedFolderId = nextFolder.id;
-  syncLocalWorkspace();
+async function createFolder(...args) {
+  return navigationController.createFolder(...args);
 }
 
-async function renameFolder(folderId, name) {
-  if (state.dataMode === 'api') {
-    const folder = state.foldersById[folderId];
-    await knowledgeApi.updateFolder(folderId, {
-      name,
-      parentId: folder?.parentId ?? null
-    });
-    await refreshKnowledgeData();
-    return;
-  }
-
-  state.folderTree = renameLocalFolderTree(state.folderTree, folderId, name);
-  syncLocalWorkspace();
+async function renameFolder(...args) {
+  return navigationController.renameFolder(...args);
 }
 
-async function deleteFolder(folderId) {
-  if (state.dataMode === 'api') {
-    const nextSelectedFolderId = state.foldersById[folderId]?.parentId ?? null;
-    await knowledgeApi.deleteFolder(folderId);
-    state.selectedFolderId = nextSelectedFolderId;
-    await refreshKnowledgeData();
-    return;
-  }
-
-  const nextSelectedFolderId = state.foldersById[folderId]?.parentId ?? null;
-  const result = deleteLocalFolderTree(state.folderTree, state.allNotes, folderId);
-  state.folderTree = result.tree;
-  state.allNotes = result.notes;
-  state.selectedFolderId = nextSelectedFolderId;
-  syncLocalWorkspace();
+async function deleteFolder(...args) {
+  return navigationController.deleteFolder(...args);
 }
 
-async function moveFolder(folderId, nextParentId) {
-  if (state.dataMode === 'api') {
-    const folder = state.foldersById[folderId];
-    await knowledgeApi.updateFolder(folderId, {
-      name: folder?.name,
-      parentId: nextParentId
-    });
-    if (nextParentId) {
-      openFolderBranch(nextParentId);
-    }
-    await refreshKnowledgeData();
-    return;
-  }
-
-  state.folderTree = moveLocalFolderTree(state.folderTree, folderId, nextParentId);
-  if (nextParentId) {
-    openFolderBranch(nextParentId);
-  }
-  syncLocalWorkspace();
+async function moveFolder(...args) {
+  return navigationController.moveFolder(...args);
 }
 
-async function createNote(folderId, title) {
-  if (state.dataMode === 'api') {
-    const created = await knowledgeApi.createNote({
-      title,
-      rawMarkdown: `# ${title}\n\n`,
-      folderId,
-      spaceId: state.currentSpaceId,
-      sourceType: 'manual',
-      status: 'draft'
-    });
-
-    state.selectedNoteId = created.id;
-    state.selectedFolderId = folderId ?? null;
-    if (folderId) {
-      openFolderBranch(folderId);
-    }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  const nextNote = createLocalManualNoteInput({
-    title,
-    folderId,
-    spaceId: state.currentSpaceId
-  });
-  state.allNotes = insertLocalNote(state.allNotes, nextNote);
-  state.selectedNoteId = nextNote.id;
-  state.selectedFolderId = folderId ?? null;
-  if (folderId) {
-    openFolderBranch(folderId);
-  }
-  syncLocalWorkspace();
+async function createNote(...args) {
+  return navigationController.createNote(...args);
 }
 
-async function renameNote(noteId, title) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.updateNote(noteId, { title });
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = renameLocalNote(state.allNotes, noteId, title);
-  syncLocalWorkspace();
+async function renameNote(...args) {
+  return navigationController.renameNote(...args);
 }
 
-async function deleteNote(noteId) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.deleteNote(noteId);
-    if (state.selectedNoteId === noteId) {
-      state.selectedNoteId = null;
-    }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = softDeleteLocalNote(state.allNotes, noteId);
-  if (state.selectedNoteId === noteId) {
-    state.selectedNoteId = null;
-  }
-  syncLocalWorkspace();
+async function deleteNote(...args) {
+  return navigationController.deleteNote(...args);
 }
 
-async function permanentlyDeleteNote(noteId) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.permanentlyDeleteNote(noteId);
-    if (state.selectedNoteId === noteId) {
-      state.selectedNoteId = null;
-    }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = permanentlyDeleteLocalNote(state.allNotes, noteId);
-  if (state.selectedNoteId === noteId) {
-    state.selectedNoteId = null;
-  }
-  syncLocalWorkspace();
+async function permanentlyDeleteNote(...args) {
+  return navigationController.permanentlyDeleteNote(...args);
 }
 
-async function restoreNote(noteId) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.restoreNote(noteId);
-    if (state.selectedNoteId === noteId) {
-      state.selectedNoteId = null;
-    }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = restoreLocalNote(state.allNotes, noteId);
-  syncLocalWorkspace();
+async function restoreNote(...args) {
+  return navigationController.restoreNote(...args);
 }
 
-async function emptyRecycleBin() {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.emptyRecycleBin(state.currentSpaceId);
-    if (state.selectedNoteId && getNoteById(state.selectedNoteId)?.deleted) {
-      state.selectedNoteId = null;
-    }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = emptyLocalRecycleBin(state.allNotes);
-  if (state.selectedNoteId && !getNoteById(state.selectedNoteId)) {
-    state.selectedNoteId = null;
-  }
-  syncLocalWorkspace();
+async function emptyRecycleBin(...args) {
+  return navigationController.emptyRecycleBin(...args);
 }
 
-async function setNoteFavorite(noteId, favorite) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.setNoteFavorite(noteId, favorite);
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = setLocalNoteFavorite(state.allNotes, noteId, favorite);
-  syncLocalWorkspace();
+async function setNoteFavorite(...args) {
+  return navigationController.setNoteFavorite(...args);
 }
 
-async function moveNote(noteId, nextFolderId) {
-  if (state.dataMode === 'api') {
-    const note = state.allNotes.find((item) => item.id === noteId);
-    await knowledgeApi.updateNote(noteId, {
-      title: note?.title,
-      folderId: nextFolderId
-    });
-    if (nextFolderId) {
-      openFolderBranch(nextFolderId);
-    }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = moveLocalNoteToFolder(state.allNotes, noteId, nextFolderId);
-  if (nextFolderId) {
-    openFolderBranch(nextFolderId);
-  }
-  syncLocalWorkspace();
+async function moveNote(...args) {
+  return navigationController.moveNote(...args);
 }
 
-async function selectFolder(folderId) {
-  await persistDraft({ immediate: true });
-  const selection = resolveFolderSelection({
-    folderId,
-    selectedNoteId: state.selectedNoteId,
-    visibleNotes: getVisibleNavigationNotes({
-      notes: state.allNotes,
-      foldersById: state.foldersById,
-      selectedFolderId: folderId,
-      search: state.search
-    }),
-    openNoteTabs: state.openNoteTabs
-  });
-
-  state.selectedFolderId = selection.selectedFolderId;
-  state.selectedNoteId = selection.selectedNoteId;
-  state.openNoteTabs = selection.openNoteTabs;
-
-  if (selection.draftMarkdown !== undefined) {
-    state.draftMarkdown = selection.draftMarkdown;
-  }
-
-  if (selection.shouldClearSideData) {
-    clearNoteSideData();
-  }
-
-  if (selection.shouldLoadSideData) {
-    await loadCurrentNoteSideData();
-  }
-
-  renderAll();
-  flashStatus(`已切换到目录：${state.foldersById[folderId]?.name ?? ''}`);
+async function selectFolder(...args) {
+  return navigationController.selectFolder(...args);
 }
 
-async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {}) {
-  const note = state.allNotes.find((item) => item.id === noteId);
-  if (!note) {
-    return;
-  }
-
-  await persistDraft({ immediate: true });
-  state.selectedNoteId = noteId;
-  state.noteTagComposer.draft = '';
-  if (ensureTab) {
-    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, noteId);
-  }
-  state.draftMarkdown = note.rawMarkdown ?? '';
-  state.saveState = 'saved';
-  state.lastSavedAt = note.updatedAt ?? null;
-
-  if (syncFolder && note.folderId) {
-    state.selectedFolderId = note.folderId;
-    openFolderBranch(note.folderId);
-  }
-
-  await loadCurrentNoteSideData();
-  saveCurrentEditorScrollPosition();
-  renderAll();
-  flashStatus(`已切换到：${note.title}`);
+async function selectNote(...args) {
+  return navigationController.selectNote(...args);
 }
 
-function toggleFolderOpen(folderId) {
-  state.openFolders = toggleOpenFolderState(state.openFolders, folderId);
-  renderFolders();
+function toggleFolderOpen(...args) {
+  return navigationController.toggleFolderOpen(...args);
 }
 
-function openFolderBranch(folderId) {
-  state.openFolders = expandFolderBranch({
-    openFolders: state.openFolders,
-    foldersById: state.foldersById,
-    folderId
-  });
+function openFolderBranch(...args) {
+  return navigationController.openFolderBranch(...args);
 }
 
-function openContextMenu({ x, y, targetKind, targetId }) {
-  closeSectionMenu();
-  cancelTreeEditor();
-  state.contextMenu = {
-    open: true,
-    x,
-    y,
-    targetKind,
-    targetId
-  };
-  renderContextMenu();
+function openContextMenu(...args) {
+  return navigationController.openContextMenu(...args);
 }
 
-function closeContextMenu() {
-  if (!state.contextMenu.open) {
-    return;
-  }
-  state.contextMenu = {
-    open: false,
-    x: 0,
-    y: 0,
-    targetKind: null,
-    targetId: null
-  };
-  renderContextMenu();
+function closeContextMenu(...args) {
+  return navigationController.closeContextMenu(...args);
 }
 
-function closeSectionMenu() {
-  if (!state.sectionMenuOpen) {
-    return;
-  }
-  state.sectionMenuOpen = false;
-  renderSectionMenu();
-  renderHeaderToggle();
+function closeSectionMenu(...args) {
+  return navigationController.closeSectionMenu(...args);
 }
 
-function closeEditorMenuBar() {
-  if (!state.editorMenuOpen) {
-    return;
-  }
-
-  state.editorMenuOpen = null;
-  renderEditorMenuBar();
+function closeEditorMenuBar(...args) {
+  return editorController.closeEditorMenuBar(...args);
 }
 
-function openEditorPanel(mode) {
-  state.editorPanel = createOpenedEditorPanelState(state.editorPanel, mode);
-  closeEditorMenuBar();
-  renderEditorPanel();
+function openEditorPanel(...args) {
+  return editorController.openEditorPanel(...args);
 }
 
-function closeEditorPanel() {
-  if (!state.editorPanel.open) {
-    return;
-  }
-
-  state.editorPanel.open = false;
-  void currentEditorHost?.clearSearchHighlights();
-  renderEditorPanel();
+function closeEditorPanel(...args) {
+  return editorController.closeEditorPanel(...args);
 }
 
 function openTabMenu({ x, y, noteId }) {
@@ -2537,262 +1446,44 @@ async function handleTabMenuAction(action) {
   }
 }
 
-async function handleFileMenuAction(action) {
-  closeEditorMenuBar();
-
-  const note = getCurrentNote();
-  const folderId = getMenuTargetFolderId();
-
-  switch (action) {
-    case 'new-note': {
-      const title = createUntitledName(getSiblingNames(folderId), 'Untitled Note');
-      await createNote(folderId, title);
-      flashStatus(`已创建笔记：${title}`);
-      return;
-    }
-    case 'new-folder': {
-      const title = createUntitledName(getSiblingNames(folderId), 'Untitled Folder');
-      startTreeEditor({ mode: 'create-folder', parentId: folderId, value: title });
-      return;
-    }
-    case 'import-markdown':
-      elements.markdownImportInput?.click();
-      return;
-    case 'favorite-note':
-      if (note && !note.deleted) {
-        const nextFavorite = !note.favorite;
-        await setNoteFavorite(note.id, nextFavorite);
-        flashStatus(nextFavorite ? '已收藏笔记' : '已取消收藏');
-      }
-      return;
-    case 'delete-note':
-      if (note && !note.deleted) {
-        await deleteNote(note.id);
-        flashStatus('笔记已删除');
-      }
-      return;
-    case 'restore-note':
-      if (note?.deleted) {
-        await restoreNote(note.id);
-        flashStatus('笔记已恢复');
-      }
-      return;
-    case 'save':
-      await persistDraft({ immediate: true });
-      return;
-    case 'save-as':
-      await duplicateCurrentNote(note);
-      return;
-    case 'rename':
-      if (note) {
-        startTreeEditor({ mode: 'rename-note', targetId: note.id, value: note.title });
-      }
-      return;
-    case 'export-markdown':
-      exportCurrentNoteAsMarkdown(note);
-      return;
-    case 'export-pdf':
-      exportCurrentNoteAsPdfStable(note);
-      return;
-    default:
-      return;
-  }
+async function handleFileMenuAction(...args) {
+  return editorController.handleFileMenuAction(...args);
 }
 
-async function importMarkdownFiles(files) {
-  const folderId = getMenuTargetFolderId();
-  const importedItems = await buildMarkdownImportItems(files);
-
-  if (state.dataMode === 'api') {
-    const importedResponseItems = await knowledgeApi.importMarkdownNotes(importedItems.map((item) => ({
-      title: item.title,
-      rawMarkdown: item.rawMarkdown,
-      folderId,
-      spaceId: state.currentSpaceId,
-      sourceType: item.sourceType
-    })));
-    const firstImported = importedResponseItems.find((item) => item?.id) ?? null;
-
-    if (firstImported?.id) {
-      state.selectedNoteId = firstImported.id;
-      state.selectedFolderId = firstImported.folderId ?? folderId ?? null;
-      state.openNoteTabs = ensureOpenTab(state.openNoteTabs, firstImported.id);
-      if (state.selectedFolderId) {
-        openFolderBranch(state.selectedFolderId);
-      }
-    }
-
-    await refreshKnowledgeData();
-
-    if (firstImported?.id) {
-      await loadCurrentNoteSideData();
-      renderAll();
-    } else {
-      await loadCurrentNoteSideData();
-      renderAll();
-    }
-
-    flashStatus(getMarkdownImportStatusMessage(importedItems, firstImported));
-    return;
-  }
-
-  state.allNotes = importedItems.reduce((notes, item) => insertLocalNote(notes, createLocalImportedNoteInput({
-    item,
-    folderId,
-    spaceId: state.currentSpaceId
-  })), state.allNotes);
-  state.selectedNoteId = importedItems[0]?.id ?? state.selectedNoteId;
-  state.selectedFolderId = folderId ?? null;
-  state.openNoteTabs = importedItems.reduce(
-    (tabs, item) => ensureOpenTab(tabs, item.id),
-    state.openNoteTabs
-  );
-  if (state.selectedFolderId) {
-    openFolderBranch(state.selectedFolderId);
-  }
-  syncLocalWorkspace();
-
-  flashStatus(getMarkdownImportStatusMessage(importedItems));
+async function importMarkdownFiles(...args) {
+  return editorController.importMarkdownFiles(...args);
 }
 
-function getMenuTargetFolderId() {
-  if (state.selectedFolderId) {
-    return state.selectedFolderId;
-  }
-
-  return getCurrentNote()?.folderId ?? null;
+function getMenuTargetFolderId(...args) {
+  return editorController.getMenuTargetFolderId(...args);
 }
 
-function getSiblingNames(folderId) {
-  return getSiblingNamesForFolder({
-    folderId,
-    foldersById: state.foldersById,
-    folderTree: state.folderTree,
-    notes: state.allNotes
-  });
+function getSiblingNames(...args) {
+  return editorController.getSiblingNames(...args);
 }
 
-async function duplicateCurrentNote(note) {
-  if (!note) {
-    return;
-  }
-
-  await persistDraft({ immediate: true });
-  const refreshedNote = getCurrentNote() ?? note;
-  const nextTitle = createDuplicateTitle(getSiblingNames(refreshedNote.folderId ?? null), refreshedNote.title);
-
-  if (state.dataMode === 'api') {
-    const created = await knowledgeApi.createNote({
-      title: nextTitle,
-      rawMarkdown: state.draftMarkdown || refreshedNote.rawMarkdown,
-      folderId: refreshedNote.folderId ?? null,
-      spaceId: state.currentSpaceId,
-      sourceType: refreshedNote.sourceType ?? 'manual',
-      status: refreshedNote.status ?? 'draft'
-    });
-
-    state.selectedNoteId = created.id;
-    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, created.id);
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    flashStatus(`已另存为：${nextTitle}`);
-    return;
-  }
-
-  const nextNote = createLocalDuplicateNoteInput({
-    note: refreshedNote,
-    title: nextTitle,
-    markdown: state.draftMarkdown || refreshedNote.rawMarkdown
-  });
-
-  state.allNotes = insertLocalNote(state.allNotes, nextNote);
-  state.selectedNoteId = nextNote.id;
-  state.openNoteTabs = ensureOpenTab(state.openNoteTabs, nextNote.id);
-  syncLocalWorkspace();
-  flashStatus(`已另存为：${nextTitle}`);
+async function duplicateCurrentNote(...args) {
+  return editorController.duplicateCurrentNote(...args);
 }
 
-function exportCurrentNoteAsMarkdown(note) {
-  if (!note) {
-    return;
-  }
-
-  const fileName = buildExportFileName(note.title, 'md');
-  triggerFileDownload(fileName, state.draftMarkdown || note.rawMarkdown, 'text/markdown;charset=utf-8');
-  flashStatus(`宸插鍑猴細${fileName}`);
+function exportCurrentNoteAsMarkdown(...args) {
+  return editorController.exportCurrentNoteAsMarkdown(...args);
 }
 
-function exportCurrentNoteAsPdf(note) {
-  if (!note) {
-    return;
-  }
-
-  const editorBody = document.querySelector('#milkdown-editor .ProseMirror');
-  const previewHtml = editorBody?.innerHTML ?? `<pre>${escapeHtml(state.draftMarkdown || note.rawMarkdown)}</pre>`;
-  const previewFileName = buildExportFileName(note.title, 'pdf');
-  const printableHtml = buildNoteExportHtml({
-    title: previewFileName,
-    previewHtml,
-    print: true,
-    delayedPrint: true
-  });
-  const exportBlob = new Blob([printableHtml], { type: 'text/html;charset=utf-8' });
-  const exportUrl = URL.createObjectURL(exportBlob);
-  const exportWindow = window.open(exportUrl, '_blank');
-
-  if (!exportWindow) {
-    flashStatus('导出 PDF 失败：浏览器拦截了弹窗');
-    return;
-  }
-
-  const fileName = buildExportFileName(note.title, 'pdf');
-  exportWindow.document.write(buildNoteExportHtml({
-    title: fileName,
-    previewHtml,
-    print: true
-  }));
-  exportWindow.document.close();
-  flashStatus(`已准备导出：${fileName}`);
+function exportCurrentNoteAsPdf(...args) {
+  return editorController.exportCurrentNoteAsPdf(...args);
 }
 
-function exportCurrentNoteAsPdfStable(note) {
-  if (!note) {
-    return;
-  }
-
-  const editorBody = document.querySelector('#milkdown-editor .ProseMirror');
-  const previewHtml = editorBody?.innerHTML ?? `<pre>${escapeHtml(state.draftMarkdown || note.rawMarkdown)}</pre>`;
-  const exportName = buildExportFileName(note.title, 'html');
-  const styledHtml = buildNoteExportHtml({
-    title: exportName,
-    previewHtml,
-    rich: true
-  });
-  triggerFileDownload(exportName, styledHtml, 'text/html;charset=utf-8');
-  flashStatus(`已导出：${exportName}`);
+function exportCurrentNoteAsPdfStable(...args) {
+  return editorController.exportCurrentNoteAsPdfStable(...args);
 }
 
-function triggerFileDownload(fileName, content, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+function triggerFileDownload(...args) {
+  return editorController.triggerFileDownload(...args);
 }
 
-function validateTreeEditorName(editor, candidateName) {
-  validateNavigationTreeEditorName({
-    editor,
-    candidateName,
-    foldersById: state.foldersById,
-    folderTree: state.folderTree,
-    notes: state.allNotes
-  });
+function validateTreeEditorName(...args) {
+  return navigationController.validateTreeEditorName(...args);
 }
 
 async function handleTabClose(noteId) {
@@ -2847,19 +1538,8 @@ function syncTabDragIndicators() {
   });
 }
 
-function focusInlineEditor() {
-  if (!state.treeEditor) {
-    return;
-  }
-
-  window.requestAnimationFrame(() => {
-    const input = elements.folderTree?.querySelector('[data-inline-editor-input]');
-    if (!input) {
-      return;
-    }
-    input.focus();
-    input.select();
-  });
+function focusInlineEditor(...args) {
+  return navigationController.focusInlineEditor(...args);
 }
 
 function syncLocalWorkspace() {
@@ -2895,287 +1575,52 @@ function getRecycleNotes() {
     .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
 }
 
-async function teardownEditorHost() {
-  pendingEditorNoteId = null;
-  currentEditorNoteId = null;
-  editorMountToken += 1;
-
-  if (!currentEditorHost) {
-    return;
-  }
-
-  const host = currentEditorHost;
-  currentEditorHost = null;
-  await host.destroy();
+async function teardownEditorHost(...args) {
+  return editorController.teardownEditorHost(...args);
 }
 
-function mountEditorHost(noteId, markdown) {
-  const root = document.getElementById('milkdown-editor');
-  if (!root) {
-    return;
-  }
-
-  if (pendingEditorNoteId === noteId) {
-    return;
-  }
-
-  const token = ++editorMountToken;
-  pendingEditorNoteId = noteId;
-  const previousHost = currentEditorHost;
-  currentEditorHost = null;
-  currentEditorNoteId = null;
-
-  void (async () => {
-    if (previousHost) {
-      await previousHost.destroy();
-    }
-
-    const host = createMilkdownHost({
-      root,
-      markdown,
-      noteId,
-      onChange: handleEditorMarkdownChange
-    });
-
-    await host.ready;
-
-    if (token !== editorMountToken || state.selectedNoteId !== noteId) {
-      await host.destroy();
-      return;
-    }
-
-    currentEditorHost = host;
-    currentEditorNoteId = noteId;
-    pendingEditorNoteId = null;
-    syncKnowledgePointMarkers();
-    renderEditorSaveIndicator();
-    renderStatus();
-
-    // 恢复之前保存的滚动位置
-    restoreEditorScrollPosition(noteId);
-  })().catch((error) => {
-    pendingEditorNoteId = null;
-    flashStatus(error.message || '编辑器加载失败');
-  });
+function mountEditorHost(...args) {
+  return editorController.mountEditorHost(...args);
 }
 
-function syncEditorContextMenuPosition() {
-  if (!elements.editorContextMenu || elements.editorContextMenu.hidden) {
-    return;
-  }
-
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  const panel = elements.editorContextMenu.querySelector('.editor-context-panel');
-  if (!panel) {
-    elements.editorContextMenu.style.left = `${state.editorContextMenu.x}px`;
-    elements.editorContextMenu.style.top = `${state.editorContextMenu.y}px`;
-    return;
-  }
-
-  const panelRect = panel.getBoundingClientRect();
-  const clampedX = Math.min(Math.max(8, state.editorContextMenu.x), Math.max(8, viewportWidth - panelRect.width - 8));
-  const clampedY = Math.min(Math.max(8, state.editorContextMenu.y), Math.max(8, viewportHeight - panelRect.height - 8));
-  elements.editorContextMenu.style.left = `${Math.round(clampedX)}px`;
-  elements.editorContextMenu.style.top = `${Math.round(clampedY)}px`;
+function syncEditorContextMenuPosition(...args) {
+  return editorController.syncEditorContextMenuPosition(...args);
 }
 
-function handleEditorMarkdownChange(markdown) {
-  if (!currentEditorNoteId || currentEditorNoteId !== state.selectedNoteId) {
-    return;
-  }
-
-  state.draftMarkdown = markdown;
-  scheduleAutosave();
+function handleEditorMarkdownChange(...args) {
+  return editorController.handleEditorMarkdownChange(...args);
 }
 
-function renderEditorSaveIndicator() {
-  const indicator = document.getElementById('editor-save-indicator');
-  if (!indicator) {
-    return;
-  }
-
-  indicator.dataset.saveState = state.saveState;
-  indicator.textContent = getSaveStateLabel({
-    saveState: state.saveState,
-    lastSavedAt: state.lastSavedAt,
-    formatDate
-  });
+function renderEditorSaveIndicator(...args) {
+  return editorController.renderEditorSaveIndicator(...args);
 }
 
-function renderEditorPanel() {
-  const panel = document.getElementById('editor-utility-panel');
-  if (!panel) {
-    return;
-  }
-
-  const note = getCurrentNote();
-  if (!state.editorPanel.open || !note) {
-    panel.hidden = true;
-    panel.innerHTML = '';
-    return;
-  }
-
-  panel.hidden = false;
-  panel.dataset.mode = state.editorPanel.mode;
-  panel.innerHTML = renderEditorPanelMarkup(state.editorPanel);
-
-  if (state.editorPanel.autoFocusInput) {
-    window.requestAnimationFrame(() => {
-      const input = panel.querySelector('[data-panel-field="query"]');
-      input?.focus();
-      input?.select();
-      state.editorPanel.autoFocusInput = false;
-    });
-  }
+function renderEditorPanel(...args) {
+  return editorController.renderEditorPanel(...args);
 }
 
-function openTableInsertDialog({ rows = '4', cols = '3' } = {}) {
-  state.editorTableDialog.open = true;
-  state.editorTableDialog.rows = String(rows);
-  state.editorTableDialog.cols = String(cols);
-  state.editorTableDialog.autoFocusInput = true;
-  closeEditorMenuBar();
-  closeEditorContextMenu();
-  renderTableInsertDialog();
+function openTableInsertDialog(...args) {
+  return editorController.openTableInsertDialog(...args);
 }
 
-function closeTableInsertDialog() {
-  if (!state.editorTableDialog.open) {
-    return;
-  }
-
-  state.editorTableDialog.open = false;
-  state.editorTableDialog.autoFocusInput = false;
-  renderTableInsertDialog();
+function closeTableInsertDialog(...args) {
+  return editorController.closeTableInsertDialog(...args);
 }
 
-async function submitTableInsertDialog() {
-  if (!currentEditorHost) {
-    flashStatus('编辑器尚未就绪');
-    return;
-  }
-
-  const row = normalizeTableDialogValue(state.editorTableDialog.rows, 4);
-  const col = normalizeTableDialogValue(state.editorTableDialog.cols, 3);
-  state.editorTableDialog.rows = String(row);
-  state.editorTableDialog.cols = String(col);
-
-  await currentEditorHost.run('table', { row, col });
-  closeTableInsertDialog();
-  await currentEditorHost.focus();
+async function submitTableInsertDialog(...args) {
+  return editorController.submitTableInsertDialog(...args);
 }
 
-function renderTableInsertDialog() {
-  const dialog = document.getElementById('editor-table-dialog');
-  if (!dialog) {
-    return;
-  }
-
-  const note = getCurrentNote();
-  if (!state.editorTableDialog.open || !note || state.view.showSourceEditor) {
-    dialog.hidden = true;
-    dialog.innerHTML = '';
-    return;
-  }
-
-  dialog.hidden = false;
-  dialog.innerHTML = renderTableInsertDialogMarkup(state.editorTableDialog);
-
-  if (state.editorTableDialog.autoFocusInput) {
-    window.requestAnimationFrame(() => {
-      const input = dialog.querySelector('[data-table-dialog-field="cols"]');
-      input?.focus();
-      input?.select();
-      state.editorTableDialog.autoFocusInput = false;
-    });
-  }
+function renderTableInsertDialog(...args) {
+  return editorController.renderTableInsertDialog(...args);
 }
 
-function scheduleAutosave() {
-  if (!getCurrentNote()) {
-    return;
-  }
-
-  state.saveState = 'pending';
-  renderEditorSaveIndicator();
-  renderStatus();
-
-  if (autosaveTimer) {
-    clearTimeout(autosaveTimer);
-  }
-
-  autosaveTimer = setTimeout(() => {
-    autosaveTimer = null;
-    void persistDraft();
-  }, AUTOSAVE_DELAY_MS);
+function scheduleAutosave(...args) {
+  return editorController.scheduleAutosave(...args);
 }
 
-async function persistDraft({ immediate = false } = {}) {
-  const note = getCurrentNote();
-  if (!note) {
-    return;
-  }
-
-  if (autosaveTimer) {
-    clearTimeout(autosaveTimer);
-    autosaveTimer = null;
-  }
-
-  const draftSave = resolveDraftSaveState({
-    note,
-    markdown: state.draftMarkdown,
-    deriveTitle: deriveNoteTitleFromMarkdown
-  });
-  if (!draftSave.changed) {
-    state.saveState = 'saved';
-    renderEditorSaveIndicator();
-    renderStatus();
-    return;
-  }
-
-  state.saveState = 'saving';
-  renderEditorSaveIndicator();
-  renderStatus();
-
-  try {
-    let updatedNote;
-
-    if (state.dataMode === 'api') {
-      updatedNote = await knowledgeApi.updateNote(note.id, {
-        title: draftSave.nextTitle,
-        rawMarkdown: draftSave.nextMarkdown
-      });
-    } else {
-      updatedNote = createLocalDraftNote({
-        note,
-        title: draftSave.nextTitle,
-        markdown: draftSave.nextMarkdown
-      });
-    }
-
-    state.allNotes = replaceNoteInCollection(state.allNotes, updatedNote, {
-      title: draftSave.nextTitle,
-      rawMarkdown: draftSave.nextMarkdown
-    });
-    state.saveState = 'saved';
-    state.lastSavedAt = updatedNote.updatedAt ?? new Date().toISOString();
-
-    renderFolders();
-    renderSidebar(getCurrentNote());
-    renderEditorSaveIndicator();
-    renderStatus();
-    persistBackendCache();
-
-    if (immediate) {
-      flashStatus('已保存当前笔记');
-    }
-  } catch (error) {
-    state.saveState = 'error';
-    renderEditorSaveIndicator();
-    renderStatus();
-    flashStatus(error.message || '保存失败');
-  }
+async function persistDraft(...args) {
+  return editorController.persistDraft(...args);
 }
 
 function getVisibleNotes() {
@@ -3212,8 +1657,8 @@ function hasActiveSearchFilters() {
   return hasSearchFilters(state.search);
 }
 
-function getDirectNotesForFolder(folderId) {
-  return selectDirectNotesForFolder(state.allNotes, folderId);
+function getDirectNotesForFolder(...args) {
+  return navigationController.getDirectNotesForFolder(...args);
 }
 
 function noteMatchesSelectedTags(note) {
@@ -3262,12 +1707,8 @@ function focusSearchInput() {
   input.setSelectionRange(cursor, cursor);
 }
 
-function isCreateEditorForParent(parentId) {
-  return Boolean(
-    state.treeEditor
-    && (state.treeEditor.mode === 'create-folder' || state.treeEditor.mode === 'create-note')
-    && state.treeEditor.parentId === parentId
-  );
+function isCreateEditorForParent(...args) {
+  return navigationController.isCreateEditorForParent(...args);
 }
 
 function replaceNoteInState(updatedNote) {
@@ -3453,7 +1894,7 @@ function getCurrentKnowledgePointSources() {
 }
 
 function syncKnowledgePointMarkers() {
-  void currentEditorHost?.setKnowledgePointSources(getCurrentKnowledgePointSources());
+  void editorRuntime.currentEditorHost?.setKnowledgePointSources(getCurrentKnowledgePointSources());
 }
 
 function scrollKnowledgePointCardIntoView(pointId) {
@@ -3482,7 +1923,7 @@ function focusKnowledgePointFromMarker({ sourceId, knowledgePointId }) {
 }
 
 async function selectKnowledgePointSource(sourceId) {
-  if (!currentEditorHost) {
+  if (!editorRuntime.currentEditorHost) {
     flashStatus('编辑器尚未就绪');
     return;
   }
@@ -3498,17 +1939,17 @@ async function selectKnowledgePointSource(sourceId) {
     renderSidebar(getCurrentNote());
   }
 
-  const selected = await currentEditorHost.selectKnowledgePointSource(sourceId);
+  const selected = await editorRuntime.currentEditorHost.selectKnowledgePointSource(sourceId);
   flashStatus(selected ? '已定位到正文片段' : '未能在正文中定位该片段');
 }
 
 async function createKnowledgePointFromCurrentSelection(note) {
-  if (!currentEditorHost) {
+  if (!editorRuntime.currentEditorHost) {
     flashStatus('编辑器尚未就绪');
     return;
   }
 
-  const selection = await currentEditorHost.getSelectionSnapshot();
+  const selection = await editorRuntime.currentEditorHost.getSelectionSnapshot();
   if (!selection) {
     flashStatus('请先选中正文片段');
     return;
@@ -3546,12 +1987,12 @@ async function createKnowledgePointFromCurrentSelection(note) {
 
 async function attachSelectionToExistingKnowledgePoint(pointId) {
   const note = getCurrentNote();
-  if (!note || !currentEditorHost) {
+  if (!note || !editorRuntime.currentEditorHost) {
     flashStatus('请先打开笔记并选中正文片段');
     return;
   }
 
-  const selection = await currentEditorHost.getSelectionSnapshot();
+  const selection = await editorRuntime.currentEditorHost.getSelectionSnapshot();
   if (!selection) {
     flashStatus('请先选中要加入知识点的正文片段');
     return;

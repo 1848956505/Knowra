@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorCommandsControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/commands-controller.js'), 'utf8');
 const menuRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/menu-renderers.js'), 'utf8');
 const previewRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/preview-renderers.js'), 'utf8');
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
@@ -37,17 +38,17 @@ assert.match(
   'source editor view should render a markdown textarea'
 );
 assert.match(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'toggle-source-editor':[\s\S]*state\.view\.mode = 'edit';/,
   'opening the source editor should switch back into edit mode'
 );
 assert.match(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'mode-edit':[\s\S]*state\.view\.showSourceEditor = false;/,
   'switching back to edit mode should close the source editor'
 );
 assert.match(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'mode-focus':[\s\S]*state\.view\.showSourceEditor = false;/,
   'switching to focus mode should close the source editor'
 );

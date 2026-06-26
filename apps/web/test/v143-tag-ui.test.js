@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
+const searchEventsJs = fs.readFileSync(path.resolve(__dirname, '../lib/events/search-events.js'), 'utf8');
 const searchRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/search/renderers.js'), 'utf8');
 const searchStateJs = fs.readFileSync(path.resolve(__dirname, '../lib/search/state.js'), 'utf8');
 
@@ -36,7 +37,7 @@ assert.match(
 );
 
 assert.match(
-  clientJs,
+  searchEventsJs,
   /elements\.globalSearchShell\?\.addEventListener\('click',\s*\(event\)\s*=>\s*\{[\s\S]*event\.stopPropagation\(\);[\s\S]*if \(!state\.search\.isOpen\)/,
   'opening the search panel should stop click propagation so global document handlers do not immediately close it'
 );

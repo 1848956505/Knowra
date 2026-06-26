@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorFileControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/file-controller.js'), 'utf8');
 const menuRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/menu-renderers.js'), 'utf8');
+const searchEventsJs = fs.readFileSync(path.resolve(__dirname, '../lib/events/search-events.js'), 'utf8');
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
 const renderViewMenuSource = menuRenderersJs.match(/function renderViewMenu[\s\S]*?function renderFileMenu/)?.[0] ?? '';
 
@@ -21,27 +22,27 @@ assert.doesNotMatch(
   'view menu should no longer expose the Markdown import action'
 );
 assert.match(
-  clientJs,
+  editorFileControllerJs,
   /elements\.markdownImportInput\?\.click\(\)/,
   'file menu import action should trigger the hidden file input'
 );
 assert.match(
-  clientJs,
+  searchEventsJs,
   /const files = Array\.from\(event\.target\.files \?\? \[\]\);[\s\S]*event\.target\.value = '';/,
   'markdown import change handler should snapshot selected files before clearing the input value'
 );
 assert.doesNotMatch(
-  clientJs,
+  searchEventsJs,
   /const files = event\.target\.files;[\s\S]*event\.target\.value = '';/,
   'markdown import change handler should not keep a live FileList reference after clearing the input'
 );
 assert.match(
-  clientJs,
+  editorFileControllerJs,
   /async function importMarkdownFiles\(files\)/,
   'client should provide a dedicated markdown import flow'
 );
 assert.match(
-  clientJs,
+  editorFileControllerJs,
   /knowledgeApi\.importMarkdownNotes/,
   'API mode should import markdown through the API service'
 );

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorCommandsControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/commands-controller.js'), 'utf8');
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 
 assert.match(
@@ -29,22 +29,22 @@ assert.match(
   'editor command resolver should expose redo through Milkdown history'
 );
 assert.match(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'undo':[\s\S]*await editorHost\.run\(action\);/,
   'edit menu undo should delegate to the editor host history instead of browser execCommand'
 );
 assert.match(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'redo':[\s\S]*await editorHost\.run\(action\);/,
   'edit menu redo should delegate to the editor host history instead of browser execCommand'
 );
 assert.doesNotMatch(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'undo':[\s\S]*document\.execCommand\(/,
   'undo should not use browser execCommand'
 );
 assert.doesNotMatch(
-  clientJs,
+  editorCommandsControllerJs,
   /case 'redo':[\s\S]*document\.execCommand\(/,
   'redo should not use browser execCommand'
 );

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorCommandsControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/commands-controller.js'), 'utf8');
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 
 assert.match(
@@ -59,8 +59,8 @@ assert.doesNotMatch(
   'markdown paste should not use markdownToSlice because its DOM round-trip duplicates fenced code blocks'
 );
 assert.match(
-  clientJs,
-  /currentEditorHost\?\.pasteMarkdown\(text\)/,
+  editorCommandsControllerJs,
+  /editorRuntime\.currentEditorHost\?\.pasteMarkdown\(text\)/,
   'menu paste should delegate to the editor host so pasted Markdown is formatted instead of inserted as raw source'
 );
 console.log('ok - markdown paste is routed through Milkdown clipboard parsing');

@@ -6,11 +6,16 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorContextMenuControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/context-menu-controller.js'), 'utf8');
 const mainJs = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 const sidebarInfoPanelJs = fs.readFileSync(path.resolve(__dirname, '../lib/sidebar/info-panel.js'), 'utf8');
 const editorContextModelJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/context-menu-model.js'), 'utf8');
+const editorContentEventsJs = fs.readFileSync(
+  path.resolve(__dirname, '../lib/events/editor-content-events.js'),
+  'utf8'
+);
 
 assert.match(
   sidebarInfoPanelJs,
@@ -29,7 +34,7 @@ assert.match(
   'workspace shell should expose a dedicated editor context menu mount'
 );
 assert.match(
-  clientJs,
+  editorContentEventsJs,
   /elements\.editorContent\?\.addEventListener\('contextmenu'/,
   'editor surface should intercept right-clicks to open the custom quick menu'
 );
@@ -64,7 +69,7 @@ assert.match(
   'insert submenu should expose image, divider, code block, quote, and paragraph insertion actions'
 );
 assert.match(
-  clientJs,
+  editorContextMenuControllerJs,
   /function renderEditorContextMenu\(\)/,
   'context menu should render through a dedicated function'
 );

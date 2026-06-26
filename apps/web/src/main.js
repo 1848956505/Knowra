@@ -156,6 +156,7 @@ const server = http.createServer(async (request, response) => {
       url.pathname === '/src/client.js' ||
       url.pathname === '/src/styles.css' ||
       url.pathname.startsWith('/src/services/') ||
+      url.pathname.startsWith('/src/controllers/') ||
       url.pathname.startsWith('/lib/') ||
       url.pathname.startsWith('/styles/')
     ) {

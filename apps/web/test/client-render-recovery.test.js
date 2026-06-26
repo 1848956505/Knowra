@@ -22,5 +22,16 @@ assert.match(
   /window\.addEventListener\('error'/,
   'runtime errors should be surfaced in the workspace status area'
 );
+const initializeBody = clientJs.match(/function initialize\(\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
+assert.match(
+  initializeBody,
+  /cacheElements\(\);[\s\S]*createControllers\(\);[\s\S]*bindEvents\(\);/,
+  'client initialization should create controllers before binding events'
+);
+assert.match(
+  initializeBody,
+  /createControllers\(\);[\s\S]*(renderAll\(\)|loadWorkspaceData\()/,
+  'client initialization should create controllers before first render or data load'
+);
 
 console.log('ok - client render recovery hooks are present');

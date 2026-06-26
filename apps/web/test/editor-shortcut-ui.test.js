@@ -5,8 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorCommandsControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/commands-controller.js'), 'utf8');
 const menuRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/menu-renderers.js'), 'utf8');
+const documentKeyboardEventsJs = fs.readFileSync(
+  path.resolve(__dirname, '../lib/events/document-keyboard-events.js'),
+  'utf8'
+);
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
 
@@ -26,18 +30,18 @@ assert.match(
   'editor menus should render a dedicated shortcut label slot'
 );
 assert.match(
-  clientJs,
+  documentKeyboardEventsJs,
   /resolveEditorShortcutAction\(event\)/,
   'editor should resolve custom keyboard shortcuts from the shared shortcut helper'
 );
 assert.match(
-  clientJs,
+  editorCommandsControllerJs,
   /function handleResolvedEditorShortcut\(action\)/,
   'editor should route resolved shortcuts through a dedicated action handler'
 );
 assert.match(
-  clientJs,
-  /currentEditorHost\.run\(action\)/,
+  editorCommandsControllerJs,
+  /editorRuntime\.currentEditorHost\.run\(action\)/,
   'resolved shortcuts should be executed through the editor host command system'
 );
 assert.match(

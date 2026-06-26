@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorHostControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/host-controller.js'), 'utf8');
 const menuRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/menu-renderers.js'), 'utf8');
 const editorContextModelJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/context-menu-model.js'), 'utf8');
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
@@ -98,7 +98,7 @@ assert.match(
 );
 
 assert.match(
-  clientJs,
+  editorHostControllerJs,
   /createMilkdownHost\(\{\s*root,\s*markdown,\s*noteId,\s*onChange: handleEditorMarkdownChange\s*\}\)/,
   'editor host should receive the active note id so uploads can target the current note'
 );

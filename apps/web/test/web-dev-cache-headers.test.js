@@ -17,5 +17,10 @@ assert.match(
   /url\.pathname\.startsWith\('\/src\/services\/'\)/,
   'web dev server should serve frontend service modules imported by client.js'
 );
+assert.match(
+  mainJs,
+  /url\.pathname\.startsWith\('\/src\/controllers\/'\)/,
+  'web dev server should serve frontend controller modules imported by client.js'
+);
 
 console.log('ok - web dev server disables cache for local assets');

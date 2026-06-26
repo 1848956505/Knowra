@@ -6,19 +6,24 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientJs = fs.readFileSync(path.resolve(__dirname, '../src/client.js'), 'utf8');
+const editorPanelControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/editor/panel-controller.js'), 'utf8');
 const menuRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/menu-renderers.js'), 'utf8');
+const documentKeyboardEventsJs = fs.readFileSync(
+  path.resolve(__dirname, '../lib/events/document-keyboard-events.js'),
+  'utf8'
+);
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 const componentsCss = fs.readFileSync(path.resolve(__dirname, '../styles/components.css'), 'utf8');
 
 assert.doesNotMatch(clientJs, /window\.prompt\(/, 'editor find/replace must not use browser prompt dialogs');
 assert.doesNotMatch(clientJs, /window\.find\(/, 'editor find must use the in-app search panel instead of browser find');
 assert.match(
-  clientJs,
+  editorPanelControllerJs,
   /editor-utility-panel/,
   'editor should render a custom in-app utility panel for find and replace'
 );
 assert.match(
-  clientJs,
+  editorPanelControllerJs,
   /submit-previous/,
   'editor find panel should expose an explicit previous-match action'
 );
@@ -51,8 +56,8 @@ assert.match(
   'editor paragraph menu should use H1-H6 heading labels'
 );
 assert.match(
-  clientJs,
-  /document\.addEventListener\('keydown', \(event\) => \{[\s\S]*resolveEditorPanelKeyboardAction\(event\)[\s\S]*\}, true\);/,
+  documentKeyboardEventsJs,
+  /documentRef\.addEventListener\('keydown', \(event\) => \{[\s\S]*resolveEditorPanelKeyboardAction\(event\)[\s\S]*\}, true\);/,
   'editor find keyboard shortcuts should intercept Enter during capture so the editor cannot consume it first'
 );
 assert.match(
