@@ -22,3 +22,4 @@ apps/web/lib/editor/milkdown-bundle.css
 apps/web/lib/editor/milkdown-bundle.js.map
 apps/web/lib/editor/milkdown-bundle.css.map
 .worktrees/
+.superpowers/
