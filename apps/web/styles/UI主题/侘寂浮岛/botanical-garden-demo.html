@@ -1,0 +1,1197 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>植物园浮岛 · UI 主题预览</title>
+  <style>
+    :root {
+      --bg-page: #eef5ef;
+      --bg-shell: #f6fbf7;
+      --bg-panel: #fbfefb;
+      --bg-paper: #f7fcf6;
+      --bg-soft: #e9f3ea;
+      --bg-mist: #f1f8f2;
+      --bg-accent-soft: rgba(93, 145, 116, 0.12);
+      --bg-accent-hover: rgba(93, 145, 116, 0.18);
+
+      --text-strong: #284437;
+      --text-main: #3f5e4f;
+      --text-soft: #678373;
+      --text-faint: #8ca697;
+
+      --line-soft: rgba(76, 120, 95, 0.14);
+      --line-mid: rgba(76, 120, 95, 0.24);
+      --line-strong: rgba(76, 120, 95, 0.38);
+
+      --leaf-300: #77a484;
+      --leaf-400: #5d9174;
+      --leaf-500: #46755d;
+      --leaf-600: #315742;
+      --mint-300: #91c7bf;
+      --mint-400: #66a8a0;
+
+      --success: #5d9174;
+
+      --shadow-soft: 0 18px 44px rgba(67, 104, 82, 0.08);
+      --shadow-card: 0 12px 28px rgba(73, 112, 88, 0.06);
+
+      --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STZhongsong", serif;
+      --font-sans: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+
+      --fs-2xs: 11px;
+      --fs-xs: 12px;
+      --fs-sm: 13px;
+      --fs-base: 15px;
+      --fs-md: 17px;
+      --fs-lg: 20px;
+      --fs-xl: 26px;
+      --fs-2xl: 34px;
+      --fs-3xl: 44px;
+
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 20px;
+      --sp-6: 24px;
+      --sp-7: 32px;
+      --sp-8: 48px;
+      --sp-9: 64px;
+      --sp-10: 96px;
+
+      --r-sm: 8px;
+      --r-md: 14px;
+      --r-lg: 20px;
+      --r-pill: 999px;
+
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --dur: 220ms;
+
+      --rail-w: 68px;
+      --side-w: 286px;
+      --aside-w: 308px;
+      --top-h: 60px;
+      --status-h: 30px;
+      --reading-max: 68ch;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: var(--fs-base);
+      line-height: 1.7;
+      background:
+        radial-gradient(circle at top left, rgba(145, 199, 191, 0.2), transparent 28%),
+        radial-gradient(circle at 85% 20%, rgba(119, 164, 132, 0.14), transparent 22%),
+        linear-gradient(180deg, #f6fbf7 0%, #edf5ef 55%, #edf6f0 100%);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .demo-canvas {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: var(--sp-9) var(--sp-7) var(--sp-10);
+    }
+
+    .demo-hero {
+      position: relative;
+      overflow: hidden;
+      margin-bottom: var(--sp-9);
+      padding: var(--sp-8);
+      border: 1px solid var(--line-soft);
+      border-radius: 28px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(240, 249, 242, 0.96)),
+        linear-gradient(180deg, rgba(145, 199, 191, 0.08), transparent);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .demo-hero::after {
+      content: "";
+      position: absolute;
+      right: -36px;
+      top: -40px;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(145, 199, 191, 0.22) 0%, rgba(145, 199, 191, 0.08) 44%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-6);
+      padding: 6px 14px;
+      border: 1px solid var(--line-mid);
+      border-radius: var(--r-pill);
+      color: var(--leaf-500);
+      background: rgba(255, 255, 255, 0.55);
+      font-size: var(--fs-sm);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero-badge::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--leaf-400), var(--mint-400));
+      box-shadow: 0 0 0 4px rgba(93, 145, 116, 0.08);
+    }
+
+    .demo-hero-title {
+      margin: 0 0 var(--sp-4);
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-3xl);
+      font-weight: 500;
+      line-height: 1.18;
+      letter-spacing: 0.02em;
+    }
+
+    .demo-hero-subtitle {
+      max-width: 54ch;
+      margin: 0 0 var(--sp-5);
+      color: var(--text-main);
+      font-family: var(--font-serif);
+      font-size: var(--fs-lg);
+      line-height: 1.9;
+    }
+
+    .demo-hero-meta {
+      margin: 0;
+      color: var(--text-soft);
+      font-family: var(--font-mono);
+      font-size: var(--fs-xs);
+      letter-spacing: 0.05em;
+    }
+
+    .demo-section { margin-bottom: var(--sp-10); }
+    .demo-section-head { margin-bottom: var(--sp-7); }
+    .demo-section-head h2 {
+      margin: 0 0 var(--sp-3);
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-2xl);
+      font-weight: 500;
+    }
+    .demo-section-head p {
+      max-width: 64ch;
+      margin: 0;
+      color: var(--text-soft);
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--sp-6);
+    }
+
+    .feature-card {
+      padding: var(--sp-7);
+      border: 1px solid var(--line-soft);
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 251, 247, 0.98)),
+        linear-gradient(135deg, rgba(145, 199, 191, 0.06), transparent 45%);
+      box-shadow: var(--shadow-card);
+      transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--line-mid);
+    }
+
+    .feature-card-glyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      margin-bottom: var(--sp-4);
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(119, 164, 132, 0.18), rgba(145, 199, 191, 0.18));
+      color: var(--leaf-500);
+      font-family: var(--font-serif);
+      font-size: var(--fs-lg);
+    }
+
+    .feature-card h3 {
+      margin: 0 0 var(--sp-3);
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-lg);
+      font-weight: 500;
+    }
+
+    .feature-card p {
+      margin: 0 0 var(--sp-5);
+      color: var(--text-soft);
+      font-size: var(--fs-sm);
+    }
+
+    .feature-card code {
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: var(--bg-soft);
+      color: var(--leaf-600);
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+    }
+
+    .feature-demo {
+      min-height: 122px;
+      padding-top: var(--sp-5);
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .feature-demo--breath {
+      display: grid;
+      place-items: center;
+      gap: var(--sp-3);
+    }
+
+    .breath-leaf {
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, var(--leaf-400), var(--mint-400));
+      border-radius: 18px 2px 18px 2px;
+      transform: rotate(-24deg);
+      box-shadow: 0 6px 16px rgba(93, 145, 116, 0.18);
+    }
+
+    .breath-text {
+      color: var(--text-soft);
+      font-family: var(--font-serif);
+      letter-spacing: 0.28em;
+      font-size: var(--fs-sm);
+    }
+
+    .mini-tree {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .mini-tree-item {
+      position: relative;
+      padding: 10px 12px 10px 34px;
+      color: var(--text-main);
+      border-radius: 10px;
+    }
+
+    .mini-tree-item.is-selected {
+      color: var(--leaf-600);
+      background: linear-gradient(90deg, rgba(145, 199, 191, 0.16), rgba(145, 199, 191, 0.03));
+    }
+
+    .mini-tree-item.is-selected::before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 12px 2px 12px 2px;
+      transform: translateY(-50%) rotate(-30deg);
+      background: linear-gradient(135deg, var(--leaf-400), var(--mint-400));
+      box-shadow: 0 0 0 4px rgba(93, 145, 116, 0.08);
+    }
+
+    .feature-demo--prose h4 {
+      margin: 0 0 var(--sp-3);
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-xl);
+      font-weight: 500;
+    }
+
+    .feature-demo--prose p {
+      margin: 0;
+      color: var(--text-soft);
+    }
+
+    .feature-demo--reading p {
+      max-width: 56ch;
+      margin: 0 auto;
+      color: var(--text-main);
+      font-family: var(--font-serif);
+      font-size: var(--fs-md);
+      line-height: 1.9;
+    }
+
+    .workspace-shell {
+      position: relative;
+      display: grid;
+      grid-template-columns: var(--rail-w) var(--side-w) 1fr var(--aside-w);
+      grid-template-rows: var(--top-h) 1fr var(--status-h);
+      grid-template-areas:
+        "rail top top top"
+        "rail side main aside"
+        "rail status status status";
+      height: 740px;
+      overflow: hidden;
+      border: 1px solid var(--line-soft);
+      border-radius: 28px;
+      background: var(--bg-shell);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .workspace-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 10% 18%, rgba(145, 199, 191, 0.12), transparent 24%),
+        radial-gradient(circle at 88% 82%, rgba(119, 164, 132, 0.08), transparent 20%);
+      pointer-events: none;
+    }
+
+    .workspace-shell > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .icon-rail {
+      grid-area: rail;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-4) 0;
+      background: linear-gradient(180deg, #f5fbf6, #eef7f0);
+      border-right: 1px solid var(--line-soft);
+    }
+
+    .rail-brand,
+    .rail-account {
+      display: grid;
+      place-items: center;
+      color: var(--leaf-500);
+      font-family: var(--font-serif);
+    }
+
+    .rail-brand {
+      width: 40px;
+      height: 40px;
+      margin-bottom: var(--sp-4);
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(119, 164, 132, 0.18), rgba(145, 199, 191, 0.2));
+      font-size: var(--fs-sm);
+      letter-spacing: 0.18em;
+    }
+
+    .rail-actions {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+
+    .rail-item {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--text-faint);
+      cursor: pointer;
+      transition: all var(--dur) var(--ease);
+    }
+
+    .rail-item:hover {
+      color: var(--leaf-500);
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .rail-item.is-active {
+      color: var(--leaf-600);
+      border-color: rgba(93, 145, 116, 0.18);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(233, 243, 234, 0.88));
+    }
+
+    .rail-item.is-active::after {
+      content: "";
+      position: absolute;
+      inset: auto 11px 6px 11px;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--leaf-400), var(--mint-400));
+    }
+
+    .rail-item svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.4;
+    }
+
+    .rail-account {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--bg-soft);
+      font-size: var(--fs-xs);
+    }
+
+    .top-bar {
+      grid-area: top;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-5);
+      padding: 0 var(--sp-6);
+      background: rgba(251, 254, 251, 0.88);
+      border-bottom: 1px solid var(--line-soft);
+      backdrop-filter: blur(10px);
+    }
+
+    .top-bar-title {
+      margin: 0;
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-base);
+      font-weight: 500;
+    }
+
+    .top-bar-title small {
+      margin-left: var(--sp-2);
+      color: var(--text-faint);
+      font-size: var(--fs-xs);
+      letter-spacing: 0.18em;
+    }
+
+    .top-search {
+      flex: 1;
+      max-width: 380px;
+    }
+
+    .top-search input {
+      width: 100%;
+      padding: 11px 16px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-pill);
+      outline: none;
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.74);
+      transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+    }
+
+    .top-search input::placeholder { color: var(--text-faint); }
+
+    .top-search input:focus {
+      border-color: rgba(102, 168, 160, 0.45);
+      box-shadow: 0 0 0 4px rgba(145, 199, 191, 0.14);
+    }
+
+    .top-bar-actions {
+      display: flex;
+      gap: var(--sp-2);
+      margin-left: auto;
+    }
+
+    .top-bar-btn {
+      padding: 9px 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      color: var(--text-soft);
+      background: rgba(255, 255, 255, 0.56);
+      font-size: var(--fs-xs);
+      letter-spacing: 0.1em;
+    }
+
+    .top-bar-btn.is-primary {
+      color: #f7fffb;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--leaf-400), var(--mint-400));
+    }
+
+    .library-tree,
+    .aside-panel {
+      background: rgba(251, 254, 251, 0.76);
+    }
+
+    .library-tree {
+      grid-area: side;
+      border-right: 1px solid var(--line-soft);
+      overflow: hidden;
+    }
+
+    .library-tree-head,
+    .aside-body {
+      padding: var(--sp-5);
+    }
+
+    .library-tree-head h3,
+    .aside-section h4 {
+      margin: 0;
+      color: var(--text-soft);
+      font-family: var(--font-serif);
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      letter-spacing: 0.2em;
+    }
+
+    .library-tree-body {
+      padding: 0 var(--sp-3) var(--sp-5);
+    }
+
+    .tree-group { margin-bottom: var(--sp-5); }
+    .tree-group-label {
+      margin: 0 0 var(--sp-2);
+      padding: 0 var(--sp-3);
+      color: var(--text-faint);
+      font-size: var(--fs-2xs);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+
+    .tree-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 10px 12px 10px 16px;
+      border-radius: 12px;
+      color: var(--text-main);
+    }
+
+    .tree-item.is-selected {
+      background:
+        linear-gradient(90deg, rgba(145, 199, 191, 0.18), rgba(145, 199, 191, 0.05));
+      color: var(--leaf-600);
+      box-shadow: inset 3px 0 0 var(--leaf-400);
+    }
+
+    .tree-item-count {
+      margin-left: auto;
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+    }
+
+    .editor-shell {
+      grid-area: main;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-shell);
+      overflow: hidden;
+    }
+
+    .note-tabs,
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .note-tabs {
+      gap: var(--sp-1);
+      padding: 0 var(--sp-5);
+    }
+
+    .note-tab {
+      padding: 14px 12px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--text-soft);
+      font-size: var(--fs-sm);
+    }
+
+    .note-tab.is-active {
+      color: var(--text-strong);
+      border-bottom-color: var(--leaf-400);
+    }
+
+    .editor-toolbar {
+      gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-5);
+    }
+
+    .editor-toolbar-btn {
+      padding: 4px 8px;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-soft);
+      background: transparent;
+      font-size: var(--fs-xs);
+    }
+
+    .editor-toolbar-btn.is-active {
+      color: var(--leaf-600);
+      background: var(--bg-accent-soft);
+    }
+
+    .editor-toolbar-sep {
+      width: 1px;
+      height: 12px;
+      background: var(--line-soft);
+      margin: 0 var(--sp-1);
+    }
+
+    .editor-toolbar-spacer { flex: 1; }
+    .editor-toolbar-meta {
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+    }
+
+    .editor-canvas {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--sp-8) var(--sp-7) var(--sp-9);
+      background:
+        linear-gradient(180deg, rgba(251, 254, 251, 0.74), rgba(247, 252, 246, 0.98)),
+        repeating-linear-gradient(
+          180deg,
+          transparent,
+          transparent 30px,
+          rgba(119, 164, 132, 0.03) 30px,
+          rgba(119, 164, 132, 0.03) 31px
+        );
+    }
+
+    .editor-canvas-inner {
+      max-width: var(--reading-max);
+      margin: 0 auto;
+      padding: var(--sp-7);
+      border: 1px solid rgba(119, 164, 132, 0.12);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.46);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .note-title {
+      margin: 0 0 var(--sp-3);
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-2xl);
+      font-weight: 500;
+      line-height: 1.25;
+    }
+
+    .note-meta {
+      margin: 0 0 var(--sp-7);
+      padding-bottom: var(--sp-4);
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+      letter-spacing: 0.05em;
+    }
+
+    .note-body {
+      color: var(--text-main);
+      font-family: var(--font-serif);
+      font-size: var(--fs-md);
+      line-height: 1.95;
+    }
+
+    .note-body p { margin: 0 0 var(--sp-5); }
+    .note-body h3 {
+      margin: var(--sp-8) 0 var(--sp-3);
+      color: var(--text-strong);
+      font-family: var(--font-serif);
+      font-size: var(--fs-lg);
+      font-weight: 500;
+    }
+
+    .note-body blockquote {
+      margin: var(--sp-6) 0;
+      padding: 0 0 0 var(--sp-5);
+      border-left: 3px solid rgba(102, 168, 160, 0.45);
+      color: var(--text-soft);
+    }
+
+    .note-body mark {
+      padding: 0 2px 2px;
+      color: var(--leaf-600);
+      background: linear-gradient(180deg, transparent 30%, rgba(145, 199, 191, 0.28) 30%);
+    }
+
+    .green-divider {
+      height: 14px;
+      margin: var(--sp-7) 0;
+      border-radius: var(--r-pill);
+      background:
+        radial-gradient(circle at 8% 50%, rgba(119, 164, 132, 0.18), transparent 16%),
+        linear-gradient(90deg, transparent, rgba(119, 164, 132, 0.24), rgba(145, 199, 191, 0.28), transparent);
+      opacity: 0.9;
+    }
+
+    .aside-panel {
+      grid-area: aside;
+      border-left: 1px solid var(--line-soft);
+      overflow: hidden;
+    }
+
+    .aside-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .aside-tab {
+      flex: 1;
+      padding: 13px 8px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--text-soft);
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+    }
+
+    .aside-tab.is-active {
+      color: var(--leaf-600);
+      border-bottom-color: var(--mint-400);
+    }
+
+    .aside-section {
+      margin-bottom: var(--sp-6);
+    }
+
+    .aside-section h4 {
+      margin-bottom: var(--sp-3);
+    }
+
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-2);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-pill);
+      color: var(--text-soft);
+      background: rgba(255, 255, 255, 0.52);
+      font-size: var(--fs-xs);
+    }
+
+    .tag.is-active {
+      color: var(--leaf-600);
+      border-color: rgba(102, 168, 160, 0.28);
+      background: linear-gradient(135deg, rgba(119, 164, 132, 0.16), rgba(145, 199, 191, 0.12));
+    }
+
+    .ref-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .ref-item {
+      padding: var(--sp-3) 0;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--text-main);
+      font-size: var(--fs-sm);
+    }
+
+    .ref-item:last-child { border-bottom: none; }
+
+    .ref-item-source {
+      display: block;
+      margin-top: var(--sp-1);
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+    }
+
+    .status-bar {
+      grid-area: status;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-5);
+      padding: 0 var(--sp-5);
+      border-top: 1px solid var(--line-soft);
+      background: rgba(251, 254, 251, 0.86);
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      font-size: var(--fs-2xs);
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--mint-400);
+    }
+
+    .status-dot.is-ok { background: var(--success); }
+    .status-sep {
+      width: 1px;
+      height: 10px;
+      background: var(--line-soft);
+    }
+    .status-spacer { flex: 1; }
+
+    @media (max-width: 1120px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .workspace-shell {
+        height: auto;
+        grid-template-columns: var(--rail-w) 1fr;
+        grid-template-rows: auto auto auto auto auto;
+        grid-template-areas:
+          "rail top"
+          "rail side"
+          "rail main"
+          "rail aside"
+          "rail status";
+      }
+      .library-tree,
+      .aside-panel {
+        min-height: 220px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .demo-canvas {
+        padding: var(--sp-7) var(--sp-4) var(--sp-8);
+      }
+      .demo-hero,
+      .feature-card,
+      .editor-canvas-inner {
+        padding: var(--sp-5);
+      }
+      .demo-hero-title { font-size: 36px; }
+      .workspace-shell {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "top"
+          "side"
+          "main"
+          "aside"
+          "status";
+      }
+      .icon-rail { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-canvas">
+    <header class="demo-hero">
+      <div class="hero-badge">Botanical Garden Theme</div>
+      <h1 class="demo-hero-title">植物园浮岛</h1>
+      <p class="demo-hero-subtitle">
+        用雾绿、浅苔与温室青替代复古米黄，让界面像一座清晨植物园:
+        光线柔和、信息安静、组件像标本卡与导视牌，而不是旧纸与朱砂。
+      </p>
+      <p class="demo-hero-meta">
+        #浅色主题 #雾绿植物园 #温室青强调 #标本卡片 #叶脉选中态 #阅读友好
+      </p>
+    </header>
+
+    <section class="demo-section">
+      <header class="demo-section-head">
+        <h2>主题特征</h2>
+        <p>保留原有留白和阅读感，但把配色语言与局部组件转向植物园导视系统与温室标本卡。</p>
+      </header>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-card-glyph">叶</div>
+          <h3>雾绿空气感</h3>
+          <p>
+            背景从米黄切换到 <code>#eef5ef</code> 到 <code>#f6fbf7</code> 的浅绿层次，
+            让大面积留白更像晨雾里的植物馆，而不是复古纸页。
+          </p>
+          <div class="feature-demo feature-demo--breath">
+            <div class="breath-leaf"></div>
+            <div class="breath-text">清 晨 温 室</div>
+            <div class="breath-leaf"></div>
+          </div>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-card-glyph">脉</div>
+          <h3>叶脉式选中态</h3>
+          <p>
+            选中态不再是朱砂手绘弧线，而是淡青绿底色、叶片标记与细竖线，
+            更像植物园导视牌上的当前路径。
+          </p>
+          <div class="feature-demo">
+            <ul class="mini-tree">
+              <li class="mini-tree-item">热带温室</li>
+              <li class="mini-tree-item is-selected">苔藓与叶脉研究</li>
+              <li class="mini-tree-item">种子图谱</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-card-glyph">卡</div>
+          <h3>标本卡组件质感</h3>
+          <p>
+            卡片、标签、按钮都改为圆润浅色边框和半透明底，
+            像温室里的植物标签卡，柔和但仍然有明确层级。
+          </p>
+          <div class="feature-demo feature-demo--prose">
+            <h4>馆藏叶片编号</h4>
+            <p>轻边框、浅投影、冷静强调色，比复古感更清新，也更适合长时间使用。</p>
+          </div>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-card-glyph">读</div>
+          <h3>温室纸签阅读区</h3>
+          <p>
+            阅读区保留宽松节奏，但底色变成更清透的纸签白绿，
+            再加很轻的横向纹理，让正文像夹在植物标本旁的说明卡。
+          </p>
+          <div class="feature-demo feature-demo--reading">
+            <p>
+              这一版的阅读区不依赖旧纸黄调，而是用浅绿白与细纹理维持温度，
+              读感依旧安静，但氛围更接近植物园而不是旧书房。
+            </p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <header class="demo-section-head">
+        <h2>应用外壳预览</h2>
+        <p>在原结构基础上，整体切换为轻盈植物园系统，重点调整侧栏、阅读区、标签与交互强调色。</p>
+      </header>
+
+      <div class="workspace-shell">
+        <aside class="icon-rail" aria-label="模块导航">
+          <div class="rail-brand">植</div>
+          <nav class="rail-actions" aria-label="主模块">
+            <button type="button" class="rail-item is-active" aria-label="知识馆">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 4h12a2 2 0 0 1 2 2v12H7a2 2 0 0 0-2 2z"></path>
+                <path d="M7 4v16"></path>
+                <path d="M10 8h6M10 12h6"></path>
+              </svg>
+            </button>
+            <button type="button" class="rail-item" aria-label="温室地图">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 19h16"></path>
+                <path d="M6 19V9l6-4 6 4v10"></path>
+                <path d="M9 19v-5h6v5"></path>
+              </svg>
+            </button>
+            <button type="button" class="rail-item" aria-label="采集任务">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 7h12"></path>
+                <path d="M8 12h12"></path>
+                <path d="M8 17h8"></path>
+                <path d="M4 7h.01M4 12h.01M4 17h.01"></path>
+              </svg>
+            </button>
+            <button type="button" class="rail-item" aria-label="复习温床">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 5h14v14H5z"></path>
+                <path d="M9 9h6M9 13h6"></path>
+              </svg>
+            </button>
+          </nav>
+          <div class="rail-account">木</div>
+        </aside>
+
+        <header class="top-bar">
+          <h2 class="top-bar-title">植物知识馆<small>BOTANICAL ARCHIVE</small></h2>
+          <div class="top-search">
+            <input type="search" placeholder="搜索叶片、物种、札记、标签" aria-label="全局搜索" />
+          </div>
+          <div class="top-bar-actions">
+            <button class="top-bar-btn" type="button">导入样本</button>
+            <button class="top-bar-btn is-primary" type="button">新建标本卡</button>
+          </div>
+        </header>
+
+        <aside class="library-tree" aria-label="文件夹与标签">
+          <header class="library-tree-head">
+            <h3>馆内目录</h3>
+          </header>
+          <div class="library-tree-body">
+            <div class="tree-group">
+              <p class="tree-group-label">温室</p>
+              <ul class="tree-list">
+                <li class="tree-item">热带叶片档案 <span class="tree-item-count">12</span></li>
+                <li class="tree-item is-selected">苔藓与叶脉研究 <span class="tree-item-count">5</span></li>
+                <li class="tree-item">水生植物观察 <span class="tree-item-count">9</span></li>
+              </ul>
+            </div>
+            <div class="tree-group">
+              <p class="tree-group-label">标本</p>
+              <ul class="tree-list">
+                <li class="tree-item">叶形分类卡 <span class="tree-item-count">28</span></li>
+                <li class="tree-item">种子与芽点 <span class="tree-item-count">14</span></li>
+                <li class="tree-item">园路导视语言 <span class="tree-item-count">7</span></li>
+              </ul>
+            </div>
+            <div class="tree-group">
+              <p class="tree-group-label">归档</p>
+              <ul class="tree-list">
+                <li class="tree-item">春季馆藏回顾 <span class="tree-item-count">23</span></li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+
+        <main class="editor-shell" aria-label="当前笔记">
+          <nav class="note-tabs" aria-label="打开的笔记">
+            <button class="note-tab" type="button">图谱总览</button>
+            <button class="note-tab is-active" type="button">苔藓与叶脉研究</button>
+            <button class="note-tab" type="button">温室导视观察</button>
+          </nav>
+
+          <div class="editor-toolbar" role="toolbar" aria-label="格式工具栏">
+            <button class="editor-toolbar-btn is-active" type="button">H1</button>
+            <button class="editor-toolbar-btn" type="button">H2</button>
+            <button class="editor-toolbar-btn" type="button">H3</button>
+            <span class="editor-toolbar-sep"></span>
+            <button class="editor-toolbar-btn" type="button">引用</button>
+            <button class="editor-toolbar-btn" type="button">标记</button>
+            <button class="editor-toolbar-btn" type="button">列表</button>
+            <span class="editor-toolbar-sep"></span>
+            <button class="editor-toolbar-btn" type="button">链接</button>
+            <button class="editor-toolbar-btn" type="button">图片</button>
+            <span class="editor-toolbar-spacer"></span>
+            <span class="editor-toolbar-meta">1,086 字 · 4 分钟阅读</span>
+          </div>
+
+          <div class="editor-canvas">
+            <div class="editor-canvas-inner">
+              <h1 class="note-title">苔藓与叶脉研究</h1>
+              <p class="note-meta">创建于 2026-07-01 · 最后整理 1 小时前 · 植物观察 / 温室札记</p>
+
+              <div class="note-body">
+                <p>
+                  这一版主题不再用旧纸黄与朱砂去表达“安静”，而是改成一种
+                  <mark>晨雾中的植物园式安静</mark>。背景像带湿气的空气，强调色像叶脉与导视牌，
+                  阅读区则更像附在标本边上的说明签。
+                </p>
+
+                <div class="green-divider" aria-hidden="true"></div>
+
+                <h3>为什么更适合学习类工具</h3>
+                <p>
+                  对学习产品来说，绿色系如果过深会显得压迫，过艳又会显得轻浮。
+                  所以这里采用鼠尾草绿、浅苔绿和一层温室青，只用在边界、强调、聚焦和选中态，
+                  让界面保持明亮，同时给信息结构一点植物感的秩序。
+                </p>
+
+                <blockquote>
+                  “植物园的舒适感不是来自装饰很多，而是来自光线、空气、水分和导视系统都很克制。”
+                </blockquote>
+
+                <h3>组件语言的转向</h3>
+                <p>
+                  卡片从“复古纸片”转向“标本卡”；选中态从“手绘朱砂弧线”转向“叶脉提示”；
+                  标签从“朴素小签条”转向“半透明温室铭牌”。这让整体更统一，也更符合植物园主题。
+                </p>
+
+                <div class="green-divider" aria-hidden="true"></div>
+
+                <h3>阅读区的处理</h3>
+                <p>
+                  正文仍然保留宽松行高与较大的留白，但阅读背景更清透，近似白绿色的纸签。
+                  这样做的好处是仍然适合长文阅读，同时不会被米黄色带向过强的复古感。
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <aside class="aside-panel" aria-label="辅助面板">
+          <div class="aside-tabs" role="tablist">
+            <button class="aside-tab is-active" type="button" role="tab">标签</button>
+            <button class="aside-tab" type="button" role="tab">引用</button>
+            <button class="aside-tab" type="button" role="tab">信息</button>
+          </div>
+          <div class="aside-body">
+            <section class="aside-section">
+              <h4>主题标签</h4>
+              <div class="tag-cloud">
+                <span class="tag is-active">#植物园</span>
+                <span class="tag">#雾绿</span>
+                <span class="tag">#温室青</span>
+                <span class="tag">#标本卡</span>
+                <span class="tag">#叶脉选中态</span>
+                <span class="tag">#浅色系统</span>
+              </div>
+            </section>
+
+            <section class="aside-section">
+              <h4>关联笔记</h4>
+              <ul class="ref-list">
+                <li class="ref-item">
+                  温室导视牌的配色节奏
+                  <span class="ref-item-source">FROM · 设计观察 / 2026-06-28</span>
+                </li>
+                <li class="ref-item">
+                  标本说明卡的阅读层次
+                  <span class="ref-item-source">FROM · 界面语言 / 2026-06-19</span>
+                </li>
+                <li class="ref-item">
+                  水雾、玻璃和植物绿的关系
+                  <span class="ref-item-source">FROM · 灵感剪贴 / 2026-06-11</span>
+                </li>
+              </ul>
+            </section>
+
+            <section class="aside-section">
+              <h4>状态信息</h4>
+              <ul class="ref-list">
+                <li class="ref-item">
+                  当前主题倾向: 浅雾绿植物园
+                  <span class="ref-item-source">可继续往青色温室方向微调</span>
+                </li>
+                <li class="ref-item">
+                  推荐后续动作: 统一实际产品 token
+                  <span class="ref-item-source">先确认主色、边框、选中态与阅读底色</span>
+                </li>
+              </ul>
+            </section>
+          </div>
+        </aside>
+
+        <footer class="status-bar" aria-label="状态栏">
+          <span class="status-item">
+            <span class="status-dot is-ok"></span>
+            <span>已保存 · 植物园主题预览</span>
+          </span>
+          <span class="status-sep"></span>
+          <span class="status-item">Botanical Garden · Light</span>
+          <span class="status-sep"></span>
+          <span class="status-item">知识馆 / 苔藓与叶脉研究</span>
+          <span class="status-spacer"></span>
+          <span class="status-item">
+            <span class="status-dot"></span>
+            <span>浅色模式</span>
+          </span>
+        </footer>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

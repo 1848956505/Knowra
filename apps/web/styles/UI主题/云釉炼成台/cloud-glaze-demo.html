@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>云釉炼成台 - Study UI Demo</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --bg-soft: #edf2f7;
+      --bg-panel: rgba(255, 255, 255, 0.86);
+      --bg-panel-strong: #ffffff;
+      --bg-accent-soft: #eef7f8;
+      --line: #dbe5ee;
+      --line-strong: #c9d8e6;
+      --text: #172534;
+      --text-soft: #5d7186;
+      --text-dim: #7f91a3;
+      --primary: #5b7cff;
+      --primary-soft: #edf1ff;
+      --teal: #4eb8ad;
+      --teal-soft: #e7f7f4;
+      --amber: #d39b52;
+      --amber-soft: #fbf3e7;
+      --danger: #db7285;
+      --danger-soft: #fbeff2;
+      --shadow-lg: 0 24px 60px rgba(35, 55, 80, 0.08);
+      --shadow-md: 0 12px 30px rgba(35, 55, 80, 0.06);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --font-ui: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "SFMono-Regular", "Consolas", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: var(--font-ui);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(91, 124, 255, 0.08), transparent 22%),
+        radial-gradient(circle at 82% 10%, rgba(78, 184, 173, 0.08), transparent 20%),
+        linear-gradient(180deg, #f7f9fc 0%, #f3f6fa 46%, #eef3f8 100%);
+    }
+
+    body {
+      padding: 26px;
+    }
+
+    .page {
+      max-width: 1540px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .hero-card,
+    .brief-card,
+    .workspace,
+    .module {
+      background: var(--bg-panel);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      box-shadow: var(--shadow-lg);
+      border-radius: var(--radius-xl);
+    }
+
+    .hero-card {
+      padding: 34px 36px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(130deg, rgba(91, 124, 255, 0.05), transparent 28%, transparent 70%, rgba(78, 184, 173, 0.05));
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--primary);
+      font: 700 11px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 26px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(91, 124, 255, 0), rgba(91, 124, 255, 0.8));
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: 54px;
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+    }
+
+    .hero p,
+    .brief-card p,
+    .module p {
+      margin: 0;
+      color: var(--text-soft);
+      line-height: 1.75;
+    }
+
+    .hero-tags,
+    .mini-grid,
+    .badge-row,
+    .status-row,
+    .aside-tags,
+    .token-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-tags {
+      margin-top: 22px;
+    }
+
+    .tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .brief-card {
+      padding: 26px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--primary);
+      font: 700 11px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mini {
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      min-height: 112px;
+    }
+
+    .mini b {
+      display: block;
+      font-size: 26px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .mini span {
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 82px 292px minmax(0, 1fr) 340px;
+      grid-template-rows: 72px minmax(760px, auto) 54px;
+      overflow: hidden;
+    }
+
+    .rail {
+      grid-row: 1 / span 3;
+      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 249, 252, 0.96));
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 12px;
+    }
+
+    .brand,
+    .rail-btn,
+    .avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+    }
+
+    .brand {
+      background: linear-gradient(135deg, var(--primary-soft), #f6fbff);
+      border: 1px solid #d9e4ff;
+      color: var(--primary);
+      font: 700 16px/1 var(--font-mono);
+      box-shadow: var(--shadow-md);
+    }
+
+    .rail-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .rail-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .rail-btn.active {
+      background: var(--bg-panel-strong);
+      border-color: #d9e4ff;
+      color: var(--primary);
+      box-shadow: 0 10px 22px rgba(91, 124, 255, 0.12);
+    }
+
+    .rail-btn span {
+      display: block;
+      margin-top: 3px;
+      font-size: 10px;
+    }
+
+    .avatar {
+      background: #f1f6fb;
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .topbar {
+      grid-column: 2 / span 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .search {
+      flex: 1;
+      max-width: 680px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 16px;
+      border-radius: 18px;
+      background: var(--bg-panel-strong);
+      border: 1px solid #d7e3ee;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    }
+
+    .search .kbd {
+      margin-left: auto;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      font: 700 11px/1 var(--font-mono);
+    }
+
+    .search strong {
+      color: var(--text-soft);
+      font-weight: 500;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn,
+    .btn-primary {
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-weight: 600;
+      border: 1px solid var(--line);
+      background: var(--bg-panel-strong);
+      color: var(--text);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #f6fbff, #eef4ff);
+      border-color: #d8e3ff;
+      color: var(--primary);
+      box-shadow: 0 10px 20px rgba(91, 124, 255, 0.1);
+    }
+
+    .sidebar,
+    .aside {
+      background: rgba(250, 252, 253, 0.82);
+      padding: 20px 18px;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+    }
+
+    .aside {
+      border-left: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .section-head h2,
+    .section-head h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .tiny {
+      color: var(--text-dim);
+      font: 700 11px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .folder-block,
+    .aside-block,
+    .recipe-card,
+    .result-card {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .folder-title {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      color: var(--amber);
+      font: 700 11px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    .tree-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 12px;
+      color: var(--text-soft);
+      font-size: 14px;
+      margin-bottom: 7px;
+      border: 1px solid transparent;
+    }
+
+    .tree-item.active {
+      background: linear-gradient(180deg, #f8fbff, #f2f7ff);
+      color: var(--text);
+      border-color: #dbe7ff;
+      box-shadow: 0 10px 18px rgba(91, 124, 255, 0.08);
+      position: relative;
+    }
+
+    .tree-item.active::after {
+      content: "RCP-07";
+      position: absolute;
+      top: -9px;
+      right: 12px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      border: 1px solid #f0dfbf;
+      color: var(--amber);
+      font: 700 9px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+    }
+
+    .count {
+      color: var(--text-dim);
+      font: 700 11px/1 var(--font-mono);
+    }
+
+    .editor {
+      display: grid;
+      grid-template-rows: 54px 56px minmax(0, 1fr);
+      background: linear-gradient(180deg, #f8fbfd 0%, #f5f8fb 100%);
+    }
+
+    .tabs,
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .tab {
+      padding: 12px 14px;
+      color: var(--text-dim);
+      font-size: 13px;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab.active {
+      color: var(--text);
+      border-bottom-color: var(--primary);
+    }
+
+    .tool {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
+    .tool.active {
+      background: #ffffff;
+      border-color: var(--line);
+      color: var(--primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .canvas-wrap {
+      padding: 28px;
+      overflow: auto;
+    }
+
+    .canvas {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #e0e9f1;
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(48, 72, 98, 0.08);
+      padding: 48px 54px;
+      position: relative;
+    }
+
+    .canvas::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px solid #eef3f7;
+      border-radius: 18px;
+      pointer-events: none;
+    }
+
+    .doc-code {
+      margin-bottom: 16px;
+      color: var(--teal);
+      font: 700 11px/1 var(--font-mono);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .doc-title {
+      margin: 0 0 10px;
+      font-size: 42px;
+      line-height: 1.05;
+      letter-spacing: -0.05em;
+    }
+
+    .doc-meta {
+      margin: 0 0 26px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    .doc-body {
+      font-size: 17px;
+      line-height: 1.9;
+      color: #233446;
+    }
+
+    .doc-body h3 {
+      margin: 32px 0 10px;
+      font-size: 22px;
+    }
+
+    .doc-body p {
+      margin: 0 0 16px;
+    }
+
+    .highlight {
+      background: linear-gradient(180deg, transparent 35%, rgba(91, 124, 255, 0.12) 35%, rgba(91, 124, 255, 0.12) 92%, transparent 92%);
+      padding: 0 0.08em;
+    }
+
+    .quote {
+      margin: 24px 0;
+      padding: 18px 18px 18px 22px;
+      border-left: 3px solid var(--teal);
+      background: var(--teal-soft);
+      border-radius: 0 14px 14px 0;
+      color: #32565a;
+    }
+
+    .formula-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 22px 0;
+      color: var(--teal);
+      font: 700 11px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .formula-line::before,
+    .formula-line::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(78, 184, 173, 0.08), rgba(78, 184, 173, 0.34), rgba(78, 184, 173, 0.08));
+    }
+
+    .aside-block h4,
+    .recipe-card h4,
+    .result-card h4 {
+      margin: 0 0 12px;
+      font-size: 14px;
+    }
+
+    .recipe-card {
+      background: linear-gradient(180deg, #f7fbff, #f3f8ff);
+      border-color: #dbe7ff;
+    }
+
+    .recipe-card ul,
+    .result-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-soft);
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .result-card {
+      background: linear-gradient(180deg, #f6fffd, #eefaf7);
+      border-color: #d9f0ea;
+    }
+
+    .result-card strong {
+      color: var(--teal);
+    }
+
+    .statusbar {
+      grid-column: 2 / span 3;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--teal);
+    }
+
+    .dot.amber {
+      background: var(--amber);
+    }
+
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .module {
+      padding: 20px;
+      min-height: 220px;
+    }
+
+    .module h3 {
+      margin: 10px 0 8px;
+      font-size: 22px;
+    }
+
+    .token-row {
+      margin-top: 16px;
+    }
+
+    .token {
+      padding: 9px 11px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1280px) {
+      .hero,
+      .modules {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .workspace {
+        grid-template-columns: 80px 270px minmax(0, 1fr);
+      }
+
+      .aside {
+        display: none;
+      }
+
+      .topbar,
+      .statusbar {
+        grid-column: 2 / span 2;
+      }
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 14px;
+      }
+
+      .hero,
+      .modules {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace {
+        display: block;
+      }
+
+      .rail,
+      .sidebar,
+      .statusbar {
+        display: none;
+      }
+
+      .canvas {
+        padding: 32px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <article class="hero-card">
+        <div class="eyebrow">Theme Direction / Cloud Glaze Lab</div>
+        <h1>云釉炼成台</h1>
+        <p>
+          这是一套面向知识工作流的浅色现代主题 demo。它保留“赛博炼丹”的系统感和提炼感，
+          但不走重科技、深色、霓虹路线，而是用轻银白、矿物蓝、雾青层次做出一种现代、克制、精密的工作台气质。
+        </p>
+        <div class="hero-tags">
+          <span class="tag">浅色底盘</span>
+          <span class="tag">现代扁平</span>
+          <span class="tag">配方化结构</span>
+          <span class="tag">轻系统感</span>
+          <span class="tag">现代赛博炼丹</span>
+        </div>
+      </article>
+
+      <aside class="brief-card">
+        <div class="panel-title">
+          <span>Direction Notes</span>
+          <span>CG-01</span>
+        </div>
+        <div class="mini-grid">
+          <div class="mini">
+            <b>01</b>
+            <span>不用满屏科技感，未来感来自秩序、配比、流程推进和现代感。</span>
+          </div>
+          <div class="mini">
+            <b>02</b>
+            <span>主色走矿物蓝和雾青，控制对比，不用复古黄也不用赛博霓虹。</span>
+          </div>
+          <div class="mini">
+            <b>03</b>
+            <span>知识点、AI 结果、引用关系都像“炼成卡片”，形成统一主题语言。</span>
+          </div>
+          <div class="mini">
+            <b>04</b>
+            <span>正文区维持高级文档工作台感，保证可长期阅读和整理。</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="workspace">
+      <aside class="rail">
+        <div class="brand">CG</div>
+        <div class="rail-stack">
+          <div class="rail-btn active">知<span>KB</span></div>
+          <div class="rail-btn">题<span>QUIZ</span></div>
+          <div class="rail-btn">析<span>AI</span></div>
+          <div class="rail-btn">任<span>TASK</span></div>
+          <div class="rail-btn">复<span>REV</span></div>
+        </div>
+        <div class="avatar">JL</div>
+      </aside>
+
+      <header class="topbar">
+        <div class="search">
+          <span style="color:var(--primary)">⌘</span>
+          <strong>搜索笔记、知识点、标签、指令...</strong>
+          <span class="kbd">Ctrl K</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn">导入资料</button>
+          <button class="btn-primary">新建炼成记录</button>
+        </div>
+      </header>
+
+      <aside class="sidebar">
+        <div class="section-head">
+          <h2>知识目录</h2>
+          <span class="tiny">Library</span>
+        </div>
+
+        <div class="folder-block">
+          <div class="folder-title"><span>Study Batch</span><span>12</span></div>
+          <div class="tree-item"><span>JavaScript 运行机制</span><span class="count">06</span></div>
+          <div class="tree-item active"><span>闭包 / 词法环境 / 捕获</span><span class="count">03</span></div>
+          <div class="tree-item"><span>异步与事件循环</span><span class="count">07</span></div>
+          <div class="tree-item"><span>原型链与继承</span><span class="count">04</span></div>
+        </div>
+
+        <div class="folder-block">
+          <div class="folder-title"><span>Design Batch</span><span>09</span></div>
+          <div class="tree-item"><span>布局骨架</span><span class="count">03</span></div>
+          <div class="tree-item"><span>组件边界语言</span><span class="count">05</span></div>
+          <div class="tree-item"><span>交互状态体系</span><span class="count">04</span></div>
+        </div>
+
+        <div class="folder-block">
+          <div class="folder-title"><span>Quick Access</span><span>08</span></div>
+          <div class="tree-item"><span>收藏夹</span><span class="count">08</span></div>
+          <div class="tree-item"><span>最近编辑</span><span class="count">11</span></div>
+          <div class="tree-item"><span>待提炼</span><span class="count">05</span></div>
+        </div>
+      </aside>
+
+      <main class="editor">
+        <nav class="tabs">
+          <div class="tab">知识总览</div>
+          <div class="tab active">闭包 / 词法环境 / 捕获</div>
+          <div class="tab">异步与事件循环</div>
+        </nav>
+
+        <div class="toolbar">
+          <span class="tool active">H1</span>
+          <span class="tool">引用</span>
+          <span class="tool">代码</span>
+          <span class="tool">表格</span>
+          <span class="tool">知识点</span>
+          <span class="tool">标签</span>
+          <span class="spacer"></span>
+          <span class="tiny">2,418 chars / recipe linked to 5 nodes</span>
+        </div>
+
+        <div class="canvas-wrap">
+          <article class="canvas">
+            <div class="doc-code">RCP-07 / Runtime Recipe / Active Draft</div>
+            <h1 class="doc-title">闭包为什么看起来总像“记住了过去”</h1>
+            <p class="doc-meta">更新时间 2026-07-02 · JavaScript / 运行机制 / 核心概念</p>
+
+            <div class="doc-body">
+              <p>
+                闭包让人困惑，通常不是因为定义难，而是因为它带来一种很反直觉的感受：
+                一个函数明明离开了原来的位置，却还像握着过去留下来的材料。
+              </p>
+
+              <p>
+                更准确的说法是，闭包并不是“带走了一个旧值”，而是
+                <span class="highlight">持续保留了对那一层词法环境的访问权</span>。
+                所以它读取到的，常常不是过去的快照，而是那层环境在当前时刻的状态。
+              </p>
+
+              <div class="formula-line">Refining Note</div>
+
+              <h3>1. 把闭包理解成“访问通道”，而不是“值的备份”</h3>
+              <p>
+                如果把闭包想成一个通道，很多现象就会自然很多。它不是偷偷复制了一份变量，
+                而是维持了“未来还能回来取材料”的能力。
+              </p>
+
+              <blockquote class="quote">
+                函数被带走的，不是一张旧照片，而是一把仍然有效的钥匙。
+              </blockquote>
+
+              <h3>2. 为什么 React、异步回调和事件处理总绕不开它</h3>
+              <p>
+                只要函数不是立刻执行，而是留到未来某个时刻再运行，它几乎就一定和闭包有关。
+                定时器、点击回调、Promise、Hook，都是在“把函数放进未来”。
+              </p>
+
+              <p>
+                stale closure 的问题，本质也不是闭包坏了，而是我们误判了它到底引用的是哪一次渲染、哪一层环境。
+              </p>
+
+              <div class="formula-line">Applied Insight</div>
+
+              <h3>3. 更适合记忆的一句话</h3>
+              <p>
+                闭包不是记住一个值，而是保留访问一段环境的方式。
+                一旦把这句话记牢，很多相关问题都会从“神秘”变成“可推演”。
+              </p>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <aside class="aside">
+        <div class="section-head">
+          <h3>炼成面板</h3>
+          <span class="tiny">Refine / Distill</span>
+        </div>
+
+        <section class="recipe-card">
+          <h4>本页原料标签</h4>
+          <div class="aside-tags">
+            <span class="tag">#JavaScript</span>
+            <span class="tag">#闭包</span>
+            <span class="tag">#作用域</span>
+            <span class="tag">#React</span>
+          </div>
+        </section>
+
+        <section class="result-card">
+          <h4>已提炼知识点</h4>
+          <ul>
+            <li><strong>KP-021</strong> 闭包保留的是环境访问方式，而不是旧值副本</li>
+            <li><strong>KP-022</strong> stale closure 来源于对 render 周期环境的误判</li>
+            <li><strong>KP-023</strong> 异步回调和事件处理天然依赖闭包机制</li>
+          </ul>
+        </section>
+
+        <section class="aside-block">
+          <h4>AI 推演建议</h4>
+          <ul>
+            <li>把“快照 vs 钥匙”的对比提到开头</li>
+            <li>补一个 React Hook stale closure 小例子</li>
+            <li>可以生成一张对照表辅助记忆</li>
+          </ul>
+        </section>
+
+        <section class="aside-block">
+          <h4>关联记录</h4>
+          <ul>
+            <li>异步与事件循环 / 解释未来回调的上下文来源</li>
+            <li>React Hooks 心智模型 / 为什么每次 render 都会产生新函数</li>
+            <li>作用域链基础 / 查找路径与定义位置</li>
+          </ul>
+        </section>
+      </aside>
+
+      <footer class="statusbar">
+        <span class="status"><span class="dot"></span>已保存</span>
+        <span class="status"><span class="dot amber"></span>AI 可提炼</span>
+        <span class="status">Cloud Glaze Lab Theme</span>
+        <span class="status">Knowledge Graph Synced</span>
+      </footer>
+    </section>
+
+    <section class="modules">
+      <article class="module">
+        <div class="panel-title"><span>Motif 01</span><span>配方化</span></div>
+        <h3>像在整理材料，不像在开飞船</h3>
+        <p>卡片、结果、知识点、标签都像被归入一套现代化配方系统。主题的记忆点来自“提炼过程”，不是来自灯光特效。</p>
+        <div class="token-row">
+          <span class="token">Recipe Card</span>
+          <span class="token">Distilled Result</span>
+          <span class="token">Material Tag</span>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="panel-title"><span>Motif 02</span><span>浅色层次</span></div>
+        <h3>未来感来自精度，不来自黑底</h3>
+        <p>用冷白、浅银、矿物蓝、雾青层次构建现代气质。它更像高级设计工具和知识工作台，而不是科幻道具。</p>
+        <div class="token-row">
+          <span class="token">Cold White</span>
+          <span class="token">Mineral Blue</span>
+          <span class="token">Mist Teal</span>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="panel-title"><span>Motif 03</span><span>轻系统感</span></div>
+        <h3>状态清楚，但不过度表演</h3>
+        <p>激活、可提炼、已链接、已保存这些状态都很明确，但不再用夸张光效去表达，而是用边界、底色、标签和结构完成。</p>
+        <div class="token-row">
+          <span class="token">Active Border</span>
+          <span class="token">Soft Signal</span>
+          <span class="token">Status Capsule</span>
+        </div>
+      </article>
+
+      <article class="module">
+        <div class="panel-title"><span>Motif 04</span><span>现代扁平</span></div>
+        <h3>更像新一代前端工具</h3>
+        <p>整体骨架靠近现代组件库和工作台产品，保证这套风格不是概念图，而是真的可以落到你的前端系统里的视觉方向。</p>
+        <div class="token-row">
+          <span class="token">App Shell</span>
+          <span class="token">Flat Surface</span>
+          <span class="token">Minimal Layer</span>
+        </div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createKnowledgeModule } from './modules/knowledge/index.js';
 import { createKnowledgeHttpHandlers } from './modules/knowledge/http/knowledge-handlers.js';
 import { createFileDataStore } from './infrastructure/file-data-store.js';
@@ -14,12 +16,16 @@ import {
   createInMemoryTagGroupRepository
 } from './modules/knowledge/infrastructure/knowledge-point-repository.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
+
 export function createAppContext(options = {}) {
   const dataStore = options.dataStore;
   const attachmentStore = options.attachmentStore ?? (dataStore
     ? createLocalAttachmentStore({
         dataStore,
-        uploadsDir: options.uploadsDir ?? pathJoin('storage', 'uploads')
+        uploadsDir: options.uploadsDir ?? resolveStoragePath('storage/uploads')
       })
     : null);
 
@@ -95,15 +101,20 @@ export function createAppContext(options = {}) {
 }
 
 export function createPersistentAppContext({
-  dataFilePath = pathJoin('storage', 'data', 'knowledge-base.json'),
-  uploadsDir = process.env.STORAGE_UPLOADS_DIR || pathJoin('storage', 'uploads')
+  storageRootDir = workspaceRoot,
+  dataFilePath = resolveStoragePath('storage/data/knowledge-base.json', storageRootDir),
+  uploadsDir = resolveStoragePath(process.env.STORAGE_UPLOADS_DIR || 'storage/uploads', storageRootDir)
 } = {}) {
   const dataStore = createFileDataStore(dataFilePath);
   return createAppContext({ dataStore, uploadsDir });
 }
 
-function pathJoin(...segments) {
-  return segments.join('/');
+export function resolveStoragePath(targetPath, storageRootDir = workspaceRoot) {
+  if (path.isAbsolute(targetPath)) {
+    return targetPath;
+  }
+
+  return path.resolve(storageRootDir, targetPath);
 }
 
 function createStorageHttpHandlers({ dataStore, attachmentStore }) {

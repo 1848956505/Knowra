@@ -1,0 +1,943 @@
+/* =====================================================================
+   侘寂浮岛 · Wabi Drift
+   ---------------------------------------------------------------------
+   设计意图:
+   - 反信息密度。一屏只讲一件事,大量负空间。
+   - 长时间阅读。衬线大标题 + 大行高 + 68ch 行宽,接近书籍节奏。
+   - 多模块扩展预留。icon-rail 预占 4 个模块位,模块边框完全中性。
+   - 零硬编码铁律:所有视觉值走 CSS 变量,主应用切主题只动 token。
+
+   本文件仅用于离线预览,不会进入主应用。
+   ===================================================================== */
+
+/* ============ 1. Token 体系 ============ */
+:root {
+  /* --- 1.1 和纸色阶(主背景族) --- */
+  --washi-50:  #FBF9F3;          /* 极淡纸面,卡片底 */
+  --washi-100: #F7F4ED;          /* 主背景,和纸白 */
+  --washi-200: #EFEAE0;          /* 略深纸面,分隔区 */
+  --washi-300: #E4DDCF;          /* 边饰、tag 底 */
+  --washi-paper: #FAF7F0;        /* 阅读区微黄纸面,与 UI 背景区分 */
+  --washi-grain: rgba(124, 110, 92, 0.04);  /* 纸纹颗粒(叠加用) */
+
+  /* --- 1.2 墨色阶(文字族) --- */
+  --sumi-50:  rgba(38, 36, 31, 0.55);   /* 次要文字 */
+  --sumi-100: rgba(38, 36, 31, 0.78);   /* 常规文字 */
+  --sumi-200: #4A453E;                  /* 标题 */
+  --sumi-300: #2E2A24;                  /* 强调标题 */
+  --sumi-ink: #26241F;                  /* 主文字 */
+
+  /* --- 1.3 苔灰阶(次要/分割线) --- */
+  --moss-50:  rgba(140, 138, 130, 0.18);  /* 极细分割线 */
+  --moss-100: rgba(140, 138, 130, 0.32);  /* 一般分割线 */
+  --moss-200: #A8A296;                   /* 次要文字 */
+  --moss-300: #8C8A82;                   /* 苔灰 */
+  --moss-400: #6F6D65;                   /* 强调次要 */
+
+  /* --- 1.4 朽叶褐(中性装饰) --- */
+  --deadwood-200: #B8A98E;
+  --deadwood-300: #A0917B;
+  --deadwood-400: #7E6F5A;
+
+  /* --- 1.5 淡朱(强调,极稀用) --- */
+  --vermilion-50:  rgba(197, 107, 90, 0.10);  /* hover 软底 */
+  --vermilion-100: rgba(197, 107, 90, 0.20);  /* 选中态软底 */
+  --vermilion-300: #C56B5A;                   /* 朱砂(主操作) */
+  --vermilion-500: #A85544;                   /* 朱砂深(按下) */
+  --vermilion-arc: rgba(197, 107, 90, 0.55);  /* 选中态手绘弧线 */
+
+  /* --- 1.6 状态色(克制,不抢戏) --- */
+  --state-success: #6B8C5F;
+  --state-warning: #B8924A;
+  --state-danger:  #B05A4A;
+
+  /* --- 1.7 字体 --- */
+  --font-serif: "Noto Serif JP", "Source Han Serif SC", "Songti SC", "STZhongsong", "Georgia", serif;
+  --font-sans:  "Noto Sans JP", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", -apple-system, sans-serif;
+  --font-mono:  "JetBrains Mono", "Cascadia Mono", "SF Mono", "Consolas", monospace;
+
+  /* --- 1.8 字阶(比常规大 1 级,服务长时间阅读) --- */
+  --fs-2xs: 11px;
+  --fs-xs:  12px;
+  --fs-sm:  13px;
+  --fs-base: 15px;     /* UI 基础 */
+  --fs-md:  17px;      /* 阅读正文 */
+  --fs-lg:  19px;
+  --fs-xl:  24px;
+  --fs-2xl: 30px;
+  --fs-3xl: 40px;
+
+  /* --- 1.9 行高 --- */
+  --lh-tight: 1.35;
+  --lh-snug:  1.5;
+  --lh-base:  1.7;     /* UI */
+  --lh-loose: 1.85;    /* 阅读正文 */
+  --lh-air:   2.05;    /* 标题/引文 */
+
+  /* --- 1.10 字重 --- */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+
+  /* --- 1.11 间距(8px 栅格) --- */
+  --sp-0:  0;
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-7:  32px;
+  --sp-8:  48px;
+  --sp-9:  64px;
+  --sp-10: 96px;
+  --sp-11: 128px;
+
+  /* --- 1.12 圆角(侘寂偏小,不做大圆角) --- */
+  --r-xs: 1px;
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-lg: 6px;
+
+  /* --- 1.13 动效(只用缓入缓出,禁止弹跳) --- */
+  --ease-wabi: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --dur-fast:  160ms;
+  --dur-base:  280ms;
+  --dur-slow:  480ms;
+
+  /* --- 1.14 布局尺寸 --- */
+  --rail-w:  60px;     /* icon-rail 窄边 */
+  --side-w:  272px;    /* 侧栏(留白优先,比常规宽) */
+  --aside-w: 296px;    /* 右侧辅助面板 */
+  --top-h:   56px;
+  --status-h: 28px;
+  --reading-max: 68ch; /* 阅读最大行宽 */
+}
+
+/* ============ 2. Reset 与基础 ============ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--washi-100);
+  color: var(--sumi-ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============ 3. Demo 容器 ============ */
+.demo-canvas {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--sp-9) var(--sp-7) var(--sp-11);
+}
+.demo-skip {
+  position: absolute;
+  left: -9999px;
+  top: var(--sp-4);
+  color: var(--vermilion-300);
+  font-size: var(--fs-sm);
+}
+.demo-skip:focus {
+  left: var(--sp-4);
+  background: var(--washi-50);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--moss-100);
+  border-radius: var(--r-md);
+  z-index: 99;
+}
+
+/* ============ 4. Demo Hero(标题区) ============ */
+.demo-hero {
+  text-align: left;
+  padding: var(--sp-7) 0 var(--sp-9);
+  border-bottom: 1px solid var(--moss-50);
+  margin-bottom: var(--sp-9);
+}
+.demo-hero-mark {
+  display: inline-block;
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.4em;
+  color: var(--moss-300);
+  border: 1px solid var(--moss-100);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-sm);
+  margin-bottom: var(--sp-6);
+}
+.demo-hero-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.32em;
+  color: var(--moss-400);
+  margin: 0 0 var(--sp-3);
+  text-transform: uppercase;
+}
+.demo-hero-title {
+  font-family: var(--font-serif);
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-tight);
+  color: var(--sumi-300);
+  margin: 0 0 var(--sp-4);
+  letter-spacing: 0.02em;
+}
+.demo-hero-title::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: var(--vermilion-arc);
+  margin-top: var(--sp-5);
+  border-radius: 1px;
+}
+.demo-hero-subtitle {
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-air);
+  color: var(--sumi-200);
+  margin: 0 0 var(--sp-6);
+  max-width: 56ch;
+}
+.demo-hero-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--moss-300);
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+/* ============ 5. 章节标题 ============ */
+.demo-section { margin-bottom: var(--sp-11); }
+.demo-section-head { margin-bottom: var(--sp-7); }
+.demo-section-head h2 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-regular);
+  color: var(--sumi-300);
+  margin: 0 0 var(--sp-3);
+  letter-spacing: 0.02em;
+}
+.demo-section-head p {
+  font-size: var(--fs-base);
+  color: var(--moss-400);
+  margin: 0;
+  max-width: 64ch;
+  line-height: var(--lh-base);
+}
+
+/* ============ 6. Feature Card(4 张视觉特色) ============ */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-6);
+}
+.feature-card {
+  background: var(--washi-50);
+  border: 1px solid var(--moss-50);
+  border-radius: var(--r-md);
+  padding: var(--sp-7);
+  transition: border-color var(--dur-base) var(--ease-wabi);
+}
+.feature-card:hover { border-color: var(--moss-100); }
+.feature-card-glyph {
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
+  color: var(--vermilion-300);
+  margin-bottom: var(--sp-3);
+  line-height: 1;
+}
+.feature-card h3 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  color: var(--sumi-300);
+  margin: 0 0 var(--sp-3);
+}
+.feature-card p {
+  font-size: var(--fs-sm);
+  color: var(--moss-400);
+  line-height: var(--lh-base);
+  margin: 0 0 var(--sp-5);
+}
+.feature-card code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  background: var(--washi-200);
+  color: var(--deadwood-400);
+  padding: 1px var(--sp-1);
+  border-radius: var(--r-xs);
+}
+.feature-demo {
+  border-top: 1px solid var(--moss-50);
+  padding-top: var(--sp-5);
+  min-height: 120px;
+}
+/* 特色 ①:大量负空间演示 */
+.feature-demo--breath {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-7) var(--sp-4);
+}
+.feature-demo--breath .breath-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--vermilion-300);
+  border-radius: 50%;
+}
+.feature-demo--breath .breath-text {
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  color: var(--moss-400);
+  letter-spacing: 0.3em;
+}
+/* 特色 ②:朱砂手绘弧线选中态 */
+.mini-tree { list-style: none; margin: 0; padding: 0; }
+.mini-tree-item {
+  position: relative;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--sumi-100);
+  border-radius: var(--r-sm);
+  cursor: default;
+  transition: color var(--dur-fast) var(--ease-wabi);
+}
+.mini-tree-item:hover { color: var(--sumi-ink); }
+.mini-tree-item.is-selected {
+  color: var(--vermilion-500);
+}
+.mini-tree-item.is-selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 8px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 4 Q 4 1, 7 4 T 11 4' stroke='%23C56B5A' stroke-width='1.2' fill='none' stroke-linecap='round' opacity='0.85'/></svg>") no-repeat center / contain;
+}
+/* 特色 ③:衬线大标题 + 无衬线 UI 混排 */
+.feature-demo--prose h4 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-regular);
+  color: var(--sumi-300);
+  margin: 0 0 var(--sp-3);
+  line-height: var(--lh-snug);
+}
+.feature-demo--prose p {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--moss-400);
+  margin: 0;
+}
+/* 特色 ④:阅读节奏 */
+.feature-demo--reading {
+  max-width: 56ch;
+  margin: 0 auto;
+}
+.feature-demo--reading p {
+  font-size: var(--fs-md);
+  line-height: var(--lh-loose);
+  color: var(--sumi-200);
+  font-family: var(--font-serif);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+/* ============ 7. Workspace Shell(应用外壳) ============ */
+.workspace-shell {
+  background: var(--washi-100);
+  border: 1px solid var(--moss-50);
+  border-radius: var(--r-md);
+  height: 720px;
+  display: grid;
+  grid-template-columns: var(--rail-w) var(--side-w) 1fr var(--aside-w);
+  grid-template-rows: var(--top-h) 1fr var(--status-h);
+  grid-template-areas:
+    "rail top    top    top"
+    "rail side   main   aside"
+    "rail status status status";
+  overflow: hidden;
+  position: relative;
+}
+/* 外壳纸张底纹(极淡) */
+.workspace-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, var(--washi-grain), transparent 40%),
+    radial-gradient(circle at 80% 80%, var(--washi-grain), transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+.workspace-shell > * { position: relative; z-index: 1; }
+
+/* ============ 8. Icon Rail(多模块入口) ============ */
+.icon-rail {
+  grid-area: rail;
+  background: var(--washi-50);
+  border-right: 1px solid var(--moss-50);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--sp-4) 0;
+  gap: var(--sp-2);
+}
+.rail-brand {
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  color: var(--moss-400);
+  letter-spacing: 0.3em;
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--moss-50);
+  width: 100%;
+  text-align: center;
+}
+.rail-actions { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; }
+.rail-item {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  color: var(--moss-300);
+  cursor: pointer;
+  position: relative;
+  transition:
+    color var(--dur-base) var(--ease-wabi),
+    background var(--dur-base) var(--ease-wabi);
+}
+.rail-item:hover { color: var(--sumi-300); background: var(--washi-200); }
+.rail-item.is-active {
+  color: var(--vermilion-500);
+  background: transparent;
+}
+.rail-item.is-active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 1px;
+  background: var(--vermilion-300);
+  border-radius: 1px;
+}
+.rail-item.is-placeholder { opacity: 0.42; }
+.rail-item svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.2; }
+.rail-account {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--washi-300);
+  color: var(--deadwood-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-xs);
+  font-family: var(--font-serif);
+  letter-spacing: 0.1em;
+}
+
+/* ============ 9. Top Bar ============ */
+.top-bar {
+  grid-area: top;
+  background: var(--washi-50);
+  border-bottom: 1px solid var(--moss-50);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-6);
+  gap: var(--sp-5);
+}
+.top-bar-title {
+  font-family: var(--font-serif);
+  font-size: var(--fs-base);
+  color: var(--sumi-300);
+  margin: 0;
+  font-weight: var(--fw-regular);
+}
+.top-bar-title small {
+  font-size: var(--fs-xs);
+  color: var(--moss-400);
+  margin-left: var(--sp-2);
+  letter-spacing: 0.2em;
+}
+.top-search {
+  flex: 1;
+  max-width: 360px;
+  position: relative;
+}
+.top-search input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--moss-50);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-7);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--sumi-ink);
+  transition: border-color var(--dur-base) var(--ease-wabi);
+}
+.top-search input::placeholder { color: var(--moss-300); }
+.top-search input:focus {
+  outline: none;
+  border-color: var(--vermilion-300);
+}
+.top-search::before {
+  content: "";
+  position: absolute;
+  left: var(--sp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 1.2px solid var(--moss-300);
+  border-radius: 50%;
+  background: transparent;
+  pointer-events: none;
+}
+.top-search::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--sp-3) + 11px);
+  top: calc(50% + 3px);
+  width: 5px;
+  height: 1.2px;
+  background: var(--moss-300);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.top-bar-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--sp-2);
+}
+.top-bar-btn {
+  background: transparent;
+  border: 1px solid var(--moss-50);
+  color: var(--moss-400);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition:
+    color var(--dur-base) var(--ease-wabi),
+    border-color var(--dur-base) var(--ease-wabi);
+  font-family: var(--font-sans);
+}
+.top-bar-btn:hover { color: var(--sumi-300); border-color: var(--moss-100); }
+.top-bar-btn.is-primary {
+  color: var(--vermilion-500);
+  border-color: var(--vermilion-100);
+}
+.top-bar-btn.is-primary:hover { background: var(--vermilion-50); border-color: var(--vermilion-300); }
+
+/* ============ 10. Library Tree(侧栏) ============ */
+.library-tree {
+  grid-area: side;
+  background: var(--washi-50);
+  border-right: 1px solid var(--moss-50);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.library-tree-head {
+  padding: var(--sp-5) var(--sp-5) var(--sp-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.library-tree-head h3 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--moss-400);
+  margin: 0;
+  letter-spacing: 0.3em;
+}
+.library-tree-body { flex: 1; overflow-y: auto; padding: 0 var(--sp-3) var(--sp-5); }
+.tree-group { margin-bottom: var(--sp-5); }
+.tree-group-label {
+  font-size: var(--fs-2xs);
+  color: var(--moss-300);
+  letter-spacing: 0.32em;
+  padding: var(--sp-2) var(--sp-3);
+  text-transform: uppercase;
+}
+.tree-list { list-style: none; margin: 0; padding: 0; }
+.tree-item {
+  position: relative;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--sumi-100);
+  border-radius: var(--r-sm);
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  transition: color var(--dur-fast) var(--ease-wabi);
+}
+.tree-item:hover { color: var(--sumi-ink); }
+.tree-item.is-selected {
+  color: var(--vermilion-500);
+  background: var(--vermilion-50);
+}
+.tree-item.is-selected::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 6px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M1 3 Q 3 0.5, 5 3 T 9 3' stroke='%23C56B5A' stroke-width='1.2' fill='none' stroke-linecap='round' opacity='0.7'/></svg>") no-repeat center / contain;
+}
+.tree-item-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--moss-300);
+}
+.tree-item.is-selected .tree-item-count { color: var(--vermilion-300); }
+
+/* ============ 11. Note Tabs(笔记标签栏) ============ */
+.note-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1px solid var(--moss-50);
+  padding: 0 var(--sp-6);
+  background: transparent;
+}
+.note-tab {
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--moss-400);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  position: relative;
+  font-family: var(--font-sans);
+  transition: color var(--dur-base) var(--ease-wabi);
+}
+.note-tab:hover { color: var(--sumi-300); }
+.note-tab.is-active {
+  color: var(--sumi-ink);
+  border-bottom-color: var(--sumi-ink);
+}
+.note-tab.is-active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 1px;
+  background: var(--vermilion-300);
+  border-radius: 1px;
+}
+.note-tab-close {
+  margin-left: var(--sp-2);
+  color: var(--moss-300);
+  font-size: var(--fs-md);
+  line-height: 1;
+}
+.note-tab.is-active .note-tab-close { color: var(--moss-400); }
+
+/* ============ 12. Editor Shell(编辑器外壳) ============ */
+.editor-shell {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--washi-100);
+}
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-6);
+  border-bottom: 1px solid var(--moss-50);
+}
+.editor-toolbar-btn {
+  background: transparent;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--moss-400);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: color var(--dur-fast) var(--ease-wabi);
+}
+.editor-toolbar-btn:hover { color: var(--sumi-300); }
+.editor-toolbar-btn.is-active { color: var(--vermilion-500); }
+.editor-toolbar-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--moss-50);
+  margin: 0 var(--sp-1);
+}
+.editor-toolbar-spacer { flex: 1; }
+.editor-toolbar-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--moss-300);
+  letter-spacing: 0.04em;
+}
+
+/* ============ 13. Reading Canvas(侘寂核心:阅读区) ============ */
+.editor-canvas {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--washi-paper);
+  padding: var(--sp-9) var(--sp-8) var(--sp-10);
+  position: relative;
+}
+.editor-canvas-inner {
+  max-width: var(--reading-max);
+  margin: 0 auto;
+}
+/* 阅读区纸张边缘(极淡手撕感) */
+.editor-canvas::before,
+.editor-canvas::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.editor-canvas::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--washi-100), transparent);
+}
+.editor-canvas::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--washi-100), transparent);
+}
+.note-title {
+  font-family: var(--font-serif);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-regular);
+  color: var(--sumi-300);
+  line-height: var(--lh-tight);
+  margin: 0 0 var(--sp-3);
+  letter-spacing: 0.02em;
+}
+.note-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--moss-300);
+  letter-spacing: 0.08em;
+  margin: 0 0 var(--sp-7);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--moss-50);
+}
+.note-meta .meta-sep { margin: 0 var(--sp-2); opacity: 0.6; }
+.note-body {
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  line-height: var(--lh-loose);
+  color: var(--sumi-200);
+  letter-spacing: 0.01em;
+}
+.note-body p { margin: 0 0 var(--sp-5); }
+.note-body h3 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  color: var(--sumi-300);
+  margin: var(--sp-8) 0 var(--sp-3);
+  letter-spacing: 0.02em;
+}
+.note-body blockquote {
+  margin: var(--sp-6) 0;
+  padding: var(--sp-2) 0 var(--sp-2) var(--sp-5);
+  border-left: 1px solid var(--vermilion-arc);
+  color: var(--moss-400);
+  font-style: normal;
+  font-size: var(--fs-md);
+  line-height: var(--lh-loose);
+}
+.note-body code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--washi-200);
+  color: var(--deadwood-400);
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+}
+/* 阅读标记:朱砂下划线(高亮) */
+.note-body mark {
+  background: transparent;
+  color: var(--vermilion-500);
+  border-bottom: 1px dashed var(--vermilion-arc);
+  padding-bottom: 1px;
+}
+
+/* ============ 14. Aside Panel(右侧辅助) ============ */
+.aside-panel {
+  grid-area: aside;
+  background: var(--washi-50);
+  border-left: 1px solid var(--moss-50);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.aside-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--moss-50);
+}
+.aside-tab {
+  flex: 1;
+  padding: var(--sp-3) var(--sp-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--moss-400);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  letter-spacing: 0.18em;
+  text-align: center;
+  transition: color var(--dur-base) var(--ease-wabi);
+}
+.aside-tab:hover { color: var(--sumi-300); }
+.aside-tab.is-active {
+  color: var(--vermilion-500);
+  border-bottom-color: var(--vermilion-300);
+}
+.aside-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-5);
+}
+.aside-section { margin-bottom: var(--sp-6); }
+.aside-section h4 {
+  font-family: var(--font-serif);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  color: var(--moss-400);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  margin: 0 0 var(--sp-3);
+}
+/* 标签云 */
+.tag-cloud { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--moss-400);
+  background: transparent;
+  border: 1px solid var(--moss-50);
+  border-radius: var(--r-sm);
+  font-family: var(--font-sans);
+  transition: border-color var(--dur-base) var(--ease-wabi);
+}
+.tag:hover { border-color: var(--moss-100); }
+.tag.is-active {
+  color: var(--vermilion-500);
+  border-color: var(--vermilion-arc);
+  background: var(--vermilion-50);
+}
+/* 引用列表 */
+.ref-list { list-style: none; margin: 0; padding: 0; }
+.ref-item {
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--moss-50);
+  font-size: var(--fs-sm);
+  color: var(--sumi-100);
+  line-height: var(--lh-snug);
+}
+.ref-item:last-child { border-bottom: none; }
+.ref-item-source {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--moss-300);
+  margin-top: var(--sp-1);
+  letter-spacing: 0.04em;
+}
+
+/* ============ 15. Status Bar ============ */
+.status-bar {
+  grid-area: status;
+  background: var(--washi-50);
+  border-top: 1px solid var(--moss-50);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-5);
+  gap: var(--sp-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--moss-300);
+  letter-spacing: 0.06em;
+}
+.status-item { display: flex; align-items: center; gap: var(--sp-2); }
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--moss-200);
+}
+.status-dot.is-ok { background: var(--state-success); }
+.status-dot.is-vermilion { background: var(--vermilion-300); }
+.status-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--moss-50);
+}
+.status-spacer { flex: 1; }
+
+/* ============ 16. 侘寂微装饰:手撕毛边纸(仅在分隔处出现) ============ */
+.torn-paper {
+  position: relative;
+  height: 8px;
+  margin: var(--sp-7) 0;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 8' preserveAspectRatio='none'><path d='M0 4 Q 50 1, 100 4 T 200 4 T 300 4 T 400 4 T 500 4 T 600 4 T 700 4 T 800 4 T 900 4 T 1000 4 T 1100 4 T 1200 4' stroke='%23A0917B' stroke-width='0.5' fill='none' opacity='0.45'/></svg>") repeat-x center / 1200px 8px;
+}
+.torn-paper--vermilion {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 8' preserveAspectRatio='none'><path d='M0 4 Q 50 1, 100 4 T 200 4 T 300 4 T 400 4 T 500 4 T 600 4 T 700 4 T 800 4 T 900 4 T 1000 4 T 1100 4 T 1200 4' stroke='%23C56B5A' stroke-width='0.7' fill='none' opacity='0.4'/></svg>");
+}
+
+/* ============ 17. 浮世绘淡墨线条分隔 ============ */
+.hairline {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--moss-100) 20%,
+    var(--moss-100) 80%,
+    transparent 100%
+  );
+  margin: var(--sp-6) 0;
+  border: 0;
+}
+.hairline--vermilion {
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--vermilion-arc) 20%,
+    var(--vermilion-arc) 80%,
+    transparent 100%
+  );
+}

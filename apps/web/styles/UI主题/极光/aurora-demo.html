@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>极光 · Aurora UI Demo — Study 学习加速器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aurora-demo.css">
+</head>
+<body>
+
+<!-- 共享 SVG 图标库（用 <symbol> 集中定义） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- 导轨图标 -->
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22.5z"/><path d="M4 4.5v15"/></symbol>
+    <symbol id="i-quiz" viewBox="0 0 24 24"><path d="M9 9h6"/><path d="M9 13h6"/><path d="M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z"/></symbol>
+    <symbol id="i-ai" viewBox="0 0 24 24"><path d="M12 2 4 7v10l8 5 8-5V7z"/><path d="M12 22V12"/><path d="m4 7 8 5 8-5"/><path d="M9.5 4.5 12 2l2.5 2.5"/></symbol>
+    <symbol id="i-task" viewBox="0 0 24 24"><path d="M9 11l3 3 7-7"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+    <symbol id="i-review" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <!-- 文件夹/笔记 -->
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3z"/><path d="M3 9h18l-2 9a2 2 0 0 1-2 1.5H5a2 2 0 0 1-2-1.5z" fill="currentColor" fill-opacity="0.16" stroke="none"/><path d="M3 9h18l-2 9a2 2 0 0 1-2 1.5H5a2 2 0 0 1-2-1.5z"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.59 13.41 13 21l-9-9V4h8z"/><circle cx="8" cy="9" r="1.5"/></symbol>
+    <!-- 通用 -->
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></symbol>
+    <symbol id="i-bold" viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 0 8H6z"/><path d="M6 12h9a4 4 0 0 1 0 8H6z"/></symbol>
+    <symbol id="i-italic" viewBox="0 0 24 24"><path d="M19 4h-9M14 20H5M15 4 9 20"/></symbol>
+    <symbol id="i-h1" viewBox="0 0 24 24"><path d="M4 12h8M4 6v12M12 6v12M17 8l2-1v11"/></symbol>
+    <symbol id="i-h2" viewBox="0 0 24 24"><path d="M4 12h8M4 6v12M12 6v12"/><path d="M16 9a3 3 0 0 1 6 0c0 2-3 3-6 6h6"/></symbol>
+    <symbol id="i-list-ul" viewBox="0 0 24 24"><circle cx="5" cy="6" r="1" fill="currentColor"/><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="5" cy="18" r="1" fill="currentColor"/><path d="M10 6h11M10 12h11M10 18h11"/></symbol>
+    <symbol id="i-list-ol" viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></symbol>
+    <symbol id="i-quote" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5H3v8h4"/><path d="M14 21c3 0 7-1 7-8V5h-7v8h4"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+    <symbol id="i-codeblock" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m9 10-3 2 3 2M15 10l3 2-3 2"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 10h18M3 15h18M9 5v14M15 5v14"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+    <symbol id="i-task-square" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 15-6.7L21 13"/></symbol>
+    <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m20 4-13 13M20 20 7 7"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+    <symbol id="i-outline" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h16"/></symbol>
+    <symbol id="i-knowledge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-folder-plus" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v6M9 14h6"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2 3 7 7 .8-5.3 4.8L18 22l-6-3.5L6 22l1.3-7.4L2 9.8 9 9z"/></symbol>
+    <symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  </defs>
+</svg>
+
+<div class="demo-stage">
+
+  <header class="demo-page-header">
+    <h1>极光 · Aurora</h1>
+    <p>青主紫辅：薄荷青做主品牌色，极光紫作渐变点缀。现代 SaaS 风格：玻璃拟态、1px 细线、轻投影、克制动效。下面是主应用工作区完整状态快照，下方纵列各独立组件区块。</p>
+  </header>
+
+  <!-- ======================== 顶部主界面 ======================== -->
+  <section class="demo-section" id="section-main">
+    <div class="demo-section-header">
+      <span class="demo-section-num">MAIN</span>
+      <h2 class="demo-section-title">主工作区 · 完整状态</h2>
+      <span class="demo-section-desc">图标导轨 + 顶栏 + 三栏 + 状态栏</span>
+    </div>
+
+    <div class="workspace-shell">
+
+      <!-- 图标导轨 -->
+      <aside class="icon-rail" aria-label="模块导航">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <div class="rail-brand">S</div>
+        </div>
+        <div class="rail-actions">
+          <button class="rail-item" data-active="true" aria-label="知识库">
+            <span class="rail-item-icon"><svg><use href="#i-book"/></svg></span>
+            <span class="rail-item-label">知识库</span>
+          </button>
+          <button class="rail-item" aria-label="题库">
+            <span class="rail-item-icon"><svg><use href="#i-quiz"/></svg></span>
+            <span class="rail-item-label">题库</span>
+          </button>
+          <button class="rail-item" aria-label="AI 助手">
+            <span class="rail-item-icon"><svg><use href="#i-ai"/></svg></span>
+            <span class="rail-item-label">AI 助手</span>
+          </button>
+          <button class="rail-item" aria-label="任务">
+            <span class="rail-item-icon"><svg><use href="#i-task"/></svg></span>
+            <span class="rail-item-label">任务</span>
+          </button>
+          <button class="rail-item" aria-label="复盘">
+            <span class="rail-item-icon"><svg><use href="#i-review"/></svg></span>
+            <span class="rail-item-label">复盘</span>
+          </button>
+          <button class="rail-item" aria-label="设置">
+            <span class="rail-item-icon"><svg><use href="#i-settings"/></svg></span>
+            <span class="rail-item-label">设置</span>
+          </button>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <button class="rail-item" aria-label="通知">
+            <span class="rail-item-icon"><svg><use href="#i-bell"/></svg></span>
+            <span class="rail-item-label">通知</span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="workspace-main">
+
+        <!-- 顶栏 -->
+        <header class="top-bar">
+          <div class="top-bar-search" data-focus="true">
+            <span class="top-bar-search-icon"><svg><use href="#i-search"/></svg></span>
+            <input class="top-bar-search-input" placeholder="搜索笔记、标签、知识点…" value="闭包">
+            <span class="top-bar-search-kbd">⌘K</span>
+          </div>
+          <button class="top-bar-user" title="用户">JL</button>
+        </header>
+
+        <!-- 工作区舞台 -->
+        <div class="workspace-stage">
+          <div class="kb-workspace">
+
+            <!-- 左侧栏：库树 -->
+            <aside class="kb-sidebar">
+              <div class="library-header">
+                <span class="library-header-label">资料库</span>
+                <button class="library-header-action" title="新建笔记"><svg><use href="#i-plus"/></svg></button>
+                <button class="library-header-action" title="新建文件夹"><svg><use href="#i-folder-plus"/></svg></button>
+                <button class="library-header-action" title="更多"><svg><use href="#i-more"/></svg></button>
+              </div>
+              <nav class="library-tree">
+
+                <div class="library-tree-section">
+                  <div class="library-tree-section-label" data-open="true">
+                    <svg><use href="#i-chevron-down"/></svg>
+                    <span>工作区</span>
+                    <span class="library-tree-section-meta">42</span>
+                  </div>
+
+                  <div class="library-node" data-level="0" data-open="true">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+                    </span>
+                    <span class="library-node-label">学习</span>
+                    <span class="library-node-meta">18</span>
+                  </div>
+                  <div class="library-node" data-level="1" data-open="true">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+                    </span>
+                    <span class="library-node-label">编程</span>
+                    <span class="library-node-meta">12</span>
+                  </div>
+                  <div class="library-node" data-level="2" data-open="true">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+                    </span>
+                    <span class="library-node-label">JavaScript</span>
+                    <span class="library-node-meta">6</span>
+                  </div>
+                  <div class="library-node" data-level="3" data-selected="true">
+                    <span class="library-node-leading">
+                      <span class="library-node-spacer"></span>
+                      <svg class="library-node-icon"><use href="#i-note"/></svg>
+                    </span>
+                    <span class="library-node-label">闭包 · 词法环境与捕获</span>
+                  </div>
+                  <div class="library-node" data-level="3">
+                    <span class="library-node-leading">
+                      <span class="library-node-spacer"></span>
+                      <svg class="library-node-icon"><use href="#i-note"/></svg>
+                    </span>
+                    <span class="library-node-label">异步与事件循环</span>
+                  </div>
+                  <div class="library-node" data-level="3">
+                    <span class="library-node-leading">
+                      <span class="library-node-spacer"></span>
+                      <svg class="library-node-icon"><use href="#i-note"/></svg>
+                    </span>
+                    <span class="library-node-label">原型链与继承</span>
+                  </div>
+                  <div class="library-node" data-level="2">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder"/></svg>
+                    </span>
+                    <span class="library-node-label">TypeScript</span>
+                    <span class="library-node-meta">4</span>
+                  </div>
+                  <div class="library-node" data-level="1" data-open="true">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+                    </span>
+                    <span class="library-node-label">设计</span>
+                    <span class="library-node-meta">6</span>
+                  </div>
+                  <div class="library-node" data-level="2">
+                    <span class="library-node-leading">
+                      <span class="library-node-spacer"></span>
+                      <svg class="library-node-icon"><use href="#i-note"/></svg>
+                    </span>
+                    <span class="library-node-label">设计 token 体系</span>
+                  </div>
+                  <div class="library-node" data-level="2">
+                    <span class="library-node-leading">
+                      <span class="library-node-spacer"></span>
+                      <svg class="library-node-icon"><use href="#i-note"/></svg>
+                    </span>
+                    <span class="library-node-label">UI 组件的克制</span>
+                  </div>
+                  <div class="library-node" data-level="1">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder"/></svg>
+                    </span>
+                    <span class="library-node-label">算法</span>
+                    <span class="library-node-meta">5</span>
+                  </div>
+                  <div class="library-node" data-level="0">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder"/></svg>
+                    </span>
+                    <span class="library-node-label">工作</span>
+                    <span class="library-node-meta">14</span>
+                  </div>
+                  <div class="library-node" data-level="0">
+                    <span class="library-node-leading">
+                      <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+                      <svg class="library-node-icon"><use href="#i-folder"/></svg>
+                    </span>
+                    <span class="library-node-label">参考资料</span>
+                    <span class="library-node-meta">9</span>
+                  </div>
+                </div>
+
+                <div class="library-tree-section">
+                  <div class="library-tree-section-label" data-open="true">
+                    <svg><use href="#i-chevron-down"/></svg>
+                    <span>个人</span>
+                  </div>
+                  <div class="library-node" data-level="0">
+                    <span class="library-node-leading">
+                      <svg class="library-node-icon"><use href="#i-star"/></svg>
+                    </span>
+                    <span class="library-node-label">收藏</span>
+                    <span class="library-node-meta">8</span>
+                  </div>
+                  <div class="library-node" data-level="0">
+                    <span class="library-node-leading">
+                      <svg class="library-node-icon"><use href="#i-clock"/></svg>
+                    </span>
+                    <span class="library-node-label">最近编辑</span>
+                    <span class="library-node-meta">12</span>
+                  </div>
+                  <div class="library-node" data-level="0">
+                    <span class="library-node-leading">
+                      <svg class="library-node-icon"><use href="#i-trash"/></svg>
+                    </span>
+                    <span class="library-node-label">回收站</span>
+                  </div>
+                </div>
+
+              </nav>
+            </aside>
+
+            <!-- 中央编辑器 -->
+            <section class="kb-editor">
+
+              <div class="note-tabs">
+                <div class="note-tab" data-active="true">
+                  <span class="note-tab-label">闭包 · 词法环境与捕获</span>
+                  <span class="note-tab-dirty">●</span>
+                  <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+                </div>
+                <div class="note-tab">
+                  <span class="note-tab-label">异步与事件循环</span>
+                  <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+                </div>
+                <div class="note-tab">
+                  <span class="note-tab-label">设计 token 体系</span>
+                  <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+                </div>
+                <div class="note-tab">
+                  <span class="note-tab-label">原型链与继承</span>
+                  <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+                </div>
+                <div class="note-tab">
+                  <span class="note-tab-label">TypeScript 类型推导</span>
+                  <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+                </div>
+              </div>
+
+              <div class="editor-toolbar">
+                <div class="editor-toolbar-group">
+                  <button class="editor-toolbar-button" title="撤销 (⌘Z)"><svg><use href="#i-undo"/></svg></button>
+                  <button class="editor-toolbar-button" title="重做 (⌘⇧Z)"><svg><use href="#i-redo"/></svg></button>
+                </div>
+                <span class="editor-toolbar-divider"></span>
+                <div class="editor-toolbar-group">
+                  <button class="editor-toolbar-button" data-active="true" title="粗体 (⌘B)"><svg><use href="#i-bold"/></svg></button>
+                  <button class="editor-toolbar-button" title="斜体 (⌘I)"><svg><use href="#i-italic"/></svg></button>
+                  <button class="editor-toolbar-button" title="代码"><svg><use href="#i-code"/></svg></button>
+                </div>
+                <span class="editor-toolbar-divider"></span>
+                <div class="editor-toolbar-group">
+                  <button class="editor-toolbar-button" data-label data-active="true">H1<svg><use href="#i-chevron-down"/></svg></button>
+                  <button class="editor-toolbar-button" title="引用"><svg><use href="#i-quote"/></svg></button>
+                  <button class="editor-toolbar-button" title="无序列表"><svg><use href="#i-list-ul"/></svg></button>
+                  <button class="editor-toolbar-button" title="有序列表"><svg><use href="#i-list-ol"/></svg></button>
+                  <button class="editor-toolbar-button" title="任务列表"><svg><use href="#i-task-square"/></svg></button>
+                </div>
+                <span class="editor-toolbar-divider"></span>
+                <div class="editor-toolbar-group">
+                  <button class="editor-toolbar-button" title="链接"><svg><use href="#i-link"/></svg></button>
+                  <button class="editor-toolbar-button" title="代码块"><svg><use href="#i-codeblock"/></svg></button>
+                  <button class="editor-toolbar-button" title="表格"><svg><use href="#i-table"/></svg></button>
+                  <button class="editor-toolbar-button" title="图片"><svg><use href="#i-image"/></svg></button>
+                </div>
+                <div style="flex:1"></div>
+                <div class="editor-toolbar-group">
+                  <button class="editor-toolbar-button" data-label>编辑 / 预览</button>
+                </div>
+              </div>
+
+              <div class="editor-content" data-source-open="true">
+
+                <div class="editor-pane">
+                  <div class="editor-pane-body">
+                    <div class="milkdown-content">
+                      <h1>闭包 · 词法环境与捕获</h1>
+                      <p>闭包是 JavaScript 中最容易被误用的概念之一。它不是"函数返回函数"，而是<strong>函数与其词法环境的绑定</strong>。</p>
+                      <h2>基本形态</h2>
+                      <pre><code>function makeCounter() {
+  let count = 0
+  return function() {
+    return ++count
+  }
+}
+
+const counter = makeCounter()
+counter() // 1
+counter() // 2</code></pre>
+                      <h2>关键点</h2>
+                      <ul>
+                        <li>捕获的是<strong>变量本身</strong>，不是变量在某一时刻的值</li>
+                        <li>多个闭包共享同一份词法环境</li>
+                        <li>内存释放取决于引用关系，不取决于作用域结束</li>
+                      </ul>
+                      <h3>常见误用</h3>
+                      <blockquote>在循环中创建闭包时，<code>var</code> 的提升会让所有闭包共享同一个变量。</blockquote>
+                      <h4>任务清单</h4>
+                      <ul class="task-list">
+                        <li class="task-item"><span class="task-check" data-checked="true"></span><span>理解词法环境与变量环境的区别</span></li>
+                        <li class="task-item"><span class="task-check"></span><span>手写一个能正常工作的 memoize</span></li>
+                        <li class="task-item"><span class="task-check"></span><span>解释为什么 React Hook 不能写在条件里</span></li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="preview-pane">
+                  <div class="preview-pane-body">
+                    <div class="preview-rendered">
+                      <h1>闭包 · 词法环境与捕获</h1>
+                      <p>闭包是 JavaScript 中最容易被误用的概念之一。它不是"函数返回函数"，而是<strong>函数与其词法环境的绑定</strong>。</p>
+                      <h2>基本形态</h2>
+                      <pre><code>function makeCounter() {
+  let count = 0
+  return function() {
+    return ++count
+  }
+}</code></pre>
+                      <ul>
+                        <li>捕获的是<strong>变量本身</strong>，不是值</li>
+                        <li>多个闭包共享同一份环境</li>
+                        <li>内存释放取决于引用关系</li>
+                      </ul>
+                      <blockquote>循环中创建闭包时，<code>var</code> 提升会让所有闭包共享同一个变量。</blockquote>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            <!-- 右侧栏：aside -->
+            <aside class="kb-aside">
+              <div class="aside-tabs">
+                <button class="aside-tab" data-active="true" title="信息">
+                  <svg><use href="#i-info"/></svg>信息
+                </button>
+                <button class="aside-tab" title="大纲">
+                  <svg><use href="#i-outline"/></svg>大纲
+                </button>
+                <button class="aside-tab" title="知识点">
+                  <svg><use href="#i-knowledge"/></svg>知识点
+                </button>
+                <button class="aside-tab" title="AI">
+                  <svg><use href="#i-spark"/></svg>AI
+                </button>
+              </div>
+              <div class="aside-content">
+                <div class="aside-panel-stack">
+                  <div class="info-grid">
+                    <div class="info-row"><span>创建</span><strong>2026-06-12</strong></div>
+                    <div class="info-row"><span>修改</span><strong>今天 14:32</strong></div>
+                    <div class="info-row"><span>字数</span><strong>2,418</strong></div>
+                    <div class="info-row"><span>阅读时间</span><strong>≈ 8 分钟</strong></div>
+                    <div class="info-row"><span>链接笔记</span><strong>3 篇</strong></div>
+                    <div class="info-row"><span>知识点</span><strong>5 个</strong></div>
+                  </div>
+                  <div>
+                    <div style="font-size:11px;font-weight:600;color:var(--color-text-soft);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">标签</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px">
+                      <span class="pill pill-mint">#JavaScript</span>
+                      <span class="pill pill-mint">#闭包</span>
+                      <span class="pill pill-aurora">#重要</span>
+                      <span class="pill pill-neutral">#待整理</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+          </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <footer class="status-bar">
+          <div class="status-group">
+            <span class="save-indicator"><span class="save-dot" data-state="saving"></span>正在保存…</span>
+            <span class="status-inline">2,418 字</span>
+            <span class="status-inline">5 个知识点</span>
+          </div>
+          <div class="status-group status-group-end">
+            <span class="status-action">学习空间</span>
+            <span class="status-inline">极光 · Aurora</span>
+            <span class="status-inline">v0.1.0</span>
+          </div>
+        </footer>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================== 1. 颜色与字体 ======================== -->
+  <section class="demo-section" id="section-tokens">
+    <div class="demo-section-header">
+      <span class="demo-section-num">01</span>
+      <h2 class="demo-section-title">色板 · 字体 · 圆角 · 阴影</h2>
+      <span class="demo-section-desc">设计 token 总览</span>
+    </div>
+
+    <div class="demo-card">
+      <div class="demo-card-title">薄荷青 · 主品牌</div>
+      <div class="demo-grid demo-grid-6" style="margin-bottom:20px">
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-50)"></div><div class="token-swatch-name">mint-50</div><div class="token-swatch-value">#ECFEF7</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-100)"></div><div class="token-swatch-name">mint-100</div><div class="token-swatch-value">#C7FBEC</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-200)"></div><div class="token-swatch-name">mint-200</div><div class="token-swatch-value">#8FF5DC</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-300)"></div><div class="token-swatch-name">mint-300</div><div class="token-swatch-value">#4FE9C7</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-400);border-color:var(--color-mint-400)"></div><div class="token-swatch-name">mint-400 主</div><div class="token-swatch-value">#2DD4BF</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-500)"></div><div class="token-swatch-name">mint-500</div><div class="token-swatch-value">#14B8A6</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-600)"></div><div class="token-swatch-name">mint-600</div><div class="token-swatch-value">#0D9488</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-mint-700)"></div><div class="token-swatch-name">mint-700</div><div class="token-swatch-value">#0F766E</div></div>
+      </div>
+      <div class="demo-card-title" style="margin-top:16px">极光紫 · 辅强调</div>
+      <div class="demo-grid demo-grid-6" style="margin-bottom:20px">
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-aurora-100)"></div><div class="token-swatch-name">aurora-100</div><div class="token-swatch-value">#EDE9FE</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-aurora-200)"></div><div class="token-swatch-name">aurora-200</div><div class="token-swatch-value">#DDD6FE</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-aurora-300)"></div><div class="token-swatch-name">aurora-300</div><div class="token-swatch-value">#C4B5FD</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-aurora-400)"></div><div class="token-swatch-name">aurora-400</div><div class="token-swatch-value">#A78BFA</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-aurora-500);border-color:var(--color-aurora-500)"></div><div class="token-swatch-name">aurora-500 主</div><div class="token-swatch-value">#8B5CF6</div></div>
+        <div class="token-swatch"><div class="token-swatch-color" style="background:var(--color-aurora-600)"></div><div class="token-swatch-name">aurora-600</div><div class="token-swatch-value">#7C3AED</div></div>
+      </div>
+      <div class="demo-card-title" style="margin-top:16px">极光渐变 · 标志性</div>
+      <div class="demo-grid demo-grid-3">
+        <div class="token-swatch">
+          <div class="token-swatch-color" style="background:var(--gradient-aurora)"></div>
+          <div class="token-swatch-name">--gradient-aurora</div>
+          <div class="token-swatch-value">薄荷青 → 极光紫</div>
+        </div>
+        <div class="token-swatch">
+          <div class="token-swatch-color" style="background:var(--gradient-aurora-135)"></div>
+          <div class="token-swatch-name">--gradient-aurora-135</div>
+          <div class="token-swatch-value">青 → 蓝 → 紫</div>
+        </div>
+        <div class="token-swatch">
+          <div class="token-swatch-color" style="background:var(--gradient-aurora-soft)"></div>
+          <div class="token-swatch-name">--gradient-aurora-soft</div>
+          <div class="token-swatch-value">柔和高亮底色</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-grid demo-grid-2" style="margin-top:20px">
+      <div class="demo-card">
+        <div class="demo-card-title">字阶 · Inter 家族</div>
+        <div class="typography-specimen"><span class="typography-label">3xl · 32</span><span class="typography-sample" style="font-size:32px;font-weight:700;letter-spacing:-0.02em">极光 · Aurora</span></div>
+        <div class="typography-specimen"><span class="typography-label">2xl · 24</span><span class="typography-sample" style="font-size:24px;font-weight:600">设计 token 体系</span></div>
+        <div class="typography-specimen"><span class="typography-label">xl · 20</span><span class="typography-sample" style="font-size:20px;font-weight:600">闭包 · 词法环境</span></div>
+        <div class="typography-specimen"><span class="typography-label">lg · 16</span><span class="typography-sample" style="font-size:16px;font-weight:500">二级标题层级</span></div>
+        <div class="typography-specimen"><span class="typography-label">md · 14</span><span class="typography-sample" style="font-size:14px">正文（默认）</span></div>
+        <div class="typography-specimen"><span class="typography-label">sm · 13</span><span class="typography-sample" style="font-size:13px;color:var(--color-text-muted)">次要正文</span></div>
+        <div class="typography-specimen"><span class="typography-label">xs · 12</span><span class="typography-sample" style="font-size:12px;color:var(--color-text-soft)">辅助 · meta · UI 标签</span></div>
+        <div class="typography-specimen"><span class="typography-label">mono</span><span class="typography-sample" style="font:13px var(--font-mono)">const x = 42</span></div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-card-title">圆角 · 阴影</div>
+        <div class="radius-specimen" style="margin-bottom:16px">
+          <div class="radius-shape" style="border-radius:var(--radius-xs)"></div><span style="font:11px var(--font-mono);color:var(--color-text-soft)">xs 4</span>
+          <div class="radius-shape" style="border-radius:var(--radius-sm)"></div><span style="font:11px var(--font-mono);color:var(--color-text-soft)">sm 8</span>
+          <div class="radius-shape" style="border-radius:var(--radius-md)"></div><span style="font:11px var(--font-mono);color:var(--color-text-soft)">md 12</span>
+          <div class="radius-shape" style="border-radius:var(--radius-lg)"></div><span style="font:11px var(--font-mono);color:var(--color-text-soft)">lg 16</span>
+          <div class="radius-shape" style="border-radius:var(--radius-xl)"></div><span style="font:11px var(--font-mono);color:var(--color-text-soft)">xl 20</span>
+          <div class="radius-shape" style="border-radius:var(--radius-pill)"></div><span style="font:11px var(--font-mono);color:var(--color-text-soft)">pill</span>
+        </div>
+        <div class="shadow-specimen">
+          <div class="shadow-card" style="box-shadow:var(--shadow-flat)">flat</div>
+          <div class="shadow-card" style="box-shadow:var(--shadow-soft)">soft</div>
+          <div class="shadow-card" style="box-shadow:var(--shadow-glass)">glass</div>
+          <div class="shadow-card" style="box-shadow:var(--shadow-glow);color:var(--color-mint-700)">glow</div>
+        </div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--color-mint-border);border-radius:var(--radius-md);box-shadow:var(--shadow-glow)">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--gradient-aurora)"></div>
+          <div style="font-size:13px;font-weight:500">焦点环 · mint 16%</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 2. 按钮家族 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">02</span>
+      <h2 class="demo-section-title">按钮家族</h2>
+      <span class="demo-section-desc">primary / aurora / secondary / ghost / danger / disabled</span>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">主操作</div>
+      <div class="demo-card-row" style="margin-bottom:16px">
+        <button class="btn btn-primary"><svg><use href="#i-plus"/></svg>新建笔记</button>
+        <button class="btn btn-primary btn-lg"><svg><use href="#i-plus"/></svg>新建笔记（大）</button>
+        <button class="btn btn-aurora"><svg><use href="#i-spark"/></svg>AI 续写</button>
+        <button class="btn btn-primary" data-disabled="true">禁用态</button>
+      </div>
+      <div class="demo-card-title">次操作</div>
+      <div class="demo-card-row" style="margin-bottom:16px">
+        <button class="btn btn-secondary">取消</button>
+        <button class="btn btn-secondary">导出 Markdown</button>
+        <button class="btn btn-ghost">重命名</button>
+        <button class="btn btn-ghost"><svg><use href="#i-edit"/></svg>编辑</button>
+      </div>
+      <div class="demo-card-title">图标按钮</div>
+      <div class="demo-card-row" style="margin-bottom:16px">
+        <button class="btn btn-primary btn-icon" title="新增"><svg><use href="#i-plus"/></svg></button>
+        <button class="btn btn-secondary btn-icon" title="搜索"><svg><use href="#i-search"/></svg></button>
+        <button class="btn btn-ghost btn-icon" title="更多"><svg><use href="#i-more"/></svg></button>
+        <button class="btn btn-secondary btn-icon" title="删除"><svg><use href="#i-trash"/></svg></button>
+      </div>
+      <div class="demo-card-title">危险</div>
+      <div class="demo-card-row">
+        <button class="btn btn-danger"><svg><use href="#i-trash"/></svg>删除笔记</button>
+        <button class="btn btn-danger btn-sm">移到回收站</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 3. 输入与表单 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">03</span>
+      <h2 class="demo-section-title">输入与表单</h2>
+    </div>
+    <div class="demo-grid demo-grid-2">
+      <div class="demo-card">
+        <div class="demo-card-title">文本输入</div>
+        <div class="demo-card-stack">
+          <div class="input-group">
+            <label class="input-label">笔记标题</label>
+            <input class="input" value="闭包 · 词法环境与捕获">
+          </div>
+          <div class="input-group">
+            <label class="input-label">文件夹名</label>
+            <input class="input" placeholder="输入文件夹名…">
+            <span class="input-hint">支持中文、字母、数字、下划线</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">错误态</label>
+            <input class="input" data-state="error" value="重">
+            <span class="input-error">名称至少需要 2 个字符</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">禁用态</label>
+            <input class="input" data-state="disabled" value="只读内容" disabled>
+          </div>
+        </div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-card-title">搜索框 + 文本域</div>
+        <div class="demo-card-stack">
+          <div class="input-with-icon">
+            <span class="input-icon"><svg><use href="#i-search"/></svg></span>
+            <input class="input" placeholder="搜索笔记、标签、知识点…">
+          </div>
+          <div class="input-group">
+            <label class="input-label">笔记正文</label>
+            <textarea class="textarea" placeholder="开始写点什么…">闭包是函数与其词法环境的绑定。它捕获的是变量本身，而不是变量在某一时刻的值。</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 4. Pill / Chip / Tag ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">04</span>
+      <h2 class="demo-section-title">Pill · Chip · Tag</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">标签 Pill</div>
+      <div class="demo-card-row" style="margin-bottom:16px">
+        <span class="pill pill-mint">#JavaScript</span>
+        <span class="pill pill-mint pill-removable">#闭包<button class="pill-remove"><svg><use href="#i-x"/></svg></button></span>
+        <span class="pill pill-aurora">#重要</span>
+        <span class="pill pill-aurora pill-removable">#灵感<button class="pill-remove"><svg><use href="#i-x"/></svg></button></span>
+        <span class="pill pill-neutral">#待整理</span>
+        <span class="pill pill-warning">#复查</span>
+        <span class="pill pill-danger">#已废弃</span>
+        <span class="pill pill-solid-mint">实色 · mint</span>
+      </div>
+      <div class="demo-card-title">筛选 Chip</div>
+      <div class="demo-card-row" style="margin-bottom:16px">
+        <button class="chip" data-selected="true">所有笔记 <span class="chip-count">42</span></button>
+        <button class="chip">未读 <span class="chip-count">5</span></button>
+        <button class="chip">最近 7 天 <span class="chip-count">12</span></button>
+        <button class="chip">含图 <span class="chip-count">3</span></button>
+        <button class="chip">含代码块 <span class="chip-count">8</span></button>
+      </div>
+      <div class="demo-card-title">状态徽章</div>
+      <div class="demo-card-row">
+        <span class="demo-pill-state">已保存</span>
+        <span class="demo-pill-state" style="background:rgba(245,158,11,.12);color:#B45309">正在保存</span>
+        <span class="demo-pill-state" style="background:rgba(239,68,68,.12);color:#B91C1C">保存失败</span>
+        <span class="demo-pill-state" style="background:var(--color-aurora-soft);color:var(--color-aurora-700)">已同步</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 5. 图标导轨 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">05</span>
+      <h2 class="demo-section-title">图标导轨 · 6 模块</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">模块按钮（默认 / hover / active 态）</div>
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="width:56px;display:flex;justify-content:center;padding:6px 0;border:1px dashed var(--color-border);border-radius:var(--radius-md)">
+            <button class="rail-item" title="默认"><span class="rail-item-icon"><svg><use href="#i-book"/></svg></span></button>
+          </div>
+          <span style="font:11px var(--font-mono);color:var(--color-text-soft)">default</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="width:56px;display:flex;justify-content:center;padding:6px 0;border:1px dashed var(--color-border);border-radius:var(--radius-md)">
+            <button class="rail-item" style="background:var(--color-mint-softer);color:var(--color-text)" title="悬停"><span class="rail-item-icon"><svg><use href="#i-book"/></svg></span></button>
+          </div>
+          <span style="font:11px var(--font-mono);color:var(--color-text-soft)">hover</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="width:56px;display:flex;justify-content:center;padding:6px 0;border:1px dashed var(--color-border);border-radius:var(--radius-md)">
+            <button class="rail-item" data-active="true" title="激活"><span class="rail-item-icon"><svg><use href="#i-book"/></svg></span></button>
+          </div>
+          <span style="font:11px var(--font-mono);color:var(--color-text-soft)">active</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 6. 顶栏 + 搜索 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">06</span>
+      <h2 class="demo-section-title">顶栏 + 搜索</h2>
+    </div>
+    <div class="demo-card" style="padding:0;overflow:hidden">
+      <div class="top-bar" style="border-radius:0;border-left:0;border-right:0;border-top:0">
+        <div class="top-bar-search">
+          <span class="top-bar-search-icon"><svg><use href="#i-search"/></svg></span>
+          <input class="top-bar-search-input" placeholder="搜索笔记、标签、知识点…">
+          <span class="top-bar-search-kbd">⌘K</span>
+        </div>
+        <button class="top-bar-user">JL</button>
+      </div>
+      <div style="padding:14px">
+        <div class="demo-card-title">搜索框 · focus 态</div>
+        <div class="top-bar-search" style="max-width:520px;margin-bottom:12px;border-color:var(--color-mint-border);background:var(--color-panel-solid);box-shadow:var(--shadow-glow)">
+          <span class="top-bar-search-icon"><svg><use href="#i-search"/></svg></span>
+          <input class="top-bar-search-input" value="闭包" style="color:var(--color-mint-700)">
+          <span class="top-bar-search-kbd">ESC</span>
+        </div>
+        <div class="demo-card-title">搜索建议面板（命令面板同款玻璃风）</div>
+        <div class="command-panel" style="width:100%">
+          <div class="command-panel-search">
+            <div class="top-bar-search" style="border-color:transparent;box-shadow:none;background:transparent;padding:0">
+              <span class="top-bar-search-icon"><svg><use href="#i-search"/></svg></span>
+              <input class="top-bar-search-input" value="闭包" placeholder="搜索…">
+            </div>
+          </div>
+          <div class="command-panel-list">
+            <div class="command-panel-section">笔记</div>
+            <div class="command-panel-item" data-selected="true">
+              <span class="command-panel-item-icon"><svg><use href="#i-note"/></svg></span>
+              <span class="command-panel-item-label">闭包 · 词法环境与捕获</span>
+              <span class="command-panel-item-hint">学习 / 编程 / JavaScript</span>
+              <span class="command-panel-item-kbd">↵</span>
+            </div>
+            <div class="command-panel-item">
+              <span class="command-panel-item-icon"><svg><use href="#i-note"/></svg></span>
+              <span class="command-panel-item-label">闭包与 React Hook</span>
+              <span class="command-panel-item-hint">学习 / 编程 / React</span>
+            </div>
+            <div class="command-panel-section">标签</div>
+            <div class="command-panel-item">
+              <span class="command-panel-item-icon" style="background:var(--color-aurora-soft);color:var(--color-aurora-700)"><svg><use href="#i-tag"/></svg></span>
+              <span class="command-panel-item-label">#闭包</span>
+              <span class="command-panel-item-hint">3 篇笔记</span>
+            </div>
+            <div class="command-panel-section">操作</div>
+            <div class="command-panel-item">
+              <span class="command-panel-item-icon" style="background:var(--gradient-aurora-soft);color:var(--color-aurora-700)"><svg><use href="#i-spark"/></svg></span>
+              <span class="command-panel-item-label">AI 总结：闭包的核心机制</span>
+              <span class="command-panel-item-kbd">⌘↵</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 7. 文件夹树节点 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">07</span>
+      <h2 class="demo-section-title">文件夹树 · 节点状态</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">5 种节点状态 + 4 级缩进 + 行内编辑</div>
+      <div class="demo-grid demo-grid-2" style="gap:24px">
+
+        <div>
+          <div class="demo-state-row"><span class="demo-state-row-label">default</span></div>
+          <div class="library-node" data-level="0">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder"/></svg>
+            </span>
+            <span class="library-node-label">学习</span>
+            <span class="library-node-meta">18</span>
+          </div>
+          <div class="demo-state-row"><span class="demo-state-row-label">hover</span></div>
+          <div class="library-node" data-level="0" style="background:var(--color-mint-softer)">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder"/></svg>
+            </span>
+            <span class="library-node-label">学习</span>
+            <span class="library-node-meta">18</span>
+          </div>
+          <div class="demo-state-row"><span class="demo-state-row-label">selected</span></div>
+          <div class="library-node" data-level="0" data-selected="true">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder"/></svg>
+            </span>
+            <span class="library-node-label">学习</span>
+            <span class="library-node-meta">18</span>
+          </div>
+          <div class="demo-state-row"><span class="demo-state-row-label">dragging</span></div>
+          <div class="library-node" data-level="1" data-dragging="true">
+            <span class="library-node-leading">
+              <span class="library-node-spacer"></span>
+              <svg class="library-node-icon"><use href="#i-note"/></svg>
+            </span>
+            <span class="library-node-label">正在被拖拽的笔记</span>
+          </div>
+          <div class="demo-state-row"><span class="demo-state-row-label">drop-target</span></div>
+          <div class="library-node" data-level="1" data-drop-target="true">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-right"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+            </span>
+            <span class="library-node-label">释放到这里</span>
+            <span class="library-node-meta">12</span>
+          </div>
+          <div class="demo-state-row"><span class="demo-state-row-label">inline-edit</span></div>
+          <div class="library-inline-editor">
+            <input value="新文件夹名">
+          </div>
+        </div>
+
+        <div>
+          <div class="demo-card-title" style="margin-bottom:8px">缩进层级（data-level 0-4）</div>
+          <div class="library-node" data-level="0" data-open="true">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-down"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+            </span>
+            <span class="library-node-label">L0 · 学习</span>
+          </div>
+          <div class="library-node" data-level="1" data-open="true">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-down"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+            </span>
+            <span class="library-node-label">L1 · 编程</span>
+          </div>
+          <div class="library-node" data-level="2" data-open="true">
+            <span class="library-node-leading">
+              <svg class="library-node-chevron"><use href="#i-chevron-down"/></svg>
+              <svg class="library-node-icon"><use href="#i-folder-open"/></svg>
+            </span>
+            <span class="library-node-label">L2 · JavaScript</span>
+          </div>
+          <div class="library-node" data-level="3">
+            <span class="library-node-leading">
+              <span class="library-node-spacer"></span>
+              <svg class="library-node-icon"><use href="#i-note"/></svg>
+            </span>
+            <span class="library-node-label">L3 · 闭包 · 词法环境</span>
+          </div>
+          <div class="library-node" data-level="4">
+            <span class="library-node-leading">
+              <span class="library-node-spacer"></span>
+              <svg class="library-node-icon"><use href="#i-note"/></svg>
+            </span>
+            <span class="library-node-label">L4 · 子笔记（理论深度）</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 8. 笔记标签页 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">08</span>
+      <h2 class="demo-section-title">笔记标签页</h2>
+    </div>
+    <div class="demo-card" style="padding:0;overflow:hidden">
+      <div class="note-tabs" style="border-radius:0;border-top:0;border-left:0;border-right:0">
+        <div class="note-tab">
+          <span class="note-tab-label">异步与事件循环</span>
+          <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="note-tab" style="background:var(--color-mint-softer);color:var(--color-text)">
+          <span class="note-tab-label">悬停 · 闭包</span>
+          <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="note-tab" data-active="true">
+          <span class="note-tab-label">激活 · 设计 token 体系</span>
+          <span class="note-tab-dirty">●</span>
+          <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="note-tab" data-dragging="true">
+          <span class="note-tab-label">拖拽中</span>
+          <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="note-tab" data-drop-target="true">
+          <span class="note-tab-label">放置目标</span>
+          <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="note-tab">
+          <span class="note-tab-label">未保存的笔记（有圆点）</span>
+          <span class="note-tab-dirty">●</span>
+          <button class="note-tab-close"><svg><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+      <div style="padding:14px">
+        <div class="demo-card-title">标签右键菜单（玻璃）</div>
+        <div class="context-menu" style="width:200px;margin-top:6px">
+          <button class="context-menu-item">关闭</button>
+          <button class="context-menu-item">关闭其他</button>
+          <button class="context-menu-item">关闭右侧</button>
+          <div class="context-menu-divider"></div>
+          <button class="context-menu-item"><svg><use href="#i-copy"/></svg>复制路径<span class="context-menu-item-kbd">⌘⇧C</span></button>
+          <button class="context-menu-item">在新窗口打开</button>
+          <div class="context-menu-divider"></div>
+          <button class="context-menu-item" data-danger="true"><svg><use href="#i-trash"/></svg>移到回收站</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 9. 编辑器工具栏 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">09</span>
+      <h2 class="demo-section-title">编辑器工具栏</h2>
+    </div>
+    <div class="demo-card" style="padding:0;overflow:hidden">
+      <div class="editor-toolbar" style="border-radius:0;border-top:0;border-left:0;border-right:0;flex-wrap:nowrap">
+        <div class="editor-toolbar-group">
+          <button class="editor-toolbar-button" title="撤销"><svg><use href="#i-undo"/></svg></button>
+          <button class="editor-toolbar-button" title="重做"><svg><use href="#i-redo"/></svg></button>
+        </div>
+        <span class="editor-toolbar-divider"></span>
+        <div class="editor-toolbar-group">
+          <button class="editor-toolbar-button" data-active="true" title="粗体"><svg><use href="#i-bold"/></svg></button>
+          <button class="editor-toolbar-button" title="斜体"><svg><use href="#i-italic"/></svg></button>
+          <button class="editor-toolbar-button" title="行内代码"><svg><use href="#i-code"/></svg></button>
+          <button class="editor-toolbar-button" title="高亮"><svg><use href="#i-spark"/></svg></button>
+        </div>
+        <span class="editor-toolbar-divider"></span>
+        <div class="editor-toolbar-group">
+          <button class="editor-toolbar-button" data-label data-active="true">H1<svg><use href="#i-chevron-down"/></svg></button>
+          <button class="editor-toolbar-button" title="引用"><svg><use href="#i-quote"/></svg></button>
+          <button class="editor-toolbar-button" title="无序列表"><svg><use href="#i-list-ul"/></svg></button>
+          <button class="editor-toolbar-button" title="有序列表"><svg><use href="#i-list-ol"/></svg></button>
+          <button class="editor-toolbar-button" title="任务列表"><svg><use href="#i-task-square"/></svg></button>
+        </div>
+        <span class="editor-toolbar-divider"></span>
+        <div class="editor-toolbar-group">
+          <button class="editor-toolbar-button" title="链接"><svg><use href="#i-link"/></svg></button>
+          <button class="editor-toolbar-button" title="代码块"><svg><use href="#i-codeblock"/></svg></button>
+          <button class="editor-toolbar-button" title="表格"><svg><use href="#i-table"/></svg></button>
+          <button class="editor-toolbar-button" title="图片"><svg><use href="#i-image"/></svg></button>
+        </div>
+        <div style="flex:1"></div>
+        <div class="editor-toolbar-group">
+          <button class="editor-toolbar-button" data-label>编辑 / 预览</button>
+        </div>
+      </div>
+      <div style="padding:14px">
+        <div class="demo-card-title">工具按钮 4 种状态</div>
+        <div class="demo-card-row">
+          <button class="editor-toolbar-button" title="默认"><svg><use href="#i-bold"/></svg></button>
+          <button class="editor-toolbar-button" style="background:var(--color-mint-softer);color:var(--color-text)" title="悬停"><svg><use href="#i-bold"/></svg></button>
+          <button class="editor-toolbar-button" data-active="true" title="激活（按下）"><svg><use href="#i-bold"/></svg></button>
+          <button class="editor-toolbar-button" disabled style="opacity:0.4" title="禁用"><svg><use href="#i-bold"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 10. 富文本内容 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">10</span>
+      <h2 class="demo-section-title">富文本 · Milkdown 风格</h2>
+    </div>
+    <div class="demo-card">
+      <div class="milkdown-content">
+        <h1>设计 token 体系笔记</h1>
+        <p>设计 token 是设计系统中最基础的<strong>语义化变量</strong>。它把"颜色"这种视觉值与"按钮主色"这种<em>角色</em>分离开来，让主题切换只动 token、不动组件。</p>
+        <h2>三层结构</h2>
+        <ul>
+          <li><strong>原始层</strong>：色板、字阶、间距阶梯等原始值</li>
+          <li><strong>语义层</strong>：主品牌色、强调色、危险色等角色</li>
+          <li><strong>组件层</strong>：按钮底色、卡片投影、tab 激活条等</li>
+        </ul>
+        <h3>原始层示例</h3>
+        <pre><code>--color-mint-400: #2DD4BF;
+--color-aurora-500: #8B5CF6;
+--gradient-aurora: linear-gradient(135deg, #2DD4BF, #8B5CF6);</code></pre>
+        <h3>语义层映射</h3>
+        <pre><code>--color-accent: var(--color-mint-400);
+--color-accent-soft: rgba(45, 212, 191, 0.12);
+--color-glow: 0 0 0 4px rgba(45, 212, 191, 0.16);</code></pre>
+        <h4>使用注意</h4>
+        <blockquote>永远不要在组件中写死色值（#xxxxxx）。所有视觉值都从 token 走。</blockquote>
+        <p>更多参考：<a href="#">W3C Design Tokens spec</a> · <a href="#">Style Dictionary</a></p>
+        <h4>任务清单</h4>
+        <ul class="task-list">
+          <li class="task-item"><span class="task-check" data-checked="true"></span><span>定义原始层色板</span></li>
+          <li class="task-item"><span class="task-check" data-checked="true"></span><span>定义语义层映射</span></li>
+          <li class="task-item"><span class="task-check"></span><span>组件层接入</span></li>
+          <li class="task-item"><span class="task-check"></span><span>主题切换验证</span></li>
+        </ul>
+        <h4>对比表格</h4>
+        <table>
+          <thead><tr><th>层级</th><th>示例</th><th>数量</th></tr></thead>
+          <tbody>
+            <tr><td>原始层</td><td>mint-50 ~ mint-700</td><td>8</td></tr>
+            <tr><td>语义层</td><td>accent, danger, success</td><td>12</td></tr>
+            <tr><td>组件层</td><td>btn-primary-bg, card-shadow</td><td>20+</td></tr>
+          </tbody>
+        </table>
+        <p>视觉上，主品牌色采用薄荷青 <code>#2DD4BF</code>，辅强调色采用极光紫 <code>#8B5CF6</code>，两者组合形成"极光"渐变，是整套设计的标志。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 11. Markdown 预览 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">11</span>
+      <h2 class="demo-section-title">Markdown 预览</h2>
+      <span class="demo-section-desc">同一内容的渲染后效果</span>
+    </div>
+    <div class="demo-grid demo-grid-2">
+      <div class="demo-card">
+        <div class="demo-card-title">渲染后</div>
+        <div class="preview-rendered">
+          <h1>设计 token 体系笔记</h1>
+          <p>设计 token 是设计系统中最基础的<strong>语义化变量</strong>。它把"颜色"这种视觉值与"按钮主色"这种<em>角色</em>分离开来。</p>
+          <h2>三层结构</h2>
+          <ul>
+            <li><strong>原始层</strong>：色板、字阶、间距阶梯</li>
+            <li><strong>语义层</strong>：主品牌色、强调色、危险色</li>
+            <li><strong>组件层</strong>：按钮底色、卡片投影</li>
+          </ul>
+          <h3>原始层示例</h3>
+          <pre><code>--color-mint-400: #2DD4BF;
+--color-aurora-500: #8B5CF6;</code></pre>
+          <blockquote>永远不要在组件中写死色值。</blockquote>
+          <p>更多：<a href="#">W3C Design Tokens spec</a></p>
+        </div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-card-title">源码</div>
+        <pre style="font:12px/1.7 var(--font-mono);color:var(--color-text-muted);white-space:pre-wrap"># 设计 token 体系笔记
+
+设计 token 是设计系统中最基础的**语义化变量**。
+它把"颜色"这种视觉值与"按钮主色"这种
+*角色*分离开来。
+
+## 三层结构
+
+- **原始层**：色板、字阶、间距阶梯
+- **语义层**：主品牌色、强调色、危险色
+- **组件层**：按钮底色、卡片投影
+
+### 原始层示例
+
+​```css
+--color-mint-400: #2DD4BF;
+--color-aurora-500: #8B5CF6;
+​```
+
+> 永远不要在组件中写死色值。
+
+更多：[W3C Design Tokens spec](#)</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 12. 右侧 tab 切换器 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">12</span>
+      <h2 class="demo-section-title">右侧 Aside · Tab 切换器</h2>
+    </div>
+    <div class="demo-card" style="padding:0;overflow:hidden">
+      <div class="aside-tabs" style="border-radius:0;border-top:0;border-left:0;border-right:0">
+        <button class="aside-tab">
+          <svg><use href="#i-info"/></svg>信息
+        </button>
+        <button class="aside-tab" data-active="true">
+          <svg><use href="#i-outline"/></svg>大纲
+        </button>
+        <button class="aside-tab">
+          <svg><use href="#i-knowledge"/></svg>知识点
+        </button>
+        <button class="aside-tab">
+          <svg><use href="#i-spark"/></svg>AI
+        </button>
+      </div>
+      <div style="padding:14px">
+        <div class="demo-card-title">其他变体</div>
+        <div class="aside-tabs" style="border-radius:var(--radius-md);border:1px solid var(--color-border)">
+          <button class="aside-tab" data-active="true">
+            <svg><use href="#i-info"/></svg>信息
+          </button>
+          <button class="aside-tab">
+            <svg><use href="#i-outline"/></svg>大纲
+          </button>
+          <button class="aside-tab">
+            <svg><use href="#i-knowledge"/></svg>知识点
+          </button>
+          <button class="aside-tab">
+            <svg><use href="#i-spark"/></svg>AI
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 13. 信息面板 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">13</span>
+      <h2 class="demo-section-title">信息面板</h2>
+    </div>
+    <div class="demo-grid demo-grid-2">
+      <div class="demo-card">
+        <div class="demo-card-title">笔记元数据</div>
+        <div class="info-grid">
+          <div class="info-row"><span>创建</span><strong>2026-06-12</strong></div>
+          <div class="info-row"><span>修改</span><strong>今天 14:32</strong></div>
+          <div class="info-row"><span>字数</span><strong>2,418</strong></div>
+          <div class="info-row"><span>阅读时间</span><strong>≈ 8 分钟</strong></div>
+          <div class="info-row"><span>链接笔记</span><strong>3 篇</strong></div>
+          <div class="info-row"><span>知识点</span><strong>5 个</strong></div>
+          <div class="info-row"><span>附件</span><strong>2 个</strong></div>
+          <div class="info-row"><span>最后编辑者</span><strong>JL</strong></div>
+        </div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-card-title">带标签的信息面板</div>
+        <div class="info-grid" style="margin-bottom:12px">
+          <div class="info-row"><span>创建</span><strong>2026-06-12</strong></div>
+          <div class="info-row"><span>修改</span><strong>今天 14:32</strong></div>
+          <div class="info-row"><span>字数</span><strong>2,418</strong></div>
+          <div class="info-row"><span>链接笔记</span><strong>3 篇</strong></div>
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--color-text-soft);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">标签</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">
+          <span class="pill pill-mint pill-removable">#JavaScript<button class="pill-remove"><svg><use href="#i-x"/></svg></button></span>
+          <span class="pill pill-mint pill-removable">#闭包<button class="pill-remove"><svg><use href="#i-x"/></svg></button></span>
+          <span class="pill pill-aurora">#重要</span>
+          <span class="pill pill-neutral pill-removable">#待整理<button class="pill-remove"><svg><use href="#i-x"/></svg></button></span>
+          <button class="pill pill-neutral" style="cursor:pointer;background:transparent;border:1px dashed var(--color-border)">+ 添加标签</button>
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--color-text-soft);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">关联笔记</div>
+        <div class="aside-panel-stack" style="gap:4px">
+          <div class="library-node" data-level="0" style="min-height:26px;padding:2px 8px;font-size:12px">
+            <span class="library-node-leading"><svg class="library-node-icon" style="width:14px;height:14px"><use href="#i-note"/></svg></span>
+            <span class="library-node-label">异步与事件循环</span>
+          </div>
+          <div class="library-node" data-level="0" style="min-height:26px;padding:2px 8px;font-size:12px">
+            <span class="library-node-leading"><svg class="library-node-icon" style="width:14px;height:14px"><use href="#i-note"/></svg></span>
+            <span class="library-node-label">原型链与继承</span>
+          </div>
+          <div class="library-node" data-level="0" style="min-height:26px;padding:2px 8px;font-size:12px">
+            <span class="library-node-leading"><svg class="library-node-icon" style="width:14px;height:14px"><use href="#i-note"/></svg></span>
+            <span class="library-node-label">React Hook 原理</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 14. 大纲面板 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">14</span>
+      <h2 class="demo-section-title">大纲面板</h2>
+    </div>
+    <div class="demo-grid demo-grid-2">
+      <div class="demo-card">
+        <div class="demo-card-title">嵌套大纲（h1-h3）</div>
+        <div class="outline-list">
+          <div class="outline-item" data-level="1" data-active="true">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">闭包 · 词法环境与捕获</span>
+            <span class="outline-item-number">H1</span>
+          </div>
+          <div class="outline-item" data-level="2">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">基本形态</span>
+            <span class="outline-item-number">H2</span>
+          </div>
+          <div class="outline-item" data-level="2">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">关键点</span>
+            <span class="outline-item-number">H2</span>
+          </div>
+          <div class="outline-item" data-level="3">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">常见误用</span>
+            <span class="outline-item-number">H3</span>
+          </div>
+          <div class="outline-item" data-level="3">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">实践清单</span>
+            <span class="outline-item-number">H3</span>
+          </div>
+          <div class="outline-item" data-level="2">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">延伸阅读</span>
+            <span class="outline-item-number">H2</span>
+          </div>
+        </div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-card-title">交互态</div>
+        <div class="outline-list">
+          <div class="outline-item" data-level="1">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">默认态</span>
+          </div>
+          <div class="outline-item" data-level="1" style="background:var(--color-mint-softer)">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">悬停态</span>
+          </div>
+          <div class="outline-item" data-level="1" data-active="true">
+            <span class="outline-item-dot"></span>
+            <span class="outline-item-label">激活态（当前阅读位置）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 15. 知识点面板 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">15</span>
+      <h2 class="demo-section-title">知识点面板</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">知识点卡片（hover 显示操作）</div>
+      <div class="demo-grid demo-grid-2" style="gap:12px">
+        <div class="knowledge-card">
+          <div class="knowledge-card-head">
+            <span class="knowledge-card-dot"></span>
+            <span class="knowledge-card-title">词法环境（Lexical Environment）</span>
+          </div>
+          <div class="knowledge-card-excerpt">词法环境是闭包的核心机制，由环境记录（Environment Record）和对外部环境的引用组成。</div>
+          <div class="knowledge-card-meta">
+            <span class="knowledge-card-tag">JavaScript</span>
+            <span class="knowledge-card-tag" style="background:var(--color-aurora-soft);color:var(--color-aurora-700)">核心</span>
+            <span style="margin-left:auto">2 个引用</span>
+          </div>
+        </div>
+        <div class="knowledge-card">
+          <div class="knowledge-card-head">
+            <span class="knowledge-card-dot"></span>
+            <span class="knowledge-card-title">变量捕获（Capture）</span>
+          </div>
+          <div class="knowledge-card-excerpt">闭包捕获的是变量绑定本身，不是变量在某一时刻的值。多个闭包共享同一份词法环境。</div>
+          <div class="knowledge-card-meta">
+            <span class="knowledge-card-tag">JavaScript</span>
+            <span class="knowledge-card-tag" style="background:var(--color-aurora-soft);color:var(--color-aurora-700)">核心</span>
+            <span style="margin-left:auto">3 个引用</span>
+          </div>
+        </div>
+        <div class="knowledge-card">
+          <div class="knowledge-card-head">
+            <span class="knowledge-card-dot"></span>
+            <span class="knowledge-card-title">循环中的闭包陷阱</span>
+          </div>
+          <div class="knowledge-card-excerpt">在 for 循环中使用 var 声明时，所有闭包共享同一个变量。要用 let 或 IIFE 解决。</div>
+          <div class="knowledge-card-meta">
+            <span class="knowledge-card-tag">陷阱</span>
+            <span style="margin-left:auto">5 个引用</span>
+          </div>
+        </div>
+        <div class="knowledge-card">
+          <div class="knowledge-card-head">
+            <span class="knowledge-card-dot"></span>
+            <span class="knowledge-card-title">React Hook 与闭包</span>
+          </div>
+          <div class="knowledge-card-excerpt">useState 返回的状态是闭包捕获的，因此 Hook 不能写在条件或循环中。</div>
+          <div class="knowledge-card-meta">
+            <span class="knowledge-card-tag">React</span>
+            <span class="knowledge-card-tag" style="background:var(--color-aurora-soft);color:var(--color-aurora-700)">关联</span>
+            <span style="margin-left:auto">1 个引用</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 16. AI 面板 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">16</span>
+      <h2 class="demo-section-title">AI 面板</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">对话示例</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+        <div class="ai-message" data-role="user">
+          <div class="ai-avatar">我</div>
+          <div class="ai-bubble">用一句话解释闭包</div>
+        </div>
+        <div class="ai-message" data-role="ai">
+          <div class="ai-avatar">A</div>
+          <div class="ai-bubble">闭包是函数与其<strong>词法环境</strong>的绑定，捕获的是变量本身而不是某一时刻的值。</div>
+        </div>
+        <div class="ai-message" data-role="user">
+          <div class="ai-avatar">我</div>
+          <div class="ai-bubble">为什么 React Hook 不能写在条件里？</div>
+        </div>
+        <div class="ai-message" data-role="ai">
+          <div class="ai-avatar">A</div>
+          <div class="ai-bubble">因为 useState 返回的状态是通过闭包按调用顺序存储的，条件调用会破坏这个顺序，导致状态错位。</div>
+        </div>
+      </div>
+      <div class="demo-card-title">输入框（带 AI 占位指示）</div>
+      <div class="ai-input">
+        <span class="ai-input-dot"></span>
+        <span>问点什么… 试试 "用对比表格解释 3 种 token 体系"</span>
+      </div>
+      <div class="demo-card-row" style="margin-top:12px">
+        <button class="btn btn-ghost btn-sm">继续写</button>
+        <button class="btn btn-ghost btn-sm">翻译成英文</button>
+        <button class="btn btn-ghost btn-sm">生成知识卡片</button>
+        <button class="btn btn-aurora btn-sm"><svg><use href="#i-spark"/></svg>AI 续写</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 17. 库右键菜单 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">17</span>
+      <h2 class="demo-section-title">库右键菜单</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">文件夹上右键</div>
+      <div class="context-menu">
+        <div class="context-menu-label">文件夹操作</div>
+        <button class="context-menu-item"><svg><use href="#i-folder-plus"/></svg>新建子文件夹<span class="context-menu-item-kbd">⌘⇧N</span></button>
+        <button class="context-menu-item"><svg><use href="#i-plus"/></svg>新建笔记<span class="context-menu-item-kbd">⌘N</span></button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item"><svg><use href="#i-edit"/></svg>重命名<span class="context-menu-item-kbd">F2</span></button>
+        <button class="context-menu-item"><svg><use href="#i-copy"/></svg>复制路径</button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item"><svg><use href="#i-link"/></svg>复制为内部链接</button>
+        <button class="context-menu-item">导出为 Markdown…</button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item" data-danger="true"><svg><use href="#i-trash"/></svg>移到回收站</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 18. 编辑器右键菜单 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">18</span>
+      <h2 class="demo-section-title">编辑器右键菜单</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">富文本中右键</div>
+      <div class="context-menu">
+        <button class="context-menu-item">撤销<span class="context-menu-item-kbd">⌘Z</span></button>
+        <button class="context-menu-item">重做<span class="context-menu-item-kbd">⌘⇧Z</span></button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item"><svg><use href="#i-cut"/></svg>剪切<span class="context-menu-item-kbd">⌘X</span></button>
+        <button class="context-menu-item"><svg><use href="#i-copy"/></svg>复制<span class="context-menu-item-kbd">⌘C</span></button>
+        <button class="context-menu-item"><svg><use href="#i-paste"/></svg>粘贴<span class="context-menu-item-kbd">⌘V</span></button>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-label">格式</div>
+        <button class="context-menu-item"><svg><use href="#i-bold"/></svg>加粗<span class="context-menu-item-kbd">⌘B</span></button>
+        <button class="context-menu-item"><svg><use href="#i-italic"/></svg>斜体<span class="context-menu-item-kbd">⌘I</span></button>
+        <button class="context-menu-item"><svg><use href="#i-code"/></svg>行内代码<span class="context-menu-item-kbd">⌘E</span></button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item"><svg><use href="#i-link"/></svg>添加链接…<span class="context-menu-item-kbd">⌘K</span></button>
+        <button class="context-menu-item"><svg><use href="#i-knowledge"/></svg>提取为知识点</button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item" data-danger="true"><svg><use href="#i-trash"/></svg>删除</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 19. 标签右键菜单 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">19</span>
+      <h2 class="demo-section-title">标签页右键菜单</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">笔记标签上右键</div>
+      <div class="context-menu" style="width:200px">
+        <button class="context-menu-item"><svg><use href="#i-x"/></svg>关闭<span class="context-menu-item-kbd">⌘W</span></button>
+        <button class="context-menu-item">关闭其他</button>
+        <button class="context-menu-item">关闭左侧</button>
+        <button class="context-menu-item">关闭右侧</button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item">在左侧栏定位</button>
+        <button class="context-menu-item"><svg><use href="#i-copy"/></svg>复制路径</button>
+        <button class="context-menu-item">固定标签</button>
+        <div class="context-menu-divider"></div>
+        <button class="context-menu-item" data-danger="true"><svg><use href="#i-trash"/></svg>关闭并移到回收站</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 20. 查找替换面板 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">20</span>
+      <h2 class="demo-section-title">查找 · 替换 面板</h2>
+      <span class="demo-section-desc">浮在编辑器上方的玻璃面板</span>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">查找 · 替换</div>
+      <div class="utility-panel">
+        <div class="utility-panel-header">
+          <span class="utility-panel-title">查找与替换</span>
+          <button class="utility-panel-action" title="上一个"><svg><use href="#i-chevron-right" style="transform:rotate(180deg)"/></svg></button>
+          <button class="utility-panel-action" title="下一个"><svg><use href="#i-chevron-right"/></svg></button>
+          <button class="utility-panel-action" title="区分大小写"><svg><use href="#i-info"/></svg></button>
+          <button class="utility-panel-action" title="正则"><svg><use href="#i-code"/></svg></button>
+          <button class="utility-panel-action" title="关闭"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="utility-panel-row">
+          <input class="input" value="闭包" style="flex:1">
+          <span style="font:11px var(--font-mono);color:var(--color-text-soft);min-width:60px;text-align:right">1 / 6</span>
+        </div>
+        <div class="utility-panel-row">
+          <input class="input" placeholder="替换为…" style="flex:1">
+          <button class="btn btn-secondary btn-sm">替换</button>
+          <button class="btn btn-primary btn-sm">全部替换</button>
+        </div>
+        <div class="utility-panel-footer">
+          <kbd>⌘F</kbd> 查找 · <kbd>⌘H</kbd> 替换 · <kbd>⇧↵</kbd> 反向
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 21. 表格对话框 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">21</span>
+      <h2 class="demo-section-title">表格对话框</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">选择行列数</div>
+      <div class="table-dialog">
+        <div class="table-dialog-title">插入表格</div>
+        <div class="table-dialog-grid" id="table-grid">
+          <!-- 8x8 grid generated below -->
+        </div>
+        <div class="table-dialog-meta">
+          <span id="table-meta-text">3 × 3</span>
+          <div class="demo-card-row">
+            <button class="btn btn-ghost btn-sm">取消</button>
+            <button class="btn btn-primary btn-sm">插入</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 22. 命令面板 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">22</span>
+      <h2 class="demo-section-title">命令面板 · ⌘K</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">命令面板（同搜索面板）</div>
+      <div class="command-panel">
+        <div class="command-panel-search">
+          <div class="top-bar-search" style="border:0;box-shadow:none;background:transparent;padding:0">
+            <span class="top-bar-search-icon"><svg><use href="#i-search"/></svg></span>
+            <input class="top-bar-search-input" value="新建" placeholder="输入命令或搜索…">
+            <span class="top-bar-search-kbd">ESC</span>
+          </div>
+        </div>
+        <div class="command-panel-list">
+          <div class="command-panel-section">操作</div>
+          <div class="command-panel-item" data-selected="true">
+            <span class="command-panel-item-icon" style="background:var(--color-mint-soft);color:var(--color-mint-700)"><svg><use href="#i-plus"/></svg></span>
+            <span class="command-panel-item-label">新建笔记</span>
+            <span class="command-panel-item-kbd">⌘N</span>
+          </div>
+          <div class="command-panel-item">
+            <span class="command-panel-item-icon" style="background:var(--color-mint-soft);color:var(--color-mint-700)"><svg><use href="#i-folder-plus"/></svg></span>
+            <span class="command-panel-item-label">新建文件夹</span>
+            <span class="command-panel-item-kbd">⌘⇧N</span>
+          </div>
+          <div class="command-panel-section">导航</div>
+          <div class="command-panel-item">
+            <span class="command-panel-item-icon"><svg><use href="#i-outline"/></svg></span>
+            <span class="command-panel-item-label">跳转到今日笔记</span>
+            <span class="command-panel-item-kbd">G T</span>
+          </div>
+          <div class="command-panel-item">
+            <span class="command-panel-item-icon"><svg><use href="#i-star"/></svg></span>
+            <span class="command-panel-item-label">跳转到收藏</span>
+            <span class="command-panel-item-kbd">G F</span>
+          </div>
+          <div class="command-panel-section">视图</div>
+          <div class="command-panel-item">
+            <span class="command-panel-item-icon"><svg><use href="#i-task-square"/></svg></span>
+            <span class="command-panel-item-label">切换编辑/预览模式</span>
+            <span class="command-panel-item-kbd">⌘E</span>
+          </div>
+          <div class="command-panel-item">
+            <span class="command-panel-item-icon"><svg><use href="#i-info"/></svg></span>
+            <span class="command-panel-item-label">显示/隐藏侧栏</span>
+            <span class="command-panel-item-kbd">⌘\\</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 23. 状态指示器 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">23</span>
+      <h2 class="demo-section-title">状态指示器</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">保存状态 4 种</div>
+      <div class="demo-card-row" style="margin-bottom:16px">
+        <span class="save-indicator"><span class="save-dot"></span>已保存 · 14:32</span>
+        <span class="save-indicator"><span class="save-dot" data-state="saving"></span>正在保存…</span>
+        <span class="save-indicator"><span class="save-dot" data-state="dirty"></span>未保存</span>
+        <span class="save-indicator"><span class="save-dot" data-state="error"></span>保存失败</span>
+      </div>
+      <div class="demo-card-title">状态栏操作</div>
+      <div class="demo-card-row" style="margin-top:8px">
+        <span class="status-action">2,418 字</span>
+        <span class="status-action">5 个知识点</span>
+        <span class="status-action">学习空间</span>
+        <span class="status-action">极光 · Aurora</span>
+        <span class="status-action" style="color:var(--color-mint-600)">已同步</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 24. 空状态 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">24</span>
+      <h2 class="demo-section-title">空状态</h2>
+    </div>
+    <div class="demo-grid demo-grid-3">
+      <div class="demo-card" style="padding:0">
+        <div class="empty-state">
+          <div class="empty-state-icon"><svg><use href="#i-folder"/></svg></div>
+          <div class="empty-state-title">文件夹是空的</div>
+          <div class="empty-state-desc">在这里新建你的第一篇笔记，开始沉淀知识。</div>
+          <div class="demo-card-row" style="justify-content:center">
+            <button class="btn btn-primary btn-sm"><svg><use href="#i-plus"/></svg>新建笔记</button>
+            <button class="btn btn-secondary btn-sm">导入 Markdown</button>
+          </div>
+        </div>
+      </div>
+      <div class="demo-card" style="padding:0">
+        <div class="empty-state">
+          <div class="empty-state-icon"><svg><use href="#i-search"/></svg></div>
+          <div class="empty-state-title">没有找到匹配的笔记</div>
+          <div class="empty-state-desc">试试调整搜索关键词，或清空部分筛选条件。</div>
+          <div class="demo-card-row" style="justify-content:center">
+            <button class="btn btn-secondary btn-sm">清空筛选</button>
+          </div>
+        </div>
+      </div>
+      <div class="demo-card" style="padding:0">
+        <div class="empty-state">
+          <div class="empty-state-icon" style="background:var(--gradient-aurora-soft);color:var(--color-aurora-700)">
+            <svg style="animation:auroraPulse 2s ease-in-out infinite"><use href="#i-spark"/></svg>
+          </div>
+          <div class="empty-state-title">正在加载…</div>
+          <div class="empty-state-desc">正在获取工作区数据，片刻就好。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================== 25. Toast 通知 ======================== -->
+  <section class="demo-section">
+    <div class="demo-section-header">
+      <span class="demo-section-num">25</span>
+      <h2 class="demo-section-title">Toast 通知</h2>
+    </div>
+    <div class="demo-card">
+      <div class="demo-card-title">3 种类型</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="toast" data-type="success">
+          <span class="toast-icon"><svg><use href="#i-check"/></svg></span>
+          <div class="toast-content">
+            <div class="toast-title">笔记已保存</div>
+            <div class="toast-desc">2,418 字 · 自动同步到本地</div>
+          </div>
+          <button class="toast-close"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="toast" data-type="warning">
+          <span class="toast-icon"><svg><use href="#i-warning"/></svg></span>
+          <div class="toast-content">
+            <div class="toast-title">标签即将被删除</div>
+            <div class="toast-desc">该标签关联 3 篇笔记，确认后这些笔记将移除该标签。</div>
+          </div>
+          <button class="toast-close"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="toast" data-type="error">
+          <span class="toast-icon"><svg><use href="#i-x"/></svg></span>
+          <div class="toast-content">
+            <div class="toast-title">保存失败</div>
+            <div class="toast-desc">磁盘空间不足，请清理后重试。</div>
+          </div>
+          <button class="toast-close"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.75"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer style="margin-top:60px;padding:24px 0;border-top:1px solid var(--color-border);text-align:center;font-size:12px;color:var(--color-text-soft)">
+    极光 · Aurora UI Demo — 选中后重构时再合入主应用
+  </footer>
+
+</div>
+
+<!-- 表格对话框交互：标记 hover/active 的格子 -->
+<script>
+  (function () {
+    var grid = document.getElementById('table-grid');
+    if (!grid) return;
+    var html = '';
+    for (var r = 1; r <= 8; r++) {
+      for (var c = 1; c <= 8; c++) {
+        var active = (r === 3 && c === 3) ? ' data-active="true"' : '';
+        html += '<div class="table-dialog-cell" data-row="' + r + '" data-col="' + c + '"' + active + '></div>';
+      }
+    }
+    grid.innerHTML = html;
+  })();
+</script>
+
+</body>
+</html>
+
+</div>
+
+</body>
+</html>

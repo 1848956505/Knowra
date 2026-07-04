@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>脉冲原型台 - Study UI Theme Demo</title>
+  <style>
+    :root {
+      --bg: #071017;
+      --bg-elevated: rgba(10, 20, 30, 0.86);
+      --bg-panel: rgba(15, 28, 40, 0.9);
+      --bg-soft: rgba(20, 35, 49, 0.78);
+      --bg-reading: #eff3f6;
+      --bg-reading-edge: #d7e0e6;
+      --line: rgba(140, 185, 214, 0.2);
+      --line-strong: rgba(140, 185, 214, 0.38);
+      --text: #e5f2ff;
+      --text-soft: #91a7bd;
+      --text-dim: #698096;
+      --text-reading: #11202c;
+      --accent: #60f0ff;
+      --accent-2: #7b8cff;
+      --accent-3: #ffb86b;
+      --danger: #ff6f91;
+      --success: #74f6b6;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+      --pulse: 0 0 0 1px rgba(96, 240, 255, 0.3), 0 0 28px rgba(96, 240, 255, 0.14);
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "Consolas", "SFMono-Regular", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: var(--font-ui);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 20%, rgba(96, 240, 255, 0.14), transparent 22%),
+        radial-gradient(circle at 80% 12%, rgba(123, 140, 255, 0.18), transparent 18%),
+        radial-gradient(circle at 78% 82%, rgba(255, 184, 107, 0.12), transparent 22%),
+        linear-gradient(135deg, #02060b 0%, #071017 34%, #091722 100%);
+    }
+
+    body {
+      padding: 28px;
+    }
+
+    .page-shell {
+      max-width: 1540px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .hero-card,
+    .meta-card,
+    .workspace,
+    .module-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(10, 18, 27, 0.92), rgba(8, 15, 22, 0.82));
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::before,
+    .meta-card::before,
+    .workspace::before,
+    .module-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(125deg, rgba(96, 240, 255, 0.08), transparent 32%, transparent 70%, rgba(123, 140, 255, 0.08));
+      pointer-events: none;
+    }
+
+    .hero-card {
+      padding: 34px 34px 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--accent);
+      font: 600 12px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(96, 240, 255, 0), rgba(96, 240, 255, 0.9));
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: 56px;
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--text-soft);
+      line-height: 1.7;
+      max-width: 72ch;
+    }
+
+    .hero-tags,
+    .micro-grid,
+    .status-row,
+    .note-tags,
+    .ai-actions,
+    .dock-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-tags {
+      margin-top: 24px;
+    }
+
+    .tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(96, 240, 255, 0.22);
+      color: var(--text);
+      background: rgba(96, 240, 255, 0.06);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    .meta-card {
+      padding: 28px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font: 600 13px/1 var(--font-mono);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+    }
+
+    .micro-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .micro {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      min-height: 112px;
+    }
+
+    .micro b {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: white;
+    }
+
+    .micro span {
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 84px 300px minmax(0, 1fr) 350px;
+      grid-template-rows: 74px minmax(760px, auto) 54px;
+      min-height: 920px;
+    }
+
+    .rail {
+      grid-row: 1 / span 3;
+      padding: 18px 14px;
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(7, 13, 20, 0.98), rgba(6, 11, 17, 0.92));
+    }
+
+    .rail-brand,
+    .rail-button,
+    .user-chip {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+    }
+
+    .rail-brand {
+      border: 1px solid rgba(96, 240, 255, 0.4);
+      box-shadow: var(--pulse);
+      color: var(--accent);
+      font: 700 18px/1 var(--font-mono);
+      margin: 0 auto;
+    }
+
+    .rail-stack {
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+    }
+
+    .rail-button {
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-soft);
+      font-size: 11px;
+      text-align: center;
+      position: relative;
+    }
+
+    .rail-button.active {
+      color: white;
+      border-color: rgba(96, 240, 255, 0.35);
+      box-shadow: var(--pulse);
+      background: linear-gradient(180deg, rgba(96, 240, 255, 0.11), rgba(96, 240, 255, 0.03));
+    }
+
+    .rail-button span {
+      display: block;
+      font-size: 10px;
+      margin-top: 3px;
+      letter-spacing: 0.08em;
+    }
+
+    .topbar {
+      grid-column: 2 / span 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(8, 14, 21, 0.72);
+      backdrop-filter: blur(20px);
+    }
+
+    .searchbox {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 15px 18px;
+      border: 1px solid rgba(96, 240, 255, 0.3);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(12, 24, 36, 0.95), rgba(9, 19, 29, 0.86));
+      box-shadow: var(--pulse);
+      max-width: 660px;
+    }
+
+    .searchbox .kbd {
+      margin-left: auto;
+      padding: 6px 8px;
+      border-radius: 9px;
+      border: 1px solid var(--line);
+      font: 600 11px/1 var(--font-mono);
+      color: var(--text-dim);
+    }
+
+    .searchbox strong {
+      font-weight: 500;
+      color: var(--text-soft);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ghost-btn,
+    .solid-btn {
+      border-radius: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .solid-btn {
+      border-color: rgba(96, 240, 255, 0.35);
+      background: linear-gradient(90deg, rgba(96, 240, 255, 0.16), rgba(123, 140, 255, 0.18));
+      box-shadow: var(--pulse);
+    }
+
+    .sidebar,
+    .aside {
+      padding: 22px 18px;
+      background: rgba(8, 14, 21, 0.78);
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+    }
+
+    .aside {
+      border-left: 1px solid var(--line);
+    }
+
+    .pane-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .pane-header h2,
+    .pane-header h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+    }
+
+    .tiny {
+      color: var(--text-dim);
+      font: 600 11px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .tree-group {
+      margin-bottom: 20px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tree-group-title {
+      display: flex;
+      justify-content: space-between;
+      color: var(--accent-3);
+      font: 600 11px/1 var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 14px;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 13px;
+      border-radius: 14px;
+      color: var(--text-soft);
+      font-size: 14px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+      position: relative;
+    }
+
+    .tree-item.active {
+      color: white;
+      border-color: rgba(96, 240, 255, 0.28);
+      box-shadow: var(--pulse);
+      background: linear-gradient(90deg, rgba(96, 240, 255, 0.08), rgba(96, 240, 255, 0.02));
+    }
+
+    .tree-item.active::before {
+      content: "KB-07";
+      position: absolute;
+      top: -9px;
+      right: 12px;
+      padding: 2px 6px;
+      border: 1px solid rgba(255, 184, 107, 0.2);
+      border-radius: 999px;
+      color: var(--accent-3);
+      background: rgba(255, 184, 107, 0.08);
+      font: 600 9px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+    }
+
+    .count {
+      color: var(--text-dim);
+      font: 600 11px/1 var(--font-mono);
+    }
+
+    .editor {
+      padding: 0;
+      background:
+        linear-gradient(180deg, rgba(5, 9, 14, 0.16), rgba(5, 9, 14, 0.06)),
+        linear-gradient(180deg, rgba(10, 17, 25, 0.85), rgba(9, 15, 22, 0.6));
+      display: grid;
+      grid-template-rows: 54px 58px minmax(0, 1fr);
+    }
+
+    .tabbar,
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      padding: 12px 14px;
+      border-radius: 14px 14px 0 0;
+      color: var(--text-dim);
+      font-size: 13px;
+      border-top: 2px solid transparent;
+    }
+
+    .tab.active {
+      color: white;
+      border-top-color: var(--accent);
+      background: rgba(239, 243, 246, 0.06);
+    }
+
+    .tool {
+      padding: 9px 12px;
+      border-radius: 12px;
+      color: var(--text-soft);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      font-size: 13px;
+    }
+
+    .tool.active {
+      border-color: rgba(96, 240, 255, 0.28);
+      color: white;
+      box-shadow: var(--pulse);
+    }
+
+    .tool-spacer {
+      flex: 1;
+    }
+
+    .canvas-wrap {
+      padding: 28px 34px 34px;
+      overflow: auto;
+    }
+
+    .canvas {
+      max-width: 780px;
+      margin: 0 auto;
+      min-height: 100%;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 243, 246, 0.98));
+      color: var(--text-reading);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+        0 34px 60px rgba(0, 0, 0, 0.35);
+      border-radius: 26px;
+      padding: 54px 60px;
+      position: relative;
+    }
+
+    .canvas::before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border: 1px solid rgba(17, 32, 44, 0.08);
+      border-radius: 18px;
+      pointer-events: none;
+    }
+
+    .doc-code {
+      font: 600 11px/1 var(--font-mono);
+      color: #5e7080;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    .doc-title {
+      margin: 0 0 10px;
+      font-size: 42px;
+      line-height: 1.04;
+      letter-spacing: -0.04em;
+    }
+
+    .doc-meta {
+      margin: 0 0 28px;
+      color: #5f7283;
+      font-size: 14px;
+    }
+
+    .doc-body {
+      font-size: 17px;
+      line-height: 1.88;
+      color: #182936;
+    }
+
+    .doc-body h3 {
+      margin: 34px 0 10px;
+      font-size: 22px;
+    }
+
+    .doc-body p {
+      margin: 0 0 16px;
+    }
+
+    .doc-body mark {
+      background: linear-gradient(90deg, rgba(96, 240, 255, 0.18), rgba(123, 140, 255, 0.14));
+      color: inherit;
+      padding: 0.12em 0.2em;
+      border-radius: 0.35em;
+    }
+
+    .signal-quote {
+      margin: 24px 0;
+      padding: 18px 20px 18px 24px;
+      border-left: 3px solid var(--accent);
+      background: linear-gradient(90deg, rgba(96, 240, 255, 0.07), rgba(96, 240, 255, 0.01));
+      border-radius: 0 16px 16px 0;
+      color: #294252;
+    }
+
+    .scanline {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(96, 240, 255, 0.6), transparent);
+      margin: 24px 0;
+      opacity: 0.8;
+    }
+
+    .aside-section {
+      margin-bottom: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .aside-section.ai {
+      border-color: rgba(96, 240, 255, 0.28);
+      box-shadow: var(--pulse);
+      background: linear-gradient(180deg, rgba(96, 240, 255, 0.08), rgba(13, 26, 38, 0.88));
+    }
+
+    .aside-section h4 {
+      margin: 0 0 14px;
+      font-size: 14px;
+    }
+
+    .note-tags {
+      margin-top: 4px;
+    }
+
+    .note-tags .tag {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--line);
+    }
+
+    .knowledge-card {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(7, 14, 21, 0.36);
+      border: 1px solid rgba(96, 240, 255, 0.15);
+      margin-bottom: 12px;
+    }
+
+    .knowledge-card strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .knowledge-card p,
+    .ai-log p,
+    .system-list p {
+      margin: 0;
+      color: var(--text-soft);
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .ai-log {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bubble {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .bubble.ai {
+      border-color: rgba(96, 240, 255, 0.2);
+      background: rgba(96, 240, 255, 0.08);
+    }
+
+    .ai-actions {
+      margin-top: 12px;
+    }
+
+    .pill {
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(96, 240, 255, 0.2);
+      background: rgba(96, 240, 255, 0.05);
+      color: white;
+      font-size: 12px;
+    }
+
+    .statusbar {
+      grid-column: 2 / span 3;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 24px;
+      border-top: 1px solid var(--line);
+      background: rgba(6, 11, 17, 0.92);
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 10px rgba(116, 246, 182, 0.7);
+    }
+
+    .dot.warn {
+      background: var(--accent-3);
+      box-shadow: 0 0 10px rgba(255, 184, 107, 0.7);
+    }
+
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .module-card {
+      padding: 20px;
+      min-height: 240px;
+    }
+
+    .module-card h3 {
+      margin: 10px 0 8px;
+      font-size: 22px;
+    }
+
+    .module-card p {
+      color: var(--text-soft);
+      line-height: 1.7;
+      font-size: 14px;
+      margin: 0 0 18px;
+    }
+
+    .dock-row {
+      margin-top: auto;
+    }
+
+    .chip {
+      padding: 9px 11px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .orange {
+      color: var(--accent-3);
+    }
+
+    .cyan {
+      color: var(--accent);
+    }
+
+    .violet {
+      color: #b4bcff;
+    }
+
+    .danger {
+      color: var(--danger);
+    }
+
+    @keyframes pulseBorder {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(96, 240, 255, 0.28), 0 0 14px rgba(96, 240, 255, 0.12); }
+      50% { box-shadow: 0 0 0 1px rgba(96, 240, 255, 0.48), 0 0 24px rgba(96, 240, 255, 0.22); }
+    }
+
+    .active-pulse {
+      animation: pulseBorder 2.6s ease-in-out infinite;
+    }
+
+    @media (max-width: 1280px) {
+      .hero,
+      .modules {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .workspace {
+        grid-template-columns: 76px 260px minmax(0, 1fr);
+      }
+
+      .aside {
+        display: none;
+      }
+
+      .topbar,
+      .statusbar {
+        grid-column: 2 / span 2;
+      }
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 16px;
+      }
+
+      .hero,
+      .modules {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace {
+        display: block;
+        min-height: auto;
+      }
+
+      .rail,
+      .sidebar,
+      .statusbar {
+        display: none;
+      }
+
+      .topbar {
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      }
+
+      .canvas {
+        padding: 34px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <section class="hero">
+      <article class="hero-card">
+        <div class="eyebrow">Theme Prototype / Pulse Lab</div>
+        <h1>脉冲原型台</h1>
+        <p>
+          这是一套为 Study 设计的未来实验室主题 demo。它不是全屏赛博风，而是把强表达集中在
+          AI 面板、状态层、选中态和系统入口，同时让正文区保持稳定、清晰、能长时间阅读。
+        </p>
+        <div class="hero-tags">
+          <span class="tag">A 主体: 脉冲原型台</span>
+          <span class="tag">B 混入: 数字档案秩序</span>
+          <span class="tag">C 点缀: 锐利实验界面</span>
+          <span class="tag">Quiet Reading + Active System</span>
+        </div>
+      </article>
+
+      <aside class="meta-card">
+        <div class="card-title">
+          <span>System Notes</span>
+          <span>REV.01</span>
+        </div>
+        <div class="micro-grid">
+          <div class="micro">
+            <b>01</b>
+            <span>主内容区采用亮色阅读屏，和外围深色系统壳形成明确分工。</span>
+          </div>
+          <div class="micro">
+            <b>02</b>
+            <span>边界、搜索、选中态用“通电脉冲”表达，而不是普通高亮块。</span>
+          </div>
+          <div class="micro">
+            <b>03</b>
+            <span>笔记、知识点、标签引入档案编号和索引气质，强化知识库身份。</span>
+          </div>
+          <div class="micro">
+            <b>04</b>
+            <span>AI 和系统状态区更有能量感，形成未来工作台的记忆点。</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="workspace">
+      <aside class="rail">
+        <div class="rail-brand">PL</div>
+        <div class="rail-stack">
+          <div class="rail-button active active-pulse">知<span>KB</span></div>
+          <div class="rail-button">题<span>QUIZ</span></div>
+          <div class="rail-button">智<span>AI</span></div>
+          <div class="rail-button">任<span>TASK</span></div>
+          <div class="rail-button">复<span>REVIEW</span></div>
+        </div>
+        <div class="user-chip rail-brand" style="width:52px;height:52px;font-size:15px;">JL</div>
+      </aside>
+
+      <header class="topbar">
+        <div class="searchbox active-pulse">
+          <span class="cyan">◎</span>
+          <strong>搜索笔记、知识点、标签、命令...</strong>
+          <span class="kbd">Ctrl K</span>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-btn">导入资料</button>
+          <button class="solid-btn">新建实验笔记</button>
+        </div>
+      </header>
+
+      <aside class="sidebar">
+        <div class="pane-header">
+          <h2>知识树</h2>
+          <span class="tiny">Archive Layer</span>
+        </div>
+
+        <div class="tree-group">
+          <div class="tree-group-title"><span>Study Core</span><span>12</span></div>
+          <div class="tree-item"><span>JavaScript 语言机制</span><span class="count">06</span></div>
+          <div class="tree-item active"><span>闭包 / 词法环境 / 捕获</span><span class="count">03</span></div>
+          <div class="tree-item"><span>异步与事件循环</span><span class="count">07</span></div>
+          <div class="tree-item"><span>原型链与继承结构</span><span class="count">04</span></div>
+        </div>
+
+        <div class="tree-group">
+          <div class="tree-group-title"><span>Design System</span><span>09</span></div>
+          <div class="tree-item"><span>布局骨架与留白</span><span class="count">02</span></div>
+          <div class="tree-item"><span>组件边界表达</span><span class="count">05</span></div>
+          <div class="tree-item"><span>状态反馈语言</span><span class="count">03</span></div>
+        </div>
+
+        <div class="tree-group">
+          <div class="tree-group-title"><span>Personal Dock</span><span>14</span></div>
+          <div class="tree-item"><span>收藏笔记</span><span class="count">08</span></div>
+          <div class="tree-item"><span>最近编辑</span><span class="count">12</span></div>
+          <div class="tree-item"><span>待复习</span><span class="count">06</span></div>
+        </div>
+      </aside>
+
+      <main class="editor">
+        <nav class="tabbar">
+          <div class="tab">知识总览</div>
+          <div class="tab active">闭包 / 词法环境 / 捕获</div>
+          <div class="tab">异步与事件循环</div>
+        </nav>
+
+        <div class="toolbar">
+          <span class="tool active">H1</span>
+          <span class="tool">H2</span>
+          <span class="tool">引用</span>
+          <span class="tool">代码</span>
+          <span class="tool">表格</span>
+          <span class="tool">知识点</span>
+          <span class="tool-spacer"></span>
+          <span class="tiny">2,418 chars / linked to 5 nodes</span>
+        </div>
+
+        <div class="canvas-wrap">
+          <article class="canvas">
+            <div class="doc-code">KB-07 / Runtime Semantics / Live Draft</div>
+            <h1 class="doc-title">闭包为什么总让人“感觉神秘”</h1>
+            <p class="doc-meta">更新时间 2026-07-02 · 工作区 / JavaScript / 核心机制</p>
+
+            <div class="doc-body">
+              <p>
+                很多人第一次理解闭包时，卡住的不是定义，而是感受。
+                你知道“函数记住了外层变量”，但真正困惑的是：
+                <mark>它到底记住了什么，又为什么在外层函数结束后还能继续工作？</mark>
+              </p>
+
+              <div class="scanline"></div>
+
+              <h3>1. 不是记住一个值，而是记住一段环境</h3>
+              <p>
+                闭包并不是把某个变量的“数值副本”偷偷带走了，而是让函数持续持有对原始词法环境的访问能力。
+                所以当环境中的值变化时，闭包访问到的也会是最新状态。
+              </p>
+
+              <blockquote class="signal-quote">
+                把闭包想成“带走了一把钥匙”，比“带走了一张快照”更接近真实。
+              </blockquote>
+
+              <h3>2. 为什么这对 React、事件处理、异步回调都重要</h3>
+              <p>
+                只要一个函数被稍后调用，它几乎就离不开闭包。按钮点击、定时器回调、Promise 链、React Hook，
+                本质上都依赖函数在未来某个时刻重新拿到当前上下文里的东西。
+              </p>
+
+              <p>
+                这也是为什么 stale closure 问题会出现：不是闭包失效了，而是我们误判了“未来会读到哪一层环境”。
+              </p>
+
+              <div class="scanline"></div>
+
+              <h3>3. 一个更适合记忆的理解方式</h3>
+              <p>
+                把函数看成一个可移动的执行模块，把词法环境看成它的供电接口。
+                函数被带去别的地方执行时，只要这条供电链没有断，它就仍然能访问创建它时那一层作用域。
+              </p>
+            </div>
+          </article>
+        </div>
+      </main>
+
+      <aside class="aside">
+        <div class="pane-header">
+          <h3>分析舱</h3>
+          <span class="tiny">AI / Links / Signals</span>
+        </div>
+
+        <section class="aside-section">
+          <h4>本页标签</h4>
+          <div class="note-tags">
+            <span class="tag">#JavaScript</span>
+            <span class="tag">#闭包</span>
+            <span class="tag">#作用域</span>
+            <span class="tag">#React</span>
+          </div>
+        </section>
+
+        <section class="aside-section">
+          <h4>知识点索引</h4>
+          <div class="knowledge-card">
+            <strong>KP-021 / 词法环境</strong>
+            <p>变量查找不是按调用点决定，而是按定义位置决定。</p>
+          </div>
+          <div class="knowledge-card">
+            <strong>KP-022 / stale closure</strong>
+            <p>未来时刻执行的函数引用了旧渲染周期里的环境。</p>
+          </div>
+        </section>
+
+        <section class="aside-section ai active-pulse">
+          <h4>AI 分析舱</h4>
+          <div class="ai-log">
+            <div class="bubble">
+              <p>用户提问：为什么 Hook 里容易遇到 stale closure？</p>
+            </div>
+            <div class="bubble ai">
+              <p>建议从“闭包记住的是环境而不是瞬时值”切入，再对比 React 每次 render 都会生成新函数。</p>
+            </div>
+          </div>
+          <div class="ai-actions">
+            <span class="pill">生成对比表</span>
+            <span class="pill">抽取知识卡</span>
+            <span class="pill">改写为口语解释</span>
+          </div>
+        </section>
+
+        <section class="aside-section system-list">
+          <h4>系统反馈</h4>
+          <p><span class="orange">[SCAN]</span> 已识别 5 个潜在知识点</p>
+          <p><span class="cyan">[LINK]</span> 关联到 3 篇历史笔记</p>
+          <p><span class="violet">[STATE]</span> 当前草稿已自动保存</p>
+          <p><span class="danger">[WARN]</span> 有 1 处术语解释仍偏抽象</p>
+        </section>
+      </aside>
+
+      <footer class="statusbar">
+        <span class="status-pill"><span class="dot"></span>已保存</span>
+        <span class="status-pill"><span class="dot warn"></span>AI 可用</span>
+        <span class="status-pill">Pulse Lab Theme / Experimental Shell</span>
+        <span class="status-pill">Knowledge Graph Synced</span>
+      </footer>
+    </section>
+
+    <section class="modules">
+      <article class="module-card">
+        <div class="tiny orange">Motif 01</div>
+        <h3>脉冲边界</h3>
+        <p>所有“当前激活”的部件不是单纯换底色，而是像通电后的模块边缘。这样主题的识别点会落在状态上，而不是落在装饰上。</p>
+        <div class="dock-row">
+          <span class="chip">Search Focus</span>
+          <span class="chip">Active Tab</span>
+          <span class="chip">AI Dock</span>
+        </div>
+      </article>
+
+      <article class="module-card">
+        <div class="tiny orange">Motif 02</div>
+        <h3>档案秩序</h3>
+        <p>知识树、知识点卡片、文档编号引入一点档案系统味道，让它不像泛用后台，更像一台真的在维护知识资产的设备。</p>
+        <div class="dock-row">
+          <span class="chip">KB-07</span>
+          <span class="chip">KP-021</span>
+          <span class="chip">Archive Layer</span>
+        </div>
+      </article>
+
+      <article class="module-card">
+        <div class="tiny orange">Motif 03</div>
+        <h3>高能集中</h3>
+        <p>把最强的实验感集中在右侧 AI 舱、状态栏、搜索入口和主 CTA。正文区只保留轻量信号，避免长时间学习时视觉疲劳。</p>
+        <div class="dock-row">
+          <span class="chip">AI Chamber</span>
+          <span class="chip">Signal Bar</span>
+          <span class="chip">Primary CTA</span>
+        </div>
+      </article>
+
+      <article class="module-card">
+        <div class="tiny orange">Motif 04</div>
+        <h3>阅读核心</h3>
+        <p>中间的阅读屏是整个主题的“安静岛”。外部越像未来系统，中央就越要稳定、干净、可读，这样对比才成立。</p>
+        <div class="dock-row">
+          <span class="chip">Light Reading Canvas</span>
+          <span class="chip">Long-form Friendly</span>
+          <span class="chip">Stable Contrast</span>
+        </div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

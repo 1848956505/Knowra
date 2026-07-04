@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 export const appFactoryTests = [
   {
@@ -97,6 +100,33 @@ export const appFactoryTests = [
       assert.equal(imported.data.notes[0].id, 'note-2');
       assert.equal(imported.attachmentFiles[0].id, 'attachment-2');
       assert.equal(dataStore.state.spaces[0].id, 'space-2');
+    }
+  },
+  {
+    name: 'createPersistentAppContext resolves storage paths from the workspace root instead of cwd',
+    async run() {
+      const { createPersistentAppContext, resolveStoragePath } = await import('../src/app.factory.js');
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'study-app-factory-'));
+      const originalCwd = process.cwd();
+      const apiCwd = originalCwd.endsWith(path.join('apps', 'api'))
+        ? originalCwd
+        : path.join(originalCwd, 'apps', 'api');
+
+      try {
+        process.chdir(apiCwd);
+
+        const app = createPersistentAppContext({ storageRootDir: tempRoot });
+        const expectedDataFilePath = path.join(tempRoot, 'storage', 'data', 'knowledge-base.json');
+        const expectedUploadsDir = path.join(tempRoot, 'storage', 'uploads');
+
+        assert.equal(fs.existsSync(expectedDataFilePath), true);
+        assert.equal(fs.existsSync(expectedUploadsDir), true);
+        assert.equal(resolveStoragePath('storage/data/knowledge-base.json', tempRoot), expectedDataFilePath);
+        assert.equal(app.dataStore.state.notes.length, 0);
+      } finally {
+        process.chdir(originalCwd);
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
     }
   }
 ];
