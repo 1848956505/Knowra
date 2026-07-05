@@ -53,7 +53,7 @@ cat ~/.ssh/id_ed25519.pub
 ```bash
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
-printf '%s\n' '这里粘贴 MacBook 的 ssh-ed25519 公钥整行' >> ~/.ssh/authorized_keys
+printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIm+9chI8ys897hzAxZB59G0J4yu7ROdpGGW72R2kiNK macbook-codex' >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 ```
 
@@ -107,6 +107,37 @@ pm2 logs study-web
 pm2 restart study-api study-web --update-env
 pm2 save
 ```
+
+## 部署流程
+
+代码用 git 部署时必须分两步：**拉代码 → 跑 post-deploy**。后者必须执行，因为
+`apps/web/lib/editor/milkdown-bundle.{js,css}` 是 `.gitignore` 排除的构建产物，
+git 拉下来的代码里没有它们，会导致前端 `/lib/editor/milkdown-bundle.js` 404、
+页面整体空白、按钮无反应。
+
+```bash
+cd /opt/study-accelerator
+
+# 1. 拉取新代码
+git pull
+
+# 2. 必要时更新依赖
+npm install
+
+# 3. 必须跑：生成 milkdown bundle + 重启 PM2 study-web
+./scripts/post-deploy.sh
+```
+
+`scripts/post-deploy.sh` 等价于：
+
+```bash
+npm run build:editor-bundle -w @study-accelerator/web
+pm2 restart study-web --update-env
+```
+
+> 经验教训：2026-07-05 的 404 事件就是因为部署只跑了 `git pull` + `pm2 restart`，
+> 忘了重新生成 bundle，PM2 起来后发现 bundle 不存在，前端 50% 资源加载失败。
+> 现在把 build 步骤收进 `scripts/post-deploy.sh` 避免再犯。
 
 ## Nginx 配置
 
