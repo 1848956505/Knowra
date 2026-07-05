@@ -14,6 +14,11 @@ assert.match(
   'web dev server should disable browser caching for shell and module responses'
 );
 assert.match(
+  mainJs,
+  /\['GET', 'HEAD'\]\.includes\(request\.method\) && url\.pathname === '\/'/,
+  'web dev server should answer HEAD requests for the homepage so load balancers and probes do not see false 404s'
+);
+assert.match(
   staticAssetsJs,
   /pathname\.startsWith\('\/src\/services\/'\)/,
   'web dev server should serve frontend service modules imported by client.js'

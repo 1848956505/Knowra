@@ -22,17 +22,17 @@ const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
 
-    if (request.method === 'GET' && url.pathname === '/') {
+    if (['GET', 'HEAD'].includes(request.method) && url.pathname === '/') {
       const initialWorkspace = await loadInitialWorkspaceSnapshot({ getApiOrigin });
       response.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-store'
       });
-      response.end(renderHtml(createInitialWorkspaceScript(initialWorkspace)));
+      response.end(request.method === 'HEAD' ? '' : renderHtml(createInitialWorkspaceScript(initialWorkspace)));
       return;
     }
 
-    if (request.method === 'GET' && url.pathname === '/favicon.ico') {
+    if (['GET', 'HEAD'].includes(request.method) && url.pathname === '/favicon.ico') {
       response.writeHead(204, { 'Cache-Control': 'no-store' });
       response.end();
       return;
