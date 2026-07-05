@@ -1,4 +1,4 @@
-import { redoCommand, undoCommand } from '@milkdown/plugin-history';
+import { redoCommand, undoCommand } from '@milkdown/kit/plugin/history';
 import {
   createCodeBlockCommand,
   insertHrCommand,
@@ -10,7 +10,7 @@ import {
   wrapInBulletListCommand,
   wrapInHeadingCommand,
   wrapInOrderedListCommand
-} from '@milkdown/preset-commonmark';
+} from '@milkdown/kit/preset/commonmark';
 import {
   addColAfterCommand,
   addColBeforeCommand,
@@ -20,7 +20,7 @@ import {
   insertTableCommand,
   setAlignCommand,
   toggleStrikethroughCommand
-} from '@milkdown/preset-gfm';
+} from '@milkdown/kit/preset/gfm';
 import { normalizeTableDimension } from '../table/table-dimensions.js';
 
 export function createCommandResolvers({

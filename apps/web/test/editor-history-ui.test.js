@@ -13,7 +13,7 @@ const milkdownHistoryJs = `${milkdownEntry}\n${editorFactoryJs}\n${commandResolv
 
 assert.match(
   milkdownHistoryJs,
-  /import\s*\{[^}]*history[^}]*\}\s*from '@milkdown\/plugin-history';[\s\S]*import\s*\{[^}]*redoCommand[^}]*undoCommand[^}]*\}\s*from '@milkdown\/plugin-history';|import\s*\{[^}]*history[^}]*\}\s*from '@milkdown\/plugin-history';[\s\S]*import\s*\{[^}]*undoCommand[^}]*redoCommand[^}]*\}\s*from '@milkdown\/plugin-history';/,
+  /import\s*\{[^}]*history[^}]*\}\s*from '@milkdown\/kit\/plugin\/history';[\s\S]*import\s*\{[^}]*redoCommand[^}]*undoCommand[^}]*\}\s*from '@milkdown\/kit\/plugin\/history';|import\s*\{[^}]*history[^}]*\}\s*from '@milkdown\/kit\/plugin\/history';[\s\S]*import\s*\{[^}]*undoCommand[^}]*redoCommand[^}]*\}\s*from '@milkdown\/kit\/plugin\/history';/,
   'milkdown editor should import history support and undo/redo commands'
 );
 assert.match(

@@ -143,6 +143,29 @@ runTest('shell click on note result closes shell and selects note', () => {
   assert.equal(selectedId, 'note-42');
 });
 
+runTest('shell click on note result also works from a text-node-like target', () => {
+  const elements = {
+    globalSearchShell: createRecorderElement(),
+    secondaryNavToggle: createRecorderElement(),
+    markdownImportInput: createRecorderElement()
+  };
+  const state = makeState();
+  let selectedId = null;
+  const deps = makeDeps();
+  deps.selectNote = async (id) => { selectedId = id; };
+
+  bindSearchEvents({ state, elements, deps });
+
+  const noteButton = { dataset: { searchNoteId: 'note-text' } };
+  noteButton.closest = makeClosest(new Map([
+    ['[data-search-note-id]', noteButton]
+  ]));
+
+  elements.globalSearchShell.dispatch('click', { parentElement: noteButton });
+
+  assert.equal(selectedId, 'note-text');
+});
+
 runTest('shell input updates keyword and re-renders', () => {
   const elements = {
     globalSearchShell: createRecorderElement(),
@@ -252,6 +275,36 @@ runTest('shell keydown Enter without results is a no-op', () => {
   elements.globalSearchShell.listeners.get('keydown')({
     target,
     key: 'Enter',
+    preventDefault: () => { prevented = true; }
+  });
+
+  assert.equal(prevented, false);
+  assert.equal(selectedId, null);
+});
+
+runTest('shell keydown Enter is ignored during IME composition', () => {
+  const elements = {
+    globalSearchShell: createRecorderElement(),
+    secondaryNavToggle: createRecorderElement(),
+    markdownImportInput: createRecorderElement()
+  };
+  const state = makeState();
+  let selectedId = null;
+  const deps = makeDeps();
+  deps.getSearchResultNotes = () => [{ id: 'note-ime' }];
+  deps.selectNote = async (id) => { selectedId = id; };
+
+  bindSearchEvents({ state, elements, deps });
+
+  const input = { value: 'zhong' };
+  const target = { dataset: {} };
+  target.closest = makeClosest(new Map([['[data-search-input]', input]]));
+
+  let prevented = false;
+  elements.globalSearchShell.listeners.get('keydown')({
+    target,
+    key: 'Enter',
+    isComposing: true,
     preventDefault: () => { prevented = true; }
   });
 

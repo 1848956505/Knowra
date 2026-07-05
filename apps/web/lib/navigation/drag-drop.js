@@ -1,10 +1,12 @@
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 export function resolveDropTarget(target) {
-  const folderButton = target?.closest?.('[data-folder-id]');
+  const folderButton = closestFromEventTarget(target, '[data-folder-id]');
   if (folderButton?.dataset.folderId) {
     return { kind: 'folder', id: folderButton.dataset.folderId };
   }
 
-  const materialsSection = target?.closest?.('[data-materials-section]');
+  const materialsSection = closestFromEventTarget(target, '[data-materials-section]');
   if (materialsSection) {
     return { kind: 'materials', id: null };
   }

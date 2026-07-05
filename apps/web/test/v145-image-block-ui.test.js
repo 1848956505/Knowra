@@ -57,7 +57,7 @@ assert.match(
 
 assert.match(
   editorFactoryJs,
-  /import \{[^}]*imageBlockConfig[^}]*defaultImageBlockConfig[^}]*\} from '@milkdown\/components\/image-block';/,
+  /import \{[^}]*imageBlockConfig[^}]*defaultImageBlockConfig[^}]*\} from '@milkdown\/kit\/component\/image-block';/,
   'editor host should reuse the official Milkdown image-block config from source'
 );
 
@@ -161,6 +161,18 @@ assert.match(
   imageBlockPluginJs,
   /computeFittedImageDimensions|computeResizeRatioFromCornerDrag|IMAGE_PRESET_BUTTONS/,
   'enhanced image block plugin should centralize fitted sizing, proportional dragging, and preset controls'
+);
+
+assert.match(
+  imageBlockResizeJs,
+  /window\.addEventListener\('pointermove', controller\.onPointerMove\);[\s\S]*window\.addEventListener\('pointerup', controller\.onPointerUp\);[\s\S]*window\.addEventListener\('pointercancel', controller\.onPointerUp\);/,
+  'image resize interactions should also recover from pointer cancellation on Safari and trackpads'
+);
+
+assert.match(
+  imageBlockResizeJs,
+  /window\.removeEventListener\('pointermove', controller\.onPointerMove\);[\s\S]*window\.removeEventListener\('pointerup', controller\.onPointerUp\);[\s\S]*window\.removeEventListener\('pointercancel', controller\.onPointerUp\);/,
+  'image resize cleanup should remove pointer cancellation handlers together with the normal drag listeners'
 );
 
 assert.match(

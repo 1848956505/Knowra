@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../../dom/event-target.js';
+
 // aside-events/click.js
 // 侧栏内容（elements.asideContent）click 监听器。1 个监听器覆盖 15 个
 // [data-*] 按钮分支，按原 bindEvents() 顺序逐个 closest + 早退：
@@ -40,59 +42,59 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
   } = deps;
 
   elements.asideContent?.addEventListener('click', (event) => {
-    const linkedButton = event.target.closest('[data-linked-id]');
+    const linkedButton = closestFromEventTarget(event.target, '[data-linked-id]');
     if (linkedButton?.dataset.linkedId) {
       void selectNote(linkedButton.dataset.linkedId, { syncFolder: true });
       return;
     }
 
-    const attachmentButton = event.target.closest('[data-attachment-name]');
+    const attachmentButton = closestFromEventTarget(event.target, '[data-attachment-name]');
     if (attachmentButton?.dataset.attachmentName) {
       flashStatus(`已选中附件：${attachmentButton.dataset.attachmentName}`);
       return;
     }
 
-    const noteTagAddButton = event.target.closest('[data-note-tag-add]');
+    const noteTagAddButton = closestFromEventTarget(event.target, '[data-note-tag-add]');
     if (noteTagAddButton?.dataset.noteTagAdd) {
       state.noteTagComposer.isExpanded = true;
       void addTagToCurrentNote(noteTagAddButton.dataset.noteTagAdd);
       return;
     }
 
-    const noteTagRemoveButton = event.target.closest('[data-note-tag-remove]');
+    const noteTagRemoveButton = closestFromEventTarget(event.target, '[data-note-tag-remove]');
     if (noteTagRemoveButton?.dataset.noteTagRemove) {
       void removeTagFromCurrentNote(noteTagRemoveButton.dataset.noteTagRemove);
       return;
     }
 
-    const noteTagToggleButton = event.target.closest('[data-note-tag-toggle]');
+    const noteTagToggleButton = closestFromEventTarget(event.target, '[data-note-tag-toggle]');
     if (noteTagToggleButton) {
       state.noteTagComposer.isExpanded = !state.noteTagComposer.isExpanded;
       renderSidebar(getCurrentNote());
       return;
     }
 
-    const noteTagCreateButton = event.target.closest('[data-note-tag-create]');
+    const noteTagCreateButton = closestFromEventTarget(event.target, '[data-note-tag-create]');
     if (noteTagCreateButton) {
       void createTagAndAssignToCurrentNote(state.noteTagComposer.draft);
       return;
     }
 
-    const knowledgePointFilterToggle = event.target.closest('[data-knowledge-point-filter-toggle]');
+    const knowledgePointFilterToggle = closestFromEventTarget(event.target, '[data-knowledge-point-filter-toggle]');
     if (knowledgePointFilterToggle) {
       state.knowledgePointFilters.isOpen = !state.knowledgePointFilters.isOpen;
       renderSidebar(getCurrentNote());
       return;
     }
 
-    const knowledgePointFilterClear = event.target.closest('[data-knowledge-point-filter-clear]');
+    const knowledgePointFilterClear = closestFromEventTarget(event.target, '[data-knowledge-point-filter-clear]');
     if (knowledgePointFilterClear) {
       state.knowledgePointFilters = { query: '', tagIds: [], isOpen: false };
       renderSidebar(getCurrentNote());
       return;
     }
 
-    const knowledgePointFilterTag = event.target.closest('[data-knowledge-point-filter-tag]');
+    const knowledgePointFilterTag = closestFromEventTarget(event.target, '[data-knowledge-point-filter-tag]');
     if (knowledgePointFilterTag?.dataset.knowledgePointFilterTag) {
       const tagId = knowledgePointFilterTag.dataset.knowledgePointFilterTag;
       const selectedTagIds = new Set(state.knowledgePointFilters.tagIds ?? []);
@@ -110,7 +112,7 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
       return;
     }
 
-    const knowledgePointToggle = event.target.closest('[data-knowledge-point-toggle]');
+    const knowledgePointToggle = closestFromEventTarget(event.target, '[data-knowledge-point-toggle]');
     if (knowledgePointToggle?.dataset.knowledgePointToggle) {
       const pointId = knowledgePointToggle.dataset.knowledgePointToggle;
       state.expandedKnowledgePointIds = {
@@ -121,7 +123,7 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
       return;
     }
 
-    const knowledgePointEdit = event.target.closest('[data-knowledge-point-edit]');
+    const knowledgePointEdit = closestFromEventTarget(event.target, '[data-knowledge-point-edit]');
     if (knowledgePointEdit?.dataset.knowledgePointEdit) {
       const point = state.knowledgePoints.find((item) => item.id === knowledgePointEdit.dataset.knowledgePointEdit);
       if (!point) {
@@ -140,14 +142,14 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
       return;
     }
 
-    const knowledgePointEditCancel = event.target.closest('[data-knowledge-point-edit-cancel]');
+    const knowledgePointEditCancel = closestFromEventTarget(event.target, '[data-knowledge-point-edit-cancel]');
     if (knowledgePointEditCancel) {
       state.knowledgePointEditing = null;
       renderSidebar(getCurrentNote());
       return;
     }
 
-    const knowledgePointAttachToggle = event.target.closest('[data-knowledge-point-attach-toggle]');
+    const knowledgePointAttachToggle = closestFromEventTarget(event.target, '[data-knowledge-point-attach-toggle]');
     if (knowledgePointAttachToggle) {
       state.knowledgePointAttachComposer = {
         ...state.knowledgePointAttachComposer,
@@ -157,31 +159,31 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
       return;
     }
 
-    const knowledgePointAttachExisting = event.target.closest('[data-knowledge-point-attach-existing]');
+    const knowledgePointAttachExisting = closestFromEventTarget(event.target, '[data-knowledge-point-attach-existing]');
     if (knowledgePointAttachExisting?.dataset.knowledgePointAttachExisting) {
       void attachSelectionToExistingKnowledgePoint(knowledgePointAttachExisting.dataset.knowledgePointAttachExisting);
       return;
     }
 
-    const knowledgePointSourceRemove = event.target.closest('[data-knowledge-point-source-remove]');
+    const knowledgePointSourceRemove = closestFromEventTarget(event.target, '[data-knowledge-point-source-remove]');
     if (knowledgePointSourceRemove?.dataset.knowledgePointSourceRemove) {
       void removeKnowledgePointSourceFromCurrentNote(knowledgePointSourceRemove.dataset.knowledgePointSourceRemove);
       return;
     }
 
-    const knowledgePointDelete = event.target.closest('[data-knowledge-point-delete]');
+    const knowledgePointDelete = closestFromEventTarget(event.target, '[data-knowledge-point-delete]');
     if (knowledgePointDelete?.dataset.knowledgePointDelete) {
       void deleteKnowledgePointFromLibrary(knowledgePointDelete.dataset.knowledgePointDelete);
       return;
     }
 
-    const knowledgePointSourceJump = event.target.closest('[data-knowledge-point-source-jump]');
+    const knowledgePointSourceJump = closestFromEventTarget(event.target, '[data-knowledge-point-source-jump]');
     if (knowledgePointSourceJump?.dataset.knowledgePointSourceJump) {
       void selectKnowledgePointSource(knowledgePointSourceJump.dataset.knowledgePointSourceJump);
       return;
     }
 
-    const outlineButton = event.target.closest('[data-outline-id]');
+    const outlineButton = closestFromEventTarget(event.target, '[data-outline-id]');
     if (!outlineButton?.dataset.outlineId) {
       return;
     }

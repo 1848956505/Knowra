@@ -15,6 +15,8 @@
 // 可拖、哪个 target）保留在 deps 指向的 helper（resolveClickTarget 等）；
 // 本 binder 只做"读取 dataset / 调用 deps"。
 
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 export function bindFolderTreeEvents({ state, elements, deps }) {
   const {
     closeContextMenu,
@@ -72,19 +74,19 @@ export function bindFolderTreeEvents({ state, elements, deps }) {
   // 第二个 click：内联编辑器取消 / 确认删除 / 取消删除按钮。
   // 顺序在 select-target click 之后，确保点击到树节点时不会误触发。
   elements.folderTree?.addEventListener('click', (event) => {
-    const cancelButton = event.target.closest('[data-editor-cancel]');
+    const cancelButton = closestFromEventTarget(event.target, '[data-editor-cancel]');
     if (cancelButton) {
       cancelTreeEditor();
       return;
     }
 
-    const confirmDelete = event.target.closest('[data-delete-confirm]');
+    const confirmDelete = closestFromEventTarget(event.target, '[data-delete-confirm]');
     if (confirmDelete) {
       void commitDelete(confirmDelete.dataset.deleteConfirm, confirmDelete.dataset.targetId);
       return;
     }
 
-    const cancelDelete = event.target.closest('[data-delete-cancel]');
+    const cancelDelete = closestFromEventTarget(event.target, '[data-delete-cancel]');
     if (cancelDelete) {
       clearDeleteIntent();
     }
@@ -112,7 +114,7 @@ export function bindFolderTreeEvents({ state, elements, deps }) {
   });
 
   elements.folderTree?.addEventListener('dragstart', (event) => {
-    const draggable = event.target.closest('[data-drag-kind][data-drag-id]');
+    const draggable = closestFromEventTarget(event.target, '[data-drag-kind][data-drag-id]');
     if (!draggable || state.treeEditor) {
       event.preventDefault();
       return;
@@ -174,7 +176,7 @@ export function bindFolderTreeEvents({ state, elements, deps }) {
   });
 
   elements.folderTree?.addEventListener('submit', (event) => {
-    const form = event.target.closest('[data-inline-editor-form]');
+    const form = closestFromEventTarget(event.target, '[data-inline-editor-form]');
     if (!form) {
       return;
     }
@@ -184,7 +186,7 @@ export function bindFolderTreeEvents({ state, elements, deps }) {
   });
 
   elements.folderTree?.addEventListener('keydown', (event) => {
-    const input = event.target.closest('[data-inline-editor-input]');
+    const input = closestFromEventTarget(event.target, '[data-inline-editor-input]');
     if (!input) {
       return;
     }
@@ -196,7 +198,7 @@ export function bindFolderTreeEvents({ state, elements, deps }) {
   });
 
   elements.folderTree?.addEventListener('input', (event) => {
-    const input = event.target.closest('[data-inline-editor-input]');
+    const input = closestFromEventTarget(event.target, '[data-inline-editor-input]');
     if (!input || !state.treeEditor) {
       return;
     }

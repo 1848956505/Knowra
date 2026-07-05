@@ -1,5 +1,5 @@
-import { editorViewCtx } from '@milkdown/core';
-import { TextSelection } from '@milkdown/prose/state';
+import { editorViewCtx } from '@milkdown/kit/core';
+import { TextSelection } from '@milkdown/kit/prose/state';
 
 export async function getSelectionSnapshot(host, { contextChars = 80 } = {}) {
   await host.ready;

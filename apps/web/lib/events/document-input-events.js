@@ -1,3 +1,5 @@
+import { closestFromEventTarget, getEventTargetElement } from '../dom/event-target.js';
+
 // document-input-events.js
 // document 级 input 事件绑定：表格对话框字段 + 编辑器查找面板字段。
 // 由 client.js 的 bindEvents() 在初始化时一次性注册。
@@ -22,9 +24,9 @@ export function bindDocumentInputEvents({ state, elements, deps }) {
   const documentRef = globalThis.document;
 
   documentRef.addEventListener('input', (event) => {
-    const tableDialog = event.target.closest?.('#editor-table-dialog');
+    const tableDialog = closestFromEventTarget(event.target, '#editor-table-dialog');
     if (tableDialog) {
-      const target = event.target;
+      const target = getEventTargetElement(event.target) ?? event.target;
       if (target?.dataset?.tableDialogField === 'rows') {
         state.editorTableDialog.rows = target.value;
       } else if (target?.dataset?.tableDialogField === 'cols') {
@@ -33,12 +35,12 @@ export function bindDocumentInputEvents({ state, elements, deps }) {
       return;
     }
 
-    const panel = event.target.closest?.('#editor-utility-panel');
+    const panel = closestFromEventTarget(event.target, '#editor-utility-panel');
     if (!panel) {
       return;
     }
 
-    const target = event.target;
+    const target = getEventTargetElement(event.target) ?? event.target;
     if (!target?.dataset?.panelField) {
       return;
     }

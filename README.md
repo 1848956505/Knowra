@@ -84,7 +84,9 @@ Run both together:
 npm run dev:all
 ```
 
-The dev startup script auto-selects available ports and keeps the frontend proxy aligned with the active API port.
+`npm run dev:all` is cross-platform and works on Windows, macOS, and Ubuntu as long as `Node.js >= 24` and `npm >= 11` are available.
+
+The dev startup script auto-selects available ports, builds the editor bundle before the web server starts, and keeps the frontend proxy aligned with the active API port.
 
 ## Test
 

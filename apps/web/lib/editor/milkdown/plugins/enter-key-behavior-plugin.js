@@ -1,8 +1,8 @@
-import { schemaCtx } from '@milkdown/core';
-import { getNodeFromSchema } from '@milkdown/prose';
-import { liftEmptyBlock, splitBlock } from '@milkdown/prose/commands';
-import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
-import { $prose } from '@milkdown/utils';
+import { schemaCtx } from '@milkdown/kit/core';
+import { getNodeFromSchema } from '@milkdown/kit/prose';
+import { liftEmptyBlock, splitBlock } from '@milkdown/kit/prose/commands';
+import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
+import { $prose } from '@milkdown/kit/utils';
 import {
   resolveBackspaceBehavior,
   resolveEnterBehavior,

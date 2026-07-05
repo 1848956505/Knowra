@@ -1,3 +1,6 @@
+import { isComposingEvent } from '../dom/composition.js';
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 // document-keyboard-events.js
 // document 级 keydown 事件绑定：全局 Escape 关闭菜单 + 捕获阶段编辑
 // 器快捷键/表格对话框/查找面板。
@@ -33,6 +36,10 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
   const documentRef = globalThis.document;
 
   documentRef.addEventListener('keydown', (event) => {
+    if (isComposingEvent(event)) {
+      return;
+    }
+
     if (event.key === 'Escape') {
       if (state.search.isOpen) {
         state.search.isOpen = false;
@@ -48,7 +55,11 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
   });
 
   documentRef.addEventListener('keydown', (event) => {
-    const tableDialog = event.target.closest?.('#editor-table-dialog');
+    if (isComposingEvent(event)) {
+      return;
+    }
+
+    const tableDialog = closestFromEventTarget(event.target, '#editor-table-dialog');
     if (tableDialog && state.editorTableDialog.open) {
       if (event.key === 'Enter') {
         event.preventDefault();

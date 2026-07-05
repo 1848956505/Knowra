@@ -1,17 +1,14 @@
-import { Plugin, PluginKey } from '@milkdown/prose/state';
-import { $prose } from '@milkdown/utils';
+import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { $prose } from '@milkdown/kit/utils';
+import { closestFromEventTarget } from '../../../dom/event-target.js';
 
 export const taskListClickBehavior = $prose(() => new Plugin({
   key: new PluginKey('STUDY_TASK_LIST_CLICK'),
   props: {
     handleDOMEvents: {
       mousedown(view, event) {
-        if (!(event.target instanceof HTMLElement)) {
-          return false;
-        }
-
-        const li = event.target.closest('li[data-item-type="task"]');
-        if (!li) {
+        const li = closestFromEventTarget(event.target, 'li[data-item-type="task"]');
+        if (!(li instanceof HTMLElement)) {
           return false;
         }
 

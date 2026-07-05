@@ -182,10 +182,28 @@ runTest('click inside library context menu is ignored (no close chain)', async (
   });
 });
 
+runTest('format click also works from a text-node-like target', async () => {
+  await withMockDocument(async (listeners) => {
+    const { bindDocumentClickEvents } = await import(
+      '../../lib/events/document-click-events.js'
+    );
+    let formatted = null;
+    const deps = makeDeps();
+    deps.handleFormat = (format) => { formatted = format; };
+
+    bindDocumentClickEvents({ state: makeState(), elements: {}, deps });
+
+    const button = { dataset: { format: 'italic' } };
+    button.closest = makeClosest(new Map([['[data-format]', button]]));
+    listeners.get('click')[0]({ target: { parentElement: button } });
+
+    assert.equal(formatted, 'italic');
+  });
+});
+
 // 串行执行所有测试用例（避免共享 globalThis 状态）。
 (async () => {
   for (const run of tests) {
     await run();
   }
 })();
-

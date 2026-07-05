@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Fragment, Schema, Slice } from '@milkdown/prose/model';
+import { Fragment, Schema, Slice } from '@milkdown/kit/prose/model';
 import {
   looksLikeMarkdown,
   removeSpuriousEmptyCodeBlocks,

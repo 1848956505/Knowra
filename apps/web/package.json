@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@milkdown/kit": "^7.21.2",
+    "dompurify": "^3.4.11",
     "esbuild": "^0.28.0"
   }
 }

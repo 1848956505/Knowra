@@ -14,7 +14,7 @@ const milkdownPasteJs = `${milkdownEntry}\n${editorFactoryJs}\n${markdownPastePl
 
 assert.match(
   milkdownPasteJs,
-  /import\s*\{[^}]*clipboard[^}]*\}\s*from '@milkdown\/plugin-clipboard';/,
+  /import\s*\{[^}]*clipboard[^}]*\}\s*from '@milkdown\/kit\/plugin\/clipboard';/,
   'milkdown editor should enable the official clipboard plugin so plain-text paste can be parsed as Markdown'
 );
 assert.match(
@@ -64,7 +64,7 @@ assert.doesNotMatch(
 );
 assert.match(
   editCommandControllerJs,
-  /editorRuntime\.currentEditorHost\?\.pasteMarkdown\(text\)/,
+  /editorRuntime\.currentEditorHost\?\.pasteMarkdown\(clipboardResult\.text\)/,
   'menu paste should delegate to the editor host so pasted Markdown is formatted instead of inserted as raw source'
 );
 console.log('ok - markdown paste is routed through Milkdown clipboard parsing');

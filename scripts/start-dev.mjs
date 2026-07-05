@@ -1,0 +1,202 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { readRuntimePorts } from './dev-runtime-ports.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const workspaceRoot = path.resolve(__dirname, '..');
+const runtimePortsFile = path.join(workspaceRoot, 'storage', 'runtime', 'dev-ports.json');
+const childProcesses = [];
+
+const apiPort = await getFreePort(3001);
+const webPort = await getFreePort(apiPort === 3000 ? 3002 : 3000);
+
+cleanupRuntimePorts();
+
+const apiEnv = createChildEnv({
+  PORT: String(apiPort),
+  STUDY_RUNTIME_PORTS_FILE: runtimePortsFile
+});
+
+const apiProcess = spawnNode(['apps/api/src/main.js'], { env: apiEnv, name: 'api' });
+let shuttingDown = false;
+
+attachChildShutdown(apiProcess);
+
+const actualApiPort = await waitForRuntimePort('api', 40, 250);
+
+if (!actualApiPort) {
+  shutdownWithError('API did not publish its runtime port in time.');
+}
+
+const apiReady = await waitForHttpOk(`http://localhost:${actualApiPort}/api/knowledge/spaces`, 40, 250);
+
+if (!apiReady) {
+  shutdownWithError(`API did not become ready at http://localhost:${actualApiPort} in time.`);
+}
+
+await runNodeScript(['scripts/build-milkdown-bundle.mjs'], {
+  env: createChildEnv()
+});
+
+const webEnv = createChildEnv({
+  PORT: String(webPort),
+  STUDY_RUNTIME_PORTS_FILE: runtimePortsFile
+});
+
+const webProcess = spawnNode(['apps/web/src/main.js'], { env: webEnv, name: 'web' });
+attachChildShutdown(webProcess);
+
+const actualWebPort = await waitForRuntimePort('web', 40, 250);
+
+if (!actualWebPort) {
+  shutdownWithError('Web did not publish its runtime port in time.');
+}
+
+console.log(`Study API: http://localhost:${actualApiPort}`);
+console.log(`Study Web: http://localhost:${actualWebPort}`);
+
+process.on('SIGINT', () => shutdownChildren(0));
+process.on('SIGTERM', () => shutdownChildren(0));
+
+function createChildEnv(overrides = {}) {
+  return {
+    ...process.env,
+    ...overrides
+  };
+}
+
+function cleanupRuntimePorts() {
+  if (fs.existsSync(runtimePortsFile)) {
+    fs.rmSync(runtimePortsFile, { force: true });
+  }
+}
+
+function runNodeScript(args, options = {}) {
+  const result = spawn(process.execPath, args, {
+    cwd: workspaceRoot,
+    env: options.env ?? createChildEnv(),
+    stdio: 'inherit'
+  });
+
+  return new Promise((resolve, reject) => {
+    result.once('exit', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(`Script failed: ${args.join(' ')} (exit ${code ?? 'unknown'})`));
+    });
+
+    result.once('error', reject);
+  });
+}
+
+function spawnNode(args, options) {
+  const child = spawn(process.execPath, args, {
+    cwd: workspaceRoot,
+    env: options.env,
+    stdio: 'inherit'
+  });
+
+  childProcesses.push(child);
+  return child;
+}
+
+function attachChildShutdown(child) {
+  child.once('exit', (code) => {
+    if (shuttingDown) {
+      return;
+    }
+
+    shutdownWithError(`Child process exited unexpectedly with code ${code ?? 'unknown'}.`);
+  });
+
+  child.once('error', (error) => {
+    if (shuttingDown) {
+      return;
+    }
+
+    shutdownWithError(`Child process failed to start: ${error.message}`);
+  });
+}
+
+async function getFreePort(startPort, maxAttempts = 20) {
+  for (let offset = 0; offset < maxAttempts; offset += 1) {
+    const port = startPort + offset;
+    const available = await canBindPort(port);
+
+    if (available) {
+      return port;
+    }
+  }
+
+  throw new Error(`No available port found starting from ${startPort}`);
+}
+
+async function canBindPort(port) {
+  const net = await import('node:net');
+
+  return new Promise((resolve) => {
+    const server = net.createServer();
+
+    server.once('error', () => resolve(false));
+    server.listen(port, '127.0.0.1', () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+async function waitForHttpOk(url, maxAttempts, delayMs) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return true;
+      }
+    } catch {
+      // The server may still be starting up.
+    }
+
+    await wait(delayMs);
+  }
+
+  return false;
+}
+
+async function waitForRuntimePort(service, maxAttempts, delayMs) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const runtimePorts = readRuntimePorts(runtimePortsFile);
+    const port = Number(runtimePorts[service]);
+
+    if (Number.isInteger(port) && port > 0) {
+      return port;
+    }
+
+    await wait(delayMs);
+  }
+
+  return null;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function shutdownWithError(message) {
+  console.error(message);
+  shutdownChildren(1);
+}
+
+function shutdownChildren(code) {
+  shuttingDown = true;
+  for (const child of childProcesses) {
+    if (!child.killed) {
+      child.kill();
+    }
+  }
+  process.exit(code);
+}

@@ -1,4 +1,4 @@
-import { editorViewCtx } from '@milkdown/core';
+import { editorViewCtx } from '@milkdown/kit/core';
 import { findAncestorOfType } from '../utils/prosemirror-ranges.js';
 import { syncTableHandleLabels } from './table-buttons.js';
 import { updatePinnedActionAvailability } from './table-pinned-actions.js';

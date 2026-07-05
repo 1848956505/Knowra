@@ -1,13 +1,13 @@
-import { editorViewCtx, rootCtx, schemaCtx } from '@milkdown/core';
-import { getNodeFromSchema } from '@milkdown/prose';
-import { TextSelection } from '@milkdown/prose/state';
+import { editorViewCtx, rootCtx, schemaCtx } from '@milkdown/kit/core';
+import { getNodeFromSchema } from '@milkdown/kit/prose';
+import { TextSelection } from '@milkdown/kit/prose/state';
 import {
   liftListItemCommand,
   setBlockTypeCommand,
   wrapInBulletListCommand,
   wrapInOrderedListCommand
-} from '@milkdown/preset-commonmark';
-import { callCommand } from '@milkdown/utils';
+} from '@milkdown/kit/preset/commonmark';
+import { callCommand } from '@milkdown/kit/utils';
 import { syncTableHandleLabels } from '../table/table-buttons.js';
 import { findAncestorOfType } from '../utils/prosemirror-ranges.js';
 

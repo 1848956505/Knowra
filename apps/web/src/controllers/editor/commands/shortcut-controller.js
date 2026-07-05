@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../../../../lib/dom/event-target.js';
+
 export function createEditorShortcutCommandController(deps) {
   const {
     state,
@@ -10,16 +12,15 @@ export function createEditorShortcutCommandController(deps) {
       return false;
     }
 
-    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
-    if (!target?.closest) {
+    if (closestFromEventTarget(event.target, '#editor-utility-panel')) {
       return false;
     }
 
-    if (target.closest('#editor-utility-panel') || target.closest('[data-source-editor-input]')) {
+    if (closestFromEventTarget(event.target, '[data-source-editor-input]')) {
       return false;
     }
 
-    return Boolean(target.closest('#editor-content'));
+    return Boolean(closestFromEventTarget(event.target, '#editor-content'));
   }
 
   async function handleResolvedEditorShortcut(action) {

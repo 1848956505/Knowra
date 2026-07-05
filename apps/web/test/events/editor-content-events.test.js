@@ -199,6 +199,37 @@ runTest('editorContent contextmenu: gates on host/note/sourceEditor', async () =
   }
 });
 
+runTest('editorContent contextmenu: text-node-like target still opens context menu', async () => {
+  const { bindEditorContentEvents } = await import(
+    '../../lib/events/editor-content-events.js'
+  );
+  const { elements, listeners } = makeElements();
+  let openArgs = null;
+  let prevented = false;
+  const host = new FakeElement();
+  host.closest = () => host;
+
+  bindEditorContentEvents({
+    state: makeState(),
+    elements,
+    deps: makeDeps({
+      getCurrentEditorHost: () => ({ run: () => {} }),
+      getCurrentNote: () => ({ id: 'n-1' }),
+      openEditorContextMenu: (args) => { openArgs = args; }
+    })
+  });
+
+  listeners.editorContent.contextmenu[0]({
+    target: { parentElement: host },
+    clientX: 12,
+    clientY: 18,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.deepEqual(openArgs, { x: 12, y: 18 });
+  assert.equal(prevented, true);
+});
+
 runTest('editorContent knowledge-point-marker-click: dispatches focus with detail', async () => {
   const { elements, listeners } = makeElements();
   const { bindEditorContentEvents } = await import(

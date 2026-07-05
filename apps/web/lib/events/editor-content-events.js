@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 // editor-content-events.js
 // 编辑器区域（elements.editorContent / elements.editorContextMenu）相关的
 // 事件绑定，5 个监听器覆盖：
@@ -38,8 +40,8 @@ export function bindEditorContentEvents({ state, elements, deps }) {
       return;
     }
 
-    const target = event.target instanceof ElementRef ? event.target : null;
-    if (!target?.closest('.milkdown-host, .preview-rendered')) {
+    const target = closestFromEventTarget(event.target, '.milkdown-host, .preview-rendered');
+    if (!(target instanceof ElementRef)) {
       return;
     }
 
@@ -60,7 +62,7 @@ export function bindEditorContentEvents({ state, elements, deps }) {
   });
 
   elements.editorContextMenu?.addEventListener('click', (event) => {
-    const actionButton = event.target.closest('[data-editor-context-action]');
+    const actionButton = closestFromEventTarget(event.target, '[data-editor-context-action]');
     if (!actionButton?.dataset.editorContextAction) {
       return;
     }
@@ -70,7 +72,7 @@ export function bindEditorContentEvents({ state, elements, deps }) {
   });
 
   elements.editorContent?.addEventListener('input', (event) => {
-    const sourceInput = event.target.closest('[data-source-editor-input]');
+    const sourceInput = closestFromEventTarget(event.target, '[data-source-editor-input]');
     if (!sourceInput) {
       return;
     }
@@ -81,7 +83,7 @@ export function bindEditorContentEvents({ state, elements, deps }) {
   });
 
   elements.editorContent?.addEventListener('click', (event) => {
-    const sourceSaveButton = event.target.closest('[data-source-save]');
+    const sourceSaveButton = closestFromEventTarget(event.target, '[data-source-save]');
     if (!sourceSaveButton) {
       return;
     }

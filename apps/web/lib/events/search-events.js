@@ -1,3 +1,6 @@
+import { isComposingEvent } from '../dom/composition.js';
+import { closestFromEventTarget, getEventTargetElement } from '../dom/event-target.js';
+
 // search-events.js
 // 搜索 / 二级导航折叠 / Markdown 导入事件绑定。
 // 由 client.js 的 bindEvents() 在初始化时一次性注册。
@@ -21,31 +24,31 @@ export function bindSearchEvents({ state, elements, deps }) {
 
   elements.globalSearchShell?.addEventListener('click', (event) => {
     event.stopPropagation();
-    const chipRemoveButton = event.target.closest('[data-search-chip-remove]');
+    const chipRemoveButton = closestFromEventTarget(event.target, '[data-search-chip-remove]');
     if (chipRemoveButton?.dataset.searchChipRemove) {
-        toggleSearchTagFilter(chipRemoveButton.dataset.searchChipRemove);
-        focusSearchInput();
-        return;
+      toggleSearchTagFilter(chipRemoveButton.dataset.searchChipRemove);
+      focusSearchInput();
+      return;
     }
 
-    const tagButton = event.target.closest('[data-search-tag-id]');
+    const tagButton = closestFromEventTarget(event.target, '[data-search-tag-id]');
     if (tagButton?.dataset.searchTagId) {
-        toggleSearchTagFilter(tagButton.dataset.searchTagId);
-        focusSearchInput();
-        return;
+      toggleSearchTagFilter(tagButton.dataset.searchTagId);
+      focusSearchInput();
+      return;
     }
 
-    const noteButton = event.target.closest('[data-search-note-id]');
+    const noteButton = closestFromEventTarget(event.target, '[data-search-note-id]');
     if (noteButton?.dataset.searchNoteId) {
-        state.search.isOpen = false;
-        void selectNote(noteButton.dataset.searchNoteId, { syncFolder: true });
-        return;
+      state.search.isOpen = false;
+      void selectNote(noteButton.dataset.searchNoteId, { syncFolder: true });
+      return;
     }
 
-    const clearButton = event.target.closest('[data-search-clear]');
+    const clearButton = closestFromEventTarget(event.target, '[data-search-clear]');
     if (clearButton) {
-        clearSearchFilters();
-        return;
+      clearSearchFilters();
+      return;
     }
 
     if (!state.search.isOpen) {
@@ -57,7 +60,7 @@ export function bindSearchEvents({ state, elements, deps }) {
   });
 
   elements.globalSearchShell?.addEventListener('input', (event) => {
-    const input = event.target.closest('[data-search-input]');
+    const input = closestFromEventTarget(event.target, '[data-search-input]');
     if (!input) {
       return;
     }
@@ -69,8 +72,12 @@ export function bindSearchEvents({ state, elements, deps }) {
   });
 
   elements.globalSearchShell?.addEventListener('keydown', (event) => {
-    const input = event.target.closest('[data-search-input]');
+    const input = closestFromEventTarget(event.target, '[data-search-input]');
     if (!input) {
+      return;
+    }
+
+    if (isComposingEvent(event)) {
       return;
     }
 
@@ -103,8 +110,11 @@ export function bindSearchEvents({ state, elements, deps }) {
   });
 
   elements.markdownImportInput?.addEventListener('change', async (event) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = '';
+    const input = getEventTargetElement(event.target) ?? event.target;
+    const files = Array.from(input?.files ?? []);
+    if (input) {
+      input.value = '';
+    }
 
     if (!files.length) {
       return;

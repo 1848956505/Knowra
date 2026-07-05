@@ -1,4 +1,4 @@
-import { IMAGE_DATA_TYPE } from '@milkdown/components/image-block';
+import { IMAGE_DATA_TYPE } from '@milkdown/kit/component/image-block';
 
 import { applyPresetImageRatio } from './image-block-sizing.js';
 import {

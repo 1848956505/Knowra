@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { imageBlockConfig } from '@milkdown/components/image-block';
+import { imageBlockConfig } from '@milkdown/kit/component/image-block';
 
 import { clampImageRatio } from './image-block-sizing.js';
 

@@ -1,20 +1,22 @@
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 export function resolveContextMenuTarget(target) {
-  const noteButton = target?.closest?.('[data-note-id]');
+  const noteButton = closestFromEventTarget(target, '[data-note-id]');
   if (noteButton?.dataset.noteId) {
     return { kind: 'note', id: noteButton.dataset.noteId, selectFolderId: null };
   }
 
-  const recycleNoteButton = target?.closest?.('[data-recycle-note-id]');
+  const recycleNoteButton = closestFromEventTarget(target, '[data-recycle-note-id]');
   if (recycleNoteButton?.dataset.recycleNoteId) {
     return { kind: 'note', id: recycleNoteButton.dataset.recycleNoteId, selectFolderId: null };
   }
 
-  const recycleSection = target?.closest?.('[data-recycle-section]');
+  const recycleSection = closestFromEventTarget(target, '[data-recycle-section]');
   if (recycleSection) {
     return { kind: 'recycle-section', id: 'recycle', selectFolderId: null };
   }
 
-  const folderButton = target?.closest?.('[data-folder-id]');
+  const folderButton = closestFromEventTarget(target, '[data-folder-id]');
   if (folderButton?.dataset.folderId) {
     return {
       kind: 'folder',
@@ -23,7 +25,7 @@ export function resolveContextMenuTarget(target) {
     };
   }
 
-  const materialsSection = target?.closest?.('[data-materials-section]');
+  const materialsSection = closestFromEventTarget(target, '[data-materials-section]');
   if (materialsSection) {
     return { kind: 'materials', id: null, selectFolderId: null };
   }

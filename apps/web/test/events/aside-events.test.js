@@ -163,6 +163,21 @@ runTest('asideContent click: data-linked-id dispatches selectNote', async () => 
   assert.deepEqual(opts, { syncFolder: true });
 });
 
+runTest('asideContent click: text-node-like target still resolves linked note button', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  let arg = null;
+  const deps = makeDeps({ selectNote: async (id) => { arg = id; } });
+
+  bindAsideEvents({ state: makeState(), elements, deps });
+
+  const button = { dataset: { linkedId: 'n-text' } };
+  button.closest = makeClosest(new Map([['[data-linked-id]', button]]));
+  elements.asideContent.dispatch('click', { parentElement: button });
+
+  assert.equal(arg, 'n-text');
+});
+
 runTest('asideContent click: data-note-tag-add expands composer and dispatches addTag', async () => {
   const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
   const elements = makeElements();
@@ -394,6 +409,31 @@ runTest('asideContent keydown: non-Enter on data-note-tag-input is ignored', asy
   const keydownHandler = elements.asideContent.listeners.get('keydown');
   keydownHandler({ target, key: 'a' });
   assert.equal(arg, null);
+});
+
+runTest('asideContent keydown: Enter is ignored during IME composition', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  let arg = null;
+  let prevented = false;
+  const deps = makeDeps({
+    createTagAndAssignToCurrentNote: async (v) => { arg = v; }
+  });
+
+  bindAsideEvents({ state: makeState(), elements, deps });
+
+  const target = { value: 'zhong' };
+  target.closest = makeClosest(new Map([['[data-note-tag-input]', target]]));
+  const keydownHandler = elements.asideContent.listeners.get('keydown');
+  keydownHandler({
+    target,
+    key: 'Enter',
+    isComposing: true,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(arg, null);
+  assert.equal(prevented, false);
 });
 
 // 串行执行所有测试用例。

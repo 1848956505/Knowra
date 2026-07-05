@@ -1,11 +1,11 @@
-import { editorViewCtx, schemaCtx } from '@milkdown/core';
-import { lift } from '@milkdown/prose/commands';
+import { editorViewCtx, schemaCtx } from '@milkdown/kit/core';
+import { lift } from '@milkdown/kit/prose/commands';
 import {
   liftListItemCommand,
   sinkListItemCommand,
   wrapInBlockquoteCommand
-} from '@milkdown/preset-commonmark';
-import { callCommand } from '@milkdown/utils';
+} from '@milkdown/kit/preset/commonmark';
+import { callCommand } from '@milkdown/kit/utils';
 import { resolveIndentBehavior } from '../../enter-behavior.js';
 import { findAncestorOfType } from '../utils/prosemirror-ranges.js';
 import {

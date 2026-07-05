@@ -144,6 +144,25 @@ runTest('noteTabs click: data-tab-note-id dispatches selectNote with ensureTab',
   assert.deepEqual(opts, { syncFolder: true, ensureTab: true });
 });
 
+runTest('noteTabs click: text-node-like target still resolves tab button', async () => {
+  const { elements, listeners } = makeElements();
+  const { bindNoteTabEvents } = await import(
+    '../../lib/events/note-tab-events.js'
+  );
+  let arg = null;
+  const deps = makeDeps({
+    selectNote: async (id) => { arg = id; }
+  });
+
+  bindNoteTabEvents({ state: makeState(), elements, deps });
+
+  const button = { dataset: { tabNoteId: 'n-text' } };
+  button.closest = makeClosest(new Map([['[data-tab-note-id]', button]]));
+  listeners.noteTabs.click[0]({ target: { parentElement: button } });
+
+  assert.equal(arg, 'n-text');
+});
+
 runTest('noteTabs contextmenu: opens tab menu with x/y/noteId', async () => {
   const { elements, listeners } = makeElements();
   const { bindNoteTabEvents } = await import(

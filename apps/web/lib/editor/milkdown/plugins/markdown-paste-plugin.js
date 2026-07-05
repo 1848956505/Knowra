@@ -1,5 +1,5 @@
-import { Plugin, PluginKey } from '@milkdown/prose/state';
-import { $prose } from '@milkdown/utils';
+import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { $prose } from '@milkdown/kit/utils';
 import { removeSpuriousEmptyCodeBlocks, shouldPreferPlainMarkdown } from '../../markdown-paste.js';
 import { parseMarkdownSlice } from '../utils/markdown-slice.js';
 

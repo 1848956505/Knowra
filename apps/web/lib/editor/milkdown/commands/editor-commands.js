@@ -1,7 +1,7 @@
-import { schemaCtx } from '@milkdown/core';
-import { getNodeFromSchema } from '@milkdown/prose';
-import { TextSelection } from '@milkdown/prose/state';
-import { $command } from '@milkdown/utils';
+import { schemaCtx } from '@milkdown/kit/core';
+import { getNodeFromSchema } from '@milkdown/kit/prose';
+import { TextSelection } from '@milkdown/kit/prose/state';
+import { $command } from '@milkdown/kit/utils';
 import { toggleHighlightCommand } from '../schema/highlight-mark.js';
 import { createCommandResolvers } from './command-resolvers.js';
 

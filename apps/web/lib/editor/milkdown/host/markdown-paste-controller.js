@@ -1,4 +1,4 @@
-import { editorViewCtx } from '@milkdown/core';
+import { editorViewCtx } from '@milkdown/kit/core';
 import { normalizeMarkdown, parseMarkdownSlice } from '../utils/markdown-slice.js';
 
 export async function pasteMarkdown(host, markdown) {

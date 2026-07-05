@@ -2,8 +2,8 @@ import {
   imageBlockConfig,
   imageBlockSchema,
   remarkImageBlockPlugin
-} from '@milkdown/components/image-block';
-import { $view } from '@milkdown/utils';
+} from '@milkdown/kit/component/image-block';
+import { $view } from '@milkdown/kit/utils';
 
 import {
   applyImageLayout,
@@ -147,6 +147,7 @@ class EnhancedImageBlockController {
   destroy() {
     window.removeEventListener('pointermove', this.onPointerMove);
     window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerUp);
     this.activeResize = null;
     this.emptyLinkInput = null;
     this.captionInput = null;

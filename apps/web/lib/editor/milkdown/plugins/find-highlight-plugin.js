@@ -1,6 +1,6 @@
-import { Plugin, PluginKey } from '@milkdown/prose/state';
-import { Decoration, DecorationSet } from '@milkdown/prose/view';
-import { $prose } from '@milkdown/utils';
+import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
+import { $prose } from '@milkdown/kit/utils';
 
 export const findHighlightPluginKey = new PluginKey('STUDY_FIND_HIGHLIGHTS');
 

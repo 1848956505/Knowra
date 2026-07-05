@@ -101,6 +101,7 @@ export function startImageCornerResize(controller, event, corner) {
   };
   window.addEventListener('pointermove', controller.onPointerMove);
   window.addEventListener('pointerup', controller.onPointerUp);
+  window.addEventListener('pointercancel', controller.onPointerUp);
 }
 
 export function updateImageCornerResize(controller, event) {
@@ -126,6 +127,7 @@ export function updateImageCornerResize(controller, event) {
 export function finishImageCornerResize(controller) {
   window.removeEventListener('pointermove', controller.onPointerMove);
   window.removeEventListener('pointerup', controller.onPointerUp);
+  window.removeEventListener('pointercancel', controller.onPointerUp);
 
   if (!controller.activeResize) {
     return;

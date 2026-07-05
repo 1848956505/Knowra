@@ -29,12 +29,12 @@ assert.match(
 );
 assert.match(
   searchEventsJs,
-  /const files = Array\.from\(event\.target\.files \?\? \[\]\);[\s\S]*event\.target\.value = '';/,
+  /const input = getEventTargetElement\(event\.target\) \?\? event\.target;[\s\S]*const files = Array\.from\(input\?\.files \?\? \[\]\);[\s\S]*input\.value = '';/,
   'markdown import change handler should snapshot selected files before clearing the input value'
 );
 assert.doesNotMatch(
   searchEventsJs,
-  /const files = event\.target\.files;[\s\S]*event\.target\.value = '';/,
+  /const files = input\.files;[\s\S]*input\.value = '';/,
   'markdown import change handler should not keep a live FileList reference after clearing the input'
 );
 assert.match(

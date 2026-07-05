@@ -17,6 +17,6 @@
     "dev:web": "npm run dev -w @study-accelerator/web",
     "dev:api": "npm run dev -w @study-accelerator/api",
     "start:api": "npm run dev -w @study-accelerator/api",
-    "dev:all": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1"
+    "dev:all": "node scripts/start-dev.mjs"
   }
 }

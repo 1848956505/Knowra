@@ -1,5 +1,5 @@
-import { selectColCommand, selectRowCommand } from '@milkdown/preset-gfm';
-import { callCommand } from '@milkdown/utils';
+import { selectColCommand, selectRowCommand } from '@milkdown/kit/preset/gfm';
+import { callCommand } from '@milkdown/kit/utils';
 import { setPinnedActionDisabled, waitForNextFrame } from './table-buttons.js';
 
 export function updatePinnedActionAvailability(pinnedCell) {

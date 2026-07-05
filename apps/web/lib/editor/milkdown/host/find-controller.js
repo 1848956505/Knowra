@@ -1,5 +1,5 @@
-import { editorViewCtx } from '@milkdown/core';
-import { TextSelection } from '@milkdown/prose/state';
+import { editorViewCtx } from '@milkdown/kit/core';
+import { TextSelection } from '@milkdown/kit/prose/state';
 import { resolveMatchNavigationIndex } from '../../find-navigation.js';
 import {
   collectDocumentTextMatches,

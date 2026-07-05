@@ -1,4 +1,4 @@
-import { Fragment, Slice } from '@milkdown/prose/model';
+import { Fragment, Slice } from '@milkdown/kit/prose/model';
 
 const MARKDOWN_BLOCK_PATTERNS = [
   /^\s{0,3}#{1,6}\s+/m,

@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 // document-action-events.js
 // document 级 click 事件绑定：表格对话框动作 / 编辑器面板动作 / 全局保存。
 // 由 client.js 的 bindEvents() 在初始化时一次性注册。
@@ -22,7 +24,7 @@ export function bindDocumentActionEvents({ state, elements, deps }) {
   const documentRef = globalThis.document;
 
   documentRef.addEventListener('click', (event) => {
-    const tableDialogAction = event.target.closest('[data-editor-table-dialog-action]');
+    const tableDialogAction = closestFromEventTarget(event.target, '[data-editor-table-dialog-action]');
     if (tableDialogAction?.dataset.editorTableDialogAction) {
       const action = tableDialogAction.dataset.editorTableDialogAction;
       if (action === 'confirm') {
@@ -33,13 +35,13 @@ export function bindDocumentActionEvents({ state, elements, deps }) {
       return;
     }
 
-    const panelAction = event.target.closest('[data-editor-panel-action]');
+    const panelAction = closestFromEventTarget(event.target, '[data-editor-panel-action]');
     if (panelAction?.dataset.editorPanelAction) {
       void handleEditorPanelAction(panelAction.dataset.editorPanelAction);
       return;
     }
 
-    const saveButton = event.target.closest('[data-save-now]');
+    const saveButton = closestFromEventTarget(event.target, '[data-save-now]');
     if (!saveButton) {
       return;
     }

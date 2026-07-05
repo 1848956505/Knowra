@@ -1,5 +1,19 @@
 ﻿@media (max-width: 1320px) {
   .kb-workspace {
+    grid-template-columns: 240px minmax(0, 1fr) 220px;
+  }
+
+  .kb-workspace[data-left-hidden='true'][data-right-hidden='false'] {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+
+  .kb-aside {
+    display: flex;
+  }
+}
+
+@media (max-width: 1180px) {
+  .kb-workspace {
     grid-template-columns: 280px minmax(0, 1fr);
   }
 

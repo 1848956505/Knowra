@@ -25,8 +25,14 @@ export function resolveEditorPanelKeyboardAction({
   shiftKey = false,
   altKey = false,
   ctrlKey = false,
-  metaKey = false
+  metaKey = false,
+  isComposing = false,
+  keyCode = 0
 } = {}) {
+  if (isComposing || keyCode === 229) {
+    return null;
+  }
+
   if (ctrlKey || metaKey || altKey) {
     return null;
   }

@@ -1,12 +1,12 @@
-import { defaultValueCtx, rootCtx } from '@milkdown/core';
-import { clipboard } from '@milkdown/plugin-clipboard';
-import { history } from '@milkdown/plugin-history';
-import { listener, listenerCtx } from '@milkdown/plugin-listener';
-import { commonmark } from '@milkdown/preset-commonmark';
-import { gfm } from '@milkdown/preset-gfm';
-import { tableBlock, tableBlockConfig } from '@milkdown/components/table-block';
-import { imageBlockConfig, defaultImageBlockConfig } from '@milkdown/components/image-block';
-import { Editor } from '@milkdown/core';
+import { defaultValueCtx, rootCtx } from '@milkdown/kit/core';
+import { clipboard } from '@milkdown/kit/plugin/clipboard';
+import { history } from '@milkdown/kit/plugin/history';
+import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
+import { commonmark } from '@milkdown/kit/preset/commonmark';
+import { gfm } from '@milkdown/kit/preset/gfm';
+import { tableBlock, tableBlockConfig } from '@milkdown/kit/component/table-block';
+import { imageBlockConfig, defaultImageBlockConfig } from '@milkdown/kit/component/image-block';
+import { Editor } from '@milkdown/kit/core';
 import { enhancedImageBlockComponent } from '../../enhanced-image-block.js';
 import {
   insertImageBlockCommand,

@@ -8,6 +8,7 @@ import {
   renderNoteTabs as renderNoteTabsMarkup
 } from '../../lib/editor/tab-renderers.js';
 import { renderNoteTabMenuItems } from '../../lib/editor/tab-menu-renderers.js';
+import { writeClipboardText } from '../../lib/browser/clipboard.js';
 
 export function createTabController(deps) {
   const {
@@ -120,17 +121,18 @@ async function handleTabMenuAction(action) {
   if (action === 'copy-path') {
     const note = state.allNotes.find((item) => item.id === noteId);
     const notePath = buildNoteTabPath(note, state.foldersById);
-    if (notePath && globalThis.navigator?.clipboard?.writeText) {
-      try {
-        await globalThis.navigator.clipboard.writeText(notePath);
-        flashStatus('已复制笔记路径');
-        return;
-      } catch (error) {
-        // Fall through to status feedback below.
-      }
+    if (!notePath) {
+      flashStatus('未找到笔记路径');
+      return;
     }
 
-    flashStatus(notePath || '未找到笔记路径');
+    const copied = await writeClipboardText(notePath);
+    if (copied) {
+      flashStatus('已复制笔记路径');
+      return;
+    }
+
+    flashStatus('无法写入剪贴板，请检查浏览器权限');
   }
 }
 

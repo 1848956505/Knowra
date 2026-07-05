@@ -1,5 +1,5 @@
-import { parserCtx } from '@milkdown/core';
-import { Slice } from '@milkdown/prose/model';
+import { parserCtx } from '@milkdown/kit/core';
+import { Slice } from '@milkdown/kit/prose/model';
 
 export function normalizeMarkdown(markdown) {
   return typeof markdown === 'string' ? markdown : '';

@@ -1,7 +1,7 @@
-﻿import '@milkdown/prose/view/style/prosemirror.css';
+﻿import '@milkdown/kit/prose/view/style/prosemirror.css';
 
-import { editorViewCtx } from '@milkdown/core';
-import { callCommand, getMarkdown, replaceAll } from '@milkdown/utils';
+import { editorViewCtx } from '@milkdown/kit/core';
+import { callCommand, getMarkdown, replaceAll } from '@milkdown/kit/utils';
 import { commandResolvers } from './milkdown/commands/editor-commands.js';
 import {
   handleHeadingShortcut,

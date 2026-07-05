@@ -1,4 +1,4 @@
-import { editorViewCtx, schemaCtx } from '@milkdown/core';
+import { editorViewCtx, schemaCtx } from '@milkdown/kit/core';
 import { findAncestorOfType } from '../utils/prosemirror-ranges.js';
 
 function resolveTableMatchAtPos(doc, pos) {

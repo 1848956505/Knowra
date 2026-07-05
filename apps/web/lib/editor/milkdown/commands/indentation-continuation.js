@@ -1,5 +1,5 @@
-import { getNodeFromSchema } from '@milkdown/prose';
-import { TextSelection } from '@milkdown/prose/state';
+import { getNodeFromSchema } from '@milkdown/kit/prose';
+import { TextSelection } from '@milkdown/kit/prose/state';
 import { findAncestorOfType } from '../utils/prosemirror-ranges.js';
 
 export function isContinuationParagraph($from, listItemAncestor) {

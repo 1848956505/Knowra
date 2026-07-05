@@ -1,5 +1,5 @@
-import { toggleMark } from '@milkdown/prose/commands';
-import { $command, $markSchema, $remark } from '@milkdown/utils';
+import { toggleMark } from '@milkdown/kit/prose/commands';
+import { $command, $markSchema, $remark } from '@milkdown/kit/utils';
 
 export const highlightRemark = $remark('highlight', () => () => (tree) => {
   const visit = (node) => {

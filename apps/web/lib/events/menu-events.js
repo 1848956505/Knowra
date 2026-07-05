@@ -12,6 +12,8 @@
 // 注意 editorMenuBar handler 顶部 event.stopPropagation() 保留，
 // 防止 document.click 外部关闭链立刻把刚打开的菜单关掉。
 
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 export function bindMenuEvents({ state, elements, deps }) {
   const {
     handleContextMenuAction,
@@ -25,7 +27,7 @@ export function bindMenuEvents({ state, elements, deps }) {
   } = deps;
 
   elements.contextMenu?.addEventListener('click', (event) => {
-    const menuItem = event.target.closest('[data-context-action]');
+    const menuItem = closestFromEventTarget(event.target, '[data-context-action]');
     if (!menuItem) {
       return;
     }
@@ -33,7 +35,7 @@ export function bindMenuEvents({ state, elements, deps }) {
   });
 
   elements.sectionMenu?.addEventListener('click', (event) => {
-    const menuItem = event.target.closest('[data-section-toggle]');
+    const menuItem = closestFromEventTarget(event.target, '[data-section-toggle]');
     if (!menuItem) {
       return;
     }
@@ -46,7 +48,7 @@ export function bindMenuEvents({ state, elements, deps }) {
   elements.editorMenuBar?.addEventListener('click', (event) => {
     event.stopPropagation();
 
-    const menuToggle = event.target.closest('[data-editor-menu-toggle]');
+    const menuToggle = closestFromEventTarget(event.target, '[data-editor-menu-toggle]');
     if (menuToggle?.dataset.editorMenuToggle) {
       const menuKey = menuToggle.dataset.editorMenuToggle;
       state.editorMenuOpen = state.editorMenuOpen === menuKey ? null : menuKey;
@@ -54,29 +56,29 @@ export function bindMenuEvents({ state, elements, deps }) {
       return;
     }
 
-    const fileAction = event.target.closest('[data-file-menu-action]');
+    const fileAction = closestFromEventTarget(event.target, '[data-file-menu-action]');
     if (fileAction?.dataset.fileMenuAction) {
       void handleFileMenuAction(fileAction.dataset.fileMenuAction);
       return;
     }
 
-    const editAction = event.target.closest('[data-edit-menu-action]');
+    const editAction = closestFromEventTarget(event.target, '[data-edit-menu-action]');
     if (editAction?.dataset.editMenuAction) {
       void handleEditMenuAction(editAction.dataset.editMenuAction);
     }
 
-    const paragraphAction = event.target.closest('[data-paragraph-menu-action]');
+    const paragraphAction = closestFromEventTarget(event.target, '[data-paragraph-menu-action]');
     if (paragraphAction?.dataset.paragraphMenuAction) {
       void handleParagraphMenuAction(paragraphAction.dataset.paragraphMenuAction);
     }
 
-    const formatAction = event.target.closest('[data-format-menu-action]');
+    const formatAction = closestFromEventTarget(event.target, '[data-format-menu-action]');
     if (formatAction?.dataset.formatMenuAction) {
       void handleFormatMenuAction(formatAction.dataset.formatMenuAction);
       return;
     }
 
-    const viewAction = event.target.closest('[data-view-menu-action]');
+    const viewAction = closestFromEventTarget(event.target, '[data-view-menu-action]');
     if (viewAction?.dataset.viewMenuAction) {
       void handleViewMenuAction(viewAction.dataset.viewMenuAction);
     }

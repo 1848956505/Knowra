@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 // note-tab-events.js
 // 顶部笔记标签栏（elements.noteTabs / elements.noteTabMenu）相关的事件
 // 绑定，7 个监听器覆盖：
@@ -25,21 +27,21 @@ export function bindNoteTabEvents({ state, elements, deps }) {
   } = deps;
 
   elements.noteTabs?.addEventListener('click', (event) => {
-    const closeButton = event.target.closest('[data-tab-close]');
+    const closeButton = closestFromEventTarget(event.target, '[data-tab-close]');
     if (closeButton?.dataset.tabClose) {
       event.stopPropagation();
       void handleTabClose(closeButton.dataset.tabClose);
       return;
     }
 
-    const tabButton = event.target.closest('[data-tab-note-id]');
+    const tabButton = closestFromEventTarget(event.target, '[data-tab-note-id]');
     if (tabButton?.dataset.tabNoteId) {
       void selectNote(tabButton.dataset.tabNoteId, { syncFolder: true, ensureTab: true });
     }
   });
 
   elements.noteTabs?.addEventListener('contextmenu', (event) => {
-    const tabButton = event.target.closest('[data-tab-note-id]');
+    const tabButton = closestFromEventTarget(event.target, '[data-tab-note-id]');
     if (!tabButton?.dataset.tabNoteId) {
       return;
     }
@@ -53,7 +55,7 @@ export function bindNoteTabEvents({ state, elements, deps }) {
   });
 
   elements.noteTabs?.addEventListener('dragstart', (event) => {
-    const tabButton = event.target.closest('[data-tab-note-id]');
+    const tabButton = closestFromEventTarget(event.target, '[data-tab-note-id]');
     if (!tabButton?.dataset.tabNoteId) {
       return;
     }
@@ -66,7 +68,7 @@ export function bindNoteTabEvents({ state, elements, deps }) {
   });
 
   elements.noteTabs?.addEventListener('dragover', (event) => {
-    const tabButton = event.target.closest('[data-tab-note-id]');
+    const tabButton = closestFromEventTarget(event.target, '[data-tab-note-id]');
     if (!tabButton?.dataset.tabNoteId || !state.tabDragState.activeId) {
       return;
     }
@@ -77,7 +79,7 @@ export function bindNoteTabEvents({ state, elements, deps }) {
   });
 
   elements.noteTabs?.addEventListener('drop', (event) => {
-    const tabButton = event.target.closest('[data-tab-note-id]');
+    const tabButton = closestFromEventTarget(event.target, '[data-tab-note-id]');
     if (!tabButton?.dataset.tabNoteId || !state.tabDragState.activeId) {
       return;
     }
@@ -96,7 +98,7 @@ export function bindNoteTabEvents({ state, elements, deps }) {
   });
 
   elements.noteTabMenu?.addEventListener('click', (event) => {
-    const actionButton = event.target.closest('[data-tab-menu-action]');
+    const actionButton = closestFromEventTarget(event.target, '[data-tab-menu-action]');
     if (!actionButton) {
       return;
     }

@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../../dom/event-target.js';
+
 // aside-events/input.js
 // 侧栏内 input 监听器（asideContent.input），1 个监听器同步 4 类输入：
 //   - data-knowledge-point-filter-input  知识点过滤关键词
@@ -11,7 +13,7 @@ export function bindAsideContentInputEvents({ state, elements, deps }) {
   const { getCurrentNote, renderSidebar } = deps;
 
   elements.asideContent?.addEventListener('input', (event) => {
-    const knowledgePointFilterInput = event.target.closest('[data-knowledge-point-filter-input]');
+    const knowledgePointFilterInput = closestFromEventTarget(event.target, '[data-knowledge-point-filter-input]');
     if (knowledgePointFilterInput) {
       state.knowledgePointFilters = {
         ...state.knowledgePointFilters,
@@ -22,7 +24,7 @@ export function bindAsideContentInputEvents({ state, elements, deps }) {
       return;
     }
 
-    const knowledgePointEditForm = event.target.closest('[data-knowledge-point-edit-form]');
+    const knowledgePointEditForm = closestFromEventTarget(event.target, '[data-knowledge-point-edit-form]');
     if (knowledgePointEditForm && state.knowledgePointEditing) {
       const formData = new FormData(knowledgePointEditForm);
       state.knowledgePointEditing = {
@@ -33,7 +35,7 @@ export function bindAsideContentInputEvents({ state, elements, deps }) {
       return;
     }
 
-    const knowledgePointAttachQuery = event.target.closest('[data-knowledge-point-attach-query]');
+    const knowledgePointAttachQuery = closestFromEventTarget(event.target, '[data-knowledge-point-attach-query]');
     if (knowledgePointAttachQuery) {
       state.knowledgePointAttachComposer = {
         ...state.knowledgePointAttachComposer,
@@ -44,7 +46,7 @@ export function bindAsideContentInputEvents({ state, elements, deps }) {
       return;
     }
 
-    const input = event.target.closest('[data-note-tag-input]');
+    const input = closestFromEventTarget(event.target, '[data-note-tag-input]');
     if (!input) {
       return;
     }

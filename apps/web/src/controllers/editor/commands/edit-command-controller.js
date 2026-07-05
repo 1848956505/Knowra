@@ -1,3 +1,5 @@
+import { readClipboardText, runDocumentCommand } from '../../../../lib/browser/clipboard.js';
+
 export function createEditorEditCommandController(deps, getController, menuState) {
   const {
     editorRuntime,
@@ -29,7 +31,7 @@ export function createEditorEditCommandController(deps, getController, menuState
       case 'select-all': {
         await focusEditor();
         const command = action === 'select-all' ? 'selectAll' : action;
-        const success = document.execCommand(command);
+        const success = runDocumentCommand(command);
         if (!success) {
           flashStatus('当前环境暂不支持该编辑操作');
         }
@@ -47,19 +49,23 @@ export function createEditorEditCommandController(deps, getController, menuState
       }
       case 'paste': {
         await focusEditor();
-        try {
-          const text = await navigator.clipboard.readText();
-          if (!text) {
+        const clipboardResult = await readClipboardText();
+        if (clipboardResult.ok) {
+          if (!clipboardResult.text) {
             flashStatus('剪贴板为空');
             return;
           }
 
-          const inserted = await editorRuntime.currentEditorHost?.pasteMarkdown(text);
+          const inserted = await editorRuntime.currentEditorHost?.pasteMarkdown(clipboardResult.text);
           if (!inserted) {
             flashStatus('当前环境暂不支持粘贴');
           }
-        } catch {
-          flashStatus('无法读取剪贴板内容');
+          return;
+        }
+
+        const pastedNatively = runDocumentCommand('paste');
+        if (!pastedNatively) {
+          flashStatus('无法读取剪贴板内容，请检查浏览器权限');
         }
         return;
       }

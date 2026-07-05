@@ -94,5 +94,15 @@ assert.equal(
   null,
   'native clipboard shortcuts should not be overridden here'
 );
+assert.equal(
+  resolveEditorShortcutAction({ key: 'Tab', isComposing: true }),
+  null,
+  'IME composition should suppress editor shortcuts so candidate confirmation is not hijacked'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: 'b', ctrlKey: true, keyCode: 229 }),
+  null,
+  'legacy IME keyCode 229 should also suppress editor shortcuts'
+);
 
 console.log('ok - editor shortcut actions resolve expected defaults');

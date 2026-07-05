@@ -61,7 +61,7 @@ assert.match(
 
 assert.match(
   editorFactoryJs,
-  /import\s*\{[^}]*tableBlock[^}]*tableBlockConfig[^}]*\}\s*from '@milkdown\/components\/table-block';|import\s*\{[^}]*tableBlockConfig[^}]*tableBlock[^}]*\}\s*from '@milkdown\/components\/table-block';/,
+  /import\s*\{[^}]*tableBlock[^}]*tableBlockConfig[^}]*\}\s*from '@milkdown\/kit\/component\/table-block';|import\s*\{[^}]*tableBlockConfig[^}]*tableBlock[^}]*\}\s*from '@milkdown\/kit\/component\/table-block';/,
   'editor host should import the official Milkdown table block component'
 );
 

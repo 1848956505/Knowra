@@ -30,8 +30,14 @@ export function resolveEditorShortcutAction({
   ctrlKey = false,
   metaKey = false,
   shiftKey = false,
-  altKey = false
+  altKey = false,
+  isComposing = false,
+  keyCode = 0
 } = {}) {
+  if (isComposing || keyCode === 229) {
+    return null;
+  }
+
   const normalizedKey = String(key).toLowerCase();
   const normalizedCode = String(code);
   const hasModifier = ctrlKey || metaKey;

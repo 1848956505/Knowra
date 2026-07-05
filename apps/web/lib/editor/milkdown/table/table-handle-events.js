@@ -1,39 +1,41 @@
+import { closestFromEventTarget, getEventTargetElement } from '../../../dom/event-target.js';
+
 export function handleTableRootClick(controller, event) {
-  const target = event.target instanceof Element ? event.target : null;
+  const target = getEventTargetElement(event.target);
   if (!target) {
     return;
   }
 
-  if (target.closest('.milkdown-table-block .button-group button')) {
+  if (closestFromEventTarget(event.target, '.milkdown-table-block .button-group button')) {
     return;
   }
 
-  if (target.closest('.milkdown-table-block [data-role="row-drag-handle"], .milkdown-table-block [data-role="col-drag-handle"]')) {
+  if (closestFromEventTarget(event.target, '.milkdown-table-block [data-role="row-drag-handle"], .milkdown-table-block [data-role="col-drag-handle"]')) {
     return;
   }
 
-  const cell = target.closest('.milkdown-table-block table.children td, .milkdown-table-block table.children th');
+  const cell = closestFromEventTarget(event.target, '.milkdown-table-block table.children td, .milkdown-table-block table.children th');
   if (cell instanceof HTMLElement) {
     controller.pinCell(cell);
     return;
   }
 
-  if (!target.closest('.milkdown-table-block')) {
+  if (!closestFromEventTarget(event.target, '.milkdown-table-block')) {
     controller.clearPinnedTable();
   }
 }
 
 export function handleTableDocumentPointerDown(controller, event) {
-  const target = event.target instanceof Element ? event.target : null;
+  const target = getEventTargetElement(event.target);
   if (!target) {
     return;
   }
 
-  if (target.closest('.milkdown-table-block .button-group button')) {
+  if (closestFromEventTarget(event.target, '.milkdown-table-block .button-group button')) {
     return;
   }
 
-  const rowHandle = target.closest('.milkdown-table-block [data-role="row-drag-handle"]');
+  const rowHandle = closestFromEventTarget(event.target, '.milkdown-table-block [data-role="row-drag-handle"]');
   if (rowHandle instanceof HTMLElement && rowHandle.closest('.milkdown-table-block')?.dataset.pinned === 'true') {
     event.preventDefault();
     event.stopPropagation();
@@ -41,7 +43,7 @@ export function handleTableDocumentPointerDown(controller, event) {
     return;
   }
 
-  const colHandle = target.closest('.milkdown-table-block [data-role="col-drag-handle"]');
+  const colHandle = closestFromEventTarget(event.target, '.milkdown-table-block [data-role="col-drag-handle"]');
   if (colHandle instanceof HTMLElement && colHandle.closest('.milkdown-table-block')?.dataset.pinned === 'true') {
     event.preventDefault();
     event.stopPropagation();
@@ -54,7 +56,7 @@ export function handleTableDocumentPointerDown(controller, event) {
     return;
   }
 
-  if (!target.closest('.milkdown-table-block')) {
+  if (!closestFromEventTarget(event.target, '.milkdown-table-block')) {
     controller.clearPinnedTable();
   }
 }

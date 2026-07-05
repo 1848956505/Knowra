@@ -347,6 +347,37 @@ runTest('capture keydown shortcut is skipped when shouldHandleEditorShortcut ret
   });
 });
 
+runTest('keydown handlers ignore composition events so IME confirmation is not hijacked', async () => {
+  await withMockDocument(async (listeners) => {
+    const { bindDocumentKeyboardEvents } = await import(
+      '../../lib/events/document-keyboard-events.js'
+    );
+    const state = makeState();
+    state.search.isOpen = true;
+    let rendered = 0;
+    let closedPanel = 0;
+    let resolved = null;
+    const deps = makeDeps();
+    deps.renderSearchShell = () => { rendered += 1; };
+    deps.handleResolvedEditorShortcut = async (action) => { resolved = action; };
+    deps.resolveEditorShortcutAction = () => 'bold';
+    deps.closeEditorPanel = () => { closedPanel += 1; };
+
+    bindDocumentKeyboardEvents({ state, elements: {}, deps });
+
+    const target = {};
+    target.closest = makeClosest(new Map());
+
+    listeners.get('keydown')[0].fn({ key: 'Escape', target, isComposing: true });
+    listeners.get('keydown')[1].fn({ key: 'Escape', target, isComposing: true });
+
+    assert.equal(state.search.isOpen, true);
+    assert.equal(rendered, 0);
+    assert.equal(closedPanel, 0);
+    assert.equal(resolved, null);
+  });
+});
+
 // 串行执行所有测试用例（避免共享 globalThis 状态）。
 (async () => {
   for (const run of tests) {

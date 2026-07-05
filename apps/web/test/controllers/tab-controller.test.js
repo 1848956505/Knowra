@@ -161,4 +161,61 @@ await runTest('resetTabDragState can sync indicators without rerender', () => {
   assert.equal(elements.tabNodes[1].dataset.dropTarget, 'false');
 });
 
+await runTest('handleTabMenuAction copy-path falls back to legacy copy when async clipboard is unavailable', async () => {
+  const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    writable: true,
+    value: {}
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    writable: true,
+    value: {
+    activeElement: { focus() {} },
+    body: {
+      appendChild() {}
+    },
+    createElement() {
+      return {
+        value: '',
+        style: {},
+        setAttribute() {},
+        focus() {},
+        select() {},
+        setSelectionRange() {},
+        remove() {}
+      };
+    },
+    execCommand(command) {
+      return command === 'copy';
+    }
+    }
+  });
+
+  try {
+    const state = createState({
+      tabMenu: { open: true, x: 0, y: 0, noteId: 'note-a' }
+    });
+    const { controller, calls } = createDeps({ state });
+
+    await controller.handleTabMenuAction('copy-path');
+
+    assert.deepEqual(calls.flashStatus, ['已复制笔记路径']);
+  } finally {
+    if (!originalDocumentDescriptor) {
+      delete globalThis.document;
+    } else {
+      Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
+    }
+
+    if (!originalNavigatorDescriptor) {
+      delete globalThis.navigator;
+    } else {
+      Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor);
+    }
+  }
+});
+
 console.log('tab-controller tests passed');

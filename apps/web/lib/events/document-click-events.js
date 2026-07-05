@@ -1,3 +1,5 @@
+import { closestFromEventTarget } from '../dom/event-target.js';
+
 // document-click-events.js
 // document 级 click 事件绑定：格式化按钮 + 外部点击关闭已打开菜单。
 // 由 client.js 的 bindEvents() 在初始化时一次性注册。
@@ -21,7 +23,7 @@ export function bindDocumentClickEvents({ state, elements, deps }) {
   const documentRef = globalThis.document;
 
   documentRef.addEventListener('click', (event) => {
-    const formatButton = event.target.closest('[data-format]');
+    const formatButton = closestFromEventTarget(event.target, '[data-format]');
     if (!formatButton) {
       return;
     }
@@ -29,17 +31,17 @@ export function bindDocumentClickEvents({ state, elements, deps }) {
   });
 
   documentRef.addEventListener('click', (event) => {
-    if (!event.target.closest('#global-search-shell') && state.search.isOpen) {
+    if (!closestFromEventTarget(event.target, '#global-search-shell') && state.search.isOpen) {
       state.search.isOpen = false;
       renderSearchShell();
     }
-    if (event.target.closest('#library-context-menu')) return;
-    if (event.target.closest('#library-section-menu')) return;
-    if (event.target.closest('#note-tab-menu')) return;
-    if (event.target.closest('#editor-menu-bar')) return;
-    if (event.target.closest('#editor-context-menu')) return;
-    if (event.target.closest('#editor-table-dialog')) return;
-    if (event.target.closest('#secondary-nav-toggle')) return;
+    if (closestFromEventTarget(event.target, '#library-context-menu')) return;
+    if (closestFromEventTarget(event.target, '#library-section-menu')) return;
+    if (closestFromEventTarget(event.target, '#note-tab-menu')) return;
+    if (closestFromEventTarget(event.target, '#editor-menu-bar')) return;
+    if (closestFromEventTarget(event.target, '#editor-context-menu')) return;
+    if (closestFromEventTarget(event.target, '#editor-table-dialog')) return;
+    if (closestFromEventTarget(event.target, '#secondary-nav-toggle')) return;
     closeContextMenu();
     closeSectionMenu();
     closeTabMenu();

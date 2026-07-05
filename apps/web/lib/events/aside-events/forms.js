@@ -1,3 +1,6 @@
+import { isComposingEvent } from '../../dom/composition.js';
+import { closestFromEventTarget } from '../../dom/event-target.js';
+
 // aside-events/forms.js
 // 侧栏内表单监听器，2 个监听器：
 //   - asideContent.submit 派发 [data-knowledge-point-edit-form] 的提交
@@ -9,7 +12,7 @@ export function bindAsideContentFormEvents({ state, elements, deps }) {
   const { updateCurrentKnowledgePoint, createTagAndAssignToCurrentNote } = deps;
 
   elements.asideContent?.addEventListener('submit', (event) => {
-    const knowledgePointEditForm = event.target.closest('[data-knowledge-point-edit-form]');
+    const knowledgePointEditForm = closestFromEventTarget(event.target, '[data-knowledge-point-edit-form]');
     if (!knowledgePointEditForm?.dataset.knowledgePointEditForm) {
       return;
     }
@@ -19,8 +22,8 @@ export function bindAsideContentFormEvents({ state, elements, deps }) {
   });
 
   elements.asideContent?.addEventListener('keydown', (event) => {
-    const input = event.target.closest('[data-note-tag-input]');
-    if (!input || event.key !== 'Enter') {
+    const input = closestFromEventTarget(event.target, '[data-note-tag-input]');
+    if (!input || event.key !== 'Enter' || isComposingEvent(event)) {
       return;
     }
 
