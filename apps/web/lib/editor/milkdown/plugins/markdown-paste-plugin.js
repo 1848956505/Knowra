@@ -1,11 +1,21 @@
 import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import { $prose } from '@milkdown/kit/utils';
-import { removeSpuriousEmptyCodeBlocks, shouldPreferPlainMarkdown } from '../../markdown-paste.js';
+import {
+  removeSpuriousEmptyCodeBlocks,
+  shouldPreferPlainMarkdown,
+  stripPastedInlineStyles
+} from '../../markdown-paste.js';
 import { parseMarkdownSlice } from '../utils/markdown-slice.js';
 
 export const markdownPasteBehavior = $prose((ctx) => new Plugin({
   key: new PluginKey('STUDY_MARKDOWN_PASTE_BEHAVIOR'),
   props: {
+    transformPastedHTML(html) {
+      // Strip inline `style` attributes from any pasted HTML so ChatGPT /
+      // Claude's purple-blue keyword annotations don't leak into the user's
+      // notes. See `stripPastedInlineStyles` for details.
+      return stripPastedInlineStyles(html);
+    },
     handlePaste(view, event, preProcessedSlice) {
       const clipboardData = event.clipboardData;
       if (!clipboardData || view.state.selection.$from.parent.type.spec.code) {

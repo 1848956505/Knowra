@@ -61,3 +61,42 @@ export function removeSpuriousEmptyCodeBlocks(slice) {
     ? slice
     : new Slice(content, slice.openStart, slice.openEnd);
 }
+
+/**
+ * Strip every inline `style="..."` attribute from the given HTML string.
+ *
+ * Why this exists: ChatGPT / Claude / other AI chat UIs annotate keywords in
+ * their rendered output with `<span style="background: ...; color: ...">`.
+ * ProseMirror's default clipboard parser would otherwise preserve those
+ * inline styles on the pasted nodes, painting a purple-blue background over
+ * the user's notes — a visual artifact the user never asked for.
+ *
+ * We strip `style` and let the editor's own CSS / marks decide how the text
+ * is rendered. Semantic information (text, marks like `<strong>`, links) is
+ * kept; only the visual dressing is removed.
+ *
+ * Safe in non-browser environments: when `DOMParser` is unavailable (e.g.
+ * Node test runner), the input HTML is returned unchanged.
+ */
+export function stripPastedInlineStyles(html) {
+  if (typeof html !== 'string' || !html) {
+    return html;
+  }
+
+  const DOMParserCtor = typeof globalThis !== 'undefined' ? globalThis.DOMParser : undefined;
+  if (!DOMParserCtor) {
+    return html;
+  }
+
+  const doc = new DOMParserCtor().parseFromString(html, 'text/html');
+  if (!doc?.body) {
+    return html;
+  }
+
+  const all = doc.body.querySelectorAll('[style]');
+  for (const element of all) {
+    element.removeAttribute('style');
+  }
+
+  return doc.body.innerHTML;
+}

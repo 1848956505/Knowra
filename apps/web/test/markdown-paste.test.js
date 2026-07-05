@@ -3,7 +3,8 @@ import { Fragment, Schema, Slice } from '@milkdown/kit/prose/model';
 import {
   looksLikeMarkdown,
   removeSpuriousEmptyCodeBlocks,
-  shouldPreferPlainMarkdown
+  shouldPreferPlainMarkdown,
+  stripPastedInlineStyles
 } from '../lib/editor/markdown-paste.js';
 
 const fencedMarkdown = `# Self-Attention
@@ -57,5 +58,27 @@ assert.equal(
   2,
   'an intentional empty code block must remain when it is not followed by a populated code block'
 );
+
+// --- stripPastedInlineStyles ---
+// Node test environment: no DOMParser, the function must be a no-op.
+assert.equal(
+  stripPastedInlineStyles('<p style="color: red">hi</p>'),
+  '<p style="color: red">hi</p>',
+  'without DOMParser the input HTML is returned unchanged'
+);
+assert.equal(stripPastedInlineStyles(''), '', 'empty string is a no-op');
+assert.equal(stripPastedInlineStyles(null), null, 'non-string is returned as-is');
+
+// When run under a browser-like environment, a real DOMParser is used.
+if (typeof globalThis.DOMParser !== 'undefined') {
+  const before = '<p>plain <span style="background: rgba(245, 243, 255); color: rgb(64, 65, 168);">关键词</span> rest</p>';
+  const after = stripPastedInlineStyles(before);
+  assert.equal(after.includes('style='), false, 'inline style must be stripped');
+  assert.equal(after.includes('关键词'), true, 'text content must be preserved');
+  assert.equal(after.includes('plain'), true, 'sibling text must be preserved');
+  assert.equal(after.includes('rest'), true, 'trailing text must be preserved');
+} else {
+  console.log('ok - stripPastedInlineStyles (no DOMParser available, skipped browser-level assertions)');
+}
 
 console.log('ok - Markdown clipboard text is preferred over rich HTML when appropriate');

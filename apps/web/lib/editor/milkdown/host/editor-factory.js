@@ -21,7 +21,8 @@ import { markdownPasteBehavior } from '../plugins/markdown-paste-plugin.js';
 import { taskListClickBehavior } from '../plugins/task-list-click-plugin.js';
 import {
   highlightRemark,
-  highlightSchema
+  highlightSchema,
+  toggleHighlightCommand
 } from '../schema/highlight-mark.js';
 import { renderTableButton } from '../table/table-buttons.js';
 
@@ -65,5 +66,6 @@ export function createConfiguredMilkdownEditor(host, markdown) {
     .use(knowledgePointHighlightBehavior)
     .use(taskListClickBehavior)
     .use(highlightRemark)
-    .use(highlightSchema);
+    .use(highlightSchema)
+    .use(toggleHighlightCommand);
 }
