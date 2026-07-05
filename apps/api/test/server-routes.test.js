@@ -874,7 +874,7 @@ export const serverRouteTests = [
         assert.equal(deleted.status, 200);
         assert.equal(deleted.payload.data.id, upload.payload.data.id);
         assert.equal(list.payload.data.length, 0);
-        assert.equal(contentResponse.status, 400);
+        assert.equal(contentResponse.status, 404, 'deleted attachments must surface as 404, not a generic 400');
         assert.match(contentPayload.error.message, /attachment not found/i);
       } finally {
         await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

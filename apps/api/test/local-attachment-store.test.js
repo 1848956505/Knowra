@@ -110,5 +110,96 @@ export const localAttachmentStoreTests = [
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }
+  },
+  {
+    name: 'readAttachmentContent returns 404 when the attachment record is missing',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-missing-record-'));
+      const dataStore = { state: { attachments: [] }, flush() {} };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir: path.join(tempDir, 'uploads') });
+        let captured;
+        try {
+          store.readAttachmentContent('attachment-does-not-exist');
+        } catch (error) {
+          captured = error;
+        }
+
+        assert.ok(captured, 'readAttachmentContent must throw when the record is missing');
+        assert.equal(captured.statusCode, 404, 'missing record must surface as 404, not a generic 400');
+        assert.equal(captured.code, 'ATTACHMENT_NOT_FOUND');
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'readAttachmentContent returns 404 when the file is missing on disk',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-missing-file-'));
+      const uploadsDir = path.join(tempDir, 'uploads');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+
+      const dataStore = {
+        state: {
+          attachments: [{
+            id: 'attachment-orphan',
+            noteId: 'note-1',
+            fileName: 'picture.png',
+            mimeType: 'image/png',
+            size: 0,
+            storagePath: path.join(uploadsDir, 'attachment-orphan-picture.png'),
+            createdAt: new Date().toISOString()
+          }]
+        },
+        flush() {}
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir });
+        let captured;
+        try {
+          store.readAttachmentContent('attachment-orphan');
+        } catch (error) {
+          captured = error;
+        }
+
+        assert.ok(captured, 'readAttachmentContent must throw when the file is missing');
+        assert.equal(captured.statusCode, 404, 'missing file must surface as 404, not a generic 400');
+        assert.equal(captured.code, 'ATTACHMENT_FILE_MISSING');
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'deleteAttachment returns 404 when the record is missing',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-delete-missing-'));
+      const dataStore = { state: { attachments: [] }, flush() {} };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir: path.join(tempDir, 'uploads') });
+        let captured;
+        try {
+          store.deleteAttachment('attachment-does-not-exist');
+        } catch (error) {
+          captured = error;
+        }
+
+        assert.ok(captured, 'deleteAttachment must throw when the record is missing');
+        assert.equal(captured.statusCode, 404);
+        assert.equal(captured.code, 'ATTACHMENT_NOT_FOUND');
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
   }
 ];

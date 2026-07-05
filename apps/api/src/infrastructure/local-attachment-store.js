@@ -110,7 +110,23 @@ export function createLocalAttachmentStore({
       const attachment = this.getAttachment(attachmentId);
 
       if (!attachment) {
-        throw new Error('Attachment not found');
+        const error = new Error('Attachment not found');
+        error.statusCode = 404;
+        error.code = 'ATTACHMENT_NOT_FOUND';
+        throw error;
+      }
+
+      if (!fs.existsSync(attachment.storagePath)) {
+        // Attachment record exists in the JSON store, but the file on disk is
+        // missing. This happens when the JSON snapshot was restored without
+        // the corresponding `storage/uploads/` files (e.g. partial restore
+        // from an export). Returning a proper 404 distinguishes this from
+        // a generic 400 and lets the front-end render a "missing" placeholder
+        // instead of an opaque request-failed error.
+        const error = new Error(`Attachment file missing: ${attachmentId}`);
+        error.statusCode = 404;
+        error.code = 'ATTACHMENT_FILE_MISSING';
+        throw error;
       }
 
       return {
@@ -122,7 +138,10 @@ export function createLocalAttachmentStore({
       const existingIndex = dataStore.state.attachments.findIndex((attachment) => attachment.id === attachmentId);
 
       if (existingIndex === -1) {
-        throw new Error('Attachment not found');
+        const error = new Error('Attachment not found');
+        error.statusCode = 404;
+        error.code = 'ATTACHMENT_NOT_FOUND';
+        throw error;
       }
 
       const [attachment] = dataStore.state.attachments.splice(existingIndex, 1);
