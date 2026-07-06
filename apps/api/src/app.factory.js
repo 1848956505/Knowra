@@ -25,7 +25,9 @@ export function createAppContext(options = {}) {
   const attachmentStore = options.attachmentStore ?? (dataStore
     ? createLocalAttachmentStore({
         dataStore,
-        uploadsDir: options.uploadsDir ?? resolveStoragePath('storage/uploads')
+        uploadsDir: options.uploadsDir ?? resolveStoragePath('storage/uploads'),
+        storageRootDir: options.storageRootDir ?? workspaceRoot,
+        legacyUploadsDirs: options.legacyUploadsDirs
       })
     : null);
 
@@ -106,7 +108,7 @@ export function createPersistentAppContext({
   uploadsDir = resolveStoragePath(process.env.STORAGE_UPLOADS_DIR || 'storage/uploads', storageRootDir)
 } = {}) {
   const dataStore = createFileDataStore(dataFilePath);
-  return createAppContext({ dataStore, uploadsDir });
+  return createAppContext({ dataStore, uploadsDir, storageRootDir });
 }
 
 export function resolveStoragePath(targetPath, storageRootDir = workspaceRoot) {

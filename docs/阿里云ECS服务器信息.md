@@ -190,6 +190,13 @@ storage/data/knowledge-base.json
 
 历史原因：旧数据曾位于 `apps/api/storage/data/knowledge-base.json`。现在运行时统一读取根目录下的 `storage/data/knowledge-base.json`，本地与服务器都应保持这个路径为准。
 
+附件路径约定：
+
+- 运行时附件目录统一使用根级 `storage/uploads/`
+- `attachments[*].storagePath` 统一保存为跨平台相对路径：`storage/uploads/<attachment-id>-<safeName>`
+- 不再把 Windows 风格 `storage\\uploads\\...`、Linux/macOS 绝对路径，或旧的 `apps/api/storage/uploads/...` 作为长期真源
+- 如遇旧快照或旧服务器目录残留，优先迁移文件到根级 `storage/uploads/`，再让元数据回写为上述统一格式
+
 服务器上的恢复前备份：
 
 ```text

@@ -5,6 +5,7 @@ import {
 } from '../lib/editor/shortcut-actions.js';
 
 assert.equal(getEditorShortcutLabel('bold'), 'Ctrl+B');
+assert.equal(getEditorShortcutLabel('code'), 'Ctrl+E');
 assert.equal(getEditorShortcutLabel('paragraph'), 'Ctrl+0');
 assert.equal(getEditorShortcutLabel('heading-6'), 'Ctrl+6');
 assert.equal(getEditorShortcutLabel('ordered'), 'Ctrl+Shift+{');
@@ -33,6 +34,16 @@ assert.equal(
   resolveEditorShortcutAction({ key: 'b', ctrlKey: true }),
   'bold',
   'Ctrl+B should trigger bold'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: 'e', ctrlKey: true }),
+  'code',
+  'Ctrl+E should trigger inline code'
+);
+assert.equal(
+  resolveEditorShortcutAction({ key: 'E', metaKey: true }),
+  'code',
+  'Cmd+E should trigger inline code on mac-style modifier handling'
 );
 assert.equal(
   resolveEditorShortcutAction({ key: '4', ctrlKey: true }),

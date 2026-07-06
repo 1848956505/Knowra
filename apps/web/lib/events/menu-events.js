@@ -78,6 +78,12 @@ export function bindMenuEvents({ state, elements, deps }) {
       return;
     }
 
+    const formatQuickAction = closestFromEventTarget(event.target, '[data-format-quick-action]');
+    if (formatQuickAction?.dataset.formatQuickAction) {
+      void handleFormatMenuAction(formatQuickAction.dataset.formatQuickAction);
+      return;
+    }
+
     const viewAction = closestFromEventTarget(event.target, '[data-view-menu-action]');
     if (viewAction?.dataset.viewMenuAction) {
       void handleViewMenuAction(viewAction.dataset.viewMenuAction);

@@ -7,7 +7,16 @@ import {
   renderFileMenu
 } from '../lib/editor/menu-renderers.js';
 
-const shortcutLabel = (action) => (action === 'save' ? 'Ctrl+S' : '');
+const shortcutLabel = (action) => {
+  switch (action) {
+    case 'save':
+      return 'Ctrl+S';
+    case 'code':
+      return 'Ctrl+E';
+    default:
+      return '';
+  }
+};
 const note = {
   id: 'note-1',
   title: '<Note>',
@@ -60,5 +69,20 @@ assert.match(
 assert.ok(EDITOR_MENU_ITEMS.some((item) => item.key === 'find'));
 assert.ok(PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-6'));
 assert.ok(FORMAT_MENU_ITEMS.some((item) => item.key === 'highlight'));
+assert.match(
+  fileMenuBar,
+  /data-format-quick-action="code"/,
+  'editor menu bar should expose an inline-code quick action button'
+);
+assert.match(
+  fileMenuBar,
+  /data-format-quick-action="codeblock"/,
+  'editor menu bar should expose a code-block quick action button'
+);
+assert.match(
+  fileMenuBar,
+  /data-format-quick-action="code"[\s\S]*Ctrl\+E/,
+  'inline-code quick action should surface its keyboard shortcut label'
+);
 
 console.log('ok - editor menu renderers build menus and states');

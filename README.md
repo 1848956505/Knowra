@@ -102,7 +102,7 @@ The project currently uses local-first persistence for development.
 
 Important paths:
 
-- API knowledge data: [apps/api/storage/data/knowledge-base.json](/D:/A-Projects/Study/apps/api/storage/data/knowledge-base.json)
+- API knowledge data: [storage/data/knowledge-base.json](/D:/A-Projects/Study/storage/data/knowledge-base.json)
 - runtime dev port registry: [storage/runtime/dev-ports.json](/D:/A-Projects/Study/storage/runtime/dev-ports.json)
 
 Runtime files and upload directories are ignored by git where appropriate.

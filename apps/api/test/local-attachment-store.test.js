@@ -63,7 +63,7 @@ export const localAttachmentStoreTests = [
         });
 
         const exported = store.exportAttachmentsSnapshot();
-        fs.rmSync(uploaded.storagePath, { force: true });
+        fs.rmSync(path.join(tempDir, uploaded.storagePath), { force: true });
         dataStore.state.attachments.splice(0, dataStore.state.attachments.length);
 
         const restored = store.importAttachmentsSnapshot(exported);
@@ -105,7 +105,7 @@ export const localAttachmentStoreTests = [
 
         assert.equal(deleted.id, uploaded.id);
         assert.equal(store.listAttachments({ noteId: 'note-delete' }).length, 0);
-        assert.equal(fs.existsSync(uploaded.storagePath), false);
+        assert.equal(fs.existsSync(path.join(tempDir, uploaded.storagePath)), false);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -172,6 +172,95 @@ export const localAttachmentStoreTests = [
         assert.ok(captured, 'readAttachmentContent must throw when the file is missing');
         assert.equal(captured.statusCode, 404, 'missing file must surface as 404, not a generic 400');
         assert.equal(captured.code, 'ATTACHMENT_FILE_MISSING');
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'createLocalAttachmentStore normalizes Windows-style attachment paths to the current runtime uploads directory',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-portable-path-'));
+      const uploadsDir = path.join(tempDir, 'storage', 'uploads');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+
+      const fileName = 'attachment-cross-platform-picture.png';
+      fs.writeFileSync(path.join(uploadsDir, fileName), Buffer.from('portable path body'));
+
+      const dataStore = {
+        state: {
+          attachments: [{
+            id: 'attachment-cross-platform',
+            noteId: 'note-1',
+            fileName: 'picture.png',
+            mimeType: 'image/png',
+            size: 0,
+            storagePath: `storage\\uploads\\${fileName}`,
+            createdAt: new Date().toISOString()
+          }]
+        },
+        flush() {}
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir, storageRootDir: tempDir });
+        const content = store.readAttachmentContent('attachment-cross-platform');
+
+        assert.equal(content.content.toString('utf8'), 'portable path body');
+        assert.equal(
+          dataStore.state.attachments[0].storagePath,
+          'storage/uploads/attachment-cross-platform-picture.png'
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'createLocalAttachmentStore migrates legacy api upload files into the active runtime uploads directory',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-legacy-migrate-'));
+      const uploadsDir = path.join(tempDir, 'storage', 'uploads');
+      const legacyUploadsDir = path.join(tempDir, 'apps', 'api', 'storage', 'uploads');
+      fs.mkdirSync(legacyUploadsDir, { recursive: true });
+
+      const fileName = 'attachment-legacy-picture.png';
+      fs.writeFileSync(path.join(legacyUploadsDir, fileName), Buffer.from('legacy upload body'));
+
+      const dataStore = {
+        state: {
+          attachments: [{
+            id: 'attachment-legacy',
+            noteId: 'note-1',
+            fileName: 'picture.png',
+            mimeType: 'image/png',
+            size: 0,
+            storagePath: `storage\\uploads\\${fileName}`,
+            createdAt: new Date().toISOString()
+          }]
+        },
+        flush() {}
+      };
+
+      try {
+        const store = createLocalAttachmentStore({
+          dataStore,
+          uploadsDir,
+          storageRootDir: tempDir,
+          legacyUploadsDirs: [legacyUploadsDir]
+        });
+        const content = store.readAttachmentContent('attachment-legacy');
+
+        assert.equal(content.content.toString('utf8'), 'legacy upload body');
+        assert.equal(fs.existsSync(path.join(uploadsDir, fileName)), true);
+        assert.equal(
+          dataStore.state.attachments[0].storagePath,
+          'storage/uploads/attachment-legacy-picture.png'
+        );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }

@@ -34,6 +34,16 @@ assert.match(
   'editor menus should render a dedicated shortcut label slot'
 );
 assert.match(
+  menuRenderersJs,
+  /const FORMAT_QUICK_ACTIONS = \[[\s\S]*key: 'code'/,
+  'editor menu bar should expose a quick action for inline code'
+);
+assert.match(
+  menuRenderersJs,
+  /const FORMAT_QUICK_ACTIONS = \[[\s\S]*key: 'codeblock'/,
+  'editor menu bar should expose a quick action for code blocks'
+);
+assert.match(
   documentKeyboardEventsJs,
   /resolveEditorShortcutAction\(event\)/,
   'editor should resolve custom keyboard shortcuts from the shared shortcut helper'
@@ -82,6 +92,11 @@ assert.match(
   componentsCss,
   /\.editor-menu-shortcut/,
   'shortcut labels need dedicated menu styling'
+);
+assert.match(
+  componentsCss,
+  /\.editor-format-quick-actions/,
+  'quick format actions need dedicated toolbar styling'
 );
 
 console.log('ok - editor shortcut UI hooks are present');

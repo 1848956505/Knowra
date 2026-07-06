@@ -38,6 +38,11 @@ assert.match(
   /event\.stopPropagation\(\)/,
   'editorMenuBar handler should call event.stopPropagation() to prevent outside-close'
 );
+assert.match(
+  binderSource,
+  /data-format-quick-action/,
+  'editorMenuBar handler should support quick format action buttons'
+);
 
 // ─── Handler-recorder 断言（behavioral）──────────────────────────
 
@@ -236,6 +241,29 @@ runTest('editorMenuBar: format menu action dispatches handleFormatMenuAction and
 
   assert.equal(formatArg, 'bold');
   assert.equal(viewArg, null);
+});
+
+runTest('editorMenuBar: quick format action dispatches handleFormatMenuAction', async () => {
+  const { elements, listeners } = makeElements();
+  const { bindMenuEvents } = await import('../../lib/events/menu-events.js');
+  let formatArg = null;
+  const deps = makeDeps();
+  deps.handleFormatMenuAction = async (a) => { formatArg = a; };
+
+  bindMenuEvents({ state: makeState(), elements, deps });
+
+  const target = {
+    dataset: { formatQuickAction: 'code' }
+  };
+  target.closest = makeClosest(
+    new Map([
+      ['[data-format-quick-action]', target]
+    ])
+  );
+
+  listeners.editorMenuBar.get('click')({ target, stopPropagation() {} });
+
+  assert.equal(formatArg, 'code');
 });
 
 // 串行执行所有测试用例。

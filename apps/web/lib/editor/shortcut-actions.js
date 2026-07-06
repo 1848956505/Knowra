@@ -5,6 +5,7 @@ export const EDITOR_SHORTCUT_LABELS = {
   paste: 'Ctrl+V',
   'select-all': 'Ctrl+A',
   bold: 'Ctrl+B',
+  code: 'Ctrl+E',
   paragraph: 'Ctrl+0',
   'heading-1': 'Ctrl+1',
   'heading-2': 'Ctrl+2',
@@ -54,6 +55,8 @@ export function resolveEditorShortcutAction({
     switch (normalizedKey) {
       case 'b':
         return 'bold';
+      case 'e':
+        return 'code';
       case '0':
         return 'paragraph';
       case '1':

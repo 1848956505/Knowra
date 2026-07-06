@@ -17,6 +17,7 @@ const documentKeyboardEventsJs = fs.readFileSync(
 const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown-entry.js'), 'utf8');
 const commandResolversJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/commands/command-resolvers.js'), 'utf8');
 const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/components.css'));
+const milkdownContentCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/milkdown-content.css'), 'utf8');
 
 assert.doesNotMatch(clientJs, /window\.prompt\(/, 'editor find/replace must not use browser prompt dialogs');
 assert.doesNotMatch(clientJs, /window\.find\(/, 'editor find must use the in-app search panel instead of browser find');
@@ -92,6 +93,21 @@ assert.match(
   commandResolversJs,
   /'internal-link': \(\) => \(\{ key: insertInternalLinkCommand\.key \}\)/,
   'milkdown command resolver should expose an internal link command'
+);
+assert.match(
+  milkdownContentCss,
+  /\.milkdown-host \.ProseMirror pre \{/,
+  'code block styles should exist in the shared editor stylesheet'
+);
+assert.doesNotMatch(
+  milkdownContentCss,
+  /\.milkdown-host \.ProseMirror pre \{[\s\S]*background:\s*#10182b/,
+  'code blocks should no longer use the legacy black background'
+);
+assert.match(
+  milkdownContentCss,
+  /\.milkdown-host \.ProseMirror code \{[\s\S]*border:/,
+  'inline code should restore a dedicated bordered visual treatment'
 );
 
 console.log('ok - editor utility panel uses in-app UI instead of browser prompts');
