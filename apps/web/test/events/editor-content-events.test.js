@@ -102,6 +102,7 @@ function makeDeps(overrides = {}) {
     scheduleAutosave: () => {},
     syncSourcePreview: () => {},
     persistDraft: async () => {},
+    renderSidebar: () => {},
     ...overrides
   };
 }
@@ -284,10 +285,12 @@ runTest('editorContent input: source editor input updates draft, autosave, previ
   );
   let autosaved = 0;
   let synced = 0;
+  let rendered = 0;
   const state = makeState();
   const deps = makeDeps({
     scheduleAutosave: () => { autosaved += 1; },
-    syncSourcePreview: () => { synced += 1; }
+    syncSourcePreview: () => { synced += 1; },
+    renderSidebar: () => { rendered += 1; }
   });
 
   bindEditorContentEvents({ state, elements, deps });
@@ -299,6 +302,7 @@ runTest('editorContent input: source editor input updates draft, autosave, previ
   assert.equal(state.draftMarkdown, '');
   assert.equal(autosaved, 0);
   assert.equal(synced, 0);
+  assert.equal(rendered, 0);
 
   // 源码 input：更新草稿 + autosave + 同步预览
   const sourceInput = { value: '# 新草稿' };
@@ -307,6 +311,7 @@ runTest('editorContent input: source editor input updates draft, autosave, previ
   assert.equal(state.draftMarkdown, '# 新草稿');
   assert.equal(autosaved, 1);
   assert.equal(synced, 1);
+  assert.equal(rendered, 1);
 });
 
 runTest('editorContent click: data-source-save dispatches persistDraft(immediate)', async () => {

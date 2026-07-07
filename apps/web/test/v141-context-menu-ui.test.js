@@ -46,8 +46,8 @@ assert.match(
 );
 assert.match(
   editorContextModelJs,
-  /EDITOR_CONTEXT_FORMAT_ACTIONS = \[[\s\S]*bold[\s\S]*italic[\s\S]*codeblock[\s\S]*quote[\s\S]*\];/,
-  'context menu should include Typora-like inline formatting actions'
+  /EDITOR_CONTEXT_FORMAT_ACTIONS = \[[\s\S]*bold[\s\S]*italic[\s\S]*code[\s\S]*quote[\s\S]*\];/,
+  'context menu should include inline-code in the quick formatting actions'
 );
 assert.match(
   editorContextModelJs,

@@ -212,6 +212,31 @@ await runTest('knowledge api uploads image attachments through storage endpoint'
   ]);
 });
 
+await runTest('knowledge api deletes attachments through storage endpoint', async () => {
+  const calls = [];
+  const api = createKnowledgeApi({
+    requestJson: async (url, options = {}) => {
+      calls.push({
+        url,
+        method: options.method ?? 'GET',
+        body: options.body ? JSON.parse(options.body) : null
+      });
+      return { data: { id: 'attachment 1' } };
+    }
+  });
+
+  const deleted = await api.deleteAttachment('attachment 1');
+
+  assert.deepEqual(deleted, { id: 'attachment 1' });
+  assert.deepEqual(calls, [
+    {
+      url: '/api/storage/attachments/attachment%201',
+      method: 'DELETE',
+      body: null
+    }
+  ]);
+});
+
 await runTest('knowledge api imports single and multiple markdown notes through matching endpoints', async () => {
   const calls = [];
   const api = createKnowledgeApi({

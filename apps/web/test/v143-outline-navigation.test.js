@@ -60,6 +60,11 @@ assert.match(
   'outline items should keep their heading order so rich editor jumps can fall back to DOM heading position'
 );
 assert.match(
+  outlinePanelJs,
+  /data-outline-toggle-id="\$\{escapeAttribute\(heading\.id\)\}"/,
+  'outline items with child headings should expose a dedicated collapse toggle'
+);
+assert.match(
   sidebarControllerJs,
   /querySelectorAll\('h1, h2, h3, h4, h5, h6'\)/,
   'outline click handling should inspect rendered heading elements instead of relying on preview-only ids'

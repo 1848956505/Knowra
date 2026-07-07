@@ -25,6 +25,7 @@ assert.deepEqual(state.view, {
   showRightSidebar: true,
   showSourceEditor: false
 });
+assert.deepEqual(state.outlineCollapsedHeadingIdsByNote, {});
 assert.deepEqual(createRailItems().map((item) => item.key), [
   'knowledge',
   'paper',

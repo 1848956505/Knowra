@@ -69,20 +69,14 @@ assert.match(
 assert.ok(EDITOR_MENU_ITEMS.some((item) => item.key === 'find'));
 assert.ok(PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-6'));
 assert.ok(FORMAT_MENU_ITEMS.some((item) => item.key === 'highlight'));
-assert.match(
-  fileMenuBar,
-  /data-format-quick-action="code"/,
-  'editor menu bar should expose an inline-code quick action button'
+assert.doesNotMatch(fileMenuBar, /data-format-quick-action/, 'editor menu bar should not render the removed quick action buttons');
+assert.ok(
+  FORMAT_MENU_ITEMS.some((item) => item.key === 'code' && item.label === '行内代码'),
+  'format menu should keep inline code in the top format dropdown'
 );
-assert.match(
-  fileMenuBar,
-  /data-format-quick-action="codeblock"/,
-  'editor menu bar should expose a code-block quick action button'
-);
-assert.match(
-  fileMenuBar,
-  /data-format-quick-action="code"[\s\S]*Ctrl\+E/,
-  'inline-code quick action should surface its keyboard shortcut label'
+assert.ok(
+  PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'codeblock' && item.label === '代码块'),
+  'paragraph menu should keep code blocks in the block-level dropdown'
 );
 
 console.log('ok - editor menu renderers build menus and states');

@@ -33,15 +33,10 @@ assert.match(
   /editor-menu-shortcut/,
   'editor menus should render a dedicated shortcut label slot'
 );
-assert.match(
+assert.doesNotMatch(
   menuRenderersJs,
-  /const FORMAT_QUICK_ACTIONS = \[[\s\S]*key: 'code'/,
-  'editor menu bar should expose a quick action for inline code'
-);
-assert.match(
-  menuRenderersJs,
-  /const FORMAT_QUICK_ACTIONS = \[[\s\S]*key: 'codeblock'/,
-  'editor menu bar should expose a quick action for code blocks'
+  /FORMAT_QUICK_ACTIONS|data-format-quick-action|editor-format-quick-actions/,
+  'editor menu bar should no longer render the removed top-right quick action buttons'
 );
 assert.match(
   documentKeyboardEventsJs,
@@ -94,9 +89,14 @@ assert.match(
   'shortcut labels need dedicated menu styling'
 );
 assert.match(
-  componentsCss,
-  /\.editor-format-quick-actions/,
-  'quick format actions need dedicated toolbar styling'
+  menuRenderersJs,
+  /const FORMAT_MENU_ITEMS = \[[\s\S]*key: 'code'[\s\S]*label: '行内代码'/,
+  'inline code should stay in the format dropdown'
+);
+assert.match(
+  menuRenderersJs,
+  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*key: 'codeblock'[\s\S]*label: '代码块'/,
+  'code blocks should stay in the paragraph dropdown'
 );
 
 console.log('ok - editor shortcut UI hooks are present');

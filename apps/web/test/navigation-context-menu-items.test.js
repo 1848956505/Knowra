@@ -99,6 +99,6 @@ runTest('getContextMenuItems omits jump action for unreferenced attachments', ()
       attachments: [{ id: 'attachment-a' }],
       markdown: ''
     }).map((item) => item.action ?? item.type),
-    ['open-attachment', 'copy-attachment-link']
+    ['open-attachment', 'copy-attachment-link', 'divider', 'delete-attachment']
   );
 });
