@@ -2,7 +2,10 @@ export function createNavigationMenuCommandController(deps, getController) {
   const {
     state,
     getNoteById,
-    flashStatus
+    flashStatus,
+    jumpToAttachmentReference,
+    openAttachment,
+    copyAttachmentLink
   } = deps;
 
 async function handleContextMenuAction(action) {
@@ -72,6 +75,18 @@ async function handleContextMenuAction(action) {
     case 'empty-recycle-bin': {
       await getController().emptyRecycleBin();
       flashStatus('回收站已清空');
+      return;
+    }
+    case 'jump-to-attachment-reference': {
+      jumpToAttachmentReference?.(targetId);
+      return;
+    }
+    case 'open-attachment': {
+      openAttachment?.(targetId);
+      return;
+    }
+    case 'copy-attachment-link': {
+      await copyAttachmentLink?.(targetId);
       return;
     }
     case 'delete-folder': {

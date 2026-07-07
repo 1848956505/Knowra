@@ -17,6 +17,10 @@ const clickSource = fs.readFileSync(
   path.resolve(__dirname, '../../lib/events/aside-events/click.js'),
   'utf8'
 );
+const contextMenuSource = fs.readFileSync(
+  path.resolve(__dirname, '../../lib/events/aside-events/context-menu.js'),
+  'utf8'
+);
 const inputSource = fs.readFileSync(
   path.resolve(__dirname, '../../lib/events/aside-events/input.js'),
   'utf8'
@@ -33,6 +37,7 @@ const tabsSource = fs.readFileSync(
 assert.match(indexSource, /export function bindAsideEvents/, 'index.js should export bindAsideEvents');
 assert.match(tabsSource, /export function bindAsideTabsEvents/, 'tabs.js should export bindAsideTabsEvents');
 assert.match(clickSource, /export function bindAsideContentClickEvents/, 'click.js should export bindAsideContentClickEvents');
+assert.match(contextMenuSource, /export function bindAsideContentContextMenuEvents/, 'context-menu.js should export bindAsideContentContextMenuEvents');
 assert.match(inputSource, /export function bindAsideContentInputEvents/, 'input.js should export bindAsideContentInputEvents');
 assert.match(formsSource, /export function bindAsideContentFormEvents/, 'forms.js should export bindAsideContentFormEvents');
 
@@ -41,6 +46,11 @@ assert.equal(
   (clickSource.match(/elements\.asideContent\?\.addEventListener\('click'/g) ?? []).length,
   1,
   'click.js should register exactly 1 click on asideContent'
+);
+assert.equal(
+  (contextMenuSource.match(/elements\.asideContent\?\.addEventListener\('contextmenu'/g) ?? []).length,
+  1,
+  'context-menu.js should register exactly 1 contextmenu on asideContent'
 );
 assert.equal(
   (inputSource.match(/elements\.asideContent\?\.addEventListener\('input'/g) ?? []).length,
@@ -99,6 +109,7 @@ function makeState(overrides = {}) {
     knowledgePoints: [],
     knowledgePointEditing: null,
     knowledgePointAttachComposer: { query: '', isOpen: false },
+    outlineCollapsedHeadingIdsByNote: {},
     expandedKnowledgePointIds: {},
     ...overrides
   };
@@ -109,6 +120,9 @@ function makeDeps(overrides = {}) {
     getCurrentNote: () => ({ id: 'n-1' }),
     selectNote: async () => {},
     flashStatus: () => {},
+    openContextMenu: () => {},
+    openAttachment: async () => {},
+    jumpToAttachmentReference: async () => {},
     addTagToCurrentNote: async () => {},
     removeTagFromCurrentNote: async () => {},
     createTagAndAssignToCurrentNote: async () => {},
@@ -176,6 +190,56 @@ runTest('asideContent click: text-node-like target still resolves linked note bu
   elements.asideContent.dispatch('click', { parentElement: button });
 
   assert.equal(arg, 'n-text');
+});
+
+runTest('asideContent click: referenced attachment jumps to its正文位置', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  let arg = null;
+  const deps = makeDeps({ jumpToAttachmentReference: async (id) => { arg = id; } });
+
+  bindAsideEvents({ state: makeState(), elements, deps });
+
+  const target = {
+    dataset: {
+      attachmentId: 'attachment-1',
+      attachmentReferenced: 'true',
+      attachmentName: 'diagram.png'
+    }
+  };
+  target.closest = makeClosest(new Map([['[data-attachment-id]', target]]));
+  elements.asideContent.dispatch('click', target);
+
+  assert.equal(arg, 'attachment-1');
+});
+
+runTest('asideContent contextmenu: attachment opens the shared context menu', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  let payload = null;
+  const deps = makeDeps({ openContextMenu: (value) => { payload = value; } });
+
+  bindAsideEvents({ state: makeState(), elements, deps });
+
+  const attachmentTarget = { dataset: { attachmentId: 'attachment-2' } };
+  attachmentTarget.closest = makeClosest(new Map([['[data-attachment-id]', attachmentTarget]]));
+
+  let prevented = false;
+  elements.asideContent.dispatch('contextmenu', attachmentTarget, {
+    clientX: 14,
+    clientY: 28,
+    preventDefault() {
+      prevented = true;
+    }
+  });
+
+  assert.equal(prevented, true);
+  assert.deepEqual(payload, {
+    x: 14,
+    y: 28,
+    targetKind: 'attachment',
+    targetId: 'attachment-2'
+  });
 });
 
 runTest('asideContent click: data-note-tag-add expands composer and dispatches addTag', async () => {
@@ -296,6 +360,31 @@ runTest('asideContent click: data-outline-id scrollIntoView when target found', 
   bindAsideEvents({ state: makeState(), elements, deps });
   elements.asideContent.dispatch('click', target);
   assert.equal(scrolled, true);
+});
+
+runTest('asideContent click: data-outline-toggle-id flips collapsed state and re-renders', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  const state = makeState();
+  let rendered = 0;
+  const deps = makeDeps({ renderSidebar: () => { rendered += 1; } });
+  const target = {
+    dataset: {
+      outlineToggleId: 'intro',
+      outlineNoteId: 'note-1'
+    }
+  };
+  target.closest = makeClosest(new Map([['[data-outline-toggle-id]', target]]));
+
+  bindAsideEvents({ state, elements, deps });
+
+  elements.asideContent.dispatch('click', target);
+  assert.equal(state.outlineCollapsedHeadingIdsByNote['note-1'].intro, true);
+  assert.equal(rendered, 1);
+
+  elements.asideContent.dispatch('click', target);
+  assert.equal(state.outlineCollapsedHeadingIdsByNote['note-1'].intro, false);
+  assert.equal(rendered, 2);
 });
 
 runTest('asideContent click: data-outline-id flashes status when target missing', async () => {

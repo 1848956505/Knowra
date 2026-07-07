@@ -1,3 +1,4 @@
+import { decorateAttachmentsForDisplay } from './attachments.js';
 import {
   renderAsideEmptyInline,
   renderAssignedTagPills,
@@ -18,6 +19,7 @@ export function renderInfoTab({
   formatDate = (value) => value ?? ''
 }) {
   const stats = getNoteStats(markdown || note.rawMarkdown || '');
+  const decoratedAttachments = decorateAttachmentsForDisplay(attachments, markdown || note.rawMarkdown || '');
 
   return `
     <section class="aside-panel-stack">
@@ -53,10 +55,10 @@ export function renderInfoTab({
       <section class="aside-card">
         <div class="aside-card-header">
           <span>附件</span>
-          <strong>${attachments.length}</strong>
+          <strong>${decoratedAttachments.length}</strong>
         </div>
         <div class="resource-list">
-          ${attachments.length ? renderAttachments(attachments) : renderAsideEmptyInline('暂无附件')}
+          ${decoratedAttachments.length ? renderAttachments(decoratedAttachments) : renderAsideEmptyInline('暂无附件')}
         </div>
       </section>
     </section>

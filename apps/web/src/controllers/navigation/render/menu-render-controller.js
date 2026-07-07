@@ -49,7 +49,9 @@ export function createNavigationMenuRenderController(deps) {
       targetKind: state.contextMenu.targetKind,
       targetId: state.contextMenu.targetId,
       notes: state.allNotes,
-      recycleNotes: getRecycleNotes()
+      recycleNotes: getRecycleNotes(),
+      attachments: state.attachments,
+      markdown: state.draftMarkdown
     });
   }
 

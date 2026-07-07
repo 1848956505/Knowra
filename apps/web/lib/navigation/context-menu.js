@@ -1,4 +1,5 @@
 import { closestFromEventTarget } from '../dom/event-target.js';
+import { isAttachmentReferencedInMarkdown } from '../sidebar/attachments.js';
 
 export function resolveContextMenuTarget(target) {
   const noteButton = closestFromEventTarget(target, '[data-note-id]');
@@ -37,7 +38,9 @@ export function getContextMenuItems({
   targetKind = null,
   targetId = null,
   notes = [],
-  recycleNotes = []
+  recycleNotes = [],
+  attachments = [],
+  markdown = ''
 } = {}) {
   switch (targetKind) {
     case 'materials':
@@ -55,6 +58,8 @@ export function getContextMenuItems({
       ];
     case 'note':
       return getNoteMenuItems(notes.find((note) => note.id === targetId));
+    case 'attachment':
+      return getAttachmentMenuItems(attachments.find((attachment) => attachment.id === targetId), markdown);
     case 'recycle-section':
       return recycleNotes.length > 0
         ? [{ action: 'empty-recycle-bin', label: '清空回收站' }]
@@ -62,6 +67,24 @@ export function getContextMenuItems({
     default:
       return [];
   }
+}
+
+function getAttachmentMenuItems(attachment, markdown) {
+  if (!attachment) {
+    return [];
+  }
+
+  const referenced = isAttachmentReferencedInMarkdown(attachment, markdown);
+  const items = [];
+
+  if (referenced) {
+    items.push({ action: 'jump-to-attachment-reference', label: '跳转到正文' });
+    items.push({ type: 'divider' });
+  }
+
+  items.push({ action: 'open-attachment', label: '打开附件' });
+  items.push({ action: 'copy-attachment-link', label: '复制附件链接' });
+  return items;
 }
 
 function getNoteMenuItems(note) {

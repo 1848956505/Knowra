@@ -17,12 +17,14 @@
 
 import { bindAsideTabsEvents } from './tabs.js';
 import { bindAsideContentClickEvents } from './click.js';
+import { bindAsideContentContextMenuEvents } from './context-menu.js';
 import { bindAsideContentInputEvents } from './input.js';
 import { bindAsideContentFormEvents } from './forms.js';
 
 export function bindAsideEvents({ state, elements, deps }) {
   bindAsideTabsEvents({ state, elements, deps });
   bindAsideContentClickEvents({ state, elements, deps });
+  bindAsideContentContextMenuEvents({ state, elements, deps });
   bindAsideContentInputEvents({ state, elements, deps });
   bindAsideContentFormEvents({ state, elements, deps });
 }

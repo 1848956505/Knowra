@@ -4,7 +4,8 @@ import { closestFromEventTarget } from '../../dom/event-target.js';
 // 侧栏内容（elements.asideContent）click 监听器。1 个监听器覆盖 15 个
 // [data-*] 按钮分支，按原 bindEvents() 顺序逐个 closest + 早退：
 //   1.  data-linked-id                       跳转链接笔记
-//   2.  data-attachment-name                 选中附件（仅 flashStatus）
+//   2.  data-attachment-open                 打开附件内容
+//   3.  data-attachment-id                   已引用附件跳转到正文位置
 //   3.  data-note-tag-add                    展开 composer 并添加标签
 //   4.  data-note-tag-remove                 移除标签
 //   5.  data-note-tag-toggle                 切换 composer 折叠态
@@ -30,6 +31,8 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
     getCurrentNote,
     selectNote,
     flashStatus,
+    openAttachment,
+    jumpToAttachmentReference,
     addTagToCurrentNote,
     removeTagFromCurrentNote,
     createTagAndAssignToCurrentNote,
@@ -48,9 +51,19 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
       return;
     }
 
-    const attachmentButton = closestFromEventTarget(event.target, '[data-attachment-name]');
-    if (attachmentButton?.dataset.attachmentName) {
-      flashStatus(`已选中附件：${attachmentButton.dataset.attachmentName}`);
+    const attachmentOpenButton = closestFromEventTarget(event.target, '[data-attachment-open]');
+    if (attachmentOpenButton?.dataset.attachmentOpen) {
+      void openAttachment?.(attachmentOpenButton.dataset.attachmentOpen);
+      return;
+    }
+
+    const attachmentButton = closestFromEventTarget(event.target, '[data-attachment-id]');
+    if (attachmentButton?.dataset.attachmentId) {
+      if (attachmentButton.dataset.attachmentReferenced === 'true') {
+        void jumpToAttachmentReference?.(attachmentButton.dataset.attachmentId);
+      } else {
+        flashStatus(`附件尚未插入正文：${attachmentButton.dataset.attachmentName ?? '未命名附件'}`);
+      }
       return;
     }
 
@@ -180,6 +193,23 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
     const knowledgePointSourceJump = closestFromEventTarget(event.target, '[data-knowledge-point-source-jump]');
     if (knowledgePointSourceJump?.dataset.knowledgePointSourceJump) {
       void selectKnowledgePointSource(knowledgePointSourceJump.dataset.knowledgePointSourceJump);
+      return;
+    }
+
+    const outlineToggleButton = closestFromEventTarget(event.target, '[data-outline-toggle-id]');
+    if (outlineToggleButton?.dataset.outlineToggleId) {
+      const outlineNoteId = outlineToggleButton.dataset.outlineNoteId ?? '';
+      const currentCollapsedState = state.outlineCollapsedHeadingIdsByNote[outlineNoteId] ?? {};
+      const nextCollapsedState = {
+        ...currentCollapsedState,
+        [outlineToggleButton.dataset.outlineToggleId]: !currentCollapsedState[outlineToggleButton.dataset.outlineToggleId]
+      };
+
+      state.outlineCollapsedHeadingIdsByNote = {
+        ...state.outlineCollapsedHeadingIdsByNote,
+        [outlineNoteId]: nextCollapsedState
+      };
+      renderSidebar(getCurrentNote());
       return;
     }
 

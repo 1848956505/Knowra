@@ -93,6 +93,9 @@ export function createAppControllers({
     syncLocalWorkspace: helpers.syncLocalWorkspace,
     saveCurrentEditorScrollPosition: helpers.saveCurrentEditorScrollPosition,
     flashStatus: helpers.flashStatus,
+    jumpToAttachmentReference: (...args) => sidebarController.jumpToAttachmentReference(...args),
+    openAttachment: (...args) => sidebarController.openAttachment(...args),
+    copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
     escapeHtml: helpers.escapeHtml
   });
 

@@ -41,11 +41,21 @@
 }
 
 .note-row button,
-.resource-row button,
 .linked-row button {
   all: unset;
   cursor: pointer;
   flex: 1;
+}
+
+.resource-entry {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
 }
 
 .note-meta,
@@ -74,6 +84,30 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.resource-badge {
+  flex: 0 0 auto;
+  min-width: 42px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.resource-badge[data-referenced='true'] {
+  background: rgba(60, 104, 255, 0.12);
+  color: var(--color-accent-strong);
+}
+
+.resource-inline-action {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .pill-row {

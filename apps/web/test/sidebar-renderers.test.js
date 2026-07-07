@@ -29,8 +29,14 @@ assert.match(
 );
 
 assert.match(
-  renderAttachments([{ fileName: '<draft>.md', mimeType: 'text/markdown' }]),
-  /data-attachment-name="&lt;draft&gt;.md"[\s\S]*text\/markdown/
+  renderAttachments([{
+    id: 'attachment-1',
+    fileName: '<draft>.md',
+    mimeType: 'text/markdown',
+    contentUrl: '/api/storage/attachments/attachment-1/content',
+    isReferenced: true
+  }]),
+  /data-attachment-id="attachment-1"[\s\S]*已引用[\s\S]*data-attachment-open="attachment-1"/
 );
 
 console.log('ok - sidebar renderers escape and render right rail fragments');

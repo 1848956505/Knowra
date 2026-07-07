@@ -25,7 +25,7 @@ const html = renderInfoTab({
   tags,
   tagComposer: { draft: 'java', isExpanded: true },
   linkedNotes: [{ id: 'linked-1', title: '<关联>', summary: '<摘要>' }],
-  attachments: [{ fileName: '<附件>.md', mimeType: 'text/markdown' }],
+  attachments: [{ id: 'attachment-1', fileName: '<附件>.md', mimeType: 'text/markdown' }],
   formatDate: (value) => `date:${value.slice(0, 10)}`
 });
 
@@ -39,7 +39,9 @@ assert.match(html, /value="java"/);
 assert.match(html, /data-note-tag-add="tag-2"/);
 assert.match(html, /data-note-tag-create/);
 assert.match(html, /&lt;关联&gt;[\s\S]*&lt;摘要&gt;/);
-assert.match(html, /data-attachment-name="&lt;附件&gt;.md"/);
+assert.match(html, /data-attachment-id="attachment-1"/);
+assert.match(html, /data-attachment-open="attachment-1"/);
+assert.match(html, /未引用/);
 
 const collapsedComposer = renderNoteTagComposer({
   note,

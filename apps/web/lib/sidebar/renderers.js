@@ -98,12 +98,29 @@ export function renderAttachments(attachments) {
   return attachments
     .map(
       (attachment) => `
-        <div class="resource-row">
-          <button type="button" data-attachment-name="${escapeAttribute(attachment.fileName)}">
+        <div class="resource-row" data-referenced="${String(Boolean(attachment.isReferenced))}">
+          <button
+            type="button"
+            class="resource-entry"
+            data-attachment-id="${escapeAttribute(attachment.id)}"
+            data-attachment-name="${escapeAttribute(attachment.fileName)}"
+            data-attachment-url="${escapeAttribute(attachment.contentUrl || '')}"
+            data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
+          >
             <div class="resource-meta">
               <strong>${escapeHtml(attachment.fileName)}</strong>
               <span>${escapeHtml(attachment.mimeType)}</span>
             </div>
+            <span class="resource-badge" data-referenced="${String(Boolean(attachment.isReferenced))}">
+              ${attachment.isReferenced ? '已引用' : '未引用'}
+            </span>
+          </button>
+          <button
+            type="button"
+            class="subtle-button resource-inline-action"
+            data-attachment-open="${escapeAttribute(attachment.id)}"
+          >
+            打开
           </button>
         </div>
       `

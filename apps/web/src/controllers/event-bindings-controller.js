@@ -103,6 +103,8 @@ export function bindAppEvents({
     persistDraft: (...args) => editorController.persistDraft(...args),
 
     renderSidebar: (...args) => sidebarController.renderSidebar(...args),
+    openAttachment: (...args) => sidebarController.openAttachment(...args),
+    jumpToAttachmentReference: (...args) => sidebarController.jumpToAttachmentReference(...args),
     addTagToCurrentNote: (...args) => tagController.addTagToCurrentNote(...args),
     removeTagFromCurrentNote: (...args) => tagController.removeTagFromCurrentNote(...args),
     createTagAndAssignToCurrentNote: (...args) => tagController.createTagAndAssignToCurrentNote(...args),

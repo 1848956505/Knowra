@@ -78,3 +78,27 @@ runTest('getContextMenuItems returns empty recycle bin action when deleted notes
     ['empty-recycle-bin']
   );
 });
+
+runTest('getContextMenuItems returns attachment jump/open/copy actions for referenced attachments', () => {
+  assert.deepEqual(
+    getContextMenuItems({
+      targetKind: 'attachment',
+      targetId: 'attachment-a',
+      attachments: [{ id: 'attachment-a' }],
+      markdown: '![diagram](/api/storage/attachments/attachment-a/content)'
+    }).map((item) => item.action ?? item.type),
+    ['jump-to-attachment-reference', 'divider', 'open-attachment', 'copy-attachment-link']
+  );
+});
+
+runTest('getContextMenuItems omits jump action for unreferenced attachments', () => {
+  assert.deepEqual(
+    getContextMenuItems({
+      targetKind: 'attachment',
+      targetId: 'attachment-a',
+      attachments: [{ id: 'attachment-a' }],
+      markdown: ''
+    }).map((item) => item.action ?? item.type),
+    ['open-attachment', 'copy-attachment-link']
+  );
+});
