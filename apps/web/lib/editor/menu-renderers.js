@@ -43,11 +43,6 @@ export const FORMAT_MENU_ITEMS = [
   { key: 'highlight', label: '高亮' }
 ];
 
-const FORMAT_QUICK_ACTIONS = [
-  { key: 'code', label: '琛屽唴浠ｇ爜' },
-  { key: 'codeblock', label: '浠ｇ爜鍧?' }
-];
-
 export function renderEditorMenuBarMarkup({
   note,
   effectiveView,
@@ -116,10 +111,6 @@ export function renderEditorMenuBarMarkup({
           视图
         </button>
         ${viewMenuOpen ? renderViewMenu({ note, effectiveView }) : ''}
-      </div>
-      <div class="editor-menu-spacer" aria-hidden="true"></div>
-      <div class="editor-format-quick-actions" role="toolbar" aria-label="编辑器快捷功能">
-        ${renderFormatQuickActions({ note, getShortcutLabel })}
       </div>
     </div>
   `;
@@ -237,27 +228,6 @@ function renderEditorMenuItem({
       ${shortcut ? `<span class="editor-menu-shortcut">${escapeHtml(shortcut)}</span>` : ''}
     </button>
   `;
-}
-
-function renderFormatQuickActions({ note, getShortcutLabel = () => '' }) {
-  const disabled = !note;
-
-  return FORMAT_QUICK_ACTIONS.map((item) => {
-    const shortcut = getShortcutLabel(item.key);
-    return `
-      <button
-        type="button"
-        class="editor-format-quick-button"
-        data-format-quick-action="${item.key}"
-        title="${escapeHtml(item.label)}${shortcut ? ` (${shortcut})` : ''}"
-        aria-label="${escapeHtml(item.label)}"
-        ${disabled ? 'disabled' : ''}
-      >
-        <span class="editor-format-quick-label">${escapeHtml(item.label)}</span>
-        ${shortcut ? `<span class="editor-format-quick-shortcut">${escapeHtml(shortcut)}</span>` : ''}
-      </button>
-    `;
-  }).join('');
 }
 
 function escapeHtml(value) {

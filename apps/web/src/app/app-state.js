@@ -50,6 +50,7 @@ export function createInitialAppState() {
       query: '',
       isOpen: false
     },
+    outlineCollapsedHeadingIdsByNote: {},
     expandedKnowledgePointIds: {},
     knowledgePointEditing: null,
     openNoteTabs: [],

@@ -5,7 +5,8 @@ export function createNavigationMenuCommandController(deps, getController) {
     flashStatus,
     jumpToAttachmentReference,
     openAttachment,
-    copyAttachmentLink
+    copyAttachmentLink,
+    deleteAttachment
   } = deps;
 
 async function handleContextMenuAction(action) {
@@ -87,6 +88,10 @@ async function handleContextMenuAction(action) {
     }
     case 'copy-attachment-link': {
       await copyAttachmentLink?.(targetId);
+      return;
+    }
+    case 'delete-attachment': {
+      await deleteAttachment?.(targetId);
       return;
     }
     case 'delete-folder': {

@@ -32,7 +32,8 @@ export function bindEditorContentEvents({ state, elements, deps }) {
     handleEditorContextMenuAction,
     scheduleAutosave,
     syncSourcePreview,
-    persistDraft
+    persistDraft,
+    renderSidebar
   } = deps;
 
   elements.editorContent?.addEventListener('contextmenu', (event) => {
@@ -80,6 +81,7 @@ export function bindEditorContentEvents({ state, elements, deps }) {
     state.draftMarkdown = sourceInput.value;
     scheduleAutosave();
     syncSourcePreview();
+    renderSidebar(getCurrentNote());
   });
 
   elements.editorContent?.addEventListener('click', (event) => {

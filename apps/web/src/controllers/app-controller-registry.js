@@ -96,6 +96,7 @@ export function createAppControllers({
     jumpToAttachmentReference: (...args) => sidebarController.jumpToAttachmentReference(...args),
     openAttachment: (...args) => sidebarController.openAttachment(...args),
     copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
+    deleteAttachment: (...args) => sidebarController.deleteAttachment(...args),
     escapeHtml: helpers.escapeHtml
   });
 

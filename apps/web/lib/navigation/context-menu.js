@@ -84,6 +84,10 @@ function getAttachmentMenuItems(attachment, markdown) {
 
   items.push({ action: 'open-attachment', label: '打开附件' });
   items.push({ action: 'copy-attachment-link', label: '复制附件链接' });
+  if (!referenced) {
+    items.push({ type: 'divider' });
+    items.push({ action: 'delete-attachment', label: '删除附件' });
+  }
   return items;
 }
 

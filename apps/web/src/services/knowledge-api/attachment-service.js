@@ -17,5 +17,15 @@ export function createAttachmentApi({ requestJson }) {
     };
   }
 
-  return { uploadAttachmentImage };
+  async function deleteAttachment(attachmentId) {
+    if (!attachmentId) {
+      throw new Error('Attachment id is required');
+    }
+
+    return getData(await requestJson(`/api/storage/attachments/${encodeURIComponent(attachmentId)}`, {
+      method: 'DELETE'
+    }));
+  }
+
+  return { uploadAttachmentImage, deleteAttachment };
 }

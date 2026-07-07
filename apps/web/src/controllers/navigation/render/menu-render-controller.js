@@ -39,9 +39,32 @@ export function createNavigationMenuRenderController(deps) {
     }
 
     elements.contextMenu.hidden = false;
-    elements.contextMenu.style.left = `${state.contextMenu.x}px`;
-    elements.contextMenu.style.top = `${state.contextMenu.y}px`;
     elements.contextMenu.innerHTML = renderContextMenuItems(items);
+    positionContextMenu();
+  }
+
+  function positionContextMenu() {
+    if (!elements.contextMenu) {
+      return;
+    }
+
+    const margin = 10;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+    const { width, height } = elements.contextMenu.getBoundingClientRect();
+
+    const maxLeft = Math.max(margin, viewportWidth - width - margin);
+    const maxTop = Math.max(margin, viewportHeight - height - margin);
+
+    const left = viewportWidth > 0
+      ? Math.min(Math.max(state.contextMenu.x, margin), maxLeft)
+      : state.contextMenu.x;
+    const top = viewportHeight > 0
+      ? Math.min(Math.max(state.contextMenu.y, margin), maxTop)
+      : state.contextMenu.y;
+
+    elements.contextMenu.style.left = `${left}px`;
+    elements.contextMenu.style.top = `${top}px`;
   }
 
   function getContextMenuItems() {
