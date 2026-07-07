@@ -1,5 +1,5 @@
 export const EDITOR_CONTEXT_PRIMARY_ACTIONS = ['cut', 'copy', 'paste', 'delete'];
-export const EDITOR_CONTEXT_FORMAT_ACTIONS = ['bold', 'italic', 'highlight', 'codeblock', 'quote'];
+export const EDITOR_CONTEXT_FORMAT_ACTIONS = ['bold', 'italic', 'highlight', 'code', 'quote'];
 export const EDITOR_CONTEXT_LIST_ACTIONS = ['ordered', 'bullet', 'task-list'];
 export const EDITOR_CONTEXT_INDENT_ACTIONS = ['outdent', 'indent'];
 
@@ -32,6 +32,7 @@ export const editorContextActionMeta = {
   bold: { label: '加粗', icon: 'bold' },
   italic: { label: '斜体', icon: 'italic' },
   highlight: { label: '高亮', icon: 'highlight' },
+  code: { label: '行内代码', icon: 'code' },
   codeblock: { label: '代码块', icon: 'codeblock' },
   quote: { label: '引用', icon: 'quote' },
   ordered: { label: '有序列表', icon: 'ordered' },

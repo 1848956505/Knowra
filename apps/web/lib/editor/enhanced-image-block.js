@@ -46,6 +46,7 @@ class EnhancedImageBlockController {
     this.emptyLinkInput = null;
     this.activeResize = null;
     this.proxyRequestId = 0;
+    this.layoutRefreshFrame = 0;
 
     this.bindAttrs(initialNode);
   }
@@ -73,6 +74,17 @@ class EnhancedImageBlockController {
 
   applyImageLayout(ratio = this.state.ratio) {
     applyImageLayout(this, ratio);
+  }
+
+  scheduleLayoutRefresh() {
+    if (this.layoutRefreshFrame) {
+      window.cancelAnimationFrame(this.layoutRefreshFrame);
+    }
+
+    this.layoutRefreshFrame = window.requestAnimationFrame(() => {
+      this.layoutRefreshFrame = 0;
+      this.applyImageLayout();
+    });
   }
 
   handlePresetRatio(presetKey) {
@@ -145,6 +157,10 @@ class EnhancedImageBlockController {
   }
 
   destroy() {
+    if (this.layoutRefreshFrame) {
+      window.cancelAnimationFrame(this.layoutRefreshFrame);
+      this.layoutRefreshFrame = 0;
+    }
     window.removeEventListener('pointermove', this.onPointerMove);
     window.removeEventListener('pointerup', this.onPointerUp);
     window.removeEventListener('pointercancel', this.onPointerUp);

@@ -122,12 +122,14 @@
 
 .milkdown-host .milkdown-image-block .image-wrapper {
   display: grid;
-  gap: 10px;
-  justify-items: start;
   max-width: 100%;
 }
 
 .milkdown-host .milkdown-image-block .image-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  z-index: 12;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -137,6 +139,14 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(0, -6px, 0);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    visibility 0.16s ease;
 }
 
 .milkdown-host .milkdown-image-block .image-preset-button,
@@ -165,6 +175,16 @@
   position: relative;
   display: inline-flex;
   max-width: 100%;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.milkdown-host .milkdown-image-block.selected .image-toolbar {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
 }
 
 .milkdown-host .milkdown-image-block .image-stage > img {
@@ -174,6 +194,9 @@
   border: 1px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-surface);
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .milkdown-host .milkdown-image-block .image-resize-handle {

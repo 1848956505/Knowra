@@ -16,6 +16,7 @@ const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/comp
 const enhancedImageBlock = fs.readFileSync(path.resolve(__dirname, '../lib/editor/enhanced-image-block.js'), 'utf8');
 const imageBlockAttrsJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/image-block-attrs.js'), 'utf8');
 const imageBlockDomJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/image-block-dom.js'), 'utf8');
+const imagePasteControllerJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/host/image-paste-controller.js'), 'utf8');
 const imageBlockRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/image-block-renderers.js'), 'utf8');
 const imageBlockResizeJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/image-block-resize.js'), 'utf8');
 const imageLayoutControllerJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/host/image-layout-controller.js'), 'utf8');
@@ -26,7 +27,8 @@ const imageUploadJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/mil
 const milkdownImageHostJs = [
   editorFactoryJs,
   imageLayoutControllerJs,
-  imageUploadJs
+  imageUploadJs,
+  imagePasteControllerJs
 ].join('\n');
 const imageBlockPluginJs = [
   enhancedImageBlock,
@@ -115,6 +117,12 @@ assert.match(
   'image upload host helper should only prepare the attachment payload before calling the injected service'
 );
 
+assert.match(
+  milkdownImageHostJs,
+  /createImageUploadPlaceholderSrc\([\s\S]*replaceSelectionWith\(node,\s*false\)[\s\S]*host\.uploadAttachmentImage\(file\)[\s\S]*setNodeAttribute\(position,\s*'src',\s*nextSrc\)/,
+  'pasted image files should insert a placeholder block first and then swap in the uploaded attachment URL in place'
+);
+
 assert.doesNotMatch(
   imageUploadJs,
   /\bfetch\(/,
@@ -129,8 +137,14 @@ assert.match(
 
 assert.match(
   editorHostControllerJs,
-  /createMilkdownHost\(\{[\s\S]*noteId,[\s\S]*uploadAttachmentImage: knowledgeApi\.uploadAttachmentImage,[\s\S]*onChange: handleEditorMarkdownChange[\s\S]*\}\)/,
-  'editor host should receive the active note id and injected upload service'
+  /const handleAttachmentUpload = async \(input\) => \{[\s\S]*knowledgeApi\.uploadAttachmentImage\(input\)[\s\S]*state\.attachments = \[[\s\S]*renderSidebar\(getCurrentNote\(\)\);[\s\S]*return uploaded\?\.contentUrl \?\? '';/,
+  'editor host should sync newly uploaded image attachments into the sidebar state and still return a content URL to the image block'
+);
+
+assert.match(
+  editorHostControllerJs,
+  /createMilkdownHost\(\{[\s\S]*noteId,[\s\S]*uploadAttachmentImage: handleAttachmentUpload,[\s\S]*onChange: handleEditorMarkdownChange[\s\S]*\}\)/,
+  'editor host should receive the active note id and wrapped upload service'
 );
 
 assert.match(
@@ -143,6 +157,18 @@ assert.match(
   componentsCss,
   /\.milkdown-image-block[\s\S]*\.image-toolbar[\s\S]*\.image-stage/,
   'editor styles should include image-block layout rules'
+);
+
+assert.match(
+  componentsCss,
+  /\.image-toolbar[\s\S]*position:\s*absolute;[\s\S]*top:\s*6px;[\s\S]*right:\s*12px;[\s\S]*opacity:\s*0;[\s\S]*\.milkdown-image-block\.selected \.image-toolbar[\s\S]*opacity:\s*1;/,
+  'image toolbar should float at the top-right and only appear for the selected image block'
+);
+
+assert.match(
+  componentsCss,
+  /\.image-stage[\s\S]*cursor:\s*default;[\s\S]*user-select:\s*none;[\s\S]*\.image-stage > img[\s\S]*cursor:\s*default;[\s\S]*user-select:\s*none;/,
+  'image blocks should use an arrow cursor and disable text-style selection when hovering the image area'
 );
 
 assert.match(
@@ -197,6 +223,24 @@ assert.match(
   imageBlockRenderersJs,
   /createButton\(\{[\s\S]*className:\s*'confirm'[\s\S]*title:\s*'插入图片链接'[\s\S]*\}\)/,
   'empty-state confirm action should be rendered as a real button with an accessible title'
+);
+
+assert.match(
+  imageBlockRenderersJs,
+  /image\.addEventListener\('load', \(\) => \{[\s\S]*controller\.applyImageLayout\(\);[\s\S]*controller\.scheduleLayoutRefresh\(\);[\s\S]*\}\);/,
+  'image load should trigger an immediate and a deferred layout pass so pasted large images fit without refresh'
+);
+
+assert.match(
+  editorFactoryJs,
+  /listenerCtx\)\.updated\(\(\) => \{[\s\S]*host\.scheduleImageLayoutRefreshBurst\?\.\(\);[\s\S]*\}\);/,
+  'editor host should re-run image layout refresh bursts after document updates, including paste-driven image insertion'
+);
+
+assert.match(
+  imageLayoutControllerJs,
+  /if \(!image\.complete \|\| image\.naturalWidth <= 0\) \{[\s\S]*image\.dataset\.layoutPending[\s\S]*host\.scheduleImageLayoutRefreshBurst\?\.\(\[32, 96, 240, 480\]\);/,
+  'image layout controller should keep retrying while pasted images are still loading so large images fit without a manual refresh'
 );
 
 assert.doesNotMatch(

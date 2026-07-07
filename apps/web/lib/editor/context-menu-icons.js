@@ -30,6 +30,7 @@ const ICON_CONTENT = {
     <path d="M5 17.5h6M9 16.2 16 9.2l2.8 2.8-7 7z" ${STROKE_ATTRS}></path>
     <path d="M13.5 6.5 16.5 9l1.5-1.5a1.6 1.6 0 0 0 0-2.3l-1.2-1.2a1.6 1.6 0 0 0-2.3 0z" ${STROKE_ATTRS}></path>
   `,
+  code: `<path d="M9 8.4 5.6 12 9 15.6M15 8.4 18.4 12 15 15.6" ${STROKE_ATTRS}></path>`,
   codeblock: `<path d="M9.2 8.2 5.5 12l3.7 3.8M14.8 8.2 18.5 12l-3.7 3.8M12.9 7 11.1 17" ${STROKE_ATTRS}></path>`,
   quote: `
     <path d="M7.8 10.2h3.4v3.1a3.2 3.2 0 0 1-3.2 3.2H7v-2.1h.6a1.1 1.1 0 0 0 1.1-1.1v-.8H7.8z" ${STROKE_ATTRS}></path>

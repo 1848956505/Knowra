@@ -107,11 +107,24 @@ function mountEditorHost(noteId, markdown) {
       await previousHost.destroy();
     }
 
+    const handleAttachmentUpload = async (input) => {
+      const uploaded = await knowledgeApi.uploadAttachmentImage(input);
+      const attachment = uploaded?.attachment ?? null;
+      if (attachment?.id && attachment.noteId === state.selectedNoteId) {
+        state.attachments = [
+          ...state.attachments.filter((item) => item?.id !== attachment.id),
+          attachment
+        ];
+        renderSidebar(getCurrentNote());
+      }
+      return uploaded?.contentUrl ?? '';
+    };
+
     const host = createMilkdownHost({
       root,
       markdown,
       noteId,
-      uploadAttachmentImage: knowledgeApi.uploadAttachmentImage,
+      uploadAttachmentImage: handleAttachmentUpload,
       onChange: handleEditorMarkdownChange
     });
 
@@ -143,6 +156,7 @@ function handleEditorMarkdownChange(markdown) {
   }
 
   state.draftMarkdown = markdown;
+  renderSidebar(getCurrentNote());
   getController().scheduleAutosave();
 }
 

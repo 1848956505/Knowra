@@ -11,7 +11,10 @@ export function createAttachmentApi({ requestJson }) {
       throw new Error('Image upload response is missing attachment id');
     }
 
-    return `/api/storage/attachments/${encodeURIComponent(attachment.id)}/content`;
+    return {
+      attachment,
+      contentUrl: `/api/storage/attachments/${encodeURIComponent(attachment.id)}/content`
+    };
   }
 
   return { uploadAttachmentImage };

@@ -17,7 +17,7 @@ import {
 import { findHighlightBehavior } from '../plugins/find-highlight-plugin.js';
 import { knowledgePointHighlightBehavior } from '../plugins/knowledge-point-highlight-plugin.js';
 import { enhancedEnterBehavior } from '../plugins/enter-key-behavior-plugin.js';
-import { markdownPasteBehavior } from '../plugins/markdown-paste-plugin.js';
+import { createMarkdownPasteBehavior } from '../plugins/markdown-paste-plugin.js';
 import { taskListClickBehavior } from '../plugins/task-list-click-plugin.js';
 import {
   highlightRemark,
@@ -48,11 +48,14 @@ export function createConfiguredMilkdownEditor(host, markdown) {
       ctx.get(listenerCtx).markdownUpdated((listenerCtxValue, nextMarkdown) => {
         host.onChange?.(nextMarkdown, listenerCtxValue);
       });
+      ctx.get(listenerCtx).updated(() => {
+        host.scheduleImageLayoutRefreshBurst?.();
+      });
     })
     .use(commonmark)
     .use(listener)
     .use(history)
-    .use(markdownPasteBehavior)
+    .use(createMarkdownPasteBehavior(host))
     .use(clipboard)
     .use(gfm)
     .use(insertLinkCommand)

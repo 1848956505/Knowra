@@ -24,13 +24,18 @@ assert.match(
 );
 assert.match(
   milkdownPasteJs,
-  /\.use\(markdownPasteBehavior\)\s*\.use\(clipboard\)/,
+  /\.use\(createMarkdownPasteBehavior\(host\)\)\s*\.use\(clipboard\)/,
   'plain-text Markdown paste should be handled before the official clipboard DOM round-trip'
 );
 assert.match(
   milkdownPasteJs,
   /handlePaste[\s\S]*parseMarkdownSlice\(ctx, text\)/,
   'native paste should use the direct Markdown fragment parser instead of the clipboard DOM round-trip'
+);
+assert.match(
+  milkdownPasteJs,
+  /const imageFiles = Array\.from\(clipboardData\.items \?\? \[\]\)[\s\S]*host\.pasteImageFile\(file\);[\s\S]*return true;/,
+  'clipboard image files should bypass the default Milkdown image paste route and use the placeholder-first upload flow'
 );
 assert.match(
   milkdownPasteJs,

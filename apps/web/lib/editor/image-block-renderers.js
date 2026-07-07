@@ -81,6 +81,7 @@ export function updateFilledImageState(controller) {
   }
   controller.imageElement.alt = controller.state.caption;
   controller.applyImageLayout();
+  controller.scheduleLayoutRefresh();
   updateImageCaptionVisibility(controller);
 }
 
@@ -186,6 +187,22 @@ export function renderFilledImageState(controller) {
   const wrapper = document.createElement('div');
   wrapper.className = 'image-wrapper';
 
+  const stage = document.createElement('div');
+  stage.className = 'image-stage';
+
+  const image = document.createElement('img');
+  image.dataset.type = IMAGE_DATA_TYPE;
+  image.addEventListener('load', () => {
+    controller.applyImageLayout();
+    controller.scheduleLayoutRefresh();
+  });
+  image.addEventListener('error', (event) => {
+    Promise.resolve(controller.config.onImageLoadError?.(event)).catch(() => {});
+  });
+  image.alt = controller.state.caption;
+  image.src = controller.state.src;
+  controller.imageElement = image;
+
   const toolbar = document.createElement('div');
   toolbar.className = 'image-toolbar';
   controller.toolbarElement = toolbar;
@@ -210,20 +227,7 @@ export function renderFilledImageState(controller) {
   });
   toolbar.appendChild(controller.captionToggleButton);
 
-  const stage = document.createElement('div');
-  stage.className = 'image-stage';
-
-  const image = document.createElement('img');
-  image.dataset.type = IMAGE_DATA_TYPE;
-  image.src = controller.state.src;
-  image.alt = controller.state.caption;
-  image.addEventListener('load', () => controller.applyImageLayout());
-  image.addEventListener('error', (event) => {
-    Promise.resolve(controller.config.onImageLoadError?.(event)).catch(() => {});
-  });
-  controller.imageElement = image;
-
-  stage.appendChild(image);
+  stage.append(toolbar, image);
   IMAGE_RESIZE_CORNERS.forEach((corner) => {
     const handle = createButton({
       className: 'milkdown-resize-handle image-resize-handle',
@@ -234,7 +238,8 @@ export function renderFilledImageState(controller) {
     stage.appendChild(handle);
   });
 
-  wrapper.append(toolbar, stage);
+  wrapper.append(stage);
   controller.dom.appendChild(wrapper);
   updateImageCaptionVisibility(controller);
+  controller.scheduleLayoutRefresh();
 }

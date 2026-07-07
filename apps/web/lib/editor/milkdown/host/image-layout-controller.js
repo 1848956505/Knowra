@@ -53,16 +53,31 @@ export function scheduleImageLayoutRefresh(host) {
 export function refreshImageBlockLayouts(host) {
   syncTableHandleLabels(host.root, host);
   const images = host.root.querySelectorAll('.milkdown-image-block img[src]');
+  let hasPendingImage = false;
   images.forEach((image) => {
     if (!(image instanceof HTMLImageElement)) {
       return;
     }
 
     if (!image.complete || image.naturalWidth <= 0) {
+      hasPendingImage = true;
+      if (image.dataset.layoutPending !== 'true') {
+        image.dataset.layoutPending = 'true';
+        image.addEventListener('load', () => {
+          delete image.dataset.layoutPending;
+          image.dispatchEvent(new Event('load'));
+          host.scheduleImageLayoutRefresh?.();
+        }, { once: true });
+      }
       return;
     }
 
+    delete image.dataset.layoutPending;
     image.dispatchEvent(new Event('load'));
   });
+
+  if (hasPendingImage) {
+    host.scheduleImageLayoutRefreshBurst?.([32, 96, 240, 480]);
+  }
   host.tableHandleController?.queueSyncPinnedHandles();
 }

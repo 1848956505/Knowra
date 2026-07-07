@@ -23,6 +23,7 @@ import {
   scheduleImageLayoutRefresh
 } from './milkdown/host/image-layout-controller.js';
 import { uploadAttachmentImage } from './milkdown/host/image-upload.js';
+import { pasteImageFile } from './milkdown/host/image-paste-controller.js';
 import {
   getSelectionSnapshot,
   selectTextRange
@@ -53,6 +54,7 @@ export class MilkdownHost {
     this.imageLayoutObserver = null;
     this.imageLayoutRefreshFrame = 0;
     this.imageLayoutLastWidth = 0;
+    this.imageLayoutRetryTimers = [];
     this.tableHandleController = null;
     this.ready = this.mount(normalizeMarkdown(markdown));
   }
@@ -166,6 +168,22 @@ export class MilkdownHost {
     scheduleImageLayoutRefresh(this);
   }
 
+  scheduleImageLayoutRefreshBurst(delays = [0, 48, 160, 320]) {
+    this.clearImageLayoutRetryTimers();
+    delays.forEach((delay) => {
+      const timerId = window.setTimeout(() => {
+        this.imageLayoutRetryTimers = this.imageLayoutRetryTimers.filter((value) => value !== timerId);
+        this.scheduleImageLayoutRefresh();
+      }, delay);
+      this.imageLayoutRetryTimers.push(timerId);
+    });
+  }
+
+  clearImageLayoutRetryTimers() {
+    this.imageLayoutRetryTimers.forEach((timerId) => window.clearTimeout(timerId));
+    this.imageLayoutRetryTimers = [];
+  }
+
   refreshImageBlockLayouts() {
     refreshImageBlockLayouts(this);
   }
@@ -176,6 +194,10 @@ export class MilkdownHost {
       noteId: this.noteId,
       uploadAttachment: this.uploadAttachment
     });
+  }
+
+  pasteImageFile(file) {
+    return pasteImageFile(this, file);
   }
 
   async pasteMarkdown(markdown) {
@@ -217,6 +239,7 @@ export class MilkdownHost {
 
     await this.ready;
     this.disconnectImageLayoutObserver();
+    this.clearImageLayoutRetryTimers();
     this.tableHandleController?.destroy();
     this.tableHandleController = null;
     await this.editor.destroy();
@@ -228,4 +251,3 @@ export class MilkdownHost {
 export function createMilkdownHost(options) {
   return new MilkdownHost(options);
 }
-

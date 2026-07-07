@@ -187,14 +187,17 @@ await runTest('knowledge api uploads image attachments through storage endpoint'
     }
   });
 
-  const contentUrl = await api.uploadAttachmentImage({
+  const uploaded = await api.uploadAttachmentImage({
     noteId: 'note 1',
     fileName: 'image.png',
     mimeType: 'image/png',
     contentBase64: 'ZmFrZQ=='
   });
 
-  assert.equal(contentUrl, '/api/storage/attachments/attachment%201/content');
+  assert.deepEqual(uploaded, {
+    attachment: { id: 'attachment 1' },
+    contentUrl: '/api/storage/attachments/attachment%201/content'
+  });
   assert.deepEqual(calls, [
     {
       url: '/api/storage/attachments',
