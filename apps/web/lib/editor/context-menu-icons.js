@@ -1,3 +1,5 @@
+import { escapeHtml } from '../../src/app/formatting.js';
+
 const STROKE_ATTRS = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
 
 const ICON_CONTENT = {
@@ -63,13 +65,4 @@ export function renderEditorContextIconSvg(icon) {
       </svg>
     </span>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

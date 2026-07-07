@@ -16,9 +16,5 @@ export function escapeHtml(value) {
 }
 
 export function escapeAttribute(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return escapeHtml(value).replace(/`/g, '&#096;');
 }

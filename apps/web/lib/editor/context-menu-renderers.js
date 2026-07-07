@@ -8,6 +8,7 @@ import {
   editorContextActionMeta
 } from './context-menu-model.js';
 import { renderEditorContextIconSvg } from './context-menu-icons.js';
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 
 export function renderEditorContextMenuMarkup({ getShortcutLabel = () => '' } = {}) {
   return `
@@ -79,15 +80,3 @@ function renderEditorContextSubmenu(label, actions, getShortcutLabel) {
   `;
 }
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#096;');
-}

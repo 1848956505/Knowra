@@ -1,3 +1,5 @@
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+
 export function renderAsideTabs({ tabs = [], activeKey = null } = {}) {
   return tabs
     .map(
@@ -104,7 +106,6 @@ export function renderAttachments(attachments) {
             class="resource-entry"
             data-attachment-id="${escapeAttribute(attachment.id)}"
             data-attachment-name="${escapeAttribute(attachment.fileName)}"
-            data-attachment-url="${escapeAttribute(attachment.contentUrl || '')}"
             data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
           >
             <div class="resource-meta">
@@ -130,17 +131,4 @@ export function renderAttachments(attachments) {
 
 export function renderAsideEmptyInline(label) {
   return `<div class="aside-empty-inline">${escapeHtml(label)}</div>`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#096;');
 }
