@@ -1,8 +1,6 @@
 import { knowledgeBaseSeed } from '../../lib/mock-knowledge-base.js';
 import { extractMarkdownHeadings } from '../../lib/markdown.js';
-import { writeClipboardText } from '../../lib/browser/clipboard.js';
 import { buildFolderPath } from '../../lib/navigation/selection.js';
-import { buildAttachmentContentUrl } from '../../lib/sidebar/attachments.js';
 import { createClearedNoteSideData, createLocalNoteSideData } from '../../lib/sidebar/state.js';
 import { ASIDE_TABS, resolveAsideContentKey } from '../../lib/sidebar/tabs.js';
 import {
@@ -13,6 +11,7 @@ import {
 import { renderInfoTab as renderInfoTabMarkup } from '../../lib/sidebar/info-panel.js';
 import { renderOutlineTab as renderOutlineTabMarkup } from '../../lib/sidebar/outline-panel.js';
 import { renderKnowledgePointPanel } from '../../lib/knowledge-points/panel.js';
+import { createAttachmentCommandsController } from './sidebar/attachment-commands-controller.js';
 
 export function createSidebarController(deps) {
   const {
@@ -25,12 +24,27 @@ export function createSidebarController(deps) {
     formatDate
   } = deps;
 
+  const attachmentCommands = createAttachmentCommandsController({ elements, flashStatus });
+
 async function loadCurrentNoteSideData() {
   if (state.dataMode === 'local') {
     loadLocalNoteSideData(state.selectedNoteId);
     return;
   }
   await loadApiNoteSideData(state.selectedNoteId);
+}
+
+async function deleteAttachment(attachmentId) {
+  if (!attachmentId) {
+    flashStatus('缺少要删除的附件');
+    return false;
+  }
+
+  await knowledgeApi.deleteAttachment(attachmentId);
+  state.attachments = state.attachments.filter((attachment) => attachment?.id !== attachmentId);
+  renderSidebar(getCurrentNote());
+  flashStatus('附件已删除');
+  return true;
 }
 
 async function loadApiNoteSideData(noteId) {
@@ -181,67 +195,19 @@ function renderConceptsTab(note) {
 }
 
 function findAttachmentReferenceTarget(attachmentId) {
-  if (!attachmentId || !elements.editorContent) {
-    return null;
-  }
-
-  const contentUrl = buildAttachmentContentUrl(attachmentId);
-  if (!contentUrl) {
-    return null;
-  }
-
-  const candidates = elements.editorContent.querySelectorAll('img[src], a[href]');
-  for (const candidate of candidates) {
-    if (!(candidate instanceof HTMLElement)) {
-      continue;
-    }
-
-    const source = candidate.getAttribute('src') ?? candidate.getAttribute('href') ?? '';
-    if (source === contentUrl) {
-      return candidate;
-    }
-  }
-
-  return null;
+  return attachmentCommands.findAttachmentReferenceTarget(attachmentId);
 }
 
 function jumpToAttachmentReference(attachmentId) {
-  const target = findAttachmentReferenceTarget(attachmentId);
-  if (!target) {
-    flashStatus('当前附件尚未在正文中找到引用位置');
-    return false;
-  }
-
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  return true;
+  return attachmentCommands.jumpToAttachmentReference(attachmentId);
 }
 
 function openAttachment(attachmentId) {
-  const contentUrl = buildAttachmentContentUrl(attachmentId);
-  if (!contentUrl) {
-    flashStatus('当前附件缺少可打开的内容地址');
-    return false;
-  }
-
-  if (typeof window !== 'undefined' && typeof window.open === 'function') {
-    window.open(contentUrl, '_blank', 'noopener');
-    return true;
-  }
-
-  flashStatus('当前环境暂不支持打开附件');
-  return false;
+  return attachmentCommands.openAttachment(attachmentId);
 }
 
 async function copyAttachmentLink(attachmentId) {
-  const contentUrl = buildAttachmentContentUrl(attachmentId);
-  if (!contentUrl) {
-    flashStatus('当前附件缺少可复制的内容地址');
-    return false;
-  }
-
-  const copied = await writeClipboardText(contentUrl);
-  flashStatus(copied ? '已复制附件链接' : '复制附件链接失败');
-  return copied;
+  return attachmentCommands.copyAttachmentLink(attachmentId);
 }
 
   return {
@@ -257,6 +223,7 @@ async function copyAttachmentLink(attachmentId) {
     findAttachmentReferenceTarget,
     jumpToAttachmentReference,
     openAttachment,
-    copyAttachmentLink
+    copyAttachmentLink,
+    deleteAttachment
   };
 }
