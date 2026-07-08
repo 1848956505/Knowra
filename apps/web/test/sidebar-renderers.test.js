@@ -39,4 +39,12 @@ assert.match(
   /data-attachment-id="attachment-1"[\s\S]*已引用[\s\S]*data-attachment-open="attachment-1"/
 );
 
+assert.match(
+  renderAttachments(
+    [{ id: 'attachment-2', fileName: 'image.png', mimeType: 'image/png', isReferenced: false }],
+    { id: 'attachment-2', draft: 'renamed-image', extension: '.png' }
+  ),
+  /data-attachment-rename-form="attachment-2"[\s\S]*value="renamed-image"[\s\S]*resource-rename-extension">\.png<\/span>[\s\S]*data-attachment-rename-cancel/
+);
+
 console.log('ok - sidebar renderers escape and render right rail fragments');

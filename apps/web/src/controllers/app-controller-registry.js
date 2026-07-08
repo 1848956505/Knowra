@@ -127,6 +127,7 @@ export function createAppControllers({
     openAttachment: (...args) => sidebarController.openAttachment(...args),
     copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
     deleteAttachment: (...args) => sidebarController.deleteAttachment(...args),
+    startAttachmentRename: (...args) => sidebarController.startAttachmentRename(...args),
     insertAttachmentAtCursor: (...args) => editorController.insertAttachmentAtCursor(...args),
     removeAttachmentFromCurrentNote: (...args) => editorController.removeAttachmentFromCurrentNote(...args),
     escapeHtml: helpers.escapeHtml

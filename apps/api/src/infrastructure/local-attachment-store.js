@@ -1,67 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
-function ensureDirectory(directoryPath) {
-  fs.mkdirSync(directoryPath, { recursive: true });
-}
-
-function sanitizeFileName(fileName) {
-  return String(fileName ?? 'attachment.bin')
-    .replace(/[^\w.\-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'attachment.bin';
-}
-
-function createAttachmentId() {
-  return `attachment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
-
-function cloneValue(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function toPortablePath(targetPath) {
-  return String(targetPath ?? '')
-    .replaceAll('\\', '/')
-    .replace(/\/+/g, '/')
-    .replace(/^\.\//, '')
-    .trim();
-}
-
-function joinPortablePath(...segments) {
-  return segments
-    .map((segment) => toPortablePath(segment))
-    .filter(Boolean)
-    .join('/');
-}
-
-function looksWindowsAbsolute(targetPath) {
-  return /^[A-Za-z]:[\\/]/.test(String(targetPath ?? ''));
-}
-
-function looksPosixAbsolute(targetPath) {
-  return String(targetPath ?? '').startsWith('/');
-}
-
-function uniquePaths(paths) {
-  return [...new Set(paths.filter(Boolean).map((value) => path.normalize(value)))];
-}
-
-function scheduleFileCleanup(storagePath, remainingAttempts = 5) {
-  if (!storagePath || remainingAttempts <= 0) {
-    return;
-  }
-
-  setTimeout(() => {
-    try {
-      if (fs.existsSync(storagePath)) {
-        fs.rmSync(storagePath, { force: true, maxRetries: 5, retryDelay: 50 });
-      }
-    } catch {
-      scheduleFileCleanup(storagePath, remainingAttempts - 1);
-    }
-  }, 150);
-}
+import {
+  cloneValue,
+  createAttachmentId,
+  ensureDirectory,
+  joinPortablePath,
+  looksPosixAbsolute,
+  looksWindowsAbsolute,
+  moveFileSafely,
+  sanitizeFileName,
+  scheduleFileCleanup,
+  toPortablePath,
+  uniquePaths
+} from './local-attachment-store-utils.js';
 
 export function createLocalAttachmentStore({
   dataStore,
@@ -297,8 +248,39 @@ export function createLocalAttachmentStore({
       const [attachment] = dataStore.state.attachments.splice(existingIndex, 1);
       try {
         removeAttachmentFile(attachment.storagePath);
-      } catch {
+      } catch (error) {
+        console.error('removeAttachmentFile failed, scheduling cleanup retry:', error?.message);
         scheduleFileCleanup(resolvePortableStoragePath(attachment.storagePath));
+      }
+      flush();
+      return attachment;
+    },
+    renameAttachment(attachmentId, fileName) {
+      const attachment = this.getAttachment(attachmentId);
+      if (!attachment) {
+        const error = new Error('Attachment not found');
+        error.statusCode = 404;
+        error.code = 'ATTACHMENT_NOT_FOUND';
+        throw error;
+      }
+
+      if (!String(fileName ?? '').trim()) {
+        throw new Error('Attachment fileName is required');
+      }
+
+      const nextSafeName = sanitizeFileName(fileName);
+      const currentReadablePath = resolveReadableAttachmentPath(attachment);
+      const nextAbsolutePath = resolveManagedAbsolutePath(attachment.id, nextSafeName);
+      const nextStoragePath = buildStoragePath(attachment.id, nextSafeName);
+
+      if (currentReadablePath) {
+        moveFileSafely(currentReadablePath, nextAbsolutePath);
+      }
+
+      attachment.fileName = nextSafeName;
+      attachment.storagePath = nextStoragePath;
+      if (fs.existsSync(nextAbsolutePath)) {
+        attachment.size = fs.statSync(nextAbsolutePath).size;
       }
       flush();
       return attachment;
@@ -327,7 +309,8 @@ export function createLocalAttachmentStore({
       dataStore.state.attachments.forEach((attachment) => {
         try {
           removeAttachmentFile(attachment.storagePath);
-        } catch {
+        } catch (error) {
+          console.error('import: removeAttachmentFile failed, scheduling cleanup retry:', error?.message);
           scheduleFileCleanup(attachment.storagePath);
         }
       });

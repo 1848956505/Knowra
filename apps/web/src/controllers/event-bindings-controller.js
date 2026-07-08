@@ -33,6 +33,27 @@ export function bindAppEvents({
     tabController,
     tagController
   } = controllers;
+  const pendingAttachmentJumpTimers = new Set();
+
+  function cancelPendingAttachmentJump() {
+    if (!pendingAttachmentJumpTimers.size) {
+      return;
+    }
+
+    pendingAttachmentJumpTimers.forEach((timerId) => window.clearTimeout(timerId));
+    pendingAttachmentJumpTimers.clear();
+  }
+
+  function scheduleAttachmentJump(callback) {
+    // 220ms 防抖延迟：区分单击（跳转到下一个引用位置）和双击（跳转到上一个引用位置）。
+    // 双击时 cancelPendingAttachmentJump 会在 dblclick 处理器中清除此定时器，阻止跳转。
+    // 220ms 是标准 click/dblclick 区分阈值，低于多数用户的双击间隔，避免用户感觉单击响应迟钝。
+    const timerId = window.setTimeout(() => {
+      pendingAttachmentJumpTimers.delete(timerId);
+      callback?.();
+    }, 220);
+    pendingAttachmentJumpTimers.add(timerId);
+  }
 
   const deps = {
     toggleSearchTagFilter: (...args) => searchController.toggleSearchTagFilter(...args),
@@ -105,6 +126,12 @@ export function bindAppEvents({
     renderSidebar: (...args) => sidebarController.renderSidebar(...args),
     openAttachment: (...args) => sidebarController.openAttachment(...args),
     jumpToAttachmentReference: (...args) => sidebarController.jumpToAttachmentReference(...args),
+    scheduleAttachmentJump,
+    cancelPendingAttachmentJump,
+    startAttachmentRename: (...args) => sidebarController.startAttachmentRename(...args),
+    updateAttachmentRenameDraft: (...args) => sidebarController.updateAttachmentRenameDraft(...args),
+    cancelAttachmentRename: (...args) => sidebarController.cancelAttachmentRename(...args),
+    submitAttachmentRename: (...args) => sidebarController.submitAttachmentRename(...args),
     addTagToCurrentNote: (...args) => tagController.addTagToCurrentNote(...args),
     removeTagFromCurrentNote: (...args) => tagController.removeTagFromCurrentNote(...args),
     createTagAndAssignToCurrentNote: (...args) => tagController.createTagAndAssignToCurrentNote(...args),

@@ -12,6 +12,7 @@ import { renderInfoTab as renderInfoTabMarkup } from '../../lib/sidebar/info-pan
 import { renderOutlineTab as renderOutlineTabMarkup } from '../../lib/sidebar/outline-panel.js';
 import { renderKnowledgePointPanel } from '../../lib/knowledge-points/panel.js';
 import { createAttachmentCommandsController } from './sidebar/attachment-commands-controller.js';
+import { createAttachmentRenameController } from './sidebar/attachment-rename-controller.js';
 import { isAttachmentReferencedInMarkdown } from '../../lib/sidebar/attachments.js';
 
 export function createSidebarController(deps) {
@@ -26,6 +27,13 @@ export function createSidebarController(deps) {
   } = deps;
 
   const attachmentCommands = createAttachmentCommandsController({ elements, flashStatus });
+  const attachmentRenameController = createAttachmentRenameController({
+    state,
+    knowledgeApi,
+    getCurrentNote,
+    renderSidebar,
+    flashStatus
+  });
 
 async function loadCurrentNoteSideData() {
   if (state.dataMode === 'local') {
@@ -51,6 +59,9 @@ async function deleteAttachment(attachmentId) {
 
   await knowledgeApi.deleteAttachment(attachmentId);
   state.attachments = state.attachments.filter((attachment) => attachment?.id !== attachmentId);
+  if (state.attachmentRenaming?.id === attachmentId) {
+    state.attachmentRenaming = null;
+  }
   renderSidebar(getCurrentNote());
   flashStatus('附件已删除');
   return true;
@@ -69,6 +80,7 @@ async function loadApiNoteSideData(noteId) {
     const sideData = await knowledgeApi.loadNoteSideData({ noteId, spaceId });
     state.linkedNotes = sideData.linkedNotes;
     state.attachments = sideData.attachments;
+    state.attachmentRenaming = null;
     state.knowledgePoints = sideData.knowledgePoints;
     state.allKnowledgePoints = sideData.allKnowledgePoints;
     state.knowledgePointTagGroups = sideData.knowledgePointTagGroups;
@@ -92,6 +104,7 @@ function loadLocalNoteSideData(noteId) {
     notes: state.allNotes,
     attachments: knowledgeBaseSeed.attachments
   }));
+  state.attachmentRenaming = null;
   syncKnowledgePointMarkers();
 }
 
@@ -173,6 +186,7 @@ function renderInfoTab(note) {
     tagComposer: state.noteTagComposer,
     linkedNotes: state.linkedNotes,
     attachments: state.attachments,
+    attachmentRenaming: state.attachmentRenaming,
     formatDate
   });
 }
@@ -203,23 +217,8 @@ function renderConceptsTab(note) {
   });
 }
 
-function findAttachmentReferenceTarget(attachmentId) {
-  return attachmentCommands.findAttachmentReferenceTarget(attachmentId);
-}
-
-function jumpToAttachmentReference(attachmentId) {
-  return attachmentCommands.jumpToAttachmentReference(attachmentId);
-}
-
-function openAttachment(attachmentId) {
-  return attachmentCommands.openAttachment(attachmentId);
-}
-
-async function copyAttachmentLink(attachmentId) {
-  return attachmentCommands.copyAttachmentLink(attachmentId);
-}
-
   return {
+    // 本地方法 —— 直接引用
     loadCurrentNoteSideData,
     loadApiNoteSideData,
     loadLocalNoteSideData,
@@ -229,10 +228,13 @@ async function copyAttachmentLink(attachmentId) {
     renderInfoTab,
     renderOutlineTab,
     renderConceptsTab,
-    findAttachmentReferenceTarget,
-    jumpToAttachmentReference,
-    openAttachment,
-    copyAttachmentLink,
-    deleteAttachment
+    deleteAttachment,
+    // attachmentCommands —— 通过子控制器委托
+    findAttachmentReferenceTarget: (...args) => attachmentCommands.findAttachmentReferenceTarget(...args),
+    jumpToAttachmentReference: (...args) => attachmentCommands.jumpToAttachmentReference(...args),
+    openAttachment: (...args) => attachmentCommands.openAttachment(...args),
+    copyAttachmentLink: (...args) => attachmentCommands.copyAttachmentLink(...args),
+    // attachmentRenameController —— 展开子控制器方法
+    ...attachmentRenameController
   };
 }

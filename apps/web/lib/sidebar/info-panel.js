@@ -17,6 +17,7 @@ export function renderInfoTab({
   tagComposer = { draft: '', isExpanded: false },
   linkedNotes = [],
   attachments = [],
+  attachmentRenaming = null,
   formatDate = (value) => value ?? ''
 }) {
   const stats = getNoteStats(markdown || note.rawMarkdown || '');
@@ -59,7 +60,7 @@ export function renderInfoTab({
           <strong>${decoratedAttachments.length}</strong>
         </div>
         <div class="resource-list">
-          ${decoratedAttachments.length ? renderAttachments(decoratedAttachments) : renderAsideEmptyInline('暂无附件')}
+          ${decoratedAttachments.length ? renderAttachments(decoratedAttachments, attachmentRenaming) : renderAsideEmptyInline('暂无附件')}
         </div>
       </section>
     </section>
@@ -113,4 +114,3 @@ export function renderNoteTagComposer({ note, tags = [], tagComposer = { draft: 
     </div>
   `;
 }
-

@@ -883,6 +883,134 @@ export const serverRouteTests = [
     }
   },
   {
+    name: 'attachment patch route renames attachment metadata and content filename header',
+    async run() {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const path = await import('node:path');
+      const { createAppContext } = await import('../src/app.factory.js');
+      const { createServer } = await import('../src/server.js');
+      const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attach-patch-route-'));
+      const dataFilePath = path.join(tempDir, 'knowledge-base.json');
+      const uploadsDir = path.join(tempDir, 'uploads');
+      const dataStore = createFileDataStore(dataFilePath);
+      const appContext = createAppContext({ dataStore, uploadsDir });
+      const server = createServer({ appContext });
+
+      await new Promise((resolve) => server.listen(0, resolve));
+      const port = server.address().port;
+
+      try {
+        await requestJson({
+          port,
+          method: 'POST',
+          path: '/api/knowledge/notes',
+          body: {
+            id: 'attachment-rename-note',
+            spaceId: 'space-attach-rename',
+            folderId: 'folder-1',
+            title: 'Attachment Rename Note',
+            rawMarkdown: 'body'
+          }
+        });
+
+        const upload = await requestJson({
+          port,
+          method: 'POST',
+          path: '/api/storage/attachments',
+          body: {
+            noteId: 'attachment-rename-note',
+            fileName: 'before.png',
+            mimeType: 'image/png',
+            contentBase64: Buffer.from('rename file').toString('base64')
+          }
+        });
+
+        const renamed = await requestJson({
+          port,
+          method: 'PATCH',
+          path: `/api/storage/attachments/${upload.payload.data.id}`,
+          body: {
+            fileName: 'after name.png'
+          }
+        });
+        const contentResponse = await fetch(`http://127.0.0.1:${port}/api/storage/attachments/${upload.payload.data.id}/content`);
+
+        assert.equal(renamed.status, 200);
+        assert.equal(renamed.payload.data.fileName, 'after name.png');
+        assert.match(contentResponse.headers.get('content-disposition') ?? '', /after(?: |%20)name\.png/);
+      } finally {
+        await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'attachment post rename route aliases patch rename behavior',
+    async run() {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const path = await import('node:path');
+      const { createAppContext } = await import('../src/app.factory.js');
+      const { createServer } = await import('../src/server.js');
+      const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attach-post-rename-route-'));
+      const dataFilePath = path.join(tempDir, 'knowledge-base.json');
+      const uploadsDir = path.join(tempDir, 'uploads');
+      const dataStore = createFileDataStore(dataFilePath);
+      const appContext = createAppContext({ dataStore, uploadsDir });
+      const server = createServer({ appContext });
+
+      await new Promise((resolve) => server.listen(0, resolve));
+      const port = server.address().port;
+
+      try {
+        await requestJson({
+          port,
+          method: 'POST',
+          path: '/api/knowledge/notes',
+          body: {
+            id: 'attachment-post-rename-note',
+            spaceId: 'space-attach-post-rename',
+            folderId: 'folder-1',
+            title: 'Attachment Post Rename Note',
+            rawMarkdown: 'body'
+          }
+        });
+
+        const upload = await requestJson({
+          port,
+          method: 'POST',
+          path: '/api/storage/attachments',
+          body: {
+            noteId: 'attachment-post-rename-note',
+            fileName: 'before.png',
+            mimeType: 'image/png',
+            contentBase64: Buffer.from('rename file').toString('base64')
+          }
+        });
+
+        const renamed = await requestJson({
+          port,
+          method: 'POST',
+          path: `/api/storage/attachments/${upload.payload.data.id}/rename`,
+          body: {
+            fileName: 'after name.png'
+          }
+        });
+
+        assert.equal(renamed.status, 200);
+        assert.equal(renamed.payload.data.fileName, 'after name.png');
+      } finally {
+        await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
     name: 'GET folder tree route returns nested folder data and deleting parent clears child note refs',
     async run() {
       const { createAppContext } = await import('../src/app.factory.js');

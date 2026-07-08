@@ -25,7 +25,7 @@ assert.match(
 
 assert.match(
   source,
-  /const referenceUrl = buildAttachmentReferenceUrl\(attachmentId\);[\s\S]*String\(attachment\?\.mimeType \|\| ''\)\.startsWith\('image\/'\)[\s\S]*`!\[\$\{label\}\]\(\$\{referenceUrl\}\)`[\s\S]*`\[\$\{label\}\]\(\$\{referenceUrl\}\)`/,
+  /const referenceUrl = buildAttachmentReferenceUrl\(attachmentId\);[\s\S]*String\(attachment\?\.mimeType \|\| ''\)\.startsWith\('image\/'\)[\s\S]*`!\[\$\{label\}\]\(\$\{referenceUrl\}\).*`[\s\S]*`\[\$\{label\}\]\(\$\{referenceUrl\}\)`/,
   'attachment reinsertion should emit image markdown for images and link markdown for other attachments'
 );
 

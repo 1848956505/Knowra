@@ -33,6 +33,7 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
     flashStatus,
     openAttachment,
     jumpToAttachmentReference,
+    scheduleAttachmentJump,
     addTagToCurrentNote,
     removeTagFromCurrentNote,
     createTagAndAssignToCurrentNote,
@@ -59,11 +60,21 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
 
     const attachmentButton = closestFromEventTarget(event.target, '[data-attachment-id]');
     if (attachmentButton?.dataset.attachmentId) {
+      if ((event.detail ?? 1) > 1) {
+        return;
+      }
+
       if (attachmentButton.dataset.attachmentReferenced === 'true') {
-        void jumpToAttachmentReference?.(attachmentButton.dataset.attachmentId);
+        scheduleAttachmentJump?.(() => jumpToAttachmentReference?.(attachmentButton.dataset.attachmentId, 'next'));
       } else {
         flashStatus(`附件尚未插入正文：${attachmentButton.dataset.attachmentName ?? '未命名附件'}`);
       }
+      return;
+    }
+
+    const attachmentRenameCancelButton = closestFromEventTarget(event.target, '[data-attachment-rename-cancel]');
+    if (attachmentRenameCancelButton) {
+      deps.cancelAttachmentRename?.();
       return;
     }
 

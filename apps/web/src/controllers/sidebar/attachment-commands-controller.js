@@ -5,22 +5,29 @@ import {
 import { writeClipboardText } from '../../../lib/browser/clipboard.js';
 
 export function createAttachmentCommandsController({ elements, flashStatus }) {
+  const attachmentJumpIndexes = new Map();
 
-  function findAttachmentReferenceTarget(attachmentId) {
+  function findAttachmentReferenceTargets(attachmentId) {
     if (!attachmentId || !elements.editorContent) {
-      return null;
+      return [];
     }
 
-    const directMatch = elements.editorContent.querySelector(
+    const targets = [];
+    const seen = new Set();
+    const directMatches = elements.editorContent.querySelectorAll(
       `[data-attachment-id="${escapeAttachmentSelector(attachmentId)}"]`
     );
-    if (directMatch instanceof HTMLElement) {
-      return directMatch;
-    }
+    directMatches.forEach((candidate) => {
+      if (!(candidate instanceof HTMLElement) || seen.has(candidate) || isNestedReferenceTarget(candidate, targets)) {
+        return;
+      }
+      seen.add(candidate);
+      targets.push(candidate);
+    });
 
     const candidates = elements.editorContent.querySelectorAll('img[src], a[href]');
     for (const candidate of candidates) {
-      if (!(candidate instanceof HTMLElement)) {
+      if (!(candidate instanceof HTMLElement) || seen.has(candidate) || isNestedReferenceTarget(candidate, targets)) {
         continue;
       }
 
@@ -28,16 +35,23 @@ export function createAttachmentCommandsController({ elements, flashStatus }) {
         ?? candidate.getAttribute('href')
         ?? (candidate instanceof HTMLImageElement ? candidate.currentSrc : '');
       if (extractAttachmentIdFromUrl(source) === attachmentId) {
-        return candidate;
+        seen.add(candidate);
+        targets.push(candidate);
       }
     }
 
-    return null;
+    return targets;
   }
 
-  function jumpToAttachmentReference(attachmentId) {
-    const target = findAttachmentReferenceTarget(attachmentId);
+  function findAttachmentReferenceTarget(attachmentId) {
+    return findAttachmentReferenceTargets(attachmentId)[0] ?? null;
+  }
+
+  function jumpToAttachmentReference(attachmentId, direction = 'next') {
+    const targets = findAttachmentReferenceTargets(attachmentId);
+    const target = resolveAttachmentJumpTarget(attachmentId, targets, direction, attachmentJumpIndexes);
     if (!target) {
+      attachmentJumpIndexes.delete(attachmentId);
       flashStatus('当前附件尚未在正文中找到引用位置');
       return false;
     }
@@ -75,11 +89,35 @@ export function createAttachmentCommandsController({ elements, flashStatus }) {
   }
 
   return {
+    findAttachmentReferenceTargets,
     findAttachmentReferenceTarget,
     jumpToAttachmentReference,
     openAttachment,
     copyAttachmentLink
   };
+}
+
+function resolveAttachmentJumpTarget(attachmentId, targets, direction, attachmentJumpIndexes) {
+  if (!attachmentId || !targets.length) {
+    return null;
+  }
+
+  const currentIndex = attachmentJumpIndexes.get(attachmentId);
+  const maxIndex = targets.length - 1;
+  let nextIndex = 0;
+
+  if (direction === 'previous') {
+    nextIndex = Number.isInteger(currentIndex)
+      ? (currentIndex - 1 + targets.length) % targets.length
+      : maxIndex;
+  } else {
+    nextIndex = Number.isInteger(currentIndex)
+      ? (currentIndex + 1) % targets.length
+      : 0;
+  }
+
+  attachmentJumpIndexes.set(attachmentId, nextIndex);
+  return targets[nextIndex] ?? null;
 }
 
 function escapeAttachmentSelector(value) {
@@ -88,4 +126,8 @@ function escapeAttachmentSelector(value) {
   }
 
   return String(value).replace(/"/g, '\\"');
+}
+
+function isNestedReferenceTarget(candidate, targets) {
+  return targets.some((target) => target === candidate || target.contains(candidate) || candidate.contains(target));
 }

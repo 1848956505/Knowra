@@ -164,6 +164,13 @@ function createStorageHttpHandlers({ dataStore, attachmentStore }) {
 
       return attachmentStore.uploadAttachment(body);
     },
+    updateAttachment(params, body) {
+      if (!attachmentStore) {
+        throw new Error('Attachment storage is not configured');
+      }
+
+      return attachmentStore.renameAttachment(params.id, body?.fileName);
+    },
     listAttachments(query = {}) {
       if (!attachmentStore) {
         return [];

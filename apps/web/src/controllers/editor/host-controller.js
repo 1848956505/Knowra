@@ -194,7 +194,7 @@ async function insertAttachmentAtCursor(attachment) {
 
   const label = escapeMarkdownLinkLabel(attachment?.fileName || '附件');
   const markdown = String(attachment?.mimeType || '').startsWith('image/')
-    ? `![${label}](${referenceUrl})`
+    ? `![${label}](${referenceUrl})\n\n`
     : `[${label}](${referenceUrl})`;
 
   await editorHost.focus();
@@ -204,8 +204,25 @@ async function insertAttachmentAtCursor(attachment) {
     return false;
   }
 
+  if (String(attachment?.mimeType || '').startsWith('image/')) {
+    await ensureParagraphBelowImage(editorHost);
+  }
+
   flashStatus('附件已插入到当前光标位置');
   return true;
+}
+
+async function ensureParagraphBelowImage(editorHost) {
+  if (!editorHost || typeof editorHost.run !== 'function') {
+    return false;
+  }
+
+  const inserted = await editorHost.run('paragraph-below');
+  if (inserted) {
+    return true;
+  }
+
+  return editorHost.pasteMarkdown?.('\n') ?? false;
 }
 
 async function removeAttachmentFromCurrentNote(attachment) {

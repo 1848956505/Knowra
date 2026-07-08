@@ -29,6 +29,10 @@ import {
   selectTextRange
 } from './milkdown/host/selection-controller.js';
 import {
+  attachSelectionMemory,
+  restoreLastSelection
+} from './milkdown/host/selection-memory-controller.js';
+import {
   clearSearchHighlights,
   findAndSelect
 } from './milkdown/host/find-controller.js';
@@ -56,6 +60,8 @@ export class MilkdownHost {
     this.imageLayoutLastWidth = 0;
     this.imageLayoutRetryTimers = [];
     this.tableHandleController = null;
+    this.lastSelectionRange = null;
+    this.detachSelectionMemory = null;
     this.ready = this.mount(normalizeMarkdown(markdown));
   }
 
@@ -66,6 +72,7 @@ export class MilkdownHost {
     this.root.dataset.editorReady = 'true';
     this.attachImageLayoutObserver();
     this.attachTableHandleController();
+    this.attachSelectionMemory();
     syncTableHandleLabels(this.root, this);
     this.scheduleImageLayoutRefresh();
     return this;
@@ -130,6 +137,9 @@ export class MilkdownHost {
 
   async focus() {
     await this.ready;
+    if (restoreLastSelection(this)) {
+      return;
+    }
     const view = this.editor.ctx.get(editorViewCtx);
     view.focus();
   }
@@ -154,6 +164,11 @@ export class MilkdownHost {
   attachTableHandleController() {
     this.tableHandleController = new TableHandleController(this);
     this.tableHandleController.attach();
+  }
+
+  attachSelectionMemory() {
+    this.detachSelectionMemory?.();
+    this.detachSelectionMemory = attachSelectionMemory(this);
   }
 
   attachImageLayoutObserver() {
@@ -242,6 +257,8 @@ export class MilkdownHost {
     this.clearImageLayoutRetryTimers();
     this.tableHandleController?.destroy();
     this.tableHandleController = null;
+    this.detachSelectionMemory?.();
+    this.detachSelectionMemory = null;
     await this.editor.destroy();
     this.root.dataset.editorReady = 'false';
     this.editor = null;

@@ -84,6 +84,7 @@ function getAttachmentMenuItems(attachment, markdown) {
 
   items.push({ action: 'insert-attachment-at-cursor', label: '插入到当前光标' });
   items.push({ type: 'divider' });
+  items.push({ action: 'rename-attachment', label: '重命名' });
   items.push({ action: 'open-attachment', label: '打开附件' });
   items.push({ action: 'copy-attachment-link', label: '复制附件链接' });
   if (!referenced) {

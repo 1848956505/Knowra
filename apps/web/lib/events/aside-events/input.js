@@ -10,7 +10,7 @@ import { closestFromEventTarget } from '../../dom/event-target.js';
 // state.knowledgePointEditing。
 
 export function bindAsideContentInputEvents({ state, elements, deps }) {
-  const { getCurrentNote, renderSidebar } = deps;
+  const { getCurrentNote, renderSidebar, updateAttachmentRenameDraft } = deps;
 
   elements.asideContent?.addEventListener('input', (event) => {
     const knowledgePointFilterInput = closestFromEventTarget(event.target, '[data-knowledge-point-filter-input]');
@@ -47,10 +47,14 @@ export function bindAsideContentInputEvents({ state, elements, deps }) {
     }
 
     const input = closestFromEventTarget(event.target, '[data-note-tag-input]');
-    if (!input) {
+    if (input) {
+      state.noteTagComposer.draft = input.value;
       return;
     }
 
-    state.noteTagComposer.draft = input.value;
+    const attachmentRenameInput = closestFromEventTarget(event.target, '[data-attachment-rename-input]');
+    if (attachmentRenameInput) {
+      updateAttachmentRenameDraft?.(attachmentRenameInput.value);
+    }
   });
 }

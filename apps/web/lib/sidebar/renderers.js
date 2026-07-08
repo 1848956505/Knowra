@@ -96,35 +96,65 @@ export function renderLinkedNotes(linkedNotes) {
     .join('');
 }
 
-export function renderAttachments(attachments) {
+export function renderAttachments(attachments, attachmentRenaming = null) {
   return attachments
     .map(
-      (attachment) => `
-        <div class="resource-row" data-referenced="${String(Boolean(attachment.isReferenced))}">
-          <button
-            type="button"
-            class="resource-entry"
-            data-attachment-id="${escapeAttribute(attachment.id)}"
-            data-attachment-name="${escapeAttribute(attachment.fileName)}"
-            data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
-          >
-            <div class="resource-meta">
-              <strong>${escapeHtml(attachment.fileName)}</strong>
-              <span>${escapeHtml(attachment.mimeType)}</span>
+      (attachment) => {
+        const isRenaming = attachmentRenaming?.id === attachment.id;
+        if (isRenaming) {
+          return `
+            <div class="resource-row resource-row-editing" data-referenced="${String(Boolean(attachment.isReferenced))}">
+              <form class="resource-rename-form" data-attachment-rename-form="${escapeAttribute(attachment.id)}">
+                <span class="library-inline-icon resource-rename-icon" aria-hidden="true">✎</span>
+                <label class="resource-rename-field">
+                  <input
+                    name="fileName"
+                    type="text"
+                    class="library-inline-input resource-rename-input"
+                    value="${escapeAttribute(attachmentRenaming?.draft ?? attachment.fileName)}"
+                    data-attachment-rename-input="${escapeAttribute(attachment.id)}"
+                    placeholder="输入附件名"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <span class="resource-rename-extension">${escapeHtml(attachmentRenaming?.extension ?? '.png')}</span>
+                </label>
+                <div class="library-inline-actions resource-rename-actions">
+                  <button type="submit" class="library-inline-action" title="确认">✓</button>
+                  <button type="button" class="library-inline-action" data-attachment-rename-cancel title="取消">×</button>
+                </div>
+              </form>
             </div>
-            <span class="resource-badge" data-referenced="${String(Boolean(attachment.isReferenced))}">
-              ${attachment.isReferenced ? '已引用' : '未引用'}
-            </span>
-          </button>
-          <button
-            type="button"
-            class="subtle-button resource-inline-action"
-            data-attachment-open="${escapeAttribute(attachment.id)}"
-          >
-            打开
-          </button>
-        </div>
-      `
+          `;
+        }
+
+        return `
+          <div class="resource-row" data-referenced="${String(Boolean(attachment.isReferenced))}">
+            <button
+              type="button"
+              class="resource-entry"
+              data-attachment-id="${escapeAttribute(attachment.id)}"
+              data-attachment-name="${escapeAttribute(attachment.fileName)}"
+              data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
+            >
+              <div class="resource-meta">
+                <strong>${escapeHtml(attachment.fileName)}</strong>
+                <span>${escapeHtml(attachment.mimeType)}</span>
+              </div>
+              <span class="resource-badge" data-referenced="${String(Boolean(attachment.isReferenced))}">
+                ${attachment.isReferenced ? '已引用' : '未引用'}
+              </span>
+            </button>
+            <button
+              type="button"
+              class="subtle-button resource-inline-action"
+              data-attachment-open="${escapeAttribute(attachment.id)}"
+            >
+              打开
+            </button>
+          </div>
+        `;
+      }
     )
     .join('');
 }

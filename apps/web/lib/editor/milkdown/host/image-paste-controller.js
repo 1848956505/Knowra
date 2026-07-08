@@ -1,6 +1,5 @@
 import { editorViewCtx, schemaCtx } from '@milkdown/kit/core';
 import { getNodeFromSchema } from '@milkdown/kit/prose';
-
 const DEFAULT_PLACEHOLDER_RATIO = 4 / 3;
 
 export function pasteImageFile(host, file) {
@@ -29,6 +28,7 @@ export function pasteImageFile(host, file) {
   });
 
   view.dispatch(view.state.tr.replaceSelectionWith(node, false).scrollIntoView());
+  ensureParagraphAfterImageSrc(host, placeholderSrc);
   view.focus();
   host.scheduleImageLayoutRefreshBurst?.([0, 48, 160]);
 
@@ -67,6 +67,38 @@ function replaceImageBlockSrc(host, currentSrc, nextSrc) {
 
   view.dispatch(view.state.tr.setNodeAttribute(position, 'src', nextSrc));
   host.scheduleImageLayoutRefreshBurst?.();
+  return true;
+}
+
+export function ensureParagraphAfterImageSrc(host, imageSrc) {
+  const view = host.editor?.ctx.get(editorViewCtx);
+  const schema = host.editor?.ctx.get(schemaCtx);
+  const paragraphNodeType = schema ? getNodeFromSchema('paragraph', schema) : null;
+  if (!view || !paragraphNodeType || !imageSrc) {
+    return false;
+  }
+
+  const position = findImageBlockPositionBySrc(view.state.doc, imageSrc);
+  if (position == null) {
+    return false;
+  }
+
+  const imageNode = view.state.doc.nodeAt(position);
+  if (!imageNode) {
+    return false;
+  }
+
+  const insertPosition = position + imageNode.nodeSize;
+  const nextTopLevelNode = view.state.doc.childAfter(insertPosition).node;
+  let transaction = view.state.tr;
+  if (!nextTopLevelNode || nextTopLevelNode.type.name !== 'paragraph') {
+    transaction = transaction.insert(insertPosition, paragraphNodeType.create());
+  }
+
+  transaction = transaction.setSelection(
+    transaction.selection.constructor.near(transaction.doc.resolve(insertPosition + 1), 1)
+  );
+  view.dispatch(transaction.scrollIntoView());
   return true;
 }
 

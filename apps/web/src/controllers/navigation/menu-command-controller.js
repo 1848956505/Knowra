@@ -8,7 +8,8 @@ export function createNavigationMenuCommandController(deps, getController) {
     copyAttachmentLink,
     deleteAttachment,
     insertAttachmentAtCursor,
-    removeAttachmentFromCurrentNote
+    removeAttachmentFromCurrentNote,
+    startAttachmentRename
   } = deps;
 
 async function handleContextMenuAction(action) {
@@ -86,6 +87,10 @@ async function handleContextMenuAction(action) {
     }
     case 'open-attachment': {
       openAttachment?.(targetId);
+      return;
+    }
+    case 'rename-attachment': {
+      startAttachmentRename?.(targetId);
       return;
     }
     case 'copy-attachment-link': {

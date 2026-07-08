@@ -9,11 +9,21 @@ import { closestFromEventTarget } from '../../dom/event-target.js';
 // 跳转或默认回车行为。
 
 export function bindAsideContentFormEvents({ state, elements, deps }) {
-  const { updateCurrentKnowledgePoint, createTagAndAssignToCurrentNote } = deps;
+  const { updateCurrentKnowledgePoint, createTagAndAssignToCurrentNote, submitAttachmentRename } = deps;
 
   elements.asideContent?.addEventListener('submit', (event) => {
     const knowledgePointEditForm = closestFromEventTarget(event.target, '[data-knowledge-point-edit-form]');
     if (!knowledgePointEditForm?.dataset.knowledgePointEditForm) {
+      const attachmentRenameForm = closestFromEventTarget(event.target, '[data-attachment-rename-form]');
+      if (!attachmentRenameForm?.dataset.attachmentRenameForm) {
+        return;
+      }
+
+      event.preventDefault();
+      void submitAttachmentRename(
+        attachmentRenameForm.dataset.attachmentRenameForm,
+        state.attachmentRenaming?.draft ?? ''
+      );
       return;
     }
 

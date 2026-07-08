@@ -238,6 +238,64 @@ await runTest('knowledge api deletes attachments through storage endpoint', asyn
   ]);
 });
 
+await runTest('knowledge api renames attachments through storage endpoint', async () => {
+  const calls = [];
+  const api = createKnowledgeApi({
+    requestJson: async (url, options = {}) => {
+      calls.push({
+        url,
+        method: options.method ?? 'GET',
+        body: options.body ? JSON.parse(options.body) : null
+      });
+      return { data: { id: 'attachment 1', fileName: 'renamed.png' } };
+    }
+  });
+
+  const renamed = await api.renameAttachment('attachment 1', { fileName: 'renamed.png' });
+
+  assert.deepEqual(renamed, { id: 'attachment 1', fileName: 'renamed.png' });
+  assert.deepEqual(calls, [
+    {
+      url: '/api/storage/attachments/attachment%201',
+      method: 'PATCH',
+      body: { fileName: 'renamed.png' }
+    }
+  ]);
+});
+
+await runTest('knowledge api rename falls back to post rename endpoint when patch route is unavailable', async () => {
+  const calls = [];
+  const api = createKnowledgeApi({
+    requestJson: async (url, options = {}) => {
+      calls.push({
+        url,
+        method: options.method ?? 'GET',
+        body: options.body ? JSON.parse(options.body) : null
+      });
+      if (calls.length === 1) {
+        throw new Error('Route not found');
+      }
+      return { data: { id: 'attachment 1', fileName: 'renamed.png' } };
+    }
+  });
+
+  const renamed = await api.renameAttachment('attachment 1', { fileName: 'renamed.png' });
+
+  assert.deepEqual(renamed, { id: 'attachment 1', fileName: 'renamed.png' });
+  assert.deepEqual(calls, [
+    {
+      url: '/api/storage/attachments/attachment%201',
+      method: 'PATCH',
+      body: { fileName: 'renamed.png' }
+    },
+    {
+      url: '/api/storage/attachments/attachment%201/rename',
+      method: 'POST',
+      body: { fileName: 'renamed.png' }
+    }
+  ]);
+});
+
 await runTest('knowledge api imports single and multiple markdown notes through matching endpoints', async () => {
   const calls = [];
   const api = createKnowledgeApi({

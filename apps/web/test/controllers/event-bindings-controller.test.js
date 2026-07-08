@@ -46,6 +46,18 @@ const clientSource = fs.readFileSync(
 });
 
 assert.match(
+  source,
+  /const pendingAttachmentJumpTimers = new Set\(\);[\s\S]*pendingAttachmentJumpTimers\.forEach\(\(timerId\) => window\.clearTimeout\(timerId\)\);[\s\S]*pendingAttachmentJumpTimers\.clear\(\);/,
+  'attachment jump cancellation should clear every pending timer instead of tracking only one'
+);
+
+assert.match(
+  source,
+  /const timerId = window\.setTimeout\(\(\) => \{[\s\S]*pendingAttachmentJumpTimers\.delete\(timerId\);[\s\S]*callback\?\.\(\);[\s\S]*\}, 220\);[\s\S]*pendingAttachmentJumpTimers\.add\(timerId\);/,
+  'attachment jump scheduling should queue each click independently until it fires or is cancelled'
+);
+
+assert.match(
   clientSource,
   /function bindEvents\(\) \{\s*bindAppEvents\(/,
   'client bindEvents should delegate to event-bindings-controller'

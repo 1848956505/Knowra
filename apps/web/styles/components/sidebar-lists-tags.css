@@ -4,7 +4,8 @@
   display: grid;
   gap: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .section-card > .resource-list,
@@ -21,6 +22,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
   padding: 11px 12px;
   border-radius: 0;
   border: 0;
@@ -108,6 +110,50 @@
   min-height: 28px;
   padding: 0 10px;
   font-size: 12px;
+}
+
+.resource-row-editing {
+  padding: 6px 12px;
+  border-bottom-color: var(--color-accent-soft);
+}
+
+.resource-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.resource-rename-icon {
+  color: var(--color-text-muted);
+}
+
+.resource-rename-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.resource-rename-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-rename-extension {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-rename-actions {
+  flex: 0 0 auto;
 }
 
 .pill-row {

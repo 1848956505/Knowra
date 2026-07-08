@@ -41,6 +41,28 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     }
   }
 
+  if (request.method === 'PATCH' && url.pathname.startsWith('/api/storage/attachments/')) {
+    const attachmentId = url.pathname.split('/')[4];
+    if (attachmentId && !url.pathname.endsWith('/content')) {
+      const body = await parseBody(request);
+      sendJson(response, 200, {
+        data: storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
+      });
+      return true;
+    }
+  }
+
+  if (request.method === 'POST' && url.pathname.startsWith('/api/storage/attachments/') && url.pathname.endsWith('/rename')) {
+    const attachmentId = url.pathname.split('/')[4];
+    if (attachmentId) {
+      const body = await parseBody(request);
+      sendJson(response, 200, {
+        data: storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
+      });
+      return true;
+    }
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/storage/import') {
     const body = await parseBody(request);
     sendJson(response, 200, {

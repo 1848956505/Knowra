@@ -17,6 +17,10 @@ const clickSource = fs.readFileSync(
   path.resolve(__dirname, '../../lib/events/aside-events/click.js'),
   'utf8'
 );
+const dblclickSource = fs.readFileSync(
+  path.resolve(__dirname, '../../lib/events/aside-events/dblclick.js'),
+  'utf8'
+);
 const contextMenuSource = fs.readFileSync(
   path.resolve(__dirname, '../../lib/events/aside-events/context-menu.js'),
   'utf8'
@@ -37,6 +41,7 @@ const tabsSource = fs.readFileSync(
 assert.match(indexSource, /export function bindAsideEvents/, 'index.js should export bindAsideEvents');
 assert.match(tabsSource, /export function bindAsideTabsEvents/, 'tabs.js should export bindAsideTabsEvents');
 assert.match(clickSource, /export function bindAsideContentClickEvents/, 'click.js should export bindAsideContentClickEvents');
+assert.match(dblclickSource, /export function bindAsideContentDoubleClickEvents/, 'dblclick.js should export bindAsideContentDoubleClickEvents');
 assert.match(contextMenuSource, /export function bindAsideContentContextMenuEvents/, 'context-menu.js should export bindAsideContentContextMenuEvents');
 assert.match(inputSource, /export function bindAsideContentInputEvents/, 'input.js should export bindAsideContentInputEvents');
 assert.match(formsSource, /export function bindAsideContentFormEvents/, 'forms.js should export bindAsideContentFormEvents');
@@ -46,6 +51,11 @@ assert.equal(
   (clickSource.match(/elements\.asideContent\?\.addEventListener\('click'/g) ?? []).length,
   1,
   'click.js should register exactly 1 click on asideContent'
+);
+assert.equal(
+  (dblclickSource.match(/elements\.asideContent\?\.addEventListener\('dblclick'/g) ?? []).length,
+  1,
+  'dblclick.js should register exactly 1 dblclick on asideContent'
 );
 assert.equal(
   (contextMenuSource.match(/elements\.asideContent\?\.addEventListener\('contextmenu'/g) ?? []).length,
@@ -123,6 +133,12 @@ function makeDeps(overrides = {}) {
     openContextMenu: () => {},
     openAttachment: async () => {},
     jumpToAttachmentReference: async () => {},
+    scheduleAttachmentJump: (callback) => callback?.(),
+    cancelPendingAttachmentJump: () => {},
+    startAttachmentRename: () => {},
+    updateAttachmentRenameDraft: () => {},
+    cancelAttachmentRename: () => {},
+    submitAttachmentRename: async () => {},
     addTagToCurrentNote: async () => {},
     removeTagFromCurrentNote: async () => {},
     createTagAndAssignToCurrentNote: async () => {},
@@ -192,11 +208,13 @@ runTest('asideContent click: text-node-like target still resolves linked note bu
   assert.equal(arg, 'n-text');
 });
 
-runTest('asideContent click: referenced attachment jumps to its正文位置', async () => {
+runTest('asideContent click: referenced attachment single-click jumps to next reference', async () => {
   const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
   const elements = makeElements();
-  let arg = null;
-  const deps = makeDeps({ jumpToAttachmentReference: async (id) => { arg = id; } });
+  let payload = null;
+  const deps = makeDeps({
+    jumpToAttachmentReference: async (id, direction) => { payload = { id, direction }; }
+  });
 
   bindAsideEvents({ state: makeState(), elements, deps });
 
@@ -210,7 +228,59 @@ runTest('asideContent click: referenced attachment jumps to its正文位置', as
   target.closest = makeClosest(new Map([['[data-attachment-id]', target]]));
   elements.asideContent.dispatch('click', target);
 
-  assert.equal(arg, 'attachment-1');
+  assert.deepEqual(payload, { id: 'attachment-1', direction: 'next' });
+});
+
+runTest('asideContent click: attachment double-click second click does not queue next jump again', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  let invoked = 0;
+  const deps = makeDeps({
+    scheduleAttachmentJump: (callback) => {
+      invoked += 1;
+      callback?.();
+    }
+  });
+
+  bindAsideEvents({ state: makeState(), elements, deps });
+
+  const target = {
+    dataset: {
+      attachmentId: 'attachment-1',
+      attachmentReferenced: 'true',
+      attachmentName: 'diagram.png'
+    }
+  };
+  target.closest = makeClosest(new Map([['[data-attachment-id]', target]]));
+
+  elements.asideContent.dispatch('click', target, { detail: 2 });
+  assert.equal(invoked, 0);
+});
+
+runTest('asideContent dblclick: referenced attachment jumps to previous reference', async () => {
+  const { bindAsideEvents } = await import('../../lib/events/aside-events/index.js');
+  const elements = makeElements();
+  let canceled = 0;
+  let payload = null;
+  const deps = makeDeps({
+    cancelPendingAttachmentJump: () => { canceled += 1; },
+    jumpToAttachmentReference: async (id, direction) => { payload = { id, direction }; }
+  });
+
+  bindAsideEvents({ state: makeState(), elements, deps });
+
+  const target = {
+    dataset: {
+      attachmentId: 'attachment-2',
+      attachmentReferenced: 'true',
+      attachmentName: 'diagram.png'
+    }
+  };
+  target.closest = makeClosest(new Map([['[data-attachment-id]', target]]));
+  elements.asideContent.dispatch('dblclick', target);
+
+  assert.equal(canceled, 1);
+  assert.deepEqual(payload, { id: 'attachment-2', direction: 'previous' });
 });
 
 runTest('asideContent contextmenu: attachment opens the shared context menu', async () => {

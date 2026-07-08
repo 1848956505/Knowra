@@ -16,6 +16,7 @@ export const appFactoryTests = [
       assert.equal(typeof app.http.knowledge.searchNotes, 'function');
       assert.equal(typeof app.http.storage.exportKnowledgeBase, 'function');
       assert.equal(typeof app.http.storage.uploadAttachment, 'function');
+      assert.equal(typeof app.http.storage.updateAttachment, 'function');
       assert.equal(typeof app.http.storage.deleteAttachment, 'function');
     }
   },

@@ -38,6 +38,7 @@ export function createInitialAppState() {
     },
     linkedNotes: [],
     attachments: [],
+    attachmentRenaming: null,
     knowledgePoints: [],
     allKnowledgePoints: [],
     knowledgePointTagGroups: [],

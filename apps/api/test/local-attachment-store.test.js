@@ -112,6 +112,80 @@ export const localAttachmentStoreTests = [
     }
   },
   {
+    name: 'local attachment store renames attachment metadata and file path together',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-rename-'));
+      const uploadsDir = path.join(tempDir, 'uploads');
+      const dataStore = {
+        state: {
+          attachments: []
+        },
+        flush() {}
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir });
+        const uploaded = store.uploadAttachment({
+          noteId: 'note-rename',
+          fileName: 'before.png',
+          mimeType: 'image/png',
+          contentBase64: Buffer.from('rename attachment body').toString('base64')
+        });
+
+        const previousStoragePath = uploaded.storagePath;
+        const renamed = store.renameAttachment(uploaded.id, 'after name.png');
+        const content = store.readAttachmentContent(uploaded.id);
+        const oldPath = path.join(uploadsDir, `${uploaded.id}-before.png`);
+        const newPath = path.join(uploadsDir, `${uploaded.id}-after-name.png`);
+
+        assert.equal(renamed.fileName, 'after name.png');
+        assert.equal(previousStoragePath !== renamed.storagePath, true);
+        assert.equal(fs.existsSync(oldPath), false);
+        assert.equal(fs.existsSync(path.join(uploadsDir, `${uploaded.id}-after name.png`)), true);
+        assert.equal(content.content.toString('utf8'), 'rename attachment body');
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'local attachment store keeps chinese attachment file names when renaming',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-rename-cn-'));
+      const uploadsDir = path.join(tempDir, 'uploads');
+      const dataStore = {
+        state: {
+          attachments: []
+        },
+        flush() {}
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir });
+        const uploaded = store.uploadAttachment({
+          noteId: 'note-rename-cn',
+          fileName: 'image.png',
+          mimeType: 'image/png',
+          contentBase64: Buffer.from('rename attachment cn body').toString('base64')
+        });
+
+        const renamed = store.renameAttachment(uploaded.id, '中文图片.png');
+
+        assert.equal(renamed.fileName, '中文图片.png');
+        assert.equal(
+          fs.existsSync(path.join(uploadsDir, `${uploaded.id}-中文图片.png`)),
+          true
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
     name: 'readAttachmentContent returns 404 when the attachment record is missing',
     async run() {
       const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');

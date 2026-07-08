@@ -87,7 +87,7 @@ runTest('getContextMenuItems returns attachment jump/open/copy actions for refer
       attachments: [{ id: 'attachment-a' }],
       markdown: '![diagram](/api/storage/attachments/attachment-a/content)'
     }).map((item) => item.action ?? item.type),
-    ['jump-to-attachment-reference', 'remove-attachment-from-note', 'insert-attachment-at-cursor', 'divider', 'open-attachment', 'copy-attachment-link']
+    ['jump-to-attachment-reference', 'remove-attachment-from-note', 'insert-attachment-at-cursor', 'divider', 'rename-attachment', 'open-attachment', 'copy-attachment-link']
   );
 });
 
@@ -99,6 +99,6 @@ runTest('getContextMenuItems omits jump action for unreferenced attachments', ()
       attachments: [{ id: 'attachment-a' }],
       markdown: ''
     }).map((item) => item.action ?? item.type),
-    ['insert-attachment-at-cursor', 'divider', 'open-attachment', 'copy-attachment-link', 'divider', 'delete-attachment']
+    ['insert-attachment-at-cursor', 'divider', 'rename-attachment', 'open-attachment', 'copy-attachment-link', 'divider', 'delete-attachment']
   );
 });
