@@ -4,7 +4,7 @@ export function renderHtml(initialWorkspaceScript = '') {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Study Accelerator</title>
+  <title>知境·Knowra</title>
   <meta name="description" content="A modular learning workspace centered on knowledge bases" />
   <link rel="stylesheet" href="/src/styles.css" />
   <link rel="stylesheet" href="/lib/editor/milkdown-bundle.css" />

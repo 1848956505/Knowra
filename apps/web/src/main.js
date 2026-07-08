@@ -76,10 +76,10 @@ listenOnAvailablePort(server, preferredPort)
     activeWebPort = port;
     writeRuntimePort(runtimePortsFile, 'web', port);
     const suffix = port === preferredPort ? '' : ` (auto-selected from ${preferredPort})`;
-    console.log(`Study Accelerator web UI running at http://localhost:${port}${suffix}`);
+    console.log(`知境·Knowra web UI running at http://localhost:${port}${suffix}`);
     console.log(`Proxying /api to ${getApiOrigin()}`);
   })
   .catch((error) => {
-    console.error('Failed to start Study Accelerator web UI:', error.message);
+    console.error('Failed to start 知境·Knowra web UI:', error.message);
     process.exitCode = 1;
   });

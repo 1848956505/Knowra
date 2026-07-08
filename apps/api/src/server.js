@@ -21,7 +21,7 @@ export function createServer({ appContext, cors = {} }) {
       if (request.method === 'GET' && url.pathname === '/') {
         sendJson(response, 200, {
           data: {
-            name: 'Study Accelerator API',
+            name: '知境·Knowra API',
             health: '/api/health'
           }
         });

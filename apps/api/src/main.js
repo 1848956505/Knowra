@@ -23,11 +23,11 @@ listenOnAvailablePort(preferredPort)
   .then((port) => {
     writeRuntimePort(runtimePortsFile, 'api', port);
     const suffix = port === preferredPort ? '' : ` (auto-selected from ${preferredPort})`;
-    console.log(`Study Accelerator API running at http://localhost:${port}${suffix}`);
+    console.log(`知境·Knowra API running at http://localhost:${port}${suffix}`);
     console.log('Knowledge module ready:', Object.keys(app.modules.knowledge).join(', '));
   })
   .catch((error) => {
-    console.error('Failed to start Study Accelerator API:', error.message);
+    console.error('Failed to start 知境·Knowra API:', error.message);
     process.exitCode = 1;
   });
 

@@ -1,5 +1,5 @@
-import { buildAttachmentContentUrl } from '../../lib/sidebar/attachments.js';
-import { writeClipboardText } from '../../lib/browser/clipboard.js';
+import { buildAttachmentContentUrl } from '../../../lib/sidebar/attachments.js';
+import { writeClipboardText } from '../../../lib/browser/clipboard.js';
 
 export function createAttachmentCommandsController({ elements, flashStatus }) {
 
