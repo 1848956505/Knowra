@@ -189,9 +189,15 @@ export function renderFilledImageState(controller) {
 
   const stage = document.createElement('div');
   stage.className = 'image-stage';
+  if (controller.dom.dataset.attachmentId) {
+    stage.dataset.attachmentId = controller.dom.dataset.attachmentId;
+  }
 
   const image = document.createElement('img');
   image.dataset.type = IMAGE_DATA_TYPE;
+  if (controller.dom.dataset.attachmentId) {
+    image.dataset.attachmentId = controller.dom.dataset.attachmentId;
+  }
   image.addEventListener('load', () => {
     controller.applyImageLayout();
     controller.scheduleLayoutRefresh();

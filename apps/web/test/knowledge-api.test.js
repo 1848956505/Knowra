@@ -196,7 +196,8 @@ await runTest('knowledge api uploads image attachments through storage endpoint'
 
   assert.deepEqual(uploaded, {
     attachment: { id: 'attachment 1' },
-    contentUrl: '/api/storage/attachments/attachment%201/content'
+    contentUrl: '/api/storage/attachments/attachment%201/content',
+    referenceUrl: '/api/storage/attachments/attachment%201/content#attachment=attachment%201'
   });
   assert.deepEqual(calls, [
     {

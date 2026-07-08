@@ -74,44 +74,6 @@ export function createAppControllers({
     saveCurrentEditorScrollPosition: helpers.saveCurrentEditorScrollPosition
   });
 
-  const navigationController = createNavigationController({
-    state,
-    elements,
-    knowledgeApi,
-    getActiveNotes: helpers.getActiveNotes,
-    getRecycleNotes: helpers.getRecycleNotes,
-    getNoteById: helpers.getNoteById,
-    noteMatchesSelectedTags: helpers.noteMatchesSelectedTags,
-    matchesSearch: helpers.matchesSearch,
-    matchesFolderSearch: helpers.matchesFolderSearch,
-    renderAll: helpers.renderAll,
-    renderStatus: helpers.renderStatus,
-    refreshKnowledgeData: helpers.refreshKnowledgeData,
-    loadCurrentNoteSideData: helpers.loadCurrentNoteSideData,
-    clearNoteSideData: helpers.clearNoteSideData,
-    persistDraft: helpers.persistDraft,
-    syncLocalWorkspace: helpers.syncLocalWorkspace,
-    saveCurrentEditorScrollPosition: helpers.saveCurrentEditorScrollPosition,
-    flashStatus: helpers.flashStatus,
-    jumpToAttachmentReference: (...args) => sidebarController.jumpToAttachmentReference(...args),
-    openAttachment: (...args) => sidebarController.openAttachment(...args),
-    copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
-    deleteAttachment: (...args) => sidebarController.deleteAttachment(...args),
-    escapeHtml: helpers.escapeHtml
-  });
-
-  const tabController = createTabController({
-    state,
-    elements,
-    closeContextMenu: helpers.closeContextMenu,
-    closeSectionMenu: helpers.closeSectionMenu,
-    flashStatus: helpers.flashStatus,
-    persistBackendCache: helpers.persistBackendCache,
-    persistDraft: helpers.persistDraft,
-    renderAll: helpers.renderAll,
-    selectNote: helpers.selectNote
-  });
-
   const editorController = createEditorController({
     state,
     elements,
@@ -140,6 +102,46 @@ export function createAppControllers({
     flashStatus: helpers.flashStatus,
     escapeHtml: helpers.escapeHtml,
     escapeAttribute: helpers.escapeAttribute
+  });
+
+  const navigationController = createNavigationController({
+    state,
+    elements,
+    knowledgeApi,
+    getActiveNotes: helpers.getActiveNotes,
+    getRecycleNotes: helpers.getRecycleNotes,
+    getNoteById: helpers.getNoteById,
+    noteMatchesSelectedTags: helpers.noteMatchesSelectedTags,
+    matchesSearch: helpers.matchesSearch,
+    matchesFolderSearch: helpers.matchesFolderSearch,
+    renderAll: helpers.renderAll,
+    renderStatus: helpers.renderStatus,
+    refreshKnowledgeData: helpers.refreshKnowledgeData,
+    loadCurrentNoteSideData: helpers.loadCurrentNoteSideData,
+    clearNoteSideData: helpers.clearNoteSideData,
+    persistDraft: helpers.persistDraft,
+    syncLocalWorkspace: helpers.syncLocalWorkspace,
+    saveCurrentEditorScrollPosition: helpers.saveCurrentEditorScrollPosition,
+    flashStatus: helpers.flashStatus,
+    jumpToAttachmentReference: (...args) => sidebarController.jumpToAttachmentReference(...args),
+    openAttachment: (...args) => sidebarController.openAttachment(...args),
+    copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
+    deleteAttachment: (...args) => sidebarController.deleteAttachment(...args),
+    insertAttachmentAtCursor: (...args) => editorController.insertAttachmentAtCursor(...args),
+    removeAttachmentFromCurrentNote: (...args) => editorController.removeAttachmentFromCurrentNote(...args),
+    escapeHtml: helpers.escapeHtml
+  });
+
+  const tabController = createTabController({
+    state,
+    elements,
+    closeContextMenu: helpers.closeContextMenu,
+    closeSectionMenu: helpers.closeSectionMenu,
+    flashStatus: helpers.flashStatus,
+    persistBackendCache: helpers.persistBackendCache,
+    persistDraft: helpers.persistDraft,
+    renderAll: helpers.renderAll,
+    selectNote: helpers.selectNote
   });
 
   const shellController = createShellController({

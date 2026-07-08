@@ -1,4 +1,5 @@
 import { getData } from '../api-response.js';
+import { buildAttachmentReferenceUrl } from '../../../lib/sidebar/attachments.js';
 
 export function createAttachmentApi({ requestJson }) {
   async function uploadAttachmentImage(input) {
@@ -13,7 +14,8 @@ export function createAttachmentApi({ requestJson }) {
 
     return {
       attachment,
-      contentUrl: `/api/storage/attachments/${encodeURIComponent(attachment.id)}/content`
+      contentUrl: `/api/storage/attachments/${encodeURIComponent(attachment.id)}/content`,
+      referenceUrl: buildAttachmentReferenceUrl(attachment.id)
     };
   }
 

@@ -68,13 +68,15 @@ export function createNavigationMenuRenderController(deps) {
   }
 
   function getContextMenuItems() {
+    const currentNote = state.allNotes.find((note) => note.id === state.selectedNoteId);
+
     return getNavigationContextMenuItems({
       targetKind: state.contextMenu.targetKind,
       targetId: state.contextMenu.targetId,
       notes: state.allNotes,
       recycleNotes: getRecycleNotes(),
       attachments: state.attachments,
-      markdown: state.draftMarkdown
+      markdown: state.draftMarkdown || currentNote?.rawMarkdown || ''
     });
   }
 

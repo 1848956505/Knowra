@@ -12,6 +12,7 @@ import { renderInfoTab as renderInfoTabMarkup } from '../../lib/sidebar/info-pan
 import { renderOutlineTab as renderOutlineTabMarkup } from '../../lib/sidebar/outline-panel.js';
 import { renderKnowledgePointPanel } from '../../lib/knowledge-points/panel.js';
 import { createAttachmentCommandsController } from './sidebar/attachment-commands-controller.js';
+import { isAttachmentReferencedInMarkdown } from '../../lib/sidebar/attachments.js';
 
 export function createSidebarController(deps) {
   const {
@@ -37,6 +38,14 @@ async function loadCurrentNoteSideData() {
 async function deleteAttachment(attachmentId) {
   if (!attachmentId) {
     flashStatus('缺少要删除的附件');
+    return false;
+  }
+
+  const attachment = state.attachments.find((item) => item?.id === attachmentId);
+  const currentNote = getCurrentNote();
+  const currentMarkdown = state.draftMarkdown || currentNote?.rawMarkdown || '';
+  if (attachment && isAttachmentReferencedInMarkdown(attachment, currentMarkdown)) {
+    flashStatus('当前附件仍在正文中被引用，请先删除正文引用');
     return false;
   }
 

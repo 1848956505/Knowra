@@ -6,7 +6,9 @@ export function createNavigationMenuCommandController(deps, getController) {
     jumpToAttachmentReference,
     openAttachment,
     copyAttachmentLink,
-    deleteAttachment
+    deleteAttachment,
+    insertAttachmentAtCursor,
+    removeAttachmentFromCurrentNote
   } = deps;
 
 async function handleContextMenuAction(action) {
@@ -88,6 +90,24 @@ async function handleContextMenuAction(action) {
     }
     case 'copy-attachment-link': {
       await copyAttachmentLink?.(targetId);
+      return;
+    }
+    case 'insert-attachment-at-cursor': {
+      const attachment = state.attachments.find((item) => item?.id === targetId) ?? null;
+      if (!attachment) {
+        flashStatus('当前附件不存在或已失效');
+        return;
+      }
+      await insertAttachmentAtCursor?.(attachment);
+      return;
+    }
+    case 'remove-attachment-from-note': {
+      const attachment = state.attachments.find((item) => item?.id === targetId) ?? null;
+      if (!attachment) {
+        flashStatus('当前附件不存在或已失效');
+        return;
+      }
+      await removeAttachmentFromCurrentNote?.(attachment);
       return;
     }
     case 'delete-attachment': {

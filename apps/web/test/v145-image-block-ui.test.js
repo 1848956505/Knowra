@@ -137,8 +137,8 @@ assert.match(
 
 assert.match(
   editorHostControllerJs,
-  /const handleAttachmentUpload = async \(input\) => \{[\s\S]*knowledgeApi\.uploadAttachmentImage\(input\)[\s\S]*state\.attachments = \[[\s\S]*renderSidebar\(getCurrentNote\(\)\);[\s\S]*return uploaded\?\.contentUrl \?\? '';/,
-  'editor host should sync newly uploaded image attachments into the sidebar state and still return a content URL to the image block'
+  /const handleAttachmentUpload = async \(input\) => \{[\s\S]*knowledgeApi\.uploadAttachmentImage\(input\)[\s\S]*state\.attachments = \[[\s\S]*renderSidebar\(getCurrentNote\(\)\);[\s\S]*return uploaded\?\.referenceUrl[\s\S]*buildAttachmentReferenceUrl\(attachment\?\.id\)[\s\S]*uploaded\?\.contentUrl[\s\S]*'';/,
+  'editor host should sync newly uploaded image attachments into the sidebar state and return an attachment-aware reference URL to the image block'
 );
 
 assert.match(
@@ -215,8 +215,8 @@ assert.doesNotMatch(
 
 assert.match(
   imageBlockAttrsJs,
-  /bindImageBlockAttrs\(controller, node\)\s*\{[\s\S]*updateFilledImageState\(\)[\s\S]*\}/,
-  'image updates should patch the filled state in place when the source already exists'
+  /bindImageBlockAttrs\(controller, node\)\s*\{[\s\S]*extractAttachmentIdFromUrl\(nextSrc\)[\s\S]*controller\.dom\.dataset\.attachmentId[\s\S]*updateFilledImageState\(\)[\s\S]*\}/,
+  'image updates should derive attachment identity and patch the filled state in place when the source already exists'
 );
 
 assert.match(
@@ -229,6 +229,12 @@ assert.match(
   imageBlockRenderersJs,
   /image\.addEventListener\('load', \(\) => \{[\s\S]*controller\.applyImageLayout\(\);[\s\S]*controller\.scheduleLayoutRefresh\(\);[\s\S]*\}\);/,
   'image load should trigger an immediate and a deferred layout pass so pasted large images fit without refresh'
+);
+
+assert.match(
+  imageBlockRenderersJs,
+  /stage\.dataset\.attachmentId = controller\.dom\.dataset\.attachmentId[\s\S]*image\.dataset\.attachmentId = controller\.dom\.dataset\.attachmentId/,
+  'rendered image blocks should expose attachment ids on DOM nodes for precise sidebar jump targeting'
 );
 
 assert.match(

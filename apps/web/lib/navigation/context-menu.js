@@ -79,9 +79,11 @@ function getAttachmentMenuItems(attachment, markdown) {
 
   if (referenced) {
     items.push({ action: 'jump-to-attachment-reference', label: '跳转到正文' });
-    items.push({ type: 'divider' });
+    items.push({ action: 'remove-attachment-from-note', label: '从当前笔记移除' });
   }
 
+  items.push({ action: 'insert-attachment-at-cursor', label: '插入到当前光标' });
+  items.push({ type: 'divider' });
   items.push({ action: 'open-attachment', label: '打开附件' });
   items.push({ action: 'copy-attachment-link', label: '复制附件链接' });
   if (!referenced) {

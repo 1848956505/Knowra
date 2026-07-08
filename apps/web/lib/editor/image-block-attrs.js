@@ -2,6 +2,7 @@ import DOMPurify from 'dompurify';
 import { imageBlockConfig } from '@milkdown/kit/component/image-block';
 
 import { clampImageRatio } from './image-block-sizing.js';
+import { extractAttachmentIdFromUrl } from '../sidebar/attachments.js';
 
 export function createImageBlockState(view) {
   return {
@@ -48,6 +49,13 @@ export function bindImageBlockAttrs(controller, node) {
   }
 
   const nextSrc = node.attrs.src ?? '';
+  const attachmentId = extractAttachmentIdFromUrl(nextSrc);
+  if (attachmentId) {
+    controller.dom.dataset.attachmentId = attachmentId;
+  } else {
+    delete controller.dom.dataset.attachmentId;
+  }
+
   if (!nextSrc) {
     controller.state.src = '';
     controller.state.linkDraft = '';

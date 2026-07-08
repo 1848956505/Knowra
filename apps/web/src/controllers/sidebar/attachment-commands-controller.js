@@ -1,4 +1,7 @@
-import { buildAttachmentContentUrl } from '../../../lib/sidebar/attachments.js';
+import {
+  buildAttachmentContentUrl,
+  extractAttachmentIdFromUrl
+} from '../../../lib/sidebar/attachments.js';
 import { writeClipboardText } from '../../../lib/browser/clipboard.js';
 
 export function createAttachmentCommandsController({ elements, flashStatus }) {
@@ -8,9 +11,11 @@ export function createAttachmentCommandsController({ elements, flashStatus }) {
       return null;
     }
 
-    const contentUrl = buildAttachmentContentUrl(attachmentId);
-    if (!contentUrl) {
-      return null;
+    const directMatch = elements.editorContent.querySelector(
+      `[data-attachment-id="${escapeAttachmentSelector(attachmentId)}"]`
+    );
+    if (directMatch instanceof HTMLElement) {
+      return directMatch;
     }
 
     const candidates = elements.editorContent.querySelectorAll('img[src], a[href]');
@@ -19,8 +24,10 @@ export function createAttachmentCommandsController({ elements, flashStatus }) {
         continue;
       }
 
-      const source = candidate.getAttribute('src') ?? candidate.getAttribute('href') ?? '';
-      if (source === contentUrl) {
+      const source = candidate.getAttribute('src')
+        ?? candidate.getAttribute('href')
+        ?? (candidate instanceof HTMLImageElement ? candidate.currentSrc : '');
+      if (extractAttachmentIdFromUrl(source) === attachmentId) {
         return candidate;
       }
     }
@@ -73,4 +80,12 @@ export function createAttachmentCommandsController({ elements, flashStatus }) {
     openAttachment,
     copyAttachmentLink
   };
+}
+
+function escapeAttachmentSelector(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+
+  return String(value).replace(/"/g, '\\"');
 }

@@ -40,6 +40,10 @@ import {
   normalizeTableDialogValue,
   renderTableInsertDialogMarkup
 } from '../../../lib/editor/table-dialog-renderers.js';
+import {
+  buildAttachmentReferenceUrl,
+  removeAttachmentReferencesFromMarkdown
+} from '../../../lib/sidebar/attachments.js';
 
 export function createEditorHostController(deps, getController) {
   const {
@@ -117,7 +121,10 @@ function mountEditorHost(noteId, markdown) {
         ];
         renderSidebar(getCurrentNote());
       }
-      return uploaded?.contentUrl ?? '';
+      return uploaded?.referenceUrl
+        ?? buildAttachmentReferenceUrl(attachment?.id)
+        ?? uploaded?.contentUrl
+        ?? '';
     };
 
     const host = createMilkdownHost({
@@ -160,9 +167,99 @@ function handleEditorMarkdownChange(markdown) {
   getController().scheduleAutosave();
 }
 
+async function insertAttachmentAtCursor(attachment) {
+  const note = getCurrentNote();
+  if (!note) {
+    flashStatus('请先选择一篇笔记');
+    return false;
+  }
+
+  if (state.view.showSourceEditor) {
+    flashStatus('请先切回富文本编辑区后再插入附件');
+    return false;
+  }
+
+  const editorHost = editorRuntime.currentEditorHost;
+  if (!editorHost) {
+    flashStatus('编辑器尚未就绪');
+    return false;
+  }
+
+  const attachmentId = attachment?.id ?? '';
+  const referenceUrl = buildAttachmentReferenceUrl(attachmentId);
+  if (!attachmentId || !referenceUrl) {
+    flashStatus('当前附件缺少可插入的引用地址');
+    return false;
+  }
+
+  const label = escapeMarkdownLinkLabel(attachment?.fileName || '附件');
+  const markdown = String(attachment?.mimeType || '').startsWith('image/')
+    ? `![${label}](${referenceUrl})`
+    : `[${label}](${referenceUrl})`;
+
+  await editorHost.focus();
+  const inserted = await editorHost.pasteMarkdown(markdown);
+  if (!inserted) {
+    flashStatus('当前附件插入失败');
+    return false;
+  }
+
+  flashStatus('附件已插入到当前光标位置');
+  return true;
+}
+
+async function removeAttachmentFromCurrentNote(attachment) {
+  const note = getCurrentNote();
+  if (!note) {
+    flashStatus('请先选择一篇笔记');
+    return false;
+  }
+
+  if (state.view.showSourceEditor) {
+    flashStatus('请先切回富文本编辑区后再移除附件引用');
+    return false;
+  }
+
+  const editorHost = editorRuntime.currentEditorHost;
+  if (!editorHost) {
+    flashStatus('编辑器尚未就绪');
+    return false;
+  }
+
+  const attachmentId = attachment?.id ?? '';
+  if (!attachmentId) {
+    flashStatus('当前附件缺少可移除的引用标识');
+    return false;
+  }
+
+  const currentMarkdown = await editorHost.getMarkdown();
+  const nextMarkdown = removeAttachmentReferencesFromMarkdown(currentMarkdown, attachmentId);
+  if (nextMarkdown === currentMarkdown) {
+    flashStatus('当前笔记正文中未找到该附件的引用');
+    return false;
+  }
+
+  await editorHost.setMarkdown(nextMarkdown);
+  state.draftMarkdown = nextMarkdown;
+  renderSidebar(getCurrentNote());
+  getController().scheduleAutosave();
+  await editorHost.focus();
+  flashStatus('已从当前笔记移除该附件引用');
+  return true;
+}
+
   return {
     teardownEditorHost,
     mountEditorHost,
-    handleEditorMarkdownChange
+    handleEditorMarkdownChange,
+    insertAttachmentAtCursor,
+    removeAttachmentFromCurrentNote
   };
+}
+
+function escapeMarkdownLinkLabel(value) {
+  return String(value ?? '')
+    .replaceAll('\\', '\\\\')
+    .replaceAll('[', '\\[')
+    .replaceAll(']', '\\]');
 }
