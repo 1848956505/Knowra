@@ -18,3 +18,117 @@
 .backlinks li{display:flex;align-items:flex-start;gap:6px;min-width:0}
 .backlinks a{min-width:0;overflow-wrap:anywhere}
 .backlinks b{margin-left:auto;flex:0 0 auto}
+
+/* Library navigation: the module rail becomes a real, scrollable directory after selection. */
+.app-shell.editor-mode{grid-template-columns:280px minmax(720px,1fr) 320px}
+.rail{overflow:hidden}
+.default-rail .module-list{display:grid;flex:1;margin-top:58px;align-content:start}
+.module-button{border:0;border-bottom:1px solid var(--line);background:none;display:grid;grid-template-columns:100px 1fr;text-align:left;align-items:center;padding:17px 0;position:relative}
+.module-button b{font:600 68px/.9 'Archivo Narrow',sans-serif;letter-spacing:-3px}
+.module-button span strong{display:block;font-size:17px}
+.module-button span small{display:block;font:600 12px 'Archivo Narrow',sans-serif;letter-spacing:.08em;margin-top:8px;color:var(--muted)}
+.module-button:hover b{color:var(--blue)}
+.module-rail{padding-bottom:18px}
+.module-rail .library-directory,.module-rail .simple-directory{display:flex;flex:1;flex-direction:column;min-height:0}
+.module-rail .library-label,.module-rail .simple-directory .library-label{flex:0 0 auto}
+.directory-scroll{min-height:0;overflow:auto;padding:0 0 8px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.directory-group,.folder-tree{border-top:1px solid var(--line);padding:13px 0 3px;margin-top:13px}
+.directory-group-label{display:block;color:var(--blue);font:600 11px 'Archivo Narrow','Noto Sans SC',sans-serif;letter-spacing:.08em;margin:0 4px 8px}
+.directory-entry{width:100%;border:0;border-left:3px solid transparent;background:none;display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:7px;text-align:left;padding:9px 5px;color:var(--ink);font-size:13px}
+.directory-entry svg{color:var(--muted)}
+.directory-entry b{font:500 12px 'Archivo Narrow',sans-serif;color:var(--muted)}
+.directory-entry:hover,.directory-entry.active{border-left-color:var(--blue);background:#fffdf8;color:var(--blue)}
+.directory-entry.active svg,.directory-entry.active b{color:var(--blue)}
+.folder-tree{padding-bottom:8px}
+.folder-node{margin:1px 0}
+.folder-row{width:100%;border:0;background:none;display:grid;grid-template-columns:14px 19px 1fr auto;align-items:center;gap:5px;text-align:left;padding:8px 5px;font-size:13px}
+.folder-row svg:first-child{color:var(--muted);transition:transform .16s ease}
+.folder-row svg:first-child.expanded{transform:rotate(90deg)}
+.folder-row svg:nth-child(2){color:var(--blue)}
+.folder-row b{font:500 12px 'Archivo Narrow',sans-serif;color:var(--muted)}
+.folder-node.active>.folder-row{color:var(--blue);background:#fffdf8}
+.folder-children{margin:0 0 5px 20px;border-left:1px solid var(--line-soft);padding-left:5px}
+.file-row{width:100%;border:0;background:none;display:grid;grid-template-columns:17px 1fr;align-items:center;gap:6px;text-align:left;padding:7px 4px;color:#494842;font-size:12px}
+.file-row svg{color:var(--muted)}
+.file-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-row:hover,.file-row.active{color:var(--blue);background:#fffdf8}
+.file-row.active svg{color:var(--blue)}
+.folder-empty{display:block;color:var(--muted);font-size:11px;padding:6px 8px}
+.directory-views{margin-top:7px}
+.module-switcher{display:flex;flex:0 0 auto;gap:7px;border-top:1px solid var(--line);padding:14px 0 12px;margin-top:8px}
+.module-switcher button{width:35px;height:35px;border:1px solid var(--ink);background:transparent;font:600 15px 'Archivo Narrow',sans-serif}
+.module-switcher button:hover,.module-switcher button.active{border-color:var(--blue);background:var(--blue);color:#fff}
+.settings-button{border:0;border-top:1px solid var(--line);background:none;display:flex;align-items:center;gap:9px;text-align:left;padding:14px 4px 0;font-size:13px;flex:0 0 auto}
+.settings-button:hover{color:var(--blue)}
+.statusbar{left:280px}
+.inspector-closed .statusbar{left:280px}
+
+@media(max-width:1180px){
+  .module-rail{padding-left:11px;padding-right:11px}
+  .module-rail .library-label{margin-left:-11px;margin-right:-11px;padding-left:11px;padding-right:11px;display:flex;justify-content:center}
+  .module-rail .library-label span,.module-rail .library-label b,.module-rail .directory-group-label,.module-rail .directory-entry span,.module-rail .directory-entry b,.module-rail .folder-row span,.module-rail .folder-row b,.module-rail .file-row span{display:none}
+  .module-rail .directory-entry,.module-rail .folder-row,.module-rail .file-row{grid-template-columns:1fr;justify-items:center;padding-left:0;padding-right:0}
+  .module-rail .folder-children{margin-left:0;padding-left:0;border-left:0}
+  .module-switcher{justify-content:center;flex-wrap:wrap}
+  .settings-button{justify-content:center;font-size:0}
+  .settings-button svg{margin:0}
+}
+
+@media(max-width:720px){
+  .module-rail{min-height:auto;overflow:visible;padding:14px 16px;display:block}
+  .module-rail .brand{margin-bottom:12px}
+  .module-rail .library-directory,.module-rail .simple-directory{display:none}
+  .module-switcher{border-top:0;margin:0;padding:4px 0 0;justify-content:flex-start}
+  .settings-button{display:none}
+}
+
+/* Final left-rail alignment with the Knowra home reference. */
+:root{--rail-width:260px}
+.app-shell.index-mode{grid-template-columns:var(--rail-width) minmax(650px,1fr) 290px}
+.app-shell.index-mode.inspector-closed{grid-template-columns:var(--rail-width) 1fr}
+.app-shell.editor-mode{grid-template-columns:var(--rail-width) minmax(720px,1fr) 320px}
+.app-shell.editor-mode.inspector-closed{grid-template-columns:var(--rail-width) 1fr}
+.rail{height:100vh;min-height:100vh;position:sticky;top:0;padding:22px 23px 18px}
+.brand{gap:10px}
+.brand-mark{width:36px;height:42px;display:grid;place-items:center;font-size:48px;line-height:1;letter-spacing:-10px}
+.brand strong{font-size:18px;letter-spacing:-.3px}
+.brand small{font-size:11px;margin-top:2px}
+.default-rail .module-list{margin-top:64px;min-height:0;overflow:auto}
+.module-button{grid-template-columns:82px 1fr;padding:20px 0}
+.module-button b{font-size:76px;font-weight:500;letter-spacing:-4px}
+.module-button span strong{font-size:16px}
+.module-button span small{font-size:11px;margin-top:7px}
+.module-rail .library-label,.module-rail .simple-directory .library-label{margin-left:-23px;margin-right:-23px;padding:18px 23px 17px;grid-template-columns:55px 1fr 21px;grid-template-rows:auto auto;gap:1px 8px;border-top:1px solid var(--line);border-bottom:3px solid var(--blue)}
+.library-label .library-id{grid-column:1;grid-row:1 / span 2;font:500 45px/.86 'Archivo Narrow',sans-serif;letter-spacing:-2px;color:var(--blue)}
+.library-label .library-copy{grid-column:2;grid-row:1 / span 2;display:grid;align-content:center;gap:2px;min-width:0}
+.library-label .library-copy strong{font-size:18px;line-height:1.15;white-space:nowrap}
+.library-label .library-copy small{font:500 13px/1.1 'Archivo Narrow',sans-serif;letter-spacing:.05em;color:var(--blue);white-space:nowrap}
+.library-label>svg{grid-column:3;grid-row:1 / span 2;align-self:center;color:var(--blue)}
+.module-rail .directory-scroll{padding-top:1px}
+.module-rail .module-switcher{margin-top:7px;padding-top:12px;padding-bottom:10px}
+.settings-button{padding-top:12px}
+.statusbar{left:var(--rail-width)}
+.inspector-closed .statusbar{left:var(--rail-width)}
+
+/* Folded state: distribute the five modules through the available rail height. */
+.default-rail .module-list{display:flex;flex-direction:column;flex:1;justify-content:stretch;margin-top:52px;margin-bottom:10px;overflow:hidden}
+.default-rail .module-button{flex:1 1 0;min-height:0;padding:0}
+.default-rail .settings-button{border-top:0;padding-top:8px}
+
+/* Expanded state: keep the directory scrollbar close to the rail edge. */
+.module-rail .directory-scroll{margin-right:-18px;padding-right:18px}
+
+@media(max-width:1180px){
+  .app-shell.index-mode,.app-shell.index-mode.inspector-closed,.app-shell.editor-mode,.app-shell.editor-mode.inspector-closed{grid-template-columns:78px 1fr}
+  .rail{height:100vh;min-height:100vh;padding:20px 11px}
+  .brand strong,.brand small{display:none}
+  .brand{justify-content:center}
+  .module-button{display:block;padding:14px 0;text-align:center}
+  .module-button b{font-size:42px;letter-spacing:-2px}
+  .module-button span{display:none}
+  .module-rail .library-label{margin-left:-11px;margin-right:-11px;padding:13px 11px;display:grid;grid-template-columns:1fr;grid-template-rows:auto auto;justify-items:center;gap:2px}
+  .module-rail .library-label .library-id{display:block;grid-column:1;grid-row:1;font-size:35px}
+  .module-rail .library-label .library-copy{display:none}
+  .module-rail .library-label>svg{grid-column:1;grid-row:2}
+  .statusbar,.inspector-closed .statusbar{left:78px}
+}
