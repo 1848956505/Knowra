@@ -10,7 +10,6 @@ import {
 } from '../../lib/sidebar/renderers.js';
 import { renderInfoTab as renderInfoTabMarkup } from '../../lib/sidebar/info-panel.js';
 import { renderOutlineTab as renderOutlineTabMarkup } from '../../lib/sidebar/outline-panel.js';
-import { renderKnowledgePointPanel } from '../../lib/knowledge-points/panel.js';
 import { createAttachmentCommandsController } from './sidebar/attachment-commands-controller.js';
 import { createAttachmentRenameController } from './sidebar/attachment-rename-controller.js';
 import { isAttachmentReferencedInMarkdown } from '../../lib/sidebar/attachments.js';
@@ -21,7 +20,7 @@ export function createSidebarController(deps) {
     elements,
     knowledgeApi,
     getCurrentNote,
-    syncKnowledgePointMarkers,
+    syncAnnotationMarkers,
     flashStatus,
     formatDate
   } = deps;
@@ -70,7 +69,7 @@ async function deleteAttachment(attachmentId) {
 async function loadApiNoteSideData(noteId) {
   if (!noteId) {
     clearNoteSideData();
-    syncKnowledgePointMarkers();
+    syncAnnotationMarkers();
     return;
   }
 
@@ -81,13 +80,12 @@ async function loadApiNoteSideData(noteId) {
     state.linkedNotes = sideData.linkedNotes;
     state.attachments = sideData.attachments;
     state.attachmentRenaming = null;
-    state.knowledgePoints = sideData.knowledgePoints;
-    state.allKnowledgePoints = sideData.allKnowledgePoints;
-    state.knowledgePointTagGroups = sideData.knowledgePointTagGroups;
-    syncKnowledgePointMarkers();
+    state.annotations = sideData.annotations;
+    state.annotationLoadState = 'loaded';
+    syncAnnotationMarkers();
   } catch (error) {
-    clearNoteSideData({ keepEditing: true });
-    syncKnowledgePointMarkers();
+    clearNoteSideData();
+    syncAnnotationMarkers();
     flashStatus(`附加信息加载失败：${error.message}`);
   }
 }
@@ -95,24 +93,19 @@ async function loadApiNoteSideData(noteId) {
 function loadLocalNoteSideData(noteId) {
   if (!noteId) {
     clearNoteSideData();
-    syncKnowledgePointMarkers();
+    syncAnnotationMarkers();
     return;
   }
 
-  Object.assign(state, createLocalNoteSideData({
-    noteId,
-    notes: state.allNotes,
-    attachments: knowledgeBaseSeed.attachments
-  }));
+  Object.assign(state, createLocalNoteSideData({ noteId, notes: state.allNotes, attachments: knowledgeBaseSeed.attachments }));
+  state.annotations = [];
   state.attachmentRenaming = null;
-  syncKnowledgePointMarkers();
+  syncAnnotationMarkers();
 }
 
-function clearNoteSideData({ keepEditing = false } = {}) {
-  Object.assign(state, createClearedNoteSideData({
-    editing: state.knowledgePointEditing,
-    keepEditing
-  }));
+function clearNoteSideData() {
+  Object.assign(state, createClearedNoteSideData());
+  state.annotations = [];
 }
 
 function findOutlineHeadingTarget(outlineId, outlineIndex) {
@@ -204,17 +197,10 @@ function renderOutlineTab() {
   });
 }
 
-function renderConceptsTab(note) {
-  return renderKnowledgePointPanel({
-    note,
-    points: state.knowledgePoints,
-    tagGroups: state.knowledgePointTagGroups,
-    availablePoints: state.allKnowledgePoints,
-    filters: state.knowledgePointFilters,
-    attachComposer: state.knowledgePointAttachComposer,
-    expandedIds: state.expandedKnowledgePointIds,
-    editing: state.knowledgePointEditing
-  });
+function renderConceptsTab() {
+  const items = state.annotations.filter((item) => item.status !== 'archived');
+  if (!items.length) return '<div class="aside-empty">暂无重要内容标注</div>';
+  return `<section class="annotation-panel">${items.map((item) => `<article class="annotation-card" data-annotation-id="${item.id}"><p>${item.quoteText}</p><small>${item.status === 'stale' ? '原文位置已变化' : '已标注'}</small><button type="button" data-annotation-jump="${item.id}">定位</button><button type="button" data-annotation-delete="${item.id}">删除</button></article>`).join('')}</section>`;
 }
 
   return {

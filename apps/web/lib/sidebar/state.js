@@ -1,11 +1,8 @@
-export function createClearedNoteSideData({ editing = null, keepEditing = false } = {}) {
+export function createClearedNoteSideData() {
   return {
     linkedNotes: [],
     attachments: [],
-    knowledgePoints: [],
-    allKnowledgePoints: [],
-    knowledgePointTagGroups: [],
-    knowledgePointEditing: keepEditing ? editing : null
+    annotations: []
   };
 }
 
@@ -21,8 +18,6 @@ export function createLocalNoteSideData({ noteId, notes = [], attachments = [] }
       .map((linkedId) => notes.find((item) => item.id === linkedId))
       .filter(Boolean),
     attachments: attachments.filter((attachment) => attachment.noteId === noteId),
-    knowledgePoints: [],
-    allKnowledgePoints: [],
-    knowledgePointTagGroups: []
+    annotations: []
   };
 }

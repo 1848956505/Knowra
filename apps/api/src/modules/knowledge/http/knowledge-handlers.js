@@ -3,7 +3,7 @@ export function createKnowledgeHttpHandlers({ knowledgeModule }) {
     noteService,
     folderService,
     tagService,
-    knowledgePointService,
+    contentAnnotationService,
     knowledgeSpaceService,
     searchService,
     deleteFolderAndCleanup,
@@ -91,27 +91,12 @@ export function createKnowledgeHttpHandlers({ knowledgeModule }) {
     listTags(query = {}) {
       return tagService.listTags(query);
     },
-    createKnowledgePoint(body) {
-      return knowledgePointService.createKnowledgePoint(body);
-    },
-    listKnowledgePoints(query = {}) {
-      return knowledgePointService.listKnowledgePoints(query);
-    },
-    listKnowledgePointTagGroups(query = {}) {
-      return knowledgePointService.listKnowledgePointTagGroups(query);
-    },
-    updateKnowledgePoint(params, body) {
-      return knowledgePointService.updateKnowledgePoint(params.id, body);
-    },
-    deleteKnowledgePoint(params) {
-      return knowledgePointService.deleteKnowledgePoint(params.id);
-    },
-    addSourceToKnowledgePoint(params, body) {
-      return knowledgePointService.addSourceToKnowledgePoint(params.id, body);
-    },
-    deleteKnowledgePointSource(params) {
-      return knowledgePointService.deleteKnowledgePointSource(params.sourceId);
-    },
+    createAnnotation(body) { return contentAnnotationService.createAnnotation(body); },
+    listAnnotations(query = {}) { return contentAnnotationService.listAnnotationsByNote(query); },
+    getAnnotation(params) { return contentAnnotationService.getAnnotation(params.id); },
+    deleteAnnotation(params) { return contentAnnotationService.archiveAnnotation(params.id); },
+    restoreAnnotation(params) { return contentAnnotationService.restoreAnnotation(params.id); },
+    updateAnnotationAnchor(params, body) { return contentAnnotationService.updateAnnotationAnchor(params.id, body); },
     createDefaultKnowledgeSpace(body) {
       return knowledgeSpaceService.createDefaultKnowledgeSpace(body);
     },

@@ -63,9 +63,8 @@ export function createEditorDraftController(deps, getController) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
-    createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers,
     flashStatus,
     escapeHtml,
     escapeAttribute

@@ -38,6 +38,9 @@ const ICON_CONTENT = {
     <path d="M7.8 10.2h3.4v3.1a3.2 3.2 0 0 1-3.2 3.2H7v-2.1h.6a1.1 1.1 0 0 0 1.1-1.1v-.8H7.8z" ${STROKE_ATTRS}></path>
     <path d="M13.5 10.2h3.4v3.1a3.2 3.2 0 0 1-3.2 3.2h-1v-2.1h.6a1.1 1.1 0 0 0 1.1-1.1v-.8h-.9z" ${STROKE_ATTRS}></path>
   `,
+  important: `
+    <path d="M12 4.5 14.2 9l4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8-3.5-3.4 4.8-.7z" ${STROKE_ATTRS}></path>
+  `,
   table: `
     <rect x="4.5" y="5.5" width="15" height="13" rx="1.8" ${STROKE_ATTRS}></rect>
     <path d="M9.5 5.8v12.4M14.5 5.8v12.4M4.8 10h14.4M4.8 14h14.4" ${STROKE_ATTRS}></path>

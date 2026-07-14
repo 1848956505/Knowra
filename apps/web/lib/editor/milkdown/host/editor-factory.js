@@ -15,7 +15,7 @@ import {
   turnIntoTaskListCommand
 } from '../commands/editor-commands.js';
 import { findHighlightBehavior } from '../plugins/find-highlight-plugin.js';
-import { knowledgePointHighlightBehavior } from '../plugins/knowledge-point-highlight-plugin.js';
+import { annotationHighlightBehavior } from '../plugins/annotation-highlight-plugin.js';
 import { enhancedEnterBehavior } from '../plugins/enter-key-behavior-plugin.js';
 import { createMarkdownPasteBehavior } from '../plugins/markdown-paste-plugin.js';
 import { taskListClickBehavior } from '../plugins/task-list-click-plugin.js';
@@ -66,7 +66,7 @@ export function createConfiguredMilkdownEditor(host, markdown) {
     .use(tableBlock)
     .use(enhancedEnterBehavior)
     .use(findHighlightBehavior)
-    .use(knowledgePointHighlightBehavior)
+    .use(annotationHighlightBehavior)
     .use(taskListClickBehavior)
     .use(highlightRemark)
     .use(highlightSchema)

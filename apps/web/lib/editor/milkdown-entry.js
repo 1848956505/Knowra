@@ -36,10 +36,7 @@ import {
   clearSearchHighlights,
   findAndSelect
 } from './milkdown/host/find-controller.js';
-import {
-  selectKnowledgePointSource,
-  setKnowledgePointSources
-} from './milkdown/host/knowledge-point-source-controller.js';
+import { selectAnnotation, setAnnotations } from './milkdown/host/annotation-source-controller.js';
 import { pasteMarkdown } from './milkdown/host/markdown-paste-controller.js';
 import { resolveBlockCommandBehavior } from './enter-behavior.js';
 import { normalizeMarkdown } from './milkdown/utils/markdown-slice.js';
@@ -235,12 +232,12 @@ export class MilkdownHost {
     return findAndSelect(this, query, previousMatchIndex, direction);
   }
 
-  async setKnowledgePointSources(sources = []) {
-    return setKnowledgePointSources(this, sources);
+  async setAnnotations(annotations = []) {
+    return setAnnotations(this, annotations);
   }
 
-  async selectKnowledgePointSource(sourceId) {
-    return selectKnowledgePointSource(this, sourceId);
+  async selectAnnotation(annotationId) {
+    return selectAnnotation(this, annotationId);
   }
 
   async clearSearchHighlights() {

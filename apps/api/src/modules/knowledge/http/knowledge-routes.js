@@ -1,11 +1,11 @@
 import { handleFolderRoute } from './folder-routes.js';
-import { handleKnowledgePointRoute } from './knowledge-point-routes.js';
+import { handleContentAnnotationRoute } from './content-annotation-routes.js';
 import { handleNoteRoute } from './note-routes.js';
 import { handleSpaceRoute } from './space-routes.js';
 import { handleTagRoute } from './tag-routes.js';
 
 const knowledgeRouteHandlers = [
-  handleKnowledgePointRoute,
+  handleContentAnnotationRoute,
   handleNoteRoute,
   handleFolderRoute,
   handleTagRoute,

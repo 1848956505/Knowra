@@ -1,6 +1,6 @@
 import { createNavigationController } from './navigation-controller.js';
 import { createEditorController } from './editor-controller.js';
-import { createKnowledgePointController } from './knowledge-point-controller.js';
+import { createAnnotationController } from './annotation-controller.js';
 import { createSidebarController } from './sidebar-controller.js';
 import { createSearchController } from './search-controller.js';
 import { createTagController } from './tag-controller.js';
@@ -41,7 +41,7 @@ export function createAppControllers({
     flashStatus: helpers.flashStatus
   });
 
-  const knowledgePointController = createKnowledgePointController({
+  const annotationController = createAnnotationController({
     state,
     elements,
     editorRuntime,
@@ -56,7 +56,7 @@ export function createAppControllers({
     elements,
     knowledgeApi,
     getCurrentNote: helpers.getCurrentNote,
-    syncKnowledgePointMarkers: helpers.syncKnowledgePointMarkers,
+    syncAnnotationMarkers: helpers.syncAnnotationMarkers,
     flashStatus: helpers.flashStatus,
     formatDate: helpers.formatDate
   });
@@ -95,9 +95,8 @@ export function createAppControllers({
     closeContextMenu: helpers.closeContextMenu,
     closeSectionMenu: helpers.closeSectionMenu,
     closeTabMenu: helpers.closeTabMenu,
-    createKnowledgePointFromCurrentSelection: helpers.createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers: helpers.syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources: helpers.getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection: helpers.createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers: helpers.syncAnnotationMarkers,
     restoreEditorScrollPosition: (...args) => scrollController.restoreEditorScrollPosition(...args),
     flashStatus: helpers.flashStatus,
     escapeHtml: helpers.escapeHtml,
@@ -165,7 +164,7 @@ export function createAppControllers({
     scrollController,
     searchController,
     tagController,
-    knowledgePointController,
+    annotationController,
     sidebarController,
     workspaceController,
     navigationController,

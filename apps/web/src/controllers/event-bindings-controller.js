@@ -24,7 +24,7 @@ export function bindAppEvents({
 }) {
   const {
     editorController,
-    knowledgePointController,
+    annotationController,
     navigationController,
     scrollController,
     searchController,
@@ -117,7 +117,7 @@ export function bindAppEvents({
     handleTabMenuAction: (...args) => tabController.handleTabMenuAction(...args),
 
     openEditorContextMenu: (...args) => editorController.openEditorContextMenu(...args),
-    focusKnowledgePointFromMarker: (...args) => knowledgePointController.focusKnowledgePointFromMarker(...args),
+    focusAnnotationFromMarker: (...args) => annotationController.focusAnnotationFromMarker(...args),
     handleEditorContextMenuAction: (...args) => editorController.handleEditorContextMenuAction(...args),
     scheduleAutosave: (...args) => editorController.scheduleAutosave(...args),
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
@@ -135,11 +135,8 @@ export function bindAppEvents({
     addTagToCurrentNote: (...args) => tagController.addTagToCurrentNote(...args),
     removeTagFromCurrentNote: (...args) => tagController.removeTagFromCurrentNote(...args),
     createTagAndAssignToCurrentNote: (...args) => tagController.createTagAndAssignToCurrentNote(...args),
-    updateCurrentKnowledgePoint: (...args) => knowledgePointController.updateCurrentKnowledgePoint(...args),
-    attachSelectionToExistingKnowledgePoint: (...args) => knowledgePointController.attachSelectionToExistingKnowledgePoint(...args),
-    removeKnowledgePointSourceFromCurrentNote: (...args) => knowledgePointController.removeKnowledgePointSourceFromCurrentNote(...args),
-    deleteKnowledgePointFromLibrary: (...args) => knowledgePointController.deleteKnowledgePointFromLibrary(...args),
-    selectKnowledgePointSource: (...args) => knowledgePointController.selectKnowledgePointSource(...args),
+    deleteAnnotation: (...args) => annotationController.deleteAnnotation(...args),
+    selectAnnotation: (...args) => annotationController.selectAnnotation(...args),
     findOutlineHeadingTarget: (...args) => sidebarController.findOutlineHeadingTarget(...args),
 
     saveCurrentEditorScrollPosition: (...args) => scrollController.saveCurrentEditorScrollPosition(...args),

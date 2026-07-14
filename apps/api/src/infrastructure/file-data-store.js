@@ -7,11 +7,7 @@ const DEFAULT_STATE = {
   tags: [],
   notes: [],
   attachments: [],
-  knowledgePoints: [],
-  knowledgePointSources: [],
-  tagGroups: [],
-  knowledgePointTags: [],
-  noteKnowledgePoints: []
+  contentAnnotations: []
 };
 
 function ensureParentDirectory(filePath) {
@@ -26,11 +22,7 @@ function cloneDefaultState() {
     tags: [],
     notes: [],
     attachments: [],
-    knowledgePoints: [],
-    knowledgePointSources: [],
-    tagGroups: [],
-    knowledgePointTags: [],
-    noteKnowledgePoints: []
+    contentAnnotations: []
   };
 }
 
@@ -41,11 +33,7 @@ function normalizeState(input = {}) {
     tags: Array.isArray(input.tags) ? input.tags : [],
     notes: Array.isArray(input.notes) ? input.notes : [],
     attachments: Array.isArray(input.attachments) ? input.attachments : [],
-    knowledgePoints: Array.isArray(input.knowledgePoints) ? input.knowledgePoints : [],
-    knowledgePointSources: Array.isArray(input.knowledgePointSources) ? input.knowledgePointSources : [],
-    tagGroups: Array.isArray(input.tagGroups) ? input.tagGroups : [],
-    knowledgePointTags: Array.isArray(input.knowledgePointTags) ? input.knowledgePointTags : [],
-    noteKnowledgePoints: Array.isArray(input.noteKnowledgePoints) ? input.noteKnowledgePoints : []
+    contentAnnotations: Array.isArray(input.contentAnnotations) ? input.contentAnnotations : []
   };
 }
 
@@ -73,11 +61,7 @@ export function createFileDataStore(filePath) {
     tags: normalized.tags,
     notes: normalized.notes,
     attachments: normalized.attachments,
-    knowledgePoints: normalized.knowledgePoints,
-    knowledgePointSources: normalized.knowledgePointSources,
-    tagGroups: normalized.tagGroups,
-    knowledgePointTags: normalized.knowledgePointTags,
-    noteKnowledgePoints: normalized.noteKnowledgePoints
+    contentAnnotations: normalized.contentAnnotations
   };
 
   function flush() {
@@ -105,11 +89,7 @@ export function createFileDataStore(filePath) {
     replaceCollection(state.tags, normalizedState.tags);
     replaceCollection(state.notes, normalizedState.notes);
     replaceCollection(state.attachments, normalizedState.attachments);
-    replaceCollection(state.knowledgePoints, normalizedState.knowledgePoints);
-    replaceCollection(state.knowledgePointSources, normalizedState.knowledgePointSources);
-    replaceCollection(state.tagGroups, normalizedState.tagGroups);
-    replaceCollection(state.knowledgePointTags, normalizedState.knowledgePointTags);
-    replaceCollection(state.noteKnowledgePoints, normalizedState.noteKnowledgePoints);
+    replaceCollection(state.contentAnnotations, normalizedState.contentAnnotations);
     flush();
 
     return exportSnapshot();

@@ -39,21 +39,12 @@ export function createInitialAppState() {
     linkedNotes: [],
     attachments: [],
     attachmentRenaming: null,
-    knowledgePoints: [],
-    allKnowledgePoints: [],
-    knowledgePointTagGroups: [],
-    knowledgePointFilters: {
-      query: '',
-      tagIds: [],
-      isOpen: false
-    },
-    knowledgePointAttachComposer: {
-      query: '',
-      isOpen: false
-    },
+    annotations: [],
+    annotationLoadState: 'idle',
+    focusedAnnotationId: null,
+    annotationFilter: { query: '', status: 'active' },
     outlineCollapsedHeadingIdsByNote: {},
-    expandedKnowledgePointIds: {},
-    knowledgePointEditing: null,
+    expandedAnnotationIds: {},
     openNoteTabs: [],
     editorMenuOpen: null,
     view: {
