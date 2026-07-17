@@ -78,6 +78,7 @@ function makeDeps() {
     submitTableInsertDialog: async () => {},
     closeTableInsertDialog: () => {},
     handleEditorPanelAction: async () => {},
+    handleViewMenuAction: async () => {},
     persistDraft: () => {}
   };
 }
@@ -176,6 +177,27 @@ runTest('data-save-now persists draft immediately', async () => {
   });
 });
 
+runTest('status action dispatches the shared view command', async () => {
+  await withMockDocument(async (listeners) => {
+    const { bindDocumentActionEvents } = await import(
+      '../../lib/events/document-action-events.js'
+    );
+    let actionArg = null;
+    const deps = makeDeps();
+    deps.handleViewMenuAction = async (action) => { actionArg = action; };
+
+    bindDocumentActionEvents({ state: {}, elements: {}, deps });
+
+    const target = { dataset: { statusAction: 'toggle-right-sidebar' } };
+    target.closest = makeClosest(
+      new Map([['[data-status-action]', target]])
+    );
+    listeners.get('click')[0]({ target });
+
+    assert.equal(actionArg, 'toggle-right-sidebar');
+  });
+});
+
 runTest('click on none of the action elements is a no-op', async () => {
   await withMockDocument(async (listeners) => {
     const { bindDocumentActionEvents } = await import(
@@ -189,6 +211,7 @@ runTest('click on none of the action elements is a no-op', async () => {
       submitTableInsertDialog: async () => { submitted += 1; },
       closeTableInsertDialog: () => { closed += 1; },
       handleEditorPanelAction: async () => { actionCalled += 1; },
+      handleViewMenuAction: async () => {},
       persistDraft: () => { persisted += 1; }
     };
 

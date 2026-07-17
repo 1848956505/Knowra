@@ -136,6 +136,7 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
               data-attachment-id="${escapeAttribute(attachment.id)}"
               data-attachment-name="${escapeAttribute(attachment.fileName)}"
               data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
+              title="${escapeAttribute(attachment.fileName)}"
             >
               <div class="resource-meta">
                 <strong>${escapeHtml(attachment.fileName)}</strong>

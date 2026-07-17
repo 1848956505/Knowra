@@ -16,7 +16,7 @@ function createStorage() {
 function createController({ root = { scrollTop: 0 }, storage = createStorage(), editorRuntime = { currentEditorNoteId: 'note-1' } } = {}) {
   const documentRef = {
     getElementById(id) {
-      return id === 'milkdown-editor' ? root : null;
+      return id === 'editor-scroll-region' ? root : null;
     }
   };
   const frames = [];

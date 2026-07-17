@@ -24,7 +24,10 @@ export function createEditorScrollController(deps) {
   };
 
 function getEditorScrollRoot() {
-  return getDocument()?.getElementById?.('milkdown-editor') ?? null;
+  const documentRef = getDocument();
+  return documentRef?.getElementById?.('editor-scroll-region')
+    ?? documentRef?.getElementById?.('milkdown-editor')
+    ?? null;
 }
 
 function saveCurrentEditorScrollPosition() {

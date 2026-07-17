@@ -12,51 +12,49 @@ export function renderOutlineTab({
   });
 
   return `
-    <section class="aside-panel-stack">
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>正文大纲</span>
-          <strong>${headings.length}</strong>
-        </div>
-        <div class="outline-list">
+    <section class="outline-panel">
+      <div class="outline-panel-head">
+        <span>DOCUMENT MAP</span>
+        <strong>${headings.length} 个标题</strong>
+      </div>
+      <div class="outline-list outline-editorial">
           ${visibleItems.length
             ? visibleItems
                 .map(
                   ({ heading, depth, hasChildren, isCollapsed }) => `
-                    <div class="outline-row" data-level="${heading.level}" data-depth="${depth}" data-has-children="${String(hasChildren)}">
+                    <div class="outline-row outline-row-ui level-h${heading.level}" data-level="${heading.level}" data-depth="${depth}" data-has-children="${String(hasChildren)}">
                       ${hasChildren
                         ? `
                             <button
                               type="button"
-                              class="outline-toggle"
+                              class="outline-toggle outline-toggle-ui"
                               data-outline-toggle-id="${escapeAttribute(heading.id)}"
                               data-outline-note-id="${escapeAttribute(noteId)}"
                               data-collapsed="${String(isCollapsed)}"
                               aria-label="${isCollapsed ? '展开' : '折叠'} ${escapeAttribute(heading.title)} 的子标题"
                               aria-expanded="${String(!isCollapsed)}"
                             >
-                              <span aria-hidden="true" class="outline-toggle-glyph">${isCollapsed ? '+' : '-'}</span>
+                              <span aria-hidden="true" class="outline-toggle-glyph">${isCollapsed ? '›' : '⌄'}</span>
                             </button>
                           `
-                        : '<span class="outline-toggle-spacer" aria-hidden="true"></span>'}
+                        : '<span class="outline-toggle-spacer outline-toggle-space" aria-hidden="true"></span>'}
                       <button
                         type="button"
-                        class="outline-item"
+                        class="outline-item outline-jump"
                         data-outline-id="${escapeAttribute(heading.id)}"
                         data-outline-index="${heading.index}"
                         data-level="${heading.level}"
                         data-depth="${depth}"
                       >
                         <span class="outline-item-level">H${heading.level}</span>
-                        <span class="outline-item-label">${escapeHtml(heading.title)}</span>
+                        <strong class="outline-item-label">${escapeHtml(heading.title)}</strong>
                       </button>
                     </div>
                   `
                 )
                 .join('')
             : renderAsideEmptyInline('当前笔记还没有标题')}
-        </div>
-      </section>
+      </div>
     </section>
   `;
 }
@@ -127,4 +125,3 @@ function normalizeHeadingDepths(headings) {
     return normalizedHeading;
   });
 }
-

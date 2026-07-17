@@ -9,8 +9,8 @@ const html = renderOutlineTab({
   ]
 });
 
-assert.match(html, /正文大纲/);
-assert.match(html, /<strong>2<\/strong>/);
+assert.match(html, /DOCUMENT MAP/);
+assert.match(html, /<strong>2 个标题<\/strong>/);
 assert.match(html, /data-outline-id="intro"/);
 assert.match(html, /data-outline-index="1"/);
 assert.match(html, /data-level="3"/);

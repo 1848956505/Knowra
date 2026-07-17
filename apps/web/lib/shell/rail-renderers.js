@@ -7,6 +7,7 @@ export function renderModuleRail(items) {
         <button
           type="button"
           class="rail-item"
+          data-module-key="${escapeAttribute(item.key)}"
           data-active="${Boolean(item.active)}"
           aria-label="${escapeAttribute(label)}"
           title="${escapeAttribute(label)}"

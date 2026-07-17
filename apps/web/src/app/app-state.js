@@ -48,10 +48,24 @@ export function createInitialAppState() {
     openNoteTabs: [],
     editorMenuOpen: null,
     view: {
+      screen: 'index',
       mode: 'edit',
       showLeftSidebar: true,
       showRightSidebar: true,
       showSourceEditor: false
+    },
+    libraryIndex: {
+      tab: 'all',
+      page: 1,
+      pageSize: 10,
+      selectedNoteId: null,
+      inspectorOpen: true,
+      filterMenu: null,
+      filters: {
+        type: 'all',
+        status: 'all',
+        time: 'updated-desc'
+      }
     },
     editorPanel: {
       open: false,

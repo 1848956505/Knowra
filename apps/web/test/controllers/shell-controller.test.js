@@ -109,7 +109,8 @@ runTest('renderRail and renderStatus write shell markup', () => {
   assert.match(elements.moduleRail.innerHTML, /data-active="true"/);
   assert.match(elements.statusIndicators.innerHTML, /Ready/);
   assert.match(elements.statusIndicators.innerHTML, /2/);
-  assert.match(elements.statusMeta.innerHTML, /space-1/);
+  assert.match(elements.statusMeta.innerHTML, /云端已连接/);
+  assert.match(elements.statusMeta.innerHTML, /data-status-action="toggle-right-sidebar"/);
 });
 
 console.log('shell-controller tests passed');

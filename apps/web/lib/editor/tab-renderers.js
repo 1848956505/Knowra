@@ -3,7 +3,7 @@ const DIRTY_SAVE_STATES = new Set(['pending', 'saving', 'error']);
 export function renderEmptyNoteTabs() {
   return `
       <div class="note-tabs-empty">
-        <span class="note-tabs-empty-label">No open notes</span>
+        <span class="note-tabs-empty-label">暂无打开的资料</span>
       </div>
     `;
 }
@@ -39,7 +39,7 @@ export function renderNoteTabs({
         >
           <span class="note-tab-label">${escapeHtml(note.title)}</span>
           <span class="note-tab-dirty">${isDirty ? '●' : ''}</span>
-          <span class="note-tab-close" data-tab-close="${escapeAttribute(note.id)}" aria-label="Close tab" title="Close tab">×</span>
+          <span class="note-tab-close" data-tab-close="${escapeAttribute(note.id)}" aria-label="关闭标签页" title="关闭标签页">×</span>
         </button>
       `;
     })

@@ -66,6 +66,7 @@ export function createEditorRenderController(deps, getController) {
     createAnnotationFromCurrentSelection,
     syncAnnotationMarkers,
     flashStatus,
+    formatDate,
     escapeHtml,
     escapeAttribute
   } = deps;

@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const readStyle = (name) => fs.readFileSync(
+  path.resolve(__dirname, `../styles/components/${name}`),
+  'utf8'
+);
+
+const tokens = readStyle('knowra-theme-tokens.css');
+const shell = readStyle('knowra-shell.css');
+const library = readStyle('knowra-library-index.css');
+const editor = readStyle('knowra-editor.css');
+const menus = readStyle('knowra-menus.css');
+
+assert.match(tokens, /--text-2xs:\s*10px;/, 'small production copy should remain legible');
+assert.match(tokens, /--document-tab-height:\s*44px;/, 'document tabs should use the compact height token');
+assert.match(shell, /\.library-id\s*\{[^}]*font:\s*500/, 'library module number should restore the earlier condensed weight');
+assert.match(
+  shell,
+  /\.library-header-toggle\[data-open='true'\]\s*\{[^}]*background:\s*var\(--blue\)/,
+  'the open section menu trigger should become a blue square'
+);
+assert.match(
+  library,
+  /\.index-filter-chevron\s*\{[^}]*width:\s*var\(--space-4\)[^}]*height:\s*var\(--space-4\)[^}]*fill:\s*none[^}]*stroke:\s*currentColor/,
+  'filter chevrons should have bounded SVG geometry and an explicit stroke'
+);
+assert.match(
+  editor,
+  /\.note-tab-close\s*\{[^}]*margin-left:\s*auto/,
+  'tab close controls should align at the far edge'
+);
+assert.match(
+  editor,
+  /\.annotation-marker\s*\{[^}]*background:\s*var\(--blue-wash\)[^}]*var\(--blue\)/,
+  'important text should use the production blue annotation treatment'
+);
+assert.match(
+  editor,
+  /\.editor-menu-text\[data-open='true'\],[\s\S]*background:\s*var\(--blue\)/,
+  'open editor menu buttons should use the blue square active state'
+);
+assert.match(
+  editor,
+  /\.editor-inspector \.resource-row\s*\{[^}]*border-radius:\s*var\(--radius-none\)/,
+  'attachment rows should use the production square treatment'
+);
+assert.match(
+  menus,
+  /\.library-context-menu,[\s\S]*border-radius:\s*var\(--radius-none\)/,
+  'shared context menus should use the square editorial surface'
+);
+
+console.log('ok - Knowra redesign keeps the repaired visual contracts');

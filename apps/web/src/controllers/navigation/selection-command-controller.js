@@ -31,6 +31,10 @@ async function selectFolder(folderId) {
 
   state.selectedFolderId = selection.selectedFolderId;
   state.selectedNoteId = selection.selectedNoteId;
+  state.libraryIndex.selectedNoteId = selection.selectedNoteId;
+  state.libraryIndex.tab = 'all';
+  state.libraryIndex.page = 1;
+  state.view.screen = 'index';
   state.openNoteTabs = selection.openNoteTabs;
 
   if (selection.draftMarkdown !== undefined) {

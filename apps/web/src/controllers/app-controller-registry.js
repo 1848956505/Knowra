@@ -99,6 +99,7 @@ export function createAppControllers({
     syncAnnotationMarkers: helpers.syncAnnotationMarkers,
     restoreEditorScrollPosition: (...args) => scrollController.restoreEditorScrollPosition(...args),
     flashStatus: helpers.flashStatus,
+    formatDate: helpers.formatDate,
     escapeHtml: helpers.escapeHtml,
     escapeAttribute: helpers.escapeAttribute
   });

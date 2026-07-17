@@ -14,6 +14,7 @@ import { bindFolderTreeEvents } from '../../lib/events/folder-tree-events.js';
 import { bindNoteTabEvents } from '../../lib/events/note-tab-events.js';
 import { bindEditorContentEvents } from '../../lib/events/editor-content-events.js';
 import { bindAsideEvents } from '../../lib/events/aside-events/index.js';
+import { bindLibraryIndexEvents } from '../../lib/events/library-index-events.js';
 
 export function bindAppEvents({
   state,
@@ -81,6 +82,7 @@ export function bindAppEvents({
     canDropOnTarget: (...args) => navigationController.canDropOnTarget(...args),
     reconcileSelection: (...args) => helpers.reconcileSelection(...args),
     renderAll: (...args) => shellController.renderAll(...args),
+    renderLibraryIndex: (...args) => shellController.renderLibraryIndex(...args),
     importMarkdownFiles: (...args) => editorController.importMarkdownFiles(...args),
     flashStatus: (...args) => helpers.flashStatus(...args),
 
@@ -122,6 +124,7 @@ export function bindAppEvents({
     scheduleAutosave: (...args) => editorController.scheduleAutosave(...args),
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
     persistDraft: (...args) => editorController.persistDraft(...args),
+    restoreNote: (...args) => navigationController.restoreNote(...args),
 
     renderSidebar: (...args) => sidebarController.renderSidebar(...args),
     openAttachment: (...args) => sidebarController.openAttachment(...args),
@@ -135,6 +138,13 @@ export function bindAppEvents({
     addTagToCurrentNote: (...args) => tagController.addTagToCurrentNote(...args),
     removeTagFromCurrentNote: (...args) => tagController.removeTagFromCurrentNote(...args),
     createTagAndAssignToCurrentNote: (...args) => tagController.createTagAndAssignToCurrentNote(...args),
+    updateNoteTagDraft: (draft) => {
+      state.noteTagComposer.draft = draft;
+      sidebarController.renderSidebar(helpers.getCurrentNote());
+      const tagInput = globalThis.document?.querySelector('[data-note-tag-input]');
+      tagInput?.focus();
+      tagInput?.setSelectionRange?.(draft.length, draft.length);
+    },
     deleteAnnotation: (...args) => annotationController.deleteAnnotation(...args),
     selectAnnotation: (...args) => annotationController.selectAnnotation(...args),
     findOutlineHeadingTarget: (...args) => sidebarController.findOutlineHeadingTarget(...args),
@@ -154,4 +164,5 @@ export function bindAppEvents({
   bindNoteTabEvents({ state, elements, deps });
   bindEditorContentEvents({ state, elements, deps });
   bindAsideEvents({ state, elements, deps });
+  bindLibraryIndexEvents({ state, elements, deps });
 }

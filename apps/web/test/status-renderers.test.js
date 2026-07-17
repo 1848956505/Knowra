@@ -1,32 +1,42 @@
 import assert from 'node:assert/strict';
 import {
+  getStatusDocumentStats,
   renderStatusIndicators,
   renderStatusMeta
 } from '../lib/status/renderers.js';
 
-assert.equal(
-  renderStatusIndicators({
-    statusMessage: 'Saved <ok>',
-    visibleNoteCount: 3,
-    folderCount: 2
-  }).replace(/\s+/g, ' ').trim(),
-  '<span class="status-inline">Saved &lt;ok&gt;</span> <span class="status-inline">笔记 3</span> <span class="status-inline">目录 2</span>'
-);
+const indicators = renderStatusIndicators({
+  statusMessage: 'Saved <ok>',
+  visibleNoteCount: 3,
+  folderCount: 2,
+  currentTitle: '<当前资料>',
+  saveState: 'saved'
+});
+assert.match(indicators, /data-save-now/);
+assert.match(indicators, /已自动保存/);
+assert.match(indicators, /&lt;当前资料&gt;/);
+assert.match(indicators, /Saved &lt;ok&gt;/);
+assert.match(indicators, /笔记 3/);
+assert.match(indicators, /目录 2/);
 
-assert.equal(
-  renderStatusMeta({
-    dataMode: 'api',
-    currentSpaceId: 'space <A>'
-  }).replace(/\s+/g, ' ').trim(),
-  '<span class="status-inline">UTF-8</span> <span class="status-inline">space &lt;A&gt;</span>'
-);
+const meta = renderStatusMeta({
+  dataMode: 'api',
+  markdown: '# 标题\n正文 [链接](https://example.com)',
+  view: { showSourceEditor: true, showRightSidebar: false }
+});
+assert.match(meta, /字数 4/);
+assert.match(meta, /行数 2/);
+assert.match(meta, /大纲 1/);
+assert.match(meta, /链接 1/);
+assert.match(meta, /data-status-action="toggle-source-editor" data-active="true"/);
+assert.match(meta, /data-status-action="toggle-right-sidebar" data-active="false"/);
+assert.match(meta, /云端已连接/);
 
 assert.match(
   renderStatusMeta({
-    dataMode: 'api',
-    currentSpaceId: ''
+    dataMode: 'api'
   }),
-  /已连接后端/
+  /云端已连接/
 );
 
 assert.match(
@@ -34,7 +44,14 @@ assert.match(
     dataMode: 'local',
     currentSpaceId: 'ignored'
   }),
-  /前端本地模式/
+  /本地优先/
 );
+
+assert.deepEqual(getStatusDocumentStats('# A\n正文\n[[内部]]'), {
+  characters: 9,
+  lines: 3,
+  headings: 1,
+  links: 1
+});
 
 console.log('ok - status renderers escape and label workspace state');

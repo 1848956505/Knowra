@@ -1,39 +1,55 @@
-# Design QA
+# Design QA — 新 UI 测试 demo
 
-## Current change
+日期：2026-07-16
 
-- The left rail is now a narrower, viewport-height rail aligned to the Knowra home reference.
-- The brand lockup is compact and uses the home reference hierarchy: blue K mark, Knowra name, and muted subtitle.
-- Default module numbers use a taller condensed display treatment.
-- The active module header uses the reference structure: blue module number, Chinese title, English label, upper-right arrow, and cobalt bottom rule.
-- The default rail keeps the five large-number product modules.
-- Selecting `01 资料库` changes the rail into a directory mode.
-- The library rail now contains content views, a scrollable folder/file tree, recent edits, favorites, and recycle bin.
-- The `01–05` square module switcher and settings control stay fixed below the directory.
-- Folder selection filters the right-side material index; file selection opens the editor.
-- The folded module list distributes 01–05 evenly through the available rail height.
-- The folded state keeps one separator below 05 before the settings entry.
-- The expanded directory scroll region is extended toward the rail edge so its scrollbar does not sit deep inside the content column.
+## 视觉事实来源
 
-## Build evidence
+- 标签与资料条目样式：`reference-tag-style.png`
+- 资料边注标题和页签：`reference-marginalia-tabs.png`
+- 上一版编辑器大纲：`qa-compare-editor.png`
+- 原始资料库稿：`../原始稿/资料库.png`
+- 用户反馈：统一右栏标签；恢复索引大块打开按钮、边注双语标题、线框页签和上一版大纲
 
-- `npm run build`: passed.
-- `node scripts/build-standalone.mjs`: passed.
-- Local Vite entry returned HTTP 200.
-- Source files passed `git diff --check`.
+## 实现证据
 
-## Visual verification status
+- 资料索引：`qa-index.png`
+- 编辑器信息边注：`qa-editor.png`
+- 编辑器大纲边注：`qa-editor-outline.png`
+- 验证视口：1440×1024、1280×800
+- 验证状态：资料信息与标签常开；关联笔记、内容大纲、附件按需展开；大纲二级标题可折叠
 
-- The in-app browser connection is currently blocked by `Cannot redefine property: process` during browser bootstrap.
-- Because a rendered screenshot and interaction capture could not be obtained in this turn, the current state is not marked as visually passed.
+## 全视图与重点区域对照
 
-## Remaining design checks
+已在同一次视觉输入中打开两张用户参考图与当前索引、编辑器信息页、编辑器大纲页。实现按参考图组合而非机械复制整屏：标签直接复用正文 `tag-row` 的蓝色描边样式；索引恢复 83px 高蓝色“打开资料”；编辑边注恢复蓝色“资料边注 / MARGINALIA”及上下线框页签。
 
-- Confirm the directory tree density at the target 1440 × 1024 viewport.
-- Confirm long folder/file names, deep nesting, and empty folders.
-- Confirm the fixed module switcher remains visible while the directory scrolls.
-- Confirm editor mode keeps the same directory state and preserves the selected folder context.
-- Confirm the folded-state spacing and separator count against the supplied reference screenshot.
-- Confirm the expanded-state scrollbar offset at the target viewport.
+页签底边与资料信息起点重合，两者之间只有一条线。资料信息和标签保持展开；关联笔记、内容大纲、附件继续使用已确认的折叠结构。大纲恢复上一版 H1/H2/H3 标识、逐行分隔、层级导轨和当前标题定位。
 
-final result: blocked
+## Findings
+
+- 未发现 P0、P1 或 P2 问题。
+- 字体与层级：双语边注标题、页签、图标区标题、字段和值形成稳定层级；英文标识继续使用 Archivo Narrow。
+- 间距与节奏：页签顶部和底部各一条线；信息区不再额外添加顶线；常开区与折叠区之间保持统一段落间距。
+- 色彩与令牌：标签、活动页签、大按钮和当前大纲使用既有 `--blue`，没有增加新的蓝色色值。
+- 图标与资产：资料信息、标签、关联、大纲、附件均使用现有 Phosphor 图标；没有近似绘制图标。
+- 文案与内容：标题、类型、状态、路径、字数、更新时间、创建时间、收藏状态均保留；原有功能没有删减。
+
+## 比较历史
+
+1. 上一轮低噪声版本与本轮参考图存在 P2 偏差：索引打开按钮过小；标签改成了灰底；编辑边注标题和页签过于弱化；大纲被改成无编号简版。
+2. 修复：恢复大蓝按钮和双语标题；页签改回上下线框；两处标签都改用正文 `tag-row`；资料信息改为纵向字段表；大纲恢复上一版完整层级表达。
+3. 修复后证据：`qa-index.png`、`qa-editor.png`、`qa-editor-outline.png`。1440 与 1280 视口均无横向溢出，大纲折叠后子标题正确隐藏。
+
+## 交互与技术检查
+
+- 资料索引：打开资料按钮可用；资料信息与标签常开；三个资料组可展开/收起；
+- 编辑器边注：信息、大纲、重点、AI 页签切换；
+- 大纲：二级节点可展开/收起，折叠后子节点数量为 0；
+- 页面：1280×800 与 1440×1024 的 document scrollWidth 均等于 viewport width；
+- 编辑器正文保持独立滚动，页面本身不滚动；
+- 浏览器控制台无 error / warning。
+
+## 仍属正式迁移阶段的工作
+
+当前保存、导出、格式命令和 AI 为原型反馈；Milkdown、附件、标注、拖拽、右键菜单和 API 持久化将在正式纵向切片中接回现有实现。
+
+final result: passed

@@ -1,0 +1,86 @@
+.library-context-menu,
+.note-tab-menu,
+.editor-context-panel,
+.editor-context-submenu,
+.editor-workspace .editor-menu-popover {
+  padding: var(--space-1) 0;
+  border: var(--border-thin) solid var(--ink);
+  border-top: var(--border-accent) solid var(--blue);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-editorial);
+}
+
+.library-section-menu { min-width: calc(var(--filter-menu-width) + var(--space-5)); }
+
+.library-context-item,
+.note-tab-menu-item,
+.editor-context-submenu-trigger,
+.editor-context-menu-item,
+.editor-workspace .editor-menu-item {
+  min-height: var(--control-height-md);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-none);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.library-context-item:hover,
+.note-tab-menu-item:hover,
+.editor-context-submenu-trigger:hover,
+.editor-context-menu-item:hover,
+.editor-workspace .editor-menu-item:hover {
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.library-context-item[data-active='true'] {
+  background: var(--blue-wash);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.library-context-item[data-active='true']:hover {
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.library-checkmark {
+  width: var(--space-5);
+  color: currentColor;
+  font-size: var(--text-ui);
+  font-weight: 800;
+}
+
+.library-context-divider,
+.note-tab-menu-divider,
+.editor-context-divider,
+.editor-workspace .editor-menu-divider {
+  height: var(--border-thin);
+  margin: var(--space-1) 0;
+  background: var(--line-soft);
+}
+
+.editor-context-action-row { gap: var(--space-1); padding: 0 var(--space-2) var(--space-2); }
+
+.editor-context-icon-button {
+  min-height: var(--control-height-md);
+  border: var(--border-thin) solid var(--line);
+  border-radius: var(--radius-none);
+  background: transparent;
+  color: var(--ink);
+}
+
+.editor-context-icon-button:hover {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.editor-context-shortcut,
+.editor-context-submenu-caret,
+.editor-menu-shortcut { color: var(--muted); }
+
+.editor-context-menu-item:hover .editor-context-shortcut,
+.editor-context-submenu-trigger:hover .editor-context-submenu-caret,
+.editor-workspace .editor-menu-item:hover .editor-menu-shortcut { color: currentColor; }

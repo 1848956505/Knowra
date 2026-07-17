@@ -8,6 +8,7 @@ import {
 } from './renderers.js';
 import { getNoteStats } from './stats.js';
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { renderSectionIcon } from '../library-index/renderers.js';
 
 export function renderInfoTab({
   note,
@@ -25,44 +26,31 @@ export function renderInfoTab({
 
   return `
     <section class="aside-panel-stack">
-      <section class="aside-card note-info-card">
-        <div class="aside-card-header">
-          <span>笔记信息</span>
-        </div>
-        <div class="info-grid">
-          <div class="info-row"><span>标题</span><strong>${escapeHtml(note.title)}</strong></div>
-          <div class="info-row"><span>路径</span><strong>${escapeHtml(folderPath)}</strong></div>
-          <div class="info-row"><span>字数</span><strong>${stats.characterCount}</strong></div>
-          <div class="info-row"><span>更新时间</span><strong>${formatDate(note.updatedAt)}</strong></div>
-          <div class="info-row"><span>创建时间</span><strong>${formatDate(note.createdAt)}</strong></div>
-          <div class="info-row"><span>收藏状态</span><strong>${note.favorite ? '已收藏' : '未收藏'}</strong></div>
-        </div>
+      <section class="inspector-fixed-section note-info-card">
+        <header>${renderSectionIcon('file')}<h3>资料信息</h3></header>
+        <dl class="inspector-record">
+          <div><dt>标题</dt><dd>${escapeHtml(note.title)}</dd></div>
+          <div><dt>路径</dt><dd>${escapeHtml(folderPath)}</dd></div>
+          <div><dt>字数</dt><dd>${stats.characterCount}</dd></div>
+          <div><dt>更新时间</dt><dd>${formatDate(note.updatedAt)}</dd></div>
+          <div><dt>创建时间</dt><dd>${formatDate(note.createdAt)}</dd></div>
+          <div><dt>收藏状态</dt><dd>${note.favorite ? '已收藏' : '未收藏'}</dd></div>
+        </dl>
       </section>
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>标签</span>
-          <strong>${(note.tagIds ?? []).length}</strong>
-        </div>
+      <section class="inspector-fixed-section note-tags-card">
+        <header>${renderSectionIcon('tag')}<h3>标签</h3></header>
         ${renderNoteTagComposer({ note, tags, tagComposer })}
       </section>
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>关联笔记</span>
-          <strong>${linkedNotes.length}</strong>
-        </div>
-        <div class="linked-list">
-          ${linkedNotes.length ? renderLinkedNotes(linkedNotes) : renderAsideEmptyInline('暂无关联笔记')}
-        </div>
-      </section>
-      <section class="aside-card">
-        <div class="aside-card-header">
-          <span>附件</span>
-          <strong>${decoratedAttachments.length}</strong>
-        </div>
-        <div class="resource-list">
-          ${decoratedAttachments.length ? renderAttachments(decoratedAttachments, attachmentRenaming) : renderAsideEmptyInline('暂无附件')}
-        </div>
-      </section>
+      <div class="summary-groups editor-summary-groups">
+        <details class="inspector-disclosure">
+          <summary><span>${renderSectionIcon('link')}<b>关联笔记</b></span><span><small>${linkedNotes.length}</small><b aria-hidden="true">⌄</b></span></summary>
+          <div class="disclosure-body linked-list">${linkedNotes.length ? renderLinkedNotes(linkedNotes) : renderAsideEmptyInline('暂无关联笔记')}</div>
+        </details>
+        <details class="inspector-disclosure">
+          <summary><span>${renderSectionIcon('paperclip')}<b>附件</b></span><span><small>${decoratedAttachments.length}</small><b aria-hidden="true">⌄</b></span></summary>
+          <div class="disclosure-body resource-list">${decoratedAttachments.length ? renderAttachments(decoratedAttachments, attachmentRenaming) : renderAsideEmptyInline('暂无附件')}</div>
+        </details>
+      </div>
     </section>
   `;
 }

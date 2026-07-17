@@ -55,12 +55,12 @@ assert.match(
 );
 assert.match(
   shellHtmlJs,
-  /class="kb-sidebar" id="kb-sidebar"/,
+  /class="kb-sidebar knowra-rail" id="kb-sidebar"/,
   'left knowledge sidebar needs a stable DOM id for view toggles'
 );
 assert.match(
   shellHtmlJs,
-  /class="kb-aside" id="kb-aside"/,
+  /class="kb-aside editor-inspector" id="kb-aside"/,
   'right assistant sidebar needs a stable DOM id for view toggles'
 );
 assert.match(

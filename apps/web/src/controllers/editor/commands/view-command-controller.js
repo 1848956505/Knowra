@@ -40,8 +40,7 @@ export function createEditorViewCommandController(deps, getController, menuState
         }
         state.view.mode = 'edit';
         state.view.showSourceEditor = !state.view.showSourceEditor;
-        getController().renderEditor(getCurrentNote());
-        getController().renderEditorMenuBar();
+        renderAll();
         return;
       default:
         return;

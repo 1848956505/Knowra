@@ -112,6 +112,7 @@
   height: 8px;
   border-radius: 999px;
   flex-shrink: 0;
+  background: var(--color-accent);
 }
 
 .top-search-chip-remove {
@@ -201,4 +202,3 @@
   color: var(--color-text-muted);
   font-size: 12px;
 }
-

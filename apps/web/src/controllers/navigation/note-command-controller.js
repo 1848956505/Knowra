@@ -34,6 +34,8 @@ async function createNote(folderId, title) {
     });
 
     state.selectedNoteId = created.id;
+    state.libraryIndex.selectedNoteId = created.id;
+    state.view.screen = 'editor';
     state.selectedFolderId = folderId ?? null;
     if (folderId) {
       getController().openFolderBranch(folderId);
@@ -51,6 +53,8 @@ async function createNote(folderId, title) {
   });
   state.allNotes = insertLocalNote(state.allNotes, nextNote);
   state.selectedNoteId = nextNote.id;
+  state.libraryIndex.selectedNoteId = nextNote.id;
+  state.view.screen = 'editor';
   state.selectedFolderId = folderId ?? null;
   if (folderId) {
     getController().openFolderBranch(folderId);
@@ -77,6 +81,9 @@ async function deleteNote(noteId) {
     if (state.selectedNoteId === noteId) {
       state.selectedNoteId = null;
     }
+    state.libraryIndex.selectedNoteId = noteId;
+    state.libraryIndex.tab = 'recycle';
+    state.view.screen = 'index';
     await refreshKnowledgeData();
     await loadCurrentNoteSideData();
     renderAll();
@@ -87,6 +94,9 @@ async function deleteNote(noteId) {
   if (state.selectedNoteId === noteId) {
     state.selectedNoteId = null;
   }
+  state.libraryIndex.selectedNoteId = noteId;
+  state.libraryIndex.tab = 'recycle';
+  state.view.screen = 'index';
   syncLocalWorkspace();
 }
 
@@ -188,6 +198,8 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
 
   await deps.persistDraft({ immediate: true });
   state.selectedNoteId = noteId;
+  state.libraryIndex.selectedNoteId = noteId;
+  state.view.screen = 'editor';
   state.noteTagComposer.draft = '';
   if (ensureTab) {
     state.openNoteTabs = ensureOpenTab(state.openNoteTabs, noteId);

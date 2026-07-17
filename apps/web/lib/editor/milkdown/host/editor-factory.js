@@ -16,6 +16,7 @@ import {
 } from '../commands/editor-commands.js';
 import { findHighlightBehavior } from '../plugins/find-highlight-plugin.js';
 import { annotationHighlightBehavior } from '../plugins/annotation-highlight-plugin.js';
+import { codeBlockInputBehavior } from '../plugins/code-block-input-plugin.js';
 import { enhancedEnterBehavior } from '../plugins/enter-key-behavior-plugin.js';
 import { createMarkdownPasteBehavior } from '../plugins/markdown-paste-plugin.js';
 import { taskListClickBehavior } from '../plugins/task-list-click-plugin.js';
@@ -65,6 +66,7 @@ export function createConfiguredMilkdownEditor(host, markdown) {
     .use(enhancedImageBlockComponent)
     .use(tableBlock)
     .use(enhancedEnterBehavior)
+    .use(codeBlockInputBehavior)
     .use(findHighlightBehavior)
     .use(annotationHighlightBehavior)
     .use(taskListClickBehavior)

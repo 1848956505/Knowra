@@ -31,7 +31,9 @@ const html = renderInfoTab({
 
 assert.match(html, /&lt;笔记&gt;/);
 assert.match(html, /Root \/ &lt;Folder&gt;/);
-assert.match(html, /<span>字数<\/span><strong>4<\/strong>/);
+assert.match(html, /<dt>字数<\/dt><dd>4<\/dd>/);
+assert.match(html, /<h3>资料信息<\/h3>/);
+assert.match(html, /<h3>标签<\/h3>/);
 assert.match(html, /date:2026-06-24/);
 assert.match(html, /已收藏/);
 assert.match(html, /data-note-tag-remove="tag-1"/);
