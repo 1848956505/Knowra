@@ -16,7 +16,7 @@ export function createLocalManualNoteInput({
   return {
     id,
     title,
-    rawMarkdown: `# ${title}\n\n`,
+    rawMarkdown: '',
     folderId,
     spaceId,
     favorite: false,

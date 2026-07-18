@@ -108,7 +108,18 @@ export function renderEditorDocumentHead({ note, state }) {
       </div>
       <div class="document-title-row">
         <b class="document-id">${displayId}</b>
-        <div class="document-title"><h1>${escapeHtml(note.title)}</h1><div class="tag-row">${renderTagList(tags)}</div></div>
+        <div class="document-title">
+          <input
+            type="text"
+            class="document-title-input"
+            data-document-title-input
+            value="${escapeAttribute(state.draftTitle || note.title)}"
+            aria-label="资料标题"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <div class="tag-row">${renderTagList(tags)}</div>
+        </div>
       </div>
     </section>
   `;

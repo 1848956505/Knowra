@@ -27,6 +27,7 @@ export function createInitialAppState() {
     asideTab: 'info',
     openFolders: {},
     draftMarkdown: '',
+    draftTitle: '',
     search: {
       keyword: '',
       selectedTagIds: [],
@@ -96,6 +97,7 @@ export function createInitialAppState() {
       y: 0,
       noteId: null
     },
+    tabOverflowMenuOpen: false,
     editorContextMenu: {
       open: false,
       x: 0,

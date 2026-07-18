@@ -20,6 +20,7 @@ const ELEMENT_IDS = {
   noteTabs: 'note-tabs',
   editorMenuBar: 'editor-menu-bar',
   noteTabMenu: 'note-tab-menu',
+  noteTabOverflowMenu: 'note-tab-overflow-menu',
   editorContextMenu: 'editor-context-menu',
   markdownImportInput: 'markdown-import-input',
   editorContent: 'editor-content',

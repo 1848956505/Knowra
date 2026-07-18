@@ -11,7 +11,7 @@ export function findCodeBlockDepth(resolvedPosition) {
   return null;
 }
 
-function getCodeBlockPosition(view, event, codeElement) {
+export function findCodeBlockPosition(view, event, codeElement) {
   const coordinatePosition = view.posAtCoords({
     left: event.clientX,
     top: event.clientY
@@ -24,50 +24,65 @@ function getCodeBlockPosition(view, event, codeElement) {
   }
 
   const domPosition = view.posAtDOM(codeElement, 0);
-  return Number.isInteger(domPosition) ? domPosition : null;
+  if (!Number.isInteger(domPosition)) {
+    return null;
+  }
+
+  const resolved = view.state.doc.resolve(domPosition);
+  return findCodeBlockDepth(resolved) !== null ? domPosition : null;
+}
+
+function handleCodeBlockClick(view, event) {
+  const currentSelection = view.state.selection;
+  if (
+    event.button !== 0
+    || event.shiftKey
+    || event.altKey
+    || event.metaKey
+    || event.ctrlKey
+    || (
+      !currentSelection.empty
+      && findCodeBlockDepth(currentSelection.$from) !== null
+    )
+  ) {
+    return false;
+  }
+
+  const pre = closestFromEventTarget(event.target, 'pre');
+  if (!(pre instanceof HTMLElement)) {
+    return false;
+  }
+
+  const codeElement = pre.querySelector('code');
+  if (!(codeElement instanceof HTMLElement)) {
+    return false;
+  }
+
+  const position = findCodeBlockPosition(view, event, codeElement);
+  if (!Number.isInteger(position)) {
+    return false;
+  }
+
+  const resolved = view.state.doc.resolve(position);
+  if (findCodeBlockDepth(resolved) === null) {
+    return false;
+  }
+
+  event.preventDefault();
+  view.dispatch(
+    view.state.tr
+      .setSelection(TextSelection.near(resolved, 1))
+      .scrollIntoView()
+  );
+  view.focus();
+  return true;
 }
 
 export const codeBlockInputBehavior = $prose(() => new Plugin({
   key: new PluginKey('KNOWRA_CODE_BLOCK_INPUT'),
   props: {
-    handleDOMEvents: {
-      click(view, event) {
-        if (
-          event.button !== 0
-          || event.shiftKey
-          || event.altKey
-          || event.metaKey
-          || event.ctrlKey
-          || !view.state.selection.empty
-        ) {
-          return false;
-        }
-
-        const pre = closestFromEventTarget(event.target, 'pre');
-        const codeElement = pre?.querySelector('code');
-        if (!(pre instanceof HTMLElement) || !(codeElement instanceof HTMLElement)) {
-          return false;
-        }
-
-        const currentDepth = findCodeBlockDepth(view.state.selection.$from);
-        if (currentDepth !== null) {
-          return false;
-        }
-
-        const position = getCodeBlockPosition(view, event, codeElement);
-        if (!Number.isInteger(position)) {
-          return false;
-        }
-
-        event.preventDefault();
-        view.dispatch(
-          view.state.tr
-            .setSelection(TextSelection.create(view.state.doc, position))
-            .scrollIntoView()
-        );
-        view.focus();
-        return true;
-      }
+    handleClick(view, _position, event) {
+      return handleCodeBlockClick(view, event);
     }
   }
 }));

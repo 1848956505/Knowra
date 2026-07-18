@@ -54,6 +54,7 @@ export function createAppStateActions({
     state.selectedNoteId = selection.selectedNoteId;
     state.openNoteTabs = selection.openNoteTabs;
     state.draftMarkdown = selection.draftMarkdown;
+    state.draftTitle = selection.draftTitle;
     state.saveState = selection.saveState;
     state.lastSavedAt = selection.lastSavedAt;
 

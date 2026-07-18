@@ -16,6 +16,7 @@ export function bindDocumentClickEvents({ state, elements, deps }) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
+    closeTabOverflowMenu,
     closeEditorMenuBar,
     closeEditorContextMenu
   } = deps;
@@ -38,6 +39,8 @@ export function bindDocumentClickEvents({ state, elements, deps }) {
     if (closestFromEventTarget(event.target, '#library-context-menu')) return;
     if (closestFromEventTarget(event.target, '#library-section-menu')) return;
     if (closestFromEventTarget(event.target, '#note-tab-menu')) return;
+    if (closestFromEventTarget(event.target, '#note-tab-overflow-menu')) return;
+    if (closestFromEventTarget(event.target, '[data-tab-overflow-toggle]')) return;
     if (closestFromEventTarget(event.target, '#editor-menu-bar')) return;
     if (closestFromEventTarget(event.target, '#editor-context-menu')) return;
     if (closestFromEventTarget(event.target, '#editor-table-dialog')) return;
@@ -45,6 +48,7 @@ export function bindDocumentClickEvents({ state, elements, deps }) {
     closeContextMenu();
     closeSectionMenu();
     closeTabMenu();
+    closeTabOverflowMenu();
     closeEditorMenuBar();
     closeEditorContextMenu();
   });

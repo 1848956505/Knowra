@@ -16,15 +16,31 @@ export const noteDomainTests = [
     }
   },
   {
-    name: 'Note requires rawMarkdown',
+    name: 'Note accepts an empty markdown body',
+    async run() {
+      const { Note } = await import('../src/modules/knowledge/domain/note.js');
+
+      const note = new Note({
+        id: 'note-2',
+        title: 'Valid title',
+        rawMarkdown: ''
+      });
+
+      assert.equal(note.rawMarkdown, '');
+      assert.equal(note.plainText, '');
+      assert.deepEqual(note.internalLinks, []);
+    }
+  },
+  {
+    name: 'Note requires rawMarkdown to be a string',
     async run() {
       const { Note } = await import('../src/modules/knowledge/domain/note.js');
 
       assert.throws(() => {
         new Note({
-          id: 'note-2',
+          id: 'note-2-invalid',
           title: 'Valid title',
-          rawMarkdown: '   '
+          rawMarkdown: null
         });
       }, /rawMarkdown is required/i);
     }

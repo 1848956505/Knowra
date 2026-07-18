@@ -36,7 +36,7 @@ export class Note {
     if (!title?.trim()) {
       throw new Error('Note title is required');
     }
-    if (!rawMarkdown?.trim()) {
+    if (typeof rawMarkdown !== 'string') {
       throw new Error('Note rawMarkdown is required');
     }
 

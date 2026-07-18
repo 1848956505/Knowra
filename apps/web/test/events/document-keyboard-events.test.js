@@ -98,6 +98,7 @@ function makeDeps() {
     closeContextMenu: () => {},
     closeSectionMenu: () => {},
     closeTabMenu: () => {},
+    closeTabOverflowMenu: () => {},
     closeEditorMenuBar: () => {},
     closeEditorContextMenu: () => {},
     closeTableInsertDialog: () => {},

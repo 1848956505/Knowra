@@ -19,8 +19,8 @@
   --acid-border: #cbdc3b;
   --deleted-fill: #aaa9a3;
   --deleted-border: #85847f;
-  --code-surface: #1d1d1b;
-  --code-text: #f5f3ec;
+  --code-surface: var(--paper-raised);
+  --code-text: var(--ink);
   --overlay: rgba(22, 22, 22, 0.22);
   --color-on-accent: #ffffff;
 
@@ -96,10 +96,11 @@
   --masthead-height: 92px;
   --index-row-height: 146px;
   --tab-height: 56px;
-  --document-tab-height: 44px;
+  --document-tab-height: var(--menu-height);
   --document-tab-min-width: 112px;
   --document-tab-max-width: 168px;
   --menu-height: 35px;
+  --document-tab-overflow-width: var(--document-tab-height);
   --control-height-sm: 28px;
   --control-height-md: 36px;
   --control-height-lg: 48px;

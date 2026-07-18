@@ -36,6 +36,25 @@ export const noteServiceTests = [
     }
   },
   {
+    name: 'createNote accepts an empty body for a newly created manual note',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService();
+
+      const note = noteService.createNote({
+        id: 'note-empty-body',
+        title: 'Empty body',
+        rawMarkdown: '',
+        folderId: 'folder-1',
+        spaceId: 'space-1',
+        sourceType: 'manual'
+      });
+
+      assert.equal(note.rawMarkdown, '');
+      assert.equal(note.plainText, '');
+    }
+  },
+  {
     name: 'importMarkdown creates markdown-import notes with derived title',
     async run() {
       const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');

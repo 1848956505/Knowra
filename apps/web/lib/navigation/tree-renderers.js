@@ -156,8 +156,8 @@ export function renderInlineEditorRow({ level, mode, value }) {
           spellcheck="false"
         />
         <div class="library-inline-actions">
-          <button type="submit" class="library-inline-action" title="确认">✓</button>
-          <button type="button" class="library-inline-action" data-editor-cancel title="取消">×</button>
+          <button type="submit" class="library-inline-action library-inline-action-primary">保存</button>
+          <button type="button" class="library-inline-action" data-editor-cancel>取消</button>
         </div>
       </form>
     </div>

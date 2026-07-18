@@ -23,10 +23,20 @@ export function bindNoteTabEvents({ state, elements, deps }) {
     syncTabDragIndicators,
     reorderTabs,
     resetTabDragState,
-    handleTabMenuAction
+    handleTabMenuAction,
+    toggleTabOverflowMenu,
+    selectOverflowTab,
+    renderTabs
   } = deps;
 
   elements.noteTabs?.addEventListener('click', (event) => {
+    const overflowButton = closestFromEventTarget(event.target, '[data-tab-overflow-toggle]');
+    if (overflowButton) {
+      event.stopPropagation();
+      toggleTabOverflowMenu();
+      return;
+    }
+
     const closeButton = closestFromEventTarget(event.target, '[data-tab-close]');
     if (closeButton?.dataset.tabClose) {
       event.stopPropagation();
@@ -104,4 +114,14 @@ export function bindNoteTabEvents({ state, elements, deps }) {
     }
     void handleTabMenuAction(actionButton.dataset.tabMenuAction);
   });
+
+  elements.noteTabOverflowMenu?.addEventListener('click', (event) => {
+    const noteButton = closestFromEventTarget(event.target, '[data-tab-overflow-note-id]');
+    if (!noteButton?.dataset.tabOverflowNoteId) {
+      return;
+    }
+    void selectOverflowTab(noteButton.dataset.tabOverflowNoteId);
+  });
+
+  globalThis.window?.addEventListener?.('resize', renderTabs);
 }

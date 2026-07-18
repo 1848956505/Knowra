@@ -42,6 +42,22 @@ function makeTarget(selector, dataset = {}, value = '') {
 
 {
   const asideContent = createRecorderElement();
+  let updateCount = 0;
+  bindAsideContentInputEvents({
+    elements: { asideContent },
+    deps: { updateNoteTagDraft: () => { updateCount += 1; } }
+  });
+
+  asideContent.dispatch('input', makeTarget('[data-note-tag-input]', {}, 'duomotai'), {
+    isComposing: true
+  });
+  asideContent.dispatch('input', makeTarget('[data-note-tag-input]', {}, '多模态'));
+
+  assert.equal(updateCount, 1);
+}
+
+{
+  const asideContent = createRecorderElement();
   const state = { noteTagComposer: { draft: '新标签', isExpanded: true } };
   let created = '';
   let prevented = false;
@@ -58,6 +74,24 @@ function makeTarget(selector, dataset = {}, value = '') {
   });
   assert.equal(prevented, true);
   assert.equal(created, '新标签');
+}
+
+{
+  const asideContent = createRecorderElement();
+  const state = { noteTagComposer: { draft: '多模态', isExpanded: true } };
+  let created = false;
+  bindAsideContentFormEvents({
+    state,
+    elements: { asideContent },
+    deps: { createTagAndAssignToCurrentNote: async () => { created = true; } }
+  });
+
+  asideContent.dispatch('keydown', makeTarget('[data-note-tag-input]'), {
+    key: 'Enter',
+    keyCode: 229
+  });
+
+  assert.equal(created, false);
 }
 
 console.log('ok - aside tag events expand, update and submit the tag composer');

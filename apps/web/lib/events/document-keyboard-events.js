@@ -21,6 +21,7 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
+    closeTabOverflowMenu,
     closeEditorMenuBar,
     closeEditorContextMenu,
     closeTableInsertDialog,
@@ -48,6 +49,7 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
       closeContextMenu();
       closeSectionMenu();
       closeTabMenu();
+      closeTabOverflowMenu();
       closeEditorMenuBar();
       closeEditorContextMenu();
       closeTableInsertDialog();

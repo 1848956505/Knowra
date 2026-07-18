@@ -105,6 +105,34 @@ textarea:focus-visible {
 .knowra-rail .library-section-node:hover { background: var(--paper-raised); color: var(--blue); }
 .knowra-rail .library-node[data-selected='true'] { border-left-color: var(--blue); background: var(--paper-raised); color: var(--blue); box-shadow: none; }
 .knowra-rail .library-section-meta { color: var(--muted); font: 500 var(--text-sm) var(--font-display); }
+.knowra-rail .library-inline-editor { padding: 0 0 0 calc(var(--space-1) + (var(--tree-level, 0) * var(--space-4))); }
+.knowra-rail .library-inline-form {
+  gap: var(--space-2);
+  min-height: var(--space-9);
+  padding: 0;
+  border: 0;
+  border-top: var(--border-thin) solid var(--line-soft);
+  border-bottom: var(--border-thin) solid var(--line);
+  background: transparent;
+  box-shadow: inset var(--border-accent) 0 var(--blue);
+}
+.knowra-rail .library-inline-icon { width: var(--space-7); height: var(--space-7); color: var(--blue); }
+.knowra-rail .library-inline-input { height: var(--space-8); padding: 0 var(--space-1); color: var(--ink); font-size: var(--text-md); }
+.knowra-rail .library-inline-input:focus-visible { outline: none; }
+.knowra-rail .library-inline-actions { align-self: stretch; gap: 0; }
+.knowra-rail .library-inline-action {
+  min-width: auto;
+  height: 100%;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-left: var(--border-thin) solid var(--line-soft);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.knowra-rail .library-inline-action:hover { background: var(--paper-raised); color: var(--blue); }
+.knowra-rail .library-inline-action-primary { border-left-color: var(--blue); background: var(--blue); color: var(--color-on-accent); }
+.knowra-rail .library-inline-action-primary:hover { background: var(--blue-dark); color: var(--color-on-accent); }
 .knowra-rail .module-switcher { display: flex; flex: 0 0 auto; gap: var(--space-2); width: 100%; margin-top: var(--space-2); padding: var(--space-3) 0 var(--space-2); border-top: var(--border-thin) solid var(--line); counter-reset: rail-item; }
 .knowra-rail .rail-item { width: var(--space-9); height: var(--space-9); padding: 0; border: var(--border-thin) solid var(--ink); border-radius: var(--radius-none); background: transparent; color: var(--ink); counter-increment: rail-item; font: 600 var(--text-ui) var(--font-display); }
 .knowra-rail .rail-item:nth-child(n+6) { display: none; }

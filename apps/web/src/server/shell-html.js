@@ -66,6 +66,7 @@ export function renderHtml(initialWorkspaceScript = '') {
                 <header class="document-tabs">
                   <button type="button" class="back-index" data-library-home="back" aria-label="返回资料索引">←</button>
                   <div class="note-tabs" id="note-tabs"></div>
+                  <div class="note-tab-overflow-menu" id="note-tab-overflow-menu" hidden></div>
                 </header>
                 <div class="editor-menu-bar" id="editor-menu-bar"></div>
                 <section class="editor-shell" id="editor-scroll-region">

@@ -10,6 +10,7 @@ import {
 import { callCommand } from '@milkdown/kit/utils';
 import { syncTableHandleLabels } from '../table/table-buttons.js';
 import { findAncestorOfType } from '../utils/prosemirror-ranges.js';
+import { insertCodeBlockAtTyporaPosition } from './code-block-insertion.js';
 
 function isSelectionInsideSingleTextblock(state, typeName, attrs = null) {
   const { $from, $to } = state.selection;
@@ -107,6 +108,17 @@ export async function insertBlockBelowSelection(editor, commandResolvers, comman
 
   if (!paragraphNodeType || !resolve) {
     return false;
+  }
+
+  if (commandKey === 'codeblock') {
+    const codeBlockNodeType = getNodeFromSchema('code_block', schema);
+    const { payload } = resolve(options);
+    return insertCodeBlockAtTyporaPosition(
+      view,
+      paragraphNodeType,
+      codeBlockNodeType,
+      payload
+    );
   }
 
   if (!insertParagraphBelowSelection(view, paragraphNodeType)) {

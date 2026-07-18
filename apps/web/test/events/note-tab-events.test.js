@@ -37,6 +37,11 @@ assert.equal(
   1,
   'note-tab binder should register exactly 1 click listener on noteTabMenu'
 );
+assert.equal(
+  (binderSource.match(/elements\.noteTabOverflowMenu\?\.addEventListener\('click'/g) ?? []).length,
+  1,
+  'note-tab binder should register exactly 1 click listener on the overflow menu'
+);
 
 // ─── Handler-recorder 断言（behavioral）──────────────────────────
 
@@ -57,9 +62,10 @@ function runTest(name, callback) {
 
 function makeElements() {
   const types = ['click', 'contextmenu', 'dragstart', 'dragover', 'drop', 'dragend'];
-  const listeners = { noteTabs: {}, noteTabMenu: {} };
+  const listeners = { noteTabs: {}, noteTabMenu: {}, noteTabOverflowMenu: {} };
   for (const t of types) listeners.noteTabs[t] = [];
   listeners.noteTabMenu.click = [];
+  listeners.noteTabOverflowMenu.click = [];
   return {
     elements: {
       noteTabs: {
@@ -67,6 +73,9 @@ function makeElements() {
       },
       noteTabMenu: {
         addEventListener(type, fn) { listeners.noteTabMenu[type].push(fn); }
+      },
+      noteTabOverflowMenu: {
+        addEventListener(type, fn) { listeners.noteTabOverflowMenu[type].push(fn); }
       }
     },
     listeners
@@ -98,6 +107,9 @@ function makeDeps(overrides = {}) {
     reorderTabs: (tabs) => tabs,
     resetTabDragState: () => {},
     handleTabMenuAction: async () => {},
+    toggleTabOverflowMenu: () => {},
+    selectOverflowTab: async () => {},
+    renderTabs: () => {},
     ...overrides
   };
 }
@@ -142,6 +154,25 @@ runTest('noteTabs click: data-tab-note-id dispatches selectNote with ensureTab',
 
   assert.equal(arg, 'n-3');
   assert.deepEqual(opts, { syncFolder: true, ensureTab: true });
+});
+
+runTest('noteTabs click: overflow toggle opens the hidden-tab menu', async () => {
+  const { elements, listeners } = makeElements();
+  const { bindNoteTabEvents } = await import('../../lib/events/note-tab-events.js');
+  let toggled = 0;
+  let stopped = false;
+  bindNoteTabEvents({
+    state: makeState(),
+    elements,
+    deps: makeDeps({ toggleTabOverflowMenu: () => { toggled += 1; } })
+  });
+
+  const target = { dataset: { tabOverflowToggle: '' } };
+  target.closest = makeClosest(new Map([['[data-tab-overflow-toggle]', target]]));
+  listeners.noteTabs.click[0]({ target, stopPropagation() { stopped = true; } });
+
+  assert.equal(toggled, 1);
+  assert.equal(stopped, true);
 });
 
 runTest('noteTabs click: text-node-like target still resolves tab button', async () => {
@@ -267,6 +298,23 @@ runTest('noteTabMenu click: data-tab-menu-action dispatches handleTabMenuAction'
   listeners.noteTabMenu.click[0]({ target });
 
   assert.equal(arg, 'close-others');
+});
+
+runTest('overflow menu click selects a hidden tab', async () => {
+  const { elements, listeners } = makeElements();
+  const { bindNoteTabEvents } = await import('../../lib/events/note-tab-events.js');
+  let selected = null;
+  bindNoteTabEvents({
+    state: makeState(),
+    elements,
+    deps: makeDeps({ selectOverflowTab: async (noteId) => { selected = noteId; } })
+  });
+
+  const target = { dataset: { tabOverflowNoteId: 'n-hidden' } };
+  target.closest = makeClosest(new Map([['[data-tab-overflow-note-id]', target]]));
+  listeners.noteTabOverflowMenu.click[0]({ target });
+
+  assert.equal(selected, 'n-hidden');
 });
 
 // 串行执行所有测试用例。

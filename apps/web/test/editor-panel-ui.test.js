@@ -18,6 +18,11 @@ const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/mil
 const commandResolversJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/commands/command-resolvers.js'), 'utf8');
 const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/components.css'));
 const milkdownContentCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/milkdown-content.css'), 'utf8');
+const knowraEditorCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/knowra-editor.css'), 'utf8');
+const knowraThemeTokensCss = fs.readFileSync(
+  path.resolve(__dirname, '../styles/components/knowra-theme-tokens.css'),
+  'utf8'
+);
 
 assert.doesNotMatch(clientJs, /window\.prompt\(/, 'editor find/replace must not use browser prompt dialogs');
 assert.doesNotMatch(clientJs, /window\.find\(/, 'editor find must use the in-app search panel instead of browser find');
@@ -103,6 +108,16 @@ assert.doesNotMatch(
   milkdownContentCss,
   /\.milkdown-host \.ProseMirror pre \{[\s\S]*background:\s*#10182b/,
   'code blocks should no longer use the legacy black background'
+);
+assert.match(
+  knowraEditorCss,
+  /\.editor-workspace \.milkdown-host \.ProseMirror pre,[\s\S]*background:\s*var\(--code-surface\)/,
+  'the production editor should use the shared code surface token'
+);
+assert.match(
+  knowraThemeTokensCss,
+  /--code-surface:\s*var\(--paper-raised\);[\s\S]*--code-text:\s*var\(--ink\);/,
+  'the code surface should remain a light paper surface rather than a black fill'
 );
 assert.match(
   milkdownContentCss,

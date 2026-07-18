@@ -63,6 +63,7 @@ runTest('resolveNavigationSelection clears invalid folder and stale tabs', () =>
   assert.equal(result.selectedNoteId, 'note-a');
   assert.deepEqual(result.openNoteTabs, ['note-a']);
   assert.equal(result.draftMarkdown, '# A');
+  assert.equal(result.draftTitle, 'Alpha');
   assert.equal(result.saveState, 'saved');
 });
 
@@ -94,6 +95,7 @@ runTest('resolveNavigationSelection clears note state when no notes are visible'
   assert.equal(result.selectedNoteId, null);
   assert.deepEqual(result.openNoteTabs, []);
   assert.equal(result.draftMarkdown, '');
+  assert.equal(result.draftTitle, '');
   assert.equal(result.shouldClearSideData, true);
 });
 
@@ -122,5 +124,6 @@ runTest('resolveFolderSelection selects the first visible note when current note
   assert.equal(result.selectedNoteId, 'note-a');
   assert.deepEqual(result.openNoteTabs, ['note-a']);
   assert.equal(result.draftMarkdown, '# A');
+  assert.equal(result.draftTitle, 'Alpha');
   assert.equal(result.shouldLoadSideData, true);
 });

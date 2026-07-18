@@ -1,4 +1,4 @@
-export function resolveDraftSaveState({ note, markdown, deriveTitle }) {
+export function resolveDraftSaveState({ note, markdown, title }) {
   if (!note) {
     return {
       changed: false,
@@ -8,7 +8,7 @@ export function resolveDraftSaveState({ note, markdown, deriveTitle }) {
   }
 
   const nextMarkdown = markdown ?? '';
-  const nextTitle = deriveTitle(nextMarkdown, note.title);
+  const nextTitle = String(title ?? '').trim() || note.title;
 
   return {
     changed: note.rawMarkdown !== nextMarkdown || note.title !== nextTitle,

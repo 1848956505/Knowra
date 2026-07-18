@@ -10,6 +10,7 @@ import {
   setLocalNoteFavorite,
   softDeleteLocalNote
 } from '../../../lib/notes/state.js';
+import { stripLegacyGeneratedTitle } from '../../../lib/notes/legacy-title.js';
 
 export function createNavigationNoteCommandController(deps, getController) {
   const {
@@ -26,7 +27,7 @@ async function createNote(folderId, title) {
   if (state.dataMode === 'api') {
     const created = await knowledgeApi.createNote({
       title,
-      rawMarkdown: `# ${title}\n\n`,
+      rawMarkdown: '',
       folderId,
       spaceId: state.currentSpaceId,
       sourceType: 'manual',
@@ -204,7 +205,12 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
   if (ensureTab) {
     state.openNoteTabs = ensureOpenTab(state.openNoteTabs, noteId);
   }
-  state.draftMarkdown = note.rawMarkdown ?? '';
+  state.draftMarkdown = stripLegacyGeneratedTitle({
+    markdown: note.rawMarkdown,
+    title: note.title,
+    sourceType: note.sourceType
+  });
+  state.draftTitle = note.title;
   state.saveState = 'saved';
   state.lastSavedAt = note.updatedAt ?? null;
 
@@ -214,6 +220,9 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
   }
 
   await loadCurrentNoteSideData();
+  if (state.draftMarkdown !== (note.rawMarkdown ?? '')) {
+    await deps.persistDraft();
+  }
   deps.saveCurrentEditorScrollPosition();
   renderAll();
   deps.flashStatus(`已切换到：${note.title}`);

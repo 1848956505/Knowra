@@ -90,6 +90,7 @@ function makeDeps() {
     closeContextMenu: () => {},
     closeSectionMenu: () => {},
     closeTabMenu: () => {},
+    closeTabOverflowMenu: () => {},
     closeEditorMenuBar: () => {},
     closeEditorContextMenu: () => {}
   };
@@ -137,6 +138,7 @@ runTest('click outside search shell closes shell and dispatches close chain', as
       closeContextMenu: () => { closedContext += 1; },
       closeSectionMenu: () => { closedSection += 1; },
       closeTabMenu: () => { closedTab += 1; },
+      closeTabOverflowMenu: () => {},
       closeEditorMenuBar: () => { closedMenuBar += 1; },
       closeEditorContextMenu: () => { closedCtxMenu += 1; }
     };

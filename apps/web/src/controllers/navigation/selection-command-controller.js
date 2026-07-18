@@ -40,6 +40,9 @@ async function selectFolder(folderId) {
   if (selection.draftMarkdown !== undefined) {
     state.draftMarkdown = selection.draftMarkdown;
   }
+  if (selection.draftTitle !== undefined) {
+    state.draftTitle = selection.draftTitle;
+  }
 
   if (selection.shouldClearSideData) {
     clearNoteSideData();

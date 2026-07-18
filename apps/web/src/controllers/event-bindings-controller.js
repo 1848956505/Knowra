@@ -13,6 +13,7 @@ import { bindMenuEvents } from '../../lib/events/menu-events.js';
 import { bindFolderTreeEvents } from '../../lib/events/folder-tree-events.js';
 import { bindNoteTabEvents } from '../../lib/events/note-tab-events.js';
 import { bindEditorContentEvents } from '../../lib/events/editor-content-events.js';
+import { bindDocumentTitleEvents } from '../../lib/events/document-title-events.js';
 import { bindAsideEvents } from '../../lib/events/aside-events/index.js';
 import { bindLibraryIndexEvents } from '../../lib/events/library-index-events.js';
 
@@ -97,6 +98,7 @@ export function bindAppEvents({
     handleFormat: (...args) => editorController.handleFormat(...args),
     closeSectionMenu: (...args) => navigationController.closeSectionMenu(...args),
     closeTabMenu: (...args) => tabController.closeTabMenu(...args),
+    closeTabOverflowMenu: (...args) => tabController.closeTabOverflowMenu(...args),
     closeEditorMenuBar: (...args) => editorController.closeEditorMenuBar(...args),
     closeEditorContextMenu: (...args) => editorController.closeEditorContextMenu(...args),
 
@@ -117,6 +119,9 @@ export function bindAppEvents({
     reorderTabs,
     resetTabDragState: (...args) => tabController.resetTabDragState(...args),
     handleTabMenuAction: (...args) => tabController.handleTabMenuAction(...args),
+    toggleTabOverflowMenu: (...args) => tabController.toggleTabOverflowMenu(...args),
+    selectOverflowTab: (...args) => tabController.selectOverflowTab(...args),
+    renderTabs: (...args) => tabController.renderTabs(...args),
 
     openEditorContextMenu: (...args) => editorController.openEditorContextMenu(...args),
     focusAnnotationFromMarker: (...args) => annotationController.focusAnnotationFromMarker(...args),
@@ -162,6 +167,7 @@ export function bindAppEvents({
   bindMenuEvents({ state, elements, deps });
   bindFolderTreeEvents({ state, elements, deps });
   bindNoteTabEvents({ state, elements, deps });
+  bindDocumentTitleEvents({ state, elements, deps });
   bindEditorContentEvents({ state, elements, deps });
   bindAsideEvents({ state, elements, deps });
   bindLibraryIndexEvents({ state, elements, deps });

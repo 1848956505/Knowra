@@ -74,6 +74,8 @@ export function createAppControllers({
     saveCurrentEditorScrollPosition: helpers.saveCurrentEditorScrollPosition
   });
 
+  let navigationController = null;
+
   const editorController = createEditorController({
     state,
     elements,
@@ -81,6 +83,11 @@ export function createAppControllers({
     knowledgeApi,
     autosaveDelayMs: constants.autosaveDelayMs,
     getCurrentNote: helpers.getCurrentNote,
+    createNote: (...args) => navigationController.createNote(...args),
+    startTreeEditor: (...args) => navigationController.startTreeEditor(...args),
+    setNoteFavorite: (...args) => navigationController.setNoteFavorite(...args),
+    deleteNote: (...args) => navigationController.deleteNote(...args),
+    restoreNote: (...args) => navigationController.restoreNote(...args),
     getEffectiveViewState: helpers.getEffectiveViewState,
     renderAll: helpers.renderAll,
     renderTabs: helpers.renderTabs,
@@ -104,7 +111,7 @@ export function createAppControllers({
     escapeAttribute: helpers.escapeAttribute
   });
 
-  const navigationController = createNavigationController({
+  navigationController = createNavigationController({
     state,
     elements,
     knowledgeApi,

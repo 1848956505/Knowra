@@ -16,7 +16,11 @@ const editor = readStyle('knowra-editor.css');
 const menus = readStyle('knowra-menus.css');
 
 assert.match(tokens, /--text-2xs:\s*10px;/, 'small production copy should remain legible');
-assert.match(tokens, /--document-tab-height:\s*44px;/, 'document tabs should use the compact height token');
+assert.match(
+  tokens,
+  /--document-tab-height:\s*var\(--menu-height\);/,
+  'document tabs should share the compact toolbar height token'
+);
 assert.match(shell, /\.library-id\s*\{[^}]*font:\s*500/, 'library module number should restore the earlier condensed weight');
 assert.match(
   shell,
@@ -32,6 +36,11 @@ assert.match(
   editor,
   /\.note-tab-close\s*\{[^}]*margin-left:\s*auto/,
   'tab close controls should align at the far edge'
+);
+assert.match(
+  editor,
+  /\.note-tab-overflow-menu\s*\{[^}]*width:\s*var\(--rail-width\)/,
+  'hidden tabs should use the production overflow menu instead of widening the editor'
 );
 assert.match(
   editor,

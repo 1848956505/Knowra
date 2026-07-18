@@ -59,6 +59,7 @@ export function resolveNavigationSelection({
       selectedNoteId: null,
       openNoteTabs: [],
       draftMarkdown: '',
+      draftTitle: '',
       noteTagDraft: '',
       saveState: 'idle',
       lastSavedAt: null,
@@ -76,6 +77,7 @@ export function resolveNavigationSelection({
     selectedNoteId: selectedNote?.id ?? null,
     openNoteTabs: ensureOpenTab(filteredTabs, selectedNote?.id ?? null),
     draftMarkdown: selectedNote?.rawMarkdown ?? '',
+    draftTitle: selectedNote?.title ?? '',
     noteTagDraft: currentNoteStillVisible ? undefined : '',
     saveState: selectedNote ? 'saved' : 'idle',
     lastSavedAt: selectedNote?.updatedAt ?? null,
@@ -95,6 +97,7 @@ export function resolveFolderSelection({
       selectedNoteId: null,
       openNoteTabs,
       draftMarkdown: '',
+      draftTitle: '',
       shouldClearSideData: true,
       shouldLoadSideData: false
     };
@@ -117,6 +120,7 @@ export function resolveFolderSelection({
     selectedNoteId: nextNote.id,
     openNoteTabs: ensureOpenTab(openNoteTabs, nextNote.id),
     draftMarkdown: nextNote.rawMarkdown ?? '',
+    draftTitle: nextNote.title ?? '',
     shouldClearSideData: false,
     shouldLoadSideData: true
   };
