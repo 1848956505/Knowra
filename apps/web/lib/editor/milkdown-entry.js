@@ -22,6 +22,7 @@ import {
   refreshImageBlockLayouts,
   scheduleImageLayoutRefresh
 } from './milkdown/host/image-layout-controller.js';
+import { attachCodeBlockPlaceholderObserver } from './milkdown/host/code-block-layout-controller.js';
 import { uploadAttachmentImage } from './milkdown/host/image-upload.js';
 import { pasteImageFile } from './milkdown/host/image-paste-controller.js';
 import {
@@ -52,6 +53,7 @@ export class MilkdownHost {
     this.noteId = typeof noteId === 'string' && noteId.trim() ? noteId.trim() : null;
     this.uploadAttachment = typeof uploadAttachment === 'function' ? uploadAttachment : null;
     this.editor = null;
+    this.codeBlockPlaceholderObserver = null;
     this.imageLayoutObserver = null;
     this.imageLayoutRefreshFrame = 0;
     this.imageLayoutLastWidth = 0;
@@ -67,6 +69,7 @@ export class MilkdownHost {
 
     await this.editor.create();
     this.root.dataset.editorReady = 'true';
+    this.codeBlockPlaceholderObserver = attachCodeBlockPlaceholderObserver(this.root);
     this.attachImageLayoutObserver();
     this.attachTableHandleController();
     this.attachSelectionMemory();
@@ -250,6 +253,8 @@ export class MilkdownHost {
     }
 
     await this.ready;
+    this.codeBlockPlaceholderObserver?.disconnect();
+    this.codeBlockPlaceholderObserver = null;
     this.disconnectImageLayoutObserver();
     this.clearImageLayoutRetryTimers();
     this.tableHandleController?.destroy();

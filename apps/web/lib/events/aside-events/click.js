@@ -8,6 +8,23 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
       deps.renderSidebar(deps.getCurrentNote());
       return;
     }
+    const outlineToggle = closestFromEventTarget(event.target, '[data-outline-toggle-id]');
+    if (outlineToggle?.dataset.outlineToggleId) {
+      deps.toggleOutlineHeading?.(
+        outlineToggle.dataset.outlineNoteId ?? '',
+        outlineToggle.dataset.outlineToggleId
+      );
+      return;
+    }
+    const outlineItem = closestFromEventTarget(event.target, '[data-outline-id]');
+    if (outlineItem?.dataset.outlineId) {
+      const outlineIndex = Number.parseInt(outlineItem.dataset.outlineIndex ?? '', 10);
+      deps.jumpToOutlineHeading?.(
+        outlineItem.dataset.outlineId,
+        Number.isInteger(outlineIndex) ? outlineIndex : -1
+      );
+      return;
+    }
     const addTag = closestFromEventTarget(event.target, '[data-note-tag-add]');
     if (addTag?.dataset.noteTagAdd) {
       return void deps.addTagToCurrentNote(addTag.dataset.noteTagAdd)

@@ -12,6 +12,7 @@ import { renderInfoTab as renderInfoTabMarkup } from '../../lib/sidebar/info-pan
 import { renderOutlineTab as renderOutlineTabMarkup } from '../../lib/sidebar/outline-panel.js';
 import { createAttachmentCommandsController } from './sidebar/attachment-commands-controller.js';
 import { createAttachmentRenameController } from './sidebar/attachment-rename-controller.js';
+import { createOutlineController } from './sidebar/outline-controller.js';
 import { isAttachmentReferencedInMarkdown } from '../../lib/sidebar/attachments.js';
 
 export function createSidebarController(deps) {
@@ -22,7 +23,9 @@ export function createSidebarController(deps) {
     getCurrentNote,
     syncAnnotationMarkers,
     flashStatus,
-    formatDate
+    formatDate,
+    getEditorScrollRoot,
+    cancelPendingEditorScrollRestore
   } = deps;
 
   const attachmentCommands = createAttachmentCommandsController({ elements, flashStatus });
@@ -32,6 +35,15 @@ export function createSidebarController(deps) {
     getCurrentNote,
     renderSidebar,
     flashStatus
+  });
+  const outlineController = createOutlineController({
+    state,
+    elements,
+    getCurrentNote,
+    renderSidebar,
+    flashStatus,
+    getEditorScrollRoot,
+    cancelPendingEditorScrollRestore
   });
 
 async function loadCurrentNoteSideData() {
@@ -106,29 +118,6 @@ function loadLocalNoteSideData(noteId) {
 function clearNoteSideData() {
   Object.assign(state, createClearedNoteSideData());
   state.annotations = [];
-}
-
-function findOutlineHeadingTarget(outlineId, outlineIndex) {
-  if (!elements.editorContent) {
-    return null;
-  }
-
-  if (outlineId) {
-    const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-      ? CSS.escape(outlineId)
-      : outlineId.replace(/"/g, '\\"');
-    const directMatch = elements.editorContent.querySelector(`#${escapedId}`);
-    if (directMatch) {
-      return directMatch;
-    }
-  }
-
-  if (!Number.isInteger(outlineIndex) || outlineIndex < 0) {
-    return null;
-  }
-
-  const renderedHeadings = elements.editorContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  return renderedHeadings.item(outlineIndex) ?? null;
 }
 
 function renderSidebar(note) {
@@ -209,12 +198,12 @@ function renderConceptsTab() {
     loadApiNoteSideData,
     loadLocalNoteSideData,
     clearNoteSideData,
-    findOutlineHeadingTarget,
     renderSidebar,
     renderInfoTab,
     renderOutlineTab,
     renderConceptsTab,
     deleteAttachment,
+    ...outlineController,
     // attachmentCommands —— 通过子控制器委托
     findAttachmentReferenceTarget: (...args) => attachmentCommands.findAttachmentReferenceTarget(...args),
     jumpToAttachmentReference: (...args) => attachmentCommands.jumpToAttachmentReference(...args),

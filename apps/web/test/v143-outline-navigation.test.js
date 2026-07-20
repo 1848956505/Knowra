@@ -6,7 +6,7 @@ import { extractMarkdownHeadings, renderMarkdownPreview } from '../lib/markdown.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const sidebarControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/sidebar-controller.js'), 'utf8');
+const outlineControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/sidebar/outline-controller.js'), 'utf8');
 const outlinePanelJs = fs.readFileSync(path.resolve(__dirname, '../lib/sidebar/outline-panel.js'), 'utf8');
 
 const headings = extractMarkdownHeadings(`# 一级
@@ -65,7 +65,7 @@ assert.match(
   'outline items with child headings should expose a dedicated collapse toggle'
 );
 assert.match(
-  sidebarControllerJs,
+  outlineControllerJs,
   /querySelectorAll\('h1, h2, h3, h4, h5, h6'\)/,
   'outline click handling should inspect rendered heading elements instead of relying on preview-only ids'
 );

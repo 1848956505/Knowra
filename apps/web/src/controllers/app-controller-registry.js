@@ -58,7 +58,9 @@ export function createAppControllers({
     getCurrentNote: helpers.getCurrentNote,
     syncAnnotationMarkers: helpers.syncAnnotationMarkers,
     flashStatus: helpers.flashStatus,
-    formatDate: helpers.formatDate
+    formatDate: helpers.formatDate,
+    getEditorScrollRoot: () => scrollController.getEditorScrollRoot(),
+    cancelPendingEditorScrollRestore: (...args) => scrollController.cancelPendingEditorScrollRestore(...args)
   });
 
   const workspaceController = createWorkspaceController({

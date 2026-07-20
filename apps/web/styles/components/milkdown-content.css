@@ -48,8 +48,7 @@
 .milkdown-host .ProseMirror p,
 .milkdown-host .ProseMirror ul,
 .milkdown-host .ProseMirror ol,
-.milkdown-host .ProseMirror blockquote,
-.milkdown-host .ProseMirror pre {
+.milkdown-host .ProseMirror blockquote {
   margin: 0 0 1em;
 }
 
@@ -107,27 +106,6 @@
   );
   box-shadow: inset 0 -2px 0 var(--color-annotation-line-focused);
   outline: none;
-}
-
-.milkdown-host .ProseMirror pre {
-  padding: 18px 20px;
-  border: var(--border-thin) solid var(--line-soft);
-  border-left: var(--border-selection) solid var(--blue);
-  border-radius: var(--radius-none);
-  background: var(--code-surface);
-  color: var(--code-text);
-  overflow: auto;
-  box-shadow: none;
-}
-
-.milkdown-host .ProseMirror pre code {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  color: inherit;
-  font: inherit;
-  box-shadow: none;
 }
 
 .milkdown-host .ProseMirror table {

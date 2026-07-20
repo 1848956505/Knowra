@@ -12,6 +12,7 @@
 @import './components/editor-shell.css';
 @import './components/editor-utility-dialog.css';
 @import './components/milkdown-content.css';
+@import './components/milkdown-code-block.css';
 @import './components/milkdown-table.css';
 @import './components/milkdown-image.css';
 @import './components/preview-sidebar.css';

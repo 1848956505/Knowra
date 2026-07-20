@@ -153,6 +153,8 @@ export function bindAppEvents({
     deleteAnnotation: (...args) => annotationController.deleteAnnotation(...args),
     selectAnnotation: (...args) => annotationController.selectAnnotation(...args),
     findOutlineHeadingTarget: (...args) => sidebarController.findOutlineHeadingTarget(...args),
+    toggleOutlineHeading: (...args) => sidebarController.toggleOutlineHeading(...args),
+    jumpToOutlineHeading: (...args) => sidebarController.jumpToOutlineHeading(...args),
 
     saveCurrentEditorScrollPosition: (...args) => scrollController.saveCurrentEditorScrollPosition(...args),
     persistScrollPositions: (...args) => scrollController.persistScrollPositions(...args)

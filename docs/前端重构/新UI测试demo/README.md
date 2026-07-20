@@ -1,34 +1,31 @@
-# Knowra 新 UI 功能承载原型
+# Knowra 正式 UI 离线 demo
 
-本原型以以下材料为视觉与结构事实来源：
+本目录是 Knowra 正式前端（`apps/web/` 下 vanilla JS SPA）的**离线 UI 镜像**——保留 React + Vite 容器以维持单文件离线 demo 体验，视觉、结构、文案与正式项目完全对齐。
 
-- `../原始稿/工作台（首页）.png`
-- `../原始稿/资料库.png`
-- `../原始稿/knowra-swiss-grid/`
-- `../Knowra左侧导航栏设计说明.md`
-- 正式前端 `apps/web/src/` 与 `apps/web/lib/` 的现有功能
+## 事实来源
 
-它将视觉稿与正式项目能力整理为一条连贯的产品路径：
+- 正式前端样式令牌：`apps/web/styles/components/knowra-theme-tokens.css`
+- 正式前端 UI 层：`apps/web/styles/components/knowra-*.css`（shell / library-index / editor / menus）
+- 正式前端渲染层：`apps/web/src/server/shell-html.js` + `apps/web/lib/library-index/renderers.js` + `apps/web/lib/sidebar/*` + `apps/web/lib/editor/menu-renderers.js` + `apps/web/lib/status/renderers.js`
+- 正式前端迁移记录：`docs/前端重构/正式前端迁移记录.md`（第二/三/四轮收口）
 
-1. 在知识索引中浏览、筛选和搜索资料；
-2. 查看选中资料的类型、标签、关联知识与大纲；
-3. 打开资料进入多标签编辑工作区；
-4. 通过文件、编辑、段落、格式、视图菜单操作编辑器；
-5. 切换信息、大纲、重点、AI 侧栏，查看标签、关联笔记与附件；
-6. 验证查找替换、阅读、专注、Markdown 源码、回收站恢复等既有功能入口；
-7. 新建资料或文件夹、收起详情面板并返回资料索引。
+demo 的 class 命名、data-* 属性、CSS 变量与 DOM 结构均与正式项目一致；不重写正式项目已有的实现（Milkdown、API、附件、标注、拖拽、右键菜单等）。
 
-根据《审阅结果》完成的第二轮微调包括：资料库主标题固定、当前范围独立表达、顶部指标改为真实有效信息、索引详情栏重构、编辑器顶部两行对齐并固定、菜单与常用工具合并、日期元信息横排、连续文档编辑、状态栏收窄，以及信息/大纲侧栏的正式化整理。
+## 已覆盖的产品路径
 
-第三轮根据“右栏仍显杂乱”的反馈重新设计了两类侧栏。索引详情只保留资料摘要、关键状态和标签，关联笔记、大纲、附件改为按需展开；编辑器信息边注取消统计宫格和编号属性区，大纲取消 H1/H2 编码及逐行分割线，改用留白、缩进和当前定位表达层级。
+1. 左侧导航：品牌、资料库范围、模块切换、设置入口
+2. 资料库索引：masthead / 内容范围 tabs / 类型·状态·时间筛选 / 全文搜索 / 资料条目 / 分页 / 详情栏
+3. 编辑器：文档标签 / 顶部菜单 / 常用工具 / 查找替换 / 文档头 / 连续正文 / 状态栏
+4. 资料边注：信息 / 大纲 / 重点 / AI 四个页签
+5. 视图切换：阅读 / 编辑 / 专注；隐藏左侧 / 隐藏右侧 / 源码模式
 
-第四轮按审阅截图定向回调：索引恢复大块蓝色“打开资料”，资料信息与标签改为带图标的常开区域；两处标签统一复用正文蓝色描边样式；编辑边注恢复蓝色双语标题和上下线框页签，且页签与资料信息之间只保留一条线；大纲恢复上一版 H1/H2/H3、层级导轨和逐行分隔。
+## 不连接后端
 
-编辑器采用“连续文档”模型，与正式项目的 Milkdown 行为保持一致。正文是一个整体可编辑区域；段落旁的编号和引用标记是研究阅读时的定位辅助，不会把每段拆成 Notion 式独立数据块。
+demo 不连 Knowra 后端，不写项目数据。最简内置数据（3 条资料 + 2 个文件夹 + 4 个标签）仅用于视觉展示，编辑/保存/导出等为 React state 模拟，不会持久化。正式项目的 Milkdown、API、附件、标注、拖拽和右键菜单实现不会在 demo 中重复开发。
 
-原型不连接 Knowra 后端，不写入项目数据。正式项目的 Milkdown、API、附件、标注、拖拽和右键菜单实现不会在 demo 中重复开发，迁移关系见 [`production-feature-map.md`](./production-feature-map.md)。
+## 直接查看
 
-直接查看时可双击同目录下的 `Knowra整合UI原型.html`，不需要启动服务。
+双击同目录下的 `Knowra整合UI.html` 即可在 Chrome / Safari 打开，不需启动服务。
 
 ## 运行
 
@@ -51,9 +48,11 @@ npm run build:standalone
 
 ## 当前验收
 
-- 已在 1440×1024 与 1280×800 浏览器视口检查资料索引和编辑器；
-- 已验证菜单、右侧页签、Markdown 源码、搜索筛选和打开资料等交互；
-- 已验证固定顶部两行、正文独立滚动、连续文档编辑和 42px 状态栏；
-- 最终截图：`qa-index.png`、`qa-editor.png`、`qa-editor-outline.png`；
-- 本轮参考：`reference-tag-style.png`、`reference-marginalia-tabs.png`；
-- 设计 QA 结果：[`design-qa.md`](./design-qa.md)。
+- 视觉与正式项目 `npm run dev:web` 后的 `localhost:3000` 一致（米黄纸张 + 学术蓝 + 直角 + 蓝色顶线 + 编辑阴影）
+- 资料库 `01` / 文档头编号 / 阅读分钟数统一为加粗窄体数字（`--font-display`）
+- 标签使用正文 `tag-row` 蓝色描边组件
+- 编辑器顶部 35px 标签栏 + 35px 菜单栏 + 独立滚动正文
+- 状态栏 42px，含保存指示、字数、行数、源码、边注切换
+- 视口：1440×1024 与 1280×800 均无横向溢出
+- 与正式项目差异点：[`production-feature-map.md`](./production-feature-map.md)
+- 视觉验收：[`design-qa.md`](./design-qa.md)

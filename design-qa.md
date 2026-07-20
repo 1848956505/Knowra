@@ -5,25 +5,18 @@
 - Frozen source: `docs/前端重构/新UI测试demo/qa-index.png`
 - Frozen editor source: `docs/前端重构/新UI测试demo/qa-editor.png`
 - Frozen outline source: `docs/前端重构/新UI测试demo/qa-editor-outline.png`
-- Production index: `docs/前端重构/qa-production-index.png`
-- Production editor: `docs/前端重构/qa-production-editor.png`
-- Round 2 index: `docs/前端重构/audit-round2-after-index.jpg`
-- Round 2 filter menu: `docs/前端重构/audit-round2-after-filters.jpg`
-- Round 2 search: `docs/前端重构/audit-round2-after-search.jpg`
-- Round 2 editor blocks: `docs/前端重构/audit-round2-after-quote.jpg`
-- Round 2 source editor: `docs/前端重构/audit-round2-after-source-editor.jpg`
-- Round 3 source/browser comparison: `docs/前端重构/qa-round3-comparison.png`
-- Round 3 index: `docs/前端重构/qa-round3-index.png`
-- Round 3 editor: `docs/前端重构/qa-round3-editor.png`
-- Round 3 section menu: `docs/前端重构/audit-round3-after-section-menu.png`
-- Round 3 tree context menu: `docs/前端重构/audit-round3-after-context-menu.png`
-- Round 3 editor context menu: `docs/前端重构/audit-round3-after-editor-context-menu.png`
 - Round 4 focused source/implementation comparison: `docs/前端重构/qa-round4-comparison.png`
 - Round 4 index: `docs/前端重构/qa-round4-index-top.png`
 - Round 4 pagination: `docs/前端重构/qa-round4-index.png`
 - Round 4 editor: `docs/前端重构/qa-round4-editor.png`
 - Round 4 active menu: `docs/前端重构/qa-round4-editor-menu.png`
 - Round 4 attachment/status: `docs/前端重构/qa-round4-attachment.png`
+- 本轮任务的内联新建行参考：`/Users/rabbids/Library/Application Support/typora-user-images/image-20260717222515433.png`
+- 本轮任务的标题/正文参考：`/Users/rabbids/Library/Application Support/typora-user-images/image-20260717222655702.png`
+- 本轮内联新建行实现：`docs/前端重构/任务验收/qa-task-inline-implementation.png`
+- 本轮标题/正文实现：`docs/前端重构/任务验收/qa-task-title-implementation.png`
+- 本轮标签溢出实现：`docs/前端重构/任务验收/qa-task-tabs-overflow.png`
+- 本轮同输入视觉对照：`docs/前端重构/任务验收/qa-task-inline-comparison.png`、`docs/前端重构/任务验收/qa-task-title-comparison.png`
 - Runtime: `http://localhost:3007/`
 
 ## States and viewports checked
@@ -33,6 +26,7 @@
 - Data state: existing local-first workspace data; no Demo fixture was injected into production.
 - Round 3: 1280×720 real browser viewport, full index, active filters, compact tabs, code block input, stale annotation recovery and all shared menu surfaces.
 - Round 4: 1280×720 real browser viewport, 5/10/20/50 page capacities, true page slicing, active file menu, quick-format actions, tag add/remove, narrow inspector, attachment disclosure and expanded status bar.
+- 本轮：1280×720 真实浏览器视口，验证目录内联新建行、独立可编辑资料标题、正文首个标题、九个打开标签的溢出菜单及隐藏标签切换。
 
 ## Visual comparison
 
@@ -47,6 +41,9 @@
 - Round 4 density: the right inspector matches the 260px navigation rail; attachment metadata reflows into two rows instead of compressing the filename into legacy pill controls.
 - Round 4 controls: page capacity, menu active states, referenced attachment state and status actions use square blue states from the production token system.
 - Round 4 focused comparison found no blocking hierarchy, spacing, color, control-state or overflow mismatch. The deliberately narrower production attachment panel preserves the reference hierarchy while fitting the requested rail width.
+- 本轮内联行将原先较松散的输入/符号操作收为左侧蓝线、文件图标、单行输入与“保存/取消”两枚语义化操作；在不改变新 UI 直角、蓝色强调原则的前提下，层级和可读性更明确。
+- 本轮标题/正文同输入对照确认：资料标题只在随正文滚动的文档头出现；正文的第一个标题保留其原有语义，不再被用作或重复为资料标题。
+- 本轮多标签对照确认：标签栏与工具栏同为 35px 高，编辑区不因长标题或多标签横向扩张；隐藏标签收纳到右侧“••• + 数量”菜单。
 - Intentional differences: counts, titles, dates and tags come from real project data; unavailable modules remain explicit placeholders.
 
 ## Interaction checks
@@ -66,6 +63,10 @@
 - Marginalia tags open, accept input, add existing tags and remove them; the browser verification restored the original tag state afterward.
 - Attachment disclosure, open action, source toggle and marginalia toggle remain interactive at the narrowed 260px inspector width.
 - Status bar exposes save state, current note, note/folder counts, readable words, lines, outline count, links, source/marginalia controls, encoding and connection state.
+- 目录右键新建文件：输入行显示、取消后无临时数据残留。
+- 文档标题：输入临时标题后按 Escape 恢复原标题；正文首个标题保持“第一遍：”，未出现与资料标题重复的 H1。
+- 多标签：打开 9 份资料后出现隐藏标签入口；菜单展开、选中隐藏的 Vision Transformer 后，菜单收起且对应标签/文档头正确切换。
+- 浏览器控制台错误日志复核：本轮交互未发现应用错误。
 
 ## Comparison history
 
@@ -84,6 +85,9 @@
 13. The tag composer used three conflicting data attributes and had lost its click branches. Its input, add, remove and create flows now share one event contract with regression coverage.
 14. The first narrow attachment pass still compressed the filename beside its badge. The final pass moves the badge below metadata, keeps the open action aligned, and exposes the complete filename as a title.
 15. Same-input comparison of the supplied toolbar and attachment references against the final browser screenshots confirmed the requested blue square active state, restrained rules and readable narrowed layout. No P0, P1 or P2 visual issue remains.
+16. 本轮初次浏览器验证发现运行中的本地开发服务仍在使用旧的服务端壳模板，缺少隐藏标签菜单容器；重启本地开发服务后，菜单渲染、选择与自动收起均正常。
+17. 本轮以两张任务参考图和两张真实浏览器截图做同输入对照：内联新建行改为语义化的“保存/取消”操作；旧手动笔记的冗余首个 H1 在加载时仅限同名情形下迁移移除，避免重复标题且不影响正文首标题。
+18. 本轮视觉与交互验收未发现 P0、P1 或 P2 问题；资料卡上的“001”等全局序号按任务要求未改动，留待产品确认其语义后单独处理。
 
 ## Result
 

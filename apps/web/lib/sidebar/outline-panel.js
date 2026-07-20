@@ -34,7 +34,7 @@ export function renderOutlineTab({
                               aria-label="${isCollapsed ? '展开' : '折叠'} ${escapeAttribute(heading.title)} 的子标题"
                               aria-expanded="${String(!isCollapsed)}"
                             >
-                              <span aria-hidden="true" class="outline-toggle-glyph">${isCollapsed ? '›' : '⌄'}</span>
+                              <span aria-hidden="true" class="outline-toggle-glyph">${renderOutlineToggleIcon(isCollapsed)}</span>
                             </button>
                           `
                         : '<span class="outline-toggle-spacer outline-toggle-space" aria-hidden="true"></span>'}
@@ -124,4 +124,16 @@ function normalizeHeadingDepths(headings) {
     stack.push(heading.level);
     return normalizedHeading;
   });
+}
+
+function renderOutlineToggleIcon(isCollapsed) {
+  const path = isCollapsed
+    ? 'M5 3.5 9.5 8 5 12.5'
+    : 'M3.5 6 8 10.5 12.5 6';
+
+  return `
+    <svg viewBox="0 0 16 16" focusable="false">
+      <path d="${path}"></path>
+    </svg>
+  `;
 }

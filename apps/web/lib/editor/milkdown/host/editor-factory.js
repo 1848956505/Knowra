@@ -6,6 +6,7 @@ import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { tableBlock, tableBlockConfig } from '@milkdown/kit/component/table-block';
 import { imageBlockConfig, defaultImageBlockConfig } from '@milkdown/kit/component/image-block';
+import { codeBlockComponent, codeBlockConfig } from '@milkdown/kit/component/code-block';
 import { Editor } from '@milkdown/kit/core';
 import { enhancedImageBlockComponent } from '../../enhanced-image-block.js';
 import {
@@ -16,7 +17,6 @@ import {
 } from '../commands/editor-commands.js';
 import { findHighlightBehavior } from '../plugins/find-highlight-plugin.js';
 import { annotationHighlightBehavior } from '../plugins/annotation-highlight-plugin.js';
-import { codeBlockInputBehavior } from '../plugins/code-block-input-plugin.js';
 import { enhancedEnterBehavior } from '../plugins/enter-key-behavior-plugin.js';
 import { createMarkdownPasteBehavior } from '../plugins/markdown-paste-plugin.js';
 import { taskListClickBehavior } from '../plugins/task-list-click-plugin.js';
@@ -26,6 +26,7 @@ import {
   toggleHighlightCommand
 } from '../schema/highlight-mark.js';
 import { renderTableButton } from '../table/table-buttons.js';
+import { createCodeBlockComponentConfig } from './code-block-component-config.js';
 
 export function createConfiguredMilkdownEditor(host, markdown) {
   return Editor.make()
@@ -46,6 +47,7 @@ export function createConfiguredMilkdownEditor(host, markdown) {
       ctx.set(tableBlockConfig.key, {
         renderButton: renderTableButton
       });
+      ctx.set(codeBlockConfig.key, createCodeBlockComponentConfig());
       ctx.get(listenerCtx).markdownUpdated((listenerCtxValue, nextMarkdown) => {
         host.onChange?.(nextMarkdown, listenerCtxValue);
       });
@@ -54,6 +56,7 @@ export function createConfiguredMilkdownEditor(host, markdown) {
       });
     })
     .use(commonmark)
+    .use(codeBlockComponent)
     .use(listener)
     .use(history)
     .use(createMarkdownPasteBehavior(host))
@@ -66,7 +69,6 @@ export function createConfiguredMilkdownEditor(host, markdown) {
     .use(enhancedImageBlockComponent)
     .use(tableBlock)
     .use(enhancedEnterBehavior)
-    .use(codeBlockInputBehavior)
     .use(findHighlightBehavior)
     .use(annotationHighlightBehavior)
     .use(taskListClickBehavior)

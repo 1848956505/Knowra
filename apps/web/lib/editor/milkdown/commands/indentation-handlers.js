@@ -38,10 +38,6 @@ export async function handleIndentShortcut(editor) {
     return false;
   }
 
-  if (behavior === 'insert-code-indent') {
-    return insertTextIndent(view);
-  }
-
   if (behavior === 'sink-list-item') {
     if (isContinuationParagraph($from, listItemAncestor)) {
       return indentContinuationParagraph(view, schema, $from, listItemAncestor);
@@ -105,10 +101,6 @@ export async function handleOutdentShortcut(editor) {
 
   if (behavior === 'table-navigation') {
     return false;
-  }
-
-  if (behavior === 'remove-code-indent') {
-    return removeTextIndent(view);
   }
 
   if (behavior === 'lift-list-item') {

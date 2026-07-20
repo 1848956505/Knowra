@@ -30,6 +30,34 @@ function makeTarget(selector, dataset = {}, value = '') {
 
 {
   const asideContent = createRecorderElement();
+  const state = { noteTagComposer: { draft: '', isExpanded: false } };
+  const calls = [];
+  bindAsideContentClickEvents({
+    state,
+    elements: { asideContent },
+    deps: {
+      toggleOutlineHeading: (...args) => calls.push(['toggle', ...args]),
+      jumpToOutlineHeading: (...args) => calls.push(['jump', ...args])
+    }
+  });
+
+  asideContent.dispatch('click', makeTarget('[data-outline-toggle-id]', {
+    outlineToggleId: 'intro',
+    outlineNoteId: 'note-1'
+  }));
+  asideContent.dispatch('click', makeTarget('[data-outline-id]', {
+    outlineId: 'child',
+    outlineIndex: '3'
+  }));
+
+  assert.deepEqual(calls, [
+    ['toggle', 'note-1', 'intro'],
+    ['jump', 'child', 3]
+  ]);
+}
+
+{
+  const asideContent = createRecorderElement();
   let draft = '';
   bindAsideContentInputEvents({
     elements: { asideContent },
