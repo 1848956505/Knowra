@@ -13,17 +13,12 @@ export function renderHtml(initialWorkspaceScript = '') {
   <div id="app">
     <div class="workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="index">
       <aside class="kb-sidebar knowra-rail" id="kb-sidebar" aria-label="资料库导航">
-        <button type="button" class="brand" data-library-home="global" aria-label="返回资料索引">
-          <span class="brand-mark">K</span>
-          <span class="brand-copy">
-            <strong>知境 · Knowra</strong>
-            <small>知识管理与研究系统</small>
-          </span>
-        </button>
         <section class="library-directory">
           <div class="library-label">
-            <b class="library-id">01</b>
-            <span class="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
+            <button type="button" class="library-home-target" data-library-home="global" aria-label="返回资料索引">
+              <b class="library-id">01</b>
+              <span class="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
+            </button>
             <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
               <svg viewBox="0 0 16 16" aria-hidden="true" class="library-header-toggle-icon">
                 <circle cx="3" cy="8" r="1.2"></circle>

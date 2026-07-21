@@ -95,6 +95,7 @@
   --filter-menu-width: 148px;
   --masthead-height: 92px;
   --index-row-height: 146px;
+  --index-selection-width: 2px;
   --tab-height: 56px;
   --document-tab-height: var(--menu-height);
   --document-tab-min-width: 112px;
@@ -104,5 +105,4 @@
   --control-height-sm: 28px;
   --control-height-md: 36px;
   --control-height-lg: 48px;
-  --inspector-action-height: 83px;
 }

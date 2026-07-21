@@ -171,6 +171,7 @@ const Icon = ({ name, className = 'library-tree-icon' }) => {
     list: '<path d="M5 4h9M5 8h9M5 12h9M2 4h.1M2 8h.1M2 12h.1"></path>',
     paperclip: '<path d="m6 8 4-4a2 2 0 1 1 3 3l-6 6a3 3 0 0 1-4-4l6-6"></path>',
     x: '<path d="M4 4l8 8M12 4l-8 8"></path>',
+    external: '<path d="M9 3h4v4M13 3 7 9"></path><path d="M11 8.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3.5"></path>',
     search: '<circle cx="7" cy="7" r="4"></circle><path d="M10 10l4 4"></path>',
     threeDots: '<circle cx="3" cy="8" r="1.2"></circle><circle cx="8" cy="8" r="1.2"></circle><circle cx="13" cy="8" r="1.2"></circle>'
   };
@@ -218,13 +219,15 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
   const rootNotes = NOTES.filter((n) => !n.deleted && !FOLDERS.find((f) => f.id === n.folderId));
 
   const sectionProps = (key, label, count, open, toggle) => (
-    <div className="library-node-group library-section-group" key={key}>
+    <div className="library-node-group library-section-group" data-nav-section={key} key={key}>
       <button
         type="button"
         className="library-node library-section-node"
         data-nav-section={key}
         data-open={String(open)}
         data-level="0"
+        aria-expanded={open}
+        onClick={toggle}
         data-materials-section={key === 'materials' ? 'true' : undefined}
         data-recycle-section={key === 'recycle' ? 'true' : undefined}
       >
@@ -233,7 +236,7 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
             <Icon name="chevron" className={`library-chevron ${open ? 'is-open' : ''}`} />
           </span>
         </span>
-        <span className="library-node-label library-section-label" onClick={toggle}>{label}</span>
+        <span className="library-node-label library-section-label">{label}</span>
         <span className="library-section-meta">{String(count).padStart(2, '0')}</span>
       </button>
       {open && <div className="library-node-children">{renderChildren(key)}</div>}
@@ -255,6 +258,7 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
               data-folder-id={folder.id}
               data-level="1"
               data-selected="false"
+              aria-expanded={hasChildren ? isOpen : undefined}
               title={folder.name}
             >
               <span className="library-node-leading">
@@ -373,17 +377,12 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
 
   return (
     <aside className="knowra-rail" id="kb-sidebar" aria-label="资料库导航">
-      <button type="button" className="brand" onClick={onBackToIndex} aria-label="返回资料库">
-        <span className="brand-mark">K</span>
-        <span className="brand-copy">
-          <strong>知境 · Knowra</strong>
-          <small>知识管理与研究系统</small>
-        </span>
-      </button>
       <section className="library-directory">
         <div className="library-label">
-          <b className="library-id">01</b>
-          <span className="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
+          <button type="button" className="library-home-target" onClick={onBackToIndex} aria-label="返回资料索引">
+            <b className="library-id">01</b>
+            <span className="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
+          </button>
           <button
             type="button"
             className="library-header-toggle"
@@ -404,18 +403,18 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
         </nav>
       </section>
       <nav className="module-switcher" id="module-rail" role="navigation" aria-label="业务模块">
-        {MODULES.map((m, i) => (
+        {MODULES.map((m) => (
           <button
             type="button"
             key={m.id}
             className="rail-item"
             data-module-key={m.id}
             data-active={m.id === 'knowledge' ? 'true' : 'false'}
+            aria-current={m.id === 'knowledge' ? 'page' : undefined}
             aria-label={m.name}
             title={m.name}
           >
             <span className="rail-item-icon"><ModuleIcon kind={m.id} /></span>
-            <span className="rail-item-counter">{String(i + 1).padStart(2, '0')}</span>
             <span className="rail-item-label">{m.name}</span>
           </button>
         ))}
@@ -576,7 +575,18 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
         <button type="button" className="panel-close" aria-label="收起详情" onClick={() => setInspectorOpen(false)}>›</button>
         {currentNote ? (
           <>
-            <button type="button" className="primary-button inspector-action" onClick={() => onOpenNote(currentNote.id)}>打开资料</button>
+            <header className="inspector-heading">
+              <strong className="inspector-heading-title" title={currentNote.title}>{currentNote.title}</strong>
+              <button
+                type="button"
+                className="inspector-open-button"
+                onClick={() => onOpenNote(currentNote.id)}
+                aria-label={`打开资料：${currentNote.title}`}
+                title="打开资料"
+              >
+                <Icon name="external" className="inspector-open-icon" />
+              </button>
+            </header>
             <section className="inspector-fixed-section">
               <header><Icon name="file" /><h3>资料信息</h3></header>
               <dl className="inspector-record">
@@ -668,6 +678,7 @@ function EditorView({ note, onBack, onClose, onSelectTab, activeTab, onOpenOverf
                   className="note-tab"
                   data-active={activeNoteTabId === n.id}
                   role="tab"
+                  aria-selected={activeNoteTabId === n.id}
                   onClick={() => onSelectTab(n.id)}
                 >
                   <span className="note-tab-label">{n.title}</span>
@@ -786,7 +797,9 @@ function EditorView({ note, onBack, onClose, onSelectTab, activeTab, onOpenOverf
                   type="button"
                   key={t.id}
                   className="aside-tab"
+                  role="tab"
                   data-active={activeTab === t.id}
+                  aria-selected={activeTab === t.id}
                   onClick={() => onSelectTab(t.id)}
                 >
                   {t.label}
@@ -815,8 +828,7 @@ function AsideInfo({ note }) {
   const tags = (note.tagIds || []).map((tid) => TAGS.find((t) => t.id === tid)).filter(Boolean);
   return (
     <>
-      <section className="inspector-fixed-section">
-        <header><Icon name="file" /><h3>资料信息</h3></header>
+      <section className="inspector-fixed-section inspector-info-section" aria-label="资料信息">
         <dl className="inspector-record">
           <div><dt>标题</dt><dd>{note.title}</dd></div>
           <div><dt>路径</dt><dd>{FOLDERS.find((f) => f.id === note.folderId)?.name || '未分类'}</dd></div>

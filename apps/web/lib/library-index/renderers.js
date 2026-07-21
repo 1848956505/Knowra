@@ -50,6 +50,7 @@ export function renderLibraryIndexInspector({ note, state }) {
   if (!note) {
     return `
       <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">›</button>
+      <header class="inspector-heading inspector-heading-empty"><strong class="inspector-heading-title">未选择资料</strong></header>
       <div class="inspector-empty"><strong>未选择资料</strong><span>请从列表中选择一条资料。</span></div>
     `;
   }
@@ -64,7 +65,15 @@ export function renderLibraryIndexInspector({ note, state }) {
 
   return `
     <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">›</button>
-    <button type="button" class="primary-button inspector-action" data-index-open="${escapeAttribute(note.id)}">打开资料</button>
+    <header class="inspector-heading">
+      <strong class="inspector-heading-title" title="${escapeAttribute(note.title)}">${escapeHtml(note.title)}</strong>
+      <button type="button" class="inspector-open-button" data-index-open="${escapeAttribute(note.id)}" aria-label="打开资料：${escapeAttribute(note.title)}" title="打开资料">
+        <svg class="inspector-open-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M9 3h4v4M13 3 7 9"></path>
+          <path d="M11 8.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3.5"></path>
+        </svg>
+      </button>
+    </header>
     ${renderFixedSection({ icon: 'file', title: '资料信息', content: `
       <dl class="inspector-record">
         <div><dt>标题</dt><dd>${escapeHtml(note.title)}</dd></div>

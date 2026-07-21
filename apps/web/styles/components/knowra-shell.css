@@ -53,27 +53,22 @@ textarea:focus-visible {
   width: var(--rail-width);
   height: 100%;
   min-height: 0;
-  padding: var(--space-5) var(--space-6) var(--space-4);
+  padding: 0 var(--space-6) var(--space-4);
   overflow: hidden;
   border-right: var(--border-thin) solid var(--line);
   background: var(--paper);
 }
 
-.knowra-rail .brand { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-3); width: 100%; padding: 0; border: 0; background: none; text-align: left; }
-.knowra-rail .brand-mark { display: grid; width: var(--space-12); height: var(--space-12); place-items: center; overflow: hidden; color: var(--blue); font: 800 var(--text-display-md)/1 var(--font-display); letter-spacing: var(--letter-tight); }
-.knowra-rail .brand-copy { min-width: 0; }
-.knowra-rail .brand strong { display: block; font-size: var(--text-lead); font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
-.knowra-rail .brand small { display: block; margin-top: var(--space-half); color: var(--muted); font-size: var(--text-sm); white-space: nowrap; }
 .knowra-rail .library-directory { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 
 .knowra-rail .library-label {
   display: grid;
-  grid-template-columns: var(--space-14) minmax(0, 1fr) var(--space-6);
+  grid-template-columns: minmax(0, 1fr) var(--space-6);
   flex: 0 0 auto;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--space-20);
-  margin: var(--space-7) calc(-1 * var(--space-6)) 0;
+  margin: 0 calc(-1 * var(--space-6));
   padding: var(--space-4) var(--space-6);
   border: 0;
   border-top: var(--border-thin) solid var(--line);
@@ -82,11 +77,26 @@ textarea:focus-visible {
   color: var(--blue);
 }
 
+.knowra-rail .library-home-target {
+  display: grid;
+  grid-template-columns: var(--space-14) minmax(0, 1fr);
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.knowra-rail .library-home-target:hover,
+.knowra-rail .library-home-target:focus-visible { background: var(--paper-raised); outline: none; }
 .knowra-rail .library-id { font: 500 var(--text-display-md)/0.86 var(--font-display); letter-spacing: var(--letter-tight); }
 .knowra-rail .library-copy { display: grid; align-content: center; gap: var(--space-half); min-width: 0; }
 .knowra-rail .library-copy strong { font-size: var(--text-lead); line-height: var(--line-height-tight); }
 .knowra-rail .library-copy small { font: 600 var(--text-base)/var(--line-height-tight) var(--font-display); letter-spacing: var(--letter-label); }
-.knowra-rail .library-header-toggle { width: var(--space-6); height: var(--space-6); margin: 0; padding: 0; border: var(--border-thin) solid transparent; color: var(--blue); }
+.knowra-rail .library-header-toggle { display: grid; width: var(--space-6); height: var(--space-6); margin: 0; padding: 0; place-items: center; border: var(--border-thin) solid transparent; color: var(--blue); }
 .knowra-rail .library-header-toggle[data-open='true'] { border-color: var(--blue); background: var(--blue); color: var(--color-on-accent); }
 .knowra-rail .directory-heading { flex: 0 0 auto; margin: var(--space-4) var(--space-1) var(--space-2); }
 .directory-group-label { color: var(--blue); font: 600 var(--text-xs) var(--font-display); letter-spacing: var(--letter-label); }
