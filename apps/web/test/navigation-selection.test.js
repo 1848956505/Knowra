@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildFolderPath,
+  buildNotePath,
   openFolderBranch,
   resolveFolderSelection,
   resolveNavigationSelection,
@@ -49,6 +50,32 @@ runTest('buildFolderPath returns the full ancestor path', () => {
   assert.equal(buildFolderPath({ folderId: 'leaf', foldersById }), '资料 / Root / Child / Leaf');
 });
 
+runTest('buildFolderPath can omit the decorative frontend root label', () => {
+  assert.equal(buildFolderPath({
+    folderId: 'leaf',
+    foldersById,
+    rootLabel: '',
+    emptyLabel: ''
+  }), 'Root / Child / Leaf');
+  assert.equal(buildFolderPath({
+    folderId: null,
+    foldersById,
+    rootLabel: '',
+    emptyLabel: ''
+  }), '');
+});
+
+runTest('buildNotePath uses the file name instead of a decorative sequence number', () => {
+  assert.equal(buildNotePath({
+    note: { title: '测试文档', folderId: 'leaf' },
+    foldersById
+  }), '资料库 / Root / Child / Leaf / 测试文档');
+  assert.equal(buildNotePath({
+    note: { title: '根目录文档', folderId: null },
+    foldersById
+  }), '资料库 / 根目录文档');
+});
+
 runTest('resolveNavigationSelection clears invalid folder and stale tabs', () => {
   const result = resolveNavigationSelection({
     selectedFolderId: 'missing-folder',
@@ -63,6 +90,7 @@ runTest('resolveNavigationSelection clears invalid folder and stale tabs', () =>
   assert.equal(result.selectedNoteId, 'note-a');
   assert.deepEqual(result.openNoteTabs, ['note-a']);
   assert.equal(result.draftMarkdown, '# A');
+  assert.equal(result.draftTitle, 'Alpha');
   assert.equal(result.saveState, 'saved');
 });
 
@@ -94,6 +122,7 @@ runTest('resolveNavigationSelection clears note state when no notes are visible'
   assert.equal(result.selectedNoteId, null);
   assert.deepEqual(result.openNoteTabs, []);
   assert.equal(result.draftMarkdown, '');
+  assert.equal(result.draftTitle, '');
   assert.equal(result.shouldClearSideData, true);
 });
 
@@ -122,5 +151,6 @@ runTest('resolveFolderSelection selects the first visible note when current note
   assert.equal(result.selectedNoteId, 'note-a');
   assert.deepEqual(result.openNoteTabs, ['note-a']);
   assert.equal(result.draftMarkdown, '# A');
+  assert.equal(result.draftTitle, 'Alpha');
   assert.equal(result.shouldLoadSideData, true);
 });

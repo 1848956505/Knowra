@@ -1,4 +1,4 @@
-const STRUCTURED_BLOCK_TYPES = new Set(['list_item', 'blockquote', 'code_block']);
+const STRUCTURED_BLOCK_TYPES = new Set(['list_item', 'blockquote']);
 const TRAILING_BLANK_ELIGIBLE_TYPES = new Set(['paragraph', 'heading']);
 const INSERT_BELOW_BLOCK_COMMANDS = new Set(['table', 'codeblock', 'hr', 'image']);
 const CONVERT_CURRENT_BLOCK_COMMANDS = new Set([
@@ -7,8 +7,6 @@ const CONVERT_CURRENT_BLOCK_COMMANDS = new Set([
   'heading-2',
   'heading-3',
   'heading-4',
-  'heading-5',
-  'heading-6',
   'bullet',
   'ordered',
   'task-list',
@@ -37,10 +35,6 @@ export function resolveEnterBehavior({
   parentType,
   parentIsBlank
 }) {
-  if (parentType === 'code_block') {
-    return 'continue-structured-block';
-  }
-
   if (!STRUCTURED_BLOCK_TYPES.has(parentType)) {
     return 'default';
   }
@@ -57,10 +51,6 @@ export function resolveIndentBehavior({
 } = {}) {
   if (inTable) {
     return 'table-navigation';
-  }
-
-  if (parentType === 'code_block') {
-    return direction === 'out' ? 'remove-code-indent' : 'insert-code-indent';
   }
 
   if (inListItem) {

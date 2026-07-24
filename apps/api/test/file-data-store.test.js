@@ -28,11 +28,7 @@ export const fileDataStoreTests = [
             folders: [{ id: 'folder-1', spaceId: 'space-2', name: 'Imported Folder' }],
             tags: [{ id: 'tag-1', spaceId: 'space-2', name: 'Imported Tag', color: 'slate' }],
             notes: [{ id: 'note-2', title: 'Imported note', rawMarkdown: '# Imported' }],
-            knowledgePoints: [{ id: 'kp-1', spaceId: 'space-2', title: 'Imported point' }],
-            knowledgePointSources: [{ id: 'source-1', knowledgePointId: 'kp-1', noteId: 'note-2', sourceText: 'Imported source' }],
-            tagGroups: [{ id: 'group-1', spaceId: 'space-2', code: 'ordinary', name: '普通标签' }],
-            knowledgePointTags: [{ knowledgePointId: 'kp-1', tagId: 'tag-1' }],
-            noteKnowledgePoints: [{ noteId: 'note-2', knowledgePointId: 'kp-1', spaceId: 'space-2' }]
+            contentAnnotations: [{ id: 'annotation-1', spaceId: 'space-2', noteId: 'note-2', quoteText: 'Imported annotation' }]
           }
         });
 
@@ -43,11 +39,7 @@ export const fileDataStoreTests = [
         const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         assert.equal(persisted.notes[0].id, 'note-2');
         assert.equal(persisted.folders[0].id, 'folder-1');
-        assert.equal(persisted.knowledgePoints[0].id, 'kp-1');
-        assert.equal(persisted.knowledgePointSources[0].id, 'source-1');
-        assert.equal(persisted.tagGroups[0].code, 'ordinary');
-        assert.equal(persisted.knowledgePointTags[0].tagId, 'tag-1');
-        assert.equal(persisted.noteKnowledgePoints[0].knowledgePointId, 'kp-1');
+        assert.equal(persisted.contentAnnotations[0].id, 'annotation-1');
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }

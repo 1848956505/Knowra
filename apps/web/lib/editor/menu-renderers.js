@@ -1,3 +1,6 @@
+import { escapeHtml } from '../../src/app/formatting.js';
+import { renderEditorContextIconSvg } from './context-menu-icons.js';
+
 export const EDIT_MENU_ITEMS = [
   { key: 'undo', label: '撤销' },
   { key: 'redo', label: '重做' },
@@ -11,7 +14,6 @@ export const EDIT_MENU_ITEMS = [
   { key: 'select-all', label: '全选' }
 ];
 
-export const EDITOR_MENU_ITEMS = EDIT_MENU_ITEMS;
 
 export const PARAGRAPH_MENU_ITEMS = [
   { key: 'paragraph', label: '正文' },
@@ -19,8 +21,6 @@ export const PARAGRAPH_MENU_ITEMS = [
   { key: 'heading-2', label: 'H2' },
   { key: 'heading-3', label: 'H3' },
   { key: 'heading-4', label: 'H4' },
-  { key: 'heading-5', label: 'H5' },
-  { key: 'heading-6', label: 'H6' },
   { key: 'separator' },
   { key: 'bullet', label: '无序列表' },
   { key: 'ordered', label: '有序列表' },
@@ -57,6 +57,7 @@ export function renderEditorMenuBarMarkup({
 
   return `
     <div class="editor-menu-shell">
+      <div class="editor-menu-groups">
       <div class="editor-menu-group">
         <button
           type="button"
@@ -112,10 +113,22 @@ export function renderEditorMenuBarMarkup({
         </button>
         ${viewMenuOpen ? renderViewMenu({ note, effectiveView }) : ''}
       </div>
+      </div>
+      <span class="quick-tools-divider" aria-hidden="true"></span>
+      <div class="editor-quick-tools" aria-label="常用格式工具">
+        <button type="button" data-format="heading-1" aria-label="一级标题">H1</button>
+        <button type="button" data-format="heading-2" aria-label="二级标题">H2</button>
+        <button type="button" data-format="heading-3" aria-label="三级标题">H3</button>
+        <span class="editor-quick-divider" aria-hidden="true"></span>
+        <button type="button" data-format="bold" aria-label="加粗">${renderEditorContextIconSvg('bold')}</button>
+        <button type="button" data-format="italic" aria-label="斜体">${renderEditorContextIconSvg('italic')}</button>
+        <button type="button" data-format="bullet" aria-label="无序列表">${renderEditorContextIconSvg('bullet')}</button>
+        <button type="button" data-format="quote" aria-label="引用">${renderEditorContextIconSvg('quote')}</button>
+        <button type="button" data-format="code" aria-label="行内代码">${renderEditorContextIconSvg('code')}</button>
+      </div>
     </div>
   `;
 }
-
 export function renderEditMenu({ note, getShortcutLabel = () => '' } = {}) {
   return renderActionMenu({
     menuKey: 'edit',
@@ -228,13 +241,4 @@ function renderEditorMenuItem({
       ${shortcut ? `<span class="editor-menu-shortcut">${escapeHtml(shortcut)}</span>` : ''}
     </button>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

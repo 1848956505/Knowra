@@ -11,8 +11,6 @@ export const EDITOR_SHORTCUT_LABELS = {
   'heading-2': 'Ctrl+2',
   'heading-3': 'Ctrl+3',
   'heading-4': 'Ctrl+4',
-  'heading-5': 'Ctrl+5',
-  'heading-6': 'Ctrl+6',
   ordered: 'Ctrl+Shift+{',
   bullet: 'Ctrl+Shift+}',
   'task-list': 'Ctrl+Shift+X',
@@ -67,10 +65,6 @@ export function resolveEditorShortcutAction({
         return 'heading-3';
       case '4':
         return 'heading-4';
-      case '5':
-        return 'heading-5';
-      case '6':
-        return 'heading-6';
       default:
         return null;
     }

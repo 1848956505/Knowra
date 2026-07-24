@@ -63,9 +63,8 @@ export function createEditorContextMenuController(deps, getController) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
-    createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers,
     flashStatus,
     escapeHtml,
     escapeAttribute
@@ -174,8 +173,8 @@ async function handleEditorContextMenuAction(action) {
     return;
   }
 
-  if (action === 'create-knowledge-point') {
-    await createKnowledgePointFromCurrentSelection(note);
+  if (action === 'create-annotation') {
+    await createAnnotationFromCurrentSelection(note);
     return;
   }
 

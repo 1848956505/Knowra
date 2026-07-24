@@ -67,9 +67,8 @@ export function createEditorHostController(deps, getController) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
-    createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers,
     restoreEditorScrollPosition,
     flashStatus,
     escapeHtml,
@@ -145,7 +144,7 @@ function mountEditorHost(noteId, markdown) {
     editorRuntime.currentEditorHost = host;
     editorRuntime.currentEditorNoteId = noteId;
     editorRuntime.pendingEditorNoteId = null;
-    syncKnowledgePointMarkers();
+    syncAnnotationMarkers();
     getController().renderEditorSaveIndicator();
     renderStatus();
 

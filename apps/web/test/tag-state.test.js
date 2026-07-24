@@ -8,6 +8,7 @@ import {
   removeTagFromCollections,
   upsertTag
 } from '../lib/tags/state.js';
+import { RUNTIME_COLOR_FALLBACKS } from '../lib/theme/runtime-colors.js';
 
 const tags = [
   { id: 'tag-clip', name: 'CLIP' },
@@ -88,9 +89,31 @@ assert.deepEqual(
     id: 'tag-new-tag',
     spaceId: 'space-1',
     name: 'New Tag',
-    color: '#3c68ff'
+    color: RUNTIME_COLOR_FALLBACKS.accent
   },
   'buildTagInput should create the default tag payload'
+);
+
+assert.equal(
+  buildTagInput({
+    name: 'Unsafe Color',
+    tags,
+    spaceId: 'space-1',
+    color: 'red; position: fixed'
+  }).color,
+  RUNTIME_COLOR_FALLBACKS.accent,
+  'buildTagInput should replace unsafe runtime colors with the theme fallback'
+);
+
+assert.equal(
+  buildTagInput({
+    name: 'Invalid Hex',
+    tags,
+    spaceId: 'space-1',
+    color: '#12345'
+  }).color,
+  RUNTIME_COLOR_FALLBACKS.accent,
+  'buildTagInput should accept only valid 3, 4, 6, or 8 digit hex colors'
 );
 
 assert.equal(

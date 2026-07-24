@@ -1,6 +1,4 @@
-function trimIfString(value) {
-  return typeof value === 'string' ? value.trim() : value;
-}
+import { trimIfString } from './_shared.js';
 
 export function buildCreateTagDto(input) {
   return {

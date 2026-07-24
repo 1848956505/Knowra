@@ -26,8 +26,10 @@ function createState(overrides = {}) {
     selectedNoteId: 'note-a',
     saveState: 'saved',
     tabMenu: { open: false, x: 0, y: 0, noteId: null },
+    tabOverflowMenuOpen: false,
     tabDragState: { activeId: null, overId: null },
     draftMarkdown: '# Alpha',
+    draftTitle: 'Alpha',
     linkedNotes: ['linked'],
     attachments: ['attachment'],
     ...overrides
@@ -50,6 +52,10 @@ function createElements() {
       hidden: true,
       innerHTML: '',
       style: {}
+    },
+    noteTabOverflowMenu: {
+      hidden: true,
+      innerHTML: ''
     },
     tabNodes
   };
@@ -142,6 +148,7 @@ await runTest('handleTabClose clears editor state when closing last active tab',
   assert.deepEqual(state.openNoteTabs, []);
   assert.equal(state.selectedNoteId, null);
   assert.equal(state.draftMarkdown, '');
+  assert.equal(state.draftTitle, '');
   assert.deepEqual(state.linkedNotes, []);
   assert.deepEqual(state.attachments, []);
   assert.deepEqual(calls.persistDraft, [{ immediate: true }]);

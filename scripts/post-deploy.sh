@@ -15,12 +15,18 @@ echo "▶ post-deploy: 生成 milkdown 编辑器 bundle..."
 # apps/web/package.json 里的 build:editor-bundle 就是包装 scripts/build-milkdown-bundle.mjs
 npm run build:editor-bundle -w @study-accelerator/web
 
-# 如果用 PM2 管理进程，重启 web 让它加载新 bundle（dev 模式无需）
+# 如果用 PM2 管理进程，校验并重启正式服务（dev 模式无需）
 if command -v pm2 >/dev/null 2>&1; then
-  if pm2 describe study-web >/dev/null 2>&1; then
-    echo "▶ post-deploy: 重启 PM2 study-web..."
-    pm2 restart study-web --update-env
-  fi
+  for process_name in knowra-api knowra-web; do
+    if ! pm2 describe "$process_name" >/dev/null 2>&1; then
+      printf '✗ post-deploy: 未找到 PM2 进程 %s\n' "$process_name" >&2
+      exit 1
+    fi
+  done
+
+  echo "▶ post-deploy: 重启 PM2 knowra-api / knowra-web..."
+  pm2 restart knowra-api knowra-web --update-env
+  pm2 save
 fi
 
 echo "✓ post-deploy: 完成"

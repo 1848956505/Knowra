@@ -22,6 +22,7 @@ import {
   refreshImageBlockLayouts,
   scheduleImageLayoutRefresh
 } from './milkdown/host/image-layout-controller.js';
+import { attachCodeBlockPlaceholderObserver } from './milkdown/host/code-block-layout-controller.js';
 import { uploadAttachmentImage } from './milkdown/host/image-upload.js';
 import { pasteImageFile } from './milkdown/host/image-paste-controller.js';
 import {
@@ -36,10 +37,7 @@ import {
   clearSearchHighlights,
   findAndSelect
 } from './milkdown/host/find-controller.js';
-import {
-  selectKnowledgePointSource,
-  setKnowledgePointSources
-} from './milkdown/host/knowledge-point-source-controller.js';
+import { selectAnnotation, setAnnotations } from './milkdown/host/annotation-source-controller.js';
 import { pasteMarkdown } from './milkdown/host/markdown-paste-controller.js';
 import { resolveBlockCommandBehavior } from './enter-behavior.js';
 import { normalizeMarkdown } from './milkdown/utils/markdown-slice.js';
@@ -55,6 +53,7 @@ export class MilkdownHost {
     this.noteId = typeof noteId === 'string' && noteId.trim() ? noteId.trim() : null;
     this.uploadAttachment = typeof uploadAttachment === 'function' ? uploadAttachment : null;
     this.editor = null;
+    this.codeBlockPlaceholderObserver = null;
     this.imageLayoutObserver = null;
     this.imageLayoutRefreshFrame = 0;
     this.imageLayoutLastWidth = 0;
@@ -70,6 +69,7 @@ export class MilkdownHost {
 
     await this.editor.create();
     this.root.dataset.editorReady = 'true';
+    this.codeBlockPlaceholderObserver = attachCodeBlockPlaceholderObserver(this.root);
     this.attachImageLayoutObserver();
     this.attachTableHandleController();
     this.attachSelectionMemory();
@@ -235,12 +235,12 @@ export class MilkdownHost {
     return findAndSelect(this, query, previousMatchIndex, direction);
   }
 
-  async setKnowledgePointSources(sources = []) {
-    return setKnowledgePointSources(this, sources);
+  async setAnnotations(annotations = []) {
+    return setAnnotations(this, annotations);
   }
 
-  async selectKnowledgePointSource(sourceId) {
-    return selectKnowledgePointSource(this, sourceId);
+  async selectAnnotation(annotationId) {
+    return selectAnnotation(this, annotationId);
   }
 
   async clearSearchHighlights() {
@@ -253,6 +253,8 @@ export class MilkdownHost {
     }
 
     await this.ready;
+    this.codeBlockPlaceholderObserver?.disconnect();
+    this.codeBlockPlaceholderObserver = null;
     this.disconnectImageLayoutObserver();
     this.clearImageLayoutRetryTimers();
     this.tableHandleController?.destroy();

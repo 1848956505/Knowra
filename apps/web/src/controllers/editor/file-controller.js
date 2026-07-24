@@ -8,6 +8,11 @@ export function createEditorFileController(deps, getController) {
   const {
     elements,
     getCurrentNote,
+    createNote,
+    startTreeEditor,
+    setNoteFavorite,
+    deleteNote,
+    restoreNote,
     flashStatus
   } = deps;
 
@@ -26,13 +31,13 @@ export function createEditorFileController(deps, getController) {
     switch (action) {
       case 'new-note': {
         const title = createUntitledName(target.getSiblingNames(folderId), 'Untitled Note');
-        await controller.createNote(folderId, title);
+        await createNote(folderId, title);
         flashStatus(`已创建笔记：${title}`);
         return;
       }
       case 'new-folder': {
         const title = createUntitledName(target.getSiblingNames(folderId), 'Untitled Folder');
-        controller.startTreeEditor({ mode: 'create-folder', parentId: folderId, value: title });
+        startTreeEditor({ mode: 'create-folder', parentId: folderId, value: title });
         return;
       }
       case 'import-markdown':
@@ -41,19 +46,19 @@ export function createEditorFileController(deps, getController) {
       case 'favorite-note':
         if (note && !note.deleted) {
           const nextFavorite = !note.favorite;
-          await controller.setNoteFavorite(note.id, nextFavorite);
+          await setNoteFavorite(note.id, nextFavorite);
           flashStatus(nextFavorite ? '已收藏笔记' : '已取消收藏');
         }
         return;
       case 'delete-note':
         if (note && !note.deleted) {
-          await controller.deleteNote(note.id);
+          await deleteNote(note.id);
           flashStatus('笔记已删除');
         }
         return;
       case 'restore-note':
         if (note?.deleted) {
-          await controller.restoreNote(note.id);
+          await restoreNote(note.id);
           flashStatus('笔记已恢复');
         }
         return;
@@ -65,7 +70,7 @@ export function createEditorFileController(deps, getController) {
         return;
       case 'rename':
         if (note) {
-          controller.startTreeEditor({ mode: 'rename-note', targetId: note.id, value: note.title });
+          startTreeEditor({ mode: 'rename-note', targetId: note.id, value: note.title });
         }
         return;
       case 'export-markdown':

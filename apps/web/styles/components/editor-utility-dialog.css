@@ -87,7 +87,7 @@
 }
 
 .editor-utility-panel-hint {
-  color: #51607a;
+  color: var(--color-text-muted);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -211,7 +211,7 @@
 }
 
 .editor-save-indicator[data-save-state='error'] {
-  color: #b42318;
+  color: var(--color-danger);
 }
 
 .editor-save-button {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { AppError } from '../src/errors/app-error.js';
 import { parseBody } from '../src/http/request.js';
 
 function createRequest({ contentType = 'application/json', chunks = [] } = {}) {
@@ -24,6 +25,7 @@ export const httpRequestTests = [
       await assert.rejects(
         () => parseBody(createRequest({ chunks: ['{"name":"too-large"}'] }), { limitBytes: 4 }),
         (error) => {
+          assert.ok(error instanceof AppError);
           assert.equal(error.statusCode, 413);
           assert.equal(error.code, 'PAYLOAD_TOO_LARGE');
           return true;
@@ -37,6 +39,7 @@ export const httpRequestTests = [
       await assert.rejects(
         () => parseBody(createRequest({ contentType: 'text/plain', chunks: ['plain text'] })),
         (error) => {
+          assert.ok(error instanceof AppError);
           assert.equal(error.statusCode, 415);
           assert.equal(error.code, 'UNSUPPORTED_MEDIA_TYPE');
           return true;

@@ -124,7 +124,7 @@ export function createNoteService({
         throw new Error('Note must be in recycle bin before permanent delete');
       }
 
-      const deletedNote = repository.deleteById(noteId);
+      const deletedNote = repository.delete(noteId);
       if (!deletedNote) {
         throw new Error('Note not found');
       }

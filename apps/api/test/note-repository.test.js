@@ -155,5 +155,28 @@ export const noteRepositoryTests = [
       assert.equal(favoriteOnly.length, 1);
       assert.equal(favoriteOnly[0].id, 'repo-note-fav-a');
     }
+  },
+  {
+    name: 'NoteRepository uses the shared delete method name',
+    async run() {
+      const { createInMemoryNoteRepository } = await import('../src/modules/knowledge/infrastructure/note-repository.js');
+      const repository = createInMemoryNoteRepository();
+      repository.save({
+        id: 'repo-note-delete',
+        title: 'Delete me',
+        rawMarkdown: '',
+        plainText: '',
+        spaceId: 'space-a',
+        folderId: null,
+        tagIds: [],
+        deleted: true
+      });
+
+      const deleted = repository.delete('repo-note-delete');
+
+      assert.equal(deleted.id, 'repo-note-delete');
+      assert.equal(repository.findById('repo-note-delete'), null);
+      assert.equal(repository.deleteById, undefined);
+    }
   }
 ];

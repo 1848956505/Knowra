@@ -16,7 +16,7 @@ function createStorage() {
 function createController({ root = { scrollTop: 0 }, storage = createStorage(), editorRuntime = { currentEditorNoteId: 'note-1' } } = {}) {
   const documentRef = {
     getElementById(id) {
-      return id === 'milkdown-editor' ? root : null;
+      return id === 'editor-scroll-region' ? root : null;
     }
   };
   const frames = [];
@@ -82,6 +82,24 @@ runTest('missing editor root is ignored', () => {
   controller.persistScrollPositions();
 
   assert.equal(storage.getItem('scroll-cache'), '{}');
+});
+
+runTest('manual outline jumps cancel pending and later scroll restoration', () => {
+  const storage = createStorage();
+  storage.setItem('scroll-cache', '{"note-1":240}');
+  const { controller, root, frames } = createController({
+    storage,
+    root: { scrollTop: 0 }
+  });
+
+  controller.loadScrollPositions();
+  controller.restoreEditorScrollPosition('note-1');
+  controller.cancelPendingEditorScrollRestore('note-1');
+  frames[0]();
+
+  assert.equal(root.scrollTop, 0);
+  controller.restoreEditorScrollPosition('note-1');
+  assert.equal(frames.length, 1);
 });
 
 console.log('editor-scroll-controller tests passed');

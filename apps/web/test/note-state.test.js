@@ -39,7 +39,7 @@ runTest('createLocalManualNoteInput builds the local manual note payload', () =>
   }), {
     id: 'note-new',
     title: 'New Note',
-    rawMarkdown: '# New Note\n\n',
+    rawMarkdown: '',
     folderId: 'root',
     spaceId: 'space-1',
     favorite: false,

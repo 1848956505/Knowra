@@ -15,6 +15,10 @@
   --color-success: #1f9d63;
   --color-warning: #d97706;
   --color-danger: #dc2626;
+  --color-annotation-wash: rgba(240, 192, 92, 0.26);
+  --color-annotation-wash-hover: rgba(240, 192, 92, 0.42);
+  --color-annotation-line: rgba(185, 126, 26, 0.7);
+  --color-annotation-line-focused: rgba(150, 92, 10, 0.94);
   --color-border: rgba(22, 32, 51, 0.12);
   --color-border-strong: rgba(22, 32, 51, 0.18);
   --shadow-soft: 0 18px 40px rgba(20, 34, 66, 0.08);

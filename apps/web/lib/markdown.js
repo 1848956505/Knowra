@@ -1,11 +1,7 @@
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { escapeHtml } from '../src/app/formatting.js';
+
+const EDITOR_HEADING_MAX_LEVEL = 4;
+const MARKDOWN_HEADING_MAX_LEVEL = 6;
 
 function renderInlineMarkdown(text) {
   let html = escapeHtml(text);
@@ -69,14 +65,18 @@ function slugifyHeading(text, fallbackIndex) {
   return slug || `section-${fallbackIndex}`;
 }
 
-export function extractMarkdownHeadings(markdown) {
+export function extractMarkdownHeadings(markdown, { maxLevel = EDITOR_HEADING_MAX_LEVEL } = {}) {
   const source = String(markdown ?? '').replace(/\r\n/g, '\n');
   const headings = [];
   const slugCounts = new Map();
+  const normalizedMaxLevel = Math.min(
+    MARKDOWN_HEADING_MAX_LEVEL,
+    Math.max(1, Number(maxLevel) || EDITOR_HEADING_MAX_LEVEL)
+  );
 
   source.split('\n').forEach((line) => {
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    if (!headingMatch) {
+    if (!headingMatch || headingMatch[1].length > normalizedMaxLevel) {
       return;
     }
 
@@ -104,7 +104,7 @@ export function renderMarkdownPreview(markdown) {
   }
 
   const blocks = source.split(/\n\s*\n/);
-  const headings = extractMarkdownHeadings(source);
+  const headings = extractMarkdownHeadings(source, { maxLevel: MARKDOWN_HEADING_MAX_LEVEL });
   let headingIndex = 0;
 
   return blocks

@@ -14,15 +14,11 @@ function runTest(name, callback) {
   }
 }
 
-const deriveTitle = (markdown, fallback) => markdown.startsWith('# ')
-  ? markdown.slice(2).trim()
-  : fallback;
-
 runTest('resolveDraftSaveState reports unchanged markdown and title', () => {
   assert.deepEqual(resolveDraftSaveState({
     note: { title: 'Title', rawMarkdown: '# Title' },
     markdown: '# Title',
-    deriveTitle
+    title: 'Title'
   }), {
     changed: false,
     nextMarkdown: '# Title',
@@ -30,15 +26,27 @@ runTest('resolveDraftSaveState reports unchanged markdown and title', () => {
   });
 });
 
-runTest('resolveDraftSaveState reports changed derived title', () => {
+runTest('resolveDraftSaveState keeps title independent from body headings', () => {
   assert.deepEqual(resolveDraftSaveState({
     note: { title: 'Old', rawMarkdown: '# Old' },
     markdown: '# New',
-    deriveTitle
+    title: 'Old'
   }), {
     changed: true,
     nextMarkdown: '# New',
-    nextTitle: 'New'
+    nextTitle: 'Old'
+  });
+});
+
+runTest('resolveDraftSaveState trims an explicitly edited title', () => {
+  assert.deepEqual(resolveDraftSaveState({
+    note: { title: 'Old', rawMarkdown: 'Body' },
+    markdown: 'Body',
+    title: '  New title  '
+  }), {
+    changed: true,
+    nextMarkdown: 'Body',
+    nextTitle: 'New title'
   });
 });
 

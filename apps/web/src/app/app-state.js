@@ -27,6 +27,7 @@ export function createInitialAppState() {
     asideTab: 'info',
     openFolders: {},
     draftMarkdown: '',
+    draftTitle: '',
     search: {
       keyword: '',
       selectedTagIds: [],
@@ -39,28 +40,33 @@ export function createInitialAppState() {
     linkedNotes: [],
     attachments: [],
     attachmentRenaming: null,
-    knowledgePoints: [],
-    allKnowledgePoints: [],
-    knowledgePointTagGroups: [],
-    knowledgePointFilters: {
-      query: '',
-      tagIds: [],
-      isOpen: false
-    },
-    knowledgePointAttachComposer: {
-      query: '',
-      isOpen: false
-    },
+    annotations: [],
+    annotationLoadState: 'idle',
+    focusedAnnotationId: null,
+    annotationFilter: { query: '', status: 'active' },
     outlineCollapsedHeadingIdsByNote: {},
-    expandedKnowledgePointIds: {},
-    knowledgePointEditing: null,
+    expandedAnnotationIds: {},
     openNoteTabs: [],
     editorMenuOpen: null,
     view: {
+      screen: 'index',
       mode: 'edit',
       showLeftSidebar: true,
       showRightSidebar: true,
       showSourceEditor: false
+    },
+    libraryIndex: {
+      tab: 'all',
+      page: 1,
+      pageSize: 10,
+      selectedNoteId: null,
+      inspectorOpen: true,
+      filterMenu: null,
+      filters: {
+        type: 'all',
+        status: 'all',
+        time: 'updated-desc'
+      }
     },
     editorPanel: {
       open: false,
@@ -91,6 +97,7 @@ export function createInitialAppState() {
       y: 0,
       noteId: null
     },
+    tabOverflowMenuOpen: false,
     editorContextMenu: {
       open: false,
       x: 0,
@@ -120,7 +127,6 @@ export function createRailItems() {
     { key: 'paper', active: false },
     { key: 'ai', active: false },
     { key: 'task', active: false },
-    { key: 'review', active: false },
-    { key: 'settings', active: false }
+    { key: 'review', active: false }
   ];
 }

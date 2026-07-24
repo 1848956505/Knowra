@@ -18,6 +18,15 @@ const milkdownEntry = fs.readFileSync(path.resolve(__dirname, '../lib/editor/mil
 const commandResolversJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/commands/command-resolvers.js'), 'utf8');
 const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/components.css'));
 const milkdownContentCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/milkdown-content.css'), 'utf8');
+const milkdownCodeBlockCss = fs.readFileSync(
+  path.resolve(__dirname, '../styles/components/milkdown-code-block.css'),
+  'utf8'
+);
+const knowraEditorCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/knowra-editor.css'), 'utf8');
+const knowraThemeTokensCss = fs.readFileSync(
+  path.resolve(__dirname, '../styles/components/knowra-theme-tokens.css'),
+  'utf8'
+);
 
 assert.doesNotMatch(clientJs, /window\.prompt\(/, 'editor find/replace must not use browser prompt dialogs');
 assert.doesNotMatch(clientJs, /window\.find\(/, 'editor find must use the in-app search panel instead of browser find');
@@ -66,9 +75,10 @@ assert.match(
 );
 assert.match(
   menuRenderersJs,
-  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
-  'editor paragraph menu should use H1-H6 heading labels'
+  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'/,
+  'editor paragraph menu should use the H1-H4 heading labels'
 );
+assert.doesNotMatch(menuRenderersJs, /label: 'H5'|label: 'H6'/, 'editor paragraph menu should remove H5 and H6');
 assert.match(
   documentKeyboardEventsJs,
   /documentRef\.addEventListener\('keydown', \(event\) => \{[\s\S]*resolveEditorPanelKeyboardAction\(event\)[\s\S]*\}, true\);/,
@@ -95,14 +105,39 @@ assert.match(
   'milkdown command resolver should expose an internal link command'
 );
 assert.match(
-  milkdownContentCss,
-  /\.milkdown-host \.ProseMirror pre \{/,
+  milkdownCodeBlockCss,
+  /\.milkdown-host \.milkdown-code-block \{/,
   'code block styles should exist in the shared editor stylesheet'
 );
 assert.doesNotMatch(
-  milkdownContentCss,
-  /\.milkdown-host \.ProseMirror pre \{[\s\S]*background:\s*#10182b/,
+  milkdownCodeBlockCss,
+  /\.milkdown-host \.milkdown-code-block \{[\s\S]*background:\s*#10182b/,
   'code blocks should no longer use the legacy black background'
+);
+assert.match(
+  milkdownCodeBlockCss,
+  /\.milkdown-host \.milkdown-code-block \{[\s\S]*background:\s*var\(--code-surface\)/,
+  'the production editor should use the shared code surface token'
+);
+assert.match(
+  knowraEditorCss,
+  /\.editor-workspace \.milkdown-host \.ProseMirror blockquote,[\s\S]*background:\s*var\(--blue-wash\)/,
+  'blockquote should use a blue wash to read as an editorial annotation'
+);
+assert.match(
+  milkdownCodeBlockCss,
+  /\.milkdown-host \.milkdown-code-block \{[\s\S]*border-top:\s*var\(--border-accent\) solid var\(--blue\)/,
+  'code blocks should use a blue top accent instead of the quote left rule'
+);
+assert.match(
+  milkdownCodeBlockCss,
+  /\.milkdown-host \.milkdown-code-block \{[\s\S]*box-shadow:\s*var\(--shadow-editorial\)/,
+  'code blocks should use the technical panel shadow from the current UI'
+);
+assert.match(
+  knowraThemeTokensCss,
+  /--code-surface:\s*var\(--paper-raised\);[\s\S]*--code-text:\s*var\(--ink\);/,
+  'the code surface should remain a light paper surface rather than a black fill'
 );
 assert.match(
   milkdownContentCss,

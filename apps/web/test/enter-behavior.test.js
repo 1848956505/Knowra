@@ -79,24 +79,6 @@ runTest('resolveEnterBehavior keeps continuing non-empty structured blocks', () 
     'continue-structured-block'
   );
 
-  assert.equal(
-    resolveEnterBehavior({
-      parentType: 'code_block',
-      parentIsBlank: false,
-      previousSiblingType: null
-    }),
-    'continue-structured-block'
-  );
-});
-
-runTest('resolveEnterBehavior never exits code blocks with Enter', () => {
-  assert.equal(
-    resolveEnterBehavior({
-      parentType: 'code_block',
-      parentIsBlank: true
-    }),
-    'continue-structured-block'
-  );
 });
 
 runTest('resolveEnterBehavior stays normal in ordinary paragraphs', () => {
@@ -175,30 +157,6 @@ runTest('resolveIndentBehavior routes Tab by Typora block context', () => {
       parentType: 'paragraph'
     }),
     'indent-textblock'
-  );
-});
-
-runTest('resolveIndentBehavior keeps code indentation textual', () => {
-  assert.equal(
-    resolveIndentBehavior({
-      direction: 'in',
-      inTable: false,
-      inListItem: false,
-      inBlockquote: false,
-      parentType: 'code_block'
-    }),
-    'insert-code-indent'
-  );
-
-  assert.equal(
-    resolveIndentBehavior({
-      direction: 'out',
-      inTable: false,
-      inListItem: false,
-      inBlockquote: false,
-      parentType: 'code_block'
-    }),
-    'remove-code-indent'
   );
 });
 

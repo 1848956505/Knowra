@@ -25,6 +25,11 @@ export function createEditorViewCommandController(deps, getController, menuState
         state.view.showSourceEditor = false;
         renderAll();
         return;
+      case 'toggle-focus':
+        state.view.mode = state.view.mode === 'focus' ? 'edit' : 'focus';
+        state.view.showSourceEditor = false;
+        renderAll();
+        return;
       case 'toggle-left-sidebar':
         state.view.showLeftSidebar = !state.view.showLeftSidebar;
         renderAll();
@@ -40,8 +45,7 @@ export function createEditorViewCommandController(deps, getController, menuState
         }
         state.view.mode = 'edit';
         state.view.showSourceEditor = !state.view.showSourceEditor;
-        getController().renderEditor(getCurrentNote());
-        getController().renderEditorMenuBar();
+        renderAll();
         return;
       default:
         return;

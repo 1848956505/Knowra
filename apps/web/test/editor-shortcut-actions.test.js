@@ -7,7 +7,7 @@ import {
 assert.equal(getEditorShortcutLabel('bold'), 'Ctrl+B');
 assert.equal(getEditorShortcutLabel('code'), 'Ctrl+E');
 assert.equal(getEditorShortcutLabel('paragraph'), 'Ctrl+0');
-assert.equal(getEditorShortcutLabel('heading-6'), 'Ctrl+6');
+assert.equal(getEditorShortcutLabel('heading-6'), '');
 assert.equal(getEditorShortcutLabel('ordered'), 'Ctrl+Shift+{');
 assert.equal(getEditorShortcutLabel('bullet'), 'Ctrl+Shift+}');
 assert.equal(getEditorShortcutLabel('highlight'), 'Ctrl+Shift+H');
@@ -52,8 +52,8 @@ assert.equal(
 );
 assert.equal(
   resolveEditorShortcutAction({ key: '6', metaKey: true }),
-  'heading-6',
-  'Cmd+6 should trigger H6 on mac-style modifier handling'
+  null,
+  'H5 and H6 shortcuts should be removed from the supported heading hierarchy'
 );
 assert.equal(
   resolveEditorShortcutAction({ key: '{', ctrlKey: true, shiftKey: true }),

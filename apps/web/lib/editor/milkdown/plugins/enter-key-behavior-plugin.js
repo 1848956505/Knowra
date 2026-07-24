@@ -43,34 +43,12 @@ function getTrailingBlankCount(doc) {
 function getStructuredContext($from) {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const typeName = $from.node(depth).type.name;
-    if (typeName === 'code_block' || typeName === 'list_item' || typeName === 'blockquote') {
+    if (typeName === 'list_item' || typeName === 'blockquote') {
       return { type: typeName, depth };
     }
   }
 
   return null;
-}
-
-function getCurrentLineText(textContent, parentOffset) {
-  const nextBreak = textContent.indexOf('\n', parentOffset);
-  const lineEnd = nextBreak === -1 ? textContent.length : nextBreak;
-  const previousBreak = textContent.lastIndexOf('\n', Math.max(0, parentOffset - 1));
-  const lineStart = previousBreak === -1 ? 0 : previousBreak + 1;
-  return textContent.slice(lineStart, lineEnd);
-}
-
-function exitCodeBlock(view, paragraphNodeType, depth) {
-  if (!paragraphNodeType) {
-    return false;
-  }
-
-  const { state } = view;
-  const insertPos = state.selection.$from.after(depth);
-  const tr = state.tr.insert(insertPos, paragraphNodeType.create());
-  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-
-  view.dispatch(tr.scrollIntoView());
-  return true;
 }
 
 function exitTableWithParagraph(view, paragraphNodeType, depth) {
@@ -117,9 +95,7 @@ function handleStructuredBackspace(view) {
   const { $from } = state.selection;
   const structuredContext = getStructuredContext($from);
   const parentType = structuredContext?.type ?? $from.parent.type.name;
-  const parentIsBlank = structuredContext?.type === 'code_block'
-    ? getCurrentLineText($from.parent.textContent, $from.parentOffset).trim().length === 0
-    : $from.parent.textContent.trim().length === 0;
+  const parentIsBlank = $from.parent.textContent.trim().length === 0;
   const behavior = resolveBackspaceBehavior({
     parentType,
     parentIsBlank,
@@ -181,17 +157,10 @@ export const enhancedEnterBehavior = $prose((ctx) => {
 
         const structuredContext = getStructuredContext($from);
         const parentType = structuredContext?.type ?? $from.parent.type.name;
-        const parentIsBlank = structuredContext?.type === 'code_block'
-          ? getCurrentLineText($from.parent.textContent, $from.parentOffset).trim().length === 0
-          : $from.parent.textContent.trim().length === 0;
+        const parentIsBlank = $from.parent.textContent.trim().length === 0;
         const behavior = resolveEnterBehavior({ parentType, parentIsBlank });
 
         if (behavior === 'exit-structured-block') {
-          if (structuredContext?.type === 'code_block') {
-            event.preventDefault();
-            return exitCodeBlock(view, paragraphNodeType, structuredContext.depth);
-          }
-
           const lifted = liftEmptyBlock(state, (tr) => {
             view.dispatch(tr.scrollIntoView());
           });

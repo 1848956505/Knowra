@@ -28,5 +28,10 @@ assert.match(
   /pathname\.startsWith\('\/src\/controllers\/'\)/,
   'web dev server should serve frontend controller modules imported by client.js'
 );
+assert.match(
+  staticAssetsJs,
+  /\['\.svg', 'image\/svg\+xml; charset=utf-8'\]/,
+  'web dev server should serve the Phosphor icon assets with the SVG MIME type'
+);
 
 console.log('ok - web dev server disables cache for local assets');

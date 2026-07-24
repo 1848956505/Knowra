@@ -3,18 +3,12 @@ import { createFolderService } from './application/folder-service.js';
 import { createTagService } from './application/tag-service.js';
 import { createKnowledgeSpaceService } from './application/knowledge-space-service.js';
 import { createSearchService } from './application/search-service.js';
-import { createKnowledgePointService } from './application/knowledge-point-service.js';
+import { createContentAnnotationService } from './application/content-annotation-service.js';
 import { createInMemoryNoteRepository } from './infrastructure/note-repository.js';
 import { createInMemoryFolderRepository } from './infrastructure/folder-repository.js';
 import { createInMemoryTagRepository } from './infrastructure/tag-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './infrastructure/knowledge-space-repository.js';
-import {
-  createInMemoryKnowledgePointRepository,
-  createInMemoryKnowledgePointSourceRepository,
-  createInMemoryKnowledgePointTagRepository,
-  createInMemoryNoteKnowledgePointRepository,
-  createInMemoryTagGroupRepository
-} from './infrastructure/knowledge-point-repository.js';
+import { createInMemoryContentAnnotationRepository } from './infrastructure/content-annotation-repository.js';
 
 export function createKnowledgeModule(options = {}) {
   const noteRepository = options.noteRepository ?? createInMemoryNoteRepository();
@@ -22,16 +16,8 @@ export function createKnowledgeModule(options = {}) {
   const tagRepository = options.tagRepository ?? createInMemoryTagRepository();
   const knowledgeSpaceRepository =
     options.knowledgeSpaceRepository ?? createInMemoryKnowledgeSpaceRepository();
-  const knowledgePointRepository =
-    options.knowledgePointRepository ?? createInMemoryKnowledgePointRepository();
-  const knowledgePointSourceRepository =
-    options.knowledgePointSourceRepository ?? createInMemoryKnowledgePointSourceRepository();
-  const knowledgePointTagRepository =
-    options.knowledgePointTagRepository ?? createInMemoryKnowledgePointTagRepository();
-  const noteKnowledgePointRepository =
-    options.noteKnowledgePointRepository ?? createInMemoryNoteKnowledgePointRepository();
-  const tagGroupRepository =
-    options.tagGroupRepository ?? createInMemoryTagGroupRepository();
+  const contentAnnotationRepository =
+    options.contentAnnotationRepository ?? createInMemoryContentAnnotationRepository();
 
   function normalizeComparableName(value) {
     return String(value ?? '').trim();
@@ -99,13 +85,9 @@ export function createKnowledgeModule(options = {}) {
   const knowledgeSpaceService = createKnowledgeSpaceService({
     repository: knowledgeSpaceRepository
   });
-  const knowledgePointService = createKnowledgePointService({
-    knowledgePointRepository,
-    sourceRepository: knowledgePointSourceRepository,
-    tagRelationRepository: knowledgePointTagRepository,
-    noteRelationRepository: noteKnowledgePointRepository,
-    tagRepository,
-    tagGroupRepository
+  const contentAnnotationService = createContentAnnotationService({
+    repository: contentAnnotationRepository,
+    noteRepository
   });
   const searchService = createSearchService({
     listNotes: (options) => noteService.listNotes(options)
@@ -130,16 +112,12 @@ export function createKnowledgeModule(options = {}) {
       folderRepository,
       tagRepository,
       knowledgeSpaceRepository,
-      knowledgePointRepository,
-      knowledgePointSourceRepository,
-      knowledgePointTagRepository,
-      noteKnowledgePointRepository,
-      tagGroupRepository
+      contentAnnotationRepository
     },
     noteService,
     folderService,
     tagService,
-    knowledgePointService,
+    contentAnnotationService,
     knowledgeSpaceService,
     searchService,
     deleteFolderAndCleanup,

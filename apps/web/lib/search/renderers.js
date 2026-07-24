@@ -1,15 +1,4 @@
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#96;');
-}
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 
 export function renderSearchShell() {
   return `
@@ -42,7 +31,7 @@ export function renderSelectedSearchChips(selectedTags, { inlineLimit = 2 } = {}
     .map(
       (tag) => `
         <button type="button" class="top-search-chip" data-search-chip-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
-          <span class="top-search-chip-dot" style="background:${escapeHtml(tag.color || '#3c68ff')};"></span>
+          <span class="top-search-chip-dot"></span>
           <span class="top-search-chip-label">${escapeHtml(tag.name)}</span>
           <span class="top-search-chip-remove" aria-hidden="true">×</span>
         </button>
@@ -68,7 +57,7 @@ export function renderSearchTagOption(tag, selected = false) {
       data-selected="${String(selected)}"
       title="筛选标签：${escapeAttribute(tag.name)}"
     >
-      <span class="search-tag-dot" style="background:${escapeHtml(tag.color || '#3c68ff')};"></span>
+      <span class="search-tag-dot"></span>
       <span>${escapeHtml(tag.name)}</span>
       <span class="search-tag-count">${tag.usageCount ?? 0}</span>
     </button>

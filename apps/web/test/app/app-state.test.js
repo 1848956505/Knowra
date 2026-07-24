@@ -20,10 +20,24 @@ assert.deepEqual(state.search, {
   isOpen: false
 });
 assert.deepEqual(state.view, {
+  screen: 'index',
   mode: 'edit',
   showLeftSidebar: true,
   showRightSidebar: true,
   showSourceEditor: false
+});
+assert.deepEqual(state.libraryIndex, {
+  tab: 'all',
+  page: 1,
+  pageSize: 10,
+  selectedNoteId: null,
+  inspectorOpen: true,
+  filterMenu: null,
+  filters: {
+    type: 'all',
+    status: 'all',
+    time: 'updated-desc'
+  }
 });
 assert.deepEqual(state.outlineCollapsedHeadingIdsByNote, {});
 assert.deepEqual(createRailItems().map((item) => item.key), [
@@ -31,8 +45,7 @@ assert.deepEqual(createRailItems().map((item) => item.key), [
   'paper',
   'ai',
   'task',
-  'review',
-  'settings'
+  'review'
 ]);
 
 assert.notEqual(createInitialAppState(), createInitialAppState());

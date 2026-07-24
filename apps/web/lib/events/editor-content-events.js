@@ -6,7 +6,7 @@ import { closestFromEventTarget } from '../dom/event-target.js';
 //   editorContent:
 //     1. contextmenu              - 在 milkdown host / preview 上右键打开
 //                                   编辑器上下文菜单
-//     2. knowledge-point-marker-click - milkdown 内部派发的 CustomEvent，
+//     2. annotation-marker-click - Milkdown 内部派发的 CustomEvent，
 //                                   跳到侧栏对应知识点
 //     3. input                    - 源码模式编辑（[data-source-editor-input]）
 //                                   触发自动保存 + 预览同步
@@ -28,7 +28,7 @@ export function bindEditorContentEvents({ state, elements, deps }) {
     getCurrentEditorHost,
     getCurrentNote,
     openEditorContextMenu,
-    focusKnowledgePointFromMarker,
+    focusAnnotationFromMarker,
     handleEditorContextMenuAction,
     scheduleAutosave,
     syncSourcePreview,
@@ -53,13 +53,13 @@ export function bindEditorContentEvents({ state, elements, deps }) {
     });
   });
 
-  elements.editorContent?.addEventListener('knowledge-point-marker-click', (event) => {
-    const { sourceId, knowledgePointId } = event.detail ?? {};
-    if (!sourceId && !knowledgePointId) {
+  elements.editorContent?.addEventListener('annotation-marker-click', (event) => {
+    const { annotationId } = event.detail ?? {};
+    if (!annotationId) {
       return;
     }
 
-    focusKnowledgePointFromMarker({ sourceId, knowledgePointId });
+    focusAnnotationFromMarker({ annotationId });
   });
 
   elements.editorContextMenu?.addEventListener('click', (event) => {

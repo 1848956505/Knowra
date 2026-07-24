@@ -1,6 +1,6 @@
 import { knowledgeBaseSeed } from '../../lib/mock-knowledge-base.js';
 import { extractMarkdownHeadings } from '../../lib/markdown.js';
-import { buildFolderPath } from '../../lib/navigation/selection.js';
+import { buildNotePath } from '../../lib/navigation/selection.js';
 import { createClearedNoteSideData, createLocalNoteSideData } from '../../lib/sidebar/state.js';
 import { ASIDE_TABS, resolveAsideContentKey } from '../../lib/sidebar/tabs.js';
 import {
@@ -10,9 +10,9 @@ import {
 } from '../../lib/sidebar/renderers.js';
 import { renderInfoTab as renderInfoTabMarkup } from '../../lib/sidebar/info-panel.js';
 import { renderOutlineTab as renderOutlineTabMarkup } from '../../lib/sidebar/outline-panel.js';
-import { renderKnowledgePointPanel } from '../../lib/knowledge-points/panel.js';
 import { createAttachmentCommandsController } from './sidebar/attachment-commands-controller.js';
 import { createAttachmentRenameController } from './sidebar/attachment-rename-controller.js';
+import { createOutlineController } from './sidebar/outline-controller.js';
 import { isAttachmentReferencedInMarkdown } from '../../lib/sidebar/attachments.js';
 
 export function createSidebarController(deps) {
@@ -21,9 +21,11 @@ export function createSidebarController(deps) {
     elements,
     knowledgeApi,
     getCurrentNote,
-    syncKnowledgePointMarkers,
+    syncAnnotationMarkers,
     flashStatus,
-    formatDate
+    formatDate,
+    getEditorScrollRoot,
+    cancelPendingEditorScrollRestore
   } = deps;
 
   const attachmentCommands = createAttachmentCommandsController({ elements, flashStatus });
@@ -33,6 +35,15 @@ export function createSidebarController(deps) {
     getCurrentNote,
     renderSidebar,
     flashStatus
+  });
+  const outlineController = createOutlineController({
+    state,
+    elements,
+    getCurrentNote,
+    renderSidebar,
+    flashStatus,
+    getEditorScrollRoot,
+    cancelPendingEditorScrollRestore
   });
 
 async function loadCurrentNoteSideData() {
@@ -70,7 +81,7 @@ async function deleteAttachment(attachmentId) {
 async function loadApiNoteSideData(noteId) {
   if (!noteId) {
     clearNoteSideData();
-    syncKnowledgePointMarkers();
+    syncAnnotationMarkers();
     return;
   }
 
@@ -81,13 +92,12 @@ async function loadApiNoteSideData(noteId) {
     state.linkedNotes = sideData.linkedNotes;
     state.attachments = sideData.attachments;
     state.attachmentRenaming = null;
-    state.knowledgePoints = sideData.knowledgePoints;
-    state.allKnowledgePoints = sideData.allKnowledgePoints;
-    state.knowledgePointTagGroups = sideData.knowledgePointTagGroups;
-    syncKnowledgePointMarkers();
+    state.annotations = sideData.annotations;
+    state.annotationLoadState = 'loaded';
+    syncAnnotationMarkers();
   } catch (error) {
-    clearNoteSideData({ keepEditing: true });
-    syncKnowledgePointMarkers();
+    clearNoteSideData();
+    syncAnnotationMarkers();
     flashStatus(`附加信息加载失败：${error.message}`);
   }
 }
@@ -95,47 +105,19 @@ async function loadApiNoteSideData(noteId) {
 function loadLocalNoteSideData(noteId) {
   if (!noteId) {
     clearNoteSideData();
-    syncKnowledgePointMarkers();
+    syncAnnotationMarkers();
     return;
   }
 
-  Object.assign(state, createLocalNoteSideData({
-    noteId,
-    notes: state.allNotes,
-    attachments: knowledgeBaseSeed.attachments
-  }));
+  Object.assign(state, createLocalNoteSideData({ noteId, notes: state.allNotes, attachments: knowledgeBaseSeed.attachments }));
+  state.annotations = [];
   state.attachmentRenaming = null;
-  syncKnowledgePointMarkers();
+  syncAnnotationMarkers();
 }
 
-function clearNoteSideData({ keepEditing = false } = {}) {
-  Object.assign(state, createClearedNoteSideData({
-    editing: state.knowledgePointEditing,
-    keepEditing
-  }));
-}
-
-function findOutlineHeadingTarget(outlineId, outlineIndex) {
-  if (!elements.editorContent) {
-    return null;
-  }
-
-  if (outlineId) {
-    const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-      ? CSS.escape(outlineId)
-      : outlineId.replace(/"/g, '\\"');
-    const directMatch = elements.editorContent.querySelector(`#${escapedId}`);
-    if (directMatch) {
-      return directMatch;
-    }
-  }
-
-  if (!Number.isInteger(outlineIndex) || outlineIndex < 0) {
-    return null;
-  }
-
-  const renderedHeadings = elements.editorContent.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  return renderedHeadings.item(outlineIndex) ?? null;
+function clearNoteSideData() {
+  Object.assign(state, createClearedNoteSideData());
+  state.annotations = [];
 }
 
 function renderSidebar(note) {
@@ -178,8 +160,8 @@ function renderInfoTab(note) {
   return renderInfoTabMarkup({
     note,
     markdown: state.draftMarkdown || note.rawMarkdown || '',
-    folderPath: buildFolderPath({
-      folderId: note.folderId,
+    folderPath: buildNotePath({
+      note,
       foldersById: state.foldersById
     }),
     tags: state.tags,
@@ -204,17 +186,10 @@ function renderOutlineTab() {
   });
 }
 
-function renderConceptsTab(note) {
-  return renderKnowledgePointPanel({
-    note,
-    points: state.knowledgePoints,
-    tagGroups: state.knowledgePointTagGroups,
-    availablePoints: state.allKnowledgePoints,
-    filters: state.knowledgePointFilters,
-    attachComposer: state.knowledgePointAttachComposer,
-    expandedIds: state.expandedKnowledgePointIds,
-    editing: state.knowledgePointEditing
-  });
+function renderConceptsTab() {
+  const items = state.annotations.filter((item) => item.status !== 'archived');
+  if (!items.length) return '<div class="aside-empty">暂无重要内容标注</div>';
+  return `<section class="annotation-panel">${items.map((item) => `<article class="annotation-card" data-annotation-id="${item.id}"><p>${item.quoteText}</p><small>${item.status === 'stale' ? '原文位置已变化' : '已标注'}</small><button type="button" data-annotation-jump="${item.id}">定位</button><button type="button" data-annotation-delete="${item.id}">删除</button></article>`).join('')}</section>`;
 }
 
   return {
@@ -223,12 +198,12 @@ function renderConceptsTab(note) {
     loadApiNoteSideData,
     loadLocalNoteSideData,
     clearNoteSideData,
-    findOutlineHeadingTarget,
     renderSidebar,
     renderInfoTab,
     renderOutlineTab,
     renderConceptsTab,
     deleteAttachment,
+    ...outlineController,
     // attachmentCommands —— 通过子控制器委托
     findAttachmentReferenceTarget: (...args) => attachmentCommands.findAttachmentReferenceTarget(...args),
     jumpToAttachmentReference: (...args) => attachmentCommands.jumpToAttachmentReference(...args),

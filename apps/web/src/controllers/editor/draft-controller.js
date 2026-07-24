@@ -7,7 +7,6 @@ import {
   createDuplicateTitle,
   createLocalDuplicateNoteInput,
   createUntitledName,
-  deriveNoteTitleFromMarkdown,
   getSiblingNamesForFolder,
   getMarkdownImportStatusMessage
 } from '../../../lib/editor/file-menu.js';
@@ -63,9 +62,8 @@ export function createEditorDraftController(deps, getController) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
-    createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers,
     flashStatus,
     escapeHtml,
     escapeAttribute
@@ -104,7 +102,7 @@ async function persistDraft({ immediate = false } = {}) {
   const draftSave = resolveDraftSaveState({
     note,
     markdown: state.draftMarkdown,
-    deriveTitle: deriveNoteTitleFromMarkdown
+    title: state.draftTitle
   });
   if (!draftSave.changed) {
     state.saveState = 'saved';
@@ -137,10 +135,12 @@ async function persistDraft({ immediate = false } = {}) {
       title: draftSave.nextTitle,
       rawMarkdown: draftSave.nextMarkdown
     });
+    state.draftTitle = draftSave.nextTitle;
     state.saveState = 'saved';
     state.lastSavedAt = updatedNote.updatedAt ?? new Date().toISOString();
 
     renderFolders();
+    renderTabs();
     renderSidebar(getCurrentNote());
     getController().renderEditorSaveIndicator();
     renderStatus();

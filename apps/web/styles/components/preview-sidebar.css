@@ -53,8 +53,8 @@
   overflow: auto;
   padding: 14px;
   border-radius: 16px;
-  background: #10182b;
-  color: #eff4ff;
+  background: var(--color-panel-strong);
+  color: var(--color-on-accent);
 }
 
 .preview-rendered pre code {

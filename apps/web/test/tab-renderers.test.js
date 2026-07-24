@@ -5,7 +5,7 @@ import {
 } from '../lib/editor/tab-renderers.js';
 
 assert.match(renderEmptyNoteTabs(), /note-tabs-empty/);
-assert.match(renderEmptyNoteTabs(), /No open notes/);
+assert.match(renderEmptyNoteTabs(), /暂无打开的资料/);
 
 const notes = [
   { id: 'note-1', title: 'Alpha <Draft>', folderId: 'folder-a' },
@@ -38,5 +38,6 @@ assert.match(html, /data-tab-note-id="note-2"/);
 assert.match(html, /data-dragging="true"/);
 assert.match(html, /data-dirty="false"/);
 assert.match(html, /data-tab-close="note-2"/);
+assert.match(html, /aria-label="关闭标签页"/);
 
 console.log('ok - note tab renderers produce stable tab markup');

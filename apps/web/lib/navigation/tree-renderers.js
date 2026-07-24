@@ -1,15 +1,4 @@
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#96;');
-}
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 
 export function renderFolderIcon(open) {
   return open
@@ -156,8 +145,8 @@ export function renderInlineEditorRow({ level, mode, value }) {
           spellcheck="false"
         />
         <div class="library-inline-actions">
-          <button type="submit" class="library-inline-action" title="确认">✓</button>
-          <button type="button" class="library-inline-action" data-editor-cancel title="取消">×</button>
+          <button type="submit" class="library-inline-action library-inline-action-primary">保存</button>
+          <button type="button" class="library-inline-action" data-editor-cancel>取消</button>
         </div>
       </form>
     </div>

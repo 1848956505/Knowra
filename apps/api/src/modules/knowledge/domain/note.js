@@ -36,7 +36,7 @@ export class Note {
     if (!title?.trim()) {
       throw new Error('Note title is required');
     }
-    if (!rawMarkdown?.trim()) {
+    if (typeof rawMarkdown !== 'string') {
       throw new Error('Note rawMarkdown is required');
     }
 
@@ -55,12 +55,4 @@ export class Note {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
-}
-
-export function derivePlainText(markdown) {
-  return stripMarkdown(markdown);
-}
-
-export function deriveInternalLinks(markdown) {
-  return extractInternalLinks(markdown);
 }

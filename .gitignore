@@ -7,6 +7,7 @@ dist/
 .turbo/
 .vercel/
 .cache/
+.npm-cache/
 .DS_Store
 storage/temp/
 storage/uploads/

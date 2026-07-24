@@ -12,6 +12,8 @@ export function createEditorScrollController(deps) {
   } = deps;
 
   const positions = {};
+  let restoreRequestId = 0;
+  let manuallyScrolledNoteId = null;
   const getStorage = () => deps.storage ?? globalThis.window?.localStorage;
   const getDocument = () => deps.documentRef ?? globalThis.document;
   const requestFrame = (callback) => {
@@ -24,7 +26,10 @@ export function createEditorScrollController(deps) {
   };
 
 function getEditorScrollRoot() {
-  return getDocument()?.getElementById?.('milkdown-editor') ?? null;
+  const documentRef = getDocument();
+  return documentRef?.getElementById?.('editor-scroll-region')
+    ?? documentRef?.getElementById?.('milkdown-editor')
+    ?? null;
 }
 
 function saveCurrentEditorScrollPosition() {
@@ -35,13 +40,30 @@ function saveCurrentEditorScrollPosition() {
 }
 
 function restoreEditorScrollPosition(noteId) {
+  const requestId = ++restoreRequestId;
+  if (manuallyScrolledNoteId && manuallyScrolledNoteId !== noteId) {
+    manuallyScrolledNoteId = null;
+  }
+  if (manuallyScrolledNoteId === noteId) {
+    manuallyScrolledNoteId = null;
+    return;
+  }
+
   const root = getEditorScrollRoot();
   const saved = getSavedScrollTop(positions, noteId);
   if (root && saved) {
     requestFrame(() => {
+      if (requestId !== restoreRequestId) {
+        return;
+      }
       root.scrollTop = saved;
     });
   }
+}
+
+function cancelPendingEditorScrollRestore(noteId) {
+  restoreRequestId += 1;
+  manuallyScrolledNoteId = noteId || null;
 }
 
 function persistScrollPositions() {
@@ -53,8 +75,10 @@ function loadScrollPositions() {
 }
 
   return {
+    getEditorScrollRoot,
     saveCurrentEditorScrollPosition,
     restoreEditorScrollPosition,
+    cancelPendingEditorScrollRestore,
     persistScrollPositions,
     loadScrollPositions
   };

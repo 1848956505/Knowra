@@ -25,13 +25,13 @@ assert.match(
 );
 assert.match(
   shellControllerJs,
-  /elements\.sidebar\.hidden = !effectiveView\.showLeftSidebar;/,
-  'workspace view state should hide the left sidebar element itself'
+  /elements\.sidebar\.hidden = !showLeftSidebar;/,
+  'workspace view state should keep the index rail visible and hide it only in editor focus mode'
 );
 assert.match(
   shellControllerJs,
-  /elements\.aside\.hidden = !effectiveView\.showRightSidebar;/,
-  'workspace view state should hide the right sidebar element itself'
+  /elements\.aside\.hidden = isIndex \|\| !effectiveView\.showRightSidebar;/,
+  'workspace view state should hide the editor marginalia on the index screen or when toggled off'
 );
 
 assert.match(

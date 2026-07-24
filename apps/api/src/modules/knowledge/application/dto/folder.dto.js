@@ -1,14 +1,4 @@
-function trimIfString(value) {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
-function createSlug(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48);
-}
+import { trimIfString, createSlug } from './_shared.js';
 
 function createFolderId({ id, name }) {
   if (trimIfString(id)) {

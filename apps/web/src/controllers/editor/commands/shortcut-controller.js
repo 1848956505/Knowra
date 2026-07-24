@@ -20,6 +20,10 @@ export function createEditorShortcutCommandController(deps) {
       return false;
     }
 
+    if (closestFromEventTarget(event.target, '.milkdown-code-block .cm-editor')) {
+      return false;
+    }
+
     return Boolean(closestFromEventTarget(event.target, '#editor-content'));
   }
 

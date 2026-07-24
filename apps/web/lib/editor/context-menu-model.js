@@ -1,5 +1,5 @@
 export const EDITOR_CONTEXT_PRIMARY_ACTIONS = ['cut', 'copy', 'paste', 'delete'];
-export const EDITOR_CONTEXT_FORMAT_ACTIONS = ['bold', 'italic', 'highlight', 'code', 'quote'];
+export const EDITOR_CONTEXT_FORMAT_ACTIONS = ['bold', 'italic', 'highlight', 'code', 'quote', 'create-annotation'];
 export const EDITOR_CONTEXT_LIST_ACTIONS = ['ordered', 'bullet', 'task-list'];
 export const EDITOR_CONTEXT_INDENT_ACTIONS = ['outdent', 'indent'];
 
@@ -8,13 +8,10 @@ export const EDITOR_CONTEXT_PARAGRAPH_ITEMS = [
   'heading-1',
   'heading-2',
   'heading-3',
-  'heading-4',
-  'heading-5',
-  'heading-6'
+  'heading-4'
 ];
 
 export const EDITOR_CONTEXT_INSERT_ITEMS = [
-  'create-knowledge-point',
   'table',
   'hr',
   'image',
@@ -45,10 +42,8 @@ export const editorContextActionMeta = {
   'heading-2': { label: 'H2' },
   'heading-3': { label: 'H3' },
   'heading-4': { label: 'H4' },
-  'heading-5': { label: 'H5' },
-  'heading-6': { label: 'H6' },
   table: { label: '表格', icon: 'table' },
-  'create-knowledge-point': { label: '创建知识点' },
+  'create-annotation': { label: '重点', icon: 'important' },
   hr: { label: '水平分割线' },
   'paragraph-above': { label: '段落（上方）' },
   'paragraph-below': { label: '段落（下方）' },

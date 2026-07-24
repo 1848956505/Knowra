@@ -36,8 +36,6 @@ export function createCommandResolvers({
     'heading-2': () => ({ key: wrapInHeadingCommand.key, payload: 2 }),
     'heading-3': () => ({ key: wrapInHeadingCommand.key, payload: 3 }),
     'heading-4': () => ({ key: wrapInHeadingCommand.key, payload: 4 }),
-    'heading-5': () => ({ key: wrapInHeadingCommand.key, payload: 5 }),
-    'heading-6': () => ({ key: wrapInHeadingCommand.key, payload: 6 }),
     bold: () => ({ key: toggleStrongCommand.key }),
     italic: () => ({ key: toggleEmphasisCommand.key }),
     quote: () => ({ key: wrapInBlockquoteCommand.key }),

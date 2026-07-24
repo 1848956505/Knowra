@@ -3,9 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registrySource = fs.readFileSync(
   path.resolve(__dirname, '../../src/controllers/app-controller-registry.js'),
   'utf8'
@@ -15,63 +13,25 @@ const clientSource = fs.readFileSync(
   'utf8'
 );
 
-[
-  'createNavigationController',
-  'createEditorController',
-  'createKnowledgePointController',
-  'createSidebarController',
-  'createSearchController',
-  'createTagController',
-  'createTabController',
-  'createWorkspaceController',
-  'createShellController',
-  'createEditorScrollController'
-].forEach((factoryName) => {
-  assert.match(
-    registrySource,
-    new RegExp(`import \\{ ${factoryName} \\}`),
-    `${factoryName} should be imported by the app controller registry`
-  );
-  assert.match(
-    registrySource,
-    new RegExp(`${factoryName}\\(\\{`),
-    `${factoryName} should be created by the app controller registry`
-  );
-  assert.doesNotMatch(
-    clientSource,
-    new RegExp(`import \\{ ${factoryName} \\}`),
-    `client.js should not import ${factoryName} directly`
-  );
-});
-
 assert.match(
   clientSource,
-  /import \{ createAppControllers \} from '\.\/controllers\/app-controller-registry\.js';/,
-  'client.js should import the app controller registry'
+  /controllerActions:\s*actions/,
+  'client should provide the shared lazy controller action port to the registry'
 );
 assert.match(
-  clientSource,
-  /Object\.assign\(controllers,\s*createAppControllers\(\{/,
-  'client createControllers should delegate to the app controller registry'
+  registrySource,
+  /createNote:\s*controllerActions\.createNote/,
+  'editor-to-navigation calls should use the registered action port'
+);
+assert.match(
+  registrySource,
+  /insertAttachmentAtCursor:\s*controllerActions\.insertAttachmentAtCursor/,
+  'navigation-to-editor calls should use the registered action port'
+);
+assert.doesNotMatch(
+  registrySource,
+  /let navigationController\s*=\s*null/,
+  'controller assembly should not rely on a mutable circular controller closure'
 );
 
-[
-  'scrollController',
-  'searchController',
-  'tagController',
-  'knowledgePointController',
-  'sidebarController',
-  'workspaceController',
-  'navigationController',
-  'tabController',
-  'editorController',
-  'shellController'
-].forEach((controllerName) => {
-  assert.match(
-    registrySource,
-    new RegExp(`\\b${controllerName}\\b`),
-    `${controllerName} should be returned from the registry`
-  );
-});
-
-console.log('app-controller-registry tests passed');
+console.log('ok - app controller registry resolves cross-controller calls through the action port');

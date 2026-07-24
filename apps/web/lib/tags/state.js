@@ -55,7 +55,12 @@ export function findTagByName(tags, name) {
   return (tags ?? []).find((tag) => normalizeTagName(tag?.name).toLowerCase() === normalizedName) ?? null;
 }
 
-export function buildTagInput({ name, tags, spaceId, color = '#3c68ff' }) {
+export function buildTagInput({
+  name,
+  tags,
+  spaceId,
+  color = RUNTIME_COLOR_FALLBACKS.accent
+}) {
   const normalizedName = normalizeTagName(name);
   if (!normalizedName) {
     return null;
@@ -65,6 +70,7 @@ export function buildTagInput({ name, tags, spaceId, color = '#3c68ff' }) {
     id: buildUniqueTagId(normalizedName, tags),
     spaceId,
     name: normalizedName,
-    color
+    color: normalizeTagColor(color)
   };
 }
+import { RUNTIME_COLOR_FALLBACKS, normalizeTagColor } from '../theme/runtime-colors.js';

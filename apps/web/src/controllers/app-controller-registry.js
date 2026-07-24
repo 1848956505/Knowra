@@ -1,6 +1,6 @@
 import { createNavigationController } from './navigation-controller.js';
 import { createEditorController } from './editor-controller.js';
-import { createKnowledgePointController } from './knowledge-point-controller.js';
+import { createAnnotationController } from './annotation-controller.js';
 import { createSidebarController } from './sidebar-controller.js';
 import { createSearchController } from './search-controller.js';
 import { createTagController } from './tag-controller.js';
@@ -15,6 +15,7 @@ export function createAppControllers({
   editorRuntime,
   knowledgeApi,
   constants,
+  controllerActions,
   helpers
 }) {
   const scrollController = createEditorScrollController({
@@ -41,7 +42,7 @@ export function createAppControllers({
     flashStatus: helpers.flashStatus
   });
 
-  const knowledgePointController = createKnowledgePointController({
+  const annotationController = createAnnotationController({
     state,
     elements,
     editorRuntime,
@@ -56,9 +57,11 @@ export function createAppControllers({
     elements,
     knowledgeApi,
     getCurrentNote: helpers.getCurrentNote,
-    syncKnowledgePointMarkers: helpers.syncKnowledgePointMarkers,
+    syncAnnotationMarkers: helpers.syncAnnotationMarkers,
     flashStatus: helpers.flashStatus,
-    formatDate: helpers.formatDate
+    formatDate: helpers.formatDate,
+    getEditorScrollRoot: () => scrollController.getEditorScrollRoot(),
+    cancelPendingEditorScrollRestore: (...args) => scrollController.cancelPendingEditorScrollRestore(...args)
   });
 
   const workspaceController = createWorkspaceController({
@@ -81,6 +84,11 @@ export function createAppControllers({
     knowledgeApi,
     autosaveDelayMs: constants.autosaveDelayMs,
     getCurrentNote: helpers.getCurrentNote,
+    createNote: controllerActions.createNote,
+    startTreeEditor: controllerActions.startTreeEditor,
+    setNoteFavorite: controllerActions.setNoteFavorite,
+    deleteNote: controllerActions.deleteNote,
+    restoreNote: controllerActions.restoreNote,
     getEffectiveViewState: helpers.getEffectiveViewState,
     renderAll: helpers.renderAll,
     renderTabs: helpers.renderTabs,
@@ -95,11 +103,11 @@ export function createAppControllers({
     closeContextMenu: helpers.closeContextMenu,
     closeSectionMenu: helpers.closeSectionMenu,
     closeTabMenu: helpers.closeTabMenu,
-    createKnowledgePointFromCurrentSelection: helpers.createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers: helpers.syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources: helpers.getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection: helpers.createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers: helpers.syncAnnotationMarkers,
     restoreEditorScrollPosition: (...args) => scrollController.restoreEditorScrollPosition(...args),
     flashStatus: helpers.flashStatus,
+    formatDate: helpers.formatDate,
     escapeHtml: helpers.escapeHtml,
     escapeAttribute: helpers.escapeAttribute
   });
@@ -128,8 +136,8 @@ export function createAppControllers({
     copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
     deleteAttachment: (...args) => sidebarController.deleteAttachment(...args),
     startAttachmentRename: (...args) => sidebarController.startAttachmentRename(...args),
-    insertAttachmentAtCursor: (...args) => editorController.insertAttachmentAtCursor(...args),
-    removeAttachmentFromCurrentNote: (...args) => editorController.removeAttachmentFromCurrentNote(...args),
+    insertAttachmentAtCursor: controllerActions.insertAttachmentAtCursor,
+    removeAttachmentFromCurrentNote: controllerActions.removeAttachmentFromCurrentNote,
     escapeHtml: helpers.escapeHtml
   });
 
@@ -165,7 +173,7 @@ export function createAppControllers({
     scrollController,
     searchController,
     tagController,
-    knowledgePointController,
+    annotationController,
     sidebarController,
     workspaceController,
     navigationController,

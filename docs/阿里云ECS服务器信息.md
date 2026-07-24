@@ -1,6 +1,6 @@
 # 阿里云 ECS 服务器信息
 
-更新时间：2026-07-08
+更新时间：2026-07-24
 
 本文档用于在其他设备上的 Codex 继续接入和维护当前 知境·Knowra 服务器。不要在本文档中保存私钥、服务器密码、API Key 或其他明文密钥。
 
@@ -114,35 +114,64 @@ pm2 save
 
 ## 部署流程
 
-代码从 GitHub 拉取部署：
+正式部署只允许从 GitHub `main` 的已审核提交执行。部署前先记录当前提交并备份运行时数据：
 
 ```bash
 cd /opt/knowra
 
-# 1. 拉取新代码
-git pull
+# 1. 记录当前可回滚提交
+git rev-parse HEAD
 
-# 2. 必要时更新依赖
-npm install
+# 2. 备份 JSON 数据和附件
+backup_dir="/opt/knowra-backups/$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$backup_dir"
+cp storage/data/knowledge-base.json "$backup_dir/knowledge-base.json"
+tar -C storage -czf "$backup_dir/uploads.tar.gz" uploads
 
-# 3. 必须跑：生成 milkdown bundle + 重启 PM2
+# 3. 只接受 main 的 fast-forward 更新
+git switch main
+git fetch origin
+git pull --ff-only origin main
+
+# 4. 按锁文件做可复现安装，不执行未启用脚手架的第三方生命周期脚本
+npm ci --ignore-scripts
+
+# 5. 部署前验证
+npm test
+
+# 6. 生成 Milkdown bundle，校验并重启 knowra-api / knowra-web
 ./scripts/post-deploy.sh
 
-# 4. 重启所有服务（确保环境变量生效）
-pm2 restart knowra-api knowra-web --update-env
-pm2 save
+# 7. 健康检查
+curl --fail http://127.0.0.1:3001/api/health
+curl --fail --head http://127.0.0.1:3000/
 ```
 
-`scripts/post-deploy.sh` 等价于：
+`scripts/post-deploy.sh` 会依次完成：
 
-```bash
-npm run build:editor-bundle -w @study-accelerator/web
-pm2 restart knowra-web --update-env
-```
+1. 生成 Milkdown 编辑器 bundle。
+2. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
+3. 重启两个进程并执行 `pm2 save`。
+
+当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；Milkdown bundle 由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
 
 > 经验教训：2026-07-05 的 404 事件就是因为部署只跑了 `git pull` + `pm2 restart`，
 > 忘了重新生成 bundle，PM2 起来后发现 bundle 不存在，前端 50% 资源加载失败。
 > 现在把 build 步骤收进 `scripts/post-deploy.sh` 避免再犯。
+
+### 代码回滚
+
+使用部署前记录的提交 SHA 回退代码，不重写 `main`：
+
+```bash
+cd /opt/knowra
+git switch --detach <known-good-sha>
+npm ci --ignore-scripts
+./scripts/post-deploy.sh
+curl --fail http://127.0.0.1:3001/api/health
+```
+
+确认问题解决后再 `git switch main`。只有发生数据格式或运行时数据损坏时才恢复备份；恢复前必须先停止 PM2，并保留故障现场副本。
 
 ## Nginx 配置
 
@@ -173,6 +202,19 @@ server {
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+    auth_basic "Knowra";
+    auth_basic_user_file /etc/nginx/.htpasswd-knowra;
+
+    location = /api/health {
+        auth_basic off;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -187,9 +229,23 @@ server {
 说明：
 
 - HTTP（80）自动 301 跳转到 HTTPS（443）。
+- 除 `/api/health` 外，整个站点由 Nginx HTTP Basic Authentication 保护；密码文件只存在服务器 `/etc/nginx/.htpasswd-knowra`。
 - 浏览器访问域名后，前端请求使用相对路径 `/api/...`。
 - 前端服务内部再把 `/api/...` 代理到 `http://127.0.0.1:3001`。
 - 证书由 Let's Encrypt 自动续期（`certbot renew`）。
+
+首次启用访问保护：
+
+```bash
+apt-get update
+apt-get install -y apache2-utils
+htpasswd -c /etc/nginx/.htpasswd-knowra knowra
+chown root:www-data /etc/nginx/.htpasswd-knowra
+chmod 640 /etc/nginx/.htpasswd-knowra
+cp /opt/knowra/deploy/nginx/knowra.conf.example /etc/nginx/sites-available/knowra
+```
+
+不要把密码或 `.htpasswd-knowra` 写入仓库。正式配置模板见 `deploy/nginx/knowra.conf.example`。
 
 检查和重启 Nginx：
 
@@ -222,51 +278,27 @@ storage/data/knowledge-base.json
 - 不再把 Windows 风格 `storage\\uploads\\...`、Linux/macOS 绝对路径，或旧的 `apps/api/storage/uploads/...` 作为长期真源
 - 如遇旧快照或旧服务器目录残留，优先迁移文件到根级 `storage/uploads/`，再让元数据回写为上述统一格式
 
-服务器上的恢复前备份：
+服务器发布备份统一放在：
 
 ```text
-/opt/study-accelerator/storage/data/knowledge-base.json.backup-20260704-before-full-data-restore
+/opt/knowra-backups/<YYYYMMDD-HHMMSS>/
+├── knowledge-base.json
+└── uploads.tar.gz
 ```
 
-本地恢复前备份：
-
-```text
-storage/data/knowledge-base.json.backup-20260704-before-local-full-data-restore
-```
+每次正式部署前都必须新建一份备份，不复用旧备份目录。
 
 ## 部署辅助文件
 
-本地部署文件位于：
+当前部署文件：
 
 ```text
-deploy/
+deploy/README.md
+deploy/nginx/knowra.conf.example
+scripts/post-deploy.sh
 ```
 
-重要文件：
-
-```text
-deploy/install-on-ubuntu-22.04.sh
-deploy/README-aliyun-deploy.md
-deploy/study-accelerator-full-20260704-180304.tar.gz
-```
-
-服务器上的安装脚本副本：
-
-```text
-/tmp/install-on-ubuntu-22.04.sh
-```
-
-脚本已改为不硬编码公网 IP：
-
-- 默认 `SERVER_NAME=_`
-- 默认不写 `CORS_ALLOWED_ORIGINS`
-- 项目存储路径使用相对路径：`storage/...`
-
-如果未来绑定域名，可以这样运行安装脚本：
-
-```bash
-SERVER_NAME=example.com PUBLIC_ORIGIN=http://example.com /tmp/install-on-ubuntu-22.04.sh /tmp/study-accelerator-full.tar.gz
-```
+历史整包安装脚本和 tar 包不再作为当前发布入口；服务器统一从 GitHub `main` 拉取并执行可复现安装。
 
 ## 安全组
 
@@ -280,16 +312,16 @@ SERVER_NAME=example.com PUBLIC_ORIGIN=http://example.com /tmp/install-on-ubuntu-
 
 ## 安全注意事项
 
-当前服务是公开测试状态：
+当前代码尚未提供多用户账号系统，因此生产环境采用 Nginx HTTP Basic Authentication 作为单用户访问保护：
 
 - **已启用 HTTPS**（Let's Encrypt 证书）。
-- 当前项目还没有登录鉴权。
-- 只要知道域名或公网 IP，别人可以访问页面和 API。
+- 除 `/api/health` 外，页面和 API 必须经过 Basic Auth。
+- `3000`、`3001` 端口只允许服务器本机访问，不得对公网放行。
 - 不要把私钥、密码、云账号凭据写入仓库或本文档。
 
 后续建议：
 
-1. 增加登录系统，并保护所有 `/api/*` 接口。
+1. 增加正式账号与会话系统，替换临时 Basic Auth。
 2. 创建非 root 的部署用户，例如 `deploy`。
 3. 关闭 root SSH 登录或限制 root 登录来源。
 4. 定期备份 `storage/data/knowledge-base.json` 和 `storage/uploads/`。
@@ -308,7 +340,7 @@ curl https://knowra.qwdream.top/api/health
 {"data":{"status":"ok"}}
 ```
 
-浏览器访问：`https://knowra.qwdream.top/`
+浏览器访问 `https://knowra.qwdream.top/` 时应先出现 Basic Auth 身份验证；未认证请求应返回 `401`。
 
 服务器本地验证：
 

@@ -21,6 +21,7 @@ const tablePinnedActionsJs = fs.readFileSync(path.resolve(__dirname, '../lib/edi
 const tablePinnedMenuRecoveryJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/table/table-pinned-menu-recovery.js'), 'utf8');
 const tablePinnedStateJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/table/table-pinned-state.js'), 'utf8');
 const editorFactoryJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/milkdown/host/editor-factory.js'), 'utf8');
+const milkdownTableCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/milkdown-table.css'), 'utf8');
 const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/components.css'));
 const milkdownTableJs = [
   editorFactoryJs,
@@ -124,6 +125,11 @@ assert.match(
   /handleRootPointerOver|handleRootPointerOut|hoverMenuKind|data-pinned-menu-visible/,
   'table handle controller should preserve the active menu while the pointer moves between the handle and its popup'
 );
+assert.match(
+  milkdownTableJs,
+  /TABLE_POINTER_GRACE_MS|pointerGraceTimer|clearTablePointerGrace[\s\S]*setTimeout/,
+  'table handle menus should keep a short pointer grace period while crossing the handle-to-popup gap'
+);
 
 assert.match(
   milkdownTableJs,
@@ -187,13 +193,13 @@ assert.match(
 
 assert.match(
   componentsCss,
-  /\[data-role='row-drag-handle'\]\s+\.button-group[\s\S]*left:\s*calc\(100%\s*\+\s*8px\)|left:\s*100%/,
+  /\[data-role='row-drag-handle'\]\s+\.button-group[\s\S]*left:\s*calc\(100%\s*\+\s*(?:8px|var\(--space-2\))\)|left:\s*100%/,
   'row handle menu should expand to the visible right side instead of getting clipped on the left'
 );
 
 assert.match(
   componentsCss,
-  /\[data-role='col-drag-handle'\]\s+\.button-group[\s\S]*top:\s*calc\(100%\s*\+\s*8px\)|top:\s*100%/,
+  /\[data-role='col-drag-handle'\]\s+\.button-group[\s\S]*top:\s*calc\(100%\s*\+\s*(?:8px|var\(--space-2\))\)|top:\s*100%/,
   'column handle menu should drop below the top handle so inserted actions remain visible'
 );
 
@@ -207,6 +213,35 @@ assert.match(
   componentsCss,
   /button\[disabled\][\s\S]*cursor:\s*not-allowed[\s\S]*opacity:\s*0\./s,
   'disabled table handle actions should look inactive and non-clickable'
+);
+
+assert.match(
+  milkdownTableCss,
+  /\.cell-handle[\s\S]*border-radius:\s*var\(--radius-none\)/,
+  'table handles should use the square editorial control shape'
+);
+
+assert.match(
+  milkdownTableCss,
+  /\.button-group[\s\S]*border-top:\s*var\(--border-accent\)\s+solid\s+var\(--blue\)/,
+  'table operation menus should carry the current blue editorial accent'
+);
+
+assert.match(
+  milkdownTableCss,
+  /\.button-group[\s\S]*box-shadow:\s*var\(--shadow-editorial\)/,
+  'table operation menus should use the shared editorial shadow token'
+);
+assert.match(
+  milkdownTableCss,
+  /row-drag-handle'\]::after[\s\S]*col-drag-handle'\]::after[\s\S]*content:\s*''/,
+  'row and column handles should provide a transparent hover bridge toward their popup'
+);
+
+assert.doesNotMatch(
+  milkdownTableCss,
+  /rgba\(60,\s*104,\s*255|#4d5d79|#1d4ed8|#c2410c/,
+  'table operation styles should not keep the old blue-gray hardcoded palette'
 );
 
 console.log('ok - table block insertion and editing hooks are present');

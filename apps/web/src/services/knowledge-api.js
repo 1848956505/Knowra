@@ -1,7 +1,7 @@
 import { apiClient } from './api-client.js';
 import { createAttachmentApi } from './knowledge-api/attachment-service.js';
 import { createFolderApi } from './knowledge-api/folder-service.js';
-import { createKnowledgePointApi } from './knowledge-api/knowledge-point-service.js';
+import { createAnnotationApi } from './knowledge-api/annotation-service.js';
 import { createNoteApi } from './knowledge-api/note-service.js';
 import { createNoteSideApi } from './knowledge-api/note-side-service.js';
 import { createTagApi } from './knowledge-api/tag-service.js';
@@ -14,7 +14,7 @@ export function createKnowledgeApi({ requestJson = apiClient.requestJson } = {})
     ...createFolderApi({ requestJson }),
     ...createNoteApi({ requestJson }),
     ...createTagApi({ requestJson }),
-    ...createKnowledgePointApi({ requestJson }),
+    ...createAnnotationApi({ requestJson }),
     ...createAttachmentApi({ requestJson })
   };
 }

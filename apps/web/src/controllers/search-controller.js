@@ -85,6 +85,7 @@ function toggleSearchTagFilter(tagId) {
 
   state.search.selectedTagIds = toggleSearchTagId(state.search.selectedTagIds, tagId);
   state.search.isOpen = true;
+  if (state.libraryIndex) state.libraryIndex.page = 1;
   reconcileSelection();
   renderAll();
 }
@@ -93,6 +94,7 @@ function clearSearchFilters() {
   state.search.keyword = '';
   state.search.selectedTagIds = [];
   state.search.isOpen = false;
+  if (state.libraryIndex) state.libraryIndex.page = 1;
   reconcileSelection();
   renderAll();
 }

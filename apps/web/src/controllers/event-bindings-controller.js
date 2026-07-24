@@ -13,7 +13,9 @@ import { bindMenuEvents } from '../../lib/events/menu-events.js';
 import { bindFolderTreeEvents } from '../../lib/events/folder-tree-events.js';
 import { bindNoteTabEvents } from '../../lib/events/note-tab-events.js';
 import { bindEditorContentEvents } from '../../lib/events/editor-content-events.js';
+import { bindDocumentTitleEvents } from '../../lib/events/document-title-events.js';
 import { bindAsideEvents } from '../../lib/events/aside-events/index.js';
+import { bindLibraryIndexEvents } from '../../lib/events/library-index-events.js';
 
 export function bindAppEvents({
   state,
@@ -24,7 +26,7 @@ export function bindAppEvents({
 }) {
   const {
     editorController,
-    knowledgePointController,
+    annotationController,
     navigationController,
     scrollController,
     searchController,
@@ -81,6 +83,7 @@ export function bindAppEvents({
     canDropOnTarget: (...args) => navigationController.canDropOnTarget(...args),
     reconcileSelection: (...args) => helpers.reconcileSelection(...args),
     renderAll: (...args) => shellController.renderAll(...args),
+    renderLibraryIndex: (...args) => shellController.renderLibraryIndex(...args),
     importMarkdownFiles: (...args) => editorController.importMarkdownFiles(...args),
     flashStatus: (...args) => helpers.flashStatus(...args),
 
@@ -95,6 +98,7 @@ export function bindAppEvents({
     handleFormat: (...args) => editorController.handleFormat(...args),
     closeSectionMenu: (...args) => navigationController.closeSectionMenu(...args),
     closeTabMenu: (...args) => tabController.closeTabMenu(...args),
+    closeTabOverflowMenu: (...args) => tabController.closeTabOverflowMenu(...args),
     closeEditorMenuBar: (...args) => editorController.closeEditorMenuBar(...args),
     closeEditorContextMenu: (...args) => editorController.closeEditorContextMenu(...args),
 
@@ -115,13 +119,17 @@ export function bindAppEvents({
     reorderTabs,
     resetTabDragState: (...args) => tabController.resetTabDragState(...args),
     handleTabMenuAction: (...args) => tabController.handleTabMenuAction(...args),
+    toggleTabOverflowMenu: (...args) => tabController.toggleTabOverflowMenu(...args),
+    selectOverflowTab: (...args) => tabController.selectOverflowTab(...args),
+    renderTabs: (...args) => tabController.renderTabs(...args),
 
     openEditorContextMenu: (...args) => editorController.openEditorContextMenu(...args),
-    focusKnowledgePointFromMarker: (...args) => knowledgePointController.focusKnowledgePointFromMarker(...args),
+    focusAnnotationFromMarker: (...args) => annotationController.focusAnnotationFromMarker(...args),
     handleEditorContextMenuAction: (...args) => editorController.handleEditorContextMenuAction(...args),
     scheduleAutosave: (...args) => editorController.scheduleAutosave(...args),
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
     persistDraft: (...args) => editorController.persistDraft(...args),
+    restoreNote: (...args) => navigationController.restoreNote(...args),
 
     renderSidebar: (...args) => sidebarController.renderSidebar(...args),
     openAttachment: (...args) => sidebarController.openAttachment(...args),
@@ -135,12 +143,18 @@ export function bindAppEvents({
     addTagToCurrentNote: (...args) => tagController.addTagToCurrentNote(...args),
     removeTagFromCurrentNote: (...args) => tagController.removeTagFromCurrentNote(...args),
     createTagAndAssignToCurrentNote: (...args) => tagController.createTagAndAssignToCurrentNote(...args),
-    updateCurrentKnowledgePoint: (...args) => knowledgePointController.updateCurrentKnowledgePoint(...args),
-    attachSelectionToExistingKnowledgePoint: (...args) => knowledgePointController.attachSelectionToExistingKnowledgePoint(...args),
-    removeKnowledgePointSourceFromCurrentNote: (...args) => knowledgePointController.removeKnowledgePointSourceFromCurrentNote(...args),
-    deleteKnowledgePointFromLibrary: (...args) => knowledgePointController.deleteKnowledgePointFromLibrary(...args),
-    selectKnowledgePointSource: (...args) => knowledgePointController.selectKnowledgePointSource(...args),
+    updateNoteTagDraft: (draft) => {
+      state.noteTagComposer.draft = draft;
+      sidebarController.renderSidebar(helpers.getCurrentNote());
+      const tagInput = globalThis.document?.querySelector('[data-note-tag-input]');
+      tagInput?.focus();
+      tagInput?.setSelectionRange?.(draft.length, draft.length);
+    },
+    deleteAnnotation: (...args) => annotationController.deleteAnnotation(...args),
+    selectAnnotation: (...args) => annotationController.selectAnnotation(...args),
     findOutlineHeadingTarget: (...args) => sidebarController.findOutlineHeadingTarget(...args),
+    toggleOutlineHeading: (...args) => sidebarController.toggleOutlineHeading(...args),
+    jumpToOutlineHeading: (...args) => sidebarController.jumpToOutlineHeading(...args),
 
     saveCurrentEditorScrollPosition: (...args) => scrollController.saveCurrentEditorScrollPosition(...args),
     persistScrollPositions: (...args) => scrollController.persistScrollPositions(...args)
@@ -155,6 +169,8 @@ export function bindAppEvents({
   bindMenuEvents({ state, elements, deps });
   bindFolderTreeEvents({ state, elements, deps });
   bindNoteTabEvents({ state, elements, deps });
+  bindDocumentTitleEvents({ state, elements, deps });
   bindEditorContentEvents({ state, elements, deps });
   bindAsideEvents({ state, elements, deps });
+  bindLibraryIndexEvents({ state, elements, deps });
 }

@@ -43,6 +43,7 @@ assert.match(recycleHtml, /data-recycle-note-id="note-1"/);
 const inlineHtml = renderInlineEditorRow({ level: 1, mode: 'create-folder', value: 'Draft' });
 assert.match(inlineHtml, /data-inline-editor-form/);
 assert.match(inlineHtml, /输入目录名称/);
+assert.match(inlineHtml, /library-inline-action-primary">保存/);
 
 const deleteHtml = renderDeleteIntentRow({ level: 2, kind: 'note', targetId: 'note-1', name: 'Note <One>' });
 assert.match(deleteHtml, /data-delete-confirm="note"/);

@@ -22,9 +22,11 @@ assert.match(html, /data-active="false"/);
 assert.match(html, /aria-label="unknown &lt;module&gt;"/);
 assert.match(html, /rail-item-label">unknown &lt;module&gt;</);
 assert.match(html, /rail-item-icon/);
-assert.match(html, /<svg viewBox="0 0 24 24">/);
+assert.match(html, /phosphor-books-duotone\.svg/);
+assert.doesNotMatch(html, /<svg/);
 
-assert.match(renderRailIcon('settings'), /<svg viewBox="0 0 24 24">/);
+assert.match(renderRailIcon('paper'), /phosphor-exam-duotone\.svg/);
+assert.equal(renderRailIcon('settings'), '');
 assert.equal(renderRailIcon('missing'), '');
 
 console.log('ok - shell rail renderers produce stable module rail markup');

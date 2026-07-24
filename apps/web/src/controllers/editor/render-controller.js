@@ -63,10 +63,10 @@ export function createEditorRenderController(deps, getController) {
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
-    createKnowledgePointFromCurrentSelection,
-    syncKnowledgePointMarkers,
-    getCurrentKnowledgePointSources,
+    createAnnotationFromCurrentSelection,
+    syncAnnotationMarkers,
     flashStatus,
+    formatDate,
     escapeHtml,
     escapeAttribute
   } = deps;

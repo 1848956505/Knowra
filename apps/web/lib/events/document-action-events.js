@@ -18,12 +18,19 @@ export function bindDocumentActionEvents({ state, elements, deps }) {
     submitTableInsertDialog,
     closeTableInsertDialog,
     handleEditorPanelAction,
-    persistDraft
+    persistDraft,
+    handleViewMenuAction
   } = deps;
 
   const documentRef = globalThis.document;
 
   documentRef.addEventListener('click', (event) => {
+    const statusAction = closestFromEventTarget(event.target, '[data-status-action]');
+    if (statusAction?.dataset.statusAction) {
+      void handleViewMenuAction(statusAction.dataset.statusAction);
+      return;
+    }
+
     const tableDialogAction = closestFromEventTarget(event.target, '[data-editor-table-dialog-action]');
     if (tableDialogAction?.dataset.editorTableDialogAction) {
       const action = tableDialogAction.dataset.editorTableDialogAction;

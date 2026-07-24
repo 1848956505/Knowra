@@ -1,4 +1,5 @@
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { normalizeTagColor } from '../theme/runtime-colors.js';
 
 export function renderAsideTabs({ tabs = [], activeKey = null } = {}) {
   return tabs
@@ -43,7 +44,7 @@ export function renderTagPills(tags) {
     .map(
       (tag) => `
         <span class="pill" data-accent="true">
-          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          ${renderTagColorDot(tag.color)}
           ${escapeHtml(tag.name)}
         </span>
       `
@@ -56,7 +57,7 @@ export function renderAssignedTagPills(tags) {
     .map(
       (tag) => `
         <button type="button" class="pill pill-button" data-accent="true" data-note-tag-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
-          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          ${renderTagColorDot(tag.color)}
           <span>${escapeHtml(tag.name)}</span>
           <span class="pill-action" aria-hidden="true">×</span>
         </button>
@@ -70,13 +71,17 @@ export function renderAvailableTagPills(tags) {
     .map(
       (tag) => `
         <button type="button" class="pill pill-button" data-note-tag-add="${escapeAttribute(tag.id)}" title="添加标签：${escapeAttribute(tag.name)}">
-          <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: ${escapeHtml(tag.color || '#3c68ff')};"></span>
+          ${renderTagColorDot(tag.color)}
           <span>${escapeHtml(tag.name)}</span>
           <span class="pill-action" aria-hidden="true">+</span>
         </button>
       `
     )
     .join('');
+}
+
+function renderTagColorDot(color) {
+  return `<span class="tag-color-dot" aria-hidden="true" style="--tag-dot-color: ${escapeAttribute(normalizeTagColor(color))};"></span>`;
 }
 
 export function renderLinkedNotes(linkedNotes) {
@@ -136,6 +141,7 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
               data-attachment-id="${escapeAttribute(attachment.id)}"
               data-attachment-name="${escapeAttribute(attachment.fileName)}"
               data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
+              title="${escapeAttribute(attachment.fileName)}"
             >
               <div class="resource-meta">
                 <strong>${escapeHtml(attachment.fileName)}</strong>

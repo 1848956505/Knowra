@@ -11,70 +11,88 @@ export function renderHtml(initialWorkspaceScript = '') {
 </head>
 <body>
   <div id="app">
-    <div class="workspace-shell app-root">
-      <aside class="icon-rail" aria-label="模块导航">
-        <div class="rail-brand">SA</div>
-        <nav class="rail-actions" id="module-rail"></nav>
-      </aside>
-      <div class="workspace-main">
-        <header class="top-bar">
-          <div class="top-bar-search" id="global-search-shell" aria-label="全局搜索"></div>
-          <button type="button" class="top-bar-user" aria-label="用户入口">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path>
-              <path d="M5.5 19a6.5 6.5 0 0 1 13 0"></path>
-            </svg>
-          </button>
-        </header>
-        <main class="workspace-stage">
-          <div class="kb-workspace" id="kb-workspace" data-left-hidden="false" data-right-hidden="false" data-view-mode="edit">
-            <aside class="kb-sidebar" id="kb-sidebar">
-              <section class="section-card">
-                <div class="library-header">
-                  <span class="library-header-leading">
-                    <svg viewBox="0 0 16 16" aria-hidden="true" class="library-symbol">
-                      <path d="M3 4.5h10"></path>
-                      <path d="M3 8h10"></path>
-                      <path d="M3 11.5h7"></path>
-                    </svg>
-                  </span>
-                  <span class="library-header-label">知识库导航</span>
-                  <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
-                    <svg viewBox="0 0 16 16" aria-hidden="true" class="library-header-toggle-icon">
-                      <circle cx="3" cy="8" r="1.2"></circle>
-                      <circle cx="8" cy="8" r="1.2"></circle>
-                      <circle cx="13" cy="8" r="1.2"></circle>
-                    </svg>
-                  </button>
-                </div>
-                <div class="library-tree" id="folder-tree"></div>
-              </section>
-            </aside>
-            <section class="kb-editor">
-              <div class="note-tabs" id="note-tabs"></div>
-              <div class="editor-menu-bar" id="editor-menu-bar"></div>
-              <section class="editor-shell">
-                <div class="editor-content" id="editor-content" data-source-open="false">
-                  <section class="preview-pane preview-frame">
-                    <div class="pane-body">
-                      <article class="preview-rendered" id="preview-content"></article>
-                    </div>
-                  </section>
-                </div>
-              </section>
-            </section>
-            <aside class="kb-aside" id="kb-aside">
-              <div class="aside-tabs" id="aside-tabs">
-                <button type="button" class="aside-tab" data-aside-tab="info" data-active="true">信息</button>
-                <button type="button" class="aside-tab" data-aside-tab="outline" data-active="false">大纲</button>
-                <button type="button" class="aside-tab" data-aside-tab="concepts" data-active="false">知识点</button>
-                <button type="button" class="aside-tab" data-aside-tab="ai" data-active="false">AI</button>
-              </div>
-              <div class="aside-panel-scroll">
-                <div class="aside-content" id="aside-content"></div>
-              </div>
-            </aside>
+    <div class="workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="index">
+      <aside class="kb-sidebar knowra-rail" id="kb-sidebar" aria-label="资料库导航">
+        <section class="library-directory">
+          <div class="library-label">
+            <button type="button" class="library-home-target" data-library-home="global" aria-label="返回资料索引">
+              <span class="library-mark" aria-hidden="true">
+                <img class="library-mark-icon" src="/styles/icons/phosphor-books-duotone.svg" alt="" />
+              </span>
+              <span class="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
+            </button>
+            <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
+              <svg viewBox="0 0 16 16" aria-hidden="true" class="library-header-toggle-icon">
+                <circle cx="3" cy="8" r="1.2"></circle>
+                <circle cx="8" cy="8" r="1.2"></circle>
+                <circle cx="13" cy="8" r="1.2"></circle>
+              </svg>
+            </button>
           </div>
+          <div class="directory-group-label directory-heading">内容与文件夹</div>
+          <div class="library-tree" id="folder-tree"></div>
+        </section>
+        <nav class="module-switcher" id="module-rail" aria-label="切换产品模块"></nav>
+        <button type="button" class="settings-button" aria-label="设置">
+          <span class="settings-code" aria-hidden="true">SET</span><span>设置</span>
+        </button>
+      </aside>
+
+      <div class="workspace-main">
+        <main class="workspace-stage">
+          <section class="library-index-view" id="library-index-view">
+            <main class="index-workspace">
+              <header class="masthead">
+                <div class="masthead-title"><h1>资料库</h1><span class="masthead-kicker">LIBRARY INDEX</span></div>
+                <div class="scope-summary" id="library-index-scope" aria-live="polite"></div>
+                <button type="button" class="primary-button" data-index-new-note>
+                  <img class="masthead-create-icon" src="/styles/icons/phosphor-plus-bold.svg" alt="" aria-hidden="true" />
+                  <span>新建资料</span>
+                </button>
+              </header>
+              <nav class="content-tabs" id="library-index-tabs" aria-label="资料筛选"></nav>
+              <div class="filter-row">
+                <div class="index-filter-controls" id="library-index-filters"></div>
+                <div class="top-bar-search" id="global-search-shell" aria-label="搜索资料"></div>
+              </div>
+              <div class="library-index-content" id="library-index-content"></div>
+            </main>
+            <aside class="index-inspector" id="library-index-inspector"></aside>
+          </section>
+
+          <section class="editor-workspace-view" id="editor-workspace-view" hidden>
+            <div class="kb-workspace" id="kb-workspace" data-left-hidden="false" data-right-hidden="false" data-view-mode="edit">
+              <section class="kb-editor editor-workspace">
+                <header class="document-tabs">
+                  <button type="button" class="back-index" data-library-home="back" aria-label="返回资料索引">←</button>
+                  <div class="note-tabs" id="note-tabs"></div>
+                  <div class="note-tab-overflow-menu" id="note-tab-overflow-menu" hidden></div>
+                </header>
+                <div class="editor-menu-bar" id="editor-menu-bar"></div>
+                <section class="editor-shell" id="editor-scroll-region">
+                  <div class="editor-document-head" id="editor-document-head"></div>
+                  <div class="editor-content" id="editor-content" data-source-open="false">
+                    <section class="preview-pane preview-frame">
+                      <div class="pane-body">
+                        <article class="preview-rendered" id="preview-content"></article>
+                      </div>
+                    </section>
+                  </div>
+                </section>
+              </section>
+              <aside class="kb-aside editor-inspector" id="kb-aside">
+                <header class="aside-heading">
+                  <div><b>资料边注</b><span>MARGINALIA</span></div>
+                  <button type="button" data-editor-aside-toggle aria-label="收起资料边注">›</button>
+                </header>
+                <div class="aside-tabs" id="aside-tabs"></div>
+                <div class="aside-panel-scroll">
+                  <div class="aside-content" id="aside-content"></div>
+                </div>
+              </aside>
+              <button type="button" class="reopen-panel editor-reopen" id="editor-aside-reopen" data-editor-aside-toggle hidden>侧栏</button>
+            </div>
+          </section>
         </main>
         <footer class="status-bar">
           <div class="status-group" id="status-indicators"></div>

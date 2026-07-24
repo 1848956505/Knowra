@@ -1,3 +1,5 @@
+import { escapeHtml } from '../../src/app/formatting.js';
+
 function normalizeExistingTitles(items) {
   return new Set((items ?? []).map((item) => String(item ?? '').trim()).filter(Boolean));
 }
@@ -119,15 +121,6 @@ export function getMarkdownImportStatusMessage(importedItems, firstImported = nu
   return importedItems.length > 1
     ? `已导入 ${importedItems.length} 个 Markdown 文件`
     : `已导入 Markdown 笔记：${firstImported?.title ?? importedItems[0]?.title ?? ''}`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function renderExportStyles({ rich = false } = {}) {

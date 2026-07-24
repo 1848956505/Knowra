@@ -1,3 +1,5 @@
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+
 export function normalizeTableDialogValue(value, fallback) {
   const parsed = Number.parseInt(String(value ?? '').trim(), 10);
   if (!Number.isFinite(parsed)) {
@@ -46,17 +48,4 @@ export function renderTableInsertDialogMarkup({ rows = '4', cols = '3' } = {}) {
       </div>
     </div>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#096;');
 }

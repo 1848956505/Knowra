@@ -16,7 +16,7 @@ function createTrackedController(methodNames, calls, controllerName) {
 const expectedMethods = {
   scrollController: ['saveCurrentEditorScrollPosition', 'restoreEditorScrollPosition'],
   workspaceController: ['startWorkspaceLoad', 'refreshKnowledgeData'],
-  sidebarController: ['renderSidebar', 'findOutlineHeadingTarget'],
+  sidebarController: ['renderSidebar', 'findOutlineHeadingTarget', 'toggleOutlineHeading', 'jumpToOutlineHeading'],
   shellController: ['renderAll', 'renderStatus'],
   searchController: ['renderSearchShell', 'toggleSearchTagFilter'],
   navigationController: ['renderFolders', 'selectNote'],

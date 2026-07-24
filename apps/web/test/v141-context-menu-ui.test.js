@@ -61,9 +61,10 @@ assert.match(
 );
 assert.match(
   editorContextModelJs,
-  /EDITOR_CONTEXT_PARAGRAPH_ITEMS = \[[\s\S]*paragraph[\s\S]*heading-1[\s\S]*heading-2[\s\S]*heading-3[\s\S]*heading-4[\s\S]*heading-5[\s\S]*heading-6[\s\S]*\];/,
-  'paragraph submenu should expose H0-H6 entries'
+  /EDITOR_CONTEXT_PARAGRAPH_ITEMS = \[[\s\S]*paragraph[\s\S]*heading-1[\s\S]*heading-2[\s\S]*heading-3[\s\S]*heading-4[\s\S]*\];/,
+  'paragraph submenu should expose H0-H4 entries'
 );
+assert.doesNotMatch(editorContextModelJs, /'heading-5'|'heading-6'/, 'context menus should remove H5 and H6');
 assert.match(
   editorContextModelJs,
   /EDITOR_CONTEXT_INSERT_ITEMS = \[[\s\S]*hr[\s\S]*image[\s\S]*codeblock[\s\S]*quote[\s\S]*paragraph-above[\s\S]*paragraph-below[\s\S]*\];/,

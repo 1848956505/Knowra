@@ -23,7 +23,8 @@ export function bindMenuEvents({ state, elements, deps }) {
     handleEditMenuAction,
     handleParagraphMenuAction,
     handleFormatMenuAction,
-    handleViewMenuAction
+    handleViewMenuAction,
+    handleFormat
   } = deps;
 
   elements.contextMenu?.addEventListener('click', (event) => {
@@ -59,6 +60,12 @@ export function bindMenuEvents({ state, elements, deps }) {
     const fileAction = closestFromEventTarget(event.target, '[data-file-menu-action]');
     if (fileAction?.dataset.fileMenuAction) {
       void handleFileMenuAction(fileAction.dataset.fileMenuAction);
+      return;
+    }
+
+    const quickFormat = closestFromEventTarget(event.target, '[data-format]');
+    if (quickFormat?.dataset.format) {
+      void handleFormat(quickFormat.dataset.format);
       return;
     }
 

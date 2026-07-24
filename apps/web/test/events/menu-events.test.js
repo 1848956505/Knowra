@@ -102,7 +102,8 @@ function makeDeps() {
     handleEditMenuAction: async () => {},
     handleParagraphMenuAction: async () => {},
     handleFormatMenuAction: async () => {},
-    handleViewMenuAction: async () => {}
+    handleViewMenuAction: async () => {},
+    handleFormat: async () => {}
   };
 }
 
@@ -241,6 +242,22 @@ runTest('editorMenuBar: format menu action dispatches handleFormatMenuAction and
 
   assert.equal(formatArg, 'bold');
   assert.equal(viewArg, null);
+});
+
+runTest('editorMenuBar: quick format buttons dispatch inside the stopped event boundary', async () => {
+  const { elements, listeners } = makeElements();
+  const { bindMenuEvents } = await import('../../lib/events/menu-events.js');
+  let formatArg = null;
+  const deps = makeDeps();
+  deps.handleFormat = async (action) => { formatArg = action; };
+
+  bindMenuEvents({ state: makeState(), elements, deps });
+
+  const target = { dataset: { format: 'bold' } };
+  target.closest = makeClosest(new Map([['[data-format]', target]]));
+  listeners.editorMenuBar.get('click')({ target, stopPropagation() {} });
+
+  assert.equal(formatArg, 'bold');
 });
 
 // 串行执行所有测试用例。

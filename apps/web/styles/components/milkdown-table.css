@@ -1,6 +1,6 @@
-﻿.milkdown-host .milkdown-table-block {
+.milkdown-host .milkdown-table-block {
   position: relative;
-  margin: 1.4rem 0;
+  margin: var(--space-6) 0;
   overflow: visible;
 }
 
@@ -17,14 +17,22 @@
 .milkdown-host .milkdown-table-block .cell-handle {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid rgba(60, 104, 255, 0.18);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.98);
-  color: #4d5d79;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  border: var(--border-thin) solid var(--line);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  color: var(--blue);
+  box-shadow: var(--shadow-editorial);
   cursor: pointer;
+}
+
+.milkdown-host .milkdown-table-block .cell-handle:hover,
+.milkdown-host .milkdown-table-block .cell-handle:focus-visible {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--color-on-accent);
+  outline: none;
 }
 
 .milkdown-host .milkdown-table-block .cell-handle[data-show='false'],
@@ -53,19 +61,20 @@
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px;
-  border: 1px solid rgba(60, 104, 255, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-thin) solid var(--line);
+  border-top: var(--border-accent) solid var(--blue);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-editorial);
   transition: opacity 120ms ease;
   z-index: 8;
   white-space: nowrap;
 }
 
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group {
-  left: calc(100% + 8px);
+  left: calc(100% + var(--space-2));
   top: 50%;
   transform: translateY(-50%);
   transform-origin: left center;
@@ -73,7 +82,7 @@
 
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] .button-group {
   left: 0;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--space-2));
   transform: none;
   transform-origin: left top;
 }
@@ -81,6 +90,26 @@
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'],
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] {
   overflow: visible;
+}
+
+.milkdown-host .milkdown-table-block [data-role='row-drag-handle']::after,
+.milkdown-host .milkdown-table-block [data-role='col-drag-handle']::after {
+  position: absolute;
+  content: '';
+}
+
+.milkdown-host .milkdown-table-block [data-role='row-drag-handle']::after {
+  top: 0;
+  left: 100%;
+  width: var(--space-2);
+  height: 100%;
+}
+
+.milkdown-host .milkdown-table-block [data-role='col-drag-handle']::after {
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: var(--space-2);
 }
 
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group[data-show='true'],
@@ -96,31 +125,33 @@
 
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group button[data-table-pinned-action],
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] .button-group button[data-table-pinned-action] {
-  color: #1d4ed8;
-  background: rgba(29, 78, 216, 0.1);
+  color: var(--blue-dark);
+  background: var(--blue-wash);
 }
 
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group button[data-table-pinned-action]:hover,
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] .button-group button[data-table-pinned-action]:hover {
-  border-color: rgba(29, 78, 216, 0.18);
-  background: rgba(29, 78, 216, 0.16);
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--color-on-accent);
 }
 
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group button[data-table-pinned-danger='true'],
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] .button-group button[data-table-pinned-danger='true'] {
-  color: #c2410c;
-  background: rgba(194, 65, 12, 0.1);
+  color: var(--color-danger);
+  background: var(--paper-muted);
 }
 
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group button[data-table-pinned-danger='true']:hover,
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] .button-group button[data-table-pinned-danger='true']:hover {
-  border-color: rgba(194, 65, 12, 0.22);
-  background: rgba(194, 65, 12, 0.16);
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-on-accent);
 }
 
 .milkdown-host .milkdown-table-block svg {
-  width: 16px;
-  height: 16px;
+  width: var(--space-4);
+  height: var(--space-4);
   stroke: currentColor;
   stroke-width: 1.6;
   stroke-linecap: round;
@@ -132,34 +163,38 @@
 .milkdown-host .milkdown-table-block .add-button {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: rgba(60, 104, 255, 0.08);
-  color: #3c68ff;
+  border: var(--border-thin) solid var(--line-soft);
+  border-radius: var(--radius-none);
+  background: var(--paper-muted);
+  color: var(--blue);
   cursor: pointer;
 }
 
 .milkdown-host .milkdown-table-block .button-group button:hover,
-.milkdown-host .milkdown-table-block .add-button:hover {
-  border-color: rgba(60, 104, 255, 0.18);
-  background: rgba(60, 104, 255, 0.14);
+.milkdown-host .milkdown-table-block .button-group button:focus-visible,
+.milkdown-host .milkdown-table-block .add-button:hover,
+.milkdown-host .milkdown-table-block .add-button:focus-visible {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--color-on-accent);
+  outline: none;
 }
 
 .milkdown-host .milkdown-table-block .button-group button[disabled] {
   cursor: not-allowed;
-  opacity: 0.38;
-  border-color: transparent !important;
-  background: rgba(148, 163, 184, 0.14) !important;
-  color: rgba(71, 85, 105, 0.52) !important;
+  opacity: 0.55;
+  border-color: var(--line-soft) !important;
+  background: var(--paper-muted) !important;
+  color: var(--muted-soft) !important;
   pointer-events: auto;
 }
 
 .milkdown-host .milkdown-table-block .button-group button[disabled]:hover {
-  border-color: transparent !important;
-  background: rgba(148, 163, 184, 0.14) !important;
+  border-color: var(--line-soft) !important;
+  background: var(--paper-muted) !important;
 }
 
 .milkdown-host .milkdown-table-block .button-group button[data-table-builtin-delete='true'] {
@@ -181,5 +216,5 @@
   width: 100%;
   height: 100%;
   border-collapse: collapse;
-  background: rgba(60, 104, 255, 0.08);
+  background: var(--blue-wash);
 }

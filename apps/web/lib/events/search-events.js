@@ -67,6 +67,7 @@ export function bindSearchEvents({ state, elements, deps }) {
 
     state.search.keyword = input.value.trim().toLowerCase();
     state.search.isOpen = true;
+    if (state.libraryIndex) state.libraryIndex.page = 1;
     reconcileSelection();
     renderAll();
   });

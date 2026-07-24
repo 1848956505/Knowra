@@ -37,15 +37,15 @@
 }
 
 .library-tree-icon-pdf {
-  color: #cb4b32;
+  color: var(--color-danger);
 }
 
 .library-tree-icon-markdown {
-  color: #2457d6;
+  color: var(--color-accent);
 }
 
 .library-tree-icon-resource {
-  color: #6b7280;
+  color: var(--color-text-soft);
 }
 
 .library-chevron {
@@ -125,7 +125,7 @@
 
 .library-inline-action-danger {
   background: rgba(214, 65, 65, 0.12);
-  color: #9a2b2b;
+  color: var(--color-danger);
 }
 
 .library-inline-action-danger:hover {

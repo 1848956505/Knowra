@@ -5,10 +5,12 @@ import {
 } from '../../lib/editor/tab-workspace.js';
 import {
   renderEmptyNoteTabs,
-  renderNoteTabs as renderNoteTabsMarkup
+  renderNoteTabs as renderNoteTabsMarkup,
+  renderTabOverflowToggle
 } from '../../lib/editor/tab-renderers.js';
 import { renderNoteTabMenuItems } from '../../lib/editor/tab-menu-renderers.js';
 import { writeClipboardText } from '../../lib/browser/clipboard.js';
+import { createTabOverflowController } from './tab/overflow-controller.js';
 
 export function createTabController(deps) {
   const {
@@ -33,21 +35,32 @@ function renderTabs() {
     .filter(Boolean);
 
   if (openNotes.length === 0) {
+    state.tabOverflowMenuOpen = false;
     elements.noteTabs.innerHTML = renderEmptyNoteTabs();
     renderTabMenu();
+    overflowController.renderMenu([]);
     return;
   }
 
+  const { visibleNotes, overflowNotes } = overflowController.resolve(openNotes);
+  if (!overflowNotes.length) {
+    state.tabOverflowMenuOpen = false;
+  }
+
   elements.noteTabs.innerHTML = renderNoteTabsMarkup({
-    notes: openNotes,
+    notes: visibleNotes,
     selectedNoteId: state.selectedNoteId,
     saveState: state.saveState,
     tabDragState: state.tabDragState,
     foldersById: state.foldersById,
     buildNoteTabPath
+  }) + renderTabOverflowToggle({
+    count: overflowNotes.length,
+    open: state.tabOverflowMenuOpen
   });
 
   renderTabMenu();
+  overflowController.renderMenu(overflowNotes);
   syncTabDragIndicators();
   persistBackendCache();
 }
@@ -149,6 +162,7 @@ async function handleTabClose(noteId) {
     await persistDraft({ immediate: true });
     state.selectedNoteId = null;
     state.draftMarkdown = '';
+    state.draftTitle = '';
     state.linkedNotes = [];
     state.attachments = [];
     renderAll();
@@ -188,9 +202,22 @@ function syncTabDragIndicators() {
   });
 }
 
+  const overflowController = createTabOverflowController({
+    state,
+    elements,
+    closeContextMenu,
+    closeSectionMenu,
+    closeTabMenu,
+    renderTabs,
+    selectNote
+  });
+
   return {
     renderTabs,
     renderTabMenu,
+    toggleTabOverflowMenu: overflowController.toggle,
+    closeTabOverflowMenu: overflowController.close,
+    selectOverflowTab: overflowController.select,
     openTabMenu,
     closeTabMenu,
     handleTabMenuAction,

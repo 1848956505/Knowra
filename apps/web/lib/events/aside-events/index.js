@@ -2,10 +2,10 @@
 // 侧栏（elements.asideTabs / elements.asideContent）事件绑定的桶入口。
 // 拆分依据：
 //   - asideTabs.click      切换侧栏 tab（asideTab 状态机）
-//   - asideContent.click   派发 15 个 [data-*] 按钮分支，覆盖标签、
+//   - asideContent.click   派发侧栏 [data-*] 按钮分支，覆盖标签、
 //                          知识点（filter / toggle / edit / attach /
 //                          source-remove / delete / source-jump）和
-//                          大纲跳转
+//                          大纲跳转与分级折叠
 //   - asideContent.input   同步侧栏内 4 类输入（知识点过滤 / 编辑表单 /
 //                          挂载搜索 / 标签 composer）
 //   - asideContent.submit  派发知识点编辑表单的提交

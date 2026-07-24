@@ -24,8 +24,11 @@ export function openFolderBranch({ openFolders = {}, foldersById = {}, folderId 
 }
 
 export function buildFolderPath({ folderId = null, foldersById = {}, rootLabel = '资料', emptyLabel = '未分类' } = {}) {
+  const rootSegment = String(rootLabel ?? '').trim();
+  const emptySegment = String(emptyLabel ?? '').trim();
+
   if (!folderId) {
-    return `${rootLabel} / ${emptyLabel}`;
+    return [rootSegment, emptySegment].filter(Boolean).join(' / ');
   }
 
   const segments = [];
@@ -36,7 +39,26 @@ export function buildFolderPath({ folderId = null, foldersById = {}, rootLabel =
     currentFolder = currentFolder.parentId ? foldersById[currentFolder.parentId] ?? null : null;
   }
 
-  return segments.length ? `${rootLabel} / ${segments.join(' / ')}` : `${rootLabel} / ${emptyLabel}`;
+  if (!segments.length) {
+    return [rootSegment, emptySegment].filter(Boolean).join(' / ');
+  }
+
+  return [rootSegment, ...segments].filter(Boolean).join(' / ');
+}
+
+export function buildNotePath({ note = null, foldersById = {}, rootLabel = '资料库' } = {}) {
+  if (!note) {
+    return '';
+  }
+
+  const folderPath = buildFolderPath({
+    folderId: note.folderId,
+    foldersById,
+    rootLabel: '',
+    emptyLabel: ''
+  });
+  const noteTitle = String(note.title ?? '').trim();
+  return [String(rootLabel ?? '').trim(), folderPath, noteTitle].filter(Boolean).join(' / ');
 }
 
 export function resolveNavigationSelection({
@@ -59,6 +81,7 @@ export function resolveNavigationSelection({
       selectedNoteId: null,
       openNoteTabs: [],
       draftMarkdown: '',
+      draftTitle: '',
       noteTagDraft: '',
       saveState: 'idle',
       lastSavedAt: null,
@@ -76,6 +99,7 @@ export function resolveNavigationSelection({
     selectedNoteId: selectedNote?.id ?? null,
     openNoteTabs: ensureOpenTab(filteredTabs, selectedNote?.id ?? null),
     draftMarkdown: selectedNote?.rawMarkdown ?? '',
+    draftTitle: selectedNote?.title ?? '',
     noteTagDraft: currentNoteStillVisible ? undefined : '',
     saveState: selectedNote ? 'saved' : 'idle',
     lastSavedAt: selectedNote?.updatedAt ?? null,
@@ -95,6 +119,7 @@ export function resolveFolderSelection({
       selectedNoteId: null,
       openNoteTabs,
       draftMarkdown: '',
+      draftTitle: '',
       shouldClearSideData: true,
       shouldLoadSideData: false
     };
@@ -117,6 +142,7 @@ export function resolveFolderSelection({
     selectedNoteId: nextNote.id,
     openNoteTabs: ensureOpenTab(openNoteTabs, nextNote.id),
     draftMarkdown: nextNote.rawMarkdown ?? '',
+    draftTitle: nextNote.title ?? '',
     shouldClearSideData: false,
     shouldLoadSideData: true
   };

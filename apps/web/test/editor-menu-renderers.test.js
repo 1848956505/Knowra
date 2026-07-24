@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  EDITOR_MENU_ITEMS,
+  EDIT_MENU_ITEMS,
   FORMAT_MENU_ITEMS,
   PARAGRAPH_MENU_ITEMS,
   renderEditorMenuBarMarkup,
@@ -66,8 +66,10 @@ assert.match(
   'file actions requiring a note should be disabled without a current note'
 );
 
-assert.ok(EDITOR_MENU_ITEMS.some((item) => item.key === 'find'));
-assert.ok(PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-6'));
+assert.ok(EDIT_MENU_ITEMS.some((item) => item.key === 'find'));
+assert.ok(PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-4'));
+assert.ok(!PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-5'));
+assert.ok(!PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-6'));
 assert.ok(FORMAT_MENU_ITEMS.some((item) => item.key === 'highlight'));
 assert.doesNotMatch(fileMenuBar, /data-format-quick-action/, 'editor menu bar should not render the removed quick action buttons');
 assert.ok(

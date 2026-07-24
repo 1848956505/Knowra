@@ -6,7 +6,7 @@ import { extractMarkdownHeadings, renderMarkdownPreview } from '../lib/markdown.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const sidebarControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/sidebar-controller.js'), 'utf8');
+const outlineControllerJs = fs.readFileSync(path.resolve(__dirname, '../src/controllers/sidebar/outline-controller.js'), 'utf8');
 const outlinePanelJs = fs.readFileSync(path.resolve(__dirname, '../lib/sidebar/outline-panel.js'), 'utf8');
 
 const headings = extractMarkdownHeadings(`# 一级
@@ -18,8 +18,8 @@ const headings = extractMarkdownHeadings(`# 一级
 
 assert.deepEqual(
   headings.map((heading) => heading.level),
-  [1, 2, 3, 4, 5, 6],
-  'outline extraction should include H1 through H6 so every editor heading can appear in the right rail'
+  [1, 2, 3, 4],
+  'outline extraction should expose only the supported H1 through H4 hierarchy'
 );
 
 const duplicateHeadings = extractMarkdownHeadings(`# 重复标题
@@ -46,12 +46,12 @@ assert.match(
 assert.match(
   previewHtml,
   /<h5 id="[^"]+">五级标题<\/h5>/,
-  'markdown preview should render H5 headings with anchor ids for outline jumps'
+  'markdown preview should preserve legacy H5 content without exposing a creation control'
 );
 assert.match(
   previewHtml,
   /<h6 id="[^"]+">六级标题<\/h6>/,
-  'markdown preview should render H6 headings with anchor ids for outline jumps'
+  'markdown preview should preserve legacy H6 content without exposing a creation control'
 );
 
 assert.match(
@@ -65,9 +65,9 @@ assert.match(
   'outline items with child headings should expose a dedicated collapse toggle'
 );
 assert.match(
-  sidebarControllerJs,
-  /querySelectorAll\('h1, h2, h3, h4, h5, h6'\)/,
-  'outline click handling should inspect rendered heading elements instead of relying on preview-only ids'
+  outlineControllerJs,
+  /querySelectorAll\('h1, h2, h3, h4'\)/,
+  'outline click handling should inspect only the supported H1-H4 elements'
 );
 
 console.log('ok - V1.4.3 outline navigation supports full heading ranges and stable jumps');
