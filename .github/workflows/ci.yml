@@ -41,8 +41,10 @@ jobs:
       - name: Check changed-file whitespace
         shell: bash
         run: |
-          if [[ -n "${{ github.base_ref }}" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             git diff --check "origin/${{ github.base_ref }}...HEAD"
+          elif [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --check "${{ github.event.before }}...${{ github.sha }}"
           else
             git diff-tree --check --no-commit-id -r HEAD
           fi
