@@ -23,172 +23,169 @@ export function createNavigationNoteCommandController(deps, getController) {
     syncLocalWorkspace
   } = deps;
 
+async function runNoteMutation({
+  apiMutation,
+  localMutation,
+  afterMutation
+}) {
+  const isApi = state.dataMode === 'api';
+  const result = isApi
+    ? await apiMutation()
+    : localMutation();
+
+  await afterMutation?.({ result, isApi });
+
+  if (isApi) {
+    await refreshKnowledgeData();
+    await loadCurrentNoteSideData();
+    renderAll();
+  } else {
+    syncLocalWorkspace();
+  }
+
+  return result;
+}
+
 async function createNote(folderId, title) {
-  if (state.dataMode === 'api') {
-    const created = await knowledgeApi.createNote({
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.createNote({
       title,
       rawMarkdown: '',
       folderId,
       spaceId: state.currentSpaceId,
       sourceType: 'manual',
       status: 'draft'
-    });
-
-    state.selectedNoteId = created.id;
-    state.libraryIndex.selectedNoteId = created.id;
-    state.view.screen = 'editor';
-    state.selectedFolderId = folderId ?? null;
-    if (folderId) {
-      getController().openFolderBranch(folderId);
+    }),
+    localMutation: () => {
+      const nextNote = createLocalManualNoteInput({
+        title,
+        folderId,
+        spaceId: state.currentSpaceId
+      });
+      state.allNotes = insertLocalNote(state.allNotes, nextNote);
+      return nextNote;
+    },
+    afterMutation: ({ result: created }) => {
+      state.selectedNoteId = created.id;
+      state.libraryIndex.selectedNoteId = created.id;
+      state.view.screen = 'editor';
+      state.selectedFolderId = folderId ?? null;
+      if (folderId) {
+        getController().openFolderBranch(folderId);
+      }
     }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  const nextNote = createLocalManualNoteInput({
-    title,
-    folderId,
-    spaceId: state.currentSpaceId
   });
-  state.allNotes = insertLocalNote(state.allNotes, nextNote);
-  state.selectedNoteId = nextNote.id;
-  state.libraryIndex.selectedNoteId = nextNote.id;
-  state.view.screen = 'editor';
-  state.selectedFolderId = folderId ?? null;
-  if (folderId) {
-    getController().openFolderBranch(folderId);
-  }
-  syncLocalWorkspace();
 }
 
 async function renameNote(noteId, title) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.updateNote(noteId, { title });
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = renameLocalNote(state.allNotes, noteId, title);
-  syncLocalWorkspace();
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.updateNote(noteId, { title }),
+    localMutation: () => {
+      state.allNotes = renameLocalNote(state.allNotes, noteId, title);
+    }
+  });
 }
 
 async function deleteNote(noteId) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.deleteNote(noteId);
-    if (state.selectedNoteId === noteId) {
-      state.selectedNoteId = null;
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.deleteNote(noteId),
+    localMutation: () => {
+      state.allNotes = softDeleteLocalNote(state.allNotes, noteId);
+    },
+    afterMutation: () => {
+      if (state.selectedNoteId === noteId) {
+        state.selectedNoteId = null;
+      }
+      state.libraryIndex.selectedNoteId = noteId;
+      state.libraryIndex.tab = 'recycle';
+      state.view.screen = 'index';
     }
-    state.libraryIndex.selectedNoteId = noteId;
-    state.libraryIndex.tab = 'recycle';
-    state.view.screen = 'index';
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = softDeleteLocalNote(state.allNotes, noteId);
-  if (state.selectedNoteId === noteId) {
-    state.selectedNoteId = null;
-  }
-  state.libraryIndex.selectedNoteId = noteId;
-  state.libraryIndex.tab = 'recycle';
-  state.view.screen = 'index';
-  syncLocalWorkspace();
+  });
 }
 
 async function permanentlyDeleteNote(noteId) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.permanentlyDeleteNote(noteId);
-    if (state.selectedNoteId === noteId) {
-      state.selectedNoteId = null;
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.permanentlyDeleteNote(noteId),
+    localMutation: () => {
+      state.allNotes = permanentlyDeleteLocalNote(state.allNotes, noteId);
+    },
+    afterMutation: () => {
+      if (state.selectedNoteId === noteId) {
+        state.selectedNoteId = null;
+      }
     }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = permanentlyDeleteLocalNote(state.allNotes, noteId);
-  if (state.selectedNoteId === noteId) {
-    state.selectedNoteId = null;
-  }
-  syncLocalWorkspace();
+  });
 }
 
 async function restoreNote(noteId) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.restoreNote(noteId);
-    if (state.selectedNoteId === noteId) {
-      state.selectedNoteId = null;
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.restoreNote(noteId),
+    localMutation: () => {
+      state.allNotes = restoreLocalNote(state.allNotes, noteId);
+    },
+    afterMutation: ({ isApi }) => {
+      if (isApi && state.selectedNoteId === noteId) {
+        state.selectedNoteId = null;
+      }
     }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = restoreLocalNote(state.allNotes, noteId);
-  syncLocalWorkspace();
+  });
 }
 
 async function emptyRecycleBin() {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.emptyRecycleBin(state.currentSpaceId);
-    if (state.selectedNoteId && getNoteById(state.selectedNoteId)?.deleted) {
-      state.selectedNoteId = null;
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.emptyRecycleBin(state.currentSpaceId),
+    localMutation: () => {
+      state.allNotes = emptyLocalRecycleBin(state.allNotes);
+    },
+    afterMutation: ({ isApi }) => {
+      const selectedNote = state.selectedNoteId
+        ? getNoteById(state.selectedNoteId)
+        : null;
+      const shouldClearSelection = isApi
+        ? selectedNote?.deleted
+        : state.selectedNoteId && !selectedNote;
+      if (shouldClearSelection) {
+        state.selectedNoteId = null;
+      }
     }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = emptyLocalRecycleBin(state.allNotes);
-  if (state.selectedNoteId && !getNoteById(state.selectedNoteId)) {
-    state.selectedNoteId = null;
-  }
-  syncLocalWorkspace();
+  });
 }
 
 async function setNoteFavorite(noteId, favorite) {
-  if (state.dataMode === 'api') {
-    await knowledgeApi.setNoteFavorite(noteId, favorite);
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = setLocalNoteFavorite(state.allNotes, noteId, favorite);
-  syncLocalWorkspace();
+  return runNoteMutation({
+    apiMutation: () => knowledgeApi.setNoteFavorite(noteId, favorite),
+    localMutation: () => {
+      state.allNotes = setLocalNoteFavorite(
+        state.allNotes,
+        noteId,
+        favorite
+      );
+    }
+  });
 }
 
 async function moveNote(noteId, nextFolderId) {
-  if (state.dataMode === 'api') {
-    const note = state.allNotes.find((item) => item.id === noteId);
-    await knowledgeApi.updateNote(noteId, {
-      title: note?.title,
-      folderId: nextFolderId
-    });
-    if (nextFolderId) {
-      getController().openFolderBranch(nextFolderId);
+  return runNoteMutation({
+    apiMutation: () => {
+      const note = state.allNotes.find((item) => item.id === noteId);
+      return knowledgeApi.updateNote(noteId, {
+        title: note?.title,
+        folderId: nextFolderId
+      });
+    },
+    localMutation: () => {
+      state.allNotes = moveLocalNoteToFolder(
+        state.allNotes,
+        noteId,
+        nextFolderId
+      );
+    },
+    afterMutation: () => {
+      if (nextFolderId) {
+        getController().openFolderBranch(nextFolderId);
+      }
     }
-    await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
-    return;
-  }
-
-  state.allNotes = moveLocalNoteToFolder(state.allNotes, noteId, nextFolderId);
-  if (nextFolderId) {
-    getController().openFolderBranch(nextFolderId);
-  }
-  syncLocalWorkspace();
+  });
 }
 
 async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {}) {

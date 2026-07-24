@@ -1,6 +1,6 @@
 {
   "name": "study-accelerator",
-  "version": "2.4.2",
+  "version": "2.5.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -11,9 +11,10 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "npm run test:api && npm run test:web",
+    "test": "npm run test:api && npm run test:web && npm run test:scripts",
     "test:api": "node apps/api/test/run-tests.js",
     "test:web": "npm test -w @study-accelerator/web",
+    "test:scripts": "node --test scripts/test/*.test.js",
     "dev:web": "npm run dev -w @study-accelerator/web",
     "dev:api": "npm run dev -w @study-accelerator/api",
     "start:api": "npm run dev -w @study-accelerator/api",

@@ -15,6 +15,7 @@ export function createAppControllers({
   editorRuntime,
   knowledgeApi,
   constants,
+  controllerActions,
   helpers
 }) {
   const scrollController = createEditorScrollController({
@@ -76,8 +77,6 @@ export function createAppControllers({
     saveCurrentEditorScrollPosition: helpers.saveCurrentEditorScrollPosition
   });
 
-  let navigationController = null;
-
   const editorController = createEditorController({
     state,
     elements,
@@ -85,11 +84,11 @@ export function createAppControllers({
     knowledgeApi,
     autosaveDelayMs: constants.autosaveDelayMs,
     getCurrentNote: helpers.getCurrentNote,
-    createNote: (...args) => navigationController.createNote(...args),
-    startTreeEditor: (...args) => navigationController.startTreeEditor(...args),
-    setNoteFavorite: (...args) => navigationController.setNoteFavorite(...args),
-    deleteNote: (...args) => navigationController.deleteNote(...args),
-    restoreNote: (...args) => navigationController.restoreNote(...args),
+    createNote: controllerActions.createNote,
+    startTreeEditor: controllerActions.startTreeEditor,
+    setNoteFavorite: controllerActions.setNoteFavorite,
+    deleteNote: controllerActions.deleteNote,
+    restoreNote: controllerActions.restoreNote,
     getEffectiveViewState: helpers.getEffectiveViewState,
     renderAll: helpers.renderAll,
     renderTabs: helpers.renderTabs,
@@ -113,7 +112,7 @@ export function createAppControllers({
     escapeAttribute: helpers.escapeAttribute
   });
 
-  navigationController = createNavigationController({
+  const navigationController = createNavigationController({
     state,
     elements,
     knowledgeApi,
@@ -137,8 +136,8 @@ export function createAppControllers({
     copyAttachmentLink: (...args) => sidebarController.copyAttachmentLink(...args),
     deleteAttachment: (...args) => sidebarController.deleteAttachment(...args),
     startAttachmentRename: (...args) => sidebarController.startAttachmentRename(...args),
-    insertAttachmentAtCursor: (...args) => editorController.insertAttachmentAtCursor(...args),
-    removeAttachmentFromCurrentNote: (...args) => editorController.removeAttachmentFromCurrentNote(...args),
+    insertAttachmentAtCursor: controllerActions.insertAttachmentAtCursor,
+    removeAttachmentFromCurrentNote: controllerActions.removeAttachmentFromCurrentNote,
     escapeHtml: helpers.escapeHtml
   });
 

@@ -1,3 +1,4 @@
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 const DIRTY_SAVE_STATES = new Set(['pending', 'saving', 'error']);
 
 export function renderEmptyNoteTabs() {
@@ -78,17 +79,4 @@ export function renderTabOverflowMenu({ notes, selectedNoteId, foldersById, buil
       <small>${note.id === selectedNoteId ? '当前' : '打开'}</small>
     </button>
   `).join('');
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value);
 }

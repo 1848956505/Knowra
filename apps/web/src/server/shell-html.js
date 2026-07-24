@@ -16,7 +16,9 @@ export function renderHtml(initialWorkspaceScript = '') {
         <section class="library-directory">
           <div class="library-label">
             <button type="button" class="library-home-target" data-library-home="global" aria-label="返回资料索引">
-              <b class="library-id">01</b>
+              <span class="library-mark" aria-hidden="true">
+                <img class="library-mark-icon" src="/styles/icons/phosphor-books-duotone.svg" alt="" />
+              </span>
               <span class="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
             </button>
             <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
@@ -27,7 +29,7 @@ export function renderHtml(initialWorkspaceScript = '') {
               </svg>
             </button>
           </div>
-          <div class="directory-group-label directory-heading">内容与文件夹　CONTENT &amp; FOLDERS</div>
+          <div class="directory-group-label directory-heading">内容与文件夹</div>
           <div class="library-tree" id="folder-tree"></div>
         </section>
         <nav class="module-switcher" id="module-rail" aria-label="切换产品模块"></nav>
@@ -41,9 +43,12 @@ export function renderHtml(initialWorkspaceScript = '') {
           <section class="library-index-view" id="library-index-view">
             <main class="index-workspace">
               <header class="masthead">
-                <div class="masthead-title"><h1>资料库</h1><p>LIBRARY INDEX</p></div>
-                <div class="scope-summary" id="library-index-scope"></div>
-                <button type="button" class="primary-button" data-index-new-note>＋ 新建资料</button>
+                <div class="masthead-title"><h1>资料库</h1><span class="masthead-kicker">LIBRARY INDEX</span></div>
+                <div class="scope-summary" id="library-index-scope" aria-live="polite"></div>
+                <button type="button" class="primary-button" data-index-new-note>
+                  <img class="masthead-create-icon" src="/styles/icons/phosphor-plus-bold.svg" alt="" aria-hidden="true" />
+                  <span>新建资料</span>
+                </button>
               </header>
               <nav class="content-tabs" id="library-index-tabs" aria-label="资料筛选"></nav>
               <div class="filter-row">

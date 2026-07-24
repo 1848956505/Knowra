@@ -5,6 +5,20 @@ import path from 'node:path';
 
 export const localAttachmentStoreTests = [
   {
+    name: 'attachment ids use UUID entropy instead of timestamp and Math.random fragments',
+    async run() {
+      const { createAttachmentId } = await import('../src/infrastructure/local-attachment-store-utils.js');
+      const firstId = createAttachmentId();
+      const secondId = createAttachmentId();
+
+      assert.match(
+        firstId,
+        /^attachment-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      );
+      assert.notEqual(firstId, secondId);
+    }
+  },
+  {
     name: 'local attachment store uploads and lists note attachments',
     async run() {
       const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');

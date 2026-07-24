@@ -1,10 +1,9 @@
+import { createAppError } from '../errors/app-error.js';
+
 const DEFAULT_JSON_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
 
 function createRequestError(message, statusCode = 400, code = 'VALIDATION_ERROR') {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  error.code = code;
-  return error;
+  return createAppError(code, message, statusCode);
 }
 
 export function parseBody(request, { limitBytes = DEFAULT_JSON_BODY_LIMIT_BYTES } = {}) {

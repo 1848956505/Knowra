@@ -2,6 +2,29 @@
 // 保留 React 容器，仅做静态展示与状态模拟，不接真实后端与 Milkdown。
 
 import { useState } from 'react';
+import {
+  ArrowsClockwise,
+  ArrowSquareOut,
+  Atom,
+  BookBookmark,
+  BookOpenText,
+  Books,
+  CaretRight,
+  DotsThree,
+  Exam,
+  File,
+  FilePdf,
+  FileText,
+  Folder,
+  FolderOpen,
+  Link,
+  ListChecks,
+  ListBullets,
+  MagnifyingGlass,
+  Paperclip,
+  Plus,
+  Tag
+} from '@phosphor-icons/react';
 
 // ---------- 内置最简数据（替代原 seedItems / seedFolders / paragraphs） ----------
 const FOLDERS = [
@@ -69,9 +92,21 @@ const MODULES = [
   { id: 'paper', name: '题库' },
   { id: 'ai', name: 'AI 工作台' },
   { id: 'task', name: '任务' },
-  { id: 'review', name: '复盘' },
-  { id: 'settings', name: '设置' }
+  { id: 'review', name: '复盘' }
 ];
+
+const MODULE_ICONS = {
+  knowledge: Books,
+  paper: Exam,
+  ai: Atom,
+  task: ListChecks,
+  review: ArrowsClockwise
+};
+
+const ModuleIcon = ({ kind, className }) => {
+  const ModuleGlyph = MODULE_ICONS[kind] || Books;
+  return <ModuleGlyph className={className} weight="duotone" aria-hidden="true" />;
+};
 
 const INDEX_TABS = [
   { id: 'all', label: '全部条目' },
@@ -181,24 +216,23 @@ const Icon = ({ name, className = 'library-tree-icon' }) => {
   );
 };
 
-const ModuleIcon = ({ kind }) => {
-  const paths = {
-    knowledge: '<path d="M4.5 5.5h6a3 3 0 0 1 3 3v10h-6a3 3 0 0 0-3 3z"></path><path d="M19.5 5.5h-6a3 3 0 0 0-3 3v10h6a3 3 0 0 1 3 3z"></path>',
-    paper: '<path d="M7 4.5h7l4 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2z"></path><path d="M14 4.5v4h4"></path><path d="M8.5 12h7"></path><path d="M8.5 15.5h7"></path>',
-    ai: '<path d="M12 3.5l1.8 4.2L18 9.5l-4.2 1.8L12 15.5l-1.8-4.2L6 9.5l4.2-1.8z"></path><path d="M18.5 14.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"></path><path d="M6 15.5l1 2.2 2.2 1-2.2 1-1 2.3-1-2.3-2.2-1 2.2-1z"></path>',
-    task: '<path d="M9 6.5h10"></path><path d="M9 12h10"></path><path d="M9 17.5h10"></path><path d="M5.5 6.5h.01"></path><path d="M5.5 12h.01"></path><path d="M5.5 17.5h.01"></path>',
-    review: '<path d="M12 5.5v13"></path><path d="M5.5 12h13"></path><path d="M7.5 7.5l9 9"></path><path d="M16.5 7.5l-9 9"></path>',
-    settings: '<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"></path><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7.3 7.3 0 0 0-1.7-1l-.4-2.6H9.6l-.4 2.6a7.3 7.3 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.3 7.3 0 0 0 1.7 1l.4 2.6h4.8l.4-2.6a7.3 7.3 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5c.07-.33.1-.67.1-1z"></path>'
-  };
-  return <svg viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: paths[kind] || paths.knowledge }} />;
+const FolderIcon = ({ open }) => {
+  const FolderGlyph = open ? FolderOpen : Folder;
+  return <FolderGlyph className="library-tree-icon" weight="regular" aria-hidden="true" />;
+};
+const NoteIcon = ({ note }) => {
+  if (note.sourceType === 'import-pdf') return <FilePdf className="library-tree-icon library-tree-icon-pdf" weight="regular" aria-hidden="true" />;
+  if (note.sourceType === 'file') return <File className="library-tree-icon library-tree-icon-resource" weight="regular" aria-hidden="true" />;
+  return <FileText className="library-tree-icon library-tree-icon-markdown" weight="regular" aria-hidden="true" />;
 };
 
-const FolderIcon = ({ open }) => <Icon name={open ? 'folderOpen' : 'folderClosed'} />;
-const NoteIcon = ({ note }) => {
-  if (note.sourceType === 'import-pdf') return <Icon name="filePdf" className="library-tree-icon library-tree-icon-pdf" />;
-  if (note.sourceType === 'file') return <Icon name="fileResource" className="library-tree-icon library-tree-icon-resource" />;
-  return <Icon name="file" className="library-tree-icon library-tree-icon-markdown" />;
-};
+function ArchiveMark() {
+  return (
+    <div className="entry-archive" role="img" aria-label="书籍封面">
+      <BookBookmark className="entry-book-cover" weight="duotone" aria-hidden="true" />
+    </div>
+  );
+}
 
 // ---------- 左侧导航栏 ----------
 function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu }) {
@@ -380,7 +414,9 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
       <section className="library-directory">
         <div className="library-label">
           <button type="button" className="library-home-target" onClick={onBackToIndex} aria-label="返回资料索引">
-            <b className="library-id">01</b>
+            <span className="library-mark" aria-hidden="true">
+              <ModuleIcon kind="knowledge" className="library-mark-icon" />
+            </span>
             <span className="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
           </button>
           <button
@@ -391,10 +427,10 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
             title="显示导航入口菜单"
             onClick={() => { setHeaderToggleOpen((v) => !v); onOpenSectionMenu?.(); }}
           >
-            <Icon name="threeDots" className="library-header-toggle-icon" />
+            <DotsThree className="library-header-toggle-icon" weight="bold" aria-hidden="true" />
           </button>
         </div>
-        <div className="directory-group-label directory-heading">内容与文件夹　CONTENT &amp; FOLDERS</div>
+        <div className="directory-group-label directory-heading">内容与文件夹</div>
         <nav className="library-tree" id="folder-tree" aria-label="资料树">
           {sectionProps('materials', '资料', FOLDERS.length + rootNotes.length, openMaterials, () => setOpenMaterials((v) => !v))}
           {sectionProps('favorites', '收藏', favoriteNotes.length, openFavorites, () => setOpenFavorites((v) => !v))}
@@ -414,7 +450,9 @@ function LeftRail({ activeNoteId, onSelectNote, onBackToIndex, onOpenSectionMenu
             aria-label={m.name}
             title={m.name}
           >
-            <span className="rail-item-icon"><ModuleIcon kind={m.id} /></span>
+            <span className="rail-item-icon" aria-hidden="true">
+              <ModuleIcon kind={m.id} />
+            </span>
             <span className="rail-item-label">{m.name}</span>
           </button>
         ))}
@@ -434,10 +472,35 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
   const [search, setSearch] = useState('');
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
-  const filtered = notes.filter((n) => !n.deleted);
-  const currentNote = filtered.find((n) => n.id === selectedNoteId) || filtered[0];
-
   const tagsFor = (note) => (note.tagIds || []).map((tid) => TAGS.find((t) => t.id === tid)).filter(Boolean);
+  const activeNotes = notes.filter((n) => !n.deleted);
+  const tabCounts = {
+    all: activeNotes.length,
+    recent: activeNotes.length,
+    starred: activeNotes.filter((n) => n.favorite).length,
+    trash: notes.filter((n) => n.deleted).length
+  };
+  const query = search.trim().toLocaleLowerCase('zh-CN');
+  const tabScopedNotes = activeTab === 'trash'
+    ? notes.filter((n) => n.deleted)
+    : activeTab === 'starred'
+      ? activeNotes.filter((n) => n.favorite)
+      : activeNotes;
+  const filtered = tabScopedNotes
+    .filter((note) => filterValues.type === '全部' || getSourceTypeLabel(note.sourceType) === filterValues.type)
+    .filter((note) => filterValues.status === '全部' || getStatusLabel(note.status) === filterValues.status)
+    .filter((note) => {
+      if (!query) return true;
+      const folder = FOLDERS.find((item) => item.id === note.folderId)?.name || '';
+      const searchable = [note.title, note.summary, folder, ...tagsFor(note).map((tag) => tag.name)].join(' ').toLocaleLowerCase('zh-CN');
+      return searchable.includes(query);
+    })
+    .sort((left, right) => {
+      const field = filterValues.time.includes('创建') ? 'createdAt' : 'updatedAt';
+      const direction = filterValues.time.startsWith('最早') ? 1 : -1;
+      return (new Date(left[field]).getTime() - new Date(right[field]).getTime()) * direction;
+    });
+  const currentNote = filtered.find((n) => n.id === selectedNoteId) || null;
 
   return (
     <div className="library-index-view" data-inspector-open={inspectorOpen}>
@@ -445,10 +508,10 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
         <header className="masthead">
           <div className="masthead-title">
             <h1>资料库</h1>
-            <p>LIBRARY INDEX</p>
+            <span className="masthead-kicker">LIBRARY INDEX</span>
           </div>
           <div className="scope-summary">
-            <span>当前范围　SCOPE</span>
+            <span>浏览范围</span>
             <strong>全部资料</strong>
             <div>
               <b>资料 {filtered.length}</b>
@@ -456,7 +519,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
               <b>最近更新 {formatDate(filtered[0]?.updatedAt)}</b>
             </div>
           </div>
-          <button type="button" className="primary-button">＋ 新建资料</button>
+          <button type="button" className="primary-button"><Plus weight="bold" aria-hidden="true" /><span>新建资料</span></button>
         </header>
 
         <nav className="content-tabs" aria-label="资料范围">
@@ -468,7 +531,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
               onClick={() => setActiveTab(tab.id)}
             >
               {tab.label}
-              <b>{tab.id === 'trash' ? '0' : filtered.length}</b>
+              <b>{tabCounts[tab.id]}</b>
             </button>
           ))}
         </nav>
@@ -485,7 +548,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
                 >
                   <b>{def.label}</b>
                   <span>{filterValues[key]}</span>
-                  <Icon name="chevron" className="index-filter-chevron" />
+                  <CaretRight className="index-filter-chevron" weight="bold" aria-hidden="true" />
                 </button>
                 {openFilter === key && (
                   <div className="index-filter-menu" role="menu">
@@ -505,10 +568,11 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
             ))}
           </div>
           <div className="index-search-shell">
-            <Icon name="search" />
+            <MagnifyingGlass className="index-search-icon" weight="regular" aria-hidden="true" />
             <input
               type="search"
-              placeholder="搜索笔记、标签、附件、AI 结果"
+              placeholder="搜索资料、标签或附件"
+              aria-label="搜索资料、标签或附件"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -520,26 +584,33 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
             <div className="empty-state">
               <strong>没有找到匹配条目</strong>
               <span>可以清除搜索、切换资料范围或返回全部资料。</span>
-              <button type="button" onClick={() => { setSearch(''); setFilterValues({ type: '全部', status: '全部', time: '最近编辑' }); }}>清除筛选</button>
+              <button type="button" onClick={() => { setActiveTab('all'); setSearch(''); setFilterValues({ type: '全部', status: '全部', time: '最近编辑' }); }}>清除筛选</button>
             </div>
           </section>
         ) : (
           <section className="entry-list" aria-label="资料条目">
-            {filtered.map((note, i) => {
-              const id = String(i + 1).padStart(3, '0');
+            {filtered.map((note) => {
               const minutes = getEstimatedReadingMinutes(note);
               return (
                 <article
                   key={note.id}
                   className="index-entry"
                   data-selected={currentNote?.id === note.id}
+                  aria-label={`${note.title}，${getStatusLabel(note.status)}`}
                   onClick={() => onSelectNote(note.id)}
-                  onDoubleClick={() => onOpenNote(note.id)}
                 >
-                  <b className="entry-id">{id}</b>
+                  <ArchiveMark note={note} />
                   <div className="entry-copy">
                     <div className="entry-heading">
-                      <h2>{note.title}</h2>
+                      <h2>
+                        <button
+                          type="button"
+                          className="entry-title-button"
+                          onClick={(e) => { e.stopPropagation(); onOpenNote(note.id); }}
+                        >
+                          {note.title}
+                        </button>
+                      </h2>
                       <span className="status"><i></i>{getStatusLabel(note.status)}</span>
                     </div>
                     <p>{note.summary}</p>
@@ -552,7 +623,14 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
                     <span>{getSourceTypeLabel(note.sourceType)}</span>
                   </div>
                   <span className="entry-reading"><b>{minutes}</b><small>MIN</small></span>
-                  <button type="button" className="entry-action" onClick={(e) => { e.stopPropagation(); onOpenNote(note.id); }}>打开</button>
+                  <button
+                    type="button"
+                    className="entry-action"
+                    aria-label={`打开资料：${note.title}`}
+                    onClick={(e) => { e.stopPropagation(); onOpenNote(note.id); }}
+                  >
+                    <span>打开</span><ArrowSquareOut className="entry-action-icon" weight="bold" aria-hidden="true" />
+                  </button>
                 </article>
               );
             })}
@@ -576,7 +654,13 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
         {currentNote ? (
           <>
             <header className="inspector-heading">
-              <strong className="inspector-heading-title" title={currentNote.title}>{currentNote.title}</strong>
+              <div className="inspector-heading-copy">
+                <span className="inspector-heading-icon" aria-hidden="true"><BookOpenText weight="duotone" /></span>
+                <span className="inspector-heading-text">
+                  <small>资料预览</small>
+                  <strong className="inspector-heading-title" title={currentNote.title}>{currentNote.title}</strong>
+                </span>
+              </div>
               <button
                 type="button"
                 className="inspector-open-button"
@@ -584,13 +668,13 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
                 aria-label={`打开资料：${currentNote.title}`}
                 title="打开资料"
               >
-                <Icon name="external" className="inspector-open-icon" />
+                <ArrowSquareOut className="inspector-open-icon" weight="bold" aria-hidden="true" />
+                <span>打开</span>
               </button>
             </header>
             <section className="inspector-fixed-section">
-              <header><Icon name="file" /><h3>资料信息</h3></header>
+              <header><FileText className="section-icon" weight="regular" aria-hidden="true" /><h3>资料信息</h3></header>
               <dl className="inspector-record">
-                <div><dt>标题</dt><dd>{currentNote.title}</dd></div>
                 <div><dt>类型</dt><dd>Markdown 文档</dd></div>
                 <div><dt>状态</dt><dd><span className="status"><i></i>{getStatusLabel(currentNote.status)}</span></dd></div>
                 <div><dt>所在位置</dt><dd>{FOLDERS.find((f) => f.id === currentNote.folderId)?.name || '未分类'}</dd></div>
@@ -600,7 +684,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
               </dl>
             </section>
             <section className="inspector-fixed-section">
-              <header><Icon name="tag" /><h3>标签</h3></header>
+              <header><Tag className="section-icon" weight="regular" aria-hidden="true" /><h3>标签</h3></header>
               <div className="tag-row">
                 {tagsFor(currentNote).map((t) => <span key={t.id}>{t.name}</span>)}
                 <button type="button" className="tag-add">＋ 添加标签</button>
@@ -608,7 +692,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
             </section>
             <div className="summary-groups">
               <details className="inspector-disclosure">
-                <summary><span><Icon name="link" /><b>关联笔记</b></span><span><small>{currentNote.internalLinks?.length || 0}</small><b aria-hidden="true">⌄</b></span></summary>
+                <summary><span><Link className="section-icon" weight="regular" aria-hidden="true" /><b>关联笔记</b></span><span><small>{currentNote.internalLinks?.length || 0}</small><b aria-hidden="true">⌄</b></span></summary>
                 <div className="disclosure-body">
                   {(currentNote.internalLinks || []).length > 0 ? (
                     <ol className="relations">
@@ -621,7 +705,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
                 </div>
               </details>
               <details className="inspector-disclosure" open>
-                <summary><span><Icon name="list" /><b>内容大纲</b></span><span><small>3</small><b aria-hidden="true">⌄</b></span></summary>
+                <summary><span><ListBullets className="section-icon" weight="regular" aria-hidden="true" /><b>内容大纲</b></span><span><small>3</small><b aria-hidden="true">⌄</b></span></summary>
                 <div className="disclosure-body">
                   <ol className="outline preview-outline">
                     {extractHeadings(currentNote.rawMarkdown).map((h) => <li key={h}>{h}</li>)}
@@ -629,7 +713,7 @@ function IndexView({ notes, selectedNoteId, onSelectNote, onOpenNote, onBack }) 
                 </div>
               </details>
               <details className="inspector-disclosure">
-                <summary><span><Icon name="paperclip" /><b>附件</b></span><span><small>0</small><b aria-hidden="true">⌄</b></span></summary>
+                <summary><span><Paperclip className="section-icon" weight="regular" aria-hidden="true" /><b>附件</b></span><span><small>0</small><b aria-hidden="true">⌄</b></span></summary>
                 <div className="disclosure-body">
                   <span className="aside-empty-inline">打开资料后可管理附件</span>
                 </div>

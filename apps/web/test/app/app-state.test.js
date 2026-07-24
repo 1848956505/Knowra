@@ -45,8 +45,7 @@ assert.deepEqual(createRailItems().map((item) => item.key), [
   'paper',
   'ai',
   'task',
-  'review',
-  'settings'
+  'review'
 ]);
 
 assert.notEqual(createInitialAppState(), createInitialAppState());

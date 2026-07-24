@@ -35,6 +35,7 @@ export function syncPinnedHandleFromSelection(controller) {
 
 export function clearPinnedTable(controller) {
   controller.clearPinnedMenuRecovery();
+  controller.clearPointerGrace?.();
   if (controller.pinnedCell?.tableBlock instanceof HTMLElement) {
     const { tableBlock } = controller.pinnedCell;
     tableBlock.dataset.pinned = 'false';

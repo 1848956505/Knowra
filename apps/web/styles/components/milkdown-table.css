@@ -92,6 +92,26 @@
   overflow: visible;
 }
 
+.milkdown-host .milkdown-table-block [data-role='row-drag-handle']::after,
+.milkdown-host .milkdown-table-block [data-role='col-drag-handle']::after {
+  position: absolute;
+  content: '';
+}
+
+.milkdown-host .milkdown-table-block [data-role='row-drag-handle']::after {
+  top: 0;
+  left: 100%;
+  width: var(--space-2);
+  height: 100%;
+}
+
+.milkdown-host .milkdown-table-block [data-role='col-drag-handle']::after {
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: var(--space-2);
+}
+
 .milkdown-host .milkdown-table-block [data-role='row-drag-handle'] .button-group[data-show='true'],
 .milkdown-host .milkdown-table-block [data-role='col-drag-handle'] .button-group[data-show='true'] {
   display: flex;

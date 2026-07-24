@@ -7,8 +7,6 @@ const CONVERT_CURRENT_BLOCK_COMMANDS = new Set([
   'heading-2',
   'heading-3',
   'heading-4',
-  'heading-5',
-  'heading-6',
   'bullet',
   'ordered',
   'task-list',

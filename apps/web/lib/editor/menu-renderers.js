@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../src/app/formatting.js';
 import { renderEditorContextIconSvg } from './context-menu-icons.js';
 
 export const EDIT_MENU_ITEMS = [
@@ -13,7 +14,6 @@ export const EDIT_MENU_ITEMS = [
   { key: 'select-all', label: '全选' }
 ];
 
-export const EDITOR_MENU_ITEMS = EDIT_MENU_ITEMS;
 
 export const PARAGRAPH_MENU_ITEMS = [
   { key: 'paragraph', label: '正文' },
@@ -21,8 +21,6 @@ export const PARAGRAPH_MENU_ITEMS = [
   { key: 'heading-2', label: 'H2' },
   { key: 'heading-3', label: 'H3' },
   { key: 'heading-4', label: 'H4' },
-  { key: 'heading-5', label: 'H5' },
-  { key: 'heading-6', label: 'H6' },
   { key: 'separator' },
   { key: 'bullet', label: '无序列表' },
   { key: 'ordered', label: '有序列表' },
@@ -131,7 +129,6 @@ export function renderEditorMenuBarMarkup({
     </div>
   `;
 }
-
 export function renderEditMenu({ note, getShortcutLabel = () => '' } = {}) {
   return renderActionMenu({
     menuKey: 'edit',
@@ -244,13 +241,4 @@ function renderEditorMenuItem({
       ${shortcut ? `<span class="editor-menu-shortcut">${escapeHtml(shortcut)}</span>` : ''}
     </button>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

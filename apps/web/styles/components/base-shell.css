@@ -125,7 +125,7 @@ body {
 .rail-item:hover,
 .rail-item:focus-visible,
 .rail-item[data-active='true'] {
-  color: #44506a;
+  color: var(--color-text-muted);
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(22, 32, 51, 0.08);
   transform: none;

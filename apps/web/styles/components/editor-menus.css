@@ -32,7 +32,7 @@
   padding: 0 2px;
   border: 0;
   background: transparent;
-  color: #31405c;
+  color: var(--color-text);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -41,7 +41,7 @@
 .editor-menu-text:hover,
 .editor-menu-text:focus-visible,
 .editor-menu-text[data-open='true'] {
-  color: #142033;
+  color: var(--color-text);
   outline: none;
 }
 
@@ -152,7 +152,7 @@
   border: 0;
   border-radius: 10px;
   background: rgba(245, 247, 252, 0.96);
-  color: #1c2840;
+  color: var(--color-text);
   cursor: pointer;
 }
 

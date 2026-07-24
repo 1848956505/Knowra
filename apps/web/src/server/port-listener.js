@@ -10,7 +10,7 @@ export async function listenOnAvailablePort(server, startPort, maxAttempts = 20)
         };
 
         server.once('error', onError);
-        server.listen(currentPort, () => {
+        server.listen(currentPort, '127.0.0.1', () => {
           server.off('error', onError);
           resolve();
         });

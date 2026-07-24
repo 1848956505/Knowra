@@ -54,6 +54,11 @@ assert.match(
   'switching to focus mode should close the source editor'
 );
 assert.match(
+  viewCommandControllerJs,
+  /case 'toggle-focus':[\s\S]*state\.view\.mode === 'focus' \? 'edit' : 'focus'/,
+  'the status-bar focus shortcut should toggle focus mode without duplicating view state'
+);
+assert.match(
   shellHtmlJs,
   /class="kb-sidebar knowra-rail" id="kb-sidebar"/,
   'left knowledge sidebar needs a stable DOM id for view toggles'
@@ -77,6 +82,11 @@ assert.match(
   componentsCss,
   /\.editor-content\[data-source-open='true'\]/,
   'source editor mode should define a dedicated split-layout style'
+);
+assert.match(
+  componentsCss,
+  /data-view-mode='focus'[\s\S]*\.milkdown-host \.ProseMirror[\s\S]*margin-inline:\s*auto/,
+  'focus mode should center the bounded writing column'
 );
 
 console.log('ok - task 5 view menu UI hooks are present');

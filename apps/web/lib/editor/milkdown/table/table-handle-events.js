@@ -1,5 +1,14 @@
 import { closestFromEventTarget, getEventTargetElement } from '../../../dom/event-target.js';
 
+export const TABLE_POINTER_GRACE_MS = 280;
+
+export function clearTablePointerGrace(controller) {
+  if (controller.pointerGraceTimer) {
+    window.clearTimeout(controller.pointerGraceTimer);
+    controller.pointerGraceTimer = 0;
+  }
+}
+
 export function handleTableRootClick(controller, event) {
   const target = getEventTargetElement(event.target);
   if (!target) {
@@ -63,6 +72,11 @@ export function handleTableDocumentPointerDown(controller, event) {
 
 export function handleTableRootPointerOver(controller, event) {
   const kind = controller.getPinnedMenuKindFromTarget(event.target);
+  if (!kind && controller.pointerGraceTimer) {
+    return;
+  }
+
+  clearTablePointerGrace(controller);
   if (kind === controller.hoverMenuKind) {
     return;
   }
@@ -82,6 +96,20 @@ export function handleTableRootPointerOut(controller, event) {
     return;
   }
 
-  controller.hoverMenuKind = nextKind;
-  controller.applyPinnedMenuState();
+  if (nextKind) {
+    clearTablePointerGrace(controller);
+    controller.hoverMenuKind = nextKind;
+    controller.applyPinnedMenuState();
+    return;
+  }
+
+  clearTablePointerGrace(controller);
+  controller.pointerGraceTimer = window.setTimeout(() => {
+    controller.pointerGraceTimer = 0;
+    if (controller.hoverMenuKind !== currentKind) {
+      return;
+    }
+    controller.hoverMenuKind = null;
+    controller.applyPinnedMenuState();
+  }, TABLE_POINTER_GRACE_MS);
 }

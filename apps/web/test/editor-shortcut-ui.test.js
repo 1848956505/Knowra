@@ -20,9 +20,10 @@ const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/comp
 
 assert.match(
   menuRenderersJs,
-  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*label: '正文'[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
-  'paragraph menu should expose 正文+H1-H6 so the heading shortcuts have visible targets'
+  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*label: '正文'[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'/,
+  'paragraph menu should expose the supported 正文+H1-H4 hierarchy'
 );
+assert.doesNotMatch(menuRenderersJs, /label: 'H5'|label: 'H6'/, 'H5 and H6 should not remain in the paragraph menu');
 assert.match(
   menuRenderersJs,
   /label: '内部链接'/,
@@ -58,15 +59,10 @@ assert.match(
   /'paragraph': \(\) => \(\{ key: turnIntoTextCommand\.key \}\)/,
   'editor command resolver should support H0/paragraph shortcuts'
 );
-assert.match(
+assert.doesNotMatch(
   commandResolversJs,
-  /'heading-5': \(\) => \(\{ key: wrapInHeadingCommand\.key, payload: 5 \}\)/,
-  'editor command resolver should support H5 shortcuts'
-);
-assert.match(
-  commandResolversJs,
-  /'heading-6': \(\) => \(\{ key: wrapInHeadingCommand\.key, payload: 6 \}\)/,
-  'editor command resolver should support H6 shortcuts'
+  /'heading-5':|'heading-6':/,
+  'editor command resolver should not expose removed H5 or H6 actions'
 );
 assert.match(
   indentationHandlersJs,

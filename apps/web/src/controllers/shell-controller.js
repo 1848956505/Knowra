@@ -4,8 +4,8 @@ import {
 } from '../../lib/status/renderers.js';
 import { renderModuleRail } from '../../lib/shell/rail-renderers.js';
 import { getEffectiveViewState as selectEffectiveViewState } from '../../lib/shell/view-state.js';
+import { renderEditorDocumentHead } from '../../lib/editor/document-head-renderer.js';
 import {
-  renderEditorDocumentHead,
   renderLibraryIndexContent,
   renderLibraryIndexInspector,
   renderLibraryIndexScope
@@ -25,7 +25,6 @@ export function createShellController(deps) {
     elements,
     railItems,
     getCurrentNote,
-    getVisibleNotes,
     renderEditor,
     renderEditorContextMenu,
     renderEditorMenuBar,
@@ -145,7 +144,6 @@ function renderDocumentHead(note) {
 }
 
 function renderStatus() {
-  const visibleNotes = getVisibleNotes();
   const currentNote = getCurrentNote();
   const effectiveView = getEffectiveViewState();
   const markdown = state.draftMarkdown || currentNote?.rawMarkdown || '';
@@ -153,9 +151,6 @@ function renderStatus() {
   if (elements.statusIndicators) {
     elements.statusIndicators.innerHTML = renderStatusIndicators({
       statusMessage: state.statusMessage,
-      visibleNoteCount: visibleNotes.length,
-      folderCount: Object.keys(state.foldersById).length,
-      currentTitle: currentNote?.title ?? '',
       saveState: state.saveState
     });
   }

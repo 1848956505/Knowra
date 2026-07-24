@@ -22,6 +22,12 @@ const tags = [{ id: 'tag-1', name: '<JavaScript>', color: '#ffcc00' }];
 assert.match(renderTagPills(tags), /&lt;JavaScript&gt;/);
 assert.match(renderAssignedTagPills(tags), /data-note-tag-remove="tag-1"/);
 assert.match(renderAvailableTagPills(tags), /data-note-tag-add="tag-1"/);
+assert.match(renderTagPills(tags), /class="tag-color-dot"[^>]*--tag-dot-color: #ffcc00/);
+assert.doesNotMatch(
+  renderTagPills([{ id: 'tag-unsafe', name: 'Unsafe', color: 'red; position: fixed' }]),
+  /position:\s*fixed/,
+  'tag color dots should reject unsafe inline CSS values'
+);
 
 assert.match(
   renderLinkedNotes([{ id: 'note-1', title: '<Linked>', summary: '<Summary>' }]),

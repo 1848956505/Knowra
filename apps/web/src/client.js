@@ -67,6 +67,7 @@ function createControllers() {
     elements,
     editorRuntime,
     knowledgeApi,
+    controllerActions: actions,
     constants: {
       autosaveDelayMs: AUTOSAVE_DELAY_MS,
       backendCacheKey: BACKEND_CACHE_KEY,

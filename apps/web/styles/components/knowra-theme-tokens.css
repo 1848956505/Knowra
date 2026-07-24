@@ -1,6 +1,8 @@
 :root {
-  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-display: 'Avenir Next Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  --font-ui: 'SF Pro Rounded', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Noto Sans CJK SC', sans-serif;
+  --font-reading: 'Songti SC', 'Source Han Serif SC', 'Noto Serif CJK SC', 'STSong', 'SimSun', serif;
+  --font-display: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui);
+  --font-body: var(--font-ui);
   --font-mono: 'SFMono-Regular', 'Cascadia Code', 'Consolas', monospace;
 
   --paper: #f5f3ec;
@@ -45,28 +47,44 @@
   --space-16: 64px;
   --space-20: 80px;
 
-  --text-2xs: 10px;
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-md: 13px;
-  --text-base: 14px;
-  --text-ui: 15px;
-  --text-body: 16px;
-  --text-lead: 18px;
-  --text-title-sm: 19px;
-  --text-title-md: 22px;
-  --text-title-lg: 28px;
-  --text-heading-3: 20px;
-  --text-heading-2: 26px;
-  --text-heading-1: 34px;
-  --text-display-sm: 40px;
-  --text-display-md: 48px;
-  --text-display-lg: 60px;
-  --text-document-id: 61px;
+  --type-micro: 11px;
+  --type-caption: 12px;
+  --type-meta: 13px;
+  --type-control: 14px;
+  --type-reading: 18px;
+  --type-title-sm: 20px;
+  --type-title-md: 24px;
+  --type-title-lg: 28px;
+  --type-heading-4: var(--type-title-sm);
+  --type-heading-3: 22px;
+  --type-heading-2: 28px;
+  --type-heading-1: 36px;
+  --type-display-sm: 40px;
+  --type-display-md: 48px;
+  --type-display-lg: 60px;
+
+  --text-2xs: var(--type-micro);
+  --text-xs: var(--type-caption);
+  --text-sm: var(--type-meta);
+  --text-md: var(--type-control);
+  --text-base: var(--type-control);
+  --text-ui: var(--type-control);
+  --text-body: var(--type-reading);
+  --text-lead: var(--type-reading);
+  --text-title-sm: var(--type-title-sm);
+  --text-title-md: var(--type-title-md);
+  --text-title-lg: var(--type-title-lg);
+  --text-heading-4: var(--type-heading-4);
+  --text-heading-3: var(--type-heading-3);
+  --text-heading-2: var(--type-heading-2);
+  --text-heading-1: var(--type-heading-1);
+  --text-display-sm: var(--type-display-sm);
+  --text-display-md: var(--type-display-md);
+  --text-display-lg: var(--type-display-lg);
 
   --line-height-tight: 1.1;
   --line-height-copy: 1.65;
-  --line-height-reading: 1.86;
+  --line-height-reading: 1.82;
   --letter-tight: -0.04em;
   --letter-label: 0.08em;
 
@@ -82,19 +100,20 @@
   --rail-width: 260px;
   --aside-width: var(--rail-width);
   --app-min-width: 1024px;
-  --status-height: 42px;
+  --status-height: var(--space-8);
   --index-inspector-width: var(--rail-width);
   --index-content-min-width: 650px;
   --editor-content-min-width: 700px;
   --editor-max-width: 920px;
+  --editor-focus-frame-width: calc(var(--editor-max-width) + var(--space-20));
   --editor-body-min-height: 560px;
   --editor-split-height: 720px;
   --preview-toc-max-height: 220px;
   --search-width: 320px;
   --search-panel-width: 360px;
   --filter-menu-width: 148px;
-  --masthead-height: 92px;
-  --index-row-height: 146px;
+  --masthead-height: 76px;
+  --index-row-height: 124px;
   --index-selection-width: 2px;
   --tab-height: 56px;
   --document-tab-height: var(--menu-height);

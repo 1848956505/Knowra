@@ -47,10 +47,9 @@
 .document-location { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
 .breadcrumb { overflow: hidden; color: var(--ink); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 .document-dates { display: flex; align-items: center; gap: var(--space-4); color: var(--ink); font-size: var(--text-2xs); white-space: nowrap; }
-.document-title-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--space-5); margin-top: var(--space-4); }
-.document-id { padding-left: var(--space-4); border-left: var(--border-selection) solid var(--blue); color: var(--blue); font: 600 var(--text-document-id)/0.9 var(--font-display); }
+.document-title-row { display: block; margin-top: var(--space-4); padding-left: var(--space-4); border-left: var(--border-selection) solid var(--blue); }
 .document-title { min-width: 0; }
-.document-title-input { display: block; width: 100%; min-width: 0; margin: 0 0 var(--space-4); padding: 0 0 var(--space-1); overflow: hidden; border: 0; border-bottom: var(--border-thin) solid transparent; border-radius: var(--radius-none); background: transparent; color: var(--ink); font: 700 clamp(var(--text-heading-1), 3.3vw, var(--text-display-md))/1.05 var(--font-body); letter-spacing: var(--letter-tight); text-overflow: ellipsis; white-space: nowrap; }
+.document-title-input { display: block; width: 100%; min-width: 0; margin: 0 0 var(--space-4); padding: 0 0 var(--space-1); overflow: hidden; border: 0; border-bottom: var(--border-thin) solid transparent; border-radius: var(--radius-none); background: transparent; color: var(--blue); font: 800 clamp(var(--text-heading-1), 3.3vw, var(--text-display-md))/1.08 var(--font-reading); letter-spacing: -0.02em; text-overflow: ellipsis; white-space: nowrap; }
 .document-title-input:hover { border-bottom-color: var(--line-soft); }
 .document-title-input:focus,
 .document-title-input:focus-visible { border-bottom-color: var(--blue); outline: none; box-shadow: inset 0 calc(-1 * var(--border-accent)) var(--blue); }
@@ -66,11 +65,19 @@
 .editor-workspace .editor-pane { background: var(--paper); }
 .editor-workspace .pane-body { padding: 0; }
 .editor-workspace .milkdown-host { height: auto; min-height: var(--editor-body-min-height); padding: 0 var(--space-12) var(--space-10); overflow: visible; background: var(--paper); }
-.editor-workspace .milkdown-host .ProseMirror { max-width: var(--editor-max-width); min-height: var(--editor-body-min-height); margin: 0; padding: var(--space-8) 0 var(--space-20); outline: none; color: var(--ink); font-size: var(--text-body); line-height: var(--line-height-reading); }
+.editor-workspace .milkdown-host .ProseMirror { max-width: var(--editor-max-width); min-height: var(--editor-body-min-height); margin: 0; padding: var(--space-8) 0 var(--space-20); outline: none; color: var(--ink); font-family: var(--font-reading); font-size: var(--text-body); line-height: var(--line-height-reading); }
 .editor-workspace .milkdown-host .ProseMirror:focus,
 .editor-workspace .milkdown-host .ProseMirror:focus-visible { outline: none; }
 .editor-workspace .preview-pane .pane-body { padding: var(--space-8) var(--space-12) var(--space-20); }
-.editor-workspace .preview-rendered { max-width: var(--editor-max-width); font-size: var(--text-body); line-height: var(--line-height-reading); }
+.editor-workspace .preview-rendered { max-width: var(--editor-max-width); font-family: var(--font-reading); font-size: var(--text-body); line-height: var(--line-height-reading); }
+.editor-workspace-view .kb-workspace[data-view-mode='focus'] .document-head {
+  width: min(calc(100% - var(--space-16)), var(--editor-focus-frame-width));
+  margin-inline: auto;
+}
+.editor-workspace-view .kb-workspace[data-view-mode='focus'] .milkdown-host .ProseMirror,
+.editor-workspace-view .kb-workspace[data-view-mode='focus'] .preview-rendered {
+  margin-inline: auto;
+}
 .editor-workspace .preview-pane .toc-list {
   display: grid;
   max-height: var(--preview-toc-max-height);
@@ -95,11 +102,21 @@
 .editor-workspace .preview-pane .toc-item[data-level='3'] { margin-left: var(--space-8); color: var(--muted); }
 
 .editor-workspace .milkdown-host .ProseMirror h1,
-.editor-workspace .preview-rendered h1 { margin: var(--space-12) 0 var(--space-4); color: var(--ink); font: 800 var(--text-heading-1)/1.2 var(--font-body); letter-spacing: var(--letter-tight); }
+.editor-workspace .preview-rendered h1 { margin: var(--space-12) 0 var(--space-4); color: var(--ink); font: 700 var(--text-heading-1)/1.2 var(--font-reading); letter-spacing: -0.02em; }
 .editor-workspace .milkdown-host .ProseMirror h2,
-.editor-workspace .preview-rendered h2 { margin: var(--space-10) 0 var(--space-3); padding-bottom: var(--space-2); border-bottom: var(--border-thin) solid var(--line); color: var(--blue); font: 700 var(--text-heading-2)/1.3 var(--font-body); }
+.editor-workspace .preview-rendered h2 { margin: var(--space-10) 0 var(--space-3); color: var(--ink); font: 700 var(--text-heading-2)/1.3 var(--font-reading); }
 .editor-workspace .milkdown-host .ProseMirror h3,
-.editor-workspace .preview-rendered h3 { margin: var(--space-8) 0 var(--space-3); color: var(--ink); font: 700 var(--text-heading-3)/1.35 var(--font-body); }
+.editor-workspace .preview-rendered h3 { margin: var(--space-8) 0 var(--space-3); color: var(--ink); font: 700 var(--text-heading-3)/1.35 var(--font-reading); }
+.editor-workspace .milkdown-host .ProseMirror h4,
+.editor-workspace .preview-rendered h4 { margin: var(--space-7) 0 var(--space-3); color: var(--ink); font: 700 var(--text-heading-4)/1.4 var(--font-reading); }
+
+/* 预留给后续“重点标题”勾画：由编辑器 decoration 添加该数据属性，不作为普通标题默认样式。 */
+.editor-workspace .milkdown-host .ProseMirror :is(h1, h2, h3, h4)[data-knowra-emphasis='true'],
+.editor-workspace .preview-rendered :is(h1, h2, h3, h4)[data-knowra-emphasis='true'] {
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-thin) solid var(--line);
+  color: var(--blue);
+}
 .editor-workspace .milkdown-host .ProseMirror blockquote,
 .editor-workspace .preview-rendered blockquote { margin: var(--space-6) 0; padding: var(--space-4) var(--space-5); border: var(--border-thin) solid var(--line-soft); border-left: var(--border-selection) solid var(--blue); background: var(--blue-wash); color: var(--ink); }
 .editor-workspace .milkdown-host .ProseMirror blockquote p:last-child,
@@ -174,7 +191,7 @@
 .editor-inspector .note-tag-toolbar { gap: var(--space-3); }
 .editor-inspector .pill-row { gap: var(--space-2); }
 .editor-inspector .pill { min-height: var(--space-6); padding: var(--space-half) var(--space-2); }
-.editor-inspector .pill > span[style] { display: none; }
+.editor-inspector .tag-color-dot { display: none; }
 .editor-inspector .pill-action,
 .editor-inspector .note-tag-toggle { color: var(--blue); }
 .editor-inspector .note-tag-toggle { margin-top: 0; border: 0; background: none; font-size: var(--text-sm); }
@@ -222,7 +239,6 @@
 .status-bar { min-height: var(--status-height); height: var(--status-height); padding-inline: var(--space-5); border-top: var(--border-thin) solid var(--line); background: var(--paper); }
 .status-group { gap: var(--space-3); }
 .status-inline { min-height: var(--status-height); color: var(--muted); font-size: var(--text-xs); }
-.status-current { max-width: 180px; overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
 .status-message { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-action { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-height-sm); padding-inline: var(--space-2); border: var(--border-thin) solid transparent; border-radius: var(--radius-none); background: transparent; color: var(--muted); font-size: var(--text-xs); }
 .status-action:hover,

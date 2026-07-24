@@ -8,9 +8,7 @@ export const EDITOR_CONTEXT_PARAGRAPH_ITEMS = [
   'heading-1',
   'heading-2',
   'heading-3',
-  'heading-4',
-  'heading-5',
-  'heading-6'
+  'heading-4'
 ];
 
 export const EDITOR_CONTEXT_INSERT_ITEMS = [
@@ -44,8 +42,6 @@ export const editorContextActionMeta = {
   'heading-2': { label: 'H2' },
   'heading-3': { label: 'H3' },
   'heading-4': { label: 'H4' },
-  'heading-5': { label: 'H5' },
-  'heading-6': { label: 'H6' },
   table: { label: '表格', icon: 'table' },
   'create-annotation': { label: '重点', icon: 'important' },
   hr: { label: '水平分割线' },

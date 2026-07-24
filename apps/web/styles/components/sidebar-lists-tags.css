@@ -185,6 +185,14 @@
   background: rgba(60, 104, 255, 0.12);
 }
 
+.tag-color-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  flex: 0 0 auto;
+  border-radius: var(--radius-xl);
+  background: var(--tag-dot-color, var(--color-accent));
+}
+
 .pill-button {
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;

@@ -116,7 +116,7 @@ function createDeps(overrides = {}) {
   assert.equal(root.scrollTop, 330);
   assert.deepEqual(cancelCalls, ['note-1']);
   assert.equal(controller.jumpToOutlineHeading('missing', 0), false);
-  assert.equal(deps.elements.editorContent.querySelectorAll('h1, h2, h3, h4, h5, h6').item(0), null);
+  assert.equal(deps.elements.editorContent.querySelectorAll('h1, h2, h3, h4').item(0), null);
 }
 
 {

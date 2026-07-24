@@ -50,14 +50,14 @@ assert.match(
 
 assert.match(
   navigationSelectionJs,
-  /function buildFolderPath\(/,
-  'info tab should reconstruct the current note path through the navigation selection module'
+  /function buildNotePath\(/,
+  'info tab should reconstruct the complete file-name path through the navigation selection module'
 );
 
 assert.match(
   sidebarControllerJs,
-  /folderPath:\s*buildFolderPath\(/,
-  'info tab should pass the reconstructed folder path into the info panel renderer'
+  /folderPath:\s*buildNotePath\(/,
+  'info tab should pass the reconstructed note path into the info panel renderer'
 );
 
 console.log('ok - V1.4.0 right rail tab shell hooks are present');

@@ -1,0 +1,76 @@
+body,
+.knowra-production-shell {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--line-height-copy);
+}
+
+.knowra-production-shell :where(button, input, textarea, select) {
+  font-family: inherit;
+}
+
+.knowra-production-shell :where(
+  .knowra-rail,
+  .library-index-view,
+  .index-inspector,
+  .document-tabs,
+  .editor-menu-bar,
+  .document-meta-row,
+  .tag-row,
+  .editor-inspector,
+  .status-bar
+) {
+  font-family: var(--font-ui);
+}
+
+.editor-workspace .document-title-input,
+.editor-workspace .milkdown-host .ProseMirror,
+.editor-workspace .preview-rendered {
+  font-family: var(--font-reading);
+}
+
+.editor-workspace .milkdown-host .ProseMirror,
+.editor-workspace .preview-rendered {
+  font-size: var(--text-body);
+  line-height: var(--line-height-reading);
+  letter-spacing: 0.012em;
+}
+
+.editor-workspace .document-title-input,
+.editor-workspace .milkdown-host .ProseMirror :where(h1, h2, h3, h4),
+.editor-workspace .preview-rendered :where(h1, h2, h3, h4) {
+  font-family: var(--font-reading);
+}
+
+.editor-workspace .milkdown-host .ProseMirror :where(h1, h2, h3, h4),
+.editor-workspace .preview-rendered :where(h1, h2, h3, h4) {
+  letter-spacing: -0.02em;
+}
+
+.editor-workspace .milkdown-host .ProseMirror strong,
+.editor-workspace .preview-rendered strong {
+  font-weight: 700;
+}
+
+.editor-workspace .preview-pane .toc-list,
+.editor-workspace .milkdown-host :where(
+  .milkdown-code-block .tools,
+  .milkdown-table-block .handle,
+  .milkdown-table-block .button-group,
+  .milkdown-image-block .image-edit,
+  .milkdown-image-block .image-toolbar
+) {
+  font-family: var(--font-ui);
+  letter-spacing: normal;
+}
+
+.editor-workspace .milkdown-host .milkdown-code-block :where(
+  .cm-editor,
+  .cm-scroller,
+  .cm-content,
+  .milkdown-code-block-placeholder
+),
+.editor-workspace .preview-rendered :where(pre, code),
+.editor-workspace .markdown-input {
+  font-family: var(--font-mono);
+}

@@ -89,6 +89,47 @@
 17. 本轮以两张任务参考图和两张真实浏览器截图做同输入对照：内联新建行改为语义化的“保存/取消”操作；旧手动笔记的冗余首个 H1 在加载时仅限同名情形下迁移移除，避免重复标题且不影响正文首标题。
 18. 本轮视觉与交互验收未发现 P0、P1 或 P2 问题；资料卡上的“001”等全局序号按任务要求未改动，留待产品确认其语义后单独处理。
 
+## 2026-07-23 正式资料索引 Header 同步
+
+### Source and implementation
+
+- Source visual truth：`docs/前端重构/新UI测试demo/qa-index-inspector-header-focus-final.png`，260×80 像素，CSS 尺寸 260×80，device scale factor 1。
+- Implementation focused region：`docs/前端重构/正式前端资料索引Header-focus-final.png`，260×80 像素，CSS 尺寸 260×80，device scale factor 1。
+- Full-view implementation：`docs/前端重构/正式前端资料索引Header-1440-final.png`，1440×1024 像素，对应 1440×1024 CSS 视口。
+- Responsive implementation：`docs/前端重构/正式前端资料索引Header-1280-final.png`，1280×720 像素，对应 1280×720 CSS 视口。
+- Combined comparison：`docs/前端重构/正式前端资料索引Header-comparison.png`，按相同 260px 栏宽并排比较。
+- State：真实本地数据，资料索引页，多模态目录，右栏展开，当前资料为 CLIP；未注入 Demo 数据。
+
+### Required fidelity surfaces
+
+- 字体与层级：正式前端与确认稿均使用 11px 蓝色“资料预览”眉题、14px/600 当前资料主标题；标题截断和光学权重一致。
+- 间距与布局：28px 开放式书籍图标、8px 图标—标题间距、60×32px 打开按钮和 80px Header 均与确认稿一致。
+- 颜色与令牌：书籍图标和两处打开图标均使用主题蓝 `#1646d8`；按钮、蓝色底线、纸张背景复用正式令牌。
+- 图标与资产质量：复用官方 Phosphor `BookOpenText` duotone 与 `ArrowSquareOut` bold SVG 资产；静态服务以 `image/svg+xml` 返回，浏览器实测 `complete: true` 且 natural width 正确。
+- 文案内容：保留“资料预览”“打开”和真实资料标题；正式数据差异属于预期。
+
+### Interaction and responsive checks
+
+- 单击 Vision Transforme 条目后，右栏 Header 标题同步更新。
+- 点击右栏“打开”进入该资料编辑器；点击编辑区返回入口后恢复资料索引。
+- 1280×720 下 `scrollWidth` 与 `innerWidth` 均为 1280，没有水平溢出。
+- 图标实测尺寸：Header 书籍 28×28px、右栏打开 16×16px、列表打开 14×14px；透明度均为 1。
+- 浏览器控制台无应用错误；Web 全量测试 117/117 通过。
+
+### Comparison history
+
+1. 首次同尺寸并排比较中，正式前端的图标、标题主次、按钮尺寸、底线和纸张背景均与已确认 Demo 对齐。
+2. 未发现需要继续修复的 P0、P1 或 P2 问题；真实资料标题长度差异不会改变 Header 布局。
+
+### Implementation checklist
+
+- [x] 正式列表和右栏打开图标改为清晰主题蓝。
+- [x] 正式右栏 Header 同步开放式书籍图标和栏目—内容—操作层级。
+- [x] 新增可复用 Phosphor SVG 资产及正确 MIME。
+- [x] 完成双视口、选择联动、打开/返回、溢出和控制台检查。
+
+final result: passed
+
 ## Result
 
 final result: passed

@@ -42,7 +42,7 @@ export function createInMemoryNoteRepository(options = {}) {
     findById(noteId) {
       return notes.find((note) => note.id === noteId) ?? null;
     },
-    deleteById(noteId) {
+    delete(noteId) {
       const existingIndex = notes.findIndex((note) => note.id === noteId);
       if (existingIndex === -1) {
         return null;

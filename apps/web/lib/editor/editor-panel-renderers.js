@@ -1,3 +1,5 @@
+import { escapeHtml } from '../../src/app/formatting.js';
+
 export function getEditorPanelStatusText({ query, matchCount } = {}) {
   if (!query) {
     return '输入内容后开始查找';
@@ -54,13 +56,4 @@ export function renderEditorPanelMarkup(panel = {}) {
       <button type="button" class="ghost-button" data-editor-panel-action="close">关闭</button>
     </div>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

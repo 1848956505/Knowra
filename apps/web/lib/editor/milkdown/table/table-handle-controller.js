@@ -1,4 +1,5 @@
 import {
+  clearTablePointerGrace,
   handleTableDocumentPointerDown,
   handleTableRootClick,
   handleTableRootPointerOut,
@@ -33,6 +34,7 @@ export class TableHandleController {
     this.menuRecoveryTimer = 0;
     this.menuRecoveryKind = null;
     this.menuRecoveryAttempt = 0;
+    this.pointerGraceTimer = 0;
   }
 
   attach() {
@@ -50,6 +52,7 @@ export class TableHandleController {
   destroy() {
     this.clearPinnedTable();
     this.clearPinnedMenuRecovery();
+    this.clearPointerGrace();
     if (this.syncFrame) {
       window.cancelAnimationFrame(this.syncFrame);
       this.syncFrame = 0;
@@ -88,6 +91,10 @@ export class TableHandleController {
   handleRootPointerOut = (event) => {
     handleTableRootPointerOut(this, event);
   };
+
+  clearPointerGrace() {
+    clearTablePointerGrace(this);
+  }
 
   clearPinnedMenuRecovery() {
     clearPinnedMenuRecovery(this);
@@ -177,5 +184,4 @@ export class TableHandleController {
     return result;
   }
 }
-
 

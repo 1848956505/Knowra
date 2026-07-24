@@ -75,9 +75,10 @@ assert.match(
 );
 assert.match(
   menuRenderersJs,
-  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'[\s\S]*label: 'H5'[\s\S]*label: 'H6'/,
-  'editor paragraph menu should use H1-H6 heading labels'
+  /const PARAGRAPH_MENU_ITEMS = \[[\s\S]*label: 'H1'[\s\S]*label: 'H2'[\s\S]*label: 'H3'[\s\S]*label: 'H4'/,
+  'editor paragraph menu should use the H1-H4 heading labels'
 );
+assert.doesNotMatch(menuRenderersJs, /label: 'H5'|label: 'H6'/, 'editor paragraph menu should remove H5 and H6');
 assert.match(
   documentKeyboardEventsJs,
   /documentRef\.addEventListener\('keydown', \(event\) => \{[\s\S]*resolveEditorPanelKeyboardAction\(event\)[\s\S]*\}, true\);/,

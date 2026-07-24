@@ -1,6 +1,6 @@
 import { knowledgeBaseSeed } from '../../lib/mock-knowledge-base.js';
 import { extractMarkdownHeadings } from '../../lib/markdown.js';
-import { buildFolderPath } from '../../lib/navigation/selection.js';
+import { buildNotePath } from '../../lib/navigation/selection.js';
 import { createClearedNoteSideData, createLocalNoteSideData } from '../../lib/sidebar/state.js';
 import { ASIDE_TABS, resolveAsideContentKey } from '../../lib/sidebar/tabs.js';
 import {
@@ -160,8 +160,8 @@ function renderInfoTab(note) {
   return renderInfoTabMarkup({
     note,
     markdown: state.draftMarkdown || note.rawMarkdown || '',
-    folderPath: buildFolderPath({
-      folderId: note.folderId,
+    folderPath: buildNotePath({
+      note,
       foldersById: state.foldersById
     }),
     tags: state.tags,

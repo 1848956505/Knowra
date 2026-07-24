@@ -1,3 +1,5 @@
+import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+
 export function renderPreviewPane({ headings = [], previewHtml = '' } = {}) {
   return `
     <section class="preview-pane preview-frame">
@@ -39,17 +41,4 @@ function renderSourceEditorShell({ markdown, ariaLabel }) {
       </div>
     </section>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#096;');
 }

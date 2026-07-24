@@ -56,11 +56,3 @@ export class Note {
     this.updatedAt = updatedAt;
   }
 }
-
-export function derivePlainText(markdown) {
-  return stripMarkdown(markdown);
-}
-
-export function deriveInternalLinks(markdown) {
-  return extractInternalLinks(markdown);
-}

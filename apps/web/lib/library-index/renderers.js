@@ -1,15 +1,26 @@
+import {
+  escapeAttribute,
+  escapeHtml,
+  formatCompactDate
+} from '../../src/app/formatting.js';
 import { buildFolderPath } from '../navigation/selection.js';
+import { resolveNoteTags, renderTagList } from '../tags/inline-renderers.js';
 import { getEstimatedReadingMinutes, getSourceTypeLabel, getStatusLabel } from './model.js';
 import { renderLibraryPagination } from './pagination-renderers.js';
 
 export function renderLibraryIndexScope({ notes, state }) {
   const folderName = state.selectedFolderId ? state.foldersById[state.selectedFolderId]?.name : null;
-  const scope = folderName || ({ all: '全部资料', recent: '最近资料', favorites: '收藏资料', recycle: '回收站' }[state.libraryIndex.tab] ?? '全部资料');
+  const scope = folderName || ({
+    all: '全部资料',
+    recent: '最近资料',
+    favorites: '收藏资料',
+    recycle: '回收站'
+  }[state.libraryIndex.tab] ?? '全部资料');
   const folderCount = Object.keys(state.foldersById).length;
   const latest = notes[0]?.updatedAt ? formatCompactDate(notes[0].updatedAt) : '暂无记录';
   return `
-    <span>当前范围　SCOPE</span>
-    <strong>${escapeHtml(scope)}</strong>
+    <span>浏览范围</span>
+    <strong title="${escapeAttribute(scope)}">${escapeHtml(scope)}</strong>
     <div><b>资料 ${notes.length}</b><b>文件夹 ${folderCount}</b><b>最近更新 ${escapeHtml(latest)}</b></div>
   `;
 }
@@ -31,9 +42,8 @@ export function renderLibraryIndexContent({ notes, pagination, state }) {
   const selectedId = state.libraryIndex.selectedNoteId;
   return `
     <section class="entry-list" aria-label="资料条目">
-      ${notes.map((note, index) => renderIndexEntry({
+      ${notes.map((note) => renderIndexEntry({
         note,
-        index: pagination.startIndex + index,
         selected: note.id === selectedId,
         state
       })).join('')}
@@ -66,17 +76,20 @@ export function renderLibraryIndexInspector({ note, state }) {
   return `
     <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">›</button>
     <header class="inspector-heading">
-      <strong class="inspector-heading-title" title="${escapeAttribute(note.title)}">${escapeHtml(note.title)}</strong>
+      <div class="inspector-heading-copy">
+        <img class="inspector-heading-icon" src="/styles/icons/phosphor-book-open-text-duotone.svg" alt="" aria-hidden="true" />
+        <span class="inspector-heading-text">
+          <small>资料预览</small>
+          <strong class="inspector-heading-title" title="${escapeAttribute(note.title)}">${escapeHtml(note.title)}</strong>
+        </span>
+      </div>
       <button type="button" class="inspector-open-button" data-index-open="${escapeAttribute(note.id)}" aria-label="打开资料：${escapeAttribute(note.title)}" title="打开资料">
-        <svg class="inspector-open-icon" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M9 3h4v4M13 3 7 9"></path>
-          <path d="M11 8.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h3.5"></path>
-        </svg>
+        <img class="inspector-open-icon" src="/styles/icons/phosphor-arrow-square-out-bold.svg" alt="" aria-hidden="true" />
+        <span>打开</span>
       </button>
     </header>
     ${renderFixedSection({ icon: 'file', title: '资料信息', content: `
       <dl class="inspector-record">
-        <div><dt>标题</dt><dd>${escapeHtml(note.title)}</dd></div>
         <div><dt>类型</dt><dd>Markdown 文档</dd></div>
         <div><dt>状态</dt><dd><span class="status ${note.deleted ? 'status-deleted' : 'status-active'}"><i></i>${note.deleted ? '已删除' : getStatusLabel(note.status)}</span></dd></div>
         <div><dt>所在位置</dt><dd>${escapeHtml(folderPath)}</dd></div>
@@ -102,45 +115,12 @@ export function renderLibraryIndexInspector({ note, state }) {
   `;
 }
 
-export function renderEditorDocumentHead({ note, state }) {
-  if (!note) {
-    return '<div class="document-head-empty">选择一条资料开始编辑</div>';
-  }
+function renderIndexEntry({ note, selected, state }) {
   const tags = resolveNoteTags(note, state.tags);
-  const folderPath = buildFolderPath({ folderId: note.folderId, foldersById: state.foldersById }) || '未分类';
-  const displayId = getDisplayNoteId(note, state);
-  return `
-    <section class="document-head">
-      <div class="document-meta-row">
-        <div class="document-location"><span class="breadcrumb">资料库　/　${escapeHtml(folderPath)}　/　${displayId}</span><span class="status status-active"><i></i>${getStatusLabel(note.status)}</span></div>
-        <div class="document-dates"><span>创建　${escapeHtml(formatCompactDate(note.createdAt))}</span><span>编辑　${escapeHtml(formatCompactDate(note.updatedAt))}</span></div>
-      </div>
-      <div class="document-title-row">
-        <b class="document-id">${displayId}</b>
-        <div class="document-title">
-          <input
-            type="text"
-            class="document-title-input"
-            data-document-title-input
-            value="${escapeAttribute(state.draftTitle || note.title)}"
-            aria-label="资料标题"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <div class="tag-row">${renderTagList(tags)}</div>
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function renderIndexEntry({ note, index, selected, state }) {
-  const tags = resolveNoteTags(note, state.tags);
-  const id = String(index + 1).padStart(3, '0');
   const readingMinutes = getEstimatedReadingMinutes(note);
   return `
     <article class="index-entry" data-index-note-select="${escapeAttribute(note.id)}" data-selected="${String(selected)}" tabindex="0" title="双击打开资料">
-      <b class="entry-id">${id}</b>
+      ${renderArchiveMark()}
       <div class="entry-copy">
         <div class="entry-heading"><h2>${escapeHtml(note.title)}</h2><span class="status ${note.deleted ? 'status-deleted' : 'status-active'}"><i></i>${note.deleted ? '已删除' : getStatusLabel(note.status)}</span></div>
         <p>${escapeHtml(summarizeNote(note))}</p>
@@ -148,8 +128,25 @@ function renderIndexEntry({ note, index, selected, state }) {
       </div>
       <div class="entry-meta"><span>${escapeHtml(formatCompactDate(note.updatedAt))}</span><span>${escapeHtml(getSourceTypeLabel(note.sourceType))}</span></div>
       <span class="entry-reading" aria-label="预计阅读 ${readingMinutes} 分钟"><b>${readingMinutes}</b><small>MIN</small></span>
-      <button type="button" class="entry-action" ${note.deleted ? `data-index-restore="${escapeAttribute(note.id)}"` : `data-index-open="${escapeAttribute(note.id)}"`}>${note.deleted ? '恢复' : '打开'}</button>
+      <button
+        type="button"
+        class="entry-action"
+        ${note.deleted ? `data-index-restore="${escapeAttribute(note.id)}"` : `data-index-open="${escapeAttribute(note.id)}"`}
+        aria-label="${note.deleted ? `恢复资料：${escapeAttribute(note.title)}` : `打开资料：${escapeAttribute(note.title)}`}"
+      >
+        ${note.deleted
+          ? '<span>恢复</span>'
+          : '<span>打开</span><img class="entry-action-icon" src="/styles/icons/phosphor-arrow-square-out-bold.svg" alt="" aria-hidden="true" />'}
+      </button>
     </article>
+  `;
+}
+
+function renderArchiveMark() {
+  return `
+    <div class="entry-archive" role="img" aria-label="书籍封面">
+      <img class="entry-book-cover" src="/styles/icons/phosphor-book-bookmark-duotone.svg" alt="" aria-hidden="true" />
+    </div>
   `;
 }
 
@@ -170,15 +167,6 @@ export function renderSectionIcon(kind) {
     paperclip: '<path d="m6 8 4-4a2 2 0 1 1 3 3l-6 6a3 3 0 0 1-4-4l6-6"></path>'
   };
   return `<svg class="section-icon" viewBox="0 0 16 16" aria-hidden="true">${paths[kind] ?? paths.file}</svg>`;
-}
-
-function resolveNoteTags(note, tags) {
-  return (note.tagIds ?? []).map((tagId) => tags.find((tag) => tag.id === tagId)).filter(Boolean);
-}
-
-function renderTagList(tags) {
-  if (!tags.length) return '<span class="tag-empty">暂无标签</span>';
-  return tags.map((tag) => `<span>${escapeHtml(tag.name)}</span>`).join('');
 }
 
 function summarizeNote(note) {
@@ -205,37 +193,4 @@ function countCharacters(markdown = '') {
 function shortId(value) {
   const normalized = String(value ?? '').replace(/[^a-zA-Z0-9]/g, '');
   return (normalized.slice(-3) || '001').toUpperCase();
-}
-
-function getDisplayNoteId(note, state) {
-  const orderedNotes = state.allNotes
-    .filter((item) => !item.deleted)
-    .sort((left, right) => new Date(right.updatedAt ?? 0).getTime() - new Date(left.updatedAt ?? 0).getTime());
-  const index = orderedNotes.findIndex((item) => item.id === note.id);
-  return String(Math.max(0, index) + 1).padStart(3, '0');
-}
-
-function formatCompactDate(value) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  return `${year}.${month}.${day} ${hour}:${minute}`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttribute(value) {
-  return escapeHtml(value).replace(/`/g, '&#96;');
 }

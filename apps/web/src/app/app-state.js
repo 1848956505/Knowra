@@ -127,7 +127,6 @@ export function createRailItems() {
     { key: 'paper', active: false },
     { key: 'ai', active: false },
     { key: 'task', active: false },
-    { key: 'review', active: false },
-    { key: 'settings', active: false }
+    { key: 'review', active: false }
   ];
 }

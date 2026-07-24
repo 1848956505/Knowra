@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildFolderPath,
+  buildNotePath,
   openFolderBranch,
   resolveFolderSelection,
   resolveNavigationSelection,
@@ -47,6 +48,32 @@ runTest('buildFolderPath returns the root uncategorized path without a folder', 
 
 runTest('buildFolderPath returns the full ancestor path', () => {
   assert.equal(buildFolderPath({ folderId: 'leaf', foldersById }), '资料 / Root / Child / Leaf');
+});
+
+runTest('buildFolderPath can omit the decorative frontend root label', () => {
+  assert.equal(buildFolderPath({
+    folderId: 'leaf',
+    foldersById,
+    rootLabel: '',
+    emptyLabel: ''
+  }), 'Root / Child / Leaf');
+  assert.equal(buildFolderPath({
+    folderId: null,
+    foldersById,
+    rootLabel: '',
+    emptyLabel: ''
+  }), '');
+});
+
+runTest('buildNotePath uses the file name instead of a decorative sequence number', () => {
+  assert.equal(buildNotePath({
+    note: { title: '测试文档', folderId: 'leaf' },
+    foldersById
+  }), '资料库 / Root / Child / Leaf / 测试文档');
+  assert.equal(buildNotePath({
+    note: { title: '根目录文档', folderId: null },
+    foldersById
+  }), '资料库 / 根目录文档');
 });
 
 runTest('resolveNavigationSelection clears invalid folder and stale tabs', () => {

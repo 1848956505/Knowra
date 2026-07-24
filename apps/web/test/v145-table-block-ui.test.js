@@ -125,6 +125,11 @@ assert.match(
   /handleRootPointerOver|handleRootPointerOut|hoverMenuKind|data-pinned-menu-visible/,
   'table handle controller should preserve the active menu while the pointer moves between the handle and its popup'
 );
+assert.match(
+  milkdownTableJs,
+  /TABLE_POINTER_GRACE_MS|pointerGraceTimer|clearTablePointerGrace[\s\S]*setTimeout/,
+  'table handle menus should keep a short pointer grace period while crossing the handle-to-popup gap'
+);
 
 assert.match(
   milkdownTableJs,
@@ -226,6 +231,11 @@ assert.match(
   milkdownTableCss,
   /\.button-group[\s\S]*box-shadow:\s*var\(--shadow-editorial\)/,
   'table operation menus should use the shared editorial shadow token'
+);
+assert.match(
+  milkdownTableCss,
+  /row-drag-handle'\]::after[\s\S]*col-drag-handle'\]::after[\s\S]*content:\s*''/,
+  'row and column handles should provide a transparent hover bridge toward their popup'
 );
 
 assert.doesNotMatch(

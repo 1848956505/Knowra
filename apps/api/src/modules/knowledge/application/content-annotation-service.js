@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
+import { createAppError } from '../../../errors/app-error.js';
 import { ContentAnnotation } from '../domain/content-annotation.js';
 import { buildCreateContentAnnotationDto, buildUpdateAnnotationAnchorDto } from './dto/content-annotation-dto.js';
 import { createInMemoryContentAnnotationRepository } from '../infrastructure/content-annotation-repository.js';
 
 const contentHash = (markdown) => crypto.createHash('sha256').update(String(markdown ?? '')).digest('hex');
-const fail = (code, message, statusCode = 400) => Object.assign(new Error(message), { code, statusCode });
+const fail = (code, message, statusCode = 400) => createAppError(code, message, statusCode);
 
 export function createContentAnnotationService({ repository = createInMemoryContentAnnotationRepository(), noteRepository } = {}) {
   function requireAnnotation(id) { const annotation = repository.findById(id); if (!annotation) throw fail('ANNOTATION_NOT_FOUND', '标注不存在', 404); return annotation; }
