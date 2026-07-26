@@ -73,7 +73,7 @@ Plain Node.js HTTP server with a **DDD-inspired** modular layering. Despite the 
 - **`src/infrastructure/`** — `file-data-store.js` (JSON persistence with snapshot import/export), `local-attachment-store.js`.
 - **`src/modules/knowledge/`** — The only active business module:
   - `domain/` — Plain objects: `note.js`, `folder.js`, `tag.js`, `knowledge-space.js`, `knowledge-point.js`.
-  - `application/` — Services: `note-service.js`, `folder-service.js`, `tag-service.js`, `knowledge-space-service.js`, `knowledge-point-service.js`, `knowledge-point-tag-groups.js`, `search-service.js`; plus `dto/` subfolder.
+  - `application/` — Services: `note-service.js`, `folder-service.js`, `tag-service.js`, `knowledge-space-service.js`, `content-annotation-service.js`, `search-service.js`; `note-summary.js` builds compact list DTOs and `note-content-policy.js` rejects insecure HTTP image sources; plus `dto/` subfolder.
   - `infrastructure/` — In-memory repositories backed by `dataStore.state.*` arrays; every mutation calls `dataStore.flush()`.
   - `http/` — Per-entity route files (`note-routes.js`, `folder-routes.js`, `tag-routes.js`, `space-routes.js`, `knowledge-point-routes.js`) plus a top-level `knowledge-routes.js` dispatcher and `knowledge-handlers.js` (adapter for `appContext.http.knowledge`).
 - **`src/presentation/`** — Markdown preview rendering (server-side).
@@ -97,7 +97,7 @@ A modular vanilla-JS SPA, served via a plain Node.js HTTP server. The 5300-line 
 
 State model: a single global `state` object in `app-state.js` holds everything; DOM is re-rendered from state via imperative `render*()` functions called through controller action proxies. No reactive framework.
 
-Data flow: Workspace loads in priority order — SSR snapshot (`/api/storage/export` rendered into the shell) → localStorage cache → live API fetch → mock fallback (`lib/mock-knowledge-base.js`).
+Data flow: Workspace loads in priority order — SSR compact workspace snapshot → localStorage cache → live compact API fetch → mock fallback (`lib/mock-knowledge-base.js`). Note lists omit full bodies; selecting a note loads its detail through `/api/knowledge/notes/:id`. Full-text search stays server-side and returns matching ids to the compact client state.
 
 The `app/` and `components/` directories at the top of `apps/web` form a separate Next.js-style React exploration that is **not** wired to the dev server.
 
@@ -119,7 +119,7 @@ Each test file exports an array; `run-tests.js` imports and runs them sequential
 
 1. `npm run dev:api` starts the API → `main.js` builds a `createPersistentAppContext()` → loads `storage/data/knowledge-base.json` via `file-data-store.js`.
 2. Request arrives at `server.js` → CORS → storage route → knowledge route → service → repository → `dataStore.flush()` writes JSON.
-3. `npm run dev:web` boots the SPA server. First `GET /` returns the SSR shell with the current knowledge base inlined; client hydrates and switches to live `/api/*` calls.
+3. `npm run dev:web` boots the SPA server. First `GET /` returns the SSR shell with compact note summaries inlined; client hydrates, refreshes summaries through `/api/*`, and fetches a full note body only when it is opened.
 4. Repository mutations on the server persist synchronously; the SPA reflects them on the next refetch.
 
 ## Key Conventions

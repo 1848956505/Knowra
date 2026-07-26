@@ -217,6 +217,34 @@ export const noteServiceTests = [
     }
   },
   {
+    name: 'listNotes summaryOnly omits note bodies and keeps index metadata',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService();
+
+      noteService.createNote({
+        id: 'note-summary',
+        title: 'Summary note',
+        rawMarkdown: '# Heading\n\n' + 'Long body '.repeat(80),
+        folderId: 'folder-1',
+        spaceId: 'space-1'
+      });
+
+      const [summary] = noteService.listNotes({
+        spaceId: 'space-1',
+        summaryOnly: 'true'
+      });
+
+      assert.equal(summary.id, 'note-summary');
+      assert.equal(summary.contentLoaded, false);
+      assert.equal(Object.hasOwn(summary, 'rawMarkdown'), false);
+      assert.equal(Object.hasOwn(summary, 'plainText'), false);
+      assert.ok(summary.summary.length <= 240);
+      assert.equal(summary.outline[0].title, 'Heading');
+      assert.ok(summary.characterCount > 0);
+    }
+  },
+  {
     name: 'setFavorite marks a note and favorite notes sort first',
     async run() {
       const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');

@@ -26,7 +26,10 @@ export function createAppControllers({
   const searchController = createSearchController({
     state,
     elements,
+    knowledgeApi,
+    searchDebounceDelayMs: constants.searchDebounceDelayMs,
     getActiveNotes: helpers.getActiveNotes,
+    flashStatus: helpers.flashStatus,
     reconcileSelection: helpers.reconcileSelection,
     renderAll: helpers.renderAll
   });

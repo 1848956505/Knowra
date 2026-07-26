@@ -70,7 +70,9 @@ export function renderLibraryIndexInspector({ note, state }) {
   const linkedNotes = (note.internalLinks ?? [])
     .map((noteId) => state.allNotes.find((item) => item.id === noteId))
     .filter(Boolean);
-  const outline = extractOutline(note.rawMarkdown ?? '');
+  const outline = Array.isArray(note.outline)
+    ? note.outline
+    : extractOutline(note.rawMarkdown ?? '');
   const attachments = note.id === state.selectedNoteId ? state.attachments : [];
 
   return `
@@ -93,7 +95,7 @@ export function renderLibraryIndexInspector({ note, state }) {
         <div><dt>类型</dt><dd>Markdown 文档</dd></div>
         <div><dt>状态</dt><dd><span class="status ${note.deleted ? 'status-deleted' : 'status-active'}"><i></i>${note.deleted ? '已删除' : getStatusLabel(note.status)}</span></dd></div>
         <div><dt>所在位置</dt><dd>${escapeHtml(folderPath)}</dd></div>
-        <div><dt>字数</dt><dd>${countCharacters(note.rawMarkdown)}</dd></div>
+        <div><dt>字数</dt><dd>${resolveCharacterCount(note)}</dd></div>
         <div><dt>最后编辑</dt><dd>${escapeHtml(formatCompactDate(note.updatedAt))}</dd></div>
         <div><dt>收藏</dt><dd>${note.favorite ? '已收藏' : '未收藏'}</dd></div>
       </dl>
@@ -188,6 +190,12 @@ function extractOutline(markdown) {
 
 function countCharacters(markdown = '') {
   return String(markdown).replace(/\s/g, '').length;
+}
+
+function resolveCharacterCount(note) {
+  return Number.isFinite(Number(note?.characterCount))
+    ? Number(note.characterCount)
+    : countCharacters(note?.rawMarkdown);
 }
 
 function shortId(value) {

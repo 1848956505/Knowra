@@ -65,5 +65,40 @@ export const noteDtoTests = [
         favorite: true
       });
     }
+  },
+  {
+    name: 'note DTOs reject insecure HTTP image sources but allow ordinary HTTP links',
+    async run() {
+      const {
+        buildCreateNoteDto,
+        buildUpdateNoteDto
+      } = await import('../src/modules/knowledge/application/dto/note.dto.js');
+
+      assert.throws(
+        () => buildCreateNoteDto({
+          title: 'Unsafe image',
+          rawMarkdown: '![diagram](http://example.com/diagram.png)'
+        }),
+        (error) => error.code === 'INSECURE_IMAGE_URL' && error.statusCode === 422
+      );
+      assert.throws(
+        () => buildUpdateNoteDto({
+          rawMarkdown: '<img src=\"http://example.com/diagram.png\">'
+        }),
+        (error) => error.code === 'INSECURE_IMAGE_URL'
+      );
+      assert.throws(
+        () => buildUpdateNoteDto({
+          rawMarkdown: '![diagram][asset]\n\n[asset]: http://example.com/diagram.png'
+        }),
+        (error) => error.code === 'INSECURE_IMAGE_URL'
+      );
+
+      const dto = buildCreateNoteDto({
+        title: 'Safe link',
+        rawMarkdown: '[legacy website](http://example.com/article)'
+      });
+      assert.match(dto.rawMarkdown, /http:\/\/example\.com\/article/);
+    }
   }
 ];

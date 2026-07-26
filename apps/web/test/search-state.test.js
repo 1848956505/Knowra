@@ -5,6 +5,7 @@ import {
   getVisibleSearchTags,
   hasActiveSearchFilters,
   matchesSearch,
+  noteMatchesKeyword,
   noteMatchesSelectedTags,
   toggleSearchTagId
 } from '../lib/search/state.js';
@@ -24,6 +25,11 @@ assert.equal(matchesSearch('Long Memory', search), true);
 assert.equal(matchesSearch('CLIP', search), false);
 assert.equal(noteMatchesSelectedTags({ tagIds: ['tag-memory', 'tag-clip'] }, search), true);
 assert.equal(noteMatchesSelectedTags({ tagIds: ['tag-clip'] }, search), false);
+assert.equal(noteMatchesKeyword({ id: 'note-memory', title: 'Other', summary: 'Memory body' }, search), true);
+assert.equal(noteMatchesKeyword(
+  { id: 'note-server-match', title: 'Other', summary: '' },
+  { ...search, matchingNoteIds: ['note-server-match'] }
+), true);
 assert.deepEqual(toggleSearchTagId(['tag-memory'], 'tag-memory'), []);
 assert.deepEqual(toggleSearchTagId(['tag-memory'], 'tag-clip'), ['tag-memory', 'tag-clip']);
 

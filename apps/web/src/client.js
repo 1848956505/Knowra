@@ -1,6 +1,7 @@
 ﻿import {
   AUTOSAVE_DELAY_MS,
   BACKEND_CACHE_KEY,
+  SEARCH_DEBOUNCE_DELAY_MS,
   SCROLL_POSITIONS_KEY,
   createInitialAppState,
   createRailItems
@@ -71,6 +72,7 @@ function createControllers() {
     constants: {
       autosaveDelayMs: AUTOSAVE_DELAY_MS,
       backendCacheKey: BACKEND_CACHE_KEY,
+      searchDebounceDelayMs: SEARCH_DEBOUNCE_DELAY_MS,
       scrollPositionsKey: SCROLL_POSITIONS_KEY
     },
     helpers: {

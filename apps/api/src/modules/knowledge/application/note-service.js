@@ -1,5 +1,6 @@
 import { Note } from '../domain/note.js';
 import { buildCreateNoteDto, buildUpdateNoteDto } from './dto/note.dto.js';
+import { createNoteSummary } from './note-summary.js';
 import { createInMemoryNoteRepository } from '../infrastructure/note-repository.js';
 
 export function createNoteService({
@@ -227,7 +228,10 @@ export function createNoteService({
       return updatedNote;
     },
     listNotes(options = {}) {
-      return repository.list(options);
+      const notes = repository.list(options);
+      return options.summaryOnly === true || options.summaryOnly === 'true'
+        ? notes.map(createNoteSummary)
+        : notes;
     }
   };
 }

@@ -39,6 +39,10 @@ export function createNoteDuplicateController(deps, fileTarget, getController) {
         status: refreshedNote.status ?? 'draft'
       });
 
+      state.allNotes = insertLocalNote(state.allNotes, {
+        ...created,
+        contentLoaded: true
+      });
       state.selectedNoteId = created.id;
       state.openNoteTabs = ensureOpenTab(state.openNoteTabs, created.id);
       await refreshKnowledgeData();

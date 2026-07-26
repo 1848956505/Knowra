@@ -104,7 +104,8 @@ export function createKnowledgeHttpHandlers({ knowledgeModule }) {
       return knowledgeSpaceService.listKnowledgeSpaces(query);
     },
     searchNotes(query) {
-      return searchService.searchNotes(query);
+      const notes = searchService.searchNotes(query);
+      return query.result === 'ids' ? notes.map((note) => note.id) : notes;
     }
   };
 }

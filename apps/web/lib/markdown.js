@@ -7,7 +7,11 @@ function renderInlineMarkdown(text) {
   let html = escapeHtml(text);
   html = html.replace(/\\&lt;br\s*\/?&gt;/gi, '<br />');
   html = html.replace(/&lt;br\s*\/?&gt;/gi, '<br />');
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, src) => (
+    /^http:\/\//i.test(src.trim())
+      ? `<span class="preview-blocked-image">[已阻止不安全图片：${alt || '未命名图片'}]</span>`
+      : `<img src="${src}" alt="${alt}" />`
+  ));
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');

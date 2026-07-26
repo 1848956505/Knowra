@@ -1,6 +1,13 @@
 import { asItems, getData } from '../api-response.js';
 
 export function createNoteApi({ requestJson }) {
+  async function getNote(noteId, { includeDeleted = false } = {}) {
+    const query = includeDeleted ? '?includeDeleted=true' : '';
+    return getData(await requestJson(
+      `/api/knowledge/notes/${encodeURIComponent(noteId)}${query}`
+    ));
+  }
+
   async function createNote(input) {
     return getData(await requestJson('/api/knowledge/notes', {
       method: 'POST',
@@ -86,6 +93,7 @@ export function createNoteApi({ requestJson }) {
   }
 
   return {
+    getNote,
     createNote,
     importMarkdownNotes,
     updateNote,

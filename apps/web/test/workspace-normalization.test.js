@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  mergeNoteSummariesWithLoadedContent,
   normalizeFolderTree,
   normalizeNotes,
   replaceNoteInCollection
@@ -70,11 +71,35 @@ runTest('normalizeNotes filters invalid notes and fills defaults', () => {
         tagIds: [],
         internalLinks: [],
         rawMarkdown: '',
+        contentLoaded: false,
         favorite: true,
         deleted: false
       }
     ]
   );
+});
+
+runTest('mergeNoteSummariesWithLoadedContent preserves an already loaded body', () => {
+  const [note] = mergeNoteSummariesWithLoadedContent([
+    {
+      id: 'note-loaded',
+      title: 'Updated metadata',
+      summary: 'summary',
+      contentLoaded: false
+    }
+  ], [
+    {
+      id: 'note-loaded',
+      title: 'Old metadata',
+      rawMarkdown: '# Full body',
+      plainText: 'Full body',
+      contentLoaded: true
+    }
+  ]);
+
+  assert.equal(note.title, 'Updated metadata');
+  assert.equal(note.rawMarkdown, '# Full body');
+  assert.equal(note.contentLoaded, true);
 });
 
 runTest('normalizeNotes copies array fields instead of reusing references', () => {
@@ -101,6 +126,7 @@ runTest('replaceNoteInCollection merges a normalized note into the existing coll
         id: 'note-a',
         title: 'New',
         rawMarkdown: 'fallback',
+        contentLoaded: true,
         favorite: false,
         folderId: null,
         tagIds: [],

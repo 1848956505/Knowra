@@ -78,4 +78,52 @@ function createState(dataMode) {
   ]);
 }
 
-console.log('ok - note command mutations share API and local post-processing');
+{
+  const state = createState('api');
+  state.allNotes[0] = {
+    ...state.allNotes[0],
+    rawMarkdown: '',
+    summary: 'Compact summary',
+    contentLoaded: false
+  };
+  state.view.screen = 'index';
+  const calls = [];
+  const controller = createNavigationNoteCommandController({
+    state,
+    knowledgeApi: {
+      getNote: async (noteId) => {
+        calls.push(`detail:${noteId}`);
+        return {
+          ...state.allNotes[0],
+          rawMarkdown: '# Full body',
+          contentLoaded: true
+        };
+      }
+    },
+    getNoteById: (noteId) => (
+      state.allNotes.find((note) => note.id === noteId) ?? null
+    ),
+    persistDraft: async () => calls.push('persist'),
+    renderAll: () => calls.push('render'),
+    loadCurrentNoteSideData: async () => calls.push('side-data'),
+    saveCurrentEditorScrollPosition: () => calls.push('scroll'),
+    flashStatus: (message) => calls.push(`flash:${message}`)
+  }, () => ({ openFolderBranch() {} }));
+
+  await controller.selectNote('note-1');
+
+  assert.equal(state.allNotes[0].rawMarkdown, '# Full body');
+  assert.equal(state.allNotes[0].contentLoaded, true);
+  assert.equal(state.draftMarkdown, '# Full body');
+  assert.equal(state.view.screen, 'editor');
+  assert.deepEqual(calls, [
+    'persist',
+    'detail:note-1',
+    'side-data',
+    'scroll',
+    'render',
+    'flash:已切换到：Test note'
+  ]);
+}
+
+console.log('ok - note commands share mutation flow and lazy-load full note details');

@@ -1,4 +1,5 @@
 import { trimIfString, createSlug } from './_shared.js';
+import { assertNoInsecureImageUrls } from '../note-content-policy.js';
 
 function deriveTitleFromMarkdown(markdown) {
   if (typeof markdown !== 'string') {
@@ -33,6 +34,7 @@ function createNoteId({ id, title, rawMarkdown }) {
 
 export function buildCreateNoteDto(input) {
   const title = trimIfString(input.title) || deriveTitleFromMarkdown(input.rawMarkdown) || 'Untitled Note';
+  assertNoInsecureImageUrls(input.rawMarkdown);
 
   return {
     id: createNoteId({
@@ -60,6 +62,7 @@ export function buildUpdateNoteDto(input) {
     dto.title = trimIfString(input.title);
   }
   if (input.rawMarkdown !== undefined) {
+    assertNoInsecureImageUrls(input.rawMarkdown);
     dto.rawMarkdown = input.rawMarkdown;
   }
   if (input.spaceId !== undefined) {

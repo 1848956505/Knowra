@@ -41,7 +41,11 @@ export function selectLibraryIndexNotes(state) {
     const tagText = (note.tagIds ?? [])
       .map((tagId) => (state.tags ?? []).find((tag) => tag.id === tagId)?.name ?? '')
       .join(' ');
-    return `${note.title} ${note.rawMarkdown ?? ''} ${tagText}`.toLowerCase().includes(keyword);
+    if (Array.isArray(state.search?.matchingNoteIds)) {
+      return state.search.matchingNoteIds.includes(note.id)
+        || tagText.toLowerCase().includes(keyword);
+    }
+    return `${note.title} ${note.summary ?? note.rawMarkdown ?? ''} ${tagText}`.toLowerCase().includes(keyword);
   });
 
   return candidates.sort(createTimeComparator(filters.time));
@@ -96,7 +100,12 @@ export function getLibraryFilterOptions(kind) {
 }
 
 export function getEstimatedReadingMinutes(note) {
-  const contentLength = String(note?.rawMarkdown ?? '').replace(/\s/g, '').length;
+  if (Number.isFinite(Number(note?.readingMinutes))) {
+    return Math.max(1, Number(note.readingMinutes));
+  }
+  const contentLength = Number.isFinite(Number(note?.characterCount))
+    ? Number(note.characterCount)
+    : String(note?.rawMarkdown ?? '').replace(/\s/g, '').length;
   return Math.max(1, Math.ceil(contentLength / 360));
 }
 

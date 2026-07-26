@@ -15,6 +15,7 @@ import {
   writeWorkspaceCache
 } from '../../lib/workspace-cache.js';
 import {
+  mergeNoteSummariesWithLoadedContent,
   normalizeFolderTree,
   normalizeNotes
 } from '../../lib/workspace-normalization.js';
@@ -135,7 +136,7 @@ async function refreshKnowledgeData(spaceId = state.currentSpaceId) {
   state.folderTree = normalizeFolderTree(resources.folderTree);
   state.foldersById = flattenFolderTree(state.folderTree);
   state.tags = resources.tags;
-  state.allNotes = normalizeNotes(resources.notes);
+  state.allNotes = mergeNoteSummariesWithLoadedContent(resources.notes, state.allNotes);
   state.openFolders = {
     ...Object.fromEntries(Object.keys(state.foldersById).map((folderId) => [folderId, true])),
     ...state.openFolders

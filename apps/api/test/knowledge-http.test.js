@@ -51,6 +51,36 @@ export const knowledgeHttpTests = [
     }
   },
   {
+    name: 'knowledge handlers return compact note summaries and search ids on request',
+    async run() {
+      const { createKnowledgeModule } = await import('../src/modules/knowledge/index.js');
+      const { createKnowledgeHttpHandlers } = await import('../src/modules/knowledge/http/knowledge-handlers.js');
+
+      const handlers = createKnowledgeHttpHandlers({
+        knowledgeModule: createKnowledgeModule()
+      });
+      handlers.createNote({
+        id: 'http-summary-note',
+        title: 'Compact detail',
+        rawMarkdown: '# Compact\n\nSearchable body',
+        spaceId: 'space-summary'
+      });
+
+      const [summary] = handlers.listNotes({
+        spaceId: 'space-summary',
+        summaryOnly: 'true'
+      });
+      const ids = handlers.searchNotes({
+        query: 'searchable',
+        spaceId: 'space-summary',
+        result: 'ids'
+      });
+
+      assert.equal(Object.hasOwn(summary, 'rawMarkdown'), false);
+      assert.deepEqual(ids, ['http-summary-note']);
+    }
+  },
+  {
     name: 'knowledge handlers can restore deleted notes and read them with includeDeleted',
     async run() {
       const { createKnowledgeModule } = await import('../src/modules/knowledge/index.js');
