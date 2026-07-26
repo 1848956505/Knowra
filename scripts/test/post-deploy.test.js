@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
 const deployScript = path.join(workspaceRoot, 'scripts', 'post-deploy.sh');
+const deployScriptSource = readFileSync(deployScript, 'utf8');
 
 test('post-deploy builds and restarts the production PM2 processes', () => {
   const fixture = createFixture();
@@ -19,6 +20,11 @@ test('post-deploy builds and restarts the production PM2 processes', () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(calls, /^npm run build:editor-bundle -w @study-accelerator\/web$/m);
+    assert.match(
+      deployScriptSource,
+      /NODE_ENV=production npm run build:editor-bundle -w @study-accelerator\/web/,
+      'deployment must build Milkdown without production source maps'
+    );
     assert.match(calls, /^pm2 describe knowra-api$/m);
     assert.match(calls, /^pm2 describe knowra-web$/m);
     assert.match(calls, /^pm2 restart knowra-api knowra-web --update-env$/m);

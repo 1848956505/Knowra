@@ -33,4 +33,6 @@ Node 服务的 `3000`、`3001` 端口只供本机 Nginx 与 Web 代理访问，�
 
 当前正式运行时仍使用本地 JSON 存储，尚未加载 Prisma/Nest/BullMQ 脚手架。CI 与服务器部署统一使用 `npm ci --ignore-scripts`，避免未启用依赖的生命周期脚本下载 Prisma 引擎或执行额外安装代码；Milkdown bundle 由项目自己的构建命令显式生成。未来正式启用 Prisma 前，必须同步调整这条门禁并增加生成与迁移验证。
 
+`scripts/post-deploy.sh` 会以生产模式压缩 Milkdown bundle 并删除 Source Map；Nginx 模板为 JavaScript、CSS、JSON、SVG 与文本响应启用 gzip。Web 静态文件使用 ETag/`Last-Modified` 协商缓存，部署后不应再向公网提供 `milkdown-bundle.js.map` 或 `milkdown-bundle.css.map`。
+
 完整发布、备份、验证与回滚步骤见 [`docs/阿里云ECS服务器信息.md`](../docs/阿里云ECS服务器信息.md)。

@@ -28,6 +28,11 @@ test('production Nginx template protects the site and keeps health public', () =
     nginxConfig,
     /location \/\s*\{[\s\S]*?proxy_pass http:\/\/127\.0\.0\.1:3000;/
   );
+  assert.match(nginxConfig, /gzip_comp_level\s+5;/);
+  assert.match(
+    nginxConfig,
+    /gzip_types[\s\S]*?text\/css[\s\S]*?application\/javascript[\s\S]*?application\/json[\s\S]*?image\/svg\+xml;/
+  );
 });
 
 function readWorkspaceFile(relativePath) {
