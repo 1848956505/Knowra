@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知境 · Knowra 图标与组件设计</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Archivo+Narrow:wght@500;600;700&display=swap');
+
+  :root {
+    --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    --font-display: 'Archivo Narrow', 'Avenir Next Condensed', 'Arial Narrow', sans-serif;
+    --paper: #f5f3ec;
+    --paper-raised: #fffefa;
+    --ink: #161616;
+    --blue: #1646d8;
+    --blue-wash: rgba(22, 70, 216, 0.1);
+    --blue-focus: rgba(22, 70, 216, 0.28);
+    --line: #9c9b94;
+    --line-soft: #d7d5ce;
+    --muted: #66655f;
+    --muted-soft: #87857d;
+    --acid: #e9ff4f;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --text-sm: 12px;
+    --text-base: 14px;
+    --text-ui: 15px;
+    --text-body: 16px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--paper);
+    color: var(--ink);
+    padding: var(--space-8);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+  }
+
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: var(--space-5);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--line-soft);
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: var(--space-3);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: var(--text-base);
+    margin-bottom: var(--space-8);
+  }
+
+  .section {
+    background: var(--paper-raised);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+  }
+
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .icon-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-3);
+    border-radius: var(--radius-sm);
+    cursor: default;
+  }
+
+  .icon-card:hover {
+    background: var(--blue-wash);
+  }
+
+  .icon-card svg {
+    width: 32px;
+    height: 32px;
+    stroke: var(--ink);
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .icon-card .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .icon-card .label.cn {
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .icon-card.size-sm svg { width: 20px; height: 20px; stroke-width: 2; }
+  .icon-card.size-md svg { width: 28px; height: 28px; stroke-width: 1.8; }
+  .icon-card.size-lg svg { width: 40px; height: 40px; stroke-width: 1.5; }
+
+  .icon-card.filled svg { fill: var(--blue); stroke: var(--blue); }
+  .icon-card.filled svg path:last-child { fill: var(--paper-raised); stroke: var(--blue); }
+  .icon-card.accent svg { stroke: var(--blue); }
+  .icon-card.muted svg { stroke: var(--line); }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--line-soft);
+    margin: var(--space-6) 0;
+  }
+
+  .state-row {
+    display: flex;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  /* ===== Module Switcher (Horizontal Grid) ===== */
+  .switcher-preview {
+    display: grid;
+    grid-template-columns: repeat(5, var(--space-9));
+    gap: var(--space-2);
+    width: fit-content;
+    padding: var(--space-3);
+    background: var(--paper);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-sm);
+  }
+
+  .switch-item {
+    display: grid;
+    width: var(--space-9);
+    height: 40px;
+    place-items: center;
+    border: 1px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    border-radius: none;
+  }
+
+  .switch-item svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+  }
+
+  .switch-item.muted {
+    border-color: var(--line-soft);
+    color: var(--line);
+  }
+  .switch-item.muted svg.old-icon,
+  .switch-item.muted img { opacity: 0.35; }
+
+  .switch-item.active {
+    border-color: var(--blue);
+    background: var(--blue-wash);
+    color: var(--blue);
+  }
+
+  .switch-item.active svg.old-icon { color: var(--blue); }
+  .compare-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-8);
+    margin-bottom: var(--space-6);
+  }
+
+  .compare-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .compare-header {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: var(--space-2);
+  }
+  .compare-header small {
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--muted);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .tag-old {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(102, 101, 95, 0.12);
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .tag-new {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--blue-wash);
+    color: var(--blue);
+    letter-spacing: 0.04em;
+  }
+
+  .rail-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--paper);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    width: 56px;
+  }
+
+  .rail-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  .rail-item svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .rail-item:hover {
+    background: var(--blue-wash);
+    color: var(--blue);
+  }
+
+  .rail-item.active {
+    color: var(--blue);
+  }
+
+  .rail-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 3px;
+    height: 24px;
+    background: var(--blue);
+    border-radius: 0 2px 2px 0;
+  }
+
+  .rail-item.active { position: relative; }
+
+  .size-toggles {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+
+  .size-btn {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    color: var(--muted);
+    font-family: var(--font-body);
+  }
+
+  .size-btn:hover { background: var(--blue-wash); color: var(--blue); border-color: var(--blue); }
+  .size-btn.active { background: var(--blue-wash); color: var(--blue); border-color: var(--blue); font-weight: 600; }
+
+  .variant-label {
+    font-size: 11px;
+    color: var(--muted-soft);
+    margin-bottom: var(--space-2);
+    display: block;
+  }
+
+  .row-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    min-width: 80px;
+  }
+
+  .preview-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .palette {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--line-soft);
+  }
+
+  .color-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1>知境 · Knowra</h1>
+<p class="subtitle">图标系统与功能模块视觉设计</p>
+
+<!-- ============ Rail Icons ============ -->
+<h2>模块导航图标 — 新旧对比</h2>
+
+<div class="section">
+  <p style="font-size: 14px; color: var(--muted); margin-bottom: var(--space-5);">
+    当前正式 UI 采用横向按钮式模块切换（<code>.module-switcher</code>），
+    <code>grid-template-columns: repeat(5, 36px)</code>，
+    位于左侧目录底部。按钮仅显示图标，标签在悬浮时浮出。
+  </p>
+
+  <div class="compare-wrap">
+
+    <!-- Old icons column -->
+    <div class="compare-col">
+      <div class="compare-header">
+        <span class="tag-old">CURRENT</span> Phosphor Duotone
+        <small>SVG 文件 · 256×256 · Opacity 控制 inactive</small>
+      </div>
+
+      <div class="switcher-preview">
+        <div class="switch-item active">
+          <svg class="old-icon" viewBox="0 0 256 256" fill="currentColor"><path d="M48,72h64V184H48ZM190.64,38.39a8,8,0,0,0-9.5-6.21l-46.81,10a8.07,8.07,0,0,0-6.15,9.57L139.79,107l62.46-13.42Z" opacity="0.2"></path><path d="M231.65,194.55,198.46,36.75a16,16,0,0,0-19-12.39L132.65,34.42a16.08,16.08,0,0,0-12.3,19l33.19,157.8A16,16,0,0,0,169.16,224a16.25,16.25,0,0,0,3.38-.36l46.81-10.06A16.09,16.09,0,0,0,231.65,194.55Z"></path></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg class="old-icon" viewBox="0 0 256 256" fill="currentColor"><path d="M224,56V216l-32-16-32,16-32-16L96,216,64,200,32,216V56a8,8,0,0,1,8-8H216A8,8,0,0,1,224,56Z" opacity="0.2"></path><path d="M216,40H40A16,16,0,0,0,24,56V216a8,8,0,0,0,11.58,7.16L64,208.94l28.42,14.22a8,8,0,0,0,7.16,0L128,208.94l28.42,14.22a8,8,0,0,0,7.16,0L192,208.94l28.42,14.22A8,8,0,0,0,232,216V56A16,16,0,0,0,216,40Z"></path></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg class="old-icon" viewBox="0 0 256 256" fill="currentColor"><path d="M210.26,210.26c-17.23,17.23-68-5.63-113.46-51.06S28.51,63,45.74,45.74s68,5.63,113.46,51.06S227.49,193,210.26,210.26Z" opacity="0.2"></path><path d="M196.12,128c24.65-34.61,37.22-70.38,19.74-87.86S162.61,35.23,128,59.88C93.39,35.23,57.62,22.66,40.14,40.14S35.23,93.39,59.88,128c-24.65,34.61-37.22,70.38-19.74,87.86h0c5.63,5.63,13.15,8.14,21.91,8.14,18.48,0,42.48-11.17,66-27.88C151.47,212.83,175.47,224,194,224c8.76,0,16.29-2.52,21.91-8.14h0C233.34,198.38,220.77,162.61,196.12,128Z"></path></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg class="old-icon" viewBox="0 0 256 256" fill="currentColor"><path d="M216,64V192H128V64Z" opacity="0.2"></path><path d="M224,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h88A8,8,0,0,1,224,128ZM128,72h88a8,8,0,0,0,0-16H128a8,8,0,0,0,0,16Zm88,112H128a8,8,0,0,0,0,16h88a8,8,0,0,0,0-16ZM82.34,42.34,56,68.69,45.66,58.34A8,8,0,0,0,34.34,69.66l16,16a8,8,0,0,0,11.32,0l32-32A8,8,0,0,0,82.34,42.34Z"></path></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg class="old-icon" viewBox="0 0 256 256" fill="currentColor"><path d="M216,128a88,88,0,1,1-88-88A88,88,0,0,1,216,128Z" opacity="0.2"></path><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0Z"></path></svg>
+        </div>
+      </div>
+      <div style="display: flex; gap: var(--space-3); margin-top: var(--space-2); font-size: 11px; color: var(--muted-soft);">
+        <span>知识库</span><span>题库</span><span>AI</span><span>任务</span><span>复盘</span>
+      </div>
+    </div>
+
+    <!-- New icons column -->
+    <div class="compare-col">
+      <div class="compare-header">
+        <span class="tag-new">NEW</span> 自定义描边图标
+        <small>24×24 viewBox · 圆头描边 · color 继承响应</small>
+      </div>
+
+      <div class="switcher-preview">
+        <div class="switch-item active">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5c0-1 .7-1.5 1.5-1.5h3A2.5 2.5 0 0 1 11 6v12.5H4V5z"/><path d="M20 5c0-1-.7-1.5-1.5-1.5h-3A2.5 2.5 0 0 0 13 6v12.5h7V5z"/><path d="M4 17.5h7v3H4zM13 17.5h7v3H13z"/></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 2v4M14 2v4"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 3.8L17 8.5l-3.5 1.7L12 14l-1.5-3.8L7 8.5l3.5-1.7z"/><path d="M18.5 14l.7 1.7 1.8.8-1.8.8-.7 1.7-.7-1.7-1.8-.8 1.8-.8z"/><path d="M5.5 14l.7 1.7L8 16.5l-1.8.8-.7 1.7-.7-1.7L3 16.5l1.8-.8z"/></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8l2 2 4-4"/><path d="M8 14l2 2 4-4"/></svg>
+        </div>
+        <div class="switch-item muted">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/><path d="M18 3l3 3-7 7h-3v-3z"/><path d="M8 16l2-2"/></svg>
+        </div>
+      </div>
+      <div style="display: flex; gap: var(--space-3); margin-top: var(--space-2); font-size: 11px; color: var(--muted-soft);">
+        <span>知识库</span><span>纸笺</span><span>AI</span><span>任务</span><span>审阅</span>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="divider">
+
+  <h3>设计差异总结</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); font-size: 13px; line-height: 1.7;">
+    <div style="padding: var(--space-4); background: var(--paper); border-radius: var(--radius-sm);">
+      <strong style="color: var(--muted);">旧 (Phosphor Duotone)</strong>
+      <ul style="margin-top: var(--space-2); padding-left: var(--space-5);">
+        <li>256×256 viewBox，单个 SVG 文件</li>
+        <li>Duotone 双色填充，两段路径</li>
+        <li>路径密度高，缩放到 22px 后细节模糊</li>
+        <li>通过 &lt;img&gt; 标签引用，color 无法继承</li>
+        <li>Inactive 态用 CSS opacity 减淡 (0.35)</li>
+      </ul>
+    </div>
+    <div style="padding: var(--space-4); background: var(--paper); border-radius: var(--radius-sm);">
+      <strong style="color: var(--blue);">新 (自定义描边)</strong>
+      <ul style="margin-top: var(--space-2); padding-left: var(--space-5);">
+        <li>24×24 viewBox，统一坐标系</li>
+        <li>纯线条描边，无填充色块</li>
+        <li>路径精简，小尺寸保持清晰可辨</li>
+        <li>内联 SVG，color 直接继承</li>
+        <li>Inactive 态用 muted/line 颜色值直接控制</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 状态变体 ============ -->
+<div class="section">
+  <h3>状态变体</h3>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-6);">
+
+    <div>
+      <span class="variant-label">悬停态 / Hover</span>
+      <div class="icon-grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="icon-card accent">
+          <svg viewBox="0 0 24 24"><path d="M4 5c0-1 .7-1.5 1.5-1.5h3A2.5 2.5 0 0 1 11 6v12.5H4V5z"/><path d="M20 5c0-1-.7-1.5-1.5-1.5h-3A2.5 2.5 0 0 0 13 6v12.5h7V5z"/><path d="M4 17.5h7v3H4zM13 17.5h7v3H13z"/></svg>
+          <span class="label">hover</span>
+        </div>
+        <div class="icon-card accent">
+          <svg viewBox="0 0 24 24"><path d="M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 2v4M14 2v4"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+          <span class="label">hover</span>
+        </div>
+        <div class="icon-card accent">
+          <svg viewBox="0 0 24 24"><path d="M12 3l1.5 3.8L17 8.5l-3.5 1.7L12 14l-1.5-3.8L7 8.5l3.5-1.7z"/><path d="M18.5 14l.7 1.7 1.8.8-1.8.8-.7 1.7-.7-1.7-1.8-.8 1.8-.8z"/><path d="M5.5 14l.7 1.7L8 16.5l-1.8.8-.7 1.7-.7-1.7L3 16.5l1.8-.8z"/></svg>
+          <span class="label">hover</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <span class="variant-label">选中态 / Active</span>
+      <div class="icon-grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="icon-card filled">
+          <svg viewBox="0 0 24 24"><path d="M4 5c0-1 .7-1.5 1.5-1.5h3A2.5 2.5 0 0 1 11 6v12.5H4V5z"/><path d="M20 5c0-1-.7-1.5-1.5-1.5h-3A2.5 2.5 0 0 0 13 6v12.5h7V5z"/><path d="M4 17.5h7v3H4zM13 17.5h7v3H13z"/></svg>
+          <span class="label">active</span>
+        </div>
+        <div class="icon-card filled">
+          <svg viewBox="0 0 24 24"><path d="M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 2v4M14 2v4"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+          <span class="label">active</span>
+        </div>
+        <div class="icon-card filled">
+          <svg viewBox="0 0 24 24"><path d="M12 3l1.5 3.8L17 8.5l-3.5 1.7L12 14l-1.5-3.8L7 8.5l3.5-1.7z"/><path d="M18.5 14l.7 1.7 1.8.8-1.8.8-.7 1.7-.7-1.7-1.8-.8 1.8-.8z"/><path d="M5.5 14l.7 1.7L8 16.5l-1.8.8-.7 1.7-.7-1.7L3 16.5l1.8-.8z"/></svg>
+          <span class="label">active</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <span class="variant-label">禁用态 / Disabled / Muted</span>
+      <div class="icon-grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="icon-card muted">
+          <svg viewBox="0 0 24 24"><path d="M4 5c0-1 .7-1.5 1.5-1.5h3A2.5 2.5 0 0 1 11 6v12.5H4V5z"/><path d="M20 5c0-1-.7-1.5-1.5-1.5h-3A2.5 2.5 0 0 0 13 6v12.5h7V5z"/><path d="M4 17.5h7v3H4zM13 17.5h7v3H13z"/></svg>
+          <span class="label">muted</span>
+        </div>
+        <div class="icon-card muted">
+          <svg viewBox="0 0 24 24"><path d="M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 2v4M14 2v4"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+          <span class="label">muted</span>
+        </div>
+        <div class="icon-card muted">
+          <svg viewBox="0 0 24 24"><path d="M12 3l1.5 3.8L17 8.5l-3.5 1.7L12 14l-1.5-3.8L7 8.5l3.5-1.7z"/><path d="M18.5 14l.7 1.7 1.8.8-1.8.8-.7 1.7-.7-1.7-1.8-.8 1.8-.8z"/><path d="M5.5 14l.7 1.7L8 16.5l-1.8.8-.7 1.7-.7-1.7L3 16.5l1.8-.8z"/></svg>
+          <span class="label">muted</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ Rail 应用预览 ============ -->
+<div class="section">
+  <h3>Rail 应用效果预览</h3>
+  <div class="preview-row">
+    <span class="row-label">默认</span>
+    <div class="rail-preview">
+      <button class="rail-item active">
+        <svg viewBox="0 0 24 24"><path d="M4 5c0-1 .7-1.5 1.5-1.5h3A2.5 2.5 0 0 1 11 6v12.5H4V5z"/><path d="M20 5c0-1-.7-1.5-1.5-1.5h-3A2.5 2.5 0 0 0 13 6v12.5h7V5z"/><path d="M4 17.5h7v3H4zM13 17.5h7v3H13z"/></svg>
+      </button>
+      <button class="rail-item">
+        <svg viewBox="0 0 24 24"><path d="M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 2v4M14 2v4"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+      </button>
+      <button class="rail-item">
+        <svg viewBox="0 0 24 24"><path d="M12 3l1.5 3.8L17 8.5l-3.5 1.7L12 14l-1.5-3.8L7 8.5l3.5-1.7z"/><path d="M18.5 14l.7 1.7 1.8.8-1.8.8-.7 1.7-.7-1.7-1.8-.8 1.8-.8z"/><path d="M5.5 14l.7 1.7L8 16.5l-1.8.8-.7 1.7-.7-1.7L3 16.5l1.8-.8z"/></svg>
+      </button>
+      <button class="rail-item">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8l2 2 4-4"/><path d="M8 14l2 2 4-4"/></svg>
+      </button>
+      <button class="rail-item">
+        <svg viewBox="0 0 24 24"><path d="M12 5.5H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/><path d="M18 3l3 3-7 7h-3v-3z"/><path d="M8 16l2-2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Tool & Utility Icons ============ -->
+<h2>工具与操作图标</h2>
+
+<div class="section">
+  <h3>编辑器工具栏</h3>
+  <div class="icon-grid" style="grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));">
+
+    <!-- 加粗 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M6 4h6.5a4 4 0 0 1 0 8H6zM6 12h7a4 4 0 0 1 0 8H6z"/>
+      </svg>
+      <span class="label">加粗</span>
+    </div>
+
+    <!-- 斜体 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M10 4h6M8 20h6M14 4l-4 16"/>
+      </svg>
+      <span class="label">斜体</span>
+    </div>
+
+    <!-- 标题 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M6 4v16M18 4v16M6 12h12"/>
+      </svg>
+      <span class="label">标题</span>
+    </div>
+
+    <!-- 列表 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M8 6h12M8 12h12M8 18h12"/>
+        <circle cx="4" cy="6" r=".5"/><circle cx="4" cy="12" r=".5"/><circle cx="4" cy="18" r=".5"/>
+      </svg>
+      <span class="label">列表</span>
+    </div>
+
+    <!-- 引用 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M10 11H5l2-4M14 13h5l-2 4"/>
+      </svg>
+      <span class="label">引用</span>
+    </div>
+
+    <!-- 代码 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M16 8l4 4-4 4M8 8l-4 4 4 4"/>
+      </svg>
+      <span class="label">代码</span>
+    </div>
+
+    <!-- 链接 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M10 14a5 5 0 0 0 7.1-7.1l-2-2a5 5 0 0 0-7 0L6 6.8"/>
+        <path d="M14 10a5 5 0 0 0-7.1 7.1l2 2a5 5 0 0 0 7 0L18 17.2"/>
+      </svg>
+      <span class="label">链接</span>
+    </div>
+
+    <!-- 图片 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="2"/>
+        <circle cx="8.5" cy="9.5" r="1.5"/>
+        <path d="M21 16l-5-5-6 6-3-3-4 4"/>
+      </svg>
+      <span class="label">图片</span>
+    </div>
+
+    <!-- 表格 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+      </svg>
+      <span class="label">表格</span>
+    </div>
+
+    <!-- 撤销 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 10h10a6 6 0 0 1 0 12H9"/>
+        <path d="M7 6l-4 4 4 4"/>
+      </svg>
+      <span class="label">撤销</span>
+    </div>
+
+    <!-- 查找 -->
+    <div class="icon-card size-sm">
+      <svg viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M16 16l4 4"/>
+      </svg>
+      <span class="label">查找</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ Library Index Icons ============ -->
+<h2>资料索引图标</h2>
+
+<div class="section">
+  <div class="icon-grid">
+
+    <!-- 全部资料 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9l4 4v12.5"/>
+        <path d="M9 3v4h4"/>
+        <path d="M5.5 21H18a2 2 0 0 0 2-2V7l-4-4H8"/>
+      </svg>
+      <span class="label cn">全部</span>
+    </div>
+
+    <!-- 最近 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 7v5l3 3"/>
+      </svg>
+      <span class="label cn">最近</span>
+    </div>
+
+    <!-- 收藏 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 3l2.4 5 5.6.8-4 4.1L16.9 19 12 16.3 7.1 19l1-5.1-4-4.1 5.6-.8z"/>
+      </svg>
+      <span class="label cn">收藏</span>
+    </div>
+
+    <!-- 回收站 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 6h16"/>
+        <path d="M6 6v13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6"/>
+        <path d="M9 6V4h6v2"/>
+        <path d="M10 10v6M14 10v6"/>
+      </svg>
+      <span class="label cn">回收站</span>
+    </div>
+
+    <!-- 文件夹 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 20V5a1 1 0 0 1 1-1h5l2 3h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
+      </svg>
+      <span class="label cn">文件夹</span>
+    </div>
+
+    <!-- 标签 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M20.6 13.4l-6.3 6.3a2 2 0 0 1-2.8 0L3 11V3h8l8.6 8.6a2 2 0 0 1 0 2.8z"/>
+        <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="label cn">标签</span>
+    </div>
+
+    <!-- 附件 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M14 5l-7 7a4 4 0 0 0 5.7 5.7l6.5-6.5a5.5 5.5 0 0 0-7.8-7.8L6 9"/>
+      </svg>
+      <span class="label cn">附件</span>
+    </div>
+
+    <!-- 大纲 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 5h16M4 12h16M4 19h10"/>
+        <circle cx="20" cy="19" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="label cn">大纲</span>
+    </div>
+
+    <!-- 搜索 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M16.5 16.5L21 21"/>
+      </svg>
+      <span class="label cn">搜索</span>
+    </div>
+
+    <!-- 添加 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span class="label cn">添加</span>
+    </div>
+
+    <!-- 更多 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="label cn">更多</span>
+    </div>
+
+    <!-- 关闭 -->
+    <div class="icon-card">
+      <svg viewBox="0 0 24 24">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+      <span class="label cn">关闭</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ 尺寸对比 ============ -->
+<h2>尺寸对比</h2>
+
+<div class="section">
+  <div class="state-row">
+    <div>
+      <span class="variant-label">小型 20×20 (工具栏)</span>
+      <div class="icon-card size-sm" style="flex-direction:row; gap: var(--space-3); padding: var(--space-2) var(--space-3);">
+        <svg viewBox="0 0 24 24"><path d="M16 8l4 4-4 4M8 8l-4 4 4 4"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M6 4h6.5a4 4 0 0 1 0 8H6zM6 12h7a4 4 0 0 1 0 8H6z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M10 4h6M8 20h6M14 4l-4 16"/></svg>
+        <span class="label">20px</span>
+      </div>
+    </div>
+    <div>
+      <span class="variant-label">中型 24×24 (Rail / 导航)</span>
+      <div class="icon-card" style="flex-direction:row; gap: var(--space-3); padding: var(--space-2) var(--space-3);">
+        <svg viewBox="0 0 24 24"><path d="M4 5c0-1 .7-1.5 1.5-1.5h3A2.5 2.5 0 0 1 11 6v12.5H4V5z"/><path d="M20 5c0-1-.7-1.5-1.5-1.5h-3A2.5 2.5 0 0 0 13 6v12.5h7V5z"/><path d="M4 17.5h7v3H4zM13 17.5h7v3H13z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M10 2v4M14 2v4"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+        <span class="label">24px</span>
+      </div>
+    </div>
+    <div>
+      <span class="variant-label">大型 40×40 (空状态 / 展示)</span>
+      <div class="icon-card size-lg" style="flex-direction:row; gap: var(--space-3); padding: var(--space-2) var(--space-3);">
+        <svg viewBox="0 0 24 24"><path d="M12 3l1.5 3.8L17 8.5l-3.5 1.7L12 14l-1.5-3.8L7 8.5l3.5-1.7z"/><path d="M18.5 14l.7 1.7 1.8.8-1.8.8-.7 1.7-.7-1.7-1.8-.8 1.8-.8z"/></svg>
+        <span class="label">40px</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Color Palette ============ -->
+<h2>设计颜色参考</h2>
+<div class="section">
+  <div class="palette">
+    <div><div class="swatch" style="background: #1646d8;"></div><div class="color-label">--blue<br>#1646d8</div></div>
+    <div><div class="swatch" style="background: #161616;"></div><div class="color-label">--ink<br>#161616</div></div>
+    <div><div class="swatch" style="background: #66655f;"></div><div class="color-label">--muted<br>#66655f</div></div>
+    <div><div class="swatch" style="background: #87857d;"></div><div class="color-label">--muted-soft<br>#87857d</div></div>
+    <div><div class="swatch" style="background: #d7d5ce;"></div><div class="color-label">--line-soft<br>#d7d5ce</div></div>
+    <div><div class="swatch" style="background: #9c9b94;"></div><div class="color-label">--line<br>#9c9b94</div></div>
+    <div><div class="swatch" style="background: #f5f3ec;"></div><div class="color-label">--paper<br>#f5f3ec</div></div>
+    <div><div class="swatch" style="background: #fffefa;"></div><div class="color-label">--paper-raised<br>#fffefa</div></div>
+  </div>
+</div>
+
+<br>
+<p style="color: var(--muted); font-size: var(--text-sm); text-align: center; padding: var(--space-4);">
+  知境 · Knowra — 图标与组件设计系统 · 2026-07
+</p>
+
+</body>
+</html>
