@@ -1,6 +1,7 @@
-import path from 'node:path';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,14 @@ const { build } = requireFromWeb('esbuild');
 
 const entryFile = path.join(workspaceRoot, 'apps', 'web', 'lib', 'editor', 'milkdown-entry.js');
 const outfile = path.join(workspaceRoot, 'apps', 'web', 'lib', 'editor', 'milkdown-bundle.js');
+const outputCssFile = path.join(path.dirname(outfile), 'milkdown-bundle.css');
+const isProductionBuild = process.env.NODE_ENV === 'production';
+
+if (isProductionBuild) {
+  for (const sourceMapFile of [`${outfile}.map`, `${outputCssFile}.map`]) {
+    fs.rmSync(sourceMapFile, { force: true });
+  }
+}
 
 await build({
   entryPoints: [entryFile],
@@ -18,7 +27,8 @@ await build({
   platform: 'browser',
   target: ['es2022'],
   outfile,
-  sourcemap: true,
+  sourcemap: !isProductionBuild,
+  minify: isProductionBuild,
   logLevel: 'info',
   define: {
     __VUE_OPTIONS_API__: 'true',

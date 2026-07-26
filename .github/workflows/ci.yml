@@ -50,7 +50,13 @@ jobs:
           fi
 
       - name: Build Milkdown editor bundle
-        run: npm run build:editor-bundle -w @study-accelerator/web
+        run: NODE_ENV=production npm run build:editor-bundle -w @study-accelerator/web
+
+      - name: Verify production source maps are absent
+        shell: bash
+        run: |
+          test ! -e apps/web/lib/editor/milkdown-bundle.js.map
+          test ! -e apps/web/lib/editor/milkdown-bundle.css.map
 
       - name: Run test suites
         run: npm test

@@ -149,11 +149,27 @@ curl --fail --head http://127.0.0.1:3000/
 
 `scripts/post-deploy.sh` 会依次完成：
 
-1. 生成 Milkdown 编辑器 bundle。
+1. 以 `NODE_ENV=production` 生成并压缩 Milkdown 编辑器 bundle，同时删除 JavaScript/CSS Source Map。
 2. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
 3. 重启两个进程并执行 `pm2 save`。
 
 当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；Milkdown bundle 由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
+
+生产构建完成后必须确认以下文件不存在，避免浏览器额外下载约数 MB 的调试数据：
+
+```bash
+test ! -e apps/web/lib/editor/milkdown-bundle.js.map
+test ! -e apps/web/lib/editor/milkdown-bundle.css.map
+```
+
+`Transformer` 历史资料中的 5 张 HTTP 外链图使用以下脚本迁移。脚本默认只读预检，备份数据后才能显式执行：
+
+```bash
+node scripts/migrate-transformer-http-images.mjs
+node scripts/migrate-transformer-http-images.mjs --apply
+```
+
+成功结果必须显示 `status: migrated`、5 个本地附件，并确认原始 HTTP URL 数量为 0；再次运行预检应显示 `status: already-migrated`。
 
 > 经验教训：2026-07-05 的 404 事件就是因为部署只跑了 `git pull` + `pm2 restart`，
 > 忘了重新生成 bundle，PM2 起来后发现 bundle 不存在，前端 50% 资源加载失败。
@@ -202,6 +218,18 @@ server {
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types
+        text/plain
+        text/css
+        application/javascript
+        application/json
+        image/svg+xml;
+
     auth_basic "Knowra";
     auth_basic_user_file /etc/nginx/.htpasswd-knowra;
 
@@ -233,6 +261,9 @@ server {
 - 浏览器访问域名后，前端请求使用相对路径 `/api/...`。
 - 前端服务内部再把 `/api/...` 代理到 `http://127.0.0.1:3001`。
 - 证书由 Let's Encrypt 自动续期（`certbot renew`）。
+- Nginx 对 HTML 以及 JavaScript、CSS、JSON、SVG 和文本资源启用 gzip；Web 静态资源使用 ETag/`Last-Modified` 协商缓存，SSR 首页保持 `no-store`。
+
+> **临时运行状态（2026-07-25）**：按用户明确要求，生产 `/etc/nginx/sites-available/knowra` 当前仅注释了 `auth_basic` 与 `auth_basic_user_file` 两行，因此页面和 API 可直接公网访问；`/root/knowra-basic-auth-credentials` 与 `/etc/nginx/.htpasswd-knowra` 均保留。仓库模板继续保持默认启用访问保护，恢复时取消这两行注释并执行 `nginx -t && systemctl reload nginx`。
 
 首次启用访问保护：
 
@@ -312,10 +343,10 @@ scripts/post-deploy.sh
 
 ## 安全注意事项
 
-当前代码尚未提供多用户账号系统，因此生产环境采用 Nginx HTTP Basic Authentication 作为单用户访问保护：
+当前代码尚未提供多用户账号系统，因此生产安全基线采用 Nginx HTTP Basic Authentication 作为单用户访问保护。2026-07-25 起按用户要求临时关闭，恢复方式见上方「临时运行状态」：
 
 - **已启用 HTTPS**（Let's Encrypt 证书）。
-- 除 `/api/health` 外，页面和 API 必须经过 Basic Auth。
+- 安全基线要求除 `/api/health` 外的页面和 API 经过 Basic Auth；临时关闭期间这些接口会直接暴露到公网。
 - `3000`、`3001` 端口只允许服务器本机访问，不得对公网放行。
 - 不要把私钥、密码、云账号凭据写入仓库或本文档。
 
@@ -340,7 +371,7 @@ curl https://knowra.qwdream.top/api/health
 {"data":{"status":"ok"}}
 ```
 
-浏览器访问 `https://knowra.qwdream.top/` 时应先出现 Basic Auth 身份验证；未认证请求应返回 `401`。
+当前临时关闭 Basic Auth，因此浏览器访问 `https://knowra.qwdream.top/` 应直接返回 `200`。恢复访问保护后，未认证请求应返回 `401`，`/api/health` 仍返回 `200`。
 
 服务器本地验证：
 

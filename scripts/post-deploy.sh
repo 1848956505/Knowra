@@ -13,7 +13,7 @@ cd "$ROOT_DIR"
 echo "▶ post-deploy: 生成 milkdown 编辑器 bundle..."
 
 # apps/web/package.json 里的 build:editor-bundle 就是包装 scripts/build-milkdown-bundle.mjs
-npm run build:editor-bundle -w @study-accelerator/web
+NODE_ENV=production npm run build:editor-bundle -w @study-accelerator/web
 
 # 如果用 PM2 管理进程，校验并重启正式服务（dev 模式无需）
 if command -v pm2 >/dev/null 2>&1; then

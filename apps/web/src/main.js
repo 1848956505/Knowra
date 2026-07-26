@@ -44,7 +44,12 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (canServeStaticPath(url.pathname)) {
-      serveStaticAsset({ pathname: url.pathname, rootDir, response });
+      serveStaticAsset({
+        pathname: url.pathname,
+        rootDir,
+        request,
+        response
+      });
       return;
     }
 
