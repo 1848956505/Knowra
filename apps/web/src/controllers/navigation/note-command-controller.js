@@ -11,6 +11,7 @@ import {
   softDeleteLocalNote
 } from '../../../lib/notes/state.js';
 import { stripLegacyGeneratedTitle } from '../../../lib/notes/legacy-title.js';
+import { ensureNoteDetailLoaded } from './note-detail-loader.js';
 
 export function createNavigationNoteCommandController(deps, getController) {
   const {
@@ -65,7 +66,13 @@ async function createNote(folderId, title) {
       state.allNotes = insertLocalNote(state.allNotes, nextNote);
       return nextNote;
     },
-    afterMutation: ({ result: created }) => {
+    afterMutation: ({ result: created, isApi }) => {
+      if (isApi) {
+        state.allNotes = insertLocalNote(state.allNotes, {
+          ...created,
+          contentLoaded: true
+        });
+      }
       state.selectedNoteId = created.id;
       state.libraryIndex.selectedNoteId = created.id;
       state.view.screen = 'editor';
@@ -189,12 +196,19 @@ async function moveNote(noteId, nextFolderId) {
 }
 
 async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {}) {
-  const note = state.allNotes.find((item) => item.id === noteId);
+  let note = state.allNotes.find((item) => item.id === noteId);
   if (!note) {
     return;
   }
 
   await deps.persistDraft({ immediate: true });
+  try {
+    note = await ensureNoteDetailLoaded({ state, knowledgeApi, note });
+  } catch (error) {
+    deps.flashStatus(error.message || '资料正文加载失败');
+    return;
+  }
+
   state.selectedNoteId = noteId;
   state.libraryIndex.selectedNoteId = noteId;
   state.view.screen = 'editor';

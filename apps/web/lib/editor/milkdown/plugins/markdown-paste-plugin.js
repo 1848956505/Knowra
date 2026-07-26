@@ -5,11 +5,28 @@ import {
   shouldPreferPlainMarkdown,
   stripPastedInlineStyles
 } from '../../markdown-paste.js';
+import {
+  findInsecureImageUrlsInText,
+  introducesInsecureImageUrls
+} from '../../insecure-image-sources.js';
 import { parseMarkdownSlice } from '../utils/markdown-slice.js';
 
 export function createMarkdownPasteBehavior(host) {
   return $prose((ctx) => new Plugin({
     key: new PluginKey('STUDY_MARKDOWN_PASTE_BEHAVIOR'),
+    filterTransaction(transaction, state) {
+      if (!transaction.docChanged) {
+        return true;
+      }
+
+      const insecureUrls = introducesInsecureImageUrls(state.doc, transaction.doc);
+      if (insecureUrls.length === 0) {
+        return true;
+      }
+
+      host.reportInsecureImageSources(insecureUrls);
+      return false;
+    },
     props: {
       transformPastedHTML(html) {
         // Strip inline `style` attributes from any pasted HTML so ChatGPT /
@@ -36,6 +53,17 @@ export function createMarkdownPasteBehavior(host) {
         }
 
         const html = clipboardData.getData('text/html');
+        const text = clipboardData.getData('text/plain');
+        const insecureUrls = [
+          ...findInsecureImageUrlsInText(html),
+          ...findInsecureImageUrlsInText(text)
+        ];
+        if (insecureUrls.length > 0) {
+          event.preventDefault();
+          host.reportInsecureImageSources(insecureUrls);
+          return true;
+        }
+
         if (html) {
           const cleanedSlice = removeSpuriousEmptyCodeBlocks(preProcessedSlice);
           if (cleanedSlice !== preProcessedSlice) {
@@ -46,7 +74,6 @@ export function createMarkdownPasteBehavior(host) {
           return false;
         }
 
-        const text = clipboardData.getData('text/plain');
         const vscodeData = clipboardData.getData('vscode-editor-data');
         if (!shouldPreferPlainMarkdown({ text, vscodeData })) {
           return false;

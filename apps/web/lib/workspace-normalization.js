@@ -29,11 +29,36 @@ export function normalizeNotes(notes) {
       folderId: note.folderId ?? null,
       tagIds: Array.isArray(note.tagIds) ? [...note.tagIds] : [],
       internalLinks: Array.isArray(note.internalLinks) ? [...note.internalLinks] : [],
-      rawMarkdown: note.rawMarkdown ?? '',
+      rawMarkdown: typeof note.rawMarkdown === 'string' ? note.rawMarkdown : '',
+      contentLoaded: typeof note.contentLoaded === 'boolean'
+        ? note.contentLoaded
+        : typeof note.rawMarkdown === 'string',
       favorite: Boolean(note.favorite),
       deleted: Boolean(note.deleted)
     }))
     .filter((note) => note.id);
+}
+
+export function mergeNoteSummariesWithLoadedContent(summaries, currentNotes = []) {
+  const loadedById = new Map(
+    currentNotes
+      .filter((note) => note?.contentLoaded && typeof note.rawMarkdown === 'string')
+      .map((note) => [note.id, note])
+  );
+
+  return normalizeNotes(summaries).map((summary) => {
+    const loaded = loadedById.get(summary.id);
+    if (!loaded) {
+      return summary;
+    }
+
+    return {
+      ...summary,
+      rawMarkdown: loaded.rawMarkdown,
+      plainText: loaded.plainText,
+      contentLoaded: true
+    };
+  });
 }
 
 export function replaceNoteInCollection(notes, updatedNote, fallbackFields = {}) {

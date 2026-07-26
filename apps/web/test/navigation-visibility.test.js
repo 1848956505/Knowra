@@ -76,6 +76,21 @@ runTest('getVisibleNavigationNotes ignores selected folder when search filters a
   assert.deepEqual(visible.map((note) => note.id), ['other-note']);
 });
 
+runTest('getVisibleNavigationNotes uses backend full-text match ids for compact summaries', () => {
+  const visible = getVisibleNavigationNotes({
+    notes,
+    foldersById,
+    selectedFolderId: null,
+    search: {
+      keyword: 'body-only-keyword',
+      selectedTagIds: [],
+      matchingNoteIds: ['child-note']
+    }
+  });
+
+  assert.deepEqual(visible.map((note) => note.id), ['child-note']);
+});
+
 runTest('getSearchResultNotes sorts visible notes by updated time descending', () => {
   const visible = getSearchResultNotes({
     notes,

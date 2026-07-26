@@ -16,6 +16,7 @@ export function bindSearchEvents({ state, elements, deps }) {
     selectNote,
     closeContextMenu,
     renderFolders,
+    scheduleSearchMatches,
     reconcileSelection,
     renderAll,
     importMarkdownFiles,
@@ -66,10 +67,12 @@ export function bindSearchEvents({ state, elements, deps }) {
     }
 
     state.search.keyword = input.value.trim().toLowerCase();
+    state.search.matchingNoteIds = null;
     state.search.isOpen = true;
     if (state.libraryIndex) state.libraryIndex.page = 1;
     reconcileSelection();
     renderAll();
+    scheduleSearchMatches?.();
   });
 
   elements.globalSearchShell?.addEventListener('keydown', (event) => {

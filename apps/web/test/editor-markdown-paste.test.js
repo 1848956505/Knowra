@@ -49,6 +49,16 @@ assert.match(
 );
 assert.match(
   milkdownPasteJs,
+  /filterTransaction\(transaction, state\)[\s\S]*introducesInsecureImageUrls\(state\.doc, transaction\.doc\)[\s\S]*host\.reportInsecureImageSources\(insecureUrls\)[\s\S]*return false;/,
+  'editor transactions should reject newly introduced HTTP image sources'
+);
+assert.match(
+  milkdownPasteJs,
+  /findInsecureImageUrlsInText\(html\)[\s\S]*findInsecureImageUrlsInText\(text\)[\s\S]*event\.preventDefault\(\)[\s\S]*host\.reportInsecureImageSources\(insecureUrls\)/,
+  'HTML and Markdown paste should report and block insecure HTTP images before insertion'
+);
+assert.match(
+  milkdownPasteJs,
   /cleanedSlice !== preProcessedSlice[\s\S]*replaceSelection\(cleanedSlice\)/,
   'the editor should take over HTML paste only when a spurious empty code block was actually removed'
 );

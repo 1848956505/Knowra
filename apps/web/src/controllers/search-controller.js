@@ -23,10 +23,15 @@ export function createSearchController(deps) {
   const {
     state,
     elements,
+    knowledgeApi,
+    searchDebounceDelayMs,
     getActiveNotes,
+    flashStatus,
     reconcileSelection,
     renderAll
   } = deps;
+  let searchTimer = null;
+  let searchRequestSequence = 0;
 
 function getVisibleNotes({ selectedFolderId = state.selectedFolderId } = {}) {
   return getVisibleNavigationNotes({
@@ -91,12 +96,53 @@ function toggleSearchTagFilter(tagId) {
 }
 
 function clearSearchFilters() {
+  cancelPendingSearch();
   state.search.keyword = '';
   state.search.selectedTagIds = [];
+  state.search.matchingNoteIds = null;
   state.search.isOpen = false;
   if (state.libraryIndex) state.libraryIndex.page = 1;
   reconcileSelection();
   renderAll();
+}
+
+function scheduleSearchMatches() {
+  cancelPendingSearch();
+  state.search.matchingNoteIds = null;
+  const query = state.search.keyword;
+  if (!query || state.dataMode !== 'api') {
+    return;
+  }
+
+  const requestSequence = ++searchRequestSequence;
+  searchTimer = globalThis.setTimeout(async () => {
+    searchTimer = null;
+    try {
+      const noteIds = await knowledgeApi.searchNoteIds({
+        query,
+        spaceId: state.currentSpaceId
+      });
+      if (requestSequence !== searchRequestSequence || query !== state.search.keyword) {
+        return;
+      }
+      state.search.matchingNoteIds = noteIds;
+      reconcileSelection();
+      renderAll();
+    } catch (error) {
+      if (requestSequence === searchRequestSequence) {
+        state.search.matchingNoteIds = null;
+        flashStatus('全文搜索暂时不可用，已改用本地标题与摘要结果');
+      }
+    }
+  }, searchDebounceDelayMs);
+}
+
+function cancelPendingSearch() {
+  searchRequestSequence += 1;
+  if (searchTimer !== null) {
+    globalThis.clearTimeout(searchTimer);
+    searchTimer = null;
+  }
 }
 
 function focusSearchInput() {
@@ -175,6 +221,7 @@ function renderSearchPanel() {
     matchesFolderSearch,
     toggleSearchTagFilter,
     clearSearchFilters,
+    scheduleSearchMatches,
     focusSearchInput,
     renderSearchShell,
     renderSearchPanel

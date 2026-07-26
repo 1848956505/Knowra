@@ -1,6 +1,7 @@
 import {
   hasActiveSearchFilters,
   matchesSearch as valueMatchesSearch,
+  noteMatchesKeyword,
   noteMatchesSelectedTags
 } from '../search/state.js';
 
@@ -57,7 +58,7 @@ export function getVisibleNavigationNotes({
   return notes.filter((note) => (
     !note.deleted
     && isNoteVisibleForNavigation({ note, foldersById, selectedFolderId, search })
-    && valueMatchesSearch(note.title, search)
+    && noteMatchesKeyword(note, search)
     && noteMatchesSelectedTags(note, search)
   ));
 }
@@ -78,7 +79,7 @@ export function matchesFolderSearch({ folder, notes = [], search = {} } = {}) {
 
   if (
     getDirectNotesForFolder(notes, folder?.id)
-      .some((note) => valueMatchesSearch(note.title, search) && noteMatchesSelectedTags(note, search))
+      .some((note) => noteMatchesKeyword(note, search) && noteMatchesSelectedTags(note, search))
   ) {
     return true;
   }

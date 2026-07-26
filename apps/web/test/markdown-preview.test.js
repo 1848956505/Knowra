@@ -42,4 +42,8 @@ assert.match(tableHtml, /<tbody>/, 'markdown tables should render table bodies')
 assert.match(tableHtml, /<th>列1<\/th>/, 'markdown tables should render header cells');
 assert.match(tableHtml, /<td>A<\/td>/, 'markdown tables should render body cells');
 
+const blockedHttpImage = renderMarkdownPreview('![legacy](http://example.com/legacy.png)');
+assert.match(blockedHttpImage, /preview-blocked-image/);
+assert.doesNotMatch(blockedHttpImage, /<img[^>]+http:\/\//i);
+
 console.log('ok - markdown preview renders reading-mode structures');

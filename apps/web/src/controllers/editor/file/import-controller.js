@@ -31,6 +31,11 @@ export function createMarkdownImportController(deps, fileTarget) {
         sourceType: item.sourceType
       })));
       const firstImported = importedResponseItems.find((item) => item?.id) ?? null;
+      state.allNotes = importedResponseItems.reduce((notes, item) => (
+        item?.id
+          ? insertLocalNote(notes, { ...item, contentLoaded: true })
+          : notes
+      ), state.allNotes);
 
       if (firstImported?.id) {
         state.selectedNoteId = firstImported.id;

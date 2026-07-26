@@ -44,6 +44,21 @@ export function noteMatchesSelectedTags(note, search) {
   return search.selectedTagIds.every((tagId) => noteTagIds.includes(tagId));
 }
 
+export function noteMatchesKeyword(note, search) {
+  if (!search.keyword) {
+    return true;
+  }
+
+  if (Array.isArray(search.matchingNoteIds)) {
+    return search.matchingNoteIds.includes(note?.id);
+  }
+
+  return matchesSearch(
+    `${note?.title ?? ''} ${note?.summary ?? note?.rawMarkdown ?? ''}`,
+    search
+  );
+}
+
 export function toggleSearchTagId(selectedTagIds, tagId) {
   if (!tagId) {
     return selectedTagIds;

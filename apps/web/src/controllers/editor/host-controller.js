@@ -131,6 +131,9 @@ function mountEditorHost(noteId, markdown) {
       markdown,
       noteId,
       uploadAttachmentImage: handleAttachmentUpload,
+      onInsecureImageSources: () => {
+        flashStatus('检测到 HTTP 图片，已阻止插入。请先下载图片，再直接粘贴或上传为本地附件。');
+      },
       onChange: handleEditorMarkdownChange
     });
 

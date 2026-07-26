@@ -10,7 +10,7 @@ export async function loadInitialWorkspaceSnapshot({ getApiOrigin }) {
 
     const [folderTreePayload, notesPayload, tagsPayload] = await Promise.all([
       fetchApiJson(`/api/knowledge/folders/tree?spaceId=${encodeURIComponent(space.id)}`, { getApiOrigin }),
-      fetchApiJson(`/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}`, { getApiOrigin }),
+      fetchApiJson(`/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}&summaryOnly=true`, { getApiOrigin }),
       fetchApiJson(`/api/knowledge/tags?spaceId=${encodeURIComponent(space.id)}`, { getApiOrigin })
     ]);
 

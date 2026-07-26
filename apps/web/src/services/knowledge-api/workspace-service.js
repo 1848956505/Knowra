@@ -5,7 +5,7 @@ export function createWorkspaceApi({ requestJson }) {
     const encodedSpaceId = encodeURIComponent(spaceId ?? '');
     const [folderTreePayload, notesPayload, tagsPayload] = await Promise.all([
       requestJson(`/api/knowledge/folders/tree?spaceId=${encodedSpaceId}`),
-      requestJson(`/api/knowledge/notes?spaceId=${encodedSpaceId}&includeDeleted=true`),
+      requestJson(`/api/knowledge/notes?spaceId=${encodedSpaceId}&includeDeleted=true&summaryOnly=true`),
       requestJson(`/api/knowledge/tags?spaceId=${encodedSpaceId}`)
     ]);
 
@@ -14,6 +14,16 @@ export function createWorkspaceApi({ requestJson }) {
       notes: asArray(notesPayload.data),
       tags: asArray(tagsPayload.data)
     };
+  }
+
+  async function searchNoteIds({ query, spaceId }) {
+    const params = new URLSearchParams({
+      query: String(query ?? ''),
+      spaceId: String(spaceId ?? ''),
+      includeDeleted: 'true',
+      result: 'ids'
+    });
+    return asArray(getData(await requestJson(`/api/knowledge/search/notes?${params}`)));
   }
 
   async function listKnowledgeSpaces() {
@@ -29,6 +39,7 @@ export function createWorkspaceApi({ requestJson }) {
 
   return {
     loadWorkspaceResources,
+    searchNoteIds,
     listKnowledgeSpaces,
     createDefaultKnowledgeSpace
   };

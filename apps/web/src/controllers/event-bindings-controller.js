@@ -62,6 +62,7 @@ export function bindAppEvents({
     focusSearchInput: (...args) => searchController.focusSearchInput(...args),
     renderSearchShell: (...args) => searchController.renderSearchShell(...args),
     clearSearchFilters: (...args) => searchController.clearSearchFilters(...args),
+    scheduleSearchMatches: (...args) => searchController.scheduleSearchMatches(...args),
     getSearchResultNotes: (...args) => searchController.getSearchResultNotes(...args),
     selectNote: (...args) => navigationController.selectNote(...args),
     closeContextMenu: (...args) => navigationController.closeContextMenu(...args),

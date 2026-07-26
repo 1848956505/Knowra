@@ -61,5 +61,15 @@ Text
 
       assert.match(html, /<img src="\/api\/storage\/attachments\/a\/content" alt="diagram" \/>/);
     }
+  },
+  {
+    name: 'renderMarkdownPreview never emits an HTTP image request',
+    async run() {
+      const { renderMarkdownPreview } = await import('../src/presentation/markdown-preview.js');
+      const html = renderMarkdownPreview('![legacy](http://example.com/legacy.png)');
+
+      assert.match(html, /preview-blocked-image/);
+      assert.doesNotMatch(html, /<img[^>]+http:\/\//i);
+    }
   }
 ];

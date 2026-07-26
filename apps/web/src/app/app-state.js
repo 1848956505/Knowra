@@ -1,5 +1,6 @@
 export const BACKEND_CACHE_KEY = 'study-accelerator.backend-workspace-cache';
 export const AUTOSAVE_DELAY_MS = 700;
+export const SEARCH_DEBOUNCE_DELAY_MS = 180;
 export const SCROLL_POSITIONS_KEY = 'study-accelerator.editor-scroll-positions';
 
 export function createInitialAppState() {
@@ -31,6 +32,7 @@ export function createInitialAppState() {
     search: {
       keyword: '',
       selectedTagIds: [],
+      matchingNoteIds: null,
       isOpen: false
     },
     noteTagComposer: {
