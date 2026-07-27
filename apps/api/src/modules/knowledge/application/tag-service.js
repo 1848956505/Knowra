@@ -1,13 +1,20 @@
 import { Tag } from '../domain/tag.js';
 import { buildCreateTagDto, buildUpdateTagDto } from './dto/tag.dto.js';
 import { createInMemoryTagRepository } from '../infrastructure/tag-repository.js';
+import {
+  conflictError,
+  notFoundError
+} from './knowledge-errors.js';
 
-export function createTagService({ repository = createInMemoryTagRepository() } = {}) {
+export function createTagService({
+  repository = createInMemoryTagRepository(),
+  validateSpaceReference = null
+} = {}) {
   function requireTag(tagId) {
     const tag = repository.findById(tagId);
 
     if (!tag) {
-      throw new Error('Tag not found');
+      throw notFoundError('TAG_NOT_FOUND', 'Tag not found');
     }
 
     return tag;
@@ -16,6 +23,10 @@ export function createTagService({ repository = createInMemoryTagRepository() } 
   return {
     createTag(input) {
       const dto = buildCreateTagDto(input);
+      if (repository.findById(dto.id)) {
+        throw conflictError('TAG_ID_CONFLICT', 'A tag with the same id already exists');
+      }
+      validateSpaceReference?.(dto.spaceId);
       const tag = new Tag(dto);
       repository.save(tag);
       return tag;

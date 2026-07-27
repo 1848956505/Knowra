@@ -9,6 +9,10 @@ import { createInMemoryFolderRepository } from './infrastructure/folder-reposito
 import { createInMemoryTagRepository } from './infrastructure/tag-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './infrastructure/knowledge-space-repository.js';
 import { createInMemoryContentAnnotationRepository } from './infrastructure/content-annotation-repository.js';
+import {
+  conflictError,
+  validationError
+} from './application/knowledge-errors.js';
 
 export function createKnowledgeModule(options = {}) {
   const noteRepository = options.noteRepository ?? createInMemoryNoteRepository();
@@ -18,6 +22,7 @@ export function createKnowledgeModule(options = {}) {
     options.knowledgeSpaceRepository ?? createInMemoryKnowledgeSpaceRepository();
   const contentAnnotationRepository =
     options.contentAnnotationRepository ?? createInMemoryContentAnnotationRepository();
+  const enforceReferences = options.enforceReferences ?? false;
 
   function normalizeComparableName(value) {
     return String(value ?? '').trim();
@@ -43,7 +48,10 @@ export function createKnowledgeModule(options = {}) {
       && normalizeComparableName(folder.name) === candidate
     ));
     if (conflictingFolder) {
-      throw new Error('A file or folder with the same name already exists');
+      throw conflictError(
+        'SIBLING_NAME_CONFLICT',
+        'A file or folder with the same name already exists'
+      );
     }
 
     const conflictingNote = noteRepository.list({ spaceId, includeDeleted: true }).find((note) => (
@@ -53,12 +61,69 @@ export function createKnowledgeModule(options = {}) {
       && normalizeComparableName(note.title) === candidate
     ));
     if (conflictingNote) {
-      throw new Error('A file or folder with the same name already exists');
+      throw conflictError(
+        'SIBLING_NAME_CONFLICT',
+        'A file or folder with the same name already exists'
+      );
     }
+  }
+
+  function assertSpaceReference(spaceId, entityName) {
+    if (!enforceReferences) {
+      return;
+    }
+
+    if (!spaceId || !knowledgeSpaceRepository.findById(spaceId)) {
+      throw validationError(
+        `${entityName}_SPACE_NOT_FOUND`,
+        'The referenced knowledge space does not exist'
+      );
+    }
+  }
+
+  function assertNoteReferences({ spaceId, folderId, tagIds }) {
+    if (!enforceReferences) {
+      return;
+    }
+
+    assertSpaceReference(spaceId, 'NOTE');
+
+    if (folderId) {
+      const folder = folderRepository.findById(folderId);
+      if (!folder) {
+        throw validationError(
+          'NOTE_FOLDER_NOT_FOUND',
+          'The referenced folder does not exist'
+        );
+      }
+      if (folder.spaceId !== spaceId) {
+        throw validationError(
+          'NOTE_FOLDER_SPACE_MISMATCH',
+          'The referenced folder belongs to another knowledge space'
+        );
+      }
+    }
+
+    tagIds.forEach((tagId) => {
+      const tag = tagRepository.findById(tagId);
+      if (!tag) {
+        throw validationError(
+          'NOTE_TAG_NOT_FOUND',
+          'A referenced tag does not exist'
+        );
+      }
+      if (tag.spaceId !== spaceId) {
+        throw validationError(
+          'NOTE_TAG_SPACE_MISMATCH',
+          'A referenced tag belongs to another knowledge space'
+        );
+      }
+    });
   }
 
   const noteService = createNoteService({
     repository: noteRepository,
+    validateNoteReferences: assertNoteReferences,
     validateSiblingNameConflict: ({ spaceId, folderId, title, currentNoteId }) => {
       assertSiblingNameAvailable({
         spaceId,
@@ -71,6 +136,7 @@ export function createKnowledgeModule(options = {}) {
   });
   const folderService = createFolderService({
     repository: folderRepository,
+    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'FOLDER'),
     validateSiblingNameConflict: ({ spaceId, parentId, name, currentFolderId }) => {
       assertSiblingNameAvailable({
         spaceId,
@@ -81,7 +147,10 @@ export function createKnowledgeModule(options = {}) {
       });
     }
   });
-  const tagService = createTagService({ repository: tagRepository });
+  const tagService = createTagService({
+    repository: tagRepository,
+    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG')
+  });
   const knowledgeSpaceService = createKnowledgeSpaceService({
     repository: knowledgeSpaceRepository
   });

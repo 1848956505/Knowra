@@ -126,6 +126,81 @@ export const localAttachmentStoreTests = [
     }
   },
   {
+    name: 'local attachment upload removes the file and metadata when persistence fails',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-upload-rollback-'));
+      const uploadsDir = path.join(tempDir, 'uploads');
+      const dataStore = {
+        state: { attachments: [] },
+        flush() {
+          throw new Error('simulated persistence failure');
+        }
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir });
+
+        assert.throws(
+          () => store.uploadAttachment({
+            noteId: 'note-upload-rollback',
+            fileName: 'rollback.txt',
+            mimeType: 'text/plain',
+            contentBase64: Buffer.from('rollback body').toString('base64')
+          }),
+          /simulated persistence failure/
+        );
+        assert.deepEqual(dataStore.state.attachments, []);
+        assert.deepEqual(fs.readdirSync(uploadsDir), []);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'local attachment delete keeps the file and metadata when persistence fails',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-delete-rollback-'));
+      const uploadsDir = path.join(tempDir, 'uploads');
+      let rejectFlush = false;
+      const dataStore = {
+        state: { attachments: [] },
+        flush() {
+          if (rejectFlush) {
+            throw new Error('simulated persistence failure');
+          }
+        }
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir });
+        const uploaded = store.uploadAttachment({
+          noteId: 'note-delete-rollback',
+          fileName: 'keep-me.txt',
+          mimeType: 'text/plain',
+          contentBase64: Buffer.from('keep attachment body').toString('base64')
+        });
+        rejectFlush = true;
+
+        assert.throws(
+          () => store.deleteAttachment(uploaded.id),
+          /simulated persistence failure/
+        );
+        assert.equal(dataStore.state.attachments[0].id, uploaded.id);
+        assert.equal(
+          fs.existsSync(path.join(
+            uploadsDir,
+            `${uploaded.id}-${uploaded.fileName}`
+          )),
+          true
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
     name: 'local attachment store renames attachment metadata and file path together',
     async run() {
       const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
@@ -193,6 +268,52 @@ export const localAttachmentStoreTests = [
         assert.equal(
           fs.existsSync(path.join(uploadsDir, `${uploaded.id}-中文图片.png`)),
           true
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'local attachment rename restores the old path and metadata when persistence fails',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'study-attachments-rename-rollback-'));
+      const uploadsDir = path.join(tempDir, 'uploads');
+      let rejectFlush = false;
+      const dataStore = {
+        state: { attachments: [] },
+        flush() {
+          if (rejectFlush) {
+            throw new Error('simulated persistence failure');
+          }
+        }
+      };
+
+      try {
+        const store = createLocalAttachmentStore({ dataStore, uploadsDir });
+        const uploaded = store.uploadAttachment({
+          noteId: 'note-rename-rollback',
+          fileName: 'before.txt',
+          mimeType: 'text/plain',
+          contentBase64: Buffer.from('rename rollback body').toString('base64')
+        });
+        const originalStoragePath = uploaded.storagePath;
+        rejectFlush = true;
+
+        assert.throws(
+          () => store.renameAttachment(uploaded.id, 'after.txt'),
+          /simulated persistence failure/
+        );
+        assert.equal(uploaded.fileName, 'before.txt');
+        assert.equal(uploaded.storagePath, originalStoragePath);
+        assert.equal(
+          fs.existsSync(path.join(uploadsDir, `${uploaded.id}-before.txt`)),
+          true
+        );
+        assert.equal(
+          fs.existsSync(path.join(uploadsDir, `${uploaded.id}-after.txt`)),
+          false
         );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });

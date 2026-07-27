@@ -36,6 +36,54 @@ export const noteServiceTests = [
     }
   },
   {
+    name: 'createNote generates unique ids for same-title notes created in one batch',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService();
+
+      const notes = noteService.importMarkdownBatch([
+        {
+          rawMarkdown: '# Repeated title\n\nfirst',
+          folderId: 'folder-a',
+          spaceId: 'space-1'
+        },
+        {
+          rawMarkdown: '# Repeated title\n\nsecond',
+          folderId: 'folder-b',
+          spaceId: 'space-1'
+        }
+      ]);
+
+      assert.notEqual(notes[0].id, notes[1].id);
+      assert.equal(noteService.listNotes().length, 2);
+    }
+  },
+  {
+    name: 'createNote rejects a duplicate client-provided id without overwriting',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService();
+
+      noteService.createNote({
+        id: 'note-duplicate',
+        title: 'Original',
+        rawMarkdown: 'original',
+        spaceId: 'space-1'
+      });
+
+      assert.throws(
+        () => noteService.createNote({
+          id: 'note-duplicate',
+          title: 'Replacement',
+          rawMarkdown: 'replacement',
+          spaceId: 'space-1'
+        }),
+        (error) => error.statusCode === 409 && error.code === 'NOTE_ID_CONFLICT'
+      );
+      assert.equal(noteService.getNote('note-duplicate').title, 'Original');
+    }
+  },
+  {
     name: 'createNote accepts an empty body for a newly created manual note',
     async run() {
       const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');

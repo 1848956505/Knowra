@@ -20,7 +20,15 @@ import { knowledgeModuleTests } from './knowledge-module.test.js';
 import { knowledgeHttpTests } from './knowledge-http.test.js';
 import { appFactoryTests } from './app-factory.test.js';
 import { httpRequestTests } from './http-request.test.js';
+import { httpResponseTests } from './http-response.test.js';
 import { contentAnnotationServiceTests } from './content-annotation-service.test.js';
+import { serverHttpTests } from './server-http.test.js';
+import {
+  knowledgeBaseSnapshotServiceTests
+} from './knowledge-base-snapshot-service.test.js';
+import {
+  noteDeletionCoordinatorTests
+} from './note-deletion-coordinator.test.js';
 
 const tests = [
   ...storageConfigTests,
@@ -45,7 +53,11 @@ const tests = [
   ...knowledgeHttpTests,
   ...appFactoryTests,
   ...httpRequestTests,
+  ...httpResponseTests,
   ...contentAnnotationServiceTests,
+  ...serverHttpTests,
+  ...knowledgeBaseSnapshotServiceTests,
+  ...noteDeletionCoordinatorTests,
 ];
 
 let failed = 0;

@@ -168,6 +168,9 @@ export function createLocalAttachmentFileManager({
 
   return {
     buildStoragePath,
+    getManagedUploadsDirectory() {
+      return normalizedUploadsDir;
+    },
     reconcileAttachmentRecord,
     removeAttachmentFile,
     resolveManagedAbsolutePath,

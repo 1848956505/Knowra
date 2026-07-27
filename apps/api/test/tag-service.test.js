@@ -18,6 +18,47 @@ export const tagServiceTests = [
     }
   },
   {
+    name: 'createTag auto-generates a unique id when id is omitted',
+    async run() {
+      const { createTagService } = await import('../src/modules/knowledge/application/tag-service.js');
+      const tagService = createTagService();
+
+      const first = tagService.createTag({
+        spaceId: 'space-1',
+        name: 'database'
+      });
+      const second = tagService.createTag({
+        spaceId: 'space-1',
+        name: 'database'
+      });
+
+      assert.match(first.id, /^tag-database-/);
+      assert.notEqual(first.id, second.id);
+    }
+  },
+  {
+    name: 'createTag rejects a duplicate client-provided id',
+    async run() {
+      const { createTagService } = await import('../src/modules/knowledge/application/tag-service.js');
+      const tagService = createTagService();
+
+      tagService.createTag({
+        id: 'tag-duplicate',
+        spaceId: 'space-1',
+        name: 'original'
+      });
+
+      assert.throws(
+        () => tagService.createTag({
+          id: 'tag-duplicate',
+          spaceId: 'space-1',
+          name: 'replacement'
+        }),
+        (error) => error.statusCode === 409 && error.code === 'TAG_ID_CONFLICT'
+      );
+    }
+  },
+  {
     name: 'listTags returns created tags',
     async run() {
       const { createTagService } = await import('../src/modules/knowledge/application/tag-service.js');

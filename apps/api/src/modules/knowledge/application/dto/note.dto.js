@@ -1,5 +1,12 @@
-import { trimIfString, createSlug } from './_shared.js';
+import {
+  createPrefixedId,
+  normalizeIdList,
+  normalizeOptionalId,
+  requireText,
+  trimIfString
+} from './_shared.js';
 import { assertNoInsecureImageUrls } from '../note-content-policy.js';
+import { validationError } from '../knowledge-errors.js';
 
 function deriveTitleFromMarkdown(markdown) {
   if (typeof markdown !== 'string') {
@@ -24,15 +31,24 @@ function deriveTitleFromMarkdown(markdown) {
 }
 
 function createNoteId({ id, title, rawMarkdown }) {
-  if (trimIfString(id)) {
-    return trimIfString(id);
+  if (id !== undefined && id !== null) {
+    return requireText(id, 'NOTE_ID_INVALID', 'Note id is invalid');
   }
 
-  const seed = createSlug(title || deriveTitleFromMarkdown(rawMarkdown) || 'note');
-  return `note-${seed || 'item'}-${Date.now()}`;
+  return createPrefixedId(
+    'note',
+    title || deriveTitleFromMarkdown(rawMarkdown) || 'item'
+  );
 }
 
-export function buildCreateNoteDto(input) {
+export function buildCreateNoteDto(input = {}) {
+  if (typeof input.rawMarkdown !== 'string') {
+    throw validationError('NOTE_CONTENT_REQUIRED', 'Note rawMarkdown is required');
+  }
+  if (input.title !== undefined && typeof input.title !== 'string') {
+    throw validationError('NOTE_TITLE_INVALID', 'Note title is invalid');
+  }
+
   const title = trimIfString(input.title) || deriveTitleFromMarkdown(input.rawMarkdown) || 'Untitled Note';
   assertNoInsecureImageUrls(input.rawMarkdown);
 
@@ -44,32 +60,41 @@ export function buildCreateNoteDto(input) {
     }),
     title,
     rawMarkdown: input.rawMarkdown,
-    spaceId: input.spaceId ?? null,
-    folderId: input.folderId ?? null,
+    spaceId: normalizeOptionalId(input.spaceId, 'NOTE_SPACE_INVALID', 'Note spaceId is invalid'),
+    folderId: normalizeOptionalId(input.folderId, 'NOTE_FOLDER_INVALID', 'Note folderId is invalid'),
     status: input.status ?? 'draft',
     sourceType: input.sourceType ?? 'manual',
     favorite: input.favorite ?? false,
-    tagIds: input.tagIds ?? [],
+    tagIds: normalizeIdList(input.tagIds ?? [], 'NOTE_TAGS_INVALID', 'Note tagIds must contain valid ids'),
     createdAt: input.createdAt,
     updatedAt: input.updatedAt
   };
 }
 
-export function buildUpdateNoteDto(input) {
+export function buildUpdateNoteDto(input = {}) {
   const dto = {};
 
   if (input.title !== undefined) {
+    if (typeof input.title !== 'string') {
+      throw validationError('NOTE_TITLE_INVALID', 'Note title is invalid');
+    }
     dto.title = trimIfString(input.title);
+    if (!dto.title) {
+      throw validationError('NOTE_TITLE_REQUIRED', 'Note title is required');
+    }
   }
   if (input.rawMarkdown !== undefined) {
+    if (typeof input.rawMarkdown !== 'string') {
+      throw validationError('NOTE_CONTENT_INVALID', 'Note rawMarkdown is invalid');
+    }
     assertNoInsecureImageUrls(input.rawMarkdown);
     dto.rawMarkdown = input.rawMarkdown;
   }
   if (input.spaceId !== undefined) {
-    dto.spaceId = input.spaceId;
+    dto.spaceId = normalizeOptionalId(input.spaceId, 'NOTE_SPACE_INVALID', 'Note spaceId is invalid');
   }
   if (input.folderId !== undefined) {
-    dto.folderId = input.folderId;
+    dto.folderId = normalizeOptionalId(input.folderId, 'NOTE_FOLDER_INVALID', 'Note folderId is invalid');
   }
   if (input.status !== undefined) {
     dto.status = input.status;
@@ -81,7 +106,7 @@ export function buildUpdateNoteDto(input) {
     dto.favorite = input.favorite;
   }
   if (input.tagIds !== undefined) {
-    dto.tagIds = input.tagIds;
+    dto.tagIds = normalizeIdList(input.tagIds, 'NOTE_TAGS_INVALID', 'Note tagIds must contain valid ids');
   }
   if (input.updatedAt !== undefined) {
     dto.updatedAt = input.updatedAt;

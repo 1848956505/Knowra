@@ -2,20 +2,27 @@ import { Note } from '../domain/note.js';
 import { buildCreateNoteDto, buildUpdateNoteDto } from './dto/note.dto.js';
 import { createNoteSummary } from './note-summary.js';
 import { createInMemoryNoteRepository } from '../infrastructure/note-repository.js';
+import {
+  conflictError,
+  notFoundError,
+  validationError
+} from './knowledge-errors.js';
+import { createNoteAssociationOperations } from './note-association-operations.js';
 
 export function createNoteService({
   repository = createInMemoryNoteRepository(),
-  validateSiblingNameConflict = null
+  validateSiblingNameConflict = null,
+  validateNoteReferences = null
 } = {}) {
   function requireNote(noteId, options = {}) {
     const note = repository.findById(noteId);
 
     if (!note) {
-      throw new Error('Note not found');
+      throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
     }
 
     if (note.deleted && !options.includeDeleted) {
-      throw new Error('Note not found');
+      throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
     }
 
     return note;
@@ -23,15 +30,41 @@ export function createNoteService({
 
   function requireNoteIds(noteIds) {
     if (!Array.isArray(noteIds) || noteIds.length === 0) {
-      throw new Error('noteIds must contain at least one note id');
+      throw validationError(
+        'NOTE_IDS_REQUIRED',
+        'noteIds must contain at least one note id'
+      );
     }
 
     return noteIds;
   }
 
+  function assertNewNoteId(noteId) {
+    if (repository.findById(noteId)) {
+      throw conflictError('NOTE_ID_CONFLICT', 'A note with the same id already exists');
+    }
+  }
+
+  function assertReferences(note) {
+    validateNoteReferences?.({
+      spaceId: note.spaceId,
+      folderId: note.folderId ?? null,
+      tagIds: note.tagIds ?? []
+    });
+  }
+
+  const associationOperations = createNoteAssociationOperations({
+    repository,
+    requireNote,
+    requireNoteIds,
+    assertReferences
+  });
+
   return {
     createNote(input) {
       const dto = buildCreateNoteDto(input);
+      assertNewNoteId(dto.id);
+      assertReferences(dto);
       validateSiblingNameConflict?.({
         spaceId: dto.spaceId,
         folderId: dto.folderId ?? null,
@@ -50,7 +83,10 @@ export function createNoteService({
     },
     importMarkdownBatch(items = []) {
       if (!Array.isArray(items) || items.length === 0) {
-        throw new Error('Markdown import batch must contain at least one item');
+        throw validationError(
+          'MARKDOWN_IMPORT_ITEMS_REQUIRED',
+          'Markdown import batch must contain at least one item'
+        );
       }
 
       return items.map((item) => this.importMarkdown(item));
@@ -70,8 +106,14 @@ export function createNoteService({
       const nextFolderId = Object.prototype.hasOwnProperty.call(dto, 'folderId')
         ? dto.folderId
         : currentNote.folderId;
-      validateSiblingNameConflict?.({
+      const nextNote = {
         spaceId: dto.spaceId ?? currentNote.spaceId,
+        folderId: nextFolderId,
+        tagIds: dto.tagIds ?? currentNote.tagIds
+      };
+      assertReferences(nextNote);
+      validateSiblingNameConflict?.({
+        spaceId: nextNote.spaceId,
         folderId: nextFolderId ?? null,
         title: dto.title ?? currentNote.title,
         currentNoteId: currentNote.id
@@ -105,7 +147,9 @@ export function createNoteService({
       return deletedNote;
     },
     deleteNotes(noteIds) {
-      return requireNoteIds(noteIds).map((noteId) => this.deleteNote(noteId));
+      const validatedIds = requireNoteIds(noteIds);
+      validatedIds.forEach((noteId) => requireNote(noteId, { includeDeleted: true }));
+      return validatedIds.map((noteId) => this.deleteNote(noteId));
     },
     restoreNote(noteId) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
@@ -122,12 +166,15 @@ export function createNoteService({
     permanentlyDeleteNote(noteId) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
       if (!currentNote.deleted) {
-        throw new Error('Note must be in recycle bin before permanent delete');
+        throw conflictError(
+          'NOTE_NOT_IN_RECYCLE_BIN',
+          'Note must be in recycle bin before permanent delete'
+        );
       }
 
       const deletedNote = repository.delete(noteId);
       if (!deletedNote) {
-        throw new Error('Note not found');
+        throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
       }
 
       return deletedNote;
@@ -154,79 +201,7 @@ export function createNoteService({
       repository.save(updatedNote);
       return updatedNote;
     },
-    assignTagToNote(noteId, tagId) {
-      const currentNote = requireNote(noteId, { includeDeleted: true });
-      const updatedNote = new Note({
-        ...currentNote,
-        tagIds: [...currentNote.tagIds, tagId],
-        createdAt: currentNote.createdAt,
-        updatedAt: new Date().toISOString()
-      });
-
-      repository.save(updatedNote);
-      return updatedNote;
-    },
-    assignTagToNotes(noteIds, tagId) {
-      if (!tagId?.trim()) {
-        throw new Error('tagId is required');
-      }
-
-      return requireNoteIds(noteIds).map((noteId) => this.assignTagToNote(noteId, tagId));
-    },
-    removeTagFromNote(noteId, tagId) {
-      const currentNote = requireNote(noteId, { includeDeleted: true });
-      const updatedNote = new Note({
-        ...currentNote,
-        tagIds: currentNote.tagIds.filter((currentTagId) => currentTagId !== tagId),
-        createdAt: currentNote.createdAt,
-        updatedAt: new Date().toISOString()
-      });
-
-      repository.save(updatedNote);
-      return updatedNote;
-    },
-    clearFolderFromNotes(folderId) {
-      const notesToUpdate = repository.list({ includeDeleted: true })
-        .filter((note) => note.folderId === folderId);
-
-      return notesToUpdate.map((note) => {
-        const updatedNote = new Note({
-          ...note,
-          folderId: null,
-          createdAt: note.createdAt,
-          updatedAt: new Date().toISOString()
-        });
-        repository.save(updatedNote);
-        return updatedNote;
-      });
-    },
-    removeTagFromAllNotes(tagId) {
-      const notesToUpdate = repository.list({ includeDeleted: true })
-        .filter((note) => note.tagIds.includes(tagId));
-
-      return notesToUpdate.map((note) => {
-        const updatedNote = new Note({
-          ...note,
-          tagIds: note.tagIds.filter((currentTagId) => currentTagId !== tagId),
-          createdAt: note.createdAt,
-          updatedAt: new Date().toISOString()
-        });
-        repository.save(updatedNote);
-        return updatedNote;
-      });
-    },
-    setNoteTags(noteId, tagIds) {
-      const currentNote = requireNote(noteId, { includeDeleted: true });
-      const updatedNote = new Note({
-        ...currentNote,
-        tagIds,
-        createdAt: currentNote.createdAt,
-        updatedAt: new Date().toISOString()
-      });
-
-      repository.save(updatedNote);
-      return updatedNote;
-    },
+    ...associationOperations,
     listNotes(options = {}) {
       const notes = repository.list(options);
       return options.summaryOnly === true || options.summaryOnly === 'true'

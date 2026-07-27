@@ -1,10 +1,13 @@
 import fs from 'node:fs';
 import { createAppError } from '../errors/app-error.js';
+import { cloneValue } from './local-attachment-store-utils.js';
 import {
-  cloneValue,
-  sanitizeFileName,
-  scheduleFileCleanup
-} from './local-attachment-store-utils.js';
+  createAttachmentDirectorySwap,
+  stageAttachmentFiles
+} from './attachment-directory-swap.js';
+import {
+  validateAttachmentSnapshotItems
+} from './local-attachment-snapshot-validator.js';
 
 export function createLocalAttachmentSnapshotStore({
   dataStore,
@@ -31,67 +34,68 @@ export function createLocalAttachmentSnapshotStore({
     });
   }
 
-  function importAttachmentsSnapshot(items = []) {
-    if (!Array.isArray(items)) {
-      throw new Error('Attachment snapshot must be an array');
-    }
+  function prepareAttachmentsSnapshot(items = [], options = {}) {
+    const preparedItems = validateAttachmentSnapshotItems(
+      items,
+      fileManager,
+      options
+    );
+    const uploadsDirectory = fileManager.getManagedUploadsDirectory();
+    const stagingDirectory = stageAttachmentFiles({
+      uploadsDirectory,
+      preparedItems
+    });
 
-    clearStoredAttachments();
-    const restoredAttachments = items.map(restoreAttachmentSnapshotItem);
-    dataStore.state.attachments.push(...restoredAttachments);
-    flush();
-    return restoredAttachments;
+    return createAttachmentDirectorySwap({
+      uploadsDirectory,
+      stagingDirectory,
+      records: preparedItems.map(
+        ({ content, storageFileName, ...record }) => record
+      )
+    });
   }
 
-  function clearStoredAttachments() {
-    dataStore.state.attachments.forEach((attachment) => {
-      try {
-        fileManager.removeAttachmentFile(attachment.storagePath);
-      } catch (error) {
-        console.error(
-          'import: removeAttachmentFile failed, scheduling cleanup retry:',
-          error?.message
-        );
-        scheduleFileCleanup(
-          fileManager.resolvePortableStoragePath(attachment.storagePath)
-        );
-      }
-    });
+  function importAttachmentsSnapshot(items = []) {
+    const previousRecords = cloneValue(dataStore.state.attachments);
+    const transaction = prepareAttachmentsSnapshot(items);
+
+    try {
+      transaction.commit();
+      replaceAttachments(transaction.records);
+      flush();
+      transaction.finalize();
+      return transaction.records;
+    } catch (error) {
+      replaceAttachments(previousRecords);
+      rollbackOrThrow(transaction);
+      throw error;
+    }
+  }
+
+  function replaceAttachments(records) {
     dataStore.state.attachments.splice(
       0,
-      dataStore.state.attachments.length
+      dataStore.state.attachments.length,
+      ...cloneValue(records)
     );
-  }
-
-  function restoreAttachmentSnapshotItem(item) {
-    if (!item?.id || !item?.noteId || !item?.fileName || !item?.contentBase64) {
-      throw new Error(
-        'Attachment snapshot items must include id, noteId, fileName, and contentBase64'
-      );
-    }
-
-    const safeName = sanitizeFileName(item.fileName);
-    const storagePath = fileManager.buildStoragePath(item.id, safeName);
-    const absoluteFilePath = fileManager.resolveManagedAbsolutePath(
-      item.id,
-      safeName
-    );
-    const buffer = Buffer.from(item.contentBase64, 'base64');
-    fs.writeFileSync(absoluteFilePath, buffer);
-
-    return {
-      id: item.id,
-      noteId: item.noteId,
-      fileName: safeName,
-      mimeType: item.mimeType || 'application/octet-stream',
-      size: item.size ?? buffer.byteLength,
-      storagePath,
-      createdAt: item.createdAt || new Date().toISOString()
-    };
   }
 
   return {
     exportAttachmentsSnapshot,
+    prepareAttachmentsSnapshot,
     importAttachmentsSnapshot
   };
+}
+
+function rollbackOrThrow(transaction) {
+  try {
+    transaction.rollback();
+  } catch (rollbackError) {
+    throw createAppError(
+      'STORAGE_IMPORT_ROLLBACK_FAILED',
+      'Storage import failed and attachment rollback was incomplete',
+      500,
+      { cause: rollbackError }
+    );
+  }
 }

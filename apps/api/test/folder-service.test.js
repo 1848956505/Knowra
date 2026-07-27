@@ -34,6 +34,28 @@ export const folderServiceTests = [
     }
   },
   {
+    name: 'createFolder rejects a duplicate client-provided id',
+    async run() {
+      const { createFolderService } = await import('../src/modules/knowledge/application/folder-service.js');
+      const folderService = createFolderService();
+
+      folderService.createFolder({
+        id: 'folder-duplicate',
+        spaceId: 'space-1',
+        name: 'Original'
+      });
+
+      assert.throws(
+        () => folderService.createFolder({
+          id: 'folder-duplicate',
+          spaceId: 'space-1',
+          name: 'Replacement'
+        }),
+        (error) => error.statusCode === 409 && error.code === 'FOLDER_ID_CONFLICT'
+      );
+    }
+  },
+  {
     name: 'createFolder throws when name is missing',
     async run() {
       const { createFolderService } = await import('../src/modules/knowledge/application/folder-service.js');

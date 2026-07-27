@@ -1,37 +1,40 @@
-import { trimIfString, createSlug } from './_shared.js';
+import {
+  createPrefixedId,
+  normalizeOptionalId,
+  requireText
+} from './_shared.js';
 
 function createFolderId({ id, name }) {
-  if (trimIfString(id)) {
-    return trimIfString(id);
+  if (id !== undefined && id !== null) {
+    return requireText(id, 'FOLDER_ID_INVALID', 'Folder id is invalid');
   }
 
-  const seed = createSlug(name || 'folder');
-  return `folder-${seed || 'item'}-${Date.now()}`;
+  return createPrefixedId('folder', name || 'item');
 }
 
-export function buildCreateFolderDto(input) {
-  const name = trimIfString(input.name);
+export function buildCreateFolderDto(input = {}) {
+  const name = requireText(input.name, 'FOLDER_NAME_REQUIRED', 'Folder name is required');
 
   return {
     id: createFolderId({
       id: input.id,
       name
     }),
-    spaceId: input.spaceId,
-    parentId: input.parentId ?? null,
+    spaceId: requireText(input.spaceId, 'FOLDER_SPACE_REQUIRED', 'Folder spaceId is required'),
+    parentId: normalizeOptionalId(input.parentId, 'FOLDER_PARENT_INVALID', 'Folder parentId is invalid'),
     name,
     pathCache: input.pathCache ?? '/'
   };
 }
 
-export function buildUpdateFolderDto(input) {
+export function buildUpdateFolderDto(input = {}) {
   const dto = {};
 
   if (input.name !== undefined) {
-    dto.name = trimIfString(input.name);
+    dto.name = requireText(input.name, 'FOLDER_NAME_REQUIRED', 'Folder name is required');
   }
   if (input.parentId !== undefined) {
-    dto.parentId = input.parentId;
+    dto.parentId = normalizeOptionalId(input.parentId, 'FOLDER_PARENT_INVALID', 'Folder parentId is invalid');
   }
   if (input.pathCache !== undefined) {
     dto.pathCache = input.pathCache;

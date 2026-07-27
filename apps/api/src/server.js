@@ -4,8 +4,9 @@ import { applyCorsHeaders, handleCorsPreflight } from './http/cors.js';
 import { sendError, sendJson } from './http/response.js';
 import { handleStorageRoute } from './http/storage-routes.js';
 import { handleKnowledgeRoute } from './modules/knowledge/http/knowledge-routes.js';
+import { AppError } from './errors/app-error.js';
 
-export function createServer({ appContext, cors = {} }) {
+export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
 
   return http.createServer(async (request, response) => {
@@ -52,11 +53,17 @@ export function createServer({ appContext, cors = {} }) {
         }
       });
     } catch (error) {
+      if (error instanceof AppError) {
+        sendError(response, error.statusCode, error.code, error.message);
+        return;
+      }
+
+      logger.error?.('Unhandled request error', error);
       sendError(
         response,
-        error.statusCode ?? 400,
-        error.code ?? 'REQUEST_ERROR',
-        error.message ?? 'Request failed'
+        500,
+        'INTERNAL_SERVER_ERROR',
+        'Internal server error'
       );
     }
   });

@@ -1,4 +1,8 @@
-export function createKnowledgeHttpHandlers({ knowledgeModule }) {
+export function createKnowledgeHttpHandlers({
+  knowledgeModule,
+  noteDeletionCoordinator,
+  ownerId = 'demo'
+}) {
   const {
     noteService,
     folderService,
@@ -44,10 +48,12 @@ export function createKnowledgeHttpHandlers({ knowledgeModule }) {
       return noteService.restoreNote(params.id);
     },
     permanentlyDeleteNote(params) {
-      return noteService.permanentlyDeleteNote(params.id);
+      return (noteDeletionCoordinator ?? noteService)
+        .permanentlyDeleteNote(params.id);
     },
     emptyRecycleBin(query = {}) {
-      return noteService.emptyRecycleBin(query.spaceId ?? null);
+      return (noteDeletionCoordinator ?? noteService)
+        .emptyRecycleBin(query.spaceId ?? null);
     },
     setFavorite(params, body = {}) {
       return noteService.setFavorite(params.id, body.favorite ?? true);
@@ -97,11 +103,16 @@ export function createKnowledgeHttpHandlers({ knowledgeModule }) {
     deleteAnnotation(params) { return contentAnnotationService.archiveAnnotation(params.id); },
     restoreAnnotation(params) { return contentAnnotationService.restoreAnnotation(params.id); },
     updateAnnotationAnchor(params, body) { return contentAnnotationService.updateAnnotationAnchor(params.id, body); },
-    createDefaultKnowledgeSpace(body) {
-      return knowledgeSpaceService.createDefaultKnowledgeSpace(body);
+    createDefaultKnowledgeSpace() {
+      return knowledgeSpaceService.createDefaultKnowledgeSpace({
+        userId: ownerId
+      });
     },
     listKnowledgeSpaces(query = {}) {
-      return knowledgeSpaceService.listKnowledgeSpaces(query);
+      return knowledgeSpaceService.listKnowledgeSpaces({
+        ...query,
+        userId: ownerId
+      });
     },
     searchNotes(query) {
       const notes = searchService.searchNotes(query);

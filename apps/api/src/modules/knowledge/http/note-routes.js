@@ -1,5 +1,25 @@
 import { parseBody, toQueryObject } from '../../../http/request.js';
 import { sendJson } from '../../../http/response.js';
+import { createAppError } from '../../../errors/app-error.js';
+
+function decodeRouteId(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw createAppError(
+      'ROUTE_PARAMETER_INVALID',
+      'Route parameter is invalid',
+      400
+    );
+  }
+}
+
+function matchNotePath(pathname, suffix = '') {
+  const escapedSuffix = suffix.replaceAll('/', '\\/');
+  return pathname.match(
+    new RegExp(`^\\/api\\/knowledge\\/notes\\/([^/]+)${escapedSuffix}$`)
+  );
+}
 
 export async function handleNoteRoute({ request, response, url, knowledge }) {
   if (request.method === 'GET' && url.pathname === '/api/knowledge/notes') {
@@ -56,110 +76,98 @@ export async function handleNoteRoute({ request, response, url, knowledge }) {
     return true;
   }
 
-  if (request.method === 'DELETE' && url.pathname.startsWith('/api/knowledge/notes/') && url.pathname.includes('/tags/')) {
-    const tagPathMatch = url.pathname.match(/^\/api\/knowledge\/notes\/([^/]+)\/tags\/(.+)$/);
-    if (!tagPathMatch) {
-      return false;
-    }
+  const tagPathMatch = matchNotePath(url.pathname, '/tags/([^/]+)');
+  if (request.method === 'DELETE' && tagPathMatch) {
     sendJson(response, 200, {
       data: knowledge.removeTagFromNote({
-        id: decodeURIComponent(tagPathMatch[1]),
-        tagId: decodeURIComponent(tagPathMatch[2])
+        id: decodeRouteId(tagPathMatch[1]),
+        tagId: decodeRouteId(tagPathMatch[2])
       })
     });
     return true;
   }
 
-  if (request.method === 'GET' && url.pathname.startsWith('/api/knowledge/notes/')) {
-    const noteId = url.pathname.split('/')[4];
-    if (noteId && url.pathname.endsWith('/links')) {
-      sendJson(response, 200, {
-        data: knowledge.getLinkedNotes({ id: decodeURIComponent(noteId) })
-      });
-      return true;
-    }
-    if (noteId && !url.pathname.endsWith('/tags') && !url.pathname.includes('/tags/') && !url.pathname.endsWith('/links')) {
-      sendJson(response, 200, {
-        data: knowledge.getNote({ id: decodeURIComponent(noteId) }, toQueryObject(url))
-      });
-      return true;
-    }
-  }
-
-  if (request.method === 'PATCH' && url.pathname.startsWith('/api/knowledge/notes/')) {
-    const noteId = url.pathname.split('/')[4];
-    if (noteId && !url.pathname.endsWith('/tags') && !url.pathname.includes('/tags/')) {
-      const body = await parseBody(request);
-      sendJson(response, 200, {
-        data: knowledge.updateNote({ id: decodeURIComponent(noteId) }, body)
-      });
-      return true;
-    }
-  }
-
-  if (request.method === 'DELETE' && url.pathname.startsWith('/api/knowledge/notes/')) {
-    const noteId = url.pathname.split('/')[4];
-    if (noteId === 'recycle-bin') {
-      sendJson(response, 404, {
-        error: {
-          code: 'ROUTE_NOT_FOUND',
-          message: 'Route not found'
-        }
-      });
-      return true;
-    }
-    if (noteId && url.pathname.endsWith('/permanent')) {
-      sendJson(response, 200, {
-        data: knowledge.permanentlyDeleteNote({ id: decodeURIComponent(noteId) })
-      });
-      return true;
-    }
-    if (noteId && !url.pathname.endsWith('/tags') && !url.pathname.includes('/tags/')) {
-      sendJson(response, 200, {
-        data: knowledge.deleteNote({ id: decodeURIComponent(noteId) })
-      });
-      return true;
-    }
-  }
-
-  if (request.method === 'POST' && url.pathname.startsWith('/api/knowledge/notes/') && url.pathname.endsWith('/favorite')) {
-    const noteId = url.pathname.split('/')[4];
-    if (noteId) {
-      const body = await parseBody(request);
-      sendJson(response, 200, {
-        data: knowledge.setFavorite({ id: decodeURIComponent(noteId) }, body)
-      });
-      return true;
-    }
-  }
-
-  if (request.method === 'POST' && url.pathname.startsWith('/api/knowledge/notes/') && url.pathname.endsWith('/restore')) {
-    const noteId = url.pathname.split('/')[4];
-    if (noteId) {
-      sendJson(response, 200, {
-        data: knowledge.restoreNote({ id: decodeURIComponent(noteId) })
-      });
-      return true;
-    }
-  }
-
-  if (request.method === 'POST' && url.pathname.startsWith('/api/knowledge/notes/') && url.pathname.endsWith('/tags')) {
-    const segments = url.pathname.split('/');
-    const noteId = segments[4];
-    const body = await parseBody(request);
+  const linksMatch = matchNotePath(url.pathname, '/links');
+  if (request.method === 'GET' && linksMatch) {
     sendJson(response, 200, {
-      data: knowledge.assignTagToNote({ id: decodeURIComponent(noteId) }, body)
+      data: knowledge.getLinkedNotes({ id: decodeRouteId(linksMatch[1]) })
     });
     return true;
   }
 
-  if (request.method === 'PUT' && url.pathname.startsWith('/api/knowledge/notes/') && url.pathname.endsWith('/tags')) {
-    const segments = url.pathname.split('/');
-    const noteId = segments[4];
+  const noteMatch = matchNotePath(url.pathname);
+  if (request.method === 'GET' && noteMatch) {
+    sendJson(response, 200, {
+      data: knowledge.getNote(
+        { id: decodeRouteId(noteMatch[1]) },
+        toQueryObject(url)
+      )
+    });
+    return true;
+  }
+
+  if (request.method === 'PATCH' && noteMatch) {
+    const body = await parseBody(request);
+    sendJson(response, 200, {
+      data: knowledge.updateNote({ id: decodeRouteId(noteMatch[1]) }, body)
+    });
+    return true;
+  }
+
+  const permanentMatch = matchNotePath(url.pathname, '/permanent');
+  if (request.method === 'DELETE' && permanentMatch) {
+    sendJson(response, 200, {
+      data: knowledge.permanentlyDeleteNote({
+        id: decodeRouteId(permanentMatch[1])
+      })
+    });
+    return true;
+  }
+
+  if (request.method === 'DELETE' && noteMatch) {
+    if (noteMatch[1] === 'recycle-bin') {
+      return false;
+    }
+    sendJson(response, 200, {
+      data: knowledge.deleteNote({ id: decodeRouteId(noteMatch[1]) })
+    });
+    return true;
+  }
+
+  const favoriteMatch = matchNotePath(url.pathname, '/favorite');
+  if (request.method === 'POST' && favoriteMatch) {
+    const body = await parseBody(request);
+    sendJson(response, 200, {
+      data: knowledge.setFavorite({ id: decodeRouteId(favoriteMatch[1]) }, body)
+    });
+    return true;
+  }
+
+  const restoreMatch = matchNotePath(url.pathname, '/restore');
+  if (request.method === 'POST' && restoreMatch) {
+    sendJson(response, 200, {
+      data: knowledge.restoreNote({ id: decodeRouteId(restoreMatch[1]) })
+    });
+    return true;
+  }
+
+  const tagsMatch = matchNotePath(url.pathname, '/tags');
+  if (request.method === 'POST' && tagsMatch) {
+    const body = await parseBody(request);
+    sendJson(response, 200, {
+      data: knowledge.assignTagToNote(
+        { id: decodeRouteId(tagsMatch[1]) },
+        body
+      )
+    });
+    return true;
+  }
+
+  if (request.method === 'PUT' && tagsMatch) {
     const body = await parseBody(request);
     sendJson(response, 200, {
       data: knowledge.setNoteTags({
-        id: decodeURIComponent(noteId)
+        id: decodeRouteId(tagsMatch[1])
       }, body)
     });
     return true;
@@ -174,4 +182,3 @@ export async function handleNoteRoute({ request, response, url, knowledge }) {
 
   return false;
 }
-

@@ -3,10 +3,13 @@ import { buildDefaultKnowledgeSpaceDto } from './dto/knowledge-space.dto.js';
 import { createInMemoryKnowledgeSpaceRepository } from '../infrastructure/knowledge-space-repository.js';
 
 export function createKnowledgeSpaceService({ repository = createInMemoryKnowledgeSpaceRepository() } = {}) {
-
   return {
-    createDefaultKnowledgeSpace({ userId }) {
+    createDefaultKnowledgeSpace({ userId } = {}) {
       const dto = buildDefaultKnowledgeSpaceDto({ userId });
+      const existingSpace = repository.findById(dto.id);
+      if (existingSpace) {
+        return existingSpace;
+      }
       const space = new KnowledgeSpace(dto);
 
       repository.save(space);

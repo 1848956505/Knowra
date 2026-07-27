@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createAppError } from '../errors/app-error.js';
 import { createLocalAttachmentFileManager } from './local-attachment-file-manager.js';
+import {
+  createLocalAttachmentDeletionManager
+} from './local-attachment-deletion.js';
 import { createLocalAttachmentSnapshotStore } from './local-attachment-snapshot-store.js';
 import {
   createAttachmentId,
   moveFileSafely,
-  sanitizeFileName,
-  scheduleFileCleanup
+  sanitizeFileName
 } from './local-attachment-store-utils.js';
 
 export function createLocalAttachmentStore({
@@ -83,7 +85,17 @@ export function createLocalAttachmentStore({
     };
 
     dataStore.state.attachments.push(attachment);
-    flush();
+    try {
+      flush();
+    } catch (error) {
+      dataStore.state.attachments.pop();
+      try {
+        fileManager.removeAttachmentFile(storagePath);
+      } catch (cleanupError) {
+        error.cleanupError = cleanupError;
+      }
+      throw error;
+    }
     return attachment;
   }
 
@@ -132,35 +144,6 @@ export function createLocalAttachmentStore({
     };
   }
 
-  function deleteAttachment(attachmentId) {
-    const existingIndex = dataStore.state.attachments.findIndex(
-      (attachment) => attachment.id === attachmentId
-    );
-
-    if (existingIndex === -1) {
-      throw createAppError(
-        'ATTACHMENT_NOT_FOUND',
-        'Attachment not found',
-        404
-      );
-    }
-
-    const [attachment] = dataStore.state.attachments.splice(existingIndex, 1);
-    try {
-      fileManager.removeAttachmentFile(attachment.storagePath);
-    } catch (error) {
-      console.error(
-        'removeAttachmentFile failed, scheduling cleanup retry:',
-        error?.message
-      );
-      scheduleFileCleanup(
-        fileManager.resolvePortableStoragePath(attachment.storagePath)
-      );
-    }
-    flush();
-    return attachment;
-  }
-
   function renameAttachment(attachmentId, fileName) {
     const attachment = getAttachment(attachmentId);
     if (!attachment) {
@@ -186,8 +169,15 @@ export function createLocalAttachmentStore({
       attachment.id,
       nextSafeName
     );
+    const previousFileName = attachment.fileName;
+    const previousStoragePath = attachment.storagePath;
+    const previousSize = attachment.size;
+    const fileMoved = Boolean(
+      currentReadablePath
+      && path.normalize(currentReadablePath) !== path.normalize(nextAbsolutePath)
+    );
 
-    if (currentReadablePath) {
+    if (fileMoved) {
       moveFileSafely(currentReadablePath, nextAbsolutePath);
     }
 
@@ -196,7 +186,21 @@ export function createLocalAttachmentStore({
     if (fs.existsSync(nextAbsolutePath)) {
       attachment.size = fs.statSync(nextAbsolutePath).size;
     }
-    flush();
+    try {
+      flush();
+    } catch (error) {
+      attachment.fileName = previousFileName;
+      attachment.storagePath = previousStoragePath;
+      attachment.size = previousSize;
+      if (fileMoved && fs.existsSync(nextAbsolutePath)) {
+        try {
+          moveFileSafely(nextAbsolutePath, currentReadablePath);
+        } catch (rollbackError) {
+          error.rollbackError = rollbackError;
+        }
+      }
+      throw error;
+    }
     return attachment;
   }
 
@@ -206,14 +210,19 @@ export function createLocalAttachmentStore({
     fileManager,
     listAttachments
   });
+  const deletionManager = createLocalAttachmentDeletionManager({
+    dataStore,
+    fileManager,
+    flush
+  });
 
   return {
     uploadAttachment,
     listAttachments,
     getAttachment,
     readAttachmentContent,
-    deleteAttachment,
     renameAttachment,
+    ...deletionManager,
     ...snapshotStore
   };
 }

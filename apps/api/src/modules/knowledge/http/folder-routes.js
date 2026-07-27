@@ -24,8 +24,10 @@ export async function handleFolderRoute({ request, response, url, knowledge }) {
     return true;
   }
 
-  if (request.method === 'PATCH' && url.pathname.startsWith('/api/knowledge/folders/')) {
-    const folderId = url.pathname.split('/')[4];
+  const folderMatch = url.pathname.match(/^\/api\/knowledge\/folders\/([^/]+)$/);
+
+  if (request.method === 'PATCH' && folderMatch) {
+    const folderId = folderMatch[1];
     const body = await parseBody(request);
     sendJson(response, 200, {
       data: knowledge.updateFolder({ id: decodeURIComponent(folderId) }, body)
@@ -33,8 +35,8 @@ export async function handleFolderRoute({ request, response, url, knowledge }) {
     return true;
   }
 
-  if (request.method === 'DELETE' && url.pathname.startsWith('/api/knowledge/folders/')) {
-    const folderId = url.pathname.split('/')[4];
+  if (request.method === 'DELETE' && folderMatch) {
+    const folderId = folderMatch[1];
     sendJson(response, 200, {
       data: knowledge.deleteFolder({ id: decodeURIComponent(folderId) })
     });
@@ -43,4 +45,3 @@ export async function handleFolderRoute({ request, response, url, knowledge }) {
 
   return false;
 }
-

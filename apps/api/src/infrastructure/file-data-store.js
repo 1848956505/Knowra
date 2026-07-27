@@ -1,104 +1,145 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
-const DEFAULT_STATE = {
-  spaces: [],
-  folders: [],
-  tags: [],
-  notes: [],
-  attachments: [],
-  contentAnnotations: []
-};
+import { createAppError } from '../errors/app-error.js';
+import { writeJsonFileAtomically } from './atomic-json-file.js';
+import {
+  LOCAL_DATA_COLLECTIONS,
+  LOCAL_DATA_SCHEMA_VERSION,
+  LOCAL_SNAPSHOT_VERSION,
+  cloneLocalState,
+  createEmptyLocalState,
+  createPersistedLocalDocument,
+  validateLocalSnapshot,
+  validatePersistedLocalState
+} from './local-data-schema.js';
 
 function ensureParentDirectory(filePath) {
   const directory = path.dirname(filePath);
   fs.mkdirSync(directory, { recursive: true });
 }
 
-function cloneDefaultState() {
-  return {
-    spaces: [],
-    folders: [],
-    tags: [],
-    notes: [],
-    attachments: [],
-    contentAnnotations: []
-  };
-}
-
-function normalizeState(input = {}) {
-  return {
-    spaces: Array.isArray(input.spaces) ? input.spaces : [],
-    folders: Array.isArray(input.folders) ? input.folders : [],
-    tags: Array.isArray(input.tags) ? input.tags : [],
-    notes: Array.isArray(input.notes) ? input.notes : [],
-    attachments: Array.isArray(input.attachments) ? input.attachments : [],
-    contentAnnotations: Array.isArray(input.contentAnnotations) ? input.contentAnnotations : []
-  };
-}
-
-function cloneState(state) {
-  return JSON.parse(JSON.stringify(state));
-}
-
 function replaceCollection(target, source) {
   target.splice(0, target.length, ...source);
 }
 
-export function createFileDataStore(filePath) {
+export function createFileDataStore(filePath, {
+  writeJson = writeJsonFileAtomically
+} = {}) {
   ensureParentDirectory(filePath);
 
   if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, JSON.stringify(DEFAULT_STATE, null, 2));
+    writeJson(filePath, createPersistedLocalDocument(createEmptyLocalState()));
   }
 
   const raw = fs.readFileSync(filePath, 'utf8');
-  const parsed = raw.trim() ? JSON.parse(raw) : cloneDefaultState();
-  const normalized = normalizeState(parsed);
-  const state = {
-    spaces: normalized.spaces,
-    folders: normalized.folders,
-    tags: normalized.tags,
-    notes: normalized.notes,
-    attachments: normalized.attachments,
-    contentAnnotations: normalized.contentAnnotations
-  };
+  const parsed = parsePersistedState(raw);
+  const state = validatePersistedLocalState(parsed);
+  let transaction = null;
 
   function flush() {
-    fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
+    if (transaction) {
+      transaction.dirty = true;
+      return;
+    }
+    persistState(state);
+  }
+
+  function runTransaction(operation) {
+    if (typeof operation !== 'function') {
+      throw new TypeError('Storage transaction operation must be a function');
+    }
+
+    if (transaction) {
+      return operation();
+    }
+
+    const previousState = cloneLocalState(state);
+    transaction = { dirty: false };
+
+    try {
+      const result = operation();
+      if (result && typeof result.then === 'function') {
+        throw new TypeError('Local storage transactions must be synchronous');
+      }
+      if (transaction.dirty) {
+        persistState(state);
+      }
+      return result;
+    } catch (error) {
+      replaceState(state, previousState);
+      throw error;
+    } finally {
+      transaction = null;
+    }
   }
 
   function exportSnapshot() {
     return {
       exportedAt: new Date().toISOString(),
-      version: 'v1-local-json',
-      data: cloneState(state)
+      version: LOCAL_SNAPSHOT_VERSION,
+      schemaVersion: LOCAL_DATA_SCHEMA_VERSION,
+      data: cloneLocalState(state)
     };
   }
 
-  function importSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== 'object') {
-      throw new Error('Import payload must be an object');
-    }
+  function prepareImport(snapshot) {
+    return validateLocalSnapshot(snapshot);
+  }
 
-    const incomingData = snapshot.data ?? snapshot;
-    const normalizedState = normalizeState(incomingData);
-
-    replaceCollection(state.spaces, normalizedState.spaces);
-    replaceCollection(state.folders, normalizedState.folders);
-    replaceCollection(state.tags, normalizedState.tags);
-    replaceCollection(state.notes, normalizedState.notes);
-    replaceCollection(state.attachments, normalizedState.attachments);
-    replaceCollection(state.contentAnnotations, normalizedState.contentAnnotations);
-    flush();
-
+  function commitImport(preparedSnapshot) {
+    const validated = validateLocalSnapshot(preparedSnapshot);
+    persistState(validated.data);
+    replaceState(state, validated.data);
     return exportSnapshot();
+  }
+
+  function importSnapshot(snapshot) {
+    return commitImport(prepareImport(snapshot));
+  }
+
+  function persistState(nextState) {
+    try {
+      writeJson(filePath, createPersistedLocalDocument(nextState));
+    } catch (error) {
+      throw createAppError(
+        'STORAGE_WRITE_FAILED',
+        'Failed to persist local data safely',
+        500,
+        { cause: error }
+      );
+    }
   }
 
   return {
     state,
     flush,
+    runTransaction,
     exportSnapshot,
+    prepareImport,
+    commitImport,
     importSnapshot
   };
+}
+
+function parsePersistedState(raw) {
+  if (!raw.trim()) {
+    return createEmptyLocalState();
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw createAppError(
+      'STORAGE_DATA_INVALID',
+      'Local data file contains invalid JSON',
+      500,
+      { cause: error }
+    );
+  }
+}
+
+function replaceState(target, source) {
+  for (const collectionName of LOCAL_DATA_COLLECTIONS) {
+    replaceCollection(target[collectionName], source[collectionName]);
+  }
 }

@@ -9,6 +9,8 @@ import { createInMemoryFolderRepository } from './modules/knowledge/infrastructu
 import { createInMemoryTagRepository } from './modules/knowledge/infrastructure/tag-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './modules/knowledge/infrastructure/knowledge-space-repository.js';
 import { createInMemoryContentAnnotationRepository } from './modules/knowledge/infrastructure/content-annotation-repository.js';
+import { createKnowledgeBaseSnapshotService } from './modules/knowledge/application/knowledge-base-snapshot-service.js';
+import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +18,7 @@ const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 
 export function createAppContext(options = {}) {
   const dataStore = options.dataStore;
+  const ownerId = resolveOwnerId(options.ownerId);
   const attachmentStore = options.attachmentStore ?? (dataStore
     ? createLocalAttachmentStore({
         dataStore,
@@ -55,7 +58,18 @@ export function createAppContext(options = {}) {
           records: dataStore.state.contentAnnotations,
           onChange: dataStore.flush
         })
-      : undefined)
+      : undefined),
+    enforceReferences: options.enforceReferences ?? true
+  });
+  const noteDeletionCoordinator = createNoteDeletionCoordinator({
+    noteService: knowledge.noteService,
+    noteRepository: knowledge.repositories.noteRepository,
+    contentAnnotationRepository:
+      knowledge.repositories.contentAnnotationRepository,
+    attachmentStore,
+    runTransaction: dataStore?.runTransaction
+      ? (operation) => dataStore.runTransaction(operation)
+      : undefined
   });
 
   return {
@@ -64,9 +78,17 @@ export function createAppContext(options = {}) {
       knowledge
     },
     http: {
-      storage: createStorageHttpHandlers({ dataStore, attachmentStore }),
+      storage: createKnowledgeBaseSnapshotService({
+        dataStore,
+        attachmentStore,
+        validateAttachmentNote: dataStore
+          ? (noteId) => knowledge.noteService.getNote(noteId)
+          : null
+      }),
       knowledge: createKnowledgeHttpHandlers({
-        knowledgeModule: knowledge
+        knowledgeModule: knowledge,
+        noteDeletionCoordinator,
+        ownerId
       })
     }
   };
@@ -75,10 +97,11 @@ export function createAppContext(options = {}) {
 export function createPersistentAppContext({
   storageRootDir = workspaceRoot,
   dataFilePath = resolveStoragePath('storage/data/knowledge-base.json', storageRootDir),
-  uploadsDir = resolveStoragePath(process.env.STORAGE_UPLOADS_DIR || 'storage/uploads', storageRootDir)
+  uploadsDir = resolveStoragePath(process.env.STORAGE_UPLOADS_DIR || 'storage/uploads', storageRootDir),
+  ownerId
 } = {}) {
   const dataStore = createFileDataStore(dataFilePath);
-  return createAppContext({ dataStore, uploadsDir, storageRootDir });
+  return createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
 }
 
 export function resolveStoragePath(targetPath, storageRootDir = workspaceRoot) {
@@ -89,78 +112,7 @@ export function resolveStoragePath(targetPath, storageRootDir = workspaceRoot) {
   return path.resolve(storageRootDir, targetPath);
 }
 
-function createStorageHttpHandlers({ dataStore, attachmentStore }) {
-  return {
-    exportKnowledgeBase() {
-      if (!dataStore) {
-        return {
-          exportedAt: new Date().toISOString(),
-          version: 'v1-local-json',
-          data: {
-            spaces: [],
-            folders: [],
-            tags: [],
-            notes: [],
-            attachments: []
-          }
-        };
-      }
-
-      const snapshot = dataStore.exportSnapshot();
-      return {
-        ...snapshot,
-        attachmentFiles: attachmentStore?.exportAttachmentsSnapshot?.() ?? []
-      };
-    },
-    importKnowledgeBase(body) {
-      if (!dataStore) {
-        throw new Error('Persistent storage is not configured');
-      }
-
-      dataStore.importSnapshot(body);
-      if (attachmentStore?.importAttachmentsSnapshot) {
-        attachmentStore.importAttachmentsSnapshot(body?.attachmentFiles ?? []);
-      }
-
-      return {
-        ...dataStore.exportSnapshot(),
-        attachmentFiles: attachmentStore?.exportAttachmentsSnapshot?.() ?? []
-      };
-    },
-    uploadAttachment(body) {
-      if (!attachmentStore) {
-        throw new Error('Attachment storage is not configured');
-      }
-
-      return attachmentStore.uploadAttachment(body);
-    },
-    updateAttachment(params, body) {
-      if (!attachmentStore) {
-        throw new Error('Attachment storage is not configured');
-      }
-
-      return attachmentStore.renameAttachment(params.id, body?.fileName);
-    },
-    listAttachments(query = {}) {
-      if (!attachmentStore) {
-        return [];
-      }
-
-      return attachmentStore.listAttachments(query);
-    },
-    getAttachmentContent(params) {
-      if (!attachmentStore) {
-        throw new Error('Attachment storage is not configured');
-      }
-
-      return attachmentStore.readAttachmentContent(params.id);
-    },
-    deleteAttachment(params) {
-      if (!attachmentStore) {
-        throw new Error('Attachment storage is not configured');
-      }
-
-      return attachmentStore.deleteAttachment(params.id);
-    }
-  };
+function resolveOwnerId(value) {
+  const candidate = value ?? process.env.KNOWRA_OWNER_ID ?? 'demo';
+  return String(candidate).trim() || 'demo';
 }

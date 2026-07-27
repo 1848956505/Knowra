@@ -2,6 +2,33 @@ import assert from 'node:assert/strict';
 
 export const knowledgeHttpTests = [
   {
+    name: 'knowledge handlers enforce the server owner and ignore client user ids',
+    async run() {
+      const { createKnowledgeModule } = await import('../src/modules/knowledge/index.js');
+      const { createKnowledgeHttpHandlers } = await import('../src/modules/knowledge/http/knowledge-handlers.js');
+
+      const knowledgeModule = createKnowledgeModule();
+      const handlers = createKnowledgeHttpHandlers({
+        knowledgeModule,
+        ownerId: 'local-owner'
+      });
+      knowledgeModule.knowledgeSpaceService.createDefaultKnowledgeSpace({
+        userId: 'other-owner'
+      });
+
+      const created = handlers.createDefaultKnowledgeSpace({
+        userId: 'attacker-controlled'
+      });
+      const listed = handlers.listKnowledgeSpaces({
+        userId: 'other-owner'
+      });
+
+      assert.equal(created.userId, 'local-owner');
+      assert.equal(created.id, 'space-local-owner');
+      assert.deepEqual(listed.map((space) => space.userId), ['local-owner']);
+    }
+  },
+  {
     name: 'knowledge handlers can create and list notes',
     async run() {
       const { createKnowledgeModule } = await import('../src/modules/knowledge/index.js');

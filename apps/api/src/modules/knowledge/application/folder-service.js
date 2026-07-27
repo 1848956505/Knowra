@@ -1,16 +1,21 @@
 import { Folder } from '../domain/folder.js';
 import { buildCreateFolderDto, buildUpdateFolderDto } from './dto/folder.dto.js';
 import { createInMemoryFolderRepository } from '../infrastructure/folder-repository.js';
+import {
+  conflictError,
+  notFoundError
+} from './knowledge-errors.js';
 
 export function createFolderService({
   repository = createInMemoryFolderRepository(),
-  validateSiblingNameConflict = null
+  validateSiblingNameConflict = null,
+  validateSpaceReference = null
 } = {}) {
   function requireFolder(folderId) {
     const folder = repository.findById(folderId);
 
     if (!folder) {
-      throw new Error('Folder not found');
+      throw notFoundError('FOLDER_NOT_FOUND', 'Folder not found');
     }
 
     return folder;
@@ -40,20 +45,26 @@ export function createFolderService({
     }
 
     if (currentFolderId && parentId === currentFolderId) {
-      throw new Error('Folder cannot be its own parent');
+      throw conflictError('FOLDER_PARENT_CONFLICT', 'Folder cannot be its own parent');
     }
 
     const parentFolder = requireFolder(parentId);
 
     if (parentFolder.spaceId !== spaceId) {
-      throw new Error('Parent folder must belong to the same space');
+      throw conflictError(
+        'FOLDER_SPACE_MISMATCH',
+        'Parent folder must belong to the same space'
+      );
     }
 
     if (currentFolderId) {
       let cursor = parentFolder;
       while (cursor) {
         if (cursor.id === currentFolderId) {
-          throw new Error('Folder cannot move under its descendant');
+          throw conflictError(
+            'FOLDER_DESCENDANT_CONFLICT',
+            'Folder cannot move under its descendant'
+          );
         }
         cursor = cursor.parentId ? repository.findById(cursor.parentId) : null;
       }
@@ -102,6 +113,13 @@ export function createFolderService({
   return {
     createFolder(input) {
       const dto = buildCreateFolderDto(input);
+      if (repository.findById(dto.id)) {
+        throw conflictError(
+          'FOLDER_ID_CONFLICT',
+          'A folder with the same id already exists'
+        );
+      }
+      validateSpaceReference?.(dto.spaceId);
       validateSiblingNameConflict?.({
         spaceId: dto.spaceId,
         parentId: dto.parentId ?? null,

@@ -5,6 +5,135 @@ import path from 'node:path';
 
 export const appFactoryTests = [
   {
+    name: 'persistent app context permanently deletes note dependents and attachment files',
+    async run() {
+      const { createPersistentAppContext } = await import(
+        '../src/app.factory.js'
+      );
+      const tempRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'study-cascade-delete-')
+      );
+      const app = createPersistentAppContext({
+        storageRootDir: tempRoot,
+        ownerId: 'cascade-owner'
+      });
+
+      try {
+        const space = app.http.knowledge.createDefaultKnowledgeSpace({});
+        const note = app.http.knowledge.createNote({
+          id: 'note-cascade',
+          title: 'Cascade',
+          rawMarkdown: 'body',
+          spaceId: space.id
+        });
+        const attachment = app.http.storage.uploadAttachment({
+          noteId: note.id,
+          fileName: 'cascade.txt',
+          contentBase64: Buffer.from('cascade').toString('base64')
+        });
+        app.dataStore.state.contentAnnotations.push({
+          id: 'annotation-cascade',
+          noteId: note.id,
+          spaceId: space.id,
+          quoteText: 'body',
+          status: 'active'
+        });
+        app.dataStore.flush();
+        const attachmentPath = path.resolve(
+          tempRoot,
+          attachment.storagePath
+        );
+        assert.equal(fs.existsSync(attachmentPath), true);
+
+        app.http.knowledge.deleteNote({ id: note.id });
+        app.http.knowledge.permanentlyDeleteNote({ id: note.id });
+
+        assert.equal(app.dataStore.state.notes.length, 0);
+        assert.equal(app.dataStore.state.attachments.length, 0);
+        assert.equal(app.dataStore.state.contentAnnotations.length, 0);
+        assert.equal(fs.existsSync(attachmentPath), false);
+
+        const persisted = JSON.parse(
+          fs.readFileSync(
+            path.join(tempRoot, 'storage', 'data', 'knowledge-base.json'),
+            'utf8'
+          )
+        );
+        assert.equal(persisted.notes.length, 0);
+        assert.equal(persisted.attachments.length, 0);
+        assert.equal(persisted.contentAnnotations.length, 0);
+      } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'createAppContext rejects attachments for missing or deleted notes',
+    async run() {
+      const { createAppContext } = await import('../src/app.factory.js');
+      const uploaded = [];
+      const dataStore = {
+        state: {
+          spaces: [],
+          folders: [],
+          tags: [],
+          notes: [{
+            id: 'note-active',
+            title: 'Active',
+            rawMarkdown: 'body',
+            spaceId: 'space-1',
+            deleted: false
+          }, {
+            id: 'note-deleted',
+            title: 'Deleted',
+            rawMarkdown: 'body',
+            spaceId: 'space-1',
+            deleted: true
+          }],
+          attachments: [],
+          contentAnnotations: []
+        },
+        flush() {}
+      };
+      const attachmentStore = {
+        uploadAttachment(body) {
+          uploaded.push(body);
+          return body;
+        }
+      };
+      const app = createAppContext({
+        dataStore,
+        attachmentStore,
+        enforceReferences: false
+      });
+
+      assert.throws(
+        () => app.http.storage.uploadAttachment({
+          noteId: 'note-missing',
+          fileName: 'missing.txt',
+          contentBase64: 'YQ=='
+        }),
+        (error) => error.code === 'NOTE_NOT_FOUND'
+      );
+      assert.throws(
+        () => app.http.storage.uploadAttachment({
+          noteId: 'note-deleted',
+          fileName: 'deleted.txt',
+          contentBase64: 'YQ=='
+        }),
+        (error) => error.code === 'NOTE_NOT_FOUND'
+      );
+
+      const result = app.http.storage.uploadAttachment({
+        noteId: 'note-active',
+        fileName: 'active.txt',
+        contentBase64: 'YQ=='
+      });
+      assert.equal(result.noteId, 'note-active');
+      assert.equal(uploaded.length, 1);
+    }
+  },
+  {
     name: 'createAppContext wires knowledge module and handlers together',
     async run() {
       const { createAppContext } = await import('../src/app.factory.js');
@@ -30,7 +159,11 @@ export const appFactoryTests = [
           spaces: [{ id: 'space-1' }],
           folders: [],
           tags: [],
-          notes: [{ id: 'note-1', title: 'Persisted note' }],
+          notes: [{
+            id: 'note-1',
+            title: 'Persisted note',
+            rawMarkdown: '# Persisted note'
+          }],
           attachments: [{ id: 'attachment-1', noteId: 'note-1', fileName: 'hello.txt' }]
         },
         flush() {},
@@ -47,12 +180,18 @@ export const appFactoryTests = [
             }
           };
         },
-        importSnapshot(payload) {
-          this.state.spaces.splice(0, this.state.spaces.length, ...(payload.data?.spaces ?? []));
-          this.state.folders.splice(0, this.state.folders.length, ...(payload.data?.folders ?? []));
-          this.state.tags.splice(0, this.state.tags.length, ...(payload.data?.tags ?? []));
-          this.state.notes.splice(0, this.state.notes.length, ...(payload.data?.notes ?? []));
-          this.state.attachments.splice(0, this.state.attachments.length, ...(payload.data?.attachments ?? []));
+        prepareImport(payload) {
+          return {
+            schemaVersion: 1,
+            data: structuredClone(payload.data)
+          };
+        },
+        commitImport(payload) {
+          this.state.spaces.splice(0, this.state.spaces.length, ...payload.data.spaces);
+          this.state.folders.splice(0, this.state.folders.length, ...payload.data.folders);
+          this.state.tags.splice(0, this.state.tags.length, ...payload.data.tags);
+          this.state.notes.splice(0, this.state.notes.length, ...payload.data.notes);
+          this.state.attachments.splice(0, this.state.attachments.length, ...payload.data.attachments);
           return this.exportSnapshot();
         }
       };
@@ -69,9 +208,15 @@ export const appFactoryTests = [
         exportAttachmentsSnapshot() {
           return this.exported;
         },
-        importAttachmentsSnapshot(items) {
-          this.exported = items;
-          return items;
+        prepareAttachmentsSnapshot(items) {
+          return {
+            records: items.map(({ contentBase64, ...item }) => item),
+            commit() {},
+            rollback() {},
+            finalize: () => {
+              this.exported = items;
+            }
+          };
         }
       };
 
@@ -82,7 +227,11 @@ export const appFactoryTests = [
           spaces: [{ id: 'space-2' }],
           folders: [],
           tags: [],
-          notes: [{ id: 'note-2', title: 'Imported note' }],
+          notes: [{
+            id: 'note-2',
+            title: 'Imported note',
+            rawMarkdown: '# Imported note'
+          }],
           attachments: [{ id: 'attachment-2', noteId: 'note-2', fileName: 'imported.txt' }]
         },
         attachmentFiles: [
