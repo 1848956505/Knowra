@@ -58,7 +58,7 @@ body {
   height: 28px;
   border-radius: 8px;
   color: white;
-  background: linear-gradient(135deg, #1d4ed8, #6d5efc 58%, #ff8b5c);
+  background: var(--gradient-brand);
   box-shadow: 0 10px 20px rgba(60, 104, 255, 0.18);
   font-family: var(--font-display);
   font-size: 10px;

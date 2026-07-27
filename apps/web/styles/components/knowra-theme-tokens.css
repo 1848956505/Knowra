@@ -26,6 +26,9 @@
   --overlay: rgba(22, 22, 22, 0.22);
   --color-on-accent: #ffffff;
 
+  --gradient-brand: linear-gradient(135deg, #1d4ed8, #6d5efc 58%, #ff8b5c);
+  --gradient-accent: linear-gradient(135deg, #1d4ed8, #5f72ff);
+
   --color-bg: var(--paper);
   --color-panel: var(--paper);
   --color-panel-solid: var(--paper-raised);

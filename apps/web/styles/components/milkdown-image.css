@@ -205,7 +205,7 @@
   height: 16px;
   border-radius: 999px;
   border: 2px solid var(--color-surface);
-  background: linear-gradient(135deg, #1d4ed8, #5f72ff);
+  background: var(--gradient-accent);
   box-shadow: 0 4px 12px rgba(29, 78, 216, 0.30);
 }
 

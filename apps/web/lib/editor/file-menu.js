@@ -124,6 +124,7 @@ export function getMarkdownImportStatusMessage(importedItems, firstImported = nu
 }
 
 function renderExportStyles({ rich = false } = {}) {
+  // 导出 HTML 为独立文档，运行时无 CSS 变量可用，需内联具体颜色值
   const richStyles = rich
     ? `
           pre { border-radius: 12px; }
