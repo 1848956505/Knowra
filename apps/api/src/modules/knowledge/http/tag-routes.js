@@ -5,14 +5,14 @@ export async function handleTagRoute({ request, response, url, knowledge }) {
   if (request.method === 'POST' && url.pathname === '/api/knowledge/tags') {
     const body = await parseBody(request);
     sendJson(response, 201, {
-      data: knowledge.createTag(body)
+      data: await knowledge.createTag(body)
     });
     return true;
   }
 
   if (request.method === 'GET' && url.pathname === '/api/knowledge/tags') {
     sendJson(response, 200, {
-      data: knowledge.listTags(toQueryObject(url))
+      data: await knowledge.listTags(toQueryObject(url))
     });
     return true;
   }
@@ -23,7 +23,7 @@ export async function handleTagRoute({ request, response, url, knowledge }) {
     const tagId = tagMatch[1];
     const body = await parseBody(request);
     sendJson(response, 200, {
-      data: knowledge.updateTag({ id: decodeURIComponent(tagId) }, body)
+      data: await knowledge.updateTag({ id: decodeURIComponent(tagId) }, body)
     });
     return true;
   }
@@ -31,7 +31,7 @@ export async function handleTagRoute({ request, response, url, knowledge }) {
   if (request.method === 'DELETE' && tagMatch) {
     const tagId = tagMatch[1];
     sendJson(response, 200, {
-      data: knowledge.deleteTag({ id: decodeURIComponent(tagId) })
+      data: await knowledge.deleteTag({ id: decodeURIComponent(tagId) })
     });
     return true;
   }

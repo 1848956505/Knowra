@@ -7,150 +7,150 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Phase 1.0 intentionally contains only the active knowledge module and the
+// minimum owner boundary required by the current single-user runtime. Future
+// knowledge, assessment, AI and RAG models must be introduced in later
+// migrations instead of being created accidentally by the initial migration.
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  passwordHash    String
-  nickname        String
+  id              String           @id
+  email           String?          @unique
+  passwordHash    String?
+  nickname        String?
   status          String           @default("active")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  settings        UserSetting?
   knowledgeSpaces KnowledgeSpace[]
 }
 
-model UserSetting {
-  id                String @id @default(cuid())
-  userId            String @unique
-  theme             String @default("system")
-  editorPreferences Json?
-  locale            String @default("zh-CN")
-  user              User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
 model KnowledgeSpace {
-  id            String         @id @default(cuid())
-  userId        String
-  name          String
-  description   String         @default("")
-  defaultFlag   Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folders       Folder[]
-  notes         Note[]
-  tags          Tag[]
-  ingestionJobs IngestionJob[]
+  id          String              @id
+  userId      String
+  name        String
+  description String              @default("")
+  defaultFlag Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  folders     Folder[]
+  notes       Note[]
+  tags        Tag[]
+  annotations ContentAnnotation[]
+
+  @@index([userId, updatedAt])
 }
 
 model Folder {
-  id         String   @id @default(cuid())
+  id         String         @id
   spaceId    String
   parentId   String?
   name       String
-  sortOrder  Int      @default(0)
-  pathCache  String   @default("/")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  space      KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  parent     Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children   Folder[] @relation("FolderTree")
-  notes      Note[]
-}
+  sortOrder  Int            @default(0)
+  pathCache  String         @default("/")
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
-model Note {
-  id            String          @id @default(cuid())
-  spaceId        String
-  folderId       String?
-  title          String
-  rawMarkdown    String         @db.Text
-  plainText      String         @db.Text
-  summary        String?        @db.Text
-  status         String         @default("draft")
-  sourceType     String         @default("manual")
-  wordCount      Int            @default(0)
-  lastIndexedAt  DateTime?
-  deletedAt      DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  space          KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  folder         Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  noteTags       NoteTag[]
-  outgoingLinks  NoteLink[]     @relation("OutgoingNoteLinks")
-  incomingLinks  NoteLink[]     @relation("IncomingNoteLinks")
-  chunks         DocumentChunk[]
+  space      KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  parent     Folder?        @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Folder[]       @relation("FolderTree")
+  notes      Note[]
+
+  @@index([spaceId, parentId, sortOrder])
 }
 
 model Tag {
-  id        String          @id @default(cuid())
-  spaceId   String
-  name      String
-  color     String          @default("slate")
-  createdAt DateTime        @default(now())
-  space     KnowledgeSpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  noteTags  NoteTag[]
+  id         String         @id
+  spaceId    String
+  name       String
+  color      String         @default("slate")
+  groupId    String?
+  code       String?
+  isSystem   Boolean        @default(false)
+  sortOrder  Int            @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  space      KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  noteTags   NoteTag[]
 
   @@unique([spaceId, name])
+  @@index([spaceId, isSystem, sortOrder])
+}
+
+model Note {
+  id             String              @id
+  spaceId        String
+  folderId       String?
+  title          String
+  rawMarkdown    String              @db.Text
+  plainText      String              @db.Text
+  internalLinks  Json                @default("[]")
+  contentHash    String?
+  status         String              @default("draft")
+  sourceType     String              @default("manual")
+  favorite       Boolean             @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  space          KnowledgeSpace      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folder         Folder?             @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  noteTags       NoteTag[]
+  attachments    Attachment[]
+  annotations    ContentAnnotation[]
+
+  @@index([spaceId, deletedAt, updatedAt])
+  @@index([spaceId, folderId, deletedAt, updatedAt])
 }
 
 model NoteTag {
-  id     String @id @default(cuid())
   noteId String
   tagId  String
-  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@unique([noteId, tagId])
+  note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@index([tagId, noteId])
 }
 
-model NoteLink {
-  id         String   @id @default(cuid())
-  fromNoteId String
-  toNoteId   String
-  linkText   String
-  createdAt  DateTime @default(now())
-  fromNote   Note     @relation("OutgoingNoteLinks", fields: [fromNoteId], references: [id], onDelete: Cascade)
-  toNote     Note     @relation("IncomingNoteLinks", fields: [toNoteId], references: [id], onDelete: Cascade)
+model Attachment {
+  id          String   @id
+  noteId      String
+  fileName    String
+  mimeType    String
+  size        Int
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  note        Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, createdAt])
 }
 
-model DocumentChunk {
-  id           String      @id @default(cuid())
-  noteId       String
-  spaceId      String
-  chunkIndex   Int
-  content      String      @db.Text
-  tokenCount   Int         @default(0)
-  headingPath  String?
-  chunkVersion Int         @default(1)
-  createdAt    DateTime    @default(now())
-  note         Note        @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  embedding    Embedding?
+model ContentAnnotation {
+  id                String         @id
+  spaceId           String
+  noteId            String
+  kind              String
+  sourceMode        String
+  quoteText         String         @db.Text
+  headingPath       Json
+  fromPosition      Int
+  toPosition        Int
+  prefixText        String         @db.Text
+  suffixText        String         @db.Text
+  anchorFingerprint String
+  noteContentHash   String
+  idempotencyKey    String
+  status            String
+  createdAt         DateTime
+  updatedAt         DateTime
+  deletedAt         DateTime?
 
-  @@unique([noteId, chunkIndex, chunkVersion])
-}
+  space             KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  note              Note            @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
-model Embedding {
-  id               String        @id @default(cuid())
-  chunkId          String        @unique
-  modelName        String
-  modelVersion     String
-  vector           Unsupported("vector")
-  embeddingVersion Int           @default(1)
-  status           String        @default("ready")
-  createdAt        DateTime      @default(now())
-  chunk            DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
-}
-
-model IngestionJob {
-  id           String         @id @default(cuid())
-  spaceId      String
-  noteId       String?
-  jobType      String
-  status       String         @default("pending")
-  payload      Json?
-  result       Json?
-  errorMessage String?
-  createdAt    DateTime       @default(now())
-  finishedAt   DateTime?
-  space        KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  @@unique([noteId, idempotencyKey])
+  @@index([noteId, status, updatedAt])
 }

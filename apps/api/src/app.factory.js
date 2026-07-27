@@ -11,6 +11,8 @@ import { createInMemoryKnowledgeSpaceRepository } from './modules/knowledge/infr
 import { createInMemoryContentAnnotationRepository } from './modules/knowledge/infrastructure/content-annotation-repository.js';
 import { createKnowledgeBaseSnapshotService } from './modules/knowledge/application/knowledge-base-snapshot-service.js';
 import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
+import { createStorageConfig } from './config/storage.config.js';
+import { createPostgresAppContext } from './postgres-app.factory.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,8 +100,20 @@ export function createPersistentAppContext({
   storageRootDir = workspaceRoot,
   dataFilePath = resolveStoragePath('storage/data/knowledge-base.json', storageRootDir),
   uploadsDir = resolveStoragePath(process.env.STORAGE_UPLOADS_DIR || 'storage/uploads', storageRootDir),
+  persistenceDriver = createStorageConfig(process.env).persistenceDriver,
+  databaseUrl = createStorageConfig(process.env).databaseUrl,
+  client = null,
   ownerId
 } = {}) {
+  if (persistenceDriver === 'postgres') {
+    return createPostgresAppContext({
+      databaseUrl,
+      client,
+      storageRootDir,
+      uploadsDir,
+      ownerId
+    });
+  }
   const dataStore = createFileDataStore(dataFilePath);
   return createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
 }
@@ -116,3 +130,5 @@ function resolveOwnerId(value) {
   const candidate = value ?? process.env.KNOWRA_OWNER_ID ?? 'demo';
   return String(candidate).trim() || 'demo';
 }
+
+export { createPostgresAppContext };

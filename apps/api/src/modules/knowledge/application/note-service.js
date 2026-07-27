@@ -127,6 +127,9 @@ export function createNoteService({
         favorite: dto.favorite ?? currentNote.favorite,
         deleted: currentNote.deleted,
         tagIds: dto.tagIds ?? currentNote.tagIds,
+        plainText: dto.rawMarkdown !== undefined ? undefined : currentNote.plainText,
+        internalLinks: dto.rawMarkdown !== undefined ? undefined : currentNote.internalLinks,
+        contentHash: dto.rawMarkdown !== undefined ? null : currentNote.contentHash,
         createdAt: currentNote.createdAt,
         updatedAt: dto.updatedAt ?? new Date().toISOString()
       });

@@ -1,5 +1,14 @@
 export class Folder {
-  constructor({ id, spaceId, name, parentId = null, pathCache = '/' }) {
+  constructor({
+    id,
+    spaceId,
+    name,
+    parentId = null,
+    pathCache = '/',
+    sortOrder = 0,
+    createdAt = new Date().toISOString(),
+    updatedAt = createdAt
+  }) {
     if (!id?.trim()) {
       throw new Error('Folder id is required');
     }
@@ -15,5 +24,8 @@ export class Folder {
     this.name = name.trim();
     this.parentId = parentId;
     this.pathCache = pathCache;
+    this.sortOrder = sortOrder;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 }

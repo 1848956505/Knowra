@@ -1,11 +1,14 @@
 {
   "name": "@study-accelerator/api",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node src/main.js",
-    "test": "node test/run-tests.js"
+    "test": "node test/run-tests.js",
+    "prisma:validate": "npx prisma validate --schema ../../prisma/schema.prisma",
+    "prisma:generate": "npx prisma generate --schema ../../prisma/schema.prisma",
+    "prisma:migrate:deploy": "npx prisma migrate deploy --schema ../../prisma/schema.prisma"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

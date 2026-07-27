@@ -4,14 +4,14 @@ import { sendBinary, sendJson } from './response.js';
 export async function handleStorageRoute({ request, response, url, storage }) {
   if (request.method === 'GET' && url.pathname === '/api/storage/export') {
     sendJson(response, 200, {
-      data: storage.exportKnowledgeBase()
+      data: await storage.exportKnowledgeBase()
     });
     return true;
   }
 
   if (request.method === 'GET' && url.pathname === '/api/storage/attachments') {
     sendJson(response, 200, {
-      data: storage.listAttachments(toQueryObject(url))
+      data: await storage.listAttachments(toQueryObject(url))
     });
     return true;
   }
@@ -19,14 +19,14 @@ export async function handleStorageRoute({ request, response, url, storage }) {
   if (request.method === 'POST' && url.pathname === '/api/storage/attachments') {
     const body = await parseBody(request);
     sendJson(response, 201, {
-      data: storage.uploadAttachment(body)
+      data: await storage.uploadAttachment(body)
     });
     return true;
   }
 
   if (request.method === 'GET' && url.pathname.startsWith('/api/storage/attachments/') && url.pathname.endsWith('/content')) {
     const attachmentId = url.pathname.split('/')[4];
-    const payload = storage.getAttachmentContent({ id: decodeURIComponent(attachmentId) });
+    const payload = await storage.getAttachmentContent({ id: decodeURIComponent(attachmentId) });
     sendBinary(response, 200, payload.content, payload.attachment.mimeType, payload.attachment.fileName);
     return true;
   }
@@ -35,7 +35,7 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     const attachmentId = url.pathname.split('/')[4];
     if (attachmentId && !url.pathname.endsWith('/content')) {
       sendJson(response, 200, {
-        data: storage.deleteAttachment({ id: decodeURIComponent(attachmentId) })
+        data: await storage.deleteAttachment({ id: decodeURIComponent(attachmentId) })
       });
       return true;
     }
@@ -46,7 +46,7 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     if (attachmentId && !url.pathname.endsWith('/content')) {
       const body = await parseBody(request);
       sendJson(response, 200, {
-        data: storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
+        data: await storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
       });
       return true;
     }
@@ -57,7 +57,7 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     if (attachmentId) {
       const body = await parseBody(request);
       sendJson(response, 200, {
-        data: storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
+        data: await storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
       });
       return true;
     }
@@ -66,7 +66,7 @@ export async function handleStorageRoute({ request, response, url, storage }) {
   if (request.method === 'POST' && url.pathname === '/api/storage/import') {
     const body = await parseBody(request);
     sendJson(response, 200, {
-      data: storage.importKnowledgeBase(body)
+      data: await storage.importKnowledgeBase(body)
     });
     return true;
   }

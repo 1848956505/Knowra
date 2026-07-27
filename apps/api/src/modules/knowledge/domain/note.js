@@ -27,6 +27,9 @@ export class Note {
     favorite = false,
     deleted = false,
     tagIds = [],
+    plainText,
+    internalLinks,
+    contentHash = null,
     createdAt = new Date().toISOString(),
     updatedAt = createdAt
   }) {
@@ -45,8 +48,13 @@ export class Note {
     this.folderId = folderId;
     this.title = title.trim();
     this.rawMarkdown = rawMarkdown;
-    this.plainText = stripMarkdown(rawMarkdown);
-    this.internalLinks = extractInternalLinks(rawMarkdown);
+    this.plainText = typeof plainText === 'string'
+      ? plainText
+      : stripMarkdown(rawMarkdown);
+    this.internalLinks = Array.isArray(internalLinks)
+      ? [...new Set(internalLinks)]
+      : extractInternalLinks(rawMarkdown);
+    this.contentHash = contentHash;
     this.status = status;
     this.sourceType = sourceType;
     this.favorite = favorite;

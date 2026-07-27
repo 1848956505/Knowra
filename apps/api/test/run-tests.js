@@ -29,6 +29,7 @@ import {
 import {
   noteDeletionCoordinatorTests
 } from './note-deletion-coordinator.test.js';
+import { phase1PostgresTests } from './phase1-postgres.test.js';
 
 const tests = [
   ...storageConfigTests,
@@ -58,6 +59,7 @@ const tests = [
   ...serverHttpTests,
   ...knowledgeBaseSnapshotServiceTests,
   ...noteDeletionCoordinatorTests,
+  ...phase1PostgresTests,
 ];
 
 let failed = 0;

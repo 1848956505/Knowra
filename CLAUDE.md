@@ -48,7 +48,7 @@ Study/
 │   └── web/        # Frontend SPA — vanilla JS modular shell + JSX/React-style exploration
 ├── packages/
 │   └── shared/     # Shared types/constants (placeholder)
-├── prisma/         # Prisma schema (PostgreSQL target, not yet active)
+├── prisma/         # PostgreSQL schema and reviewed migrations (opt-in Phase1.0)
 ├── docs/           # Chinese project documentation (设计/规范/计划/导航)
 ├── scripts/        # Dev tooling (port management, Milkdown build)
 ├── storage/        # Runtime data (uploads, exports, dev port registry, data JSON)
@@ -70,11 +70,12 @@ Plain Node.js HTTP server with a **DDD-inspired** modular layering. Despite the 
 - **`src/server.js`** — Thin HTTP entry: applies CORS, serves `/` info and `/api/health`, delegates to `handleStorageRoute` then `handleKnowledgeRoute`, returns 404 or error envelope.
 - **`src/config/`** — `env.schema.js` (env defaults), `storage.config.js` (paths).
 - **`src/http/`** — Cross-cutting: `cors.js` (origins via `CORS_ALLOWED_ORIGINS`), `request.js` (body/query parsing), `response.js` (JSON + binary senders, `sendError` envelope), `storage-routes.js` (export/import + attachment upload/list/read/delete).
-- **`src/infrastructure/`** — Versioned local JSON persistence, atomic file replacement, cross-entity reference validation, synchronous local transaction boundaries, and attachment snapshot/directory-swap helpers.
+- **`src/infrastructure/`** — Versioned local JSON persistence, PostgreSQL client/transaction helpers, per-aggregate PostgreSQL repositories, migration transformers, atomic file replacement, cross-entity reference validation, and attachment snapshot/directory-swap helpers.
+- **`src/postgres-app.factory.js`** — Optional asynchronous PostgreSQL application context. It is selected only by `PERSISTENCE_DRIVER=postgres`; the local JSON context remains the default.
 - **`src/modules/knowledge/`** — The only active business module:
   - `domain/` — Plain objects: `note.js`, `folder.js`, `tag.js`, `knowledge-space.js`, `knowledge-point.js`.
   - `application/` — Services: `note-service.js`, `folder-service.js`, `tag-service.js`, `knowledge-space-service.js`, `content-annotation-service.js`, `search-service.js`; `knowledge-base-snapshot-service.js` coordinates safe imports, and `note-deletion-coordinator.js` coordinates permanent note cleanup; plus compact DTO/content-policy helpers and `dto/`.
-  - `infrastructure/` — In-memory repositories backed by `dataStore.state.*` arrays; every mutation calls `dataStore.flush()`.
+  - `infrastructure/` — In-memory repositories backed by `dataStore.state.*` arrays plus async PostgreSQL repositories under `infrastructure/postgres/`; every driver owns persistence at its repository boundary.
   - `http/` — Per-entity route files (`note-routes.js`, `folder-routes.js`, `tag-routes.js`, `space-routes.js`, `content-annotation-routes.js`) plus a top-level `knowledge-routes.js` dispatcher and `knowledge-handlers.js`.
 - **`src/presentation/`** — Markdown preview rendering (server-side).
 
@@ -82,7 +83,7 @@ Key invariants:
 - Repositories are in-memory arrays; they call `dataStore.flush()` on mutation. Normal writes use atomic JSON replacement, while coordinated permanent deletion defers repository flushes and commits once through `dataStore.runTransaction()`.
 - Persistent contexts validate space/folder/tag/note references by default. HTTP knowledge-space operations use the server-owned `KNOWRA_OWNER_ID` (default `demo`) and ignore client-provided user ids.
 - API response envelope: `{ data: ... }` for success, `{ error: { code, message } }` for failures.
-- The Prisma schema shows the intended migration path off JSON files.
+- PostgreSQL is an explicit opt-in driver. It never silently falls back to JSON; the JSON driver remains the safe default and rollback path before PostgreSQL accepts new writes.
 
 ### Frontend (`apps/web`)
 
@@ -118,15 +119,15 @@ Each test file exports an array; `run-tests.js` imports and runs them sequential
 
 ## Data Flow
 
-1. `npm run dev:api` starts the API → `main.js` builds a `createPersistentAppContext()` → loads `storage/data/knowledge-base.json` via `file-data-store.js`.
-2. Request arrives at `server.js` → CORS → storage route → knowledge route → service → repository → `dataStore.flush()` atomically replaces versioned JSON. Coordinated local transactions persist once and roll in-memory collections back on synchronous failure.
+1. `npm run dev:api` starts the API → `main.js` awaits `createPersistentAppContext()` → uses JSON by default, or an async Prisma context when `PERSISTENCE_DRIVER=postgres`.
+2. Request arrives at `server.js` → CORS → storage/knowledge route → driver-specific handler → application service → repository. JSON mutations atomically replace versioned JSON; PostgreSQL mutations use Prisma transactions at aggregate boundaries and keep file I/O outside database transactions.
 3. `npm run dev:web` boots the SPA server. First `GET /` returns the SSR shell with compact note summaries inlined; client hydrates, refreshes summaries through `/api/*`, and fetches a full note body only when it is opened.
 4. Repository mutations on the server persist synchronously; the SPA reflects them on the next refetch.
 
 ## Key Conventions
 
 - **Chinese-first**: UI labels, docs, commit messages are in Chinese. Code identifiers stay in English.
-- **Local-first**: Default storage mode is `local-first` (JSON files). `STORAGE_MODE` env var + `STORAGE_UPLOADS_DIR` / `STORAGE_EXPORTS_DIR` / `STORAGE_TEMP_DIR` override paths. Prisma/PostgreSQL is a future migration.
+- **Persistence driver**: `PERSISTENCE_DRIVER=local-json` is the default. `PERSISTENCE_DRIVER=postgres` requires `DATABASE_URL` and an applied Prisma migration; no silent fallback is allowed. `STORAGE_MODE` remains `local-first`, and `STORAGE_UPLOADS_DIR` / `STORAGE_EXPORTS_DIR` / `STORAGE_TEMP_DIR` override paths.
 - **Single-user HTTP boundary**: `KNOWRA_OWNER_ID` selects the server-owned knowledge-space owner (default `demo`). It is not an authentication system; public production access must remain behind Nginx Basic Auth until a reviewed session-based login exists.
 - **Multi-module workspace**: Only `知识库` (knowledge) module is wired in. Other rail entries (paper, AI, tasks, review) are placeholders.
 - **API response format**: `{ data: ... }` for success, `{ error: { code, message } }` for failures — simple, consistent envelope.

@@ -1,6 +1,6 @@
 {
   "name": "study-accelerator",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -18,6 +18,10 @@
     "dev:web": "npm run dev -w @study-accelerator/web",
     "dev:api": "npm run dev -w @study-accelerator/api",
     "start:api": "npm run dev -w @study-accelerator/api",
-    "dev:all": "node scripts/start-dev.mjs"
+    "dev:all": "node scripts/start-dev.mjs",
+    "prisma:validate": "npx prisma validate --schema prisma/schema.prisma",
+    "prisma:generate": "npx prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate:deploy": "npx prisma migrate deploy --schema prisma/schema.prisma",
+    "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs"
   }
 }

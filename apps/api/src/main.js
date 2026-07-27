@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 
-const app = createPersistentAppContext();
+const app = await createPersistentAppContext();
 const server = createServer({
   appContext: app,
   cors: {

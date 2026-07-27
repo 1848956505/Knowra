@@ -38,7 +38,7 @@ Formal knowledge items, assessment points, questions and papers are not implemen
 - `apps/api`: local API service
 - `apps/web`: workspace-style frontend
 - `packages/shared`: shared package area
-- Prisma schema scaffold in `prisma/`
+- Prisma PostgreSQL schema and Phase1.0 JSON migration tooling in `prisma/` and `scripts/`
 
 ## Project Structure
 
@@ -105,10 +105,13 @@ npm test
 
 The project currently uses local-first persistence for development. JSON writes use a versioned schema and atomic replacement; imports validate cross-entity references before replacing current data.
 
+Phase1.0 adds an opt-in PostgreSQL driver without changing that default. Set `PERSISTENCE_DRIVER=postgres` and `DATABASE_URL` only after deploying the Prisma migration. The JSON-to-PostgreSQL command is dry-run by default and blocks missing attachment files unless explicitly overridden.
+
 Important paths:
 
 - API knowledge data: [`storage/data/knowledge-base.json`](storage/data/knowledge-base.json)
 - runtime dev port registry: [`storage/runtime/dev-ports.json`](storage/runtime/dev-ports.json)
+- PostgreSQL migration report: `npm run migrate:postgres -- --report <report-file>`
 
 Runtime files and upload directories are ignored by git where appropriate.
 
@@ -119,17 +122,18 @@ Runtime files and upload directories are ignored by git where appropriate.
 - [项目结构导航](docs/项目结构导航.md)
 - [知识与考卷系统领域冻结稿](docs/知识库与试题模块/Knowra%20知识与考卷系统领域冻结稿.md)
 - [知识与试题阶段 0 实施与准入说明](docs/知识库与试题模块/阶段0实施与准入说明.md)
+- [Phase1.0 PostgreSQL 基础设施与 JSON 迁移](docs/知识库与试题模块/Phase1.0%20PostgreSQL基础设施与JSON迁移.md)
 
 ## Roadmap
 
 Near-term priorities:
 
 1. Introduce the frozen knowledge and assessment entities in vertical slices
-2. Move multi-aggregate history and concurrent workflows to PostgreSQL
+2. Add NoteVersion and multi-aggregate history after the Phase1.0 PostgreSQL cutover is proven
 3. Add question, paper and training-result workflows
 4. Add reviewed background AI jobs without putting network calls in transactions
 5. Replace the current single-user access boundary only when a complete login/session system is justified
 
 ## Status
 
-Current stable version: `2.6.1`. Phase 0 is complete; production deployment still requires an external access-control layer such as the repository's Nginx Basic Auth template because the application does not yet include a login system.
+Current stable version: `2.7.0`. Phase 0 is complete and Phase1.0 PostgreSQL infrastructure/migration is implemented as an opt-in path; production deployment still requires an external access-control layer such as the repository's Nginx Basic Auth template because the application does not yet include a login system.

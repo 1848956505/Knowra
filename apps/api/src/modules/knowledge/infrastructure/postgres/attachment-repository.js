@@ -1,0 +1,61 @@
+import { mapAttachment, toDate } from './mappers.js';
+import { withRepositoryErrors } from './repository-utils.js';
+
+export function createPostgresAttachmentRepository({ db }) {
+  if (!db?.attachment) {
+    throw new TypeError('PostgreSQL attachment repository requires db.attachment');
+  }
+
+  return {
+    async save(attachment) {
+      const data = {
+        id: attachment.id,
+        noteId: attachment.noteId,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        size: Number(attachment.size),
+        storagePath: attachment.storagePath,
+        createdAt: toDate(attachment.createdAt)
+      };
+      return withRepositoryErrors(async () => mapAttachment(await db.attachment.upsert({
+        where: { id: data.id },
+        create: data,
+        update: {
+          noteId: data.noteId,
+          fileName: data.fileName,
+          mimeType: data.mimeType,
+          size: data.size,
+          storagePath: data.storagePath
+        }
+      })));
+    },
+    async findById(id) {
+      return withRepositoryErrors(async () => mapAttachment(
+        await db.attachment.findUnique({ where: { id } })
+      ));
+    },
+    async list({ noteId } = {}) {
+      return withRepositoryErrors(async () => (await db.attachment.findMany({
+        where: noteId ? { noteId } : {},
+        orderBy: { createdAt: 'desc' }
+      })).map(mapAttachment));
+    },
+    async delete(id) {
+      return withRepositoryErrors(async () => mapAttachment(
+        await db.attachment.delete({ where: { id } })
+      ));
+    },
+    async deleteByNoteIds(noteIds) {
+      if (!noteIds.length) return [];
+      const existing = await withRepositoryErrors(() => db.attachment.findMany({
+        where: { noteId: { in: noteIds } },
+        orderBy: { createdAt: 'asc' }
+      }));
+      await withRepositoryErrors(() => db.attachment.deleteMany({
+        where: { noteId: { in: noteIds } }
+      }));
+      return existing.map(mapAttachment);
+    },
+    supportsAsync: true
+  };
+}
