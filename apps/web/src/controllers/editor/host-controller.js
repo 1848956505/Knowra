@@ -44,6 +44,7 @@ import {
   buildAttachmentReferenceUrl,
   removeAttachmentReferencesFromMarkdown
 } from '../../../lib/sidebar/attachments.js';
+import { guardWorkspaceWrite } from '../../../lib/workspace-write-guard.js';
 
 export function createEditorHostController(deps, getController) {
   const {
@@ -111,6 +112,9 @@ function mountEditorHost(noteId, markdown) {
     }
 
     const handleAttachmentUpload = async (input) => {
+      if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+        return '';
+      }
       const uploaded = await knowledgeApi.uploadAttachmentImage(input);
       const attachment = uploaded?.attachment ?? null;
       if (attachment?.id && attachment.noteId === state.selectedNoteId) {
@@ -170,6 +174,9 @@ function handleEditorMarkdownChange(markdown) {
 }
 
 async function insertAttachmentAtCursor(attachment) {
+  if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+    return false;
+  }
   const note = getCurrentNote();
   if (!note) {
     flashStatus('请先选择一篇笔记');
@@ -228,6 +235,9 @@ async function ensureParagraphBelowImage(editorHost) {
 }
 
 async function removeAttachmentFromCurrentNote(attachment) {
+  if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+    return false;
+  }
   const note = getCurrentNote();
   if (!note) {
     flashStatus('请先选择一篇笔记');

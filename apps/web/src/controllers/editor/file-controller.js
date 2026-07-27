@@ -31,7 +31,8 @@ export function createEditorFileController(deps, getController) {
     switch (action) {
       case 'new-note': {
         const title = createUntitledName(target.getSiblingNames(folderId), 'Untitled Note');
-        await createNote(folderId, title);
+        const created = await createNote(folderId, title);
+        if (created === false) return;
         flashStatus(`已创建笔记：${title}`);
         return;
       }
@@ -46,19 +47,22 @@ export function createEditorFileController(deps, getController) {
       case 'favorite-note':
         if (note && !note.deleted) {
           const nextFavorite = !note.favorite;
-          await setNoteFavorite(note.id, nextFavorite);
+          const updated = await setNoteFavorite(note.id, nextFavorite);
+          if (updated === false) return;
           flashStatus(nextFavorite ? '已收藏笔记' : '已取消收藏');
         }
         return;
       case 'delete-note':
         if (note && !note.deleted) {
-          await deleteNote(note.id);
+          const deleted = await deleteNote(note.id);
+          if (deleted === false) return;
           flashStatus('笔记已删除');
         }
         return;
       case 'restore-note':
         if (note?.deleted) {
-          await restoreNote(note.id);
+          const restored = await restoreNote(note.id);
+          if (restored === false) return;
           flashStatus('笔记已恢复');
         }
         return;

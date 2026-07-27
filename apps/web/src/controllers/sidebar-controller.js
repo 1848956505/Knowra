@@ -14,6 +14,8 @@ import { createAttachmentCommandsController } from './sidebar/attachment-command
 import { createAttachmentRenameController } from './sidebar/attachment-rename-controller.js';
 import { createOutlineController } from './sidebar/outline-controller.js';
 import { isAttachmentReferencedInMarkdown } from '../../lib/sidebar/attachments.js';
+import { renderAnnotationPanel } from '../../lib/sidebar/annotation-panel.js';
+import { guardWorkspaceWrite } from '../../lib/workspace-write-guard.js';
 
 export function createSidebarController(deps) {
   const {
@@ -45,16 +47,20 @@ export function createSidebarController(deps) {
     getEditorScrollRoot,
     cancelPendingEditorScrollRestore
   });
+  let sideDataRequestSequence = 0;
 
 async function loadCurrentNoteSideData() {
   if (state.dataMode === 'local') {
     loadLocalNoteSideData(state.selectedNoteId);
-    return;
+    return true;
   }
-  await loadApiNoteSideData(state.selectedNoteId);
+  return loadApiNoteSideData(state.selectedNoteId);
 }
 
 async function deleteAttachment(attachmentId) {
+  if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+    return false;
+  }
   if (!attachmentId) {
     flashStatus('缺少要删除的附件');
     return false;
@@ -79,30 +85,46 @@ async function deleteAttachment(attachmentId) {
 }
 
 async function loadApiNoteSideData(noteId) {
+  const requestSequence = ++sideDataRequestSequence;
   if (!noteId) {
     clearNoteSideData();
     syncAnnotationMarkers();
-    return;
+    return true;
   }
 
   try {
     const note = state.allNotes.find((item) => item.id === noteId);
     const spaceId = note?.spaceId ?? state.currentSpaceId;
     const sideData = await knowledgeApi.loadNoteSideData({ noteId, spaceId });
+    if (
+      requestSequence !== sideDataRequestSequence
+      || state.selectedNoteId !== noteId
+    ) {
+      return false;
+    }
     state.linkedNotes = sideData.linkedNotes;
     state.attachments = sideData.attachments;
     state.attachmentRenaming = null;
     state.annotations = sideData.annotations;
     state.annotationLoadState = 'loaded';
     syncAnnotationMarkers();
+    return true;
   } catch (error) {
+    if (
+      requestSequence !== sideDataRequestSequence
+      || state.selectedNoteId !== noteId
+    ) {
+      return false;
+    }
     clearNoteSideData();
     syncAnnotationMarkers();
     flashStatus(`附加信息加载失败：${error.message}`);
+    return false;
   }
 }
 
 function loadLocalNoteSideData(noteId) {
+  sideDataRequestSequence += 1;
   if (!noteId) {
     clearNoteSideData();
     syncAnnotationMarkers();
@@ -116,6 +138,7 @@ function loadLocalNoteSideData(noteId) {
 }
 
 function clearNoteSideData() {
+  sideDataRequestSequence += 1;
   Object.assign(state, createClearedNoteSideData());
   state.annotations = [];
 }
@@ -187,9 +210,7 @@ function renderOutlineTab() {
 }
 
 function renderConceptsTab() {
-  const items = state.annotations.filter((item) => item.status !== 'archived');
-  if (!items.length) return '<div class="aside-empty">暂无重要内容标注</div>';
-  return `<section class="annotation-panel">${items.map((item) => `<article class="annotation-card" data-annotation-id="${item.id}"><p>${item.quoteText}</p><small>${item.status === 'stale' ? '原文位置已变化' : '已标注'}</small><button type="button" data-annotation-jump="${item.id}">定位</button><button type="button" data-annotation-delete="${item.id}">删除</button></article>`).join('')}</section>`;
+  return renderAnnotationPanel(state.annotations);
 }
 
   return {

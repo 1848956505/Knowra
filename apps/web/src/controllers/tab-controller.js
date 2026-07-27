@@ -20,7 +20,7 @@ export function createTabController(deps) {
     closeSectionMenu,
     flashStatus,
     persistBackendCache,
-    persistDraft,
+    canLeaveCurrentNote,
     renderAll,
     selectNote
   } = deps;
@@ -122,13 +122,19 @@ async function handleTabMenuAction(action) {
   }
 
   if (action === 'close-others') {
+    if (
+      state.selectedNoteId !== noteId
+      && !await canLeaveCurrentNote()
+    ) {
+      return false;
+    }
     state.openNoteTabs = closeOtherTabs(state.openNoteTabs, noteId).openTabs;
     if (state.selectedNoteId !== noteId) {
       await selectNote(noteId, { syncFolder: true, ensureTab: true });
-      return;
+      return true;
     }
     renderTabs();
-    return;
+    return true;
   }
 
   if (action === 'copy-path') {
@@ -151,25 +157,31 @@ async function handleTabMenuAction(action) {
 
 async function handleTabClose(noteId) {
   const { openTabs, nextActiveId } = closeTab(state.openNoteTabs, noteId, state.selectedNoteId);
+  if (
+    state.selectedNoteId === noteId
+    && !await canLeaveCurrentNote()
+  ) {
+    return false;
+  }
   state.openNoteTabs = openTabs;
 
   if (state.selectedNoteId !== noteId) {
     renderTabs();
-    return;
+    return true;
   }
 
   if (!nextActiveId) {
-    await persistDraft({ immediate: true });
     state.selectedNoteId = null;
     state.draftMarkdown = '';
     state.draftTitle = '';
     state.linkedNotes = [];
     state.attachments = [];
     renderAll();
-    return;
+    return true;
   }
 
   await selectNote(nextActiveId, { syncFolder: true, ensureTab: false });
+  return true;
 }
 
 function resetTabDragState({ rerender = true } = {}) {

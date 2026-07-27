@@ -18,7 +18,10 @@ const controller = createEditorFileController({
   },
   elements: {},
   getCurrentNote: () => ({ id: 'note-1', title: 'Untitled Note', deleted: false, favorite: false }),
-  createNote: async (...args) => { calls.created.push(args); },
+  createNote: async (...args) => {
+    calls.created.push(args);
+    return true;
+  },
   startTreeEditor: () => {},
   setNoteFavorite: async () => {},
   deleteNote: async (...args) => { calls.deleted.push(args); },
@@ -26,7 +29,7 @@ const controller = createEditorFileController({
   flashStatus: (message) => { calls.flashed.push(message); }
 }, () => ({
   closeEditorMenuBar() { calls.closed += 1; },
-  persistDraft: async () => {}
+  persistDraft: async () => ({ ok: true, changed: false })
 }));
 
 await controller.handleFileMenuAction('new-note');

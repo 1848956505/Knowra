@@ -22,7 +22,12 @@ export function renderStatusIndicators({
 
 export function renderStatusMeta({ dataMode, markdown = '', view = {} }) {
   const stats = getStatusDocumentStats(markdown);
-  const modeLabel = dataMode === 'api' ? '云端已连接' : '本地优先';
+  const modeLabel = {
+    api: '云端已连接',
+    cache: '只读缓存',
+    loading: '正在连接',
+    local: '本地演示'
+  }[dataMode] ?? '本地演示';
 
   return `
       <span class="status-inline">字数 ${stats.characters}</span>

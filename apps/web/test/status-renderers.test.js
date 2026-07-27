@@ -40,7 +40,14 @@ assert.match(
     dataMode: 'local',
     currentSpaceId: 'ignored'
   }),
-  /本地优先/
+  /本地演示/
+);
+
+assert.match(
+  renderStatusMeta({
+    dataMode: 'cache'
+  }),
+  /只读缓存/
 );
 
 assert.deepEqual(getStatusDocumentStats('# A\n正文\n[[内部]]'), {

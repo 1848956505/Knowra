@@ -150,16 +150,8 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
   elements.workspaceShell?.addEventListener('click', (event) => {
     const homeButton = closestFromEventTarget(event.target, '[data-library-home]');
     if (homeButton) {
-      void deps.persistDraft({ immediate: true }).finally(() => {
-        state.view.screen = 'index';
-        if (homeButton.dataset.libraryHome === 'global') {
-          state.selectedFolderId = null;
-          state.libraryIndex.tab = 'all';
-          state.search.keyword = '';
-          state.search.selectedTagIds = [];
-          state.search.isOpen = false;
-        }
-        deps.renderAll();
+      void deps.returnToLibraryIndex({
+        global: homeButton.dataset.libraryHome === 'global'
       });
       return;
     }
@@ -173,8 +165,7 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
     const moduleButton = closestFromEventTarget(event.target, '[data-module-key]');
     if (!moduleButton?.dataset.moduleKey) return;
     if (moduleButton.dataset.moduleKey === 'knowledge') {
-      state.view.screen = 'index';
-      deps.renderAll();
+      void deps.returnToLibraryIndex({ global: false });
       return;
     }
     deps.flashStatus('该模块将在后续版本接入，当前保留入口');

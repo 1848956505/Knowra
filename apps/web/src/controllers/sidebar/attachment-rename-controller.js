@@ -2,6 +2,7 @@ import {
   buildAttachmentFileName,
   splitAttachmentFileName
 } from '../../../lib/sidebar/attachment-file-name.js';
+import { guardWorkspaceWrite } from '../../../lib/workspace-write-guard.js';
 
 export function createAttachmentRenameController({
   state,
@@ -49,6 +50,9 @@ export function createAttachmentRenameController({
   }
 
   async function submitAttachmentRename(attachmentId, fileName) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+      return false;
+    }
     const normalizedAttachmentId = String(attachmentId ?? '').trim();
     const renamingState = state.attachmentRenaming?.id === normalizedAttachmentId
       ? state.attachmentRenaming

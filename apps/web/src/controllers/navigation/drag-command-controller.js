@@ -20,10 +20,12 @@ async function commitDrop(dropTarget) {
 
   try {
     if (activeKind === 'folder') {
-      await getController().moveFolder(activeId, dropTarget.kind === 'materials' ? null : dropTarget.id);
+      const moved = await getController().moveFolder(activeId, dropTarget.kind === 'materials' ? null : dropTarget.id);
+      if (moved === false) return;
       flashStatus('目录位置已更新');
     } else if (activeKind === 'note') {
-      await getController().moveNote(activeId, dropTarget.kind === 'materials' ? null : dropTarget.id);
+      const moved = await getController().moveNote(activeId, dropTarget.kind === 'materials' ? null : dropTarget.id);
+      if (moved === false) return;
       flashStatus('文件位置已更新');
     }
   } catch (error) {

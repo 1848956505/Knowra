@@ -1,73 +1,25 @@
-import { createMilkdownHost } from '../../../lib/editor/milkdown-bundle.js';
-import { ensureOpenTab } from '../../../lib/editor/tab-workspace.js';
-import {
-  buildMarkdownImportItems,
-  buildNoteExportHtml,
-  buildExportFileName,
-  createDuplicateTitle,
-  createLocalDuplicateNoteInput,
-  createUntitledName,
-  getSiblingNamesForFolder,
-  getMarkdownImportStatusMessage
-} from '../../../lib/editor/file-menu.js';
-import {
-  applyEditorPanelMatchResult,
-  createOpenedEditorPanelState
-} from '../../../lib/editor/editor-panel-state.js';
 import {
   createLocalDraftNote,
   resolveDraftSaveState
 } from '../../../lib/editor/draft-state.js';
-import { renderEditorPanelMarkup } from '../../../lib/editor/editor-panel-renderers.js';
-import { extractMarkdownHeadings, renderMarkdownPreview } from '../../../lib/markdown.js';
 import { replaceNoteInCollection } from '../../../lib/workspace-normalization.js';
-import { insertNote as insertLocalNote } from '../../../lib/tree-workspace.js';
-import { createLocalImportedNoteInput } from '../../../lib/notes/state.js';
-import { getEditorShortcutLabel } from '../../../lib/editor/shortcut-actions.js';
-import { EDITOR_CONTEXT_PRIMARY_ACTIONS } from '../../../lib/editor/context-menu-model.js';
-import { renderEditorContextMenuMarkup } from '../../../lib/editor/context-menu-renderers.js';
-import { renderEditorMenuBarMarkup } from '../../../lib/editor/menu-renderers.js';
-import { getSaveStateLabel } from '../../../lib/editor/save-indicator.js';
-import {
-  renderPreviewPane as renderPreviewPaneMarkup,
-  renderSourceEditorPane as renderSourceEditorPaneMarkup,
-  renderSourceEditorView as renderSourceEditorViewMarkup
-} from '../../../lib/editor/preview-renderers.js';
-import { renderRichEditorHost } from '../../../lib/editor/view-renderers.js';
-import { resolveEditorRenderState } from '../../../lib/editor/view-state.js';
-import {
-  normalizeTableDialogValue,
-  renderTableInsertDialogMarkup
-} from '../../../lib/editor/table-dialog-renderers.js';
+import { guardWorkspaceWrite } from '../../../lib/workspace-write-guard.js';
 
 export function createEditorDraftController(deps, getController) {
   const {
     state,
-    elements,
     editorRuntime,
     knowledgeApi,
     autosaveDelayMs,
     getCurrentNote,
-    getEffectiveViewState,
-    renderAll,
     renderTabs,
     renderFolders,
     renderSidebar,
     renderStatus,
     persistBackendCache,
-    refreshKnowledgeData,
-    loadCurrentNoteSideData,
-    syncLocalWorkspace,
-    openFolderBranch,
-    closeContextMenu,
-    closeSectionMenu,
-    closeTabMenu,
-    createAnnotationFromCurrentSelection,
-    syncAnnotationMarkers,
-    flashStatus,
-    escapeHtml,
-    escapeAttribute
+    flashStatus
   } = deps;
+  let activePersistence = null;
 
 function scheduleAutosave() {
   if (!getCurrentNote()) {
@@ -89,9 +41,23 @@ function scheduleAutosave() {
 }
 
 async function persistDraft({ immediate = false } = {}) {
+  if (activePersistence) {
+    await activePersistence;
+    return persistDraft({ immediate });
+  }
+
+  activePersistence = performDraftPersistence({ immediate });
+  try {
+    return await activePersistence;
+  } finally {
+    activePersistence = null;
+  }
+}
+
+async function performDraftPersistence({ immediate }) {
   const note = getCurrentNote();
   if (!note) {
-    return;
+    return { ok: true, changed: false, reason: 'no-note' };
   }
 
   if (editorRuntime.autosaveTimer) {
@@ -108,7 +74,17 @@ async function persistDraft({ immediate = false } = {}) {
     state.saveState = 'saved';
     getController().renderEditorSaveIndicator();
     renderStatus();
-    return;
+    return { ok: true, changed: false, reason: 'unchanged' };
+  }
+
+  if (!guardWorkspaceWrite({
+    dataMode: state.dataMode,
+    flashStatus
+  })) {
+    state.saveState = 'error';
+    getController().renderEditorSaveIndicator();
+    renderStatus();
+    return { ok: false, changed: true, reason: 'read-only' };
   }
 
   state.saveState = 'saving';
@@ -149,11 +125,13 @@ async function persistDraft({ immediate = false } = {}) {
     if (immediate) {
       flashStatus('已保存当前笔记');
     }
+    return { ok: true, changed: true, note: updatedNote };
   } catch (error) {
     state.saveState = 'error';
     getController().renderEditorSaveIndicator();
     renderStatus();
     flashStatus(error.message || '保存失败');
+    return { ok: false, changed: true, error };
   }
 }
 

@@ -4,6 +4,7 @@ import {
   createLocalDuplicateNoteInput
 } from '../../../../lib/editor/file-menu.js';
 import { insertNote as insertLocalNote } from '../../../../lib/tree-workspace.js';
+import { guardWorkspaceWrite } from '../../../../lib/workspace-write-guard.js';
 
 export function createNoteDuplicateController(deps, fileTarget, getController) {
   const {
@@ -11,8 +12,6 @@ export function createNoteDuplicateController(deps, fileTarget, getController) {
     knowledgeApi,
     getCurrentNote,
     refreshKnowledgeData,
-    loadCurrentNoteSideData,
-    renderAll,
     syncLocalWorkspace,
     flashStatus
   } = deps;
@@ -22,7 +21,13 @@ export function createNoteDuplicateController(deps, fileTarget, getController) {
       return;
     }
 
-    await getController().persistDraft({ immediate: true });
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+      return false;
+    }
+    const saveResult = await getController().persistDraft({ immediate: true });
+    if (!saveResult?.ok) {
+      return false;
+    }
     const refreshedNote = getCurrentNote() ?? note;
     const nextTitle = createDuplicateTitle(
       fileTarget.getSiblingNames(refreshedNote.folderId ?? null),
@@ -46,10 +51,8 @@ export function createNoteDuplicateController(deps, fileTarget, getController) {
       state.selectedNoteId = created.id;
       state.openNoteTabs = ensureOpenTab(state.openNoteTabs, created.id);
       await refreshKnowledgeData();
-      await loadCurrentNoteSideData();
-      renderAll();
       flashStatus(`已另存为：${nextTitle}`);
-      return;
+      return true;
     }
 
     const nextNote = createLocalDuplicateNoteInput({
@@ -63,6 +66,7 @@ export function createNoteDuplicateController(deps, fileTarget, getController) {
     state.openNoteTabs = ensureOpenTab(state.openNoteTabs, nextNote.id);
     syncLocalWorkspace();
     flashStatus(`已另存为：${nextTitle}`);
+    return true;
   }
 
   return {

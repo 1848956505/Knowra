@@ -1,6 +1,11 @@
 import { replaceNoteInCollection } from '../../../lib/workspace-normalization.js';
 
-export async function ensureNoteDetailLoaded({ state, knowledgeApi, note }) {
+export async function ensureNoteDetailLoaded({
+  state,
+  knowledgeApi,
+  note,
+  shouldApply = () => true
+}) {
   if (state.dataMode !== 'api' || note.contentLoaded !== false) {
     return note;
   }
@@ -8,6 +13,9 @@ export async function ensureNoteDetailLoaded({ state, knowledgeApi, note }) {
   const detail = await knowledgeApi.getNote(note.id, {
     includeDeleted: Boolean(note.deleted)
   });
+  if (!shouldApply()) {
+    return null;
+  }
   state.allNotes = replaceNoteInCollection(state.allNotes, {
     ...detail,
     contentLoaded: true

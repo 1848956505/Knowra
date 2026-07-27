@@ -87,7 +87,10 @@ const controller = createNavigationController({
   refreshKnowledgeData: async () => calls.push('refreshKnowledgeData'),
   loadCurrentNoteSideData: async () => calls.push('loadCurrentNoteSideData'),
   clearNoteSideData: () => calls.push('clearNoteSideData'),
-  persistDraft: async () => calls.push('persistDraft'),
+  persistDraft: async () => {
+    calls.push('persistDraft');
+    return { ok: true, changed: false };
+  },
   syncLocalWorkspace: () => calls.push('syncLocalWorkspace'),
   saveCurrentEditorScrollPosition: () => calls.push('saveCurrentEditorScrollPosition'),
   flashStatus: (message) => calls.push(`flash:${message}`),

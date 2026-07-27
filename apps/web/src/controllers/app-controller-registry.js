@@ -51,6 +51,7 @@ export function createAppControllers({
     editorRuntime,
     knowledgeApi,
     getCurrentNote: helpers.getCurrentNote,
+    persistDraft: helpers.persistDraft,
     renderSidebar: helpers.renderSidebar,
     flashStatus: helpers.flashStatus
   });
@@ -108,6 +109,7 @@ export function createAppControllers({
     closeTabMenu: helpers.closeTabMenu,
     createAnnotationFromCurrentSelection: helpers.createAnnotationFromCurrentSelection,
     syncAnnotationMarkers: helpers.syncAnnotationMarkers,
+    canLeaveCurrentNote: controllerActions.canLeaveCurrentNote,
     restoreEditorScrollPosition: (...args) => scrollController.restoreEditorScrollPosition(...args),
     flashStatus: helpers.flashStatus,
     formatDate: helpers.formatDate,
@@ -151,7 +153,7 @@ export function createAppControllers({
     closeSectionMenu: helpers.closeSectionMenu,
     flashStatus: helpers.flashStatus,
     persistBackendCache: helpers.persistBackendCache,
-    persistDraft: helpers.persistDraft,
+    canLeaveCurrentNote: controllerActions.canLeaveCurrentNote,
     renderAll: helpers.renderAll,
     selectNote: helpers.selectNote
   });

@@ -5,6 +5,7 @@ import {
   removeTagFromCollections,
   upsertTag
 } from '../../lib/tags/state.js';
+import { guardWorkspaceWrite } from '../../lib/workspace-write-guard.js';
 
 export function createTagController(deps) {
   const {
@@ -40,6 +41,9 @@ function removeTagFromState(tagId) {
 }
 
 async function addTagToCurrentNote(tagId) {
+  if (!canWrite()) {
+    return false;
+  }
   const currentNote = getCurrentNote();
   if (!currentNote || currentNote.deleted || !tagId) {
     return;
@@ -59,12 +63,17 @@ async function addTagToCurrentNote(tagId) {
     }
 
     flashStatus('标签已添加到当前笔记');
+    return true;
   } catch (error) {
     flashStatus(error.message || '添加标签失败');
+    return false;
   }
 }
 
 async function removeTagFromCurrentNote(tagId) {
+  if (!canWrite()) {
+    return false;
+  }
   const currentNote = getCurrentNote();
   if (!currentNote || currentNote.deleted || !tagId) {
     return;
@@ -86,12 +95,17 @@ async function removeTagFromCurrentNote(tagId) {
     replaceNoteInState(updatedNote);
     await cleanupOrphanTag(tagId);
     flashStatus('标签已从当前笔记移除');
+    return true;
   } catch (error) {
     flashStatus(error.message || '移除标签失败');
+    return false;
   }
 }
 
 async function createTagAndAssignToCurrentNote(name) {
+  if (!canWrite()) {
+    return false;
+  }
   const normalizedName = normalizeTagName(name);
   const currentNote = getCurrentNote();
   if (!currentNote || currentNote.deleted || !normalizedName) {
@@ -104,7 +118,7 @@ async function createTagAndAssignToCurrentNote(name) {
     state.noteTagComposer.isExpanded = true;
     await addTagToCurrentNote(existingTag.id);
     renderSidebar(getCurrentNote());
-    return;
+    return true;
   }
 
   try {
@@ -131,12 +145,17 @@ async function createTagAndAssignToCurrentNote(name) {
     await addTagToCurrentNote(createdTag.id);
     renderSidebar(getCurrentNote());
     flashStatus('新标签已创建并绑定到当前笔记');
+    return true;
   } catch (error) {
     flashStatus(error.message || '创建标签失败');
+    return false;
   }
 }
 
 async function cleanupOrphanTag(tagId) {
+  if (!canWrite()) {
+    return false;
+  }
   if (!tagId || state.allNotes.some((note) => (note.tagIds ?? []).includes(tagId))) {
     return;
   }
@@ -150,9 +169,18 @@ async function cleanupOrphanTag(tagId) {
     }
 
     renderAll();
+    return true;
   } catch (error) {
     flashStatus(error.message || '清理孤立标签失败');
+    return false;
   }
+}
+
+function canWrite() {
+  return guardWorkspaceWrite({
+    dataMode: state.dataMode,
+    flashStatus
+  });
 }
 
   return {

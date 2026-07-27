@@ -33,7 +33,7 @@ async function ensureDefaultSpace({ getApiOrigin }) {
   const payload = await fetchApiJson('/api/knowledge/spaces/default', {
     getApiOrigin,
     method: 'POST',
-    body: JSON.stringify({ userId: 'demo' })
+    body: JSON.stringify({})
   });
   return payload.data ?? null;
 }

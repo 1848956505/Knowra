@@ -54,7 +54,8 @@ async function handleContextMenuAction(action) {
         return;
       }
       const nextFavorite = !note.favorite;
-      await getController().setNoteFavorite(note.id, nextFavorite);
+      const updated = await getController().setNoteFavorite(note.id, nextFavorite);
+      if (updated === false) return;
       flashStatus(nextFavorite ? '已收藏笔记' : '已取消收藏');
       return;
     }
@@ -63,7 +64,8 @@ async function handleContextMenuAction(action) {
       if (!note || !note.deleted) {
         return;
       }
-      await getController().restoreNote(note.id);
+      const restored = await getController().restoreNote(note.id);
+      if (restored === false) return;
       flashStatus('笔记已恢复');
       return;
     }
@@ -72,12 +74,14 @@ async function handleContextMenuAction(action) {
       if (!note || !note.deleted) {
         return;
       }
-      await getController().permanentlyDeleteNote(note.id);
+      const deleted = await getController().permanentlyDeleteNote(note.id);
+      if (deleted === false) return;
       flashStatus('笔记已彻底删除');
       return;
     }
     case 'empty-recycle-bin': {
-      await getController().emptyRecycleBin();
+      const emptied = await getController().emptyRecycleBin();
+      if (emptied === false) return;
       flashStatus('回收站已清空');
       return;
     }

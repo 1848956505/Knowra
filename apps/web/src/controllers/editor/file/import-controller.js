@@ -5,20 +5,29 @@ import {
 } from '../../../../lib/editor/file-menu.js';
 import { insertNote as insertLocalNote } from '../../../../lib/tree-workspace.js';
 import { createLocalImportedNoteInput } from '../../../../lib/notes/state.js';
+import { guardWorkspaceWrite } from '../../../../lib/workspace-write-guard.js';
 
 export function createMarkdownImportController(deps, fileTarget) {
   const {
     state,
     knowledgeApi,
     refreshKnowledgeData,
-    loadCurrentNoteSideData,
-    renderAll,
     syncLocalWorkspace,
     openFolderBranch,
+    canLeaveCurrentNote,
     flashStatus
   } = deps;
 
   async function importMarkdownFiles(files) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+      return false;
+    }
+    if (
+      typeof canLeaveCurrentNote === 'function'
+      && !await canLeaveCurrentNote()
+    ) {
+      return false;
+    }
     const folderId = fileTarget.getMenuTargetFolderId();
     const importedItems = await buildMarkdownImportItems(files);
 
@@ -47,11 +56,9 @@ export function createMarkdownImportController(deps, fileTarget) {
       }
 
       await refreshKnowledgeData();
-      await loadCurrentNoteSideData();
-      renderAll();
 
       flashStatus(getMarkdownImportStatusMessage(importedItems, firstImported));
-      return;
+      return true;
     }
 
     state.allNotes = importedItems.reduce((notes, item) => insertLocalNote(notes, createLocalImportedNoteInput({
@@ -71,6 +78,7 @@ export function createMarkdownImportController(deps, fileTarget) {
     syncLocalWorkspace();
 
     flashStatus(getMarkdownImportStatusMessage(importedItems));
+    return true;
   }
 
   return {

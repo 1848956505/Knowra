@@ -30,10 +30,10 @@ export function createWorkspaceApi({ requestJson }) {
     return asArray(getData(await requestJson('/api/knowledge/spaces')));
   }
 
-  async function createDefaultKnowledgeSpace(input) {
+  async function createDefaultKnowledgeSpace() {
     return getData(await requestJson('/api/knowledge/spaces/default', {
       method: 'POST',
-      body: JSON.stringify(input)
+      body: JSON.stringify({})
     }));
   }
 

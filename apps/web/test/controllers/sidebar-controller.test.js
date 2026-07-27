@@ -29,7 +29,8 @@ function createDeps(overrides = {}) {
     knowledgePointEditing: null,
     outlineCollapsedHeadingIdsByNote: {},
     asideTab: 'info',
-    draftMarkdown: '![diagram](/api/storage/attachments/attachment-1/content)'
+    draftMarkdown: '![diagram](/api/storage/attachments/attachment-1/content)',
+    annotations: []
   };
 
   const flashes = [];
@@ -44,7 +45,7 @@ function createDeps(overrides = {}) {
       loadNoteSideData: async () => ({})
     },
     getCurrentNote: () => state.allNotes[0],
-    syncKnowledgePointMarkers: () => {},
+    syncAnnotationMarkers: () => {},
     flashStatus: (message) => {
       flashes.push(message);
     },
@@ -150,3 +151,42 @@ function createDeps(overrides = {}) {
 }
 
 console.log('sidebar-controller attachment deletion safeguards passed');
+
+{
+  const resolvers = new Map();
+  const { state, deps } = createDeps({
+    knowledgeApi: {
+      deleteAttachment: async () => {},
+      loadNoteSideData: ({ noteId }) => new Promise((resolve) => resolvers.set(noteId, resolve))
+    }
+  });
+  state.allNotes.push({
+    id: 'note-2',
+    title: 'Second',
+    spaceId: 'space-1',
+    folderId: null,
+    rawMarkdown: ''
+  });
+  const controller = createSidebarController(deps);
+
+  state.selectedNoteId = 'note-1';
+  const loadFirst = controller.loadCurrentNoteSideData();
+  state.selectedNoteId = 'note-2';
+  const loadSecond = controller.loadCurrentNoteSideData();
+  resolvers.get('note-2')({
+    linkedNotes: [{ id: 'linked-2' }],
+    attachments: [{ id: 'attachment-2' }],
+    annotations: [{ id: 'annotation-2' }]
+  });
+  assert.equal(await loadSecond, true);
+  resolvers.get('note-1')({
+    linkedNotes: [{ id: 'linked-1' }],
+    attachments: [{ id: 'attachment-1' }],
+    annotations: [{ id: 'annotation-1' }]
+  });
+  assert.equal(await loadFirst, false);
+
+  assert.deepEqual(state.linkedNotes, [{ id: 'linked-2' }]);
+  assert.deepEqual(state.attachments, [{ id: 'attachment-2' }]);
+  assert.deepEqual(state.annotations, [{ id: 'annotation-2' }]);
+}

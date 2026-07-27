@@ -1,4 +1,5 @@
 ﻿import { validateTreeEditorName as validateNavigationTreeEditorName } from '../../../lib/navigation/tree-editor.js';
+import { guardWorkspaceWrite } from '../../../lib/workspace-write-guard.js';
 
 export function createNavigationTreeEditorCommandController(deps, getController) {
   const {
@@ -8,6 +9,9 @@ export function createNavigationTreeEditorCommandController(deps, getController)
   } = deps;
 
 function startTreeEditor({ mode, parentId = null, targetId = null, value = '' }) {
+  if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) {
+    return false;
+  }
   state.treeEditor = {
     mode,
     parentId,
@@ -17,6 +21,7 @@ function startTreeEditor({ mode, parentId = null, targetId = null, value = '' })
   getController().clearDeleteIntent({ rerender: false });
   getController().closeContextMenu();
   getController().renderFolders();
+  return true;
 }
 
 function cancelTreeEditor() {
@@ -46,22 +51,30 @@ async function submitTreeEditor() {
     state.treeEditor = null;
 
     switch (editor.mode) {
-      case 'create-folder':
-        await getController().createFolder(editor.parentId, trimmedValue);
+      case 'create-folder': {
+        const result = await getController().createFolder(editor.parentId, trimmedValue);
+        if (result === false) return;
         flashStatus(`目录已创建：${trimmedValue}`);
         return;
-      case 'rename-folder':
-        await getController().renameFolder(editor.targetId, trimmedValue);
+      }
+      case 'rename-folder': {
+        const result = await getController().renameFolder(editor.targetId, trimmedValue);
+        if (result === false) return;
         flashStatus(`目录已重命名：${trimmedValue}`);
         return;
-      case 'create-note':
-        await getController().createNote(editor.parentId, trimmedValue);
+      }
+      case 'create-note': {
+        const result = await getController().createNote(editor.parentId, trimmedValue);
+        if (result === false) return;
         flashStatus(`文件已创建：${trimmedValue}`);
         return;
-      case 'rename-note':
-        await getController().renameNote(editor.targetId, trimmedValue);
+      }
+      case 'rename-note': {
+        const result = await getController().renameNote(editor.targetId, trimmedValue);
+        if (result === false) return;
         flashStatus(`文件已重命名：${trimmedValue}`);
         return;
+      }
       default:
         return;
     }
@@ -77,10 +90,12 @@ async function commitDelete(kind, targetId) {
 
   try {
     if (kind === 'folder') {
-      await getController().deleteFolder(targetId);
+      const deleted = await getController().deleteFolder(targetId);
+      if (deleted === false) return;
       flashStatus('目录已删除');
     } else if (kind === 'note') {
-      await getController().deleteNote(targetId);
+      const deleted = await getController().deleteNote(targetId);
+      if (deleted === false) return;
       flashStatus('文件已删除');
     }
   } catch (error) {

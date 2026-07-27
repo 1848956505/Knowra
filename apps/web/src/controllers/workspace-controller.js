@@ -124,7 +124,7 @@ async function ensureSpaceId() {
     return state.currentSpaceId;
   }
 
-  const createdSpace = await knowledgeApi.createDefaultKnowledgeSpace({ userId: 'demo' });
+  const createdSpace = await knowledgeApi.createDefaultKnowledgeSpace();
   state.spaces = [createdSpace];
   state.currentSpaceId = createdSpace.id;
   return state.currentSpaceId;

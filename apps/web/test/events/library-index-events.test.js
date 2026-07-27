@@ -26,7 +26,13 @@ function createHarness() {
     },
     view: { screen: 'index', showRightSidebar: true }
   };
-  const calls = { renderedIndex: 0, renderedAll: 0, cleared: 0, opened: [] };
+  const calls = {
+    renderedIndex: 0,
+    renderedAll: 0,
+    cleared: 0,
+    opened: [],
+    returns: []
+  };
   const deps = {
     selectNote: async (id, options) => { calls.opened.push({ id, options }); },
     renderLibraryIndex: () => { calls.renderedIndex += 1; },
@@ -34,7 +40,10 @@ function createHarness() {
     clearSearchFilters: () => { calls.cleared += 1; },
     restoreNote: async () => {},
     handleFileMenuAction: () => {},
-    persistDraft: async () => {},
+    returnToLibraryIndex: async (options) => {
+      calls.returns.push(options);
+      return true;
+    },
     flashStatus: () => {}
   };
   bindLibraryIndexEvents({ state, elements, deps });
@@ -110,6 +119,19 @@ function createHarness() {
     id: 'note-42',
     options: { syncFolder: true, ensureTab: true }
   }]);
+}
+
+{
+  const { elements, state, calls } = createHarness();
+  state.view.screen = 'editor';
+  const homeButton = { dataset: { libraryHome: 'global' } };
+  homeButton.closest = makeClosest([['[data-library-home]', homeButton]]);
+
+  elements.workspaceShell.dispatch('click', homeButton);
+
+  assert.deepEqual(calls.returns, [{ global: true }]);
+  assert.equal(state.view.screen, 'editor');
+  assert.equal(calls.renderedAll, 0);
 }
 
 console.log('ok - library index events apply filters, clear state and open on double click');

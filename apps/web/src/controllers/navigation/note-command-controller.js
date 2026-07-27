@@ -1,4 +1,3 @@
-import { ensureOpenTab } from '../../../lib/editor/tab-workspace.js';
 import { insertNote as insertLocalNote } from '../../../lib/tree-workspace.js';
 import {
   createLocalManualNoteInput,
@@ -10,17 +9,15 @@ import {
   setLocalNoteFavorite,
   softDeleteLocalNote
 } from '../../../lib/notes/state.js';
-import { stripLegacyGeneratedTitle } from '../../../lib/notes/legacy-title.js';
-import { ensureNoteDetailLoaded } from './note-detail-loader.js';
+import { guardWorkspaceWrite } from '../../../lib/workspace-write-guard.js';
+import { createNavigationNoteSelectionCommandController } from './note-selection-command-controller.js';
 
 export function createNavigationNoteCommandController(deps, getController) {
   const {
     state,
     knowledgeApi,
     getNoteById,
-    renderAll,
     refreshKnowledgeData,
-    loadCurrentNoteSideData,
     syncLocalWorkspace
   } = deps;
 
@@ -29,6 +26,12 @@ async function runNoteMutation({
   localMutation,
   afterMutation
 }) {
+  if (!guardWorkspaceWrite({
+    dataMode: state.dataMode,
+    flashStatus: deps.flashStatus
+  })) {
+    return false;
+  }
   const isApi = state.dataMode === 'api';
   const result = isApi
     ? await apiMutation()
@@ -38,16 +41,21 @@ async function runNoteMutation({
 
   if (isApi) {
     await refreshKnowledgeData();
-    await loadCurrentNoteSideData();
-    renderAll();
   } else {
     syncLocalWorkspace();
   }
 
-  return result;
+  return result === undefined ? true : result;
 }
 
 async function createNote(folderId, title) {
+  const intentId = getController().beginNavigationIntent();
+  if (
+    !await getController().canLeaveCurrentNote()
+    || !getController().isNavigationIntentCurrent(intentId)
+  ) {
+    return false;
+  }
   return runNoteMutation({
     apiMutation: () => knowledgeApi.createNote({
       title,
@@ -67,6 +75,9 @@ async function createNote(folderId, title) {
       return nextNote;
     },
     afterMutation: ({ result: created, isApi }) => {
+      if (!getController().isNavigationIntentCurrent(intentId)) {
+        return;
+      }
       if (isApi) {
         state.allNotes = insertLocalNote(state.allNotes, {
           ...created,
@@ -94,6 +105,12 @@ async function renameNote(noteId, title) {
 }
 
 async function deleteNote(noteId) {
+  if (
+    state.selectedNoteId === noteId
+    && !await getController().canLeaveCurrentNote()
+  ) {
+    return false;
+  }
   return runNoteMutation({
     apiMutation: () => knowledgeApi.deleteNote(noteId),
     localMutation: () => {
@@ -195,50 +212,6 @@ async function moveNote(noteId, nextFolderId) {
   });
 }
 
-async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {}) {
-  let note = state.allNotes.find((item) => item.id === noteId);
-  if (!note) {
-    return;
-  }
-
-  await deps.persistDraft({ immediate: true });
-  try {
-    note = await ensureNoteDetailLoaded({ state, knowledgeApi, note });
-  } catch (error) {
-    deps.flashStatus(error.message || '资料正文加载失败');
-    return;
-  }
-
-  state.selectedNoteId = noteId;
-  state.libraryIndex.selectedNoteId = noteId;
-  state.view.screen = 'editor';
-  state.noteTagComposer.draft = '';
-  if (ensureTab) {
-    state.openNoteTabs = ensureOpenTab(state.openNoteTabs, noteId);
-  }
-  state.draftMarkdown = stripLegacyGeneratedTitle({
-    markdown: note.rawMarkdown,
-    title: note.title,
-    sourceType: note.sourceType
-  });
-  state.draftTitle = note.title;
-  state.saveState = 'saved';
-  state.lastSavedAt = note.updatedAt ?? null;
-
-  if (syncFolder && note.folderId) {
-    state.selectedFolderId = note.folderId;
-    getController().openFolderBranch(note.folderId);
-  }
-
-  await loadCurrentNoteSideData();
-  if (state.draftMarkdown !== (note.rawMarkdown ?? '')) {
-    await deps.persistDraft();
-  }
-  deps.saveCurrentEditorScrollPosition();
-  renderAll();
-  deps.flashStatus(`已切换到：${note.title}`);
-}
-
   return {
     createNote,
     renameNote,
@@ -248,6 +221,6 @@ async function selectNote(noteId, { syncFolder = false, ensureTab = true } = {})
     emptyRecycleBin,
     setNoteFavorite,
     moveNote,
-    selectNote
+    ...createNavigationNoteSelectionCommandController(deps, getController)
   };
 }

@@ -67,7 +67,7 @@ function createDeps({ state = createState(), elements = createElements(), overri
     closeSectionMenu: 0,
     flashStatus: [],
     persistBackendCache: 0,
-    persistDraft: [],
+    canLeaveCurrentNote: 0,
     renderAll: 0,
     selectNote: []
   };
@@ -78,7 +78,10 @@ function createDeps({ state = createState(), elements = createElements(), overri
     closeSectionMenu: () => { calls.closeSectionMenu += 1; },
     flashStatus: (message) => { calls.flashStatus.push(message); },
     persistBackendCache: () => { calls.persistBackendCache += 1; },
-    persistDraft: async (options) => { calls.persistDraft.push(options); },
+    canLeaveCurrentNote: async () => {
+      calls.canLeaveCurrentNote += 1;
+      return true;
+    },
     renderAll: () => { calls.renderAll += 1; },
     selectNote: async (...args) => { calls.selectNote.push(args); },
     ...overrides
@@ -151,8 +154,26 @@ await runTest('handleTabClose clears editor state when closing last active tab',
   assert.equal(state.draftTitle, '');
   assert.deepEqual(state.linkedNotes, []);
   assert.deepEqual(state.attachments, []);
-  assert.deepEqual(calls.persistDraft, [{ immediate: true }]);
+  assert.equal(calls.canLeaveCurrentNote, 1);
   assert.equal(calls.renderAll, 1);
+});
+
+await runTest('handleTabClose keeps the active tab when draft persistence fails', async () => {
+  const state = createState({
+    openNoteTabs: ['note-a'],
+    selectedNoteId: 'note-a'
+  });
+  const { controller, calls } = createDeps({
+    state,
+    overrides: {
+      canLeaveCurrentNote: async () => false
+    }
+  });
+
+  assert.equal(await controller.handleTabClose('note-a'), false);
+  assert.deepEqual(state.openNoteTabs, ['note-a']);
+  assert.equal(state.selectedNoteId, 'note-a');
+  assert.equal(calls.renderAll, 0);
 });
 
 await runTest('resetTabDragState can sync indicators without rerender', () => {

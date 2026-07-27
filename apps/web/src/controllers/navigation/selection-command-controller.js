@@ -14,9 +14,27 @@ export function createNavigationSelectionCommandController(deps, getController) 
     persistDraft,
     flashStatus
   } = deps;
+  let navigationIntentSequence = 0;
+
+function beginNavigationIntent() {
+  navigationIntentSequence += 1;
+  return navigationIntentSequence;
+}
+
+function isNavigationIntentCurrent(intentId) {
+  return intentId === navigationIntentSequence;
+}
+
+async function canLeaveCurrentNote() {
+  const result = await persistDraft({ immediate: true });
+  return result?.ok === true;
+}
 
 async function selectFolder(folderId) {
-  await persistDraft({ immediate: true });
+  const intentId = beginNavigationIntent();
+  if (!await canLeaveCurrentNote() || !isNavigationIntentCurrent(intentId)) {
+    return false;
+  }
   const selection = resolveFolderSelection({
     folderId,
     selectedNoteId: state.selectedNoteId,
@@ -50,10 +68,32 @@ async function selectFolder(folderId) {
 
   if (selection.shouldLoadSideData) {
     await loadCurrentNoteSideData();
+    if (!isNavigationIntentCurrent(intentId)) {
+      return false;
+    }
   }
 
   renderAll();
   flashStatus(`已切换到目录：${state.foldersById[folderId]?.name ?? ''}`);
+  return true;
+}
+
+async function returnToLibraryIndex({ global = false } = {}) {
+  const intentId = beginNavigationIntent();
+  if (!await canLeaveCurrentNote() || !isNavigationIntentCurrent(intentId)) {
+    return false;
+  }
+
+  state.view.screen = 'index';
+  if (global) {
+    state.selectedFolderId = null;
+    state.libraryIndex.tab = 'all';
+    state.search.keyword = '';
+    state.search.selectedTagIds = [];
+    state.search.isOpen = false;
+  }
+  renderAll();
+  return true;
 }
 
 function toggleFolderOpen(folderId) {
@@ -70,7 +110,11 @@ function openFolderBranch(folderId) {
 }
 
   return {
+    beginNavigationIntent,
+    isNavigationIntentCurrent,
+    canLeaveCurrentNote,
     selectFolder,
+    returnToLibraryIndex,
     toggleFolderOpen,
     openFolderBranch
   };

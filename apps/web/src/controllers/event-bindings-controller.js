@@ -130,6 +130,7 @@ export function bindAppEvents({
     scheduleAutosave: (...args) => editorController.scheduleAutosave(...args),
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
     persistDraft: (...args) => editorController.persistDraft(...args),
+    returnToLibraryIndex: (...args) => navigationController.returnToLibraryIndex(...args),
     restoreNote: (...args) => navigationController.restoreNote(...args),
 
     renderSidebar: (...args) => sidebarController.renderSidebar(...args),
