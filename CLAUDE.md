@@ -70,16 +70,17 @@ Plain Node.js HTTP server with a **DDD-inspired** modular layering. Despite the 
 - **`src/server.js`** — Thin HTTP entry: applies CORS, serves `/` info and `/api/health`, delegates to `handleStorageRoute` then `handleKnowledgeRoute`, returns 404 or error envelope.
 - **`src/config/`** — `env.schema.js` (env defaults), `storage.config.js` (paths).
 - **`src/http/`** — Cross-cutting: `cors.js` (origins via `CORS_ALLOWED_ORIGINS`), `request.js` (body/query parsing), `response.js` (JSON + binary senders, `sendError` envelope), `storage-routes.js` (export/import + attachment upload/list/read/delete).
-- **`src/infrastructure/`** — `file-data-store.js` (JSON persistence with snapshot import/export), `local-attachment-store.js`.
+- **`src/infrastructure/`** — Versioned local JSON persistence, atomic file replacement, cross-entity reference validation, synchronous local transaction boundaries, and attachment snapshot/directory-swap helpers.
 - **`src/modules/knowledge/`** — The only active business module:
   - `domain/` — Plain objects: `note.js`, `folder.js`, `tag.js`, `knowledge-space.js`, `knowledge-point.js`.
-  - `application/` — Services: `note-service.js`, `folder-service.js`, `tag-service.js`, `knowledge-space-service.js`, `content-annotation-service.js`, `search-service.js`; `note-summary.js` builds compact list DTOs and `note-content-policy.js` rejects insecure HTTP image sources; plus `dto/` subfolder.
+  - `application/` — Services: `note-service.js`, `folder-service.js`, `tag-service.js`, `knowledge-space-service.js`, `content-annotation-service.js`, `search-service.js`; `knowledge-base-snapshot-service.js` coordinates safe imports, and `note-deletion-coordinator.js` coordinates permanent note cleanup; plus compact DTO/content-policy helpers and `dto/`.
   - `infrastructure/` — In-memory repositories backed by `dataStore.state.*` arrays; every mutation calls `dataStore.flush()`.
-  - `http/` — Per-entity route files (`note-routes.js`, `folder-routes.js`, `tag-routes.js`, `space-routes.js`, `knowledge-point-routes.js`) plus a top-level `knowledge-routes.js` dispatcher and `knowledge-handlers.js` (adapter for `appContext.http.knowledge`).
+  - `http/` — Per-entity route files (`note-routes.js`, `folder-routes.js`, `tag-routes.js`, `space-routes.js`, `content-annotation-routes.js`) plus a top-level `knowledge-routes.js` dispatcher and `knowledge-handlers.js`.
 - **`src/presentation/`** — Markdown preview rendering (server-side).
 
 Key invariants:
-- Repositories are in-memory arrays; they call `dataStore.flush()` on every mutation, so persistence is implicit and synchronous.
+- Repositories are in-memory arrays; they call `dataStore.flush()` on mutation. Normal writes use atomic JSON replacement, while coordinated permanent deletion defers repository flushes and commits once through `dataStore.runTransaction()`.
+- Persistent contexts validate space/folder/tag/note references by default. HTTP knowledge-space operations use the server-owned `KNOWRA_OWNER_ID` (default `demo`) and ignore client-provided user ids.
 - API response envelope: `{ data: ... }` for success, `{ error: { code, message } }` for failures.
 - The Prisma schema shows the intended migration path off JSON files.
 
@@ -91,9 +92,9 @@ A modular vanilla-JS SPA, served via a plain Node.js HTTP server. The 5300-line 
 - **`src/server/`** — Server-side helpers: `shell-html.js` (the SSR shell template), `api-proxy.js`, `initial-workspace.js` (loads SSR snapshot for first paint), `port-listener.js`, `static-assets.js`.
 - **`src/client.js`** — Boot orchestrator: builds state, controllers, event bindings, and runs `startWorkspaceLoad()`.
 - **`src/app/`** — App state: `app-state.js` (initial state + constants), `app-state-actions.js` (state mutations), `element-cache.js`, `editor-runtime.js`, `formatting.js`.
-- **`src/controllers/`** — One factory per concern: `app-controller-registry.js` (wires them all), `navigation-controller.js`, `editor-controller.js`, `knowledge-point-controller.js`, `sidebar-controller.js`, `search-controller.js`, `tag-controller.js`, `tab-controller.js`, `workspace-controller.js`, `shell-controller.js`, `event-bindings-controller.js`, `controller-action-proxies.js`, plus subdirs for `editor/`, `navigation/`, `knowledge-point/`.
+- **`src/controllers/`** — One factory per concern: `app-controller-registry.js` (wires them all), `navigation-controller.js`, `editor-controller.js`, `annotation-controller.js`, `sidebar-controller.js`, `search-controller.js`, `tag-controller.js`, `tab-controller.js`, `workspace-controller.js`, `shell-controller.js`, `event-bindings-controller.js`, `controller-action-proxies.js`, plus `editor/`, `navigation/`, and `sidebar/` subdirectories.
 - **`src/services/`** — `api-client.js` (fetch wrapper), `api-response.js` (envelope unwrap), `knowledge-api.js` + `knowledge-api/` subfolder.
-- **`lib/`** — Feature modules: `editor/` (Milkdown integration, tab workspace, file menu, panel state, shortcuts, find/replace, image block, markdown paste), `navigation/`, `folders/`, `notes/`, `tags/`, `sidebar/`, `shell/`, `status/`, `search/`, `knowledge-points/`, `events/`, `dom/`, `browser/`. Plus utilities: `markdown.js`, `tree-workspace.js`, `tree-name-validation.js`, `workspace-loading.js`, `workspace-cache.js`, `workspace-normalization.js`, `mock-knowledge-base.js`, `mock-workspace.js`.
+- **`lib/`** — Feature modules: `editor/` (Milkdown integration, tab workspace, file menu, panel state, shortcuts, find/replace, image block, markdown paste), `navigation/`, `folders/`, `notes/`, `tags/`, `annotations/`, `sidebar/`, `shell/`, `status/`, `search/`, `events/`, `dom/`, `browser/`. `workspace-write-guard.js` keeps cache/loading recovery modes read-only.
 
 State model: a single global `state` object in `app-state.js` holds everything; DOM is re-rendered from state via imperative `render*()` functions called through controller action proxies. No reactive framework.
 
@@ -118,7 +119,7 @@ Each test file exports an array; `run-tests.js` imports and runs them sequential
 ## Data Flow
 
 1. `npm run dev:api` starts the API → `main.js` builds a `createPersistentAppContext()` → loads `storage/data/knowledge-base.json` via `file-data-store.js`.
-2. Request arrives at `server.js` → CORS → storage route → knowledge route → service → repository → `dataStore.flush()` writes JSON.
+2. Request arrives at `server.js` → CORS → storage route → knowledge route → service → repository → `dataStore.flush()` atomically replaces versioned JSON. Coordinated local transactions persist once and roll in-memory collections back on synchronous failure.
 3. `npm run dev:web` boots the SPA server. First `GET /` returns the SSR shell with compact note summaries inlined; client hydrates, refreshes summaries through `/api/*`, and fetches a full note body only when it is opened.
 4. Repository mutations on the server persist synchronously; the SPA reflects them on the next refetch.
 
@@ -126,6 +127,7 @@ Each test file exports an array; `run-tests.js` imports and runs them sequential
 
 - **Chinese-first**: UI labels, docs, commit messages are in Chinese. Code identifiers stay in English.
 - **Local-first**: Default storage mode is `local-first` (JSON files). `STORAGE_MODE` env var + `STORAGE_UPLOADS_DIR` / `STORAGE_EXPORTS_DIR` / `STORAGE_TEMP_DIR` override paths. Prisma/PostgreSQL is a future migration.
+- **Single-user HTTP boundary**: `KNOWRA_OWNER_ID` selects the server-owned knowledge-space owner (default `demo`). It is not an authentication system; public production access must remain behind Nginx Basic Auth until a reviewed session-based login exists.
 - **Multi-module workspace**: Only `知识库` (knowledge) module is wired in. Other rail entries (paper, AI, tasks, review) are placeholders.
 - **API response format**: `{ data: ... }` for success, `{ error: { code, message } }` for failures — simple, consistent envelope.
 - **No router library**: API routes match via manual `request.method` + `url.pathname` checks in `http/` files.

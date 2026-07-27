@@ -98,7 +98,7 @@ npm: 11.16.0
 PM2 服务：
 
 ```text
-knowra-api  -> /opt/knowra/apps/api/src/main.js, PORT=3001
+knowra-api  -> /opt/knowra/apps/api/src/main.js, PORT=3001, KNOWRA_OWNER_ID=demo
 knowra-web  -> /opt/knowra/apps/web/src/main.js, PORT=3000, API_ORIGIN=http://127.0.0.1:3001
 ```
 
@@ -346,13 +346,14 @@ scripts/post-deploy.sh
 当前代码尚未提供多用户账号系统，因此生产安全基线采用 Nginx HTTP Basic Authentication 作为单用户访问保护。2026-07-25 起按用户要求临时关闭，恢复方式见上方「临时运行状态」：
 
 - **已启用 HTTPS**（Let's Encrypt 证书）。
+- API 的 `KNOWRA_OWNER_ID`（当前建议 `demo`）只固定知识空间所有者并忽略客户端 `userId`，不校验访问者身份，不能替代 Basic Auth。
 - 安全基线要求除 `/api/health` 外的页面和 API 经过 Basic Auth；临时关闭期间这些接口会直接暴露到公网。
 - `3000`、`3001` 端口只允许服务器本机访问，不得对公网放行。
 - 不要把私钥、密码、云账号凭据写入仓库或本文档。
 
 后续建议：
 
-1. 增加正式账号与会话系统，替换临时 Basic Auth。
+1. 只有在需要多用户或更细权限时，再增加完整的账号、会话、CSRF、限流与恢复系统，替换 Basic Auth；不要只增加登录表单。
 2. 创建非 root 的部署用户，例如 `deploy`。
 3. 关闭 root SSH 登录或限制 root 登录来源。
 4. 定期备份 `storage/data/knowledge-base.json` 和 `storage/uploads/`。

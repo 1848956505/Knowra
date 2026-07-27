@@ -6,12 +6,14 @@ Study Accelerator is a local-first learning workspace centered on three long-ter
 - `知识` for extracted concepts, tags, and structured knowledge
 - `题` for AI-generated exercises, papers, and training outputs
 
-The current repository is in an early but usable stage:
+The current repository has completed the safety baseline for the knowledge and assessment domain:
 
 - A runnable local API for the knowledge module
 - A desktop-style web workspace UI
-- Local JSON persistence
+- Versioned, atomically replaced local JSON persistence
 - Attachment upload / export / import foundations
+- Important-content annotations
+- Fixed single-user ownership at the HTTP boundary
 - Automated tests for the backend core flows
 
 ## Current Scope
@@ -25,7 +27,10 @@ This repo currently focuses on the `知识库 / 资料导航` experience:
 - search
 - recycle / restore basics
 - local attachment storage
+- important-content annotation
 - drag-and-drop movement for folders and files inside the materials tree
+
+Formal knowledge items, assessment points, questions and papers are not implemented yet. Their domain rules are frozen in the documentation and will be added after the Phase 0 entry gates.
 
 ## Tech Stack
 
@@ -98,33 +103,33 @@ npm test
 
 ## Data Persistence
 
-The project currently uses local-first persistence for development.
+The project currently uses local-first persistence for development. JSON writes use a versioned schema and atomic replacement; imports validate cross-entity references before replacing current data.
 
 Important paths:
 
-- API knowledge data: [storage/data/knowledge-base.json](/D:/A-Projects/Study/storage/data/knowledge-base.json)
-- runtime dev port registry: [storage/runtime/dev-ports.json](/D:/A-Projects/Study/storage/runtime/dev-ports.json)
+- API knowledge data: [`storage/data/knowledge-base.json`](storage/data/knowledge-base.json)
+- runtime dev port registry: [`storage/runtime/dev-ports.json`](storage/runtime/dev-ports.json)
 
 Runtime files and upload directories are ignored by git where appropriate.
 
 ## Key Docs
 
-- [项目总控文档](/D:/A-Projects/Study/docs/学习加速器项目总控文档.md)
-- [UI 开发规范](/D:/A-Projects/Study/docs/2026-06-03-UI开发规范.md)
-- [V1.1.0 开发计划](/D:/A-Projects/Study/docs/v1.1.0开发计划.md)
-- [知识库定位](/D:/A-Projects/Study/docs/知识库模块/知识库定位.md)
-- [本地优先知识库存储设计](/D:/A-Projects/Study/docs/知识库模块/2026-06-01-本地优先知识库存储设计.md)
+- [项目总控文档](docs/学习加速器项目总控文档.md)
+- [开发规范](docs/开发规范.md)
+- [项目结构导航](docs/项目结构导航.md)
+- [知识与考卷系统领域冻结稿](docs/知识库与试题模块/Knowra%20知识与考卷系统领域冻结稿.md)
+- [知识与试题阶段 0 实施与准入说明](docs/知识库与试题模块/阶段0实施与准入说明.md)
 
 ## Roadmap
 
 Near-term priorities:
 
-1. Continue refining the materials tree and knowledge workspace interactions
-2. Connect more frontend sections to real backend data
-3. Expand note / tag / concept workflows
-4. Prepare the persistence layer for Prisma-backed evolution
-5. Gradually introduce PostgreSQL and Redis when the local-first baseline is stable
+1. Introduce the frozen knowledge and assessment entities in vertical slices
+2. Move multi-aggregate history and concurrent workflows to PostgreSQL
+3. Add question, paper and training-result workflows
+4. Add reviewed background AI jobs without putting network calls in transactions
+5. Replace the current single-user access boundary only when a complete login/session system is justified
 
 ## Status
 
-This repository is now git-initialized, committed, and connected to GitHub.
+Current stable version: `2.6.1`. Phase 0 is complete; production deployment still requires an external access-control layer such as the repository's Nginx Basic Auth template because the application does not yet include a login system.

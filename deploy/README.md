@@ -6,6 +6,8 @@
 
 Knowra 当前没有多用户账号系统。公开部署时必须由 Nginx 对整个站点启用 HTTP Basic Authentication，仅保留 `/api/health` 匿名访问，用作健康检查。
 
+API 使用服务端 `KNOWRA_OWNER_ID`（默认 `demo`）固定当前数据所有者，并忽略客户端提交的 `userId`。这个设置只能阻止客户端切换 owner，**不能验证访问者身份**，不能替代 Basic Auth 或正式登录系统。
+
 服务器上创建密码文件：
 
 ```bash
