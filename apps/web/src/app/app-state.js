@@ -8,6 +8,10 @@ export function createInitialAppState() {
     dataMode: 'loading',
     spaces: [],
     currentSpaceId: null,
+    navigation: {
+      activeWorkDomain: 'materials',
+      activeDomainView: 'overview'
+    },
     folderTree: [],
     foldersById: {},
     allNotes: [],
@@ -44,6 +48,52 @@ export function createInitialAppState() {
     attachmentRenaming: null,
     annotations: [],
     annotationLoadState: 'idle',
+    noteVersions: [],
+    knowledgeItems: [],
+    learningObjectives: [],
+    questions: [],
+    knowledgeDomainLoadState: 'idle',
+    knowledgeWorkspace: {
+      filters: {
+        query: '',
+        reviewStatus: 'all',
+        knowledgeType: 'all',
+        evidenceStatus: 'all',
+        actionVerb: 'all',
+        cognitiveLevel: 'all',
+        missingObjectives: false,
+        missingQuestions: false,
+        hasQuestions: 'all'
+      },
+      selection: { kind: null, id: null },
+      loadState: 'idle',
+      overview: null,
+      items: [],
+      objectives: [],
+      reviewQueue: [],
+      pagination: null,
+      error: null,
+      drafts: {}
+    },
+    trainingWorkspace: {
+      filters: {
+        query: '',
+        questionType: 'all',
+        reviewStatus: 'all',
+        difficulty: 'all',
+        sourceStatus: 'all',
+        learningObjectiveId: 'all'
+      },
+      selection: { kind: null, id: null },
+      loadState: 'idle',
+      overview: null,
+      questions: [],
+      profiles: [],
+      objectiveOptions: [],
+      pagination: null,
+      error: null,
+      drafts: {}
+    },
     focusedAnnotationId: null,
     annotationFilter: { query: '', status: 'active' },
     outlineCollapsedHeadingIdsByNote: {},
@@ -125,10 +175,9 @@ export function createInitialAppState() {
 
 export function createRailItems() {
   return [
-    { key: 'knowledge', active: true },
-    { key: 'paper', active: false },
-    { key: 'ai', active: false },
-    { key: 'task', active: false },
-    { key: 'review', active: false }
+    { key: 'materials', active: true },
+    { key: 'knowledge', active: false },
+    { key: 'training', active: false },
+    { key: 'learning', active: false }
   ];
 }

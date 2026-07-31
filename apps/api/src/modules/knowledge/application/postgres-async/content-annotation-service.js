@@ -10,7 +10,7 @@ const contentHash = (markdown) => crypto.createHash('sha256')
   .update(String(markdown ?? '')).digest('hex');
 const fail = (code, message, statusCode = 400) => createAppError(code, message, statusCode);
 
-export function createAsyncContentAnnotationService({ repository, noteRepository } = {}) {
+export function createAsyncContentAnnotationService({ repository, noteRepository, noteVersionRepository, onAnnotationArchived = null } = {}) {
   if (!repository || !noteRepository) {
     throw new TypeError('Async annotation service requires annotation and note repositories');
   }
@@ -28,14 +28,17 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     if (contentHash(note.rawMarkdown) !== dto.noteContentHash) {
       throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请重新选择标注范围', 409);
     }
+    return note;
   }
 
   async function saveUpdated(annotation, changes) {
-    return repository.save(new ContentAnnotation({
+    const updated = await repository.save(new ContentAnnotation({
       ...annotation,
       ...changes,
       updatedAt: new Date().toISOString()
     }));
+    if (updated.status === 'archived') await onAnnotationArchived?.(updated.id);
+    return updated;
   }
 
   return {
@@ -47,8 +50,10 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       if (await repository.findDuplicate(dto)) {
         throw fail('ANNOTATION_DUPLICATE', '该选区已经标记为重要内容', 409);
       }
+      const version = await noteVersionRepository?.findByNoteIdAndContentHash(dto.noteId, dto.noteContentHash);
       return repository.save(new ContentAnnotation({
         ...dto,
+        noteVersionId: version?.id ?? null,
         id: `annotation-${crypto.randomUUID()}`
       }));
     },
@@ -67,13 +72,17 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       const annotation = await requireAnnotation(id);
       const dto = buildUpdateAnnotationAnchorDto(input);
       await assertCurrentNote({ ...annotation, ...dto });
-      return saveUpdated(annotation, { ...dto, status: 'active', deletedAt: null });
+      const version = await noteVersionRepository?.findByNoteIdAndContentHash(annotation.noteId, dto.noteContentHash);
+      return saveUpdated(annotation, { ...dto, noteVersionId: version?.id ?? null, status: 'active', deletedAt: null });
     },
     async markAnnotationStale(id) {
       const annotation = await requireAnnotation(id);
       return annotation.status === 'archived'
         ? annotation
         : saveUpdated(annotation, { status: 'stale' });
+    },
+    markStaleForNote(noteId, currentContentHash) {
+      return repository.markStaleByNoteId?.(noteId, currentContentHash) ?? Promise.resolve([]);
     }
   };
 }

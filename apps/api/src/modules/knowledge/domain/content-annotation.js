@@ -7,6 +7,7 @@ export class ContentAnnotation {
     id,
     spaceId,
     noteId,
+    noteVersionId = null,
     kind = 'important',
     sourceMode = 'manual',
     quoteText,
@@ -29,6 +30,6 @@ export class ContentAnnotation {
     if (!Number.isInteger(fromPosition) || !Number.isInteger(toPosition) || fromPosition < 0 || fromPosition >= toPosition) throw new Error('Annotation range is invalid');
     if (!ANNOTATION_STATUSES.has(status)) throw new Error('Annotation status is invalid');
 
-    Object.assign(this, { id, spaceId, noteId, kind, sourceMode, quoteText: quoteText.trim(), headingPath: [...headingPath], fromPosition, toPosition, prefixText, suffixText, anchorFingerprint, noteContentHash, idempotencyKey, status, createdAt, updatedAt, deletedAt });
+    Object.assign(this, { id, spaceId, noteId, noteVersionId, kind, sourceMode, quoteText: quoteText.trim(), headingPath: [...headingPath], fromPosition, toPosition, prefixText, suffixText, anchorFingerprint, noteContentHash, idempotencyKey, status, createdAt, updatedAt, deletedAt });
   }
 }

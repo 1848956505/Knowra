@@ -2,12 +2,16 @@ import { createAppError } from '../errors/app-error.js';
 
 export function mapPostgresError(error, {
   fallbackCode = 'DATABASE_OPERATION_FAILED',
-  fallbackMessage = 'PostgreSQL operation failed'
+  fallbackMessage = 'PostgreSQL operation failed',
+  uniqueCode = 'DATABASE_CONFLICT',
+  uniqueMessage = 'PostgreSQL unique constraint conflict',
+  concurrentCode = 'DATABASE_CONCURRENT_UPDATE',
+  concurrentMessage = 'The record changed during this operation; reload and retry'
 } = {}) {
   if (error?.code === 'P2002') {
     return createAppError(
-      'DATABASE_CONFLICT',
-      'PostgreSQL unique constraint conflict',
+      uniqueCode,
+      uniqueMessage,
       409,
       { cause: error }
     );
@@ -28,6 +32,14 @@ export function mapPostgresError(error, {
       { cause: error }
     );
   }
+  if (error?.code === 'P2034') {
+    return createAppError(
+      concurrentCode,
+      concurrentMessage,
+      409,
+      { cause: error }
+    );
+  }
   return createAppError(fallbackCode, fallbackMessage, 500, { cause: error });
 }
 
@@ -35,7 +47,10 @@ export async function withPostgresErrors(operation, options = {}) {
   try {
     return await operation();
   } catch (error) {
-    if (error?.code?.startsWith?.('DATABASE_')) {
+    if (
+      error?.code?.startsWith?.('DATABASE_')
+      || (error?.code && Number.isInteger(error?.statusCode))
+    ) {
       throw error;
     }
     throw mapPostgresError(error, options);

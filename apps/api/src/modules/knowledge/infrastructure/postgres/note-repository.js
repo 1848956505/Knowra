@@ -1,4 +1,4 @@
-import { buildNoteData, mapNote } from './mappers.js';
+import { buildNoteData, mapNote, toDate } from './mappers.js';
 import {
   booleanOption,
   buildNoteOrderBy,
@@ -14,14 +14,29 @@ export function createPostgresNoteRepository({ db }) {
   if (!db?.note) throw new TypeError('PostgreSQL note repository requires db.note');
 
   return {
-    async save(note) {
+    async save(note, { expectedUpdatedAt = null } = {}) {
       return withRepositoryErrors(async () => {
         const data = buildNoteData(note);
-        return db.$transaction(async (tx) => {
+        const saveOperation = async (tx) => {
           const exists = await tx.note.findUnique({ where: { id: data.id } });
           if (exists) {
             const { id: _ignoredId, ...updateData } = data;
-            await tx.note.update({ where: { id: data.id }, data: updateData });
+            if (expectedUpdatedAt) {
+              const result = await tx.note.updateMany({
+                where: {
+                  id: data.id,
+                  updatedAt: toDate(expectedUpdatedAt)
+                },
+                data: updateData
+              });
+              if (result.count !== 1) {
+                const conflict = new Error('Concurrent note update');
+                conflict.code = 'P2034';
+                throw conflict;
+              }
+            } else {
+              await tx.note.update({ where: { id: data.id }, data: updateData });
+            }
           } else {
             await tx.note.create({ data });
           }
@@ -31,7 +46,15 @@ export function createPostgresNoteRepository({ db }) {
             include: noteWithTags
           });
           return mapNote(saved);
-        });
+        };
+        return typeof db.$transaction === 'function'
+          ? db.$transaction(saveOperation)
+          : saveOperation(db);
+      }, {
+        uniqueCode: 'SIBLING_NAME_CONFLICT',
+        uniqueMessage: 'A file or folder with the same name already exists',
+        concurrentCode: 'NOTE_UPDATE_CONFLICT',
+        concurrentMessage: 'Note has changed since it was loaded'
       });
     },
     async findById(noteId) {

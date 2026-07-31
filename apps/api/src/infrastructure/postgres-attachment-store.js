@@ -3,11 +3,14 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { createAppError } from '../errors/app-error.js';
 import { createLocalAttachmentFileManager } from './local-attachment-file-manager.js';
+import { ATTACHMENT_STATUS } from './attachment-status.js';
 import {
   createAttachmentId,
   moveFileSafely,
   sanitizeFileName,
-  scheduleFileCleanup
+  scheduleFileCleanup,
+  sha256Buffer,
+  writeFileAtomicallyAsync
 } from './local-attachment-store-utils.js';
 
 export function createPostgresAttachmentStore({
@@ -32,22 +35,60 @@ export function createPostgresAttachmentStore({
     const id = createAttachmentId();
     const safeName = sanitizeFileName(fileName);
     const buffer = Buffer.from(contentBase64, 'base64');
+    const contentSha256 = sha256Buffer(buffer);
     const storagePath = fileManager.buildStoragePath(id, safeName);
     const absoluteFilePath = fileManager.resolveManagedAbsolutePath(id, safeName);
-    await fsp.writeFile(absoluteFilePath, buffer);
     const attachment = {
       id,
       noteId,
       fileName: safeName,
       mimeType,
       size: buffer.byteLength,
+      sha256: contentSha256,
+      status: ATTACHMENT_STATUS.PENDING,
       storagePath,
+      verifiedAt: null,
       createdAt: new Date().toISOString()
     };
+
+    await attachmentRepository.save(attachment);
+    try {
+      await writeFileAtomicallyAsync(absoluteFilePath, buffer);
+    } catch (error) {
+      attachment.status = ATTACHMENT_STATUS.FAILED;
+      try {
+        await attachmentRepository.save(attachment);
+      } catch (statusError) {
+        error.statusPersistError = statusError;
+      }
+      throw error;
+    }
+
+    attachment.status = ATTACHMENT_STATUS.READY;
+    attachment.verifiedAt = new Date().toISOString();
     try {
       return await attachmentRepository.save(attachment);
     } catch (error) {
-      await removeFileOrSchedule(storagePath, fileManager, error);
+      attachment.status = ATTACHMENT_STATUS.PENDING;
+      attachment.verifiedAt = null;
+      let pendingRecordRestored = false;
+      try {
+        await attachmentRepository.save(attachment);
+        pendingRecordRestored = true;
+      } catch (statusError) {
+        error.statusPersistError = statusError;
+      }
+      if (!pendingRecordRestored) {
+        let currentRecord;
+        try {
+          currentRecord = await attachmentRepository.findById(attachment.id);
+        } catch (lookupError) {
+          error.recordLookupError = lookupError;
+        }
+        if (currentRecord === null) {
+          await removeFileOrSchedule(attachment, fileManager, error);
+        }
+      }
       throw error;
     }
   }
@@ -68,10 +109,46 @@ export function createPostgresAttachmentStore({
 
   async function readAttachmentContent(attachmentId) {
     const attachment = await getRequiredAttachment(attachmentId);
+    if (attachment.status === ATTACHMENT_STATUS.CORRUPT) {
+      throw createAppError(
+        'ATTACHMENT_FILE_CORRUPT',
+        `Attachment file failed integrity check: ${attachmentId}`,
+        409
+      );
+    }
+    if (
+      attachment.status === ATTACHMENT_STATUS.PENDING
+      || attachment.status === ATTACHMENT_STATUS.FAILED
+    ) {
+      throw createAppError(
+        'ATTACHMENT_NOT_READY',
+        `Attachment is not ready: ${attachmentId}`,
+        409
+      );
+    }
     const readablePath = fileManager.resolveReadableAttachmentPath(attachment);
     if (!readablePath) throw createAppError('ATTACHMENT_FILE_MISSING', `Attachment file missing: ${attachmentId}`, 404);
     try {
-      return { attachment, content: await fsp.readFile(readablePath) };
+      const content = await fsp.readFile(readablePath);
+      if (
+        attachment.sha256
+        && sha256Buffer(content) !== attachment.sha256.toLowerCase()
+      ) {
+        const corrupt = createAppError(
+          'ATTACHMENT_FILE_CORRUPT',
+          `Attachment file failed integrity check: ${attachmentId}`,
+          409
+        );
+        attachment.status = ATTACHMENT_STATUS.CORRUPT;
+        attachment.verifiedAt = null;
+        try {
+          await attachmentRepository.save(attachment);
+        } catch (statusError) {
+          corrupt.statusPersistError = statusError;
+        }
+        throw corrupt;
+      }
+      return { attachment, content };
     } catch (error) {
       if (error.code === 'ENOENT') throw createAppError('ATTACHMENT_FILE_MISSING', `Attachment file missing: ${attachmentId}`, 404, { cause: error });
       throw error;
@@ -109,9 +186,11 @@ export function createPostgresAttachmentStore({
     const attachment = await getRequiredAttachment(attachmentId);
     const deleted = await attachmentRepository.delete(attachmentId);
     try {
-      fileManager.removeAttachmentFile(deleted.storagePath);
+      fileManager.removeAttachmentFile(deleted ?? attachment);
     } catch (error) {
-      scheduleFileCleanup(fileManager.resolvePortableStoragePath(deleted.storagePath));
+      scheduleFileCleanup(
+        fileManager.resolveManagedAttachmentPath(deleted ?? attachment)
+      );
       error.attachmentId = attachmentId;
       throw error;
     }
@@ -125,9 +204,11 @@ export function createPostgresAttachmentStore({
   async function removeDetachedAttachmentFiles(attachments) {
     for (const attachment of attachments) {
       try {
-        fileManager.removeAttachmentFile(attachment.storagePath);
+        fileManager.removeAttachmentFile(attachment);
       } catch (error) {
-        scheduleFileCleanup(fileManager.resolvePortableStoragePath(attachment.storagePath));
+        scheduleFileCleanup(
+          fileManager.resolveManagedAttachmentPath(attachment)
+        );
         throw createAppError('ATTACHMENT_FILE_CLEANUP_FAILED', 'Attachment metadata was deleted but file cleanup failed', 500, { cause: error });
       }
     }
@@ -158,11 +239,13 @@ export function createPostgresAttachmentStore({
   };
 }
 
-async function removeFileOrSchedule(storagePath, fileManager, originalError) {
+async function removeFileOrSchedule(attachment, fileManager, originalError) {
   try {
-    fileManager.removeAttachmentFile(storagePath);
+    fileManager.removeAttachmentFile(attachment);
   } catch (cleanupError) {
-    scheduleFileCleanup(fileManager.resolvePortableStoragePath(storagePath));
+    scheduleFileCleanup(
+      fileManager.resolveManagedAttachmentPath(attachment)
+    );
     originalError.cleanupError = cleanupError;
   }
 }

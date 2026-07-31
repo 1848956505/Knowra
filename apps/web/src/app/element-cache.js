@@ -8,6 +8,8 @@ const ELEMENT_IDS = {
   libraryIndexScope: 'library-index-scope',
   libraryIndexTabs: 'library-index-tabs',
   libraryIndexFilters: 'library-index-filters',
+  workDomainView: 'work-domain-view',
+  workDomainContent: 'work-domain-content',
   editorWorkspaceView: 'editor-workspace-view',
   editorDocumentHead: 'editor-document-head',
   editorAsideReopen: 'editor-aside-reopen',

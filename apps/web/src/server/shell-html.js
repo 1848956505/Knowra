@@ -40,6 +40,9 @@ export function renderHtml(initialWorkspaceScript = '') {
 
       <div class="workspace-main">
         <main class="workspace-stage">
+          <section class="work-domain-view" id="work-domain-view" hidden>
+            <div id="work-domain-content"></div>
+          </section>
           <section class="library-index-view" id="library-index-view">
             <main class="index-workspace">
               <header class="masthead">

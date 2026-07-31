@@ -24,43 +24,41 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     return true;
   }
 
-  if (request.method === 'GET' && url.pathname.startsWith('/api/storage/attachments/') && url.pathname.endsWith('/content')) {
-    const attachmentId = url.pathname.split('/')[4];
-    const payload = await storage.getAttachmentContent({ id: decodeURIComponent(attachmentId) });
+  const contentAttachmentId = matchAttachmentRoute(
+    url.pathname,
+    'content'
+  );
+  if (request.method === 'GET' && contentAttachmentId !== null) {
+    const payload = await storage.getAttachmentContent({
+      id: contentAttachmentId
+    });
     sendBinary(response, 200, payload.content, payload.attachment.mimeType, payload.attachment.fileName);
     return true;
   }
 
-  if (request.method === 'DELETE' && url.pathname.startsWith('/api/storage/attachments/')) {
-    const attachmentId = url.pathname.split('/')[4];
-    if (attachmentId && !url.pathname.endsWith('/content')) {
-      sendJson(response, 200, {
-        data: await storage.deleteAttachment({ id: decodeURIComponent(attachmentId) })
-      });
-      return true;
-    }
+  const attachmentId = matchAttachmentRoute(url.pathname);
+  if (request.method === 'DELETE' && attachmentId !== null) {
+    sendJson(response, 200, {
+      data: await storage.deleteAttachment({ id: attachmentId })
+    });
+    return true;
   }
 
-  if (request.method === 'PATCH' && url.pathname.startsWith('/api/storage/attachments/')) {
-    const attachmentId = url.pathname.split('/')[4];
-    if (attachmentId && !url.pathname.endsWith('/content')) {
-      const body = await parseBody(request);
-      sendJson(response, 200, {
-        data: await storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
-      });
-      return true;
-    }
+  if (request.method === 'PATCH' && attachmentId !== null) {
+    const body = await parseBody(request);
+    sendJson(response, 200, {
+      data: await storage.updateAttachment({ id: attachmentId }, body)
+    });
+    return true;
   }
 
-  if (request.method === 'POST' && url.pathname.startsWith('/api/storage/attachments/') && url.pathname.endsWith('/rename')) {
-    const attachmentId = url.pathname.split('/')[4];
-    if (attachmentId) {
-      const body = await parseBody(request);
-      sendJson(response, 200, {
-        data: await storage.updateAttachment({ id: decodeURIComponent(attachmentId) }, body)
-      });
-      return true;
-    }
+  const renamedAttachmentId = matchAttachmentRoute(url.pathname, 'rename');
+  if (request.method === 'POST' && renamedAttachmentId !== null) {
+    const body = await parseBody(request);
+    sendJson(response, 200, {
+      data: await storage.updateAttachment({ id: renamedAttachmentId }, body)
+    });
+    return true;
   }
 
   if (request.method === 'POST' && url.pathname === '/api/storage/import') {
@@ -72,4 +70,36 @@ export async function handleStorageRoute({ request, response, url, storage }) {
   }
 
   return false;
+}
+
+function matchAttachmentRoute(pathname, trailingSegment = null) {
+  const segments = pathname.split('/');
+  const expectedLength = trailingSegment ? 6 : 5;
+  if (
+    segments.length !== expectedLength
+    || segments[0] !== ''
+    || segments[1] !== 'api'
+    || segments[2] !== 'storage'
+    || segments[3] !== 'attachments'
+    || !segments[4]
+    || (trailingSegment && segments[5] !== trailingSegment)
+  ) {
+    return null;
+  }
+
+  try {
+    const attachmentId = decodeURIComponent(segments[4]);
+    if (
+      !attachmentId
+      || attachmentId === '.'
+      || attachmentId === '..'
+      || attachmentId.includes('/')
+      || attachmentId.includes('\\')
+    ) {
+      return null;
+    }
+    return attachmentId;
+  } catch {
+    return null;
+  }
 }

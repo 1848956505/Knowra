@@ -25,6 +25,7 @@ export function buildCreateContentAnnotationDto(input = {}) {
   const dto = {
     spaceId: text(input.spaceId),
     noteId: text(input.noteId),
+    noteVersionId: text(input.noteVersionId) || null,
     quoteText: text(input.quoteText),
     headingPath: Array.isArray(input.headingPath) ? input.headingPath.map(text).filter(Boolean) : [],
     prefixText: text(input.prefixText),

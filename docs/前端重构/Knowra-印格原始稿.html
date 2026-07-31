@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知境 | ZhiJing Desktop</title>
+    <!-- 引入 Remix Icon 图标库 -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            /* 核心配色 */
+            --bg-color: #F9F7F2;       /* 暖白/纸感灰 */
+            --surface-color: #FFFFFF;   /* 纯白卡片 */
+            --border-color: #1A1A1A;    /* 深黑边框 */
+            --text-primary: #1A1A1A;    /* 主文字 */
+            --text-secondary: #666666;  /* 次级文字 */
+            --accent-blue: #2563EB;     /* 皇家蓝强调色 */
+            --accent-blue-hover: #1D4ED8;
+
+            /* 尺寸变量 */
+            --border-width: 2px;
+            --shadow-offset: 4px;
+            --sidebar-width: 260px;
+            --header-height: 60px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        /* --- 通用组件 (Neo-Brutalism) --- */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 13px;
+            border: var(--border-width) solid var(--border-color);
+            background: var(--surface-color);
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color);
+            color: var(--text-primary);
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translate(-1px, -1px);
+            box-shadow: calc(var(--shadow-offset) + 1px) calc(var(--shadow-offset) + 1px) 0px var(--border-color);
+        }
+
+        .btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 0px 0px 0px var(--border-color);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-blue-hover);
+            color: white;
+        }
+
+        .btn-icon-only {
+            padding: 8px;
+            width: 36px;
+            height: 36px;
+        }
+
+        .card {
+            background: var(--surface-color);
+            border: var(--border-width) solid var(--border-color);
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color);
+            padding: 24px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kbd {
+            font-family: "SF Mono", "Menlo", monospace;
+            font-size: 10px;
+            background: #EEE;
+            border: 1px solid #CCC;
+            border-radius: 3px;
+            padding: 2px 4px;
+            margin-left: auto;
+            color: #666;
+        }
+
+        /* --- 布局结构 --- */
+
+        /* 1. 顶部导航栏 */
+        header.top-bar {
+            height: var(--header-height);
+            border-bottom: var(--border-width) solid var(--border-color);
+            background: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: -0.5px;
+            cursor: pointer;
+            width: var(--sidebar-width); /* 与侧边栏对齐 */
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--border-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+            margin-right: 24px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .dot.red { background: #FF5F56; }
+        .dot.yellow { background: #FFBD2E; }
+        .dot.green { background: #27C93F; }
+
+        .search-container {
+            flex: 1;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px 8px 40px;
+            border: var(--border-width) solid var(--border-color);
+            background: var(--surface-color);
+            font-size: 13px;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.05);
+        }
+
+        .search-input:focus {
+            box-shadow: 3px 3px 0px var(--accent-blue);
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* 2. 主体区域 */
+        main.workspace {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 左侧侧边栏 */
+        aside.sidebar {
+            width: var(--sidebar-width);
+            border-right: var(--border-width) solid var(--border-color);
+            background: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+
+        .nav-group {
+            margin-bottom: 24px;
+        }
+
+        .nav-title {
+            padding: 0 24px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 24px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-primary);
+            border-left: 4px solid transparent;
+            transition: background 0.1s;
+            font-size: 13px;
+        }
+
+        .nav-item:hover {
+            background: rgba(0,0,0,0.03);
+        }
+
+        .nav-item.active {
+            background: white;
+            border-left: 4px solid var(--accent-blue);
+            font-weight: 700;
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            font-size: 16px;
+            width: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* 右侧内容区 */
+        section.content-area {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            background-image: radial-gradient(#D1D1D1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .welcome-header {
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .welcome-text h1 {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .welcome-text p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* 功能模块网格 */
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 强制3列，适合宽屏 */
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .module-card {
+            min-height: 180px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .module-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .module-icon-box {
+            font-size: 24px;
+            background: var(--bg-color);
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: var(--border-width) solid var(--border-color);
+            box-shadow: 3px 3px 0px var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .module-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .module-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        /* 最近文档列表 */
+        .recent-section {
+            background: var(--surface-color);
+            border: var(--border-width) solid var(--border-color);
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color);
+            padding: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #EEE;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .doc-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .doc-row {
+            border-bottom: 1px solid #EEE;
+            transition: background 0.1s;
+        }
+
+        .doc-row:last-child {
+            border-bottom: none;
+        }
+
+        .doc-row:hover {
+            background: #FAFAFA;
+        }
+
+        .doc-cell {
+            padding: 12px 8px;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .doc-name-cell {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .doc-icon {
+            color: var(--text-secondary);
+        }
+
+        .doc-meta {
+            color: var(--text-secondary);
+            font-family: "SF Mono", monospace;
+            font-size: 12px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid var(--border-color);
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--bg-color);
+        }
+
+        .tag.blue { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; }
+        .tag.green { background: #DCFCE7; border-color: #86EFAC; color: #15803D; }
+        .tag.purple { background: #F3E8FF; border-color: #D8B4FE; color: #7E22CE; }
+
+    </style>
+</head>
+<body>
+
+    <!-- 顶部导航 -->
+    <header class="top-bar">
+        <div class="logo-area">
+            <div class="logo-icon">
+                <i class="ri-brain-line"></i>
+            </div>
+            <span>知境 ZhiJing</span>
+        </div>
+
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <i class="ri-search-line search-icon"></i>
+                <input type="text" class="search-input" placeholder="搜索笔记、知识点或命令...">
+            </div>
+        </div>
+
+        <div class="user-actions">
+            <button class="btn btn-icon-only" title="通知">
+                <i class="ri-notification-3-line"></i>
+            </button>
+            <button class="btn btn-icon-only" title="设置">
+                <i class="ri-settings-4-line"></i>
+            </button>
+            <div style="width: 1px; height: 24px; background: #DDD; margin: 0 8px;"></div>
+            <button class="btn">
+                <i class="ri-user-smile-line"></i> 用户中心
+            </button>
+        </div>
+    </header>
+
+    <!-- 主体工作区 -->
+    <main class="workspace">
+
+        <!-- 左侧导航 -->
+        <aside class="sidebar">
+            <div class="nav-group">
+                <div class="nav-title">
+                    <span>工作台</span>
+                    <i class="ri-add-line" style="cursor: pointer;"></i>
+                </div>
+                <div class="nav-item active">
+                    <span class="nav-icon"><i class="ri-layout-grid-fill"></i></span>
+                    首页概览
+                    <span class="kbd">⌘1</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-checkbox-circle-line"></i></span>
+                    待办事项
+                    <span class="kbd">⌘2</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-calendar-line"></i></span>
+                    日历视图
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-title">
+                    <span>资料库</span>
+                    <i class="ri-arrow-down-s-line"></i>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-edit-line"></i></span>
+                    快速笔记
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-folder-open-line"></i></span>
+                    项目文档
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-book-mark-line"></i></span>
+                    阅读清单
+                </div>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-title">
+                    <span>知识库</span>
+                    <i class="ri-arrow-down-s-line"></i>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-node-tree"></i></span>
+                    知识图谱
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-links-line"></i></span>
+                    双向链接
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon"><i class="ri-price-tag-3-line"></i></span>
+                    标签管理
+                </div>
+            </div>
+
+            <div style="padding: 24px; margin-top: auto;">
+                <button class="btn btn-primary" style="width: 100%;">
+                    <i class="ri-add-line"></i> 新建空间
+                </button>
+            </div>
+        </aside>
+
+        <!-- 右侧内容 -->
+        <section class="content-area">
+
+            <div class="welcome-header">
+                <div class="welcome-text">
+                    <h1>早安，创造者。</h1>
+                    <p>今日已记录 3 条笔记，完成 2 项待办。保持专注。</p>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn">
+                        <i class="ri-calendar-event-line"></i> 日程
+                    </button>
+                    <button class="btn btn-primary">
+                        <i class="ri-pencil-line"></i> 新建笔记 <span class="kbd" style="background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); color: white; margin-left: 8px;">Ctrl+N</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 核心功能模块入口 -->
+            <div class="modules-grid">
+                <!-- 模块 1: Markdown 编辑器 -->
+                <div class="card module-card">
+                    <div class="module-header">
+                        <div class="module-icon-box">
+                            <i class="ri-markdown-line"></i>
+                        </div>
+                        <i class="ri-more-fill" style="color: #999; cursor: pointer;"></i>
+                    </div>
+                    <div class="module-title">沉浸式写作</div>
+                    <div class="module-desc">类 Typora 的即时渲染 Markdown 编辑器。支持数学公式、代码高亮与思维导图嵌入。</div>
+                    <div class="module-action">
+                        <button class="btn" style="font-size: 12px; padding: 4px 12px;">进入编辑器 &rarr;</button>
+                    </div>
+                </div>
+
+                <!-- 模块 2: 知识库 -->
+                <div class="card module-card">
+                    <div class="module-header">
+                        <div class="module-icon-box">
+                            <i class="ri-brain-line"></i>
+                        </div>
+                        <i class="ri-more-fill" style="color: #999; cursor: pointer;"></i>
+                    </div>
+                    <div class="module-title">双向链接知识库</div>
+                    <div class="module-desc">管理碎片化知识点，通过双向链接构建你的第二大脑。支持全局图谱可视化。</div>
+                    <div class="module-action">
+                        <button class="btn" style="font-size: 12px; padding: 4px 12px;">管理知识 &rarr;</button>
+                    </div>
+                </div>
+
+                <!-- 模块 3: 待办事项 -->
+                <div class="card module-card">
+                    <div class="module-header">
+                        <div class="module-icon-box">
+                            <i class="ri-list-check-2"></i>
+                        </div>
+                        <i class="ri-more-fill" style="color: #999; cursor: pointer;"></i>
+                    </div>
+                    <div class="module-title">GTD 待办清单</div>
+                    <div class="module-desc">轻量级任务管理。支持优先级标记、番茄钟集成与每日回顾。</div>
+                    <div class="module-action">
+                        <button class="btn" style="font-size: 12px; padding: 4px 12px;">处理任务 &rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近文档表格 -->
+            <div class="recent-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="ri-history-line"></i> 最近编辑
+                    </div>
+                    <button class="btn" style="font-size: 12px; padding: 4px 12px;">查看全部</button>
+                </div>
+
+                <table class="doc-table">
+                    <tbody>
+                        <tr class="doc-row">
+                            <td class="doc-cell doc-name-cell">
+                                <i class="ri-file-text-line doc-icon"></i>
+                                Q3 产品规划草案.md
+                            </td>
+                            <td class="doc-cell doc-meta">10分钟前</td>
+                            <td class="doc-cell"><span class="tag blue">工作</span></td>
+                        </tr>
+                        <tr class="doc-row">
+                            <td class="doc-cell doc-name-cell">
+                                <i class="ri-code-s-slash-line doc-icon"></i>
+                                React Hooks 最佳实践笔记
+                            </td>
+                            <td class="doc-cell doc-meta">2小时前</td>
+                            <td class="doc-cell"><span class="tag purple">技术</span></td>
+                        </tr>
+                        <tr class="doc-row">
+                            <td class="doc-cell doc-name-cell">
+                                <i class="ri-book-open-line doc-icon"></i>
+                                每周阅读：《深度工作》摘录
+                            </td>
+                            <td class="doc-cell doc-meta">昨天</td>
+                            <td class="doc-cell"><span class="tag green">阅读</span></td>
+                        </tr>
+                         <tr class="doc-row">
+                            <td class="doc-cell doc-name-cell">
+                                <i class="ri-bubble-chart-line doc-icon"></i>
+                                市场竞争分析报告 V2
+                            </td>
+                            <td class="doc-cell doc-meta">3天前</td>
+                            <td class="doc-cell"><span class="tag blue">战略</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </section>
+    </main>
+
+</body>
+</html>

@@ -164,10 +164,6 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
 
     const moduleButton = closestFromEventTarget(event.target, '[data-module-key]');
     if (!moduleButton?.dataset.moduleKey) return;
-    if (moduleButton.dataset.moduleKey === 'knowledge') {
-      void deps.returnToLibraryIndex({ global: false });
-      return;
-    }
-    deps.flashStatus('该模块将在后续版本接入，当前保留入口');
+    deps.selectWorkDomain?.(moduleButton.dataset.moduleKey);
   });
 }

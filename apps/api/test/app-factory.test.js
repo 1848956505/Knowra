@@ -44,11 +44,13 @@ export const appFactoryTests = [
           attachment.storagePath
         );
         assert.equal(fs.existsSync(attachmentPath), true);
+        assert.equal(app.dataStore.state.noteVersions.length, 1);
 
         app.http.knowledge.deleteNote({ id: note.id });
         app.http.knowledge.permanentlyDeleteNote({ id: note.id });
 
         assert.equal(app.dataStore.state.notes.length, 0);
+        assert.equal(app.dataStore.state.noteVersions.length, 0);
         assert.equal(app.dataStore.state.attachments.length, 0);
         assert.equal(app.dataStore.state.contentAnnotations.length, 0);
         assert.equal(fs.existsSync(attachmentPath), false);
@@ -60,8 +62,102 @@ export const appFactoryTests = [
           )
         );
         assert.equal(persisted.notes.length, 0);
+        assert.equal(persisted.noteVersions.length, 0);
         assert.equal(persisted.attachments.length, 0);
         assert.equal(persisted.contentAnnotations.length, 0);
+
+        const restarted = createPersistentAppContext({
+          storageRootDir: tempRoot,
+          ownerId: 'cascade-owner'
+        });
+        assert.equal(restarted.dataStore.state.notes.length, 0);
+        assert.equal(restarted.dataStore.state.noteVersions.length, 0);
+      } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'persistent recycle-bin cleanup preserves formal sources and atomically removes unreferenced note versions',
+    async run() {
+      const { createPersistentAppContext } = await import(
+        '../src/app.factory.js'
+      );
+      const tempRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'study-recycle-version-cleanup-')
+      );
+      const app = createPersistentAppContext({
+        storageRootDir: tempRoot,
+        ownerId: 'recycle-owner'
+      });
+
+      try {
+        const space = app.http.knowledge.createDefaultKnowledgeSpace({});
+        const protectedNote = app.http.knowledge.createNote({
+          id: 'note-protected-source',
+          title: 'Protected source',
+          rawMarkdown: 'formal source',
+          spaceId: space.id
+        });
+        const disposableNote = app.http.knowledge.createNote({
+          id: 'note-disposable-source',
+          title: 'Disposable source',
+          rawMarkdown: 'temporary source',
+          spaceId: space.id
+        });
+        const protectedVersion = app.http.knowledge.listNoteVersions({
+          id: protectedNote.id
+        })[0];
+        app.http.knowledge.createKnowledgeItem({
+          title: 'Protected knowledge',
+          canonicalStatement: 'Formal evidence must remain traceable.',
+          sourceMode: 'selection',
+          evidence: [{
+            sourceType: 'noteVersion',
+            noteVersionId: protectedVersion.id
+          }]
+        });
+
+        app.http.knowledge.deleteNote({ id: protectedNote.id });
+        app.http.knowledge.deleteNote({ id: disposableNote.id });
+
+        assert.throws(
+          () => app.http.knowledge.emptyRecycleBin({}),
+          (error) => error.code === 'NOTE_HAS_KNOWLEDGE_EVIDENCE'
+        );
+        assert.deepEqual(
+          app.dataStore.state.notes.map((note) => note.id).sort(),
+          [disposableNote.id, protectedNote.id].sort()
+        );
+        assert.equal(app.dataStore.state.noteVersions.length, 2);
+
+        app.http.knowledge.restoreNote({ id: protectedNote.id });
+        const result = app.http.knowledge.emptyRecycleBin({});
+        assert.deepEqual(result, {
+          deletedCount: 1,
+          noteIds: [disposableNote.id]
+        });
+        assert.deepEqual(
+          app.dataStore.state.notes.map((note) => note.id),
+          [protectedNote.id]
+        );
+        assert.deepEqual(
+          app.dataStore.state.noteVersions.map((version) => version.noteId),
+          [protectedNote.id]
+        );
+
+        const restarted = createPersistentAppContext({
+          storageRootDir: tempRoot,
+          ownerId: 'recycle-owner'
+        });
+        assert.deepEqual(
+          restarted.dataStore.state.notes.map((note) => note.id),
+          [protectedNote.id]
+        );
+        assert.deepEqual(
+          restarted.dataStore.state.noteVersions.map((version) => version.noteId),
+          [protectedNote.id]
+        );
       } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
       }

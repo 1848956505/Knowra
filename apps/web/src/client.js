@@ -23,13 +23,17 @@ const controllers = {
   navigationController: null,
   editorController: null,
   annotationController: null,
+  assessmentController: null,
   sidebarController: null,
   searchController: null,
   tagController: null,
   tabController: null,
   workspaceController: null,
   shellController: null,
-  scrollController: null
+  scrollController: null,
+  knowledgeWorkspaceController: null,
+  trainingWorkspaceController: null,
+  workDomainController: null
 };
 
 const actions = createControllerActionProxies(() => controllers);

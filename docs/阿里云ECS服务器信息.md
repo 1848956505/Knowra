@@ -155,6 +155,29 @@ curl --fail --head http://127.0.0.1:3000/
 
 当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；Milkdown bundle 由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
 
+附件完整性门禁：
+
+```bash
+# 当前 JSON 生产模式：只读检查，status=degraded 时先处理报告中的缺失/损坏文件
+npm run check:attachments -- \
+  --driver local-json \
+  --report "$backup_dir/attachments-check.json"
+```
+
+若切换到 PostgreSQL，必须额外备份数据库并在切换前后执行 PostgreSQL 检查；不能只备份 `storage/uploads/` 而遗漏数据库中的附件元数据：
+
+```bash
+# DATABASE_URL 应来自服务器受保护的环境文件，不要写入仓库
+pg_dump --format=custom --file="$backup_dir/knowra.dump" "$DATABASE_URL"
+npm run prisma:generate
+npm run prisma:migrate:deploy
+npm run check:attachments -- \
+  --driver postgres \
+  --report "$backup_dir/postgres-attachments-check.json"
+```
+
+`check:attachments` 默认只读；只有确认报告中的可修复项后才允许追加 `--repair`。报告出现 `ATTACHMENT_FILE_MISSING` 或 `ATTACHMENT_HASH_MISMATCH` 时，不得以 `--repair` 伪造文件完整性，也不得继续把该库宣称为可恢复状态。
+
 生产构建完成后必须确认以下文件不存在，避免浏览器额外下载约数 MB 的调试数据：
 
 ```bash
@@ -314,7 +337,16 @@ storage/data/knowledge-base.json
 ```text
 /opt/knowra-backups/<YYYYMMDD-HHMMSS>/
 ├── knowledge-base.json
-└── uploads.tar.gz
+├── uploads.tar.gz
+└── attachments-check.json
+```
+
+启用 PostgreSQL 的部署备份还应包含 `knowra.dump`。恢复时先停止 PM2，恢复数据库和附件目录，再运行完整性检查；检查未通过前不得重新开放写入：
+
+```bash
+pg_restore --clean --if-exists --dbname="$DATABASE_URL" "$backup_dir/knowra.dump"
+tar -C /opt/knowra/storage -xzf "$backup_dir/uploads.tar.gz"
+npm run check:attachments -- --driver postgres --report "$backup_dir/restore-check.json"
 ```
 
 每次正式部署前都必须新建一份备份，不复用旧备份目录。

@@ -1,12 +1,14 @@
 export function createNoteDeletionCoordinator({
   noteService,
   noteRepository,
+  noteVersionRepository,
   contentAnnotationRepository,
   attachmentStore,
   runTransaction = (operation) => operation()
 }) {
   function removeDependents(noteIds) {
     contentAnnotationRepository?.deleteByNoteIds?.(noteIds);
+    noteVersionRepository?.deleteByNoteIds?.(noteIds);
     return attachmentStore?.detachAttachmentsForNotes?.(noteIds) ?? [];
   }
 

@@ -1,5 +1,9 @@
 import { createAppError } from '../errors/app-error.js';
-import { sanitizeFileName } from './local-attachment-store-utils.js';
+import { ATTACHMENT_STATUS } from './attachment-status.js';
+import {
+  sanitizeFileName,
+  sha256Buffer
+} from './local-attachment-store-utils.js';
 
 const SAFE_ATTACHMENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
@@ -57,13 +61,22 @@ function prepareSnapshotItem(item, index, fileManager) {
 
   const content = decodeBase64(item.contentBase64, index);
   const fileName = sanitizeFileName(item.fileName);
+  const contentSha256 = sha256Buffer(content);
+  if (item.sha256 && item.sha256.toLowerCase() !== contentSha256) {
+    invalidAttachmentSnapshot(
+      `attachmentFiles[${index}].sha256 does not match content`
+    );
+  }
   return {
     id: item.id,
     noteId: item.noteId,
     fileName,
     mimeType: item.mimeType || 'application/octet-stream',
     size: content.byteLength,
+    sha256: contentSha256,
+    status: ATTACHMENT_STATUS.READY,
     storagePath: fileManager.buildStoragePath(item.id, fileName),
+    verifiedAt: item.verifiedAt || new Date().toISOString(),
     createdAt: item.createdAt || new Date().toISOString(),
     storageFileName: `${item.id}-${fileName}`,
     content

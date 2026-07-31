@@ -107,6 +107,11 @@ async function loadApiNoteSideData(noteId) {
     state.attachmentRenaming = null;
     state.annotations = sideData.annotations;
     state.annotationLoadState = 'loaded';
+    state.noteVersions = sideData.noteVersions ?? [];
+    state.knowledgeItems = sideData.knowledgeItems ?? [];
+    state.learningObjectives = sideData.learningObjectives ?? [];
+    state.questions = sideData.questions ?? [];
+    state.knowledgeDomainLoadState = sideData.knowledgeDomainLoadState ?? 'loaded';
     syncAnnotationMarkers();
     return true;
   } catch (error) {
@@ -210,7 +215,12 @@ function renderOutlineTab() {
 }
 
 function renderConceptsTab() {
-  return renderAnnotationPanel(state.annotations);
+  return renderAnnotationPanel(state.annotations, {
+    knowledgeItems: state.knowledgeItems,
+    noteVersions: state.noteVersions,
+    learningObjectives: state.learningObjectives,
+    questions: state.questions
+  });
 }
 
   return {

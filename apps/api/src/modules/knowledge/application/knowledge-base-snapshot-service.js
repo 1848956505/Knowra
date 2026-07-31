@@ -5,10 +5,12 @@ import {
   createEmptyLocalState
 } from '../../../infrastructure/local-data-schema.js';
 import { assertNoInsecureImageUrls } from './note-content-policy.js';
+import { assertSpacesOwnedBy } from '../../../infrastructure/owner-boundary.js';
 
 export function createKnowledgeBaseSnapshotService({
   dataStore,
   attachmentStore,
+  ownerId = 'demo',
   validateAttachmentNote = null
 }) {
   return {
@@ -45,6 +47,7 @@ export function createKnowledgeBaseSnapshotService({
     }
 
     const preparedSnapshot = dataStore.prepareImport(body);
+    assertSpacesOwnedBy(preparedSnapshot.data.spaces, ownerId);
     validateImportedNoteContent(preparedSnapshot.data.notes);
     const attachmentTransaction = prepareAttachmentImport(
       body,

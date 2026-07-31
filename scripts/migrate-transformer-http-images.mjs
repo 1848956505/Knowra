@@ -9,24 +9,32 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 const imageManifest = [
   {
-    sourceUrl: 'http://www.uml.org.cn/ai/images/2024102243.png',
+    sourceUrl: 'http://www.uml.org.cn/ai/images/2024102241.png',
     fileName: 'transformer-architecture-01.png'
   },
   {
-    sourceUrl: 'http://www.uml.org.cn/ai/images/20241022411.png',
+    sourceUrl: 'http://www.uml.org.cn/ai/images/2024102242.png',
     fileName: 'transformer-architecture-02.png'
   },
   {
-    sourceUrl: 'http://www.uml.org.cn/ai/images/20241022412.png',
+    sourceUrl: 'http://www.uml.org.cn/ai/images/2024102243.png',
     fileName: 'transformer-architecture-03.png'
   },
   {
-    sourceUrl: 'http://www.uml.org.cn/ai/images/20241022413.png',
+    sourceUrl: 'http://www.uml.org.cn/ai/images/2024102245.png',
     fileName: 'transformer-architecture-04.png'
   },
   {
-    sourceUrl: 'http://www.uml.org.cn/ai/images/2024102241.png',
+    sourceUrl: 'http://www.uml.org.cn/ai/images/20241022411.png',
     fileName: 'transformer-architecture-05.png'
+  },
+  {
+    sourceUrl: 'http://www.uml.org.cn/ai/images/20241022412.png',
+    fileName: 'transformer-architecture-06.png'
+  },
+  {
+    sourceUrl: 'http://www.uml.org.cn/ai/images/20241022413.png',
+    fileName: 'transformer-architecture-07.png'
   }
 ];
 
@@ -51,9 +59,9 @@ export async function migrateTransformerHttpImages({
     return { status: 'already-migrated', noteId, attachments: [] };
   }
 
-  if (matches.total !== imageManifest.length || matches.missing.length > 0) {
+  if (matches.missing.length > 0) {
     throw new Error(
-      `Expected ${imageManifest.length} external images, found ${matches.total}; `
+      `Expected all ${imageManifest.length} external image URLs, found ${matches.total} references; `
       + `missing: ${matches.missing.join(', ') || 'none'}`
     );
   }
@@ -70,7 +78,7 @@ export async function migrateTransformerHttpImages({
   }
 
   const createdAttachments = [];
-  let patchAttempted = false;
+  let patchSucceeded = false;
 
   try {
     let nextMarkdown = note.rawMarkdown;
@@ -96,7 +104,6 @@ export async function migrateTransformerHttpImages({
       );
     }
 
-    patchAttempted = true;
     await requestJson(
       new URL(`/api/knowledge/notes/${encodeURIComponent(noteId)}`, normalizedOrigin),
       {
@@ -104,6 +111,7 @@ export async function migrateTransformerHttpImages({
         body: { rawMarkdown: nextMarkdown }
       }
     );
+    patchSucceeded = true;
 
     const verifiedNote = await requestJson(
       new URL(`/api/knowledge/notes/${encodeURIComponent(noteId)}`, normalizedOrigin)
@@ -124,7 +132,7 @@ export async function migrateTransformerHttpImages({
     log(JSON.stringify(result, null, 2));
     return result;
   } catch (error) {
-    if (!patchAttempted) {
+    if (!patchSucceeded) {
       await cleanupAttachments(normalizedOrigin, createdAttachments, log);
     }
     throw error;

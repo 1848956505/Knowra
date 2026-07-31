@@ -28,6 +28,11 @@ export const noteDeletionCoordinatorTests = [
             return notes;
           }
         },
+        noteVersionRepository: {
+          deleteByNoteIds(noteIds) {
+            events.push(`delete-note-versions:${noteIds.join(',')}`);
+          }
+        },
         contentAnnotationRepository: {
           deleteByNoteIds(noteIds) {
             events.push(`delete-annotations:${noteIds.join(',')}`);
@@ -57,6 +62,7 @@ export const noteDeletionCoordinatorTests = [
         'transaction:start',
         'delete-note:note-1',
         'delete-annotations:note-1',
+        'delete-note-versions:note-1',
         'detach-attachments:note-1',
         'transaction:commit',
         'cleanup-files:attachment-1'

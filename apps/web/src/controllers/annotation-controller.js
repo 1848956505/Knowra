@@ -69,6 +69,97 @@ export function createAnnotationController({
     }
   }
 
+  async function createKnowledgeItemFromAnnotation(id) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) return false;
+    const annotation = state.annotations.find((item) => item.id === id);
+    if (!annotation || annotation.status === 'stale' || annotation.status === 'archived') {
+      flashStatus('该标注的原文位置已变化，请先重新定位后再生成知识候选');
+      return false;
+    }
+    try {
+      const result = await knowledgeApi.createKnowledgeItem({
+        title: annotation.quoteText.slice(0, 80),
+        canonicalStatement: annotation.quoteText,
+        sourceMode: 'annotation',
+        evidence: [{
+          sourceType: 'annotation',
+          annotationId: annotation.id,
+          noteId: annotation.noteId,
+          quoteText: annotation.quoteText,
+          headingPath: annotation.headingPath
+        }]
+      });
+      const item = result?.item
+        ? { ...result.item, evidenceStatus: 'valid', evidenceSummary: result.evidence ?? [] }
+        : result;
+      if (item?.id) {
+        state.knowledgeItems = [item, ...state.knowledgeItems.filter((candidate) => candidate.id !== item.id)];
+      }
+      renderSidebar(getCurrentNote());
+      flashStatus('已生成知识单元候选');
+      return item;
+    } catch (error) {
+      flashStatus(error.message || '生成知识候选失败');
+      return false;
+    }
+  }
+
+  async function confirmKnowledgeItem(id) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) return false;
+    try {
+      const item = await knowledgeApi.confirmKnowledgeItem(id);
+      state.knowledgeItems = replaceKnowledgeItem(state.knowledgeItems, item);
+      renderSidebar(getCurrentNote());
+      flashStatus('知识单元已确认');
+      return item;
+    } catch (error) {
+      flashStatus(error.message || '确认知识单元失败');
+      return false;
+    }
+  }
+
+  async function updateKnowledgeItem(id, input) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) return false;
+    try {
+      const item = await knowledgeApi.updateKnowledgeItem(id, input);
+      state.knowledgeItems = replaceKnowledgeItem(state.knowledgeItems, item);
+      renderSidebar(getCurrentNote());
+      flashStatus('知识单元已保存');
+      return item;
+    } catch (error) {
+      flashStatus(error.message || '保存知识单元失败');
+      return false;
+    }
+  }
+
+  async function archiveKnowledgeItem(id) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) return false;
+    try {
+      const item = await knowledgeApi.archiveKnowledgeItem(id);
+      state.knowledgeItems = replaceKnowledgeItem(state.knowledgeItems, item);
+      renderSidebar(getCurrentNote());
+      flashStatus('知识单元已归档');
+      return item;
+    } catch (error) {
+      flashStatus(error.message || '归档知识单元失败');
+      return false;
+    }
+  }
+
+  async function restoreKnowledgeItem(id) {
+    if (!guardWorkspaceWrite({ dataMode: state.dataMode, flashStatus })) return false;
+    try {
+      const item = await knowledgeApi.restoreKnowledgeItem(id);
+      state.knowledgeItems = replaceKnowledgeItem(state.knowledgeItems, item);
+      renderSidebar(getCurrentNote());
+      flashStatus('知识单元已恢复为候选');
+      return item;
+    } catch (error) {
+      flashStatus(error.message || '恢复知识单元失败');
+      return false;
+    }
+  }
+
   async function selectAnnotation(id) {
     state.focusedAnnotationId = id;
     const selected = await editorRuntime.currentEditorHost?.selectAnnotation(id);
@@ -87,8 +178,19 @@ export function createAnnotationController({
   return {
     createAnnotationFromCurrentSelection,
     deleteAnnotation,
+    createKnowledgeItemFromAnnotation,
+    updateKnowledgeItem,
+    confirmKnowledgeItem,
+    archiveKnowledgeItem,
+    restoreKnowledgeItem,
     selectAnnotation,
     focusAnnotationFromMarker,
     syncAnnotationMarkers
   };
+}
+
+function replaceKnowledgeItem(items, nextItem) {
+  return items.map((item) => item.id === nextItem?.id
+    ? { ...item, ...nextItem, evidenceSummary: nextItem.evidenceSummary ?? item.evidenceSummary }
+    : item);
 }

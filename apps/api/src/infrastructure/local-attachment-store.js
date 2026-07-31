@@ -6,10 +6,13 @@ import {
   createLocalAttachmentDeletionManager
 } from './local-attachment-deletion.js';
 import { createLocalAttachmentSnapshotStore } from './local-attachment-snapshot-store.js';
+import { ATTACHMENT_STATUS } from './attachment-status.js';
+import { reconcileAttachmentIntegrity } from './attachment-record-reconciliation.js';
+import { createLocalAttachmentUpload } from './local-attachment-upload.js';
 import {
-  createAttachmentId,
   moveFileSafely,
-  sanitizeFileName
+  sanitizeFileName,
+  sha256Buffer
 } from './local-attachment-store-utils.js';
 
 export function createLocalAttachmentStore({
@@ -36,7 +39,14 @@ export function createLocalAttachmentStore({
     let changed = false;
 
     dataStore.state.attachments.forEach((attachment) => {
-      if (fileManager.reconcileAttachmentRecord(attachment)) {
+      const recordReconciled = fileManager.reconcileAttachmentRecord(attachment);
+      const readablePath = fileManager.getAttachmentCandidatePaths(attachment)
+        .find((candidatePath) => fs.existsSync(candidatePath));
+      const integrityReconciled = reconcileAttachmentIntegrity(
+        attachment,
+        readablePath
+      );
+      if (recordReconciled || integrityReconciled) {
         changed = true;
       }
     });
@@ -47,57 +57,6 @@ export function createLocalAttachmentStore({
   }
 
   reconcileStoredAttachments();
-
-  function uploadAttachment({
-    noteId,
-    fileName,
-    mimeType = 'application/octet-stream',
-    contentBase64
-  }) {
-    if (!noteId?.trim()) {
-      throw new Error('Attachment noteId is required');
-    }
-    if (!fileName?.trim()) {
-      throw new Error('Attachment fileName is required');
-    }
-    if (!contentBase64?.trim()) {
-      throw new Error('Attachment contentBase64 is required');
-    }
-
-    const id = createAttachmentId();
-    const safeName = sanitizeFileName(fileName);
-    const buffer = Buffer.from(contentBase64, 'base64');
-    const storagePath = fileManager.buildStoragePath(id, safeName);
-    const absoluteFilePath = fileManager.resolveManagedAbsolutePath(
-      id,
-      safeName
-    );
-    fs.writeFileSync(absoluteFilePath, buffer);
-
-    const attachment = {
-      id,
-      noteId,
-      fileName: safeName,
-      mimeType,
-      size: buffer.byteLength,
-      storagePath,
-      createdAt: new Date().toISOString()
-    };
-
-    dataStore.state.attachments.push(attachment);
-    try {
-      flush();
-    } catch (error) {
-      dataStore.state.attachments.pop();
-      try {
-        fileManager.removeAttachmentFile(storagePath);
-      } catch (cleanupError) {
-        error.cleanupError = cleanupError;
-      }
-      throw error;
-    }
-    return attachment;
-  }
 
   function listAttachments({ noteId } = {}) {
     return dataStore.state.attachments
@@ -126,6 +85,24 @@ export function createLocalAttachmentStore({
       );
     }
 
+    if (attachment.status === ATTACHMENT_STATUS.CORRUPT) {
+      throw createAppError(
+        'ATTACHMENT_FILE_CORRUPT',
+        `Attachment file failed integrity check: ${attachmentId}`,
+        409
+      );
+    }
+    if (
+      attachment.status === ATTACHMENT_STATUS.PENDING
+      || attachment.status === ATTACHMENT_STATUS.FAILED
+    ) {
+      throw createAppError(
+        'ATTACHMENT_NOT_READY',
+        `Attachment is not ready: ${attachmentId}`,
+        409
+      );
+    }
+
     const readablePath = fileManager.resolveReadableAttachmentPath(attachment);
     if (!readablePath) {
       // Attachment record exists in the JSON store, but the file on disk is
@@ -138,9 +115,29 @@ export function createLocalAttachmentStore({
       );
     }
 
+    const content = fs.readFileSync(readablePath);
+    if (
+      attachment.sha256
+      && sha256Buffer(content) !== attachment.sha256.toLowerCase()
+    ) {
+      attachment.status = ATTACHMENT_STATUS.CORRUPT;
+      attachment.verifiedAt = null;
+      const corrupt = createAppError(
+        'ATTACHMENT_FILE_CORRUPT',
+        `Attachment file failed integrity check: ${attachmentId}`,
+        409
+      );
+      try {
+        flush();
+      } catch (statusError) {
+        corrupt.statusPersistError = statusError;
+      }
+      throw corrupt;
+    }
+
     return {
       attachment,
-      content: fs.readFileSync(readablePath)
+      content
     };
   }
 
@@ -172,6 +169,9 @@ export function createLocalAttachmentStore({
     const previousFileName = attachment.fileName;
     const previousStoragePath = attachment.storagePath;
     const previousSize = attachment.size;
+    const previousSha256 = attachment.sha256 ?? null;
+    const previousStatus = attachment.status ?? ATTACHMENT_STATUS.READY;
+    const previousVerifiedAt = attachment.verifiedAt ?? null;
     const fileMoved = Boolean(
       currentReadablePath
       && path.normalize(currentReadablePath) !== path.normalize(nextAbsolutePath)
@@ -186,12 +186,16 @@ export function createLocalAttachmentStore({
     if (fs.existsSync(nextAbsolutePath)) {
       attachment.size = fs.statSync(nextAbsolutePath).size;
     }
+    reconcileAttachmentIntegrity(attachment, nextAbsolutePath);
     try {
       flush();
     } catch (error) {
       attachment.fileName = previousFileName;
       attachment.storagePath = previousStoragePath;
       attachment.size = previousSize;
+      attachment.sha256 = previousSha256;
+      attachment.status = previousStatus;
+      attachment.verifiedAt = previousVerifiedAt;
       if (fileMoved && fs.existsSync(nextAbsolutePath)) {
         try {
           moveFileSafely(nextAbsolutePath, currentReadablePath);
@@ -217,7 +221,11 @@ export function createLocalAttachmentStore({
   });
 
   return {
-    uploadAttachment,
+    uploadAttachment: createLocalAttachmentUpload({
+      dataStore,
+      fileManager,
+      flush
+    }),
     listAttachments,
     getAttachment,
     readAttachmentContent,

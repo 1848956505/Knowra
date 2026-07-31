@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>印格 · 资料库索引页</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --ink-bg: #F9F7F2; --ink-surface: #FFFFFF; --ink-surface-sunken: #F4F1EA;
+            --ink-border: #1A1A1A; --ink-text: #1A1A1A; --ink-text-secondary: #666666;
+            --ink-dot-grid: #D1D1D1; --ink-accent: #2563EB; --ink-accent-hover: #1D4ED8; --ink-accent-bg: #E0F2FE;
+            --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626; --ink-line: #DDDDDD;
+            --ink-shadow-1: 2px 2px 0 var(--ink-border); --ink-shadow-2: 3px 3px 0 var(--ink-border);
+            --ink-shadow-3: 4px 4px 0 var(--ink-border); --ink-shadow-hero: 6px 6px 0 var(--ink-border);
+            --topbar-h: 60px; --sidebar-w: 232px; --catalog-w: 220px; --inspector-w: 232px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--ink-bg); color: var(--ink-text); font-size: 14px;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .mono { font-family: "SF Mono", Menlo, monospace; }
+
+        /* ===== 顶栏（与主页同步：搜索居中 + 用户中心 + 3px 图标） ===== */
+        .topbar { position: relative; height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; padding: 0 24px; border-bottom: 2px solid var(--ink-border); background: var(--ink-bg); z-index: 20; }
+        .brand { display: flex; align-items: center; gap: 12px; width: calc(var(--sidebar-w) - 24px); font-weight: 800; font-size: 17px; letter-spacing: -0.5px; cursor: pointer; }
+        .mark { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
+        .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; background: var(--ink-accent); }
+        .mark .mark-front { position: absolute; left: 0; top: 0; width: 28px; height: 28px; background: var(--ink-surface); border: 2px solid var(--ink-border); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .global-search { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, 42vw); }
+        .global-search .wrap { position: relative; width: 100%; }
+        .global-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-text-secondary); font-size: 16px; }
+        .global-search input { width: 100%; padding: 8px 12px 8px 40px; border: 2px solid var(--ink-border); background: var(--ink-surface); font-size: 13px; box-shadow: var(--ink-shadow-1); font-family: inherit; }
+        .global-search input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        .global-search .kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); border: 1px solid var(--ink-line); border-radius: 3px; padding: 1px 5px; }
+        .topbar-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+        .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-2); cursor: pointer; color: var(--ink-text); font-size: 16px; transition: all 0.1s; }
+        .icon-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-3); }
+        .icon-btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .topbar-sep { width: 1px; height: 24px; background: var(--ink-line); margin: 0 4px; }
+        .user-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; font-weight: 600; font-size: 13px; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-2); cursor: pointer; font-family: inherit; transition: all 0.1s; }
+        .user-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-3); }
+        .user-btn:active { transform: translate(2px,2px); box-shadow: none; }
+
+        /* ===== 主体多栏 ===== */
+        .shell { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        /* 侧栏（与主页完全一致：232px、5 组功能导航、底部新建空间、不含目录树） */
+        .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar-scroll { flex: 1; overflow-y: auto; padding: 16px 0; }
+        .nav-group { margin-bottom: 22px; }
+        .nav-group:last-child { margin-bottom: 8px; }
+        .nav-title { padding: 0 24px; font-size: 11px; text-transform: uppercase; color: var(--ink-text-secondary); font-weight: 800; margin-bottom: 8px; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+        .nav-title i { cursor: pointer; font-size: 14px; }
+        .nav-item { display: flex; align-items: center; padding: 8px 24px; cursor: pointer; font-weight: 500; color: var(--ink-text); border-left: 4px solid transparent; transition: background 0.1s; font-size: 13px; }
+        .nav-item:hover { background: var(--ink-surface-sunken); }
+        .nav-item.active { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 700; }
+        .nav-icon { margin-right: 12px; font-size: 16px; width: 16px; display: flex; align-items: center; }
+        .nav-kbd { margin-left: auto; font-family: "SF Mono", monospace; font-size: 10px; background: var(--ink-surface-sunken); border: 1px solid var(--ink-line); border-radius: 3px; padding: 2px 5px; color: var(--ink-text-secondary); }
+        .sidebar-foot { flex-shrink: 0; padding: 16px 24px; }
+        .btn-primary { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; font-weight: 700; font-size: 13px; border: 2px solid var(--ink-border); background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-2); cursor: pointer; font-family: inherit; transition: all 0.1s; }
+        .btn-primary:hover { background: var(--ink-accent-hover); transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-3); }
+        .btn-primary:active { transform: translate(2px,2px); box-shadow: none; }
+
+        /* 目录栏（方案 C：功能栏与目录栏物理分离，目录独立成一栏） */
+        .catalog { width: var(--catalog-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .catalog-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
+        .catalog-head i { cursor: pointer; font-size: 15px; }
+        .catalog-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 20px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
+        .tree-node:hover { background: var(--ink-surface-sunken); }
+        .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
+        .tree-node .twist { font-size: 14px; color: var(--ink-text-secondary); width: 14px; }
+        .tree-node .ico { font-size: 15px; color: var(--ink-text-secondary); }
+        .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 58px; }
+
+        /* 目录栏折叠：头部折叠按钮 + 侧栏右缘书签式展开钮 */
+        .catalog-head-actions { display: flex; align-items: center; gap: 10px; }
+        .catalog-head-actions i { cursor: pointer; font-size: 15px; }
+        .catalog-head-actions i:hover { color: var(--ink-accent); }
+        .shell.catalog-collapsed .catalog { display: none; }
+        .catalog-expand-tab { display: none; position: absolute; top: 8px; left: calc(var(--sidebar-w) - 2px); width: 26px; height: 30px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); border-left: none; box-shadow: var(--ink-shadow-1); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .catalog-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(2px); }
+        .shell.catalog-collapsed .catalog-expand-tab { display: flex; }
+
+        /* 检查器折叠：头部折叠按钮 + 右缘书签式展开钮（镜像目录栏） */
+        .shell.inspector-collapsed .inspector { display: none; }
+        .inspector-expand-tab { display: none; position: absolute; top: 8px; right: 0; width: 26px; height: 30px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); border-right: none; box-shadow: -2px 2px 0 var(--ink-border); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .inspector-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(-2px); }
+        .shell.inspector-collapsed .inspector-expand-tab { display: flex; }
+
+        /* 主区 */
+        .main { flex: 1; overflow-y: auto; padding: 40px 48px; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .page-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; gap: 24px; }
+        .page-head h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+        .page-head .sub { color: var(--ink-text-secondary); font-size: 13px; }
+        .page-head .sub .mono { font-size: 12px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; font-weight: 600; font-size: 13px; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); cursor: pointer; box-shadow: var(--ink-shadow-1); transition: all 0.1s; white-space: nowrap; font-family: inherit; }
+        .btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .btn.btn-accent { background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-2); }
+        .btn.btn-accent:hover { background: var(--ink-accent-hover); box-shadow: var(--ink-shadow-3); }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        /* 视图 Tab */
+        .view-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-border); margin-bottom: 20px; }
+        .view-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
+        .view-tab:hover { color: var(--ink-text); }
+        .view-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
+        .view-tab .count { font-family: "SF Mono", monospace; font-size: 11px; }
+
+        /* 过滤栏 */
+        .filter-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .select { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; user-select: none; }
+        .select .label { color: var(--ink-text-secondary); font-weight: 400; }
+        .select i { font-size: 14px; color: var(--ink-text-secondary); }
+        .local-search { margin-left: auto; position: relative; }
+        .local-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-text-secondary); font-size: 15px; }
+        .local-search input { width: 220px; padding: 7px 10px 7px 32px; border: 2px solid var(--ink-border); background: var(--ink-surface); font-size: 13px; box-shadow: var(--ink-shadow-1); font-family: inherit; }
+        .local-search input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+
+        /* 列表容器 Tier A（阴影随主页减一档 → 3px） */
+        .list-card { background: var(--ink-surface); border: 2px solid var(--ink-border); box-shadow: var(--ink-shadow-2); }
+        .list-row { display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--ink-line); cursor: pointer; transition: background 0.1s; }
+        .list-row:last-child { border-bottom: none; }
+        .list-row:hover { background: var(--ink-surface-sunken); }
+        /* 缩略图：新粗野主义方章（纸底 + 2px 黑边 + 黑图标），去掉旧蓝色填充 */
+        .doc-thumb { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; font-size: 20px; color: var(--ink-text); background: var(--ink-bg); border: 2px solid var(--ink-border); box-shadow: var(--ink-shadow-1); }
+        .list-main { flex: 1; min-width: 0; }
+        .list-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .list-title { font-size: 15px; font-weight: 700; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+        .badge::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .badge-warning { color: var(--ink-warning); } .badge-success { color: var(--ink-success); } .badge-muted { color: var(--ink-text-secondary); }
+        .badge .badge-text { color: var(--ink-text); font-weight: 500; }
+        .list-excerpt { font-size: 13px; color: var(--ink-text-secondary); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .list-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-text-secondary); }
+        /* 标签：分类色 1px 浅彩描边（还原原样式） */
+        .tag { display: inline-block; padding: 2px 8px; border: 1px solid var(--ink-border); font-size: 11px; font-weight: 600; background: var(--ink-bg); color: var(--ink-text); }
+        .tag-blue { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; }
+        .tag-green { background: #DCFCE7; border-color: #86EFAC; color: #15803D; }
+        .tag-purple { background: #F3E8FF; border-color: #D8B4FE; color: #7E22CE; }
+        .tag-muted { color: var(--ink-text-secondary); border-style: dashed; background: transparent; }
+        .list-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .list-right .time { font-family: "SF Mono", monospace; font-size: 12px; color: var(--ink-text-secondary); }
+        .list-right .open { color: var(--ink-accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+
+        /* 分页器 */
+        .pager { display: flex; align-items: center; gap: 10px; margin-top: 24px; font-size: 13px; color: var(--ink-text-secondary); }
+        .page-btn { min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; font-family: "SF Mono", monospace; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; }
+        .page-btn.active { background: var(--ink-accent); color: #fff; }
+        .pager .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+        /* 检查器：资料详情（纸底；去顶部预览白卡，直接列信息分区） */
+        .inspector { width: var(--inspector-w); flex-shrink: 0; border-left: 2px solid var(--ink-border); background: var(--ink-bg); overflow-y: auto; }
+        .inspector-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 2px solid var(--ink-border); font-weight: 700; font-size: 13px; position: sticky; top: 0; background: var(--ink-bg); z-index: 1; }
+        .inspector-head .grow { flex: 1; }
+        .inspector-head .insp-collapse { cursor: pointer; font-size: 15px; color: var(--ink-text-secondary); }
+        .inspector-head .insp-collapse:hover { color: var(--ink-accent); }
+        .insp-section { border-top: 1px solid var(--ink-line); }
+        .insp-section:first-of-type { border-top: none; }
+        .insp-section-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .insp-section-head:hover { background: var(--ink-surface-sunken); }
+        .insp-section-head i.lead { color: var(--ink-text-secondary); font-size: 15px; }
+        .insp-section-head .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .insp-section-head i.chev { color: var(--ink-text-secondary); font-size: 15px; }
+        .kv { display: grid; grid-template-columns: 68px 1fr; gap: 8px 12px; padding: 0 16px 16px; }
+        .kv .k { font-size: 11px; color: var(--ink-text-secondary); }
+        .kv .v { font-size: 13px; }
+        .att-list { display: grid; gap: 8px; padding: 0 16px 16px; }
+        .att-list .att { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .att-list .att i { color: var(--ink-text-secondary); }
+    </style>
+</head>
+<body>
+    <!-- ===== 顶栏 ===== -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark"><div class="mark-back"></div><div class="mark-front">知</div></div>
+            <span>知境 Knowra</span>
+        </div>
+        <!-- data-hook: global-search（全局 ⌘K；索引页另有过滤栏局部搜索） -->
+        <div class="global-search">
+            <div class="wrap">
+                <i class="ri-search-line"></i>
+                <input type="text" placeholder="搜索资料、笔记、标签或命令…">
+                <span class="kbd">⌘K</span>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <button class="icon-btn" title="通知"><i class="ri-notification-3-line"></i></button>
+            <button class="icon-btn" title="设置"><i class="ri-settings-4-line"></i></button>
+            <span class="topbar-sep"></span>
+            <!-- data-hook: user-center（占位） -->
+            <button class="user-btn"><i class="ri-user-smile-line"></i> 用户中心</button>
+        </div>
+    </header>
+
+    <div class="shell">
+        <!-- ===== 侧栏：与主页完全一致的功能导航（不含目录树） ===== -->
+        <aside class="sidebar">
+            <div class="sidebar-scroll">
+                <!-- 工作台：跨模块的通用功能 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>工作台</span><i class="ri-add-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-layout-grid-fill"></i></span> 首页概览 <span class="nav-kbd">⌘1</span></div>
+                    <div class="nav-item active"><span class="nav-icon"><i class="ri-stack-line"></i></span> 全部资料</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-star-line"></i></span> 收藏夹</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-delete-bin-6-line"></i></span> 回收站</div>
+                </div>
+
+                <!-- 资料库：唯一已就绪模块 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>资料库</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-quill-pen-line"></i></span> 快速笔记</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-folder-open-line"></i></span> 文件夹管理</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-price-tag-3-line"></i></span> 标签管理</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-attachment-2"></i></span> 附件库</div>
+                </div>
+
+                <!-- 知识库：占位 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>知识库</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-node-tree"></i></span> 知识图谱</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-lightbulb-flash-line"></i></span> 知识条目</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-links-line"></i></span> 双向链接</div>
+                </div>
+
+                <!-- 训练场：占位 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>训练场</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-file-list-3-line"></i></span> 题库</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-sword-line"></i></span> 练习计划</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-repeat-2-line"></i></span> 错题回顾</div>
+                </div>
+
+                <!-- 学习档案：占位 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>学习档案</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-line-chart-line"></i></span> 掌握度</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-rhythm-line"></i></span> 学习曲线</div>
+                </div>
+            </div>
+            <div class="sidebar-foot">
+                <button class="btn-primary"><i class="ri-add-line"></i> 新建空间</button>
+            </div>
+        </aside>
+
+        <!-- 书签式展开钮：折叠态时贴在侧栏右缘·工作台行 -->
+        <button class="catalog-expand-tab" title="展开目录栏" data-hook="catalog-expand"><i class="ri-menu-unfold-line"></i></button>
+        <!-- 书签式展开钮：折叠态时贴在检查器右缘·标题行 -->
+        <button class="inspector-expand-tab" title="展开详情栏" data-hook="inspector-expand"><i class="ri-menu-fold-line"></i></button>
+
+        <!-- ===== 目录栏：功能页专用，独立成一栏（方案 C） ===== -->
+        <aside class="catalog">
+            <div class="catalog-head"><span>资料 · 文件夹</span><span class="catalog-head-actions"><i class="ri-add-line" title="新建文件夹"></i><i class="ri-menu-fold-line" title="折叠目录栏" data-hook="catalog-collapse"></i></span></div>
+            <div class="catalog-scroll">
+                <!-- data-hook: folder-toggle / folder-select -->
+                <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
+                <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> test</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 多模态</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Vision Transformer</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> CLIP</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Transformer</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 学习方法</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 本项目</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 英语</div>
+            </div>
+        </aside>
+
+        <!-- ===== 主区 ===== -->
+        <main class="main">
+            <div class="page-head">
+                <div>
+                    <h1>资料库</h1>
+                    <div class="sub">浏览范围 <strong>test</strong> · 资料 2 · 文件夹 6 · 最近更新 <span class="mono">2026.07.29 01:04</span></div>
+                </div>
+                <button class="btn btn-accent"><i class="ri-add-line"></i> 新建资料</button>
+            </div>
+
+            <!-- 视图 Tab -->
+            <div class="view-tabs">
+                <div class="view-tab active">全部条目 <span class="count">17</span></div>
+                <div class="view-tab">最近 <span class="count">5</span></div>
+                <div class="view-tab">已收藏 <span class="count">0</span></div>
+                <div class="view-tab">回收站 <span class="count">0</span></div>
+            </div>
+
+            <!-- 过滤栏 -->
+            <div class="filter-bar">
+                <span class="select"><span class="label">类型</span> 全部 <i class="ri-arrow-down-s-line"></i></span>
+                <span class="select"><span class="label">状态</span> 全部 <i class="ri-arrow-down-s-line"></i></span>
+                <span class="select"><span class="label">时间</span> 最近编辑 <i class="ri-arrow-down-s-line"></i></span>
+                <!-- data-hook: local-filter-search -->
+                <div class="local-search"><i class="ri-search-line"></i><input type="text" placeholder="在当前范围内筛选…"></div>
+            </div>
+
+            <!-- 列表 -->
+            <div class="list-card">
+                <!-- data-hook: note-select / note-open -->
+                <div class="list-row">
+                    <div class="doc-thumb"><i class="ri-quill-pen-line"></i></div>
+                    <div class="list-main">
+                        <div class="list-title-row"><span class="list-title">test</span><span class="badge badge-warning"><span class="badge-text">待整理</span></span></div>
+                        <div class="list-excerpt">勾股定理 · 直角三角形两直角边平方和等于斜边平方…</div>
+                        <div class="list-meta"><span class="tag tag-muted">暂无标签</span><span>手动笔记</span></div>
+                    </div>
+                    <div class="list-right">
+                        <span class="time">2026.07.29 01:04</span>
+                        <span class="open">打开 <i class="ri-external-link-line"></i></span>
+                    </div>
+                </div>
+                <div class="list-row">
+                    <div class="doc-thumb"><i class="ri-quill-pen-line"></i></div>
+                    <div class="list-main">
+                        <div class="list-title-row"><span class="list-title">Test</span><span class="badge badge-warning"><span class="badge-text">待整理</span></span></div>
+                        <div class="list-excerpt">你好 · 这是一条用于验证保存链路的测试笔记…</div>
+                        <div class="list-meta"><span class="tag tag-muted">暂无标签</span><span>手动笔记</span></div>
+                    </div>
+                    <div class="list-right">
+                        <span class="time">2026.07.29 01:00</span>
+                        <span class="open">打开 <i class="ri-external-link-line"></i></span>
+                    </div>
+                </div>
+                <div class="list-row">
+                    <div class="doc-thumb"><i class="ri-file-text-line"></i></div>
+                    <div class="list-main">
+                        <div class="list-title-row"><span class="list-title">Vision Transformer 精读</span><span class="badge badge-success"><span class="badge-text">已确认</span></span></div>
+                        <div class="list-excerpt">ViT 将图像切分为 patch 序列并以纯 Transformer 编码…</div>
+                        <div class="list-meta"><span class="tag tag-blue">多模态</span><span>导入文档</span></div>
+                    </div>
+                    <div class="list-right">
+                        <span class="time">2026.07.28 22:10</span>
+                        <span class="open">打开 <i class="ri-external-link-line"></i></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分页器 -->
+            <div class="pager">
+                <span>第 1 / 1 页 · 共 2 条</span>
+                <span class="page-btn active">1</span>
+                <div class="right">
+                    <span>每页</span>
+                    <span class="page-btn active">5</span>
+                    <span class="page-btn">10</span>
+                    <span class="page-btn">20</span>
+                    <span class="page-btn">50</span>
+                    <span>条</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- ===== 检查器：资料详情 ===== -->
+        <aside class="inspector">
+            <div class="inspector-head">
+                <i class="ri-book-read-line"></i> 资料详情 <span class="grow"></span>
+                <button class="btn btn-sm"><i class="ri-external-link-line"></i> 打开</button>
+                <i class="insp-collapse ri-menu-unfold-line" title="折叠详情栏" data-hook="inspector-collapse"></i>
+            </div>
+            <div class="insp-section">
+                <div class="insp-section-head"><i class="lead ri-file-info-line"></i> 资料信息</div>
+                <div class="kv">
+                    <span class="k">类型</span><span class="v">Markdown 文档</span>
+                    <span class="k">所在位置</span><span class="v">资料 / test</span>
+                    <span class="k">字数</span><span class="v mono" style="font-size:12px;">8</span>
+                    <span class="k">最后编辑</span><span class="v mono" style="font-size:12px;">2026.07.29 01:04</span>
+                    <span class="k">收藏</span><span class="v">未收藏</span>
+                </div>
+            </div>
+            <div class="insp-section">
+                <div class="insp-section-head"><i class="lead ri-price-tag-3-line"></i> 标签 <span class="count">0</span><i class="chev ri-arrow-down-s-line"></i></div>
+            </div>
+            <div class="insp-section">
+                <div class="insp-section-head"><i class="lead ri-links-line"></i> 关联笔记 <span class="count">0</span><i class="chev ri-arrow-down-s-line"></i></div>
+            </div>
+            <div class="insp-section">
+                <div class="insp-section-head"><i class="lead ri-list-unordered"></i> 内容大纲 <span class="count">0</span><i class="chev ri-arrow-down-s-line"></i></div>
+            </div>
+            <div class="insp-section">
+                <div class="insp-section-head"><i class="lead ri-attachment-2"></i> 附件 <span class="count">4</span><i class="chev ri-arrow-up-s-line"></i></div>
+                <div class="att-list">
+                    <span class="att"><i class="ri-image-line"></i> image.png</span>
+                    <span class="att"><i class="ri-image-line"></i> image2.png</span>
+                    <span class="att"><i class="ri-image-line"></i> 你好.png</span>
+                    <span class="att"><i class="ri-attachment-2"></i> 附件 6ef77b…png</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <!-- 印格 InkGrid v2.1 · 批次9 索引页（目录栏 + 检查器均可折叠 · 检查器收窄至 232 · 去顶部预览白卡） · 2026-07-31 -->
+    <script>
+        (function () {
+            const shell = document.querySelector('.shell');
+            const bind = (hook, fn) => {
+                const el = document.querySelector('[data-hook="' + hook + '"]');
+                if (el) el.addEventListener('click', fn);
+            };
+            bind('catalog-collapse', () => shell.classList.add('catalog-collapsed'));
+            bind('catalog-expand', () => shell.classList.remove('catalog-collapsed'));
+            bind('inspector-collapse', () => shell.classList.add('inspector-collapsed'));
+            bind('inspector-expand', () => shell.classList.remove('inspector-collapsed'));
+        })();
+    </script>
+</body>
+</html>

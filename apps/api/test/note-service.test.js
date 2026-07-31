@@ -768,5 +768,33 @@ export const noteServiceTests = [
         });
       }, /same name already exists/i);
     }
+  },
+  {
+    name: 'updateNote rejects a stale expectedUpdatedAt concurrency token',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService();
+      const note = noteService.createNote({
+        id: 'note-stale-update',
+        title: 'Original',
+        rawMarkdown: 'original',
+        spaceId: 'space-1',
+        updatedAt: '2026-07-30T00:00:00.000Z'
+      });
+      noteService.updateNote(note.id, {
+        title: 'First update',
+        expectedUpdatedAt: note.updatedAt,
+        updatedAt: '2026-07-30T00:01:00.000Z'
+      });
+
+      assert.throws(
+        () => noteService.updateNote(note.id, {
+          title: 'Stale update',
+          expectedUpdatedAt: note.updatedAt
+        }),
+        (error) => error.code === 'NOTE_UPDATE_CONFLICT' && error.statusCode === 409
+      );
+      assert.equal(noteService.getNote(note.id).title, 'First update');
+    }
   }
 ];

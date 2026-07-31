@@ -74,6 +74,20 @@ export function buildCreateNoteDto(input = {}) {
 export function buildUpdateNoteDto(input = {}) {
   const dto = {};
 
+  if (input.expectedUpdatedAt !== undefined) {
+    const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+    if (
+      typeof input.expectedUpdatedAt !== 'string'
+      || Number.isNaN(expectedUpdatedAt.getTime())
+    ) {
+      throw validationError(
+        'NOTE_EXPECTED_UPDATED_AT_INVALID',
+        'Note expectedUpdatedAt is invalid'
+      );
+    }
+    dto.expectedUpdatedAt = expectedUpdatedAt.toISOString();
+  }
+
   if (input.title !== undefined) {
     if (typeof input.title !== 'string') {
       throw validationError('NOTE_TITLE_INVALID', 'Note title is invalid');

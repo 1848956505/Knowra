@@ -16,6 +16,7 @@ import { bindEditorContentEvents } from '../../lib/events/editor-content-events.
 import { bindDocumentTitleEvents } from '../../lib/events/document-title-events.js';
 import { bindAsideEvents } from '../../lib/events/aside-events/index.js';
 import { bindLibraryIndexEvents } from '../../lib/events/library-index-events.js';
+import { bindWorkDomainEvents } from '../../lib/events/work-domain-events.js';
 
 export function bindAppEvents({
   state,
@@ -27,13 +28,17 @@ export function bindAppEvents({
   const {
     editorController,
     annotationController,
+    assessmentController,
     navigationController,
     scrollController,
     searchController,
     shellController,
     sidebarController,
     tabController,
-    tagController
+    tagController,
+    knowledgeWorkspaceController,
+    trainingWorkspaceController,
+    workDomainController
   } = controllers;
   const pendingAttachmentJumpTimers = new Set();
 
@@ -131,6 +136,46 @@ export function bindAppEvents({
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
     persistDraft: (...args) => editorController.persistDraft(...args),
     returnToLibraryIndex: (...args) => navigationController.returnToLibraryIndex(...args),
+    selectWorkDomain: (...args) => workDomainController.selectWorkDomain(...args),
+    selectWorkDomainView: (...args) => workDomainController.selectView(...args),
+    retryWorkspace: (...args) => workDomainController.retry(...args),
+    selectKnowledgeItem: (...args) => knowledgeWorkspaceController.selectKnowledgeItem(...args),
+    selectLearningObjective: (...args) => knowledgeWorkspaceController.selectLearningObjective(...args),
+    selectReviewEntry: (...args) => knowledgeWorkspaceController.selectReviewEntry(...args),
+    requestKnowledgeItemRevision: (...args) => knowledgeWorkspaceController.requestKnowledgeItemRevision(...args),
+    requestLearningObjectiveRevision: (...args) => knowledgeWorkspaceController.requestLearningObjectiveRevision(...args),
+    createKnowledgeItem: (...args) => knowledgeWorkspaceController.createKnowledgeItem(...args),
+    updateKnowledgeItem: (...args) => knowledgeWorkspaceController.updateKnowledgeItem(...args),
+    confirmKnowledgeItem: (...args) => knowledgeWorkspaceController.confirmKnowledgeItem(...args),
+    archiveKnowledgeItem: (...args) => knowledgeWorkspaceController.archiveKnowledgeItem(...args),
+    restoreKnowledgeItem: (...args) => knowledgeWorkspaceController.restoreKnowledgeItem(...args),
+    createLearningObjective: (...args) => knowledgeWorkspaceController.createLearningObjective(...args),
+    updateLearningObjective: (...args) => knowledgeWorkspaceController.updateLearningObjective(...args),
+    confirmLearningObjective: (...args) => knowledgeWorkspaceController.confirmLearningObjective(...args),
+    archiveLearningObjective: (...args) => knowledgeWorkspaceController.archiveLearningObjective(...args),
+    restoreLearningObjective: (...args) => knowledgeWorkspaceController.restoreLearningObjective(...args),
+    openReviewEntry: (...args) => knowledgeWorkspaceController.openReviewEntry(...args),
+    openKnowledge: (...args) => workDomainController.openKnowledge(...args),
+    openTraining: (...args) => workDomainController.openTraining(...args),
+    selectQuestion: (...args) => trainingWorkspaceController.selectQuestion(...args),
+    selectProfile: (...args) => trainingWorkspaceController.selectProfile(...args),
+    createQuestion: (...args) => trainingWorkspaceController.createQuestion(...args),
+    updateQuestion: (...args) => trainingWorkspaceController.updateQuestion(...args),
+    addQuestionSource: (...args) => trainingWorkspaceController.addQuestionSource(...args),
+    removeQuestionSource: (...args) => trainingWorkspaceController.removeQuestionSource(...args),
+    validateQuestion: (...args) => trainingWorkspaceController.validateQuestion(...args),
+    submitQuestion: (...args) => trainingWorkspaceController.submitQuestion(...args),
+    confirmQuestion: (...args) => trainingWorkspaceController.confirmQuestion(...args),
+    archiveQuestion: (...args) => trainingWorkspaceController.archiveQuestion(...args),
+    restoreQuestion: (...args) => trainingWorkspaceController.restoreQuestion(...args),
+    createProfile: (...args) => trainingWorkspaceController.createProfile(...args),
+    updateProfile: (...args) => trainingWorkspaceController.updateProfile(...args),
+    archiveProfile: (...args) => trainingWorkspaceController.archiveProfile(...args),
+    restoreProfile: (...args) => trainingWorkspaceController.restoreProfile(...args),
+    createFocus: (...args) => trainingWorkspaceController.createFocus(...args),
+    confirmFocus: (...args) => trainingWorkspaceController.confirmFocus(...args),
+    archiveFocus: (...args) => trainingWorkspaceController.archiveFocus(...args),
+    restoreFocus: (...args) => trainingWorkspaceController.restoreFocus(...args),
     restoreNote: (...args) => navigationController.restoreNote(...args),
 
     renderSidebar: (...args) => sidebarController.renderSidebar(...args),
@@ -153,6 +198,7 @@ export function bindAppEvents({
       tagInput?.setSelectionRange?.(draft.length, draft.length);
     },
     deleteAnnotation: (...args) => annotationController.deleteAnnotation(...args),
+    createKnowledgeItemFromAnnotation: (...args) => annotationController.createKnowledgeItemFromAnnotation(...args),
     selectAnnotation: (...args) => annotationController.selectAnnotation(...args),
     findOutlineHeadingTarget: (...args) => sidebarController.findOutlineHeadingTarget(...args),
     toggleOutlineHeading: (...args) => sidebarController.toggleOutlineHeading(...args),
@@ -175,4 +221,5 @@ export function bindAppEvents({
   bindEditorContentEvents({ state, elements, deps });
   bindAsideEvents({ state, elements, deps });
   bindLibraryIndexEvents({ state, elements, deps });
+  bindWorkDomainEvents({ state, elements, deps });
 }

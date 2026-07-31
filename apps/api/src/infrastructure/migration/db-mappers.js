@@ -74,6 +74,7 @@ export function dbAnnotation(annotation) {
     id: annotation.id,
     spaceId: annotation.spaceId,
     noteId: annotation.noteId,
+    noteVersionId: annotation.noteVersionId ?? null,
     kind: annotation.kind,
     sourceMode: annotation.sourceMode,
     quoteText: annotation.quoteText,
@@ -92,6 +93,142 @@ export function dbAnnotation(annotation) {
   };
 }
 
+export function dbNoteVersion(version) {
+  return {
+    id: version.id,
+    noteId: version.noteId,
+    content: version.content,
+    contentHash: version.contentHash,
+    createdAt: new Date(version.createdAt),
+    createdBy: version.createdBy
+  };
+}
+
+export function dbKnowledgeItem(item) {
+  return {
+    id: item.id,
+    title: item.title ?? '',
+    canonicalStatement: item.canonicalStatement ?? '',
+    userExplanation: item.userExplanation ?? '',
+    knowledgeType: item.knowledgeType ?? 'concept',
+    importance: item.importance === null || item.importance === undefined ? null : Number(item.importance),
+    reviewStatus: item.reviewStatus ?? 'candidate',
+    sourceMode: item.sourceMode ?? 'manual',
+    createdAt: new Date(item.createdAt),
+    updatedAt: new Date(item.updatedAt),
+    deletedAt: item.deletedAt ? new Date(item.deletedAt) : null
+  };
+}
+
+export function dbKnowledgeEvidence(evidence) {
+  return {
+    id: evidence.id,
+    knowledgeItemId: evidence.knowledgeItemId,
+    sourceType: evidence.sourceType,
+    sourceId: evidence.sourceId ?? null,
+    noteId: evidence.noteId ?? null,
+    noteVersionId: evidence.noteVersionId ?? null,
+    annotationId: evidence.annotationId ?? null,
+    quoteText: evidence.quoteText ?? '',
+    headingPath: evidence.headingPath ?? [],
+    relationType: evidence.relationType ?? 'supports',
+    status: evidence.status ?? 'valid',
+    createdAt: new Date(evidence.createdAt),
+    updatedAt: new Date(evidence.updatedAt)
+  };
+}
+
+export function dbLearningObjective(objective) {
+  return {
+    id: objective.id,
+    knowledgeItemId: objective.knowledgeItemId,
+    objective: objective.objective,
+    actionVerb: objective.actionVerb,
+    cognitiveLevel: objective.cognitiveLevel,
+    difficultyHint: objective.difficultyHint ?? null,
+    reviewStatus: objective.reviewStatus ?? 'candidate',
+    reviewNote: objective.reviewNote ?? null,
+    order: objective.order ?? 0,
+    createdAt: new Date(objective.createdAt),
+    updatedAt: new Date(objective.updatedAt)
+  };
+}
+
+export function dbExamProfile(profile) {
+  return {
+    id: profile.id,
+    name: profile.name,
+    description: profile.description ?? '',
+    scope: profile.scope ?? [],
+    language: profile.language ?? 'zh-CN',
+    commonQuestionTypes: profile.commonQuestionTypes ?? [],
+    difficultyProfile: profile.difficultyProfile ?? {},
+    archivedAt: profile.archivedAt ? new Date(profile.archivedAt) : null,
+    createdAt: new Date(profile.createdAt),
+    updatedAt: new Date(profile.updatedAt)
+  };
+}
+
+export function dbExamFocus(focus) {
+  return {
+    id: focus.id,
+    examProfileId: focus.examProfileId,
+    learningObjectiveId: focus.learningObjectiveId,
+    description: focus.description ?? '',
+    priority: focus.priority ?? 1,
+    difficultyHint: focus.difficultyHint ?? null,
+    questionTypeSuggestions: focus.questionTypeSuggestions ?? [],
+    sourceType: focus.sourceType ?? 'manual',
+    reviewStatus: focus.reviewStatus ?? 'candidate',
+    createdAt: new Date(focus.createdAt),
+    updatedAt: new Date(focus.updatedAt)
+  };
+}
+
+export function dbQuestion(question) {
+  return {
+    id: question.id,
+    questionType: question.questionType,
+    stem: question.stem ?? '',
+    options: question.options ?? null,
+    referenceAnswer: question.referenceAnswer ?? null,
+    rubric: question.rubric ?? null,
+    explanation: question.explanation ?? '',
+    difficulty: question.difficulty ?? null,
+    reviewStatus: question.reviewStatus ?? 'draft',
+    sourceMode: question.sourceMode ?? 'manual',
+    version: question.version ?? 1,
+    createdAt: new Date(question.createdAt),
+    updatedAt: new Date(question.updatedAt)
+  };
+}
+
+export function dbQuestionObjective(relation) {
+  return {
+    id: relation.id,
+    questionId: relation.questionId,
+    learningObjectiveId: relation.learningObjectiveId,
+    isPrimary: Boolean(relation.isPrimary),
+    order: relation.order ?? 0,
+    createdAt: new Date(relation.createdAt)
+  };
+}
+
+export function dbQuestionSource(source) {
+  return {
+    id: source.id,
+    questionId: source.questionId,
+    sourceType: source.sourceType,
+    sourceId: source.sourceId ?? null,
+    quote: source.quote ?? '',
+    locator: source.locator ?? null,
+    contentHash: source.contentHash ?? null,
+    status: source.status ?? 'active',
+    createdAt: new Date(source.createdAt),
+    updatedAt: new Date(source.updatedAt)
+  };
+}
+
 export function dbAttachment(attachment) {
   return {
     id: attachment.id,
@@ -99,7 +236,10 @@ export function dbAttachment(attachment) {
     fileName: attachment.fileName,
     mimeType: attachment.mimeType,
     size: attachment.size,
+    sha256: attachment.sha256 ?? null,
+    status: attachment.status ?? 'ready',
     storagePath: attachment.storagePath,
+    verifiedAt: attachment.verifiedAt ? new Date(attachment.verifiedAt) : null,
     createdAt: new Date(attachment.createdAt)
   };
 }

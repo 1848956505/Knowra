@@ -11,7 +11,12 @@ import { createAsyncNoteAssociationOperations } from './note-association-operati
 export function createAsyncNoteService({
   repository,
   validateSiblingNameConflict = null,
-  validateNoteReferences = null
+  validateNoteReferences = null,
+  noteVersionService = null,
+  runTransaction = (operation) => operation(),
+  onNoteContentChanged = null,
+  onNoteDeleted = null,
+  onBeforePermanentDelete = null
 } = {}) {
   if (!repository) throw new TypeError('Async note service requires a repository');
 
@@ -38,6 +43,26 @@ export function createAsyncNoteService({
     });
   }
 
+  async function persistNote(note, {
+    createVersion = false,
+    expectedUpdatedAt = null
+  } = {}) {
+    return runTransaction(async ({
+      noteRepository: transactionNoteRepository = repository,
+      noteVersionService: transactionNoteVersionService = noteVersionService,
+      onNoteContentChanged: transactionOnNoteContentChanged = onNoteContentChanged
+    } = {}) => {
+      const saved = await transactionNoteRepository.save(note, {
+        expectedUpdatedAt
+      });
+      if (createVersion && transactionNoteVersionService) {
+        const version = await transactionNoteVersionService.ensureForNote(saved);
+        await transactionOnNoteContentChanged?.(saved, version);
+      }
+      return saved;
+    });
+  }
+
   async function createNote(input) {
     const dto = buildCreateNoteDto(input);
     if (await repository.findById(dto.id)) {
@@ -50,12 +75,21 @@ export function createAsyncNoteService({
       title: dto.title,
       currentNoteId: null
     });
-    return repository.save(new Note(dto));
+    return persistNote(new Note(dto), { createVersion: true });
   }
 
   async function updateNote(noteId, updates) {
     const currentNote = await requireNote(noteId, { includeDeleted: true });
     const dto = buildUpdateNoteDto(updates);
+    if (
+      dto.expectedUpdatedAt
+      && dto.expectedUpdatedAt !== new Date(currentNote.updatedAt).toISOString()
+    ) {
+      throw conflictError(
+        'NOTE_UPDATE_CONFLICT',
+        'Note has changed since it was loaded'
+      );
+    }
     const nextFolderId = Object.hasOwn(dto, 'folderId') ? dto.folderId : currentNote.folderId;
     const nextNote = {
       spaceId: dto.spaceId ?? currentNote.spaceId,
@@ -69,7 +103,7 @@ export function createAsyncNoteService({
       title: dto.title ?? currentNote.title,
       currentNoteId: currentNote.id
     });
-    return repository.save(new Note({
+    return persistNote(new Note({
       ...currentNote,
       ...dto,
       id: currentNote.id,
@@ -83,17 +117,30 @@ export function createAsyncNoteService({
       contentHash: dto.rawMarkdown !== undefined ? null : currentNote.contentHash,
       createdAt: currentNote.createdAt,
       updatedAt: dto.updatedAt ?? new Date().toISOString()
-    }));
+    }), {
+      createVersion: dto.rawMarkdown !== undefined
+        && dto.rawMarkdown !== currentNote.rawMarkdown,
+      expectedUpdatedAt: currentNote.updatedAt
+    });
   }
 
   async function saveDeletedState(noteId, deleted) {
     const currentNote = await requireNote(noteId, { includeDeleted: true });
-    return repository.save(new Note({
-      ...currentNote,
-      deleted,
-      createdAt: currentNote.createdAt,
-      updatedAt: new Date().toISOString()
-    }));
+    return runTransaction(async ({
+      noteRepository: transactionNoteRepository = repository,
+      onNoteDeleted: transactionOnNoteDeleted = onNoteDeleted
+    } = {}) => {
+      const saved = await transactionNoteRepository.save(new Note({
+        ...currentNote,
+        deleted,
+        createdAt: currentNote.createdAt,
+        updatedAt: new Date().toISOString()
+      }), {
+        expectedUpdatedAt: currentNote.updatedAt
+      });
+      if (deleted) await transactionOnNoteDeleted?.(saved.id);
+      return saved;
+    });
   }
 
   const service = {
@@ -123,19 +170,48 @@ export function createAsyncNoteService({
     },
     restoreNote(noteId) { return saveDeletedState(noteId, false); },
     async permanentlyDeleteNote(noteId) {
-      const currentNote = await requireNote(noteId, { includeDeleted: true });
-      if (!currentNote.deleted) {
-        throw conflictError('NOTE_NOT_IN_RECYCLE_BIN', 'Note must be in recycle bin before permanent delete');
-      }
-      const deletedNote = await repository.delete(noteId);
-      if (!deletedNote) throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
-      return deletedNote;
+      return runTransaction(async ({
+        noteRepository: transactionNoteRepository = repository,
+        onBeforePermanentDelete: transactionBeforePermanentDelete = onBeforePermanentDelete
+      } = {}) => {
+        const currentNote = await transactionNoteRepository.findById(noteId);
+        if (!currentNote) {
+          throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
+        }
+        if (!currentNote.deleted) {
+          throw conflictError('NOTE_NOT_IN_RECYCLE_BIN', 'Note must be in recycle bin before permanent delete');
+        }
+        await transactionBeforePermanentDelete?.(currentNote.id);
+        const deletedNote = await transactionNoteRepository.delete(noteId);
+        if (!deletedNote) throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
+        return deletedNote;
+      });
     },
     async emptyRecycleBin(spaceId = null) {
-      const deletedNotes = await repository.deleteWhere((note) => (
-        note.deleted && (spaceId ? note.spaceId === spaceId : true)
-      ));
-      return { deletedCount: deletedNotes.length, noteIds: deletedNotes.map((note) => note.id) };
+      return runTransaction(async ({
+        noteRepository: transactionNoteRepository = repository,
+        onBeforePermanentDelete: transactionBeforePermanentDelete = onBeforePermanentDelete,
+        onNoteDeleted: transactionOnNoteDeleted = onNoteDeleted
+      } = {}) => {
+        const candidates = (await transactionNoteRepository.list({
+          includeDeleted: true,
+          spaceId
+        })).filter((note) => note.deleted);
+        for (const note of candidates) {
+          await transactionBeforePermanentDelete?.(note.id);
+        }
+        const candidateIds = new Set(candidates.map((note) => note.id));
+        const deletedNotes = await transactionNoteRepository.deleteWhere((note) => (
+          candidateIds.has(note.id)
+        ));
+        await Promise.all(
+          deletedNotes.map((note) => transactionOnNoteDeleted?.(note.id))
+        );
+        return {
+          deletedCount: deletedNotes.length,
+          noteIds: deletedNotes.map((note) => note.id)
+        };
+      });
     },
     async setFavorite(noteId, favorite = true) {
       const currentNote = await requireNote(noteId, { includeDeleted: true });
@@ -144,7 +220,9 @@ export function createAsyncNoteService({
         favorite: Boolean(favorite),
         createdAt: currentNote.createdAt,
         updatedAt: new Date().toISOString()
-      }));
+      }), {
+        expectedUpdatedAt: currentNote.updatedAt
+      });
     },
     async listNotes(options = {}) {
       const notes = await repository.list(options);

@@ -12,8 +12,23 @@ import { createNoteAssociationOperations } from './note-association-operations.j
 export function createNoteService({
   repository = createInMemoryNoteRepository(),
   validateSiblingNameConflict = null,
-  validateNoteReferences = null
+  validateNoteReferences = null,
+  noteVersionService = null,
+  runTransaction = (operation) => operation(),
+  onNoteContentChanged = null,
+  onNoteDeleted = null,
+  onBeforePermanentDelete = null
 } = {}) {
+  function persistNote(note, { createVersion = false } = {}) {
+    return runTransaction(() => {
+      const saved = repository.save(note);
+      if (createVersion && noteVersionService) {
+        const version = noteVersionService.ensureForNote(saved);
+        onNoteContentChanged?.(saved, version);
+      }
+      return saved;
+    });
+  }
   function requireNote(noteId, options = {}) {
     const note = repository.findById(noteId);
 
@@ -53,6 +68,10 @@ export function createNoteService({
     });
   }
 
+  function assertPermanentDeletionAllowed(noteIds) {
+    noteIds.forEach((noteId) => onBeforePermanentDelete?.(noteId));
+  }
+
   const associationOperations = createNoteAssociationOperations({
     repository,
     requireNote,
@@ -72,8 +91,7 @@ export function createNoteService({
         currentNoteId: null
       });
       const note = new Note(dto);
-      repository.save(note);
-      return note;
+      return persistNote(note, { createVersion: true });
     },
     importMarkdown(input) {
       return this.createNote({
@@ -103,6 +121,15 @@ export function createNoteService({
     updateNote(noteId, updates) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
       const dto = buildUpdateNoteDto(updates);
+      if (
+        dto.expectedUpdatedAt
+        && dto.expectedUpdatedAt !== new Date(currentNote.updatedAt).toISOString()
+      ) {
+        throw conflictError(
+          'NOTE_UPDATE_CONFLICT',
+          'Note has changed since it was loaded'
+        );
+      }
       const nextFolderId = Object.prototype.hasOwnProperty.call(dto, 'folderId')
         ? dto.folderId
         : currentNote.folderId;
@@ -134,8 +161,10 @@ export function createNoteService({
         updatedAt: dto.updatedAt ?? new Date().toISOString()
       });
 
-      repository.save(updatedNote);
-      return updatedNote;
+      return persistNote(updatedNote, {
+        createVersion: dto.rawMarkdown !== undefined
+          && dto.rawMarkdown !== currentNote.rawMarkdown
+      });
     },
     deleteNote(noteId) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
@@ -146,8 +175,11 @@ export function createNoteService({
         updatedAt: new Date().toISOString()
       });
 
-      repository.save(deletedNote);
-      return deletedNote;
+      return runTransaction(() => {
+        const saved = repository.save(deletedNote);
+        onNoteDeleted?.(saved.id);
+        return saved;
+      });
     },
     deleteNotes(noteIds) {
       const validatedIds = requireNoteIds(noteIds);
@@ -175,22 +207,32 @@ export function createNoteService({
         );
       }
 
-      const deletedNote = repository.delete(noteId);
-      if (!deletedNote) {
-        throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
-      }
-
-      return deletedNote;
+      return runTransaction(() => {
+        assertPermanentDeletionAllowed([currentNote.id]);
+        const deletedNote = repository.delete(noteId);
+        if (!deletedNote) {
+          throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
+        }
+        return deletedNote;
+      });
     },
     emptyRecycleBin(spaceId = null) {
-      const deletedNotes = repository.deleteWhere((note) => (
-        note.deleted && (spaceId ? note.spaceId === spaceId : true)
-      ));
+      return runTransaction(() => {
+        const recycleBinNotes = repository
+          .list({ includeDeleted: true, spaceId })
+          .filter((note) => note.deleted);
+        assertPermanentDeletionAllowed(recycleBinNotes.map((note) => note.id));
 
-      return {
-        deletedCount: deletedNotes.length,
-        noteIds: deletedNotes.map((note) => note.id)
-      };
+        const deletedNotes = repository.deleteWhere((note) => (
+          note.deleted && (spaceId ? note.spaceId === spaceId : true)
+        ));
+        deletedNotes.forEach((note) => onNoteDeleted?.(note.id));
+
+        return {
+          deletedCount: deletedNotes.length,
+          noteIds: deletedNotes.map((note) => note.id)
+        };
+      });
     },
     setFavorite(noteId, favorite = true) {
       const currentNote = requireNote(noteId, { includeDeleted: true });

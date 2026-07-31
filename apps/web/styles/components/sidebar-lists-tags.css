@@ -105,6 +105,18 @@
   color: var(--color-accent-strong);
 }
 
+.resource-badge[data-attachment-status='missing'],
+.resource-badge[data-attachment-status='corrupt'],
+.resource-badge[data-attachment-status='failed'] {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--color-danger);
+}
+
+.resource-badge[data-attachment-status='pending'] {
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--color-warning);
+}
+
 .resource-inline-action {
   flex: 0 0 auto;
   min-height: 28px;
@@ -246,6 +258,80 @@
   gap: 8px;
 }
 
+.learning-objective-panel,
+.learning-objective-card,
+.question-card {
+  display: grid;
+  gap: 8px;
+}
+
+.learning-objective-panel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.learning-objective-panel .concepts-section-heading {
+  margin-bottom: 0;
+}
+
+.learning-objective-panel .concepts-section-heading button,
+.learning-objective-card button,
+.question-card button {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.learning-objective-card {
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.learning-objective-fields {
+  display: grid;
+  gap: 6px;
+}
+
+.learning-objective-fields label,
+.question-card label {
+  display: grid;
+  gap: 4px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.learning-objective-fields select,
+.learning-objective-fields input,
+.question-card textarea {
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
+}
+
+.question-card {
+  padding: 8px;
+  border-left: 2px solid var(--color-accent-soft);
+  background: rgba(60, 104, 255, 0.04);
+}
+
+.question-card header,
+.knowledge-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.question-card header small,
+[data-learning-objective-status],
+[data-question-status] {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
 .note-tag-input-shell input {
   flex: 1;
   min-width: 0;
@@ -275,3 +361,228 @@
 }
 
 .annotation-panel {
+  padding-top: 4px;
+}
+
+.concepts-panel,
+.knowledge-item-panel,
+.note-version-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.concepts-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.concepts-section-heading span,
+.knowledge-item-meta small,
+.note-version-row {
+  color: var(--color-text-soft);
+  font-size: 11px;
+}
+
+.annotation-card,
+.knowledge-item-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.annotation-card p,
+.knowledge-item-card p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.annotation-card-actions,
+.knowledge-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.annotation-card button,
+.knowledge-item-card button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.annotation-card button:hover,
+.knowledge-item-card button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.annotation-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.knowledge-item-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.knowledge-item-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.knowledge-item-editor label {
+  display: grid;
+  gap: 4px;
+  color: var(--color-text-soft);
+  font-size: 10px;
+}
+
+.knowledge-item-editor input,
+.knowledge-item-editor textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.knowledge-source-summary {
+  display: grid;
+  gap: 4px;
+  color: var(--color-text-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.knowledge-source-summary span {
+  overflow-wrap: anywhere;
+}
+
+.knowledge-source-summary button {
+  justify-self: start;
+}
+
+.knowledge-item-meta {
+  justify-content: flex-end;
+}
+
+.note-version-list {
+  display: grid;
+  gap: 4px;
+}
+
+.note-version-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.knowledge-context-panel {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+
+.knowledge-context-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: var(--border-accent) solid var(--blue);
+  background: var(--paper-raised);
+}
+
+.knowledge-context-card > header,
+.knowledge-context-metrics,
+.knowledge-context-links > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.knowledge-context-card > header > div,
+.knowledge-context-links {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.knowledge-context-card > header strong,
+.knowledge-context-links span {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-context-card > header small,
+.knowledge-context-metrics,
+.knowledge-context-links small,
+.aside-context-hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.knowledge-context-card > header button,
+.knowledge-context-links button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: var(--text-xs);
+  text-align: left;
+}
+
+.knowledge-context-metrics {
+  justify-content: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-top: var(--border-thin) solid var(--line-soft);
+  border-bottom: var(--border-thin) solid var(--line-soft);
+}
+
+.knowledge-context-links > button {
+  width: 100%;
+  padding: var(--space-1) 0;
+  text-align: left;
+}
+
+.knowledge-context-links em {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-style: normal;
+}
+
+.aside-context-hint {
+  margin: 0;
+  line-height: var(--line-height-copy);
+}

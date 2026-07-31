@@ -30,6 +30,10 @@ import {
   noteDeletionCoordinatorTests
 } from './note-deletion-coordinator.test.js';
 import { phase1PostgresTests } from './phase1-postgres.test.js';
+import { attachmentIntegrityTests } from './attachment-integrity.test.js';
+import { phase2KnowledgeDomainTests } from './phase2-knowledge-domain.test.js';
+import { phase3AssessmentTests } from './phase3-assessment.test.js';
+import { phase31WorkspaceQueryTests } from './phase31-workspace-query.test.js';
 
 const tests = [
   ...storageConfigTests,
@@ -60,6 +64,10 @@ const tests = [
   ...knowledgeBaseSnapshotServiceTests,
   ...noteDeletionCoordinatorTests,
   ...phase1PostgresTests,
+  ...attachmentIntegrityTests,
+  ...phase2KnowledgeDomainTests,
+  ...phase3AssessmentTests,
+  ...phase31WorkspaceQueryTests,
 ];
 
 let failed = 0;

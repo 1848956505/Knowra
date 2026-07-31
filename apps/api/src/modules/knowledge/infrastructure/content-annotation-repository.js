@@ -23,6 +23,17 @@ export function createInMemoryContentAnnotationRepository(options = {}) {
         persist();
       }
       return deleted.reverse();
+    },
+    markStaleByNoteId(noteId, currentContentHash) {
+      const changed = [];
+      for (const item of records) {
+        if (item.noteId !== noteId || item.status === 'archived' || item.noteContentHash === currentContentHash) continue;
+        item.status = 'stale';
+        item.updatedAt = new Date().toISOString();
+        changed.push(item);
+      }
+      if (changed.length > 0) persist();
+      return changed;
     }
   };
 }

@@ -9,14 +9,14 @@ export function createLocalAttachmentDeletionManager({
   function removeAttachmentFiles(attachments) {
     attachments.forEach((attachment) => {
       try {
-        fileManager.removeAttachmentFile(attachment.storagePath);
+        fileManager.removeAttachmentFile(attachment);
       } catch (error) {
         console.error(
           'removeAttachmentFile failed, scheduling cleanup retry:',
           error?.message
         );
         scheduleFileCleanup(
-          fileManager.resolvePortableStoragePath(attachment.storagePath)
+          fileManager.resolveManagedAttachmentPath(attachment)
         );
       }
     });

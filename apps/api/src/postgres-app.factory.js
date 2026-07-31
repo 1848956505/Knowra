@@ -10,9 +10,27 @@ import { createPostgresTagRepository } from './modules/knowledge/infrastructure/
 import { createPostgresKnowledgeSpaceRepository } from './modules/knowledge/infrastructure/postgres/knowledge-space-repository.js';
 import { createPostgresContentAnnotationRepository } from './modules/knowledge/infrastructure/postgres/content-annotation-repository.js';
 import { createPostgresAttachmentRepository } from './modules/knowledge/infrastructure/postgres/attachment-repository.js';
+import { createPostgresNoteVersionRepository } from './modules/knowledge/infrastructure/postgres/note-version-repository.js';
+import { createPostgresKnowledgeItemRepository } from './modules/knowledge/infrastructure/postgres/knowledge-item-repository.js';
+import { createPostgresKnowledgeEvidenceRepository } from './modules/knowledge/infrastructure/postgres/knowledge-evidence-repository.js';
+import { createPostgresLearningObjectiveRepository } from './modules/knowledge/infrastructure/postgres/learning-objective-repository.js';
+import { createPostgresExamProfileRepository } from './modules/knowledge/infrastructure/postgres/exam-profile-repository.js';
+import { createPostgresExamFocusRepository } from './modules/knowledge/infrastructure/postgres/exam-focus-repository.js';
+import { createPostgresQuestionRepository } from './modules/knowledge/infrastructure/postgres/question-repository.js';
+import { createPostgresQuestionObjectiveRepository } from './modules/knowledge/infrastructure/postgres/question-objective-repository.js';
+import { createPostgresQuestionSourceRepository } from './modules/knowledge/infrastructure/postgres/question-source-repository.js';
 import { createAsyncNoteDeletionCoordinator } from './modules/knowledge/application/postgres-async/note-deletion-coordinator.js';
 import { withPostgresErrors } from './infrastructure/postgres-errors.js';
 import { notFoundError } from './modules/knowledge/application/knowledge-errors.js';
+import { assertPostgresOwnerBoundary } from './infrastructure/owner-boundary.js';
+import {
+  createMaintenanceGate,
+  wrapHandlersWithMaintenanceGate
+} from './infrastructure/maintenance-gate.js';
+import {
+  createPostgresAdvisoryLock,
+  wrapHandlersWithPostgresAdvisoryLock
+} from './infrastructure/postgres-advisory-lock.js';
 
 export async function createPostgresAppContext({
   databaseUrl = process.env.DATABASE_URL,
@@ -26,7 +44,15 @@ export async function createPostgresAppContext({
   await runtime.connect();
   const db = runtime.client;
   const normalizedOwnerId = String(ownerId).trim() || 'demo';
-  await ensureOwner(db, normalizedOwnerId);
+  try {
+    await assertPostgresOwnerBoundary(db, normalizedOwnerId);
+    await ensureOwner(db, normalizedOwnerId);
+  } catch (error) {
+    await runtime.disconnect();
+    throw error;
+  }
+  const maintenanceGate = createMaintenanceGate();
+  const advisoryLock = createPostgresAdvisoryLock(db);
 
   const repositories = {
     noteRepository: createPostgresNoteRepository({ db }),
@@ -34,9 +60,18 @@ export async function createPostgresAppContext({
     tagRepository: createPostgresTagRepository({ db }),
     knowledgeSpaceRepository: createPostgresKnowledgeSpaceRepository({ db }),
     contentAnnotationRepository: createPostgresContentAnnotationRepository({ db }),
-    attachmentRepository: createPostgresAttachmentRepository({ db })
+    attachmentRepository: createPostgresAttachmentRepository({ db }),
+    noteVersionRepository: createPostgresNoteVersionRepository({ db }),
+    knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db }),
+    knowledgeEvidenceRepository: createPostgresKnowledgeEvidenceRepository({ db }),
+    learningObjectiveRepository: createPostgresLearningObjectiveRepository({ db }),
+    examProfileRepository: createPostgresExamProfileRepository({ db }),
+    examFocusRepository: createPostgresExamFocusRepository({ db }),
+    questionRepository: createPostgresQuestionRepository({ db }),
+    questionObjectiveRepository: createPostgresQuestionObjectiveRepository({ db }),
+    questionSourceRepository: createPostgresQuestionSourceRepository({ db })
   };
-  const knowledge = createPostgresKnowledgeModule(repositories);
+  const knowledge = createPostgresKnowledgeModule({ ...repositories, client: db });
   const attachmentStore = createPostgresAttachmentStore({
     attachmentRepository: repositories.attachmentRepository,
     uploadsDir,
@@ -45,12 +80,22 @@ export async function createPostgresAppContext({
     validateAttachmentNote: async (noteId) => {
       const note = await repositories.noteRepository.findById(noteId);
       if (!note || note.deleted) throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
+      const space = await repositories.knowledgeSpaceRepository.findById(note.spaceId);
+      if (!space || space.userId !== normalizedOwnerId) {
+        throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
+      }
     }
   });
   const noteDeletionCoordinator = createAsyncNoteDeletionCoordinator({
     noteService: knowledge.noteService,
     noteRepository: repositories.noteRepository,
     attachmentStore
+  });
+
+  const knowledgeHandlers = createPostgresKnowledgeHttpHandlers({
+    knowledgeModule: knowledge,
+    noteDeletionCoordinator,
+    ownerId: normalizedOwnerId
   });
 
   return {
@@ -64,13 +109,17 @@ export async function createPostgresAppContext({
         client: db,
         repositories,
         attachmentStore,
-        storageRootDir
+        storageRootDir,
+        ownerId: normalizedOwnerId,
+        maintenanceGate
       }),
-      knowledge: createPostgresKnowledgeHttpHandlers({
-        knowledgeModule: knowledge,
-        noteDeletionCoordinator,
-        ownerId: normalizedOwnerId
-      })
+      knowledge: wrapHandlersWithMaintenanceGate(
+        wrapHandlersWithPostgresAdvisoryLock(
+          knowledgeHandlers,
+          advisoryLock
+        ),
+        maintenanceGate
+      )
     }
   };
 }

@@ -100,7 +100,10 @@ export function mapAttachment(row) {
     fileName: row.fileName,
     mimeType: row.mimeType,
     size: Number(row.size),
+    sha256: row.sha256 ?? null,
+    status: row.status ?? 'ready',
     storagePath: row.storagePath,
+    verifiedAt: row.verifiedAt ? toIso(row.verifiedAt) : null,
     createdAt: toIso(row.createdAt)
   };
 }
@@ -111,6 +114,7 @@ export function mapAnnotation(row) {
     id: row.id,
     spaceId: row.spaceId,
     noteId: row.noteId,
+    noteVersionId: row.noteVersionId ?? null,
     kind: row.kind,
     sourceMode: row.sourceMode,
     quoteText: row.quoteText,
@@ -126,6 +130,151 @@ export function mapAnnotation(row) {
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
     deletedAt: row.deletedAt ? toIso(row.deletedAt) : null
+  };
+}
+
+export function mapNoteVersion(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    noteId: row.noteId,
+    content: row.content,
+    contentHash: row.contentHash,
+    createdAt: toIso(row.createdAt),
+    createdBy: row.createdBy
+  };
+}
+
+export function mapKnowledgeItem(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    canonicalStatement: row.canonicalStatement,
+    userExplanation: row.userExplanation ?? '',
+    knowledgeType: row.knowledgeType ?? 'concept',
+    importance: row.importance === null || row.importance === undefined ? null : Number(row.importance),
+    reviewStatus: row.reviewStatus ?? 'candidate',
+    sourceMode: row.sourceMode ?? 'manual',
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+    deletedAt: row.deletedAt ? toIso(row.deletedAt) : null
+  };
+}
+
+export function mapKnowledgeEvidence(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    knowledgeItemId: row.knowledgeItemId,
+    sourceType: row.sourceType,
+    sourceId: row.sourceId ?? null,
+    noteId: row.noteId ?? null,
+    noteVersionId: row.noteVersionId ?? null,
+    annotationId: row.annotationId ?? null,
+    quoteText: row.quoteText ?? '',
+    headingPath: Array.isArray(row.headingPath) ? [...row.headingPath] : [],
+    relationType: row.relationType ?? 'supports',
+    status: row.status ?? 'valid',
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
+  };
+}
+
+export function mapLearningObjective(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    knowledgeItemId: row.knowledgeItemId,
+    objective: row.objective ?? '',
+    actionVerb: row.actionVerb ?? '',
+    cognitiveLevel: row.cognitiveLevel ?? '',
+    difficultyHint: row.difficultyHint ?? null,
+    reviewStatus: row.reviewStatus ?? 'candidate',
+    reviewNote: row.reviewNote ?? null,
+    order: Number(row.order ?? 0),
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
+  };
+}
+
+export function mapExamProfile(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? '',
+    scope: Array.isArray(row.scope) ? [...row.scope] : [],
+    language: row.language ?? 'zh-CN',
+    commonQuestionTypes: Array.isArray(row.commonQuestionTypes) ? [...row.commonQuestionTypes] : [],
+    difficultyProfile: row.difficultyProfile && typeof row.difficultyProfile === 'object' ? structuredClone(row.difficultyProfile) : {},
+    archivedAt: row.archivedAt ? toIso(row.archivedAt) : null,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
+  };
+}
+
+export function mapExamFocus(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    examProfileId: row.examProfileId,
+    learningObjectiveId: row.learningObjectiveId,
+    description: row.description ?? '',
+    priority: Number(row.priority ?? 1),
+    difficultyHint: row.difficultyHint ?? null,
+    questionTypeSuggestions: Array.isArray(row.questionTypeSuggestions) ? [...row.questionTypeSuggestions] : [],
+    sourceType: row.sourceType ?? 'manual',
+    reviewStatus: row.reviewStatus ?? 'candidate',
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
+  };
+}
+
+export function mapQuestion(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    questionType: row.questionType,
+    stem: row.stem ?? '',
+    options: row.options === null || row.options === undefined ? null : structuredClone(row.options),
+    referenceAnswer: row.referenceAnswer === null || row.referenceAnswer === undefined ? null : structuredClone(row.referenceAnswer),
+    rubric: row.rubric === null || row.rubric === undefined ? null : structuredClone(row.rubric),
+    explanation: row.explanation ?? '',
+    difficulty: row.difficulty ?? null,
+    reviewStatus: row.reviewStatus ?? 'draft',
+    sourceMode: row.sourceMode ?? 'manual',
+    version: Number(row.version ?? 1),
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
+  };
+}
+
+export function mapQuestionObjective(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    questionId: row.questionId,
+    learningObjectiveId: row.learningObjectiveId,
+    isPrimary: Boolean(row.isPrimary),
+    order: Number(row.order ?? 0),
+    createdAt: toIso(row.createdAt)
+  };
+}
+
+export function mapQuestionSource(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    questionId: row.questionId,
+    sourceType: row.sourceType,
+    sourceId: row.sourceId ?? null,
+    quote: row.quote ?? '',
+    locator: row.locator === null || row.locator === undefined ? null : structuredClone(row.locator),
+    contentHash: row.contentHash ?? null,
+    status: row.status ?? 'active',
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
   };
 }
 

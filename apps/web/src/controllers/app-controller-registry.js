@@ -1,6 +1,7 @@
 import { createNavigationController } from './navigation-controller.js';
 import { createEditorController } from './editor-controller.js';
 import { createAnnotationController } from './annotation-controller.js';
+import { createAssessmentController } from './assessment-controller.js';
 import { createSidebarController } from './sidebar-controller.js';
 import { createSearchController } from './search-controller.js';
 import { createTagController } from './tag-controller.js';
@@ -8,6 +9,9 @@ import { createTabController } from './tab-controller.js';
 import { createWorkspaceController } from './workspace-controller.js';
 import { createShellController } from './shell-controller.js';
 import { createEditorScrollController } from './editor/scroll-controller.js';
+import { createKnowledgeWorkspaceController } from './knowledge-workspace-controller.js';
+import { createTrainingWorkspaceController } from './training-workspace-controller.js';
+import { createWorkDomainController } from './work-domain-controller.js';
 
 export function createAppControllers({
   state,
@@ -18,6 +22,8 @@ export function createAppControllers({
   controllerActions,
   helpers
 }) {
+  let workDomainController = null;
+  const renderWorkDomain = () => workDomainController?.render();
   const scrollController = createEditorScrollController({
     editorRuntime,
     storageKey: constants.scrollPositionsKey
@@ -54,6 +60,41 @@ export function createAppControllers({
     persistDraft: helpers.persistDraft,
     renderSidebar: helpers.renderSidebar,
     flashStatus: helpers.flashStatus
+  });
+
+  const assessmentController = createAssessmentController({
+    state,
+    knowledgeApi,
+    getCurrentNote: helpers.getCurrentNote,
+    renderSidebar: helpers.renderSidebar,
+    flashStatus: helpers.flashStatus
+  });
+
+  const knowledgeWorkspaceController = createKnowledgeWorkspaceController({
+    state,
+    knowledgeApi,
+    renderWorkDomain,
+    renderAll: helpers.renderAll,
+    flashStatus: helpers.flashStatus,
+    openNote: (...args) => controllerActions.selectNote(...args),
+    openTraining: (...args) => workDomainController?.openTraining(...args)
+  });
+
+  const trainingWorkspaceController = createTrainingWorkspaceController({
+    state,
+    knowledgeApi,
+    renderWorkDomain,
+    renderAll: helpers.renderAll,
+    flashStatus: helpers.flashStatus,
+    openKnowledge: (...args) => workDomainController?.openKnowledge(...args)
+  });
+
+  workDomainController = createWorkDomainController({
+    state,
+    elements,
+    renderAll: helpers.renderAll,
+    knowledgeWorkspaceController,
+    trainingWorkspaceController
   });
 
   const sidebarController = createSidebarController({
@@ -171,7 +212,8 @@ export function createAppControllers({
     renderSearchShell: helpers.renderSearchShell,
     renderSidebar: helpers.renderSidebar,
     renderTabs: helpers.renderTabs,
-    reportRuntimeError: helpers.reportRuntimeError
+    reportRuntimeError: helpers.reportRuntimeError,
+    renderWorkDomain
   });
 
   return {
@@ -179,6 +221,10 @@ export function createAppControllers({
     searchController,
     tagController,
     annotationController,
+    assessmentController,
+    knowledgeWorkspaceController,
+    trainingWorkspaceController,
+    workDomainController,
     sidebarController,
     workspaceController,
     navigationController,

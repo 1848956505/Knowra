@@ -12,6 +12,7 @@ export function createPostgresContentAnnotationRepository({ db }) {
         id: annotation.id,
         spaceId: annotation.spaceId,
         noteId: annotation.noteId,
+        noteVersionId: annotation.noteVersionId ?? null,
         kind: annotation.kind,
         sourceMode: annotation.sourceMode,
         quoteText: annotation.quoteText,
@@ -84,6 +85,19 @@ export function createPostgresContentAnnotationRepository({ db }) {
         where: { noteId: { in: noteIds } }
       }));
       return existing.map(mapAnnotation);
+    },
+    async markStaleByNoteId(noteId, currentContentHash) {
+      return withRepositoryErrors(async () => {
+        const rows = await db.contentAnnotation.findMany({
+          where: { noteId, status: { not: 'archived' }, noteContentHash: { not: currentContentHash } }
+        });
+        if (!rows.length) return [];
+        await db.contentAnnotation.updateMany({
+          where: { id: { in: rows.map((row) => row.id) } },
+          data: { status: 'stale', updatedAt: new Date() }
+        });
+        return rows.map((row) => mapAnnotation({ ...row, status: 'stale' }));
+      });
     },
     supportsAsync: true
   };

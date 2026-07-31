@@ -98,6 +98,8 @@ model Note {
   noteTags       NoteTag[]
   attachments    Attachment[]
   annotations    ContentAnnotation[]
+  versions       NoteVersion[]
+  evidence       KnowledgeEvidence[]
 
   @@index([spaceId, deletedAt, updatedAt])
   @@index([spaceId, folderId, deletedAt, updatedAt])
@@ -115,23 +117,28 @@ model NoteTag {
 }
 
 model Attachment {
-  id          String   @id
-  noteId      String
-  fileName    String
-  mimeType    String
-  size        Int
+  id         String    @id
+  noteId     String
+  fileName   String
+  mimeType   String
+  size       Int
+  sha256     String?
+  status     String    @default("ready")
   storagePath String
-  createdAt   DateTime @default(now())
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
 
-  note        Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  note        Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
   @@index([noteId, createdAt])
+  @@index([status, verifiedAt])
 }
 
 model ContentAnnotation {
   id                String         @id
   spaceId           String
   noteId            String
+  noteVersionId     String?
   kind              String
   sourceMode        String
   quoteText         String         @db.Text
@@ -150,7 +157,184 @@ model ContentAnnotation {
 
   space             KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   note              Note            @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteVersion       NoteVersion?    @relation(fields: [noteVersionId], references: [id], onDelete: SetNull)
+  evidence          KnowledgeEvidence[]
 
   @@unique([noteId, idempotencyKey])
   @@index([noteId, status, updatedAt])
+  @@index([noteVersionId, status])
+}
+
+model NoteVersion {
+  id          String   @id
+  noteId      String
+  content     String   @db.Text
+  contentHash String
+  createdAt   DateTime
+  createdBy   String
+
+  note        Note               @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  annotations ContentAnnotation[]
+  evidence    KnowledgeEvidence[]
+
+  @@unique([noteId, contentHash])
+  @@index([noteId, createdAt])
+}
+
+model KnowledgeItem {
+  id                 String   @id
+  title              String
+  canonicalStatement String   @db.Text
+  userExplanation    String   @default("") @db.Text
+  knowledgeType      String   @default("concept")
+  importance         Int?
+  reviewStatus       String   @default("candidate")
+  sourceMode         String   @default("manual")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  deletedAt          DateTime?
+
+  evidence           KnowledgeEvidence[]
+  learningObjectives LearningObjective[]
+
+  @@index([reviewStatus, updatedAt])
+}
+
+model LearningObjective {
+  id                 String   @id
+  knowledgeItemId    String
+  objective          String   @db.Text
+  actionVerb         String
+  cognitiveLevel     String
+  difficultyHint     String?
+  reviewStatus       String   @default("candidate")
+  reviewNote         String?  @db.Text
+  order              Int      @default(0)
+  createdAt          DateTime
+  updatedAt          DateTime
+
+  knowledgeItem      KnowledgeItem      @relation(fields: [knowledgeItemId], references: [id], onDelete: Restrict)
+  examFocuses        ExamFocus[]
+  questionObjectives QuestionObjective[]
+
+  @@index([knowledgeItemId, reviewStatus, order])
+  @@index([reviewStatus, updatedAt])
+}
+
+model ExamProfile {
+  id                   String      @id
+  name                 String
+  description          String      @default("") @db.Text
+  scope                Json
+  language             String      @default("zh-CN")
+  commonQuestionTypes  Json
+  difficultyProfile    Json
+  archivedAt           DateTime?
+  createdAt            DateTime
+  updatedAt            DateTime
+
+  focuses              ExamFocus[]
+
+  @@index([archivedAt, updatedAt])
+}
+
+model ExamFocus {
+  id                      String            @id
+  examProfileId           String
+  learningObjectiveId     String
+  description             String            @default("") @db.Text
+  priority                Int               @default(1)
+  difficultyHint          String?
+  questionTypeSuggestions Json
+  sourceType              String            @default("manual")
+  reviewStatus            String            @default("candidate")
+  createdAt               DateTime
+  updatedAt               DateTime
+
+  examProfile             ExamProfile       @relation(fields: [examProfileId], references: [id], onDelete: Restrict)
+  learningObjective       LearningObjective @relation(fields: [learningObjectiveId], references: [id], onDelete: Restrict)
+
+  @@unique([examProfileId, learningObjectiveId])
+  @@index([examProfileId, reviewStatus, priority])
+  @@index([learningObjectiveId, reviewStatus])
+}
+
+model Question {
+  id                 String             @id
+  questionType       String
+  stem               String             @db.Text
+  options            Json?
+  referenceAnswer    Json?
+  rubric             Json?
+  explanation        String             @default("") @db.Text
+  difficulty         String?
+  reviewStatus       String             @default("draft")
+  sourceMode         String             @default("manual")
+  version            Int                @default(1)
+  createdAt          DateTime
+  updatedAt          DateTime
+
+  objectives         QuestionObjective[]
+  sources            QuestionSource[]
+
+  @@index([reviewStatus, updatedAt])
+}
+
+model QuestionObjective {
+  id                   String            @id
+  questionId           String
+  learningObjectiveId  String
+  isPrimary            Boolean           @default(false)
+  order                Int               @default(0)
+  createdAt            DateTime
+
+  question             Question          @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  learningObjective   LearningObjective  @relation(fields: [learningObjectiveId], references: [id], onDelete: Restrict)
+
+  @@unique([questionId, learningObjectiveId])
+  @@index([learningObjectiveId, questionId])
+}
+
+model QuestionSource {
+  id            String   @id
+  questionId    String
+  sourceType    String
+  sourceId      String?
+  quote         String   @default("") @db.Text
+  locator       Json?
+  contentHash   String?
+  status        String   @default("active")
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@index([questionId, createdAt])
+  @@index([sourceType, sourceId, status])
+}
+
+model KnowledgeEvidence {
+  id              String   @id
+  knowledgeItemId String
+  sourceType      String
+  sourceId        String?
+  noteId          String?
+  noteVersionId   String?
+  annotationId    String?
+  quoteText       String   @default("") @db.Text
+  headingPath     Json
+  relationType    String   @default("supports")
+  status          String   @default("valid")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  knowledgeItem   KnowledgeItem @relation(fields: [knowledgeItemId], references: [id], onDelete: Restrict)
+  note            Note?         @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  noteVersion     NoteVersion?  @relation(fields: [noteVersionId], references: [id], onDelete: SetNull)
+  annotation      ContentAnnotation? @relation(fields: [annotationId], references: [id], onDelete: SetNull)
+
+  @@index([knowledgeItemId, status, createdAt])
+  @@index([noteId, status])
+  @@index([noteVersionId, status])
+  @@index([annotationId, status])
 }

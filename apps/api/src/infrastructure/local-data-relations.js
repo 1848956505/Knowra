@@ -1,16 +1,57 @@
+import crypto from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
+import {
+  assertKnowledgeItemConfirmable,
+  assertLearningObjectiveConfirmable,
+  assertQuestionConfirmable,
+  deriveQuestionSourceStatus
+} from '../modules/knowledge/application/formal-asset-validation.js';
 
 export function validateLocalDataRelations(state) {
   const spaces = indexById(state.spaces);
   const folders = indexById(state.folders);
   const tags = indexById(state.tags);
   const notes = indexById(state.notes);
+  const noteVersions = indexById(state.noteVersions);
+  const knowledgeItems = indexById(state.knowledgeItems);
+  const knowledgeEvidence = indexById(state.knowledgeEvidence);
+  const annotations = indexById(state.contentAnnotations);
+  const learningObjectives = indexById(state.learningObjectives);
+  const examProfiles = indexById(state.examProfiles);
+  const examFocuses = indexById(state.examFocuses);
+  const questions = indexById(state.questions);
 
   validateFolders(state.folders, spaces, folders);
   validateTags(state.tags, spaces);
   validateNotes(state.notes, spaces, folders, tags);
-  validateAnnotations(state.contentAnnotations, spaces, notes);
+  validateAnnotations(state.contentAnnotations, spaces, notes, noteVersions);
+  validateNoteVersions(state.noteVersions, notes);
+  validateKnowledgeItems(state.knowledgeItems);
+  validateKnowledgeEvidence(
+    state.knowledgeEvidence,
+    knowledgeItems,
+    notes,
+    noteVersions,
+    annotations
+  );
   validateAttachments(state.attachments, notes);
+  validateLearningObjectives(state.learningObjectives, knowledgeItems);
+  validateExamProfiles(state.examProfiles);
+  validateExamFocuses(state.examFocuses, examProfiles, learningObjectives);
+  validateQuestions(state.questions);
+  validateQuestionObjectives(state.questionObjectives, questions, learningObjectives);
+  validateQuestionSources(state.questionSources, {
+    questions,
+    knowledgeItems,
+    knowledgeEvidence,
+    learningObjectives,
+    notes,
+    noteVersions
+  });
+  validateFormalAssetGates(state, {
+    knowledgeItems,
+    learningObjectives
+  });
   assertFolderGraphHasNoCycles(state.folders, folders);
   return state;
 }
@@ -126,7 +167,7 @@ function validateNoteTags(note, tags) {
   }
 }
 
-function validateAnnotations(annotationItems, spaces, notes) {
+function validateAnnotations(annotationItems, spaces, notes, noteVersions) {
   for (const annotation of annotationItems) {
     const note = notes.get(annotation.noteId);
     assertReference(
@@ -141,6 +182,13 @@ function validateAnnotations(annotationItems, spaces, notes) {
       note.spaceId === annotation.spaceId,
       `Annotation ${annotation.id} and its note must belong to the same space`
     );
+    if (annotation.noteVersionId !== null && annotation.noteVersionId !== undefined) {
+      const version = noteVersions.get(annotation.noteVersionId);
+      assertReference(
+        Boolean(version) && version.noteId === annotation.noteId,
+        `Annotation ${annotation.id} references an invalid NoteVersion`
+      );
+    }
   }
 }
 
@@ -149,6 +197,261 @@ function validateAttachments(attachmentItems, notes) {
     assertReference(
       notes.has(attachment.noteId),
       `Attachment ${attachment.id} references unknown note: ${attachment.noteId}`
+    );
+  }
+}
+
+function validateNoteVersions(versionItems, notes) {
+  for (const version of versionItems) {
+    assertReference(
+      notes.has(version.noteId),
+      `NoteVersion ${version.id} references unknown note: ${version.noteId}`
+    );
+    const actualContentHash = crypto
+      .createHash('sha256')
+      .update(String(version.content ?? ''))
+      .digest('hex');
+    assertReference(
+      version.contentHash === actualContentHash,
+      `NoteVersion ${version.id} contentHash does not match its content`
+    );
+  }
+}
+
+function validateKnowledgeItems(items) {
+  for (const item of items) {
+    assertReference(
+      ['candidate', 'confirmed', 'needsRevision', 'archived'].includes(item.reviewStatus ?? 'candidate'),
+      `KnowledgeItem ${item.id} has an invalid reviewStatus`
+    );
+  }
+}
+
+function validateKnowledgeEvidence(items, knowledgeItems, notes, noteVersions, annotations) {
+  for (const evidence of items) {
+    let note = null;
+    let version = null;
+    let annotation = null;
+    let derivedStatus = 'valid';
+    assertReference(
+      knowledgeItems.has(evidence.knowledgeItemId),
+      `KnowledgeEvidence ${evidence.id} references unknown KnowledgeItem: ${evidence.knowledgeItemId}`
+    );
+    if (evidence.noteId !== null && evidence.noteId !== undefined) {
+      note = notes.get(evidence.noteId);
+      assertReference(
+        Boolean(note),
+        `KnowledgeEvidence ${evidence.id} references unknown note: ${evidence.noteId}`
+      );
+    }
+    if (evidence.noteVersionId !== null && evidence.noteVersionId !== undefined) {
+      version = noteVersions.get(evidence.noteVersionId);
+      assertReference(
+        Boolean(version),
+        `KnowledgeEvidence ${evidence.id} references unknown NoteVersion: ${evidence.noteVersionId}`
+      );
+      if (evidence.noteId) {
+        assertReference(
+          version.noteId === evidence.noteId,
+          `KnowledgeEvidence ${evidence.id} and its NoteVersion must reference the same note`
+        );
+      }
+    }
+    if (evidence.annotationId !== null && evidence.annotationId !== undefined) {
+      annotation = annotations.get(evidence.annotationId);
+      assertReference(
+        Boolean(annotation),
+        `KnowledgeEvidence ${evidence.id} references unknown annotation: ${evidence.annotationId}`
+      );
+      if (evidence.noteId) {
+        assertReference(
+          annotation.noteId === evidence.noteId,
+          `KnowledgeEvidence ${evidence.id} and its annotation must reference the same note`
+        );
+      }
+    }
+    if (annotation && version) {
+      assertReference(
+        annotation.noteId === version.noteId,
+        `KnowledgeEvidence ${evidence.id} annotation and NoteVersion must reference the same note`
+      );
+    }
+    const resolvedNoteId = evidence.noteId
+      ?? annotation?.noteId
+      ?? version?.noteId
+      ?? null;
+    if (!note && resolvedNoteId) {
+      note = notes.get(resolvedNoteId);
+      assertReference(
+        Boolean(note),
+        `KnowledgeEvidence ${evidence.id} references unknown note: ${resolvedNoteId}`
+      );
+      evidence.noteId = resolvedNoteId;
+    }
+    if (evidence.sourceType === 'noteVersion') {
+      assertReference(
+        Boolean(evidence.noteVersionId),
+        `KnowledgeEvidence ${evidence.id} requires noteVersionId`
+      );
+    }
+    if (evidence.sourceType === 'annotation') {
+      assertReference(
+        Boolean(evidence.annotationId),
+        `KnowledgeEvidence ${evidence.id} requires annotationId`
+      );
+    }
+    if (annotation?.status === 'archived') derivedStatus = 'invalid';
+    else if (annotation?.status && annotation.status !== 'active') {
+      derivedStatus = 'stale';
+    }
+    if (note?.deleted) derivedStatus = 'invalid';
+    else if (
+      version
+      && note
+      && version.content !== note.rawMarkdown
+      && derivedStatus !== 'invalid'
+    ) {
+      derivedStatus = 'stale';
+    }
+    evidence.status = derivedStatus;
+  }
+}
+
+function validateLearningObjectives(items, knowledgeItems) {
+  for (const objective of items) {
+    assertReference(knowledgeItems.has(objective.knowledgeItemId), `LearningObjective ${objective.id} references unknown KnowledgeItem: ${objective.knowledgeItemId}`);
+    assertReference(['candidate', 'confirmed', 'archived'].includes(objective.reviewStatus ?? 'candidate'), `LearningObjective ${objective.id} has an invalid reviewStatus`);
+  }
+}
+
+function validateExamProfiles(items) {
+  for (const profile of items) {
+    assertReference(!profile.archivedAt || !Number.isNaN(new Date(profile.archivedAt).getTime()), `ExamProfile ${profile.id} has an invalid archivedAt`);
+  }
+}
+
+function validateExamFocuses(items, examProfiles, learningObjectives) {
+  const unique = new Set();
+  for (const focus of items) {
+    assertReference(examProfiles.has(focus.examProfileId), `ExamFocus ${focus.id} references unknown ExamProfile: ${focus.examProfileId}`);
+    assertReference(learningObjectives.has(focus.learningObjectiveId), `ExamFocus ${focus.id} references unknown LearningObjective: ${focus.learningObjectiveId}`);
+    const key = `${focus.examProfileId}\u0000${focus.learningObjectiveId}`;
+    assertReference(!unique.has(key), `ExamProfile and LearningObjective already have an ExamFocus: ${key}`);
+    unique.add(key);
+  }
+}
+
+function validateQuestions(items) {
+  for (const question of items) {
+    assertReference(['singleChoice', 'multipleChoice', 'trueFalse', 'shortAnswer'].includes(question.questionType ?? 'shortAnswer'), `Question ${question.id} has an invalid questionType`);
+    assertReference(['draft', 'validating', 'candidate', 'confirmed', 'archived'].includes(question.reviewStatus ?? 'draft'), `Question ${question.id} has an invalid reviewStatus`);
+  }
+}
+
+function validateQuestionObjectives(items, questions, learningObjectives) {
+  const unique = new Set();
+  for (const relation of items) {
+    assertReference(questions.has(relation.questionId), `QuestionObjective ${relation.id} references unknown Question: ${relation.questionId}`);
+    assertReference(learningObjectives.has(relation.learningObjectiveId), `QuestionObjective ${relation.id} references unknown LearningObjective: ${relation.learningObjectiveId}`);
+    const key = `${relation.questionId}\u0000${relation.learningObjectiveId}`;
+    assertReference(!unique.has(key), `QuestionObjective relation is duplicated: ${key}`);
+    unique.add(key);
+  }
+}
+
+function validateQuestionSources(items, {
+  questions,
+  knowledgeItems,
+  knowledgeEvidence,
+  learningObjectives,
+  notes,
+  noteVersions
+}) {
+  const referenceMaps = {
+    knowledgeItem: knowledgeItems,
+    knowledgeEvidence,
+    learningObjective: learningObjectives,
+    noteVersion: noteVersions
+  };
+  for (const source of items) {
+    assertReference(questions.has(source.questionId), `QuestionSource ${source.id} references unknown Question: ${source.questionId}`);
+    assertReference(['active', 'stale', 'reanchored'].includes(source.status ?? 'active'), `QuestionSource ${source.id} has an invalid status`);
+    let reference = null;
+    const referenceMap = referenceMaps[source.sourceType];
+    if (referenceMap) {
+      assertReference(
+        Boolean(source.sourceId),
+        `QuestionSource ${source.id} requires sourceId`
+      );
+      reference = referenceMap.get(source.sourceId);
+      assertReference(
+        Boolean(reference),
+        `QuestionSource ${source.id} references unknown ${source.sourceType}: ${source.sourceId}`
+      );
+    }
+    if (source.sourceType === 'noteVersion' && reference) {
+      const note = notes.get(reference.noteId);
+      reference = {
+        ...reference,
+        isCurrent: Boolean(
+          note
+          && !note.deleted
+          && note.rawMarkdown === reference.content
+        )
+      };
+    }
+    source.status = deriveQuestionSourceStatus(source, reference);
+  }
+}
+
+function validateFormalAssetGates(state, {
+  knowledgeItems,
+  learningObjectives
+}) {
+  const evidenceByItemId = groupBy(
+    state.knowledgeEvidence,
+    (evidence) => evidence.knowledgeItemId
+  );
+  for (const item of state.knowledgeItems) {
+    if (item.reviewStatus !== 'confirmed') continue;
+    assertFormalGate(
+      () => assertKnowledgeItemConfirmable(
+        item,
+        evidenceByItemId.get(item.id) ?? []
+      ),
+      `KnowledgeItem ${item.id} is not confirmable`
+    );
+  }
+
+  for (const objective of state.learningObjectives) {
+    if (objective.reviewStatus !== 'confirmed') continue;
+    assertFormalGate(
+      () => assertLearningObjectiveConfirmable(
+        objective,
+        knowledgeItems.get(objective.knowledgeItemId)
+      ),
+      `LearningObjective ${objective.id} is not confirmable`
+    );
+  }
+
+  const objectiveLinksByQuestionId = groupBy(
+    state.questionObjectives,
+    (relation) => relation.questionId
+  );
+  const sourcesByQuestionId = groupBy(
+    state.questionSources,
+    (source) => source.questionId
+  );
+  for (const question of state.questions) {
+    if (question.reviewStatus !== 'confirmed') continue;
+    const objectives = (objectiveLinksByQuestionId.get(question.id) ?? [])
+      .map((relation) => learningObjectives.get(relation.learningObjectiveId));
+    assertFormalGate(
+      () => assertQuestionConfirmable(question, {
+        objectives,
+        sources: sourcesByQuestionId.get(question.id) ?? []
+      }),
+      `Question ${question.id} is not confirmable`
     );
   }
 }
@@ -179,6 +482,28 @@ function visitFolder(folder, folders, visits) {
 
 function indexById(items) {
   return new Map(items.map((item) => [item.id, item]));
+}
+
+function groupBy(items, keyForItem) {
+  const grouped = new Map();
+  for (const item of items) {
+    const key = keyForItem(item);
+    const group = grouped.get(key) ?? [];
+    group.push(item);
+    grouped.set(key, group);
+  }
+  return grouped;
+}
+
+function assertFormalGate(validate, message) {
+  try {
+    validate();
+  } catch (error) {
+    assertReference(
+      false,
+      `${message}: ${error?.code ?? error?.message ?? 'validation failed'}`
+    );
+  }
 }
 
 function assertReference(condition, message) {

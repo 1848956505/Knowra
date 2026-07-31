@@ -24,8 +24,15 @@ export function renderModuleRail(items) {
 
 export function getRailLabel(key) {
   switch (key) {
+    case 'materials':
+      return '资料';
     case 'knowledge':
-      return '知识库';
+      return '知识';
+    case 'training':
+      return '训练';
+    case 'learning':
+      return '学习档案';
+    // 保留旧入口的显示兼容，避免缓存或旧快照中的模块键渲染为空。
     case 'paper':
       return '题库';
     case 'ai':
@@ -43,7 +50,10 @@ export function getRailLabel(key) {
 
 export function renderRailIcon(key) {
   const iconAssets = {
+    materials: '/styles/icons/phosphor-books-duotone.svg',
     knowledge: '/styles/icons/phosphor-books-duotone.svg',
+    training: '/styles/icons/phosphor-exam-duotone.svg',
+    learning: '/styles/icons/phosphor-book-bookmark-duotone.svg',
     paper: '/styles/icons/phosphor-exam-duotone.svg',
     ai: '/styles/icons/phosphor-atom-duotone.svg',
     task: '/styles/icons/phosphor-list-checks-duotone.svg',

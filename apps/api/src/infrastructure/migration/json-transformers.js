@@ -1,6 +1,13 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ATTACHMENT_STATUS } from '../attachment-status.js';
+import {
+  looksPosixAbsolute,
+  looksWindowsAbsolute,
+  sanitizeFileName,
+  toPortablePath
+} from '../local-attachment-store-utils.js';
 
 export function transformSpace(space, fallbackTimestamp) {
   const createdAt = normalizeTimestamp(space.createdAt ?? fallbackTimestamp, fallbackTimestamp);
@@ -41,8 +48,20 @@ export function transformTag(tag, fallbackTimestamp) {
 
 export function transformNote(note, fallbackTimestamp, reportTools) {
   const createdAt = normalizeTimestamp(note.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  const expectedHash = sha256(String(note.rawMarkdown ?? ''));
   if (!note.createdAt) reportTools.repair('NOTE_CREATED_AT_DEFAULTED', 'Note createdAt was missing; fallback timestamp used', { noteId: note.id });
   if (!note.updatedAt) reportTools.repair('NOTE_UPDATED_AT_DEFAULTED', 'Note updatedAt was missing; createdAt used', { noteId: note.id });
+  if (note.contentHash && note.contentHash.toLowerCase() !== expectedHash) {
+    reportTools.error(
+      'NOTE_CONTENT_HASH_MISMATCH',
+      'Note contentHash does not match rawMarkdown',
+      {
+        noteId: note.id,
+        expectedHash,
+        actualHash: note.contentHash
+      }
+    );
+  }
   const internalLinks = Array.isArray(note.internalLinks)
     ? [...new Set(note.internalLinks)]
     : extractInternalLinks(note.rawMarkdown);
@@ -52,7 +71,7 @@ export function transformNote(note, fallbackTimestamp, reportTools) {
     folderId: note.folderId ?? null,
     plainText: typeof note.plainText === 'string' ? note.plainText : stripMarkdown(note.rawMarkdown),
     internalLinks,
-    contentHash: note.contentHash ?? sha256(note.rawMarkdown),
+    contentHash: expectedHash,
     status: note.status ?? 'draft',
     sourceType: note.sourceType ?? 'manual',
     favorite: Boolean(note.favorite),
@@ -93,13 +112,180 @@ export function transformAnnotation(annotation, fallbackTimestamp, reportTools) 
   };
 }
 
-export function transformAttachment(attachment, { storageRootDir, noteIds, allowMissingAttachments, reportTools }) {
+export function transformNoteVersion(version, fallbackTimestamp, reportTools) {
+  const createdAt = normalizeTimestamp(version.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  if (!version.createdAt) reportTools.repair('NOTE_VERSION_CREATED_AT_DEFAULTED', 'NoteVersion createdAt was missing; fallback timestamp used', { noteVersionId: version.id });
+  const expectedHash = sha256(String(version.content ?? ''));
+  if (version.contentHash && version.contentHash.toLowerCase() !== expectedHash) {
+    reportTools.error('NOTE_VERSION_HASH_MISMATCH', 'NoteVersion contentHash does not match its content', { noteVersionId: version.id, expectedHash, actualHash: version.contentHash });
+  }
+  return {
+    ...version,
+    content: String(version.content ?? ''),
+    contentHash: version.contentHash?.toLowerCase() ?? expectedHash,
+    createdAt,
+    createdBy: version.createdBy ?? 'system-migration'
+  };
+}
+
+export function transformKnowledgeItem(item, fallbackTimestamp, reportTools) {
+  const createdAt = normalizeTimestamp(item.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...item,
+    title: String(item.title ?? ''),
+    canonicalStatement: String(item.canonicalStatement ?? ''),
+    userExplanation: String(item.userExplanation ?? ''),
+    knowledgeType: item.knowledgeType ?? 'concept',
+    importance: item.importance === null || item.importance === undefined ? null : Number(item.importance),
+    reviewStatus: item.reviewStatus ?? 'candidate',
+    sourceMode: item.sourceMode ?? 'manual',
+    createdAt,
+    updatedAt: normalizeTimestamp(item.updatedAt ?? createdAt, createdAt),
+    deletedAt: item.deletedAt ? normalizeTimestamp(item.deletedAt, createdAt) : null
+  };
+}
+
+export function transformKnowledgeEvidence(evidence, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(evidence.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...evidence,
+    sourceType: evidence.sourceType ?? 'manual',
+    sourceId: evidence.sourceId ?? null,
+    noteId: evidence.noteId ?? null,
+    noteVersionId: evidence.noteVersionId ?? (evidence.sourceType === 'noteVersion' ? evidence.sourceId ?? null : null),
+    annotationId: evidence.annotationId ?? (evidence.sourceType === 'annotation' ? evidence.sourceId ?? null : null),
+    quoteText: String(evidence.quoteText ?? ''),
+    headingPath: Array.isArray(evidence.headingPath) ? evidence.headingPath : [],
+    relationType: evidence.relationType ?? 'supports',
+    status: evidence.status ?? 'valid',
+    createdAt,
+    updatedAt: normalizeTimestamp(evidence.updatedAt ?? createdAt, createdAt)
+  };
+}
+
+export function transformLearningObjective(objective, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(objective.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...objective,
+    objective: String(objective.objective ?? ''),
+    actionVerb: String(objective.actionVerb ?? ''),
+    cognitiveLevel: String(objective.cognitiveLevel ?? ''),
+    difficultyHint: objective.difficultyHint || null,
+    reviewStatus: objective.reviewStatus ?? 'candidate',
+    reviewNote: objective.reviewNote ?? null,
+    order: Number(objective.order ?? 0),
+    createdAt,
+    updatedAt: normalizeTimestamp(objective.updatedAt ?? createdAt, createdAt)
+  };
+}
+
+export function transformExamProfile(profile, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(profile.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...profile,
+    description: String(profile.description ?? ''),
+    scope: Array.isArray(profile.scope) ? profile.scope : [],
+    language: String(profile.language ?? 'zh-CN'),
+    commonQuestionTypes: Array.isArray(profile.commonQuestionTypes) ? profile.commonQuestionTypes : [],
+    difficultyProfile: profile.difficultyProfile && typeof profile.difficultyProfile === 'object' && !Array.isArray(profile.difficultyProfile) ? profile.difficultyProfile : {},
+    archivedAt: profile.archivedAt ? normalizeTimestamp(profile.archivedAt, createdAt) : null,
+    createdAt,
+    updatedAt: normalizeTimestamp(profile.updatedAt ?? createdAt, createdAt)
+  };
+}
+
+export function transformExamFocus(focus, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(focus.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...focus,
+    description: String(focus.description ?? ''),
+    priority: Number(focus.priority ?? 1),
+    difficultyHint: focus.difficultyHint || null,
+    questionTypeSuggestions: Array.isArray(focus.questionTypeSuggestions) ? focus.questionTypeSuggestions : [],
+    sourceType: focus.sourceType ?? 'manual',
+    reviewStatus: focus.reviewStatus ?? 'candidate',
+    createdAt,
+    updatedAt: normalizeTimestamp(focus.updatedAt ?? createdAt, createdAt)
+  };
+}
+
+export function transformQuestion(question, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(question.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...question,
+    questionType: question.questionType ?? 'shortAnswer',
+    stem: String(question.stem ?? ''),
+    options: question.options ?? null,
+    referenceAnswer: question.referenceAnswer ?? null,
+    rubric: question.rubric ?? null,
+    explanation: String(question.explanation ?? ''),
+    difficulty: question.difficulty || null,
+    reviewStatus: question.reviewStatus ?? 'draft',
+    sourceMode: question.sourceMode ?? 'manual',
+    version: Number(question.version ?? 1),
+    createdAt,
+    updatedAt: normalizeTimestamp(question.updatedAt ?? createdAt, createdAt)
+  };
+}
+
+export function transformQuestionObjective(relation, fallbackTimestamp) {
+  return {
+    ...relation,
+    isPrimary: Boolean(relation.isPrimary),
+    order: Number(relation.order ?? 0),
+    createdAt: normalizeTimestamp(relation.createdAt ?? fallbackTimestamp, fallbackTimestamp)
+  };
+}
+
+export function transformQuestionSource(source, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(source.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...source,
+    sourceType: source.sourceType ?? 'manual',
+    sourceId: source.sourceId ?? null,
+    quote: String(source.quote ?? ''),
+    locator: source.locator ?? null,
+    contentHash: source.contentHash ?? null,
+    status: source.status ?? 'active',
+    createdAt,
+    updatedAt: normalizeTimestamp(source.updatedAt ?? createdAt, createdAt)
+  };
+}
+
+export function transformAttachment(attachment, {
+  storageRootDir,
+  uploadsDir = path.join(
+    storageRootDir,
+    process.env.STORAGE_UPLOADS_DIR || 'storage/uploads'
+  ),
+  noteIds,
+  allowMissingAttachments,
+  fallbackTimestamp,
+  reportTools
+}) {
   if (!noteIds.has(attachment.noteId)) {
     reportTools.error('ATTACHMENT_NOTE_NOT_FOUND', `Attachment references unknown note: ${attachment.id}`, { attachmentId: attachment.id });
     return null;
   }
-  const filePath = resolveAttachmentPath(attachment, storageRootDir);
-  const exists = fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  const pathResolution = resolveAttachmentPath(
+    attachment,
+    storageRootDir,
+    uploadsDir
+  );
+  const filePath = pathResolution.filePath;
+  if (pathResolution.error) {
+    reportTools.error(
+      pathResolution.error.code,
+      pathResolution.error.message,
+      {
+        attachmentId: attachment.id,
+        storagePath: attachment.storagePath ?? null,
+        filePath
+      }
+    );
+  }
+  const exists = !pathResolution.error
+    && isSafeAttachmentFile(filePath, uploadsDir);
   let actualSize = Number(attachment.size ?? 0);
   let contentSha256 = null;
   if (exists) {
@@ -107,14 +293,26 @@ export function transformAttachment(attachment, { storageRootDir, noteIds, allow
     actualSize = stats.size;
     contentSha256 = sha256(fs.readFileSync(filePath));
     if (Number(attachment.size) !== stats.size) reportTools.repair('ATTACHMENT_SIZE_REPAIRED', 'Attachment size was aligned to the file on disk', { attachmentId: attachment.id, previousSize: attachment.size, size: stats.size });
-  } else {
+    if (attachment.sha256 && attachment.sha256.toLowerCase() !== contentSha256) reportTools.error('ATTACHMENT_HASH_MISMATCH', 'Attachment hash does not match the file on disk', { attachmentId: attachment.id, expectedSha256: attachment.sha256, actualSha256: contentSha256 });
+  } else if (!pathResolution.error) {
     const details = { attachmentId: attachment.id, filePath };
     if (allowMissingAttachments) reportTools.warn('ATTACHMENT_FILE_MISSING', 'Attachment metadata will be migrated although its file is missing', details);
     else reportTools.error('ATTACHMENT_FILE_MISSING', 'Attachment file is missing; apply is blocked', details);
   }
-  if (!attachment.storagePath) reportTools.error('ATTACHMENT_PATH_MISSING', 'Attachment storagePath is required for migration', { attachmentId: attachment.id });
   reportTools.report.attachmentFiles.push({ attachmentId: attachment.id, filePath, exists, size: actualSize, contentSha256 });
-  return { ...attachment, size: actualSize, createdAt: normalizeTimestamp(attachment.createdAt, new Date().toISOString()), filePath, fileExists: exists, contentSha256 };
+  return {
+    ...attachment,
+    size: actualSize,
+    sha256: contentSha256 ?? attachment.sha256 ?? null,
+    status: exists ? ATTACHMENT_STATUS.READY : ATTACHMENT_STATUS.MISSING,
+    verifiedAt: exists
+      ? normalizeTimestamp(attachment.verifiedAt ?? fallbackTimestamp, fallbackTimestamp)
+      : null,
+    createdAt: normalizeTimestamp(attachment.createdAt, fallbackTimestamp),
+    filePath,
+    fileExists: exists,
+    contentSha256
+  };
 }
 
 export function checksumPlan(plan) {
@@ -124,8 +322,48 @@ export function checksumPlan(plan) {
 export function validateDatabaseConstraints(plan, reportTools) {
   assertUniqueBy(plan.tags, (tag) => `${tag.spaceId}\u0000${tag.name}`, 'TAG_NAME_CONFLICT', 'Tag names must be unique within a space', reportTools);
   assertUniqueBy(plan.annotations, (annotation) => `${annotation.noteId}\u0000${annotation.idempotencyKey}`, 'ANNOTATION_IDEMPOTENCY_CONFLICT', 'Annotation idempotency keys must be unique within a note', reportTools);
+  assertUniqueBy(plan.noteVersions, (version) => `${version.noteId}\u0000${version.contentHash}`, 'NOTE_VERSION_HASH_CONFLICT', 'Note versions must be unique by note and content hash', reportTools);
   assertUniqueBy(plan.folders, (folder) => `${folder.spaceId}\u0000${folder.parentId ?? ''}\u0000${folder.name}`, 'FOLDER_NAME_CONFLICT', 'Folder names must be unique among siblings', reportTools);
   assertUniqueBy(plan.notes.filter((note) => !note.deleted), (note) => `${note.spaceId}\u0000${note.folderId ?? ''}\u0000${note.title}`, 'NOTE_NAME_CONFLICT', 'Active note names must be unique within a folder', reportTools);
+  const noteVersions = new Map(plan.noteVersions.map((version) => [version.id, version]));
+  const annotations = new Map(plan.annotations.map((annotation) => [annotation.id, annotation]));
+  const knowledgeItems = new Set(plan.knowledgeItems.map((item) => item.id));
+  const learningObjectives = new Set(plan.learningObjectives.map((objective) => objective.id));
+  const examProfiles = new Set(plan.examProfiles.map((profile) => profile.id));
+  const questions = new Set(plan.questions.map((question) => question.id));
+  for (const evidence of plan.knowledgeEvidence) {
+    if (!knowledgeItems.has(evidence.knowledgeItemId)) {
+      reportTools.error('KNOWLEDGE_ITEM_NOT_FOUND', 'KnowledgeEvidence references an unknown KnowledgeItem', { evidenceId: evidence.id, knowledgeItemId: evidence.knowledgeItemId });
+    }
+    if (evidence.noteVersionId && !noteVersions.has(evidence.noteVersionId)) {
+      reportTools.error('NOTE_VERSION_NOT_FOUND', 'KnowledgeEvidence references an unknown NoteVersion', { evidenceId: evidence.id, noteVersionId: evidence.noteVersionId });
+    }
+    if (evidence.annotationId && !annotations.has(evidence.annotationId)) {
+      reportTools.error('ANNOTATION_NOT_FOUND', 'KnowledgeEvidence references an unknown annotation', { evidenceId: evidence.id, annotationId: evidence.annotationId });
+    }
+    if (evidence.sourceType === 'noteVersion' && !evidence.noteVersionId) {
+      reportTools.error('NOTE_VERSION_REQUIRED', 'NoteVersion evidence requires a NoteVersion reference', { evidenceId: evidence.id });
+    }
+    if (evidence.sourceType === 'annotation' && !evidence.annotationId) {
+      reportTools.error('ANNOTATION_REQUIRED', 'Annotation evidence requires an annotation reference', { evidenceId: evidence.id });
+    }
+  }
+  assertUniqueBy(plan.examFocuses, (focus) => `${focus.examProfileId}\u0000${focus.learningObjectiveId}`, 'EXAM_FOCUS_CONFLICT', 'ExamProfile and LearningObjective can only have one ExamFocus', reportTools);
+  assertUniqueBy(plan.questionObjectives, (relation) => `${relation.questionId}\u0000${relation.learningObjectiveId}`, 'QUESTION_OBJECTIVE_CONFLICT', 'QuestionObjective relation must be unique', reportTools);
+  for (const objective of plan.learningObjectives) {
+    if (!knowledgeItems.has(objective.knowledgeItemId)) reportTools.error('KNOWLEDGE_ITEM_NOT_FOUND', 'LearningObjective references an unknown KnowledgeItem', { objectiveId: objective.id, knowledgeItemId: objective.knowledgeItemId });
+  }
+  for (const focus of plan.examFocuses) {
+    if (!examProfiles.has(focus.examProfileId)) reportTools.error('EXAM_PROFILE_NOT_FOUND', 'ExamFocus references an unknown ExamProfile', { focusId: focus.id, examProfileId: focus.examProfileId });
+    if (!learningObjectives.has(focus.learningObjectiveId)) reportTools.error('LEARNING_OBJECTIVE_NOT_FOUND', 'ExamFocus references an unknown LearningObjective', { focusId: focus.id, learningObjectiveId: focus.learningObjectiveId });
+  }
+  for (const relation of plan.questionObjectives) {
+    if (!questions.has(relation.questionId)) reportTools.error('QUESTION_NOT_FOUND', 'QuestionObjective references an unknown Question', { relationId: relation.id, questionId: relation.questionId });
+    if (!learningObjectives.has(relation.learningObjectiveId)) reportTools.error('LEARNING_OBJECTIVE_NOT_FOUND', 'QuestionObjective references an unknown LearningObjective', { relationId: relation.id, learningObjectiveId: relation.learningObjectiveId });
+  }
+  for (const source of plan.questionSources) {
+    if (!questions.has(source.questionId)) reportTools.error('QUESTION_NOT_FOUND', 'QuestionSource references an unknown Question', { sourceId: source.id, questionId: source.questionId });
+  }
 }
 
 function assertUniqueBy(items, keyOf, code, message, reportTools) {
@@ -137,9 +375,141 @@ function assertUniqueBy(items, keyOf, code, message, reportTools) {
   }
 }
 
-function resolveAttachmentPath(attachment, storageRootDir) {
-  const storagePath = String(attachment.storagePath ?? '');
-  return path.isAbsolute(storagePath) ? storagePath : path.resolve(storageRootDir, storagePath);
+function resolveAttachmentPath(attachment, storageRootDir, uploadsDir) {
+  const storagePath = String(attachment.storagePath ?? '').trim();
+  if (!storagePath) {
+    return attachmentPathError(
+      null,
+      'ATTACHMENT_PATH_MISSING',
+      'Attachment storagePath is required for migration'
+    );
+  }
+  if (
+    path.isAbsolute(storagePath)
+    || looksPosixAbsolute(storagePath)
+    || looksWindowsAbsolute(storagePath)
+  ) {
+    return attachmentPathError(
+      null,
+      'ATTACHMENT_PATH_UNSAFE',
+      'Attachment storagePath must be a canonical relative managed path'
+    );
+  }
+
+  const rawAttachmentId = String(attachment.id ?? '');
+  const attachmentId = rawAttachmentId.trim();
+  if (
+    !attachmentId
+    || rawAttachmentId !== attachmentId
+    || attachmentId === '.'
+    || attachmentId === '..'
+    || /[/\\\0]/.test(attachmentId)
+  ) {
+    return attachmentPathError(
+      null,
+      'ATTACHMENT_PATH_UNSAFE',
+      'Attachment id cannot form a safe managed file name'
+    );
+  }
+
+  const normalizedStorageRoot = path.resolve(storageRootDir);
+  const normalizedUploadsDir = path.resolve(uploadsDir);
+  const expectedFileName = `${attachmentId}-${sanitizeFileName(
+    attachment.fileName || 'attachment.bin'
+  )}`;
+  const expectedFilePath = path.resolve(
+    normalizedUploadsDir,
+    expectedFileName
+  );
+  const expectedStoragePath = toPortablePath(
+    path.relative(normalizedStorageRoot, expectedFilePath)
+  );
+  const portableStoragePath = toPortablePath(storagePath);
+  const resolvedFilePath = path.resolve(
+    normalizedStorageRoot,
+    ...portableStoragePath.split('/').filter(Boolean)
+  );
+
+  if (
+    portableStoragePath !== expectedStoragePath
+    || path.dirname(expectedFilePath) !== normalizedUploadsDir
+    || path.normalize(resolvedFilePath) !== path.normalize(expectedFilePath)
+    || !isPathWithin(normalizedUploadsDir, resolvedFilePath)
+  ) {
+    return attachmentPathError(
+      resolvedFilePath,
+      'ATTACHMENT_PATH_UNSAFE',
+      'Attachment storagePath escapes or does not match its canonical managed path'
+    );
+  }
+
+  try {
+    const stats = fs.lstatSync(resolvedFilePath);
+    if (stats.isSymbolicLink()) {
+      return attachmentPathError(
+        resolvedFilePath,
+        'ATTACHMENT_PATH_SYMLINK',
+        'Attachment migration does not follow symbolic links'
+      );
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  return { filePath: resolvedFilePath, error: null };
+}
+
+function attachmentPathError(filePath, code, message) {
+  return {
+    filePath,
+    error: { code, message }
+  };
+}
+
+function isSafeAttachmentFile(filePath, uploadsDir) {
+  if (!filePath || !isPathWithin(uploadsDir, filePath)) {
+    return false;
+  }
+
+  let stats;
+  try {
+    stats = fs.lstatSync(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+  if (stats.isSymbolicLink() || !stats.isFile()) {
+    return false;
+  }
+
+  try {
+    return isPathWithin(
+      fs.realpathSync(uploadsDir),
+      fs.realpathSync(filePath)
+    );
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isPathWithin(rootPath, targetPath) {
+  const relativePath = path.relative(
+    path.resolve(rootPath),
+    path.resolve(targetPath)
+  );
+  return relativePath === ''
+    || (
+      relativePath !== '..'
+      && !relativePath.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(relativePath)
+    );
 }
 
 function normalizeTimestamp(value, fallback) {

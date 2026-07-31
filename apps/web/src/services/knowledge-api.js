@@ -6,6 +6,7 @@ import { createNoteApi } from './knowledge-api/note-service.js';
 import { createNoteSideApi } from './knowledge-api/note-side-service.js';
 import { createTagApi } from './knowledge-api/tag-service.js';
 import { createWorkspaceApi } from './knowledge-api/workspace-service.js';
+import { createKnowledgeDomainApi } from './knowledge-api/knowledge-domain-service.js';
 
 export function createKnowledgeApi({ requestJson = apiClient.requestJson } = {}) {
   return {
@@ -15,6 +16,7 @@ export function createKnowledgeApi({ requestJson = apiClient.requestJson } = {})
     ...createNoteApi({ requestJson }),
     ...createTagApi({ requestJson }),
     ...createAnnotationApi({ requestJson }),
+    ...createKnowledgeDomainApi({ requestJson }),
     ...createAttachmentApi({ requestJson })
   };
 }

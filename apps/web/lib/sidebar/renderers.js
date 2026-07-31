@@ -106,6 +106,7 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
     .map(
       (attachment) => {
         const isRenaming = attachmentRenaming?.id === attachment.id;
+        const statusLabel = getAttachmentStatusLabel(attachment.status);
         if (isRenaming) {
           return `
             <div class="resource-row resource-row-editing" data-referenced="${String(Boolean(attachment.isReferenced))}">
@@ -134,7 +135,7 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
         }
 
         return `
-          <div class="resource-row" data-referenced="${String(Boolean(attachment.isReferenced))}">
+          <div class="resource-row" data-referenced="${String(Boolean(attachment.isReferenced))}" data-attachment-status="${escapeAttribute(attachment.status || 'ready')}">
             <button
               type="button"
               class="resource-entry"
@@ -147,8 +148,8 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
                 <strong>${escapeHtml(attachment.fileName)}</strong>
                 <span>${escapeHtml(attachment.mimeType)}</span>
               </div>
-              <span class="resource-badge" data-referenced="${String(Boolean(attachment.isReferenced))}">
-                ${attachment.isReferenced ? '已引用' : '未引用'}
+              <span class="resource-badge" data-referenced="${String(Boolean(attachment.isReferenced))}" data-attachment-status="${escapeAttribute(attachment.status || 'ready')}" title="${escapeAttribute(statusLabel || '')}">
+                ${escapeHtml(statusLabel || (attachment.isReferenced ? '已引用' : '未引用'))}
               </span>
             </button>
             <button
@@ -163,6 +164,15 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
       }
     )
     .join('');
+}
+
+function getAttachmentStatusLabel(status) {
+  return {
+    missing: '文件缺失',
+    corrupt: '文件损坏',
+    pending: '处理中',
+    failed: '上传失败'
+  }[status] ?? '';
 }
 
 export function renderAsideEmptyInline(label) {

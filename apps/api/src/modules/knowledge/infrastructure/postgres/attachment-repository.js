@@ -14,7 +14,10 @@ export function createPostgresAttachmentRepository({ db }) {
         fileName: attachment.fileName,
         mimeType: attachment.mimeType,
         size: Number(attachment.size),
+        sha256: attachment.sha256 ?? null,
+        status: attachment.status ?? 'ready',
         storagePath: attachment.storagePath,
+        verifiedAt: attachment.verifiedAt ? toDate(attachment.verifiedAt) : null,
         createdAt: toDate(attachment.createdAt)
       };
       return withRepositoryErrors(async () => mapAttachment(await db.attachment.upsert({
@@ -25,6 +28,9 @@ export function createPostgresAttachmentRepository({ db }) {
           fileName: data.fileName,
           mimeType: data.mimeType,
           size: data.size,
+          sha256: data.sha256,
+          status: data.status,
+          verifiedAt: data.verifiedAt,
           storagePath: data.storagePath
         }
       })));

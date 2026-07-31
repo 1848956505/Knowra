@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>印格 InkGrid v2.1 · 组件库与设计元素</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --ink-bg: #F9F7F2;
+            --ink-surface: #FFFFFF;
+            --ink-surface-sunken: #F4F1EA;
+            --ink-border: #1A1A1A;
+            --ink-text: #1A1A1A;
+            --ink-text-secondary: #666666;
+            --ink-dot-grid: #D1D1D1;
+            --ink-accent: #2563EB;
+            --ink-accent-hover: #1D4ED8;
+            --ink-accent-bg: #E0F2FE;
+            --ink-success: #16A34A;
+            --ink-success-hover: #15803D;
+            --ink-success-bg: #DCFCE7;
+            --ink-warning: #EA580C;
+            --ink-warning-hover: #C2410C;
+            --ink-warning-bg: #FFEDD5;
+            --ink-danger: #DC2626;
+            --ink-danger-hover: #B91C1C;
+            --ink-danger-bg: #FEE2E2;
+            --ink-line: #DDDDDD;
+            --ink-border-w: 2px;
+            --ink-border-w-thin: 1px;
+            --ink-shadow-1: 2px 2px 0 var(--ink-border);
+            --ink-shadow-2: 3px 3px 0 var(--ink-border);
+            --ink-shadow-3: 4px 4px 0 var(--ink-border);
+            --ink-shadow-hero: 6px 6px 0 var(--ink-border);
+        }
+        [data-theme="dark"] {
+            --ink-bg: #171512;
+            --ink-surface: #211E1A;
+            --ink-surface-sunken: #2A2621;
+            --ink-border: #E8E4DC;
+            --ink-text: #F2EFE9;
+            --ink-text-secondary: #9C968C;
+            --ink-dot-grid: #35312B;
+            --ink-line: #3A362F;
+            --ink-shadow-1: 2px 2px 0 rgba(232,228,220,0.22);
+            --ink-shadow-2: 3px 3px 0 rgba(232,228,220,0.22);
+            --ink-shadow-3: 4px 4px 0 rgba(232,228,220,0.22);
+            --ink-shadow-hero: 6px 6px 0 rgba(232,228,220,0.22);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--ink-bg);
+            color: var(--ink-text);
+            font-size: 14px;
+            line-height: 1.6;
+            background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px);
+            background-size: 20px 20px;
+            transition: background-color 0.15s;
+        }
+        .page { max-width: 1000px; margin: 0 auto; padding: 60px 32px 100px; }
+        .mono { font-family: "SF Mono", "Menlo", monospace; }
+
+        /* Theme toggle */
+        .theme-toggle { position: fixed; top: 20px; right: 20px; z-index: 50; }
+
+        /* Header */
+        .page-header { margin-bottom: 64px; }
+        .page-header h1 { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+        .page-header p { color: var(--ink-text-secondary); font-size: 15px; max-width: 560px; margin-bottom: 16px; }
+        .version-tag { display: inline-block; padding: 4px 12px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-accent); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; box-shadow: var(--ink-shadow-2); }
+
+        /* Section / Panel */
+        .section { margin-bottom: 64px; }
+        .section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-accent); margin-bottom: 8px; }
+        .section h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 8px; }
+        .section .desc { color: var(--ink-text-secondary); font-size: 13px; margin-bottom: 24px; }
+        .panel { background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-3); padding: 28px; margin-bottom: 20px; }
+        .panel-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--ink-line); }
+        .divider { border: none; border-top: var(--ink-border-w) solid var(--ink-border); margin: 56px 0; }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 16px; }
+        .row:last-child { margin-bottom: 0; }
+        .hint { font-size: 11px; color: var(--ink-text-secondary); }
+
+        /* Swatch */
+        .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+        .swatch { border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); }
+        .swatch-color { height: 52px; border-bottom: var(--ink-border-w) solid var(--ink-border); }
+        .swatch-info { padding: 10px 12px; }
+        .swatch-info .name { font-size: 12px; font-weight: 700; }
+        .swatch-info .hex { font-size: 11px; color: var(--ink-text-secondary); font-family: "SF Mono", "Menlo", monospace; }
+
+        /* Type */
+        .type-row { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--ink-line); }
+        .type-row:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+        .type-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); margin-bottom: 8px; font-family: "SF Mono", monospace; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; font-weight: 600; font-size: 13px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); cursor: pointer; transition: all 0.1s ease; box-shadow: var(--ink-shadow-1); color: var(--ink-text); user-select: none; white-space: nowrap; font-family: inherit; }
+        .btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink-border); }
+        .btn-primary { background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-3); }
+        .btn-primary:hover { background: var(--ink-accent-hover); box-shadow: 5px 5px 0 var(--ink-border); }
+        .btn-danger { background: var(--ink-danger); color: #fff; }
+        .btn-danger:hover { background: var(--ink-danger-hover); }
+        .btn-sm { font-size: 12px; padding: 4px 12px; }
+        .btn-icon { padding: 8px; width: 36px; height: 36px; }
+        .btn:disabled, .btn.is-disabled { border: 1px solid #CCC; color: #999; background: var(--ink-surface); box-shadow: none; transform: none; cursor: not-allowed; }
+
+        /* Inputs */
+        .input { width: 100%; max-width: 320px; padding: 9px 12px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 13px; font-family: inherit; box-shadow: var(--ink-shadow-1); transition: box-shadow 0.1s; }
+        .input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        .input::placeholder { color: #999; }
+        .input:disabled { border: 1px solid #CCC; color: #999; box-shadow: none; cursor: not-allowed; }
+        .input.is-error { border-color: var(--ink-danger); box-shadow: 2px 2px 0 var(--ink-danger); }
+        .field-error { font-size: 12px; color: var(--ink-danger); margin-top: 6px; }
+
+        /* Select */
+        .select { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; user-select: none; }
+        .select .label { color: var(--ink-text-secondary); font-weight: 400; }
+        .select i { font-size: 14px; color: var(--ink-text-secondary); }
+
+        /* Nav */
+        .nav-demo { width: 250px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
+        .nav-group-title { padding: 12px 20px 6px; font-size: 11px; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; color: var(--ink-text-secondary); }
+        .nav-item { display: flex; align-items: center; padding: 9px 20px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; transition: background 0.1s; }
+        .nav-item:hover { background: var(--ink-surface-sunken); }
+        .nav-item.active { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 700; }
+        .nav-item.is-disabled { color: var(--ink-text-secondary); cursor: not-allowed; opacity: 0.65; }
+        .nav-item.is-disabled .nav-note { font-size: 11px; margin-left: auto; }
+        .nav-item i { margin-right: 12px; font-size: 16px; width: 16px; }
+        .nav-kbd { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; background: var(--ink-surface-sunken); border: 1px solid var(--ink-line); border-radius: 3px; padding: 1px 4px; color: var(--ink-text-secondary); }
+
+        /* Catalog column (方案 C · 独立目录栏) */
+        .catalog-demo { width: 220px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
+        .catalog-demo .catalog-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
+        .catalog-demo .catalog-head i { cursor: pointer; font-size: 15px; }
+        .catalog-demo .catalog-body { padding: 8px 0; }
+        .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 18px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
+        .tree-node:hover { background: var(--ink-surface-sunken); }
+        .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
+        .tree-node .twist, .tree-node .ico { color: var(--ink-text-secondary); font-size: 15px; }
+        .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .tree-node.lv2 { padding-left: 38px; } .tree-node.lv3 { padding-left: 56px; }
+
+        /* Cards */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .card { background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-3); padding: 22px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .card:hover { transform: translateY(-4px); box-shadow: var(--ink-shadow-hero); }
+        .card-icon-box { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: var(--ink-bg); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-2); margin-bottom: 16px; }
+        .card h4 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+        .card p { font-size: 13px; color: var(--ink-text-secondary); line-height: 1.5; }
+        .card.is-disabled { border: 1px solid var(--ink-border); box-shadow: none; cursor: not-allowed; }
+        .card.is-disabled:hover { transform: none; }
+        .card.is-disabled h4, .card.is-disabled p { color: var(--ink-text-secondary); }
+
+        /* Tags & badges */
+        .tag { display: inline-block; padding: 2px 8px; border: 1px solid var(--ink-border); font-size: 11px; font-weight: 600; background: var(--ink-bg); color: var(--ink-text); }
+        .tag-blue { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; }
+        .tag-green { background: #DCFCE7; border-color: #86EFAC; color: #15803D; }
+        .tag-purple { background: #F3E8FF; border-color: #D8B4FE; color: #7E22CE; }
+        .tag-muted { color: var(--ink-text-secondary); border-style: dashed; background: transparent; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+        .badge::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .badge-warning { color: var(--ink-warning); }
+        .badge-success { color: var(--ink-success); }
+        .badge-muted { color: var(--ink-text-secondary); }
+        .badge .badge-text { color: var(--ink-text); font-weight: 500; }
+
+        /* Table + pagination */
+        .table-demo { width: 100%; border-collapse: collapse; }
+        .table-demo tr { border-bottom: 1px solid var(--ink-line); transition: background 0.1s; }
+        .table-demo tr:last-child { border-bottom: 0; }
+        .table-demo tr:hover { background: var(--ink-surface-sunken); }
+        .table-demo td { padding: 12px 8px; font-size: 13px; vertical-align: middle; }
+        .table-demo .file-name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .table-demo .meta { color: var(--ink-text-secondary); font-family: "SF Mono", monospace; font-size: 12px; }
+        .page-btn { min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; font-family: "SF Mono", monospace; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; }
+        .page-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .page-btn.active { background: var(--ink-accent); color: #fff; }
+
+        /* Resource list row (#31) — 资料列表行 */
+        .list-card { background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-2); }
+        .list-row { display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--ink-line); cursor: pointer; transition: background 0.1s; }
+        .list-row:last-child { border-bottom: none; }
+        .list-row:hover { background: var(--ink-surface-sunken); }
+        .doc-thumb { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; font-size: 20px; color: var(--ink-text); background: var(--ink-bg); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-1); }
+        .list-main { flex: 1; min-width: 0; }
+        .list-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .list-title { font-size: 15px; font-weight: 700; }
+        .list-excerpt { font-size: 13px; color: var(--ink-text-secondary); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .list-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-text-secondary); }
+        .list-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .list-right .time { font-family: "SF Mono", monospace; font-size: 12px; color: var(--ink-text-secondary); }
+        .list-right .open { color: var(--ink-accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        /* View tabs (#23) & panel tabs (#26) */
+        .view-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-border); }
+        .view-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
+        .view-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
+        .view-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
+        .view-tab .count { font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--ink-line); }
+        .panel-tab { flex: 1; text-align: center; padding: 8px 4px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .panel-tab:hover { color: var(--ink-text); }
+        .panel-tab.active { color: var(--ink-accent); font-weight: 700; border-bottom-color: var(--ink-accent); }
+
+        /* Doc tabs (#27) */
+        .doc-tabs { display: flex; align-items: stretch; border-bottom: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); }
+        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; border-right: 1px solid var(--ink-line); border-top: 2px solid transparent; color: var(--ink-text-secondary); cursor: pointer; background: transparent; }
+        .doc-tab:hover { background: var(--ink-surface-sunken); }
+        .doc-tab:hover .doc-tab-close { opacity: 1; }
+        .doc-tab.active { background: var(--ink-surface); color: var(--ink-text); font-weight: 600; border-top-color: var(--ink-accent); }
+        .doc-tab.active .doc-tab-close { opacity: 1; }
+        .doc-tab-close { opacity: 0; font-size: 14px; color: var(--ink-text-secondary); transition: opacity 0.1s; }
+        .doc-tab-close:hover { color: var(--ink-danger); }
+
+        /* Menu bar (#28) & menus (#15) */
+        .menu-bar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--ink-line); background: var(--ink-surface); }
+        .menu-bar .menu-word { padding: 4px 10px; font-size: 13px; cursor: pointer; }
+        .menu-bar .menu-word:hover { background: var(--ink-surface-sunken); }
+        .menu-bar .menu-sep { width: 1px; height: 18px; background: var(--ink-line); margin: 0 6px; }
+        .menu-bar .menu-ico { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; }
+        .menu-bar .menu-ico:hover { background: var(--ink-surface-sunken); }
+        .menu-bar .menu-ico.active { background: var(--ink-accent); color: #fff; }
+        .menu { width: 220px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-3); padding: 4px; }
+        .menu-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; cursor: pointer; }
+        .menu-item:hover { background: var(--ink-surface-sunken); }
+        .menu-item i { font-size: 15px; width: 16px; color: var(--ink-text-secondary); }
+        .menu-item .menu-kbd { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .menu-item.danger { color: var(--ink-danger); }
+        .menu-item.danger i { color: var(--ink-danger); }
+        .menu-divider { height: 1px; background: var(--ink-line); margin: 4px 6px; }
+
+        /* Dialog (#14) */
+        .dialog-stage { background: rgba(26,26,26,0.4); padding: 40px; display: grid; place-items: center; }
+        .dialog { width: 420px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-hero); }
+        .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: var(--ink-border-w) solid var(--ink-border); }
+        .dialog-head h5 { font-size: 15px; font-weight: 700; }
+        .dialog-body { padding: 20px; font-size: 13px; color: var(--ink-text-secondary); }
+        .dialog-foot { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--ink-line); }
+
+        /* Toast (#16) */
+        .toast { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 13px; font-weight: 600; border: var(--ink-border-w) solid; }
+        .toast-success { background: var(--ink-success-bg); border-color: var(--ink-success); color: var(--ink-success-hover); box-shadow: 3px 3px 0 var(--ink-success); }
+        .toast-warning { background: var(--ink-warning-bg); border-color: var(--ink-warning); color: var(--ink-warning-hover); box-shadow: 3px 3px 0 var(--ink-warning); }
+        .toast-danger { background: var(--ink-danger-bg); border-color: var(--ink-danger); color: var(--ink-danger-hover); box-shadow: 3px 3px 0 var(--ink-danger); }
+        .toast-info { background: var(--ink-accent-bg); border-color: var(--ink-accent); color: var(--ink-accent-hover); box-shadow: 3px 3px 0 var(--ink-accent); }
+
+        /* Tooltip (#17) */
+        .tooltip { display: inline-block; background: var(--ink-border); color: var(--ink-bg); font-size: 11px; padding: 4px 10px; }
+
+        /* Empty (#18) & loading (#19) */
+        .empty-demo { padding: 40px; text-align: center; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; border: 1px solid var(--ink-line); }
+        .empty-demo .card-icon-box { margin: 0 auto 16px; }
+        .empty-demo .empty-text { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+        .pulse { display: inline-flex; gap: 6px; }
+        .pulse span { width: 8px; height: 8px; background: var(--ink-border); animation: ink-pulse 0.9s infinite; }
+        .pulse span:nth-child(2) { animation-delay: 0.15s; }
+        .pulse span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes ink-pulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+        /* Status bar (#24) */
+        .status-bar { display: flex; align-items: center; gap: 16px; padding: 6px 14px; border-top: 1px solid var(--ink-line); background: var(--ink-surface); font-size: 12px; color: var(--ink-text-secondary); }
+        .status-bar .grow { flex: 1; }
+        .status-bar .stat { font-family: "SF Mono", monospace; font-size: 11px; }
+        .status-switch { padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+        .status-switch:hover { background: var(--ink-surface-sunken); }
+        .status-switch.active { background: var(--ink-accent); color: #fff; }
+
+        /* Inspector (#25) */
+        .inspector { width: 300px; border: 1px solid var(--ink-border); background: var(--ink-bg); }
+        .inspector-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--ink-border); font-weight: 700; font-size: 13px; }
+        .inspector-head .spacer { flex: 1; }
+        .preview-card { margin: 16px; padding: 14px; background: var(--ink-surface); border: 1px solid var(--ink-border); }
+        .preview-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .preview-title { font-size: 15px; font-weight: 700; }
+        .preview-excerpt { font-size: 12.5px; color: var(--ink-text-secondary); line-height: 1.6; margin-bottom: 10px; }
+        .preview-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .inspector-section { border-top: 1px solid var(--ink-line); }
+        .inspector-section:last-child { border-bottom: 0; }
+        .inspector-section-head { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .inspector-section-head:hover { background: var(--ink-surface-sunken); }
+        .inspector-section-head .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .inspector-section-head i.chev { color: var(--ink-text-secondary); font-size: 14px; }
+        .kv { display: grid; grid-template-columns: 72px 1fr; gap: 6px 12px; padding: 4px 16px 14px; }
+        .kv .k { font-size: 11px; color: var(--ink-text-secondary); line-height: 20px; }
+        .kv .v { font-size: 13px; line-height: 20px; }
+
+        /* Brand mark (#31) */
+        .mark { position: relative; width: 38px; height: 38px; }
+        .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 32px; height: 32px; background: var(--ink-accent); }
+        .mark .mark-front { position: absolute; left: 0; top: 0; width: 32px; height: 32px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+
+        /* Icon grid / shadow / spacing / motion */
+        .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+        .icon-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; border: 1px solid var(--ink-line); transition: all 0.1s; }
+        .icon-cell:hover { border-color: var(--ink-border); background: var(--ink-surface); }
+        .icon-cell i { font-size: 20px; }
+        .icon-cell span { font-size: 11px; color: var(--ink-text-secondary); text-align: center; }
+        .shadow-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; }
+        .shadow-item { text-align: center; }
+        .shadow-box { width: 100px; height: 64px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); margin-bottom: 10px; }
+        .shadow-item span { font-size: 11px; color: var(--ink-text-secondary); font-family: "SF Mono", monospace; }
+        .tier-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .tier-box { padding: 16px; font-size: 12px; }
+        .tier-box strong { display: block; font-size: 13px; margin-bottom: 4px; }
+        .tier-box .hint { display: block; margin-top: 8px; }
+        .spacing-row { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+        .spacing-bar { height: 18px; background: var(--ink-accent); opacity: 0.25; border: 1px solid var(--ink-accent); }
+        .spacing-label { font-size: 11px; color: var(--ink-text-secondary); min-width: 50px; font-family: "SF Mono", monospace; }
+        .motion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .motion-card { border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); padding: 20px; text-align: center; box-shadow: var(--ink-shadow-2); }
+        .motion-card .demo { height: 48px; display: grid; place-items: center; margin-bottom: 12px; }
+        .motion-card .demo-box { width: 36px; height: 36px; border: 2px solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-2); transition: all 0.15s ease; }
+        .motion-card:hover .demo-box { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink-border); }
+        .motion-card .info { font-size: 11px; color: var(--ink-text-secondary); }
+        .motion-card .info strong { display: block; color: var(--ink-text); font-size: 12px; margin-bottom: 2px; }
+        .kbd { font-family: "SF Mono", Menlo, monospace; font-size: 11px; background: var(--ink-surface-sunken); border: 1px solid var(--ink-line); border-radius: 3px; padding: 2px 5px; color: var(--ink-text-secondary); }
+    </style>
+</head>
+<body>
+<button class="btn btn-icon theme-toggle" id="themeToggle" title="切换暗色 token 验证"><i class="ri-contrast-2-line"></i></button>
+<div class="page">
+
+    <header class="page-header">
+        <h1>印格 InkGrid</h1>
+        <p>知境 · Knowra 设计系统组件库。Neo-Brutalism 风格——粗边框、硬阴影、零圆角、暖纸底；v2.1 引入语义色、四梯度层级与工作面组件。</p>
+        <span class="version-tag">DESIGN SYSTEM v2.1 · 2026-07</span>
+    </header>
+
+    <!-- 1. 色彩 -->
+    <section class="section">
+        <div class="section-label">01 · Color</div>
+        <h2>色彩体系</h2>
+        <p class="desc">黑白为主角；蓝为强调，绿/橙/红为语义状态，浅彩为分类标签。三者物理隔离。</p>
+        <div class="panel">
+            <div class="panel-title">基础色</div>
+            <div class="swatch-grid">
+                <div class="swatch"><div class="swatch-color" style="background:#F9F7F2"></div><div class="swatch-info"><div class="name">Background</div><div class="hex">#F9F7F2</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#FFFFFF"></div><div class="swatch-info"><div class="name">Surface</div><div class="hex">#FFFFFF</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#F4F1EA"></div><div class="swatch-info"><div class="name">Surface Sunken</div><div class="hex">#F4F1EA</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#1A1A1A"></div><div class="swatch-info"><div class="name">Border / Ink</div><div class="hex">#1A1A1A</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#666666"></div><div class="swatch-info"><div class="name">Text Secondary</div><div class="hex">#666666</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#2563EB"></div><div class="swatch-info"><div class="name">Accent Blue</div><div class="hex">#2563EB</div></div></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">语义色（仅用于状态反馈）</div>
+            <div class="swatch-grid">
+                <div class="swatch"><div class="swatch-color" style="background:#16A34A"></div><div class="swatch-info"><div class="name">Success</div><div class="hex">#16A34A / #DCFCE7</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#EA580C"></div><div class="swatch-info"><div class="name">Warning</div><div class="hex">#EA580C / #FFEDD5</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#DC2626"></div><div class="swatch-info"><div class="name">Danger</div><div class="hex">#DC2626 / #FEE2E2</div></div></div>
+            </div>
+            <div class="hint" style="margin-top:14px;">禁令：语义色不用于装饰、图标常态与标题；分类色（下）永远是 1px 边框无阴影 tag，不做按钮、不做反馈块。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">分类色（标签专用）</div>
+            <div class="row">
+                <span class="tag">默认</span>
+                <span class="tag tag-blue">工作</span>
+                <span class="tag tag-green">阅读</span>
+                <span class="tag tag-purple">技术</span>
+                <span class="tag tag-muted">暂无标签</span>
+            </div>
+            <div class="hint" style="margin-top:12px;">分类色：1px 浅彩描边 + 浅彩底（blue/green/purple）做类目区分；<span class="mono">.tag-muted</span> 为虚线空态标签（透明底），用于「暂无标签」占位。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 2. 字体 -->
+    <section class="section">
+        <div class="section-label">02 · Typography</div>
+        <h2>字体与排印</h2>
+        <p class="desc">全无衬线 + 800 字重标题（Latin）。中文标题依赖 PingFang Semibold，不加负字距。全局字号下限 11px。</p>
+        <div class="panel">
+            <div class="type-row"><div class="type-label">Display · 42px / 800 / -1px（仅展示页）</div><div style="font-size:42px; font-weight:800; letter-spacing:-1px;">InkGrid</div></div>
+            <div class="type-row"><div class="type-label">H1 · 28px / 800</div><div style="font-size:28px; font-weight:800;">早安，创造者。</div></div>
+            <div class="type-row"><div class="type-label">H2 · 16px / 700</div><div style="font-size:16px; font-weight:700;">资料库索引</div></div>
+            <div class="type-row"><div class="type-label">Body · 14px / 400</div><div style="font-size:14px;">管理碎片化知识点，在资料、知识与训练之间建立可验证的学习闭环。</div></div>
+            <div class="type-row"><div class="type-label">Small · 13px / 500</div><div style="font-size:13px; font-weight:500;">资料索引 · 快速笔记 · 标签管理</div></div>
+            <div class="type-row"><div class="type-label">Nav Label · 11px / 800 / uppercase / +1px</div><div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--ink-text-secondary);">工作域 · WORK DOMAINS</div></div>
+            <div class="type-row"><div class="type-label">KBD / Mono · 11–12px（下限 11px）</div><div style="display:flex; gap:12px; align-items:center;"><span class="kbd">⌘K</span><span class="mono" style="font-size:12px; color:var(--ink-text-secondary);">10分钟前</span></div></div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 3. 层级四梯度 -->
+    <section class="section">
+        <div class="section-label">03 · Hierarchy</div>
+        <h2>视觉层级四梯度</h2>
+        <p class="desc">框架有力，内容安静：Tier A/B 只出现在外壳与关键操作；工作面内部只允许 Tier C/D。</p>
+        <div class="panel">
+            <div class="tier-row">
+                <div class="tier-box" style="border:2px solid var(--ink-border); box-shadow:var(--ink-shadow-3); background:var(--ink-surface);"><strong>Tier A 浮起层</strong>2px 边框 + 4px 硬影<span class="hint">一级卡片 / 弹窗 / 主按钮</span></div>
+                <div class="tier-box" style="border:2px solid var(--ink-border); box-shadow:var(--ink-shadow-1); background:var(--ink-surface);"><strong>Tier B 操作层</strong>2px 边框 + 2px 硬影<span class="hint">次级按钮 / 输入框 / 页码</span></div>
+                <div class="tier-box" style="border:1px solid var(--ink-border); background:var(--ink-surface);"><strong>Tier C 结构层</strong>1px 边框 · 无阴影<span class="hint">容器内分区 / Tab / 检查器</span></div>
+                <div class="tier-box" style="background:var(--ink-surface-sunken);"><strong>Tier D 平面层</strong>无边框 · sunken 底色<span class="hint">列表行 / 树节点 / 编辑纸面</span></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">硬影层级（零模糊 · 右下 45°）</div>
+            <div class="shadow-row">
+                <div class="shadow-item"><div class="shadow-box" style="box-shadow:none;"></div><span>none</span></div>
+                <div class="shadow-item"><div class="shadow-box" style="box-shadow:var(--ink-shadow-1);"></div><span>2px · Tier B</span></div>
+                <div class="shadow-item"><div class="shadow-box" style="box-shadow:var(--ink-shadow-2);"></div><span>3px · icon</span></div>
+                <div class="shadow-item"><div class="shadow-box" style="box-shadow:var(--ink-shadow-3);"></div><span>4px · Tier A</span></div>
+                <div class="shadow-item"><div class="shadow-box" style="box-shadow:var(--ink-shadow-hero);"></div><span>6px · hero</span></div>
+            </div>
+            <div class="hint" style="margin-top:14px;">实现约定：带硬影元素所在滚动容器须预留 8px 内边距，防止影被 overflow 裁切。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 4. 间距 -->
+    <section class="section">
+        <div class="section-label">04 · Spacing</div>
+        <h2>间距体系</h2>
+        <div class="panel">
+            <div class="spacing-row"><span class="spacing-label">4px</span><div class="spacing-bar" style="width:4px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">8px</span><div class="spacing-bar" style="width:8px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">12px</span><div class="spacing-bar" style="width:12px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">16px</span><div class="spacing-bar" style="width:16px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">24px</span><div class="spacing-bar" style="width:24px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">32px</span><div class="spacing-bar" style="width:32px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">48px</span><div class="spacing-bar" style="width:48px"></div></div>
+            <div class="spacing-row"><span class="spacing-label">64px</span><div class="spacing-bar" style="width:64px"></div></div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 5. 图标与品牌 Mark -->
+    <section class="section">
+        <div class="section-label">05 · Icon & Mark</div>
+        <h2>图标与品牌 Mark</h2>
+        <div class="panel">
+            <div class="panel-title">品牌 Mark（叠印方块 · 纯 CSS）</div>
+            <div class="row">
+                <div class="mark"><div class="mark-back"></div><div class="mark-front">知</div></div>
+                <span style="font-size:18px; font-weight:800; letter-spacing:-0.5px;">知境 Knowra</span>
+                <span class="hint" style="margin-left:16px;">后层蓝方块 + 前层白底黑边方块左上偏移 3px，隐喻「墨印错位压格」</span>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">常用图标（Remix Icon · Line 为主 · Fill 仅激活态）</div>
+            <div class="icon-grid">
+                <div class="icon-cell"><i class="ri-archive-line"></i><span>资料</span></div>
+                <div class="icon-cell"><i class="ri-brain-line"></i><span>知识</span></div>
+                <div class="icon-cell"><i class="ri-sword-line"></i><span>训练</span></div>
+                <div class="icon-cell"><i class="ri-line-chart-line"></i><span>档案</span></div>
+                <div class="icon-cell"><i class="ri-search-line"></i><span>搜索</span></div>
+                <div class="icon-cell"><i class="ri-settings-4-line"></i><span>设置</span></div>
+                <div class="icon-cell"><i class="ri-folder-open-line"></i><span>文件夹</span></div>
+                <div class="icon-cell"><i class="ri-file-text-line"></i><span>文档</span></div>
+                <div class="icon-cell"><i class="ri-price-tag-3-line"></i><span>标签</span></div>
+                <div class="icon-cell"><i class="ri-attachment-2"></i><span>附件</span></div>
+                <div class="icon-cell"><i class="ri-list-unordered"></i><span>大纲</span></div>
+                <div class="icon-cell"><i class="ri-links-line"></i><span>关联</span></div>
+                <div class="icon-cell"><i class="ri-history-line"></i><span>最近</span></div>
+                <div class="icon-cell"><i class="ri-star-line"></i><span>收藏</span></div>
+                <div class="icon-cell"><i class="ri-delete-bin-line"></i><span>回收站</span></div>
+                <div class="icon-cell"><i class="ri-add-line"></i><span>新建</span></div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 6. 按钮 -->
+    <section class="section">
+        <div class="section-label">06 · Buttons</div>
+        <h2>按钮状态矩阵</h2>
+        <div class="panel">
+            <div class="panel-title">变体 × 状态（hover 浮起 / active 塌入 / Tab 键查看 focus 蓝影）</div>
+            <div class="row">
+                <button class="btn btn-primary"><i class="ri-add-line"></i> 新建资料</button>
+                <button class="btn"><i class="ri-calendar-event-line"></i> 次级操作</button>
+                <button class="btn btn-danger"><i class="ri-delete-bin-line"></i> 删除</button>
+                <button class="btn" disabled><i class="ri-lock-line"></i> 禁用态</button>
+            </div>
+            <div class="row">
+                <button class="btn btn-sm">进入编辑器 →</button>
+                <button class="btn btn-sm">查看全部</button>
+                <button class="btn btn-icon" title="通知"><i class="ri-notification-3-line"></i></button>
+                <button class="btn btn-icon" title="设置"><i class="ri-settings-4-line"></i></button>
+                <span class="hint">Small 按钮 · Icon 按钮 36×36</span>
+            </div>
+            <div class="hint">disabled：1px #CCC 边框、#999 文字、无阴影、无位移。规则：hover translate(-1px,-1px)+影+1px ｜ active translate(2px,2px)+影归零。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 7. 输入与选择 -->
+    <section class="section">
+        <div class="section-label">07 · Inputs</div>
+        <h2>输入框与下拉选择器</h2>
+        <div class="panel">
+            <div class="row" style="flex-direction:column; align-items:flex-start; gap:18px;">
+                <div><div class="hint" style="font-weight:700; margin-bottom:8px;">标准输入 / focus 蓝影</div><input class="input" type="text" placeholder="输入标题..."></div>
+                <div><div class="hint" style="font-weight:700; margin-bottom:8px;">错误态</div><input class="input is-error" type="text" value="标题包含非法字符 /"><div class="field-error">名称不能包含 “/” 字符</div></div>
+                <div><div class="hint" style="font-weight:700; margin-bottom:8px;">禁用态</div><input class="input" type="text" placeholder="只读模式下不可编辑" disabled></div>
+                <div>
+                    <div class="hint" style="font-weight:700; margin-bottom:8px;">下拉选择器 Select（过滤栏 / 每页条数用）</div>
+                    <div class="row">
+                        <span class="select"><span class="label">类型</span> 全部 <i class="ri-arrow-down-s-line"></i></span>
+                        <span class="select"><span class="label">状态</span> 待整理 <i class="ri-arrow-down-s-line"></i></span>
+                        <span class="select"><span class="label">时间</span> 最近编辑 <i class="ri-arrow-down-s-line"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 8. 导航 -->
+    <section class="section">
+        <div class="section-label">08 · Navigation</div>
+        <h2>侧边栏导航（轻模块 · 重功能）</h2>
+        <p class="desc">全局左栏不做「模块切换器」，而是按 Notion / Craft 式的小标题分组直接罗列功能项。占位模块（知识库 / 训练场 / 学习档案）也作为功能组常驻，点击提示开发中。</p>
+        <div class="panel" style="display:flex; gap:32px; flex-wrap:wrap;">
+            <div class="nav-demo">
+                <div class="nav-group-title" style="display:flex; justify-content:space-between; align-items:center;"><span>工作台</span><i class="ri-add-line" style="cursor:pointer;"></i></div>
+                <div class="nav-item active"><i class="ri-layout-grid-fill"></i> 首页概览 <span class="nav-kbd">⌘1</span></div>
+                <div class="nav-item"><i class="ri-stack-line"></i> 全部资料</div>
+                <div class="nav-item"><i class="ri-star-line"></i> 收藏夹</div>
+                <div class="nav-item"><i class="ri-delete-bin-6-line"></i> 回收站</div>
+                <div class="nav-group-title" style="margin-top:12px;">资料库</div>
+                <div class="nav-item"><i class="ri-quill-pen-line"></i> 快速笔记</div>
+                <div class="nav-item"><i class="ri-folder-open-line"></i> 文件夹管理</div>
+                <div class="nav-item"><i class="ri-price-tag-3-line"></i> 标签管理</div>
+                <div class="nav-item"><i class="ri-attachment-2"></i> 附件库</div>
+                <div class="nav-group-title" style="margin-top:12px;">知识库</div>
+                <div class="nav-item"><i class="ri-node-tree"></i> 知识图谱</div>
+                <div class="nav-item"><i class="ri-links-line"></i> 双向链接</div>
+            </div>
+            <div class="catalog-demo">
+                <div class="catalog-head"><span>资料 · 文件夹</span><i class="ri-add-line" title="新建文件夹"></i></div>
+                <div class="catalog-body">
+                    <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
+                    <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
+                    <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> test</div>
+                    <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
+                    <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
+                    <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 多模态</div>
+                    <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 英语</div>
+                </div>
+            </div>
+            <div class="hint" style="max-width:280px; line-height:1.9;">
+                <strong style="color:var(--ink-text);">规则</strong><br>
+                · 分组：小标题（11px / 800 / 大写字距）+ 功能项，命名用成熟功能名而非「01/02」编号<br>
+                · 激活态：白底 + 左 4px 蓝条 + 700 字重<br>
+                · 悬停：sunken 暖灰底<br>
+                · 图标：Remix line 系（激活项可用 fill）<br>
+                · 快捷键：等宽 KBD 右对齐（11px）<br>
+                · 底部固定「新建空间」主按钮；设置入口只在顶栏，侧栏不重复<br>
+                · <strong style="color:var(--ink-text);">功能栏与目录栏分离（方案 C）</strong>：功能导航栏不含目录树；资料等功能页的文件夹目录树独立成一栏（右侧 <span class="mono">.catalog</span>，220px、纸底 Tier A 外框、Tier D 树节点），全局功能栏保持纯功能
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 9. 卡片 -->
+    <section class="section">
+        <div class="section-label">09 · Cards</div>
+        <h2>功能卡片（激活 / 禁用）</h2>
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon-box"><i class="ri-archive-line"></i></div>
+                <h4>资料工作台</h4>
+                <p>Markdown 资料的采集、编辑与整理。当前唯一可用工作域。</p>
+            </div>
+            <div class="card is-disabled">
+                <div class="card-icon-box" style="box-shadow:none;"><i class="ri-brain-line"></i></div>
+                <h4>知识工作台 <span class="tag" style="margin-left:6px;">即将开放</span></h4>
+                <p>知识单元与学习目标管理。后端联调未完成。</p>
+            </div>
+            <div class="card is-disabled">
+                <div class="card-icon-box" style="box-shadow:none;"><i class="ri-sword-line"></i></div>
+                <h4>训练工作台 <span class="tag" style="margin-left:6px;">即将开放</span></h4>
+                <p>题目库与考试场景。后端联调未完成。</p>
+            </div>
+        </div>
+        <div class="hint" style="margin-top:14px;">激活卡 hover：translateY(-4px) 且影 4px→6px（浮得越高影子越远）；禁用卡 Tier C、无阴影、无浮起。</div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 10. 视图 Tab / 面板 Tab / 文档 Tab -->
+    <section class="section">
+        <div class="section-label">10 · Tabs</div>
+        <h2>三种 Tab（黑线 = 数据视图 · 蓝线 = 面板视图 · 蓝顶 = 文档多开）</h2>
+        <div class="panel">
+            <div class="panel-title">#23 视图 Tab（数据视图切换）</div>
+            <div class="view-tabs">
+                <div class="view-tab active">全部条目 <span class="count">17</span></div>
+                <div class="view-tab">最近 <span class="count">5</span></div>
+                <div class="view-tab">已收藏 <span class="count">0</span></div>
+                <div class="view-tab">回收站 <span class="count">0</span></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#26 面板 Tab（检查器内切换）</div>
+            <div style="max-width:300px;">
+                <div class="panel-tabs">
+                    <div class="panel-tab active">信息</div>
+                    <div class="panel-tab">大纲</div>
+                    <div class="panel-tab">重点</div>
+                    <div class="panel-tab">AI</div>
+                </div>
+            </div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="doc-tabs">
+                <div class="doc-tab"><i class="ri-file-text-line"></i> Transformer <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
+                <div class="doc-tab active"><i class="ri-file-text-line"></i> 勾股定理笔记 <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
+                <div class="doc-tab"><i class="ri-file-text-line"></i> CLIP <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#27 文档 Tab 条：激活 = 白底 + 上边 2px 蓝条；关闭按钮 hover 显示；溢出横向滚动。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 11. 菜单栏与菜单 -->
+    <section class="section">
+        <div class="section-label">11 · Menus</div>
+        <h2>菜单栏与下拉/右键菜单</h2>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="menu-bar">
+                <span class="menu-word">文件</span><span class="menu-word">段落</span><span class="menu-word">编辑</span><span class="menu-word">格式</span><span class="menu-word">视图</span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;">H1</span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;">H2</span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;">H3</span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico"><i class="ri-bold"></i></span>
+                <span class="menu-ico active"><i class="ri-italic"></i></span>
+                <span class="menu-ico"><i class="ri-list-unordered"></i></span>
+                <span class="menu-ico"><i class="ri-double-quotes-l"></i></span>
+                <span class="menu-ico"><i class="ri-code-s-slash-line"></i></span>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#28 菜单栏：全 Tier D，hover sunken 底；激活图标 = 蓝底白字；组间 1px 竖分隔。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#15 下拉 / 右键菜单</div>
+            <div class="menu">
+                <div class="menu-item"><i class="ri-edit-line"></i> 重命名 <span class="menu-kbd">F2</span></div>
+                <div class="menu-item"><i class="ri-file-copy-line"></i> 创建副本 <span class="menu-kbd">⌘D</span></div>
+                <div class="menu-item"><i class="ri-folder-transfer-line"></i> 移动到…</div>
+                <div class="menu-divider"></div>
+                <div class="menu-item danger"><i class="ri-delete-bin-line"></i> 移入回收站</div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 12. 弹窗 / Toast / Tooltip -->
+    <section class="section">
+        <div class="section-label">12 · Overlays</div>
+        <h2>弹窗 · Toast · Tooltip</h2>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="dialog-stage">
+                <div class="dialog">
+                    <div class="dialog-head"><h5>移入回收站</h5><button class="btn btn-icon" style="box-shadow:none; border:none;"><i class="ri-close-line"></i></button></div>
+                    <div class="dialog-body">「勾股定理笔记」将移入回收站，30 天后自动清除。关联的 4 个附件保持不变。</div>
+                    <div class="dialog-foot"><button class="btn btn-sm">取消</button><button class="btn btn-sm btn-danger">移入回收站</button></div>
+                </div>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#14 弹窗：hero 影（6px）+ 无模糊遮罩 rgba(26,26,26,0.4)；标题栏底 2px 黑分隔线。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#16 Toast（右上角 · translateY(-8px)→0 · 0.15s · 无淡入淡出）</div>
+            <div class="row">
+                <span class="toast toast-success"><i class="ri-checkbox-circle-fill"></i> 已保存到云端</span>
+                <span class="toast toast-warning"><i class="ri-error-warning-fill"></i> 存在未保存修改</span>
+                <span class="toast toast-danger"><i class="ri-close-circle-fill"></i> 保存失败，已保留草稿</span>
+                <span class="toast toast-info"><i class="ri-information-fill"></i> 已切换到：test</span>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#17 Tooltip（黑底白字 · 11px · 唯一允许无边框的黑色块）</div>
+            <div class="row"><span class="tooltip">新建资料 ⌘N</span><span class="tooltip">折叠检查器</span></div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 13. 空态与加载 -->
+    <section class="section">
+        <div class="section-label">13 · Empty & Loading</div>
+        <h2>空状态与加载态</h2>
+        <div class="panel">
+            <div class="empty-demo">
+                <div class="card-icon-box"><i class="ri-inbox-line"></i></div>
+                <div class="empty-text">这个文件夹还是空的</div>
+                <button class="btn btn-sm"><i class="ri-add-line"></i> 新建资料</button>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#19 加载态（不做骨架屏 · 点阵脉冲）</div>
+            <div class="row">
+                <span class="pulse"><span></span><span></span><span></span></span>
+                <span class="mono" style="font-size:12px; color:var(--ink-text-secondary);">加载中…</span>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 14. 表格 / 分页 / 徽标 -->
+    <section class="section">
+        <div class="section-label">14 · Data</div>
+        <h2>表格 · 分页器 · 状态徽标</h2>
+        <div class="panel" style="padding:0;">
+            <div style="padding:20px 24px 14px; border-bottom:1px solid var(--ink-line); display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;"><i class="ri-history-line"></i> 最近编辑</div>
+                <button class="btn btn-sm">查看全部</button>
+            </div>
+            <table class="table-demo">
+                <tr><td style="padding-left:24px;"><div class="file-name"><i class="ri-file-text-line" style="color:var(--ink-text-secondary)"></i> 勾股定理笔记</div></td><td><span class="badge badge-warning"><span class="badge-text">待整理</span></span></td><td class="meta">10分钟前</td><td style="padding-right:24px;"><span class="tag tag-blue">数学</span></td></tr>
+                <tr><td style="padding-left:24px;"><div class="file-name"><i class="ri-file-text-line" style="color:var(--ink-text-secondary)"></i> Vision Transformer 精读</div></td><td><span class="badge badge-success"><span class="badge-text">已确认</span></span></td><td class="meta">2小时前</td><td style="padding-right:24px;"><span class="tag tag-purple">技术</span></td></tr>
+                <tr><td style="padding-left:24px;"><div class="file-name"><i class="ri-file-text-line" style="color:var(--ink-text-secondary)"></i> 《深度工作》摘录</div></td><td><span class="badge badge-muted"><span class="badge-text">草稿</span></span></td><td class="meta">昨天</td><td style="padding-right:24px;"><span class="tag tag-green">阅读</span></td></tr>
+            </table>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#29 分页器 + #30 状态徽标（8×8 方形点，呼应零圆角）</div>
+            <div class="row">
+                <span class="page-btn active">1</span><span class="page-btn">2</span><span class="page-btn">3</span>
+                <span class="hint" style="margin:0 8px;">每页</span>
+                <span class="select">5 条 <i class="ri-arrow-down-s-line"></i></span>
+            </div>
+            <div class="row">
+                <span class="badge badge-warning"><span class="badge-text">待整理</span></span>
+                <span class="badge badge-success"><span class="badge-text">已确认</span></span>
+                <span class="badge badge-muted"><span class="badge-text">草稿</span></span>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#31 资料列表行（索引页主列表 · Tier A 容器 + 行内缩略图）</div>
+            <div class="list-card">
+                <div class="list-row">
+                    <div class="doc-thumb"><i class="ri-quill-pen-line"></i></div>
+                    <div class="list-main">
+                        <div class="list-title-row"><span class="list-title">勾股定理笔记</span><span class="badge badge-warning"><span class="badge-text">待整理</span></span></div>
+                        <div class="list-excerpt">直角三角形两直角边平方和等于斜边平方，即 a² + b² = c²…</div>
+                        <div class="list-meta"><span class="tag tag-muted">暂无标签</span><span>手动笔记</span></div>
+                    </div>
+                    <div class="list-right"><span class="time">2026.07.29 01:04</span><span class="open">打开 <i class="ri-external-link-line"></i></span></div>
+                </div>
+                <div class="list-row">
+                    <div class="doc-thumb"><i class="ri-file-text-line"></i></div>
+                    <div class="list-main">
+                        <div class="list-title-row"><span class="list-title">Vision Transformer 精读</span><span class="badge badge-success"><span class="badge-text">已确认</span></span></div>
+                        <div class="list-excerpt">ViT 将图像切分为 patch 序列并以纯 Transformer 编码…</div>
+                        <div class="list-meta"><span class="tag tag-blue">多模态</span><span>导入文档</span></div>
+                    </div>
+                    <div class="list-right"><span class="time">2026.07.28 22:10</span><span class="open">打开 <i class="ri-external-link-line"></i></span></div>
+                </div>
+            </div>
+            <div class="hint" style="margin-top:12px;">#31：列表容器 Tier A（2px 边 + 3px 影），行间 1px 分隔线，悬停 sunken 底。缩略图 <span class="mono">.doc-thumb</span> 为 44px 新粗野主义方章（纸底 + 2px 黑边 + 黑图标 + 2px 影），按来源换 Remix 图标（手动笔记 <span class="mono">ri-quill-pen-line</span> / 导入文档 <span class="mono">ri-file-text-line</span>），不再用蓝底填充。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+    <section class="section">
+        <div class="section-label">15 · Status Bar</div>
+        <h2>编辑器状态栏</h2>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div style="height:56px; background:var(--ink-surface-sunken);"></div>
+            <div class="status-bar">
+                <span class="badge badge-success" style="font-size:11px;"><span class="badge-text" style="font-size:11px;">已自动保存</span></span>
+                <span class="hint">已切换到：test</span>
+                <span class="grow"></span>
+                <span class="stat">字数 9 · 行数 5 · 链接 0</span>
+                <span class="status-switch">源码</span>
+                <span class="status-switch active">边注</span>
+                <span class="status-switch">专注</span>
+                <span class="stat">UTF-8</span>
+                <span class="badge badge-success" style="font-size:11px;"><span class="badge-text" style="font-size:11px;">云端已连接</span></span>
+            </div>
+        </div>
+        <div class="hint">#24：保存状态点用语义色（success/warning）；统计等宽；开关激活 = 蓝底白字方块；Tier D + 上边 1px 分隔线。</div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 16. 检查器 -->
+    <section class="section">
+        <div class="section-label">16 · Inspector</div>
+        <h2>检查器面板（300px 右栏）</h2>
+        <div class="panel" style="display:flex; gap:32px; flex-wrap:wrap;">
+            <div class="inspector">
+                <div class="inspector-head"><i class="ri-book-read-line"></i> 资料预览 <span class="spacer"></span><i class="ri-contract-right-line" style="color:var(--ink-text-secondary); cursor:pointer;" title="折叠"></i></div>
+                <div class="preview-card">
+                    <div class="preview-title-row"><span class="preview-title">勾股定理笔记</span><span class="badge badge-warning" style="font-size:11px;"><span class="badge-text" style="font-size:11px;">待整理</span></span></div>
+                    <div class="preview-excerpt">直角三角形两直角边平方和等于斜边平方，即 a² + b² = c²。用于验证保存链路与预览渲染…</div>
+                    <div class="preview-tags"><span class="tag tag-muted">暂无标签</span><span class="tag">手动笔记</span></div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="ri-file-info-line chev"></i> 资料信息</div>
+                    <div class="kv">
+                        <span class="k">类型</span><span class="v">Markdown 文档</span>
+                        <span class="k">状态</span><span class="v"><span class="badge badge-warning" style="font-size:12px;"><span class="badge-text" style="font-size:12px;">待整理</span></span></span>
+                        <span class="k">位置</span><span class="v">资料 / test</span>
+                        <span class="k">字数</span><span class="v mono" style="font-size:12px;">9</span>
+                        <span class="k">最后编辑</span><span class="v mono" style="font-size:12px;">2026.07.29 01:04</span>
+                    </div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="ri-price-tag-3-line chev"></i> 标签 <span class="count">0</span><i class="ri-arrow-down-s-line chev"></i></div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="ri-links-line chev"></i> 关联笔记 <span class="count">0</span><i class="ri-arrow-down-s-line chev"></i></div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="ri-attachment-2 chev"></i> 附件 <span class="count">4</span><i class="ri-arrow-down-s-line chev"></i></div>
+                </div>
+            </div>
+            <div class="hint" style="max-width:280px; line-height:1.9;">
+                <strong style="color:var(--ink-text);">#25 规格</strong><br>
+                · 容器用纸底（<span class="mono">--ink-bg</span>），Tier C 1px 边框无阴影——它是「整块面板」而非卡片<br>
+                · 顶部资料预览用 <span class="mono">.preview-card</span>：白底（surface）1px 边框的内嵌卡，承载标题 / 摘要 / 标签<br>
+                · 面板头：图标 + 标题 + 折叠动作<br>
+                · 可折叠 section：上边 1px 分隔线 + 标题 + 计数 + 箭头<br>
+                · 键值组：键 11px 次级 / 值 13px 主色
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 17. 动效 -->
+    <section class="section">
+        <div class="section-label">17 · Motion</div>
+        <h2>动效规范</h2>
+        <p class="desc">物理隐喻：悬停浮起，按下塌入。时长 ≤ 0.2s。无渐变、无弹跳、无模糊。</p>
+        <div class="motion-grid">
+            <div class="motion-card"><div class="demo"><div class="demo-box"></div></div><div class="info"><strong>Hover Lift</strong>translate(-1px,-1px)<br>shadow +1px · 0.1s</div></div>
+            <div class="motion-card"><div class="demo"><div class="demo-box" style="transform:translate(2px,2px); box-shadow:0 0 0 var(--ink-border);"></div></div><div class="info"><strong>Active Press</strong>translate(2px,2px)<br>shadow → 0 · 0.1s</div></div>
+            <div class="motion-card"><div class="demo"><div class="demo-box" style="transform:translateY(-4px); box-shadow:5px 5px 0 var(--ink-border);"></div></div><div class="info"><strong>Card Float</strong>translateY(-4px)<br>shadow 4→6px · 0.2s</div></div>
+            <div class="motion-card"><div class="demo"><div class="demo-box" style="box-shadow:3px 3px 0 var(--ink-accent);"></div></div><div class="info"><strong>Focus Ring</strong>:focus-visible<br>蓝色硬影 · 即时</div></div>
+        </div>
+    </section>
+
+    <footer style="text-align:center; color:var(--ink-text-secondary); font-size:12px; padding-top:20px;">
+        <p style="font-weight:700; color:var(--ink-text);">印格 InkGrid · 知境 Knowra 设计系统</p>
+        <p style="margin-top:4px;" class="mono">v2.1 · 批次7 · 2026-07-30 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
+    </footer>
+
+</div>
+<script>
+    // 暗色模式仅为 token 可行性验证（D5），非正式交付
+    document.getElementById('themeToggle').addEventListener('click', function () {
+        var root = document.documentElement;
+        root.dataset.theme = root.dataset.theme === 'dark' ? '' : 'dark';
+    });
+</script>
+</body>
+</html>

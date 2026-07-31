@@ -7,17 +7,30 @@ export function createNoteSideApi({ requestJson }) {
     const [
       linkedPayload,
       attachmentsPayload,
-      annotationsPayload
+      annotationsPayload,
+      noteVersions,
+      knowledgeItems,
+      learningObjectives,
+      questions
     ] = await Promise.all([
       requestJson(`/api/knowledge/notes/${encodedNoteId}/links`),
       requestJson(`/api/storage/attachments?noteId=${encodedNoteId}`),
-      requestJson(`/api/knowledge/annotations?spaceId=${encodedSpaceId}&noteId=${encodedNoteId}`)
+      requestJson(`/api/knowledge/annotations?spaceId=${encodedSpaceId}&noteId=${encodedNoteId}`),
+      requestJson(`/api/knowledge/notes/${encodedNoteId}/versions`),
+      requestJson(`/api/knowledge/items?includeArchived=true&noteId=${encodedNoteId}`),
+      requestJson('/api/knowledge/learning-objectives?includeArchived=true'),
+      requestJson('/api/knowledge/questions?includeArchived=true')
     ]);
 
     return {
       linkedNotes: asArray(linkedPayload.data),
       attachments: asArray(attachmentsPayload.data),
-      annotations: asArray(annotationsPayload.data)
+      annotations: asArray(annotationsPayload.data),
+      noteVersions: asArray(noteVersions.data),
+      knowledgeItems: asArray(knowledgeItems.data),
+      learningObjectives: asArray(learningObjectives.data),
+      questions: asArray(questions.data),
+      knowledgeDomainLoadState: 'loaded'
     };
   }
 

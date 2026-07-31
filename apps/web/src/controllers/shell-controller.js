@@ -32,7 +32,8 @@ export function createShellController(deps) {
     renderSearchShell,
     renderSidebar,
     renderTabs,
-    reportRuntimeError
+    reportRuntimeError,
+    renderWorkDomain: renderWorkDomainView
   } = deps;
 
 function renderRail() {
@@ -40,13 +41,18 @@ function renderRail() {
     return;
   }
 
-  elements.moduleRail.innerHTML = renderModuleRail(railItems);
+  const activeDomain = state.navigation?.activeWorkDomain;
+  elements.moduleRail.innerHTML = renderModuleRail(railItems.map((item) => ({
+    ...item,
+    active: activeDomain ? item.key === activeDomain : item.active
+  })));
 }
 
 function renderAll() {
   const currentNote = getCurrentNote();
   safeRenderStep('search', renderSearchShell);
   safeRenderStep('workspace-view', renderWorkspaceViewState);
+  safeRenderStep('work-domain', renderWorkDomain);
   safeRenderStep('navigation', renderFolders);
   safeRenderStep('library-index', renderLibraryIndex);
   safeRenderStep('tabs', renderTabs);
@@ -76,10 +82,14 @@ function renderWorkspaceViewState() {
   }
 
   const effectiveView = getEffectiveViewState();
-  const isIndex = state.view.screen === 'index';
-  const showLeftSidebar = isIndex || effectiveView.showLeftSidebar;
+  const isMaterials = (state.navigation?.activeWorkDomain ?? 'materials') === 'materials';
+  const isIndex = isMaterials && state.view.screen === 'index';
+  // The left rail contains the global work-domain switcher and must remain
+  // reachable outside the Materials domain. Only the Materials index/editor
+  // decides whether the contextual library sidebar itself is shown.
+  const showLeftSidebar = !isMaterials || isIndex || effectiveView.showLeftSidebar;
   if (elements.workspaceShell) {
-    elements.workspaceShell.dataset.screen = isIndex ? 'index' : 'editor';
+    elements.workspaceShell.dataset.screen = !isMaterials ? 'domain' : isIndex ? 'index' : 'editor';
     elements.workspaceShell.dataset.leftHidden = String(!showLeftSidebar);
   }
   elements.workspace.dataset.leftHidden = String(!effectiveView.showLeftSidebar);
@@ -87,10 +97,14 @@ function renderWorkspaceViewState() {
   elements.workspace.dataset.viewMode = effectiveView.mode;
 
   if (elements.libraryIndexView) {
-    elements.libraryIndexView.hidden = !isIndex;
+    elements.libraryIndexView.hidden = !isMaterials || !isIndex;
   }
   if (elements.editorWorkspaceView) {
-    elements.editorWorkspaceView.hidden = isIndex;
+    elements.editorWorkspaceView.hidden = !isMaterials || isIndex;
+  }
+  if (elements.workDomainView) {
+    elements.workDomainView.hidden = isMaterials;
+    elements.workDomainView.dataset.domain = state.navigation?.activeWorkDomain ?? 'materials';
   }
 
   if (elements.sidebar) {
@@ -99,9 +113,10 @@ function renderWorkspaceViewState() {
 
   if (elements.aside) {
     elements.aside.hidden = isIndex || !effectiveView.showRightSidebar;
+    if (!isMaterials) elements.aside.hidden = true;
   }
   if (elements.editorAsideReopen) {
-    elements.editorAsideReopen.hidden = isIndex || effectiveView.showRightSidebar;
+    elements.editorAsideReopen.hidden = !isMaterials || isIndex || effectiveView.showRightSidebar;
   }
 }
 
@@ -134,6 +149,10 @@ function renderLibraryIndex() {
   elements.libraryIndexContent.innerHTML = renderLibraryIndexContent({ notes, pagination, state });
   elements.libraryIndexInspector.innerHTML = renderLibraryIndexInspector({ note: selectedNote, state });
   elements.libraryIndexInspector.dataset.open = String(state.libraryIndex.inspectorOpen);
+}
+
+function renderWorkDomain() {
+  renderWorkDomainView?.();
 }
 
 function renderDocumentHead(note) {
@@ -170,6 +189,7 @@ function renderStatus() {
     safeRenderStep,
     getEffectiveViewState,
     renderWorkspaceViewState,
+    renderWorkDomain,
     renderLibraryIndex,
     renderDocumentHead,
     renderStatus

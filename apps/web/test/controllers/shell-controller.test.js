@@ -4,7 +4,9 @@ import { createShellController } from '../../src/controllers/shell-controller.js
 function createElements() {
   return {
     moduleRail: { innerHTML: '' },
+    workspaceShell: { dataset: {} },
     workspace: { dataset: {} },
+    workDomainView: { hidden: true, dataset: {} },
     sidebar: { hidden: false },
     aside: { hidden: false },
     statusIndicators: { innerHTML: '' },
@@ -97,6 +99,23 @@ runTest('renderWorkspaceViewState applies effective focus layout', () => {
   assert.equal(elements.workspace.dataset.viewMode, 'focus');
   assert.equal(elements.sidebar.hidden, true);
   assert.equal(elements.aside.hidden, true);
+});
+
+runTest('renderWorkspaceViewState keeps the global rail available in work domains', () => {
+  const { controller, elements } = createDeps({
+    state: createState({
+      navigation: {
+        activeWorkDomain: 'knowledge'
+      }
+    })
+  });
+
+  controller.renderWorkspaceViewState();
+
+  assert.equal(elements.workspaceShell.dataset.screen, 'domain');
+  assert.equal(elements.workspaceShell.dataset.leftHidden, 'false');
+  assert.equal(elements.sidebar.hidden, false);
+  assert.equal(elements.workDomainView.hidden, false);
 });
 
 runTest('renderRail and renderStatus write shell markup', () => {

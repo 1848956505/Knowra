@@ -9,10 +9,23 @@ import { createInMemoryFolderRepository } from './modules/knowledge/infrastructu
 import { createInMemoryTagRepository } from './modules/knowledge/infrastructure/tag-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './modules/knowledge/infrastructure/knowledge-space-repository.js';
 import { createInMemoryContentAnnotationRepository } from './modules/knowledge/infrastructure/content-annotation-repository.js';
+import { createInMemoryNoteVersionRepository } from './modules/knowledge/infrastructure/note-version-repository.js';
+import { createInMemoryKnowledgeItemRepository } from './modules/knowledge/infrastructure/knowledge-item-repository.js';
+import { createInMemoryKnowledgeEvidenceRepository } from './modules/knowledge/infrastructure/knowledge-evidence-repository.js';
+import { createInMemoryLearningObjectiveRepository } from './modules/knowledge/infrastructure/learning-objective-repository.js';
+import { createInMemoryExamProfileRepository } from './modules/knowledge/infrastructure/exam-profile-repository.js';
+import { createInMemoryExamFocusRepository } from './modules/knowledge/infrastructure/exam-focus-repository.js';
+import { createInMemoryQuestionRepository } from './modules/knowledge/infrastructure/question-repository.js';
+import { createInMemoryQuestionObjectiveRepository } from './modules/knowledge/infrastructure/question-objective-repository.js';
+import { createInMemoryQuestionSourceRepository } from './modules/knowledge/infrastructure/question-source-repository.js';
 import { createKnowledgeBaseSnapshotService } from './modules/knowledge/application/knowledge-base-snapshot-service.js';
 import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
 import { createStorageConfig } from './config/storage.config.js';
 import { createPostgresAppContext } from './postgres-app.factory.js';
+import {
+  assertSpacesOwnedBy,
+  resolveSingleOwnerId
+} from './infrastructure/owner-boundary.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +33,18 @@ const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 
 export function createAppContext(options = {}) {
   const dataStore = options.dataStore;
-  const ownerId = resolveOwnerId(options.ownerId);
+  ensureDataCollections(dataStore, [
+    'noteVersions',
+    'knowledgeItems',
+    'knowledgeEvidence',
+    'learningObjectives',
+    'examProfiles',
+    'examFocuses',
+    'questions',
+    'questionObjectives',
+    'questionSources'
+  ]);
+  const ownerId = resolveOwnerId(options.ownerId, dataStore?.state?.spaces);
   const attachmentStore = options.attachmentStore ?? (dataStore
     ? createLocalAttachmentStore({
         dataStore,
@@ -61,11 +85,42 @@ export function createAppContext(options = {}) {
           onChange: dataStore.flush
         })
       : undefined),
+    noteVersionRepository: options.noteVersionRepository ?? (dataStore
+      ? createInMemoryNoteVersionRepository({ records: dataStore.state.noteVersions, onChange: dataStore.flush })
+      : undefined),
+    knowledgeItemRepository: options.knowledgeItemRepository ?? (dataStore
+      ? createInMemoryKnowledgeItemRepository({ records: dataStore.state.knowledgeItems, onChange: dataStore.flush })
+      : undefined),
+    knowledgeEvidenceRepository: options.knowledgeEvidenceRepository ?? (dataStore
+      ? createInMemoryKnowledgeEvidenceRepository({ records: dataStore.state.knowledgeEvidence, onChange: dataStore.flush })
+      : undefined),
+    learningObjectiveRepository: options.learningObjectiveRepository ?? (dataStore
+      ? createInMemoryLearningObjectiveRepository({ records: dataStore.state.learningObjectives, onChange: dataStore.flush })
+      : undefined),
+    examProfileRepository: options.examProfileRepository ?? (dataStore
+      ? createInMemoryExamProfileRepository({ records: dataStore.state.examProfiles, onChange: dataStore.flush })
+      : undefined),
+    examFocusRepository: options.examFocusRepository ?? (dataStore
+      ? createInMemoryExamFocusRepository({ records: dataStore.state.examFocuses, onChange: dataStore.flush })
+      : undefined),
+    questionRepository: options.questionRepository ?? (dataStore
+      ? createInMemoryQuestionRepository({ records: dataStore.state.questions, onChange: dataStore.flush })
+      : undefined),
+    questionObjectiveRepository: options.questionObjectiveRepository ?? (dataStore
+      ? createInMemoryQuestionObjectiveRepository({ records: dataStore.state.questionObjectives, onChange: dataStore.flush })
+      : undefined),
+    questionSourceRepository: options.questionSourceRepository ?? (dataStore
+      ? createInMemoryQuestionSourceRepository({ records: dataStore.state.questionSources, onChange: dataStore.flush })
+      : undefined),
+    runTransaction: dataStore?.runTransaction
+      ? (operation) => dataStore.runTransaction(operation)
+      : undefined,
     enforceReferences: options.enforceReferences ?? true
   });
   const noteDeletionCoordinator = createNoteDeletionCoordinator({
     noteService: knowledge.noteService,
     noteRepository: knowledge.repositories.noteRepository,
+    noteVersionRepository: knowledge.repositories.noteVersionRepository,
     contentAnnotationRepository:
       knowledge.repositories.contentAnnotationRepository,
     attachmentStore,
@@ -83,6 +138,7 @@ export function createAppContext(options = {}) {
       storage: createKnowledgeBaseSnapshotService({
         dataStore,
         attachmentStore,
+        ownerId,
         validateAttachmentNote: dataStore
           ? (noteId) => knowledge.noteService.getNote(noteId)
           : null
@@ -126,9 +182,24 @@ export function resolveStoragePath(targetPath, storageRootDir = workspaceRoot) {
   return path.resolve(storageRootDir, targetPath);
 }
 
-function resolveOwnerId(value) {
-  const candidate = value ?? process.env.KNOWRA_OWNER_ID ?? 'demo';
-  return String(candidate).trim() || 'demo';
+function resolveOwnerId(value, spaces = []) {
+  const configuredOwnerId = value ?? process.env.KNOWRA_OWNER_ID;
+  const ownerId = resolveSingleOwnerId({
+    configuredOwnerId,
+    spaces,
+    fallbackOwnerId: 'demo'
+  });
+  assertSpacesOwnedBy(spaces, ownerId);
+  return ownerId;
+}
+
+function ensureDataCollections(dataStore, collectionNames) {
+  if (!dataStore?.state) return;
+  for (const collectionName of collectionNames) {
+    if (!Array.isArray(dataStore.state[collectionName])) {
+      dataStore.state[collectionName] = [];
+    }
+  }
 }
 
 export { createPostgresAppContext };

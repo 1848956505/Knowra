@@ -53,4 +53,14 @@ assert.match(
   /data-attachment-rename-form="attachment-2"[\s\S]*value="renamed-image"[\s\S]*resource-rename-extension">\.png<\/span>[\s\S]*data-attachment-rename-cancel/
 );
 
+assert.match(
+  renderAttachments([{
+    id: 'attachment-missing',
+    fileName: 'missing.png',
+    mimeType: 'image/png',
+    status: 'missing'
+  }]),
+  /data-attachment-status="missing"[\s\S]*文件缺失/
+);
+
 console.log('ok - sidebar renderers escape and render right rail fragments');

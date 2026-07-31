@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: knowra-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-knowra_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-knowra_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-knowra_dev_local}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - knowra-postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  knowra-postgres-dev-data:
+    name: knowra-postgres-dev-data

@@ -13,8 +13,13 @@ const workspaceRoot = path.resolve(scriptsDirectory, '..');
 const args = parseArguments(process.argv.slice(2));
 const sourceFile = path.resolve(args.source ?? path.join(workspaceRoot, 'storage/data/knowledge-base.json'));
 const storageRootDir = path.resolve(args['storage-root'] ?? workspaceRoot);
+const uploadsDir = path.resolve(
+  args['uploads-dir']
+    ?? path.join(storageRootDir, 'storage', 'uploads')
+);
 const fallbackTimestamp = args['fallback-timestamp'] ?? new Date().toISOString();
 const allowMissingAttachments = Boolean(args['allow-missing-attachments']);
+const ownerId = args['owner-id'] ?? process.env.KNOWRA_OWNER_ID ?? 'demo';
 
 try {
   const source = loadJsonMigrationSource(sourceFile);
@@ -22,8 +27,10 @@ try {
     input: source.parsed,
     sourceFile,
     storageRootDir,
+    uploadsDir,
     fallbackTimestamp,
-    allowMissingAttachments
+    allowMissingAttachments,
+    ownerId
   });
   const reportPath = args.report ? path.resolve(args.report) : null;
   if (reportPath) writeReport(reportPath, result.report, sourceFile, args.apply);

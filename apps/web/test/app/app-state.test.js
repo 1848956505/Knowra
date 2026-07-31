@@ -44,11 +44,10 @@ assert.deepEqual(state.libraryIndex, {
 });
 assert.deepEqual(state.outlineCollapsedHeadingIdsByNote, {});
 assert.deepEqual(createRailItems().map((item) => item.key), [
+  'materials',
   'knowledge',
-  'paper',
-  'ai',
-  'task',
-  'review'
+  'training',
+  'learning'
 ]);
 
 assert.notEqual(createInitialAppState(), createInitialAppState());

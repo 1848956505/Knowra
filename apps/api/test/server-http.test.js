@@ -4,7 +4,11 @@ import { createServer } from '../src/server.js';
 import { createKnowledgeModule } from '../src/modules/knowledge/index.js';
 import { createKnowledgeHttpHandlers } from '../src/modules/knowledge/http/knowledge-handlers.js';
 
-function createHttpFixture({ knowledgeHandlers, logger } = {}) {
+function createHttpFixture({
+  knowledgeHandlers,
+  storageHandlers,
+  logger
+} = {}) {
   const knowledgeModule = createKnowledgeModule({ enforceReferences: true });
   knowledgeModule.knowledgeSpaceService.createDefaultKnowledgeSpace({
     userId: 'demo'
@@ -25,7 +29,7 @@ function createHttpFixture({ knowledgeHandlers, logger } = {}) {
       http: {
         knowledge: knowledgeHandlers
           ?? createKnowledgeHttpHandlers({ knowledgeModule }),
-        storage: {}
+        storage: storageHandlers ?? {}
       }
     },
     logger: logger ?? { error() {} }
@@ -172,6 +176,53 @@ export const serverHttpTests = [
         const payload = await readJson(response);
         assert.equal(response.status, 404);
         assert.equal(payload.error.code, 'NOTE_NOT_FOUND');
+      });
+    }
+  },
+  {
+    name: 'storage attachment routes reject extra path segments without invoking handlers',
+    async run() {
+      const calls = [];
+      const server = createHttpFixture({
+        storageHandlers: {
+          getAttachmentContent() {
+            calls.push('get');
+          },
+          deleteAttachment() {
+            calls.push('delete');
+          },
+          updateAttachment() {
+            calls.push('patch');
+          }
+        }
+      });
+
+      await withServer(server, async (baseUrl) => {
+        const requests = [
+          fetch(
+            `${baseUrl}/api/storage/attachments/attachment-1/extra/content`
+          ),
+          fetch(
+            `${baseUrl}/api/storage/attachments/attachment-1/unexpected`,
+            { method: 'DELETE' }
+          ),
+          fetch(
+            `${baseUrl}/api/storage/attachments/attachment-1/unexpected`,
+            {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ fileName: 'ignored.txt' })
+            }
+          )
+        ];
+
+        for (const request of requests) {
+          const response = await request;
+          const payload = await readJson(response);
+          assert.equal(response.status, 404);
+          assert.equal(payload.error.code, 'ROUTE_NOT_FOUND');
+        }
+        assert.deepEqual(calls, []);
       });
     }
   },

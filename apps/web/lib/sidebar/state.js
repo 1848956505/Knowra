@@ -2,7 +2,12 @@ export function createClearedNoteSideData() {
   return {
     linkedNotes: [],
     attachments: [],
-    annotations: []
+    annotations: [],
+    noteVersions: [],
+    knowledgeItems: [],
+    learningObjectives: [],
+    questions: [],
+    knowledgeDomainLoadState: 'idle'
   };
 }
 
@@ -18,6 +23,11 @@ export function createLocalNoteSideData({ noteId, notes = [], attachments = [] }
       .map((linkedId) => notes.find((item) => item.id === linkedId))
       .filter(Boolean),
     attachments: attachments.filter((attachment) => attachment.noteId === noteId),
-    annotations: []
+    annotations: [],
+    noteVersions: [],
+    knowledgeItems: [],
+    learningObjectives: [],
+    questions: [],
+    knowledgeDomainLoadState: 'idle'
   };
 }

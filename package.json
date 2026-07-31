@@ -1,6 +1,6 @@
 {
   "name": "study-accelerator",
-  "version": "2.7.0",
+  "version": "2.12.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -22,6 +22,7 @@
     "prisma:validate": "npx prisma validate --schema prisma/schema.prisma",
     "prisma:generate": "npx prisma generate --schema prisma/schema.prisma",
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema prisma/schema.prisma",
-    "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs"
+    "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs",
+    "check:attachments": "node scripts/check-attachments.mjs"
   }
 }

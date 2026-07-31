@@ -476,6 +476,261 @@ export const localAttachmentStoreTests = [
     }
   },
   {
+    name: 'attachment records cannot read or delete files outside the managed uploads directory',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+      const tempContainer = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'study-attachments-containment-')
+      );
+      const storageRootDir = path.join(tempContainer, 'workspace');
+      const uploadsDir = path.join(storageRootDir, 'storage', 'uploads');
+      const outsidePath = path.join(tempContainer, 'outside-secret.txt');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.writeFileSync(outsidePath, 'must stay outside');
+
+      const dataStore = {
+        state: {
+          attachments: [
+            {
+              id: 'attachment-absolute',
+              noteId: 'note-1',
+              fileName: 'absolute.txt',
+              mimeType: 'text/plain',
+              size: 17,
+              storagePath: outsidePath,
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'attachment-traversal',
+              noteId: 'note-1',
+              fileName: 'traversal.txt',
+              mimeType: 'text/plain',
+              size: 17,
+              storagePath: '../outside-secret.txt',
+              createdAt: new Date().toISOString()
+            }
+          ]
+        },
+        flush() {}
+      };
+
+      try {
+        const store = createLocalAttachmentStore({
+          dataStore,
+          uploadsDir,
+          storageRootDir
+        });
+
+        for (const attachmentId of [
+          'attachment-absolute',
+          'attachment-traversal'
+        ]) {
+          assert.throws(
+            () => store.readAttachmentContent(attachmentId),
+            (error) => error.code === 'ATTACHMENT_FILE_MISSING'
+          );
+        }
+
+        store.deleteAttachment('attachment-absolute');
+        store.deleteAttachment('attachment-traversal');
+        assert.equal(fs.readFileSync(outsidePath, 'utf8'), 'must stay outside');
+        assert.equal(dataStore.state.attachments.length, 0);
+      } finally {
+        fs.rmSync(tempContainer, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'attachment file cleanup rejects raw absolute, traversal and non-canonical managed paths',
+    async run() {
+      const { createLocalAttachmentFileManager } = await import('../src/infrastructure/local-attachment-file-manager.js');
+      const tempContainer = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'study-attachments-cleanup-path-')
+      );
+      const storageRootDir = path.join(tempContainer, 'workspace');
+      const uploadsDir = path.join(storageRootDir, 'storage', 'uploads');
+      const absoluteOutsidePath = path.join(
+        tempContainer,
+        'absolute-outside.txt'
+      );
+      const traversalOutsidePath = path.join(
+        tempContainer,
+        'traversal-outside.txt'
+      );
+      const unrelatedManagedPath = path.join(
+        uploadsDir,
+        'attachment-victim-safe.txt'
+      );
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.writeFileSync(absoluteOutsidePath, 'absolute outside');
+      fs.writeFileSync(traversalOutsidePath, 'traversal outside');
+      fs.writeFileSync(unrelatedManagedPath, 'managed victim');
+
+      try {
+        const fileManager = createLocalAttachmentFileManager({
+          uploadsDir,
+          storageRootDir
+        });
+
+        fileManager.removeAttachmentFile(absoluteOutsidePath);
+        fileManager.removeAttachmentFile('../traversal-outside.txt');
+        fileManager.removeAttachmentFile(
+          'storage/uploads/attachment-victim-safe.txt'
+        );
+
+        assert.equal(
+          fs.readFileSync(absoluteOutsidePath, 'utf8'),
+          'absolute outside'
+        );
+        assert.equal(
+          fs.readFileSync(traversalOutsidePath, 'utf8'),
+          'traversal outside'
+        );
+        assert.equal(
+          fs.readFileSync(unrelatedManagedPath, 'utf8'),
+          'managed victim'
+        );
+      } finally {
+        fs.rmSync(tempContainer, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'attachment reads and deletes never follow a managed-file symbolic link',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+      const tempContainer = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'study-attachments-symlink-')
+      );
+      const storageRootDir = path.join(tempContainer, 'workspace');
+      const uploadsDir = path.join(storageRootDir, 'storage', 'uploads');
+      const outsidePath = path.join(tempContainer, 'outside-secret.txt');
+      const managedPath = path.join(
+        uploadsDir,
+        'attachment-symlink-secret.txt'
+      );
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.writeFileSync(outsidePath, 'symbolic-link target');
+
+      try {
+        try {
+          fs.symlinkSync(outsidePath, managedPath);
+        } catch (error) {
+          if (error.code === 'EPERM' || error.code === 'EACCES') {
+            return;
+          }
+          throw error;
+        }
+
+        const dataStore = {
+          state: {
+            attachments: [{
+              id: 'attachment-symlink',
+              noteId: 'note-1',
+              fileName: 'secret.txt',
+              mimeType: 'text/plain',
+              size: 20,
+              storagePath: 'storage/uploads/attachment-symlink-secret.txt',
+              createdAt: new Date().toISOString()
+            }]
+          },
+          flush() {}
+        };
+        const store = createLocalAttachmentStore({
+          dataStore,
+          uploadsDir,
+          storageRootDir
+        });
+
+        assert.throws(
+          () => store.readAttachmentContent('attachment-symlink'),
+          (error) => error.code === 'ATTACHMENT_FILE_MISSING'
+        );
+        store.deleteAttachment('attachment-symlink');
+
+        assert.equal(fs.readFileSync(outsidePath, 'utf8'), 'symbolic-link target');
+        assert.equal(fs.existsSync(managedPath), false);
+      } finally {
+        fs.rmSync(tempContainer, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: 'legacy attachment migration refuses symbolic links that escape a trusted legacy directory',
+    async run() {
+      const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');
+      const tempContainer = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'study-attachments-legacy-symlink-')
+      );
+      const storageRootDir = path.join(tempContainer, 'workspace');
+      const uploadsDir = path.join(storageRootDir, 'storage', 'uploads');
+      const legacyUploadsDir = path.join(
+        storageRootDir,
+        'apps',
+        'api',
+        'storage',
+        'uploads'
+      );
+      const outsidePath = path.join(tempContainer, 'outside-secret.txt');
+      const legacyPath = path.join(
+        legacyUploadsDir,
+        'attachment-legacy-symlink-secret.txt'
+      );
+      fs.mkdirSync(legacyUploadsDir, { recursive: true });
+      fs.writeFileSync(outsidePath, 'legacy symbolic-link target');
+
+      try {
+        try {
+          fs.symlinkSync(outsidePath, legacyPath);
+        } catch (error) {
+          if (error.code === 'EPERM' || error.code === 'EACCES') {
+            return;
+          }
+          throw error;
+        }
+
+        const dataStore = {
+          state: {
+            attachments: [{
+              id: 'attachment-legacy-symlink',
+              noteId: 'note-1',
+              fileName: 'secret.txt',
+              mimeType: 'text/plain',
+              size: 27,
+              storagePath: 'storage/uploads/attachment-legacy-symlink-secret.txt',
+              createdAt: new Date().toISOString()
+            }]
+          },
+          flush() {}
+        };
+        const store = createLocalAttachmentStore({
+          dataStore,
+          uploadsDir,
+          storageRootDir,
+          legacyUploadsDirs: [legacyUploadsDir]
+        });
+
+        assert.throws(
+          () => store.readAttachmentContent('attachment-legacy-symlink'),
+          (error) => error.code === 'ATTACHMENT_FILE_MISSING'
+        );
+        assert.equal(
+          fs.existsSync(path.join(
+            uploadsDir,
+            'attachment-legacy-symlink-secret.txt'
+          )),
+          false
+        );
+        assert.equal(
+          fs.readFileSync(outsidePath, 'utf8'),
+          'legacy symbolic-link target'
+        );
+      } finally {
+        fs.rmSync(tempContainer, { recursive: true, force: true });
+      }
+    }
+  },
+  {
     name: 'deleteAttachment returns 404 when the record is missing',
     async run() {
       const { createLocalAttachmentStore } = await import('../src/infrastructure/local-attachment-store.js');

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>印格 · 资料编辑器页</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --ink-bg: #F9F7F2; --ink-surface: #FFFFFF; --ink-surface-sunken: #F4F1EA;
+            --ink-border: #1A1A1A; --ink-text: #1A1A1A; --ink-text-secondary: #666666;
+            --ink-dot-grid: #D1D1D1; --ink-accent: #2563EB; --ink-accent-hover: #1D4ED8; --ink-accent-bg: #E0F2FE;
+            --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626; --ink-line: #DDDDDD;
+            --ink-shadow-1: 2px 2px 0 var(--ink-border); --ink-shadow-2: 3px 3px 0 var(--ink-border);
+            --ink-shadow-3: 4px 4px 0 var(--ink-border); --ink-shadow-hero: 6px 6px 0 var(--ink-border);
+            --topbar-h: 60px; --sidebar-w: 260px; --inspector-w: 300px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--ink-bg); color: var(--ink-text); font-size: 14px;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .mono { font-family: "SF Mono", Menlo, monospace; }
+
+        /* ===== 顶栏（与索引页一致） ===== */
+        .topbar { height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; gap: 20px; padding: 0 20px; border-bottom: 2px solid var(--ink-border); background: var(--ink-bg); z-index: 20; }
+        .brand { display: flex; align-items: center; gap: 12px; width: calc(var(--sidebar-w) - 20px); font-weight: 800; font-size: 17px; letter-spacing: -0.5px; }
+        .mark { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
+        .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; background: var(--ink-accent); }
+        .mark .mark-front { position: absolute; left: 0; top: 0; width: 28px; height: 28px; background: var(--ink-surface); border: 2px solid var(--ink-border); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .global-search { flex: 1; max-width: 460px; position: relative; }
+        .global-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-text-secondary); font-size: 16px; }
+        .global-search input { width: 100%; padding: 8px 12px 8px 38px; border: 2px solid var(--ink-border); background: var(--ink-surface); font-size: 13px; box-shadow: var(--ink-shadow-1); font-family: inherit; }
+        .global-search input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        .global-search .kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); border: 1px solid var(--ink-line); border-radius: 3px; padding: 1px 5px; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+        .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); cursor: pointer; color: var(--ink-text); transition: all 0.1s; }
+        .icon-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .icon-btn:active { transform: translate(2px,2px); box-shadow: none; }
+
+        /* ===== 主体三栏 ===== */
+        .shell { flex: 1; display: flex; overflow: hidden; }
+
+        /* 侧栏（与索引页一致） */
+        .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; transition: margin-left 0.15s; }
+        .sidebar-scroll { flex: 1; overflow-y: auto; padding: 16px 0; }
+        .nav-group-title { padding: 12px 20px 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); display: flex; justify-content: space-between; align-items: center; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 20px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; transition: background 0.1s; }
+        .nav-item i { font-size: 16px; width: 16px; text-align: center; }
+        .nav-item:hover { background: var(--ink-surface-sunken); }
+        .nav-item.active { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 700; }
+        .nav-item.is-disabled { color: var(--ink-text-secondary); cursor: not-allowed; opacity: 0.6; }
+        .nav-item .nav-note { margin-left: auto; font-size: 10.5px; }
+        .nav-item .nav-kbd { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 20px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
+        .tree-node:hover { background: var(--ink-surface-sunken); }
+        .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
+        .tree-node .twist { font-size: 14px; color: var(--ink-text-secondary); width: 14px; }
+        .tree-node .ico { font-size: 15px; color: var(--ink-text-secondary); }
+        .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 58px; }
+        .sidebar-foot { flex-shrink: 0; border-top: 1px solid var(--ink-line); padding: 10px 20px; }
+        .sidebar-foot .nav-item { padding: 6px 0; border: none; }
+
+        /* ===== 编辑器工作区 ===== */
+        .editor { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--ink-bg); }
+
+        /* 文档 Tab 条 (#27) */
+        .doc-tabbar { flex-shrink: 0; display: flex; align-items: stretch; height: 40px; border-bottom: 1px solid var(--ink-border); background: var(--ink-surface-sunken); }
+        .doc-tabbar .back { width: 44px; display: grid; place-items: center; border-right: 1px solid var(--ink-line); color: var(--ink-text-secondary); cursor: pointer; font-size: 18px; }
+        .doc-tabbar .back:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+        .doc-tabs { display: flex; overflow-x: auto; }
+        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 13px; color: var(--ink-text-secondary); cursor: pointer; border-right: 1px solid var(--ink-line); border-top: 2px solid transparent; white-space: nowrap; max-width: 200px; }
+        .doc-tab i.f { font-size: 14px; }
+        .doc-tab .close { font-size: 14px; opacity: 0; margin-left: 2px; width: 16px; height: 16px; display: grid; place-items: center; }
+        .doc-tab:hover .close { opacity: 1; }
+        .doc-tab:hover { background: rgba(0,0,0,0.03); }
+        .doc-tab.active { background: var(--ink-surface); color: var(--ink-text); font-weight: 600; border-top-color: var(--ink-accent); }
+        .doc-tab .close:hover { background: var(--ink-surface-sunken); }
+        .doc-tabbar .new-tab { width: 40px; display: grid; place-items: center; color: var(--ink-text-secondary); cursor: pointer; font-size: 16px; }
+        .doc-tabbar .new-tab:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+
+        /* 菜单栏 (#28) 全 Tier D */
+        .menubar { flex-shrink: 0; display: flex; align-items: center; gap: 2px; height: 38px; padding: 0 10px; border-bottom: 1px solid var(--ink-line); background: var(--ink-surface); }
+        .menu-item { padding: 4px 10px; font-size: 13px; cursor: pointer; color: var(--ink-text); }
+        .menu-item:hover { background: var(--ink-surface-sunken); }
+        .menu-sep { width: 1px; height: 20px; background: var(--ink-line); margin: 0 6px; }
+        .tool-btn { min-width: 30px; height: 28px; padding: 0 7px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 13px; cursor: pointer; color: var(--ink-text); }
+        .tool-btn:hover { background: var(--ink-surface-sunken); }
+        .tool-btn.h { font-weight: 800; font-family: "SF Mono", monospace; font-size: 12px; }
+        .tool-btn.b { font-weight: 800; }
+        .tool-btn.i { font-style: italic; font-family: Georgia, serif; }
+        .menubar .grow { flex: 1; }
+
+        /* 编辑滚动区 */
+        .editor-scroll { flex: 1; overflow-y: auto; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .paper-wrap { max-width: 760px; margin: 0 auto; padding: 36px 32px 120px; }
+
+        /* 面包屑 + 状态行 */
+        .doc-crumb { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-text-secondary); margin-bottom: 20px; flex-wrap: wrap; }
+        .doc-crumb .sep { opacity: 0.5; }
+        .doc-crumb a { color: var(--ink-text-secondary); text-decoration: none; }
+        .doc-crumb a:hover { color: var(--ink-text); }
+        .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+        .badge::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .badge-warning { color: var(--ink-warning); } .badge-success { color: var(--ink-success); } .badge-muted { color: var(--ink-text-secondary); }
+        .badge .badge-text { color: var(--ink-text); font-weight: 500; }
+
+        /* 标题区：左 4px 蓝条 */
+        .title-block { border-left: 4px solid var(--ink-accent); padding-left: 18px; margin-bottom: 32px; }
+        .title-block .doc-title { font-size: 32px; font-weight: 800; line-height: 1.25; margin-bottom: 12px; }
+        .tag-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .tag { display: inline-block; padding: 1px 8px; border: 1px solid var(--ink-border); font-size: 11px; font-weight: 600; background: var(--ink-bg); }
+        .tag-blue { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; }
+        .tag-add { border-style: dashed; color: var(--ink-text-secondary); cursor: pointer; }
+
+        /* 编辑纸面：纯 Tier D 排版 */
+        .prose { color: var(--ink-text); }
+        .prose h1 { font-size: 26px; font-weight: 800; margin: 32px 0 14px; }
+        .prose h2 { font-size: 21px; font-weight: 800; margin: 28px 0 12px; }
+        .prose h3 { font-size: 17px; font-weight: 700; margin: 22px 0 10px; }
+        .prose p { font-size: 15px; line-height: 1.85; margin-bottom: 16px; }
+        .prose .code-inline { font-family: "SF Mono", Menlo, monospace; font-size: 13px; background: var(--ink-surface-sunken); padding: 1px 6px; }
+        .prose ul, .prose ol { margin: 0 0 16px 22px; }
+        .prose li { font-size: 15px; line-height: 1.8; margin-bottom: 4px; }
+        /* 引用块 Tier D：仅左蓝条 + sunken 底 */
+        .prose blockquote { border-left: 4px solid var(--ink-accent); background: var(--ink-surface-sunken); padding: 12px 18px; margin: 0 0 18px; color: var(--ink-text-secondary); font-size: 15px; }
+        /* 代码块 Tier D：sunken 底、无边框 */
+        .prose pre { background: var(--ink-surface-sunken); padding: 16px 18px; margin: 0 0 18px; overflow-x: auto; font-family: "SF Mono", Menlo, monospace; font-size: 13px; line-height: 1.7; }
+        .prose pre .k { color: var(--ink-accent); } .prose pre .s { color: var(--ink-success); } .prose pre .c { color: var(--ink-text-secondary); }
+        /* 图片块 Tier D：sunken 占位 */
+        .prose figure { margin: 0 0 20px; }
+        .prose .img-block { background: var(--ink-surface-sunken); height: 200px; display: grid; place-items: center; color: var(--ink-text-secondary); font-size: 13px; gap: 8px; }
+        .prose .img-block i { font-size: 32px; }
+        .prose figcaption { font-size: 12px; color: var(--ink-text-secondary); text-align: center; margin-top: 8px; }
+        /* 表格 Tier D：仅横线，无外框 */
+        .prose table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
+        .prose thead th { text-align: left; font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--ink-border); }
+        .prose tbody td { padding: 10px 12px; border-bottom: 1px solid var(--ink-line); }
+        .prose tbody tr:hover { background: var(--ink-surface-sunken); }
+
+        /* 底部状态栏 (#24) */
+        .statusbar { flex-shrink: 0; display: flex; align-items: center; gap: 16px; height: 32px; padding: 0 14px; border-top: 1px solid var(--ink-border); background: var(--ink-surface); font-size: 12px; color: var(--ink-text-secondary); }
+        .statusbar .save { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-success); font-weight: 600; }
+        .statusbar .save::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .statusbar .stat { display: inline-flex; align-items: center; gap: 5px; }
+        .statusbar .stat .mono { color: var(--ink-text); }
+        .statusbar .grow { flex: 1; }
+        .sw-group { display: inline-flex; align-items: center; gap: 4px; }
+        .sw { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; cursor: pointer; color: var(--ink-text-secondary); }
+        .sw:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+        .sw.on { background: var(--ink-accent); color: #fff; }
+        .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); }
+
+        /* ===== 检查器：资料边注 MARGINALIA ===== */
+        .inspector { width: var(--inspector-w); flex-shrink: 0; border-left: 2px solid var(--ink-border); background: var(--ink-surface); display: flex; flex-direction: column; overflow: hidden; }
+        .inspector.collapsed { display: none; }
+        .insp-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--ink-line); flex-shrink: 0; }
+        .insp-head .sub { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--ink-text-secondary); text-transform: uppercase; }
+        .insp-head .grow { flex: 1; }
+        .insp-head .mini { width: 26px; height: 26px; display: grid; place-items: center; cursor: pointer; color: var(--ink-text-secondary); }
+        .insp-head .mini:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+        /* 面板 Tab (#26) 蓝下划线 */
+        .panel-tabs { display: flex; border-bottom: 1px solid var(--ink-border); flex-shrink: 0; }
+        .panel-tab { flex: 1; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .panel-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
+        .panel-tab.active { color: var(--ink-accent); font-weight: 700; border-bottom-color: var(--ink-accent); }
+        .insp-body { flex: 1; overflow-y: auto; }
+        .insp-section { border-bottom: 1px solid var(--ink-line); }
+        .insp-section-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .insp-section-head:hover { background: var(--ink-surface-sunken); }
+        .insp-section-head i.lead { color: var(--ink-text-secondary); font-size: 15px; }
+        .insp-section-head .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .insp-section-head i.chev { color: var(--ink-text-secondary); font-size: 15px; margin-left: 6px; }
+        .kv { display: grid; grid-template-columns: 68px 1fr; gap: 8px 12px; padding: 0 16px 16px; }
+        .kv .k { font-size: 11px; color: var(--ink-text-secondary); }
+        .kv .v { font-size: 13px; }
+        .insp-tags { padding: 0 16px 16px; display: flex; gap: 6px; flex-wrap: wrap; }
+        /* 大纲面板 */
+        .outline { padding: 8px 0; }
+        .outline-item { display: block; padding: 6px 16px; font-size: 13px; color: var(--ink-text); cursor: pointer; border-left: 3px solid transparent; }
+        .outline-item:hover { background: var(--ink-surface-sunken); }
+        .outline-item.active { border-left-color: var(--ink-accent); font-weight: 600; background: var(--ink-surface-sunken); }
+        .outline-item.lv2 { padding-left: 30px; color: var(--ink-text-secondary); }
+        /* AI 面板占位 */
+        .ai-panel { padding: 16px; }
+        .ai-empty { text-align: center; padding: 40px 12px; color: var(--ink-text-secondary); }
+        .ai-empty .icon { width: 48px; height: 48px; margin: 0 auto 14px; border: 2px solid var(--ink-border); box-shadow: var(--ink-shadow-2); display: grid; place-items: center; font-size: 22px; background: var(--ink-surface); color: var(--ink-accent); }
+        .ai-empty p { font-size: 13px; margin-bottom: 16px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; font-weight: 600; font-size: 13px; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); cursor: pointer; box-shadow: var(--ink-shadow-1); transition: all 0.1s; font-family: inherit; }
+        .btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .btn-primary { background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-3); }
+        .btn-primary:hover { background: var(--ink-accent-hover); box-shadow: 5px 5px 0 var(--ink-border); }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        .panel-page { display: none; }
+        .panel-page.active { display: block; }
+    </style>
+</head>
+<body>
+    <!-- ===== 顶栏（编辑器页保留全局顶栏，见方案 §2.8.3） ===== -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark"><div class="mark-back"></div><div class="mark-front">知</div></div>
+            <span>知境 Knowra</span>
+        </div>
+        <div class="global-search">
+            <i class="ri-search-line"></i>
+            <input type="text" placeholder="搜索资料、笔记、标签或命令…">
+            <span class="kbd">⌘K</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="icon-btn" title="通知"><i class="ri-notification-3-line"></i></button>
+            <button class="icon-btn" title="设置"><i class="ri-settings-4-line"></i></button>
+        </div>
+    </header>
+
+    <div class="shell">
+        <!-- ===== 侧栏（与索引页一致，可被专注模式收起） ===== -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-scroll">
+                <div class="nav-group-title">工作域</div>
+                <div class="nav-item active" data-domain="library"><i class="ri-archive-line"></i> 01 资料 <span class="nav-kbd">⌘1</span></div>
+                <div class="nav-item is-disabled" title="后端联调未完成"><i class="ri-brain-line"></i> 02 知识 <span class="nav-note">开发中</span></div>
+                <div class="nav-item is-disabled" title="后端联调未完成"><i class="ri-sword-line"></i> 03 训练 <span class="nav-note">开发中</span></div>
+                <div class="nav-item is-disabled" title="依赖训练数据积累"><i class="ri-line-chart-line"></i> 04 学习档案 <span class="nav-note">待积累</span></div>
+
+                <div class="nav-group-title" style="margin-top:16px;"><span>内容与文件夹</span><i class="ri-add-line" style="cursor:pointer;"></i></div>
+                <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count"></span></div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 多模态</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Vision Transformer</div>
+                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> CLIP</div>
+                <!-- data-hook: note-select（当前打开文档，选中态） -->
+                <div class="tree-node lv3 selected"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Transformer</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> test</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 学习方法</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 英语</div>
+            </div>
+            <div class="sidebar-foot">
+                <div class="nav-item"><i class="ri-settings-4-line"></i> 设置</div>
+            </div>
+        </aside>
+
+        <!-- ===== 编辑器工作区 ===== -->
+        <section class="editor">
+            <!-- 文档 Tab 条 (#27) -->
+            <div class="doc-tabbar">
+                <!-- data-hook: editor-back -->
+                <div class="back" title="返回资料库"><i class="ri-arrow-left-line"></i></div>
+                <div class="doc-tabs">
+                    <!-- data-hook: tab-activate / tab-close -->
+                    <div class="doc-tab active"><i class="f ri-file-text-line"></i> Transformer <span class="close"><i class="ri-close-line"></i></span></div>
+                    <div class="doc-tab"><i class="f ri-file-text-line"></i> test <span class="close"><i class="ri-close-line"></i></span></div>
+                </div>
+                <div class="new-tab" title="新建标签页"><i class="ri-add-line"></i></div>
+            </div>
+
+            <!-- 菜单栏 (#28) -->
+            <div class="menubar">
+                <span class="menu-item">文件</span>
+                <span class="menu-item">段落</span>
+                <span class="menu-item">编辑</span>
+                <span class="menu-item">格式</span>
+                <span class="menu-item">视图</span>
+                <span class="menu-sep"></span>
+                <span class="tool-btn h" title="标题 1">H1</span>
+                <span class="tool-btn h" title="标题 2">H2</span>
+                <span class="tool-btn h" title="标题 3">H3</span>
+                <span class="menu-sep"></span>
+                <span class="tool-btn b" title="加粗">B</span>
+                <span class="tool-btn i" title="斜体">I</span>
+                <span class="tool-btn" title="行内代码"><i class="ri-code-line"></i></span>
+                <span class="menu-sep"></span>
+                <span class="tool-btn" title="无序列表"><i class="ri-list-unordered"></i></span>
+                <span class="tool-btn" title="有序列表"><i class="ri-list-ordered"></i></span>
+                <span class="tool-btn" title="引用"><i class="ri-double-quotes-l"></i></span>
+                <span class="tool-btn" title="代码块"><i class="ri-code-box-line"></i></span>
+                <span class="tool-btn" title="表格"><i class="ri-table-2"></i></span>
+                <span class="tool-btn" title="图片"><i class="ri-image-line"></i></span>
+                <span class="grow"></span>
+                <span class="tool-btn" title="更多"><i class="ri-more-2-fill"></i></span>
+            </div>
+
+            <!-- 编辑滚动区 -->
+            <div class="editor-scroll">
+                <div class="paper-wrap">
+                    <!-- 面包屑 + 状态徽标 + 时间 -->
+                    <div class="doc-crumb">
+                        <a href="#">资料库</a><span class="sep">/</span>
+                        <a href="#">多模态</a><span class="sep">/</span>
+                        <span>Transformer</span>
+                        <span class="badge badge-warning" style="margin-left:4px;"><span class="badge-text">待整理</span></span>
+                        <span class="sep">·</span>
+                        <span class="mono">创建 2026.07.28 21:40</span>
+                        <span class="sep">·</span>
+                        <span class="mono">编辑 2026.07.29 09:12</span>
+                    </div>
+
+                    <!-- 标题区：左 4px 蓝条 -->
+                    <div class="title-block">
+                        <div class="doc-title">Transformer 架构精读</div>
+                        <div class="tag-row">
+                            <span class="tag tag-blue">多模态</span>
+                            <span class="tag tag-blue">注意力机制</span>
+                            <span class="tag tag-add" data-hook="tag-add">+ 添加标签</span>
+                        </div>
+                    </div>
+
+                    <!-- 编辑纸面：纯 Tier D 排版样例 -->
+                    <div class="prose">
+                        <p>Transformer 由 Vaswani 等人在 2017 年提出，其核心是<span class="code-inline">self-attention</span>机制，完全摒弃了循环与卷积结构，使得序列建模可以高度并行。</p>
+
+                        <h1>1. 整体结构</h1>
+                        <p>模型由编码器（Encoder）与解码器（Decoder）两部分堆叠而成，每一层都包含多头注意力子层与前馈网络子层，并辅以残差连接与层归一化。</p>
+
+                        <blockquote>关键直觉：注意力让每个位置都能直接"看到"序列中的任意其他位置，路径长度为 O(1)，因此长程依赖比 RNN 更易学习。</blockquote>
+
+                        <h2>1.1 多头自注意力</h2>
+                        <p>注意力的计算基于查询（Q）、键（K）、值（V）三组向量，缩放点积注意力的公式如下：</p>
+                        <pre><span class="c"># scaled dot-product attention</span>
+<span class="k">def</span> attention(Q, K, V, d_k):
+    scores = (Q @ K.transpose(-2, -1)) / sqrt(d_k)
+    weights = <span class="k">softmax</span>(scores, dim=-1)
+    <span class="k">return</span> weights @ V   <span class="c"># 加权求和</span></pre>
+
+                        <h3>维度约定</h3>
+                        <p>下表列出基础版本 Transformer 的主要超参数配置，供实现时对照。</p>
+                        <table>
+                            <thead>
+                                <tr><th>超参数</th><th>符号</th><th>Base 取值</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>模型维度</td><td class="mono">d_model</td><td class="mono">512</td></tr>
+                                <tr><td>注意力头数</td><td class="mono">h</td><td class="mono">8</td></tr>
+                                <tr><td>前馈层维度</td><td class="mono">d_ff</td><td class="mono">2048</td></tr>
+                                <tr><td>层数</td><td class="mono">N</td><td class="mono">6</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h2>1.2 位置编码</h2>
+                        <p>由于注意力本身对顺序不敏感，需要注入位置信息。原论文采用正弦位置编码：</p>
+                        <ul>
+                            <li>偶数维度使用 <span class="code-inline">sin</span>，奇数维度使用 <span class="code-inline">cos</span>；</li>
+                            <li>不同频率的正弦波叠加，使模型能学习相对位置关系；</li>
+                            <li>后续工作多改用可学习位置编码或旋转位置编码（RoPE）。</li>
+                        </ul>
+
+                        <figure>
+                            <div class="img-block"><i class="ri-image-line"></i><span>encoder-decoder-arch.png</span></div>
+                            <figcaption>图 1 · 编码器—解码器整体数据流</figcaption>
+                        </figure>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部状态栏 (#24) -->
+            <div class="statusbar">
+                <span class="save">已自动保存</span>
+                <span class="sep">·</span>
+                <span class="hint" style="font-size:12px;">⌘S 手动保存</span>
+                <span class="grow"></span>
+                <span class="stat">字数 <span class="mono">412</span></span>
+                <span class="stat">行数 <span class="mono">28</span></span>
+                <span class="stat">链接 <span class="mono">0</span></span>
+                <div class="sw-group">
+                    <!-- data-hook: toggle-source / toggle-marginalia / toggle-focus -->
+                    <span class="sw" data-hook="toggle-source"><i class="ri-code-s-slash-line"></i> 源码</span>
+                    <span class="sw on" data-hook="toggle-marginalia" id="swMarginalia"><i class="ri-sidebar-unfold-line"></i> 边注</span>
+                    <span class="sw" data-hook="toggle-focus" id="swFocus"><i class="ri-focus-2-line"></i> 专注</span>
+                </div>
+                <span class="sep">·</span>
+                <span class="mono">UTF-8</span>
+                <span class="cloud"><i class="ri-cloud-line"></i> 云端已连接</span>
+            </div>
+        </section>
+
+        <!-- ===== 检查器：资料边注 MARGINALIA ===== -->
+        <aside class="inspector" id="inspector">
+            <div class="insp-head">
+                <span class="sub">资料边注 · MARGINALIA</span>
+                <span class="grow"></span>
+                <span class="mini" title="折叠" id="inspClose"><i class="ri-sidebar-fold-line"></i></span>
+            </div>
+            <!-- 面板 Tab (#26) 蓝下划线，与索引页视图 Tab(黑线) 区分 -->
+            <div class="panel-tabs">
+                <div class="panel-tab active" data-panel="info">信息</div>
+                <div class="panel-tab" data-panel="outline">大纲</div>
+                <div class="panel-tab" data-panel="key">重点</div>
+                <div class="panel-tab" data-panel="ai">AI</div>
+            </div>
+            <div class="insp-body">
+                <!-- 信息面板 -->
+                <div class="panel-page active" data-page="info">
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-file-info-line"></i> 资料信息</div>
+                        <div class="kv">
+                            <span class="k">类型</span><span class="v">Markdown 文档</span>
+                            <span class="k">状态</span><span class="v"><span class="badge badge-warning"><span class="badge-text">待整理</span></span></span>
+                            <span class="k">所在位置</span><span class="v">资料 / 多模态</span>
+                            <span class="k">字数</span><span class="v mono" style="font-size:12px;">412</span>
+                            <span class="k">最后编辑</span><span class="v mono" style="font-size:12px;">2026.07.29 09:12</span>
+                            <span class="k">收藏</span><span class="v">未收藏</span>
+                        </div>
+                    </div>
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-price-tag-3-line"></i> 标签 <span class="count">2</span><i class="chev ri-arrow-up-s-line"></i></div>
+                        <div class="insp-tags">
+                            <span class="tag tag-blue">多模态</span>
+                            <span class="tag tag-blue">注意力机制</span>
+                            <span class="tag tag-add" data-hook="tag-add">+ 添加</span>
+                        </div>
+                    </div>
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-links-line"></i> 关联笔记 <span class="count">1</span><i class="chev ri-arrow-up-s-line"></i></div>
+                        <div class="kv" style="grid-template-columns:1fr;">
+                            <span class="v" style="display:flex; align-items:center; gap:8px;"><i class="ri-file-text-line" style="color:var(--ink-text-secondary);"></i> Vision Transformer 精读</span>
+                        </div>
+                    </div>
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-attachment-2"></i> 附件 <span class="count">1</span><i class="chev ri-arrow-up-s-line"></i></div>
+                        <div class="kv" style="grid-template-columns:1fr;">
+                            <span class="v" style="display:flex; align-items:center; gap:8px;"><i class="ri-image-line" style="color:var(--ink-text-secondary);"></i> encoder-decoder-arch.png</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 大纲面板 -->
+                <div class="panel-page" data-page="outline">
+                    <div class="outline">
+                        <span class="outline-item active">1. 整体结构</span>
+                        <span class="outline-item lv2">1.1 多头自注意力</span>
+                        <span class="outline-item lv2">维度约定</span>
+                        <span class="outline-item lv2">1.2 位置编码</span>
+                    </div>
+                </div>
+
+                <!-- 重点面板 -->
+                <div class="panel-page" data-page="key">
+                    <div class="kv" style="grid-template-columns:1fr; padding-top:12px;">
+                        <span class="v" style="display:flex; gap:8px;"><i class="ri-markup-line" style="color:var(--ink-warning);"></i> self-attention 路径长度为 O(1)</span>
+                        <span class="v" style="display:flex; gap:8px;"><i class="ri-markup-line" style="color:var(--ink-warning);"></i> Base 版 d_model=512 / h=8 / N=6</span>
+                    </div>
+                </div>
+
+                <!-- AI 面板（占位空态） -->
+                <div class="panel-page" data-page="ai">
+                    <div class="ai-panel">
+                        <div class="ai-empty">
+                            <div class="icon"><i class="ri-sparkling-2-line"></i></div>
+                            <p>基于本篇资料生成摘要、追问与练习题。</p>
+                            <button class="btn btn-primary btn-sm"><i class="ri-magic-line"></i> 生成摘要</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // 面板 Tab 切换（#26）
+        document.querySelectorAll('.panel-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+                var key = tab.getAttribute('data-panel');
+                document.querySelectorAll('.panel-page').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-page') === key);
+                });
+            });
+        });
+
+        // 边注开关 — 折叠检查器
+        var inspector = document.getElementById('inspector');
+        var swMarginalia = document.getElementById('swMarginalia');
+        function setMarginalia(on) { inspector.classList.toggle('collapsed', !on); swMarginalia.classList.toggle('on', on); }
+        swMarginalia.addEventListener('click', function () { setMarginalia(inspector.classList.contains('collapsed')); });
+        document.getElementById('inspClose').addEventListener('click', function () { setMarginalia(false); });
+
+        // 专注开关 — 收起侧栏与检查器（顶栏保持，见方案 §2.8.3）
+        var sidebar = document.getElementById('sidebar');
+        var swFocus = document.getElementById('swFocus');
+        swFocus.addEventListener('click', function () {
+            var on = !swFocus.classList.contains('on');
+            swFocus.classList.toggle('on', on);
+            sidebar.style.display = on ? 'none' : 'flex';
+            setMarginalia(!on);
+        });
+    </script>
+    <!-- 印格 InkGrid v2.1 · 批次4 编辑器页 · 2026-07-30 -->
+</body>
+</html>

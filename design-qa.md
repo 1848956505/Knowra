@@ -129,7 +129,60 @@
 - [x] 完成双视口、选择联动、打开/返回、溢出和控制台检查。
 
 final result: passed
-
 ## Result
+
+final result: passed
+
+## 2026-07-30 Phase3.1 工作域布局修复 QA
+
+### Comparison target
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-5638982e-f8d3-4c2c-a108-b81f01b691bb.png`（知识工作域故障截图）；`/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-7f3bb54d-6be6-4e4f-a935-9ac856b161cb.png`（训练工作域故障截图）。
+- Rendered implementation: `/private/tmp/knowra-phase31-knowledge-fixed.png`、`/private/tmp/knowra-phase31-training-fixed.png`、`/private/tmp/knowra-phase31-learning-fixed.png`。
+- Browser viewport: `1280 x 720 CSS px`; implementation screenshots are `1280 x 720 px`.
+- Source screenshots are `2558 x 1289` and `2560 x 1289 px`; they were treated as approximately `2x` captures and compared by layout proportions.
+- State: local API/Web development servers; knowledge overview, training overview and learning archive dependency-gate states.
+
+### Comparison evidence
+
+The source and fixed captures were reviewed together at the same work-domain states. The source showed the domain content constrained to roughly the left 260px track, with the rest of the viewport blank and no usable global work-domain navigation. The fixed captures show the global Rail retained at 260px and the domain shell occupying the remaining viewport, with readable headers, tabs, metrics, lists and dependency-gate content.
+
+Focused checks covered the outer Grid track, global Rail, work-domain header/nav, dashboard columns, status bar and return-to-materials path. No additional crop was needed because the blocking defect affected the full viewport composition.
+
+### Findings and iteration history
+
+#### Iteration 1 — blocked
+
+- `[P0]` Non-material work domains were unusable. `shell-controller.js` hid the entire `knowra-rail`, while the outer Grid still retained its 260px first track. The work-domain main area was consequently rendered inside that narrow track and the user lost the global navigation.
+- Fix: keep the global Rail visible whenever `activeWorkDomain` is not `materials`; let the domain main area occupy the remaining Grid track. Added a controller regression test for this invariant.
+
+#### Iteration 2 — passed
+
+- Knowledge overview, knowledge list/inspector, training overview, question library/editor entry and learning archive gate were captured after the fix.
+- The global Rail remains clickable, the main area no longer clips at 260px, and the Materials entry returns to the existing library index.
+- Browser console check: no warnings or errors.
+
+### Required fidelity surfaces
+
+- Fonts and typography: existing Swiss Editorial Grid tokens and current display/body font stack remain unchanged; headings, labels and body copy render without the source truncation caused by the broken width.
+- Spacing and layout rhythm: the 260px Rail is retained as the global navigation column; the work-domain shell now fills the remaining width, and dashboard/list/inspector columns are visible.
+- Colors and visual tokens: no new colors or gradients; existing ivory, cobalt, rule-line and status tokens remain in use.
+- Image quality and asset fidelity: existing Rail icon assets are retained; no replacement imagery or CSS-drawn assets were introduced.
+- Copy and content: existing Chinese work-domain labels and dependency-gate copy are unchanged.
+
+### Primary interactions tested
+
+- Switch Materials → Knowledge → Training → Learning Archive.
+- Switch Knowledge overview → Knowledge Items; select a KnowledgeItem and open its inspector.
+- Switch Training overview → Question Library → Question Editor entry.
+- Return from a non-material work domain to Materials.
+
+### Implementation checklist
+
+- [x] Restore usable work-domain width.
+- [x] Keep global work-domain navigation available outside Materials.
+- [x] Add shell-controller regression coverage.
+- [x] Verify knowledge, training and learning states in the browser.
+- [x] Verify no browser console warnings/errors.
 
 final result: passed
