@@ -16,7 +16,7 @@
 
 ## 离线 UI 镜像
 
-Knowra 正式 UI 的离线镜像位于 `docs/前端重构/新UI测试demo/Knowra整合UI.html`，单文件可双击打开，与 `npm run dev:web` 后的 `localhost:3000` 视觉一致。详情见该目录下的 README。
+Knowra 正式 UI 的离线镜像位于 `docs/已归档/前端重构（瑞士编辑风格V1.0）/新UI测试demo/Knowra整合UI.html`，单文件可双击打开，与 `npm run dev:web` 后的 `localhost:3000` 视觉一致。详情见该目录下的 README。
 
 ## 维护规则
 
