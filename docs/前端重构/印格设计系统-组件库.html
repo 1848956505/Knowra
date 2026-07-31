@@ -141,7 +141,9 @@
         .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 18px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
         .tree-node:hover { background: var(--ink-surface-sunken); }
         .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
-        .tree-node .twist, .tree-node .ico { color: var(--ink-text-secondary); font-size: 15px; }
+        /* 目录树图标（印格 §六）：行内 16px，默认跟随主文字色；Line 为主，激活节点用 Fill */
+        .tree-node .twist { color: var(--ink-text-secondary); font-size: 16px; }
+        .tree-node .ico { color: var(--ink-text); font-size: 16px; }
         .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
         .tree-node.lv2 { padding-left: 38px; } .tree-node.lv3 { padding-left: 56px; }
 
@@ -456,7 +458,9 @@
                 <div class="icon-cell"><i class="ri-search-line"></i><span>搜索</span></div>
                 <div class="icon-cell"><i class="ri-settings-4-line"></i><span>设置</span></div>
                 <div class="icon-cell"><i class="ri-folder-open-line"></i><span>文件夹</span></div>
+                <div class="icon-cell"><i class="ri-folder-open-fill"></i><span>文件夹·激活</span></div>
                 <div class="icon-cell"><i class="ri-file-text-line"></i><span>文档</span></div>
+                <div class="icon-cell"><i class="ri-file-fill"></i><span>文档·激活</span></div>
                 <div class="icon-cell"><i class="ri-price-tag-3-line"></i><span>标签</span></div>
                 <div class="icon-cell"><i class="ri-attachment-2"></i><span>附件</span></div>
                 <div class="icon-cell"><i class="ri-list-unordered"></i><span>大纲</span></div>
@@ -545,7 +549,7 @@
                 <div class="catalog-body">
                     <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
                     <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
-                    <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> test</div>
+                    <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-fill"></i> test</div>
                     <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
                     <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
                     <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 多模态</div>
@@ -559,6 +563,7 @@
                 · 悬停：sunken 暖灰底<br>
                 · 图标：Remix line 系（激活项可用 fill）<br>
                 · 快捷键：等宽 KBD 右对齐（11px）<br>
+                · 目录树图标（§六）：16px 跟随主文字色，Line 为主，激活节点用 Fill<br>
                 · 底部固定「新建空间」主按钮；设置入口只在顶栏，侧栏不重复<br>
                 · <strong style="color:var(--ink-text);">功能栏与目录栏分离（方案 C）</strong>：功能导航栏不含目录树；资料等功能页的文件夹目录树独立成一栏（右侧 <span class="mono">.catalog</span>，220px、纸底 Tier A 外框、Tier D 树节点），全局功能栏保持纯功能
             </div>
@@ -853,7 +858,7 @@
 
     <footer style="text-align:center; color:var(--ink-text-secondary); font-size:12px; padding-top:20px;">
         <p style="font-weight:700; color:var(--ink-text);">印格 InkGrid · 知境 Knowra 设计系统</p>
-        <p style="margin-top:4px;" class="mono">v2.1 · 批次7 · 2026-07-30 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
+        <p style="margin-top:4px;" class="mono">v2.1 · 批次7 · 2026-07-31 · 目录树图标同步 §六 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
     </footer>
 
 </div>

@@ -74,8 +74,9 @@
         .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 20px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
         .tree-node:hover { background: var(--ink-surface-sunken); }
         .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
-        .tree-node .twist { font-size: 14px; color: var(--ink-text-secondary); width: 14px; }
-        .tree-node .ico { font-size: 15px; color: var(--ink-text-secondary); }
+        /* 目录树图标（印格 §六）：行内 16px，默认跟随主文字色；Line 为主，激活节点用 Fill */
+        .tree-node .twist { font-size: 16px; color: var(--ink-text-secondary); width: 16px; }
+        .tree-node .ico { font-size: 16px; color: var(--ink-text); }
         .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
         .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 58px; }
 
@@ -263,7 +264,7 @@
                 <!-- data-hook: folder-toggle / folder-select -->
                 <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
-                <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> test</div>
+                <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-fill"></i> test</div>
                 <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
                 <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 多模态</div>
@@ -397,6 +398,7 @@
         </aside>
     </div>
     <!-- 印格 InkGrid v2.1 · 批次9 索引页（目录栏 + 检查器均可折叠 · 检查器收窄至 232 · 去顶部预览白卡） · 2026-07-31 -->
+    <!-- 目录树图标适配（§六）：16px 跟随主文字色 · 激活节点 Fill · 2026-07-31 -->
     <script>
         (function () {
             const shell = document.querySelector('.shell');
