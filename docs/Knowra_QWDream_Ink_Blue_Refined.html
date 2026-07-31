@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Knowra · QWDream Ink & Blue Refined</title>
+  <style>
+    :root {
+      --canvas: #eef1f5;
+      --shell: #ffffff;
+      --surface: #fbfcfe;
+      --surface-2: #f6f8fb;
+      --surface-3: #f0f3f8;
+      --line: #e3e7ee;
+      --line-strong: #d4dae4;
+      --text: #151922;
+      --text-2: #505a6a;
+      --text-3: #8a94a4;
+      --blue: #2f5bea;
+      --blue-strong: #2449c9;
+      --blue-soft: #edf2ff;
+      --blue-faint: #f6f8ff;
+      --green: #2f7d55;
+      --amber: #a36b18;
+      --shadow: 0 20px 54px rgba(24, 35, 58, .11);
+      --radius-xs: 5px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --ui: Inter, "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --display: Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --reading: "Iowan Old Style", "Songti SC", "STSong", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: var(--ui);
+    }
+
+    body { padding: 16px; }
+
+    button, input { font: inherit; }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .app {
+      min-width: 1180px;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 60px 278px minmax(560px, 1fr) 308px;
+      grid-template-rows: 54px minmax(0, 1fr) 28px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 18px;
+      background: var(--shell);
+      box-shadow: var(--shadow);
+    }
+
+    .rail {
+      grid-row: 1 / 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      padding: 12px 9px;
+      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, #f9fbfe 0%, #f4f7fb 100%);
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 10px;
+      border-radius: 11px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .08em;
+      box-shadow: 0 8px 20px rgba(47, 91, 234, .20);
+    }
+
+    .rail-button,
+    .icon-button {
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .rail-button {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      color: #6f7a8c;
+      transition: background .15s ease, color .15s ease, transform .15s ease;
+    }
+
+    .rail-button:hover {
+      background: #edf1f7;
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .rail-button.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+      box-shadow: inset 0 0 0 1px #dce5ff;
+    }
+
+    .rail-spacer { flex: 1; }
+
+    .topbar {
+      grid-column: 2 / 5;
+      display: grid;
+      grid-template-columns: minmax(360px, 500px) 1fr auto;
+      align-items: center;
+      gap: 18px;
+      padding: 0 14px 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.98);
+    }
+
+    .search {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      background: #fbfcfe;
+      color: var(--text-3);
+      transition: border .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+
+    .search:focus-within {
+      border-color: #aebcf8;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(47, 91, 234, .08);
+    }
+
+    .search input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .search kbd {
+      padding: 1px 5px;
+      border: 1px solid var(--line);
+      border-bottom-color: #cfd5df;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--text-3);
+      font-size: 10px;
+      box-shadow: 0 1px 0 rgba(25, 35, 55, .04);
+    }
+
+    .top-actions {
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .icon-button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      color: #6f7a8c;
+    }
+
+    .icon-button:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .avatar {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      margin-left: 5px;
+      border-radius: 9px;
+      background: #e9edf5;
+      color: #495466;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .navigation {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .pane-header {
+      height: 46px;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .pane-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: -.01em;
+    }
+
+    .pane-sub {
+      color: var(--text-3);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .pane-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .tree-scroll,
+    .editor-scroll,
+    .right-scroll {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .tree-scroll {
+      padding: 10px 8px 18px;
+    }
+
+    .tree-group {
+      margin-bottom: 12px;
+    }
+
+    .group-title {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 8px;
+      color: #5e6878;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .group-count {
+      margin-left: auto;
+      color: #9aa3b1;
+      letter-spacing: 0;
+    }
+
+    .tree-row {
+      position: relative;
+      min-height: 33px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 8px;
+      border-radius: 7px;
+      color: #3d4653;
+      font-size: 12px;
+      transition: background .12s ease, color .12s ease;
+    }
+
+    .tree-row.level-1 { padding-left: 26px; }
+    .tree-row.level-2 { padding-left: 44px; }
+
+    .tree-row:hover {
+      background: #f0f3f8;
+    }
+
+    .tree-row.selected {
+      background: var(--blue-soft);
+      color: var(--blue-strong);
+      font-weight: 700;
+    }
+
+    .tree-row.selected::before {
+      content: "";
+      position: absolute;
+      left: -8px;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      border-radius: 0 4px 4px 0;
+      background: var(--blue);
+    }
+
+    .caret {
+      width: 12px;
+      color: #9aa3b0;
+      font-size: 10px;
+      text-align: center;
+      flex: 0 0 12px;
+    }
+
+    .tree-icon {
+      width: 15px;
+      flex: 0 0 15px;
+      color: #7b8697;
+    }
+
+    .tree-icon svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .tree-row.selected .tree-icon { color: var(--blue); }
+
+    .tree-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .editor {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 42px 40px minmax(0, 1fr);
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .tab {
+      min-width: 145px;
+      max-width: 220px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border-right: 1px solid var(--line);
+      color: #697486;
+      font-size: 12px;
+      background: #f8fafc;
+    }
+
+    .tab.active {
+      position: relative;
+      background: #fff;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .tab.active::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 10px;
+      right: 10px;
+      height: 2px;
+      border-radius: 0 0 2px 2px;
+      background: var(--blue);
+    }
+
+    .tab-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 3px;
+      background: #b8c0cc;
+    }
+
+    .tab.active .tab-dot { background: var(--blue); }
+
+    .tab-close {
+      margin-left: auto;
+      color: #9aa3b0;
+    }
+
+    .commandbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .command {
+      height: 28px;
+      padding: 0 9px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #4b5565;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .command:hover { background: var(--surface-2); }
+
+    .command.primary {
+      color: var(--blue);
+      background: var(--blue-faint);
+    }
+
+    .separator {
+      width: 1px;
+      height: 18px;
+      margin: 0 4px;
+      background: var(--line);
+    }
+
+    .save-state {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-3);
+      font-size: 10px;
+    }
+
+    .save-state::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .editor-scroll {
+      padding: 40px 54px 96px;
+      background: #fff;
+    }
+
+    .document {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .doc-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--text-3);
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: .03em;
+    }
+
+    .doc-meta .slash { color: #c0c6d0; }
+
+    .document h1 {
+      margin: 0 0 18px;
+      font-family: var(--display);
+      font-size: 44px;
+      line-height: 1.06;
+      letter-spacing: -.035em;
+      color: #161a21;
+    }
+
+    .document .lede {
+      margin-bottom: 26px;
+      color: #5c6675;
+      font-family: var(--reading);
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    .doc-stats {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 10px 0 14px;
+      margin-bottom: 30px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: var(--text-3);
+      font-size: 10px;
+    }
+
+    .doc-stats strong {
+      color: var(--text-2);
+      font-weight: 700;
+    }
+
+    .document h2 {
+      margin: 34px 0 12px;
+      font-family: var(--display);
+      font-size: 23px;
+      line-height: 1.25;
+      letter-spacing: -.02em;
+      color: #20252d;
+    }
+
+    .document p,
+    .document li {
+      color: #38414d;
+      font-family: var(--reading);
+      font-size: 16.5px;
+      line-height: 1.88;
+    }
+
+    .document p { margin: 0 0 16px; }
+
+    .document blockquote {
+      margin: 24px 0;
+      padding: 10px 0 10px 18px;
+      border-left: 3px solid var(--blue);
+      color: #566171;
+      font-family: var(--reading);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .document code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f2f4f7;
+      color: #334155;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: .87em;
+    }
+
+    .highlight {
+      background: linear-gradient(transparent 56%, #dfe7ff 56%);
+    }
+
+    .right-panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-left: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .right-tabs {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .right-tab {
+      position: relative;
+      height: 46px;
+      display: flex;
+      align-items: center;
+      border: 0;
+      background: transparent;
+      color: #778294;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .right-tab.active { color: var(--blue); }
+
+    .right-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 2px;
+      background: var(--blue);
+    }
+
+    .right-scroll {
+      padding: 14px 16px 24px;
+    }
+
+    .section {
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 11px;
+      color: #374151;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .section-title small {
+      color: var(--text-3);
+      font-size: 10px;
+      font-weight: 650;
+    }
+
+    .meta-row {
+      min-height: 36px;
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      font-size: 10px;
+    }
+
+    .meta-row + .meta-row { border-top-color: var(--line); }
+
+    .meta-row span { color: var(--text-3); }
+
+    .meta-row strong {
+      overflow: hidden;
+      color: #3c4655;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 8px;
+      border: 1px solid #d9e2ff;
+      border-radius: 999px;
+      background: #f7f9ff;
+      color: var(--blue-strong);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .related {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 0;
+      color: #455062;
+      font-size: 11px;
+    }
+
+    .related + .related { border-top: 1px solid var(--line); }
+
+    .related-icon {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      flex: 0 0 22px;
+    }
+
+    .related-icon svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .insight {
+      padding: 11px 12px;
+      border-left: 3px solid var(--blue);
+      border-radius: 0 7px 7px 0;
+      background: var(--blue-faint);
+      color: #4e5a6d;
+      font-family: var(--reading);
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    .statusbar {
+      grid-column: 2 / 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-top: 1px solid var(--line);
+      background: #f7f9fc;
+      color: #818b9a;
+      font-size: 9px;
+    }
+
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    @media (max-width: 1280px) {
+      .app {
+        grid-template-columns: 58px 250px minmax(500px, 1fr) 280px;
+      }
+
+      .editor-scroll {
+        padding-left: 38px;
+        padding-right: 38px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <div class="brand-mark">QW</div>
+
+      <button class="rail-button active" aria-label="知识库">
+        <svg viewBox="0 0 24 24"><path d="M5 4.5h11.5A2.5 2.5 0 0 1 19 7v12.5H7.5A2.5 2.5 0 0 1 5 17V4.5Z"/><path d="M5 17a2.5 2.5 0 0 1 2.5-2.5H19"/></svg>
+      </button>
+      <button class="rail-button" aria-label="文档">
+        <svg viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/></svg>
+      </button>
+      <button class="rail-button" aria-label="知识">
+        <svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.2L19 10l-4.8 1.8L12 17l-2.2-5.2L5 10l4.8-1.8z"/></svg>
+      </button>
+      <button class="rail-button" aria-label="任务">
+        <svg viewBox="0 0 24 24"><path d="M7 6h11M7 12h11M7 18h11"/><path d="m3.5 6 1 1 1.7-2M3.5 12l1 1 1.7-2M3.5 18l1 1 1.7-2"/></svg>
+      </button>
+      <button class="rail-button" aria-label="复盘">
+        <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 4.5v4h4"/></svg>
+      </button>
+
+      <div class="rail-spacer"></div>
+
+      <button class="rail-button" aria-label="设置">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.2-1.7l2-1.5-2-3.4-2.3.9a7 7 0 0 0-3-1.7L13 2h-2l-.5 2.6a7 7 0 0 0-3 1.7l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .6.1 1.1.2 1.7l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 3 1.7L11 22h2l.5-2.6a7 7 0 0 0 3-1.7l2.3.9 2-3.4-2-1.5c.1-.6.2-1.1.2-1.7Z"/></svg>
+      </button>
+    </aside>
+
+    <header class="topbar">
+      <label class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+        <input placeholder="搜索笔记、标签、知识点或 AI 结果" />
+        <kbd>⌘K</kbd>
+      </label>
+
+      <div></div>
+
+      <div class="top-actions">
+        <button class="icon-button" aria-label="同步">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4.5v5h-5"/></svg>
+        </button>
+        <button class="icon-button" aria-label="通知">
+          <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+        </button>
+        <div class="avatar">QW</div>
+      </div>
+    </header>
+
+    <aside class="navigation">
+      <div class="pane-header">
+        <div>
+          <div class="pane-title">知识库导航</div>
+          <div class="pane-sub">12 篇笔记 · 8 个标签</div>
+        </div>
+
+        <div class="pane-actions">
+          <button class="icon-button" aria-label="新建">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button class="icon-button" aria-label="更多">
+            <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="tree-scroll">
+        <div class="tree-group">
+          <div class="group-title">
+            资料
+            <span class="group-count">12</span>
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret">›</span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M3.5 7h6l2 2H20a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 .5-1Z"/></svg></span>
+            <span class="tree-label">A 股</span>
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret">⌄</span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M3.5 7h6l2 2H20a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 .5-1Z"/></svg></span>
+            <span class="tree-label">多模态</span>
+          </div>
+
+          <div class="tree-row level-2">
+            <span class="caret"></span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/></svg></span>
+            <span class="tree-label">Transformer</span>
+          </div>
+
+          <div class="tree-row level-2 selected">
+            <span class="caret"></span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/></svg></span>
+            <span class="tree-label">Vision Transformer</span>
+          </div>
+
+          <div class="tree-row level-2">
+            <span class="caret"></span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/></svg></span>
+            <span class="tree-label">CLIP</span>
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret">›</span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M3.5 7h6l2 2H20a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 .5-1Z"/></svg></span>
+            <span class="tree-label">学习方法</span>
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret">›</span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M3.5 7h6l2 2H20a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 .5-1Z"/></svg></span>
+            <span class="tree-label">本项目</span>
+          </div>
+        </div>
+
+        <div class="tree-group">
+          <div class="group-title">
+            快捷入口
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret"></span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.2L19 10l-4.8 1.8L12 17l-2.2-5.2L5 10l4.8-1.8z"/></svg></span>
+            <span class="tree-label">收藏</span>
+            <span class="group-count">3</span>
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret"></span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg></span>
+            <span class="tree-label">最近</span>
+            <span class="group-count">5</span>
+          </div>
+
+          <div class="tree-row level-1">
+            <span class="caret"></span>
+            <span class="tree-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M8 7V4h8v3M7 10v8M12 10v8M17 10v8"/></svg></span>
+            <span class="tree-label">回收站</span>
+            <span class="group-count">8</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="editor">
+      <div class="tabs">
+        <div class="tab">
+          <span class="tab-dot"></span>
+          Transformer
+          <span class="tab-close">×</span>
+        </div>
+
+        <div class="tab active">
+          <span class="tab-dot"></span>
+          Vision Transformer
+          <span class="tab-close">×</span>
+        </div>
+      </div>
+
+      <div class="commandbar">
+        <button class="command">文件</button>
+        <button class="command">编辑</button>
+        <button class="command">段落</button>
+        <button class="command">格式</button>
+        <div class="separator"></div>
+        <button class="command">B</button>
+        <button class="command">I</button>
+        <button class="command">标记</button>
+        <button class="command primary">提炼知识</button>
+        <span class="save-state">已保存 · 2 分钟前</span>
+      </div>
+
+      <div class="editor-scroll">
+        <article class="document">
+          <div class="doc-meta">
+            <span>资料</span>
+            <span class="slash">/</span>
+            <span>多模态</span>
+            <span class="slash">/</span>
+            <span>Vision Transformer</span>
+          </div>
+
+          <h1>Vision Transformer</h1>
+
+          <p class="lede">
+            通过把图像转化为 patch 序列，Vision Transformer 让标准 Transformer 能够直接处理视觉任务。
+          </p>
+
+          <div class="doc-stats">
+            <span><strong>1,284</strong> 字</span>
+            <span><strong>8</strong> 个知识点</span>
+            <span><strong>3</strong> 个标签</span>
+            <span>更新于 2026/07/11</span>
+          </div>
+
+          <h2>核心思路</h2>
+          <p>
+            图像首先被切分为若干固定大小的 patch。每个 patch 展平后通过线性映射得到 patch embedding，
+            加入位置编码后，这些向量与一个可学习的 <span class="highlight">[CLS] token</span>
+            一同输入 Transformer Encoder。
+          </p>
+
+          <blockquote>
+            ViT 真正改变的不是视觉模型的外形，而是图像进入模型之前的表达方式。
+          </blockquote>
+
+          <h2>需要掌握的内容</h2>
+          <p>
+            理解 patch embedding、位置编码、自注意力和 CLS token 的作用，并能够比较 ViT 与 CNN
+            在归纳偏置、数据规模和迁移能力上的差异。
+          </p>
+        </article>
+      </div>
+    </main>
+
+    <aside class="right-panel">
+      <div class="right-tabs">
+        <button class="right-tab active">信息</button>
+        <button class="right-tab">大纲</button>
+        <button class="right-tab">知识点</button>
+        <button class="right-tab">AI</button>
+      </div>
+
+      <div class="right-scroll">
+        <section class="section">
+          <h2 class="section-title">笔记信息</h2>
+          <div class="meta-row"><span>标题</span><strong>Vision Transformer</strong></div>
+          <div class="meta-row"><span>路径</span><strong>资料 / 多模态</strong></div>
+          <div class="meta-row"><span>字数</span><strong>1,284</strong></div>
+          <div class="meta-row"><span>收藏状态</span><strong>已收藏</strong></div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">标签 <small>3</small></h2>
+          <div class="tag-list">
+            <span class="tag">多模态</span>
+            <span class="tag">论文精读</span>
+            <span class="tag">重点</span>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">关联笔记 <small>2</small></h2>
+
+          <div class="related">
+            <span class="related-icon">
+              <svg viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/></svg>
+            </span>
+            Transformer 基础
+          </div>
+
+          <div class="related">
+            <span class="related-icon">
+              <svg viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/></svg>
+            </span>
+            CLIP 图像编码器
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">个人备注</h2>
+          <div class="insight">
+            下次复习时重点比较 ViT 与 CNN 的归纳偏置，并回看 CLIP 中 ViT 作为图像编码器的变化。
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <footer class="statusbar">
+      <div class="status-group">
+        <span>Markdown</span>
+        <span>UTF-8</span>
+        <span>本地优先</span>
+      </div>
+
+      <div class="status-group">
+        <span>笔记 12</span>
+        <span>标签 8</span>
+        <span>知识点 23</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
