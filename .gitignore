@@ -24,6 +24,9 @@ apps/web/lib/editor/milkdown-bundle.js.map
 apps/web/lib/editor/milkdown-bundle.css.map
 .worktrees/
 .superpowers/
+.claude/
+.qoder/
 AGENTS.md
 storage/data/knowledge-base.json
 apps/api/storage/data/knowledge-base.json
+docs/前端重构/audit-资料库索引/
