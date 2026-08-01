@@ -162,11 +162,11 @@
         .insp-head .grow { flex: 1; }
         .insp-head .mini { width: 26px; height: 26px; display: grid; place-items: center; cursor: pointer; color: var(--ink-text-secondary); }
         .insp-head .mini:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
-        /* 面板 Tab (#26) 蓝下划线 */
-        .panel-tabs { display: flex; border-bottom: 1px solid var(--ink-border); flex-shrink: 0; }
-        .panel-tab { flex: 1; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-        .panel-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
-        .panel-tab.active { color: var(--ink-accent); font-weight: 700; border-bottom-color: var(--ink-accent); }
+        /* 边注 Tab（#23 模块 Tab · 均分排布，统一黑线下划线） */
+        .module-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--ink-border); flex-shrink: 0; }
+        .module-tab { flex: 1; justify-content: center; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; transition: color 0.1s, background 0.1s; }
+        .module-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
+        .module-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
         .insp-body { flex: 1; overflow-y: auto; }
         .insp-section { border-bottom: 1px solid var(--ink-line); }
         .insp-section-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -384,12 +384,12 @@
                 <span class="grow"></span>
                 <span class="mini" title="折叠" id="inspClose"><i class="ri-sidebar-fold-line"></i></span>
             </div>
-            <!-- 面板 Tab (#26) 蓝下划线，与索引页视图 Tab(黑线) 区分 -->
-            <div class="panel-tabs">
-                <div class="panel-tab active" data-panel="info">信息</div>
-                <div class="panel-tab" data-panel="outline">大纲</div>
-                <div class="panel-tab" data-panel="key">重点</div>
-                <div class="panel-tab" data-panel="ai">AI</div>
+            <!-- 边注 Tab（#23 模块 Tab 均分排布 · 统一黑线下划线） -->
+            <div class="module-tabs">
+                <div class="module-tab active" data-panel="info">信息</div>
+                <div class="module-tab" data-panel="outline">大纲</div>
+                <div class="module-tab" data-panel="key">重点</div>
+                <div class="module-tab" data-panel="ai">AI</div>
             </div>
             <div class="insp-body">
                 <!-- 信息面板 -->
@@ -460,10 +460,10 @@
     </div>
 
     <script>
-        // 面板 Tab 切换（#26）
-        document.querySelectorAll('.panel-tab').forEach(function (tab) {
+        // 边注 Tab 切换（#23 模块 Tab）
+        document.querySelectorAll('.module-tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
-                document.querySelectorAll('.panel-tab').forEach(function (t) { t.classList.remove('active'); });
+                document.querySelectorAll('.module-tab').forEach(function (t) { t.classList.remove('active'); });
                 tab.classList.add('active');
                 var key = tab.getAttribute('data-panel');
                 document.querySelectorAll('.panel-page').forEach(function (p) {
@@ -489,6 +489,6 @@
             setMarginalia(!on);
         });
     </script>
-    <!-- 印格 InkGrid v2.1 · 批次4 编辑器页 · 2026-07-30 -->
+    <!-- 印格 InkGrid v2.1 · 批次5 编辑器页 · 2026-08-01 · 边注 Tab 归并为模块 Tab（统一黑线下划线） -->
 </body>
 </html>

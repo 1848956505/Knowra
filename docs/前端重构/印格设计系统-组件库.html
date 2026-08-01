@@ -135,17 +135,29 @@
 
         /* Catalog column (方案 C · 独立目录栏) */
         .catalog-demo { width: 220px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
-        .catalog-demo .catalog-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
-        .catalog-demo .catalog-head i { cursor: pointer; font-size: 15px; }
+        .catalog-demo .catalog-head { display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
         .catalog-demo .catalog-body { padding: 8px 0; }
-        .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 18px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
+        .tree-node { display: flex; align-items: center; gap: 8px; padding: 8px 20px; min-height: 35px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; }
         .tree-node:hover { background: var(--ink-surface-sunken); }
         .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
         /* 目录树图标（印格 §六）：行内 16px，默认跟随主文字色；Line 为主，激活节点用 Fill */
-        .tree-node .twist { color: var(--ink-text-secondary); font-size: 16px; }
-        .tree-node .ico { color: var(--ink-text); font-size: 16px; }
+        .tree-node .twist { font-size: 16px; color: var(--ink-text-secondary); width: 16px; flex-shrink: 0; }
+        .tree-node .ico { font-size: 16px; color: var(--ink-text); flex-shrink: 0; }
         .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
-        .tree-node.lv2 { padding-left: 38px; } .tree-node.lv3 { padding-left: 56px; }
+        /* 树层级：根 > 文件夹 > 文件（文件弱一级：次级文字 + 常规字重） */
+        .tree-node.root { font-weight: 700; }
+        .tree-node.file { font-weight: 400; color: var(--ink-text-secondary); }
+        .tree-node.file .ico { color: var(--ink-text-secondary); }
+        .tree-node.file:hover { color: var(--ink-text); }
+        .tree-node.file.selected { color: var(--ink-text); font-weight: 500; }
+        .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 60px; }
+        /* 目录栏动作：28px 紧凑方形按钮，沿用顶栏 icon-btn 物理按压，硬影减档 */
+        .catalog-head-actions { display: flex; align-items: center; gap: 8px; }
+        .cat-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 14px; cursor: pointer; box-shadow: var(--ink-shadow-1); transition: transform 0.1s, box-shadow 0.1s, background 0.1s; font-family: inherit; }
+        .cat-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .cat-btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .cat-btn.accent { background: var(--ink-accent); color: #fff; }
+        .cat-btn.accent:hover { background: var(--ink-accent-hover); }
 
         /* Cards */
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
@@ -197,26 +209,30 @@
         .list-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
         .list-right .time { font-family: "SF Mono", monospace; font-size: 12px; color: var(--ink-text-secondary); }
         .list-right .open { color: var(--ink-accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
-        /* View tabs (#23) & panel tabs (#26) */
-        .view-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-border); }
-        .view-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
-        .view-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
-        .view-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
-        .view-tab .count { font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
-        .panel-tabs { display: flex; border-bottom: 1px solid var(--ink-line); }
-        .panel-tab { flex: 1; text-align: center; padding: 8px 4px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-        .panel-tab:hover { color: var(--ink-text); }
-        .panel-tab.active { color: var(--ink-accent); font-weight: 700; border-bottom-color: var(--ink-accent); }
+        /* Module tabs (统一模块 Tab：#23 黑线下划线 · 视图切换与面板切换共用同一语言) */
+        .module-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-border); }
+        .module-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; transition: color 0.1s, background 0.1s; }
+        .module-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
+        .module-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
+        .module-tab .count { font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        /* 面板切换排布：容器内均分（同一条黑线语言，仅分布方式不同） */
+        .module-tabs.stretch { gap: 0; }
+        .module-tabs.stretch .module-tab { flex: 1; justify-content: center; text-align: center; padding: 8px 4px; }
 
-        /* Doc tabs (#27) */
+        /* Doc tabs (#27 · 标签页 Tab) */
         .doc-tabs { display: flex; align-items: stretch; border-bottom: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); }
-        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; border-right: 1px solid var(--ink-line); border-top: 2px solid transparent; color: var(--ink-text-secondary); cursor: pointer; background: transparent; }
+        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; border-right: 1px solid var(--ink-line); border-top: 2px solid transparent; color: var(--ink-text-secondary); cursor: pointer; background: transparent; transition: background 0.1s; }
         .doc-tab:hover { background: var(--ink-surface-sunken); }
         .doc-tab:hover .doc-tab-close { opacity: 1; }
         .doc-tab.active { background: var(--ink-surface); color: var(--ink-text); font-weight: 600; border-top-color: var(--ink-accent); }
         .doc-tab.active .doc-tab-close { opacity: 1; }
         .doc-tab-close { opacity: 0; font-size: 14px; color: var(--ink-text-secondary); transition: opacity 0.1s; }
         .doc-tab-close:hover { color: var(--ink-danger); }
+        /* 未保存脏点：8×8 方形 warning 点，hover 让位给关闭钮（呼应状态徽标方形点） */
+        .doc-tab-dirty { width: 8px; height: 8px; background: var(--ink-warning); flex-shrink: 0; }
+        .doc-tab:hover .doc-tab-dirty { display: none; }
+        /* 尾部新建文档钮 */
+        .doc-tab.new-tab { border-right: none; padding: 10px 14px; color: var(--ink-text-secondary); }
 
         /* Menu bar (#28) & menus (#15) */
         .menu-bar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--ink-line); background: var(--ink-surface); }
@@ -545,13 +561,13 @@
                 <div class="nav-item"><i class="ri-links-line"></i> 双向链接</div>
             </div>
             <div class="catalog-demo">
-                <div class="catalog-head"><span>资料 · 文件夹</span><i class="ri-add-line" title="新建文件夹"></i></div>
+                <div class="catalog-head"><span>资料 · 文件夹</span><span class="catalog-head-actions"><button class="cat-btn accent" title="新建文件夹"><i class="ri-add-line"></i></button><button class="cat-btn" title="折叠目录栏" data-hook="catalog-collapse"><i class="ri-menu-fold-line"></i></button></span></div>
                 <div class="catalog-body">
-                    <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
+                    <div class="tree-node root"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
                     <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
                     <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-fill"></i> test</div>
-                    <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
-                    <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
+                    <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
+                    <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
                     <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 多模态</div>
                     <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 英语</div>
                 </div>
@@ -565,7 +581,9 @@
                 · 快捷键：等宽 KBD 右对齐（11px）<br>
                 · 目录树图标（§六）：16px 跟随主文字色，Line 为主，激活节点用 Fill<br>
                 · 底部固定「新建空间」主按钮；设置入口只在顶栏，侧栏不重复<br>
-                · <strong style="color:var(--ink-text);">功能栏与目录栏分离（方案 C）</strong>：功能导航栏不含目录树；资料等功能页的文件夹目录树独立成一栏（右侧 <span class="mono">.catalog</span>，220px、纸底 Tier A 外框、Tier D 树节点），全局功能栏保持纯功能
+                · <strong style="color:var(--ink-text);">功能栏与目录栏分离（方案 C）</strong>：功能导航栏不含目录树；资料等功能页的文件夹目录树独立成一栏（右侧 <span class="mono">.catalog</span>，220px、纸底 Tier A 外框、Tier D 树节点），全局功能栏保持纯功能<br>
+                · 目录栏动作：28px 紧凑方形按钮（蓝底新建 + 白底折叠），沿用顶栏 icon-btn 物理按压、硬影减档<br>
+                · 树层级三级递减：根 700 / 文件夹 500 / 文件 400 且次级文字色——文件节点比文件夹再弱一级
             </div>
         </div>
     </section>
@@ -598,37 +616,39 @@
 
     <hr class="divider">
 
-    <!-- 10. 视图 Tab / 面板 Tab / 文档 Tab -->
+    <!-- 10. 模块 Tab / 标签页 Tab -->
     <section class="section">
         <div class="section-label">10 · Tabs</div>
-        <h2>三种 Tab（黑线 = 数据视图 · 蓝线 = 面板视图 · 蓝顶 = 文档多开）</h2>
+        <h2>两类 Tab（模块切换 · 文档多开）</h2>
+        <p class="desc">v2.1 将旧「视图 Tab / 面板 Tab / 标签页 Tab」归并为两类：模块 Tab（下划线式，视图切换与面板切换共用同一语言）与标签页 Tab（文档多开条）。彩色只做状态点缀，不做结构区分。</p>
         <div class="panel">
-            <div class="panel-title">#23 视图 Tab（数据视图切换）</div>
-            <div class="view-tabs">
-                <div class="view-tab active">全部条目 <span class="count">17</span></div>
-                <div class="view-tab">最近 <span class="count">5</span></div>
-                <div class="view-tab">已收藏 <span class="count">0</span></div>
-                <div class="view-tab">回收站 <span class="count">0</span></div>
+            <div class="panel-title">模块 Tab · 视图切换（数据视图 · 左对齐 + 等宽计数）</div>
+            <div class="module-tabs">
+                <div class="module-tab active">全部条目 <span class="count">17</span></div>
+                <div class="module-tab">最近 <span class="count">5</span></div>
+                <div class="module-tab">已收藏 <span class="count">0</span></div>
+                <div class="module-tab">回收站 <span class="count">0</span></div>
             </div>
         </div>
         <div class="panel">
-            <div class="panel-title">#26 面板 Tab（检查器内切换）</div>
+            <div class="panel-title">模块 Tab · 面板切换（检查器内均分 · 同一条黑线语言）</div>
             <div style="max-width:300px;">
-                <div class="panel-tabs">
-                    <div class="panel-tab active">信息</div>
-                    <div class="panel-tab">大纲</div>
-                    <div class="panel-tab">重点</div>
-                    <div class="panel-tab">AI</div>
+                <div class="module-tabs stretch">
+                    <div class="module-tab active">信息</div>
+                    <div class="module-tab">大纲</div>
+                    <div class="module-tab">重点</div>
+                    <div class="module-tab">AI</div>
                 </div>
             </div>
         </div>
         <div class="panel" style="padding:0; overflow:hidden;">
             <div class="doc-tabs">
-                <div class="doc-tab"><i class="ri-file-text-line"></i> Transformer <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
+                <div class="doc-tab"><i class="ri-file-text-line"></i> Transformer <span class="doc-tab-dirty"></span><span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
                 <div class="doc-tab active"><i class="ri-file-text-line"></i> 勾股定理笔记 <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
                 <div class="doc-tab"><i class="ri-file-text-line"></i> CLIP <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
+                <div class="doc-tab new-tab" title="新建文档"><i class="ri-add-line"></i></div>
             </div>
-            <div style="padding:14px 20px;" class="hint">#27 文档 Tab 条：激活 = 白底 + 上边 2px 蓝条；关闭按钮 hover 显示；溢出横向滚动。</div>
+            <div style="padding:14px 20px;" class="hint">标签页 Tab：激活 = 白底 + 上边 2px 蓝条；关闭按钮 hover 显示；未保存文档以 8×8 方形 warning 脏点指示（hover 让位给关闭钮）；尾部「+」新建文档；溢出横向滚动。</div>
         </div>
     </section>
 
@@ -858,7 +878,7 @@
 
     <footer style="text-align:center; color:var(--ink-text-secondary); font-size:12px; padding-top:20px;">
         <p style="font-weight:700; color:var(--ink-text);">印格 InkGrid · 知境 Knowra 设计系统</p>
-        <p style="margin-top:4px;" class="mono">v2.1 · 批次7 · 2026-07-31 · 目录树图标同步 §六 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
+        <p style="margin-top:4px;" class="mono">v2.1 · 批次8 · 2026-08-01 · 目录栏按钮化同步 + Tab 归并为两类 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
     </footer>
 
 </div>

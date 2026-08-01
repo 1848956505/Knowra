@@ -68,22 +68,31 @@
 
         /* 目录栏（方案 C：功能栏与目录栏物理分离，目录独立成一栏） */
         .catalog { width: var(--catalog-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
-        .catalog-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
-        .catalog-head i { cursor: pointer; font-size: 15px; }
+        .catalog-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
         .catalog-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
-        .tree-node { display: flex; align-items: center; gap: 8px; padding: 6px 20px; font-size: 13px; cursor: pointer; border-left: 4px solid transparent; }
+        .tree-node { display: flex; align-items: center; gap: 8px; padding: 8px 20px; min-height: 35px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; }
         .tree-node:hover { background: var(--ink-surface-sunken); }
         .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
         /* 目录树图标（印格 §六）：行内 16px，默认跟随主文字色；Line 为主，激活节点用 Fill */
-        .tree-node .twist { font-size: 16px; color: var(--ink-text-secondary); width: 16px; }
-        .tree-node .ico { font-size: 16px; color: var(--ink-text); }
+        .tree-node .twist { font-size: 16px; color: var(--ink-text-secondary); width: 16px; flex-shrink: 0; }
+        .tree-node .ico { font-size: 16px; color: var(--ink-text); flex-shrink: 0; }
         .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
-        .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 58px; }
+        /* 树层级：根 > 文件夹 > 文件（文件弱一级：次级文字 + 常规字重） */
+        .tree-node.root { font-weight: 700; }
+        .tree-node.file { font-weight: 400; color: var(--ink-text-secondary); }
+        .tree-node.file .ico { color: var(--ink-text-secondary); }
+        .tree-node.file:hover { color: var(--ink-text); }
+        .tree-node.file.selected { color: var(--ink-text); font-weight: 500; }
+        .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 60px; }
 
         /* 目录栏折叠：头部折叠按钮 + 侧栏右缘书签式展开钮 */
-        .catalog-head-actions { display: flex; align-items: center; gap: 10px; }
-        .catalog-head-actions i { cursor: pointer; font-size: 15px; }
-        .catalog-head-actions i:hover { color: var(--ink-accent); }
+        /* 紧凑方形动作钮：与顶栏 icon-btn 同一套物理按压，缩放至 28px、2px 硬影减档 */
+        .catalog-head-actions { display: flex; align-items: center; gap: 8px; }
+        .cat-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 14px; cursor: pointer; box-shadow: var(--ink-shadow-1); transition: transform 0.1s, box-shadow 0.1s, background 0.1s; font-family: inherit; }
+        .cat-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .cat-btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .cat-btn.accent { background: var(--ink-accent); color: #fff; }
+        .cat-btn.accent:hover { background: var(--ink-accent-hover); }
         .shell.catalog-collapsed .catalog { display: none; }
         .catalog-expand-tab { display: none; position: absolute; top: 8px; left: calc(var(--sidebar-w) - 2px); width: 26px; height: 30px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); border-left: none; box-shadow: var(--ink-shadow-1); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
         .catalog-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(2px); }
@@ -259,18 +268,18 @@
 
         <!-- ===== 目录栏：功能页专用，独立成一栏（方案 C） ===== -->
         <aside class="catalog">
-            <div class="catalog-head"><span>资料 · 文件夹</span><span class="catalog-head-actions"><i class="ri-add-line" title="新建文件夹"></i><i class="ri-menu-fold-line" title="折叠目录栏" data-hook="catalog-collapse"></i></span></div>
+            <div class="catalog-head"><span>资料 · 文件夹</span><span class="catalog-head-actions"><button class="cat-btn accent" title="新建文件夹"><i class="ri-add-line"></i></button><button class="cat-btn" title="折叠目录栏" data-hook="catalog-collapse"><i class="ri-menu-fold-line"></i></button></span></div>
             <div class="catalog-scroll">
                 <!-- data-hook: folder-toggle / folder-select -->
-                <div class="tree-node"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
+                <div class="tree-node root"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
                 <div class="tree-node lv2 selected"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-fill"></i> test</div>
-                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
-                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 多模态</div>
-                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Vision Transformer</div>
-                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> CLIP</div>
-                <div class="tree-node lv3"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Transformer</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Vision Transformer</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> CLIP</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Transformer</div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 学习方法</div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 本项目</div>
                 <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 英语</div>
@@ -282,7 +291,7 @@
             <div class="page-head">
                 <div>
                     <h1>资料库</h1>
-                    <div class="sub">浏览范围 <strong>test</strong> · 资料 2 · 文件夹 6 · 最近更新 <span class="mono">2026.07.29 01:04</span></div>
+                    <div class="sub">浏览范围 <strong>test</strong> · 最近更新 <span class="mono">2026.07.29 01:04</span></div>
                 </div>
                 <button class="btn btn-accent"><i class="ri-add-line"></i> 新建资料</button>
             </div>
@@ -399,6 +408,8 @@
     </div>
     <!-- 印格 InkGrid v2.1 · 批次9 索引页（目录栏 + 检查器均可折叠 · 检查器收窄至 232 · 去顶部预览白卡） · 2026-07-31 -->
     <!-- 目录树图标适配（§六）：16px 跟随主文字色 · 激活节点 Fill · 2026-07-31 -->
+    <!-- 目录栏按钮化：动作改紧凑方形按钮 · 文件节点弱一级 · 统一 35px 行高 · 2026-08-01 -->
+    <!-- 副标题去计数：浏览范围仅保留最近更新时间 · 2026-08-01 -->
     <script>
         (function () {
             const shell = document.querySelector('.shell');
