@@ -15,7 +15,8 @@
             --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626;
             --ink-shadow-1: 2px 2px 0 var(--ink-border); --ink-shadow-2: 3px 3px 0 var(--ink-border);
             --ink-shadow-3: 4px 4px 0 var(--ink-border); --ink-shadow-hero: 6px 6px 0 var(--ink-border);
-            --topbar-h: 60px; --sidebar-w: 208px; --inspector-w: 300px;
+            --topbar-h: 60px; --sidebar-w: 208px; --inspector-w: 232px;
+            --aux-sidebar-w: 232px; --aux-sidebar-head-h: 52px; --aux-sidebar-control: 28px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
@@ -49,7 +50,7 @@
         .user-btn:active { transform: translate(2px,2px); box-shadow: none; }
 
         /* ===== 主体三栏 ===== */
-        .shell { flex: 1; display: flex; overflow: hidden; }
+        .shell { flex: 1; display: flex; overflow: hidden; position: relative; }
 
         /* 侧栏（与索引页一致） */
         .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-line-shell); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; transition: margin-left 0.15s; }
@@ -161,14 +162,19 @@
         .sw.on { background: var(--ink-accent); color: #fff; }
         .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); }
 
-        /* ===== 检查器：资料边注 MARGINALIA ===== */
-        .inspector { width: var(--inspector-w); flex-shrink: 0; border-left: 1px solid var(--ink-line-panel); background: var(--ink-surface); display: flex; flex-direction: column; overflow: hidden; }
+        /* ===== 辅助侧栏：资料边注（与索引页详情栏及组件库规范一致） ===== */
+        .inspector { width: var(--aux-sidebar-w); flex-shrink: 0; border-left: 1px solid var(--ink-line-panel); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
         .inspector.collapsed { display: none; }
-        .insp-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--ink-line-panel); flex-shrink: 0; }
-        .insp-head .sub { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--ink-text-secondary); text-transform: uppercase; }
+        .insp-head { display: flex; align-items: center; gap: 8px; min-height: var(--aux-sidebar-head-h); height: var(--aux-sidebar-head-h); padding: 0 16px; border-bottom: 1px solid var(--ink-line-panel); flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--ink-text); }
+        .insp-head-title { display: inline-flex; align-items: center; gap: 12px; min-width: 0; flex-shrink: 0; white-space: nowrap; }
+        .insp-head-title .insp-head-icon { width: 16px; flex: 0 0 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: var(--ink-text); }
         .insp-head .grow { flex: 1; }
-        .insp-head .mini { width: 26px; height: 26px; display: grid; place-items: center; cursor: pointer; color: var(--ink-text-secondary); }
-        .insp-head .mini:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+        .insp-head .mini { flex: 0 0 var(--aux-sidebar-control); width: var(--aux-sidebar-control); height: var(--aux-sidebar-control); padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); cursor: pointer; color: var(--ink-text); font-size: 14px; transition: transform 0.1s, box-shadow 0.1s, background 0.1s; }
+        .insp-head .mini:hover { background: var(--ink-accent-bg); transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .insp-head .mini:active { transform: translate(2px,2px); box-shadow: none; }
+        .inspector-expand-tab { display: none; position: absolute; top: 12px; right: 0; width: var(--aux-sidebar-control); height: var(--aux-sidebar-control); align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); box-shadow: -2px 2px 0 var(--ink-border); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .inspector-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(-2px); }
+        .shell.inspector-collapsed .inspector-expand-tab { display: flex; }
         /* 边注 Tab（#23 模块 Tab · 均分排布，统一黑线下划线） */
         .module-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--ink-line-panel); flex-shrink: 0; }
         .module-tab { flex: 1; justify-content: center; text-align: center; padding: 9px 4px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; transition: color 0.1s, background 0.1s; }
@@ -176,6 +182,7 @@
         .module-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
         .insp-body { flex: 1; overflow-y: auto; }
         .insp-section { border-bottom: 1px solid var(--ink-line-soft); }
+        .insp-section:last-child { border-bottom: 0; }
         .insp-section-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
         .insp-section-head:hover { background: var(--ink-surface-sunken); }
         .insp-section-head i.lead { color: var(--ink-text-secondary); font-size: 15px; }
@@ -388,12 +395,12 @@
             </div>
         </section>
 
-        <!-- ===== 检查器：资料边注 MARGINALIA ===== -->
+        <!-- ===== 辅助侧栏：资料边注 ===== -->
         <aside class="inspector" id="inspector">
             <div class="insp-head">
-                <span class="sub">资料边注 · MARGINALIA</span>
+                <span class="insp-head-title"><i class="insp-head-icon ri-file-info-line"></i><span>资料边注</span></span>
                 <span class="grow"></span>
-                <span class="mini" title="折叠" id="inspClose"><i class="ri-sidebar-fold-line"></i></span>
+                <button class="mini" type="button" title="折叠边注侧栏" aria-label="折叠边注侧栏" aria-controls="inspector" aria-expanded="true" id="inspClose"><i class="ri-menu-fold-line"></i></button>
             </div>
             <!-- 边注 Tab（#23 模块 Tab 均分排布 · 统一黑线下划线） -->
             <div class="module-tabs">
@@ -468,6 +475,7 @@
                 </div>
             </div>
         </aside>
+        <button class="inspector-expand-tab" type="button" title="展开边注侧栏" aria-label="展开边注侧栏" aria-controls="inspector" aria-expanded="false" id="inspOpen"><i class="ri-menu-unfold-line"></i></button>
     </div>
 
     <script>
@@ -483,12 +491,23 @@
             });
         });
 
-        // 边注开关 — 折叠检查器
+        // 边注开关 — 折叠辅助侧栏
+        var shell = document.querySelector('.shell');
         var inspector = document.getElementById('inspector');
         var swMarginalia = document.getElementById('swMarginalia');
-        function setMarginalia(on) { inspector.classList.toggle('collapsed', !on); swMarginalia.classList.toggle('on', on); }
+        var inspClose = document.getElementById('inspClose');
+        var inspOpen = document.getElementById('inspOpen');
+        function setMarginalia(on) {
+            inspector.classList.toggle('collapsed', !on);
+            shell.classList.toggle('inspector-collapsed', !on);
+            inspector.setAttribute('aria-hidden', String(!on));
+            inspClose.setAttribute('aria-expanded', String(on));
+            inspOpen.setAttribute('aria-expanded', String(on));
+            swMarginalia.classList.toggle('on', on);
+        }
         swMarginalia.addEventListener('click', function () { setMarginalia(inspector.classList.contains('collapsed')); });
-        document.getElementById('inspClose').addEventListener('click', function () { setMarginalia(false); });
+        inspClose.addEventListener('click', function () { setMarginalia(false); });
+        inspOpen.addEventListener('click', function () { setMarginalia(true); });
 
         // 专注开关 — 收起侧栏与检查器（顶栏保持，见方案 §2.8.3）
         var sidebar = document.getElementById('sidebar');
@@ -500,6 +519,6 @@
             setMarginalia(!on);
         });
     </script>
-    <!-- 印格 InkGrid v2.1 · 批次10 编辑器页 · 2026-08-03 · 外壳与资料库索引页同步；边注作为可折叠辅助侧栏 -->
+    <!-- 印格 InkGrid v2.1 · 批次11 编辑器页 · 2026-08-03 · 资料边注切换为 232px 可折叠辅助侧栏 -->
 </body>
 </html>

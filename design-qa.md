@@ -280,6 +280,28 @@ final result: passed
 
 final result: blocked
 
+## 2026-08-03 印格编辑器页资料边注辅助侧栏 QA
+
+### Source and implementation
+
+- Source of truth: `docs/前端重构/印格设计系统-组件库.html` 的可折叠辅助侧栏演示及 `docs/前端重构/印格-资料库索引页.html` 的资料详情栏。
+- Implementation target: `docs/前端重构/印格-编辑器页.html`。
+- State: 资料边注保留信息 / 大纲 / 重点 / AI 内容，外观和折叠交互改为统一辅助侧栏。
+
+### Static evidence
+
+- 侧栏宽度：`232px`；头部高度：`52px`；折叠按钮：`28 × 28px` 方块按钮。
+- 侧栏头部使用资料图标 + “资料边注”标题，头部下边界使用 `1px #E5E2DC`。
+- 侧栏外侧边界使用 `1px #E5E2DC`，内容分组使用 `1px #F0EEE9`。
+- 折叠后保留右缘展开按钮；底部“边注”开关与头部按钮同步 `aria-expanded` / `aria-hidden` 状态。
+- `npm run test:web` 通过（131 passed, 0 failed）；`git diff --check` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：当前浏览器会话仍拒绝访问本地页面，未生成本轮实施截图和控制台结果。
+
+final result: blocked
+
 ## 2026-08-03 印格资料库索引页外壳线 1px QA
 
 ### Source and implementation
