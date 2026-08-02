@@ -129,6 +129,7 @@
 - [x] 完成双视口、选择联动、打开/返回、溢出和控制台检查。
 
 final result: passed
+
 ## Result
 
 final result: passed
@@ -186,3 +187,185 @@ Focused checks covered the outer Grid track, global Rail, work-domain header/nav
 - [x] Verify no browser console warnings/errors.
 
 final result: passed
+
+## 2026-08-02 印格资料库索引页左侧导航收窄 QA
+
+### Source and implementation
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-2bff6928-748e-4951-ad7c-9ec03fcbb92d.png`（174×135 PNG，左侧导航图标/标题局部参考）。
+- Implementation screenshot: `/private/tmp/knowra-index-implementation-sidebar-208.png`（1280×720，对应 1280×720 CSS 视口，device scale factor 1）。
+- State: 左侧导航收窄为 208px；目录栏和资料详情栏保持 232px 并展开。
+
+### Comparison evidence
+
+- 左侧导航实际宽度为 `208px`，品牌区宽度随变量同步为 `184px`。
+- 导航项目均保持单行显示，没有文字截断；目录栏和详情栏仍为 `232px`，标题栏没有被挤压。
+- 页面 `scrollWidth` 与 `clientWidth` 均为 `1280px`，没有横向溢出；主内容区获得额外 24px 空间。
+
+### Interaction checks
+
+- 目录栏折叠后展开按钮位于 `x = 206`，尺寸保持 `28 × 28px`；点击展开后目录恢复显示。
+- 浏览器控制台错误/警告：`0`。
+
+### Findings
+
+- 无可执行的 P0/P1/P2 问题。
+
+final result: passed
+
+## 2026-08-02 印格资料库索引页侧栏头部 QA
+
+### Source and implementation
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-2bff6928-748e-4951-ad7c-9ec03fcbb92d.png`（174×135 PNG，左侧导航图标/标题局部参考）。
+- Implementation screenshot: `/private/tmp/knowra-index-implementation-default.png`（1280×720 JPEG，对应 1280×720 CSS 视口，device scale factor 1）。
+- State: 目录栏和资料详情栏均展开；另行测试了两侧折叠/展开状态。
+- Density normalization: 未做缩放；源图是局部参考，实施截图是完整页面，因此采用聚焦区域比对，不做整图像素对齐。
+
+### Comparison evidence
+
+- 目录栏与详情栏均从 `y = 60` 开始，头部高度均为 `52px`，下边界均为 `2px solid #1A1A1A`。
+- 两个侧栏宽度均为 `232px`。
+- 目录标题为“资料目录”，详情标题为“资料详情”；图标均为 16px Remix Icon 线性图标，图标—标题间距与左侧导航一致，详情标题保持单行。
+- 两个折叠控件均为 `28 × 28px` 方形按钮，保留硬阴影、悬停和按压反馈。
+
+### Interaction checks
+
+- 目录栏折叠/展开：`catalog-collapse` → `catalog-expand`，目录的 `display` 在 `none` / `flex` 间正确切换。
+- 详情栏折叠/展开：`inspector-collapse` → `inspector-expand`，详情的 `display` 在 `none` / `flex` 间正确切换。
+- 浏览器控制台错误/警告：`0`。
+
+### Comparison history
+
+1. 初次比对发现详情标题在 232px 侧栏宽度下被“打开”和折叠按钮挤成两行。
+2. 修复为标题不换行、详情“打开”按钮收紧内边距，并锁定方形折叠按钮不收缩。
+3. 复核后标题保持单行，P0/P1/P2 问题为 0。
+
+### Required fidelity surfaces
+
+- Fonts and typography: 标题、图标尺寸和字重统一，标题不换行。
+- Spacing and layout rhythm: 两侧标题栏顶部、宽度、高度和边界线一致。
+- Colors and visual tokens: 复用现有纸张背景、黑色硬边界、蓝色强调和硬阴影令牌。
+- Image quality and asset fidelity: 复用 Remix Icon 字体图标，没有新增 CSS 绘图或占位资产。
+- Copy and content: 目录标题改为“资料目录”，详情标题保留为“资料详情”。
+
+### Findings
+
+- 无可执行的 P0/P1/P2 问题。
+
+final result: passed
+
+## 2026-08-02 印格资料库索引页线条层级方案 QA
+
+### Source and implementation
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-d391c672-7f64-4e0d-b861-fc119dcc4c5c.png`（截图标注了外壳边界、功能页内部结构线和顶部轻分隔线）。
+- Implementation screenshot: 本轮浏览器访问本地页面被安全策略拒绝，未生成新的实施截图。
+- Intended viewport: `1280 x 720 CSS px`；当前仅完成静态 CSS/HTML 检查，未将本轮视觉结果标记为通过。
+- State: 索引页默认展开态；组件库未同步。
+
+### Proposed hierarchy and static evidence
+
+- Level 1 shell line: `2px solid var(--ink-line-shell)`，已应用于顶部栏底线和左侧导航右边界。
+- Level 2 functional structure line: `2px solid var(--ink-line-panel)` 或 `1px solid var(--ink-line-panel)`，当前值为 `#B8B4AC`，已应用于目录栏/详情栏外侧边界、两侧标题栏底线和视图 Tab 底线。
+- Level 3 soft divider: `1px solid var(--ink-line-soft)`，当前值为 `#E5E1DA`，已应用于顶部用户操作区分隔线，并作为现有列表行/详情分组轻线的语义令牌。
+- 操作按钮、卡片和输入框的黑色边框暂时保留，作为可点击控件的 affordance，不与页面结构线混用。
+- 静态检查确认三级令牌、目标选择器和 HTML 结构均存在；`git diff --check` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：本地页面访问被浏览器安全策略拒绝，无法完成截图、真实渲染和控制台检查。
+  - Blocker: 当前浏览器会话拒绝访问 `http://127.0.0.1:4173`。
+  - Next step: 需要重新开放本地预览访问后，再在同一视口完成视觉对照并决定是否微调。
+
+final result: blocked
+
+## 2026-08-03 印格资料库索引页外壳线 1px QA
+
+### Source and implementation
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-67d91152-84d4-4af6-8520-64da4a92867d.png`（Codex 顶部栏与侧栏的轻量分隔参考）。
+- Implementation screenshot: 本轮浏览器访问本地页面仍被安全策略拒绝，未生成新的实施截图。
+- State: 索引页默认展开态；组件库未同步。
+
+### Proposed hierarchy and static evidence
+
+- Level 1 shell line: 保留 `#1A1A1A` 深黑色，顶部栏底线和左侧导航右边界调整为 `1px solid var(--ink-line-shell)`。
+- Level 2 functional structure line: 保持 `1px solid #E5E2DC`。
+- Level 3 soft divider: 保持 `1px solid #F0EEE9`。
+- 静态检查确认目标选择器和 HTML 结构均存在；`git diff --check` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：本地页面访问被浏览器安全策略拒绝，无法完成截图、真实渲染和控制台检查。
+
+final result: blocked
+
+## 2026-08-02 印格资料库索引页 Codex 式轻量线条 QA
+
+### Source and implementation
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-67d91152-84d4-4af6-8520-64da4a92867d.png`（Codex 顶部栏、侧栏和标签页之间的低对比度分隔线参考）。
+- Implementation screenshot: 本轮浏览器访问本地页面仍被安全策略拒绝，未生成新的实施截图。
+- Intended viewport: `1280 x 720 CSS px`；当前仅完成静态 CSS/HTML 检查，未将本轮视觉结果标记为通过。
+- State: 索引页默认展开态；组件库未同步。
+
+### Proposed hierarchy and static evidence
+
+- Level 1 shell line: 恢复为原有 `2px solid #1A1A1A`，应用于顶部栏底线和左侧导航右边界；外壳线的颜色与尺寸保持原方案。
+- Level 2 functional structure line: 调整为 `1px solid #E5E2DC`，应用于目录栏/详情栏外侧边界、侧栏标题栏底线和视图 Tab 底线。
+- Level 3 soft divider: 调整为 `1px solid #F0EEE9`，应用于顶部用户操作区分隔线及列表/详情分组轻线。
+- 操作按钮、卡片、输入框和选中态指示器的黑色边框暂时保留，继续承担交互识别或状态表达，不作为页面结构线。
+- 静态检查确认三级令牌、目标选择器和 HTML 结构均存在；`git diff --check` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：本地页面访问被浏览器安全策略拒绝，无法完成截图、真实渲染和控制台检查。
+  - Blocker: 当前浏览器会话拒绝访问 `http://127.0.0.1:4173`。
+  - Next step: 需要重新开放本地预览访问后，再在同一视口完成视觉对照并决定是否微调。
+
+final result: blocked
+
+## 2026-08-03 印格资料库索引页线条系统定稿与组件库同步 QA
+
+### Source and implementation
+
+- Source visual truth: `/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-67d91152-84d4-4af6-8520-64da4a92867d.png`（Codex 低对比度分隔线参考）及本轮用户确认的外壳线 2px 决策。
+- Implementation targets: `docs/前端重构/印格-资料库索引页.html`、`docs/前端重构/印格设计系统-组件库.html`、`docs/前端重构/Knowra UI 风格设计文档.md`。
+- State: 索引页外壳线恢复为 2px；组件库已同步线条令牌和可折叠辅助侧栏演示；组件库演示包含折叠/展开交互。
+
+### Static evidence
+
+- Level 1 shell line: `2px solid #1A1A1A`，应用于索引页顶部栏底线和左侧导航右边界。
+- Level 2 functional structure line: `1px solid #E5E2DC`。
+- Level 3 soft divider: `1px solid #F0EEE9`。
+- 辅助侧栏演示规格：`232px` 默认宽度、`52px` 头部、`28 × 28px` 方块按钮；折叠态保留按钮作为重新打开入口。
+- `git diff --check` 通过；组件库页面脚本包含 `aria-expanded` / `aria-hidden` 状态同步。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：当前浏览器会话仍拒绝访问本地页面，未能生成本轮实施截图和控制台结果。
+
+final result: blocked
+
+## 2026-08-03 印格编辑器页外壳同步 QA
+
+### Source and implementation
+
+- Source of truth: `docs/前端重构/印格-资料库索引页.html` 的顶栏与左侧导航外壳。
+- Implementation target: `docs/前端重构/印格-编辑器页.html`。
+- State: 编辑器保留自己的文档树、编辑区与边注内容；顶栏和左侧导航外壳已同步，边注边界按辅助侧栏线条规则调整。
+
+### Static evidence
+
+- 顶栏：60px 高、24px 水平内边距、居中搜索框、通知/设置/用户中心操作区及 1px 浅色短分隔线。
+- 左侧导航：宽度 `208px`、右边界 `2px solid #1A1A1A`，导航内边距和图标/标题间距与索引页一致。
+- 边注辅助侧栏：外侧边界 `1px solid #E5E2DC`，头部下边界同级，内容分组使用 `1px #F0EEE9`。
+- 编辑器页脚注已更新为批次 10；编辑器脚本静态结构未改变。
+- `git diff --check` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：当前浏览器会话仍拒绝访问本地页面，未生成本轮实施截图和控制台结果。
+
+final result: blocked

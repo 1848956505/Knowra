@@ -10,10 +10,12 @@
             --ink-bg: #F9F7F2; --ink-surface: #FFFFFF; --ink-surface-sunken: #F4F1EA;
             --ink-border: #1A1A1A; --ink-text: #1A1A1A; --ink-text-secondary: #666666;
             --ink-dot-grid: #D1D1D1; --ink-accent: #2563EB; --ink-accent-hover: #1D4ED8; --ink-accent-bg: #E0F2FE;
-            --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626; --ink-line: #DDDDDD;
+            /* 线条层级：外壳线 > 功能结构线 > 轻分割线；外壳恢复 2px 深黑 */
+            --ink-line-shell: var(--ink-border); --ink-line-panel: #E5E2DC; --ink-line-soft: #F0EEE9;
+            --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626; --ink-line: var(--ink-line-soft);
             --ink-shadow-1: 2px 2px 0 var(--ink-border); --ink-shadow-2: 3px 3px 0 var(--ink-border);
             --ink-shadow-3: 4px 4px 0 var(--ink-border); --ink-shadow-hero: 6px 6px 0 var(--ink-border);
-            --topbar-h: 60px; --sidebar-w: 232px; --catalog-w: 220px; --inspector-w: 232px;
+            --topbar-h: 60px; --sidebar-w: 208px; --inspector-w: 232px; --catalog-w: var(--inspector-w);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
@@ -26,7 +28,7 @@
         .mono { font-family: "SF Mono", Menlo, monospace; }
 
         /* ===== 顶栏（与主页同步：搜索居中 + 用户中心 + 3px 图标） ===== */
-        .topbar { position: relative; height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; padding: 0 24px; border-bottom: 2px solid var(--ink-border); background: var(--ink-bg); z-index: 20; }
+        .topbar { position: relative; height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; padding: 0 24px; border-bottom: 2px solid var(--ink-line-shell); background: var(--ink-bg); z-index: 20; }
         .brand { display: flex; align-items: center; gap: 12px; width: calc(var(--sidebar-w) - 24px); font-weight: 800; font-size: 17px; letter-spacing: -0.5px; cursor: pointer; }
         .mark { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
         .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; background: var(--ink-accent); }
@@ -41,7 +43,7 @@
         .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-2); cursor: pointer; color: var(--ink-text); font-size: 16px; transition: all 0.1s; }
         .icon-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-3); }
         .icon-btn:active { transform: translate(2px,2px); box-shadow: none; }
-        .topbar-sep { width: 1px; height: 24px; background: var(--ink-line); margin: 0 4px; }
+        .topbar-sep { width: 1px; height: 24px; background: var(--ink-line-soft); margin: 0 4px; }
         .user-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; font-weight: 600; font-size: 13px; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-2); cursor: pointer; font-family: inherit; transition: all 0.1s; }
         .user-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-3); }
         .user-btn:active { transform: translate(2px,2px); box-shadow: none; }
@@ -50,7 +52,7 @@
         .shell { flex: 1; display: flex; overflow: hidden; position: relative; }
 
         /* 侧栏（与主页完全一致：232px、5 组功能导航、底部新建空间、不含目录树） */
-        .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-line-shell); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
         .sidebar-scroll { flex: 1; overflow-y: auto; padding: 16px 0; }
         .nav-group { margin-bottom: 22px; }
         .nav-group:last-child { margin-bottom: 8px; }
@@ -67,8 +69,11 @@
         .btn-primary:active { transform: translate(2px,2px); box-shadow: none; }
 
         /* 目录栏（方案 C：功能栏与目录栏物理分离，目录独立成一栏） */
-        .catalog { width: var(--catalog-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
-        .catalog-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
+        .catalog { width: var(--catalog-w); flex-shrink: 0; border-right: 1px solid var(--ink-line-panel); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .panel-head { flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 16px; border-bottom: 1px solid var(--ink-line-panel); font-size: 13px; font-weight: 700; color: var(--ink-text); }
+        .panel-head-title { display: inline-flex; align-items: center; gap: 12px; min-width: 0; flex-shrink: 0; white-space: nowrap; }
+        .panel-head-title .panel-head-icon { width: 16px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: var(--ink-text); }
+        .catalog-head { justify-content: space-between; }
         .catalog-scroll { flex: 1; overflow-y: auto; padding: 8px 0; }
         .tree-node { display: flex; align-items: center; gap: 8px; padding: 8px 20px; min-height: 35px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; }
         .tree-node:hover { background: var(--ink-surface-sunken); }
@@ -87,20 +92,20 @@
 
         /* 目录栏折叠：头部折叠按钮 + 侧栏右缘书签式展开钮 */
         /* 紧凑方形动作钮：与顶栏 icon-btn 同一套物理按压，缩放至 28px、2px 硬影减档 */
-        .catalog-head-actions { display: flex; align-items: center; gap: 8px; }
+        .catalog-head-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
         .cat-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 14px; cursor: pointer; box-shadow: var(--ink-shadow-1); transition: transform 0.1s, box-shadow 0.1s, background 0.1s; font-family: inherit; }
         .cat-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
         .cat-btn:active { transform: translate(2px,2px); box-shadow: none; }
         .cat-btn.accent { background: var(--ink-accent); color: #fff; }
         .cat-btn.accent:hover { background: var(--ink-accent-hover); }
         .shell.catalog-collapsed .catalog { display: none; }
-        .catalog-expand-tab { display: none; position: absolute; top: 8px; left: calc(var(--sidebar-w) - 2px); width: 26px; height: 30px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); border-left: none; box-shadow: var(--ink-shadow-1); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .catalog-expand-tab { display: none; position: absolute; top: 12px; left: calc(var(--sidebar-w) - 2px); width: 28px; height: 28px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); box-shadow: var(--ink-shadow-1); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
         .catalog-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(2px); }
         .shell.catalog-collapsed .catalog-expand-tab { display: flex; }
 
         /* 检查器折叠：头部折叠按钮 + 右缘书签式展开钮（镜像目录栏） */
         .shell.inspector-collapsed .inspector { display: none; }
-        .inspector-expand-tab { display: none; position: absolute; top: 8px; right: 0; width: 26px; height: 30px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); border-right: none; box-shadow: -2px 2px 0 var(--ink-border); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .inspector-expand-tab { display: none; position: absolute; top: 12px; right: 0; width: 28px; height: 28px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); box-shadow: -2px 2px 0 var(--ink-border); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
         .inspector-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(-2px); }
         .shell.inspector-collapsed .inspector-expand-tab { display: flex; }
 
@@ -118,7 +123,7 @@
         .btn-sm { padding: 5px 12px; font-size: 12px; }
 
         /* 视图 Tab */
-        .view-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-border); margin-bottom: 20px; }
+        .view-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-line-panel); margin-bottom: 20px; }
         .view-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; }
         .view-tab:hover { color: var(--ink-text); }
         .view-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
@@ -167,11 +172,11 @@
         .pager .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
         /* 检查器：资料详情（纸底；去顶部预览白卡，直接列信息分区） */
-        .inspector { width: var(--inspector-w); flex-shrink: 0; border-left: 2px solid var(--ink-border); background: var(--ink-bg); overflow-y: auto; }
-        .inspector-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 2px solid var(--ink-border); font-weight: 700; font-size: 13px; position: sticky; top: 0; background: var(--ink-bg); z-index: 1; }
+        .inspector { width: var(--inspector-w); flex-shrink: 0; border-left: 1px solid var(--ink-line-panel); background: var(--ink-bg); overflow-y: auto; }
+        .inspector-head { position: sticky; top: 0; background: var(--ink-bg); z-index: 1; }
         .inspector-head .grow { flex: 1; }
-        .inspector-head .insp-collapse { cursor: pointer; font-size: 15px; color: var(--ink-text-secondary); }
-        .inspector-head .insp-collapse:hover { color: var(--ink-accent); }
+        .inspector-head .btn-sm { padding: 5px 8px; gap: 6px; }
+        .inspector-head .cat-btn { flex-shrink: 0; }
         .insp-section { border-top: 1px solid var(--ink-line); }
         .insp-section:first-of-type { border-top: none; }
         .insp-section-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -268,7 +273,10 @@
 
         <!-- ===== 目录栏：功能页专用，独立成一栏（方案 C） ===== -->
         <aside class="catalog">
-            <div class="catalog-head"><span>资料 · 文件夹</span><span class="catalog-head-actions"><button class="cat-btn accent" title="新建文件夹"><i class="ri-add-line"></i></button><button class="cat-btn" title="折叠目录栏" data-hook="catalog-collapse"><i class="ri-menu-fold-line"></i></button></span></div>
+            <div class="catalog-head panel-head">
+                <span class="panel-head-title"><i class="panel-head-icon ri-folder-open-line"></i><span>资料目录</span></span>
+                <span class="catalog-head-actions"><button class="cat-btn accent" type="button" title="新建文件夹" aria-label="新建文件夹"><i class="ri-add-line"></i></button><button class="cat-btn" type="button" title="折叠目录栏" aria-label="折叠目录栏" data-hook="catalog-collapse"><i class="ri-menu-fold-line"></i></button></span>
+            </div>
             <div class="catalog-scroll">
                 <!-- data-hook: folder-toggle / folder-select -->
                 <div class="tree-node root"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
@@ -371,10 +379,11 @@
 
         <!-- ===== 检查器：资料详情 ===== -->
         <aside class="inspector">
-            <div class="inspector-head">
-                <i class="ri-book-read-line"></i> 资料详情 <span class="grow"></span>
-                <button class="btn btn-sm"><i class="ri-external-link-line"></i> 打开</button>
-                <i class="insp-collapse ri-menu-unfold-line" title="折叠详情栏" data-hook="inspector-collapse"></i>
+            <div class="inspector-head panel-head">
+                <span class="panel-head-title"><i class="panel-head-icon ri-file-info-line"></i><span>资料详情</span></span>
+                <span class="grow"></span>
+                <button class="btn btn-sm" type="button"><i class="ri-external-link-line"></i> 打开</button>
+                <button class="cat-btn" type="button" title="折叠详情栏" aria-label="折叠详情栏" data-hook="inspector-collapse"><i class="ri-menu-unfold-line"></i></button>
             </div>
             <div class="insp-section">
                 <div class="insp-section-head"><i class="lead ri-file-info-line"></i> 资料信息</div>
@@ -409,6 +418,7 @@
     <!-- 印格 InkGrid v2.1 · 批次9 索引页（目录栏 + 检查器均可折叠 · 检查器收窄至 232 · 去顶部预览白卡） · 2026-07-31 -->
     <!-- 目录树图标适配（§六）：16px 跟随主文字色 · 激活节点 Fill · 2026-07-31 -->
     <!-- 目录栏按钮化：动作改紧凑方形按钮 · 文件节点弱一级 · 统一 35px 行高 · 2026-08-01 -->
+    <!-- 左侧导航收窄至 208px；目录栏与详情栏标题统一：图标/标题样式、顶部边界及折叠按钮方块化 · 2026-08-02 -->
     <!-- 副标题去计数：浏览范围仅保留最近更新时间 · 2026-08-01 -->
     <script>
         (function () {
