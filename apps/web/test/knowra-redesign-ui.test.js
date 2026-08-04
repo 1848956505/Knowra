@@ -14,18 +14,19 @@ const tokens = readStyle('knowra-theme-tokens.css');
 const shell = readStyle('knowra-shell.css');
 const library = readStyle('knowra-library-index.css');
 const editor = readStyle('knowra-editor.css');
+const workDomain = readStyle('work-domain.css');
 const menus = readStyle('knowra-menus.css');
 const typography = readStyle('knowra-typography.css');
 const shellHtml = renderHtml();
 const iconPath = (name) => path.resolve(__dirname, `../styles/icons/${name}`);
 
-assert.match(tokens, /--font-ui:\s*'SF Pro Rounded',\s*'PingFang SC'/, 'interface copy should use the rounded UI font stack');
-assert.match(tokens, /--font-reading:\s*'Songti SC',\s*'Source Han Serif SC'/, 'note content should use the sharp serif reading stack');
-assert.match(tokens, /--font-body:\s*var\(--font-ui\);/, 'legacy body references should resolve to the unified UI stack');
-assert.match(tokens, /--type-micro:\s*11px;/, 'microcopy should use the smallest legible production step');
-assert.match(tokens, /--type-control:\s*14px;/, 'buttons and interface information should share one control step');
-assert.match(tokens, /--type-reading:\s*18px;/, 'note content should use the shared reading size');
-assert.match(tokens, /--type-heading-4:\s*var\(--type-title-sm\);[\s\S]*--type-heading-3:\s*22px;[\s\S]*--type-heading-2:\s*28px;[\s\S]*--type-heading-1:\s*36px;/, 'note headings should use the unified H1-H4 scale');
+assert.match(tokens, /--ink-font-ui:\s*'SF Pro Rounded',\s*'PingFang SC'/, 'InkGrid UI font should use the rounded UI font stack');
+assert.match(tokens, /--ink-font-reading:\s*'Songti SC',\s*'Source Han Serif SC'/, 'InkGrid reading font should use the sharp serif reading stack');
+assert.match(tokens, /--font-body:\s*var\(--ink-font-ui\);/, 'legacy body references should resolve to the InkGrid UI stack');
+assert.match(tokens, /--ink-type-micro:\s*11px;/, 'microcopy should use the smallest legible production step');
+assert.match(tokens, /--ink-type-control:\s*14px;/, 'buttons and interface information should share one control step');
+assert.match(tokens, /--ink-type-reading:\s*18px;/, 'note content should use the shared reading size');
+assert.match(tokens, /--ink-type-heading-4:\s*var\(--ink-type-title-sm\);[\s\S]*--ink-type-heading-3:\s*22px;[\s\S]*--ink-type-heading-2:\s*28px;[\s\S]*--ink-type-heading-1:\s*36px;/, 'note headings should use the unified H1-H4 scale');
 assert.match(typography, /\.editor-workspace \.document-title-input,[\s\S]*font-family:\s*var\(--font-reading\)/, 'the note title and note body should share the reading family');
 assert.match(typography, /\.editor-workspace \.milkdown-host \.ProseMirror,[\s\S]*font-size:\s*var\(--text-body\)[\s\S]*line-height:\s*var\(--line-height-reading\)/, 'editor and preview copy should share reading metrics');
 assert.match(typography, /\.milkdown-code-block \.tools,[\s\S]*font-family:\s*var\(--font-ui\)/, 'embedded editor controls should remain in the UI family');
@@ -53,10 +54,11 @@ assert.match(
   /\.index-filter-chevron\s*\{[^}]*width:\s*var\(--space-4\)[^}]*height:\s*var\(--space-4\)[^}]*fill:\s*none[^}]*stroke:\s*currentColor/,
   'filter chevrons should have bounded SVG geometry and an explicit stroke'
 );
-assert.match(tokens, /--index-selection-width:\s*2px;/, 'index selection should use the low-focus line token');
-assert.match(tokens, /--masthead-height:\s*76px;/, 'the approved compact masthead height should be shared');
-assert.match(tokens, /--index-row-height:\s*124px;/, 'the approved compact index row height should be shared');
-assert.match(tokens, /--status-height:\s*var\(--space-8\);/, 'the status bar should use the compact shared 32px rhythm');
+assert.match(tokens, /--ink-index-selection-w:\s*2px;/, 'index selection should use the low-focus line token');
+assert.match(tokens, /--ink-border-tab-active:\s*2px;/, 'Tab activation lines should use the dedicated 2px token');
+assert.match(tokens, /--ink-masthead-h:\s*76px;/, 'the approved compact masthead height should be shared');
+assert.match(tokens, /--ink-index-row-h:\s*124px;/, 'the approved compact index row height should be shared');
+assert.match(tokens, /--ink-statusbar-h:\s*32px;/, 'the status bar should use the compact shared 32px rhythm');
 assert.match(tokens, /--editor-focus-frame-width:\s*calc\(var\(--editor-max-width\) \+ var\(--space-20\)\);/, 'focus mode should use a bounded centered writing frame');
 assert.match(
   library,
@@ -114,6 +116,26 @@ assert.match(library, /\.inspector-fixed-section > header h3\s*\{[^}]*font-size:
 assert.match(library, /\.section-icon\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/, 'right section icons should share the approved navigation icon scale');
 assert.match(editor, /\.document-title-row\s*\{[^}]*border-left:\s*var\(--border-selection\) solid var\(--blue\)/, 'the document title should begin directly after the blue guide line');
 assert.match(editor, /\.document-title-input\s*\{[^}]*color:\s*var\(--blue\)[^}]*font:\s*800/, 'the file title should replace the decorative document number as the primary blue heading');
+assert.match(
+  editor,
+  /\.document-tabs \.note-tab\[data-active='true'\][^}]*box-shadow:\s*inset\s*var\(--border-tab-active\)\s+0\s+0\s+var\(--blue\)/,
+  'active document tabs should use a left blue rule'
+);
+assert.match(
+  editor,
+  /\.editor-inspector \.aside-tab\[data-active='true'\][^}]*box-shadow:\s*inset\s*0\s+calc\(-1 \* var\(--border-tab-active\)\)\s+0\s+var\(--ink\)/,
+  'active marginalia tabs should use a bottom black rule'
+);
+assert.match(
+  library,
+  /\.content-tabs button\[data-active='true'\][^}]*box-shadow:\s*inset\s*0\s+calc\(-1 \* var\(--border-tab-active\)\)\s+0\s+var\(--ink\)/,
+  'active library view tabs should use a bottom black rule'
+);
+assert.match(
+  workDomain,
+  /\.work-domain-nav-button\[data-active='true'\][^}]*border-bottom-color:\s*var\(--ink\)/,
+  'active work-domain tabs should use a bottom black rule'
+);
 assert.doesNotMatch(editor, /\.document-id\s*\{/, 'the removed decorative document number should not retain production styling');
 assert.match(editor, /\.preview-rendered h2\s*\{[^}]*color:\s*var\(--ink\)/, 'ordinary H2 headings should return to the same black hierarchy as other headings');
 assert.match(editor, /data-knowra-emphasis='true'[\s\S]*border-bottom:[^;]+;[\s\S]*color:\s*var\(--blue\)/, 'the former blue divider treatment should remain reserved for future emphasized headings');

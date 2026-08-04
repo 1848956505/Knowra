@@ -280,6 +280,72 @@ final result: passed
 
 final result: blocked
 
+## 2026-08-03 全局 Shell Footer 与编辑器编辑样式 QA
+
+### Source and implementation
+
+- Implementation targets: `docs/前端重构/印格-资料库索引页.html`、`docs/前端重构/知境 - 桌面端专业版主页.html`、`docs/前端重构/印格-编辑器页.html`、`docs/前端重构/印格设计系统-组件库.html`。
+- Shell contract: `body = topbar + shell + statusbar`；Footer 位于 `.shell` 外，固定为 32px 高、满宽、2px 深黑上边界；页面内容只写入 Footer 的状态内容区。
+- Editor content sample: 当前笔记覆盖 H1、H2、H3、段落、粗体/斜体/链接、行内代码、引用、提示块、Python 代码块、列表、表格和图片块。
+
+### Static evidence
+
+- 索引页和主页均包含 `data-region="shell-footer"` 的全宽底部宿主，编辑器页保留编辑器专属状态内容；三页的侧栏都在 Footer 上方结束。
+- 主页左侧导航同步为 `208px`，与索引页/编辑器页一致；目录栏与辅助侧栏保持 `232px`。
+- 组件库第 15 节新增 Shell Footer 宿主演示，并保留编辑器状态栏内容变体；宿主规则写明 32px、2px 外壳线、24px 内边距和页面内容注入关系。
+- `git diff --check`、四个 HTML 内嵌脚本解析、Footer 位于 `.shell` 外的结构检查均已通过；前端回归测试 `131/131` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核仍受本地页面安全策略影响；当前没有新增实施截图，因此本轮不将截图视觉复核标记为通过。
+
+final result: blocked
+
+## 2026-08-03 印格编辑器固定导航、目录栏与状态栏 QA
+
+### Source and implementation
+
+- Source of truth: `docs/前端重构/印格-资料库索引页.html` 的顶部栏、固定功能导航和可折叠目录栏。
+- Implementation target: `docs/前端重构/印格-编辑器页.html`。
+- State: 编辑器外壳与索引页统一；编辑区保留文档 Tab、菜单栏、标题区和资料边注内容。
+
+### Static evidence
+
+- 顶部栏和最左导航复用索引页结构；导航包含工作台、资料库、知识库、训练场、学习档案五组，宽度 `208px`。
+- 目录栏独立于功能导航，宽度 `232px`，头部 `52px`，使用索引页同款折叠/展开按钮和目录树样式。
+- 文档 Tab 条与编辑器功能栏同属 `.editor` 工作面；激活态由顶部蓝线改为左侧 `2px` 蓝线。
+- 标题蓝条移入 `.title-main`，只覆盖文档类型和标题；标签行通过 `margin-left` 对齐标题内容，不再落在蓝条内。
+- 状态栏移到 `.shell` 外部并横跨全工作面，左右侧栏随 `.shell` 在状态栏上方结束。
+- `git diff --check` 通过；编辑器 HTML 脚本解析通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：当前浏览器会话仍拒绝访问本地页面，未生成本轮实施截图和控制台结果。
+
+final result: blocked
+
+## 2026-08-03 印格编辑器专注模式与文档标题区优化 QA
+
+### Source and implementation
+
+- Visual references: 用户提供的文档标题区与多开 Tab 条参考图。
+- Implementation target: `docs/前端重构/印格-编辑器页.html`。
+- State: 专注模式隐藏顶部栏；Tab 条、路径/时间元信息、标题标识和标签组完成新 UI 层级整理。
+
+### Static evidence
+
+- 专注模式通过 `body.focus-mode` 隐藏 `.topbar`，同时保留编辑器 Tab 条和底部状态栏；编辑区自动获得顶部栏释放的高度。
+- 专注模式下 Tab 条增加 `2px solid #1A1A1A` 顶部外壳线；常态 Tab 条使用浅色结构线，激活 Tab 使用 `2px` 蓝色顶线。
+- Tab 条采用 `44px` 行高、激活白底、非激活暖纸底、浅色 Tab 分隔线和方形关闭/新建动作区。
+- 标题区域按“路径状态 → 创建/编辑元信息 → 文档类型 → 标题 → 标签”分层，保留左 `4px` 蓝色标题条和点阵工作面。
+- `npm run test:web` 通过（131 passed, 0 failed）；编辑器脚本解析通过；`git diff --check` 通过。
+
+### Findings
+
+- `[P2]` 浏览器视觉复核受阻：当前浏览器会话仍拒绝访问本地页面，未生成本轮实施截图和控制台结果。
+
+final result: blocked
+
 ## 2026-08-03 印格编辑器页资料边注辅助侧栏 QA
 
 ### Source and implementation

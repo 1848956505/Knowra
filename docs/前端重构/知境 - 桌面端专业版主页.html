@@ -10,10 +10,12 @@
             --ink-bg: #F9F7F2; --ink-surface: #FFFFFF; --ink-surface-sunken: #F4F1EA;
             --ink-border: #1A1A1A; --ink-text: #1A1A1A; --ink-text-secondary: #666666;
             --ink-dot-grid: #D1D1D1; --ink-accent: #2563EB; --ink-accent-hover: #1D4ED8; --ink-accent-bg: #E0F2FE;
-            --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626; --ink-line: #DDDDDD;
+            --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626;
+            /* 线条层级与索引页同步：外壳 2px 深黑 > 功能结构 1px 浅灰 > 轻分割 1px 极浅 */
+            --ink-line-shell: var(--ink-border); --ink-line-panel: #E5E2DC; --ink-line-soft: #F0EEE9; --ink-line: var(--ink-line-soft);
             --ink-shadow-1: 2px 2px 0 var(--ink-border); --ink-shadow-2: 3px 3px 0 var(--ink-border);
             --ink-shadow-3: 4px 4px 0 var(--ink-border); --ink-shadow-hero: 6px 6px 0 var(--ink-border);
-            --topbar-h: 60px; --sidebar-w: 232px;
+            --topbar-h: 60px; --statusbar-h: 32px; --sidebar-w: 208px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
@@ -26,8 +28,8 @@
         .mono { font-family: "SF Mono", Menlo, monospace; }
 
         /* ===== 顶栏 ===== */
-        .topbar { position: relative; height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; padding: 0 24px; border-bottom: 2px solid var(--ink-border); background: var(--ink-bg); z-index: 20; }
-        .brand { display: flex; align-items: center; gap: 12px; width: calc(var(--sidebar-w) - 24px); font-weight: 800; font-size: 18px; letter-spacing: -0.5px; cursor: pointer; }
+        .topbar { position: relative; height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; padding: 0 24px; border-bottom: 2px solid var(--ink-line-shell); background: var(--ink-bg); z-index: 20; }
+        .brand { display: flex; align-items: center; gap: 12px; width: calc(var(--sidebar-w) - 24px); font-weight: 800; font-size: 17px; letter-spacing: -0.5px; cursor: pointer; }
         .mark { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
         .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; background: var(--ink-accent); }
         .mark .mark-front { position: absolute; left: 0; top: 0; width: 28px; height: 28px; background: var(--ink-surface); border: 2px solid var(--ink-border); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
@@ -50,9 +52,18 @@
 
         /* ===== 主体两栏 ===== */
         .shell { flex: 1; display: flex; overflow: hidden; }
+        /* 全局 Shell Footer：主页只替换状态内容，宿主始终占满最底部一行 */
+        .statusbar { width: 100%; flex: 0 0 var(--statusbar-h); height: var(--statusbar-h); display: flex; align-items: center; gap: 16px; padding: 0 24px; border-top: 2px solid var(--ink-line-shell); background: var(--ink-bg); font-size: 12px; color: var(--ink-text-secondary); }
+        .statusbar .context { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-text); font-weight: 700; }
+        .statusbar .context i { color: var(--ink-accent); font-size: 14px; }
+        .statusbar .sep { opacity: 0.5; }
+        .statusbar .grow { flex: 1; }
+        .statusbar .stat { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .statusbar .stat .mono { color: var(--ink-text); }
+        .statusbar .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); white-space: nowrap; }
 
         /* 左栏：纯功能导航（方案 C —— 目录栏留给资料页，不在全局栏出现） */
-        .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-border); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-line-shell); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
         .sidebar-scroll { flex: 1; overflow-y: auto; padding: 16px 0; }
         .nav-group { margin-bottom: 22px; }
         .nav-group:last-child { margin-bottom: 8px; }
@@ -270,6 +281,19 @@
             </div>
         </section>
     </div>
+
+    <!-- 全局 Shell Footer：占满底部一行；状态内容由主页功能页提供 -->
+    <footer class="statusbar" data-region="shell-footer" aria-label="工作台状态">
+        <span class="context"><i class="ri-home-5-line" aria-hidden="true"></i> 工作台</span>
+        <span class="sep">·</span>
+        <span>今日工作面</span>
+        <span class="grow"></span>
+        <span class="stat">模块 <span class="mono">3</span></span>
+        <span class="stat">最近编辑 <span class="mono">4</span></span>
+        <span class="cloud"><i class="ri-cloud-line" aria-hidden="true"></i> 云端已连接</span>
+    </footer>
+
     <!-- 印格 InkGrid v2.1 · 批次5 主页（回归原始稿·轻模块重功能） · 2026-07-30 -->
+    <!-- 全局底部状态栏宿主：32px 满宽外壳行，内容由当前功能页注入 · 2026-08-03 -->
 </body>
 </html>

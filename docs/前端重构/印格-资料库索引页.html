@@ -15,7 +15,7 @@
             --ink-success: #16A34A; --ink-warning: #EA580C; --ink-danger: #DC2626; --ink-line: var(--ink-line-soft);
             --ink-shadow-1: 2px 2px 0 var(--ink-border); --ink-shadow-2: 3px 3px 0 var(--ink-border);
             --ink-shadow-3: 4px 4px 0 var(--ink-border); --ink-shadow-hero: 6px 6px 0 var(--ink-border);
-            --topbar-h: 60px; --sidebar-w: 208px; --inspector-w: 232px; --catalog-w: var(--inspector-w);
+            --topbar-h: 60px; --statusbar-h: 32px; --sidebar-w: 208px; --inspector-w: 232px; --catalog-w: var(--inspector-w);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
@@ -50,8 +50,17 @@
 
         /* ===== 主体多栏 ===== */
         .shell { flex: 1; display: flex; overflow: hidden; position: relative; }
+        /* 全局 Shell Footer：结构固定，内容由当前功能页提供；侧栏在此行之上结束 */
+        .statusbar { width: 100%; flex: 0 0 var(--statusbar-h); height: var(--statusbar-h); display: flex; align-items: center; gap: 16px; padding: 0 24px; border-top: 2px solid var(--ink-line-shell); background: var(--ink-bg); font-size: 12px; color: var(--ink-text-secondary); }
+        .statusbar .context { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-text); font-weight: 700; }
+        .statusbar .context i { color: var(--ink-accent); font-size: 14px; }
+        .statusbar .sep { opacity: 0.5; }
+        .statusbar .grow { flex: 1; }
+        .statusbar .stat { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .statusbar .stat .mono { color: var(--ink-text); }
+        .statusbar .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); white-space: nowrap; }
 
-        /* 侧栏（与主页完全一致：232px、5 组功能导航、底部新建空间、不含目录树） */
+        /* 侧栏（与主页完全一致：208px、5 组功能导航、底部新建空间、不含目录树） */
         .sidebar { width: var(--sidebar-w); flex-shrink: 0; border-right: 2px solid var(--ink-line-shell); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
         .sidebar-scroll { flex: 1; overflow-y: auto; padding: 16px 0; }
         .nav-group { margin-bottom: 22px; }
@@ -415,10 +424,23 @@
             </div>
         </aside>
     </div>
+
+    <!-- 全局 Shell Footer：占满底部一行；状态内容随索引页变化，侧栏不覆盖此区域 -->
+    <footer class="statusbar" data-region="shell-footer" aria-label="资料索引状态">
+        <span class="context"><i class="ri-stack-line" aria-hidden="true"></i> 全部资料</span>
+        <span class="sep">·</span>
+        <span>浏览范围 <strong class="mono">test</strong></span>
+        <span class="grow"></span>
+        <span class="stat">条目 <span class="mono">17</span></span>
+        <span class="stat">已收藏 <span class="mono">0</span></span>
+        <span class="cloud"><i class="ri-cloud-line" aria-hidden="true"></i> 云端已连接</span>
+    </footer>
+
     <!-- 印格 InkGrid v2.1 · 批次9 索引页（目录栏 + 检查器均可折叠 · 检查器收窄至 232 · 去顶部预览白卡） · 2026-07-31 -->
     <!-- 目录树图标适配（§六）：16px 跟随主文字色 · 激活节点 Fill · 2026-07-31 -->
     <!-- 目录栏按钮化：动作改紧凑方形按钮 · 文件节点弱一级 · 统一 35px 行高 · 2026-08-01 -->
     <!-- 左侧导航收窄至 208px；目录栏与详情栏标题统一：图标/标题样式、顶部边界及折叠按钮方块化 · 2026-08-02 -->
+    <!-- 全局底部状态栏宿主：32px 满宽外壳行，内容由当前功能页注入 · 2026-08-03 -->
     <!-- 副标题去计数：浏览范围仅保留最近更新时间 · 2026-08-01 -->
     <script>
         (function () {
