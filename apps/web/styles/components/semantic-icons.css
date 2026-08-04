@@ -43,6 +43,12 @@
   height: var(--space-5);
 }
 
+.panel-close-icon,
+.editor-aside-toggle-icon {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
 .editor-context-submenu-caret {
   width: var(--space-4);
   height: var(--space-4);

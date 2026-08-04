@@ -73,6 +73,7 @@ for (const relativeFile of iconRendererFiles) {
   assert.doesNotMatch(source, /phosphor-/i, `${relativeFile} should not retain the legacy icon family`);
   assert.doesNotMatch(source, /<svg|<path/, `${relativeFile} should not duplicate icon SVG paths`);
   assert.doesNotMatch(source, /https?:\/\//, `${relativeFile} should not introduce runtime icon CDN URLs`);
+  assert.doesNotMatch(source, /[›‹⌄⌃▼▲◀▶]/, `${relativeFile} should not emit Unicode icon glyphs directly`);
 }
 
 console.log('ok - formal icon mapping resolves local Remix SVG assets without inline paths or CDN URLs');

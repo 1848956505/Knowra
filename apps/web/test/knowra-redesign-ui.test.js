@@ -48,6 +48,8 @@ assert.match(
 );
 assert.match(shellHtml, /class="library-home-target" data-library-home="global"/, 'the module header should own the library home entry point');
 assert.match(shellHtml, /class="semantic-icon library-mark-icon"[\s\S]*data-icon="libraryMark"[\s\S]*remix\/book-2-line\.svg/, 'the module header should share the knowledge icon asset');
+assert.match(shellHtml, /data-editor-aside-toggle[^>]*aria-label="收起资料边注"[\s\S]*class="semantic-icon editor-aside-toggle-icon"[\s\S]*data-icon="navigationChevron"/, 'the editor aside close action should use the central chevron mapping');
+assert.doesNotMatch(shellHtml, />›</, 'the editor aside close action should not emit a Unicode icon glyph');
 assert.doesNotMatch(shellHtml, /class="library-id"|CONTENT &amp; FOLDERS/, 'the old numeric mark and duplicate directory English label should be removed');
 assert.match(shellHtml, /class="scope-summary" id="library-index-scope"/, 'the browsing scope summary should remain in the index masthead');
 assert.doesNotMatch(shellHtml, /class="brand"/, 'the production shell should not render the removed logo area');

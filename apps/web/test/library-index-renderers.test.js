@@ -78,7 +78,23 @@ const inspectorHtml = renderLibraryIndexInspector({
   }
 });
 
+const emptyInspectorHtml = renderLibraryIndexInspector({
+  note: null,
+  state: {
+    libraryIndex: { inspectorOpen: true },
+    tags: [],
+    foldersById: {},
+    allNotes: [],
+    selectedNoteId: null,
+    attachments: []
+  }
+});
+
 assert.match(inspectorHtml, /class="inspector-heading"/);
+assert.match(inspectorHtml, /class="panel-close"[^>]*aria-label="收起详情"[\s\S]*class="semantic-icon panel-close-icon"[\s\S]*data-icon="navigationChevron"/);
+assert.match(emptyInspectorHtml, /class="panel-close"[^>]*aria-label="收起详情"[\s\S]*class="semantic-icon panel-close-icon"[\s\S]*data-icon="navigationChevron"/);
+assert.doesNotMatch(inspectorHtml, />›</);
+assert.doesNotMatch(emptyInspectorHtml, />›</);
 assert.match(inspectorHtml, /class="inspector-heading-copy"/);
 assert.match(inspectorHtml, /class="semantic-icon inspector-heading-icon"[\s\S]*data-icon="libraryIndex"[\s\S]*remix\/book-open-line\.svg/);
 assert.match(inspectorHtml, /<small>资料预览<\/small>/);

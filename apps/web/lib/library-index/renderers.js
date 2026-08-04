@@ -60,7 +60,9 @@ export function renderLibraryIndexInspector({ note, state }) {
 
   if (!note) {
     return `
-      <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">›</button>
+      <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">
+        ${renderIcon('navigationChevron', { className: 'panel-close-icon' })}
+      </button>
       <header class="inspector-heading inspector-heading-empty"><strong class="inspector-heading-title">未选择资料</strong></header>
       <div class="inspector-empty"><strong>未选择资料</strong><span>请从列表中选择一条资料。</span></div>
     `;
@@ -77,7 +79,9 @@ export function renderLibraryIndexInspector({ note, state }) {
   const attachments = note.id === state.selectedNoteId ? state.attachments : [];
 
   return `
-    <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">›</button>
+    <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">
+      ${renderIcon('navigationChevron', { className: 'panel-close-icon' })}
+    </button>
     <header class="inspector-heading">
       <div class="inspector-heading-copy">
         ${renderIcon('libraryIndex', { className: 'inspector-heading-icon' })}

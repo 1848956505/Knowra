@@ -84,7 +84,9 @@ export function renderHtml(initialWorkspaceScript = '') {
               <aside class="kb-aside editor-inspector" id="kb-aside">
                 <header class="aside-heading">
                   <div><b>资料边注</b><span>MARGINALIA</span></div>
-                  <button type="button" data-editor-aside-toggle aria-label="收起资料边注">›</button>
+                  <button type="button" data-editor-aside-toggle aria-label="收起资料边注">
+                    ${renderIcon('navigationChevron', { className: 'editor-aside-toggle-icon' })}
+                  </button>
                 </header>
                 <div class="aside-tabs" id="aside-tabs"></div>
                 <div class="aside-panel-scroll">
