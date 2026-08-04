@@ -16,7 +16,7 @@
 .masthead .primary-button:hover,
 .masthead .primary-button:focus-visible { background: var(--blue); color: var(--color-on-accent); }
 .masthead .primary-button:hover .masthead-create-icon,
-.masthead .primary-button:focus-visible .masthead-create-icon { filter: brightness(0) invert(1); }
+.masthead .primary-button:focus-visible .masthead-create-icon { filter: none; }
 .primary-button:hover { background: var(--blue-dark); }
 
 .content-tabs { display: flex; gap: var(--space-8); border-bottom: var(--border-thin) solid var(--line); }

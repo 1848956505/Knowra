@@ -1,4 +1,5 @@
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { renderIcon } from '../icons/icon-map.js';
 const DIRTY_SAVE_STATES = new Set(['pending', 'saving', 'error']);
 
 export function renderEmptyNoteTabs() {
@@ -40,7 +41,7 @@ export function renderNoteTabs({
         >
           <span class="note-tab-label">${escapeHtml(note.title)}</span>
           <span class="note-tab-dirty">${isDirty ? '●' : ''}</span>
-          <span class="note-tab-close" data-tab-close="${escapeAttribute(note.id)}" aria-label="关闭标签页" title="关闭标签页">×</span>
+          <span class="note-tab-close" data-tab-close="${escapeAttribute(note.id)}" aria-label="关闭标签页" title="关闭标签页">${renderIcon('cancel', { className: 'note-tab-close-icon' })}</span>
         </button>
       `;
     })
@@ -62,7 +63,7 @@ export function renderTabOverflowToggle({ count, open }) {
       aria-controls="note-tab-overflow-menu"
       aria-label="显示其余 ${count} 个标签页"
       title="其余 ${count} 个标签页"
-    ><span aria-hidden="true">•••</span><small>${count}</small></button>
+    >${renderIcon('more', { className: 'note-tab-overflow-icon' })}<small>${count}</small></button>
   `;
 }
 

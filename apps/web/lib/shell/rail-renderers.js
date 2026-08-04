@@ -1,4 +1,5 @@
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function renderModuleRail(items) {
   return items
@@ -49,16 +50,15 @@ export function getRailLabel(key) {
 }
 
 export function renderRailIcon(key) {
-  const iconAssets = {
-    materials: '/styles/icons/phosphor-books-duotone.svg',
-    knowledge: '/styles/icons/phosphor-books-duotone.svg',
-    training: '/styles/icons/phosphor-exam-duotone.svg',
-    learning: '/styles/icons/phosphor-book-bookmark-duotone.svg',
-    paper: '/styles/icons/phosphor-exam-duotone.svg',
-    ai: '/styles/icons/phosphor-atom-duotone.svg',
-    task: '/styles/icons/phosphor-list-checks-duotone.svg',
-    review: '/styles/icons/phosphor-arrows-clockwise-duotone.svg'
+  const iconNames = {
+    materials: 'moduleMaterials',
+    knowledge: 'moduleKnowledge',
+    training: 'moduleTraining',
+    learning: 'moduleLearning',
+    paper: 'modulePaper',
+    ai: 'moduleAi',
+    task: 'moduleTask',
+    review: 'moduleReview'
   };
-  const src = iconAssets[key];
-  return src ? `<img src="${src}" alt="" />` : '';
+  return iconNames[key] ? renderIcon(iconNames[key]) : '';
 }

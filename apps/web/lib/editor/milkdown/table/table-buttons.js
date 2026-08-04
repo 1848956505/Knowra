@@ -1,32 +1,26 @@
+import { renderIcon } from '../../../icons/icon-map.js';
+
+const TABLE_ICON_NAMES = Object.freeze({
+  add_row: 'tableAddRow',
+  add_col: 'tableAddCol',
+  add_row_before: 'tableAddRowBefore',
+  add_row_after: 'tableAddRowAfter',
+  add_col_before: 'tableAddColBefore',
+  add_col_after: 'tableAddColAfter',
+  delete_row: 'tableDeleteRow',
+  delete_col: 'tableDeleteCol',
+  align_col_left: 'tableAlignLeft',
+  align_col_center: 'tableAlignCenter',
+  align_col_right: 'tableAlignRight',
+  col_drag_handle: 'tableColumnDrag',
+  row_drag_handle: 'tableRowDrag'
+});
+
 export function renderTableButton(renderType) {
-  switch (renderType) {
-    case 'add_row':
-    case 'add_col':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10"></path><path d="M3 8h10"></path></svg>';
-    case 'add_row_before':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.8v4.6"></path><path d="M5.7 5.1h4.6"></path><path d="M3 10.8h10"></path><path d="M3 13h10"></path></svg>';
-    case 'add_row_after':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8.6v4.6"></path><path d="M5.7 10.9h4.6"></path><path d="M3 3h10"></path><path d="M3 5.2h10"></path></svg>';
-    case 'add_col_before':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.8 8h4.6"></path><path d="M5.1 5.7v4.6"></path><path d="M10.8 3v10"></path><path d="M13 3v10"></path></svg>';
-    case 'add_col_after':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8.6 8h4.6"></path><path d="M10.9 5.7v4.6"></path><path d="M3 3v10"></path><path d="M5.2 3v10"></path></svg>';
-    case 'delete_row':
-    case 'delete_col':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 5.5h5.6"></path><path d="M6 5.5V4.6h4v.9"></path><path d="M6.3 6.5l.3 4.5h2.8l.3-4.5"></path></svg>';
-    case 'align_col_left':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10"></path><path d="M3 8h7"></path><path d="M3 12h9"></path></svg>';
-    case 'align_col_center':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10"></path><path d="M4.5 8h7"></path><path d="M3.5 12h9"></path></svg>';
-    case 'align_col_right':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10"></path><path d="M6 8h7"></path><path d="M4 12h9"></path></svg>';
-    case 'col_drag_handle':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11"></path><path d="M2.5 8h11"></path><path d="M2.5 11.5h11"></path></svg>';
-    case 'row_drag_handle':
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11"></path><path d="M8 2.5v11"></path><path d="M11.5 2.5v11"></path></svg>';
-    default:
-      return '';
-  }
+  const iconName = TABLE_ICON_NAMES[renderType];
+  return iconName
+    ? renderIcon(iconName, { className: 'milkdown-table-icon' })
+    : '';
 }
 
 function createTableHandleActionButton({ action, icon, label, onActivate }) {

@@ -4,6 +4,7 @@ import {
   getLibraryTabCounts,
   resolveLibraryFilters
 } from './model.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 const FILTER_LABELS = {
   type: '类型',
@@ -52,9 +53,7 @@ function renderFilterControl({ kind, value, isOpen }) {
         aria-haspopup="menu"
       >
         <span>${label}</span><b>${valueLabel}</b>
-        <svg class="index-filter-chevron" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M4 6.25 8 10l4-3.75"></path>
-        </svg>
+        ${renderIcon('filterChevron', { className: 'index-filter-chevron' })}
       </button>
       ${isOpen ? `
         <div class="index-filter-menu" role="menu" aria-label="${label}筛选">

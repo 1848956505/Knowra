@@ -1,5 +1,6 @@
 import { renderAsideEmptyInline } from './renderers.js';
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function renderOutlineTab({
   headings = [],
@@ -127,13 +128,7 @@ function normalizeHeadingDepths(headings) {
 }
 
 function renderOutlineToggleIcon(isCollapsed) {
-  const path = isCollapsed
-    ? 'M5 3.5 9.5 8 5 12.5'
-    : 'M3.5 6 8 10.5 12.5 6';
-
-  return `
-    <svg viewBox="0 0 16 16" focusable="false">
-      <path d="${path}"></path>
-    </svg>
-  `;
+  return renderIcon(isCollapsed ? 'navigationChevron' : 'disclosureChevron', {
+    className: 'outline-toggle-icon'
+  });
 }

@@ -8,6 +8,7 @@ import {
   editorContextActionMeta
 } from './context-menu-model.js';
 import { renderEditorContextIconSvg } from './context-menu-icons.js';
+import { renderIcon } from '../icons/icon-map.js';
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 
 export function renderEditorContextMenuMarkup({ getShortcutLabel = () => '' } = {}) {
@@ -71,7 +72,7 @@ function renderEditorContextSubmenu(label, actions, getShortcutLabel) {
     <div class="editor-context-submenu-group">
       <button type="button" class="editor-context-submenu-trigger">
         <span>${escapeHtml(label)}</span>
-        <span class="editor-context-submenu-caret">▶</span>
+        ${renderIcon('navigationChevron', { className: 'editor-context-submenu-caret' })}
       </button>
       <div class="editor-context-submenu">
         ${actions.map((action) => renderEditorContextMenuItem(action, getShortcutLabel)).join('')}

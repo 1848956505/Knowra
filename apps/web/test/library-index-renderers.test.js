@@ -80,11 +80,11 @@ const inspectorHtml = renderLibraryIndexInspector({
 
 assert.match(inspectorHtml, /class="inspector-heading"/);
 assert.match(inspectorHtml, /class="inspector-heading-copy"/);
-assert.match(inspectorHtml, /class="inspector-heading-icon" src="\/styles\/icons\/phosphor-book-open-text-duotone\.svg"/);
+assert.match(inspectorHtml, /class="semantic-icon inspector-heading-icon"[\s\S]*data-icon="libraryIndex"[\s\S]*remix\/book-open-line\.svg/);
 assert.match(inspectorHtml, /<small>资料预览<\/small>/);
 assert.match(inspectorHtml, /class="inspector-heading-title"[^>]*>Current title<\/strong>/);
 assert.match(inspectorHtml, /class="inspector-open-button"[^>]*data-index-open="note-a"/);
-assert.match(inspectorHtml, /class="inspector-open-icon" src="\/styles\/icons\/phosphor-arrow-square-out-bold\.svg"/);
+assert.match(inspectorHtml, /class="semantic-icon inspector-open-icon"[\s\S]*data-icon="inspectorOpen"[\s\S]*remix\/external-link-line\.svg/);
 assert.match(inspectorHtml, /<span>打开<\/span>/);
 assert.doesNotMatch(inspectorHtml, /<svg class="inspector-open-icon"/);
 assert.doesNotMatch(inspectorHtml, /primary-button inspector-action/);
@@ -110,11 +110,11 @@ const indexHtml = renderLibraryIndexContent({
 });
 
 assert.match(indexHtml, /class="entry-archive" role="img" aria-label="书籍封面"/);
-assert.match(indexHtml, /class="entry-book-cover" src="\/styles\/icons\/phosphor-book-bookmark-duotone\.svg"/);
+assert.match(indexHtml, /class="semantic-icon entry-book-cover"[\s\S]*data-icon="archive"[\s\S]*remix\/bookmark-3-line\.svg/);
 assert.doesNotMatch(indexHtml, /ARCHIVE|entry-archive-number/);
 assert.match(indexHtml, /data-selected="true"/);
 assert.match(indexHtml, /<div class="tag-row"><span>方法<\/span><\/div>/);
 assert.match(indexHtml, /aria-label="打开资料：Current title"/);
-assert.match(indexHtml, /class="entry-action-icon" src="\/styles\/icons\/phosphor-arrow-square-out-bold\.svg"/);
+assert.match(indexHtml, /class="semantic-icon entry-action-icon"[\s\S]*data-icon="inspectorOpen"[\s\S]*remix\/external-link-line\.svg/);
 
 console.log('ok - editor document head and inspector render their separated title entry points');

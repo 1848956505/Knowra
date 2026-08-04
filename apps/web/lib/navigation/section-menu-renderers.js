@@ -1,4 +1,5 @@
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export const SECONDARY_SECTION_ITEMS = [
   { key: 'favorites', label: '收藏' },
@@ -19,7 +20,7 @@ export function renderSectionMenuItems({
         data-active="${String(Boolean(sections[item.key]))}"
         aria-pressed="${String(Boolean(sections[item.key]))}"
       >
-        <span class="library-checkmark">${sections[item.key] ? '✓' : ''}</span>
+        <span class="library-checkmark">${sections[item.key] ? renderIcon('confirm', { className: 'library-checkmark-icon' }) : ''}</span>
         <span>${escapeHtml(item.label)}</span>
       </button>
     `)

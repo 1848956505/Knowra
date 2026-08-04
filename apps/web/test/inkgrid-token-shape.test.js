@@ -96,6 +96,35 @@ const assertTokenValue = (name, value) => {
 ].forEach(([name, value]) => assertTokenValue(name, value));
 
 [
+  ['--ink-font-ui', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'],
+  ['--ink-font-reading', 'var(--ink-font-ui)'],
+  ['--ink-font-display', 'var(--ink-font-ui)'],
+  ['--ink-font-mono', '"SF Mono", "Menlo", monospace'],
+  ['--ink-type-control', '14px'],
+  ['--ink-type-heading-4', '13px'],
+  ['--ink-type-heading-3', '14px'],
+  ['--ink-type-heading-2', '16px'],
+  ['--ink-type-heading-1', '28px'],
+  ['--ink-type-display-sm', '42px']
+].forEach(([name, value]) => assertTokenValue(name, value));
+
+const canonicalSansFontBlocks = [
+  tokens.match(/--ink-font-ui\s*:\s*([^;]+);/)?.[1],
+  tokens.match(/--ink-font-reading\s*:\s*([^;]+);/)?.[1],
+  tokens.match(/--ink-font-display\s*:\s*([^;]+);/)?.[1]
+].filter(Boolean).join(' ');
+assert.doesNotMatch(
+  canonicalSansFontBlocks,
+  /(?:Songti|Source Han Serif|Noto Serif|STSong|SimSun|Georgia|(?:^|[\s,'"])serif(?:[;,\s'"$]|$))/i,
+  'canonical UI, reading, and display roles must remain sans-serif'
+);
+
+[
+  ['--font-ui', '--ink-font-ui'],
+  ['--font-reading', '--ink-font-reading'],
+  ['--font-display', '--ink-font-display'],
+  ['--font-body', '--ink-font-ui'],
+  ['--font-mono', '--ink-font-mono'],
   ['--paper', '--ink-bg'],
   ['--paper-raised', '--ink-surface'],
   ['--paper-muted', '--ink-surface-sunken'],

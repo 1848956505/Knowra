@@ -1,13 +1,11 @@
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function renderSearchShell() {
   return `
       <div class="top-bar-search-control" data-open="false">
         <span class="top-bar-search-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="6"></circle>
-            <path d="M16 16l4 4"></path>
-          </svg>
+          ${renderIcon('search', { className: 'top-bar-search-icon-glyph' })}
         </span>
         <div class="top-search-chip-track" data-search-chip-track></div>
         <input
@@ -33,7 +31,7 @@ export function renderSelectedSearchChips(selectedTags, { inlineLimit = 2 } = {}
         <button type="button" class="top-search-chip" data-search-chip-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
           <span class="top-search-chip-dot"></span>
           <span class="top-search-chip-label">${escapeHtml(tag.name)}</span>
-          <span class="top-search-chip-remove" aria-hidden="true">×</span>
+          <span class="top-search-chip-remove" aria-hidden="true">${renderIcon('cancel', { className: 'top-search-chip-remove-icon' })}</span>
         </button>
       `
     )

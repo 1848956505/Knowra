@@ -1,5 +1,6 @@
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 import { normalizeTagColor } from '../theme/runtime-colors.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function renderAsideTabs({ tabs = [], activeKey = null } = {}) {
   return tabs
@@ -59,7 +60,7 @@ export function renderAssignedTagPills(tags) {
         <button type="button" class="pill pill-button" data-accent="true" data-note-tag-remove="${escapeAttribute(tag.id)}" title="移除标签：${escapeAttribute(tag.name)}">
           ${renderTagColorDot(tag.color)}
           <span>${escapeHtml(tag.name)}</span>
-          <span class="pill-action" aria-hidden="true">×</span>
+          <span class="pill-action" aria-hidden="true">${renderIcon('cancel', { className: 'pill-action-icon' })}</span>
         </button>
       `
     )
@@ -73,7 +74,7 @@ export function renderAvailableTagPills(tags) {
         <button type="button" class="pill pill-button" data-note-tag-add="${escapeAttribute(tag.id)}" title="添加标签：${escapeAttribute(tag.name)}">
           ${renderTagColorDot(tag.color)}
           <span>${escapeHtml(tag.name)}</span>
-          <span class="pill-action" aria-hidden="true">+</span>
+          <span class="pill-action" aria-hidden="true">${renderIcon('create', { className: 'pill-action-icon' })}</span>
         </button>
       `
     )
@@ -111,7 +112,7 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
           return `
             <div class="resource-row resource-row-editing" data-referenced="${String(Boolean(attachment.isReferenced))}">
               <form class="resource-rename-form" data-attachment-rename-form="${escapeAttribute(attachment.id)}">
-                <span class="library-inline-icon resource-rename-icon" aria-hidden="true">✎</span>
+                <span class="library-inline-icon resource-rename-icon" aria-hidden="true">${renderIcon('rename', { className: 'resource-rename-glyph' })}</span>
                 <label class="resource-rename-field">
                   <input
                     name="fileName"
@@ -126,8 +127,8 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
                   <span class="resource-rename-extension">${escapeHtml(attachmentRenaming?.extension ?? '.png')}</span>
                 </label>
                 <div class="library-inline-actions resource-rename-actions">
-                  <button type="submit" class="library-inline-action" title="确认">✓</button>
-                  <button type="button" class="library-inline-action" data-attachment-rename-cancel title="取消">×</button>
+                  <button type="submit" class="library-inline-action" title="确认" aria-label="确认">${renderIcon('confirm', { className: 'library-inline-action-icon' })}</button>
+                  <button type="button" class="library-inline-action" data-attachment-rename-cancel title="取消" aria-label="取消">${renderIcon('cancel', { className: 'library-inline-action-icon' })}</button>
                 </div>
               </form>
             </div>

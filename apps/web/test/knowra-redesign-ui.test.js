@@ -18,15 +18,18 @@ const workDomain = readStyle('work-domain.css');
 const menus = readStyle('knowra-menus.css');
 const typography = readStyle('knowra-typography.css');
 const shellHtml = renderHtml();
-const iconPath = (name) => path.resolve(__dirname, `../styles/icons/${name}`);
+const iconPath = (name) => path.resolve(__dirname, `../styles/icons/remix/${name}`);
 
-assert.match(tokens, /--ink-font-ui:\s*'SF Pro Rounded',\s*'PingFang SC'/, 'InkGrid UI font should use the rounded UI font stack');
-assert.match(tokens, /--ink-font-reading:\s*'Songti SC',\s*'Source Han Serif SC'/, 'InkGrid reading font should use the sharp serif reading stack');
+assert.match(tokens, /--ink-font-ui:\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*Roboto,\s*"Helvetica Neue",\s*Arial,\s*sans-serif;/, 'InkGrid UI font should use the approved sans-serif stack');
+assert.match(tokens, /--ink-font-reading:\s*var\(--ink-font-ui\);/, 'InkGrid reading font should share the approved sans-serif stack');
+assert.match(tokens, /--ink-font-display:\s*var\(--ink-font-ui\);/, 'InkGrid display font should remain within the approved sans-serif stack');
+assert.match(tokens, /--ink-font-mono:\s*"SF Mono",\s*"Menlo",\s*monospace;/, 'InkGrid mono font should use the approved mono stack');
 assert.match(tokens, /--font-body:\s*var\(--ink-font-ui\);/, 'legacy body references should resolve to the InkGrid UI stack');
 assert.match(tokens, /--ink-type-micro:\s*11px;/, 'microcopy should use the smallest legible production step');
 assert.match(tokens, /--ink-type-control:\s*14px;/, 'buttons and interface information should share one control step');
 assert.match(tokens, /--ink-type-reading:\s*18px;/, 'note content should use the shared reading size');
-assert.match(tokens, /--ink-type-heading-4:\s*var\(--ink-type-title-sm\);[\s\S]*--ink-type-heading-3:\s*22px;[\s\S]*--ink-type-heading-2:\s*28px;[\s\S]*--ink-type-heading-1:\s*36px;/, 'note headings should use the unified H1-H4 scale');
+assert.match(tokens, /--ink-type-heading-4:\s*13px;[\s\S]*--ink-type-heading-3:\s*14px;[\s\S]*--ink-type-heading-2:\s*16px;[\s\S]*--ink-type-heading-1:\s*28px;/, 'note headings should use the InkGrid H1-H4 baseline');
+assert.match(tokens, /--ink-type-display-sm:\s*42px;/, 'InkGrid display should use the 42px baseline');
 assert.match(typography, /\.editor-workspace \.document-title-input,[\s\S]*font-family:\s*var\(--font-reading\)/, 'the note title and note body should share the reading family');
 assert.match(typography, /\.editor-workspace \.milkdown-host \.ProseMirror,[\s\S]*font-size:\s*var\(--text-body\)[\s\S]*line-height:\s*var\(--line-height-reading\)/, 'editor and preview copy should share reading metrics');
 assert.match(typography, /\.milkdown-code-block \.tools,[\s\S]*font-family:\s*var\(--font-ui\)/, 'embedded editor controls should remain in the UI family');
@@ -37,14 +40,14 @@ assert.match(
 );
 assert.match(shell, /\.library-mark\s*\{[^}]*width:\s*44px[^}]*height:\s*44px[^}]*border:\s*0[^}]*background:\s*transparent/, 'the library header should reuse the unframed knowledge module mark');
 assert.match(shell, /\.library-mark-icon\s*\{[^}]*width:\s*38px[^}]*height:\s*38px/, 'the current module mark should remain legible without an active-state frame');
-assert.match(shell, /\.rail-item-icon img\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/, 'module switcher artwork should fill its large icon frame');
+assert.match(shell, /\.rail-item-icon \.semantic-icon\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/, 'module switcher artwork should fill its large icon frame');
 assert.match(
   shell,
   /\.library-header-toggle\[data-open='true'\]\s*\{[^}]*background:\s*var\(--blue\)/,
   'the open section menu trigger should become a blue square'
 );
 assert.match(shellHtml, /class="library-home-target" data-library-home="global"/, 'the module header should own the library home entry point');
-assert.match(shellHtml, /class="library-mark-icon" src="\/styles\/icons\/phosphor-books-duotone\.svg"/, 'the module header should share the knowledge icon asset');
+assert.match(shellHtml, /class="semantic-icon library-mark-icon"[\s\S]*data-icon="libraryMark"[\s\S]*remix\/book-2-line\.svg/, 'the module header should share the knowledge icon asset');
 assert.doesNotMatch(shellHtml, /class="library-id"|CONTENT &amp; FOLDERS/, 'the old numeric mark and duplicate directory English label should be removed');
 assert.match(shellHtml, /class="scope-summary" id="library-index-scope"/, 'the browsing scope summary should remain in the index masthead');
 assert.doesNotMatch(shellHtml, /class="brand"/, 'the production shell should not render the removed logo area');
@@ -141,13 +144,14 @@ assert.match(editor, /\.preview-rendered h2\s*\{[^}]*color:\s*var\(--ink\)/, 'or
 assert.match(editor, /data-knowra-emphasis='true'[\s\S]*border-bottom:[^;]+;[\s\S]*color:\s*var\(--blue\)/, 'the former blue divider treatment should remain reserved for future emphasized headings');
 assert.match(editor, /data-view-mode='focus'[\s\S]*\.preview-rendered[\s\S]*margin-inline:\s*auto/, 'focus mode should center both editing and reading columns');
 [
-  'phosphor-books-duotone.svg',
-  'phosphor-exam-duotone.svg',
-  'phosphor-atom-duotone.svg',
-  'phosphor-list-checks-duotone.svg',
-  'phosphor-arrows-clockwise-duotone.svg',
-  'phosphor-book-bookmark-duotone.svg',
-  'phosphor-plus-bold.svg'
+  'book-2-line.svg',
+  'book-open-line.svg',
+  'add-line.svg',
+  'stack-line.svg',
+  'file-list-3-line.svg',
+  'sparkling-2-line.svg',
+  'task-line.svg',
+  'refresh-line.svg'
 ].forEach((name) => assert.equal(fs.existsSync(iconPath(name)), true, `${name} should be served as a production asset`));
 assert.match(
   editor,

@@ -181,8 +181,8 @@ assert.match(
 
 assert.match(
   componentsCss,
-  /\.milkdown-table-block svg/,
-  'table block controls should style their svg icons so the handles remain visible'
+  /\.milkdown-table-block \.semantic-icon/,
+  'table block controls should style their local semantic icons so the handles remain visible'
 );
 
 assert.match(

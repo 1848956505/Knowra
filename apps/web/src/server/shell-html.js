@@ -1,3 +1,5 @@
+import { renderIcon } from '../../lib/icons/icon-map.js';
+
 export function renderHtml(initialWorkspaceScript = '') {
   return `<!doctype html>
 <html lang="zh-CN">
@@ -17,16 +19,12 @@ export function renderHtml(initialWorkspaceScript = '') {
           <div class="library-label">
             <button type="button" class="library-home-target" data-library-home="global" aria-label="返回资料索引">
               <span class="library-mark" aria-hidden="true">
-                <img class="library-mark-icon" src="/styles/icons/phosphor-books-duotone.svg" alt="" />
+                ${renderIcon('libraryMark', { className: 'library-mark-icon' })}
               </span>
               <span class="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
             </button>
             <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
-              <svg viewBox="0 0 16 16" aria-hidden="true" class="library-header-toggle-icon">
-                <circle cx="3" cy="8" r="1.2"></circle>
-                <circle cx="8" cy="8" r="1.2"></circle>
-                <circle cx="13" cy="8" r="1.2"></circle>
-              </svg>
+              ${renderIcon('more', { className: 'library-header-toggle-icon' })}
             </button>
           </div>
           <div class="directory-group-label directory-heading">内容与文件夹</div>
@@ -49,7 +47,7 @@ export function renderHtml(initialWorkspaceScript = '') {
                 <div class="masthead-title"><h1>资料库</h1><span class="masthead-kicker">LIBRARY INDEX</span></div>
                 <div class="scope-summary" id="library-index-scope" aria-live="polite"></div>
                 <button type="button" class="primary-button" data-index-new-note>
-                  <img class="masthead-create-icon" src="/styles/icons/phosphor-plus-bold.svg" alt="" aria-hidden="true" />
+                  ${renderIcon('create', { className: 'masthead-create-icon' })}
                   <span>新建资料</span>
                 </button>
               </header>
@@ -67,7 +65,7 @@ export function renderHtml(initialWorkspaceScript = '') {
             <div class="kb-workspace" id="kb-workspace" data-left-hidden="false" data-right-hidden="false" data-view-mode="edit">
               <section class="kb-editor editor-workspace">
                 <header class="document-tabs">
-                  <button type="button" class="back-index" data-library-home="back" aria-label="返回资料索引">←</button>
+                  <button type="button" class="back-index" data-library-home="back" aria-label="返回资料索引">${renderIcon('back', { className: 'back-index-icon' })}</button>
                   <div class="note-tabs" id="note-tabs"></div>
                   <div class="note-tab-overflow-menu" id="note-tab-overflow-menu" hidden></div>
                 </header>

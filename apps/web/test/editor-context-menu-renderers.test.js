@@ -33,6 +33,6 @@ assert.match(html, /<span>标题<\/span>[\s\S]*data-editor-context-action="headi
 assert.doesNotMatch(html, /data-editor-context-action="heading-[56]"/);
 assert.match(html, /<span>插入<\/span>[\s\S]*data-editor-context-action="image"/);
 assert.match(html, /<span>插入<\/span>[\s\S]*data-editor-context-action="codeblock"/);
-assert.match(renderEditorContextIconSvg('cut'), /<svg[\s\S]*stroke-linecap="round"/);
+assert.match(renderEditorContextIconSvg('cut'), /class="semantic-icon editor-context-glyph"[\s\S]*data-icon="editorCut"[\s\S]*remix\/scissors-2-line\.svg/);
 
 console.log('ok - editor context menu renderers build menu markup and icons');

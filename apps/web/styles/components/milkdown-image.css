@@ -92,14 +92,9 @@
   align-self: center;
 }
 
-.milkdown-host .milkdown-image-block .confirm svg {
+.milkdown-host .milkdown-image-block .confirm .semantic-icon {
   width: 16px;
   height: 16px;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
 }
 
 .milkdown-host .milkdown-image-block .uploader:hover,

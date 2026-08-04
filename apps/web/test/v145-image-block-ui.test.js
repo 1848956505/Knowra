@@ -107,8 +107,8 @@ assert.match(
 
 assert.match(
   editorFactoryJs,
-  /uploadButton:\s*'上传'[\s\S]*uploadPlaceholderText:\s*'或粘贴图片链接'[\s\S]*confirmButton:\s*[\s\S]*<svg[\s\S]*/,
-  'image-block configuration should localize the empty-state actions and use a compact icon confirm control'
+  /uploadButton:\s*'上传'[\s\S]*uploadPlaceholderText:\s*'或粘贴图片链接'[\s\S]*confirmButton:\s*renderIcon\('imageConfirm'/,
+  'image-block configuration should localize the empty-state actions and use the formal local icon mapping'
 );
 
 assert.match(
@@ -269,8 +269,8 @@ assert.match(
 
 assert.match(
   componentsCss,
-  /\.confirm svg[\s\S]*width:\s*16px[\s\S]*stroke:\s*currentColor;/,
-  'confirm action should render a compact check icon instead of oversized text'
+  /\.confirm \.semantic-icon[\s\S]*width:\s*16px[\s\S]*height:\s*16px;/,
+  'confirm action should render a compact local check icon instead of oversized text'
 );
 
 console.log('ok - image block upload, fit sizing, and modern proportional resize hooks are present');

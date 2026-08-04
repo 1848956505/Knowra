@@ -149,14 +149,9 @@
   color: var(--color-on-accent);
 }
 
-.milkdown-host .milkdown-table-block svg {
+.milkdown-host .milkdown-table-block .semantic-icon {
   width: var(--space-4);
   height: var(--space-4);
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
 }
 
 .milkdown-host .milkdown-table-block .button-group button,

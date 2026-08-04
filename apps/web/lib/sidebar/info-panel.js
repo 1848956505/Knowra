@@ -9,6 +9,7 @@ import {
 import { getNoteStats } from './stats.js';
 import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 import { renderSectionIcon } from '../library-index/renderers.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function renderInfoTab({
   note,
@@ -43,11 +44,11 @@ export function renderInfoTab({
       </section>
       <div class="summary-groups editor-summary-groups">
         <details class="inspector-disclosure">
-          <summary><span>${renderSectionIcon('link')}<b>关联笔记</b></span><span><small>${linkedNotes.length}</small><b aria-hidden="true">⌄</b></span></summary>
+          <summary><span>${renderSectionIcon('link')}<b>关联笔记</b></span><span><small>${linkedNotes.length}</small>${renderIcon('disclosureChevron', { className: 'disclosure-chevron' })}</span></summary>
           <div class="disclosure-body linked-list">${linkedNotes.length ? renderLinkedNotes(linkedNotes) : renderAsideEmptyInline('暂无关联笔记')}</div>
         </details>
         <details class="inspector-disclosure">
-          <summary><span>${renderSectionIcon('paperclip')}<b>附件</b></span><span><small>${decoratedAttachments.length}</small><b aria-hidden="true">⌄</b></span></summary>
+          <summary><span>${renderSectionIcon('paperclip')}<b>附件</b></span><span><small>${decoratedAttachments.length}</small>${renderIcon('disclosureChevron', { className: 'disclosure-chevron' })}</span></summary>
           <div class="disclosure-body resource-list">${decoratedAttachments.length ? renderAttachments(decoratedAttachments, attachmentRenaming) : renderAsideEmptyInline('暂无附件')}</div>
         </details>
       </div>

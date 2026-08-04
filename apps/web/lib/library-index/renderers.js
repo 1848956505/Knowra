@@ -7,6 +7,7 @@ import { buildFolderPath } from '../navigation/selection.js';
 import { resolveNoteTags, renderTagList } from '../tags/inline-renderers.js';
 import { getEstimatedReadingMinutes, getSourceTypeLabel, getStatusLabel } from './model.js';
 import { renderLibraryPagination } from './pagination-renderers.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function renderLibraryIndexScope({ notes, state }) {
   const folderName = state.selectedFolderId ? state.foldersById[state.selectedFolderId]?.name : null;
@@ -79,14 +80,14 @@ export function renderLibraryIndexInspector({ note, state }) {
     <button type="button" class="panel-close" data-index-inspector-close aria-label="收起详情">›</button>
     <header class="inspector-heading">
       <div class="inspector-heading-copy">
-        <img class="inspector-heading-icon" src="/styles/icons/phosphor-book-open-text-duotone.svg" alt="" aria-hidden="true" />
+        ${renderIcon('libraryIndex', { className: 'inspector-heading-icon' })}
         <span class="inspector-heading-text">
           <small>资料预览</small>
           <strong class="inspector-heading-title" title="${escapeAttribute(note.title)}">${escapeHtml(note.title)}</strong>
         </span>
       </div>
       <button type="button" class="inspector-open-button" data-index-open="${escapeAttribute(note.id)}" aria-label="打开资料：${escapeAttribute(note.title)}" title="打开资料">
-        <img class="inspector-open-icon" src="/styles/icons/phosphor-arrow-square-out-bold.svg" alt="" aria-hidden="true" />
+        ${renderIcon('inspectorOpen', { className: 'inspector-open-icon' })}
         <span>打开</span>
       </button>
     </header>
@@ -138,7 +139,7 @@ function renderIndexEntry({ note, selected, state }) {
       >
         ${note.deleted
           ? '<span>恢复</span>'
-          : '<span>打开</span><img class="entry-action-icon" src="/styles/icons/phosphor-arrow-square-out-bold.svg" alt="" aria-hidden="true" />'}
+          : `<span>打开</span>${renderIcon('inspectorOpen', { className: 'entry-action-icon' })}`}
       </button>
     </article>
   `;
@@ -147,7 +148,7 @@ function renderIndexEntry({ note, selected, state }) {
 function renderArchiveMark() {
   return `
     <div class="entry-archive" role="img" aria-label="书籍封面">
-      <img class="entry-book-cover" src="/styles/icons/phosphor-book-bookmark-duotone.svg" alt="" aria-hidden="true" />
+      ${renderIcon('archive', { className: 'entry-book-cover' })}
     </div>
   `;
 }
@@ -157,18 +158,18 @@ function renderFixedSection({ icon, title, content }) {
 }
 
 function renderDisclosure({ icon, title, count, content }) {
-  return `<details class="inspector-disclosure"><summary><span>${renderSectionIcon(icon)}<b>${title}</b></span><span><small>${count}</small><b aria-hidden="true">⌄</b></span></summary><div class="disclosure-body">${content}</div></details>`;
+  return `<details class="inspector-disclosure"><summary><span>${renderSectionIcon(icon)}<b>${title}</b></span><span><small>${count}</small>${renderIcon('disclosureChevron', { className: 'disclosure-chevron' })}</span></summary><div class="disclosure-body">${content}</div></details>`;
 }
 
 export function renderSectionIcon(kind) {
-  const paths = {
-    file: '<path d="M4 2.5h5l3 3v8H4z"></path><path d="M9 2.5v3h3M6 9h4M6 11h4"></path>',
-    tag: '<path d="M3 3h5l5 5-5 5-5-5z"></path><circle cx="6" cy="6" r="1"></circle>',
-    link: '<path d="M6.5 9.5 9.5 6.5M5.5 11.5l-1 1a2 2 0 0 1-3-3l2-2a2 2 0 0 1 3 0M10.5 4.5l1-1a2 2 0 1 1 3 3l-2 2a2 2 0 0 1-3 0"></path>',
-    list: '<path d="M5 4h9M5 8h9M5 12h9M2 4h.1M2 8h.1M2 12h.1"></path>',
-    paperclip: '<path d="m6 8 4-4a2 2 0 1 1 3 3l-6 6a3 3 0 0 1-4-4l6-6"></path>'
+  const iconNames = {
+    file: 'sectionFile',
+    tag: 'sectionTag',
+    link: 'sectionLink',
+    list: 'sectionList',
+    paperclip: 'sectionAttachment'
   };
-  return `<svg class="section-icon" viewBox="0 0 16 16" aria-hidden="true">${paths[kind] ?? paths.file}</svg>`;
+  return renderIcon(iconNames[kind] ?? iconNames.file, { className: 'section-icon' });
 }
 
 function summarizeNote(note) {

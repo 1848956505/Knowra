@@ -27,6 +27,7 @@ import {
 } from '../schema/highlight-mark.js';
 import { renderTableButton } from '../table/table-buttons.js';
 import { createCodeBlockComponentConfig } from './code-block-component-config.js';
+import { renderIcon } from '../../../icons/icon-map.js';
 
 export function createConfiguredMilkdownEditor(host, markdown) {
   return Editor.make()
@@ -37,11 +38,7 @@ export function createConfiguredMilkdownEditor(host, markdown) {
         ...defaultImageBlockConfig,
         uploadButton: '上传',
         uploadPlaceholderText: '或粘贴图片链接',
-        confirmButton: `
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M3.5 8.2 6.4 11l6.1-6.2"></path>
-          </svg>
-        `,
+        confirmButton: renderIcon('imageConfirm', { className: 'milkdown-image-confirm-icon' }),
         onUpload: async (file) => host.uploadAttachmentImage(file)
       });
       ctx.set(tableBlockConfig.key, {

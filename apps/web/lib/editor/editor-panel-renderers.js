@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../src/app/formatting.js';
+import { renderIcon } from '../icons/icon-map.js';
 
 export function getEditorPanelStatusText({ query, matchCount } = {}) {
   if (!query) {
@@ -17,7 +18,7 @@ export function renderEditorPanelMarkup(panel = {}) {
   return `
     <div class="editor-utility-panel-head">
       <div class="editor-utility-panel-title">${isReplace ? '替换' : '查找'}</div>
-      <button type="button" class="editor-utility-close" data-editor-panel-action="close" aria-label="关闭查找面板">×</button>
+      <button type="button" class="editor-utility-close" data-editor-panel-action="close" aria-label="关闭查找面板">${renderIcon('cancel', { className: 'editor-utility-close-icon' })}</button>
     </div>
     <div class="editor-utility-panel-body">
       <label class="editor-utility-field">

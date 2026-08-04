@@ -30,7 +30,7 @@ runTest('renderSectionMenuItems renders checked and unchecked section toggles', 
   assert.match(html, /data-section-toggle="favorites"/);
   assert.match(html, /data-section-toggle="recent"/);
   assert.match(html, /data-section-toggle="recycle"/);
-  assert.match(html, /<span class="library-checkmark">✓<\/span>\s*<span>收藏<\/span>/);
+  assert.match(html, /<span class="library-checkmark"><span class="semantic-icon library-checkmark-icon"[\s\S]*data-icon="confirm"[\s\S]*remix\/check-line\.svg\)"[\s\S]*<\/span><\/span>\s*<span>收藏<\/span>/);
   assert.match(html, /<span class="library-checkmark"><\/span>\s*<span>最近<\/span>/);
 });
 

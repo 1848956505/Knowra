@@ -1,0 +1,61 @@
+.semantic-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  background-color: currentColor;
+  vertical-align: middle;
+  -webkit-mask-image: var(--icon-source);
+  mask-image: var(--icon-source);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.semantic-icon.library-inline-action-icon,
+.semantic-icon.pill-action-icon,
+.semantic-icon.library-checkmark-icon {
+  width: 1em;
+  height: 1em;
+}
+
+.semantic-icon.disclosure-chevron {
+  width: var(--space-4);
+  height: var(--space-4);
+  color: currentColor;
+}
+
+.rail-item-icon .semantic-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.top-bar-search-icon .semantic-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.back-index-icon {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.editor-context-submenu-caret {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.top-search-chip-remove-icon,
+.note-tab-close-icon,
+.editor-utility-close-icon {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.note-tab-overflow-icon {
+  width: var(--space-4);
+  height: var(--space-4);
+}

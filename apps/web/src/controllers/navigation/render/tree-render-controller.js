@@ -6,6 +6,7 @@ import {
   renderNoteNode as renderNoteNodeMarkup,
   renderRecycleNoteNode as renderRecycleNoteNodeMarkup
 } from '../../../../lib/navigation/tree-renderers.js';
+import { renderIcon } from '../../../../lib/icons/icon-map.js';
 import { getDirectNotesForFolder as selectDirectNotesForFolder } from '../../../../lib/navigation/visibility.js';
 import { resolveNoteVisualType } from '../../../../lib/tree-workspace.js';
 
@@ -68,11 +69,10 @@ export function createNavigationTreeRenderController(deps) {
           <span class="library-node-leading">
             <span class="library-chevron-hitbox" data-folder-toggle="${folder.id}">
               ${hasChildren
-                ? `
-                  <svg viewBox="0 0 16 16" aria-hidden="true" class="library-chevron" data-open="${isOpen}">
-                    <path d="M5 3.5 10 8l-5 4.5"></path>
-                  </svg>
-                `
+                ? renderIcon('navigationChevron', {
+                  className: 'library-chevron',
+                  data: { 'data-open': isOpen }
+                })
                 : '<span class="library-node-spacer"></span>'}
             </span>
             ${renderFolderIcon(isOpen)}

@@ -25,10 +25,10 @@ assert.match(html, /data-active="false"/);
 assert.match(html, /aria-label="unknown &lt;module&gt;"/);
 assert.match(html, /rail-item-label">unknown &lt;module&gt;</);
 assert.match(html, /rail-item-icon/);
-assert.match(html, /phosphor-books-duotone\.svg/);
+assert.match(html, /data-icon="moduleKnowledge"[\s\S]*remix\/book-2-line\.svg/);
 assert.doesNotMatch(html, /<svg/);
 
-assert.match(renderRailIcon('paper'), /phosphor-exam-duotone\.svg/);
+assert.match(renderRailIcon('paper'), /data-icon="modulePaper"[\s\S]*remix\/file-text-line\.svg/);
 assert.equal(renderRailIcon('settings'), '');
 assert.equal(renderRailIcon('missing'), '');
 

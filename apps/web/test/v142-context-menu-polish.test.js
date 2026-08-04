@@ -13,17 +13,17 @@ const componentsCss = readCssWithImports(path.resolve(__dirname, '../styles/comp
 assert.match(
   editorContextIconsJs,
   /function renderEditorContextIconSvg\(icon\)/,
-  'V1.4.2 should replace ad-hoc glyph strings with a dedicated SVG icon renderer'
+  'V1.4.2 should keep a dedicated context icon renderer'
 );
 assert.match(
   editorContextIconsJs,
-  /stroke-linecap="round"[\s\S]*stroke-linejoin="round"/,
-  'context menu icons should use a rounded, visually consistent SVG style'
+  /renderIcon\(CONTEXT_ICON_NAMES\[icon\]\s*\?\? 'editorQuestion'/,
+  'context menu icons should resolve through the formal local icon mapping'
 );
 assert.doesNotMatch(
   editorContextIconsJs,
-  /📋|🗑|✂|⧉|❞|◯✓|⇤|⇥/,
-  'context menu should no longer rely on emoji or mismatched text glyph icons'
+  /<svg|<path|📋|🗑|✂|⧉|❞|◯✓|⇤|⇥/,
+  'context menu should not rely on inline paths, emoji, or mismatched text glyph icons'
 );
 assert.match(
   editorContextMenuControllerJs,
