@@ -21,7 +21,7 @@
 
 .content-tabs { display: flex; gap: var(--space-8); border-bottom: var(--border-thin) solid var(--line); }
 .content-tabs button { padding: 0 0 var(--space-4); border: 0; background: none; font-size: var(--text-ui); white-space: nowrap; }
-.content-tabs button[data-active='true'] { color: var(--blue); font-weight: 700; box-shadow: inset 0 calc(-1 * var(--border-accent)) var(--blue); }
+.content-tabs button[data-active='true'] { color: var(--ink); font-weight: 700; box-shadow: inset 0 calc(-1 * var(--border-tab-active)) 0 var(--ink); }
 .content-tabs b { margin-left: var(--space-2); }
 
 .filter-row { display: flex; align-items: center; gap: var(--space-5); min-height: var(--tab-height); border-bottom: var(--border-thin) solid var(--line); }

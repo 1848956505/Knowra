@@ -26,7 +26,21 @@
             --ink-danger: #DC2626;
             --ink-danger-hover: #B91C1C;
             --ink-danger-bg: #FEE2E2;
-            --ink-line: #DDDDDD;
+            /* 最终线条系统：外壳 2px 深黑 > 功能结构 1px 浅灰 > 轻分割 1px 极浅 */
+            --ink-line-shell: var(--ink-border);
+            --ink-line-panel: #E5E2DC;
+            --ink-line-soft: #F0EEE9;
+            --ink-line: var(--ink-line-soft);
+            --ink-line-shell-w: 2px;
+            --ink-line-panel-w: 1px;
+            --ink-line-soft-w: 1px;
+            --shell-nav-w: 208px;
+            --catalog-w: 232px;
+            --aux-sidebar-w: 232px;
+            --inspector-wide-w: 300px;
+            --aux-sidebar-head-h: 52px;
+            --aux-sidebar-control: 28px;
+            --statusbar-h: 32px;
             --ink-border-w: 2px;
             --ink-border-w-thin: 1px;
             --ink-shadow-1: 2px 2px 0 var(--ink-border);
@@ -42,7 +56,10 @@
             --ink-text: #F2EFE9;
             --ink-text-secondary: #9C968C;
             --ink-dot-grid: #35312B;
-            --ink-line: #3A362F;
+            --ink-line-shell: var(--ink-border);
+            --ink-line-panel: #3A362F;
+            --ink-line-soft: #2A2621;
+            --ink-line: var(--ink-line-soft);
             --ink-shadow-1: 2px 2px 0 rgba(232,228,220,0.22);
             --ink-shadow-2: 3px 3px 0 rgba(232,228,220,0.22);
             --ink-shadow-3: 4px 4px 0 rgba(232,228,220,0.22);
@@ -123,7 +140,7 @@
         .select i { font-size: 14px; color: var(--ink-text-secondary); }
 
         /* Nav */
-        .nav-demo { width: 250px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
+        .nav-demo { width: var(--shell-nav-w); border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
         .nav-group-title { padding: 12px 20px 6px; font-size: 11px; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; color: var(--ink-text-secondary); }
         .nav-item { display: flex; align-items: center; padding: 9px 20px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; transition: background 0.1s; }
         .nav-item:hover { background: var(--ink-surface-sunken); }
@@ -134,7 +151,7 @@
         .nav-kbd { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; background: var(--ink-surface-sunken); border: 1px solid var(--ink-line); border-radius: 3px; padding: 1px 4px; color: var(--ink-text-secondary); }
 
         /* Catalog column (方案 C · 独立目录栏) */
-        .catalog-demo { width: 220px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
+        .catalog-demo { width: var(--catalog-w); border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-3); }
         .catalog-demo .catalog-head { display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--ink-line); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); }
         .catalog-demo .catalog-body { padding: 8px 0; }
         .tree-node { display: flex; align-items: center; gap: 8px; padding: 8px 20px; min-height: 35px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; }
@@ -158,6 +175,50 @@
         .cat-btn:active { transform: translate(2px,2px); box-shadow: none; }
         .cat-btn.accent { background: var(--ink-accent); color: #fff; }
         .cat-btn.accent:hover { background: var(--ink-accent-hover); }
+
+        /* Final line hierarchy + collapsible auxiliary sidebar */
+        .line-token-grid { display: grid; gap: 0; }
+        .line-token-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 110px; align-items: center; gap: 16px; min-height: 52px; border-bottom: var(--ink-line-soft-w) solid var(--ink-line-soft); }
+        .line-token-row:last-child { border-bottom: 0; }
+        .line-token-name { font-size: 13px; font-weight: 700; }
+        .line-token-rule { display: block; width: 100%; height: 0; }
+        .line-token-rule.shell { border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); }
+        .line-token-rule.panel { border-top: var(--ink-line-panel-w) solid var(--ink-line-panel); }
+        .line-token-rule.soft { border-top: var(--ink-line-soft-w) solid var(--ink-line-soft); }
+        .line-token-value { color: var(--ink-text-secondary); font: 11px "SF Mono", "Menlo", monospace; text-align: right; }
+        .line-preview { display: grid; grid-template-columns: minmax(0, 1fr) 232px; min-height: 148px; overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); }
+        .line-preview-main { display: grid; align-content: start; gap: 12px; padding: 20px; }
+        .line-preview-main .line-preview-title { font-size: 16px; font-weight: 800; }
+        .line-preview-main .line-preview-copy { max-width: 420px; color: var(--ink-text-secondary); font-size: 13px; }
+        .line-preview-panel { display: flex; flex-direction: column; border-left: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); }
+        .line-preview-panel-head { display: flex; align-items: center; gap: 8px; min-height: var(--aux-sidebar-head-h); padding: 0 16px; border-bottom: var(--ink-line-panel-w) solid var(--ink-line-panel); font-size: 13px; font-weight: 700; }
+        .line-preview-panel-body { display: grid; gap: 10px; padding: 14px 16px; }
+        .line-preview-panel-row { padding-bottom: 10px; border-bottom: var(--ink-line-soft-w) solid var(--ink-line-soft); color: var(--ink-text-secondary); font-size: 12px; }
+        .line-preview-panel-row:last-child { padding-bottom: 0; border-bottom: 0; }
+
+        .aux-sidebar-stage { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 600px; min-height: 276px; overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); }
+        .aux-sidebar-main { display: grid; align-content: start; gap: 14px; min-width: 0; padding: 24px; background: var(--ink-surface); }
+        .aux-sidebar-main-kicker { color: var(--ink-accent); font: 700 11px "SF Mono", "Menlo", monospace; letter-spacing: 1px; }
+        .aux-sidebar-main h4 { font-size: 20px; font-weight: 800; }
+        .aux-sidebar-main-copy { max-width: 360px; color: var(--ink-text-secondary); font-size: 13px; line-height: 1.7; }
+        .aux-sidebar-demo { display: flex; flex-direction: column; width: var(--aux-sidebar-w); min-height: 276px; overflow: hidden; border-left: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); transition: width 0.1s ease; }
+        .aux-sidebar-demo.is-collapsed { width: var(--aux-sidebar-control); }
+        .aux-sidebar-head { display: flex; align-items: center; gap: 8px; min-height: var(--aux-sidebar-head-h); padding: 0 16px; border-bottom: var(--ink-line-panel-w) solid var(--ink-line-panel); }
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-head { justify-content: center; padding: 0; border-bottom: 0; }
+        .aux-sidebar-title { display: inline-flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; }
+        .aux-sidebar-title i { width: 16px; flex: 0 0 16px; font-size: 16px; }
+        .aux-sidebar-toggle { flex: 0 0 var(--aux-sidebar-control); width: var(--aux-sidebar-control); height: var(--aux-sidebar-control); margin-left: auto; padding: 0; }
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-toggle { margin-left: 0; }
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-title,
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-body { display: none; }
+        .aux-sidebar-body { flex: 1; min-height: 0; padding: 0 16px; overflow: auto; }
+        .aux-sidebar-section { padding: 14px 0; border-bottom: var(--ink-line-soft-w) solid var(--ink-line-soft); }
+        .aux-sidebar-section:last-child { border-bottom: 0; }
+        .aux-sidebar-section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; font-size: 12px; font-weight: 700; }
+        .aux-sidebar-kv { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 10px; font-size: 12px; }
+        .aux-sidebar-kv .key { color: var(--ink-text-secondary); }
+        .aux-sidebar-kv .value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .aux-sidebar-relation { display: flex; align-items: center; gap: 8px; color: var(--ink-accent); font-size: 12px; }
 
         /* Cards */
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
@@ -221,10 +282,10 @@
 
         /* Doc tabs (#27 · 标签页 Tab) */
         .doc-tabs { display: flex; align-items: stretch; border-bottom: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); }
-        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; border-right: 1px solid var(--ink-line); border-top: 2px solid transparent; color: var(--ink-text-secondary); cursor: pointer; background: transparent; transition: background 0.1s; }
+        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; border-right: 1px solid var(--ink-line); border-left: 2px solid transparent; color: var(--ink-text-secondary); cursor: pointer; background: transparent; transition: background 0.1s; }
         .doc-tab:hover { background: var(--ink-surface-sunken); }
         .doc-tab:hover .doc-tab-close { opacity: 1; }
-        .doc-tab.active { background: var(--ink-surface); color: var(--ink-text); font-weight: 600; border-top-color: var(--ink-accent); }
+        .doc-tab.active { background: var(--ink-surface); color: var(--ink-text); font-weight: 600; border-left-color: var(--ink-accent); }
         .doc-tab.active .doc-tab-close { opacity: 1; }
         .doc-tab-close { opacity: 0; font-size: 14px; color: var(--ink-text-secondary); transition: opacity 0.1s; }
         .doc-tab-close:hover { color: var(--ink-danger); }
@@ -279,16 +340,30 @@
         .pulse span:nth-child(3) { animation-delay: 0.3s; }
         @keyframes ink-pulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-        /* Status bar (#24) */
-        .status-bar { display: flex; align-items: center; gap: 16px; padding: 6px 14px; border-top: 1px solid var(--ink-line); background: var(--ink-surface); font-size: 12px; color: var(--ink-text-secondary); }
+        /* Global Shell Footer + editor content variant (#24) */
+        .status-bar { display: flex; align-items: center; gap: 16px; height: var(--statusbar-h); padding: 0 24px; border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); font-size: 12px; color: var(--ink-text-secondary); }
         .status-bar .grow { flex: 1; }
         .status-bar .stat { font-family: "SF Mono", monospace; font-size: 11px; }
         .status-switch { padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
         .status-switch:hover { background: var(--ink-surface-sunken); }
         .status-switch.active { background: var(--ink-accent); color: #fff; }
+        .global-footer-stage { display: flex; flex-direction: column; min-height: 192px; overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); }
+        .global-footer-main { flex: 1; min-height: 128px; display: grid; place-items: center; padding: 24px; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .global-footer-placeholder { display: grid; gap: 8px; text-align: center; }
+        .global-footer-placeholder .kicker { color: var(--ink-accent); font: 700 10px "SF Mono", "Menlo", monospace; letter-spacing: 1px; }
+        .global-footer-placeholder strong { font-size: 16px; }
+        .global-footer-placeholder span:last-child { color: var(--ink-text-secondary); font-size: 12px; }
+        .global-shell-footer { flex: 0 0 var(--statusbar-h); height: var(--statusbar-h); display: flex; align-items: center; gap: 16px; padding: 0 24px; border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); color: var(--ink-text-secondary); font-size: 12px; }
+        .global-shell-footer .context { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-text); font-weight: 700; }
+        .global-shell-footer .context i { color: var(--ink-accent); font-size: 14px; }
+        .global-shell-footer .sep { opacity: 0.5; }
+        .global-shell-footer .grow { flex: 1; }
+        .global-shell-footer .stat { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .global-shell-footer .stat .mono { color: var(--ink-text); }
+        .global-shell-footer .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); white-space: nowrap; }
 
         /* Inspector (#25) */
-        .inspector { width: 300px; border: 1px solid var(--ink-border); background: var(--ink-bg); }
+        .inspector { width: var(--inspector-wide-w); border: 1px solid var(--ink-border); background: var(--ink-bg); }
         .inspector-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--ink-border); font-weight: 700; font-size: 13px; }
         .inspector-head .spacer { flex: 1; }
         .preview-card { margin: 16px; padding: 14px; background: var(--ink-surface); border: 1px solid var(--ink-border); }
@@ -344,8 +419,8 @@
 
     <header class="page-header">
         <h1>印格 InkGrid</h1>
-        <p>知境 · Knowra 设计系统组件库。Neo-Brutalism 风格——粗边框、硬阴影、零圆角、暖纸底；v2.1 引入语义色、四梯度层级与工作面组件。</p>
-        <span class="version-tag">DESIGN SYSTEM v2.1 · 2026-07</span>
+        <p>知境 · Knowra 设计系统组件库。Neo-Brutalism 风格——粗边框、硬阴影、零圆角、暖纸底；v2.1 引入语义色、四梯度层级、线条系统与可折叠工作面辅助侧栏。</p>
+        <span class="version-tag">DESIGN SYSTEM v2.1 · 2026-08-03</span>
     </header>
 
     <!-- 1. 色彩 -->
@@ -429,6 +504,28 @@
                 <div class="shadow-item"><div class="shadow-box" style="box-shadow:var(--ink-shadow-hero);"></div><span>6px · hero</span></div>
             </div>
             <div class="hint" style="margin-top:14px;">实现约定：带硬影元素所在滚动容器须预留 8px 内边距，防止影被 overflow 裁切。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">线条层级（最终定稿）</div>
+            <div class="line-token-grid">
+                <div class="line-token-row"><span class="line-token-name">Level 1 · 外壳线</span><span class="line-token-rule shell"></span><span class="line-token-value">2px · #1A1A1A</span></div>
+                <div class="line-token-row"><span class="line-token-name">Level 2 · 功能结构线</span><span class="line-token-rule panel"></span><span class="line-token-value">1px · #E5E2DC</span></div>
+                <div class="line-token-row"><span class="line-token-name">Level 3 · 轻分割线</span><span class="line-token-rule soft"></span><span class="line-token-value">1px · #F0EEE9</span></div>
+            </div>
+            <div class="line-preview" style="margin-top:20px;">
+                <div class="line-preview-main">
+                    <span class="line-preview-title">工作面内容</span>
+                    <span class="line-preview-copy">外壳先建立边界，功能面内部降噪，细节分组只用极浅的线条提示关系。</span>
+                </div>
+                <div class="line-preview-panel">
+                    <div class="line-preview-panel-head"><i class="ri-file-info-line"></i> 辅助区域</div>
+                    <div class="line-preview-panel-body">
+                        <div class="line-preview-panel-row">功能结构边界</div>
+                        <div class="line-preview-panel-row">内容分组分隔</div>
+                    </div>
+                </div>
+            </div>
+            <div class="hint" style="margin-top:14px;">外壳线只用于顶栏底线、全局导航边界等公共框架；目录/检查器等辅助区域使用 Level 2；用户中心与设置之间的短线、列表行和分组使用 Level 3。按钮、卡片、输入框仍可保留 2px 黑边，用于表达可操作性或容器实体感。</div>
         </div>
     </section>
 
@@ -581,10 +678,39 @@
                 · 快捷键：等宽 KBD 右对齐（11px）<br>
                 · 目录树图标（§六）：16px 跟随主文字色，Line 为主，激活节点用 Fill<br>
                 · 底部固定「新建空间」主按钮；设置入口只在顶栏，侧栏不重复<br>
-                · <strong style="color:var(--ink-text);">功能栏与目录栏分离（方案 C）</strong>：功能导航栏不含目录树；资料等功能页的文件夹目录树独立成一栏（右侧 <span class="mono">.catalog</span>，220px、纸底 Tier A 外框、Tier D 树节点），全局功能栏保持纯功能<br>
+                · <strong style="color:var(--ink-text);">功能栏与目录栏分离（方案 C）</strong>：功能导航栏不含目录树；资料等功能页的文件夹目录树独立成一栏（右侧 <span class="mono">.catalog</span>，232px、纸底 Tier A 外框、Tier D 树节点），全局功能栏保持纯功能<br>
                 · 目录栏动作：28px 紧凑方形按钮（蓝底新建 + 白底折叠），沿用顶栏 icon-btn 物理按压、硬影减档<br>
                 · 树层级三级递减：根 700 / 文件夹 500 / 文件 400 且次级文字色——文件节点比文件夹再弱一级
             </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">可折叠辅助侧栏（Auxiliary Sidebar）</div>
+            <p class="desc" style="margin-bottom:16px;">辅助侧栏不是全局导航，而是跟随当前工作面提供目录、资料详情、检查器、筛选或上下文操作的可折叠区域。</p>
+            <div class="aux-sidebar-stage">
+                <div class="aux-sidebar-main">
+                    <span class="aux-sidebar-main-kicker">MAIN CONTENT / WORKSPACE</span>
+                    <h4>资料正文或工作面</h4>
+                    <p class="aux-sidebar-main-copy">主区保持连续阅读与操作，辅助信息放在侧栏中；侧栏关闭后，主区自然获得剩余空间，不改变内容本身的层级。</p>
+                    <span class="tag tag-muted">点击右侧方块按钮试试折叠</span>
+                </div>
+                <aside class="aux-sidebar-demo" id="auxSidebarDemo" aria-label="可折叠辅助侧栏">
+                    <div class="aux-sidebar-head">
+                        <span class="aux-sidebar-title"><i class="ri-file-info-line"></i><span>资料详情</span></span>
+                        <button class="cat-btn aux-sidebar-toggle" type="button" id="auxSidebarToggle" title="折叠辅助侧栏" aria-label="折叠辅助侧栏" aria-controls="auxSidebarBody" aria-expanded="true"><i class="ri-menu-fold-line"></i></button>
+                    </div>
+                    <div class="aux-sidebar-body" id="auxSidebarBody">
+                        <div class="aux-sidebar-section">
+                            <div class="aux-sidebar-section-title"><i class="ri-information-line"></i> 当前上下文</div>
+                            <div class="aux-sidebar-kv"><span class="key">类型</span><span class="value">Markdown 文档</span><span class="key">位置</span><span class="value">资料 / test</span></div>
+                        </div>
+                        <div class="aux-sidebar-section">
+                            <div class="aux-sidebar-section-title"><i class="ri-links-line"></i> 关联内容</div>
+                            <div class="aux-sidebar-relation"><i class="ri-arrow-right-up-line"></i><span>打开关联笔记</span></div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+            <div class="hint" style="margin-top:14px;">组件约定：IndexInspector / MarginaliaPanel 默认宽度 `232px`；头部 `52px`；折叠按钮 `28×28px` 方块；`InspectorWide` 显式宽版为 `300px`。侧栏外边界和头部下边界使用 Level 2 功能结构线；内容分组使用 Level 3 轻分割线。折叠态保留方块按钮作为重新打开入口，支持左侧或右侧镜像使用。</div>
         </div>
     </section>
 
@@ -620,7 +746,7 @@
     <section class="section">
         <div class="section-label">10 · Tabs</div>
         <h2>两类 Tab（模块切换 · 文档多开）</h2>
-        <p class="desc">v2.1 将旧「视图 Tab / 面板 Tab / 标签页 Tab」归并为两类：模块 Tab（下划线式，视图切换与面板切换共用同一语言）与标签页 Tab（文档多开条）。彩色只做状态点缀，不做结构区分。</p>
+        <p class="desc">v2.1 将旧「视图 Tab / 面板 Tab / 标签页 Tab」归并为两类：模块 Tab（黑色下划线式，视图切换与面板切换共用同一语言）与标签页 Tab（文档多开条，激活使用左侧蓝线）。</p>
         <div class="panel">
             <div class="panel-title">模块 Tab · 视图切换（数据视图 · 左对齐 + 等宽计数）</div>
             <div class="module-tabs">
@@ -648,7 +774,7 @@
                 <div class="doc-tab"><i class="ri-file-text-line"></i> CLIP <span class="doc-tab-close"><i class="ri-close-line"></i></span></div>
                 <div class="doc-tab new-tab" title="新建文档"><i class="ri-add-line"></i></div>
             </div>
-            <div style="padding:14px 20px;" class="hint">标签页 Tab：激活 = 白底 + 上边 2px 蓝条；关闭按钮 hover 显示；未保存文档以 8×8 方形 warning 脏点指示（hover 让位给关闭钮）；尾部「+」新建文档；溢出横向滚动。</div>
+            <div style="padding:14px 20px;" class="hint">标签页 Tab：激活 = 白底 + 左侧 2px 蓝条；关闭按钮 hover 显示；未保存文档以 8×8 方形 warning 脏点指示（hover 让位给关闭钮）；尾部「+」新建文档；溢出横向滚动。</div>
         </div>
     </section>
 
@@ -797,9 +923,29 @@
 
     <hr class="divider">
     <section class="section">
-        <div class="section-label">15 · Status Bar</div>
-        <h2>编辑器状态栏</h2>
-        <div class="panel" style="padding:0; overflow:hidden;">
+        <div class="section-label">15 · Shell Footer</div>
+        <h2>全局底部状态栏宿主</h2>
+        <p class="desc">状态栏属于全局外壳，不属于某个侧栏或功能页面。宿主固定在视口最底部并占满整行；索引页、主页、编辑页只替换其中的页面状态内容。</p>
+        <div class="global-footer-stage" aria-label="全局底部状态栏宿主示例">
+            <div class="global-footer-main">
+                <div class="global-footer-placeholder">
+                    <span class="kicker">SHELL HOST / FOOTER</span>
+                    <strong>功能页面内容承载区</strong>
+                    <span>宿主结构固定，底部状态由当前页面注入</span>
+                </div>
+            </div>
+            <footer class="global-shell-footer" data-region="shell-footer" aria-label="全局底部状态栏示例">
+                <span class="context"><i class="ri-stack-line" aria-hidden="true"></i> 全部资料</span>
+                <span class="sep">·</span>
+                <span>浏览范围 <strong class="mono">test</strong></span>
+                <span class="grow"></span>
+                <span class="stat">条目 <span class="mono">17</span></span>
+                <span class="stat">已收藏 <span class="mono">0</span></span>
+                <span class="cloud"><i class="ri-cloud-line" aria-hidden="true"></i> 云端已连接</span>
+            </footer>
+        </div>
+        <div class="hint">#24 宿主规格：高度 `32px`；上边界使用 Level 1 外壳线（`2px #1A1A1A`）；背景与顶部/导航外壳一致；左右内边距 `24px`。两侧栏只存在于上方 Shell，不得遮挡 Footer。</div>
+        <div class="panel" style="padding:0; overflow:hidden; margin-top:16px;">
             <div style="height:56px; background:var(--ink-surface-sunken);"></div>
             <div class="status-bar">
                 <span class="badge badge-success" style="font-size:11px;"><span class="badge-text" style="font-size:11px;">已自动保存</span></span>
@@ -813,7 +959,7 @@
                 <span class="badge badge-success" style="font-size:11px;"><span class="badge-text" style="font-size:11px;">云端已连接</span></span>
             </div>
         </div>
-        <div class="hint">#24：保存状态点用语义色（success/warning）；统计等宽；开关激活 = 蓝底白字方块；Tier D + 上边 1px 分隔线。</div>
+        <div class="hint">编辑器变体只改变 Footer 内容：保存状态、字数、视图开关等由编辑页面提供，宿主位置与外壳线级别不变。</div>
     </section>
 
     <hr class="divider">
@@ -821,7 +967,7 @@
     <!-- 16. 检查器 -->
     <section class="section">
         <div class="section-label">16 · Inspector</div>
-        <h2>检查器面板（300px 右栏）</h2>
+        <h2>InspectorWide 宽版检查器（300px 右栏）</h2>
         <div class="panel" style="display:flex; gap:32px; flex-wrap:wrap;">
             <div class="inspector">
                 <div class="inspector-head"><i class="ri-book-read-line"></i> 资料预览 <span class="spacer"></span><i class="ri-contract-right-line" style="color:var(--ink-text-secondary); cursor:pointer;" title="折叠"></i></div>
@@ -878,7 +1024,7 @@
 
     <footer style="text-align:center; color:var(--ink-text-secondary); font-size:12px; padding-top:20px;">
         <p style="font-weight:700; color:var(--ink-text);">印格 InkGrid · 知境 Knowra 设计系统</p>
-        <p style="margin-top:4px;" class="mono">v2.1 · 批次8 · 2026-08-01 · 目录栏按钮化同步 + Tab 归并为两类 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
+        <p style="margin-top:4px;" class="mono">v2.1 · 批次10 · 2026-08-03 · 全局底部状态栏宿主 + 可折叠辅助侧栏 · Remix Icon · Neo-Brutalism · 0 border-radius</p>
     </footer>
 
 </div>
@@ -888,6 +1034,22 @@
         var root = document.documentElement;
         root.dataset.theme = root.dataset.theme === 'dark' ? '' : 'dark';
     });
+
+    // 辅助侧栏演示：展开态显示上下文内容，折叠态保留 28px 方块按钮作为重新打开入口
+    var auxSidebar = document.getElementById('auxSidebarDemo');
+    var auxSidebarToggle = document.getElementById('auxSidebarToggle');
+    var auxSidebarBody = document.getElementById('auxSidebarBody');
+    var auxSidebarIcon = auxSidebarToggle ? auxSidebarToggle.querySelector('i') : null;
+    if (auxSidebar && auxSidebarToggle && auxSidebarBody && auxSidebarIcon) {
+        auxSidebarToggle.addEventListener('click', function () {
+            var collapsed = auxSidebar.classList.toggle('is-collapsed');
+            auxSidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+            auxSidebarToggle.setAttribute('aria-label', collapsed ? '展开辅助侧栏' : '折叠辅助侧栏');
+            auxSidebarToggle.title = collapsed ? '展开辅助侧栏' : '折叠辅助侧栏';
+            auxSidebarBody.setAttribute('aria-hidden', String(collapsed));
+            auxSidebarIcon.className = collapsed ? 'ri-menu-unfold-line' : 'ri-menu-fold-line';
+        });
+    }
 </script>
 </body>
 </html>
