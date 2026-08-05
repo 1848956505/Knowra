@@ -1,0 +1,86 @@
+.knowra-production-shell .library-context-menu,
+.knowra-production-shell .note-tab-menu,
+.knowra-production-shell .editor-context-panel,
+.knowra-production-shell .editor-context-submenu,
+.knowra-production-shell .editor-workspace .editor-menu-popover {
+  padding: var(--space-1) 0;
+  border: var(--border-thin) solid var(--ink);
+  border-top: var(--border-accent) solid var(--blue);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-editorial);
+}
+
+.knowra-production-shell .library-section-menu { min-width: calc(var(--filter-menu-width) + var(--space-5)); }
+
+.knowra-production-shell .library-context-item,
+.knowra-production-shell .note-tab-menu-item,
+.knowra-production-shell .editor-context-submenu-trigger,
+.knowra-production-shell .editor-context-menu-item,
+.knowra-production-shell .editor-workspace .editor-menu-item {
+  min-height: var(--control-height-md);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-none);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.knowra-production-shell .library-context-item:hover,
+.knowra-production-shell .note-tab-menu-item:hover,
+.knowra-production-shell .editor-context-submenu-trigger:hover,
+.knowra-production-shell .editor-context-menu-item:hover,
+.knowra-production-shell .editor-workspace .editor-menu-item:hover {
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.knowra-production-shell .library-context-item[data-active='true'] {
+  background: var(--blue-wash);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.knowra-production-shell .library-context-item[data-active='true']:hover {
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.knowra-production-shell .library-checkmark {
+  width: var(--space-5);
+  color: currentColor;
+  font-size: var(--text-ui);
+  font-weight: 800;
+}
+
+.knowra-production-shell .library-context-divider,
+.knowra-production-shell .note-tab-menu-divider,
+.knowra-production-shell .editor-context-divider,
+.knowra-production-shell .editor-workspace .editor-menu-divider {
+  height: var(--border-thin);
+  margin: var(--space-1) 0;
+  background: var(--line-soft);
+}
+
+.knowra-production-shell .editor-context-action-row { gap: var(--space-1); padding: 0 var(--space-2) var(--space-2); }
+
+.knowra-production-shell .editor-context-icon-button {
+  min-height: var(--control-height-md);
+  border: var(--border-thin) solid var(--line);
+  border-radius: var(--radius-none);
+  background: transparent;
+  color: var(--ink);
+}
+
+.knowra-production-shell .editor-context-icon-button:hover {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.knowra-production-shell .editor-context-shortcut,
+.knowra-production-shell .editor-context-submenu-caret,
+.knowra-production-shell .editor-menu-shortcut { color: var(--muted); }
+
+.knowra-production-shell .editor-context-menu-item:hover .editor-context-shortcut,
+.knowra-production-shell .editor-context-submenu-trigger:hover .editor-context-submenu-caret,
+.knowra-production-shell .editor-workspace .editor-menu-item:hover .editor-menu-shortcut { color: currentColor; }

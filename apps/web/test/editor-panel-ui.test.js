@@ -22,7 +22,7 @@ const milkdownCodeBlockCss = fs.readFileSync(
   path.resolve(__dirname, '../styles/components/milkdown-code-block.css'),
   'utf8'
 );
-const knowraEditorCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/knowra-editor.css'), 'utf8');
+const knowraEditorCss = fs.readFileSync(path.resolve(__dirname, '../styles/components/knowra-inkgrid-editor.css'), 'utf8');
 const knowraThemeTokensCss = fs.readFileSync(
   path.resolve(__dirname, '../styles/components/knowra-theme-tokens.css'),
   'utf8'

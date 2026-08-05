@@ -1,0 +1,12 @@
+/*
+ * InkGrid 正式视觉层唯一聚合入口。
+ * 通过 components.css 接入主应用；职责模块只在 .knowra-production-shell
+ * 作用域内生效，避免迁移样式污染尚未迁移的旧区块。
+ */
+@import './knowra-theme-tokens.css';
+@import './semantic-icons.css';
+@import './knowra-inkgrid-shell.css';
+@import './knowra-inkgrid-library-index.css';
+@import './knowra-inkgrid-editor.css';
+@import './knowra-inkgrid-menus.css';
+@import './knowra-inkgrid-typography.css';

@@ -11,12 +11,12 @@ const readStyle = (name) => fs.readFileSync(
 );
 
 const tokens = readStyle('knowra-theme-tokens.css');
-const shell = readStyle('knowra-shell.css');
-const library = readStyle('knowra-library-index.css');
-const editor = readStyle('knowra-editor.css');
+const shell = readStyle('knowra-inkgrid-shell.css');
+const library = readStyle('knowra-inkgrid-library-index.css');
+const editor = readStyle('knowra-inkgrid-editor.css');
 const workDomain = readStyle('work-domain.css');
-const menus = readStyle('knowra-menus.css');
-const typography = readStyle('knowra-typography.css');
+const menus = readStyle('knowra-inkgrid-menus.css');
+const typography = readStyle('knowra-inkgrid-typography.css');
 const shellHtml = renderHtml();
 const iconPath = (name) => path.resolve(__dirname, `../styles/icons/remix/${name}`);
 

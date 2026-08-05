@@ -1,7 +1,2 @@
-@import './knowra-theme-tokens.css';
-@import './semantic-icons.css';
-@import './knowra-shell.css';
-@import './knowra-library-index.css';
-@import './knowra-editor.css';
-@import './knowra-menus.css';
-@import './knowra-typography.css';
+/* 兼容旧样式入口；正式聚合入口为 knowra-inkgrid.css。 */
+@import './knowra-inkgrid.css';
