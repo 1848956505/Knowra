@@ -13,7 +13,9 @@ export function renderHtml(initialWorkspaceScript = '') {
 </head>
 <body>
   <div id="app">
-    <div class="workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="index">
+    <div class="app-shell workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="index">
+      <header class="top-bar app-topbar" data-ui-topbar data-region="shell-topbar" aria-label="全局顶栏"></header>
+      <div class="shell-body" data-ui-shell-body>
       <aside class="kb-sidebar knowra-rail" id="kb-sidebar" aria-label="资料库导航">
         <section class="library-directory">
           <div class="library-label">
@@ -36,7 +38,7 @@ export function renderHtml(initialWorkspaceScript = '') {
         </button>
       </aside>
 
-      <div class="workspace-main">
+      <div class="feature-stage workspace-main" data-ui-feature-stage>
         <main class="workspace-stage">
           <section class="work-domain-view" id="work-domain-view" hidden>
             <div id="work-domain-content"></div>
@@ -97,11 +99,12 @@ export function renderHtml(initialWorkspaceScript = '') {
             </div>
           </section>
         </main>
-        <footer class="status-bar">
-          <div class="status-group" id="status-indicators"></div>
-          <div class="status-group status-group-end" id="status-meta"></div>
-        </footer>
       </div>
+      </div>
+      <footer class="status-bar status-bar-host" data-ui-status-bar data-region="shell-footer">
+        <div class="status-group" id="status-indicators"></div>
+        <div class="status-group status-group-end" id="status-meta"></div>
+      </footer>
     </div>
   </div>
   <div class="library-context-menu" id="library-context-menu" hidden></div>

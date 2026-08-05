@@ -251,3 +251,16 @@
   .knowra-production-shell .editor-workspace .milkdown-host,
   .knowra-production-shell .editor-workspace .preview-pane .pane-body { padding-inline: var(--space-8); }
 }
+
+@media (max-width: 1040px) {
+  /* The canonical editor grid is more specific than responsive.css. Keep the
+     compact layout single-column so a 784px FeatureStage cannot be forced to
+     contain the 700px editor minimum plus the hidden 240px marginalia rail. */
+  .knowra-production-shell .editor-workspace-view .kb-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-content[data-source-open='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

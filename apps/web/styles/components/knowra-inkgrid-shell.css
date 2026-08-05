@@ -23,7 +23,8 @@ body:has(.knowra-production-shell) {
 
 .knowra-production-shell {
   display: grid;
-  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--ink-topbar-h) minmax(0, 1fr) var(--ink-statusbar-h);
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -31,19 +32,75 @@ body:has(.knowra-production-shell) {
   background: var(--paper);
 }
 
-.knowra-production-shell[data-left-hidden='true'] { grid-template-columns: minmax(0, 1fr); }
+.knowra-production-shell .top-bar {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  height: var(--ink-topbar-h);
+  padding: 0 var(--space-6);
+  overflow: visible;
+  border-bottom: var(--ink-line-shell-w) solid var(--ink-line-shell);
+  background: var(--paper);
+}
+
+.knowra-production-shell .shell-body {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.knowra-production-shell[data-left-hidden='true'] .shell-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 覆盖旧响应式 flex 规则（responsive.css 在 max-width: 1040px 下设置 .kb-sidebar { order: 2 }）：
+   ShellBody 是 Grid，order 同样作用于 Grid 子项；必须让导航始终位于第一列，
+   FeatureStage 占据剩余主体区域，否则 1024×768 下两列会被交换。 */
+.knowra-production-shell .shell-body .kb-sidebar {
+  order: 0;
+}
 
 .knowra-production-shell .workspace-main {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) var(--status-height);
+  display: block;
+  position: relative;
+  min-width: 0;
   height: 100%;
   min-height: 0;
   overflow: hidden;
 }
 
-.knowra-production-shell[data-screen='index'] .workspace-main { grid-template-rows: minmax(0, 1fr) 0; }
-.knowra-production-shell[data-screen='index'] .status-bar { display: none; }
-.knowra-production-shell .workspace-stage { height: 100%; min-height: 0; overflow: hidden; background: var(--paper); }
+.knowra-production-shell .workspace-stage,
+.knowra-production-shell .feature-stage {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.knowra-production-shell .status-bar-host {
+  grid-column: 1;
+  grid-row: 3;
+  position: relative;
+  z-index: 25;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ink-statusbar-h);
+  height: var(--ink-statusbar-h);
+  overflow: hidden;
+}
 
 .knowra-production-shell .knowra-rail {
   position: relative;
