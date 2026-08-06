@@ -65,7 +65,7 @@ export function renderSearchTagOption(tag, selected = false) {
 }
 
 export function renderSearchPanel({ selectedTags, visibleTags, selectedTagIds, hasFilters, isOpen = true }) {
-  if (!isOpen && !hasFilters) {
+  if (!isOpen) {
     return '';
   }
 

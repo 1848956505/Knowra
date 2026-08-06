@@ -193,7 +193,7 @@ function renderSearchShell() {
   }
 
   if (panelHost) {
-    panelHost.innerHTML = state.search.isOpen || hasFilters ? renderSearchPanel() : '';
+    panelHost.innerHTML = state.search.isOpen ? renderSearchPanel() : '';
   }
 }
 

@@ -44,5 +44,16 @@ assert.equal(
   '',
   'closed search panel without filters should render nothing'
 );
+assert.equal(
+  renderSearchPanel({
+    selectedTags: [tags[0]],
+    visibleTags: tags,
+    selectedTagIds: ['tag-clip'],
+    hasFilters: true,
+    isOpen: false
+  }),
+  '',
+  'closed search panel with retained filters should still render nothing'
+);
 
 console.log('ok - search renderers produce shell chips and dropdown panel');
