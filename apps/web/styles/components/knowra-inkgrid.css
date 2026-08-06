@@ -6,6 +6,7 @@
 @import './knowra-theme-tokens.css';
 @import './semantic-icons.css';
 @import './knowra-inkgrid-shell.css';
+@import './knowra-inkgrid-topbar.css';
 @import './knowra-inkgrid-library-index.css';
 @import './knowra-inkgrid-editor.css';
 @import './knowra-inkgrid-menus.css';

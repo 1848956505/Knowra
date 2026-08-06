@@ -12,10 +12,12 @@ export function renderSearchShell() {
           id="global-search"
           data-search-input
           type="text"
+          aria-label="全局搜索"
           placeholder="搜索笔记、标签、附件、AI 结果"
           autocomplete="off"
           spellcheck="false"
         />
+        <kbd class="top-bar-search-shortcut" aria-hidden="true">⌘K</kbd>
         <button type="button" class="top-search-clear" data-search-clear hidden>清空</button>
       </div>
       <div class="search-panel-host"></div>

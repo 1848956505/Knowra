@@ -1,0 +1,256 @@
+/* InkGrid TopBar content and global search surface. */
+.knowra-production-shell .topbar-brand {
+  display: inline-flex;
+  flex: 0 1 var(--shell-nav-w);
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--text-lead);
+  font-weight: 800;
+  letter-spacing: var(--letter-tight);
+  white-space: nowrap;
+}
+
+.knowra-production-shell .topbar-brand-mark {
+  position: relative;
+  display: block;
+  flex: 0 0 var(--space-8);
+  width: var(--space-8);
+  height: var(--space-8);
+}
+
+.knowra-production-shell .topbar-brand-mark::before,
+.knowra-production-shell .topbar-brand-mark > span {
+  position: absolute;
+  width: calc(var(--space-8) - var(--mark-offset));
+  height: calc(var(--space-8) - var(--mark-offset));
+}
+
+.knowra-production-shell .topbar-brand-mark::before {
+  right: 0;
+  bottom: 0;
+  content: '';
+  background: var(--blue);
+}
+
+.knowra-production-shell .topbar-brand-mark > span {
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border: var(--border-tab-active) solid var(--ink);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.knowra-production-shell .topbar-brand-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.knowra-production-shell .topbar-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.knowra-production-shell .topbar-action,
+.knowra-production-shell .topbar-user {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-height-md);
+  height: var(--control-height-md);
+  border: var(--border-tab-active) solid var(--ink);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--ink-shadow-2);
+  color: var(--ink);
+  cursor: default;
+}
+
+.knowra-production-shell .topbar-action {
+  width: var(--control-height-md);
+  padding: 0;
+}
+
+.knowra-production-shell .topbar-action[data-topbar-placeholder],
+.knowra-production-shell .topbar-user[data-topbar-placeholder] {
+  opacity: 0.78;
+}
+
+.knowra-production-shell .topbar-action-icon,
+.knowra-production-shell .topbar-user-icon {
+  display: block;
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.knowra-production-shell .topbar-separator {
+  display: block;
+  width: var(--border-thin);
+  height: var(--space-6);
+  background: var(--line);
+}
+
+.knowra-production-shell .topbar-user {
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.knowra-production-shell .topbar-search-slot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  flex: 0 0 auto;
+  display: block;
+  width: min(var(--topbar-search-width), 42vw);
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-none);
+  background: transparent;
+  transform: translate(-50%, -50%);
+}
+
+.knowra-production-shell .topbar-search-slot .top-bar-search-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border: var(--border-tab-active) solid var(--ink);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--ink-shadow-1);
+}
+
+.knowra-production-shell .topbar-search-slot:focus-within .top-bar-search-control,
+.knowra-production-shell .topbar-search-slot[data-open='true'] .top-bar-search-control {
+  box-shadow: var(--shadow-focus);
+}
+
+.knowra-production-shell .topbar-search-slot .top-bar-search-icon {
+  flex: 0 0 var(--space-4);
+  width: var(--space-4);
+  height: var(--space-4);
+  color: var(--muted);
+}
+
+.knowra-production-shell .topbar-search-slot .top-bar-search-icon .semantic-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.knowra-production-shell .topbar-search-slot .top-search-chip-track {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.knowra-production-shell .topbar-search-slot .top-search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(var(--space-12) + var(--space-8));
+  min-height: var(--control-height-sm);
+  padding-inline: var(--space-2);
+  border: var(--border-thin) solid var(--blue);
+  border-radius: var(--radius-none);
+  background: transparent;
+  color: var(--blue);
+  font-size: var(--text-xs);
+}
+
+.knowra-production-shell .topbar-search-slot .top-search-chip-dot { display: none; }
+.knowra-production-shell .topbar-search-slot .top-search-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.knowra-production-shell .topbar-search-slot input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--control-height-md);
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.knowra-production-shell .topbar-search-slot input:focus-visible { outline: 0; }
+
+.knowra-production-shell .top-bar-search-shortcut {
+  flex: 0 0 auto;
+  padding: var(--space-half) var(--space-1);
+  border: var(--border-thin) solid var(--line);
+  border-radius: var(--radius-kbd);
+  color: var(--muted);
+  font: 600 var(--text-xs)/var(--line-height-tight) var(--font-mono);
+}
+
+.knowra-production-shell .topbar-search-slot .top-search-clear {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.knowra-production-shell .topbar-search-slot .search-panel-host {
+  top: calc(100% + var(--space-2));
+  right: auto;
+  left: 0;
+  width: min(100%, var(--search-panel-width));
+}
+
+.knowra-production-shell .topbar-search-slot .search-panel {
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-tab-active) solid var(--ink);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-search);
+}
+
+.knowra-production-shell .topbar-search-slot .search-panel-header {
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-thin) solid var(--line-soft);
+}
+
+.knowra-production-shell .topbar-search-slot .search-panel-title {
+  color: var(--blue);
+  font: 600 var(--text-xs)/var(--line-height-tight) var(--font-display);
+  letter-spacing: var(--letter-label);
+}
+
+.knowra-production-shell .topbar-search-slot .search-panel-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.knowra-production-shell .topbar-search-slot .search-tag-option { min-height: var(--control-height-sm); padding-inline: var(--space-2); border: var(--border-thin) solid var(--line); border-radius: var(--radius-none); background: transparent; color: var(--ink); font-size: var(--text-sm); }
+.knowra-production-shell .topbar-search-slot .search-tag-option:hover,
+.knowra-production-shell .topbar-search-slot .search-tag-option[data-selected='true'] { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); }
+
+@media (max-width: 1100px) {
+  .knowra-production-shell .topbar-brand { flex-basis: var(--shell-nav-w); }
+  .knowra-production-shell .topbar-search-slot { width: min(var(--topbar-search-width), 34vw); }
+  .knowra-production-shell .topbar-action,
+  .knowra-production-shell .topbar-user { box-shadow: none; }
+  .knowra-production-shell .topbar-user { width: var(--control-height-md); padding: 0; }
+  .knowra-production-shell .topbar-user-label { display: none; }
+}

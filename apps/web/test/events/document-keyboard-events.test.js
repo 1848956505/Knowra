@@ -95,6 +95,7 @@ function makeClosest(map) {
 function makeDeps() {
   return {
     renderSearchShell: () => {},
+    focusSearchInput: () => {},
     closeContextMenu: () => {},
     closeSectionMenu: () => {},
     closeTabMenu: () => {},
@@ -111,6 +112,45 @@ function makeDeps() {
     closeEditorPanel: () => {}
   };
 }
+
+runTest('capture keydown Meta/Ctrl+K opens and focuses global search', async () => {
+  await withMockDocument(async (listeners) => {
+    const { bindDocumentKeyboardEvents } = await import(
+      '../../lib/events/document-keyboard-events.js'
+    );
+    const state = makeState();
+    let rendered = 0;
+    let focused = 0;
+    const deps = makeDeps();
+    deps.renderSearchShell = () => { rendered += 1; };
+    deps.focusSearchInput = () => { focused += 1; };
+
+    bindDocumentKeyboardEvents({ state, elements: {}, deps });
+
+    const target = {};
+    target.closest = makeClosest(new Map());
+
+    for (const modifier of ['metaKey', 'ctrlKey']) {
+      let prevented = false;
+      let stopped = false;
+      state.search.isOpen = false;
+      listeners.get('keydown')[1].fn({
+        key: 'k',
+        [modifier]: true,
+        target,
+        preventDefault() { prevented = true; },
+        stopPropagation() { stopped = true; }
+      });
+
+      assert.equal(state.search.isOpen, true);
+      assert.equal(prevented, true);
+      assert.equal(stopped, true);
+    }
+
+    assert.equal(rendered, 2);
+    assert.equal(focused, 2);
+  });
+});
 
 runTest('bubble keydown Escape closes search shell and dispatches close chain', async () => {
   await withMockDocument(async (listeners) => {

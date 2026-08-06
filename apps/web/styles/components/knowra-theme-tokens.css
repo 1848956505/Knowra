@@ -91,6 +91,10 @@
 
   --ink-radius-none: 0;
   --ink-radius-status: 50%;
+  --ink-radius-kbd: 3px;
+  --ink-mark-offset: 3px;
+  --ink-topbar-search-w: 500px;
+  --ink-shadow-focus: 3px 3px 0 var(--ink-accent);
 
   /* Semantic dimensions are ready for the later Shell/side-panel tasks. */
   --ink-shell-nav-w: 208px;
@@ -242,9 +246,13 @@
   --border-selection: var(--ink-border-selection);
   --radius-none: var(--ink-radius-none);
   --radius-status: var(--ink-radius-status);
+  --radius-kbd: var(--ink-radius-kbd);
+  --mark-offset: var(--ink-mark-offset);
+  --topbar-search-width: var(--ink-topbar-search-w);
 
   --shadow-editorial: var(--ink-shadow-3);
   --shadow-search: var(--ink-shadow-hero);
+  --shadow-focus: var(--ink-shadow-focus);
 
   /* The current Shell still combines navigation and directory in one column. */
   --rail-width: var(--ink-shell-composite-w);

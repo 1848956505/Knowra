@@ -14,7 +14,26 @@ export function renderHtml(initialWorkspaceScript = '') {
 <body>
   <div id="app">
     <div class="app-shell workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="index">
-      <header class="top-bar app-topbar" data-ui-topbar data-region="shell-topbar" aria-label="全局顶栏"></header>
+      <header class="top-bar app-topbar" data-ui-topbar data-region="shell-topbar" aria-label="全局顶栏">
+        <div class="topbar-brand" data-ui-topbar-brand>
+          <span class="topbar-brand-mark" aria-hidden="true"><span>知</span></span>
+          <span class="topbar-brand-name">知境 Knowra</span>
+        </div>
+        <div class="top-bar-search topbar-search-slot" id="global-search-shell" role="search" aria-label="全局搜索"></div>
+        <div class="topbar-actions" data-ui-topbar-actions aria-label="全局操作">
+          <button type="button" class="topbar-action" data-topbar-placeholder="notifications" aria-label="通知（即将开放）" title="通知（即将开放）">
+            ${renderIcon('notification', { className: 'topbar-action-icon' })}
+          </button>
+          <button type="button" class="topbar-action settings-button" data-topbar-placeholder="settings" aria-label="设置（即将开放）" title="设置（即将开放）">
+            ${renderIcon('settings', { className: 'topbar-action-icon' })}
+          </button>
+          <span class="topbar-separator" aria-hidden="true"></span>
+          <button type="button" class="topbar-user" data-topbar-placeholder="user" aria-label="用户中心（即将开放）" title="用户中心（即将开放）">
+            ${renderIcon('user', { className: 'topbar-user-icon' })}
+            <span class="topbar-user-label">用户中心</span>
+          </button>
+        </div>
+      </header>
       <div class="shell-body" data-ui-shell-body>
       <aside class="kb-sidebar knowra-rail" id="kb-sidebar" aria-label="资料库导航">
         <section class="library-directory">
@@ -33,9 +52,6 @@ export function renderHtml(initialWorkspaceScript = '') {
           <div class="library-tree" id="folder-tree"></div>
         </section>
         <nav class="module-switcher" id="module-rail" aria-label="切换产品模块"></nav>
-        <button type="button" class="settings-button" aria-label="设置">
-          <span class="settings-code" aria-hidden="true">SET</span><span>设置</span>
-        </button>
       </aside>
 
       <div class="feature-stage workspace-main" data-ui-feature-stage>
@@ -56,7 +72,6 @@ export function renderHtml(initialWorkspaceScript = '') {
               <nav class="content-tabs" id="library-index-tabs" aria-label="资料筛选"></nav>
               <div class="filter-row">
                 <div class="index-filter-controls" id="library-index-filters"></div>
-                <div class="top-bar-search" id="global-search-shell" aria-label="搜索资料"></div>
               </div>
               <div class="library-index-content" id="library-index-content"></div>
             </main>

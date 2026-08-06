@@ -218,5 +218,3 @@ body:has(.knowra-production-shell) {
 .knowra-production-shell .knowra-rail .rail-item-label { left: 50%; top: auto; bottom: calc(100% + var(--space-2)); transform: translate(-50%, var(--space-1)); }
 .knowra-production-shell .knowra-rail .rail-item:hover .rail-item-label,
 .knowra-production-shell .knowra-rail .rail-item:focus-visible .rail-item-label { transform: translate(-50%, 0); }
-.knowra-production-shell .knowra-rail .settings-button { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--space-8); padding: var(--space-3) var(--space-1) 0; border: 0; border-top: var(--border-thin) solid var(--line); background: none; font-size: var(--text-base); text-align: left; }
-.knowra-production-shell .knowra-rail .settings-code { color: var(--blue); font: 600 var(--text-xs) var(--font-display); letter-spacing: var(--letter-label); }

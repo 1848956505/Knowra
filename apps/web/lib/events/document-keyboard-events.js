@@ -2,7 +2,7 @@ import { isComposingEvent } from '../dom/composition.js';
 import { closestFromEventTarget } from '../dom/event-target.js';
 
 // document-keyboard-events.js
-// document 级 keydown 事件绑定：全局 Escape 关闭菜单 + 捕获阶段编辑
+// document 级 keydown 事件绑定：全局 Escape/⌘K + 捕获阶段编辑
 // 器快捷键/表格对话框/查找面板。
 // 由 client.js 的 bindEvents() 在初始化时一次性注册。
 //
@@ -18,6 +18,7 @@ import { closestFromEventTarget } from '../dom/event-target.js';
 export function bindDocumentKeyboardEvents({ state, elements, deps }) {
   const {
     renderSearchShell,
+    focusSearchInput,
     closeContextMenu,
     closeSectionMenu,
     closeTabMenu,
@@ -58,6 +59,16 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
 
   documentRef.addEventListener('keydown', (event) => {
     if (isComposingEvent(event)) {
+      return;
+    }
+
+    const normalizedKey = String(event.key || '').toLowerCase();
+    if ((event.metaKey || event.ctrlKey) && normalizedKey === 'k' && !event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      state.search.isOpen = true;
+      renderSearchShell();
+      focusSearchInput();
       return;
     }
 
