@@ -13,7 +13,7 @@ export function renderHtml(initialWorkspaceScript = '') {
 </head>
 <body>
   <div id="app">
-    <div class="app-shell workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="index">
+    <div class="app-shell workspace-shell app-root knowra-production-shell" id="workspace-shell" data-screen="home">
       <header class="top-bar app-topbar" data-ui-topbar data-region="shell-topbar" aria-label="全局顶栏">
         <div class="topbar-brand" data-ui-topbar-brand>
           <span class="topbar-brand-mark" aria-hidden="true"><span>知</span></span>
@@ -35,7 +35,9 @@ export function renderHtml(initialWorkspaceScript = '') {
         </div>
       </header>
       <div class="shell-body" data-ui-shell-body>
-      <aside class="kb-sidebar knowra-rail" id="kb-sidebar" aria-label="资料库导航">
+      <nav class="function-navigation" id="module-rail" data-ui-function-navigation aria-label="全局功能导航"></nav>
+
+      <aside class="kb-sidebar knowra-rail" id="kb-sidebar" data-ui-library-directory aria-label="资料库目录">
         <section class="library-directory">
           <div class="library-label">
             <button type="button" class="library-home-target" data-library-home="global" aria-label="返回资料索引">
@@ -51,15 +53,25 @@ export function renderHtml(initialWorkspaceScript = '') {
           <div class="directory-group-label directory-heading">内容与文件夹</div>
           <div class="library-tree" id="folder-tree"></div>
         </section>
-        <nav class="module-switcher" id="module-rail" aria-label="切换产品模块"></nav>
       </aside>
 
       <div class="feature-stage workspace-main" data-ui-feature-stage>
         <main class="workspace-stage">
+          <section class="home-workspace-view" id="home-workspace-view">
+            <div id="home-workspace-content">
+              <div class="home-workspace home-workspace-loading" data-home-workspace data-home-loading="true">
+                <div class="home-loading-state" role="status" aria-live="polite">
+                  <span class="home-section-kicker">WORKBENCH</span>
+                  <strong>正在加载资料工作台…</strong>
+                  <span>正在读取真实资料与文件夹状态。</span>
+                </div>
+              </div>
+            </div>
+          </section>
           <section class="work-domain-view" id="work-domain-view" hidden>
             <div id="work-domain-content"></div>
           </section>
-          <section class="library-index-view" id="library-index-view">
+          <section class="library-index-view" id="library-index-view" hidden>
             <main class="index-workspace">
               <header class="masthead">
                 <div class="masthead-title"><h1>资料库</h1><span class="masthead-kicker">LIBRARY INDEX</span></div>
@@ -117,8 +129,8 @@ export function renderHtml(initialWorkspaceScript = '') {
       </div>
       </div>
       <footer class="status-bar status-bar-host" data-ui-status-bar data-region="shell-footer">
-        <div class="status-group" id="status-indicators"></div>
-        <div class="status-group status-group-end" id="status-meta"></div>
+        <div class="status-group status-feature-slot" id="status-indicators" data-ui-status-feature data-status-slot="feature" aria-label="当前功能状态"></div>
+        <div class="status-group status-global-slot status-group-end" id="status-meta" data-ui-status-global data-status-slot="global" aria-label="全局连接状态"></div>
       </footer>
     </div>
   </div>

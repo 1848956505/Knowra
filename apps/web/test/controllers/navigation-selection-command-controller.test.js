@@ -63,6 +63,7 @@ function createHarness(persistResult) {
   assert.equal(state.selectedFolderId, null);
   assert.equal(state.libraryIndex.tab, 'all');
   assert.equal(state.search.keyword, '');
+  assert.equal(state.statusMessage, '当前工作域：资料库');
   assert.deepEqual(calls, ['render']);
 }
 

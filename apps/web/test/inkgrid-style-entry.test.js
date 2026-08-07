@@ -9,6 +9,7 @@ const entryFile = path.resolve(stylesRoot, 'components.css');
 const inkgridEntry = path.resolve(stylesRoot, 'components/knowra-inkgrid.css');
 const responsibilityModules = [
   'knowra-inkgrid-shell.css',
+  'knowra-inkgrid-navigation.css',
   'knowra-inkgrid-library-index.css',
   'knowra-inkgrid-editor.css',
   'knowra-inkgrid-menus.css',

@@ -94,7 +94,8 @@ export function createAppControllers({
     elements,
     renderAll: helpers.renderAll,
     knowledgeWorkspaceController,
-    trainingWorkspaceController
+    trainingWorkspaceController,
+    canLeaveCurrentNote: controllerActions.canLeaveCurrentNote
   });
 
   const sidebarController = createSidebarController({

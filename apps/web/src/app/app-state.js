@@ -101,7 +101,7 @@ export function createInitialAppState() {
     openNoteTabs: [],
     editorMenuOpen: null,
     view: {
-      screen: 'index',
+      screen: 'home',
       mode: 'edit',
       showLeftSidebar: true,
       showRightSidebar: true,
@@ -169,7 +169,7 @@ export function createInitialAppState() {
     },
     saveState: 'idle',
     lastSavedAt: null,
-    statusMessage: '正在加载知识库...'
+    statusMessage: '正在加载资料工作台...'
   };
 }
 

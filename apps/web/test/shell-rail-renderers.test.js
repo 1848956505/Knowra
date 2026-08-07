@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  getFunctionNavigationGroups,
   getRailLabel,
+  renderFunctionNavigation,
   renderModuleRail,
   renderRailIcon
 } from '../lib/shell/rail-renderers.js';
@@ -31,5 +33,17 @@ assert.doesNotMatch(html, /<svg/);
 assert.match(renderRailIcon('paper'), /data-icon="modulePaper"[\s\S]*remix\/file-text-line\.svg/);
 assert.equal(renderRailIcon('settings'), '');
 assert.equal(renderRailIcon('missing'), '');
+
+const functionNavigation = renderFunctionNavigation('knowledge');
+assert.equal(getFunctionNavigationGroups().length, 5);
+assert.match(functionNavigation, /data-nav-group="workbench"/);
+assert.match(functionNavigation, /data-nav-group="knowledge"/);
+assert.match(functionNavigation, /data-module-key="materials"/);
+assert.match(functionNavigation, /data-module-key="knowledge"[^>]*aria-current="page"/);
+assert.match(functionNavigation, /data-nav-item="home"[^>]*data-active="false"/);
+assert.doesNotMatch(functionNavigation, /data-nav-item="home"[^>]*disabled/);
+assert.match(functionNavigation, /data-nav-placeholder="create-space"[^>]*aria-disabled="true"/);
+assert.match(functionNavigation, /data-icon="navKnowledge"/);
+assert.doesNotMatch(functionNavigation, /data-hook=/);
 
 console.log('ok - shell rail renderers produce stable module rail markup');

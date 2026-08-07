@@ -1,4 +1,5 @@
 import { guardWorkspaceWrite } from '../../lib/workspace-write-guard.js';
+import { getWorkDomainStatusMessage } from '../../lib/status/messages.js';
 
 export function createKnowledgeWorkspaceController({
   state,
@@ -207,6 +208,7 @@ export function createKnowledgeWorkspaceController({
 
   function openReviewEntry(kind, id) {
     if (kind === 'question') return openTraining?.('questions', id);
+    state.statusMessage = getWorkDomainStatusMessage('knowledge');
     state.navigation.activeWorkDomain = 'knowledge';
     state.navigation.activeDomainView = kind === 'learningObjective' ? 'objectives' : 'items';
     state.knowledgeWorkspace.selection = { kind, id };

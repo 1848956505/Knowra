@@ -4,6 +4,7 @@ import {
   resolveFolderSelection,
   toggleFolderOpen as toggleOpenFolderState
 } from '../../../lib/navigation/selection.js';
+import { getWorkDomainStatusMessage } from '../../../lib/status/messages.js';
 
 export function createNavigationSelectionCommandController(deps, getController) {
   const {
@@ -85,6 +86,7 @@ async function returnToLibraryIndex({ global = false } = {}) {
   }
 
   state.view.screen = 'index';
+  state.statusMessage = getWorkDomainStatusMessage('materials');
   if (global) {
     state.selectedFolderId = null;
     state.libraryIndex.tab = 'all';

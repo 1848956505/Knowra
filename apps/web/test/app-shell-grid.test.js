@@ -33,13 +33,13 @@ assert.ok(shellBodyIndex > topBarIndex, 'ShellBody should follow TopBar in the A
 assert.ok(statusBarIndex > shellBodyIndex, 'StatusBarHost should follow ShellBody in the AppShell');
 assert.match(
   shellHtml,
-  /<div class="shell-body" data-ui-shell-body>[\s\S]*<aside class="kb-sidebar knowra-rail"[^>]*id="kb-sidebar"[\s\S]*<div class="feature-stage workspace-main" data-ui-feature-stage>/,
-  'ShellBody should own the existing navigation rail and feature stage'
+  /<div class="shell-body" data-ui-shell-body>[\s\S]*<nav class="function-navigation"[^>]*id="module-rail"[\s\S]*<aside class="kb-sidebar knowra-rail"[^>]*id="kb-sidebar"[\s\S]*<div class="feature-stage workspace-main" data-ui-feature-stage>/,
+  'ShellBody should own the pure function navigation, directory rail and feature stage'
 );
 assert.match(
   shellHtml,
-  /<footer class="status-bar status-bar-host"[^>]*data-region="shell-footer"[\s\S]*id="status-indicators"[\s\S]*id="status-meta"/,
-  'StatusBarHost should remain the single global status renderer host'
+  /<footer class="status-bar status-bar-host"[^>]*data-region="shell-footer"[\s\S]*id="status-indicators"[^>]*data-ui-status-feature[^>]*data-status-slot="feature"[\s\S]*id="status-meta"[^>]*data-ui-status-global[^>]*data-status-slot="global"/,
+  'StatusBarHost should keep independent feature and global status slots'
 );
 assert.match(shellHtml, /id="library-context-menu"[^>]*hidden/, 'library context menu host should remain in SSR');
 assert.match(shellHtml, /id="markdown-import-input"[^>]*multiple hidden/, 'markdown import input should remain in SSR');
@@ -52,8 +52,8 @@ assert.match(
 );
 assert.match(
   shellCss,
-  /\.knowra-production-shell \.shell-body\s*\{[\s\S]*grid-template-columns:\s*var\(--rail-width\)\s+minmax\(0,\s*1fr\);[\s\S]*overflow:\s*hidden;/,
-  'ShellBody should contain the navigation and feature stage without page overflow'
+  /\.knowra-production-shell \.shell-body\s*\{[\s\S]*grid-template-columns:\s*var\(--shell-nav-w\)\s+var\(--catalog-w\)\s+minmax\(0,\s*1fr\);[\s\S]*overflow:\s*hidden;/,
+  'ShellBody should contain the function navigation, directory and feature stage without page overflow'
 );
 assert.match(
   shellCss,
@@ -73,8 +73,13 @@ assert.match(
 );
 assert.match(
   shellCss,
-  /\.knowra-production-shell \.shell-body \.kb-sidebar\s*\{\s*order:\s*0;/,
-  'ShellBody must reset the legacy sidebar order inside its Grid context'
+  /\.knowra-production-shell \.shell-body \.function-navigation\s*\{\s*order:\s*0;/,
+  'ShellBody must keep the function navigation in the first grid slot'
+);
+assert.match(
+  shellCss,
+  /\.knowra-production-shell \.shell-body \.kb-sidebar\s*\{\s*order:\s*1;/,
+  'ShellBody must keep the directory rail after the function navigation'
 );
 assert.match(
   editorCss,
@@ -86,12 +91,20 @@ assert.match(
   /@media \(max-width:\s*1040px\)[\s\S]*\.knowra-production-shell \.editor-workspace \.editor-content\[data-source-open='true'\]\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);/,
   'the compact source editor must remain single-column and reachable'
 );
+assert.match(
+  editorCss,
+  /\.knowra-production-shell \.status-action\s*\{[^}]*height:\s*var\(--control-height-sm\);[^}]*padding:\s*0\s+var\(--space-2\);/,
+  'StatusBarHost actions must override the shared button padding and fit the compact control height'
+);
 
 const sidebarDomIndex = shellHtml.indexOf('id="kb-sidebar"');
+const functionNavigationDomIndex = shellHtml.indexOf('id="module-rail"');
 const featureStageDomIndex = shellHtml.indexOf('data-ui-feature-stage');
 assert.ok(
-  sidebarDomIndex >= 0 && featureStageDomIndex > sidebarDomIndex,
-  'the navigation rail must precede the feature stage in SSR DOM order'
+  functionNavigationDomIndex >= 0
+    && sidebarDomIndex > functionNavigationDomIndex
+    && featureStageDomIndex > sidebarDomIndex,
+  'the function navigation and directory rail must precede the feature stage in SSR DOM order'
 );
 assert.match(
   shellHtml,

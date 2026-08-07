@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {
   getStatusDocumentStats,
+  renderStatusFeature,
+  renderStatusGlobal,
   renderStatusIndicators,
   renderStatusMeta
 } from '../lib/status/renderers.js';
@@ -13,6 +15,30 @@ assert.match(indicators, /data-save-now/);
 assert.match(indicators, /已自动保存/);
 assert.match(indicators, /Saved &lt;ok&gt;/);
 assert.doesNotMatch(indicators, /当前资料|笔记 \d|目录 \d/);
+
+const indexFeature = renderStatusFeature({
+  statusMessage: '后端资料已同步',
+  saveState: 'saved',
+  showEditorControls: false
+});
+assert.match(indexFeature, /data-status-feature-message/);
+assert.match(indexFeature, /后端资料已同步/);
+assert.doesNotMatch(indexFeature, /data-save-now|data-status-action/);
+
+const editorFeature = renderStatusFeature({
+  statusMessage: '已自动保存',
+  saveState: 'saved',
+  markdown: '# 标题',
+  view: { mode: 'edit', showSourceEditor: false, showRightSidebar: true },
+  showEditorControls: true
+});
+assert.match(editorFeature, /data-save-now/);
+assert.match(editorFeature, /data-status-feature-controls/);
+assert.match(editorFeature, /data-status-action="toggle-focus"/);
+
+const globalStatus = renderStatusGlobal({ dataMode: 'api' });
+assert.match(globalStatus, /data-status-global="encoding"[^>]*>UTF-8/);
+assert.match(globalStatus, /data-status-global="connection"[^>]*>云端已连接/);
 
 const meta = renderStatusMeta({
   dataMode: 'api',

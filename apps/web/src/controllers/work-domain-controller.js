@@ -1,12 +1,17 @@
 import { renderKnowledgeWorkspace } from '../../lib/knowledge-workspace/index.js';
 import { renderTrainingWorkspace } from '../../lib/training-workspace/index.js';
+import {
+  getHomeStatusMessage,
+  getWorkDomainStatusMessage
+} from '../../lib/status/messages.js';
 
 export function createWorkDomainController({
   state,
   elements,
   renderAll,
   knowledgeWorkspaceController,
-  trainingWorkspaceController
+  trainingWorkspaceController,
+  canLeaveCurrentNote
 }) {
   function render() {
     if (!elements.workDomainContent) return;
@@ -28,6 +33,7 @@ export function createWorkDomainController({
 
   function selectWorkDomain(domain, view = 'overview') {
     if (domain === 'materials') {
+      state.statusMessage = getWorkDomainStatusMessage(domain);
       state.navigation.activeWorkDomain = 'materials';
       state.navigation.activeDomainView = 'overview';
       state.view.screen = 'index';
@@ -35,6 +41,7 @@ export function createWorkDomainController({
       return true;
     }
     if (!['knowledge', 'training', 'learning'].includes(domain)) return false;
+    state.statusMessage = getWorkDomainStatusMessage(domain);
     state.navigation.activeWorkDomain = domain;
     state.navigation.activeDomainView = domain === 'learning' ? 'overview' : view;
     if (domain === 'knowledge') state.knowledgeWorkspace.selection = { kind: null, id: null };
@@ -42,6 +49,18 @@ export function createWorkDomainController({
     renderAll();
     if (domain === 'knowledge') void knowledgeWorkspaceController.load(state.navigation.activeDomainView);
     if (domain === 'training') void trainingWorkspaceController.load(state.navigation.activeDomainView);
+    return true;
+  }
+
+  async function openHome() {
+    if (typeof canLeaveCurrentNote === 'function' && !await canLeaveCurrentNote()) {
+      return false;
+    }
+    state.statusMessage = getHomeStatusMessage();
+    state.navigation.activeWorkDomain = 'materials';
+    state.navigation.activeDomainView = 'overview';
+    state.view.screen = 'home';
+    renderAll();
     return true;
   }
 
@@ -65,6 +84,7 @@ export function createWorkDomainController({
   }
 
   function openKnowledge(view = 'items', id = null) {
+    state.statusMessage = getWorkDomainStatusMessage('knowledge');
     state.navigation.activeWorkDomain = 'knowledge';
     state.navigation.activeDomainView = view;
     state.knowledgeWorkspace.selection = id ? { kind: view === 'objectives' ? 'learningObjective' : 'knowledgeItem', id } : { kind: null, id: null };
@@ -73,6 +93,7 @@ export function createWorkDomainController({
   }
 
   function openTraining(view = 'questions', id = null) {
+    state.statusMessage = getWorkDomainStatusMessage('training');
     state.navigation.activeWorkDomain = 'training';
     state.navigation.activeDomainView = view;
     state.trainingWorkspace.selection = id ? { kind: view === 'profiles' ? 'profile' : 'question', id } : { kind: null, id: null };
@@ -82,6 +103,7 @@ export function createWorkDomainController({
 
   return {
     render,
+    openHome,
     selectWorkDomain,
     selectView,
     openKnowledge,

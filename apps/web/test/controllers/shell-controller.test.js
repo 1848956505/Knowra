@@ -3,7 +3,7 @@ import { createShellController } from '../../src/controllers/shell-controller.js
 
 function createElements() {
   return {
-    moduleRail: { innerHTML: '' },
+    moduleRail: { innerHTML: '', hidden: false },
     workspaceShell: { dataset: {} },
     workspace: { dataset: {} },
     workDomainView: { hidden: true, dataset: {} },
@@ -17,6 +17,9 @@ function createElements() {
 function createState(overrides = {}) {
   return {
     statusMessage: 'Ready',
+    navigation: {
+      activeWorkDomain: 'materials'
+    },
     foldersById: {
       'folder-1': { id: 'folder-1' },
       'folder-2': { id: 'folder-2' }
@@ -87,6 +90,8 @@ runTest('renderAll renders shell sections and isolates failed steps', () => {
   ]);
   assert.deepEqual(errors, [['navigation', 'navigation failed']]);
   assert.match(elements.statusIndicators.innerHTML, /Ready/);
+  assert.doesNotMatch(elements.statusIndicators.innerHTML, /data-save-now|data-status-action/);
+  assert.match(elements.statusMeta.innerHTML, /data-status-global="connection"/);
 });
 
 runTest('renderWorkspaceViewState applies effective focus layout', () => {
@@ -95,9 +100,12 @@ runTest('renderWorkspaceViewState applies effective focus layout', () => {
   controller.renderWorkspaceViewState();
 
   assert.equal(elements.workspace.dataset.leftHidden, 'true');
+  assert.equal(elements.workspaceShell.dataset.functionNavigationHidden, 'true');
+  assert.equal(elements.workspaceShell.dataset.directoryHidden, 'true');
   assert.equal(elements.workspace.dataset.rightHidden, 'true');
   assert.equal(elements.workspace.dataset.viewMode, 'focus');
   assert.equal(elements.sidebar.hidden, true);
+  assert.equal(elements.moduleRail.hidden, true);
   assert.equal(elements.aside.hidden, true);
 });
 
@@ -114,23 +122,62 @@ runTest('renderWorkspaceViewState keeps the global rail available in work domain
 
   assert.equal(elements.workspaceShell.dataset.screen, 'domain');
   assert.equal(elements.workspaceShell.dataset.leftHidden, 'false');
-  assert.equal(elements.sidebar.hidden, false);
+  assert.equal(elements.workspaceShell.dataset.functionNavigationHidden, 'false');
+  assert.equal(elements.workspaceShell.dataset.directoryHidden, 'true');
+  assert.equal(elements.moduleRail.hidden, false);
+  assert.equal(elements.sidebar.hidden, true);
   assert.equal(elements.workDomainView.hidden, false);
 });
 
 runTest('renderRail and renderStatus write shell markup', () => {
-  const { controller, elements } = createDeps();
+  const { controller, elements } = createDeps({
+    state: createState({
+      view: {
+        mode: 'edit',
+        screen: 'editor',
+        showLeftSidebar: true,
+        showRightSidebar: true,
+        showSourceEditor: false
+      }
+    })
+  });
 
   controller.renderRail();
   controller.renderStatus();
 
-  assert.match(elements.moduleRail.innerHTML, /class="rail-item"/);
+  assert.match(elements.moduleRail.innerHTML, /class="function-nav-item"/);
+  assert.match(elements.moduleRail.innerHTML, /data-module-key="materials"[^>]*aria-current="page"/);
+  assert.match(elements.moduleRail.innerHTML, /data-nav-item="home"[^>]*data-active="false"/);
+  assert.doesNotMatch(elements.moduleRail.innerHTML, /data-nav-item="home"[^>]*disabled/);
   assert.match(elements.moduleRail.innerHTML, /data-active="true"/);
-  assert.match(elements.statusIndicators.innerHTML, /Ready/);
+  assert.match(elements.statusIndicators.innerHTML, /data-save-now/);
+  assert.match(elements.statusIndicators.innerHTML, /data-status-feature-controls/);
   assert.doesNotMatch(elements.statusIndicators.innerHTML, /笔记|目录/);
-  assert.match(elements.statusMeta.innerHTML, /云端已连接/);
-  assert.match(elements.statusMeta.innerHTML, /data-status-action="toggle-right-sidebar"/);
-  assert.match(elements.statusMeta.innerHTML, /data-status-action="toggle-focus"/);
+  assert.match(elements.statusMeta.innerHTML, /data-status-global="connection"[^>]*>云端已连接/);
+  assert.doesNotMatch(elements.statusMeta.innerHTML, /data-status-action/);
+});
+
+runTest('renderRail activates homepage only inside the Materials domain', () => {
+  const { controller, elements } = createDeps({
+    state: createState({
+      navigation: { activeWorkDomain: 'materials' },
+      view: { screen: 'home', mode: 'edit', showLeftSidebar: true, showRightSidebar: true }
+    })
+  });
+
+  controller.renderRail();
+  assert.match(elements.moduleRail.innerHTML, /data-nav-item="home" data-active="true"/);
+  assert.doesNotMatch(elements.moduleRail.innerHTML, /data-module-key="materials"[^>]*data-active="true"/);
+
+  const knowledgeHarness = createDeps({
+    state: createState({
+      navigation: { activeWorkDomain: 'knowledge' },
+      view: { screen: 'home', mode: 'edit', showLeftSidebar: true, showRightSidebar: true }
+    })
+  });
+  knowledgeHarness.controller.renderRail();
+  assert.match(knowledgeHarness.elements.moduleRail.innerHTML, /data-nav-item="knowledge-overview" data-active="true"[^>]*data-module-key="knowledge"/);
+  assert.match(knowledgeHarness.elements.moduleRail.innerHTML, /data-nav-item="home" data-active="false"/);
 });
 
 console.log('shell-controller tests passed');

@@ -148,6 +148,13 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
   });
 
   elements.workspaceShell?.addEventListener('click', (event) => {
+    const homeNavigation = closestFromEventTarget(event.target, '[data-nav-item="home"]');
+    if (homeNavigation) {
+      event.preventDefault();
+      void deps.openHome?.();
+      return;
+    }
+
     const homeButton = closestFromEventTarget(event.target, '[data-library-home]');
     if (homeButton) {
       void deps.returnToLibraryIndex({

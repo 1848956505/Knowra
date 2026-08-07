@@ -12,6 +12,7 @@ const readStyle = (name) => fs.readFileSync(
 
 const tokens = readStyle('knowra-theme-tokens.css');
 const shell = readStyle('knowra-inkgrid-shell.css');
+const navigation = readStyle('knowra-inkgrid-navigation.css');
 const library = readStyle('knowra-inkgrid-library-index.css');
 const editor = readStyle('knowra-inkgrid-editor.css');
 const workDomain = readStyle('work-domain.css');
@@ -40,13 +41,16 @@ assert.match(
 );
 assert.match(shell, /\.library-mark\s*\{[^}]*width:\s*44px[^}]*height:\s*44px[^}]*border:\s*0[^}]*background:\s*transparent/, 'the library header should reuse the unframed knowledge module mark');
 assert.match(shell, /\.library-mark-icon\s*\{[^}]*width:\s*38px[^}]*height:\s*38px/, 'the current module mark should remain legible without an active-state frame');
-assert.match(shell, /\.rail-item-icon \.semantic-icon\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/, 'module switcher artwork should fill its large icon frame');
+assert.match(navigation, /\.function-nav-icon\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/, 'function navigation artwork should fill its icon frame');
 assert.match(
   shell,
   /\.library-header-toggle\[data-open='true'\]\s*\{[^}]*background:\s*var\(--blue\)/,
   'the open section menu trigger should become a blue square'
 );
 assert.match(shellHtml, /class="library-home-target" data-library-home="global"/, 'the module header should own the library home entry point');
+assert.match(shellHtml, /class="function-navigation"[^>]*id="module-rail"[^>]*data-ui-function-navigation/, 'the shell should expose an independent function navigation host');
+assert.match(shellHtml, /id="status-indicators"[^>]*data-ui-status-feature[^>]*data-status-slot="feature"/, 'the shell should expose an independent feature status slot');
+assert.match(shellHtml, /id="status-meta"[^>]*data-ui-status-global[^>]*data-status-slot="global"/, 'the shell should expose an independent global status slot');
 assert.match(shellHtml, /class="semantic-icon library-mark-icon"[\s\S]*data-icon="libraryMark"[\s\S]*remix\/book-2-line\.svg/, 'the module header should share the knowledge icon asset');
 assert.match(shellHtml, /data-editor-aside-toggle[^>]*aria-label="收起资料边注"[\s\S]*class="semantic-icon editor-aside-toggle-icon"[\s\S]*data-icon="navigationChevron"/, 'the editor aside close action should use the central chevron mapping');
 assert.doesNotMatch(shellHtml, />›</, 'the editor aside close action should not emit a Unicode icon glyph');

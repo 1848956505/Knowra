@@ -109,6 +109,18 @@ await runTest('loadWorkspaceData loads backend resources and persists cache', as
   assert.deepEqual(calls.flashStatus, ['知识库已连接到后端数据']);
 });
 
+await runTest('loadWorkspaceData keeps the homepage status context', async () => {
+  const { controller, calls } = createDeps({
+    state: createState({
+      navigation: { activeWorkDomain: 'materials' },
+      view: { screen: 'home' }
+    })
+  });
+
+  await controller.loadWorkspaceData();
+  assert.deepEqual(calls.flashStatus, ['当前工作台：主页概览']);
+});
+
 await runTest('loadWorkspaceData falls back to cached snapshot when backend fails', async () => {
   const cachedSnapshot = {
     spaces: [{ id: 'cached-space' }],

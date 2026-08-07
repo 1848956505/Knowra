@@ -25,13 +25,13 @@ assert.match(
 );
 assert.match(
   shellControllerJs,
-  /elements\.sidebar\.hidden = !showLeftSidebar;/,
-  'workspace view state should keep the index rail visible and hide it only in editor focus mode'
+  /elements\.sidebar\.hidden = !showLibraryDirectory;/,
+  'workspace view state should keep the Materials directory separate from the global function navigation'
 );
 assert.match(
   shellControllerJs,
-  /elements\.aside\.hidden = isIndex \|\| !effectiveView\.showRightSidebar;/,
-  'workspace view state should hide the editor marginalia on the index screen or when toggled off'
+  /elements\.aside\.hidden = isHome \|\| isIndex \|\| !effectiveView\.showRightSidebar;/,
+  'workspace view state should hide the editor marginalia on the home/index screen or when toggled off'
 );
 
 assert.match(

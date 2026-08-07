@@ -15,7 +15,7 @@ assert.equal(AUTOSAVE_DELAY_MS, 700);
 assert.equal(SEARCH_DEBOUNCE_DELAY_MS, 180);
 assert.equal(SCROLL_POSITIONS_KEY, 'study-accelerator.editor-scroll-positions');
 assert.equal(state.dataMode, 'loading');
-assert.equal(state.statusMessage, '正在加载知识库...');
+assert.equal(state.statusMessage, '正在加载资料工作台...');
 assert.deepEqual(state.search, {
   keyword: '',
   selectedTagIds: [],
@@ -23,7 +23,7 @@ assert.deepEqual(state.search, {
   isOpen: false
 });
 assert.deepEqual(state.view, {
-  screen: 'index',
+  screen: 'home',
   mode: 'edit',
   showLeftSidebar: true,
   showRightSidebar: true,

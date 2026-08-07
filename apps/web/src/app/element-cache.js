@@ -2,6 +2,8 @@ const ELEMENT_IDS = {
   globalSearchShell: 'global-search-shell',
   moduleRail: 'module-rail',
   workspaceShell: 'workspace-shell',
+  homeWorkspaceView: 'home-workspace-view',
+  homeWorkspaceContent: 'home-workspace-content',
   libraryIndexView: 'library-index-view',
   libraryIndexContent: 'library-index-content',
   libraryIndexInspector: 'library-index-inspector',

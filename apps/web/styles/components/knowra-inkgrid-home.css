@@ -1,0 +1,425 @@
+.knowra-production-shell .home-workspace-view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.knowra-production-shell .home-workspace-view > #home-workspace-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.knowra-production-shell .home-workspace {
+  display: grid;
+  align-content: start;
+  gap: var(--space-8);
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  padding: var(--space-10);
+  overflow-y: auto;
+  background-color: var(--paper);
+  background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+.knowra-production-shell .home-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-7);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-welcome-copy {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-section-kicker {
+  color: var(--blue);
+  font: 700 var(--text-xs)/1 var(--font-display);
+  letter-spacing: var(--letter-label);
+}
+
+.knowra-production-shell .home-welcome h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-heading-1);
+  font-weight: 900;
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-tight);
+}
+
+.knowra-production-shell .home-welcome p,
+.knowra-production-shell .home-section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: var(--line-height-copy);
+}
+
+.knowra-production-shell .home-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: var(--space-4);
+  min-width: 252px;
+  margin: 0;
+  padding: var(--space-3) 0 0 var(--space-5);
+  border-left: var(--border-thin) solid var(--line);
+}
+
+.knowra-production-shell .home-summary div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-summary dt {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.knowra-production-shell .home-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font: 800 var(--text-title-md)/1 var(--font-display);
+}
+
+.knowra-production-shell .home-domain-section,
+.knowra-production-shell .home-recent-section {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-section-heading > div {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-section-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-heading-2);
+  font-weight: 800;
+}
+
+.knowra-production-shell .home-section-heading p {
+  max-width: 420px;
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.knowra-production-shell .home-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-domain-card {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  min-height: 192px;
+  padding: var(--space-6);
+  border: var(--border-thin) solid var(--line);
+  background: var(--paper-muted);
+}
+
+.knowra-production-shell .home-domain-card-ready {
+  border: var(--ink-border-w) solid var(--ink-line-shell);
+  background: var(--paper-raised);
+  box-shadow: var(--ink-shadow-2);
+}
+
+.knowra-production-shell .home-domain-card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  margin-bottom: var(--space-5);
+}
+
+.knowra-production-shell .home-domain-icon {
+  display: grid;
+  width: var(--space-12);
+  height: var(--space-12);
+  place-items: center;
+  border: var(--border-thin) solid var(--ink-line-shell);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.knowra-production-shell .home-domain-card-ready .home-domain-icon {
+  box-shadow: var(--ink-shadow-2);
+}
+
+.knowra-production-shell .home-domain-icon-image {
+  display: block;
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.knowra-production-shell .home-domain-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: var(--border-thin) solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.knowra-production-shell .home-domain-card-ready .home-domain-tag {
+  border-color: var(--blue);
+  background: var(--blue-wash);
+  color: var(--blue-dark);
+}
+
+.knowra-production-shell .home-domain-card[data-home-domain-state='blocked'] .home-domain-tag {
+  border-color: var(--acid-border);
+  background: var(--acid);
+  color: var(--ink);
+}
+
+.knowra-production-shell .home-domain-card h3 {
+  margin: 0 0 var(--space-2);
+  color: var(--ink);
+  font-size: var(--text-heading-2);
+  font-weight: 800;
+}
+
+.knowra-production-shell .home-domain-card p {
+  flex: 1;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-copy);
+}
+
+.knowra-production-shell .home-primary-action,
+.knowra-production-shell .home-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  min-height: var(--control-height-sm);
+  margin-top: var(--space-5);
+  padding: 0 var(--space-3);
+  border: var(--border-thin) solid var(--blue);
+  background: var(--blue);
+  color: var(--color-on-accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.knowra-production-shell .home-primary-action:hover,
+.knowra-production-shell .home-primary-action:focus-visible {
+  background: var(--blue-dark);
+  box-shadow: var(--ink-shadow-1);
+}
+
+.knowra-production-shell .home-domain-hint {
+  display: block;
+  margin-top: var(--space-5);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.knowra-production-shell .home-recent-section {
+  padding: var(--space-6);
+  border: var(--ink-border-w) solid var(--ink-line-shell);
+  background: var(--paper-raised);
+  box-shadow: var(--ink-shadow-2);
+}
+
+.knowra-production-shell .home-recent-heading {
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-thin) solid var(--line);
+}
+
+.knowra-production-shell .home-secondary-action {
+  margin: 0;
+  border-color: var(--ink-line-shell);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.knowra-production-shell .home-secondary-action:hover,
+.knowra-production-shell .home-secondary-action:focus-visible {
+  background: var(--paper-muted);
+  box-shadow: var(--ink-shadow-1);
+}
+
+.knowra-production-shell .home-recent-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.knowra-production-shell .home-recent-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.knowra-production-shell .home-recent-table th {
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-align: left;
+}
+
+.knowra-production-shell .home-recent-table th:nth-child(1) { width: 58%; }
+.knowra-production-shell .home-recent-table th:nth-child(2) { width: 20%; }
+.knowra-production-shell .home-recent-table th:nth-child(3) { width: 22%; }
+
+.knowra-production-shell .home-recent-table td {
+  padding: var(--space-3) var(--space-2);
+  border-top: var(--border-thin) solid var(--line-soft);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  vertical-align: middle;
+}
+
+.knowra-production-shell .home-recent-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.knowra-production-shell .home-recent-note:hover,
+.knowra-production-shell .home-recent-note:focus-visible {
+  color: var(--blue);
+}
+
+.knowra-production-shell .home-recent-note-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--space-5);
+  height: var(--space-5);
+  color: var(--muted);
+}
+
+.knowra-production-shell .home-recent-note > span {
+  display: grid;
+  gap: var(--space-half);
+  min-width: 0;
+}
+
+.knowra-production-shell .home-recent-note strong,
+.knowra-production-shell .home-recent-note small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowra-production-shell .home-recent-note small,
+.knowra-production-shell .home-recent-date {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.knowra-production-shell .home-recent-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: var(--border-thin) solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.knowra-production-shell .home-recent-status[data-home-note-status='active'],
+.knowra-production-shell .home-recent-status[data-home-note-status='published'] {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.knowra-production-shell .home-recent-status[data-home-note-status='draft'] {
+  border-color: var(--acid-border);
+  color: var(--ink);
+}
+
+.knowra-production-shell .home-recent-empty,
+.knowra-production-shell .home-loading-state {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-7);
+  border-top: var(--border-accent) solid var(--blue);
+  background: var(--paper-raised);
+}
+
+.knowra-production-shell .home-recent-empty span,
+.knowra-production-shell .home-loading-state > span:last-child {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.knowra-production-shell .home-workspace-loading {
+  align-content: center;
+}
+
+@media (max-width: 1180px) {
+  .knowra-production-shell .home-workspace {
+    padding: var(--space-7);
+  }
+}
+
+@media (max-width: 1100px) {
+  .knowra-production-shell .home-welcome {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .knowra-production-shell .home-summary {
+    min-width: 0;
+    padding: var(--space-3) 0 0;
+    border-top: var(--border-thin) solid var(--line);
+    border-left: 0;
+  }
+
+  .knowra-production-shell .home-section-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .knowra-production-shell .home-section-heading p {
+    max-width: none;
+    text-align: left;
+  }
+}

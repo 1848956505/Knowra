@@ -239,7 +239,7 @@
 .knowra-production-shell .status-group { gap: var(--space-3); }
 .knowra-production-shell .status-inline { min-height: var(--status-height); color: var(--muted); font-size: var(--text-xs); }
 .knowra-production-shell .status-message { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.knowra-production-shell .status-action { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-height-sm); padding-inline: var(--space-2); border: var(--border-thin) solid transparent; border-radius: var(--radius-none); background: transparent; color: var(--muted); font-size: var(--text-xs); }
+.knowra-production-shell .status-action { display: inline-flex; align-items: center; gap: var(--space-1); width: auto; height: var(--control-height-sm); min-height: var(--control-height-sm); padding: 0 var(--space-2); border: var(--border-thin) solid transparent; border-radius: var(--radius-none); background: transparent; color: var(--muted); font-size: var(--text-xs); }
 .knowra-production-shell .status-action:hover,
 .knowra-production-shell .status-action[data-active='true'] { border-color: var(--blue); background: var(--blue); color: var(--color-on-accent); }
 .knowra-production-shell .status-save i { width: var(--space-2); height: var(--space-2); border: var(--border-thin) solid var(--acid-border); border-radius: var(--radius-status); background: var(--acid); }

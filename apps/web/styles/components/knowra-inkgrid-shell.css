@@ -52,22 +52,35 @@ body:has(.knowra-production-shell) {
   grid-column: 1;
   grid-row: 2;
   display: grid;
-  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  grid-template-columns: var(--shell-nav-w) var(--catalog-w) minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   height: 100%;
   overflow: hidden;
 }
 
+.knowra-production-shell[data-function-navigation-hidden='true'] .shell-body,
 .knowra-production-shell[data-left-hidden='true'] .shell-body {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* 覆盖旧响应式 flex 规则（responsive.css 在 max-width: 1040px 下设置 .kb-sidebar { order: 2 }）：
-   ShellBody 是 Grid，order 同样作用于 Grid 子项；必须让导航始终位于第一列，
-   FeatureStage 占据剩余主体区域，否则 1024×768 下两列会被交换。 */
-.knowra-production-shell .shell-body .kb-sidebar {
+.knowra-production-shell[data-directory-hidden='true'] .shell-body {
+  grid-template-columns: var(--shell-nav-w) minmax(0, 1fr);
+}
+
+.knowra-production-shell .shell-body .function-navigation {
   order: 0;
+}
+
+/* 覆盖旧响应式 flex 规则（responsive.css 在 max-width: 1040px 下设置 .kb-sidebar { order: 2 }）：
+   ShellBody 是 Grid，order 同样作用于 Grid 子项；目录栏必须位于功能导航之后，
+   FeatureStage 占据剩余主体区域，否则紧凑视口下三列会被交换。 */
+.knowra-production-shell .shell-body .kb-sidebar {
+  order: 1;
+}
+
+.knowra-production-shell .shell-body .feature-stage {
+  order: 2;
 }
 
 .knowra-production-shell .workspace-main {
@@ -102,12 +115,31 @@ body:has(.knowra-production-shell) {
   overflow: hidden;
 }
 
+.knowra-production-shell .status-feature-slot {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.knowra-production-shell .status-global-slot {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.knowra-production-shell .status-feature-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 .knowra-production-shell .knowra-rail {
   position: relative;
   z-index: 20;
   display: flex;
   flex-direction: column;
-  width: var(--rail-width);
+  width: var(--catalog-w);
   height: 100%;
   min-height: 0;
   padding: 0 var(--space-6) var(--space-4);
@@ -208,13 +240,3 @@ body:has(.knowra-production-shell) {
 .knowra-production-shell .knowra-rail .library-inline-action:hover { background: var(--paper-raised); color: var(--blue); }
 .knowra-production-shell .knowra-rail .library-inline-action-primary { border-left-color: var(--blue); background: var(--blue); color: var(--color-on-accent); }
 .knowra-production-shell .knowra-rail .library-inline-action-primary:hover { background: var(--blue-dark); color: var(--color-on-accent); }
-.knowra-production-shell .knowra-rail .module-switcher { display: grid; grid-template-columns: repeat(5, var(--space-9)); flex: 0 0 auto; gap: var(--space-2); width: 100%; margin-top: var(--space-2); padding: var(--space-3) 0 var(--space-2); border-top: var(--border-thin) solid var(--line); }
-.knowra-production-shell .knowra-rail .rail-item { display: grid; width: var(--space-9); height: 40px; padding: 0; place-items: center; border: var(--border-thin) solid var(--line); border-radius: var(--radius-none); background: transparent; color: var(--blue); }
-.knowra-production-shell .knowra-rail .rail-item::before { display: none; }
-.knowra-production-shell .knowra-rail .rail-item-icon { display: grid; width: 28px; height: 28px; place-items: center; }
-.knowra-production-shell .knowra-rail .rail-item-icon .semantic-icon { display: block; width: 100%; height: 100%; }
-.knowra-production-shell .knowra-rail .rail-item:hover,
-.knowra-production-shell .knowra-rail .rail-item[data-active='true'] { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); }
-.knowra-production-shell .knowra-rail .rail-item-label { left: 50%; top: auto; bottom: calc(100% + var(--space-2)); transform: translate(-50%, var(--space-1)); }
-.knowra-production-shell .knowra-rail .rail-item:hover .rail-item-label,
-.knowra-production-shell .knowra-rail .rail-item:focus-visible .rail-item-label { transform: translate(-50%, 0); }

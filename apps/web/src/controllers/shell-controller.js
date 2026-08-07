@@ -1,8 +1,8 @@
 import {
-  renderStatusIndicators,
-  renderStatusMeta
+  renderStatusFeature,
+  renderStatusGlobal
 } from '../../lib/status/renderers.js';
-import { renderModuleRail } from '../../lib/shell/rail-renderers.js';
+import { renderFunctionNavigation } from '../../lib/shell/rail-renderers.js';
 import { getEffectiveViewState as selectEffectiveViewState } from '../../lib/shell/view-state.js';
 import { renderEditorDocumentHead } from '../../lib/editor/document-head-renderer.js';
 import {
@@ -18,6 +18,7 @@ import {
   paginateLibraryIndexNotes,
   selectLibraryIndexNotes
 } from '../../lib/library-index/model.js';
+import { renderHomeLoading, renderHomeWorkspace } from '../../lib/home/renderers.js';
 
 export function createShellController(deps) {
   const {
@@ -36,22 +37,24 @@ export function createShellController(deps) {
     renderWorkDomain: renderWorkDomainView
   } = deps;
 
-function renderRail() {
+  function renderRail() {
   if (!elements.moduleRail) {
     return;
   }
 
   const activeDomain = state.navigation?.activeWorkDomain;
-  elements.moduleRail.innerHTML = renderModuleRail(railItems.map((item) => ({
-    ...item,
-    active: activeDomain ? item.key === activeDomain : item.active
-  })));
+  const activeKey = activeDomain === 'materials' && state.view?.screen === 'home'
+    ? 'home'
+    : activeDomain ?? railItems.find((item) => item.active)?.key ?? 'materials';
+  elements.moduleRail.innerHTML = renderFunctionNavigation(activeKey);
 }
 
 function renderAll() {
   const currentNote = getCurrentNote();
+  safeRenderStep('function-navigation', renderRail);
   safeRenderStep('search', renderSearchShell);
   safeRenderStep('workspace-view', renderWorkspaceViewState);
+  safeRenderStep('home', renderHome);
   safeRenderStep('work-domain', renderWorkDomain);
   safeRenderStep('navigation', renderFolders);
   safeRenderStep('library-index', renderLibraryIndex);
@@ -83,14 +86,18 @@ function renderWorkspaceViewState() {
 
   const effectiveView = getEffectiveViewState();
   const isMaterials = (state.navigation?.activeWorkDomain ?? 'materials') === 'materials';
+  const isHome = isMaterials && state.view.screen === 'home';
   const isIndex = isMaterials && state.view.screen === 'index';
   // The left rail contains the global work-domain switcher and must remain
   // reachable outside the Materials domain. Only the Materials index/editor
   // decides whether the contextual library sidebar itself is shown.
-  const showLeftSidebar = !isMaterials || isIndex || effectiveView.showLeftSidebar;
+  const showFunctionNavigation = !isMaterials || isHome || isIndex || effectiveView.showLeftSidebar;
+  const showLibraryDirectory = isMaterials && !isHome && (isIndex || effectiveView.showLeftSidebar);
   if (elements.workspaceShell) {
-    elements.workspaceShell.dataset.screen = !isMaterials ? 'domain' : isIndex ? 'index' : 'editor';
-    elements.workspaceShell.dataset.leftHidden = String(!showLeftSidebar);
+    elements.workspaceShell.dataset.screen = !isMaterials ? 'domain' : isHome ? 'home' : isIndex ? 'index' : 'editor';
+    elements.workspaceShell.dataset.leftHidden = String(!showFunctionNavigation);
+    elements.workspaceShell.dataset.functionNavigationHidden = String(!showFunctionNavigation);
+    elements.workspaceShell.dataset.directoryHidden = String(!showLibraryDirectory);
   }
   elements.workspace.dataset.leftHidden = String(!effectiveView.showLeftSidebar);
   elements.workspace.dataset.rightHidden = String(!effectiveView.showRightSidebar);
@@ -99,25 +106,41 @@ function renderWorkspaceViewState() {
   if (elements.libraryIndexView) {
     elements.libraryIndexView.hidden = !isMaterials || !isIndex;
   }
+  if (elements.homeWorkspaceView) {
+    elements.homeWorkspaceView.hidden = !isHome;
+  }
   if (elements.editorWorkspaceView) {
-    elements.editorWorkspaceView.hidden = !isMaterials || isIndex;
+    elements.editorWorkspaceView.hidden = !isMaterials || isHome || isIndex;
   }
   if (elements.workDomainView) {
     elements.workDomainView.hidden = isMaterials;
     elements.workDomainView.dataset.domain = state.navigation?.activeWorkDomain ?? 'materials';
   }
 
+  if (elements.moduleRail) {
+    elements.moduleRail.hidden = !showFunctionNavigation;
+  }
   if (elements.sidebar) {
-    elements.sidebar.hidden = !showLeftSidebar;
+    elements.sidebar.hidden = !showLibraryDirectory;
   }
 
   if (elements.aside) {
-    elements.aside.hidden = isIndex || !effectiveView.showRightSidebar;
+    elements.aside.hidden = isHome || isIndex || !effectiveView.showRightSidebar;
     if (!isMaterials) elements.aside.hidden = true;
   }
   if (elements.editorAsideReopen) {
-    elements.editorAsideReopen.hidden = !isMaterials || isIndex || effectiveView.showRightSidebar;
+    elements.editorAsideReopen.hidden = !isMaterials || isHome || isIndex || effectiveView.showRightSidebar;
   }
+}
+
+function renderHome() {
+  if (!elements.homeWorkspaceContent) {
+    return;
+  }
+
+  elements.homeWorkspaceContent.innerHTML = state.dataMode === 'loading' && !state.allNotes.length
+    ? renderHomeLoading()
+    : renderHomeWorkspace(state);
 }
 
 function renderLibraryIndex() {
@@ -166,20 +189,20 @@ function renderStatus() {
   const currentNote = getCurrentNote();
   const effectiveView = getEffectiveViewState();
   const markdown = state.draftMarkdown || currentNote?.rawMarkdown || '';
+  const isEditor = state.navigation?.activeWorkDomain === 'materials' && state.view.screen === 'editor';
 
   if (elements.statusIndicators) {
-    elements.statusIndicators.innerHTML = renderStatusIndicators({
+    elements.statusIndicators.innerHTML = renderStatusFeature({
       statusMessage: state.statusMessage,
-      saveState: state.saveState
+      saveState: state.saveState,
+      markdown,
+      view: effectiveView,
+      showEditorControls: isEditor
     });
   }
 
   if (elements.statusMeta) {
-    elements.statusMeta.innerHTML = renderStatusMeta({
-      dataMode: state.dataMode,
-      markdown,
-      view: effectiveView
-    });
+    elements.statusMeta.innerHTML = renderStatusGlobal({ dataMode: state.dataMode });
   }
 }
 
@@ -189,6 +212,7 @@ function renderStatus() {
     safeRenderStep,
     getEffectiveViewState,
     renderWorkspaceViewState,
+    renderHome,
     renderWorkDomain,
     renderLibraryIndex,
     renderDocumentHead,

@@ -19,6 +19,10 @@ import {
   normalizeFolderTree,
   normalizeNotes
 } from '../../lib/workspace-normalization.js';
+import {
+  getHomeStatusMessage,
+  getWorkDomainStatusMessage
+} from '../../lib/status/messages.js';
 
 export function createWorkspaceController(deps) {
   const {
@@ -89,7 +93,8 @@ async function loadWorkspaceData({ cachedSnapshot = null } = {}) {
     state.dataMode = 'api';
     backendLoaded = true;
     persistBackendCache();
-    flashStatus('知识库已连接到后端数据');
+    renderAll();
+    flashStatus(resolveWorkspaceStatusMessage(state, '知识库已连接到后端数据'));
   } catch (error) {
     const recoverySnapshot = cachedSnapshot ?? readBackendCache();
     const recoveryMode = selectLoadRecovery({
@@ -113,6 +118,17 @@ async function loadWorkspaceData({ cachedSnapshot = null } = {}) {
     state.dataMode = 'local';
     flashStatus('未检测到后端，已切换到前端本地演示模式');
   }
+}
+
+function resolveWorkspaceStatusMessage(state, fallback) {
+  const domain = state.navigation?.activeWorkDomain;
+  if (domain === 'materials' && state.view?.screen === 'home') {
+    return getHomeStatusMessage();
+  }
+  if (domain && domain !== 'materials') {
+    return getWorkDomainStatusMessage(domain);
+  }
+  return fallback;
 }
 
 async function ensureSpaceId() {

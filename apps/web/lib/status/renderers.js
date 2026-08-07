@@ -5,31 +5,50 @@ export function renderStatusIndicators({
   statusMessage,
   saveState = 'idle'
 }) {
-  const saveLabel = {
-    dirty: '等待保存',
-    saving: '正在保存',
-    saved: '已自动保存',
-    error: '保存失败'
-  }[saveState] ?? '保存当前资料';
-
   return `
-      <button type="button" class="status-action status-save" data-save-now data-state="${saveState}">
-        <i aria-hidden="true"></i>${saveLabel}
-      </button>
-      <span class="status-inline status-message">${escapeHtml(statusMessage)}</span>
+      ${renderStatusSave({ saveState })}
+      ${renderStatusMessage(statusMessage)}
     `;
 }
 
-export function renderStatusMeta({ dataMode, markdown = '', view = {} }) {
-  const stats = getStatusDocumentStats(markdown);
-  const modeLabel = {
-    api: '云端已连接',
-    cache: '只读缓存',
-    loading: '正在连接',
-    local: '本地演示'
-  }[dataMode] ?? '本地演示';
+export function renderStatusFeature({
+  statusMessage,
+  saveState = 'idle',
+  markdown = '',
+  view = {},
+  showEditorControls = false
+}) {
+  if (!showEditorControls) {
+    return renderStatusMessage(statusMessage);
+  }
 
   return `
+    ${renderStatusIndicators({ statusMessage, saveState })}
+    ${renderStatusFeatureControls({ markdown, view })}
+  `;
+}
+
+export function renderStatusGlobal({ dataMode }) {
+  const modeLabel = getDataModeLabel(dataMode);
+
+  return `
+    <span class="status-inline status-global-encoding" data-status-global="encoding">UTF-8</span>
+    <span class="status-inline status-global-connection" data-status-global="connection">${escapeHtml(modeLabel)}</span>
+  `;
+}
+
+export function renderStatusMeta({ dataMode, markdown = '', view = {} }) {
+  return `
+      ${renderStatusFeatureControls({ markdown, view })}
+      ${renderStatusGlobal({ dataMode })}
+    `;
+}
+
+export function renderStatusFeatureControls({ markdown = '', view = {} }) {
+  const stats = getStatusDocumentStats(markdown);
+
+  return `
+    <span class="status-feature-controls" data-status-feature-controls>
       <span class="status-inline">字数 ${stats.characters}</span>
       <span class="status-inline">行数 ${stats.lines}</span>
       <span class="status-inline">链接 ${stats.links}</span>
@@ -42,9 +61,36 @@ export function renderStatusMeta({ dataMode, markdown = '', view = {} }) {
         data-active="${String(view.mode === 'focus')}"
         aria-label="${view.mode === 'focus' ? '退出专注模式' : '进入专注模式'}"
       >专注</button>
-      <span class="status-inline">UTF-8</span>
-      <span class="status-inline">${escapeHtml(modeLabel)}</span>
-    `;
+    </span>
+  `;
+}
+
+function renderStatusSave({ saveState }) {
+  const saveLabel = {
+    dirty: '等待保存',
+    saving: '正在保存',
+    saved: '已自动保存',
+    error: '保存失败'
+  }[saveState] ?? '保存当前资料';
+
+  return `
+      <button type="button" class="status-action status-save" data-save-now data-state="${saveState}">
+        <i aria-hidden="true"></i>${saveLabel}
+      </button>
+  `;
+}
+
+function renderStatusMessage(statusMessage) {
+  return `<span class="status-inline status-message" data-status-feature-message aria-live="polite">${escapeHtml(statusMessage ?? '')}</span>`;
+}
+
+function getDataModeLabel(dataMode) {
+  return {
+    api: '云端已连接',
+    cache: '只读缓存',
+    loading: '正在连接',
+    local: '本地演示'
+  }[dataMode] ?? '本地演示';
 }
 
 export function getStatusDocumentStats(markdown = '') {

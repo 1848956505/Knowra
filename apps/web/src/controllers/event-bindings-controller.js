@@ -17,6 +17,7 @@ import { bindDocumentTitleEvents } from '../../lib/events/document-title-events.
 import { bindAsideEvents } from '../../lib/events/aside-events/index.js';
 import { bindLibraryIndexEvents } from '../../lib/events/library-index-events.js';
 import { bindWorkDomainEvents } from '../../lib/events/work-domain-events.js';
+import { bindHomeEvents } from '../../lib/events/home-events.js';
 
 export function bindAppEvents({
   state,
@@ -136,6 +137,7 @@ export function bindAppEvents({
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
     persistDraft: (...args) => editorController.persistDraft(...args),
     returnToLibraryIndex: (...args) => navigationController.returnToLibraryIndex(...args),
+    openHome: (...args) => workDomainController.openHome(...args),
     selectWorkDomain: (...args) => workDomainController.selectWorkDomain(...args),
     selectWorkDomainView: (...args) => workDomainController.selectView(...args),
     retryWorkspace: (...args) => workDomainController.retry(...args),
@@ -222,4 +224,5 @@ export function bindAppEvents({
   bindAsideEvents({ state, elements, deps });
   bindLibraryIndexEvents({ state, elements, deps });
   bindWorkDomainEvents({ state, elements, deps });
+  bindHomeEvents({ state, elements, deps });
 }
