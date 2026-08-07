@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -84,14 +84,63 @@ function writeExecutable(filePath, lines) {
 }
 
 function runDeployScript(fixture) {
-  return spawnSync('bash', [deployScript], {
+  const bashCommand = resolveBashCommand();
+  const isWindows = process.platform === 'win32';
+  const gitBashRoot = isWindows && path.isAbsolute(bashCommand)
+    ? resolveGitBashRoot(bashCommand)
+    : null;
+  const shellPathEntries = [fixture.binDir];
+
+  if (gitBashRoot) {
+    shellPathEntries.push(path.join(gitBashRoot, 'usr', 'bin'), path.join(gitBashRoot, 'bin'));
+  } else {
+    shellPathEntries.push(process.env.PATH ?? '');
+  }
+
+  return spawnSync(bashCommand, [isWindows ? toGitBashPath(deployScript) : deployScript], {
     cwd: workspaceRoot,
     encoding: 'utf8',
     env: {
       ...process.env,
-      DEPLOY_TEST_LOG: fixture.logFile,
+      DEPLOY_TEST_LOG: isWindows ? toGitBashPath(fixture.logFile) : fixture.logFile,
       DEPLOY_TEST_MISSING_PROCESS: fixture.missingProcess,
-      PATH: `${fixture.binDir}:${process.env.PATH}`
+      PATH: shellPathEntries
+        .map((entry) => isWindows ? toGitBashPath(entry) : entry)
+        .join(isWindows ? ':' : path.delimiter)
     }
   });
+}
+
+function resolveBashCommand() {
+  if (process.platform !== 'win32') {
+    return 'bash';
+  }
+
+  const candidates = [
+    process.env.BASH_PATH,
+    path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
+    path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'usr', 'bin', 'bash.exe'),
+    path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git', 'bin', 'bash.exe'),
+    path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Git', 'usr', 'bin', 'bash.exe'),
+    path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Git', 'bin', 'bash.exe')
+  ].filter(Boolean);
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? 'bash';
+}
+
+function resolveGitBashRoot(bashCommand) {
+  const bashDirectory = path.dirname(bashCommand);
+  const parentDirectory = path.basename(path.dirname(bashDirectory)).toLowerCase();
+  return parentDirectory === 'usr'
+    ? path.resolve(bashDirectory, '..', '..')
+    : path.resolve(bashDirectory, '..');
+}
+
+function toGitBashPath(filePath) {
+  if (process.platform !== 'win32') {
+    return filePath;
+  }
+
+  const absolutePath = path.resolve(filePath).replaceAll('\\', '/');
+  return `/${absolutePath[0].toLowerCase()}${absolutePath.slice(2)}`;
 }
