@@ -27,6 +27,7 @@ export const ICON_MAP = Object.freeze({
   noteMarkdown: `${ICON_ROOT}/file-text-line.svg`,
   notePdf: `${ICON_ROOT}/file-pdf-2-line.svg`,
   noteResource: `${ICON_ROOT}/file-list-3-line.svg`,
+  noteManual: `${ICON_ROOT}/edit-2-line.svg`,
   inspectorOpen: `${ICON_ROOT}/external-link-line.svg`,
   archive: `${ICON_ROOT}/bookmark-3-line.svg`,
   sectionFile: `${ICON_ROOT}/file-text-line.svg`,

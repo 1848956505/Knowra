@@ -45,15 +45,27 @@ export function renderHtml(initialWorkspaceScript = '') {
                 ${renderIcon('libraryMark', { className: 'library-mark-icon' })}
               </span>
               <span class="library-copy"><strong>资料库</strong><small>LIBRARY</small></span>
+              <span class="library-index-directory-label" aria-hidden="true">资料目录</span>
             </button>
-            <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
-              ${renderIcon('more', { className: 'library-header-toggle-icon' })}
-            </button>
+            <span class="library-header-actions">
+              <button type="button" class="library-index-header-action library-index-create-folder" data-index-directory-create aria-label="新建文件夹" title="新建文件夹">
+                ${renderIcon('create', { className: 'library-index-header-action-icon' })}
+              </button>
+              <button type="button" class="library-index-header-action library-index-directory-toggle" id="library-index-directory-toggle" data-index-directory-toggle aria-expanded="true" aria-controls="kb-sidebar" aria-label="折叠目录栏" title="折叠目录栏">
+                ${renderIcon('navigationChevron', { className: 'library-index-header-action-icon' })}
+              </button>
+              <button type="button" class="library-header-toggle" id="secondary-nav-toggle" aria-label="显示导航入口菜单" title="显示导航入口菜单">
+                ${renderIcon('more', { className: 'library-header-toggle-icon' })}
+              </button>
+            </span>
           </div>
           <div class="directory-group-label directory-heading">内容与文件夹</div>
           <div class="library-tree" id="folder-tree"></div>
         </section>
       </aside>
+      <button type="button" class="library-index-directory-reopen" id="library-index-directory-reopen" data-index-directory-toggle aria-expanded="false" aria-controls="kb-sidebar" aria-label="展开目录栏" title="展开目录栏" hidden>
+        ${renderIcon('navigationChevron', { className: 'library-index-directory-reopen-icon' })}
+      </button>
 
       <div class="feature-stage workspace-main" data-ui-feature-stage>
         <main class="workspace-stage">
@@ -74,20 +86,19 @@ export function renderHtml(initialWorkspaceScript = '') {
           <section class="library-index-view" id="library-index-view" hidden>
             <main class="index-workspace">
               <header class="masthead">
-                <div class="masthead-title"><h1>资料库</h1><span class="masthead-kicker">LIBRARY INDEX</span></div>
-                <div class="scope-summary" id="library-index-scope" aria-live="polite"></div>
+                <div class="masthead-title"><h1>资料库</h1><div class="scope-summary" id="library-index-scope" aria-live="polite"></div></div>
                 <button type="button" class="primary-button" data-index-new-note>
                   ${renderIcon('create', { className: 'masthead-create-icon' })}
                   <span>新建资料</span>
                 </button>
               </header>
-              <nav class="content-tabs" id="library-index-tabs" aria-label="资料筛选"></nav>
+              <nav class="content-tabs" id="library-index-tabs" role="tablist" aria-label="资料筛选"></nav>
               <div class="filter-row">
                 <div class="index-filter-controls" id="library-index-filters"></div>
               </div>
-              <div class="library-index-content" id="library-index-content"></div>
+              <div class="library-index-content" id="library-index-content" role="tabpanel" aria-labelledby="library-index-tab-all" tabindex="0"></div>
             </main>
-            <aside class="index-inspector" id="library-index-inspector"></aside>
+            <aside class="index-inspector" id="library-index-inspector" aria-label="资料详情"></aside>
           </section>
 
           <section class="editor-workspace-view" id="editor-workspace-view" hidden>

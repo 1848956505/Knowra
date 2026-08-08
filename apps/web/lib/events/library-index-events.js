@@ -1,5 +1,38 @@
 import { closestFromEventTarget } from '../dom/event-target.js';
 
+const LIBRARY_INDEX_TAB_KEYS = ['all', 'recent', 'favorites', 'recycle'];
+
+function getLibraryIndexTabButtons(elements) {
+  return Array.from(elements.libraryIndexView?.querySelectorAll?.('[data-index-tab]') ?? [])
+    .filter((button) => button?.dataset?.indexTab);
+}
+
+function getLibraryIndexTabKeys(elements) {
+  const tabKeys = getLibraryIndexTabButtons(elements).map((button) => button.dataset.indexTab);
+  return tabKeys.length ? tabKeys : LIBRARY_INDEX_TAB_KEYS;
+}
+
+function getLibraryIndexKeyboardTarget(currentKey, pressedKey, tabKeys) {
+  const currentIndex = tabKeys.indexOf(currentKey);
+  if (currentIndex < 0) return null;
+
+  if (pressedKey === 'Home') return tabKeys[0];
+  if (pressedKey === 'End') return tabKeys[tabKeys.length - 1];
+
+  const direction = ['ArrowRight', 'ArrowDown'].includes(pressedKey) ? 1
+    : ['ArrowLeft', 'ArrowUp'].includes(pressedKey) ? -1
+      : 0;
+  if (!direction) return null;
+
+  return tabKeys[(currentIndex + direction + tabKeys.length) % tabKeys.length];
+}
+
+function focusLibraryIndexTab(elements, tabKey) {
+  getLibraryIndexTabButtons(elements)
+    .find((button) => button.dataset.indexTab === tabKey)
+    ?.focus?.();
+}
+
 export function bindLibraryIndexEvents({ state, elements, deps }) {
   let rowSelectionTimer = null;
   const openNote = async (noteId) => {
@@ -66,14 +99,16 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
       return;
     }
 
+    const attachmentButton = closestFromEventTarget(event.target, '[data-attachment-open]');
+    if (attachmentButton?.dataset.attachmentOpen) {
+      event.stopPropagation();
+      void deps.openAttachment?.(attachmentButton.dataset.attachmentOpen);
+      return;
+    }
+
     const tabButton = closestFromEventTarget(event.target, '[data-index-tab]');
     if (tabButton?.dataset.indexTab) {
-      state.libraryIndex.tab = tabButton.dataset.indexTab;
-      state.libraryIndex.filterMenu = null;
-      state.libraryIndex.selectedNoteId = null;
-      state.libraryIndex.page = 1;
-      state.selectedFolderId = null;
-      deps.renderAll();
+      selectLibraryIndexTab({ state, deps, tabKey: tabButton.dataset.indexTab });
       return;
     }
 
@@ -86,8 +121,10 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
         status: 'all',
         time: 'updated-desc'
       };
+      state.libraryIndex.localKeyword = '';
       state.selectedFolderId = null;
       deps.clearSearchFilters();
+      deps.renderLibraryIndex();
       return;
     }
 
@@ -122,6 +159,20 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
     if (closedFilterMenu) deps.renderLibraryIndex();
   });
 
+  elements.libraryIndexView?.addEventListener('input', (event) => {
+    const input = closestFromEventTarget(event.target, '[data-index-local-search]');
+    if (!input) return;
+
+    state.libraryIndex.localKeyword = String(input.value ?? '').trim().toLowerCase();
+    state.libraryIndex.page = 1;
+    state.libraryIndex.selectedNoteId = null;
+    deps.reconcileSelection?.();
+    deps.renderAll();
+    const nextInput = elements.libraryIndexView.querySelector?.('[data-index-local-search]');
+    nextInput?.focus?.();
+    nextInput?.setSelectionRange?.(nextInput.value.length, nextInput.value.length);
+  });
+
   elements.libraryIndexView?.addEventListener('dblclick', (event) => {
     if (closestFromEventTarget(event.target, 'button, input, textarea')) return;
     const row = closestFromEventTarget(event.target, '[data-index-note-select]');
@@ -139,6 +190,22 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
       deps.renderLibraryIndex();
       return;
     }
+
+    const tabButton = closestFromEventTarget(event.target, '[data-index-tab]');
+    if (tabButton?.dataset.indexTab && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      const nextTabKey = getLibraryIndexKeyboardTarget(
+        tabButton.dataset.indexTab,
+        event.key,
+        getLibraryIndexTabKeys(elements)
+      );
+      if (nextTabKey) {
+        event.preventDefault();
+        selectLibraryIndexTab({ state, deps, tabKey: nextTabKey });
+        focusLibraryIndexTab(elements, nextTabKey);
+        return;
+      }
+    }
+
     if (event.key !== 'Enter') return;
     const row = closestFromEventTarget(event.target, '[data-index-note-select]');
     if (row?.dataset.indexNoteSelect) {
@@ -148,6 +215,18 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
   });
 
   elements.workspaceShell?.addEventListener('click', (event) => {
+    const directoryToggle = closestFromEventTarget(event.target, '[data-index-directory-toggle]');
+    if (directoryToggle) {
+      state.libraryIndex.directoryOpen = !state.libraryIndex.directoryOpen;
+      deps.renderAll();
+      return;
+    }
+
+    if (closestFromEventTarget(event.target, '[data-index-directory-create]')) {
+      void deps.handleFileMenuAction('new-folder');
+      return;
+    }
+
     const homeNavigation = closestFromEventTarget(event.target, '[data-nav-item="home"]');
     if (homeNavigation) {
       event.preventDefault();
@@ -173,4 +252,13 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
     if (!moduleButton?.dataset.moduleKey) return;
     deps.selectWorkDomain?.(moduleButton.dataset.moduleKey);
   });
+}
+
+function selectLibraryIndexTab({ state, deps, tabKey }) {
+  state.libraryIndex.tab = tabKey;
+  state.libraryIndex.filterMenu = null;
+  state.libraryIndex.selectedNoteId = null;
+  state.libraryIndex.page = 1;
+  state.selectedFolderId = null;
+  deps.renderAll();
 }

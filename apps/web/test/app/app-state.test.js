@@ -35,6 +35,8 @@ assert.deepEqual(state.libraryIndex, {
   pageSize: 10,
   selectedNoteId: null,
   inspectorOpen: true,
+  directoryOpen: true,
+  localKeyword: '',
   filterMenu: null,
   filters: {
     type: 'all',

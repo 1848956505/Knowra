@@ -113,6 +113,8 @@ export function createInitialAppState() {
       pageSize: 10,
       selectedNoteId: null,
       inspectorOpen: true,
+      directoryOpen: true,
+      localKeyword: '',
       filterMenu: null,
       filters: {
         type: 'all',

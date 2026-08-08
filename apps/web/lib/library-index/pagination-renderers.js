@@ -12,6 +12,7 @@ export function renderLibraryPagination({ page, pageSize, totalItems, totalPages
             data-index-page="${pageNumber}"
             data-active="${String(pageNumber === page)}"
             aria-label="第 ${pageNumber} 页"
+            ${pageNumber === page ? 'aria-current="page"' : ''}
           >${pageNumber}</button>
         `).join('')}
       </nav>
@@ -22,6 +23,8 @@ export function renderLibraryPagination({ page, pageSize, totalItems, totalPages
             type="button"
             data-index-page-size="${size}"
             data-active="${String(size === pageSize)}"
+            aria-pressed="${String(size === pageSize)}"
+            aria-label="每页 ${size} 条"
           >${size}</button>
         `).join('')}
         <span>条</span>

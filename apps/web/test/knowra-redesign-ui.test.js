@@ -66,13 +66,13 @@ assert.match(
 assert.match(tokens, /--ink-index-selection-w:\s*2px;/, 'index selection should use the low-focus line token');
 assert.match(tokens, /--ink-border-tab-active:\s*2px;/, 'Tab activation lines should use the dedicated 2px token');
 assert.match(tokens, /--ink-masthead-h:\s*76px;/, 'the approved compact masthead height should be shared');
-assert.match(tokens, /--ink-index-row-h:\s*124px;/, 'the approved compact index row height should be shared');
+assert.match(tokens, /--ink-index-row-h:\s*100px;/, 'the prototype index row height should be shared');
 assert.match(tokens, /--ink-statusbar-h:\s*32px;/, 'the status bar should use the compact shared 32px rhythm');
 assert.match(tokens, /--editor-focus-frame-width:\s*calc\(var\(--editor-max-width\) \+ var\(--space-20\)\);/, 'focus mode should use a bounded centered writing frame');
 assert.match(
   library,
-  /\.masthead \.primary-button\s*\{[^}]*height:\s*var\(--control-height-md\)[^}]*border:\s*var\(--border-thin\) solid var\(--blue\)[^}]*background:\s*transparent/,
-  'the index create action should remain a lightweight outlined control'
+  /\.masthead \.primary-button\s*\{[^}]*height:\s*var\(--index-create-height\)[^}]*border:\s*var\(--ink-border-w\) solid var\(--ink-border\)[^}]*background:\s*var\(--blue\)[^}]*box-shadow:\s*var\(--ink-shadow-2\)/,
+  'the index create action should match the prototype solid control'
 );
 assert.match(
   library,
@@ -85,7 +85,9 @@ assert.match(
   'the selected index marker should use the subtle selection width'
 );
 assert.match(library, /-webkit-line-clamp:\s*1;/, 'index summaries should keep the approved single-line compact rhythm');
-assert.match(library, /\.entry-book-cover\s*\{[^}]*width:\s*70px[^}]*height:\s*70px[^}]*opacity:\s*0\.5/, 'note rows should use the large blue book-cover mark');
+assert.match(library, /\.index-list-card\s*\{[^}]*border:\s*var\(--ink-border-w\) solid var\(--ink-border\)[^}]*box-shadow:\s*var\(--ink-shadow-2\)/, 'the entry list should use the prototype card surface');
+assert.match(library, /\.entry-archive\s*\{[^}]*width:\s*var\(--index-entry-thumb\)[^}]*height:\s*var\(--index-entry-thumb\)[^}]*border:\s*var\(--ink-border-w\) solid var\(--ink-border\)/, 'note rows should use the compact framed type mark');
+assert.match(library, /\.entry-book-cover\s*\{[^}]*width:\s*var\(--space-6\)[^}]*height:\s*var\(--space-6\)[^}]*opacity:\s*1/, 'note rows should use the compact local icon mark');
 assert.match(library, /\.index-entry \.tag-row > span:not\(\.tag-empty\)\s*\{[^}]*border-color:\s*var\(--line-soft\)[^}]*color:\s*var\(--muted\)/, 'unselected index tags should remain low contrast');
 assert.match(library, /\.index-entry\[data-selected='true'\] \.tag-row > span:not\(\.tag-empty\)\s*\{[^}]*border-color:\s*var\(--blue\)[^}]*color:\s*var\(--blue\)/, 'selected index tags should use the blue accent');
 assert.doesNotMatch(library, /\.index-entry:hover \.tag-row/, 'hovering an index row should not recolor its tags');
@@ -94,23 +96,21 @@ assert.doesNotMatch(
   /\.index-entry\[data-selected='true'\] \.entry-id,\s*\.index-entry\[data-selected='true'\] \.entry-reading/,
   'selection should not recolor secondary index metadata'
 );
-assert.match(library, /\.index-inspector\s*\{[^}]*padding:\s*0\s+var\(--space-5\)/, 'the right inspector header should sit flush with the shell top');
+assert.match(library, /\.index-inspector-content\s*\{[^}]*height:\s*calc\(100% - var\(--aux-sidebar-head-h\)\)[^}]*padding:\s*0\s+var\(--space-4\)/, 'the right inspector scroll content should sit below the prototype header');
 assert.match(
   library,
-  /\.inspector-heading-copy\s*\{[^}]*grid-template-columns:\s*var\(--space-7\) minmax\(0, 1fr\)/,
-  'the inspector header should align the open-book icon with the content hierarchy'
+  /\.index-inspector \.inspector-head\s*\{[^}]*flex:\s*0 0 var\(--aux-sidebar-head-h\)[^}]*min-height:\s*var\(--aux-sidebar-head-h\)/,
+  'the inspector should use the prototype compact title row'
 );
 assert.match(
   library,
-  /\.inspector-heading-title\s*\{[^}]*color:\s*var\(--ink\)[^}]*font-size:\s*var\(--text-base\)[^}]*font-weight:\s*700/,
-  'the current note should be the inspector header primary title'
+  /\.index-inspector \.panel-head-title\s*\{[^}]*font-size:\s*var\(--text-sm\)[^}]*font-weight:\s*700/,
+  'the inspector title should use the compact panel hierarchy'
 );
-assert.match(library, /\.entry-heading h2\s*\{[^}]*font-size:\s*var\(--text-title-sm\)[^}]*font-weight:\s*800/, 'index note titles should keep the stronger approved hierarchy');
-assert.match(library, /\.masthead-kicker\s*\{[^}]*margin-top:\s*0[^}]*color:\s*var\(--blue\)/, 'the English module title should align tightly below the Chinese title');
-assert.match(library, /\.masthead\s*\{[^}]*grid-template-columns:\s*minmax\(220px, 1fr\) minmax\(210px, 280px\) auto/, 'the masthead should reserve a complete middle column for browsing scope');
-assert.match(library, /\.scope-summary > strong\s*\{[^}]*font-size:\s*var\(--text-title-sm\)[^}]*font-weight:\s*800/, 'the current browsing scope should remain complete and visually prominent');
-assert.match(library, /\.inspector-heading\s*\{[\s\S]*padding:\s*var\(--space-4\) var\(--space-5\) var\(--space-4\) var\(--space-3\)/, 'the inspector icon should move toward the outer edge');
-assert.match(library, /\.inspector-heading-copy\s*\{[^}]*gap:\s*var\(--space-3\)/, 'the inspector icon should keep clearer separation from the note title');
+assert.match(library, /\.entry-heading h2\s*\{[^}]*font-size:\s*var\(--index-entry-title\)[^}]*font-weight:\s*700/, 'index note titles should keep the compact hierarchy');
+assert.match(library, /\.masthead\s*\{[^}]*display:\s*flex[^}]*justify-content:\s*space-between/, 'the masthead should keep the title and create action on one row');
+assert.match(library, /\.masthead-kicker\s*\{\s*display:\s*none;/, 'the prototype index masthead should not add a second English title line');
+assert.match(library, /\.scope-summary\s*\{[^}]*font-size:\s*var\(--text-sm\)/, 'the current browsing scope should remain a compact inline summary');
 assert.match(
   library,
   /\.inspector-open-icon\s*\{[^}]*width:\s*var\(--space-4\)[^}]*height:\s*var\(--space-4\)[^}]*opacity:\s*1/,
@@ -123,6 +123,9 @@ assert.match(
 );
 assert.match(library, /\.inspector-fixed-section > header h3\s*\{[^}]*font-size:\s*var\(--text-base\)/, 'right section titles should share the left navigation title scale');
 assert.match(library, /\.section-icon\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/, 'right section icons should share the approved navigation icon scale');
+assert.match(library, /\.index-local-search input\s*\{[^}]*width:\s*var\(--index-local-search-width\)[^}]*border:\s*var\(--ink-border-w\) solid var\(--ink-border\)/, 'the index should expose the prototype local search control');
+assert.match(library, /\.knowra-production-shell\[data-screen='index'\] \.knowra-rail \.library-label\s*\{[^}]*min-height:\s*var\(--aux-sidebar-head-h\)[^}]*height:\s*var\(--aux-sidebar-head-h\)/, 'the index directory should use the prototype compact header');
+assert.match(library, /\.library-index-directory-reopen\s*\{[^}]*left:\s*var\(--shell-nav-w\)[^}]*width:\s*var\(--aux-sidebar-control\)/, 'the collapsed index directory should retain an explicit reopen affordance');
 assert.match(editor, /\.document-title-row\s*\{[^}]*border-left:\s*var\(--border-selection\) solid var\(--blue\)/, 'the document title should begin directly after the blue guide line');
 assert.match(editor, /\.document-title-input\s*\{[^}]*color:\s*var\(--blue\)[^}]*font:\s*800/, 'the file title should replace the decorative document number as the primary blue heading');
 assert.match(

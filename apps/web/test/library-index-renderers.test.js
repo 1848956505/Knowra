@@ -21,10 +21,10 @@ const scopeHtml = renderLibraryIndexScope({
   }
 });
 
-assert.match(scopeHtml, /<span>浏览范围<\/span>/);
+assert.match(scopeHtml, /<span class="scope-label">浏览范围<\/span>/);
 assert.match(scopeHtml, /<strong title="研究方法">研究方法<\/strong>/);
-assert.match(scopeHtml, /<b>资料 2<\/b><b>文件夹 2<\/b>/);
-assert.match(scopeHtml, /最近更新 2026\.07\.17 11:00/);
+assert.doesNotMatch(scopeHtml, /文件夹 2/);
+assert.match(scopeHtml, /<span class="scope-label">最近更新<\/span>[\s\S]*<time>2026\.07\.17 11:00<\/time>/);
 
 const html = renderEditorDocumentHead({
   note: {
@@ -60,9 +60,10 @@ const inspectorHtml = renderLibraryIndexInspector({
     title: 'Current title',
     folderId: null,
     status: 'draft',
-    tagIds: [],
-    internalLinks: [],
-    rawMarkdown: '# Current title',
+    sourceType: 'pdf-import',
+    tagIds: ['tag-a'],
+    internalLinks: ['note-b'],
+    rawMarkdown: '# Current title\n\n## Details',
     createdAt: '2026-07-17T10:00:00.000Z',
     updatedAt: '2026-07-17T11:00:00.000Z',
     deleted: false,
@@ -70,11 +71,14 @@ const inspectorHtml = renderLibraryIndexInspector({
   },
   state: {
     libraryIndex: { inspectorOpen: true },
-    tags: [],
+    tags: [{ id: 'tag-a', name: '方法' }],
     foldersById: {},
-    allNotes: [{ id: 'note-a', deleted: false, updatedAt: '2026-07-17T11:00:00.000Z' }],
+    allNotes: [
+      { id: 'note-a', deleted: false, updatedAt: '2026-07-17T11:00:00.000Z' },
+      { id: 'note-b', title: 'Linked note', deleted: false, updatedAt: '2026-07-17T11:00:00.000Z' }
+    ],
     selectedNoteId: 'note-a',
-    attachments: []
+    attachments: [{ id: 'attachment-a', fileName: 'diagram.png', mimeType: 'image/png' }]
   }
 });
 
@@ -90,18 +94,38 @@ const emptyInspectorHtml = renderLibraryIndexInspector({
   }
 });
 
-assert.match(inspectorHtml, /class="inspector-heading"/);
-assert.match(inspectorHtml, /class="panel-close"[^>]*aria-label="收起详情"[\s\S]*class="semantic-icon panel-close-icon"[\s\S]*data-icon="navigationChevron"/);
-assert.match(emptyInspectorHtml, /class="panel-close"[^>]*aria-label="收起详情"[\s\S]*class="semantic-icon panel-close-icon"[\s\S]*data-icon="navigationChevron"/);
+const closedInspectorHtml = renderLibraryIndexInspector({
+  note: null,
+  state: {
+    libraryIndex: { inspectorOpen: false },
+    tags: [],
+    foldersById: {},
+    allNotes: [],
+    selectedNoteId: null,
+    attachments: []
+  }
+});
+
+assert.match(inspectorHtml, /class="inspector-head panel-head"/);
+assert.match(inspectorHtml, /class="panel-close"[^>]*aria-expanded="true"[^>]*aria-controls="library-index-inspector"[^>]*aria-label="收起详情"[\s\S]*class="semantic-icon panel-close-icon"[\s\S]*data-icon="navigationChevron"/);
+assert.match(emptyInspectorHtml, /class="panel-close"[^>]*aria-expanded="true"[^>]*aria-controls="library-index-inspector"[^>]*aria-label="收起详情"[\s\S]*class="semantic-icon panel-close-icon"[\s\S]*data-icon="navigationChevron"/);
+assert.match(closedInspectorHtml, /class="reopen-panel"[^>]*data-index-inspector-open[^>]*aria-expanded="false"[^>]*aria-controls="library-index-inspector"[^>]*aria-label="展开详情"/);
+assert.match(inspectorHtml, /class="index-inspector-content"/);
+assert.match(emptyInspectorHtml, /class="index-inspector-content"/);
 assert.doesNotMatch(inspectorHtml, />›</);
 assert.doesNotMatch(emptyInspectorHtml, />›</);
-assert.match(inspectorHtml, /class="inspector-heading-copy"/);
-assert.match(inspectorHtml, /class="semantic-icon inspector-heading-icon"[\s\S]*data-icon="libraryIndex"[\s\S]*remix\/book-open-line\.svg/);
-assert.match(inspectorHtml, /<small>资料预览<\/small>/);
-assert.match(inspectorHtml, /class="inspector-heading-title"[^>]*>Current title<\/strong>/);
+assert.match(inspectorHtml, /class="panel-head-title"[\s\S]*资料详情/);
+assert.match(inspectorHtml, /class="semantic-icon inspector-head-icon"[\s\S]*data-icon="sectionFile"[\s\S]*remix\/file-text-line\.svg/);
 assert.match(inspectorHtml, /class="inspector-open-button"[^>]*data-index-open="note-a"/);
 assert.match(inspectorHtml, /class="semantic-icon inspector-open-icon"[\s\S]*data-icon="inspectorOpen"[\s\S]*remix\/external-link-line\.svg/);
 assert.match(inspectorHtml, /<span>打开<\/span>/);
+assert.match(inspectorHtml, /<dt>类型<\/dt><dd>PDF 导入<\/dd>/);
+assert.match(inspectorHtml, /<div class="inspector-tag-wrap tag-row"><span>方法<\/span><\/div>/);
+assert.match(inspectorHtml, /class="relation-link"[^>]*data-index-open="note-b"[^>]*aria-label="打开关联资料：Linked note"/);
+assert.match(inspectorHtml, /data-attachment-open="attachment-a"[^>]*aria-label="打开附件：diagram\.png"/);
+assert.match(inspectorHtml, /<b>关联笔记<\/b><\/span><span><small>1<\/small>/);
+assert.match(inspectorHtml, /<b>内容大纲<\/b><\/span><span><small>2<\/small>/);
+assert.match(inspectorHtml, /<b>附件<\/b><\/span><span><small>1<\/small>/);
 assert.doesNotMatch(inspectorHtml, /<svg class="inspector-open-icon"/);
 assert.doesNotMatch(inspectorHtml, /primary-button inspector-action/);
 assert.doesNotMatch(inspectorHtml, /MARKDOWN DOCUMENT/);
@@ -125,11 +149,14 @@ const indexHtml = renderLibraryIndexContent({
   }
 });
 
-assert.match(indexHtml, /class="entry-archive" role="img" aria-label="书籍封面"/);
-assert.match(indexHtml, /class="semantic-icon entry-book-cover"[\s\S]*data-icon="archive"[\s\S]*remix\/bookmark-3-line\.svg/);
+assert.match(indexHtml, /class="entry-archive" role="img" aria-label="资料类型图标"/);
+assert.match(indexHtml, /class="semantic-icon entry-book-cover"[\s\S]*data-icon="noteManual"[\s\S]*remix\/edit-2-line\.svg/);
 assert.doesNotMatch(indexHtml, /ARCHIVE|entry-archive-number/);
+assert.match(indexHtml, /class="entry-list index-list-card"/);
+assert.match(indexHtml, /class="entry-source-type">手动笔记<\/span>/);
+assert.doesNotMatch(indexHtml, /entry-reading/);
 assert.match(indexHtml, /data-selected="true"/);
-assert.match(indexHtml, /<div class="tag-row"><span>方法<\/span><\/div>/);
+assert.match(indexHtml, /<div class="tag-row"><span>方法<\/span><span class="entry-source-type">手动笔记<\/span><\/div>/);
 assert.match(indexHtml, /aria-label="打开资料：Current title"/);
 assert.match(indexHtml, /class="semantic-icon entry-action-icon"[\s\S]*data-icon="inspectorOpen"[\s\S]*remix\/external-link-line\.svg/);
 

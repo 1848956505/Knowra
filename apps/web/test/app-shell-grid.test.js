@@ -43,6 +43,11 @@ assert.match(
 );
 assert.match(shellHtml, /id="library-context-menu"[^>]*hidden/, 'library context menu host should remain in SSR');
 assert.match(shellHtml, /id="markdown-import-input"[^>]*multiple hidden/, 'markdown import input should remain in SSR');
+assert.match(shellHtml, /<nav class="content-tabs" id="library-index-tabs" role="tablist" aria-label="资料筛选"><\/nav>/, 'library index tabs should expose a tablist host');
+assert.match(shellHtml, /<div class="library-index-content" id="library-index-content" role="tabpanel" aria-labelledby="library-index-tab-all" tabindex="0"><\/div>/, 'library index content should expose the initial tabpanel relationship');
+assert.match(shellHtml, /<aside class="index-inspector" id="library-index-inspector" aria-label="资料详情"><\/aside>/, 'library index inspector should expose a named complementary region');
+assert.match(shellHtml, /id="library-index-directory-toggle"[^>]*data-index-directory-toggle[^>]*aria-expanded="true"[^>]*aria-controls="kb-sidebar"/, 'the index directory should expose a collapsible header control');
+assert.match(shellHtml, /id="library-index-directory-reopen"[^>]*data-index-directory-toggle[^>]*aria-expanded="false"[^>]*hidden/, 'the collapsed index directory should expose a reopen control');
 assert.match(shellHtml, /<!-- initial workspace -->/, 'SSR initial workspace script slot should remain available');
 
 assert.match(

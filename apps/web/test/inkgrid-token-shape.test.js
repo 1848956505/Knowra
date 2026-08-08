@@ -54,6 +54,11 @@ const assertTokenValue = (name, value) => {
   '--ink-shell-nav-w',
   '--ink-catalog-w',
   '--ink-index-inspector-w',
+  '--ink-index-row-h',
+  '--ink-index-entry-thumb',
+  '--ink-index-entry-title',
+  '--ink-index-create-h',
+  '--ink-index-local-search-w',
   '--ink-marginalia-w',
   '--ink-inspector-wide-w',
   '--ink-menu-w',
@@ -91,6 +96,11 @@ const assertTokenValue = (name, value) => {
   ['--ink-shell-nav-w', '208px'],
   ['--ink-catalog-w', '232px'],
   ['--ink-inspector-wide-w', '300px'],
+  ['--ink-index-row-h', '100px'],
+  ['--ink-index-entry-thumb', '44px'],
+  ['--ink-index-entry-title', '15px'],
+  ['--ink-index-create-h', '42px'],
+  ['--ink-index-local-search-w', '220px'],
   ['--ink-menu-w', '220px'],
   ['--ink-statusbar-h', '32px']
 ].forEach(([name, value]) => assertTokenValue(name, value));
@@ -147,12 +157,18 @@ assert.doesNotMatch(
   ['--shell-nav-w', '--ink-shell-nav-w'],
   ['--catalog-w', '--ink-catalog-w'],
   ['--aux-sidebar-w', '--ink-aux-sidebar-w'],
-  ['--inspector-wide-w', '--ink-inspector-wide-w']
+  ['--inspector-wide-w', '--ink-inspector-wide-w'],
+  ['--index-row-height', '--ink-index-row-h'],
+  ['--index-entry-thumb', '--ink-index-entry-thumb'],
+  ['--index-entry-title', '--ink-index-entry-title'],
+  ['--index-create-height', '--ink-index-create-h'],
+  ['--index-local-search-width', '--ink-index-local-search-w']
 ].forEach(([alias, target]) => {
   assertTokenValue(alias, `var(${target})`);
 });
 
 assertTokenValue('--rail-width', 'var(--ink-shell-composite-w)');
+assertTokenValue('--index-inspector-width', 'var(--ink-index-inspector-w)');
 assert.match(tokens, /\[data-theme='dark'\]\s*\{/, 'dark theme token overrides should remain available');
 
 console.log('ok - InkGrid canonical tokens and formal compatibility aliases are complete');

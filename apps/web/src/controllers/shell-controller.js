@@ -92,7 +92,9 @@ function renderWorkspaceViewState() {
   // reachable outside the Materials domain. Only the Materials index/editor
   // decides whether the contextual library sidebar itself is shown.
   const showFunctionNavigation = !isMaterials || isHome || isIndex || effectiveView.showLeftSidebar;
-  const showLibraryDirectory = isMaterials && !isHome && (isIndex || effectiveView.showLeftSidebar);
+  const showLibraryDirectory = isMaterials && !isHome && (isIndex
+    ? state.libraryIndex?.directoryOpen !== false
+    : effectiveView.showLeftSidebar);
   if (elements.workspaceShell) {
     elements.workspaceShell.dataset.screen = !isMaterials ? 'domain' : isHome ? 'home' : isIndex ? 'index' : 'editor';
     elements.workspaceShell.dataset.leftHidden = String(!showFunctionNavigation);
@@ -122,6 +124,16 @@ function renderWorkspaceViewState() {
   }
   if (elements.sidebar) {
     elements.sidebar.hidden = !showLibraryDirectory;
+  }
+  if (elements.libraryIndexDirectoryToggle) {
+    elements.libraryIndexDirectoryToggle.hidden = !isIndex;
+    elements.libraryIndexDirectoryToggle.setAttribute('aria-expanded', String(showLibraryDirectory));
+    elements.libraryIndexDirectoryToggle.setAttribute('aria-label', showLibraryDirectory ? '折叠目录栏' : '展开目录栏');
+    elements.libraryIndexDirectoryToggle.setAttribute('title', showLibraryDirectory ? '折叠目录栏' : '展开目录栏');
+  }
+  if (elements.libraryIndexDirectoryReopen) {
+    elements.libraryIndexDirectoryReopen.hidden = !isIndex || showLibraryDirectory;
+    elements.libraryIndexDirectoryReopen.setAttribute('aria-expanded', String(showLibraryDirectory));
   }
 
   if (elements.aside) {
@@ -164,11 +176,15 @@ function renderLibraryIndex() {
     elements.libraryIndexScope.innerHTML = renderLibraryIndexScope({ notes: allNotes, state });
   }
   if (elements.libraryIndexTabs) {
+    elements.libraryIndexTabs.setAttribute?.('role', 'tablist');
     elements.libraryIndexTabs.innerHTML = renderLibraryIndexTabs({ state });
   }
   if (elements.libraryIndexFilters) {
     elements.libraryIndexFilters.innerHTML = renderLibraryIndexFilters({ state });
   }
+  elements.libraryIndexContent.setAttribute?.('role', 'tabpanel');
+  elements.libraryIndexContent.setAttribute?.('aria-labelledby', `library-index-tab-${state.libraryIndex.tab}`);
+  elements.libraryIndexContent.setAttribute?.('tabindex', '0');
   elements.libraryIndexContent.innerHTML = renderLibraryIndexContent({ notes, pagination, state });
   elements.libraryIndexInspector.innerHTML = renderLibraryIndexInspector({ note: selectedNote, state });
   elements.libraryIndexInspector.dataset.open = String(state.libraryIndex.inspectorOpen);

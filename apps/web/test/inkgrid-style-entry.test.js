@@ -139,8 +139,13 @@ assert.equal(
 
 assert.match(
   libraryCss,
-  /@media\s*\(max-width:\s*1180px\)\s*\{[\s\S]*\.knowra-production-shell\s*\{[^}]*--rail-width:\s*240px;[^}]*--aside-width:\s*var\(--rail-width\);[^}]*--index-inspector-width:\s*var\(--rail-width\);/,
-  'the compact breakpoint must override all three width tokens on the Shell itself'
+  /@media\s*\(max-width:\s*1180px\)\s*\{[\s\S]*\.knowra-production-shell\s*\{[^}]*--rail-width:\s*240px;[^}]*--aside-width:\s*var\(--rail-width\);[^}]*--index-inspector-width:\s*var\(--ink-index-inspector-w\);/,
+  'the compact breakpoint must keep the 232px detail token independent from the composite rail'
+);
+assert.match(
+  libraryCss,
+  /@media\s*\(max-width:\s*1180px\)\s*\{[\s\S]*\.library-index-view[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*\.index-inspector\s*\{[^}]*position:\s*absolute[^}]*width:\s*var\(--index-inspector-width\)/,
+  'the compact breakpoint should keep the 232px detail panel reachable without widening the page'
 );
 assert.doesNotMatch(
   libraryCss,

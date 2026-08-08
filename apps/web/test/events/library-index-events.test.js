@@ -8,10 +8,26 @@ function makeClosest(entries) {
 }
 
 function createHarness() {
+  const tabButtons = ['all', 'recent', 'favorites', 'recycle'].map((key) => {
+    const button = {
+      dataset: { indexTab: key },
+      focusCount: 0,
+      focus() { button.focusCount += 1; }
+    };
+    button.closest = makeClosest([['[data-index-tab]', button]]);
+    return button;
+  });
   const elements = {
     libraryIndexView: createRecorderElement(),
     workspaceShell: createRecorderElement()
   };
+  let renderedLocalSearchInput = null;
+  elements.libraryIndexView.querySelectorAll = (selector) => (
+    selector === '[data-index-tab]' ? tabButtons : []
+  );
+  elements.libraryIndexView.querySelector = (selector) => (
+    selector === '[data-index-local-search]' ? renderedLocalSearchInput : null
+  );
   const state = {
     selectedFolderId: 'folder-1',
     search: { keyword: 'query', selectedTagIds: ['tag-1'], isOpen: true },
@@ -21,6 +37,7 @@ function createHarness() {
       pageSize: 10,
       selectedNoteId: 'note-old',
       inspectorOpen: true,
+      directoryOpen: true,
       filterMenu: 'type',
       filters: { type: 'markdown-import', status: 'draft', time: 'created-asc' }
     },
@@ -31,6 +48,8 @@ function createHarness() {
     renderedAll: 0,
     cleared: 0,
     opened: [],
+    openedAttachments: [],
+    fileMenuActions: [],
     returns: []
   };
   const deps = {
@@ -38,8 +57,9 @@ function createHarness() {
     renderLibraryIndex: () => { calls.renderedIndex += 1; },
     renderAll: () => { calls.renderedAll += 1; },
     clearSearchFilters: () => { calls.cleared += 1; },
+    openAttachment: (id) => { calls.openedAttachments.push(id); },
     restoreNote: async () => {},
-    handleFileMenuAction: () => {},
+    handleFileMenuAction: (action) => { calls.fileMenuActions.push(action); },
     returnToLibraryIndex: async (options) => {
       calls.returns.push(options);
       return true;
@@ -47,7 +67,7 @@ function createHarness() {
     flashStatus: () => {}
   };
   bindLibraryIndexEvents({ state, elements, deps });
-  return { elements, state, calls };
+  return { elements, state, calls, tabButtons, setRenderedLocalSearchInput: (input) => { renderedLocalSearchInput = input; } };
 }
 
 {
@@ -62,6 +82,31 @@ function createHarness() {
   assert.equal(state.libraryIndex.selectedNoteId, null);
   assert.equal(state.libraryIndex.page, 1);
   assert.equal(calls.renderedIndex, 1);
+}
+
+{
+  const { elements, state, calls, setRenderedLocalSearchInput } = createHarness();
+  const nextInput = {
+    value: '本地筛选',
+    focusCount: 0,
+    selection: null,
+    focus() { nextInput.focusCount += 1; },
+    setSelectionRange(start, end) { nextInput.selection = [start, end]; }
+  };
+  setRenderedLocalSearchInput(nextInput);
+  const input = { value: '本地筛选', dataset: {} };
+  input.closest = makeClosest([['[data-index-local-search]', input]]);
+
+  elements.libraryIndexView.dispatch('input', input);
+
+  assert.equal(state.libraryIndex.localKeyword, '本地筛选');
+  assert.equal(state.search.keyword, 'query');
+  assert.equal(state.search.isOpen, true);
+  assert.equal(state.libraryIndex.page, 1);
+  assert.equal(state.libraryIndex.selectedNoteId, null);
+  assert.equal(calls.renderedAll, 1);
+  assert.equal(nextInput.focusCount, 1);
+  assert.deepEqual(nextInput.selection, [4, 4]);
 }
 
 {
@@ -102,6 +147,47 @@ function createHarness() {
     time: 'updated-desc'
   });
   assert.equal(calls.cleared, 1);
+  assert.equal(calls.renderedIndex, 1);
+}
+
+for (const [key, expectedTab, expectedFocusIndex] of [
+  ['ArrowRight', 'favorites', 2],
+  ['ArrowDown', 'favorites', 2],
+  ['ArrowLeft', 'all', 0],
+  ['ArrowUp', 'all', 0],
+  ['Home', 'all', 0],
+  ['End', 'recycle', 3]
+]) {
+  const { elements, state, calls, tabButtons } = createHarness();
+  const currentTab = tabButtons[1];
+  let prevented = false;
+
+  elements.libraryIndexView.dispatch('keydown', currentTab, {
+    key,
+    preventDefault: () => { prevented = true; }
+  });
+
+  assert.equal(state.libraryIndex.tab, expectedTab, `${key} should select ${expectedTab}`);
+  assert.equal(state.libraryIndex.page, 1);
+  assert.equal(state.selectedFolderId, null);
+  assert.equal(calls.renderedAll, 1);
+  assert.equal(prevented, true);
+  assert.equal(tabButtons[expectedFocusIndex].focusCount, 1);
+}
+
+{
+  const { elements, state, tabButtons } = createHarness();
+  state.libraryIndex.tab = 'all';
+  let prevented = false;
+
+  elements.libraryIndexView.dispatch('keydown', tabButtons[0], {
+    key: 'ArrowLeft',
+    preventDefault: () => { prevented = true; }
+  });
+
+  assert.equal(state.libraryIndex.tab, 'recycle');
+  assert.equal(prevented, true);
+  assert.equal(tabButtons[3].focusCount, 1);
 }
 
 {
@@ -123,6 +209,39 @@ function createHarness() {
 
 {
   const { elements, state, calls } = createHarness();
+  const closeButton = { dataset: {} };
+  closeButton.closest = makeClosest([['[data-index-inspector-close]', closeButton]]);
+
+  elements.libraryIndexView.dispatch('click', closeButton);
+
+  assert.equal(state.libraryIndex.inspectorOpen, false);
+  assert.equal(calls.renderedIndex, 1);
+}
+
+{
+  const { elements, state, calls } = createHarness();
+  state.libraryIndex.inspectorOpen = false;
+  const reopenButton = { dataset: {} };
+  reopenButton.closest = makeClosest([['[data-index-inspector-open]', reopenButton]]);
+
+  elements.libraryIndexView.dispatch('click', reopenButton);
+
+  assert.equal(state.libraryIndex.inspectorOpen, true);
+  assert.equal(calls.renderedIndex, 1);
+}
+
+{
+  const { elements, calls } = createHarness();
+  const attachmentButton = { dataset: { attachmentOpen: 'attachment-a' } };
+  attachmentButton.closest = makeClosest([['[data-attachment-open]', attachmentButton]]);
+
+  elements.libraryIndexView.dispatch('click', attachmentButton);
+
+  assert.deepEqual(calls.openedAttachments, ['attachment-a']);
+}
+
+{
+  const { elements, state, calls } = createHarness();
   state.view.screen = 'editor';
   const homeButton = { dataset: { libraryHome: 'global' } };
   homeButton.closest = makeClosest([['[data-library-home]', homeButton]]);
@@ -132,6 +251,27 @@ function createHarness() {
   assert.deepEqual(calls.returns, [{ global: true }]);
   assert.equal(state.view.screen, 'editor');
   assert.equal(calls.renderedAll, 0);
+}
+
+{
+  const { elements, state, calls } = createHarness();
+  const directoryToggle = { dataset: {} };
+  directoryToggle.closest = makeClosest([['[data-index-directory-toggle]', directoryToggle]]);
+
+  elements.workspaceShell.dispatch('click', directoryToggle);
+
+  assert.equal(state.libraryIndex.directoryOpen, false);
+  assert.equal(calls.renderedAll, 1);
+}
+
+{
+  const { elements, calls } = createHarness();
+  const createFolderButton = { dataset: {} };
+  createFolderButton.closest = makeClosest([['[data-index-directory-create]', createFolderButton]]);
+
+  elements.workspaceShell.dispatch('click', createFolderButton);
+
+  assert.deepEqual(calls.fileMenuActions, ['new-folder']);
 }
 
 console.log('ok - library index events apply filters, clear state and open on double click');

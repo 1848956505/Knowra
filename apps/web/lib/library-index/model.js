@@ -28,7 +28,8 @@ export const LIBRARY_TIME_OPTIONS = [
 export function selectLibraryIndexNotes(state) {
   const tab = state.libraryIndex?.tab ?? 'all';
   const selectedTagIds = state.search?.selectedTagIds ?? [];
-  const keyword = String(state.search?.keyword ?? '').trim().toLowerCase();
+  const globalKeyword = String(state.search?.keyword ?? '').trim().toLowerCase();
+  const localKeyword = String(state.libraryIndex?.localKeyword ?? '').trim().toLowerCase();
   const filters = resolveLibraryFilters(state.libraryIndex?.filters);
   let candidates = selectTabCandidates(state.allNotes ?? [], tab);
 
@@ -37,15 +38,15 @@ export function selectLibraryIndexNotes(state) {
     if (filters.type !== 'all' && note.sourceType !== filters.type) return false;
     if (filters.status !== 'all' && note.status !== filters.status) return false;
     if (selectedTagIds.length && !selectedTagIds.every((tagId) => (note.tagIds ?? []).includes(tagId))) return false;
-    if (!keyword) return true;
     const tagText = (note.tagIds ?? [])
       .map((tagId) => (state.tags ?? []).find((tag) => tag.id === tagId)?.name ?? '')
       .join(' ');
-    if (Array.isArray(state.search?.matchingNoteIds)) {
-      return state.search.matchingNoteIds.includes(note.id)
-        || tagText.toLowerCase().includes(keyword);
-    }
-    return `${note.title} ${note.summary ?? note.rawMarkdown ?? ''} ${tagText}`.toLowerCase().includes(keyword);
+    const searchableText = `${note.title} ${note.summary ?? note.rawMarkdown ?? ''} ${tagText}`.toLowerCase();
+    const matchesGlobal = !globalKeyword || (Array.isArray(state.search?.matchingNoteIds)
+      ? state.search.matchingNoteIds.includes(note.id) || tagText.toLowerCase().includes(globalKeyword)
+      : searchableText.includes(globalKeyword));
+    const matchesLocal = !localKeyword || searchableText.includes(localKeyword);
+    return matchesGlobal && matchesLocal;
   });
 
   return candidates.sort(createTimeComparator(filters.time));

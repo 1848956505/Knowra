@@ -7,6 +7,8 @@ const ELEMENT_IDS = {
   libraryIndexView: 'library-index-view',
   libraryIndexContent: 'library-index-content',
   libraryIndexInspector: 'library-index-inspector',
+  libraryIndexDirectoryToggle: 'library-index-directory-toggle',
+  libraryIndexDirectoryReopen: 'library-index-directory-reopen',
   libraryIndexScope: 'library-index-scope',
   libraryIndexTabs: 'library-index-tabs',
   libraryIndexFilters: 'library-index-filters',

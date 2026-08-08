@@ -122,7 +122,11 @@
   --ink-search-panel-w: 360px;
   --ink-filter-menu-w: 148px;
   --ink-masthead-h: 76px;
-  --ink-index-row-h: 124px;
+  --ink-index-row-h: 100px;
+  --ink-index-entry-thumb: 44px;
+  --ink-index-entry-title: 15px;
+  --ink-index-create-h: 42px;
+  --ink-index-local-search-w: 220px;
   --ink-index-selection-w: 2px;
   --ink-tab-h: 56px;
   --ink-menu-h: 35px;
@@ -259,7 +263,7 @@
   --aside-width: var(--rail-width);
   --app-min-width: var(--ink-app-min-w);
   --status-height: var(--ink-statusbar-h);
-  --index-inspector-width: var(--rail-width);
+  --index-inspector-width: var(--ink-index-inspector-w);
   --index-content-min-width: var(--ink-index-content-min-w);
   --editor-content-min-width: var(--ink-editor-content-min-w);
   --editor-max-width: var(--ink-editor-max-w);
@@ -272,6 +276,10 @@
   --filter-menu-width: var(--ink-filter-menu-w);
   --masthead-height: var(--ink-masthead-h);
   --index-row-height: var(--ink-index-row-h);
+  --index-entry-thumb: var(--ink-index-entry-thumb);
+  --index-entry-title: var(--ink-index-entry-title);
+  --index-create-height: var(--ink-index-create-h);
+  --index-local-search-width: var(--ink-index-local-search-w);
   --index-selection-width: var(--ink-index-selection-w);
   --tab-height: var(--ink-tab-h);
   --document-tab-height: var(--menu-height);
