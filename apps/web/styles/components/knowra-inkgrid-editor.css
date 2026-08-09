@@ -1,6 +1,52 @@
-.knowra-production-shell .editor-workspace-view { width: 100%; height: 100%; min-height: 0; }
-.knowra-production-shell .editor-workspace-view .kb-workspace { display: grid; grid-template-columns: minmax(var(--editor-content-min-width), 1fr) var(--aside-width); width: 100%; height: 100%; min-height: 0; overflow: hidden; }
-.knowra-production-shell .editor-workspace-view .kb-workspace[data-right-hidden='true'] { grid-template-columns: minmax(var(--editor-content-min-width), 1fr); }
+.knowra-production-shell .editor-workspace-view {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: editor-main;
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(var(--editor-content-min-width), 1fr) var(--ink-marginalia-w);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-right-hidden='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='full'][data-right-hidden='false'] {
+  grid-template-columns: minmax(var(--editor-content-min-width), 1fr) var(--ink-marginalia-w);
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='compact'][data-right-hidden='false'] {
+  grid-template-columns: minmax(0, 1fr) var(--ink-marginalia-w);
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='protected'],
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='protected'] .editor-inspector,
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector {
+  position: absolute;
+  z-index: 20;
+  inset: 0 0 0 auto;
+  width: var(--ink-marginalia-w);
+  box-shadow: var(--shadow-editorial);
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector {
+  width: min(var(--ink-marginalia-w), calc(100% - var(--space-8)));
+  margin: var(--space-4) 0 var(--space-4) var(--space-4);
+  height: calc(100% - var(--space-8));
+  border: var(--border-thin) solid var(--line);
+}
+.knowra-production-shell .editor-workspace-view .kb-workspace .editor-reopen {
+  position: absolute;
+  z-index: 30;
+  top: var(--space-3);
+  right: var(--space-3);
+}
 .knowra-production-shell .editor-workspace { display: grid; grid-template-rows: var(--document-tab-height) var(--menu-height) minmax(0, 1fr); min-width: 0; height: 100%; overflow: hidden; border-right: 0; background: var(--paper); }
 .knowra-production-shell .document-tabs { position: relative; display: flex; align-items: stretch; height: var(--document-tab-height); border-bottom: var(--border-thin) solid var(--line); }
 .knowra-production-shell .back-index { display: grid; flex: 0 0 var(--document-tab-height); place-items: center; border: 0; border-right: var(--border-thin) solid var(--line); background: none; font-size: var(--text-title-sm); }
@@ -23,6 +69,7 @@
 .knowra-production-shell .note-tab-overflow-item[data-active='true'] small { color: inherit; }
 
 .knowra-production-shell .editor-workspace .editor-menu-bar { z-index: 10; height: var(--menu-height); min-height: var(--menu-height); padding-inline: var(--space-5); border-bottom: var(--border-thin) solid var(--line); background: var(--paper); }
+.knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .editor-workspace .editor-menu-bar { position: relative; z-index: 23; }
 .knowra-production-shell .editor-workspace .editor-menu-shell { min-height: calc(var(--menu-height) - var(--border-thin)); gap: var(--space-2); }
 .knowra-production-shell .editor-workspace .editor-menu-groups { display: flex; flex: 0 0 auto; align-items: stretch; gap: var(--space-5); }
 .knowra-production-shell .editor-workspace .editor-menu-text { min-height: calc(var(--menu-height) - var(--border-thin)); color: var(--ink); font-size: var(--text-md); font-weight: 500; }
@@ -173,7 +220,7 @@
 .knowra-production-shell .editor-workspace .markdown-input:focus { border-color: var(--blue); box-shadow: inset var(--border-accent) 0 var(--blue); }
 .knowra-production-shell .editor-workspace .editor-table-dialog-backdrop { background: var(--overlay); }
 
-.knowra-production-shell .editor-inspector { position: relative; display: flex; flex-direction: column; width: var(--aside-width); min-width: 0; height: 100%; padding: var(--space-5) var(--space-5) var(--space-14); overflow: hidden; border-left: var(--border-thin) solid var(--line); background: var(--paper-muted); }
+.knowra-production-shell .editor-inspector { position: relative; display: flex; flex-direction: column; width: var(--ink-marginalia-w); min-width: 0; height: 100%; padding: var(--space-5) var(--space-5) var(--space-14); overflow: hidden; border-left: var(--border-thin) solid var(--line); background: var(--paper-muted); }
 .knowra-production-shell .editor-inspector .aside-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; min-height: var(--space-12); padding-bottom: var(--space-3); color: var(--blue); }
 .knowra-production-shell .editor-inspector .aside-heading > div { display: flex; align-items: baseline; gap: var(--space-3); }
 .knowra-production-shell .editor-inspector .aside-heading b { font-size: var(--text-title-sm); }
@@ -258,6 +305,59 @@
      contain the 700px editor minimum plus the hidden 240px marginalia rail. */
   .knowra-production-shell .editor-workspace-view .kb-workspace {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-content[data-source-open='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/*
+ * M4-01: the editor work surface is the query container. Viewport media
+ * queries remain only as a legacy fallback; the canonical menu/source rules
+ * below follow the available EditorMain host width instead of window width.
+ */
+@container editor-main (min-width: 1120px) {
+  .knowra-production-shell .editor-workspace .editor-menu-groups {
+    gap: var(--space-5);
+  }
+}
+
+@container editor-main (min-width: 900px) and (max-width: 1119px) {
+  .knowra-production-shell .editor-workspace .editor-menu-bar {
+    padding-inline: var(--space-4);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-groups {
+    gap: var(--space-3);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-text {
+    font-size: var(--text-sm);
+  }
+}
+
+@container editor-main (min-width: 720px) and (max-width: 899px) {
+  .knowra-production-shell .editor-workspace .editor-menu-bar {
+    padding-inline: var(--space-3);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-groups {
+    gap: var(--space-2);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-content[data-source-open='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container editor-main (max-width: 719px) {
+  .knowra-production-shell .editor-workspace .editor-menu-bar {
+    padding-inline: var(--space-2);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-groups {
+    gap: var(--space-1);
   }
 
   .knowra-production-shell .editor-workspace .editor-content[data-source-open='true'] {

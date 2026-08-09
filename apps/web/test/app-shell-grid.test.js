@@ -48,6 +48,9 @@ assert.match(shellHtml, /<div class="library-index-content" id="library-index-co
 assert.match(shellHtml, /<aside class="index-inspector" id="library-index-inspector" aria-label="资料详情"><\/aside>/, 'library index inspector should expose a named complementary region');
 assert.match(shellHtml, /id="library-index-directory-toggle"[^>]*data-index-directory-toggle[^>]*aria-expanded="true"[^>]*aria-controls="kb-sidebar"/, 'the index directory should expose a collapsible header control');
 assert.match(shellHtml, /id="library-index-directory-reopen"[^>]*data-index-directory-toggle[^>]*aria-expanded="false"[^>]*hidden/, 'the collapsed index directory should expose a reopen control');
+assert.match(shellHtml, /<aside class="kb-aside editor-inspector"[^>]*id="kb-aside"[^>]*aria-labelledby="editor-aside-title"/, 'the editor marginalia should expose a named complementary region');
+assert.match(shellHtml, /id="editor-aside-toggle"[^>]*data-editor-aside-toggle[^>]*aria-expanded="true"[^>]*aria-controls="kb-aside"/, 'the open marginalia control should expose its expanded relationship');
+assert.match(shellHtml, /id="editor-aside-reopen"[^>]*data-editor-aside-toggle[^>]*aria-expanded="false"[^>]*aria-controls="kb-aside"[^>]*aria-label="展开资料边注"/, 'the collapsed marginalia should expose a labelled reopen control');
 assert.match(shellHtml, /<!-- initial workspace -->/, 'SSR initial workspace script slot should remain available');
 
 assert.match(
@@ -59,6 +62,31 @@ assert.match(
   shellCss,
   /\.knowra-production-shell \.shell-body\s*\{[\s\S]*grid-template-columns:\s*var\(--shell-nav-w\)\s+var\(--catalog-w\)\s+minmax\(0,\s*1fr\);[\s\S]*overflow:\s*hidden;/,
   'ShellBody should contain the function navigation, directory and feature stage without page overflow'
+);
+assert.match(
+  shellCss,
+  /data-function-navigation-hidden='true'\]\[data-directory-hidden='true'\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/,
+  'when both left rails are hidden, ShellBody should not leave an empty 208px gutter'
+);
+assert.match(
+  shellCss,
+  /data-screen='editor'\]\[data-editor-layout='overlay'\][\s\S]*\.shell-body \.kb-sidebar\s*\{[\s\S]*position:\s*absolute;[\s\S]*top:\s*calc\(var\(--document-tab-height\) \+ var\(--menu-height\)\);[\s\S]*left:\s*var\(--shell-nav-w\);[\s\S]*height:\s*auto;/,
+  'editor Overlay mode should float the contextual directory instead of compressing the正文 track'
+);
+assert.match(
+  shellCss,
+  /data-screen='editor'\]\[data-editor-layout='overlay'\][\s\S]*\.shell-body:has\(\.editor-menu-text\[data-open='true'\]\)[\s\S]*\.kb-sidebar\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/,
+  'an open editor menu should clear the floating directory hit area'
+);
+assert.match(
+  shellCss,
+  /data-screen='editor'\]\[data-editor-layout='overlay'\][\s\S]*\.workspace-main\s*\{[^}]*z-index:\s*auto;/,
+  'editor Overlay mode should not trap the menu inside the legacy workspace stacking context'
+);
+assert.match(
+  editorCss,
+  /data-screen='editor'\]\[data-editor-layout='overlay'\][\s\S]*\.editor-menu-bar\s*\{[^}]*z-index:\s*23;/,
+  'editor Overlay mode should keep the View menu above the floating directory rail'
 );
 assert.match(
   shellCss,

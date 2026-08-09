@@ -2,13 +2,29 @@ import assert from 'node:assert/strict';
 import { createShellController } from '../../src/controllers/shell-controller.js';
 
 function createElements() {
+  const editorAsideToggle = {
+    hidden: false,
+    attributes: {},
+    setAttribute(name, value) { editorAsideToggle.attributes[name] = value; }
+  };
+  const editorAsideReopen = {
+    hidden: true,
+    attributes: {},
+    setAttribute(name, value) { editorAsideReopen.attributes[name] = value; }
+  };
   return {
     moduleRail: { innerHTML: '', hidden: false },
     workspaceShell: { dataset: {} },
     workspace: { dataset: {} },
     workDomainView: { hidden: true, dataset: {} },
     sidebar: { hidden: false },
-    aside: { hidden: false },
+    aside: {
+      hidden: false,
+      attributes: {},
+      setAttribute(name, value) { this.attributes[name] = value; }
+    },
+    editorAsideToggle,
+    editorAsideReopen,
     statusIndicators: { innerHTML: '' },
     statusMeta: { innerHTML: '' }
   };
@@ -107,6 +123,39 @@ runTest('renderWorkspaceViewState applies effective focus layout', () => {
   assert.equal(elements.sidebar.hidden, true);
   assert.equal(elements.moduleRail.hidden, true);
   assert.equal(elements.aside.hidden, true);
+  assert.equal(elements.editorAsideReopen.hidden, false);
+  assert.equal(elements.editorAsideReopen.attributes['aria-expanded'], 'false');
+});
+
+runTest('renderWorkspaceViewState exposes the editor aside trigger state', () => {
+  const { controller, elements, state } = createDeps({
+    state: createState({
+      view: {
+        screen: 'editor',
+        mode: 'edit',
+        showLeftSidebar: true,
+        showRightSidebar: true,
+        showSourceEditor: false
+      }
+    })
+  });
+
+  controller.renderWorkspaceViewState();
+
+  assert.equal(elements.aside.hidden, false);
+  assert.equal(elements.aside.attributes['aria-hidden'], 'false');
+  assert.equal(elements.editorAsideToggle.attributes['aria-expanded'], 'true');
+  assert.equal(elements.editorAsideToggle.attributes['aria-controls'], 'kb-aside');
+  assert.equal(elements.editorAsideReopen.hidden, true);
+
+  state.view.showRightSidebar = false;
+  controller.renderWorkspaceViewState();
+
+  assert.equal(elements.aside.hidden, true);
+  assert.equal(elements.aside.attributes['aria-hidden'], 'true');
+  assert.equal(elements.editorAsideToggle.attributes['aria-expanded'], 'false');
+  assert.equal(elements.editorAsideReopen.hidden, false);
+  assert.equal(elements.editorAsideReopen.attributes['aria-label'], '展开资料边注');
 });
 
 runTest('renderWorkspaceViewState keeps the global rail available in work domains', () => {

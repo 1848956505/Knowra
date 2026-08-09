@@ -19,14 +19,31 @@ function createHarness() {
   });
   const elements = {
     libraryIndexView: createRecorderElement(),
+    libraryIndexInspector: createRecorderElement(),
+    libraryIndexDirectoryReopen: {
+      focusCount: 0,
+      focus() { elements.libraryIndexDirectoryReopen.focusCount += 1; }
+    },
+    editorAsideToggle: {
+      focusCount: 0,
+      focus() { elements.editorAsideToggle.focusCount += 1; }
+    },
+    editorAsideReopen: {
+      focusCount: 0,
+      focus() { elements.editorAsideReopen.focusCount += 1; }
+    },
     workspaceShell: createRecorderElement()
   };
   let renderedLocalSearchInput = null;
+  let renderedInspectorReopenButton = null;
   elements.libraryIndexView.querySelectorAll = (selector) => (
     selector === '[data-index-tab]' ? tabButtons : []
   );
   elements.libraryIndexView.querySelector = (selector) => (
     selector === '[data-index-local-search]' ? renderedLocalSearchInput : null
+  );
+  elements.libraryIndexInspector.querySelector = (selector) => (
+    selector === '[data-index-inspector-open]' ? renderedInspectorReopenButton : null
   );
   const state = {
     selectedFolderId: 'folder-1',
@@ -67,7 +84,14 @@ function createHarness() {
     flashStatus: () => {}
   };
   bindLibraryIndexEvents({ state, elements, deps });
-  return { elements, state, calls, tabButtons, setRenderedLocalSearchInput: (input) => { renderedLocalSearchInput = input; } };
+  return {
+    elements,
+    state,
+    calls,
+    tabButtons,
+    setRenderedLocalSearchInput: (input) => { renderedLocalSearchInput = input; },
+    setRenderedInspectorReopenButton: (button) => { renderedInspectorReopenButton = button; }
+  };
 }
 
 {
@@ -208,14 +232,20 @@ for (const [key, expectedTab, expectedFocusIndex] of [
 }
 
 {
-  const { elements, state, calls } = createHarness();
+  const { elements, state, calls, setRenderedInspectorReopenButton } = createHarness();
   const closeButton = { dataset: {} };
+  const reopenButton = {
+    focusCount: 0,
+    focus() { reopenButton.focusCount += 1; }
+  };
+  setRenderedInspectorReopenButton(reopenButton);
   closeButton.closest = makeClosest([['[data-index-inspector-close]', closeButton]]);
 
   elements.libraryIndexView.dispatch('click', closeButton);
 
   assert.equal(state.libraryIndex.inspectorOpen, false);
   assert.equal(calls.renderedIndex, 1);
+  assert.equal(reopenButton.focusCount, 1);
 }
 
 {
@@ -262,6 +292,7 @@ for (const [key, expectedTab, expectedFocusIndex] of [
 
   assert.equal(state.libraryIndex.directoryOpen, false);
   assert.equal(calls.renderedAll, 1);
+  assert.equal(elements.libraryIndexDirectoryReopen.focusCount, 1);
 }
 
 {
@@ -272,6 +303,36 @@ for (const [key, expectedTab, expectedFocusIndex] of [
   elements.workspaceShell.dispatch('click', createFolderButton);
 
   assert.deepEqual(calls.fileMenuActions, ['new-folder']);
+}
+
+{
+  const { elements, state, calls } = createHarness();
+  state.view.screen = 'editor';
+  state.view.showRightSidebar = true;
+  const closeButton = { dataset: {} };
+  closeButton.closest = makeClosest([['[data-editor-aside-toggle]', closeButton]]);
+
+  elements.workspaceShell.dispatch('click', closeButton);
+
+  assert.equal(state.view.showRightSidebar, false);
+  assert.equal(calls.renderedAll, 1);
+  assert.equal(elements.editorAsideReopen.focusCount, 1);
+  assert.equal(elements.editorAsideToggle.focusCount, 0);
+}
+
+{
+  const { elements, state, calls } = createHarness();
+  state.view.screen = 'editor';
+  state.view.showRightSidebar = false;
+  const reopenButton = { dataset: {} };
+  reopenButton.closest = makeClosest([['[data-editor-aside-toggle]', reopenButton]]);
+
+  elements.workspaceShell.dispatch('click', reopenButton);
+
+  assert.equal(state.view.showRightSidebar, true);
+  assert.equal(calls.renderedAll, 1);
+  assert.equal(elements.editorAsideToggle.focusCount, 1);
+  assert.equal(elements.editorAsideReopen.focusCount, 0);
 }
 
 console.log('ok - library index events apply filters, clear state and open on double click');

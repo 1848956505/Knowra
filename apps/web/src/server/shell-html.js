@@ -121,10 +121,10 @@ export function renderHtml(initialWorkspaceScript = '') {
                   </div>
                 </section>
               </section>
-              <aside class="kb-aside editor-inspector" id="kb-aside">
+              <aside class="kb-aside editor-inspector" id="kb-aside" aria-labelledby="editor-aside-title">
                 <header class="aside-heading">
-                  <div><b>资料边注</b><span>MARGINALIA</span></div>
-                  <button type="button" data-editor-aside-toggle aria-label="收起资料边注">
+                  <div><b id="editor-aside-title">资料边注</b><span>MARGINALIA</span></div>
+                  <button type="button" id="editor-aside-toggle" data-editor-aside-toggle aria-expanded="true" aria-controls="kb-aside" aria-label="收起资料边注" title="收起资料边注">
                     ${renderIcon('navigationChevron', { className: 'editor-aside-toggle-icon' })}
                   </button>
                 </header>
@@ -133,7 +133,7 @@ export function renderHtml(initialWorkspaceScript = '') {
                   <div class="aside-content" id="aside-content"></div>
                 </div>
               </aside>
-              <button type="button" class="reopen-panel editor-reopen" id="editor-aside-reopen" data-editor-aside-toggle hidden>侧栏</button>
+              <button type="button" class="reopen-panel editor-reopen" id="editor-aside-reopen" data-editor-aside-toggle aria-expanded="false" aria-controls="kb-aside" aria-label="展开资料边注" title="展开资料边注" hidden>侧栏</button>
             </div>
           </section>
         </main>

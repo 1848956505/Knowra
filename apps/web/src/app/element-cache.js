@@ -16,6 +16,7 @@ const ELEMENT_IDS = {
   workDomainContent: 'work-domain-content',
   editorWorkspaceView: 'editor-workspace-view',
   editorDocumentHead: 'editor-document-head',
+  editorAsideToggle: 'editor-aside-toggle',
   editorAsideReopen: 'editor-aside-reopen',
   workspace: 'kb-workspace',
   sidebar: 'kb-sidebar',

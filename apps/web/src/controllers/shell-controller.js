@@ -19,6 +19,13 @@ import {
   selectLibraryIndexNotes
 } from '../../lib/library-index/model.js';
 import { renderHomeLoading, renderHomeWorkspace } from '../../lib/home/renderers.js';
+import {
+  EDITOR_DIRECTORY_WIDTH,
+  EDITOR_FUNCTION_NAV_WIDTH,
+  EDITOR_MARGINALIA_WIDTH,
+  resolveEditorLayoutMode,
+  resolveEditorMainWidth
+} from '../../lib/editor/layout-state.js';
 
 export function createShellController(deps) {
   const {
@@ -36,6 +43,109 @@ export function createShellController(deps) {
     reportRuntimeError,
     renderWorkDomain: renderWorkDomainView
   } = deps;
+
+  let editorLayoutSyncFrame = null;
+  let editorLayoutResizeBound = false;
+
+  function getElementWidth(element) {
+    if (!element) {
+      return 0;
+    }
+
+    const rectWidth = typeof element.getBoundingClientRect === 'function'
+      ? Number(element.getBoundingClientRect()?.width)
+      : 0;
+    if (Number.isFinite(rectWidth) && rectWidth > 0) {
+      return rectWidth;
+    }
+
+    const clientWidth = Number(element.clientWidth);
+    return Number.isFinite(clientWidth) && clientWidth > 0 ? clientWidth : 0;
+  }
+
+  function applyEditorLayoutMode(mode) {
+    if (!mode) {
+      return;
+    }
+
+    if (elements.workspaceShell?.dataset) {
+      elements.workspaceShell.dataset.editorLayout = mode;
+    }
+    if (elements.workspace?.dataset) {
+      elements.workspace.dataset.editorLayout = mode;
+    }
+    if (elements.editorWorkspaceView?.dataset) {
+      elements.editorWorkspaceView.dataset.editorLayout = mode;
+    }
+  }
+
+  function scheduleEditorLayoutStateSync() {
+    if (editorLayoutSyncFrame !== null) {
+      return;
+    }
+
+    const run = () => {
+      editorLayoutSyncFrame = null;
+      syncEditorLayoutState();
+    };
+    if (typeof globalThis.requestAnimationFrame === 'function') {
+      editorLayoutSyncFrame = globalThis.requestAnimationFrame(run);
+    } else {
+      editorLayoutSyncFrame = globalThis.setTimeout(run, 0);
+    }
+  }
+
+  function ensureEditorLayoutResizeListener() {
+    if (editorLayoutResizeBound || typeof globalThis.addEventListener !== 'function') {
+      return;
+    }
+
+    globalThis.addEventListener('resize', scheduleEditorLayoutStateSync);
+    editorLayoutResizeBound = true;
+  }
+
+  function syncEditorLayoutState() {
+    const editorStage = elements.editorWorkspaceView;
+    if (!editorStage || editorStage.hidden) {
+      return;
+    }
+
+    ensureEditorLayoutResizeListener();
+
+    // Always measure the canonical docked geometry before resolving the mode.
+    // Overlay changes the ShellBody track width, so measuring while the
+    // previous mode is still applied makes the result depend on navigation
+    // history. Clearing the derived attributes gives every state transition
+    // the same baseline geometry; the resolved mode is applied immediately
+    // after the measurement.
+    delete elements.workspaceShell?.dataset?.editorLayout;
+    delete elements.workspace?.dataset?.editorLayout;
+    delete elements.editorWorkspaceView?.dataset?.editorLayout;
+
+    const editorStageWidth = getElementWidth(editorStage);
+    if (editorStageWidth <= 0) {
+      return;
+    }
+
+    const effectiveView = getEffectiveViewState();
+    const shellWidth = getElementWidth(elements.workspaceShell);
+    const functionNavigationWidth = effectiveView.showLeftSidebar
+      ? getElementWidth(elements.moduleRail) || EDITOR_FUNCTION_NAV_WIDTH
+      : 0;
+    const directoryWidth = effectiveView.showLeftSidebar
+      ? getElementWidth(elements.sidebar) || EDITOR_DIRECTORY_WIDTH
+      : 0;
+    const layoutWorkspaceWidth = shellWidth > 0
+      ? Math.max(0, shellWidth - functionNavigationWidth - directoryWidth)
+      : editorStageWidth;
+    const marginaliaWidth = getElementWidth(elements.aside) || EDITOR_MARGINALIA_WIDTH;
+    const editorMainWidth = resolveEditorMainWidth({
+      workspaceWidth: layoutWorkspaceWidth,
+      rightSidebarOpen: effectiveView.showRightSidebar,
+      marginaliaWidth
+    });
+    applyEditorLayoutMode(resolveEditorLayoutMode(editorMainWidth));
+  }
 
   function renderRail() {
   if (!elements.moduleRail) {
@@ -114,6 +224,13 @@ function renderWorkspaceViewState() {
   if (elements.editorWorkspaceView) {
     elements.editorWorkspaceView.hidden = !isMaterials || isHome || isIndex;
   }
+  if (isMaterials && !isHome && !isIndex) {
+    syncEditorLayoutState();
+  } else {
+    delete elements.workspaceShell?.dataset?.editorLayout;
+    delete elements.workspace?.dataset?.editorLayout;
+    delete elements.editorWorkspaceView?.dataset?.editorLayout;
+  }
   if (elements.workDomainView) {
     elements.workDomainView.hidden = isMaterials;
     elements.workDomainView.dataset.domain = state.navigation?.activeWorkDomain ?? 'materials';
@@ -136,12 +253,24 @@ function renderWorkspaceViewState() {
     elements.libraryIndexDirectoryReopen.setAttribute('aria-expanded', String(showLibraryDirectory));
   }
 
+  const showEditorAside = isMaterials && !isHome && !isIndex && effectiveView.showRightSidebar;
   if (elements.aside) {
     elements.aside.hidden = isHome || isIndex || !effectiveView.showRightSidebar;
     if (!isMaterials) elements.aside.hidden = true;
+    elements.aside.setAttribute?.('aria-hidden', String(!showEditorAside));
+  }
+  if (elements.editorAsideToggle) {
+    elements.editorAsideToggle.setAttribute?.('aria-expanded', String(showEditorAside));
+    elements.editorAsideToggle.setAttribute?.('aria-controls', 'kb-aside');
+    elements.editorAsideToggle.setAttribute?.('aria-label', showEditorAside ? '收起资料边注' : '展开资料边注');
+    elements.editorAsideToggle.setAttribute?.('title', showEditorAside ? '收起资料边注' : '展开资料边注');
   }
   if (elements.editorAsideReopen) {
-    elements.editorAsideReopen.hidden = !isMaterials || isHome || isIndex || effectiveView.showRightSidebar;
+    elements.editorAsideReopen.hidden = !isMaterials || isHome || isIndex || showEditorAside;
+    elements.editorAsideReopen.setAttribute?.('aria-expanded', String(showEditorAside));
+    elements.editorAsideReopen.setAttribute?.('aria-controls', 'kb-aside');
+    elements.editorAsideReopen.setAttribute?.('aria-label', showEditorAside ? '收起资料边注' : '展开资料边注');
+    elements.editorAsideReopen.setAttribute?.('title', showEditorAside ? '收起资料边注' : '展开资料边注');
   }
 }
 
@@ -228,6 +357,7 @@ function renderStatus() {
     safeRenderStep,
     getEffectiveViewState,
     renderWorkspaceViewState,
+    syncEditorLayoutState,
     renderHome,
     renderWorkDomain,
     renderLibraryIndex,

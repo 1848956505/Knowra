@@ -68,6 +68,47 @@ body:has(.knowra-production-shell) {
   grid-template-columns: var(--shell-nav-w) minmax(0, 1fr);
 }
 
+/* When focus/editor view hides both the global rail and the contextual
+   directory, do not leave the directory column as an empty 208px gutter. */
+.knowra-production-shell[data-function-navigation-hidden='true'][data-directory-hidden='true'] .shell-body,
+.knowra-production-shell[data-left-hidden='true'][data-directory-hidden='true'] .shell-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Overlay mode keeps both contextual rails out of the正文 track. The
+   directory is a ShellBody sibling, so it needs an explicit floating layer
+   when the editor work surface drops below the protected width. */
+.knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .shell-body {
+  position: relative;
+  grid-template-columns: var(--shell-nav-w) minmax(0, 1fr);
+}
+
+/* The legacy workspace-main z-index creates a stacking context that traps the
+   editor menu below the floating directory. Keep the directory interactive,
+   while allowing the editor menu's scoped z-index to sit above it. */
+.knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .workspace-main {
+  z-index: auto;
+}
+
+.knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .shell-body .kb-sidebar {
+  position: absolute;
+  z-index: 22;
+  top: calc(var(--document-tab-height) + var(--menu-height));
+  bottom: 0;
+  left: var(--shell-nav-w);
+  width: var(--catalog-w);
+  height: auto;
+  box-shadow: var(--shadow-editorial);
+}
+
+/* Once an editor menu is open, temporarily clear the floating directory from
+   the popover's hit area. This keeps the full mouse path usable even though
+   the query-container host forms its own stacking context. */
+.knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .shell-body:has(.editor-menu-text[data-open='true']) .kb-sidebar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .knowra-production-shell .shell-body .function-navigation {
   order: 0;
 }

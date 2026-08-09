@@ -33,6 +33,12 @@ function focusLibraryIndexTab(elements, tabKey) {
     ?.focus?.();
 }
 
+function focusLibraryIndexReopen(elements, selector, root = elements.libraryIndexView) {
+  const reopenButton = root?.querySelector?.(selector)
+    ?? elements.libraryIndexView?.querySelector?.(selector);
+  reopenButton?.focus?.();
+}
+
 export function bindLibraryIndexEvents({ state, elements, deps }) {
   let rowSelectionTimer = null;
   const openNote = async (noteId) => {
@@ -136,6 +142,7 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
     if (closestFromEventTarget(event.target, '[data-index-inspector-close]')) {
       state.libraryIndex.inspectorOpen = false;
       deps.renderLibraryIndex();
+      focusLibraryIndexReopen(elements, '[data-index-inspector-open]', elements.libraryIndexInspector);
       return;
     }
 
@@ -217,8 +224,12 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
   elements.workspaceShell?.addEventListener('click', (event) => {
     const directoryToggle = closestFromEventTarget(event.target, '[data-index-directory-toggle]');
     if (directoryToggle) {
+      const wasDirectoryOpen = state.libraryIndex.directoryOpen;
       state.libraryIndex.directoryOpen = !state.libraryIndex.directoryOpen;
       deps.renderAll();
+      if (wasDirectoryOpen && !state.libraryIndex.directoryOpen) {
+        elements.libraryIndexDirectoryReopen?.focus?.();
+      }
       return;
     }
 
@@ -243,8 +254,14 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
     }
 
     if (closestFromEventTarget(event.target, '[data-editor-aside-toggle]')) {
+      const wasRightSidebarOpen = state.view.showRightSidebar;
       state.view.showRightSidebar = !state.view.showRightSidebar;
       deps.renderAll();
+      if (wasRightSidebarOpen && !state.view.showRightSidebar) {
+        elements.editorAsideReopen?.focus?.();
+      } else if (!wasRightSidebarOpen && state.view.showRightSidebar) {
+        elements.editorAsideToggle?.focus?.();
+      }
       return;
     }
 
