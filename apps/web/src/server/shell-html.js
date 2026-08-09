@@ -106,11 +106,11 @@ export function renderHtml(initialWorkspaceScript = '') {
               <section class="kb-editor editor-workspace">
                 <header class="document-tabs">
                   <button type="button" class="back-index" data-library-home="back" aria-label="返回资料索引">${renderIcon('back', { className: 'back-index-icon' })}</button>
-                  <div class="note-tabs" id="note-tabs"></div>
+                  <div class="note-tabs" id="note-tabs" role="tablist" aria-label="已打开的资料"></div>
                   <div class="note-tab-overflow-menu" id="note-tab-overflow-menu" hidden></div>
                 </header>
                 <div class="editor-menu-bar" id="editor-menu-bar"></div>
-                <section class="editor-shell" id="editor-scroll-region">
+                <section class="editor-shell" id="editor-scroll-region" role="tabpanel" aria-label="资料编辑内容" tabindex="0">
                   <div class="editor-document-head" id="editor-document-head"></div>
                   <div class="editor-content" id="editor-content" data-source-open="false">
                     <section class="preview-pane preview-frame">

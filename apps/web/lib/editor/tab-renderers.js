@@ -26,23 +26,42 @@ export function renderNoteTabs({
       const isDirty = isActive && DIRTY_SAVE_STATES.has(saveState);
       const isDragging = dragState.activeId === note.id;
       const isDropTarget = dragState.overId === note.id;
+      const title = note.title || '未命名资料';
+      const notePath = buildNoteTabPath(note, foldersById);
+      const accessibleTitle = `${title}${isDirty ? '（有未保存修改）' : ''}`;
 
       return `
-        <button
-          type="button"
+        <div
           class="note-tab"
           data-tab-note-id="${escapeAttribute(note.id)}"
-          data-active="${isActive}"
-          data-dirty="${isDirty}"
-          data-dragging="${isDragging}"
-          data-drop-target="${isDropTarget}"
-          title="${escapeAttribute(buildNoteTabPath(note, foldersById))}"
+          data-active="${String(isActive)}"
+          data-dirty="${String(isDirty)}"
+          data-dragging="${String(isDragging)}"
+          data-drop-target="${String(isDropTarget)}"
+          title="${escapeAttribute(notePath)}"
           draggable="true"
         >
-          <span class="note-tab-label">${escapeHtml(note.title)}</span>
-          <span class="note-tab-dirty">${isDirty ? '●' : ''}</span>
-          <span class="note-tab-close" data-tab-close="${escapeAttribute(note.id)}" aria-label="关闭标签页" title="关闭标签页">${renderIcon('cancel', { className: 'note-tab-close-icon' })}</span>
-        </button>
+          <button
+            type="button"
+            class="note-tab-select"
+            role="tab"
+            aria-selected="${String(isActive)}"
+            aria-controls="editor-scroll-region"
+            aria-label="${escapeAttribute(accessibleTitle)}"
+            title="${escapeAttribute(notePath)}"
+          >
+            ${renderIcon('noteMarkdown', { className: 'note-tab-file-icon' })}
+            <span class="note-tab-label">${escapeHtml(title)}</span>
+            <span class="note-tab-dirty" aria-hidden="true">${isDirty ? '●' : ''}</span>
+          </button>
+          <button
+            type="button"
+            class="note-tab-close"
+            data-tab-close="${escapeAttribute(note.id)}"
+            aria-label="关闭标签页"
+            title="关闭标签页"
+          >${renderIcon('cancel', { className: 'note-tab-close-icon' })}</button>
+        </div>
       `;
     })
     .join('');

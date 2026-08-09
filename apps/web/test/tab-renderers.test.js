@@ -33,7 +33,7 @@ assert.match(html, /data-dirty="true"/);
 assert.match(html, /data-drop-target="true"/);
 assert.match(html, /title="A &amp; B \/ Alpha &lt;Draft&gt;"/);
 assert.match(html, /Alpha &lt;Draft&gt;/);
-assert.match(html, /<span class="note-tab-dirty">●<\/span>/);
+assert.match(html, /<span class="note-tab-dirty" aria-hidden="true">●<\/span>/);
 assert.match(html, /data-tab-note-id="note-2"/);
 assert.match(html, /data-dragging="true"/);
 assert.match(html, /data-dirty="false"/);
