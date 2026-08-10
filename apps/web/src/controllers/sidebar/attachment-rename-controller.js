@@ -25,6 +25,11 @@ export function createAttachmentRenameController({
       extension
     };
     renderSidebar(getCurrentNote());
+    const renameInput = typeof document !== 'undefined'
+      ? document.querySelector(`[data-attachment-rename-input="${escapeAttachmentSelector(attachment.id)}"]`)
+      : null;
+    renameInput?.focus?.();
+    renameInput?.select?.();
     return true;
   }
 
@@ -96,4 +101,9 @@ export function createAttachmentRenameController({
     cancelAttachmentRename,
     submitAttachmentRename
   };
+}
+
+function escapeAttachmentSelector(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
+  return String(value).replace(/"/g, '\\"');
 }

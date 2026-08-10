@@ -49,10 +49,10 @@ const html = renderEditorDocumentHead({
 assert.match(html, /data-document-title-input/);
 assert.match(html, /value="Editable title"/);
 assert.doesNotMatch(html, /<h1>Saved title<\/h1>/);
-assert.match(html, /class="breadcrumb">资料库　\/　test　\/　Editable title<\/span>/);
+assert.match(html, /class="document-breadcrumb" aria-label="资料路径">[\s\S]*资料库[\s\S]*test[\s\S]*aria-current="page"[\s\S]*Editable title/);
 assert.doesNotMatch(html, /资料库　\/　资料/);
 assert.doesNotMatch(html, /class="document-id"|>001</);
-assert.match(html, /class="document-title-row">[\s\S]*class="document-title-input"/);
+assert.match(html, /class="document-title-row">[\s\S]*class="document-title"[\s\S]*class="document-title-input"/);
 
 const inspectorHtml = renderLibraryIndexInspector({
   note: {

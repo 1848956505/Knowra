@@ -1,0 +1,80 @@
+/* M4-05: editor marginalia, scoped to the production InkGrid shell. */
+.knowra-production-shell .editor-inspector .aside-tab:hover,
+.knowra-production-shell .editor-inspector .aside-tab:focus-visible {
+  background: var(--paper-raised);
+  color: var(--blue);
+  outline: none;
+}
+
+.knowra-production-shell .editor-inspector .aside-tab:focus-visible {
+  box-shadow: inset 0 calc(-1 * var(--border-tab-active)) var(--blue);
+}
+
+.knowra-production-shell .editor-inspector .aside-content:focus-visible {
+  outline: none;
+  box-shadow: inset var(--border-accent) 0 var(--blue);
+}
+
+.knowra-production-shell .editor-inspector .inspector-fixed-section > header,
+.knowra-production-shell .editor-inspector .concepts-section-heading {
+  border-bottom: var(--border-thin) solid var(--line);
+}
+
+.knowra-production-shell .editor-inspector .note-tag-toolbar {
+  align-items: flex-start;
+}
+
+.knowra-production-shell .editor-inspector .note-tag-toggle,
+.knowra-production-shell .editor-inspector .pill-button,
+.knowra-production-shell .editor-inspector .resource-entry,
+.knowra-production-shell .editor-inspector .resource-inline-action,
+.knowra-production-shell .editor-inspector .outline-jump,
+.knowra-production-shell .editor-inspector .annotation-card button {
+  cursor: pointer;
+}
+
+.knowra-production-shell .editor-inspector .resource-rename-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.knowra-production-shell .editor-inspector .resource-rename-field {
+  display: flex;
+  min-width: 0;
+  border-bottom: var(--border-thin) solid var(--line);
+  background: var(--paper-raised);
+}
+
+.knowra-production-shell .editor-inspector .resource-rename-input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+.knowra-production-shell .editor-inspector .resource-rename-input:focus {
+  outline: none;
+}
+
+.knowra-production-shell .editor-inspector .resource-rename-extension {
+  align-self: center;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.knowra-production-shell .editor-inspector .annotation-card-actions button:focus-visible,
+.knowra-production-shell .editor-inspector .resource-entry:focus-visible,
+.knowra-production-shell .editor-inspector .outline-jump:focus-visible,
+.knowra-production-shell .editor-inspector .pill-button:focus-visible {
+  outline: none;
+  box-shadow: inset var(--border-accent) 0 var(--blue);
+}
+
+.knowra-production-shell .editor-inspector .aside-placeholder,
+.knowra-production-shell .editor-inspector .aside-panel-empty,
+.knowra-production-shell .editor-inspector .aside-empty,
+.knowra-production-shell .editor-inspector .aside-empty-inline {
+  border-radius: var(--radius-none);
+}

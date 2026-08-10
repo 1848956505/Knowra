@@ -14,7 +14,7 @@ const tokens = readStyle('knowra-theme-tokens.css');
 const shell = readStyle('knowra-inkgrid-shell.css');
 const navigation = readStyle('knowra-inkgrid-navigation.css');
 const library = readStyle('knowra-inkgrid-library-index.css');
-const editor = readStyle('knowra-inkgrid-editor.css');
+const editor = `${readStyle('knowra-inkgrid-editor.css')}\n${readStyle('knowra-inkgrid-editor-paper.css')}`;
 const workDomain = readStyle('work-domain.css');
 const menus = readStyle('knowra-inkgrid-menus.css');
 const typography = readStyle('knowra-inkgrid-typography.css');
@@ -126,8 +126,8 @@ assert.match(library, /\.section-icon\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/
 assert.match(library, /\.index-local-search input\s*\{[^}]*width:\s*var\(--index-local-search-width\)[^}]*border:\s*var\(--ink-border-w\) solid var\(--ink-border\)/, 'the index should expose the prototype local search control');
 assert.match(library, /\.knowra-production-shell\[data-screen='index'\] \.knowra-rail \.library-label\s*\{[^}]*min-height:\s*var\(--aux-sidebar-head-h\)[^}]*height:\s*var\(--aux-sidebar-head-h\)/, 'the index directory should use the prototype compact header');
 assert.match(library, /\.library-index-directory-reopen\s*\{[^}]*left:\s*var\(--shell-nav-w\)[^}]*width:\s*var\(--aux-sidebar-control\)/, 'the collapsed index directory should retain an explicit reopen affordance');
-assert.match(editor, /\.document-title-row\s*\{[^}]*border-left:\s*var\(--border-selection\) solid var\(--blue\)/, 'the document title should begin directly after the blue guide line');
-assert.match(editor, /\.document-title-input\s*\{[^}]*color:\s*var\(--blue\)[^}]*font:\s*800/, 'the file title should replace the decorative document number as the primary blue heading');
+assert.match(editor, /\.document-title\s*\{[^}]*border-left:\s*var\(--border-selection\) solid var\(--blue\)/, 'the document title should begin directly after the blue guide line');
+assert.match(editor, /\.document-title-input\s*\{[^}]*color:\s*var\(--ink\)[^}]*font:\s*800/, 'the file title should remain the primary InkGrid paper heading');
 assert.match(
   editor,
   /\.document-tabs \.note-tab\[data-active='true'\][^}]*box-shadow:\s*inset\s*var\(--border-tab-active\)\s+0\s+0\s+var\(--blue\)/,

@@ -11,6 +11,11 @@ export function renderAsideTabs({ tabs = [], activeKey = null } = {}) {
           class="aside-tab"
           data-aside-tab="${escapeAttribute(tab.key)}"
           data-active="${String(activeKey === tab.key)}"
+          id="aside-tab-${escapeAttribute(tab.key)}"
+          role="tab"
+          aria-controls="aside-content"
+          aria-selected="${String(activeKey === tab.key)}"
+          tabindex="${activeKey === tab.key ? '0' : '-1'}"
         >${escapeHtml(tab.label)}</button>
       `
     )

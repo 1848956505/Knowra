@@ -11,5 +11,7 @@
 @import './knowra-inkgrid-home.css';
 @import './knowra-inkgrid-library-index.css';
 @import './knowra-inkgrid-editor.css';
+@import './knowra-inkgrid-editor-paper.css';
+@import './knowra-inkgrid-editor-marginalia.css';
 @import './knowra-inkgrid-menus.css';
 @import './knowra-inkgrid-typography.css';

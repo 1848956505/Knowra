@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { bindAsideContentClickEvents } from '../../lib/events/aside-events/click.js';
 import { bindAsideContentFormEvents } from '../../lib/events/aside-events/forms.js';
 import { bindAsideContentInputEvents } from '../../lib/events/aside-events/input.js';
+import { bindAsideTabsEvents } from '../../lib/events/aside-events/tabs.js';
 import { createRecorderElement } from '../_support/recorder-elements.js';
 
 function makeTarget(selector, dataset = {}, value = '') {
@@ -123,3 +124,62 @@ function makeTarget(selector, dataset = {}, value = '') {
 }
 
 console.log('ok - aside tag events expand, update and submit the tag composer');
+
+{
+  const asideTabs = createRecorderElement();
+  const focused = [];
+  const tabs = ['info', 'outline', 'concepts', 'ai'].map((asideTab) => ({
+    dataset: { asideTab },
+    focus: () => focused.push(asideTab),
+    closest: (selector) => selector === '[data-aside-tab]' ? tabs.find((tab) => tab.dataset.asideTab === asideTab) : null
+  }));
+  asideTabs.querySelectorAll = () => tabs;
+  asideTabs.querySelector = (selector) => tabs.find((tab) => selector.includes(tab.dataset.asideTab));
+  const state = { asideTab: 'info' };
+  let rendered = 0;
+  bindAsideTabsEvents({
+    state,
+    elements: { asideTabs },
+    deps: { getCurrentNote: () => ({ id: 'note-1' }), renderSidebar: () => { rendered += 1; } }
+  });
+  let prevented = false;
+  asideTabs.dispatch('keydown', tabs[0], { key: 'ArrowRight', preventDefault: () => { prevented = true; } });
+  assert.equal(state.asideTab, 'outline');
+  assert.equal(rendered, 1);
+  assert.equal(prevented, true);
+  assert.deepEqual(focused, ['outline']);
+}
+
+{
+  const asideContent = createRecorderElement();
+  const calls = [];
+  bindAsideContentClickEvents({
+    state: { noteTagComposer: { draft: '', isExpanded: false } },
+    elements: { asideContent },
+    deps: { cancelAttachmentRename: () => calls.push('cancel') }
+  });
+  bindAsideContentInputEvents({
+    elements: { asideContent },
+    deps: { updateAttachmentRenameDraft: (value) => calls.push(['draft', value]) }
+  });
+  asideContent.dispatch('click', makeTarget('[data-attachment-rename-cancel]'));
+  asideContent.dispatch('input', makeTarget('[data-attachment-rename-input]', {}, 'new-name'));
+  assert.deepEqual(calls, ['cancel', ['draft', 'new-name']]);
+}
+
+{
+  const asideContent = createRecorderElement();
+  let submitted = null;
+  let prevented = false;
+  const input = { value: 'renamed' };
+  const form = makeTarget('[data-attachment-rename-form]', { attachmentRenameForm: 'attachment-1' });
+  form.querySelector = () => input;
+  bindAsideContentFormEvents({
+    state: { noteTagComposer: { draft: '' } },
+    elements: { asideContent },
+    deps: { submitAttachmentRename: (...args) => { submitted = args; } }
+  });
+  asideContent.dispatch('submit', form, { preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.deepEqual(submitted, ['attachment-1', 'renamed']);
+}

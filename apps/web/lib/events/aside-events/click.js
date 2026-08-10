@@ -2,6 +2,10 @@ import { closestFromEventTarget } from '../../dom/event-target.js';
 
 export function bindAsideContentClickEvents({ state, elements, deps }) {
   elements.asideContent?.addEventListener('click', (event) => {
+    if (closestFromEventTarget(event.target, '[data-attachment-rename-cancel]')) {
+      deps.cancelAttachmentRename?.();
+      return;
+    }
     if (closestFromEventTarget(event.target, '[data-note-tag-toggle]')) {
       state.noteTagComposer.isExpanded = !state.noteTagComposer.isExpanded;
       if (!state.noteTagComposer.isExpanded) state.noteTagComposer.draft = '';

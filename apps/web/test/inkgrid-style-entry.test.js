@@ -12,6 +12,7 @@ const responsibilityModules = [
   'knowra-inkgrid-navigation.css',
   'knowra-inkgrid-library-index.css',
   'knowra-inkgrid-editor.css',
+  'knowra-inkgrid-editor-paper.css',
   'knowra-inkgrid-menus.css',
   'knowra-inkgrid-typography.css'
 ].map((name) => path.resolve(stylesRoot, 'components', name));

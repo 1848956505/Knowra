@@ -157,6 +157,11 @@ function renderSidebar(note) {
     tabs: ASIDE_TABS,
     activeKey: state.asideTab
   });
+  elements.asideTabs.setAttribute?.('role', 'tablist');
+  elements.asideTabs.setAttribute?.('aria-label', '资料边注');
+  elements.asideContent.setAttribute?.('role', 'tabpanel');
+  elements.asideContent.setAttribute?.('aria-labelledby', `aside-tab-${state.asideTab}`);
+  elements.asideContent.setAttribute?.('tabindex', '0');
 
   const contentKey = resolveAsideContentKey({
     note,
