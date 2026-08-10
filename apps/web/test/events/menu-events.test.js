@@ -164,11 +164,11 @@ runTest('sectionMenu: data-section-toggle flips state and renders folders', asyn
 runTest('editorMenuBar: data-editor-menu-toggle toggles state.editorMenuOpen', async () => {
   const { elements, listeners } = makeElements();
   const { bindMenuEvents } = await import('../../lib/events/menu-events.js');
-  let rendered = 0;
+  const renderOptions = [];
   const state = makeState();
   state.editorMenuOpen = null;
   const deps = makeDeps();
-  deps.renderEditorMenuBar = () => { rendered += 1; };
+  deps.renderEditorMenuBar = (options) => { renderOptions.push(options); };
 
   bindMenuEvents({ state, elements, deps });
 
@@ -178,12 +178,32 @@ runTest('editorMenuBar: data-editor-menu-toggle toggles state.editorMenuOpen', a
   // 第一次点击：null → 'file'
   listeners.editorMenuBar.get('click')({ target, stopPropagation() {} });
   assert.equal(state.editorMenuOpen, 'file');
-  assert.equal(rendered, 1);
+  assert.deepEqual(renderOptions[0], {
+    focusMenuKey: 'file',
+    focusTarget: 'first-item'
+  });
 
   // 第二次点击同 key：'file' → null
   listeners.editorMenuBar.get('click')({ target, stopPropagation() {} });
   assert.equal(state.editorMenuOpen, null);
-  assert.equal(rendered, 2);
+  assert.deepEqual(renderOptions[1], {
+    focusMenuKey: 'file',
+    focusTarget: 'trigger'
+  });
+});
+
+runTest('editorMenuBar: the more trigger uses the same menu toggle contract', async () => {
+  const { elements, listeners } = makeElements();
+  const { bindMenuEvents } = await import('../../lib/events/menu-events.js');
+  const state = makeState();
+  bindMenuEvents({ state, elements, deps: makeDeps() });
+
+  const target = { dataset: { editorMenuToggle: 'more' } };
+  target.closest = makeClosest(new Map([['[data-editor-menu-toggle]', target]]));
+
+  listeners.editorMenuBar.get('click')({ target, stopPropagation() {} });
+
+  assert.equal(state.editorMenuOpen, 'more');
 });
 
 runTest('editorMenuBar: stopPropagation called to prevent outside-close race', async () => {

@@ -48,9 +48,12 @@
   right: var(--space-3);
 }
 .knowra-production-shell .editor-workspace { display: grid; grid-template-rows: var(--document-tab-height) var(--menu-height) minmax(0, 1fr); min-width: 0; height: 100%; overflow: hidden; border-right: 0; background: var(--paper); }
-.knowra-production-shell .document-tabs { position: relative; z-index: 21; display: flex; align-items: stretch; min-width: 0; height: var(--document-tab-height); overflow: visible; border-bottom: var(--border-thin) solid var(--line); }
+/* The overflow menu extends into the editor menu row; keep the tab layer above
+   that row and the marginalia overlay so its hidden-tab actions remain hit-testable. */
+.knowra-production-shell .document-tabs { position: relative; z-index: 60; display: flex; align-items: stretch; min-width: 0; height: var(--document-tab-height); overflow: visible; border-bottom: var(--border-thin) solid var(--line); }
 .knowra-production-shell .back-index { display: grid; flex: 0 0 var(--document-tab-height); place-items: center; border: 0; border-right: var(--border-thin) solid var(--line); background: none; font-size: var(--text-title-sm); }
 .knowra-production-shell .document-tabs .note-tabs { display: flex; flex: 1; align-items: stretch; min-width: 0; height: var(--document-tab-height); min-height: var(--document-tab-height); padding: 0; overflow: hidden; border: 0; background: transparent; scrollbar-width: none; }
+.knowra-production-shell .document-tabs .note-tab-overflow-toggle-host { display: flex; flex: 0 0 var(--document-tab-overflow-width); align-items: stretch; min-width: var(--document-tab-overflow-width); height: var(--document-tab-height); }
 .knowra-production-shell .document-tabs .note-tab { display: flex; flex: 1 1 var(--document-tab-min-width); align-items: stretch; min-width: var(--document-tab-min-width); max-width: var(--document-tab-max-width); height: var(--document-tab-height); padding: 0; border: 0; border-right: var(--border-thin) solid var(--line-soft); border-left: var(--border-tab-active) solid transparent; background: var(--paper-muted); color: var(--muted); cursor: grab; user-select: none; }
 .knowra-production-shell .document-tabs .note-tab:active { cursor: grabbing; }
 .knowra-production-shell .document-tabs .note-tab:hover { background: var(--paper); color: var(--ink); }
@@ -72,11 +75,15 @@
 .knowra-production-shell .document-tabs .note-tab:focus-within .note-tab-close,
 .knowra-production-shell .document-tabs .note-tab[data-active='true'] .note-tab-close { opacity: 1; }
 .knowra-production-shell .document-tabs .note-tab-close:hover { background: var(--blue-wash); color: var(--ink); }
-.knowra-production-shell .note-tab-overflow-toggle { display: inline-grid; grid-template-columns: auto auto; flex: 0 0 var(--document-tab-overflow-width); align-items: center; justify-content: center; gap: var(--space-half); height: var(--document-tab-height); padding: 0; border: 0; border-left: var(--border-thin) solid var(--line); background: transparent; color: var(--blue); }
+.knowra-production-shell .note-tab-overflow-toggle { display: inline-grid; grid-template-columns: auto auto; flex: 1 1 auto; width: 100%; align-items: center; justify-content: center; gap: var(--space-half); height: var(--document-tab-height); padding: 0; border: 0; border-left: var(--border-thin) solid var(--line); background: transparent; color: var(--blue); }
 .knowra-production-shell .note-tab-overflow-toggle small { font: 600 var(--text-2xs) var(--font-display); }
 .knowra-production-shell .note-tab-overflow-toggle:hover,
 .knowra-production-shell .note-tab-overflow-toggle[data-open='true'] { background: var(--blue); color: var(--color-on-accent); }
 .knowra-production-shell .note-tab-overflow-menu { position: absolute; z-index: 40; top: var(--document-tab-height); right: 0; display: grid; width: var(--rail-width); max-height: calc(var(--space-20) * 3); overflow-y: auto; border: var(--border-thin) solid var(--line); border-top: var(--border-accent) solid var(--blue); background: var(--paper-raised); box-shadow: var(--shadow-editorial); }
+/* The marginalia panel starts below the tab row and otherwise sits over the
+   overflow menu's expanded area. Let the menu own pointer input while open;
+   the panel remains visible and resumes interaction as soon as it closes. */
+.knowra-production-shell .kb-workspace:has(.note-tab-overflow-menu:not([hidden])) .editor-inspector { pointer-events: none; }
 .knowra-production-shell .note-tab-overflow-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-height: var(--control-height-md); padding: 0 var(--space-3); border: 0; border-bottom: var(--border-thin) solid var(--line-soft); background: transparent; text-align: left; }
 .knowra-production-shell .note-tab-overflow-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knowra-production-shell .note-tab-overflow-item small { color: var(--muted); font-size: var(--text-2xs); }
@@ -91,8 +98,10 @@
 
 .knowra-production-shell .editor-workspace .editor-menu-bar { z-index: 10; height: var(--menu-height); min-height: var(--menu-height); padding-inline: var(--space-5); border-bottom: var(--border-thin) solid var(--line); background: var(--paper); }
 .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .editor-workspace .editor-menu-bar { position: relative; z-index: 23; }
-.knowra-production-shell .editor-workspace .editor-menu-shell { min-height: calc(var(--menu-height) - var(--border-thin)); gap: var(--space-2); }
-.knowra-production-shell .editor-workspace .editor-menu-groups { display: flex; flex: 0 0 auto; align-items: stretch; gap: var(--space-5); }
+.knowra-production-shell .editor-workspace .editor-menu-shell { min-width: 0; min-height: calc(var(--menu-height) - var(--border-thin)); gap: var(--space-2); flex-wrap: nowrap; overflow: visible; white-space: nowrap; }
+.knowra-production-shell .editor-workspace .editor-menu-groups { display: flex; flex: 0 0 auto; align-items: stretch; gap: var(--space-5); min-width: 0; }
+.knowra-production-shell .editor-workspace .editor-menu-group { position: relative; flex: 0 0 auto; min-width: 0; }
+.knowra-production-shell .editor-workspace .editor-menu-more-group { display: none; }
 .knowra-production-shell .editor-workspace .editor-menu-text { min-height: calc(var(--menu-height) - var(--border-thin)); color: var(--ink); font-size: var(--text-md); font-weight: 500; }
 .knowra-production-shell .editor-workspace .editor-menu-text:hover,
 .knowra-production-shell .editor-workspace .editor-quick-tools button:hover { background: var(--line-soft); color: var(--blue); }
@@ -100,10 +109,16 @@
 .knowra-production-shell .editor-workspace .editor-quick-tools button:active,
 .knowra-production-shell .editor-workspace .editor-quick-tools button[data-active='true'] { background: var(--blue); color: var(--color-on-accent); }
 .knowra-production-shell .editor-workspace .editor-menu-popover { top: calc(var(--menu-height) - var(--border-thin)); border: var(--border-thin) solid var(--ink); border-radius: var(--radius-none); background: var(--paper-raised); box-shadow: var(--shadow-editorial); }
+.knowra-production-shell .editor-workspace .editor-menu-popover[role='menu'] { max-height: min(420px, calc(100vh - var(--menu-height) - var(--space-4))); overflow-x: hidden; overflow-y: auto; }
+.knowra-production-shell .editor-workspace .editor-menu-more-popover { right: 0; left: auto; width: min(320px, calc(100cqw - var(--space-4))); min-width: 0; }
+.knowra-production-shell .editor-workspace .editor-menu-section + .editor-menu-section { border-top: var(--border-thin) solid var(--line-soft); }
+.knowra-production-shell .editor-workspace .editor-menu-section-label { margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); color: var(--muted); font: 700 var(--text-2xs)/var(--line-height-tight) var(--font-display); letter-spacing: var(--letter-label); text-transform: uppercase; }
+.knowra-production-shell .editor-workspace .editor-menu-section .editor-menu-divider { margin-inline: var(--space-3); }
+.knowra-production-shell .editor-workspace .editor-menu-item[role='menuitem'] { white-space: nowrap; }
 .knowra-production-shell .editor-workspace .editor-menu-item:hover { background: var(--blue); color: var(--color-on-accent); }
 .knowra-production-shell .editor-workspace .quick-tools-divider,
 .knowra-production-shell .editor-workspace .editor-quick-divider { flex: 0 0 var(--border-thin); width: var(--border-thin); height: var(--space-5); align-self: center; background: var(--line-soft); }
-.knowra-production-shell .editor-workspace .editor-quick-tools { display: flex; align-items: center; gap: var(--border-thin); min-width: 0; overflow: hidden; }
+.knowra-production-shell .editor-workspace .editor-quick-tools { display: flex; flex: 1 1 auto; align-items: center; gap: var(--border-thin); min-width: 0; overflow: hidden; }
 .knowra-production-shell .editor-workspace .editor-quick-tools button { display: grid; flex: 0 0 var(--space-7); width: var(--space-7); height: var(--control-height-sm); place-items: center; padding: 0; border: 0; background: none; font-size: var(--text-xs); }
 .knowra-production-shell .editor-workspace .editor-quick-tools .editor-context-glyph,
 .knowra-production-shell .editor-workspace .editor-quick-tools .semantic-icon { width: var(--space-4); height: var(--space-4); }
@@ -356,6 +371,21 @@
   .knowra-production-shell .editor-workspace .editor-menu-text {
     font-size: var(--text-sm);
   }
+
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='format'] {
+    display: none;
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-more-group {
+    display: flex;
+  }
+
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='bullet'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='quote'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='code'] {
+    display: none;
+  }
 }
 
 @container editor-main (min-width: 720px) and (max-width: 899px) {
@@ -365,6 +395,25 @@
 
   .knowra-production-shell .editor-workspace .editor-menu-groups {
     gap: var(--space-2);
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='edit'],
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='format'] {
+    display: none;
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-more-group {
+    display: flex;
+  }
+
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='heading-2'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='heading-3'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='italic'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='bullet'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='quote'],
+  .knowra-production-shell .editor-workspace .editor-quick-tools [data-quick-action='code'] {
+    display: none;
   }
 
   .knowra-production-shell .editor-workspace .editor-content[data-source-open='true'] {
@@ -381,7 +430,105 @@
     gap: var(--space-1);
   }
 
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='edit'],
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='format'],
+  .knowra-production-shell .editor-workspace .editor-menu-group[data-editor-menu-group='view'] {
+    display: none;
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-more-group {
+    display: flex;
+  }
+
+  .knowra-production-shell .editor-workspace .editor-menu-bar .quick-tools-divider,
+  .knowra-production-shell .editor-workspace .editor-quick-tools {
+    display: none;
+  }
+
   .knowra-production-shell .editor-workspace .editor-content[data-source-open='true'] {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/*
+ * The shell resolves the four modes from the real EditorMain width. The
+ * editor-workspace-view is also a container for legacy layout rules, so these
+ * state selectors are the authoritative menu visibility layer when the
+ * docked rails make the host wider than EditorMain itself.
+ */
+.knowra-production-shell .editor-workspace-view[data-editor-layout='full'] .editor-workspace .editor-menu-group[data-editor-menu-group='file'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='full'] .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='full'] .editor-workspace .editor-menu-group[data-editor-menu-group='edit'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='full'] .editor-workspace .editor-menu-group[data-editor-menu-group='format'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='full'] .editor-workspace .editor-menu-group[data-editor-menu-group='view'] {
+  display: flex;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='full'] .editor-workspace .editor-menu-more-group {
+  display: none;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='compact'] .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='compact'] .editor-workspace .editor-menu-group[data-editor-menu-group='format'] {
+  display: none;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='compact'] .editor-workspace .editor-menu-more-group {
+  display: flex;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='compact'] .editor-workspace .editor-quick-tools [data-quick-action='bullet'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='compact'] .editor-workspace .editor-quick-tools [data-quick-action='quote'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='compact'] .editor-workspace .editor-quick-tools [data-quick-action='code'] {
+  display: none;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-menu-group[data-editor-menu-group='edit'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-menu-group[data-editor-menu-group='format'] {
+  display: none;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-menu-more-group {
+  display: flex;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-menu-bar {
+  position: relative;
+  z-index: 23;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .kb-workspace .editor-inspector {
+  top: calc(var(--document-tab-height) + var(--menu-height));
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-quick-tools [data-quick-action='heading-2'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-quick-tools [data-quick-action='heading-3'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-quick-tools [data-quick-action='italic'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-quick-tools [data-quick-action='bullet'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-quick-tools [data-quick-action='quote'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='protected'] .editor-workspace .editor-quick-tools [data-quick-action='code'] {
+  display: none;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-menu-group[data-editor-menu-group='paragraph'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-menu-group[data-editor-menu-group='edit'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-menu-group[data-editor-menu-group='format'],
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-menu-group[data-editor-menu-group='view'] {
+  display: none;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-menu-more-group {
+  display: flex;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-menu-more-popover {
+  right: auto;
+  left: 0;
+}
+
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .quick-tools-divider,
+.knowra-production-shell .editor-workspace-view[data-editor-layout='overlay'] .editor-workspace .editor-quick-tools {
+  display: none;
 }

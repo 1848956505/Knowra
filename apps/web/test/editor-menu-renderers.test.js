@@ -4,8 +4,11 @@ import {
   FORMAT_MENU_ITEMS,
   PARAGRAPH_MENU_ITEMS,
   renderEditorMenuBarMarkup,
-  renderFileMenu
+  renderFileMenu,
+  renderMoreMenu
 } from '../lib/editor/menu-renderers.js';
+import { focusEditorMenuTarget } from '../lib/editor/menu-focus.js';
+import { createEditorMenuStateController } from '../src/controllers/editor/commands/menu-state-controller.js';
 
 const shortcutLabel = (action) => {
   switch (action) {
@@ -37,6 +40,8 @@ const fileMenuBar = renderEditorMenuBarMarkup({
 });
 
 assert.match(fileMenuBar, /data-editor-menu-toggle="file"[\s\S]*data-open="true"/);
+assert.match(fileMenuBar, /data-editor-menu-toggle="file"[\s\S]*aria-controls="editor-menu-file"/);
+assert.match(fileMenuBar, /id="editor-menu-file"[^>]*role="menu"/);
 assert.match(fileMenuBar, /data-file-menu-action="save"[\s\S]*Ctrl\+S/);
 assert.match(fileMenuBar, /data-file-menu-action="delete-note"/);
 
@@ -65,6 +70,86 @@ assert.match(
   /data-file-menu-action="save" disabled/,
   'file actions requiring a note should be disabled without a current note'
 );
+
+const moreMenu = renderMoreMenu({
+  note,
+  effectiveView: {
+    mode: 'edit',
+    showLeftSidebar: true,
+    showRightSidebar: false,
+    showSourceEditor: false
+  },
+  getShortcutLabel: shortcutLabel
+});
+assert.match(moreMenu, /data-editor-menu="more"[^>]*role="menu"/);
+for (const action of [
+  'new-note', 'save', 'undo', 'find', 'heading-4', 'table',
+  'image', 'highlight', 'mode-focus', 'toggle-source-editor'
+]) {
+  assert.match(moreMenu, new RegExp(`(?:data-file-menu-action|data-edit-menu-action|data-paragraph-menu-action|data-format-menu-action|data-view-menu-action)="${action}"`));
+}
+assert.match(fileMenuBar, /data-editor-menu-toggle="more"/);
+assert.match(fileMenuBar, /data-quick-action="bullet"/);
+
+const closedMenuBar = renderEditorMenuBarMarkup({
+  note,
+  effectiveView: {
+    mode: 'edit',
+    showLeftSidebar: true,
+    showRightSidebar: false,
+    showSourceEditor: false
+  },
+  openMenu: null,
+  getShortcutLabel: shortcutLabel
+});
+assert.doesNotMatch(
+  closedMenuBar,
+  /aria-controls="editor-menu-(?:file|paragraph|edit|format|view|more)"/,
+  'closed menu triggers should not reference popovers that are not rendered'
+);
+
+{
+  const focusCalls = [];
+  const menuBar = {
+    querySelector(selector) {
+      return { focus: () => focusCalls.push(selector) };
+    }
+  };
+  assert.equal(focusEditorMenuTarget({
+    menuBar,
+    menuKey: 'more',
+    focusTarget: 'first-item'
+  }), true);
+  assert.equal(focusEditorMenuTarget({
+    menuBar,
+    menuKey: 'more',
+    focusTarget: 'trigger'
+  }), true);
+  assert.equal(focusEditorMenuTarget({
+    menuBar: null,
+    menuKey: 'more',
+    focusTarget: 'trigger'
+  }), false);
+  assert.deepEqual(focusCalls, [
+    '[data-editor-menu="more"] [role="menuitem"]:not([disabled])',
+    '[data-editor-menu-toggle="more"]'
+  ]);
+}
+
+{
+  const state = { editorMenuOpen: 'more' };
+  const renderCalls = [];
+  const controller = createEditorMenuStateController({ state }, () => ({
+    renderEditorMenuBar: (options) => renderCalls.push(options)
+  }));
+
+  controller.closeEditorMenuBar({ restoreFocus: true });
+  assert.equal(state.editorMenuOpen, null);
+  assert.deepEqual(renderCalls, [{
+    focusMenuKey: 'more',
+    focusTarget: 'trigger'
+  }]);
+}
 
 assert.ok(EDIT_MENU_ITEMS.some((item) => item.key === 'find'));
 assert.ok(PARAGRAPH_MENU_ITEMS.some((item) => item.key === 'heading-4'));

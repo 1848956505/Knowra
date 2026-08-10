@@ -16,11 +16,12 @@ function createHarness({ dataMode = 'api', updateNote } = {}) {
     saveState: 'pending',
     lastSavedAt: null
   };
-  const calls = { flashes: [], api: 0 };
+  const calls = { flashes: [], api: 0, renderTabs: 0 };
+  const editorRuntime = { autosaveTimer: null };
   const controller = createEditorDraftController({
     state,
     elements: {},
-    editorRuntime: { autosaveTimer: null },
+    editorRuntime,
     knowledgeApi: {
       async updateNote(id, input) {
         calls.api += 1;
@@ -31,13 +32,23 @@ function createHarness({ dataMode = 'api', updateNote } = {}) {
     autosaveDelayMs: 1,
     getCurrentNote: () => state.allNotes[0] ?? null,
     renderFolders: () => {},
-    renderTabs: () => {},
+    renderTabs: () => { calls.renderTabs += 1; },
     renderSidebar: () => {},
     renderStatus: () => {},
     persistBackendCache: () => {},
     flashStatus: (message) => calls.flashes.push(message)
   }, () => ({ renderEditorSaveIndicator() {} }));
-  return { controller, state, calls };
+  return { controller, state, calls, editorRuntime };
+}
+
+{
+  const { controller, state, calls, editorRuntime } = createHarness();
+  controller.scheduleAutosave();
+
+  assert.equal(state.saveState, 'pending');
+  assert.equal(calls.renderTabs, 1, 'pending autosave should immediately redraw the active Tab dirty state');
+  clearTimeout(editorRuntime.autosaveTimer);
+  editorRuntime.autosaveTimer = null;
 }
 
 {

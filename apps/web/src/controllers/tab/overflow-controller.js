@@ -12,7 +12,7 @@ export function createTabOverflowController({
   closeSectionMenu,
   closeTabMenu,
   renderTabs,
-  selectNote
+  selectTab
 }) {
   function resolve(openNotes) {
     const styles = globalThis.getComputedStyle?.(elements.noteTabs);
@@ -54,12 +54,16 @@ export function createTabOverflowController({
     if (!state.tabOverflowMenuOpen) return;
     state.tabOverflowMenuOpen = false;
     renderMenu([]);
-    elements.noteTabs?.querySelector?.('[data-tab-overflow-toggle]')?.setAttribute('aria-expanded', 'false');
+    const overflowToggle = elements.noteTabOverflowToggleHost?.querySelector?.('[data-tab-overflow-toggle]')
+      ?? elements.noteTabs?.querySelector?.('[data-tab-overflow-toggle]');
+    overflowToggle?.setAttribute('aria-expanded', 'false');
+    overflowToggle?.setAttribute('data-open', 'false');
   }
 
   async function select(noteId) {
+    const result = await selectTab(noteId, { ensureTab: true });
     close();
-    await selectNote(noteId, { syncFolder: true, ensureTab: true });
+    return result;
   }
 
   return { resolve, renderMenu, toggle, close, select };

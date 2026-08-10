@@ -27,6 +27,7 @@ function scheduleAutosave() {
   }
 
   state.saveState = 'pending';
+  renderTabs();
   getController().renderEditorSaveIndicator();
   renderStatus();
 

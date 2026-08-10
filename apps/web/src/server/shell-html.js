@@ -107,7 +107,8 @@ export function renderHtml(initialWorkspaceScript = '') {
                 <header class="document-tabs">
                   <button type="button" class="back-index" data-library-home="back" aria-label="返回资料索引">${renderIcon('back', { className: 'back-index-icon' })}</button>
                   <div class="note-tabs" id="note-tabs" role="tablist" aria-label="已打开的资料"></div>
-                  <div class="note-tab-overflow-menu" id="note-tab-overflow-menu" hidden></div>
+                  <div class="note-tab-overflow-toggle-host" id="note-tab-overflow-toggle-host"></div>
+                  <div class="note-tab-overflow-menu" id="note-tab-overflow-menu" role="menu" aria-label="隐藏的资料标签" hidden></div>
                 </header>
                 <div class="editor-menu-bar" id="editor-menu-bar"></div>
                 <section class="editor-shell" id="editor-scroll-region" role="tabpanel" aria-label="资料编辑内容" tabindex="0">

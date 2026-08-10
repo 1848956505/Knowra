@@ -52,8 +52,12 @@ export function bindMenuEvents({ state, elements, deps }) {
     const menuToggle = closestFromEventTarget(event.target, '[data-editor-menu-toggle]');
     if (menuToggle?.dataset.editorMenuToggle) {
       const menuKey = menuToggle.dataset.editorMenuToggle;
-      state.editorMenuOpen = state.editorMenuOpen === menuKey ? null : menuKey;
-      renderEditorMenuBar();
+      const isOpening = state.editorMenuOpen !== menuKey;
+      state.editorMenuOpen = isOpening ? menuKey : null;
+      renderEditorMenuBar({
+        focusMenuKey: menuKey,
+        focusTarget: isOpening ? 'first-item' : 'trigger'
+      });
       return;
     }
 

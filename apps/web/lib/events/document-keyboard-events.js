@@ -51,7 +51,7 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
       closeSectionMenu();
       closeTabMenu();
       closeTabOverflowMenu();
-      closeEditorMenuBar();
+      closeEditorMenuBar({ restoreFocus: true });
       closeEditorContextMenu();
       closeTableInsertDialog();
     }

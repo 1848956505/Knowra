@@ -58,6 +58,7 @@ const elements = {
   workDomainView: { hidden: true, dataset: {} }
 };
 const state = {
+  editorMenuOpen: null,
   navigation: { activeWorkDomain: 'materials' },
   view: {
     screen: 'editor',
@@ -66,6 +67,7 @@ const state = {
     showRightSidebar: true
   }
 };
+const menuRenderOptions = [];
 const controller = createShellController({
   state,
   elements,
@@ -73,7 +75,7 @@ const controller = createShellController({
   getCurrentNote: () => null,
   renderEditor: () => {},
   renderEditorContextMenu: () => {},
-  renderEditorMenuBar: () => {},
+  renderEditorMenuBar: (options) => menuRenderOptions.push(options),
   renderFolders: () => {},
   renderSearchShell: () => {},
   renderSidebar: () => {},
@@ -86,8 +88,25 @@ controller.renderWorkspaceViewState();
 assert.equal(elements.workspace.dataset.editorLayout, 'full', '1360 - 232 should enter Full mode');
 
 stage.getBoundingClientRect = () => ({ width: 1150 });
+state.editorMenuOpen = 'paragraph';
 controller.syncEditorLayoutState();
 assert.equal(elements.workspace.dataset.editorLayout, 'compact', '1150 - 232 should enter Compact mode');
+assert.equal(state.editorMenuOpen, 'more', 'a hidden open menu should migrate to the compact more menu');
+assert.deepEqual(menuRenderOptions.at(-1), {
+  focusMenuKey: 'more',
+  focusTarget: 'first-item',
+  onlyIfMenuFocused: true
+});
+
+stage.getBoundingClientRect = () => ({ width: 1360 });
+controller.syncEditorLayoutState();
+assert.equal(elements.workspace.dataset.editorLayout, 'full');
+assert.equal(state.editorMenuOpen, null, 'Full mode should close the compact-only more menu');
+assert.deepEqual(menuRenderOptions.at(-1), {
+  focusMenuKey: 'file',
+  focusTarget: 'trigger',
+  onlyIfMenuFocused: true
+});
 
 stage.getBoundingClientRect = () => ({ width: 1000 });
 controller.syncEditorLayoutState();

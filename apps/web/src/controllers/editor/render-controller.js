@@ -29,6 +29,7 @@ import { EDITOR_CONTEXT_PRIMARY_ACTIONS } from '../../../lib/editor/context-menu
 import { renderEditorContextMenuMarkup } from '../../../lib/editor/context-menu-renderers.js';
 import { renderEditorMenuBarMarkup } from '../../../lib/editor/menu-renderers.js';
 import { getSaveStateLabel } from '../../../lib/editor/save-indicator.js';
+import { focusEditorMenuTarget } from '../../../lib/editor/menu-focus.js';
 import {
   renderPreviewPane as renderPreviewPaneMarkup,
   renderSourceEditorPane as renderSourceEditorPaneMarkup,
@@ -71,11 +72,21 @@ export function createEditorRenderController(deps, getController) {
     escapeAttribute
   } = deps;
 
-function renderEditorMenuBar() {
+function renderEditorMenuBar({
+  focusMenuKey = null,
+  focusTarget = null,
+  onlyIfMenuFocused = false
+} = {}) {
   if (!elements.editorMenuBar) {
     return;
   }
 
+  const activeElement = globalThis.document?.activeElement;
+  const hadMenuFocus = Boolean(
+    activeElement
+    && typeof elements.editorMenuBar.contains === 'function'
+    && elements.editorMenuBar.contains(activeElement)
+  );
   const note = getCurrentNote();
   const effectiveView = getEffectiveViewState();
   elements.editorMenuBar.innerHTML = renderEditorMenuBarMarkup({
@@ -83,6 +94,16 @@ function renderEditorMenuBar() {
     effectiveView,
     openMenu: state.editorMenuOpen,
     getShortcutLabel: getEditorShortcutLabel
+  });
+
+  if (!focusMenuKey || !focusTarget || (onlyIfMenuFocused && !hadMenuFocus)) {
+    return;
+  }
+
+  focusEditorMenuTarget({
+    menuBar: elements.editorMenuBar,
+    menuKey: focusMenuKey,
+    focusTarget
   });
 }
 

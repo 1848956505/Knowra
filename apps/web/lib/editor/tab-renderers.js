@@ -2,6 +2,12 @@ import { escapeHtml, escapeAttribute } from '../../src/app/formatting.js';
 import { renderIcon } from '../icons/icon-map.js';
 const DIRTY_SAVE_STATES = new Set(['pending', 'saving', 'error']);
 
+export function buildNoteTabId(noteId) {
+  const encodedNoteId = encodeURIComponent(String(noteId ?? ''))
+    .replace(/%/g, '-');
+  return `note-tab-${encodedNoteId || 'empty'}`;
+}
+
 export function renderEmptyNoteTabs() {
   return `
       <div class="note-tabs-empty">
@@ -16,7 +22,8 @@ export function renderNoteTabs({
   saveState,
   tabDragState,
   foldersById,
-  buildNoteTabPath
+  buildNoteTabPath,
+  panelId = 'editor-scroll-region'
 }) {
   const dragState = tabDragState ?? {};
 
@@ -29,10 +36,12 @@ export function renderNoteTabs({
       const title = note.title || '未命名资料';
       const notePath = buildNoteTabPath(note, foldersById);
       const accessibleTitle = `${title}${isDirty ? '（有未保存修改）' : ''}`;
+      const tabId = buildNoteTabId(note.id);
 
       return `
         <div
           class="note-tab"
+          role="presentation"
           data-tab-note-id="${escapeAttribute(note.id)}"
           data-active="${String(isActive)}"
           data-dirty="${String(isDirty)}"
@@ -44,9 +53,11 @@ export function renderNoteTabs({
           <button
             type="button"
             class="note-tab-select"
+            id="${escapeAttribute(tabId)}"
             role="tab"
             aria-selected="${String(isActive)}"
-            aria-controls="editor-scroll-region"
+            tabindex="${isActive ? '0' : '-1'}"
+            aria-controls="${escapeAttribute(panelId)}"
             aria-label="${escapeAttribute(accessibleTitle)}"
             title="${escapeAttribute(notePath)}"
           >
@@ -80,6 +91,7 @@ export function renderTabOverflowToggle({ count, open }) {
       data-open="${String(open)}"
       aria-expanded="${String(open)}"
       aria-controls="note-tab-overflow-menu"
+      aria-haspopup="menu"
       aria-label="显示其余 ${count} 个标签页"
       title="其余 ${count} 个标签页"
     >${renderIcon('more', { className: 'note-tab-overflow-icon' })}<small>${count}</small></button>
@@ -91,8 +103,11 @@ export function renderTabOverflowMenu({ notes, selectedNoteId, foldersById, buil
     <button
       type="button"
       class="note-tab-overflow-item"
+      role="menuitemradio"
+      aria-checked="${String(note.id === selectedNoteId)}"
       data-tab-overflow-note-id="${escapeAttribute(note.id)}"
       data-active="${String(note.id === selectedNoteId)}"
+      aria-label="${escapeAttribute(`${note.title || '未命名资料'}${note.id === selectedNoteId ? '（当前）' : ''}`)}"
       title="${escapeAttribute(buildNoteTabPath(note, foldersById))}"
     >
       <span>${escapeHtml(note.title)}</span>

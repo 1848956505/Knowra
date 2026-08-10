@@ -37,6 +37,10 @@ function renderTabs() {
   if (openNotes.length === 0) {
     state.tabOverflowMenuOpen = false;
     elements.noteTabs.innerHTML = renderEmptyNoteTabs();
+    if (elements.noteTabOverflowToggleHost) {
+      elements.noteTabOverflowToggleHost.innerHTML = '';
+    }
+    syncTabPanelSemantics();
     renderTabMenu();
     overflowController.renderMenu([]);
     return;
@@ -54,15 +58,65 @@ function renderTabs() {
     tabDragState: state.tabDragState,
     foldersById: state.foldersById,
     buildNoteTabPath
-  }) + renderTabOverflowToggle({
+  });
+
+  const overflowMarkup = renderTabOverflowToggle({
     count: overflowNotes.length,
     open: state.tabOverflowMenuOpen
   });
+  if (elements.noteTabOverflowToggleHost) {
+    elements.noteTabOverflowToggleHost.innerHTML = overflowMarkup;
+  } else {
+    // 保留测试壳和旧壳的兼容路径；正式 Shell 使用 tablist 外的独立宿主。
+    elements.noteTabs.innerHTML += overflowMarkup;
+  }
 
+  syncTabPanelSemantics();
   renderTabMenu();
   overflowController.renderMenu(overflowNotes);
   syncTabDragIndicators();
   persistBackendCache();
+}
+
+function syncTabPanelSemantics() {
+  const panel = elements.editorScrollRegion
+    ?? globalThis.document?.getElementById?.('editor-scroll-region');
+  if (!panel) {
+    return;
+  }
+
+  const activeTab = Array.from(elements.noteTabs?.querySelectorAll?.('[role="tab"]') ?? [])
+    .find((tab) => tab.getAttribute('aria-selected') === 'true');
+  if (activeTab?.id) {
+    panel.setAttribute('aria-labelledby', activeTab.id);
+  } else {
+    panel.removeAttribute?.('aria-labelledby');
+  }
+}
+
+function focusNoteTab(noteId) {
+  const tab = Array.from(elements.noteTabs?.querySelectorAll?.('[role="tab"]') ?? [])
+    .find((candidate) => candidate.closest?.('[data-tab-note-id]')?.dataset.tabNoteId === noteId);
+  if (!tab?.focus) {
+    return;
+  }
+
+  try {
+    tab.focus({ preventScroll: true });
+  } catch {
+    tab.focus();
+  }
+}
+
+async function selectTab(noteId, { ensureTab = true } = {}) {
+  const result = await selectNote(noteId, {
+    syncFolder: true,
+    ensureTab
+  });
+  if (result) {
+    focusNoteTab(noteId);
+  }
+  return result;
 }
 
 function renderTabMenu() {
@@ -130,7 +184,7 @@ async function handleTabMenuAction(action) {
     }
     state.openNoteTabs = closeOtherTabs(state.openNoteTabs, noteId).openTabs;
     if (state.selectedNoteId !== noteId) {
-      await selectNote(noteId, { syncFolder: true, ensureTab: true });
+      await selectTab(noteId, { ensureTab: true });
       return true;
     }
     renderTabs();
@@ -167,6 +221,7 @@ async function handleTabClose(noteId) {
 
   if (state.selectedNoteId !== noteId) {
     renderTabs();
+    focusNoteTab(state.selectedNoteId);
     return true;
   }
 
@@ -177,10 +232,11 @@ async function handleTabClose(noteId) {
     state.linkedNotes = [];
     state.attachments = [];
     renderAll();
+    elements.noteTabs?.previousElementSibling?.focus?.();
     return true;
   }
 
-  await selectNote(nextActiveId, { syncFolder: true, ensureTab: false });
+  await selectTab(nextActiveId, { ensureTab: false });
   return true;
 }
 
@@ -221,7 +277,7 @@ function syncTabDragIndicators() {
     closeSectionMenu,
     closeTabMenu,
     renderTabs,
-    selectNote
+    selectTab
   });
 
   return {
@@ -230,6 +286,7 @@ function syncTabDragIndicators() {
     toggleTabOverflowMenu: overflowController.toggle,
     closeTabOverflowMenu: overflowController.close,
     selectOverflowTab: overflowController.select,
+    selectTab,
     openTabMenu,
     closeTabMenu,
     handleTabMenuAction,

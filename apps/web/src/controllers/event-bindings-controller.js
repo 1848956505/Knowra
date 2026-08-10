@@ -128,6 +128,7 @@ export function bindAppEvents({
     handleTabMenuAction: (...args) => tabController.handleTabMenuAction(...args),
     toggleTabOverflowMenu: (...args) => tabController.toggleTabOverflowMenu(...args),
     selectOverflowTab: (...args) => tabController.selectOverflowTab(...args),
+    selectTabNote: (...args) => tabController.selectTab(...args),
     renderTabs: (...args) => tabController.renderTabs(...args),
 
     openEditorContextMenu: (...args) => editorController.openEditorContextMenu(...args),

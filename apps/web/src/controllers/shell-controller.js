@@ -79,6 +79,31 @@ export function createShellController(deps) {
     }
   }
 
+  function syncEditorMenuForLayout(mode) {
+    if (!state.editorMenuOpen) {
+      return;
+    }
+
+    const visibleMenusByLayout = {
+      full: ['file', 'paragraph', 'edit', 'format', 'view'],
+      compact: ['file', 'edit', 'view', 'more'],
+      protected: ['file', 'view', 'more'],
+      overlay: ['file', 'more']
+    };
+    const visibleMenus = visibleMenusByLayout[mode] ?? visibleMenusByLayout.full;
+    if (visibleMenus.includes(state.editorMenuOpen)) {
+      return;
+    }
+
+    const nextMenu = mode === 'full' ? null : 'more';
+    state.editorMenuOpen = nextMenu;
+    renderEditorMenuBar({
+      focusMenuKey: nextMenu ?? 'file',
+      focusTarget: nextMenu ? 'first-item' : 'trigger',
+      onlyIfMenuFocused: true
+    });
+  }
+
   function scheduleEditorLayoutStateSync() {
     if (editorLayoutSyncFrame !== null) {
       return;
@@ -144,7 +169,9 @@ export function createShellController(deps) {
       rightSidebarOpen: effectiveView.showRightSidebar,
       marginaliaWidth
     });
-    applyEditorLayoutMode(resolveEditorLayoutMode(editorMainWidth));
+    const mode = resolveEditorLayoutMode(editorMainWidth);
+    applyEditorLayoutMode(mode);
+    syncEditorMenuForLayout(mode);
   }
 
   function renderRail() {
