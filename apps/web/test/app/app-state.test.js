@@ -25,6 +25,7 @@ assert.deepEqual(state.search, {
 assert.deepEqual(state.view, {
   screen: 'home',
   mode: 'edit',
+  modeBeforeFocus: null,
   showLeftSidebar: true,
   showRightSidebar: true,
   showSourceEditor: false

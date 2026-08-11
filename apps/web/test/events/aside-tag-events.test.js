@@ -14,19 +14,54 @@ function makeTarget(selector, dataset = {}, value = '') {
 {
   const asideContent = createRecorderElement();
   const state = { noteTagComposer: { draft: '', isExpanded: false } };
-  let rendered = 0;
+  const renderCalls = [];
   bindAsideContentClickEvents({
     state,
     elements: { asideContent },
     deps: {
       getCurrentNote: () => ({ id: 'note-1' }),
-      renderSidebar: () => { rendered += 1; }
+      renderSidebar: (...args) => renderCalls.push(args)
     }
   });
 
   asideContent.dispatch('click', makeTarget('[data-note-tag-toggle]'));
   assert.equal(state.noteTagComposer.isExpanded, true);
-  assert.equal(rendered, 1);
+  assert.deepEqual(renderCalls.at(-1), [
+    { id: 'note-1' },
+    { selector: '[data-note-tag-input]' }
+  ]);
+
+  asideContent.dispatch('click', makeTarget('[data-note-tag-toggle]'));
+  assert.equal(state.noteTagComposer.isExpanded, false);
+  assert.deepEqual(renderCalls.at(-1), [
+    { id: 'note-1' },
+    { selector: '[data-note-tag-toggle]' }
+  ]);
+}
+
+{
+  const asideContent = createRecorderElement();
+  const state = { noteTagComposer: { draft: '', isExpanded: true } };
+  const focusRequests = [];
+  bindAsideContentClickEvents({
+    state,
+    elements: { asideContent },
+    deps: {
+      getCurrentNote: () => ({ id: 'note-1' }),
+      addTagToCurrentNote: async () => true,
+      removeTagFromCurrentNote: async () => true,
+      renderSidebar: (_note, focusRequest) => focusRequests.push(focusRequest)
+    }
+  });
+
+  asideContent.dispatch('click', makeTarget('[data-note-tag-add]', { noteTagAdd: 'tag-1' }));
+  await Promise.resolve();
+  asideContent.dispatch('click', makeTarget('[data-note-tag-remove]', { noteTagRemove: 'tag-1' }));
+  await Promise.resolve();
+  assert.deepEqual(focusRequests, [
+    { selector: '[data-note-tag-input]' },
+    { selector: '[data-note-tag-input]' }
+  ]);
 }
 
 {

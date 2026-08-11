@@ -33,7 +33,7 @@ export function renderStatusGlobal({ dataMode }) {
 
   return `
     <span class="status-inline status-global-encoding" data-status-global="encoding">UTF-8</span>
-    <span class="status-inline status-global-connection" data-status-global="connection">${escapeHtml(modeLabel)}</span>
+    <span class="status-inline status-global-connection" data-status-global="connection" data-state="${escapeHtml(dataMode ?? 'local')}">${escapeHtml(modeLabel)}</span>
   `;
 }
 
@@ -52,13 +52,14 @@ export function renderStatusFeatureControls({ markdown = '', view = {} }) {
       <span class="status-inline">字数 ${stats.characters}</span>
       <span class="status-inline">行数 ${stats.lines}</span>
       <span class="status-inline">链接 ${stats.links}</span>
-      <button type="button" class="status-action" data-status-action="toggle-source-editor" data-active="${String(Boolean(view.showSourceEditor))}">源码</button>
-      <button type="button" class="status-action" data-status-action="toggle-right-sidebar" data-active="${String(Boolean(view.showRightSidebar))}">边注</button>
+      <button type="button" class="status-action" data-status-action="toggle-source-editor" data-active="${String(Boolean(view.showSourceEditor))}" aria-pressed="${String(Boolean(view.showSourceEditor))}" aria-label="${view.showSourceEditor ? '关闭源码分栏' : '打开源码分栏'}">源码</button>
+      <button type="button" class="status-action" data-status-action="toggle-right-sidebar" data-active="${String(Boolean(view.showRightSidebar))}" aria-pressed="${String(Boolean(view.showRightSidebar))}" aria-label="${view.showRightSidebar ? '收起边注面板' : '展开边注面板'}">边注</button>
       <button
         type="button"
         class="status-action"
         data-status-action="toggle-focus"
         data-active="${String(view.mode === 'focus')}"
+        aria-pressed="${String(view.mode === 'focus')}"
         aria-label="${view.mode === 'focus' ? '退出专注模式' : '进入专注模式'}"
       >专注</button>
     </span>
@@ -67,6 +68,7 @@ export function renderStatusFeatureControls({ markdown = '', view = {} }) {
 
 function renderStatusSave({ saveState }) {
   const saveLabel = {
+    pending: '等待保存',
     dirty: '等待保存',
     saving: '正在保存',
     saved: '已自动保存',
@@ -74,7 +76,7 @@ function renderStatusSave({ saveState }) {
   }[saveState] ?? '保存当前资料';
 
   return `
-      <button type="button" class="status-action status-save" data-save-now data-state="${saveState}">
+      <button type="button" class="status-action status-save" data-save-now data-state="${saveState}" aria-label="${saveLabel}，点击手动保存" title="点击手动保存">
         <i aria-hidden="true"></i>${saveLabel}
       </button>
   `;

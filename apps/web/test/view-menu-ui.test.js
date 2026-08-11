@@ -40,8 +40,8 @@ assert.match(
 );
 assert.match(
   viewCommandControllerJs,
-  /case 'toggle-source-editor':[\s\S]*state\.view\.mode = 'edit';/,
-  'opening the source editor should switch back into edit mode'
+  /case 'toggle-source-editor':[\s\S]*state\.view\.mode !== 'focus'/,
+  'source editor should remain available while focus mode controls layout'
 );
 assert.match(
   viewCommandControllerJs,
@@ -50,13 +50,13 @@ assert.match(
 );
 assert.match(
   viewCommandControllerJs,
-  /case 'mode-focus':[\s\S]*state\.view\.showSourceEditor = false;/,
-  'switching to focus mode should close the source editor'
+  /case 'mode-focus':[\s\S]*enterFocusMode\(\)/,
+  'switching to focus mode should preserve the source editor preference'
 );
 assert.match(
   viewCommandControllerJs,
-  /case 'toggle-focus':[\s\S]*state\.view\.mode === 'focus' \? 'edit' : 'focus'/,
-  'the status-bar focus shortcut should toggle focus mode without duplicating view state'
+  /case 'toggle-focus':[\s\S]*exitFocusMode\(\)[\s\S]*enterFocusMode\(\)/,
+  'the status-bar focus shortcut should restore the preceding read or edit mode'
 );
 assert.match(
   shellHtmlJs,
@@ -87,6 +87,11 @@ assert.match(
   componentsCss,
   /data-view-mode='focus'[\s\S]*\.milkdown-host \.ProseMirror[\s\S]*margin-inline:\s*auto/,
   'focus mode should center the bounded writing column'
+);
+assert.match(
+  componentsCss,
+  /data-screen='editor'\]\[data-view-mode='focus'\][\s\S]*\.top-bar[\s\S]*visibility:\s*hidden/,
+  'focus mode should hide the top bar while leaving the status footer mounted'
 );
 
 console.log('ok - task 5 view menu UI hooks are present');

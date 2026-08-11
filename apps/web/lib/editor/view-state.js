@@ -2,7 +2,9 @@ export function resolveEditorRenderState({
   note,
   effectiveView,
   currentEditorNoteId,
-  hasCurrentEditorHost
+  hasCurrentEditorHost,
+  currentEditorMarkdown,
+  draftMarkdown
 }) {
   if (!note) {
     return {
@@ -24,8 +26,18 @@ export function resolveEditorRenderState({
     };
   }
 
-  const shouldUseRichEditor = effectiveView.mode !== 'read' && !effectiveView.showSourceEditor;
-  if (shouldUseRichEditor && hasCurrentEditorHost && currentEditorNoteId === note.id) {
+  const contentMode = effectiveView.contentMode
+    ?? (effectiveView.mode === 'read' ? 'read' : 'edit');
+  const shouldUseRichEditor = contentMode !== 'read' && !effectiveView.showSourceEditor;
+  const hasMatchingMarkdown = currentEditorMarkdown === undefined
+    || draftMarkdown === undefined
+    || currentEditorMarkdown === draftMarkdown;
+  if (
+    shouldUseRichEditor
+    && hasCurrentEditorHost
+    && currentEditorNoteId === note.id
+    && hasMatchingMarkdown
+  ) {
     return {
       kind: 'reuse-rich-editor',
       sourceOpen: false,

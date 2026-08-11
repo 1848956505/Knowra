@@ -103,6 +103,7 @@ export function createInitialAppState() {
     view: {
       screen: 'home',
       mode: 'edit',
+      modeBeforeFocus: null,
       showLeftSidebar: true,
       showRightSidebar: true,
       showSourceEditor: false

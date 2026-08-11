@@ -32,6 +32,19 @@ body:has(.knowra-production-shell) {
   background: var(--paper);
 }
 
+.knowra-production-shell[data-screen='editor'][data-view-mode='focus'] {
+  grid-template-rows: 0 minmax(0, 1fr) var(--ink-statusbar-h);
+}
+
+.knowra-production-shell[data-screen='editor'][data-view-mode='focus'] .top-bar {
+  height: 0;
+  padding-block: 0;
+  overflow: hidden;
+  border-bottom: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .knowra-production-shell .top-bar {
   grid-column: 1;
   grid-row: 1;

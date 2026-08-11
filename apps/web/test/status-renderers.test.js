@@ -16,6 +16,22 @@ assert.match(indicators, /已自动保存/);
 assert.match(indicators, /Saved &lt;ok&gt;/);
 assert.doesNotMatch(indicators, /当前资料|笔记 \d|目录 \d/);
 
+const pendingIndicators = renderStatusIndicators({
+  statusMessage: '等待自动保存',
+  saveState: 'pending'
+});
+assert.match(pendingIndicators, /data-state="pending"/);
+assert.match(pendingIndicators, /等待保存/);
+assert.match(pendingIndicators, /点击手动保存/);
+
+const failedIndicators = renderStatusIndicators({
+  statusMessage: '保存失败，请重试',
+  saveState: 'error'
+});
+assert.match(failedIndicators, /data-state="error"/);
+assert.match(failedIndicators, /保存失败/);
+assert.match(failedIndicators, /保存失败，请重试/);
+
 const indexFeature = renderStatusFeature({
   statusMessage: '后端资料已同步',
   saveState: 'saved',
@@ -50,8 +66,11 @@ assert.match(meta, /行数 2/);
 assert.doesNotMatch(meta, /大纲/);
 assert.match(meta, /链接 1/);
 assert.match(meta, /data-status-action="toggle-source-editor" data-active="true"/);
+assert.match(meta, /data-status-action="toggle-source-editor"[^>]*aria-pressed="true"/);
 assert.match(meta, /data-status-action="toggle-right-sidebar" data-active="false"/);
+assert.match(meta, /data-status-action="toggle-right-sidebar"[^>]*aria-pressed="false"/);
 assert.match(meta, /data-status-action="toggle-focus"[\s\S]*data-active="true"[\s\S]*退出专注模式/);
+assert.match(meta, /data-status-action="toggle-focus"[\s\S]*aria-pressed="true"/);
 assert.match(meta, /云端已连接/);
 
 assert.match(

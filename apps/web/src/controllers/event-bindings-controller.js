@@ -195,10 +195,10 @@ export function bindAppEvents({
     createTagAndAssignToCurrentNote: (...args) => tagController.createTagAndAssignToCurrentNote(...args),
     updateNoteTagDraft: (draft) => {
       state.noteTagComposer.draft = draft;
-      sidebarController.renderSidebar(helpers.getCurrentNote());
-      const tagInput = globalThis.document?.querySelector('[data-note-tag-input]');
-      tagInput?.focus();
-      tagInput?.setSelectionRange?.(draft.length, draft.length);
+      sidebarController.renderSidebar(helpers.getCurrentNote(), {
+        selector: '[data-note-tag-input]',
+        caret: draft.length
+      });
     },
     deleteAnnotation: (...args) => annotationController.deleteAnnotation(...args),
     createKnowledgeItemFromAnnotation: (...args) => annotationController.createKnowledgeItemFromAnnotation(...args),

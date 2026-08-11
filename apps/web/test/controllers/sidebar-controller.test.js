@@ -150,6 +150,73 @@ function createDeps(overrides = {}) {
   assert.deepEqual(state.outlineCollapsedHeadingIdsByNote, {});
 }
 
+{
+  const focusCalls = [];
+  const disclosure = { open: false };
+  const tagInput = {
+    focus: () => focusCalls.push('focus'),
+    setSelectionRange: (...args) => focusCalls.push(['caret', ...args]),
+    closest: (selector) => selector === 'details' ? disclosure : null
+  };
+  const { deps } = createDeps({
+    elements: {
+      asideTabs: { innerHTML: '' },
+      asideContent: {
+        innerHTML: '',
+        querySelector: (selector) => selector === '[data-note-tag-input]' ? tagInput : null
+      }
+    }
+  });
+  const controller = createSidebarController(deps);
+
+  controller.renderSidebar(deps.getCurrentNote(), {
+    selector: '[data-note-tag-input]',
+    caret: 3
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(focusCalls, ['focus', ['caret', 3, 3]]);
+  assert.equal(disclosure.open, true);
+}
+
+{
+  const attributes = { 'aria-labelledby': 'aside-tab-info' };
+  const scrollRoot = { scrollTop: 120 };
+  let markup = '';
+  const asideContent = {
+    get innerHTML() { return markup; },
+    set innerHTML(value) {
+      markup = value;
+      scrollRoot.scrollTop = 0;
+    },
+    getAttribute: (name) => attributes[name] ?? null,
+    setAttribute: (name, value) => { attributes[name] = value; },
+    querySelector: (selector) => selector === '.aside-panel-scroll' ? scrollRoot : null
+  };
+  const { state, deps } = createDeps({
+    elements: {
+      asideTabs: { innerHTML: '', setAttribute() {} },
+      asideContent
+    }
+  });
+  const controller = createSidebarController(deps);
+
+  controller.renderSidebar(deps.getCurrentNote());
+  scrollRoot.scrollTop = 120;
+  controller.renderSidebar(deps.getCurrentNote());
+  assert.equal(scrollRoot.scrollTop, 120);
+
+  scrollRoot.scrollTop = 220;
+  state.asideTab = 'outline';
+  controller.renderSidebar(deps.getCurrentNote());
+  assert.equal(scrollRoot.scrollTop, 0);
+
+  scrollRoot.scrollTop = 85;
+  state.asideTab = 'info';
+  controller.renderSidebar(deps.getCurrentNote());
+  assert.equal(scrollRoot.scrollTop, 220);
+}
+
 console.log('sidebar-controller attachment deletion safeguards passed');
 
 {

@@ -78,7 +78,9 @@ export function createEditorHostController(deps, getController) {
 
 async function teardownEditorHost() {
   editorRuntime.pendingEditorNoteId = null;
+  editorRuntime.pendingEditorMarkdown = null;
   editorRuntime.currentEditorNoteId = null;
+  editorRuntime.currentEditorMarkdown = null;
   editorRuntime.editorMountToken += 1;
 
   if (!editorRuntime.currentEditorHost) {
@@ -96,15 +98,20 @@ function mountEditorHost(noteId, markdown) {
     return;
   }
 
-  if (editorRuntime.pendingEditorNoteId === noteId) {
+  if (
+    editorRuntime.pendingEditorNoteId === noteId
+    && editorRuntime.pendingEditorMarkdown === markdown
+  ) {
     return;
   }
 
   const token = ++editorRuntime.editorMountToken;
   editorRuntime.pendingEditorNoteId = noteId;
+  editorRuntime.pendingEditorMarkdown = markdown;
   const previousHost = editorRuntime.currentEditorHost;
   editorRuntime.currentEditorHost = null;
   editorRuntime.currentEditorNoteId = null;
+  editorRuntime.currentEditorMarkdown = null;
 
   void (async () => {
     if (previousHost) {
@@ -150,7 +157,9 @@ function mountEditorHost(noteId, markdown) {
 
     editorRuntime.currentEditorHost = host;
     editorRuntime.currentEditorNoteId = noteId;
+    editorRuntime.currentEditorMarkdown = markdown;
     editorRuntime.pendingEditorNoteId = null;
+    editorRuntime.pendingEditorMarkdown = null;
     syncAnnotationMarkers();
     getController().renderEditorSaveIndicator();
     renderStatus();
@@ -158,13 +167,21 @@ function mountEditorHost(noteId, markdown) {
     // 恢复之前保存的滚动位置
     restoreEditorScrollPosition(noteId);
   })().catch((error) => {
-    editorRuntime.pendingEditorNoteId = null;
+    if (token === editorRuntime.editorMountToken) {
+      editorRuntime.pendingEditorNoteId = null;
+      editorRuntime.pendingEditorMarkdown = null;
+    }
     flashStatus(error.message || '编辑器加载失败');
   });
 }
 
 function handleEditorMarkdownChange(markdown) {
   if (!editorRuntime.currentEditorNoteId || editorRuntime.currentEditorNoteId !== state.selectedNoteId) {
+    return;
+  }
+
+  editorRuntime.currentEditorMarkdown = markdown;
+  if (markdown === state.draftMarkdown) {
     return;
   }
 

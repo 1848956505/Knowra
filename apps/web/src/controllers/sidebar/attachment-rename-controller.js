@@ -24,12 +24,10 @@ export function createAttachmentRenameController({
       draft: stem,
       extension
     };
-    renderSidebar(getCurrentNote());
-    const renameInput = typeof document !== 'undefined'
-      ? document.querySelector(`[data-attachment-rename-input="${escapeAttachmentSelector(attachment.id)}"]`)
-      : null;
-    renameInput?.focus?.();
-    renameInput?.select?.();
+    renderSidebar(getCurrentNote(), {
+      selector: `[data-attachment-rename-input="${escapeAttachmentSelector(attachment.id)}"]`,
+      select: true
+    });
     return true;
   }
 
@@ -49,8 +47,9 @@ export function createAttachmentRenameController({
       return false;
     }
 
+    const attachmentId = state.attachmentRenaming.id;
     state.attachmentRenaming = null;
-    renderSidebar(getCurrentNote());
+    renderSidebar(getCurrentNote(), attachmentFocusRequest(attachmentId));
     return true;
   }
 
@@ -81,7 +80,7 @@ export function createAttachmentRenameController({
           : attachment
       ));
       state.attachmentRenaming = null;
-      renderSidebar(getCurrentNote());
+      renderSidebar(getCurrentNote(), attachmentFocusRequest(normalizedAttachmentId));
       flashStatus('附件名已更新');
       return true;
     } catch (error) {
@@ -100,6 +99,12 @@ export function createAttachmentRenameController({
     updateAttachmentRenameDraft,
     cancelAttachmentRename,
     submitAttachmentRename
+  };
+}
+
+function attachmentFocusRequest(attachmentId) {
+  return {
+    selector: `[data-attachment-open="${escapeAttachmentSelector(attachmentId)}"]`
   };
 }
 

@@ -68,6 +68,27 @@ assert.deepEqual(
 assert.deepEqual(
   resolveEditorRenderState({
     note: { id: 'note-1', deleted: false },
+    effectiveView: {
+      mode: 'focus',
+      contentMode: 'read',
+      showSourceEditor: false
+    },
+    currentEditorNoteId: null,
+    hasCurrentEditorHost: false
+  }),
+  {
+    kind: 'preview',
+    sourceOpen: false,
+    viewMode: 'focus',
+    shouldTeardownHost: true,
+    shouldCloseTableDialog: true
+  },
+  'focus entered from read mode should keep the non-editable preview'
+);
+
+assert.deepEqual(
+  resolveEditorRenderState({
+    note: { id: 'note-1', deleted: false },
     effectiveView: { mode: 'edit', showSourceEditor: true },
     currentEditorNoteId: 'note-1',
     hasCurrentEditorHost: true
@@ -83,6 +104,32 @@ assert.deepEqual(
     hasCurrentEditorHost: true
   }).kind,
   'mount-rich-editor'
+);
+
+assert.deepEqual(
+  resolveEditorRenderState({
+    note: { id: 'note-1', deleted: false },
+    effectiveView: editView,
+    currentEditorNoteId: 'note-1',
+    hasCurrentEditorHost: true,
+    currentEditorMarkdown: '',
+    draftMarkdown: '# Full body'
+  }).kind,
+  'mount-rich-editor',
+  'a summary-mounted empty host must not be reused after the full body arrives'
+);
+
+assert.deepEqual(
+  resolveEditorRenderState({
+    note: { id: 'note-1', deleted: false },
+    effectiveView: editView,
+    currentEditorNoteId: 'note-1',
+    hasCurrentEditorHost: true,
+    currentEditorMarkdown: '# Full body',
+    draftMarkdown: '# Full body'
+  }).kind,
+  'reuse-rich-editor',
+  'a host may be reused only when its mounted markdown matches the current draft'
 );
 
 const richHostHtml = renderRichEditorHost();

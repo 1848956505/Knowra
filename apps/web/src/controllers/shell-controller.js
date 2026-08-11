@@ -234,6 +234,7 @@ function renderWorkspaceViewState() {
     : effectiveView.showLeftSidebar);
   if (elements.workspaceShell) {
     elements.workspaceShell.dataset.screen = !isMaterials ? 'domain' : isHome ? 'home' : isIndex ? 'index' : 'editor';
+    elements.workspaceShell.dataset.viewMode = effectiveView.mode;
     elements.workspaceShell.dataset.leftHidden = String(!showFunctionNavigation);
     elements.workspaceShell.dataset.functionNavigationHidden = String(!showFunctionNavigation);
     elements.workspaceShell.dataset.directoryHidden = String(!showLibraryDirectory);
@@ -293,7 +294,7 @@ function renderWorkspaceViewState() {
     elements.editorAsideToggle.setAttribute?.('title', showEditorAside ? '收起资料边注' : '展开资料边注');
   }
   if (elements.editorAsideReopen) {
-    elements.editorAsideReopen.hidden = !isMaterials || isHome || isIndex || showEditorAside;
+    elements.editorAsideReopen.hidden = !isMaterials || isHome || isIndex || effectiveView.mode === 'focus' || showEditorAside;
     elements.editorAsideReopen.setAttribute?.('aria-expanded', String(showEditorAside));
     elements.editorAsideReopen.setAttribute?.('aria-controls', 'kb-aside');
     elements.editorAsideReopen.setAttribute?.('aria-label', showEditorAside ? '收起资料边注' : '展开资料边注');

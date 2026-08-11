@@ -9,7 +9,11 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
     if (closestFromEventTarget(event.target, '[data-note-tag-toggle]')) {
       state.noteTagComposer.isExpanded = !state.noteTagComposer.isExpanded;
       if (!state.noteTagComposer.isExpanded) state.noteTagComposer.draft = '';
-      deps.renderSidebar(deps.getCurrentNote());
+      deps.renderSidebar(deps.getCurrentNote(), {
+        selector: state.noteTagComposer.isExpanded
+          ? '[data-note-tag-input]'
+          : '[data-note-tag-toggle]'
+      });
       return;
     }
     const outlineToggle = closestFromEventTarget(event.target, '[data-outline-toggle-id]');
@@ -32,12 +36,16 @@ export function bindAsideContentClickEvents({ state, elements, deps }) {
     const addTag = closestFromEventTarget(event.target, '[data-note-tag-add]');
     if (addTag?.dataset.noteTagAdd) {
       return void deps.addTagToCurrentNote(addTag.dataset.noteTagAdd)
-        .then(() => deps.renderSidebar(deps.getCurrentNote()));
+        .then(() => deps.renderSidebar(deps.getCurrentNote(), { selector: '[data-note-tag-input]' }));
     }
     const removeTag = closestFromEventTarget(event.target, '[data-note-tag-remove]');
     if (removeTag?.dataset.noteTagRemove) {
       return void deps.removeTagFromCurrentNote(removeTag.dataset.noteTagRemove)
-        .then(() => deps.renderSidebar(deps.getCurrentNote()));
+        .then(() => deps.renderSidebar(deps.getCurrentNote(), {
+          selector: state.noteTagComposer.isExpanded
+            ? '[data-note-tag-input]'
+            : '[data-note-tag-toggle]'
+        }));
     }
     if (closestFromEventTarget(event.target, '[data-note-tag-create]')) {
       return void deps.createTagAndAssignToCurrentNote(state.noteTagComposer.draft);

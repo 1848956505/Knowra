@@ -117,7 +117,7 @@ async function createTagAndAssignToCurrentNote(name) {
     state.noteTagComposer.draft = '';
     state.noteTagComposer.isExpanded = true;
     await addTagToCurrentNote(existingTag.id);
-    renderSidebar(getCurrentNote());
+    renderSidebar(getCurrentNote(), { selector: '[data-note-tag-input]' });
     return true;
   }
 
@@ -143,7 +143,7 @@ async function createTagAndAssignToCurrentNote(name) {
     state.noteTagComposer.draft = '';
     state.noteTagComposer.isExpanded = true;
     await addTagToCurrentNote(createdTag.id);
-    renderSidebar(getCurrentNote());
+    renderSidebar(getCurrentNote(), { selector: '[data-note-tag-input]' });
     flashStatus('新标签已创建并绑定到当前笔记');
     return true;
   } catch (error) {

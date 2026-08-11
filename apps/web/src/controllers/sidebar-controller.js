@@ -48,6 +48,9 @@ export function createSidebarController(deps) {
     cancelPendingEditorScrollRestore
   });
   let sideDataRequestSequence = 0;
+  let sidebarRenderSequence = 0;
+  let renderedSidebarNoteId = null;
+  const panelScrollPositions = new Map();
 
 async function loadCurrentNoteSideData() {
   if (state.dataMode === 'local') {
@@ -148,10 +151,12 @@ function clearNoteSideData() {
   state.annotations = [];
 }
 
-function renderSidebar(note) {
+function renderSidebar(note, focusRequest = null) {
   if (!elements.asideTabs || !elements.asideContent) {
     return;
   }
+  const renderSequence = ++sidebarRenderSequence;
+  captureSidebarPanelScroll();
 
   elements.asideTabs.innerHTML = renderAsideTabs({
     tabs: ASIDE_TABS,
@@ -168,25 +173,50 @@ function renderSidebar(note) {
     activeTab: state.asideTab
   });
 
-  if (contentKey === 'empty') {
-    elements.asideContent.innerHTML = renderAsideEmptyState();
+  elements.asideContent.innerHTML = (() => {
+    if (contentKey === 'empty') return renderAsideEmptyState();
+
+    switch (contentKey) {
+      case 'outline':
+        return renderOutlineTab(note);
+      case 'concepts':
+        return renderConceptsTab(note);
+      case 'ai':
+        return renderAiTab(note);
+      case 'info':
+      default:
+        return renderInfoTab(note);
+    }
+  })();
+
+  restoreSidebarPanelScroll(note);
+  renderedSidebarNoteId = note?.id ?? null;
+
+  scheduleSidebarFocusRestore({
+    container: elements.asideContent,
+    focusRequest,
+    isCurrent: () => renderSequence === sidebarRenderSequence
+  });
+}
+
+function captureSidebarPanelScroll() {
+  const activeTabId = elements.asideContent.getAttribute?.('aria-labelledby');
+  const activeTab = activeTabId?.replace(/^aside-tab-/, '');
+  const scrollRoot = elements.asideContent.querySelector?.('.aside-panel-scroll');
+  if (!renderedSidebarNoteId || !activeTab || typeof scrollRoot?.scrollTop !== 'number') {
     return;
   }
 
-  switch (contentKey) {
-    case 'outline':
-      elements.asideContent.innerHTML = renderOutlineTab(note);
-      return;
-    case 'concepts':
-      elements.asideContent.innerHTML = renderConceptsTab(note);
-      return;
-    case 'ai':
-      elements.asideContent.innerHTML = renderAiTab(note);
-      return;
-    case 'info':
-    default:
-      elements.asideContent.innerHTML = renderInfoTab(note);
+  panelScrollPositions.set(`${renderedSidebarNoteId}:${activeTab}`, scrollRoot.scrollTop);
+}
+
+function restoreSidebarPanelScroll(note) {
+  const scrollRoot = elements.asideContent.querySelector?.('.aside-panel-scroll');
+  if (!note?.id || typeof scrollRoot?.scrollTop !== 'number') {
+    return;
   }
+
+  scrollRoot.scrollTop = panelScrollPositions.get(`${note.id}:${state.asideTab}`) ?? 0;
 }
 
 function renderInfoTab(note) {
@@ -204,6 +234,30 @@ function renderInfoTab(note) {
     attachmentRenaming: state.attachmentRenaming,
     formatDate
   });
+}
+
+function scheduleSidebarFocusRestore({ container, focusRequest, isCurrent }) {
+  const selector = focusRequest?.selector;
+  if (!selector || typeof container?.querySelector !== 'function') return;
+
+  scheduleAfterInteraction(() => {
+    if (!isCurrent()) return;
+    const target = container.querySelector(selector);
+    if (!target) return;
+
+    const disclosure = target.closest?.('details');
+    if (disclosure) disclosure.open = true;
+    target.focus?.();
+    if (focusRequest.select) {
+      target.select?.();
+    } else if (Number.isInteger(focusRequest.caret)) {
+      target.setSelectionRange?.(focusRequest.caret, focusRequest.caret);
+    }
+  });
+}
+
+function scheduleAfterInteraction(callback) {
+  setTimeout(callback, 0);
 }
 
 function renderOutlineTab() {

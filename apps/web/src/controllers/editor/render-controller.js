@@ -126,12 +126,23 @@ function renderEditor(note) {
     return;
   }
 
+  // AppShell keeps the editor DOM mounted while Home/Index is visible. Do not
+  // create a Milkdown host from an SSR summary whose body has not loaded yet.
+  if (state.view?.screen && state.view.screen !== 'editor') {
+    if (editorRuntime.currentEditorHost || editorRuntime.pendingEditorNoteId) {
+      void getController().teardownEditorHost();
+    }
+    return;
+  }
+
   const effectiveView = getEffectiveViewState();
   const renderState = resolveEditorRenderState({
     note,
     effectiveView,
     currentEditorNoteId: editorRuntime.currentEditorNoteId,
-    hasCurrentEditorHost: Boolean(editorRuntime.currentEditorHost)
+    hasCurrentEditorHost: Boolean(editorRuntime.currentEditorHost),
+    currentEditorMarkdown: editorRuntime.currentEditorMarkdown,
+    draftMarkdown: state.draftMarkdown
   });
 
   if (renderState.shouldTeardownHost) {

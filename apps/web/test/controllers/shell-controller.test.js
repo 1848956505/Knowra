@@ -120,10 +120,11 @@ runTest('renderWorkspaceViewState applies effective focus layout', () => {
   assert.equal(elements.workspaceShell.dataset.directoryHidden, 'true');
   assert.equal(elements.workspace.dataset.rightHidden, 'true');
   assert.equal(elements.workspace.dataset.viewMode, 'focus');
+  assert.equal(elements.workspaceShell.dataset.viewMode, 'focus');
   assert.equal(elements.sidebar.hidden, true);
   assert.equal(elements.moduleRail.hidden, true);
   assert.equal(elements.aside.hidden, true);
-  assert.equal(elements.editorAsideReopen.hidden, false);
+  assert.equal(elements.editorAsideReopen.hidden, true);
   assert.equal(elements.editorAsideReopen.attributes['aria-expanded'], 'false');
 });
 
