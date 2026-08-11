@@ -50,7 +50,7 @@ export function bindDocumentKeyboardEvents({ state, elements, deps }) {
       closeContextMenu();
       closeSectionMenu();
       closeTabMenu();
-      closeTabOverflowMenu();
+      closeTabOverflowMenu({ restoreFocus: true });
       closeEditorMenuBar({ restoreFocus: true });
       closeEditorContextMenu();
       closeTableInsertDialog();

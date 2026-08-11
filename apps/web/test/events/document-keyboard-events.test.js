@@ -163,6 +163,7 @@ runTest('bubble keydown Escape closes search shell and dispatches close chain', 
     let closedContext = 0;
     let closedSection = 0;
     let closedTab = 0;
+    const closeOverflowOptions = [];
     const closeMenuBarOptions = [];
     let closedCtxMenu = 0;
     let closedTableDialog = 0;
@@ -171,6 +172,7 @@ runTest('bubble keydown Escape closes search shell and dispatches close chain', 
     deps.closeContextMenu = () => { closedContext += 1; };
     deps.closeSectionMenu = () => { closedSection += 1; };
     deps.closeTabMenu = () => { closedTab += 1; };
+    deps.closeTabOverflowMenu = (options) => { closeOverflowOptions.push(options); };
     deps.closeEditorMenuBar = (options) => { closeMenuBarOptions.push(options); };
     deps.closeEditorContextMenu = () => { closedCtxMenu += 1; };
     deps.closeTableInsertDialog = () => { closedTableDialog += 1; };
@@ -193,6 +195,7 @@ runTest('bubble keydown Escape closes search shell and dispatches close chain', 
     assert.equal(closedContext, 1);
     assert.equal(closedSection, 1);
     assert.equal(closedTab, 1);
+    assert.deepEqual(closeOverflowOptions, [{ restoreFocus: true }]);
     assert.deepEqual(closeMenuBarOptions, [{ restoreFocus: true }]);
     assert.equal(closedCtxMenu, 1);
     assert.equal(closedTableDialog, 1);

@@ -50,7 +50,7 @@ export function createTabOverflowController({
     renderTabs();
   }
 
-  function close() {
+  function close({ restoreFocus = false } = {}) {
     if (!state.tabOverflowMenuOpen) return;
     state.tabOverflowMenuOpen = false;
     renderMenu([]);
@@ -58,6 +58,9 @@ export function createTabOverflowController({
       ?? elements.noteTabs?.querySelector?.('[data-tab-overflow-toggle]');
     overflowToggle?.setAttribute('aria-expanded', 'false');
     overflowToggle?.setAttribute('data-open', 'false');
+    if (restoreFocus) {
+      overflowToggle?.focus?.();
+    }
   }
 
   async function select(noteId) {
