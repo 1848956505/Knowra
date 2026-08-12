@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="基于 Shadcn/ui 与 Tiptap 结构设计的知境编辑器原型。">
+  <title>AI 产品设计原则 · 知境</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="hidden" aria-hidden="true"><defs>
+    <symbol id="home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="library" viewBox="0 0 24 24"><path d="M4 4h5v16H4zM10 4h5v16h-5zM16 4h4v16h-4z"/></symbol>
+    <symbol id="brain" viewBox="0 0 24 24"><path d="M9.5 4A3.5 3.5 0 0 0 6 7.5v.6A3.5 3.5 0 0 0 4 14a3 3 0 0 0 3 3h.5a3.5 3.5 0 0 0 6.5 1.7A3.5 3.5 0 0 0 20 16v-.6a3.5 3.5 0 0 0-2-6.3v-.6A3.5 3.5 0 0 0 14.5 5a3.5 3.5 0 0 0-5-1Z"/><path d="M9.5 4v16M14.5 5v14M6 8.1h3.5M14.5 9.1H18M7.5 17v-3M14.5 15h3"/></symbol>
+    <symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+    <symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16h16V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></symbol>
+    <symbol id="folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+    <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="moon" viewBox="0 0 24 24"><path d="M20 15.5A8.5 8.5 0 1 1 8.5 4 6.5 6.5 0 0 0 20 15.5Z"/></symbol>
+    <symbol id="chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="spark" viewBox="0 0 24 24"><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></symbol>
+    <symbol id="share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1.1l2-2A5 5 0 0 0 12 4l-1 1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1-1"/></symbol>
+    <symbol id="list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="quote" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 4-1 5-4 6v2ZM14 21c3 0 7-1 7-8V5h-7v8h4c0 4-1 5-4 6v2Z"/></symbol>
+  </defs></svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="工作区侧栏">
+      <div class="sidebar-header"><button class="workspace-switcher"><span class="brand-mark">知</span><span class="workspace-copy"><span class="workspace-name">知境工作台</span><span class="workspace-plan">个人知识空间</span></span><svg class="icon icon-sm"><use href="#chevron"/></svg></button></div>
+      <div class="sidebar-content">
+        <div class="sidebar-group"><ul class="sidebar-menu"><li><a class="sidebar-menu-button" href="index.html"><svg class="icon"><use href="#home"/></svg><span>主页</span></a></li><li><button class="sidebar-menu-button" data-action="command"><svg class="icon"><use href="#search"/></svg><span>全局搜索</span><span class="kbd">⌘K</span></button></li></ul></div>
+        <div class="sidebar-group"><div class="sidebar-group-label">工作台</div><ul class="sidebar-menu"><li><button class="sidebar-menu-button" data-active="true"><svg class="icon"><use href="#library"/></svg><span>资料库</span><span class="sidebar-badge">42</span></button></li><li><button class="sidebar-menu-button"><svg class="icon"><use href="#brain"/></svg><span>知识单元</span><span class="sidebar-badge">18</span></button></li><li><button class="sidebar-menu-button"><svg class="icon"><use href="#target"/></svg><span>训练中心</span></button></li><li><button class="sidebar-menu-button"><svg class="icon"><use href="#chart"/></svg><span>学习档案</span></button></li></ul></div>
+        <div class="sidebar-group"><div class="sidebar-group-label">资料目录<button class="button button-ghost button-icon button-sm sidebar-group-action" data-action="notice" data-message="已准备新建目录"><svg class="icon icon-sm"><use href="#plus"/></svg></button></div><ul class="sidebar-menu"><li><button class="sidebar-menu-button"><svg class="icon"><use href="#folder"/></svg><span>产品与设计</span><span class="sidebar-badge">12</span></button><div class="sidebar-menu-sub"><a class="sidebar-menu-button" data-active="true" href="editor.html">AI 产品设计原则</a><button class="sidebar-menu-button">交互设计研究</button></div></li><li><button class="sidebar-menu-button"><svg class="icon"><use href="#folder"/></svg><span>知识方法</span></button></li><li><button class="sidebar-menu-button"><svg class="icon"><use href="#folder"/></svg><span>阅读与思考</span></button></li></ul></div>
+      </div>
+      <div class="sidebar-footer"><div class="sidebar-separator"></div><button class="workspace-switcher"><span class="avatar">RA</span><span class="workspace-copy"><span class="workspace-name">Rabbids</span><span class="workspace-plan">本地优先模式</span></span><svg class="icon icon-sm"><use href="#more"/></svg></button></div>
+      <button class="sidebar-rail" data-action="sidebar" aria-label="折叠侧栏"></button>
+    </aside>
+    <div id="mobile-scrim" class="mobile-scrim"></div>
+
+    <main class="sidebar-inset"><div class="page">
+      <header class="topbar"><button class="button button-ghost button-icon desktop-trigger" data-action="sidebar" aria-label="折叠侧栏"><svg class="icon"><use href="#panel"/></svg></button><button class="button button-ghost button-icon mobile-trigger" data-action="sidebar" aria-label="打开侧栏"><svg class="icon"><use href="#panel"/></svg></button><div class="breadcrumbs"><a href="index.html">资料库</a><span>/</span><span>产品与设计</span><span>/</span><strong>AI 产品设计原则</strong></div><div class="topbar-actions"><span id="save-status" class="document-time">已保存</span><button class="button button-outline button-sm" data-action="notice" data-message="分享链接已生成"><svg class="icon icon-sm"><use href="#share"/></svg>分享</button><button class="button button-ghost button-icon" data-action="theme" aria-label="切换主题"><svg class="icon" data-theme-icon="sun"><use href="#sun"/></svg><svg class="icon hidden" data-theme-icon="moon"><use href="#moon"/></svg></button><button class="button button-ghost button-icon" aria-label="更多操作"><svg class="icon"><use href="#more"/></svg></button></div></header>
+
+      <div class="editor-layout">
+        <div class="editor-scroll"><div class="editor-page">
+          <div class="editor-kicker">方法论 · 最后更新于今天 10:32</div>
+          <h1 id="note-title" class="editor-title" contenteditable="true" spellcheck="false">AI 产品设计原则</h1>
+          <div class="metadata"><span class="badge badge-success">已确认</span><span class="badge">产品设计</span><span class="badge badge-outline">人工智能</span><span class="badge badge-outline">方法论</span></div>
+          <div class="separator"></div>
+          <div class="editor-toolbar" role="toolbar" aria-label="文本格式工具栏"><button class="toolbar-button" data-format="bold" aria-label="粗体">B</button><button class="toolbar-button" data-format="italic" aria-label="斜体" style="font-family:serif;font-style:italic">I</button><button class="toolbar-button" data-format="underline" aria-label="下划线" style="text-decoration:underline">U</button><div class="toolbar-separator"></div><button class="toolbar-button" aria-label="标题">H2</button><button class="toolbar-button" data-format="insertUnorderedList" aria-label="无序列表"><svg class="icon"><use href="#list"/></svg></button><button class="toolbar-button" data-format="formatBlock" data-value="blockquote" aria-label="引用"><svg class="icon"><use href="#quote"/></svg></button><button class="toolbar-button" aria-label="链接"><svg class="icon"><use href="#link"/></svg></button><div class="toolbar-spacer"></div><button class="button button-secondary button-sm" data-action="notice" data-message="AI 助手已准备"><svg class="icon icon-sm"><use href="#spark"/></svg>AI 助手</button></div>
+
+          <article id="editor-content" class="prose">
+            <p contenteditable="true">设计 AI 产品时，真正需要解决的不是如何展示模型能力，而是如何让不确定的智能行为进入一个可理解、可修正、可追溯的产品流程。</p>
+            <h2 id="section-context" contenteditable="true">一、从用户任务定义智能边界</h2>
+            <p contenteditable="true">不要从“模型能做什么”开始，而应从用户正在完成的任务开始。先识别任务中的判断点、信息缺口与反馈周期，再决定 AI 应该提供建议、生成草稿，还是执行自动化操作。</p>
+            <div class="callout"><span class="callout-icon"><svg class="icon"><use href="#brain"/></svg></span><div><strong>设计检查</strong><p contenteditable="true">如果用户无法说明 AI 为什么给出当前结果，就应补充来源、置信度或可复查的中间过程。</p></div></div>
+            <h2 id="section-control" contenteditable="true">二、保持控制权与可恢复性</h2>
+            <p contenteditable="true">高质量的 AI 体验必须允许用户暂停、修改和撤销。对高风险操作，默认采用“建议—确认—执行”链路，并且让系统状态在每一步都清晰可见。</p>
+            <ul><li contenteditable="true">生成内容必须支持局部重写，而不是只能整体重新生成</li><li contenteditable="true">重要操作执行前应展示影响范围</li><li contenteditable="true">失败后保留原始输入和最近一次有效结果</li></ul>
+            <blockquote><p contenteditable="true">自动化的价值不是替代判断，而是把人的注意力留给真正需要判断的部分。</p></blockquote>
+            <h2 id="section-evidence" contenteditable="true">三、让结果具有证据与上下文</h2>
+            <p contenteditable="true">对知识型产品而言，输出必须能够回到来源。引用不只是附加功能，它决定了用户是否可以验证结论、发现冲突，并把结果继续用于学习和决策。</p>
+            <h3 id="section-metrics" contenteditable="true">评估指标</h3>
+            <p contenteditable="true">除了完成率，还应记录用户修正次数、撤销率、证据打开率和任务后的信任变化。单纯追求生成速度，往往会掩盖更深的可用性问题。</p>
+            <div class="slash-row"><div class="block-tools"><button class="toolbar-button" data-action="slash" aria-label="插入内容块"><svg class="icon"><use href="#plus"/></svg></button><button class="toolbar-button" aria-label="拖动内容块">⋮⋮</button></div><div id="slash-input" class="slash-input" contenteditable="true" data-placeholder="输入 / 插入内容块，或继续写作"></div></div>
+          </article>
+          <div class="editor-footer"><svg class="icon icon-sm"><use href="#check"/></svg><span>已保存到本地</span><span>·</span><span>1,284 字</span><span>·</span><span>预计阅读 5 分钟</span></div>
+        </div></div>
+
+        <aside class="inspector" aria-label="资料边栏"><div class="inspector-header"><h2>资料信息</h2><button class="button button-ghost button-icon button-sm" aria-label="收起资料信息"><svg class="icon icon-sm"><use href="#panel"/></svg></button></div><div class="inspector-body">
+          <section class="inspector-section"><p class="inspector-label">属性</p><div class="property-list"><div class="property"><svg class="icon icon-sm"><use href="#file"/></svg><span class="property-name">类型</span><span>方法笔记</span></div><div class="property"><svg class="icon icon-sm"><use href="#check"/></svg><span class="property-name">状态</span><span>已确认</span></div><div class="property"><svg class="icon icon-sm"><use href="#clock"/></svg><span class="property-name">更新</span><span>今天 10:32</span></div></div></section>
+          <section class="inspector-section"><p class="inspector-label">标签</p><div class="tag-list"><span class="badge">产品设计</span><span class="badge badge-outline">人工智能</span><span class="badge badge-outline">方法论</span><button class="badge badge-outline" data-action="notice" data-message="标签选择器已准备">添加</button></div></section>
+          <section class="inspector-section"><p class="inspector-label">大纲</p><div class="outline-list"><button class="outline-item" data-active="true" data-outline-target="section-context">从用户任务定义智能边界</button><button class="outline-item" data-outline-target="section-control">保持控制权与可恢复性</button><button class="outline-item" data-outline-target="section-evidence">让结果具有证据与上下文</button><button class="outline-item level-3" data-outline-target="section-metrics">评估指标</button></div></section>
+          <section class="inspector-section"><p class="inspector-label">关联资料</p><div class="relation-card"><span class="document-icon"><svg class="icon"><use href="#file"/></svg></span><div style="min-width:0"><strong>交互式 AI 的反馈机制</strong><span>研究资料</span></div></div><div class="relation-card"><span class="document-icon"><svg class="icon"><use href="#file"/></svg></span><div style="min-width:0"><strong>知识系统中的证据链</strong><span>方法笔记</span></div></div></section>
+        </div></aside>
+      </div>
+    </div></main>
+  </div>
+
+  <div id="command-dialog" class="dialog-backdrop" data-open="false" role="dialog" aria-modal="true" aria-label="全局搜索"><div class="command"><div class="command-input-wrap"><svg class="icon"><use href="#search"/></svg><input id="command-input" class="command-input" placeholder="搜索资料、知识单元或执行命令" autocomplete="off"><span class="kbd">ESC</span></div><div class="command-list"><div class="command-group-heading">当前资料</div><button class="command-item" data-href="editor.html" data-search="AI 产品设计原则 产品与设计"><span class="document-icon"><svg class="icon"><use href="#file"/></svg></span><span class="command-item-copy"><strong>AI 产品设计原则</strong><span>产品与设计 / 方法论</span></span></button><div class="command-separator"></div><div class="command-group-heading">导航</div><button class="command-item" data-search="主页 工作台" data-href="index.html"><span class="document-icon"><svg class="icon"><use href="#home"/></svg></span><span class="command-item-copy"><strong>返回知识工作台</strong><span>主页</span></span></button><div id="command-empty" class="command-empty">没有找到匹配的结果</div></div></div></div>
+  <div id="slash-command" class="slash-command" data-open="false"><div class="command-group-heading">插入内容块</div><button class="command-item" data-command-type="text"><span class="document-icon">T</span><span class="command-item-copy"><strong>正文</strong><span>普通文本段落</span></span></button><button class="command-item" data-command-type="heading"><span class="document-icon">H2</span><span class="command-item-copy"><strong>二级标题</strong><span>创建新的内容章节</span></span></button><button class="command-item" data-command-type="todo"><span class="document-icon"><svg class="icon"><use href="#check"/></svg></span><span class="command-item-copy"><strong>待办事项</strong><span>插入可完成的任务</span></span></button><button class="command-item" data-command-type="quote"><span class="document-icon"><svg class="icon"><use href="#quote"/></svg></span><span class="command-item-copy"><strong>引用</strong><span>突出重要论述</span></span></button></div>
+  <div id="toast" class="toast" data-open="false" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
