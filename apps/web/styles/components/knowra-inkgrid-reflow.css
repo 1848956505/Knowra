@@ -1,0 +1,180 @@
+/*
+ * Accessibility reflow: a 1280px browser at 200% exposes roughly 640 CSS px.
+ * Keep the formal 1024px product baseline above this breakpoint, while
+ * allowing zoomed users to traverse the same page without page-level
+ * horizontal scrolling.
+ */
+@media (max-width: 700px) {
+  body:has(.knowra-production-shell) {
+    min-width: 0;
+  }
+
+  .knowra-production-shell {
+    --shell-nav-w: var(--shell-nav-zoom-width);
+  }
+
+  .knowra-production-shell .top-bar {
+    padding-inline: var(--space-2);
+  }
+
+  .knowra-production-shell .topbar-brand {
+    flex-basis: var(--shell-nav-w);
+  }
+
+  .knowra-production-shell .topbar-brand-name,
+  .knowra-production-shell .topbar-actions .settings-button,
+  .knowra-production-shell .topbar-actions .topbar-separator,
+  .knowra-production-shell .topbar-actions .topbar-user {
+    display: none;
+  }
+
+  .knowra-production-shell .topbar-search-slot {
+    width: calc(100% - var(--shell-nav-w) - var(--control-height-md) - var(--space-8));
+  }
+
+  .knowra-production-shell .shell-body,
+  .knowra-production-shell[data-directory-hidden='true'] .shell-body,
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .shell-body {
+    position: relative;
+    grid-template-columns: var(--shell-nav-w) minmax(0, 1fr);
+  }
+
+  .knowra-production-shell[data-function-navigation-hidden='true'][data-directory-hidden='true'] .shell-body,
+  .knowra-production-shell[data-left-hidden='true'][data-directory-hidden='true'] .shell-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .knowra-production-shell .function-navigation {
+    width: var(--shell-nav-w);
+  }
+
+  .knowra-production-shell .function-nav-group-title,
+  .knowra-production-shell .function-nav-item-label,
+  .knowra-production-shell .function-nav-shortcut {
+    display: none;
+  }
+
+  .knowra-production-shell .function-nav-group {
+    margin-bottom: var(--space-2);
+  }
+
+  .knowra-production-shell .function-nav-item,
+  .knowra-production-shell .function-nav-footer .function-nav-item {
+    grid-template-columns: var(--space-5);
+    justify-content: center;
+    padding-inline: var(--space-4);
+  }
+
+  .knowra-production-shell .function-nav-footer {
+    padding-inline: 0;
+  }
+
+  .knowra-production-shell .shell-body .kb-sidebar,
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .shell-body .kb-sidebar {
+    position: absolute;
+    z-index: 22;
+    top: 0;
+    bottom: 0;
+    left: var(--shell-nav-w);
+    width: min(var(--catalog-w), calc(100% - var(--shell-nav-w)));
+    height: auto;
+    box-shadow: var(--shadow-editorial);
+  }
+
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .shell-body .kb-sidebar {
+    top: calc(var(--document-tab-height) + var(--menu-height));
+  }
+
+  .knowra-production-shell[data-screen='index'] .library-index-directory-reopen,
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .library-index-directory-reopen {
+    left: var(--shell-nav-w);
+  }
+
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .library-index-directory-toggle {
+    left: var(--space-2);
+    display: inline-grid;
+    width: var(--space-6);
+    height: var(--space-6);
+    place-items: center;
+    padding: 0;
+    border: var(--border-thin) solid var(--line);
+    background: var(--paper-raised);
+    color: var(--blue);
+  }
+
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .library-index-directory-toggle .library-index-header-action-icon {
+    display: block;
+    width: var(--space-4);
+    height: var(--space-4);
+    transform: rotate(180deg);
+  }
+
+  .knowra-production-shell[data-screen='editor'][data-editor-layout='overlay'] .library-index-directory-reopen {
+    position: absolute;
+    z-index: 30;
+    top: calc(var(--document-tab-height) + var(--menu-height) + var(--space-2));
+    display: inline-grid;
+    width: var(--aux-sidebar-control);
+    height: var(--aux-sidebar-control);
+    place-items: center;
+    border: var(--border-thin) solid var(--line);
+    background: var(--paper-raised);
+    box-shadow: var(--shadow-editorial);
+    color: var(--blue);
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    inset: var(--document-tab-height) 0 0 auto;
+    height: calc(100% - var(--document-tab-height));
+    margin: 0;
+    padding: var(--space-1) var(--space-3);
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-heading {
+    min-height: var(--space-8);
+    padding-bottom: 0;
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-heading > div {
+    min-width: 0;
+    gap: var(--space-1);
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-heading b {
+    overflow: hidden;
+    font-size: var(--text-base);
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-heading span {
+    display: none;
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-tabs {
+    min-height: var(--space-8);
+    height: var(--space-8);
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-tab {
+    height: calc(var(--space-8) - var(--border-thin));
+  }
+
+  .knowra-production-shell[data-screen='editor'] .editor-workspace-view .kb-workspace[data-editor-layout='overlay'] .editor-inspector .aside-panel-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .knowra-production-shell .index-inspector {
+    width: min(var(--index-inspector-width), calc(100% - var(--shell-nav-w)));
+  }
+
+  .knowra-production-shell .home-workspace,
+  .knowra-production-shell .index-workspace {
+    padding-inline: var(--space-4);
+  }
+}

@@ -149,9 +149,10 @@ export function renderAttachments(attachments, attachmentRenaming = null) {
               data-attachment-name="${escapeAttribute(attachment.fileName)}"
               data-attachment-referenced="${String(Boolean(attachment.isReferenced))}"
               title="${escapeAttribute(attachment.fileName)}"
+              aria-label="附件：${escapeAttribute(attachment.fileName)}；${escapeAttribute(attachment.mimeType)}；${escapeAttribute(statusLabel || (attachment.isReferenced ? '已引用' : '未引用'))}"
             >
               <div class="resource-meta">
-                <strong>${escapeHtml(attachment.fileName)}</strong>
+                <strong title="${escapeAttribute(attachment.fileName)}">${escapeHtml(attachment.fileName)}</strong>
                 <span>${escapeHtml(attachment.mimeType)}</span>
               </div>
               <span class="resource-badge" data-referenced="${String(Boolean(attachment.isReferenced))}" data-attachment-status="${escapeAttribute(attachment.status || 'ready')}" title="${escapeAttribute(statusLabel || '')}">

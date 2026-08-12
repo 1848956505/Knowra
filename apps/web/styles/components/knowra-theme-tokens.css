@@ -98,6 +98,7 @@
 
   /* Semantic dimensions are ready for the later Shell/side-panel tasks. */
   --ink-shell-nav-w: 208px;
+  --ink-shell-nav-zoom-w: 56px;
   --ink-catalog-w: 232px;
   --ink-index-inspector-w: 232px;
   --ink-marginalia-w: 232px;
@@ -262,6 +263,7 @@
   --rail-width: var(--ink-shell-composite-w);
   --aside-width: var(--rail-width);
   --app-min-width: var(--ink-app-min-w);
+  --shell-nav-zoom-width: var(--ink-shell-nav-zoom-w);
   --status-height: var(--ink-statusbar-h);
   --index-inspector-width: var(--ink-index-inspector-w);
   --index-content-min-width: var(--ink-index-content-min-w);

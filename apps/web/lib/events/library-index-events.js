@@ -224,11 +224,23 @@ export function bindLibraryIndexEvents({ state, elements, deps }) {
   elements.workspaceShell?.addEventListener('click', (event) => {
     const directoryToggle = closestFromEventTarget(event.target, '[data-index-directory-toggle]');
     if (directoryToggle) {
-      const wasDirectoryOpen = state.libraryIndex.directoryOpen;
-      state.libraryIndex.directoryOpen = !state.libraryIndex.directoryOpen;
+      const isEditor = state.view?.screen === 'editor';
+      const wasDirectoryOpen = isEditor
+        ? state.view.showLeftSidebar
+        : state.libraryIndex.directoryOpen;
+      if (isEditor) {
+        state.view.showLeftSidebar = !state.view.showLeftSidebar;
+      } else {
+        state.libraryIndex.directoryOpen = !state.libraryIndex.directoryOpen;
+      }
       deps.renderAll();
-      if (wasDirectoryOpen && !state.libraryIndex.directoryOpen) {
+      const isDirectoryOpen = isEditor
+        ? state.view.showLeftSidebar
+        : state.libraryIndex.directoryOpen;
+      if (wasDirectoryOpen && !isDirectoryOpen) {
         elements.libraryIndexDirectoryReopen?.focus?.();
+      } else if (!wasDirectoryOpen && isDirectoryOpen) {
+        elements.libraryIndexDirectoryToggle?.focus?.();
       }
       return;
     }

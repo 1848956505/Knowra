@@ -55,6 +55,16 @@ const elements = {
   editorWorkspaceView: stage,
   sidebar: { hidden: false },
   aside: { hidden: false, getBoundingClientRect: () => ({ width: 232 }) },
+  libraryIndexDirectoryToggle: {
+    hidden: true,
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = value; }
+  },
+  libraryIndexDirectoryReopen: {
+    hidden: true,
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = value; }
+  },
   workDomainView: { hidden: true, dataset: {} }
 };
 const state = {
@@ -115,8 +125,17 @@ assert.equal(elements.workspace.dataset.editorLayout, 'protected', '1000 - 232 s
 stage.getBoundingClientRect = () => ({ width: 900 });
 controller.syncEditorLayoutState();
 assert.equal(elements.workspace.dataset.editorLayout, 'overlay', '900 - 232 should enter Overlay mode');
+controller.renderWorkspaceViewState();
+assert.equal(elements.libraryIndexDirectoryToggle.hidden, false, 'Overlay editor should expose the directory close trigger');
+assert.equal(elements.libraryIndexDirectoryToggle.attributes['aria-label'], '折叠目录栏');
+
+state.view.showLeftSidebar = false;
+controller.renderWorkspaceViewState();
+assert.equal(elements.libraryIndexDirectoryReopen.hidden, false, 'Overlay editor should expose the directory reopen trigger');
+assert.equal(elements.libraryIndexDirectoryReopen.attributes['aria-label'], '展开目录栏');
 
 state.view.showRightSidebar = false;
+state.view.showLeftSidebar = true;
 stage.getBoundingClientRect = () => ({ width: 840 });
 controller.syncEditorLayoutState();
 assert.equal(elements.workspace.dataset.editorLayout, 'protected', 'the left-only combination should resolve from its docked EditorMain width');

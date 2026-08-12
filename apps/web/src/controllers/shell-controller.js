@@ -270,15 +270,22 @@ function renderWorkspaceViewState() {
   if (elements.sidebar) {
     elements.sidebar.hidden = !showLibraryDirectory;
   }
+  const isEditorDirectoryOverlay = isMaterials
+    && !isHome
+    && !isIndex
+    && elements.workspaceShell?.dataset?.editorLayout === 'overlay';
+  const canToggleLibraryDirectory = isIndex || isEditorDirectoryOverlay;
   if (elements.libraryIndexDirectoryToggle) {
-    elements.libraryIndexDirectoryToggle.hidden = !isIndex;
+    elements.libraryIndexDirectoryToggle.hidden = !canToggleLibraryDirectory;
     elements.libraryIndexDirectoryToggle.setAttribute('aria-expanded', String(showLibraryDirectory));
     elements.libraryIndexDirectoryToggle.setAttribute('aria-label', showLibraryDirectory ? '折叠目录栏' : '展开目录栏');
     elements.libraryIndexDirectoryToggle.setAttribute('title', showLibraryDirectory ? '折叠目录栏' : '展开目录栏');
   }
   if (elements.libraryIndexDirectoryReopen) {
-    elements.libraryIndexDirectoryReopen.hidden = !isIndex || showLibraryDirectory;
+    elements.libraryIndexDirectoryReopen.hidden = !canToggleLibraryDirectory || showLibraryDirectory;
     elements.libraryIndexDirectoryReopen.setAttribute('aria-expanded', String(showLibraryDirectory));
+    elements.libraryIndexDirectoryReopen.setAttribute('aria-label', '展开目录栏');
+    elements.libraryIndexDirectoryReopen.setAttribute('title', '展开目录栏');
   }
 
   const showEditorAside = isMaterials && !isHome && !isIndex && effectiveView.showRightSidebar;

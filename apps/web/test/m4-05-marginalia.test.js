@@ -24,11 +24,29 @@ assert.match(attachment, /data-attachment-rename-form="attachment-1"/);
 assert.match(attachment, /data-attachment-rename-input="attachment-1"/);
 assert.match(attachment, /data-attachment-rename-cancel/);
 
+const longAttachmentName = '2026年度多模态Transformer模型架构研究资料与实验结果汇总最终审阅版本附件截图.png';
+const longAttachment = renderAttachments([
+  { id: 'attachment-long', fileName: longAttachmentName, mimeType: 'image/png', isReferenced: true }
+]);
+assert.match(longAttachment, new RegExp(`aria-label="附件：${longAttachmentName}；image/png；已引用"`));
+assert.match(longAttachment, new RegExp(`<strong title="${longAttachmentName}">${longAttachmentName}</strong>`));
+
 const aggregateCss = readFileSync(new URL('../styles/components/knowra-inkgrid.css', import.meta.url), 'utf8');
+const editorCss = readFileSync(new URL('../styles/components/knowra-inkgrid-editor.css', import.meta.url), 'utf8');
 const marginaliaCss = readFileSync(new URL('../styles/components/knowra-inkgrid-editor-marginalia.css', import.meta.url), 'utf8');
 assert.match(aggregateCss, /@import '.\/knowra-inkgrid-editor-marginalia\.css';/);
 assert.match(marginaliaCss, /\.editor-inspector/);
 assert.match(marginaliaCss, /\.aside-tab:focus-visible/);
 assert.match(marginaliaCss, /\.resource-rename-form/);
+assert.match(
+  editorCss,
+  /\.editor-inspector \.resource-entry\s*\{[^}]*justify-items:\s*stretch;[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*overflow:\s*hidden;/,
+  'attachment entries should constrain long file names to the inspector column'
+);
+assert.match(
+  editorCss,
+  /\.editor-inspector \.resource-meta\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*max-width:\s*100%;[^}]*overflow:\s*hidden;/,
+  'attachment metadata should provide a real ellipsis containing block'
+);
 
 console.log('ok - M4-05 marginalia exposes accessible tabs and attachment actions');

@@ -264,9 +264,9 @@
 .knowra-production-shell .editor-inspector .inspector-disclosure summary:focus-visible { outline: none; color: var(--blue); box-shadow: inset 0 calc(-1 * var(--border-accent)) var(--blue); }
 .knowra-production-shell .editor-inspector .resource-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); min-height: var(--control-height-lg); padding: var(--space-3) 0; border: 0; border-bottom: var(--border-thin) solid var(--line-soft); border-radius: var(--radius-none); background: transparent; }
 .knowra-production-shell .editor-inspector .resource-row[data-referenced='true'] { padding-left: var(--space-3); background: var(--paper-raised); box-shadow: inset var(--border-accent) 0 var(--blue); }
-.knowra-production-shell .editor-inspector .resource-entry { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: var(--space-2); }
-.knowra-production-shell .editor-inspector .resource-meta { gap: var(--space-half); }
-.knowra-production-shell .editor-inspector .resource-meta strong { font-size: var(--text-sm); }
+.knowra-production-shell .editor-inspector .resource-entry { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: stretch; gap: var(--space-2); min-width: 0; max-width: 100%; overflow: hidden; }
+.knowra-production-shell .editor-inspector .resource-meta { width: 100%; min-width: 0; max-width: 100%; gap: var(--space-half); overflow: hidden; }
+.knowra-production-shell .editor-inspector .resource-meta strong { display: block; max-width: 100%; font-size: var(--text-sm); }
 .knowra-production-shell .editor-inspector .resource-meta span { font-size: var(--text-xs); }
 .knowra-production-shell .editor-inspector .resource-badge { min-width: 0; padding: var(--space-1) var(--space-2); border: var(--border-thin) solid var(--line); border-radius: var(--radius-none); background: transparent; color: var(--muted); }
 .knowra-production-shell .editor-inspector .resource-badge[data-referenced='true'] { border-color: var(--blue); background: var(--blue); color: var(--color-on-accent); }

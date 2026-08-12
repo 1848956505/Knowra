@@ -24,6 +24,10 @@ function createHarness() {
       focusCount: 0,
       focus() { elements.libraryIndexDirectoryReopen.focusCount += 1; }
     },
+    libraryIndexDirectoryToggle: {
+      focusCount: 0,
+      focus() { elements.libraryIndexDirectoryToggle.focusCount += 1; }
+    },
     editorAsideToggle: {
       focusCount: 0,
       focus() { elements.editorAsideToggle.focusCount += 1; }
@@ -58,7 +62,7 @@ function createHarness() {
       filterMenu: 'type',
       filters: { type: 'markdown-import', status: 'draft', time: 'created-asc' }
     },
-    view: { screen: 'index', showRightSidebar: true }
+    view: { screen: 'index', showLeftSidebar: true, showRightSidebar: true }
   };
   const calls = {
     renderedIndex: 0,
@@ -293,6 +297,26 @@ for (const [key, expectedTab, expectedFocusIndex] of [
   assert.equal(state.libraryIndex.directoryOpen, false);
   assert.equal(calls.renderedAll, 1);
   assert.equal(elements.libraryIndexDirectoryReopen.focusCount, 1);
+}
+
+{
+  const { elements, state, calls } = createHarness();
+  state.view.screen = 'editor';
+  const directoryToggle = { dataset: {} };
+  directoryToggle.closest = makeClosest([['[data-index-directory-toggle]', directoryToggle]]);
+
+  elements.workspaceShell.dispatch('click', directoryToggle);
+
+  assert.equal(state.view.showLeftSidebar, false);
+  assert.equal(state.libraryIndex.directoryOpen, true, 'editor toggles must not overwrite the index preference');
+  assert.equal(calls.renderedAll, 1);
+  assert.equal(elements.libraryIndexDirectoryReopen.focusCount, 1);
+
+  elements.workspaceShell.dispatch('click', directoryToggle);
+
+  assert.equal(state.view.showLeftSidebar, true);
+  assert.equal(calls.renderedAll, 2);
+  assert.equal(elements.libraryIndexDirectoryToggle.focusCount, 1);
 }
 
 {
