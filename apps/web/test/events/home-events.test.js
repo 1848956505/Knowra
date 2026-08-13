@@ -8,12 +8,13 @@ function closestMap(entries) {
 }
 
 const elements = { homeWorkspaceView: createRecorderElement() };
-const calls = { returns: [], opened: [] };
+const calls = { returns: [], opened: [], domains: [] };
 bindHomeEvents({
   elements,
   deps: {
     returnToLibraryIndex: async (options) => calls.returns.push(options),
-    selectNote: async (id, options) => calls.opened.push({ id, options })
+    selectNote: async (id, options) => calls.opened.push({ id, options }),
+    openWorkDomain: (domain) => calls.domains.push(domain)
   }
 });
 
@@ -25,9 +26,14 @@ const noteButton = { dataset: { homeNoteOpen: 'note-42' } };
 noteButton.closest = closestMap([['[data-home-note-open]', noteButton]]);
 elements.homeWorkspaceView.dispatch('click', noteButton);
 
+const domainButton = { dataset: { homeModule: 'knowledge' } };
+domainButton.closest = closestMap([['[data-home-module]', domainButton]]);
+elements.homeWorkspaceView.dispatch('click', domainButton);
+
 assert.deepEqual(calls.returns, [{ global: true }]);
 assert.deepEqual(calls.opened, [{
   id: 'note-42',
   options: { syncFolder: true, ensureTab: true }
 }]);
+assert.deepEqual(calls.domains, ['knowledge']);
 console.log('ok - home actions reuse the formal library navigation and note selection paths');

@@ -21,14 +21,14 @@ export function renderHtml(initialWorkspaceScript = '') {
         </div>
         <div class="top-bar-search topbar-search-slot" id="global-search-shell" role="search" aria-label="全局搜索"></div>
         <div class="topbar-actions" data-ui-topbar-actions aria-label="全局操作">
-          <button type="button" class="topbar-action" data-topbar-placeholder="notifications" aria-label="通知（即将开放）" title="通知（即将开放）">
+          <button type="button" class="topbar-action ink-button ink-button-icon" data-topbar-placeholder="notifications" aria-label="通知（即将开放）" title="通知（即将开放）">
             ${renderIcon('notification', { className: 'topbar-action-icon' })}
           </button>
-          <button type="button" class="topbar-action settings-button" data-topbar-placeholder="settings" aria-label="设置（即将开放）" title="设置（即将开放）">
+          <button type="button" class="topbar-action settings-button ink-button ink-button-icon" data-topbar-placeholder="settings" aria-label="设置（即将开放）" title="设置（即将开放）">
             ${renderIcon('settings', { className: 'topbar-action-icon' })}
           </button>
           <span class="topbar-separator" aria-hidden="true"></span>
-          <button type="button" class="topbar-user" data-topbar-placeholder="user" aria-label="用户中心（即将开放）" title="用户中心（即将开放）">
+          <button type="button" class="topbar-user ink-button" data-topbar-placeholder="user" aria-label="用户中心（即将开放）" title="用户中心（即将开放）">
             ${renderIcon('user', { className: 'topbar-user-icon' })}
             <span class="topbar-user-label">用户中心</span>
           </button>

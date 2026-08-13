@@ -41,6 +41,15 @@ assert.match(indexFeature, /data-status-feature-message/);
 assert.match(indexFeature, /后端资料已同步/);
 assert.doesNotMatch(indexFeature, /data-save-now|data-status-action/);
 
+const homeFeature = renderStatusFeature({
+  statusMessage: '主页概览',
+  homeSummary: { recentCount: 4 },
+  showEditorControls: false
+});
+assert.match(homeFeature, /data-status-home="context"/);
+assert.match(homeFeature, /工作台/);
+assert.match(homeFeature, /最近编辑 <strong>4<\/strong>/);
+
 const editorFeature = renderStatusFeature({
   statusMessage: '已自动保存',
   saveState: 'saved',

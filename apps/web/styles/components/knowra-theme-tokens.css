@@ -95,6 +95,12 @@
   --ink-mark-offset: 3px;
   --ink-topbar-search-w: 500px;
   --ink-shadow-focus: 3px 3px 0 var(--ink-accent);
+  --ink-motion-fast: 100ms;
+  --ink-motion-card: 200ms;
+  --ink-lift-x: -1px;
+  --ink-lift-y: -1px;
+  --ink-press-x: 2px;
+  --ink-press-y: 2px;
 
   /* Semantic dimensions are ready for the later Shell/side-panel tasks. */
   --ink-shell-nav-w: 208px;

@@ -19,6 +19,7 @@ import {
   selectLibraryIndexNotes
 } from '../../lib/library-index/model.js';
 import { renderHomeLoading, renderHomeWorkspace } from '../../lib/home/renderers.js';
+import { selectHomeRecentNotes, selectHomeSummary } from '../../lib/home/model.js';
 import {
   EDITOR_DIRECTORY_WIDTH,
   EDITOR_FUNCTION_NAV_WIDTH,
@@ -370,6 +371,7 @@ function renderStatus() {
   const effectiveView = getEffectiveViewState();
   const markdown = state.draftMarkdown || currentNote?.rawMarkdown || '';
   const isEditor = state.navigation?.activeWorkDomain === 'materials' && state.view.screen === 'editor';
+  const isHome = state.navigation?.activeWorkDomain === 'materials' && state.view.screen === 'home';
 
   if (elements.statusIndicators) {
     elements.statusIndicators.innerHTML = renderStatusFeature({
@@ -377,7 +379,8 @@ function renderStatus() {
       saveState: state.saveState,
       markdown,
       view: effectiveView,
-      showEditorControls: isEditor
+      showEditorControls: isEditor,
+      homeSummary: isHome ? selectHomeSummary(state, selectHomeRecentNotes(state, 4)) : null
     });
   }
 

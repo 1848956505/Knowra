@@ -138,6 +138,7 @@ export function bindAppEvents({
     syncSourcePreview: (...args) => editorController.syncSourcePreview(...args),
     persistDraft: (...args) => editorController.persistDraft(...args),
     returnToLibraryIndex: (...args) => navigationController.returnToLibraryIndex(...args),
+    openWorkDomain: (...args) => workDomainController.selectWorkDomain(...args),
     openHome: (...args) => workDomainController.openHome(...args),
     selectWorkDomain: (...args) => workDomainController.selectWorkDomain(...args),
     selectWorkDomainView: (...args) => workDomainController.selectView(...args),

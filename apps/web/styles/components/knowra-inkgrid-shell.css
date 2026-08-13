@@ -188,6 +188,12 @@ body:has(.knowra-production-shell) {
   min-width: 0;
 }
 
+.knowra-production-shell .status-home-context { gap: var(--space-2); color: var(--ink); }
+.knowra-production-shell .status-home-icon { color: var(--blue); font-size: var(--text-base); font-weight: 900; }
+.knowra-production-shell .status-home-separator { opacity: 0.5; }
+.knowra-production-shell .status-home-stats { display: inline-flex; align-items: center; gap: var(--space-4); margin-left: auto; }
+.knowra-production-shell .status-home-stats strong { color: var(--ink); font-family: var(--font-mono); }
+
 .knowra-production-shell .knowra-rail {
   position: relative;
   z-index: 20;

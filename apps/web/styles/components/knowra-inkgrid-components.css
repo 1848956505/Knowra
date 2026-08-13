@@ -1,0 +1,78 @@
+/* Reusable InkGrid controls distilled from the formal component-library HTML. */
+.knowra-production-shell .ink-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  border: var(--ink-border-w) solid var(--ink-line-shell);
+  border-radius: var(--radius-none);
+  background: var(--paper-raised);
+  box-shadow: var(--ink-shadow-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform var(--ink-motion-fast) ease,
+    box-shadow var(--ink-motion-fast) ease,
+    background-color var(--ink-motion-fast) ease,
+    color var(--ink-motion-fast) ease;
+}
+
+.knowra-production-shell .ink-button:hover {
+  transform: translate(var(--ink-lift-x), var(--ink-lift-y));
+  box-shadow: var(--ink-shadow-3);
+}
+
+.knowra-production-shell .ink-button:active {
+  transform: translate(var(--ink-press-x), var(--ink-press-y));
+  box-shadow: none;
+}
+
+.knowra-production-shell .ink-button-primary {
+  background: var(--blue);
+  color: var(--color-on-accent);
+}
+
+.knowra-production-shell .ink-button-primary:hover { background: var(--blue-dark); }
+
+.knowra-production-shell .ink-button-compact {
+  min-height: var(--control-height-sm);
+  padding-inline: var(--space-3);
+  box-shadow: var(--ink-shadow-1);
+  font-size: var(--text-xs);
+}
+
+.knowra-production-shell .ink-button-icon {
+  width: var(--control-height-md);
+  min-width: var(--control-height-md);
+  padding: 0;
+}
+
+.knowra-production-shell .ink-button-icon .semantic-icon,
+.knowra-production-shell .ink-button .home-action-icon {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.knowra-production-shell .ink-card-interactive {
+  transition:
+    transform var(--ink-motion-card) ease,
+    box-shadow var(--ink-motion-card) ease;
+}
+
+.knowra-production-shell .ink-card-interactive:hover {
+  transform: translateY(calc(-1 * var(--space-1)));
+  box-shadow: var(--ink-shadow-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knowra-production-shell .ink-button,
+  .knowra-production-shell .ink-card-interactive {
+    transition: none;
+  }
+}

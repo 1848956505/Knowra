@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>印格 · 资料编辑器页</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --ink-bg: #F7F4ED;
+            --ink-surface: #FFFFFF;
+            --ink-surface-sunken: #EEE9DF;
+            --ink-flat: #F4F1EA;
+            --ink-border: #17191D;
+            --ink-text: #17191D;
+            --ink-text-secondary: #5F625F;
+            --ink-dot-grid: #CDC7BC;
+            --ink-accent: #2457D6;
+            --ink-accent-hover: #1746BD;
+            --ink-accent-bg: #E5ECFF;
+            --ink-success: #16A34A;
+            --ink-success-hover: #15803D;
+            --ink-success-bg: #DCFCE7;
+            --ink-warning: #EA580C;
+            --ink-warning-hover: #C2410C;
+            --ink-warning-bg: #FFEDD5;
+            --ink-danger: #DC2626;
+            --ink-danger-hover: #B91C1C;
+            --ink-danger-bg: #FEE2E2;
+            /* 最终线条系统：外壳 2px 深黑 > 功能结构 1px 浅灰 > 轻分割 1px 极浅 */
+            --ink-line-shell: var(--ink-border);
+            --ink-line-panel: #D9D4CB;
+            --ink-line-soft: #EAE6DE;
+            --ink-line: var(--ink-line-soft);
+            --ink-line-shell-w: 2px;
+            --ink-line-panel-w: 1px;
+            --ink-line-soft-w: 1px;
+            --ink-border-w: 2px;
+            --ink-border-w-thin: 1px;
+            --ink-shadow-1: 2px 2px 0 var(--ink-border);
+            --ink-shadow-2: 3px 3px 0 var(--ink-border);
+            --ink-shadow-3: 4px 4px 0 var(--ink-border);
+            --ink-shadow-hero: 5px 5px 0 var(--ink-border);
+            --topbar-h: 60px;
+            --statusbar-h: 32px;
+            --shell-nav-w: 208px;
+            --catalog-w: 232px;
+            --aux-sidebar-w: 232px;
+            --aux-sidebar-head-h: 56px;
+            --aux-sidebar-control: 28px;
+        }
+        [data-theme="dark"] {
+            --ink-bg: #171817;
+            --ink-surface: #20211F;
+            --ink-surface-sunken: #292A27;
+            --ink-flat: #2A2621;
+            --ink-border: #EEEAE2;
+            --ink-text: #F4F1EA;
+            --ink-text-secondary: #A7A399;
+            --ink-dot-grid: #363732;
+            --ink-accent: #5D82F5;
+            --ink-accent-hover: #7897F8;
+            --ink-accent-bg: #202C50;
+            --ink-line-shell: var(--ink-border);
+            --ink-line-panel: #3B3C37;
+            --ink-line-soft: #2D2E2A;
+            --ink-line: var(--ink-line-soft);
+            --ink-shadow-1: 2px 2px 0 rgba(232,228,220,0.22);
+            --ink-shadow-2: 3px 3px 0 rgba(232,228,220,0.22);
+            --ink-shadow-3: 4px 4px 0 rgba(232,228,220,0.22);
+            --ink-shadow-hero: 5px 5px 0 rgba(232,228,220,0.22);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--ink-bg); color: var(--ink-text); font-size: 14px;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .mono { font-family: "SF Mono", Menlo, monospace; }
+
+        /* ===== 顶栏 ===== */
+        .topbar { position: relative; height: var(--topbar-h); flex-shrink: 0; display: flex; align-items: center; padding: 0 24px; border-bottom: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); z-index: 20; }
+        .brand { display: flex; align-items: center; gap: 12px; width: calc(var(--shell-nav-w) - 24px); font-weight: 800; font-size: 17px; letter-spacing: -0.5px; cursor: pointer; }
+        .mark { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
+        .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; background: var(--ink-accent); }
+        .mark .mark-front { position: absolute; left: 0; top: 0; width: 28px; height: 28px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+        .global-search { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, 42vw); }
+        .global-search .wrap { position: relative; width: 100%; }
+        .global-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-text-secondary); font-size: 16px; }
+        .global-search input { width: 100%; padding: 8px 12px 8px 40px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); font-size: 13px; box-shadow: var(--ink-shadow-1); font-family: inherit; color: var(--ink-text); }
+        .global-search input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        .global-search .kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); border: 1px solid var(--ink-line); border-radius: 3px; padding: 1px 5px; }
+        .topbar-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+        .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); cursor: pointer; color: var(--ink-text); font-size: 16px; transition: all 0.1s; }
+        .icon-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .icon-btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .topbar-sep { width: 1px; height: 24px; background: var(--ink-line); margin: 0 4px; }
+        .user-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; font-weight: 600; font-size: 13px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; font-family: inherit; transition: all 0.1s; }
+        .user-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .user-btn:active { transform: translate(2px,2px); box-shadow: none; }
+
+        /* 专注模式：顶部全局外壳退出工作面，编辑器获得完整高度 */
+        body.focus-mode .topbar { display: none; }
+
+        /* ===== 主体多栏 ===== */
+        .shell { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        /* ===== 左栏：功能导航（与主页/索引页一致，v2.3 激活态） ===== */
+        .sidebar { width: var(--shell-nav-w); flex-shrink: 0; border-right: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .nav-head { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 14px; border-bottom: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-border); color: var(--ink-bg); flex-shrink: 0; }
+        .nav-head .workspace-mark { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--ink-bg); background: var(--ink-accent); color: #fff; font: 800 11px "SF Mono", monospace; box-shadow: 2px 2px 0 var(--ink-bg); }
+        .nav-head strong { display: block; font-size: 12px; line-height: 1.2; }
+        .nav-head small { display: block; margin-top: 2px; color: #C9C4BA; font: 9px "SF Mono", monospace; letter-spacing: .6px; }
+        .nav-head .ri-arrow-down-s-line { margin-left: auto; color: var(--ink-bg); }
+        .sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 0 4px; scrollbar-width: thin; }
+        .nav-group { margin: 0 10px 16px; padding-top: 12px; border-top: 1px solid var(--ink-line-soft); }
+        .nav-group:first-child { padding-top: 0; border-top: 0; }
+        .nav-title { display: flex; align-items: center; justify-content: space-between; min-height: 24px; margin: 0 0 5px; padding: 0 8px; color: var(--ink-text-secondary); font-size: 10px; font-weight: 800; letter-spacing: 1.3px; text-transform: uppercase; }
+        .nav-title i { width: 20px; height: 20px; display: grid; place-items: center; color: var(--ink-text-secondary); font-size: 14px; cursor: pointer; }
+        .nav-item { position: relative; display: flex; align-items: center; min-height: 38px; margin: 2px 0; padding: 7px 9px; border: 1px solid transparent; border-left-width: 3px; font-size: 12.5px; font-weight: 500; color: var(--ink-text); cursor: pointer; transition: transform .1s, background .1s, border-color .1s, box-shadow .1s; }
+        .nav-item:hover { background: var(--ink-flat); border-color: var(--ink-line-panel); transform: translateX(1px); }
+        .nav-item.active { background: var(--ink-accent-bg); border-color: var(--ink-border); border-left: 3px solid var(--ink-accent); box-shadow: 2px 2px 0 var(--ink-border); font-weight: 750; transform: translate(-1px,-1px); }
+        .nav-item.is-disabled { color: var(--ink-text-secondary); cursor: not-allowed; opacity: 0.65; }
+        .nav-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; margin-right: 8px; border: 1px solid transparent; font-size: 16px; }
+        .nav-item.active .nav-icon { background: var(--ink-accent); color: #fff; border-color: var(--ink-border); }
+        .nav-kbd { margin-left: auto; padding: 2px 5px; border: 1px solid var(--ink-line-panel); background: var(--ink-surface); box-shadow: 1px 1px 0 var(--ink-line-panel); border-radius: 3px; color: var(--ink-text-secondary); font-family: "SF Mono", monospace; font-size: 10px; }
+        .sidebar-foot { flex-shrink: 0; padding: 12px 14px 16px; border-top: 1px solid var(--ink-line-soft); background: var(--ink-flat); }
+        .sidebar .btn-primary { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; font-weight: 700; font-size: 13px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-2); cursor: pointer; font-family: inherit; transition: all 0.1s; }
+        .sidebar .btn-primary:hover { background: var(--ink-accent-hover); transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-3); }
+        .sidebar .btn-primary:active { transform: translate(2px,2px); box-shadow: none; }
+
+        /* ===== 可折叠目录栏（v2.3：56px 头部 + 4px 蓝顶线 + 树节点状态） ===== */
+        .catalog { width: var(--catalog-w); flex-shrink: 0; border-right: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .catalog-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: var(--aux-sidebar-head-h); padding: 0 16px; border-top: 4px solid var(--ink-accent); border-bottom: 1px solid var(--ink-border); background: var(--ink-flat); flex-shrink: 0; }
+        .catalog-title { display: inline-flex; align-items: center; gap: 12px; min-width: 0; flex-shrink: 0; white-space: nowrap; font-size: 13px; font-weight: 700; }
+        .catalog-title-icon { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--ink-border); background: var(--ink-surface); box-shadow: 2px 2px 0 var(--ink-accent); font-size: 15px; color: var(--ink-text); }
+        .catalog-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 8px; scrollbar-width: thin; }
+        .tree-node { display: flex; align-items: center; gap: 8px; min-height: 36px; margin: 2px 0; padding: 6px 9px; border: 1px solid transparent; border-left-width: 3px; font-size: 13px; font-weight: 500; cursor: pointer; transition: transform .1s, background .1s, border-color .1s, box-shadow .1s; }
+        .tree-node:hover { background: var(--ink-flat); border-color: var(--ink-line-panel); transform: translateX(1px); }
+        .tree-node.selected { background: var(--ink-accent-bg); border-color: var(--ink-border); border-left-color: var(--ink-accent); box-shadow: 2px 2px 0 var(--ink-border); transform: translate(-1px,-1px); font-weight: 600; }
+        .tree-node .twist { font-size: 14px; color: var(--ink-text-secondary); width: 16px; flex-shrink: 0; }
+        .tree-node .ico { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid transparent; font-size: 16px; color: var(--ink-text); flex-shrink: 0; }
+        .tree-node.selected .ico { border-color: var(--ink-border); background: var(--ink-accent); color: #fff; }
+        .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .tree-node.root { font-weight: 700; }
+        .tree-node.file { font-weight: 400; color: var(--ink-text-secondary); }
+        .tree-node.file .ico { color: var(--ink-text-secondary); }
+        .tree-node.file:hover { color: var(--ink-text); }
+        .tree-node.file.selected { color: var(--ink-text); font-weight: 500; }
+        .tree-node.lv2 { padding-left: 20px; }
+        .tree-node.lv3 { padding-left: 38px; }
+        .catalog-head-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .cat-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 14px; cursor: pointer; box-shadow: var(--ink-shadow-1); transition: transform 0.1s, box-shadow 0.1s, background 0.1s; font-family: inherit; }
+        .cat-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .cat-btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .cat-btn.accent { background: var(--ink-accent); color: #fff; }
+        .cat-btn.accent:hover { background: var(--ink-accent-hover); }
+        .shell.catalog-collapsed .catalog { display: none; }
+        .catalog-expand-tab { display: none; position: absolute; top: 12px; left: calc(var(--shell-nav-w) - 2px); width: 28px; height: 28px; align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); box-shadow: var(--ink-shadow-1); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .catalog-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(2px); }
+        .shell.catalog-collapsed .catalog-expand-tab { display: flex; }
+
+        /* ===== 编辑器工作区 ===== */
+        .editor { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--ink-bg); }
+
+        /* 文档 Tab 条（v2.3 纸张标签：白色激活实体 + 顶部 3px 蓝线） */
+        .doc-tabbar { flex-shrink: 0; display: flex; align-items: stretch; background: var(--ink-flat); border-bottom: 1px solid var(--ink-border); }
+        body.focus-mode .doc-tabbar { border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); }
+        .doc-tabbar .back { width: 48px; display: grid; place-items: center; border-right: 1px solid var(--ink-line-panel); color: var(--ink-text-secondary); cursor: pointer; font-size: 20px; flex-shrink: 0; }
+        .doc-tabbar .back:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+        .doc-tabs { display: flex; align-items: flex-end; min-width: 0; gap: 4px; padding: 6px 6px 0; overflow-x: auto; scrollbar-width: thin; }
+        .doc-tab { position: relative; display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 8px 12px; font-size: 13px; color: var(--ink-text-secondary); cursor: pointer; border: 1px solid transparent; border-bottom: 0; background: transparent; white-space: nowrap; max-width: 220px; transition: background 0.1s, border-color 0.1s; }
+        .doc-tab i.f { font-size: 16px; }
+        .doc-tab .close { font-size: 14px; opacity: 0; margin-left: 2px; width: 18px; height: 18px; display: grid; place-items: center; }
+        .doc-tab:hover .close { opacity: 1; }
+        .doc-tab:hover { border-color: var(--ink-line-panel); background: var(--ink-bg); }
+        .doc-tab.active { border: 1px solid var(--ink-border); border-top: 3px solid var(--ink-accent); border-bottom-color: var(--ink-surface); background: var(--ink-surface); color: var(--ink-text); font-weight: 600; box-shadow: 2px 0 0 var(--ink-border); }
+        .doc-tab .close:hover { background: var(--ink-accent-bg); color: var(--ink-text); }
+        .doc-tab.new-tab { align-self: center; min-height: 30px; padding: 0 10px; border: 1px solid var(--ink-border); background: var(--ink-surface); box-shadow: 2px 2px 0 var(--ink-border); color: var(--ink-text-secondary); font-size: 16px; }
+        .doc-tab.new-tab:hover { background: var(--ink-accent-bg); color: var(--ink-text); }
+
+        /* 菜单栏（v2.3 全 Tier D；激活图标 = 蓝底白字） */
+        .menubar { flex-shrink: 0; display: flex; align-items: center; gap: 2px; min-height: 38px; padding: 4px 8px; border-bottom: 1px solid var(--ink-line); background: var(--ink-surface); }
+        .menu-item { padding: 4px 10px; font-size: 13px; cursor: pointer; color: var(--ink-text); }
+        .menu-item:hover { background: var(--ink-surface-sunken); }
+        .menu-sep { width: 1px; height: 18px; background: var(--ink-line); margin: 0 6px; }
+        .tool-btn { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 14px; cursor: pointer; color: var(--ink-text); border: 0; background: transparent; transition: background 0.1s; }
+        .tool-btn:hover { background: var(--ink-surface-sunken); }
+        .tool-btn.active { background: var(--ink-accent); color: #fff; }
+        .tool-btn.h { font-weight: 800; font-family: "SF Mono", monospace; font-size: 12px; }
+        .tool-btn.b { font-weight: 800; }
+        .tool-btn.i { font-style: italic; font-family: Georgia, serif; }
+        .menubar .grow { flex: 1; }
+
+        /* 编辑滚动区 */
+        .editor-scroll { flex: 1; min-height: 0; overflow-y: auto; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .paper-wrap { max-width: 760px; margin: 0 auto; padding: 40px 32px 120px; }
+
+        /* 面包屑 + 状态行 */
+        .doc-crumb { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; font-size: 12px; color: var(--ink-text-secondary); margin-bottom: 24px; flex-wrap: wrap; }
+        .crumb-path { display: inline-flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+        .doc-crumb .sep { color: var(--ink-text-secondary); opacity: 0.45; }
+        .doc-crumb a { color: var(--ink-text-secondary); text-decoration: none; }
+        .doc-crumb a:hover { color: var(--ink-text); }
+        .crumb-current { color: var(--ink-text); font-weight: 700; }
+        .doc-meta { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; color: var(--ink-text-secondary); font-size: 11px; flex-wrap: wrap; }
+        .doc-meta-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .doc-meta-item i { font-size: 13px; color: var(--ink-text-secondary); }
+        .doc-meta-sep { opacity: 0.45; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+        .badge::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .badge-warning { color: var(--ink-warning); } .badge-success { color: var(--ink-success); } .badge-muted { color: var(--ink-text-secondary); }
+        .badge .badge-text { color: var(--ink-text); font-weight: 500; }
+
+        /* 标题区：左 4px 蓝条 */
+        .title-block { margin-bottom: 30px; }
+        .title-main { border-left: 4px solid var(--ink-accent); padding: 4px 0 0 20px; margin-bottom: 16px; }
+        .title-kicker { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 10px; color: var(--ink-text-secondary); font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+        .title-kicker i { color: var(--ink-accent); font-size: 14px; }
+        .title-kicker-sep { opacity: 0.5; }
+        .title-block .doc-title { font-size: 34px; font-weight: 800; line-height: 1.25; letter-spacing: -0.7px; margin-bottom: 16px; }
+        .title-footer { display: flex; align-items: center; gap: 10px; margin-left: 24px; flex-wrap: wrap; }
+        .tag-label { color: var(--ink-text-secondary); font-size: 11px; font-weight: 700; }
+        .tag-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .tag { position: relative; display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px; border: 1px solid var(--ink-border); font-size: 12px; font-weight: 600; background: var(--ink-bg); box-shadow: 1px 1px 0 currentColor; transition: transform 0.1s, box-shadow 0.1s; }
+        .tag:hover { transform: translate(-1px,-1px); box-shadow: 2px 2px 0 currentColor; }
+        .tag-blue { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; }
+        .tag-add { gap: 5px; border-style: dashed; color: var(--ink-text-secondary); cursor: pointer; box-shadow: 1px 1px 0 var(--ink-line-panel); }
+        .tag-add:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+
+        /* 编辑纸面 */
+        .prose { color: var(--ink-text); }
+        .prose h1, .prose h2, .prose h3 { color: var(--ink-text); }
+        .prose h1 { display: flex; align-items: baseline; gap: 10px; font-size: 26px; font-weight: 800; line-height: 1.35; margin: 32px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ink-line-panel); }
+        .prose h1::before, .prose h2::before, .prose h3::before { flex: 0 0 auto; color: var(--ink-accent); font: 700 10px "SF Mono", Menlo, monospace; letter-spacing: 1px; }
+        .prose h1::before { content: "H1"; }
+        .prose h2 { display: flex; align-items: baseline; gap: 10px; font-size: 21px; font-weight: 800; line-height: 1.4; margin: 28px 0 12px; padding-left: 12px; border-left: 3px solid var(--ink-accent); }
+        .prose h2::before { content: "H2"; }
+        .prose h3 { display: flex; align-items: baseline; gap: 10px; font-size: 17px; font-weight: 700; line-height: 1.45; margin: 22px 0 10px; }
+        .prose h3::before { content: "H3"; color: var(--ink-text-secondary); }
+        .prose p { font-size: 15px; line-height: 1.85; margin-bottom: 16px; }
+        .prose strong { font-weight: 800; }
+        .prose em { color: var(--ink-text-secondary); }
+        .prose a { color: var(--ink-accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+        .prose .code-inline { display: inline-block; color: var(--ink-text); font: 600 13px/1.4 "SF Mono", Menlo, monospace; background: var(--ink-surface-sunken); padding: 1px 6px; border-bottom: 2px solid var(--ink-accent); }
+        .prose ul, .prose ol { margin: 0 0 16px; padding-left: 24px; }
+        .prose li { font-size: 15px; line-height: 1.8; margin-bottom: 4px; padding-left: 4px; }
+        .prose blockquote { border-left: 4px solid var(--ink-accent); background: var(--ink-surface-sunken); padding: 12px 18px; margin: 0 0 18px; color: var(--ink-text-secondary); font-size: 15px; line-height: 1.8; }
+        .prose .note-callout { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 20px; padding: 12px 16px; border-left: 3px solid var(--ink-warning); background: var(--ink-surface-sunken); color: var(--ink-text-secondary); font-size: 13px; line-height: 1.7; }
+        .prose .note-callout > i { flex: 0 0 auto; margin-top: 2px; color: var(--ink-warning); font-size: 16px; }
+        .prose .note-callout strong { display: block; margin-bottom: 2px; color: var(--ink-text); font-size: 12px; }
+        .prose pre { position: relative; background: var(--ink-surface); border-left: 4px solid var(--ink-border); padding: 44px 18px 16px; margin: 0 0 18px; overflow-x: auto; font: 13px/1.7 "SF Mono", Menlo, monospace; box-shadow: var(--ink-shadow-1); }
+        .prose pre::before { content: "CODE BLOCK  ·  PYTHON"; position: absolute; top: 0; left: 0; right: 0; height: 32px; display: flex; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--ink-line-panel); background: var(--ink-surface-sunken); color: var(--ink-text-secondary); font: 700 10px/1 "SF Mono", Menlo, monospace; letter-spacing: 1px; }
+        .prose pre::after { content: ""; position: absolute; top: 12px; right: 18px; width: 8px; height: 8px; background: var(--ink-accent); box-shadow: 12px 0 0 var(--ink-warning), 24px 0 0 var(--ink-success); }
+        .prose pre .k { color: var(--ink-accent); } .prose pre .s { color: var(--ink-success); } .prose pre .c { color: var(--ink-text-secondary); }
+        .prose figure { margin: 0 0 20px; }
+        .prose .img-block { background: var(--ink-surface-sunken); height: 200px; display: grid; place-items: center; color: var(--ink-text-secondary); font-size: 13px; gap: 8px; }
+        .prose .img-block i { font-size: 32px; }
+        .prose figcaption { font-size: 12px; color: var(--ink-text-secondary); text-align: center; margin-top: 8px; }
+        .prose table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
+        .prose thead th { text-align: left; font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--ink-line-panel); }
+        .prose tbody td { padding: 10px 12px; border-bottom: 1px solid var(--ink-line-soft); }
+        .prose tbody tr:hover { background: var(--ink-surface-sunken); }
+
+        /* ===== 辅助侧栏：资料边注（v2.3 aux-sidebar 家族） ===== */
+        .inspector { width: var(--aux-sidebar-w); flex-shrink: 0; border-left: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .inspector.collapsed { display: none; }
+        .insp-head { display: flex; align-items: center; gap: 8px; min-height: var(--aux-sidebar-head-h); height: var(--aux-sidebar-head-h); padding: 0 12px; border-top: 4px solid var(--ink-accent); border-bottom: 1px solid var(--ink-border); background: var(--ink-flat); flex-shrink: 0; }
+        .insp-head-title { display: inline-flex; align-items: center; gap: 9px; min-width: 0; flex-shrink: 0; white-space: nowrap; font-size: 13px; font-weight: 800; }
+        .insp-head-icon { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--ink-border); background: var(--ink-surface); box-shadow: 2px 2px 0 var(--ink-accent); font-size: 15px; color: var(--ink-text); }
+        .insp-head .grow { flex: 1; }
+        .insp-head .mini { flex: 0 0 var(--aux-sidebar-control); width: var(--aux-sidebar-control); height: var(--aux-sidebar-control); padding: 0; display: inline-flex; align-items: center; justify-content: center; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); cursor: pointer; color: var(--ink-text); font-size: 14px; transition: transform 0.1s, box-shadow 0.1s, background 0.1s; }
+        .insp-head .mini:hover { background: var(--ink-accent-bg); transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .insp-head .mini:active { transform: translate(2px,2px); box-shadow: none; }
+        .inspector-expand-tab { display: none; position: absolute; top: 12px; right: 0; width: var(--aux-sidebar-control); height: var(--aux-sidebar-control); align-items: center; justify-content: center; background: var(--ink-surface); border: 2px solid var(--ink-border); box-shadow: -2px 2px 0 var(--ink-border); color: var(--ink-text); font-size: 15px; cursor: pointer; z-index: 15; transition: background 0.1s, transform 0.1s; }
+        .inspector-expand-tab:hover { background: var(--ink-accent-bg); transform: translateX(-2px); }
+        .shell.inspector-collapsed .inspector-expand-tab { display: flex; }
+        body.focus-mode .shell .catalog-expand-tab,
+        body.focus-mode .shell .inspector-expand-tab { display: none; }
+        /* 边注 Tab（v2.3 模块 Tab · 均分排布 · 蓝色底部定位线） */
+        .module-tabs { display: flex; gap: 0; padding: 4px; margin: 8px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-flat); box-shadow: var(--ink-shadow-1); flex-shrink: 0; }
+        .module-tab { position: relative; flex: 1; justify-content: center; text-align: center; min-height: 34px; padding: 7px 4px; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border: 1px solid transparent; transition: color 0.1s, background 0.1s; }
+        .module-tab:hover { background: var(--ink-surface); border-color: var(--ink-line-panel); color: var(--ink-text); }
+        .module-tab.active { border: 1px solid var(--ink-border); background: var(--ink-surface); box-shadow: 2px 2px 0 var(--ink-border); color: var(--ink-text); font-weight: 700; }
+        .module-tab.active::before { content: ""; position: absolute; left: 8px; right: 8px; bottom: 2px; height: 2px; background: var(--ink-accent); }
+        .insp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 12px; }
+        .insp-section { margin-top: 10px; border: 1px solid var(--ink-line-panel); background: var(--ink-surface); }
+        .insp-section-head { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 10px; font-size: 12px; font-weight: 750; cursor: pointer; }
+        .insp-section-head:hover { background: var(--ink-flat); }
+        .insp-section-head i.lead { color: var(--ink-text-secondary); font-size: 15px; }
+        .insp-section-head .count { margin-left: auto; color: var(--ink-text-secondary); font: 10px "SF Mono", monospace; }
+        .insp-section-head i.chev { color: var(--ink-text-secondary); font-size: 14px; margin-left: 6px; }
+        .kv { display: grid; grid-template-columns: 68px 1fr; gap: 8px 12px; padding: 0 10px 12px; }
+        .kv .k { font-size: 11px; color: var(--ink-text-secondary); }
+        .kv .v { font-size: 13px; }
+        .insp-tags { padding: 0 10px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+        /* 大纲面板 */
+        .outline { padding: 8px 0; }
+        .outline-item { display: block; padding: 6px 16px; font-size: 13px; color: var(--ink-text); cursor: pointer; border-left: 3px solid transparent; }
+        .outline-item:hover { background: var(--ink-surface-sunken); }
+        .outline-item.active { border-left-color: var(--ink-accent); font-weight: 600; background: var(--ink-surface-sunken); }
+        .outline-item.lv2 { padding-left: 30px; color: var(--ink-text-secondary); }
+        /* AI 面板占位 */
+        .ai-panel { padding: 16px; }
+        .ai-empty { text-align: center; padding: 40px 12px; color: var(--ink-text-secondary); }
+        .ai-empty .icon { width: 48px; height: 48px; margin: 0 auto 14px; border: 2px solid var(--ink-border); box-shadow: var(--ink-shadow-2); display: grid; place-items: center; font-size: 22px; background: var(--ink-surface); color: var(--ink-accent); }
+        .ai-empty p { font-size: 13px; margin-bottom: 16px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; font-weight: 600; font-size: 13px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); cursor: pointer; box-shadow: var(--ink-shadow-1); transition: all 0.1s; font-family: inherit; }
+        .btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .btn-primary { background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-3); }
+        .btn-primary:hover { background: var(--ink-accent-hover); box-shadow: 5px 5px 0 var(--ink-border); }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        /* ===== 底部状态栏（v2.3 宿主） ===== */
+        .statusbar { width: 100%; flex: 0 0 var(--statusbar-h); height: var(--statusbar-h); display: flex; align-items: center; gap: 16px; padding: 0 24px; border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); font-size: 12px; color: var(--ink-text-secondary); }
+        .statusbar .save { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-success); font-weight: 600; }
+        .statusbar .save::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .statusbar .stat { display: inline-flex; align-items: center; gap: 5px; }
+        .statusbar .stat .mono { color: var(--ink-text); }
+        .statusbar .grow { flex: 1; }
+        .statusbar .sep { opacity: 0.5; }
+        .statusbar .hint { white-space: nowrap; }
+        .sw-group { display: inline-flex; align-items: center; gap: 4px; }
+        .sw { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; cursor: pointer; color: var(--ink-text-secondary); border: 1px solid transparent; font-size: 11px; font-weight: 600; }
+        .sw:hover { background: var(--ink-surface-sunken); color: var(--ink-text); }
+        .sw.on { background: var(--ink-accent); color: #fff; border-color: var(--ink-accent); }
+        .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); }
+
+        .panel-page { display: none; }
+        .panel-page.active { display: block; }
+    </style>
+</head>
+<body>
+    <!-- ===== 顶栏 ===== -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark"><div class="mark-back"></div><div class="mark-front">知</div></div>
+            <span>知境 Knowra</span>
+        </div>
+        <div class="global-search">
+            <div class="wrap">
+                <i class="ri-search-line"></i>
+                <input type="text" placeholder="搜索资料、笔记、标签或命令…">
+                <span class="kbd">⌘K</span>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <button class="icon-btn" type="button" title="切换暗色主题" aria-label="切换暗色主题" aria-pressed="false" data-hook="theme-toggle"><i class="ri-contrast-2-line"></i></button>
+            <button class="icon-btn" title="通知"><i class="ri-notification-3-line"></i></button>
+            <button class="icon-btn" title="设置"><i class="ri-settings-4-line"></i></button>
+            <span class="topbar-sep"></span>
+            <button class="user-btn" type="button"><i class="ri-user-smile-line"></i> 用户中心</button>
+        </div>
+    </header>
+
+    <div class="shell">
+        <!-- ===== 侧栏：与索引页一致的固定功能导航（v2.3） ===== -->
+        <aside class="sidebar" id="sidebar">
+            <div class="nav-head"><span class="workspace-mark">知</span><span><strong>知境工作台</strong><small>PERSONAL SPACE</small></span><i class="ri-arrow-down-s-line" aria-hidden="true"></i></div>
+            <div class="sidebar-scroll">
+                <!-- 工作台：跨模块的通用功能 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>工作台</span><i class="ri-add-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-layout-grid-fill"></i></span> 首页概览 <span class="nav-kbd">⌘1</span></div>
+                    <div class="nav-item active"><span class="nav-icon"><i class="ri-stack-line"></i></span> 全部资料</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-star-line"></i></span> 收藏夹</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-delete-bin-6-line"></i></span> 回收站</div>
+                </div>
+
+                <!-- 资料库：唯一已就绪模块 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>资料库</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-quill-pen-line"></i></span> 快速笔记</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-folder-open-line"></i></span> 文件夹管理</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-price-tag-3-line"></i></span> 标签管理</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-attachment-2"></i></span> 附件库</div>
+                </div>
+
+                <!-- 知识库：占位 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>知识库</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-node-tree"></i></span> 知识图谱</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-lightbulb-flash-line"></i></span> 知识条目</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-links-line"></i></span> 双向链接</div>
+                </div>
+
+                <!-- 训练场：占位 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>训练场</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-file-list-3-line"></i></span> 题库</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-sword-line"></i></span> 练习计划</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-repeat-2-line"></i></span> 错题回顾</div>
+                </div>
+
+                <!-- 学习档案：占位 -->
+                <div class="nav-group">
+                    <div class="nav-title"><span>学习档案</span><i class="ri-arrow-down-s-line"></i></div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-line-chart-line"></i></span> 掌握度</div>
+                    <div class="nav-item"><span class="nav-icon"><i class="ri-rhythm-line"></i></span> 学习曲线</div>
+                </div>
+            </div>
+            <div class="sidebar-foot">
+                <button class="btn-primary"><i class="ri-add-line"></i> 新建空间</button>
+            </div>
+        </aside>
+
+        <!-- 目录栏与边注侧栏的折叠态展开入口 -->
+        <button class="catalog-expand-tab" type="button" title="展开目录栏" aria-label="展开目录栏" aria-controls="catalog" aria-expanded="false" data-hook="catalog-expand"><i class="ri-menu-unfold-line"></i></button>
+        <button class="inspector-expand-tab" type="button" title="展开边注侧栏" aria-label="展开边注侧栏" aria-controls="inspector" aria-expanded="false" id="inspOpen"><i class="ri-menu-fold-line"></i></button>
+
+        <!-- ===== 目录栏：与索引页一致的可折叠目录（v2.3） ===== -->
+        <aside class="catalog" id="catalog">
+            <div class="catalog-head">
+                <span class="catalog-title"><i class="catalog-title-icon ri-folder-open-line"></i><span>资料目录</span></span>
+                <span class="catalog-head-actions"><button class="cat-btn accent" type="button" title="新建文件夹" aria-label="新建文件夹"><i class="ri-add-line"></i></button><button class="cat-btn" type="button" title="折叠目录栏" aria-label="折叠目录栏" aria-controls="catalog" aria-expanded="true" data-hook="catalog-collapse"><i class="ri-menu-fold-line"></i></button></span>
+            </div>
+            <div class="catalog-scroll">
+                <div class="tree-node root"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 资料 <span class="count">6</span></div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> A股</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-fill"></i> test</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> test</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Test</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-open-line"></i> 多模态</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Vision Transformer</div>
+                <div class="tree-node lv3 file"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> CLIP</div>
+                <!-- data-hook: note-select（当前打开文档，选中态） -->
+                <div class="tree-node lv3 file selected"><i class="twist" style="visibility:hidden;">·</i><i class="ico ri-file-text-line"></i> Transformer</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 学习方法</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 本项目</div>
+                <div class="tree-node lv2"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i> 英语</div>
+            </div>
+        </aside>
+
+        <!-- ===== 编辑器工作区 ===== -->
+        <section class="editor">
+            <!-- 文档 Tab 条（v2.3 纸张标签） -->
+            <div class="doc-tabbar">
+                <!-- data-hook: editor-back -->
+                <div class="back" title="返回资料库"><i class="ri-arrow-left-line"></i></div>
+                <div class="doc-tabs">
+                    <!-- data-hook: tab-activate / tab-close -->
+                    <div class="doc-tab active"><i class="f ri-file-text-line"></i> Transformer <span class="close"><i class="ri-close-line"></i></span></div>
+                    <div class="doc-tab"><i class="f ri-file-text-line"></i> test <span class="close"><i class="ri-close-line"></i></span></div>
+                    <div class="doc-tab new-tab" title="新建标签页"><i class="ri-add-line"></i></div>
+                </div>
+            </div>
+
+            <!-- 菜单栏（v2.3） -->
+            <div class="menubar">
+                <span class="menu-item">文件</span>
+                <span class="menu-item">段落</span>
+                <span class="menu-item">编辑</span>
+                <span class="menu-item">格式</span>
+                <span class="menu-item">视图</span>
+                <span class="menu-sep"></span>
+                <span class="tool-btn h" title="标题 1">H1</span>
+                <span class="tool-btn h" title="标题 2">H2</span>
+                <span class="tool-btn h" title="标题 3">H3</span>
+                <span class="menu-sep"></span>
+                <span class="tool-btn b" title="加粗">B</span>
+                <span class="tool-btn i" title="斜体">I</span>
+                <span class="tool-btn" title="行内代码"><i class="ri-code-line"></i></span>
+                <span class="menu-sep"></span>
+                <span class="tool-btn" title="无序列表"><i class="ri-list-unordered"></i></span>
+                <span class="tool-btn" title="有序列表"><i class="ri-list-ordered"></i></span>
+                <span class="tool-btn" title="引用"><i class="ri-double-quotes-l"></i></span>
+                <span class="tool-btn" title="代码块"><i class="ri-code-box-line"></i></span>
+                <span class="tool-btn" title="表格"><i class="ri-table-2"></i></span>
+                <span class="tool-btn" title="图片"><i class="ri-image-line"></i></span>
+                <span class="grow"></span>
+                <span class="tool-btn" title="更多"><i class="ri-more-2-fill"></i></span>
+            </div>
+
+            <!-- 编辑滚动区 -->
+            <div class="editor-scroll">
+                <div class="paper-wrap">
+                    <!-- 面包屑 + 状态徽标 + 时间 -->
+                    <div class="doc-crumb">
+                        <div class="crumb-path">
+                            <a href="#">资料库</a><span class="sep">/</span>
+                            <a href="#">多模态</a><span class="sep">/</span>
+                            <span class="crumb-current">Transformer</span>
+                            <span class="badge badge-warning"><span class="badge-text">待整理</span></span>
+                        </div>
+                        <div class="doc-meta">
+                            <span class="doc-meta-item"><i class="ri-calendar-line"></i><span class="mono">创建 2026.07.28 21:40</span></span>
+                            <span class="doc-meta-sep">·</span>
+                            <span class="doc-meta-item"><i class="ri-edit-line"></i><span class="mono">编辑 2026.07.29 09:12</span></span>
+                        </div>
+                    </div>
+
+                    <!-- 标题区 -->
+                    <div class="title-block">
+                        <div class="title-main">
+                            <div class="title-kicker"><i class="ri-file-text-line"></i><span>Markdown 文档</span><span class="title-kicker-sep">·</span><span class="mono">知识资料</span></div>
+                            <div class="doc-title">Transformer 架构精读</div>
+                        </div>
+                        <div class="title-footer">
+                            <span class="tag-label">标签</span>
+                            <div class="tag-row">
+                                <span class="tag tag-blue">多模态</span>
+                                <span class="tag tag-blue">注意力机制</span>
+                                <span class="tag tag-add" data-hook="tag-add"><i class="ri-add-line"></i> 添加标签</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 编辑纸面 -->
+                    <div class="prose">
+                        <p>Transformer 由 Vaswani 等人在 2017 年提出，其核心是<span class="code-inline">self-attention</span>机制，完全摒弃了循环与卷积结构，使得序列建模可以<strong>高度并行</strong>。</p>
+
+                        <h1>1. 整体结构</h1>
+                        <p>模型由编码器（Encoder）与解码器（Decoder）两部分堆叠而成，每一层都包含多头注意力子层与前馈网络子层，并辅以残差连接与层归一化。</p>
+
+                        <blockquote>关键直觉：注意力让每个位置都能直接"看到"序列中的任意其他位置，路径长度为 O(1)，因此长程依赖比 RNN 更易学习。</blockquote>
+
+                        <div class="note-callout">
+                            <i class="ri-lightbulb-flash-line" aria-hidden="true"></i>
+                            <div><strong>阅读提示</strong><span>先理解数据流，再对照下面的 <span class="code-inline">Q · K · V</span> 实现；蓝色线条只标记结构，正文仍保持安静。</span></div>
+                        </div>
+
+                        <h2>1.1 多头自注意力</h2>
+                        <p>注意力的计算基于查询（Q）、键（K）、值（V）三组向量，缩放点积注意力的公式如下：</p>
+                        <pre><span class="c"># scaled dot-product attention</span>
+<span class="k">def</span> attention(Q, K, V, d_k):
+    scores = (Q @ K.transpose(-2, -1)) / sqrt(d_k)
+    weights = <span class="k">softmax</span>(scores, dim=-1)
+    <span class="k">return</span> weights @ V   <span class="c"># 加权求和</span></pre>
+
+                        <h3>维度约定</h3>
+                        <p>下表列出基础版本 Transformer 的主要超参数配置，供实现时对照。</p>
+                        <table>
+                            <thead>
+                                <tr><th>超参数</th><th>符号</th><th>Base 取值</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>模型维度</td><td class="mono">d_model</td><td class="mono">512</td></tr>
+                                <tr><td>注意力头数</td><td class="mono">h</td><td class="mono">8</td></tr>
+                                <tr><td>前馈层维度</td><td class="mono">d_ff</td><td class="mono">2048</td></tr>
+                                <tr><td>层数</td><td class="mono">N</td><td class="mono">6</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h2>1.2 位置编码</h2>
+                        <p>由于注意力本身对顺序不敏感，需要注入位置信息。原论文采用正弦位置编码：</p>
+                        <ul>
+                            <li>偶数维度使用 <span class="code-inline">sin</span>，奇数维度使用 <span class="code-inline">cos</span>；</li>
+                            <li>不同频率的正弦波叠加，使模型能学习相对位置关系；</li>
+                            <li>后续工作多改用可学习位置编码或旋转位置编码（RoPE）。</li>
+                        </ul>
+
+                        <figure>
+                            <div class="img-block"><i class="ri-image-line"></i><span>encoder-decoder-arch.png</span></div>
+                            <figcaption>图 1 · 编码器—解码器整体数据流</figcaption>
+                        </figure>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ===== 辅助侧栏：资料边注（v2.3 aux-sidebar 家族） ===== -->
+        <aside class="inspector" id="inspector">
+            <div class="insp-head">
+                <span class="insp-head-title"><i class="insp-head-icon ri-file-info-line"></i><span>资料边注</span></span>
+                <span class="grow"></span>
+                <button class="mini" type="button" title="折叠边注侧栏" aria-label="折叠边注侧栏" aria-controls="inspector" aria-expanded="true" id="inspClose"><i class="ri-menu-fold-line"></i></button>
+            </div>
+            <!-- 边注 Tab（v2.3 模块 Tab 均分排布） -->
+            <div class="module-tabs">
+                <div class="module-tab active" data-panel="info">信息</div>
+                <div class="module-tab" data-panel="outline">大纲</div>
+                <div class="module-tab" data-panel="key">重点</div>
+                <div class="module-tab" data-panel="ai">AI</div>
+            </div>
+            <div class="insp-body">
+                <!-- 信息面板 -->
+                <div class="panel-page active" data-page="info">
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-file-info-line"></i> 资料信息</div>
+                        <div class="kv">
+                            <span class="k">类型</span><span class="v">Markdown 文档</span>
+                            <span class="k">状态</span><span class="v"><span class="badge badge-warning"><span class="badge-text">待整理</span></span></span>
+                            <span class="k">所在位置</span><span class="v">资料 / 多模态</span>
+                            <span class="k">字数</span><span class="v mono" style="font-size:12px;">412</span>
+                            <span class="k">最后编辑</span><span class="v mono" style="font-size:12px;">2026.07.29 09:12</span>
+                            <span class="k">收藏</span><span class="v">未收藏</span>
+                        </div>
+                    </div>
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-price-tag-3-line"></i> 标签 <span class="count">2</span><i class="chev ri-arrow-up-s-line"></i></div>
+                        <div class="insp-tags">
+                            <span class="tag tag-blue">多模态</span>
+                            <span class="tag tag-blue">注意力机制</span>
+                            <span class="tag tag-add" data-hook="tag-add">+ 添加</span>
+                        </div>
+                    </div>
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-links-line"></i> 关联笔记 <span class="count">1</span><i class="chev ri-arrow-up-s-line"></i></div>
+                        <div class="kv" style="grid-template-columns:1fr;">
+                            <span class="v" style="display:flex; align-items:center; gap:8px;"><i class="ri-file-text-line" style="color:var(--ink-text-secondary);"></i> Vision Transformer 精读</span>
+                        </div>
+                    </div>
+                    <div class="insp-section">
+                        <div class="insp-section-head"><i class="lead ri-attachment-2"></i> 附件 <span class="count">1</span><i class="chev ri-arrow-up-s-line"></i></div>
+                        <div class="kv" style="grid-template-columns:1fr;">
+                            <span class="v" style="display:flex; align-items:center; gap:8px;"><i class="ri-image-line" style="color:var(--ink-text-secondary);"></i> encoder-decoder-arch.png</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 大纲面板 -->
+                <div class="panel-page" data-page="outline">
+                    <div class="outline">
+                        <span class="outline-item active">1. 整体结构</span>
+                        <span class="outline-item lv2">1.1 多头自注意力</span>
+                        <span class="outline-item lv2">维度约定</span>
+                        <span class="outline-item lv2">1.2 位置编码</span>
+                    </div>
+                </div>
+
+                <!-- 重点面板 -->
+                <div class="panel-page" data-page="key">
+                    <div class="kv" style="grid-template-columns:1fr; padding-top:12px;">
+                        <span class="v" style="display:flex; gap:8px;"><i class="ri-markup-line" style="color:var(--ink-warning);"></i> self-attention 路径长度为 O(1)</span>
+                        <span class="v" style="display:flex; gap:8px;"><i class="ri-markup-line" style="color:var(--ink-warning);"></i> Base 版 d_model=512 / h=8 / N=6</span>
+                    </div>
+                </div>
+
+                <!-- AI 面板（占位空态） -->
+                <div class="panel-page" data-page="ai">
+                    <div class="ai-panel">
+                        <div class="ai-empty">
+                            <div class="icon"><i class="ri-sparkling-2-line"></i></div>
+                            <p>基于本篇资料生成摘要、追问与练习题。</p>
+                            <button class="btn btn-primary btn-sm"><i class="ri-magic-line"></i> 生成摘要</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 底部状态栏横跨整个工作面；两侧栏随 shell 在其上方结束，不遮挡状态栏 -->
+    <footer class="statusbar" data-region="shell-footer" aria-label="编辑器状态">
+        <span class="save">已自动保存</span>
+        <span class="sep">·</span>
+        <span class="hint" style="font-size:12px;">⌘S 手动保存</span>
+        <span class="grow"></span>
+        <span class="stat">字数 <span class="mono">412</span></span>
+        <span class="stat">行数 <span class="mono">28</span></span>
+        <span class="stat">链接 <span class="mono">0</span></span>
+        <div class="sw-group">
+            <!-- data-hook: toggle-source / toggle-marginalia / toggle-focus -->
+            <span class="sw" data-hook="toggle-source"><i class="ri-code-s-slash-line"></i> 源码</span>
+            <span class="sw on" data-hook="toggle-marginalia" id="swMarginalia"><i class="ri-sidebar-unfold-line"></i> 边注</span>
+            <span class="sw" data-hook="toggle-focus" id="swFocus"><i class="ri-focus-2-line"></i> 专注</span>
+        </div>
+        <span class="sep">·</span>
+        <span class="mono">UTF-8</span>
+        <span class="cloud"><i class="ri-cloud-line"></i> 云端已连接</span>
+    </footer>
+
+    <script>
+        // 边注 Tab 切换（v2.3 模块 Tab）
+        document.querySelectorAll('.module-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                document.querySelectorAll('.module-tab').forEach(function (t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+                var key = tab.getAttribute('data-panel');
+                document.querySelectorAll('.panel-page').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-page') === key);
+                });
+            });
+        });
+
+        // 边注开关 — 折叠辅助侧栏
+        var shell = document.querySelector('.shell');
+        var catalog = document.getElementById('catalog');
+        var catalogClose = document.querySelector('[data-hook="catalog-collapse"]');
+        var catalogOpen = document.querySelector('[data-hook="catalog-expand"]');
+        var inspector = document.getElementById('inspector');
+        var swMarginalia = document.getElementById('swMarginalia');
+        var inspClose = document.getElementById('inspClose');
+        var inspOpen = document.getElementById('inspOpen');
+        function setCatalog(on) {
+            shell.classList.toggle('catalog-collapsed', !on);
+            catalog.setAttribute('aria-hidden', String(!on));
+            catalogClose.setAttribute('aria-expanded', String(on));
+            catalogOpen.setAttribute('aria-expanded', String(on));
+        }
+        function setMarginalia(on) {
+            inspector.classList.toggle('collapsed', !on);
+            shell.classList.toggle('inspector-collapsed', !on);
+            inspector.setAttribute('aria-hidden', String(!on));
+            inspClose.setAttribute('aria-expanded', String(on));
+            inspOpen.setAttribute('aria-expanded', String(on));
+            swMarginalia.classList.toggle('on', on);
+        }
+        catalogClose.addEventListener('click', function () { setCatalog(false); });
+        catalogOpen.addEventListener('click', function () { setCatalog(true); });
+        swMarginalia.addEventListener('click', function () { setMarginalia(inspector.classList.contains('collapsed')); });
+        inspClose.addEventListener('click', function () { setMarginalia(false); });
+        inspOpen.addEventListener('click', function () { setMarginalia(true); });
+
+        // 专注开关 — 收起全局侧栏、辅助侧栏并隐藏顶部栏
+        var sidebar = document.getElementById('sidebar');
+        var swFocus = document.getElementById('swFocus');
+        swFocus.addEventListener('click', function () {
+            var on = !swFocus.classList.contains('on');
+            swFocus.classList.toggle('on', on);
+            document.body.classList.toggle('focus-mode', on);
+            sidebar.style.display = on ? 'none' : 'flex';
+            setCatalog(!on);
+            setMarginalia(!on);
+        });
+
+        // 暗色主题（组件库 v2.3 Token 验证）
+        var themeToggle = document.querySelector('[data-hook="theme-toggle"]');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', function () {
+                var root = document.documentElement;
+                var isDark = root.dataset.theme !== 'dark';
+                root.dataset.theme = isDark ? 'dark' : '';
+                themeToggle.setAttribute('aria-pressed', String(isDark));
+                themeToggle.title = isDark ? '切换浅色主题' : '切换暗色主题';
+            });
+        }
+    </script>
+    <!-- 印格 InkGrid v2.3 · 编辑器页（对齐组件库精修版：tokens / 文档标签 / 目录栏 / 边注家族） · 2026-08-13 -->
+</body>
+</html>

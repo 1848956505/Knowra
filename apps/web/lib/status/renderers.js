@@ -16,16 +16,33 @@ export function renderStatusFeature({
   saveState = 'idle',
   markdown = '',
   view = {},
-  showEditorControls = false
+  showEditorControls = false,
+  homeSummary = null
 }) {
   if (!showEditorControls) {
-    return renderStatusMessage(statusMessage);
+    return homeSummary ? renderHomeStatus(homeSummary) : renderStatusMessage(statusMessage);
   }
 
   return `
     ${renderStatusIndicators({ statusMessage, saveState })}
     ${renderStatusFeatureControls({ markdown, view })}
   `;
+}
+
+function renderHomeStatus(summary) {
+  return `
+    <span class="status-inline status-home-context" data-status-home="context">${renderStatusHomeIcon()}<strong>工作台</strong></span>
+    <span class="status-inline status-home-separator" aria-hidden="true">·</span>
+    <span class="status-inline">今日工作面</span>
+    <span class="status-home-stats">
+      <span class="status-inline">模块 <strong>3</strong></span>
+      <span class="status-inline">最近编辑 <strong>${summary.recentCount}</strong></span>
+    </span>
+  `;
+}
+
+function renderStatusHomeIcon() {
+  return '<span class="status-home-icon" aria-hidden="true">⌂</span>';
 }
 
 export function renderStatusGlobal({ dataMode }) {

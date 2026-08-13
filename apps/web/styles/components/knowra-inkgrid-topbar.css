@@ -6,25 +6,25 @@
   gap: var(--space-3);
   min-width: 0;
   color: var(--ink);
-  font-size: var(--text-lead);
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: var(--letter-tight);
+  letter-spacing: -0.5px;
   white-space: nowrap;
 }
 
 .knowra-production-shell .topbar-brand-mark {
   position: relative;
   display: block;
-  flex: 0 0 var(--space-8);
-  width: var(--space-8);
-  height: var(--space-8);
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
 }
 
 .knowra-production-shell .topbar-brand-mark::before,
 .knowra-production-shell .topbar-brand-mark > span {
   position: absolute;
-  width: calc(var(--space-8) - var(--mark-offset));
-  height: calc(var(--space-8) - var(--mark-offset));
+  width: var(--space-7);
+  height: var(--space-7);
 }
 
 .knowra-production-shell .topbar-brand-mark::before {
@@ -64,16 +64,8 @@
 
 .knowra-production-shell .topbar-action,
 .knowra-production-shell .topbar-user {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: var(--control-height-md);
   height: var(--control-height-md);
-  border: var(--border-tab-active) solid var(--ink);
-  border-radius: var(--radius-none);
-  background: var(--paper-raised);
-  box-shadow: var(--ink-shadow-2);
-  color: var(--ink);
   cursor: default;
 }
 
