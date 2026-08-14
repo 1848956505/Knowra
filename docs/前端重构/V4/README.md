@@ -1,0 +1,54 @@
+# Knowra 前端 V4 重构工作区
+
+本目录是 V4 前端重构的规划、设计、决策与验收工作区。正式 V4 将作为独立 React 应用建设；`apps/web/` 在迁移期继续作为 V3 稳定基线。
+
+## 当前阶段
+
+- 已完成：`V4-00 重构契约与遗留审计`
+- 已完成：`V4-01 React 迁移可复用性审计`
+- 已完成前置门禁：原任务 `V4-01-01 class 查询清单与静态门禁`，保留为 V3 风险基线
+- 可并行：`V4-00.5 视觉方向探索与冻结`
+- 下一工程任务：`V4-02 React/Vite/TypeScript 独立应用骨架`
+- 基线分支：`codex/ui-v4-rebuild`
+- 基线提交：`8421edd feat(web): 新增统一前端组件目录`
+
+## 已冻结技术栈
+
+```text
+React + TypeScript (strict) + Vite
+React Aria Components（无样式交互与可访问性底座）
+CSS Modules + CSS Variables Design Tokens
+Zustand 单一应用 Store（按 slice 组织）
+Milkdown / CodeMirror
+Vitest + React Testing Library + Playwright
+```
+
+首轮不引入 Next.js、Redux、Tailwind、shadcn/ui、MUI、Ant Design、Mantine、TanStack Query 或新的客户端路由框架。React Aria Components 只提供交互语义，不作为 Knowra 的视觉来源。
+
+## 文档导航
+
+| 文档 | 作用 |
+| --- | --- |
+| [00-V4重构总纲.md](00-V4重构总纲.md) | 冻结 React V4 的目标、边界、原则和完成定义 |
+| [01-现有前端遗留审计.md](01-现有前端遗留审计.md) | 盘点 V3 运行时、样式、DOM/事件和退出对象 |
+| [02-V4运行时与目录架构.md](02-V4运行时与目录架构.md) | 定义独立 React 应用、共享核心包、状态和编辑器边界 |
+| [03-功能保留与验收矩阵.md](03-功能保留与验收矩阵.md) | 冻结功能、数据、安全、可访问性与视觉验收范围 |
+| [04-分阶段实施任务书.md](04-分阶段实施任务书.md) | 定义 V4-00.5～V4-09 的实施顺序与门禁 |
+| [05-V4-01 React迁移可复用性审计.md](<05-V4-01 React迁移可复用性审计.md>) | 逐模块判断直接复用、提纯、适配、重写和淘汰 |
+
+## 工作规则
+
+1. V4 生产代码进入独立 `apps/web-v4/`，不在 `apps/web/` 内混搭 React 与 Vanilla DOM。
+2. V4 不导入 V3 CSS、HTML renderer、DOM controller 或 event binder。
+3. V3/V4 共享能力必须逐步收口到框架无关共享包，禁止长期复制两份业务逻辑。
+4. React 独占其渲染树；旧 controller 不得操作 React 管理的 DOM。
+5. Milkdown 可通过 `ref + effect + adapter` 管理自己的编辑器子树，但 React 负责宿主生命周期。
+6. 业务 feature/page 只调用 `components/ui` 中的 Knowra 封装，不直接散落 `react-aria-components` import。
+7. React Aria 管理通用交互、焦点、键盘和 ARIA；CSS Modules + Token 管理全部 Knowra 视觉。
+8. V4 原型与正式实现分开；本目录可以放设计证据，生产代码只能进入工作区源码目录。
+9. 每个迁移任务必须登记来源模块、目标模块、测试替代关系和 V3 退出条件。
+10. V4 达到门禁后切换默认入口并删除 V3，不保留永久双轨产品开关。
+
+## 当前结论
+
+Knowra 的复杂工作区、多面板、编辑器和跨工作域状态已经适合 React 组件模型。框架迁移会增加一次性成本，但能够同时解决旧 UI 的 CSS 混杂、字符串 renderer、手工 DOM 同步和焦点生命周期分散问题。迁移重点不是逐行翻译旧代码，而是保留领域规则与编辑器能力，重建 React 呈现和状态连接层。
