@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>印格 InkGrid v2.1 · 组件库与设计元素</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --ink-bg: #F9F7F2;
+            --ink-surface: #FFFFFF;
+            --ink-surface-sunken: #F4F1EA;
+            --ink-border: #1A1A1A;
+            --ink-text: #1A1A1A;
+            --ink-text-secondary: #666666;
+            --ink-dot-grid: #D1D1D1;
+            --ink-accent: #2563EB;
+            --ink-accent-hover: #1D4ED8;
+            --ink-accent-bg: #E0F2FE;
+            --ink-success: #16A34A;
+            --ink-success-hover: #15803D;
+            --ink-success-bg: #DCFCE7;
+            --ink-warning: #EA580C;
+            --ink-warning-hover: #C2410C;
+            --ink-warning-bg: #FFEDD5;
+            --ink-danger: #DC2626;
+            --ink-danger-hover: #B91C1C;
+            --ink-danger-bg: #FEE2E2;
+            /* 最终线条系统：外壳 2px 深黑 > 功能结构 1px 浅灰 > 轻分割 1px 极浅 */
+            --ink-line-shell: var(--ink-border);
+            --ink-line-panel: #E5E2DC;
+            --ink-line-soft: #F0EEE9;
+            --ink-line: var(--ink-line-soft);
+            --ink-line-shell-w: 2px;
+            --ink-line-panel-w: 1px;
+            --ink-line-soft-w: 1px;
+            --shell-nav-w: 208px;
+            --catalog-w: 232px;
+            --aux-sidebar-w: 232px;
+            --inspector-wide-w: 300px;
+            --aux-sidebar-head-h: 52px;
+            --aux-sidebar-control: 28px;
+            --statusbar-h: 32px;
+            --ink-border-w: 2px;
+            --ink-border-w-thin: 1px;
+            --ink-shadow-1: 2px 2px 0 var(--ink-border);
+            --ink-shadow-2: 3px 3px 0 var(--ink-border);
+            --ink-shadow-3: 4px 4px 0 var(--ink-border);
+            --ink-shadow-hero: 6px 6px 0 var(--ink-border);
+        }
+        [data-theme="dark"] {
+            --ink-bg: #171512;
+            --ink-surface: #211E1A;
+            --ink-surface-sunken: #2A2621;
+            --ink-border: #E8E4DC;
+            --ink-text: #F2EFE9;
+            --ink-text-secondary: #9C968C;
+            --ink-dot-grid: #35312B;
+            --ink-line-shell: var(--ink-border);
+            --ink-line-panel: #3A362F;
+            --ink-line-soft: #2A2621;
+            --ink-line: var(--ink-line-soft);
+            --ink-shadow-1: 2px 2px 0 rgba(232,228,220,0.22);
+            --ink-shadow-2: 3px 3px 0 rgba(232,228,220,0.22);
+            --ink-shadow-3: 4px 4px 0 rgba(232,228,220,0.22);
+            --ink-shadow-hero: 6px 6px 0 rgba(232,228,220,0.22);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :focus-visible { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--ink-bg);
+            color: var(--ink-text);
+            font-size: 14px;
+            line-height: 1.6;
+            background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px);
+            background-size: 20px 20px;
+            transition: background-color 0.15s;
+        }
+        .page { max-width: 1000px; margin: 0 auto; padding: 60px 32px 100px; }
+        .mono { font-family: "SF Mono", "Menlo", monospace; }
+
+        /* Theme toggle */
+        .theme-toggle { position: fixed; top: 20px; right: 20px; z-index: 50; }
+
+        /* Header */
+        .page-header { margin-bottom: 64px; }
+        .page-header h1 { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+        .page-header p { color: var(--ink-text-secondary); font-size: 15px; max-width: 560px; margin-bottom: 16px; }
+        .version-tag { display: inline-block; padding: 4px 12px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-accent); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; box-shadow: var(--ink-shadow-2); }
+
+        /* Section / Panel */
+        .section { margin-bottom: 64px; }
+        .section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ink-accent); margin-bottom: 8px; }
+        .section h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 8px; }
+        .section .desc { color: var(--ink-text-secondary); font-size: 13px; margin-bottom: 24px; }
+        .panel { background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-3); padding: 28px; margin-bottom: 20px; }
+        .panel-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--ink-line); }
+        .divider { border: none; border-top: var(--ink-border-w) solid var(--ink-border); margin: 56px 0; }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 16px; }
+        .row:last-child { margin-bottom: 0; }
+        .hint { font-size: 11px; color: var(--ink-text-secondary); }
+
+        /* Swatch */
+        .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+        .swatch { border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); }
+        .swatch-color { height: 52px; border-bottom: var(--ink-border-w) solid var(--ink-border); }
+        .swatch-info { padding: 10px 12px; }
+        .swatch-info .name { font-size: 12px; font-weight: 700; }
+        .swatch-info .hex { font-size: 11px; color: var(--ink-text-secondary); font-family: "SF Mono", "Menlo", monospace; }
+
+        /* Type */
+        .type-row { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--ink-line); }
+        .type-row:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+        .type-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-text-secondary); margin-bottom: 8px; font-family: "SF Mono", monospace; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; font-weight: 600; font-size: 13px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); cursor: pointer; transition: all 0.1s ease; box-shadow: var(--ink-shadow-1); color: var(--ink-text); user-select: none; white-space: nowrap; font-family: inherit; }
+        .btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink-border); }
+        .btn-primary { background: var(--ink-accent); color: #fff; box-shadow: var(--ink-shadow-3); }
+        .btn-primary:hover { background: var(--ink-accent-hover); box-shadow: 5px 5px 0 var(--ink-border); }
+        .btn-danger { background: var(--ink-danger); color: #fff; }
+        .btn-danger:hover { background: var(--ink-danger-hover); }
+        .btn-sm { font-size: 12px; padding: 4px 12px; }
+        .btn-icon { padding: 8px; width: 36px; height: 36px; }
+        .btn:disabled, .btn.is-disabled { border: 1px solid #CCC; color: #999; background: var(--ink-surface); box-shadow: none; transform: none; cursor: not-allowed; }
+
+        /* Inputs */
+        .input { width: 100%; max-width: 320px; padding: 9px 12px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 13px; font-family: inherit; box-shadow: var(--ink-shadow-1); transition: box-shadow 0.1s; }
+        .input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+        .input::placeholder { color: #999; }
+        .input:disabled { border: 1px solid #CCC; color: #999; box-shadow: none; cursor: not-allowed; }
+        .input.is-error { border-color: var(--ink-danger); box-shadow: 2px 2px 0 var(--ink-danger); }
+        .field-error { font-size: 12px; color: var(--ink-danger); margin-top: 6px; }
+
+        /* Select */
+        .select { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; user-select: none; }
+        .select .label { color: var(--ink-text-secondary); font-weight: 400; }
+        .select i { font-size: 14px; color: var(--ink-text-secondary); }
+
+        /* Nav */
+        /* 全局功能侧栏：对齐资料库索引页外壳，不使用卡片式全边框和硬阴影。 */
+        .nav-demo { display: flex; flex-direction: column; width: var(--shell-nav-w); overflow: hidden; border-right: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); line-height: normal; }
+        .nav-demo-scroll { padding: 16px 0; }
+        .nav-group { margin-bottom: 22px; }
+        .nav-group:last-child { margin-bottom: 8px; }
+        .nav-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 24px; color: var(--ink-text-secondary); font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+        .nav-title i { width: auto; margin-right: 0; font-size: 14px; cursor: pointer; }
+        .nav-item { display: flex; align-items: center; padding: 8px 24px; color: var(--ink-text); font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; transition: background 0.1s; }
+        .nav-item:hover { background: var(--ink-surface-sunken); }
+        .nav-item.active { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 700; }
+        .nav-item.is-disabled { color: var(--ink-text-secondary); cursor: not-allowed; opacity: 0.65; }
+        .nav-item.is-disabled .nav-note { font-size: 11px; margin-left: auto; }
+        .nav-icon { display: flex; align-items: center; width: 16px; margin-right: 12px; font-size: 16px; }
+        .nav-kbd { margin-left: auto; padding: 2px 5px; border: 1px solid var(--ink-line); border-radius: 3px; background: var(--ink-surface-sunken); color: var(--ink-text-secondary); font-family: "SF Mono", monospace; font-size: 10px; }
+        .nav-demo-foot { flex-shrink: 0; padding: 16px 24px; }
+        .nav-demo-primary { width: 100%; padding: 9px 16px; font-weight: 700; box-shadow: var(--ink-shadow-2); }
+        .nav-demo-primary:hover { box-shadow: var(--ink-shadow-3); }
+
+        /* Catalog column (方案 C · 独立目录栏) */
+        .catalog-demo { width: var(--catalog-w); display: flex; flex-direction: column; border-right: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); line-height: normal; }
+        .catalog-demo .catalog-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: var(--aux-sidebar-head-h); padding: 0 16px; border-bottom: var(--ink-line-panel-w) solid var(--ink-line-panel); color: var(--ink-text); font-size: 13px; font-weight: 700; }
+        .catalog-demo .catalog-title { display: inline-flex; align-items: center; gap: 12px; min-width: 0; flex-shrink: 0; white-space: nowrap; }
+        .catalog-demo .catalog-title-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; flex-shrink: 0; color: var(--ink-text); font-size: 16px; }
+        .catalog-demo .catalog-body { padding: 8px 0; }
+        .tree-node { display: flex; align-items: center; gap: 8px; padding: 8px 20px; min-height: 35px; font-size: 13px; font-weight: 500; cursor: pointer; border-left: 4px solid transparent; }
+        .tree-node:hover { background: var(--ink-surface-sunken); }
+        .tree-node.selected { background: var(--ink-surface); border-left-color: var(--ink-accent); font-weight: 600; }
+        /* 目录树图标（印格 §六）：行内 16px，默认跟随主文字色；Line 为主，激活节点用 Fill */
+        .tree-node .twist { font-size: 16px; color: var(--ink-text-secondary); width: 16px; flex-shrink: 0; }
+        .tree-node .ico { font-size: 16px; color: var(--ink-text); flex-shrink: 0; }
+        .tree-node .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        /* 树层级：根 > 文件夹 > 文件（文件弱一级：次级文字 + 常规字重） */
+        .tree-node.root { font-weight: 700; }
+        .tree-node.file { font-weight: 400; color: var(--ink-text-secondary); }
+        .tree-node.file .ico { color: var(--ink-text-secondary); }
+        .tree-node.file:hover { color: var(--ink-text); }
+        .tree-node.file.selected { color: var(--ink-text); font-weight: 500; }
+        .tree-node.lv2 { padding-left: 40px; } .tree-node.lv3 { padding-left: 60px; }
+        /* 目录栏动作：28px 紧凑方形按钮，沿用顶栏 icon-btn 物理按压，硬影减档 */
+        .catalog-head-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .cat-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); font-size: 14px; cursor: pointer; box-shadow: var(--ink-shadow-1); transition: transform 0.1s, box-shadow 0.1s, background 0.1s; font-family: inherit; }
+        .cat-btn:hover { transform: translate(-1px,-1px); box-shadow: var(--ink-shadow-2); }
+        .cat-btn:active { transform: translate(2px,2px); box-shadow: none; }
+        .cat-btn.accent { background: var(--ink-accent); color: #fff; }
+        .cat-btn.accent:hover { background: var(--ink-accent-hover); }
+
+        /* Final line hierarchy + collapsible auxiliary sidebar */
+        .line-token-grid { display: grid; gap: 0; }
+        .line-token-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 110px; align-items: center; gap: 16px; min-height: 52px; border-bottom: var(--ink-line-soft-w) solid var(--ink-line-soft); }
+        .line-token-row:last-child { border-bottom: 0; }
+        .line-token-name { font-size: 13px; font-weight: 700; }
+        .line-token-rule { display: block; width: 100%; height: 0; }
+        .line-token-rule.shell { border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); }
+        .line-token-rule.panel { border-top: var(--ink-line-panel-w) solid var(--ink-line-panel); }
+        .line-token-rule.soft { border-top: var(--ink-line-soft-w) solid var(--ink-line-soft); }
+        .line-token-value { color: var(--ink-text-secondary); font: 11px "SF Mono", "Menlo", monospace; text-align: right; }
+        .line-preview { display: grid; grid-template-columns: minmax(0, 1fr) 232px; min-height: 148px; overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); }
+        .line-preview-main { display: grid; align-content: start; gap: 12px; padding: 20px; }
+        .line-preview-main .line-preview-title { font-size: 16px; font-weight: 800; }
+        .line-preview-main .line-preview-copy { max-width: 420px; color: var(--ink-text-secondary); font-size: 13px; }
+        .line-preview-panel { display: flex; flex-direction: column; border-left: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); }
+        .line-preview-panel-head { display: flex; align-items: center; gap: 8px; min-height: var(--aux-sidebar-head-h); padding: 0 16px; border-bottom: var(--ink-line-panel-w) solid var(--ink-line-panel); font-size: 13px; font-weight: 700; }
+        .line-preview-panel-body { display: grid; gap: 10px; padding: 14px 16px; }
+        .line-preview-panel-row { padding-bottom: 10px; border-bottom: var(--ink-line-soft-w) solid var(--ink-line-soft); color: var(--ink-text-secondary); font-size: 12px; }
+        .line-preview-panel-row:last-child { padding-bottom: 0; border-bottom: 0; }
+
+        .aux-sidebar-stage { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 600px; min-height: 276px; overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); }
+        .aux-sidebar-main { display: grid; align-content: start; gap: 14px; min-width: 0; padding: 24px; background: var(--ink-surface); }
+        .aux-sidebar-main-kicker { color: var(--ink-accent); font: 700 11px "SF Mono", "Menlo", monospace; letter-spacing: 1px; }
+        .aux-sidebar-main h4 { font-size: 20px; font-weight: 800; }
+        .aux-sidebar-main-copy { max-width: 360px; color: var(--ink-text-secondary); font-size: 13px; line-height: 1.7; }
+        .aux-sidebar-demo { display: flex; flex-direction: column; width: var(--aux-sidebar-w); min-height: 276px; overflow: hidden; border-left: var(--ink-line-panel-w) solid var(--ink-line-panel); background: var(--ink-bg); transition: width 0.1s ease; }
+        .aux-sidebar-demo.is-collapsed { width: var(--aux-sidebar-control); }
+        .aux-sidebar-head { display: flex; align-items: center; gap: 8px; min-height: var(--aux-sidebar-head-h); padding: 0 16px; border-bottom: var(--ink-line-panel-w) solid var(--ink-line-panel); }
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-head { justify-content: center; padding: 0; border-bottom: 0; }
+        .aux-sidebar-title { display: inline-flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; }
+        .aux-sidebar-title i { width: 16px; flex: 0 0 16px; font-size: 16px; }
+        .aux-sidebar-toggle { flex: 0 0 var(--aux-sidebar-control); width: var(--aux-sidebar-control); height: var(--aux-sidebar-control); margin-left: auto; padding: 0; }
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-toggle { margin-left: 0; }
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-title,
+        .aux-sidebar-demo.is-collapsed .aux-sidebar-body { display: none; }
+        .aux-sidebar-body { flex: 1; min-height: 0; padding: 0 16px; overflow: auto; }
+        .aux-sidebar-section { padding: 14px 0; border-bottom: var(--ink-line-soft-w) solid var(--ink-line-soft); }
+        .aux-sidebar-section:last-child { border-bottom: 0; }
+        .aux-sidebar-section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; font-size: 12px; font-weight: 700; }
+        .aux-sidebar-kv { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 10px; font-size: 12px; }
+        .aux-sidebar-kv .key { color: var(--ink-text-secondary); }
+        .aux-sidebar-kv .value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .aux-sidebar-relation { display: flex; align-items: center; gap: 8px; color: var(--ink-accent); font-size: 12px; }
+
+        /* Cards */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+        .card { background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-3); padding: 22px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .card:hover { transform: translateY(-4px); box-shadow: var(--ink-shadow-hero); }
+        .card-icon-box { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: var(--ink-bg); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-2); margin-bottom: 16px; }
+        .card h4 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+        .card p { font-size: 13px; color: var(--ink-text-secondary); line-height: 1.5; }
+        .card.is-disabled { border: 1px solid var(--ink-border); box-shadow: none; cursor: not-allowed; }
+        .card.is-disabled:hover { transform: none; }
+        .card.is-disabled h4, .card.is-disabled p { color: var(--ink-text-secondary); }
+
+        /* Tags & badges */
+        .tag { display: inline-block; padding: 2px 8px; border: 1px solid var(--ink-border); font-size: 11px; font-weight: 600; background: var(--ink-bg); color: var(--ink-text); }
+        .tag-blue { background: #E0F2FE; border-color: #7DD3FC; color: #0369A1; }
+        .tag-green { background: #DCFCE7; border-color: #86EFAC; color: #15803D; }
+        .tag-purple { background: #F3E8FF; border-color: #D8B4FE; color: #7E22CE; }
+        .tag-muted { color: var(--ink-text-secondary); border-style: dashed; background: transparent; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+        .badge::before { content: ""; width: 8px; height: 8px; background: currentColor; }
+        .badge-warning { color: var(--ink-warning); }
+        .badge-success { color: var(--ink-success); }
+        .badge-muted { color: var(--ink-text-secondary); }
+        .badge .badge-text { color: var(--ink-text); font-weight: 500; }
+
+        /* Table + pagination */
+        .table-demo { width: 100%; border-collapse: collapse; }
+        .table-demo tr { border-bottom: 1px solid var(--ink-line); transition: background 0.1s; }
+        .table-demo tr:last-child { border-bottom: 0; }
+        .table-demo tr:hover { background: var(--ink-surface-sunken); }
+        .table-demo td { padding: 12px 8px; font-size: 13px; vertical-align: middle; }
+        .table-demo .file-name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .table-demo .meta { color: var(--ink-text-secondary); font-family: "SF Mono", monospace; font-size: 12px; }
+        .page-btn { min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; font-family: "SF Mono", monospace; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); color: var(--ink-text); box-shadow: var(--ink-shadow-1); cursor: pointer; }
+        .page-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-border); }
+        .page-btn.active { background: var(--ink-accent); color: #fff; }
+
+        /* Resource list row (#31) — 资料列表行 */
+        .list-card { background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-2); }
+        .list-row { display: flex; align-items: center; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--ink-line); cursor: pointer; transition: background 0.1s; }
+        .list-row:last-child { border-bottom: none; }
+        .list-row:hover { background: var(--ink-surface-sunken); }
+        .doc-thumb { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; font-size: 20px; color: var(--ink-text); background: var(--ink-bg); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-1); }
+        .list-main { flex: 1; min-width: 0; }
+        .list-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .list-title { font-size: 15px; font-weight: 700; }
+        .list-excerpt { font-size: 13px; color: var(--ink-text-secondary); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .list-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-text-secondary); }
+        .list-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .list-right .time { font-family: "SF Mono", monospace; font-size: 12px; color: var(--ink-text-secondary); }
+        .list-right .open { color: var(--ink-accent); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        /* Module tabs (统一模块 Tab：#23 黑线下划线 · 视图切换与面板切换共用同一语言) */
+        .module-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ink-border); }
+        .module-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; transition: color 0.1s, background 0.1s; }
+        .module-tab:hover { color: var(--ink-text); background: var(--ink-surface-sunken); }
+        .module-tab.active { color: var(--ink-text); font-weight: 700; border-bottom-color: var(--ink-border); }
+        .module-tab .count { font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        /* 面板切换排布：容器内均分（同一条黑线语言，仅分布方式不同） */
+        .module-tabs.stretch { gap: 0; }
+        .module-tabs.stretch .module-tab { flex: 1; justify-content: center; text-align: center; padding: 8px 4px; }
+
+        /* Doc tabs (#27 · 标签页 Tab) */
+        .doc-tabs { display: flex; align-items: stretch; border-bottom: var(--ink-border-w) solid var(--ink-border); background: var(--ink-bg); }
+        .doc-tab { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; white-space: nowrap; border-right: 1px solid var(--ink-line); border-left: 2px solid transparent; color: var(--ink-text-secondary); cursor: pointer; background: transparent; transition: background 0.1s; }
+        .doc-tab:hover { background: var(--ink-surface-sunken); }
+        .doc-tab:hover .doc-tab-close { opacity: 1; }
+        .doc-tab.active { background: var(--ink-surface); color: var(--ink-text); font-weight: 600; border-left-color: var(--ink-accent); }
+        .doc-tab.active .doc-tab-close { opacity: 1; }
+        .doc-tab-close { opacity: 0; font-size: 14px; color: var(--ink-text-secondary); transition: opacity 0.1s; }
+        .doc-tab-close:hover { color: var(--ink-danger); }
+        /* 未保存脏点：8×8 方形 warning 点，hover 让位给关闭钮（呼应状态徽标方形点） */
+        .doc-tab-dirty { width: 8px; height: 8px; background: var(--ink-warning); flex-shrink: 0; }
+        .doc-tab:hover .doc-tab-dirty { display: none; }
+        /* 尾部新建文档钮 */
+        .doc-tab.new-tab { border-right: none; padding: 10px 14px; color: var(--ink-text-secondary); }
+
+        /* Menu bar (#28) & menus (#15) */
+        .menu-bar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--ink-line); background: var(--ink-surface); }
+        .menu-bar .menu-word { padding: 4px 10px; font-size: 13px; cursor: pointer; }
+        .menu-bar .menu-word:hover { background: var(--ink-surface-sunken); }
+        .menu-bar .menu-sep { width: 1px; height: 18px; background: var(--ink-line); margin: 0 6px; }
+        .menu-bar .menu-ico { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; }
+        .menu-bar .menu-ico:hover { background: var(--ink-surface-sunken); }
+        .menu-bar .menu-ico.active { background: var(--ink-accent); color: #fff; }
+        .menu { width: 220px; border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); box-shadow: var(--ink-shadow-3); padding: 4px; }
+        .menu-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; cursor: pointer; }
+        .menu-item:hover { background: var(--ink-surface-sunken); }
+        .menu-item i { font-size: 15px; width: 16px; color: var(--ink-text-secondary); }
+        .menu-item .menu-kbd { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .menu-item.danger { color: var(--ink-danger); }
+        .menu-item.danger i { color: var(--ink-danger); }
+        .menu-divider { height: 1px; background: var(--ink-line); margin: 4px 6px; }
+
+        /* Dialog (#14) */
+        .dialog-stage { background: rgba(26,26,26,0.4); padding: 40px; display: grid; place-items: center; }
+        .dialog { width: 420px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-hero); }
+        .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: var(--ink-border-w) solid var(--ink-border); }
+        .dialog-head h5 { font-size: 15px; font-weight: 700; }
+        .dialog-body { padding: 20px; font-size: 13px; color: var(--ink-text-secondary); }
+        .dialog-foot { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--ink-line); }
+
+        /* Toast (#16) */
+        .toast { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 13px; font-weight: 600; border: var(--ink-border-w) solid; }
+        .toast-success { background: var(--ink-success-bg); border-color: var(--ink-success); color: var(--ink-success-hover); box-shadow: 3px 3px 0 var(--ink-success); }
+        .toast-warning { background: var(--ink-warning-bg); border-color: var(--ink-warning); color: var(--ink-warning-hover); box-shadow: 3px 3px 0 var(--ink-warning); }
+        .toast-danger { background: var(--ink-danger-bg); border-color: var(--ink-danger); color: var(--ink-danger-hover); box-shadow: 3px 3px 0 var(--ink-danger); }
+        .toast-info { background: var(--ink-accent-bg); border-color: var(--ink-accent); color: var(--ink-accent-hover); box-shadow: 3px 3px 0 var(--ink-accent); }
+
+        /* Tooltip (#17) */
+        .tooltip { display: inline-block; background: var(--ink-border); color: var(--ink-bg); font-size: 11px; padding: 4px 10px; }
+
+        /* Empty (#18) & loading (#19) */
+        .empty-demo { padding: 40px; text-align: center; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; border: 1px solid var(--ink-line); }
+        .empty-demo .card-icon-box { margin: 0 auto 16px; }
+        .empty-demo .empty-text { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+        .pulse { display: inline-flex; gap: 6px; }
+        .pulse span { width: 8px; height: 8px; background: var(--ink-border); animation: ink-pulse 0.9s infinite; }
+        .pulse span:nth-child(2) { animation-delay: 0.15s; }
+        .pulse span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes ink-pulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+        /* Global Shell Footer + editor content variant (#24) */
+        .status-bar { display: flex; align-items: center; gap: 16px; height: var(--statusbar-h); padding: 0 24px; border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); font-size: 12px; color: var(--ink-text-secondary); }
+        .status-bar .grow { flex: 1; }
+        .status-bar .stat { font-family: "SF Mono", monospace; font-size: 11px; }
+        .status-switch { padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+        .status-switch:hover { background: var(--ink-surface-sunken); }
+        .status-switch.active { background: var(--ink-accent); color: #fff; }
+        .global-footer-stage { display: flex; flex-direction: column; min-height: 192px; overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); box-shadow: var(--ink-shadow-1); }
+        .global-footer-main { flex: 1; min-height: 128px; display: grid; place-items: center; padding: 24px; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .global-footer-placeholder { display: grid; gap: 8px; text-align: center; }
+        .global-footer-placeholder .kicker { color: var(--ink-accent); font: 700 10px "SF Mono", "Menlo", monospace; letter-spacing: 1px; }
+        .global-footer-placeholder strong { font-size: 16px; }
+        .global-footer-placeholder span:last-child { color: var(--ink-text-secondary); font-size: 12px; }
+        .global-shell-footer { flex: 0 0 var(--statusbar-h); height: var(--statusbar-h); display: flex; align-items: center; gap: 16px; padding: 0 24px; border-top: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); color: var(--ink-text-secondary); font-size: 12px; }
+        .global-shell-footer .context { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-text); font-weight: 700; }
+        .global-shell-footer .context i { color: var(--ink-accent); font-size: 14px; }
+        .global-shell-footer .sep { opacity: 0.5; }
+        .global-shell-footer .grow { flex: 1; }
+        .global-shell-footer .stat { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .global-shell-footer .stat .mono { color: var(--ink-text); }
+        .global-shell-footer .cloud { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); white-space: nowrap; }
+
+        /* Inspector (#25) */
+        .inspector { width: var(--inspector-wide-w); border: 1px solid var(--ink-border); background: var(--ink-bg); }
+        .inspector-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--ink-border); font-weight: 700; font-size: 13px; }
+        .inspector-head .spacer { flex: 1; }
+        .preview-card { margin: 16px; padding: 14px; background: var(--ink-surface); border: 1px solid var(--ink-border); }
+        .preview-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .preview-title { font-size: 15px; font-weight: 700; }
+        .preview-excerpt { font-size: 12.5px; color: var(--ink-text-secondary); line-height: 1.6; margin-bottom: 10px; }
+        .preview-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .inspector-section { border-top: 1px solid var(--ink-line); }
+        .inspector-section:last-child { border-bottom: 0; }
+        .inspector-section-head { display: flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .inspector-section-head:hover { background: var(--ink-surface-sunken); }
+        .inspector-section-head .count { margin-left: auto; font-family: "SF Mono", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .inspector-section-head i.chev { color: var(--ink-text-secondary); font-size: 14px; }
+        .kv { display: grid; grid-template-columns: 72px 1fr; gap: 6px 12px; padding: 4px 16px 14px; }
+        .kv .k { font-size: 11px; color: var(--ink-text-secondary); line-height: 20px; }
+        .kv .v { font-size: 13px; line-height: 20px; }
+
+        /* ===== 应用外壳组件（§18–24 · 依据《Markdown 笔记应用前端布局构思方案》2026-08-15 新增） ===== */
+        /* 通用舞台填充区：点阵桌面占位 */
+        .stage-fill { flex: 1; min-width: 0; min-height: 200px; display: grid; place-items: center; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+
+        /* Module rail（§19 · 64px 模块轨道：暖纸底 + 右缘 2px 外壳线） */
+        .rail-stage { display: flex; min-height: 420px; }
+        .rail-demo { width: 64px; flex-shrink: 0; display: flex; flex-direction: column; padding: 10px 0 12px; border-right: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-bg); }
+        .rail-logo { display: flex; justify-content: center; padding: 2px 0 10px; }
+        .mark.mark-sm { width: 30px; height: 30px; }
+        .mark.mark-sm .mark-back { width: 24px; height: 24px; }
+        .mark.mark-sm .mark-front { width: 24px; height: 24px; font-size: 12px; }
+        .rail-item { display: flex; justify-content: center; padding: 3px 0; border-left: 4px solid transparent; }
+        .rail-btn { width: 40px; height: 40px; display: grid; place-items: center; font-size: 20px; color: var(--ink-text); background: transparent; border: var(--ink-border-w) solid transparent; cursor: pointer; transition: background 0.1s, box-shadow 0.1s, color 0.1s; font-family: inherit; }
+        .rail-btn:hover { background: var(--ink-surface-sunken); }
+        .rail-item.active { border-left-color: var(--ink-accent); }
+        .rail-item.active .rail-btn { background: var(--ink-surface); border-color: var(--ink-border); box-shadow: var(--ink-shadow-1); color: var(--ink-accent); }
+        .rail-item.is-disabled .rail-btn { color: var(--ink-text-secondary); opacity: 0.55; cursor: not-allowed; }
+        .rail-item.is-disabled .rail-btn:hover { background: transparent; }
+        .rail-spacer { flex: 1; }
+        .rail-avatar { width: 28px; height: 28px; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; background: var(--ink-accent); border: var(--ink-border-w) solid var(--ink-border); cursor: pointer; }
+
+        /* Context sidebar（§20 · 上下文侧栏：模块内搜索 / 分组标题 / 标签 / 底部） */
+        .sidebar-stage { display: flex; min-height: 480px; }
+        .catalog-demo .catalog-body { flex: 1; }
+        .sidebar-search { padding: 10px 12px; border-bottom: var(--ink-line-panel-w) solid var(--ink-line-panel); }
+        .sidebar-search input { width: 100%; padding: 6px 10px; font-size: 12px; font-family: inherit; color: var(--ink-text); background: var(--ink-surface); border: var(--ink-border-w-thin) solid var(--ink-border); box-shadow: var(--ink-shadow-1); }
+        .sidebar-search input:focus { outline: none; box-shadow: 2px 2px 0 var(--ink-accent); }
+        .sidebar-search input::placeholder { color: #999; }
+        .sidebar-group-title { padding: 12px 20px 6px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-text-secondary); }
+        .sidebar-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 20px 12px; }
+        .sidebar-foot { border-top: var(--ink-line-panel-w) solid var(--ink-line-panel); padding: 8px 0; }
+
+        /* Editor（§21 · 工具栏右区弹性位 / Markdown 纸张） */
+        .menu-bar .grow { flex: 1; }
+        .paper-stage { padding: 40px 32px; background-image: radial-gradient(var(--ink-dot-grid) 1px, transparent 1px); background-size: 20px 20px; }
+        .paper-doc { max-width: 720px; margin: 0 auto; padding: 48px 56px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-2); }
+        .paper-doc.paper-wide { max-width: 880px; }
+        .paper-doc.paper-focus { border-width: 1px; box-shadow: none; }
+        .paper-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 22px; font-family: "SF Mono", "Menlo", monospace; font-size: 11px; color: var(--ink-text-secondary); }
+        .paper-doc h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 14px; }
+        .paper-doc h2 { font-size: 19px; font-weight: 800; margin: 26px 0 10px; }
+        .paper-doc p { font-size: 15px; line-height: 1.75; margin-bottom: 14px; }
+        .paper-doc blockquote { margin: 0 0 14px; padding: 8px 14px; border-left: 4px solid var(--ink-accent); background: var(--ink-surface-sunken); color: var(--ink-text-secondary); font-size: 14px; line-height: 1.7; }
+        .paper-doc code { font-family: "SF Mono", "Menlo", monospace; font-size: 12px; background: var(--ink-surface-sunken); border: 1px solid var(--ink-line); padding: 1px 5px; }
+
+        /* Inspector 补充（§22 · 大纲行复用树节点语言） */
+        .inspector .tree-node { padding-top: 6px; padding-bottom: 6px; min-height: 30px; font-size: 12.5px; }
+        .inspector-actions { padding: 4px 8px 12px; }
+
+        /* Command palette（§23 · 命令面板：dialog + input + menu 组合） */
+        .cmdk { width: 640px; max-width: 100%; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); box-shadow: var(--ink-shadow-hero); }
+        .cmdk-input { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: var(--ink-border-w) solid var(--ink-border); }
+        .cmdk-input > i { font-size: 18px; color: var(--ink-text-secondary); }
+        .cmdk-input input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-size: 15px; font-family: inherit; color: var(--ink-text); }
+        .cmdk-input input::placeholder { color: #999; }
+        .cmdk-group { padding: 6px; }
+        .cmdk-group + .cmdk-group { border-top: 1px solid var(--ink-line); }
+        .cmdk-group-title { padding: 8px 10px 2px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-text-secondary); }
+        .cmdk .menu-item.selected { background: var(--ink-surface-sunken); font-weight: 600; }
+        .cmdk-hint { display: flex; gap: 18px; padding: 10px 16px; border-top: 1px solid var(--ink-line); font-size: 11px; color: var(--ink-text-secondary); }
+
+        /* App shell 总览（§18 · 四区外壳缩略组合） */
+        .shell-frame { overflow: hidden; border: var(--ink-line-shell-w) solid var(--ink-line-shell); background: var(--ink-surface); box-shadow: var(--ink-shadow-2); }
+        .shell-stage { display: flex; min-height: 480px; }
+        .shell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--ink-bg); }
+        .shell-main .paper-stage { flex: 1; padding: 22px 20px; }
+        .shell-main .paper-doc { padding: 26px 30px; }
+        .shell-inspector { width: 232px; flex-shrink: 0; border: none; border-left: var(--ink-line-panel-w) solid var(--ink-line-panel); }
+
+        /* Brand mark (#31) */
+        .mark { position: relative; width: 38px; height: 38px; }
+        .mark .mark-back { position: absolute; right: 0; bottom: 0; width: 32px; height: 32px; background: var(--ink-accent); }
+        .mark .mark-front { position: absolute; left: 0; top: 0; width: 32px; height: 32px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+
+        /* Icon grid / shadow / spacing / motion */
+        .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+        .icon-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; border: 1px solid var(--ink-line); transition: all 0.1s; }
+        .icon-cell:hover { border-color: var(--ink-border); background: var(--ink-surface); }
+        .icon-cell i { font-size: 20px; }
+        .icon-cell span { font-size: 11px; color: var(--ink-text-secondary); text-align: center; }
+        .shadow-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; }
+        .shadow-item { text-align: center; }
+        .shadow-box { width: 100px; height: 64px; background: var(--ink-surface); border: var(--ink-border-w) solid var(--ink-border); margin-bottom: 10px; }
+        .shadow-item span { font-size: 11px; color: var(--ink-text-secondary); font-family: "SF Mono", monospace; }
+        .tier-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .tier-box { padding: 16px; font-size: 12px; }
+        .tier-box strong { display: block; font-size: 13px; margin-bottom: 4px; }
+        .tier-box .hint { display: block; margin-top: 8px; }
+        .spacing-row { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+        .spacing-bar { height: 18px; background: var(--ink-accent); opacity: 0.25; border: 1px solid var(--ink-accent); }
+        .spacing-label { font-size: 11px; color: var(--ink-text-secondary); min-width: 50px; font-family: "SF Mono", monospace; }
+        .motion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .motion-card { border: var(--ink-border-w) solid var(--ink-border); background: var(--ink-surface); padding: 20px; text-align: center; box-shadow: var(--ink-shadow-2); }
+        .motion-card .demo { height: 48px; display: grid; place-items: center; margin-bottom: 12px; }
+        .motion-card .demo-box { width: 36px; height: 36px; border: 2px solid var(--ink-border); background: var(--ink-bg); box-shadow: var(--ink-shadow-2); transition: all 0.15s ease; }
+        .motion-card:hover .demo-box { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink-border); }
+        .motion-card .info { font-size: 11px; color: var(--ink-text-secondary); }
+        .motion-card .info strong { display: block; color: var(--ink-text); font-size: 12px; margin-bottom: 2px; }
+        .kbd { font-family: "SF Mono", Menlo, monospace; font-size: 11px; background: var(--ink-surface-sunken); border: 1px solid var(--ink-line); border-radius: 3px; padding: 2px 5px; color: var(--ink-text-secondary); }
+    </style>
+</head>
+<body>
+<button class="btn btn-icon theme-toggle" id="themeToggle" title="切换暗色 token 验证"><i class="ri-contrast-2-line"></i></button>
+<div class="page">
+
+    <header class="page-header">
+        <h1>印格 InkGrid</h1>
+        <p>知境 · Knowra 设计系统组件库。Neo-Brutalism 风格——粗边框、硬阴影、零圆角、暖纸底；v2.1 引入语义色、四梯度层级、线条系统与可折叠工作面辅助侧栏；v2.2 依据《Markdown 笔记应用前端布局构思方案》补齐应用外壳组件（§18–24）。</p>
+        <span class="version-tag">DESIGN SYSTEM v2.2 · 2026-08-15</span>
+    </header>
+
+    <!-- 1. 色彩 -->
+    <section class="section">
+        <div class="section-label">01 · Color</div>
+        <h2>色彩体系</h2>
+        <p class="desc">黑白为主角；蓝为强调，绿/橙/红为语义状态，浅彩为分类标签。三者物理隔离。</p>
+        <div class="panel">
+            <div class="panel-title">基础色</div>
+            <div class="swatch-grid">
+                <div class="swatch"><div class="swatch-color" style="background:#F9F7F2"></div><div class="swatch-info"><div class="name">Background</div><div class="hex">#F9F7F2</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#FFFFFF"></div><div class="swatch-info"><div class="name">Surface</div><div class="hex">#FFFFFF</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#F4F1EA"></div><div class="swatch-info"><div class="name">Surface Sunken</div><div class="hex">#F4F1EA</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#1A1A1A"></div><div class="swatch-info"><div class="name">Border / Ink</div><div class="hex">#1A1A1A</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#666666"></div><div class="swatch-info"><div class="name">Text Secondary</div><div class="hex">#666666</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#2563EB"></div><div class="swatch-info"><div class="name">Accent Blue</div><div class="hex">#2563EB</div></div></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">语义色（仅用于状态反馈）</div>
+            <div class="swatch-grid">
+                <div class="swatch"><div class="swatch-color" style="background:#16A34A"></div><div class="swatch-info"><div class="name">Success</div><div class="hex">#16A34A / #DCFCE7</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#EA580C"></div><div class="swatch-info"><div class="name">Warning</div><div class="hex">#EA580C / #FFEDD5</div></div></div>
+                <div class="swatch"><div class="swatch-color" style="background:#DC2626"></div><div class="swatch-info"><div class="name">Danger</div><div class="hex">#DC2626 / #FEE2E2</div></div></div>
+            </div>
+            <div class="hint" style="margin-top:14px;">禁令：语义色不用于装饰、图标常态与标题；分类色（下）永远是 1px 边框无阴影 tag，不做按钮、不做反馈块。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">分类色（标签专用）</div>
+            <div class="row">
+                <span class="tag">默认</span>
+                <span class="tag tag-blue">工作</span>
+                <span class="tag tag-green">阅读</span>
+                <span class="tag tag-purple">技术</span>
+                <span class="tag tag-muted">暂无标签</span>
+            </div>
+            <div class="hint" style="margin-top:12px;">分类色：1px 浅彩描边 + 浅彩底（blue/green/purple）做类目区分；<span class="mono">.tag-muted</span> 为虚线空态标签（透明底），用于「暂无标签」占位。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 6. 按钮 -->
+    <section class="section">
+        <div class="section-label">06 · Buttons</div>
+        <h2>按钮状态矩阵</h2>
+        <div class="panel">
+            <div class="panel-title">变体 × 状态（hover 浮起 / active 塌入 / Tab 键查看 focus 蓝影）</div>
+            <div class="row">
+                <button class="btn btn-primary"><i class="ri-add-line"></i> 新建资料</button>
+                <button class="btn"><i class="ri-calendar-event-line"></i> 次级操作</button>
+                <button class="btn btn-danger"><i class="ri-delete-bin-line"></i> 删除</button>
+                <button class="btn" disabled><i class="ri-lock-line"></i> 禁用态</button>
+            </div>
+            <div class="row">
+                <button class="btn btn-sm">进入编辑器 →</button>
+                <button class="btn btn-sm">查看全部</button>
+                <button class="btn btn-icon" title="通知"><i class="ri-notification-3-line"></i></button>
+                <button class="btn btn-icon" title="设置"><i class="ri-settings-4-line"></i></button>
+                <span class="hint">Small 按钮 · Icon 按钮 36×36</span>
+            </div>
+            <div class="hint">disabled：1px #CCC 边框、#999 文字、无阴影、无位移。规则：hover translate(-1px,-1px)+影+1px ｜ active translate(2px,2px)+影归零。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 7. 输入与选择 -->
+    <section class="section">
+        <div class="section-label">07 · Inputs</div>
+        <h2>输入框与下拉选择器</h2>
+        <div class="panel">
+            <div class="row" style="flex-direction:column; align-items:flex-start; gap:18px;">
+                <div><div class="hint" style="font-weight:700; margin-bottom:8px;">标准输入 / focus 蓝影</div><input class="input" type="text" placeholder="输入标题..."></div>
+                <div><div class="hint" style="font-weight:700; margin-bottom:8px;">错误态</div><input class="input is-error" type="text" value="标题包含非法字符 /"><div class="field-error">名称不能包含 “/” 字符</div></div>
+                <div><div class="hint" style="font-weight:700; margin-bottom:8px;">禁用态</div><input class="input" type="text" placeholder="只读模式下不可编辑" disabled></div>
+                <div>
+                    <div class="hint" style="font-weight:700; margin-bottom:8px;">下拉选择器 Select（过滤栏 / 每页条数用）</div>
+                    <div class="row">
+                        <span class="select"><span class="label">类型</span> 全部 <i class="ri-arrow-down-s-line"></i></span>
+                        <span class="select"><span class="label">状态</span> 待整理 <i class="ri-arrow-down-s-line"></i></span>
+                        <span class="select"><span class="label">时间</span> 最近编辑 <i class="ri-arrow-down-s-line"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 11. 菜单栏与菜单 -->
+    <section class="section">
+        <div class="section-label">11 · Menus</div>
+        <h2>菜单栏与下拉/右键菜单</h2>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="menu-bar">
+                <span class="menu-word">文件</span><span class="menu-word">段落</span><span class="menu-word">编辑</span><span class="menu-word">格式</span><span class="menu-word">视图</span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;">H1</span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;">H2</span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;">H3</span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico"><i class="ri-bold"></i></span>
+                <span class="menu-ico active"><i class="ri-italic"></i></span>
+                <span class="menu-ico"><i class="ri-list-unordered"></i></span>
+                <span class="menu-ico"><i class="ri-double-quotes-l"></i></span>
+                <span class="menu-ico"><i class="ri-code-s-slash-line"></i></span>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#28 菜单栏：全 Tier D，hover sunken 底；激活图标 = 蓝底白字；组间 1px 竖分隔。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#15 下拉 / 右键菜单</div>
+            <div class="menu">
+                <div class="menu-item"><i class="ri-edit-line"></i> 重命名 <span class="menu-kbd">F2</span></div>
+                <div class="menu-item"><i class="ri-file-copy-line"></i> 创建副本 <span class="menu-kbd">⌘D</span></div>
+                <div class="menu-item"><i class="ri-folder-transfer-line"></i> 移动到…</div>
+                <div class="menu-divider"></div>
+                <div class="menu-item danger"><i class="ri-delete-bin-line"></i> 移入回收站</div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 12. 弹窗 / Toast / Tooltip -->
+    <section class="section">
+        <div class="section-label">12 · Overlays</div>
+        <h2>弹窗 · Toast · Tooltip</h2>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="dialog-stage">
+                <div class="dialog">
+                    <div class="dialog-head"><h5>移入回收站</h5><button class="btn btn-icon" style="box-shadow:none; border:none;"><i class="ri-close-line"></i></button></div>
+                    <div class="dialog-body">「勾股定理笔记」将移入回收站，30 天后自动清除。关联的 4 个附件保持不变。</div>
+                    <div class="dialog-foot"><button class="btn btn-sm">取消</button><button class="btn btn-sm btn-danger">移入回收站</button></div>
+                </div>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#14 弹窗：hero 影（6px）+ 无模糊遮罩 rgba(26,26,26,0.4)；标题栏底 2px 黑分隔线。</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#16 Toast（右上角 · translateY(-8px)→0 · 0.15s · 无淡入淡出）</div>
+            <div class="row">
+                <span class="toast toast-success"><i class="ri-checkbox-circle-fill"></i> 已保存到云端</span>
+                <span class="toast toast-warning"><i class="ri-error-warning-fill"></i> 存在未保存修改</span>
+                <span class="toast toast-danger"><i class="ri-close-circle-fill"></i> 保存失败，已保留草稿</span>
+                <span class="toast toast-info"><i class="ri-information-fill"></i> 已切换到：test</span>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#17 Tooltip（黑底白字 · 11px · 唯一允许无边框的黑色块）</div>
+            <div class="row"><span class="tooltip">新建资料 ⌘N</span><span class="tooltip">折叠检查器</span></div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 13. 空态与加载 -->
+    <section class="section">
+        <div class="section-label">13 · Empty & Loading</div>
+        <h2>空状态与加载态</h2>
+        <div class="panel">
+            <div class="empty-demo">
+                <div class="card-icon-box"><i class="ri-inbox-line"></i></div>
+                <div class="empty-text">这个文件夹还是空的</div>
+                <button class="btn btn-sm"><i class="ri-add-line"></i> 新建资料</button>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">#19 加载态（不做骨架屏 · 点阵脉冲）</div>
+            <div class="row">
+                <span class="pulse"><span></span><span></span><span></span></span>
+                <span class="mono" style="font-size:12px; color:var(--ink-text-secondary);">加载中…</span>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 14. 分页 / 徽标 -->
+    <section class="section">
+        <div class="section-label">14 · Data</div>
+        <h2>分页器 · 状态徽标</h2>
+        <div class="panel">
+            <div class="panel-title">#29 分页器 + #30 状态徽标（8×8 方形点，呼应零圆角）</div>
+            <div class="row">
+                <span class="page-btn active">1</span><span class="page-btn">2</span><span class="page-btn">3</span>
+                <span class="hint" style="margin:0 8px;">每页</span>
+                <span class="select">5 条 <i class="ri-arrow-down-s-line"></i></span>
+            </div>
+            <div class="row">
+                <span class="badge badge-warning"><span class="badge-text">待整理</span></span>
+                <span class="badge badge-success"><span class="badge-text">已确认</span></span>
+                <span class="badge badge-muted"><span class="badge-text">草稿</span></span>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 17. 动效 -->
+    <section class="section">
+        <div class="section-label">17 · Motion</div>
+        <h2>动效规范</h2>
+        <p class="desc">物理隐喻：悬停浮起，按下塌入。时长 ≤ 0.2s。无渐变、无弹跳、无模糊。</p>
+        <div class="motion-grid">
+            <div class="motion-card"><div class="demo"><div class="demo-box"></div></div><div class="info"><strong>Hover Lift</strong>translate(-1px,-1px)<br>shadow +1px · 0.1s</div></div>
+            <div class="motion-card"><div class="demo"><div class="demo-box" style="transform:translate(2px,2px); box-shadow:0 0 0 var(--ink-border);"></div></div><div class="info"><strong>Active Press</strong>translate(2px,2px)<br>shadow → 0 · 0.1s</div></div>
+            <div class="motion-card"><div class="demo"><div class="demo-box" style="transform:translateY(-4px); box-shadow:5px 5px 0 var(--ink-border);"></div></div><div class="info"><strong>Card Float</strong>translateY(-4px)<br>shadow 4→6px · 0.2s</div></div>
+            <div class="motion-card"><div class="demo"><div class="demo-box" style="box-shadow:3px 3px 0 var(--ink-accent);"></div></div><div class="info"><strong>Focus Ring</strong>:focus-visible<br>蓝色硬影 · 即时</div></div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ===== §18–24 依据《Markdown 笔记应用前端布局构思方案》(2026-08-15) 新增 ===== -->
+
+    <!-- 18. 应用外壳总览 -->
+    <section class="section">
+        <div class="section-label">18 · App Shell</div>
+        <h2>应用外壳总览：模块轨道 + 上下文侧栏 + 主工作区 + 检查器</h2>
+        <p class="desc">四区外壳的最小完整组合。窗口主分区用 2px 外壳线，侧栏与检查器用 1px panel 线；底部状态栏 32px，上缘 2px 外壳线。</p>
+        <div class="shell-frame">
+            <div class="shell-stage">
+                <aside class="rail-demo">
+                    <div class="rail-logo"><div class="mark mark-sm"><div class="mark-back"></div><div class="mark-front">墨</div></div></div>
+                    <div class="rail-item"><button class="rail-btn" title="搜索 ⌘K"><i class="ri-search-line"></i></button></div>
+                    <div class="rail-item"><button class="rail-btn" title="全局新建"><i class="ri-add-line"></i></button></div>
+                    <div class="rail-item active"><button class="rail-btn" title="笔记"><i class="ri-file-text-fill"></i></button></div>
+                    <div class="rail-item is-disabled"><button class="rail-btn" title="知识库（未上线）"><i class="ri-book-2-line"></i></button></div>
+                    <div class="rail-item is-disabled"><button class="rail-btn" title="试题库（未上线）"><i class="ri-questionnaire-line"></i></button></div>
+                    <div class="rail-item is-disabled"><button class="rail-btn" title="执行（未上线）"><i class="ri-checkbox-circle-line"></i></button></div>
+                    <div class="rail-spacer"></div>
+                    <div class="rail-item"><button class="rail-btn" title="通知"><i class="ri-notification-3-line"></i></button></div>
+                    <div class="rail-item"><button class="rail-btn" title="设置"><i class="ri-settings-4-line"></i></button></div>
+                    <div class="rail-item"><div class="rail-avatar" title="工作区">墨</div></div>
+                </aside>
+                <aside class="catalog-demo" style="width:200px;">
+                    <div class="catalog-head">
+                        <span class="catalog-title"><i class="catalog-title-icon ri-file-text-line"></i>笔记</span>
+                        <span class="catalog-head-actions"><button class="cat-btn"><i class="ri-search-line"></i></button><button class="cat-btn accent"><i class="ri-add-line"></i></button></span>
+                    </div>
+                    <div class="sidebar-search"><input type="text" placeholder="搜索笔记…"></div>
+                    <div class="catalog-body">
+                        <div class="sidebar-group-title">快速入口</div>
+                        <div class="tree-node"><i class="ico ri-inbox-line"></i>全部笔记<span class="count">128</span></div>
+                        <div class="tree-node"><i class="ico ri-time-line"></i>最近编辑<span class="count">12</span></div>
+                        <div class="tree-node"><i class="ico ri-star-line"></i>收藏<span class="count">9</span></div>
+                        <div class="sidebar-group-title">笔记本</div>
+                        <div class="tree-node root"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-line"></i>数学</div>
+                        <div class="tree-node file lv2 selected"><i class="ico ri-file-text-line"></i>勾股定理</div>
+                        <div class="tree-node file lv2"><i class="ico ri-file-text-line"></i>三角函数</div>
+                    </div>
+                    <div class="sidebar-foot">
+                        <div class="tree-node"><i class="ico ri-delete-bin-line"></i>回收站</div>
+                    </div>
+                </aside>
+                <main class="shell-main">
+                    <div class="doc-tabs">
+                        <div class="doc-tab active"><i class="ri-file-text-line"></i>勾股定理<i class="doc-tab-close ri-close-line"></i></div>
+                        <div class="doc-tab"><i class="ri-file-text-line"></i>三角函数<i class="doc-tab-close ri-close-line"></i></div>
+                        <div class="doc-tab">未命名笔记<span class="doc-tab-dirty"></span><i class="doc-tab-close ri-close-line"></i></div>
+                        <div class="doc-tab new-tab" title="新建文档"><i class="ri-add-line"></i></div>
+                    </div>
+                    <div class="menu-bar">
+                        <span class="menu-ico" style="font-size:12px; font-weight:700;">H1</span>
+                        <span class="menu-ico" style="font-size:12px; font-weight:700;">H2</span>
+                        <span class="menu-ico" style="font-size:12px; font-weight:700;">H3</span>
+                        <span class="menu-sep"></span>
+                        <span class="menu-ico"><i class="ri-bold"></i></span>
+                        <span class="menu-ico"><i class="ri-italic"></i></span>
+                        <span class="menu-ico"><i class="ri-strikethrough"></i></span>
+                        <span class="menu-sep"></span>
+                        <span class="menu-ico"><i class="ri-list-unordered"></i></span>
+                        <span class="menu-ico"><i class="ri-double-quotes-l"></i></span>
+                        <span class="menu-ico"><i class="ri-code-s-slash-line"></i></span>
+                        <span class="grow"></span>
+                        <span class="menu-ico active" title="预览"><i class="ri-eye-line"></i></span>
+                        <span class="menu-ico" title="分屏"><i class="ri-layout-column-line"></i></span>
+                        <span class="menu-ico" title="专注模式"><i class="ri-focus-3-line"></i></span>
+                    </div>
+                    <div class="paper-stage">
+                        <div class="paper-doc">
+                            <div class="paper-meta"><span>创建 2026-08-10</span><span>1,248 字</span><span>#数学 #几何</span></div>
+                            <h1>勾股定理</h1>
+                            <p>直角三角形两直角边的平方和等于斜边的平方，即 <code>a² + b² = c²</code>。</p>
+                        </div>
+                    </div>
+                </main>
+                <aside class="inspector shell-inspector">
+                    <div class="inspector-head"><i class="ri-information-line"></i>检查器<span class="spacer"></span><button class="cat-btn" title="折叠检查器"><i class="ri-menu-fold-line"></i></button></div>
+                    <div class="inspector-section">
+                        <div class="inspector-section-head"><i class="chev ri-arrow-down-s-line"></i>信息</div>
+                        <div class="kv">
+                            <span class="k">文件夹</span><span class="v">数学</span>
+                            <span class="k">更新</span><span class="v mono" style="font-size:12px;">10:32</span>
+                            <span class="k">字数</span><span class="v mono" style="font-size:12px;">1,248</span>
+                        </div>
+                    </div>
+                    <div class="inspector-section"><div class="inspector-section-head"><i class="chev ri-arrow-right-s-line"></i>大纲<span class="count">4</span></div></div>
+                    <div class="inspector-section"><div class="inspector-section-head"><i class="chev ri-arrow-right-s-line"></i>链接<span class="count">3</span></div></div>
+                    <div class="inspector-section"><div class="inspector-section-head"><i class="chev ri-arrow-right-s-line"></i>AI</div></div>
+                </aside>
+            </div>
+            <div class="global-shell-footer">
+                <span class="context"><i class="ri-file-text-line"></i>笔记 / 数学 / 勾股定理</span>
+                <span class="badge badge-muted"><span class="badge-text">草稿</span></span>
+                <span class="grow"></span>
+                <span class="stat"><span class="mono">1,248</span> 字</span>
+                <span class="stat">已保存 <span class="mono">10:32</span></span>
+                <span class="cloud"><i class="ri-cloud-line"></i>已同步</span>
+                <span class="status-switch active">侧栏</span>
+                <span class="status-switch active">检查器</span>
+                <span class="status-switch">专注</span>
+            </div>
+        </div>
+        <div class="hint" style="margin-top:12px;">模块轨道 64px · 上下文侧栏 248px（220–320 可拖拽）· 检查器 300px（280–360，可折叠为 28px 方块钮）· 状态栏 32px。未上线模块置灰，避免一期界面空洞。</div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 19. 模块轨道 -->
+    <section class="section">
+        <div class="section-label">19 · Module Rail</div>
+        <h2>模块轨道</h2>
+        <p class="desc">64px 窄轨道替代 208px 文字型一级导航。激活 = 白底方块 + 左侧 4px 蓝色边条 + 图标转蓝；hover 仅沉降面背景；未上线模块置灰。</p>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="rail-stage">
+                <aside class="rail-demo">
+                    <div class="rail-logo"><div class="mark mark-sm"><div class="mark-back"></div><div class="mark-front">墨</div></div></div>
+                    <div class="rail-item"><button class="rail-btn" title="搜索 / 命令面板 ⌘K"><i class="ri-search-line"></i></button></div>
+                    <div class="rail-item"><button class="rail-btn" title="全局新建"><i class="ri-add-line"></i></button></div>
+                    <div class="rail-item active"><button class="rail-btn" title="笔记"><i class="ri-file-text-fill"></i></button></div>
+                    <div class="rail-item is-disabled"><button class="rail-btn" title="知识库（未上线）"><i class="ri-book-2-line"></i></button></div>
+                    <div class="rail-item is-disabled"><button class="rail-btn" title="试题库（未上线）"><i class="ri-questionnaire-line"></i></button></div>
+                    <div class="rail-item is-disabled"><button class="rail-btn" title="执行 · 待办与打卡（未上线）"><i class="ri-checkbox-circle-line"></i></button></div>
+                    <div class="rail-spacer"></div>
+                    <div class="rail-item"><button class="rail-btn" title="通知"><i class="ri-notification-3-line"></i></button></div>
+                    <div class="rail-item"><button class="rail-btn" title="设置"><i class="ri-settings-4-line"></i></button></div>
+                    <div class="rail-item"><div class="rail-avatar" title="工作区切换">墨</div></div>
+                </aside>
+                <div class="stage-fill">
+                    <div class="global-footer-placeholder">
+                        <span class="kicker">MODULE RAIL · 64PX</span>
+                        <strong>主工作区</strong>
+                        <span>点阵桌面 · 视图容器</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="hint">内容顺序：产品标识 → 搜索/命令面板 → 全局新建 → 笔记 / 知识库 / 试题库 / 执行 → 弹性空间 → 通知 → 设置 → 头像。图标 20px 方角描边；新增模块只加一个图标入口，导航复杂度不失控。</div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 20. 上下文侧栏 -->
+    <section class="section">
+        <div class="section-label">20 · Context Sidebar</div>
+        <h2>上下文侧栏（笔记模块）</h2>
+        <p class="desc">当前模块的内容索引，默认 248px。右缘 1px panel 线；头部 52px + 28px 方块动作钮；树节点沿用「左侧蓝条 + 白底 + 加粗」选中态；数量用等宽字体。</p>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="sidebar-stage">
+                <aside class="catalog-demo" style="width:248px;">
+                    <div class="catalog-head">
+                        <span class="catalog-title"><i class="catalog-title-icon ri-file-text-line"></i>笔记</span>
+                        <span class="catalog-head-actions"><button class="cat-btn" title="模块内搜索"><i class="ri-search-line"></i></button><button class="cat-btn accent" title="新建笔记"><i class="ri-add-line"></i></button></span>
+                    </div>
+                    <div class="sidebar-search"><input type="text" placeholder="搜索当前模块…"></div>
+                    <div class="catalog-body">
+                        <div class="sidebar-group-title">快速入口</div>
+                        <div class="tree-node"><i class="ico ri-inbox-line"></i>全部笔记<span class="count">128</span></div>
+                        <div class="tree-node"><i class="ico ri-time-line"></i>最近编辑<span class="count">12</span></div>
+                        <div class="tree-node"><i class="ico ri-star-line"></i>收藏<span class="count">9</span></div>
+                        <div class="tree-node"><i class="ico ri-inbox-unarchive-line"></i>未整理<span class="count">4</span></div>
+                        <div class="sidebar-group-title">笔记本</div>
+                        <div class="tree-node root"><i class="twist ri-arrow-down-s-line"></i><i class="ico ri-folder-line"></i>数学<span class="count">23</span></div>
+                        <div class="tree-node file lv2 selected"><i class="ico ri-file-text-line"></i>勾股定理</div>
+                        <div class="tree-node file lv2"><i class="ico ri-file-text-line"></i>三角函数</div>
+                        <div class="tree-node file lv2"><i class="ico ri-file-text-line"></i>圆锥曲线</div>
+                        <div class="tree-node root"><i class="twist ri-arrow-right-s-line"></i><i class="ico ri-folder-line"></i>英语<span class="count">17</span></div>
+                        <div class="sidebar-group-title">标签</div>
+                        <div class="sidebar-tags">
+                            <span class="tag tag-blue">几何</span>
+                            <span class="tag tag-green">阅读</span>
+                            <span class="tag tag-purple">技术</span>
+                        </div>
+                    </div>
+                    <div class="sidebar-foot">
+                        <div class="tree-node"><i class="ico ri-delete-bin-line"></i>回收站<span class="count">3</span></div>
+                    </div>
+                </aside>
+                <div class="stage-fill">
+                    <div class="global-footer-placeholder">
+                        <span class="kicker">CONTEXT SIDEBAR · 248PX</span>
+                        <strong>模块化插槽</strong>
+                        <span>试题模块换学科/知识点树，待办模块换项目/清单</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="hint">文件比文件夹弱一级：文件用次级文字色 + 常规字重，文件夹用主文字色 + 更高字重；侧栏宽度可在 220–320px 间拖拽，视口接近 1080px 时自动收窄到 220px。</div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 21. 编辑器 -->
+    <section class="section">
+        <div class="section-label">21 · Editor</div>
+        <h2>笔记编辑器：文档标签页 · 工具栏 · Markdown 纸张</h2>
+        <p class="desc">主工作区一期按「文档优先」设计：标签页 40px + 单行工具条 44px + 点阵桌面上的居中纸张（标准 720px / 宽屏 880px）。</p>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="doc-tabs">
+                <div class="doc-tab active"><i class="ri-file-text-line"></i>勾股定理<i class="doc-tab-close ri-close-line"></i></div>
+                <div class="doc-tab"><i class="ri-file-text-line"></i>三角函数<i class="doc-tab-close ri-close-line"></i></div>
+                <div class="doc-tab">未命名笔记<span class="doc-tab-dirty"></span><i class="doc-tab-close ri-close-line"></i></div>
+                <div class="doc-tab new-tab" title="新建文档"><i class="ri-add-line"></i></div>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#27 文档标签页：激活 = 白底 + 左侧 2px 蓝条 + 加粗；未保存 = 8×8 橙色方点，hover 让位给关闭钮；尾部「+」新建文档。</div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="menu-bar">
+                <span class="menu-ico" style="font-size:12px; font-weight:700;" title="一级标题">H1</span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;" title="二级标题">H2</span>
+                <span class="menu-ico" style="font-size:12px; font-weight:700;" title="三级标题">H3</span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico" title="加粗"><i class="ri-bold"></i></span>
+                <span class="menu-ico active" title="斜体"><i class="ri-italic"></i></span>
+                <span class="menu-ico" title="删除线"><i class="ri-strikethrough"></i></span>
+                <span class="menu-ico" title="行内代码"><i class="ri-code-line"></i></span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico" title="无序列表"><i class="ri-list-unordered"></i></span>
+                <span class="menu-ico" title="任务列表"><i class="ri-list-check-2"></i></span>
+                <span class="menu-ico" title="引用"><i class="ri-double-quotes-l"></i></span>
+                <span class="menu-ico" title="代码块"><i class="ri-code-s-slash-line"></i></span>
+                <span class="menu-ico" title="分割线"><i class="ri-separator"></i></span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico" title="链接"><i class="ri-link"></i></span>
+                <span class="menu-ico" title="图片"><i class="ri-image-line"></i></span>
+                <span class="menu-ico" title="附件"><i class="ri-attachment-2"></i></span>
+                <span class="menu-ico" title="表格"><i class="ri-table-line"></i></span>
+                <span class="grow"></span>
+                <span class="menu-ico" title="编辑"><i class="ri-edit-line"></i></span>
+                <span class="menu-ico active" title="预览"><i class="ri-eye-line"></i></span>
+                <span class="menu-ico" title="分屏"><i class="ri-layout-column-line"></i></span>
+                <span class="menu-sep"></span>
+                <span class="menu-ico" title="专注模式 ⌘."><i class="ri-focus-3-line"></i></span>
+                <span class="menu-ico" title="更多"><i class="ri-more-line"></i></span>
+            </div>
+            <div style="padding:14px 20px;" class="hint">#28 编辑器工具栏：白底 + 底部 1px panel 线；图标钮 28px，激活 = 蓝底白字；组间 1px 竖分隔；五组 = 标题层级 / 行内格式 / 块格式 / 内容插入 / 视图操作。</div>
+        </div>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="paper-stage">
+                <div class="paper-doc">
+                    <div class="paper-meta"><span>创建 2026-08-10</span><span>更新 今天 10:32</span><span>1,248 字</span><span>#数学 #几何</span></div>
+                    <h1>勾股定理</h1>
+                    <p>直角三角形两直角边的平方和等于斜边的平方，即 <code>a² + b² = c²</code>。这是欧氏几何中最早被严格证明的定理之一，也是联系代数与几何的桥梁。</p>
+                    <blockquote>证法亮点：赵爽弦图用面积割补完成证明，比欧几里得证法更直观，适合作为「无字证明」的课堂引入。</blockquote>
+                    <h2>常见证法</h2>
+                    <p>除弦图外，还可通过相似三角形、总统证法（加菲尔德）或向量内积推导。整理笔记时建议为每种证法单独建立双链，便于在试题库中按知识点回链。</p>
+                </div>
+            </div>
+            <div style="padding:14px 20px;" class="hint">Markdown 纸张：桌面 = 暖纸底 + 20px 点阵；纸张 = 白底 + 2px 墨边 + 3px 硬影，居中 720px（<span class="mono">.paper-wide</span> 880px）；专注模式降级为 1px 边无影（<span class="mono">.paper-focus</span>）。正文 15px / 行高 1.75，元信息 11px 等宽。</div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 22. 检查器 -->
+    <section class="section">
+        <div class="section-label">22 · Inspector</div>
+        <h2>检查器（笔记模块）</h2>
+        <p class="desc">默认 300px，只展示「当前选中对象」的上下文，不承载模块切换；后续模块复用同一容器，只替换内容。</p>
+        <div class="panel" style="display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap;">
+            <aside class="inspector">
+                <div class="inspector-head"><i class="ri-information-line"></i>检查器<span class="spacer"></span><button class="cat-btn" title="折叠为 28px 方块钮"><i class="ri-menu-fold-line"></i></button></div>
+                <div class="preview-card">
+                    <div class="preview-title-row"><i class="ri-file-text-line" style="font-size:18px;"></i><span class="preview-title">勾股定理</span></div>
+                    <div class="preview-excerpt">直角三角形两直角边的平方和等于斜边的平方……</div>
+                    <div class="preview-tags"><span class="tag tag-blue">几何</span><span class="tag">定理</span></div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="chev ri-arrow-down-s-line"></i>信息</div>
+                    <div class="kv">
+                        <span class="k">文件夹</span><span class="v">数学</span>
+                        <span class="k">创建</span><span class="v mono" style="font-size:12px;">2026-08-10</span>
+                        <span class="k">更新</span><span class="v mono" style="font-size:12px;">今天 10:32</span>
+                        <span class="k">字数</span><span class="v mono" style="font-size:12px;">1,248</span>
+                    </div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="chev ri-arrow-down-s-line"></i>大纲<span class="count">4</span></div>
+                    <div class="tree-node file selected" style="padding-left:20px;"><i class="ico ri-hashtag"></i>勾股定理</div>
+                    <div class="tree-node file lv2"><i class="ico ri-hashtag"></i>常见证法</div>
+                    <div class="tree-node file lv2"><i class="ico ri-hashtag"></i>典型例题</div>
+                    <div class="tree-node file lv3"><i class="ico ri-hashtag"></i>弦图面积法</div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="chev ri-arrow-right-s-line"></i>链接<span class="count">3</span></div>
+                </div>
+                <div class="inspector-section">
+                    <div class="inspector-section-head"><i class="chev ri-arrow-down-s-line"></i>AI</div>
+                    <div class="inspector-actions">
+                        <div class="menu-item"><i class="ri-file-list-3-line"></i>总结</div>
+                        <div class="menu-item"><i class="ri-lightbulb-line"></i>提取知识点</div>
+                        <div class="menu-item"><i class="ri-questionnaire-line"></i>生成试题</div>
+                        <div class="menu-item"><i class="ri-checkbox-circle-line"></i>转为待办</div>
+                    </div>
+                </div>
+            </aside>
+            <div style="flex:1; min-width:240px;">
+                <div class="hint" style="line-height:2;">
+                    规则清单：<br>
+                    · 分组折叠复用 <span class="mono">inspector-section</span>，计数用等宽字体<br>
+                    · 大纲复用树节点语言，点击跳转对应标题<br>
+                    · 「链接」含反向链接 / 出链 / 引用当前笔记的试题与任务<br>
+                    · 折叠后保留 28px 方块按钮作为重新打开入口<br>
+                    · 选中试题时换答案解析，选中任务时换截止与提醒
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 23. 命令面板 -->
+    <section class="section">
+        <div class="section-label">23 · Command Palette</div>
+        <h2>命令面板（⌘K）</h2>
+        <p class="desc">搜索、新建、跳转、模块命令的统一泄压阀。居中浮层 640px，白底 + 2px 墨边 + 6px hero 影；遮罩 rgba(26,26,26,0.4)，不模糊背景。</p>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="dialog-stage">
+                <div class="cmdk">
+                    <div class="cmdk-input"><i class="ri-search-line"></i><input type="text" placeholder="搜索或输入命令…"><span class="kbd">esc</span></div>
+                    <div class="cmdk-group">
+                        <div class="cmdk-group-title">最近使用</div>
+                        <div class="menu-item selected"><i class="ri-file-text-line"></i>勾股定理<span class="menu-kbd">笔记 · 数学</span></div>
+                        <div class="menu-item"><i class="ri-file-text-line"></i>三角函数<span class="menu-kbd">笔记 · 数学</span></div>
+                        <div class="menu-item"><i class="ri-book-2-line"></i>欧氏几何<span class="menu-kbd">知识库</span></div>
+                    </div>
+                    <div class="cmdk-group">
+                        <div class="cmdk-group-title">新建</div>
+                        <div class="menu-item"><i class="ri-add-line"></i>新建笔记<span class="menu-kbd">⌘N</span></div>
+                        <div class="menu-item"><i class="ri-add-line"></i>新建知识条目</div>
+                        <div class="menu-item"><i class="ri-add-line"></i>新建试题</div>
+                        <div class="menu-item"><i class="ri-add-line"></i>新建待办</div>
+                    </div>
+                    <div class="cmdk-group">
+                        <div class="cmdk-group-title">命令</div>
+                        <div class="menu-item"><i class="ri-focus-3-line"></i>进入专注模式<span class="menu-kbd">⌘.</span></div>
+                        <div class="menu-item"><i class="ri-settings-4-line"></i>打开设置<span class="menu-kbd">⌘,</span></div>
+                    </div>
+                    <div class="cmdk-hint"><span><span class="kbd">↑↓</span> 选择</span><span><span class="kbd">↵</span> 打开</span><span><span class="kbd">esc</span> 关闭</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="hint">全局搜索最终汇入命令面板的搜索模式：跨笔记、知识、试题、任务；模块内搜索留在上下文侧栏头部。新模块上线只需注册自己的命令。</div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 24. 底部状态栏 -->
+    <section class="section">
+        <div class="section-label">24 · Status Bar</div>
+        <h2>底部状态栏</h2>
+        <p class="desc">32px，上缘 2px 外壳线。占用极小空间，带来「工具软件」的完成度。</p>
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="global-footer-stage">
+                <div class="global-footer-main">
+                    <div class="global-footer-placeholder">
+                        <span class="kicker">MAIN WORKSPACE</span>
+                        <strong>主工作区</strong>
+                        <span>点阵桌面 · 纸张居中</span>
+                    </div>
+                </div>
+                <div class="global-shell-footer">
+                    <span class="context"><i class="ri-file-text-line"></i>笔记 / 数学 / 勾股定理</span>
+                    <span class="badge badge-muted"><span class="badge-text">草稿</span></span>
+                    <span class="grow"></span>
+                    <span class="stat"><span class="mono">1,248</span> 字</span>
+                    <span class="stat">已保存 <span class="mono">10:32</span></span>
+                    <span class="cloud"><i class="ri-cloud-line"></i>已同步</span>
+                    <span class="status-switch active" title="切换侧栏">侧栏</span>
+                    <span class="status-switch active" title="切换检查器">检查器</span>
+                    <span class="status-switch" title="进入专注模式">专注</span>
+                </div>
+            </div>
+        </div>
+        <div class="hint">从左到右：当前位置（面包屑）→ 文档状态徽标 → 弹性空间 → 字数统计 → 保存状态 → 同步状态（绿色云图标）→ 面板开关。统计与时间一律用等宽字体。</div>
+    </section>
+
+    <footer style="text-align:center; color:var(--ink-text-secondary); font-size:12px; padding-top:20px;">
+        <p style="font-weight:700; color:var(--ink-text);">印格 InkGrid · 知境 Knowra 设计系统</p>
+        <p style="margin-top:4px;" class="mono">v2.2 · 2026-08-15 · 新增 §18–24 应用外壳组件（模块轨道 / 上下文侧栏 / 编辑器 / 检查器 / 命令面板 / 状态栏） · Remix Icon · Neo-Brutalism · 0 border-radius</p>
+    </footer>
+
+</div>
+<script>
+    // 暗色模式仅为 token 可行性验证（D5），非正式交付
+    document.getElementById('themeToggle').addEventListener('click', function () {
+        var root = document.documentElement;
+        root.dataset.theme = root.dataset.theme === 'dark' ? '' : 'dark';
+    });
+
+    // 辅助侧栏演示：展开态显示上下文内容，折叠态保留 28px 方块按钮作为重新打开入口
+    var auxSidebar = document.getElementById('auxSidebarDemo');
+    var auxSidebarToggle = document.getElementById('auxSidebarToggle');
+    var auxSidebarBody = document.getElementById('auxSidebarBody');
+    var auxSidebarIcon = auxSidebarToggle ? auxSidebarToggle.querySelector('i') : null;
+    if (auxSidebar && auxSidebarToggle && auxSidebarBody && auxSidebarIcon) {
+        auxSidebarToggle.addEventListener('click', function () {
+            var collapsed = auxSidebar.classList.toggle('is-collapsed');
+            auxSidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+            auxSidebarToggle.setAttribute('aria-label', collapsed ? '展开辅助侧栏' : '折叠辅助侧栏');
+            auxSidebarToggle.title = collapsed ? '展开辅助侧栏' : '折叠辅助侧栏';
+            auxSidebarBody.setAttribute('aria-hidden', String(collapsed));
+            auxSidebarIcon.className = collapsed ? 'ri-menu-unfold-line' : 'ri-menu-fold-line';
+        });
+    }
+</script>
+</body>
+</html>
