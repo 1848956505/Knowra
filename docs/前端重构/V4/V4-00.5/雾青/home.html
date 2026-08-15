@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Knowra V4 · 主页</title>
+  <link rel="stylesheet" href="styles/tokens.css"><link rel="stylesheet" href="styles/shell.css"><link rel="stylesheet" href="styles/overlays.css"><link rel="stylesheet" href="styles/home.css"><link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="home.html"><img src="assets/knowra-mark.svg" alt=""><span><strong>知境 Knowra</strong><small>KNOWLEDGE WORKSPACE</small></span></a>
+      <button class="global-search" data-open-search aria-haspopup="dialog"><svg class="icon"><use href="#search"/></svg><span>搜索资料、知识点与训练</span><kbd class="kbd">⌘ K</kbd></button>
+      <div class="top-actions"><button class="icon-button hide-compact" aria-label="通知"><svg class="icon"><use href="#bell"/></svg></button><button class="icon-button hide-compact" aria-label="设置"><svg class="icon"><use href="#settings"/></svg></button><button class="icon-button avatar" data-open-menu aria-label="打开用户菜单" aria-haspopup="menu">知</button></div>
+    </header>
+    <aside class="sidebar"><p class="nav-label">工作台</p><nav><ul class="nav-list">
+      <li><a class="nav-item" aria-current="page" href="home.html"><svg class="icon"><use href="#home"/></svg><span>今天</span></a></li>
+      <li><a class="nav-item" href="library.html"><svg class="icon"><use href="#library"/></svg><span>资料</span><small class="count">17</small></a></li>
+      <li><a class="nav-item" href="#"><svg class="icon"><use href="#link"/></svg><span>知识</span><small class="count">32</small></a></li>
+      <li><a class="nav-item" href="#"><svg class="icon"><use href="#check"/></svg><span>训练</span><small class="count">8</small></a></li>
+    </ul></nav><p class="nav-label">资料库</p><nav><ul class="nav-list">
+      <li><a class="nav-item" href="#"><svg class="icon"><use href="#clock"/></svg><span>最近编辑</span></a></li><li><a class="nav-item" href="#"><svg class="icon"><use href="#star"/></svg><span>收藏</span></a></li><li><a class="nav-item" href="#"><svg class="icon"><use href="#tag"/></svg><span>标签</span></a></li>
+    </ul></nav><div class="sidebar-foot"><strong>本地优先</strong>刚刚同步 · 数据已安全保存</div></aside>
+    <main class="main home" id="main">
+      <header class="home-head"><div><p>下午好，继续保持这份专注。</p><h1>今天的学习现场</h1></div><div class="home-date">2026 年 8 月 14 日<br><small>星期五 · 上海</small></div></header>
+      <div class="home-grid">
+        <section class="continue-card"><div class="continue-content"><p class="overline">继续阅读 · 12 分钟前</p><h2>Transformer：从注意力机制到编码器结构</h2><p class="summary">上次停在「多头注意力的并行表示」。这份资料已连接 6 个知识点与 2 道训练题。</p><div class="continue-actions"><button class="primary-button">继续阅读 <svg class="icon"><use href="#arrow"/></svg></button><button class="quiet-button">打开边注</button></div><div class="progress"><div class="progress-label"><span>阅读位置</span><span>64%</span></div><div class="progress-track"><span></span></div></div></div></section>
+        <section class="week-card"><div class="section-head"><div><h2>本周脉络</h2><p>从资料沉淀到主动回忆</p></div><span class="pill primary">4 次推进</span></div><div class="week-map">
+          <div class="week-item"><span class="node"></span><div><strong>阅读 Transformer</strong><small>资料 · 2 个重点</small></div><time>周一</time></div>
+          <div class="week-item"><span class="node"></span><div><strong>整理注意力机制</strong><small>知识点 · 已确认</small></div><time>周三</time></div>
+          <div class="week-item current"><span class="node"></span><div><strong>回到编码器结构</strong><small>当前现场</small></div><time>今天</time></div>
+          <div class="week-item"><span class="node"></span><div><strong>完成 2 道训练题</strong><small>待开始</small></div><time>下一步</time></div>
+        </div></section>
+        <section class="recent-card"><div class="section-head"><div><h2>最近资料</h2><p>按最后编辑时间排序</p></div><a class="quiet-button" href="library.html">查看全部 <svg class="icon"><use href="#arrow"/></svg></a></div><div class="recent-list">
+          <div class="recent-row"><div class="recent-title"><span class="file-mark"><svg class="icon"><use href="#file"/></svg></span><div><strong>视觉 Transformer 阅读笔记</strong><small>多模态 / 论文精读</small></div></div><span class="pill attention"><span class="dot"></span>待整理</span><span class="recent-meta">今天 14:32</span><button class="icon-button" aria-label="打开视觉 Transformer 阅读笔记"><svg class="icon"><use href="#arrow"/></svg></button></div>
+          <div class="recent-row"><div class="recent-title"><span class="file-mark"><svg class="icon"><use href="#file"/></svg></span><div><strong>英文文献阅读方法</strong><small>学习方法</small></div></div><span class="pill primary">已整理</span><span class="recent-meta">昨天 21:08</span><button class="icon-button" aria-label="打开英文文献阅读方法"><svg class="icon"><use href="#arrow"/></svg></button></div>
+          <div class="recent-row"><div class="recent-title"><span class="file-mark"><svg class="icon"><use href="#file"/></svg></span><div><strong>CLIP：图文对齐的训练目标</strong><small>多模态 / CLIP</small></div></div><span class="pill">草稿</span><span class="recent-meta">8 月 12 日</span><button class="icon-button" aria-label="打开 CLIP：图文对齐的训练目标"><svg class="icon"><use href="#arrow"/></svg></button></div>
+        </div></section>
+      </div>
+    </main>
+    <footer class="statusbar"><div><span><i class="online-dot"></i>本地数据已同步</span><span>17 份资料</span></div><div><span class="prototype-note">V4-00.5 视觉原型</span><span>UTF-8</span></div></footer>
+  </div>
+  <div class="scrim" data-search-dialog aria-hidden="true"><section class="dialog" role="dialog" aria-modal="true" aria-label="全局搜索"><div class="dialog-head"><svg class="icon"><use href="#search"/></svg><input aria-label="搜索内容" value="Transformer"><button class="icon-button" data-close-search aria-label="关闭搜索"><svg class="icon"><use href="#x"/></svg></button></div><div class="dialog-body"><p class="dialog-label">资料</p><button class="result" aria-selected="true"><span class="result-icon"><svg class="icon"><use href="#file"/></svg></span><span><strong>Transformer：从注意力机制到编码器结构</strong><small>多模态 / Transformer</small></span><time>12 分钟前</time></button><p class="dialog-label">知识点</p><button class="result"><span class="result-icon"><svg class="icon"><use href="#link"/></svg></span><span><strong>多头注意力</strong><small>来自 3 份资料 · 已确认</small></span><time>知识</time></button></div><footer class="dialog-foot"><span>↑↓ 选择</span><span>Enter 打开</span><span>Esc 关闭</span></footer></section></div>
+  <div class="menu" data-account-menu role="menu"><button role="menuitem">个人资料</button><button role="menuitem">偏好设置 <span>⌘ ,</span></button><hr><button role="menuitem">导出工作区</button><button role="menuitem" class="danger">退出当前工作区</button></div>
+  <nav class="review-dock" aria-label="原型导航"><a href="index.html">说明</a><a href="home.html">主页</a><a href="library.html">索引</a><a href="editor.html">编辑器</a><a href="states.html">状态</a></nav>
+  <svg width="0" height="0" aria-hidden="true"><defs>
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol><symbol id="bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol><symbol id="settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+    <symbol id="home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol><symbol id="library" viewBox="0 0 24 24"><path d="M4 4h5v16H4zM10 4h5v16h-5zM17 5l3-.7 3.4 15-3 .7z"/></symbol><symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/></symbol><symbol id="check" viewBox="0 0 24 24"><path d="M4 12.5 9 18 20 6"/></symbol><symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol><symbol id="star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z"/></symbol><symbol id="tag" viewBox="0 0 24 24"><path d="M20 13 13 20l-9-9V4h7Z"/><circle cx="8.5" cy="8.5" r="1"/></symbol><symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol><symbol id="file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 13h6M9 17h6"/></symbol><symbol id="x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  </defs></svg>
+  <script src="prototype.js"></script>
+</body>
+</html>

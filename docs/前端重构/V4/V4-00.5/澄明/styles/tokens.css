@@ -1,0 +1,43 @@
+/* ============================================================
+   澄明 · Token 初稿（V4-00.5 §3）
+   暖纸冷墨 / 一层深度 / 字体系双轨 / 密度纪律
+   ============================================================ */
+
+:root {
+  /* 色彩 */
+  --canvas: #F7F6F3;        /* 应用底色（暖纸） */
+  --surface: #FFFFFF;       /* 内容纸面、输入、浮层 */
+  --subtle: #F0EFEB;        /* hover、次级填充、选中行底 */
+  --ink: #1F1E1A;           /* 主文字 */
+  --ink-2: #57544C;         /* 次级文字 */
+  --ink-3: #8A867C;         /* 辅助文字、占位符 */
+  --line: #E7E5DF;          /* 发丝分隔线 */
+  --line-strong: #D8D5CD;   /* 输入框边、浮层边 */
+  --accent: #3E63DD;        /* 黛蓝：主动作、焦点、绛线 */
+  --accent-soft: #EDF1FC;   /* 选中背景、标签底 */
+  --attention: #B45309;     /* 待整理、警示 */
+  --success: #2F7D4F;       /* 已确认、已保存 */
+  --danger: #BE3E2D;        /* 错误、危险动作 */
+
+  /* 字体系双轨 */
+  --font-ui: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-serif: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --font-mono: ui-monospace, "SF Mono", Consolas, monospace;
+
+  /* 阴影：仅浮层 */
+  --shadow-float: 0 1px 2px rgba(31, 30, 26, .05), 0 8px 24px rgba(31, 30, 26, .12);
+
+  /* 圆角 */
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-float: 10px;
+
+  /* 遮罩 */
+  --overlay: rgba(31, 30, 26, .32);
+
+  /* 栏宽 */
+  --sidebar-w: 248px;
+  --rail-w: 56px;
+  --inspector-w: 300px;
+  --tree-w: 232px;
+}

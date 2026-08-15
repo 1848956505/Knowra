@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>澄明 · 状态展台</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/shell.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/states.css">
+</head>
+<body>
+<div class="states-page">
+
+  <div class="states-head">
+    <h1>状态展台</h1>
+    <p>澄明 · 关键状态与浮层基线（V4-00.5 §5）</p>
+    <a href="index.html">← 返回枢纽</a>
+  </div>
+
+  <div class="states-grid">
+
+    <!-- ⌘K 命令面板 -->
+    <section class="state-cell wide">
+      <div class="cell-label">全局搜索 · ⌘K 命令面板（560px，在任意页面按 ⌘K 可交互打开）</div>
+      <div class="mini-scene">
+        <div class="palette" role="dialog" aria-label="全局搜索">
+          <div class="palette-input">
+            <svg class="icon" viewBox="0 0 16 16" style="color:var(--ink-3)"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 13.4 13.4"/></svg>
+            <input type="text" placeholder="搜索资料、知识点、训练…" value="间隔">
+            <kbd>esc</kbd>
+          </div>
+          <div class="palette-body">
+            <div class="palette-group">资料</div>
+            <div class="palette-item active"><svg class="icon" viewBox="0 0 16 16"><path d="M4.5 2.5h4.6L12.5 6v7.5h-8z"/><path d="M9.2 2.6V6h3.2"/></svg>间隔重复的机制与实务<span class="meta">认知科学</span></div>
+            <div class="palette-item"><svg class="icon" viewBox="0 0 16 16"><path d="M4.5 2.5h4.6L12.5 6v7.5h-8z"/><path d="M9.2 2.6V6h3.2"/></svg>交错学习在数学练习中的证据<span class="meta">认知科学</span></div>
+            <div class="palette-group">知识点</div>
+            <div class="palette-item"><svg class="icon" viewBox="0 0 16 16"><path d="M8 2.6a3.5 3.5 0 0 0-2 6.4c.4.4.7.8.7 1.3h2.6c0-.5.3-.9.7-1.3A3.5 3.5 0 0 0 8 2.6z"/><path d="M6.8 12.4h2.4"/></svg>间隔效应<span class="meta">待整理</span></div>
+            <div class="palette-group">训练</div>
+            <div class="palette-item"><svg class="icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.4"/><circle cx="8" cy="8" r="2"/></svg>间隔效应与集中练习的对照实验设计<span class="meta">待巩固</span></div>
+          </div>
+          <div class="palette-foot">
+            <span><kbd>↑↓</kbd> 选择</span>
+            <span><kbd>↵</kbd> 打开</span>
+            <span><kbd>esc</kbd> 关闭</span>
+            <span style="margin-left:auto">无结果时可「新建资料」</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Menu -->
+    <section class="state-cell">
+      <div class="cell-label">Menu · 危险项独立分组（点击「文件」菜单可交互开合）</div>
+      <div class="cell-body">
+        <div class="menu">
+          <button class="menu-item"><svg class="icon" viewBox="0 0 16 16"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>新建资料<kbd>⌘N</kbd></button>
+          <button class="menu-item"><svg class="icon" viewBox="0 0 16 16"><path d="M4.5 2.5h4.6L12.5 6v7.5h-8z"/><path d="M9.2 2.6V6h3.2"/></svg>导入 Markdown…</button>
+          <button class="menu-item"><svg class="icon" viewBox="0 0 16 16"><path d="M8 2.8l1.6 3.3 3.6.5-2.6 2.5.6 3.6L8 11.1l-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z"/></svg>加入收藏</button>
+          <button class="menu-item"><svg class="icon" viewBox="0 0 16 16"><path d="M9.5 4 5 8.5a2.3 2.3 0 0 0 3.2 3.2l4.6-4.6a3.6 3.6 0 0 0-5-5L3 7"/></svg>添加附件<kbd>⌘U</kbd></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item danger"><svg class="icon" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>移入回收站</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 状态徽标 + 禁用态 -->
+    <section class="state-cell">
+      <div class="cell-label">状态徽标 · 禁用态</div>
+      <div class="cell-body column" style="gap:16px">
+        <div style="display:flex; gap:20px; align-items:center">
+          <span class="badge"><span class="dot dot-ok"></span>已确认</span>
+          <span class="badge"><span class="dot dot-warn"></span>待整理</span>
+          <span class="badge"><span class="dot dot-draft"></span>草稿</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center">
+          <button class="btn btn-outline" disabled>同步到云端</button>
+          <span style="font-size:12px; color:var(--ink-3)">学习档案模块尚未启用，同步暂不可用</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dialog -->
+    <section class="state-cell">
+      <div class="cell-label">确认 Dialog · 破坏性动作说明数据去向</div>
+      <div class="mini-scene">
+        <div class="dialog" role="alertdialog" aria-label="删除资料">
+          <h3>删除《元认知监控的常见偏差》？</h3>
+          <p>资料将移入回收站，30 天内可从「资料库 → 回收站」恢复。关联的 2 个知识点与 1 道训练题不受影响。</p>
+          <div class="dialog-safe">
+            <svg class="icon" viewBox="0 0 16 16"><path d="M8 2.8 13.5 12.5h-11z"/><path d="M8 6.5v2.6M8 11v.1"/></svg>
+            删除只移动位置，不立即清空数据；回收站清空时才真正销毁。
+          </div>
+          <div class="dialog-actions">
+            <button class="btn btn-outline">取消</button>
+            <button class="btn-danger-solid">移入回收站</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toast + Tooltip -->
+    <section class="state-cell">
+      <div class="cell-label">Toast · Tooltip</div>
+      <div class="cell-body column" style="gap:18px; align-items:flex-start">
+        <div class="toast"><span class="dot" style="background:var(--success)"></span>已保存 · 全部修改已写入本地</div>
+        <div class="toast"><span class="dot" style="background:var(--danger)"></span>保存失败：磁盘写入被拒绝<button class="retry">重试</button></div>
+        <div style="display:flex; align-items:center; gap:12px">
+          <button class="icon-btn" aria-label="专注模式" style="border:1px solid var(--line-strong)">
+            <svg class="icon" viewBox="0 0 16 16"><path d="M3 5.6V3.5A.5.5 0 0 1 3.5 3h2M10.5 3h2a.5.5 0 0 1 .5.5v2.1M13 10.4v2.1a.5.5 0 0 1-.5.5h-2M5.5 13h-2a.5.5 0 0 1-.5-.5v-2.1"/></svg>
+          </button>
+          <span class="tooltip">专注模式 · 隐藏所有辅助栏（延迟 400ms 出现）</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 骨架加载 -->
+    <section class="state-cell">
+      <div class="cell-label">加载 · 骨架条（只模拟结构，不伪造文本）</div>
+      <div class="cell-body">
+        <div class="skel-rows">
+          <div class="skel-row"><span class="skeleton skel-dot"></span><span class="skeleton" style="height:14px; width:52%"></span><span class="skeleton" style="height:12px; width:64px; margin-left:auto"></span></div>
+          <div class="skel-row"><span class="skeleton skel-dot"></span><span class="skeleton" style="height:14px; width:38%"></span><span class="skeleton" style="height:12px; width:64px; margin-left:auto"></span></div>
+          <div class="skel-row"><span class="skeleton skel-dot"></span><span class="skeleton" style="height:14px; width:61%"></span><span class="skeleton" style="height:12px; width:64px; margin-left:auto"></span></div>
+          <div class="skel-row"><span class="skeleton skel-dot"></span><span class="skeleton" style="height:14px; width:45%"></span><span class="skeleton" style="height:12px; width:64px; margin-left:auto"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 整页加载 -->
+    <section class="state-cell">
+      <div class="cell-label">加载 · 整页转环</div>
+      <div class="cell-body" style="padding:0">
+        <div class="full-loading" style="width:100%">
+          <span class="spinner"></span>
+          正在载入工作区…
+        </div>
+      </div>
+    </section>
+
+    <!-- 空态 -->
+    <section class="state-cell">
+      <div class="cell-label">空态 · 为什么空 + 一个主恢复动作</div>
+      <div class="cell-body" style="padding:0">
+        <div class="empty" style="width:100%">
+          <div class="empty-illus">
+            <svg class="icon" viewBox="0 0 16 16" style="width:32px;height:32px"><path d="M2.5 4.5A1.5 1.5 0 0 1 4 3h2.6l1.4 1.8H12a1.5 1.5 0 0 1 1.5 1.5v5.2a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M5.5 9h5"/></svg>
+          </div>
+          <h4>「未整理」文件夹还是空的</h4>
+          <p>新建资料默认会先进入这里，直到你把它归入具体文件夹。保持入口零门槛，整理可以稍后做。</p>
+          <button class="btn btn-primary">新建第一篇资料</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 错误块 -->
+    <section class="state-cell">
+      <div class="cell-label">错误 · 区块内失败，数据安全说明</div>
+      <div class="cell-body" style="padding:16px">
+        <div class="error-block" style="width:100%">
+          <h4>加载失败</h4>
+          <p>无法读取最近资料列表：网络连接中断。</p>
+          <p class="safe">你的本地数据未受影响，已保留上次成功加载的缓存。</p>
+          <button class="btn btn-outline">重试</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowra V4 · 澄明</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/shell.css">
+<link rel="stylesheet" href="styles/components.css">
+<style>
+  body { display: grid; place-items: center; min-height: 100vh; padding: 40px 24px; }
+  .hub { width: min(960px, 100%); }
+  .hub-head { display: flex; align-items: center; gap: 16px; }
+  .hub-mark {
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    background: var(--ink); color: var(--canvas);
+    font-family: var(--font-serif); font-size: 24px;
+    border-radius: var(--radius-panel);
+  }
+  .hub-head h1 { font-family: var(--font-serif); font-size: 32px; font-weight: 700; letter-spacing: .02em; }
+  .hub-head p { margin-top: 4px; color: var(--ink-2); font-size: 14px; }
+  .principles {
+    margin: 28px 0;
+    padding: 18px 22px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .principles div strong { display: block; font-size: 13px; margin-bottom: 4px; }
+  .principles div span { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .hub-nav { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .hub-nav a {
+    display: block;
+    padding: 22px 24px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .hub-nav a:hover { background: var(--subtle); }
+  .hub-nav .no { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: .1em; }
+  .hub-nav strong { display: block; margin: 10px 0 4px; font-size: 16px; font-weight: 600; }
+  .hub-nav span.desc { font-size: 12px; color: var(--ink-3); }
+  .hub-foot { margin-top: 20px; font-size: 12px; color: var(--ink-3); }
+  @media (max-width: 720px) { .principles, .hub-nav { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="hub">
+  <div class="hub-head">
+    <span class="hub-mark">澄</span>
+    <div>
+      <h1>澄明</h1>
+      <p>一张收拾干净的书桌 —— Knowra V4 视觉方向候选（第三轮，与「方册」并列）</p>
+    </div>
+  </div>
+
+  <div class="principles">
+    <div><strong>内容即界面</strong><span>标题、正文、摘要是第一层；发丝线与留白分组，禁止卡片套卡片。</span></div>
+    <div><strong>暖纸冷墨</strong><span>#F7F6F3 纸白 + #1F1E1A 近黑墨；全站唯一强调色黛蓝 #3E63DD。</span></div>
+    <div><strong>一层深度</strong><span>固定面板零阴影；阴影只属于浮层，用户凭阴影识别临时层。</span></div>
+    <div><strong>字体系双轨</strong><span>界面用系统黑体；文档标题与阅读正文用宋体。</span></div>
+    <div><strong>密度纪律</strong><span>树行 28 / 列表行 40 / 控件 32 / 关键动作 36px，正文不低于 14px。</span></div>
+    <div><strong>绛线签名</strong><span>2px 黛蓝标线只表达「当前位置」：导航项、文件夹、Tab、锚点。</span></div>
+  </div>
+
+  <nav class="hub-nav">
+    <a href="home.html">
+      <span class="no">VIEW / 01</span>
+      <strong>主页 · 今日书桌</strong>
+      <span class="desc">继续阅读、今日概览、最近资料、本周清单</span>
+    </a>
+    <a href="library.html">
+      <span class="no">VIEW / 02</span>
+      <strong>资料索引</strong>
+      <span class="desc">目录树 · 数据库式列表 · 详情 Inspector</span>
+    </a>
+    <a href="editor.html">
+      <span class="no">VIEW / 03</span>
+      <strong>资料编辑器</strong>
+      <span class="desc">文档 Tab 带 · 命令条 · 720px 阅读列 · 边注面板</span>
+    </a>
+    <a href="states.html">
+      <span class="no">VIEW / 04</span>
+      <strong>状态展台</strong>
+      <span class="desc">⌘K · Menu · Dialog · Toast · 加载 / 空 / 错误 / 禁用</span>
+    </a>
+  </nav>
+
+  <p class="hub-foot">推荐 1440×1024 查看完整停靠布局；1024 宽度下侧栏收为 56px 图标轨、辅助栏转覆盖。按 ⌘K 可在各页打开命令面板。</p>
+</main>
+</body>
+</html>

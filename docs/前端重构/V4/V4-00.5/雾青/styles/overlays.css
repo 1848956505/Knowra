@@ -1,0 +1,25 @@
+.scrim { position: fixed; z-index: 40; inset: 0; display: none; place-items: start center; padding-top: 12vh; background: rgb(13 25 21 / 42%); backdrop-filter: blur(3px); }
+.scrim[data-open="true"] { display: grid; }
+.dialog { width: min(620px, calc(100% - 32px)); max-height: 72vh; overflow: auto; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-menu); }
+.dialog-head { display: flex; align-items: center; gap: 12px; padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
+.dialog-head input { width: 100%; min-height: 40px; color: var(--ink); background: transparent; border: 0; outline: 0; font-size: 16px; }
+.dialog-head:focus-within { outline: 3px solid color-mix(in srgb, var(--focus) 75%, transparent); outline-offset: -3px; border-radius: 15px 15px 0 0; }
+.dialog-body { padding: 10px; }
+.dialog-label { padding: 7px 9px; color: var(--quiet); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.result { width: 100%; min-height: 58px; display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 10px; padding: 7px 9px; text-align: left; background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer; }
+.result:hover, .result[aria-selected="true"] { background: var(--primary-pale); }
+.result-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--primary); background: var(--primary-soft); border-radius: 8px; }
+.result strong, .result small { display: block; }
+.result small { color: var(--muted); }
+.result time { color: var(--quiet); font-size: 11px; }
+.dialog-foot { display: flex; gap: 18px; padding: 10px 18px; color: var(--quiet); background: var(--surface-muted); border-top: 1px solid var(--line); font-size: 11px; }
+.menu { position: fixed; z-index: 35; top: 54px; right: 56px; width: 230px; display: none; padding: 7px; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-menu); }
+.menu[data-open="true"] { display: block; }
+.menu button { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 9px; text-align: left; background: transparent; border: 0; border-radius: 7px; cursor: pointer; }
+.menu button:hover { background: var(--surface-muted); }
+.menu button span { margin-left: auto; color: var(--quiet); font: 11px var(--font-mono); }
+.menu hr { margin: 6px 4px; border: 0; border-top: 1px solid var(--line); }
+.menu .danger { color: var(--danger); }
+.review-dock { position: fixed; z-index: 30; right: 18px; bottom: 42px; display: flex; gap: 4px; padding: 5px; background: color-mix(in srgb, var(--surface-raised) 92%, transparent); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(23 35 31 / 10%); }
+.review-dock a, .review-dock button { min-height: 30px; padding: 0 9px; color: var(--muted); text-decoration: none; background: transparent; border: 0; border-radius: 6px; font-size: 11px; cursor: pointer; }
+.review-dock a:hover, .review-dock button:hover { color: var(--primary); background: var(--primary-pale); }
