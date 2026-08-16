@@ -1075,8 +1075,53 @@
       padding: 14px 16px 16px;
     }
 
-    .property-key { color: var(--ink-secondary); font-size: 11px; }
-    .property-value { min-width: 0; font-size: 12px; }
+    /* 检查器信息面板：分段区块结构（参考 印格-编辑器页 的资料信息面板） */
+    .insp-head { padding: 16px 16px 12px; border-bottom: var(--soft-line); }
+    .insp-head small {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink-accent);
+      font: 800 10px/1.4 var(--font-mono);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .insp-head strong { font-size: 14px; }
+    .insp-section { border-bottom: var(--soft-line); }
+    .insp-section:last-child { border-bottom: 0; }
+    .insp-section-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .insp-section-head .icon { width: 15px; height: 15px; color: var(--ink-secondary); }
+    .insp-section-head .count { margin-left: auto; color: var(--ink-secondary); font: 800 11px/1 var(--font-mono); }
+    .insp-section-head .chev { margin-left: 6px; color: var(--ink-secondary); }
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr);
+      gap: 9px 12px;
+      padding: 4px 16px 14px;
+    }
+    .kv-key { color: var(--ink-secondary); font-size: 11px; }
+    .kv-value { min-width: 0; font-size: 12px; }
+    .kv-value .mono { font-size: 12px; }
+    .insp-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 16px 14px; }
+    .insp-link {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px 12px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      font-size: 12px;
+    }
+    .insp-link:hover { color: var(--ink-accent); }
+    .insp-link .icon { width: 15px; height: 15px; flex: 0 0 15px; color: var(--ink-secondary); }
 
     .outline-list { display: grid; gap: 2px; }
 
@@ -1678,16 +1723,35 @@
         </div>
         <div class="inspector-body">
           <section data-inspector-panel="info">
-            <div class="property-card">
-              <div class="property-preview"><small>Research note</small><strong>Transformer 注意力机制复盘</strong></div>
-              <div class="property-grid">
-                <span class="property-key">状态</span><span class="property-value meta-state">待整理</span>
-                <span class="property-key">位置</span><span class="property-value">产品设计 / 学习</span>
-                <span class="property-key">标签</span><span class="property-value">学习、AI</span>
-                <span class="property-key">创建</span><span class="property-value">2026-08-12 21:14</span>
-                <span class="property-key">更新</span><span class="property-value">今天 10:32</span>
-                <span class="property-key">统计</span><span class="property-value">1,248 字 · 5 分钟</span>
+            <div class="insp-head">
+              <small>Research note</small>
+              <strong class="insp-title">Transformer 注意力机制复盘</strong>
+            </div>
+            <div class="insp-section">
+              <div class="insp-section-head"><svg class="icon" aria-hidden="true"><use href="#icon-note"/></svg>资料信息</div>
+              <div class="kv-grid">
+                <span class="kv-key">类型</span><span class="kv-value">Markdown 文档</span>
+                <span class="kv-key">状态</span><span class="kv-value meta-state">待整理</span>
+                <span class="kv-key">位置</span><span class="kv-value">产品设计 / 学习</span>
+                <span class="kv-key">字数</span><span class="kv-value"><span class="mono">1,248</span> 字</span>
+                <span class="kv-key">创建</span><span class="kv-value mono">2026-08-12 21:14</span>
+                <span class="kv-key">更新</span><span class="kv-value mono">今天 10:32</span>
+                <span class="kv-key">阅读</span><span class="kv-value">约 5 分钟</span>
               </div>
+            </div>
+            <div class="insp-section">
+              <div class="insp-section-head"><svg class="icon" aria-hidden="true"><use href="#icon-tag"/></svg>标签<span class="count">2</span></div>
+              <div class="insp-tags">
+                <span class="tag">学习</span><span class="tag tag--green">AI</span>
+              </div>
+            </div>
+            <div class="insp-section">
+              <div class="insp-section-head"><svg class="icon" aria-hidden="true"><use href="#icon-link"/></svg>关联笔记<span class="count">1</span></div>
+              <button class="insp-link" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-note"/></svg>向量相似度入门</button>
+            </div>
+            <div class="insp-section">
+              <div class="insp-section-head"><svg class="icon" aria-hidden="true"><use href="#icon-paperclip"/></svg>附件<span class="count">1</span></div>
+              <button class="insp-link" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-image"/></svg>encoder-decoder-arch.png</button>
             </div>
           </section>
           <section data-inspector-panel="outline" hidden>
@@ -1856,7 +1920,7 @@
     function syncDocumentName(name) {
       title.textContent = name;
       document.querySelector('.status-context span:last-child').textContent = `笔记 / 产品设计 / ${name}`;
-      document.querySelector('.property-preview strong').textContent = name;
+      document.querySelector('.insp-title').textContent = name;
       const activeTab = document.querySelector('.doc-tab[aria-selected="true"]');
       if (activeTab) {
         activeTab.dataset.docTitle = name;
@@ -2049,7 +2113,7 @@
     title.addEventListener('input', () => {
       const name = title.textContent.trim() || '无标题笔记';
       document.querySelector('.status-context span:last-child').textContent = `笔记 / 产品设计 / ${name}`;
-      document.querySelector('.property-preview strong').textContent = name;
+      document.querySelector('.insp-title').textContent = name;
       const activeTab = document.querySelector('.doc-tab[aria-selected="true"]');
       if (activeTab) {
         activeTab.dataset.docTitle = name;
