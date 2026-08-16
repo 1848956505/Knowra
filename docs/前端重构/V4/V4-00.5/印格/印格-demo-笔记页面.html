@@ -691,7 +691,7 @@
       overflow: auto;
       scroll-padding: 96px 0 64px;
       background-color: var(--ink-bg);
-      background-image: radial-gradient(var(--ink-dot) .8px, transparent .8px);
+      background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
       background-size: 20px 20px;
     }
 
@@ -709,6 +709,44 @@
       background: var(--ink-surface);
       box-shadow: 3px 3px 0 rgba(26, 26, 26, .16);
     }
+
+    /* 无白纸模式：正文直接落在点阵底上，去掉边框与阴影，保留内边距不跳动 */
+    body.is-nopaper .paper {
+      border-color: transparent;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    /* 纸张右上角的显示切换按钮（悬浮于纸张右上角外侧） */
+    .paper-toggle {
+      position: absolute;
+      top: -16px;
+      right: 0;
+      z-index: 20;
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      color: var(--ink-secondary);
+      box-shadow: var(--shadow-1);
+      transition: transform var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast), color var(--motion-fast);
+    }
+
+    .paper-toggle:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: var(--shadow-2);
+      color: var(--ink);
+    }
+
+    .paper-toggle:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+    }
+
+    .paper-toggle .icon { width: 16px; height: 16px; }
 
     .document-kicker {
       display: flex;
@@ -1287,6 +1325,7 @@
       .context-sidebar .tree-row { min-height: 44px; }
       .inspector-tab { min-height: 44px; }
       .paper-wrap { width: 100%; min-height: 100%; margin: 0; }
+      .paper-toggle { top: 12px; right: 12px; }
       .paper {
         min-height: 100%;
         padding: 34px 24px 72px 42px;
@@ -1386,6 +1425,10 @@
     <symbol id="icon-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6M16 6l6 6-6 6M14 3l-4 18"/></symbol>
     <symbol id="icon-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M3 10h18M10 4v16"/></symbol>
     <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><circle cx="8" cy="9" r="2"/><path d="m4 18 5-5 3 3 3-4 5 6"/></symbol>
+    <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="icon-eye-off" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M4 4l16 16"/></symbol>
+    <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
+    <symbol id="icon-paperclip" viewBox="0 0 24 24"><path d="M21.4 11.6 12.4 20.6a6 6 0 0 1-8.5-8.5l8.6-8.6a4 4 0 0 1 5.7 5.7l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.8-7.8"/></symbol>
   </svg>
 
   <a class="skip-link" href="#note-content">跳到笔记正文</a>
@@ -1512,6 +1555,9 @@
 
       <section class="document-stage" aria-label="笔记编辑区">
         <div class="paper-wrap">
+          <button class="paper-toggle" type="button" data-action="paper-toggle" aria-label="显示或隐藏白纸效果" title="切换白纸显示 · Ctrl/⌘ Shift P" aria-pressed="true">
+            <svg class="icon" aria-hidden="true"><use href="#icon-eye"/></svg>
+          </button>
           <article class="paper">
             <div class="document-kicker">Research note · 研究笔记</div>
             <h1 class="document-title" contenteditable="true" spellcheck="false" aria-label="笔记标题">Transformer 注意力机制复盘</h1>
@@ -1863,6 +1909,15 @@
         showToast(next ? '已收藏当前笔记' : '已取消收藏');
       }
 
+      if (action?.dataset.action === 'paper-toggle') {
+        const next = action.getAttribute('aria-pressed') !== 'true';
+        action.setAttribute('aria-pressed', String(next));
+        body.classList.toggle('is-nopaper', next);
+        const use = action.querySelector('.icon use');
+        if (use) use.setAttribute('href', next ? '#icon-eye-off' : '#icon-eye');
+        announce(`白纸效果已${next ? '隐藏' : '显示'}`);
+      }
+
       if (action?.dataset.action === 'mobile-sidebar') {
         const next = !contextSidebar.classList.contains('is-open');
         contextSidebar.classList.toggle('is-open', next);
@@ -2021,6 +2076,10 @@
       if ((event.metaKey || event.ctrlKey) && event.key === '.') {
         event.preventDefault();
         enterFocus(!body.classList.contains('is-focus'));
+      }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        document.querySelector('[data-action="paper-toggle"]').click();
       }
     });
 
