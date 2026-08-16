@@ -837,21 +837,41 @@
       text-wrap: balance;
     }
 
-    /* 笔记封面方块：蓝底白字 + 墨黑硬阴影（参考索引页 M17 方块，深色状态改浅色状态） */
+    /* 笔记封面：替换为资料索引页图标视图的文件图标样式（白底 + 折角 + 线条 + 彩色硬阴影） */
     .doc-cover {
       width: 72px;
       height: 98px;
       /* 向上加高：relative + top 上移，底部位置不变、顶部向上延伸 */
       position: relative;
       top: -20px;
-      display: grid;
-      place-items: center;
+      overflow: hidden;
       margin-bottom: 0;
       border: 2px solid var(--ink);
-      background: var(--ink-accent);
-      color: #fff;
-      font: 800 18px/1 var(--font-mono);
-      box-shadow: 4px 4px 0 var(--ink);
+      background: var(--ink-surface);
+      box-shadow: 5px 5px 0 #38bdf8;
+    }
+
+    .doc-cover::before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 17px;
+      height: 17px;
+      border-left: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: var(--ink-sunken);
+    }
+
+    .doc-cover::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 34px;
+      height: 2px;
+      background: var(--ink);
+      box-shadow: 0 10px 0 var(--ink-panel), 0 20px 0 var(--ink-panel), 0 30px 0 var(--ink-panel), 0 40px 0 var(--ink-panel);
     }
 
     /* 标题与封面方块的横向布局 */
@@ -1287,7 +1307,7 @@
       padding: 14px 16px 16px;
     }
 
-    /* 检查器信息面板：分段区块结构（参考 印格-编辑器页 的资料信息面板） */
+    /* 检查器信息面板：分段区块结构（参考 印格-编辑器页 的笔记信息面板） */
     .insp-head { padding: 16px 16px 12px; border-bottom: var(--soft-line); }
     .insp-head small {
       display: block;
@@ -1593,7 +1613,7 @@
       .document-title { font-size: 31px; }
       .document-meta { margin-bottom: 32px; }
       .doc-head { gap: 14px; }
-      .doc-cover { width: 54px; height: 74px; top: -16px; font-size: 14px; }
+      .doc-cover { width: 54px; height: 74px; top: -16px; }
       .document-kicker { margin-left: calc(54px + 14px); top: 10px; }
       .margin-mark { left: -28px; }
       blockquote.note-block .margin-mark { left: -32px; }
@@ -1822,7 +1842,7 @@
           <article class="paper">
             <div class="document-kicker">Research note · 研究笔记</div>
             <div class="doc-head">
-              <div class="doc-cover" aria-hidden="true">M17</div>
+              <div class="doc-cover" aria-hidden="true"></div>
               <div class="doc-titles">
                 <h1 class="document-title" contenteditable="true" spellcheck="false" aria-label="笔记标题">Transformer 注意力机制复盘</h1>
                 <div class="document-meta">
@@ -2016,7 +2036,7 @@
               <strong class="insp-title">Transformer 注意力机制复盘</strong>
             </div>
             <div class="insp-section">
-              <div class="insp-section-head"><svg class="icon" aria-hidden="true"><use href="#icon-note"/></svg>资料信息</div>
+              <div class="insp-section-head"><svg class="icon" aria-hidden="true"><use href="#icon-note"/></svg>笔记信息</div>
               <div class="kv-grid">
                 <span class="kv-key">类型</span><span class="kv-value">Markdown 文档</span>
                 <span class="kv-key">状态</span><span class="kv-value meta-state">待整理</span>
