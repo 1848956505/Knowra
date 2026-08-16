@@ -193,7 +193,6 @@
       place-items: center;
       padding: 3px 0;
       border: 0;
-      border-left: 4px solid transparent;
       background: transparent;
     }
 
@@ -202,24 +201,21 @@
       height: 40px;
       display: grid;
       place-items: center;
-      border: 2px solid transparent;
-      transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
+      transition: color var(--motion-fast), transform var(--motion-fast);
     }
 
-    .rail-item:hover .rail-icon { background: var(--ink-sunken); }
+    .rail-item:hover .rail-icon { color: var(--ink); }
 
-    .rail-item:active .rail-icon {
-      transform: translate(2px, 2px);
-      box-shadow: none;
-    }
+    .rail-item:active .rail-icon { transform: translate(2px, 2px); }
 
-    .rail-item[aria-current="page"] { border-left-color: var(--ink-accent); }
-
+    /* 选中态：仅图标变蓝并切换为填充样式，去掉竖线/方块/白底/阴影 */
     .rail-item[aria-current="page"] .rail-icon {
-      border-color: var(--ink);
-      background: var(--ink-surface);
       color: var(--ink-accent);
-      box-shadow: var(--shadow-1);
+    }
+
+    .rail-item[aria-current="page"] .rail-icon .icon {
+      fill: currentColor;
+      stroke: currentColor;
     }
 
     .rail-item:disabled {
@@ -345,7 +341,6 @@
       gap: 8px;
       padding: 6px 12px 6px 16px;
       border: 0;
-      border-left: 4px solid transparent;
       background: transparent;
       color: var(--ink);
       text-align: left;
@@ -353,11 +348,17 @@
 
     .tree-row:hover { background: var(--ink-sunken); }
 
+    /* 选中态：图标与文字变蓝，图标切换为填充样式；去掉白底与左侧竖线 */
     .tree-row[aria-current="page"],
     .tree-row.is-current {
-      border-left-color: var(--ink-accent);
-      background: var(--ink-surface);
+      color: var(--ink-accent);
       font-weight: 700;
+    }
+
+    .tree-row[aria-current="page"] .icon,
+    .tree-row.is-current .icon {
+      fill: currentColor;
+      stroke: currentColor;
     }
 
     .tree-row--nested { padding-left: 38px; }
@@ -367,7 +368,7 @@
       font-weight: 400;
     }
 
-    .tree-row--document.is-current { color: var(--ink); }
+    .tree-row--document.is-current { color: var(--ink-accent); }
 
     .tree-row .icon {
       width: 16px;
@@ -650,10 +651,7 @@
     .toolbar-btn:hover { background: var(--ink-sunken); }
 
     .toolbar-btn[aria-pressed="true"] {
-      border-color: var(--ink);
-      background: var(--ink-accent);
-      color: #fff;
-      box-shadow: var(--shadow-1);
+      color: var(--ink-accent);
     }
 
     .toolbar-btn--italic {
@@ -688,10 +686,7 @@
     }
 
     .plain-btn[aria-pressed="true"] {
-      border-color: var(--ink);
-      background: var(--ink-accent);
-      color: #fff;
-      box-shadow: var(--shadow-1);
+      color: var(--ink-accent);
     }
 
     .plain-btn .icon { width: 15px; height: 15px; }
@@ -1030,27 +1025,25 @@
     .inspector-tabs {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
-      padding: 6px;
       border-bottom: var(--panel-line);
     }
 
     .inspector-tab {
-      min-height: 28px;
-      border: 1px solid transparent;
+      min-height: 40px;
+      border: 0;
+      border-bottom: 3px solid transparent;
       background: transparent;
       color: var(--ink-secondary);
       font-size: 12px;
       font-weight: 700;
     }
 
-    .inspector-tab:hover { background: var(--ink-sunken); }
+    .inspector-tab:hover { color: var(--ink); }
 
+    /* 经典 Tab：选中时文字变黑 + 底部黑色下划线 */
     .inspector-tab[aria-selected="true"] {
-      border-color: var(--ink);
-      background: var(--ink-accent);
-      color: #fff;
-      box-shadow: var(--shadow-1);
+      border-bottom-color: var(--ink);
+      color: var(--ink);
     }
 
     .inspector-body {
@@ -1234,23 +1227,24 @@
     }
 
     .status-switch {
-      min-width: 54px;
+      width: 34px;
+      min-width: 34px;
       height: 100%;
-      padding: 0 11px;
-      border: 1px solid transparent;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
       background: transparent;
       color: var(--ink-secondary);
-      font-size: 11px;
-      font-weight: 700;
     }
 
-    .status-switch:hover { background: var(--ink-sunken); }
+    .status-switch .icon { width: 16px; height: 16px; }
 
+    .status-switch:hover { color: var(--ink); }
+
+    /* 选中态：图标变蓝 */
     .status-switch[aria-pressed="true"] {
-      border-color: var(--ink);
-      background: var(--ink-accent);
-      color: #fff;
-      box-shadow: var(--shadow-1);
+      color: var(--ink-accent);
     }
 
     .mobile-tabs { display: none; }
@@ -1322,7 +1316,6 @@
         --doc-width: min(780px, calc(100% - 44px));
         --paper-pad-x: clamp(36px, 6vw, 64px);
       }
-      .doc-action-text { display: none; }
       .toolbar-btn--optional { display: none; }
       .status-item--saved { display: none; }
     }
@@ -1345,7 +1338,6 @@
       body.is-sidebar-closed .app-shell { grid-template-columns: var(--rail-size) minmax(0, 1fr); }
       body.is-sidebar-closed .context-sidebar { transform: translateX(-110%); }
       .status-item--count { display: none; }
-      .status-switch { min-width: 48px; padding-inline: 8px; }
     }
 
     @media (max-width: 767px) {
@@ -1490,6 +1482,7 @@
     <symbol id="icon-eye-off" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M4 4l16 16"/></symbol>
     <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
     <symbol id="icon-paperclip" viewBox="0 0 24 24"><path d="M21.4 11.6 12.4 20.6a6 6 0 0 1-8.5-8.5l8.6-8.6a4 4 0 0 1 5.7 5.7l-8.6 8.6a2 2 0 0 1-2.8-2.8l7.8-7.8"/></symbol>
+    <symbol id="icon-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M10 4v16"/></symbol>
   </svg>
 
   <a class="skip-link" href="#note-content">跳到笔记正文</a>
@@ -1651,13 +1644,13 @@
               <span class="qt-spacer"></span>
               <span class="tool-separator" aria-hidden="true"></span>
               <button class="plain-btn" type="button" aria-label="收藏当前笔记" aria-pressed="false" data-action="favorite">
-                <svg class="icon" aria-hidden="true"><use href="#icon-star"/></svg><span class="doc-action-text">收藏</span>
+                <svg class="icon" aria-hidden="true"><use href="#icon-star"/></svg>
               </button>
               <button class="plain-btn" type="button" aria-label="打开格式与插入菜单" data-action="slash-menu">
-                <svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg><span class="doc-action-text">插入</span>
+                <svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg>
               </button>
               <button class="plain-btn" type="button" aria-label="打开文档检查器" aria-controls="inspector" aria-expanded="false" aria-pressed="false" data-action="inspector">
-                <svg class="icon" aria-hidden="true"><use href="#icon-panel"/></svg><span class="doc-action-text">检查器</span>
+                <svg class="icon" aria-hidden="true"><use href="#icon-panel"/></svg>
               </button>
               <button class="plain-btn" type="button" aria-label="更多文档操作" title="更多文档操作">
                 <svg class="icon" aria-hidden="true"><use href="#icon-more-vertical"/></svg>
@@ -1817,9 +1810,9 @@
       <span class="status-item status-item--saved">已保存 <time class="mono" datetime="2026-08-15T10:32">10:32</time></span>
       <span class="status-item"><span class="status-square status-square--sync" aria-hidden="true"></span>已同步</span>
       <span class="status-switches" aria-label="页面面板开关">
-        <button class="status-switch" type="button" aria-pressed="true" data-action="sidebar">侧栏</button>
-        <button class="status-switch" type="button" aria-pressed="false" data-action="inspector">检查器</button>
-        <button class="status-switch" type="button" aria-pressed="false" data-action="focus">专注</button>
+        <button class="status-switch" type="button" aria-pressed="true" data-action="sidebar" title="切换侧栏"><svg class="icon" aria-hidden="true"><use href="#icon-sidebar"/></svg></button>
+        <button class="status-switch" type="button" aria-pressed="false" data-action="inspector" title="切换检查器"><svg class="icon" aria-hidden="true"><use href="#icon-panel"/></svg></button>
+        <button class="status-switch" type="button" aria-pressed="false" data-action="focus" title="切换专注模式"><svg class="icon" aria-hidden="true"><use href="#icon-focus"/></svg></button>
       </span>
     </footer>
 
