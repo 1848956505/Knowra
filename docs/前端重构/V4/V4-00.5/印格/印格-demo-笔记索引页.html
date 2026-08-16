@@ -635,8 +635,47 @@
       color: var(--ink-surface);
     }
 
+    .sort-control { position: relative; display: inline-flex; }
     .sort-btn { border: 1px solid var(--ink-panel); }
     .sort-btn .icon { width: 15px; height: 15px; }
+    .sort-btn .sort-chevron {
+      width: 12px;
+      height: 12px;
+      transform: rotate(90deg);
+      color: var(--ink-muted);
+      transition: transform var(--motion-fast);
+    }
+    .sort-control.is-open .sort-chevron { transform: rotate(270deg); }
+
+    /* 排序下拉菜单：点击（焦点）时弹出，右侧对齐触发器 */
+    .sort-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 50;
+      min-width: 140px;
+      padding: 5px;
+      display: none;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+    }
+    .sort-control.is-open .sort-menu { display: block; }
+    .sort-menu button {
+      width: 100%;
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 5px 10px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: left;
+    }
+    .sort-menu button:hover { background: var(--ink-sunken); color: var(--ink); }
+    .sort-menu button[aria-checked="true"] { color: var(--ink-accent); }
 
     .view-switch {
       height: 36px;
@@ -1348,9 +1387,17 @@
             </div>
 
             <div class="index-toolbar-end">
-              <button class="sort-btn" type="button" data-action="sort" data-sort="updated" aria-label="当前按最近更新排序">
-                <svg class="icon" aria-hidden="true"><use href="#icon-sort"/></svg><span>最近更新</span>
-              </button>
+              <div class="sort-control">
+                <button class="sort-btn" type="button" data-action="sort" data-sort="updated" aria-haspopup="menu" aria-expanded="false" aria-label="当前按最近更新排序">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-sort"/></svg><span>最近更新</span>
+                  <svg class="icon sort-chevron" aria-hidden="true"><use href="#icon-chevron"/></svg>
+                </button>
+                <div class="sort-menu" role="menu" aria-label="排序方式">
+                  <button type="button" role="menuitem" data-sort-option="name" aria-checked="false">名称</button>
+                  <button type="button" role="menuitem" data-sort-option="updated" aria-checked="true">最近更新</button>
+                  <button type="button" role="menuitem" data-sort-option="created" aria-checked="false">创建日期</button>
+                </div>
+              </div>
               <div class="view-switch" role="group" aria-label="切换笔记视图">
                 <button class="view-btn" type="button" aria-label="列表视图" aria-pressed="true" data-view="list" title="列表视图">
                   <svg class="icon" aria-hidden="true"><use href="#icon-list"/></svg>
@@ -1474,6 +1521,7 @@
     let activeView = 'list';
     let activeFilter = 'all';
     let activeSort = 'updated';
+    const SORT_LABELS = { name: '名称', updated: '最近更新', created: '创建日期' };
     let toastTimer;
 
     function announce(message) {
@@ -1522,7 +1570,7 @@
       listView.hidden = activeView !== 'list' || count === 0;
       gridView.hidden = activeView !== 'grid' || count === 0;
       emptyState.hidden = count !== 0;
-      const sortLabel = activeSort === 'updated' ? '最近更新' : '名称';
+      const sortLabel = SORT_LABELS[activeSort];
       viewDescription.textContent = `${activeView === 'list' ? '列表视图' : '图标视图'} · 按${sortLabel}排序`;
       if (shouldAnnounce) announce(`当前显示 ${count} 项笔记`);
     }
@@ -1549,10 +1597,13 @@
       sortContainer(document.querySelector('#resource-table-body'));
       sortContainer(document.querySelector('#resource-grid'));
       const sortButton = document.querySelector('[data-action="sort"]');
-      const label = activeSort === 'updated' ? '最近更新' : '名称';
+      const label = SORT_LABELS[activeSort];
       sortButton.dataset.sort = activeSort;
       sortButton.setAttribute('aria-label', `当前按${label}排序`);
       sortButton.querySelector('span').textContent = label;
+      document.querySelectorAll('[data-sort-option]').forEach((item) => {
+        item.setAttribute('aria-checked', String(item.dataset.sortOption === activeSort));
+      });
       applyIndexState();
       announce(`已按${label}排序`);
     }
@@ -1581,7 +1632,17 @@
       }
 
       if (action?.dataset.action === 'sort') {
-        activeSort = activeSort === 'updated' ? 'name' : 'updated';
+        const control = action.closest('.sort-control');
+        const open = control.classList.toggle('is-open');
+        action.setAttribute('aria-expanded', String(open));
+      }
+
+      const sortOption = event.target.closest('[data-sort-option]');
+      if (sortOption) {
+        const control = sortOption.closest('.sort-control');
+        control.classList.remove('is-open');
+        control.querySelector('[data-action="sort"]').setAttribute('aria-expanded', 'false');
+        activeSort = sortOption.dataset.sortOption;
         applySort();
       }
 
@@ -1610,6 +1671,13 @@
         const clickedOutside = !event.target.closest('#context-sidebar') && !event.target.closest('[data-action="mobile-sidebar"]');
         if (clickedOutside) setSidebar(false);
       }
+
+      if (!event.target.closest('.sort-control')) {
+        document.querySelectorAll('.sort-control.is-open').forEach((control) => {
+          control.classList.remove('is-open');
+          control.querySelector('[data-action="sort"]').setAttribute('aria-expanded', 'false');
+        });
+      }
     });
 
     document.querySelectorAll('.status-switch:not([data-action="sidebar"])').forEach((button) => {
@@ -1627,7 +1695,16 @@
         event.preventDefault();
         setView(activeView === 'list' ? 'grid' : 'list');
       }
-      if (event.key === 'Escape' && contextSidebar.classList.contains('is-open')) setSidebar(false);
+      if (event.key === 'Escape') {
+        if (contextSidebar.classList.contains('is-open')) setSidebar(false);
+        const openControls = document.querySelectorAll('.sort-control.is-open');
+        if (openControls.length) {
+          openControls.forEach((control) => {
+            control.classList.remove('is-open');
+            control.querySelector('[data-action="sort"]').setAttribute('aria-expanded', 'false');
+          });
+        }
+      }
     });
 
     applySort();
