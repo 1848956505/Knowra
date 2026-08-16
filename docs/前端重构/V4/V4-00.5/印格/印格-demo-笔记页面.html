@@ -31,7 +31,8 @@
       --shadow-focus: 3px 3px 0 var(--ink-accent);
       --rail-size: 64px;
       --sidebar-size: 224px;
-      --inspector-size: 312px;
+      /* 检查器宽度与左侧「模块轨道 + 上下文侧栏」等宽，保持左右视觉对称 */
+      --inspector-size: calc(var(--rail-size) + var(--sidebar-size));
       --status-size: 32px;
       --tab-size: 36px;
       --docbar-size: 52px;
@@ -394,16 +395,17 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 27px;
-      padding: 3px 10px;
+      min-height: 22px;
+      padding: 2px 8px;
       border: 1px solid var(--tag-edge);
       background: var(--tag-fill);
       color: var(--tag-text);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
       line-height: 1;
       white-space: nowrap;
-      box-shadow: 0 3px 0 var(--tag-edge);
+      /* 实心位移阴影：底部 + 右侧，对齐整体 UI 的硬阴影风格 */
+      box-shadow: 2px 3px 0 var(--tag-edge);
       transform: translateY(-1px);
     }
 
@@ -976,23 +978,27 @@
     .inspector-tabs {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 6px;
       border-bottom: var(--panel-line);
     }
 
     .inspector-tab {
-      min-height: 40px;
-      border: 0;
-      border-bottom: 3px solid transparent;
+      min-height: 28px;
+      border: 1px solid transparent;
       background: transparent;
       color: var(--ink-secondary);
       font-size: 12px;
       font-weight: 700;
     }
 
+    .inspector-tab:hover { background: var(--ink-sunken); }
+
     .inspector-tab[aria-selected="true"] {
-      border-bottom-color: var(--ink-accent);
-      background: var(--ink-surface);
-      color: var(--ink);
+      border-color: var(--ink);
+      background: var(--ink-accent);
+      color: #fff;
+      box-shadow: var(--shadow-1);
     }
 
     .inspector-body {
@@ -1132,7 +1138,7 @@
       min-width: 54px;
       height: 100%;
       padding: 0 11px;
-      border: 0;
+      border: 1px solid transparent;
       background: transparent;
       color: var(--ink-secondary);
       font-size: 11px;
@@ -1142,8 +1148,10 @@
     .status-switch:hover { background: var(--ink-sunken); }
 
     .status-switch[aria-pressed="true"] {
+      border-color: var(--ink);
       background: var(--ink-accent);
       color: #fff;
+      box-shadow: var(--shadow-1);
     }
 
     .mobile-tabs { display: none; }
