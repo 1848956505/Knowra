@@ -131,6 +131,8 @@
       padding: 10px 0 12px;
       border-right: var(--shell-line-soft);
       background: var(--ink-bg);
+      /* 沿右缘线向内容区投一层柔和阴影，形成面板浮起感 */
+      box-shadow: 8px 0 16px rgba(26, 26, 26, .09);
       scrollbar-width: none;
     }
 
@@ -435,6 +437,8 @@
 
     .doc-tabs {
       min-width: 0;
+      position: relative;
+      z-index: 21;
       display: flex;
       align-items: stretch;
       gap: 4px;
@@ -445,6 +449,8 @@
       background-repeat: no-repeat;
       background-size: 100% 1px;
       background-position: 0 100%;
+      /* 沿底缘线向内容区投一层柔和阴影，形成面板浮起感 */
+      box-shadow: 0 8px 16px rgba(26, 26, 26, .09);
     }
 
     .doc-tabs-scroll {
@@ -1179,6 +1185,8 @@
       padding: 0 12px 0 16px;
       border-top: var(--shell-line-soft);
       background: var(--ink-bg);
+      /* 沿上缘线向内容区投一层柔和阴影，形成面板浮起感 */
+      box-shadow: 0 -8px 16px rgba(26, 26, 26, .09);
       color: var(--ink-secondary);
       font-size: 11px;
       white-space: nowrap;
