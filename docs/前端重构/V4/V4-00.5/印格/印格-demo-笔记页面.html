@@ -903,6 +903,12 @@
       line-height: 1.82;
     }
 
+    /* 正文聚焦态：去掉默认的右下蓝色硬影（否则纸张底部/右侧会出现蓝线） */
+    .note-content:focus-visible {
+      outline: none;
+      box-shadow: none;
+    }
+
     .note-block {
       position: relative;
       margin: 0 0 20px;
@@ -918,6 +924,35 @@
       letter-spacing: -.02em;
       scroll-margin-top: 84px;
     }
+
+    .note-block h1 {
+      margin: 26px 0 8px;
+      font-size: 30px;
+      line-height: 1.3;
+      letter-spacing: -.03em;
+      scroll-margin-top: 84px;
+    }
+
+    .note-block h3 {
+      margin: 18px 0 6px;
+      font-size: 18px;
+      line-height: 1.45;
+      letter-spacing: -.01em;
+      scroll-margin-top: 84px;
+    }
+
+    /* 行内代码 */
+    .note-content code {
+      padding: 2px 6px;
+      border: 1px solid var(--ink-panel);
+      background: var(--ink-sunken);
+      color: var(--ink-accent);
+      font: 600 0.88em/1 var(--font-mono);
+    }
+
+    /* 下划线 / 删除线 */
+    .note-content u { text-decoration: underline; text-underline-offset: 3px; }
+    .note-content del { color: var(--ink-muted); }
 
     .note-block p { margin: 0; }
 
@@ -950,13 +985,33 @@
     .margin-mark .icon { width: 9px; height: 9px; }
 
     blockquote.note-block {
-      padding: 14px 18px 14px 22px;
-      border-left: 4px solid var(--ink-accent);
-      background: var(--ink-sunken);
-      color: #44413c;
+      position: relative;
+      padding: 18px 22px 18px 56px;
+      border: 1px solid var(--ink-shell);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+      color: var(--ink);
+      font-weight: 600;
+      line-height: 1.6;
     }
 
-    blockquote.note-block .margin-mark { left: -38px; }
+    /* 引文卡片左上角的蓝色引号方块 */
+    blockquote.note-block::before {
+      content: "“";
+      position: absolute;
+      left: 12px;
+      top: 14px;
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      background: var(--ink-accent);
+      color: #fff;
+      font: 900 20px/1 Georgia, serif;
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    blockquote.note-block .margin-mark { left: -40px; }
 
     .callout {
       display: grid;
@@ -988,14 +1043,80 @@
 
     .note-list li { margin: 7px 0; padding-left: 4px; }
 
+    /* 无序列表 */
+    .note-list--ul { list-style: disc; }
+    .note-list--ul li::marker { color: var(--ink-accent); }
+
+    /* 任务列表 */
+    .task-list { margin: 0; padding-left: 0; list-style: none; }
+    .task-list li { display: flex; align-items: flex-start; gap: 10px; margin: 7px 0; }
+    .task-box {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+      margin-top: 3px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .task-box.is-done { background: var(--ink-accent); border-color: var(--ink-accent); }
+    .task-box.is-done::after {
+      content: "";
+      width: 8px;
+      height: 4px;
+      border-left: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      transform: rotate(-45deg) translate(0, -1px);
+    }
+    .task-list li.is-done { color: var(--ink-muted); text-decoration: line-through; }
+
     .note-code {
       overflow: auto;
+      margin: 0;
       padding: 16px 18px;
-      border: 1px solid var(--ink-panel);
+      border: 1px solid var(--ink-shell);
+      border-top: 0;
       background: #f6f4ef;
       color: #34312d;
       font: 13px/1.7 var(--font-mono);
       white-space: pre;
+      box-shadow: var(--shadow-1);
+    }
+
+    /* 代码块文件头：墨黑横条 + 语言标签 + 装饰方块 */
+    .code-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border: 1px solid var(--ink-shell);
+      border-bottom: 0;
+      background: var(--ink);
+      color: #fff;
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .code-head .code-lang {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: var(--ink-accent);
+      box-shadow: 2px 2px 0 #fff;
+    }
+    .code-head .code-dots {
+      margin-left: auto;
+      display: inline-flex;
+      gap: 5px;
+    }
+    .code-head .code-dots i {
+      width: 8px;
+      height: 8px;
+      display: block;
+      background: var(--ink-muted);
     }
 
     .format-popover {
@@ -1791,6 +1912,7 @@
 
               <section class="note-block" data-block>
                 <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <div class="code-head"><span class="code-lang">TXT</span><span>公式</span><span class="code-dots"><i></i><i></i><i></i></span></div>
                 <pre class="note-code">Attention(Q, K, V) = softmax(QKᵀ / √dₖ)V</pre>
               </section>
 
@@ -1802,6 +1924,72 @@
               <section class="note-block" data-block>
                 <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
                 <p>多头注意力为什么要拆分维度，而不是让每一个头都保留完整维度？下一步需要结合参数量和表达子空间继续验证。</p>
+              </section>
+
+              <!-- ===== 格式样式总览 ===== -->
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <h2 id="section-formats">格式样式总览</h2>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <h1>这是一级标题 H1</h1>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <h2>这是二级标题 H2</h2>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <h3>这是三级标题 H3</h3>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <p>这里是<strong>加粗文字</strong>、<em>斜体文字</em>、<u>下划线文字</u>与<del>删除线文字</del>，以及一段<code>行内代码</code>，用于展示文本级格式。</p>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <ul class="note-list note-list--ul">
+                  <li>无序列表项一</li>
+                  <li>无序列表项二</li>
+                  <li>无序列表项三</li>
+                </ul>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <ol class="note-list">
+                  <li>有序列表项一</li>
+                  <li>有序列表项二</li>
+                  <li>有序列表项三</li>
+                </ol>
+              </section>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <ul class="task-list">
+                  <li><span class="task-box is-done" aria-hidden="true"></span>已完成的任务</li>
+                  <li class="is-done"><span class="task-box is-done" aria-hidden="true"></span>已完成（划线）任务</li>
+                  <li><span class="task-box" aria-hidden="true"></span>未完成的任务</li>
+                </ul>
+              </section>
+
+              <blockquote class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                这是一段引用文字，左侧有蓝色竖线分隔。
+              </blockquote>
+
+              <section class="note-block" data-block>
+                <button class="margin-mark" type="button" contenteditable="false" aria-label="打开本段操作"><svg class="icon" aria-hidden="true"><use href="#icon-add"/></svg></button>
+                <div class="code-head"><span class="code-lang">JS</span><span>示例代码</span><span class="code-dots"><i></i><i></i><i></i></span></div>
+                <pre class="note-code">function hello() {
+  console.log("这是一段代码块");
+}</pre>
               </section>
             </div>
           </article>
