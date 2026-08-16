@@ -865,6 +865,11 @@
 
     .document-title:focus { outline: none; }
 
+    /* 标题聚焦态：只保留下方蓝色线，去掉右侧蓝线（默认 shadow-focus 是右下双向） */
+    .document-title:focus-visible {
+      box-shadow: 0 2px 0 var(--ink-accent);
+    }
+
     .document-meta {
       display: flex;
       flex-wrap: wrap;
