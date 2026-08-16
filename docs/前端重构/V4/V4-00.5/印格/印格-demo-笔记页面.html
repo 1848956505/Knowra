@@ -30,8 +30,10 @@
       --shell-line-soft: 1px solid var(--ink-shell);
       --panel-line: 1px solid var(--ink-panel);
       --soft-line: 1px solid var(--ink-soft);
-      --shadow-1: 2px 2px 0 var(--ink);
-      --shadow-2: 3px 3px 0 var(--ink);
+      /* 硬阴影：保留 2px/3px 实心位移骨架，仅加 1px 模糊并柔化为暖灰，降低锐利感 */
+      /* 原硬阴影（不满意可改回）：--shadow-1: 2px 2px 0 var(--ink); --shadow-2: 3px 3px 0 var(--ink); */
+      --shadow-1: 2px 2px 1px #6b6b6b;
+      --shadow-2: 3px 3px 1px #6b6b6b;
       --shadow-focus: 3px 3px 0 var(--ink-accent);
       --rail-size: 64px;
       --sidebar-size: 224px;
@@ -717,7 +719,8 @@
       padding: 54px var(--paper-pad-x) 88px;
       border: 1px solid var(--ink-panel);
       background: var(--ink-surface);
-      box-shadow: 3px 3px 0 rgba(26, 26, 26, .16);
+      /* 原硬阴影：3px 3px 0 rgba(26, 26, 26, .16) */
+      box-shadow: 3px 3px 1px rgba(26, 26, 26, .16);
     }
 
     /* 无白纸模式：正文直接落在点阵底上，去掉边框与阴影，保留内边距不跳动 */
@@ -948,7 +951,8 @@
       overflow: hidden;
       border: 2px solid var(--ink);
       background: var(--ink-surface);
-      box-shadow: 5px 5px 0 var(--ink);
+      /* 原硬阴影：5px 5px 0 var(--ink) */
+      box-shadow: 5px 5px 1px #6b6b6b;
       overscroll-behavior: contain;
     }
 
