@@ -23,7 +23,11 @@
       --ink-success: #16a34a;
       --ink-warning: #ea580c;
       --ink-danger: #dc2626;
+      /* 外壳线：2px 墨黑保留给浮层/按钮等特色元素的描边 */
       --shell-line: 2px solid var(--ink);
+      /* 外壳分区线：减薄为 1px、颜色柔化为暖墨灰，用于模块轨道/状态栏/标签页等窗口主分区 */
+      --ink-shell: #a8a29a;
+      --shell-line-soft: 1px solid var(--ink-shell);
       --panel-line: 1px solid var(--ink-panel);
       --soft-line: 1px solid var(--ink-soft);
       --shadow-1: 2px 2px 0 var(--ink);
@@ -125,7 +129,7 @@
       flex-direction: column;
       overflow-y: auto;
       padding: 10px 0 12px;
-      border-right: var(--shell-line);
+      border-right: var(--shell-line-soft);
       background: var(--ink-bg);
       scrollbar-width: none;
     }
@@ -436,10 +440,10 @@
       gap: 4px;
       padding: 4px 6px 0 var(--doc-edge);
       background-color: var(--ink-sunken);
-      /* 底部 2px 黑线画在背景层，位于子标签之下，激活标签得以盖住它 */
-      background-image: linear-gradient(var(--ink), var(--ink));
+      /* 底部 1px 柔化外壳线画在背景层，位于子标签之下，激活标签得以盖住它 */
+      background-image: linear-gradient(var(--ink-shell), var(--ink-shell));
       background-repeat: no-repeat;
-      background-size: 100% 2px;
+      background-size: 100% 1px;
       background-position: 0 100%;
     }
 
@@ -1173,7 +1177,7 @@
       gap: 16px;
       overflow: hidden;
       padding: 0 12px 0 16px;
-      border-top: var(--shell-line);
+      border-top: var(--shell-line-soft);
       background: var(--ink-bg);
       color: var(--ink-secondary);
       font-size: 11px;
@@ -1386,7 +1390,7 @@
         inset: auto 0 calc(var(--status-size) + var(--mobile-tabs-size)) 0;
         width: 100%;
         max-height: min(72dvh, 620px);
-        border-top: var(--shell-line);
+        border-top: var(--shell-line-soft);
         border-left: 0;
         box-shadow: 0 -10px 24px rgba(26, 26, 26, .12);
         transform: translateY(100%);
@@ -1408,7 +1412,7 @@
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         padding-bottom: env(safe-area-inset-bottom);
-        border-top: var(--shell-line);
+        border-top: var(--shell-line-soft);
         background: var(--ink-bg);
       }
       .mobile-tab {
