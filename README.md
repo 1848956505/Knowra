@@ -44,8 +44,10 @@ The Phase2.0 knowledge-source foundation and Phase3.0 assessment foundation are 
 
 - Node.js workspace monorepo
 - `apps/api`: local API service
-- `apps/web`: workspace-style frontend
-- `packages/shared`: shared package area
+- `apps/web`: stable V3 workspace frontend
+- `apps/web-v4`: independent React + TypeScript V4 frontend
+- `packages/web-core`: framework-independent API and workspace state helpers shared by V3/V4
+- `packages/shared`: general shared package area
 - Prisma PostgreSQL schema, Phase1.0–Phase3.0 migration tooling and attachment integrity checks in `prisma/` and `scripts/`
 
 ## Project Structure
@@ -54,9 +56,11 @@ The Phase2.0 knowledge-source foundation and Phase3.0 assessment foundation are 
 Study/
 ├─ apps/
 │  ├─ api/
-│  └─ web/
+│  ├─ web/
+│  └─ web-v4/
 ├─ packages/
-│  └─ shared/
+│  ├─ shared/
+│  └─ web-core/
 ├─ prisma/
 ├─ docs/
 ├─ scripts/
@@ -89,6 +93,12 @@ Run frontend only:
 
 ```bash
 npm run dev:web
+```
+
+Run the independent React V4 scaffold:
+
+```bash
+npm run dev:web:v4
 ```
 
 Run both together:
@@ -153,4 +163,4 @@ Near-term priorities:
 
 ## Status
 
-Current stable version: `2.12.0`. Phase 0 through Phase3.2 are complete, including the knowledge-source, learning-objective, question, four-work-domain and backend consistency/security gates. Historical HTTP images have been localized, the strict JSON migration preflight is ready and all 12 local attachments pass integrity checks. PostgreSQL remains opt-in and production deployment still requires PostgreSQL backup, access-control and rollback gates; the application does not yet include a login system.
+Current stable version: `2.14.0`. Phase 0 through Phase3.2 are complete, and React V4 now loads the real workspace through the framework-independent `packages/web-core` package and its Zustand state baseline while V3 remains available during migration. Historical HTTP images have been localized, the strict JSON migration preflight is ready and all 12 local attachments pass integrity checks. PostgreSQL remains opt-in and production deployment still requires PostgreSQL backup, access-control and rollback gates; the application does not yet include a login system.
