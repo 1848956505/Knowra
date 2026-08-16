@@ -809,6 +809,11 @@
       align-items: center;
       gap: 8px;
       margin-bottom: 18px;
+      /* 与右侧封面标题区的 meta 行（待整理等）对齐：偏移封面方块宽 + 间隙 */
+      margin-left: calc(72px + 20px);
+      /* 下移，使文本顶部与向上延伸的封面方块顶部大致对齐 */
+      position: relative;
+      top: 12px;
       color: var(--ink-accent);
       font: 800 10px/1.4 var(--font-mono);
       letter-spacing: .13em;
@@ -831,6 +836,32 @@
       letter-spacing: -.045em;
       text-wrap: balance;
     }
+
+    /* 笔记封面方块：蓝底白字 + 墨黑硬阴影（参考索引页 M17 方块，深色状态改浅色状态） */
+    .doc-cover {
+      width: 72px;
+      height: 98px;
+      /* 向上加高：relative + top 上移，底部位置不变、顶部向上延伸 */
+      position: relative;
+      top: -20px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 0;
+      border: 2px solid var(--ink);
+      background: var(--ink-accent);
+      color: #fff;
+      font: 800 18px/1 var(--font-mono);
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+
+    /* 标题与封面方块的横向布局 */
+    .doc-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .doc-head .doc-cover { flex: 0 0 auto; }
+    .doc-head .doc-titles { min-width: 0; flex: 1; }
 
     .document-title:focus { outline: none; }
 
@@ -1435,6 +1466,9 @@
       }
       .document-title { font-size: 31px; }
       .document-meta { margin-bottom: 32px; }
+      .doc-head { gap: 14px; }
+      .doc-cover { width: 54px; height: 74px; top: -16px; font-size: 14px; }
+      .document-kicker { margin-left: calc(54px + 14px); top: 10px; }
       .margin-mark { left: -28px; }
       blockquote.note-block .margin-mark { left: -32px; }
       .inspector {
@@ -1661,9 +1695,14 @@
           </button>
           <article class="paper">
             <div class="document-kicker">Research note · 研究笔记</div>
-            <h1 class="document-title" contenteditable="true" spellcheck="false" aria-label="笔记标题">Transformer 注意力机制复盘</h1>
-            <div class="document-meta">
-              <span class="meta-state">待整理</span><span>学习</span><span>AI</span><span>今天 10:32 更新</span><span>1,248 字</span>
+            <div class="doc-head">
+              <div class="doc-cover" aria-hidden="true">M17</div>
+              <div class="doc-titles">
+                <h1 class="document-title" contenteditable="true" spellcheck="false" aria-label="笔记标题">Transformer 注意力机制复盘</h1>
+                <div class="document-meta">
+                  <span class="meta-state">待整理</span><span>学习</span><span>AI</span><span>今天 10:32 更新</span><span>1,248 字</span>
+                </div>
+              </div>
             </div>
 
             <div class="quick-tools" role="toolbar" aria-label="编辑快捷功能">
