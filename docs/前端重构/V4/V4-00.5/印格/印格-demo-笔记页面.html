@@ -303,7 +303,7 @@
     .sidebar-head .square-btn:active { transform: none; }
     .sidebar-head .square-btn .icon { width: 18px; height: 18px; }
 
-    /* 新建笔记：无外框、像素风立体蓝色加号（粗壮方正笔画 + 实心墨黑硬影） */
+    /* 新建笔记：无外框、淡雅的立体蓝色加号（细笔画 + 柔和投影营造悬浮立体感） */
     .sidebar-head .square-btn--primary { color: var(--ink-accent); }
     .sidebar-head .square-btn--primary:hover {
       background: transparent;
@@ -314,19 +314,19 @@
       content: "";
       position: absolute;
       background: currentColor;
-      /* 实心不透明硬影：像素 3D 立体感（横竖条投影同色重叠无杂块） */
-      box-shadow: 2px 2px 0 #1a1a1a;
+      /* 柔和投影：跟随加号轮廓偏移弥散，营造悬浮立体感 */
+      filter: drop-shadow(1px 2px 1px rgba(26, 26, 26, .5));
     }
     .sidebar-head .square-btn--primary::before {
-      width: 18px;
-      height: 5px;
+      width: 16px;
+      height: 6px;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
     }
     .sidebar-head .square-btn--primary::after {
-      width: 5px;
-      height: 18px;
+      width: 6px;
+      height: 16px;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
