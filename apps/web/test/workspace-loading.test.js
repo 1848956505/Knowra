@@ -6,6 +6,7 @@ import {
   selectInitialWorkspaceSource,
   selectLoadRecovery
 } from '../lib/workspace-loading.js';
+import { recoveryVectors } from '../../../packages/web-core/test/workspace-vectors.js';
 
 function runTest(name, callback) {
   try {
@@ -18,18 +19,18 @@ function runTest(name, callback) {
 }
 
 runTest('selectLoadRecovery prefers backend when backend is available', () => {
-  assert.equal(selectLoadRecovery({ backendAvailable: true, cachedSnapshot: null }), 'backend');
+  assert.equal(selectLoadRecovery(recoveryVectors[0].input), recoveryVectors[0].expected);
 });
 
 runTest('selectLoadRecovery prefers cache over mock when backend is unavailable', () => {
   assert.equal(
-    selectLoadRecovery({ backendAvailable: false, cachedSnapshot: { currentSpaceId: 'space-1' } }),
-    'cache'
+    selectLoadRecovery(recoveryVectors[1].input),
+    recoveryVectors[1].expected
   );
 });
 
 runTest('selectLoadRecovery falls back to mock only when nothing else exists', () => {
-  assert.equal(selectLoadRecovery({ backendAvailable: false, cachedSnapshot: null }), 'mock');
+  assert.equal(selectLoadRecovery(recoveryVectors[2].input), recoveryVectors[2].expected);
 });
 
 runTest('selectInitialWorkspaceSource uses cached backend data during initial refresh', () => {

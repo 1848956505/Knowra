@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeNotes } from '../lib/workspace-normalization.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,10 +11,6 @@ const workspaceControllerJs = fs.readFileSync(
   'utf8'
 );
 const menuRenderersJs = fs.readFileSync(path.resolve(__dirname, '../lib/editor/menu-renderers.js'), 'utf8');
-const workspaceNormalizationJs = fs.readFileSync(
-  path.resolve(__dirname, '../lib/workspace-normalization.js'),
-  'utf8'
-);
 const navigationTreeRenderersJs = fs.readFileSync(
   path.resolve(__dirname, '../lib/navigation/tree-renderers.js'),
   'utf8'
@@ -68,10 +65,10 @@ assert.match(
   /data-recycle-section="true"/,
   'recycle section should render a dedicated target for section-level context menu actions'
 );
-assert.match(
-  workspaceNormalizationJs,
-  /deleted: Boolean\(note\.deleted\)/,
-  'note normalization should preserve deleted state'
+assert.equal(
+  normalizeNotes([{ id: 'deleted-note', deleted: true }])[0].deleted,
+  true,
+  'note normalization should preserve deleted state through shared web-core'
 );
 assert.match(
   workspaceControllerJs,

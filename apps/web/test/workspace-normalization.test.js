@@ -5,6 +5,7 @@ import {
   normalizeNotes,
   replaceNoteInCollection
 } from '../lib/workspace-normalization.js';
+import { folderNormalizationVector } from '../../../packages/web-core/test/workspace-vectors.js';
 
 function runTest(name, callback) {
   try {
@@ -17,29 +18,7 @@ function runTest(name, callback) {
 }
 
 runTest('normalizeFolderTree filters invalid nodes and normalizes nested folders', () => {
-  assert.deepEqual(
-    normalizeFolderTree([
-      null,
-      [],
-      { id: 123, name: null, parentId: undefined, children: [{ id: 'child', children: [null] }] },
-      { name: 'Missing id' }
-    ]),
-    [
-      {
-        id: '123',
-        name: '未命名目录',
-        parentId: null,
-        children: [
-          {
-            id: 'child',
-            name: '未命名目录',
-            parentId: null,
-            children: []
-          }
-        ]
-      }
-    ]
-  );
+  assert.deepEqual(normalizeFolderTree(folderNormalizationVector.input), folderNormalizationVector.expected);
 });
 
 runTest('normalizeFolderTree returns an empty array for non-array input', () => {

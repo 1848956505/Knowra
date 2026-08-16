@@ -20,6 +20,7 @@ export function canServeStaticPath(pathname) {
     || pathname.startsWith('/src/server/')
     || pathname.startsWith('/lib/')
     || pathname.startsWith('/styles/')
+    || pathname.startsWith('/packages/web-core/dist/')
   );
 }
 

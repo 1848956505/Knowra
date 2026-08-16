@@ -44,9 +44,12 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (canServeStaticPath(url.pathname)) {
+      const staticRoot = url.pathname.startsWith('/packages/web-core/dist/')
+        ? workspaceRoot
+        : rootDir;
       serveStaticAsset({
         pathname: url.pathname,
-        rootDir,
+        rootDir: staticRoot,
         request,
         response
       });

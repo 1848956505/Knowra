@@ -10,7 +10,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 
-import { serveStaticAsset } from '../src/server/static-assets.js';
+import { canServeStaticPath, serveStaticAsset } from '../src/server/static-assets.js';
+
+assert.equal(
+  canServeStaticPath('/packages/web-core/dist/index.js'),
+  true,
+  'V3 should expose only the built shared web-core browser modules'
+);
 
 class TestResponse extends Writable {
   constructor() {

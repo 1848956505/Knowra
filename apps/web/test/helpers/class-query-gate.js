@@ -61,7 +61,8 @@ export function scanClassQueries({ roots, baseDir }) {
   const findings = [];
   for (const file of collectJavaScriptFiles(roots)) {
     const content = fs.readFileSync(file, 'utf8');
-    const rel = path.relative(baseDir, file);
+    // Gate configuration uses repository-style paths on every platform.
+    const rel = path.relative(baseDir, file).split(path.sep).join('/');
     let match;
     SELECTOR_QUERY_API.lastIndex = 0;
     while ((match = SELECTOR_QUERY_API.exec(content)) !== null) {

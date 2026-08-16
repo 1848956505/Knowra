@@ -1,18 +1,21 @@
 {
   "name": "@study-accelerator/web",
-  "version": "2.12.0",
+  "version": "2.14.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run build -w @study-accelerator/web-core",
     "build:editor-bundle": "node ../../scripts/build-milkdown-bundle.mjs",
     "dev": "npm run build:editor-bundle && node src/main.js",
+    "pretest": "npm run build -w @study-accelerator/web-core",
     "test": "node test/run-tests.js"
   },
   "dependencies": {
+    "@study-accelerator/web-core": "2.14.0",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/view": "^6.43.6",
     "@milkdown/kit": "^7.21.2",
-    "dompurify": "^3.4.12",
+    "dompurify": "3.4.13",
     "esbuild": "^0.28.1"
   }
 }
