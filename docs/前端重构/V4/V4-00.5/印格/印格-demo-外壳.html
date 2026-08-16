@@ -21,9 +21,14 @@
       --ink-success: #16a34a;
       --ink-warning: #ea580c;
       --ink-danger: #dc2626;
+      /* 外壳线：2px 墨黑保留给浮层/按钮等特色元素的描边 */
       --shell-line: 2px solid var(--ink);
+      /* 外壳分区线：减薄为 1px、颜色柔化为暖墨灰，用于模块轨道/状态栏等窗口主分区 */
+      --ink-shell: #a8a29a;
+      --shell-line-soft: 1px solid var(--ink-shell);
       --panel-line: 1px solid var(--ink-panel);
-      --shadow-1: 2px 2px 0 var(--ink);
+      /* 硬阴影：保留实心位移骨架，仅加 1px 模糊并柔化为暖灰，降低锐利感 */
+      --shadow-1: 2px 2px 1px #6b6b6b;
       --shadow-focus: 3px 3px 0 var(--ink-accent);
       --rail-size: 64px;
       --status-size: 32px;
@@ -105,8 +110,10 @@
       overflow-y: auto;
       overflow-x: hidden;
       padding: 10px 0 12px;
-      border-right: var(--shell-line);
+      border-right: var(--shell-line-soft);
       background: var(--ink-bg);
+      /* 沿右缘线向内容区投一层柔和阴影，形成面板浮起感 */
+      box-shadow: 8px 0 16px rgba(26, 26, 26, .09);
       scrollbar-width: none;
     }
 
@@ -173,7 +180,6 @@
       place-items: center;
       padding: 3px 0;
       border: 0;
-      border-left: 4px solid transparent;
       background: transparent;
       color: var(--ink);
       cursor: pointer;
@@ -184,29 +190,24 @@
       height: 40px;
       display: grid;
       place-items: center;
-      border: 2px solid transparent;
       background: transparent;
       transition:
         color var(--motion-fast) ease,
-        background var(--motion-fast) ease,
-        box-shadow var(--motion-fast) ease,
         transform var(--motion-fast) ease;
     }
 
-    .rail-item:hover .rail-icon { background: var(--ink-sunken); }
+    .rail-item:hover .rail-icon { color: var(--ink); }
 
-    .rail-item:active .rail-icon {
-      transform: translate(2px, 2px);
-      box-shadow: none;
+    .rail-item:active .rail-icon { transform: translate(2px, 2px); }
+
+    /* 选中态：仅图标变蓝并切换为填充样式，去掉竖线/方块/白底/阴影 */
+    .rail-item[aria-current="page"] .rail-icon {
+      color: var(--ink-accent);
     }
 
-    .rail-item[aria-current="page"] { border-left-color: var(--ink-accent); }
-
-    .rail-item[aria-current="page"] .rail-icon {
-      border-color: var(--ink);
-      background: var(--ink-surface);
-      color: var(--ink-accent);
-      box-shadow: var(--shadow-1);
+    .rail-item[aria-current="page"] .rail-icon .icon {
+      fill: currentColor;
+      stroke: currentColor;
     }
 
     .rail-item:disabled {
@@ -226,7 +227,7 @@
       place-items: center;
       overflow: auto;
       padding: 40px;
-      background-color: var(--ink-surface);
+      background-color: var(--ink-bg);
       background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
       background-size: 20px 20px;
     }
@@ -258,7 +259,7 @@
       width: min(560px, 100%);
       padding: 28px 30px 30px;
       border: var(--panel-line);
-      background: color-mix(in srgb, var(--ink-surface) 92%, transparent);
+      background: color-mix(in srgb, var(--ink-bg) 92%, transparent);
       text-align: center;
     }
 
@@ -322,8 +323,10 @@
       gap: 18px;
       overflow: hidden;
       padding: 0 12px 0 16px;
-      border-top: var(--shell-line);
+      border-top: var(--shell-line-soft);
       background: var(--ink-bg);
+      /* 沿上缘线向内容区投一层柔和阴影，形成面板浮起感 */
+      box-shadow: 0 -8px 16px rgba(26, 26, 26, .09);
       color: var(--ink-secondary);
       font-size: 12px;
       white-space: nowrap;
@@ -375,21 +378,25 @@
     }
 
     .status-switch {
-      min-width: 54px;
+      width: 34px;
+      min-width: 34px;
       height: 100%;
-      padding: 0 12px;
+      display: grid;
+      place-items: center;
+      padding: 0;
       border: 0;
       background: transparent;
       color: var(--ink-secondary);
-      font-weight: 700;
       cursor: pointer;
     }
 
-    .status-switch:hover { background: var(--ink-sunken); }
+    .status-switch .icon { width: 16px; height: 16px; }
 
+    .status-switch:hover { color: var(--ink); }
+
+    /* 选中态：图标变蓝 */
     .status-switch[aria-pressed="true"] {
-      background: var(--ink-accent);
-      color: #fff;
+      color: var(--ink-accent);
     }
 
     .status-switch:active { transform: translateY(1px); }
@@ -409,7 +416,6 @@
       .workspace { padding: 24px; }
       .statusbar { gap: 12px; }
       .status-item--saved { display: none; }
-      .status-switch { min-width: 46px; padding-inline: 9px; }
     }
 
     @media (max-width: 767px) {
@@ -455,7 +461,7 @@
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         padding-bottom: env(safe-area-inset-bottom);
-        border-top: var(--shell-line);
+        border-top: var(--shell-line-soft);
         background: var(--ink-bg);
       }
 
@@ -866,6 +872,9 @@
     <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
     <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></symbol>
     <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></symbol>
+    <symbol id="icon-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M10 4v16"/></symbol>
+    <symbol id="icon-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M15 4v16"/></symbol>
+    <symbol id="icon-focus" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></symbol>
   </svg>
 
   <a class="skip-link" href="#workspace">跳到主工作区</a>
@@ -1093,9 +1102,9 @@
       <span class="status-item status-item--saved">已保存 <time class="status-mono" datetime="2026-08-15T10:32">10:32</time></span>
       <span class="status-sync"><span class="status-square status-square--sync" aria-hidden="true"></span><span>已同步</span></span>
       <span class="status-switches" aria-label="页面面板开关">
-        <button class="status-switch" type="button" aria-pressed="true" data-panel="侧栏">侧栏</button>
-        <button class="status-switch" type="button" aria-pressed="true" data-panel="检查器">检查器</button>
-        <button class="status-switch" type="button" aria-pressed="false" data-panel="专注">专注</button>
+        <button class="status-switch" type="button" aria-pressed="true" data-panel="侧栏" title="切换侧栏"><svg class="icon" aria-hidden="true"><use href="#icon-sidebar"/></svg></button>
+        <button class="status-switch" type="button" aria-pressed="true" data-panel="检查器" title="切换检查器"><svg class="icon" aria-hidden="true"><use href="#icon-panel"/></svg></button>
+        <button class="status-switch" type="button" aria-pressed="false" data-panel="专注" title="切换专注模式"><svg class="icon" aria-hidden="true"><use href="#icon-focus"/></svg></button>
       </span>
     </footer>
 
