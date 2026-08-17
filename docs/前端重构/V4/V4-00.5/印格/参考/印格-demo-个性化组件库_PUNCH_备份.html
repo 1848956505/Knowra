@@ -1,0 +1,3678 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#F2EFE6">
+  <title>印格 InkGrid · PUNCH · 个性化组件库 v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Bungee&family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@500;700;900&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,500;1,700&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       印格 PUNCH v2
+       继承印格零圆角 + 硬阴影的骨架，
+       用 P5R × 暗喻幻想 × 33号远征队的视觉语言重新赋形：
+       · 红黑主色、漫画分镜、拼贴 Ransom、半色调点阵
+       · 粗描边、倾斜、对话气泡、速度线、撕贴感
+       ============================================================ */
+    :root {
+      /* 核心三色 */
+      --punch-red: #E60012;
+      --punch-red-deep: #B3000E;
+      --punch-red-soft: #F8D7D9;
+      --punch-ink: #0A0A0A;
+      --punch-ink-2: #1A1A1A;
+      --punch-ink-soft: #2D2D2D;
+      --punch-paper: #F2EFE6;
+      --punch-paper-2: #E8E3D2;
+      --punch-white: #FFFFFF;
+      --punch-cream: #FAF6E8;
+
+      /* 辅助色 */
+      --punch-yellow: #F5D90A;
+      --punch-yellow-deep: #C9AC00;
+      --punch-blue: #1A4DFF;
+      --punch-blue-deep: #0F2E99;
+      --punch-gold: #C29A3B;
+      --punch-rose: #C4547A;
+      --punch-violet: #4E2D8A;
+      --punch-mint: #4FB29A;
+      --punch-coral: #FF5A3C;
+
+      /* 灰阶 */
+      --punch-gray-1: #C9C5BA;
+      --punch-gray-2: #888576;
+      --punch-gray-3: #555249;
+      --punch-gray-4: #2D2B26;
+
+      /* 字体 */
+      --font-display: "Bebas Neue", "Anton", "Noto Sans SC", sans-serif;
+      --font-block: "Archivo Black", "Bebas Neue", "Noto Sans SC", sans-serif;
+      --font-bungee: "Bungee", "Noto Sans SC", sans-serif;
+      --font-ui: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+      --font-serif: "Playfair Display", "Noto Serif SC", serif;
+      --font-hand: "Caveat", "Bradley Hand", cursive;
+
+      /* 描边与阴影 */
+      --stroke-thin: 2px solid var(--punch-ink);
+      --stroke-thick: 3px solid var(--punch-ink);
+      --stroke-hero: 5px solid var(--punch-ink);
+      --stroke-red: 3px solid var(--punch-red);
+      --stroke-red-thick: 5px solid var(--punch-red);
+      --shadow-p5: 5px 5px 0 var(--punch-ink);
+      --shadow-p5-red: 5px 5px 0 var(--punch-red);
+      --shadow-p5-sm: 3px 3px 0 var(--punch-ink);
+      --shadow-p5-yellow: 5px 5px 0 var(--punch-yellow);
+      --shadow-p5-blue: 5px 5px 0 var(--punch-blue);
+
+      /* 动效 */
+      --ease-p5: cubic-bezier(0.85, 0, 0.15, 1);
+      --ease-punch: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      --motion-fast: 120ms;
+      --motion-base: 200ms;
+      --motion-slow: 380ms;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--punch-ink);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.55;
+      background-color: var(--punch-paper);
+      background-image:
+        radial-gradient(circle, rgba(230, 0, 18, 0.06) 1.5px, transparent 2px);
+      background-size: 14px 14px;
+      background-attachment: fixed;
+    }
+
+    button { font: inherit; cursor: pointer; }
+    a { color: inherit; }
+
+    :focus-visible {
+      outline: 3px solid var(--punch-red);
+      outline-offset: 3px;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 48px 28px 120px;
+    }
+
+    /* ============================================================
+       0. HERO 标题屏（游戏 Title Screen 感）
+       ============================================================ */
+    .hero {
+      position: relative;
+      margin-bottom: 64px;
+      padding: 56px 48px 48px;
+      background: var(--punch-ink);
+      color: var(--punch-white);
+      border: 5px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5-red);
+      overflow: hidden;
+    }
+
+    /* 红色斜切背景块 */
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: -40px;
+      width: 60%;
+      height: 100%;
+      background: var(--punch-red);
+      clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%);
+      transform: skewX(-8deg);
+      transform-origin: top right;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      top: 16px;
+      left: 24px;
+      width: 64px;
+      height: 4px;
+      background: var(--punch-yellow);
+      box-shadow: 0 12px 0 var(--punch-yellow);
+    }
+
+    .hero-eyebrow {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 18px;
+      padding: 4px 12px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      font: 800 11px/1.2 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      transform: rotate(-1.5deg);
+      box-shadow: 3px 3px 0 var(--punch-ink);
+    }
+
+    .hero h1 {
+      position: relative;
+      margin: 0 0 4px;
+      font: 900 clamp(64px, 10vw, 132px)/0.85 var(--font-display);
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      color: var(--punch-white);
+    }
+    .hero h1 .accent { color: var(--punch-yellow); }
+    .hero h1 .red { color: var(--punch-red); }
+    .hero h1 .stroke {
+      -webkit-text-stroke: 3px var(--punch-white);
+      color: transparent;
+    }
+
+    .hero h2 {
+      position: relative;
+      margin: 4px 0 0;
+      font: 700 22px/1.3 var(--font-bungee);
+      letter-spacing: 0.04em;
+      color: var(--punch-white);
+      transform: translateX(8px) rotate(-1deg);
+    }
+
+    .hero-tagline {
+      position: relative;
+      max-width: 580px;
+      margin: 24px 0 0;
+      color: var(--punch-white);
+      font: 500 14px/1.75 var(--font-ui);
+      opacity: 0.92;
+    }
+    .hero-tagline strong { color: var(--punch-yellow); font-weight: 800; }
+
+    .hero-meta {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 2px solid rgba(255, 255, 255, 0.2);
+      font: 700 11px/1.4 var(--font-mono);
+      color: var(--punch-white);
+      letter-spacing: 0.06em;
+    }
+    .hero-meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hero-meta-item::before {
+      content: "▸";
+      color: var(--punch-yellow);
+    }
+
+    /* "PUSH START" 闪烁按钮 */
+    .hero-start {
+      position: relative;
+      display: inline-block;
+      margin-top: 20px;
+      padding: 10px 22px;
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font: 900 18px/1 var(--font-display);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border: 4px solid var(--punch-white);
+      box-shadow: 4px 4px 0 var(--punch-yellow);
+      animation: blink 1.4s steps(2, end) infinite;
+    }
+    @keyframes blink {
+      50% { background: transparent; color: var(--punch-white); }
+    }
+
+    .hero-floating {
+      position: absolute;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .hero-floating--shout {
+      top: 32px;
+      right: 36px;
+      width: 110px;
+      height: 110px;
+      display: grid;
+      place-items: center;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      font: 900 64px/1 var(--font-display);
+      clip-path: polygon(50% 0, 61% 24%, 88% 6%, 95% 35%, 100% 50%, 95% 65%, 88% 94%, 61% 76%, 50% 100%, 39% 76%, 12% 94%, 5% 65%, 0 50%, 5% 35%, 12% 6%, 39% 24%);
+      transform: rotate(8deg);
+    }
+    .hero-floating--shout::after {
+      content: "NEW!";
+      position: absolute;
+      font: 900 18px/1 var(--font-display);
+      letter-spacing: 0.06em;
+    }
+    .hero-floating--shout span { display: none; }
+
+    @media (max-width: 720px) {
+      .hero { padding: 36px 24px 28px; }
+      .hero::before { width: 100%; }
+      .hero-floating--shout { width: 72px; height: 72px; top: 18px; right: 18px; }
+      .hero-floating--shout::after { font-size: 12px; }
+    }
+
+    /* ============================================================
+       1. SECTION SCAFFOLD
+       ============================================================ */
+    .section {
+      margin-bottom: 80px;
+      scroll-margin-top: 24px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 8px;
+      padding-bottom: 12px;
+      border-bottom: 5px solid var(--punch-ink);
+      position: relative;
+    }
+    .section-head::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -5px;
+      width: 56px;
+      height: 5px;
+      background: var(--punch-red);
+    }
+
+    .section-num {
+      font: 900 16px/1 var(--font-display);
+      color: var(--punch-white);
+      background: var(--punch-ink);
+      padding: 4px 8px;
+      letter-spacing: 0.08em;
+    }
+
+    .section h2 {
+      margin: 0;
+      font: 900 32px/1.1 var(--font-display);
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+
+    .section-lead {
+      max-width: 760px;
+      margin: 16px 0 28px;
+      color: var(--punch-ink-soft);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .section-lead strong { color: var(--punch-red); font-weight: 800; }
+
+    .subsection {
+      margin-bottom: 32px;
+    }
+
+    .subsection-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 4px 12px;
+      background: var(--punch-ink);
+      color: var(--punch-paper);
+      font: 900 11px/1.2 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      transform: skewX(-6deg);
+    }
+    .subsection-label > span { transform: skewX(6deg); display: inline-block; }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+    }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+    @media (max-width: 960px) {
+      .grid-3, .grid-4, .grid-5, .grid-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6 { grid-template-columns: 1fr; }
+    }
+
+    .stage {
+      position: relative;
+      padding: 32px 24px 24px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-cream);
+      background-image:
+        radial-gradient(rgba(10, 10, 10, 0.08) 1px, transparent 1.5px);
+      background-size: 10px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+    }
+
+    .stage--col { flex-direction: column; align-items: stretch; }
+    .stage--start { justify-content: flex-start; }
+
+    .stage-tag {
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      padding: 4px 10px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 10px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .stage-caption {
+      flex-basis: 100%;
+      margin-top: 8px;
+      color: var(--punch-gray-3);
+      font: 500 11px/1.5 var(--font-mono);
+      text-align: center;
+    }
+    .stage--col .stage-caption { text-align: left; }
+
+    .dotted-divider {
+      border: 0;
+      height: 5px;
+      background: repeating-linear-gradient(90deg, var(--punch-ink) 0 8px, transparent 8px 16px);
+      margin: 32px 0;
+    }
+
+    .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+    .row--end { justify-content: flex-end; }
+    .row--between { justify-content: space-between; }
+
+    /* ============================================================
+       2. 通用装饰：半色调、速度线、对话气泡碎片
+       ============================================================ */
+    .halftone-red { background-image: radial-gradient(var(--punch-red) 1.5px, transparent 2px); background-size: 8px 8px; }
+    .halftone-ink { background-image: radial-gradient(var(--punch-ink) 1.5px, transparent 2px); background-size: 8px 8px; }
+    .halftone-yellow { background-image: radial-gradient(var(--punch-yellow) 2px, transparent 3px); background-size: 10px 10px; }
+
+    /* 速度线 */
+    .speed-lines {
+      position: relative;
+    }
+    .speed-lines::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-conic-gradient(
+        from 0deg at 50% 50%,
+        transparent 0deg 6deg,
+        var(--punch-ink) 6deg 8deg
+      );
+      opacity: 0.4;
+    }
+
+    /* 撕纸效果 (zigzag bottom) */
+    .torn-bottom {
+      clip-path: polygon(
+        0 0, 100% 0, 100% calc(100% - 14px),
+        96% 100%, 92% calc(100% - 14px), 88% 100%, 84% calc(100% - 14px), 80% 100%,
+        76% calc(100% - 14px), 72% 100%, 68% calc(100% - 14px), 64% 100%, 60% calc(100% - 14px),
+        56% 100%, 52% calc(100% - 14px), 48% 100%, 44% calc(100% - 14px), 40% 100%,
+        36% calc(100% - 14px), 32% 100%, 28% calc(100% - 14px), 24% 100%, 20% calc(100% - 14px),
+        16% 100%, 12% calc(100% - 14px), 8% 100%, 4% calc(100% - 14px), 0 100%
+      );
+    }
+
+    /* ============================================================
+       3. BUTTONS 按钮家族
+       ============================================================ */
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font: 800 13px/1 var(--font-block);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: var(--shadow-p5-sm);
+      transition: transform var(--motion-fast) var(--ease-p5),
+                  box-shadow var(--motion-fast) var(--ease-p5);
+    }
+    .btn:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--punch-ink); }
+    .btn:active { transform: translate(3px, 3px); box-shadow: none; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: var(--shadow-p5-sm); transform: none; }
+
+    .btn--sm { padding: 8px 14px; font-size: 11px; }
+    .btn--lg { padding: 16px 28px; font-size: 15px; }
+    .btn--icon { width: 44px; height: 44px; padding: 0; }
+    .btn--block { width: 100%; }
+
+    /* 主操作：红色块 */
+    .btn--red {
+      background: var(--punch-red);
+      color: var(--punch-white);
+      box-shadow: 5px 5px 0 var(--punch-ink);
+    }
+    .btn--red:hover { background: var(--punch-red-deep); box-shadow: 7px 7px 0 var(--punch-ink); }
+
+    /* 黑色块 */
+    .btn--ink {
+      background: var(--punch-ink);
+      color: var(--punch-white);
+    }
+    .btn--ink:hover { background: var(--punch-ink-2); }
+
+    /* 黄色告示 */
+    .btn--yellow {
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      box-shadow: 5px 5px 0 var(--punch-ink);
+    }
+    .btn--yellow:hover { background: #E5C800; }
+
+    /* 斜切按钮 (skew) */
+    .btn--skew {
+      transform: skewX(-12deg);
+      background: var(--punch-ink);
+      color: var(--punch-white);
+      box-shadow: 5px 5px 0 var(--punch-red);
+    }
+    .btn--skew > * { transform: skewX(12deg); display: inline-block; }
+    .btn--skew:hover { transform: skewX(-12deg) translate(-2px, -2px); box-shadow: 7px 7px 0 var(--punch-red); }
+    .btn--skew:active { transform: skewX(-12deg) translate(3px, 3px); }
+
+    /* 漫画对话框按钮 */
+    .btn--speech {
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      border: 3px solid var(--punch-ink);
+      border-radius: 24px;
+      padding: 12px 22px 12px 18px;
+      box-shadow: 5px 5px 0 var(--punch-ink);
+      font-family: var(--font-bungee);
+      text-transform: none;
+      letter-spacing: 0.02em;
+    }
+    .btn--speech::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      bottom: -10px;
+      width: 16px;
+      height: 12px;
+      background: var(--punch-white);
+      border-left: 3px solid var(--punch-ink);
+      border-bottom: 3px solid var(--punch-ink);
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+    }
+    .btn--speech:hover { background: var(--punch-yellow); }
+
+    /* "POW!" 爆炸按钮 */
+    .btn--burst {
+      background: var(--punch-red);
+      color: var(--punch-white);
+      padding: 14px 28px;
+      font-family: var(--font-bungee);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 15px;
+      clip-path: polygon(
+        0 50%, 8% 30%, 18% 48%, 30% 22%, 38% 50%, 50% 18%, 62% 50%, 70% 22%, 82% 48%, 92% 30%, 100% 50%,
+        92% 70%, 82% 52%, 70% 78%, 62% 50%, 50% 82%, 38% 50%, 30% 78%, 18% 52%, 8% 70%
+      );
+      box-shadow: 4px 4px 0 var(--punch-ink);
+      transition: transform var(--motion-fast) var(--ease-punch);
+    }
+    .btn--burst:hover { transform: rotate(-3deg) scale(1.05); box-shadow: 5px 5px 0 var(--punch-ink); }
+    .btn--burst:active { transform: scale(0.96); }
+
+    /* Ransom Note 拼贴按钮 - 字母大小不一 */
+    .btn--ransom {
+      padding: 10px 18px;
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font-family: var(--font-display);
+      font-size: 18px;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+      border: 4px solid var(--punch-ink);
+      box-shadow: 4px 4px 0 var(--punch-red);
+    }
+    .btn--ransom b:nth-child(1) { font-size: 24px; color: var(--punch-red); transform: rotate(-3deg) translateY(-2px); display: inline-block; }
+    .btn--ransom b:nth-child(2) { font-size: 16px; transform: rotate(2deg); display: inline-block; }
+    .btn--ransom b:nth-child(3) { font-size: 22px; color: var(--punch-blue); transform: rotate(-2deg); display: inline-block; }
+    .btn--ransom b:nth-child(4) { font-size: 18px; transform: rotate(3deg); display: inline-block; }
+    .btn--ransom b:nth-child(5) { font-size: 28px; color: var(--punch-red); transform: rotate(-1deg); display: inline-block; }
+
+    /* 3D 浮雕 P5R 风 */
+    .btn--p5 {
+      padding: 16px 28px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font-family: var(--font-bungee);
+      font-size: 16px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 3px solid var(--punch-ink);
+      box-shadow:
+        5px 5px 0 var(--punch-ink),
+        10px 10px 0 var(--punch-yellow);
+      transform: rotate(-1deg);
+    }
+    .btn--p5:hover {
+      transform: rotate(-1deg) translate(-2px, -2px);
+      box-shadow: 7px 7px 0 var(--punch-ink), 12px 12px 0 var(--punch-yellow);
+    }
+    .btn--p5:active { transform: rotate(-1deg) translate(5px, 5px); box-shadow: none; }
+
+    /* 鬼影按钮 */
+    .btn--ghost {
+      background: transparent;
+      box-shadow: none;
+      border: 3px dashed var(--punch-ink);
+    }
+    .btn--ghost:hover { background: var(--punch-ink); color: var(--punch-white); box-shadow: 5px 5px 0 var(--punch-red); }
+
+    /* "STAGE CLEAR" 巨型按钮 */
+    .btn--stage {
+      padding: 18px 36px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 4px solid var(--punch-yellow);
+      box-shadow: 6px 6px 0 var(--punch-red);
+      transform: skewX(-6deg);
+    }
+    .btn--stage > * { transform: skewX(6deg); display: inline-block; }
+    .btn--stage:hover { transform: skewX(-6deg) translate(-2px, -2px); box-shadow: 8px 8px 0 var(--punch-red); }
+
+    /* ============================================================
+       4. CARDS 卡片家族
+       ============================================================ */
+    .card {
+      position: relative;
+      padding: 22px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      box-shadow: var(--shadow-p5);
+    }
+
+    /* 4-A 黑框卡 */
+    .card--frame {
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-red);
+    }
+    .card--frame h3 {
+      margin: 0 0 6px;
+      font: 900 20px/1.2 var(--font-display);
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+    .card--frame p { margin: 0; color: var(--punch-ink-soft); font-size: 13px; line-height: 1.7; }
+
+    /* 4-B 红色斜切角卡 */
+    .card--slash {
+      padding: 28px 22px 22px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5);
+      overflow: hidden;
+    }
+    .card--slash::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 60%;
+      height: 18px;
+      background: var(--punch-red);
+      clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    .card--slash h3 {
+      margin: 0 0 8px;
+      font: 900 22px/1.2 var(--font-display);
+      text-transform: uppercase;
+    }
+    .card--slash p { margin: 0; color: var(--punch-ink-soft); font-size: 13px; line-height: 1.7; }
+
+    /* 4-C 预告信 (P5R Calling Card) */
+    .card--calling {
+      padding: 32px 28px;
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-red);
+      transform: rotate(-1.5deg);
+      position: relative;
+    }
+    .card--calling::before {
+      content: "";
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%) rotate(2deg);
+      width: 80px;
+      height: 18px;
+      background: var(--punch-ink);
+    }
+    .card--calling h3 {
+      margin: 8px 0 8px;
+      font: 900 32px/1 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .card--calling h3 .red { color: var(--punch-red); }
+    .card--calling h3 .stroke { -webkit-text-stroke: 2px var(--punch-ink); color: transparent; }
+    .card--calling p { margin: 0 0 12px; font: 700 14px/1.5 var(--font-bungee); }
+    .card--calling .signature {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px solid var(--punch-ink);
+      font: 900 11px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--punch-ink);
+    }
+    .card--calling .signature .red { color: var(--punch-red); }
+
+    /* 4-D 通缉令 (Wanted) */
+    .card--wanted {
+      padding: 18px;
+      background: var(--punch-paper-2);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-ink);
+      text-align: center;
+      transform: rotate(1.5deg);
+    }
+    .card--wanted-title {
+      font: 900 32px/1 var(--font-display);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin: 0 0 12px;
+      color: var(--punch-ink);
+    }
+    .card--wanted-amount {
+      font: 900 64px/1 var(--font-display);
+      color: var(--punch-red);
+      letter-spacing: -0.02em;
+      margin: 8px 0 4px;
+    }
+    .card--wanted-amount small {
+      display: block;
+      font: 700 12px/1 var(--font-mono);
+      color: var(--punch-ink);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .card--wanted-photo {
+      width: 100%;
+      aspect-ratio: 1;
+      margin-bottom: 12px;
+      background:
+        linear-gradient(135deg, transparent 45%, var(--punch-ink) 45%, var(--punch-ink) 55%, transparent 55%),
+        radial-gradient(circle, var(--punch-ink) 1.5px, transparent 2px) 0 0/6px 6px,
+        var(--punch-paper);
+      border: 3px solid var(--punch-ink);
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+    .card--wanted-photo::after {
+      content: "✕ ✕ ✕";
+      position: absolute;
+      font: 900 24px/1 var(--font-display);
+      color: var(--punch-red);
+      letter-spacing: 0.4em;
+    }
+
+    /* 4-E 杂志 (Magazine) */
+    .card--magazine {
+      padding: 0;
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-ink);
+      overflow: hidden;
+    }
+    .card--magazine-cover {
+      position: relative;
+      padding: 16px 18px;
+      background: var(--punch-ink);
+      color: var(--punch-white);
+    }
+    .card--magazine-cover::after {
+      content: "ISSUE 08";
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      font: 800 11px/1 var(--font-mono);
+      color: var(--punch-yellow);
+      letter-spacing: 0.18em;
+    }
+    .card--magazine-cover h3 {
+      margin: 0;
+      font: 900 28px/0.95 var(--font-display);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .card--magazine-cover .sub {
+      display: block;
+      margin-top: 4px;
+      font: 500 11px/1 var(--font-mono);
+      color: var(--punch-yellow);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .card--magazine-body {
+      padding: 16px 18px;
+      color: var(--punch-ink-soft);
+      font: 500 13px/1.7 var(--font-serif);
+    }
+    .card--magazine-body p { margin: 0 0 8px; }
+    .card--magazine-body em { font-style: italic; color: var(--punch-red); font-weight: 700; }
+
+    /* 4-F 数字卡 (Number Big) */
+    .card--number {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 18px;
+      padding: 20px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5);
+      align-items: center;
+    }
+    .card--number-num {
+      font: 900 64px/0.85 var(--font-display);
+      color: var(--punch-red);
+      letter-spacing: -0.04em;
+      -webkit-text-stroke: 2px var(--punch-ink);
+    }
+    .card--number h4 {
+      margin: 0 0 4px;
+      font: 900 16px/1.2 var(--font-display);
+      text-transform: uppercase;
+    }
+    .card--number p { margin: 0; color: var(--punch-ink-soft); font-size: 12px; line-height: 1.6; }
+
+    /* 4-G 半色调卡 (Halftone) */
+    .card--halftone {
+      padding: 24px 22px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5);
+      position: relative;
+      overflow: hidden;
+    }
+    .card--halftone::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100%;
+      background-image: radial-gradient(var(--punch-red) 2px, transparent 3px);
+      background-size: 8px 8px;
+      opacity: 0.8;
+      mask-image: linear-gradient(90deg, transparent 0%, #000 60%);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 60%);
+    }
+    .card--halftone h3 {
+      position: relative;
+      margin: 0 0 8px;
+      font: 900 22px/1.1 var(--font-display);
+      text-transform: uppercase;
+    }
+    .card--halftone p { position: relative; margin: 0; font-size: 13px; line-height: 1.7; }
+
+    /* 4-H 对话框 (Speech) */
+    .card--speech {
+      padding: 22px 24px;
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5);
+      border-radius: 28px;
+      position: relative;
+    }
+    .card--speech::before {
+      content: "";
+      position: absolute;
+      left: 32px;
+      bottom: -16px;
+      width: 24px;
+      height: 16px;
+      background: var(--punch-white);
+      border-left: 4px solid var(--punch-ink);
+      border-bottom: 4px solid var(--punch-ink);
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+    }
+    .card--speech::after {
+      content: "";
+      position: absolute;
+      left: 36px;
+      bottom: -22px;
+      width: 0;
+      height: 0;
+      border: 12px solid transparent;
+      border-top-color: var(--punch-white);
+    }
+    .card--speech h4 {
+      margin: 0 0 6px;
+      font: 900 14px/1 var(--font-bungee);
+      letter-spacing: 0.04em;
+    }
+    .card--speech p {
+      margin: 0;
+      font: 500 13px/1.6 var(--font-ui);
+      color: var(--punch-ink-soft);
+    }
+
+    /* 4-I 撕边卡 (Torn) */
+    .card--torn {
+      padding: 28px 24px 24px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5);
+      position: relative;
+    }
+    .card--torn::before {
+      content: "";
+      position: absolute;
+      top: -4px;
+      left: 0;
+      right: 0;
+      height: 12px;
+      background:
+        linear-gradient(135deg, var(--punch-white) 25%, transparent 25%) -6px 0/12px 12px,
+        linear-gradient(225deg, var(--punch-white) 25%, transparent 25%) 0 0/12px 12px,
+        var(--punch-ink);
+    }
+    .card--torn h3 {
+      margin: 0 0 6px;
+      font: 900 22px/1.1 var(--font-display);
+      text-transform: uppercase;
+    }
+    .card--torn p { margin: 0; font-size: 13px; line-height: 1.7; color: var(--punch-ink-soft); }
+
+    /* 4-J 告示板 (Bulletin) */
+    .card--bulletin {
+      padding: 24px;
+      background: var(--punch-yellow);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-ink);
+      transform: rotate(-1deg);
+      position: relative;
+    }
+    .card--bulletin::before {
+      content: "NOTICE";
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      padding: 2px 8px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 10px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      transform: rotate(2deg);
+    }
+    .card--bulletin h3 {
+      margin: 0 0 6px;
+      font: 900 24px/1.1 var(--font-display);
+      text-transform: uppercase;
+    }
+    .card--bulletin p { margin: 0; font-size: 13px; line-height: 1.7; }
+
+    /* ============================================================
+       5. INPUTS 输入家族
+       ============================================================ */
+    .input {
+      width: 100%;
+      max-width: 360px;
+      padding: 12px 14px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font: 700 14px/1.4 var(--font-ui);
+      box-shadow: var(--shadow-p5-sm);
+      transition: box-shadow var(--motion-fast) var(--ease-p5);
+    }
+    .input:focus { outline: none; box-shadow: 5px 5px 0 var(--punch-red); }
+    .input::placeholder { color: var(--punch-gray-2); font-weight: 500; }
+    .input--error { border-color: var(--punch-red); box-shadow: 5px 5px 0 var(--punch-red); background: var(--punch-red-soft); }
+
+    .field-label {
+      display: block;
+      margin-bottom: 6px;
+      font: 900 11px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--punch-ink);
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    .field-help {
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--punch-gray-3);
+    }
+    .field-help--err { color: var(--punch-red); font-weight: 700; }
+
+    /* 5-A 红色边输入 */
+    .input--red-edge {
+      border: 4px solid var(--punch-red);
+      box-shadow: 5px 5px 0 var(--punch-ink);
+      background: var(--punch-white);
+    }
+    .input--red-edge:focus { box-shadow: 7px 7px 0 var(--punch-ink); }
+
+    /* 5-B 黑底白字 (CMD 风) */
+    .input--cmd {
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      border: 3px solid var(--punch-ink);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      box-shadow: 5px 5px 0 var(--punch-red);
+    }
+    .input--cmd::placeholder { color: var(--punch-gray-2); }
+    .input--cmd:focus { box-shadow: 7px 7px 0 var(--punch-red); }
+
+    /* 5-C 倾斜输入 */
+    .input--skew {
+      transform: skewX(-6deg);
+      font-family: var(--font-display);
+      font-size: 18px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--punch-yellow);
+      border: 3px solid var(--punch-ink);
+      box-shadow: 5px 5px 0 var(--punch-ink);
+    }
+    .input--skew:focus { box-shadow: 7px 7px 0 var(--punch-red); }
+    .input--skew::placeholder { color: var(--punch-ink); font-weight: 700; }
+
+    /* 5-D 搜索 - 望远镜放大 */
+    .input--search {
+      position: relative;
+      padding-left: 44px;
+      background: var(--punch-white);
+    }
+    .input--search::before {
+      content: "";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      border: 3px solid var(--punch-ink);
+      border-radius: 50%;
+      transform: translateY(-50%);
+    }
+    .input--search::after {
+      content: "";
+      position: absolute;
+      left: 30px;
+      top: 50%;
+      width: 10px;
+      height: 3px;
+      background: var(--punch-ink);
+      transform: translateY(6px) rotate(45deg);
+    }
+    .input--search:focus { box-shadow: 5px 5px 0 var(--punch-red); }
+
+    /* ============================================================
+       6. TAGS 标签家族
+       ============================================================ */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font: 900 11px/1.4 var(--font-mono);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border: 2px solid var(--punch-ink);
+      background: var(--punch-white);
+      color: var(--punch-ink);
+    }
+
+    /* 6-A 数字大标签 */
+    .tag--num {
+      padding: 4px 8px 4px 6px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font-family: var(--font-display);
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    .tag--num small { font: 700 10px/1 var(--font-mono); color: var(--punch-white); margin-left: 2px; }
+
+    /* 6-B 卡牌花色 */
+    .tag--suit {
+      padding: 6px 12px;
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      line-height: 1;
+    }
+    .tag--suit--spade { color: var(--punch-ink); }
+    .tag--suit--heart { color: var(--punch-red); border-color: var(--punch-red); }
+    .tag--suit--diamond { color: var(--punch-red); border-color: var(--punch-red); }
+    .tag--suit--club { color: var(--punch-ink); }
+
+    /* 6-C 对话气泡 */
+    .tag--speech {
+      padding: 6px 14px 6px 12px;
+      border-radius: 18px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      position: relative;
+      font-family: var(--font-bungee);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+    .tag--speech::after {
+      content: "";
+      position: absolute;
+      left: 18px;
+      bottom: -8px;
+      border: 6px solid transparent;
+      border-top-color: var(--punch-yellow);
+    }
+
+    /* 6-D 红色爆炸 */
+    .tag--burst {
+      padding: 4px 10px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font-family: var(--font-bungee);
+      font-size: 11px;
+      clip-path: polygon(
+        0 50%, 12% 30%, 20% 50%, 30% 25%, 40% 50%, 50% 20%, 60% 50%, 70% 25%, 80% 50%, 88% 30%, 100% 50%,
+        88% 70%, 80% 50%, 70% 75%, 60% 50%, 50% 80%, 40% 50%, 30% 75%, 20% 50%, 12% 70%
+      );
+    }
+
+    /* 6-E 星标 */
+    .tag--star {
+      padding: 4px 10px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      font-family: var(--font-display);
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }
+    .tag--star::before { content: "★ "; }
+
+    /* 6-F 告示 */
+    .tag--notice {
+      padding: 4px 10px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font-family: var(--font-mono);
+      font-weight: 800;
+    }
+
+    /* 6-G 拼贴 ransom */
+    .tag--ransom {
+      padding: 6px 10px;
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font-family: var(--font-display);
+      font-size: 18px;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+    .tag--ransom b:nth-child(1) { font-size: 22px; color: var(--punch-red); transform: rotate(-2deg); display: inline-block; }
+    .tag--ransom b:nth-child(2) { font-size: 16px; transform: rotate(2deg); display: inline-block; }
+    .tag--ransom b:nth-child(3) { font-size: 24px; color: var(--punch-blue); transform: rotate(-1deg); display: inline-block; }
+
+    /* ============================================================
+       7. NAVIGATION 导航家族
+       ============================================================ */
+    .nav-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: var(--punch-ink);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-red);
+      min-width: 260px;
+    }
+    .nav-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--punch-white);
+      font: 900 16px/1 var(--font-display);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all var(--motion-fast) var(--ease-p5);
+    }
+    .nav-item:last-child { border-bottom: 0; }
+    .nav-item::before {
+      content: "▸";
+      margin-right: 12px;
+      color: var(--punch-red);
+      transition: transform var(--motion-fast) var(--ease-p5);
+    }
+    .nav-item:hover { background: var(--punch-red); padding-left: 28px; }
+    .nav-item:hover::before { transform: translateX(4px); }
+    .nav-item.is-active {
+      background: var(--punch-red);
+      color: var(--punch-white);
+    }
+    .nav-item.is-active::after {
+      content: "◀";
+      color: var(--punch-yellow);
+    }
+
+    /* 数字 Tab */
+    .nav-tabs {
+      display: flex;
+      gap: 0;
+      align-items: flex-end;
+    }
+    .nav-tab {
+      position: relative;
+      padding: 12px 18px 12px 14px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      color: var(--punch-ink);
+      font: 900 14px/1 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-right: -3px;
+    }
+    .nav-tab .num {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 0 4px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font-size: 12px;
+    }
+    .nav-tab:hover { background: var(--punch-yellow); }
+    .nav-tab.is-active {
+      background: var(--punch-red);
+      color: var(--punch-white);
+      z-index: 2;
+    }
+    .nav-tab.is-active .num { background: var(--punch-white); color: var(--punch-red); }
+
+    /* 任务进度 / 步骤条 */
+    .quest-line {
+      display: flex;
+      align-items: stretch;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      box-shadow: var(--shadow-p5);
+    }
+    .quest {
+      flex: 1;
+      position: relative;
+      padding: 14px 16px;
+      border-right: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+    }
+    .quest:last-child { border-right: 0; }
+    .quest small {
+      display: block;
+      font: 800 10px/1 var(--font-mono);
+      color: var(--punch-gray-3);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .quest b {
+      display: block;
+      font: 900 14px/1.2 var(--font-display);
+      color: var(--punch-ink);
+      text-transform: uppercase;
+    }
+    .quest.is-done { background: var(--punch-ink); }
+    .quest.is-done small, .quest.is-done b { color: var(--punch-white); }
+    .quest.is-done small { color: var(--punch-yellow); }
+    .quest.is-current { background: var(--punch-red); }
+    .quest.is-current small { color: var(--punch-yellow); }
+    .quest.is-current b { color: var(--punch-white); }
+
+    /* 面包屑 - 拼贴 */
+    .crumbs {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font: 800 12px/1.2 var(--font-mono);
+      color: var(--punch-ink);
+      letter-spacing: 0.04em;
+    }
+    .crumbs a { color: var(--punch-ink); text-decoration: none; }
+    .crumbs a:hover { color: var(--punch-red); text-decoration: underline wavy var(--punch-red); }
+    .crumbs .sep { color: var(--punch-red); font: 900 14px/1 var(--font-display); }
+    .crumbs .current {
+      padding: 3px 8px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      border: 2px solid var(--punch-ink);
+      font-weight: 900;
+    }
+
+    /* ============================================================
+       8. STATUS 状态反馈
+       ============================================================ */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      box-shadow: var(--shadow-p5);
+    }
+    .alert-icon {
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 900 18px/1 var(--font-display);
+    }
+    .alert-body { flex: 1; min-width: 0; }
+    .alert-title {
+      margin: 0 0 4px;
+      font: 900 16px/1.2 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .alert-text { margin: 0; color: var(--punch-ink-soft); font-size: 13px; line-height: 1.65; }
+
+    .alert--success { background: var(--punch-white); }
+    .alert--success .alert-icon { background: var(--punch-mint); color: var(--punch-ink); }
+    .alert--warning { background: var(--punch-yellow); }
+    .alert--warning .alert-icon { background: var(--punch-ink); color: var(--punch-yellow); }
+    .alert--danger { background: var(--punch-red); color: var(--punch-white); }
+    .alert--danger .alert-icon { background: var(--punch-white); color: var(--punch-red); }
+    .alert--danger .alert-text { color: rgba(255, 255, 255, 0.92); }
+
+    /* 8-A "POW!" 爆炸通知 */
+    .alert--burst {
+      background: var(--punch-red);
+      color: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-ink);
+      clip-path: polygon(
+        0 0, 92% 0, 96% 4%, 100% 8%, 100% 92%, 96% 96%, 92% 100%, 8% 100%, 4% 96%, 0 92%
+      );
+      padding: 18px 22px;
+    }
+    .alert--burst .alert-icon { background: var(--punch-yellow); color: var(--punch-ink); }
+    .alert--burst .alert-text { color: rgba(255, 255, 255, 0.92); }
+
+    /* 8-B 对话气泡通知 */
+    .alert--speech {
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      border-radius: 24px;
+      box-shadow: 5px 5px 0 var(--punch-red);
+      padding: 14px 20px;
+    }
+    .alert--speech::after {
+      content: "";
+      position: absolute;
+      left: 28px;
+      bottom: -10px;
+      border: 8px solid transparent;
+      border-top-color: var(--punch-white);
+    }
+
+    /* 8-C 黑底告示 */
+    .alert--notice {
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      border: 3px solid var(--punch-ink);
+      box-shadow: 5px 5px 0 var(--punch-yellow);
+    }
+    .alert--notice .alert-icon { background: var(--punch-yellow); color: var(--punch-ink); }
+    .alert--notice .alert-text { color: rgba(242, 239, 230, 0.85); }
+
+    /* 8-D 拼贴新消息 */
+    .alert--new {
+      background: var(--punch-yellow);
+      border: 3px solid var(--punch-ink);
+      transform: rotate(-1deg);
+    }
+    .alert--new .alert-icon { background: var(--punch-red); color: var(--punch-white); }
+
+    /* ============================================================
+       9. PROGRESS 进度与度量
+       ============================================================ */
+    .progress {
+      width: 100%;
+      height: 18px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--punch-ink);
+      transition: width var(--motion-base) var(--ease-p5);
+    }
+    .progress--red .progress-bar { background: var(--punch-red); }
+    .progress--yellow .progress-bar { background: var(--punch-yellow); }
+    .progress--blue .progress-bar { background: var(--punch-blue); }
+
+    /* 9-A 半色调条 */
+    .progress--halftone .progress-bar {
+      background: var(--punch-red);
+      background-image: radial-gradient(var(--punch-ink) 1.5px, transparent 2px);
+      background-size: 6px 6px;
+    }
+
+    /* 9-B 充能条 (JRPG 风格) */
+    .progress--charge {
+      height: 24px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-ink);
+    }
+    .progress--charge .progress-bar {
+      background:
+        repeating-linear-gradient(90deg, var(--punch-yellow) 0 4px, var(--punch-yellow-deep) 4px 8px);
+      box-shadow: inset 0 0 0 1px var(--punch-yellow);
+    }
+    .progress--charge::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: repeating-linear-gradient(90deg, transparent 0 19px, rgba(0, 0, 0, 0.4) 19px 22px);
+      pointer-events: none;
+    }
+
+    /* 9-C HP 槽 (血条) */
+    .hp-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hp-label {
+      font: 900 14px/1 var(--font-display);
+      color: var(--punch-white);
+      background: var(--punch-ink);
+      padding: 4px 8px;
+      letter-spacing: 0.06em;
+    }
+    .hp-track {
+      flex: 1;
+      height: 22px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-ink);
+      position: relative;
+      overflow: hidden;
+    }
+    .hp-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      background: var(--punch-red);
+      background-image: repeating-linear-gradient(90deg, var(--punch-red) 0 8px, var(--punch-red-deep) 8px 12px);
+    }
+    .hp-fill--mp { background: var(--punch-blue); background-image: repeating-linear-gradient(90deg, var(--punch-blue) 0 8px, var(--punch-blue-deep) 8px 12px); }
+    .hp-num {
+      font: 900 14px/1 var(--font-display);
+      color: var(--punch-ink);
+      letter-spacing: 0.02em;
+    }
+
+    /* 9-D 任务进度 (Quest) */
+    .quest-progress {
+      display: flex;
+      gap: 6px;
+    }
+    .quest-cell {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      font: 900 13px/1 var(--font-display);
+      color: var(--punch-gray-2);
+    }
+    .quest-cell.is-done { background: var(--punch-ink); color: var(--punch-yellow); }
+    .quest-cell.is-current { background: var(--punch-red); color: var(--punch-white); transform: scale(1.1); }
+
+    /* 9-E 数字大读数 */
+    .readout {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 12px 18px;
+      background: var(--punch-ink);
+      color: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: var(--shadow-p5);
+    }
+    .readout-label {
+      font: 700 10px/1 var(--font-mono);
+      color: var(--punch-yellow);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .readout-value {
+      font: 900 36px/1 var(--font-display);
+      color: var(--punch-white);
+      letter-spacing: -0.02em;
+      margin-top: 2px;
+    }
+    .readout--red { background: var(--punch-red); }
+    .readout--red .readout-label { color: var(--punch-white); }
+    .readout--yellow { background: var(--punch-yellow); color: var(--punch-ink); }
+    .readout--yellow .readout-label { color: var(--punch-ink); }
+    .readout--yellow .readout-value { color: var(--punch-ink); }
+
+    /* ============================================================
+       10. TOOLTIPS 浮层提示
+       ============================================================ */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip-pop {
+      position: absolute;
+      bottom: calc(100% + 14px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 12px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 900 11px/1.4 var(--font-mono);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      box-shadow: 3px 3px 0 var(--punch-red);
+    }
+    .tooltip-pop::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 7px solid transparent;
+      border-top-color: var(--punch-ink);
+    }
+
+    .tooltip-pop--speech {
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      border: 3px solid var(--punch-ink);
+      border-radius: 18px;
+      box-shadow: 4px 4px 0 var(--punch-red);
+      font-family: var(--font-bungee);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .tooltip-pop--speech::after { border-top-color: var(--punch-white); }
+
+    .tooltip-pop--red {
+      background: var(--punch-red);
+      color: var(--punch-white);
+      box-shadow: 3px 3px 0 var(--punch-ink);
+    }
+    .tooltip-pop--red::after { border-top-color: var(--punch-red); }
+
+    .tooltip-pop--burst {
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      box-shadow: 4px 4px 0 var(--punch-ink);
+      font-family: var(--font-bungee);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 14px;
+      clip-path: polygon(
+        0 50%, 12% 30%, 20% 50%, 30% 25%, 40% 50%, 50% 20%, 60% 50%, 70% 25%, 80% 50%, 88% 30%, 100% 50%,
+        88% 70%, 80% 50%, 70% 75%, 60% 50%, 50% 80%, 40% 50%, 30% 75%, 20% 50%, 12% 70%
+      );
+    }
+    .tooltip-pop--burst::after { display: none; }
+
+    .tooltip-pop--framed {
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      border: 3px solid var(--punch-ink);
+      box-shadow: 4px 4px 0 var(--punch-ink);
+      max-width: 220px;
+      width: 220px;
+      white-space: normal;
+      padding: 12px 14px;
+    }
+    .tooltip-pop--framed::after { display: none; }
+    .tooltip-pop--framed::before {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      background: var(--punch-white);
+      border-right: 3px solid var(--punch-ink);
+      border-bottom: 3px solid var(--punch-ink);
+      transform: translate(-50%, -6px) rotate(45deg);
+    }
+    .tooltip-pop--framed h6 {
+      margin: 0 0 4px;
+      font: 900 12px/1.2 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tooltip-pop--framed p { margin: 0; font: 500 11px/1.5 var(--font-ui); color: var(--punch-ink-soft); }
+
+    /* ============================================================
+       11. LISTS / TABLES
+       ============================================================ */
+    .quest-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      box-shadow: var(--shadow-p5);
+    }
+    .quest-row {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      border-bottom: 2px solid var(--punch-ink);
+    }
+    .quest-row:last-child { border-bottom: 0; }
+    .quest-row.is-done { background: var(--punch-ink); color: var(--punch-white); }
+    .quest-row.is-done .q-num { color: var(--punch-yellow); }
+    .quest-row.is-done .q-meta { color: var(--punch-gray-1); }
+    .quest-row.is-current {
+      background: var(--punch-red);
+      color: var(--punch-white);
+    }
+    .quest-row.is-current .q-num { background: var(--punch-white); color: var(--punch-red); }
+    .q-num {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 900 18px/1 var(--font-display);
+    }
+    .q-body h4 { margin: 0 0 4px; font: 900 16px/1.2 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; }
+    .q-body p { margin: 0; font-size: 12px; line-height: 1.55; opacity: 0.85; }
+    .q-meta {
+      font: 800 10px/1.4 var(--font-mono);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    /* 奖杯 / 成就 */
+    .trophy-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .trophy {
+      padding: 16px 12px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      box-shadow: var(--shadow-p5-sm);
+      text-align: center;
+    }
+    .trophy.is-locked { background: var(--punch-paper-2); opacity: 0.65; }
+    .trophy.is-locked .trophy-medal { background: var(--punch-gray-2); color: var(--punch-white); }
+    .trophy-medal {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 8px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      font: 900 24px/1 var(--font-display);
+      clip-path: polygon(50% 0, 61% 35%, 99% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 1% 35%, 39% 35%);
+    }
+    .trophy-name {
+      font: 900 12px/1.3 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .trophy-date {
+      display: block;
+      margin-top: 2px;
+      font: 700 10px/1 var(--font-mono);
+      color: var(--punch-gray-3);
+      letter-spacing: 0.1em;
+    }
+
+    /* 桌游式表格 */
+    .p5-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-white);
+      font: 700 13px/1.4 var(--font-mono);
+    }
+    .p5-table th,
+    .p5-table td {
+      padding: 10px 12px;
+      border: 2px solid var(--punch-ink);
+      text-align: left;
+    }
+    .p5-table th {
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 900 12px/1 var(--font-display);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .p5-table tr:nth-child(even) td { background: var(--punch-cream); }
+    .p5-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .p5-table .pos { color: var(--punch-mint); }
+    .p5-table .neg { color: var(--punch-red); }
+    .p5-table .marker {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: var(--punch-red);
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    /* ============================================================
+       12. MODALS / DIALOGS
+       ============================================================ */
+    .modal-demo {
+      position: relative;
+      padding: 32px 24px;
+      border: 3px dashed var(--punch-ink);
+      background:
+        radial-gradient(circle, rgba(10,10,10,0.08) 1px, transparent 2px) 0 0/10px 10px,
+        var(--punch-paper);
+      min-height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      position: relative;
+      background: var(--punch-white);
+      box-shadow: 8px 8px 0 var(--punch-ink);
+    }
+
+    /* 12-A 红色覆盖 (P5R 关键选择) */
+    .modal--p5 {
+      max-width: 360px;
+      padding: 28px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-ink);
+      clip-path: polygon(
+        0 0, 92% 0, 96% 4%, 100% 8%, 100% 92%, 96% 96%, 92% 100%, 8% 100%, 4% 96%, 0 92%
+      );
+    }
+    .modal--p5 h3 {
+      margin: 0 0 10px;
+      font: 900 24px/1.1 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .modal--p5 p {
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .modal--p5-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .modal--p5 .btn { background: var(--punch-white); color: var(--punch-red); border-color: var(--punch-ink); }
+    .modal--p5 .btn--ink { background: var(--punch-ink); color: var(--punch-white); }
+
+    /* 12-B 标题屏弹窗 */
+    .modal--title {
+      max-width: 420px;
+      padding: 32px 28px;
+      background: var(--punch-ink);
+      color: var(--punch-white);
+      border: 5px solid var(--punch-ink);
+      box-shadow: 10px 10px 0 var(--punch-red), 16px 16px 0 var(--punch-yellow);
+      text-align: center;
+    }
+    .modal--title h3 {
+      margin: 0 0 4px;
+      font: 900 48px/1 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .modal--title h3 .red { color: var(--punch-red); }
+    .modal--title h3 .yellow { color: var(--punch-yellow); }
+    .modal--title .sub {
+      margin: 0 0 18px;
+      font: 700 11px/1.4 var(--font-mono);
+      color: var(--punch-yellow);
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+    .modal--title p {
+      margin: 0 0 18px;
+      font: 500 13px/1.7 var(--font-ui);
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .modal--title-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* 12-C 通缉令弹窗 */
+    .modal--wanted {
+      max-width: 360px;
+      padding: 24px;
+      background: var(--punch-paper-2);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-ink);
+      text-align: center;
+    }
+    .modal--wanted-title {
+      font: 900 28px/1 var(--font-display);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin: 0 0 12px;
+    }
+    .modal--wanted-amount {
+      font: 900 56px/1 var(--font-display);
+      color: var(--punch-red);
+      letter-spacing: -0.02em;
+      margin: 8px 0 4px;
+    }
+    .modal--wanted-amount small {
+      display: block;
+      font: 800 11px/1 var(--font-mono);
+      color: var(--punch-ink);
+      letter-spacing: 0.12em;
+    }
+    .modal--wanted-photo {
+      width: 100%;
+      aspect-ratio: 1;
+      margin: 0 0 12px;
+      background:
+        linear-gradient(135deg, transparent 45%, var(--punch-ink) 45%, var(--punch-ink) 55%, transparent 55%),
+        radial-gradient(circle, var(--punch-ink) 1.5px, transparent 2px) 0 0/6px 6px,
+        var(--punch-paper);
+      border: 3px solid var(--punch-ink);
+      display: grid;
+      place-items: center;
+    }
+    .modal--wanted-photo::after {
+      content: "✕ ✕ ✕";
+      font: 900 24px/1 var(--font-display);
+      color: var(--punch-red);
+      letter-spacing: 0.4em;
+    }
+    .modal--wanted-actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+
+    /* 12-D 拼贴告示 */
+    .modal--notice {
+      max-width: 380px;
+      padding: 28px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-ink);
+      transform: rotate(-1deg);
+    }
+    .modal--notice::before {
+      content: "ALERT";
+      position: absolute;
+      top: -4px;
+      left: 12px;
+      padding: 4px 10px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 11px/1 var(--font-mono);
+      letter-spacing: 0.2em;
+      transform: rotate(-2deg);
+    }
+    .modal--notice h3 {
+      margin: 8px 0 10px;
+      font: 900 22px/1.1 var(--font-display);
+      text-transform: uppercase;
+    }
+    .modal--notice p { margin: 0 0 18px; font-size: 13px; line-height: 1.7; }
+    .modal--notice-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ============================================================
+       13. SPECIAL 特殊态
+       ============================================================ */
+    /* 13-A 标题屏 (Title Screen) */
+    .title-screen {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 36px 32px;
+      background: var(--punch-ink);
+      color: var(--punch-white);
+      border: 5px solid var(--punch-ink);
+      box-shadow: 10px 10px 0 var(--punch-red);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .title-screen::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: var(--punch-red);
+    }
+    .title-screen::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: var(--punch-yellow);
+    }
+    .title-screen-game {
+      font: 900 56px/0.9 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin: 16px 0 4px;
+    }
+    .title-screen-game .red { color: var(--punch-red); }
+    .title-screen-game .yellow { color: var(--punch-yellow); }
+    .title-screen-tag {
+      display: block;
+      margin: 0 0 20px;
+      font: 700 11px/1.4 var(--font-mono);
+      color: var(--punch-yellow);
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+    .title-screen-actions {
+      display: grid;
+      gap: 10px;
+      max-width: 260px;
+      margin: 0 auto;
+    }
+
+    /* 13-B 命令面板 */
+    .cmd {
+      max-width: 540px;
+      margin: 0 auto;
+      background: var(--punch-ink);
+      color: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-red);
+    }
+    .cmd-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 3px solid var(--punch-red);
+    }
+    .cmd-head::before {
+      content: ">";
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 16px/1 var(--font-mono);
+    }
+    .cmd-input {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      color: var(--punch-yellow);
+      font: 700 14px/1.4 var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+    .cmd-input:focus { outline: none; }
+    .cmd-kbd {
+      padding: 3px 6px;
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+    }
+    .cmd-list {
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .cmd-section-title {
+      padding: 8px 16px 4px;
+      color: var(--punch-yellow);
+      font: 900 10px/1 var(--font-mono);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      background: var(--punch-red);
+    }
+    .cmd-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+    }
+    .cmd-item:last-child { border-bottom: 0; }
+    .cmd-item.is-active { background: var(--punch-red); }
+    .cmd-item-ico {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      font: 900 12px/1 var(--font-mono);
+    }
+    .cmd-item-body { flex: 1; min-width: 0; }
+    .cmd-item-name {
+      font: 900 13px/1.2 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .cmd-item-desc {
+      display: block;
+      margin-top: 2px;
+      color: var(--punch-gray-1);
+      font: 500 11px/1.3 var(--font-mono);
+    }
+    .cmd-item-kbd {
+      padding: 3px 6px;
+      background: var(--punch-white);
+      color: var(--punch-ink);
+      font: 800 10px/1 var(--font-mono);
+    }
+
+    /* 13-C 空状态 */
+    .empty {
+      text-align: center;
+      padding: 32px 24px;
+    }
+    .empty-art {
+      position: relative;
+      width: 160px;
+      height: 100px;
+      margin: 0 auto 18px;
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-red);
+      transform: rotate(-2deg);
+      display: grid;
+      place-items: center;
+    }
+    .empty-art::before {
+      content: "?";
+      font: 900 64px/1 var(--font-display);
+      color: var(--punch-red);
+    }
+    .empty-title {
+      margin: 0 0 6px;
+      font: 900 20px/1.2 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .empty-text {
+      margin: 0 0 18px;
+      color: var(--punch-ink-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    /* 13-D 加载 */
+    .loading {
+      display: flex;
+      gap: 8px;
+    }
+    .loading-cell {
+      width: 24px;
+      height: 24px;
+      background: var(--punch-ink);
+      border: 3px solid var(--punch-ink);
+      animation: pulse-cell 1.2s var(--ease-p5) infinite;
+    }
+    .loading-cell:nth-child(2) { background: var(--punch-red); animation-delay: 0.15s; }
+    .loading-cell:nth-child(3) { background: var(--punch-yellow); animation-delay: 0.3s; }
+    @keyframes pulse-cell {
+      0%, 60%, 100% { transform: translateY(0) scale(1); }
+      30% { transform: translateY(-8px) scale(1.15); }
+    }
+
+    /* 13-E 错误 */
+    .error-screen {
+      max-width: 380px;
+      margin: 0 auto;
+      padding: 28px 24px 24px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 8px 8px 0 var(--punch-ink);
+      text-align: center;
+      transform: rotate(-1deg);
+    }
+    .error-code {
+      font: 900 72px/1 var(--font-display);
+      color: var(--punch-yellow);
+      letter-spacing: 0.04em;
+      margin: 0;
+      -webkit-text-stroke: 2px var(--punch-ink);
+    }
+    .error-title {
+      margin: 8px 0 6px;
+      font: 900 18px/1.2 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .error-text {
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .error-screen .btn { background: var(--punch-white); color: var(--punch-red); }
+    .error-screen .btn--ink { background: var(--punch-ink); color: var(--punch-white); }
+
+    /* ============================================================
+       14. DECO 装饰元素
+       ============================================================ */
+    .deco-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    @media (max-width: 960px) { .deco-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .deco-grid { grid-template-columns: 1fr; } }
+
+    .deco-card {
+      position: relative;
+      padding: 24px 16px 22px;
+      min-height: 160px;
+      border: 3px solid var(--punch-ink);
+      background: var(--punch-cream);
+      background-image: radial-gradient(rgba(10,10,10,0.1) 1px, transparent 2px);
+      background-size: 8px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .deco-card-tag {
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      padding: 3px 8px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 900 9px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+    }
+    .deco-card-name {
+      position: absolute;
+      bottom: 6px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font: 800 10px/1.2 var(--font-mono);
+      color: var(--punch-gray-3);
+      letter-spacing: 0.04em;
+    }
+    .deco-card-name code {
+      padding: 1px 4px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 800 10px/1.2 var(--font-mono);
+    }
+
+    /* 14-A 速度线 */
+    .speed-line {
+      display: block;
+      width: 100%;
+      height: 64px;
+      background:
+        repeating-linear-gradient(85deg, var(--punch-ink) 0 3px, transparent 3px 14px);
+    }
+
+    /* 14-B 半色调块 */
+    .ht-block {
+      display: block;
+      width: 96px;
+      height: 64px;
+    }
+    .ht-block--red { background-color: var(--punch-red); background-image: radial-gradient(var(--punch-ink) 2px, transparent 3px); background-size: 8px 8px; }
+    .ht-block--ink { background-color: var(--punch-ink); background-image: radial-gradient(var(--punch-white) 2px, transparent 3px); background-size: 8px 8px; }
+    .ht-block--yellow { background-color: var(--punch-yellow); background-image: radial-gradient(var(--punch-ink) 2px, transparent 3px); background-size: 8px 8px; }
+
+    /* 14-C 对话气泡 (multi-shape) */
+    .bubble {
+      display: inline-block;
+      padding: 12px 16px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: 4px 4px 0 var(--punch-ink);
+      font: 900 13px/1.2 var(--font-bungee);
+      color: var(--punch-ink);
+      position: relative;
+    }
+    .bubble--left::after {
+      content: "";
+      position: absolute;
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 8px solid transparent;
+      border-right-color: var(--punch-ink);
+    }
+    .bubble--right::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 8px solid transparent;
+      border-left-color: var(--punch-ink);
+    }
+    .bubble--thought {
+      border-radius: 32px;
+    }
+    .bubble--shout {
+      background: var(--punch-red);
+      color: var(--punch-white);
+      clip-path: polygon(
+        0 50%, 12% 30%, 20% 50%, 30% 25%, 40% 50%, 50% 20%, 60% 50%, 70% 25%, 80% 50%, 88% 30%, 100% 50%,
+        88% 70%, 80% 50%, 70% 75%, 60% 50%, 50% 80%, 40% 50%, 30% 75%, 20% 50%, 12% 70%
+      );
+    }
+
+    /* 14-D "!" 弹跳 */
+    .bang {
+      display: inline-grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 48px/1 var(--font-display);
+      clip-path: polygon(50% 0, 61% 24%, 88% 6%, 95% 35%, 100% 50%, 95% 65%, 88% 94%, 61% 76%, 50% 100%, 39% 76%, 12% 94%, 5% 65%, 0 50%, 5% 35%, 12% 6%, 39% 24%);
+      animation: bang-bounce 1.6s var(--ease-punch) infinite;
+    }
+    .bang--blue { background: var(--punch-blue); }
+    .bang--yellow { background: var(--punch-yellow); color: var(--punch-ink); }
+    @keyframes bang-bounce {
+      0%, 100% { transform: rotate(-6deg) scale(1); }
+      50% { transform: rotate(6deg) scale(1.08); }
+    }
+
+    /* 14-E 星标 */
+    .star-burst {
+      display: inline-grid;
+      place-items: center;
+      width: 72px;
+      height: 72px;
+      background: var(--punch-yellow);
+      color: var(--punch-ink);
+      font: 900 36px/1 var(--font-display);
+      clip-path: polygon(50% 0, 61% 35%, 99% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 1% 35%, 39% 35%);
+    }
+    .star-burst--red { background: var(--punch-red); color: var(--punch-white); }
+    .star-burst--ink { background: var(--punch-ink); color: var(--punch-yellow); }
+
+    /* 14-F 卡牌花色 */
+    .suit {
+      display: inline-grid;
+      place-items: center;
+      width: 48px;
+      height: 56px;
+      background: var(--punch-white);
+      border: 2px solid var(--punch-ink);
+      color: var(--punch-ink);
+      font: 900 32px/1 var(--font-display);
+      box-shadow: 2px 2px 0 var(--punch-ink);
+    }
+    .suit--red { color: var(--punch-red); border-color: var(--punch-red); box-shadow: 2px 2px 0 var(--punch-red); }
+
+    /* 14-G 撕纸边 (zigzag) */
+    .zigzag {
+      display: block;
+      width: 100%;
+      height: 18px;
+      background:
+        linear-gradient(135deg, var(--punch-ink) 25%, transparent 25%) -8px 0/16px 18px,
+        linear-gradient(225deg, var(--punch-ink) 25%, transparent 25%) 0 0/16px 18px,
+        var(--punch-paper);
+    }
+    .zigzag--red {
+      background:
+        linear-gradient(135deg, var(--punch-red) 25%, transparent 25%) -8px 0/16px 18px,
+        linear-gradient(225deg, var(--punch-red) 25%, transparent 25%) 0 0/16px 18px,
+        var(--punch-paper);
+    }
+
+    /* 14-H 拼贴块 (Ransom Block) */
+    .ransom-block {
+      display: inline-block;
+      padding: 8px 14px;
+      background: var(--punch-white);
+      border: 3px solid var(--punch-ink);
+      box-shadow: 3px 3px 0 var(--punch-red);
+      font-family: var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .ransom-block b:nth-child(1) { font-size: 20px; color: var(--punch-red); transform: rotate(-3deg); display: inline-block; }
+    .ransom-block b:nth-child(2) { font-size: 14px; transform: rotate(2deg); display: inline-block; }
+    .ransom-block b:nth-child(3) { font-size: 22px; color: var(--punch-blue); transform: rotate(-2deg); display: inline-block; }
+    .ransom-block b:nth-child(4) { font-size: 16px; transform: rotate(3deg); display: inline-block; }
+
+    /* 14-I 速度徽章 */
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--punch-ink);
+      color: var(--punch-yellow);
+      font: 900 10px/1.2 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .badge--red { background: var(--punch-red); color: var(--punch-white); }
+    .badge--yellow { background: var(--punch-yellow); color: var(--punch-ink); }
+
+    /* 14-J 卷曲 / Swirl */
+    .swirl {
+      display: inline-block;
+      width: 64px;
+      height: 64px;
+      border: 4px solid var(--punch-ink);
+      border-radius: 50%;
+      border-right-color: var(--punch-red);
+      border-bottom-color: var(--punch-red);
+      transform: rotate(45deg);
+    }
+    .swirl--small { width: 32px; height: 32px; border-width: 3px; }
+    .swirl--ink { border-color: var(--punch-ink); border-right-color: var(--punch-yellow); border-bottom-color: var(--punch-yellow); }
+
+    /* 14-K 巨大数字 */
+    .big-num {
+      display: inline-grid;
+      place-items: center;
+      font: 900 88px/1 var(--font-display);
+      color: var(--punch-red);
+      letter-spacing: -0.04em;
+      -webkit-text-stroke: 2px var(--punch-ink);
+    }
+    .big-num--yellow { color: var(--punch-yellow); }
+    .big-num--ink { color: var(--punch-ink); -webkit-text-stroke: 0; }
+
+    /* 14-L 准星 */
+    .crosshair {
+      position: relative;
+      display: inline-block;
+      width: 56px;
+      height: 56px;
+    }
+    .crosshair::before,
+    .crosshair::after {
+      content: "";
+      position: absolute;
+      background: var(--punch-red);
+    }
+    .crosshair::before {
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      transform: translateX(-50%);
+    }
+    .crosshair::after {
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 3px;
+      transform: translateY(-50%);
+    }
+
+    /* 14-M 圆点装饰 */
+    .dot-row {
+      display: inline-flex;
+      gap: 6px;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      background: var(--punch-ink);
+    }
+    .dot--red { background: var(--punch-red); }
+    .dot--yellow { background: var(--punch-yellow); }
+    .dot--white { background: var(--punch-white); border: 2px solid var(--punch-ink); }
+
+    /* 14-N 边框装饰 */
+    .frame-thick {
+      display: inline-block;
+      padding: 12px 16px;
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-red), 12px 12px 0 var(--punch-yellow);
+      font: 900 14px/1.2 var(--font-display);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* 14-O Banner Ribbon */
+    .ribbon {
+      display: inline-block;
+      padding: 10px 20px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 14px/1 var(--font-display);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      clip-path: polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%);
+    }
+    .ribbon--ink { background: var(--punch-ink); color: var(--punch-yellow); }
+    .ribbon--yellow { background: var(--punch-yellow); color: var(--punch-ink); }
+
+    /* ============================================================
+       场景 演示：把装饰组合
+       ============================================================ */
+    .stage-demo {
+      position: relative;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 48px 36px 40px;
+      background: var(--punch-paper);
+      background-image: radial-gradient(circle, rgba(230, 0, 18, 0.08) 1.5px, transparent 2px);
+      background-size: 16px 16px;
+      border: 4px solid var(--punch-ink);
+      box-shadow: 10px 10px 0 var(--punch-red);
+    }
+    .stage-demo-frame {
+      position: relative;
+      padding: 32px 28px;
+      background: var(--punch-white);
+      border: 4px solid var(--punch-ink);
+      box-shadow: 6px 6px 0 var(--punch-yellow);
+      max-width: 460px;
+      margin: 0 auto;
+    }
+    .stage-demo-frame h3 {
+      margin: 0 0 8px;
+      font: 900 28px/1.1 var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .stage-demo-frame p {
+      margin: 0 0 12px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .stage-demo-floating {
+      position: absolute;
+      pointer-events: none;
+    }
+    .stage-demo-floating--1 { top: 12px; left: 24px; }
+    .stage-demo-floating--2 { top: 18px; right: 24px; }
+    .stage-demo-floating--3 { bottom: 14px; left: 32px; }
+    .stage-demo-floating--4 { bottom: 18px; right: 36px; }
+    .stage-demo-floating--5 { top: 50%; left: 6px; transform: translateY(-50%); }
+
+    /* 状态徽章 (像 P5 那种) */
+    .stat-tag {
+      position: absolute;
+      top: -14px;
+      left: 18px;
+      padding: 4px 10px;
+      background: var(--punch-red);
+      color: var(--punch-white);
+      font: 900 10px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      transform: rotate(-1deg);
+    }
+    .stat-tag--ink { background: var(--punch-ink); color: var(--punch-yellow); }
+    .stat-tag--yellow { background: var(--punch-yellow); color: var(--punch-ink); }
+
+    /* 通用辅助 */
+    .marker-square { width: 8px; height: 8px; background: var(--punch-ink); display: inline-block; vertical-align: middle; margin-right: 6px; }
+    .marker-square--red { background: var(--punch-red); }
+    .marker-square--yellow { background: var(--punch-yellow); }
+
+    .footer {
+      margin-top: 64px;
+      padding: 24px;
+      border-top: 4px solid var(--punch-ink);
+      text-align: center;
+      color: var(--punch-ink-soft);
+      font: 700 12px/1.7 var(--font-mono);
+    }
+    .footer p { margin: 0 0 4px; letter-spacing: 0.06em; }
+    .footer a { color: var(--punch-red); }
+  </style>
+</head>
+<body>
+  <main class="page">
+
+    <!-- =====================================================
+         0. HERO
+         ===================================================== -->
+    <header class="hero">
+      <div class="hero-eyebrow">VERSION 2 · 印格 PUNCH</div>
+      <h1>印格 <span class="red">·</span> <span class="stroke">PUNCH</span></h1>
+      <h2>组件也要演 · 像游戏一样</h2>
+      <p class="hero-tagline">
+        继承印格零圆角骨架，用 <strong>P5R × 暗喻幻想 × 33号远征队</strong> 的视觉语言重新赋形：
+        <strong>红黑主色</strong>、<strong>漫画分镜</strong>、<strong>拼贴 Ransom</strong>、<strong>半色调点阵</strong>、<strong>速度线</strong>、<strong>对话气泡</strong>、<strong>撕贴感</strong>。
+      </p>
+      <div class="hero-meta">
+        <span class="hero-meta-item">2026-08-18</span>
+        <span class="hero-meta-item">12 组件家族</span>
+        <span class="hero-meta-item">70+ 变体</span>
+        <span class="hero-meta-item">15 类装饰元素</span>
+        <span class="hero-meta-item">v2.0</span>
+      </div>
+      <div class="hero-start">PUSH START</div>
+      <div class="hero-floating hero-floating--shout"><span>NEW</span></div>
+    </header>
+
+    <!-- =====================================================
+         01. BUTTONS
+         ===================================================== -->
+    <section class="section" id="buttons">
+      <div class="section-head">
+        <span class="section-num">01</span>
+        <h2>BUTTONS 按钮家族</h2>
+      </div>
+      <p class="section-lead">
+        按钮不再只是"按下去"。P5R 的红黑浮雕、暗喻幻想的工业衬线、33 号远征队的打钩宣告——每个按钮都有自己的"角色"和"台词"。
+        同一颗按钮，<strong>按下时像在演一段</strong>。
+      </p>
+
+      <div class="subsection">
+        <div class="subsection-label"><span>基础 · 黑 / 红 / 黄</span></div>
+        <div class="stage">
+          <span class="stage-tag">BASE</span>
+          <button class="btn">保存笔记</button>
+          <button class="btn btn--red">新建笔记</button>
+          <button class="btn btn--ink">打开</button>
+          <button class="btn btn--yellow">导出</button>
+          <button class="btn" disabled>禁用</button>
+          <button class="btn btn--sm">小号</button>
+          <button class="btn btn--lg">大号</button>
+          <button class="btn btn--icon" aria-label="更多">⋯</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label"><span>人格 · 斜切 / 对话 / 爆炸 / 拼贴 / 浮雕 / 鬼影 / 大舞台</span></div>
+        <div class="stage">
+          <span class="stage-tag">PERSONAS</span>
+          <button class="btn btn--skew"><span>SKL 启动</span></button>
+          <button class="btn btn--speech">你好吗</button>
+          <button class="btn btn--burst">POW!</button>
+          <button class="btn btn--ransom"><b>P</b><b>L</b><b>A</b><b>Y</b></button>
+          <button class="btn btn--p5">PALACE</button>
+          <button class="btn btn--ghost">取消</button>
+          <button class="btn btn--stage"><span>STAGE CLEAR</span></button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label"><span>状态 · hover 浮起 + 阴影放大 / active 塌入</span></div>
+        <div class="stage">
+          <span class="stage-tag">STATES</span>
+          <button class="btn btn--red">悬停我</button>
+          <button class="btn btn--p5">潜入宫殿</button>
+          <button class="btn btn--burst">攻击</button>
+          <button class="btn btn--skew"><span>SELECT</span></button>
+          <button class="btn btn--stage"><span>NEXT</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         02. CARDS
+         ===================================================== -->
+    <section class="section" id="cards">
+      <div class="section-head">
+        <span class="section-num">02</span>
+        <h2>CARDS 卡片家族</h2>
+      </div>
+      <p class="section-lead">
+        同一份内容，套上不同的"角色"就有不同气场：
+        套上 <strong>通缉令</strong>像在追人，套上 <strong>预告信</strong>像在宣战，套上 <strong>杂志封面</strong>像在讲故事。
+      </p>
+
+      <div class="grid grid-3">
+        <div>
+          <div class="subsection-label"><span>黑框卡</span></div>
+          <div class="stage">
+            <span class="stage-tag">FRAME</span>
+            <div class="card card--frame">
+              <h3>勾股定理</h3>
+              <p>直角三角形两直角边的平方和等于斜边的平方。常用构造法证明。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>红色斜切角卡</span></div>
+          <div class="stage">
+            <span class="stage-tag">SLASH</span>
+            <div class="card card--slash">
+              <h3>今日复盘</h3>
+              <p>3 张错题卡 · 1 套卷子 · 30 分钟笔记整理。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>预告信</span></div>
+          <div class="stage">
+            <span class="stage-tag">CALLING</span>
+            <div class="card card--calling">
+              <h3><span class="stroke">TAKE</span> <span class="red">YOUR</span> HEART</h3>
+              <p>8 月 18 日 · 怪盗团 · 印格笔记 · 复盘</p>
+              <div class="signature"><span class="red">▸</span> 印格 · 致三周后的我</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>通缉令</span></div>
+          <div class="stage">
+            <span class="stage-tag">WANTED</span>
+            <div class="card card--wanted">
+              <h4 class="card--wanted-title">WANTED</h4>
+              <div class="card--wanted-photo"></div>
+              <div class="card--wanted-amount">¥300<small>REWARD · 复习挑战</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>杂志封面</span></div>
+          <div class="stage">
+            <span class="stage-tag">MAGAZINE</span>
+            <div class="card--magazine">
+              <div class="card--magazine-cover">
+                <h3>STUDY<br>MAGAZINE</h3>
+                <span class="sub">教育 · 学习方法 · 心理</span>
+              </div>
+              <div class="card--magazine-body">
+                <p><em>"深度学习不是学的多，是学的深。"</em></p>
+                <p>本期专题：错题本的四种正确打开方式。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>数字卡</span></div>
+          <div class="stage">
+            <span class="stage-tag">NUMBER</span>
+            <div class="card card--number">
+              <div class="card--number-num">07</div>
+              <div>
+                <h4>第 7 章</h4>
+                <p>二次函数 · 顶点公式 · 28 道例题已整理完毕。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>半色调卡</span></div>
+          <div class="stage">
+            <span class="stage-tag">HALFTONE</span>
+            <div class="card card--halftone">
+              <h3>INCOMING!</h3>
+              <p>下周的模考范围已经确定，从今晚开始进入冲刺模式。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>对话框</span></div>
+          <div class="stage">
+            <span class="stage-tag">SPEECH</span>
+            <div class="card card--speech">
+              <h4>等等！我忘了——</h4>
+              <p>周三有英语课的口语测试，回家要再练一次自我介绍。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>撕边卡</span></div>
+          <div class="stage">
+            <span class="stage-tag">TORN</span>
+            <div class="card card--torn">
+              <h3>灵感碎片</h3>
+              <p>在草稿纸上随手记下的几个关键词，回家后再整理成笔记。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>告示板</span></div>
+          <div class="stage">
+            <span class="stage-tag">NOTICE</span>
+            <div class="card card--bulletin">
+              <h3>本周待办</h3>
+              <p>把 7 月份的笔记整理完，给三科各加一套错题卡。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         03. INPUTS
+         ===================================================== -->
+    <section class="section" id="inputs">
+      <div class="section-head">
+        <span class="section-num">03</span>
+        <h2>INPUTS 输入家族</h2>
+      </div>
+      <p class="section-lead">
+        输入框不再是"白底灰边"。红色边输入像在警告、<strong>黑底黄字</strong>像在输入命令密码、<strong>斜切输入</strong>像在贴告示。
+        输入的"语气"由你定。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>基础 · 默认 / 错误</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">BASE</span>
+            <div class="field">
+              <label class="field-label">笔记标题</label>
+              <input class="input" type="text" placeholder="输入标题…">
+            </div>
+            <div class="field">
+              <label class="field-label">错误态</label>
+              <input class="input input--error" type="text" value="不符合规范">
+              <span class="field-help field-help--err">× 标题不能包含特殊字符</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>红边 / 黑底黄字 / 斜切</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">PERSONAS</span>
+            <div class="field">
+              <label class="field-label">CRITICAL · 关键</label>
+              <input class="input input--red-edge" type="text" value="模考日期：8 月 24 日">
+            </div>
+            <div class="field">
+              <label class="field-label">CMD · 命令行</label>
+              <input class="input input--cmd" type="text" value="> export /notes/aug.md">
+            </div>
+            <div class="field">
+              <label class="field-label">SLANT · 倾斜</label>
+              <input class="input input--skew" type="text" value="找重点">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>搜索 · 望远镜放大</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">SEARCH</span>
+            <div class="field">
+              <label class="field-label">全站搜索</label>
+              <input class="input input--search" type="search" placeholder="搜索笔记、试题…">
+              <span class="field-help">⌘ K · 命令面板</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         04. TAGS
+         ===================================================== -->
+    <section class="section" id="tags">
+      <div class="section-head">
+        <span class="section-num">04</span>
+        <h2>TAGS & LABELS 标签家族</h2>
+      </div>
+      <p class="section-lead">
+        标签有"字号"：<strong>01 02 03</strong> 像章回、<strong>♠♥♦♣</strong> 像卡牌、<strong>★</strong> 像成就、<strong>POW!</strong> 像战斗。
+        不同形状的标签，贴在不同的地方。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>数字 · 卡牌花色</span></div>
+          <div class="stage">
+            <span class="stage-tag">NUMBER</span>
+            <span class="tag tag--num">01<small>第</small></span>
+            <span class="tag tag--num">02<small>第</small></span>
+            <span class="tag tag--num">33<small>EXP</small></span>
+            <span class="tag tag--suit tag--suit--spade">♠</span>
+            <span class="tag tag--suit tag--suit--heart">♥</span>
+            <span class="tag tag--suit tag--suit--diamond">♦</span>
+            <span class="tag tag--suit tag--suit--club">♣</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>对话 · 爆炸 · 星标</span></div>
+          <div class="stage">
+            <span class="stage-tag">SHAPES</span>
+            <span class="tag tag--speech">灵感</span>
+            <span class="tag tag--burst">NEW!</span>
+            <span class="tag tag--star">完成</span>
+            <span class="tag tag--notice">HOT</span>
+            <span class="tag tag--ransom"><b>P</b><b>L</b><b>A</b><b>Y</b></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         05. NAV
+         ===================================================== -->
+    <section class="section" id="nav">
+      <div class="section-head">
+        <span class="section-num">05</span>
+        <h2>NAVIGATION 导航家族</h2>
+      </div>
+      <p class="section-lead">
+        导航条变身成"<strong>怪盗团主菜单</strong>"，Tab 变身成"<strong>任务线</strong>"，
+        面包屑化身"<strong>拼贴指示牌</strong>"。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>主菜单 · 黑红 P5R</span></div>
+          <div class="stage" style="padding: 0;">
+            <span class="stage-tag">MENU</span>
+            <nav class="nav-menu" style="margin: 18px 0;">
+              <div class="nav-item"><span>笔记</span></div>
+              <div class="nav-item is-active"><span>知识库</span></div>
+              <div class="nav-item"><span>试题库</span></div>
+              <div class="nav-item"><span>执行</span></div>
+              <div class="nav-item"><span>设置</span></div>
+            </nav>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>数字 Tab · 章节</span></div>
+          <div class="stage" style="padding: 0;">
+            <span class="stage-tag">TABS</span>
+            <div class="nav-tabs" style="margin: 24px 18px 18px;">
+              <button class="nav-tab"><span class="num">01</span>笔记</button>
+              <button class="nav-tab is-active"><span class="num">02</span>知识库</button>
+              <button class="nav-tab"><span class="num">03</span>试题</button>
+              <button class="nav-tab"><span class="num">04</span>执行</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>任务线 · Quest</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">QUEST</span>
+            <div class="quest-line" style="max-width: 540px; width: 100%;">
+              <div class="quest is-done"><small>STEP 01</small><b>收集材料</b></div>
+              <div class="quest is-done"><small>STEP 02</small><b>整理笔记</b></div>
+              <div class="quest is-current"><small>STEP 03</small><b>串联考点</b></div>
+              <div class="quest"><small>STEP 04</small><b>错题复盘</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>面包屑 · 拼贴指示牌</span></div>
+          <div class="stage">
+            <span class="stage-tag">CRUMBS</span>
+            <nav class="crumbs">
+              <a href="#">笔记</a>
+              <span class="sep">/</span>
+              <a href="#">数学</a>
+              <span class="sep">/</span>
+              <a href="#">二次函数</a>
+              <span class="sep">/</span>
+              <span class="current">顶点公式</span>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         06. STATUS
+         ===================================================== -->
+    <section class="section" id="status">
+      <div class="section-head">
+        <span class="section-num">06</span>
+        <h2>STATUS 状态反馈</h2>
+      </div>
+      <p class="section-lead">
+        通知不再温和。<strong>成功</strong> 用薄荷绿、<strong>警告</strong> 用纯黄、<strong>危险</strong> 整个通知炸成红色、<strong>爆炸 POW</strong> 像被揍一拳。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>基础 · 成功 / 警告 / 危险</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">BASE</span>
+            <div class="alert alert--success">
+              <span class="alert-icon">✓</span>
+              <div class="alert-body">
+                <h4 class="alert-title">STAGE CLEAR</h4>
+                <p class="alert-text">笔记已保存到「数学 / 二次函数」目录下。</p>
+              </div>
+            </div>
+            <div class="alert alert--warning">
+              <span class="alert-icon">!</span>
+              <div class="alert-body">
+                <h4 class="alert-title">WARNING</h4>
+                <p class="alert-text">检测到 3 秒前的输入尚未写入，是否立即保存？</p>
+              </div>
+            </div>
+            <div class="alert alert--danger">
+              <span class="alert-icon">×</span>
+              <div class="alert-body">
+                <h4 class="alert-title">GAME OVER</h4>
+                <p class="alert-text">本地版本与远端发生冲突，请选择保留哪一份。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>人格 · 爆炸 / 对话 / 告示 / 拼贴新消息</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">PERSONAS</span>
+            <div class="alert alert--burst" style="position: relative;">
+              <span class="alert-icon">!</span>
+              <div class="alert-body">
+                <h4 class="alert-title">DAMAGE!</h4>
+                <p class="alert-text">误删了 3 张卡片，可以在回收站恢复。</p>
+              </div>
+            </div>
+            <div class="alert alert--speech" style="position: relative;">
+              <span class="alert-icon">→</span>
+              <div class="alert-body">
+                <h4 class="alert-title">等等！</h4>
+                <p class="alert-text">记得把书带回去，明天要还给图书馆。</p>
+              </div>
+            </div>
+            <div class="alert alert--notice">
+              <span class="alert-icon">↑</span>
+              <div class="alert-body">
+                <h4 class="alert-title">UPDATE 2.0</h4>
+                <p class="alert-text">新增了 14 个组件家族，建议重启应用后体验。</p>
+              </div>
+            </div>
+            <div class="alert alert--new">
+              <span class="alert-icon">★</span>
+              <div class="alert-body">
+                <h4 class="alert-title">NEW QUEST!</h4>
+                <p class="alert-text">新任务已解锁：完成 5 套数学卷即可获得勋章。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         07. PROGRESS
+         ===================================================== -->
+    <section class="section" id="progress">
+      <div class="section-head">
+        <span class="section-num">07</span>
+        <h2>PROGRESS 进度与度量</h2>
+      </div>
+      <p class="section-lead">
+        进度条变身成"<strong>充能槽</strong>"、"<strong>HP / MP</strong>"、"<strong>任务格子</strong>"、"<strong>大型读数</strong>"。
+        每个度量都有自己的舞台。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>基础 / 半色调 / 充能</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">BARS</span>
+            <div class="progress" style="max-width: 360px;"><div class="progress-bar" style="width: 45%;"></div></div>
+            <div class="progress progress--red" style="max-width: 360px;"><div class="progress-bar" style="width: 70%;"></div></div>
+            <div class="progress progress--halftone" style="max-width: 360px;"><div class="progress-bar" style="width: 55%;"></div></div>
+            <div class="progress progress--charge" style="max-width: 360px;"><div class="progress-bar" style="width: 80%;"></div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>HP / MP 槽</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">HP/MP</span>
+            <div class="hp-bar" style="max-width: 360px; width: 100%;">
+              <span class="hp-label">HP</span>
+              <div class="hp-track"><div class="hp-fill" style="width: 75%;"></div></div>
+              <span class="hp-num">75/100</span>
+            </div>
+            <div class="hp-bar" style="max-width: 360px; width: 100%;">
+              <span class="hp-label">MP</span>
+              <div class="hp-track"><div class="hp-fill hp-fill--mp" style="width: 45%;"></div></div>
+              <span class="hp-num">45/100</span>
+            </div>
+            <div class="hp-bar" style="max-width: 360px; width: 100%;">
+              <span class="hp-label" style="background: var(--punch-red); color: var(--punch-white);">!!</span>
+              <div class="hp-track"><div class="hp-fill" style="width: 12%;"></div></div>
+              <span class="hp-num">12/100</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>任务格子 · Quest</span></div>
+          <div class="stage">
+            <span class="stage-tag">QUEST</span>
+            <div class="quest-progress">
+              <div class="quest-cell is-done">✓</div>
+              <div class="quest-cell is-done">✓</div>
+              <div class="quest-cell is-done">✓</div>
+              <div class="quest-cell is-current">4</div>
+              <div class="quest-cell">5</div>
+              <div class="quest-cell">6</div>
+              <div class="quest-cell">7</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>大型数字读数</span></div>
+          <div class="stage">
+            <span class="stage-tag">READOUT</span>
+            <div class="readout">
+              <span class="readout-label">WPM</span>
+              <span class="readout-value">86</span>
+            </div>
+            <div class="readout readout--red">
+              <span class="readout-label">SCORE</span>
+              <span class="readout-value">12,480</span>
+            </div>
+            <div class="readout readout--yellow">
+              <span class="readout-label">STREAK</span>
+              <span class="readout-value">33</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         08. TOOLTIPS
+         ===================================================== -->
+    <section class="section" id="tooltips">
+      <div class="section-head">
+        <span class="section-num">08</span>
+        <h2>TOOLTIPS 浮层提示</h2>
+      </div>
+      <p class="section-lead">
+        提示也要"演出"：黑底黄字是命令、白色圆角是对话、红色爆炸是警告、黄色星爆是强调、引文提示是带上下文。
+      </p>
+
+      <div class="grid grid-4">
+        <div>
+          <div class="subsection-label"><span>基础 · 黑底黄字</span></div>
+          <div class="stage" style="padding: 56px 16px 16px;">
+            <span class="stage-tag">BASE</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop">新建笔记 · ⌘ N</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>对话框</span></div>
+          <div class="stage" style="padding: 56px 16px 16px;">
+            <span class="stage-tag">SPEECH</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop tooltip-pop--speech">灵感来了！</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>红色警告</span></div>
+          <div class="stage" style="padding: 56px 16px 16px;">
+            <span class="stage-tag">RED</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop tooltip-pop--red">DAMAGE!</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>黄色爆炸</span></div>
+          <div class="stage" style="padding: 70px 16px 16px;">
+            <span class="stage-tag">BURST</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop tooltip-pop--burst">POW!</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>画框引文</span></div>
+          <div class="stage" style="padding: 120px 16px 16px;">
+            <span class="stage-tag">FRAMED</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop tooltip-pop--framed">
+                <h6>勾股定理</h6>
+                <p>直角三角形两直角边的平方和等于斜边的平方。</p>
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         09. LISTS
+         ===================================================== -->
+    <section class="section" id="lists">
+      <div class="section-head">
+        <span class="section-num">09</span>
+        <h2>LISTS & TABLES 列表与表格</h2>
+      </div>
+      <p class="section-lead">
+        列表是任务面板、表格是战斗结算。每一行都有自己的"等级"和"完成态"。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>任务列表 · Quest</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">QUEST</span>
+            <ul class="quest-list" style="max-width: 480px; width: 100%;">
+              <li class="quest-row is-done">
+                <div class="q-num">01</div>
+                <div class="q-body"><h4>收集上周错题</h4><p>数学 12 道 · 英语 8 道 · 物理 5 道</p></div>
+                <span class="q-meta">DONE</span>
+              </li>
+              <li class="quest-row is-done">
+                <div class="q-num">02</div>
+                <div class="q-body"><h4>整理 7 月份笔记</h4><p>把分散在 3 处的笔记汇总到主目录</p></div>
+                <span class="q-meta">DONE</span>
+              </li>
+              <li class="quest-row is-current">
+                <div class="q-num">03</div>
+                <div class="q-body"><h4>串联高频考点</h4><p>用 1 张大图把 5 个章节的考点连起来</p></div>
+                <span class="q-meta">NOW</span>
+              </li>
+              <li class="quest-row">
+                <div class="q-num">04</div>
+                <div class="q-body"><h4>第一次模考</h4><p>全真模拟 90 分钟 · 数学</p></div>
+                <span class="q-meta">08-24</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>奖杯 · 成就</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">TROPHY</span>
+            <div class="trophy-grid" style="max-width: 360px; width: 100%;">
+              <div class="trophy">
+                <div class="trophy-medal">★</div>
+                <div class="trophy-name">首次通关</div>
+                <span class="trophy-date">08-01</span>
+              </div>
+              <div class="trophy">
+                <div class="trophy-medal">7</div>
+                <div class="trophy-name">7 日连击</div>
+                <span class="trophy-date">08-08</span>
+              </div>
+              <div class="trophy">
+                <div class="trophy-medal">★</div>
+                <div class="trophy-name">满分卷</div>
+                <span class="trophy-date">08-12</span>
+              </div>
+              <div class="trophy is-locked">
+                <div class="trophy-medal">?</div>
+                <div class="trophy-name">30 日连击</div>
+                <span class="trophy-date">LOCKED</span>
+              </div>
+              <div class="trophy is-locked">
+                <div class="trophy-medal">?</div>
+                <div class="trophy-name">百题斩</div>
+                <span class="trophy-date">LOCKED</span>
+              </div>
+              <div class="trophy is-locked">
+                <div class="trophy-medal">?</div>
+                <div class="trophy-name">冲刺王</div>
+                <span class="trophy-date">LOCKED</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>战斗结算表</span></div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">TABLE</span>
+            <table class="p5-table">
+              <thead>
+                <tr><th>DATE</th><th>QUEST</th><th>EXP</th><th>YEN</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>08-15</td><td><span class="marker"></span>完课证书</td><td class="num pos">+580</td><td class="num">+¥0</td></tr>
+                <tr><td>08-16</td><td><span class="marker"></span>冲刺周</td><td class="num pos">+320</td><td class="num">+¥0</td></tr>
+                <tr><td>08-17</td><td><span class="marker"></span>模考</td><td class="num pos">+1,200</td><td class="num">+¥0</td></tr>
+                <tr><td>08-18</td><td><span class="marker"></span>整理笔记</td><td class="num pos">+150</td><td class="num">+¥0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         10. MODALS
+         ===================================================== -->
+    <section class="section" id="modals">
+      <div class="section-head">
+        <span class="section-num">10</span>
+        <h2>MODALS & DIALOGS 弹窗</h2>
+      </div>
+      <p class="section-lead">
+        弹窗变身成"游戏里的关键瞬间"：<strong>红色覆盖</strong> 是关键选择、<strong>标题屏</strong> 是成就解锁、<strong>通缉令</strong> 是任务提示、<strong>黄色告示</strong> 是公告。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>红色覆盖 · 关键选择</span></div>
+          <div class="modal-demo">
+            <div class="modal modal--p5">
+              <h3>要改写这个想法吗？</h3>
+              <p>原版本已归档，修改后不可恢复。建议先复制一份到「草稿」再修改。</p>
+              <div class="modal--p5-actions">
+                <button class="btn">取消</button>
+                <button class="btn btn--ink">改写</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>标题屏 · 解锁成就</span></div>
+          <div class="modal-demo">
+            <div class="modal modal--title">
+              <h3><span class="yellow">STAGE</span> <span class="red">CLEAR</span></h3>
+              <p class="sub">— 印格 · 7 月份复习 —</p>
+              <p>已连续 33 天完成每日任务。获得「冲刺王」勋章 +「百题斩」称号。</p>
+              <div class="modal--title-actions">
+                <button class="btn btn--yellow">查看勋章</button>
+                <button class="btn">分享</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>通缉令 · 任务提示</span></div>
+          <div class="modal-demo">
+            <div class="modal modal--wanted">
+              <h4 class="modal--wanted-title">WANTED</h4>
+              <div class="modal--wanted-photo"></div>
+              <div class="modal--wanted-amount">¥300<small>REWARD · 复习挑战</small></div>
+              <div class="modal--wanted-actions">
+                <button class="btn">认领</button>
+                <button class="btn btn--ink">继续</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>拼贴告示 · 公告</span></div>
+          <div class="modal-demo">
+            <div class="modal modal--notice">
+              <h3>本周维护</h3>
+              <p>周日 02:00 – 04:00 系统升级，期间笔记将只读保存。完成后会自动同步所有未上传的更改。</p>
+              <div class="modal--notice-actions">
+                <button class="btn">知道了</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         11. SPECIAL
+         ===================================================== -->
+    <section class="section" id="special">
+      <div class="section-head">
+        <span class="section-num">11</span>
+        <h2>SPECIAL 特殊态</h2>
+      </div>
+      <p class="section-lead">
+        标题屏、命令面板、空状态、加载态、错误页——每一个都在演一段"游戏瞬间"。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label"><span>标题屏 · Title Screen</span></div>
+          <div class="stage">
+            <span class="stage-tag">TITLE</span>
+            <div class="title-screen">
+              <div class="title-screen-game">印<span class="red">格</span><span class="yellow">·</span>PUNCH</div>
+              <span class="title-screen-tag">INK · GRID · REBEL</span>
+              <div class="title-screen-actions">
+                <button class="btn btn--red">▶ NEW GAME</button>
+                <button class="btn">LOAD GAME</button>
+                <button class="btn btn--ghost">CONFIG</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>命令面板 · 黑底红边</span></div>
+          <div class="stage">
+            <span class="stage-tag">CMD</span>
+            <div class="cmd">
+              <div class="cmd-head">
+                <input class="cmd-input" type="text" placeholder="输入命令…" value="新">
+                <span class="cmd-kbd">ESC</span>
+              </div>
+              <div class="cmd-list">
+                <div class="cmd-section-title">即将送达</div>
+                <div class="cmd-item">
+                  <span class="cmd-item-ico">+</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">新建笔记</span>
+                    <span class="cmd-item-desc">在「数学 / 二次函数」下创建</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ N</span>
+                </div>
+                <div class="cmd-item is-active">
+                  <span class="cmd-item-ico">★</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">新建收藏夹</span>
+                    <span class="cmd-item-desc">汇总来自不同笔记的精选片段</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ ⇧ F</span>
+                </div>
+                <div class="cmd-section-title">命令</div>
+                <div class="cmd-item">
+                  <span class="cmd-item-ico">↗</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">切换主题</span>
+                    <span class="cmd-item-desc">战斗红 / 暗夜黑 / 默认</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ T</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>空状态 · ？卡</span></div>
+          <div class="stage">
+            <span class="stage-tag">EMPTY</span>
+            <div class="empty">
+              <div class="empty-art"></div>
+              <h4 class="empty-title">这里还没有关卡</h4>
+              <p class="empty-text">新建一张便签，或导入一篇文章开始</p>
+              <button class="btn btn--red">+ 新建</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>加载态 · 三方块脉冲</span></div>
+          <div class="stage stage--col">
+            <span class="stage-tag">LOADING</span>
+            <div class="loading">
+              <div class="loading-cell"></div>
+              <div class="loading-cell"></div>
+              <div class="loading-cell"></div>
+            </div>
+            <span class="stage-caption">LOADING · 战斗中…</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label"><span>错误页 · GAME OVER</span></div>
+          <div class="stage">
+            <span class="stage-tag">ERROR</span>
+            <div class="error-screen">
+              <p class="error-code">404</p>
+              <h4 class="error-title">这张牌被藏起来了</h4>
+              <p class="error-text">找不到你要的笔记，可能还没写完，也可能被归档。</p>
+              <div class="row" style="justify-content: center;">
+                <button class="btn btn--sm">回到主页</button>
+                <button class="btn btn--sm btn--ink">继续找</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="dotted-divider">
+
+    <!-- =====================================================
+         12. DECO 装饰元素
+         ===================================================== -->
+    <section class="section" id="deco">
+      <div class="section-head">
+        <span class="section-num">12</span>
+        <h2>DECO 装饰元素库</h2>
+      </div>
+      <p class="section-lead">
+        这是"<strong>游戏 UI 装饰点</strong>"，不是组件，是点缀物。把它们叠到任何元素上，
+        让页面从"<strong>展示柜</strong>"变成"<strong>战斗场景</strong>"。
+      </p>
+
+      <div class="deco-section" style="margin-bottom: 40px;">
+        <div class="subsection-label"><span>速度线 / 半色调 / 卡牌花色</span></div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">SPEED</span>
+            <span class="speed-line"></span>
+            <span class="deco-card-name"><code>.speed-line</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">HT · RED</span>
+            <span class="ht-block ht-block--red"></span>
+            <span class="deco-card-name"><code>.ht-block--red</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">HT · INK</span>
+            <span class="ht-block ht-block--ink"></span>
+            <span class="deco-card-name"><code>.ht-block--ink</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">HT · YELLOW</span>
+            <span class="ht-block ht-block--yellow"></span>
+            <span class="deco-card-name"><code>.ht-block--yellow</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">SPADE</span>
+            <span class="suit">♠</span>
+            <span class="deco-card-name"><code>.suit</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">HEART</span>
+            <span class="suit suit--red">♥</span>
+            <span class="deco-card-name"><code>.suit--red</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">DIAMOND</span>
+            <span class="suit suit--red">♦</span>
+            <span class="deco-card-name"><code>.suit--red</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CLUB</span>
+            <span class="suit">♣</span>
+            <span class="deco-card-name"><code>.suit</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section" style="margin-bottom: 40px;">
+        <div class="subsection-label"><span>对话气泡 / ！/ 星标 / 拼贴块</span></div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">BUBBLE</span>
+            <span class="bubble bubble--left">你好！</span>
+            <span class="deco-card-name"><code>.bubble--left</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BUBBLE</span>
+            <span class="bubble bubble--right">继续！</span>
+            <span class="deco-card-name"><code>.bubble--right</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">THOUGHT</span>
+            <span class="bubble bubble--thought">想想想…</span>
+            <span class="deco-card-name"><code>.bubble--thought</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">SHOUT</span>
+            <span class="bubble bubble--shout">POW!</span>
+            <span class="deco-card-name"><code>.bubble--shout</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BANG</span>
+            <span class="bang">!</span>
+            <span class="deco-card-name"><code>.bang</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BANG</span>
+            <span class="bang bang--blue">?</span>
+            <span class="deco-card-name"><code>.bang--blue</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">STAR</span>
+            <span class="star-burst">★</span>
+            <span class="deco-card-name"><code>.star-burst</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">RANSOM</span>
+            <span class="ransom-block"><b>P</b><b>L</b><b>A</b><b>Y</b></span>
+            <span class="deco-card-name"><code>.ransom-block</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section" style="margin-bottom: 40px;">
+        <div class="subsection-label"><span>撕纸 / 徽章 / 丝带 / 卷曲 / 准星 / 圆点 / 大数字 / 厚框</span></div>
+        <div class="deco-grid">
+          <div class="deco-card" style="flex-direction: column; gap: 6px;">
+            <span class="deco-card-tag">ZIGZAG</span>
+            <span class="zigzag" style="width: 100%;"></span>
+            <span class="zigzag--red" style="display: block; width: 100%; height: 18px;
+              background:
+                linear-gradient(135deg, var(--punch-red) 25%, transparent 25%) -8px 0/16px 18px,
+                linear-gradient(225deg, var(--punch-red) 25%, transparent 25%) 0 0/16px 18px,
+                var(--punch-paper);"></span>
+            <span class="deco-card-name"><code>.zigzag</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BADGE</span>
+            <div class="row" style="gap: 6px;">
+              <span class="badge">NEW</span>
+              <span class="badge badge--red">HOT</span>
+              <span class="badge badge--yellow">BETA</span>
+            </div>
+            <span class="deco-card-name"><code>.badge</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">RIBBON</span>
+            <div class="row" style="gap: 6px;">
+              <span class="ribbon">NEW QUEST</span>
+              <span class="ribbon ribbon--ink">REWARD</span>
+            </div>
+            <span class="deco-card-name"><code>.ribbon</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">SWIRL</span>
+            <span class="swirl"></span>
+            <span class="swirl swirl--ink"></span>
+            <span class="deco-card-name"><code>.swirl</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CROSSHAIR</span>
+            <span class="crosshair"></span>
+            <span class="deco-card-name"><code>.crosshair</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">DOTS</span>
+            <div class="row" style="gap: 6px;">
+              <span class="dot"></span>
+              <span class="dot dot--red"></span>
+              <span class="dot dot--yellow"></span>
+              <span class="dot dot--white"></span>
+              <span class="dot"></span>
+            </div>
+            <span class="deco-card-name"><code>.dot</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BIG NUM</span>
+            <div class="row" style="gap: 6px;">
+              <span class="big-num">33</span>
+              <span class="big-num big-num--yellow">07</span>
+            </div>
+            <span class="deco-card-name"><code>.big-num</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">FRAME</span>
+            <span class="frame-thick">PALACE</span>
+            <span class="deco-card-name"><code>.frame-thick</code></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         演示场景：把装饰组合成一张"游戏画面"
+         ===================================================== -->
+    <section class="section">
+      <div class="section-head">
+        <span class="section-num">★</span>
+        <h2>STAGE · 演示场景</h2>
+      </div>
+      <p class="section-lead">
+        一张完整的"游戏卡片"——把预告信、半色调背景、对话气泡、徽章、丝带、速度线、撕纸边全部堆在一张图里。
+        <strong>游戏 UI 就是要"信息密度高 + 装饰多"</strong>，让眼睛一直有东西可看。
+      </p>
+
+      <div class="stage-demo">
+        <div class="stage-demo-floating stage-demo-floating--1">
+          <span class="bang">!</span>
+        </div>
+        <div class="stage-demo-floating stage-demo-floating--2">
+          <span class="ribbon">NEW QUEST</span>
+        </div>
+        <div class="stage-demo-floating stage-demo-floating--3">
+          <span class="bubble bubble--thought">再想想…</span>
+        </div>
+        <div class="stage-demo-floating stage-demo-floating--4">
+          <span class="star-burst star-burst--red">★</span>
+        </div>
+
+        <div class="stage-demo-frame">
+          <span class="stat-tag">REVIEW</span>
+          <h3>勾股定理 <span style="color: var(--punch-red);">·</span> 复盘</h3>
+          <p>构造法的核心是"在图形里多画一条线"。下图把"勾股 + 面积"两种证明放在同一张图上对比。</p>
+          <div class="row" style="gap: 6px; margin-top: 6px;">
+            <span class="tag tag--num">08<small>月</small></span>
+            <span class="tag tag--suit tag--suit--spade">♠ 数学</span>
+            <span class="tag tag--suit tag--suit--heart">♥ 收藏</span>
+            <span class="tag tag--star">已掌握</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>印格 · PUNCH · 个性化组件库 v2.0</p>
+      <p>2026-08-18 · 基于印格基础库 · 风格重定向至 P5R × 暗喻幻想 × 33号远征队</p>
+      <p>墨格备份 v1（文具纸面）保留在 <a href="印格-demo-个性化组件库_文具纸面_备份.html">_文具纸面_备份.html</a></p>
+    </footer>
+
+  </main>
+
+  <script>
+    // 简单交互
+    document.querySelectorAll('.nav-menu').forEach((menu) => {
+      menu.querySelectorAll('.nav-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          menu.querySelectorAll('.nav-item').forEach((i) => i.classList.remove('is-active'));
+          item.classList.add('is-active');
+        });
+      });
+    });
+
+    document.querySelectorAll('.nav-tabs').forEach((group) => {
+      group.querySelectorAll('.nav-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          group.querySelectorAll('.nav-tab').forEach((t) => t.classList.remove('is-active'));
+          tab.classList.add('is-active');
+        });
+      });
+    });
+
+    document.querySelectorAll('.quest-line').forEach((group) => {
+      group.querySelectorAll('.quest').forEach((step) => {
+        step.addEventListener('click', () => {
+          group.querySelectorAll('.quest').forEach((s) => {
+            s.classList.remove('is-current', 'is-done');
+          });
+          step.classList.add('is-current');
+          let prev = step.previousElementSibling;
+          while (prev) {
+            prev.classList.add('is-done');
+            prev = prev.previousElementSibling;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

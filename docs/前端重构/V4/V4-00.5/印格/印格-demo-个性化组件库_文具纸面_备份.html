@@ -1,0 +1,4032 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content light">
+  <meta name="theme-color" content="#F9F7F2">
+  <title>印格 InkGrid · 个性化组件库 · 实验室 v0.1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       印格 · 个性化组件库 v0.1
+       继承印格基础色与硬阴影、零圆角、点阵、按压式动效
+       在此基础上加入「纸面 / 文具 / 印刷」隐喻，使组件会讲故事
+       ============================================================ */
+    :root {
+      /* 印格基础色（继承） */
+      --ink-bg: #F9F7F2;
+      --ink-surface: #FFFFFF;
+      --ink-sunken: #F4F1EA;
+      --ink: #1A1A1A;
+      --ink-secondary: #66635E;
+      --ink-muted: #AAA8A2;
+      --ink-panel: #E5E2DC;
+      --ink-dot: #D1D1D1;
+      --ink-accent: #2563EB;
+      --ink-accent-hover: #1D4ED8;
+      --ink-success: #16A34A;
+      --ink-warning: #EA580C;
+      --ink-danger: #DC2626;
+
+      /* 个性化扩展色（新增） */
+      --stamp-red: #C8342B;
+      --stamp-red-soft: #E8B4AE;
+      --stamp-red-bg: #F8E1DD;
+      --pencil: #2A2A2A;
+      --sticky-yellow: #FCEE96;
+      --sticky-yellow-shadow: #E8DA7E;
+      --sticky-pink: #F8C8CC;
+      --sticky-blue: #C7E0F0;
+      --sticky-green: #D4E8C8;
+      --tape-cream: #F0E4C2;
+      --tape-cream-soft: #F8EEDA;
+      --tape-blue: #B8D4E8;
+      --tape-pink: #F0C8D0;
+      --ledger-line: #A8BFA0;
+      --paperclip: #4A6B8A;
+      --pushpin-red: #D14843;
+      --pushpin-yellow: #F4C430;
+      --pushpin-blue: #4A90D9;
+      --pushpin-green: #5BA85B;
+      --telegram: #2D5A4E;
+      --telegram-bg: #D4E0DA;
+
+      /* 字体 */
+      --font-ui: "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+      --font-serif: "Noto Serif SC", "Songti SC", serif;
+      --font-hand: "Caveat", "Bradley Hand", "STXingkai", cursive;
+
+      /* 阴影 */
+      --shadow-1: 2px 2px 0 var(--ink);
+      --shadow-2: 3px 3px 0 var(--ink);
+      --shadow-3: 4px 4px 0 var(--ink);
+      --shadow-hero: 6px 6px 0 var(--ink);
+      --shadow-soft: 2px 2px 1px #6B6B6B;
+      --shadow-stamp: 1px 1px 0 rgba(200, 52, 43, 0.35);
+
+      /* 动效 */
+      --motion-fast: 120ms;
+      --motion-base: 180ms;
+      --motion-slow: 260ms;
+      --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.6;
+      background-color: var(--ink-bg);
+      background-image:
+        radial-gradient(var(--ink-dot) 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-attachment: fixed;
+    }
+
+    button { font: inherit; cursor: pointer; }
+    a { color: inherit; }
+
+    :focus-visible {
+      outline: 2px solid var(--ink-accent);
+      outline-offset: 2px;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 56px 28px 120px;
+    }
+
+    /* ============================================================
+       0. HERO
+       ============================================================ */
+    .hero {
+      position: relative;
+      padding: 56px 48px 48px;
+      margin-bottom: 64px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-hero);
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      pointer-events: none;
+    }
+
+    .hero::before {
+      left: -2px;
+      top: -2px;
+      border-left: 4px solid var(--ink);
+      border-top: 4px solid var(--ink);
+    }
+
+    .hero::after {
+      right: -2px;
+      bottom: -2px;
+      border-right: 4px solid var(--ink);
+      border-bottom: 4px solid var(--ink);
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 4px 10px;
+      border: 2px solid var(--ink);
+      background: var(--sticky-yellow);
+      font: 700 11px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      transform: rotate(-1.2deg);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    .hero-eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--stamp-red);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font: 900 clamp(36px, 6vw, 64px)/1.05 var(--font-ui);
+      letter-spacing: -0.04em;
+    }
+
+    .hero h1 .hand {
+      font-family: var(--font-hand);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--stamp-red);
+    }
+
+    .hero-tagline {
+      max-width: 660px;
+      margin: 20px 0 0;
+      color: var(--ink-secondary);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--ink-panel);
+      font: 500 12px/1.4 var(--font-mono);
+      color: var(--ink-secondary);
+    }
+
+    .hero-meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-meta-item::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--ink);
+    }
+
+    .hero-stamp {
+      position: absolute;
+      top: 32px;
+      right: 36px;
+      width: 96px;
+      height: 96px;
+      display: grid;
+      place-items: center;
+      border: 3px solid var(--stamp-red);
+      border-radius: 50%;
+      color: var(--stamp-red);
+      font: 800 11px/1.1 var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transform: rotate(14deg);
+      opacity: 0.92;
+      box-shadow: var(--shadow-stamp);
+    }
+
+    .hero-stamp::before,
+    .hero-stamp::after {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border: 1px solid var(--stamp-red);
+      border-radius: 50%;
+    }
+
+    .hero-stamp::after { inset: 12px; }
+
+    .hero-stamp-text {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-toc {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0;
+      margin-top: 36px;
+      border-top: 1px solid var(--ink);
+    }
+
+    .hero-toc-item {
+      padding: 14px 16px;
+      border-right: 1px solid var(--ink-panel);
+      border-bottom: 1px solid var(--ink-panel);
+      font: 500 12px/1.4 var(--font-mono);
+      color: var(--ink-secondary);
+    }
+
+    .hero-toc-item:last-child { border-right: 0; }
+
+    .hero-toc-item strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--ink);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+
+    @media (max-width: 720px) {
+      .hero { padding: 36px 24px 28px; }
+      .hero-stamp { width: 76px; height: 76px; top: 18px; right: 18px; font-size: 9px; }
+      .hero-toc { grid-template-columns: repeat(2, 1fr); }
+      .hero-toc-item:nth-child(2n) { border-right: 0; }
+    }
+
+    /* ============================================================
+       1. SECTION SCAFFOLD
+       ============================================================ */
+    .section {
+      margin-bottom: 80px;
+      scroll-margin-top: 24px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 8px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .section-num {
+      font: 800 13px/1 var(--font-mono);
+      color: var(--ink-accent);
+      letter-spacing: 0.14em;
+    }
+
+    .section h2 {
+      margin: 0;
+      font: 900 26px/1.2 var(--font-ui);
+      letter-spacing: -0.02em;
+    }
+
+    .section-lead {
+      max-width: 720px;
+      margin: 14px 0 24px;
+      color: var(--ink-secondary);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    .subsection {
+      margin-bottom: 32px;
+    }
+
+    .subsection-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 3px 10px;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 700 10px/1.4 var(--font-mono);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .subsection-label::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      background: var(--ink-bg);
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+    @media (max-width: 960px) {
+      .grid-3, .grid-4, .grid-5, .grid-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6 { grid-template-columns: 1fr; }
+    }
+
+    .stage {
+      position: relative;
+      padding: 28px 20px;
+      border: 1px solid var(--ink-panel);
+      background: var(--ink-surface);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+    }
+
+    .stage--col {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .stage--start { justify-content: flex-start; }
+
+    .stage-tag {
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      padding: 3px 8px;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 700 9px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .stage-caption {
+      flex-basis: 100%;
+      margin-top: 8px;
+      color: var(--ink-secondary);
+      font: 500 11px/1.5 var(--font-mono);
+      text-align: center;
+    }
+
+    .stage--col .stage-caption { text-align: left; }
+
+    .dotted-divider {
+      border: 0;
+      border-top: 1px dashed var(--ink-panel);
+      margin: 32px 0;
+    }
+
+    .label {
+      display: inline-block;
+      padding: 2px 6px;
+      background: var(--ink-sunken);
+      color: var(--ink-secondary);
+      font: 700 10px/1.4 var(--font-mono);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+    .row--end { justify-content: flex-end; }
+    .row--between { justify-content: space-between; }
+
+    /* ============================================================
+       2. 通用「加人格」基类
+       ============================================================ */
+    /* 错位旋转：让元素感觉"刚被手放在桌上" */
+    .tilt-1 { transform: rotate(-1deg); }
+    .tilt-1r { transform: rotate(1deg); }
+    .tilt-2 { transform: rotate(-2deg); }
+    .tilt-2r { transform: rotate(2deg); }
+    .tilt-3 { transform: rotate(-3deg); }
+    .tilt-3r { transform: rotate(3deg); }
+
+    /* 印刷套准十字（页面四角） */
+    .cross-mark {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      pointer-events: none;
+    }
+    .cross-mark::before,
+    .cross-mark::after {
+      content: "";
+      position: absolute;
+      background: var(--ink);
+    }
+    .cross-mark::before {
+      left: 50%;
+      top: 0;
+      width: 1px;
+      height: 100%;
+      transform: translateX(-50%);
+    }
+    .cross-mark::after {
+      top: 50%;
+      left: 0;
+      height: 1px;
+      width: 100%;
+      transform: translateY(-50%);
+    }
+    .cross-mark--tl { top: -10px; left: -10px; }
+    .cross-mark--tr { top: -10px; right: -10px; }
+    .cross-mark--bl { bottom: -10px; left: -10px; }
+    .cross-mark--br { bottom: -10px; right: -10px; }
+
+    /* ============================================================
+       3. BUTTONS 按钮家族（7 种人格）
+       ============================================================ */
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      color: var(--ink);
+      font: 700 13px/1 var(--font-ui);
+      letter-spacing: 0.01em;
+      box-shadow: var(--shadow-1);
+      transition:
+        transform var(--motion-fast) var(--ease),
+        box-shadow var(--motion-fast) var(--ease),
+        background var(--motion-fast) var(--ease);
+    }
+
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+    .btn:active { transform: translate(2px, 2px); box-shadow: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: var(--shadow-1); transform: none; }
+
+    .btn--primary { background: var(--ink-accent); color: #fff; }
+    .btn--primary:hover { background: var(--ink-accent-hover); }
+
+    .btn--ghost { box-shadow: none; background: transparent; }
+    .btn--ghost:hover { background: var(--ink-sunken); box-shadow: none; transform: none; }
+
+    .btn--sm { padding: 6px 12px; font-size: 12px; }
+    .btn--lg { padding: 12px 22px; font-size: 15px; }
+    .btn--icon { width: 36px; height: 36px; padding: 0; }
+
+    /* 3-A 印章按钮（红印） */
+    .btn--stamp {
+      padding: 9px 18px;
+      border: 2.5px solid var(--stamp-red);
+      color: var(--stamp-red);
+      background: transparent;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      box-shadow: 1px 1px 0 var(--stamp-red);
+      transform: rotate(-1.2deg);
+    }
+    .btn--stamp:hover { transform: rotate(-1.2deg) translate(-1px, -1px); box-shadow: 2px 2px 0 var(--stamp-red); }
+    .btn--stamp:active { transform: rotate(-1.2deg) translate(1px, 1px); box-shadow: none; }
+    .btn--stamp::after {
+      content: "已盖章";
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      padding: 1px 5px;
+      background: var(--stamp-red);
+      color: #fff;
+      font: 700 9px/1.4 var(--font-mono);
+      letter-spacing: 0.06em;
+    }
+
+    /* 3-B 打字机按键 */
+    .btn--key {
+      border-radius: 0;
+      border: 2px solid var(--ink);
+      background: linear-gradient(180deg, #FAFAFA 0%, #E8E5DE 100%);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      box-shadow:
+        0 4px 0 var(--ink),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+      min-width: 64px;
+    }
+    .btn--key:hover { transform: translateY(-1px); box-shadow: 0 5px 0 var(--ink), inset 0 -2px 0 rgba(0,0,0,0.08); }
+    .btn--key:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink), inset 0 -1px 0 rgba(0,0,0,0.08); }
+
+    /* 3-C 邮戳圆章 */
+    .btn--postmark {
+      width: 64px;
+      height: 64px;
+      padding: 0;
+      border: 2.5px dashed var(--ink);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink);
+      font: 800 10px/1.1 var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: none;
+      transform: rotate(8deg);
+    }
+    .btn--postmark:hover { background: var(--ink-sunken); transform: rotate(8deg) scale(1.04); box-shadow: none; }
+    .btn--postmark:active { transform: rotate(8deg) scale(0.96); }
+
+    /* 3-D 便签小条 */
+    .btn--sticky {
+      padding: 8px 14px;
+      background: var(--sticky-yellow);
+      box-shadow: var(--shadow-1);
+      font-family: var(--font-hand);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      transform: rotate(-1.5deg);
+    }
+    .btn--sticky:hover { background: var(--sticky-yellow); box-shadow: var(--shadow-2); transform: rotate(-1.5deg) translate(-1px, -1px); }
+    .btn--sticky:active { box-shadow: none; transform: rotate(-1.5deg) translate(2px, 2px); }
+
+    /* 3-E 3D 凸起 */
+    .btn--chunky {
+      padding: 14px 24px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      background: var(--ink);
+      color: var(--ink-bg);
+      box-shadow: var(--shadow-hero);
+      text-transform: uppercase;
+    }
+    .btn--chunky:hover { box-shadow: 7px 7px 0 var(--ink); transform: translate(-1px, -1px); }
+    .btn--chunky:active { box-shadow: 2px 2px 0 var(--ink); transform: translate(4px, 4px); }
+
+    /* 3-F 蓝印章 (Approved) */
+    .btn--seal {
+      padding: 9px 16px;
+      border: 2px solid var(--ink-accent);
+      color: var(--ink-accent);
+      background: transparent;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      transform: rotate(1.2deg);
+      box-shadow: 1px 1px 0 var(--ink-accent);
+    }
+    .btn--seal:hover { transform: rotate(1.2deg) translate(-1px, -1px); box-shadow: 2px 2px 0 var(--ink-accent); }
+    .btn--seal:active { transform: rotate(1.2deg) translate(1px, 1px); box-shadow: none; }
+
+    /* 3-G 别针按钮 */
+    .btn--clip {
+      padding-left: 28px;
+      position: relative;
+    }
+    .btn--clip::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      width: 14px;
+      height: 6px;
+      border: 1.5px solid var(--paperclip);
+      border-radius: 0 8px 8px 0;
+      border-left: 0;
+      transform: translateY(-50%) rotate(-12deg);
+    }
+
+    /* ============================================================
+       4. CARDS 卡片家族（8 种纸面物件）
+       ============================================================ */
+    .card {
+      position: relative;
+      padding: 20px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+    }
+
+    /* 4-A 便签纸 */
+    .card--note {
+      background: var(--sticky-yellow);
+      box-shadow:
+        var(--shadow-1),
+        inset 0 -2px 0 var(--sticky-yellow-shadow);
+      transform: rotate(-1.5deg);
+      min-height: 180px;
+    }
+    .card--note::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 32px;
+      height: 6px;
+      background: rgba(0, 0, 0, 0.12);
+    }
+    .card--note h3 {
+      margin: 16px 0 8px;
+      font: 800 18px/1.3 var(--font-ui);
+    }
+    .card--note p {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    /* 4-B 拍立得 */
+    .card--polaroid {
+      padding: 12px 12px 36px;
+      background: #FBF8EE;
+      box-shadow: var(--shadow-2);
+      transform: rotate(2deg);
+    }
+    .card--polaroid-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1.1;
+      background:
+        linear-gradient(135deg, transparent 40%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, transparent 60%),
+        repeating-linear-gradient(45deg, var(--ink-sunken) 0 6px, var(--ink-bg) 6px 12px);
+      border: 1px solid var(--ink-panel);
+    }
+    .card--polaroid-caption {
+      position: absolute;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font: 500 18px/1 var(--font-hand);
+      color: var(--ink);
+    }
+
+    /* 4-C 账本行 */
+    .card--ledger {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 27px,
+          var(--ledger-line) 27px,
+          var(--ledger-line) 28px
+        ),
+        var(--ink-bg);
+      box-shadow: var(--shadow-1);
+      border-left: 4px solid var(--ink);
+    }
+    .card--ledger-date {
+      font: 800 12px/1.2 var(--font-mono);
+      color: var(--ink);
+      letter-spacing: 0.04em;
+    }
+    .card--ledger-date small {
+      display: block;
+      margin-top: 4px;
+      color: var(--ink-secondary);
+      font-weight: 500;
+    }
+    .card--ledger-body h4 { margin: 0 0 4px; font: 800 14px/1.3 var(--font-ui); }
+    .card--ledger-body p { margin: 0; color: var(--ink-secondary); font-size: 12px; }
+    .card--ledger-amount {
+      font: 800 18px/1 var(--font-mono);
+      color: var(--ink);
+      letter-spacing: 0.02em;
+    }
+    .card--ledger-amount small {
+      display: block;
+      margin-top: 4px;
+      font: 500 10px/1 var(--font-mono);
+      color: var(--ink-secondary);
+      text-align: right;
+    }
+
+    /* 4-D 索引卡 */
+    .card--index {
+      background:
+        linear-gradient(to bottom, transparent 0, transparent 22px, var(--ink-accent) 22px, var(--ink-accent) 23px, transparent 23px) 0 0/100% 23px,
+        var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-2);
+      padding: 32px 20px 20px;
+    }
+    .card--index h3 {
+      margin: 0 0 12px;
+      font: 800 16px/1.3 var(--font-ui);
+    }
+    .card--index p {
+      margin: 0;
+      line-height: 23px;
+      color: var(--ink);
+    }
+
+    /* 4-E 明信片 */
+    .card--postcard {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      padding: 16px;
+      background: var(--ink-bg);
+      box-shadow: var(--shadow-2);
+      transform: rotate(-0.8deg);
+    }
+    .card--postcard-text {
+      padding: 12px;
+      background: var(--ink-surface);
+      border: 1px solid var(--ink-panel);
+    }
+    .card--postcard-text h4 {
+      margin: 0 0 8px;
+      font: 800 14px/1.3 var(--font-ui);
+    }
+    .card--postcard-text p {
+      margin: 0;
+      font: 500 13px/1.6 var(--font-hand);
+      font-size: 16px;
+      color: var(--ink);
+    }
+    .card--postcard-image {
+      position: relative;
+      background:
+        radial-gradient(circle at 20% 30%, var(--ink-accent) 0 4px, transparent 5px),
+        radial-gradient(circle at 70% 60%, var(--stamp-red) 0 4px, transparent 5px),
+        radial-gradient(circle at 50% 80%, var(--ink-warning) 0 3px, transparent 4px),
+        var(--ink-sunken);
+      border: 1px solid var(--ink-panel);
+    }
+    .card--postcard-stamp {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 28px;
+      height: 32px;
+      background: var(--stamp-red-bg);
+      border: 1.5px dashed var(--stamp-red);
+    }
+
+    /* 4-F 票根 */
+    .card--ticket {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-2);
+      position: relative;
+    }
+    .card--ticket::before,
+    .card--ticket::after {
+      content: "";
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .card--ticket::before { left: -8px; }
+    .card--ticket::after { right: -8px; }
+    .card--ticket-body h4 { margin: 0 0 6px; font: 800 16px/1.3 var(--font-ui); }
+    .card--ticket-body p { margin: 0; color: var(--ink-secondary); font-size: 12px; }
+    .card--ticket-stub {
+      padding: 4px 12px;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 800 12px/1.2 var(--font-mono);
+      letter-spacing: 0.1em;
+      text-align: center;
+      align-self: center;
+    }
+    .card--ticket-stub small { display: block; font-weight: 500; opacity: 0.7; }
+
+    /* 4-G 信封 */
+    .card--envelope {
+      padding: 24px;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-2);
+      position: relative;
+      min-height: 140px;
+    }
+    .card--envelope::before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border: 1.5px solid var(--ink-panel);
+      background:
+        linear-gradient(135deg, transparent 49%, var(--ink-panel) 49%, var(--ink-panel) 51%, transparent 51%),
+        linear-gradient(45deg, transparent 49%, var(--ink-panel) 49%, var(--ink-panel) 51%, transparent 51%);
+      background-size: 100% 100%;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+    .card--envelope h4 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 8px;
+      font: 800 14px/1.3 var(--font-ui);
+    }
+    .card--envelope p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      color: var(--ink-secondary);
+      font-size: 12px;
+    }
+    .card--envelope-seal {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      background: var(--stamp-red);
+      color: #fff;
+      font: 800 9px/1.1 var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.08em;
+      border-radius: 50%;
+      transform: rotate(8deg);
+      box-shadow: 0 0 0 2px var(--ink-bg), 0 0 0 3px var(--stamp-red);
+    }
+
+    /* 4-H 剪贴簿 */
+    .card--scrap {
+      padding: 28px 20px 20px;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-2);
+      position: relative;
+      min-height: 180px;
+    }
+    .card--scrap::before {
+      content: "";
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%) rotate(-3deg);
+      width: 96px;
+      height: 24px;
+      background: var(--tape-cream);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+    }
+    .card--scrap h4 { margin: 0 0 8px; font: 800 15px/1.3 var(--font-ui); }
+    .card--scrap p { margin: 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.7; }
+
+    /* ============================================================
+       5. INPUTS 输入家族（4 种纸面样式）
+       ============================================================ */
+    .input {
+      width: 100%;
+      max-width: 360px;
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      color: var(--ink);
+      font: 500 13px/1.4 var(--font-ui);
+      box-shadow: var(--shadow-1);
+      transition: box-shadow var(--motion-fast) var(--ease);
+    }
+    .input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-accent); }
+    .input::placeholder { color: var(--ink-muted); }
+    .input--error { border-color: var(--ink-danger); box-shadow: 2px 2px 0 var(--ink-danger); }
+
+    /* 5-A 横线纸 */
+    .input--lined {
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 27px,
+          var(--ink-accent) 27px,
+          var(--ink-accent) 28px
+        ),
+        var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-1);
+      line-height: 28px;
+      padding-top: 4px;
+    }
+
+    /* 5-B 方格纸 */
+    .input--grid {
+      background:
+        linear-gradient(to right, var(--ink-panel) 1px, transparent 1px) 0 0/24px 24px,
+        linear-gradient(to bottom, var(--ink-panel) 1px, transparent 1px) 0 0/24px 24px,
+        var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-1);
+    }
+
+    /* 5-C 胶带下划线 */
+    .input--tape {
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+      padding: 8px 0;
+    }
+    .input--tape:focus {
+      box-shadow: 0 2px 0 var(--ink-accent);
+      border-bottom-color: var(--ink-accent);
+    }
+
+    /* 5-D 打字机 */
+    .input--typewriter {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-1), inset 0 0 0 1px rgba(0,0,0,0.04);
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 6px;
+      font: 700 11px/1.4 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-help {
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--ink-secondary);
+    }
+
+    .field-help--err { color: var(--ink-danger); }
+
+    /* 5-E 搜索框：带望远镜图标 */
+    .input--search {
+      position: relative;
+      padding-left: 36px;
+    }
+    .input--search::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      transform: translateY(-50%);
+    }
+    .input--search::after {
+      content: "";
+      position: absolute;
+      left: 22px;
+      top: 50%;
+      width: 8px;
+      height: 2px;
+      background: var(--ink);
+      transform: translateY(2px) rotate(45deg);
+    }
+
+    /* ============================================================
+       6. TAGS & LABELS 标签家族（6 种纸面附着）
+       ============================================================ */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      font: 700 11px/1.4 var(--font-mono);
+      letter-spacing: 0.04em;
+      border: 1.5px solid var(--ink);
+      background: var(--ink-surface);
+    }
+
+    /* 6-A 胶带条 */
+    .tag--tape {
+      padding: 5px 12px;
+      background: var(--tape-cream);
+      border: 0;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.12);
+      transform: rotate(-2deg);
+      font-family: var(--font-ui);
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .tag--tape-blue { background: var(--tape-blue); transform: rotate(1.5deg); }
+    .tag--tape-pink { background: var(--tape-pink); transform: rotate(-1deg); }
+
+    /* 6-B 圆形印章 */
+    .tag--seal {
+      width: 56px;
+      height: 56px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 2.5px solid var(--stamp-red);
+      border-radius: 50%;
+      color: var(--stamp-red);
+      background: transparent;
+      font: 800 9px/1.1 var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transform: rotate(-6deg);
+      box-shadow: var(--shadow-stamp);
+    }
+    .tag--seal-blue { border-color: var(--ink-accent); color: var(--ink-accent); box-shadow: 1px 1px 0 rgba(37, 99, 235, 0.35); }
+    .tag--seal-green { border-color: var(--ink-success); color: var(--ink-success); box-shadow: 1px 1px 0 rgba(22, 163, 74, 0.35); }
+
+    /* 6-C 书签带 */
+    .tag--bookmark {
+      position: relative;
+      padding: 5px 10px 5px 8px;
+      background: var(--ink);
+      color: var(--ink-bg);
+      border: 0;
+    }
+    .tag--bookmark::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 100%;
+      border: 6px solid transparent;
+      border-right-color: var(--ink);
+      border-top-color: var(--ink);
+    }
+
+    /* 6-D 手写标签 */
+    .tag--hand {
+      padding: 4px 10px;
+      border: 0;
+      background: transparent;
+      font-family: var(--font-hand);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      transform: rotate(-1.5deg);
+    }
+    .tag--hand::before {
+      content: "";
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      background: var(--stamp-red);
+      border-radius: 50%;
+      transform: translateY(-3px);
+      margin-right: 6px;
+    }
+
+    /* 6-E 活页 tab */
+    .tag--tab {
+      padding: 6px 14px 8px;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      border-bottom: 0;
+      transform: translateY(2px);
+      position: relative;
+    }
+    .tag--tab.is-active {
+      background: var(--ink-surface);
+      transform: translateY(0);
+      z-index: 1;
+    }
+    .tag--tab.is-active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -2px;
+      height: 2px;
+      background: var(--ink-surface);
+    }
+
+    /* 6-F 边角角标（NEW/HOT/DRAFT） */
+    .tag--corner {
+      position: relative;
+      width: 56px;
+      height: 56px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      background: var(--stamp-red);
+      color: #fff;
+      font: 800 11px/1.1 var(--font-mono);
+      letter-spacing: 0.08em;
+      border: 0;
+      transform: rotate(8deg);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .tag--corner-yellow { background: var(--pushpin-yellow); color: var(--ink); }
+    .tag--corner-blue { background: var(--ink-accent); }
+
+    /* ============================================================
+       7. NAVIGATION 导航家族
+       ============================================================ */
+    /* 7-A 文件夹 Tab */
+    .nav-tabs {
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+      border-bottom: 2px solid var(--ink);
+    }
+    .nav-tab {
+      position: relative;
+      padding: 8px 16px 10px;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      border-bottom: 0;
+      font: 700 12px/1 var(--font-ui);
+      color: var(--ink-secondary);
+      cursor: pointer;
+      margin-right: -2px;
+      transform: translateY(2px);
+      transition: transform var(--motion-fast) var(--ease);
+    }
+    .nav-tab:hover { background: var(--ink-sunken); transform: translateY(1px); }
+    .nav-tab.is-active {
+      background: var(--ink-surface);
+      color: var(--ink);
+      transform: translateY(0);
+    }
+    .nav-tab.is-active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -2px;
+      height: 2px;
+      background: var(--ink-surface);
+    }
+
+    /* 7-B 步骤条 */
+    .stepper {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+    }
+    .step {
+      flex: 1;
+      position: relative;
+      padding: 12px 16px;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      font: 700 12px/1.3 var(--font-ui);
+    }
+    .step + .step { border-left: 0; }
+    .step::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border: 16px solid transparent;
+      border-left-color: var(--ink);
+      z-index: 1;
+    }
+    .step:last-child::after { display: none; }
+    .step::before {
+      content: "";
+      position: absolute;
+      right: -7px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border: 13px solid transparent;
+      border-left-color: var(--ink-surface);
+      z-index: 2;
+    }
+    .step small {
+      display: block;
+      margin-top: 2px;
+      color: var(--ink-secondary);
+      font: 500 10px/1 var(--font-mono);
+      letter-spacing: 0.08em;
+    }
+    .step.is-done { background: var(--ink); color: var(--ink-bg); }
+    .step.is-done::before { border-left-color: var(--ink); }
+    .step.is-current { background: var(--ink-accent); color: #fff; }
+    .step.is-current::before { border-left-color: var(--ink-accent); }
+
+    /* 7-C 面包屑（印章 + 斜线） */
+    .crumbs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font: 700 12px/1 var(--font-mono);
+      color: var(--ink-secondary);
+    }
+    .crumbs a {
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .crumbs a:hover { text-decoration: underline; text-decoration-thickness: 2px; }
+    .crumbs .sep {
+      color: var(--ink-muted);
+      font-weight: 400;
+    }
+    .crumbs .current {
+      padding: 2px 6px;
+      background: var(--sticky-yellow);
+      color: var(--ink);
+    }
+
+    /* 7-D 手风琴（带胶带） */
+    .accordion-item {
+      position: relative;
+      margin-bottom: -1px;
+      border: 1.5px solid var(--ink);
+      background: var(--ink-surface);
+    }
+    .accordion-head {
+      padding: 12px 16px;
+      font: 700 13px/1.3 var(--font-ui);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .accordion-head::before {
+      content: "▸";
+      font: 800 11px/1 var(--font-mono);
+      color: var(--ink-secondary);
+      transition: transform var(--motion-fast) var(--ease);
+    }
+    .accordion-item.is-open .accordion-head::before { transform: rotate(90deg); }
+    .accordion-body {
+      display: none;
+      padding: 0 16px 14px 32px;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .accordion-item.is-open .accordion-body { display: block; }
+    .accordion-item.is-taped::before {
+      content: "";
+      position: absolute;
+      top: -6px;
+      left: 24px;
+      width: 48px;
+      height: 14px;
+      background: var(--tape-cream);
+      transform: rotate(-2deg);
+      z-index: 2;
+    }
+
+    /* ============================================================
+       8. STATUS 状态反馈（5 种通知人格）
+       ============================================================ */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+    }
+    .alert-icon {
+      flex: 0 0 24px;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 800 12px/1 var(--font-mono);
+    }
+    .alert-body { flex: 1; }
+    .alert-title { margin: 0 0 2px; font: 800 13px/1.3 var(--font-ui); }
+    .alert-text { margin: 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.6; }
+    .alert--success { background: #ECFDF5; border-color: var(--ink-success); box-shadow: 2px 2px 0 var(--ink-success); }
+    .alert--success .alert-icon { background: var(--ink-success); }
+    .alert--warning { background: #FFF7ED; border-color: var(--ink-warning); box-shadow: 2px 2px 0 var(--ink-warning); }
+    .alert--warning .alert-icon { background: var(--ink-warning); }
+    .alert--danger { background: #FEF2F2; border-color: var(--ink-danger); box-shadow: 2px 2px 0 var(--ink-danger); }
+    .alert--danger .alert-icon { background: var(--ink-danger); }
+
+    /* 8-A 邮戳批准 */
+    .alert--postmark {
+      position: relative;
+      padding-right: 96px;
+      background: var(--ink-surface);
+    }
+    .alert--postmark .stamp-seal {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%) rotate(12deg);
+      width: 72px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+      border: 3px solid var(--stamp-red);
+      border-radius: 50%;
+      color: var(--stamp-red);
+      font: 800 11px/1.1 var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .alert--postmark .stamp-seal::before,
+    .alert--postmark .stamp-seal::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border: 1px solid var(--stamp-red);
+      border-radius: 50%;
+    }
+    .alert--postmark .stamp-seal::after { inset: 9px; }
+
+    /* 8-B 便签提醒 */
+    .alert--sticky {
+      background: var(--sticky-yellow);
+      transform: rotate(-0.8deg);
+      box-shadow: var(--shadow-1);
+    }
+    .alert--sticky .alert-icon { background: var(--stamp-red); color: #fff; }
+
+    /* 8-C 复古电报 */
+    .alert--telegram {
+      background: var(--telegram-bg);
+      color: var(--telegram);
+      border-color: var(--telegram);
+      box-shadow: 2px 2px 0 var(--telegram);
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+    .alert--telegram .alert-icon { background: var(--telegram); color: var(--telegram-bg); }
+    .alert--telegram .alert-title { font-family: var(--font-mono); }
+    .alert--telegram::before {
+      content: "TGM";
+      position: absolute;
+      top: -8px;
+      right: 12px;
+      padding: 2px 6px;
+      background: var(--telegram);
+      color: var(--telegram-bg);
+      font: 800 9px/1 var(--font-mono);
+      letter-spacing: 0.1em;
+    }
+
+    /* 8-D 票据成功 */
+    .alert--ticket {
+      background: var(--ink-surface);
+      padding-left: 0;
+      gap: 0;
+    }
+    .alert--ticket .alert-stub {
+      flex: 0 0 80px;
+      padding: 14px 12px;
+      background: var(--ink-success);
+      color: #fff;
+      text-align: center;
+      font: 800 10px/1.3 var(--font-mono);
+      letter-spacing: 0.12em;
+    }
+    .alert--ticket .alert-stub::after {
+      content: "";
+      display: block;
+      height: 1px;
+      margin-top: 6px;
+      background: rgba(255,255,255,0.4);
+    }
+    .alert--ticket .alert-body { padding: 14px 16px; }
+    .alert--ticket .alert-icon { display: none; }
+
+    /* ============================================================
+       9. PROGRESS 进度与度量
+       ============================================================ */
+    .progress {
+      width: 100%;
+      height: 12px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--ink);
+      transition: width var(--motion-base) var(--ease);
+    }
+    .progress--accent .progress-bar { background: var(--ink-accent); }
+    .progress--success .progress-bar { background: var(--ink-success); }
+
+    /* 9-A 尺子刻度 */
+    .progress--ruler {
+      height: 28px;
+      background:
+        repeating-linear-gradient(to right, var(--ink) 0 1px, transparent 1px 12px),
+        var(--ink-bg);
+      border: 2px solid var(--ink);
+    }
+    .progress--ruler .progress-bar {
+      position: relative;
+      background: rgba(37, 99, 235, 0.18);
+    }
+    .progress--ruler .progress-bar::after {
+      content: attr(data-value);
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      font: 800 11px/1 var(--font-mono);
+      color: var(--ink-accent);
+    }
+
+    /* 9-B 账本条纹 */
+    .progress--ledger {
+      height: 24px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      position: relative;
+    }
+    .progress--ledger .progress-bar {
+      background: var(--ink);
+      background-image: repeating-linear-gradient(
+        45deg,
+        transparent 0 6px,
+        rgba(255, 255, 255, 0.2) 6px 12px
+      );
+    }
+    .progress--ledger::before,
+    .progress--ledger::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--ink-panel);
+    }
+    .progress--ledger::before { left: 25%; }
+    .progress--ledger::after { left: 50%; }
+
+    /* 9-C 骰子点数（5/5/5/2） */
+    .dice-progress {
+      display: flex;
+      gap: 6px;
+    }
+    .dice {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      padding: 5px;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-1);
+    }
+    .dice-dot {
+      background: var(--ink);
+      border-radius: 50%;
+    }
+    .dice.is-on { background: var(--ink); }
+    .dice.is-on .dice-dot { background: var(--ink-bg); }
+    .dice-pip-1 { grid-area: 2 / 2; }
+    .dice-pip-2a { grid-area: 1 / 1; }
+    .dice-pip-2b { grid-area: 3 / 3; }
+    .dice-pip-3a { grid-area: 1 / 1; }
+    .dice-pip-3b { grid-area: 2 / 2; }
+    .dice-pip-3c { grid-area: 3 / 3; }
+    .dice-pip-4a { grid-area: 1 / 1; }
+    .dice-pip-4b { grid-area: 1 / 3; }
+    .dice-pip-4c { grid-area: 3 / 1; }
+    .dice-pip-4d { grid-area: 3 / 3; }
+    .dice-pip-5a { grid-area: 1 / 1; }
+    .dice-pip-5b { grid-area: 1 / 3; }
+    .dice-pip-5c { grid-area: 2 / 2; }
+    .dice-pip-5d { grid-area: 3 / 1; }
+    .dice-pip-5e { grid-area: 3 / 3; }
+    .dice-pip-6a { grid-area: 1 / 1; }
+    .dice-pip-6b { grid-area: 1 / 3; }
+    .dice-pip-6c { grid-area: 2 / 1; }
+    .dice-pip-6d { grid-area: 2 / 3; }
+    .dice-pip-6e { grid-area: 3 / 1; }
+    .dice-pip-6f { grid-area: 3 / 3; }
+
+    /* 9-D 邮票计数器 */
+    .stamp-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px 4px 4px;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      font: 800 12px/1 var(--font-mono);
+    }
+    .stamp-counter-mini {
+      width: 18px;
+      height: 22px;
+      background: var(--stamp-red);
+      border: 1.5px dashed rgba(255,255,255,0.6);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font: 800 9px/1 var(--font-mono);
+    }
+
+    /* ============================================================
+       10. TOOLTIPS / 浮层提示
+       ============================================================ */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip-pop {
+      position: absolute;
+      bottom: calc(100% + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 10px;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 700 11px/1.4 var(--font-mono);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      box-shadow: 2px 2px 0 var(--ink-bg);
+    }
+    .tooltip-pop::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--ink);
+    }
+    .tooltip-pop--sticky {
+      background: var(--sticky-yellow);
+      color: var(--ink);
+      transform: translateX(-50%) rotate(-2deg);
+      padding: 8px 12px;
+      font-family: var(--font-hand);
+      font-size: 18px;
+      font-weight: 700;
+      box-shadow: var(--shadow-1);
+      border: 1.5px solid var(--ink);
+    }
+    .tooltip-pop--sticky::after { display: none; }
+
+    .tooltip-pop--tag {
+      background: var(--ink-surface);
+      color: var(--ink);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-1);
+      font-family: var(--font-mono);
+    }
+    .tooltip-pop--tag::after { border-top-color: var(--ink-surface); }
+    .tooltip-pop--tag::before {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(2px);
+      border: 6px solid transparent;
+      border-top-color: var(--ink);
+    }
+
+    .tooltip-pop--clip {
+      background: var(--ink-surface);
+      color: var(--ink);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-2);
+      padding: 12px 14px 14px;
+      max-width: 240px;
+      white-space: normal;
+      width: 240px;
+    }
+    .tooltip-pop--clip::after { display: none; }
+    .tooltip-pop--clip::before {
+      content: "✂";
+      position: absolute;
+      top: -10px;
+      left: 12px;
+      padding: 0 4px;
+      background: var(--ink-bg);
+      color: var(--ink);
+      font: 700 14px/1 var(--font-mono);
+    }
+    .tooltip-pop--clip h5 { margin: 0 0 4px; font: 800 12px/1.3 var(--font-ui); }
+    .tooltip-pop--clip p { margin: 0; color: var(--ink-secondary); font-size: 11px; line-height: 1.6; }
+
+    /* ============================================================
+       11. LISTS 列表
+       ============================================================ */
+    /* 11-A 待办清单 */
+    .todo-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .todo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--ink);
+      background: var(--ink-surface);
+      font-size: 13px;
+    }
+    .todo-box {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--ink);
+      background: var(--ink-surface);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .todo.is-done .todo-box {
+      background: var(--ink);
+    }
+    .todo.is-done .todo-box::after {
+      content: "✓";
+      color: var(--ink-bg);
+      font: 800 12px/1 var(--font-mono);
+    }
+    .todo.is-done .todo-text {
+      color: var(--ink-muted);
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+    }
+    .todo-text { flex: 1; }
+    .todo-meta {
+      font: 500 10px/1 var(--font-mono);
+      color: var(--ink-secondary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* 11-B 借书卡（图书馆） */
+    .lib-card {
+      position: relative;
+      padding: 20px;
+      border: 2px solid var(--ink);
+      background: var(--ink-bg);
+      box-shadow: var(--shadow-1);
+    }
+    .lib-card::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 18px;
+      right: 18px;
+      height: 1px;
+      background: var(--ink-panel);
+    }
+    .lib-card-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .lib-card-title {
+      font: 800 14px/1.2 var(--font-ui);
+    }
+    .lib-card-author {
+      color: var(--ink-secondary);
+      font: 500 12px/1 var(--font-mono);
+    }
+    .lib-card-stamps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-top: 12px;
+    }
+    .lib-stamp {
+      padding: 2px 6px;
+      background: var(--stamp-red);
+      color: #fff;
+      font: 800 9px/1.4 var(--font-mono);
+      letter-spacing: 0.06em;
+      transform: rotate(-1.5deg);
+    }
+
+    /* 11-C 收据 */
+    .receipt {
+      max-width: 280px;
+      padding: 16px;
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .receipt::before {
+      content: "";
+      display: block;
+      height: 8px;
+      margin: -16px -16px 12px;
+      background:
+        radial-gradient(circle at 4px 4px, var(--ink-bg) 3px, transparent 4px) 0 0/8px 8px;
+    }
+    .receipt::after {
+      content: "";
+      display: block;
+      height: 8px;
+      margin: 12px -16px -16px;
+      background:
+        radial-gradient(circle at 4px 4px, var(--ink-bg) 3px, transparent 4px) 0 0/8px 8px;
+    }
+    .receipt-head { text-align: center; margin-bottom: 10px; }
+    .receipt-head h4 { margin: 0; font: 800 14px/1.2 var(--font-mono); letter-spacing: 0.08em; }
+    .receipt-head p { margin: 2px 0 0; color: var(--ink-secondary); font-size: 10px; letter-spacing: 0.12em; }
+    .receipt-line { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--ink-panel); }
+    .receipt-line:last-of-type { border-bottom: 2px solid var(--ink); }
+    .receipt-total { display: flex; justify-content: space-between; padding-top: 8px; font: 800 14px/1 var(--font-mono); }
+
+    /* 11-D 账本行 */
+    .ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+    .ledger-table th,
+    .ledger-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--ledger-line);
+      text-align: left;
+    }
+    .ledger-table th {
+      border-bottom: 2px solid var(--ink);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+    }
+    .ledger-table tr:nth-child(even) td { background: var(--ink-bg); }
+    .ledger-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ledger-table .pos { color: var(--ink-success); }
+    .ledger-table .neg { color: var(--ink-danger); }
+
+    /* ============================================================
+       12. MODALS / DIALOGS
+       ============================================================ */
+    .modal-demo {
+      position: relative;
+      padding: 28px;
+      border: 2px dashed var(--ink-panel);
+      background: var(--ink-bg);
+      min-height: 240px;
+    }
+    .modal {
+      position: relative;
+      margin: 0 auto;
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-hero);
+    }
+
+    /* 12-A 信封弹窗 */
+    .modal--envelope {
+      max-width: 380px;
+      padding: 0;
+      background: var(--ink-bg);
+      border: 2px solid var(--ink);
+      transform: rotate(-0.6deg);
+    }
+    .modal--envelope::before {
+      content: "";
+      display: block;
+      height: 18px;
+      background: var(--ink-bg);
+      border-bottom: 2px solid var(--ink-panel);
+      background:
+        linear-gradient(135deg, transparent 49%, var(--ink-panel) 49%, var(--ink-panel) 51%, transparent 51%),
+        linear-gradient(45deg, transparent 49%, var(--ink-panel) 49%, var(--ink-panel) 51%, transparent 51%);
+      background-size: 100% 100%;
+    }
+    .modal--envelope-body {
+      padding: 20px 24px 24px;
+    }
+    .modal--envelope h3 {
+      margin: 0 0 8px;
+      font: 800 16px/1.3 var(--font-ui);
+    }
+    .modal--envelope p {
+      margin: 0 0 16px;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .modal--envelope-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    /* 12-B 复古电报 */
+    .modal--telegram {
+      max-width: 360px;
+      padding: 24px;
+      background: var(--telegram-bg);
+      color: var(--telegram);
+      border: 2px solid var(--telegram);
+      font-family: var(--font-mono);
+      box-shadow: 4px 4px 0 var(--telegram);
+    }
+    .modal--telegram::before {
+      content: "URGENT · 急电";
+      display: block;
+      margin: -24px -24px 16px;
+      padding: 6px 24px;
+      background: var(--telegram);
+      color: var(--telegram-bg);
+      font: 800 11px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+    }
+    .modal--telegram h3 {
+      margin: 0 0 12px;
+      font: 800 18px/1.3 var(--font-mono);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .modal--telegram p {
+      margin: 0 0 16px;
+      font-size: 12px;
+      line-height: 1.7;
+      letter-spacing: 0.02em;
+    }
+    .modal--telegram-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .modal--telegram-actions .btn { background: var(--telegram); color: var(--telegram-bg); border-color: var(--telegram); }
+    .modal--telegram-actions .btn--ghost { color: var(--telegram); }
+
+    /* 12-C 证书 */
+    .modal--cert {
+      max-width: 420px;
+      padding: 32px 36px;
+      background: var(--ink-bg);
+      border: 3px double var(--ink);
+      text-align: center;
+      position: relative;
+    }
+    .modal--cert::before {
+      content: "★";
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      color: var(--ink);
+      font-size: 16px;
+    }
+    .modal--cert::after {
+      content: "★";
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      color: var(--ink);
+      font-size: 16px;
+    }
+    .modal--cert h3 {
+      margin: 0 0 4px;
+      font: 900 22px/1.2 var(--font-serif);
+      letter-spacing: 0.04em;
+    }
+    .modal--cert .cert-sub {
+      margin: 0 0 20px;
+      color: var(--ink-secondary);
+      font: 500 12px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .modal--cert .cert-body {
+      margin: 0 0 24px;
+      font: 500 14px/1.7 var(--font-serif);
+    }
+    .modal--cert .cert-name {
+      font: 700 28px/1 var(--font-hand);
+      color: var(--ink);
+      margin: 0 0 8px;
+    }
+    .modal--cert .cert-seal {
+      display: inline-block;
+      width: 64px;
+      height: 64px;
+      border: 2.5px solid var(--stamp-red);
+      border-radius: 50%;
+      color: var(--stamp-red);
+      display: grid;
+      place-items: center;
+      font: 800 10px/1.1 var(--font-mono);
+      text-align: center;
+      letter-spacing: 0.06em;
+      margin: 0 auto 12px;
+      transform: rotate(-6deg);
+    }
+    .modal--cert .cert-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    /* 12-D 公告板 */
+    .modal--bulletin {
+      max-width: 360px;
+      padding: 28px 24px;
+      background: var(--ink-warning);
+      color: #fff;
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-hero);
+      position: relative;
+    }
+    .modal--bulletin::before {
+      content: "NOTICE";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      padding: 3px 8px;
+      background: var(--ink);
+      color: #fff;
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+    }
+    .modal--bulletin h3 {
+      margin: 0 0 12px;
+      font: 900 20px/1.2 var(--font-ui);
+      letter-spacing: -0.01em;
+    }
+    .modal--bulletin p {
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .modal--bulletin-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .modal--bulletin .btn { background: #fff; color: var(--ink); }
+    .modal--bulletin .btn--ghost { background: transparent; color: #fff; }
+
+    /* ============================================================
+       13. SPECIAL 特殊组件
+       ============================================================ */
+    /* 13-A 命令面板 (邮差风) */
+    .cmd {
+      max-width: 540px;
+      margin: 0 auto;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-hero);
+    }
+    .cmd-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .cmd-head::before {
+      content: "✉";
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 800 12px/1 var(--font-mono);
+    }
+    .cmd-input {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      font: 700 14px/1 var(--font-ui);
+      color: var(--ink);
+    }
+    .cmd-input:focus { outline: none; }
+    .cmd-kbd {
+      padding: 2px 6px;
+      background: var(--ink-sunken);
+      border: 1px solid var(--ink-panel);
+      font: 700 10px/1 var(--font-mono);
+      color: var(--ink-secondary);
+    }
+    .cmd-list {
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .cmd-section-title {
+      padding: 8px 14px 4px;
+      color: var(--ink-secondary);
+      font: 700 10px/1 var(--font-mono);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .cmd-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--ink-panel);
+      cursor: pointer;
+    }
+    .cmd-item:last-child { border-bottom: 0; }
+    .cmd-item.is-active { background: var(--sticky-yellow); }
+    .cmd-item-ico {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      background: var(--ink-bg);
+      border: 1.5px solid var(--ink-panel);
+      font: 800 12px/1 var(--font-mono);
+      color: var(--ink);
+    }
+    .cmd-item-body { flex: 1; min-width: 0; }
+    .cmd-item-name { font: 700 13px/1.3 var(--font-ui); }
+    .cmd-item-desc {
+      display: block;
+      margin-top: 2px;
+      color: var(--ink-secondary);
+      font: 500 11px/1.3 var(--font-mono);
+    }
+    .cmd-item-kbd {
+      font: 700 10px/1 var(--font-mono);
+      color: var(--ink-secondary);
+    }
+
+    /* 13-B 空状态 */
+    .empty {
+      text-align: center;
+      padding: 32px 24px;
+    }
+    .empty-paper {
+      position: relative;
+      width: 120px;
+      height: 140px;
+      margin: 0 auto 18px;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-1);
+      transform: rotate(-2deg);
+    }
+    .empty-paper::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 12px;
+      right: 12px;
+      height: 1px;
+      background: var(--ink-accent);
+      transform: translateY(-12px);
+    }
+    .empty-paper::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 12px;
+      right: 12px;
+      height: 1px;
+      background: var(--ink-accent);
+      transform: translateY(-4px);
+      box-shadow:
+        0 8px 0 var(--ink-accent),
+        0 16px 0 var(--ink-accent);
+    }
+    .empty-title {
+      margin: 0 0 4px;
+      font: 800 16px/1.3 var(--font-ui);
+    }
+    .empty-text {
+      margin: 0 0 18px;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    /* 13-C 加载态 */
+    .loading {
+      display: flex;
+      gap: 6px;
+    }
+    .loading-block {
+      width: 14px;
+      height: 14px;
+      background: var(--ink);
+      animation: pulse 1.2s var(--ease) infinite;
+    }
+    .loading-block:nth-child(2) { animation-delay: 0.15s; background: var(--ink-accent); }
+    .loading-block:nth-child(3) { animation-delay: 0.3s; background: var(--stamp-red); }
+    @keyframes pulse {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* 13-D 错误页 */
+    .error-paper {
+      max-width: 360px;
+      margin: 0 auto;
+      padding: 28px 24px 24px;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      position: relative;
+      box-shadow: var(--shadow-2);
+      transform: rotate(-1deg);
+    }
+    .error-paper::before,
+    .error-paper::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background:
+        radial-gradient(circle at 4px 4px, var(--ink-bg) 3px, transparent 4px) 0 0/8px 8px;
+    }
+    .error-paper::before { top: 0; transform: translateY(-3px); }
+    .error-paper::after { bottom: 0; transform: translateY(3px); }
+    .error-code {
+      font: 900 56px/1 var(--font-mono);
+      color: var(--stamp-red);
+      letter-spacing: -0.04em;
+      margin: 0;
+    }
+    .error-title {
+      margin: 12px 0 6px;
+      font: 800 18px/1.3 var(--font-ui);
+    }
+    .error-text {
+      margin: 0 0 18px;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    /* ============================================================
+       14. 装饰元素库（重点）
+       ============================================================ */
+    .deco-section {
+      margin-bottom: 56px;
+    }
+    .deco-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    @media (max-width: 960px) { .deco-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .deco-grid { grid-template-columns: 1fr; } }
+
+    .deco-card {
+      position: relative;
+      padding: 24px 18px 18px;
+      min-height: 160px;
+      border: 1.5px dashed var(--ink-panel);
+      background: var(--ink-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .deco-card-tag {
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      padding: 2px 6px;
+      background: var(--ink);
+      color: var(--ink-bg);
+      font: 700 9px/1.4 var(--font-mono);
+      letter-spacing: 0.12em;
+    }
+    .deco-card-name {
+      position: absolute;
+      bottom: 6px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font: 500 10px/1 var(--font-mono);
+      color: var(--ink-secondary);
+      letter-spacing: 0.06em;
+    }
+    .deco-card-name code {
+      padding: 1px 4px;
+      background: var(--ink-sunken);
+      color: var(--ink);
+      font: 600 10px/1.2 var(--font-mono);
+    }
+
+    /* 14-A 印章家族 */
+    .stamp {
+      display: inline-grid;
+      place-items: center;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      color: var(--stamp-red);
+      border: 3px solid var(--stamp-red);
+      border-radius: 50%;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: var(--shadow-stamp);
+    }
+    .stamp::before,
+    .stamp::after {
+      content: "";
+      position: absolute;
+      border: 1px solid var(--stamp-red);
+      border-radius: 50%;
+    }
+    .stamp {
+      position: relative;
+    }
+
+    .stamp--round { width: 72px; height: 72px; font-size: 10px; line-height: 1.1; }
+    .stamp--round::before { inset: 4px; }
+    .stamp--round::after { inset: 9px; }
+    .stamp--round > span { position: relative; z-index: 1; padding: 0 4px; }
+
+    .stamp--oval { width: 96px; height: 64px; border-radius: 50%; font-size: 10px; }
+    .stamp--oval::before { inset: 4px; border-radius: 50%; }
+    .stamp--oval::after { display: none; }
+
+    .stamp--rect {
+      width: 92px;
+      height: 36px;
+      border: 2.5px solid var(--stamp-red);
+      border-radius: 0;
+      display: inline-grid;
+      place-items: center;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      padding: 0 8px;
+    }
+    .stamp--rect::before, .stamp--rect::after { display: none; }
+
+    .stamp--blue { color: var(--ink-accent); border-color: var(--ink-accent); }
+    .stamp--blue::before, .stamp--blue::after { border-color: var(--ink-accent); }
+    .stamp--blue { box-shadow: 1px 1px 0 rgba(37, 99, 235, 0.35); }
+    .stamp--green { color: var(--ink-success); border-color: var(--ink-success); }
+    .stamp--green::before, .stamp--green::after { border-color: var(--ink-success); }
+    .stamp--green { box-shadow: 1px 1px 0 rgba(22, 163, 74, 0.35); }
+
+    .stamp--ghost {
+      color: var(--ink-muted);
+      border-color: var(--ink-muted);
+      opacity: 0.65;
+    }
+    .stamp--ghost::before, .stamp--ghost::after { border-color: var(--ink-muted); }
+    .stamp--ghost { box-shadow: none; }
+
+    .stamp--rot-1 { transform: rotate(-12deg); }
+    .stamp--rot-2 { transform: rotate(8deg); }
+    .stamp--rot-3 { transform: rotate(-4deg); }
+    .stamp--rot-4 { transform: rotate(14deg); }
+
+    /* 14-B 胶带 */
+    .tape {
+      position: relative;
+      display: inline-block;
+      padding: 4px 14px;
+      font: 700 11px/1.4 var(--font-mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.12);
+    }
+    .tape::before,
+    .tape::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.08), transparent);
+    }
+    .tape::before { left: 0; }
+    .tape::after { right: 0; transform: scaleX(-1); }
+
+    .tape--cream { background: var(--tape-cream); }
+    .tape--blue { background: var(--tape-blue); }
+    .tape--pink { background: var(--tape-pink); }
+    .tape--clear { background: rgba(255, 255, 255, 0.55); border: 1px dashed var(--ink-panel); }
+    .tape--rot-1 { transform: rotate(-3deg); }
+    .tape--rot-2 { transform: rotate(2deg); }
+    .tape--rot-3 { transform: rotate(-1deg); }
+    .tape--rot-4 { transform: rotate(4deg); }
+
+    /* 14-C 图钉 */
+    .pin {
+      position: relative;
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--pushpin-red);
+      box-shadow:
+        inset -2px -3px 0 rgba(0,0,0,0.25),
+        0 3px 0 rgba(0,0,0,0.18);
+    }
+    .pin::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 6px;
+      height: 4px;
+      background: rgba(255,255,255,0.6);
+      border-radius: 50%;
+    }
+    .pin--red { background: var(--pushpin-red); }
+    .pin--yellow { background: var(--pushpin-yellow); }
+    .pin--blue { background: var(--pushpin-blue); }
+    .pin--green { background: var(--pushpin-green); }
+
+    /* 14-D 回形针 */
+    .clip {
+      position: relative;
+      display: inline-block;
+      width: 18px;
+      height: 30px;
+    }
+    .clip::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--paperclip);
+      border-bottom: 0;
+      border-radius: 9px 9px 0 0;
+    }
+    .clip::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 4px;
+      right: 4px;
+      border: 1.5px solid var(--paperclip);
+      border-bottom: 0;
+      border-radius: 6px 6px 0 0;
+    }
+    .clip--tilt-1 { transform: rotate(-12deg); }
+    .clip--tilt-2 { transform: rotate(8deg); }
+
+    /* 14-E 折角 */
+    .dog-ear {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-style: solid;
+    }
+    .dog-ear--tr {
+      top: 0;
+      right: 0;
+      border-width: 0 18px 18px 0;
+      border-color: transparent var(--ink-bg) transparent transparent;
+    }
+    .dog-ear--tr::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: -18px;
+      border-width: 0 0 18px 18px;
+      border-style: solid;
+      border-color: transparent transparent var(--ink-panel) transparent;
+    }
+    .dog-ear--br {
+      bottom: 0;
+      right: 0;
+      border-width: 0 0 18px 18px;
+      border-color: transparent transparent var(--ink-bg) transparent;
+    }
+    .dog-ear--br::before {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      border-width: 0 18px 18px 0;
+      border-style: solid;
+      border-color: transparent var(--ink-panel) transparent transparent;
+    }
+
+    /* 14-F 撕边 */
+    .tear-top {
+      position: relative;
+    }
+    .tear-top::before {
+      content: "";
+      position: absolute;
+      top: -8px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background:
+        radial-gradient(circle at 4px 0, var(--ink-bg) 4px, transparent 5px) 0 0/8px 8px;
+    }
+
+    /* 14-G 装订孔 */
+    .binder {
+      position: relative;
+      padding-left: 28px;
+      background-image: radial-gradient(circle at 12px 20px, var(--ink-bg) 4px, transparent 5px);
+      background-size: 100% 40px;
+      background-repeat: repeat-y;
+    }
+    .binder-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 18px;
+      width: 1px;
+      background: var(--ink-panel);
+    }
+
+    /* 14-H 印刷标记 */
+    .crop-mark {
+      display: inline-block;
+      position: relative;
+      width: 20px;
+      height: 20px;
+    }
+    .crop-mark::before,
+    .crop-mark::after {
+      content: "";
+      position: absolute;
+      background: var(--ink);
+    }
+    .crop-mark::before { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+    .crop-mark::after { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+    .crop-mark-tl { position: relative; }
+    .crop-mark-tl::before,
+    .crop-mark-tl::after {
+      content: "";
+      position: absolute;
+      background: var(--ink);
+    }
+    .crop-mark-tl::before { left: 0; top: 0; width: 12px; height: 1px; }
+    .crop-mark-tl::after { left: 0; top: 0; width: 1px; height: 12px; }
+
+    .crop-corner {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+    }
+    .crop-corner::before,
+    .crop-corner::after {
+      content: "";
+      position: absolute;
+      background: var(--ink);
+    }
+    .crop-corner--tl { top: -8px; left: -8px; }
+    .crop-corner--tl::before { top: 0; left: 0; width: 16px; height: 1px; }
+    .crop-corner--tl::after { top: 0; left: 0; width: 1px; height: 16px; }
+    .crop-corner--tr { top: -8px; right: -8px; }
+    .crop-corner--tr::before { top: 0; right: 0; width: 16px; height: 1px; }
+    .crop-corner--tr::after { top: 0; right: 0; width: 1px; height: 16px; }
+    .crop-corner--bl { bottom: -8px; left: -8px; }
+    .crop-corner--bl::before { bottom: 0; left: 0; width: 16px; height: 1px; }
+    .crop-corner--bl::after { bottom: 0; left: 0; width: 1px; height: 16px; }
+    .crop-corner--br { bottom: -8px; right: -8px; }
+    .crop-corner--br::before { bottom: 0; right: 0; width: 16px; height: 1px; }
+    .crop-corner--br::after { bottom: 0; right: 0; width: 1px; height: 16px; }
+
+    .color-bar {
+      display: inline-flex;
+      height: 18px;
+      border: 1px solid var(--ink);
+    }
+    .color-bar > i {
+      width: 14px;
+      display: block;
+    }
+    .color-bar > i:nth-child(1) { background: #C8342B; }
+    .color-bar > i:nth-child(2) { background: #F4C430; }
+    .color-bar > i:nth-child(3) { background: #16A34A; }
+    .color-bar > i:nth-child(4) { background: #2563EB; }
+    .color-bar > i:nth-child(5) { background: #1A1A1A; }
+
+    /* 14-I 边角贴标 */
+    .corner-tag {
+      position: absolute;
+      top: 12px;
+      right: -28px;
+      width: 96px;
+      padding: 4px 0;
+      background: var(--stamp-red);
+      color: #fff;
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 0.14em;
+      text-align: center;
+      transform: rotate(45deg);
+      box-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+    }
+    .corner-tag--yellow { background: var(--pushpin-yellow); color: var(--ink); }
+    .corner-tag--blue { background: var(--ink-accent); }
+
+    /* 14-J 手画元素 */
+    .hand-arrow {
+      display: inline-block;
+      font: 700 28px/1 var(--font-hand);
+      color: var(--stamp-red);
+      transform: rotate(-12deg);
+    }
+    .hand-underline {
+      position: relative;
+      display: inline-block;
+    }
+    .hand-underline::after {
+      content: "";
+      position: absolute;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      height: 4px;
+      background:
+        radial-gradient(ellipse 4px 2px at 4px 2px, var(--stamp-red) 99%, transparent 100%) 0 0/8px 4px;
+    }
+    .hand-circle {
+      display: inline-block;
+      position: relative;
+      padding: 0 8px;
+    }
+    .hand-circle::before {
+      content: "";
+      position: absolute;
+      inset: -4px -2px;
+      border: 2px solid var(--stamp-red);
+      border-radius: 60% 50% 55% 45% / 50% 60% 45% 55%;
+    }
+
+    /* 14-K 贴纸 */
+    .sticker {
+      display: inline-grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      background: var(--pushpin-yellow);
+      color: var(--ink);
+      text-align: center;
+      font: 800 11px/1.2 var(--font-mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transform: rotate(-6deg);
+      clip-path: polygon(50% 0, 61% 13%, 76% 6%, 80% 22%, 96% 24%, 92% 41%, 100% 50%, 92% 59%, 96% 76%, 80% 78%, 76% 94%, 61% 87%, 50% 100%, 39% 87%, 24% 94%, 20% 78%, 4% 76%, 8% 59%, 0 50%, 8% 41%, 4% 24%, 20% 22%, 24% 6%, 39% 13%);
+    }
+    .sticker--red { background: var(--stamp-red); color: #fff; transform: rotate(8deg); }
+    .sticker--blue { background: var(--ink-accent); color: #fff; transform: rotate(-4deg); }
+    .sticker--green { background: var(--ink-success); color: #fff; transform: rotate(12deg); }
+
+    /* 14-L 纸面纹理背景 */
+    .paper-lined {
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 23px,
+          var(--ink-accent) 23px,
+          var(--ink-accent) 24px
+        ),
+        var(--ink-surface);
+    }
+    .paper-grid {
+      background:
+        linear-gradient(to right, var(--ink-panel) 1px, transparent 1px) 0 0/20px 20px,
+        linear-gradient(to bottom, var(--ink-panel) 1px, transparent 1px) 0 0/20px 20px,
+        var(--ink-surface);
+    }
+    .paper-dots {
+      background:
+        radial-gradient(var(--ink-dot) 1px, transparent 1px) 0 0/16px 16px,
+        var(--ink-surface);
+    }
+
+    /* 14-M 订书钉 */
+    .staple {
+      position: relative;
+      display: inline-block;
+      width: 18px;
+      height: 6px;
+      background: linear-gradient(180deg, #C0C0C0 0%, #888 100%);
+      border: 1px solid #555;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+    }
+    .staple::before, .staple::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      width: 4px;
+      height: 4px;
+      background: #888;
+      border: 1px solid #555;
+      border-top: 0;
+    }
+    .staple::before { left: 0; }
+    .staple::after { right: 0; }
+
+    /* 14-N 边角印章 / 角标 */
+    .ribbon-corner {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 56px;
+      height: 56px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .ribbon-corner > i {
+      position: absolute;
+      top: 8px;
+      right: -22px;
+      width: 80px;
+      padding: 4px 0;
+      background: var(--stamp-red);
+      color: #fff;
+      font: 800 9px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-align: center;
+      transform: rotate(45deg);
+    }
+    .ribbon-corner--blue > i { background: var(--ink-accent); }
+    .ribbon-corner--yellow > i { background: var(--pushpin-yellow); color: var(--ink); }
+
+    /* 14-O 拼贴展示舞台 */
+    .deco-stage {
+      position: relative;
+      padding: 48px 24px 24px;
+      min-height: 220px;
+      background: var(--ink-bg);
+      border: 1.5px dashed var(--ink-panel);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .footer {
+      margin-top: 64px;
+      padding: 24px;
+      border-top: 2px dashed var(--ink-panel);
+      text-align: center;
+      color: var(--ink-secondary);
+      font: 500 12px/1.7 var(--font-mono);
+    }
+    .footer p { margin: 0 0 4px; }
+    .footer a { color: var(--ink); }
+
+    /* ============================================================
+       装饰展示场景 - 把所有装饰元素组合成一张「办公桌」
+       ============================================================ */
+    .desk {
+      position: relative;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 56px 48px 64px;
+      background: var(--ink-bg);
+      background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-hero);
+    }
+    .desk-card {
+      position: relative;
+      padding: 20px 24px;
+      background: var(--ink-surface);
+      border: 2px solid var(--ink);
+      box-shadow: var(--shadow-2);
+      max-width: 380px;
+      margin: 0 auto;
+    }
+    .desk-card h4 { margin: 0 0 6px; font: 800 14px/1.3 var(--font-ui); }
+    .desk-card p { margin: 0 0 10px; color: var(--ink-secondary); font-size: 12px; line-height: 1.7; }
+    .desk-card .hand { font-family: var(--font-hand); font-size: 18px; color: var(--stamp-red); }
+    .desk-floating {
+      position: absolute;
+      pointer-events: none;
+    }
+    .desk-floating--1 { top: 20px; left: 32px; }
+    .desk-floating--2 { top: 38px; right: 28px; }
+    .desk-floating--3 { bottom: 36px; left: 60px; }
+    .desk-floating--4 { bottom: 28px; right: 48px; }
+    .desk-floating--5 { top: 50%; left: 16px; transform: translateY(-50%) rotate(-90deg); }
+  </style>
+</head>
+<body>
+  <main class="page">
+
+    <!-- =====================================================
+         0. HERO
+         ===================================================== -->
+    <header class="hero">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        个性化扩展层 v0.1 · 实验稿
+      </div>
+      <h1>印格 · 让组件 <span class="hand">讲故事</span></h1>
+      <p class="hero-tagline">
+        标准印格是"暖纸底 + 硬阴影 + 零圆角 + 蓝色强调"。这版实验稿继承它的设计 DNA，然后从名字本身出发——
+        印章、网格、纸面、印刷——把每个组件变成一件会说话的文具：按钮是印章、卡片是便签、标签是胶带、警告是邮戳。
+      </p>
+      <div class="hero-meta">
+        <span class="hero-meta-item">2026-08-18</span>
+        <span class="hero-meta-item">11 个组件家族</span>
+        <span class="hero-meta-item">70+ 变体</span>
+        <span class="hero-meta-item">15 类装饰元素</span>
+        <span class="hero-meta-item">基于印格基础库 v2.1</span>
+      </div>
+      <div class="hero-stamp">
+        <span class="hero-stamp-text">实验稿<br>EXPERIMENT</span>
+      </div>
+      <div class="hero-toc">
+        <div class="hero-toc-item"><strong>01</strong>Buttons 按钮家族</div>
+        <div class="hero-toc-item"><strong>02</strong>Cards 卡片家族</div>
+        <div class="hero-toc-item"><strong>03</strong>Inputs 输入家族</div>
+        <div class="hero-toc-item"><strong>04</strong>Tags 标签家族</div>
+        <div class="hero-toc-item"><strong>05</strong>Nav 导航家族</div>
+        <div class="hero-toc-item"><strong>06</strong>Status 状态反馈</div>
+        <div class="hero-toc-item"><strong>07</strong>Progress 进度度量</div>
+        <div class="hero-toc-item"><strong>08</strong>Tooltips 浮层提示</div>
+        <div class="hero-toc-item"><strong>09</strong>Lists 列表</div>
+        <div class="hero-toc-item"><strong>10</strong>Modals 弹窗</div>
+        <div class="hero-toc-item"><strong>11</strong>Special 特殊态</div>
+        <div class="hero-toc-item"><strong>12</strong>Deco 装饰元素库</div>
+      </div>
+    </header>
+
+    <!-- =====================================================
+         01. BUTTONS
+         ===================================================== -->
+    <section class="section" id="buttons">
+      <div class="section-head">
+        <span class="section-num">01</span>
+        <h2>Buttons 按钮家族</h2>
+      </div>
+      <p class="section-lead">
+        印格的基础按钮是冷峻的"按压方块"。这里给出 7 种有人格的变体：盖章、敲键盘、盖邮戳、贴便签、凸起浮雕、贴封条、加别针。
+        同一个动作，落在不同场景里换上不同"性格"，避免一处蓝方块通杀所有 CTA。
+      </p>
+
+      <div class="subsection">
+        <div class="subsection-label">基础 · 标准按压 / 主操作 / 幽灵</div>
+        <div class="stage">
+          <span class="stage-tag">BASELINE</span>
+          <button class="btn">保存笔记</button>
+          <button class="btn btn--primary">新建笔记</button>
+          <button class="btn btn--ghost">取消</button>
+          <button class="btn" disabled>已禁用</button>
+          <button class="btn btn--sm">小号</button>
+          <button class="btn btn--lg">大号</button>
+          <button class="btn btn--icon" aria-label="更多">⋯</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">人格 · 印章 / 打字机 / 邮戳 / 便签 / 凸起 / 蓝封条 / 别针</div>
+        <div class="stage">
+          <span class="stage-tag">PERSONAS</span>
+          <button class="btn btn--stamp">提交评审</button>
+          <button class="btn btn--key">Enter ⏎</button>
+          <button class="btn btn--postmark">2026<br>08·18</button>
+          <button class="btn btn--sticky">想到了！</button>
+          <button class="btn btn--chunky">立即开始</button>
+          <button class="btn btn--seal">Approved</button>
+          <button class="btn btn--clip">附加到笔记</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">状态 · hover 浮起 / active 塌入 / 焦点蓝影</div>
+        <div class="stage">
+          <span class="stage-tag">STATES</span>
+          <button class="btn btn--primary">悬停我</button>
+          <button class="btn btn--stamp">悬停盖章</button>
+          <button class="btn btn--key">按我</button>
+          <button class="btn btn--chunky">重按</button>
+          <button class="btn btn--sticky">贴一张</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         02. CARDS
+         ===================================================== -->
+    <section class="section" id="cards">
+      <div class="section-head">
+        <span class="section-num">02</span>
+        <h2>Cards 卡片家族</h2>
+      </div>
+      <p class="section-lead">
+        同一份内容，放进不同物件里就讲不同故事：便签是给自己看的，拍立得是给别人看的，账本行是给自己记账的，剪贴簿是给学生整理的。
+        选哪一种容器，决定信息被怎么读。
+      </p>
+
+      <div class="grid grid-3">
+        <div>
+          <div class="subsection-label">便签纸</div>
+          <div class="stage">
+            <span class="stage-tag">NOTE</span>
+            <div class="card card--note">
+              <h3>明天的待办</h3>
+              <p>先把试卷第三大题的解析写完，再补笔记里的错题，最后整理错题卡。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">拍立得</div>
+          <div class="stage">
+            <span class="stage-tag">POLAROID</span>
+            <div class="card card--polaroid">
+              <div class="card--polaroid-frame"></div>
+              <div class="card--polaroid-caption">三亚 · 25.07</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">账本行</div>
+          <div class="stage">
+            <span class="stage-tag">LEDGER</span>
+            <div class="card card--ledger">
+              <div class="card--ledger-date">08·18<small>周二</small></div>
+              <div class="card--ledger-body">
+                <h4>订阅 · Notion Pro</h4>
+                <p>月度 · 自动续费</p>
+              </div>
+              <div class="card--ledger-amount">¥78<small>已扣款</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">索引卡</div>
+          <div class="stage">
+            <span class="stage-tag">INDEX</span>
+            <div class="card card--index">
+              <h3>勾股定理</h3>
+              <p>直角三角形两直角边的平方和等于斜边的平方，常用于构造法证明。</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">明信片</div>
+          <div class="stage">
+            <span class="stage-tag">POSTCARD</span>
+            <div class="card card--postcard">
+              <div class="card--postcard-text">
+                <h4>寄给三个月后的我</h4>
+                <p>如果还没坚持，就翻开这一页。记得你想成为的那种人。</p>
+              </div>
+              <div class="card--postcard-image">
+                <div class="card--postcard-stamp"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">票根</div>
+          <div class="stage">
+            <span class="stage-tag">TICKET</span>
+            <div class="card card--ticket">
+              <div class="card--ticket-body">
+                <h4>复习计划 · 14 天冲刺</h4>
+                <p>数学 · 14 篇 · 7 套卷 · 2 次模考</p>
+              </div>
+              <div class="card--ticket-stub">A12<small>SEAT</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">信封</div>
+          <div class="stage">
+            <span class="stage-tag">ENVELOPE</span>
+            <div class="card card--envelope">
+              <div class="card--envelope-seal">SEAL<br>已封</div>
+              <h4>来自上个月的笔记</h4>
+              <p>点击"拆封"查看 · 已读后会自动归档</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">剪贴簿</div>
+          <div class="stage">
+            <span class="stage-tag">SCRAP</span>
+            <div class="card card--scrap">
+              <h4>本周灵感</h4>
+              <p>把散落的卡片、票根、外卖单都收进一个本子里——这就是剪贴簿。复习时翻一翻，比纯文字有温度。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         03. INPUTS
+         ===================================================== -->
+    <section class="section" id="inputs">
+      <div class="section-head">
+        <span class="section-num">03</span>
+        <h2>Inputs 输入家族</h2>
+      </div>
+      <p class="section-lead">
+        输入框也可以"写在不同的纸上"。横线纸适合随手记，方格纸适合画示意图，胶带下划线适合做表单填空，打字机适合做命令栏。
+        选择不同的纸，等于选择了不同的输入语气。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">横线纸 · 随手记</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">LINED</span>
+            <div class="field">
+              <label class="field-label">标题</label>
+              <input class="input input--lined" type="text" placeholder="写下今天的关键词…">
+            </div>
+            <div class="field">
+              <label class="field-label">正文</label>
+              <textarea class="input input--lined" rows="4" placeholder="第一行从这里开始…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">方格纸 · 画图示意</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">GRID</span>
+            <div class="field">
+              <label class="field-label">示意图</label>
+              <textarea class="input input--grid" rows="5" placeholder="用 ▢ △ ─ → 画一张小图…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">胶带下划线 · 表单填空</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">TAPE</span>
+            <div class="field">
+              <label class="field-label">姓名</label>
+              <input class="input input--tape" type="text" placeholder="点击此处填写">
+            </div>
+            <div class="field">
+              <label class="field-label">学号</label>
+              <input class="input input--tape" type="text" value="20240815" readonly>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">打字机 · 命令栏</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">TYPE</span>
+            <div class="field">
+              <label class="field-label">命令</label>
+              <input class="input input--typewriter" type="text" value="> open /notes/today">
+            </div>
+            <div class="field">
+              <label class="field-label">错误态</label>
+              <input class="input input--typewriter input--error" type="text" value="syntax error at line 3">
+              <span class="field-help field-help--err">× 期望分号 (;) 在第 3 行末</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">搜索 · 望远镜</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">SEARCH</span>
+            <div class="field">
+              <label class="field-label">全站搜索</label>
+              <input class="input input--search" type="search" placeholder="搜索笔记、试题、待办…">
+              <span class="field-help">⌘ K 打开命令面板</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         04. TAGS
+         ===================================================== -->
+    <section class="section" id="tags">
+      <div class="section-head">
+        <span class="section-num">04</span>
+        <h2>Tags & Labels 标签家族</h2>
+      </div>
+      <p class="section-lead">
+        一个标签可以贴在笔记上提醒自己，可以是书签带从页边探出，可以是手写便签贴在屏幕一角。
+        6 种贴法让同一个分类信息拥有不同的语气。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">胶带条</div>
+          <div class="stage">
+            <span class="stage-tag">TAPE</span>
+            <span class="tag tag--tape">未整理</span>
+            <span class="tag tag--tape-blue">数学</span>
+            <span class="tag tag--tape-pink">收藏</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">圆形印章</div>
+          <div class="stage">
+            <span class="stage-tag">SEAL</span>
+            <span class="tag--seal">草稿</span>
+            <span class="tag--seal tag--seal-blue">已发布</span>
+            <span class="tag--seal tag--seal-green">已完成</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">书签带</div>
+          <div class="stage">
+            <span class="stage-tag">RIBBON</span>
+            <span class="tag tag--bookmark">收藏</span>
+            <span class="tag tag--bookmark" style="background: var(--stamp-red);">置顶</span>
+            <span class="tag tag--bookmark" style="background: var(--ink-accent);">稍后读</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">手写标签</div>
+          <div class="stage">
+            <span class="stage-tag">HAND</span>
+            <span class="tag tag--hand">复习</span>
+            <span class="tag tag--hand">重要</span>
+            <span class="tag tag--hand">不急</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">活页 Tab</div>
+          <div class="stage">
+            <span class="stage-tag">TAB</span>
+            <span class="tag tag--tab is-active">章节一</span>
+            <span class="tag tag--tab">章节二</span>
+            <span class="tag tag--tab">章节三</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">边角角标</div>
+          <div class="stage" style="position: relative;">
+            <span class="stage-tag">CORNER</span>
+            <div style="position: relative; width: 120px; height: 100px; background: var(--ink-surface); border: 2px solid var(--ink); box-shadow: var(--shadow-1);">
+              <span class="tag--corner">NEW</span>
+            </div>
+            <div style="position: relative; width: 120px; height: 100px; background: var(--ink-surface); border: 2px solid var(--ink); box-shadow: var(--shadow-1);">
+              <span class="tag--corner tag--corner-yellow">HOT</span>
+            </div>
+            <div style="position: relative; width: 120px; height: 100px; background: var(--ink-surface); border: 2px solid var(--ink); box-shadow: var(--shadow-1);">
+              <span class="tag--corner tag--corner-blue">BETA</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         05. NAV
+         ===================================================== -->
+    <section class="section" id="nav">
+      <div class="section-head">
+        <span class="section-num">05</span>
+        <h2>Navigation 导航家族</h2>
+      </div>
+      <p class="section-lead">
+        文件夹 Tab、步骤时间线、面包屑、手风琴——每一个都对应一种"翻动物理纸张"的动作。
+        不要把所有导航都做成同一种圆角胶囊。
+      </p>
+
+      <div class="subsection">
+        <div class="subsection-label">文件夹 Tab</div>
+        <div class="stage stage--col stage--start">
+          <span class="stage-tag">FOLDER</span>
+          <div class="nav-tabs">
+            <button class="nav-tab">全部</button>
+            <button class="nav-tab">笔记</button>
+            <button class="nav-tab is-active">知识库</button>
+            <button class="nav-tab">试题</button>
+            <button class="nav-tab">执行</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">步骤条 · 时间线</div>
+        <div class="stage stage--col stage--start">
+          <span class="stage-tag">TIMELINE</span>
+          <div class="stepper">
+            <div class="step is-done">收集材料<small>STEP 01</small></div>
+            <div class="step is-done">整理笔记<small>STEP 02</small></div>
+            <div class="step is-current">串联考点<small>STEP 03</small></div>
+            <div class="step">错题复盘<small>STEP 04</small></div>
+            <div class="step">模考冲刺<small>STEP 05</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">面包屑 · 印章 + 斜线</div>
+        <div class="stage">
+          <span class="stage-tag">CRUMBS</span>
+          <nav class="crumbs">
+            <a href="#">笔记</a>
+            <span class="sep">/</span>
+            <a href="#">数学</a>
+            <span class="sep">/</span>
+            <a href="#">二次函数</a>
+            <span class="sep">/</span>
+            <span class="current">顶点公式</span>
+          </nav>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">手风琴 · 胶带固定</div>
+        <div class="stage stage--col stage--start">
+          <span class="stage-tag">ACCORDION</span>
+          <div style="max-width: 480px; width: 100%;">
+            <div class="accordion-item is-taped is-open">
+              <div class="accordion-head">什么是「印格」？</div>
+              <div class="accordion-body">印格是 Markdown 笔记应用的视觉方向，源自 Neo-Brutalism，强调"暖纸底 + 硬阴影 + 零圆角 + 蓝色强调 + 点阵桌面"的纸面工作站感。</div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-head">为什么要做个性化扩展？</div>
+              <div class="accordion-body">基础库偏标准。希望通过印章、便签、胶带、账本等"纸面物件"隐喻，让组件更有个性，更贴合"知境"的产品定位。</div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-head">如何使用本组件库？</div>
+              <div class="accordion-body">直接复制对应 HTML 片段和 CSS 类名即可。每个变体都是独立的 class，不会破坏印格基础库的使用方式。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         06. STATUS
+         ===================================================== -->
+    <section class="section" id="status">
+      <div class="section-head">
+        <span class="section-num">06</span>
+        <h2>Status 状态反馈</h2>
+      </div>
+      <p class="section-lead">
+        通知不必都长得一样。批准可以是邮戳，提醒可以是便签，急电可以是电报，成功可以是票根。
+        不同的反馈形式，会改变用户对信息紧迫度的感知。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">基础 · 成功 / 警告 / 危险</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">BASE</span>
+            <div class="alert alert--success">
+              <span class="alert-icon">✓</span>
+              <div class="alert-body">
+                <h4 class="alert-title">保存成功</h4>
+                <p class="alert-text">笔记已自动保存到「数学 / 二次函数」目录下。</p>
+              </div>
+            </div>
+            <div class="alert alert--warning">
+              <span class="alert-icon">!</span>
+              <div class="alert-body">
+                <h4 class="alert-title">未保存的更改</h4>
+                <p class="alert-text">检测到 3 秒前的输入尚未写入。是否立即保存？</p>
+              </div>
+            </div>
+            <div class="alert alert--danger">
+              <span class="alert-icon">×</span>
+              <div class="alert-body">
+                <h4 class="alert-title">同步失败</h4>
+                <p class="alert-text">本地版本与远端发生冲突，请选择保留哪一份。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">人格 · 邮戳 / 便签 / 电报 / 票根</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">PERSONAS</span>
+
+            <div class="alert alert--postmark" style="position: relative;">
+              <span class="alert-icon">✓</span>
+              <div class="alert-body">
+                <h4 class="alert-title">稿件已通过评审</h4>
+                <p class="alert-text">由 张老师 于 2026-08-18 09:32 标记为 Approved。</p>
+              </div>
+              <div class="stamp-seal">批准<br>APPROVED</div>
+            </div>
+
+            <div class="alert alert--sticky">
+              <span class="alert-icon">!</span>
+              <div class="alert-body">
+                <h4 class="alert-title">记得把书带回去</h4>
+                <p class="alert-text">明天要还给图书馆 · 截止 18:00。</p>
+              </div>
+            </div>
+
+            <div class="alert alert--telegram">
+              <span class="alert-icon">→</span>
+              <div class="alert-body">
+                <h4 class="alert-title">急电 · 模考时间调整</h4>
+                <p class="alert-text">原定周五的数学模考改至周六上午 09:00，请提前 15 分钟到场。</p>
+              </div>
+            </div>
+
+            <div class="alert alert--ticket">
+              <div class="alert-stub">ADMIT<br>ONE</div>
+              <div class="alert-body">
+                <h4 class="alert-title">挑战赛已解锁</h4>
+                <p class="alert-text">完成 5 套数学卷即可获得「满分挑战者」勋章。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         07. PROGRESS
+         ===================================================== -->
+    <section class="section" id="progress">
+      <div class="section-head">
+        <span class="section-num">07</span>
+        <h2>Progress 进度与度量</h2>
+      </div>
+      <p class="section-lead">
+        进度条不必都是一根填充矩形。尺子、骰子、账本条纹、邮票计数——每种都暗示不同的语境。
+        学习进度用骰子像在游戏，财务额度用账本条纹像在记账，倒计时用尺子像在丈量。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">基础 · 单色 / 强调 / 成功</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">BASE</span>
+            <div class="progress" style="max-width: 360px;"><div class="progress-bar" style="width: 40%;"></div></div>
+            <div class="progress progress--accent" style="max-width: 360px;"><div class="progress-bar" style="width: 65%;"></div></div>
+            <div class="progress progress--success" style="max-width: 360px;"><div class="progress-bar" style="width: 88%;"></div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">尺子刻度</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">RULER</span>
+            <div class="progress progress--ruler" style="max-width: 360px;">
+              <div class="progress-bar" style="width: 72%;" data-value="7.2 / 10"></div>
+            </div>
+            <div class="progress progress--ruler" style="max-width: 360px;">
+              <div class="progress-bar" style="width: 30%;" data-value="3.0 km"></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">账本条纹</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">LEDGER</span>
+            <div class="progress progress--ledger" style="max-width: 360px;"><div class="progress-bar" style="width: 55%;"></div></div>
+            <div class="progress progress--ledger" style="max-width: 360px;"><div class="progress-bar" style="width: 92%;"></div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">骰子点数</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">DICE</span>
+            <div class="dice-progress">
+              <div class="dice is-on"><div class="dice-dot dice-pip-1"></div></div>
+              <div class="dice is-on"><div class="dice-dot dice-pip-2a"></div><div class="dice-dot dice-pip-2b"></div></div>
+              <div class="dice is-on"><div class="dice-dot dice-pip-3a"></div><div class="dice-dot dice-pip-3b"></div><div class="dice-dot dice-pip-3c"></div></div>
+              <div class="dice"><div class="dice-dot dice-pip-4a"></div><div class="dice-dot dice-pip-4b"></div><div class="dice-dot dice-pip-4c"></div><div class="dice-dot dice-pip-4d"></div></div>
+              <div class="dice"><div class="dice-dot dice-pip-5a"></div><div class="dice-dot dice-pip-5b"></div><div class="dice-dot dice-pip-5c"></div><div class="dice-dot dice-pip-5d"></div><div class="dice-dot dice-pip-5e"></div></div>
+            </div>
+            <div class="dice-progress">
+              <div class="dice is-on"><div class="dice-dot dice-pip-6a"></div><div class="dice-dot dice-pip-6b"></div><div class="dice-dot dice-pip-6c"></div><div class="dice-dot dice-pip-6d"></div><div class="dice-dot dice-pip-6e"></div><div class="dice-dot dice-pip-6f"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">邮票计数器</div>
+          <div class="stage">
+            <span class="stage-tag">STAMP</span>
+            <span class="stamp-counter"><span class="stamp-counter-mini">1</span>5 / 12 已完成</span>
+            <span class="stamp-counter"><span class="stamp-counter-mini">★</span>28 / 30 连续打卡</span>
+            <span class="stamp-counter"><span class="stamp-counter-mini">$</span>¥1,248 / ¥2,000</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         08. TOOLTIPS
+         ===================================================== -->
+    <section class="section" id="tooltips">
+      <div class="section-head">
+        <span class="section-num">08</span>
+        <h2>Tooltips 浮层提示</h2>
+      </div>
+      <p class="section-lead">
+        提示不必都是黑底白字小三角。便签式提示是温柔的、标签式提示是简明的、剪贴引文式提示是带上下文的。
+        给提示换一种"贴法"，能改变它的语气。
+      </p>
+
+      <div class="grid grid-4">
+        <div>
+          <div class="subsection-label">基础 · 黑底</div>
+          <div class="stage" style="padding: 56px 16px 16px;">
+            <span class="stage-tag">BLACK</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop">新建笔记 · ⌘ N</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">便签式</div>
+          <div class="stage" style="padding: 56px 16px 16px;">
+            <span class="stage-tag">STICKY</span>
+            <span class="tooltip">
+              <button class="btn btn--sm btn--sticky">灵感</button>
+              <span class="tooltip-pop tooltip-pop--sticky">突然想到一句：明天再整理</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">标签式</div>
+          <div class="stage" style="padding: 56px 16px 16px;">
+            <span class="stage-tag">TAG</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">命令</button>
+              <span class="tooltip-pop tooltip-pop--tag">⌘ K · 打开命令面板</span>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">剪贴引文</div>
+          <div class="stage" style="padding: 100px 16px 16px;">
+            <span class="stage-tag">CLIPPING</span>
+            <span class="tooltip">
+              <button class="btn btn--sm">悬停</button>
+              <span class="tooltip-pop tooltip-pop--clip">
+                <h5>勾股定理</h5>
+                <p>直角三角形两直角边的平方和等于斜边的平方，常用于构造法证明。</p>
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         09. LISTS
+         ===================================================== -->
+    <section class="section" id="lists">
+      <div class="section-head">
+        <span class="section-num">09</span>
+        <h2>Lists & Tables 列表与表格</h2>
+      </div>
+      <p class="section-lead">
+        同一个列表数据，可以是"打勾待办"、"借书卡票根"、"收据小票"、"账本行"——
+        每种都暗示不同的使用语境：复习、阅读、记账、财务。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">待办清单 · 复选</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">TODO</span>
+            <ul class="todo-list" style="max-width: 360px; width: 100%;">
+              <li class="todo is-done"><span class="todo-box"></span><span class="todo-text">复习二次函数</span><span class="todo-meta">08-15</span></li>
+              <li class="todo is-done"><span class="todo-box"></span><span class="todo-text">整理错题卡</span><span class="todo-meta">08-16</span></li>
+              <li class="todo"><span class="todo-box"></span><span class="todo-text">完成第一次模考</span><span class="todo-meta">08-19</span></li>
+              <li class="todo"><span class="todo-box"></span><span class="todo-text">整理 7 月份笔记</span><span class="todo-meta">08-20</span></li>
+              <li class="todo"><span class="todo-box"></span><span class="todo-text">准备错题讲解</span><span class="todo-meta">08-22</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">借书卡 · 图书馆</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">LIBRARY</span>
+            <div class="lib-card" style="max-width: 360px; width: 100%;">
+              <div class="lib-card-head">
+                <span class="lib-card-title">数学分析</span>
+                <span class="lib-card-author">— 陈纪修</span>
+              </div>
+              <p style="margin: 0 0 8px; font-size: 12px; color: var(--ink-secondary); line-height: 1.7;">第十一章：多元函数微分。重点掌握偏导数、梯度与方向导数的关系。</p>
+              <div class="lib-card-stamps">
+                <span class="lib-stamp">8/1 OUT</span>
+                <span class="lib-stamp">8/5 IN</span>
+                <span class="lib-stamp">8/7 OUT</span>
+                <span class="lib-stamp">8/12 IN</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">收据小票</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">RECEIPT</span>
+            <div class="receipt">
+              <div class="receipt-head">
+                <h4>INK.STORE</h4>
+                <p>文具铺 · 2026-08-18 10:32</p>
+              </div>
+              <div class="receipt-line"><span>A5 横线本 × 2</span><span>¥36.00</span></div>
+              <div class="receipt-line"><span>斑马 0.5 笔芯 × 3</span><span>¥27.00</span></div>
+              <div class="receipt-line"><span>和纸胶带 · 复古</span><span>¥18.00</span></div>
+              <div class="receipt-line"><span>便签贴 5 色</span><span>¥9.90</span></div>
+              <div class="receipt-total"><span>合计</span><span>¥90.90</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">账本表格</div>
+          <div class="stage stage--col stage--start">
+            <span class="stage-tag">TABLE</span>
+            <table class="ledger-table">
+              <thead>
+                <tr><th>日期</th><th>科目</th><th class="num">收入</th><th class="num">支出</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>08-15</td><td>稿费</td><td class="num pos">+580.00</td><td class="num">—</td></tr>
+                <tr><td>08-16</td><td>餐饮</td><td class="num">—</td><td class="num neg">-58.00</td></tr>
+                <tr><td>08-17</td><td>文具</td><td class="num">—</td><td class="num neg">-90.90</td></tr>
+                <tr><td>08-18</td><td>补习</td><td class="num">—</td><td class="num neg">-300.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         10. MODALS
+         ===================================================== -->
+    <section class="section" id="modals">
+      <div class="section-head">
+        <span class="section-num">10</span>
+        <h2>Modals & Dialogs 弹窗</h2>
+      </div>
+      <p class="section-lead">
+        弹窗也可以"装着来"——信封、电报、证书、公告板，每种都有合适的对话场景：
+        确认收件、紧急通知、达成奖励、公告提醒。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">信封弹窗</div>
+          <div class="modal-demo">
+            <div class="modal modal--envelope">
+              <div class="modal--envelope-body">
+                <h3>来自 8 月 1 日的信</h3>
+                <p>你那时候写下的承诺：每天 30 分钟数学，三周内整理完 7 月份的错题。</p>
+                <div class="modal--envelope-actions">
+                  <button class="btn btn--ghost">封存</button>
+                  <button class="btn btn--primary">拆封</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">复古电报</div>
+          <div class="modal-demo">
+            <div class="modal modal--telegram">
+              <h3>急电 · 模考改期</h3>
+              <p>原周五 09:00 模考改至周六 09:00，<br>请提前 15 分钟到 3 号教学楼 401。<br>—— 教务处</p>
+              <div class="modal--telegram-actions">
+                <button class="btn btn--ghost">忽略</button>
+                <button class="btn">已阅</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">证书弹窗</div>
+          <div class="modal-demo">
+            <div class="modal modal--cert">
+              <h3>完课证书</h3>
+              <p class="cert-sub">— 知境 · 学习档案 —</p>
+              <p class="cert-body">兹证明<br><span class="cert-name">你 · 知境学员</span><br>已完成「数学 · 二次函数」全 8 节课程。</p>
+              <div class="cert-seal">官方<br>印章<br>2026</div>
+              <div class="cert-actions">
+                <button class="btn btn--sm">下载</button>
+                <button class="btn btn--sm btn--primary">分享</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">公告板</div>
+          <div class="modal-demo">
+            <div class="modal modal--bulletin">
+              <h3>本周维护通知</h3>
+              <p>本周日 02:00 – 04:00 系统升级，期间笔记将只读保存。完成后会自动同步所有未上传的更改。</p>
+              <div class="modal--bulletin-actions">
+                <button class="btn btn--ghost btn--sm">稍后提醒</button>
+                <button class="btn btn--sm">知道了</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         11. SPECIAL
+         ===================================================== -->
+    <section class="section" id="special">
+      <div class="section-head">
+        <span class="section-num">11</span>
+        <h2>Special 特殊态</h2>
+      </div>
+      <p class="section-lead">
+        命令面板像邮差派信、空状态像一张空白便签在等你、加载态像三枚方块在弹跳、错误页像一张被撕坏的纸。
+        让"等待"也变得有个性。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">命令面板 · 邮差风</div>
+          <div class="stage">
+            <span class="stage-tag">CMD</span>
+            <div class="cmd">
+              <div class="cmd-head">
+                <input class="cmd-input" type="text" placeholder="搜索命令、笔记、跳转…" value="新">
+                <span class="cmd-kbd">ESC</span>
+              </div>
+              <div class="cmd-list">
+                <div class="cmd-section-title">即将送达</div>
+                <div class="cmd-item">
+                  <span class="cmd-item-ico">+</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">新建笔记</span>
+                    <span class="cmd-item-desc">在「数学 / 二次函数」下创建</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ N</span>
+                </div>
+                <div class="cmd-item is-active">
+                  <span class="cmd-item-ico">★</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">新建收藏夹</span>
+                    <span class="cmd-item-desc">汇总来自不同笔记的精选片段</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ ⇧ F</span>
+                </div>
+                <div class="cmd-section-title">命令</div>
+                <div class="cmd-item">
+                  <span class="cmd-item-ico">↗</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">打开命令面板</span>
+                    <span class="cmd-item-desc">你正处在这里</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ K</span>
+                </div>
+                <div class="cmd-item">
+                  <span class="cmd-item-ico">⚙</span>
+                  <div class="cmd-item-body">
+                    <span class="cmd-item-name">切换主题</span>
+                    <span class="cmd-item-desc">浅色 / 暗色 / 跟随系统</span>
+                  </div>
+                  <span class="cmd-item-kbd">⌘ T</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">空状态 · 空白便签</div>
+          <div class="stage">
+            <span class="stage-tag">EMPTY</span>
+            <div class="empty">
+              <div class="empty-paper"></div>
+              <h4 class="empty-title">这里还空着</h4>
+              <p class="empty-text">新建一张便签，或拖一篇文章进来</p>
+              <button class="btn btn--primary">+ 新建便签</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">加载态 · 三方块脉冲</div>
+          <div class="stage stage--col">
+            <span class="stage-tag">LOADING</span>
+            <div class="loading">
+              <div class="loading-block"></div>
+              <div class="loading-block"></div>
+              <div class="loading-block"></div>
+            </div>
+            <span class="stage-caption">正在整理你的笔记…</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="subsection-label">错误页 · 撕边纸</div>
+          <div class="stage">
+            <span class="stage-tag">ERROR</span>
+            <div class="error-paper">
+              <p class="error-code">404</p>
+              <h4 class="error-title">这张纸被风吹走了</h4>
+              <p class="error-text">找不到你要的笔记。可能还没写完，也可能被归档了。</p>
+              <div class="row" style="justify-content: center;">
+                <button class="btn btn--sm">回到主页</button>
+                <button class="btn btn--sm btn--primary">再找一次</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="dotted-divider">
+
+    <!-- =====================================================
+         12. DECO 装饰元素库
+         ===================================================== -->
+    <section class="section" id="deco">
+      <div class="section-head">
+        <span class="section-num">12</span>
+        <h2>Deco 装饰元素库</h2>
+      </div>
+      <p class="section-lead">
+        这部分不是"组件"，是"点缀物"——把印章、胶带、图钉、回形针、折角、撕边、装订孔、印刷标记、边角贴标、手画元素、贴纸、纸面纹理叠到任何元素上，
+        让页面像一张正在被使用的工作台，而不是一尘不染的展示柜。
+      </p>
+
+      <div class="deco-section">
+        <div class="subsection-label">A · 印章家族</div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">ROUND</span>
+            <div class="stamp stamp--round stamp--rot-1"><span>已阅<br>REVIEWED</span></div>
+            <span class="deco-card-name"><code>.stamp--round</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">OVAL</span>
+            <div class="stamp stamp--oval stamp--rot-2"><span>DRAFT</span></div>
+            <span class="deco-card-name"><code>.stamp--oval</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">RECT</span>
+            <div class="stamp stamp--rect stamp--rot-3"><span>PAID 2026-08-18</span></div>
+            <span class="deco-card-name"><code>.stamp--rect</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BLUE</span>
+            <div class="stamp stamp--round stamp--seal-blue stamp--rot-4"><span>APPROVED</span></div>
+            <span class="deco-card-name"><code>.stamp--seal-blue</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">GREEN</span>
+            <div class="stamp stamp--round stamp--seal-green stamp--rot-2"><span>已发布<br>SHIPPED</span></div>
+            <span class="deco-card-name"><code>.stamp--seal-green</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">GHOST</span>
+            <div class="stamp stamp--round stamp--ghost stamp--rot-1"><span>预览<br>PREVIEW</span></div>
+            <span class="deco-card-name"><code>.stamp--ghost</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section">
+        <div class="subsection-label">B · 胶带家族</div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">CREAM</span>
+            <span class="tape tape--cream tape--rot-1">未整理</span>
+            <span class="deco-card-name"><code>.tape--cream</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BLUE</span>
+            <span class="tape tape--blue tape--rot-2">数学</span>
+            <span class="deco-card-name"><code>.tape--blue</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">PINK</span>
+            <span class="tape tape--pink tape--rot-3">收藏</span>
+            <span class="deco-card-name"><code>.tape--pink</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CLEAR</span>
+            <span class="tape tape--clear tape--rot-4">半透</span>
+            <span class="deco-card-name"><code>.tape--clear</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section">
+        <div class="subsection-label">C · 图钉 · 回形针 · 订书钉</div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">PIN</span>
+            <div class="row" style="gap: 14px;">
+              <span class="pin pin--red"></span>
+              <span class="pin pin--yellow"></span>
+              <span class="pin pin--blue"></span>
+              <span class="pin pin--green"></span>
+            </div>
+            <span class="deco-card-name"><code>.pin--{color}</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CLIP</span>
+            <div class="row" style="gap: 16px;">
+              <span class="clip"></span>
+              <span class="clip clip--tilt-1"></span>
+              <span class="clip clip--tilt-2"></span>
+            </div>
+            <span class="deco-card-name"><code>.clip</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">STAPLE</span>
+            <div class="row" style="gap: 14px;">
+              <span class="staple"></span>
+              <span class="staple"></span>
+              <span class="staple"></span>
+            </div>
+            <span class="deco-card-name"><code>.staple</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">RIBBON</span>
+            <div style="position: relative; width: 120px; height: 100px; background: var(--ink-surface); border: 2px solid var(--ink); box-shadow: var(--shadow-1);">
+              <div class="ribbon-corner"><i>NEW</i></div>
+            </div>
+            <span class="deco-card-name"><code>.ribbon-corner</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section">
+        <div class="subsection-label">D · 折角 · 撕边 · 装订孔</div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">DOG-EAR TR</span>
+            <div style="position: relative; width: 120px; height: 90px; background: var(--ink-surface); border: 2px solid var(--ink);">
+              <span class="dog-ear dog-ear--tr"></span>
+            </div>
+            <span class="deco-card-name"><code>.dog-ear--tr</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">DOG-EAR BR</span>
+            <div style="position: relative; width: 120px; height: 90px; background: var(--ink-surface); border: 2px solid var(--ink);">
+              <span class="dog-ear dog-ear--br"></span>
+            </div>
+            <span class="deco-card-name"><code>.dog-ear--br</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">TEAR TOP</span>
+            <div style="position: relative; width: 140px;">
+              <div class="tear-top" style="width: 100%; height: 80px; background: var(--ink-surface); border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink);"></div>
+            </div>
+            <span class="deco-card-name"><code>.tear-top</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">BINDER</span>
+            <div style="position: relative; width: 140px; height: 100px; padding-left: 28px; background: var(--ink-surface); border: 2px solid var(--ink);">
+              <span class="binder-line"></span>
+              <div style="position: absolute; left: 12px; top: 18px; width: 12px; height: 12px; border-radius: 50%; background: var(--ink-bg); border: 1.5px solid var(--ink-panel);"></div>
+              <div style="position: absolute; left: 12px; top: 44px; width: 12px; height: 12px; border-radius: 50%; background: var(--ink-bg); border: 1.5px solid var(--ink-panel);"></div>
+              <div style="position: absolute; left: 12px; top: 70px; width: 12px; height: 12px; border-radius: 50%; background: var(--ink-bg); border: 1.5px solid var(--ink-panel);"></div>
+            </div>
+            <span class="deco-card-name"><code>.binder</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section">
+        <div class="subsection-label">E · 印刷标记 · 套准 · 色彩条</div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">CROSS</span>
+            <div style="position: relative; width: 80px; height: 80px; background: var(--ink-surface); border: 1.5px dashed var(--ink-panel);">
+              <span class="cross-mark cross-mark--tl"></span>
+              <span class="cross-mark cross-mark--tr"></span>
+              <span class="cross-mark cross-mark--bl"></span>
+              <span class="cross-mark cross-mark--br"></span>
+            </div>
+            <span class="deco-card-name"><code>.cross-mark</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CROP</span>
+            <div style="position: relative; width: 120px; height: 100px; background: var(--ink-surface); border: 1px solid var(--ink-panel);">
+              <span class="crop-corner crop-corner--tl"></span>
+              <span class="crop-corner crop-corner--tr"></span>
+              <span class="crop-corner crop-corner--bl"></span>
+              <span class="crop-corner crop-corner--br"></span>
+            </div>
+            <span class="deco-card-name"><code>.crop-corner</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">COLOR BAR</span>
+            <span class="color-bar"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="deco-card-name"><code>.color-bar</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CORNER TAG</span>
+            <div style="position: relative; width: 140px; height: 100px; background: var(--ink-surface); border: 2px solid var(--ink);">
+              <span class="corner-tag">SALE 50%</span>
+            </div>
+            <span class="deco-card-name"><code>.corner-tag</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section">
+        <div class="subsection-label">F · 手画元素 · 箭头 / 下划线 / 圆圈</div>
+        <div class="deco-grid">
+          <div class="deco-card">
+            <span class="deco-card-tag">ARROW</span>
+            <div class="row" style="gap: 18px;">
+              <span class="hand-arrow">↙</span>
+              <span class="hand-arrow" style="color: var(--ink-accent);">↗</span>
+              <span class="hand-arrow" style="color: var(--ink-success);">→</span>
+            </div>
+            <span class="deco-card-name"><code>.hand-arrow</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">UNDERLINE</span>
+            <span class="hand-underline">重点内容</span>
+            <span class="deco-card-name"><code>.hand-underline</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">CIRCLE</span>
+            <span class="hand-circle">圈出重点</span>
+            <span class="deco-card-name"><code>.hand-circle</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">STICKER</span>
+            <div class="row" style="gap: 10px;">
+              <span class="sticker">已读完</span>
+              <span class="sticker sticker--red">重要</span>
+              <span class="sticker sticker--blue">新</span>
+              <span class="sticker sticker--green">完成</span>
+            </div>
+            <span class="deco-card-name"><code>.sticker</code></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="deco-section">
+        <div class="subsection-label">G · 纸面纹理 · 叠加背景</div>
+        <div class="deco-grid">
+          <div class="deco-card" style="background: var(--ink-surface);">
+            <span class="deco-card-tag">LINED</span>
+            <div style="width: 100%; height: 100px;" class="paper-lined"></div>
+            <span class="deco-card-name"><code>.paper-lined</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">GRID</span>
+            <div style="width: 100%; height: 100px;" class="paper-grid"></div>
+            <span class="deco-card-name"><code>.paper-grid</code></span>
+          </div>
+          <div class="deco-card">
+            <span class="deco-card-tag">DOTS</span>
+            <div style="width: 100%; height: 100px;" class="paper-dots"></div>
+            <span class="deco-card-name"><code>.paper-dots</code></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         DEMO 桌面场景：把所有装饰组合在一起
+         ===================================================== -->
+    <section class="section">
+      <div class="section-head">
+        <span class="section-num">★</span>
+        <h2>Demo 桌面场景 · 装饰元素组合</h2>
+      </div>
+      <p class="section-lead">
+        一张真正的纸面工作站不会"白白净净"——上面有便签、印章、胶带、图钉、折角、印刷标记。下面是一张示例卡：
+        一段笔记漂浮在桌面上，被各种纸面物件装饰。你可以照搬这套搭配到真实组件上。
+      </p>
+
+      <div class="desk">
+        <div class="desk-floating desk-floating--1">
+          <div class="stamp stamp--round stamp--rot-2"><span>已阅<br>REVIEWED</span></div>
+        </div>
+        <div class="desk-floating desk-floating--2">
+          <span class="tape tape--cream tape--rot-2">数学笔记</span>
+        </div>
+        <div class="desk-floating desk-floating--3">
+          <span class="hand-underline" style="font-size: 18px;">记得回看！</span>
+        </div>
+        <div class="desk-floating desk-floating--4">
+          <span class="sticker sticker--red" style="width: 56px; height: 56px; font-size: 9px;">重要</span>
+        </div>
+
+        <div class="desk-card">
+          <span class="ribbon-corner"><i>NEW</i></span>
+          <h4>勾股定理 · 复盘</h4>
+          <p>构造法的核心是"在图形里多画一条线"。下图把"勾股 + 面积"两种证明放在同一张图上对比。</p>
+          <p class="hand">— 写于 8 月 18 日凌晨 1:32</p>
+          <div class="row" style="gap: 8px; margin-top: 4px;">
+            <span class="tag tag--tape-blue">数学</span>
+            <span class="tag tag--tape-pink">收藏</span>
+            <span class="tag tag--hand">复习</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>印格 InkGrid · 个性化组件库 · 实验稿 v0.1</p>
+      <p>2026-08-18 · 基于印格基础库 v2.1 扩展 · 11 组件家族 + 15 类装饰元素 + 70+ 变体</p>
+    </footer>
+
+  </main>
+
+  <script>
+    // 简单交互：手风琴展开、命令面板键盘高亮、tab 切换
+    document.querySelectorAll('.accordion-head').forEach((head) => {
+      head.addEventListener('click', () => {
+        head.parentElement.classList.toggle('is-open');
+      });
+    });
+
+    document.querySelectorAll('.nav-tabs').forEach((group) => {
+      group.querySelectorAll('.nav-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          group.querySelectorAll('.nav-tab').forEach((t) => t.classList.remove('is-active'));
+          tab.classList.add('is-active');
+        });
+      });
+    });
+
+    document.querySelectorAll('.stepper').forEach((group) => {
+      group.querySelectorAll('.step').forEach((step) => {
+        step.addEventListener('click', () => {
+          group.querySelectorAll('.step').forEach((s) => {
+            s.classList.remove('is-current', 'is-done');
+          });
+          step.classList.add('is-current');
+          let prev = step.previousElementSibling;
+          while (prev) {
+            prev.classList.add('is-done');
+            prev = prev.previousElementSibling;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

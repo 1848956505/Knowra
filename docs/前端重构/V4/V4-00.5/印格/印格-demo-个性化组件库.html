@@ -1,0 +1,3031 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#1A2622">
+  <title>印格 · Codex · 设计系统 v0.1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       印格 · CODEX v0.1
+       —— 来自不存在的幻想文明的现代知识系统
+
+       · 外壳：深墨绿 / 青黑 / 灰黑（冷暗）
+       · 阅读：旧纸白 / 亚麻白 / 微暖灰
+       · 强调：朱红 / 暗玫红 / 孔雀蓝 / 暗金
+       · 材质：油墨 / 颗粒 / 旧印刷 / 手工（克制）
+       · 信息可以规整，视觉可以不规整
+
+       参考：暗喻幻想 EQUIP MENU 视觉语言
+       转译：知识工具的语境
+       ============================================================ */
+    :root {
+      /* ── 外壳：深墨绿 + 青黑 + 灰黑 ── */
+      --ink-void: #0E1413;          /* 极深底 */
+      --ink-shell: #1A2622;         /* 主外壳 · 墨绿 */
+      --ink-shell-2: #21302B;       /* 浮起一层 */
+      --ink-shell-3: #2A3B36;       /* 浮起两层 */
+      --ink-cyan: #0F1A1F;          /* 青黑（次外壳） */
+      --ink-ash: #3A4844;           /* 边线 */
+      --ink-ash-2: #4D5C57;         /* 强边线 */
+      --ink-mist: #6F7E78;          /* 副文（壳上） */
+      --ink-bone: #C9CDC2;          /* 强文（壳上） */
+      --ink-paper: #EBE5CE;         /* 提亮（壳上） */
+
+      /* ── 阅读区：旧纸白 + 亚麻白 + 微暖灰 ── */
+      --vellum: #F2EAD3;            /* 旧纸白 · 主阅读 */
+      --vellum-2: #EBE2C5;          /* 深旧纸 */
+      --vellum-3: #DDD3B0;          /* 旧纸灰 */
+      --linen: #EDE4C8;             /* 亚麻白 */
+      --linen-2: #D9CFB0;           /* 亚麻灰 */
+      --parchment: #F8F2DE;         /* 羊皮纸 */
+      --ink-text: #2A2620;          /* 旧纸上的正文 */
+      --ink-text-2: #4A4538;        /* 旧纸上的副文 */
+      --ink-text-soft: #766E58;     /* 旧纸上的弱文 */
+
+      /* ── 强调：朱红 / 暗玫红 / 孔雀蓝 / 暗金 ── */
+      --vermilion: #C8312B;         /* 朱红 · 主强调 */
+      --vermilion-deep: #8E1F1A;    /* 暗朱红 */
+      --vermilion-bg: #E8C8C2;      /* 浅朱红 */
+      --rose: #7A1F1F;              /* 暗玫红 */
+      --peacock: #2D5A6E;           /* 孔雀蓝 */
+      --peacock-deep: #1F3F4F;      /* 深孔雀蓝 */
+      --peacock-bg: #C3D2D9;        /* 浅孔雀蓝 */
+      --gold: #A8833E;              /* 暗金 */
+      --gold-deep: #8A6A2C;         /* 深暗金 */
+      --gold-soft: #C8A55B;         /* 亮暗金 */
+
+      /* ── 几何 ── */
+      --rail: 64px;
+      --sidebar: 240px;
+      --inspector: 280px;
+      --statusbar: 32px;
+
+      /* ── 字体 ── */
+      --font-display: "EB Garamond", "Cormorant Garamond", "Noto Serif SC", serif;
+      --font-serif: "Cormorant Garamond", "Noto Serif SC", serif;
+      --font-italic: "IM Fell English", "EB Garamond", serif;
+      --font-ui: "Inter", "Noto Sans SC", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", monospace;
+
+      /* ── 描边 ── */
+      --line: 1px solid var(--ink-ash);
+      --line-2: 1px solid var(--ink-ash-2);
+      --line-paper: 1px solid var(--vellum-3);
+      --line-paper-2: 1px solid var(--linen-2);
+      --line-vermilion: 1px solid var(--vermilion);
+
+      /* ── 阴影（极轻） ── */
+      --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.08), 0 2px 8px rgba(42, 38, 32, 0.06);
+      --shadow-stamp: 0 1px 0 rgba(0, 0, 0, 0.2);
+
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+      --motion-fast: 180ms;
+      --motion-base: 280ms;
+      --motion-slow: 420ms;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink-text);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      line-height: 1.6;
+      background-color: var(--vellum);
+      background-image:
+        radial-gradient(circle, rgba(42, 38, 32, 0.04) 1px, transparent 1.5px);
+      background-size: 4px 4px;
+      background-attachment: fixed;
+    }
+
+    button { font: inherit; cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    input, textarea { font: inherit; color: inherit; }
+
+    :focus-visible {
+      outline: 1px solid var(--vermilion);
+      outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--ink-ash); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--ink-ash-2); }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 48px 32px 120px;
+    }
+
+    /* ============================================================
+       0. HERO · 扉页
+       ============================================================ */
+    .hero {
+      position: relative;
+      margin-bottom: 80px;
+      padding: 64px 56px 56px;
+      background: var(--ink-shell);
+      color: var(--vellum);
+      overflow: hidden;
+      border: 1px solid var(--ink-ash);
+    }
+
+    /* 油墨飞溅：朱红 + 暗金 */
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 60%;
+      height: 100%;
+      background:
+        radial-gradient(ellipse 40% 30% at 75% 25%, rgba(200, 49, 43, 0.35), transparent 60%),
+        radial-gradient(ellipse 25% 20% at 90% 75%, rgba(168, 131, 62, 0.25), transparent 60%),
+        radial-gradient(ellipse 30% 20% at 60% 80%, rgba(122, 31, 31, 0.2), transparent 60%);
+      pointer-events: none;
+    }
+
+    /* 颗粒层 */
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 3px 3px;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .hero-eyebrow::before, .hero-eyebrow::after {
+      content: "";
+      flex: 0 0 24px;
+      height: 1px;
+      background: var(--vermilion);
+    }
+    .hero-eyebrow em {
+      font: italic 400 13px/1 var(--font-italic);
+      color: var(--ink-bone);
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    .hero h1 {
+      position: relative;
+      margin: 0;
+      font: 400 168px/0.9 var(--font-display);
+      letter-spacing: -0.04em;
+      color: var(--vellum);
+      overflow: hidden;
+      line-height: 0.85;
+    }
+    .hero h1 .cut {
+      display: inline-block;
+      color: transparent;
+      -webkit-text-stroke: 1.5px var(--vellum);
+    }
+    .hero h1 .red { color: var(--vermilion); }
+    .hero h1 .gold { color: var(--gold-soft); }
+    .hero h1 .shifted {
+      display: inline-block;
+      transform: translateY(8px);
+      margin-left: 8px;
+    }
+    .hero h1 .small {
+      font: italic 400 22px/1 var(--font-italic);
+      letter-spacing: 0.02em;
+      color: var(--ink-mist);
+      vertical-align: super;
+      margin-left: 16px;
+    }
+
+    .hero-cn {
+      position: relative;
+      margin: 18px 0 0;
+      font: 500 28px/1.3 var(--font-ui);
+      letter-spacing: 0.04em;
+      color: var(--ink-bone);
+    }
+    .hero-cn em {
+      font: italic 400 32px/1.2 var(--font-italic);
+      color: var(--vermilion);
+      letter-spacing: 0.04em;
+      margin: 0 6px;
+    }
+
+    .hero-quote {
+      position: relative;
+      max-width: 620px;
+      margin: 28px 0 0;
+      padding: 12px 0 12px 18px;
+      border-left: 2px solid var(--vermilion);
+      font: italic 400 16px/1.7 var(--font-italic);
+      color: var(--ink-bone);
+    }
+    .hero-quote strong {
+      font-style: normal;
+      color: var(--vellum);
+      font-weight: 500;
+    }
+
+    .hero-tagline {
+      position: relative;
+      max-width: 720px;
+      margin: 24px 0 0;
+      font: 400 13px/1.85 var(--font-ui);
+      color: var(--ink-bone);
+    }
+    .hero-tagline em {
+      color: var(--vermilion);
+      font-style: italic;
+      font-weight: 500;
+    }
+    .hero-tagline strong {
+      color: var(--vellum);
+      font-weight: 500;
+    }
+
+    .hero-meta {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0;
+      margin-top: 44px;
+      padding-top: 24px;
+      border-top: 1px solid var(--ink-ash);
+    }
+    .hero-meta-item {
+      padding: 0 16px 0 0;
+      border-right: 1px solid var(--ink-ash);
+    }
+    .hero-meta-item:last-child { border-right: 0; }
+    .hero-meta-item .lbl {
+      display: block;
+      margin-bottom: 6px;
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .hero-meta-item .val {
+      font: 400 16px/1.3 var(--font-display);
+      color: var(--vellum);
+    }
+    .hero-meta-item .val em {
+      font: italic 400 14px/1.3 var(--font-italic);
+      color: var(--gold-soft);
+    }
+
+    /* 大数字标识 */
+    .hero-mark {
+      position: absolute;
+      top: 32px;
+      right: 36px;
+      width: 140px;
+      text-align: right;
+      z-index: 1;
+    }
+    .hero-mark-num {
+      font: 400 96px/0.85 var(--font-display);
+      color: var(--vermilion);
+      letter-spacing: -0.04em;
+    }
+    .hero-mark-num em {
+      font: italic 400 96px/0.85 var(--font-italic);
+      color: var(--gold-soft);
+    }
+    .hero-mark-lbl {
+      margin-top: 4px;
+      font: 500 10px/1.4 var(--font-mono);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-bone);
+    }
+
+    @media (max-width: 720px) {
+      .hero { padding: 48px 24px 36px; }
+      .hero h1 { font-size: 84px; }
+      .hero-cn { font-size: 22px; }
+      .hero-mark { width: 100px; top: 16px; right: 16px; }
+      .hero-mark-num { font-size: 60px; }
+      .hero-meta { grid-template-columns: repeat(2, 1fr); gap: 12px 0; }
+      .hero-meta-item:nth-child(2n) { border-right: 0; }
+    }
+
+    /* ============================================================
+       1. SECTION SCAFFOLD
+       ============================================================ */
+    .section { margin-bottom: 88px; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      margin-bottom: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--ink-ash);
+    }
+    .section-num {
+      font: italic 400 13px/1 var(--font-italic);
+      color: var(--vermilion);
+      letter-spacing: 0.16em;
+    }
+    .section h2 {
+      margin: 0;
+      font: 400 32px/1.1 var(--font-display);
+      letter-spacing: -0.02em;
+      color: var(--ink-shell);
+    }
+    .section h2 em {
+      font: italic 400 30px/1.1 var(--font-italic);
+      color: var(--vermilion);
+    }
+    .section-lead {
+      max-width: 780px;
+      margin: 16px 0 28px;
+      font: 400 14px/1.85 var(--font-ui);
+      color: var(--ink-text-2);
+    }
+    .section-lead strong { color: var(--ink-shell); font-weight: 500; }
+    .section-lead em { color: var(--vermilion); font-style: italic; }
+
+    .subsection { margin-bottom: 40px; }
+    .subsection-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--ink-ash-2);
+      color: var(--ink-shell);
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .subsection-label::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--vermilion);
+    }
+    .subsection-label em {
+      font: italic 400 11px/1.4 var(--font-italic);
+      color: var(--vermilion);
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    .grid { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+    @media (max-width: 960px) {
+      .grid-3, .grid-4, .grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+    }
+
+    .stage {
+      position: relative;
+      padding: 32px 24px 24px;
+      border: 1px dashed var(--ink-ash);
+      background: var(--parchment);
+      background-image: radial-gradient(circle, rgba(42, 38, 32, 0.03) 1px, transparent 1.5px);
+      background-size: 4px 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+    }
+    .stage--col { flex-direction: column; align-items: stretch; }
+    .stage--start { justify-content: flex-start; }
+    .stage-tag {
+      position: absolute;
+      top: 0;
+      left: 16px;
+      transform: translateY(-50%);
+      padding: 2px 8px;
+      background: var(--vellum);
+      color: var(--vermilion);
+      font: 500 9px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border: 1px solid var(--ink-ash);
+    }
+    .stage-caption {
+      flex-basis: 100%;
+      margin-top: 6px;
+      color: var(--ink-text-soft);
+      font: 400 11px/1.5 var(--font-mono);
+      text-align: center;
+    }
+    .stage--col .stage-caption { text-align: left; }
+
+    .hairline {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--ink-ash-2) 50%, transparent);
+      margin: 32px 0;
+    }
+
+    /* ============================================================
+       2. 设计基石
+       ============================================================ */
+    .tokens-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 0;
+      border: 1px solid var(--ink-ash);
+      background: var(--parchment);
+    }
+    @media (max-width: 960px) { .tokens-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 600px) { .tokens-grid { grid-template-columns: repeat(2, 1fr); } }
+    .token {
+      padding: 14px 12px;
+      border-right: 1px solid var(--ink-ash);
+      border-bottom: 1px solid var(--ink-ash);
+    }
+    .token:nth-child(8n) { border-right: 0; }
+    @media (max-width: 960px) {
+      .token:nth-child(8n) { border-right: 1px solid var(--ink-ash); }
+      .token:nth-child(4n) { border-right: 0; }
+    }
+    .token-chip {
+      width: 100%;
+      height: 48px;
+      margin-bottom: 8px;
+      border: 1px solid var(--ink-ash);
+    }
+    .token-name { font: 500 11px/1.2 var(--font-mono); color: var(--ink-shell); }
+    .token-hex { font: 400 10px/1.4 var(--font-mono); color: var(--ink-text-soft); margin-top: 4px; letter-spacing: 0.04em; }
+    .token-usage { font: 400 10px/1.5 var(--font-ui); color: var(--ink-text-soft); margin-top: 4px; }
+
+    .type-row {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--ink-ash);
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 24px;
+      align-items: baseline;
+    }
+    .type-row:last-child { border-bottom: 0; }
+    .type-label { font: 500 10px/1.4 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-text-soft); }
+    .type-sample { color: var(--ink-shell); }
+    .type-sample--display { font: 400 48px/1 var(--font-display); letter-spacing: -0.02em; }
+    .type-sample--display em { font: italic 400 48px/1 var(--font-italic); color: var(--vermilion); }
+    .type-sample--ui { font: 500 16px/1.4 var(--font-ui); }
+    .type-sample--mono { font: 500 14px/1.4 var(--font-mono); letter-spacing: 0.04em; }
+    .type-sample--numeric { font: 400 40px/1 var(--font-mono); color: var(--vermilion); letter-spacing: -0.02em; }
+    .type-sample--caption { font: italic 400 14px/1.5 var(--font-italic); color: var(--ink-text-2); }
+
+    /* ============================================================
+       3. 符号系统（自定义抽象符号）
+       ============================================================ */
+    .symbol-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+    }
+    @media (max-width: 960px) { .symbol-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 600px) { .symbol-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .symbol {
+      position: relative;
+      padding: 18px 12px 16px;
+      background: var(--parchment);
+      border: 1px solid var(--ink-ash);
+      text-align: center;
+    }
+    .symbol-art {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 8px;
+      display: grid;
+      place-items: center;
+      color: var(--vermilion);
+    }
+    .symbol-art svg { display: block; width: 100%; height: 100%; }
+    .symbol-name { font: 500 11px/1 var(--font-display); color: var(--ink-shell); letter-spacing: 0.02em; }
+    .symbol-key { display: block; margin-top: 2px; font: 400 9px/1 var(--font-mono); color: var(--ink-text-soft); letter-spacing: 0.04em; }
+
+    /* 符号颜色变体 */
+    .symbol--peacock .symbol-art { color: var(--peacock); }
+    .symbol--gold .symbol-art { color: var(--gold-deep); }
+    .symbol--ink .symbol-art { color: var(--ink-shell); }
+    .symbol--rose .symbol-art { color: var(--rose); }
+
+    /* ============================================================
+       4. 页面级 · 5 种情绪
+       ============================================================ */
+    .page-mock {
+      margin: 24px 0 40px;
+      border: 1px solid var(--ink-ash);
+      background: var(--ink-void);
+      overflow: hidden;
+    }
+    .page-mock-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--ink-cyan);
+      border-bottom: 1px solid var(--ink-ash);
+    }
+    .page-mock-bar-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-ash); }
+    .page-mock-bar-label {
+      margin-left: 12px;
+      font: 500 10px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-bone);
+    }
+    .page-mock-bar-mood {
+      margin-left: auto;
+      font: italic 400 11px/1 var(--font-italic);
+      color: var(--vermilion);
+    }
+
+    .page-mock-body {
+      display: grid;
+      min-height: 640px;
+      background: var(--ink-shell);
+    }
+
+    /* ─── 04.1 工作台首页 · 典籍扉页 ─── */
+    .frontispiece {
+      position: relative;
+      padding: 48px 56px;
+      background: var(--ink-shell);
+      background-image:
+        radial-gradient(ellipse 40% 30% at 80% 20%, rgba(200, 49, 43, 0.18), transparent 60%),
+        radial-gradient(ellipse 30% 20% at 20% 80%, rgba(168, 131, 62, 0.12), transparent 60%);
+      color: var(--vellum);
+      overflow: hidden;
+      min-height: 640px;
+    }
+    .frontispiece::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 3px 3px;
+      pointer-events: none;
+    }
+    .frontispiece-content {
+      position: relative;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 0;
+      z-index: 1;
+    }
+    .frontispiece-prompt {
+      font: italic 400 16px/1 var(--font-italic);
+      color: var(--ink-mist);
+      letter-spacing: 0.04em;
+    }
+    .frontispiece-title {
+      margin: 16px 0 0;
+      font: 400 120px/0.9 var(--font-display);
+      letter-spacing: -0.04em;
+      color: var(--vellum);
+      line-height: 0.85;
+    }
+    .frontispiece-title .cut { color: transparent; -webkit-text-stroke: 1.5px var(--vellum); }
+    .frontispiece-title .red { color: var(--vermilion); }
+    .frontispiece-cn {
+      margin: 16px 0 0;
+      font: 500 22px/1.4 var(--font-ui);
+      color: var(--ink-bone);
+      letter-spacing: 0.04em;
+    }
+    .frontispiece-cn em {
+      font: italic 400 24px/1.2 var(--font-italic);
+      color: var(--vermilion);
+      margin: 0 6px;
+    }
+    .frontispiece-rule {
+      width: 60px;
+      height: 2px;
+      background: var(--vermilion);
+      margin: 28px 0;
+    }
+    .frontispiece-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+    .frontispiece-stats {
+      position: absolute;
+      top: 48px;
+      right: 56px;
+      width: 220px;
+      z-index: 1;
+    }
+    .frontispiece-stats .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: baseline;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .frontispiece-stats .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-mist);
+    }
+    .frontispiece-stats .val {
+      font: 400 18px/1 var(--font-mono);
+      color: var(--vellum);
+      letter-spacing: -0.01em;
+    }
+    .frontispiece-stats .val em { color: var(--vermilion); font-style: normal; }
+
+    .frontispiece-archive {
+      position: relative;
+      max-width: 720px;
+      margin: 48px auto 0;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      z-index: 1;
+    }
+    .frontispiece-archive-item {
+      padding: 0 16px 0 0;
+      margin-right: 16px;
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .frontispiece-archive-item:last-child { border-right: 0; }
+    .frontispiece-archive-item .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .frontispiece-archive-item .ttl {
+      display: block;
+      margin-top: 4px;
+      font: 400 18px/1.3 var(--font-display);
+      color: var(--vellum);
+    }
+    .frontispiece-archive-item .num {
+      display: block;
+      margin-top: 2px;
+      font: 400 11px/1 var(--font-mono);
+      color: var(--ink-mist);
+    }
+
+    /* ─── 04.2 资料库 · 索引目录 ─── */
+    .archive-page {
+      display: grid;
+      grid-template-columns: var(--rail) var(--sidebar) minmax(0, 1fr);
+      min-height: 640px;
+      background: var(--ink-void);
+    }
+    .archive-page .rail {
+      background: var(--ink-shell);
+      border-right: 1px solid var(--ink-ash);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 0 16px;
+      gap: 6px;
+    }
+    .archive-page .rail-brand {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: var(--vermilion);
+      color: var(--vellum);
+      font: 400 16px/1 var(--font-display);
+      margin-bottom: 16px;
+    }
+    .archive-page .rail-item {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 0;
+      color: var(--ink-mist);
+      cursor: pointer;
+      position: relative;
+    }
+    .archive-page .rail-item:hover { color: var(--vellum); }
+    .archive-page .rail-item.is-active { color: var(--vermilion); }
+    .archive-page .rail-item.is-active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: var(--vermilion);
+    }
+    .archive-page .rail-item .sym { width: 20px; height: 20px; }
+    .archive-page .rail-spacer { flex: 1; }
+
+    .archive-page .side {
+      background: var(--ink-cyan);
+      border-right: 1px solid var(--ink-ash);
+      padding: 16px 12px;
+    }
+    .archive-page .side-head {
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--ink-ash);
+    }
+    .archive-page .side-head .lbl {
+      display: block;
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .archive-page .side-head .ttl {
+      margin-top: 6px;
+      font: 400 22px/1.2 var(--font-display);
+      color: var(--vellum);
+    }
+    .archive-page .side-head .meta {
+      display: block;
+      margin-top: 4px;
+      font: italic 400 12px/1.4 var(--font-italic);
+      color: var(--ink-mist);
+    }
+    .archive-page .side-section {
+      margin-top: 16px;
+    }
+    .archive-page .side-section .lbl {
+      padding: 0 8px 6px;
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .archive-page .side-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      color: var(--ink-bone);
+      font: 400 12px/1.4 var(--font-ui);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .archive-page .side-row:hover { background: rgba(255, 255, 255, 0.04); }
+    .archive-page .side-row.is-active {
+      background: rgba(200, 49, 43, 0.12);
+      border-left-color: var(--vermilion);
+      color: var(--vellum);
+    }
+    .archive-page .side-row .num {
+      margin-left: auto;
+      font: 400 10px/1 var(--font-mono);
+      color: var(--ink-mist);
+    }
+
+    .archive-page .work {
+      background: var(--vellum);
+      padding: 28px 32px 32px;
+      overflow-y: auto;
+    }
+    .archive-page .work-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .archive-page .work-head .crumbs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-text-soft);
+    }
+    .archive-page .work-head .crumbs .sep { color: var(--vermilion); }
+    .archive-page .work-head .crumbs .cur { color: var(--ink-shell); }
+    .archive-page .work-head .meta { margin-left: auto; font: 500 11px/1 var(--font-mono); color: var(--ink-text-soft); }
+    .archive-page .work-head .meta em { color: var(--vermilion); }
+
+    .archive-page .page-title {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--vellum-3);
+    }
+    .archive-page .page-title h1 {
+      margin: 0;
+      font: 400 56px/1 var(--font-display);
+      letter-spacing: -0.02em;
+      color: var(--ink-shell);
+    }
+    .archive-page .page-title h1 em { font: italic 400 56px/1 var(--font-italic); color: var(--vermilion); }
+    .archive-page .page-title .num {
+      font: 400 18px/1 var(--font-mono);
+      color: var(--vermilion);
+      letter-spacing: 0.04em;
+    }
+
+    .archive-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .archive-card {
+      padding: 18px 16px 16px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+      box-shadow: var(--shadow-paper);
+      position: relative;
+    }
+    .archive-card .num {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      font: 400 10px/1 var(--font-mono);
+      color: var(--vermilion);
+    }
+    .archive-card .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .archive-card .ttl {
+      display: block;
+      margin-top: 6px;
+      font: 400 16px/1.3 var(--font-display);
+      color: var(--ink-shell);
+    }
+    .archive-card .excerpt {
+      margin: 8px 0 0;
+      font: 400 12px/1.55 var(--font-ui);
+      color: var(--ink-text-2);
+    }
+    .archive-card .foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid var(--vellum-3);
+      font: 500 10px/1 var(--font-mono);
+      color: var(--ink-text-soft);
+      letter-spacing: 0.04em;
+    }
+
+    .archive-page .statusbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 14px;
+      height: 32px;
+      background: var(--ink-cyan);
+      border-top: 1px solid var(--ink-ash);
+      font: 500 10px/1 var(--font-mono);
+      color: var(--ink-bone);
+      letter-spacing: 0.04em;
+    }
+    .archive-page .statusbar .spacer { flex: 1; }
+    .archive-page .statusbar .item { display: flex; align-items: center; gap: 6px; }
+    .archive-page .statusbar .item .num { color: var(--vellum); }
+    .archive-page .statusbar .item--emph .num { color: var(--vermilion); }
+
+    /* ─── 04.3 笔记 · 展开的书页 ─── */
+    .manuscript {
+      display: grid;
+      grid-template-columns: 1fr;
+      background: var(--vellum);
+      min-height: 640px;
+      padding: 0;
+    }
+    .manuscript-page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 48px 48px;
+      width: 100%;
+    }
+    .manuscript-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--vellum-3);
+      font: 500 10px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-text-soft);
+    }
+    .manuscript-meta .emph { color: var(--vermilion); }
+    .manuscript h1 {
+      margin: 0 0 12px;
+      font: 400 44px/1.15 var(--font-display);
+      letter-spacing: -0.02em;
+      color: var(--ink-shell);
+    }
+    .manuscript h1 em { font: italic 400 44px/1.15 var(--font-italic); color: var(--vermilion); }
+    .manuscript h2 {
+      margin: 32px 0 12px;
+      font: 500 18px/1.3 var(--font-ui);
+      color: var(--ink-shell);
+    }
+    .manuscript p {
+      margin: 0 0 14px;
+      font: 400 14px/1.85 var(--font-ui);
+      color: var(--ink-text-2);
+    }
+    .manuscript blockquote {
+      margin: 20px 0;
+      padding: 12px 0 12px 18px;
+      border-left: 2px solid var(--vermilion);
+      font: italic 400 15px/1.75 var(--font-italic);
+      color: var(--ink-shell);
+    }
+    .manuscript code {
+      padding: 1px 6px;
+      background: var(--vellum-2);
+      color: var(--vermilion);
+      font: 500 12px/1.4 var(--font-mono);
+    }
+
+    .manuscript-tools {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      gap: 6px;
+    }
+    .manuscript-tool {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: var(--parchment);
+      border: 1px solid var(--vellum-3);
+      color: var(--ink-text-2);
+    }
+    .manuscript-tool:hover { color: var(--vermilion); border-color: var(--vermilion); }
+
+    /* ─── 04.4 知识图谱 · 星图 ─── */
+    .graph-shell {
+      display: grid;
+      grid-template-columns: var(--rail) minmax(0, 1fr) 260px;
+      min-height: 640px;
+      background: var(--ink-void);
+    }
+    .graph-canvas {
+      position: relative;
+      background: var(--ink-void);
+      background-image:
+        radial-gradient(circle, rgba(200, 49, 43, 0.04) 1.5px, transparent 2px);
+      background-size: 32px 32px;
+      overflow: hidden;
+    }
+    .graph-canvas::before {
+      content: "";
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 8px 12px;
+      background: var(--ink-shell);
+      border: 1px solid var(--ink-ash);
+      color: var(--vermilion);
+      font: 500 10px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .graph-svg { width: 100%; height: 100%; display: block; }
+
+    .graph-side {
+      background: var(--ink-cyan);
+      border-left: 1px solid var(--ink-ash);
+      padding: 24px 20px;
+      color: var(--vellum);
+    }
+    .graph-side .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .graph-side .ttl {
+      margin: 8px 0 0;
+      font: 400 22px/1.2 var(--font-display);
+      color: var(--vellum);
+    }
+    .graph-side .body {
+      margin-top: 12px;
+      font: 400 12px/1.65 var(--font-ui);
+      color: var(--ink-bone);
+    }
+    .graph-side .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--ink-ash);
+    }
+    .graph-side .stat {
+      text-align: left;
+    }
+    .graph-side .stat .lbl { color: var(--ink-mist); }
+    .graph-side .stat .val {
+      display: block;
+      margin-top: 4px;
+      font: 400 24px/1 var(--font-mono);
+      color: var(--vellum);
+    }
+    .graph-side .stat .val em { color: var(--vermilion); font-style: normal; }
+
+    /* ─── 04.5 训练 · 战术界面 ─── */
+    .training {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      min-height: 640px;
+      background: var(--ink-shell);
+    }
+    .training-stage {
+      padding: 32px 40px;
+      background: var(--ink-shell);
+      background-image:
+        radial-gradient(ellipse 50% 40% at 70% 30%, rgba(200, 49, 43, 0.12), transparent 60%);
+      color: var(--vellum);
+    }
+    .training-head {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .training-head .lbl {
+      font: 500 10px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .training-head .lbl em { color: var(--vermilion); }
+    .training-head .meta {
+      font: 500 10px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-mist);
+    }
+    .training-card {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 32px 36px;
+      background: var(--vellum);
+      color: var(--ink-shell);
+      border: 1px solid var(--vellum-3);
+      box-shadow: 6px 6px 0 var(--ink-cyan);
+    }
+    .training-card-num {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .training-card-num b {
+      font: 400 64px/0.85 var(--font-display);
+      color: var(--vermilion);
+      letter-spacing: -0.04em;
+    }
+    .training-card-num span {
+      font: 400 18px/1 var(--font-mono);
+      color: var(--ink-text-soft);
+    }
+    .training-card-q {
+      margin: 18px 0 24px;
+      font: 400 18px/1.7 var(--font-display);
+      color: var(--ink-shell);
+    }
+    .training-options { display: grid; gap: 8px; }
+    .training-opt {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+      color: var(--ink-shell);
+      font: 400 13px/1.4 var(--font-ui);
+      cursor: pointer;
+    }
+    .training-opt:hover { border-color: var(--vermilion); }
+    .training-opt .key {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      background: var(--ink-shell);
+      color: var(--vermilion);
+      font: 500 10px/1 var(--font-mono);
+    }
+    .training-opt.is-correct {
+      background: var(--peacock-bg);
+      border-color: var(--peacock);
+    }
+    .training-opt.is-correct .key { background: var(--peacock); color: var(--vellum); }
+    .training-opt.is-wrong { border-color: var(--vermilion); }
+    .training-opt.is-wrong .key { background: var(--vermilion); color: var(--vellum); }
+
+    .training-side {
+      padding: 24px 20px;
+      background: var(--ink-cyan);
+      color: var(--vellum);
+      border-left: 1px solid var(--ink-ash);
+    }
+    .training-side .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .training-side .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: baseline;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--ink-ash);
+    }
+    .training-side .row:last-child { border-bottom: 0; }
+    .training-side .row .lbl { font: 400 12px/1.4 var(--font-display); color: var(--ink-bone); }
+    .training-side .row .val {
+      font: 400 16px/1 var(--font-mono);
+      color: var(--vellum);
+      letter-spacing: -0.01em;
+    }
+    .training-side .row .val em { color: var(--vermilion); font-style: normal; }
+
+    /* ─── 04.6 AI · 占卜研究终端 ─── */
+    .oracle {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      min-height: 640px;
+      background: var(--ink-void);
+    }
+    .oracle-history {
+      background: var(--ink-cyan);
+      border-right: 1px solid var(--ink-ash);
+      padding: 20px 12px;
+    }
+    .oracle-history .lbl {
+      padding: 0 8px 12px;
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .oracle-history-item {
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      color: var(--ink-bone);
+      font: 400 12px/1.4 var(--font-ui);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .oracle-history-item:hover { background: rgba(255, 255, 255, 0.04); }
+    .oracle-history-item.is-active {
+      background: rgba(200, 49, 43, 0.12);
+      border-left-color: var(--vermilion);
+      color: var(--vellum);
+    }
+    .oracle-history-item .meta {
+      display: block;
+      margin-top: 4px;
+      font: 400 10px/1 var(--font-mono);
+      color: var(--ink-mist);
+    }
+
+    .oracle-stage {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .oracle-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--ink-ash);
+      background: var(--ink-shell);
+    }
+    .oracle-head .crumbs {
+      display: flex;
+      gap: 6px;
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-bone);
+    }
+    .oracle-head .crumbs .sep { color: var(--vermilion); }
+    .oracle-head .crumbs .cur { color: var(--vermilion); }
+    .oracle-terminal {
+      flex: 1;
+      padding: 28px 32px;
+      background: var(--ink-shell);
+      overflow: auto;
+    }
+    .oracle-msg {
+      max-width: 720px;
+      margin-bottom: 24px;
+    }
+    .oracle-msg .who {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font: 500 11px/1 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .oracle-msg .who em { color: var(--ink-bone); font-style: normal; }
+    .oracle-msg .body {
+      font: 400 14px/1.8 var(--font-ui);
+      color: var(--ink-bone);
+    }
+    .oracle-msg .body p { margin: 0 0 10px; }
+    .oracle-msg .body strong { color: var(--vermilion); font-weight: 500; }
+    .oracle-input-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-top: 1px solid var(--ink-ash);
+      background: var(--ink-cyan);
+    }
+    .oracle-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: var(--ink-void);
+      border: 1px solid var(--ink-ash-2);
+      color: var(--vellum);
+      font: 400 13px/1.4 var(--font-ui);
+    }
+    .oracle-input:focus { outline: none; border-color: var(--vermilion); }
+    .oracle-input::placeholder { color: var(--ink-mist); }
+
+    .oracle-prompt {
+      position: absolute;
+      top: 32px;
+      right: 32px;
+      width: 220px;
+      padding: 16px 18px;
+      background: var(--ink-void);
+      border: 1px solid var(--ink-ash);
+    }
+    .oracle-prompt .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .oracle-prompt .body {
+      margin-top: 8px;
+      font: italic 400 13px/1.6 var(--font-italic);
+      color: var(--ink-bone);
+    }
+
+    /* ============================================================
+       5. 通用组件
+       ============================================================ */
+
+    /* 5.1 按钮 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--parchment);
+      border: 1px solid var(--ink-shell);
+      color: var(--ink-shell);
+      font: 500 12px/1.2 var(--font-display);
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all var(--motion-fast) var(--ease);
+    }
+    .btn:hover { background: var(--ink-shell); color: var(--vellum); }
+    .btn:active { background: var(--ink-shell-3); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn .ic { width: 12px; height: 12px; }
+    .btn--sm { padding: 5px 12px; font-size: 11px; }
+    .btn--lg { padding: 12px 22px; font-size: 14px; }
+    .btn--icon { width: 32px; height: 32px; padding: 0; }
+    .btn--block { width: 100%; }
+    .btn--ghost { border-color: transparent; }
+
+    .btn--primary {
+      background: var(--vermilion);
+      border-color: var(--vermilion);
+      color: var(--vellum);
+    }
+    .btn--primary:hover { background: var(--vermilion-deep); border-color: var(--vermilion-deep); }
+    .btn--ink { background: var(--ink-shell); color: var(--vellum); }
+    .btn--ink:hover { background: var(--ink-shell-2); }
+    .btn--ink--vermilion {
+      background: var(--ink-shell);
+      color: var(--vermilion);
+    }
+    .btn--ink--vermilion:hover { color: var(--vermilion-bg); }
+
+    /* 5.2 输入 */
+    .input {
+      width: 100%;
+      max-width: 360px;
+      padding: 10px 14px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+      color: var(--ink-text);
+      font: 400 13px/1.4 var(--font-ui);
+      transition: border-color var(--motion-fast) var(--ease);
+    }
+    .input:focus { outline: none; border-color: var(--vermilion); }
+    .input::placeholder { color: var(--ink-text-soft); font-style: italic; }
+    .input--err { border-color: var(--vermilion); background: var(--vermilion-bg); }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font: 500 10px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-text-soft);
+    }
+    .field-help { font: 400 11px/1.4 var(--font-mono); color: var(--ink-text-soft); }
+    .field-help--err { color: var(--vermilion); }
+
+    /* 5.3 标签 */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      font: 500 10px/1.6 var(--font-mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-shell);
+      border: 1px solid var(--ink-ash-2);
+      background: var(--parchment);
+    }
+    .tag--vermilion { color: var(--vermilion); border-color: var(--vermilion); }
+    .tag--peacock { color: var(--peacock); border-color: var(--peacock); }
+    .tag--gold { color: var(--gold-deep); border-color: var(--gold); }
+    .tag--filled { background: var(--ink-shell); color: var(--vellum); border-color: var(--ink-shell); }
+    .tag--num {
+      padding: 2px 8px;
+      background: var(--ink-shell);
+      color: var(--vermilion);
+      font: 400 14px/1.2 var(--font-display);
+      letter-spacing: 0.02em;
+    }
+
+    /* 5.4 卡片 */
+    .card {
+      padding: 18px 20px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+      box-shadow: var(--shadow-paper);
+      position: relative;
+    }
+    .card h3 {
+      margin: 0 0 6px;
+      font: 400 16px/1.3 var(--font-display);
+      color: var(--ink-shell);
+    }
+    .card p { margin: 0; font: 400 12px/1.6 var(--font-ui); color: var(--ink-text-2); }
+
+    /* 5.5 导航 / Tab */
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--ink-ash);
+    }
+    .tab {
+      padding: 8px 14px;
+      color: var(--ink-text-soft);
+      font: 500 12px/1.3 var(--font-display);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      margin-bottom: -1px;
+    }
+    .tab:hover { color: var(--ink-shell); }
+    .tab.is-active {
+      color: var(--vermilion);
+      border-bottom-color: var(--vermilion);
+    }
+    .tab .num {
+      margin-right: 6px;
+      font: 500 10px/1.4 var(--font-mono);
+      color: var(--vermilion);
+    }
+
+    /* 5.6 状态 */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+    }
+    .alert-mark {
+      flex: 0 0 4px;
+      width: 4px;
+      align-self: stretch;
+      background: var(--ink-ash);
+    }
+    .alert-body { flex: 1; }
+    .alert-title { margin: 0 0 4px; font: 500 13px/1.3 var(--font-display); color: var(--ink-shell); }
+    .alert-text { margin: 0; font: 400 12px/1.6 var(--font-ui); color: var(--ink-text-2); }
+    .alert--vermilion .alert-mark { background: var(--vermilion); }
+    .alert--peacock .alert-mark { background: var(--peacock); }
+    .alert--gold { background: var(--vellum-2); }
+    .alert--gold .alert-mark { background: var(--gold); }
+
+    /* 5.7 进度 */
+    .progress {
+      width: 100%;
+      height: 4px;
+      background: var(--vellum-3);
+      position: relative;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--vermilion);
+      transition: width var(--motion-base) var(--ease);
+    }
+    .progress--thick { height: 8px; }
+    .progress--peacock .progress-bar { background: var(--peacock); }
+    .progress--gold .progress-bar { background: var(--gold); }
+
+    /* 5.8 列表 */
+    .list-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--vellum-3);
+    }
+    .list-row:last-child { border-bottom: 0; }
+    .list-row .mark {
+      width: 12px;
+      height: 12px;
+      border: 1px solid var(--ink-ash-2);
+      flex-shrink: 0;
+    }
+    .list-row.is-done .mark { background: var(--vermilion); border-color: var(--vermilion); }
+    .list-row.is-done .name { color: var(--ink-text-soft); text-decoration: line-through; }
+    .list-row .name { flex: 1; font: 400 13px/1.3 var(--font-ui); color: var(--ink-shell); }
+    .list-row .meta { font: 500 10px/1.2 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-text-soft); }
+    .list-row.is-current .name { color: var(--vermilion); }
+
+    /* 5.9 工具提示 */
+    .tip {
+      position: relative;
+      display: inline-block;
+    }
+    .tip-pop {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 10px;
+      background: var(--ink-shell);
+      border: 1px solid var(--ink-ash);
+      color: var(--vellum);
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .tip-pop::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: var(--ink-ash);
+    }
+
+    /* 5.10 模态 */
+    .modal-demo {
+      position: relative;
+      padding: 24px;
+      background:
+        radial-gradient(circle, rgba(26, 38, 34, 0.05) 1px, transparent 2px) 0 0/8px 8px,
+        var(--vellum);
+      border: 1px dashed var(--ink-ash);
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      max-width: 480px;
+      margin: 24px auto;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+      box-shadow: 4px 4px 0 var(--ink-shell);
+    }
+    .modal-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--linen-2);
+    }
+    .modal-head .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .modal-head .ttl {
+      margin: 6px 0 0;
+      font: 400 20px/1.2 var(--font-display);
+      color: var(--ink-shell);
+    }
+    .modal-body { padding: 18px; }
+    .modal-body p { margin: 0 0 12px; font: 400 13px/1.7 var(--font-ui); color: var(--ink-text-2); }
+    .modal-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--linen-2);
+    }
+
+    /* ============================================================
+       6. 强调变体（15% 的爆发）
+       ============================================================ */
+    .stamp {
+      position: relative;
+      padding: 18px 20px;
+      background: var(--parchment);
+      border: 1px solid var(--vermilion);
+      transform: rotate(-0.5deg);
+    }
+    .stamp::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 28px;
+      height: 1px;
+      background: var(--vermilion);
+    }
+    .stamp::after {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 1px;
+      height: 28px;
+      background: var(--vermilion);
+    }
+    .stamp h3 {
+      margin: 0 0 8px;
+      font: 400 24px/1.2 var(--font-display);
+      color: var(--ink-shell);
+    }
+    .stamp h3 em { font: italic 400 24px/1.2 var(--font-italic); color: var(--vermilion); }
+    .stamp p { margin: 0 0 12px; font: 400 12px/1.7 var(--font-ui); color: var(--ink-text-2); }
+
+    /* 斜切大标 */
+    .slab {
+      position: relative;
+      padding: 24px 28px;
+      background: var(--ink-shell);
+      color: var(--vellum);
+      transform: translateX(-6px) skewX(-2deg);
+    }
+    .slab::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 80px;
+      height: 2px;
+      background: var(--vermilion);
+    }
+    .slab h3 {
+      margin: 0;
+      font: 400 32px/1.1 var(--font-display);
+      color: var(--vellum);
+      transform: skewX(2deg);
+    }
+    .slab h3 em { font: italic 400 32px/1.1 var(--font-italic); color: var(--vermilion); }
+    .slab .sub {
+      display: block;
+      margin-top: 8px;
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-mist);
+      transform: skewX(2deg);
+    }
+
+    /* 拉引言 */
+    .pull-quote {
+      position: relative;
+      padding: 20px 0 20px 28px;
+      border-left: 2px solid var(--vermilion);
+    }
+    .pull-quote::before {
+      content: "“";
+      position: absolute;
+      top: -8px;
+      left: 12px;
+      font: 400 80px/1 var(--font-display);
+      color: var(--vermilion);
+      opacity: 0.3;
+    }
+    .pull-quote p {
+      margin: 0;
+      font: italic 400 20px/1.5 var(--font-italic);
+      color: var(--ink-shell);
+    }
+    .pull-quote .cite {
+      display: block;
+      margin-top: 10px;
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-text-soft);
+    }
+    .pull-quote .cite em { color: var(--vermilion); font-style: normal; }
+
+    /* 大数字 */
+    .num-hero {
+      font: 400 96px/0.9 var(--font-display);
+      color: var(--ink-shell);
+      letter-spacing: -0.04em;
+    }
+    .num-hero em { font: italic 400 96px/0.9 var(--font-italic); color: var(--vermilion); }
+
+    /* ============================================================
+       7. 装饰元素（暗调）
+       ============================================================ */
+    .deco-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    @media (max-width: 960px) { .deco-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 560px) { .deco-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .deco {
+      position: relative;
+      padding: 24px 12px 22px;
+      min-height: 100px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .deco-lbl {
+      position: absolute;
+      top: 0;
+      left: 12px;
+      transform: translateY(-50%);
+      padding: 1px 6px;
+      background: var(--vellum);
+      color: var(--vermilion);
+      font: 500 9px/1.4 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border: 1px solid var(--ink-ash);
+    }
+    .deco-name {
+      font: 500 10px/1.4 var(--font-mono);
+      color: var(--ink-text-soft);
+      letter-spacing: 0.04em;
+    }
+
+    .orn-rule {
+      width: 100%;
+      height: 1px;
+      background: var(--ink-ash-2);
+      position: relative;
+    }
+    .orn-rule::before {
+      content: "✦";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 0 8px;
+      background: var(--parchment);
+      color: var(--vermilion);
+      font-size: 12px;
+    }
+
+    .orn-num {
+      display: inline-grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--vermilion);
+      color: var(--vermilion);
+      font: 400 16px/1 var(--font-display);
+    }
+    .orn-num--peacock { color: var(--peacock); border-color: var(--peacock); }
+
+    .orn-sigil {
+      font: 400 24px/1 var(--font-display);
+      color: var(--vermilion);
+    }
+    .orn-sigil--peacock { color: var(--peacock); }
+    .orn-sigil--gold { color: var(--gold-deep); }
+
+    .orn-hairline {
+      display: inline-block;
+      width: 32px;
+      height: 1px;
+      background: var(--vermilion);
+    }
+
+    .orn-corner {
+      position: relative;
+      width: 24px;
+      height: 24px;
+    }
+    .orn-corner::before, .orn-corner::after {
+      content: "";
+      position: absolute;
+      background: var(--vermilion);
+    }
+    .orn-corner::before { top: 0; left: 0; width: 16px; height: 1px; }
+    .orn-corner::after { top: 0; left: 0; width: 1px; height: 16px; }
+
+    .orn-grain {
+      width: 100%;
+      height: 32px;
+      background:
+        radial-gradient(circle, rgba(42, 38, 32, 0.08) 1px, transparent 1.5px);
+      background-size: 4px 4px;
+    }
+
+    .orn-33 {
+      display: inline-grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--vermilion);
+      color: var(--vermilion);
+      font: 400 24px/1 var(--font-display);
+      letter-spacing: -0.04em;
+    }
+    .orn-33::before {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border: 1px solid var(--vermilion);
+      opacity: 0.3;
+    }
+
+    .ink-splash {
+      display: inline-block;
+      width: 80px;
+      height: 60px;
+      background:
+        radial-gradient(ellipse 60% 80% at 50% 50%, var(--vermilion) 0%, var(--vermilion) 30%, transparent 70%),
+        radial-gradient(ellipse 30% 40% at 30% 60%, var(--vermilion) 0%, transparent 50%),
+        radial-gradient(ellipse 20% 30% at 75% 35%, var(--vermilion) 0%, transparent 60%);
+    }
+    .ink-splash--peacock {
+      background:
+        radial-gradient(ellipse 60% 80% at 50% 50%, var(--peacock) 0%, var(--peacock) 30%, transparent 70%),
+        radial-gradient(ellipse 30% 40% at 30% 60%, var(--peacock) 0%, transparent 50%),
+        radial-gradient(ellipse 20% 30% at 75% 35%, var(--peacock) 0%, transparent 60%);
+    }
+
+    .seal {
+      display: inline-grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 2px solid var(--vermilion);
+      border-radius: 50%;
+      color: var(--vermilion);
+      font: 400 16px/1 var(--font-display);
+      letter-spacing: -0.02em;
+    }
+    .seal--small { width: 32px; height: 32px; font-size: 12px; }
+
+    /* ============================================================
+       杂项
+       ============================================================ */
+    .footer {
+      margin-top: 64px;
+      padding: 32px 0 0;
+      border-top: 1px solid var(--ink-ash);
+      text-align: center;
+      color: var(--ink-text-soft);
+      font: 400 12px/1.7 var(--font-mono);
+    }
+    .footer p { margin: 0 0 4px; }
+    .footer em { color: var(--vermilion); font-style: normal; }
+
+    /* 排版对比 */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
+    .compare-side {
+      padding: 16px 18px;
+      background: var(--parchment);
+      border: 1px solid var(--linen-2);
+    }
+    .compare-side--shell {
+      background: var(--ink-shell);
+      color: var(--vellum);
+      border-color: var(--ink-ash);
+    }
+    .compare-side--cyan {
+      background: var(--ink-cyan);
+      color: var(--vellum);
+      border-color: var(--ink-ash);
+    }
+    .compare-side .lbl {
+      font: 500 9px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--vermilion);
+    }
+    .compare-side--shell .lbl,
+    .compare-side--cyan .lbl { color: var(--vermilion); }
+    .compare-side h4 {
+      margin: 8px 0 6px;
+      font: 400 22px/1.2 var(--font-display);
+    }
+    .compare-side p { margin: 0; font: 400 12px/1.6 var(--font-ui); }
+
+    .symbol-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .symbol-row + .symbol-row { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+
+    <!-- =====================================================
+         0. HERO
+         ===================================================== -->
+    <header class="hero">
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          <em>Codex</em>
+          <span>· 印格 · 设计系统 v0.1 ·</span>
+          <em>Anno MMXXVI</em>
+        </div>
+        <h1>IN<span class="cut">G</span><span class="red">R</span><span class="gold">I</span><span class="shifted">D</span><span class="small">. v.iii</span></h1>
+        <p class="hero-cn">印格 <em>·</em> 来自<em>不存在的幻想文明</em>的<em>现代</em>知识系统</p>
+        <p class="hero-quote">
+          <strong>「中世纪手抄本 × 古典印刷 × 宗教典籍 × 现代生产力」</strong>
+          ——<br>
+          古老材质遇见现代平面设计，像在阅读和整理一本<strong>会动态变化的幻想知识典籍</strong>，而不是普通 SaaS 套模板。
+        </p>
+        <p class="hero-tagline">
+          外壳 <em>深墨绿 · 青黑 · 灰黑</em>。阅读 <em>旧纸白 · 亚麻白 · 微暖灰</em>。
+          强调 <em>朱红 · 暗玫红 · 孔雀蓝 · 暗金</em>。<strong>85% 安静，15% 爆发</strong>。
+        </p>
+        <div class="hero-meta">
+          <div class="hero-meta-item">
+            <span class="lbl">Anno</span>
+            <span class="val">2026 <em>· VIII</em></span>
+          </div>
+          <div class="hero-meta-item">
+            <span class="lbl">Pages</span>
+            <span class="val">V</span>
+          </div>
+          <div class="hero-meta-item">
+            <span class="lbl">Symbols</span>
+            <span class="val">VIII</span>
+          </div>
+          <div class="hero-meta-item">
+            <span class="lbl">Volume</span>
+            <span class="val">No. 33</span>
+          </div>
+          <div class="hero-meta-item">
+            <span class="lbl">Status</span>
+            <span class="val">Inks <em>·</em> 33%</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-mark">
+        <div class="hero-mark-num"><em>33</em></div>
+        <div class="hero-mark-lbl">No. 33 · MMXXVI</div>
+      </div>
+    </header>
+
+    <!-- =====================================================
+         1. 设计基石
+         ===================================================== -->
+    <section class="section" id="foundations">
+      <div class="section-head">
+        <span class="section-num">I · Visualis</span>
+        <h2>Foundations <em>· 视觉基石</em></h2>
+      </div>
+      <p class="section-lead">
+        三个色域分工明确：<strong>外壳是冷暗的</strong>，<strong>阅读区是暖亮的</strong>，<strong>强调色是少量高饱和的</strong>。
+        80% 时间你只会看到<strong>深墨绿外壳 + 旧纸白阅读区 + 偶尔一抹朱红</strong>。
+      </p>
+
+      <div class="subsection">
+        <div class="subsection-label">Token · 外壳 / 阅读 / 强调</div>
+        <div class="tokens-grid">
+          <div class="token">
+            <div class="token-chip" style="background: #0E1413;"></div>
+            <div class="token-name">void</div>
+            <div class="token-hex">#0E1413</div>
+            <div class="token-usage">极深底</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #1A2622;"></div>
+            <div class="token-name">shell</div>
+            <div class="token-hex">#1A2622</div>
+            <div class="token-usage">主外壳</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #0F1A1F;"></div>
+            <div class="token-name">cyan</div>
+            <div class="token-hex">#0F1A1F</div>
+            <div class="token-usage">青黑</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #2A3B36;"></div>
+            <div class="token-name">shell-3</div>
+            <div class="token-hex">#2A3B36</div>
+            <div class="token-usage">浮起两层</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #3A4844;"></div>
+            <div class="token-name">ash</div>
+            <div class="token-hex">#3A4844</div>
+            <div class="token-usage">边线</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #6F7E78;"></div>
+            <div class="token-name">mist</div>
+            <div class="token-hex">#6F7E78</div>
+            <div class="token-usage">副文</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #F2EAD3;"></div>
+            <div class="token-name">vellum</div>
+            <div class="token-hex">#F2EAD3</div>
+            <div class="token-usage">旧纸白</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #C8312B;"></div>
+            <div class="token-name">vermilion</div>
+            <div class="token-hex">#C8312B</div>
+            <div class="token-usage">朱红 · 主强调</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #2D5A6E;"></div>
+            <div class="token-name">peacock</div>
+            <div class="token-hex">#2D5A6E</div>
+            <div class="token-usage">孔雀蓝</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #A8833E;"></div>
+            <div class="token-name">gold</div>
+            <div class="token-hex">#A8833E</div>
+            <div class="token-usage">暗金</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #7A1F1F;"></div>
+            <div class="token-name">rose</div>
+            <div class="token-hex">#7A1F1F</div>
+            <div class="token-usage">暗玫红</div>
+          </div>
+          <div class="token">
+            <div class="token-chip" style="background: #EDE4C8;"></div>
+            <div class="token-name">linen</div>
+            <div class="token-hex">#EDE4C8</div>
+            <div class="token-usage">亚麻白</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">Typography <em>· 衬线主导 + 等宽数字</em></div>
+        <div class="card">
+          <div class="type-row">
+            <span class="type-label">Display · Serif</span>
+            <span class="type-sample type-sample--display">知识是<em>被发现的材料</em>。</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Display · Italic</span>
+            <span class="type-sample" style="font: italic 400 32px/1.2 var(--font-italic); color: var(--vermilion);">Codex · No. 33</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">UI · Inter</span>
+            <span class="type-sample type-sample--ui">理性的工具，安静的工作区。可长时间阅读与编辑。</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Mono · Numeric</span>
+            <span class="type-sample type-sample--numeric">33 / 100 · 12,480 · ¥90.90</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Caption · Italic</span>
+            <span class="type-sample type-sample--caption">in tabula et atramento · 2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">Layers <em>· 外壳 vs 阅读</em></div>
+        <div class="compare-grid">
+          <div class="compare-side compare-side--shell">
+            <div class="lbl">SHELL · 外壳</div>
+            <h4>深墨绿 · 青黑</h4>
+            <p>用于模块轨道、侧栏、模态背景、命令面板。<br>文字用 <strong>vellum</strong> / <strong>bone</strong>，强调用 <strong>vermilion</strong> / <strong>peacock</strong>。</p>
+          </div>
+          <div class="compare-side">
+            <div class="lbl">PAPER · 阅读</div>
+            <h4 style="color: var(--ink-shell);">旧纸白 · 亚麻白</h4>
+            <p>用于编辑器、笔记正文、卡片内容、列表。<br>文字用 <strong>ink-shell</strong> / <strong>ink-text</strong>，强调用 <strong>vermilion</strong> / <strong>peacock</strong>。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         2. 符号系统
+         ===================================================== -->
+    <section class="section" id="symbols">
+      <div class="section-head">
+        <span class="section-num">II · Symbolum</span>
+        <h2>Symbols <em>· 自定义符号系统</em></h2>
+      </div>
+      <p class="section-lead">
+        这 8 个核心符号是<strong>印格自己的语言</strong>。从纹章、星图、书卷、印记、天体符号、宗教图形中抽象而来——
+        现代化、几何化、简洁化。属于一个<strong>不存在的幻想文明</strong>，不是来自任何通用组件库。
+      </p>
+
+      <div class="symbol-grid">
+        <div class="symbol">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <path d="M11 12 L11 28 L20 24 L29 28 L29 12 L20 16 Z"/>
+              <line x1="20" y1="16" x2="20" y2="24"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Notes</div>
+          <span class="symbol-key">· 笔记</span>
+        </div>
+        <div class="symbol symbol--peacock">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <rect x="12" y="11" width="3" height="18"/>
+              <rect x="18" y="11" width="3" height="18"/>
+              <rect x="24" y="11" width="3" height="18"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Archive</div>
+          <span class="symbol-key">· 资料</span>
+        </div>
+        <div class="symbol">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <ellipse cx="20" cy="20" rx="9" ry="6"/>
+              <circle cx="20" cy="20" r="2.5" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Insight</div>
+          <span class="symbol-key">· 知识</span>
+        </div>
+        <div class="symbol symbol--gold">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <circle cx="15" cy="17" r="5"/>
+              <circle cx="25" cy="17" r="5"/>
+              <path d="M15 22 L20 27 L25 22"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Discipline</div>
+          <span class="symbol-key">· 训练</span>
+        </div>
+        <div class="symbol symbol--peacock">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <circle cx="20" cy="20" r="3"/>
+              <line x1="20" y1="6" x2="20" y2="11"/>
+              <line x1="20" y1="29" x2="20" y2="34"/>
+              <line x1="6" y1="20" x2="11" y2="20"/>
+              <line x1="29" y1="20" x2="34" y2="20"/>
+              <line x1="10" y1="10" x2="14" y2="14"/>
+              <line x1="26" y1="26" x2="30" y2="30"/>
+              <line x1="10" y1="30" x2="14" y2="26"/>
+              <line x1="26" y1="14" x2="30" y2="10"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Oracle</div>
+          <span class="symbol-key">· AI · 问</span>
+        </div>
+        <div class="symbol">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <polygon points="20,8 22,18 32,20 22,22 20,32 18,22 8,20 18,18" fill="currentColor"/>
+              <circle cx="20" cy="20" r="2" fill="var(--parchment)"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Constellation</div>
+          <span class="symbol-key">· 知识图谱</span>
+        </div>
+        <div class="symbol symbol--gold">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <rect x="13" y="13" width="14" height="14" transform="rotate(45 20 20)"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Reliquary</div>
+          <span class="symbol-key">· 收藏</span>
+        </div>
+        <div class="symbol symbol--ink">
+          <div class="symbol-art">
+            <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2">
+              <circle cx="20" cy="20" r="17"/>
+              <polygon points="20,11 23,18 30,20 23,22 20,29 17,22 10,20 17,18"/>
+            </svg>
+          </div>
+          <div class="symbol-name">Atelier</div>
+          <span class="symbol-key">· 设置</span>
+        </div>
+      </div>
+
+      <p class="section-lead" style="margin-top: 28px; color: var(--ink-text-soft); font-style: italic; font-size: 13px;">
+        使用规则：<strong>默认 vermilion</strong>（主强调），<strong>peacock</strong> 用于知识 / AI（理性），<strong>gold</strong> 用于训练 / 收藏（珍贵），
+        <strong>ink</strong> 用于设置（中性）。同一符号在不同语境里换色。
+      </p>
+    </section>
+
+    <hr class="hairline">
+
+    <!-- =====================================================
+         3. 页面级 · 5 种情绪
+         ===================================================== -->
+    <section class="section" id="pages">
+      <div class="section-head">
+        <span class="section-num">III · Paginae</span>
+        <h2>Pages <em>· 五种秩序，五种情绪</em></h2>
+      </div>
+      <p class="section-lead">
+        不同页面的"个性"通过<strong>构图、信息密度、版式语言</strong>调节。
+        同一个模块轨道与基础组件库，在五个页面里长成五种样子：
+        <strong>扉页 / 索引 / 书页 / 星图 / 战术</strong>。
+      </p>
+
+      <!-- ─── 03.1 工作台首页 · 典籍扉页 ─── -->
+      <div class="subsection">
+        <div class="subsection-label">Cap. I · Frontispiece <em>· 典籍扉页 · 第一眼的"世界观"</em></div>
+
+        <div class="page-mock">
+          <div class="page-mock-bar">
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-label">INGRID · Frontispiece</span>
+            <span class="page-mock-bar-mood">mood · 神秘 · 厚重</span>
+          </div>
+
+          <div class="frontispiece">
+            <div class="frontispiece-content">
+              <p class="frontispiece-prompt">— What knowledge shall we open today?</p>
+              <h1 class="frontispiece-title">I<span class="cut">n</span><span class="red">g</span><span>rid</span></h1>
+              <p class="frontispiece-cn">印格 <em>·</em> 来自<em>不存在的幻想文明</em>的<em>现代</em>知识系统</p>
+              <div class="frontispiece-rule"></div>
+              <div class="frontispiece-actions">
+                <button class="btn btn--primary">▶ NEW INK</button>
+                <button class="btn btn--ink">OPEN</button>
+                <button class="btn btn--ghost">CONFIG</button>
+              </div>
+            </div>
+            <div class="frontispiece-stats">
+              <div class="row">
+                <span class="lbl">Anno</span>
+                <span class="val">2026 <em>·</em> VIII</span>
+              </div>
+              <div class="row">
+                <span class="lbl">Volume</span>
+                <span class="val">No. <em>33</em></span>
+              </div>
+              <div class="row">
+                <span class="lbl">Codices</span>
+                <span class="val">128</span>
+              </div>
+              <div class="row">
+                <span class="lbl">Streak</span>
+                <span class="val">33 <em>·</em> d</span>
+              </div>
+            </div>
+            <div class="frontispiece-archive">
+              <div class="frontispiece-archive-item">
+                <span class="lbl">Today</span>
+                <span class="ttl">整理 7 月份笔记</span>
+                <span class="num">12 INKS</span>
+              </div>
+              <div class="frontispiece-archive-item">
+                <span class="lbl">This Week</span>
+                <span class="ttl">错题卡 · Vol. 12</span>
+                <span class="num">28 REC.</span>
+              </div>
+              <div class="frontispiece-archive-item">
+                <span class="lbl">Streak</span>
+                <span class="ttl">连续 33 日</span>
+                <span class="num">+3 QUESTS</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 03.2 资料库 · 索引目录 ─── -->
+      <div class="subsection">
+        <div class="subsection-label">Cap. II · Archive <em>· 索引目录 · 档案柜 · 紧凑稳定</em></div>
+
+        <div class="page-mock">
+          <div class="page-mock-bar">
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-label">INGRID · Archive</span>
+            <span class="page-mock-bar-mood">mood · 静 · 索引</span>
+          </div>
+
+          <div class="archive-page">
+            <aside class="rail">
+              <div class="rail-brand">I</div>
+              <button class="rail-item is-active" title="笔记">
+                <svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><path d="M11 12 L11 28 L20 24 L29 28 L29 12 L20 16 Z"/></svg>
+              </button>
+              <button class="rail-item" title="资料">
+                <svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><rect x="12" y="11" width="3" height="18"/><rect x="18" y="11" width="3" height="18"/><rect x="24" y="11" width="3" height="18"/></svg>
+              </button>
+              <button class="rail-item" title="知识">
+                <svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><ellipse cx="20" cy="20" rx="9" ry="6"/><circle cx="20" cy="20" r="2.5" fill="currentColor"/></svg>
+              </button>
+              <button class="rail-item" title="训练">
+                <svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><circle cx="15" cy="17" r="5"/><circle cx="25" cy="17" r="5"/><path d="M15 22 L20 27 L25 22"/></svg>
+              </button>
+              <button class="rail-item" title="图谱">
+                <svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><polygon points="20,8 22,18 32,20 22,22 20,32 18,22 8,20 18,18" fill="currentColor"/></svg>
+              </button>
+              <div class="rail-spacer"></div>
+              <button class="rail-item" title="设置">
+                <svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><polygon points="20,11 23,18 30,20 23,22 20,29 17,22 10,20 17,18"/></svg>
+              </button>
+            </aside>
+
+            <aside class="side">
+              <div class="side-head">
+                <span class="lbl">Archive</span>
+                <h2>资料库</h2>
+                <span class="meta">In tabula et atramento</span>
+              </div>
+              <div class="side-section">
+                <div class="lbl">Sectiones</div>
+                <div class="side-row is-active"><span>数学</span><span class="num">28</span></div>
+                <div class="side-row"><span>物理</span><span class="num">14</span></div>
+                <div class="side-row"><span>化学</span><span class="num">9</span></div>
+                <div class="side-row"><span>生物</span><span class="num">6</span></div>
+              </div>
+              <div class="side-section">
+                <div class="lbl">Sort by</div>
+                <div class="side-row"><span>最新编辑</span><span class="num">▾</span></div>
+                <div class="side-row"><span>按章节</span><span class="num">·</span></div>
+                <div class="side-row"><span>按掌握度</span><span class="num">·</span></div>
+              </div>
+            </aside>
+
+            <main class="work">
+              <div class="work-head">
+                <div class="crumbs">
+                  <span>ARCHIVE</span>
+                  <span class="sep">›</span>
+                  <span>MATHEMATICA</span>
+                  <span class="sep">›</span>
+                  <span class="cur">QUADRATICA</span>
+                </div>
+                <div class="meta">III <em>·</em> 28 INKS</div>
+              </div>
+              <div class="page-title">
+                <h1>二次函数 <em>·</em> Quadratica</h1>
+                <span class="num">CAP · 07</span>
+              </div>
+              <div class="archive-list">
+                <div class="archive-card">
+                  <span class="num">No. 031</span>
+                  <span class="lbl">Cap. 07</span>
+                  <span class="ttl">勾股定理 · 复盘</span>
+                  <p class="excerpt">构造法的核心是"在图形里多画一条线"...</p>
+                  <div class="foot"><span>EDITED 10:32</span><span>— LEONARD</span></div>
+                </div>
+                <div class="archive-card">
+                  <span class="num">No. 030</span>
+                  <span class="lbl">Cap. 07</span>
+                  <span class="ttl">顶点公式</span>
+                  <p class="excerpt">顶点坐标为 (-b/2a, (4ac - b²)/4a)...</p>
+                  <div class="foot"><span>EDITED 09:46</span><span>— LEONARD</span></div>
+                </div>
+                <div class="archive-card">
+                  <span class="num">No. 029</span>
+                  <span class="lbl">Cap. 07</span>
+                  <span class="ttl">配方法</span>
+                  <p class="excerpt">提系数、配完全平方、合并常数项...</p>
+                  <div class="foot"><span>EDITED 08:21</span><span>— LEONARD</span></div>
+                </div>
+                <div class="archive-card">
+                  <span class="num">No. 028</span>
+                  <span class="lbl">Cap. 06</span>
+                  <span class="ttl">错题卡 · 集合 12</span>
+                  <p class="excerpt">本周共 12 道错题，按知识点归类...</p>
+                  <div class="foot"><span>EDITED 22:18</span><span>— LEONARD</span></div>
+                </div>
+                <div class="archive-card">
+                  <span class="num">No. 027</span>
+                  <span class="lbl">Cap. 06</span>
+                  <span class="ttl">模考范围 · 周六</span>
+                  <p class="excerpt">二次函数 · 几何 · 概率综合应用...</p>
+                  <div class="foot"><span>EDITED 15:46</span><span>— LEONARD</span></div>
+                </div>
+                <div class="archive-card">
+                  <span class="num">No. 026</span>
+                  <span class="lbl">Cap. 05</span>
+                  <span class="ttl">复习周计划</span>
+                  <p class="excerpt">把分散在 3 处的笔记汇总到主目录...</p>
+                  <div class="foot"><span>EDITED 12:00</span><span>— LEONARD</span></div>
+                </div>
+              </div>
+            </main>
+
+            <div class="statusbar">
+              <span class="item"><span>ARCHIVE · Vol. 33</span></span>
+              <span class="item"><span>Word <span class="num">12,480</span></span></span>
+              <span class="item"><span>Saved <span class="num">10:32</span></span></span>
+              <span class="spacer"></span>
+              <span class="item"><span>Streak <span class="num">33 d</span></span></span>
+              <span class="item item--emph"><span>Cap. <span class="num">07</span></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 03.3 笔记 · 展开的书页 ─── -->
+      <div class="subsection">
+        <div class="subsection-label">Cap. III · Manuscript <em>· 展开的书页 · 报纸式排版 · 印刷感</em></div>
+
+        <div class="page-mock">
+          <div class="page-mock-bar">
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-label">INGRID · Manuscript</span>
+            <span class="page-mock-bar-mood">mood · 编辑 · 纸张</span>
+          </div>
+
+          <div class="manuscript">
+            <div class="manuscript-page" style="position: relative;">
+              <div class="manuscript-tools">
+                <div class="manuscript-tool" title="引用">"</div>
+                <div class="manuscript-tool" title="标签">#</div>
+                <div class="manuscript-tool" title="更多">⋯</div>
+              </div>
+              <div class="manuscript-meta">
+                <span>Mathematica</span>
+                <span class="emph">Caput VII</span>
+                <span>— Quadratica</span>
+                <span>Edited · 10:32</span>
+              </div>
+              <h1>勾股定理 <em>·</em> 复盘</h1>
+              <p>
+                对于二次函数 <code>y = ax² + bx + c</code>，顶点坐标为 <code>(-b/2a, (4ac - b²)/4a)</code>。这是把一般式化为顶点式
+                <code>y = a(x - h)² + k</code> 的关键。
+              </p>
+              <h2>推导 · Derivatio</h2>
+              <p>配方法：先提系数 a，把括号内的二次项配成完全平方。</p>
+              <blockquote>
+                "用配方法把 ax² + bx 化为 a(x + b/2a)² - b²/4a，剩下的常数项合并。" — Codex, No. 31
+              </blockquote>
+              <h2>几何意义 · Significatio</h2>
+              <p>顶点的横坐标是函数的对称轴，纵坐标是函数的极值（a &gt; 0 时为极小，a &lt; 0 时为极大）。</p>
+              <h2>关联 · Relatio</h2>
+              <p>本条知识关联 3 个下游概念：<em>对称轴 · 配方法 · 极值</em>。已收录于 7 月份总复习卷第 12 题。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 03.4 知识图谱 · 星图 ─── -->
+      <div class="subsection">
+        <div class="subsection-label">Cap. IV · Constellation <em>· 星图 · 未知文明的关系图谱</em></div>
+
+        <div class="page-mock">
+          <div class="page-mock-bar">
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-label">INGRID · Constellation</span>
+            <span class="page-mock-bar-mood">mood · 深域 · 探索</span>
+          </div>
+
+          <div class="graph-shell">
+            <aside class="rail">
+              <div class="rail-brand">I</div>
+              <button class="rail-item"><svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><path d="M11 12 L11 28 L20 24 L29 28 L29 12 L20 16 Z"/></svg></button>
+              <button class="rail-item"><svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><rect x="12" y="11" width="3" height="18"/><rect x="18" y="11" width="3" height="18"/><rect x="24" y="11" width="3" height="18"/></svg></button>
+              <button class="rail-item"><svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><ellipse cx="20" cy="20" rx="9" ry="6"/><circle cx="20" cy="20" r="2.5" fill="currentColor"/></svg></button>
+              <button class="rail-item is-active"><svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><polygon points="20,8 22,18 32,20 22,22 20,32 18,22 8,20 18,18" fill="currentColor"/></svg></button>
+              <button class="rail-item"><svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><circle cx="15" cy="17" r="5"/><circle cx="25" cy="17" r="5"/><path d="M15 22 L20 27 L25 22"/></svg></button>
+              <div class="rail-spacer"></div>
+              <button class="rail-item"><svg class="sym" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2"><circle cx="20" cy="20" r="17"/><polygon points="20,11 23,18 30,20 23,22 20,29 17,22 10,20 17,18"/></svg></button>
+            </aside>
+
+            <main class="graph-canvas">
+              <div style="position: absolute; top: 24px; left: 24px; padding: 6px 10px; background: var(--ink-shell); border: 1px solid var(--ink-ash); color: var(--vermilion); font: 500 10px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase;">MAPPA · MAP</div>
+              <svg class="graph-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+                <g stroke="#3A4844" stroke-width="1" fill="none">
+                  <line x1="400" y1="300" x2="220" y2="180"/>
+                  <line x1="400" y1="300" x2="580" y2="180"/>
+                  <line x1="400" y1="300" x2="220" y2="440"/>
+                  <line x1="400" y1="300" x2="580" y2="440"/>
+                  <line x1="400" y1="300" x2="120" y2="320"/>
+                  <line x1="400" y1="300" x2="680" y2="320"/>
+                  <line x1="220" y1="180" x2="120" y2="320"/>
+                  <line x1="580" y1="180" x2="680" y2="320"/>
+                  <line x1="220" y1="440" x2="320" y2="540"/>
+                  <line x1="580" y1="440" x2="480" y2="540"/>
+                  <line x1="320" y1="540" x2="480" y2="540"/>
+                </g>
+                <g stroke="#C8312B" stroke-width="1.5" fill="none" opacity="0.6">
+                  <line x1="400" y1="300" x2="400" y2="120"/>
+                  <line x1="400" y1="300" x2="320" y2="380"/>
+                </g>
+                <g>
+                  <circle cx="220" cy="180" r="6" fill="#6F7E78"/>
+                  <circle cx="580" cy="180" r="6" fill="#6F7E78"/>
+                  <circle cx="220" cy="440" r="6" fill="#6F7E78"/>
+                  <circle cx="580" cy="440" r="6" fill="#6F7E78"/>
+                  <circle cx="120" cy="320" r="5" fill="#6F7E78"/>
+                  <circle cx="680" cy="320" r="5" fill="#6F7E78"/>
+                  <circle cx="320" cy="540" r="5" fill="#6F7E78"/>
+                  <circle cx="480" cy="540" r="5" fill="#6F7E78"/>
+                </g>
+                <g>
+                  <circle cx="400" cy="300" r="22" fill="none" stroke="#C8312B" stroke-width="1.5"/>
+                  <circle cx="400" cy="300" r="12" fill="#C8312B"/>
+                </g>
+                <g>
+                  <circle cx="400" cy="120" r="11" fill="none" stroke="#C8312B" stroke-width="1"/>
+                  <circle cx="400" cy="120" r="4" fill="#C8312B"/>
+                  <circle cx="320" cy="380" r="9" fill="none" stroke="#C8312B" stroke-width="1"/>
+                  <circle cx="320" cy="380" r="3" fill="#C8312B"/>
+                </g>
+                <g fill="#C9CDC2" font-family="Inter" font-size="10" letter-spacing="0.5">
+                  <text x="220" y="200" text-anchor="middle">配方法</text>
+                  <text x="580" y="200" text-anchor="middle">对称轴</text>
+                  <text x="220" y="460" text-anchor="middle">判别式</text>
+                  <text x="580" y="460" text-anchor="middle">极值</text>
+                  <text x="120" y="340" text-anchor="middle">韦达</text>
+                  <text x="680" y="340" text-anchor="middle">图像</text>
+                  <text x="320" y="560" text-anchor="middle">应用</text>
+                  <text x="480" y="560" text-anchor="middle">综合</text>
+                </g>
+                <g fill="#EBE5CE" font-family="EB Garamond" font-size="14" font-style="italic">
+                  <text x="400" y="105" text-anchor="middle">顶点公式</text>
+                  <text x="320" y="400" text-anchor="middle">完全平方</text>
+                </g>
+                <g fill="#C8312B" font-family="EB Garamond" font-size="22" font-weight="600">
+                  <text x="400" y="265" text-anchor="middle" font-style="italic">二次函数</text>
+                </g>
+              </svg>
+            </main>
+
+            <aside class="graph-side">
+              <div class="lbl">No. 33 · Node</div>
+              <h3 class="ttl">二次函数 <em>·</em> Quadratica</h3>
+              <p class="body">核心知识点，连接 8 个相关概念，3 篇笔记，12 道错题。复习优先级：<strong>高</strong>。</p>
+              <div class="stats">
+                <div class="stat">
+                  <span class="lbl">Notes</span>
+                  <span class="val">3</span>
+                </div>
+                <div class="stat">
+                  <span class="lbl">Errors</span>
+                  <span class="val">12</span>
+                </div>
+                <div class="stat">
+                  <span class="lbl">Links</span>
+                  <span class="val">8</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 03.5 训练 · 战术界面 ─── -->
+      <div class="subsection">
+        <div class="subsection-label">Cap. V · Discipline <em>· 战术界面 · 节奏感 · 强对比</em></div>
+
+        <div class="page-mock">
+          <div class="page-mock-bar">
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-label">INGRID · Discipline</span>
+            <span class="page-mock-bar-mood">mood · 锋 · 节奏</span>
+          </div>
+
+          <div class="training">
+            <section class="training-stage">
+              <div class="training-head">
+                <div class="lbl">Q <em>07</em> / 20</div>
+                <div class="meta">HP <em>100</em> · COMBO +3</div>
+              </div>
+              <div class="training-card">
+                <div class="training-card-num">
+                  <b>07</b><span>/ 20</span>
+                </div>
+                <p class="training-card-q">对于二次函数 y = ax² + bx + c，当 a &lt; 0 且 Δ &gt; 0 时，下列叙述正确的是：</p>
+                <div class="training-options">
+                  <div class="training-opt is-correct">
+                    <span class="key">A</span>
+                    <span>函数有最大值，且图像与 x 轴有两个交点</span>
+                  </div>
+                  <div class="training-opt">
+                    <span class="key">B</span>
+                    <span>函数有最小值，且图像与 x 轴有两个交点</span>
+                  </div>
+                  <div class="training-opt">
+                    <span class="key">C</span>
+                    <span>函数有最大值，且图像与 x 轴没有交点</span>
+                  </div>
+                  <div class="training-opt is-wrong">
+                    <span class="key">D</span>
+                    <span>函数有最小值，且图像与 x 轴没有交点</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="training-side">
+              <div class="lbl">Status</div>
+              <div class="row">
+                <span class="lbl">HP</span>
+                <span class="val">100</span>
+              </div>
+              <div class="row">
+                <span class="lbl">MP</span>
+                <span class="val">45</span>
+              </div>
+              <div class="row">
+                <span class="lbl">Combo</span>
+                <span class="val">+3</span>
+              </div>
+              <div class="row">
+                <span class="lbl">EXP</span>
+                <span class="val"><em>+12</em></span>
+              </div>
+              <div class="row">
+                <span class="lbl">Time</span>
+                <span class="val">02:18</span>
+              </div>
+              <div class="row">
+                <span class="lbl">Streak</span>
+                <span class="val"><em>33 d</em></span>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 03.6 AI · 占卜研究终端 ─── -->
+      <div class="subsection">
+        <div class="subsection-label">Cap. VI · Oracle <em>· AI 研究终端 · 占卜感 · 冷静精密</em></div>
+
+        <div class="page-mock">
+          <div class="page-mock-bar">
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-dot"></span>
+            <span class="page-mock-bar-label">INGRID · Oracle</span>
+            <span class="page-mock-bar-mood">mood · 静 · 占卜</span>
+          </div>
+
+          <div class="oracle">
+            <aside class="oracle-history">
+              <div class="lbl">Sessions · 33</div>
+              <div class="oracle-history-item">
+                复盘错题卡 12 道
+                <span class="meta">Today · 10:32</span>
+              </div>
+              <div class="oracle-history-item is-active">
+                串联高频考点
+                <span class="meta">Today · 09:46</span>
+              </div>
+              <div class="oracle-history-item">
+                整理 7 月份笔记
+                <span class="meta">Yesterday</span>
+              </div>
+              <div class="oracle-history-item">
+                分析模考趋势
+                <span class="meta">VIII · 15</span>
+              </div>
+            </aside>
+
+            <main class="oracle-stage">
+              <div class="oracle-head">
+                <div class="crumbs">
+                  <span>ORACLE</span>
+                  <span class="sep">›</span>
+                  <span>SESSION 33</span>
+                </div>
+              </div>
+
+              <div class="oracle-terminal" style="position: relative;">
+                <div class="oracle-msg">
+                  <div class="who">You <em>· 10:31</em></div>
+                  <div class="body">
+                    <p>帮我把这 12 道错题按考点分组，并且指出哪些是同一类问题的不同变体。</p>
+                  </div>
+                </div>
+                <div class="oracle-msg">
+                  <div class="who">Oracle <em>· 10:32 · 8 Cites</em></div>
+                  <div class="body">
+                    <p>已分组。按出现频次降序：</p>
+                    <p><strong>§1 · Quadratic Vertex</strong><br>共 4 题：No. 031 / 030 / 028 / 026。区别在于：No. 031 是直接公式，No. 030 是配方变体，No. 028 / 026 是判别式联立。</p>
+                    <p><strong>§2 · Discriminant</strong><br>共 3 题：No. 029 / 025 / 022。注意 No. 025 用到了"判别式 + 参数范围"的组合。</p>
+                  </div>
+                </div>
+                <div class="oracle-prompt">
+                  <div class="lbl">— Continue?</div>
+                  <p class="body">继续 §3 / §4 分组。</p>
+                </div>
+              </div>
+
+              <div class="oracle-input-bar">
+                <span style="color: var(--vermilion); font-family: var(--font-mono); font-weight: 700;">›</span>
+                <input class="oracle-input" type="text" placeholder="继续提问，或粘贴一段笔记…" value="把 §3 / §4 也发出来">
+                <button class="btn btn--sm">ASK</button>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         4. 通用组件
+         ===================================================== -->
+    <section class="section" id="components">
+      <div class="section-head">
+        <span class="section-num">IV · Communis</span>
+        <h2>Components <em>· 通用组件</em></h2>
+      </div>
+      <p class="section-lead">
+        下面这些是<strong>默认态</strong>。它们应该<strong>安静、稳定、像档案</strong>——只在你 hover / focus / 选中时给出必要的反馈。
+        <em>强调变体见下一节</em>。
+      </p>
+
+      <div class="subsection">
+        <div class="subsection-label">Buttons</div>
+        <div class="stage">
+          <span class="stage-tag">BUTTONS</span>
+          <button class="btn">保存</button>
+          <button class="btn btn--primary">新建</button>
+          <button class="btn btn--ink">打开</button>
+          <button class="btn btn--ink--vermilion">强调</button>
+          <button class="btn btn--ghost">取消</button>
+          <button class="btn" disabled>禁用</button>
+          <button class="btn btn--sm">小号</button>
+          <button class="btn btn--lg">大号</button>
+          <button class="btn btn--icon" aria-label="more">⋯</button>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">Inputs</div>
+        <div class="stage stage--col stage--start">
+          <span class="stage-tag">INPUT</span>
+          <div class="field">
+            <label class="field-label">Codex Title</label>
+            <input class="input" type="text" placeholder="写下你的标题…">
+          </div>
+          <div class="field">
+            <label class="field-label">Error State</label>
+            <input class="input input--err" type="text" value="非规范格式">
+            <span class="field-help field-help--err">— 标题不能包含特殊字符</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">Tags</div>
+        <div class="stage">
+          <span class="stage-tag">TAGS</span>
+          <span class="tag">默认</span>
+          <span class="tag tag--num">VII</span>
+          <span class="tag tag--vermilion">重要</span>
+          <span class="tag tag--peacock">链接</span>
+          <span class="tag tag--gold">珍贵</span>
+          <span class="tag tag--filled">已完成</span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">Tab · List · Status · Progress · Tooltip</div>
+        <div class="stage stage--col stage--start">
+          <span class="stage-tag">NAV / LIST / STATUS</span>
+          <div class="tab-bar">
+            <div class="tab is-active"><span class="num">i</span>全部</div>
+            <div class="tab"><span class="num">ii</span>笔记</div>
+            <div class="tab"><span class="num">iii</span>知识</div>
+            <div class="tab"><span class="num">iv</span>错题</div>
+          </div>
+          <div style="width: 100%; max-width: 480px;">
+            <div class="list-row is-done">
+              <span class="mark"></span>
+              <span class="name">整理 7 月份笔记</span>
+              <span class="meta">DONE</span>
+            </div>
+            <div class="list-row is-current">
+              <span class="mark"></span>
+              <span class="name">串联高频考点</span>
+              <span class="meta">NOW</span>
+            </div>
+            <div class="list-row">
+              <span class="mark"></span>
+              <span class="name">第一次模考</span>
+              <span class="meta">08·24</span>
+            </div>
+          </div>
+          <div class="alert alert--vermilion" style="width: 100%; max-width: 480px;">
+            <span class="alert-mark"></span>
+            <div class="alert-body">
+              <div class="alert-title">Status</div>
+              <div class="alert-text">本地版本与远端发生冲突，请选择保留哪一份。</div>
+            </div>
+          </div>
+          <div class="alert alert--peacock" style="width: 100%; max-width: 480px;">
+            <span class="alert-mark"></span>
+            <div class="alert-body">
+              <div class="alert-title">Saved</div>
+              <div class="alert-text">笔记已保存到「数学 / 二次函数」。</div>
+            </div>
+          </div>
+          <div class="alert alert--gold" style="width: 100%; max-width: 480px;">
+            <span class="alert-mark"></span>
+            <div class="alert-body">
+              <div class="alert-title">Warning</div>
+              <div class="alert-text">检测到未保存的更改，是否立即保存？</div>
+            </div>
+          </div>
+          <div class="progress" style="width: 100%; max-width: 480px;"><div class="progress-bar" style="width: 45%;"></div></div>
+          <div class="progress progress--peacock" style="width: 100%; max-width: 480px;"><div class="progress-bar" style="width: 70%;"></div></div>
+          <span class="tip" style="margin-top: 8px;">
+            <button class="btn btn--sm">悬停</button>
+            <span class="tip-pop">新建笔记 · ⌘ N</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-label">Modal</div>
+        <div class="modal-demo">
+          <div class="modal">
+            <div class="modal-head">
+              <div class="lbl">Edictum · Notice</div>
+              <div class="ttl">本周维护</div>
+            </div>
+            <div class="modal-body">
+              <p>周日 02:00 – 04:00 系统升级，期间笔记将只读保存。完成后自动同步所有未上传的更改。</p>
+            </div>
+            <div class="modal-foot">
+              <button class="btn btn--ghost btn--sm">稍后提醒</button>
+              <button class="btn btn--sm btn--primary">已知</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         5. 强调变体
+         ===================================================== -->
+    <section class="section" id="emphasis">
+      <div class="section-head">
+        <span class="section-num">V · Emphasis</span>
+        <h2>Emphatica <em>· 15% 的爆发</em></h2>
+      </div>
+      <p class="section-lead">
+        强调变体是<strong>整套 UI 的"心跳"</strong>。平时隐形，只在<strong>标题 / 选中态 / 页面切换 / 重点信息 / 知识关系 / 关键成就</strong>出现。
+      </p>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="subsection-label">朱红印章 · Stamp</div>
+          <div class="stamp">
+            <h3>连续 <em>33</em> 日</h3>
+            <p>你已坚持每日复盘。这是本周新解锁的勋章——"档案守护者"。</p>
+            <div class="row">
+              <button class="btn btn--sm">查看勋章</button>
+              <button class="btn btn--sm btn--ghost">关闭</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="subsection-label">斜切大标 · Slab</div>
+          <div class="slab">
+            <h3>Caput <em>VII</em></h3>
+            <span class="sub">Discipline · 训练 · 锋</span>
+          </div>
+        </div>
+        <div>
+          <div class="subsection-label">拉引言 · Pull-quote</div>
+          <div class="pull-quote">
+            <p>知识不是数据库记录，而是一份<em>被发现、整理、研究的材料</em>。</p>
+            <span class="cite">— <em>Codex</em> · 视觉宣言 · v0.1</span>
+          </div>
+        </div>
+        <div>
+          <div class="subsection-label">大数字 · Big Num</div>
+          <div style="text-align: center; padding: 24px 0;">
+            <div class="num-hero"><em>33</em></div>
+            <div style="color: var(--ink-text-soft); font: 500 10px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 8px;">DAYS · STREAK</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         6. 装饰元素
+         ===================================================== -->
+    <section class="section" id="deco">
+      <div class="section-head">
+        <span class="section-num">VI · Ornamenta</span>
+        <h2>Ornamenta <em>· 装饰元素库</em></h2>
+      </div>
+      <p class="section-lead">
+        这部分是<strong>点缀物</strong>，不是组件。把它们撒在标题、章节、边角、签名等位置——克制使用，每页不超过 3-4 个。
+      </p>
+
+      <div class="deco-grid">
+        <div class="deco">
+          <span class="deco-lbl">RULE</span>
+          <div class="orn-rule" style="width: 100%;"></div>
+          <span class="deco-name">orn-rule</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">NUM</span>
+          <span class="orn-num">VII</span>
+          <span class="deco-name">orn-num</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">PEACOCK</span>
+          <span class="orn-num orn-num--peacock">33</span>
+          <span class="deco-name">orn-num--peacock</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">SIGIL</span>
+          <span class="orn-sigil">✦</span>
+          <span class="deco-name">orn-sigil</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">PEACOCK</span>
+          <span class="orn-sigil orn-sigil--peacock">☉</span>
+          <span class="deco-name">orn-sigil--peacock</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">GOLD</span>
+          <span class="orn-sigil orn-sigil--gold">♆</span>
+          <span class="deco-name">orn-sigil--gold</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">HAIRLINE</span>
+          <span class="orn-hairline"></span>
+          <span class="deco-name">orn-hairline</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">CORNER</span>
+          <span class="orn-corner"></span>
+          <span class="deco-name">orn-corner</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">GRAIN</span>
+          <div class="orn-grain" style="width: 100%;"></div>
+          <span class="deco-name">orn-grain</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">SEAL</span>
+          <span class="seal">33</span>
+          <span class="deco-name">seal</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">SPLASH · 印</span>
+          <span class="ink-splash"></span>
+          <span class="deco-name">ink-splash</span>
+        </div>
+        <div class="deco">
+          <span class="deco-lbl">SPLASH · 蓝</span>
+          <span class="ink-splash ink-splash--peacock"></span>
+          <span class="deco-name">ink-splash--peacock</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>印格 <em>· CODEX</em> · 设计系统 v0.1</p>
+      <p>2026 · VIII · 18 · <em>"来自不存在的幻想文明的现代知识系统。"</em></p>
+      <p>历史备份：<em>_文具纸面_备份.html</em> · <em>_典籍_备份.html</em></p>
+    </footer>
+
+  </main>
+
+  <script>
+    // 简单交互
+    document.querySelectorAll('.tab-bar').forEach((group) => {
+      group.querySelectorAll('.tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          group.querySelectorAll('.tab').forEach((t) => t.classList.remove('is-active'));
+          tab.classList.add('is-active');
+        });
+      });
+    });
+
+    document.querySelectorAll('.rail').forEach((rail) => {
+      rail.querySelectorAll('.rail-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          rail.querySelectorAll('.rail-item').forEach((i) => i.classList.remove('is-active'));
+          item.classList.add('is-active');
+        });
+      });
+    });
+
+    document.querySelectorAll('.side').forEach((side) => {
+      side.querySelectorAll('.side-row').forEach((row) => {
+        row.addEventListener('click', () => {
+          side.querySelectorAll('.side-row').forEach((r) => r.classList.remove('is-active'));
+          row.classList.add('is-active');
+        });
+      });
+    });
+  </script>
+</body>
+</html>
