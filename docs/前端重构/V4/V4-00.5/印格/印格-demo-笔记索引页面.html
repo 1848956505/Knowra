@@ -1016,6 +1016,546 @@
       font: 10px/1.3 var(--font-mono);
     }
 
+    /* ===== 预览面板：Quick Look 风格中央浮层 ===== */
+    /* 工作区舞台：保持单列 */
+    .index-stage {
+      display: block;
+      margin-top: 10px;
+    }
+
+    /* 遮罩：捕获外部点击 + 极淡的暖灰背景提示面板处于浮层状态 */
+    .preview-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(26, 26, 26, .08);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+
+    .preview-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 面板容器：居中浮层，固定定位 + 居中位移 + 双层硬阴影（黑 + 蓝） */
+    .preview-pane {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 90;
+      display: flex;
+      flex-direction: column;
+      width: min(360px, calc(100vw - 32px));
+      max-height: 80vh;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: 4px 4px 0 var(--ink), 7px 7px 0 var(--ink-accent);
+      transform: translate(-50%, calc(-50% + 8px));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .preview-pane.is-open {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+    }
+
+    /* 拖拽把手：Quick Look 模式下不显示 */
+    .preview-pane__handle { display: none; }
+
+    /* 头部：浅色底 + 蓝色 eyebrow + 关闭按钮 */
+    .preview-pane__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 18px 4px;
+      background: var(--ink-surface);
+      flex: 0 0 auto;
+    }
+
+    .preview-pane__eyebrow {
+      color: var(--ink-accent);
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+    }
+
+    .preview-pane__close {
+      width: 24px;
+      height: 24px;
+      flex: 0 0 24px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+      opacity: .6;
+      transition: opacity var(--motion-fast);
+    }
+
+    .preview-pane__close:hover { opacity: 1; }
+    .preview-pane__close .icon { width: 14px; height: 14px; }
+
+    /* 主体：滚动区，承载 mark + 标题 + 状态印章 + dl */
+    .preview-pane__body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 4px 22px 18px;
+      background: var(--ink-surface);
+    }
+
+    /* 印章方块：参考 M17 的视觉锚点，但用浅色印格风格 */
+    .preview-mark {
+      display: grid;
+      width: 64px;
+      height: 70px;
+      margin: 14px 0 18px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      background: var(--ink-accent);
+      color: var(--ink-surface);
+      font: 800 18px/1 var(--font-mono);
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+
+    /* 标题：与参考一致 20px 800 weight */
+    .preview-title {
+      margin: 0 0 14px;
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+    }
+
+    /* 状态印章：沿用 印格 tag 语法，颜色随状态变化 */
+    .preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px 4px 7px;
+      border: 1px solid var(--badge-edge, var(--ink));
+      background: var(--badge-fill, var(--ink-bg));
+      color: var(--badge-text, var(--ink));
+      font: 800 10px/1.2 var(--font-mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      box-shadow: 2px 2px 0 var(--badge-edge, var(--ink));
+    }
+
+    .preview-badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      background: var(--badge-text, var(--ink));
+    }
+
+    .preview-badge--active {
+      --badge-edge: var(--ink-accent);
+      --badge-fill: var(--ink-accent-soft);
+      --badge-text: var(--ink-accent);
+    }
+    .preview-badge--draft {
+      --badge-edge: var(--ink-warning);
+      --badge-fill: #ffedd5;
+      --badge-text: #c2410c;
+    }
+    .preview-badge--done {
+      --badge-edge: var(--ink-success);
+      --badge-fill: #dcfce7;
+      --badge-text: #15803d;
+    }
+
+    /* 元信息 dl：key-value 列表，水平分割线 */
+    .preview-meta-list {
+      margin: 22px 0 0;
+      padding: 0;
+      border-top: 1px solid var(--ink-panel);
+    }
+
+    .preview-meta-list > div {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--ink-panel);
+    }
+
+    .preview-meta-list dt {
+      color: var(--ink-secondary);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .preview-meta-list dd {
+      margin: 0;
+      color: var(--ink);
+      font: 700 12px/1 var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 底部操作 */
+    .preview-pane__footer {
+      display: flex;
+      gap: 8px;
+      padding: 14px 18px 16px;
+      border-top: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      flex: 0 0 auto;
+    }
+
+    .preview-pane__footer .index-btn--primary {
+      flex: 1;
+      min-height: 40px;
+      font-size: 12px;
+    }
+
+    .preview-pane__footer .index-btn:not(.index-btn--primary) {
+      flex: 0 0 40px;
+      padding: 0;
+      background: var(--ink-surface);
+    }
+
+    /* 面板空状态 */
+    .preview-pane__empty {
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 40px 16px;
+    }
+
+    .preview-pane__empty .empty-mark {
+      width: 34px;
+      height: 34px;
+      margin: 0 auto 14px;
+      border: 2px solid var(--ink);
+      background: var(--ink-sunken);
+      box-shadow: 5px 5px 0 var(--ink-accent);
+    }
+
+    .preview-pane__empty strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .preview-pane__empty span {
+      display: block;
+      color: var(--ink-secondary);
+      font-size: 11px;
+    }
+
+    /* 列表视图：选中行（蓝软填 + 左侧蓝指示线） */
+    .resource-table tbody tr.is-selected td {
+      background: var(--ink-accent-soft);
+    }
+    .resource-table tbody tr.is-selected td:first-child {
+      box-shadow: inset 3px 0 0 var(--ink-accent);
+    }
+
+    /* 切换条目时的微淡入 */
+    .preview-pane.is-loading .preview-pane__body {
+      opacity: .35;
+      transition: opacity var(--motion-fast);
+    }
+    .preview-pane.is-loaded .preview-pane__body {
+      opacity: 1;
+      transition: opacity var(--motion-fast);
+    }
+
+    /* 移动端：面板贴顶浮层，去掉居中位移 */
+    @media (max-width: 860px) {
+      .preview-pane {
+        top: 5vh;
+        bottom: auto;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-height: 82vh;
+        transform: translate(0, 8px);
+      }
+      .preview-pane.is-open {
+        transform: translate(0, 0);
+      }
+      .preview-pane__handle { display: none; }
+    }
+
+    /* ===== Dialog 浮层（新建笔记） ===== */
+    .dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(26, 26, 26, .32);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+
+    .dialog-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .dialog {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 110;
+      display: flex;
+      flex-direction: column;
+      width: min(440px, calc(100vw - 32px));
+      max-height: 80vh;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: 4px 4px 0 var(--ink), 7px 7px 0 var(--ink-accent);
+      transform: translate(-50%, calc(-50% + 8px));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .dialog.is-open {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+    }
+
+    .dialog__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 18px 4px;
+      background: var(--ink-surface);
+      flex: 0 0 auto;
+    }
+
+    .dialog__title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .dialog__close {
+      width: 24px;
+      height: 24px;
+      flex: 0 0 24px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+      opacity: .6;
+      transition: opacity var(--motion-fast);
+    }
+
+    .dialog__close:hover { opacity: 1; }
+    .dialog__close .icon { width: 14px; height: 14px; }
+
+    .dialog__body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px 22px 6px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .dialog__footer {
+      display: flex;
+      gap: 8px;
+      padding: 14px 18px 16px;
+      border-top: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      flex: 0 0 auto;
+    }
+
+    .dialog__footer .index-btn { flex: 1; min-height: 38px; }
+
+    /* 表单字段 */
+    .form-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .form-label {
+      color: var(--ink-secondary);
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .form-required {
+      color: var(--ink-danger);
+      font-weight: 800;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 36px;
+      padding: 0 11px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      color: var(--ink);
+      font: 14px/1 var(--font-ui);
+      transition: box-shadow var(--motion-fast), transform var(--motion-fast);
+    }
+
+    .form-input:focus {
+      outline: 0;
+      box-shadow: 2px 2px 0 var(--ink-accent);
+      transform: translate(-1px, -1px);
+    }
+
+    .form-input:disabled {
+      background: var(--ink-soft);
+      color: var(--ink-muted);
+      cursor: not-allowed;
+    }
+
+    .form-input.is-invalid {
+      border-color: var(--ink-danger);
+      box-shadow: 2px 2px 0 var(--ink-danger);
+    }
+
+    textarea.form-input {
+      min-height: 80px;
+      padding: 8px 11px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    .form-hint {
+      color: var(--ink-muted);
+      font-size: 10px;
+    }
+
+    .form-error {
+      color: var(--ink-danger);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* ===== Context Menu 上下文菜单（··· 操作） ===== */
+    .context-menu {
+      position: fixed;
+      z-index: 95;
+      min-width: 180px;
+      overflow: hidden;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-2);
+      overscroll-behavior: contain;
+      transform: translateY(-4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+
+    .context-menu.is-open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .context-menu__head {
+      padding: 10px 12px 6px;
+      color: var(--ink-muted);
+      font: 800 10px/1.2 var(--font-mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .context-menu__item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+      transition: background var(--motion-fast), color var(--motion-fast);
+    }
+
+    .context-menu__item:hover,
+    .context-menu__item:focus-visible {
+      background: var(--ink-sunken);
+    }
+
+    .context-menu__item .item-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--ink-secondary);
+      flex: 0 0 14px;
+    }
+
+    .context-menu__item--danger { color: var(--ink-danger); }
+    .context-menu__item--danger .item-icon { color: var(--ink-danger); }
+    .context-menu__item--danger:hover { background: var(--ink-danger); color: var(--ink-surface); }
+    .context-menu__item--danger:hover .item-icon { color: var(--ink-surface); }
+
+    .context-menu__sep {
+      height: 1px;
+      margin: 4px 0;
+      background: var(--ink-panel);
+    }
+
+    /* ===== 空状态：操作按钮 ===== */
+    .index-empty-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    /* ===== 加载指示：搜索中状态 ===== */
+    .search-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink-accent);
+      font: 700 10px/1 var(--font-mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .search-indicator::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--ink-accent);
+      animation: search-pulse 1s ease-in-out infinite;
+    }
+
+    .search-indicator[hidden] { display: none; }
+
+    @keyframes search-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .35; }
+    }
+
+    .index-view.is-searching .resource-table tbody tr,
+    .index-view.is-searching .resource-tile {
+      opacity: .55;
+      transition: opacity 140ms ease;
+    }
+
     .index-empty {
       min-height: 260px;
       display: grid;
@@ -1242,6 +1782,9 @@
       .index-title { font-size: 40px; }
       .index-actions { margin-top: 20px; }
       .index-btn { min-height: 44px; }
+      /* 留出状态栏 + 移动 Tab + 缓冲，保证最后一行和分页不会被遮 */
+      .index-page { padding: 24px 16px calc(var(--status-size) + var(--mobile-tabs-size) + 24px); }
+      .pager { margin-top: 20px; flex-wrap: wrap; row-gap: 8px; }
       .index-toolbar { grid-template-columns: 1fr auto; gap: 9px; padding: 10px; }
       .index-search { height: 44px; }
       .index-toolbar-end { gap: 6px; }
@@ -1252,10 +1795,74 @@
       .index-filters { overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
       .index-filters::-webkit-scrollbar { display: none; }
       .filter-chip { height: 40px; white-space: nowrap; }
-      .resource-table .col-status,
-      .resource-table .col-date { display: none; }
-      .resource-table .col-name { width: auto; }
-      .resource-table td { height: 64px; }
+
+      /* 手机端列表：放弃桌面表格强压，改为"两行紧凑卡片"
+         行 1 = 图标 + 标题 + 更多；行 2 = 状态 + 位置 + 更新时间 */
+      .resource-table,
+      .resource-table thead,
+      .resource-table tbody,
+      .resource-table tr,
+      .resource-table td { display: block; width: 100%; box-sizing: border-box; }
+      .resource-table thead { display: none; }
+      .resource-table td {
+        height: auto;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        vertical-align: top;
+      }
+
+      .resource-table tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 10px;
+        row-gap: 4px;
+        min-height: 76px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--ink-panel);
+      }
+      .resource-table tr:last-child { border-bottom: 0; }
+
+      /* 用 order 让 cells 1 + 5 排第一行，cells 2/3/4 折到第二行 */
+      .resource-table td:nth-child(1) { order: 1; flex: 1 1 200px; min-width: 0; }
+      .resource-table td:nth-child(5) { order: 2; flex: 0 0 36px; }
+      .resource-table td:nth-child(2) { order: 3; flex: 0 0 auto; font-size: 11px; }
+      .resource-table td:nth-child(3) { order: 4; flex: 0 0 auto; font-size: 11px; color: var(--ink-secondary); }
+      .resource-table td:nth-child(4) { order: 5; flex: 0 0 auto; font-size: 11px; color: var(--ink-secondary); }
+      .resource-table td:nth-child(3)::before,
+      .resource-table td:nth-child(4)::before {
+        content: "·";
+        margin-right: 6px;
+        color: var(--ink-muted);
+      }
+
+      /* 标题按钮：允许 2 行 + 省略，禁止中文逐字竖排 */
+      .resource-table .resource-name {
+        min-width: 0;
+        width: 100%;
+        gap: 10px;
+      }
+      .resource-table .resource-name-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.35;
+        font-size: 13px;
+      }
+      .resource-table .mini-file { width: 24px; height: 28px; flex: 0 0 24px; }
+      .resource-table .status-label { font-size: 11px; }
+      .resource-table .row-more { width: 36px; height: 36px; }
+
+      /* 选中态移到 row（避免 td 背景被 column-gap 切断） */
+      .resource-table tbody tr.is-selected { background: var(--ink-accent-soft); box-shadow: inset 3px 0 0 var(--ink-accent); }
+      .resource-table tbody tr.is-selected td { background: transparent; }
+
       .icon-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 10px; padding: 18px 10px; }
       .resource-tile { min-height: 152px; padding-inline: 5px; }
       .statusbar {
@@ -1330,6 +1937,7 @@
     <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
     <symbol id="icon-sort" viewBox="0 0 24 24"><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/></symbol>
     <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V3M7 8l5-5 5 5M4 14v6h16v-6"/></symbol>
+    <symbol id="icon-link" viewBox="0 0 24 24"><path d="M9 15a4 4 0 0 1 0-6l3-3a4 4 0 0 1 6 6M15 9a4 4 0 0 1 0 6l-3 3a4 4 0 0 1-6-6"/></symbol>
   </svg>
 
   <a class="skip-link" href="#workspace">跳到主区域</a>
@@ -1499,11 +2107,12 @@
           </div>
 
           <div class="index-meta-row">
-            <span><strong id="visible-count">11</strong> 项笔记</span>
+            <span><strong id="visible-count">11</strong> 项笔记 <span class="search-indicator" id="search-indicator" hidden>搜索中</span></span>
             <span id="view-description">列表视图 · 按最近更新排序</span>
           </div>
         </section>
 
+        <div class="index-stage" id="index-stage">
         <section class="index-view" id="list-view" aria-label="笔记列表视图">
           <div class="list-frame">
             <table class="resource-table">
@@ -1511,37 +2120,37 @@
                 <tr><th class="col-name" scope="col">名称</th><th class="col-status" scope="col">状态</th><th class="col-place" scope="col">位置</th><th class="col-date" scope="col">最近更新</th><th class="col-menu" scope="col"><span class="live-region">操作</span></th></tr>
               </thead>
               <tbody id="resource-table-body">
-                <tr data-resource data-type="folder" data-name="产品设计" data-updated="20260816" data-searchable="产品设计 文件夹 4项">
+                <tr data-resource data-type="folder" data-name="产品设计" data-updated="20260816" data-searchable="产品设计 文件夹 4项" data-place="笔记库" data-status="folder" data-children="Transformer 注意力机制复盘|Q3 产品规划草案|前端重构设计评审|设计评审补充">
                   <td><button class="resource-name" type="button" data-open="产品设计"><span class="mini-file mini-file--folder" aria-hidden="true"></span><span class="resource-name-label">产品设计</span></button></td><td><span class="status-label status-label--folder">文件夹</span></td><td>笔记库</td><td>今天 16:42</td><td class="col-menu"><button class="row-more" type="button" aria-label="产品设计更多操作" data-more="产品设计"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="folder" data-name="学习" data-updated="20260815" data-searchable="学习 文件夹 4项">
+                <tr data-resource data-type="folder" data-name="学习" data-updated="20260815" data-searchable="学习 文件夹 4项" data-place="笔记库" data-status="folder" data-children="向量相似度入门|知识库召回策略|周复盘模板|Loss 函数速查">
                   <td><button class="resource-name" type="button" data-open="学习"><span class="mini-file mini-file--folder" aria-hidden="true"></span><span class="resource-name-label">学习</span></button></td><td><span class="status-label status-label--folder">文件夹</span></td><td>笔记库</td><td>昨天 21:08</td><td class="col-menu"><button class="row-more" type="button" aria-label="学习更多操作" data-more="学习"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="folder" data-name="灵感" data-updated="20260812" data-searchable="灵感 文件夹 3项">
+                <tr data-resource data-type="folder" data-name="灵感" data-updated="20260812" data-searchable="灵感 文件夹 3项" data-place="笔记库" data-status="folder" data-children="界面隐喻收集|阅读摘录：信息架构|色彩与情绪笔记">
                   <td><button class="resource-name" type="button" data-open="灵感"><span class="mini-file mini-file--folder" aria-hidden="true"></span><span class="resource-name-label">灵感</span></button></td><td><span class="status-label status-label--folder">文件夹</span></td><td>笔记库</td><td>8月12日</td><td class="col-menu"><button class="row-more" type="button" aria-label="灵感更多操作" data-more="灵感"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="Transformer 注意力机制复盘" data-updated="20260816" data-searchable="Transformer 注意力机制复盘 产品设计 进行中 AI 学习">
+                <tr data-resource data-type="document" data-name="Transformer 注意力机制复盘" data-updated="20260816" data-searchable="Transformer 注意力机制复盘 产品设计 进行中 AI 学习" data-place="产品设计" data-status="active" data-tags="AI,学习" data-words="320" data-marginalia="8" data-links="3">
                   <td><button class="resource-name" type="button" data-open="Transformer 注意力机制复盘"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">Transformer 注意力机制复盘</span></button></td><td><span class="status-label status-label--active">进行中</span></td><td>产品设计</td><td>今天 17:20</td><td class="col-menu"><button class="row-more" type="button" aria-label="Transformer 注意力机制复盘更多操作" data-more="Transformer 注意力机制复盘"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="Q3 产品规划草案" data-updated="20260816" data-searchable="Q3 产品规划草案 产品设计 草稿 工作">
+                <tr data-resource data-type="document" data-name="Q3 产品规划草案" data-updated="20260816" data-searchable="Q3 产品规划草案 产品设计 草稿 工作" data-place="产品设计" data-status="draft" data-tags="工作" data-words="180" data-marginalia="2" data-links="5">
                   <td><button class="resource-name" type="button" data-open="Q3 产品规划草案"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">Q3 产品规划草案</span></button></td><td><span class="status-label status-label--draft">草稿</span></td><td>产品设计</td><td>今天 14:06</td><td class="col-menu"><button class="row-more" type="button" aria-label="Q3 产品规划草案更多操作" data-more="Q3 产品规划草案"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="前端重构设计评审" data-updated="20260815" data-searchable="前端重构设计评审 产品设计 已完成 设计">
+                <tr data-resource data-type="document" data-name="前端重构设计评审" data-updated="20260815" data-searchable="前端重构设计评审 产品设计 已完成 设计" data-place="产品设计" data-status="done" data-tags="设计" data-words="450" data-marginalia="12" data-links="4">
                   <td><button class="resource-name" type="button" data-open="前端重构设计评审"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">前端重构设计评审</span></button></td><td><span class="status-label status-label--done">已完成</span></td><td>产品设计</td><td>昨天 18:32</td><td class="col-menu"><button class="row-more" type="button" aria-label="前端重构设计评审更多操作" data-more="前端重构设计评审"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="向量相似度入门" data-updated="20260814" data-searchable="向量相似度入门 学习 已完成 AI">
+                <tr data-resource data-type="document" data-name="向量相似度入门" data-updated="20260814" data-searchable="向量相似度入门 学习 已完成 AI" data-place="学习" data-status="done" data-tags="AI" data-words="280" data-marginalia="6" data-links="2">
                   <td><button class="resource-name" type="button" data-open="向量相似度入门"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">向量相似度入门</span></button></td><td><span class="status-label status-label--done">已完成</span></td><td>学习</td><td>8月14日</td><td class="col-menu"><button class="row-more" type="button" aria-label="向量相似度入门更多操作" data-more="向量相似度入门"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="知识库召回策略" data-updated="20260813" data-searchable="知识库召回策略 学习 进行中 AI">
+                <tr data-resource data-type="document" data-name="知识库召回策略" data-updated="20260813" data-searchable="知识库召回策略 学习 进行中 AI" data-place="学习" data-status="active" data-tags="AI" data-words="240" data-marginalia="4" data-links="6">
                   <td><button class="resource-name" type="button" data-open="知识库召回策略"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">知识库召回策略</span></button></td><td><span class="status-label status-label--active">进行中</span></td><td>学习</td><td>8月13日</td><td class="col-menu"><button class="row-more" type="button" aria-label="知识库召回策略更多操作" data-more="知识库召回策略"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="周复盘模板" data-updated="20260811" data-searchable="周复盘模板 学习 模板 待整理">
+                <tr data-resource data-type="document" data-name="周复盘模板" data-updated="20260811" data-searchable="周复盘模板 学习 模板 待整理" data-place="学习" data-status="draft" data-tags="模板,待整理" data-words="160" data-marginalia="0" data-links="1">
                   <td><button class="resource-name" type="button" data-open="周复盘模板"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">周复盘模板</span></button></td><td><span class="status-label status-label--draft">待整理</span></td><td>学习</td><td>8月11日</td><td class="col-menu"><button class="row-more" type="button" aria-label="周复盘模板更多操作" data-more="周复盘模板"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="界面隐喻收集" data-updated="20260810" data-searchable="界面隐喻收集 灵感 草稿 设计">
+                <tr data-resource data-type="document" data-name="界面隐喻收集" data-updated="20260810" data-searchable="界面隐喻收集 灵感 草稿 设计" data-place="灵感" data-status="draft" data-tags="设计" data-words="120" data-marginalia="3" data-links="2">
                   <td><button class="resource-name" type="button" data-open="界面隐喻收集"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">界面隐喻收集</span></button></td><td><span class="status-label status-label--draft">草稿</span></td><td>灵感</td><td>8月10日</td><td class="col-menu"><button class="row-more" type="button" aria-label="界面隐喻收集更多操作" data-more="界面隐喻收集"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
-                <tr data-resource data-type="document" data-name="阅读摘录：信息架构" data-updated="20260808" data-searchable="阅读摘录 信息架构 灵感 已完成 阅读">
+                <tr data-resource data-type="document" data-name="阅读摘录：信息架构" data-updated="20260808" data-searchable="阅读摘录 信息架构 灵感 已完成 阅读" data-place="灵感" data-status="done" data-tags="阅读" data-words="200" data-marginalia="5" data-links="4">
                   <td><button class="resource-name" type="button" data-open="阅读摘录：信息架构"><span class="mini-file" aria-hidden="true"></span><span class="resource-name-label">阅读摘录：信息架构</span></button></td><td><span class="status-label status-label--done">已完成</span></td><td>灵感</td><td>8月8日</td><td class="col-menu"><button class="row-more" type="button" aria-label="阅读摘录：信息架构更多操作" data-more="阅读摘录：信息架构"><svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg></button></td>
                 </tr>
               </tbody>
@@ -1551,19 +2160,54 @@
 
         <section class="index-view" id="grid-view" aria-label="文件夹图标视图" hidden>
           <div class="icon-grid" id="resource-grid">
-            <button class="resource-tile" type="button" data-resource data-type="folder" data-name="产品设计" data-updated="20260816" data-searchable="产品设计 文件夹 4项" data-open="产品设计"><span class="tile-art"><span class="folder-art" data-count="04" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">产品设计</span><span class="tile-meta">4 项</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="folder" data-name="学习" data-updated="20260815" data-searchable="学习 文件夹 4项" data-open="学习"><span class="tile-art"><span class="folder-art" data-count="04" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">学习</span><span class="tile-meta">4 项</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="folder" data-name="灵感" data-updated="20260812" data-searchable="灵感 文件夹 3项" data-open="灵感"><span class="tile-art"><span class="folder-art" data-count="03" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">灵感</span><span class="tile-meta">3 项</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="Transformer 注意力机制复盘" data-updated="20260816" data-searchable="Transformer 注意力机制复盘 产品设计 进行中 AI 学习" data-open="Transformer 注意力机制复盘"><span class="tile-art"><span class="document-art document-art--blue" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">Transformer 注意力机制复盘</span><span class="tile-meta">今天 17:20</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="Q3 产品规划草案" data-updated="20260816" data-searchable="Q3 产品规划草案 产品设计 草稿 工作" data-open="Q3 产品规划草案"><span class="tile-art"><span class="document-art document-art--orange" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">Q3 产品规划草案</span><span class="tile-meta">今天 14:06</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="前端重构设计评审" data-updated="20260815" data-searchable="前端重构设计评审 产品设计 已完成 设计" data-open="前端重构设计评审"><span class="tile-art"><span class="document-art document-art--purple" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">前端重构设计评审</span><span class="tile-meta">昨天 18:32</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="向量相似度入门" data-updated="20260814" data-searchable="向量相似度入门 学习 已完成 AI" data-open="向量相似度入门"><span class="tile-art"><span class="document-art document-art--green" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">向量相似度入门</span><span class="tile-meta">8月14日</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="知识库召回策略" data-updated="20260813" data-searchable="知识库召回策略 学习 进行中 AI" data-open="知识库召回策略"><span class="tile-art"><span class="document-art document-art--blue" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">知识库召回策略</span><span class="tile-meta">8月13日</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="周复盘模板" data-updated="20260811" data-searchable="周复盘模板 学习 模板 待整理" data-open="周复盘模板"><span class="tile-art"><span class="document-art document-art--orange" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">周复盘模板</span><span class="tile-meta">8月11日</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="界面隐喻收集" data-updated="20260810" data-searchable="界面隐喻收集 灵感 草稿 设计" data-open="界面隐喻收集"><span class="tile-art"><span class="document-art document-art--purple" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">界面隐喻收集</span><span class="tile-meta">8月10日</span></span></button>
-            <button class="resource-tile" type="button" data-resource data-type="document" data-name="阅读摘录：信息架构" data-updated="20260808" data-searchable="阅读摘录 信息架构 灵感 已完成 阅读" data-open="阅读摘录：信息架构"><span class="tile-art"><span class="document-art document-art--green" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">阅读摘录：信息架构</span><span class="tile-meta">8月8日</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="folder" data-name="产品设计" data-updated="20260816" data-searchable="产品设计 文件夹 4项" data-open="产品设计" data-place="笔记库" data-status="folder" data-children="Transformer 注意力机制复盘|Q3 产品规划草案|前端重构设计评审|设计评审补充"><span class="tile-art"><span class="folder-art" data-count="04" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">产品设计</span><span class="tile-meta">4 项</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="folder" data-name="学习" data-updated="20260815" data-searchable="学习 文件夹 4项" data-open="学习" data-place="笔记库" data-status="folder" data-children="向量相似度入门|知识库召回策略|周复盘模板|Loss 函数速查"><span class="tile-art"><span class="folder-art" data-count="04" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">学习</span><span class="tile-meta">4 项</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="folder" data-name="灵感" data-updated="20260812" data-searchable="灵感 文件夹 3项" data-open="灵感" data-place="笔记库" data-status="folder" data-children="界面隐喻收集|阅读摘录：信息架构|色彩与情绪笔记"><span class="tile-art"><span class="folder-art" data-count="03" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">灵感</span><span class="tile-meta">3 项</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="Transformer 注意力机制复盘" data-updated="20260816" data-searchable="Transformer 注意力机制复盘 产品设计 进行中 AI 学习" data-open="Transformer 注意力机制复盘" data-place="产品设计" data-status="active" data-tags="AI,学习" data-words="320" data-marginalia="8" data-links="3"><span class="tile-art"><span class="document-art document-art--blue" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">Transformer 注意力机制复盘</span><span class="tile-meta">今天 17:20</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="Q3 产品规划草案" data-updated="20260816" data-searchable="Q3 产品规划草案 产品设计 草稿 工作" data-open="Q3 产品规划草案" data-place="产品设计" data-status="draft" data-tags="工作" data-words="180" data-marginalia="2" data-links="5"><span class="tile-art"><span class="document-art document-art--orange" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">Q3 产品规划草案</span><span class="tile-meta">今天 14:06</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="前端重构设计评审" data-updated="20260815" data-searchable="前端重构设计评审 产品设计 已完成 设计" data-open="前端重构设计评审" data-place="产品设计" data-status="done" data-tags="设计" data-words="450" data-marginalia="12" data-links="4"><span class="tile-art"><span class="document-art document-art--purple" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">前端重构设计评审</span><span class="tile-meta">昨天 18:32</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="向量相似度入门" data-updated="20260814" data-searchable="向量相似度入门 学习 已完成 AI" data-open="向量相似度入门" data-place="学习" data-status="done" data-tags="AI" data-words="280" data-marginalia="6" data-links="2"><span class="tile-art"><span class="document-art document-art--green" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">向量相似度入门</span><span class="tile-meta">8月14日</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="知识库召回策略" data-updated="20260813" data-searchable="知识库召回策略 学习 进行中 AI" data-open="知识库召回策略" data-place="学习" data-status="active" data-tags="AI" data-words="240" data-marginalia="4" data-links="6"><span class="tile-art"><span class="document-art document-art--blue" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">知识库召回策略</span><span class="tile-meta">8月13日</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="周复盘模板" data-updated="20260811" data-searchable="周复盘模板 学习 模板 待整理" data-open="周复盘模板" data-place="学习" data-status="draft" data-tags="模板,待整理" data-words="160" data-marginalia="0" data-links="1"><span class="tile-art"><span class="document-art document-art--orange" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">周复盘模板</span><span class="tile-meta">8月11日</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="界面隐喻收集" data-updated="20260810" data-searchable="界面隐喻收集 灵感 草稿 设计" data-open="界面隐喻收集" data-place="灵感" data-status="draft" data-tags="设计" data-words="120" data-marginalia="3" data-links="2"><span class="tile-art"><span class="document-art document-art--purple" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">界面隐喻收集</span><span class="tile-meta">8月10日</span></span></button>
+            <button class="resource-tile" type="button" data-resource data-type="document" data-name="阅读摘录：信息架构" data-updated="20260808" data-searchable="阅读摘录 信息架构 灵感 已完成 阅读" data-open="阅读摘录：信息架构" data-place="灵感" data-status="done" data-tags="阅读" data-words="200" data-marginalia="5" data-links="4"><span class="tile-art"><span class="document-art document-art--green" aria-hidden="true"></span></span><span class="tile-copy"><span class="tile-name">阅读摘录：信息架构</span><span class="tile-meta">8月8日</span></span></button>
           </div>
         </section>
+
+        <div class="preview-backdrop" id="preview-backdrop" hidden></div>
+        <aside class="preview-pane preview-pane--empty" id="preview-pane" hidden aria-label="笔记预览">
+          <header class="preview-pane__header">
+            <span class="preview-pane__eyebrow" id="preview-eyebrow">SELECTED / ——</span>
+            <button class="preview-pane__close" type="button" aria-label="关闭预览" data-action="close-preview">
+              <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+            </button>
+          </header>
+          <div class="preview-pane__body" id="preview-body">
+            <div class="preview-pane__empty" id="preview-empty">
+              <div class="empty-mark" aria-hidden="true"></div>
+              <strong>选择一条笔记</strong>
+              <span>在这里快速预览笔记信息</span>
+            </div>
+            <div class="preview-content" id="preview-content" hidden>
+              <div class="preview-mark" id="preview-mark">笔记</div>
+              <h2 class="preview-title" id="preview-title">——</h2>
+              <span class="preview-badge" id="preview-badge"></span>
+              <dl class="preview-meta-list">
+                <div><dt>类型</dt><dd id="preview-type">——</dd></div>
+                <div><dt>字数</dt><dd id="preview-words">——</dd></div>
+                <div><dt>边注</dt><dd id="preview-marginalia">——</dd></div>
+                <div><dt>关联</dt><dd id="preview-links">——</dd></div>
+              </dl>
+            </div>
+          </div>
+          <footer class="preview-pane__footer" id="preview-footer" hidden>
+            <button class="index-btn index-btn--primary" type="button" data-action="open-note"><span>打开编辑器</span></button>
+            <button class="index-btn" type="button" aria-label="更多操作" data-action="more-note">
+              <svg class="icon" aria-hidden="true"><use href="#icon-more"/></svg>
+            </button>
+          </footer>
+        </aside>
+        </div><!-- /.index-stage -->
 
         <div class="pager" id="index-pager" aria-label="笔记分页">
           <span class="pager-pages"><span id="page-summary">第 1 / 1 页 · 共 11 条</span>
@@ -1574,7 +2218,16 @@
         </div>
 
         <section class="index-empty" id="index-empty" aria-live="polite" hidden>
-          <div><div class="index-empty-mark" aria-hidden="true"></div><h2>没有匹配的笔记</h2><p>试试清空搜索词，或切换笔记类型。</p></div>
+          <div>
+            <div class="index-empty-mark" aria-hidden="true"></div>
+            <h2>没有匹配的笔记</h2>
+            <p id="index-empty-hint">试试清空搜索词，或切换笔记类型。</p>
+            <div class="index-empty-actions" id="index-empty-actions">
+              <button class="index-btn" type="button" data-action="clear-search" hidden>清除搜索</button>
+              <button class="index-btn" type="button" data-action="reset-filter" hidden>重置筛选</button>
+              <button class="index-btn index-btn--primary" type="button" data-action="new-note">新建笔记</button>
+            </div>
+          </div>
         </section>
       </article>
     </main>
@@ -1602,6 +2255,68 @@
 
   <div class="index-toast" id="index-toast" role="status" hidden></div>
   <div class="live-region" role="status" aria-live="polite" id="live-region"></div>
+
+  <!-- Dialog 浮层：新建笔记 -->
+  <div class="dialog-backdrop" id="dialog-backdrop" hidden></div>
+  <div class="dialog" id="new-note-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <header class="dialog__header">
+      <h2 class="dialog__title" id="dialog-title">新建笔记</h2>
+      <button class="dialog__close" type="button" aria-label="关闭对话框" data-action="close-dialog">
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+      </button>
+    </header>
+    <form class="dialog__body" id="new-note-form" novalidate>
+      <div class="form-field">
+        <label class="form-label" for="new-note-title">标题 <span class="form-required" aria-hidden="true">*</span></label>
+        <input class="form-input" type="text" id="new-note-title" name="title" required maxlength="80" placeholder="给笔记起个名字" autocomplete="off">
+        <span class="form-error" id="new-note-title-error" hidden>请输入标题</span>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="new-note-folder">文件夹</label>
+        <select class="form-input" id="new-note-folder" name="folder">
+          <option value="笔记库">笔记库（根）</option>
+          <option value="产品设计">产品设计</option>
+          <option value="学习">学习</option>
+          <option value="灵感">灵感</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="new-note-tags">标签</label>
+        <input class="form-input" type="text" id="new-note-tags" name="tags" placeholder="用逗号分隔，如：AI,学习" autocomplete="off">
+        <span class="form-hint">多个标签用半角逗号分隔</span>
+      </div>
+      <div class="form-field">
+        <label class="form-label">类型</label>
+        <input class="form-input" type="text" value="Markdown" disabled>
+        <span class="form-hint">所有笔记均为 Markdown 格式</span>
+      </div>
+    </form>
+    <footer class="dialog__footer">
+      <button class="index-btn" type="button" data-action="close-dialog">取消</button>
+      <button class="index-btn index-btn--primary" type="submit" form="new-note-form">创建</button>
+    </footer>
+  </div>
+
+  <!-- Context Menu：行/卡 ··· 操作 -->
+  <div class="context-menu" id="context-menu" hidden role="menu" aria-label="笔记操作">
+    <div class="context-menu__head" id="context-menu-head">操作</div>
+    <button class="context-menu__item" type="button" role="menuitem" data-action="ctx-open">
+      <svg class="item-icon" aria-hidden="true"><use href="#icon-note"/></svg>打开
+    </button>
+    <button class="context-menu__item" type="button" role="menuitem" data-action="ctx-rename">
+      <svg class="item-icon" aria-hidden="true"><use href="#icon-folder"/></svg>重命名
+    </button>
+    <button class="context-menu__item" type="button" role="menuitem" data-action="ctx-move">
+      <svg class="item-icon" aria-hidden="true"><use href="#icon-inbox"/></svg>移动到…
+    </button>
+    <button class="context-menu__item" type="button" role="menuitem" data-action="ctx-copy-link">
+      <svg class="item-icon" aria-hidden="true"><use href="#icon-link"/></svg>复制 Markdown 链接
+    </button>
+    <div class="context-menu__sep" aria-hidden="true"></div>
+    <button class="context-menu__item context-menu__item--danger" type="button" role="menuitem" data-action="ctx-delete">
+      <svg class="item-icon" aria-hidden="true"><use href="#icon-trash"/></svg>删除
+    </button>
+  </div>
 
   <script>
     const body = document.body;
@@ -1712,6 +2427,10 @@
       const sortLabel = SORT_LABELS[activeSort];
       viewDescription.textContent = `${activeView === 'list' ? '列表视图' : '图标视图'} · 按${sortLabel}排序`;
 
+      // 搜索/筛选指示 + 空状态行动按钮
+      updateSearchIndicator();
+      updateEmptyActions(query, count);
+
       const pager = document.querySelector('#index-pager');
       const paginate = activeView === 'list';
       if (paginate) {
@@ -1766,6 +2485,331 @@
       announce(`已按${label}排序`);
     }
 
+    /* ===== 预览面板：状态 / 渲染 / 交互 ===== */
+    const previewPane = document.querySelector('#preview-pane');
+    const previewBackdrop = document.querySelector('#preview-backdrop');
+    const previewEyebrow = document.querySelector('#preview-eyebrow');
+    const previewContent = document.querySelector('#preview-content');
+    const previewMark = document.querySelector('#preview-mark');
+    const previewTitle = document.querySelector('#preview-title');
+    const previewBadge = document.querySelector('#preview-badge');
+    const previewBody = document.querySelector('#preview-body');
+    const previewEmpty = document.querySelector('#preview-empty');
+    const previewType = document.querySelector('#preview-type');
+    const previewWords = document.querySelector('#preview-words');
+    const previewMarginalia = document.querySelector('#preview-marginalia');
+    const previewLinks = document.querySelector('#preview-links');
+    const previewFooter = document.querySelector('#preview-footer');
+    const inspectorButton = document.querySelector('[data-action="inspector"]');
+    let previewItem = null;
+    let previewOpen = false;
+
+    /* ===== Dialog + Context Menu 状态板 ===== */
+    const dialogBackdrop = document.querySelector('#dialog-backdrop');
+    const newNoteDialog = document.querySelector('#new-note-dialog');
+    const newNoteForm = document.querySelector('#new-note-form');
+    const newNoteTitle = document.querySelector('#new-note-title');
+    const newNoteTitleError = document.querySelector('#new-note-title-error');
+    const newNoteFolder = document.querySelector('#new-note-folder');
+    const newNoteTags = document.querySelector('#new-note-tags');
+    const contextMenu = document.querySelector('#context-menu');
+    const contextMenuHead = document.querySelector('#context-menu-head');
+    const searchIndicator = document.querySelector('#search-indicator');
+    const indexEmptyActions = document.querySelector('#index-empty-actions');
+    const indexEmptyHint = document.querySelector('#index-empty-hint');
+    let openDialog = null;
+    let contextTarget = null;
+    let searchPulseTimer = null;
+
+    const STATUS_LABELS = { active: '进行中', done: '已完成', draft: '草稿' };
+
+    // 从 name 派生 code：取前 1-2 个有意义字符（中文 1-2 字 / 英文数字 1-2 字符）
+    function getCode(name) {
+      if (!name) return '——';
+      const m = name.match(/^[\u4e00-\u9fa5]{1,2}|^Q\d|^[A-Za-z0-9]{1,2}/);
+      if (m) return m[0].toUpperCase();
+      return name.slice(0, 2).toUpperCase();
+    }
+
+    function formatNumber(n) {
+      if (n === undefined || n === null || n === '') return '0';
+      const num = Number(n);
+      if (Number.isNaN(num)) return '0';
+      return num.toLocaleString('en-US');
+    }
+
+    function setPreviewContent(item) {
+      if (!item) {
+        // 空状态
+        previewPane.classList.add('preview-pane--empty');
+        previewContent.hidden = true;
+        previewFooter.hidden = true;
+        // 恢复空状态节点
+        previewBody.insertBefore(previewEmpty, previewBody.firstChild);
+        previewEmpty.hidden = false;
+        previewEyebrow.textContent = 'SELECTED / ——';
+        return;
+      }
+
+      previewPane.classList.remove('preview-pane--empty');
+      previewEmpty.hidden = true;
+      previewContent.hidden = false;
+      previewFooter.hidden = false;
+
+      const code = getCode(item.dataset.name);
+      const status = item.dataset.status || 'draft';
+      const statusLabel = STATUS_LABELS[status] || status;
+
+      previewEyebrow.textContent = `SELECTED / ${code}`;
+      previewMark.textContent = code;
+      previewTitle.textContent = item.dataset.name;
+      previewBadge.className = `preview-badge preview-badge--${status}`;
+      previewBadge.textContent = statusLabel;
+      previewType.textContent = 'Markdown';
+      previewWords.textContent = formatNumber(item.dataset.words);
+      previewMarginalia.textContent = formatNumber(item.dataset.marginalia);
+      previewLinks.textContent = formatNumber(item.dataset.links);
+    }
+
+    function openPreviewPane() {
+      if (previewOpen) return;
+      previewOpen = true;
+      previewPane.hidden = false;
+      previewBackdrop.hidden = false;
+      // 强制重排，确保从 hidden 切到可见后 transition 能从初始态启动
+      void previewPane.offsetHeight;
+      void previewBackdrop.offsetHeight;
+      previewPane.classList.add('is-open');
+      previewBackdrop.classList.add('is-open');
+      inspectorButton?.setAttribute('aria-pressed', 'true');
+    }
+
+    function closePreview() {
+      if (!previewOpen) return;
+      previewOpen = false;
+      previewItem = null;
+      previewPane.classList.remove('is-open');
+      previewBackdrop.classList.remove('is-open');
+      document.querySelectorAll('[data-resource].is-selected').forEach((el) => el.classList.remove('is-selected'));
+      inspectorButton?.setAttribute('aria-pressed', 'false');
+      // 等 transition 结束（200ms）再彻底隐藏，避免动画中段被切走
+      window.setTimeout(() => {
+        previewPane.hidden = true;
+        previewBackdrop.hidden = true;
+      }, 220);
+      setPreviewContent(null);
+      announce('预览面板已关闭');
+    }
+
+    function selectItem(item) {
+      if (!item) return;
+      // 文件夹不弹出预览面板（仅作为容器，点击走 toast 反馈）
+      if (item.dataset.type === 'folder') return;
+      const isSame = previewItem && previewItem.dataset.name === item.dataset.name;
+      previewItem = item;
+
+      // 同步 is-selected：跨视图同名元素都标记
+      document.querySelectorAll('[data-resource]').forEach((el) => {
+        el.classList.toggle('is-selected', el.dataset.name === item.dataset.name);
+      });
+
+      openPreviewPane();
+      if (isSame) {
+        // 同一项：直接刷新内容，不走 loading 动画
+        setPreviewContent(item);
+      } else {
+        // 切换条目：微淡入
+        previewPane.classList.add('is-loading');
+        setPreviewContent(item);
+        requestAnimationFrame(() => requestAnimationFrame(() => previewPane.classList.remove('is-loading')));
+      }
+      announce(`已选中 ${item.dataset.name}`);
+    }
+
+    function navItems(step) {
+      if (!previewOpen || !previewItem) return;
+      const container = activeView === 'list' ? '#resource-table-body' : '#resource-grid';
+      // 只导航文稿（文件夹无预览）
+      const items = [...document.querySelectorAll(`${container} [data-resource]`)]
+        .filter((el) => !el.hidden && el.style.display !== 'none' && el.dataset.type === 'document');
+      if (!items.length) return;
+      const currentIdx = items.findIndex((el) => el.dataset.name === previewItem.dataset.name);
+      if (currentIdx === -1) {
+        // 当前选中项不在文档列表里（比如已过滤掉），跳到第一个文档
+        selectItem(items[0]);
+        return;
+      }
+      const nextIdx = Math.max(0, Math.min(items.length - 1, currentIdx + step));
+      if (nextIdx === currentIdx) return;
+      selectItem(items[nextIdx]);
+    }
+
+    /* ===== Dialog 浮层：open / close / submit ===== */
+    function showDialog(dialog) {
+      openDialog = dialog;
+      dialogBackdrop.hidden = false;
+      dialog.hidden = false;
+      void dialogBackdrop.offsetHeight;
+      void dialog.offsetHeight;
+      dialogBackdrop.classList.add('is-open');
+      dialog.classList.add('is-open');
+      // 自动聚焦第一个输入框
+      const firstInput = dialog.querySelector('input:not([disabled]):not([type="hidden"]), select, textarea');
+      if (firstInput) {
+        requestAnimationFrame(() => firstInput.focus());
+      }
+      announce(`${dialog.querySelector('.dialog__title')?.textContent || '对话框'}已打开`);
+    }
+
+    function hideDialog() {
+      if (!openDialog) return;
+      openDialog.classList.remove('is-open');
+      dialogBackdrop.classList.remove('is-open');
+      const closing = openDialog;
+      openDialog = null;
+      window.setTimeout(() => {
+        closing.hidden = true;
+        if (!document.querySelector('.dialog:not([hidden])')) {
+          dialogBackdrop.hidden = true;
+        }
+      }, 200);
+      // 清空表单和错误状态
+      if (closing === newNoteDialog) {
+        newNoteForm.reset();
+        newNoteTitle.classList.remove('is-invalid');
+        newNoteTitleError.hidden = true;
+      }
+      announce('对话框已关闭');
+    }
+
+    function openNewNoteDialog() {
+      showDialog(newNoteDialog);
+    }
+
+    // 表单提交（创建笔记）
+    newNoteForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = (newNoteTitle.value || '').trim();
+      if (!title) {
+        newNoteTitle.classList.add('is-invalid');
+        newNoteTitleError.hidden = false;
+        newNoteTitle.focus();
+        return;
+      }
+      newNoteTitle.classList.remove('is-invalid');
+      newNoteTitleError.hidden = true;
+      const folder = newNoteFolder.value;
+      const tags = (newNoteTags.value || '').split(',').map((t) => t.trim()).filter(Boolean);
+      // Demo：只 toast，不真的写入数据
+      const summary = folder === '笔记库'
+        ? `「${title}」已加入笔记库`
+        : `「${title}」已加入${folder}` + (tags.length ? `，标签：${tags.join('、')}` : '');
+      showToast(`新建成功 · ${summary}`);
+      hideDialog();
+    });
+
+    // 实时清除 invalid 状态
+    newNoteTitle?.addEventListener('input', () => {
+      if (newNoteTitle.value.trim()) {
+        newNoteTitle.classList.remove('is-invalid');
+        newNoteTitleError.hidden = true;
+      }
+    });
+
+    // 点击 backdrop 关闭
+    dialogBackdrop?.addEventListener('click', hideDialog);
+
+    /* ===== Context Menu 上下文菜单 ===== */
+    function openContextMenuFor(button) {
+      contextTarget = button;
+      const itemName = button.dataset.more || '此项';
+      contextMenuHead.textContent = `操作 · ${itemName}`;
+      contextMenu.hidden = false;
+      // 定位：根据按钮位置决定菜单出现在下方还是上方
+      const rect = button.getBoundingClientRect();
+      const menuWidth = 200;
+      const menuHeight = 240;
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + 6;
+      // 边界检查
+      if (top + menuHeight > window.innerHeight - 12) {
+        top = rect.top - menuHeight - 6;
+      }
+      if (left < 12) left = 12;
+      if (left + menuWidth > window.innerWidth - 12) {
+        left = window.innerWidth - menuWidth - 12;
+      }
+      contextMenu.style.left = left + 'px';
+      contextMenu.style.top = top + 'px';
+      void contextMenu.offsetHeight;
+      contextMenu.classList.add('is-open');
+      // 第一个菜单项聚焦
+      requestAnimationFrame(() => {
+        const first = contextMenu.querySelector('.context-menu__item');
+        first?.focus();
+      });
+      announce(`操作菜单已打开，当前目标：${itemName}`);
+    }
+
+    function closeContextMenu() {
+      if (!contextMenu.classList.contains('is-open')) return;
+      contextMenu.classList.remove('is-open');
+      const closingTarget = contextTarget;
+      contextTarget = null;
+      window.setTimeout(() => {
+        contextMenu.hidden = true;
+      }, 160);
+      if (closingTarget) {
+        announce(`操作菜单已关闭：${closingTarget.dataset.more || ''}`);
+      }
+    }
+
+    /* ===== 搜索状态：清空 + 加载指示 ===== */
+    function clearSearch() {
+      if (resourceSearch) {
+        resourceSearch.value = '';
+        applyIndexState({ shouldAnnounce: true });
+        resourceSearch.focus();
+      }
+    }
+
+    function resetFilter() {
+      activeFilter = 'all';
+      document.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === 'all')));
+      applyIndexState({ shouldAnnounce: true });
+    }
+
+    function updateSearchIndicator() {
+      const query = resourceSearch?.value?.trim() || '';
+      const hasQuery = query.length > 0;
+      searchIndicator.hidden = !hasQuery;
+      // 列表项淡出作为"加载中"视觉提示
+      const view = activeView === 'list' ? listView : gridView;
+      view.classList.toggle('is-searching', hasQuery);
+    }
+
+    // 空状态行动按钮：根据当前搜索/筛选条件决定显示哪些按钮 + 提示文案
+    function updateEmptyActions(query, count) {
+      if (count > 0) return;
+      const hasQuery = query && query.length > 0;
+      const hasFilter = activeFilter !== 'all';
+      const clearBtn = indexEmptyActions.querySelector('[data-action="clear-search"]');
+      const resetBtn = indexEmptyActions.querySelector('[data-action="reset-filter"]');
+      if (clearBtn) clearBtn.hidden = !hasQuery;
+      if (resetBtn) resetBtn.hidden = !hasFilter;
+      if (indexEmptyHint) {
+        if (hasQuery && hasFilter) {
+          indexEmptyHint.textContent = '试试清空搜索词，或重置筛选条件。';
+        } else if (hasQuery) {
+          indexEmptyHint.textContent = '当前搜索无匹配。试试其他关键词，或清空搜索。';
+        } else if (hasFilter) {
+          indexEmptyHint.textContent = '当前筛选下没有笔记。试试切换类型，或新建一条。';
+        } else {
+          indexEmptyHint.textContent = '当前没有笔记。点击新建，开始你的第一条记录。';
+        }
+      }
+    }
+
     document.addEventListener('click', (event) => {
       const action = event.target.closest('[data-action]');
 
@@ -1778,11 +2822,27 @@
       }
 
       if (action?.dataset.action === 'new-note') {
-        showToast('新建笔记 · Demo 操作已触发');
+        openNewNoteDialog();
+        return;
       }
 
       if (action?.dataset.action === 'import') {
         showToast('导入笔记 · Demo 操作已触发');
+      }
+
+      if (action?.dataset.action === 'close-dialog') {
+        hideDialog();
+        return;
+      }
+
+      if (action?.dataset.action === 'clear-search') {
+        clearSearch();
+        return;
+      }
+
+      if (action?.dataset.action === 'reset-filter') {
+        resetFilter();
+        return;
       }
 
       if (action?.dataset.action === 'open-index') {
@@ -1818,8 +2878,33 @@
 
       const openButton = event.target.closest('[data-open]');
       if (openButton) {
-        document.querySelectorAll('.resource-tile').forEach((tile) => tile.classList.toggle('is-selected', tile === openButton));
-        showToast(`打开「${openButton.dataset.open}」· Demo 操作已触发`);
+        // 找到外层 data-resource：list 中是 <tr>，grid 中是 <button class="resource-tile">
+        const item = openButton.closest('[data-resource]');
+        if (item) {
+          if (item.dataset.type === 'folder') {
+            // 文件夹不弹出预览面板，仅 Demo 提示
+            showToast(`打开文件夹「${item.dataset.name}」· Demo 操作已触发`);
+          } else {
+            selectItem(item);
+          }
+        }
+      }
+
+      // 预览面板：关闭按钮
+      if (event.target.closest('[data-action="close-preview"]')) {
+        closePreview();
+      }
+
+      // 预览面板：操作按钮（Demo 占位 → 触发原有 toast 风格）
+      const previewAction = event.target.closest('.preview-pane__footer [data-action]');
+      if (previewAction) {
+        const actionName = previewAction.dataset.action;
+        if (!previewItem) return;
+        if (actionName === 'open-note') {
+          showToast(`打开「${previewItem.dataset.name}」编辑器 · Demo 操作已触发`);
+        } else if (actionName === 'more-note') {
+          showToast(`「${previewItem.dataset.name}」更多操作 · Demo`);
+        }
       }
 
       const sizeButton = event.target.closest('[data-size]');
@@ -1830,7 +2915,24 @@
       }
 
       const moreButton = event.target.closest('[data-more]');
-      if (moreButton) showToast(`「${moreButton.dataset.more}」更多操作 · Demo`);
+      if (moreButton) {
+        openContextMenuFor(moreButton);
+        return;
+      }
+
+      // Context menu 项点击
+      const ctxItem = event.target.closest('.context-menu__item');
+      if (ctxItem) {
+        const name = contextTarget?.dataset.more || '此项';
+        const action = ctxItem.dataset.action;
+        if (action === 'ctx-open') showToast(`打开「${name}」· Demo 操作已触发`);
+        else if (action === 'ctx-rename') showToast(`重命名「${name}」· Demo 操作已触发`);
+        else if (action === 'ctx-move') showToast(`移动「${name}」到其他文件夹 · Demo 操作已触发`);
+        else if (action === 'ctx-copy-link') showToast(`已复制「${name}」的 Markdown 链接 · Demo`);
+        else if (action === 'ctx-delete') showToast(`删除「${name}」· Demo 操作已触发`);
+        closeContextMenu();
+        return;
+      }
 
       if (window.matchMedia('(max-width: 860px)').matches && contextSidebar.classList.contains('is-open')) {
         const clickedOutside = !event.target.closest('#context-sidebar') && !event.target.closest('[data-action="mobile-sidebar"]');
@@ -1843,14 +2945,42 @@
           control.querySelector('[data-action="sort"]').setAttribute('aria-expanded', 'false');
         });
       }
+
+      // Quick Look：点击面板以外且非 data-open 触发器时关闭
+      // （data-open 已经在上面被 selectItem 处理，previewOpen 仍然为 true 且不会走到这里）
+      if (previewOpen) {
+        const inPanel = event.target.closest('#preview-pane');
+        const onItem = event.target.closest('[data-open]');
+        if (!inPanel && !onItem) {
+          closePreview();
+        }
+      }
+
+      // Context Menu：点击菜单外且非触发器时关闭
+      if (contextMenu.classList.contains('is-open')) {
+        const inMenu = event.target.closest('#context-menu');
+        const onTrigger = event.target.closest('[data-more]');
+        if (!inMenu && !onTrigger) {
+          closeContextMenu();
+        }
+      }
     });
 
-    document.querySelectorAll('.status-switch:not([data-action="sidebar"])').forEach((button) => {
+    document.querySelectorAll('.status-switch:not([data-action="sidebar"]):not([data-action="inspector"])').forEach((button) => {
       button.addEventListener('click', () => {
         const next = button.getAttribute('aria-pressed') !== 'true';
         button.setAttribute('aria-pressed', String(next));
         announce(`${button.title}已${next ? '开启' : '关闭'}`);
       });
+    });
+
+    // inspector：仅用于关闭预览面板（选中条目才能打开）
+    inspectorButton?.addEventListener('click', () => {
+      if (previewOpen) {
+        closePreview();
+      } else {
+        announce('请先选择一条笔记或文件夹');
+      }
     });
 
     resourceSearch.addEventListener('input', () => applyIndexState({ shouldAnnounce: true }));
@@ -1868,6 +2998,27 @@
             control.classList.remove('is-open');
             control.querySelector('[data-action="sort"]').setAttribute('aria-expanded', 'false');
           });
+        }
+        // 关闭优先级：Dialog > Context Menu > Preview
+        if (openDialog) hideDialog();
+        else if (contextMenu.classList.contains('is-open')) closeContextMenu();
+        else if (previewOpen) closePreview();
+      }
+      // 预览面板打开时：↑↓ 切条目，Enter 打开
+      if (previewOpen && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const target = event.target;
+        const inField = target && (target.matches('input, textarea, [contenteditable]') || target.closest('.preview-pane__handle'));
+        if (!inField) {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            navItems(1);
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            navItems(-1);
+          } else if (event.key === 'Enter' && previewItem) {
+            event.preventDefault();
+            showToast(`打开「${previewItem.dataset.name}」· Demo 操作已触发`);
+          }
         }
       }
     });
