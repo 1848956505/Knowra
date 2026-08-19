@@ -24,8 +24,18 @@ export interface WorkspaceSlice {
   canWriteWorkspace(): boolean;
 }
 
+export type WorkDomain = 'materials' | 'knowledge' | 'training' | 'learning' | 'profile';
+
+export const WORK_DOMAINS: readonly WorkDomain[] = [
+  'materials',
+  'knowledge',
+  'training',
+  'learning',
+  'profile'
+] as const;
+
 export interface NavigationState {
-  activeWorkDomain: 'materials' | 'knowledge' | 'training' | 'learning';
+  activeWorkDomain: WorkDomain;
   activeDomainView: string;
   selectedFolderId: string | null;
   selectedNoteId: string | null;
@@ -37,6 +47,7 @@ export interface NavigationSlice {
   navigation: NavigationState;
   selectFolder(folderId: string | null): void;
   selectNote(noteId: string | null): void;
+  setActiveWorkDomain(domain: WorkDomain): void;
 }
 
 export interface StatusSlice {

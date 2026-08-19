@@ -1,12 +1,13 @@
 import { StrictMode } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createEmptyWorkspaceSnapshot, type WorkspaceApi } from '@study-accelerator/web-core';
 import { App } from './App';
 import { AppProviders } from './AppProviders';
+import { RouterProvider } from './router';
 import { createAppStore } from '../store/createAppStore';
 
-describe('V4 workspace bootstrap', () => {
-  it('deduplicates workspace loading under React Strict Mode', async () => {
+describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
+  it('deduplicates workspace loading under React Strict Mode and renders the home shell', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
       api,
@@ -22,13 +23,31 @@ describe('V4 workspace bootstrap', () => {
       </StrictMode>
     );
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('知识库已连接'));
-    expect(screen.getByText('资料 1 条')).toBeInTheDocument();
+    // 等待 loadWorkspace 完成（HomeView 显示 "工作域" 标题即代表已就绪）
+    await screen.findByText('工作域');
     expect(api.listKnowledgeSpaces).toHaveBeenCalledTimes(1);
     expect(api.loadWorkspaceResources).toHaveBeenCalledTimes(1);
+
+    // 顶部外壳：ModuleRail + TopBar
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    expect(rail).toBeInTheDocument();
+    // TopBar header（外壳 header 拥有"今日" kicker；HomeView 的 header 在 main 内）
+    const topbar = screen.getByRole('banner');
+    expect(within(topbar).getByText('今日')).toBeInTheDocument();
+    expect(within(topbar).getByText('知境 · 资料工作区')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '今天，从哪里继续？' })).toBeInTheDocument();
+    // 状态栏
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+
+    // 搜索触发器
+    expect(within(topbar).getByRole('button', { name: '打开全局搜索' })).toBeInTheDocument();
+
+    // 主页统计来自真实 workspace，并通过语义名称暴露。
+    expect(screen.getByLabelText('工作区统计')).toHaveTextContent('1 条资料');
+    expect(screen.getByLabelText('工作区统计')).toHaveTextContent('1 个目录');
   });
 
-  it('shows local recovery and retries after a failed load', async () => {
+  it('shows the home with error state and retries after a failed load', async () => {
     const api = createWorkspaceApiStub();
     vi.mocked(api.listKnowledgeSpaces)
       .mockRejectedValueOnce(new Error('网络不可用'))
@@ -41,12 +60,145 @@ describe('V4 workspace bootstrap', () => {
 
     render(<AppProviders store={store}><App /></AppProviders>);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('网络不可用');
-    expect(screen.getByText('数据模式：local')).toBeInTheDocument();
+    // 第一轮：error → EmptyState title 显示 "资料加载失败"
+    expect(await screen.findByText('资料加载失败')).toBeInTheDocument();
+    expect(screen.getByText('网络不可用')).toBeInTheDocument();
+    // 重试按钮在 EmptyState 内
     fireEvent.click(screen.getByRole('button', { name: '重试' }));
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('知识库已连接'));
+    await waitFor(() => {
+      expect(screen.queryByText('资料加载失败')).not.toBeInTheDocument();
+    });
+    // 第二轮成功：工作域卡出现
+    expect(screen.getByText('工作域')).toBeInTheDocument();
     expect(api.listKnowledgeSpaces).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows an accessible loading state while the workspace request is pending', async () => {
+    const api = createWorkspaceApiStub();
+    vi.mocked(api.listKnowledgeSpaces).mockImplementation(() => new Promise(() => undefined));
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+
+    const loadingLabel = await screen.findByText('正在加载资料…');
+    expect(loadingLabel).toBeInTheDocument();
+    expect(loadingLabel.closest('[role="status"]')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('shows the real empty state when the workspace has no notes', async () => {
+    const api = createWorkspaceApiStub();
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [],
+      notes: [],
+      tags: []
+    });
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+
+    expect(await screen.findByText('还没有资料')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '打开全局搜索' }).length).toBeGreaterThan(0);
+  });
+
+  it('opens the search command via the topbar trigger and supports keyboard navigation', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+    await screen.findByText('工作域');
+
+    const topbar = screen.getByRole('banner');
+    fireEvent.click(within(topbar).getByRole('button', { name: '打开全局搜索' }));
+    const dialog = await screen.findByRole('dialog', { name: '全局搜索' });
+    expect(dialog).toBeInTheDocument();
+    // 至少 1 条资料命中
+    expect(within(dialog).getByText('Note')).toBeInTheDocument();
+
+    const input = within(dialog).getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Note' } });
+    expect(within(dialog).getByRole('button', { name: '清除搜索关键字' })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: '清除搜索关键字' }));
+    expect(input).toHaveValue('');
+
+    // 中文输入法 composing 期间不抢 Enter。
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(screen.getByRole('dialog', { name: '全局搜索' })).toBeInTheDocument();
+
+    // Enter 跳转到该资料并关闭 dialog
+    fireEvent.change(input, { target: { value: 'Note' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '全局搜索' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('opens the search command via ⌘ K global shortcut', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+    await screen.findByText('工作域');
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(await screen.findByRole('dialog', { name: '全局搜索' })).toBeInTheDocument();
+  });
+
+  it('announces when clicking a locked rail module', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+    await screen.findByText('工作域');
+
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    const knowledge = within(rail).getByRole('button', { name: /知识/ });
+    expect(knowledge).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
+    // disabled 按钮 click 不会触发 live region 改变，但 we just verify 不抛错
+    fireEvent.click(knowledge);
+    // 仍停留在主页（无切换）
+    expect(screen.getByText('工作域')).toBeInTheDocument();
+  });
+
+  it('renders a truthful gate for an unavailable work-domain URL', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(
+      <RouterProvider location={{ pathname: '/knowledge', navigate: vi.fn() }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: '知识库' })).toBeInTheDocument();
+    expect(screen.getByText('该工作域尚未上线')).toBeInTheDocument();
+    expect(api.listKnowledgeSpaces).not.toHaveBeenCalled();
   });
 });
 

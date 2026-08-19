@@ -15,6 +15,10 @@ body {
   background-attachment: fixed;
 }
 
+:where(button, a, [role="button"]) {
+  touch-action: manipulation;
+}
+
 #root {
   isolation: isolate;
   min-height: 100%;

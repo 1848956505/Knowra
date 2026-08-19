@@ -1,0 +1,150 @@
+/* V4-05 ModuleRail —— 印格 64px 桌面轨道。 */
+
+.rail {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  z-index: 20;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0 12px;
+  border-right: 1px solid var(--ink-shell);
+  background: var(--ink-bg);
+  box-shadow: none;
+  scrollbar-width: none;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+.brand {
+  width: 40px;
+  height: 40px;
+  position: relative;
+  flex: 0 0 40px;
+  margin: 0 auto 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--ink-surface);
+  outline-offset: 1px;
+  box-shadow: var(--shadow-focus);
+}
+
+.brandBefore,
+.brandAfter {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+}
+
+.brandBefore {
+  right: 3px;
+  bottom: 3px;
+  background: var(--ink-accent);
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+
+.brandAfter {
+  left: 3px;
+  top: 3px;
+  border: 2px solid var(--ink);
+  background: var(--ink-surface);
+}
+
+.brand:hover .brandBefore {
+  background: var(--ink-accent-hover);
+}
+
+.brandGlyph {
+  position: absolute;
+  inset: 4px auto auto 4px;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.railGroup {
+  display: grid;
+  gap: 1px;
+}
+
+.railGroupPrimary {
+  /* 顶部留 4px 间隔，承接品牌区。 */
+  margin-top: 4px;
+}
+
+.railGroupUtility {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink-panel);
+}
+
+.railItem {
+  width: 100%;
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.railItem:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.railIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--ink);
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.railItem:hover .railIcon {
+  color: var(--ink);
+}
+
+.railItem:active .railIcon {
+  transform: translate(2px, 2px);
+}
+
+.railItem[aria-current="page"] .railIcon {
+  color: var(--ink-accent);
+}
+
+.railItem[disabled] {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.railItem[disabled]:hover .railIcon {
+  background: transparent;
+}
+
+@media (max-width: 767px) {
+  .rail {
+    display: none;
+  }
+}

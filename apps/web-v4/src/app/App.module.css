@@ -1,0 +1,35 @@
+/* V4-05 App —— 路由容器。 */
+
+.route {
+  width: 100%;
+  min-height: 100%;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  background: var(--ink-surface);
+  color: var(--ink);
+  font: 800 12px/1 var(--font-ui);
+  text-decoration: none;
+  box-shadow: var(--shadow-1);
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.backLink:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.backLink:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.backLink:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}

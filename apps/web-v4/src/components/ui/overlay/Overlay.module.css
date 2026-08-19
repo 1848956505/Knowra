@@ -38,6 +38,15 @@
   background: var(--ink-surface);
   box-shadow: var(--shadow-dialog);
   outline: 0;
+  overscroll-behavior: contain;
+}
+
+.sizeSm {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.sizeMd {
+  width: min(640px, calc(100vw - 32px));
 }
 
 .dialog[data-entering] {

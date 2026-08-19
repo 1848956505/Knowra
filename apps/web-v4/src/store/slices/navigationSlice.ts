@@ -43,6 +43,17 @@ export function createNavigationSlice(set: SetStore, get: GetStore): NavigationS
           openNoteTabs: ensureSelectedTab(state.navigation.openNoteTabs, selectedNoteId)
         }
       });
+    },
+    setActiveWorkDomain(domain) {
+      const state = get();
+      if (state.navigation.activeWorkDomain === domain) return;
+      set({
+        navigation: {
+          ...state.navigation,
+          activeWorkDomain: domain,
+          activeDomainView: 'overview'
+        }
+      });
     }
   };
 }

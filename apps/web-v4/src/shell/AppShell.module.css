@@ -1,0 +1,82 @@
+/* V4-05 AppShell —— 印格外壳 CSS Grid 布局。 */
+
+.shell {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--rail-size) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) var(--status-size);
+  background: var(--ink-surface);
+}
+
+.skipLink {
+  position: fixed;
+  left: 12px;
+  top: 10px;
+  z-index: 100;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  background: var(--ink-surface);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: var(--shadow-1);
+  transform: translateY(-160%);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.skipLink:focus {
+  transform: translateY(0);
+  outline: 0;
+}
+
+.stage {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: block;
+  overflow: auto;
+  background-color: var(--ink-bg);
+  background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+  outline: 0;
+}
+
+.stage:focus-visible {
+  outline: 3px solid var(--ink-accent);
+  outline-offset: -3px;
+}
+
+.liveRegion {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 920px) {
+  .stage {
+    padding: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --mobile-tabs-size: calc(54px + env(safe-area-inset-bottom));
+  }
+
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) var(--status-size) var(--mobile-tabs-size);
+  }
+
+  .stage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}

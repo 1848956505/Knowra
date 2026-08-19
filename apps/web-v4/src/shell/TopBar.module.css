@@ -1,0 +1,196 @@
+/* V4-05 TopBar —— 印格顶栏。 */
+
+.topbar {
+  grid-column: 2;
+  grid-row: 1;
+  z-index: 10;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--ink-shell);
+  background: var(--ink-bg);
+  box-shadow: none;
+}
+
+.titleBlock {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kicker {
+  color: var(--ink-accent);
+  font: 800 11px/1.4 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--ink);
+  word-break: break-word;
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 60ch;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.searchTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  min-width: 280px;
+  border: 1px solid var(--ink);
+  background: var(--ink-surface);
+  color: var(--ink-secondary);
+  font: 700 12px/1 var(--font-ui);
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.searchTrigger:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.searchTrigger:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.searchTrigger:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.searchLabel {
+  flex: 1 1 auto;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchKbd {
+  padding: 2px 6px;
+  border: 1px solid var(--ink-panel);
+  background: var(--ink-sunken);
+  color: var(--ink-secondary);
+  font: 800 11px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.iconSlot {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ink);
+  background: var(--ink-surface);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+  padding: 0;
+}
+
+.iconSlot:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.iconSlot:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.iconSlot:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.iconSlotActive {
+  color: var(--ink-accent);
+}
+
+.iconSlot:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+  border-color: var(--ink-panel);
+  box-shadow: none;
+}
+
+.iconSlot:disabled:hover,
+.iconSlot:disabled:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.iconBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  background: var(--ink-danger);
+  color: var(--ink-surface);
+  font: 800 10px/1 var(--font-mono);
+  border: 1px solid var(--ink);
+}
+
+@media (max-width: 920px) {
+  .topbar {
+    padding: 14px 16px 12px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .searchTrigger {
+    min-width: 0;
+    flex: 1 1 200px;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 767px) {
+  .topbar {
+    grid-column: 1;
+    grid-row: 1;
+    box-shadow: none;
+  }
+}

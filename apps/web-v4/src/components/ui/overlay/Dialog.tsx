@@ -47,17 +47,27 @@ export interface DialogProps extends Omit<RADialogProps, 'className' | 'children
   /** 描述（同时给 aria-describedby）。 */
   description?: string;
   size?: 'sm' | 'md';
+  /** 受控打开状态；与 DialogTrigger 不可同时使用。 */
+  isOpen?: boolean;
+  /** 受控状态变更回调（关闭、背景点击、Esc）。 */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
-  { title, children, className, isDismissable = true, isPending, description, ...rest },
+  { title, children, className, isDismissable = true, isPending, description, isOpen, onOpenChange, size = 'sm', ...rest },
   ref
 ) {
+  const sizeClass = size === 'md' ? styles.sizeMd : styles.sizeSm;
   return (
-    <ModalShell isDismissable={Boolean(isDismissable)} isPending={Boolean(isPending)}>
+    <ModalShell
+      isDismissable={Boolean(isDismissable)}
+      isPending={Boolean(isPending)}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+    >
       <RADialog
         ref={ref}
-        className={cx(styles.overlay, className)}
+        className={cx(styles.overlay, sizeClass, className)}
         aria-label={title}
         {...rest}
       >
@@ -92,16 +102,22 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
 function ModalShell({
   isDismissable,
   isPending,
+  isOpen,
+  onOpenChange,
   children
 }: {
   isDismissable: boolean;
   isPending: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }) {
   return (
     <RAModalOverlay
       isDismissable={Boolean(isDismissable) && !isPending}
       isKeyboardDismissDisabled={!isDismissable || isPending}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
       className={cx(styles.underlay, styles.overlay)}
     >
       <RAModal className={styles.dialog}>{children}</RAModal>

@@ -1,0 +1,139 @@
+/* V4-05 SearchCommand —— 全局命令面板。 */
+
+.commandPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--ink);
+  background: var(--ink-bg);
+  color: var(--ink);
+}
+
+.inputRow:focus-within {
+  box-shadow: var(--shadow-focus);
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 700 14px/1.4 var(--font-ui);
+  outline: 0;
+}
+
+.input::placeholder {
+  color: var(--ink-muted);
+}
+
+.clearButton {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--ink-panel);
+  background: var(--ink-surface);
+  color: var(--ink-secondary);
+  font: 800 10px/1 var(--font-mono);
+}
+
+.clearButton:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.hitList {
+  max-height: 50vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--ink-panel);
+}
+
+.resultList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hit {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-bottom: 1px solid var(--ink-panel);
+  background: var(--ink-surface);
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.hit:last-child {
+  border-bottom: 0;
+}
+
+.hitActive {
+  background: var(--ink-sunken);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+.hitGroup {
+  font: 800 10px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  padding: 2px 6px;
+  border: 1px solid var(--ink-panel);
+  background: var(--ink-bg);
+}
+
+.hitActive .hitGroup {
+  color: var(--ink-accent);
+  border-color: var(--ink-accent);
+}
+
+.hitBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hitPrimary {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hitSecondary {
+  color: var(--ink-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hitHint {
+  color: var(--ink-muted);
+  font: 800 10px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 767px) {
+  .input {
+    font-size: 16px;
+  }
+}

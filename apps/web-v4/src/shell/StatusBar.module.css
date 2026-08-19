@@ -1,0 +1,135 @@
+/* V4-05 StatusBar —— 印格 32px 状态条。 */
+
+.statusbar {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  z-index: 30;
+  min-width: 0;
+  height: var(--status-size);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  overflow: hidden;
+  padding: 0 12px 0 16px;
+  border-top: 1px solid var(--ink-shell);
+  background: var(--ink-bg);
+  box-shadow: none;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.context,
+.item,
+.switch {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.context {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.contextDot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  background: var(--ink-accent);
+}
+
+.contextText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.mono {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.square {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  background: var(--ink-muted);
+}
+
+.squareSync { background: var(--ink-success); }
+.squareWarning { background: var(--ink-warning); }
+.squareDanger { background: var(--ink-danger); }
+.squareNeutral { background: var(--ink-muted); }
+
+.note {
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.switches {
+  align-self: stretch;
+  display: flex;
+}
+
+.switch {
+  width: 34px;
+  min-width: 34px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+
+.switch:hover {
+  color: var(--ink);
+}
+
+.switch:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.switch[aria-pressed="true"] {
+  color: var(--ink-accent);
+}
+
+.switch:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 920px) {
+  .statusbar {
+    gap: 12px;
+  }
+  .itemSaved {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .statusbar {
+    grid-column: 1;
+    grid-row: 3;
+    padding-inline: 12px;
+  }
+  .context {
+    flex: 1;
+  }
+  .itemCount,
+  .spacer,
+  .switches {
+    display: none;
+  }
+}

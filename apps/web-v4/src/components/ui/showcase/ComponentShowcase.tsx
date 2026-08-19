@@ -364,15 +364,47 @@ function CollectionSection({
           />
         </div>
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>TagGroup</span>
-          <TagGroup
-            label="资料标签"
-            items={[
-              { id: 't-1', label: 'V4' },
-              { id: 't-2', label: '印格' },
-              { id: 't-3', label: '门禁' }
-            ]}
-          />
+          <span className={styles.exampleLabel}>TagGroup（tone / count / 选中 / 禁用 / 移除）</span>
+          <div className={styles.stack}>
+            <TagGroup
+              label="Tone"
+              visibleLabel
+              trailing="5 个状态色"
+              items={[
+                { id: 'tn-1', label: '中性', tone: 'neutral' },
+                { id: 'tn-2', label: '主色', tone: 'accent' },
+                { id: 'tn-3', label: '成功', tone: 'success' },
+                { id: 'tn-4', label: '警告', tone: 'warning' },
+                { id: 'tn-5', label: '危险', tone: 'danger' }
+              ]}
+            />
+            <TagGroup
+              label="视图筛选"
+              visibleLabel
+              trailing={<span>单选</span>}
+              selectionMode="single"
+              defaultSelectedKeys={['v-recent']}
+              items={[
+                { id: 'v-recent', label: '最近', count: 12, tone: 'accent' },
+                { id: 'v-todo', label: '待办', count: 5, tone: 'warning' },
+                { id: 'v-archived', label: '归档', count: 0, tone: 'neutral' }
+              ]}
+            />
+            <TagGroup
+              label="已选标签（可移除）"
+              visibleLabel
+              trailing="3 / 4"
+              onRemove={() => {
+                // 演示用：真实场景中这里要更新受控状态并从 items 移除。
+              }}
+              items={[
+                { id: 'tag-1', label: 'V4' },
+                { id: 'tag-2', label: '印格', tone: 'accent' },
+                { id: 'tag-3', label: '门禁', isDisabled: true },
+                { id: 'tag-4', label: '草稿', tone: 'warning', hideDot: true }
+              ]}
+            />
+          </div>
         </div>
       </div>
     </section>

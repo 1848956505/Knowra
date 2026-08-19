@@ -191,11 +191,9 @@
   }
 
   .gridRow {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "title more"
-      "meta  meta";
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 4px 8px;
     padding: 12px 14px;
     border-bottom: 1px solid var(--ink-panel);
@@ -212,7 +210,7 @@
   }
 
   .gridCell[data-col-title='true'] {
-    grid-area: title;
+    flex: 1 0 100%;
     -webkit-line-clamp: 2;
   }
 
@@ -220,27 +218,66 @@
     display: none;
   }
 
-  /* 任何"非标题且非隐藏"列折叠到 meta 区 */
+  /* 任何"非标题且非隐藏"列折叠到下一行，并允许在窄屏自然换行。 */
   .gridCell[data-col='status'],
   .gridCell[data-col='folder'],
   .gridCell[data-col='updated'],
   .gridCell[data-col='location'] {
-    display: block;
-    grid-area: meta;
+    display: inline-flex;
+    flex: 0 1 auto;
     border: 0;
     padding: 0;
   }
 
-  /* meta 行的多个 cell 横向并排 */
-  .gridRow .gridCell[data-col='status'],
-  .gridRow .gridCell[data-col='folder'],
-  .gridRow .gridCell[data-col='updated'],
-  .gridRow .gridCell[data-col='location'] {
-    display: inline-flex;
+  .gridCell[data-col='folder'],
+  .gridCell[data-col='location'] {
+    flex-grow: 1;
   }
 }
 
-/* TagGroup */
+/* TagGroup — V4-04 复审增强
+ *
+ * - 26px 高、11px 字号、10px 横向内边距；
+ * - 默认 neutral tone（黑边白底），tone 决定色相；
+ * - hover 浮起 1px 出现 1px 硬阴影（与 Panel 一致的"印章"语言）；
+ * - selected 反向"压入"（translate +1px，阴影消失，填色翻转）；
+ * - 可选前导方点、可选计数小角标；
+ * - 可见的组标签头（与 Panel 头部同质，但更轻）。 */
+
+.tagGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tagGroupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tagGroupLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.tagGroupTrailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}
+
 .tagList {
   display: flex;
   flex-wrap: wrap;
@@ -252,30 +289,59 @@
 }
 
 .tag {
+  /* CSS 变量在每个 tone 下被覆盖；未设 tone 时落到中性黑。 */
+  --tag-edge: var(--ink);
+  --tag-ink: var(--ink);
+  --tag-fill: var(--ink-surface);
+  --tag-soft: var(--ink-sunken);
+
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 22px;
-  padding: 0 9px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--ink);
-  background: var(--ink-accent-soft);
-  border: 1px solid var(--ink-accent);
-  border-radius: 0;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--tag-ink);
+  background: var(--tag-fill);
+  border: 1px solid var(--tag-edge);
+  box-shadow: none;
   cursor: default;
   user-select: none;
+  /* 浮起 / 压入 / 阴影过渡 */
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+  position: relative;
+}
+
+.tag::before {
+  /* tone 模式下，背景透出更柔和的底色（默认 0% 透明，tone-accent 等会露出）。 */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--tag-soft);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+
+.tag > * {
+  position: relative;
+  z-index: 1;
 }
 
 .tag[data-allows-removing] {
   cursor: pointer;
 }
 
-.tag[data-hovered]:not([data-disabled]) {
-  background: var(--ink-accent);
-  color: var(--ink-surface);
+.tag[data-hovered]:not([data-disabled]):not([data-selected]) {
+  /* 浮起 1px 出现 1px 硬阴影：印格印章的视觉签名。 */
+  transform: translate(-1px, -1px);
+  box-shadow: 1px 1px 0 var(--tag-edge);
 }
 
 .tag[data-focus-visible] {
@@ -284,14 +350,76 @@
 }
 
 .tag[data-selected] {
-  background: var(--ink);
+  /* 选中 = 压入：反向平移 + 阴影消失 + 填色翻转。 */
+  background: var(--tag-edge);
   color: var(--ink-surface);
-  border-color: var(--ink);
+  transform: translate(1px, 1px);
+  box-shadow: none;
 }
 
+.tag[data-selected]::before {
+  opacity: 0;
+}
+
+.tag[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.tag:hover[data-disabled] {
+  transform: none;
+  box-shadow: none;
+}
+
+/* 前导方点（与 Badge 同源）。 */
+.tagDot {
+  width: 6px;
+  height: 6px;
+  background: var(--tag-edge);
+  flex: 0 0 auto;
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+
+.tag[data-selected] .tagDot {
+  background: var(--ink-surface);
+}
+
+/* 标签文字本身。 */
+.tagLabel {
+  white-space: nowrap;
+  /* 选中文本时把划线去掉，避免与 disabled 的 line-through 视觉混淆。 */
+}
+
+.tagCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--tag-edge);
+  background: var(--ink-surface);
+  border: 1px solid var(--tag-edge);
+  line-height: 1;
+}
+
+.tag[data-selected] .tagCount {
+  color: var(--ink-surface);
+  background: var(--tag-edge);
+  border-color: var(--ink-surface);
+}
+
+/* 移除按钮：24px 命中区 + 内嵌 X 图标，满足紧凑控件最小指针目标。 */
 .tagRemove {
-  width: 12px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
+  margin: 0 -7px 0 1px;
   display: grid;
   place-items: center;
   border: 0;
@@ -299,10 +427,83 @@
   color: currentColor;
   cursor: pointer;
   padding: 0;
+  position: relative;
+  z-index: 1;
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+
+.tagRemove::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background:
+    linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%);
+  display: block;
 }
 
 .tagRemove:hover {
-  opacity: 0.7;
+  background: var(--ink-sunken);
+}
+
+.tag[data-selected] .tagRemove:hover {
+  color: var(--tag-edge);
+  background: var(--tag-fill);
+}
+
+.tagRemove[data-focus-visible] {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+/* Tone variants —— 与 Badge tone 同源，色相决定 --tag-edge / --tag-ink / --tag-fill / --tag-soft。 */
+.toneNeutral {
+  --tag-edge: var(--ink);
+  --tag-ink: var(--ink);
+  --tag-fill: var(--ink-surface);
+  --tag-soft: var(--ink-sunken);
+}
+
+.toneAccent {
+  --tag-edge: var(--ink-accent);
+  --tag-ink: var(--ink-accent);
+  --tag-fill: var(--ink-accent-soft);
+  --tag-soft: var(--ink-accent-soft);
+}
+
+.toneSuccess {
+  --tag-edge: var(--ink-success);
+  --tag-ink: var(--ink-success);
+  --tag-fill: var(--ink-success-soft);
+  --tag-soft: var(--ink-success-soft);
+}
+
+.toneWarning {
+  --tag-edge: var(--ink-warning);
+  --tag-ink: var(--ink-warning);
+  --tag-fill: var(--ink-warning-soft);
+  --tag-soft: var(--ink-warning-soft);
+}
+
+.toneDanger {
+  --tag-edge: var(--ink-danger);
+  --tag-ink: var(--ink-danger);
+  --tag-fill: var(--ink-danger-soft);
+  --tag-soft: var(--ink-danger-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag,
+  .tagDot,
+  .tag::before,
+  .tagRemove {
+    transition: none !important;
+  }
+
+  .tag[data-hovered]:not([data-disabled]):not([data-selected]),
+  .tag[data-selected] {
+    transform: none !important;
+  }
 }
 
 /* Tree */

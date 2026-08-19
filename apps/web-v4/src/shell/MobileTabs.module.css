@@ -1,0 +1,62 @@
+/* V4-05 MobileTabs —— ≤767px 底部 Tab 行，替代桌面 rail。 */
+
+.mobileTabs {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileTabs {
+    grid-column: 1;
+    grid-row: 4;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--ink-shell);
+    background: var(--ink-bg);
+  }
+
+  .mobileTab {
+    min-width: 0;
+    display: grid;
+    place-items: center;
+    gap: 1px;
+    padding: 4px 2px 3px;
+    border: 0;
+    border-top: 4px solid transparent;
+    background: transparent;
+    color: var(--ink-secondary);
+    font: 700 10px/1 var(--font-ui);
+    cursor: pointer;
+    transition:
+      color var(--motion-fast) var(--motion-ease),
+      background-color var(--motion-fast) var(--motion-ease);
+  }
+
+  .mobileIcon {
+    display: grid;
+    place-items: center;
+  }
+
+  .mobileLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobileTab[aria-current="page"] {
+    border-top-color: var(--ink-accent);
+    background: var(--ink-surface);
+    color: var(--ink-accent);
+    font-weight: 800;
+  }
+
+  .mobileTab:hover:not(:disabled) {
+    background: var(--ink-sunken);
+  }
+
+  .mobileTab:disabled {
+    color: var(--ink-muted);
+    cursor: not-allowed;
+  }
+}
