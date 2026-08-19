@@ -1,0 +1,399 @@
+/* V4-04 Collection
+ *
+ * Tabs / GridList / TagGroup / Tree 共用 1px 墨边 + 暖纸底，0 圆角。
+ * Tab 激活：底部 2px 蓝（--ink-accent）；GridList 行：左侧 4px 蓝（selected）。
+ * Tree 行：左侧缩进，每层 14px。
+ *
+ * 全部阴影、颜色、字号、圆角、动效都通过 token 引用，禁硬编码。
+ */
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tabList {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 2px solid var(--ink);
+  background: var(--ink-surface);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-secondary);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+}
+
+.tab[data-hovered]:not([data-selected]):not([data-disabled]) {
+  color: var(--ink);
+  background: var(--ink-sunken);
+}
+
+.tab[data-selected] {
+  color: var(--ink);
+  background: var(--ink-surface);
+  border-bottom-color: var(--ink-accent);
+}
+
+.tab[data-disabled] {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.tab[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--ink-accent-soft);
+  border: 1px solid var(--ink);
+}
+
+.tabPanel {
+  padding: 14px 0 4px;
+  outline: 0;
+}
+
+/* Listbox / Popover 下拉内容 */
+.listbox {
+  display: block;
+  outline: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.listboxItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  outline: 0;
+}
+
+.listboxItem[data-focused] {
+  background: var(--ink-sunken);
+}
+
+.listboxItem[data-selected] {
+  color: var(--ink-accent);
+  background: var(--ink-accent-soft);
+}
+
+.listboxItem[data-disabled] {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+/* GridList — 桌面 grid + 移动两行紧凑列表 */
+.gridList {
+  display: block;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  outline: 0;
+  /* 关键：禁止组件内部横向滚动；移动端由 columns 重排为两行紧凑 */
+  overflow: hidden;
+}
+
+.gridRow {
+  display: grid;
+  border-bottom: 1px solid var(--ink-panel);
+  background: var(--ink-surface);
+  position: relative;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink);
+  /* 桌面 grid 模板由组件传入 gridTemplateColumns 覆盖 */
+  min-width: 0;
+}
+
+.gridRow:last-child {
+  border-bottom: 0;
+}
+
+.gridRow[data-hovered] {
+  background: var(--ink-sunken);
+}
+
+.gridRow[data-selected] {
+  background: var(--ink-accent-soft);
+}
+
+.gridRow[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.gridCell {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border-right: 1px solid var(--ink-panel);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gridCell:last-child {
+  border-right: 0;
+}
+
+.gridCell[data-col-title='true'] {
+  /* 标题列允许两行省略 */
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.gridCell > * {
+  min-width: 0;
+}
+
+/* ≤767 移动布局：两行紧凑列表，不复用桌面 grid */
+@media (max-width: 767px) {
+  .gridList {
+    /* 让 grid template 被覆盖，列变成两行 */
+    display: block;
+  }
+
+  .gridRow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "title more"
+      "meta  meta";
+    gap: 4px 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ink-panel);
+  }
+
+  .gridRow:last-child {
+    border-bottom: 0;
+  }
+
+  .gridCell {
+    border-right: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .gridCell[data-col-title='true'] {
+    grid-area: title;
+    -webkit-line-clamp: 2;
+  }
+
+  .gridCell:not([data-col-title='true']) {
+    display: none;
+  }
+
+  /* 任何"非标题且非隐藏"列折叠到 meta 区 */
+  .gridCell[data-col='status'],
+  .gridCell[data-col='folder'],
+  .gridCell[data-col='updated'],
+  .gridCell[data-col='location'] {
+    display: block;
+    grid-area: meta;
+    border: 0;
+    padding: 0;
+  }
+
+  /* meta 行的多个 cell 横向并排 */
+  .gridRow .gridCell[data-col='status'],
+  .gridRow .gridCell[data-col='folder'],
+  .gridRow .gridCell[data-col='updated'],
+  .gridRow .gridCell[data-col='location'] {
+    display: inline-flex;
+  }
+}
+
+/* TagGroup */
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  outline: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: var(--ink-accent-soft);
+  border: 1px solid var(--ink-accent);
+  border-radius: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.tag[data-allows-removing] {
+  cursor: pointer;
+}
+
+.tag[data-hovered]:not([data-disabled]) {
+  background: var(--ink-accent);
+  color: var(--ink-surface);
+}
+
+.tag[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.tag[data-selected] {
+  background: var(--ink);
+  color: var(--ink-surface);
+  border-color: var(--ink);
+}
+
+.tagRemove {
+  width: 12px;
+  height: 12px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tagRemove:hover {
+  opacity: 0.7;
+}
+
+/* Tree */
+.tree {
+  display: block;
+  outline: 0;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  padding: 4px 0;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.treeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px 4px var(--indent, 12px);
+  cursor: pointer;
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.treeRow[data-hovered]:not([data-disabled]) {
+  background: var(--ink-sunken);
+}
+
+.treeRow[data-selected] {
+  background: var(--ink-accent-soft);
+  color: var(--ink-accent);
+}
+
+.treeRow[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.treeChevron {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-secondary);
+  flex: 0 0 auto;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0;
+  cursor: pointer;
+  transform: none;
+}
+
+.treeChevron:hover {
+  background: var(--ink-sunken) !important;
+  color: var(--ink);
+}
+
+.treeChevron:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+.treeLabel {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ink-muted);
+  background: var(--ink-sunken);
+  padding: 0 4px;
+  border: 1px solid var(--ink-panel);
+}
+
+.treeEmpty {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-muted);
+}

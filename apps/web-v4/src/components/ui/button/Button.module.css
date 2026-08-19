@@ -1,0 +1,148 @@
+/* V4-04 Button
+ *
+ * 转译自印格-demo-状态板.html .btn* 系列。hover 抬升 1px / active 塌入 1px / focus 蓝色实阴影。
+ * 颜色与阴影全部通过 token 引用，禁止硬编码。
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0 14px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  box-shadow: var(--shadow-1);
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn[data-hovered]:not([data-disabled]):not([data-pending]) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-2);
+}
+
+.btn[data-pressed]:not([data-disabled]):not([data-pending]) {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+.btn[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+  border-color: var(--ink-accent);
+}
+
+.btn[data-disabled],
+.btn[disabled] {
+  color: var(--ink-muted);
+  background: var(--ink-sunken);
+  border-color: var(--ink-panel);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.btn[data-pending] {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+/* Variants */
+
+.primary {
+  background: var(--ink);
+  color: var(--ink-surface);
+}
+
+.primary[data-hovered]:not([data-disabled]):not([data-pending]) {
+  background: var(--ink);
+}
+
+.primary[data-disabled],
+.primary[disabled] {
+  background: var(--ink-muted);
+  color: var(--ink-surface);
+  opacity: 0.65;
+}
+
+.accent {
+  background: var(--ink-accent);
+  color: var(--ink-surface);
+  border-color: var(--ink-accent);
+}
+
+.accent[data-hovered]:not([data-disabled]):not([data-pending]) {
+  background: var(--ink-accent-hover);
+  border-color: var(--ink-accent-hover);
+}
+
+.accent[data-disabled],
+.accent[disabled] {
+  background: var(--ink-muted);
+  border-color: var(--ink-muted);
+  color: var(--ink-surface);
+  opacity: 0.65;
+}
+
+.danger {
+  background: var(--ink-surface);
+  color: var(--ink-danger);
+  border-color: var(--ink-danger);
+}
+
+.danger[data-hovered]:not([data-disabled]):not([data-pending]) {
+  background: var(--ink-danger-soft);
+}
+
+.ghost {
+  box-shadow: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.ghost[data-hovered]:not([data-disabled]):not([data-pending]) {
+  box-shadow: var(--shadow-1);
+  background: var(--ink-sunken);
+}
+
+/* Icon-only button */
+
+.icon {
+  min-width: 36px;
+  width: 36px;
+  padding: 0 9px;
+  gap: 0;
+}
+
+.icon > svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 767px) {
+  .btn {
+    min-height: 44px;
+  }
+  .icon {
+    min-width: 44px;
+    width: 44px;
+  }
+}

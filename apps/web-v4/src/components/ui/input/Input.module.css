@@ -1,0 +1,281 @@
+/* V4-04 Input
+ *
+ * 转译自印格-demo-状态板.html .form-input 系列。
+ * 高度 36px、14px 字号、11px 内边距、1px var(--ink) 边框、硬阴影。
+ */
+
+.field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
+.required {
+  color: var(--ink-danger);
+  margin-left: 2px;
+}
+
+.input {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  box-shadow: var(--shadow-1);
+  transition:
+    box-shadow var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+
+.input::placeholder {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.input[data-hovered]:not([data-disabled]) {
+  background: var(--ink-sunken);
+}
+
+.input[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+  border-color: var(--ink-accent);
+  background: var(--ink-surface);
+}
+
+.input[data-disabled] {
+  color: var(--ink-muted);
+  background: var(--ink-sunken);
+  border-color: var(--ink-panel);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.input[data-invalid] {
+  border-color: var(--ink-danger);
+  background: var(--ink-danger-soft);
+}
+
+.input[data-invalid][data-focus-visible] {
+  box-shadow: var(--shadow-card-danger);
+}
+
+.error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-danger);
+  letter-spacing: 0.02em;
+}
+
+.error::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--ink-danger);
+}
+
+.description {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+/* Search field — 输入框 + 隐藏的清除按钮视觉占位 */
+.searchShell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.searchShell .input {
+  padding-left: 34px;
+  padding-right: 34px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--ink-secondary);
+  pointer-events: none;
+}
+
+.searchClear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.searchClear:hover {
+  color: var(--ink);
+  background: var(--ink-sunken);
+}
+
+.searchClear:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Checkbox — 14px 方形，复选 + 方点 */
+
+.checkbox {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.box {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  box-shadow: var(--shadow-card);
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.box[data-selected] {
+  background: var(--ink);
+}
+
+.box[data-indeterminate] {
+  background: var(--ink);
+}
+
+.checkbox[data-hovered] .box:not([data-disabled]) {
+  background: var(--ink-sunken);
+}
+
+.checkbox[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.checkbox[data-disabled] {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.checkbox[data-disabled] .box {
+  background: var(--ink-sunken);
+  border-color: var(--ink-panel);
+  box-shadow: none;
+}
+
+.check {
+  width: 12px;
+  height: 12px;
+  color: var(--ink-surface);
+  pointer-events: none;
+}
+
+/* Select — 触发器复用按钮，浮层复用 Menu。 */
+.selectTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+
+.selectTrigger[data-hovered]:not([data-disabled]) {
+  background: var(--ink-sunken);
+}
+
+.selectTrigger[data-focus-visible] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+  border-color: var(--ink-accent);
+}
+
+.selectTrigger[data-disabled] {
+  color: var(--ink-muted);
+  background: var(--ink-sunken);
+  border-color: var(--ink-panel);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.selectChevron {
+  width: 12px;
+  height: 12px;
+  color: var(--ink-secondary);
+  pointer-events: none;
+}
+
+.selectValue {
+  flex: 1 1 auto;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectValue[data-placeholder] {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+/* 字段级壳：覆盖 label/输入/错误三角 */
+@media (max-width: 767px) {
+  .input,
+  .selectTrigger {
+    min-height: 44px;
+  }
+}

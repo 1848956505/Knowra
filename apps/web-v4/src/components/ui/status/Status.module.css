@@ -1,0 +1,239 @@
+/* V4-04 Status
+ *
+ * Badge / EmptyState / LoadingState / Panel。
+ * Badge 视觉：22–24px 高、方点 6–7px、状态色填充；按 tone 区分。
+ * Loading：脉冲 1.4s（来自 §6 状态契约），不阻塞输入。
+ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--badge-edge-color, var(--ink));
+  box-shadow: var(--shadow-badge);
+  color: var(--ink);
+  background: var(--ink-surface);
+}
+
+.badgeDot {
+  width: 7px;
+  height: 7px;
+  background: var(--ink-muted);
+  flex: 0 0 auto;
+}
+
+.toneAccent {
+  color: var(--ink-accent);
+  background: var(--ink-accent-soft);
+  --badge-edge-color: var(--ink-accent);
+  --badge-shadow: var(--ink-accent);
+}
+
+.toneAccent .badgeDot { background: var(--ink-accent); }
+
+.toneSuccess {
+  color: var(--ink-success);
+  background: var(--ink-success-soft);
+  --badge-edge-color: var(--ink-success);
+  --badge-shadow: var(--ink-success);
+}
+
+.toneSuccess .badgeDot { background: var(--ink-success); }
+
+.toneWarning {
+  color: var(--ink-warning);
+  background: var(--ink-warning-soft);
+  --badge-edge-color: var(--ink-warning);
+  --badge-shadow: var(--ink-warning);
+}
+
+.toneWarning .badgeDot { background: var(--ink-warning); }
+
+.toneDanger {
+  color: var(--ink-danger);
+  background: var(--ink-danger-soft);
+  --badge-edge-color: var(--ink-danger);
+  --badge-shadow: var(--ink-danger);
+}
+
+.toneDanger .badgeDot { background: var(--ink-danger); }
+
+.toneNeutral {
+  color: var(--ink);
+  background: var(--ink-surface);
+}
+
+.toneNeutral .badgeDot { background: var(--ink); }
+
+/* EmptyState */
+.empty {
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  padding: 28px 22px;
+  text-align: center;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-panel);
+  color: var(--ink);
+}
+
+.emptyIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: var(--ink-sunken);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.emptyDescription {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-secondary);
+  max-width: 320px;
+}
+
+.emptyActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* LoadingState */
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.loadingBar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: var(--ink-sunken);
+  border: 1px solid var(--ink-panel);
+  overflow: hidden;
+}
+
+.loadingBar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ink-accent);
+  animation: loadingSweep 1.4s var(--motion-ease) infinite;
+}
+
+@keyframes loadingSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.loadingDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.loadingDot {
+  width: 8px;
+  height: 8px;
+  background: var(--ink-accent);
+  animation: loadingPulse 1.4s var(--motion-ease) infinite;
+}
+
+.loadingDot:nth-child(2) { animation-delay: 0.18s; }
+.loadingDot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes loadingPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingBar::after,
+  .loadingDot {
+    animation: none !important;
+  }
+  .loadingDot {
+    background: var(--ink-accent);
+    opacity: 0.65;
+  }
+}
+
+/* Panel */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ink-panel);
+  background: var(--ink-bg);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
+.panelTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.panelBody {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panelFooter {
+  padding: 8px 12px;
+  border-top: 1px solid var(--ink-panel);
+  background: var(--ink-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.flush .panelBody {
+  padding: 0;
+}

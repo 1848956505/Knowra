@@ -1,0 +1,148 @@
+.showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 28px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 24px;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  flex-wrap: wrap;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.heroSubtitle {
+  margin: 6px 0 0;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  max-width: 56ch;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .showcase {
+    padding: 18px 14px;
+    gap: 18px;
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionTitle::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--ink-panel);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-panel);
+  box-shadow: var(--shadow-card);
+}
+
+.exampleLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.colorList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.colorCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-panel);
+}
+
+.colorSwatch {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ink);
+  flex: 0 0 auto;
+}
+
+.colorMeta {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--ink-secondary);
+}
+
+.colorName {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  font-weight: 800;
+}

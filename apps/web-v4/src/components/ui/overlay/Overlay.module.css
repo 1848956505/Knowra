@@ -1,0 +1,291 @@
+/* V4-04 Overlay
+ *
+ * Dialog / Popover / Menu 共用外观：白纸、墨边、硬阴影、零圆角、Ink Mono 标题。
+ * Popover/Menu 默认顶对齐、向右、距触发器 4px；靠近视口底/右时由 React Aria 自动翻转。
+ */
+
+.overlay {
+  outline: 0;
+}
+
+.underlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--scrim-underlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.underlay[data-entering],
+.underlay[data-exiting] {
+  animation: overlayFade var(--motion-mid) var(--motion-ease);
+}
+
+@keyframes overlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dialog {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ink);
+  background: var(--ink-surface);
+  box-shadow: var(--shadow-dialog);
+  outline: 0;
+}
+
+.dialog[data-entering] {
+  animation: dialogIn var(--motion-mid) var(--motion-ease);
+}
+
+.dialog[data-exiting] {
+  animation: dialogOut var(--motion-fast) var(--motion-ease);
+}
+
+@keyframes dialogIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dialogOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px 4px;
+  background: var(--ink-surface);
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--ink-panel);
+}
+
+.title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.close:hover {
+  background: var(--ink-sunken);
+  color: var(--ink);
+}
+
+.close:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 22px 6px;
+  display: grid;
+  gap: 14px;
+}
+
+.footer {
+  display: flex;
+  gap: 8px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--ink-panel);
+  background: var(--ink-bg);
+  flex: 0 0 auto;
+}
+
+.busyOverlay {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim-busy);
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  cursor: progress;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink);
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.popover {
+  min-width: 200px;
+  max-width: 320px;
+  outline: 0;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  padding: 6px;
+}
+
+.popover[data-entering] {
+  animation: popIn var(--motion-fast) var(--motion-ease);
+}
+
+.popover[data-exiting] {
+  animation: popOut var(--motion-fast) var(--motion-ease);
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.menu {
+  outline: 0;
+  min-width: 200px;
+  max-width: 320px;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  padding: 4px 0;
+  overflow: auto;
+}
+
+.menuHead {
+  padding: 8px 12px 4px;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.item[data-focused] {
+  background: var(--ink-sunken);
+  outline: 0;
+}
+
+.item[data-danger] {
+  color: var(--ink-danger);
+}
+
+.item[data-danger][data-focused] {
+  background: var(--ink-danger);
+  color: var(--ink-surface);
+}
+
+.item[data-disabled] {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.itemKbd {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.itemIcon {
+  color: var(--ink-secondary);
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.item[data-danger] .itemIcon {
+  color: var(--ink-danger);
+}
+
+.item[data-danger][data-focused] .itemIcon {
+  color: var(--ink-surface);
+}
+
+.separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--ink-panel);
+  border: 0;
+}
+
+/* Tooltip */
+.tooltip {
+  outline: 0;
+  background: var(--ink);
+  color: var(--ink-surface);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow-1);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  max-width: 240px;
+}
+
+.tooltip[data-entering] {
+  animation: popIn var(--motion-fast) var(--motion-ease);
+}
+
+.tooltip[data-exiting] {
+  animation: popOut var(--motion-fast) var(--motion-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog,
+  .popover,
+  .menu,
+  .tooltip,
+  .underlay {
+    animation: none !important;
+  }
+  .spinner {
+    animation-duration: 1.6s !important;
+  }
+}

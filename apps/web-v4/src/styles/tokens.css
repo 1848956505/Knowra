@@ -1,0 +1,72 @@
+/* V4-04 Canonical Tokens
+ *
+ * 1:1 转译自 V4-00.5「印格」视觉冻结规范 §3（docs/前端重构/V4/V4-00.5/印格/V4-00.5-印格视觉冻结规范.md）。
+ * 任何 token 名称、值或顺序调整都必须先回到 V4-00.5 走冻结变更流程。
+ *
+ * V4-04 复审扩展：V4-00.5 demo 实际使用了 1px / 3px 0 / 4px 4px 0 / 7px 7px 0 等多种硬阴影，
+ * 以及 Dialog 背景的 rgba 半透明遮罩。这些值不在 §3.4 的初版 Token 中，本轮在 tokens.css
+ * 集中登记为 --shadow-card / --shadow-card-danger / --shadow-dialog / --shadow-badge
+ * 以及 --scrim-* 系列，并保留 v4-04-扩展语义（见 V4-04-执行报告 §3.5）。
+ */
+
+:root {
+  /* 3.1 颜色 */
+  --ink-bg: #f9f7f2;
+  --ink-surface: #ffffff;
+  --ink-sunken: #f4f1ea;
+  --ink: #1a1a1a;
+  --ink-secondary: #66635e;
+  --ink-muted: #aaa8a2;
+  --ink-panel: #e5e2dc;
+  --ink-dot: #d1d1d1;
+  --ink-accent: #2563eb;
+  --ink-accent-hover: #1d4ed8;
+  --ink-accent-soft: #e0f2fe;
+  --ink-success: #16a34a;
+  --ink-success-soft: #dcfce7;
+  --ink-warning: #ea580c;
+  --ink-warning-soft: #ffedd5;
+  --ink-danger: #dc2626;
+  --ink-danger-soft: #fee2e2;
+  --ink-shell: #a8a29a;
+
+  /* 3.4 阴影（必须实心位移，禁止模糊） */
+  --shadow-1: 2px 2px 1px #6b6b6b;
+  --shadow-2: 3px 3px 1px #6b6b6b;
+  --shadow-focus: 3px 3px 0 var(--ink-accent);
+  /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
+  --shadow-card: 1px 1px 0 var(--ink);
+  --shadow-card-danger: 3px 3px 0 var(--ink-danger);
+  --shadow-dialog: 4px 4px 0 var(--ink), 7px 7px 0 var(--ink-accent);
+  --shadow-badge: 2px 2px 0 var(--ink);
+
+  /* 3.6 外壳尺寸 */
+  --rail-size: 64px;
+  --sidebar-size: 224px;
+  --sidebar-size-narrow: 208px;
+  --inspector-size: 288px;
+  --docbar-size: 52px;
+  --status-size: 32px;
+  --mobile-tabs-size: 56px;
+
+  /* 3.7 动效 */
+  --motion-fast: 130ms;
+  --motion-mid: 200ms;
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 3.2 字体 */
+  --font-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* 状态点 / 印章尺寸 */
+  --status-dot-size: 8px;
+  --badge-edge-color: var(--ink);
+
+  /* 遮罩 / 浮层半透明色：V4-00.5 demo 直接使用 rgba，本轮集中登记为 token */
+  --ink-rgb: 26 26 26;
+  --ink-bg-rgb: 249 247 242;
+  --scrim-underlay: rgb(var(--ink-rgb) / 0.32);
+  --scrim-busy: rgb(var(--ink-bg-rgb) / 0.7);
+
+  color-scheme: light;
+}

@@ -1,0 +1,84 @@
+/* V4-04 Minimal reset
+ *
+ * 仅做必要的基线清理；不引入 normalize.css，不接管排版细节。
+ * 视觉签名（暖纸、墨线、点阵、零圆角、硬阴影）由 tokens.css + global.css 负责。
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--ink-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+a {
+  color: var(--ink-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--ink-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+::selection {
+  background: var(--ink-accent);
+  color: var(--ink-surface);
+}
