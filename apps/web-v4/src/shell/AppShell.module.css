@@ -10,6 +10,10 @@
   background: var(--ink-surface);
 }
 
+.shellWithSidebar {
+  grid-template-columns: var(--rail-size) var(--sidebar-size) minmax(0, 1fr);
+}
+
 .skipLink {
   position: fixed;
   left: 12px;
@@ -49,6 +53,24 @@
   outline: 0;
 }
 
+.shellWithSidebar .stage {
+  grid-column: 3;
+}
+
+.contextSidebar {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-right: 1px solid var(--ink-panel);
+  background: var(--ink-bg);
+  scrollbar-color: var(--ink-shell) transparent;
+  scrollbar-width: thin;
+}
+
 .stage::before,
 .stage::after {
   content: '';
@@ -86,6 +108,18 @@
   .stage {
     padding: 24px;
   }
+
+  .shellWithSidebar {
+    grid-template-columns: var(--rail-size) minmax(0, 1fr);
+  }
+
+  .shellWithSidebar .contextSidebar {
+    display: none;
+  }
+
+  .shellWithSidebar .stage {
+    grid-column: 2;
+  }
 }
 
 @media (max-width: 767px) {
@@ -96,6 +130,10 @@
   .shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) var(--status-size) var(--mobile-tabs-size);
+  }
+
+  .shellWithSidebar {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .stage {

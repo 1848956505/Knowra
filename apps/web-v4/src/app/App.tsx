@@ -14,6 +14,7 @@ import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
+import { NotesContextSidebar, NotesIndexView } from '../features/notes';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS } from '../shell/ModuleRail';
 import { LoadingState } from '../components/ui/status';
 import { WORK_DOMAINS, type WorkDomain } from '../store/types';
@@ -156,6 +157,7 @@ export function App() {
   const currentDomainInfo = DOMAIN_INFO[routeDomain];
   const canWrite = canWriteWorkspace();
   const isShowcaseActive = location.pathname === '/showcase';
+  const isNotesIndex = location.pathname === '/materials';
 
   function handleOpenShowcase() {
     navigate('/showcase');
@@ -165,6 +167,7 @@ export function App() {
   return (
     <AppShell
       activeDomain={isShowcaseActive ? null : routeDomain}
+      contextSidebar={isNotesIndex ? <NotesContextSidebar /> : undefined}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}
@@ -205,7 +208,7 @@ export function App() {
           routeDomain={routeDomain}
           onRetry={retryWorkspace}
           canWrite={canWrite}
-          onOpenMaterials={() => handleSelectDomain('materials')}
+          onOpenMaterials={() => navigate('/materials')}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
           onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
@@ -253,6 +256,9 @@ function Routes({
     );
   }
   if (routeDomain === 'materials') {
+    if (pathname === '/materials') {
+      return <NotesIndexStage />;
+    }
     return (
       <HomeStage
         onRetry={onRetry}
@@ -266,6 +272,10 @@ function Routes({
     );
   }
   return <PlaceholderStage domain={routeDomain} />;
+}
+
+function NotesIndexStage() {
+  return <NotesIndexView />;
 }
 
 function HomeStage({

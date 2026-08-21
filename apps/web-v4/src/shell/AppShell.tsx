@@ -13,6 +13,8 @@ import styles from './AppShell.module.css';
 
 export interface AppShellProps {
   children: ReactNode;
+  /** 当前工作域的上下文导航；与主工作区并列，拥有独立滚动边界。 */
+  contextSidebar?: ReactNode;
   /** 当前激活的工作域（用于 Rail / MobileTabs 的 aria-current）；组件展台没有业务工作域时传 null。 */
   activeDomain: WorkDomain | null;
   onSelectDomain(domain: WorkDomain): void;
@@ -43,6 +45,7 @@ export interface AppShellProps {
 
 export function AppShell({
   children,
+  contextSidebar,
   activeDomain,
   onSelectDomain,
   onReturnHome,
@@ -57,7 +60,7 @@ export function AppShell({
   liveAnnouncement
 }: AppShellProps) {
   return (
-    <div className={cx(styles.shell)}>
+    <div className={cx(styles.shell, contextSidebar ? styles.shellWithSidebar : undefined)}>
       <a href="#feature-stage" className={styles.skipLink}>
         跳到主内容
       </a>
@@ -73,6 +76,12 @@ export function AppShell({
         onOpenShowcase={onOpenShowcase}
         isShowcaseActive={isShowcaseActive}
       />
+
+      {contextSidebar ? (
+        <aside className={styles.contextSidebar} aria-label="笔记上下文导航">
+          {contextSidebar}
+        </aside>
+      ) : null}
 
       <main id="feature-stage" className={cx(styles.stage)} tabIndex={-1}>
         {children}
