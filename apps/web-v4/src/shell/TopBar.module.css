@@ -76,7 +76,7 @@
 
 .searchTrigger:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--ink);
+  box-shadow: 6px 6px 0 var(--ink-secondary);
 }
 
 .searchTrigger:active {
@@ -124,7 +124,7 @@
 
 .iconSlot:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--ink);
+  box-shadow: 6px 6px 0 var(--ink-secondary);
 }
 
 .iconSlot:active {

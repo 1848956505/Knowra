@@ -30,17 +30,18 @@
   --ink-danger-soft: #fee2e2;
   --ink-shell: #a8a29a;
 
-  /* 3.4 阴影（必须实心位移，禁止模糊） */
-  --shadow-1: 2px 2px 1px #6b6b6b;
-  --shadow-2: 3px 3px 1px #6b6b6b;
+  /* 3.4 阴影（必须实心位移，禁止模糊）
+   * V4-04 反馈（老公 2026-08-21）：把所有硬阴影统一为 `6px 6px 0 var(--ink-secondary)` 深墨灰
+   * (#66635e)。原来 --shadow-1/2 用 #6b6b6b 灰色 + 1px blur，--shadow-card/dialog/badge
+   * 用 var(--ink) #1a1a1a 纯黑；现在统一为同一种深墨灰实位移阴影。
+   * 焦点环（--shadow-focus 蓝 / --shadow-card-danger 红）保持不变——状态色不参与硬阴影统一。 */
+  --shadow-1: 6px 6px 0 var(--ink-secondary);
+  --shadow-2: 6px 6px 0 var(--ink-secondary);
   --shadow-focus: 3px 3px 0 var(--ink-accent);
-  /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
-  --shadow-card: 1px 1px 0 var(--ink);
+  --shadow-card: 6px 6px 0 var(--ink-secondary);
   --shadow-card-danger: 3px 3px 0 var(--ink-danger);
-  /* V4-04 反馈（老公 2026-08-21）：Dialog 不再用双层硬阴影（之前 4px 黑 + 7px 蓝），
-     改为单层 4px 黑色。蓝色强调改由 DialogClose 业务按钮的 accent 变体承担。 */
-  --shadow-dialog: 4px 4px 0 var(--ink);
-  --shadow-badge: 2px 2px 0 var(--ink);
+  --shadow-dialog: 6px 6px 0 var(--ink-secondary);
+  --shadow-badge: 6px 6px 0 var(--ink-secondary);
 
   /* 3.6 外壳尺寸 */
   --rail-size: 64px;
