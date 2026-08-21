@@ -53,7 +53,7 @@
   background: var(--ink-sunken);
 }
 
-.input[data-focus-visible] {
+.input[data-focused] {
   outline: 0;
   box-shadow: var(--shadow-focus);
   border-color: var(--ink-accent);
@@ -73,7 +73,7 @@
   background: var(--ink-danger-soft);
 }
 
-.input[data-invalid][data-focus-visible] {
+.input[data-invalid][data-focused] {
   box-shadow: var(--shadow-card-danger);
 }
 

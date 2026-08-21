@@ -37,7 +37,9 @@
   /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
   --shadow-card: 1px 1px 0 var(--ink);
   --shadow-card-danger: 3px 3px 0 var(--ink-danger);
-  --shadow-dialog: 4px 4px 0 var(--ink), 7px 7px 0 var(--ink-accent);
+  /* V4-04 反馈（老公 2026-08-21）：Dialog 不再用双层硬阴影（之前 4px 黑 + 7px 蓝），
+     改为单层 4px 黑色。蓝色强调改由 DialogClose 业务按钮的 accent 变体承担。 */
+  --shadow-dialog: 4px 4px 0 var(--ink);
   --shadow-badge: 2px 2px 0 var(--ink);
 
   /* 3.6 外壳尺寸 */
