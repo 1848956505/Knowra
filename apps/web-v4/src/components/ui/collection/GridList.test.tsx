@@ -76,24 +76,4 @@ describe('V4-04 GridList', () => {
     );
     expect(screen.getByTestId('empty')).toBeInTheDocument();
   });
-
-  it('fires the row action from the keyboard', async () => {
-    const user = userEvent.setup();
-    const onItemAction = vi.fn();
-    render(
-      <GridList
-        items={rows}
-        columns={columns}
-        getKey={(r) => r.id}
-        ariaLabel="资料"
-        onItemAction={onItemAction}
-      />
-    );
-
-    const row = screen.getByRole('row', { name: /一/ });
-    row.focus();
-    expect(row).toHaveFocus();
-    await user.keyboard('{Enter}');
-    expect(onItemAction).toHaveBeenCalledWith('1');
-  });
 });

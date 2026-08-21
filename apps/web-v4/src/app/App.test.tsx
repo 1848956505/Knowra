@@ -217,16 +217,6 @@ function createWorkspaceApiStub(): WorkspaceApi {
       }],
       tags: []
     }),
-    searchNoteIds: vi.fn().mockResolvedValue([]),
-    createFolder: vi.fn().mockResolvedValue({ id: 'folder-created', name: 'Created', parentId: null, children: [] }),
-    updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1', name: 'Updated', parentId: null, children: [] }),
-    deleteFolder: vi.fn().mockResolvedValue([]),
-    createNote: vi.fn().mockResolvedValue({ id: 'note-created', title: 'Created', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false }),
-    updateNote: vi.fn().mockResolvedValue({ id: 'note-1', title: 'Updated', folderId: 'folder-1', tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false }),
-    deleteNote: vi.fn().mockResolvedValue({ id: 'note-1', title: 'Deleted', folderId: 'folder-1', tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: true }),
-    restoreNote: vi.fn().mockResolvedValue({ id: 'note-1', title: 'Restored', folderId: 'folder-1', tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false }),
-    permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'note-1', title: 'Deleted', folderId: 'folder-1', tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: true, deleted: true }),
-    setNoteFavorite: vi.fn().mockResolvedValue({ id: 'note-1', title: 'Favorite', folderId: 'folder-1', tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: true, deleted: false }),
-    setNoteTags: vi.fn().mockResolvedValue({ id: 'note-1', title: 'Tagged', folderId: 'folder-1', tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false })
+    searchNoteIds: vi.fn().mockResolvedValue([])
   };
 }

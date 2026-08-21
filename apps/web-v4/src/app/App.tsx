@@ -1,10 +1,10 @@
-// V4-06 App
+// V4-05 App
 //
-// 应用入口：根据当前 pathname 渲染 HomeView / LibraryView / PlaceholderView / ComponentShowcase。
+// 应用入口：根据当前 pathname 渲染 HomeView / PlaceholderView / ComponentShowcase。
 // 1. AppShell 提供 layout + ModuleRail + StatusBar + MobileTabs；
 // 2. SearchCommand 由 ⌘/Ctrl K 唤起；
 // 3. 全局快捷键 ⌘/Ctrl + / 回主页，⌘/Ctrl + Shift + ↑/↓ 切换工作域；
-// 4. HomeView 与 LibraryView 在 /、/materials 路由加载数据；/showcase 路由始终直接展示组件展台（不发 API 请求）。
+// 4. HomeView 在 / 路由加载数据；/showcase 路由始终直接展示组件展台（不发 API 请求）。
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from './router';
@@ -14,7 +14,6 @@ import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
-import { LibraryView } from '../features/library';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS } from '../shell/ModuleRail';
 import { LoadingState } from '../components/ui/status';
 import { WORK_DOMAINS, type WorkDomain } from '../store/types';
@@ -69,7 +68,7 @@ export function App() {
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const previousPathRef = useRef(location.pathname);
 
-  // 主页和资料索引共享 workspace 加载；组件展台与门禁页不触发请求。
+  // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
     if (location.pathname !== '/' && location.pathname !== '/materials') return;
     void loadWorkspace();
@@ -131,7 +130,7 @@ export function App() {
   const searchHits = useSearchHits({
     onSelect: (label) => {
       navigate('/materials');
-      setLiveAnnouncement(`${label}已选中`);
+      setLiveAnnouncement(`${label}已选中；资料索引将在 V4-06 接入`);
     }
   });
 
@@ -142,17 +141,8 @@ export function App() {
       return;
     }
     setActiveWorkDomain(domain);
-    navigate(domain === 'materials' ? '/materials' : `/${domain}`);
+    navigate(domain === 'materials' ? '/' : `/${domain}`);
     setLiveAnnouncement(`已切换到 ${DOMAIN_INFO[domain].title}`);
-  }
-
-  function handleOpenCreate() {
-    if (location.pathname !== '/materials') {
-      handleSelectDomain('materials');
-      setLiveAnnouncement('已打开资料索引，请在页面中新建笔记');
-      return;
-    }
-    setLiveAnnouncement('请使用资料索引中的新建笔记按钮');
   }
 
   const routeDomain = useMemo<WorkDomain>(() => {
@@ -174,15 +164,15 @@ export function App() {
 
   return (
     <AppShell
-      activeDomain={isShowcaseActive || location.pathname === '/' ? null : routeDomain}
+      activeDomain={isShowcaseActive ? null : routeDomain}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}
-      onOpenCreate={handleOpenCreate}
+      onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
       onOpenShowcase={handleOpenShowcase}
       isShowcaseActive={isShowcaseActive}
       statusbar={{
-        contextLabel: location.pathname === '/materials' ? '资料索引' : routeDomain === 'materials' ? '主页' : currentDomainInfo.title,
+        contextLabel: routeDomain === 'materials' ? '主页' : currentDomainInfo.title,
         dataMode,
         dataModeNote: workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
         panels: [
@@ -217,14 +207,12 @@ export function App() {
           canWrite={canWrite}
           onOpenMaterials={() => handleSelectDomain('materials')}
           onOpenSearch={() => setSearchOpen(true)}
-          onOpenCreate={handleOpenCreate}
+          onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
           onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
           onSelectNote={(noteId, title) => {
             storeApi.getState().selectNote(noteId);
-            navigate('/materials');
-            setLiveAnnouncement(`${title}已选中`);
+            setLiveAnnouncement(`${title}已选中；资料索引将在 V4-06 接入`);
           }}
-          onOpenNote={(note) => setLiveAnnouncement(`${note.title}已选中，编辑器将在 V4-07 接入`)}
         />
       </div>
       <SearchCommand
@@ -245,8 +233,7 @@ function Routes({
   onOpenMaterials,
   onOpenSearch,
   onOpenCreate,
-  onOpenSchedule,
-  onOpenNote
+  onOpenSchedule
 }: {
   pathname: string;
   routeDomain: WorkDomain;
@@ -257,7 +244,6 @@ function Routes({
   onOpenSearch(): void;
   onOpenCreate(): void;
   onOpenSchedule(): void;
-  onOpenNote(note: import('@study-accelerator/web-core').Note): void;
 }) {
   if (pathname === '/showcase') {
     return (
@@ -265,9 +251,6 @@ function Routes({
         <ComponentShowcase />
       </Suspense>
     );
-  }
-  if (pathname === '/materials') {
-    return <LibraryView onRetry={onRetry} onOpenNote={onOpenNote} />;
   }
   if (routeDomain === 'materials') {
     return (
