@@ -1,13 +1,13 @@
 // V4-05 App
 //
 // 应用入口：根据当前 pathname 渲染 HomeView / PlaceholderView / ComponentShowcase。
-// 1. AppShell 提供 layout + ModuleRail + TopBar + StatusBar + MobileTabs；
+// 1. AppShell 提供 layout + ModuleRail + StatusBar + MobileTabs；
 // 2. SearchCommand 由 ⌘/Ctrl K 唤起；
 // 3. 全局快捷键 ⌘/Ctrl + / 回主页，⌘/Ctrl + Shift + ↑/↓ 切换工作域；
 // 4. HomeView 在 / 路由加载数据；/showcase 路由始终直接展示组件展台（不发 API 请求）。
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from './router';
+import { useLocation, useNavigate } from './router';
 import { useAppStore, useAppStoreApi } from '../store/AppStoreProvider';
 import { AppShell } from '../shell/AppShell';
 import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
@@ -15,9 +15,7 @@ import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS } from '../shell/ModuleRail';
-import { Button } from '../components/ui/button/Button';
 import { LoadingState } from '../components/ui/status';
-import { PlusIcon } from '../shell/icons';
 import { WORK_DOMAINS, type WorkDomain } from '../store/types';
 import styles from './App.module.css';
 
@@ -91,8 +89,16 @@ export function App() {
   useEffect(() => {
     if (previousPathRef.current === location.pathname) return;
     previousPathRef.current = location.pathname;
-    document.getElementById('feature-stage')?.focus();
+    const stage = document.getElementById('feature-stage');
+    stage?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    stage?.focus({ preventScroll: true });
   }, [location.pathname]);
+
+  function handleReturnHome() {
+    setActiveWorkDomain('materials');
+    navigate('/');
+    setLiveAnnouncement('已返回主页');
+  }
 
   // 全局快捷键
   useGlobalShortcuts({
@@ -148,36 +154,47 @@ export function App() {
   }, [location.pathname, activeDomain]);
 
   const currentDomainInfo = DOMAIN_INFO[routeDomain];
-  const isPlaceholder = routeDomain !== 'materials';
   const canWrite = canWriteWorkspace();
+  const isShowcaseActive = location.pathname === '/showcase';
+
+  function handleOpenShowcase() {
+    navigate('/showcase');
+    setLiveAnnouncement('已打开组件展台');
+  }
 
   return (
     <AppShell
-      activeDomain={routeDomain}
+      activeDomain={isShowcaseActive ? null : routeDomain}
       onSelectDomain={handleSelectDomain}
-      onReturnHome={() => handleSelectDomain('materials')}
-      topbar={{
-        kicker: isPlaceholder ? `模块 / ${routeDomain}` : '今日',
-        title: isPlaceholder ? currentDomainInfo.title : '知境 · 资料工作区',
-        subtitle: currentDomainInfo.description,
-        onOpenSearch: () => setSearchOpen(true),
-        primaryAction: isPlaceholder ? (
-          <Link to="/" className={styles.backLink}>返回主页</Link>
-        ) : (
-          <Button
-            variant="primary"
-            isDisabled
-            aria-label="新建资料（将在 V4-06 接入）"
-          >
-            <PlusIcon size={14} />
-            <span>新建资料</span>
-          </Button>
-        )
-      }}
+      onReturnHome={handleReturnHome}
+      onOpenSearch={() => setSearchOpen(true)}
+      onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
+      onOpenShowcase={handleOpenShowcase}
+      isShowcaseActive={isShowcaseActive}
       statusbar={{
-        contextLabel: isPlaceholder ? currentDomainInfo.title : '主页',
+        contextLabel: routeDomain === 'materials' ? '主页' : currentDomainInfo.title,
         dataMode,
-        dataModeNote: workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined
+        dataModeNote: workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
+        panels: [
+          {
+            id: 'sidebar',
+            label: '侧栏',
+            active: true,
+            onToggle: () => setLiveAnnouncement('侧栏入口已保留；页面面板将在后续功能层接入')
+          },
+          {
+            id: 'inspector',
+            label: '检查器',
+            active: true,
+            onToggle: () => setLiveAnnouncement('检查器入口已保留；页面面板将在后续功能层接入')
+          },
+          {
+            id: 'focus',
+            label: '专注模式',
+            active: false,
+            onToggle: () => setLiveAnnouncement('专注模式将在后续功能层接入')
+          }
+        ]
       }}
       mobileTabs
       liveAnnouncement={liveAnnouncement}
@@ -188,6 +205,10 @@ export function App() {
           routeDomain={routeDomain}
           onRetry={retryWorkspace}
           canWrite={canWrite}
+          onOpenMaterials={() => handleSelectDomain('materials')}
+          onOpenSearch={() => setSearchOpen(true)}
+          onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
+          onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
           onSelectNote={(noteId, title) => {
             storeApi.getState().selectNote(noteId);
             setLiveAnnouncement(`${title}已选中；资料索引将在 V4-06 接入`);
@@ -208,13 +229,21 @@ function Routes({
   routeDomain,
   onRetry,
   canWrite,
-  onSelectNote
+  onSelectNote,
+  onOpenMaterials,
+  onOpenSearch,
+  onOpenCreate,
+  onOpenSchedule
 }: {
   pathname: string;
   routeDomain: WorkDomain;
   onRetry: () => Promise<void>;
   canWrite: boolean;
   onSelectNote(noteId: string, title: string): void;
+  onOpenMaterials(): void;
+  onOpenSearch(): void;
+  onOpenCreate(): void;
+  onOpenSchedule(): void;
 }) {
   if (pathname === '/showcase') {
     return (
@@ -224,7 +253,17 @@ function Routes({
     );
   }
   if (routeDomain === 'materials') {
-    return <HomeStage onRetry={onRetry} canWrite={canWrite} onSelectNote={onSelectNote} />;
+    return (
+      <HomeStage
+        onRetry={onRetry}
+        canWrite={canWrite}
+        onSelectNote={onSelectNote}
+        onOpenMaterials={onOpenMaterials}
+        onOpenSearch={onOpenSearch}
+        onOpenCreate={onOpenCreate}
+        onOpenSchedule={onOpenSchedule}
+      />
+    );
   }
   return <PlaceholderStage domain={routeDomain} />;
 }
@@ -232,11 +271,19 @@ function Routes({
 function HomeStage({
   onRetry,
   canWrite,
-  onSelectNote
+  onSelectNote,
+  onOpenMaterials,
+  onOpenSearch,
+  onOpenCreate,
+  onOpenSchedule
 }: {
   onRetry: () => Promise<void>;
   canWrite: boolean;
   onSelectNote(noteId: string, title: string): void;
+  onOpenMaterials(): void;
+  onOpenSearch(): void;
+  onOpenCreate(): void;
+  onOpenSchedule(): void;
 }) {
   const loadState = useAppStore((s) => s.workspaceLoadState);
   const error = useAppStore((s) => s.workspaceError);
@@ -252,6 +299,10 @@ function HomeStage({
       tags={serverData.tags}
       isWritable={canWrite}
       onRetry={() => void onRetry()}
+      onOpenMaterials={onOpenMaterials}
+      onOpenSearch={onOpenSearch}
+      onOpenCreate={onOpenCreate}
+      onOpenSchedule={onOpenSchedule}
       onSelectNote={onSelectNote}
     />
   );

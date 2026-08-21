@@ -2,7 +2,7 @@
 
 .rail {
   grid-column: 1;
-  grid-row: 1 / 3;
+  grid-row: 1;
   z-index: 20;
   min-height: 0;
   display: flex;
@@ -12,7 +12,8 @@
   padding: 10px 0 12px;
   border-right: 1px solid var(--ink-shell);
   background: var(--ink-bg);
-  box-shadow: none;
+  /* 冻结 demo 的柔和右投影：让轨道从点阵工作区轻轻浮起。 */
+  box-shadow: 8px 0 16px rgb(26 26 26 / 9%);
   scrollbar-width: none;
 }
 
@@ -38,28 +39,29 @@
   box-shadow: var(--shadow-focus);
 }
 
-.brandBefore,
-.brandAfter {
+.brand::before,
+.brand::after {
+  content: '';
   position: absolute;
   width: 26px;
   height: 26px;
 }
 
-.brandBefore {
+.brand::before {
   right: 3px;
   bottom: 3px;
   background: var(--ink-accent);
   transition: background-color var(--motion-fast) var(--motion-ease);
 }
 
-.brandAfter {
+.brand::after {
   left: 3px;
   top: 3px;
   border: 2px solid var(--ink);
   background: var(--ink-surface);
 }
 
-.brand:hover .brandBefore {
+.brand:hover::before {
   background: var(--ink-accent-hover);
 }
 
@@ -83,8 +85,13 @@
 }
 
 .railGroupPrimary {
-  /* 顶部留 4px 间隔，承接品牌区。 */
-  margin-top: 4px;
+  margin-top: 5px;
+}
+
+.railGroupGlobal {
+  margin-top: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--ink-panel);
 }
 
 .railGroupUtility {
@@ -132,6 +139,11 @@
 
 .railItem[aria-current="page"] .railIcon {
   color: var(--ink-accent);
+}
+
+.railItem[aria-current="page"] .railIcon svg {
+  fill: currentColor;
+  stroke: currentColor;
 }
 
 .railItem[disabled] {

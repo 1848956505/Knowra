@@ -6,7 +6,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: var(--rail-size) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) var(--status-size);
+  grid-template-rows: minmax(0, 1fr) var(--status-size);
   background: var(--ink-surface);
 }
 
@@ -33,21 +33,44 @@
 
 .stage {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 1;
   min-width: 0;
   min-height: 0;
   position: relative;
-  display: block;
-  overflow: auto;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding: 40px;
+  overflow-x: hidden;
+  overflow-y: auto;
   background-color: var(--ink-bg);
   background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
   background-size: 20px 20px;
   outline: 0;
 }
 
-.stage:focus-visible {
-  outline: 3px solid var(--ink-accent);
-  outline-offset: -3px;
+.stage::before,
+.stage::after {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.stage::before {
+  top: 28px;
+  left: 28px;
+  border-top: 1px solid var(--ink-panel);
+  border-left: 1px solid var(--ink-panel);
+}
+
+.stage::after {
+  right: 28px;
+  bottom: 28px;
+  border-right: 1px solid var(--ink-panel);
+  border-bottom: 1px solid var(--ink-panel);
 }
 
 .liveRegion {
@@ -61,7 +84,7 @@
 
 @media (max-width: 920px) {
   .stage {
-    padding: 0;
+    padding: 24px;
   }
 }
 
@@ -72,11 +95,13 @@
 
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) var(--status-size) var(--mobile-tabs-size);
+    grid-template-rows: minmax(0, 1fr) var(--status-size) var(--mobile-tabs-size);
   }
 
   .stage {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 1;
+    align-items: start;
+    padding: 18px 14px;
   }
 }

@@ -9,7 +9,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     for (const width of [1024, 1280, 1440, 2048]) {
       await page.setViewportSize({ width, height: width === 1280 ? 720 : 1024 });
       await page.goto('/');
-      await expect(page.getByRole('heading', { name: '工作域' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: '笔记工作台' })).toBeVisible();
       const overflow = await page.evaluate(() => (
         document.documentElement.scrollWidth - document.documentElement.clientWidth
       ));
@@ -20,7 +20,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
 
   test('全局搜索支持快捷键、过滤、清空、Enter、Escape 与焦点归还', async ({ page }) => {
     await page.goto('/');
-    const trigger = page.getByRole('button', { name: '打开全局搜索' });
+    const trigger = page.getByRole('button', { name: '全局搜索' });
     await trigger.focus();
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
 
@@ -50,7 +50,16 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(rail.getByRole('button', { name: /知识/ })).toBeDisabled();
     await expect(rail.getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
     await expect(page.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: '新建资料（将在 V4-06 接入）' })).toBeDisabled();
+    await expect(rail.getByRole('button', { name: '组件库' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '新建笔记（Ctrl+N）' })).toBeEnabled();
+
+    await rail.getByRole('button', { name: '组件库' }).click();
+    await expect(page).toHaveURL(/#\/showcase$/);
+    await expect(page.getByRole('heading', { name: 'Knowra V4 组件展台' })).toBeVisible();
+    await expect(rail.getByRole('button', { name: '组件库' })).toHaveAttribute('aria-current', 'page');
+    await expect(rail.getByRole('button', { name: '资料', exact: true })).not.toHaveAttribute('aria-current', 'page');
+    await rail.getByRole('button', { name: '知境工作区' }).click();
+    await expect(page).toHaveURL(/#\/$/);
 
     await page.goto('/#/knowledge');
     await expect(page.getByRole('heading', { name: '知识库' })).toBeVisible();
@@ -75,7 +84,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
 
   test('最近资料可通过键盘聚焦并触发可感知反馈', async ({ page }) => {
     await page.goto('/');
-    const note = page.getByRole('button', { name: /设计复盘/ });
+    const note = page.getByRole('button', { name: '设计复盘', exact: true });
     await note.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('status')).toContainText('设计复盘');
@@ -91,7 +100,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
 
     await page.setViewportSize({ width: 1440, height: 1024 });
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: '工作域' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '笔记工作台' })).toBeVisible();
     await page.screenshot({
       path: 'e2e/visual-baseline/screenshots/v4-05-home-1440.png',
       fullPage: false

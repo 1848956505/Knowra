@@ -2,7 +2,7 @@
 
 .statusbar {
   grid-column: 1 / -1;
-  grid-row: 3;
+  grid-row: 2;
   z-index: 30;
   min-width: 0;
   height: var(--status-size);
@@ -121,7 +121,7 @@
 @media (max-width: 767px) {
   .statusbar {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 2;
     padding-inline: 12px;
   }
   .context {

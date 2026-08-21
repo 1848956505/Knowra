@@ -23,28 +23,24 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       </StrictMode>
     );
 
-    // 等待 loadWorkspace 完成（HomeView 显示 "工作域" 标题即代表已就绪）
-    await screen.findByText('工作域');
+    // 等待 loadWorkspace 完成（冻结主页的第一个工作台出现即代表已就绪）
+    await screen.findByRole('heading', { name: '笔记工作台' });
     expect(api.listKnowledgeSpaces).toHaveBeenCalledTimes(1);
     expect(api.loadWorkspaceResources).toHaveBeenCalledTimes(1);
 
-    // 顶部外壳：ModuleRail + TopBar
+    // 冻结外壳：ModuleRail + 主区 + 状态栏
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
     expect(rail).toBeInTheDocument();
-    // TopBar header（外壳 header 拥有"今日" kicker；HomeView 的 header 在 main 内）
-    const topbar = screen.getByRole('banner');
-    expect(within(topbar).getByText('今日')).toBeInTheDocument();
-    expect(within(topbar).getByText('知境 · 资料工作区')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '今天，从哪里继续？' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '早安，创造者。' })).toBeInTheDocument();
     // 状态栏
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
 
-    // 搜索触发器
-    expect(within(topbar).getByRole('button', { name: '打开全局搜索' })).toBeInTheDocument();
+    // 冻结左轨搜索触发器
+    expect(within(rail).getByRole('button', { name: '全局搜索' })).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: '组件库' })).toBeEnabled();
 
-    // 主页统计来自真实 workspace，并通过语义名称暴露。
-    expect(screen.getByLabelText('工作区统计')).toHaveTextContent('1 条资料');
-    expect(screen.getByLabelText('工作区统计')).toHaveTextContent('1 个目录');
+    // 工作台计数来自真实 workspace。
+    expect(screen.getByText('AVAILABLE · 1 ITEMS')).toBeInTheDocument();
   });
 
   it('shows the home with error state and retries after a failed load', async () => {
@@ -70,7 +66,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       expect(screen.queryByText('资料加载失败')).not.toBeInTheDocument();
     });
     // 第二轮成功：工作域卡出现
-    expect(screen.getByText('工作域')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '笔记工作台' })).toBeInTheDocument();
     expect(api.listKnowledgeSpaces).toHaveBeenCalledTimes(2);
   });
 
@@ -109,7 +105,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(screen.getAllByRole('button', { name: '打开全局搜索' }).length).toBeGreaterThan(0);
   });
 
-  it('opens the search command via the topbar trigger and supports keyboard navigation', async () => {
+  it('opens the search command via the rail trigger and supports keyboard navigation', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
       api,
@@ -118,10 +114,10 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     });
 
     render(<AppProviders store={store}><App /></AppProviders>);
-    await screen.findByText('工作域');
+    await screen.findByRole('heading', { name: '笔记工作台' });
 
-    const topbar = screen.getByRole('banner');
-    fireEvent.click(within(topbar).getByRole('button', { name: '打开全局搜索' }));
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    fireEvent.click(within(rail).getByRole('button', { name: '全局搜索' }));
     const dialog = await screen.findByRole('dialog', { name: '全局搜索' });
     expect(dialog).toBeInTheDocument();
     // 至少 1 条资料命中
@@ -154,7 +150,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     });
 
     render(<AppProviders store={store}><App /></AppProviders>);
-    await screen.findByText('工作域');
+    await screen.findByRole('heading', { name: '笔记工作台' });
 
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     expect(await screen.findByRole('dialog', { name: '全局搜索' })).toBeInTheDocument();
@@ -169,7 +165,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     });
 
     render(<AppProviders store={store}><App /></AppProviders>);
-    await screen.findByText('工作域');
+    await screen.findByRole('heading', { name: '笔记工作台' });
 
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
     const knowledge = within(rail).getByRole('button', { name: /知识/ });
@@ -179,7 +175,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     // disabled 按钮 click 不会触发 live region 改变，但 we just verify 不抛错
     fireEvent.click(knowledge);
     // 仍停留在主页（无切换）
-    expect(screen.getByText('工作域')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '笔记工作台' })).toBeInTheDocument();
   });
 
   it('renders a truthful gate for an unavailable work-domain URL', async () => {

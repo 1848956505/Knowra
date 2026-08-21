@@ -457,3 +457,99 @@ final result: blocked
 - `[P2]` 浏览器视觉复核受阻：当前浏览器会话仍拒绝访问本地页面，未生成本轮实施截图和控制台结果。
 
 final result: blocked
+
+## 2026-08-20 V4-05 冻结主页唯一真源同步 QA
+
+### Source and implementation
+
+- Frozen source: `D:\A-Projects\Study\docs\前端重构\V4\V4-00.5\印格\印格-demo-外壳.html` and the supplied freeze capture `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-e18809f1-5b35-4da5-880e-829088eabbbb.png`.
+- Implementation target: `D:\A-Projects\Study\apps\web-v4\src\views\HomeView.tsx` plus the V4 shell files.
+- Implementation screenshot: `D:\A-Projects\Study\apps\web-v4\test-results\home-freeze-final.jpg`.
+- State: API-ready homepage with real workspace notes, folders, tags and availability gates.
+- Viewport: 1280×720 CSS px browser baseline; source and implementation were reviewed together in one comparison input, with the supplied 1919×875 source capture normalized for visual inspection.
+
+### Comparison
+
+- Layout and spacing now follow the frozen 64px rail, centered 960px homepage, 20px dot grid, corner marks, 3-column workbench grid and framed recent-edit table.
+- Typography and copy use the frozen `早安，创造者。`, English date kicker, workbench names, lock badges, status labels and `RECENT / UPDATED DESC` hierarchy.
+- Controls and icons follow the source arrangement: rail search/create/utility actions, calendar and blue new-note actions, square hard shadows, folder/nodes/target/clock/note icons and footer panel switches.
+- Dynamic counts, note names, tags, timestamps and API state remain real-data driven; unavailable modules remain explicit disabled gates.
+
+### Interaction checks
+
+- Rail global search opens and closes the existing command dialog.
+- New-note, schedule, recent-note and footer-panel actions announce their current V4-06 availability without pretending to create unsupported data.
+- Locked workdomains remain disabled; recent-note rows remain keyboard reachable.
+- Desktop, mobile and 200% zoom E2E checks completed without horizontal overflow or console warnings.
+
+### Findings
+
+- No P0, P1 or P2 visual issue remains for the frozen homepage scope.
+- Intentional differences are limited to live API content and responsive mobile navigation; the frozen HTML itself was not modified.
+
+### Verification
+
+- `npm run check:web:v4`: 13 test files, 67 tests passed.
+- `npm run build:web:v4`: production build passed.
+- `V4_BASE_URL=http://127.0.0.1:5174 npm run test:e2e -w @study-accelerator/web-v4`: 27 tests passed.
+- Final homepage-only E2E rerun after the footer sync: 6 tests passed.
+- `git diff --check`: passed.
+
+## 2026-08-21 V4-05 左侧轨道与主页居中迭代 QA
+
+### Source and implementation
+
+- Frozen source: `D:\A-Projects\Study\docs\前端重构\V4\V4-00.5\印格\印格-demo-外壳.html` plus the supplied rail capture `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-8f49f11c-effb-4c04-8aa7-55f109f980c8.png`.
+- Implementation target: `D:\A-Projects\Study\apps\web-v4\src\shell\ModuleRail.tsx`, `D:\A-Projects\Study\apps\web-v4\src\shell\ModuleRail.module.css`, `D:\A-Projects\Study\apps\web-v4\src\shell\icons.tsx`, and the V4 route/home layout CSS.
+- Visual evidence: `D:\A-Projects\Study\apps\web-v4\test-results\v4-05-rail-home-final.png` and `D:\A-Projects\Study\apps\web-v4\test-results\v4-05-rail-home-mobile-final.png`.
+
+### Comparison and fixes
+
+- Rail now occupies only the feature-stage row, so the profile action is above the status bar instead of being covered by it.
+- Rail shadow uses the frozen demo's `8px 0 16px rgb(26 26 26 / 9%)` right projection; the logo uses the demo's pseudo-element square/blue offset structure.
+- Search, add, note, book, question, check, bell, settings and user icons use the frozen demo's 24×24 navigation paths.
+- V4-04 组件库入口 is rendered between settings and profile, routes to `#/showcase`, and exposes `aria-current="page"` while active.
+- Home route content is centered within the feature stage; mobile stage alignment starts at the top and preserves the inner recent-table scroll without a page-level horizontal scrollbar.
+
+### Verification
+
+- Default browser viewport: `1280×720` CSS px; rail geometry measured at `64px` wide and `688px` high, with the final profile button ending at `676px` before the stage/status boundary.
+- Home/cards/recent content measured at `x=192`, `width=960` in the default desktop viewport.
+- Mobile `390×843`: desktop rail hidden, mobile tabs/search visible, root horizontal overflow `0`.
+- Component library click-through and return-home flow passed in the browser and E2E.
+- `npm run check:web:v4`: 13 test files, 67 tests passed.
+- `npm run build:web:v4`: production build passed.
+- Targeted V4 E2E: 2 tests passed (component-library route/return and mobile/200% overflow coverage).
+- `git diff --check`: passed.
+
+final result: passed
+
+## 2026-08-21 V4-06 搜索、组件展台首屏与模块轨道状态 QA
+
+### Source and implementation
+
+- Frozen source: `D:\A-Projects\Study\docs\前端重构\V4\V4-00.5\印格\印格-demo-外壳.html` plus the supplied issue captures `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-4bb319c2-bff1-4ce8-9e42-262f4ef873fe.png` and `C:\Users\DELL\AppData\Local\Temp\codex-clipboard-ac49f038-bdc8-4b9f-b745-82958e957c92.png`.
+- Implementation target: `D:\A-Projects\Study\apps\web-v4\src\components\ui\overlay\Dialog.tsx`, `D:\A-Projects\Study\apps\web-v4\src\components\ui\overlay\Overlay.module.css`, `D:\A-Projects\Study\apps\web-v4\src\app\App.tsx`, `D:\A-Projects\Study\apps\web-v4\src\shell\AppShell.module.css`, and the route/rail state files.
+- Visual evidence: `D:\A-Projects\Study\apps\web-v4\test-results\v4-06-showcase-top-1280.png` and `D:\A-Projects\Study\apps\web-v4\test-results\v4-06-search-open-1280.png`.
+- Source and implementation were reviewed together at the in-app browser's 1280×720 CSS-pixel baseline.
+
+### Comparison and fixes
+
+- Search Dialog now has one shared 640px outer/inner frame, so the title, description, input and result list align as one surface; the exit underlay uses a dedicated fade-out animation and focus returns to the search trigger.
+- FeatureStage is top-aligned for long routes and resets its scroll position on pathname changes. The component showcase hero and Canonical Tokens section are visible from the initial scroll position instead of beginning above the viewport.
+- `/showcase` exposes only the component-library rail button as `aria-current="page"`; the materials/note button is no longer simultaneously selected. The logo is a direct, independent home entry.
+
+### Verification
+
+- In-app browser: showcase `scrollTop=0`, `scrollHeight=3184`, hero top `91px`, Canonical Tokens section top `248px`; component-library rail entry is the sole current page.
+- In-app browser: search dialog `640px` outer width / `638px` content width, focused combobox, exit overlay removed after the fade-out and trigger focus restored.
+- `npm run check:web:v4`: 13 test files, 67 tests passed.
+- `npm run build:web:v4`: production build passed.
+- Focused V4 Playwright suites: 13 tests passed, including search, component-showcase top visibility, rail active state, mobile and 200% zoom checks.
+- `git diff --check`: passed.
+
+### Findings
+
+- No P0, P1 or P2 issue remains for the reported search, component-showcase viewport and module-rail state scope.
+
+final result: passed

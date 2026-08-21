@@ -1,13 +1,10 @@
 // V4-05 AppShell
 //
-// 印格外壳：左 ModuleRail（桌面）或底部 MobileTabs（移动）+ 顶部 TopBar + 主区 FeatureStage + 底部 StatusBar。
-// 1. CSS Grid 三段：rail | feature；statusbar 横跨两列；mobile-tabs 仅 ≤767px 出现。
-// 2. TopBar 与 StatusBar 自己通过 Store 派生数据；AppShell 只负责布局与回调路由。
-// 3. FeatureStage 是业务区，AppShell 只包一层以便后续给页面加 padding/容器限制。
+// 冻结主页外壳：左侧 64px ModuleRail + 点阵 FeatureStage + 底部 StatusBar。
+// 主页的标题、动作和工作域入口都属于冻结主页本身，不再由一个额外 TopBar 注入。
 
 import { type ReactNode } from 'react';
 import { ModuleRail } from './ModuleRail';
-import { TopBar } from './TopBar';
 import { StatusBar, type StatusPanel } from './StatusBar';
 import { MobileTabs } from './MobileTabs';
 import { cx } from '../components/ui/classnames';
@@ -16,21 +13,18 @@ import styles from './AppShell.module.css';
 
 export interface AppShellProps {
   children: ReactNode;
-  /** 当前激活的工作域（用于 Rail / MobileTabs 的 aria-current）。 */
-  activeDomain: WorkDomain;
+  /** 当前激活的工作域（用于 Rail / MobileTabs 的 aria-current）；组件展台没有业务工作域时传 null。 */
+  activeDomain: WorkDomain | null;
   onSelectDomain(domain: WorkDomain): void;
   onReturnHome(): void;
+  onOpenSearch?(): void;
+  onOpenCreate?(): void;
+  onOpenNotifications?(): void;
   onOpenSettings?(): void;
-  /** TopBar 数据。 */
-  topbar: {
-    kicker?: string;
-    title: string;
-    subtitle?: string;
-    primaryAction?: ReactNode;
-    onOpenSearch(): void;
-    onOpenNotifications?(): void;
-    notificationCount?: number;
-  };
+  /** 打开组件展台（/showcase）。仅传入时，Rail 才会渲染该入口。 */
+  onOpenShowcase?(): void;
+  /** /showcase 路由激活态：仅用于 Rail 上组件库按钮的 aria-current。 */
+  isShowcaseActive?: boolean;
   /** StatusBar 数据。 */
   statusbar: {
     contextLabel: string;
@@ -52,8 +46,12 @@ export function AppShell({
   activeDomain,
   onSelectDomain,
   onReturnHome,
+  onOpenSearch,
+  onOpenCreate,
+  onOpenNotifications,
   onOpenSettings,
-  topbar,
+  onOpenShowcase,
+  isShowcaseActive,
   statusbar,
   mobileTabs,
   liveAnnouncement
@@ -68,17 +66,12 @@ export function AppShell({
         activeDomain={activeDomain}
         onSelect={onSelectDomain}
         onReturnHome={onReturnHome}
+        onOpenSearch={onOpenSearch}
+        onOpenCreate={onOpenCreate}
+        onOpenNotifications={onOpenNotifications}
         onOpenSettings={onOpenSettings}
-      />
-
-      <TopBar
-        kicker={topbar.kicker ? { text: topbar.kicker } : undefined}
-        title={topbar.title}
-        subtitle={topbar.subtitle}
-        primaryAction={topbar.primaryAction}
-        onOpenSearch={topbar.onOpenSearch}
-        onOpenNotifications={topbar.onOpenNotifications}
-        notificationCount={topbar.notificationCount}
+        onOpenShowcase={onOpenShowcase}
+        isShowcaseActive={isShowcaseActive}
       />
 
       <main id="feature-stage" className={cx(styles.stage)} tabIndex={-1}>
@@ -99,6 +92,7 @@ export function AppShell({
         <MobileTabs
           activeDomain={activeDomain}
           onSelect={onSelectDomain}
+          onOpenSearch={onOpenSearch}
         />
       ) : null}
 

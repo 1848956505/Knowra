@@ -5,18 +5,20 @@
 
 import { forwardRef } from 'react';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS, type RailItem } from './ModuleRail';
+import { SearchIcon } from './icons';
 import type { WorkDomain } from '../store/types';
 import styles from './MobileTabs.module.css';
 
 export interface MobileTabsProps {
-  activeDomain: WorkDomain;
+  activeDomain: WorkDomain | null;
   onSelect(domain: WorkDomain): void;
+  onOpenSearch?(): void;
 }
 
 const ALL_ITEMS: readonly RailItem[] = [...PRIMARY_DOMAINS, ...UTILITY_ITEMS];
 
 export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function MobileTabs(
-  { activeDomain, onSelect },
+  { activeDomain, onSelect, onOpenSearch },
   ref
 ) {
   return (
@@ -54,6 +56,18 @@ export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function Mobi
           </button>
         );
       })}
+      <button
+        type="button"
+        className={styles.mobileTab}
+        aria-label="打开全局搜索"
+        onClick={onOpenSearch}
+        disabled={!onOpenSearch}
+      >
+        <span className={styles.mobileIcon}>
+          <SearchIcon size={19} />
+        </span>
+        <span className={styles.mobileLabel}>搜索</span>
+      </button>
     </nav>
   );
 });

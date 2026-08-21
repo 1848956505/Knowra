@@ -64,10 +64,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
       isPending={Boolean(isPending)}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
+      sizeClass={sizeClass}
     >
       <RADialog
         ref={ref}
-        className={cx(styles.overlay, sizeClass, className)}
+        className={cx(styles.overlay, className)}
         aria-label={title}
         {...rest}
       >
@@ -104,12 +105,14 @@ function ModalShell({
   isPending,
   isOpen,
   onOpenChange,
+  sizeClass,
   children
 }: {
   isDismissable: boolean;
   isPending: boolean;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  sizeClass: string;
   children: ReactNode;
 }) {
   return (
@@ -120,7 +123,7 @@ function ModalShell({
       onOpenChange={onOpenChange}
       className={cx(styles.underlay, styles.overlay)}
     >
-      <RAModal className={styles.dialog}>{children}</RAModal>
+      <RAModal className={cx(styles.dialog, sizeClass)}>{children}</RAModal>
     </RAModalOverlay>
   );
 }

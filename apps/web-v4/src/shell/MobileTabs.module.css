@@ -7,10 +7,10 @@
 @media (max-width: 767px) {
   .mobileTabs {
     grid-column: 1;
-    grid-row: 4;
+    grid-row: 3;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--ink-shell);
     background: var(--ink-bg);

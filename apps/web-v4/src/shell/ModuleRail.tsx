@@ -7,10 +7,14 @@
 import { forwardRef, type ReactNode } from 'react';
 import {
   BookIcon,
+  BellIcon,
   CheckIcon,
+  ComponentLibraryIcon,
   HomeIcon,
   NoteIcon,
+  PlusIcon,
   QuestionIcon,
+  SearchIcon,
   SettingsIcon,
   UserIcon,
   type IconProps
@@ -69,14 +73,31 @@ export const UTILITY_ITEMS: readonly RailItem[] = [
 ] as const;
 
 export interface ModuleRailProps {
-  activeDomain: WorkDomain;
+  activeDomain: WorkDomain | null;
   onSelect(domain: WorkDomain): void;
   onReturnHome(): void;
+  onOpenSearch?(): void;
+  onOpenCreate?(): void;
+  onOpenNotifications?(): void;
   onOpenSettings?(): void;
+  /** 打开组件展台（/showcase）。组件库是开发工具，不属于 WorkDomain。 */
+  onOpenShowcase?(): void;
+  /** 当前是否在 /showcase 路由——只有为 true 时组件库按钮才显示选中态。 */
+  isShowcaseActive?: boolean;
 }
 
 export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function ModuleRail(
-  { activeDomain, onSelect, onReturnHome, onOpenSettings },
+  {
+    activeDomain,
+    onSelect,
+    onReturnHome,
+    onOpenSearch,
+    onOpenCreate,
+    onOpenNotifications,
+    onOpenSettings,
+    onOpenShowcase,
+    isShowcaseActive
+  },
   ref
 ) {
   return (
@@ -88,13 +109,27 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
       <button
         type="button"
         className={styles.brand}
-        aria-label="返回主页"
+        aria-label="知境工作区"
+        title="知境工作区"
         onClick={onReturnHome}
       >
-        <span className={styles.brandBefore} aria-hidden="true" />
-        <span className={styles.brandAfter} aria-hidden="true" />
         <span className={styles.brandGlyph} aria-hidden="true">知</span>
       </button>
+
+      <div className={cx(styles.railGroup, styles.railGroupGlobal)} role="group" aria-label="全局操作">
+        <RailActionButton
+          label="全局搜索"
+          title="搜索资料 / 标签 / 跳转 · Ctrl K"
+          Icon={SearchIcon}
+          onClick={onOpenSearch}
+        />
+        <RailActionButton
+          label="新建笔记"
+          title="新建笔记 · Ctrl N"
+          Icon={PlusIcon}
+          onClick={onOpenCreate}
+        />
+      </div>
 
       <div className={cx(styles.railGroup, styles.railGroupPrimary)} role="group" aria-label="主要工作域">
         {PRIMARY_DOMAINS.map((item) => (
@@ -108,14 +143,12 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
       </div>
 
       <div className={cx(styles.railGroup, styles.railGroupUtility)} role="group" aria-label="工具">
-        {UTILITY_ITEMS.map((item) => (
-          <RailButton
-            key={item.id}
-            item={item}
-            isActive={item.id === activeDomain}
-            onClick={() => onSelect(item.id)}
-          />
-        ))}
+        <RailActionButton
+          label="通知"
+          title="通知：尚未上线"
+          Icon={BellIcon}
+          onClick={onOpenNotifications}
+        />
         <button
           type="button"
           className={styles.railItem}
@@ -128,6 +161,29 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
             <SettingsIcon size={20} />
           </span>
         </button>
+        {onOpenShowcase ? (
+          <button
+            type="button"
+            className={styles.railItem}
+            onClick={onOpenShowcase}
+            aria-label="组件库"
+            aria-current={isShowcaseActive ? 'page' : undefined}
+            data-module="component-library"
+            title="组件库：V4-04 公共组件展台"
+          >
+            <span className={styles.railIcon}>
+              <ComponentLibraryIcon size={20} />
+            </span>
+          </button>
+        ) : null}
+        {UTILITY_ITEMS.map((item) => (
+          <RailButton
+            key={item.id}
+            item={item}
+            isActive={item.id === activeDomain}
+            onClick={() => onSelect(item.id)}
+          />
+        ))}
       </div>
     </nav>
   );
@@ -167,6 +223,30 @@ function RailButton({ item, isActive, onClick }: RailButtonProps) {
       data-module={id}
       onClick={onClick}
       title={`${label}：${description}`}
+    >
+      <span className={styles.railIcon}>
+        <Icon size={20} />
+      </span>
+    </button>
+  );
+}
+
+interface RailActionButtonProps {
+  label: string;
+  title: string;
+  Icon: (props: IconProps) => ReactNode;
+  onClick?: () => void;
+}
+
+function RailActionButton({ label, title, Icon, onClick }: RailActionButtonProps) {
+  return (
+    <button
+      type="button"
+      className={styles.railItem}
+      onClick={onClick}
+      aria-label={onClick ? label : `${label}（尚未上线）`}
+      title={title}
+      disabled={!onClick}
     >
       <span className={styles.railIcon}>
         <Icon size={20} />

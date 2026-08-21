@@ -25,6 +25,18 @@ export function writeRuntimePort(filePath, service, port) {
   return nextState;
 }
 
+export function clearRuntimePort(filePath, service) {
+  const current = readRuntimePorts(filePath);
+  if (!(service in current)) {
+    return current;
+  }
+  const nextState = { ...current };
+  delete nextState[service];
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(nextState, null, 2));
+  return nextState;
+}
+
 export function resolveApiPort({ envApiPort, runtimePorts = {}, webPort, fallbackPort = 3001 }) {
   const envPort = normalizePort(envApiPort);
   if (envPort) {

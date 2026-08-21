@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readRuntimePorts } from './dev-runtime-ports.js';
+import { readRuntimePorts, writeRuntimePort } from './dev-runtime-ports.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,8 +55,29 @@ if (!actualWebPort) {
   shutdownWithError('Web did not publish its runtime port in time.');
 }
 
+const webV4Port = await getFreePort(5173);
+const webV4Entry = path.join(workspaceRoot, 'node_modules', 'vite', 'bin', 'vite.js');
+const webV4Process = spawnNode([webV4Entry, '--port', String(webV4Port), '--strictPort'], {
+  env: createChildEnv({
+    API_PORT: String(actualApiPort),
+    STUDY_RUNTIME_PORTS_FILE: runtimePortsFile
+  }),
+  cwd: path.join(workspaceRoot, 'apps', 'web-v4'),
+  name: 'web-v4'
+});
+attachChildShutdown(webV4Process);
+
+const webV4Ready = await waitForHttpOk(`http://localhost:${webV4Port}/`, 60, 250);
+
+if (!webV4Ready) {
+  shutdownWithError(`Web V4 did not become ready at http://localhost:${webV4Port} in time.`);
+}
+
+writeRuntimePort(runtimePortsFile, 'web-v4', webV4Port);
+
 console.log(`Study API: http://localhost:${actualApiPort}`);
-console.log(`Study Web: http://localhost:${actualWebPort}`);
+console.log(`Study Web (V3): http://localhost:${actualWebPort}`);
+console.log(`Study Web (V4): http://localhost:${webV4Port}`);
 
 process.on('SIGINT', () => shutdownChildren(0));
 process.on('SIGTERM', () => shutdownChildren(0));
@@ -97,7 +118,7 @@ function runNodeScript(args, options = {}) {
 
 function spawnNode(args, options) {
   const child = spawn(process.execPath, args, {
-    cwd: workspaceRoot,
+    cwd: options.cwd ?? workspaceRoot,
     env: options.env,
     stdio: 'inherit'
   });

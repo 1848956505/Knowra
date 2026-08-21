@@ -16,10 +16,14 @@ import { expect, test } from '@playwright/test';
 test.describe('V4-04 ComponentShowcase 视觉与交互基线', () => {
   test('首页 + 组件展台路由都加载成功', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: '今天，从哪里继续？' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '早安，创造者。' })).toBeVisible();
 
     await page.goto('/#/showcase');
     await expect(page.getByRole('heading', { name: /Knowra V4 组件展台/ })).toBeVisible();
+    const tokensHeading = page.getByRole('heading', { name: /Canonical Tokens/ });
+    await expect(tokensHeading).toBeVisible();
+    const tokensTop = await tokensHeading.evaluate((element) => Math.round(element.getBoundingClientRect().top));
+    expect(tokensTop).toBeGreaterThanOrEqual(0);
   });
 
   test('展台列出全部 Canonical Token 颜色', async ({ page }) => {

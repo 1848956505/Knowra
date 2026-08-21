@@ -91,7 +91,7 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
 function describeDataMode(mode: WorkspaceDataMode) {
   switch (mode) {
     case 'api':
-      return { label: '已连接', squareClass: styles.squareSync };
+      return { label: '已同步', squareClass: styles.squareSync };
     case 'cache':
       return { label: '缓存只读', squareClass: styles.squareWarning };
     case 'local':
