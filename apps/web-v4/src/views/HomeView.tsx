@@ -6,6 +6,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { Note, Folder, Tag } from '@study-accelerator/web-core';
 import { Button } from '../components/ui/button/Button';
 import { EmptyState, LoadingState } from '../components/ui/status';
+import { PixelFace } from '../components/companion';
 import { cx } from '../components/ui/classnames';
 import {
   ArrowUpRightIcon,
@@ -309,7 +310,12 @@ interface HomeHeaderProps {
 function HomeHeader({ id, today, title, subtitle, onOpenCreate, onOpenSchedule }: HomeHeaderProps) {
   return (
     <header className={styles.header}>
-      <div>
+      <div className={styles.headerLead}>
+        <PixelFace
+          className={styles.headerFace}
+          proximity={120}
+          idleAfterMs={25000}
+        />
         <p className={styles.kicker}>{today}</p>
         <h1 id={id} className={styles.title}>{title}</h1>
         <p className={styles.subtitle}>{subtitle}</p>

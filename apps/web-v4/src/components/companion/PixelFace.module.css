@@ -1,0 +1,130 @@
+/* V4 PixelFace —— 极简抽象的像素五官装饰
+ *
+ * 设计原则：
+ * - 每个像素是硬边的方块（无圆角、无渐变、无模糊），与印格视觉语言一致
+ * - 90% 时间保持静止，10% 时间有微动；动画比例严控
+ * - CSS 变量驱动：像素尺寸、眼睛间距、嘴巴长度、动画速度
+ * - 颜色默认 var(--ink)，可被父级覆盖
+ */
+
+.face {
+  /* 可覆盖变量 */
+  --pf-color: var(--ink);
+  --pf-pixel: 8px;
+  --pf-eye-spacing: 12px;
+  --pf-mouth-length: 12px;
+  --pf-mouth-thickness: 2px;
+  --pf-mouth-y: 18px; /* 距顶距离 = 眼睛顶 + 8px */
+  --pf-eye-y: 6px; /* 距顶距离 */
+  --pf-pad: 6px; /* 内边距，让总尺寸落在 50-100px 范围 */
+  --pf-anim: 90ms;
+
+  position: relative;
+  display: inline-block;
+  width: calc(var(--pf-pixel) * 2 + var(--pf-eye-spacing) + var(--pf-pad) * 2);
+  height: calc(var(--pf-mouth-y) + var(--pf-mouth-thickness) + var(--pf-eye-y) + var(--pf-pad));
+  /* 默认 8+12+8+12 = 40px 宽，18+2+6+6 = 32px 高（含 padding） */
+  cursor: default;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.face[data-state='sleep'] {
+  cursor: not-allowed;
+}
+
+.eye,
+.mouth {
+  position: absolute;
+  background: var(--pf-color);
+  border-radius: 0;
+  will-change: transform;
+  transition: transform var(--pf-anim) cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+.eye {
+  width: var(--pf-pixel);
+  height: var(--pf-pixel);
+  top: var(--pf-eye-y);
+}
+
+.eye[data-side='left'] {
+  left: var(--pf-pad);
+}
+
+.eye[data-side='right'] {
+  right: var(--pf-pad);
+}
+
+.mouth {
+  width: var(--pf-mouth-length);
+  height: var(--pf-mouth-thickness);
+  left: 50%;
+  top: var(--pf-mouth-y);
+  transform: translateX(-50%);
+}
+
+/* Happy：把 mouth 切换成两个像素方块，模拟微笑
+ * 通过 ::before / ::after 重画像素点 */
+.face[data-state='happy'] .mouth {
+  background: transparent;
+  width: 4px;
+  height: 4px;
+}
+
+.face[data-state='happy'] .mouth::before,
+.face[data-state='happy'] .mouth::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--pf-color);
+  top: 0;
+}
+
+.face[data-state='happy'] .mouth::before {
+  left: -5px;
+}
+
+.face[data-state='happy'] .mouth::after {
+  right: -5px;
+}
+
+/* Error：mouth 倾斜短斜线 */
+.face[data-state='error'] .mouth {
+  width: var(--pf-mouth-length);
+  height: var(--pf-mouth-thickness);
+  transform: translateX(-50%) rotate(-8deg);
+}
+
+/* Thinking：mouth 变成短点，眼睛会由 JS 加来回摆动画 */
+.face[data-state='thinking'] .mouth {
+  width: 2px;
+  height: 2px;
+}
+
+/* Success：mouth 加宽变梯形（用 ::before 加一个像素） */
+.face[data-state='success'] .mouth {
+  height: var(--pf-mouth-thickness);
+}
+
+.face[data-state='success'] .mouth::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: var(--pf-mouth-thickness);
+  background: var(--pf-color);
+  top: 0;
+  right: -3px;
+}
+
+/* Reduced motion：去除所有过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .face *,
+  .face *::before,
+  .face *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

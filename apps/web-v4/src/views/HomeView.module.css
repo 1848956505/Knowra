@@ -17,6 +17,28 @@
   flex-wrap: wrap;
 }
 
+.headerLead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.headerFace {
+  /* 覆盖 PixelFace 默认 8px 像素为 10px，间距 16px，padding 10px
+   * 让组件总尺寸落在 56×34px 范围，与印格主页密度匹配 */
+  --pf-pixel: 10px;
+  --pf-eye-spacing: 16px;
+  --pf-mouth-length: 14px;
+  --pf-mouth-thickness: 2px;
+  --pf-mouth-y: 22px;
+  --pf-eye-y: 8px;
+  --pf-pad: 10px;
+  --pf-anim: 100ms;
+  margin-bottom: 4px;
+}
+
 .kicker {
   margin: 0 0 8px;
   color: var(--ink-accent);
