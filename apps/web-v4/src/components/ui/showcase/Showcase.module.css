@@ -55,6 +55,30 @@
   gap: 12px;
 }
 
+.sectionLead {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-secondary);
+  background: var(--ink-sunken);
+  border: 1px solid var(--ink-panel);
+  padding: 10px 14px;
+  max-width: 80ch;
+}
+
+.sectionLead strong {
+  color: var(--ink);
+}
+
+.sectionLead code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-panel);
+  padding: 1px 4px;
+}
+
 .sectionTitle {
   margin: 0;
   font-size: 12px;

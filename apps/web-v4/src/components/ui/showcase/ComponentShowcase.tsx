@@ -147,51 +147,83 @@ function ButtonSection() {
   return (
     <section className={styles.section} aria-labelledby="section-buttons">
       <h2 id="section-buttons" className={styles.sectionTitle}>Button / IconButton</h2>
+      <p className={styles.sectionLead}>
+        <strong>决策规则</strong>：① 危险 → <code>danger</code>；
+        ② 当前容器最关键的那一个动作（保存/发布/确定/完成）→ <code>primary</code>（黑）；
+        ③ 引导用户创建/引入/发现（新建/导入/添加/开始/搜索/邀请）→ <code>accent</code>（蓝）；
+        ④ 次要/取消/关闭/返回 → <code>ghost</code>；⑤ 其它 → <code>default</code>。
+        黑色与蓝色的边界：**层级 vs 语义**——一个容器最多 1 个 <code>primary</code>，<code>accent</code> 可重复。
+      </p>
       <div className={styles.grid}>
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>Default / Primary / Accent / Danger / Ghost</span>
+          <span className={styles.exampleLabel}>5 个 variant 总览</span>
           <div className={styles.row}>
             <Button>默认</Button>
-            <Button variant="primary">保存</Button>
-            <Button variant="accent">新建</Button>
-            <Button variant="danger">删除</Button>
-            <Button variant="ghost">取消</Button>
+            <Button variant="primary">保存（黑）</Button>
+            <Button variant="accent">新建（蓝）</Button>
+            <Button variant="danger">删除（红）</Button>
+            <Button variant="ghost">取消（无底）</Button>
           </div>
         </div>
+
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>Disabled / Pending</span>
-          <div className={styles.row}>
-            <Button isDisabled>默认</Button>
-            <Button variant="primary" isDisabled>保存</Button>
-            <Button isPending>提交中</Button>
+          <span className={styles.exampleLabel}>
+            同一上下文：primary（核心动作）+ accent（引导）+ ghost（弱化）共存
+          </span>
+          <div className={styles.stack}>
+            <div className={styles.row}>
+              <Button variant="accent">新建笔记</Button>
+              <Button>导入 Markdown</Button>
+              <Button variant="ghost">查看历史</Button>
+            </div>
+            <div className={styles.row}>
+              <Button variant="primary">保存</Button>
+              <Button variant="accent">发布</Button>
+              <Button variant="ghost">放弃改动</Button>
+            </div>
           </div>
         </div>
+
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>IconButton</span>
+          <span className={styles.exampleLabel}>IconButton：5 个 variant 全支持</span>
           <div className={styles.row}>
-            <IconButton aria-label="更多">
+            <IconButton aria-label="更多（默认）">
               <svg viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
                 <rect y="2" width="14" height="2" />
                 <rect y="6" width="14" height="2" />
                 <rect y="10" width="14" height="2" />
               </svg>
             </IconButton>
-            <IconButton variant="primary" aria-label="新建">
+            <IconButton variant="primary" aria-label="新建（黑）">
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                 <path d="M7 2v10M2 7h10" />
               </svg>
             </IconButton>
-            <IconButton variant="accent" aria-label="搜索">
+            <IconButton variant="accent" aria-label="搜索（蓝）">
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                 <circle cx="6" cy="6" r="4" />
                 <path d="M9 9l3 3" />
               </svg>
             </IconButton>
-            <IconButton variant="danger" aria-label="删除">
+            <IconButton variant="danger" aria-label="删除（红）">
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                 <path d="M2 4h10M5 4V2h4v2M4 4l1 8h4l1-8" />
               </svg>
             </IconButton>
+            <IconButton variant="ghost" aria-label="关闭（ghost）">
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M2 2l10 10M12 2L2 12" />
+              </svg>
+            </IconButton>
+          </div>
+        </div>
+
+        <div className={styles.example}>
+          <span className={styles.exampleLabel}>Disabled / Pending</span>
+          <div className={styles.row}>
+            <Button isDisabled>默认</Button>
+            <Button variant="primary" isDisabled>保存</Button>
+            <Button isPending>提交中</Button>
           </div>
         </div>
       </div>
