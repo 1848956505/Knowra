@@ -2,11 +2,7 @@
 
 .route {
   width: 100%;
-  min-width: 0;
   min-height: 100%;
-  display: grid;
-  justify-items: center;
-  align-content: start;
 }
 
 .backLink {
@@ -25,7 +21,7 @@
 
 .backLink:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 6px 6px 0 var(--ink-secondary);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 .backLink:active {
