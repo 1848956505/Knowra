@@ -34,7 +34,10 @@ export interface GridListProps<T>
   columns: GridListColumn<T>[];
   ariaLabel: string;
   getKey: (item: T) => string;
+  getTextValue?: (item: T) => string;
   selectionMode?: SelectionMode;
+  selectionBehavior?: RAGridListProps<T>['selectionBehavior'];
+  onItemAction?: (key: string) => void;
   emptyState?: ReactNode;
   className?: string;
 }
@@ -44,7 +47,10 @@ export function GridList<T>({
   columns,
   ariaLabel,
   getKey,
+  getTextValue,
   selectionMode = 'single',
+  selectionBehavior = selectionMode === 'single' ? 'replace' : 'toggle',
+  onItemAction,
   emptyState,
   className,
   ...rest
@@ -55,6 +61,7 @@ export function GridList<T>({
       aria-label={ariaLabel}
       items={items}
       selectionMode={selectionMode}
+      selectionBehavior={selectionBehavior}
       className={cx(styles.gridList, className)}
       style={{ display: 'grid' }}
       renderEmptyState={emptyState ? () => <>{emptyState}</> : undefined}
@@ -64,7 +71,8 @@ export function GridList<T>({
         <RAGridListItem
           key={getKey(item)}
           id={getKey(item)}
-          textValue={getRowTextValue(item, columns)}
+          textValue={getTextValue?.(item) ?? getRowTextValue(item, columns)}
+          onAction={onItemAction ? () => onItemAction(getKey(item)) : undefined}
           className={styles.gridRow}
           style={{ gridTemplateColumns: template }}
         >

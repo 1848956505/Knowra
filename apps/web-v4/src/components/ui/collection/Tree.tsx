@@ -4,7 +4,7 @@
 // 2. 视觉：左侧缩进（每层 14px），暖纸行底，hover 暖纸底，selected 蓝软填。
 // 3. 业务代码只使用 <Tree> 与 items 数组；嵌套子节点通过内部 <Collection> 注册。
 
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, type DragEvent, type ReactNode } from 'react';
 import {
   Button as RAButton,
   Collection,
@@ -26,6 +26,8 @@ export interface TreeItemData {
   /** 右侧灰色计数；用于目录树显示资料数。 */
   count?: number;
   isDisabled?: boolean;
+  /** 允许业务树实现拖拽移动；默认 false，避免误把导航项当成拖拽源。 */
+  isDraggable?: boolean;
 }
 
 export interface TreeProps<T extends TreeItemData>
@@ -33,6 +35,12 @@ export interface TreeProps<T extends TreeItemData>
   items: T[];
   /** 每行额外的视觉元素（状态点、操作按钮）。 */
   renderExtras?: (item: T) => ReactNode;
+  /** 自定义行标签；用于内联重命名等局部业务状态。 */
+  renderLabel?: (item: T) => ReactNode;
+  /** 业务树的最小拖拽钩子；拖拽语义仍保留在 Tree 封装内。 */
+  onItemDragStart?: (item: T, event: DragEvent<HTMLSpanElement>) => void;
+  onItemDragOver?: (item: T, event: DragEvent<HTMLSpanElement>) => void;
+  onItemDrop?: (item: T, event: DragEvent<HTMLSpanElement>) => void;
   className?: string;
   ariaLabel?: string;
 }
@@ -40,6 +48,10 @@ export interface TreeProps<T extends TreeItemData>
 export function Tree<T extends TreeItemData>({
   items,
   renderExtras,
+  renderLabel,
+  onItemDragStart,
+  onItemDragOver,
+  onItemDrop,
   className,
   ariaLabel,
   ...rest
@@ -47,7 +59,14 @@ export function Tree<T extends TreeItemData>({
   return (
     <RATree<T> aria-label={ariaLabel ?? '目录树'} className={cx(styles.tree, className)} items={items} {...rest}>
       {(item: T) => (
-        <TreeRow item={item} renderExtras={renderExtras} />
+        <TreeRow
+          item={item}
+          renderExtras={renderExtras}
+          renderLabel={renderLabel}
+          onItemDragStart={onItemDragStart}
+          onItemDragOver={onItemDragOver}
+          onItemDrop={onItemDrop}
+        />
       )}
     </RATree>
   );
@@ -56,9 +75,20 @@ export function Tree<T extends TreeItemData>({
 interface TreeRowProps<T extends TreeItemData> {
   item: T;
   renderExtras?: (item: T) => ReactNode;
+  renderLabel?: (item: T) => ReactNode;
+  onItemDragStart?: (item: T, event: DragEvent<HTMLSpanElement>) => void;
+  onItemDragOver?: (item: T, event: DragEvent<HTMLSpanElement>) => void;
+  onItemDrop?: (item: T, event: DragEvent<HTMLSpanElement>) => void;
 }
 
-function TreeRow<T extends TreeItemData>({ item, renderExtras }: TreeRowProps<T>) {
+function TreeRow<T extends TreeItemData>({
+  item,
+  renderExtras,
+  renderLabel,
+  onItemDragStart,
+  onItemDragOver,
+  onItemDrop
+}: TreeRowProps<T>) {
   return (
     <RATreeItem textValue={item.label} isDisabled={item.isDisabled} className={styles.treeRow}>
       <RATreeItemContent>
@@ -67,6 +97,10 @@ function TreeRow<T extends TreeItemData>({ item, renderExtras }: TreeRowProps<T>
             className={styles.treeRow}
             data-focused={isFocused || undefined}
             data-selected={isSelected || undefined}
+            draggable={item.isDraggable || undefined}
+            onDragStart={onItemDragStart ? (event) => onItemDragStart(item, event) : undefined}
+            onDragOver={onItemDragOver ? (event) => onItemDragOver(item, event) : undefined}
+            onDrop={onItemDrop ? (event) => onItemDrop(item, event) : undefined}
             style={{ ['--indent' as string]: `${12 + (level - 1) * 14}px` }}
           >
             {hasChildItems ? (
@@ -83,7 +117,7 @@ function TreeRow<T extends TreeItemData>({ item, renderExtras }: TreeRowProps<T>
             ) : (
               <span className={styles.treeChevron} aria-hidden="true" />
             )}
-            <span className={styles.treeLabel}>{item.label}</span>
+            <span className={styles.treeLabel}>{renderLabel ? renderLabel(item) : item.label}</span>
             {item.count !== undefined ? (
               <span className={styles.treeCount}>{item.count}</span>
             ) : null}
@@ -93,7 +127,16 @@ function TreeRow<T extends TreeItemData>({ item, renderExtras }: TreeRowProps<T>
       </RATreeItemContent>
       {item.children && item.children.length > 0 ? (
         <Collection items={item.children as unknown as T[]}>
-          {(child) => <TreeRow item={child} renderExtras={renderExtras} />}
+          {(child) => (
+            <TreeRow
+              item={child}
+              renderExtras={renderExtras}
+              renderLabel={renderLabel}
+              onItemDragStart={onItemDragStart}
+              onItemDragOver={onItemDragOver}
+              onItemDrop={onItemDrop}
+            />
+          )}
         </Collection>
       ) : null}
     </RATreeItem>

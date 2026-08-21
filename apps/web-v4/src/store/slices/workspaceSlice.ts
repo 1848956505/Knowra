@@ -47,8 +47,76 @@ export function createWorkspaceSlice(
     workspaceError: null,
     loadWorkspace: () => runLoad(false),
     retryWorkspace: () => runLoad(true),
-    canWriteWorkspace: () => isWorkspaceWritable(get().dataMode)
+    canWriteWorkspace: () => isWorkspaceWritable(get().dataMode),
+    createFolder: (input) => runMutation({
+      action: () => dependencies.api.createFolder(input),
+      successMessage: '目录已创建'
+    }),
+    updateFolder: (folderId, input) => runMutation({
+      action: () => dependencies.api.updateFolder(folderId, input),
+      successMessage: '目录已更新'
+    }),
+    deleteFolder: (folderId) => runMutation({
+      action: () => dependencies.api.deleteFolder(folderId),
+      successMessage: '目录及其子项已删除'
+    }),
+    createNote: (input) => runMutation({
+      action: () => dependencies.api.createNote(input),
+      successMessage: '笔记已创建'
+    }),
+    updateNote: (noteId, input) => runMutation({
+      action: () => dependencies.api.updateNote(noteId, input),
+      successMessage: '笔记已更新'
+    }),
+    deleteNote: (noteId) => runMutation({
+      action: () => dependencies.api.deleteNote(noteId),
+      successMessage: '笔记已移入回收站'
+    }),
+    restoreNote: (noteId) => runMutation({
+      action: () => dependencies.api.restoreNote(noteId),
+      successMessage: '笔记已恢复'
+    }),
+    permanentlyDeleteNote: (noteId) => runMutation({
+      action: () => dependencies.api.permanentlyDeleteNote(noteId),
+      successMessage: '笔记已永久删除'
+    }),
+    setNoteFavorite: (noteId, favorite) => runMutation({
+      action: () => dependencies.api.setNoteFavorite(noteId, favorite),
+      successMessage: favorite ? '已加入收藏' : '已取消收藏'
+    }),
+    setNoteTags: (noteId, tagIds) => runMutation({
+      action: () => dependencies.api.setNoteTags(noteId, tagIds),
+      successMessage: '标签已更新'
+    })
   };
+
+  async function runMutation({
+    action,
+    successMessage
+  }: {
+    action: () => Promise<unknown>;
+    successMessage: string;
+  }): Promise<void> {
+    const state = get();
+    if (state.dataMode !== 'api') {
+      const message = state.dataMode === 'cache'
+        ? '当前是只读缓存，连接恢复后才能修改资料。'
+        : '资料仍在加载，请稍后再修改。';
+      set({ statusMessage: message, saveState: 'error', saveError: message });
+      throw new Error(message);
+    }
+
+    set({ statusMessage: '正在保存资料…', saveState: 'saving', saveError: null });
+    try {
+      await action();
+      await loadWorkspace(dependencies, set);
+      set({ statusMessage: successMessage, saveState: 'saved', saveError: null });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '资料保存失败。';
+      set({ statusMessage: message, saveState: 'error', saveError: message });
+      throw error;
+    }
+  }
 }
 
 async function loadWorkspace(dependencies: WorkspaceDependencies, set: SetStore): Promise<void> {

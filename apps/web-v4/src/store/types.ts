@@ -4,7 +4,11 @@ import type {
   WorkspaceSnapshot,
   WorkspaceLoadState,
   WorkspaceApi,
-  KeyValueStorage
+  KeyValueStorage,
+  CreateFolderInput,
+  UpdateFolderInput,
+  CreateNoteInput,
+  UpdateNoteInput
 } from '@study-accelerator/web-core';
 
 export interface WorkspaceDependencies {
@@ -22,6 +26,16 @@ export interface WorkspaceSlice {
   loadWorkspace(): Promise<void>;
   retryWorkspace(): Promise<void>;
   canWriteWorkspace(): boolean;
+  createFolder(input: CreateFolderInput): Promise<void>;
+  updateFolder(folderId: string, input: UpdateFolderInput): Promise<void>;
+  deleteFolder(folderId: string): Promise<void>;
+  createNote(input: CreateNoteInput): Promise<void>;
+  updateNote(noteId: string, input: UpdateNoteInput): Promise<void>;
+  deleteNote(noteId: string): Promise<void>;
+  restoreNote(noteId: string): Promise<void>;
+  permanentlyDeleteNote(noteId: string): Promise<void>;
+  setNoteFavorite(noteId: string, favorite: boolean): Promise<void>;
+  setNoteTags(noteId: string, tagIds: string[]): Promise<void>;
 }
 
 export type WorkDomain = 'materials' | 'knowledge' | 'training' | 'learning' | 'profile';
