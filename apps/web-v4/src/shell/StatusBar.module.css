@@ -29,11 +29,16 @@
 }
 
 .context {
+  /* 覆盖上面的 .context,.item,.switch 公共 inline-flex：
+     用 flex + min-width:0 + flex:1 1 auto 让 context 主动收缩，
+     否则 inline 元素不会响应 max-width，path 内的长 title 会撑爆 32px 高度。 */
+  display: flex;
   overflow: hidden;
   color: var(--ink);
   font-weight: 750;
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  max-width: 100%;
 }
 
 .contextDot {
@@ -49,6 +54,7 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
 }
 
@@ -56,6 +62,8 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .pathSeparator {
@@ -63,10 +71,13 @@
   font-weight: 400;
   user-select: none;
   padding: 0 1px;
+  flex: 0 0 auto;
 }
 
 .pathLink {
   /* button reset，与上下文同字号同字色 */
+  display: inline-block;
+  max-width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -78,6 +89,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .pathLink:hover {
@@ -93,12 +105,15 @@
 
 .pathCurrent {
   /* 末段不加视觉强调（按设计要求保持上下文原有字色字重），只保留省略。 */
+  display: inline-block;
+  max-width: 100%;
   color: var(--ink);
   font-weight: inherit;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .spacer {
