@@ -324,7 +324,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(breadcrumb).queryByRole('button', { name: '跳转到「笔记库」' })).not.toBeInTheDocument();
   });
 
-  it('StatusBar breadcrumb reflects the selected note location when a note is selected', async () => {
+  it('StatusBar breadcrumb stays on the index surface when a note is selected in store state', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
       api,
@@ -339,24 +339,20 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     );
     expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
 
-    // 选 folder + note：底部 path 应是 主页 / 笔记库 / Folder / Note
+    // 选择态可能由 workspace hydration 或全局搜索产生，但不代表进入了笔记详情路由。
     act(() => {
       store.getState().selectFolder('folder-1');
       store.getState().selectNote('note-1');
     });
 
     const breadcrumb = screen.getByLabelText('工作区位置');
-    // 段间 3 个分隔符
+    // /materials 只表达当前索引 surface，不被 latent selection 污染。
     const separators = within(breadcrumb).getAllByText('/', { exact: true });
-    expect(separators).toHaveLength(3);
-    // 3 段可点
+    expect(separators).toHaveLength(1);
     expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
-    expect(within(breadcrumb).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
-    expect(within(breadcrumb).getByRole('button', { name: '跳转到「Folder」' })).toBeInTheDocument();
-    // 末段是当前选中笔记标题（无视觉强调）
-    const currentNote = within(breadcrumb).getByText('Note');
-    expect(currentNote.tagName).toBe('SPAN');
-    expect(currentNote).toHaveAttribute('aria-current', 'location');
+    expect(within(breadcrumb).getByText('笔记库')).toHaveAttribute('aria-current', 'location');
+    expect(within(breadcrumb).queryByText('Note')).not.toBeInTheDocument();
+    expect(within(breadcrumb).queryByText('M4-02')).not.toBeInTheDocument();
   });
 });
 

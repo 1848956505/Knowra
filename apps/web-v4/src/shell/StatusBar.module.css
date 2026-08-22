@@ -28,6 +28,10 @@
   gap: 7px;
 }
 
+.item {
+  flex: 0 0 auto;
+}
+
 .context {
   /* 覆盖上面的 .context,.item,.switch 公共 inline-flex：
      用 flex + min-width:0 + flex:1 1 auto 让 context 主动收缩，
@@ -56,6 +60,7 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  flex: 1 1 auto;
 }
 
 .pathFragment {
@@ -146,6 +151,7 @@
 .switches {
   align-self: stretch;
   display: flex;
+  flex: 0 0 auto;
 }
 
 .switch {

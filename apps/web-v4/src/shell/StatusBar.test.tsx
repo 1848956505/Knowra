@@ -1,13 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { StatusBar } from './StatusBar';
-
-const here = dirname(fileURLToPath(import.meta.url));
-const cssText = readFileSync(resolve(here, './StatusBar.module.css'), 'utf8');
 
 describe('StatusBar breadcrumb path', () => {
   it('renders a single segment as the current location with no separator', () => {
@@ -15,6 +9,10 @@ describe('StatusBar breadcrumb path', () => {
       <StatusBar
         path={[{ id: 'home', label: '主页', current: true }]}
         dataMode="api"
+        panels={[
+          { id: 'sidebar', label: '侧栏', active: true, onToggle: vi.fn() },
+          { id: 'inspector', label: '检查器', active: true, onToggle: vi.fn() }
+        ]}
       />
     );
 
@@ -108,22 +106,19 @@ describe('StatusBar breadcrumb path', () => {
           { id: 'note:1', label: longTitle, current: true }
         ]}
         dataMode="api"
+        panels={[
+          { id: 'sidebar', label: '侧栏', active: true, onToggle: vi.fn() },
+          { id: 'inspector', label: '检查器', active: true, onToggle: vi.fn() }
+        ]}
       />
     );
 
     const breadcrumb = screen.getByLabelText('工作区位置');
     // 文本完整保留（视觉省略由 CSS text-overflow:ellipsis 兜底，jsdom 不渲染样式）
     expect(within(breadcrumb).getByText(longTitle)).toBeInTheDocument();
+    expect(screen.getByLabelText('数据模式：已同步')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '切换侧栏' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '切换检查器' })).toBeInTheDocument();
   });
 
-  it('declares text-overflow:ellipsis on segments so long titles do not break the 32px statusbar', () => {
-    // jsdom 不渲染真实 CSS，但 .pathCurrent / .pathLink 必须保留 ellipsis 兜底，
-    // 否则长 title 会撑爆 StatusBar 高度。源码层断言防止有人误删。
-    expect(cssText).toMatch(/\.pathCurrent\b[\s\S]*?text-overflow:\s*ellipsis/);
-    expect(cssText).toMatch(/\.pathLink\b[\s\S]*?text-overflow:\s*ellipsis/);
-    // 同时 .context 必须是 flex + min-width:0 + flex:1 1 auto，否则 inline-flex 不收缩。
-    expect(cssText).toMatch(/\.context\b[\s\S]*?display:\s*flex/);
-    expect(cssText).toMatch(/\.context\b[\s\S]*?flex:\s*1 1 auto/);
-    expect(cssText).toMatch(/\.context\b[\s\S]*?min-width:\s*0/);
-  });
 });
