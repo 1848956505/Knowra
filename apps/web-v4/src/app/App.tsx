@@ -56,7 +56,7 @@ const DOMAIN_INFO: Record<WorkDomain, DomainDescriptor> = {
 export function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const activeDomain = useAppStore((state) => state.navigation.activeWorkDomain);
+  const storeActiveDomain = useAppStore((state) => state.navigation.activeWorkDomain);
   const setActiveWorkDomain = useAppStore((state) => state.setActiveWorkDomain);
   const loadWorkspace = useAppStore((state) => state.loadWorkspace);
   const retryWorkspace = useAppStore((state) => state.retryWorkspace);
@@ -84,8 +84,8 @@ export function App() {
       : WORK_DOMAINS.includes(segment as WorkDomain)
         ? segment as WorkDomain
         : 'materials';
-    if (routeDomain !== activeDomain) setActiveWorkDomain(routeDomain);
-  }, [activeDomain, location.pathname, setActiveWorkDomain]);
+    if (routeDomain !== storeActiveDomain) setActiveWorkDomain(routeDomain);
+  }, [storeActiveDomain, location.pathname, setActiveWorkDomain]);
 
   useEffect(() => {
     if (previousPathRef.current === location.pathname) return;
@@ -127,11 +127,13 @@ export function App() {
     }
   });
 
-  // SearchCommand 数据源
+  // SearchCommand 数据源：每个命中项决定自己的目标路径。
+  // - 动作（action:home）→ 主页（/）；
+  // - 资料/标签 → 笔记索引页（/materials），由 useSearchHits 内部 selectFolder/selectNote。
   const searchHits = useSearchHits({
-    onSelect: (label) => {
-      navigate('/materials');
-      setLiveAnnouncement(`${label}已选中；资料索引将在 V4-06 接入`);
+    onSelect: (announcement, path) => {
+      navigate(path);
+      setLiveAnnouncement(announcement);
     }
   });
 
@@ -142,7 +144,10 @@ export function App() {
       return;
     }
     setActiveWorkDomain(domain);
-    navigate(domain === 'materials' ? '/' : `/${domain}`);
+    // 每个工作域都有独立路由：资料 → /materials，知识 → /knowledge ……
+    // 主页（/）只由左上角 Logo 与全局快捷键 ⌘/ 进入，
+    // 不再由"资料"按钮带回，避免主页入口语义重叠。
+    navigate(`/${domain}`);
     setLiveAnnouncement(`已切换到 ${DOMAIN_INFO[domain].title}`);
   }
 
@@ -150,14 +155,19 @@ export function App() {
     const path = location.pathname.replace(/^\//, '').split('/')[0];
     if (!path || path === 'materials') return 'materials';
     if (WORK_DOMAINS.includes(path as WorkDomain)) return path as WorkDomain;
-    if (path === 'showcase') return activeDomain;
-    return activeDomain;
-  }, [location.pathname, activeDomain]);
+    if (path === 'showcase') return storeActiveDomain;
+    return storeActiveDomain;
+  }, [location.pathname, storeActiveDomain]);
 
   const currentDomainInfo = DOMAIN_INFO[routeDomain];
   const canWrite = canWriteWorkspace();
   const isShowcaseActive = location.pathname === '/showcase';
+  const isHome = location.pathname === '/';
   const isNotesIndex = location.pathname === '/materials';
+  // 主页（/）不属于任何工作域的子页面：左轨不应高亮任何模块入口；
+  // 笔记索引页（/materials）才是"资料"工作域的着陆页。
+  const activeDomain: WorkDomain | null =
+    isShowcaseActive || isHome ? null : routeDomain;
 
   function handleOpenShowcase() {
     navigate('/showcase');
@@ -166,7 +176,7 @@ export function App() {
 
   return (
     <AppShell
-      activeDomain={isShowcaseActive ? null : routeDomain}
+      activeDomain={activeDomain}
       contextSidebar={isNotesIndex ? <NotesContextSidebar /> : undefined}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
@@ -335,7 +345,12 @@ function PlaceholderStage({ domain }: { domain: WorkDomain }) {
   );
 }
 
-function useSearchHits({ onSelect }: { onSelect(label: string): void }): SearchHit[] {
+function useSearchHits({
+  onSelect
+}: {
+  /** 由每个命中项决定目标路径与宣告文案；调用方负责 navigate + setLiveAnnouncement。 */
+  onSelect(announcement: string, path: '/' | '/materials'): void;
+}): SearchHit[] {
   const notes = useAppStore((s) => s.serverData.notes);
   const tags = useAppStore((s) => s.serverData.tags);
   const selectNote = useAppStore((s) => s.selectNote);
@@ -346,13 +361,14 @@ function useSearchHits({ onSelect }: { onSelect(label: string): void }): SearchH
     const hits: SearchHit[] = [];
     hits.push({
       id: 'action:home',
-      primary: '返回资料主页',
-      secondary: '打开资料工作区概览',
+      primary: '返回主页',
+      secondary: '回到早安页',
       hint: '跳转',
       group: '动作',
       onSelect: () => {
-        setActiveWorkDomain('materials');
-        onSelect('资料主页');
+        // 主页（/）由左上角 Logo 与全局快捷键 ⌘/ 触达；
+        // 这里保留 SearchCommand 里的"动作"入口，文案与跳转路径必须和 logo 一致。
+        onSelect('已返回主页', '/');
       }
     });
     for (const note of notes) {
@@ -367,7 +383,10 @@ function useSearchHits({ onSelect }: { onSelect(label: string): void }): SearchH
           setActiveWorkDomain('materials');
           if (note.folderId) selectFolder(note.folderId);
           selectNote(note.id);
-          onSelect(`资料“${note.title || '无标题'}”`);
+          onSelect(
+            `资料“${note.title || '无标题'}”已选中；资料索引将在 V4-06 接入`,
+            '/materials'
+          );
         }
       });
     }
@@ -381,7 +400,7 @@ function useSearchHits({ onSelect }: { onSelect(label: string): void }): SearchH
         group: '标签',
         onSelect: () => {
           setActiveWorkDomain('materials');
-          onSelect(`标签“${tag.name}”`);
+          onSelect(`标签“${tag.name}”已选中；资料索引将在 V4-06 接入`, '/materials');
         }
       });
     }

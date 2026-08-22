@@ -196,6 +196,91 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(screen.getByText('该工作域尚未上线')).toBeInTheDocument();
     expect(api.listKnowledgeSpaces).not.toHaveBeenCalled();
   });
+
+  it('does not highlight any rail module on the home page (/)', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    // 主页不属于任何工作域的子页面：左轨所有模块入口都应为非激活态。
+    expect(within(rail).getByRole('button', { name: '资料' })).not.toHaveAttribute('aria-current', 'page');
+  });
+
+  it('navigates to the notes index when clicking the materials rail button', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    const navigateMock = vi.fn();
+    render(
+      <RouterProvider location={{ pathname: '/', navigate: navigateMock }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+    await screen.findByRole('heading', { name: '笔记工作台' });
+
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    fireEvent.click(within(rail).getByRole('button', { name: '资料' }));
+
+    // "资料"按钮应导向独立路由 /materials（笔记索引页），而不是 / 主页。
+    expect(navigateMock).toHaveBeenCalledWith('/materials');
+  });
+
+  it('highlights the materials rail button on the notes index page (/materials)', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(
+      <RouterProvider location={{ pathname: '/materials', navigate: vi.fn() }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+
+    // 笔记索引页骨架包含唯一 h1「全部笔记」与侧栏。
+    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
+
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    // 笔记索引页才是"资料"工作域的着陆页：左轨"资料"按钮 aria-current='page'。
+    expect(within(rail).getByRole('button', { name: '资料' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('returns to the home page (/) when clicking the brand logo on the notes index', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    const navigateMock = vi.fn();
+    render(
+      <RouterProvider location={{ pathname: '/materials', navigate: navigateMock }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+
+    const rail = screen.getByRole('navigation', { name: '工作域导航' });
+    fireEvent.click(within(rail).getByRole('button', { name: '知境工作区' }));
+
+    // 左上角 Logo 永远回到主页（/），与"资料"按钮职责彻底分离。
+    expect(navigateMock).toHaveBeenCalledWith('/');
+  });
 });
 
 function createWorkspaceApiStub(): WorkspaceApi {
