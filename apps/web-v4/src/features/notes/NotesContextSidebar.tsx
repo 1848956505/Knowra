@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import {
   ClockIcon,
   FolderIcon,
+  MoreHorizontalIcon,
   NoteIcon,
   PlusIcon,
   RefreshIcon,
@@ -41,9 +42,11 @@ export function NotesContextSidebar() {
     <div className={styles.sidebarContent}>
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
-        <button className={styles.moreButton} type="button" aria-label="笔记更多操作">···</button>
+        <button className={styles.moreButton} type="button" aria-label="笔记更多操作" title="更多操作">
+          <MoreHorizontalIcon size={20} />
+        </button>
         <button className={styles.createButton} type="button" aria-label="新建笔记" title="新建笔记 · Ctrl/⌘ N">
-          <PlusIcon size={18} />
+          <PlusIcon size={20} />
         </button>
       </header>
 

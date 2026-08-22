@@ -267,3 +267,17 @@ export function ComponentLibraryIcon(props: IconProps) {
     </svg>
   );
 }
+
+// 三个横排圆点：用于"更多操作 / 上下文菜单 / ghost icon"入口。
+// 印格风：fill 圆点而非 stroke，避开 strokeWidth:1.8 视觉重量，与左轨 rail 图标
+// 视觉重量保持一致。
+export function MoreHorizontalIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <circle cx="5" cy="10" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
