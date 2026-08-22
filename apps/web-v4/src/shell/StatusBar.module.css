@@ -32,6 +32,8 @@
   overflow: hidden;
   color: var(--ink);
   font-weight: 750;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .contextDot {
@@ -41,9 +43,62 @@
   background: var(--ink-accent);
 }
 
-.contextText {
+/* breadcrumb 路径：根→当前 段间用 " / " 分隔。 */
+
+.path {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pathFragment {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pathSeparator {
+  color: var(--ink-muted);
+  font-weight: 400;
+  user-select: none;
+  padding: 0 1px;
+}
+
+.pathLink {
+  /* button reset，与上下文同字号同字色 */
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pathLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pathLink:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+  border-radius: 2px;
+}
+
+.pathCurrent {
+  /* 末段不加视觉强调（按设计要求保持上下文原有字色字重），只保留省略。 */
+  color: var(--ink);
+  font-weight: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spacer {

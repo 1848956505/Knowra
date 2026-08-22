@@ -5,7 +5,7 @@
 
 import { type ReactNode } from 'react';
 import { ModuleRail } from './ModuleRail';
-import { StatusBar, type StatusPanel } from './StatusBar';
+import { StatusBar, type PathSegment, type StatusPanel } from './StatusBar';
 import { MobileTabs } from './MobileTabs';
 import { cx } from '../components/ui/classnames';
 import type { WorkDomain } from '../store/types';
@@ -29,7 +29,8 @@ export interface AppShellProps {
   isShowcaseActive?: boolean;
   /** StatusBar 数据。 */
   statusbar: {
-    contextLabel: string;
+    /** 当前位置 breadcrumb；至少 1 段。 */
+    path: PathSegment[];
     charCount?: number;
     savedAt?: string | null;
     saveState?: 'idle' | 'saving' | 'saved' | 'error';
@@ -88,7 +89,7 @@ export function AppShell({
       </main>
 
       <StatusBar
-        contextLabel={statusbar.contextLabel}
+        path={statusbar.path}
         charCount={statusbar.charCount}
         savedAt={statusbar.savedAt}
         saveState={statusbar.saveState}

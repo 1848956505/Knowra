@@ -12,7 +12,7 @@ describe('Notes index skeleton', () => {
         activeDomain="materials"
         onSelectDomain={vi.fn()}
         onReturnHome={vi.fn()}
-        statusbar={{ contextLabel: '笔记索引', dataMode: 'api' }}
+        statusbar={{ path: [{ id: 'home', label: '主页' }, { id: 'materials', label: '笔记库', current: true }], dataMode: 'api' }}
       >
         <NotesIndexView />
       </AppShell>

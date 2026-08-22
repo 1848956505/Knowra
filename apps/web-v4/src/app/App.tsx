@@ -7,9 +7,11 @@
 // 4. HomeView 在 / 路由加载数据；/showcase 路由始终直接展示组件展台（不发 API 请求）。
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import type { Folder, Note } from '@study-accelerator/web-core';
 import { useLocation, useNavigate } from './router';
 import { useAppStore, useAppStoreApi } from '../store/AppStoreProvider';
 import { AppShell } from '../shell/AppShell';
+import type { PathSegment } from '../shell/StatusBar';
 import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { HomeView } from '../views/HomeView';
@@ -58,6 +60,10 @@ export function App() {
   const navigate = useNavigate();
   const storeActiveDomain = useAppStore((state) => state.navigation.activeWorkDomain);
   const setActiveWorkDomain = useAppStore((state) => state.setActiveWorkDomain);
+  const selectedFolderId = useAppStore((state) => state.navigation.selectedFolderId);
+  const selectedNoteId = useAppStore((state) => state.navigation.selectedNoteId);
+  const foldersById = useAppStore((state) => state.serverData.foldersById);
+  const notes = useAppStore((state) => state.serverData.notes);
   const loadWorkspace = useAppStore((state) => state.loadWorkspace);
   const retryWorkspace = useAppStore((state) => state.retryWorkspace);
   const canWriteWorkspace = useAppStore((state) => state.canWriteWorkspace);
@@ -159,7 +165,6 @@ export function App() {
     return storeActiveDomain;
   }, [location.pathname, storeActiveDomain]);
 
-  const currentDomainInfo = DOMAIN_INFO[routeDomain];
   const canWrite = canWriteWorkspace();
   const isShowcaseActive = location.pathname === '/showcase';
   const isHome = location.pathname === '/';
@@ -168,6 +173,21 @@ export function App() {
   // 笔记索引页（/materials）才是"资料"工作域的着陆页。
   const activeDomain: WorkDomain | null =
     isShowcaseActive || isHome ? null : routeDomain;
+
+  // StatusBar 位置路径：根据 pathname + 选中的 folder/note 派生。
+  // 第 0 段始终是"主页"根；末段不带 onNavigate（按设计要求不强调）。
+  const statusPath = useStatusPath({
+    pathname: location.pathname,
+    routeDomain,
+    selectedFolderId,
+    selectedNoteId,
+    foldersById,
+    notes,
+    onNavigateHome: () => navigate('/'),
+    onNavigateMaterials: () => navigate('/materials'),
+    onSelectFolder: (id) => storeApi.getState().selectFolder(id),
+    onSelectNote: (id) => storeApi.getState().selectNote(id)
+  });
 
   function handleOpenShowcase() {
     navigate('/showcase');
@@ -185,7 +205,7 @@ export function App() {
       onOpenShowcase={handleOpenShowcase}
       isShowcaseActive={isShowcaseActive}
       statusbar={{
-        contextLabel: routeDomain === 'materials' ? '主页' : currentDomainInfo.title,
+        path: statusPath,
         dataMode,
         dataModeNote: workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
         panels: [
@@ -406,6 +426,162 @@ function useSearchHits({
     }
     return hits;
   }, [notes, tags, selectNote, setActiveWorkDomain, selectFolder, onSelect]);
+}
+
+interface UseStatusPathInput {
+  pathname: string;
+  routeDomain: WorkDomain;
+  selectedFolderId: string | null;
+  selectedNoteId: string | null;
+  foldersById: Record<string, Folder>;
+  notes: Note[];
+  onNavigateHome(): void;
+  onNavigateMaterials(): void;
+  onSelectFolder(folderId: string): void;
+  onSelectNote(noteId: string): void;
+}
+
+/**
+ * 派生 StatusBar 的位置路径。
+ * - 第 0 段永远是"主页"，是 breadcrumb 的 root。
+ * - 末段（当前选中）不带 onNavigate，按设计要求不做视觉强调。
+ * - 笔记索引页路径：主页 / 笔记库 / [folder chain] / [note title]。
+ * - 知识/试题/学习/我的：主页 / 域名（占位文案）。
+ *
+ * 不进 useMemo：path 数组每段的 onNavigate 是新闭包，把它放进依赖会
+ * 永远重算；StatusBar 渲染成本极低，每次 render 重新组装更稳定。
+ */
+function useStatusPath(input: UseStatusPathInput): PathSegment[] {
+  const {
+    pathname,
+    routeDomain,
+    selectedFolderId,
+    selectedNoteId,
+    foldersById,
+    notes,
+    onNavigateHome,
+    onNavigateMaterials,
+    onSelectFolder,
+    onSelectNote
+  } = input;
+
+  const segments: PathSegment[] = [];
+  segments.push({ id: 'home', label: '主页', onNavigate: onNavigateHome });
+
+  // 主页：单段
+  if (pathname === '/') {
+    segments[0].current = true;
+    return segments;
+  }
+
+  // 组件展台
+  if (pathname === '/showcase') {
+    segments.push({ id: 'showcase', label: '组件库', current: true });
+    return segments;
+  }
+
+  // 笔记模块
+  if (routeDomain === 'materials') {
+    const activeNote = selectedNoteId
+      ? notes.find((candidate) => candidate.id === selectedNoteId) ?? null
+      : null;
+    // 反推末段：优先用 selectedNoteId 对应的 note，其次 selectedFolderId。
+    // applySnapshot 会在 workspace 加载时把 selectedNoteId 设为第一个有效笔记
+    // 但 selectedFolderId 可能仍为 null，因此这里也要从 note.folderId 兜底。
+    const effectiveFolderId =
+      selectedFolderId ?? activeNote?.folderId ?? null;
+
+    // 末段优先用 note
+    if (activeNote) {
+      // "笔记库"段永远可点跳回
+      segments.push({
+        id: 'materials:root',
+        label: '笔记库',
+        onNavigate: onNavigateMaterials
+      });
+      // folder chain 来源：effectiveFolderId（可能来自 selectedFolderId 或 note.folderId）
+      if (effectiveFolderId) {
+        const chain = collectFolderChain(effectiveFolderId, foldersById);
+        for (let i = 0; i < chain.length; i++) {
+          const folder = chain[i];
+          segments.push({
+            id: `folder:${folder.id}`,
+            label: folder.name,
+            onNavigate: () => onSelectFolder(folder.id)
+          });
+        }
+      }
+      segments.push({
+        id: `note:${activeNote.id}`,
+        label: activeNote.title || '无标题',
+        current: true
+      });
+      return segments;
+    }
+
+    if (effectiveFolderId) {
+      segments.push({
+        id: 'materials:root',
+        label: '笔记库',
+        onNavigate: onNavigateMaterials
+      });
+      const chain = collectFolderChain(effectiveFolderId, foldersById);
+      for (let i = 0; i < chain.length; i++) {
+        const folder = chain[i];
+        const isLast = i === chain.length - 1;
+        segments.push({
+          id: `folder:${folder.id}`,
+          label: folder.name,
+          onNavigate: isLast ? undefined : () => onSelectFolder(folder.id),
+          current: isLast
+        });
+      }
+      return segments;
+    }
+
+    // 都没有
+    segments.push({
+      id: 'materials:root',
+      label: '笔记库',
+      onNavigate: onNavigateMaterials,
+      current: true
+    });
+    return segments;
+  }
+
+  // 其它工作域：单段占位文案
+  const domainLabel: Record<WorkDomain, string> = {
+    materials: '资料',
+    knowledge: '知识库',
+    training: '试题库',
+    learning: '执行',
+    profile: '我的'
+  };
+  segments.push({
+    id: `domain:${routeDomain}`,
+    label: domainLabel[routeDomain],
+    current: true
+  });
+  return segments;
+}
+
+/**
+ * 从 foldersById 出发沿 parentId 链向上回溯，输出"根 → 当前"的 Folder 数组。
+ * 用 visited 防御坏数据造成的循环（store 里 Folder.parentId 应是 null/有效 id）。
+ */
+function collectFolderChain(
+  folderId: string,
+  foldersById: Record<string, Folder>
+): Folder[] {
+  const chain: Folder[] = [];
+  const visited = new Set<string>();
+  let cursor: Folder | undefined = foldersById[folderId];
+  while (cursor && !visited.has(cursor.id)) {
+    visited.add(cursor.id);
+    chain.unshift(cursor);
+    cursor = cursor.parentId ? foldersById[cursor.parentId] : undefined;
+  }
+  return chain;
 }
 
 export function AppRoot() {

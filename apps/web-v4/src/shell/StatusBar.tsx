@@ -1,8 +1,8 @@
 // V4-05 StatusBar
 //
-// 印格 32px 状态条：左侧 context（当前页签），中部 spacer，
+// 印格 32px 状态条：左侧 breadcrumb（当前位置），中部 spacer，
 // 右侧字数 / 保存状态 / 数据模式 / 同步状态 / 面板开关。
-// 字段全部从 Store 派生，业务页只需要传 contextLabel。
+// breadcrumb 由 App 派生，StatusBar 只负责数据→渲染，零业务判断。
 
 import { forwardRef, type ReactNode } from 'react';
 import type { WorkspaceDataMode } from '@study-accelerator/web-core';
@@ -17,8 +17,27 @@ export interface StatusPanel {
   onToggle(): void;
 }
 
+/** breadcrumb 的单段：第 0 段是 root 起点，末段是当前位置。 */
+export interface PathSegment {
+  /** React key；通常 `${kind}:${id}`。 */
+  id: string;
+  /** 显示文案（如"主页"、"笔记库"、"产品设计"、"Q3 产品规划草案"）。 */
+  label: string;
+  /**
+   * 点击该段时应触发的回调。末段（当前位置）不传 → 渲染为静态文本。
+   * 父级 App 负责把这段"跳回"的真实动作（navigate / selectFolder / selectNote）注入。
+   */
+  onNavigate?(): void;
+  /**
+   * 标记为"当前位置"。一段 path 只能有一个 current；缺省时由 StatusBar 推断末段。
+   * 显式声明便于复杂场景（如同一段在多路由下都被复用为当前）。
+   */
+  current?: boolean;
+}
+
 export interface StatusBarProps {
-  contextLabel: string;
+  /** 当前位置的 breadcrumb；至少 1 段，第 0 段约定为"主页"或工作域根。 */
+  path: PathSegment[];
   charCount?: number;
   savedAt?: string | null;
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
@@ -29,16 +48,18 @@ export interface StatusBarProps {
 }
 
 export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function StatusBar(
-  { contextLabel, charCount, savedAt, saveState, dataMode, dataModeNote, panels = [] },
+  { path, charCount, savedAt, saveState, dataMode, dataModeNote, panels = [] },
   ref
 ) {
   const modeMeta = describeDataMode(dataMode);
   return (
     <footer ref={ref} className={styles.statusbar} role="contentinfo" aria-label="状态栏">
-      <span className={styles.context} aria-label="当前页签">
-        <span className={styles.contextDot} aria-hidden="true" />
-        <span className={styles.contextText}>{contextLabel}</span>
-      </span>
+      {path.length > 0 ? (
+        <span className={styles.context} aria-label="工作区位置">
+          <span className={styles.contextDot} aria-hidden="true" />
+          <PathTrail path={path} />
+        </span>
+      ) : null}
 
       {typeof charCount === 'number' ? (
         <span className={cx(styles.item, styles.itemCount)}>
@@ -87,6 +108,52 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
     </footer>
   );
 });
+
+/**
+ * 渲染 path 数组：
+ * - 中间段用 <button>，hover 时加下划线，aria-label 描述"跳转到 X"；
+ * - 末段（current=true 或最后一节且无 onNavigate）用 <span>，无视觉强调，符合设计要求；
+ * - 段间用 <span aria-hidden>/</span> 分隔，屏读器跳过。
+ */
+function PathTrail({ path }: { path: PathSegment[] }) {
+  if (path.length === 0) return null;
+  const lastIndex = path.length - 1;
+  return (
+    <span className={styles.path}>
+      {path.map((segment, index) => {
+        const isLast = index === lastIndex;
+        const isCurrent = segment.current ?? isLast;
+        const isLink = !isCurrent && typeof segment.onNavigate === 'function';
+        return (
+          <span key={segment.id} className={styles.pathFragment}>
+            {index > 0 ? (
+              <span className={styles.pathSeparator} aria-hidden="true">
+                {' / '}
+              </span>
+            ) : null}
+            {isLink ? (
+              <button
+                type="button"
+                className={styles.pathLink}
+                onClick={segment.onNavigate}
+                aria-label={`跳转到「${segment.label}」`}
+              >
+                {segment.label}
+              </button>
+            ) : (
+              <span
+                className={styles.pathCurrent}
+                aria-current={isCurrent ? 'location' : undefined}
+              >
+                {segment.label}
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 function describeDataMode(mode: WorkspaceDataMode) {
   switch (mode) {

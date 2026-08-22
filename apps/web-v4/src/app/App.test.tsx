@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createEmptyWorkspaceSnapshot, type WorkspaceApi } from '@study-accelerator/web-core';
 import { App } from './App';
 import { AppProviders } from './AppProviders';
@@ -281,25 +281,104 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     // 左上角 Logo 永远回到主页（/），与"资料"按钮职责彻底分离。
     expect(navigateMock).toHaveBeenCalledWith('/');
   });
+
+  it('StatusBar breadcrumb is "主页" on the home page (no current module)', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(<AppProviders store={store}><App /></AppProviders>);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+
+    const breadcrumb = screen.getByLabelText('工作区位置');
+    const current = within(breadcrumb).getByText('主页');
+    expect(current).toHaveAttribute('aria-current', 'location');
+    // 末段不可点
+    expect(within(breadcrumb).queryByRole('button', { name: '跳转到「主页」' })).not.toBeInTheDocument();
+  });
+
+  it('StatusBar breadcrumb on the notes index is "主页 / 笔记库" when no note is auto-selected', async () => {
+    const api = createWorkspaceApiStub({ notes: [] });
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(
+      <RouterProvider location={{ pathname: '/materials', navigate: vi.fn() }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+    // 等到 NotesIndexView 出现（即使 notes 为空）
+    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+
+    const breadcrumb = screen.getByLabelText('工作区位置');
+    // "主页"段可点（跳回主页），"笔记库"段为当前不可点
+    expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
+    const materials = within(breadcrumb).getByText('笔记库');
+    expect(materials).toHaveAttribute('aria-current', 'location');
+    expect(within(breadcrumb).queryByRole('button', { name: '跳转到「笔记库」' })).not.toBeInTheDocument();
+  });
+
+  it('StatusBar breadcrumb reflects the selected note location when a note is selected', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(
+      <RouterProvider location={{ pathname: '/materials', navigate: vi.fn() }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+
+    // 选 folder + note：底部 path 应是 主页 / 笔记库 / Folder / Note
+    act(() => {
+      store.getState().selectFolder('folder-1');
+      store.getState().selectNote('note-1');
+    });
+
+    const breadcrumb = screen.getByLabelText('工作区位置');
+    // 段间 3 个分隔符
+    const separators = within(breadcrumb).getAllByText('/', { exact: true });
+    expect(separators).toHaveLength(3);
+    // 3 段可点
+    expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
+    expect(within(breadcrumb).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
+    expect(within(breadcrumb).getByRole('button', { name: '跳转到「Folder」' })).toBeInTheDocument();
+    // 末段是当前选中笔记标题（无视觉强调）
+    const currentNote = within(breadcrumb).getByText('Note');
+    expect(currentNote.tagName).toBe('SPAN');
+    expect(currentNote).toHaveAttribute('aria-current', 'location');
+  });
 });
 
-function createWorkspaceApiStub(): WorkspaceApi {
+function createWorkspaceApiStub(overrides: { notes?: Array<Record<string, unknown>> } = {}): WorkspaceApi {
+  const defaultNote = {
+    id: 'note-1',
+    title: 'Note',
+    folderId: 'folder-1',
+    tagIds: [],
+    internalLinks: [],
+    rawMarkdown: '',
+    contentLoaded: false,
+    favorite: false,
+    deleted: false
+  };
+  const notes = overrides.notes !== undefined ? overrides.notes : [defaultNote];
   return {
     listKnowledgeSpaces: vi.fn().mockResolvedValue([{ id: 'space-1', name: 'Main' }]),
     createDefaultKnowledgeSpace: vi.fn().mockResolvedValue({ id: 'space-1', name: 'Main' }),
     loadWorkspaceResources: vi.fn().mockResolvedValue({
       folderTree: [{ id: 'folder-1', name: 'Folder', parentId: null, children: [] }],
-      notes: [{
-        id: 'note-1',
-        title: 'Note',
-        folderId: 'folder-1',
-        tagIds: [],
-        internalLinks: [],
-        rawMarkdown: '',
-        contentLoaded: false,
-        favorite: false,
-        deleted: false
-      }],
+      notes,
       tags: []
     }),
     searchNoteIds: vi.fn().mockResolvedValue([])
