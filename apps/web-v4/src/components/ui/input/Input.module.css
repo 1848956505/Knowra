@@ -54,9 +54,10 @@
 }
 
 .input[data-focused] {
+  /* V4-06：focus 反馈改用 --shadow-input-focus（深黑色外硬阴影），
+     不再变蓝边框 / 蓝阴影，避免视觉上像"输入框内部有蓝线"。 */
   outline: 0;
-  box-shadow: var(--shadow-focus);
-  border-color: var(--ink-accent);
+  box-shadow: var(--shadow-input-focus);
   background: var(--ink-surface);
 }
 
@@ -74,7 +75,9 @@
 }
 
 .input[data-invalid][data-focused] {
-  box-shadow: var(--shadow-card-danger);
+  /* 保持外部硬阴影（更深、更明显），不引入 inset 或蓝色。
+     用 ink-danger 颜色的硬阴影表达错误状态。 */
+  box-shadow: 3px 3px 0 var(--ink-danger);
 }
 
 .error {
@@ -193,8 +196,10 @@
 }
 
 .checkbox[data-focus-visible] {
+  /* V4-06：checkbox 属于输入控件，focus 反馈与 input 一致：深黑色外硬阴影，
+     不再变蓝贴边。 */
   outline: 0;
-  box-shadow: var(--shadow-focus);
+  box-shadow: var(--shadow-input-focus);
 }
 
 .checkbox[data-disabled] {
@@ -239,9 +244,10 @@
 }
 
 .selectTrigger[data-focus-visible] {
+  /* V4-06：select trigger 与 input focus 反馈统一改用 --shadow-input-focus，
+     保留外硬阴影、不引入变蓝。 */
   outline: 0;
-  box-shadow: var(--shadow-focus);
-  border-color: var(--ink-accent);
+  box-shadow: var(--shadow-input-focus);
 }
 
 .selectTrigger[data-disabled] {

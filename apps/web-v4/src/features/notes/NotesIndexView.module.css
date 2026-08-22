@@ -86,7 +86,11 @@
   color: var(--ink-secondary);
 }
 
-.search:focus-within { box-shadow: var(--shadow-focus); }
+.search:focus-within {
+  /* V4-06：focus 反馈改用 --shadow-input-focus（深黑色外硬阴影），
+     不再贴边出蓝色硬阴影——视觉上只保留"框框的外部阴影"。 */
+  box-shadow: var(--shadow-input-focus);
+}
 .search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); }
 .filter,
 .sort { padding: 0 12px; white-space: nowrap; }

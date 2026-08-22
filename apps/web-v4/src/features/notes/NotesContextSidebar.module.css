@@ -57,7 +57,9 @@
 }
 
 .search:focus-within {
-  box-shadow: var(--shadow-focus);
+  /* V4-06：focus 反馈改用 --shadow-input-focus（深黑色外硬阴影），
+     与全局 input focus 反馈保持一致。 */
+  box-shadow: var(--shadow-input-focus);
 }
 
 .search input {

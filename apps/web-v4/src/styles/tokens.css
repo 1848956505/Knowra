@@ -34,6 +34,12 @@
   --shadow-1: 2px 2px 1px #6b6b6b;
   --shadow-2: 3px 3px 1px #6b6b6b;
   --shadow-focus: 3px 3px 0 var(--ink-accent);
+  /* V4-06（老公 2026-08-22 反馈）：输入框 focus 反馈专用。
+     之前用 --shadow-focus 会让 input 边框变蓝、贴边出现蓝色硬阴影，
+     视觉上像"输入框内部有阴影"。改用与基础外阴影同色系、更明显的
+     黑色硬阴影作为 focus 反馈，保留"框框的外部阴影"语言、移除
+     "内部蓝线/边框"。 */
+  --shadow-input-focus: 3px 3px 0 var(--ink);
   /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
   --shadow-card: 1px 1px 0 var(--ink);
   --shadow-card-danger: 3px 3px 0 var(--ink-danger);

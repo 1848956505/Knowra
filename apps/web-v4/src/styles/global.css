@@ -24,11 +24,20 @@ body {
   min-height: 100%;
 }
 
-/* 全局焦点环：键盘聚焦时才出现，鼠标点击不显示。 */
-:where(button, [role="button"], a, input, select, textarea, [tabindex]):focus-visible {
+/* 全局焦点环：键盘聚焦时才出现，鼠标点击不显示。
+ * V4-06（老公 2026-08-22）：input/select/textarea 不再走 --shadow-focus（蓝色硬阴影），
+ * 改用 --shadow-input-focus（深黑色外硬阴影），且 border-color 保持 --ink 不变蓝。
+ * 视觉上输入框 focus 时只剩"框框的外部阴影加深"，不再有"内部蓝线/边框"。 */
+:where(button, [role="button"], a, [tabindex]):focus-visible {
   outline: 0;
   box-shadow: var(--shadow-focus);
   border-color: var(--ink-accent);
+}
+
+:where(input, select, textarea):focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-input-focus);
+  border-color: var(--ink);
 }
 
 /* React Aria 默认会把焦点环加到 :focus，落到 input/textarea 上时统一接管。 */

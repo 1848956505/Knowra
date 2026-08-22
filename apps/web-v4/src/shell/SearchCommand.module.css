@@ -18,7 +18,9 @@
 }
 
 .inputRow:focus-within {
-  box-shadow: var(--shadow-focus);
+  /* V4-06：SearchCommand 输入行 focus 改用 --shadow-input-focus（深黑色外硬阴影），
+     与全局 input focus 反馈保持一致，不再贴边出蓝色硬阴影。 */
+  box-shadow: var(--shadow-input-focus);
 }
 
 .input {
