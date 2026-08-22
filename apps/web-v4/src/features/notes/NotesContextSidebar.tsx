@@ -3,6 +3,7 @@ import {
   ClockIcon,
   FolderIcon,
   NoteIcon,
+  PlusIcon,
   RefreshIcon,
   SearchIcon,
   TagIcon
@@ -41,7 +42,9 @@ export function NotesContextSidebar() {
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
         <button className={styles.moreButton} type="button" aria-label="笔记更多操作">···</button>
-        <button className={styles.createButton} type="button" aria-label="新建笔记">+</button>
+        <button className={styles.createButton} type="button" aria-label="新建笔记" title="新建笔记 · Ctrl/⌘ N">
+          <PlusIcon size={18} />
+        </button>
       </header>
 
       <label className={styles.search}>

@@ -20,27 +20,58 @@
   font-weight: 800;
 }
 
+/* V4-06（老公 2026-08-22）：
+ * - moreButton 参考 docs/前端重构/V4/V4-00.5/印格/印格-demo-笔记索引页面.html
+ *   .sidebar-head .square-btn（无方框纯图标，hover 沉底加深）；
+ * - createButton 直接复用左侧 ModuleRail 加号的视觉语言：
+ *   30×30 透明背景、无边框、无硬阴影，颜色跟随 ink，hover 沉底、active 下移 2px；
+ *   内部用 PlusIcon SVG 替换原来的 "+" 字符，保证与 rail 加号完全一致。 */
 .moreButton,
-.createButton {
-  border: 0;
-  background: transparent;
-  color: var(--ink-secondary);
-  font: 800 16px/1 var(--font-mono);
-}
-
-.moreButton {
-  letter-spacing: 0.08em;
-}
-
 .createButton {
   width: 30px;
   height: 30px;
-  border: 2px solid var(--ink-accent);
-  color: var(--ink-accent);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-1);
-  font-size: 24px;
-  font-weight: 400;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.moreButton {
+  /* 三个点：用 mono + 加大字距 + 加粗，让"···"有清晰节奏感 */
+  font: 800 18px/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.createButton {
+  color: var(--ink);
+}
+
+.moreButton:hover,
+.createButton:hover {
+  background: var(--ink-sunken);
+  color: var(--ink);
+}
+
+.moreButton:active,
+.createButton:active {
+  /* 与 rail 的按压反馈对齐：translate(2px, 2px) 模拟压下 2px */
+  transform: translate(2px, 2px);
+}
+
+.moreButton:focus-visible,
+.createButton:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
 }
 
 .search {
