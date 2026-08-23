@@ -42,8 +42,9 @@
   min-height: 0;
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  justify-items: center;
+  justify-items: stretch;
   padding: 40px;
   overflow-x: hidden;
   overflow-y: auto;

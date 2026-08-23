@@ -11,6 +11,7 @@ import { useLocation, useNavigate } from './router';
 import { useAppStore, useAppStoreApi } from '../store/AppStoreProvider';
 import { AppShell } from '../shell/AppShell';
 import { deriveStatusPath } from '../shell/statusPath';
+import type { PathSegment } from '../shell/path';
 import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { HomeView } from '../views/HomeView';
@@ -227,6 +228,7 @@ export function App() {
           onRetry={retryWorkspace}
           canWrite={canWrite}
           onOpenMaterials={() => navigate('/materials')}
+          statusPath={statusPath}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
           onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
@@ -248,6 +250,7 @@ export function App() {
 function Routes({
   pathname,
   routeDomain,
+  statusPath,
   onRetry,
   canWrite,
   onSelectNote,
@@ -258,6 +261,7 @@ function Routes({
 }: {
   pathname: string;
   routeDomain: WorkDomain;
+  statusPath: PathSegment[];
   onRetry: () => Promise<void>;
   canWrite: boolean;
   onSelectNote(noteId: string, title: string): void;
@@ -275,7 +279,7 @@ function Routes({
   }
   if (routeDomain === 'materials') {
     if (pathname === '/materials') {
-      return <NotesIndexStage />;
+      return <NotesIndexStage path={statusPath} />;
     }
     return (
       <HomeStage
@@ -292,8 +296,8 @@ function Routes({
   return <PlaceholderStage domain={routeDomain} />;
 }
 
-function NotesIndexStage() {
-  return <NotesIndexView />;
+function NotesIndexStage({ path }: { path: PathSegment[] }) {
+  return <NotesIndexView path={path} />;
 }
 
 function HomeStage({

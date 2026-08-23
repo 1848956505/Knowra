@@ -1,20 +1,25 @@
 .page {
-  width: min(1400px, calc(100% - 16px));
+  width: 100%;
+  max-width: 1400px;
+  box-sizing: border-box;
   min-height: 100%;
   margin: 0 auto;
-  padding: 34px 28px 48px;
+  padding: 24px 28px 48px;
   color: var(--ink);
 }
 
 .breadcrumb {
+  min-width: 0;
+  flex: 1 1 auto;
   display: flex;
-  align-items: center;
-  gap: 9px;
+  align-items: baseline;
+  gap: 8px;
   color: var(--ink-secondary);
-  font: 700 12px/1.4 var(--font-mono);
+  overflow: hidden;
 }
 
 .marker {
+  align-self: center;
   width: 12px;
   height: 12px;
   background: var(--ink-accent);
@@ -22,18 +27,42 @@
 
 .header {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin: 18px 0 30px;
+  min-height: 38px;
+  margin: 0 0 16px;
 }
 
 .header h1 {
   margin: 0;
-  font-size: clamp(38px, 4vw, 58px);
+  min-width: 0;
+  color: var(--ink);
+  font-size: clamp(28px, 2.8vw, 36px);
   font-weight: 900;
   letter-spacing: -0.06em;
-  line-height: 1;
+  line-height: 0.98;
+  white-space: nowrap;
+}
+
+.breadcrumbSeparator {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+  font: 700 12px/1.4 var(--font-mono);
+}
+
+.summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ink-secondary);
+  font: 700 12px/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+
+.summary strong {
+  color: var(--ink);
 }
 
 .actions,
@@ -101,15 +130,6 @@
 .viewToggle button:first-child { border-left: 1px solid var(--ink); }
 .viewToggle .viewActive { background: var(--ink-accent); color: var(--ink-surface); }
 
-.metaRow {
-  display: flex;
-  justify-content: space-between;
-  margin: 24px 6px 14px;
-  color: var(--ink-secondary);
-  font-size: 12px;
-}
-
-.metaRow strong { color: var(--ink); }
 .tableWrap { overflow-x: auto; border: 1px solid var(--ink); background: var(--ink-surface); }
 .table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 13px; }
 .table th { padding: 14px 16px; border-bottom: 1px solid var(--ink); background: var(--ink-sunken); color: var(--ink-secondary); font: 800 11px/1 var(--font-mono); text-align: left; }
@@ -135,7 +155,91 @@
 
 @media (max-width: 920px) {
   .page { padding: 24px 16px 40px; }
-  .header { align-items: flex-start; flex-direction: column; margin-bottom: 22px; }
+  .header { align-items: flex-start; flex-direction: column; margin-bottom: 16px; }
+  .breadcrumb { width: 100%; flex-wrap: wrap; }
+  .summary { white-space: normal; }
   .actions { width: 100%; }
   .button { flex: 1; }
+}
+
+@media (max-width: 767px) {
+  .page {
+    min-width: 0;
+    padding-inline: 12px;
+    overflow-x: hidden;
+  }
+
+  .breadcrumb {
+    gap: 6px;
+  }
+
+  .summary {
+    width: 100%;
+  }
+
+  .actions {
+    gap: 8px;
+  }
+
+  .toolbar {
+    align-items: stretch;
+  }
+
+  .search {
+    min-width: 0;
+  }
+
+  .filter,
+  .sort {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .viewToggle {
+    flex: 0 0 auto;
+  }
+
+  .tableWrap {
+    overflow-x: hidden;
+  }
+
+  .table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .table th,
+  .table td {
+    padding-inline: 8px;
+  }
+
+  .table th:nth-child(1),
+  .table td:nth-child(1) {
+    width: 62%;
+  }
+
+  .table th:nth-child(2),
+  .table td:nth-child(2) {
+    width: 28%;
+  }
+
+  .table th:nth-child(3),
+  .table td:nth-child(3),
+  .table th:nth-child(4),
+  .table td:nth-child(4) {
+    display: none;
+  }
+
+  .nameCell,
+  .status {
+    min-width: 0;
+  }
+
+  .nameCell strong,
+  .status {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

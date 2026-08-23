@@ -300,7 +300,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(breadcrumb).queryByRole('button', { name: '跳转到「主页」' })).not.toBeInTheDocument();
   });
 
-  it('StatusBar breadcrumb on the notes index is "主页 / 笔记库" when no note is auto-selected', async () => {
+  it('shares the canonical "主页 / 笔记库 / 全部笔记" path with the notes header', async () => {
     const api = createWorkspaceApiStub({ notes: [] });
     const store = createAppStore({
       api,
@@ -317,11 +317,15 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
 
     const breadcrumb = screen.getByLabelText('工作区位置');
-    // "主页"段可点（跳回主页），"笔记库"段为当前不可点
+    // 状态栏完整显示 canonical path：主页 / 笔记库 / 全部笔记。
     expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
-    const materials = within(breadcrumb).getByText('笔记库');
-    expect(materials).toHaveAttribute('aria-current', 'location');
-    expect(within(breadcrumb).queryByRole('button', { name: '跳转到「笔记库」' })).not.toBeInTheDocument();
+    expect(within(breadcrumb).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
+    expect(within(breadcrumb).getByText('全部笔记')).toHaveAttribute('aria-current', 'location');
+
+    const topLocation = screen.getByRole('navigation', { name: '当前位置' });
+    expect(topLocation).not.toHaveTextContent('主页');
+    expect(within(topLocation).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
+    expect(within(topLocation).getByRole('heading', { name: '全部笔记', level: 1 })).toHaveAttribute('aria-current', 'page');
   });
 
   it('StatusBar breadcrumb stays on the index surface when a note is selected in store state', async () => {
@@ -348,11 +352,15 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     const breadcrumb = screen.getByLabelText('工作区位置');
     // /materials 只表达当前索引 surface，不被 latent selection 污染。
     const separators = within(breadcrumb).getAllByText('/', { exact: true });
-    expect(separators).toHaveLength(1);
+    expect(separators).toHaveLength(2);
     expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
-    expect(within(breadcrumb).getByText('笔记库')).toHaveAttribute('aria-current', 'location');
+    expect(within(breadcrumb).getByText('全部笔记')).toHaveAttribute('aria-current', 'location');
     expect(within(breadcrumb).queryByText('Note')).not.toBeInTheDocument();
     expect(within(breadcrumb).queryByText('M4-02')).not.toBeInTheDocument();
+
+    const topLocation = screen.getByRole('navigation', { name: '当前位置' });
+    expect(within(topLocation).getByRole('heading', { name: '全部笔记', level: 1 })).toHaveAttribute('aria-current', 'page');
+    expect(within(topLocation).queryByText('Note')).not.toBeInTheDocument();
   });
 });
 

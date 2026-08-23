@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { pathForSurface } from './path';
 import { deriveStatusPath } from './statusPath';
 
 describe('deriveStatusPath', () => {
@@ -10,9 +11,25 @@ describe('deriveStatusPath', () => {
       onNavigateMaterials: vi.fn()
     });
 
-    expect(path.map((segment) => segment.label)).toEqual(['主页', '笔记库']);
+    expect(path.map((segment) => segment.label)).toEqual(['主页', '笔记库', '全部笔记']);
     expect(path.at(-1)?.current).toBe(true);
+    expect(path[1].onNavigate).toEqual(expect.any(Function));
     expect(path.some((segment) => segment.label.includes('M4-02'))).toBe(false);
+  });
+
+  it('projects the same canonical path for the compact notes header', () => {
+    const path = deriveStatusPath({
+      pathname: '/materials',
+      routeDomain: 'materials',
+      onNavigateHome: vi.fn(),
+      onNavigateMaterials: vi.fn()
+    });
+    const topPath = pathForSurface(path, 'notes-index');
+
+    expect(topPath.map((segment) => segment.id)).toEqual(['materials:root', 'materials:index']);
+    expect(topPath.map((segment) => segment.label)).toEqual(['笔记库', '全部笔记']);
+    expect(topPath[0]).toBe(path[1]);
+    expect(topPath[1]).toBe(path[2]);
   });
 
   it('keeps the home surface as a single current segment', () => {

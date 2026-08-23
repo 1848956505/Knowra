@@ -6,6 +6,8 @@ import {
   PlusIcon,
   SearchIcon
 } from '../../shell/icons';
+import { PathTrail } from '../../shell/PathTrail';
+import { pathForSurface, type PathSegment } from '../../shell/path';
 import styles from './NotesIndexView.module.css';
 
 interface NoteRow {
@@ -25,22 +27,29 @@ const ROWS: readonly NoteRow[] = [
   { name: '向量相似度入门', status: '已完成', location: '学习', updated: '8月14日' }
 ];
 
-export function NotesIndexView() {
+export function NotesIndexView({ path }: { path: PathSegment[] }) {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const visibleRows = ROWS.filter((row) => row.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const currentSegment = path.find((segment) => segment.current) ?? path.at(-1);
+  if (!currentSegment) return null;
+  const parentPath = pathForSurface(path, 'notes-index')
+    .filter((segment) => segment.id !== currentSegment.id);
 
   return (
     <article className={styles.page} aria-labelledby="notes-index-title">
-      <div className={styles.breadcrumb} aria-label="当前位置">
-        <span className={styles.marker} aria-hidden="true" />
-        <span>笔记库</span>
-        <span aria-hidden="true">/</span>
-        <span>全部笔记</span>
-      </div>
-
-      <header className={styles.header}>
-        <h1 id="notes-index-title">全部笔记</h1>
+      <header className={styles.header} data-header-density="compact">
+        <nav className={styles.breadcrumb} aria-label="当前位置">
+          <span className={styles.marker} aria-hidden="true" />
+          <PathTrail path={parentPath} variant="top" currentId={null} />
+          <span className={styles.breadcrumbSeparator} aria-hidden="true"> / </span>
+          <h1 id="notes-index-title" data-title-density="compact" aria-current="page">{currentSegment.label}</h1>
+          <span className={styles.summary}>
+            <strong>{visibleRows.length}</strong> 项
+            <span aria-hidden="true">·</span>
+            <span>{view === 'list' ? '列表视图' : '网格视图'} · 按最近更新排序</span>
+          </span>
+        </nav>
         <div className={styles.actions} aria-label="笔记操作">
           <button type="button" className={styles.button}>
             <ArrowUpRightIcon size={16} />
@@ -72,11 +81,6 @@ export function NotesIndexView() {
           <button type="button" className={view === 'list' ? styles.viewActive : ''} aria-label="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><NoteIcon size={16} /></button>
           <button type="button" className={view === 'grid' ? styles.viewActive : ''} aria-label="网格视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><FolderIcon size={16} /></button>
         </div>
-      </div>
-
-      <div className={styles.metaRow}>
-        <span><strong>{visibleRows.length}</strong> 项笔记</span>
-        <span>列表视图 · 按最近更新排序</span>
       </div>
 
       {view === 'list' ? (

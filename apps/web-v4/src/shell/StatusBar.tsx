@@ -8,31 +8,17 @@ import { forwardRef, type ReactNode } from 'react';
 import type { WorkspaceDataMode } from '@study-accelerator/web-core';
 import { cx } from '../components/ui/classnames';
 import { FocusIcon, PanelIcon, SidebarIcon } from './icons';
+import { PathTrail } from './PathTrail';
+import type { PathSegment } from './path';
 import styles from './StatusBar.module.css';
+
+export type { PathSegment } from './path';
 
 export interface StatusPanel {
   id: 'sidebar' | 'inspector' | 'focus';
   label: string;
   active: boolean;
   onToggle(): void;
-}
-
-/** breadcrumb 的单段：第 0 段是 root 起点，末段是当前位置。 */
-export interface PathSegment {
-  /** React key；通常 `${kind}:${id}`。 */
-  id: string;
-  /** 显示文案（如"主页"、"笔记库"、"产品设计"、"Q3 产品规划草案"）。 */
-  label: string;
-  /**
-   * 点击该段时应触发的回调。末段（当前位置）不传 → 渲染为静态文本。
-   * 父级 App 负责把这段"跳回"的真实动作（navigate / selectFolder / selectNote）注入。
-   */
-  onNavigate?(): void;
-  /**
-   * 标记为"当前位置"。一段 path 只能有一个 current；缺省时由 StatusBar 推断末段。
-   * 显式声明便于复杂场景（如同一段在多路由下都被复用为当前）。
-   */
-  current?: boolean;
 }
 
 export interface StatusBarProps {
@@ -108,52 +94,6 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
     </footer>
   );
 });
-
-/**
- * 渲染 path 数组：
- * - 中间段用 <button>，hover 时加下划线，aria-label 描述"跳转到 X"；
- * - 末段（current=true 或最后一节且无 onNavigate）用 <span>，无视觉强调，符合设计要求；
- * - 段间用 <span aria-hidden>/</span> 分隔，屏读器跳过。
- */
-function PathTrail({ path }: { path: PathSegment[] }) {
-  if (path.length === 0) return null;
-  const lastIndex = path.length - 1;
-  return (
-    <span className={styles.path}>
-      {path.map((segment, index) => {
-        const isLast = index === lastIndex;
-        const isCurrent = segment.current ?? isLast;
-        const isLink = !isCurrent && typeof segment.onNavigate === 'function';
-        return (
-          <span key={segment.id} className={styles.pathFragment}>
-            {index > 0 ? (
-              <span className={styles.pathSeparator} aria-hidden="true">
-                {' / '}
-              </span>
-            ) : null}
-            {isLink ? (
-              <button
-                type="button"
-                className={styles.pathLink}
-                onClick={segment.onNavigate}
-                aria-label={`跳转到「${segment.label}」`}
-              >
-                {segment.label}
-              </button>
-            ) : (
-              <span
-                className={styles.pathCurrent}
-                aria-current={isCurrent ? 'location' : undefined}
-              >
-                {segment.label}
-              </span>
-            )}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
 
 function describeDataMode(mode: WorkspaceDataMode) {
   switch (mode) {
