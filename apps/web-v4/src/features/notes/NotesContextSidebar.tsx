@@ -54,6 +54,7 @@ export function NotesContextSidebar() {
       <label className={styles.search}>
         <SearchIcon size={16} />
         <input
+          data-input-control="true"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="搜索标题、正文或标签…"

@@ -108,6 +108,7 @@ export function SearchCommand({
           <div className={styles.inputRow}>
             <SearchIcon size={18} />
             <input
+              data-input-control="true"
               ref={inputRef}
               type="text"
               name="global-search"

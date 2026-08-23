@@ -40,6 +40,13 @@ export const CANONICAL_SHADOW_TOKENS = [
   'shadow-focus'
 ] as const;
 
+/** 输入控件的扩展语义：阴影始终落在可见外壳，不落在原生控件。 */
+export const INPUT_SHADOW_TOKENS = [
+  'shadow-input-rest',
+  'shadow-input-focus',
+  'shadow-input-invalid'
+] as const;
+
 export const CANONICAL_MOTION_TOKENS = [
   'motion-fast',
   'motion-mid',
@@ -54,6 +61,7 @@ export const CANONICAL_FONT_TOKENS = [
 export type CanonicalColorToken = (typeof CANONICAL_COLOR_TOKENS)[number];
 export type CanonicalSizeToken = (typeof CANONICAL_SIZE_TOKENS)[number];
 export type CanonicalShadowToken = (typeof CANONICAL_SHADOW_TOKENS)[number];
+export type InputShadowToken = (typeof INPUT_SHADOW_TOKENS)[number];
 export type CanonicalMotionToken = (typeof CANONICAL_MOTION_TOKENS)[number];
 export type CanonicalFontToken = (typeof CANONICAL_FONT_TOKENS)[number];
 

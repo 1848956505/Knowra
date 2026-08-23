@@ -34,13 +34,12 @@
   padding: 0 10px;
   border: 1px solid var(--ink);
   background: var(--ink-surface);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-input-rest);
   color: var(--ink-secondary);
+  transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
 .search:focus-within {
-  /* V4-06：focus 反馈改用 --shadow-input-focus（深黑色外硬阴影），
-     与全局 input focus 反馈保持一致。 */
   box-shadow: var(--shadow-input-focus);
 }
 
@@ -52,6 +51,7 @@
   background: transparent;
   color: var(--ink);
   font-size: 12px;
+  box-shadow: none;
 }
 
 .search input::placeholder,

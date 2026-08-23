@@ -65,15 +65,18 @@ export const TextField = forwardRef<HTMLDivElement, TextFieldProps>(function Tex
           {description}
         </Text>
       ) : null}
-      {children ? (
-        children({ input: RAInput, label: Label, description: Text, error: FieldError })
-      ) : (
-        <RAInput
-          type={type}
-          placeholder={placeholder}
-          className={cx(styles.input, inputClassName)}
-        />
-      )}
+      <div className={styles.inputShell} data-input-shadow-owner="true">
+        {children ? (
+          children({ input: RAInput, label: Label, description: Text, error: FieldError })
+        ) : (
+          <RAInput
+            type={type}
+            placeholder={placeholder}
+            className={cx(styles.input, inputClassName)}
+            data-input-control="true"
+          />
+        )}
+      </div>
       {errorMessage ? (
         <FieldError className={styles.error}>{errorMessage}</FieldError>
       ) : null}

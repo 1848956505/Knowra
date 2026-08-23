@@ -90,13 +90,14 @@ export const SearchField = forwardRef<HTMLDivElement, SearchFieldProps>(function
       {...rest}
     >
       <Label className={styles.label}>{label}</Label>
-      <div className={styles.searchShell}>
+      <div className={styles.searchShell} data-input-shadow-owner="true">
         {icon ? <span className={styles.searchIcon}>{icon}</span> : null}
         <RAInput
           ref={inputRef}
           type={type}
           placeholder={placeholder}
           className={styles.input as RAInputProps['className']}
+          data-input-control="true"
         />
         {hasValue ? (
           <button

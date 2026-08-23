@@ -73,7 +73,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       {description ? (
         <Text slot="description" className={styles.description}>{description}</Text>
       ) : null}
-      <RAButton className={styles.selectTrigger}>
+      <RAButton className={styles.selectTrigger} data-input-shadow-owner="true">
         <RASelectValue className={styles.selectValue}>
           {({ selectedText, isPlaceholder }) => (
             <span data-placeholder={isPlaceholder || undefined}>{selectedText ?? placeholder}</span>

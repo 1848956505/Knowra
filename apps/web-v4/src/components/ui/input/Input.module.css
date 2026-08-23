@@ -24,20 +24,49 @@
   margin-left: 2px;
 }
 
+.inputShell {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--ink-surface);
+  box-shadow: var(--shadow-input-rest);
+  transition:
+    box-shadow var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+
+.field:focus-within .inputShell {
+  box-shadow: var(--shadow-input-focus);
+}
+
+.field[data-invalid] .inputShell {
+  border-color: var(--ink-danger);
+  background: var(--ink-danger-soft);
+  box-shadow: var(--shadow-input-invalid);
+}
+
+.field[data-invalid]:focus-within .inputShell {
+  box-shadow: var(--shadow-input-invalid);
+}
+
 .input {
   display: inline-flex;
   align-items: center;
   width: 100%;
-  height: 36px;
+  height: 100%;
   padding: 0 11px;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);
   background: var(--ink-surface);
-  border: 1px solid var(--ink);
+  border: 0;
   border-radius: 0;
-  box-shadow: var(--shadow-1);
+  box-shadow: none;
   transition:
     box-shadow var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
@@ -54,30 +83,17 @@
 }
 
 .input[data-focused] {
-  /* V4-06：focus 反馈改用 --shadow-input-focus（深黑色外硬阴影），
-     不再变蓝边框 / 蓝阴影，避免视觉上像"输入框内部有蓝线"。 */
   outline: 0;
-  box-shadow: var(--shadow-input-focus);
   background: var(--ink-surface);
 }
 
+.field[data-disabled] .inputShell,
 .input[data-disabled] {
   color: var(--ink-muted);
   background: var(--ink-sunken);
   border-color: var(--ink-panel);
   box-shadow: none;
   cursor: not-allowed;
-}
-
-.input[data-invalid] {
-  border-color: var(--ink-danger);
-  background: var(--ink-danger-soft);
-}
-
-.input[data-invalid][data-focused] {
-  /* 保持外部硬阴影（更深、更明显），不引入 inset 或蓝色。
-     用 ink-danger 颜色的硬阴影表达错误状态。 */
-  box-shadow: 3px 3px 0 var(--ink-danger);
 }
 
 .error {
@@ -109,11 +125,36 @@
   display: flex;
   align-items: center;
   width: 100%;
+  height: 36px;
+  border: 1px solid var(--ink);
+  background: var(--ink-surface);
+  box-shadow: var(--shadow-input-rest);
+  transition:
+    box-shadow var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+
+.field:focus-within .searchShell {
+  box-shadow: var(--shadow-input-focus);
+}
+
+.field[data-invalid] .searchShell {
+  border-color: var(--ink-danger);
+  background: var(--ink-danger-soft);
+  box-shadow: var(--shadow-input-invalid);
+}
+
+.field[data-invalid]:focus-within .searchShell {
+  box-shadow: var(--shadow-input-invalid);
 }
 
 .searchShell .input {
   padding-left: 34px;
   padding-right: 34px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .searchIcon {
@@ -235,7 +276,7 @@
   background: var(--ink-surface);
   border: 1px solid var(--ink);
   border-radius: 0;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-input-rest);
   cursor: pointer;
 }
 
@@ -244,10 +285,19 @@
 }
 
 .selectTrigger[data-focus-visible] {
-  /* V4-06：select trigger 与 input focus 反馈统一改用 --shadow-input-focus，
-     保留外硬阴影、不引入变蓝。 */
   outline: 0;
   box-shadow: var(--shadow-input-focus);
+}
+
+.field[data-invalid] .selectTrigger {
+  border-color: var(--ink-danger);
+  background: var(--ink-danger-soft);
+  box-shadow: var(--shadow-input-invalid);
+}
+
+.field[data-invalid] .selectTrigger[data-focus-visible],
+.field[data-invalid]:focus-within .selectTrigger {
+  box-shadow: var(--shadow-input-invalid);
 }
 
 .selectTrigger[data-disabled] {
@@ -280,7 +330,8 @@
 
 /* 字段级壳：覆盖 label/输入/错误三角 */
 @media (max-width: 767px) {
-  .input,
+  .inputShell,
+  .searchShell,
   .selectTrigger {
     min-height: 44px;
   }

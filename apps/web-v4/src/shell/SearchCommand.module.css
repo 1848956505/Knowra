@@ -15,11 +15,11 @@
   border: 1px solid var(--ink);
   background: var(--ink-bg);
   color: var(--ink);
+  box-shadow: var(--shadow-input-rest);
+  transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
 .inputRow:focus-within {
-  /* V4-06：SearchCommand 输入行 focus 改用 --shadow-input-focus（深黑色外硬阴影），
-     与全局 input focus 反馈保持一致，不再贴边出蓝色硬阴影。 */
   box-shadow: var(--shadow-input-focus);
 }
 
@@ -31,6 +31,7 @@
   color: inherit;
   font: 700 14px/1.4 var(--font-ui);
   outline: 0;
+  box-shadow: none;
 }
 
 .input::placeholder {

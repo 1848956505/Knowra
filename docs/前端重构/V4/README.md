@@ -61,9 +61,10 @@ Vitest + React Testing Library + Playwright
 5. Milkdown 可通过 `ref + effect + adapter` 管理自己的编辑器子树，但 React 负责宿主生命周期。
 6. 业务 feature/page 只调用 `components/ui` 中的 Knowra 封装，不直接散落 `react-aria-components` import。
 7. React Aria 管理通用交互、焦点、键盘和 ARIA；CSS Modules + Token 管理全部 Knowra 视觉。
-8. V4 原型与正式实现分开；本目录可以放设计证据，生产代码只能进入工作区源码目录。
-9. 每个迁移任务必须登记来源模块、目标模块、测试替代关系和 V3 退出条件。
-10. V4 达到门禁后切换默认入口并删除 V3，不保留永久双轨产品开关。
+8. 输入控件由可见外壳独占 `--shadow-input-rest` / `--shadow-input-focus` / `--shadow-input-invalid` 三态硬阴影；原生 input、textarea 不得自行绘制阴影，错误态优先于焦点态。
+9. V4 原型与正式实现分开；本目录可以放设计证据，生产代码只能进入工作区源码目录。
+10. 每个迁移任务必须登记来源模块、目标模块、测试替代关系和 V3 退出条件。
+11. V4 达到门禁后切换默认入口并删除 V3，不保留永久双轨产品开关。
 
 ## 当前结论
 
