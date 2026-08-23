@@ -23,6 +23,7 @@
   width: 12px;
   height: 12px;
   background: var(--ink-accent);
+  box-shadow: var(--shadow-badge);
 }
 
 .header {
@@ -93,14 +94,14 @@
 .primary { border-color: var(--ink-accent); background: var(--ink-accent); color: var(--ink-surface); box-shadow: var(--shadow-2); }
 
 .toolbar {
-  min-height: 64px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--ink);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .search {
@@ -123,11 +124,22 @@
 }
 .search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); box-shadow: none; }
 .filter,
-.sort { padding: 0 12px; white-space: nowrap; }
-.filter.selected { border-color: var(--ink-accent); background: var(--ink-accent-soft); color: var(--ink-accent); box-shadow: 2px 2px 0 var(--ink-accent); }
-.viewToggle { gap: 0; }
-.viewToggle button { width: 38px; padding: 0; border-left: 0; font-size: 18px; }
-.viewToggle button:first-child { border-left: 1px solid var(--ink); }
+.sort {
+  padding: 0 12px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-badge);
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+.filter:hover,
+.sort:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow-2); }
+.filter:active,
+.sort:active { transform: translate(1px, 1px); box-shadow: none; }
+.filter.selected { border-color: var(--ink-accent); background: var(--ink-accent-soft); color: var(--ink-accent); box-shadow: var(--shadow-focus); }
+.viewToggle { gap: 0; border: 1px solid var(--ink); box-shadow: var(--shadow-badge); }
+.viewToggle button { width: 38px; padding: 0; border: 0; font-size: 18px; }
+.viewToggle button + button { border-left: 1px solid var(--ink); }
+.viewToggle:focus-within { box-shadow: var(--shadow-focus); }
+.viewToggle button:focus-visible { box-shadow: none; }
 .viewToggle .viewActive { background: var(--ink-accent); color: var(--ink-surface); }
 
 .tableWrap { overflow-x: auto; border: 1px solid var(--ink); background: var(--ink-surface); }

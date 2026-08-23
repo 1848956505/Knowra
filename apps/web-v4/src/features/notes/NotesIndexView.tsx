@@ -40,7 +40,7 @@ export function NotesIndexView({ path }: { path: PathSegment[] }) {
     <article className={styles.page} aria-labelledby="notes-index-title">
       <header className={styles.header} data-header-density="compact">
         <nav className={styles.breadcrumb} aria-label="当前位置">
-          <span className={styles.marker} aria-hidden="true" />
+          <span className={styles.marker} data-testid="notes-index-marker" data-shadow-owner="marker" data-shadow-token="--shadow-badge" aria-hidden="true" />
           <PathTrail path={parentPath} variant="top" currentId={null} />
           <span className={styles.breadcrumbSeparator} aria-hidden="true"> / </span>
           <h1 id="notes-index-title" data-title-density="compact" aria-current="page">{currentSegment.label}</h1>
@@ -62,8 +62,8 @@ export function NotesIndexView({ path }: { path: PathSegment[] }) {
         </div>
       </header>
 
-      <div className={styles.toolbar} role="toolbar" aria-label="笔记索引工具栏">
-        <label className={styles.search}>
+      <div className={styles.toolbar} data-toolbar-surface="layout-only" role="toolbar" aria-label="笔记索引工具栏">
+        <label className={styles.search} data-shadow-owner="search" data-shadow-token="--shadow-input-rest">
           <SearchIcon size={17} />
           <input
             data-input-control="true"
@@ -73,11 +73,11 @@ export function NotesIndexView({ path }: { path: PathSegment[] }) {
             aria-label="搜索笔记索引"
           />
         </label>
-        <button type="button" className={`${styles.filter} ${styles.selected}`}>全部</button>
-        <button type="button" className={styles.filter}>文件夹</button>
-        <button type="button" className={styles.filter}>文稿</button>
-        <button type="button" className={styles.sort}>↕ 最近更新</button>
-        <div className={styles.viewToggle} role="group" aria-label="视图切换">
+        <button type="button" className={`${styles.filter} ${styles.selected}`} data-shadow-owner="filter" data-shadow-token="--shadow-focus">全部</button>
+        <button type="button" className={styles.filter} data-shadow-owner="filter" data-shadow-token="--shadow-badge">文件夹</button>
+        <button type="button" className={styles.filter} data-shadow-owner="filter" data-shadow-token="--shadow-badge">文稿</button>
+        <button type="button" className={styles.sort} data-shadow-owner="sort" data-shadow-token="--shadow-badge">↕ 最近更新</button>
+        <div className={styles.viewToggle} data-shadow-owner="view-group" data-shadow-token="--shadow-badge" role="group" aria-label="视图切换">
           <button type="button" className={view === 'list' ? styles.viewActive : ''} aria-label="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><NoteIcon size={16} /></button>
           <button type="button" className={view === 'grid' ? styles.viewActive : ''} aria-label="网格视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><FolderIcon size={16} /></button>
         </div>
