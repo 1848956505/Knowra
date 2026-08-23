@@ -62,7 +62,7 @@ export function NotesIndexView({ path }: { path: PathSegment[] }) {
         </div>
       </header>
 
-      <div className={styles.toolbar} data-toolbar-surface="layout-only" role="toolbar" aria-label="笔记索引工具栏">
+      <div className={styles.toolbar} data-toolbar-surface="layout-only" data-toolbar-list-gap="12px" role="toolbar" aria-label="笔记索引工具栏">
         <label className={styles.search} data-shadow-owner="search" data-shadow-token="--shadow-input-rest">
           <SearchIcon size={17} />
           <input
@@ -73,9 +73,11 @@ export function NotesIndexView({ path }: { path: PathSegment[] }) {
             aria-label="搜索笔记索引"
           />
         </label>
-        <button type="button" className={`${styles.filter} ${styles.selected}`} data-shadow-owner="filter" data-shadow-token="--shadow-focus">全部</button>
-        <button type="button" className={styles.filter} data-shadow-owner="filter" data-shadow-token="--shadow-badge">文件夹</button>
-        <button type="button" className={styles.filter} data-shadow-owner="filter" data-shadow-token="--shadow-badge">文稿</button>
+        <div className={styles.filterGroup} data-control-group="segmented" data-shadow-owner="filter-group" data-shadow-token="--shadow-badge" role="group" aria-label="类型筛选">
+          <button type="button" className={`${styles.filter} ${styles.selected}`} aria-pressed="true">全部</button>
+          <button type="button" className={styles.filter} aria-pressed="false">文件夹</button>
+          <button type="button" className={styles.filter} aria-pressed="false">文稿</button>
+        </div>
         <button type="button" className={styles.sort} data-shadow-owner="sort" data-shadow-token="--shadow-badge">↕ 最近更新</button>
         <div className={styles.viewToggle} data-shadow-owner="view-group" data-shadow-token="--shadow-badge" role="group" aria-label="视图切换">
           <button type="button" className={view === 'list' ? styles.viewActive : ''} aria-label="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><NoteIcon size={16} /></button>

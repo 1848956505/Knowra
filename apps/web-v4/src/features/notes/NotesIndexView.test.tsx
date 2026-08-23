@@ -59,17 +59,22 @@ describe('Notes index skeleton', () => {
 
     const toolbar = screen.getByRole('toolbar', { name: '笔记索引工具栏' });
     expect(toolbar).toHaveAttribute('data-toolbar-surface', 'layout-only');
+    expect(toolbar).toHaveAttribute('data-toolbar-list-gap', '12px');
     expect(toolbar).not.toHaveAttribute('data-shadow-owner');
     expect(screen.getByTestId('notes-index-marker')).toHaveAttribute('data-shadow-owner', 'marker');
     expect(screen.getByTestId('notes-index-marker')).toHaveAttribute('data-shadow-token', '--shadow-badge');
     const searchOwner = toolbar.querySelector('[data-shadow-owner="search"]');
     expect(searchOwner).toHaveAttribute('data-shadow-owner', 'search');
     expect(searchOwner).toHaveAttribute('data-shadow-token', '--shadow-input-rest');
-    const filters = within(toolbar).getAllByRole('button', { name: /^(全部|文件夹|文稿)$/ });
+    const filterGroup = within(toolbar).getByRole('group', { name: '类型筛选' });
+    expect(filterGroup).toHaveAttribute('data-control-group', 'segmented');
+    expect(filterGroup).toHaveAttribute('data-shadow-owner', 'filter-group');
+    expect(filterGroup).toHaveAttribute('data-shadow-token', '--shadow-badge');
+    const filters = within(filterGroup).getAllByRole('button', { name: /^(全部|文件夹|文稿)$/ });
     expect(filters).toHaveLength(3);
-    expect(filters.every((button) => button.getAttribute('data-shadow-owner') === 'filter')).toBe(true);
-    expect(filters.find((button) => button.textContent === '全部')).toHaveAttribute('data-shadow-token', '--shadow-focus');
-    expect(filters.find((button) => button.textContent === '文件夹')).toHaveAttribute('data-shadow-token', '--shadow-badge');
+    expect(filterGroup.children).toHaveLength(3);
+    expect(filters.every((button) => !button.hasAttribute('data-shadow-owner') && !button.hasAttribute('data-shadow-token'))).toBe(true);
+    expect(filters.find((button) => button.textContent === '全部')).toHaveAttribute('aria-pressed', 'true');
     expect(within(toolbar).getByRole('button', { name: '↕ 最近更新' })).toHaveAttribute('data-shadow-token', '--shadow-badge');
     expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-owner', 'view-group');
     expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-token', '--shadow-badge');
