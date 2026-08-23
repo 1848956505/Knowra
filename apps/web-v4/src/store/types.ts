@@ -22,6 +22,14 @@ export interface WorkspaceSlice {
   loadWorkspace(): Promise<void>;
   retryWorkspace(): Promise<void>;
   canWriteWorkspace(): boolean;
+  createNote(folderId: string | null, title: string): Promise<string>;
+  createFolder(parentId: string | null, name: string): Promise<string>;
+  renameNote(noteId: string, title: string): Promise<void>;
+  deleteNote(noteId: string): Promise<void>;
+  setNoteFavorite(noteId: string, favorite: boolean): Promise<void>;
+  renameFolder(folderId: string, name: string): Promise<void>;
+  deleteFolder(folderId: string): Promise<void>;
+  emptyRecycleBin(): Promise<number>;
 }
 
 export type WorkDomain = 'materials' | 'knowledge' | 'training' | 'learning' | 'profile';
@@ -47,7 +55,27 @@ export interface NavigationSlice {
   navigation: NavigationState;
   selectFolder(folderId: string | null): void;
   selectNote(noteId: string | null): void;
+  toggleFolder(folderId: string): void;
   setActiveWorkDomain(domain: WorkDomain): void;
+}
+
+export type NotesIndexScope = 'all' | 'recent' | 'favorites' | 'unfiled' | 'trash';
+
+export interface NotesIndexState {
+  scope: NotesIndexScope;
+  selectedTagId: string | null;
+  query: string;
+  matchingNoteIds: string[] | null;
+  searchState: 'idle' | 'loading' | 'ready' | 'error';
+}
+
+export interface NotesIndexSlice {
+  notesIndex: NotesIndexState;
+  selectNotesScope(scope: NotesIndexScope): void;
+  selectNotesFolder(folderId: string | null): void;
+  selectNotesTag(tagId: string | null): void;
+  setNotesQuery(query: string): void;
+  searchNotes(query: string): Promise<void>;
 }
 
 export interface StatusSlice {
@@ -60,4 +88,4 @@ export interface StatusSlice {
   failSave(error: unknown): void;
 }
 
-export type AppStore = WorkspaceSlice & NavigationSlice & StatusSlice;
+export type AppStore = WorkspaceSlice & NavigationSlice & NotesIndexSlice & StatusSlice;

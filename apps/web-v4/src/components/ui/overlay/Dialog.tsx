@@ -77,11 +77,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
             <header className={styles.header}>
               <RAHeading slot="title" className={styles.title}>{title}</RAHeading>
               {isDismissable ? (
-                <DialogClose aria-label="关闭对话框">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                    <path d="M2 2l10 10M12 2L2 12" />
-                  </svg>
-                </DialogClose>
+                <DialogClose aria-label="关闭对话框" />
               ) : null}
             </header>
             {description ? (

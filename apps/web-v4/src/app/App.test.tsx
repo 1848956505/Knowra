@@ -300,7 +300,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(breadcrumb).queryByRole('button', { name: '跳转到「主页」' })).not.toBeInTheDocument();
   });
 
-  it('shares the canonical "主页 / 笔记库 / 全部笔记" path with the notes header', async () => {
+  it('shares the module-local "笔记库 / 全部笔记" path with the notes header', async () => {
     const api = createWorkspaceApiStub({ notes: [] });
     const store = createAppStore({
       api,
@@ -317,8 +317,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
 
     const breadcrumb = screen.getByLabelText('工作区位置');
-    // 状态栏完整显示 canonical path：主页 / 笔记库 / 全部笔记。
-    expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
+    // 笔记库模块内不重复显示全局主页层级。
+    expect(within(breadcrumb).queryByText('主页')).not.toBeInTheDocument();
     expect(within(breadcrumb).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
     expect(within(breadcrumb).getByText('全部笔记')).toHaveAttribute('aria-current', 'location');
 
@@ -352,8 +352,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     const breadcrumb = screen.getByLabelText('工作区位置');
     // /materials 只表达当前索引 surface，不被 latent selection 污染。
     const separators = within(breadcrumb).getAllByText('/', { exact: true });
-    expect(separators).toHaveLength(2);
-    expect(within(breadcrumb).getByRole('button', { name: '跳转到「主页」' })).toBeInTheDocument();
+    expect(separators).toHaveLength(1);
+    expect(within(breadcrumb).queryByText('主页')).not.toBeInTheDocument();
     expect(within(breadcrumb).getByText('全部笔记')).toHaveAttribute('aria-current', 'location');
     expect(within(breadcrumb).queryByText('Note')).not.toBeInTheDocument();
     expect(within(breadcrumb).queryByText('M4-02')).not.toBeInTheDocument();
@@ -385,6 +385,14 @@ function createWorkspaceApiStub(overrides: { notes?: Array<Record<string, unknow
       notes,
       tags: []
     }),
-    searchNoteIds: vi.fn().mockResolvedValue([])
+    searchNoteIds: vi.fn().mockResolvedValue([]),
+    createNote: vi.fn().mockResolvedValue({ id: 'created-note' }),
+    createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
+    updateNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    deleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    setNoteFavorite: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1' }),
+    deleteFolder: vi.fn().mockResolvedValue([]),
+    emptyRecycleBin: vi.fn().mockResolvedValue({ deletedCount: 0 })
   };
 }

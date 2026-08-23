@@ -44,6 +44,19 @@ export function createNavigationSlice(set: SetStore, get: GetStore): NavigationS
         }
       });
     },
+    toggleFolder(folderId) {
+      const state = get();
+      if (!state.serverData.foldersById[folderId]) return;
+      set({
+        navigation: {
+          ...state.navigation,
+          openFolders: {
+            ...state.navigation.openFolders,
+            [folderId]: !state.navigation.openFolders[folderId]
+          }
+        }
+      });
+    },
     setActiveWorkDomain(domain) {
       const state = get();
       if (state.navigation.activeWorkDomain === domain) return;

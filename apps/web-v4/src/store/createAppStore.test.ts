@@ -86,6 +86,72 @@ describe('single V4 application store', () => {
       statusMessage: state.statusMessage
     })).not.toThrow();
   });
+
+  it('reuses the workspace API for sidebar create and recycle-bin actions', async () => {
+    const api = createApi();
+    vi.mocked(api.createNote).mockResolvedValue({
+      id: 'created-note', title: '新笔记', folderId: null, tagIds: [], internalLinks: [],
+      rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false
+    });
+    vi.mocked(api.createFolder).mockResolvedValue({
+      id: 'created-folder', name: '新文件夹', parentId: null, children: []
+    });
+    vi.mocked(api.emptyRecycleBin).mockResolvedValue({ deletedCount: 2 });
+    const store = createAppStore({
+      api,
+      cacheKey: 'workspace',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+    await store.getState().loadWorkspace();
+
+    await expect(store.getState().createNote(null, '新笔记')).resolves.toBe('created-note');
+    expect(api.createNote).toHaveBeenCalledWith(expect.objectContaining({
+      title: '新笔记',
+      folderId: null,
+      spaceId: 'space-live',
+      sourceType: 'manual'
+    }));
+
+    await expect(store.getState().createFolder(null, '新文件夹')).resolves.toBe('created-folder');
+    expect(api.createFolder).toHaveBeenCalledWith({
+      name: '新文件夹',
+      parentId: null,
+      spaceId: 'space-live'
+    });
+
+    await expect(store.getState().emptyRecycleBin()).resolves.toBe(2);
+    expect(api.emptyRecycleBin).toHaveBeenCalledWith('space-live');
+  });
+
+  it('reuses legacy mutations for folder and note context-menu actions', async () => {
+    const api = createApi();
+    const store = createAppStore({
+      api,
+      cacheKey: 'workspace-context-actions',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+    await store.getState().loadWorkspace();
+
+    await store.getState().renameFolder('folder-1', '资料归档');
+    expect(api.updateFolder).toHaveBeenCalledWith('folder-1', {
+      name: '资料归档',
+      parentId: null
+    });
+
+    await store.getState().renameNote('live-note', '重命名笔记');
+    expect(api.updateNote).toHaveBeenCalledWith('live-note', { title: '重命名笔记' });
+
+    await store.getState().setNoteFavorite('live-note', true);
+    expect(api.setNoteFavorite).toHaveBeenCalledWith('live-note', true);
+
+    store.getState().selectNote('live-note');
+    await store.getState().deleteNote('live-note');
+    expect(api.deleteNote).toHaveBeenCalledWith('live-note');
+    expect(store.getState().notesIndex.scope).toBe('trash');
+
+    await store.getState().deleteFolder('folder-1');
+    expect(api.deleteFolder).toHaveBeenCalledWith('folder-1');
+  });
 });
 
 function createApi(): WorkspaceApi {
@@ -93,14 +159,22 @@ function createApi(): WorkspaceApi {
     listKnowledgeSpaces: vi.fn().mockResolvedValue([{ id: 'space-live' }]),
     createDefaultKnowledgeSpace: vi.fn().mockResolvedValue({ id: 'space-live' }),
     loadWorkspaceResources: vi.fn().mockResolvedValue({
-      folderTree: [],
+      folderTree: [{ id: 'folder-1', name: '资料', parentId: null, children: [] }],
       notes: [{
         id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
         rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false
       }],
       tags: []
     }),
-    searchNoteIds: vi.fn().mockResolvedValue([])
+    searchNoteIds: vi.fn().mockResolvedValue([]),
+    createNote: vi.fn().mockResolvedValue({ id: 'created-note' }),
+    createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
+    updateNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    deleteNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    setNoteFavorite: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1' }),
+    deleteFolder: vi.fn().mockResolvedValue([]),
+    emptyRecycleBin: vi.fn().mockResolvedValue({ deletedCount: 0 })
   };
 }
 

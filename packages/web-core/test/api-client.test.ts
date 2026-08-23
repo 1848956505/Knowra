@@ -23,4 +23,64 @@ describe('framework-neutral API clients', () => {
     expect(resources.notes[0]?.id).toBe('note-1');
     expect(resources.tags[0]?.id).toBe('tag-1');
   });
+
+  it('creates notes and folders with the legacy knowledge API contract', async () => {
+    const requestJson = vi.fn()
+      .mockResolvedValueOnce({ data: { id: 'note-1', title: 'Created note' } })
+      .mockResolvedValueOnce({ data: { id: 'folder-1', name: 'Created folder' } });
+    const api = createWorkspaceApi({ requestJson });
+    const noteInput = { rawMarkdown: '# Created note', spaceId: 'space/1' };
+    const folderInput = { name: 'Created folder', spaceId: 'space/1' };
+
+    await expect(api.createNote(noteInput)).resolves.toMatchObject({ id: 'note-1' });
+    await expect(api.createFolder(folderInput)).resolves.toMatchObject({ id: 'folder-1' });
+
+    expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/notes', {
+      method: 'POST',
+      body: JSON.stringify(noteInput)
+    });
+    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/folders', {
+      method: 'POST',
+      body: JSON.stringify(folderInput)
+    });
+  });
+
+  it('updates and deletes tree entries with encoded legacy routes', async () => {
+    const requestJson = vi.fn()
+      .mockResolvedValueOnce({ data: { id: 'note/1' } })
+      .mockResolvedValueOnce({ data: { id: 'note/1' } })
+      .mockResolvedValueOnce({ data: { id: 'note/1' } })
+      .mockResolvedValueOnce({ data: { id: 'folder/1' } })
+      .mockResolvedValueOnce({ data: [{ id: 'folder/1' }] });
+    const api = createWorkspaceApi({ requestJson });
+
+    await api.updateNote('note/1', { title: '新名称' });
+    await api.setNoteFavorite('note/1', false);
+    await api.deleteNote('note/1');
+    await api.updateFolder('folder/1', { name: '新目录', parentId: null });
+    await api.deleteFolder('folder/1');
+
+    expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/notes/note%2F1', {
+      method: 'PATCH', body: JSON.stringify({ title: '新名称' })
+    });
+    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/notes/note%2F1/favorite', {
+      method: 'POST', body: JSON.stringify({ favorite: false })
+    });
+    expect(requestJson).toHaveBeenNthCalledWith(3, '/api/knowledge/notes/note%2F1', { method: 'DELETE' });
+    expect(requestJson).toHaveBeenNthCalledWith(4, '/api/knowledge/folders/folder%2F1', {
+      method: 'PATCH', body: JSON.stringify({ name: '新目录', parentId: null })
+    });
+    expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/folders/folder%2F1', { method: 'DELETE' });
+  });
+
+  it('empties a space recycle bin using an encoded query parameter', async () => {
+    const requestJson = vi.fn().mockResolvedValue({ data: { deleted: 2 } });
+    const result = await createWorkspaceApi({ requestJson }).emptyRecycleBin('space/1');
+
+    expect(result).toEqual({ deleted: 2 });
+    expect(requestJson).toHaveBeenCalledWith(
+      '/api/knowledge/notes/recycle-bin?spaceId=space%2F1',
+      { method: 'DELETE' }
+    );
+  });
 });

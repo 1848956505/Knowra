@@ -1,13 +1,17 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, type RenderResult } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { createEmptyWorkspaceSnapshot, type WorkspaceApi } from '@study-accelerator/web-core';
 import { AppShell } from '../../shell/AppShell';
+import { AppStoreProvider } from '../../store/AppStoreProvider';
+import { createAppStore } from '../../store/createAppStore';
 import { NotesContextSidebar } from './NotesContextSidebar';
 import { NotesIndexView } from './NotesIndexView';
 
 describe('Notes index skeleton', () => {
   it('keeps one flat workspace title and a sibling context sidebar', () => {
-    render(
+    renderWithStore(
       <AppShell
         contextSidebar={<NotesContextSidebar />}
         activeDomain="materials"
@@ -29,7 +33,7 @@ describe('Notes index skeleton', () => {
 
   it('uses a compact shared-location header with the current segment as the only h1', async () => {
     const navigateMaterials = vi.fn();
-    render(
+    renderWithStore(
       <NotesIndexView
         path={[
           { id: 'home', label: '主页' },
@@ -55,7 +59,7 @@ describe('Notes index skeleton', () => {
   });
 
   it('keeps toolbar layout-only and assigns one shadow owner to each floating control', () => {
-    render(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
+    renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
 
     const toolbar = screen.getByRole('toolbar', { name: '笔记索引工具栏' });
     expect(toolbar).toHaveAttribute('data-toolbar-surface', 'layout-only');
@@ -80,3 +84,73 @@ describe('Notes index skeleton', () => {
     expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-token', '--shadow-badge');
   });
 });
+
+function renderWithStore(ui: ReactNode): RenderResult {
+  const api = createApi();
+  const store = createAppStore({
+    api,
+    cacheKey: 'notes-index-test',
+    mockSnapshot: createEmptyWorkspaceSnapshot()
+  });
+  const folders = [
+    { id: 'folder-1', name: '产品设计', parentId: null, children: [] },
+    { id: 'folder-2', name: '学习', parentId: null, children: [] },
+    { id: 'folder-3', name: '灵感', parentId: null, children: [] }
+  ];
+  store.setState({
+    dataMode: 'api',
+    workspaceLoadState: 'ready',
+    serverData: {
+      spaces: [{ id: 'space-1' }],
+      currentSpaceId: 'space-1',
+      folderTree: folders,
+      foldersById: Object.fromEntries(folders.map((folder) => [folder.id, folder])),
+      notes: [
+        createNote('note-1', '规划草案', 'folder-1'),
+        createNote('note-2', '注意力机制', 'folder-2'),
+        createNote('note-3', '灵感记录', null)
+      ],
+      tags: []
+    }
+  });
+  return render(
+    <AppStoreProvider
+      store={store}
+      dependencies={{ api, cacheKey: 'notes-index-test', mockSnapshot: createEmptyWorkspaceSnapshot() }}
+    >
+      {ui}
+    </AppStoreProvider>
+  );
+}
+
+function createApi(): WorkspaceApi {
+  return {
+    listKnowledgeSpaces: vi.fn().mockResolvedValue([{ id: 'space-1' }]),
+    createDefaultKnowledgeSpace: vi.fn().mockResolvedValue({ id: 'space-1' }),
+    loadWorkspaceResources: vi.fn().mockResolvedValue({ folderTree: [], notes: [], tags: [] }),
+    searchNoteIds: vi.fn().mockResolvedValue([]),
+    createNote: vi.fn(),
+    createFolder: vi.fn(),
+    updateNote: vi.fn(),
+    deleteNote: vi.fn(),
+    setNoteFavorite: vi.fn(),
+    updateFolder: vi.fn(),
+    deleteFolder: vi.fn(),
+    emptyRecycleBin: vi.fn()
+  };
+}
+
+function createNote(id: string, title: string, folderId: string | null) {
+  return {
+    id,
+    title,
+    folderId,
+    tagIds: [],
+    internalLinks: [],
+    rawMarkdown: '',
+    contentLoaded: false,
+    favorite: false,
+    deleted: false,
+    updatedAt: '2026-08-23T08:00:00.000Z'
+  };
+}

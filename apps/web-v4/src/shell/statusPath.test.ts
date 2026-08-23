@@ -11,9 +11,9 @@ describe('deriveStatusPath', () => {
       onNavigateMaterials: vi.fn()
     });
 
-    expect(path.map((segment) => segment.label)).toEqual(['主页', '笔记库', '全部笔记']);
+    expect(path.map((segment) => segment.label)).toEqual(['笔记库', '全部笔记']);
     expect(path.at(-1)?.current).toBe(true);
-    expect(path[1].onNavigate).toEqual(expect.any(Function));
+    expect(path[0].onNavigate).toEqual(expect.any(Function));
     expect(path.some((segment) => segment.label.includes('M4-02'))).toBe(false);
   });
 
@@ -28,8 +28,8 @@ describe('deriveStatusPath', () => {
 
     expect(topPath.map((segment) => segment.id)).toEqual(['materials:root', 'materials:index']);
     expect(topPath.map((segment) => segment.label)).toEqual(['笔记库', '全部笔记']);
-    expect(topPath[0]).toBe(path[1]);
-    expect(topPath[1]).toBe(path[2]);
+    expect(topPath[0]).toBe(path[0]);
+    expect(topPath[1]).toBe(path[1]);
   });
 
   it('keeps the home surface as a single current segment', () => {

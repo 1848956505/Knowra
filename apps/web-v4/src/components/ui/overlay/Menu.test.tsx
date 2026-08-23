@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Button, Menu, MenuItem, MenuSeparator, MenuTrigger } from '../index';
+import { Button, Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger, PressableButton } from '../index';
+import styles from './Overlay.module.css';
 
 describe('V4-04 Menu', () => {
   it('toggles the menu between closed and open via the trigger', async () => {
@@ -41,6 +42,45 @@ describe('V4-04 Menu', () => {
 
     await user.click(screen.getByRole('button', { name: '操作' }));
     expect(await screen.findByRole('separator')).toBeInTheDocument();
+  });
+
+  it('uses a position-only popover so the menu owns the only visible panel', async () => {
+    const user = userEvent.setup();
+    render(
+      <MenuTrigger>
+        <Button>更多</Button>
+        <MenuPopover>
+          <Menu ariaLabel="单层菜单">
+            <MenuItem id="refresh">刷新</MenuItem>
+          </Menu>
+        </MenuPopover>
+      </MenuTrigger>
+    );
+
+    await user.click(screen.getByRole('button', { name: '更多' }));
+    expect(await screen.findByRole('menu')).toHaveClass(styles.menu);
+    expect(document.querySelector(`.${styles.menuPopover}`)).toBeInTheDocument();
+    expect(document.querySelector(`.${styles.popover}`)).not.toBeInTheDocument();
+  });
+
+  it('opens at a native context-menu trigger without a second panel', async () => {
+    render(
+      <MenuTrigger trigger="contextMenu">
+        <PressableButton>目录节点</PressableButton>
+        <MenuPopover placement="right top">
+          <Menu ariaLabel="目录操作">
+            <MenuItem id="rename">重命名</MenuItem>
+          </Menu>
+        </MenuPopover>
+      </MenuTrigger>
+    );
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: '目录节点' }), {
+      clientX: 120,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menu')).toHaveAttribute('aria-label', '目录操作');
+    expect(document.querySelector(`.${styles.popover}`)).not.toBeInTheDocument();
   });
 
   it('marks danger items with the data-danger attribute', async () => {

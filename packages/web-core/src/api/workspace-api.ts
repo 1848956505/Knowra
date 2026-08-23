@@ -8,11 +8,57 @@ export interface WorkspaceResources {
   tags: Tag[];
 }
 
+export interface CreateNoteInput {
+  id?: string;
+  title?: string;
+  rawMarkdown: string;
+  spaceId?: string | null;
+  folderId?: string | null;
+  status?: string;
+  sourceType?: string;
+  favorite?: boolean;
+  tagIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateFolderInput {
+  id?: string;
+  spaceId: string;
+  parentId?: string | null;
+  name: string;
+  pathCache?: string;
+}
+
+export interface UpdateNoteInput {
+  title?: string;
+  folderId?: string | null;
+}
+
+export interface UpdateFolderInput {
+  name?: string;
+  parentId?: string | null;
+}
+
+export interface EmptyRecycleBinResult {
+  deletedCount?: number;
+  deleted?: number;
+  noteIds?: string[];
+}
+
 export interface WorkspaceApi {
   loadWorkspaceResources(spaceId: string): Promise<WorkspaceResources>;
   searchNoteIds(input: { query?: string; spaceId?: string }): Promise<string[]>;
   listKnowledgeSpaces(): Promise<KnowledgeSpace[]>;
   createDefaultKnowledgeSpace(): Promise<KnowledgeSpace>;
+  createNote(input: CreateNoteInput): Promise<Note>;
+  createFolder(input: CreateFolderInput): Promise<Folder>;
+  updateNote(noteId: string, input: UpdateNoteInput): Promise<Note>;
+  deleteNote(noteId: string): Promise<Note>;
+  setNoteFavorite(noteId: string, favorite: boolean): Promise<Note>;
+  updateFolder(folderId: string, input: UpdateFolderInput): Promise<Folder>;
+  deleteFolder(folderId: string): Promise<Folder[]>;
+  emptyRecycleBin(spaceId: string): Promise<EmptyRecycleBinResult>;
 }
 
 export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }): WorkspaceApi {
@@ -49,6 +95,66 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       }));
       if (!space?.id) throw new Error('Default knowledge space response is invalid.');
       return space;
+    },
+    async createNote(input) {
+      const note = getData<Note>(await requestJson('/api/knowledge/notes', {
+        method: 'POST',
+        body: JSON.stringify(input)
+      }));
+      if (!note?.id) throw new Error('Create note response is invalid.');
+      return note;
+    },
+    async createFolder(input) {
+      const folder = getData<Folder>(await requestJson('/api/knowledge/folders', {
+        method: 'POST',
+        body: JSON.stringify(input)
+      }));
+      if (!folder?.id) throw new Error('Create folder response is invalid.');
+      return folder;
+    },
+    async updateNote(noteId, input) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}`,
+        { method: 'PATCH', body: JSON.stringify(input) }
+      ));
+      if (!note?.id) throw new Error('Update note response is invalid.');
+      return note;
+    },
+    async deleteNote(noteId) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}`,
+        { method: 'DELETE' }
+      ));
+      if (!note?.id) throw new Error('Delete note response is invalid.');
+      return note;
+    },
+    async setNoteFavorite(noteId, favorite) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/favorite`,
+        { method: 'POST', body: JSON.stringify({ favorite }) }
+      ));
+      if (!note?.id) throw new Error('Favorite note response is invalid.');
+      return note;
+    },
+    async updateFolder(folderId, input) {
+      const folder = getData<Folder>(await requestJson(
+        `/api/knowledge/folders/${encodeURIComponent(folderId)}`,
+        { method: 'PATCH', body: JSON.stringify(input) }
+      ));
+      if (!folder?.id) throw new Error('Update folder response is invalid.');
+      return folder;
+    },
+    async deleteFolder(folderId) {
+      return asArray<Folder>(getData(await requestJson(
+        `/api/knowledge/folders/${encodeURIComponent(folderId)}`,
+        { method: 'DELETE' }
+      )));
+    },
+    async emptyRecycleBin(spaceId) {
+      return getData<EmptyRecycleBinResult>(await requestJson(
+        `/api/knowledge/notes/recycle-bin?spaceId=${encodeURIComponent(spaceId ?? '')}`,
+        { method: 'DELETE' }
+      )) ?? {};
     }
   };
 }

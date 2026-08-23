@@ -104,8 +104,9 @@
 }
 
 .close {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
   display: grid;
   place-items: center;
   border: 0;
@@ -180,6 +181,22 @@
 }
 
 .popover[data-exiting] {
+  animation: popOut var(--motion-fast) var(--motion-ease);
+}
+
+/* Menu 的定位容器不绘制面板；边框、背景和阴影只由内层 .menu 持有。
+ * Select / 通用 Popover 仍使用 .popover 的单层面板外观。 */
+.menuPopover {
+  min-width: 0;
+  max-width: none;
+  outline: 0;
+}
+
+.menuPopover[data-entering] {
+  animation: popIn var(--motion-fast) var(--motion-ease);
+}
+
+.menuPopover[data-exiting] {
   animation: popOut var(--motion-fast) var(--motion-ease);
 }
 
@@ -306,6 +323,7 @@
 @media (prefers-reduced-motion: reduce) {
   .dialog,
   .popover,
+  .menuPopover,
   .menu,
   .tooltip,
   .underlay {

@@ -95,10 +95,19 @@ export function MenuTrigger({ children, ...rest }: MenuTriggerProps) {
 }
 
 /** 复用的 Popover 视觉默认值，业务代码可继续自行传入 placement / offset。 */
-export const MenuPopover = forwardRef<HTMLDivElement, Omit<RAPopoverProps, 'children'> & { children: ReactNode }>(
-  function MenuPopover({ children, ...rest }, ref) {
+export const MenuPopover = forwardRef<
+  HTMLDivElement,
+  Omit<RAPopoverProps, 'children' | 'className'> & { children: ReactNode; className?: string }
+>(
+  function MenuPopover({ children, className, ...rest }, ref) {
     return (
-      <RAPopover ref={ref} offset={4} placement="bottom start" className={styles.popover} {...rest}>
+      <RAPopover
+        ref={ref}
+        offset={4}
+        placement="bottom start"
+        className={cx(styles.menuPopover, className)}
+        {...rest}
+      >
         {children}
       </RAPopover>
     );

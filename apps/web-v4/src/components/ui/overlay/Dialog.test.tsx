@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { Button, Dialog, DialogBody, DialogFooter, DialogTrigger, TextField } from '../index';
+import styles from './Overlay.module.css';
 
 describe('V4-04 Dialog', () => {
   it('opens on trigger press and exposes accessible name and fields', async () => {
@@ -29,6 +30,23 @@ describe('V4-04 Dialog', () => {
     expect(dialog).toHaveAccessibleName('新建资料');
     expect(screen.getByLabelText('标题')).toBeInTheDocument();
     expect(screen.getByLabelText('位置')).toBeInTheDocument();
+  });
+
+  it('renders the header close action as the compact square icon control', async () => {
+    const user = userEvent.setup();
+    render(
+      <DialogTrigger>
+        <Button>打开</Button>
+        <Dialog title="紧凑关闭按钮">
+          <DialogBody>内容</DialogBody>
+        </Dialog>
+      </DialogTrigger>
+    );
+
+    await user.click(screen.getByRole('button', { name: '打开' }));
+    const closeButton = await screen.findByRole('button', { name: '关闭对话框' });
+    expect(closeButton).toHaveClass(styles.close);
+    expect(closeButton).not.toHaveAttribute('data-variant');
   });
 
   it('closes on Escape and removes the dialog from the document', async () => {

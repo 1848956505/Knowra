@@ -15,12 +15,13 @@
 //   ghost variant 是弱化的"有文字操作"；
 // - GhostIconButton 是**纯图标**专用组件，**没有变体**——视觉与左轨图标对齐。
 
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
+import { Button as RAButton, type ButtonProps as RAButtonProps } from 'react-aria-components';
 import { cx } from '../classnames';
 import styles from './GhostIconButton.module.css';
 
 export interface GhostIconButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label'> {
+  extends Omit<RAButtonProps, 'children' | 'aria-label' | 'className' | 'isDisabled'> {
   /**
    * 必填：a11y 标签。按钮内容只有图标，必须有 aria-label 才能被屏读器识别。
    * （HTML 原生 aria-label 是 string|undefined，这里收紧为 string 强制填写。）
@@ -36,6 +37,10 @@ export interface GhostIconButtonProps
    * @default 30
    */
   size?: 24 | 30 | 40;
+  /** 兼容原生按钮调用方式；内部映射为 React Aria 的 isDisabled。 */
+  disabled?: boolean;
+  className?: string;
+  title?: string;
 }
 
 export const GhostIconButton = forwardRef<HTMLButtonElement, GhostIconButtonProps>(
@@ -46,22 +51,30 @@ export const GhostIconButton = forwardRef<HTMLButtonElement, GhostIconButtonProp
       size = 30,
       disabled,
       className,
+      title,
       type,
       ...rest
     },
     ref
   ) {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    useImperativeHandle(ref, () => buttonRef.current as HTMLButtonElement);
+    useEffect(() => {
+      if (!buttonRef.current) return;
+      if (title) buttonRef.current.title = title;
+      else buttonRef.current.removeAttribute('title');
+    }, [title]);
     return (
-      <button
-        ref={ref}
+      <RAButton
+        ref={buttonRef}
         type={type ?? 'button'}
         className={cx(styles.ghost, styles[`size${size}`], className)}
-        disabled={disabled}
+        isDisabled={disabled}
         aria-label={ariaLabel}
         {...rest}
       >
         {children}
-      </button>
+      </RAButton>
     );
   }
 );

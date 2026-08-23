@@ -131,7 +131,7 @@ export function App() {
 
   // SearchCommand 数据源：每个命中项决定自己的目标路径。
   // - 动作（action:home）→ 主页（/）；
-  // - 资料/标签 → 笔记索引页（/materials），由 useSearchHits 内部 selectFolder/selectNote。
+  // - 资料/标签 → 笔记索引页（/materials），由 useSearchHits 同步索引筛选与选中项。
   const searchHits = useSearchHits({
     onSelect: (announcement, path) => {
       navigate(path);
@@ -367,7 +367,8 @@ function useSearchHits({
   const tags = useAppStore((s) => s.serverData.tags);
   const selectNote = useAppStore((s) => s.selectNote);
   const setActiveWorkDomain = useAppStore((s) => s.setActiveWorkDomain);
-  const selectFolder = useAppStore((s) => s.selectFolder);
+  const selectNotesFolder = useAppStore((s) => s.selectNotesFolder);
+  const selectNotesTag = useAppStore((s) => s.selectNotesTag);
 
   return useMemo(() => {
     const hits: SearchHit[] = [];
@@ -393,10 +394,10 @@ function useSearchHits({
         group: '资料',
         onSelect: () => {
           setActiveWorkDomain('materials');
-          if (note.folderId) selectFolder(note.folderId);
+          selectNotesFolder(note.folderId);
           selectNote(note.id);
           onSelect(
-            `资料“${note.title || '无标题'}”已选中；资料索引将在 V4-06 接入`,
+            `资料“${note.title || '无标题'}”已在索引中选中`,
             '/materials'
           );
         }
@@ -412,12 +413,13 @@ function useSearchHits({
         group: '标签',
         onSelect: () => {
           setActiveWorkDomain('materials');
-          onSelect(`标签“${tag.name}”已选中；资料索引将在 V4-06 接入`, '/materials');
+          selectNotesTag(tag.id);
+          onSelect(`已按标签“${tag.name}”筛选笔记`, '/materials');
         }
       });
     }
     return hits;
-  }, [notes, tags, selectNote, setActiveWorkDomain, selectFolder, onSelect]);
+  }, [notes, tags, selectNote, setActiveWorkDomain, selectNotesFolder, selectNotesTag, onSelect]);
 }
 
 export function AppRoot() {

@@ -1,7 +1,6 @@
 import {
   createBackendSnapshot,
   flattenFolderTree,
-  isWorkspaceWritable,
   mergeWorkspaceSnapshots,
   normalizeFolderTree,
   normalizeNotes,
@@ -47,8 +46,106 @@ export function createWorkspaceSlice(
     workspaceError: null,
     loadWorkspace: () => runLoad(false),
     retryWorkspace: () => runLoad(true),
-    canWriteWorkspace: () => isWorkspaceWritable(get().dataMode)
+    canWriteWorkspace: () => get().dataMode === 'api',
+    async createNote(folderId, title) {
+      return executeWorkspaceMutation(set, get, '正在新建笔记…', async (spaceId) => {
+        const created = await dependencies.api.createNote({
+          title,
+          rawMarkdown: '',
+          folderId,
+          spaceId,
+          sourceType: 'manual',
+          status: 'draft'
+        });
+        await runLoad(true);
+        get().selectNote(created.id);
+        return { result: created.id, message: '笔记已创建' };
+      });
+    },
+    async createFolder(parentId, name) {
+      return executeWorkspaceMutation(set, get, '正在新建文件夹…', async (spaceId) => {
+        const created = await dependencies.api.createFolder({ spaceId, parentId, name });
+        await runLoad(true);
+        get().selectNotesFolder(created.id);
+        if (parentId && !get().navigation.openFolders[parentId]) get().toggleFolder(parentId);
+        return { result: created.id, message: '文件夹已创建' };
+      });
+    },
+    async renameNote(noteId, title) {
+      return executeWorkspaceMutation(set, get, '正在重命名笔记…', async () => {
+        await dependencies.api.updateNote(noteId, { title });
+        await runLoad(true);
+        return { result: undefined, message: '笔记已重命名' };
+      });
+    },
+    async deleteNote(noteId) {
+      return executeWorkspaceMutation(set, get, '正在删除笔记…', async () => {
+        const wasSelected = get().navigation.selectedNoteId === noteId;
+        await dependencies.api.deleteNote(noteId);
+        await runLoad(true);
+        if (wasSelected) get().selectNotesScope('trash');
+        return { result: undefined, message: '笔记已移入回收站' };
+      });
+    },
+    async setNoteFavorite(noteId, favorite) {
+      return executeWorkspaceMutation(set, get, favorite ? '正在收藏笔记…' : '正在取消收藏…', async () => {
+        await dependencies.api.setNoteFavorite(noteId, favorite);
+        await runLoad(true);
+        return { result: undefined, message: favorite ? '笔记已收藏' : '已取消收藏' };
+      });
+    },
+    async renameFolder(folderId, name) {
+      return executeWorkspaceMutation(set, get, '正在重命名文件夹…', async () => {
+        const folder = get().serverData.foldersById[folderId];
+        if (!folder) throw new Error('文件夹不存在或已被删除');
+        await dependencies.api.updateFolder(folderId, { name, parentId: folder.parentId });
+        await runLoad(true);
+        return { result: undefined, message: '文件夹已重命名' };
+      });
+    },
+    async deleteFolder(folderId) {
+      return executeWorkspaceMutation(set, get, '正在删除文件夹…', async () => {
+        const parentId = get().serverData.foldersById[folderId]?.parentId ?? null;
+        await dependencies.api.deleteFolder(folderId);
+        await runLoad(true);
+        get().selectNotesFolder(parentId);
+        return { result: undefined, message: '文件夹已删除，原有笔记已移至未整理' };
+      });
+    },
+    async emptyRecycleBin() {
+      return executeWorkspaceMutation(set, get, '正在清空回收站…', async (spaceId) => {
+        const result = await dependencies.api.emptyRecycleBin(spaceId);
+        await runLoad(true);
+        get().selectNotesScope('trash');
+        const deletedCount = Number(result.deletedCount ?? result.deleted ?? 0);
+        return { result: deletedCount, message: `已彻底删除 ${deletedCount} 条笔记` };
+      });
+    }
   };
+}
+
+async function executeWorkspaceMutation<T>(
+  set: SetStore,
+  get: GetStore,
+  pendingMessage: string,
+  operation: (spaceId: string) => Promise<{ result: T; message: string }>
+): Promise<T> {
+  const state = get();
+  if (state.dataMode !== 'api') {
+    throw new Error('当前不是后端在线模式，暂时无法修改笔记库');
+  }
+  const spaceId = state.serverData.currentSpaceId;
+  if (!spaceId) throw new Error('当前没有可用的知识空间');
+  set({ saveState: 'saving', saveError: null, statusMessage: pendingMessage });
+  try {
+    const completed = await operation(spaceId);
+    set({ saveState: 'saved', saveError: null, statusMessage: completed.message });
+    return completed.result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '笔记库操作失败';
+    set({ saveState: 'error', saveError: message, statusMessage: message });
+    throw error;
+  }
 }
 
 async function loadWorkspace(dependencies: WorkspaceDependencies, set: SetStore): Promise<void> {
