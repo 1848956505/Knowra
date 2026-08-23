@@ -18,6 +18,7 @@ import {
   DialogFooter,
   DialogTrigger,
   EmptyState,
+  GhostIconButton,
   GridList,
   type GridListColumn,
   IconButton,
@@ -41,6 +42,11 @@ import {
   Tree,
   type TreeItemData
 } from '../index';
+import {
+  MoreHorizontalIcon,
+  PlusIcon,
+  SearchIcon
+} from '../../../shell/icons';
 import collectionStyles from '../collection/Collection.module.css';
 import styles from './Showcase.module.css';
 
@@ -112,6 +118,7 @@ export function ComponentShowcase() {
 
       <ColorTokens />
       <ButtonSection />
+      <IconSection />
       <InputSection />
       <OverlaySection />
       <CollectionSection rows={rows} columns={columns} folderTree={folderTree} />
@@ -224,6 +231,76 @@ function ButtonSection() {
             <Button isDisabled>默认</Button>
             <Button variant="primary" isDisabled>保存</Button>
             <Button isPending>提交中</Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function IconSection() {
+  return (
+    <section className={styles.section} aria-labelledby="section-icons">
+      <h2 id="section-icons" className={styles.sectionTitle}>GhostIconButton（ghost icon 纯图标按钮）</h2>
+      <p className={styles.sectionLead}>
+        <strong>概念</strong>：纯图标无文字按钮（"ghost icon"），视觉与左轨 ModuleRail
+        图标一致——30×30 透明方块，内部 SVG 20×20，hover 沉底加深、
+        active translate(2px, 2px) 模拟按压、focus 接 --shadow-focus。
+        与 Button/IconButton 的 ghost variant 是<strong>两件事</strong>：后者是
+        "弱化的有文字操作按钮"，本组件是"专门为纯图标操作入口"的薄封装。
+        <br />
+        <strong>适用</strong>：侧栏头部"更多 / 新建"、Tab 端点、工具条尾部、
+        任何"只有图标、无文字"的次要操作入口。
+      </p>
+      <div className={styles.grid}>
+        <div className={styles.example}>
+          <span className={styles.exampleLabel}>3 个 size（24 / 30 / 40）</span>
+          <div className={styles.row}>
+            <GhostIconButton size={24} aria-label="搜索（紧凑）">
+              <SearchIcon size={14} />
+            </GhostIconButton>
+            <GhostIconButton size={30} aria-label="更多（侧栏头部默认）">
+              <MoreHorizontalIcon size={20} />
+            </GhostIconButton>
+            <GhostIconButton size={40} aria-label="新建（与左轨 rail 一致）">
+              <PlusIcon size={20} />
+            </GhostIconButton>
+          </div>
+        </div>
+
+        <div className={styles.example}>
+          <span className={styles.exampleLabel}>状态：默认 / hover / focus / active / disabled</span>
+          <div className={styles.row}>
+            <GhostIconButton aria-label="默认">
+              <MoreHorizontalIcon size={20} />
+            </GhostIconButton>
+            <GhostIconButton aria-label="hover（鼠标停留时）" data-force-hover>
+              <MoreHorizontalIcon size={20} />
+            </GhostIconButton>
+            <GhostIconButton aria-label="focus（键盘聚焦）" data-force-focus>
+              <MoreHorizontalIcon size={20} />
+            </GhostIconButton>
+            <GhostIconButton aria-label="active（按压中）" data-force-active>
+              <MoreHorizontalIcon size={20} />
+            </GhostIconButton>
+            <GhostIconButton aria-label="disabled（未上线）" disabled>
+              <MoreHorizontalIcon size={20} />
+            </GhostIconButton>
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--ink-secondary)', margin: 0 }}>
+            hover / focus / active 用 data-* 属性强制展示（视觉演示用，非交互）。
+          </p>
+        </div>
+
+        <div className={styles.example}>
+          <span className={styles.exampleLabel}>实际用法对照</span>
+          <div className={styles.row}>
+            <GhostIconButton aria-label="新建笔记（笔记侧栏头部默认 size=30）">
+              <PlusIcon size={20} />
+            </GhostIconButton>
+            <GhostIconButton size={40} aria-label="新建笔记（与左轨 rail 等大 size=40）">
+              <PlusIcon size={20} />
+            </GhostIconButton>
           </div>
         </div>
       </div>

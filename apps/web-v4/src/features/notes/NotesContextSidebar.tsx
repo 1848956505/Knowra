@@ -9,6 +9,7 @@ import {
   SearchIcon,
   TagIcon
 } from '../../shell/icons';
+import { GhostIconButton } from '../../components/ui';
 import styles from './NotesContextSidebar.module.css';
 
 interface NavEntry {
@@ -42,12 +43,12 @@ export function NotesContextSidebar() {
     <div className={styles.sidebarContent}>
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
-        <button className={styles.moreButton} type="button" aria-label="笔记更多操作" title="更多操作">
+        <GhostIconButton aria-label="笔记更多操作" title="更多操作">
           <MoreHorizontalIcon size={20} />
-        </button>
-        <button className={styles.createButton} type="button" aria-label="新建笔记" title="新建笔记 · Ctrl/⌘ N">
+        </GhostIconButton>
+        <GhostIconButton aria-label="新建笔记" title="新建笔记 · Ctrl/⌘ N">
           <PlusIcon size={20} />
-        </button>
+        </GhostIconButton>
       </header>
 
       <label className={styles.search}>

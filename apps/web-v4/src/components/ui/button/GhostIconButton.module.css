@@ -1,0 +1,66 @@
+/* V4-06 GhostIconButton
+ *
+ * 纯图标无文字按钮（"ghost icon"）的视觉与交互。
+ * 视觉语言与左轨 ModuleRail 图标对齐：
+ * - 默认色 var(--ink-secondary)，hover 沉底 var(--ink-sunken) + 加深 var(--ink)；
+ * - active translate(2px, 2px) 模拟按压（与 rail railItem:active 一致）；
+ * - focus-visible 接入 --shadow-focus（按钮类焦点环）。
+ * - 容器无 border / 无 box-shadow，背景透明；尺寸由 size prop 决定。
+ */
+
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.size24 { width: 24px; height: 24px; }
+.size30 { width: 30px; height: 30px; }
+.size40 { width: 40px; height: 40px; }
+
+.ghost:hover:not(:disabled) {
+  background: var(--ink-sunken);
+  color: var(--ink);
+}
+
+.ghost:active:not(:disabled) {
+  transform: translate(2px, 2px);
+}
+
+.ghost:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.ghost:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+/* Showcase 演示用：force hover / focus / active 视觉态。
+ * jsdom / 静态截图场景下无法真实触发伪类，showcase 给按钮加 data-force-*
+ * 属性强制展示对应态；正常用户交互由 :hover / :focus-visible / :active 接管。
+ * attribute selector 跨 CSS Module 匹配，比 className 拼接更稳健。 */
+.ghost[data-force-hover]:not(:disabled) {
+  background: var(--ink-sunken);
+  color: var(--ink);
+}
+
+.ghost[data-force-focus] {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.ghost[data-force-active]:not(:disabled) {
+  transform: translate(2px, 2px);
+}

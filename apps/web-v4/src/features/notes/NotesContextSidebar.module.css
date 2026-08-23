@@ -20,52 +20,10 @@
   font-weight: 800;
 }
 
-/* V4-06（老公 2026-08-22）：
- * 侧栏头部 ghost icon 按钮（"更多" / "新建"）—— 纯图标无文字、无边框、无硬阴影。
- * - 尺寸 30×30，内部 SVG 20×20，与左轨 ModuleRail 图标视觉重量一致；
- * - hover 沉底加深、active translate(2px, 2px) 模拟按压，与 rail railItem 一致；
- * - focus-visible 接入 --shadow-focus 焦点环（按钮类反馈）。
- * moreButton / createButton 仅做语义命名区分（更多 vs 新建），视觉都是 ghost icon。 */
-.moreButton,
-.createButton {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-secondary);
-  cursor: pointer;
-  transition:
-    color var(--motion-fast) var(--motion-ease),
-    background var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-
-.moreButton:hover,
-.createButton:hover {
-  background: var(--ink-sunken);
-  color: var(--ink);
-}
-
-.moreButton:active,
-.createButton:active {
-  /* 与 rail 的按压反馈对齐：translate(2px, 2px) 模拟压下 2px */
-  transform: translate(2px, 2px);
-}
-
-.moreButton:focus-visible,
-.createButton:focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
-.createButton {
-  color: var(--ink);
-}
+/* V4-06（老公 2026-08-22）：侧栏头部的"更多 / 新建"两个纯图标按钮
+ * 已抽到公共组件 <GhostIconButton />，本文件不再维护局部按钮样式。
+ * 视觉契约：30×30 透明方块，内部 SVG 20×20，与左轨 ModuleRail 图标
+ * 视觉重量一致；hover 沉底加深、active translate(2px, 2px) 模拟按压。 */
 
 .search {
   min-height: 36px;
