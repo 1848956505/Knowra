@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type KeyboardEvent
+} from 'react';
 import type { Folder, Note } from '@study-accelerator/web-core';
 import styles from './NoteEditorView.module.css';
 
@@ -9,11 +16,25 @@ export interface EditorDocumentHeaderProps {
   onRenameNote(title: string): Promise<void>;
 }
 
-export function EditorDocumentHeader({ note, folder, canWrite, onRenameNote }: EditorDocumentHeaderProps) {
+export interface EditorDocumentHeaderHandle {
+  focusTitle(): void;
+}
+
+export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, EditorDocumentHeaderProps>(
+  function EditorDocumentHeader({ note, folder, canWrite, onRenameNote }, ref) {
   const [title, setTitle] = useState(note.title || '无标题笔记');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const ignoreNextBlur = useRef(false);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusTitle() {
+      if (!canWrite || pending) return;
+      titleRef.current?.focus();
+      titleRef.current?.select();
+    }
+  }), [canWrite, pending]);
 
   useEffect(() => {
     setTitle(note.title || '无标题笔记');
@@ -73,6 +94,7 @@ export function EditorDocumentHeader({ note, folder, canWrite, onRenameNote }: E
             data-invalid={error || undefined}
           >
             <textarea
+              ref={titleRef}
               className={styles.titleInput}
               value={title}
               rows={1}
@@ -109,7 +131,8 @@ export function EditorDocumentHeader({ note, folder, canWrite, onRenameNote }: E
       </div>
     </header>
   );
-}
+  }
+);
 
 function formatDate(value: string): string {
   const date = new Date(value);

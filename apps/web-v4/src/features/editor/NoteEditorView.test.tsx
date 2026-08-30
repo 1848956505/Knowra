@@ -30,8 +30,17 @@ describe('NoteEditorView skeleton', () => {
         canWrite
         onOpenNote={vi.fn()}
         onCloseNote={vi.fn()}
+        onCloseOtherNotes={vi.fn()}
+        onReorderNotes={vi.fn()}
+        onCopyTabPath={vi.fn()}
         onCreateNote={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onImportMarkdown={vi.fn()}
         onRenameNote={vi.fn()}
+        onSaveMarkdown={vi.fn()}
+        onSaveAs={vi.fn()}
+        onDeleteNote={vi.fn()}
+        onFileStatus={vi.fn()}
         onToggleFavorite={onToggleFavorite}
         onToggleInspector={onToggleInspector}
       />
@@ -41,7 +50,7 @@ describe('NoteEditorView skeleton', () => {
     expect(screen.getByRole('toolbar', { name: '笔记格式工具栏' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '注意力机制复盘', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '文档检查器' })).toBeVisible();
-    expect(screen.getByLabelText('笔记正文预览')).toHaveTextContent('# 核心结论');
+    expect(screen.getByLabelText('笔记正文编辑器')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '切换文档检查器' }));
     expect(onToggleInspector).toHaveBeenCalledOnce();
@@ -63,8 +72,17 @@ describe('NoteEditorView skeleton', () => {
         canWrite
         onOpenNote={onOpenNote}
         onCloseNote={onCloseNote}
+        onCloseOtherNotes={vi.fn()}
+        onReorderNotes={vi.fn()}
+        onCopyTabPath={vi.fn()}
         onCreateNote={onCreateNote}
+        onCreateFolder={vi.fn()}
+        onImportMarkdown={vi.fn()}
         onRenameNote={vi.fn()}
+        onSaveMarkdown={vi.fn()}
+        onSaveAs={vi.fn()}
+        onDeleteNote={vi.fn()}
+        onFileStatus={vi.fn()}
         onToggleFavorite={vi.fn()}
         onToggleInspector={vi.fn()}
       />
@@ -93,8 +111,17 @@ describe('NoteEditorView skeleton', () => {
         canWrite={false}
         onOpenNote={vi.fn()}
         onCloseNote={vi.fn()}
+        onCloseOtherNotes={vi.fn()}
+        onReorderNotes={vi.fn()}
+        onCopyTabPath={vi.fn()}
         onCreateNote={vi.fn()}
+        onCreateFolder={vi.fn()}
+        onImportMarkdown={vi.fn()}
         onRenameNote={vi.fn()}
+        onSaveMarkdown={vi.fn()}
+        onSaveAs={vi.fn()}
+        onDeleteNote={vi.fn()}
+        onFileStatus={vi.fn()}
         onToggleFavorite={vi.fn()}
         onToggleInspector={vi.fn()}
       />

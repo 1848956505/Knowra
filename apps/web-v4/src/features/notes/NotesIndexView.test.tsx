@@ -143,6 +143,8 @@ function createApi(): WorkspaceApi {
     loadWorkspaceResources: vi.fn().mockResolvedValue({ folderTree: [], notes: [], tags: [] }),
     searchNoteIds: vi.fn().mockResolvedValue([]),
     createNote: vi.fn(),
+    importMarkdownNotes: vi.fn(),
+    getNote: vi.fn(),
     createFolder: vi.fn(),
     updateNote: vi.fn(),
     deleteNote: vi.fn(),

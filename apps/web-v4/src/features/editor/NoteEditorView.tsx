@@ -1,20 +1,29 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from 'react';
-import type { Folder, Note } from '@study-accelerator/web-core';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
-  CloseIcon,
-  CodeIcon,
-  ImageIcon,
-  ListIcon,
-  MoreVerticalIcon,
-  NoteIcon,
-  PanelIcon,
-  PlusIcon,
-  QuoteIcon,
-  StarIcon,
-  TableIcon
-} from '../../shell/icons';
-import { EditorDocumentHeader } from './EditorDocumentHeader';
+  buildExportFileName,
+  type Folder,
+  type Note
+} from '@study-accelerator/web-core';
+import { downloadTextFile } from '../../browser/downloadFile';
+import { exportElementToPdf } from '../../browser/exportPdf';
+import { CloseIcon, NoteIcon } from '../../shell/icons';
+import { EditorDocumentHeader, type EditorDocumentHeaderHandle } from './EditorDocumentHeader';
+import { EditorFindReplacePanel } from './EditorFindReplacePanel';
+import { EditorTabs } from './EditorTabs';
+import { EditorToolbar } from './EditorToolbar';
+import type {
+  EditorCommand,
+  EditorCommandTarget,
+  EditorEditAction,
+  EditorFileAction,
+  EditorFindMode
+} from './editorCommands';
 import styles from './NoteEditorView.module.css';
+
+const MilkdownNoteEditor = lazy(async () => {
+  const module = await import('./MilkdownNoteEditor');
+  return { default: module.MilkdownNoteEditor };
+});
 
 export interface NoteEditorViewProps {
   note: Note | null;
@@ -25,8 +34,17 @@ export interface NoteEditorViewProps {
   favoritePending?: boolean;
   onOpenNote(noteId: string): void;
   onCloseNote(noteId: string): void;
+  onCloseOtherNotes(noteId: string): void;
+  onReorderNotes(sourceNoteId: string, targetNoteId: string): void;
+  onCopyTabPath(note: Note): void;
   onCreateNote(): void;
+  onCreateFolder(): void;
+  onImportMarkdown(): void;
   onRenameNote(title: string): Promise<void>;
+  onSaveMarkdown(markdown: string): Promise<void>;
+  onSaveAs(): Promise<void>;
+  onDeleteNote(): void;
+  onFileStatus(message: string): void;
   onToggleFavorite(): void;
   onToggleInspector(): void;
 }
@@ -40,22 +58,42 @@ export function NoteEditorView({
   favoritePending = false,
   onOpenNote,
   onCloseNote,
+  onCloseOtherNotes,
+  onReorderNotes,
+  onCopyTabPath,
   onCreateNote,
+  onCreateFolder,
+  onImportMarkdown,
   onRenameNote,
+  onSaveMarkdown,
+  onSaveAs,
+  onDeleteNote,
+  onFileStatus,
   onToggleFavorite,
   onToggleInspector
 }: NoteEditorViewProps) {
   const documentStageRef = useRef<HTMLDivElement>(null);
+  const paperRef = useRef<HTMLElement>(null);
+  const toolbarAnchorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<EditorCommandTarget>(null);
+  const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingMarkdownRef = useRef<string | null>(null);
+  const onSaveMarkdownRef = useRef(onSaveMarkdown);
+  onSaveMarkdownRef.current = onSaveMarkdown;
   const [toolbarPinned, setToolbarPinned] = useState(false);
   const [documentEdge, setDocumentEdge] = useState<number | null>(null);
+  const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
 
   useEffect(() => {
     const stage = documentStageRef.current;
+    const toolbarAnchor = toolbarAnchorRef.current;
     const toolbar = toolbarRef.current;
-    if (!stage || !toolbar) return;
+    if (!stage || !toolbarAnchor || !toolbar) return;
     const syncPinned = () => {
-      const pinned = toolbar.getBoundingClientRect().top <= stage.getBoundingClientRect().top + 1;
+      const marginTop = Number.parseFloat(window.getComputedStyle(toolbar).marginTop) || 0;
+      const pinned = toolbarAnchor.getBoundingClientRect().top + marginTop <= stage.getBoundingClientRect().top + 1;
       setToolbarPinned((current) => current === pinned ? current : pinned);
     };
     const syncDocumentEdge = () => {
@@ -81,6 +119,23 @@ export function NoteEditorView({
     };
   }, [note?.id]);
 
+  useEffect(() => () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    if (canWrite && pendingMarkdownRef.current !== null) void onSaveMarkdownRef.current(pendingMarkdownRef.current);
+    pendingMarkdownRef.current = null;
+  }, [note?.id, canWrite]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (pendingMarkdownRef.current === null) return;
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, []);
+
+  useEffect(() => setEditPanelMode(null), [note?.id]);
+
   if (!note) {
     return (
       <section className={styles.unavailable} aria-labelledby="editor-unavailable-title">
@@ -91,7 +146,95 @@ export function NoteEditorView({
     );
   }
 
-  const body = note.rawMarkdown.trim();
+  const runCommand = (command: EditorCommand) => {
+    if (!editorRef.current?.run(command)) return;
+    window.requestAnimationFrame(() => editorRef.current?.focus());
+  };
+  const handleEditAction = async (action: EditorEditAction) => {
+    if (action === 'find' || action === 'replace') {
+      setEditPanelMode(action);
+      return;
+    }
+    if (action === 'undo' || action === 'redo') {
+      runCommand(action);
+      return;
+    }
+    const result = await editorRef.current?.runEdit(action);
+    if (!result?.ok) {
+      const messages = {
+        'empty-selection': '请先选中要编辑的内容',
+        'clipboard-empty': '剪贴板为空',
+        'clipboard-denied': '无法访问剪贴板，请检查浏览器权限',
+        unsupported: '当前环境暂不支持该编辑操作'
+      } as const;
+      onFileStatus(messages[result?.reason ?? 'unsupported']);
+      return;
+    }
+    if (action === 'copy') onFileStatus('已复制所选内容');
+    if (action === 'cut') onFileStatus('已剪切所选内容');
+    if (action === 'paste') onFileStatus('已粘贴剪贴板内容');
+  };
+  const queueSave = (markdown: string) => {
+    if (!canWrite) return;
+    pendingMarkdownRef.current = markdown;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      pendingMarkdownRef.current = null;
+      void onSaveMarkdownRef.current(markdown).catch(() => undefined);
+    }, 700);
+  };
+  const saveImmediately = async () => {
+    if (!canWrite) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = null;
+    const markdown = pendingMarkdownRef.current
+      ?? editorRef.current?.getMarkdown()
+      ?? note.rawMarkdown;
+    pendingMarkdownRef.current = null;
+    await onSaveMarkdownRef.current(markdown);
+  };
+  const handleFileAction = async (action: EditorFileAction) => {
+    switch (action) {
+      case 'new-note':
+        onCreateNote();
+        return;
+      case 'new-folder':
+        onCreateFolder();
+        return;
+      case 'import-markdown':
+        onImportMarkdown();
+        return;
+      case 'save':
+        await saveImmediately();
+        return;
+      case 'save-as':
+        await saveImmediately();
+        await onSaveAs();
+        return;
+      case 'rename':
+        window.setTimeout(() => documentHeaderRef.current?.focusTitle(), 0);
+        return;
+      case 'favorite-note':
+        onToggleFavorite();
+        return;
+      case 'delete-note':
+        onDeleteNote();
+        return;
+      case 'export-markdown': {
+        const fileName = buildExportFileName(note.title, 'md');
+        const markdown = pendingMarkdownRef.current ?? editorRef.current?.getMarkdown() ?? note.rawMarkdown;
+        downloadTextFile(fileName, markdown, 'text/markdown;charset=utf-8');
+        onFileStatus(`已导出 Markdown：${fileName}`);
+        return;
+      }
+      case 'export-pdf': {
+        if (!paperRef.current) throw new Error('笔记纸张尚未准备好，无法导出 PDF');
+        onFileStatus('正在生成 PDF…');
+        const fileName = await exportElementToPdf(paperRef.current, note.title);
+        onFileStatus(`已导出 PDF：${fileName}`);
+      }
+    }
+  };
 
   return (
     <section
@@ -105,17 +248,22 @@ export function NoteEditorView({
         canWrite={canWrite}
         onOpenNote={onOpenNote}
         onCloseNote={onCloseNote}
+        onCloseOtherNotes={onCloseOtherNotes}
+        onReorderNotes={onReorderNotes}
+        onCopyTabPath={onCopyTabPath}
         onCreateNote={onCreateNote}
       />
       <div className={styles.workspace}>
         <div ref={documentStageRef} className={styles.documentStage}>
-          <article className={styles.paper} aria-labelledby="note-editor-title">
+          <article ref={paperRef} className={styles.paper} data-pdf-document="true" aria-labelledby="note-editor-title">
             <EditorDocumentHeader
+              ref={documentHeaderRef}
               note={note}
               folder={folder}
               canWrite={canWrite}
               onRenameNote={onRenameNote}
             />
+            <div ref={toolbarAnchorRef} className={styles.toolbarAnchor} aria-hidden="true" />
             <EditorToolbar
               toolbarRef={toolbarRef}
               pinned={toolbarPinned}
@@ -123,134 +271,40 @@ export function NoteEditorView({
               favoritePending={favoritePending}
               canWrite={canWrite}
               inspectorOpen={inspectorOpen}
+              onRunCommand={runCommand}
+              onEditAction={(action) => { void handleEditAction(action); }}
+              onFileAction={(action) => {
+                void handleFileAction(action).catch((error) => {
+                  onFileStatus(error instanceof Error ? error.message : '文件操作失败');
+                });
+              }}
               onToggleFavorite={onToggleFavorite}
               onToggleInspector={onToggleInspector}
             />
-            <div className={styles.content} aria-label="笔记正文预览">
-              {body ? <pre>{body}</pre> : (
-                <div className={styles.emptyBody}>
-                  <h2>开始记录</h2>
-                  <p>编辑器能力将在后续阶段接入；当前页面先建立稳定的文档工作区、工具栏与面板边界。</p>
-                </div>
-              )}
+            <EditorFindReplacePanel
+              mode={editPanelMode}
+              editor={editorRef.current}
+              onClose={() => setEditPanelMode(null)}
+              onStatus={onFileStatus}
+            />
+            <div className={styles.content} aria-label="笔记正文编辑器">
+              {note.contentLoaded ? (
+                <Suspense fallback={<div className={styles.emptyBody}><p>正在启动编辑器…</p></div>}>
+                  <MilkdownNoteEditor
+                    ref={editorRef}
+                    noteId={note.id}
+                    markdown={note.rawMarkdown}
+                    readOnly={!canWrite}
+                    onChange={queueSave}
+                  />
+                </Suspense>
+              ) : <div className={styles.emptyBody}><h2>正在加载正文…</h2><p>标题与标签页可以先使用，正文会在详情接口返回后启用。</p></div>}
             </div>
           </article>
         </div>
         <EditorInspector note={note} folder={folder} open={inspectorOpen} onClose={onToggleInspector} />
       </div>
     </section>
-  );
-}
-
-function EditorTabs({ notes, activeNoteId, canWrite, onOpenNote, onCloseNote, onCreateNote }: {
-  notes: Note[];
-  activeNoteId: string;
-  canWrite: boolean;
-  onOpenNote(noteId: string): void;
-  onCloseNote(noteId: string): void;
-  onCreateNote(): void;
-}) {
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-    if (tabs.length === 0) return;
-    const current = Math.max(0, tabs.indexOf(document.activeElement as HTMLButtonElement));
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? tabs.length - 1
-        : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-    event.preventDefault();
-    tabs[nextIndex].focus();
-    tabs[nextIndex].click();
-  }
-
-  return (
-    <div className={styles.tabs} role="tablist" aria-label="打开的笔记" onKeyDown={handleKeyDown}>
-      <div className={styles.tabScroller}>
-        {notes.map((item, index) => {
-          const selected = item.id === activeNoteId;
-          return (
-            <div key={item.id} className={styles.tabItem} data-selected={selected || undefined}>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-label={item.title || '无标题笔记'}
-                tabIndex={selected ? 0 : -1}
-                className={styles.tab}
-                title={`${String(index + 1).padStart(2, '0')} · ${item.title || '无标题笔记'}`}
-                onClick={() => onOpenNote(item.id)}
-              >
-                <span className={styles.tabNumber}>{String(index + 1).padStart(2, '0')}</span>
-                <span className={styles.tabLabel}>{item.title || '无标题笔记'}</span>
-              </button>
-              <button type="button" className={styles.tabClose} aria-label={`关闭${item.title || '无标题笔记'}`} onClick={() => onCloseNote(item.id)}>
-                <CloseIcon size={12} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      <button type="button" className={styles.addTab} aria-label="新建笔记" title={canWrite ? '新建笔记' : '后端离线时无法新建'} disabled={!canWrite} onClick={onCreateNote}>
-        <PlusIcon size={15} />
-      </button>
-    </div>
-  );
-}
-
-function EditorToolbar({ toolbarRef, pinned, favorite, favoritePending, canWrite, inspectorOpen, onToggleFavorite, onToggleInspector }: {
-  toolbarRef: Ref<HTMLDivElement>;
-  pinned: boolean;
-  favorite: boolean;
-  favoritePending: boolean;
-  canWrite: boolean;
-  inspectorOpen: boolean;
-  onToggleFavorite(): void;
-  onToggleInspector(): void;
-}) {
-  return (
-    <div ref={toolbarRef} className={styles.toolbar} data-pinned={pinned || undefined} role="toolbar" aria-label="笔记格式工具栏">
-      <div className={styles.toolbarMenus} aria-label="编辑器菜单">
-        {['文件', '段落', '编辑', '格式', '视图'].map((label) => (
-          <button key={label} type="button" title={`${label}菜单尚未接入 V4 编辑器`} disabled>{label}</button>
-        ))}
-      </div>
-      <span className={styles.separator} aria-hidden="true" />
-      <FormatButton label="一级标题"><strong>H1</strong></FormatButton>
-      <FormatButton label="二级标题"><strong>H2</strong></FormatButton>
-      <FormatButton label="三级标题"><strong>H3</strong></FormatButton>
-      <span className={styles.separator} aria-hidden="true" />
-      <FormatButton label="加粗"><strong>B</strong></FormatButton>
-      <FormatButton label="斜体"><em>I</em></FormatButton>
-      <FormatButton label="行内代码"><CodeIcon size={16} /></FormatButton>
-      <span className={styles.separator} aria-hidden="true" />
-      <FormatButton label="无序列表"><ListIcon size={16} /></FormatButton>
-      <FormatButton label="引用"><QuoteIcon size={16} /></FormatButton>
-      <FormatButton label="插入表格" optional><TableIcon size={16} /></FormatButton>
-      <FormatButton label="插入图片" optional><ImageIcon size={16} /></FormatButton>
-      <span className={styles.toolbarSpacer} />
-      <span className={styles.separator} aria-hidden="true" />
-      <button
-        type="button"
-        className={styles.plainButton}
-        aria-label={favorite ? '取消收藏当前笔记' : '收藏当前笔记'}
-        aria-pressed={favorite}
-        disabled={!canWrite || favoritePending}
-        onClick={onToggleFavorite}
-      ><StarIcon size={16} /></button>
-      <button type="button" className={styles.plainButton} aria-label="打开格式与插入菜单（尚未接入）" title="格式与插入菜单尚未接入 V4 编辑器" disabled><PlusIcon size={16} /></button>
-      <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={inspectorOpen} onClick={onToggleInspector}><PanelIcon size={16} /></button>
-      <button type="button" className={styles.plainButton} aria-label="更多文档操作（尚未接入）" title="更多文档操作尚未接入 V4 编辑器" disabled><MoreVerticalIcon size={16} /></button>
-    </div>
-  );
-}
-
-function FormatButton({ label, optional = false, children }: { label: string; optional?: boolean; children: ReactNode }) {
-  return (
-    <button type="button" className={optional ? styles.optionalTool : undefined} aria-label={`${label}（尚未接入）`} title={`${label}尚未接入 V4 编辑器`} disabled>
-      {children}
-    </button>
   );
 }
 

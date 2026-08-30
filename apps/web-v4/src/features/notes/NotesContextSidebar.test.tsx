@@ -215,6 +215,8 @@ function createApi(): WorkspaceApi {
     }),
     searchNoteIds: vi.fn().mockResolvedValue(['note-2']),
     createNote: vi.fn().mockResolvedValue({ id: 'created-note' }),
+    importMarkdownNotes: vi.fn().mockResolvedValue([{ id: 'imported-note' }]),
+    getNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
     updateNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     deleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),

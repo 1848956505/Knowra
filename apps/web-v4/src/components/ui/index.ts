@@ -10,5 +10,6 @@ export * from './input';
 export * from './overlay';
 export * from './collection';
 export * from './status';
+export * from './file';
 export * from './tokens';
 export { cx } from './classnames';

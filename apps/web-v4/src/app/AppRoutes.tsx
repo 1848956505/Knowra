@@ -4,7 +4,13 @@ import { useNavigate } from './router';
 import { useAppStore } from '../store/AppStoreProvider';
 import { LoadingState } from '../components/ui/status';
 import { NoteEditorView } from '../features/editor';
-import { CreateEntryDialog, NotesIndexView } from '../features/notes';
+import {
+  CreateEntryDialog,
+  DeleteTreeEntryDialog,
+  NotesIndexView,
+  type CreateMode
+} from '../features/notes';
+import { MarkdownImportDialog } from '../features/editor/MarkdownImportDialog';
 import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
 import type { WorkDomain } from '../store/types';
@@ -87,12 +93,22 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
   const navigation = useAppStore((state) => state.navigation);
   const selectNote = useAppStore((state) => state.selectNote);
   const closeNoteTab = useAppStore((state) => state.closeNoteTab);
+  const closeOtherNoteTabs = useAppStore((state) => state.closeOtherNoteTabs);
+  const reorderNoteTabs = useAppStore((state) => state.reorderNoteTabs);
   const createNote = useAppStore((state) => state.createNote);
+  const duplicateNote = useAppStore((state) => state.duplicateNote);
+  const importMarkdownNotes = useAppStore((state) => state.importMarkdownNotes);
   const createFolder = useAppStore((state) => state.createFolder);
   const renameNote = useAppStore((state) => state.renameNote);
+  const loadNoteContent = useAppStore((state) => state.loadNoteContent);
+  const saveNoteContent = useAppStore((state) => state.saveNoteContent);
+  const deleteNote = useAppStore((state) => state.deleteNote);
   const setNoteFavorite = useAppStore((state) => state.setNoteFavorite);
+  const setStatusMessage = useAppStore((state) => state.setStatusMessage);
   const navigate = useNavigate();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<CreateMode>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [favoritePending, setFavoritePending] = useState(false);
   const note = serverData.notes.find((item) => item.id === noteId && !item.deleted) ?? null;
   const folder = note?.folderId ? serverData.foldersById[note.folderId] ?? null : null;
@@ -103,6 +119,10 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
   useEffect(() => {
     if (note && navigation.selectedNoteId !== note.id) selectNote(note.id);
   }, [navigation.selectedNoteId, note, selectNote]);
+
+  useEffect(() => {
+    if (note && !note.contentLoaded) void loadNoteContent(note.id).catch(() => undefined);
+  }, [loadNoteContent, note]);
 
   return (
     <>
@@ -121,8 +141,30 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
           if (nextNoteId) onOpenNote(nextNoteId);
           else navigate('/materials');
         }}
-        onCreateNote={() => setCreateOpen(true)}
+        onCloseOtherNotes={(remainingNoteId) => {
+          closeOtherNoteTabs(remainingNoteId);
+          onOpenNote(remainingNoteId);
+        }}
+        onReorderNotes={reorderNoteTabs}
+        onCopyTabPath={(tabNote) => {
+          const tabFolder = tabNote.folderId ? serverData.foldersById[tabNote.folderId] : null;
+          const path = [tabFolder?.name, tabNote.title || '无标题笔记'].filter(Boolean).join(' / ');
+          void navigator.clipboard.writeText(path)
+            .then(() => setStatusMessage(`已复制路径：${path}`))
+            .catch(() => setStatusMessage('复制路径失败，请检查剪贴板权限'));
+        }}
+        onCreateNote={() => setCreateMode('note')}
+        onCreateFolder={() => setCreateMode('folder')}
+        onImportMarkdown={() => setImportOpen(true)}
         onRenameNote={(title) => note ? renameNote(note.id, title) : Promise.resolve()}
+        onSaveMarkdown={(markdown) => note ? saveNoteContent(note.id, markdown) : Promise.resolve()}
+        onSaveAs={async () => {
+          if (!note) return;
+          const createdId = await duplicateNote(note.id);
+          onOpenNote(createdId);
+        }}
+        onDeleteNote={() => setDeleteOpen(true)}
+        onFileStatus={setStatusMessage}
         onToggleFavorite={() => {
           if (!note || favoritePending) return;
           setFavoritePending(true);
@@ -132,9 +174,9 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
         }}
       />
       <CreateEntryDialog
-        mode={createOpen ? 'note' : null}
+        mode={createMode}
         parentFolderId={folder?.id ?? null}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => { if (!open) setCreateMode(null); }}
         onCreateNote={async (folderId, title) => {
           const createdId = await createNote(folderId, title);
           onOpenNote(createdId);
@@ -142,6 +184,25 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
         }}
         onCreateFolder={createFolder}
       />
+      <MarkdownImportDialog
+        isOpen={importOpen}
+        folderName={folder?.name ?? '未整理'}
+        onOpenChange={setImportOpen}
+        onImport={async (sources) => {
+          const result = await importMarkdownNotes(folder?.id ?? null, sources);
+          onOpenNote(result.firstNoteId);
+        }}
+      />
+      {note && deleteOpen ? (
+        <DeleteTreeEntryDialog
+          target={{ kind: 'note', id: note.id, name: note.title || '无标题笔记' }}
+          onClose={() => setDeleteOpen(false)}
+          onDelete={async () => {
+            await deleteNote(note.id);
+            navigate('/materials');
+          }}
+        />
+      ) : null}
     </>
   );
 }

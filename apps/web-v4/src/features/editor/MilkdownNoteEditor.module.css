@@ -1,0 +1,111 @@
+.milkdownEditor { min-height: 280px; }
+.milkdownEditor :global(.milkdown) { min-height: inherit; }
+.milkdownEditor :global(.ProseMirror) {
+  min-height: 280px;
+  padding: 0;
+  outline: none;
+  caret-color: var(--ink-accent);
+  white-space: pre-wrap;
+  color: var(--ink);
+  font: 400 16px/1.82 var(--font-body);
+}
+
+/* 正文以高对比插入光标反馈编辑焦点，不绘制覆盖整张正文的容器焦点框。 */
+.milkdownEditor :global(.ProseMirror:focus-visible) {
+  outline: 0;
+  box-shadow: none;
+}
+.milkdownEditor[data-readonly] :global(.ProseMirror) { cursor: default; }
+.milkdownEditor :global(.ProseMirror) > :first-child { margin-top: 0; }
+.milkdownEditor :global(.ProseMirror) h1 { margin: 1.2em 0 .45em; font-size: 2rem; line-height: 1.2; }
+.milkdownEditor :global(.ProseMirror) h2 { margin: 1.15em 0 .45em; font-size: 1.55rem; line-height: 1.25; }
+.milkdownEditor :global(.ProseMirror) h3 { margin: 1.1em 0 .4em; font-size: 1.25rem; line-height: 1.3; }
+.milkdownEditor :global(.ProseMirror) h4 { margin: 1em 0 .35em; font-size: inherit; line-height: inherit; }
+.milkdownEditor :global(.ProseMirror) p { margin: .75em 0; }
+.milkdownEditor :global(.ProseMirror) ul,
+.milkdownEditor :global(.ProseMirror) ol { margin: .75em 0; padding-left: 28px; }
+.milkdownEditor :global(.ProseMirror) ul { list-style: disc; }
+.milkdownEditor :global(.ProseMirror) ol { list-style: none; counter-reset: knowra-ordered-item; }
+.milkdownEditor :global(.ProseMirror) li { margin: .35em 0; padding-left: 4px; }
+.milkdownEditor :global(.ProseMirror) ul li::marker { color: var(--ink-accent); }
+.milkdownEditor :global(.ProseMirror) ol > li { position: relative; counter-increment: knowra-ordered-item; }
+.milkdownEditor :global(.ProseMirror) ol > li::before {
+  content: counter(knowra-ordered-item) '.';
+  position: absolute;
+  right: calc(100% + 8px);
+  min-width: 20px;
+  color: var(--ink-accent);
+  font: 800 .85em/1.9 var(--font-mono);
+  text-align: right;
+}
+.milkdownEditor :global(.ProseMirror) blockquote { margin: 1em 0; padding-left: 18px; border-left: 3px solid var(--ink-accent); color: var(--ink-secondary); }
+.milkdownEditor :global(.ProseMirror) code {
+  padding: .12em .38em;
+  border: 1px solid var(--ink-panel);
+  background: var(--ink-accent-soft);
+  color: var(--ink-accent-hover);
+  font: 600 .9em/1.5 var(--font-mono);
+  box-decoration-break: clone;
+}
+.milkdownEditor :global(.ProseMirror) pre {
+  position: relative;
+  margin: 1.1em 0;
+  padding: 20px 22px;
+  overflow: auto;
+  border: 1px solid var(--ink-shell);
+  border-left: 6px solid var(--ink-accent);
+  background: var(--ink-sunken);
+  color: var(--ink);
+  font: 13px/1.75 var(--font-mono);
+  white-space: pre;
+  tab-size: 2;
+  box-shadow: var(--shadow-2);
+}
+.milkdownEditor :global(.ProseMirror) pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.milkdownEditor :global(.editor-find-match) {
+  background: var(--ink-warning-soft);
+  outline: 1px solid var(--ink-warning);
+}
+.milkdownEditor :global(.editor-find-match-active) {
+  background: var(--ink-accent-soft);
+  outline: 2px solid var(--ink-accent);
+}
+.milkdownEditor :global(.ProseMirror) hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--ink-panel); }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { position: relative; margin: .35em 0; list-style: none; padding-left: 1.8em; }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .35em;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  border: 2px solid var(--ink-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task']:hover::before { border-color: var(--ink-accent); }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true']::before { border-color: var(--ink-accent); background: var(--ink-accent); }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true']::after {
+  content: '';
+  position: absolute;
+  left: .25em;
+  top: .42em;
+  width: .5em;
+  height: .25em;
+  border-left: 2px solid var(--ink-surface);
+  border-bottom: 2px solid var(--ink-surface);
+  transform: rotate(-45deg);
+}
+.milkdownEditor :global(.ProseMirror) table { width: 100%; margin: 1em 0; border-collapse: collapse; }
+.milkdownEditor :global(.ProseMirror) th,
+.milkdownEditor :global(.ProseMirror) td { padding: 7px 9px; border: 1px solid var(--ink-panel); text-align: left; }
+.milkdownEditor :global(.ProseMirror) th { background: var(--ink-sunken); }
+.milkdownEditor :global(.ProseMirror) .ProseMirror-selectednode { outline: 2px solid var(--ink-accent); }

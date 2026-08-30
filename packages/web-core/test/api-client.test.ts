@@ -45,6 +45,39 @@ describe('framework-neutral API clients', () => {
     });
   });
 
+  it('uses the single and batch Markdown import contracts', async () => {
+    const requestJson = vi.fn()
+      .mockResolvedValueOnce({ data: { id: 'import-1', title: 'One' } })
+      .mockResolvedValueOnce({ data: [{ id: 'import-2' }, { id: 'import-3' }] });
+    const api = createWorkspaceApi({ requestJson });
+    const one = [{ title: 'One', rawMarkdown: '# One' }];
+    const many = [
+      { title: 'Two', rawMarkdown: '# Two' },
+      { title: 'Three', rawMarkdown: '# Three' }
+    ];
+
+    await expect(api.importMarkdownNotes(one)).resolves.toHaveLength(1);
+    await expect(api.importMarkdownNotes(many)).resolves.toHaveLength(2);
+    expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/notes/import-markdown', {
+      method: 'POST', body: JSON.stringify(one[0])
+    });
+    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/notes/import-markdown-batch', {
+      method: 'POST', body: JSON.stringify({ items: many })
+    });
+  });
+
+  it('loads a note detail before editing its markdown body', async () => {
+    const requestJson = vi.fn().mockResolvedValue({
+      data: { id: 'note/1', title: 'Detail', rawMarkdown: '# Detail' }
+    });
+
+    await expect(createWorkspaceApi({ requestJson }).getNote('note/1')).resolves.toMatchObject({
+      id: 'note/1',
+      rawMarkdown: '# Detail'
+    });
+    expect(requestJson).toHaveBeenCalledWith('/api/knowledge/notes/note%2F1');
+  });
+
   it('updates and deletes tree entries with encoded legacy routes', async () => {
     const requestJson = vi.fn()
       .mockResolvedValueOnce({ data: { id: 'note/1' } })

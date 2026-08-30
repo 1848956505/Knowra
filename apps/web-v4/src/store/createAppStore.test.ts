@@ -176,6 +176,125 @@ describe('single V4 application store', () => {
     expect(store.getState().navigation.selectedNoteId).toBe('note-a');
     expect(store.getState().closeNoteTab('note-a')).toBeNull();
   });
+
+  it('loads note detail once and saves markdown through the existing note endpoint', async () => {
+    const api = createApi();
+    vi.mocked(api.getNote).mockResolvedValue({
+      id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+      rawMarkdown: '# 正文', contentLoaded: true, favorite: false, deleted: false
+    });
+    vi.mocked(api.updateNote).mockResolvedValue({
+      id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+      rawMarkdown: '# 已编辑', contentLoaded: true, favorite: false, deleted: false
+    });
+    const store = createAppStore({ api, cacheKey: 'workspace-editor', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+
+    await store.getState().loadNoteContent('live-note');
+    await store.getState().loadNoteContent('live-note');
+    expect(api.getNote).toHaveBeenCalledTimes(1);
+    expect(store.getState().serverData.notes[0]?.rawMarkdown).toBe('# 正文');
+
+    await store.getState().saveNoteContent('live-note', '# 已编辑');
+    expect(api.updateNote).toHaveBeenCalledWith('live-note', { rawMarkdown: '# 已编辑' });
+    expect(store.getState().serverData.notes[0]?.rawMarkdown).toBe('# 已编辑');
+  });
+
+  it('duplicates a saved note through the existing create-note endpoint', async () => {
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources)
+      .mockResolvedValueOnce({
+        folderTree: [{ id: 'folder-1', name: '资料', parentId: null, children: [] }],
+        notes: [{
+          id: 'live-note', title: 'Live', folderId: 'folder-1', tagIds: [], internalLinks: [],
+          rawMarkdown: '# 正文', contentLoaded: true, favorite: false, deleted: false,
+          sourceType: 'manual', status: 'draft'
+        }],
+        tags: []
+      })
+      .mockResolvedValueOnce({
+        folderTree: [{ id: 'folder-1', name: '资料', parentId: null, children: [] }],
+        notes: [{
+          id: 'copy-note', title: 'Live Copy', folderId: 'folder-1', tagIds: [], internalLinks: [],
+          rawMarkdown: '# 正文', contentLoaded: true, favorite: false, deleted: false
+        }],
+        tags: []
+      });
+    vi.mocked(api.createNote).mockResolvedValue({
+      id: 'copy-note', title: 'Live Copy', folderId: 'folder-1', tagIds: [], internalLinks: [],
+      rawMarkdown: '# 正文', contentLoaded: true, favorite: false, deleted: false
+    });
+    const store = createAppStore({ api, cacheKey: 'workspace-save-as', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+
+    await expect(store.getState().duplicateNote('live-note')).resolves.toBe('copy-note');
+    expect(api.createNote).toHaveBeenCalledWith({
+      title: 'Live Copy',
+      rawMarkdown: '# 正文',
+      folderId: 'folder-1',
+      spaceId: 'space-live',
+      sourceType: 'manual',
+      status: 'draft'
+    });
+    expect(store.getState().navigation.selectedNoteId).toBe('copy-note');
+  });
+
+  it('imports Markdown through the existing batch endpoint and opens the first note', async () => {
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources)
+      .mockResolvedValueOnce({
+        folderTree: [{ id: 'folder-1', name: '资料', parentId: null, children: [] }],
+        notes: [{
+          id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+          rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false
+        }],
+        tags: []
+      })
+      .mockResolvedValueOnce({
+        folderTree: [{ id: 'folder-1', name: '资料', parentId: null, children: [] }],
+        notes: [{
+          id: 'import-a', title: 'Live 2', folderId: null, tagIds: [], internalLinks: [],
+          rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false
+        }],
+        tags: []
+      });
+    vi.mocked(api.importMarkdownNotes).mockResolvedValue([
+      { id: 'import-a', title: 'Live 2', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '# Live', contentLoaded: true, favorite: false, deleted: false },
+      { id: 'import-b', title: 'Second', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '# Second', contentLoaded: true, favorite: false, deleted: false }
+    ]);
+    const store = createAppStore({ api, cacheKey: 'workspace-import', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+
+    await expect(store.getState().importMarkdownNotes(null, [
+      { fileName: 'first.md', rawMarkdown: '# Live' },
+      { fileName: 'second.md', rawMarkdown: '# Second' }
+    ])).resolves.toEqual({ firstNoteId: 'import-a', count: 2 });
+    expect(api.importMarkdownNotes).toHaveBeenCalledWith([
+      expect.objectContaining({ title: 'Live 2', rawMarkdown: '# Live', folderId: null, spaceId: 'space-live' }),
+      expect.objectContaining({ title: 'Second', rawMarkdown: '# Second', folderId: null, spaceId: 'space-live' })
+    ]);
+    expect(store.getState().navigation.selectedNoteId).toBe('import-a');
+  });
+
+  it('persists close-other and drag reorder tab actions', async () => {
+    const storage = createStorage();
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [], tags: [], notes: ['a', 'b', 'c'].map((id) => ({
+        id, title: id, folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '',
+        contentLoaded: true, favorite: false, deleted: false
+      }))
+    });
+    const store = createAppStore({ api, storage, cacheKey: 'workspace-tab-actions', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    store.getState().selectNote('b');
+    store.getState().selectNote('c');
+    store.getState().reorderNoteTabs('c', 'a');
+    expect(store.getState().navigation.openNoteTabs).toEqual(['c', 'a', 'b']);
+    store.getState().closeOtherNoteTabs('a');
+    expect(store.getState().navigation.openNoteTabs).toEqual(['a']);
+    expect(JSON.parse(storage.getItem('workspace-tab-actions') ?? '{}').openNoteTabs).toEqual(['a']);
+  });
 });
 
 function createApi(): WorkspaceApi {
@@ -192,6 +311,8 @@ function createApi(): WorkspaceApi {
     }),
     searchNoteIds: vi.fn().mockResolvedValue([]),
     createNote: vi.fn().mockResolvedValue({ id: 'created-note' }),
+    importMarkdownNotes: vi.fn().mockResolvedValue([{ id: 'imported-note' }]),
+    getNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
     createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
     updateNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
     deleteNote: vi.fn().mockResolvedValue({ id: 'live-note' }),

@@ -1,10 +1,13 @@
 import {
+  createDuplicateTitle,
+  buildMarkdownImportItems,
   createBackendSnapshot,
   flattenFolderTree,
   mergeWorkspaceSnapshots,
   normalizeFolderTree,
   normalizeNotes,
   readWorkspaceCache,
+  replaceNoteInCollection,
   writeWorkspaceCache,
   type WorkspaceDataMode,
   type WorkspaceServerData,
@@ -62,6 +65,63 @@ export function createWorkspaceSlice(
         return { result: created.id, message: '笔记已创建' };
       });
     },
+    async importMarkdownNotes(folderId, sources) {
+      return executeWorkspaceMutation(set, get, '正在导入 Markdown…', async (spaceId) => {
+        const state = get();
+        const folderNames = (folderId
+          ? state.serverData.foldersById[folderId]?.children ?? []
+          : state.serverData.folderTree).map((folder) => folder.name);
+        const noteNames = state.serverData.notes
+          .filter((note) => !note.deleted && note.folderId === folderId)
+          .map((note) => note.title);
+        const items = buildMarkdownImportItems(sources, [...folderNames, ...noteNames]).map((item) => ({
+          ...item,
+          folderId,
+          spaceId,
+          status: 'draft'
+        }));
+        const imported = await dependencies.api.importMarkdownNotes(items);
+        const firstNote = imported[0];
+        if (!firstNote?.id) throw new Error('导入结果中没有可打开的笔记');
+        await runLoad(true);
+        get().selectNote(firstNote.id);
+        return {
+          result: { firstNoteId: firstNote.id, count: imported.length },
+          message: imported.length === 1
+            ? `已导入 Markdown：${firstNote.title}`
+            : `已导入 ${imported.length} 个 Markdown 文件`
+        };
+      });
+    },
+    async duplicateNote(noteId) {
+      return executeWorkspaceMutation(set, get, '正在另存笔记…', async (spaceId) => {
+        let source = get().serverData.notes.find((note) => note.id === noteId && !note.deleted);
+        if (!source) throw new Error('笔记不存在或已被删除');
+        if (!source.contentLoaded) {
+          const loaded = await dependencies.api.getNote(noteId);
+          updateNoteInStore(set, get, dependencies, loaded, { ...source, contentLoaded: true });
+          source = get().serverData.notes.find((note) => note.id === noteId && !note.deleted) ?? source;
+        }
+        const folderNames = (source.folderId
+          ? get().serverData.foldersById[source.folderId]?.children ?? []
+          : get().serverData.folderTree).map((folder) => folder.name);
+        const noteNames = get().serverData.notes
+          .filter((note) => !note.deleted && note.folderId === source.folderId)
+          .map((note) => note.title);
+        const nextTitle = createDuplicateTitle([...folderNames, ...noteNames], source.title);
+        const created = await dependencies.api.createNote({
+          title: nextTitle,
+          rawMarkdown: source.rawMarkdown,
+          folderId: source.folderId,
+          spaceId,
+          sourceType: source.sourceType ?? 'manual',
+          status: source.status ?? 'draft'
+        });
+        await runLoad(true);
+        get().selectNote(created.id);
+        return { result: created.id, message: `已另存为：${nextTitle}` };
+      });
+    },
     async createFolder(parentId, name) {
       return executeWorkspaceMutation(set, get, '正在新建文件夹…', async (spaceId) => {
         const created = await dependencies.api.createFolder({ spaceId, parentId, name });
@@ -76,6 +136,34 @@ export function createWorkspaceSlice(
         await dependencies.api.updateNote(noteId, { title });
         await runLoad(true);
         return { result: undefined, message: '笔记已重命名' };
+      });
+    },
+    async loadNoteContent(noteId) {
+      const current = get().serverData.notes.find((note) => note.id === noteId);
+      if (!current || current.contentLoaded) return;
+      try {
+        const loaded = await dependencies.api.getNote(noteId);
+        updateNoteInStore(set, get, dependencies, loaded, {
+          ...current,
+          contentLoaded: true
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '笔记正文加载失败';
+        set({ saveError: message, statusMessage: message });
+        throw error;
+      }
+    },
+    async saveNoteContent(noteId, rawMarkdown) {
+      const current = get().serverData.notes.find((note) => note.id === noteId);
+      if (!current) throw new Error('笔记不存在或已被删除');
+      return executeWorkspaceMutation(set, get, '正在保存正文…', async () => {
+        const updated = await dependencies.api.updateNote(noteId, { rawMarkdown });
+        updateNoteInStore(set, get, dependencies, updated, {
+          ...current,
+          rawMarkdown,
+          contentLoaded: true
+        });
+        return { result: undefined, message: '正文已保存' };
       });
     },
     async deleteNote(noteId) {
@@ -122,6 +210,27 @@ export function createWorkspaceSlice(
       });
     }
   };
+}
+
+function updateNoteInStore(
+  set: SetStore,
+  get: GetStore,
+  dependencies: WorkspaceDependencies,
+  updatedNote: unknown,
+  fallbackFields: Record<string, unknown>
+): void {
+  const state = get();
+  const notes = replaceNoteInCollection(state.serverData.notes, updatedNote, fallbackFields);
+  set({ serverData: { ...state.serverData, notes } });
+  const nextState = get();
+  writeWorkspaceCache(dependencies.storage, dependencies.cacheKey, createBackendSnapshot({
+    spaces: nextState.serverData.spaces,
+    currentSpaceId: nextState.serverData.currentSpaceId,
+    folderTree: nextState.serverData.folderTree,
+    tags: nextState.serverData.tags,
+    allNotes: notes,
+    ...nextState.navigation
+  }));
 }
 
 async function executeWorkspaceMutation<T>(

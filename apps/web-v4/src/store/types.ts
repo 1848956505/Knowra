@@ -23,8 +23,15 @@ export interface WorkspaceSlice {
   retryWorkspace(): Promise<void>;
   canWriteWorkspace(): boolean;
   createNote(folderId: string | null, title: string): Promise<string>;
+  importMarkdownNotes(
+    folderId: string | null,
+    sources: Array<{ fileName: string; rawMarkdown: string }>
+  ): Promise<{ firstNoteId: string; count: number }>;
+  duplicateNote(noteId: string): Promise<string>;
   createFolder(parentId: string | null, name: string): Promise<string>;
   renameNote(noteId: string, title: string): Promise<void>;
+  loadNoteContent(noteId: string): Promise<void>;
+  saveNoteContent(noteId: string, rawMarkdown: string): Promise<void>;
   deleteNote(noteId: string): Promise<void>;
   setNoteFavorite(noteId: string, favorite: boolean): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
@@ -56,6 +63,8 @@ export interface NavigationSlice {
   selectFolder(folderId: string | null): void;
   selectNote(noteId: string | null): void;
   closeNoteTab(noteId: string): string | null;
+  closeOtherNoteTabs(noteId: string): void;
+  reorderNoteTabs(sourceNoteId: string, targetNoteId: string): void;
   toggleFolder(folderId: string): void;
   setActiveWorkDomain(domain: WorkDomain): void;
 }

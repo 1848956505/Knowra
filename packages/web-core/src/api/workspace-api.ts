@@ -1,4 +1,4 @@
-import { asArray, getData } from './response.js';
+import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
 import type { Folder, KnowledgeSpace, Note, Tag } from '../workspace/types.js';
 
@@ -33,6 +33,7 @@ export interface CreateFolderInput {
 export interface UpdateNoteInput {
   title?: string;
   folderId?: string | null;
+  rawMarkdown?: string;
 }
 
 export interface UpdateFolderInput {
@@ -52,6 +53,8 @@ export interface WorkspaceApi {
   listKnowledgeSpaces(): Promise<KnowledgeSpace[]>;
   createDefaultKnowledgeSpace(): Promise<KnowledgeSpace>;
   createNote(input: CreateNoteInput): Promise<Note>;
+  importMarkdownNotes(items: CreateNoteInput[]): Promise<Note[]>;
+  getNote(noteId: string): Promise<Note>;
   createFolder(input: CreateFolderInput): Promise<Folder>;
   updateNote(noteId: string, input: UpdateNoteInput): Promise<Note>;
   deleteNote(noteId: string): Promise<Note>;
@@ -102,6 +105,27 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
         body: JSON.stringify(input)
       }));
       if (!note?.id) throw new Error('Create note response is invalid.');
+      return note;
+    },
+    async importMarkdownNotes(items) {
+      const path = items.length === 1
+        ? '/api/knowledge/notes/import-markdown'
+        : '/api/knowledge/notes/import-markdown-batch';
+      const body = items.length === 1 ? items[0] : { items };
+      const notes = asItems<Note>(getData(await requestJson(path, {
+        method: 'POST',
+        body: JSON.stringify(body)
+      })));
+      if (notes.length === 0 || notes.some((note) => !note?.id)) {
+        throw new Error('Import Markdown response is invalid.');
+      }
+      return notes;
+    },
+    async getNote(noteId) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}`
+      ));
+      if (!note?.id) throw new Error('Note detail response is invalid.');
       return note;
     },
     async createFolder(input) {

@@ -8,7 +8,7 @@ import type { AppStore, WorkspaceDependencies } from './types';
 export function createAppStore(dependencies: WorkspaceDependencies) {
   return createStore<AppStore>()((set, get) => ({
     ...createStatusSlice(set),
-    ...createNavigationSlice(set, get),
+    ...createNavigationSlice(set, get, dependencies),
     ...createNotesIndexSlice(set, get, dependencies.api.searchNoteIds),
     ...createWorkspaceSlice(set, get, dependencies)
   }));
