@@ -6,6 +6,8 @@ export interface StatusPathInput {
   routeDomain: WorkDomain;
   onNavigateHome(): void;
   onNavigateMaterials(): void;
+  /** 笔记编辑路由的当前标题；索引页不传。 */
+  noteTitle?: string | null;
 }
 
 /**
@@ -19,7 +21,8 @@ export function deriveStatusPath({
   pathname,
   routeDomain,
   onNavigateHome,
-  onNavigateMaterials
+  onNavigateMaterials,
+  noteTitle
 }: StatusPathInput): PathSegment[] {
   const home: PathSegment = { id: 'home', label: '主页', onNavigate: onNavigateHome };
 
@@ -32,6 +35,12 @@ export function deriveStatusPath({
   }
 
   if (routeDomain === 'materials') {
+    if (pathname.startsWith('/materials/notes/')) {
+      return [
+        { id: 'materials:root', label: '笔记库', onNavigate: onNavigateMaterials },
+        { id: 'materials:note', label: noteTitle || '笔记', current: true }
+      ];
+    }
     return [
       { id: 'materials:root', label: '笔记库', onNavigate: onNavigateMaterials },
       { id: 'materials:index', label: '全部笔记', current: true }

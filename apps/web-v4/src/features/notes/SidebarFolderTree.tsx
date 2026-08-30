@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Folder, Note } from '@study-accelerator/web-core';
 import {
   Menu,
@@ -8,7 +8,7 @@ import {
   MenuTrigger,
   PressableButton
 } from '../../components/ui';
-import { ArrowRightIcon, FolderIcon, NoteIcon } from '../../shell/icons';
+import { ChevronRightIcon, FolderIcon, NoteIcon } from '../../shell/icons';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { countFolderNotes, folderMatchesQuery } from './notesIndexModel';
 import styles from './NotesContextSidebar.module.css';
@@ -28,9 +28,10 @@ interface SidebarFolderTreeProps {
   query: string;
   canWrite: boolean;
   onAction(action: SidebarTreeAction): void;
+  onOpenNote?(noteId: string): void;
 }
 
-export function SidebarFolderTree({ folders, notes, query, canWrite, onAction }: SidebarFolderTreeProps) {
+export function SidebarFolderTree({ folders, notes, query, canWrite, onAction, onOpenNote }: SidebarFolderTreeProps) {
   const visibleFolders = folders.filter((folder) => folderMatchesQuery(folder, notes, query));
   if (visibleFolders.length === 0) {
     const isEmptyLibrary = folders.length === 0 && !query.trim();
@@ -51,19 +52,21 @@ export function SidebarFolderTree({ folders, notes, query, canWrite, onAction }:
           level={1}
           canWrite={canWrite}
           onAction={onAction}
+          onOpenNote={onOpenNote}
         />
       ))}
     </div>
   );
 }
 
-function FolderBranch({ folder, notes, query, level, canWrite, onAction }: {
+function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenNote }: {
   folder: Folder;
   notes: Note[];
   query: string;
   level: number;
   canWrite: boolean;
   onAction(action: SidebarTreeAction): void;
+  onOpenNote?(noteId: string): void;
 }) {
   const isOpen = useAppStore((state) => Boolean(state.navigation.openFolders[folder.id]));
   const isSelected = useAppStore((state) => state.navigation.selectedFolderId === folder.id);
@@ -71,7 +74,6 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction }: {
   const toggleFolder = useAppStore((state) => state.toggleFolder);
   const selectFolder = useAppStore((state) => state.selectNotesFolder);
   const selectNote = useAppStore((state) => state.selectNote);
-  const doubleClickStartOpen = useRef(false);
   const directNotes = notes.filter((note) => !note.deleted && note.folderId === folder.id);
   const childFolders = folder.children.filter((child) => folderMatchesQuery(child, notes, query));
   const canExpand = childFolders.length > 0 || directNotes.length > 0;
@@ -89,7 +91,7 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction }: {
           data-folder-toggle={folder.id}
           onClick={() => toggleFolder(folder.id)}
         >
-          <ArrowRightIcon size={14} data-open={expanded || undefined} />
+          <ChevronRightIcon size={14} data-open={expanded || undefined} />
         </button>
         <FolderContextMenu folder={folder} canWrite={canWrite} onAction={onAction}>
           <PressableButton
@@ -97,15 +99,9 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction }: {
             className={styles.folderRow}
             data-folder-id={folder.id}
             aria-current={isSelected ? 'page' : undefined}
-            onClick={(event) => {
-              if (event.detail === 1) doubleClickStartOpen.current = isOpen;
+            onClick={() => {
               selectFolder(folder.id);
-              if (canExpand && !isOpen) toggleFolder(folder.id);
-            }}
-            onDoubleClick={() => {
-              selectFolder(folder.id);
-              const shouldBeOpen = !doubleClickStartOpen.current;
-              if (canExpand && isOpen !== shouldBeOpen) toggleFolder(folder.id);
+              if (canExpand) toggleFolder(folder.id);
             }}
           >
             <FolderIcon size={16} />
@@ -125,6 +121,7 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction }: {
               level={level + 1}
               canWrite={canWrite}
               onAction={onAction}
+              onOpenNote={onOpenNote}
             />
           ))}
           {directNotes
@@ -136,7 +133,10 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction }: {
                   className={styles.documentRow}
                   data-note-id={note.id}
                   aria-current={selectedNoteId === note.id ? 'page' : undefined}
-                  onClick={() => selectNote(note.id)}
+                  onClick={() => {
+                    selectNote(note.id);
+                    onOpenNote?.(note.id);
+                  }}
                 >
                   <NoteIcon size={15} />
                   <span>{note.title || '未命名笔记'}</span>

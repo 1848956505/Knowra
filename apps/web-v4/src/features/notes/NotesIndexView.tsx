@@ -25,13 +25,20 @@ const SORT_LABELS: Record<SortMode, string> = {
   'name-asc': '名称排序'
 };
 
-export function NotesIndexView({ path }: { path: PathSegment[] }) {
+export function NotesIndexView({
+  path,
+  onOpenNote
+}: {
+  path: PathSegment[];
+  onOpenNote?(noteId: string): void;
+}) {
   const serverData = useAppStore((state) => state.serverData);
   const notesIndex = useAppStore((state) => state.notesIndex);
   const navigation = useAppStore((state) => state.navigation);
   const setNotesQuery = useAppStore((state) => state.setNotesQuery);
   const selectFolder = useAppStore((state) => state.selectNotesFolder);
   const selectNote = useAppStore((state) => state.selectNote);
+  const openNote = onOpenNote ?? selectNote;
   const createNote = useAppStore((state) => state.createNote);
   const createFolder = useAppStore((state) => state.createFolder);
   const canWrite = useAppStore((state) => state.canWriteWorkspace());
@@ -124,10 +131,10 @@ export function NotesIndexView({ path }: { path: PathSegment[] }) {
       {items.length === 0 ? (
         <div className={styles.empty} role="status">没有符合当前筛选条件的笔记或文件夹</div>
       ) : view === 'list' ? (
-        <NotesTable items={items} selectedNoteId={navigation.selectedNoteId} onSelectFolder={selectFolder} onSelectNote={selectNote} foldersById={serverData.foldersById} />
+        <NotesTable items={items} selectedNoteId={navigation.selectedNoteId} onSelectFolder={selectFolder} onSelectNote={openNote} foldersById={serverData.foldersById} />
       ) : (
         <div className={styles.grid} aria-label="笔记网格视图">
-          {items.map((item) => <IndexTile key={itemKey(item)} item={item} onSelectFolder={selectFolder} onSelectNote={selectNote} />)}
+          {items.map((item) => <IndexTile key={itemKey(item)} item={item} onSelectFolder={selectFolder} onSelectNote={openNote} />)}
         </div>
       )}
 

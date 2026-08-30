@@ -42,6 +42,8 @@ export interface AppShellProps {
   mobileTabs?: boolean;
   /** live region 用于无障碍宣告。 */
   liveAnnouncement?: string;
+  /** 编辑器等沉浸式页面由自身管理内边距和滚动边界。 */
+  stageMode?: 'default' | 'workspace';
 }
 
 export function AppShell({
@@ -58,7 +60,8 @@ export function AppShell({
   isShowcaseActive,
   statusbar,
   mobileTabs,
-  liveAnnouncement
+  liveAnnouncement,
+  stageMode = 'default'
 }: AppShellProps) {
   return (
     <div className={cx(styles.shell, contextSidebar ? styles.shellWithSidebar : undefined)}>
@@ -84,7 +87,11 @@ export function AppShell({
         </aside>
       ) : null}
 
-      <main id="feature-stage" className={cx(styles.stage)} tabIndex={-1}>
+      <main
+        id="feature-stage"
+        className={cx(styles.stage, stageMode === 'workspace' ? styles.workspaceStage : undefined)}
+        tabIndex={-1}
+      >
         {children}
       </main>
 

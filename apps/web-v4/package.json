@@ -9,6 +9,7 @@
     "prebuild": "npm run build -w @study-accelerator/web-core",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "pretypecheck": "npm run build -w @study-accelerator/web-core",
     "typecheck": "tsc --noEmit",
     "check:boundaries": "node ../../scripts/check-v4-boundaries.mjs",
     "pretest": "npm run build -w @study-accelerator/web-core",

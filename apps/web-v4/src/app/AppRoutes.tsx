@@ -1,0 +1,195 @@
+import { lazy, Suspense, useEffect, useState } from 'react';
+import type { PathSegment } from '../shell/path';
+import { useNavigate } from './router';
+import { useAppStore } from '../store/AppStoreProvider';
+import { LoadingState } from '../components/ui/status';
+import { NoteEditorView } from '../features/editor';
+import { CreateEntryDialog, NotesIndexView } from '../features/notes';
+import { HomeView } from '../views/HomeView';
+import { PlaceholderView } from '../views/PlaceholderView';
+import type { WorkDomain } from '../store/types';
+
+const ComponentShowcase = lazy(async () => {
+  const module = await import('../components/ui/showcase');
+  return { default: module.ComponentShowcase };
+});
+
+export interface DomainDescriptor {
+  title: string;
+  description: string;
+}
+
+export const DOMAIN_INFO: Record<WorkDomain, DomainDescriptor> = {
+  materials: { title: '资料工作区', description: '按目录组织 Markdown 笔记，用标签串联主题。' },
+  knowledge: { title: '知识库', description: '知识单元与学习目标管理（V4-08 接入）。' },
+  training: { title: '试题库', description: '题目库与考试场景（V4-08 接入）。' },
+  learning: { title: '执行', description: '待办、打卡与习惯追踪（V4-08 接入）。' },
+  profile: { title: '我的', description: '工作区与个人设置。' }
+};
+
+export interface AppRoutesProps {
+  pathname: string;
+  routeDomain: WorkDomain;
+  statusPath: PathSegment[];
+  editorNoteId: string | null;
+  inspectorOpen: boolean;
+  canWrite: boolean;
+  onRetry(): Promise<void>;
+  onToggleInspector(): void;
+  onOpenNote(noteId: string): void;
+  onSelectNote(noteId: string, title: string): void;
+  onOpenMaterials(): void;
+  onOpenSearch(): void;
+  onOpenCreate(): void;
+  onOpenSchedule(): void;
+}
+
+export function AppRoutes(props: AppRoutesProps) {
+  if (props.pathname === '/showcase') {
+    return <Suspense fallback={<LoadingState label="正在加载组件展台…" />}><ComponentShowcase /></Suspense>;
+  }
+  if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;
+  if (props.pathname === '/materials') {
+    return <NotesIndexView path={props.statusPath} onOpenNote={props.onOpenNote} />;
+  }
+  if (props.editorNoteId) {
+    return (
+      <NoteEditorStage
+        noteId={props.editorNoteId}
+        inspectorOpen={props.inspectorOpen}
+        canWrite={props.canWrite}
+        onToggleInspector={props.onToggleInspector}
+        onOpenNote={props.onOpenNote}
+      />
+    );
+  }
+  return (
+    <HomeStage
+      onRetry={props.onRetry}
+      canWrite={props.canWrite}
+      onSelectNote={props.onSelectNote}
+      onOpenMaterials={props.onOpenMaterials}
+      onOpenSearch={props.onOpenSearch}
+      onOpenCreate={props.onOpenCreate}
+      onOpenSchedule={props.onOpenSchedule}
+    />
+  );
+}
+
+function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, onOpenNote }: {
+  noteId: string;
+  inspectorOpen: boolean;
+  canWrite: boolean;
+  onToggleInspector(): void;
+  onOpenNote(noteId: string): void;
+}) {
+  const serverData = useAppStore((state) => state.serverData);
+  const navigation = useAppStore((state) => state.navigation);
+  const selectNote = useAppStore((state) => state.selectNote);
+  const closeNoteTab = useAppStore((state) => state.closeNoteTab);
+  const createNote = useAppStore((state) => state.createNote);
+  const createFolder = useAppStore((state) => state.createFolder);
+  const renameNote = useAppStore((state) => state.renameNote);
+  const setNoteFavorite = useAppStore((state) => state.setNoteFavorite);
+  const navigate = useNavigate();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [favoritePending, setFavoritePending] = useState(false);
+  const note = serverData.notes.find((item) => item.id === noteId && !item.deleted) ?? null;
+  const folder = note?.folderId ? serverData.foldersById[note.folderId] ?? null : null;
+  const openNotes = navigation.openNoteTabs
+    .map((id) => serverData.notes.find((item) => item.id === id && !item.deleted))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  useEffect(() => {
+    if (note && navigation.selectedNoteId !== note.id) selectNote(note.id);
+  }, [navigation.selectedNoteId, note, selectNote]);
+
+  return (
+    <>
+      <NoteEditorView
+        note={note}
+        folder={folder}
+        openNotes={openNotes}
+        inspectorOpen={inspectorOpen}
+        canWrite={canWrite}
+        favoritePending={favoritePending}
+        onToggleInspector={onToggleInspector}
+        onOpenNote={onOpenNote}
+        onCloseNote={(closingNoteId) => {
+          const nextNoteId = closeNoteTab(closingNoteId);
+          if (closingNoteId !== note?.id) return;
+          if (nextNoteId) onOpenNote(nextNoteId);
+          else navigate('/materials');
+        }}
+        onCreateNote={() => setCreateOpen(true)}
+        onRenameNote={(title) => note ? renameNote(note.id, title) : Promise.resolve()}
+        onToggleFavorite={() => {
+          if (!note || favoritePending) return;
+          setFavoritePending(true);
+          void setNoteFavorite(note.id, !note.favorite)
+            .catch(() => undefined)
+            .finally(() => setFavoritePending(false));
+        }}
+      />
+      <CreateEntryDialog
+        mode={createOpen ? 'note' : null}
+        parentFolderId={folder?.id ?? null}
+        onOpenChange={setCreateOpen}
+        onCreateNote={async (folderId, title) => {
+          const createdId = await createNote(folderId, title);
+          onOpenNote(createdId);
+          return createdId;
+        }}
+        onCreateFolder={createFolder}
+      />
+    </>
+  );
+}
+
+function HomeStage({ onRetry, canWrite, onSelectNote, onOpenMaterials, onOpenSearch, onOpenCreate, onOpenSchedule }: {
+  onRetry(): Promise<void>;
+  canWrite: boolean;
+  onSelectNote(noteId: string, title: string): void;
+  onOpenMaterials(): void;
+  onOpenSearch(): void;
+  onOpenCreate(): void;
+  onOpenSchedule(): void;
+}) {
+  const loadState = useAppStore((state) => state.workspaceLoadState);
+  const error = useAppStore((state) => state.workspaceError);
+  const dataMode = useAppStore((state) => state.dataMode);
+  const serverData = useAppStore((state) => state.serverData);
+  return (
+    <HomeView
+      loadState={loadState}
+      error={error}
+      dataMode={dataMode}
+      notes={serverData.notes}
+      folders={Object.values(serverData.foldersById)}
+      tags={serverData.tags}
+      isWritable={canWrite}
+      onRetry={() => void onRetry()}
+      onOpenMaterials={onOpenMaterials}
+      onOpenSearch={onOpenSearch}
+      onOpenCreate={onOpenCreate}
+      onOpenSchedule={onOpenSchedule}
+      onSelectNote={onSelectNote}
+    />
+  );
+}
+
+function PlaceholderStage({ domain }: { domain: WorkDomain }) {
+  const setActiveWorkDomain = useAppStore((state) => state.setActiveWorkDomain);
+  const navigate = useNavigate();
+  return (
+    <PlaceholderView
+      moduleId={domain}
+      title={DOMAIN_INFO[domain].title}
+      description={DOMAIN_INFO[domain].description}
+      onReturnHome={() => {
+        setActiveWorkDomain('materials');
+        navigate('/');
+      }}
+    />
+  );
+}

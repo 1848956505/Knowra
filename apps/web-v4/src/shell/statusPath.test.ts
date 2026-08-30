@@ -42,4 +42,17 @@ describe('deriveStatusPath', () => {
 
     expect(path).toEqual([{ id: 'home', label: '主页', current: true, onNavigate: expect.any(Function) }]);
   });
+
+  it('uses the routed note title as the editor surface location', () => {
+    const path = deriveStatusPath({
+      pathname: '/materials/notes/note-1',
+      routeDomain: 'materials',
+      noteTitle: '注意力机制复盘',
+      onNavigateHome: vi.fn(),
+      onNavigateMaterials: vi.fn()
+    });
+
+    expect(path.map((segment) => segment.label)).toEqual(['笔记库', '注意力机制复盘']);
+    expect(path.at(-1)?.current).toBe(true);
+  });
 });

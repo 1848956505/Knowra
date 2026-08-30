@@ -58,6 +58,17 @@
   grid-column: 3;
 }
 
+.workspaceStage {
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.workspaceStage::before,
+.workspaceStage::after {
+  display: none;
+}
+
 .contextSidebar {
   grid-column: 2;
   grid-row: 1;
@@ -121,6 +132,10 @@
   .shellWithSidebar .stage {
     grid-column: 2;
   }
+
+  .workspaceStage {
+    padding: 0;
+  }
 }
 
 @media (max-width: 767px) {
@@ -142,5 +157,10 @@
     grid-row: 1;
     align-items: start;
     padding: 18px 14px;
+  }
+
+  .workspaceStage {
+    align-items: stretch;
+    padding: 0;
   }
 }

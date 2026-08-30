@@ -6,7 +6,8 @@
 }
 
 .header {
-  min-height: var(--docbar-size);
+  height: var(--tab-size);
+  flex: 0 0 var(--tab-size);
   display: flex;
   align-items: center;
   gap: 8px;

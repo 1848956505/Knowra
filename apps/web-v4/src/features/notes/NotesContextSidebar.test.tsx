@@ -29,10 +29,16 @@ describe('NotesContextSidebar', () => {
     const folderButton = screen.getByRole('button', { name: /产品设计2/ });
     await userEvent.click(folderButton);
     expect(store.getState().navigation.selectedFolderId).toBe('folder-1');
+    expect(store.getState().notesIndex.scope).toBe('all');
+    expect(store.getState().navigation.openFolders['folder-1']).toBe(true);
     expect(screen.getByRole('button', { name: '规划草案' })).toBeInTheDocument();
-    await userEvent.dblClick(folderButton);
+    await userEvent.click(folderButton);
+    expect(store.getState().navigation.selectedFolderId).toBe('folder-1');
+    expect(store.getState().notesIndex.scope).toBe('all');
+    expect(store.getState().navigation.openFolders['folder-1']).toBe(false);
     expect(screen.queryByRole('button', { name: '规划草案' })).not.toBeInTheDocument();
-    await userEvent.dblClick(folderButton);
+    await userEvent.click(folderButton);
+    expect(store.getState().navigation.openFolders['folder-1']).toBe(true);
     expect(screen.getByRole('button', { name: '规划草案' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '收起产品设计' }));
     expect(screen.queryByRole('button', { name: '规划草案' })).not.toBeInTheDocument();
@@ -130,6 +136,16 @@ describe('NotesContextSidebar', () => {
     await waitFor(() => expect(api.setNoteFavorite).toHaveBeenCalledWith('note-1', false));
   });
 
+  it('delegates note opening while keeping tree selection inside the sidebar', async () => {
+    const onOpenNote = vi.fn();
+    const { store } = renderSidebar({ onOpenNote });
+    await userEvent.click(screen.getByRole('button', { name: '展开产品设计' }));
+    await userEvent.click(screen.getByRole('button', { name: '规划草案' }));
+
+    expect(store.getState().navigation.selectedNoteId).toBe('note-1');
+    expect(onOpenNote).toHaveBeenCalledWith('note-1');
+  });
+
   it('renames and confirms deletion for notes without native browser dialogs', async () => {
     const { api } = renderSidebar();
     await userEvent.click(screen.getByRole('button', { name: '展开产品设计' }));
@@ -151,7 +167,7 @@ describe('NotesContextSidebar', () => {
   });
 });
 
-function renderSidebar({ empty = false }: { empty?: boolean } = {}) {
+function renderSidebar({ empty = false, onOpenNote }: { empty?: boolean; onOpenNote?(noteId: string): void } = {}) {
   const api = createApi();
   const store = createAppStore({ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
   const folder = { id: 'folder-1', name: '产品设计', parentId: null, children: [] };
@@ -177,7 +193,7 @@ function renderSidebar({ empty = false }: { empty?: boolean } = {}) {
       store={store}
       dependencies={{ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() }}
     >
-      <NotesContextSidebar />
+      <NotesContextSidebar onOpenNote={onOpenNote} />
     </AppStoreProvider>
   );
   return { api, store };

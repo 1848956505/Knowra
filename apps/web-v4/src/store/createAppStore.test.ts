@@ -152,6 +152,30 @@ describe('single V4 application store', () => {
     await store.getState().deleteFolder('folder-1');
     expect(api.deleteFolder).toHaveBeenCalledWith('folder-1');
   });
+
+  it('closes editor tabs with a deterministic adjacent fallback', async () => {
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [],
+      notes: [
+        { id: 'note-a', title: 'A', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false },
+        { id: 'note-b', title: 'B', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false },
+        { id: 'note-c', title: 'C', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false }
+      ],
+      tags: []
+    });
+    const store = createAppStore({ api, cacheKey: 'workspace-tabs', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    store.getState().selectNote('note-a');
+    store.getState().selectNote('note-b');
+    store.getState().selectNote('note-c');
+
+    expect(store.getState().closeNoteTab('note-b')).toBe('note-c');
+    expect(store.getState().navigation.openNoteTabs).toEqual(['note-a', 'note-c']);
+    expect(store.getState().closeNoteTab('note-c')).toBe('note-a');
+    expect(store.getState().navigation.selectedNoteId).toBe('note-a');
+    expect(store.getState().closeNoteTab('note-a')).toBeNull();
+  });
 });
 
 function createApi(): WorkspaceApi {

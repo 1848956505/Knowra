@@ -154,6 +154,25 @@ export function ArrowRightIcon(props: IconProps) {
   );
 }
 
+/** 仅包含折线的展开尖括号，用于树形导航；展开态由调用方旋转。 */
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="m7 4 6 6-6 6" />
+    </svg>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M5 5l10 10M15 5 5 15" />
+    </svg>
+  );
+}
+
 export function ArrowUpRightIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -241,6 +260,77 @@ export function PanelIcon(props: IconProps) {
       {props.title ? <title>{props.title}</title> : null}
       <rect x="3" y="4" width="14" height="12" />
       <path d="M14 4v12" />
+    </svg>
+  );
+}
+
+export function StarIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="m10 2.8 2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8l5-.7z" />
+    </svg>
+  );
+}
+
+export function CodeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="m7 5-4 5 4 5M13 5l4 5-4 5M11.5 3 8.5 17" />
+    </svg>
+  );
+}
+
+export function ListIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M7 5h10M7 10h10M7 15h10" />
+      <circle cx="3.5" cy="5" r=".7" fill="currentColor" stroke="none" />
+      <circle cx="3.5" cy="10" r=".7" fill="currentColor" stroke="none" />
+      <circle cx="3.5" cy="15" r=".7" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function QuoteIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M4 6h5v5H5v3M11 6h5v5h-4v3" />
+    </svg>
+  );
+}
+
+export function TableIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <rect x="3" y="3" width="14" height="14" />
+      <path d="M3 8h14M8 3v14" />
+    </svg>
+  );
+}
+
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <rect x="3" y="3" width="14" height="14" />
+      <circle cx="7" cy="7" r="1.5" />
+      <path d="m4 15 4-4 2.5 2.5 2-2L16 15" />
+    </svg>
+  );
+}
+
+export function MoreVerticalIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <circle cx="10" cy="4" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="16" r="1.2" fill="currentColor" stroke="none" />
     </svg>
   );
 }

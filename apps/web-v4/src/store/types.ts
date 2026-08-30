@@ -55,6 +55,7 @@ export interface NavigationSlice {
   navigation: NavigationState;
   selectFolder(folderId: string | null): void;
   selectNote(noteId: string | null): void;
+  closeNoteTab(noteId: string): string | null;
   toggleFolder(folderId: string): void;
   setActiveWorkDomain(domain: WorkDomain): void;
 }

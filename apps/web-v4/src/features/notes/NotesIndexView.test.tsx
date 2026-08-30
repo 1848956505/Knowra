@@ -83,6 +83,19 @@ describe('Notes index skeleton', () => {
     expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-owner', 'view-group');
     expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-token', '--shadow-badge');
   });
+
+  it('delegates note opening without coupling the index to routing', async () => {
+    const onOpenNote = vi.fn();
+    renderWithStore(
+      <NotesIndexView
+        path={[{ id: 'materials:index', label: '全部笔记', current: true }]}
+        onOpenNote={onOpenNote}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /规划草案/ }));
+    expect(onOpenNote).toHaveBeenCalledWith('note-1');
+  });
 });
 
 function renderWithStore(ui: ReactNode): RenderResult {

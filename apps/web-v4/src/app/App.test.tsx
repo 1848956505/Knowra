@@ -259,6 +259,27 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(rail).getByRole('button', { name: '资料' })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('renders the note editor framework on a routed note URL', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(
+      <RouterProvider location={{ pathname: '/materials/notes/note-1', navigate: vi.fn() }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Note', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: '打开的笔记' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: '笔记格式工具栏' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
+    expect(within(screen.getByLabelText('工作区位置')).getByText('Note')).toHaveAttribute('aria-current', 'location');
+  });
+
   it('returns to the home page (/) when clicking the brand logo on the notes index', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({

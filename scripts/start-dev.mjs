@@ -8,12 +8,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const workspaceRoot = path.resolve(__dirname, '..');
 const runtimePortsFile = path.join(workspaceRoot, 'storage', 'runtime', 'dev-ports.json');
+const webCoreCompiler = path.join(workspaceRoot, 'node_modules', 'typescript', 'bin', 'tsc');
+const webCoreTsconfig = path.join(workspaceRoot, 'packages', 'web-core', 'tsconfig.json');
 const childProcesses = [];
 
 const apiPort = await getFreePort(3001);
 const webPort = await getFreePort(apiPort === 3000 ? 3002 : 3000);
 
 cleanupRuntimePorts();
+
+await runNodeScript([webCoreCompiler, '-p', webCoreTsconfig], {
+  env: createChildEnv()
+});
 
 const apiEnv = createChildEnv({
   PORT: String(apiPort),

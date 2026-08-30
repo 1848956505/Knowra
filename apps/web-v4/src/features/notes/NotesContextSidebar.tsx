@@ -40,7 +40,7 @@ const QUICK_ENTRIES: readonly NavEntry[] = [
 
 const TAG_TONES = [styles.tagBlue, styles.tagPurple, styles.tagGreen, styles.tagOrange];
 
-export function NotesContextSidebar() {
+export function NotesContextSidebar({ onOpenNote }: { onOpenNote?(noteId: string): void }) {
   const serverData = useAppStore((state) => state.serverData);
   const notesIndex = useAppStore((state) => state.notesIndex);
   const selectedFolderId = useAppStore((state) => state.navigation.selectedFolderId);
@@ -149,6 +149,7 @@ export function NotesContextSidebar() {
           query={notesIndex.query}
           canWrite={canWrite}
           onAction={treeOperations.handleTreeAction}
+          onOpenNote={onOpenNote}
         />
       </SidebarSection>
 

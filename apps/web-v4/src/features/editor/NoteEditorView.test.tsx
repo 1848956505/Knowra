@@ -1,0 +1,105 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { NoteEditorView } from './NoteEditorView';
+
+const folder = { id: 'folder-1', name: '产品设计', parentId: null, children: [] };
+const note = {
+  id: 'note-1',
+  title: '注意力机制复盘',
+  folderId: 'folder-1',
+  tagIds: ['tag-1'],
+  internalLinks: [],
+  rawMarkdown: '# 核心结论',
+  contentLoaded: true,
+  favorite: false,
+  deleted: false,
+  status: 'draft',
+  updatedAt: '2026-08-29T08:00:00.000Z'
+};
+
+describe('NoteEditorView skeleton', () => {
+  it('renders the visual-source framework and delegates panel actions', () => {
+    const onToggleInspector = vi.fn();
+    const onToggleFavorite = vi.fn();
+    render(
+      <NoteEditorView
+        note={note}
+        folder={folder}
+        openNotes={[note]}
+        inspectorOpen
+        canWrite
+        onOpenNote={vi.fn()}
+        onCloseNote={vi.fn()}
+        onCreateNote={vi.fn()}
+        onRenameNote={vi.fn()}
+        onToggleFavorite={onToggleFavorite}
+        onToggleInspector={onToggleInspector}
+      />
+    );
+
+    expect(screen.getByRole('tablist', { name: '打开的笔记' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: '笔记格式工具栏' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '注意力机制复盘', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: '文档检查器' })).toBeVisible();
+    expect(screen.getByLabelText('笔记正文预览')).toHaveTextContent('# 核心结论');
+
+    fireEvent.click(screen.getByRole('button', { name: '切换文档检查器' }));
+    expect(onToggleInspector).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: '收藏当前笔记' }));
+    expect(onToggleFavorite).toHaveBeenCalledOnce();
+  });
+
+  it('supports switching, closing and creating tabs without conflating their actions', () => {
+    const secondNote = { ...note, id: 'note-2', title: '产品规划草案' };
+    const onOpenNote = vi.fn();
+    const onCloseNote = vi.fn();
+    const onCreateNote = vi.fn();
+    render(
+      <NoteEditorView
+        note={note}
+        folder={folder}
+        openNotes={[note, secondNote]}
+        inspectorOpen={false}
+        canWrite
+        onOpenNote={onOpenNote}
+        onCloseNote={onCloseNote}
+        onCreateNote={onCreateNote}
+        onRenameNote={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onToggleInspector={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: '产品规划草案' }));
+    expect(onOpenNote).toHaveBeenCalledWith('note-2');
+    fireEvent.click(screen.getByRole('button', { name: '关闭产品规划草案' }));
+    expect(onCloseNote).toHaveBeenCalledWith('note-2');
+    fireEvent.click(screen.getByRole('button', { name: '新建笔记' }));
+    expect(onCreateNote).toHaveBeenCalledOnce();
+
+    const firstTab = screen.getByRole('tab', { name: '注意力机制复盘' });
+    firstTab.focus();
+    fireEvent.keyDown(firstTab, { key: 'ArrowRight' });
+    expect(onOpenNote).toHaveBeenLastCalledWith('note-2');
+  });
+
+  it('shows a truthful unavailable state for an unknown note route', () => {
+    render(
+      <NoteEditorView
+        note={null}
+        folder={null}
+        openNotes={[]}
+        inspectorOpen={false}
+        canWrite={false}
+        onOpenNote={vi.fn()}
+        onCloseNote={vi.fn()}
+        onCreateNote={vi.fn()}
+        onRenameNote={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onToggleInspector={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: '未找到这篇笔记' })).toBeInTheDocument();
+  });
+});

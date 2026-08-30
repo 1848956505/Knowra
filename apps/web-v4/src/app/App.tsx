@@ -6,54 +6,19 @@
 // 3. 全局快捷键 ⌘/Ctrl + / 回主页，⌘/Ctrl + Shift + ↑/↓ 切换工作域；
 // 4. HomeView 在 / 路由加载数据；/showcase 路由始终直接展示组件展台（不发 API 请求）。
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from './router';
 import { useAppStore, useAppStoreApi } from '../store/AppStoreProvider';
 import { AppShell } from '../shell/AppShell';
 import { deriveStatusPath } from '../shell/statusPath';
-import type { PathSegment } from '../shell/path';
 import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
-import { HomeView } from '../views/HomeView';
-import { PlaceholderView } from '../views/PlaceholderView';
-import { NotesContextSidebar, NotesIndexView } from '../features/notes';
+import { NotesContextSidebar } from '../features/notes';
+import { getEditorNoteId } from '../features/editor/editorRoute';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS } from '../shell/ModuleRail';
-import { LoadingState } from '../components/ui/status';
 import { WORK_DOMAINS, type WorkDomain } from '../store/types';
+import { AppRoutes, DOMAIN_INFO } from './AppRoutes';
 import styles from './App.module.css';
-
-const ComponentShowcase = lazy(async () => {
-  const module = await import('../components/ui/showcase');
-  return { default: module.ComponentShowcase };
-});
-
-interface DomainDescriptor {
-  title: string;
-  description: string;
-}
-
-const DOMAIN_INFO: Record<WorkDomain, DomainDescriptor> = {
-  materials: {
-    title: '资料工作区',
-    description: '按目录组织 Markdown 笔记，用标签串联主题。'
-  },
-  knowledge: {
-    title: '知识库',
-    description: '知识单元与学习目标管理（V4-08 接入）。'
-  },
-  training: {
-    title: '试题库',
-    description: '题目库与考试场景（V4-08 接入）。'
-  },
-  learning: {
-    title: '执行',
-    description: '待办、打卡与习惯追踪（V4-08 接入）。'
-  },
-  profile: {
-    title: '我的',
-    description: '工作区与个人设置。'
-  }
-};
 
 export function App() {
   const location = useLocation();
@@ -65,15 +30,17 @@ export function App() {
   const canWriteWorkspace = useAppStore((state) => state.canWriteWorkspace);
   const dataMode = useAppStore((state) => state.dataMode);
   const workspaceError = useAppStore((state) => state.workspaceError);
+  const notes = useAppStore((state) => state.serverData.notes);
   const storeApi = useAppStoreApi();
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const previousPathRef = useRef(location.pathname);
 
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
-    if (location.pathname !== '/' && location.pathname !== '/materials') return;
+    if (location.pathname !== '/' && !location.pathname.startsWith('/materials')) return;
     void loadWorkspace();
   }, [loadWorkspace, location.pathname]);
 
@@ -131,7 +98,7 @@ export function App() {
 
   // SearchCommand 数据源：每个命中项决定自己的目标路径。
   // - 动作（action:home）→ 主页（/）；
-  // - 资料/标签 → 笔记索引页（/materials），由 useSearchHits 同步索引筛选与选中项。
+  // - 笔记 → 编辑页；标签 → 笔记索引页，由 useSearchHits 同步索引筛选与选中项。
   const searchHits = useSearchHits({
     onSelect: (announcement, path) => {
       navigate(path);
@@ -165,6 +132,10 @@ export function App() {
   const isShowcaseActive = location.pathname === '/showcase';
   const isHome = location.pathname === '/';
   const isNotesIndex = location.pathname === '/materials';
+  const editorNoteId = getEditorNoteId(location.pathname);
+  const isNoteEditor = editorNoteId !== null;
+  const isNotesSurface = isNotesIndex || isNoteEditor;
+  const editorNote = editorNoteId ? notes.find((note) => note.id === editorNoteId) ?? null : null;
   // 主页（/）不属于任何工作域的子页面：左轨不应高亮任何模块入口；
   // 笔记索引页（/materials）才是"资料"工作域的着陆页。
   const activeDomain: WorkDomain | null =
@@ -175,8 +146,16 @@ export function App() {
     pathname: location.pathname,
     routeDomain,
     onNavigateHome: () => navigate('/'),
-    onNavigateMaterials: () => navigate('/materials')
+    onNavigateMaterials: () => navigate('/materials'),
+    noteTitle: editorNote?.title
   });
+
+  function openNote(noteId: string) {
+    storeApi.getState().selectNote(noteId);
+    navigate(`/materials/notes/${encodeURIComponent(noteId)}`);
+    const title = storeApi.getState().serverData.notes.find((note) => note.id === noteId)?.title || '无标题笔记';
+    setLiveAnnouncement(`已打开笔记：${title}`);
+  }
 
   function handleOpenShowcase() {
     navigate('/showcase');
@@ -186,7 +165,8 @@ export function App() {
   return (
     <AppShell
       activeDomain={activeDomain}
-      contextSidebar={isNotesIndex ? <NotesContextSidebar /> : undefined}
+      contextSidebar={isNotesSurface ? <NotesContextSidebar onOpenNote={openNote} /> : undefined}
+      stageMode={isNoteEditor ? 'workspace' : 'default'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}
@@ -207,8 +187,14 @@ export function App() {
           {
             id: 'inspector',
             label: '检查器',
-            active: true,
-            onToggle: () => setLiveAnnouncement('检查器入口已保留；页面面板将在后续功能层接入')
+            active: isNoteEditor && inspectorOpen,
+            onToggle: () => {
+              if (!isNoteEditor) {
+                setLiveAnnouncement('检查器仅在笔记编辑页面可用');
+                return;
+              }
+              setInspectorOpen((open) => !open);
+            }
           },
           {
             id: 'focus',
@@ -221,21 +207,22 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={styles.route}>
-        <Routes
+      <div className={`${styles.route} ${isNoteEditor ? styles.routeWorkspace : ''}`}>
+        <AppRoutes
           pathname={location.pathname}
           routeDomain={routeDomain}
           onRetry={retryWorkspace}
           canWrite={canWrite}
           onOpenMaterials={() => navigate('/materials')}
           statusPath={statusPath}
+          editorNoteId={editorNoteId}
+          inspectorOpen={inspectorOpen}
+          onToggleInspector={() => setInspectorOpen((open) => !open)}
+          onOpenNote={openNote}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
           onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
-          onSelectNote={(noteId, title) => {
-            storeApi.getState().selectNote(noteId);
-            setLiveAnnouncement(`${title}已选中；资料索引将在 V4-06 接入`);
-          }}
+          onSelectNote={(noteId) => openNote(noteId)}
         />
       </div>
       <SearchCommand
@@ -247,121 +234,11 @@ export function App() {
   );
 }
 
-function Routes({
-  pathname,
-  routeDomain,
-  statusPath,
-  onRetry,
-  canWrite,
-  onSelectNote,
-  onOpenMaterials,
-  onOpenSearch,
-  onOpenCreate,
-  onOpenSchedule
-}: {
-  pathname: string;
-  routeDomain: WorkDomain;
-  statusPath: PathSegment[];
-  onRetry: () => Promise<void>;
-  canWrite: boolean;
-  onSelectNote(noteId: string, title: string): void;
-  onOpenMaterials(): void;
-  onOpenSearch(): void;
-  onOpenCreate(): void;
-  onOpenSchedule(): void;
-}) {
-  if (pathname === '/showcase') {
-    return (
-      <Suspense fallback={<LoadingState label="正在加载组件展台…" />}>
-        <ComponentShowcase />
-      </Suspense>
-    );
-  }
-  if (routeDomain === 'materials') {
-    if (pathname === '/materials') {
-      return <NotesIndexStage path={statusPath} />;
-    }
-    return (
-      <HomeStage
-        onRetry={onRetry}
-        canWrite={canWrite}
-        onSelectNote={onSelectNote}
-        onOpenMaterials={onOpenMaterials}
-        onOpenSearch={onOpenSearch}
-        onOpenCreate={onOpenCreate}
-        onOpenSchedule={onOpenSchedule}
-      />
-    );
-  }
-  return <PlaceholderStage domain={routeDomain} />;
-}
-
-function NotesIndexStage({ path }: { path: PathSegment[] }) {
-  return <NotesIndexView path={path} />;
-}
-
-function HomeStage({
-  onRetry,
-  canWrite,
-  onSelectNote,
-  onOpenMaterials,
-  onOpenSearch,
-  onOpenCreate,
-  onOpenSchedule
-}: {
-  onRetry: () => Promise<void>;
-  canWrite: boolean;
-  onSelectNote(noteId: string, title: string): void;
-  onOpenMaterials(): void;
-  onOpenSearch(): void;
-  onOpenCreate(): void;
-  onOpenSchedule(): void;
-}) {
-  const loadState = useAppStore((s) => s.workspaceLoadState);
-  const error = useAppStore((s) => s.workspaceError);
-  const dataMode = useAppStore((s) => s.dataMode);
-  const serverData = useAppStore((s) => s.serverData);
-  return (
-    <HomeView
-      loadState={loadState}
-      error={error}
-      dataMode={dataMode}
-      notes={serverData.notes}
-      folders={Object.values(serverData.foldersById)}
-      tags={serverData.tags}
-      isWritable={canWrite}
-      onRetry={() => void onRetry()}
-      onOpenMaterials={onOpenMaterials}
-      onOpenSearch={onOpenSearch}
-      onOpenCreate={onOpenCreate}
-      onOpenSchedule={onOpenSchedule}
-      onSelectNote={onSelectNote}
-    />
-  );
-}
-
-function PlaceholderStage({ domain }: { domain: WorkDomain }) {
-  const info = DOMAIN_INFO[domain];
-  const setActiveWorkDomain = useAppStore((s) => s.setActiveWorkDomain);
-  const navigate = useNavigate();
-  return (
-    <PlaceholderView
-      moduleId={domain}
-      title={info.title}
-      description={info.description}
-      onReturnHome={() => {
-        setActiveWorkDomain('materials');
-        navigate('/');
-      }}
-    />
-  );
-}
-
 function useSearchHits({
   onSelect
 }: {
   /** 由每个命中项决定目标路径与宣告文案；调用方负责 navigate + setLiveAnnouncement。 */
-  onSelect(announcement: string, path: '/' | '/materials'): void;
+  onSelect(announcement: string, path: string): void;
 }): SearchHit[] {
   const notes = useAppStore((s) => s.serverData.notes);
   const tags = useAppStore((s) => s.serverData.tags);
@@ -397,8 +274,8 @@ function useSearchHits({
           selectNotesFolder(note.folderId);
           selectNote(note.id);
           onSelect(
-            `资料“${note.title || '无标题'}”已在索引中选中`,
-            '/materials'
+            `已打开笔记“${note.title || '无标题'}”`,
+            `/materials/notes/${encodeURIComponent(note.id)}`
           );
         }
       });

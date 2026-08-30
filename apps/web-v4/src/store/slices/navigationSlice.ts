@@ -44,6 +44,23 @@ export function createNavigationSlice(set: SetStore, get: GetStore): NavigationS
         }
       });
     },
+    closeNoteTab(noteId) {
+      const state = get();
+      const currentIndex = state.navigation.openNoteTabs.indexOf(noteId);
+      if (currentIndex < 0) return state.navigation.selectedNoteId;
+      const openNoteTabs = state.navigation.openNoteTabs.filter((id) => id !== noteId);
+      const selectedNoteId = state.navigation.selectedNoteId === noteId
+        ? openNoteTabs[Math.min(currentIndex, openNoteTabs.length - 1)] ?? null
+        : state.navigation.selectedNoteId;
+      set({
+        navigation: {
+          ...state.navigation,
+          selectedNoteId,
+          openNoteTabs
+        }
+      });
+      return selectedNoteId;
+    },
     toggleFolder(folderId) {
       const state = get();
       if (!state.serverData.foldersById[folderId]) return;
