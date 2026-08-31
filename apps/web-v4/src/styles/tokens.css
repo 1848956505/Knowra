@@ -22,6 +22,7 @@
   --ink-accent: #2563eb;
   --ink-accent-hover: #1d4ed8;
   --ink-accent-soft: #e0f2fe;
+  --ink-cover-shadow: #38bdf8;
   --ink-success: #16a34a;
   --ink-success-soft: #dcfce7;
   --ink-warning: #ea580c;
@@ -51,7 +52,7 @@
   --rail-size: 64px;
   --sidebar-size: 224px;
   --sidebar-size-narrow: 208px;
-  --inspector-size: 288px;
+  --inspector-size: var(--sidebar-size);
   --tab-size: 36px;
   --docbar-size: 52px;
   --status-size: 32px;

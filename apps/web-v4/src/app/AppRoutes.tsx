@@ -11,6 +11,7 @@ import {
   type CreateMode
 } from '../features/notes';
 import { MarkdownImportDialog } from '../features/editor/MarkdownImportDialog';
+import type { EditorViewAction, EffectiveEditorViewState } from '../features/editor/editorViewState';
 import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
 import type { WorkDomain } from '../store/types';
@@ -38,10 +39,10 @@ export interface AppRoutesProps {
   routeDomain: WorkDomain;
   statusPath: PathSegment[];
   editorNoteId: string | null;
-  inspectorOpen: boolean;
+  editorView: EffectiveEditorViewState;
   canWrite: boolean;
   onRetry(): Promise<void>;
-  onToggleInspector(): void;
+  onEditorViewAction(action: EditorViewAction): void;
   onOpenNote(noteId: string): void;
   onSelectNote(noteId: string, title: string): void;
   onOpenMaterials(): void;
@@ -62,9 +63,9 @@ export function AppRoutes(props: AppRoutesProps) {
     return (
       <NoteEditorStage
         noteId={props.editorNoteId}
-        inspectorOpen={props.inspectorOpen}
+        editorView={props.editorView}
         canWrite={props.canWrite}
-        onToggleInspector={props.onToggleInspector}
+        onEditorViewAction={props.onEditorViewAction}
         onOpenNote={props.onOpenNote}
       />
     );
@@ -82,11 +83,11 @@ export function AppRoutes(props: AppRoutesProps) {
   );
 }
 
-function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, onOpenNote }: {
+function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onOpenNote }: {
   noteId: string;
-  inspectorOpen: boolean;
+  editorView: EffectiveEditorViewState;
   canWrite: boolean;
-  onToggleInspector(): void;
+  onEditorViewAction(action: EditorViewAction): void;
   onOpenNote(noteId: string): void;
 }) {
   const serverData = useAppStore((state) => state.serverData);
@@ -129,11 +130,16 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
       <NoteEditorView
         note={note}
         folder={folder}
+        foldersById={serverData.foldersById}
+        notes={serverData.notes}
+        tags={serverData.tags}
         openNotes={openNotes}
-        inspectorOpen={inspectorOpen}
+        inspectorOpen={editorView.showRightSidebar}
+        view={editorView}
         canWrite={canWrite}
         favoritePending={favoritePending}
-        onToggleInspector={onToggleInspector}
+        onToggleInspector={() => onEditorViewAction('toggle-right-sidebar')}
+        onViewAction={onEditorViewAction}
         onOpenNote={onOpenNote}
         onCloseNote={(closingNoteId) => {
           const nextNoteId = closeNoteTab(closingNoteId);
@@ -157,7 +163,9 @@ function NoteEditorStage({ noteId, inspectorOpen, canWrite, onToggleInspector, o
         onCreateFolder={() => setCreateMode('folder')}
         onImportMarkdown={() => setImportOpen(true)}
         onRenameNote={(title) => note ? renameNote(note.id, title) : Promise.resolve()}
-        onSaveMarkdown={(markdown) => note ? saveNoteContent(note.id, markdown) : Promise.resolve()}
+        onSaveMarkdown={(targetNoteId, markdown, expectedUpdatedAt) => (
+          saveNoteContent(targetNoteId, markdown, expectedUpdatedAt)
+        )}
         onSaveAs={async () => {
           if (!note) return;
           const createdId = await duplicateNote(note.id);

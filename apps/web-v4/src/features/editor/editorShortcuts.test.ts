@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getParagraphShortcutLabel, resolveEditorShortcutCommand } from './editorShortcuts';
+import { getEditorShortcutLabel, resolveEditorShortcutCommand } from './editorShortcuts';
 
 const baseShortcut = {
   key: '',
@@ -32,15 +32,37 @@ describe('editorShortcuts', () => {
     })).toBe('task-list');
   });
 
+  it('reuses the V3 formatting shortcuts on Ctrl and Meta', () => {
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'b' })).toBe('bold');
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'e', ctrlKey: false, metaKey: true })).toBe('inline-code');
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'H', code: 'KeyH', shiftKey: true })).toBe('highlight');
+  });
+
+  it('prioritizes indentation while focus is inside the editor', () => {
+    expect(resolveEditorShortcutCommand({
+      ...baseShortcut, key: 'Tab', ctrlKey: false
+    })).toBe('indent');
+    expect(resolveEditorShortcutCommand({
+      ...baseShortcut, key: 'Tab', ctrlKey: false, shiftKey: true
+    })).toBe('outdent');
+    expect(resolveEditorShortcutCommand({
+      ...baseShortcut, key: 'Tab', metaKey: true
+    })).toBeNull();
+  });
+
   it('does not intercept composition or unrelated modifier combinations', () => {
     expect(resolveEditorShortcutCommand({ ...baseShortcut, key: '1', isComposing: true })).toBeNull();
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'Tab', ctrlKey: false, isComposing: true })).toBeNull();
     expect(resolveEditorShortcutCommand({ ...baseShortcut, key: '1', altKey: true })).toBeNull();
     expect(resolveEditorShortcutCommand({ ...baseShortcut, key: '8' })).toBeNull();
   });
 
   it('exposes the reference shortcut labels used by the menu', () => {
-    expect(getParagraphShortcutLabel('paragraph')).toBe('Ctrl+0');
-    expect(getParagraphShortcutLabel('task-list')).toBe('Ctrl+Shift+X');
-    expect(getParagraphShortcutLabel('blockquote')).toBeUndefined();
+    expect(getEditorShortcutLabel('paragraph')).toBe('Ctrl+0');
+    expect(getEditorShortcutLabel('task-list')).toBe('Ctrl+Shift+X');
+    expect(getEditorShortcutLabel('bold')).toBe('Ctrl+B');
+    expect(getEditorShortcutLabel('inline-code')).toBe('Ctrl+E');
+    expect(getEditorShortcutLabel('highlight')).toBe('Ctrl+Shift+H');
+    expect(getEditorShortcutLabel('blockquote')).toBeUndefined();
   });
 });

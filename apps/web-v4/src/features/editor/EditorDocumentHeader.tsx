@@ -85,8 +85,8 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
         <span aria-hidden="true" /> NOTE · {(note.status || 'draft').toUpperCase()}
       </div>
       <div className={styles.documentHead}>
-        <span className={styles.cover} aria-hidden="true" />
-        <div>
+        <span className={styles.cover} data-editor-cover="true" aria-hidden="true" />
+        <div className={styles.documentTitles}>
           <h1
             id="note-editor-title"
             className={styles.title}

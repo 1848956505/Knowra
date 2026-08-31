@@ -4,7 +4,8 @@ import type {
   WorkspaceSnapshot,
   WorkspaceLoadState,
   WorkspaceApi,
-  KeyValueStorage
+  KeyValueStorage,
+  Note
 } from '@study-accelerator/web-core';
 
 export interface WorkspaceDependencies {
@@ -31,7 +32,7 @@ export interface WorkspaceSlice {
   createFolder(parentId: string | null, name: string): Promise<string>;
   renameNote(noteId: string, title: string): Promise<void>;
   loadNoteContent(noteId: string): Promise<void>;
-  saveNoteContent(noteId: string, rawMarkdown: string): Promise<void>;
+  saveNoteContent(noteId: string, rawMarkdown: string, expectedUpdatedAt?: string): Promise<Note>;
   deleteNote(noteId: string): Promise<void>;
   setNoteFavorite(noteId: string, favorite: boolean): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;

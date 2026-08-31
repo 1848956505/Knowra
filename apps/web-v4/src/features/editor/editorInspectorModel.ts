@@ -1,0 +1,117 @@
+import type { Folder, Note, Tag } from '@study-accelerator/web-core';
+
+export interface InspectorHeading {
+  id: string;
+  level: number;
+  text: string;
+}
+
+export interface InspectorRelations {
+  outgoing: Note[];
+  backlinks: Note[];
+  related: Note[];
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: '待整理',
+  active: '进行中',
+  archived: '已归档',
+  published: '已发布'
+};
+
+export function buildFolderPath(folder: Folder | null, foldersById: Record<string, Folder>): string {
+  if (!folder) return '未整理';
+  const names: string[] = [];
+  const visited = new Set<string>();
+  let current: Folder | undefined = folder;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    names.unshift(current.name);
+    current = current.parentId ? foldersById[current.parentId] : undefined;
+  }
+  return names.join(' / ') || '未整理';
+}
+
+export function resolveNoteTags(note: Note, tags: Tag[]): Tag[] {
+  const byId = new Map(tags.map((tag) => [tag.id, tag]));
+  return note.tagIds.map((tagId) => byId.get(tagId)).filter((tag): tag is Tag => Boolean(tag));
+}
+
+export function resolveInspectorRelations(note: Note, notes: Note[]): InspectorRelations {
+  const available = notes.filter((item) => !item.deleted && item.id !== note.id);
+  const outgoingIds = new Set(note.internalLinks);
+  const outgoing = available.filter((item) => outgoingIds.has(item.id));
+  const backlinks = available.filter((item) => item.internalLinks.includes(note.id));
+  const relatedIds = new Set([...outgoing, ...backlinks].map((item) => item.id));
+  return {
+    outgoing,
+    backlinks,
+    related: available.filter((item) => relatedIds.has(item.id))
+  };
+}
+
+export function extractInspectorOutline(markdown: string): InspectorHeading[] {
+  return markdown.split(/\r?\n/).flatMap((line, index) => {
+    const match = /^(#{1,4})\s+(.+?)\s*$/.exec(line);
+    if (!match) return [];
+    const text = stripInlineMarkdown(match[2] ?? '');
+    return text ? [{ id: `heading-${index}`, level: match[1]?.length ?? 1, text }] : [];
+  });
+}
+
+export function getDocumentStats(markdown: string, plainText?: string): {
+  characterCount: number;
+  readingMinutes: number;
+} {
+  const readable = (plainText?.trim() ? plainText : stripMarkdown(markdown)).trim();
+  const characterCount = readable.replace(/\s/g, '').length;
+  return {
+    characterCount,
+    readingMinutes: characterCount === 0 ? 0 : Math.max(1, Math.ceil(characterCount / 250))
+  };
+}
+
+export function getStatusLabel(status?: string): string {
+  const normalized = status?.trim().toLowerCase();
+  return normalized ? STATUS_LABELS[normalized] ?? status ?? '待整理' : '待整理';
+}
+
+export function getSourceLabel(sourceType?: string): string {
+  if (sourceType === 'markdown-import') return 'IMPORTED NOTE';
+  if (sourceType === 'web-clip') return 'WEB CLIP';
+  return 'KNOWRA NOTE';
+}
+
+export function formatInspectorDate(value?: string, now = new Date()): string {
+  if (!value) return '未知';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+  const dateParts = new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const time = new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => dateParts.find((item) => item.type === type)?.value ?? '';
+  const sameDay = date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate();
+  return sameDay
+    ? `今天 ${time}`
+    : `${part('year')}-${part('month')}-${part('day')} ${time}`;
+}
+
+function stripMarkdown(markdown: string): string {
+  return markdown
+    .replace(/```[^\n]*\n?/g, '')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/^\s{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])\s+/gm, '')
+    .replace(/[*_~=`]/g, '')
+    .replace(/\[\[|\]\]/g, ' ');
+}
+
+function stripInlineMarkdown(value: string): string {
+  return value.replace(/[*_~=`]/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trim();
+}

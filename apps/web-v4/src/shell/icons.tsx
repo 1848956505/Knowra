@@ -244,6 +244,36 @@ export function TagIcon(props: IconProps) {
   );
 }
 
+export function LinkIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M8.2 12.8 6.8 14.2a3.4 3.4 0 0 1-4.8-4.8l2.8-2.8a3.4 3.4 0 0 1 4.8 0" />
+      <path d="m11.8 7.2 1.4-1.4A3.4 3.4 0 0 1 18 10.6l-2.8 2.8a3.4 3.4 0 0 1-4.8 0M7 10h6" />
+    </svg>
+  );
+}
+
+export function PaperclipIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="m7.2 10.8 5.7-5.7a2.8 2.8 0 0 1 4 4l-7.1 7.1a4.2 4.2 0 0 1-6-6l7-7" />
+      <path d="m6.5 11.5 6-6" />
+    </svg>
+  );
+}
+
+export function SparkIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M10 2.5c.5 3.3 2.2 5 5.5 5.5-3.3.5-5 2.2-5.5 5.5C9.5 10.2 7.8 8.5 4.5 8 7.8 7.5 9.5 5.8 10 2.5Z" />
+      <path d="M16 13.5c.2 1.5 1 2.3 2.5 2.5-1.5.2-2.3 1-2.5 2.5-.2-1.5-1-2.3-2.5-2.5 1.5-.2 2.3-1 2.5-2.5Z" />
+    </svg>
+  );
+}
+
 export function SidebarIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -368,6 +398,144 @@ export function MoreHorizontalIcon(props: IconProps) {
       <circle cx="5" cy="10" r="1.4" fill="currentColor" stroke="none" />
       <circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none" />
       <circle cx="15" cy="10" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function CutIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <circle cx="5" cy="15" r="2.2" />
+      <circle cx="15" cy="15" r="2.2" />
+      <path d="m6.8 13.6 7.7-9.1M13.2 13.6 5.5 4.5M9 10l2-2" />
+    </svg>
+  );
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <rect x="6" y="6" width="10" height="11" />
+      <path d="M13 6V3H3v11h3" />
+    </svg>
+  );
+}
+
+export function PasteIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M7 5H4v12h12V5h-3" />
+      <rect x="7" y="3" width="6" height="4" />
+      <path d="M7 11h6M7 14h4" />
+    </svg>
+  );
+}
+
+export function DeleteIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M4 6h12M7 6V3h6v3M6 6l1 11h6l1-11M9 9v5M11 9v5" />
+    </svg>
+  );
+}
+
+export function BoldIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M6 3v14h5a3.5 3.5 0 0 0 0-7H6h4.5a3.5 3.5 0 0 0 0-7z" />
+    </svg>
+  );
+}
+
+export function ItalicIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M9 3h7M4 17h7M13 3 7 17" />
+    </svg>
+  );
+}
+
+export function HighlightIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="m5 12 7-8 4 4-8 7H5zM4 17h12" />
+      <path d="m11 5 4 4" />
+    </svg>
+  );
+}
+
+export function StrikethroughIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M6 7c0-2 1.5-3.5 4-3.5S14 5 14 7M6 13c0 2 1.5 3.5 4 3.5s4-1.5 4-3.5M3 10h14" />
+    </svg>
+  );
+}
+
+export function OrderedListIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M8 5h9M8 10h9M8 15h9M3 4h1v3M3 10h2l-2 3h2M3 15h2v2H3" />
+    </svg>
+  );
+}
+
+export function TaskListIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <rect x="3" y="3" width="4" height="4" />
+      <rect x="3" y="9" width="4" height="4" />
+      <rect x="3" y="15" width="4" height="2" />
+      <path d="m4 11 1 1 2-3M10 5h7M10 11h7M10 16h7" />
+    </svg>
+  );
+}
+
+export function IndentIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M8 5h9M8 10h9M8 15h9M3 7l3 3-3 3" />
+    </svg>
+  );
+}
+
+export function OutdentIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M8 5h9M8 10h9M8 15h9M6 7l-3 3 3 3" />
+    </svg>
+  );
+}
+
+export function HorizontalRuleIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M3 10h14" />
+      <path d="M6 6h8M6 14h8" opacity=".35" />
+    </svg>
+  );
+}
+
+export function ParagraphAddIcon({ position = 'below', ...props }: IconProps & { position?: 'above' | 'below' }) {
+  const plusY = position === 'above' ? 4 : 16;
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="M5 8h10M5 11h10M5 14h7" />
+      <path d={`M3 ${plusY}h4M5 ${plusY - 2}v4`} />
     </svg>
   );
 }

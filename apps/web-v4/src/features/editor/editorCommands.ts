@@ -6,7 +6,10 @@ export type EditorCommand =
   | 'paragraph'
   | 'bold'
   | 'italic'
+  | 'strikethrough'
   | 'inline-code'
+  | 'highlight'
+  | 'internal-link'
   | 'bullet-list'
   | 'ordered-list'
   | 'task-list'
@@ -14,6 +17,11 @@ export type EditorCommand =
   | 'code-block'
   | 'horizontal-rule'
   | 'table'
+  | 'delete-selection'
+  | 'indent'
+  | 'outdent'
+  | 'paragraph-above'
+  | 'paragraph-below'
   | 'undo'
   | 'redo';
 
@@ -50,6 +58,7 @@ export interface EditorCommandTarget {
   replaceCurrent(query: string, replacement: string, currentIndex: number): EditorFindResult;
   replaceAll(query: string, replacement: string): EditorFindResult;
   clearFind(): void;
+  setMarkdown(markdown: string): void;
   focus(): void;
   getMarkdown(): string;
   getHtml(): string;

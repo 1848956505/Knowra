@@ -1,8 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { NoteEditorView } from './NoteEditorView';
+import { getEffectiveEditorViewState, initialEditorViewState } from './editorViewState';
 
 const folder = { id: 'folder-1', name: '产品设计', parentId: null, children: [] };
+const foldersById = { [folder.id]: folder };
+const tags = [{ id: 'tag-1', name: 'AI' }];
 const note = {
   id: 'note-1',
   title: '注意力机制复盘',
@@ -16,6 +19,7 @@ const note = {
   status: 'draft',
   updatedAt: '2026-08-29T08:00:00.000Z'
 };
+const editorView = getEffectiveEditorViewState(initialEditorViewState);
 
 describe('NoteEditorView skeleton', () => {
   it('renders the visual-source framework and delegates panel actions', () => {
@@ -25,8 +29,12 @@ describe('NoteEditorView skeleton', () => {
       <NoteEditorView
         note={note}
         folder={folder}
+        foldersById={foldersById}
+        notes={[note]}
+        tags={tags}
         openNotes={[note]}
         inspectorOpen
+        view={{ ...editorView, showRightSidebar: true }}
         canWrite
         onOpenNote={vi.fn()}
         onCloseNote={vi.fn()}
@@ -41,6 +49,7 @@ describe('NoteEditorView skeleton', () => {
         onSaveAs={vi.fn()}
         onDeleteNote={vi.fn()}
         onFileStatus={vi.fn()}
+        onViewAction={vi.fn()}
         onToggleFavorite={onToggleFavorite}
         onToggleInspector={onToggleInspector}
       />
@@ -58,7 +67,7 @@ describe('NoteEditorView skeleton', () => {
     expect(onToggleFavorite).toHaveBeenCalledOnce();
   });
 
-  it('supports switching, closing and creating tabs without conflating their actions', () => {
+  it('supports switching, closing and creating tabs without conflating their actions', async () => {
     const secondNote = { ...note, id: 'note-2', title: '产品规划草案' };
     const onOpenNote = vi.fn();
     const onCloseNote = vi.fn();
@@ -67,8 +76,12 @@ describe('NoteEditorView skeleton', () => {
       <NoteEditorView
         note={note}
         folder={folder}
+        foldersById={foldersById}
+        notes={[note, secondNote]}
+        tags={tags}
         openNotes={[note, secondNote]}
         inspectorOpen={false}
+        view={editorView}
         canWrite
         onOpenNote={onOpenNote}
         onCloseNote={onCloseNote}
@@ -83,13 +96,14 @@ describe('NoteEditorView skeleton', () => {
         onSaveAs={vi.fn()}
         onDeleteNote={vi.fn()}
         onFileStatus={vi.fn()}
+        onViewAction={vi.fn()}
         onToggleFavorite={vi.fn()}
         onToggleInspector={vi.fn()}
       />
     );
 
     fireEvent.click(screen.getByRole('tab', { name: '产品规划草案' }));
-    expect(onOpenNote).toHaveBeenCalledWith('note-2');
+    await waitFor(() => expect(onOpenNote).toHaveBeenCalledWith('note-2'));
     fireEvent.click(screen.getByRole('button', { name: '关闭产品规划草案' }));
     expect(onCloseNote).toHaveBeenCalledWith('note-2');
     fireEvent.click(screen.getByRole('button', { name: '新建笔记' }));
@@ -98,7 +112,7 @@ describe('NoteEditorView skeleton', () => {
     const firstTab = screen.getByRole('tab', { name: '注意力机制复盘' });
     firstTab.focus();
     fireEvent.keyDown(firstTab, { key: 'ArrowRight' });
-    expect(onOpenNote).toHaveBeenLastCalledWith('note-2');
+    await waitFor(() => expect(onOpenNote).toHaveBeenLastCalledWith('note-2'));
   });
 
   it('shows a truthful unavailable state for an unknown note route', () => {
@@ -106,8 +120,12 @@ describe('NoteEditorView skeleton', () => {
       <NoteEditorView
         note={null}
         folder={null}
+        foldersById={{}}
+        notes={[]}
+        tags={[]}
         openNotes={[]}
         inspectorOpen={false}
+        view={editorView}
         canWrite={false}
         onOpenNote={vi.fn()}
         onCloseNote={vi.fn()}
@@ -122,6 +140,7 @@ describe('NoteEditorView skeleton', () => {
         onSaveAs={vi.fn()}
         onDeleteNote={vi.fn()}
         onFileStatus={vi.fn()}
+        onViewAction={vi.fn()}
         onToggleFavorite={vi.fn()}
         onToggleInspector={vi.fn()}
       />

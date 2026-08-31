@@ -1,0 +1,17 @@
+.active {
+  background: var(--ink-accent-soft);
+}
+
+.active[data-focused] {
+  background: var(--ink-accent-soft);
+  box-shadow: inset 3px 0 0 var(--ink-accent);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

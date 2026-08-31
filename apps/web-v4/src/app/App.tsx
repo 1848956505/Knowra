@@ -15,6 +15,13 @@ import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { NotesContextSidebar } from '../features/notes';
 import { getEditorNoteId } from '../features/editor/editorRoute';
+import {
+  applyEditorViewAction,
+  describeEditorViewAction,
+  getEffectiveEditorViewState,
+  initialEditorViewState,
+  type EditorViewAction
+} from '../features/editor/editorViewState';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS } from '../shell/ModuleRail';
 import { WORK_DOMAINS, type WorkDomain } from '../store/types';
 import { AppRoutes, DOMAIN_INFO } from './AppRoutes';
@@ -29,13 +36,14 @@ export function App() {
   const retryWorkspace = useAppStore((state) => state.retryWorkspace);
   const canWriteWorkspace = useAppStore((state) => state.canWriteWorkspace);
   const dataMode = useAppStore((state) => state.dataMode);
+  const saveState = useAppStore((state) => state.saveState);
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
   const storeApi = useAppStoreApi();
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [editorView, setEditorView] = useState(initialEditorViewState);
   const previousPathRef = useRef(location.pathname);
 
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
@@ -134,7 +142,7 @@ export function App() {
   const isNotesIndex = location.pathname === '/materials';
   const editorNoteId = getEditorNoteId(location.pathname);
   const isNoteEditor = editorNoteId !== null;
-  const isNotesSurface = isNotesIndex || isNoteEditor;
+  const effectiveEditorView = useMemo(() => getEffectiveEditorViewState(editorView), [editorView]);
   const editorNote = editorNoteId ? notes.find((note) => note.id === editorNoteId) ?? null : null;
   // 主页（/）不属于任何工作域的子页面：左轨不应高亮任何模块入口；
   // 笔记索引页（/materials）才是"资料"工作域的着陆页。
@@ -162,11 +170,23 @@ export function App() {
     setLiveAnnouncement('已打开组件展台');
   }
 
+  function handleEditorViewAction(action: EditorViewAction) {
+    if (!isNoteEditor) {
+      setLiveAnnouncement('视图功能仅在笔记编辑页面可用');
+      return;
+    }
+    setLiveAnnouncement(describeEditorViewAction(effectiveEditorView, action));
+    setEditorView((current) => applyEditorViewAction(current, action));
+  }
+
+  const showNotesContextSidebar = isNotesIndex || (isNoteEditor && effectiveEditorView.showLeftSidebar);
+
   return (
     <AppShell
       activeDomain={activeDomain}
-      contextSidebar={isNotesSurface ? <NotesContextSidebar onOpenNote={openNote} /> : undefined}
+      contextSidebar={showNotesContextSidebar ? <NotesContextSidebar onOpenNote={openNote} /> : undefined}
       stageMode={isNoteEditor ? 'workspace' : 'default'}
+      focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}
@@ -175,32 +195,46 @@ export function App() {
       isShowcaseActive={isShowcaseActive}
       statusbar={{
         path: statusPath,
+        saveState,
+        savedAt: editorNote?.updatedAt,
         dataMode,
         dataModeNote: workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
         panels: [
           {
             id: 'sidebar',
             label: '侧栏',
-            active: true,
-            onToggle: () => setLiveAnnouncement('侧栏入口已保留；页面面板将在后续功能层接入')
+            active: isNotesIndex || (isNoteEditor && effectiveEditorView.showLeftSidebar),
+            onToggle: () => {
+              if (!isNoteEditor) {
+                setLiveAnnouncement('侧栏仅在笔记编辑页面可切换');
+                return;
+              }
+              handleEditorViewAction('toggle-left-sidebar');
+            }
           },
           {
             id: 'inspector',
             label: '检查器',
-            active: isNoteEditor && inspectorOpen,
+            active: isNoteEditor && effectiveEditorView.showRightSidebar,
             onToggle: () => {
               if (!isNoteEditor) {
                 setLiveAnnouncement('检查器仅在笔记编辑页面可用');
                 return;
               }
-              setInspectorOpen((open) => !open);
+              handleEditorViewAction('toggle-right-sidebar');
             }
           },
           {
             id: 'focus',
             label: '专注模式',
-            active: false,
-            onToggle: () => setLiveAnnouncement('专注模式将在后续功能层接入')
+            active: isNoteEditor && effectiveEditorView.mode === 'focus',
+            onToggle: () => {
+              if (!isNoteEditor) {
+                setLiveAnnouncement('专注模式仅在笔记编辑页面可用');
+                return;
+              }
+              handleEditorViewAction('toggle-focus');
+            }
           }
         ]
       }}
@@ -216,8 +250,8 @@ export function App() {
           onOpenMaterials={() => navigate('/materials')}
           statusPath={statusPath}
           editorNoteId={editorNoteId}
-          inspectorOpen={inspectorOpen}
-          onToggleInspector={() => setInspectorOpen((open) => !open)}
+          editorView={effectiveEditorView}
+          onEditorViewAction={handleEditorViewAction}
           onOpenNote={openNote}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}

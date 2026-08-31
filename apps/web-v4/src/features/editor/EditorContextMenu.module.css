@@ -1,0 +1,150 @@
+.target {
+  position: relative;
+  min-width: 0;
+}
+
+.anchor {
+  position: fixed;
+  z-index: -1;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.popover,
+.submenuPopover {
+  z-index: 260;
+}
+
+.menu {
+  width: min(292px, calc(100vw - 24px));
+  max-width: none;
+  max-height: min(560px, calc(100vh - 24px));
+  padding: 8px;
+  overflow: auto;
+  border-top: 4px solid var(--ink-accent);
+  overscroll-behavior: contain;
+}
+
+.quickSection {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.quickSection + .quickSection {
+  margin-top: 2px;
+}
+
+.sectionLabel {
+  grid-column: 1 / -1;
+  padding: 5px 2px 0;
+}
+
+.quickItem {
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 3px;
+  border: 1px solid var(--ink-panel);
+  color: var(--ink-secondary);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.quickItem > span:first-child {
+  width: 18px;
+  height: 18px;
+  color: var(--ink);
+}
+
+.quickItem[data-focused] {
+  border-color: var(--ink-accent);
+  background: var(--ink-accent-soft);
+  color: var(--ink-accent-hover);
+  box-shadow: 2px 2px 0 var(--ink-accent);
+}
+
+.quickItem[data-focused] > span:first-child {
+  color: var(--ink-accent-hover);
+}
+
+.quickItem[data-disabled] {
+  opacity: .46;
+}
+
+.primaryItem {
+  grid-column: span 3;
+}
+
+.formatItem,
+.listItem {
+  grid-column: span 4;
+}
+
+.indentItem {
+  grid-column: span 6;
+}
+
+.fullRow,
+.submenuTrigger {
+  grid-column: 1 / -1;
+}
+
+.fullRow {
+  margin: 8px -8px 4px;
+}
+
+.submenuTrigger {
+  min-height: 44px;
+  margin-inline: -8px;
+  padding-inline: 16px;
+  border-top: 1px solid transparent;
+}
+
+.submenuTrigger[data-focused] {
+  background: var(--ink-accent-soft);
+  color: var(--ink-accent-hover);
+}
+
+.submenuTrigger[data-open] {
+  border-top-color: var(--ink-accent);
+  background: var(--ink-accent);
+  color: var(--ink-surface);
+}
+
+.submenu {
+  width: min(236px, calc(100vw - 24px));
+  max-width: none;
+  max-height: min(420px, calc(100vh - 24px));
+  border-top: 4px solid var(--ink-accent);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.submenu [role='menuitem'] {
+  min-height: 44px;
+}
+
+@media (max-height: 520px) {
+  .menu {
+    max-height: calc(100vh - 16px);
+  }
+
+  .quickItem {
+    min-height: 46px;
+  }
+
+  .sectionLabel {
+    padding-top: 2px;
+  }
+}

@@ -253,6 +253,21 @@
   outline: 0;
 }
 
+.item[data-has-submenu]::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-top: 1.8px solid currentColor;
+  border-right: 1.8px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.item[data-has-submenu][data-open] {
+  background: var(--ink-accent);
+  color: var(--ink-surface);
+}
+
 .item[data-danger] {
   color: var(--ink-danger);
 }

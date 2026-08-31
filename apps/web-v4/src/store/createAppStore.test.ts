@@ -181,11 +181,13 @@ describe('single V4 application store', () => {
     const api = createApi();
     vi.mocked(api.getNote).mockResolvedValue({
       id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
-      rawMarkdown: '# 正文', contentLoaded: true, favorite: false, deleted: false
+      rawMarkdown: '# 正文', contentLoaded: true, favorite: false, deleted: false,
+      updatedAt: '2026-08-31T01:00:00.000Z'
     });
     vi.mocked(api.updateNote).mockResolvedValue({
       id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
-      rawMarkdown: '# 已编辑', contentLoaded: true, favorite: false, deleted: false
+      rawMarkdown: '# 已编辑', contentLoaded: true, favorite: false, deleted: false,
+      updatedAt: '2026-08-31T01:01:00.000Z'
     });
     const store = createAppStore({ api, cacheKey: 'workspace-editor', mockSnapshot: createEmptyWorkspaceSnapshot() });
     await store.getState().loadWorkspace();
@@ -196,8 +198,80 @@ describe('single V4 application store', () => {
     expect(store.getState().serverData.notes[0]?.rawMarkdown).toBe('# 正文');
 
     await store.getState().saveNoteContent('live-note', '# 已编辑');
-    expect(api.updateNote).toHaveBeenCalledWith('live-note', { rawMarkdown: '# 已编辑' });
+    expect(api.updateNote).toHaveBeenCalledWith('live-note', {
+      rawMarkdown: '# 已编辑',
+      expectedUpdatedAt: '2026-08-31T01:00:00.000Z'
+    });
     expect(store.getState().serverData.notes[0]?.rawMarkdown).toBe('# 已编辑');
+  });
+
+  it('skips a content PATCH when markdown is unchanged', async () => {
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [],
+      notes: [{
+        id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+        rawMarkdown: '相同正文', contentLoaded: true, favorite: false, deleted: false,
+        updatedAt: '2026-08-31T01:00:00.000Z'
+      }],
+      tags: []
+    });
+    const store = createAppStore({ api, cacheKey: 'workspace-noop-save', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+
+    await expect(store.getState().saveNoteContent('live-note', '相同正文')).resolves.toMatchObject({
+      id: 'live-note',
+      updatedAt: '2026-08-31T01:00:00.000Z'
+    });
+    expect(api.updateNote).not.toHaveBeenCalled();
+  });
+
+  it('serializes saves for the same note so an older response cannot overwrite newer text', async () => {
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [],
+      notes: [{
+        id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+        rawMarkdown: '初始正文', contentLoaded: true, favorite: false, deleted: false,
+        updatedAt: '2026-08-31T01:00:00.000Z'
+      }],
+      tags: []
+    });
+    const first = createDeferred<Awaited<ReturnType<WorkspaceApi['updateNote']>>>();
+    const second = createDeferred<Awaited<ReturnType<WorkspaceApi['updateNote']>>>();
+    vi.mocked(api.updateNote)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const store = createAppStore({ api, cacheKey: 'workspace-save-order', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+
+    const olderSave = store.getState().saveNoteContent('live-note', '较早正文');
+    const newerSave = store.getState().saveNoteContent('live-note', '最新正文');
+    await vi.waitFor(() => expect(api.updateNote).toHaveBeenCalledTimes(1));
+
+    first.resolve({
+      id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+      rawMarkdown: '较早正文', contentLoaded: true, favorite: false, deleted: false,
+      updatedAt: '2026-08-31T01:01:00.000Z'
+    });
+    await olderSave;
+    await vi.waitFor(() => expect(api.updateNote).toHaveBeenCalledTimes(2));
+    second.resolve({
+      id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+      rawMarkdown: '最新正文', contentLoaded: true, favorite: false, deleted: false,
+      updatedAt: '2026-08-31T01:02:00.000Z'
+    });
+    await newerSave;
+
+    expect(api.updateNote).toHaveBeenNthCalledWith(1, 'live-note', {
+      rawMarkdown: '较早正文',
+      expectedUpdatedAt: '2026-08-31T01:00:00.000Z'
+    });
+    expect(api.updateNote).toHaveBeenNthCalledWith(2, 'live-note', {
+      rawMarkdown: '最新正文',
+      expectedUpdatedAt: '2026-08-31T01:01:00.000Z'
+    });
+    expect(store.getState().serverData.notes[0]?.rawMarkdown).toBe('最新正文');
   });
 
   it('duplicates a saved note through the existing create-note endpoint', async () => {

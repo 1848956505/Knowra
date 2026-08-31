@@ -6,14 +6,18 @@
 import { forwardRef, type ReactNode } from 'react';
 import {
   Menu as RAMenu,
+  Header as RAHeader,
   MenuItem as RAMenuItem,
+  MenuSection as RAMenuSection,
   MenuTrigger as RAMenuTrigger,
   Popover as RAPopover,
   Separator as RASeparator,
+  SubmenuTrigger as RASubmenuTrigger,
   type MenuItemProps as RAMenuItemProps,
   type MenuProps as RAMenuProps,
   type MenuTriggerProps as RAMenuTriggerProps,
-  type PopoverProps as RAPopoverProps
+  type PopoverProps as RAPopoverProps,
+  type SubmenuTriggerProps as RASubmenuTriggerProps
 } from 'react-aria-components';
 import { cx } from '../classnames';
 import styles from './Overlay.module.css';
@@ -64,15 +68,27 @@ export interface MenuHeaderProps {
   className?: string;
 }
 
-export const MenuHeader = forwardRef<HTMLDivElement, MenuHeaderProps>(function MenuHeader(
+export const MenuHeader = forwardRef<HTMLElement, MenuHeaderProps>(function MenuHeader(
   { children, className },
   ref
 ) {
   return (
-    <div ref={ref} className={cx(styles.menuHead, className)}>
+    <RAHeader ref={ref} className={cx(styles.menuHead, className)}>
       {children}
-    </div>
+    </RAHeader>
   );
+});
+
+export interface MenuSectionProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const MenuSection = forwardRef<HTMLElement, MenuSectionProps>(function MenuSection(
+  { children, className },
+  ref
+) {
+  return <RAMenuSection ref={ref} className={className}>{children}</RAMenuSection>;
 });
 
 export const MenuSeparator = forwardRef<HTMLHRElement, { className?: string }>(
@@ -93,6 +109,13 @@ export type MenuTriggerProps = Omit<RAMenuTriggerProps, 'children'> & {
 export function MenuTrigger({ children, ...rest }: MenuTriggerProps) {
   return <RAMenuTrigger {...rest}>{children}</RAMenuTrigger>;
 }
+
+/**
+ * 二级菜单继续复用 React Aria 的悬浮延迟、指针安全通道与方向键语义。
+ * 业务组件不自行维护 hover timer，避免鼠标跨越主菜单与子菜单时误关闭。
+ */
+export const SubmenuTrigger = RASubmenuTrigger;
+export type SubmenuTriggerProps = RASubmenuTriggerProps;
 
 /** 复用的 Popover 视觉默认值，业务代码可继续自行传入 placement / offset。 */
 export const MenuPopover = forwardRef<

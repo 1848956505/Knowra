@@ -17,6 +17,7 @@
 }
 .milkdownEditor[data-readonly] :global(.ProseMirror) { cursor: default; }
 .milkdownEditor :global(.ProseMirror) > :first-child { margin-top: 0; }
+.milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4) { scroll-margin-top: calc(var(--docbar-size) + var(--tab-size) + 8px); }
 .milkdownEditor :global(.ProseMirror) h1 { margin: 1.2em 0 .45em; font-size: 2rem; line-height: 1.2; }
 .milkdownEditor :global(.ProseMirror) h2 { margin: 1.15em 0 .45em; font-size: 1.55rem; line-height: 1.25; }
 .milkdownEditor :global(.ProseMirror) h3 { margin: 1.1em 0 .4em; font-size: 1.25rem; line-height: 1.3; }
@@ -46,6 +47,23 @@
   color: var(--ink-accent-hover);
   font: 600 .9em/1.5 var(--font-mono);
   box-decoration-break: clone;
+}
+.milkdownEditor :global(.ProseMirror) del {
+  color: var(--ink-secondary);
+  text-decoration-color: var(--ink-warning);
+  text-decoration-thickness: 2px;
+}
+.milkdownEditor :global(.ProseMirror) mark {
+  padding-inline: .14em;
+  background: var(--ink-warning-soft);
+  color: inherit;
+  box-decoration-break: clone;
+}
+.milkdownEditor :global(.ProseMirror) [data-internal-link] {
+  color: var(--ink-accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
 }
 .milkdownEditor :global(.ProseMirror) pre {
   position: relative;

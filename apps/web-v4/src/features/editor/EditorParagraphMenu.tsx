@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { MenuItem, MenuSeparator } from '../../components/ui/overlay';
 import type { EditorCommand } from './editorCommands';
-import { getParagraphShortcutLabel } from './editorShortcuts';
+import { getEditorShortcutLabel } from './editorShortcuts';
 
 export interface EditorParagraphMenuProps {
   onCommand(command: EditorCommand): void;
@@ -34,7 +34,7 @@ export function renderEditorParagraphMenu({ onCommand }: EditorParagraphMenuProp
       key={item.command}
       id={item.command}
       aria-label={item.label}
-      kbd={getParagraphShortcutLabel(item.command)}
+      kbd={getEditorShortcutLabel(item.command)}
       onAction={() => onCommand(item.command)}
     >
       {item.label}

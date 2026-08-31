@@ -44,6 +44,8 @@ export interface AppShellProps {
   liveAnnouncement?: string;
   /** 编辑器等沉浸式页面由自身管理内边距和滚动边界。 */
   stageMode?: 'default' | 'workspace';
+  /** 专注模式隐藏应用轨道、上下文侧栏和移动端导航，只保留编辑舞台与状态栏。 */
+  focusMode?: boolean;
 }
 
 export function AppShell({
@@ -61,15 +63,20 @@ export function AppShell({
   statusbar,
   mobileTabs,
   liveAnnouncement,
-  stageMode = 'default'
+  stageMode = 'default',
+  focusMode = false
 }: AppShellProps) {
   return (
-    <div className={cx(styles.shell, contextSidebar ? styles.shellWithSidebar : undefined)}>
+    <div className={cx(
+      styles.shell,
+      contextSidebar && !focusMode ? styles.shellWithSidebar : undefined,
+      focusMode ? styles.focusShell : undefined
+    )}>
       <a href="#feature-stage" className={styles.skipLink}>
         跳到主内容
       </a>
 
-      <ModuleRail
+      {!focusMode ? <ModuleRail
         activeDomain={activeDomain}
         onSelect={onSelectDomain}
         onReturnHome={onReturnHome}
@@ -79,9 +86,9 @@ export function AppShell({
         onOpenSettings={onOpenSettings}
         onOpenShowcase={onOpenShowcase}
         isShowcaseActive={isShowcaseActive}
-      />
+      /> : null}
 
-      {contextSidebar ? (
+      {contextSidebar && !focusMode ? (
         <aside className={styles.contextSidebar} aria-label="笔记上下文导航">
           {contextSidebar}
         </aside>
@@ -105,7 +112,7 @@ export function AppShell({
         panels={statusbar.panels}
       />
 
-      {mobileTabs ? (
+      {mobileTabs && !focusMode ? (
         <MobileTabs
           activeDomain={activeDomain}
           onSelect={onSelectDomain}

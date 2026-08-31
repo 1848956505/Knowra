@@ -14,6 +14,14 @@
   grid-template-columns: var(--rail-size) var(--sidebar-size) minmax(0, 1fr);
 }
 
+.focusShell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.focusShell .stage {
+  grid-column: 1;
+}
+
 .skipLink {
   position: fixed;
   left: 12px;

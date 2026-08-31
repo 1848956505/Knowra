@@ -15,6 +15,7 @@ export const CANONICAL_COLOR_TOKENS = [
   'ink-accent',
   'ink-accent-hover',
   'ink-accent-soft',
+  'ink-cover-shadow',
   'ink-success',
   'ink-success-soft',
   'ink-warning',

@@ -1,8 +1,10 @@
 import { type Editor, editorViewCtx, schemaCtx } from '@milkdown/kit/core';
 import { getNodeFromSchema } from '@milkdown/kit/prose';
+import { TextSelection } from '@milkdown/kit/prose/state';
 import {
   liftListItemCommand,
   setBlockTypeCommand,
+  sinkListItemCommand,
   wrapInBulletListCommand,
   wrapInOrderedListCommand
 } from '@milkdown/kit/preset/commonmark';
@@ -56,6 +58,54 @@ export function runListCommand(editor: Editor, targetTypeName: ListTypeName): bo
     ? wrapInOrderedListCommand
     : wrapInBulletListCommand;
   return Boolean(editor.action(callCommand(command.key)));
+}
+
+export function runDeleteSelectionCommand(editor: Editor): boolean {
+  const view = editor.ctx.get(editorViewCtx);
+  if (view.state.selection.empty) return false;
+  view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
+  return true;
+}
+
+export function runIndentCommand(editor: Editor): boolean {
+  const view = editor.ctx.get(editorViewCtx);
+  if (findListAncestor(view.state.selection.$from)) {
+    return Boolean(editor.action(callCommand(sinkListItemCommand.key)));
+  }
+  const { from, to } = view.state.selection;
+  view.dispatch(view.state.tr.insertText('    ', from, to).scrollIntoView());
+  return true;
+}
+
+export function runOutdentCommand(editor: Editor): boolean {
+  const view = editor.ctx.get(editorViewCtx);
+  if (findListAncestor(view.state.selection.$from)) {
+    return Boolean(editor.action(callCommand(liftListItemCommand.key)));
+  }
+  const { $from } = view.state.selection;
+  const lineStartOffset = $from.parent.textContent.lastIndexOf('\n', Math.max(0, $from.parentOffset - 1)) + 1;
+  const removable = $from.parent.textContent.slice(lineStartOffset, lineStartOffset + 4).match(/^( {1,4}|\t)/)?.[0];
+  if (!removable) return false;
+  const lineStart = $from.start() + lineStartOffset;
+  view.dispatch(view.state.tr.delete(lineStart, lineStart + removable.length).scrollIntoView());
+  return true;
+}
+
+export function insertParagraphNearSelection(editor: Editor, direction: 'above' | 'below'): boolean {
+  const view = editor.ctx.get(editorViewCtx);
+  const paragraphNodeType = getNodeFromSchema('paragraph', editor.ctx.get(schemaCtx));
+  if (!paragraphNodeType) return false;
+
+  const { $from } = view.state.selection;
+  let textblockDepth = $from.depth;
+  while (textblockDepth > 0 && !$from.node(textblockDepth).isTextblock) textblockDepth -= 1;
+  if (textblockDepth <= 0) return false;
+
+  const insertPos = direction === 'above' ? $from.before(textblockDepth) : $from.after(textblockDepth);
+  const transaction = view.state.tr.insert(insertPos, paragraphNodeType.create());
+  transaction.setSelection(TextSelection.create(transaction.doc, insertPos + 1));
+  view.dispatch(transaction.scrollIntoView());
+  return true;
 }
 
 function isSelectionInsideHeading(state: ReturnType<typeof getEditorState>, level: number): boolean {

@@ -34,6 +34,7 @@ export interface UpdateNoteInput {
   title?: string;
   folderId?: string | null;
   rawMarkdown?: string;
+  expectedUpdatedAt?: string;
 }
 
 export interface UpdateFolderInput {

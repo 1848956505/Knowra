@@ -9,6 +9,7 @@ import {
   readWorkspaceCache,
   replaceNoteInCollection,
   writeWorkspaceCache,
+  type Note,
   type WorkspaceDataMode,
   type WorkspaceServerData,
   type WorkspaceSnapshot
@@ -33,6 +34,7 @@ export function createWorkspaceSlice(
   dependencies: WorkspaceDependencies
 ): WorkspaceSlice {
   let activeLoad: Promise<void> | null = null;
+  const noteSaveQueues = new Map<string, Promise<Note>>();
 
   const runLoad = async (force = false): Promise<void> => {
     if (activeLoad && !force) return activeLoad;
@@ -153,18 +155,35 @@ export function createWorkspaceSlice(
         throw error;
       }
     },
-    async saveNoteContent(noteId, rawMarkdown) {
-      const current = get().serverData.notes.find((note) => note.id === noteId);
-      if (!current) throw new Error('笔记不存在或已被删除');
-      return executeWorkspaceMutation(set, get, '正在保存正文…', async () => {
-        const updated = await dependencies.api.updateNote(noteId, { rawMarkdown });
-        updateNoteInStore(set, get, dependencies, updated, {
-          ...current,
-          rawMarkdown,
-          contentLoaded: true
+    async saveNoteContent(noteId, rawMarkdown, expectedUpdatedAt) {
+      const previousSave = noteSaveQueues.get(noteId) ?? Promise.resolve(undefined);
+      const currentSave = previousSave
+        .catch(() => undefined)
+        .then(async () => {
+          const current = get().serverData.notes.find((note) => note.id === noteId);
+          if (!current) throw new Error('笔记不存在或已被删除');
+          if (current.rawMarkdown === rawMarkdown) return current;
+          return executeWorkspaceMutation(set, get, '正在保存正文…', async () => {
+            const concurrencyToken = expectedUpdatedAt ?? current.updatedAt;
+            const updated = await dependencies.api.updateNote(noteId, {
+              rawMarkdown,
+              ...(concurrencyToken ? { expectedUpdatedAt: concurrencyToken } : {})
+            });
+            updateNoteInStore(set, get, dependencies, updated, {
+              ...current,
+              rawMarkdown,
+              contentLoaded: true
+            });
+            const saved = get().serverData.notes.find((note) => note.id === noteId) ?? current;
+            return { result: saved, message: '正文已保存' };
+          });
         });
-        return { result: undefined, message: '正文已保存' };
-      });
+      noteSaveQueues.set(noteId, currentSave);
+      try {
+        return await currentSave;
+      } finally {
+        if (noteSaveQueues.get(noteId) === currentSave) noteSaveQueues.delete(noteId);
+      }
     },
     async deleteNote(noteId) {
       return executeWorkspaceMutation(set, get, '正在删除笔记…', async () => {

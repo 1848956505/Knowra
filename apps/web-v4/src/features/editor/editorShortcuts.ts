@@ -19,17 +19,26 @@ const shortcutLabels: Partial<Record<EditorCommand, string>> = {
   'heading-4': 'Ctrl+4',
   'bullet-list': 'Ctrl+Shift+}',
   'ordered-list': 'Ctrl+Shift+{',
-  'task-list': 'Ctrl+Shift+X'
+  'task-list': 'Ctrl+Shift+X',
+  bold: 'Ctrl+B',
+  'inline-code': 'Ctrl+E',
+  highlight: 'Ctrl+Shift+H'
 };
 
-export function getParagraphShortcutLabel(command: EditorCommand): string | undefined {
+export function getEditorShortcutLabel(command: EditorCommand): string | undefined {
   return shortcutLabels[command];
 }
 
 export function resolveEditorShortcutCommand(input: EditorShortcutInput): EditorCommand | null {
-  if (input.isComposing || input.keyCode === 229 || input.altKey || (!input.ctrlKey && !input.metaKey)) {
+  if (input.isComposing || input.keyCode === 229) {
     return null;
   }
+
+  if (input.key === 'Tab' && !input.ctrlKey && !input.metaKey && !input.altKey) {
+    return input.shiftKey ? 'outdent' : 'indent';
+  }
+
+  if (input.altKey || (!input.ctrlKey && !input.metaKey)) return null;
 
   if (!input.shiftKey) {
     const headingCommands: Record<string, EditorCommand> = {
@@ -39,10 +48,15 @@ export function resolveEditorShortcutCommand(input: EditorShortcutInput): Editor
       '3': 'heading-3',
       '4': 'heading-4'
     };
-    return headingCommands[input.key] ?? null;
+    const formattingCommands: Record<string, EditorCommand> = {
+      b: 'bold',
+      e: 'inline-code'
+    };
+    return headingCommands[input.key] ?? formattingCommands[input.key.toLowerCase()] ?? null;
   }
 
   if (input.key.toLowerCase() === 'x') return 'task-list';
+  if (input.key.toLowerCase() === 'h' || input.code === 'KeyH') return 'highlight';
   if (input.code === 'BracketLeft' || input.key === '{') return 'ordered-list';
   if (input.code === 'BracketRight' || input.key === '}') return 'bullet-list';
   return null;

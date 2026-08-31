@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createApiClient, createWorkspaceApi } from '../src/index.js';
+import { ApiRequestError, createApiClient, createWorkspaceApi } from '../src/index.js';
 
 describe('framework-neutral API clients', () => {
   it('preserves the response envelope and friendly API errors', async () => {
@@ -9,7 +9,25 @@ describe('framework-neutral API clients', () => {
       json: async () => ({ error: { message: '笔记不存在' } })
     });
     const client = createApiClient({ fetchImpl });
-    await expect(client.requestJson('/missing')).rejects.toThrow('笔记不存在');
+    const request = client.requestJson('/missing');
+    await expect(request).rejects.toThrow('笔记不存在');
+    await expect(request).rejects.toMatchObject<ApiRequestError>({ status: 404, code: null });
+  });
+
+  it('preserves the backend conflict code and status for recovery flows', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: { code: 'NOTE_UPDATE_CONFLICT', message: 'Note has changed since it was loaded' }
+      })
+    });
+    const client = createApiClient({ fetchImpl });
+
+    await expect(client.requestJson('/notes/note-1')).rejects.toMatchObject<ApiRequestError>({
+      status: 409,
+      code: 'NOTE_UPDATE_CONFLICT'
+    });
   });
 
   it('loads the three workspace resources without UI dependencies', async () => {
@@ -104,6 +122,24 @@ describe('framework-neutral API clients', () => {
       method: 'PATCH', body: JSON.stringify({ name: '新目录', parentId: null })
     });
     expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/folders/folder%2F1', { method: 'DELETE' });
+  });
+
+  it('forwards expectedUpdatedAt when updating note content', async () => {
+    const requestJson = vi.fn().mockResolvedValue({ data: { id: 'note-1' } });
+    const api = createWorkspaceApi({ requestJson });
+
+    await api.updateNote('note-1', {
+      rawMarkdown: '# 新正文',
+      expectedUpdatedAt: '2026-08-31T01:00:00.000Z'
+    });
+
+    expect(requestJson).toHaveBeenCalledWith('/api/knowledge/notes/note-1', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        rawMarkdown: '# 新正文',
+        expectedUpdatedAt: '2026-08-31T01:00:00.000Z'
+      })
+    });
   });
 
   it('empties a space recycle bin using an encoded query parameter', async () => {
