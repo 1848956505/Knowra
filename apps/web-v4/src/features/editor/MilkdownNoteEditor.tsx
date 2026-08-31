@@ -4,12 +4,21 @@ import {
   Editor,
   editorViewCtx,
   editorViewOptionsCtx,
+  parserCtx,
   remarkStringifyOptionsCtx,
   rootCtx
 } from '@milkdown/kit/core';
-import { history, redoCommand, undoCommand } from '@milkdown/kit/plugin/history';
+import {
+  history,
+  historyProviderConfig,
+  redoCommand,
+  undoCommand
+} from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
+import { closeHistory } from '@milkdown/kit/prose/history';
+import { Slice } from '@milkdown/kit/prose/model';
+import { TextSelection } from '@milkdown/kit/prose/state';
 import {
   commonmark,
   createCodeBlockCommand,
@@ -43,6 +52,7 @@ import {
 } from './editorFind';
 import { resolveEditorShortcutCommand } from './editorShortcuts';
 import { editorInputBehavior } from './editorInputBehavior';
+import { createEditorPasteBehavior } from './editorPasteBehavior';
 import { highlightRemark, highlightSchema, toggleHighlightCommand } from './editorHighlight';
 import {
   insertInternalLinkCommand,
@@ -58,13 +68,15 @@ export interface MilkdownNoteEditorProps {
   readOnly: boolean;
   allowExternalSync?: boolean;
   onChange(markdown: string): void;
+  onStatus?(message: string): void;
 }
 
 export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEditorProps>(
-  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, onChange }, ref) {
+  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, onChange, onStatus }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<Editor | null>(null);
     const onChangeRef = useRef(onChange);
+    const onStatusRef = useRef(onStatus);
     const incomingMarkdownRef = useRef(markdown);
     const editorMarkdownRef = useRef(markdown);
     const emittedMarkdownRef = useRef(markdown);
@@ -72,7 +84,9 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const readOnlyRef = useRef(readOnly);
     const composingRef = useRef(false);
     const compositionFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
     onChangeRef.current = onChange;
+    onStatusRef.current = onStatus;
     incomingMarkdownRef.current = markdown;
     readOnlyRef.current = readOnly;
 
@@ -119,6 +133,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       run(command) {
         const editor = editorRef.current;
         if (!editor || readOnlyRef.current) return false;
+        restoreRememberedSelection(editor, lastSelectionRef.current);
         const resolver = commandResolvers[command];
         return resolver ? resolver(editor) : false;
       },
@@ -127,6 +142,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         if (!editor || readOnlyRef.current && (action === 'cut' || action === 'paste')) {
           return { ok: false, reason: 'unsupported' };
         }
+        restoreRememberedSelection(editor, lastSelectionRef.current);
         return runEditorClipboardAction(editor, action);
       },
       find(query, currentIndex, direction) {
@@ -154,8 +170,23 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         emittedMarkdownRef.current = nextMarkdown;
         editor.action(replaceAllMarkdown(nextMarkdown, true));
       },
+      replaceMarkdown(nextMarkdown) {
+        const editor = editorRef.current;
+        if (!editor || readOnlyRef.current || nextMarkdown === editorMarkdownRef.current) return false;
+        const parsed = editor.ctx.get(parserCtx)(nextMarkdown);
+        if (!parsed || typeof parsed === 'string') return false;
+        const view = editor.ctx.get(editorViewCtx);
+        view.dispatch(closeHistory(view.state.tr.replace(
+          0,
+          view.state.doc.content.size,
+          new Slice(parsed.content, 0, 0)
+        )).scrollIntoView());
+        return true;
+      },
       focus() {
-        hostRef.current?.querySelector<HTMLElement>('.ProseMirror')?.focus();
+        const editor = editorRef.current;
+        if (editor) restoreRememberedSelection(editor, lastSelectionRef.current);
+        else hostRef.current?.querySelector<HTMLElement>('.ProseMirror')?.focus();
       },
       getMarkdown() {
         return editorRef.current?.action(getMarkdown()) ?? editorMarkdownRef.current;
@@ -177,6 +208,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .config((ctx) => {
           ctx.set(rootCtx, root);
           ctx.set(defaultValueCtx, incomingMarkdownRef.current);
+          ctx.set(historyProviderConfig.key, { depth: 500, newGroupDelay: 750 });
           ctx.set(editorViewOptionsCtx, {
             editable: () => !readOnlyRef.current,
             attributes: {
@@ -219,6 +251,9 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
             emittedMarkdownRef.current = nextMarkdown;
             onChangeRef.current(nextMarkdown);
           });
+          ctx.get(listenerCtx).selectionUpdated((_ctx, selection) => {
+            lastSelectionRef.current = { from: selection.from, to: selection.to };
+          });
         })
         .use(commonmark)
         .use(gfm)
@@ -228,6 +263,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(internalLinkRemark)
         .use(internalLinkSchema)
         .use(insertInternalLinkCommand)
+        .use(createEditorPasteBehavior((message) => onStatusRef.current?.(message)))
         .use(clipboard)
         .use(findHighlightBehavior)
         .use(turnIntoTaskListCommand)
@@ -246,11 +282,14 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           editor.action(replaceAllMarkdown(incomingMarkdown, true));
         }
         readyRef.current = true;
+        const selection = editor.ctx.get(editorViewCtx).state.selection;
+        lastSelectionRef.current = { from: selection.from, to: selection.to };
       });
       return () => {
         cancelled = true;
         readyRef.current = false;
         editorRef.current = null;
+        lastSelectionRef.current = null;
         composingRef.current = false;
         if (compositionFlushTimerRef.current) clearTimeout(compositionFlushTimerRef.current);
         compositionFlushTimerRef.current = null;
@@ -285,6 +324,25 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     );
   }
 );
+
+function restoreRememberedSelection(
+  editor: Editor,
+  remembered: { from: number; to: number } | null
+): void {
+  const view = editor.ctx.get(editorViewCtx);
+  if (!remembered) {
+    view.focus();
+    return;
+  }
+  const docSize = view.state.doc.content.size;
+  const from = view.state.doc.resolve(Math.max(0, Math.min(remembered.from, docSize)));
+  const to = view.state.doc.resolve(Math.max(0, Math.min(remembered.to, docSize)));
+  const selection = TextSelection.between(from, to);
+  if (!selection.eq(view.state.selection)) {
+    view.dispatch(view.state.tr.setSelection(selection));
+  }
+  view.focus();
+}
 
 const commandResolvers: Record<EditorCommand, (editor: Editor) => boolean> = {
   'heading-1': (editor) => runHeadingCommand(editor, 1),

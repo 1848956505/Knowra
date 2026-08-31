@@ -535,6 +535,94 @@ test('V4-07 编辑菜单完成剪贴板、查找替换与历史命令闭环', as
   await expect(editor).not.toContainText('验收段落 10');
 });
 
+test('V4-07 原生粘贴保留语义并清理外部样式与不安全图片', async ({ page }) => {
+  const savedMarkdown: string[] = [];
+  await mockEditorWorkspace(page, savedMarkdown);
+  await page.goto('/#/materials/notes/note-1');
+
+  const editor = page.locator('.ProseMirror');
+  const lastParagraph = editor.locator(':scope > p').last();
+  await lastParagraph.click();
+  await page.keyboard.press('End');
+  await dispatchPaste(page, {
+    html: '<p style="color: red; font-size: 40px"><strong>富文本验收</strong></p>',
+    text: '富文本验收'
+  });
+  const richText = editor.locator('strong', { hasText: '富文本验收' });
+  await expect(richText).toBeVisible();
+  await expect(richText).not.toHaveAttribute('style');
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('**富文本验收**');
+
+  await editor.locator(':scope > p').last().click();
+  await page.keyboard.press('End');
+  await dispatchPaste(page, {
+    html: '<p>## Markdown 粘贴标题</p>',
+    text: '## Markdown 粘贴标题'
+  });
+  await expect(editor.getByRole('heading', { level: 2, name: 'Markdown 粘贴标题' })).toBeVisible();
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('## Markdown 粘贴标题');
+
+  const beforeBlockedPaste = savedMarkdown.at(-1);
+  await dispatchPaste(page, {
+    html: '<img src="http://example.com/insecure.png">',
+    text: '![不安全图片](http://example.com/insecure.png)'
+  });
+  await expect(editor.locator('img')).toHaveCount(0);
+  await page.waitForTimeout(900);
+  expect(savedMarkdown.at(-1)).toBe(beforeBlockedPaste);
+});
+
+test('V4-07 跨段落选区在操作工具栏后仍保持并统一格式化', async ({ page }) => {
+  const savedMarkdown: string[] = [];
+  await mockEditorWorkspace(page, savedMarkdown);
+  await page.goto('/#/materials/notes/note-1');
+
+  const editor = page.locator('.ProseMirror');
+  await editor.locator(':scope > p').nth(1).evaluate((secondParagraph) => {
+    const firstParagraph = secondParagraph.previousElementSibling;
+    const firstText = firstParagraph?.firstChild;
+    const secondText = secondParagraph.firstChild;
+    if (!firstText || !secondText) return;
+    const range = document.createRange();
+    range.setStart(firstText, 0);
+    range.setEnd(secondText, secondText.textContent?.length ?? 0);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+  await page.getByRole('button', { name: '加粗', exact: true }).click();
+
+  await expect(editor.locator(':scope > p').nth(0).locator('strong')).toHaveText('已有正文');
+  await expect(editor.locator(':scope > p').nth(1).locator('strong')).toHaveText('验收段落 1');
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^\*\*已有正文\*\*\n\n\*\*验收段落 1\*\*/);
+});
+
+test('V4-07 异常格式修复读取原始草稿并可一次撤销', async ({ page }) => {
+  const malformedMarkdown = '第一段\n\n\n\\\n\n尾部';
+  const savedMarkdown: string[] = [];
+  await mockEditorWorkspace(page, savedMarkdown, [], malformedMarkdown);
+  await page.goto('/#/materials/notes/note-1');
+
+  const openEditMenu = async () => {
+    await pinEditorToolbar(page);
+    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
+  };
+  await openEditMenu();
+  await page.getByRole('menuitem', { name: '检查异常格式', exact: true }).click();
+
+  const dialog = page.getByRole('dialog', { name: '检查异常格式' });
+  await expect(dialog).toContainText('可合并的多余空行：2');
+  await expect(dialog).toContainText('可移除的独立反斜杠：1');
+  await dialog.getByRole('button', { name: '应用修复' }).click();
+  await expect.poll(() => (savedMarkdown.at(-1) ?? '').trimEnd()).toBe('第一段\n\n尾部');
+
+  await openEditMenu();
+  await page.getByRole('menuitem', { name: '撤销', exact: true }).click();
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('\\');
+  await expect(page.locator('.ProseMirror')).toContainText('尾部');
+});
+
 test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源码模式', async ({ page }) => {
   test.setTimeout(60_000);
   const savedMarkdown: string[] = [];
@@ -690,9 +778,11 @@ test('V4-07 Markdown 导入复用后端批量能力并打开首篇笔记', async
 async function mockEditorWorkspace(
   page: Page,
   savedMarkdown: string[],
-  savedRequests: Array<{ noteId: string; markdown: string }> = []
+  savedRequests: Array<{ noteId: string; markdown: string }> = [],
+  initialMarkdown?: string
 ): Promise<void> {
-  let sourceMarkdown = ['已有正文', ...Array.from({ length: 64 }, (_, index) => `验收段落 ${index + 1}`)].join('\n\n');
+  let sourceMarkdown = initialMarkdown
+    ?? ['已有正文', ...Array.from({ length: 64 }, (_, index) => `验收段落 ${index + 1}`)].join('\n\n');
   let relatedMarkdown = '第二篇正文';
   let copiedNote: ReturnType<typeof createNote> | null = null;
   let importedNotes: ReturnType<typeof createNote>[] = [];
@@ -749,6 +839,19 @@ async function mockEditorWorkspace(
     ];
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
   });
+}
+
+async function dispatchPaste(page: Page, content: { html?: string; text: string }): Promise<void> {
+  await page.locator('.ProseMirror').evaluate((editor, pasted) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', pasted.text);
+    if (pasted.html) clipboardData.setData('text/html', pasted.html);
+    editor.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData
+    }));
+  }, content);
 }
 
 async function pinEditorToolbar(page: Page): Promise<void> {

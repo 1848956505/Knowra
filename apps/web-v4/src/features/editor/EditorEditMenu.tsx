@@ -21,6 +21,9 @@ const groups: Array<Array<{ action: EditorEditAction; label: string; kbd?: strin
     { action: 'find', label: '查找' },
     { action: 'replace', label: '替换', requiresWrite: true },
     { action: 'select-all', label: '全选', kbd: 'Ctrl+A' }
+  ],
+  [
+    { action: 'repair-document', label: '检查异常格式', requiresWrite: true }
   ]
 ];
 

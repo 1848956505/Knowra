@@ -33,6 +33,7 @@ export type EditorEditAction =
   | 'paste'
   | 'find'
   | 'replace'
+  | 'repair-document'
   | 'select-all';
 
 export type EditorClipboardAction = Extract<EditorEditAction, 'cut' | 'copy' | 'paste' | 'select-all'>;
@@ -59,6 +60,7 @@ export interface EditorCommandTarget {
   replaceAll(query: string, replacement: string): EditorFindResult;
   clearFind(): void;
   setMarkdown(markdown: string): void;
+  replaceMarkdown(markdown: string): boolean;
   focus(): void;
   getMarkdown(): string;
   getHtml(): string;

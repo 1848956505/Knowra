@@ -20,7 +20,7 @@ describe('EditorEditMenu', () => {
     const user = userEvent.setup();
     renderMenu();
     await user.click(screen.getByRole('button', { name: '编辑' }));
-    for (const label of ['撤销', '重做', '剪切', '复制', '粘贴', '查找', '替换', '全选']) {
+    for (const label of ['撤销', '重做', '剪切', '复制', '粘贴', '查找', '替换', '全选', '检查异常格式']) {
       expect(screen.getByRole('menuitem', { name: label })).toBeEnabled();
     }
     expect(screen.getByRole('menuitem', { name: '撤销' })).toHaveTextContent('Ctrl+Z');
@@ -34,6 +34,7 @@ describe('EditorEditMenu', () => {
     expect(screen.getByRole('menuitem', { name: '剪切' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('menuitem', { name: '粘贴' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('menuitem', { name: '替换' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: '检查异常格式' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('menuitem', { name: '复制' })).toBeEnabled();
     expect(screen.getByRole('menuitem', { name: '查找' })).toBeEnabled();
   });

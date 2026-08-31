@@ -11,6 +11,7 @@ import { Button } from '../../components/ui';
 import { NoteIcon } from '../../shell/icons';
 import { EditorDocumentHeader, type EditorDocumentHeaderHandle } from './EditorDocumentHeader';
 import { EditorContextMenu } from './EditorContextMenu';
+import { EditorDocumentRepairDialog } from './EditorDocumentRepairDialog';
 import { EditorFindReplacePanel } from './EditorFindReplacePanel';
 import { EditorInspector } from './EditorInspector';
 import { EditorSourcePane } from './EditorSourcePane';
@@ -98,6 +99,7 @@ export function NoteEditorView({
   const [toolbarPinned, setToolbarPinned] = useState(false);
   const [documentEdge, setDocumentEdge] = useState<number | null>(null);
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
+  const [repairDialogOpen, setRepairDialogOpen] = useState(false);
   const autosave = useNoteAutosave({
     noteId: note?.id ?? 'missing-note',
     remoteMarkdown: note?.rawMarkdown ?? '',
@@ -140,7 +142,10 @@ export function NoteEditorView({
     };
   }, [note?.id]);
 
-  useEffect(() => setEditPanelMode(null), [note?.id]);
+  useEffect(() => {
+    setEditPanelMode(null);
+    setRepairDialogOpen(false);
+  }, [note?.id]);
 
   if (!note) {
     return (
@@ -158,6 +163,10 @@ export function NoteEditorView({
     window.requestAnimationFrame(() => editorRef.current?.focus());
   };
   const handleEditAction = async (action: EditorEditAction) => {
+    if (action === 'repair-document') {
+      setRepairDialogOpen(true);
+      return;
+    }
     if (action === 'find' || action === 'replace') {
       setEditPanelMode(action);
       return;
@@ -303,6 +312,18 @@ export function NoteEditorView({
               onClose={() => setEditPanelMode(null)}
               onStatus={onFileStatus}
             />
+            <EditorDocumentRepairDialog
+              markdown={draftMarkdown}
+              open={repairDialogOpen}
+              onOpenChange={setRepairDialogOpen}
+              onApply={(markdown, report) => {
+                if (!editorRef.current?.replaceMarkdown(markdown)) {
+                  onFileStatus('文档内容未变更');
+                  return;
+                }
+                onFileStatus(`已修复 ${report.total} 处异常格式，可使用撤销恢复`);
+              }}
+            />
             {autosave.hasConflict ? (
               <div className={styles.saveConflict} role="alert">
                 <div>
@@ -354,6 +375,7 @@ export function NoteEditorView({
                         readOnly={!canEditContent}
                         allowExternalSync={!autosave.hasLocalChanges}
                         onChange={autosave.updateDraft}
+                        onStatus={onFileStatus}
                       />
                     </Suspense>
                   ) : <div className={styles.emptyBody}><h2>正在加载正文…</h2><p>标题与标签页可以先使用，正文会在详情接口返回后启用。</p></div>}
