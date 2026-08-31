@@ -1,4 +1,5 @@
 import { type Editor, editorViewCtx, schemaCtx } from '@milkdown/kit/core';
+import { lift, wrapIn } from '@milkdown/kit/prose/commands';
 import { getNodeFromSchema } from '@milkdown/kit/prose';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import {
@@ -8,6 +9,10 @@ import {
   wrapInBulletListCommand,
   wrapInOrderedListCommand
 } from '@milkdown/kit/preset/commonmark';
+import {
+  goToNextTableCellCommand,
+  goToPrevTableCellCommand
+} from '@milkdown/kit/preset/gfm';
 import { callCommand } from '@milkdown/kit/utils';
 
 type ListTypeName = 'bullet_list' | 'ordered_list';
@@ -69,26 +74,59 @@ export function runDeleteSelectionCommand(editor: Editor): boolean {
 
 export function runIndentCommand(editor: Editor): boolean {
   const view = editor.ctx.get(editorViewCtx);
+  if (isSelectionInsideTable(editor)) return false;
   if (findListAncestor(view.state.selection.$from)) {
     return Boolean(editor.action(callCommand(sinkListItemCommand.key)));
   }
+  if (findBlockquoteAncestor(view.state.selection.$from)) {
+    const blockquoteNodeType = getNodeFromSchema('blockquote', editor.ctx.get(schemaCtx));
+    return blockquoteNodeType ? wrapIn(blockquoteNodeType)(view.state, view.dispatch) : false;
+  }
   const { from, to } = view.state.selection;
-  view.dispatch(view.state.tr.insertText('    ', from, to).scrollIntoView());
+  if (from === to) {
+    view.dispatch(view.state.tr.insertText('    ', from).scrollIntoView());
+    return true;
+  }
+  const transaction = view.state.tr;
+  for (const position of collectSelectedTextblockStarts(view.state).reverse()) {
+    transaction.insertText('    ', position);
+  }
+  view.dispatch(transaction.scrollIntoView());
   return true;
 }
 
 export function runOutdentCommand(editor: Editor): boolean {
   const view = editor.ctx.get(editorViewCtx);
+  if (isSelectionInsideTable(editor)) return false;
   if (findListAncestor(view.state.selection.$from)) {
     return Boolean(editor.action(callCommand(liftListItemCommand.key)));
   }
-  const { $from } = view.state.selection;
-  const lineStartOffset = $from.parent.textContent.lastIndexOf('\n', Math.max(0, $from.parentOffset - 1)) + 1;
-  const removable = $from.parent.textContent.slice(lineStartOffset, lineStartOffset + 4).match(/^( {1,4}|\t)/)?.[0];
-  if (!removable) return false;
-  const lineStart = $from.start() + lineStartOffset;
-  view.dispatch(view.state.tr.delete(lineStart, lineStart + removable.length).scrollIntoView());
+  if (findBlockquoteAncestor(view.state.selection.$from)) {
+    return lift(view.state, view.dispatch);
+  }
+  const transaction = view.state.tr;
+  const removableRanges = collectSelectedTextblockStarts(view.state)
+    .map((position) => {
+      const node = view.state.doc.nodeAt(position - 1);
+      const removable = node?.textContent.slice(0, 4).match(/^( {1,4}|\t)/)?.[0];
+      return removable ? { from: position, to: position + removable.length } : null;
+    })
+    .filter((range): range is { from: number; to: number } => range !== null)
+    .reverse();
+  if (removableRanges.length === 0) return false;
+  for (const range of removableRanges) transaction.delete(range.from, range.to);
+  view.dispatch(transaction.scrollIntoView());
   return true;
+}
+
+export function isSelectionInsideTable(editor: Editor): boolean {
+  const view = editor.ctx.get(editorViewCtx);
+  return findTableAncestor(view.state.selection.$from);
+}
+
+export function runTableNavigationCommand(editor: Editor, direction: 'next' | 'previous'): boolean {
+  const command = direction === 'next' ? goToNextTableCellCommand : goToPrevTableCellCommand;
+  return Boolean(editor.action(callCommand(command.key)));
 }
 
 export function insertParagraphNearSelection(editor: Editor, direction: 'above' | 'below'): boolean {
@@ -127,4 +165,30 @@ function findListAncestor($from: ReturnType<typeof getEditorState>['selection'][
     }
   }
   return null;
+}
+
+function findBlockquoteAncestor($from: ReturnType<typeof getEditorState>['selection']['$from']) {
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'blockquote') return true;
+  }
+  return false;
+}
+
+function findTableAncestor($from: ReturnType<typeof getEditorState>['selection']['$from']) {
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'table') return true;
+  }
+  return false;
+}
+
+function collectSelectedTextblockStarts(state: ReturnType<typeof getEditorState>): number[] {
+  const { from, to, $from } = state.selection;
+  if (from === to) return [$from.start()];
+
+  const starts = new Set<number>();
+  state.doc.nodesBetween(from, to, (node, position) => {
+    if (node.isTextblock) starts.add(position + 1);
+  });
+  if ($from.parent.isTextblock) starts.add($from.start());
+  return [...starts].sort((left, right) => left - right);
 }

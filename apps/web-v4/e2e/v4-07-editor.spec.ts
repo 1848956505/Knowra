@@ -139,6 +139,48 @@ test('V4-07 保存冲突会暂停自动写入并保留可导出的本地草稿',
     .toBeLessThanOrEqual(2);
 });
 
+test('V4-07 连续输入只产生必要段落并在 IME 候选上屏后再保存', async ({ page }) => {
+  const savedMarkdown: string[] = [];
+  await mockEditorWorkspace(page, savedMarkdown);
+  await page.goto('/#/materials/notes/note-1');
+
+  const editor = page.locator('.ProseMirror');
+  await expect(editor).toContainText('已有正文');
+  await editor.click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.type('第一段');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('第二段');
+
+  await expect(editor.locator(':scope > p')).toHaveCount(2);
+  await expect.poll(() => (savedMarkdown.at(-1) ?? '').trimEnd()).toBe('第一段\n\n第二段');
+  expect(savedMarkdown.at(-1)).not.toMatch(/\n{4,}/);
+  expect(savedMarkdown.at(-1)).not.toMatch(/(^|\n)\\($|\n)/);
+
+  const savedCountBeforeComposition = savedMarkdown.length;
+  await editor.evaluate((element) => {
+    element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }));
+  });
+  await page.keyboard.type(' ni hao');
+  await page.waitForTimeout(900);
+  expect(savedMarkdown).toHaveLength(savedCountBeforeComposition);
+
+  await editor.evaluate((element) => {
+    element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '你好' }));
+  });
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('ni hao');
+
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.type('- ');
+  await page.keyboard.type('列表项');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('列表外正文');
+  await expect(editor.locator('ul li')).toHaveCount(1);
+  await expect(editor.locator(':scope > p').last()).toHaveText('列表外正文');
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('\n\n列表外正文');
+});
+
 test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久化', async ({ page }) => {
   test.setTimeout(60_000);
   const savedMarkdown: string[] = [];
@@ -242,6 +284,17 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   await replaceEditorParagraph(page, editor, '表格验收');
   await chooseParagraphAction('表格');
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/\|.*\|/);
+  const firstTableCell = editor.locator('td, th').first();
+  await firstTableCell.locator('p').click({ position: { x: 4, y: 4 } });
+  await expect.poll(() => editor.evaluate(() => {
+    const anchor = window.getSelection()?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    return element?.closest('td, th')?.cellIndex ?? -1;
+  })).toBe(0);
+  await page.keyboard.press('Tab');
+  await expect(editor).toBeFocused();
+  await page.keyboard.type('单元格导航');
+  await expect(editor.locator('td, th').nth(1)).toContainText('单元格导航');
 });
 
 test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ page }) => {
@@ -490,6 +543,8 @@ test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源�
   await page.goto('/#/materials/notes/note-1');
 
   const editor = page.locator('.ProseMirror');
+  await editor.locator(':scope > p').first().click();
+  await page.keyboard.press('End');
   const openViewMenu = async () => {
     await pinEditorToolbar(page);
     await page.getByRole('button', { name: '视图', exact: true }).click();
@@ -504,10 +559,15 @@ test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源�
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(editor).toHaveAttribute('contenteditable', 'false');
   await expect(page.getByRole('textbox', { name: '笔记标题' })).toHaveAttribute('readonly');
+  await editor.evaluate((element) => { element.setAttribute('data-runtime-marker', 'preserved'); });
 
   await openViewMenu();
   await page.getByRole('menuitem', { name: '编辑模式', exact: true }).click();
   await expect(editor).toHaveAttribute('contenteditable', 'true');
+  await expect(editor).toHaveAttribute('data-runtime-marker', 'preserved');
+  await editor.focus();
+  await page.keyboard.type(' 选区保持');
+  await expect(editor.locator(':scope > p').first()).toHaveText('已有正文 选区保持');
 
   await openViewMenu();
   await page.getByRole('menuitem', { name: '隐藏左侧目录区', exact: true }).click();
@@ -624,7 +684,7 @@ test('V4-07 Markdown 导入复用后端批量能力并打开首篇笔记', async
     { name: 'second.markdown', mimeType: 'text/markdown', buffer: Buffer.from('# 导入验收二') }
   ]);
   await dialog.getByRole('button', { name: '导入 2 篇' }).click();
-  await expect(page.getByRole('heading', { name: '导入验收一', level: 1 })).toBeVisible();
+  await expect(page.locator('#note-editor-title')).toHaveText('导入验收一');
 });
 
 async function mockEditorWorkspace(

@@ -1,5 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
-import { defaultValueCtx, Editor, editorViewOptionsCtx, remarkStringifyOptionsCtx, rootCtx } from '@milkdown/kit/core';
+import {
+  defaultValueCtx,
+  Editor,
+  editorViewCtx,
+  editorViewOptionsCtx,
+  remarkStringifyOptionsCtx,
+  rootCtx
+} from '@milkdown/kit/core';
 import { history, redoCommand, undoCommand } from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
@@ -21,7 +28,9 @@ import {
   runIndentCommand,
   runListCommand,
   runOutdentCommand,
-  runParagraphCommand
+  runParagraphCommand,
+  isSelectionInsideTable,
+  runTableNavigationCommand
 } from './editorBlockCommands';
 import type { EditorCommand, EditorCommandTarget } from './editorCommands';
 import { runEditorClipboardAction } from './editorClipboard';
@@ -33,6 +42,7 @@ import {
   replaceCurrentMatch
 } from './editorFind';
 import { resolveEditorShortcutCommand } from './editorShortcuts';
+import { editorInputBehavior } from './editorInputBehavior';
 import { highlightRemark, highlightSchema, toggleHighlightCommand } from './editorHighlight';
 import {
   insertInternalLinkCommand,
@@ -57,33 +67,64 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const onChangeRef = useRef(onChange);
     const incomingMarkdownRef = useRef(markdown);
     const editorMarkdownRef = useRef(markdown);
+    const emittedMarkdownRef = useRef(markdown);
     const readyRef = useRef(false);
+    const readOnlyRef = useRef(readOnly);
+    const composingRef = useRef(false);
+    const compositionFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     onChangeRef.current = onChange;
     incomingMarkdownRef.current = markdown;
+    readOnlyRef.current = readOnly;
 
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
       const editor = editorRef.current;
-      if (!editor || readOnly) return;
+      if (!editor || readOnlyRef.current) return;
       const command = resolveEditorShortcutCommand(event);
       if (!command) return;
       if (command === 'indent' || command === 'outdent') {
-        event.preventDefault();
+        if (isSelectionInsideTable(editor)) {
+          runTableNavigationCommand(editor, command === 'indent' ? 'next' : 'previous');
+          event.preventDefault();
+          return;
+        }
         commandResolvers[command](editor);
+        event.preventDefault();
         return;
       }
       if (commandResolvers[command](editor)) event.preventDefault();
     };
 
+    const handleCompositionStart = () => {
+      if (compositionFlushTimerRef.current) clearTimeout(compositionFlushTimerRef.current);
+      compositionFlushTimerRef.current = null;
+      composingRef.current = true;
+    };
+
+    const handleCompositionEnd = () => {
+      if (compositionFlushTimerRef.current) clearTimeout(compositionFlushTimerRef.current);
+      compositionFlushTimerRef.current = setTimeout(() => {
+        compositionFlushTimerRef.current = null;
+        composingRef.current = false;
+        const editor = editorRef.current;
+        if (!editor || !readyRef.current) return;
+        const nextMarkdown = editor.action(getMarkdown());
+        editorMarkdownRef.current = nextMarkdown;
+        if (nextMarkdown === emittedMarkdownRef.current) return;
+        emittedMarkdownRef.current = nextMarkdown;
+        onChangeRef.current(nextMarkdown);
+      }, 0);
+    };
+
     useImperativeHandle(ref, () => ({
       run(command) {
         const editor = editorRef.current;
-        if (!editor || readOnly) return false;
+        if (!editor || readOnlyRef.current) return false;
         const resolver = commandResolvers[command];
         return resolver ? resolver(editor) : false;
       },
       async runEdit(action) {
         const editor = editorRef.current;
-        if (!editor || readOnly && (action === 'cut' || action === 'paste')) {
+        if (!editor || readOnlyRef.current && (action === 'cut' || action === 'paste')) {
           return { ok: false, reason: 'unsupported' };
         }
         return runEditorClipboardAction(editor, action);
@@ -94,12 +135,12 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       },
       replaceCurrent(query, replacement, currentIndex) {
         const editor = editorRef.current;
-        if (!editor || readOnly) return { found: false, count: 0, index: -1, replaced: 0 };
+        if (!editor || readOnlyRef.current) return { found: false, count: 0, index: -1, replaced: 0 };
         return replaceCurrentMatch(editor, query, replacement, currentIndex);
       },
       replaceAll(query, replacement) {
         const editor = editorRef.current;
-        if (!editor || readOnly) return { found: false, count: 0, index: -1, replaced: 0 };
+        if (!editor || readOnlyRef.current) return { found: false, count: 0, index: -1, replaced: 0 };
         return replaceAllMatches(editor, query, replacement);
       },
       clearFind() {
@@ -110,6 +151,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         const editor = editorRef.current;
         if (!editor || nextMarkdown === editorMarkdownRef.current) return;
         editorMarkdownRef.current = nextMarkdown;
+        emittedMarkdownRef.current = nextMarkdown;
         editor.action(replaceAllMarkdown(nextMarkdown, true));
       },
       focus() {
@@ -121,18 +163,22 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       getHtml() {
         return editorRef.current?.action(getHTML()) ?? '';
       }
-    }), [readOnly]);
+    }), []);
 
     useEffect(() => {
       const root = hostRef.current;
       if (!root) return;
       let cancelled = false;
+      readyRef.current = false;
+      composingRef.current = false;
+      editorMarkdownRef.current = incomingMarkdownRef.current;
+      emittedMarkdownRef.current = incomingMarkdownRef.current;
       const editor = Editor.make()
         .config((ctx) => {
           ctx.set(rootCtx, root);
           ctx.set(defaultValueCtx, incomingMarkdownRef.current);
           ctx.set(editorViewOptionsCtx, {
-            editable: () => !readOnly,
+            editable: () => !readOnlyRef.current,
             attributes: {
               'aria-label': '笔记正文',
               'aria-multiline': 'true',
@@ -169,7 +215,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
             if (nextMarkdown === editorMarkdownRef.current) return;
             editorMarkdownRef.current = nextMarkdown;
-            if (!readyRef.current) return;
+            if (!readyRef.current || composingRef.current) return;
+            emittedMarkdownRef.current = nextMarkdown;
             onChangeRef.current(nextMarkdown);
           });
         })
@@ -185,6 +232,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(findHighlightBehavior)
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
+        .use(editorInputBehavior)
         .use(history)
         .use(listener);
       void editor.create().then(() => {
@@ -203,15 +251,25 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         cancelled = true;
         readyRef.current = false;
         editorRef.current = null;
+        composingRef.current = false;
+        if (compositionFlushTimerRef.current) clearTimeout(compositionFlushTimerRef.current);
+        compositionFlushTimerRef.current = null;
         void editor.destroy();
       };
-    }, [noteId, readOnly]);
+    }, [noteId]);
 
     useEffect(() => {
       const editor = editorRef.current;
-      if (!editor || !readyRef.current || !allowExternalSync) return;
+      if (!editor || !readyRef.current) return;
+      editor.ctx.get(editorViewCtx).setProps({ editable: () => !readOnly });
+    }, [readOnly]);
+
+    useEffect(() => {
+      const editor = editorRef.current;
+      if (!editor || !readyRef.current || !allowExternalSync || composingRef.current) return;
       if (markdown === editorMarkdownRef.current) return;
       editorMarkdownRef.current = markdown;
+      emittedMarkdownRef.current = markdown;
       editor.action(replaceAllMarkdown(markdown, true));
     }, [allowExternalSync, markdown]);
 
@@ -221,6 +279,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         className={styles.milkdownEditor}
         data-readonly={readOnly || undefined}
         onKeyDownCapture={handleKeyDown}
+        onCompositionStartCapture={handleCompositionStart}
+        onCompositionEndCapture={handleCompositionEnd}
       />
     );
   }
