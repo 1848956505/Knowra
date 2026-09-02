@@ -1,1 +1,3 @@
 *.sh text eol=lf
+*.md whitespace=-blank-at-eol,-blank-at-eof
+*.html whitespace=-blank-at-eol
