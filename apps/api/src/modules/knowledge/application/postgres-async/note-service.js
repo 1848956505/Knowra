@@ -12,6 +12,7 @@ export function createAsyncNoteService({
   repository,
   validateSiblingNameConflict = null,
   validateNoteReferences = null,
+  normalizeTagIds = async (tagIds) => [...new Set(tagIds)],
   noteVersionService = null,
   runTransaction = (operation) => operation(),
   onNoteContentChanged = null,
@@ -236,7 +237,8 @@ export function createAsyncNoteService({
     repository,
     requireNote,
     requireNoteIds,
-    assertReferences
+    assertReferences,
+    normalizeTagIds
   }));
   return service;
 }

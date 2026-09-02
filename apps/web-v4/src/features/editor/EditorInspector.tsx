@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
-import type { Annotation, Attachment, Folder, Note, NoteVersion, Tag } from '@study-accelerator/web-core';
-import { Button, Checkbox, Dialog, DialogBody, DialogClose, DialogFooter } from '../../components/ui';
+import type { Annotation, Attachment, Folder, Note, NoteVersion, Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
+import { Button } from '../../components/ui';
 import { GhostIconButton } from '../../components/ui/button';
 import { Tabs, type TabsItem } from '../../components/ui/collection';
 import {
@@ -28,6 +28,7 @@ import {
 import styles from './EditorInspector.module.css';
 import { EditorAttachmentPanel } from './EditorAttachmentPanel';
 import { OrganizeNoteDialog } from './OrganizeNoteDialog';
+import { TagChip, TagPickerDialog } from '../tags';
 
 const inspectorTabs: TabsItem[] = [
   { id: 'info', label: '信息' },
@@ -44,9 +45,11 @@ export interface EditorInspectorProps {
   foldersById: Record<string, Folder>;
   notes: Note[];
   tags: Tag[];
+  tagGroups?: TagGroup[];
   markdown: string;
   open: boolean;
   canWrite: boolean;
+  canInsertAttachment: boolean;
   attachments: Attachment[];
   attachmentsLoading: boolean;
   linkedNotes: Note[];
@@ -58,10 +61,17 @@ export interface EditorInspectorProps {
   onOpenNote(noteId: string): void;
   onNavigateHeading(heading: InspectorHeading, index: number): void;
   onSetTags(tagIds: string[]): Promise<void>;
+  onCreateTag?(input: { name: string; color: TagColor; groupId: string }): Promise<Tag>;
+  onUpdateTag?(tagId: string, input: { name?: string; color?: TagColor; groupId?: string }): Promise<Tag>;
+  onDeleteTag?(tagId: string): Promise<void>;
+  onMergeTags?(sourceTagId: string, targetTagId: string): Promise<void>;
+  onOpenTagManager?(): void;
+  onOpenTag?(tagId: string): void;
   onListVersions(noteId: string): Promise<NoteVersion[]>;
   onGetVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   onOrganizeNote(input: { folderId: string | null; status: string }): Promise<void>;
   onUploadAttachment(file: File): Promise<Attachment>;
+  onInsertAttachment(attachment: Attachment): Promise<void>;
   onRenameAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
   onDeleteAttachment(attachmentId: string): Promise<void>;
   onCreateAnnotation(): Promise<void>;
@@ -147,12 +157,20 @@ export function EditorInspector(props: EditorInspectorProps) {
           </div>
         )}
       </Tabs>
-      <TagEditorDialog
+      <TagPickerDialog
         isOpen={tagEditorOpen}
         tags={props.tags}
+        groups={props.tagGroups ?? []}
+        canWrite={props.canWrite}
         selectedTagIds={props.note.tagIds}
+        usageCounts={Object.fromEntries(props.tags.map((tag) => [tag.id, props.notes.filter((note) => !note.deleted && note.tagIds.includes(tag.id)).length]))}
         onOpenChange={setTagEditorOpen}
         onSave={props.onSetTags}
+        onCreateTag={props.onCreateTag ?? (() => Promise.reject(new Error('当前模式不支持新建标签')))}
+        onUpdateTag={props.onUpdateTag}
+        onDeleteTag={props.onDeleteTag}
+        onMergeTags={props.onMergeTags}
+        onOpenFullManager={props.onOpenTagManager}
       />
       <OrganizeNoteDialog
         note={props.note}
@@ -202,7 +220,7 @@ function InfoPanel(props: EditorInspectorProps & {
       >
         <div className={styles.tags}>
           {props.assignedTags.length > 0
-            ? props.assignedTags.map((tag) => <span key={tag.id}>{tag.name || '未命名标签'}</span>)
+            ? props.assignedTags.map((tag) => <TagChip key={tag.id} tag={tag} onClick={props.onOpenTag ? () => props.onOpenTag?.(tag.id) : undefined} aria-label={`查看标签 ${tag.name}`} />)
             : <p className={styles.emptyInline}>暂无标签</p>}
         </div>
       </InspectorSection>
@@ -214,8 +232,10 @@ function InfoPanel(props: EditorInspectorProps & {
           attachments={props.attachments}
           markdown={props.markdown}
           canWrite={props.canWrite}
+          canInsert={props.canInsertAttachment}
           loading={props.attachmentsLoading}
           onUpload={props.onUploadAttachment}
+          onInsert={props.onInsertAttachment}
           onRename={props.onRenameAttachment}
           onDelete={props.onDeleteAttachment}
         />
@@ -301,69 +321,6 @@ function VersionPanel({ noteId, onListVersions, onGetVersion }: {
         </article>
       ) : null}
     </section>
-  );
-}
-
-function TagEditorDialog({ isOpen, tags, selectedTagIds, onOpenChange, onSave }: {
-  isOpen: boolean;
-  tags: Tag[];
-  selectedTagIds: string[];
-  onOpenChange(open: boolean): void;
-  onSave(tagIds: string[]): Promise<void>;
-}) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(selectedTagIds));
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setSelected(new Set(selectedTagIds));
-    setError('');
-  }, [isOpen, selectedTagIds]);
-
-  async function handleSave() {
-    setPending(true);
-    setError('');
-    try {
-      await onSave([...selected]);
-      onOpenChange(false);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '标签保存失败，请重试');
-    } finally {
-      setPending(false);
-    }
-  }
-
-  if (!isOpen) return null;
-  return (
-    <Dialog title="编辑笔记标签" description="选择要关联到当前笔记的标签。" isOpen onOpenChange={onOpenChange} isPending={pending}>
-      <DialogBody>
-        {tags.length > 0 ? (
-          <div className={styles.tagOptions} role="group" aria-label="可用标签">
-            {tags.map((tag) => (
-              <Checkbox
-                key={tag.id}
-                isSelected={selected.has(tag.id)}
-                onChange={(checked) => setSelected((current) => {
-                  const next = new Set(current);
-                  if (checked) next.add(tag.id);
-                  else next.delete(tag.id);
-                  return next;
-                })}
-              >
-                {tag.name || '未命名标签'}
-              </Checkbox>
-            ))}
-          </div>
-        ) : <p className={styles.emptyPanel}>当前工作区还没有可用标签。</p>}
-        <p className={styles.tagSelectionCount} aria-live="polite">已选择 {selected.size} 个标签</p>
-        {error ? <p className={styles.versionError} role="alert">{error}</p> : null}
-      </DialogBody>
-      <DialogFooter>
-        <DialogClose variant="ghost">取消</DialogClose>
-        <Button variant="primary" isPending={pending} onPress={() => void handleSave()}>保存标签</Button>
-      </DialogFooter>
-    </Dialog>
   );
 }
 

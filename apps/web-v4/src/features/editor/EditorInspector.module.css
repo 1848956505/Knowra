@@ -305,22 +305,24 @@
   border: 1px solid var(--ink-panel);
   background: var(--ink-surface);
 }
-.attachmentRow > a {
+.attachmentTarget {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 7px;
   padding: 4px;
+  border: 0;
+  background: transparent;
   color: var(--ink);
-  text-decoration: none;
+  text-align: left;
 }
-.attachmentRow > a:hover { color: var(--ink-accent); text-decoration: none; }
-.attachmentRow > a:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.attachmentRow > a svg { flex: 0 0 auto; color: var(--ink-secondary); }
-.attachmentRow > a span { min-width: 0; display: grid; gap: 2px; }
-.attachmentRow > a strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.attachmentRow > a small { color: var(--ink-secondary); font: 9px/1.2 var(--font-mono); }
-.attachmentRow > button {
+.attachmentTarget:hover { color: var(--ink-accent); }
+.attachmentTarget:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+.attachmentTarget svg { flex: 0 0 auto; color: var(--ink-secondary); }
+.attachmentTarget span { min-width: 0; display: grid; gap: 2px; }
+.attachmentTarget strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.attachmentTarget small { color: var(--ink-secondary); font: 9px/1.2 var(--font-mono); }
+.attachmentActionButton {
   width: 28px;
   height: 28px;
   display: grid;
@@ -330,10 +332,10 @@
   background: transparent;
   color: var(--ink-secondary);
 }
-.attachmentRow > button:hover:not(:disabled) { background: var(--ink-sunken); color: var(--ink); }
-.attachmentRow > button:last-child:hover:not(:disabled) { color: var(--ink-danger); }
-.attachmentRow > button:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.attachmentRow > button:disabled { color: var(--ink-muted); cursor: not-allowed; }
+.attachmentActionButton:hover:not(:disabled) { background: var(--ink-sunken); color: var(--ink); }
+.attachmentActionButton:last-child:hover:not(:disabled) { color: var(--ink-danger); }
+.attachmentActionButton:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+.attachmentActionButton:disabled { color: var(--ink-muted); cursor: not-allowed; }
 .referenceBadge {
   padding: 3px 5px;
   border: 1px solid var(--ink-accent);

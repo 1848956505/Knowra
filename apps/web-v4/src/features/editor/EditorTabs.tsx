@@ -1,6 +1,6 @@
 import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import type { Note } from '@study-accelerator/web-core';
-import { PressableButton } from '../../components/ui/button';
+import { GhostIconButton, PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay';
 import { CloseIcon, MoreVerticalIcon, PlusIcon } from '../../shell/icons';
 import styles from './NoteEditorView.module.css';
@@ -82,7 +82,13 @@ export function EditorTabs(props: EditorTabsProps) {
         })}
       </div>
       <MenuTrigger>
-        <PressableButton className={styles.tabOverflow} aria-label="查看全部标签页"><MoreVerticalIcon size={15} /></PressableButton>
+        <GhostIconButton
+          className={styles.tabAction}
+          aria-label="查看全部标签页"
+          title="查看全部标签页"
+        >
+          <MoreVerticalIcon size={18} />
+        </GhostIconButton>
         <MenuPopover placement="bottom end">
           <Menu ariaLabel="全部标签页">
             {props.notes.map((note, index) => (
@@ -93,9 +99,15 @@ export function EditorTabs(props: EditorTabsProps) {
           </Menu>
         </MenuPopover>
       </MenuTrigger>
-      <button type="button" className={styles.addTab} aria-label="新建笔记" title={props.canWrite ? '新建笔记' : '后端离线时无法新建'} disabled={!props.canWrite} onClick={props.onCreateNote}>
-        <PlusIcon size={15} />
-      </button>
+      <GhostIconButton
+        className={styles.tabAction}
+        aria-label="新建笔记"
+        title={props.canWrite ? '新建笔记' : '后端离线时无法新建'}
+        disabled={!props.canWrite}
+        onPress={props.onCreateNote}
+      >
+        <PlusIcon size={18} />
+      </GhostIconButton>
     </div>
   );
 }

@@ -137,9 +137,10 @@ export function App() {
   }, [location.pathname, storeActiveDomain]);
 
   const canWrite = canWriteWorkspace();
-  const isShowcaseActive = location.pathname === '/showcase';
-  const isHome = location.pathname === '/';
-  const isNotesIndex = location.pathname === '/materials';
+  const routePathname = location.pathname.split('?')[0];
+  const isShowcaseActive = routePathname === '/showcase';
+  const isHome = routePathname === '/';
+  const isNotesIndex = routePathname === '/materials';
   const editorNoteId = getEditorNoteId(location.pathname);
   const isNoteEditor = editorNoteId !== null;
   const effectiveEditorView = useMemo(() => getEffectiveEditorViewState(editorView), [editorView]);

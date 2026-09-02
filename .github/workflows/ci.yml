@@ -49,14 +49,14 @@ jobs:
             git diff-tree --check --no-commit-id -r HEAD
           fi
 
-      - name: Build Milkdown editor bundle
-        run: NODE_ENV=production npm run build:editor-bundle -w @study-accelerator/web
+      - name: Build production V4 frontend
+        run: NODE_ENV=production npm run build:web
 
       - name: Verify production source maps are absent
         shell: bash
         run: |
-          test ! -e apps/web/lib/editor/milkdown-bundle.js.map
-          test ! -e apps/web/lib/editor/milkdown-bundle.css.map
+          test -f apps/web-v4/dist/index.html
+          test -z "$(find apps/web-v4/dist -type f -name '*.map' -print -quit)"
 
       - name: Run test suites
         run: npm test

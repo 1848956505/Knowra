@@ -255,6 +255,20 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         view.dispatch(view.state.tr.replaceSelectionWith(image).scrollIntoView());
         return true;
       },
+      insertLink(url, label) {
+        const editor = editorRef.current;
+        if (!editor || readOnlyRef.current || !url) return false;
+        restoreRememberedSelection(editor, lastSelectionRef.current);
+        const view = editor.ctx.get(editorViewCtx);
+        const linkType = view.state.schema.marks.link;
+        if (!linkType) return false;
+        const link = view.state.schema.text(
+          label.trim() || '附件',
+          [linkType.create({ href: url, title: null })]
+        );
+        view.dispatch(view.state.tr.replaceSelectionWith(link, false).scrollIntoView());
+        return true;
+      },
       setMarkdown(nextMarkdown) {
         const editor = editorRef.current;
         if (!editor || nextMarkdown === editorMarkdownRef.current) return;

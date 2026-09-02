@@ -7,6 +7,7 @@ export function createKnowledgeHttpHandlers({
     noteService,
     folderService,
     tagService,
+    tagGroupService,
     contentAnnotationService,
     knowledgeSpaceService,
     searchService,
@@ -17,7 +18,8 @@ export function createKnowledgeHttpHandlers({
     examFocusService,
     questionService,
     deleteFolderAndCleanup,
-    deleteTagAndCleanup
+    deleteTagAndCleanup,
+    mergeTags
   } = knowledgeModule;
 
   return {
@@ -102,6 +104,15 @@ export function createKnowledgeHttpHandlers({
     },
     listTags(query = {}) {
       return tagService.listTags(query);
+    },
+    reorderTags(body = {}) { return tagService.reorderTags(body.tagIds ?? []); },
+    mergeTags(body = {}) { return mergeTags(body.sourceTagId, body.targetTagId); },
+    createTagGroup(body) { return tagGroupService.createTagGroup(body); },
+    updateTagGroup(params, body) { return tagGroupService.updateTagGroup(params.id, body); },
+    deleteTagGroup(params) { return tagGroupService.deleteTagGroup(params.id); },
+    listTagGroups(query = {}) { return tagGroupService.listTagGroups(query); },
+    updateTagsForNotes(body = {}) {
+      return noteService.updateTagsForNotes(body.noteIds ?? [], body.addTagIds ?? [], body.removeTagIds ?? []);
     },
     createAnnotation(body) { return contentAnnotationService.createAnnotation(body); },
     listAnnotations(query = {}) { return contentAnnotationService.listAnnotationsByNote(query); },

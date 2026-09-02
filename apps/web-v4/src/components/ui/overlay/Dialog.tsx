@@ -81,7 +81,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
               ) : null}
             </header>
             {description ? (
-              <p className={styles.body} style={{ paddingTop: 6, paddingBottom: 0 }}>{description}</p>
+              <p className={styles.description}>{description}</p>
             ) : null}
             {children}
             {isPending ? (

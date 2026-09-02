@@ -184,7 +184,8 @@ function renderWithStore(ui: ReactNode, options: { scope?: 'trash' } = {}): Rend
         createNote('note-3', '灵感记录', null),
         { ...createNote('note-trash', '已删除', null), deleted: true }
       ],
-      tags: []
+      tags: [],
+      tagGroups: []
     },
     ...(options.scope ? {
       notesIndex: { ...store.getState().notesIndex, scope: options.scope }
@@ -219,7 +220,7 @@ function createApi(): WorkspaceApi {
   return {
     listKnowledgeSpaces: vi.fn().mockResolvedValue([{ id: 'space-1' }]),
     createDefaultKnowledgeSpace: vi.fn().mockResolvedValue({ id: 'space-1' }),
-    loadWorkspaceResources: vi.fn().mockResolvedValue({ folderTree: [], notes: [], tags: [] }),
+    loadWorkspaceResources: vi.fn().mockResolvedValue({ folderTree: [], notes: [], tags: [], tagGroups: [] }),
     searchNoteIds: vi.fn().mockResolvedValue([]),
     createNote: vi.fn(),
     importMarkdownNotes: vi.fn(),
@@ -231,8 +232,11 @@ function createApi(): WorkspaceApi {
     permanentlyDeleteNote: vi.fn(),
     setNoteFavorite: vi.fn(),
     setNoteTags: vi.fn(),
+    createTag: vi.fn(), updateTag: vi.fn(), deleteTag: vi.fn(), mergeTags: vi.fn(), reorderTags: vi.fn(),
+    createTagGroup: vi.fn(), updateTagGroup: vi.fn(), deleteTagGroup: vi.fn(),
     deleteNotes: vi.fn().mockResolvedValue([]),
     assignTagToNotes: vi.fn().mockResolvedValue([]),
+    updateTagsForNotes: vi.fn().mockResolvedValue([]),
     queryNotes: vi.fn().mockResolvedValue({ items: [], hasNext: false }),
     getLinkedNotes: vi.fn().mockResolvedValue([]),
     listAnnotations: vi.fn().mockResolvedValue([]),

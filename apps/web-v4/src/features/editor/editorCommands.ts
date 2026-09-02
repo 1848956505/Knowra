@@ -64,6 +64,7 @@ export interface EditorCommandTarget {
   setAnnotations(annotations: import('@study-accelerator/web-core').Annotation[], focusedId?: string | null): void;
   selectAnnotation(annotationId: string): boolean;
   insertImage(url: string, alt: string): boolean;
+  insertLink(url: string, label: string): boolean;
   setMarkdown(markdown: string): void;
   replaceMarkdown(markdown: string): boolean;
   focus(): void;

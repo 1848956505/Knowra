@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorAttachmentPanel } from './EditorAttachmentPanel';
@@ -12,9 +12,7 @@ const attachment = {
 describe('EditorAttachmentPanel', () => {
   it('opens stored files and protects attachments referenced by the document', () => {
     renderPanel({ markdown: `![图](${buildAttachmentReferenceUrl(attachment.id)})` });
-    expect(screen.getByRole('link', { name: /diagram\.png/ })).toHaveAttribute(
-      'href', '/api/storage/attachments/attachment-1/content'
-    );
+    expect(screen.getByRole('button', { name: '打开附件 diagram.png' })).toBeInTheDocument();
     expect(screen.getByText('正文中')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '删除附件 diagram.png' })).toBeDisabled();
   });
@@ -42,6 +40,26 @@ describe('EditorAttachmentPanel', () => {
     await user.click(screen.getByRole('button', { name: '删除附件' }));
     expect(onDelete).toHaveBeenCalledWith('attachment-1');
   });
+
+  it('opens an attachment context menu and inserts the selected attachment into the document', async () => {
+    const user = userEvent.setup();
+    const onInsert = vi.fn().mockResolvedValue(undefined);
+    renderPanel({ onInsert });
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: '打开附件 diagram.png' }));
+    const menu = await screen.findByRole('menu');
+    expect(menu).toHaveAttribute('aria-label', 'diagram.png附件操作');
+    expect(screen.getByRole('menuitem', { name: '打开附件' })).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: '插入到正文' }));
+    expect(onInsert).toHaveBeenCalledWith(attachment);
+  });
+
+  it('disables insertion when the document is not in an editable mode', async () => {
+    renderPanel({ canInsert: false });
+    fireEvent.contextMenu(screen.getByRole('button', { name: '打开附件 diagram.png' }));
+    expect(await screen.findByRole('menuitem', { name: '插入到正文' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
 });
 
 function renderPanel(overrides: Partial<Parameters<typeof EditorAttachmentPanel>[0]> = {}) {
@@ -49,8 +67,10 @@ function renderPanel(overrides: Partial<Parameters<typeof EditorAttachmentPanel>
     attachments={[attachment]}
     markdown=""
     canWrite
+    canInsert
     loading={false}
     onUpload={vi.fn().mockResolvedValue(attachment)}
+    onInsert={vi.fn().mockResolvedValue(undefined)}
     onRename={vi.fn().mockResolvedValue(attachment)}
     onDelete={vi.fn().mockResolvedValue(undefined)}
     {...overrides}

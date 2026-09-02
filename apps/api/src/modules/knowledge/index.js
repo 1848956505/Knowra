@@ -1,12 +1,14 @@
 import { createNoteService } from './application/note-service.js';
 import { createFolderService } from './application/folder-service.js';
 import { createTagService } from './application/tag-service.js';
+import { createTagGroupService } from './application/tag-group-service.js';
 import { createKnowledgeSpaceService } from './application/knowledge-space-service.js';
 import { createSearchService } from './application/search-service.js';
 import { createContentAnnotationService } from './application/content-annotation-service.js';
 import { createInMemoryNoteRepository } from './infrastructure/note-repository.js';
 import { createInMemoryFolderRepository } from './infrastructure/folder-repository.js';
 import { createInMemoryTagRepository } from './infrastructure/tag-repository.js';
+import { createInMemoryTagGroupRepository } from './infrastructure/tag-group-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './infrastructure/knowledge-space-repository.js';
 import { createInMemoryContentAnnotationRepository } from './infrastructure/content-annotation-repository.js';
 import { createInMemoryNoteVersionRepository } from './infrastructure/note-version-repository.js';
@@ -33,6 +35,7 @@ export function createKnowledgeModule(options = {}) {
   const noteRepository = options.noteRepository ?? createInMemoryNoteRepository();
   const folderRepository = options.folderRepository ?? createInMemoryFolderRepository();
   const tagRepository = options.tagRepository ?? createInMemoryTagRepository();
+  const tagGroupRepository = options.tagGroupRepository ?? createInMemoryTagGroupRepository();
   const knowledgeSpaceRepository =
     options.knowledgeSpaceRepository ?? createInMemoryKnowledgeSpaceRepository();
   const contentAnnotationRepository =
@@ -144,6 +147,37 @@ export function createKnowledgeModule(options = {}) {
         );
       }
     });
+    const grouped = new Map();
+    tagIds.forEach((tagId) => {
+      const tag = tagRepository.findById(tagId);
+      if (!tag?.groupId) return;
+      const ids = grouped.get(tag.groupId) ?? [];
+      ids.push(tagId);
+      grouped.set(tag.groupId, ids);
+    });
+    grouped.forEach((ids, groupId) => {
+      if (tagGroupRepository.findById(groupId)?.selectionMode === 'single' && ids.length > 1) {
+        throw validationError('TAG_GROUP_SINGLE_SELECTION', 'Only one tag may be selected from this group');
+      }
+    });
+  }
+
+  function normalizeTagIds(tagIds) {
+    const normalized = [];
+    const singleGroupIndexes = new Map();
+    [...new Set(tagIds)].forEach((tagId) => {
+      const tag = tagRepository.findById(tagId);
+      const group = tag?.groupId ? tagGroupRepository.findById(tag.groupId) : null;
+      if (group?.selectionMode !== 'single') {
+        normalized.push(tagId);
+        return;
+      }
+      const previousIndex = singleGroupIndexes.get(group.id);
+      if (previousIndex !== undefined) normalized[previousIndex] = null;
+      singleGroupIndexes.set(group.id, normalized.length);
+      normalized.push(tagId);
+    });
+    return normalized.filter(Boolean);
   }
 
   const noteVersionService = createNoteVersionService({ repository: noteVersionRepository });
@@ -202,7 +236,18 @@ export function createKnowledgeModule(options = {}) {
   });
   const tagService = createTagService({
     repository: tagRepository,
-    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG')
+    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG'),
+    validateGroupReference: (groupId, spaceId) => {
+      if (!groupId) return;
+      const group = tagGroupRepository.findById(groupId);
+      if (!group) throw validationError('TAG_GROUP_NOT_FOUND', 'The referenced tag group does not exist');
+      if (group.spaceId !== spaceId) throw validationError('TAG_GROUP_SPACE_MISMATCH', 'The referenced tag group belongs to another knowledge space');
+    }
+  });
+  const tagGroupService = createTagGroupService({
+    repository: tagGroupRepository,
+    tagRepository,
+    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG_GROUP')
   });
   const knowledgeSpaceService = createKnowledgeSpaceService({
     repository: knowledgeSpaceRepository
@@ -219,6 +264,7 @@ export function createKnowledgeModule(options = {}) {
   const noteService = createNoteService({
     repository: noteRepository,
     validateNoteReferences: assertNoteReferences,
+    normalizeTagIds,
     noteVersionService,
     runTransaction,
     onNoteContentChanged: (note, version) => {
@@ -291,8 +337,25 @@ export function createKnowledgeModule(options = {}) {
   }
 
   function deleteTagAndCleanup(tagId) {
-    noteService.removeTagFromAllNotes(tagId);
-    return tagService.deleteTag(tagId);
+    const tag = tagRepository.findById(tagId);
+    if (tag?.isSystem) throw conflictError('SYSTEM_TAG_PROTECTED', 'System tags cannot be deleted');
+    return runTransaction(() => {
+      noteService.removeTagFromAllNotes(tagId);
+      return tagService.deleteTag(tagId);
+    });
+  }
+
+  function mergeTags(sourceTagId, targetTagId) {
+    const source = tagRepository.findById(sourceTagId);
+    const target = tagRepository.findById(targetTagId);
+    if (!source || !target) throw validationError('TAG_MERGE_TARGET_INVALID', 'Both tags must exist');
+    if (source.isSystem) throw conflictError('SYSTEM_TAG_PROTECTED', 'System tags cannot be merged');
+    if (source.spaceId !== target.spaceId) throw validationError('TAG_SPACE_MISMATCH', 'Tags must belong to the same space');
+    return runTransaction(() => {
+      noteService.replaceTagInAllNotes(sourceTagId, targetTagId);
+      tagRepository.delete(sourceTagId);
+      return target;
+    });
   }
 
   return {
@@ -300,6 +363,7 @@ export function createKnowledgeModule(options = {}) {
       noteRepository,
       folderRepository,
       tagRepository,
+      tagGroupRepository,
       knowledgeSpaceRepository,
       contentAnnotationRepository,
       noteVersionRepository,
@@ -315,6 +379,7 @@ export function createKnowledgeModule(options = {}) {
     noteService,
     folderService,
     tagService,
+    tagGroupService,
     contentAnnotationService,
     knowledgeSpaceService,
     searchService,
@@ -326,6 +391,7 @@ export function createKnowledgeModule(options = {}) {
     questionService,
     workspaceQueryService,
     deleteFolderAndCleanup,
-    deleteTagAndCleanup
+    deleteTagAndCleanup,
+    mergeTags
   };
 }

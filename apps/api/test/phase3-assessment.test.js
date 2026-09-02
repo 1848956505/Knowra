@@ -214,7 +214,7 @@ export const phase3AssessmentTests = [
     }
   },
   {
-    name: 'Phase3 local JSON repositories flush all assessment relations to schema v3',
+    name: 'Phase3 local JSON repositories flush all assessment relations to schema v4',
     async run() {
       const { createAppContext } = await import('../src/app.factory.js');
       const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');
@@ -229,7 +229,7 @@ export const phase3AssessmentTests = [
         app.modules.knowledge.learningObjectiveService.confirmObjective(objective.id);
         app.modules.knowledge.questionService.createQuestion({ id: 'phase3-local-question', stem: '局部极值的判定条件是什么？', referenceAnswer: '一阶导数变号。', learningObjectiveIds: [objective.id], sources: [{ sourceType: 'learningObjective', sourceId: objective.id }] });
         const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        assert.equal(persisted.schemaVersion, 3);
+        assert.equal(persisted.schemaVersion, 4);
         assert.equal(persisted.learningObjectives.length, 1);
         assert.equal(persisted.questions.length, 1);
         assert.equal(persisted.questionObjectives.length, 1);

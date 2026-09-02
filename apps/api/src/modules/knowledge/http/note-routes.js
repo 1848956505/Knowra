@@ -76,6 +76,12 @@ export async function handleNoteRoute({ request, response, url, knowledge }) {
     return true;
   }
 
+  if (request.method === 'PATCH' && url.pathname === '/api/knowledge/notes/batch/tags') {
+    const body = await parseBody(request);
+    sendJson(response, 200, { data: await knowledge.updateTagsForNotes(body) });
+    return true;
+  }
+
   const tagPathMatch = matchNotePath(url.pathname, '/tags/([^/]+)');
   if (request.method === 'DELETE' && tagPathMatch) {
     sendJson(response, 200, {

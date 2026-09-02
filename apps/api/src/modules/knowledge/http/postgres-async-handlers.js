@@ -7,6 +7,7 @@ export function createPostgresKnowledgeHttpHandlers({
     noteService,
     folderService,
     tagService,
+    tagGroupService,
     contentAnnotationService,
     knowledgeSpaceService,
     searchService,
@@ -17,7 +18,8 @@ export function createPostgresKnowledgeHttpHandlers({
     examFocusService,
     questionService,
     deleteFolderAndCleanup,
-    deleteTagAndCleanup
+    deleteTagAndCleanup,
+    mergeTags
   } = knowledgeModule;
 
   return {
@@ -37,6 +39,7 @@ export function createPostgresKnowledgeHttpHandlers({
     removeTagFromNote: (params) => noteService.removeTagFromNote(params.id, params.tagId),
     assignTagToNote: (params, body = {}) => noteService.assignTagToNote(params.id, body.tagId),
     assignTagToNotes: (body = {}) => noteService.assignTagToNotes(body.noteIds ?? [], body.tagId),
+    updateTagsForNotes: (body = {}) => noteService.updateTagsForNotes(body.noteIds ?? [], body.addTagIds ?? [], body.removeTagIds ?? []),
     setNoteTags: (params, body) => noteService.setNoteTags(params.id, body.tagIds ?? []),
     createFolder: (body) => folderService.createFolder(body),
     updateFolder: (params, body) => folderService.updateFolder(params.id, body),
@@ -47,6 +50,12 @@ export function createPostgresKnowledgeHttpHandlers({
     updateTag: (params, body) => tagService.updateTag(params.id, body),
     deleteTag: (params) => deleteTagAndCleanup(params.id),
     listTags: (query = {}) => tagService.listTags(query),
+    reorderTags: (body = {}) => tagService.reorderTags(body.tagIds ?? []),
+    mergeTags: (body = {}) => mergeTags(body.sourceTagId, body.targetTagId),
+    createTagGroup: (body) => tagGroupService.createTagGroup(body),
+    updateTagGroup: (params, body) => tagGroupService.updateTagGroup(params.id, body),
+    deleteTagGroup: (params) => tagGroupService.deleteTagGroup(params.id),
+    listTagGroups: (query = {}) => tagGroupService.listTagGroups(query),
     createAnnotation: (body) => contentAnnotationService.createAnnotation(body),
     listAnnotations: (query = {}) => contentAnnotationService.listAnnotationsByNote(query),
     getAnnotation: (params) => contentAnnotationService.getAnnotation(params.id),

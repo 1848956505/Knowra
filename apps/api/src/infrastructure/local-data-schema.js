@@ -5,13 +5,14 @@ import {
 } from './local-data-relations.js';
 import { isAttachmentStatus } from './attachment-status.js';
 
-export const LOCAL_DATA_SCHEMA_VERSION = 3;
+export const LOCAL_DATA_SCHEMA_VERSION = 4;
 export const LOCAL_SNAPSHOT_VERSION = 'v1-local-json';
 
 export const LOCAL_DATA_COLLECTIONS = Object.freeze([
   'spaces',
   'folders',
   'tags',
+  'tagGroups',
   'notes',
   'noteVersions',
   'knowledgeItems',
@@ -128,6 +129,9 @@ function validateEntity(collectionName, item, index) {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.name, `${location}.name`);
   } else if (collectionName === 'tags') {
+    assertNonEmptyString(item.spaceId, `${location}.spaceId`);
+    assertNonEmptyString(item.name, `${location}.name`);
+  } else if (collectionName === 'tagGroups') {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.name, `${location}.name`);
   } else if (collectionName === 'notes') {
@@ -286,6 +290,7 @@ function assertSchemaVersion(schemaVersion) {
     schemaVersion === undefined
     || schemaVersion === 1
     || schemaVersion === 2
+    || schemaVersion === 3
     || schemaVersion === LOCAL_DATA_SCHEMA_VERSION
   ) {
     return;

@@ -7,12 +7,23 @@ import { fileURLToPath } from 'node:url';
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
 
-test('API and Web listeners bind to loopback only', () => {
+test('default frontend commands and PM2 config point to V4 while V3 stays explicit legacy', () => {
+  const packageJson = JSON.parse(readWorkspaceFile('package.json'));
+  const ecosystem = readWorkspaceFile('deploy/ecosystem.config.cjs');
+
+  assert.match(packageJson.scripts['dev:web'], /@study-accelerator\/web-v4/);
+  assert.match(packageJson.scripts['dev:web:legacy'], /@study-accelerator\/web/);
+  assert.match(packageJson.scripts['start:web'], /@study-accelerator\/web-v4/);
+  assert.match(ecosystem, /script: 'apps\/web-v4\/server\.mjs'/);
+  assert.doesNotMatch(ecosystem, /apps\/web\/src\/main\.js/);
+});
+
+test('API and default V4 Web listeners bind to loopback only', () => {
   const apiMain = readWorkspaceFile('apps/api/src/main.js');
-  const webPortListener = readWorkspaceFile('apps/web/src/server/port-listener.js');
+  const webApp = readWorkspaceFile('apps/web-v4/server/app.mjs');
 
   assert.match(apiMain, /server\.listen\(currentPort,\s*['"]127\.0\.0\.1['"]/);
-  assert.match(webPortListener, /server\.listen\(currentPort,\s*['"]127\.0\.0\.1['"]/);
+  assert.match(webApp, /server\.listen\(port,\s*['"]127\.0\.0\.1['"]/);
 });
 
 test('production Nginx template protects the site and keeps health public', () => {

@@ -5,6 +5,7 @@ import {
   buildAttachmentContentUrl,
   buildAttachmentReferenceUrl,
   formatAttachmentSize,
+  isInlineImageAttachment,
   isAttachmentReferenced,
   readAttachmentFile
 } from './attachmentFiles';
@@ -35,5 +36,11 @@ describe('attachment file helpers', () => {
     expect(() => assertInlineImageFile(new File(['svg'], 'diagram.svg', { type: 'image/svg+xml' }))).toThrow(
       'PNG、JPEG、GIF、WebP 或 AVIF'
     );
+    expect(isInlineImageAttachment({
+      id: 'image-1', noteId: 'note-1', fileName: 'diagram.png', mimeType: 'image/png', size: 1, status: 'ready'
+    })).toBe(true);
+    expect(isInlineImageAttachment({
+      id: 'file-1', noteId: 'note-1', fileName: 'notes.pdf', mimeType: 'application/pdf', size: 1, status: 'ready'
+    })).toBe(false);
   });
 });

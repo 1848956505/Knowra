@@ -43,27 +43,8 @@ if (!apiReady) {
   shutdownWithError(`API did not become ready at http://localhost:${actualApiPort} in time.`);
 }
 
-await runNodeScript(['scripts/build-milkdown-bundle.mjs'], {
-  env: createChildEnv()
-});
-
-const webEnv = createChildEnv({
-  PORT: String(webPort),
-  STUDY_RUNTIME_PORTS_FILE: runtimePortsFile
-});
-
-const webProcess = spawnNode(['apps/web/src/main.js'], { env: webEnv, name: 'web' });
-attachChildShutdown(webProcess);
-
-const actualWebPort = await waitForRuntimePort('web', 40, 250);
-
-if (!actualWebPort) {
-  shutdownWithError('Web did not publish its runtime port in time.');
-}
-
-const webV4Port = await getFreePort(5173);
 const webV4Entry = path.join(workspaceRoot, 'node_modules', 'vite', 'bin', 'vite.js');
-const webV4Process = spawnNode([webV4Entry, '--port', String(webV4Port), '--strictPort'], {
+const webV4Process = spawnNode([webV4Entry, '--port', String(webPort), '--strictPort'], {
   env: createChildEnv({
     API_PORT: String(actualApiPort),
     STUDY_RUNTIME_PORTS_FILE: runtimePortsFile
@@ -73,17 +54,17 @@ const webV4Process = spawnNode([webV4Entry, '--port', String(webV4Port), '--stri
 });
 attachChildShutdown(webV4Process);
 
-const webV4Ready = await waitForHttpOk(`http://localhost:${webV4Port}/`, 60, 250);
+const webV4Ready = await waitForHttpOk(`http://localhost:${webPort}/`, 60, 250);
 
 if (!webV4Ready) {
-  shutdownWithError(`Web V4 did not become ready at http://localhost:${webV4Port} in time.`);
+  shutdownWithError(`Web V4 did not become ready at http://localhost:${webPort} in time.`);
 }
 
-writeRuntimePort(runtimePortsFile, 'web-v4', webV4Port);
+writeRuntimePort(runtimePortsFile, 'web', webPort);
+writeRuntimePort(runtimePortsFile, 'web-v4', webPort);
 
 console.log(`Study API: http://localhost:${actualApiPort}`);
-console.log(`Study Web (V3): http://localhost:${actualWebPort}`);
-console.log(`Study Web (V4): http://localhost:${webV4Port}`);
+console.log(`Study Web (V4): http://localhost:${webPort}`);
 
 process.on('SIGINT', () => shutdownChildren(0));
 process.on('SIGTERM', () => shutdownChildren(0));

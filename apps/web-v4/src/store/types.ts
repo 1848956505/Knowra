@@ -13,7 +13,10 @@ import type {
   NoteQueryPage,
   CreateAnnotationInput,
   UpdateAnnotationAnchorInput,
-  UploadAttachmentInput
+  UploadAttachmentInput,
+  Tag,
+  TagColor,
+  TagGroup
 } from '@study-accelerator/web-core';
 
 export interface WorkspaceDependencies {
@@ -46,8 +49,17 @@ export interface WorkspaceSlice {
   permanentlyDeleteNote(noteId: string): Promise<void>;
   setNoteFavorite(noteId: string, favorite: boolean): Promise<void>;
   setNoteTags(noteId: string, tagIds: string[]): Promise<void>;
+  createTag(input: { name: string; color: TagColor; groupId: string }): Promise<Tag>;
+  updateTag(tagId: string, input: { name?: string; color?: TagColor; groupId?: string; sortOrder?: number }): Promise<Tag>;
+  deleteTag(tagId: string): Promise<void>;
+  mergeTags(sourceTagId: string, targetTagId: string): Promise<void>;
+  reorderTags(tagIds: string[]): Promise<void>;
+  createTagGroup(input: { name: string; selectionMode: 'single' | 'multiple' }): Promise<TagGroup>;
+  updateTagGroup(groupId: string, input: { name?: string; selectionMode?: 'single' | 'multiple'; sortOrder?: number }): Promise<TagGroup>;
+  deleteTagGroup(groupId: string): Promise<void>;
   deleteNotes(noteIds: string[]): Promise<void>;
   assignTagToNotes(noteIds: string[], tagId: string): Promise<void>;
+  updateTagsForNotes(noteIds: string[], addTagIds: string[], removeTagIds: string[]): Promise<void>;
   queryNotes(input: NoteQueryInput): Promise<NoteQueryPage>;
   getLinkedNotes(noteId: string): Promise<Note[]>;
   listAnnotations(noteId: string): Promise<Annotation[]>;

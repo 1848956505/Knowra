@@ -91,6 +91,7 @@ export const phase1PostgresTests = [
           knowledgeSpace: model(),
           folder: model(),
           tag: model(),
+          tagGroup: model(),
           note: model(),
           noteTag: model(),
           attachment: model(),

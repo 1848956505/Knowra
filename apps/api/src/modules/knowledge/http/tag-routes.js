@@ -2,6 +2,40 @@ import { parseBody, toQueryObject } from '../../../http/request.js';
 import { sendJson } from '../../../http/response.js';
 
 export async function handleTagRoute({ request, response, url, knowledge }) {
+  if (request.method === 'POST' && url.pathname === '/api/knowledge/tags/merge') {
+    const body = await parseBody(request);
+    sendJson(response, 200, { data: await knowledge.mergeTags(body) });
+    return true;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/knowledge/tags/reorder') {
+    const body = await parseBody(request);
+    sendJson(response, 200, { data: await knowledge.reorderTags(body) });
+    return true;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/knowledge/tag-groups') {
+    sendJson(response, 200, { data: await knowledge.listTagGroups(toQueryObject(url)) });
+    return true;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/knowledge/tag-groups') {
+    const body = await parseBody(request);
+    sendJson(response, 201, { data: await knowledge.createTagGroup(body) });
+    return true;
+  }
+
+  const groupMatch = url.pathname.match(/^\/api\/knowledge\/tag-groups\/([^/]+)$/);
+  if (request.method === 'PATCH' && groupMatch) {
+    const body = await parseBody(request);
+    sendJson(response, 200, { data: await knowledge.updateTagGroup({ id: decodeURIComponent(groupMatch[1]) }, body) });
+    return true;
+  }
+  if (request.method === 'DELETE' && groupMatch) {
+    sendJson(response, 200, { data: await knowledge.deleteTagGroup({ id: decodeURIComponent(groupMatch[1]) }) });
+    return true;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/knowledge/tags') {
     const body = await parseBody(request);
     sendJson(response, 201, {

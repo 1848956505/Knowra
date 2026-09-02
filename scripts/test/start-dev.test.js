@@ -9,13 +9,15 @@ const workspaceRoot = path.resolve(testDirectory, '..', '..');
 const startDevSource = readFileSync(path.join(workspaceRoot, 'scripts', 'start-dev.mjs'), 'utf8');
 const webV4Package = JSON.parse(readFileSync(path.join(workspaceRoot, 'apps', 'web-v4', 'package.json'), 'utf8'));
 
-test('dev:all builds web-core before starting the V4 dev server', () => {
+test('dev:all builds web-core and starts V4 as the only default frontend', () => {
   const buildIndex = startDevSource.indexOf('await runNodeScript([webCoreCompiler');
   const v4StartIndex = startDevSource.indexOf('const webV4Process = spawnNode');
 
   assert.notEqual(buildIndex, -1, 'start-dev must build the shared web-core package');
   assert.notEqual(v4StartIndex, -1, 'start-dev must start the V4 development server');
   assert.ok(buildIndex < v4StartIndex, 'web-core must be built before V4 imports its package output');
+  assert.doesNotMatch(startDevSource, /apps\/web\/src\/main\.js/, 'legacy V3 must not start from the default dev entry');
+  assert.match(startDevSource, /writeRuntimePort\(runtimePortsFile, 'web', webPort\)/);
 });
 
 test('V4 typecheck refreshes web-core declarations first', () => {

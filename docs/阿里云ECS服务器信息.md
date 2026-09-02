@@ -80,7 +80,7 @@ Git 仓库远程地址：`git@github.com:1848956505/Knowra.git`（部署用 Depl
 当前部署方式：
 
 - Node.js monorepo（Git 克隆）
-- 前端服务：`apps/web/src/main.js`
+- 前端服务：`apps/web-v4/server.mjs`（静态服务 + `/api/*` 同源代理）
 - 后端服务：`apps/api/src/main.js`
 - 进程管理：PM2（进程名 `knowra-web` / `knowra-api`）
 - 反向代理：Nginx（HTTPS 443 端口）
@@ -99,7 +99,7 @@ PM2 服务：
 
 ```text
 knowra-api  -> /opt/knowra/apps/api/src/main.js, PORT=3001, KNOWRA_OWNER_ID=demo
-knowra-web  -> /opt/knowra/apps/web/src/main.js, PORT=3000, API_ORIGIN=http://127.0.0.1:3001
+knowra-web  -> /opt/knowra/apps/web-v4/server.mjs, PORT=3000, API_ORIGIN=http://127.0.0.1:3001
 ```
 
 常用命令：
@@ -139,7 +139,7 @@ npm ci --ignore-scripts
 # 5. 部署前验证
 npm test
 
-# 6. 生成 Milkdown bundle，校验并重启 knowra-api / knowra-web
+# 6. 构建 V4 生产产物，校验并刷新 knowra-api / knowra-web
 ./scripts/post-deploy.sh
 
 # 7. 健康检查
@@ -149,11 +149,11 @@ curl --fail --head http://127.0.0.1:3000/
 
 `scripts/post-deploy.sh` 会依次完成：
 
-1. 以 `NODE_ENV=production` 生成并压缩 Milkdown 编辑器 bundle，同时删除 JavaScript/CSS Source Map。
+1. 以 `NODE_ENV=production` 构建 `apps/web-v4/dist`，并拒绝包含 Source Map 的生产产物。
 2. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
-3. 重启两个进程并执行 `pm2 save`。
+3. 按 `deploy/ecosystem.config.cjs` 执行 `startOrReload`，确保 `knowra-web` 切换到 V4 入口，然后执行 `pm2 save`。
 
-当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；Milkdown bundle 由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
+当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；V4 产物由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
 
 附件完整性门禁：
 
@@ -178,11 +178,11 @@ npm run check:attachments -- \
 
 `check:attachments` 默认只读；只有确认报告中的可修复项后才允许追加 `--repair`。报告出现 `ATTACHMENT_FILE_MISSING` 或 `ATTACHMENT_HASH_MISMATCH` 时，不得以 `--repair` 伪造文件完整性，也不得继续把该库宣称为可恢复状态。
 
-生产构建完成后必须确认以下文件不存在，避免浏览器额外下载约数 MB 的调试数据：
+生产构建完成后必须确认 V4 入口存在且不包含 Source Map：
 
 ```bash
-test ! -e apps/web/lib/editor/milkdown-bundle.js.map
-test ! -e apps/web/lib/editor/milkdown-bundle.css.map
+test -f apps/web-v4/dist/index.html
+test -z "$(find apps/web-v4/dist -type f -name '*.map' -print -quit)"
 ```
 
 `Transformer` 历史资料中的 5 张 HTTP 外链图使用以下脚本迁移。脚本默认只读预检，备份数据后才能显式执行：

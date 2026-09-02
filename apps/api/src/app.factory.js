@@ -7,6 +7,7 @@ import { createLocalAttachmentStore } from './infrastructure/local-attachment-st
 import { createInMemoryNoteRepository } from './modules/knowledge/infrastructure/note-repository.js';
 import { createInMemoryFolderRepository } from './modules/knowledge/infrastructure/folder-repository.js';
 import { createInMemoryTagRepository } from './modules/knowledge/infrastructure/tag-repository.js';
+import { createInMemoryTagGroupRepository } from './modules/knowledge/infrastructure/tag-group-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './modules/knowledge/infrastructure/knowledge-space-repository.js';
 import { createInMemoryContentAnnotationRepository } from './modules/knowledge/infrastructure/content-annotation-repository.js';
 import { createInMemoryNoteVersionRepository } from './modules/knowledge/infrastructure/note-version-repository.js';
@@ -42,7 +43,8 @@ export function createAppContext(options = {}) {
     'examFocuses',
     'questions',
     'questionObjectives',
-    'questionSources'
+    'questionSources',
+    'tagGroups'
   ]);
   const ownerId = resolveOwnerId(options.ownerId, dataStore?.state?.spaces);
   const attachmentStore = options.attachmentStore ?? (dataStore
@@ -72,6 +74,9 @@ export function createAppContext(options = {}) {
           records: dataStore.state.tags,
           onChange: dataStore.flush
         })
+      : undefined),
+    tagGroupRepository: options.tagGroupRepository ?? (dataStore
+      ? createInMemoryTagGroupRepository({ records: dataStore.state.tagGroups, onChange: dataStore.flush })
       : undefined),
     knowledgeSpaceRepository: options.knowledgeSpaceRepository ?? (dataStore
       ? createInMemoryKnowledgeSpaceRepository({

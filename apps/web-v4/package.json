@@ -1,6 +1,6 @@
 {
   "name": "@study-accelerator/web-v4",
-  "version": "2.18.0",
+  "version": "2.20.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,12 +8,13 @@
     "dev": "vite",
     "prebuild": "npm run build -w @study-accelerator/web-core",
     "build": "tsc --noEmit && vite build",
+    "start": "node server.mjs",
     "preview": "vite preview",
     "pretypecheck": "npm run build -w @study-accelerator/web-core",
     "typecheck": "tsc --noEmit",
     "check:boundaries": "node ../../scripts/check-v4-boundaries.mjs",
     "pretest": "npm run build -w @study-accelerator/web-core",
-    "test": "vitest run",
+    "test": "vitest run && node --test server/*.test.mjs",
     "test:e2e": "playwright test",
     "check": "npm run typecheck && npm run check:boundaries && npm run test"
   },

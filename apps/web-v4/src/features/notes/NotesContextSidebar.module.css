@@ -98,6 +98,35 @@
   margin: 0;
 }
 
+.sectionToggle {
+  width: 100%;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+}
+
+.sectionToggle:hover { color: var(--ink); }
+.sectionToggle:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+
+.sectionChevron {
+  display: inline-flex;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.sectionChevron[data-expanded] { transform: rotate(90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sectionChevron { transition: none; }
+}
+
 .sectionBody {
   display: grid;
   gap: 2px;
@@ -236,23 +265,16 @@
   gap: 6px;
   padding: 0 6px 8px;
 }
-
-.tags button {
-  padding: 5px 7px;
-  border: 1px solid currentColor;
-  font: 800 11px/1 var(--font-ui);
-  box-shadow: 2px 2px 0 currentColor;
-}
-
-.tags button[aria-pressed='true'] {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 currentColor;
-}
-
-.tagBlue { color: var(--ink-accent); background: var(--ink-accent-soft); }
-.tagPurple { color: var(--ink-secondary); background: var(--ink-sunken); }
-.tagGreen { color: var(--ink-success); background: var(--ink-success-soft); }
-.tagOrange { color: var(--ink-warning); background: var(--ink-warning-soft); }
+.tagHeaderActions { display: flex; align-items: center; gap: 2px; }
+.tagEmpty { display: grid; gap: 7px; width: 100%; }
+.tagEmpty button, .allTags { border: 0; background: transparent; padding: 3px 0; color: var(--ink-accent); text-align: left; font: 700 11px var(--font-ui); }
+.contextMenuBackdrop { position: fixed; inset: 0; z-index: 80; }
+.tagContextMenu { position: fixed; z-index: 81; min-width: 180px; display: grid; padding: 5px; border: 1px solid var(--ink); background: var(--ink-surface); box-shadow: var(--shadow-2); }
+.tagContextMenu button { border: 0; background: transparent; padding: 8px 10px; text-align: left; font: 12px var(--font-ui); }
+.tagContextMenu button:hover, .tagContextMenu button:focus-visible { background: var(--ink-sunken); outline: 0; }
+.quickTagField { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.quickTagField input { min-height: 38px; border: 1px solid var(--ink); padding: 7px 9px; box-shadow: var(--shadow-input-rest); }
+.tagError { color: var(--ink-danger); font-size: 12px; }
 
 .recycle {
   flex: 0 0 auto;

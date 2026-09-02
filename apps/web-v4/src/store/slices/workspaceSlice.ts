@@ -25,7 +25,8 @@ const emptyServerData: WorkspaceServerData = {
   folderTree: [],
   foldersById: {},
   notes: [],
-  tags: []
+  tags: [],
+  tagGroups: []
 };
 
 export function createWorkspaceSlice(
@@ -224,6 +225,62 @@ export function createWorkspaceSlice(
         return { result: undefined, message: '笔记标签已更新' };
       });
     },
+    async createTag(input) {
+      return executeWorkspaceMutation(set, get, '正在新建标签…', async (spaceId) => {
+        const tag = await dependencies.api.createTag({ ...input, spaceId });
+        await runLoad(true);
+        return { result: tag, message: `已新建标签：${tag.name ?? input.name}` };
+      });
+    },
+    async updateTag(tagId, input) {
+      return executeWorkspaceMutation(set, get, '正在更新标签…', async () => {
+        const tag = await dependencies.api.updateTag(tagId, input);
+        await runLoad(true);
+        return { result: tag, message: '标签已更新' };
+      });
+    },
+    async deleteTag(tagId) {
+      return executeWorkspaceMutation(set, get, '正在删除标签…', async () => {
+        await dependencies.api.deleteTag(tagId);
+        await runLoad(true);
+        return { result: undefined, message: '标签已删除' };
+      });
+    },
+    async mergeTags(sourceTagId, targetTagId) {
+      return executeWorkspaceMutation(set, get, '正在合并标签…', async () => {
+        await dependencies.api.mergeTags(sourceTagId, targetTagId);
+        await runLoad(true);
+        return { result: undefined, message: '标签已合并' };
+      });
+    },
+    async reorderTags(tagIds) {
+      return executeWorkspaceMutation(set, get, '正在调整标签顺序…', async () => {
+        await dependencies.api.reorderTags(tagIds);
+        await runLoad(true);
+        return { result: undefined, message: '标签顺序已更新' };
+      });
+    },
+    async createTagGroup(input) {
+      return executeWorkspaceMutation(set, get, '正在新建标签分组…', async (spaceId) => {
+        const group = await dependencies.api.createTagGroup({ ...input, spaceId });
+        await runLoad(true);
+        return { result: group, message: `已新建分组：${group.name}` };
+      });
+    },
+    async updateTagGroup(groupId, input) {
+      return executeWorkspaceMutation(set, get, '正在更新标签分组…', async () => {
+        const group = await dependencies.api.updateTagGroup(groupId, input);
+        await runLoad(true);
+        return { result: group, message: '标签分组已更新' };
+      });
+    },
+    async deleteTagGroup(groupId) {
+      return executeWorkspaceMutation(set, get, '正在删除标签分组…', async () => {
+        await dependencies.api.deleteTagGroup(groupId);
+        await runLoad(true);
+        return { result: undefined, message: '标签分组已删除' };
+      });
+    },
     async deleteNotes(noteIds) {
       return executeWorkspaceMutation(set, get, '正在批量删除笔记…', async () => {
         await dependencies.api.deleteNotes(noteIds);
@@ -236,6 +293,13 @@ export function createWorkspaceSlice(
         await dependencies.api.assignTagToNotes(noteIds, tagId);
         await runLoad(true);
         return { result: undefined, message: `已为 ${noteIds.length} 篇笔记添加标签` };
+      });
+    },
+    async updateTagsForNotes(noteIds, addTagIds, removeTagIds) {
+      return executeWorkspaceMutation(set, get, '正在批量更新标签…', async () => {
+        await dependencies.api.updateTagsForNotes(noteIds, addTagIds, removeTagIds);
+        await runLoad(true);
+        return { result: undefined, message: `已更新 ${noteIds.length} 篇笔记的标签` };
       });
     },
     async queryNotes(input) {
@@ -355,6 +419,7 @@ function updateNoteInStore(
     currentSpaceId: nextState.serverData.currentSpaceId,
     folderTree: nextState.serverData.folderTree,
     tags: nextState.serverData.tags,
+    tagGroups: nextState.serverData.tagGroups,
     allNotes: notes,
     ...nextState.navigation
   }));
@@ -408,6 +473,7 @@ async function loadWorkspace(dependencies: WorkspaceDependencies, set: SetStore)
       currentSpaceId,
       folderTree: normalizeFolderTree(resources.folderTree),
       tags: resources.tags,
+      tagGroups: resources.tagGroups ?? [],
       allNotes: normalizeNotes(resources.notes)
     });
     const mergedSnapshot = mergeWorkspaceSnapshots(liveSnapshot, cachedSnapshot) ?? liveSnapshot;
@@ -465,7 +531,8 @@ function applySnapshot(
       folderTree,
       foldersById,
       notes,
-      tags: snapshot.tags
+      tags: snapshot.tags,
+      tagGroups: snapshot.tagGroups ?? []
     },
     navigation: {
       ...state.navigation,

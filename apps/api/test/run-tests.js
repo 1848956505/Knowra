@@ -3,6 +3,7 @@ import { noteDomainTests } from './note.domain.test.js';
 import { noteServiceTests } from './note-service.test.js';
 import { folderServiceTests } from './folder-service.test.js';
 import { tagServiceTests } from './tag-service.test.js';
+import { tagSystemTests } from './tag-system.test.js';
 import { knowledgeSpaceServiceTests } from './knowledge-space-service.test.js';
 import { searchServiceTests } from './search-service.test.js';
 import { noteRepositoryTests } from './note-repository.test.js';
@@ -52,6 +53,7 @@ const tests = [
   ...noteServiceTests,
   ...folderServiceTests,
   ...tagServiceTests,
+  ...tagSystemTests,
   ...knowledgeSpaceServiceTests,
   ...searchServiceTests,
   ...knowledgeModuleTests,

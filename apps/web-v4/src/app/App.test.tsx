@@ -91,7 +91,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
       folderTree: [],
       notes: [],
-      tags: []
+      tags: [],
+      tagGroups: []
     });
     const store = createAppStore({
       api,
@@ -439,8 +440,11 @@ function createWorkspaceApiStub(overrides: { notes?: Array<Record<string, unknow
     permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     setNoteFavorite: vi.fn().mockResolvedValue({ id: 'note-1' }),
     setNoteTags: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    createTag: vi.fn(), updateTag: vi.fn(), deleteTag: vi.fn(), mergeTags: vi.fn(), reorderTags: vi.fn(),
+    createTagGroup: vi.fn(), updateTagGroup: vi.fn(), deleteTagGroup: vi.fn(),
     deleteNotes: vi.fn().mockResolvedValue([]),
     assignTagToNotes: vi.fn().mockResolvedValue([]),
+    updateTagsForNotes: vi.fn().mockResolvedValue([]),
     queryNotes: vi.fn().mockResolvedValue({ items: notes, hasNext: false }),
     getLinkedNotes: vi.fn().mockResolvedValue([]),
     listAnnotations: vi.fn().mockResolvedValue([]),

@@ -34,7 +34,9 @@ export function createInMemoryTagRepository(options = {}) {
       return deletedTag;
     },
     list(options = {}) {
-      return tags.filter((tag) => (options.spaceId ? tag.spaceId === options.spaceId : true));
+      return tags
+        .filter((tag) => (options.spaceId ? tag.spaceId === options.spaceId : true))
+        .sort((a, b) => ((a.sortOrder ?? 0) - (b.sortOrder ?? 0)) || a.name.localeCompare(b.name));
     }
   };
 }

@@ -21,7 +21,7 @@ export const fileDataStoreTests = [
 
         const exported = store.exportSnapshot();
         assert.equal(exported.version, 'v1-local-json');
-        assert.equal(exported.schemaVersion, 3);
+        assert.equal(exported.schemaVersion, 4);
         assert.equal(exported.data.notes.length, 1);
 
         const imported = store.importSnapshot({
@@ -52,7 +52,7 @@ export const fileDataStoreTests = [
         assert.equal(store.state.notes[0].id, 'note-2');
 
         const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        assert.equal(persisted.schemaVersion, 3);
+        assert.equal(persisted.schemaVersion, 4);
         assert.equal(persisted.notes[0].id, 'note-2');
         assert.equal(persisted.contentAnnotations[0].id, 'annotation-1');
       } finally {

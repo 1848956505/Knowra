@@ -19,15 +19,15 @@ test('post-deploy builds and restarts the production PM2 processes', () => {
     const calls = readFileSync(fixture.logFile, 'utf8');
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(calls, /^npm run build:editor-bundle -w @study-accelerator\/web$/m);
+    assert.match(calls, /^npm run build:web$/m);
     assert.match(
       deployScriptSource,
-      /NODE_ENV=production npm run build:editor-bundle -w @study-accelerator\/web/,
-      'deployment must build Milkdown without production source maps'
+      /NODE_ENV=production npm run build:web/,
+      'deployment must build the V4 frontend'
     );
     assert.match(calls, /^pm2 describe knowra-api$/m);
     assert.match(calls, /^pm2 describe knowra-web$/m);
-    assert.match(calls, /^pm2 restart knowra-api knowra-web --update-env$/m);
+    assert.match(calls, /^pm2 startOrReload deploy\/ecosystem\.config\.cjs --update-env$/m);
     assert.match(calls, /^pm2 save$/m);
     assert.doesNotMatch(calls, /study-web/);
   } finally {
@@ -58,7 +58,9 @@ function createFixture({ missingProcess = '' } = {}) {
   writeFileSync(logFile, '');
   writeExecutable(path.join(binDir, 'npm'), [
     '#!/usr/bin/env bash',
-    'printf "npm %s\\n" "$*" >> "$DEPLOY_TEST_LOG"'
+    'printf "npm %s\\n" "$*" >> "$DEPLOY_TEST_LOG"',
+    'mkdir -p "$KNOWRA_V4_DIST_DIR"',
+    'touch "$KNOWRA_V4_DIST_DIR/index.html"'
   ]);
   writeExecutable(path.join(binDir, 'pm2'), [
     '#!/usr/bin/env bash',
@@ -104,6 +106,7 @@ function runDeployScript(fixture) {
       ...process.env,
       DEPLOY_TEST_LOG: isWindows ? toGitBashPath(fixture.logFile) : fixture.logFile,
       DEPLOY_TEST_MISSING_PROCESS: fixture.missingProcess,
+      KNOWRA_V4_DIST_DIR: isWindows ? toGitBashPath(path.join(fixture.binDir, '..', 'dist')) : path.join(fixture.binDir, '..', 'dist'),
       PATH: shellPathEntries
         .map((entry) => isWindows ? toGitBashPath(entry) : entry)
         .join(isWindows ? ':' : path.delimiter)

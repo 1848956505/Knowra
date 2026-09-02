@@ -8,9 +8,11 @@ import {
 } from '../modules/knowledge/application/formal-asset-validation.js';
 
 export function validateLocalDataRelations(state) {
+  normalizeTagSystem(state);
   const spaces = indexById(state.spaces);
   const folders = indexById(state.folders);
   const tags = indexById(state.tags);
+  const tagGroups = indexById(state.tagGroups ?? []);
   const notes = indexById(state.notes);
   const noteVersions = indexById(state.noteVersions);
   const knowledgeItems = indexById(state.knowledgeItems);
@@ -22,7 +24,8 @@ export function validateLocalDataRelations(state) {
   const questions = indexById(state.questions);
 
   validateFolders(state.folders, spaces, folders);
-  validateTags(state.tags, spaces);
+  validateTagGroups(state.tagGroups ?? [], spaces);
+  validateTags(state.tags, spaces, tagGroups);
   validateNotes(state.notes, spaces, folders, tags);
   validateAnnotations(state.contentAnnotations, spaces, notes, noteVersions);
   validateNoteVersions(state.noteVersions, notes);
@@ -106,13 +109,66 @@ function validateFolders(folderItems, spaces, folders) {
   }
 }
 
-function validateTags(tagItems, spaces) {
+function validateTagGroups(groupItems, spaces) {
+  for (const group of groupItems) {
+    assertReference(spaces.has(group.spaceId), `TagGroup ${group.id} references unknown space: ${group.spaceId}`);
+    assertReference(['single', 'multiple'].includes(group.selectionMode), `TagGroup ${group.id} has invalid selectionMode`);
+  }
+}
+
+function validateTags(tagItems, spaces, tagGroups) {
   for (const tag of tagItems) {
     assertReference(
       spaces.has(tag.spaceId),
       `Tag ${tag.id} references unknown space: ${tag.spaceId}`
     );
+    if (tag.groupId) {
+      const group = tagGroups.get(tag.groupId);
+      assertReference(Boolean(group), `Tag ${tag.id} references unknown group: ${tag.groupId}`);
+      assertReference(group.spaceId === tag.spaceId, `Tag ${tag.id} and its group must belong to the same space`);
+    }
   }
+}
+
+function normalizeTagSystem(state) {
+  state.tagGroups ??= [];
+  const colors = { slate: 'neutral', cyan: 'blue', amber: 'orange', mastery: 'green', importance: 'orange', purpose: 'blue', '#3c68ff': 'blue' };
+  const definitions = [
+    ['ordinary', '普通标签', 'multiple'],
+    ['mastery', '掌握程度', 'single'],
+    ['importance', '重要程度', 'single'],
+    ['purpose', '用途', 'multiple']
+  ];
+  for (const space of state.spaces) {
+    definitions.forEach(([code, name, selectionMode], index) => {
+      const id = `tag-group-${space.id}-${code}`;
+      if (!state.tagGroups.some((group) => group.id === id)) {
+        state.tagGroups.push({ id, spaceId: space.id, code, name, selectionMode, isSystem: true, sortOrder: index + 1 });
+      }
+    });
+  }
+  state.tags.forEach((tag, index) => {
+    tag.color = colors[String(tag.color ?? 'neutral').toLowerCase()] ?? tag.color ?? 'neutral';
+    tag.isSystem = Boolean(tag.isSystem);
+    tag.sortOrder = Number(tag.sortOrder) || index + 1;
+    if (!tag.groupId) tag.groupId = `tag-group-${tag.spaceId}-ordinary`;
+  });
+  const tagIds = new Set(state.tags.map((tag) => tag.id));
+  state.notes.forEach((note) => {
+    const normalizedIds = [];
+    const singleIndexes = new Map();
+    [...new Set((note.tagIds ?? []).filter((id) => tagIds.has(id)))].forEach((tagId) => {
+      const tag = state.tags.find((item) => item.id === tagId);
+      const group = state.tagGroups.find((item) => item.id === tag?.groupId);
+      if (group?.selectionMode === 'single') {
+        const previous = singleIndexes.get(group.id);
+        if (previous !== undefined) normalizedIds[previous] = null;
+        singleIndexes.set(group.id, normalizedIds.length);
+      }
+      normalizedIds.push(tagId);
+    });
+    note.tagIds = normalizedIds.filter(Boolean);
+  });
 }
 
 function validateNotes(noteItems, spaces, folders, tags) {

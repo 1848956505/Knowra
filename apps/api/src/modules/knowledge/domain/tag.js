@@ -3,7 +3,7 @@ export class Tag {
     id,
     spaceId,
     name,
-    color = 'slate',
+    color = 'neutral',
     groupId = null,
     code = null,
     isSystem = false,

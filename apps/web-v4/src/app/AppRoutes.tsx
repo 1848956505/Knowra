@@ -15,6 +15,7 @@ import type { EditorViewAction, EffectiveEditorViewState } from '../features/edi
 import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
 import type { WorkDomain } from '../store/types';
+import { TagManagerView } from '../features/tags';
 
 const ComponentShowcase = lazy(async () => {
   const module = await import('../components/ui/showcase');
@@ -52,11 +53,13 @@ export interface AppRoutesProps {
 }
 
 export function AppRoutes(props: AppRoutesProps) {
-  if (props.pathname === '/showcase') {
+  const routePath = props.pathname.split('?')[0];
+  if (routePath === '/showcase') {
     return <Suspense fallback={<LoadingState label="正在加载组件展台…" />}><ComponentShowcase /></Suspense>;
   }
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;
-  if (props.pathname === '/materials') {
+  if (routePath === '/materials/tags') return <TagManagerView />;
+  if (routePath === '/materials') {
     return <NotesIndexView path={props.statusPath} onOpenNote={props.onOpenNote} />;
   }
   if (props.editorNoteId) {
@@ -106,6 +109,10 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const deleteNote = useAppStore((state) => state.deleteNote);
   const setNoteFavorite = useAppStore((state) => state.setNoteFavorite);
   const setNoteTags = useAppStore((state) => state.setNoteTags);
+  const createTag = useAppStore((state) => state.createTag);
+  const updateTag = useAppStore((state) => state.updateTag);
+  const deleteTag = useAppStore((state) => state.deleteTag);
+  const mergeTags = useAppStore((state) => state.mergeTags);
   const listNoteVersions = useAppStore((state) => state.listNoteVersions);
   const getNoteVersion = useAppStore((state) => state.getNoteVersion);
   const organizeNote = useAppStore((state) => state.organizeNote);
@@ -147,6 +154,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         foldersById={serverData.foldersById}
         notes={serverData.notes}
         tags={serverData.tags}
+        tagGroups={serverData.tagGroups}
         openNotes={openNotes}
         inspectorOpen={editorView.showRightSidebar}
         view={editorView}
@@ -187,6 +195,12 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         }}
         onDeleteNote={() => setDeleteOpen(true)}
         onSetTags={(tagIds) => note ? setNoteTags(note.id, tagIds) : Promise.resolve()}
+        onCreateTag={createTag}
+        onUpdateTag={updateTag}
+        onDeleteTag={deleteTag}
+        onMergeTags={mergeTags}
+        onOpenTagManager={() => navigate('/materials/tags')}
+        onOpenTag={(tagId) => navigate(`/materials?tags=${encodeURIComponent(tagId)}&match=all`)}
         onListVersions={listNoteVersions}
         onGetVersion={getNoteVersion}
         onOrganizeNote={(input) => note ? organizeNote(note.id, input) : Promise.resolve()}

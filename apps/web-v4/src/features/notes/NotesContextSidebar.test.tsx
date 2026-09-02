@@ -77,6 +77,21 @@ describe('NotesContextSidebar', () => {
     expect(screen.getByText('没有匹配的文件夹')).toBeInTheDocument();
   });
 
+  it('keeps the tag section expanded by default and exposes an accessible collapse control', async () => {
+    renderSidebar();
+
+    const collapseButton = screen.getByRole('button', { name: '标签' });
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: '设计' })).toBeInTheDocument();
+
+    await userEvent.click(collapseButton);
+    expect(screen.getByRole('button', { name: '标签' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: '设计' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '标签' }));
+    expect(screen.getByRole('button', { name: '设计' })).toBeInTheDocument();
+  });
+
   it('offers folder creation from the folder section when the library is empty', async () => {
     renderSidebar({ empty: true });
 
@@ -211,7 +226,8 @@ function renderSidebar({
         createNote('note-3', '收件箱', null),
         createNote('note-4', '已删除', null, { deleted: true })
       ],
-      tags: empty ? [] : [{ id: 'tag-1', name: '设计' }]
+      tags: empty ? [] : [{ id: 'tag-1', name: '设计' }],
+      tagGroups: []
     }
   });
   render(
@@ -237,7 +253,8 @@ function createApi(): WorkspaceApi {
         createNote('note-3', '收件箱', null),
         createNote('note-4', '已删除', null, { deleted: true })
       ],
-      tags: [{ id: 'tag-1', name: '设计' }]
+      tags: [{ id: 'tag-1', name: '设计' }],
+      tagGroups: []
     }),
     searchNoteIds: vi.fn().mockResolvedValue(['note-2']),
     createNote: vi.fn().mockResolvedValue({ id: 'created-note' }),
@@ -250,8 +267,11 @@ function createApi(): WorkspaceApi {
     permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     setNoteFavorite: vi.fn().mockResolvedValue({ id: 'note-1' }),
     setNoteTags: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    createTag: vi.fn(), updateTag: vi.fn(), deleteTag: vi.fn(), mergeTags: vi.fn(), reorderTags: vi.fn(),
+    createTagGroup: vi.fn(), updateTagGroup: vi.fn(), deleteTagGroup: vi.fn(),
     deleteNotes: vi.fn().mockResolvedValue([]),
     assignTagToNotes: vi.fn().mockResolvedValue([]),
+    updateTagsForNotes: vi.fn().mockResolvedValue([]),
     queryNotes: vi.fn().mockResolvedValue({ items: [], hasNext: false }),
     getLinkedNotes: vi.fn().mockResolvedValue([]),
     listAnnotations: vi.fn().mockResolvedValue([]),

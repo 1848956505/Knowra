@@ -6,7 +6,8 @@ export function createAsyncNoteAssociationOperations({
   repository,
   requireNote,
   requireNoteIds,
-  assertReferences
+  assertReferences,
+  normalizeTagIds
 }) {
   async function saveWithChanges(note, changes) {
     return repository.save(new Note({
@@ -26,7 +27,7 @@ export function createAsyncNoteAssociationOperations({
   async function assignTagToNote(noteId, tagId) {
     const currentNote = await requireNote(noteId, { includeDeleted: true });
     const normalizedTagId = normalizeTagId(tagId);
-    const tagIds = [...new Set([...currentNote.tagIds, normalizedTagId])];
+    const tagIds = await normalizeTagIds([...currentNote.tagIds, normalizedTagId]);
     await assertReferences({ ...currentNote, tagIds });
     return saveWithChanges(currentNote, { tagIds });
   }
@@ -37,9 +38,9 @@ export function createAsyncNoteAssociationOperations({
       const normalizedTagId = normalizeTagId(tagId);
       const validatedIds = requireNoteIds(noteIds);
       const notes = await Promise.all(validatedIds.map((id) => requireNote(id, { includeDeleted: true })));
-      await Promise.all(notes.map((note) => assertReferences({
+      await Promise.all(notes.map(async (note) => assertReferences({
         ...note,
-        tagIds: [...new Set([...note.tagIds, normalizedTagId])]
+        tagIds: await normalizeTagIds([...note.tagIds, normalizedTagId])
       })));
       return Promise.all(validatedIds.map((id) => assignTagToNote(id, normalizedTagId)));
     },
@@ -61,11 +62,29 @@ export function createAsyncNoteAssociationOperations({
         tagIds: note.tagIds.filter((currentTagId) => currentTagId !== tagId)
       })));
     },
+    async replaceTagInAllNotes(sourceTagId, targetTagId) {
+      const notes = (await repository.list({ includeDeleted: true }))
+        .filter((note) => note.tagIds.includes(sourceTagId));
+      return Promise.all(notes.map(async (note) => saveWithChanges(note, {
+        tagIds: await normalizeTagIds(note.tagIds.map((id) => id === sourceTagId ? targetTagId : id))
+      })));
+    },
+    async updateTagsForNotes(noteIds, addTagIds = [], removeTagIds = []) {
+      const validatedIds = requireNoteIds(noteIds);
+      return Promise.all(validatedIds.map(async (noteId) => {
+        const note = await requireNote(noteId, { includeDeleted: true });
+        const removed = new Set(removeTagIds);
+        const tagIds = await normalizeTagIds([...note.tagIds.filter((id) => !removed.has(id)), ...addTagIds]);
+        await assertReferences({ ...note, tagIds });
+        return saveWithChanges(note, { tagIds });
+      }));
+    },
     async setNoteTags(noteId, tagIds) {
       const currentNote = await requireNote(noteId, { includeDeleted: true });
       const dto = buildUpdateNoteDto({ tagIds });
-      await assertReferences({ ...currentNote, tagIds: dto.tagIds });
-      return saveWithChanges(currentNote, { tagIds: dto.tagIds });
+      const normalizedTagIds = await normalizeTagIds(dto.tagIds);
+      await assertReferences({ ...currentNote, tagIds: normalizedTagIds });
+      return saveWithChanges(currentNote, { tagIds: normalizedTagIds });
     }
   };
 }

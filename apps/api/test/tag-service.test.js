@@ -14,7 +14,7 @@ export const tagServiceTests = [
       });
 
       assert.equal(tag.name, 'database');
-      assert.equal(tag.color, 'slate');
+      assert.equal(tag.color, 'neutral');
     }
   },
   {
@@ -25,7 +25,7 @@ export const tagServiceTests = [
 
       const first = tagService.createTag({
         spaceId: 'space-1',
-        name: 'database'
+        name: 'database-primary'
       });
       const second = tagService.createTag({
         spaceId: 'space-1',
@@ -114,7 +114,7 @@ export const tagServiceTests = [
       });
 
       assert.equal(updated.name, 'cache');
-      assert.equal(updated.color, 'amber');
+      assert.equal(updated.color, 'orange');
     }
   },
   {

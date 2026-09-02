@@ -103,6 +103,15 @@
   line-height: 1.3;
 }
 
+.description {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 22px 0;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .close {
   width: 24px;
   height: 24px;

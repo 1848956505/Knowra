@@ -6,6 +6,7 @@ export function createBackendSnapshot(state: Partial<WorkspaceSnapshot>): Worksp
     currentSpaceId: state.currentSpaceId ?? null,
     folderTree: Array.isArray(state.folderTree) ? state.folderTree : [],
     tags: Array.isArray(state.tags) ? state.tags : [],
+    tagGroups: Array.isArray(state.tagGroups) ? state.tagGroups : [],
     allNotes: Array.isArray(state.allNotes) ? state.allNotes : [],
     openFolders: state.openFolders ?? {},
     openNoteTabs: Array.isArray(state.openNoteTabs) ? state.openNoteTabs : [],

@@ -63,7 +63,15 @@ export function createInMemoryNoteRepository(options = {}) {
         })
         .filter((note) => (options.spaceId ? note.spaceId === options.spaceId : true))
         .filter((note) => (options.folderId ? note.folderId === options.folderId : true))
-        .filter((note) => (options.tagId ? note.tagIds.includes(options.tagId) : true))
+        .filter((note) => {
+          const tagIds = Array.isArray(options.tagIds)
+            ? options.tagIds
+            : typeof options.tagIds === 'string' ? options.tagIds.split(',').filter(Boolean) : [];
+          if (tagIds.length === 0) return options.tagId ? note.tagIds.includes(options.tagId) : true;
+          return (options.match ?? options.tagMatch) === 'any'
+            ? tagIds.some((tagId) => note.tagIds.includes(tagId))
+            : tagIds.every((tagId) => note.tagIds.includes(tagId));
+        })
         .filter((note) => (isTruthy(options.favoriteOnly) ? note.favorite : true));
 
       const sortBy = options.sortBy ?? 'updatedAt';

@@ -16,7 +16,11 @@ export const tagDtoTests = [
         id: 'tag-dto-1',
         spaceId: 'space-1',
         name: 'database',
-        color: 'slate'
+        color: 'neutral',
+        groupId: null,
+        code: null,
+        isSystem: false,
+        sortOrder: 0
       });
     }
   }

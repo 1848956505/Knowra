@@ -13,7 +13,7 @@ export const knowledgeBaseSnapshotServiceTests = [
           createImportedSnapshot()
         );
 
-        assert.equal(imported.schemaVersion, 3);
+        assert.equal(imported.schemaVersion, 4);
         assert.equal(imported.data.notes[0].id, 'note-imported');
         assert.equal(imported.attachmentFiles[0].id, 'attachment-imported');
         assert.equal(fixture.dataStore.state.notes[0].id, 'note-imported');

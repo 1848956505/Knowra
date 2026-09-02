@@ -70,8 +70,8 @@ describe('EditorInspector', () => {
 
     await user.click(screen.getByRole('button', { name: '编辑' }));
     expect(screen.getByRole('dialog', { name: '编辑笔记标签' })).toBeInTheDocument();
-    await user.click(screen.getByRole('checkbox', { name: 'AI' }));
-    await user.click(screen.getByRole('button', { name: '保存标签' }));
+    await user.click(screen.getByRole('button', { name: '移除标签 AI' }));
+    await user.click(screen.getByRole('button', { name: '保存到笔记' }));
     expect(onSetTags).toHaveBeenCalledWith(['tag-study']);
   });
 
@@ -140,6 +140,7 @@ function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0
     markdown={note.rawMarkdown}
     open
     canWrite
+    canInsertAttachment
     onClose={vi.fn()}
     onOpenNote={vi.fn()}
     onNavigateHeading={vi.fn()}
@@ -156,6 +157,7 @@ function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0
     focusedAnnotationId={overrides.focusedAnnotationId ?? null}
     onOrganizeNote={overrides.onOrganizeNote ?? vi.fn().mockResolvedValue(undefined)}
     onUploadAttachment={overrides.onUploadAttachment ?? vi.fn()}
+    onInsertAttachment={overrides.onInsertAttachment ?? vi.fn().mockResolvedValue(undefined)}
     onRenameAttachment={overrides.onRenameAttachment ?? vi.fn()}
     onDeleteAttachment={overrides.onDeleteAttachment ?? vi.fn()}
     onCreateAnnotation={overrides.onCreateAnnotation ?? vi.fn().mockResolvedValue(undefined)}

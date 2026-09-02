@@ -1,6 +1,7 @@
 import { createAsyncNoteService } from './application/postgres-async/note-service.js';
 import { createAsyncFolderService } from './application/postgres-async/folder-service.js';
 import { createAsyncTagService } from './application/postgres-async/tag-service.js';
+import { createAsyncTagGroupService } from './application/postgres-async/tag-group-service.js';
 import { createAsyncKnowledgeSpaceService } from './application/postgres-async/space-service.js';
 import { createAsyncContentAnnotationService } from './application/postgres-async/content-annotation-service.js';
 import { createAsyncNoteVersionService } from './application/note-version-service.js';
@@ -28,6 +29,7 @@ export function createPostgresKnowledgeModule({
   noteRepository,
   folderRepository,
   tagRepository,
+  tagGroupRepository,
   knowledgeSpaceRepository,
   contentAnnotationRepository,
   noteVersionRepository,
@@ -45,6 +47,7 @@ export function createPostgresKnowledgeModule({
     noteRepository,
     folderRepository,
     tagRepository,
+    tagGroupRepository,
     knowledgeSpaceRepository,
     contentAnnotationRepository,
     noteVersionRepository,
@@ -247,8 +250,15 @@ export function createPostgresKnowledgeModule({
   });
   const tagService = createAsyncTagService({
     repository: tagRepository,
-    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG')
+    validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG'),
+    validateGroupReference: async (groupId, spaceId) => {
+      if (!groupId) return;
+      const group = await tagGroupRepository.findById(groupId);
+      if (!group) throw validationError('TAG_GROUP_NOT_FOUND', 'The referenced tag group does not exist');
+      if (group.spaceId !== spaceId) throw validationError('TAG_GROUP_SPACE_MISMATCH', 'The referenced tag group belongs to another knowledge space');
+    }
   });
+  const tagGroupService = createAsyncTagGroupService({ repository: tagGroupRepository, tagRepository, validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG_GROUP') });
   const knowledgeSpaceService = createAsyncKnowledgeSpaceService({
     repository: knowledgeSpaceRepository
   });
@@ -321,6 +331,24 @@ export function createPostgresKnowledgeModule({
       );
     }
   });
+  async function normalizeTagIds(tagIds) {
+    const uniqueIds = [...new Set(tagIds)];
+    const tags = await tagRepository.findByIds(uniqueIds);
+    const byId = new Map(tags.map((tag) => [tag.id, tag]));
+    const normalized = [];
+    const singleIndexes = new Map();
+    for (const tagId of uniqueIds) {
+      const tag = byId.get(tagId);
+      const group = tag?.groupId ? await tagGroupRepository.findById(tag.groupId) : null;
+      if (group?.selectionMode === 'single') {
+        const previous = singleIndexes.get(group.id);
+        if (previous !== undefined) normalized[previous] = null;
+        singleIndexes.set(group.id, normalized.length);
+      }
+      normalized.push(tagId);
+    }
+    return normalized.filter(Boolean);
+  }
   const noteService = createAsyncNoteService({
     repository: noteRepository,
     noteVersionService,
@@ -348,6 +376,7 @@ export function createPostgresKnowledgeModule({
       }
     },
     validateNoteReferences: assertNoteReferences,
+    normalizeTagIds,
     validateSiblingNameConflict: assertSiblingNameAvailable
   });
   const searchService = createAsyncSearchService({
@@ -360,6 +389,7 @@ export function createPostgresKnowledgeModule({
     noteService,
     folderService,
     tagService,
+    tagGroupService,
     contentAnnotationService,
     noteVersionService,
     knowledgeItemService,
@@ -376,8 +406,19 @@ export function createPostgresKnowledgeModule({
       return folderService.deleteFolder(folderId);
     },
     async deleteTagAndCleanup(tagId) {
+      const tag = await tagRepository.findById(tagId);
+      if (tag?.isSystem) throw conflictError('SYSTEM_TAG_PROTECTED', 'System tags cannot be deleted');
       await noteService.removeTagFromAllNotes(tagId);
       return tagService.deleteTag(tagId);
+    },
+    async mergeTags(sourceTagId, targetTagId) {
+      const source = await tagRepository.findById(sourceTagId);
+      const target = await tagRepository.findById(targetTagId);
+      if (!source || !target) throw validationError('TAG_MERGE_TARGET_INVALID', 'Both tags must exist');
+      if (source.isSystem) throw conflictError('SYSTEM_TAG_PROTECTED', 'System tags cannot be merged');
+      await noteService.replaceTagInAllNotes(sourceTagId, targetTagId);
+      await tagRepository.delete(sourceTagId);
+      return target;
     }
   };
 }

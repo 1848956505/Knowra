@@ -8,6 +8,8 @@ import {
   type Note,
   type NoteVersion,
   type Tag,
+  type TagColor,
+  type TagGroup,
   type UpdateAnnotationAnchorInput,
   type UploadAttachmentInput
 } from '@study-accelerator/web-core';
@@ -44,6 +46,7 @@ import {
   assertInlineImageFile,
   attachmentImageAlt,
   buildAttachmentReferenceUrl,
+  isInlineImageAttachment,
   readAttachmentFile
 } from './attachmentFiles';
 import styles from './NoteEditorView.module.css';
@@ -59,6 +62,7 @@ export interface NoteEditorViewProps {
   foldersById: Record<string, Folder>;
   notes: Note[];
   tags: Tag[];
+  tagGroups?: TagGroup[];
   openNotes: Note[];
   inspectorOpen: boolean;
   view: EffectiveEditorViewState;
@@ -77,6 +81,12 @@ export interface NoteEditorViewProps {
   onSaveAs(): Promise<void>;
   onDeleteNote(): void;
   onSetTags(tagIds: string[]): Promise<void>;
+  onCreateTag?(input: { name: string; color: TagColor; groupId: string }): Promise<Tag>;
+  onUpdateTag?(tagId: string, input: { name?: string; color?: TagColor; groupId?: string }): Promise<Tag>;
+  onDeleteTag?(tagId: string): Promise<void>;
+  onMergeTags?(sourceTagId: string, targetTagId: string): Promise<void>;
+  onOpenTagManager?(): void;
+  onOpenTag?(tagId: string): void;
   onListVersions(noteId: string): Promise<NoteVersion[]>;
   onGetVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   onOrganizeNote(input: { folderId: string | null; status: string }): Promise<void>;
@@ -106,6 +116,7 @@ export function NoteEditorView({
   foldersById,
   notes,
   tags,
+  tagGroups = [],
   openNotes,
   inspectorOpen,
   view,
@@ -124,6 +135,12 @@ export function NoteEditorView({
   onSaveAs,
   onDeleteNote,
   onSetTags,
+  onCreateTag,
+  onUpdateTag,
+  onDeleteTag,
+  onMergeTags,
+  onOpenTagManager,
+  onOpenTag,
   onListVersions,
   onGetVersion,
   onOrganizeNote,
@@ -333,6 +350,14 @@ export function NoteEditorView({
     );
     if (!inserted) throw new Error('图片已上传，但未能插入正文');
     onFileStatus('图片已插入正文');
+  };
+  const insertStoredAttachment = async (attachment: Attachment) => {
+    const url = buildAttachmentReferenceUrl(attachment.id);
+    const inserted = isInlineImageAttachment(attachment)
+      ? editorRef.current?.insertImage(url, attachmentImageAlt(attachment))
+      : editorRef.current?.insertLink(url, attachment.fileName);
+    if (!inserted) throw new Error('当前编辑状态无法插入附件，请切换到正文编辑模式后重试');
+    onFileStatus(isInlineImageAttachment(attachment) ? '图片已插入正文' : '附件链接已插入正文');
   };
   const saveCurrentScrollPosition = () => {
     const stage = documentStageRef.current;
@@ -673,9 +698,11 @@ export function NoteEditorView({
           foldersById={foldersById}
           notes={notes}
           tags={tags}
+          tagGroups={tagGroups}
           markdown={draftMarkdown}
           open={inspectorOpen}
           canWrite={canWrite}
+          canInsertAttachment={canEditContent}
           attachments={attachments}
           attachmentsLoading={attachmentsLoading}
           linkedNotes={linkedNotes}
@@ -686,10 +713,17 @@ export function NoteEditorView({
           onClose={onToggleInspector}
           onOpenNote={openNoteSafely}
           onSetTags={onSetTags}
+          onCreateTag={onCreateTag}
+          onUpdateTag={onUpdateTag}
+          onDeleteTag={onDeleteTag}
+          onMergeTags={onMergeTags}
+          onOpenTagManager={onOpenTagManager}
+          onOpenTag={onOpenTag}
           onListVersions={onListVersions}
           onGetVersion={onGetVersion}
           onOrganizeNote={onOrganizeNote}
           onUploadAttachment={uploadAttachmentFile}
+          onInsertAttachment={insertStoredAttachment}
           onRenameAttachment={async (attachmentId, fileName) => {
             const updated = await onRenameAttachment(attachmentId, fileName);
             setAttachments((current) => current.map((item) => item.id === updated.id ? updated : item));

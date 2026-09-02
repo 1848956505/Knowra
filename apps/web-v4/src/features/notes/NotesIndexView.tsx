@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Folder, Note, NoteQueryPage } from '@study-accelerator/web-core';
+import type { Folder, Note, NoteQueryPage, Tag, TagGroup } from '@study-accelerator/web-core';
 import {
   ArrowUpRightIcon,
   DeleteIcon,
@@ -30,6 +30,8 @@ import { CreateEntryDialog, type CreateMode } from './CreateEntryDialog';
 import { PermanentDeleteNoteDialog } from './PermanentDeleteNoteDialog';
 import { countFolderNotes, filterNotes, folderMatchesQuery, formatUpdatedAt } from './notesIndexModel';
 import styles from './NotesIndexView.module.css';
+import { useLocation, useNavigate } from '../../app/router';
+import { TagChip } from '../tags';
 
 type ViewMode = 'list' | 'grid';
 type TypeFilter = 'all' | 'folder' | 'note';
@@ -62,7 +64,7 @@ export function NotesIndexView({
   const restoreNote = useAppStore((state) => state.restoreNote);
   const permanentlyDeleteNote = useAppStore((state) => state.permanentlyDeleteNote);
   const deleteNotes = useAppStore((state) => state.deleteNotes);
-  const assignTagToNotes = useAppStore((state) => state.assignTagToNotes);
+  const updateTagsForNotes = useAppStore((state) => state.updateTagsForNotes);
   const queryNotes = useAppStore((state) => state.queryNotes);
   const dataMode = useAppStore((state) => state.dataMode);
   const canWrite = useAppStore((state) => state.canWriteWorkspace());
@@ -83,6 +85,12 @@ export function NotesIndexView({
   const [remoteError, setRemoteError] = useState('');
   const [remoteRevision, setRemoteRevision] = useState(0);
   const [batchError, setBatchError] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryString = location.pathname.split('?')[1] ?? '';
+  const urlTagIds = useMemo(() => (new URLSearchParams(queryString).get('tags') ?? '')
+    .split(',').filter((id) => serverData.tags.some((tag) => tag.id === id)), [queryString, serverData.tags]);
+  const tagMatch = new URLSearchParams(queryString).get('match') === 'any' ? 'any' : 'all';
   const isRecycleView = notesIndex.scope === 'trash';
   const useServerQuery = dataMode === 'api' && !['root', 'unfiled'].includes(notesIndex.scope);
   const currentSegment = path.find((segment) => segment.current) ?? path.at(-1);
@@ -93,7 +101,7 @@ export function NotesIndexView({
   useEffect(() => {
     setPage(0);
     setSelectedNoteIds(new Set());
-  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, sort]);
+  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, sort, queryString]);
 
   useEffect(() => {
     let active = true;
@@ -109,7 +117,8 @@ export function NotesIndexView({
     void queryNotes({
       query: notesIndex.query,
       folderId: navigation.selectedFolderId ?? undefined,
-      tagId: notesIndex.selectedTagId ?? undefined,
+      tagIds: urlTagIds.length ? urlTagIds : notesIndex.selectedTagId ? [notesIndex.selectedTagId] : undefined,
+      tagMatch,
       favoriteOnly: notesIndex.scope === 'favorites',
       deletedOnly: notesIndex.scope === 'trash',
       includeDeleted: notesIndex.scope === 'trash',
@@ -128,21 +137,26 @@ export function NotesIndexView({
       if (active) setRemoteLoading(false);
     });
     return () => { active = false; };
-  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, page, queryNotes, remoteRevision, sort, useServerQuery]);
+  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, page, queryNotes, queryString, remoteRevision, sort, useServerQuery]);
 
   const items = useMemo(() => {
     const noteSource = useServerQuery && remotePage ? remotePage.items : serverData.notes;
     const filterState = useServerQuery && remotePage
       ? { ...notesIndex, query: '', matchingNoteIds: null }
       : notesIndex;
-    const visibleNotes = filterNotes(noteSource, serverData.tags, {
+    let visibleNotes = filterNotes(noteSource, serverData.tags, {
       notesIndex: filterState,
       selectedFolderId: navigation.selectedFolderId
     });
+    if (!(useServerQuery && remotePage) && urlTagIds.length) {
+      visibleNotes = visibleNotes.filter((note) => tagMatch === 'all'
+        ? urlTagIds.every((id) => note.tagIds.includes(id))
+        : urlTagIds.some((id) => note.tagIds.includes(id)));
+    }
     const selectedFolder = navigation.selectedFolderId
       ? serverData.foldersById[navigation.selectedFolderId]
       : null;
-    const visibleFolders = page === 0 && (notesIndex.scope === 'all' || notesIndex.scope === 'root') && !notesIndex.selectedTagId
+    const visibleFolders = page === 0 && (notesIndex.scope === 'all' || notesIndex.scope === 'root') && !notesIndex.selectedTagId && urlTagIds.length === 0
       ? (selectedFolder?.children ?? serverData.folderTree)
         .filter((folder) => folderMatchesQuery(folder, serverData.notes, notesIndex.query))
       : [];
@@ -153,7 +167,7 @@ export function NotesIndexView({
       ? []
       : sortNotes(visibleNotes, sort).map((note) => ({ kind: 'note', note }));
     return [...folderItems.sort(compareFolderItems), ...noteItems];
-  }, [navigation.selectedFolderId, notesIndex, page, remotePage, serverData, sort, typeFilter, useServerQuery]);
+  }, [navigation.selectedFolderId, notesIndex, page, remotePage, serverData, sort, tagMatch, typeFilter, urlTagIds, useServerQuery]);
 
   const selectableNoteIds = items.flatMap((item) => item.kind === 'note' && !item.note.deleted ? [item.note.id] : []);
   const allPageNotesSelected = selectableNoteIds.length > 0 && selectableNoteIds.every((id) => selectedNoteIds.has(id));
@@ -262,6 +276,28 @@ export function NotesIndexView({
         </div>
       </div>
 
+      {serverData.tags.length > 0 ? (
+        <div className={styles.tagFilters} aria-label="标签筛选条件">
+          <span>标签</span>
+          {serverData.tags.map((tag) => <TagChip
+            key={tag.id}
+            tag={tag}
+            selected={urlTagIds.includes(tag.id)}
+            aria-pressed={urlTagIds.includes(tag.id)}
+            onClick={() => {
+              const next = urlTagIds.includes(tag.id)
+                ? urlTagIds.filter((id) => id !== tag.id)
+                : [...urlTagIds, tag.id];
+              navigate(next.length ? `/materials?tags=${next.map(encodeURIComponent).join(',')}&match=${tagMatch}` : '/materials');
+            }}
+          />)}
+          {urlTagIds.length > 1 ? <div className={styles.matchToggle} role="group" aria-label="多标签匹配方式">
+            <button type="button" aria-pressed={tagMatch === 'all'} onClick={() => navigate(`/materials?tags=${urlTagIds.map(encodeURIComponent).join(',')}&match=all`)}>满足全部</button>
+            <button type="button" aria-pressed={tagMatch === 'any'} onClick={() => navigate(`/materials?tags=${urlTagIds.map(encodeURIComponent).join(',')}&match=any`)}>满足任一</button>
+          </div> : null}
+        </div>
+      ) : null}
+
       {selectionMode ? (
         <div className={styles.bulkBar} role="toolbar" aria-label="批量管理笔记">
           <Checkbox
@@ -271,7 +307,7 @@ export function NotesIndexView({
           >选择本页</Checkbox>
           <strong role="status" aria-live="polite">已选 {selectedNoteIds.size} 篇</strong>
           <span className={styles.bulkSpacer} />
-          <button type="button" disabled={selectedNoteIds.size === 0} onClick={() => { setBatchError(''); setBatchTagOpen(true); }}>添加标签</button>
+          <button type="button" disabled={selectedNoteIds.size === 0} onClick={() => { setBatchError(''); setBatchTagOpen(true); }}>编辑标签</button>
           <button type="button" className={styles.bulkDanger} disabled={selectedNoteIds.size === 0} onClick={() => { setBatchError(''); setBatchDeleteOpen(true); }}>移入回收站</button>
           <button type="button" onClick={() => { setSelectionMode(false); setSelectedNoteIds(new Set()); }}>退出</button>
         </div>
@@ -354,12 +390,14 @@ export function NotesIndexView({
       <BatchTagDialog
         isOpen={batchTagOpen}
         tags={serverData.tags}
+        groups={serverData.tagGroups}
+        notes={serverData.notes.filter((note) => selectedNoteIds.has(note.id))}
         count={selectedNoteIds.size}
         pending={batchPending}
         error={batchError}
         onOpenChange={setBatchTagOpen}
-        onSave={async (tagId) => {
-          if (await runBatch(() => assignTagToNotes([...selectedNoteIds], tagId))) setBatchTagOpen(false);
+        onSave={async (addTagIds, removeTagIds) => {
+          if (await runBatch(() => updateTagsForNotes([...selectedNoteIds], addTagIds, removeTagIds))) setBatchTagOpen(false);
         }}
       />
       <Dialog
@@ -506,35 +544,67 @@ function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, 
   );
 }
 
-function BatchTagDialog({ isOpen, tags, count, pending, error, onOpenChange, onSave }: {
+function BatchTagDialog({ isOpen, tags, groups, notes, count, pending, error, onOpenChange, onSave }: {
   isOpen: boolean;
-  tags: Array<{ id: string; name?: string }>;
+  tags: Tag[];
+  groups: TagGroup[];
+  notes: Note[];
   count: number;
   pending: boolean;
   error: string;
   onOpenChange(open: boolean): void;
-  onSave(tagId: string): Promise<void>;
+  onSave(addTagIds: string[], removeTagIds: string[]): Promise<void>;
 }) {
-  const [tagId, setTagId] = useState('');
+  const [changes, setChanges] = useState<Map<string, 'add' | 'remove'>>(new Map());
 
   useEffect(() => {
-    if (isOpen) setTagId(tags[0]?.id ?? '');
-  }, [isOpen, tags]);
+    if (isOpen) setChanges(new Map());
+  }, [isOpen]);
+
+  function originalState(tagId: string): 'all' | 'some' | 'none' {
+    const included = notes.filter((note) => note.tagIds.includes(tagId)).length;
+    return included === 0 ? 'none' : included === notes.length ? 'all' : 'some';
+  }
+  function effectiveState(tagId: string): 'all' | 'some' | 'none' {
+    return changes.get(tagId) === 'add' ? 'all' : changes.get(tagId) === 'remove' ? 'none' : originalState(tagId);
+  }
+  function toggle(tag: Tag) {
+    const nextAction = effectiveState(tag.id) === 'all' ? 'remove' : 'add';
+    setChanges((current) => {
+      const next = new Map(current);
+      if (nextAction === 'add') {
+        const group = groups.find((item) => item.id === tag.groupId);
+        if (group?.selectionMode === 'single') {
+          tags.filter((item) => item.groupId === group.id && item.id !== tag.id)
+            .forEach((item) => next.set(item.id, 'remove'));
+        }
+      }
+      next.set(tag.id, nextAction);
+      return next;
+    });
+  }
+  const addTagIds = [...changes].filter(([, action]) => action === 'add').map(([id]) => id);
+  const removeTagIds = [...changes].filter(([, action]) => action === 'remove').map(([id]) => id);
 
   return (
-    <Dialog title="批量添加标签" description={`为选中的 ${count} 篇笔记添加同一个标签。`} isOpen={isOpen} onOpenChange={onOpenChange} isPending={pending}>
+    <Dialog title="批量编辑标签" description={`同时整理选中的 ${count} 篇笔记。半选表示仅部分笔记包含。`} size="md" isOpen={isOpen} onOpenChange={onOpenChange} isPending={pending}>
       <DialogBody>
-        {tags.length > 0 ? <label className={styles.tagSelect}>
-          <span>选择标签</span>
-          <select name="batch-note-tag" aria-label="选择要批量添加的标签" value={tagId} disabled={pending} onChange={(event) => setTagId(event.target.value)}>
-            {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name || '未命名标签'}</option>)}
-          </select>
-        </label> : <p className={styles.dialogHint}>当前笔记库还没有可用标签。</p>}
+        {groups.map((group) => <section className={styles.batchTagGroup} key={group.id}>
+          <h3>{group.name}<small>{group.selectionMode === 'single' ? '单选' : '多选'}</small></h3>
+          {tags.filter((tag) => tag.groupId === group.id).map((tag) => {
+            const state = effectiveState(tag.id);
+            return <Checkbox key={tag.id} isSelected={state === 'all'} isIndeterminate={state === 'some'} onChange={() => toggle(tag)}>
+              {tag.name || '未命名标签'}<span className={styles.triState}>{state === 'all' ? '全部包含' : state === 'some' ? '部分包含' : '均不包含'}</span>
+            </Checkbox>;
+          })}
+        </section>)}
+        {tags.length === 0 ? <p className={styles.dialogHint}>当前笔记库还没有可用标签。</p> : null}
+        {changes.size > 0 ? <p className={styles.dialogHint} role="status">将添加 {addTagIds.length} 个标签，移除 {removeTagIds.length} 个标签。</p> : null}
         {error ? <p className={styles.batchError} role="alert">{error}</p> : null}
       </DialogBody>
       <DialogFooter>
         <DialogClose variant="ghost">取消</DialogClose>
-        <Button variant="primary" isPending={pending} isDisabled={!tagId} onPress={() => void onSave(tagId)}>添加标签</Button>
+        <Button variant="primary" isPending={pending} isDisabled={changes.size === 0} onPress={() => void onSave(addTagIds, removeTagIds)}>保存批量更改</Button>
       </DialogFooter>
     </Dialog>
   );

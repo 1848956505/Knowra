@@ -6,7 +6,8 @@ export function createNoteAssociationOperations({
   repository,
   requireNote,
   requireNoteIds,
-  assertReferences
+  assertReferences,
+  normalizeTagIds
 }) {
   function saveWithChanges(note, changes) {
     const updatedNote = new Note({
@@ -30,7 +31,7 @@ export function createNoteAssociationOperations({
   function assignTagToNote(noteId, tagId) {
     const currentNote = requireNote(noteId, { includeDeleted: true });
     const normalizedTagId = normalizeTagId(tagId);
-    const tagIds = [...new Set([...currentNote.tagIds, normalizedTagId])];
+    const tagIds = normalizeTagIds([...currentNote.tagIds, normalizedTagId]);
     assertReferences({ ...currentNote, tagIds });
     return saveWithChanges(currentNote, { tagIds });
   }
@@ -44,7 +45,7 @@ export function createNoteAssociationOperations({
         const note = requireNote(noteId, { includeDeleted: true });
         assertReferences({
           ...note,
-          tagIds: [...new Set([...note.tagIds, normalizedTagId])]
+          tagIds: normalizeTagIds([...note.tagIds, normalizedTagId])
         });
       });
       return validatedIds.map((noteId) => assignTagToNote(noteId, normalizedTagId));
@@ -67,11 +68,32 @@ export function createNoteAssociationOperations({
           tagIds: note.tagIds.filter((currentTagId) => currentTagId !== tagId)
         }));
     },
+    replaceTagInAllNotes(sourceTagId, targetTagId) {
+      return repository.list({ includeDeleted: true })
+        .filter((note) => note.tagIds.includes(sourceTagId))
+        .map((note) => saveWithChanges(note, {
+          tagIds: normalizeTagIds(note.tagIds.map((id) => id === sourceTagId ? targetTagId : id))
+        }));
+    },
+    updateTagsForNotes(noteIds, addTagIds = [], removeTagIds = []) {
+      const validatedIds = requireNoteIds(noteIds);
+      return validatedIds.map((noteId) => {
+        const note = requireNote(noteId, { includeDeleted: true });
+        const removed = new Set(removeTagIds);
+        const tagIds = normalizeTagIds([
+          ...note.tagIds.filter((id) => !removed.has(id)),
+          ...addTagIds
+        ]);
+        assertReferences({ ...note, tagIds });
+        return saveWithChanges(note, { tagIds });
+      });
+    },
     setNoteTags(noteId, tagIds) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
       const dto = buildUpdateNoteDto({ tagIds });
-      assertReferences({ ...currentNote, tagIds: dto.tagIds });
-      return saveWithChanges(currentNote, { tagIds: dto.tagIds });
+      const normalizedTagIds = normalizeTagIds(dto.tagIds);
+      assertReferences({ ...currentNote, tagIds: normalizedTagIds });
+      return saveWithChanges(currentNote, { tagIds: normalizedTagIds });
     }
   };
 }

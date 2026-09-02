@@ -13,6 +13,7 @@ export function createNoteService({
   repository = createInMemoryNoteRepository(),
   validateSiblingNameConflict = null,
   validateNoteReferences = null,
+  normalizeTagIds = (tagIds) => [...new Set(tagIds)],
   noteVersionService = null,
   runTransaction = (operation) => operation(),
   onNoteContentChanged = null,
@@ -76,7 +77,8 @@ export function createNoteService({
     repository,
     requireNote,
     requireNoteIds,
-    assertReferences
+    assertReferences,
+    normalizeTagIds
   });
 
   return {

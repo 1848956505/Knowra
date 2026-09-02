@@ -35,6 +35,10 @@ export function attachmentImageAlt(attachment: Attachment): string {
   return attachment.fileName.replace(/[\[\]]/g, '').trim() || '笔记图片';
 }
 
+export function isInlineImageAttachment(attachment: Attachment): boolean {
+  return INLINE_IMAGE_MIME_TYPES.has(String(attachment.mimeType || '').toLowerCase());
+}
+
 export function assertInlineImageFile(file: File): void {
   if (!INLINE_IMAGE_MIME_TYPES.has(file.type.toLowerCase())) {
     throw new Error('正文图片仅支持 PNG、JPEG、GIF、WebP 或 AVIF 格式');

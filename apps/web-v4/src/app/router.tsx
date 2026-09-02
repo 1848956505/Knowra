@@ -55,7 +55,7 @@ export function Link({
   ...rest
 }: { to: string; children: ReactNode } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>) {
   const { pathname, navigate } = useLocation();
-  const isActive = pathname === to;
+  const isActive = stripQuery(pathname) === stripQuery(to);
   return (
     <a
       href={`#${to}`}
@@ -119,10 +119,16 @@ function readHashPath(): string {
 }
 
 function matchPath(current: string, target: string): boolean {
+  current = stripQuery(current);
+  target = stripQuery(target);
   if (target === current) return true;
   if (target.endsWith('/*')) {
     const prefix = target.slice(0, -2);
     return current === prefix || current.startsWith(`${prefix}/`);
   }
   return false;
+}
+
+function stripQuery(pathname: string): string {
+  return pathname.split('?')[0] || '/';
 }

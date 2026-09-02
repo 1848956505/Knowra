@@ -68,6 +68,21 @@ export function mapTag(row) {
   };
 }
 
+export function mapTagGroup(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    spaceId: row.spaceId,
+    code: row.code ?? null,
+    name: row.name,
+    selectionMode: row.selectionMode ?? 'multiple',
+    isSystem: Boolean(row.isSystem),
+    sortOrder: Number(row.sortOrder ?? 0),
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt)
+  };
+}
+
 export function mapNote(row) {
   if (!row) return null;
   const internalLinks = Array.isArray(row.internalLinks)

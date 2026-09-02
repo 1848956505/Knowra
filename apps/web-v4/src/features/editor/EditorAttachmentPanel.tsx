@@ -1,7 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Attachment } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogClose, DialogFooter, TextField } from '../../components/ui';
-import { DeleteIcon, EditIcon, PaperclipIcon, PlusIcon } from '../../shell/icons';
+import {
+  Button,
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogFooter,
+  Menu,
+  MenuItem,
+  MenuPopover,
+  MenuSeparator,
+  MenuTrigger,
+  PressableButton,
+  TextField
+} from '../../components/ui';
+import { DeleteIcon, EditIcon, ImageIcon, LinkIcon, PaperclipIcon, PlusIcon } from '../../shell/icons';
 import {
   buildAttachmentContentUrl,
   formatAttachmentSize,
@@ -9,12 +22,14 @@ import {
 } from './attachmentFiles';
 import styles from './EditorInspector.module.css';
 
-export function EditorAttachmentPanel({ attachments, markdown, canWrite, loading, onUpload, onRename, onDelete }: {
+export function EditorAttachmentPanel({ attachments, markdown, canWrite, canInsert, loading, onUpload, onInsert, onRename, onDelete }: {
   attachments: Attachment[];
   markdown: string;
   canWrite: boolean;
+  canInsert: boolean;
   loading: boolean;
   onUpload(file: File): Promise<Attachment>;
+  onInsert(attachment: Attachment): Promise<void>;
   onRename(attachmentId: string, fileName: string): Promise<Attachment>;
   onDelete(attachmentId: string): Promise<void>;
 }) {
@@ -33,6 +48,15 @@ export function EditorAttachmentPanel({ attachments, markdown, canWrite, loading
       setError(uploadError instanceof Error ? uploadError.message : '附件上传失败，请重试');
     } finally {
       setPending(false);
+    }
+  }
+
+  async function insert(attachment: Attachment) {
+    setError('');
+    try {
+      await onInsert(attachment);
+    } catch (insertError) {
+      setError(insertError instanceof Error ? insertError.message : '附件插入失败，请重试');
     }
   }
 
@@ -66,13 +90,35 @@ export function EditorAttachmentPanel({ attachments, markdown, canWrite, loading
             const referenced = isAttachmentReferenced(markdown, attachment.id);
             return (
               <div key={attachment.id} className={styles.attachmentRow}>
-                <a href={buildAttachmentContentUrl(attachment.id)} target="_blank" rel="noreferrer">
-                  <PaperclipIcon size={15} />
-                  <span><strong>{attachment.fileName}</strong><small>{formatAttachmentSize(attachment.size)}</small></span>
-                </a>
+                <MenuTrigger trigger="contextMenu">
+                  <PressableButton
+                    className={styles.attachmentTarget}
+                    aria-label={`打开附件 ${attachment.fileName}`}
+                    title="左键打开，右键管理附件"
+                    onPress={() => window.open(buildAttachmentContentUrl(attachment.id), '_blank', 'noopener,noreferrer')}
+                  >
+                    <PaperclipIcon size={15} />
+                    <span><strong>{attachment.fileName}</strong><small>{formatAttachmentSize(attachment.size)}</small></span>
+                  </PressableButton>
+                  <MenuPopover placement="right top">
+                    <Menu ariaLabel={`${attachment.fileName}附件操作`} onAction={(key) => {
+                      if (key === 'open') window.open(buildAttachmentContentUrl(attachment.id), '_blank', 'noopener,noreferrer');
+                      if (key === 'insert') void insert(attachment);
+                      if (key === 'rename') setRenameTarget(attachment);
+                      if (key === 'delete') setDeleteTarget(attachment);
+                    }}>
+                      <MenuItem id="open" icon={<LinkIcon size={14} />}>打开附件</MenuItem>
+                      <MenuItem id="insert" icon={<ImageIcon size={14} />} isDisabled={!canInsert}>插入到正文</MenuItem>
+                      <MenuSeparator />
+                      <MenuItem id="rename" icon={<EditIcon size={14} />} isDisabled={!canWrite}>重命名</MenuItem>
+                      <MenuItem id="delete" icon={<DeleteIcon size={14} />} isDanger isDisabled={!canWrite || referenced}>删除</MenuItem>
+                    </Menu>
+                  </MenuPopover>
+                </MenuTrigger>
                 {referenced ? <span className={styles.referenceBadge}>正文中</span> : null}
-                <button type="button" aria-label={`重命名附件 ${attachment.fileName}`} disabled={!canWrite} onClick={() => setRenameTarget(attachment)}><EditIcon size={14} /></button>
+                <button className={styles.attachmentActionButton} type="button" aria-label={`重命名附件 ${attachment.fileName}`} disabled={!canWrite} onClick={() => setRenameTarget(attachment)}><EditIcon size={14} /></button>
                 <button
+                  className={styles.attachmentActionButton}
                   type="button"
                   aria-label={`删除附件 ${attachment.fileName}`}
                   title={referenced ? '请先删除正文中的附件引用' : '删除附件'}

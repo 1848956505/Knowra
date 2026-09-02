@@ -44,8 +44,8 @@ The Phase2.0 knowledge-source foundation and Phase3.0 assessment foundation are 
 
 - Node.js workspace monorepo
 - `apps/api`: local API service
-- `apps/web`: stable V3 workspace frontend
-- `apps/web-v4`: independent React + TypeScript V4 frontend
+- `apps/web-v4`: current React + TypeScript V4 frontend and production web entry
+- `apps/web`: retained V3 legacy frontend for regression comparison and emergency rollback
 - `packages/web-core`: framework-independent API and workspace state helpers shared by V3/V4
 - `packages/shared`: general shared package area
 - Prisma PostgreSQL schema, Phase1.0–Phase3.0 migration tooling and attachment integrity checks in `prisma/` and `scripts/`
@@ -89,16 +89,16 @@ Run backend only:
 npm run dev:api
 ```
 
-Run frontend only:
+Run the current V4 frontend only:
 
 ```bash
 npm run dev:web
 ```
 
-Run the independent React V4 scaffold:
+Run the retained V3 frontend only when comparing or rolling back:
 
 ```bash
-npm run dev:web:v4
+npm run dev:web:legacy
 ```
 
 Run both together:
@@ -109,7 +109,7 @@ npm run dev:all
 
 `npm run dev:all` is cross-platform and works on Windows, macOS, and Ubuntu as long as `Node.js >= 24` and `npm >= 11` are available.
 
-The dev startup script auto-selects available ports, builds the editor bundle before the web server starts, and keeps the frontend proxy aligned with the active API port.
+The dev startup script auto-selects available ports, starts only API + V4, and keeps the V4 proxy aligned with the active API port. `npm run dev:web:v4` remains an explicit alias for the current frontend.
 
 ## Test
 

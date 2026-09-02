@@ -35,6 +35,7 @@ model KnowledgeSpace {
   folders     Folder[]
   notes       Note[]
   tags        Tag[]
+  tagGroups   TagGroup[]
   annotations ContentAnnotation[]
 
   @@index([userId, updatedAt])
@@ -62,7 +63,7 @@ model Tag {
   id         String         @id
   spaceId    String
   name       String
-  color      String         @default("slate")
+  color      String         @default("neutral")
   groupId    String?
   code       String?
   isSystem   Boolean        @default(false)
@@ -71,10 +72,30 @@ model Tag {
   updatedAt  DateTime       @updatedAt
 
   space      KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  group      TagGroup?      @relation(fields: [groupId], references: [id], onDelete: Restrict)
   noteTags   NoteTag[]
 
   @@unique([spaceId, name])
   @@index([spaceId, isSystem, sortOrder])
+}
+
+model TagGroup {
+  id            String         @id
+  spaceId       String
+  code          String?
+  name          String
+  selectionMode String         @default("multiple")
+  isSystem      Boolean        @default(false)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  space         KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  tags          Tag[]
+
+  @@unique([spaceId, name])
+  @@unique([spaceId, code])
+  @@index([spaceId, sortOrder])
 }
 
 model Note {

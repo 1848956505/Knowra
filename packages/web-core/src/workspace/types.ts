@@ -56,10 +56,25 @@ export interface Attachment extends EntityBase {
   verifiedAt?: string | null;
 }
 
+export type TagColor = 'neutral' | 'blue' | 'green' | 'orange' | 'red' | 'violet';
+
 export interface Tag extends EntityBase {
   name?: string;
-  color?: string;
+  color?: TagColor;
   spaceId?: string;
+  groupId?: string | null;
+  code?: string | null;
+  isSystem?: boolean;
+  sortOrder?: number;
+}
+
+export interface TagGroup extends EntityBase {
+  spaceId: string;
+  code?: string | null;
+  name: string;
+  selectionMode: 'single' | 'multiple';
+  isSystem: boolean;
+  sortOrder: number;
 }
 
 export interface Annotation extends EntityBase {
@@ -141,6 +156,7 @@ export interface WorkspaceSnapshot {
   currentSpaceId: string | null;
   folderTree: Folder[];
   tags: Tag[];
+  tagGroups?: TagGroup[];
   allNotes: Note[];
   openFolders: Record<string, boolean>;
   openNoteTabs: string[];
@@ -155,4 +171,5 @@ export interface WorkspaceServerData {
   foldersById: Record<string, Folder>;
   notes: Note[];
   tags: Tag[];
+  tagGroups: TagGroup[];
 }

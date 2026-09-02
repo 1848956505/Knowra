@@ -7,6 +7,7 @@ import { createPostgresKnowledgeHttpHandlers } from './modules/knowledge/http/po
 import { createPostgresNoteRepository } from './modules/knowledge/infrastructure/postgres/note-repository.js';
 import { createPostgresFolderRepository } from './modules/knowledge/infrastructure/postgres/folder-repository.js';
 import { createPostgresTagRepository } from './modules/knowledge/infrastructure/postgres/tag-repository.js';
+import { createPostgresTagGroupRepository } from './modules/knowledge/infrastructure/postgres/tag-group-repository.js';
 import { createPostgresKnowledgeSpaceRepository } from './modules/knowledge/infrastructure/postgres/knowledge-space-repository.js';
 import { createPostgresContentAnnotationRepository } from './modules/knowledge/infrastructure/postgres/content-annotation-repository.js';
 import { createPostgresAttachmentRepository } from './modules/knowledge/infrastructure/postgres/attachment-repository.js';
@@ -58,6 +59,7 @@ export async function createPostgresAppContext({
     noteRepository: createPostgresNoteRepository({ db }),
     folderRepository: createPostgresFolderRepository({ db }),
     tagRepository: createPostgresTagRepository({ db }),
+    tagGroupRepository: createPostgresTagGroupRepository({ db }),
     knowledgeSpaceRepository: createPostgresKnowledgeSpaceRepository({ db }),
     contentAnnotationRepository: createPostgresContentAnnotationRepository({ db }),
     attachmentRepository: createPostgresAttachmentRepository({ db }),

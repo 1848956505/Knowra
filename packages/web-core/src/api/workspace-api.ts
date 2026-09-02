@@ -1,11 +1,12 @@
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
-import type { Annotation, Attachment, Folder, KnowledgeSpace, Note, NoteVersion, Tag } from '../workspace/types.js';
+import type { Annotation, Attachment, Folder, KnowledgeSpace, Note, NoteVersion, Tag, TagColor, TagGroup } from '../workspace/types.js';
 
 export interface WorkspaceResources {
   folderTree: Folder[];
   notes: Note[];
   tags: Tag[];
+  tagGroups?: TagGroup[];
 }
 
 export interface CreateNoteInput {
@@ -50,6 +51,8 @@ export interface NoteQueryInput {
   spaceId?: string;
   folderId?: string | null;
   tagId?: string | null;
+  tagIds?: string[];
+  tagMatch?: 'all' | 'any';
   favoriteOnly?: boolean;
   deletedOnly?: boolean;
   includeDeleted?: boolean;
@@ -109,8 +112,17 @@ export interface WorkspaceApi {
   permanentlyDeleteNote(noteId: string): Promise<Note>;
   setNoteFavorite(noteId: string, favorite: boolean): Promise<Note>;
   setNoteTags(noteId: string, tagIds: string[]): Promise<Note>;
+  createTag(input: { spaceId: string; name: string; color: TagColor; groupId: string }): Promise<Tag>;
+  updateTag(tagId: string, input: { name?: string; color?: TagColor; groupId?: string; sortOrder?: number }): Promise<Tag>;
+  deleteTag(tagId: string): Promise<Tag>;
+  mergeTags(sourceTagId: string, targetTagId: string): Promise<Tag>;
+  reorderTags(tagIds: string[]): Promise<Tag[]>;
+  createTagGroup(input: { spaceId: string; name: string; selectionMode: 'single' | 'multiple' }): Promise<TagGroup>;
+  updateTagGroup(groupId: string, input: { name?: string; selectionMode?: 'single' | 'multiple'; sortOrder?: number }): Promise<TagGroup>;
+  deleteTagGroup(groupId: string): Promise<TagGroup>;
   deleteNotes(noteIds: string[]): Promise<Note[]>;
   assignTagToNotes(noteIds: string[], tagId: string): Promise<Note[]>;
+  updateTagsForNotes(noteIds: string[], addTagIds: string[], removeTagIds: string[]): Promise<Note[]>;
   queryNotes(input: NoteQueryInput): Promise<NoteQueryPage>;
   getLinkedNotes(noteId: string): Promise<Note[]>;
   listAnnotations(noteId: string, spaceId: string): Promise<Annotation[]>;
@@ -130,18 +142,25 @@ export interface WorkspaceApi {
 }
 
 export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }): WorkspaceApi {
+  function requireEntity<T extends { id?: string }>(value: T | undefined, message: string): T {
+    if (!value?.id) throw new Error(message);
+    return value;
+  }
+
   return {
     async loadWorkspaceResources(spaceId) {
       const encodedSpaceId = encodeURIComponent(spaceId ?? '');
-      const [folderTreePayload, notesPayload, tagsPayload] = await Promise.all([
+      const [folderTreePayload, notesPayload, tagsPayload, tagGroupsPayload] = await Promise.all([
         requestJson(`/api/knowledge/folders/tree?spaceId=${encodedSpaceId}`),
         requestJson(`/api/knowledge/notes?spaceId=${encodedSpaceId}&includeDeleted=true&summaryOnly=true`),
-        requestJson(`/api/knowledge/tags?spaceId=${encodedSpaceId}`)
+        requestJson(`/api/knowledge/tags?spaceId=${encodedSpaceId}`),
+        requestJson(`/api/knowledge/tag-groups?spaceId=${encodedSpaceId}`)
       ]);
       return {
         folderTree: asArray<Folder>(getData(folderTreePayload)),
         notes: asArray<Note>(getData(notesPayload)),
-        tags: asArray<Tag>(getData(tagsPayload))
+        tags: asArray<Tag>(getData(tagsPayload)),
+        tagGroups: asArray<TagGroup>(getData(tagGroupsPayload))
       };
     },
     async searchNoteIds({ query, spaceId }) {
@@ -249,6 +268,30 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!note?.id) throw new Error('Set note tags response is invalid.');
       return note;
     },
+    async createTag(input) {
+      return requireEntity(getData<Tag>(await requestJson('/api/knowledge/tags', { method: 'POST', body: JSON.stringify(input) })), 'Create tag response is invalid.');
+    },
+    async updateTag(tagId, input) {
+      return requireEntity(getData<Tag>(await requestJson(`/api/knowledge/tags/${encodeURIComponent(tagId)}`, { method: 'PATCH', body: JSON.stringify(input) })), 'Update tag response is invalid.');
+    },
+    async deleteTag(tagId) {
+      return requireEntity(getData<Tag>(await requestJson(`/api/knowledge/tags/${encodeURIComponent(tagId)}`, { method: 'DELETE' })), 'Delete tag response is invalid.');
+    },
+    async mergeTags(sourceTagId, targetTagId) {
+      return requireEntity(getData<Tag>(await requestJson('/api/knowledge/tags/merge', { method: 'POST', body: JSON.stringify({ sourceTagId, targetTagId }) })), 'Merge tags response is invalid.');
+    },
+    async reorderTags(tagIds) {
+      return asItems<Tag>(getData(await requestJson('/api/knowledge/tags/reorder', { method: 'POST', body: JSON.stringify({ tagIds }) })));
+    },
+    async createTagGroup(input) {
+      return requireEntity(getData<TagGroup>(await requestJson('/api/knowledge/tag-groups', { method: 'POST', body: JSON.stringify(input) })), 'Create tag group response is invalid.');
+    },
+    async updateTagGroup(groupId, input) {
+      return requireEntity(getData<TagGroup>(await requestJson(`/api/knowledge/tag-groups/${encodeURIComponent(groupId)}`, { method: 'PATCH', body: JSON.stringify(input) })), 'Update tag group response is invalid.');
+    },
+    async deleteTagGroup(groupId) {
+      return requireEntity(getData<TagGroup>(await requestJson(`/api/knowledge/tag-groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })), 'Delete tag group response is invalid.');
+    },
     async deleteNotes(noteIds) {
       return asItems<Note>(getData(await requestJson('/api/knowledge/notes/batch/delete', {
         method: 'POST', body: JSON.stringify({ noteIds })
@@ -259,12 +302,19 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
         method: 'POST', body: JSON.stringify({ noteIds, tagId })
       })));
     },
+    async updateTagsForNotes(noteIds, addTagIds, removeTagIds) {
+      return asItems<Note>(getData(await requestJson('/api/knowledge/notes/batch/tags', {
+        method: 'PATCH', body: JSON.stringify({ noteIds, addTagIds, removeTagIds })
+      })));
+    },
     async queryNotes(input) {
       const limit = Math.max(1, input.limit ?? 30);
       const values: Record<string, string | number | boolean | null | undefined> = {
         spaceId: input.spaceId,
         folderId: input.folderId,
         tagId: input.tagId,
+        tagIds: input.tagIds?.join(','),
+        match: input.tagMatch,
         favoriteOnly: input.favoriteOnly,
         deletedOnly: input.deletedOnly,
         includeDeleted: input.includeDeleted,

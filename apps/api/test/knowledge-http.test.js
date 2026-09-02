@@ -402,7 +402,7 @@ export const knowledgeHttpTests = [
       handlers.deleteTag({ id: 'http-tag-1' });
 
       assert.equal(updatedFolder.name, 'Final Folder');
-      assert.equal(updatedTag.color, 'amber');
+      assert.equal(updatedTag.color, 'orange');
       assert.equal(handlers.listFolders({ spaceId: 'space-1' }).length, 0);
       assert.equal(handlers.listTags({ spaceId: 'space-1' }).length, 0);
     }

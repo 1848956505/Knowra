@@ -257,7 +257,8 @@ describe('single V4 application store', () => {
         { id: 'note-b', title: 'B', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false },
         { id: 'note-c', title: 'C', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false }
       ],
-      tags: []
+      tags: [],
+      tagGroups: []
     });
     const store = createAppStore({ api, cacheKey: 'workspace-tabs', mockSnapshot: createEmptyWorkspaceSnapshot() });
     await store.getState().loadWorkspace();
@@ -489,8 +490,11 @@ function createApi(): WorkspaceApi {
     permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
     setNoteFavorite: vi.fn().mockResolvedValue({ id: 'live-note' }),
     setNoteTags: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    createTag: vi.fn(), updateTag: vi.fn(), deleteTag: vi.fn(), mergeTags: vi.fn(), reorderTags: vi.fn(),
+    createTagGroup: vi.fn(), updateTagGroup: vi.fn(), deleteTagGroup: vi.fn(),
     deleteNotes: vi.fn().mockResolvedValue([]),
     assignTagToNotes: vi.fn().mockResolvedValue([]),
+    updateTagsForNotes: vi.fn().mockResolvedValue([]),
     queryNotes: vi.fn().mockResolvedValue({ items: [], hasNext: false }),
     getLinkedNotes: vi.fn().mockResolvedValue([]),
     listAnnotations: vi.fn().mockResolvedValue([]),
