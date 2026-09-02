@@ -8,7 +8,8 @@ import { NotesContextSidebar } from './NotesContextSidebar';
 
 describe('NotesContextSidebar', () => {
   it('derives counts from workspace data and switches quick filters', async () => {
-    const { store } = renderSidebar();
+    const onOpenIndex = vi.fn();
+    const { store } = renderSidebar({ onOpenIndex });
 
     expect(screen.getByRole('button', { name: /全部笔记3/ })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: /收藏1/ })).toBeInTheDocument();
@@ -18,9 +19,26 @@ describe('NotesContextSidebar', () => {
     await userEvent.click(screen.getByRole('button', { name: /收藏1/ }));
     expect(store.getState().notesIndex.scope).toBe('favorites');
     expect(screen.getByRole('button', { name: /收藏1/ })).toHaveAttribute('aria-current', 'page');
+    expect(onOpenIndex).toHaveBeenCalledOnce();
 
     await userEvent.click(screen.getByRole('button', { name: /回收站1/ }));
     expect(store.getState().notesIndex.scope).toBe('trash');
+    expect(onOpenIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it('exposes the note library entry before the folder tree', async () => {
+    const onOpenIndex = vi.fn();
+    const { store } = renderSidebar({ onOpenIndex });
+
+    const rootEntry = screen.getByRole('button', { name: /笔记库2/ });
+    const firstFolder = screen.getByRole('button', { name: /产品设计2/ });
+    expect(rootEntry.compareDocumentPosition(firstFolder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(rootEntry);
+
+    expect(store.getState().notesIndex.scope).toBe('root');
+    expect(rootEntry).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: /全部笔记3/ })).not.toHaveAttribute('aria-current');
+    expect(onOpenIndex).toHaveBeenCalledOnce();
   });
 
   it('selects folders and tags, expands note children, and delegates text search to the backend', async () => {
@@ -49,7 +67,7 @@ describe('NotesContextSidebar', () => {
     expect(store.getState().notesIndex.selectedTagId).toBe('tag-1');
     expect(store.getState().navigation.selectedFolderId).toBeNull();
 
-    fireEvent.change(screen.getByRole('textbox', { name: '搜索笔记目录' }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索笔记目录' }), {
       target: { value: '正文关键词' }
     });
     await waitFor(() => expect(api.searchNoteIds).toHaveBeenCalledWith({
@@ -167,7 +185,15 @@ describe('NotesContextSidebar', () => {
   });
 });
 
-function renderSidebar({ empty = false, onOpenNote }: { empty?: boolean; onOpenNote?(noteId: string): void } = {}) {
+function renderSidebar({
+  empty = false,
+  onOpenNote,
+  onOpenIndex
+}: {
+  empty?: boolean;
+  onOpenNote?(noteId: string): void;
+  onOpenIndex?(): void;
+} = {}) {
   const api = createApi();
   const store = createAppStore({ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
   const folder = { id: 'folder-1', name: '产品设计', parentId: null, children: [] };
@@ -193,7 +219,7 @@ function renderSidebar({ empty = false, onOpenNote }: { empty?: boolean; onOpenN
       store={store}
       dependencies={{ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() }}
     >
-      <NotesContextSidebar onOpenNote={onOpenNote} />
+      <NotesContextSidebar onOpenNote={onOpenNote} onOpenIndex={onOpenIndex} />
     </AppStoreProvider>
   );
   return { api, store };
@@ -220,7 +246,25 @@ function createApi(): WorkspaceApi {
     createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
     updateNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     deleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    restoreNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     setNoteFavorite: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    setNoteTags: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    deleteNotes: vi.fn().mockResolvedValue([]),
+    assignTagToNotes: vi.fn().mockResolvedValue([]),
+    queryNotes: vi.fn().mockResolvedValue({ items: [], hasNext: false }),
+    getLinkedNotes: vi.fn().mockResolvedValue([]),
+    listAnnotations: vi.fn().mockResolvedValue([]),
+    createAnnotation: vi.fn(),
+    deleteAnnotation: vi.fn(),
+    restoreAnnotation: vi.fn(),
+    updateAnnotationAnchor: vi.fn(),
+    listNoteVersions: vi.fn().mockResolvedValue([]),
+    getNoteVersion: vi.fn().mockResolvedValue({ id: 'version-1' }),
+    listNoteAttachments: vi.fn().mockResolvedValue([]),
+    uploadNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    renameNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    deleteNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
     updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1' }),
     deleteFolder: vi.fn().mockResolvedValue([]),
     emptyRecycleBin: vi.fn()

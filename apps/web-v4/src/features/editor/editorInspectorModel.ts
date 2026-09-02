@@ -51,12 +51,32 @@ export function resolveInspectorRelations(note: Note, notes: Note[]): InspectorR
 }
 
 export function extractInspectorOutline(markdown: string): InspectorHeading[] {
-  return markdown.split(/\r?\n/).flatMap((line, index) => {
-    const match = /^(#{1,4})\s+(.+?)\s*$/.exec(line);
-    if (!match) return [];
-    const text = stripInlineMarkdown(match[2] ?? '');
-    return text ? [{ id: `heading-${index}`, level: match[1]?.length ?? 1, text }] : [];
+  const headings: InspectorHeading[] = [];
+  let fence: { marker: '`' | '~'; length: number } | null = null;
+
+  markdown.split(/\r?\n/).forEach((line, index) => {
+    if (fence) {
+      const closingFence = /^\s{0,3}(`{3,}|~{3,})\s*$/.exec(line)?.[1] ?? '';
+      if (closingFence[0] === fence.marker && closingFence.length >= fence.length) fence = null;
+      return;
+    }
+
+    const fenceMatch = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (fenceMatch) {
+      const token = fenceMatch[1] ?? '';
+      const marker = token[0] as '`' | '~';
+      fence = { marker, length: token.length };
+      return;
+    }
+
+    const match = /^\s{0,3}(#{1,4})[\t ]+(.+?)\s*$/.exec(line);
+    if (!match) return;
+    const source = (match[2] ?? '').replace(/[\t ]+#+[\t ]*$/, '');
+    const text = stripInlineMarkdown(source);
+    if (text) headings.push({ id: `heading-${index}`, level: match[1]?.length ?? 1, text });
   });
+
+  return headings;
 }
 
 export function getDocumentStats(markdown: string, plainText?: string): {

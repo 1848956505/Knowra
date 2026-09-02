@@ -21,7 +21,11 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await expect(cover).toHaveCSS('top', '-12px');
   await expect.poll(() => cover.evaluate((element) => getComputedStyle(element).boxShadow))
     .toContain('rgb(56, 189, 248) 5px 5px');
-  await expect(page.getByRole('toolbar', { name: '笔记格式工具栏' })).toHaveCSS('margin-top', '24px');
+  const floatingToolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
+  await expect(floatingToolbar).toHaveCSS('margin-top', '24px');
+  for (const name of ['文件', '段落', '编辑', '格式', '视图']) {
+    await expect(floatingToolbar.getByRole('button', { name, exact: true })).toBeVisible();
+  }
   await editor.click();
   expect(await editor.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -179,6 +183,40 @@ test('V4-07 连续输入只产生必要段落并在 IME 候选上屏后再保存
   await expect(editor.locator('ul li')).toHaveCount(1);
   await expect(editor.locator(':scope > p').last()).toHaveText('列表外正文');
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('\n\n列表外正文');
+});
+
+test('V4-07 Typora 式 Markdown 输入规则可转换且可用退格退出结构', async ({ page }) => {
+  const savedMarkdown: string[] = [];
+  await mockEditorWorkspace(page, savedMarkdown, [], '');
+  await page.goto('/#/materials/notes/note-1');
+
+  const editor = page.locator('.ProseMirror');
+  const replaceAllByTyping = async (markdown: string) => {
+    await editor.click();
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.keyboard.type(markdown);
+  };
+
+  await replaceAllByTyping('# ');
+  await expect(editor.locator(':scope > h1')).toHaveCount(1);
+  await page.keyboard.press('Backspace');
+  await expect(editor.locator(':scope > p')).toHaveCount(1);
+
+  await replaceAllByTyping('- ');
+  await expect(editor.locator('ul > li')).toHaveCount(1);
+  await replaceAllByTyping('1. ');
+  await expect(editor.locator('ol > li')).toHaveCount(1);
+  await replaceAllByTyping('> ');
+  await expect(editor.locator('blockquote')).toHaveCount(1);
+  await replaceAllByTyping('- [ ] ');
+  await expect(editor.locator('li[data-item-type="task"]')).toHaveCount(1);
+  await replaceAllByTyping('``` ');
+  await expect(editor.locator('pre')).toHaveCount(1);
+  await replaceAllByTyping('**重点**');
+  await expect(editor.locator('strong')).toHaveText('重点');
+  await replaceAllByTyping('~~删除线~~');
+  await expect(editor.locator('del')).toHaveText('删除线');
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('~~删除线~~');
 });
 
 test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久化', async ({ page }) => {
@@ -623,6 +661,69 @@ test('V4-07 异常格式修复读取原始草稿并可一次撤销', async ({ pa
   await expect(page.locator('.ProseMirror')).toContainText('尾部');
 });
 
+test('V4-07 超长文档输入保持光标可见并按笔记恢复滚动位置', async ({ page }) => {
+  test.setTimeout(60_000);
+  const longMarkdown = Array.from({ length: 600 }, (_, index) => (
+    `长文段落 ${index + 1} ${'稳定内容'.repeat(12)}`
+  )).join('\n\n');
+  const savedMarkdown: string[] = [];
+  await mockEditorWorkspace(page, savedMarkdown, [], longMarkdown);
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+
+  const editor = page.locator('.ProseMirror');
+  const scrollRoot = page.locator('[data-editor-scroll-root]');
+  await expect(editor.locator(':scope > p')).toHaveCount(600);
+  await expect(editor.locator('xpath=ancestor::*[@data-editor-ready][1]')).toHaveAttribute('data-editor-ready', 'true');
+  const target = editor.locator(':scope > p').nth(449);
+  await target.scrollIntoViewIfNeeded();
+  await target.evaluate((paragraph) => {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    paragraph.closest<HTMLElement>('.ProseMirror')?.focus({ preventScroll: true });
+  });
+  await page.keyboard.type(' 长文追加');
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('长文追加');
+
+  const editedScrollTop = await scrollRoot.evaluate((element) => element.scrollTop);
+  expect(editedScrollTop).toBeGreaterThan(1000);
+  const caretVisibility = await editor.evaluate((element) => {
+    const anchor = window.getSelection()?.anchorNode;
+    const caretBlock = (anchor instanceof Element ? anchor : anchor?.parentElement)?.closest('p, h1, h2, h3, h4, li, pre');
+    const caret = caretBlock?.getBoundingClientRect();
+    const scrollRoot = element.closest('[data-editor-scroll-root]');
+    const viewport = scrollRoot?.getBoundingClientRect();
+    return {
+      visible: Boolean(caret && viewport && caret.bottom >= viewport.top && caret.top <= viewport.bottom),
+      anchor: anchor?.textContent ?? null,
+      focus: window.getSelection()?.focusNode?.textContent ?? null,
+      collapsed: window.getSelection()?.isCollapsed ?? null,
+      caret: caret ? { top: caret.top, bottom: caret.bottom } : null,
+      viewport: viewport ? { top: viewport.top, bottom: viewport.bottom } : null,
+      scrollTop: scrollRoot?.scrollTop ?? null,
+      scrollHeight: scrollRoot?.scrollHeight ?? null
+    };
+  });
+  expect(caretVisibility.visible, JSON.stringify(caretVisibility)).toBe(true);
+
+  await page.getByRole('button', { name: '切换文档检查器' }).click();
+  const scrollBeforeSwitch = await scrollRoot.evaluate((element) => element.scrollTop);
+  await page.getByRole('complementary', { name: '文档检查器' })
+    .getByRole('link', { name: '关联验收笔记' }).click();
+  await expect(page.locator('.ProseMirror')).toContainText('第二篇正文');
+  await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeLessThan(80);
+
+  await page.getByRole('tab', { name: '编辑器验收笔记', exact: true }).click();
+  await expect(page.locator('.ProseMirror')).toContainText('长文追加');
+  await expect(page.locator('.ProseMirror').locator('xpath=ancestor::*[@data-editor-ready][1]')).toHaveAttribute('data-editor-ready', 'true');
+  await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeGreaterThan(scrollBeforeSwitch - 80);
+  await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeLessThan(scrollBeforeSwitch + 80);
+});
+
 test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源码模式', async ({ page }) => {
   test.setTimeout(60_000);
   const savedMarkdown: string[] = [];
@@ -748,6 +849,46 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await page.screenshot({ path: 'e2e/visual-baseline/screenshots/v4-07-editor-inspector-1280.png', fullPage: false });
   await page.setViewportSize({ width: 390, height: 760 });
   await expect.poll(async () => (await screenshotInspector.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(389);
+});
+
+test('V4-07 大纲保留标题层级并精确跳转到重复标题', async ({ page }) => {
+  const markdown = [
+    '# 重复标题',
+    ...Array.from({ length: 28 }, (_, index) => `前置段落 ${index + 1} ${'填充内容'.repeat(10)}`),
+    '```md',
+    '## 代码块内标题',
+    '```',
+    '## 重复标题',
+    '### 深层标题',
+    '尾部正文'
+  ].join('\n\n');
+  await mockEditorWorkspace(page, [], [], markdown);
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+
+  await page.getByRole('button', { name: '切换文档检查器' }).click();
+  const inspector = page.getByRole('complementary', { name: '文档检查器' });
+  await inspector.getByRole('tab', { name: '大纲' }).click();
+  await expect(inspector.getByText('DOCUMENT OUTLINE')).toHaveCount(0);
+  await expect(inspector.getByRole('heading', { name: '本页大纲' })).toHaveCount(0);
+  await expect(inspector.getByRole('button', { name: '跳转到「代码块内标题」，H2' })).toHaveCount(0);
+
+  await inspector.getByRole('button', { name: '跳转到「重复标题」，H2' }).click();
+  await expect.poll(() => page.locator('.ProseMirror').evaluate((editor) => {
+    const selection = window.getSelection();
+    const anchor = selection?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    const heading = element?.closest('h2');
+    const stage = editor.closest<HTMLElement>('[data-editor-scroll-root]');
+    const headingBox = heading?.getBoundingClientRect();
+    const stageBox = stage?.getBoundingClientRect();
+    return {
+      focused: document.activeElement === editor,
+      text: heading?.textContent ?? '',
+      visible: Boolean(headingBox && stageBox && headingBox.top >= stageBox.top && headingBox.top < stageBox.bottom)
+    };
+  })).toEqual({ focused: true, text: '重复标题', visible: true });
 });
 
 test('V4-07 Markdown 导入复用后端批量能力并打开首篇笔记', async ({ page }) => {

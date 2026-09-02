@@ -40,9 +40,11 @@ interface EditorContextMenuProps {
   canEdit: boolean;
   onRunCommand(command: EditorCommand): void;
   onEditAction(action: EditorEditAction): void;
+  onInsertImage(): void;
+  onCreateAnnotation(): void;
 }
 
-type ContextAction = EditorCommand | Extract<EditorEditAction, 'cut' | 'copy' | 'paste'>;
+type ContextAction = EditorCommand | Extract<EditorEditAction, 'cut' | 'copy' | 'paste'> | 'create-annotation';
 
 const editActions = new Set<ContextAction>(['cut', 'copy', 'paste']);
 
@@ -51,7 +53,9 @@ export function EditorContextMenu({
   enabled,
   canEdit,
   onRunCommand,
-  onEditAction
+  onEditAction,
+  onInsertImage,
+  onCreateAnnotation
 }: EditorContextMenuProps) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const targetRef = useRef<HTMLDivElement>(null);
@@ -72,7 +76,8 @@ export function EditorContextMenu({
 
   const runAction = (key: Key) => {
     const action = String(key) as ContextAction;
-    if (editActions.has(action)) onEditAction(action as 'cut' | 'copy' | 'paste');
+    if (action === 'create-annotation') onCreateAnnotation();
+    else if (editActions.has(action)) onEditAction(action as 'cut' | 'copy' | 'paste');
     else onRunCommand(action as EditorCommand);
   };
 
@@ -142,6 +147,7 @@ export function EditorContextMenu({
             </MenuSection>
 
             <MenuSeparator className={styles.fullRow} />
+            <MenuItem id="create-annotation" icon={<HighlightIcon size={15} />} isDisabled={!canEdit}>标记为重要内容</MenuItem>
             <SubmenuTrigger delay={120}>
               <MenuItem id="heading-menu" className={styles.submenuTrigger}>标题</MenuItem>
               <MenuPopover placement="end top" offset={-1} containerPadding={12} className={styles.submenuPopover}>
@@ -162,7 +168,7 @@ export function EditorContextMenu({
                   <MenuItem id="horizontal-rule" icon={<HorizontalRuleIcon size={15} />} isDisabled={!canEdit}>水平分割线</MenuItem>
                   <MenuItem id="code-block" icon={<CodeIcon size={15} />} isDisabled={!canEdit}>代码块</MenuItem>
                   <MenuItem id="blockquote" icon={<QuoteIcon size={15} />} isDisabled={!canEdit}>引用</MenuItem>
-                  <MenuItem id="image" icon={<ImageIcon size={15} />} isDisabled>图片（待附件适配）</MenuItem>
+                  <MenuItem id="image" icon={<ImageIcon size={15} />} isDisabled={!canEdit} onAction={onInsertImage}>图片</MenuItem>
                   <MenuSeparator />
                   <MenuItem id="paragraph-above" icon={<ParagraphAddIcon size={15} position="above" />} isDisabled={!canEdit}>在上方插入段落</MenuItem>
                   <MenuItem id="paragraph-below" icon={<ParagraphAddIcon size={15} />} isDisabled={!canEdit}>在下方插入段落</MenuItem>

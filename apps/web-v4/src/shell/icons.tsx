@@ -443,6 +443,16 @@ export function DeleteIcon(props: IconProps) {
   );
 }
 
+export function EditIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      {props.title ? <title>{props.title}</title> : null}
+      <path d="m4 16 1-4L13 4l3 3-8 8-4 1Z" />
+      <path d="m11 6 3 3M4 17h12" />
+    </svg>
+  );
+}
+
 export function BoldIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

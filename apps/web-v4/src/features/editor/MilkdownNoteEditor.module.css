@@ -94,6 +94,21 @@
   background: var(--ink-accent-soft);
   outline: 2px solid var(--ink-accent);
 }
+.milkdownEditor :global(.editor-annotation) {
+  border-bottom: 2px solid var(--ink-warning);
+  background: var(--ink-warning-soft);
+  cursor: pointer;
+  box-decoration-break: clone;
+}
+.milkdownEditor :global(.editor-annotation-stale) {
+  border-bottom-style: dashed;
+  background: transparent;
+  color: var(--ink-secondary);
+}
+.milkdownEditor :global(.editor-annotation-active) {
+  outline: 2px solid var(--ink-accent);
+  outline-offset: 1px;
+}
 .milkdownEditor :global(.ProseMirror) hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--ink-panel); }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { position: relative; margin: .35em 0; list-style: none; padding-left: 1.8em; }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task']::before {

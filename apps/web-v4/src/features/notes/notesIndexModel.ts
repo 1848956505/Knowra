@@ -15,6 +15,7 @@ export function getScopeCount(scope: NotesIndexScope, notes: Note[]): number {
     case 'recent': return Math.min(activeNotes.length, RECENT_NOTE_LIMIT);
     case 'favorites': return activeNotes.filter((note) => note.favorite).length;
     case 'unfiled': return activeNotes.filter((note) => !note.folderId).length;
+    case 'root': return activeNotes.filter((note) => !note.folderId).length;
     case 'trash': return notes.filter((note) => note.deleted).length;
     default: return activeNotes.length;
   }
@@ -30,6 +31,7 @@ export function filterNotes(
 
   if (notesIndex.scope === 'favorites') visible = visible.filter((note) => note.favorite);
   if (notesIndex.scope === 'unfiled') visible = visible.filter((note) => !note.folderId);
+  if (notesIndex.scope === 'root') visible = visible.filter((note) => !note.folderId);
   if (selectedFolderId) visible = visible.filter((note) => note.folderId === selectedFolderId);
   if (notesIndex.selectedTagId) {
     visible = visible.filter((note) => note.tagIds.includes(notesIndex.selectedTagId as string));

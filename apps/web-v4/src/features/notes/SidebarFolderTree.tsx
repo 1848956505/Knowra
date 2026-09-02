@@ -28,10 +28,11 @@ interface SidebarFolderTreeProps {
   query: string;
   canWrite: boolean;
   onAction(action: SidebarTreeAction): void;
+  onOpenIndex?(): void;
   onOpenNote?(noteId: string): void;
 }
 
-export function SidebarFolderTree({ folders, notes, query, canWrite, onAction, onOpenNote }: SidebarFolderTreeProps) {
+export function SidebarFolderTree({ folders, notes, query, canWrite, onAction, onOpenIndex, onOpenNote }: SidebarFolderTreeProps) {
   const visibleFolders = folders.filter((folder) => folderMatchesQuery(folder, notes, query));
   if (visibleFolders.length === 0) {
     const isEmptyLibrary = folders.length === 0 && !query.trim();
@@ -52,6 +53,7 @@ export function SidebarFolderTree({ folders, notes, query, canWrite, onAction, o
           level={1}
           canWrite={canWrite}
           onAction={onAction}
+          onOpenIndex={onOpenIndex}
           onOpenNote={onOpenNote}
         />
       ))}
@@ -59,13 +61,14 @@ export function SidebarFolderTree({ folders, notes, query, canWrite, onAction, o
   );
 }
 
-function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenNote }: {
+function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenIndex, onOpenNote }: {
   folder: Folder;
   notes: Note[];
   query: string;
   level: number;
   canWrite: boolean;
   onAction(action: SidebarTreeAction): void;
+  onOpenIndex?(): void;
   onOpenNote?(noteId: string): void;
 }) {
   const isOpen = useAppStore((state) => Boolean(state.navigation.openFolders[folder.id]));
@@ -102,6 +105,7 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenN
             onClick={() => {
               selectFolder(folder.id);
               if (canExpand) toggleFolder(folder.id);
+              onOpenIndex?.();
             }}
           >
             <FolderIcon size={16} />
@@ -121,6 +125,7 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenN
               level={level + 1}
               canWrite={canWrite}
               onAction={onAction}
+              onOpenIndex={onOpenIndex}
               onOpenNote={onOpenNote}
             />
           ))}

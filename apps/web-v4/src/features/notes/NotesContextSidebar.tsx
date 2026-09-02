@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  BookIcon,
   ClockIcon,
   FolderIcon,
   MoreHorizontalIcon,
@@ -26,7 +27,7 @@ import { useSidebarTreeOperations } from './useSidebarTreeOperations';
 import styles from './NotesContextSidebar.module.css';
 
 interface NavEntry {
-  scope: Exclude<NotesIndexScope, 'trash'>;
+  scope: Exclude<NotesIndexScope, 'root' | 'trash'>;
   label: string;
   Icon: typeof NoteIcon;
 }
@@ -39,8 +40,13 @@ const QUICK_ENTRIES: readonly NavEntry[] = [
 ];
 
 const TAG_TONES = [styles.tagBlue, styles.tagPurple, styles.tagGreen, styles.tagOrange];
-
-export function NotesContextSidebar({ onOpenNote }: { onOpenNote?(noteId: string): void }) {
+export function NotesContextSidebar({
+  onOpenNote,
+  onOpenIndex
+}: {
+  onOpenNote?(noteId: string): void;
+  onOpenIndex?(): void;
+}) {
   const serverData = useAppStore((state) => state.serverData);
   const notesIndex = useAppStore((state) => state.notesIndex);
   const selectedFolderId = useAppStore((state) => state.navigation.selectedFolderId);
@@ -54,6 +60,7 @@ export function NotesContextSidebar({ onOpenNote }: { onOpenNote?(noteId: string
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
   const treeOperations = useSidebarTreeOperations();
   const trashCount = getScopeCount('trash', serverData.notes);
+  const rootCount = serverData.folderTree.length + getScopeCount('root', serverData.notes);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -100,6 +107,9 @@ export function NotesContextSidebar({ onOpenNote }: { onOpenNote?(noteId: string
         <SearchIcon size={16} />
         <input
           data-input-control="true"
+          type="search"
+          name="notes-sidebar-search"
+          autoComplete="off"
           value={notesIndex.query}
           onChange={(event) => setNotesQuery(event.target.value)}
           placeholder="搜索标题、正文或标签…"
@@ -107,74 +117,99 @@ export function NotesContextSidebar({ onOpenNote }: { onOpenNote?(noteId: string
         />
       </label>
 
-      <SidebarSection id="quick" title="快速入口">
-        {QUICK_ENTRIES.map((entry) => {
-          const current = notesIndex.scope === entry.scope
-            && !selectedFolderId
-            && !notesIndex.selectedTagId;
-          return (
-            <button
-              key={entry.scope}
-              className={styles.navRow}
-              type="button"
-              aria-current={current ? 'page' : undefined}
-              onClick={() => selectNotesScope(entry.scope)}
-            >
-              <entry.Icon size={16} />
-              <span>{entry.label}</span>
-              <small>{getScopeCount(entry.scope, serverData.notes)}</small>
-            </button>
-          );
-        })}
-      </SidebarSection>
+      <div className={styles.scrollBody}>
+        <SidebarSection id="quick" title="快速入口">
+          {QUICK_ENTRIES.map((entry) => {
+            const current = notesIndex.scope === entry.scope
+              && !selectedFolderId
+              && !notesIndex.selectedTagId;
+            return (
+              <button
+                key={entry.scope}
+                className={styles.navRow}
+                type="button"
+                aria-current={current ? 'page' : undefined}
+                onClick={() => {
+                  selectNotesScope(entry.scope);
+                  onOpenIndex?.();
+                }}
+              >
+                <entry.Icon size={16} />
+                <span>{entry.label}</span>
+                <small>{getScopeCount(entry.scope, serverData.notes)}</small>
+              </button>
+            );
+          })}
+        </SidebarSection>
 
-      <SidebarSection
-        id="folders"
-        title="文件夹"
-        action={(
-          <GhostIconButton
-            size={24}
-            aria-label="新建文件夹"
-            title="新建文件夹"
-            disabled={!canWrite}
-            onClick={() => treeOperations.openCreate('folder', selectedFolderId)}
+        <SidebarSection
+          id="folders"
+          title="文件夹"
+          action={(
+            <GhostIconButton
+              size={24}
+              aria-label="新建文件夹"
+              title="新建文件夹"
+              disabled={!canWrite}
+              onClick={() => treeOperations.openCreate('folder', selectedFolderId)}
+            >
+              <PlusIcon size={16} />
+            </GhostIconButton>
+          )}
+        >
+          <button
+            className={`${styles.navRow} ${styles.libraryRow}`}
+            type="button"
+            aria-current={notesIndex.scope === 'root' ? 'page' : undefined}
+            onClick={() => {
+              selectNotesScope('root');
+              onOpenIndex?.();
+            }}
           >
-            <PlusIcon size={16} />
-          </GhostIconButton>
-        )}
-      >
-        <SidebarFolderTree
-          folders={serverData.folderTree}
-          notes={serverData.notes}
-          query={notesIndex.query}
-          canWrite={canWrite}
-          onAction={treeOperations.handleTreeAction}
-          onOpenNote={onOpenNote}
-        />
-      </SidebarSection>
+            <BookIcon size={16} />
+            <span>笔记库</span>
+            <small>{rootCount}</small>
+          </button>
+          <SidebarFolderTree
+            folders={serverData.folderTree}
+            notes={serverData.notes}
+            query={notesIndex.query}
+            canWrite={canWrite}
+            onAction={treeOperations.handleTreeAction}
+            onOpenIndex={onOpenIndex}
+            onOpenNote={onOpenNote}
+          />
+        </SidebarSection>
 
-      <SidebarSection id="tags" title="标签">
-        <div className={styles.tags} aria-label="标签筛选">
-          {serverData.tags.map((tag, index) => (
-            <button
-              key={tag.id}
-              type="button"
-              className={TAG_TONES[index % TAG_TONES.length]}
-              aria-pressed={notesIndex.selectedTagId === tag.id}
-              onClick={() => selectNotesTag(notesIndex.selectedTagId === tag.id ? null : tag.id)}
-            >
-              {tag.name || '未命名'}
-            </button>
-          ))}
-          {serverData.tags.length === 0 ? <span className={styles.emptyInline}>暂无标签</span> : null}
-        </div>
-      </SidebarSection>
+        <SidebarSection id="tags" title="标签">
+          <div className={styles.tags} aria-label="标签筛选">
+            {serverData.tags.map((tag, index) => (
+              <button
+                key={tag.id}
+                type="button"
+                className={TAG_TONES[index % TAG_TONES.length]}
+                aria-pressed={notesIndex.selectedTagId === tag.id}
+                onClick={() => {
+                  selectNotesTag(notesIndex.selectedTagId === tag.id ? null : tag.id);
+                  onOpenIndex?.();
+                }}
+              >
+                {tag.name || '未命名'}
+              </button>
+            ))}
+            {serverData.tags.length === 0 ? <span className={styles.emptyInline}>暂无标签</span> : null}
+          </div>
+        </SidebarSection>
+      </div>
 
       <button
         className={styles.recycle}
         type="button"
         aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}
-        onClick={() => selectNotesScope('trash')}
+        onClick={() => {
+          selectNotesScope('trash');
+          onOpenIndex?.();
+        }}
       >
         <RefreshIcon size={16} />
         <span>回收站</span>

@@ -38,6 +38,24 @@ export interface Note extends EntityBase {
   deleted: boolean;
 }
 
+export interface NoteVersion extends EntityBase {
+  noteId: string;
+  content: string;
+  contentHash: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface Attachment extends EntityBase {
+  noteId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  status: string;
+  sha256?: string | null;
+  verifiedAt?: string | null;
+}
+
 export interface Tag extends EntityBase {
   name?: string;
   color?: string;

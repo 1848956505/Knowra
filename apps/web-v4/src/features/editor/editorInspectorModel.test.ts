@@ -41,6 +41,25 @@ describe('editorInspectorModel', () => {
     });
   });
 
+  it('keeps duplicate headings addressable and ignores headings inside fenced code', () => {
+    const markdown = [
+      '# 重复标题',
+      '```md',
+      '## 这不是大纲',
+      '```not-a-closing-fence',
+      '### 仍然不是大纲',
+      '```',
+      '  ## 重复标题 ##',
+      '### 子级'
+    ].join('\n');
+
+    expect(extractInspectorOutline(markdown)).toEqual([
+      { id: 'heading-0', level: 1, text: '重复标题' },
+      { id: 'heading-6', level: 2, text: '重复标题' },
+      { id: 'heading-7', level: 3, text: '子级' }
+    ]);
+  });
+
   it('formats same-day dates without pretending invalid timestamps are known', () => {
     const now = new Date(2026, 7, 31, 18, 0);
     expect(formatInspectorDate(new Date(2026, 7, 31, 10, 32).toISOString(), now)).toBe('今天 10:32');

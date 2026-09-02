@@ -194,11 +194,119 @@ export function createWorkspaceSlice(
         return { result: undefined, message: '笔记已移入回收站' };
       });
     },
+    async restoreNote(noteId) {
+      return executeWorkspaceMutation(set, get, '正在恢复笔记…', async () => {
+        await dependencies.api.restoreNote(noteId);
+        await runLoad(true);
+        get().selectNotesScope('trash');
+        return { result: undefined, message: '笔记已恢复' };
+      });
+    },
+    async permanentlyDeleteNote(noteId) {
+      return executeWorkspaceMutation(set, get, '正在彻底删除笔记…', async () => {
+        await dependencies.api.permanentlyDeleteNote(noteId);
+        await runLoad(true);
+        get().selectNotesScope('trash');
+        return { result: undefined, message: '笔记已彻底删除' };
+      });
+    },
     async setNoteFavorite(noteId, favorite) {
       return executeWorkspaceMutation(set, get, favorite ? '正在收藏笔记…' : '正在取消收藏…', async () => {
         await dependencies.api.setNoteFavorite(noteId, favorite);
         await runLoad(true);
         return { result: undefined, message: favorite ? '笔记已收藏' : '已取消收藏' };
+      });
+    },
+    async setNoteTags(noteId, tagIds) {
+      return executeWorkspaceMutation(set, get, '正在更新标签…', async () => {
+        await dependencies.api.setNoteTags(noteId, tagIds);
+        await runLoad(true);
+        return { result: undefined, message: '笔记标签已更新' };
+      });
+    },
+    async deleteNotes(noteIds) {
+      return executeWorkspaceMutation(set, get, '正在批量删除笔记…', async () => {
+        await dependencies.api.deleteNotes(noteIds);
+        await runLoad(true);
+        return { result: undefined, message: `已将 ${noteIds.length} 篇笔记移入回收站` };
+      });
+    },
+    async assignTagToNotes(noteIds, tagId) {
+      return executeWorkspaceMutation(set, get, '正在批量添加标签…', async () => {
+        await dependencies.api.assignTagToNotes(noteIds, tagId);
+        await runLoad(true);
+        return { result: undefined, message: `已为 ${noteIds.length} 篇笔记添加标签` };
+      });
+    },
+    async queryNotes(input) {
+      const spaceId = get().serverData.currentSpaceId;
+      if (!spaceId) return { items: [], hasNext: false };
+      return dependencies.api.queryNotes({ ...input, spaceId });
+    },
+    async getLinkedNotes(noteId) {
+      return dependencies.api.getLinkedNotes(noteId);
+    },
+    async listAnnotations(noteId) {
+      const spaceId = get().serverData.currentSpaceId;
+      if (!spaceId) return [];
+      return dependencies.api.listAnnotations(noteId, spaceId);
+    },
+    async createAnnotation(input) {
+      return executeWorkspaceMutation(set, get, '正在创建正文标注…', async () => ({
+        result: await dependencies.api.createAnnotation(input),
+        message: '已标记为重要内容'
+      }));
+    },
+    async deleteAnnotation(annotationId) {
+      return executeWorkspaceMutation(set, get, '正在删除正文标注…', async () => ({
+        result: await dependencies.api.deleteAnnotation(annotationId),
+        message: '正文标注已归档'
+      }));
+    },
+    async restoreAnnotation(annotationId) {
+      return executeWorkspaceMutation(set, get, '正在恢复正文标注…', async () => ({
+        result: await dependencies.api.restoreAnnotation(annotationId),
+        message: '正文标注已恢复'
+      }));
+    },
+    async updateAnnotationAnchor(annotationId, input) {
+      return executeWorkspaceMutation(set, get, '正在重新定位正文标注…', async () => ({
+        result: await dependencies.api.updateAnnotationAnchor(annotationId, input),
+        message: '正文标注位置已更新'
+      }));
+    },
+    async listNoteVersions(noteId) {
+      return dependencies.api.listNoteVersions(noteId);
+    },
+    async getNoteVersion(noteId, versionId) {
+      return dependencies.api.getNoteVersion(noteId, versionId);
+    },
+    async organizeNote(noteId, input) {
+      return executeWorkspaceMutation(set, get, '正在整理笔记…', async () => {
+        await dependencies.api.updateNote(noteId, input);
+        await runLoad(true);
+        return { result: undefined, message: '笔记位置和状态已更新' };
+      });
+    },
+    async listNoteAttachments(noteId) {
+      return dependencies.api.listNoteAttachments(noteId);
+    },
+    async uploadNoteAttachment(input) {
+      return executeWorkspaceMutation(set, get, '正在上传附件…', async () => ({
+        result: await dependencies.api.uploadNoteAttachment(input),
+        message: '附件已上传'
+      }));
+    },
+    async renameNoteAttachment(attachmentId, fileName) {
+      return executeWorkspaceMutation(set, get, '正在重命名附件…', async () => ({
+        result: await dependencies.api.renameNoteAttachment(attachmentId, fileName),
+        message: '附件已重命名'
+      }));
+    },
+    async deleteNoteAttachment(attachmentId) {
+      return executeWorkspaceMutation(set, get, '正在删除附件…', async () => {
+        await dependencies.api.deleteNoteAttachment(attachmentId);
+        return { result: undefined, message: '附件已删除' };
       });
     },
     async renameFolder(folderId, name) {

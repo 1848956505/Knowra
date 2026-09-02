@@ -23,6 +23,41 @@ describe('useNoteAutosave', () => {
     expect(result.current.hasLocalChanges).toBe(false);
   });
 
+  it('coalesces long-document UI publication while keeping the latest draft synchronously readable', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useNoteAutosave({
+      noteId: 'note-a',
+      remoteMarkdown: '初始正文',
+      remoteUpdatedAt: 'v1',
+      canWrite: true,
+      renderDelayMs: 80,
+      onSave
+    }));
+
+    act(() => {
+      result.current.updateDraft('第一版');
+      result.current.updateDraft('第二版');
+      result.current.updateDraft('最终版');
+    });
+    expect(result.current.getLatestMarkdown()).toBe('最终版');
+    expect(result.current.draftMarkdown).toBe('初始正文');
+
+    await act(async () => vi.advanceTimersByTimeAsync(79));
+    expect(result.current.draftMarkdown).toBe('初始正文');
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(result.current.draftMarkdown).toBe('最终版');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('publishes source-editor drafts immediately for controlled textarea input', () => {
+    const { result } = renderHook(() => useNoteAutosave({
+      noteId: 'note-a', remoteMarkdown: '初始正文', canWrite: true, onSave: vi.fn()
+    }));
+    act(() => result.current.updateDraft('源码正文', { immediate: true }));
+    expect(result.current.draftMarkdown).toBe('源码正文');
+  });
+
   it('serializes saves and advances expectedUpdatedAt after each successful response', async () => {
     vi.useFakeTimers();
     const first = createDeferred<{ rawMarkdown: string; updatedAt: string }>();

@@ -31,6 +31,7 @@ export interface EditorToolbarProps {
   onFileAction(action: EditorFileAction): void;
   onToggleFavorite(): void;
   onToggleInspector(): void;
+  onInsertImage(): void;
 }
 
 export function EditorToolbar(props: EditorToolbarProps) {
@@ -50,7 +51,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
           {renderEditorEditMenu({ canWrite: props.canEditContent, onAction: props.onEditAction })}
         </ToolbarMenu>
         <ToolbarMenu label="格式" disabled={!props.canEditContent}>
-          {renderEditorFormatMenu({ onCommand: props.onRunCommand })}
+          {renderEditorFormatMenu({ onCommand: props.onRunCommand, onInsertImage: props.onInsertImage })}
         </ToolbarMenu>
         <ToolbarMenu label="视图">{renderEditorViewMenu({ view: props.view, onAction: props.onViewAction })}</ToolbarMenu>
       </div>
@@ -66,13 +67,13 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <FormatButton label="无序列表" disabled={!props.canEditContent} onPress={command('bullet-list')}><ListIcon size={16} /></FormatButton>
       <FormatButton label="引用" disabled={!props.canEditContent} onPress={command('blockquote')}><QuoteIcon size={16} /></FormatButton>
       <FormatButton label="插入表格" optional disabled={!props.canEditContent} onPress={command('table')}><TableIcon size={16} /></FormatButton>
-      <FormatButton label="插入图片" optional disabled title="图片附件适配尚未迁移"><ImageIcon size={16} /></FormatButton>
+      <FormatButton label="插入图片" optional disabled={!props.canEditContent} onPress={props.onInsertImage}><ImageIcon size={16} /></FormatButton>
       <span className={styles.toolbarSpacer} />
       <span className={styles.separator} aria-hidden="true" />
       <button type="button" className={styles.plainButton} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} disabled={!props.canWrite || props.favoritePending} onClick={props.onToggleFavorite}><StarIcon size={16} /></button>
       <MenuTrigger>
         <PressableButton className={styles.plainButton} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
-        <MenuPopover placement="bottom end"><Menu ariaLabel="插入菜单"><MenuItem id="table" isDisabled={!props.canEditContent} onAction={command('table')}>插入 3×3 表格</MenuItem><MenuItem id="image" isDisabled>插入图片（待附件适配）</MenuItem></Menu></MenuPopover>
+        <MenuPopover placement="bottom end"><Menu ariaLabel="插入菜单"><MenuItem id="table" isDisabled={!props.canEditContent} onAction={command('table')}>插入 3×3 表格</MenuItem><MenuItem id="image" isDisabled={!props.canEditContent} onAction={props.onInsertImage}>插入图片</MenuItem></Menu></MenuPopover>
       </MenuTrigger>
       <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
       <button type="button" className={styles.plainButton} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>

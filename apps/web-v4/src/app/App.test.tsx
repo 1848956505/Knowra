@@ -280,6 +280,28 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(screen.getByLabelText('工作区位置')).getByText('Note')).toHaveAttribute('aria-current', 'location');
   });
 
+  it('returns from an open note to the index when a quick entry is selected', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({
+      api,
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+    const navigateMock = vi.fn();
+
+    render(
+      <RouterProvider location={{ pathname: '/materials/notes/note-1', navigate: navigateMock }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+
+    await screen.findByRole('heading', { name: 'Note', level: 1 });
+    fireEvent.click(screen.getByRole('button', { name: /收藏0/ }));
+
+    expect(store.getState().notesIndex.scope).toBe('favorites');
+    expect(navigateMock).toHaveBeenCalledWith('/materials');
+  });
+
   it('returns to the home page (/) when clicking the brand logo on the notes index', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
@@ -413,7 +435,25 @@ function createWorkspaceApiStub(overrides: { notes?: Array<Record<string, unknow
     createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
     updateNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     deleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    restoreNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
     setNoteFavorite: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    setNoteTags: vi.fn().mockResolvedValue({ id: 'note-1' }),
+    deleteNotes: vi.fn().mockResolvedValue([]),
+    assignTagToNotes: vi.fn().mockResolvedValue([]),
+    queryNotes: vi.fn().mockResolvedValue({ items: notes, hasNext: false }),
+    getLinkedNotes: vi.fn().mockResolvedValue([]),
+    listAnnotations: vi.fn().mockResolvedValue([]),
+    createAnnotation: vi.fn(),
+    deleteAnnotation: vi.fn(),
+    restoreAnnotation: vi.fn(),
+    updateAnnotationAnchor: vi.fn(),
+    listNoteVersions: vi.fn().mockResolvedValue([]),
+    getNoteVersion: vi.fn().mockResolvedValue({ id: 'version-1' }),
+    listNoteAttachments: vi.fn().mockResolvedValue([]),
+    uploadNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    renameNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    deleteNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
     updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1' }),
     deleteFolder: vi.fn().mockResolvedValue([]),
     emptyRecycleBin: vi.fn().mockResolvedValue({ deletedCount: 0 })

@@ -1,5 +1,6 @@
 import { Fragment, Slice } from '@milkdown/kit/prose/model';
 import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import type { EditorView } from '@milkdown/kit/prose/view';
 import { $prose } from '@milkdown/kit/utils';
 import { parserCtx } from '@milkdown/kit/core';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
@@ -48,7 +49,15 @@ export function findUnsupportedPasteSources(html: string, text: string): string[
   return [...sources];
 }
 
-export function createEditorPasteBehavior(onStatus: (message: string) => void) {
+export interface UploadedEditorImage {
+  url: string;
+  alt: string;
+}
+
+export function createEditorPasteBehavior(
+  onStatus: (message: string) => void,
+  onUploadImage?: (file: File) => Promise<UploadedEditorImage>
+) {
   return $prose((ctx) => new Plugin({
     key: new PluginKey('V4_EDITOR_PASTE_BEHAVIOR'),
     props: {
@@ -62,7 +71,15 @@ export function createEditorPasteBehavior(onStatus: (message: string) => void) {
         ));
         if (imageFiles.length > 0) {
           event.preventDefault();
-          onStatus('图片粘贴需等待附件能力接入');
+          if (!onUploadImage) {
+            onStatus('当前无法上传图片');
+            return true;
+          }
+          const files = imageFiles
+            .map((item) => item.getAsFile())
+            .filter((file): file is File => Boolean(file));
+          onStatus(files.length > 1 ? `正在上传 ${files.length} 张图片…` : '正在上传图片…');
+          void uploadPastedImages(view, files, onUploadImage, onStatus);
           return true;
         }
 
@@ -96,6 +113,26 @@ export function createEditorPasteBehavior(onStatus: (message: string) => void) {
       }
     }
   }));
+}
+
+async function uploadPastedImages(
+  view: EditorView,
+  files: File[],
+  onUploadImage: (file: File) => Promise<UploadedEditorImage>,
+  onStatus: (message: string) => void
+): Promise<void> {
+  try {
+    for (const file of files) {
+      const uploaded = await onUploadImage(file);
+      const imageType = view.state.schema.nodes.image;
+      if (!imageType) throw new Error('编辑器未启用图片节点');
+      const image = imageType.create({ src: uploaded.url, alt: uploaded.alt, title: null });
+      view.dispatch(view.state.tr.replaceSelectionWith(image).scrollIntoView());
+    }
+    onStatus(files.length > 1 ? `已插入 ${files.length} 张图片` : '图片已插入正文');
+  } catch (error) {
+    onStatus(error instanceof Error ? error.message : '图片上传失败');
+  }
 }
 
 function sanitizeFragment(fragment: Fragment): Fragment {

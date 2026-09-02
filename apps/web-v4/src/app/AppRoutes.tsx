@@ -105,6 +105,20 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const saveNoteContent = useAppStore((state) => state.saveNoteContent);
   const deleteNote = useAppStore((state) => state.deleteNote);
   const setNoteFavorite = useAppStore((state) => state.setNoteFavorite);
+  const setNoteTags = useAppStore((state) => state.setNoteTags);
+  const listNoteVersions = useAppStore((state) => state.listNoteVersions);
+  const getNoteVersion = useAppStore((state) => state.getNoteVersion);
+  const organizeNote = useAppStore((state) => state.organizeNote);
+  const listNoteAttachments = useAppStore((state) => state.listNoteAttachments);
+  const uploadNoteAttachment = useAppStore((state) => state.uploadNoteAttachment);
+  const renameNoteAttachment = useAppStore((state) => state.renameNoteAttachment);
+  const deleteNoteAttachment = useAppStore((state) => state.deleteNoteAttachment);
+  const getLinkedNotes = useAppStore((state) => state.getLinkedNotes);
+  const listAnnotations = useAppStore((state) => state.listAnnotations);
+  const createAnnotation = useAppStore((state) => state.createAnnotation);
+  const deleteAnnotation = useAppStore((state) => state.deleteAnnotation);
+  const restoreAnnotation = useAppStore((state) => state.restoreAnnotation);
+  const updateAnnotationAnchor = useAppStore((state) => state.updateAnnotationAnchor);
   const setStatusMessage = useAppStore((state) => state.setStatusMessage);
   const navigate = useNavigate();
   const [createMode, setCreateMode] = useState<CreateMode>(null);
@@ -172,6 +186,20 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
           onOpenNote(createdId);
         }}
         onDeleteNote={() => setDeleteOpen(true)}
+        onSetTags={(tagIds) => note ? setNoteTags(note.id, tagIds) : Promise.resolve()}
+        onListVersions={listNoteVersions}
+        onGetVersion={getNoteVersion}
+        onOrganizeNote={(input) => note ? organizeNote(note.id, input) : Promise.resolve()}
+        onListAttachments={listNoteAttachments}
+        onUploadAttachment={uploadNoteAttachment}
+        onRenameAttachment={renameNoteAttachment}
+        onDeleteAttachment={deleteNoteAttachment}
+        onGetLinkedNotes={getLinkedNotes}
+        onListAnnotations={listAnnotations}
+        onCreateAnnotation={createAnnotation}
+        onDeleteAnnotation={deleteAnnotation}
+        onRestoreAnnotation={restoreAnnotation}
+        onUpdateAnnotationAnchor={updateAnnotationAnchor}
         onFileStatus={setStatusMessage}
         onToggleFavorite={() => {
           if (!note || favoritePending) return;

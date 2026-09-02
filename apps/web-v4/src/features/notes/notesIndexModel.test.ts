@@ -15,6 +15,7 @@ describe('notes index filtering model', () => {
     expect(getScopeCount('all', notes)).toBe(2);
     expect(getScopeCount('favorites', notes)).toBe(1);
     expect(getScopeCount('unfiled', notes)).toBe(1);
+    expect(getScopeCount('root', notes)).toBe(1);
     expect(getScopeCount('trash', notes)).toBe(1);
   });
 
@@ -25,6 +26,8 @@ describe('notes index filtering model', () => {
       .toEqual(['favorite']);
     expect(filterNotes(notes, tags, selection({ scope: 'trash' })).map((note) => note.id))
       .toEqual(['deleted']);
+    expect(filterNotes(notes, tags, selection({ scope: 'root' })).map((note) => note.id))
+      .toEqual(['favorite']);
     expect(filterNotes(notes, tags, selection({ query: '正文', matchingNoteIds: ['active'] })).map((note) => note.id))
       .toEqual(['active']);
     expect(filterNotes(notes, tags, selection({ query: '设计' })).map((note) => note.id))

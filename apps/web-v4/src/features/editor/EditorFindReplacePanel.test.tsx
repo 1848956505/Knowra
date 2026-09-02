@@ -6,7 +6,7 @@ import { EditorFindReplacePanel } from './EditorFindReplacePanel';
 
 function createEditor(): EditorCommandTarget {
   return {
-    run: vi.fn(), runEdit: vi.fn(), focus: vi.fn(), clearFind: vi.fn(), setMarkdown: vi.fn(), replaceMarkdown: vi.fn(),
+    run: vi.fn(), runEdit: vi.fn(), focus: vi.fn(), clearFind: vi.fn(), navigateToHeading: vi.fn(), getAnnotationSelection: vi.fn(), setAnnotations: vi.fn(), selectAnnotation: vi.fn(), insertImage: vi.fn(), setMarkdown: vi.fn(), replaceMarkdown: vi.fn(),
     getMarkdown: vi.fn(), getHtml: vi.fn(),
     find: vi.fn().mockReturnValue({ found: true, count: 2, index: 0 }),
     replaceCurrent: vi.fn().mockReturnValue({ found: true, count: 1, index: 0, replaced: 1 }),

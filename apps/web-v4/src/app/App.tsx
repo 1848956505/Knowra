@@ -165,6 +165,11 @@ export function App() {
     setLiveAnnouncement(`已打开笔记：${title}`);
   }
 
+  function openNotesIndex() {
+    navigate('/materials');
+    setLiveAnnouncement('已打开笔记索引');
+  }
+
   function handleOpenShowcase() {
     navigate('/showcase');
     setLiveAnnouncement('已打开组件展台');
@@ -184,7 +189,9 @@ export function App() {
   return (
     <AppShell
       activeDomain={activeDomain}
-      contextSidebar={showNotesContextSidebar ? <NotesContextSidebar onOpenNote={openNote} /> : undefined}
+      contextSidebar={showNotesContextSidebar ? (
+        <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
+      ) : undefined}
       stageMode={isNoteEditor ? 'workspace' : 'default'}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}

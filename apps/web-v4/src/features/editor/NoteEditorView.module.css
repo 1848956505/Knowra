@@ -189,6 +189,15 @@
 
 .toolbarAnchor { height: 0; }
 
+.nativeFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .toolbar {
   position: sticky;
   top: 0;
@@ -218,8 +227,7 @@
   box-shadow: none;
 }
 
-.toolbarMenus { display: none; align-items: center; gap: 2px; }
-.toolbar[data-pinned] .toolbarMenus { display: flex; }
+.toolbarMenus { display: flex; align-items: center; gap: 2px; }
 
 .toolbar button,
 .toolbarMenus button {
@@ -352,7 +360,7 @@
   .toolbar { margin-top: 30px; }
   .toolbar[data-pinned] { margin-inline: calc(-1 * var(--paper-pad-x)); }
   .toolbar button { min-width: 40px; height: 40px; }
-  .toolbarMenus, .toolbar[data-pinned] .toolbarMenus { display: none; }
+  .toolbarMenus { display: flex; }
   .documentHead { gap: 14px; }
   .cover { width: 54px; height: 74px; top: -10px; }
   .saveConflict { align-items: stretch; flex-direction: column; }

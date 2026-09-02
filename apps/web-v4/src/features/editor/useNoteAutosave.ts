@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiRequestError } from '@study-accelerator/web-core';
 
 const DEFAULT_AUTOSAVE_DELAY_MS = 700;
+const DEFAULT_DRAFT_RENDER_DELAY_MS = 80;
 const NOTE_UPDATE_CONFLICT = 'NOTE_UPDATE_CONFLICT';
 
 interface DraftState {
@@ -18,6 +19,7 @@ export interface UseNoteAutosaveOptions {
   remoteUpdatedAt?: string;
   canWrite: boolean;
   delayMs?: number;
+  renderDelayMs?: number;
   onSave(
     noteId: string,
     markdown: string,
@@ -30,7 +32,7 @@ export interface NoteAutosaveController {
   hasLocalChanges: boolean;
   hasConflict: boolean;
   saveError: string | null;
-  updateDraft(markdown: string): void;
+  updateDraft(markdown: string, options?: { immediate?: boolean }): void;
   saveNow(markdown?: string): Promise<void>;
   getLatestMarkdown(): string;
 }
@@ -45,6 +47,7 @@ export function useNoteAutosave({
   remoteUpdatedAt,
   canWrite,
   delayMs = DEFAULT_AUTOSAVE_DELAY_MS,
+  renderDelayMs = DEFAULT_DRAFT_RENDER_DELAY_MS,
   onSave
 }: UseNoteAutosaveOptions): NoteAutosaveController {
   const [draft, setDraft] = useState<DraftState>({ noteId, markdown: remoteMarkdown });
@@ -53,6 +56,7 @@ export function useNoteAutosave({
   const draftByNoteRef = useRef(new Map<string, string>([[noteId, remoteMarkdown]]));
   const pendingByNoteRef = useRef(new Map<string, string>());
   const timerByNoteRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const renderTimerByNoteRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const inFlightByNoteRef = useRef(new Map<string, Promise<void>>());
   const serverMarkdownByNoteRef = useRef(new Map<string, string>([[noteId, remoteMarkdown]]));
   const baseUpdatedAtByNoteRef = useRef(new Map<string, string | undefined>([[noteId, remoteUpdatedAt]]));
@@ -69,9 +73,31 @@ export function useNoteAutosave({
     if (currentNoteIdRef.current === targetNoteId) publishStateChange();
   }, []);
   const setCurrentDraft = useCallback((next: DraftState) => {
+    const renderTimer = renderTimerByNoteRef.current.get(next.noteId);
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimerByNoteRef.current.delete(next.noteId);
     draftByNoteRef.current.set(next.noteId, next.markdown);
     setDraft(next);
   }, []);
+  const scheduleCurrentDraft = useCallback((next: DraftState, immediate = false) => {
+    draftByNoteRef.current.set(next.noteId, next.markdown);
+    const previousTimer = renderTimerByNoteRef.current.get(next.noteId);
+    if (previousTimer) clearTimeout(previousTimer);
+    if (immediate || renderDelayMs <= 0) {
+      renderTimerByNoteRef.current.delete(next.noteId);
+      if (currentNoteIdRef.current === next.noteId) setDraft(next);
+      return;
+    }
+    const timer = setTimeout(() => {
+      renderTimerByNoteRef.current.delete(next.noteId);
+      if (currentNoteIdRef.current !== next.noteId) return;
+      setDraft({
+        noteId: next.noteId,
+        markdown: draftByNoteRef.current.get(next.noteId) ?? next.markdown
+      });
+    }, renderDelayMs);
+    renderTimerByNoteRef.current.set(next.noteId, timer);
+  }, [renderDelayMs]);
   const persist = useCallback(async (targetNoteId: string, markdown: string) => {
     if (!canWriteRef.current) return;
     const previous = inFlightByNoteRef.current.get(targetNoteId) ?? Promise.resolve();
@@ -133,8 +159,8 @@ export function useNoteAutosave({
     }
     await persist(targetNoteId, markdown);
   }, [persist, publishFor]);
-  const updateDraft = useCallback((markdown: string) => {
-    setCurrentDraft({ noteId, markdown });
+  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean }) => {
+    scheduleCurrentDraft({ noteId, markdown }, options?.immediate);
     if (!canWriteRef.current) return;
     localRevisionByNoteRef.current.set(noteId, (localRevisionByNoteRef.current.get(noteId) ?? 0) + 1);
     pendingByNoteRef.current.set(noteId, markdown);
@@ -148,8 +174,7 @@ export function useNoteAutosave({
       }, delayMs);
       timerByNoteRef.current.set(noteId, timer);
     }
-    publishFor(noteId);
-  }, [delayMs, flushNote, noteId, publishFor, setCurrentDraft]);
+  }, [delayMs, flushNote, noteId, scheduleCurrentDraft]);
   const saveNow = useCallback(async (markdown?: string) => {
     const latest = markdown ?? draftByNoteRef.current.get(noteId) ?? remoteMarkdown;
     draftByNoteRef.current.set(noteId, latest);
@@ -189,6 +214,9 @@ export function useNoteAutosave({
     }
   }, [draft.markdown, draft.noteId, noteId, remoteMarkdown, remoteUpdatedAt, setCurrentDraft]);
   useEffect(() => () => {
+    const renderTimer = renderTimerByNoteRef.current.get(noteId);
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimerByNoteRef.current.delete(noteId);
     const timer = timerByNoteRef.current.get(noteId);
     if (timer) clearTimeout(timer);
     timerByNoteRef.current.delete(noteId);

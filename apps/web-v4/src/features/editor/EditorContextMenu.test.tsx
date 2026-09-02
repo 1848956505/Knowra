@@ -14,6 +14,8 @@ describe('EditorContextMenu', () => {
         canEdit
         onRunCommand={onRunCommand}
         onEditAction={onEditAction}
+        onInsertImage={vi.fn()}
+        onCreateAnnotation={vi.fn()}
       >
         <div>正文编辑区</div>
       </EditorContextMenu>
@@ -40,11 +42,26 @@ describe('EditorContextMenu', () => {
         canEdit={false}
         onRunCommand={vi.fn()}
         onEditAction={vi.fn()}
+        onInsertImage={vi.fn()}
+        onCreateAnnotation={vi.fn()}
       >
         <div>源码并排预览</div>
       </EditorContextMenu>
     );
     fireEvent.contextMenu(screen.getByText('源码并排预览'));
     expect(screen.queryByRole('menu', { name: '编辑器右键快捷功能' })).not.toBeInTheDocument();
+  });
+
+  it('routes important-content annotation through the dedicated callback', async () => {
+    const user = userEvent.setup();
+    const onCreateAnnotation = vi.fn();
+    render(
+      <EditorContextMenu enabled canEdit onRunCommand={vi.fn()} onEditAction={vi.fn()} onInsertImage={vi.fn()} onCreateAnnotation={onCreateAnnotation}>
+        <div>正文标注区</div>
+      </EditorContextMenu>
+    );
+    fireEvent.contextMenu(screen.getByText('正文标注区'), { clientX: 80, clientY: 80 });
+    await user.click(await screen.findByRole('menuitem', { name: '标记为重要内容' }));
+    expect(onCreateAnnotation).toHaveBeenCalledOnce();
   });
 });

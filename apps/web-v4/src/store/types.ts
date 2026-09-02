@@ -5,7 +5,15 @@ import type {
   WorkspaceLoadState,
   WorkspaceApi,
   KeyValueStorage,
-  Note
+  Attachment,
+  Annotation,
+  Note,
+  NoteVersion,
+  NoteQueryInput,
+  NoteQueryPage,
+  CreateAnnotationInput,
+  UpdateAnnotationAnchorInput,
+  UploadAttachmentInput
 } from '@study-accelerator/web-core';
 
 export interface WorkspaceDependencies {
@@ -34,7 +42,26 @@ export interface WorkspaceSlice {
   loadNoteContent(noteId: string): Promise<void>;
   saveNoteContent(noteId: string, rawMarkdown: string, expectedUpdatedAt?: string): Promise<Note>;
   deleteNote(noteId: string): Promise<void>;
+  restoreNote(noteId: string): Promise<void>;
+  permanentlyDeleteNote(noteId: string): Promise<void>;
   setNoteFavorite(noteId: string, favorite: boolean): Promise<void>;
+  setNoteTags(noteId: string, tagIds: string[]): Promise<void>;
+  deleteNotes(noteIds: string[]): Promise<void>;
+  assignTagToNotes(noteIds: string[], tagId: string): Promise<void>;
+  queryNotes(input: NoteQueryInput): Promise<NoteQueryPage>;
+  getLinkedNotes(noteId: string): Promise<Note[]>;
+  listAnnotations(noteId: string): Promise<Annotation[]>;
+  createAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
+  deleteAnnotation(annotationId: string): Promise<Annotation>;
+  restoreAnnotation(annotationId: string): Promise<Annotation>;
+  updateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
+  listNoteVersions(noteId: string): Promise<NoteVersion[]>;
+  getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
+  organizeNote(noteId: string, input: { folderId: string | null; status: string }): Promise<void>;
+  listNoteAttachments(noteId: string): Promise<Attachment[]>;
+  uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
+  renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
+  deleteNoteAttachment(attachmentId: string): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
   deleteFolder(folderId: string): Promise<void>;
   emptyRecycleBin(): Promise<number>;
@@ -70,7 +97,7 @@ export interface NavigationSlice {
   setActiveWorkDomain(domain: WorkDomain): void;
 }
 
-export type NotesIndexScope = 'all' | 'recent' | 'favorites' | 'unfiled' | 'trash';
+export type NotesIndexScope = 'all' | 'recent' | 'favorites' | 'unfiled' | 'root' | 'trash';
 
 export interface NotesIndexState {
   scope: NotesIndexScope;

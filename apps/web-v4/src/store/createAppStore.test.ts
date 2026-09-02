@@ -153,6 +153,101 @@ describe('single V4 application store', () => {
     expect(api.deleteFolder).toHaveBeenCalledWith('folder-1');
   });
 
+  it('connects single-note recycle actions, tag editing and version reads', async () => {
+    const api = createApi();
+    const version = {
+      id: 'version-1', noteId: 'live-note', content: '# 第一版', contentHash: 'a'.repeat(64),
+      createdAt: '2026-09-01T09:00:00.000Z', createdBy: 'user'
+    };
+    vi.mocked(api.listNoteVersions).mockResolvedValue([version]);
+    vi.mocked(api.getNoteVersion).mockResolvedValue(version);
+    const store = createAppStore({
+      api,
+      cacheKey: 'workspace-p0-note-actions',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+    await store.getState().loadWorkspace();
+
+    await store.getState().restoreNote('live-note');
+    expect(api.restoreNote).toHaveBeenCalledWith('live-note');
+    expect(store.getState().notesIndex.scope).toBe('trash');
+
+    await store.getState().permanentlyDeleteNote('live-note');
+    expect(api.permanentlyDeleteNote).toHaveBeenCalledWith('live-note');
+
+    await store.getState().setNoteTags('live-note', ['tag-1', 'tag-2']);
+    expect(api.setNoteTags).toHaveBeenCalledWith('live-note', ['tag-1', 'tag-2']);
+
+    await expect(store.getState().listNoteVersions('live-note')).resolves.toEqual([version]);
+    await expect(store.getState().getNoteVersion('live-note', 'version-1')).resolves.toEqual(version);
+  });
+
+  it('connects note organization and attachment mutations', async () => {
+    const api = createApi();
+    const attachment = {
+      id: 'attachment-1', noteId: 'live-note', fileName: 'diagram.png',
+      mimeType: 'image/png', size: 128, status: 'ready'
+    };
+    vi.mocked(api.listNoteAttachments).mockResolvedValue([attachment]);
+    vi.mocked(api.uploadNoteAttachment).mockResolvedValue(attachment);
+    vi.mocked(api.renameNoteAttachment).mockResolvedValue({ ...attachment, fileName: 'renamed.png' });
+    vi.mocked(api.deleteNoteAttachment).mockResolvedValue(attachment);
+    const store = createAppStore({
+      api,
+      cacheKey: 'workspace-p1-note-actions',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+    await store.getState().loadWorkspace();
+
+    await store.getState().organizeNote('live-note', { folderId: 'folder-1', status: 'active' });
+    expect(api.updateNote).toHaveBeenCalledWith('live-note', { folderId: 'folder-1', status: 'active' });
+    await expect(store.getState().listNoteAttachments('live-note')).resolves.toEqual([attachment]);
+
+    const input = { noteId: 'live-note', fileName: 'diagram.png', mimeType: 'image/png', contentBase64: 'aW1hZ2U=' };
+    await expect(store.getState().uploadNoteAttachment(input)).resolves.toEqual(attachment);
+    expect(api.uploadNoteAttachment).toHaveBeenCalledWith(input);
+    await expect(store.getState().renameNoteAttachment('attachment-1', 'renamed.png')).resolves.toMatchObject({ fileName: 'renamed.png' });
+    await store.getState().deleteNoteAttachment('attachment-1');
+    expect(api.deleteNoteAttachment).toHaveBeenCalledWith('attachment-1');
+  });
+
+  it('connects P2 batch, server-query, linked-note and annotation operations', async () => {
+    const api = createApi();
+    const annotation = {
+      id: 'annotation-1', spaceId: 'space-live', noteId: 'live-note', noteVersionId: null,
+      kind: 'important' as const, sourceMode: 'manual' as const, quoteText: '重要内容', headingPath: ['结论'],
+      fromPosition: 1, toPosition: 5, prefixText: '', suffixText: '', anchorFingerprint: 'fingerprint',
+      noteContentHash: 'hash', idempotencyKey: 'request-1', status: 'active'
+    };
+    vi.mocked(api.queryNotes).mockResolvedValue({ items: [], hasNext: true });
+    vi.mocked(api.getLinkedNotes).mockResolvedValue([{ id: 'linked-note', title: 'Linked', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false }]);
+    vi.mocked(api.listAnnotations).mockResolvedValue([annotation]);
+    vi.mocked(api.createAnnotation).mockResolvedValue(annotation);
+    vi.mocked(api.deleteAnnotation).mockResolvedValue({ ...annotation, status: 'archived' });
+    vi.mocked(api.restoreAnnotation).mockResolvedValue(annotation);
+    vi.mocked(api.updateAnnotationAnchor).mockResolvedValue({ ...annotation, fromPosition: 8, toPosition: 12 });
+    const store = createAppStore({ api, cacheKey: 'workspace-p2-note-actions', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+
+    await store.getState().deleteNotes(['live-note']);
+    expect(api.deleteNotes).toHaveBeenCalledWith(['live-note']);
+    await store.getState().assignTagToNotes(['live-note'], 'tag-1');
+    expect(api.assignTagToNotes).toHaveBeenCalledWith(['live-note'], 'tag-1');
+    await expect(store.getState().queryNotes({ limit: 30 })).resolves.toEqual({ items: [], hasNext: true });
+    expect(api.queryNotes).toHaveBeenCalledWith({ limit: 30, spaceId: 'space-live' });
+    await expect(store.getState().getLinkedNotes('live-note')).resolves.toHaveLength(1);
+    await expect(store.getState().listAnnotations('live-note')).resolves.toEqual([annotation]);
+    expect(api.listAnnotations).toHaveBeenCalledWith('live-note', 'space-live');
+    await expect(store.getState().createAnnotation(annotation)).resolves.toEqual(annotation);
+    await store.getState().deleteAnnotation(annotation.id);
+    await store.getState().restoreAnnotation(annotation.id);
+    await store.getState().updateAnnotationAnchor(annotation.id, {
+      quoteText: annotation.quoteText, headingPath: annotation.headingPath, fromPosition: 8, toPosition: 12,
+      prefixText: '', suffixText: '', anchorFingerprint: 'next', noteContentHash: 'next-hash'
+    });
+    expect(api.updateAnnotationAnchor).toHaveBeenCalledWith(annotation.id, expect.objectContaining({ fromPosition: 8 }));
+  });
+
   it('closes editor tabs with a deterministic adjacent fallback', async () => {
     const api = createApi();
     vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
@@ -390,7 +485,25 @@ function createApi(): WorkspaceApi {
     createFolder: vi.fn().mockResolvedValue({ id: 'created-folder' }),
     updateNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
     deleteNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    restoreNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    permanentlyDeleteNote: vi.fn().mockResolvedValue({ id: 'live-note' }),
     setNoteFavorite: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    setNoteTags: vi.fn().mockResolvedValue({ id: 'live-note' }),
+    deleteNotes: vi.fn().mockResolvedValue([]),
+    assignTagToNotes: vi.fn().mockResolvedValue([]),
+    queryNotes: vi.fn().mockResolvedValue({ items: [], hasNext: false }),
+    getLinkedNotes: vi.fn().mockResolvedValue([]),
+    listAnnotations: vi.fn().mockResolvedValue([]),
+    createAnnotation: vi.fn(),
+    deleteAnnotation: vi.fn(),
+    restoreAnnotation: vi.fn(),
+    updateAnnotationAnchor: vi.fn(),
+    listNoteVersions: vi.fn().mockResolvedValue([]),
+    getNoteVersion: vi.fn().mockResolvedValue({ id: 'version-1' }),
+    listNoteAttachments: vi.fn().mockResolvedValue([]),
+    uploadNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    renameNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    deleteNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
     updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1' }),
     deleteFolder: vi.fn().mockResolvedValue([]),
     emptyRecycleBin: vi.fn().mockResolvedValue({ deletedCount: 0 })

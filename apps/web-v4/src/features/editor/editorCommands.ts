@@ -59,6 +59,11 @@ export interface EditorCommandTarget {
   replaceCurrent(query: string, replacement: string, currentIndex: number): EditorFindResult;
   replaceAll(query: string, replacement: string): EditorFindResult;
   clearFind(): void;
+  navigateToHeading(index: number, behavior?: ScrollBehavior): boolean;
+  getAnnotationSelection(): import('./annotationPayloads').AnnotationSelection | null;
+  setAnnotations(annotations: import('@study-accelerator/web-core').Annotation[], focusedId?: string | null): void;
+  selectAnnotation(annotationId: string): boolean;
+  insertImage(url: string, alt: string): boolean;
   setMarkdown(markdown: string): void;
   replaceMarkdown(markdown: string): boolean;
   focus(): void;

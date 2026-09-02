@@ -1,6 +1,6 @@
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
-import type { Folder, KnowledgeSpace, Note, Tag } from '../workspace/types.js';
+import type { Annotation, Attachment, Folder, KnowledgeSpace, Note, NoteVersion, Tag } from '../workspace/types.js';
 
 export interface WorkspaceResources {
   folderTree: Folder[];
@@ -33,9 +33,55 @@ export interface CreateFolderInput {
 export interface UpdateNoteInput {
   title?: string;
   folderId?: string | null;
+  status?: string;
   rawMarkdown?: string;
   expectedUpdatedAt?: string;
 }
+
+export interface UploadAttachmentInput {
+  noteId: string;
+  fileName: string;
+  mimeType: string;
+  contentBase64: string;
+}
+
+export interface NoteQueryInput {
+  query?: string;
+  spaceId?: string;
+  folderId?: string | null;
+  tagId?: string | null;
+  favoriteOnly?: boolean;
+  deletedOnly?: boolean;
+  includeDeleted?: boolean;
+  sortBy?: 'title' | 'createdAt' | 'updatedAt';
+  order?: 'asc' | 'desc';
+  offset?: number;
+  limit?: number;
+}
+
+export interface NoteQueryPage {
+  items: Note[];
+  hasNext: boolean;
+}
+
+export interface CreateAnnotationInput {
+  spaceId: string;
+  noteId: string;
+  quoteText: string;
+  headingPath: string[];
+  fromPosition: number;
+  toPosition: number;
+  prefixText: string;
+  suffixText: string;
+  anchorFingerprint: string;
+  noteContentHash: string;
+  idempotencyKey: string;
+  kind: 'important';
+  sourceMode: 'manual';
+}
+
+export type UpdateAnnotationAnchorInput = Pick<CreateAnnotationInput,
+  'quoteText' | 'headingPath' | 'fromPosition' | 'toPosition' | 'prefixText' | 'suffixText' | 'anchorFingerprint' | 'noteContentHash'>;
 
 export interface UpdateFolderInput {
   name?: string;
@@ -59,7 +105,25 @@ export interface WorkspaceApi {
   createFolder(input: CreateFolderInput): Promise<Folder>;
   updateNote(noteId: string, input: UpdateNoteInput): Promise<Note>;
   deleteNote(noteId: string): Promise<Note>;
+  restoreNote(noteId: string): Promise<Note>;
+  permanentlyDeleteNote(noteId: string): Promise<Note>;
   setNoteFavorite(noteId: string, favorite: boolean): Promise<Note>;
+  setNoteTags(noteId: string, tagIds: string[]): Promise<Note>;
+  deleteNotes(noteIds: string[]): Promise<Note[]>;
+  assignTagToNotes(noteIds: string[], tagId: string): Promise<Note[]>;
+  queryNotes(input: NoteQueryInput): Promise<NoteQueryPage>;
+  getLinkedNotes(noteId: string): Promise<Note[]>;
+  listAnnotations(noteId: string, spaceId: string): Promise<Annotation[]>;
+  createAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
+  deleteAnnotation(annotationId: string): Promise<Annotation>;
+  restoreAnnotation(annotationId: string): Promise<Annotation>;
+  updateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
+  listNoteVersions(noteId: string): Promise<NoteVersion[]>;
+  getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
+  listNoteAttachments(noteId: string): Promise<Attachment[]>;
+  uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
+  renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
+  deleteNoteAttachment(attachmentId: string): Promise<Attachment>;
   updateFolder(folderId: string, input: UpdateFolderInput): Promise<Folder>;
   deleteFolder(folderId: string): Promise<Folder[]>;
   emptyRecycleBin(spaceId: string): Promise<EmptyRecycleBinResult>;
@@ -153,6 +217,22 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!note?.id) throw new Error('Delete note response is invalid.');
       return note;
     },
+    async restoreNote(noteId) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/restore`,
+        { method: 'POST' }
+      ));
+      if (!note?.id) throw new Error('Restore note response is invalid.');
+      return note;
+    },
+    async permanentlyDeleteNote(noteId) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/permanent`,
+        { method: 'DELETE' }
+      ));
+      if (!note?.id) throw new Error('Permanent delete note response is invalid.');
+      return note;
+    },
     async setNoteFavorite(noteId, favorite) {
       const note = getData<Note>(await requestJson(
         `/api/knowledge/notes/${encodeURIComponent(noteId)}/favorite`,
@@ -160,6 +240,131 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       ));
       if (!note?.id) throw new Error('Favorite note response is invalid.');
       return note;
+    },
+    async setNoteTags(noteId, tagIds) {
+      const note = getData<Note>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/tags`,
+        { method: 'PUT', body: JSON.stringify({ tagIds }) }
+      ));
+      if (!note?.id) throw new Error('Set note tags response is invalid.');
+      return note;
+    },
+    async deleteNotes(noteIds) {
+      return asItems<Note>(getData(await requestJson('/api/knowledge/notes/batch/delete', {
+        method: 'POST', body: JSON.stringify({ noteIds })
+      })));
+    },
+    async assignTagToNotes(noteIds, tagId) {
+      return asItems<Note>(getData(await requestJson('/api/knowledge/notes/batch/tags', {
+        method: 'POST', body: JSON.stringify({ noteIds, tagId })
+      })));
+    },
+    async queryNotes(input) {
+      const limit = Math.max(1, input.limit ?? 30);
+      const values: Record<string, string | number | boolean | null | undefined> = {
+        spaceId: input.spaceId,
+        folderId: input.folderId,
+        tagId: input.tagId,
+        favoriteOnly: input.favoriteOnly,
+        deletedOnly: input.deletedOnly,
+        includeDeleted: input.includeDeleted,
+        sortBy: input.sortBy,
+        order: input.order,
+        offset: input.offset ?? 0,
+        limit: limit + 1
+      };
+      const params = Object.entries(values)
+        .filter(([, value]) => value !== undefined && value !== null && value !== false && value !== '')
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        .join('&');
+      const query = input.query?.trim();
+      const path = query
+        ? `/api/knowledge/search/notes?query=${encodeURIComponent(query)}&${params}`
+        : `/api/knowledge/notes?summaryOnly=true&${params}`;
+      const notes = asArray<Note>(getData(await requestJson(path)));
+      return { items: notes.slice(0, limit), hasNext: notes.length > limit };
+    },
+    async getLinkedNotes(noteId) {
+      return asArray<Note>(getData(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/links`
+      )));
+    },
+    async listAnnotations(noteId, spaceId) {
+      return asArray<Annotation>(getData(await requestJson(
+        `/api/knowledge/annotations?noteId=${encodeURIComponent(noteId)}&spaceId=${encodeURIComponent(spaceId)}&includeDeleted=true`
+      )));
+    },
+    async createAnnotation(input) {
+      const annotation = getData<Annotation>(await requestJson('/api/knowledge/annotations', {
+        method: 'POST', body: JSON.stringify(input)
+      }));
+      if (!annotation?.id) throw new Error('Create annotation response is invalid.');
+      return annotation;
+    },
+    async deleteAnnotation(annotationId) {
+      const annotation = getData<Annotation>(await requestJson(
+        `/api/knowledge/annotations/${encodeURIComponent(annotationId)}`,
+        { method: 'DELETE' }
+      ));
+      if (!annotation?.id) throw new Error('Delete annotation response is invalid.');
+      return annotation;
+    },
+    async restoreAnnotation(annotationId) {
+      const annotation = getData<Annotation>(await requestJson(
+        `/api/knowledge/annotations/${encodeURIComponent(annotationId)}/restore`,
+        { method: 'POST' }
+      ));
+      if (!annotation?.id) throw new Error('Restore annotation response is invalid.');
+      return annotation;
+    },
+    async updateAnnotationAnchor(annotationId, input) {
+      const annotation = getData<Annotation>(await requestJson(
+        `/api/knowledge/annotations/${encodeURIComponent(annotationId)}/anchor`,
+        { method: 'PATCH', body: JSON.stringify(input) }
+      ));
+      if (!annotation?.id) throw new Error('Update annotation anchor response is invalid.');
+      return annotation;
+    },
+    async listNoteVersions(noteId) {
+      return asArray<NoteVersion>(getData(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/versions`
+      )));
+    },
+    async getNoteVersion(noteId, versionId) {
+      const version = getData<NoteVersion>(await requestJson(
+        `/api/knowledge/notes/${encodeURIComponent(noteId)}/versions/${encodeURIComponent(versionId)}`
+      ));
+      if (!version?.id) throw new Error('Note version response is invalid.');
+      return version;
+    },
+    async listNoteAttachments(noteId) {
+      return asArray<Attachment>(getData(await requestJson(
+        `/api/storage/attachments?noteId=${encodeURIComponent(noteId)}`
+      )));
+    },
+    async uploadNoteAttachment(input) {
+      const attachment = getData<Attachment>(await requestJson('/api/storage/attachments', {
+        method: 'POST',
+        body: JSON.stringify(input)
+      }));
+      if (!attachment?.id) throw new Error('Upload attachment response is invalid.');
+      return attachment;
+    },
+    async renameNoteAttachment(attachmentId, fileName) {
+      const attachment = getData<Attachment>(await requestJson(
+        `/api/storage/attachments/${encodeURIComponent(attachmentId)}`,
+        { method: 'PATCH', body: JSON.stringify({ fileName }) }
+      ));
+      if (!attachment?.id) throw new Error('Rename attachment response is invalid.');
+      return attachment;
+    },
+    async deleteNoteAttachment(attachmentId) {
+      const attachment = getData<Attachment>(await requestJson(
+        `/api/storage/attachments/${encodeURIComponent(attachmentId)}`,
+        { method: 'DELETE' }
+      ));
+      if (!attachment?.id) throw new Error('Delete attachment response is invalid.');
+      return attachment;
     },
     async updateFolder(folderId, input) {
       const folder = getData<Folder>(await requestJson(
