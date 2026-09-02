@@ -29,6 +29,7 @@
     "start:web": "npm run start -w @study-accelerator/web-v4",
     "build:web-core": "npm run build -w @study-accelerator/web-core",
     "check:web:v4": "npm run check -w @study-accelerator/web-v4",
+    "audit:prod": "npm audit --omit=dev --omit=optional --audit-level=high",
     "prisma:validate": "npx prisma validate --schema prisma/schema.prisma",
     "prisma:generate": "npx prisma generate --schema prisma/schema.prisma",
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema prisma/schema.prisma",

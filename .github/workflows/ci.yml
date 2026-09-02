@@ -62,4 +62,6 @@ jobs:
         run: npm test
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        # Prisma is future scaffolding and reaches its CLI through an optional
+        # peer dependency. Audit the dependencies shipped by the active runtime.
+        run: npm run audit:prod
