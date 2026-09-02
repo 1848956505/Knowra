@@ -9,6 +9,16 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 V4_DIST_DIR="${KNOWRA_V4_DIST_DIR:-apps/web-v4/dist}"
+ATTACHMENT_REPORT_DIR="${KNOWRA_DEPLOY_REPORT_DIR:-storage/exports/deploy-checks}"
+ATTACHMENT_DRIVER="${PERSISTENCE_DRIVER:-local-json}"
+ATTACHMENT_REPORT="$ATTACHMENT_REPORT_DIR/attachments-$(date +%Y%m%d-%H%M%S).json"
+
+mkdir -p "$ATTACHMENT_REPORT_DIR"
+echo "▶ post-deploy: 只读检查服务器附件完整性..."
+npm run check:attachments -- \
+  --driver "$ATTACHMENT_DRIVER" \
+  --report "$ATTACHMENT_REPORT"
+echo "✓ post-deploy: 附件报告 $ATTACHMENT_REPORT"
 
 echo "▶ post-deploy: 构建 V4 前端..."
 NODE_ENV=production npm run build:web

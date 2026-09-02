@@ -21,20 +21,3 @@ export function createV4WebServer({ distRoot, getApiOrigin }) {
     }
   });
 }
-
-export async function listenOnAvailablePort(server, startPort, maxAttempts = 20) {
-  for (let offset = 0; offset < maxAttempts; offset += 1) {
-    const port = startPort + offset;
-    try {
-      await new Promise((resolve, reject) => {
-        const onError = (error) => { server.off('error', onError); reject(error); };
-        server.once('error', onError);
-        server.listen(port, '127.0.0.1', () => { server.off('error', onError); resolve(); });
-      });
-      return port;
-    } catch (error) {
-      if (error?.code !== 'EADDRINUSE') throw error;
-    }
-  }
-  throw new Error(`Unable to find an available port starting from ${startPort}`);
-}

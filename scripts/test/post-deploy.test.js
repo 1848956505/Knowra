@@ -19,6 +19,7 @@ test('post-deploy builds and restarts the production PM2 processes', () => {
     const calls = readFileSync(fixture.logFile, 'utf8');
 
     assert.equal(result.status, 0, result.stderr);
+    assert.match(calls, /^npm run check:attachments -- --driver local-json --report /m);
     assert.match(calls, /^npm run build:web$/m);
     assert.match(
       deployScriptSource,
@@ -30,6 +31,22 @@ test('post-deploy builds and restarts the production PM2 processes', () => {
     assert.match(calls, /^pm2 startOrReload deploy\/ecosystem\.config\.cjs --update-env$/m);
     assert.match(calls, /^pm2 save$/m);
     assert.doesNotMatch(calls, /study-web/);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('post-deploy fails before build and restart when attachment integrity is degraded', () => {
+  const fixture = createFixture({ failingNpmCommand: 'run check:attachments' });
+
+  try {
+    const result = runDeployScript(fixture);
+    const calls = readFileSync(fixture.logFile, 'utf8');
+
+    assert.notEqual(result.status, 0);
+    assert.match(calls, /^npm run check:attachments /m);
+    assert.doesNotMatch(calls, /^npm run build:web$/m);
+    assert.doesNotMatch(calls, /^pm2 startOrReload /m);
   } finally {
     fixture.cleanup();
   }
@@ -50,7 +67,7 @@ test('post-deploy fails before restart when a production PM2 process is missing'
   }
 });
 
-function createFixture({ missingProcess = '' } = {}) {
+function createFixture({ missingProcess = '', failingNpmCommand = '' } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'knowra-post-deploy-'));
   const binDir = path.join(root, 'bin');
   const logFile = path.join(root, 'calls.log');
@@ -59,6 +76,7 @@ function createFixture({ missingProcess = '' } = {}) {
   writeExecutable(path.join(binDir, 'npm'), [
     '#!/usr/bin/env bash',
     'printf "npm %s\\n" "$*" >> "$DEPLOY_TEST_LOG"',
+    'if [[ -n "$DEPLOY_TEST_FAILING_NPM_COMMAND" && "$*" == "$DEPLOY_TEST_FAILING_NPM_COMMAND"* ]]; then exit 2; fi',
     'mkdir -p "$KNOWRA_V4_DIST_DIR"',
     'touch "$KNOWRA_V4_DIST_DIR/index.html"'
   ]);
@@ -74,6 +92,7 @@ function createFixture({ missingProcess = '' } = {}) {
     binDir,
     logFile,
     missingProcess,
+    failingNpmCommand,
     cleanup: () => rmSync(root, { recursive: true, force: true })
   };
 }
@@ -106,7 +125,9 @@ function runDeployScript(fixture) {
       ...process.env,
       DEPLOY_TEST_LOG: isWindows ? toGitBashPath(fixture.logFile) : fixture.logFile,
       DEPLOY_TEST_MISSING_PROCESS: fixture.missingProcess,
+      DEPLOY_TEST_FAILING_NPM_COMMAND: fixture.failingNpmCommand,
       KNOWRA_V4_DIST_DIR: isWindows ? toGitBashPath(path.join(fixture.binDir, '..', 'dist')) : path.join(fixture.binDir, '..', 'dist'),
+      KNOWRA_DEPLOY_REPORT_DIR: isWindows ? toGitBashPath(path.join(fixture.binDir, '..', 'reports')) : path.join(fixture.binDir, '..', 'reports'),
       PATH: shellPathEntries
         .map((entry) => isWindows ? toGitBashPath(entry) : entry)
         .join(isWindows ? ':' : path.delimiter)

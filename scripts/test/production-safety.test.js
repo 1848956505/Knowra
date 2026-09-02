@@ -7,12 +7,15 @@ import { fileURLToPath } from 'node:url';
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
 
-test('default frontend commands and PM2 config point to V4 while V3 stays explicit legacy', () => {
+test('default frontend commands and PM2 config point to V4 while V3 has no launch entry', () => {
   const packageJson = JSON.parse(readWorkspaceFile('package.json'));
+  const legacyPackageJson = JSON.parse(readWorkspaceFile('apps/web/package.json'));
   const ecosystem = readWorkspaceFile('deploy/ecosystem.config.cjs');
 
   assert.match(packageJson.scripts['dev:web'], /@study-accelerator\/web-v4/);
-  assert.match(packageJson.scripts['dev:web:legacy'], /@study-accelerator\/web/);
+  assert.equal(packageJson.scripts['dev:web:legacy'], undefined);
+  assert.equal(legacyPackageJson.scripts.dev, undefined);
+  assert.equal(legacyPackageJson.scripts['build:editor-bundle'], undefined);
   assert.match(packageJson.scripts['start:web'], /@study-accelerator\/web-v4/);
   assert.match(ecosystem, /script: 'apps\/web-v4\/server\.mjs'/);
   assert.doesNotMatch(ecosystem, /apps\/web\/src\/main\.js/);
@@ -20,10 +23,14 @@ test('default frontend commands and PM2 config point to V4 while V3 stays explic
 
 test('API and default V4 Web listeners bind to loopback only', () => {
   const apiMain = readWorkspaceFile('apps/api/src/main.js');
-  const webApp = readWorkspaceFile('apps/web-v4/server/app.mjs');
+  const webMain = readWorkspaceFile('apps/web-v4/server.mjs');
+  const portListener = readWorkspaceFile('scripts/configured-port-listener.js');
 
-  assert.match(apiMain, /server\.listen\(currentPort,\s*['"]127\.0\.0\.1['"]/);
-  assert.match(webApp, /server\.listen\(port,\s*['"]127\.0\.0\.1['"]/);
+  assert.match(portListener, /host = ['"]127\.0\.0\.1['"]/);
+  assert.match(apiMain, /process\.env\.NODE_ENV !== ['"]production['"]/);
+  assert.match(webMain, /process\.env\.NODE_ENV !== ['"]production['"]/);
+  assert.match(apiMain, /listenOnConfiguredPort\(server, preferredPort, \{ allowPortFallback \}\)/);
+  assert.match(webMain, /listenOnConfiguredPort\(server, preferredPort, \{ allowPortFallback \}\)/);
 });
 
 test('production Nginx template protects the site and keeps health public', () => {
@@ -44,6 +51,16 @@ test('production Nginx template protects the site and keeps health public', () =
     nginxConfig,
     /gzip_types[\s\S]*?text\/css[\s\S]*?application\/javascript[\s\S]*?application\/json[\s\S]*?image\/svg\+xml;/
   );
+});
+
+test('post-deploy checks attachment integrity before reloading PM2', () => {
+  const postDeploy = readWorkspaceFile('scripts/post-deploy.sh');
+
+  const attachmentCheckIndex = postDeploy.indexOf('npm run check:attachments');
+  const reloadIndex = postDeploy.indexOf('pm2 startOrReload');
+  assert.notEqual(attachmentCheckIndex, -1);
+  assert.notEqual(reloadIndex, -1);
+  assert.ok(attachmentCheckIndex < reloadIndex);
 });
 
 function readWorkspaceFile(relativePath) {

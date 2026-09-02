@@ -1,12 +1,9 @@
 {
   "name": "@study-accelerator/web",
-  "version": "2.20.0",
+  "version": "2.20.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "npm run build -w @study-accelerator/web-core",
-    "build:editor-bundle": "node ../../scripts/build-milkdown-bundle.mjs",
-    "dev": "npm run build:editor-bundle && node src/main.js",
     "pretest": "npm run build -w @study-accelerator/web-core",
     "test": "node test/run-tests.js"
   },

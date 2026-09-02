@@ -15,8 +15,11 @@ npm test
 npm run test:api
 # or directly: node apps/api/test/run-tests.js
 
-# Run only frontend tests (auto-discovers *.test.js under apps/web/test)
+# Run current V4 frontend tests
 npm run test:web
+
+# Run retained V3 source-level regression tests
+npm run test:web:legacy
 
 # Run a single API test file
 node --test apps/api/test/note-service.test.js   # node:test runner is also fine
@@ -30,14 +33,15 @@ npm run dev:api
 # Start frontend web UI (dev, port 3000+)
 npm run dev:web
 
-# Start both together (cross-platform, auto port selection, builds editor bundle)
+# Start API + V4 together (cross-platform, auto port selection)
 npm run dev:all
 
-# Build Milkdown editor bundle (runs automatically before dev:web)
-npm run build:editor-bundle -w @study-accelerator/web
+# Build/start the V4 production frontend
+npm run build:web
+npm run start:web
 ```
 
-Node.js `>= 24`, npm `>= 11` required. The dev-all script auto-selects free ports, builds the editor bundle before the web server starts, and writes the actual chosen ports to `storage/runtime/dev-ports.json` so the web server can proxy `/api/*` to the API.
+Node.js `>= 24`, npm `>= 11` required. The dev-all script auto-selects free ports, builds `web-core` before V4 starts, and writes the actual chosen ports to `storage/runtime/dev-ports.json` so V4 can proxy `/api/*` to the API.
 
 ## Project Structure
 
@@ -45,7 +49,8 @@ Node.js `>= 24`, npm `>= 11` required. The dev-all script auto-selects free port
 Study/
 ├── apps/
 │   ├── api/        # Backend API — plain Node.js HTTP server (DDD-layered)
-│   └── web/        # Frontend SPA — vanilla JS modular shell + JSX/React-style exploration
+│   ├── web-v4/     # Current React + TypeScript + Vite frontend
+│   └── web/        # Retained V3 source and regression tests; no launch entry
 ├── packages/
 │   └── shared/     # Shared types/constants (placeholder)
 ├── prisma/         # PostgreSQL schema and reviewed migrations (opt-in Phase1.0)
@@ -55,9 +60,7 @@ Study/
 └── storage/data/   # Local-first JSON persistence
 ```
 
-Two parallel UI implementations live in `apps/web`:
-- **Active SPA** — vanilla JS, modular structure under `src/` (see Architecture below).
-- **JSX/React-style exploration** — Next.js-style `app/` (layout/page), `components/*.jsx`, `styles/`. Not wired into the dev server yet; treat as a sandbox until the vanilla SPA is migrated away.
+The only launchable frontend is `apps/web-v4`. `apps/web` retains V3 implementation source and regression tests during the remaining feature migration, but no longer exposes a development or production server command.
 
 ## Architecture
 
@@ -85,7 +88,11 @@ Key invariants:
 - API response envelope: `{ data: ... }` for success, `{ error: { code, message } }` for failures.
 - PostgreSQL is an explicit opt-in driver. It never silently falls back to JSON; the JSON driver remains the safe default and rollback path before PostgreSQL accepts new writes.
 
-### Frontend (`apps/web`)
+### Frontend (`apps/web-v4`, current)
+
+React 19 + TypeScript + Vite SPA using Zustand, project-wrapped React Aria components, CSS Modules and the shared `packages/web-core` API/workspace contracts. Development uses Vite; production uses `server.mjs` for built assets, SPA fallback and `/api/*` proxying.
+
+### Legacy frontend (`apps/web`, source/test only)
 
 A modular vanilla-JS SPA, served via a plain Node.js HTTP server. The 5300-line monolithic `client.js` has been split — the current entry is ~150 lines that just wires the modules together.
 
@@ -101,7 +108,7 @@ State model: a single global `state` object in `app-state.js` holds everything; 
 
 Data flow: Workspace loads in priority order — SSR compact workspace snapshot → localStorage cache → live compact API fetch → mock fallback (`lib/mock-knowledge-base.js`). Note lists omit full bodies; selecting a note loads its detail through `/api/knowledge/notes/:id`. Full-text search stays server-side and returns matching ids to the compact client state.
 
-The `app/` and `components/` directories at the top of `apps/web` form a separate Next.js-style React exploration that is **not** wired to the dev server.
+The unused Next.js-style exploration directories were removed in `2.20.1`. V3 `src/`, `lib/`, `styles/` and tests remain temporarily as migration evidence and regression coverage.
 
 ## Testing
 
@@ -121,7 +128,7 @@ Each test file exports an array; `run-tests.js` imports and runs them sequential
 
 1. `npm run dev:api` starts the API → `main.js` awaits `createPersistentAppContext()` → uses JSON by default, or an async Prisma context when `PERSISTENCE_DRIVER=postgres`.
 2. Request arrives at `server.js` → CORS → storage/knowledge route → driver-specific handler → application service → repository. JSON mutations atomically replace versioned JSON; PostgreSQL mutations use Prisma transactions at aggregate boundaries and keep file I/O outside database transactions.
-3. `npm run dev:web` boots the SPA server. First `GET /` returns the SSR shell with compact note summaries inlined; client hydrates, refreshes summaries through `/api/*`, and fetches a full note body only when it is opened.
+3. `npm run dev:web` boots the V4 Vite server and proxies `/api/*` to the active API port. Production uses `apps/web-v4/server.mjs` to serve the built `dist/` assets with SPA fallback and the same-origin API proxy.
 4. Repository mutations on the server persist synchronously; the SPA reflects them on the next refetch.
 
 ## Key Conventions

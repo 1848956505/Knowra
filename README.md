@@ -45,7 +45,7 @@ The Phase2.0 knowledge-source foundation and Phase3.0 assessment foundation are 
 - Node.js workspace monorepo
 - `apps/api`: local API service
 - `apps/web-v4`: current React + TypeScript V4 frontend and production web entry
-- `apps/web`: retained V3 legacy frontend for regression comparison and emergency rollback
+- `apps/web`: retained V3 source and regression tests; all launch commands are retired
 - `packages/web-core`: framework-independent API and workspace state helpers shared by V3/V4
 - `packages/shared`: general shared package area
 - Prisma PostgreSQL schema, Phase1.0–Phase3.0 migration tooling and attachment integrity checks in `prisma/` and `scripts/`
@@ -93,12 +93,6 @@ Run the current V4 frontend only:
 
 ```bash
 npm run dev:web
-```
-
-Run the retained V3 frontend only when comparing or rolling back:
-
-```bash
-npm run dev:web:legacy
 ```
 
 Run both together:
@@ -163,4 +157,4 @@ Near-term priorities:
 
 ## Status
 
-Current stable version: `2.14.0`. Phase 0 through Phase3.2 are complete, and React V4 now loads the real workspace through the framework-independent `packages/web-core` package and its Zustand state baseline while V3 remains available during migration. Historical HTTP images have been localized, the strict JSON migration preflight is ready and all 12 local attachments pass integrity checks. PostgreSQL remains opt-in and production deployment still requires PostgreSQL backup, access-control and rollback gates; the application does not yet include a login system.
+Current stable version: `2.20.1`. Phase 0 through Phase3.2 are complete, and React V4 is the only launchable frontend. V3 source remains temporarily for regression coverage while its old launch entry and unused JSX exploration are retired. Historical HTTP images have been localized, the strict JSON migration preflight is ready and all local attachments must pass the deployment integrity gate. PostgreSQL remains opt-in and production deployment still requires access-control, backup and rollback gates; the application does not yet include a login system.

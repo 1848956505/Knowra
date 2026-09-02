@@ -1,6 +1,6 @@
 # 阿里云 ECS 服务器信息
 
-更新时间：2026-07-24
+更新时间：2026-09-02
 
 本文档用于在其他设备上的 Codex 继续接入和维护当前 知境·Knowra 服务器。不要在本文档中保存私钥、服务器密码、API Key 或其他明文密钥。
 
@@ -102,6 +102,8 @@ knowra-api  -> /opt/knowra/apps/api/src/main.js, PORT=3001, KNOWRA_OWNER_ID=demo
 knowra-web  -> /opt/knowra/apps/web-v4/server.mjs, PORT=3000, API_ORIGIN=http://127.0.0.1:3001
 ```
 
+`NODE_ENV=production` 下两个进程严格绑定上述端口。端口被占用时必须启动失败，不得自动切换到 Nginx 未代理的其他端口。
+
 常用命令：
 
 ```bash
@@ -113,6 +115,14 @@ pm2 save
 ```
 
 ## 部署流程
+
+2026-09-02 V4 正式切换前备份已保存在：
+
+```text
+/opt/knowra-backups/pre-v4-20260902-191737
+```
+
+该目录包含整个 `storage/` 归档、独立 `knowledge-base.json`、当前 Git 提交、PM2 状态和 Nginx 配置。`SHA256SUMS` 已通过，归档可读，且归档内知识库与独立副本哈希一致。该备份不替代每次部署前的新备份。
 
 正式部署只允许从 GitHub `main` 的已审核提交执行。部署前先记录当前提交并备份运行时数据：
 
@@ -139,7 +149,7 @@ npm ci --ignore-scripts
 # 5. 部署前验证
 npm test
 
-# 6. 构建 V4 生产产物，校验并刷新 knowra-api / knowra-web
+# 6. 先校验附件完整性，再构建 V4 生产产物并刷新 knowra-api / knowra-web
 ./scripts/post-deploy.sh
 
 # 7. 健康检查
@@ -149,9 +159,10 @@ curl --fail --head http://127.0.0.1:3000/
 
 `scripts/post-deploy.sh` 会依次完成：
 
-1. 以 `NODE_ENV=production` 构建 `apps/web-v4/dist`，并拒绝包含 Source Map 的生产产物。
-2. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
-3. 按 `deploy/ecosystem.config.cjs` 执行 `startOrReload`，确保 `knowra-web` 切换到 V4 入口，然后执行 `pm2 save`。
+1. 对当前服务器存储执行附件完整性只读检查，报告不是 `ready` 时在重载前中止。
+2. 以 `NODE_ENV=production` 构建 `apps/web-v4/dist`，并拒绝包含 Source Map 的生产产物。
+3. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
+4. 按 `deploy/ecosystem.config.cjs` 执行 `startOrReload`，确保 `knowra-web` 切换到 V4 入口，然后执行 `pm2 save`。
 
 当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；V4 产物由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
 
@@ -286,7 +297,7 @@ server {
 - 证书由 Let's Encrypt 自动续期（`certbot renew`）。
 - Nginx 对 HTML 以及 JavaScript、CSS、JSON、SVG 和文本资源启用 gzip；Web 静态资源使用 ETag/`Last-Modified` 协商缓存，SSR 首页保持 `no-store`。
 
-> **临时运行状态（2026-07-25）**：按用户明确要求，生产 `/etc/nginx/sites-available/knowra` 当前仅注释了 `auth_basic` 与 `auth_basic_user_file` 两行，因此页面和 API 可直接公网访问；`/root/knowra-basic-auth-credentials` 与 `/etc/nginx/.htpasswd-knowra` 均保留。仓库模板继续保持默认启用访问保护，恢复时取消这两行注释并执行 `nginx -t && systemctl reload nginx`。
+> **当前运行状态（2026-09-02）**：生产 Basic Auth 已恢复，用户名为 `knowra`；未认证主页返回 `401`，`/api/health` 仍匿名返回 `200`。恢复前的 Nginx 配置保留在 `/etc/nginx/sites-available/knowra.pre-auth-20260902-191737`。
 
 首次启用访问保护：
 
@@ -375,11 +386,11 @@ scripts/post-deploy.sh
 
 ## 安全注意事项
 
-当前代码尚未提供多用户账号系统，因此生产安全基线采用 Nginx HTTP Basic Authentication 作为单用户访问保护。2026-07-25 起按用户要求临时关闭，恢复方式见上方「临时运行状态」：
+当前代码尚未提供多用户账号系统，因此生产安全基线采用 Nginx HTTP Basic Authentication 作为单用户访问保护。2026-09-02 已恢复该保护：
 
 - **已启用 HTTPS**（Let's Encrypt 证书）。
 - API 的 `KNOWRA_OWNER_ID`（当前建议 `demo`）只固定知识空间所有者并忽略客户端 `userId`，不校验访问者身份，不能替代 Basic Auth。
-- 安全基线要求除 `/api/health` 外的页面和 API 经过 Basic Auth；临时关闭期间这些接口会直接暴露到公网。
+- 除 `/api/health` 外的页面和 API 均经过 Basic Auth。
 - `3000`、`3001` 端口只允许服务器本机访问，不得对公网放行。
 - 不要把私钥、密码、云账号凭据写入仓库或本文档。
 
@@ -404,7 +415,7 @@ curl https://knowra.qwdream.top/api/health
 {"data":{"status":"ok"}}
 ```
 
-当前临时关闭 Basic Auth，因此浏览器访问 `https://knowra.qwdream.top/` 应直接返回 `200`。恢复访问保护后，未认证请求应返回 `401`，`/api/health` 仍返回 `200`。
+未认证访问 `https://knowra.qwdream.top/` 应返回 `401`，`/api/health` 仍返回 `200`。
 
 服务器本地验证：
 
