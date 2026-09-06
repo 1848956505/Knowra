@@ -1,0 +1,410 @@
+{
+  "capturedAt": "2026-09-06T02:23:53.287Z",
+  "root": "/Users/rabbids/Documents/Codex/知境·Knowra",
+  "branch": "main",
+  "commit": "22231a28b27bba3fb0b0f265e4bd28d505a754dc",
+  "node": "v26.4.0",
+  "parser": "@babel/parser 7.29.8",
+  "inventory": 1446,
+  "unitCounts": {
+    "C-01": 7,
+    "C-16": 4,
+    "C-17": 212,
+    "C-08": 25,
+    "C-10": 21,
+    "C-12": 21,
+    "C-11": 44,
+    "C-09": 50,
+    "C-14": 272,
+    "C-15": 24,
+    "C-02": 37,
+    "C-04": 51,
+    "C-03": 47,
+    "C-05": 21,
+    "C-06": 7,
+    "C-13": 342,
+    "C-18": 246,
+    "C-07": 15
+  },
+  "categoryCounts": {
+    "other": 5,
+    "configuration": 21,
+    "documentation": 210,
+    "source": 343,
+    "test": 257,
+    "asset": 299,
+    "legacy-source": 272,
+    "prototype": 39
+  },
+  "deltaFromB1": {
+    "changed": [
+      "docs/工程变更日志.md",
+      "docs/项目结构导航.md"
+    ],
+    "deleted": [],
+    "added": [
+      "docs/审查/00-全项目工程质量审查方案.md",
+      "docs/审查/01-第一阶段审查报告.md",
+      "docs/审查/02-规范清单与适用范围.md",
+      "docs/审查/03-全项目覆盖计划.md",
+      "docs/审查/README.md",
+      "docs/审查/证据/阶段1/基线.json",
+      "docs/审查/证据/阶段1/工作区状态.txt",
+      "docs/审查/证据/阶段1/收尾核验.json",
+      "docs/审查/证据/阶段1/文件指纹.json"
+    ]
+  },
+  "parsedFiles": 792,
+  "importEdges": 2747,
+  "parseErrors": [],
+  "boundaryViolations": [],
+  "relativeUnresolved": [],
+  "nonLiteralImports": [
+    {
+      "path": "apps/web/test/run-tests.js",
+      "line": 57
+    }
+  ],
+  "runtimeCycles": [],
+  "cyclesIncludingTypes": [],
+  "exactDuplicateGroups": [],
+  "layerCandidates": [],
+  "over250": [
+    {
+      "path": "apps/web-v4/src/features/editor/NoteEditorView.tsx",
+      "unit": "C-04",
+      "category": "source",
+      "bytes": 31583,
+      "sha256": "a4a5b90f8495f73d98d9ec9c98d2442cf89835b7becef9a6658b4748107ca51d",
+      "lines": 763
+    },
+    {
+      "path": "apps/api/src/infrastructure/local-data-relations.js",
+      "unit": "C-10",
+      "category": "source",
+      "bytes": 19502,
+      "sha256": "2fd9a97d0c7feb4a8e658f28844f1f8484c1e0d8d74894b52665f7044459f3df",
+      "lines": 574
+    },
+    {
+      "path": "apps/web-v4/src/components/ui/showcase/ComponentShowcase.tsx",
+      "unit": "C-03",
+      "category": "source",
+      "bytes": 22909,
+      "sha256": "6ebcc0d635faea5c2546399ae7158cc77b111fc1829e501e48a01d91770c3780",
+      "lines": 567
+    },
+    {
+      "path": "apps/web-v4/src/shell/icons.tsx",
+      "unit": "C-02",
+      "category": "source",
+      "bytes": 15627,
+      "sha256": "f996e07417caf4d62afb2763765bf7ca473d08755ab9eb1450b56697080610ee",
+      "lines": 563
+    },
+    {
+      "path": "apps/web-v4/src/store/slices/workspaceSlice.ts",
+      "unit": "C-02",
+      "category": "source",
+      "bytes": 22483,
+      "sha256": "436e700fdaa2ea5d87740105ff4558172dd8b0709e87f406bffd447ca7a6864c",
+      "lines": 549
+    },
+    {
+      "path": "apps/api/src/infrastructure/migration/json-transformers.js",
+      "unit": "C-12",
+      "category": "source",
+      "bytes": 23611,
+      "sha256": "a9a6ea0ace2ebec6c61ce0b1aee72b87398d06afe7974930cb561bd7d9e844b8",
+      "lines": 530
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/MilkdownNoteEditor.tsx",
+      "unit": "C-04",
+      "category": "source",
+      "bytes": 22032,
+      "sha256": "1c656c2b0026cd02aee76bc7ee53befa3c5fe43b4224ff01b2b47f341041c893",
+      "lines": 519
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/EditorInspector.tsx",
+      "unit": "C-04",
+      "category": "source",
+      "bytes": 19980,
+      "sha256": "7990e33efac7af416b94a10ae286e33620b42f955d29d66e2e88f49b01db0bdd",
+      "lines": 483
+    },
+    {
+      "path": "apps/web-v4/src/views/HomeView.tsx",
+      "unit": "C-02",
+      "category": "source",
+      "bytes": 15437,
+      "sha256": "4779c20d8ad54a18f07a52617fe0d34c59f12c6ea07735a45408054dd596a355",
+      "lines": 451
+    },
+    {
+      "path": "packages/web-core/src/api/workspace-api.ts",
+      "unit": "C-07",
+      "category": "source",
+      "bytes": 18430,
+      "sha256": "bbaf197eb450128e884d2fb0953fe64841e0814bc60635835a335b6c2f7a84ec",
+      "lines": 440
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/postgres-async-module.js",
+      "unit": "C-11",
+      "category": "source",
+      "bytes": 20090,
+      "sha256": "764c473880d54ed379f3778168a75c9c793896076a80a047112a02cae0be9c68",
+      "lines": 424
+    },
+    {
+      "path": "apps/web/src/controllers/shell-controller.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 15343,
+      "sha256": "d533be324d5c467e6bfae6d233bd537b53b2fa8e364d1fe2280eb30f058196e7",
+      "lines": 405
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/index.js",
+      "unit": "C-09",
+      "category": "source",
+      "bytes": 16387,
+      "sha256": "adf86484a1996a5c280303a7e5b72154fcc6a8d5983f71d7a1243919c6b8727c",
+      "lines": 397
+    },
+    {
+      "path": "apps/web-v4/src/features/notes/NotesIndexView.tsx",
+      "unit": "C-05",
+      "category": "source",
+      "bytes": 18589,
+      "sha256": "0e9ce5be9aad9ff03267201494db11f7c6521c7f2acb55d659846c8148e4846d",
+      "lines": 372
+    },
+    {
+      "path": "apps/web-v4/src/app/App.tsx",
+      "unit": "C-02",
+      "category": "source",
+      "bytes": 14474,
+      "sha256": "4fbda634a93414d9b5561926e299fbcbd07b70dc7cb86fe6feb5ba73e14f9583",
+      "lines": 354
+    },
+    {
+      "path": "apps/api/src/infrastructure/local-data-schema.js",
+      "unit": "C-10",
+      "category": "source",
+      "bytes": 12680,
+      "sha256": "01ca8ee74124e0ef2c24873617e184e97cde740d03c3f42dcf8c1ad2a6011ff1",
+      "lines": 324
+    },
+    {
+      "path": "apps/api/src/infrastructure/local-attachment-file-manager.js",
+      "unit": "C-12",
+      "category": "source",
+      "bytes": 8137,
+      "sha256": "d7caa634c098f73fe590fca8c07463ee0d7ba162e5e8cbabe18f348114662153",
+      "lines": 316
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/infrastructure/postgres/mappers.js",
+      "unit": "C-11",
+      "category": "source",
+      "bytes": 9428,
+      "sha256": "7da8aface407ce47238a4e6e74bf5c467961df68fae70fbe406dc473c9f2587e",
+      "lines": 316
+    },
+    {
+      "path": "apps/web/lib/editor/menu-renderers.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 13684,
+      "sha256": "7fccd55c8f3e2b4f31fa8a9afbdf98024551bc734fe756ee1ef6ab1652c345e8",
+      "lines": 313
+    },
+    {
+      "path": "apps/web-v4/src/features/notes/NotesContextSidebar.tsx",
+      "unit": "C-05",
+      "category": "source",
+      "bytes": 15666,
+      "sha256": "35ef8807b21f9f3aef142d5e9ef1f9192c89a423f6ded1c04c4533939fda82a7",
+      "lines": 312
+    },
+    {
+      "path": "apps/web/src/controllers/editor/host-controller.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 9508,
+      "sha256": "858edc618d69efef8bfa83a555b2bbb9ed43d436072f1629f44847e76af4d9db",
+      "lines": 311
+    },
+    {
+      "path": "apps/web-v4/src/app/AppRoutes.tsx",
+      "unit": "C-02",
+      "category": "source",
+      "bytes": 12901,
+      "sha256": "034e93fdfe83835576c3ac2ca231773796b8c56d477bccbc3d24d08f2fa15191",
+      "lines": 306
+    },
+    {
+      "path": "apps/web/src/controllers/sidebar-controller.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 9871,
+      "sha256": "006007f96b1b37231254da70808513af1098e3034cb8bb0f6ee6f6ae876fc473",
+      "lines": 305
+    },
+    {
+      "path": "apps/web-v4/src/features/tags/TagPickerDialog.tsx",
+      "unit": "C-06",
+      "category": "source",
+      "bytes": 18837,
+      "sha256": "94953f6cf99d165f929b5f8aca154684b5efb3de7615574ac00c199ac1b1a60c",
+      "lines": 303
+    },
+    {
+      "path": "apps/api/src/infrastructure/migration/json-to-postgres.js",
+      "unit": "C-12",
+      "category": "source",
+      "bytes": 12948,
+      "sha256": "b6b6119a9f27e3ba9d1df2ac4b0949bdd15708a47b2d1325125fe44a15874f02",
+      "lines": 302
+    },
+    {
+      "path": "apps/web-v4/src/components/companion/PixelFace.tsx",
+      "unit": "C-03",
+      "category": "source",
+      "bytes": 9177,
+      "sha256": "0a57f8ba6cbf27f1f968f2c6f6f2420f069322f3062aa358fc0f160d50e563a8",
+      "lines": 299
+    },
+    {
+      "path": "apps/web/src/controllers/tab-controller.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 7050,
+      "sha256": "3dbab5c99f96e8eb714ab75072733c8c6f70bb3f51585208b2d35ca79b79b4d6",
+      "lines": 297
+    },
+    {
+      "path": "apps/web/lib/events/library-index-events.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 10647,
+      "sha256": "782d6d1aefeabd52f33d545b3118ef39cb379c87b7574caf65512a95f8cc126b",
+      "lines": 293
+    },
+    {
+      "path": "scripts/migrate-transformer-http-images.mjs",
+      "unit": "C-15",
+      "category": "source",
+      "bytes": 8637,
+      "sha256": "ec21ac1506ab65f4db9730d7a96844aa694b260d55d0ead019ef3c48dccad5b1",
+      "lines": 293
+    },
+    {
+      "path": "apps/web/lib/editor/milkdown-entry.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 9033,
+      "sha256": "49e3bba43c346273e7c0037cb2e725b19bff681fbb8c935ffdf7c7f0401208de",
+      "lines": 286
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/useNoteAutosave.ts",
+      "unit": "C-04",
+      "category": "source",
+      "bytes": 12176,
+      "sha256": "a711d5831a68b300e493aee47325e3cc492fb8ead3216ea9dabb8bd3daa04bb6",
+      "lines": 278
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/application/postgres-async/knowledge-domain-service.js",
+      "unit": "C-11",
+      "category": "source",
+      "bytes": 11401,
+      "sha256": "018c6fe0dc4dc29e1c7b114b28acc6d00c5188ab355e19050beeec9006bb3b76",
+      "lines": 277
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/application/question-service.js",
+      "unit": "C-09",
+      "category": "source",
+      "bytes": 11624,
+      "sha256": "809c4f321d1fa8e60fc75cfc5a656cf246cac42a5637f203f22b2f690632be38",
+      "lines": 277
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/application/knowledge-item-service.js",
+      "unit": "C-09",
+      "category": "source",
+      "bytes": 10010,
+      "sha256": "55b0b0b70be0f5aff49333b53c97fe5e31b731e7dd7af3798d6cfa0d9a5cfa7c",
+      "lines": 275
+    },
+    {
+      "path": "apps/web/lib/components/manifest.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 11169,
+      "sha256": "0449aba685a59f0725dc0094c7fdb0539f06d3d03a27071bdefceb72c34cd0e7",
+      "lines": 275
+    },
+    {
+      "path": "apps/web/lib/events/work-domain-events.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 14791,
+      "sha256": "159222464d2a31c82dc004f5dee4b951f61dd2da503436f0d5022313d19b83ce",
+      "lines": 272
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/application/note-service.js",
+      "unit": "C-09",
+      "category": "source",
+      "bytes": 8365,
+      "sha256": "4ef55bfb7ddc26dff60c585ca7e5f6b169ce4579737f823c7f690059740b3359",
+      "lines": 259
+    },
+    {
+      "path": "apps/web-v4/src/shell/ModuleRail.tsx",
+      "unit": "C-02",
+      "category": "source",
+      "bytes": 6810,
+      "sha256": "c9d410a763f2f0da1c745ebf523dd1426978e929e0e0313b4fdb08c379ac1133",
+      "lines": 259
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/application/postgres-async/question-service.js",
+      "unit": "C-11",
+      "category": "source",
+      "bytes": 12515,
+      "sha256": "2dd5a660f38b731be7e4bd1a8f4c1d339956a59cc1126030260bc937da848f21",
+      "lines": 258
+    },
+    {
+      "path": "apps/api/src/infrastructure/postgres-attachment-store.js",
+      "unit": "C-12",
+      "category": "source",
+      "bytes": 8905,
+      "sha256": "65256b5cfb79e1be5630e18733be430d7bcf369ca56c2b403670bdbc19b5b31a",
+      "lines": 251
+    },
+    {
+      "path": "apps/web/lib/editor/image-block-renderers.js",
+      "unit": "C-13",
+      "category": "legacy-source",
+      "bytes": 8219,
+      "sha256": "d62a43e8613c4236fa64ac161ff8c9d24df92e8360f466de597b95d6def76f97",
+      "lines": 251
+    }
+  ],
+  "brokenDocLinkCandidates": 30,
+  "limitations": [
+    "静态字面量依赖图不是完整执行图；type-only 与运行时边分开。",
+    "工作区包名映射 src/index 用于源码关系分析，不代替 package exports 或构建验证。",
+    "重复组仅比较 >100 字节非测试 JS/TS 的完全相同内容；不证明业务语义重复。",
+    "Markdown 链接是去代码围栏的启发式扫描，不覆盖引用式链接、锚点和 HTML；结果需人工复核。",
+    "不枚举忽略目录，不读取运行数据或凭据；不运行应用或测试。"
+  ]
+}

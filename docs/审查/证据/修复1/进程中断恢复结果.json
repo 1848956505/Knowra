@@ -1,0 +1,22 @@
+{
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "method": "真实子进程 SIGKILL；macOS 上通过适配器模拟 EPERM，未代替 Windows 实机验收；缺失主文件时停止启动，验证备份保留及人工恢复",
+  "results": [
+    {
+      "mode": "before-rename",
+      "outcome": "pass",
+      "signal": "SIGKILL"
+    },
+    {
+      "mode": "after-rename",
+      "outcome": "pass",
+      "signal": "SIGKILL"
+    },
+    {
+      "mode": "fallback-gap",
+      "outcome": "pass",
+      "signal": "SIGKILL"
+    }
+  ]
+}

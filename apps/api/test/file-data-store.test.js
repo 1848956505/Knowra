@@ -5,6 +5,35 @@ import path from 'node:path';
 
 export const fileDataStoreTests = [
   {
+    name: 'missing local data with interrupted replacement files refuses empty initialization',
+    async run() {
+      const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-recovery-'));
+      const target = path.join(dir, 'data.json');
+      try {
+        const store = createFileDataStore(target);
+        store.state.spaces.push(createSpace('space-1'));
+        store.flush();
+        const original = fs.readFileSync(target, 'utf8');
+        const backup = path.join(dir, '.data.json.123-test.bak');
+        fs.renameSync(target, backup);
+        fs.writeFileSync(path.join(dir, '.data.json.123-test.tmp'), '{}');
+        assert.throws(() => createFileDataStore(target), { code: 'STORAGE_RECOVERY_REQUIRED' });
+        assert.equal(fs.existsSync(target), false);
+        assert.equal(fs.readFileSync(backup, 'utf8'), original);
+        // A restored valid main file takes precedence over leftover candidates.
+        fs.copyFileSync(backup, target);
+        assert.equal(createFileDataStore(target).state.spaces[0].id, 'space-1');
+        fs.unlinkSync(target);
+        fs.unlinkSync(backup);
+        assert.throws(() => createFileDataStore(target), { code: 'STORAGE_RECOVERY_REQUIRED' });
+        assert.equal(fs.existsSync(target), false);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
     name: 'file data store exports versioned snapshots and imports legacy v1 data',
     async run() {
       const { createFileDataStore } = await import(

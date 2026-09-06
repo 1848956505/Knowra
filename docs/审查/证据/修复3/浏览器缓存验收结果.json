@@ -1,0 +1,13 @@
+{
+  "browser": "Chromium 151.0.7922.34",
+  "viewport": { "width": 1440, "height": 1000 },
+  "transport": "Vite same-origin proxy to isolated real API",
+  "outcome": "pass",
+  "checks": {
+    "serverGroups": 4,
+    "cachedGroupsAfterNavigation": 4,
+    "offlineGroupHeadings": 4,
+    "offlineWriteActionsHidden": true,
+    "pageErrors": []
+  }
+}

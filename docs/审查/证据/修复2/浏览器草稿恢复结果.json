@@ -1,0 +1,10 @@
+{
+  "outcome": "pass",
+  "realHttpConflict": true,
+  "routeReturnPreserved": true,
+  "reloadPreserved": true,
+  "continuedDraftExported": true,
+  "explicitExportAndRemoteReload": true,
+  "remoteUnchanged": true,
+  "pageErrors": []
+}

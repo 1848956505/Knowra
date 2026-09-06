@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { parseBody } from '../../../../apps/api/src/http/request.js';
+const request=new EventEmitter();request.headers={'content-type':'application/json'};
+const body=Buffer.from(JSON.stringify({rawMarkdown:'中文审查'}));
+const split=body.indexOf(Buffer.from('中'))+1;
+const parsed=parseBody(request);
+request.emit('data',body.subarray(0,split));request.emit('data',body.subarray(split));request.emit('end');
+const actual=await parsed;
+assert.notEqual(actual.rawMarkdown,'中文审查');
+console.log(JSON.stringify({id:'S3-08',kind:'stream event reproduction; no HTTP socket',expected:'中文审查',actual:actual.rawMarkdown},null,2));

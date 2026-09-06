@@ -1,0 +1,15 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "node": "v26.4.0",
+  "npm": "11.17.0",
+  "postgres": null,
+  "initdb": null,
+  "psql": null,
+  "docker": "/usr/local/bin/docker",
+  "dockerSocketPresent": false,
+  "databaseCredentialsInspected": false,
+  "realDatabaseUsed": false,
+  "networkAudit": "initial ENOTFOUND; escalation rejected because dependency metadata would be sent to npm registry; no retry or alternative outbound query",
+  "node24Available": false
+}

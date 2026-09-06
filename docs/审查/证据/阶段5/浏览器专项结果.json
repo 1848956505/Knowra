@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "id": "B11",
+      "outcome": "pass",
+      "beforeTab": 0,
+      "afterTab": 1,
+      "afterShiftTab": 0,
+      "headerTexts": [
+        "第一列",
+        "TAB审查",
+        "第三列"
+      ]
+    }
+  ],
+  "pageErrors": []
+}

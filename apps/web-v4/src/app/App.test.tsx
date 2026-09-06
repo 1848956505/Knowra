@@ -300,7 +300,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     fireEvent.click(screen.getByRole('button', { name: /收藏0/ }));
 
     expect(store.getState().notesIndex.scope).toBe('favorites');
-    expect(navigateMock).toHaveBeenCalledWith('/materials');
+    expect(navigateMock).toHaveBeenCalledWith('/materials?scope=favorites');
   });
 
   it('returns to the home page (/) when clicking the brand logo on the notes index', async () => {
@@ -369,7 +369,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     const topLocation = screen.getByRole('navigation', { name: '当前位置' });
     expect(topLocation).not.toHaveTextContent('主页');
     expect(within(topLocation).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
-    expect(within(topLocation).getByRole('heading', { name: '全部笔记', level: 1 })).toHaveAttribute('aria-current', 'page');
+    expect(within(topLocation).getByText('全部笔记')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
   });
 
   it('StatusBar breadcrumb stays on the index surface when a note is selected in store state', async () => {
@@ -403,7 +404,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(breadcrumb).queryByText('M4-02')).not.toBeInTheDocument();
 
     const topLocation = screen.getByRole('navigation', { name: '当前位置' });
-    expect(within(topLocation).getByRole('heading', { name: '全部笔记', level: 1 })).toHaveAttribute('aria-current', 'page');
+    expect(within(topLocation).getByText('全部笔记')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
     expect(within(topLocation).queryByText('Note')).not.toBeInTheDocument();
   });
 });

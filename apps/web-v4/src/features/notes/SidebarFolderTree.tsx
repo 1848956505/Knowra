@@ -154,14 +154,15 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenI
   );
 }
 
-function FolderContextMenu({ folder, canWrite, onAction, children }: {
+export function FolderContextMenu({ folder, canWrite, onAction, children, contextMenu = true }: {
   folder: Folder;
   canWrite: boolean;
   onAction(action: SidebarTreeAction): void;
   children: ReactNode;
+  contextMenu?: boolean;
 }) {
   return (
-    <MenuTrigger trigger="contextMenu">
+    <MenuTrigger {...(contextMenu ? { trigger: 'contextMenu' as const } : {})}>
       {children}
       <MenuPopover placement="right top">
         <Menu ariaLabel={`${folder.name}文件夹操作`} onAction={(key) => {
@@ -181,14 +182,15 @@ function FolderContextMenu({ folder, canWrite, onAction, children }: {
   );
 }
 
-function NoteContextMenu({ note, canWrite, onAction, children }: {
+export function NoteContextMenu({ note, canWrite, onAction, children, contextMenu = true }: {
   note: Note;
   canWrite: boolean;
   onAction(action: SidebarTreeAction): void;
   children: ReactNode;
+  contextMenu?: boolean;
 }) {
   return (
-    <MenuTrigger trigger="contextMenu">
+    <MenuTrigger {...(contextMenu ? { trigger: 'contextMenu' as const } : {})}>
       {children}
       <MenuPopover placement="right top">
         <Menu ariaLabel={`${note.title || '未命名笔记'}笔记操作`} onAction={(key) => {

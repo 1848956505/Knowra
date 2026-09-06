@@ -1,0 +1,16 @@
+{
+  "node": "v26.4.0",
+  "driver": "local-json",
+  "transport": "real node:http on loopback",
+  "outcome": "pass",
+  "checks": {
+    "defaultGroupsOnFirstRequest": 4,
+    "duplicateGroupConflict": "TAG_GROUP_ID_CONFLICT",
+    "duplicateGroupPreserved": true,
+    "restoreConflict": "SIBLING_NAME_CONFLICT",
+    "deletedNoteUnchanged": true,
+    "searchAll": ["search-both"],
+    "searchAny": ["search-a", "search-both"],
+    "systemGroupsAfterRestart": 4
+  }
+}

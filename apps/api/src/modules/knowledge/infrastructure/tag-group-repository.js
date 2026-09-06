@@ -2,6 +2,16 @@ export function createInMemoryTagGroupRepository(options = {}) {
   const groups = options.records ?? [];
   const persist = () => options.onChange?.(groups);
   return {
+    create(group) {
+      if (groups.some((item) => item.id === group.id)) {
+        const error = new Error('Tag group id already exists');
+        error.code = 'TAG_GROUP_ID_CONFLICT';
+        throw error;
+      }
+      groups.push(group);
+      persist();
+      return group;
+    },
     save(group) {
       const index = groups.findIndex((item) => item.id === group.id);
       if (index === -1) groups.push(group);

@@ -1,3 +1,5 @@
+import { getKnowledgeOperationAccess } from './knowledge-operation-access.js';
+
 export function createMaintenanceGate() {
   let activeOperations = 0;
   let maintenanceActive = false;
@@ -84,19 +86,18 @@ export function wrapHandlersWithMaintenanceGate(
   handlers,
   maintenanceGate,
   {
-    isMutation = (name) => /^(create|import|update|delete|restore|permanently|empty|set|remove|assign|confirm|mark|request|archive|submit|validate)/.test(name)
+    getAccess = getKnowledgeOperationAccess
   } = {}
 ) {
   return Object.fromEntries(
-    Object.entries(handlers).map(([name, handler]) => [
-      name,
-      typeof handler === 'function'
-        ? (...args) => (
-            isMutation(name)
-              ? maintenanceGate.runMutation(() => handler(...args))
-              : maintenanceGate.runOperation(() => handler(...args))
-          )
-        : handler
-    ])
+    Object.entries(handlers).map(([name, handler]) => {
+      if (typeof handler !== 'function') return [name, handler];
+      const access = getAccess(name);
+      return [name, (...args) => (
+        access === 'mutation'
+          ? maintenanceGate.runMutation(() => handler(...args))
+          : maintenanceGate.runOperation(() => handler(...args))
+      )];
+    })
   );
 }

@@ -1,0 +1,46 @@
+{
+  "baseline": "KNOWRA-REVIEW-20260906-B6",
+  "againstB6": {
+    "changed": [
+      "docs/审查/README.md",
+      "docs/工程变更日志.md",
+      "docs/项目结构导航.md"
+    ],
+    "missing": []
+  },
+  "againstInitialB1": {
+    "changed": [
+      "docs/工程变更日志.md",
+      "docs/项目结构导航.md"
+    ],
+    "missing": []
+  },
+  "originalBusinessCodeTestsScreenshotsUnchanged": true,
+  "historicalIssueIdsCoveredOnce": 20,
+  "finalIssueRecords": 19,
+  "confirmedPriorities": {
+    "P1": 5,
+    "P2": 9,
+    "P3": 2
+  },
+  "coverageCounts": {
+    "N": 35,
+    "C": 18,
+    "Q": 10,
+    "F": 9
+  },
+  "localLinksChecked": 108,
+  "brokenLinks": [],
+  "addedSinceB6": [
+    "docs/审查/17-全项目工程质量审查总报告.md",
+    "docs/审查/18-最终问题清单.md",
+    "docs/审查/19-最终规范与覆盖矩阵.md",
+    "docs/审查/20-整改路线图与验收门槛.md",
+    "docs/审查/证据/阶段6/基线.json",
+    "docs/审查/证据/阶段6/覆盖计数.json",
+    "docs/审查/证据/阶段6/问题合并与复核.json"
+  ],
+  "gitDiffCheckExitCode": 0,
+  "fullTestsRerunInStage6": false,
+  "reason": "source fingerprints unchanged; stage5 run evidence retained with its failures and limits"
+}

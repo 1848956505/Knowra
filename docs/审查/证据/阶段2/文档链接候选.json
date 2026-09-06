@@ -1,0 +1,182 @@
+[
+  {
+    "from": "apps/web-v4/notes-index-header-design-qa.md",
+    "target": "test-results/notes-index-header/desktop-1536x695.png",
+    "archived": false,
+    "line": 12
+  },
+  {
+    "from": "apps/web-v4/notes-index-header-design-qa.md",
+    "target": "test-results/notes-index-header/desktop-1920x900-final.png",
+    "archived": false,
+    "line": 13
+  },
+  {
+    "from": "apps/web-v4/notes-index-header-design-qa.md",
+    "target": "test-results/notes-index-header/narrow-920x900.png",
+    "archived": false,
+    "line": 14
+  },
+  {
+    "from": "apps/web-v4/notes-index-header-design-qa.md",
+    "target": "test-results/notes-index-header/mobile-390x844-final.png",
+    "archived": false,
+    "line": 15
+  },
+  {
+    "from": "docs/前端重构/V4/04-分阶段实施任务书.md",
+    "target": "V4-00.5/雾青/",
+    "archived": false,
+    "line": 67
+  },
+  {
+    "from": "docs/前端重构/V4/04-分阶段实施任务书.md",
+    "target": "V4-00.5/澄明/",
+    "archived": false,
+    "line": 67
+  },
+  {
+    "from": "docs/前端重构/V4/README.md",
+    "target": "V4-00.5/雾青/V4-00.5-视觉方向冻结候选.md",
+    "archived": false,
+    "line": 52
+  },
+  {
+    "from": "docs/前端重构/V4/README.md",
+    "target": "V4-00.5/方册/V4-00.5-方册视觉方向候选.md",
+    "archived": false,
+    "line": 53
+  },
+  {
+    "from": "docs/前端重构/V4/README.md",
+    "target": "V4-00.5/澄明/V4-00.5-澄明视觉方向候选.md",
+    "archived": false,
+    "line": 54
+  },
+  {
+    "from": "docs/前端重构/V4/V4-00.5/印格/V4-00.5-印格视觉冻结规范.md",
+    "target": "../../../../03-功能保留与验收矩阵.md",
+    "archived": false,
+    "line": 215
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-theme-tokens.css",
+    "archived": false,
+    "line": 20
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/test/inkgrid-token-shape.test.js",
+    "archived": false,
+    "line": 21
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/test/knowra-redesign-ui.test.js",
+    "archived": false,
+    "line": 22
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/aside-tabs.css",
+    "archived": false,
+    "line": 23
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-editor.css",
+    "archived": false,
+    "line": 24
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-library-index.css",
+    "archived": false,
+    "line": 25
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/note-tabs.css",
+    "archived": false,
+    "line": 26
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-01 InkGrid Token 接入/M1-01 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/work-domain.css",
+    "archived": false,
+    "line": 27
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components.css",
+    "archived": false,
+    "line": 22
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid.css",
+    "archived": false,
+    "line": 23
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-shell.css",
+    "archived": false,
+    "line": 24
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-library-index.css",
+    "archived": false,
+    "line": 25
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-editor.css",
+    "archived": false,
+    "line": 26
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-menus.css",
+    "archived": false,
+    "line": 27
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-typography.css",
+    "archived": false,
+    "line": 28
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/styles/README.md",
+    "archived": false,
+    "line": 33
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 执行报告.md",
+    "target": "../../../../../apps/web/test/inkgrid-style-entry.test.js",
+    "archived": false,
+    "line": 34
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 验收报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-library-index.css",
+    "archived": false,
+    "line": 58
+  },
+  {
+    "from": "docs/前端重构/印格/正式迁移/M1：Token 与资源/M1-03 InkGrid 样式入口/M1-03 验收报告.md",
+    "target": "../../../../../apps/web/styles/components/knowra-inkgrid-library-index.css",
+    "archived": false,
+    "line": 58
+  },
+  {
+    "from": "docs/已归档/前端重构（瑞士编辑风格V1.0）/正式前端迁移记录.md",
+    "target": "../知识库与试题模块/模块规划.md",
+    "archived": true,
+    "line": 3
+  }
+]

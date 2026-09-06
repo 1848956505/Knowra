@@ -1,0 +1,72 @@
+[
+  {
+    "name": "api",
+    "command": [
+      "npm",
+      "run",
+      "test:api"
+    ],
+    "exitCode": 0,
+    "seconds": 0.716
+  },
+  {
+    "name": "web-core",
+    "command": [
+      "npm",
+      "run",
+      "test:web-core"
+    ],
+    "exitCode": 0,
+    "seconds": 0.499
+  },
+  {
+    "name": "legacy",
+    "command": [
+      "npm",
+      "run",
+      "test:web:legacy"
+    ],
+    "exitCode": 0,
+    "seconds": 0.71
+  },
+  {
+    "name": "v4-check",
+    "command": [
+      "npm",
+      "run",
+      "check:web:v4"
+    ],
+    "exitCode": 0,
+    "seconds": 8.673
+  },
+  {
+    "name": "scripts",
+    "command": [
+      "npm",
+      "run",
+      "test:scripts"
+    ],
+    "exitCode": 0,
+    "seconds": 5.307
+  },
+  {
+    "name": "build",
+    "command": [
+      "npm",
+      "run",
+      "build:web"
+    ],
+    "exitCode": 0,
+    "seconds": 0.985
+  },
+  {
+    "name": "prisma",
+    "command": [
+      "npm",
+      "run",
+      "prisma:validate"
+    ],
+    "exitCode": 0,
+    "seconds": 1.956
+  }
+]

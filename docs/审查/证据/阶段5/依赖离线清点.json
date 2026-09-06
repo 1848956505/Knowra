@@ -1,0 +1,8 @@
+{
+  "lockfileVersion": 3,
+  "packageEntries": 461,
+  "nodeModuleRuntimeOrMixed": 331,
+  "nodeModuleDevOnly": 124,
+  "optionalSubset": 91,
+  "knownVulnerabilityStatus": "not evaluated; offline inventory is not a vulnerability scan"
+}

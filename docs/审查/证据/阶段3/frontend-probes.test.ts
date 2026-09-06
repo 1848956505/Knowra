@@ -1,0 +1,32 @@
+import { act, renderHook } from '@testing-library/react';
+import { ApiRequestError } from '@study-accelerator/web-core';
+import { afterEach, expect, it, vi } from 'vitest';
+import { useNoteAutosave } from '../../../../apps/web-v4/src/features/editor/useNoteAutosave';
+import { createNavigationSlice } from '../../../../apps/web-v4/src/store/slices/navigationSlice';
+afterEach(()=>vi.useRealTimers());
+it('S3-02: conflict draft is lost after editor hook unmount/remount',async()=>{
+ vi.useFakeTimers();
+ const onSave=vi.fn().mockRejectedValue(new ApiRequestError('Conflict',{status:409,code:'NOTE_UPDATE_CONFLICT'}));
+ const options={noteId:'review-note',remoteMarkdown:'server',remoteUpdatedAt:'v1',canWrite:true,onSave};
+ const first=renderHook(()=>useNoteAutosave(options));
+ act(()=>first.result.current.updateDraft('unsaved review draft',{immediate:true}));
+ await act(async()=>vi.advanceTimersByTimeAsync(700));
+ expect(first.result.current.hasConflict).toBe(true);
+ expect(first.result.current.getLatestMarkdown()).toBe('unsaved review draft');
+ first.unmount();
+ const second=renderHook(()=>useNoteAutosave(options));
+ expect(second.result.current.getLatestMarkdown()).toBe('server');
+ expect(second.result.current.hasLocalChanges).toBe(false);
+ expect(onSave).toHaveBeenCalledTimes(1);
+ second.unmount();
+});
+it('S3-03: navigation serializes tagGroups as an empty array',()=>{
+ let cached='';
+ const dependencies:any={storage:{setItem:(_k:string,v:string)=>{cached=v;}},cacheKey:'review'};
+ let state:any={serverData:{spaces:[],currentSpaceId:'space',folderTree:[],foldersById:{},tags:[{id:'tag',groupId:'group'}],tagGroups:[{id:'group',name:'Review',selectionMode:'single'}],notes:[]}};
+ const slice=createNavigationSlice((value:any)=>{state={...state,...(typeof value==='function'?value(state):value)};},()=>state,dependencies);
+ state={...state,...slice};
+ state.selectNote(null);
+ expect(state.serverData.tagGroups).toHaveLength(1);
+ expect(JSON.parse(cached).tagGroups).toEqual([]);
+});

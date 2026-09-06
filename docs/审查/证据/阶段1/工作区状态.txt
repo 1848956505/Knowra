@@ -1,0 +1,50 @@
+ M .gitignore
+ M CLAUDE.md
+ M apps/web-v4/e2e/v4-05-shell-home.spec.ts
+ M apps/web-v4/e2e/v4-07-editor.spec.ts
+ M apps/web-v4/src/app/App.test.tsx
+ M apps/web-v4/src/app/App.tsx
+ M apps/web-v4/src/app/router.tsx
+ M apps/web-v4/src/components/ui/button/Button.module.css
+ M apps/web-v4/src/components/ui/button/GhostIconButton.module.css
+ M apps/web-v4/src/components/ui/input/Input.module.css
+ M apps/web-v4/src/features/editor/MilkdownNoteEditor.tsx
+ M apps/web-v4/src/features/editor/editorBlockCommands.ts
+ M apps/web-v4/src/features/editor/editorInputBehavior.test.ts
+ M apps/web-v4/src/features/editor/editorInputBehavior.ts
+ M apps/web-v4/src/features/editor/editorShortcuts.test.ts
+ M apps/web-v4/src/features/editor/editorShortcuts.ts
+ M apps/web-v4/src/features/notes/NotesContextSidebar.module.css
+ M apps/web-v4/src/features/notes/NotesIndexView.module.css
+ M apps/web-v4/src/features/notes/NotesIndexView.test.tsx
+ M apps/web-v4/src/features/notes/NotesIndexView.tsx
+ M apps/web-v4/src/features/notes/SidebarFolderTree.tsx
+ M apps/web-v4/src/features/notes/useSidebarTreeOperations.tsx
+ M apps/web-v4/src/features/tags/TagManagerView.module.css
+ M apps/web-v4/src/features/tags/TagManagerView.tsx
+ M apps/web-v4/src/shell/SearchCommand.module.css
+ M apps/web-v4/src/shell/icons.tsx
+ M apps/web-v4/src/shell/useGlobalShortcuts.ts
+ M apps/web-v4/src/styles/tokens.css
+ M docs/工程变更日志.md
+ M docs/开发规范.md
+ M docs/阿里云ECS服务器信息.md
+ M docs/项目结构导航.md
+?? AGENTS.md
+?? apps/web-v4/src/app/useHashNavigation.test.tsx
+?? apps/web-v4/src/app/useHashNavigation.ts
+?? apps/web-v4/src/app/useMaterialsRoute.ts
+?? apps/web-v4/src/features/editor/editorBlockCommands.test.ts
+?? apps/web-v4/src/features/notes/BatchTagDialog.tsx
+?? apps/web-v4/src/features/notes/IndexItemActions.tsx
+?? apps/web-v4/src/features/notes/NotesIndexHeader.tsx
+?? apps/web-v4/src/features/notes/NotesIndexItems.module.css
+?? apps/web-v4/src/features/notes/NotesIndexItems.tsx
+?? apps/web-v4/src/features/notes/NotesIndexPagination.tsx
+?? apps/web-v4/src/features/notes/notesIndexNavigation.test.ts
+?? apps/web-v4/src/features/notes/notesIndexNavigation.ts
+?? apps/web-v4/src/features/notes/notesIndexPresentation.ts
+?? apps/web-v4/src/features/notes/useNotesIndexData.ts
+?? docs/前端重构/index-refresh-plan.md
+?? docs/前端重构/preview-2.html
+?? docs/前端重构/大纲样式.png

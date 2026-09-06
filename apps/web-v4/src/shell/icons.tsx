@@ -549,3 +549,15 @@ export function ParagraphAddIcon({ position = 'below', ...props }: IconProps & {
     </svg>
   );
 }
+
+export function UploadIcon(props: IconProps) {
+  return <svg {...demoBase(props)}><path d="M12 16V3m-5 5 5-5 5 5M4 14v7h16v-7" /></svg>;
+}
+
+export function SortArrowsIcon(props: IconProps) {
+  return <svg {...demoBase(props)}><path d="M8 3v18M4 7l4-4 4 4m4 14V3m-4 14 4 4 4-4" /></svg>;
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return <svg {...demoBase(props)}><path d="m6 9 6 6 6-6" /></svg>;
+}

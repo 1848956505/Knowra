@@ -1,0 +1,68 @@
+{
+  "at": "2026-09-06T17:09:56.277439+08:00",
+  "batch": 2,
+  "issues": [
+    "R-02",
+    "R-04"
+  ],
+  "files": [
+    {
+      "path": "apps/web-v4/src/features/editor/noteDraftRecovery.ts",
+      "sha256": "d784ae06bd3932cb201e495429d668bb3c5fbff3e2344c72e9a4ee1f23e988fb"
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/noteDraftRecovery.test.ts",
+      "sha256": "aed1af3462eae92ee3c9c2bd93c7598c539b98a09c0cd484c42e98c00e99f684"
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/useNoteAutosave.ts",
+      "sha256": "67b554aa52e5c57a674a0b77ed9e4c2c6d686b0db7274ff64d9918a174c1f964"
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/NoteEditorView.tsx",
+      "sha256": "f080fc02fd18ea503036171d3d47cf273a5b0c748893953d0f084ac6458600c9"
+    },
+    {
+      "path": "apps/api/src/infrastructure/postgres-snapshot-service.js",
+      "sha256": "dc560deef9cea985ce57ae7f9d995aaf430dc705e665347631c7574be50720c6"
+    },
+    {
+      "path": "apps/api/src/infrastructure/migration/json-to-postgres.js",
+      "sha256": "e7bb57e17476ad25de2b58bc069efefe6a4dc931c5004858f75d62c941bfb368"
+    },
+    {
+      "path": "apps/api/src/infrastructure/migration/db-mappers.js",
+      "sha256": "1fb8af45dbade45f9671f21156fe138b86cc92d56cfb62508bc6dd1d29c3cbf8"
+    },
+    {
+      "path": "apps/api/src/infrastructure/migration/json-transformers.js",
+      "sha256": "95133525a37a99d98f8e9e066925c321b550d0c6787f866c75b62ee6557bee9d"
+    },
+    {
+      "path": "apps/api/test/postgres-tag-group-migration.test.js",
+      "sha256": "e9ff9c23800f2a74fdcb0d2e084c366a0baa45be506aa1b10a984a1d6d146275"
+    },
+    {
+      "path": "apps/api/test/phase1-postgres.test.js",
+      "sha256": "e14dff372ae6646636d1f2df3a25791ac510101a18e72a1c02e99190d7983fd1"
+    },
+    {
+      "path": "apps/api/test/run-tests.js",
+      "sha256": "fa2324193f4608d857200d02436b69d717c7d14b7cbf13f8b1e4f2c685435b85"
+    },
+    {
+      "path": "docs/审查/21-修复计划与进度.md",
+      "sha256": "17437ea6080507cf697170cc8e12907d65d0b17c4c31237db4cbb2a9b9fb5a04"
+    },
+    {
+      "path": "docs/工程变更日志.md",
+      "sha256": "0da259c010cff1964792f9a8b175350b24a5722eb22ac836a32d08a602dcd394"
+    },
+    {
+      "path": "docs/项目结构导航.md",
+      "sha256": "3c111cb512a5628934783fd4d9b8710306671e6473345c3e76b51bcf91ba6bcf"
+    }
+  ],
+  "postgresIntegration": "未执行：psql/postgres 不在 PATH，Docker daemon socket 不存在；API 日志中的新增 PG 用例为契约替身测试",
+  "note": "本批范围列表；已有文件保留此前未提交改动，历史审查报告未改写"
+}

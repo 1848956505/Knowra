@@ -124,7 +124,34 @@ pm2 save
 
 该目录包含整个 `storage/` 归档、独立 `knowledge-base.json`、当前 Git 提交、PM2 状态和 Nginx 配置。`SHA256SUMS` 已通过，归档可读，且归档内知识库与独立副本哈希一致。该备份不替代每次部署前的新备份。
 
-正式部署只允许从 GitHub `main` 的已审核提交执行。部署前先记录当前提交并备份运行时数据：
+### 百度网盘异地加密备份
+
+服务器已通过百度网盘开放平台自有应用直连，不再依赖第三方 `bypy` 授权。备份只写入应用目录：
+
+```text
+/apps/知境/KnowraBackup/
+```
+
+每天北京时间 03:30 后的 10 分钟随机窗口内，`knowra-baidu-backup.timer` 会执行一次备份。脚本复制生产 `storage/data/`、`storage/uploads/`、Git 提交、PM2 状态、Nginx 配置和 Basic Auth 哈希文件，以服务器证书进行 CMS AES-256 加密，再通过百度官方 Go SDK 上传。每次上传后必须回下载并比较 SHA-256；只有一致时任务才成功，同时上传 `.sha256` 校验文件。当前不自动删除本地或网盘历史备份。
+
+```bash
+# 查看计划和最近结果
+systemctl list-timers knowra-baidu-backup.timer --all
+systemctl status knowra-baidu-backup.service
+journalctl -u knowra-baidu-backup.service -n 100 --no-pager
+
+# 手动执行一次完整备份、上传和回下载校验
+systemctl start knowra-baidu-backup.service
+
+# 查看网盘目录（输出不得包含 token）
+/opt/knowra-backup-tools/baidu-drive list "/apps/知境/KnowraBackup"
+```
+
+敏感文件只保存在服务器 `/etc/knowra-backup/`，权限必须保持 `600`；备份客户端和脚本权限为 `700`。访问令牌会在到期前 7 天自动刷新。解密私钥不在服务器和 Git 中，只保存在运维工作站已被 Git 忽略的 `storage/exports/backup-keys/knowra-backup-private-key.pem`。若该私钥丢失，网盘中的 `.p7m` 备份无法解密；应另做离线保管，但不得把私钥上传到同一个百度网盘目录。
+
+正式部署只允许从 GitHub `main` 的已审核提交执行。完整 `npm test`、原始 E2E 和依赖审计必须先在 CI 或与生产隔离的验收机上完成，并将结果绑定到待部署提交。**不得在正在提供服务的生产主机上运行 `npm test`**；当前 1.6 GiB、无 swap 的主机已实测会因并行测试导致正式服务失去响应。
+
+候选提交在隔离环境通过后，服务器端部署前先记录当前提交并备份运行时数据：
 
 ```bash
 cd /opt/knowra
@@ -146,13 +173,10 @@ git pull --ff-only origin main
 # 4. 按锁文件做可复现安装，不执行未启用脚手架的第三方生命周期脚本
 npm ci --ignore-scripts
 
-# 5. 部署前验证
-npm test
-
-# 6. 先校验附件完整性，再构建 V4 生产产物并刷新 knowra-api / knowra-web
+# 5. 先校验附件完整性，再构建 V4 生产产物并刷新 knowra-api / knowra-web
 ./scripts/post-deploy.sh
 
-# 7. 健康检查
+# 6. 健康检查
 curl --fail http://127.0.0.1:3001/api/health
 curl --fail --head http://127.0.0.1:3000/
 ```

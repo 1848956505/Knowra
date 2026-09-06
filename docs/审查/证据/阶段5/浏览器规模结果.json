@@ -1,0 +1,41 @@
+{
+  "environment": "Chromium151 1440x1000 Vite source + isolated local-json API; fresh browser per scale; single sample each, includes Vite cold costs",
+  "rows": [
+    {
+      "notes": 100,
+      "pageQueryRequests": 4,
+      "firstOffset": "0",
+      "lastOffset": "90",
+      "otherNoteRequests": 1,
+      "gridDomCards": 100,
+      "navigationToInitialCardsMs": 678.65,
+      "navigationToLastQueryResponseMs": 726.37,
+      "pageErrors": [],
+      "listDomRows": 10
+    },
+    {
+      "notes": 1000,
+      "pageQueryRequests": 34,
+      "firstOffset": "0",
+      "lastOffset": "990",
+      "otherNoteRequests": 1,
+      "gridDomCards": 1000,
+      "navigationToInitialCardsMs": 829.64,
+      "navigationToLastQueryResponseMs": 1388.41,
+      "pageErrors": [],
+      "listDomRows": 10
+    },
+    {
+      "notes": 10000,
+      "pageQueryRequests": 334,
+      "firstOffset": "0",
+      "lastOffset": "9990",
+      "otherNoteRequests": 1,
+      "gridDomCards": 10000,
+      "navigationToInitialCardsMs": 3664.6,
+      "navigationToLastQueryResponseMs": 9809.01,
+      "pageErrors": [],
+      "listDomRows": 10
+    }
+  ]
+}

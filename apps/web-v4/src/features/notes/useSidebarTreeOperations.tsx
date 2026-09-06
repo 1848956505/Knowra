@@ -15,7 +15,7 @@ interface CreateRequest {
   parentFolderId: string | null;
 }
 
-export function useSidebarTreeOperations(): {
+export function useSidebarTreeOperations(onMutation?: () => void): {
   openCreate(mode: ActiveCreateMode, parentFolderId?: string | null): void;
   handleTreeAction(action: SidebarTreeAction): void;
   dialogs: ReactNode;
@@ -30,6 +30,12 @@ export function useSidebarTreeOperations(): {
   const [createRequest, setCreateRequest] = useState<CreateRequest | null>(null);
   const [renameTarget, setRenameTarget] = useState<TreeEntryTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TreeEntryTarget | null>(null);
+
+  async function runMutation<T>(mutation: Promise<T>): Promise<T> {
+    const result = await mutation;
+    onMutation?.();
+    return result;
+  }
 
   function openCreate(mode: ActiveCreateMode, parentFolderId: string | null = null) {
     setCreateRequest({ mode, parentFolderId });
@@ -50,7 +56,7 @@ export function useSidebarTreeOperations(): {
         setDeleteTarget({ kind: 'folder', id: action.folder.id, name: action.folder.name });
         return;
       case 'toggle-favorite':
-        void setNoteFavorite(action.note.id, !action.note.favorite).catch(() => undefined);
+        void runMutation(setNoteFavorite(action.note.id, !action.note.favorite)).catch(() => undefined);
         return;
       case 'rename-note':
         setRenameTarget({ kind: 'note', id: action.note.id, name: action.note.title || '未命名笔记' });
@@ -68,8 +74,8 @@ export function useSidebarTreeOperations(): {
           mode={createRequest.mode}
           parentFolderId={createRequest.parentFolderId}
           onOpenChange={(open) => { if (!open) setCreateRequest(null); }}
-          onCreateNote={createNote}
-          onCreateFolder={createFolder}
+          onCreateNote={(folderId, title) => runMutation(createNote(folderId, title))}
+          onCreateFolder={(parentId, name) => runMutation(createFolder(parentId, name))}
         />
       ) : null}
       {renameTarget ? (
@@ -78,8 +84,8 @@ export function useSidebarTreeOperations(): {
           target={renameTarget}
           onClose={() => setRenameTarget(null)}
           onRename={(value) => renameTarget.kind === 'folder'
-            ? renameFolder(renameTarget.id, value)
-            : renameNote(renameTarget.id, value)}
+            ? runMutation(renameFolder(renameTarget.id, value))
+            : runMutation(renameNote(renameTarget.id, value))}
         />
       ) : null}
       {deleteTarget ? (
@@ -88,8 +94,8 @@ export function useSidebarTreeOperations(): {
           target={deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onDelete={() => deleteTarget.kind === 'folder'
-            ? deleteFolder(deleteTarget.id)
-            : deleteNote(deleteTarget.id)}
+            ? runMutation(deleteFolder(deleteTarget.id))
+            : runMutation(deleteNote(deleteTarget.id))}
         />
       ) : null}
     </>

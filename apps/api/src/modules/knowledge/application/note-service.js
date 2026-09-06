@@ -190,6 +190,13 @@ export function createNoteService({
     },
     restoreNote(noteId) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
+      if (!currentNote.deleted) return currentNote;
+      validateSiblingNameConflict?.({
+        spaceId: currentNote.spaceId,
+        folderId: currentNote.folderId ?? null,
+        title: currentNote.title,
+        currentNoteId: currentNote.id
+      });
       const restoredNote = new Note({
         ...currentNote,
         deleted: false,
@@ -197,8 +204,7 @@ export function createNoteService({
         updatedAt: new Date().toISOString()
       });
 
-      repository.save(restoredNote);
-      return restoredNote;
+      return repository.save(restoredNote);
     },
     permanentlyDeleteNote(noteId) {
       const currentNote = requireNote(noteId, { includeDeleted: true });

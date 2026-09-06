@@ -63,6 +63,21 @@ test('post-deploy checks attachment integrity before reloading PM2', () => {
   assert.ok(attachmentCheckIndex < reloadIndex);
 });
 
+test('production deployment guide keeps the full test suite off the live host', () => {
+  const serverGuide = readWorkspaceFile('docs/阿里云ECS服务器信息.md');
+
+  assert.match(serverGuide, /不得在正在提供服务的生产主机上运行 `npm test`/);
+  assert.doesNotMatch(
+    serverGuide,
+    /cd \/opt\/knowra[\s\S]{0,1800}# \d+\. 部署前验证[\s\S]{0,120}npm test/
+  );
+});
+
+test('CI runs the V4 architecture boundary gate directly', () => {
+  const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+  assert.match(workflow, /npm run check:boundaries -w @study-accelerator\/web-v4/);
+});
+
 function readWorkspaceFile(relativePath) {
   return readFileSync(path.join(workspaceRoot, relativePath), 'utf8');
 }

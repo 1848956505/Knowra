@@ -51,6 +51,46 @@ describe('single V4 application store', () => {
     expect(JSON.parse(storage.getItem('workspace') ?? '{}').currentSpaceId).toBe('space-live');
   });
 
+  it('keeps live tag groups in cache after navigation and restores them offline', async () => {
+    const storage = createStorage();
+    const api = createApi();
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [],
+      notes: [{
+        id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+        rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false
+      }],
+      tags: [],
+      tagGroups: [{
+        id: 'group-live', spaceId: 'space-live', code: 'ordinary', name: '普通标签',
+        selectionMode: 'multiple', isSystem: true, sortOrder: 0
+      }]
+    });
+    const onlineStore = createAppStore({ api, storage, cacheKey: 'workspace-tag-groups', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await onlineStore.getState().loadWorkspace();
+
+    onlineStore.getState().selectNote('live-note');
+    expect(JSON.parse(storage.getItem('workspace-tag-groups') ?? '{}').tagGroups).toEqual([
+      expect.objectContaining({ id: 'group-live', code: 'ordinary' })
+    ]);
+
+    const offlineApi = createApi();
+    vi.mocked(offlineApi.listKnowledgeSpaces).mockRejectedValue(new Error('offline'));
+    const offlineStore = createAppStore({
+      api: offlineApi,
+      storage,
+      cacheKey: 'workspace-tag-groups',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+    await offlineStore.getState().loadWorkspace();
+
+    expect(offlineStore.getState().dataMode).toBe('cache');
+    expect(offlineStore.getState().serverData.tagGroups).toEqual([
+      expect.objectContaining({ id: 'group-live', code: 'ordinary' })
+    ]);
+    expect(offlineStore.getState().canWriteWorkspace()).toBe(false);
+  });
+
   it('keeps cache read-only when live loading fails', async () => {
     const storage = createStorage();
     storage.setItem('workspace', JSON.stringify(createBackendSnapshot({

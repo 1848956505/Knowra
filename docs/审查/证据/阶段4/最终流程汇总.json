@@ -1,0 +1,283 @@
+{
+  "basis": "每个流程采用完成断言的结果；原始失败记录保留，不能把缺陷复现计为产品通过",
+  "counts": {
+    "total": 25,
+    "pass": 14,
+    "defectReproduced": 11
+  },
+  "results": [
+    {
+      "id": "B01",
+      "outcome": "pass",
+      "noteId": "note-ui-79021315-96f4-4151-a5c8-6ba6c742d91c",
+      "persistedAndReloaded": true,
+      "source": "浏览器第二次结果.json"
+    },
+    {
+      "id": "B02",
+      "outcome": "defect-reproduced",
+      "finding": "S3-02",
+      "exportContainedLocalDraft": true,
+      "returnedEditorContent": "UI自动保存中文 😀\n\n第二段内容",
+      "serverContentUnchanged": true,
+      "source": "浏览器第二次结果.json"
+    },
+    {
+      "id": "B03",
+      "outcome": "defect-reproduced",
+      "finding": "S3-03",
+      "serverGroups": 4,
+      "cachedGroups": 0,
+      "offlineWriteActionsHidden": true,
+      "source": "浏览器流程结果.json"
+    },
+    {
+      "id": "B04",
+      "outcome": "defect-reproduced",
+      "finding": "S4-01",
+      "filterBeforeSearch": [
+        "检索样本A"
+      ],
+      "afterSearch": [
+        "检索样本A",
+        "检索样本B"
+      ],
+      "source": "浏览器索引初次结果.json"
+    },
+    {
+      "id": "B05",
+      "outcome": "pass",
+      "totalNotes": 12,
+      "listPageSizes": [
+        5,
+        2
+      ],
+      "emptySearchRows": 0,
+      "gridNotes": 12,
+      "source": "浏览器索引初次结果.json"
+    },
+    {
+      "id": "B06",
+      "outcome": "pass",
+      "softDelete": true,
+      "restore": true,
+      "permanentDelete": true,
+      "source": "浏览器索引初次结果.json"
+    },
+    {
+      "id": "B07",
+      "outcome": "pass",
+      "attachmentReady": "ready",
+      "markdownReferencesAttachment": true,
+      "imageDecodedAfterReload": true,
+      "source": "浏览器索引附件结果.json"
+    },
+    {
+      "id": "B08",
+      "outcome": "defect-reproduced",
+      "finding": "S4-02",
+      "nameFilled": true,
+      "createTagDisabled": true,
+      "systemGroups": 0,
+      "source": "浏览器首次使用结果.json"
+    },
+    {
+      "id": "B09",
+      "outcome": "pass",
+      "steps": [
+        {
+          "cache": "absent",
+          "mode": "local-recovery",
+          "writeActionsHidden": true
+        },
+        {
+          "cache": "malformed",
+          "mode": "local-recovery",
+          "writeActionsHidden": true
+        }
+      ],
+      "apiMutationRequests": 0,
+      "source": "浏览器恢复模式结果.json"
+    },
+    {
+      "id": "B10",
+      "outcome": "defect-reproduced",
+      "finding": "S4-03",
+      "responseStatus": 422,
+      "dialogRemainsOpen": true,
+      "displayedError": "检测到不安全的 HTTP 图片地址。请先下载图片，再通过粘贴或上传保存为 Knowra 本地附件。",
+      "firstFilePersisted": true,
+      "secondFileAbsent": true,
+      "firstFileSurvivesRestart": true,
+      "source": "浏览器批量导入结果.json"
+    },
+    {
+      "id": "H01",
+      "title": "F-01 创建→保存→过期请求409→重启读取",
+      "status": "verified",
+      "outcome": "pass",
+      "conflict": "NOTE_UPDATE_CONFLICT",
+      "restartContentMatches": true,
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H02",
+      "title": "F-01 两个相同基线的并发保存",
+      "status": "verified",
+      "outcome": "pass",
+      "statuses": [
+        200,
+        409
+      ],
+      "persisted": "A",
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H03",
+      "title": "F-02/03 单选标签、all/any查询、合并删除",
+      "status": "verified",
+      "outcome": "pass",
+      "paginationLimitApplied": true,
+      "source": "HTTP补充结果.json"
+    },
+    {
+      "id": "H04",
+      "title": "F-04 软删除、正常恢复、附件协调永久删除",
+      "status": "verified",
+      "outcome": "pass",
+      "attachmentId": "attachment-b44bd85b-aed9-4b30-97c9-4a04da2c9513",
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H05",
+      "title": "F-04 同级重名恢复",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S3-04",
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H06",
+      "title": "F-05 上传→正文引用→下载→重命名→删除与主动内容头",
+      "status": "verified",
+      "outcome": "pass",
+      "missingNoteCode": "NOTE_NOT_FOUND",
+      "activeContentDownload": true,
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H07",
+      "title": "F-06 JSON整库备份→导入→重启及坏引用拒绝",
+      "status": "verified",
+      "outcome": "pass",
+      "collections": [
+        "spaces",
+        "folders",
+        "tags",
+        "tagGroups",
+        "notes",
+        "noteVersions",
+        "knowledgeItems",
+        "knowledgeEvidence",
+        "learningObjectives",
+        "examProfiles",
+        "examFocuses",
+        "questions",
+        "questionObjectives",
+        "questionSources",
+        "attachments",
+        "contentAnnotations"
+      ],
+      "badImportStatus": 422,
+      "source": "HTTP补充结果.json"
+    },
+    {
+      "id": "H08",
+      "title": "F-07 版本→知识→目标→题目确认与来源失效",
+      "status": "verified",
+      "outcome": "pass",
+      "states": [
+        "needsRevision",
+        "candidate",
+        "candidate"
+      ],
+      "permanentDeleteBlocked": "NOTE_HAS_KNOWLEDGE_EVIDENCE",
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H09",
+      "title": "F-04 子树删除磁盘失败→HTTP500→重启",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S3-01",
+      "restartError": "STORAGE_SNAPSHOT_INVALID",
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H10",
+      "title": "F-01 真实HTTP跨UTF8分块→保存→重启",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S3-08",
+      "expected": "中文😀",
+      "actual": "���文😀",
+      "source": "HTTP流程结果.json"
+    },
+    {
+      "id": "H11",
+      "title": "F-02 文本搜索叠加多标签条件",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S4-01",
+      "filteredIds": [
+        "search-tagged"
+      ],
+      "searchedIds": [
+        "search-tagged",
+        "search-untagged"
+      ],
+      "source": "HTTP扩展结果.json"
+    },
+    {
+      "id": "H12",
+      "title": "F-08 新空间系统分组初始化→重启对照",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S4-02",
+      "groupsBeforeRestart": 0,
+      "groupsAfterRestart": 4,
+      "source": "HTTP扩展结果.json"
+    },
+    {
+      "id": "H13",
+      "title": "F-04 批量导入后项冲突的提交结果",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S4-03",
+      "errorCode": "SIBLING_NAME_CONFLICT",
+      "persistedAfterFailedBatch": [
+        "batch-first"
+      ],
+      "source": "HTTP扩展结果.json"
+    },
+    {
+      "id": "H14",
+      "title": "F-07 标注幂等→绑定版本→归档使证据失效",
+      "status": "verified",
+      "outcome": "pass",
+      "idempotent": true,
+      "versionBound": true,
+      "archiveDowngradedKnowledge": true,
+      "source": "HTTP标注补充结果.json"
+    },
+    {
+      "id": "H15",
+      "title": "F-06 导入落盘失败后数据与附件目录回滚",
+      "status": "verified",
+      "outcome": "pass",
+      "dataAndFilesRestored": true,
+      "restarted": true,
+      "source": "HTTP扩展结果.json"
+    }
+  ]
+}

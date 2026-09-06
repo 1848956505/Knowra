@@ -1,0 +1,39 @@
+{
+  "node": "v26.4.0",
+  "driver": "local-json",
+  "transport": "real node:http on loopback",
+  "results": [
+    {
+      "id": "H03",
+      "title": "F-02/03 单选标签、all/any查询、合并删除",
+      "status": "verified",
+      "outcome": "pass",
+      "paginationLimitApplied": true
+    },
+    {
+      "id": "H07",
+      "title": "F-06 JSON整库备份→导入→重启及坏引用拒绝",
+      "status": "verified",
+      "outcome": "pass",
+      "collections": [
+        "spaces",
+        "folders",
+        "tags",
+        "tagGroups",
+        "notes",
+        "noteVersions",
+        "knowledgeItems",
+        "knowledgeEvidence",
+        "learningObjectives",
+        "examProfiles",
+        "examFocuses",
+        "questions",
+        "questionObjectives",
+        "questionSources",
+        "attachments",
+        "contentAnnotations"
+      ],
+      "badImportStatus": 422
+    }
+  ]
+}

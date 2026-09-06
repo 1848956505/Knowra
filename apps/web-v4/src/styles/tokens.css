@@ -1,7 +1,7 @@
 /* V4-04 Canonical Tokens
  *
  * 1:1 转译自 V4-00.5「印格」视觉冻结规范 §3（docs/前端重构/V4/V4-00.5/印格/V4-00.5-印格视觉冻结规范.md）。
- * 任何 token 名称、值或顺序调整都必须先回到 V4-00.5 走冻结变更流程。
+ * 2026-09-05：按用户截图更新搜索、组件浅色阴影及按钮 hover；其余沿用冻结基线。
  *
  * V4-04 复审扩展：V4-00.5 demo 实际使用了 1px / 3px 0 / 4px 4px 0 / 7px 7px 0 等多种硬阴影，
  * 以及 Dialog 背景的 rgba 半透明遮罩。这些值不在 §3.4 的初版 Token 中，本轮在 tokens.css
@@ -34,8 +34,14 @@
   --ink-shell: #a8a29a;
 
   /* 3.4 阴影（必须实心位移，禁止模糊） */
-  --shadow-1: 2px 2px 1px #6b6b6b;
-  --shadow-2: 3px 3px 1px #6b6b6b;
+  --ink-shadow: #d1cec6;
+  --ink-shadow-hover: #bcc8ed;
+  --ink-search-rest: #eeebe3;
+  --shadow-search-rest: inset 2px 2px 0 var(--ink-panel);
+  --shadow-search-focus: 3px 3px 0 var(--ink-accent);
+  --shadow-button-hover: 3px 3px 0 var(--ink-shadow-hover);
+  --shadow-1: 2px 2px 0 var(--ink-shadow);
+  --shadow-2: 3px 3px 0 var(--ink-shadow);
   --shadow-focus: 3px 3px 0 var(--ink-accent);
   /* 输入控件语义：可见外壳是唯一阴影所有者，原生 input/textarea 永不持有阴影。
      三态均为无模糊硬边；invalid+focused 由 invalid token 优先。 */
@@ -43,12 +49,12 @@
   --shadow-input-focus: 3px 3px 0 var(--ink-accent);
   --shadow-input-invalid: 3px 3px 0 var(--ink-danger);
   /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
-  --shadow-card: 1px 1px 0 var(--ink);
+  --shadow-card: 1px 1px 0 var(--ink-shadow);
   --shadow-card-danger: 3px 3px 0 var(--ink-danger);
   /* V4-04 反馈（老公 2026-08-21）：Dialog 不再用双层硬阴影（之前 4px 黑 + 7px 蓝），
-     改为单层 4px 黑色。蓝色强调改由 DialogClose 业务按钮的 accent 变体承担。 */
-  --shadow-dialog: 4px 4px 0 var(--ink);
-  --shadow-badge: 2px 2px 0 var(--ink);
+     改为单层 4px 阴影；2026-09-05 跟随中性阴影浅色化。蓝色强调由关闭按钮承担。 */
+  --shadow-dialog: 4px 4px 0 var(--ink-shadow);
+  --shadow-badge: 2px 2px 0 var(--ink-shadow);
 
   /* 3.6 外壳尺寸 */
   --rail-size: 64px;
@@ -80,4 +86,74 @@
   --scrim-busy: rgb(var(--ink-bg-rgb) / 0.7);
 
   color-scheme: light;
+}
+
+/* 索引面板：仅面板本身持有单层右下阴影；尺寸集中供视图复用。 */
+:root {
+  --shadow-index-frame: 8px 8px 0 var(--ink-shadow);
+  --index-table-head: #eae7df;
+  --index-folder-bg: #f6f7fb;
+  --index-blue-wash: #edf1ff;
+  --index-grid-bg: #fbfaf6;
+  --index-grid-line: rgb(26 26 26 / 0.035);
+  --index-tile-border: #cbc7be;
+  --index-tile-shadow: #d5d1c9;
+  --index-draft-ink: #a34d0d;
+  --index-draft-edge: #cf863c;
+  --index-active-edge: #708bd5;
+  --index-done-ink: #187642;
+  --index-done-edge: #52996f;
+  --index-size-48: 48px;
+  --index-size-24: 24px;
+  --index-size-1: 1px;
+  --index-size-n9: -9px;
+  --index-size-106: 106px;
+  --index-size-8: 8px;
+  --index-size-3: 3px;
+  --index-size-14: 14px;
+  --index-size-64: 64px;
+  --index-size-12: 12px;
+  --index-size-16: 16px;
+  --index-size-9: 9px;
+  --index-size-11: 11px;
+  --index-size-10: 10px;
+  --index-size-6: 6px;
+  --index-size-32: 32px;
+  --index-size-34: 34px;
+  --index-size-5: 5px;
+  --index-size-28: 28px;
+  --index-size-7: 7px;
+  --index-size-36: 36px;
+  --index-size-n1: -1px;
+  --index-size-n2: -2px;
+  --index-size-220: 220px;
+  --index-size-150: 150px;
+  --index-size-20: 20px;
+  --index-size-120: 120px;
+  --index-size-40: 40px;
+  --index-size-38: 38px;
+  --index-size-18: 18px;
+  --index-size-54: 54px;
+  --index-size-4: 4px;
+  --index-size-180: 180px;
+  --index-size-13: 13px;
+  --index-size-30: 30px;
+  --index-size-22: 22px;
+  --index-size-44: 44px;
+  --index-size-660: 660px;
+  --index-size-66: 66px;
+  --index-size-42: 42px;
+  --index-size-26: 26px;
+  --index-size-n7: -7px;
+  --index-size-2: 2px;
+  --index-size-142: 142px;
+  --index-size-164: 164px;
+  --index-size-84: 84px;
+  --index-size-88: 88px;
+  --index-size-76: 76px;
+  --index-size-n12: -12px;
+  --index-size-72: 72px;
+  --index-size-17: 17px;
+  --index-size-n3: -3px;
+  --index-size-50: 50px;
 }

@@ -22,7 +22,6 @@ import { TextSelection } from '@milkdown/kit/prose/state';
 import { selectTextblockEnd, selectTextblockStart } from '@milkdown/kit/prose/commands';
 import {
   commonmark,
-  createCodeBlockCommand,
   insertHrCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
@@ -33,6 +32,7 @@ import { gfm, insertTableCommand, toggleStrikethroughCommand } from '@milkdown/k
 import { callCommand, getHTML, getMarkdown, replaceAll as replaceAllMarkdown } from '@milkdown/kit/utils';
 import {
   insertParagraphNearSelection,
+  runCodeBlockCommand,
   runDeleteSelectionCommand,
   runHeadingCommand,
   runIndentCommand,
@@ -506,7 +506,7 @@ const commandResolvers: Record<EditorCommand, (editor: Editor) => boolean> = {
   'ordered-list': (editor) => runListCommand(editor, 'ordered_list'),
   'task-list': (editor) => Boolean(editor.action(callCommand(turnIntoTaskListCommand.key))),
   blockquote: (editor) => Boolean(editor.action(callCommand(wrapInBlockquoteCommand.key))),
-  'code-block': (editor) => Boolean(editor.action(callCommand(createCodeBlockCommand.key, ''))),
+  'code-block': runCodeBlockCommand,
   'horizontal-rule': (editor) => Boolean(editor.action(callCommand(insertHrCommand.key))),
   table: (editor) => Boolean(editor.action(callCommand(insertTableCommand.key, { row: 3, col: 3 }))),
   'delete-selection': runDeleteSelectionCommand,

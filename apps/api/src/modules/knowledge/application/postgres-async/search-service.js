@@ -6,13 +6,15 @@ function normalizeQuery(value) {
 
 export function createAsyncSearchService({ listNotes }) {
   return {
-    async searchNotes({ query, spaceId, folderId = null, tagId = null, sortBy, order, limit, offset, includeDeleted, deletedOnly, favoriteOnly }) {
+    async searchNotes({ query, spaceId, folderId = null, tagId = null, tagIds = [], tagMatch, match, sortBy, order, limit, offset, includeDeleted, deletedOnly, favoriteOnly }) {
       const normalizedQuery = normalizeQuery(query);
       if (!normalizedQuery) return [];
       const results = (await listNotes({
         spaceId,
         folderId,
         tagId,
+        tagIds,
+        tagMatch: tagMatch ?? match,
         sortBy,
         order,
         includeDeleted,

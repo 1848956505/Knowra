@@ -1,0 +1,13 @@
+{
+  "outcome": "pass",
+  "currentRepository": {
+    "command": "npm run check:boundaries -w @study-accelerator/web-v4",
+    "exitCode": 0
+  },
+  "isolatedViolation": {
+    "fixture": "temporary V4 source importing apps/web V3 code",
+    "exitCode": 1,
+    "messageMatched": "V4 must not import V3 module or asset"
+  },
+  "ciCommandRegistered": true
+}

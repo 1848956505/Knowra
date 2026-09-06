@@ -1,0 +1,73 @@
+{
+  "environment": {
+    "node": "v26.4.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5",
+    "logicalCpus": 10,
+    "memoryGiB": 16,
+    "driver": "local-json",
+    "transport": "loopback HTTP; client and server share process",
+    "seeding": "clone valid note and flush once; not timed",
+    "sampling": "20 warm page requests; one serial scan and one save per scale; no SLO supplied"
+  },
+  "rows": [
+    {
+      "notes": 100,
+      "markdownBytesPerNote": 1043,
+      "snapshotBytes": 255576,
+      "page30": {
+        "samples": 20,
+        "p50Ms": 1.854,
+        "p95Ms": 2.33
+      },
+      "serialFetchAll": {
+        "requests": 4,
+        "bytes": 62860,
+        "ms": 6.605
+      },
+      "saveMs": 7.108,
+      "rssBeforeMiB": 76.31,
+      "rssAfterMiB": 92.56,
+      "eventLoopMaxMs": 11.035
+    },
+    {
+      "notes": 1000,
+      "markdownBytesPerNote": 1043,
+      "snapshotBytes": 2538876,
+      "page30": {
+        "samples": 20,
+        "p50Ms": 2.839,
+        "p95Ms": 3.112
+      },
+      "serialFetchAll": {
+        "requests": 34,
+        "bytes": 631390,
+        "ms": 63.587
+      },
+      "saveMs": 21.736,
+      "rssBeforeMiB": 109.2,
+      "rssAfterMiB": 121.11,
+      "eventLoopMaxMs": 29.934
+    },
+    {
+      "notes": 10000,
+      "markdownBytesPerNote": 1043,
+      "snapshotBytes": 25380876,
+      "page30": {
+        "samples": 20,
+        "p50Ms": 10.322,
+        "p95Ms": 11.019
+      },
+      "serialFetchAll": {
+        "requests": 334,
+        "bytes": 6325990,
+        "ms": 1342.16
+      },
+      "saveMs": 106.357,
+      "rssBeforeMiB": 338.39,
+      "rssAfterMiB": 489.81,
+      "eventLoopMaxMs": 109.969
+    }
+  ]
+}

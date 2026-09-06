@@ -38,6 +38,15 @@ describe('editorShortcuts', () => {
     expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'H', code: 'KeyH', shiftKey: true })).toBe('highlight');
   });
 
+  it('routes the native Milkdown code-block shortcut through Typora semantics', () => {
+    expect(resolveEditorShortcutCommand({
+      ...baseShortcut, key: 'c', altKey: true
+    })).toBe('code-block');
+    expect(resolveEditorShortcutCommand({
+      ...baseShortcut, key: 'C', ctrlKey: false, metaKey: true, altKey: true
+    })).toBe('code-block');
+  });
+
   it('prioritizes indentation while focus is inside the editor', () => {
     expect(resolveEditorShortcutCommand({
       ...baseShortcut, key: 'Tab', ctrlKey: false

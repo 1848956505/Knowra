@@ -17,9 +17,12 @@ export function createTagGroupService({ repository = createInMemoryTagGroupRepos
   return {
     createTagGroup(input) {
       const dto = buildCreateTagGroupDto(input);
+      if (repository.findById(dto.id)) {
+        throw conflictError('TAG_GROUP_ID_CONFLICT', 'A tag group with the same id already exists');
+      }
       validateSpaceReference?.(dto.spaceId);
       assertName(dto.spaceId, dto.name);
-      return repository.save(new TagGroup(dto));
+      return repository.create(new TagGroup(dto));
     },
     updateTagGroup(id, updates) {
       const current = requireGroup(id);

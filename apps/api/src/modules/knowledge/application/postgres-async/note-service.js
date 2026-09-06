@@ -127,6 +127,15 @@ export function createAsyncNoteService({
 
   async function saveDeletedState(noteId, deleted) {
     const currentNote = await requireNote(noteId, { includeDeleted: true });
+    if (currentNote.deleted === deleted) return currentNote;
+    if (!deleted) {
+      await validateSiblingNameConflict?.({
+        spaceId: currentNote.spaceId,
+        folderId: currentNote.folderId ?? null,
+        title: currentNote.title,
+        currentNoteId: currentNote.id
+      });
+    }
     return runTransaction(async ({
       noteRepository: transactionNoteRepository = repository,
       onNoteDeleted: transactionOnNoteDeleted = onNoteDeleted

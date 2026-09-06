@@ -26,6 +26,7 @@ import { createLearningObjectiveService } from './application/learning-objective
 import { createAssessmentContextService } from './application/assessment-context-service.js';
 import { createQuestionService } from './application/question-service.js';
 import { createWorkspaceQueryService } from './application/workspace-query-service.js';
+import { bindLocalServiceTransactions } from './application/local-service-transactions.js';
 import {
   conflictError,
   validationError
@@ -250,7 +251,9 @@ export function createKnowledgeModule(options = {}) {
     validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG_GROUP')
   });
   const knowledgeSpaceService = createKnowledgeSpaceService({
-    repository: knowledgeSpaceRepository
+    repository: knowledgeSpaceRepository,
+    tagGroupRepository,
+    runTransaction
   });
   const contentAnnotationService = createContentAnnotationService({
     repository: contentAnnotationRepository,
@@ -329,11 +332,13 @@ export function createKnowledgeModule(options = {}) {
   });
 
   function deleteFolderAndCleanup(folderId) {
-    const subtreeIds = folderService.getFolderSubtreeIds(folderId);
-    subtreeIds.forEach((id) => {
-      noteService.clearFolderFromNotes(id);
+    return runTransaction(() => {
+      const subtreeIds = folderService.getFolderSubtreeIds(folderId);
+      subtreeIds.forEach((id) => {
+        noteService.clearFolderFromNotes(id);
+      });
+      return folderService.deleteFolder(folderId);
     });
-    return folderService.deleteFolder(folderId);
   }
 
   function deleteTagAndCleanup(tagId) {
@@ -356,6 +361,25 @@ export function createKnowledgeModule(options = {}) {
       tagRepository.delete(sourceTagId);
       return target;
     });
+  }
+
+  // New service operations default to a transaction; only explicitly read-only
+  // methods skip the snapshot/commit boundary. Nested writes share one commit.
+  for (const [service, reads] of [
+    [noteService, ['getNote', 'getLinkedNotes', 'listNotes']],
+    [folderService, ['listFolders', 'listFolderTree', 'getFolderSubtreeIds']],
+    [tagService, ['listTags']],
+    [tagGroupService, ['listTagGroups']],
+    [knowledgeSpaceService, ['listKnowledgeSpaces', 'createDefaultKnowledgeSpace']],
+    [contentAnnotationService, ['listAnnotationsByNote', 'getAnnotation']],
+    [noteVersionService, ['getVersion', 'listVersions']],
+    [knowledgeItemService, ['getItem', 'listItems', 'listEvidence']],
+    [learningObjectiveService, ['getObjective', 'listObjectives']],
+    [examProfileService, ['get', 'list']],
+    [examFocusService, ['get', 'list']],
+    [questionService, ['getQuestion', 'listQuestions']]
+  ]) {
+    bindLocalServiceTransactions(service, runTransaction, reads);
   }
 
   return {

@@ -1,0 +1,19 @@
+{
+  "browser": "151.0.7922.34",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "transport": "Vite same-origin proxy to isolated real API",
+  "results": [
+    {
+      "id": "B03",
+      "outcome": "defect-reproduced",
+      "finding": "S3-03",
+      "serverGroups": 4,
+      "cachedGroups": 0,
+      "offlineWriteActionsHidden": true
+    }
+  ],
+  "pageErrors": []
+}

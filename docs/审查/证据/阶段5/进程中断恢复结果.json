@@ -1,0 +1,37 @@
+{
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "method": "real child SIGKILL; Windows EPERM forced through fileSystem adapter on macOS, not Windows acceptance",
+  "results": [
+    {
+      "mode": "before-rename",
+      "outcome": "pass",
+      "signal": "SIGKILL",
+      "targetPresentBeforeRestart": true,
+      "spacesAfterRestart": [
+        "old-space"
+      ],
+      "backupPresent": false,
+      "temporaryPresent": true
+    },
+    {
+      "mode": "after-rename",
+      "outcome": "pass",
+      "signal": "SIGKILL",
+      "targetPresentBeforeRestart": true,
+      "spacesAfterRestart": [],
+      "backupPresent": false,
+      "temporaryPresent": false
+    },
+    {
+      "mode": "fallback-gap",
+      "outcome": "defect-reproduced",
+      "finding": "S5-02",
+      "signal": "SIGKILL",
+      "targetPresentBeforeRestart": false,
+      "spacesAfterRestart": [],
+      "backupPresent": true,
+      "temporaryPresent": true
+    }
+  ]
+}

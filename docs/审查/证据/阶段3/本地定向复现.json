@@ -1,0 +1,26 @@
+{
+  "node": "v26.4.0",
+  "kind": "isolated defect reproductions",
+  "results": [
+    {
+      "id": "S3-01a",
+      "result": "confirmed",
+      "observation": "新建目录报错后内存保留记录；下次成功写入将失败记录一并落盘"
+    },
+    {
+      "id": "S3-01b",
+      "result": "confirmed",
+      "observation": "删除子树第二次写入失败后，磁盘保留指向已删除父目录的子目录，重启校验拒绝加载"
+    },
+    {
+      "id": "S3-04",
+      "result": "confirmed",
+      "observation": "回收站恢复绕过同级重名检查，得到两篇同级同名有效笔记"
+    },
+    {
+      "id": "S3-05",
+      "result": "confirmed",
+      "observation": "创建分组重复 ID 直接覆盖原分组，绕过有标签时禁止切换单多选规则"
+    }
+  ]
+}

@@ -30,7 +30,7 @@
 
 .ghost:hover:not(:disabled) {
   background: var(--ink-sunken);
-  color: var(--ink);
+  color: var(--ink-accent-hover);
 }
 
 .ghost:active:not(:disabled) {
@@ -53,7 +53,7 @@
  * attribute selector 跨 CSS Module 匹配，比 className 拼接更稳健。 */
 .ghost[data-force-hover]:not(:disabled) {
   background: var(--ink-sunken);
-  color: var(--ink);
+  color: var(--ink-accent-hover);
 }
 
 .ghost[data-force-focus] {

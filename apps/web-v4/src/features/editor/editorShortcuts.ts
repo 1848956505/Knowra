@@ -38,6 +38,15 @@ export function resolveEditorShortcutCommand(input: EditorShortcutInput): Editor
     return input.shiftKey ? 'outdent' : 'indent';
   }
 
+  if (
+    input.altKey
+    && !input.shiftKey
+    && (input.ctrlKey || input.metaKey)
+    && input.key.toLowerCase() === 'c'
+  ) {
+    return 'code-block';
+  }
+
   if (input.altKey || (!input.ctrlKey && !input.metaKey)) return null;
 
   if (!input.shiftKey) {

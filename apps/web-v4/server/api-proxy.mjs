@@ -1,6 +1,8 @@
-export async function proxyApiRequest({ request, response, url, apiOrigin }) {
+const DEFAULT_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
+
+export async function proxyApiRequest({ request, response, url, apiOrigin, limitBytes = DEFAULT_BODY_LIMIT_BYTES }) {
   const upstreamUrl = new URL(url.pathname + url.search, apiOrigin);
-  const requestBody = await readRequestBody(request);
+  const requestBody = await readRequestBody(request, limitBytes);
   const upstreamResponse = await fetch(upstreamUrl, {
     method: request.method,
     headers: buildProxyHeaders(request.headers),
@@ -22,11 +24,36 @@ function buildProxyHeaders(headers) {
   )));
 }
 
-function readRequestBody(request) {
+function readRequestBody(request, limitBytes) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    request.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    request.on('end', () => resolve(chunks.length ? Buffer.concat(chunks) : undefined));
-    request.on('error', reject);
+    let size = 0;
+    let finished = false;
+    const fail = (error) => {
+      if (finished) return;
+      finished = true;
+      chunks.length = 0;
+      reject(error);
+    };
+    request.on('data', (chunk) => {
+      if (finished) return;
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.byteLength;
+      if (size > limitBytes) {
+        fail(Object.assign(new Error('Request body is too large'), {
+          statusCode: 413, code: 'PAYLOAD_TOO_LARGE'
+        }));
+        return;
+      }
+      chunks.push(buffer);
+    });
+    request.on('end', () => {
+      if (finished) return;
+      finished = true;
+      resolve(size ? Buffer.concat(chunks, size) : undefined);
+      chunks.length = 0;
+    });
+    request.on('error', fail);
+    request.on('aborted', () => fail(new Error('Request body was interrupted')));
   });
 }

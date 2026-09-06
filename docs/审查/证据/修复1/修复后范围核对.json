@@ -1,0 +1,23 @@
+{
+  "changedSinceRepairBaseline": [
+    "apps/api/src/http/request.js",
+    "apps/api/src/infrastructure/file-data-store.js",
+    "apps/api/src/modules/knowledge/index.js",
+    "apps/api/test/file-data-store.test.js",
+    "apps/api/test/http-request.test.js",
+    "apps/api/test/run-tests.js",
+    "apps/api/test/server-http.test.js",
+    "apps/web-v4/server/api-proxy.mjs",
+    "apps/web-v4/server/app.mjs",
+    "docs/工程变更日志.md",
+    "docs/项目结构导航.md"
+  ],
+  "missingSinceRepairBaseline": [],
+  "addedOutsideRepairEvidence": [
+    "apps/api/src/modules/knowledge/application/local-service-transactions.js",
+    "apps/api/test/local-business-transactions.test.js",
+    "apps/web-v4/server/api-proxy.test.mjs",
+    "docs/审查/21-修复计划与进度.md"
+  ],
+  "scope": "仅相对修复前指纹核对；不把原有未提交差异归入本批"
+}

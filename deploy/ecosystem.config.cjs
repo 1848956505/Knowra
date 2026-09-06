@@ -1,6 +1,8 @@
 const path = require('node:path');
+const { resolveDeploymentEnv } = require('./runtime-env.cjs');
 
 const workspaceRoot = path.resolve(__dirname, '..');
+const runtimeEnv = resolveDeploymentEnv();
 
 module.exports = {
   apps: [
@@ -10,7 +12,7 @@ module.exports = {
       script: 'apps/api/src/main.js',
       env: {
         NODE_ENV: 'production',
-        PORT: process.env.KNOWRA_API_PORT || '3001',
+        PORT: runtimeEnv.apiPort,
         KNOWRA_OWNER_ID: process.env.KNOWRA_OWNER_ID || 'demo'
       }
     },
@@ -20,8 +22,8 @@ module.exports = {
       script: 'apps/web-v4/server.mjs',
       env: {
         NODE_ENV: 'production',
-        PORT: process.env.KNOWRA_WEB_PORT || '3000',
-        API_ORIGIN: process.env.API_ORIGIN || 'http://127.0.0.1:3001'
+        PORT: runtimeEnv.webPort,
+        API_ORIGIN: runtimeEnv.apiOrigin
       }
     }
   ]

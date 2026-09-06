@@ -17,6 +17,7 @@ export function createNavigationSlice(
       currentSpaceId: state.serverData.currentSpaceId,
       folderTree: state.serverData.folderTree,
       tags: state.serverData.tags,
+      tagGroups: state.serverData.tagGroups,
       allNotes: state.serverData.notes,
       selectedFolderId: navigation.selectedFolderId,
       selectedNoteId: navigation.selectedNoteId,

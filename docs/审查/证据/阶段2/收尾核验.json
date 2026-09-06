@@ -1,0 +1,50 @@
+{
+  "baselineId": "KNOWRA-REVIEW-20260906-B2",
+  "verifiedAt": "2026-09-06T02:40:10.348Z",
+  "baselineCount": 1446,
+  "changes": [
+    {
+      "path": "docs/审查/README.md",
+      "expected": true
+    },
+    {
+      "path": "docs/工程变更日志.md",
+      "expected": true
+    },
+    {
+      "path": "docs/项目结构导航.md",
+      "expected": true
+    }
+  ],
+  "sourceHashesPreserved": true,
+  "addedFiles": [
+    "docs/审查/04-第二阶段审查报告.md",
+    "docs/审查/05-模块地图与依赖关系.md",
+    "docs/审查/06-第二阶段规范符合性矩阵.md",
+    "docs/审查/07-第二阶段候选问题清单.md",
+    "docs/审查/证据/阶段2/static-audit.cjs",
+    "docs/审查/证据/阶段2/文件覆盖.json",
+    "docs/审查/证据/阶段2/文档链接候选.json",
+    "docs/审查/证据/阶段2/架构门禁.json",
+    "docs/审查/证据/阶段2/范围与样式检查.json",
+    "docs/审查/证据/阶段2/补充结构检查.json",
+    "docs/审查/证据/阶段2/配置推演.json",
+    "docs/审查/证据/阶段2/静态依赖.json",
+    "docs/审查/证据/阶段2/静态扫描.json"
+  ],
+  "closingEvidence": "docs/审查/证据/阶段2/收尾核验.json",
+  "unexpectedAdded": [],
+  "localLinksChecked": 24,
+  "brokenLinks": [],
+  "normativeRows": 35,
+  "uniqueNormativeRows": 35,
+  "whitespaceIssues": [],
+  "trackedWhitespace": {
+    "exitCode": 0,
+    "output": ""
+  },
+  "staticParserErrors": [],
+  "businessTestsExecuted": false,
+  "checksPassed": true,
+  "scope": "只验证本阶段资料、规则覆盖和 B2 漂移；no-index 退出码 1 无诊断表示文件内容有差异，不是空白错误。未校验 Markdown 锚点或外部链接。"
+}

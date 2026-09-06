@@ -1,0 +1,24 @@
+{
+  "outcome": "pass",
+  "cases": [
+    {
+      "input": {},
+      "apiPort": "3001",
+      "webPort": "3000",
+      "apiOrigin": "http://127.0.0.1:3001"
+    },
+    {
+      "input": { "KNOWRA_API_PORT": "43123", "KNOWRA_WEB_PORT": "43124" },
+      "apiPort": "43123",
+      "webPort": "43124",
+      "apiOrigin": "http://127.0.0.1:43123",
+      "realProxyRequest": "pass"
+    },
+    {
+      "input": { "KNOWRA_API_PORT": "1", "API_ORIGIN": "isolated-live-upstream" },
+      "apiOrigin": "isolated-live-upstream",
+      "explicitOverride": true,
+      "realProxyRequest": "pass"
+    }
+  ]
+}

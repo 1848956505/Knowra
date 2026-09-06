@@ -12,15 +12,18 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid var(--ink);
-  background: var(--ink-bg);
+  border: 1px solid var(--ink-shell);
+  background: var(--ink-search-rest);
   color: var(--ink);
-  box-shadow: var(--shadow-input-rest);
+  box-shadow: var(--shadow-search-rest);
   transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
 .inputRow:focus-within {
-  box-shadow: var(--shadow-input-focus);
+  border-color: var(--ink-accent);
+  background: var(--ink-surface);
+  color: var(--ink-accent);
+  box-shadow: var(--shadow-search-focus);
 }
 
 .input {
@@ -28,7 +31,7 @@
   min-width: 0;
   border: 0;
   background: transparent;
-  color: inherit;
+  color: var(--ink);
   font: 700 14px/1.4 var(--font-ui);
   outline: 0;
   box-shadow: none;

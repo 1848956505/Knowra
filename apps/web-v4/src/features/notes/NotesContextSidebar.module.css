@@ -36,9 +36,9 @@
   gap: 8px;
   margin: 14px 12px 10px;
   padding: 0 10px;
-  border: 1px solid var(--ink);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-input-rest);
+  border: 1px solid var(--ink-shell);
+  background: var(--ink-search-rest);
+  box-shadow: var(--shadow-search-rest);
   color: var(--ink-secondary);
   transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
@@ -55,7 +55,10 @@
 }
 
 .search:focus-within {
-  box-shadow: var(--shadow-input-focus);
+  border-color: var(--ink-accent);
+  background: var(--ink-surface);
+  color: var(--ink-accent);
+  box-shadow: var(--shadow-search-focus);
 }
 
 .search input {
@@ -130,6 +133,10 @@
 .sectionBody {
   display: grid;
   gap: 2px;
+}
+
+.sectionBody[hidden] {
+  display: none;
 }
 
 .navRow,

@@ -23,6 +23,7 @@ import {
   dbNoteVersion,
   dbSpace,
   dbTag,
+  dbTagGroup,
   dbUser
 } from './db-mappers.js';
 import {
@@ -42,6 +43,7 @@ import {
   transformNoteVersion,
   transformSpace,
   transformTag,
+  transformTagGroup,
   validateDatabaseConstraints
 } from './json-transformers.js';
 import { createPostgresAdvisoryLock } from '../postgres-advisory-lock.js';
@@ -98,6 +100,7 @@ export function buildJsonMigrationPlan({
     users: [],
     spaces: state.spaces.map((space) => transformSpace(space, fallbackTimestamp)),
     folders: state.folders.map((folder) => transformFolder(folder, fallbackTimestamp)),
+    tagGroups: state.tagGroups.map((group) => transformTagGroup(group, fallbackTimestamp)),
     tags: state.tags.map((tag) => transformTag(tag, fallbackTimestamp)),
     notes: state.notes.map((note) => transformNote(note, fallbackTimestamp, reportTools)),
     noteVersions: [],
@@ -213,7 +216,7 @@ export function buildJsonMigrationPlan({
     if (transformed) plan.attachments.push(transformed);
   }
 
-  for (const collection of ['users', 'spaces', 'folders', 'tags', 'notes', 'noteVersions', 'knowledgeItems', 'knowledgeEvidence', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources', 'noteTags', 'annotations', 'attachments']) {
+  for (const collection of ['users', 'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions', 'knowledgeItems', 'knowledgeEvidence', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources', 'noteTags', 'annotations', 'attachments']) {
     reportTools.count(collection, plan[collection].length);
   }
   report.checksum = checksumPlan(plan);
@@ -254,6 +257,7 @@ export async function applyJsonMigration({
       await tx.noteTag.deleteMany();
       await tx.note.deleteMany();
       await tx.tag.deleteMany();
+      await tx.tagGroup.deleteMany();
       await tx.folder.deleteMany();
       await tx.knowledgeSpace.deleteMany();
       await tx.user.deleteMany();
@@ -261,6 +265,7 @@ export async function applyJsonMigration({
     if (plan.users.length) await tx.user.createMany({ data: plan.users.map(dbUser) });
     if (plan.spaces.length) await tx.knowledgeSpace.createMany({ data: plan.spaces.map(dbSpace) });
     if (plan.folders.length) await tx.folder.createMany({ data: plan.folders.map(dbFolder) });
+    if (plan.tagGroups.length) await tx.tagGroup.createMany({ data: plan.tagGroups.map(dbTagGroup) });
     if (plan.tags.length) await tx.tag.createMany({ data: plan.tags.map(dbTag) });
     if (plan.notes.length) await tx.note.createMany({ data: plan.notes.map(dbNote) });
     if (plan.noteVersions.length) await tx.noteVersion.createMany({ data: plan.noteVersions.map(dbNoteVersion) });
@@ -290,7 +295,7 @@ export async function applyJsonMigration({
 }
 
 export async function assertEmptyTarget(client) {
-  const models = ['user', 'knowledgeSpace', 'folder', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
+  const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
   for (const model of models) {
     const count = await client[model].count();
     if (count > 0) {

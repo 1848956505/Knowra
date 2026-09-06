@@ -1,0 +1,13 @@
+{
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "id": "B07",
+      "outcome": "pass",
+      "attachmentReady": "ready",
+      "markdownReferencesAttachment": true,
+      "imageDecodedAfterReload": true
+    }
+  ],
+  "pageErrors": []
+}

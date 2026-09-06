@@ -606,7 +606,8 @@ export const phase1PostgresTests = [
               async createMany({ data }) {
                 events.push(`spaces:${data.length}`);
               }
-            }
+            },
+            tagGroup: { async createMany({ data }) { events.push(`groups:${data.length}`); } }
           });
         }
       };
@@ -619,7 +620,7 @@ export const phase1PostgresTests = [
       });
       assert.equal(report.status, 'applied');
       assert.match(events[0], /pg_advisory_xact_lock\(/);
-      assert.deepEqual(events.slice(1), ['users:1', 'spaces:1']);
+      assert.deepEqual(events.slice(1), ['users:1', 'spaces:1', `groups:${prepared.plan.tagGroups.length}`]);
     }
   },
   {

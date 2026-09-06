@@ -1,0 +1,61 @@
+{
+  "verifiedAt": "2026-09-05T15:36:40.844Z",
+  "baselineId": "KNOWRA-REVIEW-20260905-B1",
+  "baselineFiles": 1437,
+  "baselineContentChanges": [
+    {
+      "path": "docs/工程变更日志.md",
+      "expected": true,
+      "state": "changed"
+    },
+    {
+      "path": "docs/项目结构导航.md",
+      "expected": true,
+      "state": "changed"
+    }
+  ],
+  "unexpectedBaselineChanges": [],
+  "newFilesBeforeThisEvidence": [
+    "docs/审查/00-全项目工程质量审查方案.md",
+    "docs/审查/01-第一阶段审查报告.md",
+    "docs/审查/02-规范清单与适用范围.md",
+    "docs/审查/03-全项目覆盖计划.md",
+    "docs/审查/README.md",
+    "docs/审查/证据/阶段1/基线.json",
+    "docs/审查/证据/阶段1/工作区状态.txt",
+    "docs/审查/证据/阶段1/文件指纹.json"
+  ],
+  "plannedClosingEvidence": "docs/审查/证据/阶段1/收尾核验.json",
+  "unexpectedNewFiles": [],
+  "linksChecked": 39,
+  "brokenLinks": [],
+  "ruleCount": 35,
+  "qualityGoalCount": 10,
+  "documentBoundaryCount": 7,
+  "coverageUnitCount": 18,
+  "trackedDocumentationWhitespace": {
+    "exitCode": 0,
+    "output": ""
+  },
+  "newFileWhitespace": [],
+  "businessTestsRun": false,
+  "notes": [
+    "链接存在性核验包含预定的本收尾证据文件；不验证外部 URL 与 Markdown 锚点。",
+    "仅导航与日志内容相对 B1 发生预期变化；新文件限于 docs/审查。",
+    "本核验是审查产物检查，不是业务代码测试或规范符合性审查。"
+  ],
+  "newFileWhitespaceChecked": 9,
+  "whitespaceExitInterpretation": "git diff --no-index 的 1 表示新增文件有差异；没有诊断且退出码 <=1 才按无空白错误处理。",
+  "finalWorkspaceFiles": [
+    "docs/审查/00-全项目工程质量审查方案.md",
+    "docs/审查/01-第一阶段审查报告.md",
+    "docs/审查/02-规范清单与适用范围.md",
+    "docs/审查/03-全项目覆盖计划.md",
+    "docs/审查/README.md",
+    "docs/审查/证据/阶段1/基线.json",
+    "docs/审查/证据/阶段1/工作区状态.txt",
+    "docs/审查/证据/阶段1/收尾核验.json",
+    "docs/审查/证据/阶段1/文件指纹.json"
+  ],
+  "allChecksPassed": true
+}

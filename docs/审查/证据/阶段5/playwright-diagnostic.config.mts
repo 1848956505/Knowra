@@ -1,0 +1,2 @@
+import {defineConfig,devices} from '@playwright/test';
+export default defineConfig({testDir:'./diagnostic-e2e',grep:/格式菜单复用|编辑器右键面板|超长文档输入|文档检查器呈现/,outputDir:'./diagnostic-artifacts',workers:1,retries:0,use:{baseURL:process.env.V4_BASE_URL,trace:'retain-on-failure'},reporter:[['line'],['json',{outputFile:'./diagnostic-result.json'}]],projects:[{name:'chromium',use:{...devices['Desktop Chrome']}}]});

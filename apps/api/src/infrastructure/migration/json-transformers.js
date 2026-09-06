@@ -32,6 +32,19 @@ export function transformFolder(folder, fallbackTimestamp) {
   };
 }
 
+export function transformTagGroup(group, fallbackTimestamp) {
+  const createdAt = normalizeTimestamp(group.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  return {
+    ...group,
+    code: group.code ?? null,
+    selectionMode: group.selectionMode ?? 'multiple',
+    isSystem: Boolean(group.isSystem),
+    sortOrder: Number(group.sortOrder ?? 0),
+    createdAt,
+    updatedAt: normalizeTimestamp(group.updatedAt ?? createdAt, createdAt)
+  };
+}
+
 export function transformTag(tag, fallbackTimestamp) {
   const createdAt = normalizeTimestamp(tag.createdAt ?? fallbackTimestamp, fallbackTimestamp);
   return {
@@ -320,6 +333,8 @@ export function checksumPlan(plan) {
 }
 
 export function validateDatabaseConstraints(plan, reportTools) {
+  assertUniqueBy(plan.tagGroups, (group) => `${group.spaceId}\u0000${group.name}`, 'TAG_GROUP_NAME_CONFLICT', 'Tag group names must be unique within a space', reportTools);
+  assertUniqueBy(plan.tagGroups.filter((group) => group.code !== null), (group) => `${group.spaceId}\u0000${group.code}`, 'TAG_GROUP_CODE_CONFLICT', 'Tag group codes must be unique within a space', reportTools);
   assertUniqueBy(plan.tags, (tag) => `${tag.spaceId}\u0000${tag.name}`, 'TAG_NAME_CONFLICT', 'Tag names must be unique within a space', reportTools);
   assertUniqueBy(plan.annotations, (annotation) => `${annotation.noteId}\u0000${annotation.idempotencyKey}`, 'ANNOTATION_IDEMPOTENCY_CONFLICT', 'Annotation idempotency keys must be unique within a note', reportTools);
   assertUniqueBy(plan.noteVersions, (version) => `${version.noteId}\u0000${version.contentHash}`, 'NOTE_VERSION_HASH_CONFLICT', 'Note versions must be unique by note and content hash', reportTools);

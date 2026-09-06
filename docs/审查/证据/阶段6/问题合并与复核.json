@@ -1,0 +1,304 @@
+{
+  "baseline": "KNOWRA-REVIEW-20260906-B6",
+  "counts": {
+    "historicalRecords": 20,
+    "finalRecords": 19,
+    "confirmed": 16,
+    "confirmedPriorities": {
+      "P1": 5,
+      "P2": 9,
+      "P3": 2
+    },
+    "risks": 2,
+    "maintenanceSuggestions": 1
+  },
+  "mergeReason": "S3-01 与 S4-03 共同根因是 local-json 业务提交边界不完整，合为 R-01；保留目录与批量导入各自复现/验收。",
+  "items": [
+    {
+      "id": "R-01",
+      "priority": "P1",
+      "status": "已证实",
+      "origins": [
+        "S3-01",
+        "S4-03"
+      ],
+      "title": "JSON 业务提交边界不完整",
+      "location": "apps/api/src/infrastructure/file-data-store.js:39；apps/api/src/modules/knowledge/application/note-service.js:104；folder-service.js:164",
+      "triggerImpact": "目录写入失败或批量导入后项失败，前项仍留在内存/磁盘；子树删除样本还可使重启引用校验失败。",
+      "acceptance": "统一业务事务与失败语义；逐阶段注入错误，比较内存、磁盘、附件与重启结果，覆盖目录子树和多文件导入。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "13-第四阶段新增问题清单.md",
+      "evidence": "证据/阶段4/最终流程汇总.json"
+    },
+    {
+      "id": "R-02",
+      "priority": "P1",
+      "status": "已证实",
+      "origins": [
+        "S3-02"
+      ],
+      "title": "离开编辑页丢失冲突草稿",
+      "location": "apps/web-v4/src/features/editor/useNoteAutosave.ts:57；apps/web-v4/src/app/AppRoutes.tsx:60",
+      "triggerImpact": "409 后通过应用导航离开，hook 卸载使草稿恢复入口消失；服务端内容仍在。",
+      "acceptance": "跨路由保存草稿所有权和离开保护；验证冲突、断网、历史导航、重新进入和导出，不覆盖服务端新版本。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "11-第四阶段审查报告.md",
+      "evidence": "证据/阶段4/浏览器第二次结果.json"
+    },
+    {
+      "id": "R-03",
+      "priority": "P1",
+      "status": "已证实",
+      "origins": [
+        "S3-08"
+      ],
+      "title": "跨请求分块的 UTF-8 文本被静默改写",
+      "location": "apps/api/src/http/request.js:15",
+      "triggerImpact": "分块切在中文字符内部时，各 Buffer 独立转字符串；成功保存的正文已包含替换字符。",
+      "acceptance": "保留跨块解码状态或统一解码；遍历中英文/emoji 的每个字节切点，真实 HTTP 保存重启后精确相等。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "11-第四阶段审查报告.md",
+      "evidence": "证据/阶段4/HTTP流程结果.json"
+    },
+    {
+      "id": "R-04",
+      "priority": "P1",
+      "status": "已证实（契约）",
+      "origins": [
+        "S3-06"
+      ],
+      "title": "PostgreSQL 快照和迁移遗漏标签分组",
+      "location": "apps/api/src/infrastructure/postgres-snapshot-service.js:50；apps/api/src/infrastructure/migration/json-to-postgres.js:97",
+      "triggerImpact": "实际快照/迁移函数遗漏 tagGroups；含自定义组引用的导出无法通过导入校验。数据库外键行为尚未实测。",
+      "acceptance": "统一集合清单和操作顺序；在隔离 PG 完成 JSON→PG→导出→重导入，覆盖空分组、系统组、自定义组及失败回滚。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "16-第五阶段问题与待验证项.md",
+      "evidence": "证据/阶段3/PostgreSQL契约复现.json"
+    },
+    {
+      "id": "R-05",
+      "priority": "P1",
+      "status": "已证实（故障注入）",
+      "origins": [
+        "S5-02"
+      ],
+      "title": "备用文件替换中断后静默创建空库",
+      "location": "apps/api/src/infrastructure/atomic-json-file.js:63；apps/api/src/infrastructure/file-data-store.js:26",
+      "triggerImpact": "模拟 EPERM 后，在旧文件移成备份、新文件尚未就位时 SIGKILL；重启新建空库，旧备份仍保留。",
+      "acceptance": "识别未完成替换并校验恢复候选；不能盲目覆盖有效主文件。补真实 Windows、多个备份及恢复再次失败。",
+      "detail": "16-第五阶段问题与待验证项.md",
+      "crossReference": "15-第五阶段测试与测量记录.md",
+      "evidence": "证据/阶段5/进程中断恢复结果.json"
+    },
+    {
+      "id": "R-06",
+      "priority": "P2",
+      "status": "已证实",
+      "origins": [
+        "S3-03"
+      ],
+      "title": "导航缓存遗漏标签分组",
+      "location": "apps/web-v4/src/store/slices/navigationSlice.ts:12",
+      "triggerImpact": "在线导航后缓存 tagGroups 为空，断网重载分组消失；服务器未删除分组，离线写保护仍有效。",
+      "acceptance": "统一工作区快照序列化；在线加载→导航→断网重载保留组/标签及只读状态。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "11-第四阶段审查报告.md",
+      "evidence": "证据/阶段4/浏览器流程结果.json"
+    },
+    {
+      "id": "R-07",
+      "priority": "P2",
+      "status": "已证实",
+      "origins": [
+        "S3-04"
+      ],
+      "title": "回收站恢复绕过同级重名约束",
+      "location": "apps/api/src/modules/knowledge/application/note-service.js:191",
+      "triggerImpact": "删除 A、创建同名 B、恢复 A 后出现两个有效同名对象；PG 有同源代码缺口但未实测。",
+      "acceptance": "在恢复事务中执行重名策略；覆盖同名笔记/目录、重复恢复和双驱动。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "11-第四阶段审查报告.md",
+      "evidence": "证据/阶段4/HTTP流程结果.json"
+    },
+    {
+      "id": "R-08",
+      "priority": "P2",
+      "status": "已证实",
+      "origins": [
+        "S3-05"
+      ],
+      "title": "新建标签分组的重复 ID 覆盖旧组",
+      "location": "apps/api/src/modules/knowledge/application/tag-group-service.js:18；apps/api/src/modules/knowledge/infrastructure/postgres/tag-group-repository.js:8",
+      "triggerImpact": "POST 已有 ID 可改变组名称/选择模式，绕过 update 的使用中保护；UI 自动 ID 降低普通点击的触发概率。",
+      "acceptance": "区分 create-only 与 update；重复 ID 返回冲突，旧记录、模式和引用不变。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "10-第三阶段覆盖与后续验证.md",
+      "evidence": "证据/阶段3/本地定向复现.json"
+    },
+    {
+      "id": "R-09",
+      "priority": "P2",
+      "status": "已证实",
+      "origins": [
+        "S4-01"
+      ],
+      "title": "文本搜索丢失多标签筛选",
+      "location": "apps/api/src/modules/knowledge/application/search-service.js:7",
+      "triggerImpact": "标签单独筛选只返回 A，加入共同关键词后混入未标记的 B；HTTP 和实际页面均复现。",
+      "acceptance": "列表与搜索复用筛选契约；双驱动覆盖 all/any、空词、收藏/回收站和分页。",
+      "detail": "13-第四阶段新增问题清单.md",
+      "crossReference": "12-第四阶段流程验证记录.md",
+      "evidence": "证据/阶段4/HTTP扩展结果.json"
+    },
+    {
+      "id": "R-10",
+      "priority": "P2",
+      "status": "已证实",
+      "origins": [
+        "S4-02"
+      ],
+      "title": "首次建空间没有系统标签分组",
+      "location": "apps/api/src/modules/knowledge/application/knowledge-space-service.js:7；apps/api/src/infrastructure/local-data-relations.js:133",
+      "triggerImpact": "空库创建空间后分组为 0，创建标签不可用；重启后才补成 4 个。",
+      "acceptance": "在空间创建业务中幂等建组；覆盖首次请求、重复请求、写入失败和重启不重复。",
+      "detail": "13-第四阶段新增问题清单.md",
+      "crossReference": "12-第四阶段流程验证记录.md",
+      "evidence": "证据/阶段4/浏览器首次使用结果.json"
+    },
+    {
+      "id": "R-11",
+      "priority": "P2",
+      "status": "已证实",
+      "origins": [
+        "S5-01"
+      ],
+      "title": "请求超限变为断连或生产代理 500",
+      "location": "apps/api/src/http/request.js:19；apps/web-v4/server/api-proxy.mjs:1",
+      "triggerImpact": "8 MiB 以上 JSON 直连 ECONNRESET，生产代理返回 500 fetch failed；服务之后仍可响应。",
+      "acceptance": "受控返回 413 并保留代理错误语义；验证阈值两侧、流式输入、连接生命周期和页面提示。",
+      "detail": "16-第五阶段问题与待验证项.md",
+      "crossReference": "15-第五阶段测试与测量记录.md",
+      "evidence": "证据/阶段5/安全恢复并发结果.json"
+    },
+    {
+      "id": "R-12",
+      "priority": "P2",
+      "status": "已证实（配置）",
+      "origins": [
+        "S2-01"
+      ],
+      "title": "自定义 API 端口不联动 Web 代理默认目标",
+      "location": "deploy/ecosystem.config.cjs:13；deploy/ecosystem.config.cjs:24",
+      "triggerImpact": "只改 KNOWRA_API_PORT 时 API 变端口，Web API_ORIGIN 仍固定 3001；未证明当前部署使用该配置。",
+      "acceptance": "从单一端口派生默认 origin，保留显式覆盖；验证默认、自定义、显式远端三组和代理请求。",
+      "detail": "07-第二阶段候选问题清单.md",
+      "crossReference": "05-模块地图与依赖关系.md",
+      "evidence": "证据/阶段2/配置推演.json"
+    },
+    {
+      "id": "R-13",
+      "priority": "P2",
+      "status": "已证实（门禁）",
+      "origins": [
+        "S2-02"
+      ],
+      "title": "CI 未接入已有架构边界检查",
+      "location": " .github/workflows/ci.yml:52；apps/web-v4/package.json:19",
+      "triggerImpact": "build 与 npm test 不调用 check:boundaries，可编译的越界导入未被 CI 门禁覆盖；当前手动门禁通过。",
+      "acceptance": "接入现有边界命令；隔离构造违规导入验证非零退出，避免重复全部测试。",
+      "detail": "07-第二阶段候选问题清单.md",
+      "crossReference": "06-第二阶段规范符合性矩阵.md",
+      "evidence": "证据/阶段5/v4-check.log"
+    },
+    {
+      "id": "R-14",
+      "priority": "P2",
+      "status": "已证实（测试）",
+      "origins": [
+        "S5-03"
+      ],
+      "title": "4 项编辑器 E2E 与当前实现不一致",
+      "location": "apps/web-v4/e2e/v4-07-editor.spec.ts:418；:541；:766；:882；:980",
+      "triggerImpact": "两项仍要求图片禁用，两项缺少关联 API mock；诊断副本仅修这些差异后 4 项通过。",
+      "acceptance": "同步原测试和接口 fixture 后重跑完整 E2E；保留真实上传/关联样本，不能删断言冒充修复。",
+      "detail": "16-第五阶段问题与待验证项.md",
+      "crossReference": "15-第五阶段测试与测量记录.md",
+      "evidence": "证据/阶段5/diagnostic-result.json"
+    },
+    {
+      "id": "R-15",
+      "priority": "P3",
+      "status": "已证实（文档）",
+      "origins": [
+        "S2-03"
+      ],
+      "title": "附件接入与分页文档落后于实现",
+      "location": "docs/前端重构/V4/README.md:15；docs/项目结构导航.md；docs/前端重构/index-refresh-plan.md:35",
+      "triggerImpact": "当前入口仍描述已实现附件能力为待接入，分页描述未区分 API 批次、列表分页和图标全量。",
+      "acceptance": "更新当前状态，保留历史日期；逐项对照实际 UI/接口，不倒改历史验收。",
+      "detail": "07-第二阶段候选问题清单.md",
+      "crossReference": "12-第四阶段流程验证记录.md",
+      "evidence": "证据/阶段4/浏览器索引附件结果.json"
+    },
+    {
+      "id": "R-16",
+      "priority": "P3",
+      "status": "已证实（文档）",
+      "origins": [
+        "S2-04"
+      ],
+      "title": "当前 V4 入口存在 6 个失效引用位置",
+      "location": "docs/前端重构/V4/README.md:52；04-分阶段实施任务书.md:67；V4-00.5-印格视觉冻结规范.md:215",
+      "triggerImpact": "候选原型入口、目录与验收矩阵链接无法定位；其余历史候选不自动算作当前缺陷。",
+      "acceptance": "指向真实归档或说明移除，修正相对层级；不伪造历史文件。",
+      "detail": "07-第二阶段候选问题清单.md",
+      "crossReference": "06-第二阶段规范符合性矩阵.md",
+      "evidence": "证据/阶段2/文档链接候选.json"
+    },
+    {
+      "id": "R-17",
+      "priority": "P2（风险）",
+      "status": "已量化容量风险",
+      "origins": [
+        "S2-06"
+      ],
+      "title": "索引全量分页及图标节点随总量增长",
+      "location": "apps/web-v4/src/features/notes/useNotesIndexData.ts:45；apps/web-v4/src/features/notes/NotesIndexView.tsx:121",
+      "triggerImpact": "1 万篇时 334 次分页请求、1 万卡片；本机冷启动初始约 3.7 秒、最后查询约 9.8 秒。不是既定 SLO 违规结论。",
+      "acceptance": "先确认容量/SLO，再决定统一分页、增量和虚拟化；在固定环境多次测量请求数、首屏、最终结果和内存。",
+      "detail": "16-第五阶段问题与待验证项.md",
+      "crossReference": "15-第五阶段测试与测量记录.md",
+      "evidence": "证据/阶段5/浏览器规模结果.json"
+    },
+    {
+      "id": "R-18",
+      "priority": "P2（风险）",
+      "status": "并发结果待实库验证",
+      "origins": [
+        "S3-07"
+      ],
+      "title": "merge/reorder 写操作分类遗漏",
+      "location": "apps/api/src/infrastructure/maintenance-gate.js:87；apps/api/src/infrastructure/postgres-advisory-lock.js:40",
+      "triggerImpact": "前缀正则遗漏已确认；采用共享锁不等于所有互斥失效，也尚无实库并发损坏证据。",
+      "acceptance": "统一显式操作元数据；隔离 PG 双客户端/双进程交叉合并、排序和导入，验证原子性。",
+      "detail": "09-第三阶段问题清单.md",
+      "crossReference": "16-第五阶段问题与待验证项.md",
+      "evidence": "证据/阶段3/PostgreSQL契约复现.json"
+    },
+    {
+      "id": "R-19",
+      "priority": "P2（建议）",
+      "status": "维护建议",
+      "origins": [
+        "S2-05"
+      ],
+      "title": "编辑器页面与 workspace slice 职责集中",
+      "location": "apps/web-v4/src/features/editor/NoteEditorView.tsx；apps/web-v4/src/store/slices/workspaceSlice.ts",
+      "triggerImpact": "组合了布局、加载、文件动作和多类变更；行数不是 bug 或拆分的唯一依据。",
+      "acceptance": "数据安全修复稳定后提取内部协作者，保持单 Store 和统一写保护；依据行为边界重构。",
+      "detail": "07-第二阶段候选问题清单.md",
+      "crossReference": "10-第三阶段覆盖与后续验证.md",
+      "evidence": "证据/阶段2/静态扫描.json"
+    }
+  ]
+}

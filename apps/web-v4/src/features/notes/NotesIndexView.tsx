@@ -1,52 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { Folder, Note, NoteQueryPage, Tag, TagGroup } from '@study-accelerator/web-core';
+import { NotesIndexPagination } from './NotesIndexPagination';
+import { useNotesIndexData } from './useNotesIndexData';
+import { NotesIndexHeader } from './NotesIndexHeader';
+import { buildIndexPath, indexRoute } from './notesIndexNavigation';
+import { MarkdownImportDialog } from '../editor/MarkdownImportDialog';
+import itemStyles from './NotesIndexItems.module.css';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import type { Note } from '@study-accelerator/web-core';
 import {
-  ArrowUpRightIcon,
-  DeleteIcon,
-  FolderIcon,
-  MoreHorizontalIcon,
-  NoteIcon,
-  PlusIcon,
-  RefreshIcon,
+  SortArrowsIcon,
+  ChevronDownIcon,
+  ComponentLibraryIcon,
+  ListIcon,
   SearchIcon
 } from '../../shell/icons';
 import {
   Button,
+  Menu, MenuItem, MenuTrigger, MenuPopover, PressableButton,
   Checkbox,
   Dialog,
   DialogBody,
   DialogClose,
   DialogFooter,
-  GhostIconButton,
-  Menu,
-  MenuItem,
-  MenuPopover,
-  MenuTrigger
 } from '../../components/ui';
-import { PathTrail } from '../../shell/PathTrail';
-import { pathForSurface, type PathSegment } from '../../shell/path';
+import { type PathSegment } from '../../shell/path';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { CreateEntryDialog, type CreateMode } from './CreateEntryDialog';
 import { PermanentDeleteNoteDialog } from './PermanentDeleteNoteDialog';
-import { countFolderNotes, filterNotes, folderMatchesQuery, formatUpdatedAt } from './notesIndexModel';
 import styles from './NotesIndexView.module.css';
 import { useLocation, useNavigate } from '../../app/router';
 import { TagChip } from '../tags';
+import { useSidebarTreeOperations } from './useSidebarTreeOperations';
 
-type ViewMode = 'list' | 'grid';
-type TypeFilter = 'all' | 'folder' | 'note';
-type SortMode = 'updated-desc' | 'updated-asc' | 'name-asc';
-type IndexItem = { kind: 'folder'; folder: Folder } | { kind: 'note'; note: Note };
+import { NotesTable, IndexTile } from './NotesIndexItems';
+import { BatchTagDialog } from './BatchTagDialog';
+import { SORT_LABELS, itemKey, type ViewMode, type TypeFilter, type SortMode } from './notesIndexPresentation';
 
-const SORT_LABELS: Record<SortMode, string> = {
-  'updated-desc': '最近更新',
-  'updated-asc': '最早更新',
-  'name-asc': '名称排序'
-};
-const NOTE_PAGE_SIZE = 30;
 
 export function NotesIndexView({
-  path,
   onOpenNote
 }: {
   path: PathSegment[];
@@ -56,7 +46,12 @@ export function NotesIndexView({
   const notesIndex = useAppStore((state) => state.notesIndex);
   const navigation = useAppStore((state) => state.navigation);
   const setNotesQuery = useAppStore((state) => state.setNotesQuery);
-  const selectFolder = useAppStore((state) => state.selectNotesFolder);
+  const selectFolderState = useAppStore((state) => state.selectNotesFolder);
+  const selectScope = useAppStore((state) => state.selectNotesScope);
+  const importMarkdownNotes = useAppStore((state) => state.importMarkdownNotes);
+  const [importOpen, setImportOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const selectNote = useAppStore((state) => state.selectNote);
   const openNote = onOpenNote ?? selectNote;
   const createNote = useAppStore((state) => state.createNote);
@@ -65,10 +60,8 @@ export function NotesIndexView({
   const permanentlyDeleteNote = useAppStore((state) => state.permanentlyDeleteNote);
   const deleteNotes = useAppStore((state) => state.deleteNotes);
   const updateTagsForNotes = useAppStore((state) => state.updateTagsForNotes);
-  const queryNotes = useAppStore((state) => state.queryNotes);
-  const dataMode = useAppStore((state) => state.dataMode);
   const canWrite = useAppStore((state) => state.canWriteWorkspace());
-  const [view, setView] = useState<ViewMode>('list');
+  const [view, setView] = useState<ViewMode>('grid');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [sort, setSort] = useState<SortMode>('updated-desc');
   const [createMode, setCreateMode] = useState<CreateMode>(null);
@@ -80,11 +73,13 @@ export function NotesIndexView({
   const [batchTagOpen, setBatchTagOpen] = useState(false);
   const [batchPending, setBatchPending] = useState(false);
   const [page, setPage] = useState(0);
-  const [remotePage, setRemotePage] = useState<NoteQueryPage | null>(null);
-  const [remoteLoading, setRemoteLoading] = useState(false);
-  const [remoteError, setRemoteError] = useState('');
+  const [pageSize, setPageSize] = useState(10);
   const [remoteRevision, setRemoteRevision] = useState(0);
   const [batchError, setBatchError] = useState('');
+  const treeOperations = useSidebarTreeOperations(() => {
+    setRemotePage(null);
+    setRemoteRevision((current) => current + 1);
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const queryString = location.pathname.split('?')[1] ?? '';
@@ -92,82 +87,40 @@ export function NotesIndexView({
     .split(',').filter((id) => serverData.tags.some((tag) => tag.id === id)), [queryString, serverData.tags]);
   const tagMatch = new URLSearchParams(queryString).get('match') === 'any' ? 'any' : 'all';
   const isRecycleView = notesIndex.scope === 'trash';
-  const useServerQuery = dataMode === 'api' && !['root', 'unfiled'].includes(notesIndex.scope);
-  const currentSegment = path.find((segment) => segment.current) ?? path.at(-1);
-  const parentPath = currentSegment
-    ? pathForSurface(path, 'notes-index').filter((segment) => segment.id !== currentSegment.id)
-    : [];
+  function openIndexRoute(to: string) {
+    const params = new URLSearchParams(to.split('?')[1]);
+    const folderId = params.get('folder');
+    if (folderId) selectFolderState(folderId);
+    else selectScope(params.get('scope') === 'root' ? 'root' : 'all');
+    navigate(to);
+  }
+  function selectFolder(id: string) { openIndexRoute(indexRoute('all', id)); }
+  const indexPath = buildIndexPath(notesIndex.scope, navigation.selectedFolderId, serverData.foldersById, openIndexRoute);
+  const currentSegment = indexPath.at(-1)!;
+
+  useEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', focusSearch, true);
+    return () => window.removeEventListener('keydown', focusSearch, true);
+  }, []);
+
+  useEffect(() => { contentRef.current?.scrollTo?.({ top: 0 }); }, [navigation.selectedFolderId, notesIndex.scope, page, view, typeFilter]);
 
   useEffect(() => {
     setPage(0);
     setSelectedNoteIds(new Set());
-  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, sort, queryString]);
+  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, sort, queryString, typeFilter, pageSize]);
 
-  useEffect(() => {
-    let active = true;
-    if (!useServerQuery) {
-      setRemotePage(null);
-      setRemoteLoading(false);
-      setRemoteError('');
-      return () => { active = false; };
-    }
-    setRemoteLoading(true);
-    setRemoteError('');
-    const limit = notesIndex.scope === 'recent' ? 6 : NOTE_PAGE_SIZE;
-    void queryNotes({
-      query: notesIndex.query,
-      folderId: navigation.selectedFolderId ?? undefined,
-      tagIds: urlTagIds.length ? urlTagIds : notesIndex.selectedTagId ? [notesIndex.selectedTagId] : undefined,
-      tagMatch,
-      favoriteOnly: notesIndex.scope === 'favorites',
-      deletedOnly: notesIndex.scope === 'trash',
-      includeDeleted: notesIndex.scope === 'trash',
-      sortBy: sort === 'name-asc' ? 'title' : 'updatedAt',
-      order: sort === 'updated-asc' || sort === 'name-asc' ? 'asc' : 'desc',
-      offset: page * limit,
-      limit
-    }).then((result) => {
-      if (active) setRemotePage(result);
-    }).catch((error) => {
-      if (active) {
-        setRemotePage(null);
-        setRemoteError(error instanceof Error ? error.message : '服务端筛选失败');
-      }
-    }).finally(() => {
-      if (active) setRemoteLoading(false);
-    });
-    return () => { active = false; };
-  }, [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, page, queryNotes, queryString, remoteRevision, sort, useServerQuery]);
+  const { items: allItems, counts, remotePage, remoteLoading, remoteError, loadMore, setRemotePage } = useNotesIndexData({ sort, typeFilter, queryString, urlTagIds, tagMatch, remoteRevision });
 
-  const items = useMemo(() => {
-    const noteSource = useServerQuery && remotePage ? remotePage.items : serverData.notes;
-    const filterState = useServerQuery && remotePage
-      ? { ...notesIndex, query: '', matchingNoteIds: null }
-      : notesIndex;
-    let visibleNotes = filterNotes(noteSource, serverData.tags, {
-      notesIndex: filterState,
-      selectedFolderId: navigation.selectedFolderId
-    });
-    if (!(useServerQuery && remotePage) && urlTagIds.length) {
-      visibleNotes = visibleNotes.filter((note) => tagMatch === 'all'
-        ? urlTagIds.every((id) => note.tagIds.includes(id))
-        : urlTagIds.some((id) => note.tagIds.includes(id)));
-    }
-    const selectedFolder = navigation.selectedFolderId
-      ? serverData.foldersById[navigation.selectedFolderId]
-      : null;
-    const visibleFolders = page === 0 && (notesIndex.scope === 'all' || notesIndex.scope === 'root') && !notesIndex.selectedTagId && urlTagIds.length === 0
-      ? (selectedFolder?.children ?? serverData.folderTree)
-        .filter((folder) => folderMatchesQuery(folder, serverData.notes, notesIndex.query))
-      : [];
-    const folderItems: IndexItem[] = typeFilter === 'note'
-      ? []
-      : visibleFolders.map((folder) => ({ kind: 'folder', folder }));
-    const noteItems: IndexItem[] = typeFilter === 'folder'
-      ? []
-      : sortNotes(visibleNotes, sort).map((note) => ({ kind: 'note', note }));
-    return [...folderItems.sort(compareFolderItems), ...noteItems];
-  }, [navigation.selectedFolderId, notesIndex, page, remotePage, serverData, sort, tagMatch, typeFilter, urlTagIds, useServerQuery]);
+  const pageCount = Math.max(1, Math.ceil(allItems.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const items = allItems.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
   const selectableNoteIds = items.flatMap((item) => item.kind === 'note' && !item.note.deleted ? [item.note.id] : []);
   const allPageNotesSelected = selectableNoteIds.length > 0 && selectableNoteIds.every((id) => selectedNoteIds.has(id));
@@ -211,69 +164,51 @@ export function NotesIndexView({
 
   return (
     <article className={styles.page} aria-labelledby="notes-index-title">
-      <header className={styles.header} data-header-density="compact">
-        <nav className={styles.breadcrumb} aria-label="当前位置">
-          <span className={styles.marker} data-testid="notes-index-marker" data-shadow-owner="marker" data-shadow-token="--shadow-badge" aria-hidden="true" />
-          <PathTrail path={parentPath} variant="top" currentId={null} />
-          <span className={styles.breadcrumbSeparator} aria-hidden="true"> / </span>
-          <h1 id="notes-index-title" data-title-density="compact" aria-current="page">{currentSegment.label}</h1>
-          <span className={styles.summary}>
-            <strong>{items.length}</strong> 项
-            <span aria-hidden="true">·</span>
-            <span>{view === 'list' ? '列表视图' : '图标视图'} · {SORT_LABELS[sort]}</span>
-          </span>
-        </nav>
-        <div className={styles.actions} aria-label="笔记操作">
-          <button
-            type="button"
-            className={styles.button}
-            disabled={!canWrite || isRecycleView}
-            aria-pressed={selectionMode}
-            onClick={() => {
-              setSelectionMode((current) => !current);
-              setSelectedNoteIds(new Set());
-            }}
-          >批量管理</button>
-          <button type="button" className={styles.button}>
-            <ArrowUpRightIcon size={16} />
-            <span>导入</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.button} ${styles.primary}`}
-            disabled={!canWrite}
-            onClick={() => setCreateMode('note')}
-          >
-            <PlusIcon size={17} />
-            <span>新建笔记</span>
-          </button>
+      <NotesIndexHeader path={indexPath} canWrite={canWrite} isRecycleView={isRecycleView}
+        selectionMode={selectionMode} onToggleSelection={() => { setSelectionMode(current => !current); setSelectedNoteIds(new Set()); }}
+        onImport={() => setImportOpen(true)} onCreate={() => setCreateMode('note')} />
+      <div className={styles.indexControls}>
+        <div className={styles.heading}>
+          <h1 id="notes-index-title">{currentSegment.label}</h1>
+          <p>{counts.folder} 个文件夹 · {remotePage?.hasNext ? '已载入 ' : ''}{counts.note} 篇文稿</p>
         </div>
-      </header>
 
-      <div className={styles.toolbar} data-toolbar-surface="layout-only" data-toolbar-list-gap="12px" role="toolbar" aria-label="笔记索引工具栏">
-        <label className={styles.search} data-shadow-owner="search" data-shadow-token="--shadow-input-rest">
+      <div className={styles.toolbar} data-toolbar-surface="panel" role="toolbar" aria-label="笔记索引工具栏">
+        <label className={styles.search} data-shadow-owner="search" data-shadow-token="--shadow-search-rest">
           <SearchIcon size={17} />
           <input
             data-input-control="true"
             type="search"
+            ref={searchRef}
+            aria-keyshortcuts="Meta+K Control+K"
             name="notes-index-search"
             autoComplete="off"
             value={notesIndex.query}
             onChange={(event) => setNotesQuery(event.target.value)}
-            placeholder="搜索标题、正文或标签…"
+            placeholder="在当前索引中搜索…"
             aria-label="搜索笔记索引"
           />
+          <kbd className={styles.searchKey} aria-hidden="true">{navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} K</kbd>
         </label>
         <div className={styles.filterGroup} data-control-group="segmented" data-shadow-owner="filter-group" data-shadow-token="--shadow-badge" role="group" aria-label="类型筛选">
-          <FilterButton label="全部" selected={typeFilter === 'all'} onSelect={() => setTypeFilter('all')} />
-          <FilterButton label="文件夹" selected={typeFilter === 'folder'} onSelect={() => setTypeFilter('folder')} />
-          <FilterButton label="文稿" selected={typeFilter === 'note'} onSelect={() => setTypeFilter('note')} />
+          <FilterButton label="全部" count={counts.all} selected={typeFilter === 'all'} onSelect={() => setTypeFilter('all')} />
+          <FilterButton label="文件夹" count={counts.folder} selected={typeFilter === 'folder'} onSelect={() => setTypeFilter('folder')} />
+          <FilterButton label="文稿" count={counts.note} selected={typeFilter === 'note'} onSelect={() => setTypeFilter('note')} />
         </div>
-        <button type="button" className={styles.sort} data-shadow-owner="sort" data-shadow-token="--shadow-badge" onClick={() => setSort(nextSort(sort))}>↕ {SORT_LABELS[sort]}</button>
+        <MenuTrigger>
+          <PressableButton className={styles.sort} data-shadow-owner="sort" data-shadow-token="--shadow-badge" aria-label={`排序：${SORT_LABELS[sort]}`}>
+            <SortArrowsIcon size={16} />{SORT_LABELS[sort]}<ChevronDownIcon size={12} />
+          </PressableButton>
+          <MenuPopover><Menu ariaLabel="索引排序" selectionMode="single" selectedKeys={[sort]} onAction={key => setSort(key as SortMode)}>
+            {Object.entries(SORT_LABELS).map(([key, label]) => <MenuItem id={key} key={key}>{label}</MenuItem>)}
+          </Menu></MenuPopover>
+        </MenuTrigger>
         <div className={styles.viewToggle} data-shadow-owner="view-group" data-shadow-token="--shadow-badge" role="group" aria-label="视图切换">
-          <button type="button" className={view === 'list' ? styles.viewActive : ''} aria-label="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><NoteIcon size={16} /></button>
-          <button type="button" className={view === 'grid' ? styles.viewActive : ''} aria-label="图标视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><FolderIcon size={16} /></button>
+          <button type="button" className={view === 'list' ? styles.viewActive : ''} aria-label="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><ListIcon size={16} /></button>
+          <button type="button" className={view === 'grid' ? styles.viewActive : ''} aria-label="图标视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><ComponentLibraryIcon size={16} /></button>
         </div>
+      </div>
+
       </div>
 
       {serverData.tags.length > 0 ? (
@@ -288,12 +223,15 @@ export function NotesIndexView({
               const next = urlTagIds.includes(tag.id)
                 ? urlTagIds.filter((id) => id !== tag.id)
                 : [...urlTagIds, tag.id];
-              navigate(next.length ? `/materials?tags=${next.map(encodeURIComponent).join(',')}&match=${tagMatch}` : '/materials');
+              const params = new URLSearchParams(queryString);
+              if (next.length) params.set('tags', next.join(',')); else params.delete('tags');
+              params.set('match', tagMatch);
+              navigate(`/materials?${params}`);
             }}
           />)}
           {urlTagIds.length > 1 ? <div className={styles.matchToggle} role="group" aria-label="多标签匹配方式">
-            <button type="button" aria-pressed={tagMatch === 'all'} onClick={() => navigate(`/materials?tags=${urlTagIds.map(encodeURIComponent).join(',')}&match=all`)}>满足全部</button>
-            <button type="button" aria-pressed={tagMatch === 'any'} onClick={() => navigate(`/materials?tags=${urlTagIds.map(encodeURIComponent).join(',')}&match=any`)}>满足任一</button>
+            <button type="button" aria-pressed={tagMatch === 'all'} onClick={() => navigate(`/materials?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(queryString)), match: 'all' })}`)}>满足全部</button>
+            <button type="button" aria-pressed={tagMatch === 'any'} onClick={() => navigate(`/materials?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(queryString)), match: 'any' })}`)}>满足任一</button>
           </div> : null}
         </div>
       ) : null}
@@ -319,6 +257,7 @@ export function NotesIndexView({
         <button type="button" onClick={() => setRemoteRevision((current) => current + 1)}>重新加载</button>
       </div> : null}
 
+      <div className={`${styles.content} ${view === 'grid' ? styles.gridContent : ''}`} ref={contentRef} data-testid="notes-index-scroll" aria-label="索引内容">
       {items.length === 0 ? (
         <div className={styles.empty} role="status">没有符合当前筛选条件的笔记或文件夹</div>
       ) : view === 'list' ? (
@@ -335,9 +274,11 @@ export function NotesIndexView({
           selectionMode={selectionMode}
           selectedNoteIds={selectedNoteIds}
           onToggleSelection={toggleNoteSelection}
+          canWrite={canWrite}
+          onItemAction={treeOperations.handleTreeAction}
         />
       ) : (
-        <div className={styles.grid} aria-label="笔记图标视图">
+        <div className={itemStyles.grid} aria-label="笔记图标视图">
           {items.map((item) => (
             <IndexTile
               key={itemKey(item)}
@@ -353,18 +294,22 @@ export function NotesIndexView({
               selectionMode={selectionMode}
               selected={item.kind === 'note' && selectedNoteIds.has(item.note.id)}
               onToggleSelection={toggleNoteSelection}
+              canWrite={canWrite}
+              onItemAction={treeOperations.handleTreeAction}
             />
           ))}
         </div>
       )}
 
-      {useServerQuery && (page > 0 || remotePage?.hasNext) ? (
-        <nav className={styles.pagination} aria-label="笔记分页">
-          <button type="button" disabled={page === 0 || remoteLoading} onClick={() => setPage((current) => Math.max(0, current - 1))}>上一页</button>
-          <span>第 {page + 1} 页</span>
-          <button type="button" disabled={!remotePage?.hasNext || remoteLoading} onClick={() => setPage((current) => current + 1)}>下一页</button>
-        </nav>
-      ) : null}
+      </div>
+      <NotesIndexPagination page={currentPage} pageCount={pageCount} total={allItems.length} pageSize={pageSize}
+        loading={remoteLoading} hasMore={typeFilter !== 'folder' && Boolean(remotePage?.hasNext)} onLoadMore={() => void loadMore()}
+        onPageChange={setPage} onPageSizeChange={setPageSize} />
+      <MarkdownImportDialog isOpen={importOpen} folderName={indexPath.map(segment => segment.label).join(' / ')}
+        onOpenChange={setImportOpen} onImport={async sources => {
+          await importMarkdownNotes(navigation.selectedFolderId, sources);
+          setRemoteRevision(current => current + 1);
+        }} />
 
       <CreateEntryDialog
         mode={createMode}
@@ -373,6 +318,7 @@ export function NotesIndexView({
         onCreateNote={createNote}
         onCreateFolder={createFolder}
       />
+      {treeOperations.dialogs}
       <PermanentDeleteNoteDialog
         noteTitle={permanentDeleteTarget?.title ?? ''}
         isOpen={Boolean(permanentDeleteTarget)}
@@ -420,248 +366,6 @@ export function NotesIndexView({
   );
 }
 
-function FilterButton({ label, selected, onSelect }: { label: string; selected: boolean; onSelect(): void }) {
-  return <button type="button" className={`${styles.filter} ${selected ? styles.selected : ''}`} aria-pressed={selected} onClick={onSelect}>{label}</button>;
-}
-
-function NotesTable({ items, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection }: {
-  items: IndexItem[];
-  selectedNoteId: string | null;
-  onSelectFolder(id: string): void;
-  onSelectNote(id: string): void;
-  foldersById: Record<string, Folder>;
-  isRecycleView: boolean;
-  recyclePendingId: string | null;
-  onRestore(note: Note): void;
-  onRequestPermanentDelete(note: Note): void;
-  selectionMode: boolean;
-  selectedNoteIds: Set<string>;
-  onToggleSelection(noteId: string, selected: boolean): void;
-}) {
-  return (
-    <div className={styles.tableWrap}>
-      <table className={styles.table} data-selection-mode={selectionMode || undefined}>
-        <thead><tr>{selectionMode ? <th scope="col" className={styles.selectionColumn}><span className={styles.srOnly}>选择</span></th> : null}<th scope="col" className={styles.nameColumn}>名称</th><th scope="col" className={styles.statusColumn}>状态</th><th scope="col" className={styles.locationColumn}>位置</th><th scope="col" className={styles.updatedColumn}>最近更新</th><th scope="col" className={styles.actionColumn}><span className={styles.srOnly}>操作</span></th></tr></thead>
-        <tbody>{items.map((item) => {
-          const isFolder = item.kind === 'folder';
-          const id = isFolder ? item.folder.id : item.note.id;
-          const name = isFolder ? item.folder.name : item.note.title;
-          const updatedAt = isFolder ? item.folder.updatedAt : item.note.updatedAt;
-          const location = isFolder ? '笔记库' : (item.note.folderId ? foldersById[item.note.folderId]?.name ?? '未整理' : '未整理');
-          const status = isFolder ? '文件夹' : (item.note.deleted ? '回收站' : item.note.status || '文稿');
-          return (
-            <tr key={itemKey(item)} data-selected={!isFolder && (selectedNoteId === id || selectedNoteIds.has(id)) ? true : undefined}>
-              {selectionMode ? <td className={styles.selectionCell}>{!isFolder ? (
-                <Checkbox
-                  aria-label={`选择${name || '未命名笔记'}`}
-                  isSelected={selectedNoteIds.has(id)}
-                  onChange={(selected) => onToggleSelection(id, selected)}
-                />
-              ) : null}</td> : null}
-              <td className={styles.nameData}>
-                <button type="button" className={styles.nameCell} disabled={isRecycleView && !isFolder} onClick={() => {
-                  if (!isFolder && selectionMode) onToggleSelection(id, !selectedNoteIds.has(id));
-                  else if (isFolder) onSelectFolder(id);
-                  else onSelectNote(id);
-                }}>
-                  <span className={`${styles.miniFile} ${isFolder ? styles.miniFolder : ''}`} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true" />
-                  <strong title={name || '未命名笔记'}>{name || '未命名笔记'}</strong>
-                </button>
-              </td>
-              <td className={styles.statusData}><span className={`${styles.status} ${statusClassName(status)}`}><span className={styles.statusDot} />{status}</span></td>
-              <td className={styles.locationData}>{location}</td>
-              <td className={styles.updatedData}>{formatUpdatedAt(updatedAt)}</td>
-              <td className={`${styles.more} ${styles.actionData}`}>{!isFolder && isRecycleView ? (
-                <RecycleNoteActions
-                  note={item.note}
-                  pending={recyclePendingId === item.note.id}
-                  onRestore={onRestore}
-                  onRequestPermanentDelete={onRequestPermanentDelete}
-                />
-              ) : <MoreHorizontalIcon size={16} aria-hidden="true" />}</td>
-            </tr>
-          );
-        })}</tbody>
-      </table>
-    </div>
-  );
-}
-
-function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selected, onToggleSelection }: {
-  item: IndexItem; notes: Note[]; selectedNoteId: string | null;
-  onSelectFolder(id: string): void; onSelectNote(id: string): void;
-  isRecycleView: boolean;
-  recyclePendingId: string | null;
-  onRestore(note: Note): void;
-  onRequestPermanentDelete(note: Note): void;
-  selectionMode: boolean;
-  selected: boolean;
-  onToggleSelection(noteId: string, selected: boolean): void;
-}) {
-  const isFolder = item.kind === 'folder';
-  const entity = isFolder ? item.folder : item.note;
-  const count = isFolder ? countFolderNotes(item.folder, notes) : 0;
-  const status = isFolder ? '文件夹' : item.note.status || '文稿';
-  return (
-    <div className={styles.tileShell}>
-      {!isFolder && selectionMode ? <span className={styles.tileSelection}>
-        <Checkbox aria-label={`选择${item.note.title || '未命名笔记'}`} isSelected={selected} onChange={(next) => onToggleSelection(item.note.id, next)} />
-      </span> : null}
-      <button
-        type="button"
-        className={styles.tile}
-        disabled={isRecycleView && !isFolder}
-        data-selected={!isFolder && (selectedNoteId === entity.id || selected) ? true : undefined}
-        onClick={() => {
-          if (!isFolder && selectionMode) onToggleSelection(entity.id, !selected);
-          else if (isFolder) onSelectFolder(entity.id);
-          else onSelectNote(entity.id);
-        }}
-      >
-      <span className={styles.tileArt}>
-        {isFolder ? (
-          <span className={styles.folderArt} data-art-kind="folder" data-count={String(count).padStart(2, '0')} aria-hidden="true" />
-        ) : (
-          <span className={`${styles.documentArt} ${documentToneClass(status)}`} data-art-kind="document" aria-hidden="true" />
-        )}
-      </span>
-      <span className={styles.tileCopy}>
-        <strong title={isFolder ? item.folder.name : item.note.title || '未命名笔记'}>{isFolder ? item.folder.name : item.note.title || '未命名笔记'}</strong>
-        <small>{isFolder ? `${count} 项` : formatUpdatedAt(entity.updatedAt)}</small>
-      </span>
-      </button>
-      {!isFolder && isRecycleView ? (
-        <span className={styles.tileActions}>
-          <RecycleNoteActions
-            note={item.note}
-            pending={recyclePendingId === item.note.id}
-            onRestore={onRestore}
-            onRequestPermanentDelete={onRequestPermanentDelete}
-          />
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function BatchTagDialog({ isOpen, tags, groups, notes, count, pending, error, onOpenChange, onSave }: {
-  isOpen: boolean;
-  tags: Tag[];
-  groups: TagGroup[];
-  notes: Note[];
-  count: number;
-  pending: boolean;
-  error: string;
-  onOpenChange(open: boolean): void;
-  onSave(addTagIds: string[], removeTagIds: string[]): Promise<void>;
-}) {
-  const [changes, setChanges] = useState<Map<string, 'add' | 'remove'>>(new Map());
-
-  useEffect(() => {
-    if (isOpen) setChanges(new Map());
-  }, [isOpen]);
-
-  function originalState(tagId: string): 'all' | 'some' | 'none' {
-    const included = notes.filter((note) => note.tagIds.includes(tagId)).length;
-    return included === 0 ? 'none' : included === notes.length ? 'all' : 'some';
-  }
-  function effectiveState(tagId: string): 'all' | 'some' | 'none' {
-    return changes.get(tagId) === 'add' ? 'all' : changes.get(tagId) === 'remove' ? 'none' : originalState(tagId);
-  }
-  function toggle(tag: Tag) {
-    const nextAction = effectiveState(tag.id) === 'all' ? 'remove' : 'add';
-    setChanges((current) => {
-      const next = new Map(current);
-      if (nextAction === 'add') {
-        const group = groups.find((item) => item.id === tag.groupId);
-        if (group?.selectionMode === 'single') {
-          tags.filter((item) => item.groupId === group.id && item.id !== tag.id)
-            .forEach((item) => next.set(item.id, 'remove'));
-        }
-      }
-      next.set(tag.id, nextAction);
-      return next;
-    });
-  }
-  const addTagIds = [...changes].filter(([, action]) => action === 'add').map(([id]) => id);
-  const removeTagIds = [...changes].filter(([, action]) => action === 'remove').map(([id]) => id);
-
-  return (
-    <Dialog title="批量编辑标签" description={`同时整理选中的 ${count} 篇笔记。半选表示仅部分笔记包含。`} size="md" isOpen={isOpen} onOpenChange={onOpenChange} isPending={pending}>
-      <DialogBody>
-        {groups.map((group) => <section className={styles.batchTagGroup} key={group.id}>
-          <h3>{group.name}<small>{group.selectionMode === 'single' ? '单选' : '多选'}</small></h3>
-          {tags.filter((tag) => tag.groupId === group.id).map((tag) => {
-            const state = effectiveState(tag.id);
-            return <Checkbox key={tag.id} isSelected={state === 'all'} isIndeterminate={state === 'some'} onChange={() => toggle(tag)}>
-              {tag.name || '未命名标签'}<span className={styles.triState}>{state === 'all' ? '全部包含' : state === 'some' ? '部分包含' : '均不包含'}</span>
-            </Checkbox>;
-          })}
-        </section>)}
-        {tags.length === 0 ? <p className={styles.dialogHint}>当前笔记库还没有可用标签。</p> : null}
-        {changes.size > 0 ? <p className={styles.dialogHint} role="status">将添加 {addTagIds.length} 个标签，移除 {removeTagIds.length} 个标签。</p> : null}
-        {error ? <p className={styles.batchError} role="alert">{error}</p> : null}
-      </DialogBody>
-      <DialogFooter>
-        <DialogClose variant="ghost">取消</DialogClose>
-        <Button variant="primary" isPending={pending} isDisabled={changes.size === 0} onPress={() => void onSave(addTagIds, removeTagIds)}>保存批量更改</Button>
-      </DialogFooter>
-    </Dialog>
-  );
-}
-
-function RecycleNoteActions({ note, pending, onRestore, onRequestPermanentDelete }: {
-  note: Note;
-  pending: boolean;
-  onRestore(note: Note): void;
-  onRequestPermanentDelete(note: Note): void;
-}) {
-  const title = note.title || '无标题笔记';
-  return (
-    <MenuTrigger>
-      <GhostIconButton size={30} aria-label={`${title}的回收站操作`} disabled={pending}>
-        <MoreHorizontalIcon size={16} />
-      </GhostIconButton>
-      <MenuPopover placement="bottom end">
-        <Menu ariaLabel={`${title}的回收站操作`}>
-          <MenuItem id="restore" icon={<RefreshIcon size={14} />} onAction={() => onRestore(note)}>恢复笔记</MenuItem>
-          <MenuItem id="permanent-delete" icon={<DeleteIcon size={14} />} isDanger onAction={() => onRequestPermanentDelete(note)}>彻底删除</MenuItem>
-        </Menu>
-      </MenuPopover>
-    </MenuTrigger>
-  );
-}
-
-function statusClassName(status: string): string {
-  if (status === '文件夹') return styles.statusFolder;
-  if (status === '回收站') return styles.statusMuted;
-  if (/完成|已完成/.test(status)) return styles.statusDone;
-  return /草稿|待整理|文稿/.test(status) ? styles.statusDraft : styles.statusActive;
-}
-
-function documentToneClass(status: string): string {
-  if (/完成|已完成/.test(status)) return styles.documentGreen;
-  if (/草稿|待整理|文稿/.test(status)) return styles.documentOrange;
-  return /进行|活跃/.test(status) ? styles.documentBlue : styles.documentPurple;
-}
-
-function sortNotes(notes: Note[], sort: SortMode): Note[] {
-  if (sort === 'name-asc') return [...notes].sort((left, right) => left.title.localeCompare(right.title, 'zh-CN'));
-  const direction = sort === 'updated-desc' ? -1 : 1;
-  return [...notes].sort((left, right) => direction * (Date.parse(left.updatedAt ?? '') - Date.parse(right.updatedAt ?? '')));
-}
-
-function compareFolderItems(left: IndexItem, right: IndexItem): number {
-  if (left.kind !== 'folder' || right.kind !== 'folder') return 0;
-  return left.folder.name.localeCompare(right.folder.name, 'zh-CN');
-}
-
-function nextSort(sort: SortMode): SortMode {
-  if (sort === 'updated-desc') return 'updated-asc';
-  if (sort === 'updated-asc') return 'name-asc';
-  return 'updated-desc';
-}
-
-function itemKey(item: IndexItem): string {
-  return `${item.kind}:${item.kind === 'folder' ? item.folder.id : item.note.id}`;
+function FilterButton({ label, count, selected, onSelect }: { label: string; count: number; selected: boolean; onSelect(): void }) {
+  return <button type="button" className={`${styles.filter} ${selected ? styles.selected : ''}`} aria-label={label} aria-pressed={selected} onClick={onSelect}>{label}<span className={styles.filterCount}>{count}</span></button>;
 }

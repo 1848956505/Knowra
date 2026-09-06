@@ -1,0 +1,31 @@
+{
+  "browser": "151.0.7922.34",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "transport": "Vite same-origin proxy to isolated real API",
+  "results": [
+    {
+      "id": "B01",
+      "outcome": "pass",
+      "noteId": "note-ui-79021315-96f4-4151-a5c8-6ba6c742d91c",
+      "persistedAndReloaded": true
+    },
+    {
+      "id": "B02",
+      "outcome": "defect-reproduced",
+      "finding": "S3-02",
+      "exportContainedLocalDraft": true,
+      "returnedEditorContent": "UI自动保存中文 😀\n\n第二段内容",
+      "serverContentUnchanged": true
+    },
+    {
+      "id": "B03",
+      "title": "导航缓存→断网重载→标签管理",
+      "outcome": "failure",
+      "error": "expect(locator).toBeVisible() failed\n\nLocator: getByText(/只读缓存/).first()\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"to.be.visible\" with timeout 5000ms\n  - waiting for getByText(/只读缓存/).first()\n"
+    }
+  ],
+  "pageErrors": []
+}

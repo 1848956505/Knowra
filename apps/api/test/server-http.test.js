@@ -69,6 +69,19 @@ async function postJson(baseUrl, pathname, body) {
 
 export const serverHttpTests = [
   {
+    name: 'createServer returns a readable 413 without invoking a mutation for oversized JSON',
+    async run() {
+      let writes = 0;
+      await withServer(createHttpFixture({ knowledgeHandlers: { createNote() { writes += 1; } } }), async (baseUrl) => {
+        const response = await postJson(baseUrl, '/api/knowledge/notes', { rawMarkdown: 'x'.repeat(8 * 1024 * 1024) });
+        assert.equal(response.status, 413);
+        assert.equal((await readJson(response)).error.code, 'PAYLOAD_TOO_LARGE');
+        assert.equal(writes, 0);
+        assert.equal((await fetch(`${baseUrl}/api/health`)).status, 200);
+      });
+    }
+  },
+  {
     name: 'createServer preserves the success envelope and rejects unsupported method or similar paths',
     async run() {
       await withServer(createHttpFixture(), async (baseUrl) => {

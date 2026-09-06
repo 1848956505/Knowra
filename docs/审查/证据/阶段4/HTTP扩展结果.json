@@ -1,0 +1,56 @@
+{
+  "node": "v26.4.0",
+  "driver": "local-json",
+  "transport": "real node:http on loopback",
+  "results": [
+    {
+      "id": "H11",
+      "title": "F-02 文本搜索叠加多标签条件",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S4-01",
+      "filteredIds": [
+        "search-tagged"
+      ],
+      "searchedIds": [
+        "search-tagged",
+        "search-untagged"
+      ]
+    },
+    {
+      "id": "H12",
+      "title": "F-08 新空间系统分组初始化→重启对照",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S4-02",
+      "groupsBeforeRestart": 0,
+      "groupsAfterRestart": 4
+    },
+    {
+      "id": "H13",
+      "title": "F-04 批量导入后项冲突的提交结果",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S4-03",
+      "errorCode": "SIBLING_NAME_CONFLICT",
+      "persistedAfterFailedBatch": [
+        "batch-first"
+      ]
+    },
+    {
+      "id": "H14",
+      "title": "F-07 标注幂等→绑定版本→归档使证据失效",
+      "status": "harness-or-flow-failure",
+      "error": "{\"status\":422,\"error\":{\"code\":\"ANNOTATION_FIELDS_REQUIRED\",\"message\":\"Annotation creation fields are required\"}}",
+      "stack": "AssertionError [ERR_ASSERTION]: {\"status\":422,\"error\":{\"code\":\"ANNOTATION_FIELDS_REQUIRED\",\"message\":\"Annotation creation fields are required\"}}\n    at call (file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:6:449)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:21:293\n    at async scenario (file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:6:628)\n    at async file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:21:1"
+    },
+    {
+      "id": "H15",
+      "title": "F-06 导入落盘失败后数据与附件目录回滚",
+      "status": "verified",
+      "outcome": "pass",
+      "dataAndFilesRestored": true,
+      "restarted": true
+    }
+  ]
+}

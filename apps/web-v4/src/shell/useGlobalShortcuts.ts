@@ -24,6 +24,7 @@ export function useGlobalShortcuts(shortcuts: GlobalShortcuts): void {
     }
 
     function handler(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
       const isMod = event.metaKey || event.ctrlKey;
       if (!isMod) return;
       const key = event.key.toLowerCase();

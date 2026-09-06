@@ -1,0 +1,7 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import {expect} from '@playwright/test';import {withBrowser} from '../阶段4/browser-fixture.mjs';
+const out='docs/审查/证据/阶段5/';const results=[];
+await withBrowser(async({page,origin,f,errors})=>{try{
+ await f.request('/api/knowledge/notes/browser-note','PATCH',{rawMarkdown:'| 第一列 | 第二列 | 第三列 |\n| --- | --- | --- |\n| A | B | C |'});
+ await page.goto(origin+'/#/materials/notes/browser-note');const editor=page.locator('.ProseMirror');await expect(editor.locator('th')).toHaveCount(3);const cell=()=>editor.evaluate(()=>{const n=window.getSelection()?.anchorNode;const e=n instanceof Element?n:n?.parentElement;return e?.closest('td,th')?.cellIndex??-1;});
+ await editor.locator('th p').first().click();assert.equal(await cell(),0);await page.keyboard.press('Tab');const afterTab=await cell();await page.keyboard.type('TAB审查');const texts=await editor.locator('th').allTextContents();await page.screenshot({path:out+'表格Tab导航.png'});await page.keyboard.press('Shift+Tab');const afterShiftTab=await cell();results.push({id:'B11',outcome:afterTab===1?'pass':'defect-reproduced',finding:afterTab===1?undefined:'S5-03',beforeTab:0,afterTab,afterShiftTab,headerTexts:texts});
+ }catch(e){results.push({id:'B11',outcome:'failure',error:e.message});}finally{fs.writeFileSync(out+'浏览器专项结果.json',JSON.stringify({results,pageErrors:errors},null,2)+'\n');}});console.log(results);

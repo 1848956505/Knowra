@@ -1,0 +1,91 @@
+{
+  "node": "v26.4.0",
+  "driver": "local-json",
+  "transport": "real node:http on loopback",
+  "results": [
+    {
+      "id": "H01",
+      "title": "F-01 创建→保存→过期请求409→重启读取",
+      "status": "verified",
+      "outcome": "pass",
+      "conflict": "NOTE_UPDATE_CONFLICT",
+      "restartContentMatches": true
+    },
+    {
+      "id": "H02",
+      "title": "F-01 两个相同基线的并发保存",
+      "status": "verified",
+      "outcome": "pass",
+      "statuses": [
+        200,
+        409
+      ],
+      "persisted": "A"
+    },
+    {
+      "id": "H03",
+      "title": "F-02/03 单选标签、all/any查询、合并删除",
+      "status": "harness-or-flow-failure",
+      "error": "Cannot read properties of undefined (reading 'length')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'length')\n    at file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:9:770\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async scenario (file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:6:542)\n    at async file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:9:1"
+    },
+    {
+      "id": "H04",
+      "title": "F-04 软删除、正常恢复、附件协调永久删除",
+      "status": "verified",
+      "outcome": "pass",
+      "attachmentId": "attachment-b44bd85b-aed9-4b30-97c9-4a04da2c9513"
+    },
+    {
+      "id": "H05",
+      "title": "F-04 同级重名恢复",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S3-04"
+    },
+    {
+      "id": "H06",
+      "title": "F-05 上传→正文引用→下载→重命名→删除与主动内容头",
+      "status": "verified",
+      "outcome": "pass",
+      "missingNoteCode": "NOTE_NOT_FOUND",
+      "activeContentDownload": true
+    },
+    {
+      "id": "H07",
+      "title": "F-06 JSON整库备份→导入→重启及坏引用拒绝",
+      "status": "harness-or-flow-failure",
+      "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n... Skipped lines\n\n  {\n    attachments: [\n      {\n        createdAt: '2026-09-06T03:44:42.626Z',\n        fileName: '备份.txt',\n...\n        storagePath: 'uploads/attachment-fc13b144-6d94-4cef-b131-063a33ecc13b-备份.txt',\n+       verifiedAt: '2026-09-06T03:44:42.657Z'\n-       verifiedAt: '2026-09-06T03:44:42.633Z'\n      }\n    ],\n    contentAnnotations: [],\n    examFocuses: [],\n    examProfiles: [],\n...\n      },\n+     {\n+       code: 'ordinary',\n+       id: 'tag-group-space-stage4-review-ordinary',\n+       isSystem: true,\n+       name: '普通标签',\n+       selectionMode: 'multiple',\n+       sortOrder: 1,\n+       spaceId: 'space-stage4-review'\n+     },\n+     {\n+       code: 'mastery',\n+       id: 'tag-group-space-stage4-review-mastery',\n+       isSystem: true,\n+       name: '掌握程度',\n+       selectionMode: 'single',\n+       sortOrder: 2,\n+       spaceId: 'space-stage4-review'\n+     },\n+     {\n+       code: 'importance',\n+       id: 'tag-group-space-stage4-review-importance',\n+       isSystem: true,\n+       name: '重要程度',\n+       selectionMode: 'single',\n+       sortOrder: 3,\n+       spaceId: 'space-stage4-review'\n+     },\n+     {\n+       code: 'purpose',\n+       id: 'tag-group-space-stage4-review-purpose',\n+       isSystem: true,\n+       name: '用途',\n+       selectionMode: 'multiple',\n+       sortOrder: 4,\n+       spaceId: 'space-stage4-review'\n+     }\n    ],\n    tags: []\n  }\n",
+      "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n... Skipped lines\n\n  {\n    attachments: [\n      {\n        createdAt: '2026-09-06T03:44:42.626Z',\n        fileName: '备份.txt',\n...\n        storagePath: 'uploads/attachment-fc13b144-6d94-4cef-b131-063a33ecc13b-备份.txt',\n+       verifiedAt: '2026-09-06T03:44:42.657Z'\n-       verifiedAt: '2026-09-06T03:44:42.633Z'\n      }\n    ],\n    contentAnnotations: [],\n    examFocuses: [],\n    examProfiles: [],\n...\n      },\n+     {\n+       code: 'ordinary',\n+       id: 'tag-group-space-stage4-review-ordinary',\n+       isSystem: true,\n+       name: '普通标签',\n+       selectionMode: 'multiple',\n+       sortOrder: 1,\n+       spaceId: 'space-stage4-review'\n+     },\n+     {\n+       code: 'mastery',\n+       id: 'tag-group-space-stage4-review-mastery',\n+       isSystem: true,\n+       name: '掌握程度',\n+       selectionMode: 'single',\n+       sortOrder: 2,\n+       spaceId: 'space-stage4-review'\n+     },\n+     {\n+       code: 'importance',\n+       id: 'tag-group-space-stage4-review-importance',\n+       isSystem: true,\n+       name: '重要程度',\n+       selectionMode: 'single',\n+       sortOrder: 3,\n+       spaceId: 'space-stage4-review'\n+     },\n+     {\n+       code: 'purpose',\n+       id: 'tag-group-space-stage4-review-purpose',\n+       isSystem: true,\n+       name: '用途',\n+       selectionMode: 'multiple',\n+       sortOrder: 4,\n+       spaceId: 'space-stage4-review'\n+     }\n    ],\n    tags: []\n  }\n\n    at file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:13:578\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async scenario (file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:6:542)\n    at async file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/http-flows.mjs:13:1"
+    },
+    {
+      "id": "H08",
+      "title": "F-07 版本→知识→目标→题目确认与来源失效",
+      "status": "verified",
+      "outcome": "pass",
+      "states": [
+        "needsRevision",
+        "candidate",
+        "candidate"
+      ],
+      "permanentDeleteBlocked": "NOTE_HAS_KNOWLEDGE_EVIDENCE"
+    },
+    {
+      "id": "H09",
+      "title": "F-04 子树删除磁盘失败→HTTP500→重启",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S3-01",
+      "restartError": "STORAGE_SNAPSHOT_INVALID"
+    },
+    {
+      "id": "H10",
+      "title": "F-01 真实HTTP跨UTF8分块→保存→重启",
+      "status": "verified",
+      "outcome": "defect-reproduced",
+      "finding": "S3-08",
+      "expected": "中文😀",
+      "actual": "���文😀"
+    }
+  ]
+}

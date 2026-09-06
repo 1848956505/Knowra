@@ -28,6 +28,7 @@ export function createFileDataStore(filePath, {
   ensureParentDirectory(filePath);
 
   if (!fs.existsSync(filePath)) {
+    assertNoInterruptedReplacement(filePath);
     writeJson(filePath, createPersistedLocalDocument(createEmptyLocalState()));
   }
 
@@ -119,6 +120,20 @@ export function createFileDataStore(filePath, {
     commitImport,
     importSnapshot
   };
+}
+
+function assertNoInterruptedReplacement(filePath) {
+  const prefix = `.${path.basename(filePath)}.`;
+  const recoveryFiles = fs.readdirSync(path.dirname(filePath)).filter((name) => (
+    name.startsWith(prefix) && /\.(bak|tmp)$/.test(name)
+  ));
+  if (recoveryFiles.length > 0) {
+    throw createAppError(
+      'STORAGE_RECOVERY_REQUIRED',
+      `检测到未完成的数据文件替换，已停止创建空库。请保留整个数据目录，核验并恢复 ${path.basename(filePath)} 后重试。恢复候选：${recoveryFiles.sort().join('、')}`,
+      500
+    );
+  }
 }
 
 function parsePersistedState(raw) {

@@ -6,6 +6,7 @@ import {
   assertQuestionConfirmable,
   deriveQuestionSourceStatus
 } from '../modules/knowledge/application/formal-asset-validation.js';
+import { buildDefaultTagGroups } from '../modules/knowledge/domain/default-tag-groups.js';
 
 export function validateLocalDataRelations(state) {
   normalizeTagSystem(state);
@@ -133,17 +134,10 @@ function validateTags(tagItems, spaces, tagGroups) {
 function normalizeTagSystem(state) {
   state.tagGroups ??= [];
   const colors = { slate: 'neutral', cyan: 'blue', amber: 'orange', mastery: 'green', importance: 'orange', purpose: 'blue', '#3c68ff': 'blue' };
-  const definitions = [
-    ['ordinary', '普通标签', 'multiple'],
-    ['mastery', '掌握程度', 'single'],
-    ['importance', '重要程度', 'single'],
-    ['purpose', '用途', 'multiple']
-  ];
   for (const space of state.spaces) {
-    definitions.forEach(([code, name, selectionMode], index) => {
-      const id = `tag-group-${space.id}-${code}`;
-      if (!state.tagGroups.some((group) => group.id === id)) {
-        state.tagGroups.push({ id, spaceId: space.id, code, name, selectionMode, isSystem: true, sortOrder: index + 1 });
+    buildDefaultTagGroups(space.id).forEach((group) => {
+      if (!state.tagGroups.some((current) => current.id === group.id)) {
+        state.tagGroups.push(group);
       }
     });
   }

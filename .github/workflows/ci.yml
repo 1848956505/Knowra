@@ -52,6 +52,9 @@ jobs:
       - name: Build production V4 frontend
         run: NODE_ENV=production npm run build:web
 
+      - name: Check V4 architecture boundaries
+        run: npm run check:boundaries -w @study-accelerator/web-v4
+
       - name: Verify production source maps are absent
         shell: bash
         run: |

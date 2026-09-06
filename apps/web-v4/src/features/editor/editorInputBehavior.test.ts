@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEditorBoundaryAction, type EditorBoundaryInput } from './editorInputBehavior';
+import {
+  resolveEditorBoundaryAction,
+  shouldInsertParagraphAfterTrailingCodeBlock,
+  type EditorBoundaryInput,
+  type TrailingCodeBlockClickInput
+} from './editorInputBehavior';
 
 const baseInput: EditorBoundaryInput = {
   key: 'Enter',
@@ -37,5 +42,20 @@ describe('editorInputBehavior', () => {
     expect(resolveEditorBoundaryAction({ ...baseInput, ctrlKey: true })).toBeNull();
     expect(resolveEditorBoundaryAction({ ...baseInput, metaKey: true })).toBeNull();
     expect(resolveEditorBoundaryAction({ ...baseInput, altKey: true })).toBeNull();
+  });
+
+  it('creates a paragraph only for a plain click below a trailing code block', () => {
+    const click: TrailingCodeBlockClickInput = {
+      button: 0,
+      clientY: 220,
+      lastBlockBottom: 180,
+      lastNodeType: 'code_block',
+      editable: true
+    };
+    expect(shouldInsertParagraphAfterTrailingCodeBlock(click)).toBe(true);
+    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, clientY: 170 })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, lastNodeType: 'paragraph' })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, editable: false })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, metaKey: true })).toBe(false);
   });
 });

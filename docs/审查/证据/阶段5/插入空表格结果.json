@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "id": "B12",
+      "outcome": "pass",
+      "before": 0,
+      "afterTab": 1,
+      "headerTexts": [
+        "",
+        "空表格导航",
+        ""
+      ]
+    }
+  ],
+  "pageErrors": []
+}

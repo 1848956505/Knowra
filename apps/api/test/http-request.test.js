@@ -20,6 +20,18 @@ function createRequest({ contentType = 'application/json', chunks = [] } = {}) {
 
 export const httpRequestTests = [
   {
+    name: 'parseBody preserves multilingual JSON at every byte boundary',
+    async run() {
+      const expected = { title: '中文😀e\u0301', rawMarkdown: '# 标题\n\n保存“正文”与 emoji 🚀' };
+      const bytes = Buffer.from(JSON.stringify(expected));
+      for (let split = 1; split < bytes.length; split += 1) {
+        const result = await parseBody(createRequest({ chunks: [bytes.subarray(0, split), bytes.subarray(split)] }));
+        assert.deepEqual(result, expected, `UTF-8 split at byte ${split}`);
+      }
+      assert.deepEqual(await parseBody(createRequest({ chunks: [...bytes].map((byte) => Buffer.from([byte])) })), expected);
+    }
+  },
+  {
     name: 'parseBody rejects JSON bodies over the configured size limit',
     async run() {
       await assert.rejects(

@@ -1,0 +1,23 @@
+{
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "id": "B09",
+      "outcome": "pass",
+      "steps": [
+        {
+          "cache": "absent",
+          "mode": "local-recovery",
+          "writeActionsHidden": true
+        },
+        {
+          "cache": "malformed",
+          "mode": "local-recovery",
+          "writeActionsHidden": true
+        }
+      ],
+      "apiMutationRequests": 0
+    }
+  ],
+  "pageErrors": []
+}

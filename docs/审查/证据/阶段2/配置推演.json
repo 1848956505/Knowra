@@ -1,0 +1,28 @@
+{
+  "method": "只求值已阅读的 PM2 配置，使用人工构造 env，不读取真实环境变量；未启动 PM2/API/Web。",
+  "cases": [
+    {
+      "input": {},
+      "apiPort": "3001",
+      "webApiOrigin": "http://127.0.0.1:3001",
+      "portsMatch": true
+    },
+    {
+      "input": {
+        "KNOWRA_API_PORT": "43123"
+      },
+      "apiPort": "43123",
+      "webApiOrigin": "http://127.0.0.1:3001",
+      "portsMatch": false
+    },
+    {
+      "input": {
+        "KNOWRA_API_PORT": "43123",
+        "API_ORIGIN": "http://127.0.0.1:43123"
+      },
+      "apiPort": "43123",
+      "webApiOrigin": "http://127.0.0.1:43123",
+      "portsMatch": true
+    }
+  ]
+}

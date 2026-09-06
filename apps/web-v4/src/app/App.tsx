@@ -1,3 +1,5 @@
+import { useMaterialsRoute } from './useMaterialsRoute';
+import { buildIndexPath, indexRoute } from '../features/notes/notesIndexNavigation';
 // V4-05 App
 //
 // 应用入口：根据当前 pathname 渲染 HomeView / PlaceholderView / ComponentShowcase。
@@ -28,6 +30,7 @@ import { AppRoutes, DOMAIN_INFO } from './AppRoutes';
 import styles from './App.module.css';
 
 export function App() {
+  useMaterialsRoute();
   const location = useLocation();
   const navigate = useNavigate();
   const storeActiveDomain = useAppStore((state) => state.navigation.activeWorkDomain);
@@ -40,17 +43,21 @@ export function App() {
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
   const storeApi = useAppStoreApi();
+  const indexScope = useAppStore(state => state.notesIndex.scope);
+  const indexFolderId = useAppStore(state => state.navigation.selectedFolderId);
+  const indexFolders = useAppStore(state => state.serverData.foldersById);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const [editorView, setEditorView] = useState(initialEditorViewState);
   const previousPathRef = useRef(location.pathname);
 
+  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials');
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
-    if (location.pathname !== '/' && !location.pathname.startsWith('/materials')) return;
+    if (!shouldLoadWorkspace) return;
     void loadWorkspace();
-  }, [loadWorkspace, location.pathname]);
+  }, [loadWorkspace, shouldLoadWorkspace]);
 
   // URL 是工作域真源：支持可分享链接、前进后退和未上线模块的真实门禁页。
   useEffect(() => {
@@ -151,7 +158,7 @@ export function App() {
     isShowcaseActive || isHome ? null : routeDomain;
 
   // StatusBar 位置路径只描述当前路由 surface，不读取后台 selection。
-  const statusPath = deriveStatusPath({
+  const statusPath = isNotesIndex ? buildIndexPath(indexScope, indexFolderId, indexFolders, navigate) : deriveStatusPath({
     pathname: location.pathname,
     routeDomain,
     onNavigateHome: () => navigate('/'),
@@ -167,7 +174,8 @@ export function App() {
   }
 
   function openNotesIndex() {
-    navigate('/materials');
+    const state = storeApi.getState();
+    navigate(indexRoute(state.notesIndex.scope, state.navigation.selectedFolderId, state.notesIndex.selectedTagId));
     setLiveAnnouncement('已打开笔记索引');
   }
 
@@ -193,7 +201,7 @@ export function App() {
       contextSidebar={showNotesContextSidebar ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
       ) : undefined}
-      stageMode={isNoteEditor ? 'workspace' : 'default'}
+      stageMode={isNoteEditor || isNotesIndex ? 'workspace' : 'default'}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
@@ -249,7 +257,7 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={`${styles.route} ${isNoteEditor ? styles.routeWorkspace : ''}`}>
+      <div className={`${styles.route} ${isNoteEditor || isNotesIndex ? styles.routeWorkspace : ''}`}>
         <AppRoutes
           pathname={location.pathname}
           routeDomain={routeDomain}

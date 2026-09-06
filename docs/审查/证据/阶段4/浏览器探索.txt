@@ -1,0 +1,103 @@
+跳到主内容
+知
+笔记
+快速入口
+全部笔记
+1
+最近编辑
+1
+收藏
+0
+未整理
+1
+文件夹
+笔记库
+1
+
+暂无文件夹，可使用右侧按钮创建
+
+标签 0
+暂无标签
+新建标签
+回收站
+0
+01
+阶段四浏览器笔记
+NOTE · DRAFT
+
+draft
+未整理
+更新于 09/06
+
+文件
+段落
+编辑
+格式
+视图
+H1
+H2
+H3
+B
+I
+
+初始浏览器正文
+
+笔记库
+/
+阶段四浏览器笔记
+已同步
+[
+  { text: '知', label: '知境工作区' },
+  { text: '', label: '全局搜索' },
+  { text: '', label: '新建笔记' },
+  { text: '', label: '资料' },
+  { text: '', label: '知识（尚未上线）' },
+  { text: '', label: '试题（尚未上线）' },
+  { text: '', label: '执行（尚未上线）' },
+  { text: '', label: '通知（尚未上线）' },
+  { text: '', label: '设置（尚未上线）' },
+  { text: '', label: '组件库' },
+  { text: '', label: '我的（尚未上线）' },
+  { text: '', label: '笔记更多操作' },
+  { text: '', label: '新建笔记' },
+  { text: '全部笔记1', label: null },
+  { text: '最近编辑1', label: null },
+  { text: '收藏0', label: null },
+  { text: '未整理1', label: null },
+  { text: '', label: '新建文件夹' },
+  { text: '笔记库1', label: null },
+  { text: '标签 0', label: '标签' },
+  { text: '', label: '新建标签' },
+  { text: '', label: '标签更多操作' },
+  { text: '新建标签', label: null },
+  { text: '回收站0', label: null },
+  { text: '', label: '关闭阶段四浏览器笔记' },
+  { text: '', label: '查看全部标签页' },
+  { text: '', label: '新建笔记' },
+  { text: '文件', label: null },
+  { text: '段落', label: null },
+  { text: '编辑', label: null },
+  { text: '格式', label: null },
+  { text: '视图', label: null },
+  { text: 'H1', label: '一级标题' },
+  { text: 'H2', label: '二级标题' },
+  { text: 'H3', label: '三级标题' },
+  { text: 'B', label: '加粗' },
+  { text: 'I', label: '斜体' },
+  { text: '', label: '行内代码' },
+  { text: '', label: '无序列表' },
+  { text: '', label: '引用' },
+  { text: '', label: '插入表格' },
+  { text: '', label: '插入图片' },
+  { text: '', label: '收藏当前笔记' },
+  { text: '', label: '打开插入菜单' },
+  { text: '', label: '切换文档检查器' },
+  { text: '', label: '更多文档操作（尚未接入）' },
+  { text: '', label: '选择要插入的图片' },
+  { text: '', label: '编辑器右键快捷功能' },
+  { text: '笔记库', label: '跳转到「笔记库」' },
+  { text: '', label: '切换侧栏' },
+  { text: '', label: '切换检查器' },
+  { text: '', label: '切换专注模式' }
+]
+{ errors: [] }

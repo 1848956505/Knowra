@@ -4,7 +4,7 @@ function normalizeQuery(value) {
 
 export function createSearchService({ listNotes }) {
   return {
-    searchNotes({ query, spaceId, folderId = null, tagId = null, sortBy, order, limit, offset, includeDeleted, deletedOnly, favoriteOnly }) {
+    searchNotes({ query, spaceId, folderId = null, tagId = null, tagIds = [], tagMatch, match, sortBy, order, limit, offset, includeDeleted, deletedOnly, favoriteOnly }) {
       const normalizedQuery = normalizeQuery(query);
 
       if (!normalizedQuery) {
@@ -15,6 +15,8 @@ export function createSearchService({ listNotes }) {
         spaceId,
         folderId,
         tagId,
+        tagIds,
+        tagMatch: tagMatch ?? match,
         sortBy,
         order,
         includeDeleted,

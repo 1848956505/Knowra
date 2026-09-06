@@ -1,6 +1,6 @@
 import { createAppError } from '../errors/app-error.js';
 
-const DEFAULT_JSON_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_JSON_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
 
 function createRequestError(message, statusCode = 400, code = 'VALIDATION_ERROR') {
   return createAppError(code, message, statusCode);
@@ -8,36 +8,53 @@ function createRequestError(message, statusCode = 400, code = 'VALIDATION_ERROR'
 
 export function parseBody(request, { limitBytes = DEFAULT_JSON_BODY_LIMIT_BYTES } = {}) {
   return new Promise((resolve, reject) => {
-    let data = '';
+    const chunks = [];
     let receivedBytes = 0;
+    let finished = false;
     const contentType = request.headers['content-type'] ?? '';
 
+    function fail(error) {
+      if (finished) return;
+      finished = true;
+      chunks.length = 0;
+      reject(error);
+    }
+
     request.on('data', (chunk) => {
-      receivedBytes += chunk.byteLength;
+      if (finished) return;
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      receivedBytes += buffer.byteLength;
       if (receivedBytes > limitBytes) {
-        reject(createRequestError('Request body is too large', 413, 'PAYLOAD_TOO_LARGE'));
-        request.destroy();
+        // Keep draining without retaining bytes so the 413 response can reach the client.
+        fail(createRequestError('Request body is too large', 413, 'PAYLOAD_TOO_LARGE'));
         return;
       }
-      data += chunk;
+      chunks.push(buffer);
     });
     request.on('end', () => {
+      if (finished) return;
+      const data = Buffer.concat(chunks, receivedBytes).toString('utf8');
+      chunks.length = 0;
       if (!data) {
+        finished = true;
         resolve({});
         return;
       }
       if (!contentType.includes('application/json')) {
-        reject(createRequestError('Content-Type must be application/json', 415, 'UNSUPPORTED_MEDIA_TYPE'));
+        fail(createRequestError('Content-Type must be application/json', 415, 'UNSUPPORTED_MEDIA_TYPE'));
         return;
       }
 
       try {
-        resolve(JSON.parse(data));
+        const body = JSON.parse(data);
+        finished = true;
+        resolve(body);
       } catch (error) {
-        reject(createRequestError('Invalid JSON body'));
+        fail(createRequestError('Invalid JSON body'));
       }
     });
-    request.on('error', reject);
+    request.on('error', fail);
+    request.on('aborted', () => fail(createRequestError('Request body was interrupted')));
   });
 }
 

@@ -1,0 +1,75 @@
+{
+  "environment": {
+    "node": "v26.4.0",
+    "platform": "darwin",
+    "driver": "local-json",
+    "transport": "real HTTP + production web proxy for S02"
+  },
+  "results": [
+    {
+      "id": "S01",
+      "outcome": "pass",
+      "malformed": 400,
+      "wrongType": 415,
+      "encoded": [
+        {
+          "route": "/api/storage/attachments/%ZZ/content",
+          "status": 404
+        },
+        {
+          "route": "/api/storage/attachments/%2e%2e%2fsecret/content",
+          "status": 404
+        },
+        {
+          "route": "/api/knowledge/notes/%ZZ",
+          "status": 400
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "outcome": "defect-reproduced",
+      "finding": "S5-01",
+      "bytes": 8388626,
+      "direct": {
+        "networkError": "ECONNRESET"
+      },
+      "proxy": {
+        "status": 500,
+        "text": "fetch failed"
+      },
+      "apiHealthyAfter": true
+    },
+    {
+      "id": "S03",
+      "outcome": "pass",
+      "sanitizedFileName": "outside-.txt",
+      "pathInsideUploads": true,
+      "activeContentForcedDownload": true
+    },
+    {
+      "id": "S04",
+      "outcome": "pass",
+      "status": 404,
+      "canaryNotRead": true,
+      "symlinkTargetNotDeleted": true
+    },
+    {
+      "id": "S05",
+      "outcome": "pass",
+      "restarted": true,
+      "attachmentStatus": "missing",
+      "contentStatus": 404
+    },
+    {
+      "id": "S06",
+      "outcome": "pass",
+      "requests": 20,
+      "statuses": {
+        "200": 1,
+        "409": 19
+      },
+      "winnerSurvivesRestart": true
+    }
+  ]
+}

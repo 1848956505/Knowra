@@ -1,3 +1,5 @@
+import { getKnowledgeOperationAccess } from './knowledge-operation-access.js';
+
 const KNOWRA_LOCK_NAMESPACE = 1266775634;
 const KNOWRA_LOCK_RESOURCE = 32;
 
@@ -37,14 +39,11 @@ export function createPostgresAdvisoryLock(client) {
   };
 }
 
-export function isPostgresMutation(name) {
-  return /^(create|import|update|delete|restore|permanently|empty|set|remove|assign|confirm|mark|request|archive|submit|validate)/.test(name);
-}
-
 export function wrapHandlersWithPostgresAdvisoryLock(
   handlers,
   advisoryLock,
   {
+    getAccess = getKnowledgeOperationAccess,
     skip = (name) => (
       name === 'permanentlyDeleteNote'
       || name === 'emptyRecycleBin'
@@ -52,19 +51,15 @@ export function wrapHandlersWithPostgresAdvisoryLock(
   } = {}
 ) {
   return Object.fromEntries(
-    Object.entries(handlers).map(([name, handler]) => [
-      name,
-      typeof handler === 'function'
-        ? (
-            skip(name)
-              ? handler
-              : (...args) => (
-                  isPostgresMutation(name)
-                    ? advisoryLock.runExclusive(() => handler(...args))
-                    : advisoryLock.runShared(() => handler(...args))
-                )
-          )
-        : handler
-    ])
+    Object.entries(handlers).map(([name, handler]) => {
+      if (typeof handler !== 'function') return [name, handler];
+      const access = getAccess(name);
+      if (skip(name)) return [name, handler];
+      return [name, (...args) => (
+        access === 'mutation'
+          ? advisoryLock.runExclusive(() => handler(...args))
+          : advisoryLock.runShared(() => handler(...args))
+      )];
+    })
   );
 }

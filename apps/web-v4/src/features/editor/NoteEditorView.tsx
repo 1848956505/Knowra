@@ -40,6 +40,7 @@ import {
   writeEditorScrollPositions
 } from './editorScrollPosition';
 import { useNoteAutosave } from './useNoteAutosave';
+import { useEditorInspectorData } from './useEditorInspectorData';
 import { buildCreateAnnotationInput, buildUpdateAnnotationAnchorInput } from './annotationPayloads';
 import {
   INLINE_IMAGE_ACCEPT,
@@ -174,22 +175,29 @@ export function NoteEditorView({
   const [documentEdge, setDocumentEdge] = useState<number | null>(null);
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
   const [repairDialogOpen, setRepairDialogOpen] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  const [linkedNotes, setLinkedNotes] = useState<Note[]>([]);
-  const [linkedNotesLoading, setLinkedNotesLoading] = useState(false);
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [annotationsLoading, setAnnotationsLoading] = useState(false);
-  const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | null>(null);
   const [scrollPositions] = useState(readEditorScrollPositions);
   const autosave = useNoteAutosave({
     noteId: note?.id ?? 'missing-note',
+    draftScope: note?.spaceId,
     remoteMarkdown: note?.rawMarkdown ?? '',
     remoteUpdatedAt: note?.updatedAt,
     canWrite: Boolean(note && canWrite),
     onSave: onSaveMarkdown
   });
   const draftMarkdown = autosave.draftMarkdown;
+  const {
+    attachments, setAttachments, attachmentsLoading,
+    linkedNotes, linkedNotesLoading,
+    annotations, setAnnotations, annotationsLoading,
+    focusedAnnotationId, setFocusedAnnotationId
+  } = useEditorInspectorData({
+    noteId: note?.id,
+    inspectorOpen,
+    onListAttachments,
+    onGetLinkedNotes,
+    onListAnnotations,
+    onError: onFileStatus
+  });
 
   useEffect(() => {
     const stage = documentStageRef.current;
@@ -240,52 +248,6 @@ export function NoteEditorView({
       restoringScrollRef.current = false;
     });
   }, [note?.id]);
-
-  useEffect(() => {
-    let active = true;
-    setAttachments([]);
-    if (!note?.id || !inspectorOpen) {
-      setAttachmentsLoading(false);
-      return () => { active = false; };
-    }
-    setAttachmentsLoading(true);
-    void onListAttachments(note.id)
-      .then((items) => { if (active) setAttachments(items); })
-      .catch((error) => { if (active) onFileStatus(error instanceof Error ? error.message : '附件加载失败'); })
-      .finally(() => { if (active) setAttachmentsLoading(false); });
-    return () => { active = false; };
-  }, [inspectorOpen, note?.id, onFileStatus, onListAttachments]);
-
-  useEffect(() => {
-    let active = true;
-    setAnnotations([]);
-    setFocusedAnnotationId(null);
-    if (!note?.id) {
-      setAnnotationsLoading(false);
-      return () => { active = false; };
-    }
-    setAnnotationsLoading(true);
-    void onListAnnotations(note.id)
-      .then((items) => { if (active) setAnnotations(items); })
-      .catch((error) => { if (active) onFileStatus(error instanceof Error ? error.message : '正文标注加载失败'); })
-      .finally(() => { if (active) setAnnotationsLoading(false); });
-    return () => { active = false; };
-  }, [note?.id, onFileStatus, onListAnnotations]);
-
-  useEffect(() => {
-    let active = true;
-    setLinkedNotes([]);
-    if (!note?.id || !inspectorOpen) {
-      setLinkedNotesLoading(false);
-      return () => { active = false; };
-    }
-    setLinkedNotesLoading(true);
-    void onGetLinkedNotes(note.id)
-      .then((items) => { if (active) setLinkedNotes(items); })
-      .catch((error) => { if (active) onFileStatus(error instanceof Error ? error.message : '关联链接加载失败'); })
-      .finally(() => { if (active) setLinkedNotesLoading(false); });
-    return () => { active = false; };
-  }, [inspectorOpen, note?.id, onFileStatus, onGetLinkedNotes]);
 
   useEffect(() => {
     const paper = paperRef.current;
@@ -623,7 +585,7 @@ export function NoteEditorView({
               <div className={styles.saveConflict} role="alert">
                 <div>
                   <strong>检测到较新的远端版本，自动保存已暂停</strong>
-                  <p>当前页面仍保留你的本地草稿。请先导出草稿，再刷新并人工合并，系统不会自动覆盖任一版本。</p>
+                  <p>本地草稿已保留，切换页面后可恢复。请导出草稿并与远端正文人工合并，系统不会自动覆盖任一版本。</p>
                 </div>
                 <Button
                   variant="default"
@@ -634,6 +596,16 @@ export function NoteEditorView({
                   }}
                 >
                   导出本地草稿
+                </Button>
+                <Button
+                  variant="default"
+                  onPress={() => {
+                    downloadTextFile(buildExportFileName(`${note.title}-冲突草稿`, 'md'), autosave.getLatestMarkdown(), 'text/markdown;charset=utf-8');
+                    autosave.discardRecoveredDraft();
+                    window.location.reload();
+                  }}
+                >
+                  导出草稿并加载远端
                 </Button>
               </div>
             ) : null}

@@ -243,3 +243,17 @@ export function dbAttachment(attachment) {
     createdAt: new Date(attachment.createdAt)
   };
 }
+
+export function dbTagGroup(group) {
+  return {
+    id: group.id,
+    spaceId: group.spaceId,
+    code: group.code,
+    name: group.name,
+    selectionMode: group.selectionMode,
+    isSystem: group.isSystem,
+    sortOrder: group.sortOrder,
+    createdAt: new Date(group.createdAt),
+    updatedAt: new Date(group.updatedAt)
+  };
+}

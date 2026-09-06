@@ -1,0 +1,256 @@
+{
+  "sourceGroups": {
+    "apps/api": {
+      "source": 151,
+      "test": 34
+    },
+    "apps/web-v4": {
+      "source": 135,
+      "test": 57
+    },
+    "apps/web": {
+      "source": 229,
+      "test": 155
+    },
+    "deploy": {
+      "source": 1,
+      "test": 0
+    },
+    "packages/web-core": {
+      "source": 11,
+      "test": 5
+    },
+    "scripts": {
+      "source": 8,
+      "test": 6
+    }
+  },
+  "sourceFiles": 792,
+  "productionAndLegacySource": 535,
+  "testFiles": 257,
+  "cssFileCount": 79,
+  "cssImports": [
+    {
+      "from": "apps/web/src/styles.css",
+      "to": "../styles/tokens.css"
+    },
+    {
+      "from": "apps/web/src/styles.css",
+      "to": "../styles/components.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/base-shell.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/top-search.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/controls-user.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/workspace-layout.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/note-tabs.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/aside-tabs.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/editor-menus.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/panel-common.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/library-tree.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/library-inline-context.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/sidebar-lists-tags.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/editor-shell.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/editor-utility-dialog.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/milkdown-content.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/milkdown-code-block.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/milkdown-table.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/milkdown-image.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/preview-sidebar.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/responsive.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/knowra-inkgrid.css"
+    },
+    {
+      "from": "apps/web/styles/components.css",
+      "to": "./components/work-domain.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-editor.css",
+      "to": "./knowra-inkgrid-editor.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-theme-tokens.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./semantic-icons.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-components.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-shell.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-navigation.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-topbar.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-home.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-library-index.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-editor.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-editor-paper.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-editor-marginalia.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-menus.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-typography.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-inkgrid.css",
+      "to": "./knowra-inkgrid-reflow.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-library-index.css",
+      "to": "./knowra-inkgrid-library-index.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-menus.css",
+      "to": "./knowra-inkgrid-menus.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-redesign.css",
+      "to": "./knowra-inkgrid.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-shell.css",
+      "to": "./knowra-inkgrid-shell.css"
+    },
+    {
+      "from": "apps/web/styles/components/knowra-typography.css",
+      "to": "./knowra-inkgrid-typography.css"
+    }
+  ],
+  "styleStats": {
+    "count": 35,
+    "global": [
+      "apps/web-v4/src/styles/global.css",
+      "apps/web-v4/src/styles/reset.css",
+      "apps/web-v4/src/styles/tokens.css"
+    ],
+    "modules": 32
+  },
+  "crlfCandidates": [],
+  "activeV4BrokenLinks": [
+    {
+      "from": "docs/前端重构/V4/04-分阶段实施任务书.md",
+      "target": "V4-00.5/雾青/",
+      "archived": false,
+      "line": 67
+    },
+    {
+      "from": "docs/前端重构/V4/04-分阶段实施任务书.md",
+      "target": "V4-00.5/澄明/",
+      "archived": false,
+      "line": 67
+    },
+    {
+      "from": "docs/前端重构/V4/README.md",
+      "target": "V4-00.5/雾青/V4-00.5-视觉方向冻结候选.md",
+      "archived": false,
+      "line": 52
+    },
+    {
+      "from": "docs/前端重构/V4/README.md",
+      "target": "V4-00.5/方册/V4-00.5-方册视觉方向候选.md",
+      "archived": false,
+      "line": 53
+    },
+    {
+      "from": "docs/前端重构/V4/README.md",
+      "target": "V4-00.5/澄明/V4-00.5-澄明视觉方向候选.md",
+      "archived": false,
+      "line": 54
+    },
+    {
+      "from": "docs/前端重构/V4/V4-00.5/印格/V4-00.5-印格视觉冻结规范.md",
+      "target": "../../../../03-功能保留与验收矩阵.md",
+      "archived": false,
+      "line": 215
+    }
+  ],
+  "unassigned": [],
+  "scope": "CSS import 仅识别字面量 @import；未检查 url() 资源或视觉效果。CRLF 仅检查源码和配置，不改写文件。"
+}

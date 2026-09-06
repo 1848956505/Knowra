@@ -1,0 +1,1986 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "/Users/rabbids/Documents/Codex/知境·Knowra/node_modules/.bin/playwright",
+      "test",
+      "--config",
+      "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/playwright.config.mts"
+    ],
+    "configFile": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/playwright.config.mts",
+    "rootDir": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "./e2e-result.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "component-showcase.spec.ts",
+      "file": "component-showcase.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "V4-04 ComponentShowcase 视觉与交互基线",
+          "file": "component-showcase.spec.ts",
+          "line": 16,
+          "column": 6,
+          "specs": [
+            {
+              "title": "首页 + 组件展台路由都加载成功",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1293,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:16.435Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-825241e803bed83c1636",
+              "file": "component-showcase.spec.ts",
+              "line": 17,
+              "column": 3
+            },
+            {
+              "title": "展台列出全部 Canonical Token 颜色",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 859,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:17.840Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-6aa042514b6640784ddb",
+              "file": "component-showcase.spec.ts",
+              "line": 29,
+              "column": 3
+            },
+            {
+              "title": "Dialog：打开 → 焦点陷阱 → Esc 关闭 → 焦点归还触发器",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1031,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:18.707Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-6357abba2f84b0e6b33a",
+              "file": "component-showcase.spec.ts",
+              "line": 36,
+              "column": 3
+            },
+            {
+              "title": "Menu：触发器展开 → ↑↓ 导航 → Esc 关闭 → 焦点归还",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1081,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:19.742Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-f264cd80273ca76dd8d4",
+              "file": "component-showcase.spec.ts",
+              "line": 62,
+              "column": 3
+            },
+            {
+              "title": "focus-visible：键盘 Tab 显示出蓝色硬阴影",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 439,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:20.829Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-22b31e549e7aa95f57e8",
+              "file": "component-showcase.spec.ts",
+              "line": 81,
+              "column": 3
+            },
+            {
+              "title": "prefers-reduced-motion：动画时长被压缩到 0.01ms",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 452,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:21.275Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-f0d9ccc0ffafd297441c",
+              "file": "component-showcase.spec.ts",
+              "line": 94,
+              "column": 3
+            },
+            {
+              "title": "200% 缩放（1280×720）下无横向滚动",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 461,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:21.731Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89df1fcab657de687424-84b6a82928e2076f3243",
+              "file": "component-showcase.spec.ts",
+              "line": 106,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "pixel-face.spec.ts",
+      "file": "pixel-face.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "V4 PixelFace 主页装饰基线",
+          "file": "pixel-face.spec.ts",
+          "line": 11,
+          "column": 6,
+          "specs": [
+            {
+              "title": "桌面 1440: 主页标题区出现 PixelFace，无 console 错误",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1461,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:16.434Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "08d9ed2c85a7e8c04a3d-64e0a2ae143d00cb32b5",
+              "file": "pixel-face.spec.ts",
+              "line": 12,
+              "column": 3
+            },
+            {
+              "title": "移动端 390: PixelFace 仍可见且不引起横向滚动",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1007,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:18.004Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "08d9ed2c85a7e8c04a3d-0dfcfb6d637918b80ffe",
+              "file": "pixel-face.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "prefers-reduced-motion: PixelFace 不破坏 transform 动画（直接跳转或平滑过渡）",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 989,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:19.017Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "08d9ed2c85a7e8c04a3d-b50c680d453f4eda0f92",
+              "file": "pixel-face.spec.ts",
+              "line": 57,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v4-05-shell-home.spec.ts",
+      "file": "v4-05-shell-home.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "V4-05 公共 Shell 与主页",
+          "file": "v4-05-shell-home.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "1024 / 1280 / 1440 / 2048 均无页面级横向滚动",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1937,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:20.018Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-ecf0395353afe5be90a6",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 8,
+              "column": 3
+            },
+            {
+              "title": "全局搜索支持快捷键、过滤、清空、Enter、Escape 与焦点归还",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1324,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:21.959Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-b34a0db4ce7c8e19e50b",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 21,
+              "column": 3
+            },
+            {
+              "title": "未上线工作域与入口使用真实禁用/门禁语义",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1452,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:23.288Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-8874dd2087cdfc3f264d",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 47,
+              "column": 3
+            },
+            {
+              "title": "移动端与 200% 缩放保留核心入口且无横向滚动",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 934,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:24.745Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-1bc7c06697eb799491c4",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 71,
+              "column": 3
+            },
+            {
+              "title": "最近资料可通过键盘聚焦并触发可感知反馈",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 587,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:25.683Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-3a71ae5cae87666e1726",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "标签区收起后真正退出侧栏布局",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 584,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:26.274Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-23febed3dff3a3d29e98",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 93,
+              "column": 3
+            },
+            {
+              "title": "桌面与移动端视觉证据无 console warning/error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1010,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:26.861Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ff005991339a2cac04c3-c4be0c259bd344194f90",
+              "file": "v4-05-shell-home.spec.ts",
+              "line": 115,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v4-07-editor.spec.ts",
+      "file": "v4-07-editor.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "V4-07 正文编辑、工具栏命令和自动保存形成闭环",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9510,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:22:22.210Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-18dbef4ca3d59a30c5e8",
+          "file": "v4-07-editor.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "V4-07 保存冲突会暂停自动写入并保留可导出的本地草稿",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2401,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:22:31.724Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-62ab969c16a2ff245dc9",
+          "file": "v4-07-editor.spec.ts",
+          "line": 108,
+          "column": 1
+        },
+        {
+          "title": "V4-07 连续输入只产生必要段落并在 IME 候选上屏后再保存",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6479,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:22:34.129Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-3899a1fc42e0a6809f0d",
+          "file": "v4-07-editor.spec.ts",
+          "line": 146,
+          "column": 1
+        },
+        {
+          "title": "V4-07 Typora 式 Markdown 输入规则可转换且可用退格退出结构",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3487,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:22:40.612Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-bad5c7c5bccd269873b2",
+          "file": "v4-07-editor.spec.ts",
+          "line": 188,
+          "column": 1
+        },
+        {
+          "title": "V4-07 代码块保持 Typora 式插入与末尾点击行为",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6360,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:22:44.102Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-649412e47c53f3f18af0",
+          "file": "v4-07-editor.spec.ts",
+          "line": 222,
+          "column": 1
+        },
+        {
+          "title": "V4-07 段落菜单复用编辑器命令并通过现有保存链路持久化",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 36364,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror').locator('td, th').nth(1)\nExpected substring: \u001b[32m\"单元格导航\"\u001b[39m\nReceived string:    \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror').locator('td, th').nth(1)\u001b[22m\n\u001b[2m    14 × locator resolved to <th>…</th>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror').locator('td, th').nth(1)\nExpected substring: \u001b[32m\"单元格导航\"\u001b[39m\nReceived string:    \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror').locator('td, th').nth(1)\u001b[22m\n\u001b[2m    14 × locator resolved to <th>…</th>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:385:49",
+                    "location": {
+                      "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                      "column": 49,
+                      "line": 385
+                    },
+                    "snippet": "  383 |   await expect(editor).toBeFocused();\n  384 |   await page.keyboard.type('单元格导航');\n> 385 |   await expect(editor.locator('td, th').nth(1)).toContainText('单元格导航');\n      |                                                 ^\n  386 | });\n  387 |\n  388 | test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ page }) => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                        "column": 49,
+                        "line": 385
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.ProseMirror').locator('td, th').nth(1)\nExpected substring: \u001b[32m\"单元格导航\"\u001b[39m\nReceived string:    \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.ProseMirror').locator('td, th').nth(1)\u001b[22m\n\u001b[2m    14 × locator resolved to <th>…</th>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n\n  383 |   await expect(editor).toBeFocused();\n  384 |   await page.keyboard.type('单元格导航');\n> 385 |   await expect(editor.locator('td, th').nth(1)).toContainText('单元格导航');\n      |                                                 ^\n  386 | });\n  387 |\n  388 | test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ page }) => {\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:385:49"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:22:50.472Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-段落菜单复用编辑器命令并通过现有保存链路持久化-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-段落菜单复用编辑器命令并通过现有保存链路持久化-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                    "column": 49,
+                    "line": 385
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-c01bd38d7585f1024c1b",
+          "file": "v4-07-editor.spec.ts",
+          "line": 270,
+          "column": 1
+        },
+        {
+          "title": "V4-07 格式菜单复用编辑器与内部链接保存链路",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 6051,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('menuitem', { name: '图片', exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('menuitem', { name: '图片', exact: true })\u001b[22m\n\u001b[2m    14 × locator resolved to <div data-rac=\"\" tabindex=\"-1\" role=\"menuitem\" data-key=\"image\" class=\"_item_r0p5q_244\" id=\"react-aria4387743686-_r_2c_\" data-react-aria-pressable=\"true\" data-collection=\"react-aria4387743686-_r_27_\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('menuitem', { name: '图片', exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('menuitem', { name: '图片', exact: true })\u001b[22m\n\u001b[2m    14 × locator resolved to <div data-rac=\"\" tabindex=\"-1\" role=\"menuitem\" data-key=\"image\" class=\"_item_r0p5q_244\" id=\"react-aria4387743686-_r_2c_\" data-react-aria-pressable=\"true\" data-collection=\"react-aria4387743686-_r_27_\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:418:73",
+                    "location": {
+                      "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                      "column": 73,
+                      "line": 418
+                    },
+                    "snippet": "  416 |\n  417 |   await openFormatMenu();\n> 418 |   await expect(page.getByRole('menuitem', { name: '图片', exact: true })).toBeDisabled();\n      |                                                                         ^\n  419 |   for (const name of ['内部链接', '斜体', '删除线']) {\n  420 |     await expect(page.getByRole('menuitem', { name, exact: true })).toBeEnabled();\n  421 |   }"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                        "column": 73,
+                        "line": 418
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('menuitem', { name: '图片', exact: true })\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('menuitem', { name: '图片', exact: true })\u001b[22m\n\u001b[2m    14 × locator resolved to <div data-rac=\"\" tabindex=\"-1\" role=\"menuitem\" data-key=\"image\" class=\"_item_r0p5q_244\" id=\"react-aria4387743686-_r_2c_\" data-react-aria-pressable=\"true\" data-collection=\"react-aria4387743686-_r_27_\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n\n  416 |\n  417 |   await openFormatMenu();\n> 418 |   await expect(page.getByRole('menuitem', { name: '图片', exact: true })).toBeDisabled();\n      |                                                                         ^\n  419 |   for (const name of ['内部链接', '斜体', '删除线']) {\n  420 |     await expect(page.getByRole('menuitem', { name, exact: true })).toBeEnabled();\n  421 |   }\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:418:73"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:23:27.253Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-格式菜单复用编辑器与内部链接保存链路-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-格式菜单复用编辑器与内部链接保存链路-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                    "column": 73,
+                    "line": 418
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-3c31e913d0eb6a48431a",
+          "file": "v4-07-editor.spec.ts",
+          "line": 388,
+          "column": 1
+        },
+        {
+          "title": "V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底部碰撞",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 11743,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '图片（待附件适配）' })\nExpected: disabled\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '图片（待附件适配）' })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '图片（待附件适配）' })\nExpected: disabled\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '图片（待附件适配）' })\u001b[22m\n\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:541:73",
+                    "location": {
+                      "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                      "column": 73,
+                      "line": 541
+                    },
+                    "snippet": "  539 |   const insertMenu = page.getByRole('menu', { name: '插入', exact: true });\n  540 |   await expect(insertMenu).toBeVisible();\n> 541 |   await expect(insertMenu.getByRole('menuitem', { name: '图片（待附件适配）' })).toBeDisabled();\n      |                                                                         ^\n  542 |   const insertMenuBox = await insertMenu.boundingBox();\n  543 |   expect(insertMenuBox).not.toBeNull();\n  544 |   if (insertMenuBox && viewport) {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                        "column": 73,
+                        "line": 541
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '图片（待附件适配）' })\nExpected: disabled\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '图片（待附件适配）' })\u001b[22m\n\n\n  539 |   const insertMenu = page.getByRole('menu', { name: '插入', exact: true });\n  540 |   await expect(insertMenu).toBeVisible();\n> 541 |   await expect(insertMenu.getByRole('menuitem', { name: '图片（待附件适配）' })).toBeDisabled();\n      |                                                                         ^\n  542 |   const insertMenuBox = await insertMenu.boundingBox();\n  543 |   expect(insertMenuBox).not.toBeNull();\n  544 |   if (insertMenuBox && viewport) {\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:541:73"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:23:33.634Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-编辑器右键面板复用命令并处理二级菜单跨越与底部碰撞-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-编辑器右键面板复用命令并处理二级菜单跨越与底部碰撞-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                    "column": 73,
+                    "line": 541
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-1185fc0f7d94aa85ef9b",
+          "file": "v4-07-editor.spec.ts",
+          "line": 450,
+          "column": 1
+        },
+        {
+          "title": "V4-07 编辑菜单完成剪贴板、查找替换与历史命令闭环",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12017,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:23:45.737Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-ed9de70c7618bc0bab8b",
+          "file": "v4-07-editor.spec.ts",
+          "line": 554,
+          "column": 1
+        },
+        {
+          "title": "V4-07 原生粘贴保留语义并清理外部样式与不安全图片",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6119,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:23:57.843Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-f4f41c254beeafc1e51d",
+          "file": "v4-07-editor.spec.ts",
+          "line": 626,
+          "column": 1
+        },
+        {
+          "title": "V4-07 跨段落选区在操作工具栏后仍保持并统一格式化",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3207,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:24:03.966Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-0be46fdc8a9993c50537",
+          "file": "v4-07-editor.spec.ts",
+          "line": 663,
+          "column": 1
+        },
+        {
+          "title": "V4-07 异常格式修复读取原始草稿并可一次撤销",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5162,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:24:07.178Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-a71103faca40813632d4",
+          "file": "v4-07-editor.spec.ts",
+          "line": 688,
+          "column": 1
+        },
+        {
+          "title": "V4-07 超长文档输入保持光标可见并按笔记恢复滚动位置",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 60112,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                        "column": 44,
+                        "line": 766
+                      },
+                      "message": "Error: locator.click: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('complementary', { name: '文档检查器' }).getByRole('link', { name: '关联验收笔记' })\u001b[22m\n\n\n  764 |   const scrollBeforeSwitch = await scrollRoot.evaluate((element) => element.scrollTop);\n  765 |   await page.getByRole('complementary', { name: '文档检查器' })\n> 766 |     .getByRole('link', { name: '关联验收笔记' }).click();\n      |                                            ^\n  767 |   await expect(page.locator('.ProseMirror')).toContainText('第二篇正文');\n  768 |   await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeLessThan(80);\n  769 |\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:766:44"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:24:12.344Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-超长文档输入保持光标可见并按笔记恢复滚动位置-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-超长文档输入保持光标可见并按笔记恢复滚动位置-chromium/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-2aafe2f36237b3d0fa15",
+          "file": "v4-07-editor.spec.ts",
+          "line": 714,
+          "column": 1
+        },
+        {
+          "title": "V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源码模式",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3741,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:25:12.730Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-4608fd57b40c1cfb34c1",
+          "file": "v4-07-editor.spec.ts",
+          "line": 777,
+          "column": 1
+        },
+        {
+          "title": "V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不串写",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 60173,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts",
+                        "column": 57,
+                        "line": 882
+                      },
+                      "message": "Error: locator.click: Test timeout of 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('complementary', { name: '文档检查器' }).getByRole('link', { name: '关联验收笔记' })\u001b[22m\n\n\n  880 |   await page.keyboard.press('End');\n  881 |   await page.keyboard.type(' 仅属于第一篇');\n> 882 |   await inspector.getByRole('link', { name: '关联验收笔记' }).click();\n      |                                                         ^\n  883 |\n  884 |   await expect(page.getByRole('heading', { name: '关联验收笔记', level: 1 })).toBeVisible();\n  885 |   await expect(page.locator('.ProseMirror')).toContainText('第二篇正文');\n    at /Users/rabbids/Documents/Codex/知境·Knowra/apps/web-v4/e2e/v4-07-editor.spec.ts:882:57"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:25:16.586Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-文档检查器呈现真实信息并保证切换笔记时草稿不串写-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段5/e2e-artifacts/v4-07-editor-V4-07-文档检查器呈现真实信息并保证切换笔记时草稿不串写-chromium/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-c782c5da5e2c3d4f7e3b",
+          "file": "v4-07-editor.spec.ts",
+          "line": 848,
+          "column": 1
+        },
+        {
+          "title": "V4-07 大纲保留标题层级并精确跳转到重复标题",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1901,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:26:17.072Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-f184c95d28809bcb9696",
+          "file": "v4-07-editor.spec.ts",
+          "line": 904,
+          "column": 1
+        },
+        {
+          "title": "V4-07 Markdown 导入复用后端批量能力并打开首篇笔记",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1634,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-06T04:26:19.062Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5ce30406adc59b9b5cc9-7c78ec393ad704faa004",
+          "file": "v4-07-editor.spec.ts",
+          "line": 944,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "visual-baseline/component-showcase.spec.ts",
+      "file": "visual-baseline/component-showcase.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "V4-04 桌面视觉基线 1440×900",
+          "file": "visual-baseline/component-showcase.spec.ts",
+          "line": 17,
+          "column": 6,
+          "specs": [
+            {
+              "title": "顶区 + Token + 按钮",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1240,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:27.883Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-4c8b9f6a168762354c84",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 20,
+              "column": 3
+            },
+            {
+              "title": "Input / SearchField / Checkbox / Select",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1260,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:29.128Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-2dc4c7a0f39649fdf3af",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 32,
+              "column": 3
+            },
+            {
+              "title": "Dialog 打开（含 4px + 7px 双层硬阴影）",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1397,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:30.391Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-ee516cf0f3d5eac08e75",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 44,
+              "column": 3
+            },
+            {
+              "title": "Menu 展开",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1302,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:31.795Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-d0e22dc3b4da3f1ab4de",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 57,
+              "column": 3
+            },
+            {
+              "title": "Tree / GridList / TagGroup 集合组件",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1202,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:33.104Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-fd5ecb268c1003a67943",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 69,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "V4-04 移动视觉基线 390×843",
+          "file": "visual-baseline/component-showcase.spec.ts",
+          "line": 81,
+          "column": 6,
+          "specs": [
+            {
+              "title": "移动端顶区 + Hero（不挤压不触字断行）",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1263,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:34.312Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-763310a335ac6f48bd3a",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 84,
+              "column": 3
+            },
+            {
+              "title": "移动端 GridList（两行紧凑列表，不横滚）",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1227,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:35.581Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-d5f2cc72ab32aefc508b",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 94,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "V4-04 200% 缩放视觉基线 1280×720",
+          "file": "visual-baseline/component-showcase.spec.ts",
+          "line": 114,
+          "column": 6,
+          "specs": [
+            {
+              "title": "200% 缩放无横向滚动",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1183,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:36.812Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-f2bf86cb41b434db241f",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 117,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "V4-04 Dialog 关闭契约",
+          "file": "visual-baseline/component-showcase.spec.ts",
+          "line": 139,
+          "column": 6,
+          "specs": [
+            {
+              "title": "取消按钮关闭 Dialog 并归还焦点",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1434,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:37.999Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-6c1c6a9e4432d576991a",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 142,
+              "column": 3
+            },
+            {
+              "title": "确认按钮关闭 Dialog 并归还焦点",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1414,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:39.437Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-d1a46ea1d7c3707565c6",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 154,
+              "column": 3
+            },
+            {
+              "title": "右上角 X 关闭 Dialog 并归还焦点",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1473,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:40.855Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-bba9b36735fcc6f29d06",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 166,
+              "column": 3
+            },
+            {
+              "title": "Escape 关闭 Dialog 并归还焦点",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1178,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:42.332Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-745499ff960d48d9d6f7",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 178,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "V4-04 SearchField 清除按钮契约",
+          "file": "visual-baseline/component-showcase.spec.ts",
+          "line": 191,
+          "column": 6,
+          "specs": [
+            {
+              "title": "空值时无清除按钮；输入非空后显示；清除后按钮消失并保留焦点",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1062,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:43.513Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-4f0b8402fa8f6e6507d6",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 194,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "V4-04 独立展台运行不调用 workspace API",
+          "file": "visual-baseline/component-showcase.spec.ts",
+          "line": 214,
+          "column": 6,
+          "specs": [
+            {
+              "title": "console 零 warning/error 且 /api/knowledge/spaces 永不请求",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1415,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-06T04:22:44.579Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2908f2a18ad9eb7ccb94-d9e60756f0b405d751f1",
+              "file": "visual-baseline/component-showcase.spec.ts",
+              "line": 217,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-06T04:22:16.202Z",
+    "duration": 244516.029,
+    "expected": 43,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

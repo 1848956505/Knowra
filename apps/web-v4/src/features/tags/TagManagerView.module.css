@@ -39,3 +39,7 @@
   .rowActions { grid-column: 2 / -1; justify-content: flex-start; }
 }
 @media (max-width: 560px) { .page { padding-inline: 14px; } .filters { grid-template-columns: 1fr; } }
+
+.search { min-width: 0; display: flex; border: 1px solid var(--ink-shell); background: var(--ink-search-rest); box-shadow: var(--shadow-search-rest); transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease); }
+.search:focus-within { border-color: var(--ink-accent); background: var(--ink-surface); box-shadow: var(--shadow-search-focus); }
+.search input, .search input:focus-visible { width: 100%; min-width: 0; border: 0; background: transparent; box-shadow: none; }

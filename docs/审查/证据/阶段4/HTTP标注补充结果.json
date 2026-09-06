@@ -1,0 +1,16 @@
+{
+  "node": "v26.4.0",
+  "driver": "local-json",
+  "transport": "real node:http on loopback",
+  "results": [
+    {
+      "id": "H14",
+      "title": "F-07 标注幂等→绑定版本→归档使证据失效",
+      "status": "verified",
+      "outcome": "pass",
+      "idempotent": true,
+      "versionBound": true,
+      "archiveDowngradedKnowledge": true
+    }
+  ]
+}

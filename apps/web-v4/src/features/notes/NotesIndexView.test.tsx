@@ -1,4 +1,4 @@
-import { render, screen, within, type RenderResult } from '@testing-library/react';
+import { fireEvent, render, screen, within, type RenderResult } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -31,57 +31,32 @@ describe('Notes index skeleton', () => {
     expect(screen.getByRole('main').querySelectorAll('main')).toHaveLength(0);
   });
 
-  it('uses a compact shared-location header with the current segment as the only h1', async () => {
-    const navigateMaterials = vi.fn();
-    renderWithStore(
-      <NotesIndexView
-        path={[
-          { id: 'home', label: '主页' },
-          { id: 'materials:root', label: '笔记库', onNavigate: navigateMaterials },
-          { id: 'materials:index', label: '全部笔记', current: true }
-        ]}
-      />
-    );
-
-    const header = document.querySelector('[data-header-density="compact"]');
-    expect(header).toBeTruthy();
-    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 }))
-      .toHaveAttribute('data-title-density', 'compact');
-    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toHaveAttribute('aria-current', 'page');
-    const topLocation = screen.getByRole('navigation', { name: '当前位置' });
-    expect(topLocation).not.toHaveTextContent('主页');
-    expect(within(topLocation).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
-    expect(topLocation).toHaveTextContent('6 项');
-    expect(screen.getByRole('toolbar', { name: '笔记索引工具栏' })).toBeInTheDocument();
-
-    await userEvent.click(within(topLocation).getByRole('button', { name: '跳转到「笔记库」' }));
-    expect(navigateMaterials).toHaveBeenCalledOnce();
+  it('separates the address from the title and navigates to the library root', async () => {
+    renderWithStore(<NotesIndexView path={[]} />);
+    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    const location = screen.getByRole('navigation', { name: '当前位置' });
+    expect(location).toHaveTextContent('笔记库 / 全部笔记');
+    expect(within(location).queryByRole('heading')).not.toBeInTheDocument();
+    await userEvent.click(within(location).getByRole('button', { name: '跳转到「笔记库」' }));
+    expect(screen.getByRole('heading', { name: '笔记库', level: 1 })).toBeInTheDocument();
   });
 
-  it('keeps toolbar layout-only and assigns one shadow owner to each floating control', () => {
-    renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
+  it('keeps the content scroll area between fixed controls and pagination', () => {
+    renderWithStore(<NotesIndexView path={[]} />);
+    const content = screen.getByTestId('notes-index-scroll');
+    expect(within(content).getByLabelText('笔记图标视图')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '笔记分页' })).toBeInTheDocument();
+    expect(within(content).queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '后退' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '前进' })).toBeDisabled();
+    const search = screen.getByRole('searchbox', { name: '搜索笔记索引' });
+    expect(search.parentElement).toHaveAttribute('data-shadow-token', '--shadow-search-rest');
+  });
 
-    const toolbar = screen.getByRole('toolbar', { name: '笔记索引工具栏' });
-    expect(toolbar).toHaveAttribute('data-toolbar-surface', 'layout-only');
-    expect(toolbar).toHaveAttribute('data-toolbar-list-gap', '12px');
-    expect(toolbar).not.toHaveAttribute('data-shadow-owner');
-    expect(screen.getByTestId('notes-index-marker')).toHaveAttribute('data-shadow-owner', 'marker');
-    expect(screen.getByTestId('notes-index-marker')).toHaveAttribute('data-shadow-token', '--shadow-badge');
-    const searchOwner = toolbar.querySelector('[data-shadow-owner="search"]');
-    expect(searchOwner).toHaveAttribute('data-shadow-owner', 'search');
-    expect(searchOwner).toHaveAttribute('data-shadow-token', '--shadow-input-rest');
-    const filterGroup = within(toolbar).getByRole('group', { name: '类型筛选' });
-    expect(filterGroup).toHaveAttribute('data-control-group', 'segmented');
-    expect(filterGroup).toHaveAttribute('data-shadow-owner', 'filter-group');
-    expect(filterGroup).toHaveAttribute('data-shadow-token', '--shadow-badge');
-    const filters = within(filterGroup).getAllByRole('button', { name: /^(全部|文件夹|文稿)$/ });
-    expect(filters).toHaveLength(3);
-    expect(filterGroup.children).toHaveLength(3);
-    expect(filters.every((button) => !button.hasAttribute('data-shadow-owner') && !button.hasAttribute('data-shadow-token'))).toBe(true);
-    expect(filters.find((button) => button.textContent === '全部')).toHaveAttribute('aria-pressed', 'true');
-    expect(within(toolbar).getByRole('button', { name: '↕ 最近更新' })).toHaveAttribute('data-shadow-token', '--shadow-badge');
-    expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-owner', 'view-group');
-    expect(within(toolbar).getByRole('group', { name: '视图切换' })).toHaveAttribute('data-shadow-token', '--shadow-badge');
+  it('opens the existing Markdown importer from the index', async () => {
+    renderWithStore(<NotesIndexView path={[]} />);
+    await userEvent.click(screen.getByRole('button', { name: '导入' }));
+    expect(screen.getByRole('dialog', { name: '导入 Markdown' })).toBeInTheDocument();
   });
 
   it('delegates note opening without coupling the index to routing', async () => {
@@ -93,22 +68,61 @@ describe('Notes index skeleton', () => {
       />
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /规划草案/ }));
+    await userEvent.click(screen.getByRole('button', { name: '列表视图' }));
+    await userEvent.click(screen.getByRole('button', { name: '规划草案' }));
     expect(onOpenNote).toHaveBeenCalledWith('note-1');
   });
 
   it('matches the demo artwork in list and icon views', async () => {
     renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
 
+    const iconView = screen.getByLabelText('笔记图标视图');
+    expect(iconView).toBeInTheDocument();
+    expect(iconView.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
+    expect(iconView.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
+
+    await userEvent.click(screen.getByRole('button', { name: '列表视图' }));
     const table = screen.getByRole('table');
     expect(table.querySelector('[data-art-kind="folder"]')).toBeInTheDocument();
     expect(table.querySelector('[data-art-kind="document"]')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '图标视图' }));
-    const iconView = screen.getByLabelText('笔记图标视图');
-    expect(iconView.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
-    expect(iconView.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
-    expect(screen.getByText('图标视图 · 最近更新')).toBeInTheDocument();
+    const iconViewAfterToggle = screen.getByLabelText('笔记图标视图');
+    expect(iconViewAfterToggle.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
+    expect(iconViewAfterToggle.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
+    expect(screen.getByRole('button', { name: '排序：最近更新' })).toBeInTheDocument();
+  });
+
+  it('opens the shared item menu by right-clicking a list row', async () => {
+    renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '列表视图' }));
+    const noteRow = screen.getByRole('button', { name: '规划草案' }).closest('tr');
+    expect(noteRow).not.toBeNull();
+    fireEvent.contextMenu(noteRow as HTMLTableRowElement, { clientX: 280, clientY: 240 });
+
+    expect(await screen.findByRole('menu')).toHaveAttribute('aria-label', '规划草案笔记操作');
+    expect(screen.getByRole('menuitem', { name: '收藏笔记' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '重命名' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '删除' })).toHaveAttribute('data-danger', 'true');
+  });
+
+  it('opens the shared item menu by right-clicking an icon tile', async () => {
+    const user = userEvent.setup();
+    renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
+
+    const noteTile = screen.getByRole('button', { name: /规划草案8\/23/ }).parentElement;
+    expect(noteTile).not.toBeNull();
+    fireEvent.contextMenu(noteTile as HTMLElement, { clientX: 360, clientY: 300 });
+    expect(await screen.findByRole('menu')).toHaveAttribute('aria-label', '规划草案笔记操作');
+  });
+
+  it('keeps a visible keyboard-operable item menu trigger', async () => {
+    const user = userEvent.setup();
+    renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
+    await user.click(screen.getByRole('button', { name: '图标视图' }));
+    await user.click(screen.getByRole('button', { name: '规划草案的笔记操作' }));
+    expect(await screen.findByRole('menu')).toHaveAttribute('aria-label', '规划草案笔记操作');
   });
 
   it('restores one note from the recycle bin through its accessible action menu', async () => {
@@ -138,6 +152,51 @@ describe('Notes index skeleton', () => {
     expect(api.permanentlyDeleteNote).toHaveBeenCalledWith('note-trash');
   });
 
+  it('paginates folders and notes together and resets type and page-size changes', async () => {
+    const user = userEvent.setup();
+    renderWithStore(<NotesIndexView path={[]} />);
+    await user.click(screen.getByRole('button', { name: '列表视图' }));
+    await vi.waitFor(() => expect(screen.queryByText('正在从服务端加载筛选结果…')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: '每页 5 条' }));
+    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(6);
+    expect(screen.getByText('第 1 / 2 页 · 共 6 条')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '第 2 页' }));
+    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: '全部' })).toHaveTextContent('6');
+    await user.click(screen.getByRole('button', { name: '文件夹' }));
+    expect(screen.getByText('第 1 / 1 页 · 共 3 条')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '文稿' })).toHaveTextContent('3');
+    await user.click(screen.getByRole('button', { name: '全部' }));
+    await user.click(screen.getByRole('button', { name: '每页 20 条' }));
+    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(7);
+  });
+
+  it('loads server batches incrementally without rendering every icon at once', async () => {
+    const user = userEvent.setup();
+    const { api } = renderWithStore(<NotesIndexView path={[]} />, { extraNotes: 35 });
+    await vi.waitFor(() => expect(api.queryNotes).toHaveBeenCalledWith(expect.objectContaining({ offset: 0, limit: 30 })));
+    expect(api.queryNotes).not.toHaveBeenCalledWith(expect.objectContaining({ offset: 30 }));
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText('笔记图标视图').children).toHaveLength(10);
+      expect(screen.getByText('第 1 / 4 页 · 已载入 33 条')).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: '加载更多' }));
+    await vi.waitFor(() => expect(api.queryNotes).toHaveBeenCalledWith(expect.objectContaining({ offset: 30 })));
+    await vi.waitFor(() => expect(screen.getByText('第 1 / 5 页 · 共 41 条')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: '第 5 页' }));
+    expect(screen.getByLabelText('笔记图标视图').children).toHaveLength(1);
+  });
+
+  it('focuses index search with Mod+K and selects sorting from a menu', async () => {
+    const user = userEvent.setup();
+    const { api } = renderWithStore(<NotesIndexView path={[]} />);
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(screen.getByRole('searchbox', { name: '搜索笔记索引' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: '排序：最近更新' }));
+    await user.click(screen.getByRole('menuitemradio', { name: '最早更新' }));
+    await vi.waitFor(() => expect(api.queryNotes).toHaveBeenLastCalledWith(expect.objectContaining({ order: 'asc' })));
+  });
+
   it('uses the server query and confirms a selected batch delete', async () => {
     const user = userEvent.setup();
     const { api } = renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
@@ -155,7 +214,7 @@ describe('Notes index skeleton', () => {
   });
 });
 
-function renderWithStore(ui: ReactNode, options: { scope?: 'trash' } = {}): RenderResult & {
+function renderWithStore(ui: ReactNode, options: { scope?: 'trash'; extraNotes?: number } = {}): RenderResult & {
   api: WorkspaceApi;
   store: ReturnType<typeof createAppStore>;
 } {
@@ -179,6 +238,7 @@ function renderWithStore(ui: ReactNode, options: { scope?: 'trash' } = {}): Rend
       folderTree: folders,
       foldersById: Object.fromEntries(folders.map((folder) => [folder.id, folder])),
       notes: [
+        ...Array.from({ length: options.extraNotes ?? 0 }, (_, index) => createNote(`extra-${index}`, `额外笔记 ${index}`, null)),
         createNote('note-1', '规划草案', 'folder-1'),
         createNote('note-2', '注意力机制', 'folder-2'),
         createNote('note-3', '灵感记录', null),

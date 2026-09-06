@@ -1,0 +1,8 @@
+
+ RUN  v4.1.10 /Users/rabbids/Documents/Codex/知境·Knowra
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  11:00:11
+   Duration  568ms (transform 38ms, setup 0ms, import 108ms, tests 9ms, environment 389ms)

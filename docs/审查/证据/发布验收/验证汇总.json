@@ -1,0 +1,42 @@
+{
+  "date": "2026-09-06",
+  "target": "Ubuntu 22.04 / Node 24.18.0 / npm 11.16.0 / PM2 / Nginx / local-json",
+  "candidateArchiveSha256": "d0f363343b33cdff33016aa10e254a26c1ac6727744827085b0194182687bdfe",
+  "verdict": "NO-GO",
+  "passed": {
+    "cleanInstall": true,
+    "rootTests": true,
+    "apiTests": 229,
+    "v4Tests": 254,
+    "productionServerTests": 4,
+    "scriptTestsOnTargetBeforeGuard": 21,
+    "scriptTestsAfterGuard": 22,
+    "prismaSchemaValidation": true,
+    "productionBuild": true,
+    "sourceMapsAbsent": true,
+    "isolatedRuntimeSmoke": true,
+    "isolatedPm2PostDeploy": true,
+    "publicHealthStatus": 200,
+    "unauthenticatedRootStatus": 401,
+    "productionAttachmentsReady": 19,
+    "sameHostBackupRestore": true,
+    "formalPm2RecoveredAfterReboot": true
+  },
+  "dependencyAudit": {
+    "productionVulnerabilities": 0,
+    "allDependencyHighFindings": 3,
+    "rootCause": "inactive Prisma CLI transitively depends on deepmerge-ts < 8",
+    "runtimeDisposition": "accepted only for current local-json runtime; not reported as zero-high for all dependencies"
+  },
+  "incident": {
+    "cause": "full test and a second clean install ran concurrently with formal services on a 1.6 GiB host without swap",
+    "impact": "HTTPS and SSH timed out until an ECS reboot",
+    "recovery": "formal PM2, Nginx, public auth and 19 attachments passed post-reboot verification",
+    "correctiveAction": "full tests moved out of the live-host deployment procedure and protected by a script assertion"
+  },
+  "blockers": [
+    "candidate changes are not a reviewed main commit and are not deployed",
+    "formal production replacement was not authorized",
+    "offsite encrypted-backup decryption restore was not authorized"
+  ]
+}

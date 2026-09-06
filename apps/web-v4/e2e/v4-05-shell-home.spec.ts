@@ -90,6 +90,28 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page.getByRole('status')).toContainText('设计复盘');
   });
 
+  test('标签区收起后真正退出侧栏布局', async ({ page }) => {
+    await page.goto('/#/materials');
+
+    const toggle = page.getByRole('button', { name: '标签', exact: true });
+    const body = page.locator('#sidebar-tags-body');
+    const tag = body.getByRole('button', { name: '设计', exact: true });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(body).toBeVisible();
+    await expect(tag).toBeVisible();
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(body).toBeHidden();
+    await expect(body).toHaveCSS('display', 'none');
+    await expect(tag).toBeHidden();
+
+    await toggle.click();
+    await expect(body).toBeVisible();
+    await expect(tag).toBeVisible();
+  });
+
   test('桌面与移动端视觉证据无 console warning/error', async ({ page }) => {
     const consoleProblems: string[] = [];
     page.on('console', (message) => {

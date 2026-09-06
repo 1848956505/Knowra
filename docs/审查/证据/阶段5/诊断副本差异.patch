@@ -1,0 +1,30 @@
+--- apps/web-v4/e2e/v4-07-editor.spec.ts
++++ docs/审查/证据/阶段5/diagnostic-e2e/editor-diagnostic.spec.ts
+@@ -415,7 +415,7 @@
+   };
+
+   await openFormatMenu();
+-  await expect(page.getByRole('menuitem', { name: '图片', exact: true })).toBeDisabled();
++  await expect(page.getByRole('menuitem', { name: '图片', exact: true })).toBeEnabled();
+   for (const name of ['内部链接', '斜体', '删除线']) {
+     await expect(page.getByRole('menuitem', { name, exact: true })).toBeEnabled();
+   }
+@@ -538,7 +538,7 @@
+   await insertTrigger.hover();
+   const insertMenu = page.getByRole('menu', { name: '插入', exact: true });
+   await expect(insertMenu).toBeVisible();
+-  await expect(insertMenu.getByRole('menuitem', { name: '图片（待附件适配）' })).toBeDisabled();
++  await expect(insertMenu.getByRole('menuitem', { name: '图片', exact: true })).toBeEnabled();
+   const insertMenuBox = await insertMenu.boundingBox();
+   expect(insertMenuBox).not.toBeNull();
+   if (insertMenuBox && viewport) {
+@@ -981,7 +981,8 @@
+     const request = route.request();
+     const url = new URL(request.url());
+     let data: unknown = [];
+-    if (url.pathname.endsWith('/spaces')) data = [{ id: 'space-1', name: '主空间' }];
++    if (url.pathname.endsWith('/notes/note-1/links')) data = [createNote(relatedMarkdown, true, 'note-2', '关联验收笔记')];
++    else if (url.pathname.endsWith('/spaces')) data = [{ id: 'space-1', name: '主空间' }];
+     else if (url.pathname.endsWith('/folders/tree')) data = [{ id: 'folder-1', name: '工作', parentId: null, children: [] }];
+     else if (url.pathname.endsWith('/notes/note-1')) {
+       if (request.method() === 'PATCH') {

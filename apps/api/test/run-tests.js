@@ -1,4 +1,5 @@
 import { storageConfigTests } from './storage.config.test.js';
+import { localBusinessTransactionTests } from './local-business-transactions.test.js';
 import { noteDomainTests } from './note.domain.test.js';
 import { noteServiceTests } from './note-service.test.js';
 import { folderServiceTests } from './folder-service.test.js';
@@ -30,13 +31,17 @@ import {
 import {
   noteDeletionCoordinatorTests
 } from './note-deletion-coordinator.test.js';
+import { postgresTagGroupMigrationTests } from './postgres-tag-group-migration.test.js';
 import { phase1PostgresTests } from './phase1-postgres.test.js';
 import { attachmentIntegrityTests } from './attachment-integrity.test.js';
 import { phase2KnowledgeDomainTests } from './phase2-knowledge-domain.test.js';
 import { phase3AssessmentTests } from './phase3-assessment.test.js';
 import { phase31WorkspaceQueryTests } from './phase31-workspace-query.test.js';
+import { batch3ConsistencyTests } from './batch3-consistency.test.js';
+import { batch5OperationAccessTests } from './batch5-operation-access.test.js';
 
 const tests = [
+  ...localBusinessTransactionTests,
   ...storageConfigTests,
   ...noteDomainTests,
   ...noteDtoTests,
@@ -66,10 +71,13 @@ const tests = [
   ...knowledgeBaseSnapshotServiceTests,
   ...noteDeletionCoordinatorTests,
   ...phase1PostgresTests,
+  ...postgresTagGroupMigrationTests,
   ...attachmentIntegrityTests,
   ...phase2KnowledgeDomainTests,
   ...phase3AssessmentTests,
   ...phase31WorkspaceQueryTests,
+  ...batch3ConsistencyTests,
+  ...batch5OperationAccessTests,
 ];
 
 let failed = 0;

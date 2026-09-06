@@ -16,6 +16,11 @@ export function createV4WebServer({ distRoot, getApiOrigin }) {
       response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
       response.end('Not Found');
     } catch (error) {
+      if (error?.statusCode === 413 && error?.code === 'PAYLOAD_TOO_LARGE') {
+        response.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        response.end(JSON.stringify({ error: { code: error.code, message: error.message } }));
+        return;
+      }
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
       response.end(error instanceof Error ? error.message : 'Internal Server Error');
     }

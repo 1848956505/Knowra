@@ -1,0 +1,48 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+ExpectError: expect(locator).toBeVisible() failed
+
+Locator: getByText(/只读缓存/).first()
+Expected: visible
+Timeout: 5000ms
+Error: element(s) not found
+
+Call log:
+  - Expect "to.be.visible" with timeout 5000ms
+  - waiting for getByText(/只读缓存/).first()
+
+    at captureRawStack (/Users/rabbids/Documents/Codex/知境·Knowra/node_modules/playwright-core/lib/coreBundle.js:9681:17)
+    at callMatcherAsStep (/Users/rabbids/Documents/Codex/知境·Knowra/node_modules/playwright/lib/matchers/expect.js:13310:57)
+    at Object.toBeVisible (/Users/rabbids/Documents/Codex/知境·Knowra/node_modules/playwright/lib/matchers/expect.js:13300:23)
+    at /Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段4/browser-flows.mjs:44:68
+    at async step (/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段4/browser-flows.mjs:10:39)
+    at async file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/browser-flows.mjs:36:2
+    at async withBrowser (/Users/rabbids/Documents/Codex/知境·Knowra/docs/审查/证据/阶段4/browser-fixture.mjs:14:2)
+    at async file:///Users/rabbids/Documents/Codex/%E7%9F%A5%E5%A2%83%C2%B7Knowra/docs/%E5%AE%A1%E6%9F%A5/%E8%AF%81%E6%8D%AE/%E9%98%B6%E6%AE%B54/browser-flows.mjs:6:1 {
+  matcherResult: {
+    message: 'expect(locator).toBeVisible() failed\n' +
+      '\n' +
+      'Locator: getByText(/只读缓存/).first()\n' +
+      'Expected: visible\n' +
+      'Timeout: 5000ms\n' +
+      'Error: element(s) not found\n' +
+      '\n' +
+      'Call log:\n' +
+      '  - Expect "to.be.visible" with timeout 5000ms\n' +
+      '  - waiting for getByText(/只读缓存/).first()\n',
+    pass: false,
+    actual: undefined,
+    name: 'toBeVisible',
+    expected: 'visible',
+    log: [
+      '  - Expect "to.be.visible" with timeout 5000ms',
+      '  - waiting for getByText(/只读缓存/).first()'
+    ],
+    timeout: 5000,
+    ariaSnapshot: undefined
+  }
+}
+
+Node.js v26.4.0

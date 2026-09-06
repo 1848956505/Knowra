@@ -1,7 +1,7 @@
 import { type Editor, editorViewCtx, schemaCtx } from '@milkdown/kit/core';
-import { lift, wrapIn } from '@milkdown/kit/prose/commands';
+import { lift, setBlockType, wrapIn } from '@milkdown/kit/prose/commands';
 import { getNodeFromSchema } from '@milkdown/kit/prose';
-import { TextSelection } from '@milkdown/kit/prose/state';
+import { TextSelection, type EditorState, type Transaction } from '@milkdown/kit/prose/state';
 import {
   liftListItemCommand,
   setBlockTypeCommand,
@@ -25,6 +25,59 @@ export function runParagraphCommand(editor: Editor): boolean {
     nodeType: paragraphNodeType,
     attrs: null
   })));
+}
+
+export function runCodeBlockCommand(editor: Editor): boolean {
+  const view = editor.ctx.get(editorViewCtx);
+  return applyTyporaCodeBlockCommand(view.state, view.dispatch);
+}
+
+export function applyTyporaCodeBlockCommand(
+  state: EditorState,
+  dispatch?: (transaction: Transaction) => void
+): boolean {
+  const codeBlockNodeType = state.schema.nodes.code_block;
+  const paragraphNodeType = state.schema.nodes.paragraph;
+  if (!codeBlockNodeType || !paragraphNodeType) return false;
+
+  const { selection } = state;
+  const { $from } = selection;
+  let textblockDepth = $from.depth;
+  while (textblockDepth > 0 && !$from.node(textblockDepth).isTextblock) textblockDepth -= 1;
+
+  const currentTextblock = textblockDepth > 0 ? $from.node(textblockDepth) : null;
+  const shouldInsertAfterCurrentLine = Boolean(
+    selection.empty
+    && currentTextblock
+    && currentTextblock.type !== codeBlockNodeType
+    && currentTextblock.content.size > 0
+  );
+
+  if (shouldInsertAfterCurrentLine) {
+    const containerDepth = textblockDepth - 1;
+    const container = $from.node(containerDepth);
+    const insertionIndex = $from.indexAfter(containerDepth);
+    if (container.canReplaceWith(insertionIndex, insertionIndex, codeBlockNodeType)) {
+      const insertPos = $from.after(textblockDepth);
+      const codeBlock = codeBlockNodeType.create({ language: '' });
+      const transaction = state.tr.insert(insertPos, codeBlock);
+
+      if (textblockDepth === 1 && insertPos === state.doc.content.size) {
+        transaction.insert(insertPos + codeBlock.nodeSize, paragraphNodeType.create());
+      }
+
+      transaction.setSelection(TextSelection.create(transaction.doc, insertPos + 1));
+      dispatch?.(transaction.scrollIntoView());
+      return true;
+    }
+  }
+
+  return setBlockType(codeBlockNodeType, { language: '' })(state, (transaction) => {
+    if (transaction.doc.lastChild?.type === codeBlockNodeType) {
+      transaction.insert(transaction.doc.content.size, paragraphNodeType.create());
+    }
+    dispatch?.(transaction.scrollIntoView());
+  });
 }
 
 export function runHeadingCommand(editor: Editor, level: number): boolean {

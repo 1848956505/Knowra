@@ -1,6 +1,6 @@
 import { liftEmptyBlock } from '@milkdown/kit/prose/commands';
 import type { ResolvedPos } from '@milkdown/kit/prose/model';
-import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import { $prose } from '@milkdown/kit/utils';
 
 const STRUCTURED_BLOCKS = new Set(['list_item', 'blockquote']);
@@ -22,6 +22,18 @@ export interface EditorBoundaryInput {
 
 export type EditorBoundaryAction = 'lift-empty-structured-block' | null;
 
+export interface TrailingCodeBlockClickInput {
+  button: number;
+  clientY: number;
+  lastBlockBottom: number;
+  lastNodeType: string | null;
+  editable: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+}
+
 export function resolveEditorBoundaryAction(input: EditorBoundaryInput): EditorBoundaryAction {
   if (
     input.isComposing
@@ -41,9 +53,49 @@ export function resolveEditorBoundaryAction(input: EditorBoundaryInput): EditorB
     : null;
 }
 
+export function shouldInsertParagraphAfterTrailingCodeBlock(
+  input: TrailingCodeBlockClickInput
+): boolean {
+  return input.editable
+    && input.button === 0
+    && !input.ctrlKey
+    && !input.metaKey
+    && !input.altKey
+    && !input.shiftKey
+    && input.lastNodeType === 'code_block'
+    && input.clientY > input.lastBlockBottom;
+}
+
 export const editorInputBehavior = $prose(() => new Plugin({
   key: new PluginKey('V4_EDITOR_INPUT_BEHAVIOR'),
   props: {
+    handleDOMEvents: {
+      mousedown(view, event) {
+        const lastElement = view.dom.lastElementChild;
+        if (!(event instanceof MouseEvent) || !(lastElement instanceof HTMLElement)) return false;
+        if (!shouldInsertParagraphAfterTrailingCodeBlock({
+          button: event.button,
+          clientY: event.clientY,
+          lastBlockBottom: lastElement.getBoundingClientRect().bottom,
+          lastNodeType: view.state.doc.lastChild?.type.name ?? null,
+          editable: view.editable,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey
+        })) return false;
+
+        const paragraphNodeType = view.state.schema.nodes.paragraph;
+        if (!paragraphNodeType) return false;
+        const insertPos = view.state.doc.content.size;
+        const transaction = view.state.tr.insert(insertPos, paragraphNodeType.create());
+        transaction.setSelection(TextSelection.create(transaction.doc, insertPos + 1));
+        view.dispatch(transaction.scrollIntoView());
+        view.focus();
+        event.preventDefault();
+        return true;
+      }
+    },
     handleKeyDown(view, event) {
       const { selection } = view.state;
       const action = resolveEditorBoundaryAction({

@@ -1,0 +1,168 @@
+{
+  "externalImports": {
+    "apps/api/src/": [
+      "@prisma/client"
+    ],
+    "apps/web-v4/src/": [
+      "react",
+      "react-error-boundary",
+      "@study-accelerator/web-core",
+      "html2canvas",
+      "jspdf",
+      "react-aria-components",
+      "@milkdown/kit/core",
+      "@milkdown/kit/plugin/history",
+      "@milkdown/kit/plugin/clipboard",
+      "@milkdown/kit/plugin/listener",
+      "@milkdown/kit/prose/history",
+      "@milkdown/kit/prose/model",
+      "@milkdown/kit/prose/state",
+      "@milkdown/kit/prose/commands",
+      "@milkdown/kit/preset/commonmark",
+      "@milkdown/kit/preset/gfm",
+      "@milkdown/kit/utils",
+      "@milkdown/kit/prose/view",
+      "@milkdown/kit/prose",
+      "react-dom/client",
+      "zustand",
+      "zustand/vanilla"
+    ],
+    "packages/web-core/src/": [],
+    "scripts/": []
+  },
+  "manifestLockComparison": [
+    {
+      "path": "package.json",
+      "version": "2.20.1",
+      "lockVersion": "2.20.1",
+      "dependencyMetadataMatches": true,
+      "devDependencyMetadataMatches": true
+    },
+    {
+      "path": "apps/api/package.json",
+      "version": "2.20.1",
+      "lockVersion": "2.20.1",
+      "dependencyMetadataMatches": true,
+      "devDependencyMetadataMatches": true
+    },
+    {
+      "path": "apps/web/package.json",
+      "version": "2.20.1",
+      "lockVersion": "2.20.1",
+      "dependencyMetadataMatches": true,
+      "devDependencyMetadataMatches": true
+    },
+    {
+      "path": "apps/web-v4/package.json",
+      "version": "2.20.1",
+      "lockVersion": "2.20.1",
+      "dependencyMetadataMatches": true,
+      "devDependencyMetadataMatches": true
+    },
+    {
+      "path": "packages/web-core/package.json",
+      "version": "2.14.0",
+      "lockVersion": "2.14.0",
+      "dependencyMetadataMatches": true,
+      "devDependencyMetadataMatches": true
+    },
+    {
+      "path": "packages/shared/package.json",
+      "version": "0.1.0",
+      "lockVersion": "0.1.0",
+      "dependencyMetadataMatches": true,
+      "devDependencyMetadataMatches": true
+    }
+  ],
+  "apiTestFileCount": 33,
+  "apiTestImports": 33,
+  "unregisteredApiFiles": [],
+  "over250Count": 41,
+  "over400": [
+    {
+      "path": "apps/web-v4/src/features/editor/NoteEditorView.tsx",
+      "lines": 763
+    },
+    {
+      "path": "apps/api/src/infrastructure/local-data-relations.js",
+      "lines": 574
+    },
+    {
+      "path": "apps/web-v4/src/components/ui/showcase/ComponentShowcase.tsx",
+      "lines": 567
+    },
+    {
+      "path": "apps/web-v4/src/shell/icons.tsx",
+      "lines": 563
+    },
+    {
+      "path": "apps/web-v4/src/store/slices/workspaceSlice.ts",
+      "lines": 549
+    },
+    {
+      "path": "apps/api/src/infrastructure/migration/json-transformers.js",
+      "lines": 530
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/MilkdownNoteEditor.tsx",
+      "lines": 519
+    },
+    {
+      "path": "apps/web-v4/src/features/editor/EditorInspector.tsx",
+      "lines": 483
+    },
+    {
+      "path": "apps/web-v4/src/views/HomeView.tsx",
+      "lines": 451
+    },
+    {
+      "path": "packages/web-core/src/api/workspace-api.ts",
+      "lines": 440
+    },
+    {
+      "path": "apps/api/src/modules/knowledge/postgres-async-module.js",
+      "lines": 424
+    },
+    {
+      "path": "apps/web/src/controllers/shell-controller.js",
+      "lines": 405
+    }
+  ],
+  "rootInfraApplicationImports": [
+    {
+      "from": "apps/api/src/infrastructure/local-data-relations.js",
+      "line": 3,
+      "specifier": "../modules/knowledge/application/formal-asset-validation.js",
+      "target": "apps/api/src/modules/knowledge/application/formal-asset-validation.js",
+      "kind": "import",
+      "typeOnly": false,
+      "relativeUnresolved": false
+    },
+    {
+      "from": "apps/api/src/infrastructure/migration/json-to-postgres.js",
+      "line": 48,
+      "specifier": "../../modules/knowledge/application/note-content-policy.js",
+      "target": "apps/api/src/modules/knowledge/application/note-content-policy.js",
+      "kind": "import",
+      "typeOnly": false,
+      "relativeUnresolved": false
+    },
+    {
+      "from": "apps/api/src/infrastructure/postgres-snapshot-service.js",
+      "line": 9,
+      "specifier": "../modules/knowledge/application/note-content-policy.js",
+      "target": "apps/api/src/modules/knowledge/application/note-content-policy.js",
+      "kind": "import",
+      "typeOnly": false,
+      "relativeUnresolved": false
+    }
+  ],
+  "scriptsLegacyReferences": [],
+  "externalImportScope": "非测试实现；排除 src/test/setup.ts 的测试依赖",
+  "method": [
+    "读取静态依赖.json，按生产源码范围汇总裸包导入；测试支持单独排除。",
+    "逐个读取六份 package.json 和根 lock.packages 对应项，按字段键排序后比较版本与依赖声明，不执行安装。",
+    "比较 API test/*.test.js 文件清单与 runner 字面量导入，人工核验汇总数组和 await testCase.run。",
+    "从依赖边筛选根 infrastructure 指向 application 的引用；字符串拼接的 V3 bundle 入口由人工补查。"
+  ]
+}

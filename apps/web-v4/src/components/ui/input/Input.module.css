@@ -126,17 +126,20 @@
   align-items: center;
   width: 100%;
   height: 36px;
-  border: 1px solid var(--ink);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-input-rest);
+  border: 1px solid var(--ink-shell);
+  background: var(--ink-search-rest);
+  box-shadow: var(--shadow-search-rest);
   transition:
     box-shadow var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease);
 }
 
-.field:focus-within .searchShell {
-  box-shadow: var(--shadow-input-focus);
+.field:not([data-disabled]):focus-within .searchShell {
+  border-color: var(--ink-accent);
+  background: var(--ink-surface);
+  color: var(--ink-accent);
+  box-shadow: var(--shadow-search-focus);
 }
 
 .field[data-invalid] .searchShell {
@@ -156,6 +159,34 @@
   box-shadow: none;
   background: transparent;
 }
+
+/* 搜索文本框借用同一外壳契约，普通 TextField 保持原状。 */
+.inputShell:has(input[type='search']) {
+  border-color: var(--ink-shell);
+  background: var(--ink-search-rest);
+  box-shadow: var(--shadow-search-rest);
+}
+.inputShell:has(input[type='search']) .input {
+  background: transparent;
+  box-shadow: none;
+}
+.field:not([data-disabled]):focus-within .inputShell:has(input[type='search']) {
+  border-color: var(--ink-accent);
+  background: var(--ink-surface);
+  box-shadow: var(--shadow-search-focus);
+}
+.field[data-invalid] .inputShell:has(input[type='search']),
+.field[data-invalid]:focus-within .inputShell:has(input[type='search']) {
+  border-color: var(--ink-danger);
+  background: var(--ink-danger-soft);
+  box-shadow: var(--shadow-input-invalid);
+}
+.field[data-disabled] :is(.searchShell, .inputShell:has(input[type='search'])) {
+  border-color: var(--ink-panel);
+  background: var(--ink-sunken);
+  box-shadow: none;
+}
+.field:focus-within .searchIcon { color: var(--ink-accent); }
 
 .searchIcon {
   position: absolute;

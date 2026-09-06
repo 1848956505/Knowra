@@ -26,7 +26,16 @@ export function buildNoteWhere(options = {}) {
   if (options.spaceId) where.spaceId = options.spaceId;
   if (options.folderId) where.folderId = options.folderId;
   if (booleanOption(options.favoriteOnly)) where.favorite = true;
-  if (options.tagId) {
+  const tagIds = Array.isArray(options.tagIds)
+    ? options.tagIds.filter(Boolean)
+    : typeof options.tagIds === 'string' ? options.tagIds.split(',').filter(Boolean) : [];
+  if (tagIds.length > 0) {
+    if ((options.match ?? options.tagMatch) === 'any') {
+      where.noteTags = { some: { tagId: { in: tagIds } } };
+    } else {
+      where.AND = tagIds.map((tagId) => ({ noteTags: { some: { tagId } } }));
+    }
+  } else if (options.tagId) {
     where.noteTags = { some: { tagId: options.tagId } };
   }
   return where;

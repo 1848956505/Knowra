@@ -18,6 +18,8 @@ import { createPostgresExamFocusRepository } from './infrastructure/postgres/exa
 import { createPostgresQuestionRepository } from './infrastructure/postgres/question-repository.js';
 import { createPostgresQuestionObjectiveRepository } from './infrastructure/postgres/question-objective-repository.js';
 import { createPostgresQuestionSourceRepository } from './infrastructure/postgres/question-source-repository.js';
+import { createPostgresKnowledgeSpaceRepository } from './infrastructure/postgres/knowledge-space-repository.js';
+import { createPostgresTagGroupRepository } from './infrastructure/postgres/tag-group-repository.js';
 import { createAsyncLearningObjectiveService } from './application/postgres-async/learning-objective-service.js';
 import { createAsyncAssessmentContextService } from './application/postgres-async/assessment-context-service.js';
 import { createAsyncQuestionService } from './application/postgres-async/question-service.js';
@@ -65,6 +67,8 @@ export function createPostgresKnowledgeModule({
   });
 
   const transactionRepositories = {
+    knowledgeSpaceRepository,
+    tagGroupRepository,
     noteRepository,
     noteVersionRepository,
     knowledgeItemRepository,
@@ -171,6 +175,8 @@ export function createPostgresKnowledgeModule({
   const runTransaction = client?.$transaction
     ? (operation) => withPostgresErrors(() => client.$transaction(
       async (tx) => operation({
+        knowledgeSpaceRepository: createPostgresKnowledgeSpaceRepository({ db: tx }),
+        tagGroupRepository: createPostgresTagGroupRepository({ db: tx }),
         noteRepository: createPostgresNoteRepository({ db: tx }),
         noteVersionRepository: createPostgresNoteVersionRepository({ db: tx }),
         knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db: tx }),
@@ -260,7 +266,12 @@ export function createPostgresKnowledgeModule({
   });
   const tagGroupService = createAsyncTagGroupService({ repository: tagGroupRepository, tagRepository, validateSpaceReference: (spaceId) => assertSpaceReference(spaceId, 'TAG_GROUP') });
   const knowledgeSpaceService = createAsyncKnowledgeSpaceService({
-    repository: knowledgeSpaceRepository
+    repository: knowledgeSpaceRepository,
+    tagGroupRepository,
+    runTransaction: async (operation) => runTransaction(async (transaction) => operation({
+      knowledgeSpaceRepository: transaction.knowledgeSpaceRepository,
+      tagGroupRepository: transaction.tagGroupRepository
+    }))
   });
   const noteVersionService = createAsyncNoteVersionService({ repository: noteVersionRepository });
   let learningObjectiveService = null;

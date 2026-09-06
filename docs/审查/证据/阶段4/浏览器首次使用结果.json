@@ -1,0 +1,14 @@
+{
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "id": "B08",
+      "outcome": "defect-reproduced",
+      "finding": "S4-02",
+      "nameFilled": true,
+      "createTagDisabled": true,
+      "systemGroups": 0
+    }
+  ],
+  "pageErrors": []
+}

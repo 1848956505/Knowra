@@ -34,7 +34,9 @@
 
 .btn[data-hovered]:not([data-disabled]):not([data-pending]) {
   transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-button-hover);
+  background: var(--ink-surface);
+  color: var(--ink-accent-hover);
 }
 
 .btn[data-pressed]:not([data-disabled]):not([data-pending]) {
@@ -72,7 +74,9 @@
 }
 
 .primary[data-hovered]:not([data-disabled]):not([data-pending]) {
-  background: var(--ink);
+  background: var(--ink-accent-hover);
+  border-color: var(--ink-accent-hover);
+  color: var(--ink-surface);
 }
 
 .primary[data-disabled],
@@ -91,6 +95,7 @@
 .accent[data-hovered]:not([data-disabled]):not([data-pending]) {
   background: var(--ink-accent-hover);
   border-color: var(--ink-accent-hover);
+  color: var(--ink-surface);
 }
 
 .accent[data-disabled],
@@ -109,6 +114,7 @@
 
 .danger[data-hovered]:not([data-disabled]):not([data-pending]) {
   background: var(--ink-danger-soft);
+  color: var(--ink-danger);
 }
 
 .ghost {

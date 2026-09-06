@@ -1,0 +1,42 @@
+{
+  "baseline": "KNOWRA-REVIEW-20260906-B5",
+  "standardChecksAllExit0": true,
+  "countedTestCases": 500,
+  "legacyPassedTestFiles": 151,
+  "e2eInitial": {
+    "startTime": "2026-09-06T04:22:16.202Z",
+    "duration": 244516.029,
+    "expected": 43,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  },
+  "e2eOriginalSingleRecheck": {
+    "startTime": "2026-09-06T04:33:02.224Z",
+    "duration": 31891.097999999998,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "diagnosticCopyOnly": {
+    "startTime": "2026-09-06T04:39:37.615Z",
+    "duration": 26710.434,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "newFindings": [
+    "S5-01",
+    "S5-02",
+    "S5-03"
+  ],
+  "unverified": [
+    "real PostgreSQL",
+    "online npm audit",
+    "Node24 and other OS/browsers",
+    "real OS IME",
+    "deployment rollback and power loss"
+  ]
+}

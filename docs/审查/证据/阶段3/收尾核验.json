@@ -1,0 +1,15 @@
+{
+  "baseline": "KNOWRA-REVIEW-20260906-B3",
+  "changedBaselineFiles": [
+    "docs/审查/README.md",
+    "docs/工程变更日志.md",
+    "docs/项目结构导航.md"
+  ],
+  "missingBaselineFiles": [],
+  "unexpectedChanges": [],
+  "checkedMarkdownLinks": 63,
+  "invalidLinks": [],
+  "diffCheckExit": 0,
+  "diffCheckOutput": "",
+  "productionCodeChanged": false
+}

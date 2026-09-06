@@ -1,0 +1,41 @@
+{
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "id": "B04",
+      "outcome": "defect-reproduced",
+      "finding": "S4-01",
+      "filterBeforeSearch": [
+        "检索样本A"
+      ],
+      "afterSearch": [
+        "检索样本A",
+        "检索样本B"
+      ]
+    },
+    {
+      "id": "B05",
+      "outcome": "pass",
+      "totalNotes": 12,
+      "listPageSizes": [
+        5,
+        2
+      ],
+      "emptySearchRows": 0,
+      "gridNotes": 12
+    },
+    {
+      "id": "B06",
+      "outcome": "pass",
+      "softDelete": true,
+      "restore": true,
+      "permanentDelete": true
+    },
+    {
+      "id": "B07",
+      "outcome": "failure",
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('检索正文', { exact: true }) to be visible\u001b[22m\n"
+    }
+  ],
+  "pageErrors": []
+}

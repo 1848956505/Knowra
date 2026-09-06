@@ -1,0 +1,17 @@
+{
+  "browser": "151.0.7922.34",
+  "results": [
+    {
+      "id": "B10",
+      "outcome": "defect-reproduced",
+      "finding": "S4-03",
+      "responseStatus": 422,
+      "dialogRemainsOpen": true,
+      "displayedError": "检测到不安全的 HTTP 图片地址。请先下载图片，再通过粘贴或上传保存为 Knowra 本地附件。",
+      "firstFilePersisted": true,
+      "secondFileAbsent": true,
+      "firstFileSurvivesRestart": true
+    }
+  ],
+  "pageErrors": []
+}

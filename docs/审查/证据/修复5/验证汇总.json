@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-06",
+  "environment": {
+    "platform": "darwin arm64",
+    "node": "v26.4.0",
+    "browser": "Chromium 151"
+  },
+  "checks": {
+    "allWorkspaces": { "command": "npm test", "passed": true, "failed": 0 },
+    "api": { "command": "npm run test:api", "passed": 229, "failed": 0 },
+    "webV4": { "command": "npm run check:web:v4", "testFilesPassed": 51, "testsPassed": 254, "serverTestsPassed": 4, "failed": 0 },
+    "scripts": { "command": "npm run test:scripts", "passed": 21, "failed": 0 },
+    "e2e": { "command": "npm run test:e2e -w @study-accelerator/web-v4", "passed": 48, "failed": 0 },
+    "scale": { "command": "node docs/审查/证据/修复5/browser-scale.mjs", "scales": [100, 1000, 10000], "passed": true },
+    "build": { "command": "npm run build:web", "passed": true }
+  },
+  "limits": [
+    "No real PostgreSQL instance was available.",
+    "No product capacity or performance SLO was supplied.",
+    "Network dependency audit, Node 24, cross-platform and real deployment checks were not run."
+  ]
+}

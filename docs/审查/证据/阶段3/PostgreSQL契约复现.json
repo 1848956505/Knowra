@@ -1,0 +1,18 @@
+{
+  "kind": "stub repositories and pure migration plan; no real database",
+  "results": [
+    {
+      "id": "S3-06",
+      "exportOmitsTagGroups": true,
+      "exportCannotValidate": "Tag tag-review references unknown group: custom-review",
+      "migrationCanApply": true,
+      "migrationOmitsTagGroups": true
+    },
+    {
+      "id": "S3-07",
+      "mergeTagsClassifiedAsMutation": false,
+      "reorderTagsClassifiedAsMutation": false,
+      "concurrencyOutcome": "not exercised"
+    }
+  ]
+}

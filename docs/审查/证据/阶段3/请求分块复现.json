@@ -1,0 +1,6 @@
+{
+  "id": "S3-08",
+  "kind": "stream event reproduction; no HTTP socket",
+  "expected": "中文审查",
+  "actual": "���文审查"
+}
