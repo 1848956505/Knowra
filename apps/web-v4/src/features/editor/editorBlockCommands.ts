@@ -51,6 +51,7 @@ export function applyTyporaCodeBlockCommand(
   const shouldInsertAfterCurrentLine = Boolean(
     currentTextblock
     && currentTextblock.type !== codeBlockNodeType
+    && currentTextblock.content.size > 0
   );
 
   if (shouldInsertAfterCurrentLine) {

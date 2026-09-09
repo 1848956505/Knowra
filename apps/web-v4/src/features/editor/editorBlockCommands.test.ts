@@ -48,7 +48,7 @@ describe('applyTyporaCodeBlockCommand', () => {
     expect(nextState.selection.$from.parent.type.name).toBe('code_block');
   });
 
-  it('inserts below an empty ordinary line and keeps a trailing paragraph', () => {
+  it('converts the current empty ordinary line in place and keeps a trailing paragraph', () => {
     const doc = schema.node('doc', null, [schema.node('paragraph')]);
     const state = EditorState.create({
       doc,
@@ -57,10 +57,10 @@ describe('applyTyporaCodeBlockCommand', () => {
 
     const nextState = runCommand(state);
 
-    expect(nextState.doc.childCount).toBe(3);
-    expect(nextState.doc.child(0).type.name).toBe('paragraph');
-    expect(nextState.doc.child(1).type.name).toBe('code_block');
-    expect(nextState.doc.child(2).type.name).toBe('paragraph');
+    expect(nextState.doc.childCount).toBe(2);
+    expect(nextState.doc.child(0).type.name).toBe('code_block');
+    expect(nextState.doc.child(1).type.name).toBe('paragraph');
+    expect(nextState.selection.$from.parent.type.name).toBe('code_block');
   });
 
   it('preserves a non-empty line even when its text is selected', () => {

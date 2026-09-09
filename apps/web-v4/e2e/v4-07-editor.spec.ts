@@ -1124,6 +1124,52 @@ test('V4-07 代码块命令将当前代码行转为正文并保留上下代码',
   await expect(editor.locator(':scope > p')).toHaveText('    two');
 });
 
+test('V4-07 空普通行就地插入代码块，非空行在下方插入', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '');
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+Alt+c');
+  await expect(editor.locator(':scope > *').first()).toHaveJSProperty('tagName', 'PRE');
+  await expect(editor.locator('pre code')).toHaveText('');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type('普通行');
+  await page.keyboard.press('ControlOrMeta+Alt+c');
+  await expect(editor.locator(':scope > p').first()).toHaveText('普通行');
+  await expect(editor.locator(':scope > *').nth(1)).toHaveJSProperty('tagName', 'PRE');
+  await expect(editor.locator('pre code')).toHaveText('');
+});
+
+test('V4-07 Safari 中文上屏辅助元素不制造代码块视觉空行', async ({ page }) => {
+  // Enable the same GFM IME compatibility plugin that Safari uses.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.' }));
+  const saved: string[] = [];
+  await mockEditorWorkspace(page, saved, [], '```\n```');
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  const code = editor.locator('pre > code');
+  await code.click();
+  await code.dispatchEvent('compositionstart', { data: '' });
+  await page.keyboard.insertText('你好');
+  const separator = code.locator('img.ProseMirror-separator');
+  await expect(separator).toHaveCount(1);
+  await expect(separator).toHaveCSS('display', 'inline');
+  // Both the helper and the last character must remain on the first visual line.
+  expect(await code.evaluate(element => {
+    const range = document.createRange();
+    range.selectNodeContents(element.firstChild!);
+    const textRect = range.getBoundingClientRect();
+    const imageRect = element.querySelector('img.ProseMirror-separator')!.getBoundingClientRect();
+    return imageRect.top <= textRect.bottom;
+  })).toBe(true);
+  await code.dispatchEvent('compositionend', { data: '你好' });
+  await expect.poll(() => code.textContent()).toBe('你好');
+  await expect.poll(() => saved.at(-1)).toBe('```\n你好\n```\n');
+  await page.keyboard.press('Enter');
+  await page.keyboard.insertText('第二行');
+  await expect.poll(() => code.textContent()).toBe('你好\n第二行');
+});
+
 async function mockEditorWorkspace(
   page: Page,
   savedMarkdown: string[],

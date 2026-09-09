@@ -65,6 +65,14 @@
   text-decoration-style: dotted;
   text-underline-offset: 3px;
 }
+/* Safari IME inserts an inline cursor separator. Keep the global img reset from
+   turning this editor-only helper into a visible extra line. */
+.milkdownEditor :global(img.ProseMirror-separator) {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+}
+
 .milkdownEditor :global(.ProseMirror) pre {
   position: relative;
   margin: 1.1em 0;
