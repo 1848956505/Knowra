@@ -116,11 +116,20 @@ export function createNoteService({
     },
     getLinkedNotes(noteId) {
       const note = requireNote(noteId, { includeDeleted: true });
-      const internalLinks = Array.isArray(note.internalLinks) ? note.internalLinks : [];
+      const internalLinks = Array.isArray(note.internalLinks)
+        ? note.internalLinks
+        : [];
+      const linkedNotes = [];
 
-      return internalLinks
-        .map((linkedId) => repository.findById(linkedId))
-        .filter((linkedNote) => linkedNote && !linkedNote.deleted);
+      for (const linkedId of internalLinks) {
+        const linkedNote = repository.findById(linkedId);
+
+        if (linkedNote && !linkedNote.deleted) {
+          linkedNotes.push(linkedNote);
+        }
+      }
+
+      return linkedNotes;
     },
     updateNote(noteId, updates) {
       const currentNote = requireNote(noteId, { includeDeleted: true });

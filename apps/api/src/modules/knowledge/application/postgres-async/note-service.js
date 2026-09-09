@@ -167,9 +167,32 @@ export function createAsyncNoteService({
     getNote: requireNote,
     async getLinkedNotes(noteId) {
       const note = await requireNote(noteId, { includeDeleted: true });
-      const linked = await repository.findByIds(note.internalLinks ?? []);
-      const byId = new Map(linked.filter((item) => !item.deleted).map((item) => [item.id, item]));
-      return (note.internalLinks ?? []).map((id) => byId.get(id)).filter(Boolean);
+      const internalLinks = Array.isArray(note.internalLinks)
+        ? note.internalLinks
+        : [];
+      if (internalLinks.length === 0) {
+        return [];
+      }
+
+      const linked = await repository.findByIds(internalLinks);
+      const byId = new Map();
+
+      for (const item of linked) {
+        if (item && !item.deleted) {
+          byId.set(item.id, item);
+        }
+      }
+
+      const linkedNotes = [];
+
+      for (const id of internalLinks) {
+        const item = byId.get(id);
+        if (item) {
+          linkedNotes.push(item);
+        }
+      }
+
+      return linkedNotes;
     },
     updateNote,
     deleteNote(noteId) { return saveDeletedState(noteId, true); },
