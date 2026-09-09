@@ -47,6 +47,10 @@ describe('editorShortcuts', () => {
     })).toBe('code-block');
   });
 
+  it('uses the physical C key when macOS Option changes the typed character', () => {
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'ç', code: 'KeyC', ctrlKey: false, metaKey: true, altKey: true })).toBe('code-block');
+  });
+
   it('prioritizes indentation while focus is inside the editor', () => {
     expect(resolveEditorShortcutCommand({
       ...baseShortcut, key: 'Tab', ctrlKey: false

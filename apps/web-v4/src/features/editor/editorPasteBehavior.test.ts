@@ -30,6 +30,12 @@ describe('editorPasteBehavior', () => {
       .toBe('<p><strong>重点</strong></p>');
   });
 
+  it('preserves HTML code language and removes copied editor controls', () => {
+    expect(stripPastedInlineStyles('<pre><span data-code-toolbar>复制代码</span><code class="language-c++">  a\n\n b</code></pre>'))
+      .toBe('<pre data-language="c++"><code class="language-c++">  a\n\n b</code></pre>');
+    expect(stripPastedInlineStyles('<pre>plain</pre>')).toBe('<pre data-language="">plain</pre>');
+  });
+
   it('removes only a spurious empty code block before a populated code block', () => {
     const slice = new Slice(Fragment.fromArray([
       schema.nodes.code_block.create(),

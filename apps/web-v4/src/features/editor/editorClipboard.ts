@@ -31,6 +31,11 @@ async function pasteClipboardText(editor: Editor): Promise<EditorEditResult> {
   }
   if (!clipboard.text) return { ok: false, reason: 'clipboard-empty' };
   const view = editor.ctx.get(editorViewCtx);
+  if (view.state.selection.$from.parent.type.spec.code) {
+    view.dispatch(view.state.tr.insertText(clipboard.text.replace(/\r\n?/g, '\n')).scrollIntoView());
+    view.focus();
+    return { ok: true };
+  }
   const slice = parseMarkdownSlice(editor.ctx.get(parserCtx), clipboard.text);
   if (!slice) return { ok: false, reason: 'unsupported' };
   view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());

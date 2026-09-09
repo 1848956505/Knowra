@@ -31,6 +31,13 @@ export function stripPastedInlineStyles(html: string): string {
   if (!html || typeof DOMParser === 'undefined') return html;
   const document = new DOMParser().parseFromString(html, 'text/html');
   for (const element of document.body.querySelectorAll('[style]')) element.removeAttribute('style');
+  for (const pre of document.body.querySelectorAll('pre')) {
+    pre.querySelectorAll('[data-code-toolbar]').forEach((toolbar) => toolbar.remove());
+    const code = pre.querySelector('code');
+    const languageClass = [...(code?.classList ?? []), ...pre.classList]
+      .find((name) => /^(?:language|lang)-/.test(name));
+    pre.dataset.language ??= languageClass?.replace(/^(?:language|lang)-/, '') ?? '';
+  }
   return Array.from(document.body.childNodes).map(serializeHtmlNode).join('');
 }
 

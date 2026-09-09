@@ -68,6 +68,8 @@ import {
   selectEditorAnnotation,
   setEditorAnnotations
 } from './editorAnnotations';
+import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode } from './editorCodeCommands';
+import { createCodeBlockBehavior } from './editorCodeBlock';
 import styles from './MilkdownNoteEditor.module.css';
 
 export interface MilkdownNoteEditorProps {
@@ -118,7 +120,21 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
       const editor = editorRef.current;
       if (!editor || readOnlyRef.current) return;
+      if (event.target instanceof Element && event.target.closest('[data-code-toolbar]')) return;
       userInteractionRef.current = true;
+      if (event.nativeEvent.isComposing || event.keyCode === 229 || composingRef.current) return;
+      const view = editor.ctx.get(editorViewCtx);
+      if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && createCodeFromFence(view.state, view.dispatch)) {
+        event.preventDefault(); event.stopPropagation(); return;
+      }
+      if (view.state.selection.$from.parent.type.spec.code) {
+        let handled = false;
+        if (['Backspace', 'Delete'].includes(event.key) && !event.altKey && !event.ctrlKey && !event.metaKey) handled = removeEmptyCode(view.state, view.dispatch);
+        else if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) handled = indentCode(event.shiftKey)(view.state, view.dispatch);
+        else if (event.key === 'Enter' && !event.altKey) handled = (event.ctrlKey || event.metaKey ? leaveCode : newlineInCode)(view.state, view.dispatch, view);
+        else if (['Home', 'End'].includes(event.key) && !event.altKey && !event.ctrlKey && !event.metaKey) handled = moveToCodeLineBoundary(event.key === 'End', event.shiftKey)(view.state, view.dispatch);
+        if (handled) { event.preventDefault(); event.stopPropagation(); return; }
+      }
       if (
         !event.altKey
         && !event.ctrlKey
@@ -367,6 +383,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           });
         })
         .use(commonmark)
+        .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
         .use(gfm)
         .use(highlightRemark)
         .use(highlightSchema)

@@ -42,7 +42,7 @@ export function resolveEditorShortcutCommand(input: EditorShortcutInput): Editor
     input.altKey
     && !input.shiftKey
     && (input.ctrlKey || input.metaKey)
-    && input.key.toLowerCase() === 'c'
+    && (input.key.toLowerCase() === 'c' || input.code === 'KeyC')
   ) {
     return 'code-block';
   }

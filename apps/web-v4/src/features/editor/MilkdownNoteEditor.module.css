@@ -142,3 +142,53 @@
 .milkdownEditor :global(.ProseMirror) td { padding: 7px 9px; border: 1px solid var(--ink-panel); text-align: left; }
 .milkdownEditor :global(.ProseMirror) th { background: var(--ink-sunken); }
 .milkdownEditor :global(.ProseMirror) .ProseMirror-selectednode { outline: 2px solid var(--ink-accent); }
+
+.milkdownEditor :global(.ProseMirror) pre[data-code-block] {
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--ink-panel);
+  border-radius: 2px;
+  background: var(--ink-sunken);
+  box-shadow: var(--shadow-search-rest);
+}
+.milkdownEditor :global([data-code-toolbar]) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px 0;
+  font: 12px/1.5 var(--font-body);
+  white-space: normal;
+  user-select: none;
+}
+.milkdownEditor :global([data-code-toolbar]) :is(input, button) {
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font: inherit;
+}
+.milkdownEditor :global([data-code-toolbar]) input { width: 100px; max-width: 100%; margin-right: auto; }
+.milkdownEditor :global([data-code-toolbar]) button { cursor: pointer; }
+.milkdownEditor :global([data-code-toolbar]) input::placeholder { color: var(--ink-secondary); }
+.milkdownEditor :global([data-code-toolbar]) :is(input, button):hover:not(:disabled),
+.milkdownEditor :global([data-code-toolbar]) input:focus {
+  background: var(--ink-panel);
+  color: var(--ink);
+}
+.milkdownEditor :global([data-code-toolbar]) :disabled { opacity: .6; cursor: default; }
+.milkdownEditor :global([data-code-toolbar]) :focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+.milkdownEditor :global(.ProseMirror) pre[data-code-block] > code {
+  display: block;
+  min-height: 3.5em;
+  overflow-x: auto;
+  padding: 16px 20px;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  tab-size: 4;
+}

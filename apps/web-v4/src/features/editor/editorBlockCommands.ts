@@ -1,3 +1,4 @@
+import { indentCode, unwrapCodeLines, removeEmptyCode } from './editorCodeCommands';
 import { type Editor, editorViewCtx, schemaCtx } from '@milkdown/kit/core';
 import { lift, setBlockType, wrapIn } from '@milkdown/kit/prose/commands';
 import { getNodeFromSchema } from '@milkdown/kit/prose';
@@ -42,15 +43,14 @@ export function applyTyporaCodeBlockCommand(
 
   const { selection } = state;
   const { $from } = selection;
+  if ($from.parent.type === codeBlockNodeType && $from.sameParent(selection.$to)) return unwrapCodeLines(state, dispatch);
   let textblockDepth = $from.depth;
   while (textblockDepth > 0 && !$from.node(textblockDepth).isTextblock) textblockDepth -= 1;
 
   const currentTextblock = textblockDepth > 0 ? $from.node(textblockDepth) : null;
   const shouldInsertAfterCurrentLine = Boolean(
-    selection.empty
-    && currentTextblock
+    currentTextblock
     && currentTextblock.type !== codeBlockNodeType
-    && currentTextblock.content.size > 0
   );
 
   if (shouldInsertAfterCurrentLine) {
@@ -120,6 +120,7 @@ export function runListCommand(editor: Editor, targetTypeName: ListTypeName): bo
 
 export function runDeleteSelectionCommand(editor: Editor): boolean {
   const view = editor.ctx.get(editorViewCtx);
+  if (removeEmptyCode(view.state, view.dispatch)) return true;
   if (view.state.selection.empty) return false;
   view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
   return true;
@@ -127,6 +128,7 @@ export function runDeleteSelectionCommand(editor: Editor): boolean {
 
 export function runIndentCommand(editor: Editor): boolean {
   const view = editor.ctx.get(editorViewCtx);
+  if (view.state.selection.$from.parent.type.spec.code) return indentCode()(view.state, view.dispatch);
   if (isSelectionInsideTable(editor)) return false;
   if (findListAncestor(view.state.selection.$from)) {
     return Boolean(editor.action(callCommand(sinkListItemCommand.key)));
@@ -150,6 +152,7 @@ export function runIndentCommand(editor: Editor): boolean {
 
 export function runOutdentCommand(editor: Editor): boolean {
   const view = editor.ctx.get(editorViewCtx);
+  if (view.state.selection.$from.parent.type.spec.code) return indentCode(true)(view.state, view.dispatch);
   if (isSelectionInsideTable(editor)) return false;
   if (findListAncestor(view.state.selection.$from)) {
     return Boolean(editor.action(callCommand(liftListItemCommand.key)));
