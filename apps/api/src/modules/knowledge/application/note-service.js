@@ -116,7 +116,9 @@ export function createNoteService({
     },
     getLinkedNotes(noteId) {
       const note = requireNote(noteId, { includeDeleted: true });
-      return note.internalLinks
+      const internalLinks = Array.isArray(note.internalLinks) ? note.internalLinks : [];
+
+      return internalLinks
         .map((linkedId) => repository.findById(linkedId))
         .filter((linkedNote) => linkedNote && !linkedNote.deleted);
     },

@@ -238,6 +238,24 @@ export const noteServiceTests = [
     }
   },
   {
+    name: 'getLinkedNotes tolerates missing internalLinks on stored notes',
+    async run() {
+      const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
+      const noteService = createNoteService({
+        repository: {
+          findById: (noteId) => (noteId === 'note-without-links'
+            ? { id: 'note-without-links', deleted: false, internalLinks: undefined }
+            : null
+          )
+        }
+      });
+
+      const linked = noteService.getLinkedNotes('note-without-links');
+
+      assert.deepEqual(linked, []);
+    }
+  },
+  {
     name: 'listNotes filters notes by spaceId',
     async run() {
       const { createNoteService } = await import('../src/modules/knowledge/application/note-service.js');
