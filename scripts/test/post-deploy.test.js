@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -23,7 +23,7 @@ test('post-deploy builds and restarts the production PM2 processes', () => {
     assert.match(calls, /^npm run build:web$/m);
     assert.match(
       deployScriptSource,
-      /NODE_ENV=production npm run build:web/,
+      /KNOWRA_V4_OUT_DIR=.*NODE_ENV=production npm run build:web/,
       'deployment must build the V4 frontend'
     );
     assert.match(calls, /^pm2 describe knowra-api$/m);
@@ -31,6 +31,10 @@ test('post-deploy builds and restarts the production PM2 processes', () => {
     assert.match(calls, /^pm2 startOrReload deploy\/ecosystem\.config\.cjs --update-env$/m);
     assert.match(calls, /^pm2 save$/m);
     assert.doesNotMatch(calls, /study-web/);
+    assert.equal(readFileSync(path.join(fixture.distDirectory, 'index.html'), 'utf8'), 'new-index\n');
+    assert.equal(readFileSync(path.join(fixture.distDirectory, 'assets', 'old.js'), 'utf8'), 'old\n');
+    assert.equal(readFileSync(path.join(fixture.distDirectory, 'assets', 'new.js'), 'utf8'), 'new\n');
+    assert.equal(readdirSync(fixture.root).some((name) => name.startsWith('dist.staging.')), false);
   } finally {
     fixture.cleanup();
   }
@@ -70,15 +74,22 @@ test('post-deploy fails before restart when a production PM2 process is missing'
 function createFixture({ missingProcess = '', failingNpmCommand = '' } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'knowra-post-deploy-'));
   const binDir = path.join(root, 'bin');
+  const distDirectory = path.join(root, 'dist');
   const logFile = path.join(root, 'calls.log');
 
   writeFileSync(logFile, '');
+  mkdirSync(path.join(distDirectory, 'assets'), { recursive: true });
+  writeFileSync(path.join(distDirectory, 'assets', 'old.js'), 'old\n');
   writeExecutable(path.join(binDir, 'npm'), [
     '#!/usr/bin/env bash',
     'printf "npm %s\\n" "$*" >> "$DEPLOY_TEST_LOG"',
     'if [[ -n "$DEPLOY_TEST_FAILING_NPM_COMMAND" && "$*" == "$DEPLOY_TEST_FAILING_NPM_COMMAND"* ]]; then exit 2; fi',
-    'mkdir -p "$KNOWRA_V4_DIST_DIR"',
-    'touch "$KNOWRA_V4_DIST_DIR/index.html"'
+    'if [[ "$*" == "run build:web" ]]; then',
+    '  output_dir="${KNOWRA_V4_OUT_DIR:-$KNOWRA_V4_DIST_DIR}"',
+    '  mkdir -p "$output_dir/assets"',
+    '  printf "%s\\n" new > "$output_dir/assets/new.js"',
+    '  printf "%s\\n" new-index > "$output_dir/index.html"',
+    'fi'
   ]);
   writeExecutable(path.join(binDir, 'pm2'), [
     '#!/usr/bin/env bash',
@@ -90,7 +101,9 @@ function createFixture({ missingProcess = '', failingNpmCommand = '' } = {}) {
 
   return {
     binDir,
+    distDirectory,
     logFile,
+    root,
     missingProcess,
     failingNpmCommand,
     cleanup: () => rmSync(root, { recursive: true, force: true })

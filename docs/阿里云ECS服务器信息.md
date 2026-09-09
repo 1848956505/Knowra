@@ -184,9 +184,10 @@ curl --fail --head http://127.0.0.1:3000/
 `scripts/post-deploy.sh` 会依次完成：
 
 1. 对当前服务器存储执行附件完整性只读检查，报告不是 `ready` 时在重载前中止。
-2. 以 `NODE_ENV=production` 构建 `apps/web-v4/dist`，并拒绝包含 Source Map 的生产产物。
-3. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
-4. 按 `deploy/ecosystem.config.cjs` 执行 `startOrReload`，确保 `knowra-web` 切换到 V4 入口，然后执行 `pm2 save`。
+2. 在 `apps/web-v4/dist` 旁的临时目录以 `NODE_ENV=production` 构建 V4，并拒绝包含 Source Map 的生产产物。
+3. 将新哈希资源逐个原子发布到现有 `dist`，保留旧哈希资源，最后原子替换 `index.html`，避免已打开页面遇到入口与 chunk 不一致。
+4. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
+5. 按 `deploy/ecosystem.config.cjs` 执行 `startOrReload`，确保 `knowra-web` 切换到 V4 入口，然后执行 `pm2 save`。
 
 当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；V4 产物由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
 

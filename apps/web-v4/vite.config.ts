@@ -17,9 +17,11 @@ export default defineConfig(({ mode }) => {
     runtimePorts: readRuntimePorts(runtimePortsFile),
     webPort
   });
+  const outputDirectory = process.env.KNOWRA_V4_OUT_DIR?.trim();
 
   return {
     plugins: [react()],
+    ...(outputDirectory ? { build: { outDir: outputDirectory } } : {}),
     server: {
       host: '127.0.0.1',
       ...(webPort ? { port: webPort } : {}),
