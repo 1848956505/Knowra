@@ -1,3 +1,4 @@
+import { registerDesktopSave } from '../../app/desktopLifecycle';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiRequestError } from '@study-accelerator/web-core';
 import { noteDraftRecovery, type RecoveredNoteDraft } from './noteDraftRecovery';
@@ -288,6 +289,28 @@ export function useNoteAutosave({
     window.addEventListener('beforeunload', warnBeforeUnload);
     return () => window.removeEventListener('beforeunload', warnBeforeUnload);
   }, []);
+  useEffect(() => {
+    if (!window.knowraDesktop) return;
+    const flushAll = async () => {
+      await Promise.all([...inFlightByNoteRef.current.values()]);
+      // 旧编辑器卸载后，重新打开的编辑器可能已经保存或处理了恢复草稿。
+      for (const [id, owned] of recoveryByNoteRef.current) {
+        if (recoveryStore.read(owned.scope, id) !== owned.draft) {
+          pendingByNoteRef.current.delete(id);
+          conflictByNoteRef.current.delete(id);
+          errorByNoteRef.current.delete(id);
+        }
+      }
+      if (!canWriteRef.current && pendingByNoteRef.current.size) throw new Error('当前正文尚未保存，请先处理只读或加载状态。');
+      for (const id of [...pendingByNoteRef.current.keys()]) await flushNote(id);
+      if (conflictByNoteRef.current.size) throw new Error('正文有未解决的保存冲突，请处理后退出。');
+    };
+    const remove = registerDesktopSave(flushAll);
+    return () => {
+      // 切换路由后仍保留失败草稿的退出保护，成功落盘才注销。
+      void flushAll().then(remove).catch(() => undefined);
+    };
+  }, [flushNote, recoveryStore]);
   const hasLocalChanges = noteHasLocalWork(noteId, {
     pending: pendingByNoteRef.current,
     inFlight: inFlightByNoteRef.current,

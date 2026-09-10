@@ -1,3 +1,4 @@
+import { installDesktopLifecycle } from './app/desktopLifecycle';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, AppRoot } from './app/App';
@@ -7,6 +8,8 @@ import { RouterProvider, useHashLocation } from './app/router';
 import './styles/tokens.css';
 import './styles/reset.css';
 import './styles/global.css';
+
+installDesktopLifecycle();
 
 const rootElement = document.getElementById('root');
 

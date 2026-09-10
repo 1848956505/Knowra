@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
+import { appendChanges, createJournal, loadJournal } from '../modules/sync/journal.js';
 import {
   LOCAL_DATA_COLLECTIONS,
   LOCAL_DATA_SCHEMA_VERSION,
@@ -35,6 +36,8 @@ export function createFileDataStore(filePath, {
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = parsePersistedState(raw);
   const state = validatePersistedLocalState(parsed);
+  let committed = cloneLocalState(state);
+  let journal = loadJournal(parsed.sync, state);
   let transaction = null;
 
   function flush() {
@@ -55,6 +58,7 @@ export function createFileDataStore(filePath, {
     }
 
     const previousState = cloneLocalState(state);
+    const previousJournal = structuredClone(journal);
     transaction = { dirty: false };
 
     try {
@@ -68,6 +72,7 @@ export function createFileDataStore(filePath, {
       return result;
     } catch (error) {
       replaceState(state, previousState);
+      journal = previousJournal;
       throw error;
     } finally {
       transaction = null;
@@ -89,7 +94,9 @@ export function createFileDataStore(filePath, {
 
   function commitImport(preparedSnapshot) {
     const validated = validateLocalSnapshot(preparedSnapshot);
-    persistState(validated.data);
+    const previousJournal = journal;
+    journal = createJournal(validated.data);
+    try { persistState(validated.data); } catch (error) { journal = previousJournal; throw error; }
     replaceState(state, validated.data);
     return exportSnapshot();
   }
@@ -100,7 +107,10 @@ export function createFileDataStore(filePath, {
 
   function persistState(nextState) {
     try {
-      writeJson(filePath, createPersistedLocalDocument(nextState));
+      const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
+      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal });
+      journal = nextJournal;
+      committed = cloneLocalState(nextState);
     } catch (error) {
       throw createAppError(
         'STORAGE_WRITE_FAILED',
@@ -112,6 +122,9 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    getSyncJournal: () => journal,
+    previewSyncJournal: () => appendChanges(structuredClone(journal), committed, state),
+    runSyncTransaction: operation => runTransaction(() => { const result = operation(); flush(); return result; }),
     state,
     flush,
     runTransaction,

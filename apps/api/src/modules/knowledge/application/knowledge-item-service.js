@@ -95,7 +95,7 @@ export function createKnowledgeItemService({
       const note = noteRepository.findById(noteId);
       if (!note) throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
       if (note.deleted) status = 'invalid';
-      else if (version && version.content !== note.rawMarkdown && status !== 'invalid') {
+      else if (dto.sourceType === 'noteVersion' && version && version.content !== note.rawMarkdown && status !== 'invalid') {
         status = 'stale';
       }
     }

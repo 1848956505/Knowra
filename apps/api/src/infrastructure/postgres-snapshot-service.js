@@ -48,7 +48,7 @@ export function createPostgresSnapshotService({
   };
 
   async function exportKnowledgeBase() {
-    const [spaces, folders, tags, tagGroups, notes, noteVersions, annotations, knowledgeItems, knowledgeEvidence, learningObjectives, examProfiles, examFocuses, questions, attachments, attachmentFiles] = await Promise.all([
+    const [spaces, folders, tags, tagGroups, notes, noteVersions, annotations, knowledgeItems, knowledgeEvidence, learningObjectives, examProfiles, examFocuses, questions, attachments, attachmentFiles, annotationExclusions, annotationRevisions, analysisScopeSnapshots] = await Promise.all([
       repositories.knowledgeSpaceRepository.list(),
       repositories.folderRepository.list(),
       repositories.tagRepository.list(),
@@ -63,7 +63,10 @@ export function createPostgresSnapshotService({
       repositories.examFocusRepository.list({ includeArchived: true }),
       repositories.questionRepository.list({ includeArchived: true }),
       attachmentStore.listAttachments(),
-      attachmentStore.exportAttachmentsSnapshot()
+      attachmentStore.exportAttachmentsSnapshot(),
+      repositories.annotationExclusionRepository?.list({ includeDeleted: true }) ?? [],
+      repositories.annotationRevisionRepository?.list() ?? [],
+      repositories.analysisScopeRepository?.list() ?? []
     ]);
     const questionIds = questions.map((question) => question.id);
     const [questionObjectives, questionSources] = await Promise.all([
@@ -90,7 +93,10 @@ export function createPostgresSnapshotService({
         questionObjectives,
         questionSources,
         attachments,
-        contentAnnotations: annotations
+        contentAnnotations: annotations,
+        annotationExclusions,
+        annotationRevisions,
+        analysisScopeSnapshots
       },
       attachmentFiles
     };

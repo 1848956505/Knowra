@@ -276,6 +276,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
 
   const editor = page.locator('.ProseMirror');
   await expect(editor).toContainText('已有正文');
+  await expect(editor.locator('xpath=ancestor::*[@data-editor-ready][1]')).toHaveAttribute('data-editor-ready', 'true');
   const firstParagraph = editor.locator(':scope > p').first();
   await firstParagraph.click();
   await firstParagraph.evaluate((paragraph) => {
@@ -1251,14 +1252,19 @@ async function dispatchPaste(page: Page, content: { html?: string; text: string 
 }
 
 async function pinEditorToolbar(page: Page): Promise<void> {
+  const editor = page.locator('.ProseMirror');
+  await expect(editor.locator('xpath=ancestor::*[@data-editor-ready][1]')).toHaveAttribute('data-editor-ready', 'true');
   const toolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
-  await toolbar.evaluate((toolbarElement) => {
-    const stage = toolbarElement.closest('article')?.parentElement;
-    if (!stage) return;
-    stage.scrollTop = stage.scrollHeight;
-    stage.dispatchEvent(new Event('scroll'));
-  });
-  await expect(toolbar).toHaveAttribute('data-pinned');
+  // 编辑器就绪会恢复滚动位置；在恢复结束后重试真实滚动，不与初始化抢时序。
+  await expect.poll(async () => {
+    await toolbar.evaluate((toolbarElement) => {
+      const stage = toolbarElement.closest('article')?.parentElement;
+      if (!stage) return;
+      stage.scrollTop = stage.scrollHeight;
+      stage.dispatchEvent(new Event('scroll'));
+    });
+    return toolbar.getAttribute('data-pinned');
+  }).toBe('true');
   await expect(toolbar.getByRole('button', { name: '段落', exact: true })).toBeVisible();
 }
 

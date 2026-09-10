@@ -20,6 +20,7 @@ export function createPostgresNoteRepository({ db }) {
         const saveOperation = async (tx) => {
           const exists = await tx.note.findUnique({ where: { id: data.id } });
           if (exists) {
+            data.updatedAt = new Date(Math.max(data.updatedAt.getTime(), new Date(exists.updatedAt).getTime() + 1));
             const { id: _ignoredId, ...updateData } = data;
             if (expectedUpdatedAt) {
               const result = await tx.note.updateMany({

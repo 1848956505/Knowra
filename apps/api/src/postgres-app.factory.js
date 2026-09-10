@@ -1,4 +1,6 @@
+import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
 import path from 'node:path';
+import { createPostgresSyncRuntime } from './modules/sync/postgres-provider.js';
 import { createPrismaRuntime } from './infrastructure/prisma-client.js';
 import { createPostgresAttachmentStore } from './infrastructure/postgres-attachment-store.js';
 import { createPostgresSnapshotService } from './infrastructure/postgres-snapshot-service.js';
@@ -48,7 +50,7 @@ export async function createPostgresAppContext({
 } = {}) {
   const runtime = await createPrismaRuntime({ databaseUrl, client });
   await runtime.connect();
-  const db = runtime.client;
+  let db = runtime.client;
   const normalizedOwnerId = String(ownerId).trim() || 'demo';
   try {
     await assertPostgresOwnerBoundary(db, normalizedOwnerId);
@@ -57,6 +59,8 @@ export async function createPostgresAppContext({
     await runtime.disconnect();
     throw error;
   }
+  const syncRuntime = createPostgresSyncRuntime(db, normalizedOwnerId);
+  db = syncRuntime.client;
   const maintenanceGate = createMaintenanceGate();
   const advisoryLock = createPostgresAdvisoryLock(db);
 
@@ -115,6 +119,9 @@ export async function createPostgresAppContext({
     modules: { knowledge },
     repositories,
     http: {
+      sync: wrapHandlersWithMaintenanceGate(syncRuntime.service(knowledge.noteService, createAttachmentTransfer({ uploadsDir, storageRootDir })), maintenanceGate, {
+        getAccess: name => ['push', 'pushBatch', 'uploadBlob', 'bootstrap'].includes(name) ? 'mutation' : 'read'
+      }),
       storage: createPostgresSnapshotService({
         client: db,
         repositories,

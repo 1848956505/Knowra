@@ -26,6 +26,7 @@ import type {
 } from '@study-accelerator/web-core';
 
 export interface WorkspaceDependencies {
+  persistenceMode?: 'remote' | 'desktop-local';
   api: WorkspaceApi;
   storage?: KeyValueStorage | null;
   cacheKey: string;
@@ -33,12 +34,14 @@ export interface WorkspaceDependencies {
 }
 
 export interface WorkspaceSlice {
+  persistenceMode: 'remote' | 'desktop-local';
   serverData: WorkspaceServerData;
   dataMode: WorkspaceDataMode;
   workspaceLoadState: WorkspaceLoadState;
   workspaceError: string | null;
   loadWorkspace(): Promise<void>;
   retryWorkspace(): Promise<void>;
+  refreshLocalWorkspace(): Promise<boolean>;
   canWriteWorkspace(): boolean;
   createNote(folderId: string | null, title: string): Promise<string>;
   importMarkdownNotes(
@@ -142,6 +145,8 @@ export interface NotesIndexSlice {
 }
 
 export interface StatusSlice {
+  editorHasLocalChanges: boolean;
+  setEditorHasLocalChanges(value: boolean): void;
   statusMessage: string;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   saveError: string | null;

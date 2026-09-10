@@ -149,7 +149,9 @@ export function createPostgresKnowledgeModule({
         const reconciliation = await transactionAnnotationService.reconcileForNote(note.id, version.contentHash);
         const changed = [];
         for (const annotationId of reconciliation.contentChangedAnnotationIds) {
-          changed.push(...await formalServices.knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale'));
+          const annotation = await transaction.contentAnnotationRepository.findById(annotationId);
+          changed.push(...await formalServices.knowledgeItemService.markEvidenceByAnnotationId(annotationId,
+            annotation?.anchorStatus === 'missing' ? 'insufficient' : 'stale'));
         }
         await formalServices.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
         const versions = await transaction.noteVersionRepository.list({ noteId: note.id });

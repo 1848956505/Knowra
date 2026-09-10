@@ -114,6 +114,9 @@ export async function handleNoteRoute({ request, response, url, knowledge }) {
 
   if (request.method === 'PATCH' && noteMatch) {
     const body = await parseBody(request);
+    if (Object.hasOwn(body ?? {}, 'rawMarkdown') && !body.expectedUpdatedAt) {
+      throw createAppError('NOTE_VERSION_REQUIRED', '正文保存需要加载时的版本，请刷新客户端后重试。', 428);
+    }
     sendJson(response, 200, {
       data: await knowledge.updateNote({ id: decodeRouteId(noteMatch[1]) }, body)
     });

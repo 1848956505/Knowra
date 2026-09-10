@@ -289,7 +289,8 @@ export function createKnowledgeModule(options = {}) {
     onNoteContentChanged: (note, version) => {
       const reconciliation = contentAnnotationService.reconcileForNote(note.id, version.contentHash);
       const changed = reconciliation.contentChangedAnnotationIds.flatMap((annotationId) => (
-        knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale')
+        knowledgeItemService.markEvidenceByAnnotationId(annotationId,
+          contentAnnotationRepository.findById(annotationId)?.anchorStatus === 'missing' ? 'insufficient' : 'stale')
       ));
       questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
       const oldVersionIds = noteVersionService.listVersions({ noteId: note.id })

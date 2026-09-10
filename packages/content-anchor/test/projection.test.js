@@ -54,3 +54,14 @@ test('重复文本不能任取首个匹配', () => {
   assert.equal(result.reason, 'ambiguousMatch');
   assert.equal(result.candidates.length, 2);
 });
+
+test('正文缩短或清空时旧锚点返回失效，可按保留的上下文重定位', () => {
+  const original = '很长的前言 重要内容 后文';
+  const projection = projectMarkdown(original);
+  const start = projection.text.indexOf('重要内容');
+  const anchor = anchorFromProjectedRange(projection, start, start + 4);
+  assert.equal(resolveAnchor('', anchor).status, 'missing');
+  assert.equal(relocateAnchor('', anchor).status, 'missing');
+  assert.equal(relocateAnchor('重要内容 后文', anchor).status, 'resolved');
+  assert.throws(() => resolveAnchor(original, { ...anchor, segments: [{ start: -1, end: 2 }] }), /source range/);
+});

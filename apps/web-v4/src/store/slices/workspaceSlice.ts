@@ -1,6 +1,7 @@
 import {
   createDuplicateTitle,
   buildMarkdownImportItems,
+  normalizeFolderTree, flattenFolderTree, normalizeNotes,
   type Note
 } from '@study-accelerator/web-core';
 import type { WorkspaceDependencies, WorkspaceSlice } from '../types';
@@ -30,12 +31,31 @@ export function createWorkspaceSlice(
   };
 
   return {
+    persistenceMode: dependencies.persistenceMode ?? 'remote',
     serverData: EMPTY_WORKSPACE_SERVER_DATA,
     dataMode: 'loading',
     workspaceLoadState: 'idle',
     workspaceError: null,
     loadWorkspace: () => runLoad(false),
     retryWorkspace: () => runLoad(true),
+    async refreshLocalWorkspace() {
+      const before = get();
+      if (before.persistenceMode !== 'desktop-local' || before.editorHasLocalChanges || before.saveState === 'saving' || activeLoad) return false;
+      const spaces = await dependencies.api.listKnowledgeSpaces();
+      const currentSpaceId = spaces[0]?.id;
+      if (!currentSpaceId) return false;
+      const resources = await dependencies.api.loadWorkspaceResources(currentSpaceId);
+      const notes = normalizeNotes(resources.notes);
+      for (let index = 0; index < notes.length; index++) {
+        if (!notes[index].deleted && before.serverData.notes.some(note => note.id === notes[index].id && note.contentLoaded)) {
+          notes[index] = { ...notes[index], ...await dependencies.api.getNote(notes[index].id), contentLoaded: true };
+        }
+      }
+      if (get().editorHasLocalChanges || get().saveState === 'saving' || get().serverData !== before.serverData) return false;
+      const folderTree = normalizeFolderTree(resources.folderTree);
+      set({ serverData: { spaces, currentSpaceId, folderTree, foldersById: flattenFolderTree(folderTree), notes, tags: resources.tags, tagGroups: resources.tagGroups ?? [] } });
+      return true;
+    },
     canWriteWorkspace: () => get().dataMode === 'api',
     async createNote(folderId, title) {
       return executeWorkspaceMutation(set, get, '正在新建笔记…', async (spaceId) => {
@@ -435,7 +455,8 @@ async function executeWorkspaceMutation<T>(
   set({ saveState: 'saving', saveError: null, statusMessage: pendingMessage });
   try {
     const completed = await operation(spaceId);
-    set({ saveState: 'saved', saveError: null, statusMessage: completed.message });
+    set({ saveState: 'saved', saveError: null, statusMessage: get().persistenceMode === 'desktop-local'
+      ? `${completed.message} · 已保存到本机` : completed.message });
     return completed.result;
   } catch (error) {
     const message = error instanceof Error ? error.message : '笔记库操作失败';

@@ -36,7 +36,7 @@ export function createLocalAttachmentUpload({
       id,
       safeName
     );
-    const attachment = {
+    let attachment = {
       id,
       noteId,
       fileName: safeName,
@@ -57,6 +57,8 @@ export function createLocalAttachmentUpload({
       throw error;
     }
 
+    // SQLite 提交会刷新记录对象；后续状态必须写回提交后的实体。
+    attachment = dataStore.state.attachments.find(item => item.id === id);
     try {
       writeFileAtomically(absoluteFilePath, buffer);
     } catch (error) {

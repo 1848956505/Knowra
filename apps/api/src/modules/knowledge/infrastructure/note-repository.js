@@ -35,6 +35,7 @@ export function createInMemoryNoteRepository(options = {}) {
         return note;
       }
 
+      note.updatedAt = new Date(Math.max(Date.parse(note.updatedAt), Date.parse(notes[existingIndex].updatedAt) + 1)).toISOString();
       notes[existingIndex] = note;
       persist();
       return note;

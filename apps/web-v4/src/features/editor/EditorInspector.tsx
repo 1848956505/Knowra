@@ -52,6 +52,7 @@ export interface EditorInspectorProps {
   markdown: string;
   open: boolean;
   canWrite: boolean;
+  extendedWritesEnabled?: boolean;
   canInsertAttachment: boolean;
   attachments: Attachment[];
   attachmentsLoading: boolean;
@@ -154,7 +155,7 @@ export function EditorInspector(props: EditorInspectorProps) {
               <LinksPanel relations={relations} loading={props.linkedNotesLoading} onOpenNote={props.onOpenNote} />
             ) : null}
             {item.id === 'annotations' ? (
-              <AnnotationPanel key={props.note.id} {...props} />
+              <AnnotationPanel key={props.note.id} {...props} canWrite={props.canWrite && props.extendedWritesEnabled !== false} />
             ) : null}
             {item.id === 'versions' ? (
               <VersionPanel
@@ -163,7 +164,7 @@ export function EditorInspector(props: EditorInspectorProps) {
                 onGetVersion={props.onGetVersion}
               />
             ) : null}
-            {item.id === 'ai' ? <AnnotationPanel key={`ai-${props.note.id}`} {...props} analysisOnly /> : null}
+            {item.id === 'ai' ? <AnnotationPanel key={`ai-${props.note.id}`} {...props} canWrite={props.canWrite && props.extendedWritesEnabled !== false} analysisOnly /> : null}
           </div>
         )}
       </Tabs>
@@ -238,10 +239,11 @@ function InfoPanel(props: EditorInspectorProps & {
         <NoteLinks notes={props.relations.related} onOpenNote={props.onOpenNote} empty="暂无关联笔记" />
       </InspectorSection>
       <InspectorSection icon={<PaperclipIcon size={18} />} title="附件" count={props.attachments.length}>
+        {props.extendedWritesEnabled === false ? <p className={styles.emptyInline}>离线附件当前仅支持阅读已导入的文件。</p> : null}
         <EditorAttachmentPanel
           attachments={props.attachments}
           markdown={props.markdown}
-          canWrite={props.canWrite}
+          canWrite={props.canWrite && props.extendedWritesEnabled !== false}
           canInsert={props.canInsertAttachment}
           loading={props.attachmentsLoading}
           onUpload={props.onUploadAttachment}

@@ -2,14 +2,15 @@ import { MenuItem, MenuSeparator } from '../../components/ui/overlay';
 import type { EditorCommand } from './editorCommands';
 import { getEditorShortcutLabel } from './editorShortcuts';
 
-export function renderEditorFormatMenu({ onCommand, onInsertImage }: {
+export function renderEditorFormatMenu({ onCommand, onInsertImage, canInsertImage = true }: {
   onCommand(command: EditorCommand): void;
   onInsertImage(): void;
+  canInsertImage?: boolean;
 }) {
   const command = (value: EditorCommand) => () => onCommand(value);
   return (
     <>
-      <MenuItem id="image" onAction={onInsertImage}>图片</MenuItem>
+      <MenuItem id="image" isDisabled={!canInsertImage} onAction={onInsertImage}>图片</MenuItem>
       <MenuItem id="internal-link" onAction={command('internal-link')}>内部链接</MenuItem>
       <MenuSeparator />
       <MenuItem id="bold" kbd={getEditorShortcutLabel('bold')} onAction={command('bold')}>加粗</MenuItem>

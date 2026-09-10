@@ -1,3 +1,8 @@
+model SyncJournal {
+  ownerId String @id
+  payload Json
+}
+
 generator client {
   provider = "prisma-client-js"
 }

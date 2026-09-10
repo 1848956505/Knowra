@@ -1,3 +1,4 @@
+import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createKnowledgeModule } from './modules/knowledge/index.js';
@@ -28,6 +29,7 @@ import { createKnowledgeBaseSnapshotService } from './modules/knowledge/applicat
 import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
 import { createStorageConfig } from './config/storage.config.js';
 import { createPostgresAppContext } from './postgres-app.factory.js';
+import { createLocalSyncService } from './modules/sync/local-provider.js';
 import {
   assertSpacesOwnedBy,
   resolveSingleOwnerId
@@ -159,6 +161,7 @@ export function createAppContext(options = {}) {
       knowledge
     },
     http: {
+      sync: dataStore ? createLocalSyncService(dataStore, knowledge.noteService, ownerId, createAttachmentTransfer({ uploadsDir: options.uploadsDir ?? resolveStoragePath('storage/uploads'), storageRootDir: options.storageRootDir ?? workspaceRoot })) : null,
       storage: createKnowledgeBaseSnapshotService({
         dataStore,
         attachmentStore,

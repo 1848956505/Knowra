@@ -247,6 +247,7 @@ export async function applyJsonMigration({
   }
 
   const applyPlan = async (tx) => {
+    if (tx.syncJournal) await tx.syncJournal.deleteMany();
     if (requireEmptyTarget) await assertEmptyTarget(tx);
     if (replaceExisting) {
       await tx.analysisScopeSnapshot.deleteMany();

@@ -1,0 +1,14 @@
+.trigger { border: 0; background: transparent; color: var(--ink-accent); cursor: pointer; font: inherit; padding: 2px 4px; }
+.body { display: grid; gap: 16px; text-align: left; white-space: normal; }
+.body p { margin: 0; line-height: 1.6; }
+.form, .merge { display: grid; gap: 12px; }
+.body label { display: grid; gap: 6px; font-size: 13px; }
+.body input, .body textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--ink-panel); border-radius: 0; background: var(--ink-surface); color: inherit; font: inherit; }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hint { color: var(--ink-secondary); font-size: 12px; }
+.error { color: var(--ink-danger); }
+.conflict { padding: 14px; border: 1px solid var(--ink-panel); display: grid; gap: 12px; overflow-wrap: anywhere; }
+.conflict h3, .conflict h4 { margin: 0 0 6px; font-size: 14px; }
+.conflict pre { margin: 0; max-height: 220px; overflow: auto; padding: 10px; background: var(--ink-sunken); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .columns { grid-template-columns: 1fr; } }

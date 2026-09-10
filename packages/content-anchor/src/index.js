@@ -208,7 +208,11 @@ export function anchorForSection(projection, headingIndex) {
 
 export function resolveAnchor(markdown, anchor) {
   const projection = projectMarkdown(markdown);
-  validateAnchorShape(anchor, projection.source.length);
+  validateAnchorShape(anchor, Number.MAX_SAFE_INTEGER);
+  // 旧版本的合法范围可能超出缩短后的正文；返回失效状态，让重定位继续查找。
+  if (anchor.segments.some(segment => segment.end > projection.source.length)) {
+    return { status: 'missing', reason: 'sourceDeleted', projection };
+  }
   if (anchor.projectionVersion !== MARKDOWN_PROJECTION_VERSION) {
     return { status: 'needsReview', reason: 'projectionVersionMismatch', projection };
   }

@@ -1,3 +1,4 @@
+import { registerDesktopSave, trackDesktopTask } from '../../app/desktopLifecycle';
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   buildExportFileName,
@@ -85,6 +86,8 @@ export interface NoteEditorViewProps {
   onImportMarkdown(): void;
   onRenameNote(title: string): Promise<void>;
   onSaveMarkdown(noteId: string, markdown: string, expectedUpdatedAt?: string): Promise<Note>;
+  onDraftStateChange?(hasLocalChanges: boolean): void;
+  extendedWritesEnabled?: boolean;
   onSaveAs(): Promise<void>;
   onDeleteNote(): void;
   onSetTags(tagIds: string[]): Promise<void>;
@@ -146,6 +149,8 @@ export function NoteEditorView({
   onImportMarkdown,
   onRenameNote,
   onSaveMarkdown,
+  onDraftStateChange,
+  extendedWritesEnabled = true,
   onSaveAs,
   onDeleteNote,
   onSetTags,
@@ -204,7 +209,21 @@ export function NoteEditorView({
     canWrite: Boolean(note && canWrite),
     onSave: onSaveMarkdown
   });
+  useEffect(() => registerDesktopSave(async () => {
+    const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown();
+    if (markdown !== undefined && markdown !== autosave.getLatestMarkdown()) {
+      autosave.updateDraft(markdown, { immediate: true });
+    }
+    if (markdown !== undefined && (autosave.hasLocalChanges || markdown !== note?.rawMarkdown)) {
+      await autosave.saveNow(markdown);
+    }
+  }, 0), [autosave, note?.rawMarkdown, view.showSourceEditor]);
+
   const draftMarkdown = autosave.draftMarkdown;
+  useEffect(() => {
+    onDraftStateChange?.(autosave.hasLocalChanges);
+  }, [autosave.hasLocalChanges, onDraftStateChange]);
+  useEffect(() => () => onDraftStateChange?.(false), [onDraftStateChange]);
   const {
     attachments, setAttachments, attachmentsLoading,
     linkedNotes, linkedNotesLoading,
@@ -318,13 +337,13 @@ export function NoteEditorView({
   }
 
   const canEditContent = canWrite && view.contentMode === 'edit' && !view.showSourceEditor;
-  const uploadAttachmentFile = async (file: File) => {
+  const uploadAttachmentFile = (file: File) => trackDesktopTask(async () => {
     const input = await readAttachmentFile(note.id, file);
     const attachment = await onUploadAttachment(input);
     setAttachments((current) => [attachment, ...current.filter((item) => item.id !== attachment.id)]);
     return attachment;
-  };
-  const insertImageFile = async (file: File) => {
+  });
+  const insertImageFile = (file: File) => trackDesktopTask(async () => {
     assertInlineImageFile(file);
     const attachment = await uploadAttachmentFile(file);
     const inserted = editorRef.current?.insertImage(
@@ -333,7 +352,7 @@ export function NoteEditorView({
     );
     if (!inserted) throw new Error('图片已上传，但未能插入正文');
     onFileStatus('图片已插入正文');
-  };
+  });
   const insertStoredAttachment = async (attachment: Attachment) => {
     const url = buildAttachmentReferenceUrl(attachment.id);
     const inserted = isInlineImageAttachment(attachment)
@@ -569,6 +588,7 @@ export function NoteEditorView({
               favoritePending={favoritePending}
               canWrite={canWrite}
               canEditContent={canEditContent}
+              canInsertImage={extendedWritesEnabled}
               inspectorOpen={inspectorOpen}
               view={view}
               onRunCommand={runCommand}
@@ -589,7 +609,7 @@ export function NoteEditorView({
               type="file"
               accept={INLINE_IMAGE_ACCEPT}
               aria-label="选择要插入的图片"
-              disabled={!canEditContent}
+              disabled={!canEditContent || !extendedWritesEnabled}
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0];
                 event.currentTarget.value = '';
@@ -663,6 +683,7 @@ export function NoteEditorView({
               <EditorContextMenu
                 enabled={note.contentLoaded && !view.showSourceEditor}
                 canEdit={canEditContent}
+                extendedWritesEnabled={extendedWritesEnabled}
                 onRunCommand={runCommand}
                 onEditAction={(action) => { void handleEditAction(action); }}
                 onInsertImage={() => imageInputRef.current?.click()}
@@ -678,7 +699,7 @@ export function NoteEditorView({
                         markdown={draftMarkdown}
                         readOnly={!canEditContent}
                         allowExternalSync={!autosave.hasLocalChanges}
-                        onCreateAnnotation={createCurrentAnnotation}
+                        onCreateAnnotation={extendedWritesEnabled ? createCurrentAnnotation : undefined}
                         annotations={annotations}
                         focusedAnnotationId={focusedAnnotationId}
                         onChange={autosave.updateDraft}
@@ -686,6 +707,7 @@ export function NoteEditorView({
                         onStatus={onFileStatus}
                         onReady={restoreCurrentScrollPosition}
                         onUploadImage={async (file) => {
+                          if (!extendedWritesEnabled) throw new Error('离线附件上传尚未开放，请先保留原文件。');
                           const attachment = await uploadAttachmentFile(file);
                           return {
                             url: buildAttachmentReferenceUrl(attachment.id),
@@ -711,6 +733,7 @@ export function NoteEditorView({
           open={inspectorOpen}
           canWrite={canWrite}
           canInsertAttachment={canEditContent}
+          extendedWritesEnabled={extendedWritesEnabled}
           attachments={attachments}
           attachmentsLoading={attachmentsLoading}
           linkedNotes={linkedNotes}

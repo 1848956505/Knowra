@@ -106,6 +106,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const renameNote = useAppStore((state) => state.renameNote);
   const loadNoteContent = useAppStore((state) => state.loadNoteContent);
   const saveNoteContent = useAppStore((state) => state.saveNoteContent);
+  const setEditorHasLocalChanges = useAppStore((state) => state.setEditorHasLocalChanges);
+  const persistenceMode = useAppStore((state) => state.persistenceMode);
   const deleteNote = useAppStore((state) => state.deleteNote);
   const setNoteFavorite = useAppStore((state) => state.setNoteFavorite);
   const setNoteTags = useAppStore((state) => state.setNoteTags);
@@ -156,6 +158,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   return (
     <>
       <NoteEditorView
+        onDraftStateChange={setEditorHasLocalChanges}
+        extendedWritesEnabled={true}
         note={note}
         folder={folder}
         foldersById={serverData.foldersById}
@@ -224,8 +228,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onUpdateAnnotation={updateAnnotation}
         onPreviewAnnotation={previewAnnotation}
         onGetAnnotationKnowledgeLinks={getAnnotationKnowledgeLinks}
-        onPreviewAnalysisScope={previewAnalysisScope}
-        onCreateAnalysisScope={createAnalysisScope}
+        onPreviewAnalysisScope={persistenceMode === 'desktop-local' ? undefined : previewAnalysisScope}
+        onCreateAnalysisScope={persistenceMode === 'desktop-local' ? undefined : createAnalysisScope}
         onCreateAnnotationExclusion={createAnnotationExclusion}
         onDeleteAnnotationExclusion={deleteAnnotationExclusion}
         onFileStatus={setStatusMessage}

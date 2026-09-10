@@ -28,16 +28,19 @@ export interface StatusBarProps {
   savedAt?: string | null;
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
   dataMode: WorkspaceDataMode;
+  persistenceMode?: 'remote' | 'desktop-local';
   /** 真实数据 / 缓存 / 本地恢复 之外的额外业务描述（如"重试"动作）。 */
   dataModeNote?: ReactNode;
   panels?: StatusPanel[];
 }
 
 export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function StatusBar(
-  { path, charCount, savedAt, saveState, dataMode, dataModeNote, panels = [] },
+  { path, charCount, savedAt, saveState, dataMode, persistenceMode, dataModeNote, panels = [] },
   ref
 ) {
-  const modeMeta = describeDataMode(dataMode);
+  const modeMeta = persistenceMode === 'desktop-local' && dataMode === 'api'
+    ? { label: dataModeNote ? '本地资料' : '本地资料 · 云端同步未启用', squareClass: styles.squareWarning }
+    : describeDataMode(dataMode);
   return (
     <footer ref={ref} className={styles.statusbar} role="contentinfo" aria-label="状态栏">
       {path.length > 0 ? (
@@ -55,7 +58,8 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
 
       {saveState && saveState !== 'idle' ? (
         <span className={cx(styles.item, styles.itemSaved)} aria-live="polite">
-          {saveState === 'saving' ? '保存中…' : saveState === 'error' ? '保存失败' : '已保存'}
+          {saveState === 'saving' ? '保存中…' : saveState === 'error' ? '保存失败'
+            : persistenceMode === 'desktop-local' ? '已保存到本机' : '已保存'}
           {saveState === 'saved' && savedAt ? (
             <time className={styles.mono} dateTime={savedAt}>
               {formatTime(savedAt)}

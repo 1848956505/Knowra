@@ -18,7 +18,21 @@ jobs:
   verify:
     name: Node 24 · build and test
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: knowra_test
+          POSTGRES_DB: knowra_sync_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      KNOWRA_SYNC_TEST_DATABASE_URL: postgresql://postgres:knowra_test@127.0.0.1:5432/knowra_sync_test
+      KNOWRA_SYNC_TEST_ALLOW_WRITES: "1"
 
     steps:
       - name: Checkout
@@ -33,10 +47,15 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Prisma/Nest/BullMQ are future scaffolding and are not imported by the
-        # current JSON-backed runtime. Avoid running their install hooks; the
-        # only active generated asset is built explicitly in the next step.
+        # 关闭安装脚本；Prisma 客户端在下一步显式生成。
         run: npm ci --ignore-scripts
+
+      - name: Prepare PostgreSQL sync tests
+        env:
+          DATABASE_URL: postgresql://postgres:knowra_test@127.0.0.1:5432/knowra_sync_test
+        run: |
+          npm run prisma:generate
+          npm run prisma:migrate:deploy
 
       - name: Check changed-file whitespace
         shell: bash
@@ -63,6 +82,11 @@ jobs:
 
       - name: Run test suites
         run: npm test
+
+      - name: Verify local runtime in Chromium
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e -w @study-accelerator/desktop-runtime
 
       - name: Audit production dependencies
         # Prisma is future scaffolding and reaches its CLI through an optional

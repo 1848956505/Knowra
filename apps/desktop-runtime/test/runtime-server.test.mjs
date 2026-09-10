@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import { startLocalRuntime } from '../src/runtime-server.mjs';
+import { temporaryDirectory } from './helpers.mjs';
+
+test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及重启恢复', async t => {
+  const root = temporaryDirectory(t);
+  const distRoot = path.join(root, 'dist');
+  fs.mkdirSync(distRoot);
+  fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head><body>Knowra</body></html>');
+  const options = { dataDirectory: path.join(root, 'data'), distRoot };
+  let runtime = await startLocalRuntime(options);
+  t.after(async () => { await runtime.close(); });
+  await assert.rejects(startLocalRuntime(options), /已被使用/);
+  assert.equal((await fetch(`${runtime.origin}/api/knowledge/notes`)).status, 401);
+  const launch = await fetch(runtime.launchUrl, { redirect: 'manual' });
+  let cookie = launch.headers.get('set-cookie').split(';')[0];
+  const request = async (pathname, method = 'GET', body) => {
+    const response = await fetch(`${runtime.origin}${pathname}`, { method, headers: { Cookie: cookie, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    return { status: response.status, body: await response.json() };
+  };
+  const html = await fetch(runtime.origin, { headers: { Cookie: cookie } }).then(r => r.text());
+  assert.match(html, /knowraRuntime/);
+  assert.equal((await fetch(`${runtime.origin}/api/knowledge/notes`, { headers: { Cookie: cookie, Origin: 'https://example.com' } })).status, 403);
+  assert.equal((await request('/api/storage/import', 'POST', {})).status, 409);
+  assert.equal((await request('/api/knowledge/analysis-scopes', 'POST', {})).status, 409);
+  const space = (await request('/api/knowledge/spaces/default', 'POST', {})).body.data;
+  const created = await request('/api/knowledge/notes', 'POST', { spaceId: space.id, title: '本地验证', rawMarkdown: '第一版' });
+  assert.equal(created.status, 201);
+  const note = created.body.data;
+  const attachment = await request('/api/storage/attachments', 'POST', { noteId: note.id, fileName: '离线.txt', contentBase64: Buffer.from('已保存附件').toString('base64') });
+  assert.equal(attachment.status, 201);
+  const saved = await request(`/api/knowledge/notes/${note.id}`, 'PATCH', { rawMarkdown: '断网后保存', expectedUpdatedAt: note.updatedAt });
+  assert.equal(saved.status, 200);
+  assert.equal((await request(`/api/knowledge/notes/${note.id}`, 'PATCH', { rawMarkdown: '过期窗口', expectedUpdatedAt: note.updatedAt })).status, 409);
+  assert.equal((await request(`/api/knowledge/notes/${note.id}/permanent`, 'DELETE')).status, 409);
+  const status = (await request('/api/local-runtime/status')).body.data;
+  assert.equal(status.cloudSync, 'not-configured');
+  assert(status.pendingOperations > 0);
+  assert.equal((await request('/api/local-runtime/backup', 'POST')).status, 201);
+  await runtime.close();
+  runtime = await startLocalRuntime(options);
+  cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
+  assert.equal((await request(`/api/knowledge/notes/${note.id}`)).body.data.rawMarkdown, '断网后保存');
+  assert.equal((await request('/api/local-runtime/status')).body.data.pendingOperations, status.pendingOperations, JSON.stringify(runtime.store.readOutbox().at(-1)));
+});

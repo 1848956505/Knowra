@@ -33,3 +33,10 @@ docs/前端重构/audit-资料库索引/
 # 浏览器测试临时输出
 apps/web-v4/test-results/
 apps/web-v4/playwright-report/
+
+# 个人 Mac 应用产物
+*.app/
+/*-Mac-arm64.zip
+
+# 本机验收证据含运行环境信息，不随公开源码发布
+docs/离线编辑与同步/验收证据/

@@ -1,4 +1,5 @@
 import { useMaterialsRoute } from './useMaterialsRoute';
+import { LocalSyncControl } from '../features/sync/LocalSyncControl';
 import { buildIndexPath, indexRoute } from '../features/notes/notesIndexNavigation';
 // V4-05 App
 //
@@ -40,6 +41,8 @@ export function App() {
   const canWriteWorkspace = useAppStore((state) => state.canWriteWorkspace);
   const dataMode = useAppStore((state) => state.dataMode);
   const saveState = useAppStore((state) => state.saveState);
+  const persistenceMode = useAppStore((state) => state.persistenceMode);
+  const editorHasLocalChanges = useAppStore((state) => state.editorHasLocalChanges);
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
   const storeApi = useAppStoreApi();
@@ -211,10 +214,11 @@ export function App() {
       isShowcaseActive={isShowcaseActive}
       statusbar={{
         path: statusPath,
-        saveState,
+        saveState: editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
+        persistenceMode,
         savedAt: editorNote?.updatedAt,
         dataMode,
-        dataModeNote: workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
+        dataModeNote: persistenceMode === 'desktop-local' ? <LocalSyncControl /> : workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
         panels: [
           {
             id: 'sidebar',

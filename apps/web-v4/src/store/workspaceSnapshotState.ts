@@ -64,7 +64,8 @@ export async function loadWorkspaceState(dependencies: WorkspaceDependencies, se
       allNotes: normalizeNotes(resources.notes)
     });
     const mergedSnapshot = mergeWorkspaceSnapshots(liveSnapshot, cachedSnapshot) ?? liveSnapshot;
-    applyWorkspaceSnapshot(set, mergedSnapshot, 'api', 'ready', null, '知识库已连接到后端数据');
+    applyWorkspaceSnapshot(set, mergedSnapshot, 'api', 'ready', null, dependencies.persistenceMode === 'desktop-local'
+      ? '本地资料库已就绪' : '知识库已连接到后端数据');
     writeWorkspaceCache(dependencies.storage, dependencies.cacheKey, mergedSnapshot);
   } catch (error) {
     const message = error instanceof Error ? error.message : '资料加载失败。';

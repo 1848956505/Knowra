@@ -4,6 +4,8 @@ type SetStore = (partial: Partial<AppStore> | ((state: AppStore) => Partial<AppS
 
 export function createStatusSlice(set: SetStore): StatusSlice {
   return {
+    editorHasLocalChanges: false,
+    setEditorHasLocalChanges: (editorHasLocalChanges) => set({ editorHasLocalChanges }),
     statusMessage: '正在加载资料工作台…',
     saveState: 'idle',
     saveError: null,

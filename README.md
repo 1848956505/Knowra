@@ -40,6 +40,10 @@ The Phase2.0 knowledge-source foundation and Phase3.0 assessment foundation are 
 
 当前知识库与试卷模块开发以领域冻结稿为主要参考；旧的项目总控文档和知识链路开发方案仅保留为历史背景，不再作为实施依据。
 
+## 本地离线运行与完整同步（阶段 0–5）
+
+执行 `npm run build:web` 后运行 `npm run start:desktop`，打开输出的本机入口。SQLite 原子保存支持离线编辑及重启恢复；升级后的云端支持目录、标签、笔记、附件和重点标注同步，以及冲突处理、备份和救援导出。运行、灰度、容量与验收边界见 [阶段 4/5 实施与验收](docs/离线编辑与同步/阶段4与阶段5-完整同步与发布验收.md)。本轮未部署生产。个人 Mac 应用通过 `npm run build:mac` 生成，详见 [构建与使用](docs/离线编辑与同步/Mac个人应用-构建与使用.md)。
+
 ## Tech Stack
 
 - Node.js workspace monorepo

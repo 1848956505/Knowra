@@ -11,11 +11,14 @@
 | API + V4 开发 | `npm run dev:all` |
 | 单独启动 API / V4 | `npm run dev:api` / `npm run dev:web` |
 | V4 构建 / 生产启动 | `npm run build:web` / `npm run start:web` |
+| 个人 Mac 应用构建（Apple Silicon） | `npm run build:mac` |
 | API 测试 | `npm run test:api` |
 | V4 测试 | `npm run test:web` |
 | V4 类型、架构边界和测试 | `npm run check:web:v4` |
 | 共享契约 / V3 回归 / 脚本测试 | `npm run test:web-core` / `npm run test:web:legacy` / `npm run test:scripts` |
 | 全部测试 | `npm test` |
+| 本地离线运行服务（先构建 V4） | `npm run start:desktop` |
+| 本地存储/恢复测试、真实页面验收 | `npm run test:desktop` / `npm run test:e2e -w @study-accelerator/desktop-runtime` |
 
 按改动选择检查；V4 UI 使用 Vitest，生产服务器使用 node:test；API 使用显式注册的自定义 runner。不要把直接导入 API 测试文件当作执行其测试。交互改动还需验证受影响的页面状态；完整 E2E 入口是 `npm run test:e2e -w @study-accelerator/web-v4`。
 

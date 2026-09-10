@@ -5,6 +5,7 @@ import { sendError, sendJson } from './http/response.js';
 import { handleStorageRoute } from './http/storage-routes.js';
 import { handleKnowledgeRoute } from './modules/knowledge/http/knowledge-routes.js';
 import { AppError } from './errors/app-error.js';
+import { handleSyncRoute } from './modules/sync/routes.js';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
@@ -42,6 +43,8 @@ export function createServer({ appContext, cors = {}, logger = console }) {
         return;
       }
 
+      if (await handleSyncRoute({ request, response, url, sync: appContext.http.sync })) return;
+
       if (await handleKnowledgeRoute({ request, response, url, knowledge })) {
         return;
       }
@@ -58,7 +61,8 @@ export function createServer({ appContext, cors = {}, logger = console }) {
         return;
       }
 
-      logger.error?.('Unhandled request error', error);
+      if (request.url?.startsWith('/api/sync/')) logger.error?.('Sync request failed', { code: error.code ?? 'INTERNAL_SERVER_ERROR' });
+      else logger.error?.('Unhandled request error', error);
       sendError(
         response,
         500,

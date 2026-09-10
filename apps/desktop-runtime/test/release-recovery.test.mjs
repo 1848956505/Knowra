@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import { DatabaseSync } from 'node:sqlite';
+import { createNote, openWorkspace, temporaryDirectory } from './helpers.mjs';
+import { exportLocalRecovery } from '../src/recovery-export.mjs';
+import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
+import { restoreRuntimeBackup } from '../src/backup.mjs';
+import { readMeta, writeMeta } from '../src/sync-state.mjs';
+
+test('schema 2 升级备份保留冻结请求和序号；未来 schema 仍可只读救援导出', async t => {
+  const root = temporaryDirectory(t); const directory = path.join(root, 'device');
+  let workspace = openWorkspace(directory); const note = createNote(workspace, '等待同步的中文正文');
+  workspace.store.syncTransaction(db => { writeMeta(db, 'entitySequence', 8); writeMeta(db, 'entityUpload', { operationId: 'frozen', sequence: 8 }); });
+  const outbox = workspace.store.readOutbox(); workspace.store.close();
+  let raw = new DatabaseSync(path.join(directory, 'local.sqlite')); raw.exec('PRAGMA user_version = 2'); raw.close();
+  workspace = openWorkspace(directory);
+  assert.equal(workspace.store.readSync(db => readMeta(db, 'entityUpload')).operationId, 'frozen');
+  assert.equal(workspace.store.readSync(db => readMeta(db, 'entitySequence')), 8);
+  assert.deepEqual(workspace.store.readOutbox(), outbox);
+  assert(fs.readdirSync(directory).some(name => name.startsWith('local.sqlite.before-v3-')));
+  workspace.store.close();
+  fs.writeFileSync(path.join(directory, 'uploads', 'retained-file.txt'), '未上传附件');
+  raw = new DatabaseSync(path.join(directory, 'local.sqlite')); raw.exec('PRAGMA user_version = 99'); raw.close();
+  assert.throws(() => createSqliteDataStore(path.join(directory, 'local.sqlite')), /不支持/);
+  const exported = path.join(root, 'export'); await exportLocalRecovery(directory, exported);
+  const recovery = JSON.parse(fs.readFileSync(path.join(exported, 'recovery.json'), 'utf8'));
+  assert.equal(recovery.schemaVersion, 99);
+  assert(recovery.tables.entities.some(row => row.id === note.id && row.payload.includes('等待同步的中文正文')));
+  assert.equal(fs.readFileSync(path.join(exported, 'uploads', 'retained-file.txt'), 'utf8'), '未上传附件');
+  const restored = path.join(root, 'restored'); restoreRuntimeBackup(exported, restored);
+  assert.throws(() => createSqliteDataStore(path.join(restored, 'local.sqlite')), /不支持/);
+});

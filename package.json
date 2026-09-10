@@ -11,9 +11,11 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "npm run test:api && npm run test:content-anchor && npm run test:web-core && npm run test:web:legacy && npm run test:web && npm run test:scripts",
+    "test": "npm run test:api && npm run test:content-anchor && npm run test:web-core && npm run test:web:legacy && npm run test:web && npm run test:scripts && npm run test:desktop",
     "test:content-anchor": "npm test -w @study-accelerator/content-anchor",
     "test:api": "node apps/api/test/run-tests.js",
+    "test:desktop": "npm test -w @study-accelerator/desktop-runtime",
+    "start:desktop": "npm run start -w @study-accelerator/desktop-runtime --",
     "test:web": "npm test -w @study-accelerator/web-v4",
     "test:web:legacy": "npm test -w @study-accelerator/web",
     "test:web-core": "npm test -w @study-accelerator/web-core",
@@ -34,9 +36,13 @@
     "prisma:generate": "npx prisma generate --schema prisma/schema.prisma",
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema prisma/schema.prisma",
     "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs",
-    "check:attachments": "node scripts/check-attachments.mjs"
+    "check:attachments": "node scripts/check-attachments.mjs",
+    "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell"
   },
   "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.3.0",
+    "esbuild": "0.28.1",
     "jsdom": "29.1.1",
     "nanoid": "5.1.16"
   },

@@ -38,6 +38,7 @@ interface EditorContextMenuProps {
   children: ReactElement;
   enabled: boolean;
   canEdit: boolean;
+  extendedWritesEnabled?: boolean;
   onRunCommand(command: EditorCommand): void;
   onEditAction(action: EditorEditAction): void;
   onInsertImage(): void;
@@ -52,6 +53,7 @@ export function EditorContextMenu({
   children,
   enabled,
   canEdit,
+  extendedWritesEnabled = true,
   onRunCommand,
   onEditAction,
   onInsertImage,
@@ -147,7 +149,7 @@ export function EditorContextMenu({
             </MenuSection>
 
             <MenuSeparator className={styles.fullRow} />
-            <MenuItem id="create-annotation" icon={<HighlightIcon size={15} />} isDisabled={!canEdit}>标记为重要内容</MenuItem>
+            <MenuItem id="create-annotation" icon={<HighlightIcon size={15} />} isDisabled={!canEdit || !extendedWritesEnabled}>标记为重要内容</MenuItem>
             <SubmenuTrigger delay={120}>
               <MenuItem id="heading-menu" className={styles.submenuTrigger}>标题</MenuItem>
               <MenuPopover placement="end top" offset={-1} containerPadding={12} className={styles.submenuPopover}>
@@ -168,7 +170,7 @@ export function EditorContextMenu({
                   <MenuItem id="horizontal-rule" icon={<HorizontalRuleIcon size={15} />} isDisabled={!canEdit}>水平分割线</MenuItem>
                   <MenuItem id="code-block" icon={<CodeIcon size={15} />} isDisabled={!canEdit}>代码块</MenuItem>
                   <MenuItem id="blockquote" icon={<QuoteIcon size={15} />} isDisabled={!canEdit}>引用</MenuItem>
-                  <MenuItem id="image" icon={<ImageIcon size={15} />} isDisabled={!canEdit} onAction={onInsertImage}>图片</MenuItem>
+                  <MenuItem id="image" icon={<ImageIcon size={15} />} isDisabled={!canEdit || !extendedWritesEnabled} onAction={onInsertImage}>图片</MenuItem>
                   <MenuSeparator />
                   <MenuItem id="paragraph-above" icon={<ParagraphAddIcon size={15} position="above" />} isDisabled={!canEdit}>在上方插入段落</MenuItem>
                   <MenuItem id="paragraph-below" icon={<ParagraphAddIcon size={15} />} isDisabled={!canEdit}>在下方插入段落</MenuItem>

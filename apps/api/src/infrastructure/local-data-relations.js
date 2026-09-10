@@ -585,3 +585,30 @@ function assertReference(condition, message) {
     422
   );
 }
+
+/** 同步的来源变化沿用领域失效规则；先降级已失效的确认状态，再做完整引用校验。 */
+export function reconcileSyncedSourceStates(state) {
+  const notes = indexById(state.notes);
+  const versions = indexById(state.noteVersions);
+  const annotations = indexById(state.contentAnnotations);
+  const items = indexById(state.knowledgeItems);
+  validateKnowledgeEvidence(state.knowledgeEvidence, items, notes, versions, annotations);
+  for (const item of state.knowledgeItems) {
+    if (item.reviewStatus === 'confirmed' && item.sourceMode !== 'manual'
+      && !state.knowledgeEvidence.some(evidence => evidence.knowledgeItemId === item.id && evidence.status === 'valid')) item.reviewStatus = 'needsRevision';
+  }
+  for (const objective of state.learningObjectives) {
+    const item = items.get(objective.knowledgeItemId);
+    if (objective.reviewStatus === 'confirmed' && (!item || item.deletedAt || item.reviewStatus !== 'confirmed')) objective.reviewStatus = 'candidate';
+  }
+  const objectives = indexById(state.learningObjectives);
+  validateQuestionSources(state.questionSources, { questions: indexById(state.questions), knowledgeItems: items,
+    knowledgeEvidence: indexById(state.knowledgeEvidence), learningObjectives: objectives, notes, noteVersions: versions });
+  for (const question of state.questions) {
+    if (question.reviewStatus === 'confirmed' && (
+      state.questionSources.some(source => source.questionId === question.id && source.status === 'stale')
+      || state.questionObjectives.some(link => link.questionId === question.id && objectives.get(link.learningObjectiveId)?.reviewStatus !== 'confirmed')
+    )) question.reviewStatus = 'candidate';
+  }
+  return state;
+}

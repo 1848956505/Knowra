@@ -35,6 +35,7 @@ export interface AppShellProps {
     savedAt?: string | null;
     saveState?: 'idle' | 'saving' | 'saved' | 'error';
     dataMode: 'api' | 'cache' | 'local' | 'loading';
+    persistenceMode?: 'remote' | 'desktop-local';
     dataModeNote?: ReactNode;
     panels?: StatusPanel[];
   };
@@ -108,6 +109,7 @@ export function AppShell({
         savedAt={statusbar.savedAt}
         saveState={statusbar.saveState}
         dataMode={statusbar.dataMode}
+        persistenceMode={statusbar.persistenceMode}
         dataModeNote={statusbar.dataModeNote}
         panels={statusbar.panels}
       />
