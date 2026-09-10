@@ -305,15 +305,15 @@ export function createWorkspaceSlice(
         message: '已标记为重要内容'
       }));
     },
-    async deleteAnnotation(annotationId) {
+    async deleteAnnotation(annotationId, expectedRevision) {
       return executeWorkspaceMutation(set, get, '正在删除正文标注…', async () => ({
-        result: await dependencies.api.deleteAnnotation(annotationId),
+        result: await dependencies.api.deleteAnnotation(annotationId, expectedRevision),
         message: '正文标注已归档'
       }));
     },
-    async restoreAnnotation(annotationId) {
+    async restoreAnnotation(annotationId, expectedRevision) {
       return executeWorkspaceMutation(set, get, '正在恢复正文标注…', async () => ({
-        result: await dependencies.api.restoreAnnotation(annotationId),
+        result: await dependencies.api.restoreAnnotation(annotationId, expectedRevision),
         message: '正文标注已恢复'
       }));
     },
@@ -321,6 +321,39 @@ export function createWorkspaceSlice(
       return executeWorkspaceMutation(set, get, '正在重新定位正文标注…', async () => ({
         result: await dependencies.api.updateAnnotationAnchor(annotationId, input),
         message: '正文标注位置已更新'
+      }));
+    },
+    async updateAnnotation(annotationId, input) {
+      return executeWorkspaceMutation(set, get, '正在更新重点信息…', async () => ({
+        result: await dependencies.api.updateAnnotation!(annotationId, input),
+        message: '重点信息已更新'
+      }));
+    },
+    async previewAnnotation(annotationId) {
+      return dependencies.api.previewAnnotation!(annotationId);
+    },
+    async getAnnotationKnowledgeLinks(annotationId) {
+      return dependencies.api.getAnnotationKnowledgeLinks!(annotationId);
+    },
+    async previewAnalysisScope(input) {
+      return dependencies.api.previewAnalysisScope!(input);
+    },
+    async createAnalysisScope(input) {
+      return executeWorkspaceMutation(set, get, '正在保存分析范围…', async () => ({
+        result: await dependencies.api.createAnalysisScope!(input),
+        message: '分析范围快照已保存'
+      }));
+    },
+    async createAnnotationExclusion(annotationId, input) {
+      return executeWorkspaceMutation(set, get, '正在保存局部排除…', async () => ({
+        result: await dependencies.api.createAnnotationExclusion!(annotationId, input),
+        message: '局部排除已保存'
+      }));
+    },
+    async deleteAnnotationExclusion(annotationId, exclusionId, expectedRevision) {
+      return executeWorkspaceMutation(set, get, '正在恢复分析范围…', async () => ({
+        result: await dependencies.api.deleteAnnotationExclusion!(annotationId, exclusionId, expectedRevision),
+        message: '已恢复该局部范围'
       }));
     },
     async listNoteVersions(noteId) {

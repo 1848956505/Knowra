@@ -9,6 +9,9 @@ import {
 import { createMigrationReport } from './migration-report.js';
 import {
   dbAnnotation,
+  dbAnnotationExclusion,
+  dbAnnotationRevision,
+  dbAnalysisScopeSnapshot,
   dbAttachment,
   dbFolder,
   dbKnowledgeEvidence,
@@ -114,6 +117,9 @@ export function buildJsonMigrationPlan({
     questionSources: state.questionSources.map((source) => transformQuestionSource(source, fallbackTimestamp)),
     noteTags: [],
     annotations: state.contentAnnotations.map((annotation) => transformAnnotation(annotation, fallbackTimestamp, reportTools)),
+    annotationExclusions: state.annotationExclusions.map((record) => ({ ...record, createdAt: record.createdAt ?? fallbackTimestamp, updatedAt: record.updatedAt ?? fallbackTimestamp })),
+    annotationRevisions: state.annotationRevisions.map((record) => ({ ...record, createdAt: record.createdAt ?? fallbackTimestamp })),
+    analysisScopeSnapshots: state.analysisScopeSnapshots.map((record) => ({ ...record, createdAt: record.createdAt ?? fallbackTimestamp })),
     attachments: []
   };
 
@@ -216,7 +222,7 @@ export function buildJsonMigrationPlan({
     if (transformed) plan.attachments.push(transformed);
   }
 
-  for (const collection of ['users', 'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions', 'knowledgeItems', 'knowledgeEvidence', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources', 'noteTags', 'annotations', 'attachments']) {
+  for (const collection of ['users', 'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions', 'knowledgeItems', 'knowledgeEvidence', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources', 'noteTags', 'annotations', 'annotationExclusions', 'annotationRevisions', 'analysisScopeSnapshots', 'attachments']) {
     reportTools.count(collection, plan[collection].length);
   }
   report.checksum = checksumPlan(plan);
@@ -243,6 +249,9 @@ export async function applyJsonMigration({
   const applyPlan = async (tx) => {
     if (requireEmptyTarget) await assertEmptyTarget(tx);
     if (replaceExisting) {
+      await tx.analysisScopeSnapshot.deleteMany();
+      await tx.annotationRevision.deleteMany();
+      await tx.annotationExclusion.deleteMany();
       await tx.questionSource.deleteMany();
       await tx.questionObjective.deleteMany();
       await tx.question.deleteMany();
@@ -271,6 +280,9 @@ export async function applyJsonMigration({
     if (plan.noteVersions.length) await tx.noteVersion.createMany({ data: plan.noteVersions.map(dbNoteVersion) });
     if (plan.noteTags.length) await tx.noteTag.createMany({ data: plan.noteTags });
     if (plan.annotations.length) await tx.contentAnnotation.createMany({ data: plan.annotations.map(dbAnnotation) });
+    if (plan.annotationExclusions.length) await tx.annotationExclusion.createMany({ data: plan.annotationExclusions.map(dbAnnotationExclusion) });
+    if (plan.annotationRevisions.length) await tx.annotationRevision.createMany({ data: plan.annotationRevisions.map(dbAnnotationRevision) });
+    if (plan.analysisScopeSnapshots.length) await tx.analysisScopeSnapshot.createMany({ data: plan.analysisScopeSnapshots.map(dbAnalysisScopeSnapshot) });
     if (plan.knowledgeItems.length) await tx.knowledgeItem.createMany({ data: plan.knowledgeItems.map(dbKnowledgeItem) });
     if (plan.knowledgeEvidence.length) await tx.knowledgeEvidence.createMany({ data: plan.knowledgeEvidence.map(dbKnowledgeEvidence) });
     if (plan.learningObjectives.length) await tx.learningObjective.createMany({ data: plan.learningObjectives.map(dbLearningObjective) });
@@ -295,7 +307,7 @@ export async function applyJsonMigration({
 }
 
 export async function assertEmptyTarget(client) {
-  const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
+  const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'annotationExclusion', 'annotationRevision', 'analysisScopeSnapshot', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
   for (const model of models) {
     const count = await client[model].count();
     if (count > 0) {

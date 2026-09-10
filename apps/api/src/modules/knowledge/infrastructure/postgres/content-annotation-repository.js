@@ -25,6 +25,19 @@ export function createPostgresContentAnnotationRepository({ db }) {
         noteContentHash: annotation.noteContentHash,
         idempotencyKey: annotation.idempotencyKey,
         status: annotation.status,
+        schemaVersion: annotation.schemaVersion,
+        scopeType: annotation.scopeType,
+        importance: annotation.importance,
+        comment: annotation.comment,
+        lifecycleStatus: annotation.lifecycleStatus,
+        anchorStatus: annotation.anchorStatus,
+        anchorReason: annotation.anchorReason,
+        revision: annotation.revision,
+        anchor: annotation.anchor,
+        originSnapshot: annotation.originSnapshot,
+        resolvedContentHash: annotation.resolvedContentHash,
+        boundaryFingerprint: annotation.boundaryFingerprint,
+        requestHash: annotation.requestHash,
         createdAt: toDate(annotation.createdAt),
         updatedAt: toDate(annotation.updatedAt),
         deletedAt: annotation.deletedAt ? toDate(annotation.deletedAt) : null
@@ -52,24 +65,28 @@ export function createPostgresContentAnnotationRepository({ db }) {
         })
       ));
     },
-    async findDuplicate({ noteId, quoteText, fromPosition, toPosition }) {
+    async findDuplicate({ noteId, kind, scopeType, anchorFingerprint, quoteText, fromPosition, toPosition }) {
       return withRepositoryErrors(async () => mapAnnotation(
         await db.contentAnnotation.findFirst({
           where: {
             noteId,
-            quoteText,
-            fromPosition,
-            toPosition,
-            status: { not: 'archived' }
+            kind,
+            lifecycleStatus: { not: 'archived' },
+            ...(anchorFingerprint
+              ? { scopeType, anchorFingerprint }
+              : { quoteText, fromPosition, toPosition })
           }
         })
       ));
     },
-    async list({ noteId, spaceId, includeDeleted = false } = {}) {
+    async list({ noteId, spaceId, includeDeleted = false, kind, scopeType, anchorStatus } = {}) {
       const where = {
         ...(noteId ? { noteId } : {}),
         ...(spaceId ? { spaceId } : {}),
-        ...(includeDeleted ? {} : { status: { not: 'archived' } })
+        ...(kind ? { kind } : {}),
+        ...(scopeType ? { scopeType } : {}),
+        ...(anchorStatus ? { anchorStatus } : {}),
+        ...(includeDeleted ? {} : { lifecycleStatus: { not: 'archived' } })
       };
       return withRepositoryErrors(async () => (await db.contentAnnotation.findMany({
         where,
@@ -89,12 +106,12 @@ export function createPostgresContentAnnotationRepository({ db }) {
     async markStaleByNoteId(noteId, currentContentHash) {
       return withRepositoryErrors(async () => {
         const rows = await db.contentAnnotation.findMany({
-          where: { noteId, status: { not: 'archived' }, noteContentHash: { not: currentContentHash } }
+          where: { noteId, lifecycleStatus: { not: 'archived' }, noteContentHash: { not: currentContentHash } }
         });
         if (!rows.length) return [];
         await db.contentAnnotation.updateMany({
           where: { id: { in: rows.map((row) => row.id) } },
-          data: { status: 'stale', updatedAt: new Date() }
+          data: { status: 'stale', anchorStatus: 'needsReview', anchorReason: 'contentChanged', revision: { increment: 1 }, updatedAt: new Date() }
         });
         return rows.map((row) => mapAnnotation({ ...row, status: 'stale' }));
       });

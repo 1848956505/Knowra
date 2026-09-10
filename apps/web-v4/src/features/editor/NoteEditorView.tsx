@@ -11,8 +11,14 @@ import {
   type TagColor,
   type TagGroup,
   type UpdateAnnotationAnchorInput,
+  type UpdateAnnotationInput,
+  type AnnotationPreview,
+  type AnnotationKnowledgeLinks,
+  type AnalysisScopeInput,
+  type AnalysisScopePreview,
   type UploadAttachmentInput
 } from '@study-accelerator/web-core';
+import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { exportElementToPdf } from '../../browser/exportPdf';
 import { Button } from '../../components/ui';
@@ -98,9 +104,16 @@ export interface NoteEditorViewProps {
   onGetLinkedNotes(noteId: string): Promise<Note[]>;
   onListAnnotations(noteId: string): Promise<Annotation[]>;
   onCreateAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
-  onDeleteAnnotation(annotationId: string): Promise<Annotation>;
-  onRestoreAnnotation(annotationId: string): Promise<Annotation>;
+  onDeleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
+  onRestoreAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   onUpdateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
+  onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
+  onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
+  onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
+  onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
+  onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  onCreateAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<{ annotation: Annotation }>;
+  onDeleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<{ annotation: Annotation }>;
   onFileStatus(message: string): void;
   onViewAction(action: EditorViewAction): void;
   onToggleFavorite(): void;
@@ -155,6 +168,13 @@ export function NoteEditorView({
   onDeleteAnnotation,
   onRestoreAnnotation,
   onUpdateAnnotationAnchor,
+  onUpdateAnnotation,
+  onPreviewAnnotation,
+  onGetAnnotationKnowledgeLinks,
+  onPreviewAnalysisScope,
+  onCreateAnalysisScope,
+  onCreateAnnotationExclusion,
+  onDeleteAnnotationExclusion,
   onFileStatus,
   onViewAction,
   onToggleFavorite,
@@ -192,6 +212,7 @@ export function NoteEditorView({
     focusedAnnotationId, setFocusedAnnotationId
   } = useEditorInspectorData({
     noteId: note?.id,
+    refreshKey: note?.updatedAt,
     inspectorOpen,
     onListAttachments,
     onGetLinkedNotes,
@@ -404,16 +425,16 @@ export function NoteEditorView({
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
   };
-  const createCurrentAnnotation = async () => {
+  const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' = 'selection') => {
     if (!canEditContent) throw new Error('阅读模式下无法创建标注');
-    const selection = editorRef.current?.getAnnotationSelection();
-    if (!selection) throw new Error('请先在正文中选中要标记的文字');
+    const selection = editorRef.current?.getAnnotationSelection(scopeType);
+    if (!selection) throw new Error(scopeType === 'section' ? '请先将光标放在标题章节内' : '请先在正文中选中要标记的内容');
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
     const created = await onCreateAnnotation(await buildCreateAnnotationInput(note, markdown, selection));
     setAnnotations((current) => [...current.filter((item) => item.id !== created.id), created]);
     setFocusedAnnotationId(created.id);
-    onFileStatus('已标记为重要内容');
+    onFileStatus('已标为重点');
   };
   const replaceAnnotation = (updated: Annotation) => {
     setAnnotations((current) => current.map((item) => item.id === updated.id ? updated : item));
@@ -423,16 +444,30 @@ export function NoteEditorView({
     if (!editorRef.current?.selectAnnotation(annotationId)) onFileStatus('原文位置已变化，请选中新文字后重新定位');
   };
   const reanchorAnnotation = async (annotation: Annotation) => {
-    const selection = editorRef.current?.getAnnotationSelection();
+    const selection = editorRef.current?.getAnnotationSelection(annotation.scopeType ?? 'selection');
     if (!selection) throw new Error('请先在正文中选中新的对应文字');
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
     const updated = await onUpdateAnnotationAnchor(
       annotation.id,
-      await buildUpdateAnnotationAnchorInput(markdown, selection)
+      await buildUpdateAnnotationAnchorInput(markdown, selection, annotation.revision ?? 1)
     );
     replaceAnnotation(updated);
     setFocusedAnnotationId(updated.id);
+  };
+  const excludeCurrentBlock = async (annotation: Annotation) => {
+    if (!onCreateAnnotationExclusion) throw new Error('当前环境不支持局部排除');
+    const selection = editorRef.current?.getAnnotationSelection('blocks');
+    if (!selection) throw new Error('请先将光标放在要排除的内容块内');
+    const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+    await autosave.saveNow(markdown);
+    const result = await onCreateAnnotationExclusion(annotation.id, {
+      expectedRevision: annotation.revision ?? 1,
+      noteContentHash: calculateContentHash(markdown),
+      anchor: selection.anchor
+    });
+    replaceAnnotation(result.annotation);
+    onFileStatus('已从标题重点中排除当前内容块');
   };
   const openNoteSafely = (targetNoteId: string) => {
     saveCurrentScrollPosition();
@@ -631,7 +666,7 @@ export function NoteEditorView({
                 onRunCommand={runCommand}
                 onEditAction={(action) => { void handleEditAction(action); }}
                 onInsertImage={() => imageInputRef.current?.click()}
-                onCreateAnnotation={() => { void createCurrentAnnotation().catch((error) => onFileStatus(error instanceof Error ? error.message : '创建标注失败')); }}
+                onCreateAnnotation={() => { void createCurrentAnnotation('selection').catch((error) => onFileStatus(error instanceof Error ? error.message : '创建标注失败')); }}
               >
                 <div className={styles.content} aria-label={view.contentMode === 'read' ? '笔记正文阅读区' : '笔记正文编辑器'}>
                   {note.contentLoaded ? (
@@ -643,6 +678,7 @@ export function NoteEditorView({
                         markdown={draftMarkdown}
                         readOnly={!canEditContent}
                         allowExternalSync={!autosave.hasLocalChanges}
+                        onCreateAnnotation={createCurrentAnnotation}
                         annotations={annotations}
                         focusedAnnotationId={focusedAnnotationId}
                         onChange={autosave.updateDraft}
@@ -707,9 +743,16 @@ export function NoteEditorView({
           }}
           onCreateAnnotation={createCurrentAnnotation}
           onSelectAnnotation={selectAnnotation}
-          onDeleteAnnotation={async (annotationId) => replaceAnnotation(await onDeleteAnnotation(annotationId))}
-          onRestoreAnnotation={async (annotationId) => replaceAnnotation(await onRestoreAnnotation(annotationId))}
+          onDeleteAnnotation={async (annotationId, expectedRevision) => replaceAnnotation(await onDeleteAnnotation(annotationId, expectedRevision))}
+          onRestoreAnnotation={async (annotationId, expectedRevision) => replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision))}
           onReanchorAnnotation={reanchorAnnotation}
+          onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => replaceAnnotation(await onUpdateAnnotation(annotationId, input)) : undefined}
+          onPreviewAnnotation={onPreviewAnnotation}
+          onGetAnnotationKnowledgeLinks={onGetAnnotationKnowledgeLinks}
+          onPreviewAnalysisScope={onPreviewAnalysisScope}
+          onCreateAnalysisScope={onCreateAnalysisScope}
+          onCreateAnnotationExclusion={excludeCurrentBlock}
+          onDeleteAnnotationExclusion={onDeleteAnnotationExclusion ? async (annotationId, exclusionId, expectedRevision) => replaceAnnotation((await onDeleteAnnotationExclusion(annotationId, exclusionId, expectedRevision)).annotation) : undefined}
           onNavigateHeading={(_heading, index) => {
             const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
             if (editorRef.current?.navigateToHeading(index, behavior)) return;

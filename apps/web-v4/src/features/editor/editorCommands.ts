@@ -60,7 +60,7 @@ export interface EditorCommandTarget {
   replaceAll(query: string, replacement: string): EditorFindResult;
   clearFind(): void;
   navigateToHeading(index: number, behavior?: ScrollBehavior): boolean;
-  getAnnotationSelection(): import('./annotationPayloads').AnnotationSelection | null;
+  getAnnotationSelection(scopeType?: 'selection' | 'blocks' | 'section'): import('./annotationPayloads').AnnotationSelection | null;
   setAnnotations(annotations: import('@study-accelerator/web-core').Annotation[], focusedId?: string | null): void;
   selectAnnotation(annotationId: string): boolean;
   insertImage(url: string, alt: string): boolean;

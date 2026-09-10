@@ -243,7 +243,7 @@ export const phase2KnowledgeDomainTests = [
     }
   },
   {
-    name: 'KnowledgeEvidence 会从 Note、NoteVersion 与 Annotation 真实状态推导健康度',
+    name: 'KnowledgeEvidence 将来源定位健康与阅读标记生命周期分离',
     async run() {
       const { createKnowledgeModule } = await import('../src/modules/knowledge/index.js');
       const knowledge = createKnowledgeModule();
@@ -305,7 +305,7 @@ export const phase2KnowledgeDomainTests = [
           annotationId: annotation.id
         }]
       });
-      assert.equal(archivedAnnotationItem.evidence[0].status, 'invalid');
+      assert.equal(archivedAnnotationItem.evidence[0].status, 'valid');
 
       knowledge.noteService.deleteNote(note.id);
       const deletedNoteItem = knowledge.knowledgeItemService.createCandidate({

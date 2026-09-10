@@ -11,6 +11,12 @@ import { createInMemoryTagRepository } from './infrastructure/tag-repository.js'
 import { createInMemoryTagGroupRepository } from './infrastructure/tag-group-repository.js';
 import { createInMemoryKnowledgeSpaceRepository } from './infrastructure/knowledge-space-repository.js';
 import { createInMemoryContentAnnotationRepository } from './infrastructure/content-annotation-repository.js';
+import {
+  createInMemoryAnalysisScopeRepository,
+  createInMemoryAnnotationExclusionRepository,
+  createInMemoryAnnotationRevisionRepository
+} from './infrastructure/annotation-support-repositories.js';
+import { createAnnotationScopeService } from './application/annotation-scope-service.js';
 import { createInMemoryNoteVersionRepository } from './infrastructure/note-version-repository.js';
 import { createInMemoryKnowledgeItemRepository } from './infrastructure/knowledge-item-repository.js';
 import { createInMemoryKnowledgeEvidenceRepository } from './infrastructure/knowledge-evidence-repository.js';
@@ -41,6 +47,9 @@ export function createKnowledgeModule(options = {}) {
     options.knowledgeSpaceRepository ?? createInMemoryKnowledgeSpaceRepository();
   const contentAnnotationRepository =
     options.contentAnnotationRepository ?? createInMemoryContentAnnotationRepository();
+  const annotationExclusionRepository = options.annotationExclusionRepository ?? createInMemoryAnnotationExclusionRepository({ records: options.annotationExclusions ?? [] });
+  const annotationRevisionRepository = options.annotationRevisionRepository ?? createInMemoryAnnotationRevisionRepository({ records: options.annotationRevisions ?? [] });
+  const analysisScopeRepository = options.analysisScopeRepository ?? createInMemoryAnalysisScopeRepository({ records: options.analysisScopeSnapshots ?? [] });
   const noteVersionRepository = options.noteVersionRepository ?? createInMemoryNoteVersionRepository({ records: options.noteVersions ?? [] });
   const knowledgeItemRepository = options.knowledgeItemRepository ?? createInMemoryKnowledgeItemRepository({ records: options.knowledgeItems ?? [] });
   const knowledgeEvidenceRepository = options.knowledgeEvidenceRepository ?? createInMemoryKnowledgeEvidenceRepository({ records: options.knowledgeEvidence ?? [] });
@@ -259,10 +268,17 @@ export function createKnowledgeModule(options = {}) {
     repository: contentAnnotationRepository,
     noteRepository,
     noteVersionRepository,
-    onAnnotationArchived: (annotationId) => {
-      const changed = knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'invalid');
-      questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
-    }
+    revisionRepository: annotationRevisionRepository
+  });
+  const annotationScopeService = createAnnotationScopeService({
+    annotationService: contentAnnotationService,
+    annotationRepository: contentAnnotationRepository,
+    exclusionRepository: annotationExclusionRepository,
+    analysisScopeRepository,
+    noteRepository,
+    noteVersionRepository,
+    evidenceRepository: knowledgeEvidenceRepository,
+    knowledgeItemRepository
   });
   const noteService = createNoteService({
     repository: noteRepository,
@@ -271,13 +287,15 @@ export function createKnowledgeModule(options = {}) {
     noteVersionService,
     runTransaction,
     onNoteContentChanged: (note, version) => {
-      const changed = knowledgeItemService.markEvidenceByNoteId(note.id, 'stale');
+      const reconciliation = contentAnnotationService.reconcileForNote(note.id, version.contentHash);
+      const changed = reconciliation.contentChangedAnnotationIds.flatMap((annotationId) => (
+        knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale')
+      ));
       questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
       const oldVersionIds = noteVersionService.listVersions({ noteId: note.id })
         .filter((candidate) => candidate.id !== version.id)
         .map((candidate) => candidate.id);
       questionService.markSourcesStale('noteVersion', oldVersionIds);
-      contentAnnotationService.markStaleForNote(note.id, version.contentHash);
     },
     onNoteDeleted: (noteId) => {
       const changed = knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid');
@@ -301,6 +319,11 @@ export function createKnowledgeModule(options = {}) {
           'NOTE_HAS_QUESTION_SOURCE',
           'Note has a formal question source and cannot be permanently deleted'
         );
+      }
+      if (analysisScopeRepository.list().some((snapshot) => (
+        snapshot.noteVersions?.some((version) => versionIds.has(version.noteVersionId))
+      ))) {
+        throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
       }
     },
     validateSiblingNameConflict: ({ spaceId, folderId, title, currentNoteId }) => {
@@ -372,6 +395,7 @@ export function createKnowledgeModule(options = {}) {
     [tagGroupService, ['listTagGroups']],
     [knowledgeSpaceService, ['listKnowledgeSpaces', 'createDefaultKnowledgeSpace']],
     [contentAnnotationService, ['listAnnotationsByNote', 'getAnnotation']],
+    [annotationScopeService, ['previewAnnotation', 'getKnowledgeLinks', 'previewAnalysisScope', 'getAnalysisScope']],
     [noteVersionService, ['getVersion', 'listVersions']],
     [knowledgeItemService, ['getItem', 'listItems', 'listEvidence']],
     [learningObjectiveService, ['getObjective', 'listObjectives']],
@@ -390,6 +414,9 @@ export function createKnowledgeModule(options = {}) {
       tagGroupRepository,
       knowledgeSpaceRepository,
       contentAnnotationRepository,
+      annotationExclusionRepository,
+      annotationRevisionRepository,
+      analysisScopeRepository,
       noteVersionRepository,
       knowledgeItemRepository,
       knowledgeEvidenceRepository,
@@ -405,6 +432,7 @@ export function createKnowledgeModule(options = {}) {
     tagService,
     tagGroupService,
     contentAnnotationService,
+    annotationScopeService,
     knowledgeSpaceService,
     searchService,
     noteVersionService,

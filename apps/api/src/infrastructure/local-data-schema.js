@@ -5,7 +5,7 @@ import {
 } from './local-data-relations.js';
 import { isAttachmentStatus } from './attachment-status.js';
 
-export const LOCAL_DATA_SCHEMA_VERSION = 4;
+export const LOCAL_DATA_SCHEMA_VERSION = 5;
 export const LOCAL_SNAPSHOT_VERSION = 'v1-local-json';
 
 export const LOCAL_DATA_COLLECTIONS = Object.freeze([
@@ -24,7 +24,10 @@ export const LOCAL_DATA_COLLECTIONS = Object.freeze([
   'questionObjectives',
   'questionSources',
   'attachments',
-  'contentAnnotations'
+  'contentAnnotations',
+  'annotationExclusions',
+  'annotationRevisions',
+  'analysisScopeSnapshots'
 ]);
 
 const REQUIRED_COLLECTIONS = Object.freeze([
@@ -244,6 +247,25 @@ function validateEntity(collectionName, item, index) {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.noteId, `${location}.noteId`);
     assertNonEmptyString(item.quoteText, `${location}.quoteText`);
+    assertAllowedValue(item.schemaVersion ?? 1, [1, 2], `${location}.schemaVersion`);
+    assertAllowedValue(item.scopeType ?? 'selection', ['selection', 'blocks', 'section'], `${location}.scopeType`);
+    assertAllowedValue(item.lifecycleStatus ?? (item.status === 'archived' ? 'archived' : 'active'), ['active', 'archived'], `${location}.lifecycleStatus`);
+    assertAllowedValue(item.anchorStatus ?? (item.status === 'stale' ? 'needsReview' : 'resolved'), ['resolved', 'needsReview', 'missing'], `${location}.anchorStatus`);
+    if (item.schemaVersion === 2 && (!item.anchor || typeof item.anchor !== 'object' || Array.isArray(item.anchor))) invalidSnapshot(`${location}.anchor is invalid`);
+  } else if (collectionName === 'annotationExclusions') {
+    assertNonEmptyString(item.parentAnnotationId, `${location}.parentAnnotationId`);
+    if (!item.anchor || typeof item.anchor !== 'object' || Array.isArray(item.anchor)) invalidSnapshot(`${location}.anchor is invalid`);
+  } else if (collectionName === 'annotationRevisions') {
+    assertNonEmptyString(item.annotationId, `${location}.annotationId`);
+    assertNonEmptyString(item.operation, `${location}.operation`);
+    if (!Number.isInteger(item.revision) || item.revision < 1) invalidSnapshot(`${location}.revision is invalid`);
+  } else if (collectionName === 'analysisScopeSnapshots') {
+    assertNonEmptyString(item.spaceId, `${location}.spaceId`);
+    assertNonEmptyString(item.inputHash, `${location}.inputHash`);
+    assertNonEmptyString(item.idempotencyKey, `${location}.idempotencyKey`);
+    for (const field of ['noteVersions', 'selections', 'segments', 'contextSegments', 'exclusions', 'omittedItems', 'annotationRevisions']) {
+      if (!Array.isArray(item[field])) invalidSnapshot(`${location}.${field} must be an array`);
+    }
   }
 }
 
@@ -291,6 +313,7 @@ function assertSchemaVersion(schemaVersion) {
     || schemaVersion === 1
     || schemaVersion === 2
     || schemaVersion === 3
+    || schemaVersion === 4
     || schemaVersion === LOCAL_DATA_SCHEMA_VERSION
   ) {
     return;

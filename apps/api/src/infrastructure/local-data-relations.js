@@ -29,6 +29,7 @@ export function validateLocalDataRelations(state) {
   validateTags(state.tags, spaces, tagGroups);
   validateNotes(state.notes, spaces, folders, tags);
   validateAnnotations(state.contentAnnotations, spaces, notes, noteVersions);
+  validateAnnotationExtensions(state, spaces, annotations, noteVersions);
   validateNoteVersions(state.noteVersions, notes);
   validateKnowledgeItems(state.knowledgeItems);
   validateKnowledgeEvidence(
@@ -58,6 +59,24 @@ export function validateLocalDataRelations(state) {
   });
   assertFolderGraphHasNoCycles(state.folders, folders);
   return state;
+}
+
+function validateAnnotationExtensions(state, spaces, annotations, noteVersions) {
+  for (const exclusion of state.annotationExclusions ?? []) {
+    const annotation = annotations.get(exclusion.parentAnnotationId);
+    assertReference(Boolean(annotation), `AnnotationExclusion ${exclusion.id} references unknown annotation`);
+    assertReference(annotation.scopeType === 'section', `AnnotationExclusion ${exclusion.id} requires a section annotation`);
+    if (exclusion.noteVersionId) assertReference(noteVersions.has(exclusion.noteVersionId), `AnnotationExclusion ${exclusion.id} references unknown NoteVersion`);
+  }
+  for (const revision of state.annotationRevisions ?? []) {
+    assertReference(annotations.has(revision.annotationId), `AnnotationRevision ${revision.id} references unknown annotation`);
+  }
+  for (const snapshot of state.analysisScopeSnapshots ?? []) {
+    assertReference(spaces.has(snapshot.spaceId), `AnalysisScopeSnapshot ${snapshot.id} references unknown space`);
+    for (const version of snapshot.noteVersions ?? []) {
+      assertReference(noteVersions.has(version.noteVersionId), `AnalysisScopeSnapshot ${snapshot.id} references unknown NoteVersion`);
+    }
+  }
 }
 
 export function normalizeLegacyNoteReferences(state, {
@@ -350,12 +369,12 @@ function validateKnowledgeEvidence(items, knowledgeItems, notes, noteVersions, a
         `KnowledgeEvidence ${evidence.id} requires annotationId`
       );
     }
-    if (annotation?.status === 'archived') derivedStatus = 'invalid';
-    else if (annotation?.status && annotation.status !== 'active') {
-      derivedStatus = 'stale';
-    }
+    if (annotation?.anchorStatus === 'missing') derivedStatus = 'insufficient';
+    else if (annotation?.anchorStatus === 'needsReview' || annotation?.status === 'stale') derivedStatus = 'stale';
     if (note?.deleted) derivedStatus = 'invalid';
     else if (
+      evidence.sourceType === 'noteVersion'
+      &&
       version
       && note
       && version.content !== note.rawMarkdown

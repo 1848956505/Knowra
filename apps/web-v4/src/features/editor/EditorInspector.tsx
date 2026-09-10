@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
-import type { Annotation, Attachment, Folder, Note, NoteVersion, Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
-import { Button } from '../../components/ui';
+import type { AnalysisScopeInput, AnalysisScopePreview, Annotation, AnnotationKnowledgeLinks, AnnotationPreview, Attachment, Folder, Note, NoteVersion, Tag, TagColor, TagGroup, UpdateAnnotationInput } from '@study-accelerator/web-core';
+import { Button, Dialog, DialogBody, DialogClose, DialogFooter, Select } from '../../components/ui';
+import { Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverTrigger, PopoverDialog } from '../../components/ui/overlay';
 import { GhostIconButton } from '../../components/ui/button';
 import { Tabs, type TabsItem } from '../../components/ui/collection';
 import {
+  StarIcon,
+  FilterIcon,
+  MoreHorizontalIcon,
   CloseIcon,
-  HighlightIcon,
   LinkIcon,
   ListIcon,
   NoteIcon,
@@ -74,11 +77,18 @@ export interface EditorInspectorProps {
   onInsertAttachment(attachment: Attachment): Promise<void>;
   onRenameAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
   onDeleteAttachment(attachmentId: string): Promise<void>;
-  onCreateAnnotation(): Promise<void>;
+  onCreateAnnotation(scopeType?: 'selection' | 'blocks' | 'section'): Promise<void>;
   onSelectAnnotation(annotationId: string): void;
-  onDeleteAnnotation(annotationId: string): Promise<void>;
-  onRestoreAnnotation(annotationId: string): Promise<void>;
+  onDeleteAnnotation(annotationId: string, expectedRevision?: number): Promise<void>;
+  onRestoreAnnotation(annotationId: string, expectedRevision?: number): Promise<void>;
   onReanchorAnnotation(annotation: Annotation): Promise<void>;
+  onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<void>;
+  onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
+  onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
+  onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
+  onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  onCreateAnnotationExclusion?(annotation: Annotation): Promise<void>;
+  onDeleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<void>;
 }
 
 export function EditorInspector(props: EditorInspectorProps) {
@@ -144,7 +154,7 @@ export function EditorInspector(props: EditorInspectorProps) {
               <LinksPanel relations={relations} loading={props.linkedNotesLoading} onOpenNote={props.onOpenNote} />
             ) : null}
             {item.id === 'annotations' ? (
-              <AnnotationPanel {...props} />
+              <AnnotationPanel key={props.note.id} {...props} />
             ) : null}
             {item.id === 'versions' ? (
               <VersionPanel
@@ -153,7 +163,7 @@ export function EditorInspector(props: EditorInspectorProps) {
                 onGetVersion={props.onGetVersion}
               />
             ) : null}
-            {item.id === 'ai' ? <AiPanel /> : null}
+            {item.id === 'ai' ? <AnnotationPanel key={`ai-${props.note.id}`} {...props} analysisOnly /> : null}
           </div>
         )}
       </Tabs>
@@ -366,10 +376,34 @@ function LinksPanel({ relations, loading, onOpenNote }: {
   );
 }
 
-function AnnotationPanel(props: EditorInspectorProps) {
+function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sectionFilter, setSectionFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [detail, setDetail] = useState<{ annotation: Annotation; preview: AnnotationPreview; links: AnnotationKnowledgeLinks } | null>(null);
+  const [analysis, setAnalysis] = useState<{ input: AnalysisScopeInput; preview: AnalysisScopePreview } | null>(null);
+  const [kind, setKind] = useState<'important' | 'question' | 'supplement' | 'pitfall' | 'temporary'>('important');
+  const [importance, setImportance] = useState('unset');
+  const [comment, setComment] = useState('');
+
+  useEffect(() => {
+    const available = new Set(props.annotations.filter((item) => item.lifecycleStatus !== 'archived' && item.status !== 'archived' && !item.deletedAt).map((item) => item.id));
+    setSelectedIds((ids) => ids.filter((id) => available.has(id)));
+  }, [props.annotations]);
+
+  const sections = [...new Set(props.annotations.map((item) => item.headingPath.at(-1) || '未分章节'))];
+  const visible = props.annotations.filter((annotation) => {
+    const archived = annotation.lifecycleStatus === 'archived' || annotation.status === 'archived' || Boolean(annotation.deletedAt);
+    const status = archived ? 'archived' : (annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale') ? 'needsReview' : 'active';
+    return (scopeFilter === 'all' || (annotation.scopeType ?? 'selection') === scopeFilter)
+      && (sectionFilter === 'all' || (annotation.headingPath.at(-1) || '未分章节') === sectionFilter)
+      && (statusFilter === 'all' || status === statusFilter);
+  });
 
   async function run(id: string, action: () => Promise<void>) {
     setPendingId(id);
@@ -383,13 +417,48 @@ function AnnotationPanel(props: EditorInspectorProps) {
     }
   }
 
-  async function create() {
+  async function openDetail(annotation: Annotation) {
+    if (!props.onPreviewAnnotation || !props.onGetAnnotationKnowledgeLinks) return;
+    const previewAnnotation = props.onPreviewAnnotation;
+    const getKnowledgeLinks = props.onGetAnnotationKnowledgeLinks;
+    await run(annotation.id, async () => {
+      const [preview, links] = await Promise.all([
+        previewAnnotation(annotation.id),
+        getKnowledgeLinks(annotation.id)
+      ]);
+      setKind(annotation.kind as 'important' | 'question' | 'supplement' | 'pitfall' | 'temporary');
+      setImportance(annotation.importance ?? 'unset');
+      setComment(annotation.comment ?? '');
+      setDetail({ annotation, preview, links });
+    });
+  }
+
+  async function saveMetadata() {
+    if (!detail || !props.onUpdateAnnotation) return;
+    const updateAnnotation = props.onUpdateAnnotation;
+    await run(detail.annotation.id, async () => {
+      await updateAnnotation(detail.annotation.id, {
+        expectedRevision: detail.annotation.revision ?? 1,
+        kind,
+        importance: importance === 'unset' ? null : importance as Annotation['importance'],
+        comment
+      });
+      setDetail(null);
+    });
+  }
+
+  async function previewAnalysis(mode: 'marked' | 'all') {
+    if (!props.onPreviewAnalysisScope) return;
+    const annotationIds = selectedIds.length > 0
+      ? selectedIds
+      : visible.filter((item) => item.lifecycleStatus !== 'archived' && item.status !== 'archived').map((item) => item.id);
+    const input: AnalysisScopeInput = { spaceId: props.note.spaceId ?? '', mode, noteIds: [props.note.id], ...(mode === 'marked' ? { annotationIds } : {}) };
     setCreating(true);
     setError('');
     try {
-      await props.onCreateAnnotation();
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : '创建标注失败，请重试');
+      setAnalysis({ input, preview: await props.onPreviewAnalysisScope(input) });
+    } catch (analysisError) {
+      setError(analysisError instanceof Error ? analysisError.message : '分析范围预览失败');
     } finally {
       setCreating(false);
     }
@@ -397,52 +466,83 @@ function AnnotationPanel(props: EditorInspectorProps) {
 
   return (
     <section className={`${styles.simplePanel} ${styles.annotationPanel}`} aria-label="正文标注">
+      {props.analysisOnly ? <div className={styles.aiPanel}>
+        <span className={styles.aiIcon}><SparkIcon size={26} /></span>
+        <h3>整篇分析</h3>
+        <p>预览当前笔记的分析范围。</p>
+        <Button variant="primary" isPending={creating} isDisabled={!props.canWrite || !props.onPreviewAnalysisScope} onPress={() => void previewAnalysis('all')}>分析整篇</Button>
+      </div> : <>
       <header className={styles.annotationHeader}>
-        <div><strong>重要内容</strong><span>选中正文后创建可定位标注</span></div>
-        <Button variant="primary" isPending={creating} isDisabled={!props.canWrite} onPress={() => void create()}>
-          <HighlightIcon size={14} />新建标注
-        </Button>
+        <div className={styles.annotationTitle}><StarIcon size={15} fill="currentColor" /><strong>重点标记</strong><span>{props.annotations.length}</span></div>
+        <PopoverTrigger isOpen={filtersOpen} onOpenChange={setFiltersOpen}>
+          <GhostIconButton size={24} aria-label="筛选重点" title="筛选重点" className={sectionFilter !== 'all' || statusFilter !== 'all' ? styles.annotationFilterActive : undefined}><FilterIcon size={15} /></GhostIconButton>
+          <Popover placement="bottom end" offset={8} className={styles.annotationFilterPopover}>
+            <PopoverDialog aria-label="筛选重点" className={styles.annotationFilters}>
+              <header><strong>筛选重点</strong><GhostIconButton size={24} aria-label="关闭筛选" onPress={() => setFiltersOpen(false)}><CloseIcon size={14} /></GhostIconButton></header>
+              <Select label="章节" options={[{ id: 'all', label: '全部章节' }, ...sections.map((section) => ({ id: section, label: section }))]} selectedKey={sectionFilter} onSelectionChange={(key) => setSectionFilter(String(key))} />
+              <fieldset><legend>状态</legend><div className={styles.annotationStatusOptions}>{STATUS_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={statusFilter === option.id} onClick={() => setStatusFilter(option.id)}>{option.label}</button>)}</div></fieldset>
+              <footer><button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); }}>重置筛选</button><Button variant="primary" onPress={() => setFiltersOpen(false)}>完成</Button></footer>
+            </PopoverDialog>
+          </Popover>
+        </PopoverTrigger>
       </header>
-      {error ? <p className={styles.versionError} role="alert">{error}</p> : null}
-      {props.annotationsLoading ? <p className={styles.emptyPanel} role="status">正在加载正文标注…</p> : null}
-      {!props.annotationsLoading && props.annotations.length === 0 ? <p className={styles.emptyPanel}>暂无标注。请先在正文中选中一段文字。</p> : null}
+      <div className={styles.annotationScopeFilters} role="group" aria-label="重点范围">
+        {[['all', '全部'], ['selection', '选区'], ['blocks', '块'], ['section', '章节']].map(([id, label]) => <button key={id} type="button" aria-pressed={scopeFilter === id} onClick={() => setScopeFilter(id)}>{label} <span>{props.annotations.filter((item) => id === 'all' || (item.scopeType ?? 'selection') === id).length}</span></button>)}
+      </div>
+      {sectionFilter !== 'all' || statusFilter !== 'all' ? <div className={styles.annotationFilterSummary}>已筛选 {[sectionFilter, statusFilter].filter((value) => value !== 'all').length} 项 <button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); }}>清除</button></div> : null}
       <div className={styles.annotationList}>
-        {props.annotations.map((annotation, index) => {
-          const archived = annotation.status === 'archived' || Boolean(annotation.deletedAt);
-          const stale = annotation.status === 'stale';
+        {props.annotationsLoading ? <p className={styles.emptyPanel} role="status">正在加载正文标注…</p> : visible.length === 0 ? <p className={styles.emptyPanel}>{props.annotations.length ? '没有符合筛选条件的重点。' : '暂无重点，选中正文或打开块菜单即可标记。'}</p> : null}
+        {visible.map((annotation, index) => {
+          const archived = annotation.lifecycleStatus === 'archived' || annotation.status === 'archived' || Boolean(annotation.deletedAt);
+          const stale = annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale';
           const pending = pendingId === annotation.id;
-          return (
-            <article key={annotation.id} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined}>
-              <header>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{archived ? '已归档' : stale ? '待重新定位' : '已定位'}</strong>
-              </header>
-              <blockquote>{annotation.quoteText}</blockquote>
-              {annotation.headingPath.length > 0 ? <p title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</p> : null}
-              <footer>
-                {!archived ? <button type="button" disabled={pending} onClick={() => props.onSelectAnnotation(annotation.id)}>定位</button> : null}
-                {!archived ? <button type="button" disabled={pending || !props.canWrite} onClick={() => void run(annotation.id, () => props.onReanchorAnnotation(annotation))}>重新定位</button> : null}
-                {archived
-                  ? <button type="button" disabled={pending || !props.canWrite} onClick={() => void run(annotation.id, () => props.onRestoreAnnotation(annotation.id))}>恢复</button>
-                  : <button type="button" disabled={pending || !props.canWrite} onClick={() => void run(annotation.id, () => props.onDeleteAnnotation(annotation.id))}>归档</button>}
-              </footer>
-            </article>
-          );
+          return <article key={annotation.id} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={!archived && stale || undefined} data-archived={archived || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
+            <input aria-label={`选择重点 ${index + 1}`} type="checkbox" disabled={archived} checked={selectedIds.includes(annotation.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
+            <button type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} disabled={pending || archived} onClick={() => props.onSelectAnnotation(annotation.id)}>
+              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span>{archived || stale ? <strong>{archived ? '已取消' : '待检查'}</strong> : null}</span>
+              <span className={styles.annotationQuote}>{annotation.quoteText}</span>
+              {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
+            </button>
+            <MenuTrigger><GhostIconButton size={24} aria-label={`重点 ${index + 1} 更多操作`}><MoreHorizontalIcon size={15} /></GhostIconButton>
+              <MenuPopover placement="bottom end"><Menu ariaLabel="重点操作">
+                <MenuItem id="detail" isDisabled={pending || !props.onPreviewAnnotation || !props.onGetAnnotationKnowledgeLinks} onAction={() => void openDetail(annotation)}>预览与编辑</MenuItem>
+                {!archived ? <MenuItem id="reanchor" isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, () => props.onReanchorAnnotation(annotation))}>重新定位</MenuItem> : null}
+                {annotation.scopeType === 'section' && !archived ? <MenuItem id="exclude" isDisabled={pending || !props.canWrite || !props.onCreateAnnotationExclusion} onAction={() => void run(annotation.id, () => props.onCreateAnnotationExclusion!(annotation))}>排除当前块</MenuItem> : null}
+                <MenuItem id="archive" isDanger={!archived} isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, async () => { await (archived ? props.onRestoreAnnotation(annotation.id, annotation.revision) : props.onDeleteAnnotation(annotation.id, annotation.revision)); setSelectedIds((ids) => ids.filter((id) => id !== annotation.id)); })}>{archived ? '恢复' : '取消重点'}</MenuItem>
+              </Menu></MenuPopover>
+            </MenuTrigger>
+          </article>;
         })}
       </div>
+      {selectedIds.length > 0 ? <div className={styles.annotationAnalysisActions}>
+        <span>已选择 {selectedIds.length} 项</span>
+        <Button variant="primary" isPending={creating} isDisabled={!props.canWrite || !props.onPreviewAnalysisScope} onPress={() => void previewAnalysis('marked')}>提炼知识</Button>
+      </div> : null}
+      </>}
+      {error ? <p className={styles.versionError} role="alert">{error}</p> : null}
+      {detail ? <Dialog title="重点详情" description={`${scopeLabel(detail.annotation.scopeType)} · ${detail.preview.resolution.status === 'resolved' ? '当前范围可定位' : '范围需要检查'}`} isOpen onOpenChange={(open) => { if (!open) setDetail(null); }} isPending={pendingId === detail.annotation.id}>
+        <DialogBody><div className={styles.annotationDetailFields}>
+          <Select label="类型" options={KIND_OPTIONS} selectedKey={kind} onSelectionChange={(key) => setKind(String(key) as typeof kind)} />
+          <Select label="重要程度" options={IMPORTANCE_OPTIONS} selectedKey={importance} onSelectionChange={(key) => setImportance(String(key))} />
+          <label><span>备注</span><textarea maxLength={2000} value={comment} onChange={(event) => setComment(event.target.value)} /></label>
+          <pre>{detail.preview.resolution.quoteText ?? detail.annotation.quoteText}</pre>
+          <p>关联候选 {detail.links.candidates.length} · 已确认知识 {detail.links.confirmed.length} · 局部排除 {detail.preview.exclusions.filter((item) => item.status === 'active').length}</p>
+          {detail.preview.exclusions.filter((item) => item.status === 'active').map((exclusion) => <button key={exclusion.id} type="button" disabled={!props.onDeleteAnnotationExclusion} onClick={() => void props.onDeleteAnnotationExclusion?.(detail.annotation.id, exclusion.id, detail.annotation.revision ?? 1).then(() => setDetail(null)).catch((reason) => setError(reason instanceof Error ? reason.message : '恢复范围失败'))}>恢复排除范围：{exclusion.anchor.quoteText.slice(0, 32)}</button>)}
+        </div></DialogBody>
+        <DialogFooter><DialogClose variant="ghost">关闭</DialogClose><Button variant="primary" onPress={() => void saveMetadata()}>保存信息</Button></DialogFooter>
+      </Dialog> : null}
+      {analysis ? <Dialog title="确认分析范围" description={analysis.preview.ai.message} isOpen onOpenChange={(open) => { if (!open) setAnalysis(null); }}>
+        <DialogBody><div className={styles.annotationScopePreview}><strong>{analysis.preview.summary.noteCount} 篇笔记 · {analysis.preview.summary.segmentCount} 个去重片段</strong>{analysis.preview.segments.map((segment, index) => <pre key={`${segment.noteId}-${segment.start}`}>{index + 1}. {segment.markdown}</pre>)}{analysis.preview.omittedItems.length > 0 ? <p>{analysis.preview.omittedItems.length} 项未纳入，请在开始前检查。</p> : null}<p role="status">{analysis.preview.ai.available ? '提炼服务可用' : '提炼服务暂不可用；仍可保存不可变范围快照。'}</p></div></DialogBody>
+        <DialogFooter><DialogClose variant="ghost">取消</DialogClose><Button variant="primary" isDisabled={!props.onCreateAnalysisScope} onPress={() => void props.onCreateAnalysisScope?.({ ...analysis.input, previewHash: analysis.preview.previewHash, idempotencyKey: crypto.randomUUID() }).then(() => setAnalysis(null)).catch((reason) => setError(reason instanceof Error ? reason.message : '范围快照保存失败'))}>保存范围快照</Button></DialogFooter>
+      </Dialog> : null}
     </section>
   );
 }
 
-function AiPanel() {
-  return (
-    <section className={styles.aiPanel}>
-      <span className={styles.aiIcon}><SparkIcon size={26} /></span>
-      <h3>AI 检查尚未接入</h3>
-      <p>当前版本不会伪造总结或建议；后端能力接入后，这里将提供文档检查结果。</p>
-    </section>
-  );
-}
+const KIND_OPTIONS = [{ id: 'important', label: '重点' }, { id: 'question', label: '疑问' }, { id: 'supplement', label: '补充' }, { id: 'pitfall', label: '易错' }, { id: 'temporary', label: '临时笔记' }];
+const IMPORTANCE_OPTIONS = [{ id: 'unset', label: '未设置' }, { id: 'normal', label: '普通' }, { id: 'important', label: '重要' }, { id: 'core', label: '核心' }];
+const STATUS_FILTERS = [{ id: 'active', label: '当前有效' }, { id: 'needsReview', label: '内容待检查' }, { id: 'archived', label: '已取消' }, { id: 'all', label: '全部状态' }];
+function scopeLabel(scope?: Annotation['scopeType']) { return scope === 'blocks' ? '内容块' : scope === 'section' ? '标题章节' : '文字选区'; }
 
 function InspectorSection({ icon, title, count, action, children }: {
   icon: ReactNode;

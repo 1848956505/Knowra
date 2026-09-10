@@ -88,8 +88,8 @@ export function createKnowledgeItemService({
           'Annotation and NoteVersion must reference the same note'
         );
       }
-      if (annotation.status === 'archived') status = 'invalid';
-      else if (annotation.status && annotation.status !== 'active') status = 'stale';
+      if (annotation.anchorStatus === 'missing') status = 'insufficient';
+      else if (annotation.anchorStatus === 'needsReview' || annotation.status === 'stale') status = 'stale';
     }
     if (noteId && noteRepository) {
       const note = noteRepository.findById(noteId);

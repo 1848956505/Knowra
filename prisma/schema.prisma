@@ -37,6 +37,7 @@ model KnowledgeSpace {
   tags        Tag[]
   tagGroups   TagGroup[]
   annotations ContentAnnotation[]
+  analysisScopeSnapshots AnalysisScopeSnapshot[]
 
   @@index([userId, updatedAt])
 }
@@ -172,6 +173,19 @@ model ContentAnnotation {
   noteContentHash   String
   idempotencyKey    String
   status            String
+  schemaVersion     Int            @default(1)
+  scopeType         String         @default("selection")
+  importance        String?
+  comment           String         @default("") @db.Text
+  lifecycleStatus   String         @default("active")
+  anchorStatus      String         @default("resolved")
+  anchorReason      String?
+  revision          Int            @default(1)
+  anchor            Json?
+  originSnapshot    Json?
+  resolvedContentHash String?
+  boundaryFingerprint String?
+  requestHash       String?
   createdAt         DateTime
   updatedAt         DateTime
   deletedAt         DateTime?
@@ -180,10 +194,66 @@ model ContentAnnotation {
   note              Note            @relation(fields: [noteId], references: [id], onDelete: Cascade)
   noteVersion       NoteVersion?    @relation(fields: [noteVersionId], references: [id], onDelete: SetNull)
   evidence          KnowledgeEvidence[]
+  exclusions        AnnotationExclusion[]
+  revisions         AnnotationRevision[]
 
   @@unique([noteId, idempotencyKey])
-  @@index([noteId, status, updatedAt])
+  @@index([noteId, lifecycleStatus, updatedAt])
   @@index([noteVersionId, status])
+}
+
+model AnnotationExclusion {
+  id                 String   @id
+  parentAnnotationId String
+  noteVersionId      String?
+  anchor             Json
+  status             String   @default("active")
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  parentAnnotation ContentAnnotation @relation(fields: [parentAnnotationId], references: [id], onDelete: Cascade)
+  noteVersion      NoteVersion?       @relation(fields: [noteVersionId], references: [id], onDelete: SetNull)
+
+  @@index([parentAnnotationId, status])
+}
+
+model AnnotationRevision {
+  id           String   @id
+  annotationId String
+  revision     Int
+  operation    String
+  oldAnchor    Json?
+  newAnchor    Json?
+  rangeSummary Json?
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  annotation ContentAnnotation @relation(fields: [annotationId], references: [id], onDelete: Cascade)
+
+  @@unique([annotationId, revision])
+  @@index([annotationId, revision])
+}
+
+model AnalysisScopeSnapshot {
+  id                  String   @id
+  spaceId             String
+  inputHash           String
+  idempotencyKey      String
+  noteVersions        Json
+  selections          Json
+  segments            Json
+  contextSegments     Json
+  exclusions          Json
+  omittedItems        Json
+  annotationRevisions Json
+  summary             Json
+  createdAt           DateTime @default(now())
+
+  space KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, idempotencyKey])
+  @@index([spaceId, createdAt])
 }
 
 model NoteVersion {
@@ -197,6 +267,7 @@ model NoteVersion {
   note        Note               @relation(fields: [noteId], references: [id], onDelete: Cascade)
   annotations ContentAnnotation[]
   evidence    KnowledgeEvidence[]
+  annotationExclusions AnnotationExclusion[]
 
   @@unique([noteId, contentHash])
   @@index([noteId, createdAt])

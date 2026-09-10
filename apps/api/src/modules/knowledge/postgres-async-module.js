@@ -18,6 +18,12 @@ import { createPostgresExamFocusRepository } from './infrastructure/postgres/exa
 import { createPostgresQuestionRepository } from './infrastructure/postgres/question-repository.js';
 import { createPostgresQuestionObjectiveRepository } from './infrastructure/postgres/question-objective-repository.js';
 import { createPostgresQuestionSourceRepository } from './infrastructure/postgres/question-source-repository.js';
+import {
+  createPostgresAnalysisScopeRepository,
+  createPostgresAnnotationExclusionRepository,
+  createPostgresAnnotationRevisionRepository
+} from './infrastructure/postgres/annotation-support-repositories.js';
+import { createAsyncAnnotationScopeService } from './application/postgres-async/annotation-scope-service.js';
 import { createPostgresKnowledgeSpaceRepository } from './infrastructure/postgres/knowledge-space-repository.js';
 import { createPostgresTagGroupRepository } from './infrastructure/postgres/tag-group-repository.js';
 import { createAsyncLearningObjectiveService } from './application/postgres-async/learning-objective-service.js';
@@ -34,6 +40,9 @@ export function createPostgresKnowledgeModule({
   tagGroupRepository,
   knowledgeSpaceRepository,
   contentAnnotationRepository,
+  annotationExclusionRepository,
+  annotationRevisionRepository,
+  analysisScopeRepository,
   noteVersionRepository,
   knowledgeItemRepository,
   knowledgeEvidenceRepository,
@@ -52,6 +61,9 @@ export function createPostgresKnowledgeModule({
     tagGroupRepository,
     knowledgeSpaceRepository,
     contentAnnotationRepository,
+    annotationExclusionRepository,
+    annotationRevisionRepository,
+    analysisScopeRepository,
     noteVersionRepository,
     knowledgeItemRepository,
     knowledgeEvidenceRepository,
@@ -74,6 +86,9 @@ export function createPostgresKnowledgeModule({
     knowledgeItemRepository,
     knowledgeEvidenceRepository,
     contentAnnotationRepository,
+    annotationExclusionRepository,
+    annotationRevisionRepository,
+    analysisScopeRepository,
     learningObjectiveRepository,
     examProfileRepository,
     examFocusRepository,
@@ -130,7 +145,12 @@ export function createPostgresKnowledgeModule({
       noteRepository: transaction.noteRepository,
       noteVersionService: createAsyncNoteVersionService({ repository: transaction.noteVersionRepository }),
       onNoteContentChanged: async (note, version) => {
-        const changed = await formalServices.knowledgeItemService.markEvidenceByNoteId(note.id, 'stale');
+        const transactionAnnotationService = buildTransactionAnnotationServices(transaction).annotationService;
+        const reconciliation = await transactionAnnotationService.reconcileForNote(note.id, version.contentHash);
+        const changed = [];
+        for (const annotationId of reconciliation.contentChangedAnnotationIds) {
+          changed.push(...await formalServices.knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale'));
+        }
         await formalServices.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
         const versions = await transaction.noteVersionRepository.list({ noteId: note.id });
         await formalServices.questionService.markSourcesStale(
@@ -139,7 +159,6 @@ export function createPostgresKnowledgeModule({
             .filter((candidate) => candidate.id !== version.id)
             .map((candidate) => candidate.id)
         );
-        await transaction.contentAnnotationRepository.markStaleByNoteId(note.id, note.contentHash);
       },
       onNoteDeleted: async (noteId) => {
         const changed = await formalServices.knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid');
@@ -169,6 +188,10 @@ export function createPostgresKnowledgeModule({
             'Note has a formal question source and cannot be permanently deleted'
           );
         }
+        const snapshots = await transaction.analysisScopeRepository.list();
+        if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => versionIds.has(version.noteVersionId)))) {
+          throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
+        }
       }
     };
   }
@@ -182,6 +205,9 @@ export function createPostgresKnowledgeModule({
         knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db: tx }),
         knowledgeEvidenceRepository: createPostgresKnowledgeEvidenceRepository({ db: tx }),
         contentAnnotationRepository: createPostgresContentAnnotationRepository({ db: tx }),
+        annotationExclusionRepository: createPostgresAnnotationExclusionRepository({ db: tx }),
+        annotationRevisionRepository: createPostgresAnnotationRevisionRepository({ db: tx }),
+        analysisScopeRepository: createPostgresAnalysisScopeRepository({ db: tx }),
         learningObjectiveRepository: createPostgresLearningObjectiveRepository({ db: tx }),
         examProfileRepository: createPostgresExamProfileRepository({ db: tx }),
         examFocusRepository: createPostgresExamFocusRepository({ db: tx }),
@@ -330,18 +356,65 @@ export function createPostgresKnowledgeModule({
       questionSourceRepository: transaction.questionSourceRepository
     }))
   });
-  const contentAnnotationService = createAsyncContentAnnotationService({
+  const directAnnotationService = createAsyncContentAnnotationService({
     repository: contentAnnotationRepository,
     noteRepository,
     noteVersionRepository,
-    onAnnotationArchived: async (annotationId) => {
-      const changed = await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'invalid');
-      await questionService.markSourcesStale(
-        'knowledgeEvidence',
-        changed.map((evidence) => evidence.id)
-      );
-    }
+    revisionRepository: annotationRevisionRepository
   });
+  const buildTransactionAnnotationServices = (transaction) => {
+    const annotationService = createAsyncContentAnnotationService({
+      repository: transaction.contentAnnotationRepository,
+      noteRepository: transaction.noteRepository,
+      noteVersionRepository: transaction.noteVersionRepository,
+      revisionRepository: transaction.annotationRevisionRepository
+    });
+    const scopeService = createAsyncAnnotationScopeService({
+      annotationService,
+      annotationRepository: transaction.contentAnnotationRepository,
+      exclusionRepository: transaction.annotationExclusionRepository,
+      analysisScopeRepository: transaction.analysisScopeRepository,
+      noteRepository: transaction.noteRepository,
+      noteVersionRepository: transaction.noteVersionRepository,
+      evidenceRepository: transaction.knowledgeEvidenceRepository,
+      knowledgeItemRepository: transaction.knowledgeItemRepository
+    });
+    return { annotationService, scopeService };
+  };
+  const annotationMutation = (method) => (...args) => runTransaction((transaction) => (
+    buildTransactionAnnotationServices(transaction).annotationService[method](...args)
+  ));
+  const contentAnnotationService = {
+    listAnnotationsByNote: (...args) => directAnnotationService.listAnnotationsByNote(...args),
+    getAnnotation: (...args) => directAnnotationService.getAnnotation(...args),
+    ...Object.fromEntries([
+      'createAnnotation', 'updateAnnotation', 'advanceRevision', 'archiveAnnotation',
+      'restoreAnnotation', 'updateAnnotationAnchor', 'markAnnotationStale', 'markStaleForNote',
+      'reconcileForNote'
+    ].map((method) => [method, annotationMutation(method)]))
+  };
+  const directScopeService = createAsyncAnnotationScopeService({
+    annotationService: directAnnotationService,
+    annotationRepository: contentAnnotationRepository,
+    exclusionRepository: annotationExclusionRepository,
+    analysisScopeRepository,
+    noteRepository,
+    noteVersionRepository,
+    evidenceRepository: knowledgeEvidenceRepository,
+    knowledgeItemRepository
+  });
+  const scopeMutation = (method) => (...args) => runTransaction((transaction) => (
+    buildTransactionAnnotationServices(transaction).scopeService[method](...args)
+  ));
+  const annotationScopeService = {
+    previewAnnotation: (...args) => directScopeService.previewAnnotation(...args),
+    getKnowledgeLinks: (...args) => directScopeService.getKnowledgeLinks(...args),
+    previewAnalysisScope: (...args) => directScopeService.previewAnalysisScope(...args),
+    getAnalysisScope: (...args) => directScopeService.getAnalysisScope(...args),
+    createExclusion: scopeMutation('createExclusion'),
+    deleteExclusion: scopeMutation('deleteExclusion'),
+    createAnalysisScope: scopeMutation('createAnalysisScope')
+  };
   async function normalizeTagIds(tagIds) {
     const uniqueIds = [...new Set(tagIds)];
     const tags = await tagRepository.findByIds(uniqueIds);
@@ -364,9 +437,12 @@ export function createPostgresKnowledgeModule({
     repository: noteRepository,
     noteVersionService,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
-    onNoteContentChanged: async (note) => {
-      await knowledgeItemService.markEvidenceByNoteId(note.id, 'stale');
-      return contentAnnotationService.markStaleForNote(note.id, note.contentHash);
+    onNoteContentChanged: async (note, version) => {
+      const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash);
+      for (const annotationId of reconciliation.contentChangedAnnotationIds) {
+        await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale');
+      }
+      return reconciliation;
     },
     onNoteDeleted: (noteId) => knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid'),
     onBeforePermanentDelete: async (noteId) => {
@@ -385,6 +461,10 @@ export function createPostgresKnowledgeModule({
           'Note has a formal question source and cannot be permanently deleted'
         );
       }
+      const snapshots = await analysisScopeRepository.list();
+      if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => versionIds.has(version.noteVersionId)))) {
+        throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
+      }
     },
     validateNoteReferences: assertNoteReferences,
     normalizeTagIds,
@@ -402,6 +482,7 @@ export function createPostgresKnowledgeModule({
     tagService,
     tagGroupService,
     contentAnnotationService,
+    annotationScopeService,
     noteVersionService,
     knowledgeItemService,
     learningObjectiveService,

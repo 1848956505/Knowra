@@ -14,7 +14,7 @@ const source = () => ({
   tags: [{ id: 'tag', spaceId: 's', name: '标签', groupId: 'custom' }],
   notes: [{ id: 'note', spaceId: 's', title: '正文', rawMarkdown: 'text', tagIds: ['tag'] }]
 });
-const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
+const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'annotationExclusion', 'annotationRevision', 'analysisScopeSnapshot', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
 
 // Contract double enforces the group foreign-key ordering and transaction rollback.
 // This is deliberately not represented as a real PostgreSQL integration test.

@@ -87,10 +87,35 @@ export function dbAnnotation(annotation) {
     noteContentHash: annotation.noteContentHash,
     idempotencyKey: annotation.idempotencyKey,
     status: annotation.status,
+    schemaVersion: annotation.schemaVersion ?? 1,
+    scopeType: annotation.scopeType ?? 'selection',
+    importance: annotation.importance ?? null,
+    comment: annotation.comment ?? '',
+    lifecycleStatus: annotation.lifecycleStatus ?? (annotation.status === 'archived' ? 'archived' : 'active'),
+    anchorStatus: annotation.anchorStatus ?? (annotation.status === 'stale' ? 'needsReview' : 'resolved'),
+    anchorReason: annotation.anchorReason ?? null,
+    revision: annotation.revision ?? 1,
+    anchor: annotation.anchor ?? null,
+    originSnapshot: annotation.originSnapshot ?? null,
+    resolvedContentHash: annotation.resolvedContentHash ?? null,
+    boundaryFingerprint: annotation.boundaryFingerprint ?? null,
+    requestHash: annotation.requestHash ?? null,
     createdAt: new Date(annotation.createdAt),
     updatedAt: new Date(annotation.updatedAt),
     deletedAt: annotation.deletedAt ? new Date(annotation.deletedAt) : null
   };
+}
+
+export function dbAnnotationExclusion(record) {
+  return { ...record, noteVersionId: record.noteVersionId ?? null, createdAt: new Date(record.createdAt), updatedAt: new Date(record.updatedAt) };
+}
+
+export function dbAnnotationRevision(record) {
+  return { ...record, oldAnchor: record.oldAnchor ?? null, newAnchor: record.newAnchor ?? null, rangeSummary: record.rangeSummary ?? null, reason: record.reason ?? null, createdAt: new Date(record.createdAt) };
+}
+
+export function dbAnalysisScopeSnapshot(record) {
+  return { ...record, createdAt: new Date(record.createdAt) };
 }
 
 export function dbNoteVersion(version) {

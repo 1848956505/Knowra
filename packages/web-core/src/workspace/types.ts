@@ -81,7 +81,11 @@ export interface Annotation extends EntityBase {
   spaceId: string;
   noteId: string;
   noteVersionId: string | null;
+  schemaVersion?: number;
+  scopeType?: 'selection' | 'blocks' | 'section';
   kind: string;
+  importance?: null | 'normal' | 'important' | 'core';
+  comment?: string;
   sourceMode: string;
   quoteText: string;
   headingPath: string[];
@@ -93,7 +97,30 @@ export interface Annotation extends EntityBase {
   noteContentHash: string;
   idempotencyKey: string;
   status: string;
+  lifecycleStatus?: 'active' | 'archived';
+  anchorStatus?: 'resolved' | 'needsReview' | 'missing';
+  anchorReason?: string | null;
+  revision?: number;
+  anchor?: ContentAnchor | null;
+  originSnapshot?: ContentAnchor | null;
+  resolvedContentHash?: string | null;
+  boundaryFingerprint?: string | null;
   deletedAt?: string | null;
+}
+
+export interface ContentAnchor {
+  projectionVersion: number;
+  scopeType: 'selection' | 'blocks' | 'section';
+  segments: Array<{ start: number; end: number; path: string }>;
+  structurePath: string | null;
+  quoteText: string;
+  prefixText: string;
+  suffixText: string;
+  sourceStart: number;
+  sourceEnd: number;
+  projectedStart: number;
+  projectedEnd: number;
+  section?: Record<string, unknown>;
 }
 
 export interface KnowledgeItem extends EntityBase {

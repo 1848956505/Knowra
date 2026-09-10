@@ -263,7 +263,12 @@ describe('framework-neutral API clients', () => {
       .mockResolvedValueOnce({ data: annotation })
       .mockResolvedValueOnce({ data: annotation })
       .mockResolvedValueOnce({ data: annotation })
-      .mockResolvedValueOnce({ data: annotation });
+      .mockResolvedValueOnce({ data: annotation })
+      .mockResolvedValueOnce({ data: annotation })
+      .mockResolvedValueOnce({ data: { annotation, currentContentHash: 'hash', resolution: { status: 'resolved', reason: null }, exclusions: [] } })
+      .mockResolvedValueOnce({ data: { annotationId: annotation.id, candidates: [], confirmed: [], evidenceStatus: [] } })
+      .mockResolvedValueOnce({ data: { spaceId: 'space/1', mode: 'all', previewHash: 'preview', summary: { noteCount: 1, segmentCount: 1, annotationCount: 0 }, segments: [], omittedItems: [], ai: { available: false, message: '提炼服务暂不可用' } } })
+      .mockResolvedValueOnce({ data: { id: 'scope-1' } });
     const api = createWorkspaceApi({ requestJson });
 
     await api.getLinkedNotes('note/1');
@@ -272,6 +277,12 @@ describe('framework-neutral API clients', () => {
     await api.deleteAnnotation('annotation/1');
     await api.restoreAnnotation('annotation/1');
     await api.updateAnnotationAnchor('annotation/1', anchorInput);
+    await api.updateAnnotation?.('annotation/1', { expectedRevision: 1, kind: 'question' });
+    await api.previewAnnotation?.('annotation/1');
+    await api.getAnnotationKnowledgeLinks?.('annotation/1');
+    const scopeInput = { spaceId: 'space/1', mode: 'all' as const, noteIds: ['note/1'] };
+    await api.previewAnalysisScope?.(scopeInput);
+    await api.createAnalysisScope?.({ ...scopeInput, previewHash: 'preview', idempotencyKey: 'scope-request' });
 
     expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/notes/note%2F1/links');
     expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/annotations?noteId=note%2F1&spaceId=space%2F1&includeDeleted=true');
@@ -279,5 +290,10 @@ describe('framework-neutral API clients', () => {
     expect(requestJson).toHaveBeenNthCalledWith(4, '/api/knowledge/annotations/annotation%2F1', { method: 'DELETE' });
     expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/annotations/annotation%2F1/restore', { method: 'POST' });
     expect(requestJson).toHaveBeenNthCalledWith(6, '/api/knowledge/annotations/annotation%2F1/anchor', { method: 'PATCH', body: JSON.stringify(anchorInput) });
+    expect(requestJson).toHaveBeenNthCalledWith(7, '/api/knowledge/annotations/annotation%2F1', { method: 'PATCH', body: JSON.stringify({ expectedRevision: 1, kind: 'question' }) });
+    expect(requestJson).toHaveBeenNthCalledWith(8, '/api/knowledge/annotations/annotation%2F1/preview');
+    expect(requestJson).toHaveBeenNthCalledWith(9, '/api/knowledge/annotations/annotation%2F1/knowledge-links');
+    expect(requestJson).toHaveBeenNthCalledWith(10, '/api/knowledge/analysis-scopes/preview', { method: 'POST', body: JSON.stringify(scopeInput) });
+    expect(requestJson).toHaveBeenNthCalledWith(11, '/api/knowledge/analysis-scopes', { method: 'POST', body: JSON.stringify({ ...scopeInput, previewHash: 'preview', idempotencyKey: 'scope-request' }) });
   });
 });

@@ -4,8 +4,9 @@ const MUTATION_OPERATIONS = new Set([
   'removeTagFromNote', 'assignTagToNote', 'assignTagToNotes', 'setNoteTags',
   'updateTagsForNotes', 'createFolder', 'updateFolder', 'deleteFolder', 'createTag',
   'updateTag', 'deleteTag', 'reorderTags', 'mergeTags', 'createTagGroup',
-  'updateTagGroup', 'deleteTagGroup', 'createAnnotation', 'deleteAnnotation',
+  'updateTagGroup', 'deleteTagGroup', 'createAnnotation', 'updateAnnotation', 'deleteAnnotation',
   'restoreAnnotation', 'updateAnnotationAnchor', 'createKnowledgeItem',
+  'createAnnotationExclusion', 'deleteAnnotationExclusion', 'createAnalysisScope',
   'updateKnowledgeItem', 'confirmKnowledgeItem', 'markKnowledgeItemNeedsRevision',
   'archiveKnowledgeItem', 'restoreKnowledgeItem', 'createKnowledgeEvidence',
   'createLearningObjective', 'updateLearningObjective', 'confirmLearningObjective',
@@ -20,6 +21,7 @@ const MUTATION_OPERATIONS = new Set([
 const READ_OPERATIONS = new Set([
   'getNote', 'getLinkedNotes', 'listNotes', 'listFolders', 'listFolderTree', 'listTags',
   'listTagGroups', 'listAnnotations', 'getAnnotation', 'listNoteVersions', 'getNoteVersion',
+  'previewAnnotation', 'getAnnotationKnowledgeLinks', 'previewAnalysisScope', 'getAnalysisScope',
   'listKnowledgeItems', 'getKnowledgeItem', 'listKnowledgeEvidence',
   'listLearningObjectives', 'getLearningObjective', 'listExamProfiles', 'getExamProfile',
   'listExamFocuses', 'getExamFocus', 'listQuestions', 'getQuestion',

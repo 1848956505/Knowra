@@ -19,6 +19,7 @@
     "check": "npm run typecheck && npm run check:boundaries && npm run test"
   },
   "dependencies": {
+    "@study-accelerator/content-anchor": "1.0.0",
     "@milkdown/kit": "^7.21.2",
     "@study-accelerator/web-core": "2.14.0",
     "html2canvas": "^1.4.1",

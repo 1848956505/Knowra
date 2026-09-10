@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Annotation, Attachment, Note } from '@study-accelerator/web-core';
 
 export function useEditorInspectorData({
   noteId,
+  refreshKey,
   inspectorOpen,
   onListAttachments,
   onGetLinkedNotes,
@@ -10,6 +11,7 @@ export function useEditorInspectorData({
   onError
 }: {
   noteId?: string;
+  refreshKey?: string;
   inspectorOpen: boolean;
   onListAttachments(noteId: string): Promise<Attachment[]>;
   onGetLinkedNotes(noteId: string): Promise<Note[]>;
@@ -23,6 +25,7 @@ export function useEditorInspectorData({
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationsLoading, setAnnotationsLoading] = useState(false);
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | null>(null);
+  const annotationRequestRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -40,6 +43,7 @@ export function useEditorInspectorData({
   }, [inspectorOpen, noteId, onError, onListAttachments]);
 
   useEffect(() => {
+    const requestId = ++annotationRequestRef.current;
     let active = true;
     setAnnotations([]);
     setFocusedAnnotationId(null);
@@ -49,11 +53,11 @@ export function useEditorInspectorData({
     }
     setAnnotationsLoading(true);
     void onListAnnotations(noteId)
-      .then((items) => { if (active) setAnnotations(items); })
-      .catch((error) => { if (active) onError(error instanceof Error ? error.message : '正文标注加载失败'); })
-      .finally(() => { if (active) setAnnotationsLoading(false); });
+      .then((items) => { if (active && requestId === annotationRequestRef.current) setAnnotations(items); })
+      .catch((error) => { if (active && requestId === annotationRequestRef.current) onError(error instanceof Error ? error.message : '正文标注加载失败'); })
+      .finally(() => { if (active && requestId === annotationRequestRef.current) setAnnotationsLoading(false); });
     return () => { active = false; };
-  }, [noteId, onError, onListAnnotations]);
+  }, [noteId, refreshKey, onError, onListAnnotations]);
 
   useEffect(() => {
     let active = true;

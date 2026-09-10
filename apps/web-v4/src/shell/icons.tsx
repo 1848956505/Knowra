@@ -135,6 +135,14 @@ export function BellIcon(props: IconProps) {
   );
 }
 
+export function FilterIcon(props: IconProps) {
+  return <svg {...base(props)}>
+    {props.title ? <title>{props.title}</title> : null}
+    <path d="M3 5h3m4 0h7M3 10h8m4 0h2M3 15h3m4 0h7" />
+    <path d="M6 3v4h4V3zM11 8v4h4V8zM6 13v4h4v-4z" />
+  </svg>;
+}
+
 export function SettingsIcon(props: IconProps) {
   return (
     <svg {...demoBase(props)}>

@@ -1,3 +1,4 @@
+import { calculateContentHash, type ContentAnchor } from '@study-accelerator/content-anchor';
 import type { CreateAnnotationInput, UpdateAnnotationAnchorInput } from '@study-accelerator/web-core';
 
 export interface AnnotationSelection {
@@ -7,32 +8,31 @@ export interface AnnotationSelection {
   prefixText: string;
   suffixText: string;
   headingPath: string[];
+  scopeType: 'selection' | 'blocks' | 'section';
+  anchor: ContentAnchor;
 }
 
 export async function buildCreateAnnotationInput(note: { id: string; spaceId?: string }, markdown: string, selection: AnnotationSelection): Promise<CreateAnnotationInput> {
   if (!note.spaceId) throw new Error('当前笔记缺少空间信息');
-  const noteContentHash = await hashText(markdown);
+  const noteContentHash = calculateContentHash(markdown);
   return {
     spaceId: note.spaceId,
     noteId: note.id,
     ...selection,
-    anchorFingerprint: await hashText(`${selection.quoteText}\n${selection.prefixText}\n${selection.suffixText}`),
+    anchorFingerprint: calculateContentHash(JSON.stringify({ segments: selection.anchor.segments, structurePath: selection.anchor.structurePath })),
     noteContentHash,
     idempotencyKey: crypto.randomUUID(),
     kind: 'important',
+    schemaVersion: 2,
     sourceMode: 'manual'
   };
 }
 
-export async function buildUpdateAnnotationAnchorInput(markdown: string, selection: AnnotationSelection): Promise<UpdateAnnotationAnchorInput> {
+export async function buildUpdateAnnotationAnchorInput(markdown: string, selection: AnnotationSelection, expectedRevision: number): Promise<UpdateAnnotationAnchorInput> {
   return {
     ...selection,
-    anchorFingerprint: await hashText(`${selection.quoteText}\n${selection.prefixText}\n${selection.suffixText}`),
-    noteContentHash: await hashText(markdown)
+    anchorFingerprint: calculateContentHash(JSON.stringify({ segments: selection.anchor.segments, structurePath: selection.anchor.structurePath })),
+    noteContentHash: calculateContentHash(markdown),
+    expectedRevision
   };
-}
-
-async function hashText(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }

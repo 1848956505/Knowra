@@ -13,6 +13,12 @@ import type {
   NoteQueryPage,
   CreateAnnotationInput,
   UpdateAnnotationAnchorInput,
+  UpdateAnnotationInput,
+  AnnotationPreview,
+  AnnotationKnowledgeLinks,
+  AnalysisScopeInput,
+  AnalysisScopePreview,
+  AnnotationExclusionResult,
   UploadAttachmentInput,
   Tag,
   TagColor,
@@ -64,9 +70,16 @@ export interface WorkspaceSlice {
   getLinkedNotes(noteId: string): Promise<Note[]>;
   listAnnotations(noteId: string): Promise<Annotation[]>;
   createAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
-  deleteAnnotation(annotationId: string): Promise<Annotation>;
-  restoreAnnotation(annotationId: string): Promise<Annotation>;
+  deleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
+  restoreAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   updateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
+  updateAnnotation(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
+  previewAnnotation(annotationId: string): Promise<AnnotationPreview>;
+  getAnnotationKnowledgeLinks(annotationId: string): Promise<AnnotationKnowledgeLinks>;
+  previewAnalysisScope(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
+  createAnalysisScope(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  createAnnotationExclusion(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<AnnotationExclusionResult>;
+  deleteAnnotationExclusion(annotationId: string, exclusionId: string, expectedRevision: number): Promise<AnnotationExclusionResult>;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   organizeNote(noteId: string, input: { folderId: string | null; status: string }): Promise<void>;

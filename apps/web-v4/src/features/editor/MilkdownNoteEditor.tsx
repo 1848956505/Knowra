@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
 import {
   defaultValueCtx,
   Editor,
@@ -71,6 +71,7 @@ import {
 import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode } from './editorCodeCommands';
 import { createCodeBlockBehavior } from './editorCodeBlock';
 import styles from './MilkdownNoteEditor.module.css';
+import { EditorAnnotationActions } from './EditorAnnotationActions';
 
 export interface MilkdownNoteEditorProps {
   noteId: string;
@@ -79,6 +80,7 @@ export interface MilkdownNoteEditorProps {
   allowExternalSync?: boolean;
   annotations?: Annotation[];
   focusedAnnotationId?: string | null;
+  onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section'): Promise<void>;
   onChange(markdown: string): void;
   onSelectAnnotation?(annotationId: string): void;
   onStatus?(message: string): void;
@@ -87,7 +89,7 @@ export interface MilkdownNoteEditorProps {
 }
 
 export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEditorProps>(
-  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, onChange, onSelectAnnotation, onStatus, onReady, onUploadImage }, ref) {
+  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<Editor | null>(null);
     const onChangeRef = useRef(onChange);
@@ -246,11 +248,11 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         }
         return true;
       },
-      getAnnotationSelection() {
+      getAnnotationSelection(scopeType = 'selection') {
         const editor = editorRef.current;
         if (!editor || !readyRef.current) return null;
         restoreRememberedSelection(editor, lastSelectionRef.current);
-        return getAnnotationSelection(editor);
+        return getAnnotationSelection(editor, editor.action(getMarkdown()), scopeType);
       },
       setAnnotations(nextAnnotations, focusedId = null) {
         const editor = editorRef.current;
@@ -473,8 +475,10 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       setEditorAnnotations(editor, annotations, focusedAnnotationId);
     }, [annotations, focusedAnnotationId]);
 
+    const getView = useCallback(() => readyRef.current ? editorRef.current?.ctx.get(editorViewCtx) ?? null : null, []);
+
     return (
-      <div
+      <> <div
         ref={hostRef}
         className={styles.milkdownEditor}
         data-readonly={readOnly || undefined}
@@ -484,6 +488,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         onCompositionStartCapture={handleCompositionStart}
         onCompositionEndCapture={handleCompositionEnd}
       />
+      {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={onStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); commandResolvers[command](editor); } }} /> : null}
+      </>
     );
   }
 );

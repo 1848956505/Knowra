@@ -5,6 +5,8 @@
 
 import { forwardRef, type ReactNode } from 'react';
 import {
+  Dialog as RADialog,
+  type DialogProps as RADialogProps,
   DialogTrigger as RADialogTrigger,
   Popover as RAPopover,
   type PopoverProps as RAPopoverProps,
@@ -36,3 +38,10 @@ export type PopoverTriggerProps = Omit<RADialogTriggerProps, 'children'> & {
 export function PopoverTrigger({ children, ...rest }: PopoverTriggerProps) {
   return <RADialogTrigger {...rest}>{children}</RADialogTrigger>;
 }
+
+/** 浮层内的语义对话框，提供初始焦点与键盘交互。 */
+export const PopoverDialog = forwardRef<HTMLDivElement, Omit<RADialogProps, 'children'> & { children: ReactNode }>(
+  function PopoverDialog({ children, ...props }, ref) {
+    return <RADialog ref={ref} {...props}>{children}</RADialog>;
+  }
+);

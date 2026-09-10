@@ -97,13 +97,14 @@ export function transformNote(note, fallbackTimestamp, reportTools) {
 
 export function transformAnnotation(annotation, fallbackTimestamp, reportTools) {
   const createdAt = normalizeTimestamp(annotation.createdAt ?? fallbackTimestamp, fallbackTimestamp);
+  const schemaVersion = Number(annotation.schemaVersion ?? 1);
   const requiredFields = ['anchorFingerprint', 'noteContentHash', 'idempotencyKey'];
   requiredFields.forEach((field) => {
     if (!String(annotation[field] ?? '').trim()) {
       reportTools.error('ANNOTATION_FIELD_MISSING', `Annotation ${annotation.id} is missing ${field}`, { annotationId: annotation.id, field });
     }
   });
-  if (!['important'].includes(annotation.kind ?? 'important')) reportTools.error('ANNOTATION_KIND_INVALID', `Annotation ${annotation.id} kind is invalid`, { annotationId: annotation.id });
+  if (!['important', 'question', 'supplement', 'pitfall', 'temporary'].includes(annotation.kind ?? 'important')) reportTools.error('ANNOTATION_KIND_INVALID', `Annotation ${annotation.id} kind is invalid`, { annotationId: annotation.id });
   if (!['manual', 'ai'].includes(annotation.sourceMode ?? 'manual')) reportTools.error('ANNOTATION_SOURCE_MODE_INVALID', `Annotation ${annotation.id} sourceMode is invalid`, { annotationId: annotation.id });
   if (!['active', 'stale', 'archived'].includes(annotation.status ?? 'active')) reportTools.error('ANNOTATION_STATUS_INVALID', `Annotation ${annotation.id} status is invalid`, { annotationId: annotation.id });
   const fromPosition = Number(annotation.fromPosition);
@@ -119,6 +120,19 @@ export function transformAnnotation(annotation, fallbackTimestamp, reportTools) 
     prefixText: annotation.prefixText ?? '',
     suffixText: annotation.suffixText ?? '',
     status: annotation.status ?? 'active',
+    schemaVersion,
+    scopeType: annotation.scopeType ?? 'selection',
+    importance: annotation.importance ?? null,
+    comment: annotation.comment ?? '',
+    lifecycleStatus: annotation.lifecycleStatus ?? (annotation.status === 'archived' ? 'archived' : 'active'),
+    anchorStatus: annotation.anchorStatus ?? (schemaVersion === 1 || annotation.status === 'stale' ? 'needsReview' : 'resolved'),
+    anchorReason: annotation.anchorReason ?? (schemaVersion === 1 ? 'legacyUnverified' : null),
+    revision: Number(annotation.revision ?? 1),
+    anchor: annotation.anchor ?? null,
+    originSnapshot: annotation.originSnapshot ?? null,
+    resolvedContentHash: annotation.resolvedContentHash ?? null,
+    boundaryFingerprint: annotation.boundaryFingerprint ?? null,
+    requestHash: annotation.requestHash ?? null,
     deletedAt: annotation.deletedAt ? normalizeTimestamp(annotation.deletedAt, createdAt) : null,
     createdAt,
     updatedAt: normalizeTimestamp(annotation.updatedAt ?? createdAt, createdAt)
@@ -342,6 +356,7 @@ export function validateDatabaseConstraints(plan, reportTools) {
   assertUniqueBy(plan.notes.filter((note) => !note.deleted), (note) => `${note.spaceId}\u0000${note.folderId ?? ''}\u0000${note.title}`, 'NOTE_NAME_CONFLICT', 'Active note names must be unique within a folder', reportTools);
   const noteVersions = new Map(plan.noteVersions.map((version) => [version.id, version]));
   const annotations = new Map(plan.annotations.map((annotation) => [annotation.id, annotation]));
+  const spaces = new Set(plan.spaces.map((space) => space.id));
   const knowledgeItems = new Set(plan.knowledgeItems.map((item) => item.id));
   const learningObjectives = new Set(plan.learningObjectives.map((objective) => objective.id));
   const examProfiles = new Set(plan.examProfiles.map((profile) => profile.id));
@@ -361,6 +376,23 @@ export function validateDatabaseConstraints(plan, reportTools) {
     }
     if (evidence.sourceType === 'annotation' && !evidence.annotationId) {
       reportTools.error('ANNOTATION_REQUIRED', 'Annotation evidence requires an annotation reference', { evidenceId: evidence.id });
+    }
+  }
+  assertUniqueBy(plan.annotationRevisions ?? [], (revision) => `${revision.annotationId}\u0000${revision.revision}`, 'ANNOTATION_REVISION_CONFLICT', 'Annotation revisions must be unique', reportTools);
+  assertUniqueBy(plan.analysisScopeSnapshots ?? [], (snapshot) => `${snapshot.spaceId}\u0000${snapshot.idempotencyKey}`, 'ANALYSIS_SCOPE_IDEMPOTENCY_CONFLICT', 'Analysis scope idempotency keys must be unique per space', reportTools);
+  for (const exclusion of plan.annotationExclusions ?? []) {
+    const parent = annotations.get(exclusion.parentAnnotationId);
+    if (!parent) reportTools.error('ANNOTATION_NOT_FOUND', 'AnnotationExclusion references an unknown annotation', { exclusionId: exclusion.id });
+    else if (parent.scopeType !== 'section') reportTools.error('ANNOTATION_EXCLUSION_CONFLICT', 'AnnotationExclusion requires a section annotation', { exclusionId: exclusion.id });
+    if (exclusion.noteVersionId && !noteVersions.has(exclusion.noteVersionId)) reportTools.error('NOTE_VERSION_NOT_FOUND', 'AnnotationExclusion references an unknown NoteVersion', { exclusionId: exclusion.id });
+  }
+  for (const revision of plan.annotationRevisions ?? []) {
+    if (!annotations.has(revision.annotationId)) reportTools.error('ANNOTATION_NOT_FOUND', 'AnnotationRevision references an unknown annotation', { revisionId: revision.id });
+  }
+  for (const snapshot of plan.analysisScopeSnapshots ?? []) {
+    if (!spaces.has(snapshot.spaceId)) reportTools.error('KNOWLEDGE_SPACE_NOT_FOUND', 'AnalysisScopeSnapshot references an unknown space', { snapshotId: snapshot.id });
+    for (const version of snapshot.noteVersions ?? []) {
+      if (!noteVersions.has(version.noteVersionId)) reportTools.error('NOTE_VERSION_NOT_FOUND', 'AnalysisScopeSnapshot references an unknown NoteVersion', { snapshotId: snapshot.id, noteVersionId: version.noteVersionId });
     }
   }
   assertUniqueBy(plan.examFocuses, (focus) => `${focus.examProfileId}\u0000${focus.learningObjectiveId}`, 'EXAM_FOCUS_CONFLICT', 'ExamProfile and LearningObjective can only have one ExamFocus', reportTools);

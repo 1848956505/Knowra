@@ -19,6 +19,11 @@ import { createInMemoryExamFocusRepository } from './modules/knowledge/infrastru
 import { createInMemoryQuestionRepository } from './modules/knowledge/infrastructure/question-repository.js';
 import { createInMemoryQuestionObjectiveRepository } from './modules/knowledge/infrastructure/question-objective-repository.js';
 import { createInMemoryQuestionSourceRepository } from './modules/knowledge/infrastructure/question-source-repository.js';
+import {
+  createInMemoryAnalysisScopeRepository,
+  createInMemoryAnnotationExclusionRepository,
+  createInMemoryAnnotationRevisionRepository
+} from './modules/knowledge/infrastructure/annotation-support-repositories.js';
 import { createKnowledgeBaseSnapshotService } from './modules/knowledge/application/knowledge-base-snapshot-service.js';
 import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
 import { createStorageConfig } from './config/storage.config.js';
@@ -44,7 +49,10 @@ export function createAppContext(options = {}) {
     'questions',
     'questionObjectives',
     'questionSources',
-    'tagGroups'
+    'tagGroups',
+    'annotationExclusions',
+    'annotationRevisions',
+    'analysisScopeSnapshots'
   ]);
   const ownerId = resolveOwnerId(options.ownerId, dataStore?.state?.spaces);
   const attachmentStore = options.attachmentStore ?? (dataStore
@@ -90,6 +98,15 @@ export function createAppContext(options = {}) {
           onChange: dataStore.flush
         })
       : undefined),
+    annotationExclusionRepository: options.annotationExclusionRepository ?? (dataStore
+      ? createInMemoryAnnotationExclusionRepository({ records: dataStore.state.annotationExclusions, onChange: dataStore.flush })
+      : undefined),
+    annotationRevisionRepository: options.annotationRevisionRepository ?? (dataStore
+      ? createInMemoryAnnotationRevisionRepository({ records: dataStore.state.annotationRevisions, onChange: dataStore.flush })
+      : undefined),
+    analysisScopeRepository: options.analysisScopeRepository ?? (dataStore
+      ? createInMemoryAnalysisScopeRepository({ records: dataStore.state.analysisScopeSnapshots, onChange: dataStore.flush })
+      : undefined),
     noteVersionRepository: options.noteVersionRepository ?? (dataStore
       ? createInMemoryNoteVersionRepository({ records: dataStore.state.noteVersions, onChange: dataStore.flush })
       : undefined),
@@ -128,6 +145,8 @@ export function createAppContext(options = {}) {
     noteVersionRepository: knowledge.repositories.noteVersionRepository,
     contentAnnotationRepository:
       knowledge.repositories.contentAnnotationRepository,
+    annotationExclusionRepository: knowledge.repositories.annotationExclusionRepository,
+    annotationRevisionRepository: knowledge.repositories.annotationRevisionRepository,
     attachmentStore,
     runTransaction: dataStore?.runTransaction
       ? (operation) => dataStore.runTransaction(operation)

@@ -60,7 +60,7 @@ describe('EditorInspector', () => {
     expect(screen.getByRole('link', { name: '向量相似度入门' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'AI' }));
-    expect(screen.getByText('AI 检查尚未接入')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '分析整篇' })).toBeInTheDocument();
   });
 
   it('edits assigned tags through an explicit save dialog', async () => {
@@ -123,10 +123,15 @@ describe('EditorInspector', () => {
 
     await user.click(screen.getByRole('tab', { name: '标注' }));
     expect(screen.getByText('正文内的重要结论')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '定位' }));
+    await user.click(screen.getByRole('button', { name: /定位重点 1/ }));
     expect(onSelectAnnotation).toHaveBeenCalledWith('annotation-1');
-    await user.click(screen.getByRole('button', { name: '归档' }));
-    expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-1');
+    expect(screen.queryByRole('button', { name: '提炼知识' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '分析整篇' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: '选择重点 1' }));
+    expect(screen.getByRole('button', { name: '提炼知识' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '重点 1 更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: '取消重点' }));
+    expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-1', undefined);
   });
 });
 

@@ -29,3 +29,7 @@ apps/web/lib/editor/milkdown-bundle.css.map
 storage/data/knowledge-base.json
 apps/api/storage/data/knowledge-base.json
 docs/前端重构/audit-资料库索引/
+
+# 浏览器测试临时输出
+apps/web-v4/test-results/
+apps/web-v4/playwright-report/

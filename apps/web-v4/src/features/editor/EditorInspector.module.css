@@ -225,25 +225,61 @@
 .linksPanel .section:first-child { padding-top: var(--inspector-pad-wide); }
 .panelStatus { margin: 0; padding: 10px var(--inspector-pad); border-bottom: 1px solid var(--ink-panel); color: var(--ink-secondary); font-size: 10px; }
 
-.annotationPanel { display: grid; gap: 12px; }
-.annotationHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.annotationHeader > div { min-width: 0; display: grid; gap: 3px; }
-.annotationHeader strong { font-size: 12px; }
-.annotationHeader span { color: var(--ink-secondary); font-size: 10px; line-height: 1.45; }
-.annotationHeader button { min-height: 30px; padding-inline: 9px; font-size: 10px; white-space: nowrap; }
-.annotationList { display: grid; gap: 8px; }
-.annotationList article { padding: 10px; border: 1px solid var(--ink-panel); background: var(--ink-surface); box-shadow: 2px 2px 0 var(--ink-panel); }
-.annotationList article[data-focused] { border-color: var(--ink-accent); box-shadow: inset 3px 0 0 var(--ink-accent); }
-.annotationList article[data-stale] { border-style: dashed; }
-.annotationList article > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ink-secondary); font: 800 9px/1.3 var(--font-mono); }
-.annotationList article > header strong { color: var(--ink-warning); }
-.annotationList blockquote { margin: 9px 0 7px; padding-left: 9px; border-left: 3px solid var(--ink-warning); color: var(--ink); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
-.annotationList article > p { margin: 0; overflow: hidden; color: var(--ink-secondary); font-size: 9px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
-.annotationList footer { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
-.annotationList footer button { min-height: 26px; padding: 0 7px; border: 1px solid var(--ink-panel); background: var(--ink-bg); color: var(--ink-secondary); font-size: 9px; font-weight: 800; }
-.annotationList footer button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink-accent); }
-.annotationList footer button:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.annotationList footer button:disabled { color: var(--ink-muted); cursor: wait; }
+.panel[data-panel='annotations'] { height: 100%; min-height: 0; }
+.tabs [role='tabpanel']:has(.annotationPanel) { height: 100%; }
+.annotationPanel { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 0; box-sizing: border-box; padding: 16px 12px 0; }
+.annotationHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px 12px; }
+.annotationTitle { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.annotationTitle strong { font-size: 13px; letter-spacing: .02em; }
+.annotationTitle > span { color: var(--ink-secondary); font: 11px/1 var(--font-mono); padding-left: 2px; }
+.annotationFilterActive { color: var(--ink-accent); background: var(--ink-accent-soft); }
+.annotationScopeFilters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--ink-panel); margin-bottom: 12px; }
+.annotationScopeFilters button { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; height: 32px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-secondary); font-size: 11px; white-space: nowrap; }
+.annotationScopeFilters button span { font: 10px/1 var(--font-mono); color: var(--ink-muted); }
+.annotationScopeFilters button:hover { background: var(--ink-sunken); color: var(--ink); }
+.annotationScopeFilters button[aria-pressed='true'] { color: var(--ink-accent); border-bottom-color: var(--ink-accent); font-weight: 700; }
+.annotationScopeFilters button[aria-pressed='true'] span { color: var(--ink-accent); }
+.annotationFilterPopover { width: min(260px, calc(100vw - 24px)); padding: 0; }
+.annotationFilters { display: grid; gap: 16px; padding: 14px; outline: none; }
+.annotationFilters > header, .annotationFilters > footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.annotationFilters > header strong { font-size: 12px; }
+.annotationFilters > * { min-width: 0; }
+.annotationFilters label, .annotationFilters legend { color: var(--ink-secondary); font-size: 11px; font-weight: 500; }
+.annotationFilters [data-input-shadow-owner] { min-height: 34px; height: 34px; padding: 0 9px; font-size: 12px; border: 1px solid var(--ink-panel); box-shadow: none; }
+.annotationFilters fieldset { margin: 0; padding: 0; border: 0; }
+.annotationFilters legend { margin-bottom: 8px; }
+.annotationStatusOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.annotationStatusOptions button { min-height: 30px; padding: 5px; border: 1px solid var(--ink-panel); background: var(--ink-bg); color: var(--ink-secondary); font-size: 11px; }
+.annotationStatusOptions button[aria-pressed='true'] { background: var(--ink-accent-soft); color: var(--ink-accent); border-color: var(--ink-accent); }
+.annotationFilters > footer { border-top: 1px solid var(--ink-panel); padding-top: 12px; }
+.annotationFilters > footer > button:first-child, .annotationFilterSummary button { padding: 0; border: 0; background: transparent; color: var(--ink-secondary); font-size: 11px; min-height: 28px; }
+.annotationFilters > footer > button:last-child { min-height: 30px; height: 30px; font-size: 11px; padding: 0 12px; box-shadow: none; }
+.annotationFilterSummary { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 8px; background: var(--ink-accent-soft); color: var(--ink-accent); font-size: 10px; }
+.annotationList { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1px 2px 12px; }
+.annotationList article { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr) 20px; align-items: start; gap: 7px; padding: 11px 9px; margin-bottom: 8px; border: 1px solid var(--ink-panel); background: var(--ink-surface); }
+.annotationList article:hover { border-color: var(--ink-muted); }
+.annotationList article[data-focused] { border-left: 2px solid var(--ink-accent); padding-left: 8px; }
+.annotationList article[data-selected] { border-color: var(--ink-accent); background: var(--ink-accent-soft); }
+.annotationList article[data-archived] { background: transparent; }
+.annotationList input { width: 13px; height: 13px; margin: 2px 0 0; accent-color: var(--ink-accent); cursor: pointer; }
+.annotationList input:disabled { cursor: default; opacity: .5; }
+.annotationList article > button:last-child { width: 20px; height: 22px; margin-top: -3px; }
+.annotationTarget { min-width: 0; display: grid; gap: 9px; padding: 0; border: 0; background: transparent; text-align: left; color: var(--ink); cursor: pointer; }
+.annotationTarget:disabled { cursor: default; }
+.annotationItemHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--ink-secondary); font-size: 10px; line-height: 1.5; }
+.annotationItemHeading strong { padding: 0 4px; background: var(--ink-warning-soft); color: var(--ink-warning); font-size: 9px; font-weight: 500; white-space: nowrap; }
+.annotationList article[data-archived] .annotationItemHeading strong { background: var(--ink-sunken); color: var(--ink-secondary); }
+.annotationList article[data-archived] .annotationQuote { color: var(--ink-secondary); }
+.annotationQuote { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; }
+.annotationTarget small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); font-size: 10px; line-height: 1.5; }
+.annotationAnalysisActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-inline: -12px; padding: 12px; border-top: 1px solid var(--ink-panel); background: var(--ink-surface); color: var(--ink-secondary); font-size: 11px; }
+.annotationAnalysisActions button { min-height: 30px; height: 30px; padding: 0 10px; font-size: 11px; box-shadow: none; }
+.annotationTarget:focus-visible, .annotationScopeFilters button:focus-visible, .annotationFilters button:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+.annotationDetailFields, .annotationScopePreview { display: grid; gap: 12px; }
+.annotationDetailFields > label { display: grid; gap: 5px; color: var(--ink-secondary); font-size: 11px; font-weight: 700; }
+.annotationDetailFields textarea { min-height: 90px; resize: vertical; border: 1px solid var(--ink-panel); background: var(--ink-bg); color: var(--ink); padding: 8px; font: inherit; }
+.annotationDetailFields pre, .annotationScopePreview pre { max-height: 180px; margin: 0; overflow: auto; padding: 9px; border: 1px solid var(--ink-panel); background: var(--ink-sunken); white-space: pre-wrap; overflow-wrap: anywhere; }
+.annotationDetailFields p, .annotationScopePreview p { margin: 0; color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
 
 .versionPanel { display: grid; gap: 12px; }
 .versionSummary { display: grid; gap: 3px; }

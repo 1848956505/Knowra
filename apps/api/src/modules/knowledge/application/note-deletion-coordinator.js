@@ -3,10 +3,19 @@ export function createNoteDeletionCoordinator({
   noteRepository,
   noteVersionRepository,
   contentAnnotationRepository,
+  annotationExclusionRepository,
+  annotationRevisionRepository,
   attachmentStore,
   runTransaction = (operation) => operation()
 }) {
   function removeDependents(noteIds) {
+    const annotationIds = typeof contentAnnotationRepository?.list === 'function'
+      ? contentAnnotationRepository.list({ includeDeleted: true })
+        .filter((annotation) => noteIds.includes(annotation.noteId))
+        .map((annotation) => annotation.id)
+      : [];
+    annotationExclusionRepository?.deleteByAnnotationIds?.(annotationIds);
+    annotationRevisionRepository?.deleteByAnnotationIds?.(annotationIds);
     contentAnnotationRepository?.deleteByNoteIds?.(noteIds);
     noteVersionRepository?.deleteByNoteIds?.(noteIds);
     return attachmentStore?.detachAttachmentsForNotes?.(noteIds) ?? [];

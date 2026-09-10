@@ -1,6 +1,6 @@
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
-import type { Annotation, Attachment, Folder, KnowledgeSpace, Note, NoteVersion, Tag, TagColor, TagGroup } from '../workspace/types.js';
+import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, Tag, TagColor, TagGroup } from '../workspace/types.js';
 
 export interface WorkspaceResources {
   folderTree: Folder[];
@@ -79,12 +79,61 @@ export interface CreateAnnotationInput {
   anchorFingerprint: string;
   noteContentHash: string;
   idempotencyKey: string;
-  kind: 'important';
+  schemaVersion?: 2;
+  scopeType?: 'selection' | 'blocks' | 'section';
+  anchor?: ContentAnchor;
+  kind: 'important' | 'question' | 'supplement' | 'pitfall' | 'temporary';
+  importance?: Annotation['importance'];
+  comment?: string;
   sourceMode: 'manual';
 }
 
 export type UpdateAnnotationAnchorInput = Pick<CreateAnnotationInput,
-  'quoteText' | 'headingPath' | 'fromPosition' | 'toPosition' | 'prefixText' | 'suffixText' | 'anchorFingerprint' | 'noteContentHash'>;
+  'quoteText' | 'headingPath' | 'fromPosition' | 'toPosition' | 'prefixText' | 'suffixText' | 'anchorFingerprint' | 'noteContentHash' | 'anchor'> & { expectedRevision?: number };
+
+export interface UpdateAnnotationInput {
+  expectedRevision: number;
+  kind?: 'important' | 'question' | 'supplement' | 'pitfall' | 'temporary';
+  importance?: Annotation['importance'];
+  comment?: string;
+}
+
+export interface AnnotationPreview {
+  annotation: Annotation;
+  currentContentHash: string;
+  resolution: { status: 'resolved' | 'needsReview' | 'missing'; reason: string | null; quoteText?: string; sourceStart?: number; sourceEnd?: number };
+  exclusions: Array<{ id: string; status: string; anchor: ContentAnchor }>;
+}
+
+export interface AnnotationKnowledgeLinks {
+  annotationId: string;
+  candidates: Array<{ evidence: { id: string; status: string }; knowledgeItem: { id: string; title: string } }>;
+  confirmed: Array<{ evidence: { id: string; status: string }; knowledgeItem: { id: string; title: string } }>;
+  evidenceStatus: Array<{ id: string; status: string }>;
+}
+
+export interface AnnotationExclusionResult {
+  annotation: Annotation;
+  exclusion: { id: string; parentAnnotationId: string; status: string; revision: number; anchor: ContentAnchor };
+}
+
+export interface AnalysisScopePreview {
+  spaceId: string;
+  mode: 'marked' | 'all';
+  previewHash: string;
+  summary: { noteCount: number; segmentCount: number; annotationCount: number };
+  segments: Array<{ noteId: string; noteVersionId: string; start: number; end: number; markdown: string; annotationIds: string[] }>;
+  omittedItems: Array<Record<string, unknown>>;
+  ai: { available: boolean; message: string };
+}
+
+export interface AnalysisScopeInput {
+  spaceId: string;
+  mode: 'marked' | 'all';
+  noteIds?: string[];
+  annotationIds?: string[];
+  selections?: Array<{ noteId: string; anchor: ContentAnchor }>;
+}
 
 export interface UpdateFolderInput {
   name?: string;
@@ -127,9 +176,16 @@ export interface WorkspaceApi {
   getLinkedNotes(noteId: string): Promise<Note[]>;
   listAnnotations(noteId: string, spaceId: string): Promise<Annotation[]>;
   createAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
-  deleteAnnotation(annotationId: string): Promise<Annotation>;
-  restoreAnnotation(annotationId: string): Promise<Annotation>;
+  deleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
+  restoreAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   updateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
+  updateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
+  previewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
+  getAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
+  previewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
+  createAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  createAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: ContentAnchor }): Promise<AnnotationExclusionResult>;
+  deleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<AnnotationExclusionResult>;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
@@ -351,18 +407,18 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!annotation?.id) throw new Error('Create annotation response is invalid.');
       return annotation;
     },
-    async deleteAnnotation(annotationId) {
+    async deleteAnnotation(annotationId, expectedRevision) {
       const annotation = getData<Annotation>(await requestJson(
         `/api/knowledge/annotations/${encodeURIComponent(annotationId)}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', ...(expectedRevision ? { body: JSON.stringify({ expectedRevision }) } : {}) }
       ));
       if (!annotation?.id) throw new Error('Delete annotation response is invalid.');
       return annotation;
     },
-    async restoreAnnotation(annotationId) {
+    async restoreAnnotation(annotationId, expectedRevision) {
       const annotation = getData<Annotation>(await requestJson(
         `/api/knowledge/annotations/${encodeURIComponent(annotationId)}/restore`,
-        { method: 'POST' }
+        { method: 'POST', ...(expectedRevision ? { body: JSON.stringify({ expectedRevision }) } : {}) }
       ));
       if (!annotation?.id) throw new Error('Restore annotation response is invalid.');
       return annotation;
@@ -374,6 +430,44 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       ));
       if (!annotation?.id) throw new Error('Update annotation anchor response is invalid.');
       return annotation;
+    },
+    async updateAnnotation(annotationId, input) {
+      const annotation = getData<Annotation>(await requestJson(
+        `/api/knowledge/annotations/${encodeURIComponent(annotationId)}`,
+        { method: 'PATCH', body: JSON.stringify(input) }
+      ));
+      if (!annotation?.id) throw new Error('Update annotation response is invalid.');
+      return annotation;
+    },
+    async previewAnnotation(annotationId) {
+      const value = getData<AnnotationPreview>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/preview`));
+      if (!value) throw new Error('Annotation preview response is invalid.');
+      return value;
+    },
+    async getAnnotationKnowledgeLinks(annotationId) {
+      const value = getData<AnnotationKnowledgeLinks>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/knowledge-links`));
+      if (!value) throw new Error('Annotation knowledge links response is invalid.');
+      return value;
+    },
+    async previewAnalysisScope(input) {
+      const value = getData<AnalysisScopePreview>(await requestJson('/api/knowledge/analysis-scopes/preview', { method: 'POST', body: JSON.stringify(input) }));
+      if (!value) throw new Error('Analysis scope preview response is invalid.');
+      return value;
+    },
+    async createAnalysisScope(input) {
+      const value = getData<{ id: string }>(await requestJson('/api/knowledge/analysis-scopes', { method: 'POST', body: JSON.stringify(input) }));
+      if (!value?.id) throw new Error('Analysis scope response is invalid.');
+      return value;
+    },
+    async createAnnotationExclusion(annotationId, input) {
+      const value = getData<AnnotationExclusionResult>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/exclusions`, { method: 'POST', body: JSON.stringify(input) }));
+      if (!value?.annotation?.id || !value.exclusion?.id) throw new Error('Annotation exclusion response is invalid.');
+      return value;
+    },
+    async deleteAnnotationExclusion(annotationId, exclusionId, expectedRevision) {
+      const value = getData<AnnotationExclusionResult>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/exclusions/${encodeURIComponent(exclusionId)}`, { method: 'DELETE', body: JSON.stringify({ expectedRevision }) }));
+      if (!value?.annotation?.id || !value.exclusion?.id) throw new Error('Delete annotation exclusion response is invalid.');
+      return value;
     },
     async listNoteVersions(noteId) {
       return asArray<NoteVersion>(getData(await requestJson(

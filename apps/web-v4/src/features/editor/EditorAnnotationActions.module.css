@@ -1,0 +1,6 @@
+.toolbar, .blockAction { position: fixed; z-index: 8; }
+.toolbar { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--ink-panel); background: var(--ink-surface); box-shadow: 2px 2px 0 var(--ink-panel); }
+.toolbar button { width: 24px; min-width: 24px; min-height: 24px; height: 24px; padding: 0; color: var(--ink); }
+.divider { width: 1px; height: 14px; margin: 0 2px; background: var(--ink-panel); }
+.blockAction { background: var(--ink-bg); }
+.blockAction button { width: 28px; height: 28px; }

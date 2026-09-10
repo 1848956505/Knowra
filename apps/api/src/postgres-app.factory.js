@@ -20,6 +20,11 @@ import { createPostgresExamFocusRepository } from './modules/knowledge/infrastru
 import { createPostgresQuestionRepository } from './modules/knowledge/infrastructure/postgres/question-repository.js';
 import { createPostgresQuestionObjectiveRepository } from './modules/knowledge/infrastructure/postgres/question-objective-repository.js';
 import { createPostgresQuestionSourceRepository } from './modules/knowledge/infrastructure/postgres/question-source-repository.js';
+import {
+  createPostgresAnalysisScopeRepository,
+  createPostgresAnnotationExclusionRepository,
+  createPostgresAnnotationRevisionRepository
+} from './modules/knowledge/infrastructure/postgres/annotation-support-repositories.js';
 import { createAsyncNoteDeletionCoordinator } from './modules/knowledge/application/postgres-async/note-deletion-coordinator.js';
 import { withPostgresErrors } from './infrastructure/postgres-errors.js';
 import { notFoundError } from './modules/knowledge/application/knowledge-errors.js';
@@ -62,6 +67,9 @@ export async function createPostgresAppContext({
     tagGroupRepository: createPostgresTagGroupRepository({ db }),
     knowledgeSpaceRepository: createPostgresKnowledgeSpaceRepository({ db }),
     contentAnnotationRepository: createPostgresContentAnnotationRepository({ db }),
+    annotationExclusionRepository: createPostgresAnnotationExclusionRepository({ db }),
+    annotationRevisionRepository: createPostgresAnnotationRevisionRepository({ db }),
+    analysisScopeRepository: createPostgresAnalysisScopeRepository({ db }),
     attachmentRepository: createPostgresAttachmentRepository({ db }),
     noteVersionRepository: createPostgresNoteVersionRepository({ db }),
     knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db }),

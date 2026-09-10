@@ -24,6 +24,7 @@ import { appFactoryTests } from './app-factory.test.js';
 import { httpRequestTests } from './http-request.test.js';
 import { httpResponseTests } from './http-response.test.js';
 import { contentAnnotationServiceTests } from './content-annotation-service.test.js';
+import { annotationScopeServiceTests } from './annotation-scope-service.test.js';
 import { serverHttpTests } from './server-http.test.js';
 import {
   knowledgeBaseSnapshotServiceTests
@@ -67,6 +68,7 @@ const tests = [
   ...httpRequestTests,
   ...httpResponseTests,
   ...contentAnnotationServiceTests,
+  ...annotationScopeServiceTests,
   ...serverHttpTests,
   ...knowledgeBaseSnapshotServiceTests,
   ...noteDeletionCoordinatorTests,

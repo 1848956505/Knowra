@@ -126,6 +126,13 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const deleteAnnotation = useAppStore((state) => state.deleteAnnotation);
   const restoreAnnotation = useAppStore((state) => state.restoreAnnotation);
   const updateAnnotationAnchor = useAppStore((state) => state.updateAnnotationAnchor);
+  const updateAnnotation = useAppStore((state) => state.updateAnnotation);
+  const previewAnnotation = useAppStore((state) => state.previewAnnotation);
+  const getAnnotationKnowledgeLinks = useAppStore((state) => state.getAnnotationKnowledgeLinks);
+  const previewAnalysisScope = useAppStore((state) => state.previewAnalysisScope);
+  const createAnalysisScope = useAppStore((state) => state.createAnalysisScope);
+  const createAnnotationExclusion = useAppStore((state) => state.createAnnotationExclusion);
+  const deleteAnnotationExclusion = useAppStore((state) => state.deleteAnnotationExclusion);
   const setStatusMessage = useAppStore((state) => state.setStatusMessage);
   const navigate = useNavigate();
   const [createMode, setCreateMode] = useState<CreateMode>(null);
@@ -214,6 +221,13 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onDeleteAnnotation={deleteAnnotation}
         onRestoreAnnotation={restoreAnnotation}
         onUpdateAnnotationAnchor={updateAnnotationAnchor}
+        onUpdateAnnotation={updateAnnotation}
+        onPreviewAnnotation={previewAnnotation}
+        onGetAnnotationKnowledgeLinks={getAnnotationKnowledgeLinks}
+        onPreviewAnalysisScope={previewAnalysisScope}
+        onCreateAnalysisScope={createAnalysisScope}
+        onCreateAnnotationExclusion={createAnnotationExclusion}
+        onDeleteAnnotationExclusion={deleteAnnotationExclusion}
         onFileStatus={setStatusMessage}
         onToggleFavorite={() => {
           if (!note || favoritePending) return;

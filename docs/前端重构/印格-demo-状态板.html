@@ -1,0 +1,1534 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#F9F7F2">
+  <title>印格 · 状态板</title>
+  <style>
+    /* ========================================================================
+       Canonical Tokens（与 印格-demo-外壳.html / 印格-demo-笔记页面.html 同源）
+       ===================================================================== */
+    :root {
+      --ink-bg: #f9f7f2;
+      --ink-surface: #ffffff;
+      --ink-sunken: #f4f1ea;
+      --ink: #1a1a1a;
+      --ink-secondary: #66635e;
+      --ink-muted: #aaa8a2;
+      --ink-panel: #e5e2dc;
+      --ink-dot: #d1d1d1;
+      --ink-accent: #2563eb;
+      --ink-accent-hover: #1d4ed8;
+      --ink-accent-soft: #e0f2fe;
+      --ink-success: #16a34a;
+      --ink-warning: #ea580c;
+      --ink-warning-soft: #ffedd5;
+      --ink-danger: #dc2626;
+      --ink-danger-soft: #fee2e2;
+      --ink-success-soft: #dcfce7;
+      --shell-line: 2px solid var(--ink);
+      --ink-shell: #a8a29a;
+      --shell-line-soft: 1px solid var(--ink-shell);
+      --panel-line: 1px solid var(--ink-panel);
+      --shadow-1: 2px 2px 1px #6b6b6b;
+      --shadow-2: 3px 3px 1px #6b6b6b;
+      --shadow-focus: 3px 3px 0 var(--ink-accent);
+      --rail-size: 64px;
+      --sidebar-size: 224px;
+      --status-size: 32px;
+      --motion-fast: 140ms;
+      --motion-mid: 200ms;
+      --font-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    /* ========================================================================
+       Base
+       ===================================================================== */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--ink-bg);
+      color: var(--ink);
+      font: 14px/1.5 var(--font-ui);
+    }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { background: transparent; border: 0; cursor: pointer; }
+    button:disabled { cursor: not-allowed; }
+    a { color: var(--ink-accent); }
+    [hidden] { display: none !important; }
+
+    .skip-link {
+      position: fixed; left: 12px; top: 10px; z-index: 1000;
+      padding: 8px 12px;
+      border: var(--shell-line);
+      background: var(--ink-surface);
+      color: var(--ink);
+      font-weight: 800;
+      box-shadow: var(--shadow-1);
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+
+    .icon {
+      width: 19px; height: 19px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: square;
+      stroke-linejoin: miter;
+      stroke-width: 1.8;
+    }
+    .icon-sm { width: 14px; height: 14px; }
+
+    /* 全局焦点环 */
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible,
+    [role="menuitem"]:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--ink-surface);
+      outline-offset: 1px;
+      box-shadow: var(--shadow-focus);
+    }
+
+    /* ========================================================================
+       Page Shell
+       ===================================================================== */
+    .stateboard-shell {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 28px 64px;
+    }
+    .stateboard-head {
+      padding: 18px 22px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-2);
+      margin-bottom: 28px;
+    }
+    .stateboard-head h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .stateboard-head p {
+      margin: 0;
+      color: var(--ink-secondary);
+      font-size: 12px;
+    }
+    .head-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .meta-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px;
+      border: 1px solid var(--ink);
+      background: var(--ink-bg);
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .meta-chip strong { color: var(--ink-accent); }
+
+    .stateboard-main { display: grid; gap: 28px; }
+
+    .state-section { border: 1px solid var(--ink); background: var(--ink-surface); box-shadow: var(--shadow-1); }
+    .state-section__head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+    }
+    .state-section__head h2 { margin: 0; font-size: 14px; font-weight: 800; letter-spacing: 0.02em; }
+    .state-section__head .num {
+      display: inline-grid; place-items: center;
+      width: 22px; height: 22px;
+      margin-right: 8px;
+      border: 1px solid var(--ink);
+      background: var(--ink-accent);
+      color: var(--ink-surface);
+      font: 800 11px/1 var(--font-mono);
+      vertical-align: -5px;
+    }
+    .state-section__head .doc-link {
+      font: 700 11px/1 var(--font-mono);
+      color: var(--ink-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .state-section__body { padding: 18px; display: grid; gap: 18px; }
+    .state-section__contract {
+      padding: 12px 18px;
+      border-top: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      color: var(--ink-secondary);
+      font-size: 12px;
+    }
+    .state-section__contract strong { color: var(--ink); font-weight: 800; }
+
+    .state-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .state-card { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--ink-panel); background: var(--ink-bg); }
+    .state-card__label {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--ink-secondary);
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .state-card__label::before { content: ""; width: 6px; height: 6px; background: var(--ink-accent); }
+    .state-card__label--draft::before { background: var(--ink-warning); }
+    .state-card__label--done::before { background: var(--ink-success); }
+    .state-card__label--danger::before { background: var(--ink-danger); }
+    .state-card__label--muted::before { background: var(--ink-muted); }
+    .state-card__hint { color: var(--ink-muted); font-size: 11px; line-height: 1.6; }
+
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+    }
+    .seg button {
+      height: 28px; padding: 0 10px;
+      font: 800 10px/1 var(--font-mono);
+      letter-spacing: 0.04em;
+      color: var(--ink-secondary);
+      border-right: 1px solid var(--ink-shell);
+    }
+    .seg button:last-child { border-right: 0; }
+    .seg button[aria-pressed="true"] { background: var(--ink); color: var(--ink-surface); }
+
+    /* ========================================================================
+       1. Search
+       ===================================================================== */
+    .search-box {
+      display: flex; align-items: center; gap: 8px;
+      height: 36px; padding: 0 10px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+    }
+    .search-box .icon { color: var(--ink-secondary); }
+    .search-box input {
+      flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+      color: var(--ink); font-size: 13px;
+    }
+    .search-box input::placeholder { color: var(--ink-muted); }
+    .search-box:focus-within { box-shadow: 2px 2px 0 var(--ink-accent); }
+    .search-box--loading::after {
+      content: ""; width: 12px; height: 12px;
+      border: 1.5px solid var(--ink-accent);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 720ms linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .search-clear {
+      display: none;
+      width: 18px; height: 18px;
+      place-items: center;
+      border: 1px solid var(--ink);
+      background: var(--ink-bg);
+      color: var(--ink);
+    }
+    .search-box.has-value .search-clear { display: grid; }
+    .search-clear .icon-sm { width: 10px; height: 10px; stroke-width: 2; }
+    .search-empty {
+      padding: 10px 12px;
+      border: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      color: var(--ink-secondary);
+      font-size: 12px;
+    }
+    .search-empty strong { color: var(--ink); }
+
+    /* ========================================================================
+       2. Menu
+       ===================================================================== */
+    .menu {
+      width: min(240px, 100%);
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-2);
+      overflow: hidden;
+    }
+    .menu__head {
+      padding: 10px 12px 6px;
+      color: var(--ink-muted);
+      font: 800 10px/1.4 var(--font-mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .menu__item {
+      width: 100%;
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 12px;
+      border: 0; background: transparent;
+      color: var(--ink);
+      font-size: 12px; font-weight: 700;
+      text-align: left; cursor: pointer;
+    }
+    .menu__item:hover { background: var(--ink-sunken); }
+    .menu__item .item-icon { color: var(--ink-secondary); flex: 0 0 14px; }
+    .menu__item--active { background: var(--ink-sunken); color: var(--ink-accent); }
+    .menu__item--active .item-icon { color: var(--ink-accent); }
+    .menu__item--danger { color: var(--ink-danger); }
+    .menu__item--danger .item-icon { color: var(--ink-danger); }
+    .menu__item--danger:hover { background: var(--ink-danger); color: var(--ink-surface); }
+    .menu__item--danger:hover .item-icon { color: var(--ink-surface); }
+    .menu__sep { height: 1px; margin: 4px 0; background: var(--ink-panel); }
+    .menu__item .kbd { margin-left: auto; color: var(--ink-muted); font: 10px/1 var(--font-mono); }
+    .menu__item--disabled { color: var(--ink-muted); pointer-events: none; }
+
+    /* ========================================================================
+       3. Popover
+       ===================================================================== */
+    .popover { position: relative; display: inline-block; }
+    .popover__panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 50;
+      width: min(220px, 100%);
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-2);
+      padding: 6px;
+    }
+    .popover__btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 32px; padding: 0 10px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+      font-size: 12px; font-weight: 700;
+    }
+
+    /* ========================================================================
+       4. Buttons
+       ===================================================================== */
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-height: 36px; padding: 0 14px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      color: var(--ink);
+      font-size: 12px; font-weight: 800;
+      box-shadow: var(--shadow-1);
+      transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
+    }
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow-2); }
+    .btn:active { transform: translate(1px, 1px); box-shadow: none; }
+    .btn:disabled { color: var(--ink-muted); background: var(--ink-sunken); box-shadow: none; transform: none; cursor: not-allowed; }
+    .btn--primary { background: var(--ink); color: var(--ink-surface); }
+    .btn--accent { background: var(--ink-accent); color: var(--ink-surface); border-color: var(--ink-accent); }
+    .btn--accent:disabled { background: var(--ink-muted); border-color: var(--ink-muted); opacity: .65; }
+    .btn--primary:disabled { background: var(--ink-muted); color: var(--ink-surface); opacity: .65; }
+    .btn--danger { background: var(--ink-surface); color: var(--ink-danger); border-color: var(--ink-danger); }
+    .btn--danger:hover { background: var(--ink-danger-soft); }
+    .btn--ghost { box-shadow: none; }
+    .btn--ghost:hover { box-shadow: var(--shadow-1); }
+    .btn--icon { min-width: 36px; padding: 0 9px; }
+    .btn:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+    .btn:disabled:focus-visible { outline-color: var(--ink-muted); }
+
+    /* ========================================================================
+       5. Dialog
+       ===================================================================== */
+    .dialog-backdrop {
+      position: fixed; inset: 0;
+      z-index: 200;
+      background: rgba(26, 26, 26, .32);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--motion-mid) ease;
+    }
+    .dialog-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+    .dialog {
+      position: fixed;
+      top: 50%; left: 50%;
+      z-index: 210;
+      width: min(440px, calc(100vw - 32px));
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: 4px 4px 0 var(--ink), 7px 7px 0 var(--ink-accent);
+      transform: translate(-50%, calc(-50% + 8px));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--motion-mid) ease, transform var(--motion-mid) cubic-bezier(.4, 0, .2, 1);
+    }
+    .dialog.is-open { opacity: 1; transform: translate(-50%, -50%); pointer-events: auto; }
+
+    .dialog__header {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 14px 18px 4px;
+      background: var(--ink-surface);
+      flex: 0 0 auto;
+    }
+    .dialog__title { margin: 0; color: var(--ink); font-size: 16px; font-weight: 800; }
+    .dialog__close {
+      width: 24px; height: 24px;
+      display: grid; place-items: center;
+      border: 0; background: transparent;
+      color: var(--ink-secondary); opacity: .7;
+    }
+    .dialog__close:hover { opacity: 1; }
+    .dialog__close .icon { width: 14px; height: 14px; }
+
+    .dialog__body { flex: 1; min-height: 0; overflow: auto; padding: 14px 22px 6px; display: grid; gap: 14px; }
+    .dialog__footer {
+      display: flex; gap: 8px;
+      padding: 14px 18px 16px;
+      border-top: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      flex: 0 0 auto;
+    }
+    .dialog__footer .btn { flex: 1; min-height: 38px; }
+    .dialog__footer .btn--icon { flex: 0 0 38px; padding: 0; }
+
+    .form-field { display: grid; gap: 6px; }
+    .form-label { color: var(--ink-secondary); font: 800 10px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+    .form-required { color: var(--ink-danger); font-weight: 800; }
+    .form-input {
+      width: 100%; height: 36px; padding: 0 11px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      color: var(--ink);
+      font: 14px/1 var(--font-ui);
+    }
+    .form-input:focus { outline: 0; box-shadow: 2px 2px 0 var(--ink-accent); transform: translate(-1px, -1px); }
+    .form-input:disabled { background: var(--ink-sunken); color: var(--ink-muted); cursor: not-allowed; }
+    .form-input.is-invalid { border-color: var(--ink-danger); box-shadow: 2px 2px 0 var(--ink-danger); }
+    textarea.form-input { min-height: 80px; padding: 8px 11px; line-height: 1.5; resize: vertical; }
+    .form-hint { color: var(--ink-muted); font-size: 10px; }
+    .form-error {
+      color: var(--ink-danger);
+      font: 800 11px/1.4 var(--font-ui);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .form-error::before { content: ""; width: 6px; height: 6px; background: var(--ink-danger); }
+
+    .dialog__busy {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      background: rgba(255, 255, 255, .65);
+      pointer-events: auto;
+    }
+    .dialog__busy[hidden] { display: none; }
+    .dialog__busy .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--ink);
+      border-top-color: var(--ink-accent);
+      border-radius: 50%;
+      animation: spin 720ms linear infinite;
+    }
+
+    /* ========================================================================
+       6. Sidebar
+       ===================================================================== */
+    .sb-demo {
+      display: grid;
+      grid-template-columns: var(--sidebar-size) minmax(0, 1fr);
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+      min-height: 360px;
+      transition: grid-template-columns var(--motion-mid) ease;
+    }
+    .sb-demo.is-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+    .sb-demo.is-collapsed .sb-sidebar { transform: translateX(-100%); visibility: hidden; }
+    .sb-sidebar {
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      overflow: hidden;
+      transition: transform var(--motion-mid) ease, visibility var(--motion-mid);
+    }
+    .sb-sidebar__head {
+      flex: 0 0 52px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 12px 0 16px;
+      border-bottom: 1px solid var(--ink-panel);
+    }
+    .sb-sidebar__head h3 { margin: 0; font-size: 14px; font-weight: 800; }
+    .sb-sidebar__body { flex: 1; overflow: auto; padding: 8px 0 12px; }
+    .sb-sidebar__row {
+      width: 100%;
+      display: flex; align-items: center; gap: 8px;
+      min-height: 36px;
+      padding: 6px 12px 6px 16px;
+      border: 0; background: transparent;
+      color: var(--ink);
+      font-size: 12px; text-align: left;
+    }
+    .sb-sidebar__row:hover { background: var(--ink-sunken); }
+    .sb-sidebar__row.is-active { background: var(--ink-surface); color: var(--ink-accent); font-weight: 800; box-shadow: inset 4px 0 0 var(--ink-accent); }
+    .sb-sidebar__row .row-icon { color: var(--ink-secondary); flex: 0 0 16px; }
+    .sb-sidebar__row.is-active .row-icon { color: var(--ink-accent); }
+    .sb-sidebar__row .row-count { margin-left: auto; color: var(--ink-secondary); font: 10px/1 var(--font-mono); }
+    .sb-sidebar__section {
+      padding: 12px 18px 6px;
+      color: var(--ink-secondary);
+      font: 800 10px/1.4 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .sb-main { padding: 18px; min-width: 0; }
+
+    .sb-mobile-shell {
+      position: relative;
+      height: 360px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      overflow: hidden;
+    }
+    .sb-mobile-shell::before {
+      content: "";
+      position: absolute; inset: 0;
+      background-color: var(--ink-bg);
+      background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
+      background-size: 20px 20px;
+      z-index: 0;
+    }
+    .sb-mobile-shell .sb-mobile-content { position: relative; z-index: 1; padding: 20px; color: var(--ink-secondary); font-size: 12px; }
+    .sb-mobile-drawer {
+      position: absolute;
+      top: 0; bottom: 0; left: 0;
+      z-index: 2;
+      width: min(280px, 80%);
+      background: var(--ink-bg);
+      border-right: 1px solid var(--ink);
+      box-shadow: 8px 0 18px rgba(26, 26, 26, .15);
+      transform: translateX(-100%);
+      transition: transform var(--motion-mid) ease;
+    }
+    .sb-mobile-drawer.is-open { transform: translateX(0); }
+    .sb-mobile-drawer .sb-sidebar__head h3 { font-size: 13px; }
+    .sb-mobile-drawer .sb-sidebar__row { min-height: 40px; font-size: 13px; }
+    .sb-mobile-backdrop {
+      position: absolute; inset: 0;
+      z-index: 1;
+      background: rgba(26, 26, 26, .18);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--motion-mid) ease;
+    }
+    .sb-mobile-backdrop.is-open { opacity: 1; pointer-events: auto; }
+    .sb-mobile-trigger {
+      position: absolute; z-index: 3;
+      top: 12px; left: 12px;
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 32px; padding: 0 10px;
+      border: 1px solid var(--ink);
+      background: var(--ink-surface);
+      box-shadow: var(--shadow-1);
+      font: 800 11px/1 var(--font-mono);
+    }
+
+    /* ========================================================================
+       7. Page States
+       ===================================================================== */
+    .state-page { padding: 28px; border: 1px solid var(--ink-panel); background: var(--ink-bg); text-align: center; }
+    .state-page__mark {
+      width: 34px; height: 34px;
+      margin: 0 auto 12px;
+      border: 2px solid var(--ink);
+      background: var(--ink-sunken);
+      box-shadow: 5px 5px 0 var(--ink-accent);
+    }
+    .state-page--loading .state-page__mark { background: var(--ink-surface); box-shadow: 5px 5px 0 var(--ink-accent); position: relative; }
+    .state-page--loading .state-page__mark::before {
+      content: ""; position: absolute; inset: 8px;
+      border: 2px solid var(--ink-accent);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 720ms linear infinite;
+    }
+    .state-page--error .state-page__mark { background: var(--ink-danger-soft); box-shadow: 5px 5px 0 var(--ink-danger); }
+    .state-page--error .state-page__mark::before {
+      content: "!";
+      display: grid; place-items: center;
+      width: 100%; height: 100%;
+      color: var(--ink-danger);
+      font: 800 18px/1 var(--font-mono);
+    }
+    .state-page h3 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
+    .state-page p { margin: 0 0 14px; color: var(--ink-secondary); font-size: 12px; }
+    .state-page__actions { display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .skeleton { display: grid; gap: 6px; }
+    .skeleton .bar { height: 12px; background: var(--ink-soft); animation: skel-pulse 1.4s ease-in-out infinite; }
+    .skeleton .bar:nth-child(1) { width: 70%; }
+    .skeleton .bar:nth-child(2) { width: 90%; }
+    .skeleton .bar:nth-child(3) { width: 55%; }
+    .skeleton .bar:nth-child(4) { width: 80%; }
+    @keyframes skel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+    /* ========================================================================
+       8. Save States
+       ===================================================================== */
+    .save-state {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px;
+      border: 1px solid var(--ss-edge, var(--ink));
+      background: var(--ss-fill, var(--ink-bg));
+      color: var(--ss-text, var(--ink));
+      font: 800 10px/1.2 var(--font-mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .save-state::before { content: ""; width: 6px; height: 6px; background: var(--ss-text, var(--ink)); }
+    .save-state--idle { --ss-edge: var(--ink-panel); --ss-text: var(--ink-muted); }
+    .save-state--idle::before { background: var(--ink-muted); }
+    .save-state--saving { --ss-edge: var(--ink-accent); --ss-fill: var(--ink-accent-soft); --ss-text: var(--ink-accent); }
+    .save-state--saving::before {
+      background: transparent;
+      border: 1.5px solid var(--ink-accent);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 720ms linear infinite;
+    }
+    .save-state--saved { --ss-edge: var(--ink-success); --ss-fill: var(--ink-success-soft); --ss-text: var(--ink-success); }
+    .save-state--failed { --ss-edge: var(--ink-danger); --ss-fill: var(--ink-danger-soft); --ss-text: var(--ink-danger); }
+    .save-state--failed::before {
+      content: "!";
+      background: var(--ink-danger);
+      color: var(--ink-surface);
+      font: 800 8px/1 var(--font-mono);
+      display: grid; place-items: center;
+    }
+    .save-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--ink-danger);
+      background: var(--ink-danger-soft);
+      color: var(--ink-danger);
+      font-size: 12px; font-weight: 700;
+    }
+    .save-banner .btn { min-height: 30px; padding: 0 10px; font-size: 11px; }
+
+    /* ========================================================================
+       9. Toast
+       ===================================================================== */
+    .toast-stack {
+      position: fixed; right: 22px; bottom: 48px;
+      z-index: 90;
+      display: grid; gap: 10px;
+    }
+    .toast {
+      display: flex; align-items: center; gap: 10px;
+      max-width: 360px;
+      padding: 10px 14px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: var(--ink-surface);
+      font-size: 12px; font-weight: 700;
+      box-shadow: 4px 4px 0 var(--ink-accent);
+    }
+    .toast--success { box-shadow: 4px 4px 0 var(--ink-success); }
+    .toast--error { background: var(--ink-danger); box-shadow: 4px 4px 0 var(--ink); }
+    .toast--warning { background: var(--ink-warning); box-shadow: 4px 4px 0 var(--ink); }
+    .toast .toast__close {
+      width: 18px; height: 18px;
+      display: grid; place-items: center;
+      border: 1px solid var(--ink-surface);
+      color: var(--ink-surface); opacity: .85;
+    }
+    .toast .toast__close:hover { opacity: 1; }
+    .toast .toast__close .icon { width: 10px; height: 10px; stroke-width: 2; }
+
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 8px 16px;
+      padding: 10px 14px;
+      border: 1px solid var(--ink-panel);
+      background: var(--ink-bg);
+      color: var(--ink-secondary);
+      font-size: 11px;
+    }
+    .legend strong { color: var(--ink); font-weight: 800; }
+
+    @media (max-width: 640px) {
+      .stateboard-shell { padding: 18px 14px 48px; }
+      .state-section__body { padding: 14px; }
+      .state-grid { grid-template-columns: 1fr; }
+      .sb-demo { grid-template-columns: 1fr; min-height: auto; }
+      .sb-demo .sb-sidebar { display: none; }
+      .sb-mobile-shell { height: 280px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#state-main">跳到主区域</a>
+
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+    <symbol id="icon-add" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+    <symbol id="icon-note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v5h4M9 12h7M9 16h7"/></symbol>
+    <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v12H3z"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></symbol>
+    <symbol id="icon-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/></symbol>
+    <symbol id="icon-inbox" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 14h5l2 3h2l2-3h5"/></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M10 4v16"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.7 2.7L16.5 9"/></symbol>
+    <symbol id="icon-warning" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 10v5M12 18h.01"/></symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5l3 2M20 12a8 8 0 0 1-14 5l-3-2M4 4v5h5M20 20v-5h-5"/></symbol>
+  </svg>
+
+  <div class="stateboard-shell">
+    <header class="stateboard-head">
+      <h1>印格 · 状态板</h1>
+      <p>视觉真源：<code>印格-demo-外壳.html</code> / <code>印格-demo-笔记页面.html</code>。本文件覆盖 9 类状态契约，是 V4-00.5 准出的对内材料；正式冻结仍需用户最终确认。</p>
+      <div class="head-meta">
+        <span class="meta-chip"><strong>16:9</strong> · 1440 / 1280 / 1024</span>
+        <span class="meta-chip">移动 <strong>390</strong></span>
+        <span class="meta-chip">暖纸 · 墨线 · 蓝印章 · 硬影</span>
+        <span class="meta-chip">零圆角 · 克制动效</span>
+      </div>
+    </header>
+
+    <main id="state-main" class="stateboard-main">
+
+      <!-- 1. Search -->
+      <section class="state-section" id="sec-search">
+        <header class="state-section__head">
+          <h2><span class="num">1</span>Search 搜索</h2>
+          <span class="doc-link">契约 · 详见 Dialog 焦点管理</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label">默认 · 占位</div>
+              <label class="search-box">
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+                <input type="search" placeholder="搜索标题、正文或标签…">
+              </label>
+              <div class="state-card__hint">占位色 <code>--ink-muted</code>，聚焦时搜索框描边变蓝（<code>--ink-accent</code> 硬阴影）</div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label">输入中 · 显示清除</div>
+              <label class="search-box has-value">
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+                <input type="search" value="复盘" aria-label="搜索关键词">
+                <button type="button" class="search-clear" aria-label="清除搜索">
+                  <svg class="icon-sm" aria-hidden="true"><use href="#icon-close"/></svg>
+                </button>
+              </label>
+              <div class="state-card__hint">有值时右侧出现 <code>search-clear</code> 按钮，点击或 Esc 清空</div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--draft">加载中</div>
+              <label class="search-box search-box--loading" aria-busy="true">
+                <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+                <input type="search" value="复盘" aria-label="搜索关键词">
+                <span class="live-region" aria-live="polite">正在搜索</span>
+              </label>
+              <div class="state-card__hint">右侧旋转 spinner，<code>aria-busy</code> 标记整框加载</div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--danger">无结果</div>
+              <div class="search-empty">未找到与「<strong>复盘</strong>」匹配的笔记。<br>试试其他关键词，或<button type="button" class="btn btn--ghost" style="margin-left:6px;min-height:24px;padding:0 8px;font-size:11px">清除搜索</button></div>
+              <div class="state-card__hint">关键词加粗；下方提供清除/重置等逃生通道</div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>输入即检索，去抖 200ms；空值不触发；空结果保留清除与重置入口；加载态用 <code>aria-busy="true"</code> 并旋转 spinner。
+        </div>
+      </section>
+
+      <!-- 2. Menu -->
+      <section class="state-section" id="sec-menu">
+        <header class="state-section__head">
+          <h2><span class="num">2</span>Menu 菜单</h2>
+          <span class="doc-link">覆盖：默认 / hover / focus / 激活 / 禁用 / 危险</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label">默认 · 普通项</div>
+              <div class="menu">
+                <div class="menu__head">操作</div>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-note"/></svg>打开
+                </button>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-folder"/></svg>重命名
+                </button>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-inbox"/></svg>移动到…
+                  <span class="kbd">⌘M</span>
+                </button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--done">激活项（当前选中）</div>
+              <div class="menu">
+                <div class="menu__head">视图</div>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-clock"/></svg>最近编辑
+                </button>
+                <button class="menu__item menu__item--active" type="button" role="menuitem" aria-current="true">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-star"/></svg>全部笔记
+                </button>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-inbox"/></svg>未整理
+                </button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">禁用项</div>
+              <div class="menu">
+                <div class="menu__head">分享</div>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-check"/></svg>复制链接
+                </button>
+                <button class="menu__item menu__item--disabled" type="button" role="menuitem" disabled aria-disabled="true">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-add"/></svg>邀请协作者
+                </button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--danger">危险项</div>
+              <div class="menu">
+                <div class="menu__head">操作</div>
+                <button class="menu__item" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-folder"/></svg>移动到…
+                </button>
+                <div class="menu__sep" aria-hidden="true"></div>
+                <button class="menu__item menu__item--danger" type="button" role="menuitem">
+                  <svg class="icon-sm item-icon" aria-hidden="true"><use href="#icon-trash"/></svg>删除
+                </button>
+              </div>
+              <div class="state-card__hint">危险项用 <code>--ink-danger</code>；hover 反白为 <code>--ink-surface</code></div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>每项 <code>role="menuitem"</code>，分组用 <code>role="menu"</code>；<kbd>↑</kbd>/<kbd>↓</kbd> 循环，<kbd>Esc</kbd> 关闭并归还焦点到触发器；危险项必须用分隔线分组。
+        </div>
+      </section>
+
+      <!-- 3. Popover -->
+      <section class="state-section" id="sec-popover">
+        <header class="state-section__head">
+          <h2><span class="num">3</span>Popover 浮层</h2>
+          <span class="doc-link">锚定触发器 · 边界翻转</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label">默认 · 浮在按钮下方</div>
+              <div class="popover">
+                <button type="button" class="popover__btn" data-popover="pop1" aria-haspopup="menu" aria-expanded="false">
+                  更多操作 <svg class="icon-sm" aria-hidden="true"><use href="#icon-chevron"/></svg>
+                </button>
+                <div class="popover__panel" id="pop1" role="menu" hidden>
+                  <button class="menu__item" type="button" role="menuitem">打开</button>
+                  <button class="menu__item" type="button" role="menuitem">重命名</button>
+                  <div class="menu__sep" aria-hidden="true"></div>
+                  <button class="menu__item menu__item--danger" type="button" role="menuitem">删除</button>
+                </div>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">点击触发器打开</div>
+              <div class="state-card__hint">由 JS 接管：点击浮层外或 <kbd>Esc</kbd> 关闭；边界检测：靠近视口底/右边时翻转</div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>Popover 复用 Menu 视觉；显隐由 <code>hidden</code> 属性 + <code>aria-expanded</code> 共同控制；触发器需 <code>aria-haspopup="menu"</code>。
+        </div>
+      </section>
+
+      <!-- 4. Buttons -->
+      <section class="state-section" id="sec-buttons">
+        <header class="state-section__head">
+          <h2><span class="num">4</span>Button 按钮</h2>
+          <span class="doc-link">default / hover / active / focus / disabled</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label">默认</div>
+              <div class="btn-row">
+                <button type="button" class="btn">默认按钮</button>
+                <button type="button" class="btn btn--primary">主操作</button>
+                <button type="button" class="btn btn--accent">强调</button>
+                <button type="button" class="btn btn--danger">危险</button>
+                <button type="button" class="btn btn--ghost">幽灵</button>
+                <button type="button" class="btn btn--icon" aria-label="更多">
+                  <svg class="icon-sm" aria-hidden="true"><use href="#icon-more"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--done">Hover · 浮起 1px</div>
+              <div class="btn-row">
+                <button type="button" class="btn" style="transform:translate(-1px,-1px);box-shadow:3px 3px 1px #6b6b6b">悬浮中</button>
+                <button type="button" class="btn btn--primary" style="transform:translate(-1px,-1px);box-shadow:3px 3px 1px #6b6b6b">主操作</button>
+              </div>
+              <div class="state-card__hint">截图示意 hover 效果；运行时由 <code>:hover</code> 触发 transform/box-shadow</div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--draft">Active · 塌入 1px</div>
+              <div class="btn-row">
+                <button type="button" class="btn" style="transform:translate(1px,1px);box-shadow:none">按压中</button>
+                <button type="button" class="btn btn--primary" style="transform:translate(1px,1px);box-shadow:none">主操作</button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label">Focus · 蓝色实阴影</div>
+              <div class="btn-row">
+                <button type="button" class="btn" style="outline:2px solid var(--ink-accent);outline-offset:2px">键盘聚焦</button>
+                <button type="button" class="btn btn--primary" style="outline:2px solid var(--ink-accent);outline-offset:2px">主操作</button>
+              </div>
+              <div class="state-card__hint">由 <code>:focus-visible</code> 触发；鼠标点击不显示，仅键盘 Tab 触发</div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">Disabled · 灰底 + 灰字 + 不可点</div>
+              <div class="btn-row">
+                <button type="button" class="btn" disabled>默认</button>
+                <button type="button" class="btn btn--primary" disabled>主操作</button>
+                <button type="button" class="btn btn--accent" disabled>强调</button>
+                <button type="button" class="btn btn--danger" disabled>危险</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong><code>min-height: 36px</code>，移动端 <code>min-height: 44px</code>；hover 抬升 / active 塌入 / focus 蓝色硬影 / disabled 灰化；图标按钮宽 <code>36px</code>。
+        </div>
+      </section>
+
+      <!-- 5. Dialog -->
+      <section class="state-section" id="sec-dialog">
+        <header class="state-section__head">
+          <h2><span class="num">5</span>Dialog 浮层</h2>
+          <span class="doc-link">焦点陷阱 · 背景隔离 · Esc · 焦点归还</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label">默认 · 触发</div>
+              <div class="btn-row">
+                <button type="button" class="btn btn--primary" data-action="open-dialog" data-dialog-variant="default">打开默认 Dialog</button>
+                <button type="button" class="btn btn--danger" data-action="open-dialog" data-dialog-variant="error">打开错误态</button>
+                <button type="button" class="btn" data-action="open-dialog" data-dialog-variant="disabled">打开禁用字段</button>
+                <button type="button" class="btn btn--accent" data-action="open-dialog" data-dialog-variant="submitting">打开提交中</button>
+              </div>
+              <div class="state-card__hint">点按钮即触发；按 <kbd>Esc</kbd> 关闭，<kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> 循环，关闭后焦点归还到该按钮</div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">静态示意 · 错误态</div>
+              <div style="position:relative;min-height:280px;border:1px solid var(--ink-panel);background:var(--ink-bg);padding:14px;display:grid;place-items:center">
+                <div class="dialog" style="position:static;transform:none;opacity:1;pointer-events:auto;width:100%;max-width:360px;margin:0">
+                  <header class="dialog__header">
+                    <h2 class="dialog__title">新建笔记</h2>
+                    <button type="button" class="dialog__close" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
+                  </header>
+                  <form class="dialog__body">
+                    <div class="form-field">
+                      <label class="form-label" for="demo-title">标题 <span class="form-required">*</span></label>
+                      <input class="form-input is-invalid" id="demo-title" type="text" value="复">
+                      <span class="form-error">标题至少 2 个字符</span>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" for="demo-folder">文件夹</label>
+                      <select class="form-input" id="demo-folder">
+                        <option>产品设计</option>
+                      </select>
+                    </div>
+                  </form>
+                  <footer class="dialog__footer">
+                    <button type="button" class="btn">取消</button>
+                    <button type="button" class="btn btn--primary">创建</button>
+                  </footer>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>打开后自动聚焦首个可聚焦元素（除非触发器已声明初始焦点）；<kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> 在浮层内循环；<kbd>Esc</kbd> 关闭并把焦点归还触发器；背景用 <code>aria-hidden</code> 隔离（V4-04 转译为 React Aria 时升级为 <code>inert</code>）；关闭后清空表单 + 错误态。
+        </div>
+      </section>
+
+      <!-- 6. Sidebar -->
+      <section class="state-section" id="sec-sidebar">
+        <header class="state-section__head">
+          <h2><span class="num">6</span>Sidebar 侧栏</h2>
+          <span class="doc-link">展开 / 折叠 / 移动抽屉</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card" style="grid-column:1/-1">
+              <div class="state-card__label">展开 · 224px 上下文侧栏</div>
+              <div class="sb-demo" id="sbDemo">
+                <aside class="sb-sidebar" aria-label="笔记目录">
+                  <header class="sb-sidebar__head">
+                    <h3>笔记</h3>
+                  </header>
+                  <div class="sb-sidebar__body">
+                    <div class="sb-sidebar__section">快速入口</div>
+                    <button class="sb-sidebar__row is-active" type="button">
+                      <svg class="icon-sm row-icon" aria-hidden="true"><use href="#icon-note"/></svg>全部笔记
+                      <span class="row-count">11</span>
+                    </button>
+                    <button class="sb-sidebar__row" type="button">
+                      <svg class="icon-sm row-icon" aria-hidden="true"><use href="#icon-clock"/></svg>最近编辑
+                      <span class="row-count">6</span>
+                    </button>
+                    <button class="sb-sidebar__row" type="button">
+                      <svg class="icon-sm row-icon" aria-hidden="true"><use href="#icon-star"/></svg>收藏
+                      <span class="row-count">3</span>
+                    </button>
+                    <div class="sb-sidebar__section">文件夹</div>
+                    <button class="sb-sidebar__row" type="button">
+                      <svg class="icon-sm row-icon" aria-hidden="true"><use href="#icon-folder"/></svg>产品设计
+                      <span class="row-count">4</span>
+                    </button>
+                    <button class="sb-sidebar__row" type="button">
+                      <svg class="icon-sm row-icon" aria-hidden="true"><use href="#icon-folder"/></svg>学习
+                      <span class="row-count">4</span>
+                    </button>
+                  </div>
+                </aside>
+                <div class="sb-main">
+                  <p style="margin:0 0 8px;color:var(--ink);font-weight:800">主工作区 · 720–880px 纸张</p>
+                  <p style="margin:0;color:var(--ink-secondary);font-size:12px">侧栏默认宽度 <code>--sidebar-size: 224px</code>，标准桌面 1100–1439px 收窄到 208px。</p>
+                </div>
+              </div>
+              <div class="btn-row" style="margin-top:10px">
+                <button type="button" class="btn" id="sbCollapse">折叠</button>
+                <button type="button" class="btn" id="sbExpand">展开</button>
+              </div>
+            </div>
+            <div class="state-card" style="grid-column:1/-1">
+              <div class="state-card__label">移动端 · 抽屉</div>
+              <div class="sb-mobile-shell" id="sbMobile">
+                <button type="button" class="sb-mobile-trigger" id="sbMobileTrigger">
+                  <svg class="icon-sm" aria-hidden="true"><use href="#icon-sidebar"/></svg> 目录
+                </button>
+                <div class="sb-mobile-backdrop" id="sbMobileBackdrop"></div>
+                <div class="sb-mobile-drawer" id="sbMobileDrawer" aria-label="笔记目录">
+                  <header class="sb-sidebar__head">
+                    <h3>笔记</h3>
+                  </header>
+                  <div class="sb-sidebar__body">
+                    <div class="sb-sidebar__section">快速入口</div>
+                    <button class="sb-sidebar__row is-active" type="button">全部笔记</button>
+                    <button class="sb-sidebar__row" type="button">最近编辑</button>
+                    <button class="sb-sidebar__row" type="button">收藏</button>
+                  </div>
+                </div>
+                <div class="sb-mobile-content">
+                  <strong>点上方"目录"打开左侧抽屉</strong><br>背景半透明遮罩，点遮罩或抽屉外关闭
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>宽屏桌面使用 224px，标准桌面 1100–1439px 收至 208px；折叠后保留 64px 轨道，主区拉满；移动端改为绝对定位抽屉 + 遮罩 + <kbd>Esc</kbd> 关闭，宽度 ≤ 280px。
+        </div>
+      </section>
+
+      <!-- 7. Page States -->
+      <section class="state-section" id="sec-page">
+        <header class="state-section__head">
+          <h2><span class="num">7</span>Page 页面状态</h2>
+          <span class="doc-link">loading / empty / error</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label state-card__label--draft">Loading · 骨架脉冲</div>
+              <div class="state-page state-page--loading">
+                <div class="state-page__mark" aria-hidden="true"></div>
+                <h3>正在加载笔记…</h3>
+                <p>预计 1–2 秒。骨架脉冲每 1.4s 循环</p>
+                <div class="skeleton" aria-hidden="true">
+                  <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                </div>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">Empty · 首次使用</div>
+              <div class="state-page">
+                <div class="state-page__mark" aria-hidden="true"></div>
+                <h3>还没有任何笔记</h3>
+                <p>点击下方按钮，开始你的第一条记录</p>
+                <div class="state-page__actions">
+                  <button type="button" class="btn btn--primary">新建笔记</button>
+                  <button type="button" class="btn">导入文件</button>
+                </div>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--danger">Error · 加载失败</div>
+              <div class="state-page state-page--error">
+                <div class="state-page__mark" aria-hidden="true"></div>
+                <h3>笔记列表加载失败</h3>
+                <p>网络异常或服务端无响应（错误码 <code>ERR_NOTE_500</code>）</p>
+                <div class="state-page__actions">
+                  <button type="button" class="btn btn--primary">重新加载</button>
+                  <button type="button" class="btn">查看日志</button>
+                </div>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">Empty · 搜索无果</div>
+              <div class="state-page">
+                <div class="state-page__mark" aria-hidden="true"></div>
+                <h3>没有匹配的笔记</h3>
+                <p>试试清空搜索词，或切换笔记类型</p>
+                <div class="state-page__actions">
+                  <button type="button" class="btn">清除搜索</button>
+                  <button type="button" class="btn btn--primary">新建笔记</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>loading 用 <code>aria-busy</code> + 骨架脉冲；empty 给出主操作 + 次操作；error 给出重试 + 逃生（查看日志、反馈）。主图示方块颜色随状态变化。
+        </div>
+      </section>
+
+      <!-- 8. Save States -->
+      <section class="state-section" id="sec-save">
+        <header class="state-section__head">
+          <h2><span class="num">8</span>Save 保存状态</h2>
+          <span class="doc-link">idle / saving / saved / failed</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label state-card__label--muted">Idle · 静默</div>
+              <div class="btn-row">
+                <span class="save-state save-state--idle">未修改</span>
+                <span class="save-state save-state--idle">最后保存 2 分钟前</span>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--draft">Saving · 旋转</div>
+              <div class="btn-row">
+                <span class="save-state save-state--saving">保存中</span>
+                <span class="save-state save-state--saving">同步中 60%</span>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--done">Saved · 已保存</div>
+              <div class="btn-row">
+                <span class="save-state save-state--saved">已保存</span>
+                <span class="save-state save-state--saved">已同步 10:32</span>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--danger">Failed · 失败横幅</div>
+              <div class="save-banner" role="alert">
+                <span>保存失败：网络中断，已保留本地草稿（3 处未保存修改）</span>
+                <button type="button" class="btn btn--primary" style="background:var(--ink-surface);color:var(--ink-danger);border-color:var(--ink-surface)">重试</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>状态用 <code>save-state--{idle,saving,saved,failed}</code> 类标记；saving 期间 input 仍可编辑（避免误锁）；failed 必须用 <code>role="alert"</code> 横幅 + 重试入口，保留本地草稿并明确提示变更数。
+        </div>
+      </section>
+
+      <!-- 9. Toast -->
+      <section class="state-section" id="sec-toast">
+        <header class="state-section__head">
+          <h2><span class="num">9</span>Toast 瞬时反馈</h2>
+          <span class="doc-link">info / success / warning / error</span>
+        </header>
+        <div class="state-section__body">
+          <div class="state-grid">
+            <div class="state-card">
+              <div class="state-card__label">Info · 默认</div>
+              <div class="toast" role="status">
+                <span>新建笔记 · 操作已完成</span>
+                <button type="button" class="toast__close" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--done">Success</div>
+              <div class="toast toast--success" role="status">
+                <span>已保存到「产品设计」</span>
+                <button type="button" class="toast__close" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--draft">Warning</div>
+              <div class="toast toast--warning" role="status">
+                <span>标题为空，将以「无标题笔记」保存</span>
+                <button type="button" class="toast__close" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
+              </div>
+            </div>
+            <div class="state-card">
+              <div class="state-card__label state-card__label--danger">Error</div>
+              <div class="toast toast--error" role="alert">
+                <span>保存失败：服务端 500</span>
+                <button type="button" class="toast__close" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="state-section__contract">
+          <strong>契约：</strong>默认 2.2s 自动消失，鼠标悬停暂停；info 蓝影、success 绿影、warning 橙影、error 红；<code>role="status"</code> / <code>role="alert"</code> 区分紧急程度；右下堆叠，最新置顶。
+        </div>
+      </section>
+
+      <div class="legend">
+        <span><strong>阅读顺序：</strong>搜索 → 菜单 → Popover → 按钮 → Dialog → 侧栏 → 页面状态 → 保存状态 → Toast</span>
+        <span><strong>设计原则：</strong>暖纸 + 墨线 + 蓝印章 + 零圆角 + 硬影 + 内容优先。所有 hover/active/focus/disabled 都在按钮卡片里就近展示。</span>
+      </div>
+    </main>
+  </div>
+
+  <!-- Dialog 实例：按 variant 切换内容 -->
+  <div class="dialog-backdrop" id="dialogBackdrop" hidden></div>
+  <div class="dialog" id="stateDialog" hidden role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <header class="dialog__header">
+      <h2 class="dialog__title" id="dialogTitle">新建笔记</h2>
+      <button type="button" class="dialog__close" data-action="close-dialog" aria-label="关闭对话框">
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+      </button>
+    </header>
+    <form class="dialog__body" id="stateDialogForm" novalidate>
+      <div class="form-field">
+        <label class="form-label" for="dialogTitleInput">标题 <span class="form-required" aria-hidden="true">*</span></label>
+        <input class="form-input" id="dialogTitleInput" type="text" maxlength="80" placeholder="给笔记起个名字" autocomplete="off">
+        <span class="form-error" id="dialogTitleError" hidden>请输入至少 2 个字符的标题</span>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="dialogFolderInput">文件夹</label>
+        <select class="form-input" id="dialogFolderInput">
+          <option>笔记库</option>
+          <option>产品设计</option>
+          <option>学习</option>
+          <option>灵感</option>
+        </select>
+      </div>
+      <div class="form-field" id="dialogTagsField">
+        <label class="form-label" for="dialogTagsInput">标签</label>
+        <input class="form-input" id="dialogTagsInput" type="text" placeholder="用逗号分隔">
+        <span class="form-hint">多个标签用半角逗号分隔</span>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="dialogTypeInput">类型</label>
+        <input class="form-input" id="dialogTypeInput" type="text" value="Markdown" disabled>
+        <span class="form-hint">所有笔记均为 Markdown 格式</span>
+      </div>
+    </form>
+    <footer class="dialog__footer">
+      <button type="button" class="btn" data-action="close-dialog">取消</button>
+      <button type="submit" class="btn btn--primary" form="stateDialogForm" id="dialogSubmitBtn">创建</button>
+    </footer>
+    <div class="dialog__busy" id="dialogBusy" hidden aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const dialog = document.getElementById('stateDialog');
+    const dialogBackdrop = document.getElementById('dialogBackdrop');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogForm = document.getElementById('stateDialogForm');
+    const dialogTitleInput = document.getElementById('dialogTitleInput');
+    const dialogTitleError = document.getElementById('dialogTitleError');
+    const dialogTagsInput = document.getElementById('dialogTagsInput');
+    const dialogTypeInput = document.getElementById('dialogTypeInput');
+    const dialogSubmitBtn = document.getElementById('dialogSubmitBtn');
+    const dialogBusy = document.getElementById('dialogBusy');
+    const toastStack = document.getElementById('toastStack');
+
+    let lastFocused = null;
+    let currentVariant = 'default';
+
+    function getFocusable() {
+      return Array.from(dialog.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+    }
+
+    function trapFocus(e) {
+      if (e.key !== 'Tab') return;
+      const focusables = getFocusable();
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    function isolateBackground(isolate) {
+      const shell = document.querySelector('.stateboard-shell');
+      if (!shell) return;
+      shell.querySelectorAll('a, button, input, select, textarea, [tabindex]').forEach((el) => {
+        if (dialog.contains(el) || el.closest('.dialog') || el.closest('.popover__panel')) return;
+        if (isolate) {
+          el.dataset.prevAriaHidden = el.getAttribute('aria-hidden') || '';
+          el.setAttribute('aria-hidden', 'true');
+          el.setAttribute('tabindex', '-1');
+        } else {
+          if (el.dataset.prevAriaHidden !== undefined) {
+            el.setAttribute('aria-hidden', el.dataset.prevAriaHidden);
+            delete el.dataset.prevAriaHidden;
+          }
+          if (el.getAttribute('tabindex') === '-1') el.removeAttribute('tabindex');
+        }
+      });
+    }
+
+    function applyVariant(variant) {
+      currentVariant = variant;
+      if (variant === 'error') {
+        dialogTitle.textContent = '新建笔记（错误演示）';
+        dialogTitleInput.value = '复';
+        dialogTitleInput.classList.add('is-invalid');
+        dialogTitleError.hidden = false;
+        dialogTagsInput.value = '';
+        dialogTagsInput.disabled = false;
+        dialogTypeInput.value = '富文本';
+        dialogTypeInput.disabled = false;
+        dialogSubmitBtn.disabled = false;
+        dialogSubmitBtn.textContent = '创建';
+        dialogBusy.hidden = true;
+      } else if (variant === 'disabled') {
+        dialogTitle.textContent = '新建笔记（禁用字段演示）';
+        dialogTitleInput.value = '一份关于排序策略的草稿';
+        dialogTitleInput.classList.remove('is-invalid');
+        dialogTitleError.hidden = true;
+        dialogTagsInput.value = 'AI, 设计';
+        dialogTagsInput.disabled = true;
+        dialogTypeInput.value = 'Markdown';
+        dialogTypeInput.disabled = true;
+        dialogSubmitBtn.disabled = true;
+        dialogSubmitBtn.textContent = '创建';
+        dialogBusy.hidden = true;
+      } else if (variant === 'submitting') {
+        dialogTitle.textContent = '新建笔记（提交中演示）';
+        dialogTitleInput.value = '复盘：召回策略对比';
+        dialogTitleInput.classList.remove('is-invalid');
+        dialogTitleError.hidden = true;
+        dialogTagsInput.value = 'AI, 检索';
+        dialogTagsInput.disabled = false;
+        dialogTypeInput.value = 'Markdown';
+        dialogTypeInput.disabled = true;
+        dialogSubmitBtn.disabled = true;
+        dialogSubmitBtn.textContent = '创建中…';
+        dialogBusy.hidden = false;
+      } else {
+        dialogTitle.textContent = '新建笔记';
+        dialogTitleInput.value = '';
+        dialogTitleInput.classList.remove('is-invalid');
+        dialogTitleError.hidden = true;
+        dialogTagsInput.value = '';
+        dialogTagsInput.disabled = false;
+        dialogTypeInput.value = 'Markdown';
+        dialogTypeInput.disabled = true;
+        dialogSubmitBtn.disabled = false;
+        dialogSubmitBtn.textContent = '创建';
+        dialogBusy.hidden = true;
+      }
+    }
+
+    function openDialog(variant) {
+      lastFocused = document.activeElement;
+      applyVariant(variant || 'default');
+      dialogBackdrop.hidden = false;
+      dialog.hidden = false;
+      void dialogBackdrop.offsetHeight;
+      void dialog.offsetHeight;
+      dialogBackdrop.classList.add('is-open');
+      dialog.classList.add('is-open');
+      isolateBackground(true);
+      requestAnimationFrame(() => {
+        const target = (variant === 'error') ? dialogTitleInput : getFocusable()[0];
+        if (target) target.focus();
+      });
+      document.addEventListener('keydown', trapFocus, true);
+    }
+
+    function closeDialog() {
+      dialog.classList.remove('is-open');
+      dialogBackdrop.classList.remove('is-open');
+      document.removeEventListener('keydown', trapFocus, true);
+      window.setTimeout(() => {
+        dialog.hidden = true;
+        dialogBackdrop.hidden = true;
+      }, 200);
+      isolateBackground(false);
+      if (lastFocused && typeof lastFocused.focus === 'function') {
+        lastFocused.focus();
+      }
+      lastFocused = null;
+    }
+
+    document.addEventListener('click', (e) => {
+      const opener = e.target.closest('[data-action="open-dialog"]');
+      if (opener) {
+        e.preventDefault();
+        openDialog(opener.dataset.dialogVariant || 'default');
+        return;
+      }
+      if (e.target.closest('[data-action="close-dialog"]')) {
+        e.preventDefault();
+        closeDialog();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !dialog.hidden) {
+        e.preventDefault();
+        closeDialog();
+      }
+    });
+
+    dialogBackdrop.addEventListener('click', closeDialog);
+
+    dialogForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (currentVariant === 'disabled' || currentVariant === 'submitting') return;
+      const v = (dialogTitleInput.value || '').trim();
+      if (v.length < 2 || currentVariant === 'error') {
+        dialogTitleInput.classList.add('is-invalid');
+        dialogTitleError.hidden = false;
+        dialogTitleInput.focus();
+        return;
+      }
+      pushToast('已创建 · 「' + v + '」', 'success');
+      closeDialog();
+    });
+
+    dialogTitleInput.addEventListener('input', () => {
+      if ((dialogTitleInput.value || '').trim().length >= 2) {
+        dialogTitleInput.classList.remove('is-invalid');
+        dialogTitleError.hidden = true;
+      }
+    });
+
+    // Popover
+    document.querySelectorAll('.popover__btn').forEach((btn) => {
+      const id = btn.dataset.popover;
+      const panel = document.getElementById(id);
+      if (!panel) return;
+      const close = () => {
+        panel.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onDocClick, true);
+        document.removeEventListener('keydown', onKey, true);
+      };
+      const onDocClick = (e) => {
+        if (panel.contains(e.target) || btn.contains(e.target)) return;
+        close();
+      };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = panel.hidden;
+        panel.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        if (open) {
+          document.addEventListener('click', onDocClick, true);
+          document.addEventListener('keydown', onKey, true);
+          requestAnimationFrame(() => {
+            const r = panel.getBoundingClientRect();
+            if (r.bottom > window.innerHeight - 12) {
+              panel.style.top = 'auto';
+              panel.style.bottom = 'calc(100% + 6px)';
+            }
+            const focusable = panel.querySelector('button');
+            if (focusable) focusable.focus();
+          });
+        } else {
+          close();
+        }
+      });
+    });
+
+    // Sidebar 折叠
+    const sbDemo = document.getElementById('sbDemo');
+    document.getElementById('sbCollapse').addEventListener('click', () => sbDemo.classList.add('is-collapsed'));
+    document.getElementById('sbExpand').addEventListener('click', () => sbDemo.classList.remove('is-collapsed'));
+
+    // 移动抽屉
+    const sbMobileTrigger = document.getElementById('sbMobileTrigger');
+    const sbMobileDrawer = document.getElementById('sbMobileDrawer');
+    const sbMobileBackdrop = document.getElementById('sbMobileBackdrop');
+    function openMobileDrawer() {
+      sbMobileDrawer.classList.add('is-open');
+      sbMobileBackdrop.classList.add('is-open');
+    }
+    function closeMobileDrawer() {
+      sbMobileDrawer.classList.remove('is-open');
+      sbMobileBackdrop.classList.remove('is-open');
+    }
+    sbMobileTrigger.addEventListener('click', openMobileDrawer);
+    sbMobileBackdrop.addEventListener('click', closeMobileDrawer);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sbMobileDrawer.classList.contains('is-open')) {
+        closeMobileDrawer();
+      }
+    });
+
+    // Toast
+    function pushToast(message, tone) {
+      const t = document.createElement('div');
+      t.className = 'toast' + (tone ? ' toast--' + tone : '');
+      t.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+      const span = document.createElement('span');
+      span.textContent = message;
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'toast__close';
+      close.setAttribute('aria-label', '关闭通知');
+      close.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>';
+      close.addEventListener('click', () => t.remove());
+      t.appendChild(span);
+      t.appendChild(close);
+      toastStack.appendChild(t);
+      window.setTimeout(() => t.remove(), 2200);
+    }
+    window.__stateboard = { pushToast };
+  })();
+  </script>
+</body>
+</html>
