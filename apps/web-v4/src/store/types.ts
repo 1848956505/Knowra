@@ -1,3 +1,4 @@
+import type { KnowledgeSlice } from './slices/knowledgeSlice';
 import type {
   WorkspaceDataMode,
   WorkspaceServerData,
@@ -9,6 +10,7 @@ import type {
   Annotation,
   Note,
   NoteVersion,
+  NoteVersionPage,
   NoteQueryInput,
   NoteQueryPage,
   CreateAnnotationInput,
@@ -52,7 +54,7 @@ export interface WorkspaceSlice {
   createFolder(parentId: string | null, name: string): Promise<string>;
   renameNote(noteId: string, title: string): Promise<void>;
   loadNoteContent(noteId: string): Promise<void>;
-  saveNoteContent(noteId: string, rawMarkdown: string, expectedUpdatedAt?: string): Promise<Note>;
+  saveNoteContent(noteId: string, rawMarkdown: string, expectedUpdatedAt?: string, baseMarkdown?: string): Promise<Note>;
   deleteNote(noteId: string): Promise<void>;
   restoreNote(noteId: string): Promise<void>;
   permanentlyDeleteNote(noteId: string): Promise<void>;
@@ -84,12 +86,15 @@ export interface WorkspaceSlice {
   createAnnotationExclusion(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<AnnotationExclusionResult>;
   deleteAnnotationExclusion(annotationId: string, exclusionId: string, expectedRevision: number): Promise<AnnotationExclusionResult>;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
+  listNoteVersionPage(noteId: string, options?: { limit?: number; cursor?: string }): Promise<NoteVersionPage>;
+  saveNoteVersionAs(noteId: string, versionId: string): Promise<string>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   organizeNote(noteId: string, input: { folderId: string | null; status: string }): Promise<void>;
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
   uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
   renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
   deleteNoteAttachment(attachmentId: string): Promise<void>;
+  moveEntry(kind: 'note' | 'folder', id: string, parentId: string | null): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
   deleteFolder(folderId: string): Promise<void>;
   emptyRecycleBin(): Promise<number>;
@@ -146,7 +151,8 @@ export interface NotesIndexSlice {
 
 export interface StatusSlice {
   editorHasLocalChanges: boolean;
-  setEditorHasLocalChanges(value: boolean): void;
+  editorSaveError: string | null;
+  setEditorHasLocalChanges(value: boolean, error?: string | null): void;
   statusMessage: string;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   saveError: string | null;
@@ -156,4 +162,4 @@ export interface StatusSlice {
   failSave(error: unknown): void;
 }
 
-export type AppStore = WorkspaceSlice & NavigationSlice & NotesIndexSlice & StatusSlice;
+export type AppStore = WorkspaceSlice & NavigationSlice & NotesIndexSlice & StatusSlice & KnowledgeSlice;

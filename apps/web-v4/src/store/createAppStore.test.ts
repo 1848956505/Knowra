@@ -8,6 +8,39 @@ import {
 import { createAppStore } from './createAppStore';
 
 describe('single V4 application store', () => {
+  it('saves a historical body as a separate note without overwriting the current body', async () => {
+    const api = createApi();
+    vi.mocked(api.getNoteVersion).mockResolvedValue({ id: 'old-version', noteId: 'live-note', content: '历史正文', contentHash: 'a'.repeat(64), createdAt: '2026-09-01T00:00:00Z', createdBy: 'user' });
+    const store = createAppStore({ api, cacheKey: 'version-copy', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    await expect(store.getState().saveNoteVersionAs('live-note', 'old-version')).resolves.toBe('created-note');
+    expect(api.createNote).toHaveBeenCalledWith(expect.objectContaining({ title: 'Live · 历史副本', rawMarkdown: '历史正文', spaceId: 'space-live', folderId: null, status: 'draft' }));
+    expect(api.updateNote).not.toHaveBeenCalled();
+    store.setState({ dataMode: 'cache' });
+    await expect(store.getState().saveNoteVersionAs('live-note', 'old-version')).rejects.toThrow();
+    expect(api.createNote).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a historical copy belonging to another note', async () => {
+    const api = createApi();
+    vi.mocked(api.getNoteVersion).mockResolvedValue({ id: 'old-version', noteId: 'other-note', content: '其他正文', contentHash: 'a'.repeat(64), createdAt: '2026-09-01T00:00:00Z', createdBy: 'user' });
+    const store = createAppStore({ api, cacheKey: 'version-copy-mismatch', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    await expect(store.getState().saveNoteVersionAs('live-note', 'old-version')).rejects.toThrow('历史版本不属于当前笔记');
+    expect(api.createNote).not.toHaveBeenCalled();
+  });
+  it('rejects unsupported desktop writes without sending requests or marking saved content as failed', async () => {
+    const api = createApi();
+    const store = createAppStore({ api, cacheKey: 'desktop-capabilities', persistenceMode: 'desktop-local', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    const before = store.getState().saveState;
+    await expect(store.getState().permanentlyDeleteNote('live-note')).rejects.toThrow('桌面端暂不支持彻底删除');
+    await expect(store.getState().emptyRecycleBin()).rejects.toThrow('桌面端暂不支持彻底删除');
+    await expect(store.getState().createAnalysisScope({ spaceId: 'space-live', mode: 'all', previewHash: 'hash', idempotencyKey: 'key' })).rejects.toThrow('范围快照暂不支持离线同步');
+    expect(api.permanentlyDeleteNote).not.toHaveBeenCalled();
+    expect(api.emptyRecycleBin).not.toHaveBeenCalled();
+    expect(store.getState().saveState).toBe(before);
+  });
   it('exposes serializable save failure state', () => {
     const store = createAppStore({
       api: createApi(),
@@ -360,6 +393,42 @@ describe('single V4 application store', () => {
       updatedAt: '2026-08-31T01:00:00.000Z'
     });
     expect(api.updateNote).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('正文冲突仅在重新读取的正文未变时重试，changed=%s', async (changed) => {
+    const api = createApi();
+    const note = { id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [],
+      rawMarkdown: '原文', contentLoaded: true, favorite: false, deleted: false,
+      updatedAt: '2026-08-31T01:00:00.000Z' };
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({ folderTree: [], notes: [note], tags: [] });
+    const conflict = Object.assign(new Error('版本冲突'), { code: 'NOTE_UPDATE_CONFLICT' });
+    vi.mocked(api.updateNote).mockRejectedValueOnce(conflict).mockResolvedValue({ ...note, rawMarkdown: '草稿' });
+    vi.mocked(api.getNote).mockResolvedValue({ ...note, rawMarkdown: changed ? '别人改了正文' : '原文', updatedAt: '2026-08-31T01:01:00.000Z' });
+    const store = createAppStore({ api, cacheKey: 'retry-' + changed, mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    const save = store.getState().saveNoteContent('live-note', '草稿', note.updatedAt);
+    if (changed) {
+      await expect(save).rejects.toBe(conflict);
+      expect(api.updateNote).toHaveBeenCalledTimes(1);
+    } else {
+      await expect(save).resolves.toMatchObject({ rawMarkdown: '草稿' });
+      expect(api.updateNote).toHaveBeenLastCalledWith('live-note', { rawMarkdown: '草稿', expectedUpdatedAt: '2026-08-31T01:01:00.000Z' });
+    }
+  });
+
+  it.each(['base', 'draft', 'other'])('用编辑器明确基线核对冲突，最新正文=%s', async (latestText) => {
+    const api = createApi();
+    const note = { id: 'live-note', title: 'Live', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '刷新后的store正文', contentLoaded: true, favorite: false, deleted: false, updatedAt: 'v2' };
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({ folderTree: [], notes: [note], tags: [] });
+    const conflict = Object.assign(new Error('冲突'), { code: 'NOTE_UPDATE_CONFLICT' });
+    vi.mocked(api.updateNote).mockRejectedValueOnce(conflict).mockResolvedValue({ ...note, rawMarkdown: 'draft', updatedAt: 'v4' });
+    vi.mocked(api.getNote).mockResolvedValue({ ...note, rawMarkdown: latestText, updatedAt: 'v3' });
+    const store = createAppStore({ api, cacheKey: 'explicit-' + latestText, mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    const saved = store.getState().saveNoteContent('live-note', 'draft', 'v1', 'base');
+    if (latestText === 'other') await expect(saved).rejects.toBe(conflict);
+    else await expect(saved).resolves.toMatchObject({ rawMarkdown: 'draft' });
+    expect(api.updateNote).toHaveBeenCalledTimes(latestText === 'base' ? 2 : 1);
   });
 
   it('serializes saves for the same note so an older response cannot overwrite newer text', async () => {

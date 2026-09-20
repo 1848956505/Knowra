@@ -27,6 +27,7 @@ export interface StatusBarProps {
   charCount?: number;
   savedAt?: string | null;
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
+  saveError?: string | null;
   dataMode: WorkspaceDataMode;
   persistenceMode?: 'remote' | 'desktop-local';
   /** 真实数据 / 缓存 / 本地恢复 之外的额外业务描述（如"重试"动作）。 */
@@ -35,7 +36,7 @@ export interface StatusBarProps {
 }
 
 export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function StatusBar(
-  { path, charCount, savedAt, saveState, dataMode, persistenceMode, dataModeNote, panels = [] },
+  { path, charCount, savedAt, saveState, saveError, dataMode, persistenceMode, dataModeNote, panels = [] },
   ref
 ) {
   const modeMeta = persistenceMode === 'desktop-local' && dataMode === 'api'
@@ -57,7 +58,7 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
       ) : null}
 
       {saveState && saveState !== 'idle' ? (
-        <span className={cx(styles.item, styles.itemSaved)} aria-live="polite">
+        <span className={cx(styles.item, styles.itemSaved)} aria-live="polite" title={saveState === 'error' ? saveError ?? undefined : undefined}>
           {saveState === 'saving' ? '保存中…' : saveState === 'error' ? '保存失败'
             : persistenceMode === 'desktop-local' ? '已保存到本机' : '已保存'}
           {saveState === 'saved' && savedAt ? (

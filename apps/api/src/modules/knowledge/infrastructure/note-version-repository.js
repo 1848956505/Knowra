@@ -1,4 +1,5 @@
 import { createAppError } from '../../../errors/app-error.js';
+import { versionPage } from '../domain/note-version-page.js';
 
 export function createInMemoryNoteVersionRepository(options = {}) {
   const records = options.records ?? [];
@@ -30,6 +31,21 @@ export function createInMemoryNoteVersionRepository(options = {}) {
       return records
         .filter((item) => !noteId || item.noteId === noteId)
         .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    },
+    listPage({ noteId, limit, after, currentContentHash }) {
+      const hashes = new Set();
+      const ordered = records.filter((item) => item.noteId === noteId)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt) || b.id.localeCompare(a.id))
+        .filter((item) => {
+          if (hashes.has(item.contentHash)) return false;
+          hashes.add(item.contentHash);
+          return true;
+        });
+      const items = after ? ordered.filter((item) => Date.parse(item.createdAt) < Date.parse(after.createdAt)
+        || (Date.parse(item.createdAt) === Date.parse(after.createdAt) && item.id.localeCompare(after.id) < 0)) : ordered;
+      return versionPage(items.slice(0, limit + 1), {
+        limit, total: ordered.length, currentVersionId: ordered.find((item) => item.contentHash === currentContentHash)?.id ?? null
+      });
     },
     deleteByNoteIds(noteIds) {
       const ids = new Set(noteIds);

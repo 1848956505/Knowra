@@ -48,3 +48,19 @@ describe('桌面退出保存', () => {
     await prepare(); cancel();
   });
 });
+
+describe('本机备份与恢复前保存', () => {
+  it('正文保存失败时可备份恢复草稿，但严格恢复仍拒绝', async () => {
+    const { flushBeforeWorkspaceBackup, flushBeforeWorkspaceRestore, registerDesktopSave } = await import('./desktopLifecycle');
+    const calls: string[] = [];
+    registerDesktopSave(async mode => { calls.push(mode ?? 'save'); if (mode !== 'recovery') throw new Error('保存冲突'); });
+    await expect(flushBeforeWorkspaceBackup()).resolves.toEqual({ hasUnsavedDrafts: true });
+    expect(calls).toEqual(['save', 'recovery']);
+    await expect(flushBeforeWorkspaceRestore()).rejects.toThrow('保存冲突');
+  });
+  it('恢复草稿落盘也失败时不能宣称备份已包含未保存正文', async () => {
+    const { flushBeforeWorkspaceBackup, registerDesktopSave } = await import('./desktopLifecycle');
+    registerDesktopSave(async mode => { throw new Error(mode === 'recovery' ? '草稿写入失败' : '保存失败'); });
+    await expect(flushBeforeWorkspaceBackup()).rejects.toThrow('草稿写入失败');
+  });
+});

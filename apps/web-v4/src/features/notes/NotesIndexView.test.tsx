@@ -171,6 +171,22 @@ describe('Notes index skeleton', () => {
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(7);
   });
 
+  it('explains unavailable desktop deletion before an action and still permits restoring', async () => {
+    const user = userEvent.setup();
+    const { api } = renderWithStore(<><NotesContextSidebar /><NotesIndexView path={[]} /></>, { scope: 'trash', persistenceMode: 'desktop-local' });
+    expect(screen.getByText(/桌面端暂不支持彻底删除/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '已删除的回收站操作' }));
+    const deletion = screen.getByRole('menuitem', { name: '彻底删除（请在网页版操作）' });
+    expect(deletion).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('menuitem', { name: '恢复笔记' })).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(deletion);
+    expect(api.permanentlyDeleteNote).not.toHaveBeenCalled();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: '笔记更多操作' }));
+    expect(screen.getByRole('menuitem', { name: '清空回收站（请在网页版操作）' })).toHaveAttribute('aria-disabled', 'true');
+    expect(api.emptyRecycleBin).not.toHaveBeenCalled();
+  });
+
   it('loads server batches incrementally without rendering every icon at once', async () => {
     const user = userEvent.setup();
     const { api } = renderWithStore(<NotesIndexView path={[]} />, { extraNotes: 35 });
@@ -214,13 +230,14 @@ describe('Notes index skeleton', () => {
   });
 });
 
-function renderWithStore(ui: ReactNode, options: { scope?: 'trash'; extraNotes?: number } = {}): RenderResult & {
+function renderWithStore(ui: ReactNode, options: { scope?: 'trash'; extraNotes?: number; persistenceMode?: 'remote' | 'desktop-local' } = {}): RenderResult & {
   api: WorkspaceApi;
   store: ReturnType<typeof createAppStore>;
 } {
   const api = createApi();
   const store = createAppStore({
     api,
+    persistenceMode: options.persistenceMode,
     cacheKey: 'notes-index-test',
     mockSnapshot: createEmptyWorkspaceSnapshot()
   });

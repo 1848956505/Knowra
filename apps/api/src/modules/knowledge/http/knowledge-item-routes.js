@@ -38,19 +38,19 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
       return true;
     }
     if (request.method === 'POST' && action === 'confirm') {
-      sendJson(response, 200, { data: await knowledge.confirmKnowledgeItem({ id }) });
+      sendJson(response, 200, { data: await knowledge.confirmKnowledgeItem({ id }, await parseBody(request)) });
       return true;
     }
     if (request.method === 'POST' && action === 'needs-revision') {
-      sendJson(response, 200, { data: await knowledge.markKnowledgeItemNeedsRevision({ id }) });
+      sendJson(response, 200, { data: await knowledge.markKnowledgeItemNeedsRevision({ id }, await parseBody(request)) });
       return true;
     }
     if (request.method === 'POST' && action === 'archive') {
-      sendJson(response, 200, { data: await knowledge.archiveKnowledgeItem({ id }) });
+      sendJson(response, 200, { data: await knowledge.archiveKnowledgeItem({ id }, await parseBody(request)) });
       return true;
     }
     if (request.method === 'POST' && action === 'restore') {
-      sendJson(response, 200, { data: await knowledge.restoreKnowledgeItem({ id }) });
+      sendJson(response, 200, { data: await knowledge.restoreKnowledgeItem({ id }, await parseBody(request)) });
       return true;
     }
     return false;

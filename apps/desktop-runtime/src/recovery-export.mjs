@@ -3,16 +3,19 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { lockDataDirectory } from './data-directory.mjs';
+import { readActiveDirectory } from './restore-directory.mjs';
+import { copyRecoveryDraftFiles } from './recovery-draft-files.mjs';
 
 /** 不依赖应用 schema 的只读救援导出；必须先关闭运行服务。 */
 export async function exportLocalRecovery(dataDirectory, destination) {
   if (!path.isAbsolute(dataDirectory) || !path.isAbsolute(destination)) throw new Error('数据目录和导出目录必须是绝对路径。');
-  if (!fs.existsSync(path.join(dataDirectory, 'local.sqlite'))) throw new Error('本地数据库不存在。');
   if (fs.existsSync(destination)) throw new Error('导出目录已存在，禁止覆盖。');
   const release = lockDataDirectory(dataDirectory);
   let db; let created = false;
   try {
-    db = new DatabaseSync(path.join(dataDirectory, 'local.sqlite'), { readOnly: true });
+    const activeDirectory = readActiveDirectory(dataDirectory);
+    if (!fs.existsSync(path.join(activeDirectory, 'local.sqlite'))) throw new Error('本地数据库不存在。');
+    db = new DatabaseSync(path.join(activeDirectory, 'local.sqlite'), { readOnly: true });
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.mkdirSync(destination, { mode: 0o700 }); created = true;
     await backup(db, path.join(destination, 'local.sqlite'));
@@ -20,8 +23,10 @@ export async function exportLocalRecovery(dataDirectory, destination) {
     const payload = { schemaVersion: db.prepare('PRAGMA user_version').get().user_version, exportedAt: new Date().toISOString(), tables: {} };
     for (const table of ['metadata', 'entities', 'sync_outbox', 'sync_uploads', 'sync_conflicts', 'sync_recovery']) if (tables.has(table)) payload.tables[table] = db.prepare(`SELECT * FROM ${table}`).all();
     fs.writeFileSync(path.join(destination, 'recovery.json'), JSON.stringify(payload, null, 2), { mode: 0o600 });
-    const uploads = path.join(dataDirectory, 'uploads');
+    const uploads = path.join(activeDirectory, 'uploads');
     if (fs.existsSync(uploads)) fs.cpSync(uploads, path.join(destination, 'uploads'), { recursive: true, dereference: false });
+    // 同时保留当前原生草稿和恢复来源的草稿；救援复制不要求草稿可解析。
+    copyRecoveryDraftFiles(activeDirectory, destination, dataDirectory);
     function inventory(relative = '') {
       return fs.readdirSync(path.join(destination, relative), { withFileTypes: true }).flatMap(entry => {
         if (entry.isSymbolicLink()) throw new Error('救援导出不接受符号链接。');

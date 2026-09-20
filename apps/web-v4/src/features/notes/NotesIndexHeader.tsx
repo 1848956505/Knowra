@@ -1,3 +1,5 @@
+import { CreateEntryMenu } from './CreateEntryMenu';
+import { PressableButton } from '../../components/ui';
 import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
 import { UploadIcon, ChevronRightIcon, PlusIcon } from '../../shell/icons';
@@ -6,7 +8,7 @@ import styles from './NotesIndexView.module.css';
 
 export function NotesIndexHeader({ path, canWrite, isRecycleView, selectionMode, onToggleSelection, onImport, onCreate }: {
   path: PathSegment[]; canWrite: boolean; isRecycleView: boolean; selectionMode: boolean;
-  onToggleSelection(): void; onImport(): void; onCreate(): void;
+  onToggleSelection(): void; onImport(): void; onCreate(mode: 'note' | 'folder'): void;
 }) {
   const history = useLocation();
   return <header className={styles.header}>
@@ -22,7 +24,7 @@ export function NotesIndexHeader({ path, canWrite, isRecycleView, selectionMode,
     <div className={styles.actions} aria-label="笔记操作">
       <button type="button" className={styles.button} disabled={!canWrite || isRecycleView} aria-pressed={selectionMode} onClick={onToggleSelection}>批量管理</button>
       <button type="button" className={styles.button} disabled={!canWrite || isRecycleView} onClick={onImport}><UploadIcon size={16} />导入</button>
-      <button type="button" className={`${styles.button} ${styles.primary}`} disabled={!canWrite || isRecycleView} onClick={onCreate}><PlusIcon size={17} />新建笔记</button>
+      <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate}><PressableButton className={`${styles.button} ${styles.primary}`} isDisabled={!canWrite || isRecycleView}><PlusIcon size={17} />新建</PressableButton></CreateEntryMenu>
     </div>
   </header>;
 }

@@ -2,6 +2,38 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiRequestError, createApiClient, createWorkspaceApi } from '../src/index.js';
 
 describe('framework-neutral API clients', () => {
+  it('keeps knowledge review mutations and source detail on the real API contracts', async () => {
+    const item = { id: 'knowledge/1', updatedAt: '2026-09-21T00:00:00.000Z' };
+    const requestJson = vi.fn()
+      .mockResolvedValueOnce({ data: [item] })
+      .mockResolvedValueOnce({ data: item })
+      .mockResolvedValueOnce({ data: { item, evidence: [] } })
+      .mockResolvedValueOnce({ data: item })
+      .mockResolvedValueOnce({ data: item })
+      .mockResolvedValueOnce({ data: item })
+      .mockResolvedValueOnce({ data: item })
+      .mockResolvedValueOnce({ data: [{ id: 'evidence', quoteText: '真实来源' }] });
+    const api = createWorkspaceApi({ requestJson });
+    await expect(api.listKnowledgeItems!({ query: '核心 陈述', includeArchived: false })).resolves.toEqual([item]);
+    await expect(api.getKnowledgeItem!(item.id)).resolves.toEqual(item);
+    const input = { title: '候选', canonicalStatement: '知识内容', sourceMode: 'annotation' as const, evidence: [{ sourceType: 'annotation' as const, annotationId: 'annotation-1' }] };
+    await expect(api.createKnowledgeCandidate!(input)).resolves.toEqual({ item, evidence: [] });
+    const baseline = { expectedUpdatedAt: item.updatedAt };
+    await api.updateKnowledgeItem!(item.id, { title: '修改', ...baseline });
+    await api.confirmKnowledgeItem!(item.id, baseline);
+    await api.archiveKnowledgeItem!(item.id, baseline);
+    await api.restoreKnowledgeItem!(item.id, baseline);
+    await expect(api.listKnowledgeEvidence!(item.id)).resolves.toEqual([{ id: 'evidence', quoteText: '真实来源' }]);
+    expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/items?query=%E6%A0%B8%E5%BF%83%20%E9%99%88%E8%BF%B0&includeArchived=false');
+    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/items/knowledge%2F1');
+    expect(requestJson).toHaveBeenNthCalledWith(3, '/api/knowledge/items', { method: 'POST', body: JSON.stringify(input) });
+    expect(requestJson).toHaveBeenNthCalledWith(4, '/api/knowledge/items/knowledge%2F1', { method: 'PATCH', body: JSON.stringify({ title: '修改', ...baseline }) });
+    for (const [index, action] of ['confirm', 'archive', 'restore'].entries()) {
+      expect(requestJson).toHaveBeenNthCalledWith(index + 5, `/api/knowledge/items/knowledge%2F1/${action}`, { method: 'POST', body: JSON.stringify(baseline) });
+    }
+    expect(requestJson).toHaveBeenNthCalledWith(8, '/api/knowledge/items/knowledge%2F1/evidence');
+  });
+
   it('preserves the response envelope and friendly API errors', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: false,
@@ -151,6 +183,14 @@ describe('framework-neutral API clients', () => {
       '/api/knowledge/notes/recycle-bin?spaceId=space%2F1',
       { method: 'DELETE' }
     );
+  });
+
+  it('requests version summaries with encoded cursor pagination', async () => {
+    const page = { items: [], total: 0, currentVersionId: null, nextCursor: null };
+    const requestJson = vi.fn().mockResolvedValue({ data: page });
+    const api = createWorkspaceApi({ requestJson });
+    await expect(api.listNoteVersionPage!('note/1', { limit: 20, cursor: 'cursor/value' })).resolves.toEqual(page);
+    expect(requestJson).toHaveBeenCalledWith('/api/knowledge/notes/note%2F1/versions?limit=20&cursor=cursor%2Fvalue');
   });
 
   it('connects recycle-bin recovery, note tags and version history contracts', async () => {

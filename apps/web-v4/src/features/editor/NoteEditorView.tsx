@@ -8,6 +8,8 @@ import {
   type Folder,
   type Note,
   type NoteVersion,
+  type NoteVersionPage,
+  type NoteVersionPageOptions,
   type Tag,
   type TagColor,
   type TagGroup,
@@ -22,7 +24,7 @@ import {
 import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { exportElementToPdf } from '../../browser/exportPdf';
-import { Button } from '../../components/ui';
+import { Button, Dialog, DialogBody, DialogFooter, DialogClose } from '../../components/ui';
 import { NoteIcon } from '../../shell/icons';
 import { EditorDocumentHeader, type EditorDocumentHeaderHandle } from './EditorDocumentHeader';
 import { EditorContextMenu } from './EditorContextMenu';
@@ -46,6 +48,8 @@ import {
   readEditorScrollPositions,
   writeEditorScrollPositions
 } from './editorScrollPosition';
+import { noteDraftRecovery } from './noteDraftRecovery';
+import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
 import { useEditorInspectorData } from './useEditorInspectorData';
 import { buildCreateAnnotationInput, buildUpdateAnnotationAnchorInput } from './annotationPayloads';
@@ -85,8 +89,8 @@ export interface NoteEditorViewProps {
   onCreateFolder(): void;
   onImportMarkdown(): void;
   onRenameNote(title: string): Promise<void>;
-  onSaveMarkdown(noteId: string, markdown: string, expectedUpdatedAt?: string): Promise<Note>;
-  onDraftStateChange?(hasLocalChanges: boolean): void;
+  onSaveMarkdown(noteId: string, markdown: string, expectedUpdatedAt?: string, baseMarkdown?: string): Promise<Note>;
+  onDraftStateChange?(hasLocalChanges: boolean, error?: string | null): void;
   extendedWritesEnabled?: boolean;
   onSaveAs(): Promise<void>;
   onDeleteNote(): void;
@@ -98,6 +102,8 @@ export interface NoteEditorViewProps {
   onOpenTagManager?(): void;
   onOpenTag?(tagId: string): void;
   onListVersions(noteId: string): Promise<NoteVersion[]>;
+  onListVersionPage?(noteId: string, options?: NoteVersionPageOptions): Promise<NoteVersionPage>;
+  onSaveVersionAs?(version: NoteVersion): Promise<void>;
   onGetVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   onOrganizeNote(input: { folderId: string | null; status: string }): Promise<void>;
   onListAttachments(noteId: string): Promise<Attachment[]>;
@@ -113,6 +119,9 @@ export interface NoteEditorViewProps {
   onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
   onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
+  onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
+  onOpenKnowledgeItem?(itemId: string): void;
+  knowledgeWriteDisabledReason?: string;
   onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
   onCreateAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<{ annotation: Annotation }>;
@@ -161,6 +170,8 @@ export function NoteEditorView({
   onOpenTagManager,
   onOpenTag,
   onListVersions,
+  onListVersionPage,
+  onSaveVersionAs,
   onGetVersion,
   onOrganizeNote,
   onListAttachments,
@@ -176,6 +187,9 @@ export function NoteEditorView({
   onUpdateAnnotation,
   onPreviewAnnotation,
   onGetAnnotationKnowledgeLinks,
+  onCreateKnowledgeCandidate,
+  onOpenKnowledgeItem,
+  knowledgeWriteDisabledReason,
   onPreviewAnalysisScope,
   onCreateAnalysisScope,
   onCreateAnnotationExclusion,
@@ -190,6 +204,8 @@ export function NoteEditorView({
   const toolbarAnchorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorCommandTarget>(null);
+  const versionWriteStateRef = useRef({ noteId: note?.id, canWrite });
+  versionWriteStateRef.current = { noteId: note?.id, canWrite };
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingScrollRestoreRef = useRef<string | null>(null);
@@ -200,29 +216,30 @@ export function NoteEditorView({
   const [documentEdge, setDocumentEdge] = useState<number | null>(null);
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
   const [repairDialogOpen, setRepairDialogOpen] = useState(false);
+  const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
   const [scrollPositions] = useState(readEditorScrollPositions);
   const autosave = useNoteAutosave({
     noteId: note?.id ?? 'missing-note',
-    draftScope: note?.spaceId,
+    draftScope: getNoteDraftScope(note?.spaceId),
     remoteMarkdown: note?.rawMarkdown ?? '',
     remoteUpdatedAt: note?.updatedAt,
     canWrite: Boolean(note && canWrite),
     onSave: onSaveMarkdown
   });
-  useEffect(() => registerDesktopSave(async () => {
+  useEffect(() => registerDesktopSave(async (mode) => {
     const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown();
     if (markdown !== undefined && markdown !== autosave.getLatestMarkdown()) {
       autosave.updateDraft(markdown, { immediate: true });
     }
-    if (markdown !== undefined && (autosave.hasLocalChanges || markdown !== note?.rawMarkdown)) {
+    if (mode !== 'recovery' && markdown !== undefined && (autosave.hasLocalChanges || markdown !== note?.rawMarkdown)) {
       await autosave.saveNow(markdown);
     }
   }, 0), [autosave, note?.rawMarkdown, view.showSourceEditor]);
 
   const draftMarkdown = autosave.draftMarkdown;
   useEffect(() => {
-    onDraftStateChange?.(autosave.hasLocalChanges);
-  }, [autosave.hasLocalChanges, onDraftStateChange]);
+    onDraftStateChange?.(autosave.hasLocalChanges, autosave.saveError);
+  }, [autosave.hasLocalChanges, autosave.saveError, onDraftStateChange]);
   useEffect(() => () => onDraftStateChange?.(false), [onDraftStateChange]);
   const {
     attachments, setAttachments, attachmentsLoading,
@@ -636,12 +653,13 @@ export function NoteEditorView({
                 onFileStatus(`已修复 ${report.total} 处异常格式，可使用撤销恢复`);
               }}
             />
-            {autosave.hasConflict ? (
+            {autosave.saveError || autosave.hasConflict ? (
               <div className={styles.saveConflict} role="alert">
                 <div>
-                  <strong>检测到较新的远端版本，自动保存已暂停</strong>
-                  <p>本地草稿已保留，切换页面后可恢复。请导出草稿并与远端正文人工合并，系统不会自动覆盖任一版本。</p>
+                  <strong>正文尚未保存</strong>
+                  <p>{autosave.saveError ?? '请重试保存或导出草稿核对，系统不会自动覆盖冲突版本。'}</p>
                 </div>
+                <Button variant="default" onPress={() => { void autosave.saveNow().catch(error => onFileStatus(error instanceof Error ? error.message : '保存失败')); }}>重试保存</Button>
                 <Button
                   variant="default"
                   onPress={() => {
@@ -655,13 +673,18 @@ export function NoteEditorView({
                 <Button
                   variant="default"
                   onPress={() => {
-                    downloadTextFile(buildExportFileName(`${note.title}-冲突草稿`, 'md'), autosave.getLatestMarkdown(), 'text/markdown;charset=utf-8');
-                    autosave.discardRecoveredDraft();
-                    window.location.reload();
+                    void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(error instanceof Error ? error.message : '草稿写入失败'));
                   }}
                 >
-                  导出草稿并加载远端
+                  保留草稿并重新加载
                 </Button>
+                <Button variant="ghost" onPress={() => setDiscardDraftOpen(true)}>放弃草稿…</Button>
+                <Dialog title="放弃本地草稿？" isOpen={discardDraftOpen} onOpenChange={setDiscardDraftOpen}>
+                  <DialogBody>请先确认需要保留的正文已经另存。继续会删除此笔记的恢复草稿，并加载最新已保存正文。</DialogBody>
+                  <DialogFooter><DialogClose variant="ghost">取消</DialogClose>
+                    <Button onPress={() => { autosave.discardRecoveredDraft(); void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(String(error))); }}>确认放弃并加载</Button>
+                  </DialogFooter>
+                </Dialog>
               </div>
             ) : null}
             <div className={styles.editorPanes} data-source-open={view.showSourceEditor || undefined}>
@@ -751,6 +774,25 @@ export function NoteEditorView({
           onOpenTagManager={onOpenTagManager}
           onOpenTag={onOpenTag}
           onListVersions={onListVersions}
+          onListVersionPage={onListVersionPage}
+          onRestoreVersion={async (version) => {
+            if (!canWrite || version.noteId !== note.id) throw new Error('当前状态无法恢复此历史记录');
+            const current = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+            await autosave.saveNow(current);
+            if (!versionWriteStateRef.current.canWrite || versionWriteStateRef.current.noteId !== note.id) throw new Error('笔记或写入状态已改变，请重新打开历史记录');
+            const latest = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+            if (latest !== current) throw new Error('保存期间正文又有修改，请重新检查差异后恢复');
+            autosave.updateDraft(version.content, { immediate: true });
+            editorRef.current?.setMarkdown(version.content);
+            await autosave.saveNow(version.content);
+            onFileStatus('已恢复历史正文；恢复前的正文已保留在历史记录中');
+          }}
+          onSaveVersionAs={onSaveVersionAs ? async (version) => {
+            if (!canWrite || version.noteId !== note.id) throw new Error('当前状态无法另存此历史记录');
+            await saveImmediately();
+            if (!versionWriteStateRef.current.canWrite || versionWriteStateRef.current.noteId !== note.id) throw new Error('笔记或写入状态已改变，请重新打开历史记录');
+            await onSaveVersionAs(version);
+          } : undefined}
           onGetVersion={onGetVersion}
           onOrganizeNote={onOrganizeNote}
           onUploadAttachment={uploadAttachmentFile}
@@ -772,6 +814,14 @@ export function NoteEditorView({
           onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => replaceAnnotation(await onUpdateAnnotation(annotationId, input)) : undefined}
           onPreviewAnnotation={onPreviewAnnotation}
           onGetAnnotationKnowledgeLinks={onGetAnnotationKnowledgeLinks}
+          onCreateKnowledgeCandidate={onCreateKnowledgeCandidate ? async annotation => {
+            const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+            await autosave.saveNow(markdown);
+            if (!versionWriteStateRef.current.canWrite || versionWriteStateRef.current.noteId !== annotation.noteId) throw new Error('已切换笔记或写入状态，请在当前笔记重新创建候选。');
+            await onCreateKnowledgeCandidate(annotation);
+          } : undefined}
+          onOpenKnowledgeItem={onOpenKnowledgeItem}
+          knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
           onPreviewAnalysisScope={onPreviewAnalysisScope}
           onCreateAnalysisScope={onCreateAnalysisScope}
           onCreateAnnotationExclusion={excludeCurrentBlock}

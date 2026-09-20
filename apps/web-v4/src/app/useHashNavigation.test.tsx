@@ -1,8 +1,23 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useHashNavigation } from './useHashNavigation';
+import { registerNavigationGuard } from './navigationGuard';
 
 describe('workspace browser history', () => {
+  it('keeps an unsaved explicit form mounted until its navigation guard is released', async () => {
+    window.history.replaceState(null, '', '#/knowledge');
+    const { result } = renderHook(() => useHashNavigation());
+    const release = registerNavigationGuard(() => false);
+    try {
+      act(() => result.current.navigate('/materials'));
+      expect(result.current.pathname).toBe('/knowledge');
+      act(() => { window.location.hash = '#/materials'; });
+      await waitFor(() => expect(window.location.hash).toBe('#/knowledge'));
+      expect(result.current.pathname).toBe('/knowledge');
+    } finally { release(); }
+    act(() => result.current.navigate('/materials'));
+    expect(result.current.pathname).toBe('/materials');
+  });
   it('restores folder addresses and truncates forward history after a new branch', async () => {
     window.history.replaceState(null, '', '#/materials');
     const { result } = renderHook(() => useHashNavigation());

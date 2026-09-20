@@ -19,7 +19,7 @@ describe('useNoteAutosave', () => {
     expect(onSave).not.toHaveBeenCalled();
     await act(async () => vi.advanceTimersByTimeAsync(700));
 
-    expect(onSave).toHaveBeenCalledWith('note-a', 'A-1', 'v1');
+    expect(onSave).toHaveBeenCalledWith('note-a', 'A-1', 'v1', 'A');
     expect(result.current.hasLocalChanges).toBe(false);
   });
 
@@ -77,8 +77,8 @@ describe('useNoteAutosave', () => {
     await act(async () => first.resolve({ rawMarkdown: 'A-1', updatedAt: 'v2' }));
     await act(async () => Promise.resolve());
 
-    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', 'A-1', 'v1');
-    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', 'A-2', 'v2');
+    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', 'A-1', 'v1', 'A');
+    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', 'A-2', 'v2', 'A-1');
   });
 
   it('flushes the previous note explicitly without writing its draft into the next note', async () => {
@@ -96,7 +96,7 @@ describe('useNoteAutosave', () => {
     expect(result.current.draftMarkdown).toBe('正文 B');
     await act(async () => Promise.resolve());
 
-    expect(onSave).toHaveBeenCalledWith('note-a', '正文 A（未到延迟）', 'a-v1');
+    expect(onSave).toHaveBeenCalledWith('note-a', '正文 A（未到延迟）', 'a-v1', '正文 A');
     expect(onSave).not.toHaveBeenCalledWith('note-b', '正文 A（未到延迟）', expect.anything());
   });
 
@@ -162,8 +162,8 @@ describe('useNoteAutosave', () => {
     await act(async () => vi.advanceTimersByTimeAsync(700));
     await act(async () => result.current.saveNow());
 
-    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', '不会丢失', 'v1');
-    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', '不会丢失', 'v1');
+    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', '不会丢失', 'v1', 'A');
+    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', '不会丢失', 'v1', 'A');
   });
 });
 
@@ -172,3 +172,20 @@ function createDeferred<T>() {
   const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise; });
   return { promise, resolve };
 }
+
+it('主动重试重新核验冲突并解除锁定，其他 409 不锁死自动保存', async () => {
+  vi.useFakeTimers();
+  const onSave = vi.fn().mockRejectedValueOnce(Object.assign(new Error('冲突'), { code: 'NOTE_UPDATE_CONFLICT', status: 409 })).mockResolvedValue({ rawMarkdown: '草稿', updatedAt: 'v2' });
+  const hook = renderHook(() => useNoteAutosave({ noteId: 'retry-conflict', remoteMarkdown: 'base', remoteUpdatedAt: 'v1', canWrite: true, onSave }));
+  act(() => hook.result.current.updateDraft('草稿'));
+  await act(async () => vi.advanceTimersByTimeAsync(700));
+  expect(hook.result.current.hasConflict).toBe(true);
+  await act(async () => hook.result.current.saveNow());
+  expect(hook.result.current.hasConflict).toBe(false);
+  expect(hook.result.current.hasLocalChanges).toBe(false);
+  onSave.mockRejectedValueOnce(Object.assign(new Error('其他冲突'), { code: 'OTHER_CONFLICT', status: 409 }));
+  act(() => hook.result.current.updateDraft('新的草稿'));
+  await act(async () => vi.advanceTimersByTimeAsync(700));
+  expect(hook.result.current.hasConflict).toBe(false);
+  hook.unmount();
+});

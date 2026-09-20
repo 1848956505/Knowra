@@ -1,5 +1,6 @@
 import { mapNoteVersion, toDate } from './mappers.js';
 import { withRepositoryErrors } from './repository-utils.js';
+import { versionPage } from '../../domain/note-version-page.js';
 
 export function createPostgresNoteVersionRepository({ db }) {
   if (!db?.noteVersion) throw new TypeError('PostgreSQL NoteVersion repository requires db.noteVersion');
@@ -30,6 +31,23 @@ export function createPostgresNoteVersionRepository({ db }) {
         where: noteId ? { noteId } : {},
         orderBy: { createdAt: 'desc' }
       }).then((rows) => rows.map(mapNoteVersion)));
+    },
+    listPage({ noteId, limit, after, currentContentHash }) {
+      return withRepositoryErrors(async () => {
+        const [items, total, current] = await Promise.all([
+          db.noteVersion.findMany({
+            where: { noteId, ...(after ? { OR: [
+              { createdAt: { lt: toDate(after.createdAt) } },
+              { createdAt: toDate(after.createdAt), id: { lt: after.id } }
+            ] } : {}) },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: limit + 1,
+            select: { id: true, noteId: true, contentHash: true, createdAt: true, createdBy: true }
+          }),
+          db.noteVersion.count({ where: { noteId } }),
+          db.noteVersion.findUnique({ where: { noteId_contentHash: { noteId, contentHash: currentContentHash } }, select: { id: true } })
+        ]);
+        return versionPage(items, { limit, total, currentVersionId: current?.id ?? null });
+      });
     },
     deleteByNoteIds(noteIds) {
       if (!noteIds.length) return Promise.resolve([]);

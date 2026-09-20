@@ -17,6 +17,50 @@ function asAsyncRepository(repository) {
 
 export const phase2KnowledgeDomainTests = [
   {
+    name: '版本历史分页只返回摘要，游标稳定且当前正文按内容匹配',
+    async run() {
+      const { createInMemoryNoteVersionRepository } = await import('../src/modules/knowledge/infrastructure/note-version-repository.js');
+      const { createNoteVersionService, createAsyncNoteVersionService } = await import('../src/modules/knowledge/application/note-version-service.js');
+      const records = ['a', 'b', 'c'].map((id) => ({ id, noteId: 'note-page', content: id, contentHash: hash(id), createdAt: '2026-09-20T01:02:03.000Z', createdBy: 'user' }));
+      const repository = createInMemoryNoteVersionRepository({ records });
+      for (const service of [createNoteVersionService({ repository }), createAsyncNoteVersionService({ repository: asAsyncRepository(repository) })]) {
+        const current = { id: 'note-page', rawMarkdown: 'a' };
+        const first = await service.listVersionPage(current, { limit: '2' });
+        assert.deepEqual(first.items.map((item) => item.id), ['c', 'b']);
+        assert.equal(first.total, 3);
+        assert.equal(first.currentVersionId, 'a');
+        assert(first.items.every((item) => !Object.hasOwn(item, 'content')));
+        repository.save({ id: 'new', noteId: 'note-page', content: 'new', contentHash: hash('new'), createdAt: '2026-09-21T01:02:03.000Z', createdBy: 'user' });
+        const second = await service.listVersionPage(current, { limit: 2, cursor: first.nextCursor });
+        assert.deepEqual(second.items.map((item) => item.id), ['a']);
+        assert.equal(second.nextCursor, null);
+        assert.throws(() => service.listVersionPage(current, { limit: 101 }), /1 到 100/);
+        assert.throws(() => service.listVersionPage(current, { cursor: 'invalid' }), /游标无效/);
+        await assert.rejects(async () => service.getVersion('a', 'other-note'), /not found/);
+        records.splice(records.findIndex((item) => item.id === 'new'), 1);
+      }
+    }
+  },
+  {
+    name: 'PostgreSQL 版本分页在数据库层限制条数且不读取历史正文',
+    async run() {
+      const { createPostgresNoteVersionRepository } = await import('../src/modules/knowledge/infrastructure/postgres/note-version-repository.js');
+      let query;
+      const repository = createPostgresNoteVersionRepository({ db: { noteVersion: {
+        async findMany(input) { query = input; return [{ id: 'v', noteId: 'note', contentHash: hash('正文'), createdAt: new Date('2026-09-20T01:00:00Z'), createdBy: 'user' }]; },
+        async count() { return 1; },
+        async findUnique(input) { assert.deepEqual(input.select, { id: true }); return { id: 'v' }; }
+      } } });
+      const result = await repository.listPage({ noteId: 'note', limit: 20, currentContentHash: hash('正文'), after: { id: 'cursor', createdAt: '2026-09-21T01:00:00Z' } });
+      assert.equal(query.take, 21);
+      assert(!Object.hasOwn(query.select, 'content'));
+      assert.equal(query.where.OR.length, 2);
+      assert.equal(result.items[0].createdAt, '2026-09-20T01:00:00.000Z');
+      assert.equal(result.currentVersionId, 'v');
+    }
+  },
+
+  {
     name: 'JSON 迁移会保留 NoteVersion、KnowledgeItem 与 KnowledgeEvidence 关系',
     async run() {
       const { buildJsonMigrationPlan } = await import('../src/infrastructure/migration/json-to-postgres.js');

@@ -169,12 +169,13 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     await screen.findByRole('heading', { name: '笔记工作台' });
 
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
-    const knowledge = within(rail).getByRole('button', { name: /知识/ });
-    expect(knowledge).toBeDisabled();
+    const training = within(rail).getByRole('button', { name: /试题/ });
+    expect(training).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: /知识/ })).toBeEnabled();
     expect(within(rail).getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
     // disabled 按钮 click 不会触发 live region 改变，但 we just verify 不抛错
-    fireEvent.click(knowledge);
+    fireEvent.click(training);
     // 仍停留在主页（无切换）
     expect(screen.getByRole('heading', { name: '笔记工作台' })).toBeInTheDocument();
   });
@@ -188,12 +189,12 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     });
 
     render(
-      <RouterProvider location={{ pathname: '/knowledge', navigate: vi.fn() }}>
+      <RouterProvider location={{ pathname: '/training', navigate: vi.fn() }}>
         <AppProviders store={store}><App /></AppProviders>
       </RouterProvider>
     );
 
-    expect(await screen.findByRole('heading', { name: '知识库' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '试题库' })).toBeInTheDocument();
     expect(screen.getByText('该工作域尚未上线')).toBeInTheDocument();
     expect(api.listKnowledgeSpaces).not.toHaveBeenCalled();
   });

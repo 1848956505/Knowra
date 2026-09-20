@@ -44,16 +44,30 @@ test('真实页面连接云端、后台刷新正文、三份冲突对照与手�
   await page.locator('.ProseMirror').click();
   await page.keyboard.press('End'); await page.keyboard.insertText(' 本机保留的段落');
   await expect(page.getByRole('contentinfo')).toContainText('已保存到本机');
-  cloud.modules.knowledge.noteService.updateNote(note.id, { rawMarkdown: '云端并发的段落' });
+  cloud.modules.knowledge.noteService.updateNote(note.id, { title: '云端重命名', rawMarkdown: '云端并发的段落' });
   await page.getByRole('contentinfo').getByRole('button', { name: /待同步|云端已同步/ }).click();
   await page.getByRole('button', { name: '立即同步', exact: true }).click();
   const conflict = page.getByRole('region', { name: '冲突：双向同步页面验收' });
   await expect(conflict).toContainText('本机保留的段落');
   await expect(conflict).toContainText('云端并发的段落');
-  await conflict.getByText('查看共同基线', { exact: true }).click();
+  await expect(conflict.locator('[data-diff="removed"]').filter({ hasText: '本机保留的段落' })).toBeVisible();
+  await expect(conflict.locator('[data-diff="added"]').filter({ hasText: '云端并发的段落' })).toBeVisible();
+  const titleRow = conflict.getByRole('row').filter({ has: page.getByRole('rowheader', { name: '标题', exact: true }) });
+  await expect(titleRow).toContainText('云端重命名');
+  await expect(titleRow).toContainText('已变化');
+  await expect(conflict.getByRole('row').filter({ has: page.getByRole('rowheader', { name: '对象状态', exact: true }) })).toContainText('存在');
+  await conflict.getByLabel('正文比较', { exact: false }).first().selectOption('local');
   await expect(conflict).toContainText('网页先更新');
+  await expect(conflict.locator('[data-diff="removed"]')).toContainText('网页先更新');
+  await conflict.getByLabel('正文比较', { exact: false }).first().selectOption('remote');
+  await expect(conflict.locator('[data-diff="added"]')).toContainText('云端并发的段落');
   const screenshots = process.env.KNOWRA_E2E_OUTPUT;
-  if (screenshots) { fs.mkdirSync(screenshots, { recursive: true }); await page.screenshot({ path: path.join(screenshots, 'sync-conflict.png') }); }
+  if (screenshots) {
+    fs.mkdirSync(screenshots, { recursive: true });
+    await page.screenshot({ path: path.join(screenshots, 'sync-conflict-overview.png'), animations: 'disabled' });
+    await conflict.getByRole('region', { name: '共同基线与云端的正文差异' }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(screenshots, 'sync-conflict.png'), animations: 'disabled' });
+  }
   await conflict.getByRole('button', { name: '手动合并', exact: true }).click();
   await conflict.getByLabel('合并后的正文', { exact: false }).fill('手动合并：保留本机和云端两段');
   await conflict.getByRole('button', { name: '保存合并结果', exact: true }).click();

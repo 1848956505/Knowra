@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createAppError } from '../../../errors/app-error.js';
 import { NoteVersion, calculateContentHash } from '../domain/note-version.js';
+import { parseVersionPageQuery } from '../domain/note-version-page.js';
 
 function versionId() {
   return `note-version-${crypto.randomUUID()}`;
@@ -26,13 +27,16 @@ export function createNoteVersionService({ repository } = {}) {
 
   return {
     ensureForNote,
-    getVersion(id) {
+    getVersion(id, noteId) {
       const version = repository.findById(id);
-      if (!version) throw createAppError('NOTE_VERSION_NOT_FOUND', 'NoteVersion not found', 404);
+      if (!version || (noteId && version.noteId !== noteId)) throw createAppError('NOTE_VERSION_NOT_FOUND', 'NoteVersion not found', 404);
       return version;
     },
     listVersions(options = {}) {
       return repository.list(options);
+    },
+    listVersionPage(note, query = {}) {
+      return repository.listPage({ ...parseVersionPageQuery(query), noteId: note.id, currentContentHash: calculateContentHash(note.rawMarkdown) });
     }
   };
 }
@@ -55,13 +59,16 @@ export function createAsyncNoteVersionService({ repository } = {}) {
         createdBy
       }));
     },
-    async getVersion(id) {
+    async getVersion(id, noteId) {
       const version = await repository.findById(id);
-      if (!version) throw createAppError('NOTE_VERSION_NOT_FOUND', 'NoteVersion not found', 404);
+      if (!version || (noteId && version.noteId !== noteId)) throw createAppError('NOTE_VERSION_NOT_FOUND', 'NoteVersion not found', 404);
       return version;
     },
     listVersions(options = {}) {
       return repository.list(options);
+    },
+    listVersionPage(note, query = {}) {
+      return repository.listPage({ ...parseVersionPageQuery(query), noteId: note.id, currentContentHash: calculateContentHash(note.rawMarkdown) });
     }
   };
 }

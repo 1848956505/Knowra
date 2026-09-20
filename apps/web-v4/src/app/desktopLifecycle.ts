@@ -1,4 +1,5 @@
-/** 桌面壳仅能请求保存；不暴露文件系统、命令执行或任意 IPC。 */
+/** 桌面桥仅暴露退出握手和受限草稿存储。 */
+export type DesktopCloseMode = 'save' | 'recovery';
 const operations = new Set<Promise<unknown>>();
 export function trackDesktopTask<T>(task: () => Promise<T>): Promise<T> {
   const promise = task();
@@ -6,13 +7,15 @@ export function trackDesktopTask<T>(task: () => Promise<T>): Promise<T> {
   void promise.finally(() => operations.delete(promise)).catch(() => undefined);
   return promise;
 }
-const participants = new Map<() => Promise<void>, number>();
-export function registerDesktopSave(save: () => Promise<void>, priority = 1) {
+const participants = new Map<(mode?: DesktopCloseMode) => Promise<void>, number>();
+export function registerDesktopSave(save: (mode?: DesktopCloseMode) => Promise<void>, priority = 1) {
   participants.set(save, priority);
   return () => { participants.delete(save); };
 }
 interface DesktopBridge {
-  onPrepareClose(callback: () => Promise<void>): void;
+  readRecoveryDrafts?(): Record<string, unknown>;
+  writeRecoveryDraft?(key: string, draft: unknown): Promise<void>;
+  onPrepareClose(callback: (mode?: DesktopCloseMode) => Promise<void>): void;
   onCancelClose(callback: () => void): void;
 }
 declare global { interface Window { knowraDesktop?: DesktopBridge; } }
@@ -32,7 +35,7 @@ export function installDesktopLifecycle() {
   };
   let release = () => {};
   window.knowraDesktop.onCancelClose(() => release());
-  window.knowraDesktop.onPrepareClose(async () => {
+  window.knowraDesktop.onPrepareClose(async (mode = 'save') => {
     if (composing) throw new Error('请先确认或取消输入法候选文字，再退出。');
     const overlay = document.createElement('div');
     overlay.textContent = '正在保存到本机…';
@@ -50,11 +53,29 @@ export function installDesktopLifecycle() {
       await Promise.all([...operations]);
       await Promise.allSettled([...requests]);
       await new Promise(resolve => setTimeout(resolve, 0));
-      for (const [save] of [...participants].sort((a, b) => a[1] - b[1])) await save();
+      for (const [save] of [...participants].sort((a, b) => a[1] - b[1])) await save(mode);
       await Promise.allSettled([...requests]);
     } catch (error) {
       release();
       throw error;
     }
   });
+}
+
+/** 恢复整个资料库前，先完成当前及跨笔记保存，任何失败均阻止切换。 */
+export async function flushBeforeWorkspaceRestore() {
+  (document.activeElement as HTMLElement | null)?.blur();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await Promise.all([...operations]);
+  for (const [save] of [...participants].sort((a, b) => a[1] - b[1])) await save('save');
+}
+
+/** 正文保存失败时仍允许救援备份，但恢复草稿必须确实落盘。 */
+export async function flushBeforeWorkspaceBackup() {
+  try { await flushBeforeWorkspaceRestore(); return { hasUnsavedDrafts: false }; }
+  catch {
+    await Promise.allSettled([...operations]);
+    for (const [save] of [...participants].sort((a, b) => a[1] - b[1])) await save('recovery');
+    return { hasUnsavedDrafts: true };
+  }
 }

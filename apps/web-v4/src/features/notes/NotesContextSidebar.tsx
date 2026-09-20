@@ -1,3 +1,5 @@
+import { CreateEntryMenu } from './CreateEntryMenu';
+import { workspaceCapabilities } from '../../store/workspaceCapabilities';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   BookIcon,
@@ -13,7 +15,7 @@ import {
   TagIcon
 } from '../../shell/icons';
 import {
-  GhostIconButton,
+  GhostIconButton, PressableButton,
   Menu,
   MenuItem,
   MenuPopover,
@@ -60,6 +62,7 @@ export function NotesContextSidebar({
   const searchNotes = useAppStore((state) => state.searchNotes);
   const retryWorkspace = useAppStore((state) => state.retryWorkspace);
   const canWrite = useAppStore((state) => state.canWriteWorkspace());
+  const supportsPermanentDelete = useAppStore(state => workspaceCapabilities(state.persistenceMode).permanentDelete);
   const emptyRecycleBin = useAppStore((state) => state.emptyRecycleBin);
   const createTag = useAppStore((state) => state.createTag);
   const navigate = useNavigate();
@@ -100,24 +103,19 @@ export function NotesContextSidebar({
               onAction={(key) => {
                 if (key === 'new-folder') treeOperations.openCreate('folder', selectedFolderId);
                 if (key === 'refresh') void retryWorkspace();
-                if (key === 'empty-trash') setTrashDialogOpen(true);
+                if (key === 'empty-trash' && supportsPermanentDelete && canWrite) setTrashDialogOpen(true);
               }}
             >
               <MenuItem id="new-folder" icon={<FolderIcon size={14} />} isDisabled={!canWrite}>新建文件夹</MenuItem>
               <MenuSeparator />
               <MenuItem id="refresh" icon={<RefreshIcon size={14} />}>刷新目录</MenuItem>
-              <MenuItem id="empty-trash" isDanger isDisabled={!canWrite || trashCount === 0}>清空回收站</MenuItem>
+              <MenuItem id="empty-trash" isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}>{supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}</MenuItem>
             </Menu>
           </MenuPopover>
         </MenuTrigger>
-        <GhostIconButton
-          aria-label="新建笔记"
-          title="新建笔记 · Ctrl/⌘ N"
-          disabled={!canWrite}
-          onClick={() => treeOperations.openCreate('note', selectedFolderId)}
-        >
-          <PlusIcon size={20} />
-        </GhostIconButton>
+        <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, selectedFolderId)}>
+          <GhostIconButton aria-label="新建" title="新建" disabled={!canWrite}><PlusIcon size={20} /></GhostIconButton>
+        </CreateEntryMenu>
       </header>
 
       <label className={styles.search}>
@@ -174,7 +172,8 @@ export function NotesContextSidebar({
             </GhostIconButton>
           )}
         >
-          <button
+          <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, null)} contextMenu>
+          <PressableButton
             className={`${styles.navRow} ${styles.libraryRow}`}
             type="button"
             aria-current={notesIndex.scope === 'root' ? 'page' : undefined}
@@ -186,7 +185,8 @@ export function NotesContextSidebar({
             <BookIcon size={16} />
             <span>笔记库</span>
             <small>{rootCount}</small>
-          </button>
+          </PressableButton>
+          </CreateEntryMenu>
           <SidebarFolderTree
             folders={serverData.folderTree}
             notes={serverData.notes}

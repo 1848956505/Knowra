@@ -155,6 +155,11 @@ export function createPostgresKnowledgeModule({
         }
         await formalServices.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
         const versions = await transaction.noteVersionRepository.list({ noteId: note.id });
+        const directEvidence = [];
+        for (const oldVersion of versions.filter((candidate) => candidate.id !== version.id)) {
+          directEvidence.push(...await formalServices.knowledgeItemService.markEvidenceByNoteVersionId(oldVersion.id, 'stale', 'noteVersion'));
+        }
+        await formalServices.questionService.markSourcesStale('knowledgeEvidence', directEvidence.map((record) => record.id));
         await formalServices.questionService.markSourcesStale(
           'noteVersion',
           versions
@@ -322,6 +327,11 @@ export function createPostgresKnowledgeModule({
       annotationRepository: transaction.contentAnnotationRepository
     }))
   });
+  for (const method of ['updateItem', 'confirmItem', 'markNeedsRevision', 'archive', 'restore']) {
+    knowledgeItemService[method] = (...args) => runTransaction((transaction) => (
+      createTransactionFormalServices(transaction).knowledgeItemService[method](...args)
+    ));
+  }
   learningObjectiveService = createAsyncLearningObjectiveService({
     repository: learningObjectiveRepository,
     knowledgeItemRepository,

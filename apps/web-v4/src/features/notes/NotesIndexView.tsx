@@ -1,3 +1,5 @@
+import { CreateEntryChoices } from './CreateEntryMenu';
+import { workspaceCapabilities, LOCAL_PERMANENT_DELETE_REASON } from '../../store/workspaceCapabilities';
 import { NotesIndexPagination } from './NotesIndexPagination';
 import { useNotesIndexData } from './useNotesIndexData';
 import { NotesIndexHeader } from './NotesIndexHeader';
@@ -24,7 +26,6 @@ import {
 } from '../../components/ui';
 import { type PathSegment } from '../../shell/path';
 import { useAppStore } from '../../store/AppStoreProvider';
-import { CreateEntryDialog, type CreateMode } from './CreateEntryDialog';
 import { PermanentDeleteNoteDialog } from './PermanentDeleteNoteDialog';
 import styles from './NotesIndexView.module.css';
 import { useLocation, useNavigate } from '../../app/router';
@@ -54,17 +55,17 @@ export function NotesIndexView({
   const contentRef = useRef<HTMLDivElement>(null);
   const selectNote = useAppStore((state) => state.selectNote);
   const openNote = onOpenNote ?? selectNote;
-  const createNote = useAppStore((state) => state.createNote);
-  const createFolder = useAppStore((state) => state.createFolder);
   const restoreNote = useAppStore((state) => state.restoreNote);
   const permanentlyDeleteNote = useAppStore((state) => state.permanentlyDeleteNote);
   const deleteNotes = useAppStore((state) => state.deleteNotes);
   const updateTagsForNotes = useAppStore((state) => state.updateTagsForNotes);
   const canWrite = useAppStore((state) => state.canWriteWorkspace());
+  const supportsPermanentDelete = useAppStore(state => workspaceCapabilities(state.persistenceMode).permanentDelete);
   const [view, setView] = useState<ViewMode>('grid');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [sort, setSort] = useState<SortMode>('updated-desc');
-  const [createMode, setCreateMode] = useState<CreateMode>(null);
+  const [backgroundMenu, setBackgroundMenu] = useState<{ x: number; y: number } | null>(null);
+  const backgroundAnchor = useRef<HTMLSpanElement>(null);
   const [recyclePendingId, setRecyclePendingId] = useState<string | null>(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<Note | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -166,7 +167,8 @@ export function NotesIndexView({
     <article className={styles.page} aria-labelledby="notes-index-title">
       <NotesIndexHeader path={indexPath} canWrite={canWrite} isRecycleView={isRecycleView}
         selectionMode={selectionMode} onToggleSelection={() => { setSelectionMode(current => !current); setSelectedNoteIds(new Set()); }}
-        onImport={() => setImportOpen(true)} onCreate={() => setCreateMode('note')} />
+        onImport={() => setImportOpen(true)} onCreate={mode => treeOperations.openCreate(mode, navigation.selectedFolderId)} />
+      {isRecycleView && !supportsPermanentDelete ? <p className={styles.capabilityNotice}>{LOCAL_PERMANENT_DELETE_REASON}</p> : null}
       <div className={styles.indexControls}>
         <div className={styles.heading}>
           <h1 id="notes-index-title">{currentSegment.label}</h1>
@@ -257,7 +259,9 @@ export function NotesIndexView({
         <button type="button" onClick={() => setRemoteRevision((current) => current + 1)}>重新加载</button>
       </div> : null}
 
-      <div className={`${styles.content} ${view === 'grid' ? styles.gridContent : ''}`} ref={contentRef} data-testid="notes-index-scroll" aria-label="索引内容">
+      <div className={`${styles.content} ${view === 'grid' ? styles.gridContent : ''}`} ref={contentRef} data-testid="notes-index-scroll" aria-label="索引内容" tabIndex={0}
+        onContextMenu={event => { if (event.defaultPrevented || isRecycleView) return; event.preventDefault(); setBackgroundMenu({ x: event.clientX, y: event.clientY }); }}
+        onKeyDown={event => { if (event.target !== event.currentTarget || isRecycleView) return; if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setBackgroundMenu({ x: rect.left + 16, y: rect.top + 16 }); } }}>
       {items.length === 0 ? (
         <div className={styles.empty} role="status">没有符合当前筛选条件的笔记或文件夹</div>
       ) : view === 'list' ? (
@@ -311,13 +315,10 @@ export function NotesIndexView({
           setRemoteRevision(current => current + 1);
         }} />
 
-      <CreateEntryDialog
-        mode={createMode}
-        parentFolderId={navigation.selectedFolderId}
-        onOpenChange={(open) => { if (!open) setCreateMode(null); }}
-        onCreateNote={createNote}
-        onCreateFolder={createFolder}
-      />
+      <span ref={backgroundAnchor} aria-hidden="true" style={{ position: 'fixed', left: backgroundMenu?.x ?? 0, top: backgroundMenu?.y ?? 0, width: 1, height: 1, pointerEvents: 'none' }} />
+      <MenuPopover triggerRef={backgroundAnchor} isOpen={Boolean(backgroundMenu)} onOpenChange={open => { if (!open) setBackgroundMenu(null); }}>
+        <CreateEntryChoices canWrite={canWrite && !isRecycleView} onCreate={mode => { setBackgroundMenu(null); treeOperations.openCreate(mode, navigation.selectedFolderId); }} />
+      </MenuPopover>
       {treeOperations.dialogs}
       <PermanentDeleteNoteDialog
         noteTitle={permanentDeleteTarget?.title ?? ''}

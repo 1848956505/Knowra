@@ -103,7 +103,8 @@ describe('NotesContextSidebar', () => {
   it('opens the existing design-system dialogs for note and folder creation', async () => {
     renderSidebar();
 
-    await userEvent.click(screen.getByRole('button', { name: '新建笔记' }));
+    await userEvent.click(screen.getByRole('button', { name: '新建' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: '新建笔记' }));
     expect(screen.getByRole('dialog', { name: '新建笔记' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '取消' }));
 

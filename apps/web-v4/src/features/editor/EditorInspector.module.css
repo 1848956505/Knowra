@@ -282,11 +282,15 @@
 .annotationDetailFields p, .annotationScopePreview p { margin: 0; color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
 
 .versionPanel { display: grid; gap: 12px; }
+.versionGroup { display: grid; gap: 4px; }
+.versionGroup details { display: grid; padding-left: 8px; }
+.versionGroup summary { padding: 6px 0; color: var(--ink-secondary); font-size: 11px; cursor: pointer; }
+.versionActions { display: flex; flex-wrap: wrap; gap: 6px; }
 .versionSummary { display: grid; gap: 3px; }
 .versionSummary strong { font-size: 12px; }
 .versionSummary span,
 .tagSelectionCount { margin: 0; color: var(--ink-secondary); font-size: 10px; line-height: 1.5; }
-.versionList { display: grid; gap: 4px; }
+.versionList { display: grid; gap: 4px; max-height: min(32vh, 260px); overflow: auto; }
 .versionList button {
   min-height: 42px;
   display: grid;

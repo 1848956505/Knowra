@@ -71,16 +71,21 @@ export function createPostgresKnowledgeHttpHandlers({
     previewAnalysisScope: (body) => annotationScopeService.previewAnalysisScope(body),
     createAnalysisScope: (body) => annotationScopeService.createAnalysisScope(body),
     getAnalysisScope: (params, query) => annotationScopeService.getAnalysisScope(params.id, query.spaceId),
-    listNoteVersions: (params, query = {}) => noteVersionService.listVersions({ noteId: params.id, ...query }),
-    getNoteVersion: (params) => noteVersionService.getVersion(params.versionId),
+    listNoteVersions: async (params, query = {}) => {
+      const note = await noteService.getNote(params.id);
+      return query.limit !== undefined || query.cursor !== undefined
+        ? noteVersionService.listVersionPage(note, query)
+        : noteVersionService.listVersions({ ...query, noteId: params.id });
+    },
+    getNoteVersion: async (params) => { await noteService.getNote(params.id); return noteVersionService.getVersion(params.versionId, params.id); },
     listKnowledgeItems: (query = {}) => knowledgeItemService.listItems(query),
     getKnowledgeItem: (params) => knowledgeItemService.getItem(params.id),
     createKnowledgeItem: (body) => knowledgeItemService.createCandidate(body),
     updateKnowledgeItem: (params, body) => knowledgeItemService.updateItem(params.id, body),
-    confirmKnowledgeItem: (params) => knowledgeItemService.confirmItem(params.id),
-    markKnowledgeItemNeedsRevision: (params) => knowledgeItemService.markNeedsRevision(params.id),
-    archiveKnowledgeItem: (params) => knowledgeItemService.archive(params.id),
-    restoreKnowledgeItem: (params) => knowledgeItemService.restore(params.id),
+    confirmKnowledgeItem: (params, body) => knowledgeItemService.confirmItem(params.id, body),
+    markKnowledgeItemNeedsRevision: (params, body) => knowledgeItemService.markNeedsRevision(params.id, body),
+    archiveKnowledgeItem: (params, body) => knowledgeItemService.archive(params.id, body),
+    restoreKnowledgeItem: (params, body) => knowledgeItemService.restore(params.id, body),
     listKnowledgeEvidence: (params) => knowledgeItemService.listEvidence(params.id),
     createKnowledgeEvidence: (params, body) => knowledgeItemService.createEvidence({ ...body, knowledgeItemId: params.id }),
     listLearningObjectives: (query = {}) => learningObjectiveService.listObjectives(query),

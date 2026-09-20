@@ -7,7 +7,7 @@ afterEach(() => { sessionStorage.clear(); vi.useRealTimers(); vi.restoreAllMocks
 
 it('restores a conflict after editor unmount and page reload without changing its baseline', async () => {
   vi.useFakeTimers();
-  const onSave = vi.fn().mockRejectedValue(Object.assign(new Error('冲突'), { status: 409 }));
+  const onSave = vi.fn().mockRejectedValue(Object.assign(new Error('冲突'), { status: 409, code: 'NOTE_UPDATE_CONFLICT' }));
   const options = { noteId: 'a', draftScope: 'space', remoteMarkdown: '原文', remoteUpdatedAt: 'v1', canWrite: true, onSave };
   const store = createNoteDraftRecovery();
   const first = renderHook(() => useNoteAutosave({ ...options, recoveryStore: store }));
@@ -77,8 +77,48 @@ it('clears recovery only after a successful save and keeps the original expected
   const onSave = vi.fn().mockResolvedValue({ rawMarkdown: 'draft', updatedAt: 'v2' });
   const hook = renderHook(() => useNoteAutosave({ noteId: 'retry', draftScope: 's', recoveryStore: store, remoteMarkdown: 'base', remoteUpdatedAt: 'v1', canWrite: true, onSave }));
   await act(async () => hook.result.current.saveNow());
-  expect(onSave).toHaveBeenCalledWith('retry', 'draft', 'v1');
+  expect(onSave).toHaveBeenCalledWith('retry', 'draft', 'v1', 'base');
   expect(store.read('s', 'retry')).toBeUndefined();
   expect(createNoteDraftRecovery().read('s', 'retry')).toBeUndefined();
+  hook.unmount();
+});
+
+it('正文未变时恢复旧冲突草稿并使用重新读取的版本保存', async () => {
+  const recoveryStore = createNoteDraftRecovery();
+  recoveryStore.write('s', 'metadata', { markdown: '草稿', baseMarkdown: '原文', baseUpdatedAt: 'v1', conflict: 'Note has changed since it was loaded' });
+  const onSave = vi.fn().mockResolvedValue({ rawMarkdown: '草稿', updatedAt: 'v3' });
+  const hook = renderHook(() => useNoteAutosave({ noteId: 'metadata', draftScope: 's', recoveryStore, remoteMarkdown: '原文', remoteUpdatedAt: 'v2', canWrite: true, onSave }));
+  expect(hook.result.current.hasConflict).toBe(false);
+  expect(hook.result.current.draftMarkdown).toBe('草稿');
+  await act(async () => hook.result.current.saveNow());
+  expect(onSave).toHaveBeenCalledWith('metadata', '草稿', 'v2', '原文');
+  expect(recoveryStore.read('s', 'metadata')).toBeUndefined();
+  hook.unmount();
+});
+
+it('桌面草稿必须收到落盘确认，失败时 flush 拒绝；重建存储可读取', async () => {
+  const disk: Record<string, unknown> = {};
+  const write = vi.fn(async (key: string, draft: unknown) => { if (draft === null) delete disk[key]; else disk[key] = draft; });
+  window.knowraDesktop = { onPrepareClose: () => {}, onCancelClose: () => {}, readRecoveryDrafts: () => disk, writeRecoveryDraft: write };
+  try {
+    const store = createNoteDraftRecovery();
+    const draft = { markdown: '桌面草稿', baseMarkdown: '原文' };
+    store.write('s', 'n', draft);
+    await store.flush();
+    expect(createNoteDraftRecovery().read('s', 'n')).toEqual(draft);
+    write.mockRejectedValue(new Error('磁盘已满'));
+    store.write('s', 'n', { ...draft, markdown: '更新草稿' });
+    await expect(store.flush()).rejects.toThrow('磁盘已满');
+    expect(createNoteDraftRecovery().read('s', 'n')?.markdown).toBe('桌面草稿');
+  } finally { delete window.knowraDesktop; }
+});
+
+it('丢响应后重启，正文已等于草稿时不会误报冲突', () => {
+  const store = createNoteDraftRecovery();
+  store.write('s', 'ack', { markdown: '已写入', baseMarkdown: '原文', baseUpdatedAt: 'v1' });
+  const hook = renderHook(() => useNoteAutosave({ noteId: 'ack', draftScope: 's', recoveryStore: store, remoteMarkdown: '已写入', remoteUpdatedAt: 'v2', canWrite: true, onSave: vi.fn() }));
+  expect(hook.result.current.hasConflict).toBe(false);
+  expect(hook.result.current.hasLocalChanges).toBe(false);
+  expect(store.read('s', 'ack')).toBeUndefined();
   hook.unmount();
 });

@@ -1,5 +1,7 @@
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const MUTATIONS = [
+  // 该 POST 只计算预览，不保存分析范围或触发 AI。
+  ['POST', /^\/api\/knowledge\/analysis-scopes\/preview$/],
   ['DELETE', /^\/api\/storage\/attachments\/[^/]+$/],
   ['POST', /^\/api\/storage\/attachments$/],
   ['POST', /^\/api\/storage\/attachments\/[^/]+\/rename$/],

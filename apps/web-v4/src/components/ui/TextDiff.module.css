@@ -1,0 +1,13 @@
+.diff { min-width: 0; display: grid; gap: 8px; font-size: 12px; }
+.legend, .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.legend span { padding: 2px 6px; }
+.hint { margin: 0; color: var(--ink-secondary); }
+.notice { margin: 0; padding: 8px; background: var(--ink-warning-soft); }
+.lines { max-height: 340px; overflow: auto; border: 1px solid var(--ink-panel); background: var(--ink-surface); }
+.line { display: grid; grid-template-columns: 32px 32px 16px minmax(0, 1fr); min-height: 22px; line-height: 1.65; padding: 0 5px; }
+.line code { font-family: var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.removed { background: var(--ink-danger-soft); }
+.added { background: var(--ink-success-soft); }
+.number { color: var(--ink-secondary); text-align: right; user-select: none; padding-right: 5px; font-variant-numeric: tabular-nums; }
+.marker { text-align: center; font-weight: 700; }
+.omitted { color: var(--ink-secondary); padding: 6px 8px; background: var(--ink-sunken); }

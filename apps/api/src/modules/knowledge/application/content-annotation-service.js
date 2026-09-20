@@ -1,3 +1,4 @@
+import { resolveStoredAnnotation } from './resolve-stored-annotation.js';
 import crypto from 'node:crypto';
 import {
   calculateContentHash,
@@ -119,9 +120,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       if (annotation.schemaVersion !== 2 || !annotation.anchor) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: annotation.status === 'stale' ? 'needsReview' : 'resolved', deletedAt: null }, 'restored');
       const note = noteRepository?.findById(annotation.noteId);
       if (!note || note.deleted) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: 'missing', anchorReason: 'sourceDeleted', deletedAt: null }, 'restored', 'sourceDeleted');
-      const result = annotation.scopeType === 'section'
-        ? followSectionAnchor(note.rawMarkdown, annotation.anchor)
-        : relocateAnchor(note.rawMarkdown, annotation.anchor);
+      const result = resolveStoredAnnotation(note.rawMarkdown, annotation);
       return saveUpdated(annotation, {
         lifecycleStatus: 'active', deletedAt: null,
         anchorStatus: result.status, anchorReason: result.reason,
@@ -162,9 +161,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
           changed.push(saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'legacyUnverified', noteContentHash: currentContentHash }, 'anchorStatusChanged', 'legacyUnverified'));
           continue;
         }
-        const result = annotation.scopeType === 'section'
-          ? followSectionAnchor(note.rawMarkdown, annotation.anchor)
-          : relocateAnchor(note.rawMarkdown, annotation.anchor);
+        const result = resolveStoredAnnotation(note.rawMarkdown, annotation);
         let nextAnchor = result.anchor ?? annotation.anchor;
         if (result.status === 'resolved' && annotation.scopeType === 'section') {
           const sectionIndex = result.projection.sections.findIndex((section) => section.path === annotation.anchor.structurePath);
@@ -178,8 +175,8 @@ export function createContentAnnotationService({ repository = createInMemoryCont
           noteContentHash: currentContentHash,
           anchor: { ...nextAnchor, noteVersionId: version?.id ?? annotation.noteVersionId },
           quoteText: nextQuote,
-          fromPosition: nextAnchor.sourceStart,
-          toPosition: nextAnchor.sourceEnd,
+          fromPosition: result.status === 'resolved' ? nextAnchor.sourceStart : annotation.fromPosition,
+          toPosition: result.status === 'resolved' ? nextAnchor.sourceEnd : annotation.toPosition,
           resolvedContentHash: nextResolvedHash,
           boundaryFingerprint: nextAnchor.section?.memberFingerprint ?? annotation.boundaryFingerprint,
           anchorStatus: result.status,

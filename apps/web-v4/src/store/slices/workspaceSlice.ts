@@ -5,6 +5,7 @@ import {
   type Note
 } from '@study-accelerator/web-core';
 import type { WorkspaceDependencies, WorkspaceSlice } from '../types';
+import { workspaceCapabilities, LOCAL_PERMANENT_DELETE_REASON, LOCAL_ANALYSIS_SCOPE_REASON } from '../workspaceCapabilities';
 import {
   EMPTY_WORKSPACE_SERVER_DATA,
   loadWorkspaceState,
@@ -160,20 +161,38 @@ export function createWorkspaceSlice(
         throw error;
       }
     },
-    async saveNoteContent(noteId, rawMarkdown, expectedUpdatedAt) {
+    async saveNoteContent(noteId, rawMarkdown, expectedUpdatedAt, baseMarkdown) {
       const previousSave = noteSaveQueues.get(noteId) ?? Promise.resolve(undefined);
       const currentSave = previousSave
         .catch(() => undefined)
         .then(async () => {
           const current = get().serverData.notes.find((note) => note.id === noteId);
           if (!current) throw new Error('笔记不存在或已被删除');
-          if (current.rawMarkdown === rawMarkdown) return current;
+          if (baseMarkdown === undefined && current.rawMarkdown === rawMarkdown && (!expectedUpdatedAt || expectedUpdatedAt === current.updatedAt)) return current;
           return executeWorkspaceMutation(set, get, '正在保存正文…', async () => {
             const concurrencyToken = expectedUpdatedAt ?? current.updatedAt;
-            const updated = await dependencies.api.updateNote(noteId, {
-              rawMarkdown,
-              ...(concurrencyToken ? { expectedUpdatedAt: concurrencyToken } : {})
-            });
+            let updated;
+            try {
+              updated = await dependencies.api.updateNote(noteId, {
+                rawMarkdown,
+                ...(concurrencyToken ? { expectedUpdatedAt: concurrencyToken } : {})
+              });
+            } catch (error) {
+              // 只对已知基线的正文冲突重新读取；标题、同步等元数据变化不应锁死正文保存。
+              if (!error || typeof error !== 'object' || !('code' in error)
+                || error.code !== 'NOTE_UPDATE_CONFLICT') throw error;
+              const latest = await dependencies.api.getNote(noteId);
+              if (latest.deleted || typeof latest.rawMarkdown !== 'string' || !latest.updatedAt) throw error;
+              const baseline = baseMarkdown ?? (concurrencyToken === current.updatedAt ? current.rawMarkdown : undefined);
+              if (latest.rawMarkdown === rawMarkdown) updated = latest;
+              else {
+                if (baseline === undefined || latest.rawMarkdown !== baseline) throw error;
+              // 仍携带刚读取的版本；读取后再次变化时由服务端拒绝，不无限重试。
+              updated = await dependencies.api.updateNote(noteId, {
+                rawMarkdown, expectedUpdatedAt: latest.updatedAt
+              });
+              }
+            }
             updateWorkspaceNoteInStore(set, get, dependencies, updated, {
               ...current,
               rawMarkdown,
@@ -208,6 +227,7 @@ export function createWorkspaceSlice(
       });
     },
     async permanentlyDeleteNote(noteId) {
+      if (!workspaceCapabilities(get().persistenceMode).permanentDelete) throw new Error(LOCAL_PERMANENT_DELETE_REASON);
       return executeWorkspaceMutation(set, get, '正在彻底删除笔记…', async () => {
         await dependencies.api.permanentlyDeleteNote(noteId);
         await runLoad(true);
@@ -359,6 +379,7 @@ export function createWorkspaceSlice(
       return dependencies.api.previewAnalysisScope!(input);
     },
     async createAnalysisScope(input) {
+      if (!workspaceCapabilities(get().persistenceMode).saveAnalysisScope) throw new Error(LOCAL_ANALYSIS_SCOPE_REASON);
       return executeWorkspaceMutation(set, get, '正在保存分析范围…', async () => ({
         result: await dependencies.api.createAnalysisScope!(input),
         message: '分析范围快照已保存'
@@ -378,6 +399,27 @@ export function createWorkspaceSlice(
     },
     async listNoteVersions(noteId) {
       return dependencies.api.listNoteVersions(noteId);
+    },
+    async listNoteVersionPage(noteId, options) {
+      if (!dependencies.api.listNoteVersionPage) throw new Error('当前服务尚不支持分页历史记录，请升级后重试。');
+      return dependencies.api.listNoteVersionPage(noteId, options);
+    },
+    async saveNoteVersionAs(noteId, versionId) {
+      return executeWorkspaceMutation(set, get, '正在另存历史版本…', async (spaceId) => {
+        const source = get().serverData.notes.find(note => note.id === noteId && !note.deleted);
+        if (!source) throw new Error('原笔记不存在或已被删除');
+        const version = await dependencies.api.getNoteVersion(noteId, versionId);
+        if (version.noteId !== noteId || typeof version.content !== 'string') throw new Error('历史版本不属于当前笔记或正文无效');
+        const names = get().serverData.notes.filter(note => !note.deleted && note.folderId === source.folderId).map(note => note.title);
+        const folderNames = (source.folderId ? get().serverData.foldersById[source.folderId]?.children ?? [] : get().serverData.folderTree).map(folder => folder.name);
+        const baseTitle = `${source.title || '未命名笔记'} · 历史副本`;
+        const title = [...names, ...folderNames].includes(baseTitle) ? createDuplicateTitle([...names, ...folderNames], baseTitle) : baseTitle;
+        const created = await dependencies.api.createNote({ title, rawMarkdown: version.content, folderId: source.folderId, spaceId,
+          sourceType: source.sourceType ?? 'manual', status: 'draft', tagIds: source.tagIds });
+        await runLoad(true);
+        get().selectNote(created.id);
+        return { result: created.id, message: `历史版本已另存为：${title}` };
+      });
     },
     async getNoteVersion(noteId, versionId) {
       return dependencies.api.getNoteVersion(noteId, versionId);
@@ -410,6 +452,14 @@ export function createWorkspaceSlice(
         return { result: undefined, message: '附件已删除' };
       });
     },
+    async moveEntry(kind, id, parentId) {
+      return executeWorkspaceMutation(set, get, '正在移动目录…', async () => {
+        if (kind === 'folder') await dependencies.api.updateFolder(id, { parentId });
+        else await dependencies.api.updateNote(id, { folderId: parentId });
+        await runLoad(true);
+        return { result: undefined, message: '目录位置已更新' };
+      });
+    },
     async renameFolder(folderId, name) {
       return executeWorkspaceMutation(set, get, '正在重命名文件夹…', async () => {
         const folder = get().serverData.foldersById[folderId];
@@ -429,6 +479,7 @@ export function createWorkspaceSlice(
       });
     },
     async emptyRecycleBin() {
+      if (!workspaceCapabilities(get().persistenceMode).permanentDelete) throw new Error(LOCAL_PERMANENT_DELETE_REASON);
       return executeWorkspaceMutation(set, get, '正在清空回收站…', async (spaceId) => {
         const result = await dependencies.api.emptyRecycleBin(spaceId);
         await runLoad(true);

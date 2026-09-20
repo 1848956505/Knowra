@@ -104,7 +104,11 @@ export function buildCreateKnowledgeEvidenceDto(input = {}) {
   if (sourceType === 'manual' && (noteVersionId || annotationId)) {
     throw validationError('KNOWLEDGE_EVIDENCE_MANUAL_SOURCE_INVALID', 'Manual evidence cannot reference a NoteVersion or annotation');
   }
+  if (input.expectedAnnotationRevision !== undefined && (!Number.isInteger(input.expectedAnnotationRevision) || input.expectedAnnotationRevision < 1)) {
+    throw validationError('KNOWLEDGE_EVIDENCE_REVISION_INVALID', '标注来源修订号无效，请重新加载标注。');
+  }
   return {
+    expectedAnnotationRevision: input.expectedAnnotationRevision,
     id: input.id === undefined ? createPrefixedId('evidence') : requireText(input.id, 'KNOWLEDGE_EVIDENCE_ID_INVALID', 'KnowledgeEvidence id is invalid'),
     sourceType,
     sourceId,

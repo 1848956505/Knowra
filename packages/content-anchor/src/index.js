@@ -272,7 +272,12 @@ export function followSectionAnchor(markdown, anchor) {
   const sectionIndex = projection.sections.findIndex((candidate) => candidate.path === anchor.structurePath);
   if (sectionIndex < 0) return { status: 'missing', reason: 'sectionDeleted', projection };
   const section = projection.sections[sectionIndex];
-  const proposedAnchor = anchorForSection(projection, sectionIndex);
+  let proposedAnchor;
+  try { proposedAnchor = anchorForSection(projection, sectionIndex); }
+  catch (error) {
+    if (error?.code !== 'ANNOTATION_RANGE_INVALID') throw error;
+    return { status: 'missing', reason: 'sourceDeleted', projection };
+  }
   const sameHeadingLevel = section.level === anchor.section.headingLevel;
   const sameBoundary = section.endBoundaryLevel === (anchor.section.endBoundaryLevel ?? null)
     && section.endBoundaryTitle === (anchor.section.endBoundaryTitle ?? null);

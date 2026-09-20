@@ -4,9 +4,12 @@ import { GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../..
 import { DeleteIcon, MoreHorizontalIcon, RefreshIcon } from '../../shell/icons';
 import { FolderContextMenu, NoteContextMenu, type SidebarTreeAction } from './SidebarFolderTree';
 import type { IndexItem } from './notesIndexPresentation';
+import { useAppStore } from '../../store/AppStoreProvider';
+import { workspaceCapabilities } from '../../store/workspaceCapabilities';
 
 export function openIndexItemMenu(event: ReactMouseEvent<HTMLElement>) {
   event.preventDefault();
+  event.stopPropagation();
   const trigger = event.currentTarget.querySelector<HTMLButtonElement>('[data-index-item-menu-trigger]');
   trigger?.click();
 }
@@ -54,14 +57,16 @@ function RecycleNoteMenu({ note, pending, onRestore, onRequestPermanentDelete, c
   onRequestPermanentDelete(note: Note): void;
   children: ReactNode;
 }) {
+  const canWrite = useAppStore(state => state.canWriteWorkspace());
+  const supportsPermanentDelete = useAppStore(state => workspaceCapabilities(state.persistenceMode).permanentDelete);
   const title = note.title || '无标题笔记';
   return (
     <MenuTrigger>
       {children}
       <MenuPopover placement="bottom end">
         <Menu ariaLabel={`${title}的回收站操作`}>
-          <MenuItem id="restore" icon={<RefreshIcon size={14} />} isDisabled={pending} onAction={() => onRestore(note)}>恢复笔记</MenuItem>
-          <MenuItem id="permanent-delete" icon={<DeleteIcon size={14} />} isDanger isDisabled={pending} onAction={() => onRequestPermanentDelete(note)}>彻底删除</MenuItem>
+          <MenuItem id="restore" icon={<RefreshIcon size={14} />} isDisabled={pending || !canWrite} onAction={() => onRestore(note)}>恢复笔记</MenuItem>
+          <MenuItem id="permanent-delete" icon={<DeleteIcon size={14} />} isDanger isDisabled={pending || !canWrite || !supportsPermanentDelete} onAction={() => onRequestPermanentDelete(note)}>{supportsPermanentDelete ? '彻底删除' : '彻底删除（请在网页版操作）'}</MenuItem>
         </Menu>
       </MenuPopover>
     </MenuTrigger>

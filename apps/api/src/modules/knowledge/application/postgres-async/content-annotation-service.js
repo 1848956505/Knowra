@@ -1,3 +1,4 @@
+import { resolveStoredAnnotation } from '../resolve-stored-annotation.js';
 import crypto from 'node:crypto';
 import { anchorForSection, calculateContentHash, followSectionAnchor, headingPathForSourceOffset, relocateAnchor, resolveAnchor } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../../../errors/app-error.js';
@@ -97,9 +98,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       if (annotation.schemaVersion !== 2 || !annotation.anchor) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: annotation.status === 'stale' ? 'needsReview' : 'resolved', deletedAt: null }, 'restored');
       const note = await noteRepository.findById(annotation.noteId);
       if (!note || note.deleted) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: 'missing', anchorReason: 'sourceDeleted', deletedAt: null }, 'restored', 'sourceDeleted');
-      const result = annotation.scopeType === 'section'
-        ? followSectionAnchor(note.rawMarkdown, annotation.anchor)
-        : relocateAnchor(note.rawMarkdown, annotation.anchor);
+      const result = resolveStoredAnnotation(note.rawMarkdown, annotation);
       return saveUpdated(annotation, { lifecycleStatus: 'active', deletedAt: null, anchorStatus: result.status, anchorReason: result.reason, ...(result.anchor ? { anchor: { ...result.anchor, noteVersionId: annotation.noteVersionId }, quoteText: result.quoteText, fromPosition: result.anchor.sourceStart, toPosition: result.anchor.sourceEnd, resolvedContentHash: calculateContentHash(result.quoteText) } : {}) }, 'restored', result.reason);
     },
     async updateAnnotationAnchor(id, input) {
@@ -124,9 +123,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
           changed.push(await saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'legacyUnverified', noteContentHash: currentContentHash }, 'anchorStatusChanged', 'legacyUnverified'));
           continue;
         }
-        const result = annotation.scopeType === 'section'
-          ? followSectionAnchor(note.rawMarkdown, annotation.anchor)
-          : relocateAnchor(note.rawMarkdown, annotation.anchor);
+        const result = resolveStoredAnnotation(note.rawMarkdown, annotation);
         let nextAnchor = result.anchor ?? annotation.anchor;
         if (result.status === 'resolved' && annotation.scopeType === 'section') {
           const sectionIndex = result.projection.sections.findIndex((section) => section.path === annotation.anchor.structurePath);
@@ -135,7 +132,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
         const nextQuote = result.status === 'resolved' ? nextAnchor.quoteText : annotation.quoteText;
         const nextResolvedHash = result.status === 'resolved' ? calculateContentHash(nextQuote) : annotation.resolvedContentHash;
         if (result.status !== 'resolved' || nextResolvedHash !== annotation.resolvedContentHash) contentChangedAnnotationIds.push(annotation.id);
-        changed.push(await saveUpdated(annotation, { noteVersionId: version?.id ?? annotation.noteVersionId, noteContentHash: currentContentHash, anchor: { ...nextAnchor, noteVersionId: version?.id ?? annotation.noteVersionId }, quoteText: nextQuote, fromPosition: nextAnchor.sourceStart, toPosition: nextAnchor.sourceEnd, resolvedContentHash: nextResolvedHash, boundaryFingerprint: nextAnchor.section?.memberFingerprint ?? annotation.boundaryFingerprint, anchorStatus: result.status, anchorReason: result.reason }, 'sourceReconciled', result.reason));
+        changed.push(await saveUpdated(annotation, { noteVersionId: version?.id ?? annotation.noteVersionId, noteContentHash: currentContentHash, anchor: { ...nextAnchor, noteVersionId: version?.id ?? annotation.noteVersionId }, quoteText: nextQuote, fromPosition: result.status === 'resolved' ? nextAnchor.sourceStart : annotation.fromPosition, toPosition: result.status === 'resolved' ? nextAnchor.sourceEnd : annotation.toPosition, resolvedContentHash: nextResolvedHash, boundaryFingerprint: nextAnchor.section?.memberFingerprint ?? annotation.boundaryFingerprint, anchorStatus: result.status, anchorReason: result.reason }, 'sourceReconciled', result.reason));
       }
       return { annotations: changed, contentChangedAnnotationIds };
     },

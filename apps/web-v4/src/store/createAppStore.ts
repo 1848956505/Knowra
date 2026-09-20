@@ -3,6 +3,7 @@ import { createNavigationSlice } from './slices/navigationSlice';
 import { createNotesIndexSlice } from './slices/notesIndexSlice';
 import { createStatusSlice } from './slices/statusSlice';
 import { createWorkspaceSlice } from './slices/workspaceSlice';
+import { createKnowledgeSlice } from './slices/knowledgeSlice';
 import type { AppStore, WorkspaceDependencies } from './types';
 
 export function createAppStore(dependencies: WorkspaceDependencies) {
@@ -10,7 +11,8 @@ export function createAppStore(dependencies: WorkspaceDependencies) {
     ...createStatusSlice(set),
     ...createNavigationSlice(set, get, dependencies),
     ...createNotesIndexSlice(set, get, dependencies.api.searchNoteIds),
-    ...createWorkspaceSlice(set, get, dependencies)
+    ...createWorkspaceSlice(set, get, dependencies),
+    ...createKnowledgeSlice(get, dependencies)
   }));
 }
 

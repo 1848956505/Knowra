@@ -52,8 +52,8 @@ export function createInMemoryKnowledgeEvidenceRepository(options = {}) {
     markByAnnotationId(annotationId, status) {
       return updateStatus((item) => item.annotationId === annotationId, status);
     },
-    markByNoteVersionId(noteVersionId, status) {
-      return updateStatus((item) => item.noteVersionId === noteVersionId, status);
+    markByNoteVersionId(noteVersionId, status, sourceType = null) {
+      return updateStatus((item) => item.noteVersionId === noteVersionId && (!sourceType || item.sourceType === sourceType), status);
     }
   };
 }

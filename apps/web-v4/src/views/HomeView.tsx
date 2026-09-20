@@ -36,7 +36,7 @@ const DOMAIN_CARDS: readonly DomainCardEntry[] = [
   {
     id: 'materials',
     label: '笔记工作台',
-    description: 'Markdown 笔记的采集、编辑与整理。当前唯一可用工作域。',
+    description: 'Markdown 笔记的采集、编辑与整理。',
     number: '01',
     Icon: FolderIcon,
     available: true
@@ -44,10 +44,10 @@ const DOMAIN_CARDS: readonly DomainCardEntry[] = [
   {
     id: 'knowledge',
     label: '知识工作台',
-    description: '知识单元与学习目标管理。后端联调未完成。',
+    description: '整理知识候选、人工确认与来源追溯。',
     number: '02',
     Icon: NodesIcon,
-    available: false
+    available: true
   },
   {
     id: 'training',
@@ -69,6 +69,7 @@ export interface HomeViewProps {
   isWritable: boolean;
   onRetry(): void;
   onOpenMaterials?(): void;
+  onOpenKnowledge?(): void;
   onOpenSearch?(): void;
   onOpenCreate?(): void;
   onOpenSchedule?(): void;
@@ -85,6 +86,7 @@ export function HomeView({
   isWritable,
   onRetry,
   onOpenMaterials,
+  onOpenKnowledge,
   onOpenSearch,
   onOpenCreate,
   onOpenSchedule,
@@ -170,7 +172,7 @@ export function HomeView({
               key={entry.id}
               entry={entry}
               activeNoteCount={stats.activeNotes}
-              onActivate={entry.available ? onOpenMaterials : undefined}
+              onActivate={entry.id === 'knowledge' ? onOpenKnowledge : entry.available ? onOpenMaterials : undefined}
             />
           ))}
         </div>
@@ -389,7 +391,7 @@ function WorkbenchCard({ entry, activeNoteCount, onActivate }: WorkbenchCardProp
           className={cx(styles.statusDot, entry.available ? styles.statusDotActive : styles.statusDotLocked)}
           aria-hidden="true"
         />
-        <span>{entry.available ? `AVAILABLE · ${activeNoteCount} ITEMS` : 'DEPENDENCY GATED'}</span>
+        <span>{entry.available ? entry.id === 'materials' ? `AVAILABLE · ${activeNoteCount} ITEMS` : 'AVAILABLE · 知识整理' : 'DEPENDENCY GATED'}</span>
       </div>
     </button>
   );

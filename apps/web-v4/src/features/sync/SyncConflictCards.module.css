@@ -1,0 +1,22 @@
+.conflict { padding: 14px; border: 1px solid var(--ink-panel); display: grid; gap: 12px; overflow-wrap: anywhere; min-width: 0; }
+.conflict h3 { margin: 0; font-size: 14px; }
+.conflict p { margin: 0; line-height: 1.6; }
+.comparison { display: grid; gap: 10px; min-width: 0; }
+.mode { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.mode select { max-width: 100%; padding: 6px; border: 1px solid var(--ink-panel); color: var(--ink); background: var(--ink-surface); font: inherit; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.merge { display: grid; gap: 10px; }
+.merge label { display: grid; gap: 6px; font-size: 13px; }
+.merge textarea { box-sizing: border-box; width: 100%; padding: 9px; border: 1px solid var(--ink-panel); background: var(--ink-surface); color: var(--ink); font: inherit; }
+.hint { font-size: 12px; color: var(--ink-secondary); }
+.notice { padding: 8px; background: var(--ink-warning-soft); }
+.entity { min-width: 0; border-top: 1px solid var(--ink-panel); padding-top: 10px; }
+.entity summary { cursor: pointer; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.tableWrap { max-height: 360px; overflow: auto; }
+.fields { width: 100%; min-width: 420px; table-layout: fixed; border-collapse: collapse; font-size: 12px; line-height: 1.6; }
+.fields th, .fields td { border: 1px solid var(--ink-panel); padding: 7px; text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fields th { background: var(--ink-sunken); font-weight: 600; }
+.fields th:first-child { width: 72px; }
+.changed { background: var(--ink-accent-soft); }
+.changeLabel { display: block; font-size: 10px; color: var(--ink-accent); margin-bottom: 2px; }
+.reasons { font-size: 12px; margin: 0; padding-left: 18px; }

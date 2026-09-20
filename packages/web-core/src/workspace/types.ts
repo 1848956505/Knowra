@@ -46,6 +46,26 @@ export interface NoteVersion extends EntityBase {
   createdBy: string;
 }
 
+export interface NoteVersionSummary {
+  id: string;
+  noteId: string;
+  contentHash: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface NoteVersionPage {
+  items: NoteVersionSummary[];
+  total: number;
+  currentVersionId: string | null;
+  nextCursor: string | null;
+}
+
+export interface NoteVersionPageOptions {
+  limit?: number;
+  cursor?: string;
+}
+
 export interface Attachment extends EntityBase {
   noteId: string;
   fileName: string;
@@ -123,22 +143,7 @@ export interface ContentAnchor {
   section?: Record<string, unknown>;
 }
 
-export interface KnowledgeItem extends EntityBase {
-  title: string;
-  canonicalStatement: string;
-  userExplanation: string;
-  knowledgeType: string;
-  importance: number | null;
-  sourceMode: string;
-  reviewStatus?: string;
-  evidenceStatus?: string;
-  sourceHealth?: string;
-  evidenceCount?: number;
-  objectiveCount?: number;
-  confirmedObjectiveCount?: number;
-  questionCount?: number;
-  noteIds?: string[];
-}
+export type { KnowledgeItem } from './knowledge-types.js';
 
 export interface LearningObjective extends EntityBase {
   knowledgeItemId: string;

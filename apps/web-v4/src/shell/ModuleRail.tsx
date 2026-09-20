@@ -42,9 +42,9 @@ export const PRIMARY_DOMAINS: readonly RailItem[] = [
   {
     id: 'knowledge',
     label: '知识',
-    description: '知识单元与学习目标管理。',
+    description: '知识候选、人工确认与来源追溯。',
     Icon: BookIcon,
-    available: false
+    available: true
   },
   {
     id: 'training',

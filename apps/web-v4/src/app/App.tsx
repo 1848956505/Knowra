@@ -1,3 +1,4 @@
+import { RecoveryDraftNotice } from '../features/editor/RecoveryDraftNotice';
 import { useMaterialsRoute } from './useMaterialsRoute';
 import { LocalSyncControl } from '../features/sync/LocalSyncControl';
 import { buildIndexPath, indexRoute } from '../features/notes/notesIndexNavigation';
@@ -41,7 +42,9 @@ export function App() {
   const canWriteWorkspace = useAppStore((state) => state.canWriteWorkspace);
   const dataMode = useAppStore((state) => state.dataMode);
   const saveState = useAppStore((state) => state.saveState);
+  const saveError = useAppStore((state) => state.saveError);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
+  const editorSaveError = useAppStore((state) => state.editorSaveError);
   const editorHasLocalChanges = useAppStore((state) => state.editorHasLocalChanges);
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
@@ -55,7 +58,7 @@ export function App() {
   const [editorView, setEditorView] = useState(initialEditorViewState);
   const previousPathRef = useRef(location.pathname);
 
-  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials');
+  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials') || location.pathname.startsWith('/knowledge');
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
     if (!shouldLoadWorkspace) return;
@@ -65,7 +68,7 @@ export function App() {
   // URL 是工作域真源：支持可分享链接、前进后退和未上线模块的真实门禁页。
   useEffect(() => {
     if (location.pathname === '/showcase') return;
-    const segment = location.pathname.replace(/^\//, '').split('/')[0];
+    const segment = location.pathname.split('?')[0].replace(/^\//, '').split('/')[0];
     const routeDomain: WorkDomain = !segment || segment === 'materials'
       ? 'materials'
       : WORK_DOMAINS.includes(segment as WorkDomain)
@@ -139,7 +142,7 @@ export function App() {
   }
 
   const routeDomain = useMemo<WorkDomain>(() => {
-    const path = location.pathname.replace(/^\//, '').split('/')[0];
+    const path = location.pathname.split('?')[0].replace(/^\//, '').split('/')[0];
     if (!path || path === 'materials') return 'materials';
     if (WORK_DOMAINS.includes(path as WorkDomain)) return path as WorkDomain;
     if (path === 'showcase') return storeActiveDomain;
@@ -151,6 +154,7 @@ export function App() {
   const isShowcaseActive = routePathname === '/showcase';
   const isHome = routePathname === '/';
   const isNotesIndex = routePathname === '/materials';
+  const isKnowledgeWorkspace = routeDomain === 'knowledge';
   const editorNoteId = getEditorNoteId(location.pathname);
   const isNoteEditor = editorNoteId !== null;
   const effectiveEditorView = useMemo(() => getEffectiveEditorViewState(editorView), [editorView]);
@@ -204,7 +208,7 @@ export function App() {
       contextSidebar={showNotesContextSidebar ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
       ) : undefined}
-      stageMode={isNoteEditor || isNotesIndex ? 'workspace' : 'default'}
+      stageMode={isNoteEditor || isNotesIndex || isKnowledgeWorkspace ? 'workspace' : 'default'}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
@@ -214,7 +218,8 @@ export function App() {
       isShowcaseActive={isShowcaseActive}
       statusbar={{
         path: statusPath,
-        saveState: editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
+        saveState: editorSaveError ? 'error' : editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
+        saveError: editorSaveError ?? saveError,
         persistenceMode,
         savedAt: editorNote?.updatedAt,
         dataMode,
@@ -261,7 +266,8 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={`${styles.route} ${isNoteEditor || isNotesIndex ? styles.routeWorkspace : ''}`}>
+      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isKnowledgeWorkspace ? styles.routeWorkspace : ''}`}>
+        <RecoveryDraftNotice onOpenNote={openNote} />
         <AppRoutes
           pathname={location.pathname}
           routeDomain={routeDomain}

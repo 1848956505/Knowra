@@ -68,6 +68,7 @@
 @media (max-width: 767px) { .page { margin: var(--index-size-12); height: calc(100% - var(--index-size-24)); } .header { padding: var(--index-size-10); gap: var(--index-size-8); } .indexBadge { font-size: var(--index-size-12); padding: var(--index-size-10); } .history button { width: var(--index-size-40); } .breadcrumb { order: 3; flex-basis: 100%; padding-left: 0; border-left: 0; } .actions { flex: 1 0 100%; justify-content: flex-end; order: 4; } .toolbar { flex-wrap: wrap; gap: var(--index-size-8); } .search { flex-basis: 100%; height: var(--index-size-44); } .sort { flex: 1; } .button, .sort, .filter, .viewToggle button { min-height: var(--index-size-44); } .viewToggle button { width: var(--index-size-44); } .tagFilters { padding-inline: var(--index-size-12); } .pagination { flex-wrap: wrap; justify-content: center; padding: var(--index-size-8); } .pagination > span:last-child { display: none; } .bulkBar { flex-wrap: wrap; } .heading { min-width: 0; } }
 
 .backArrow { display: inline-flex; transform: rotate(180deg); }
+.capabilityNotice { margin: 0; padding: var(--index-size-8) var(--index-size-16); border-bottom: 1px solid var(--ink-panel); background: var(--ink-surface); color: var(--ink-secondary); font: var(--index-size-12)/1.5 var(--font-ui); }
 
 .breadcrumb [aria-current='page'] { color: var(--ink-accent-hover); font-weight: 850; }
 .breadcrumb > span:last-child { font-size: var(--index-size-10); gap: var(--index-size-6); }

@@ -1,3 +1,4 @@
+import { MoveEntryDialog } from './MoveEntryDialog';
 import { useState, type ReactNode } from 'react';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { CreateEntryDialog, type CreateMode } from './CreateEntryDialog';
@@ -20,6 +21,9 @@ export function useSidebarTreeOperations(onMutation?: () => void): {
   handleTreeAction(action: SidebarTreeAction): void;
   dialogs: ReactNode;
 } {
+  const moveEntry = useAppStore(state => state.moveEntry);
+  const folders = useAppStore(state => state.serverData.foldersById);
+  const [moveTarget, setMoveTarget] = useState<(TreeEntryTarget & { parentId: string | null }) | null>(null);
   const createNote = useAppStore((state) => state.createNote);
   const createFolder = useAppStore((state) => state.createFolder);
   const renameNote = useAppStore((state) => state.renameNote);
@@ -43,6 +47,12 @@ export function useSidebarTreeOperations(onMutation?: () => void): {
 
   function handleTreeAction(action: SidebarTreeAction) {
     switch (action.type) {
+      case 'move-folder':
+        setMoveTarget({ kind: 'folder', id: action.folder.id, name: action.folder.name, parentId: action.folder.parentId ?? null });
+        return;
+      case 'move-note':
+        setMoveTarget({ kind: 'note', id: action.note.id, name: action.note.title, parentId: action.note.folderId ?? null });
+        return;
       case 'create-folder':
         openCreate('folder', action.folder.id);
         return;
@@ -68,6 +78,7 @@ export function useSidebarTreeOperations(onMutation?: () => void): {
 
   const dialogs = (
     <>
+      {moveTarget ? <MoveEntryDialog key={`${moveTarget.kind}:${moveTarget.id}`} target={moveTarget} currentParentId={moveTarget.parentId} folders={folders} onClose={() => setMoveTarget(null)} onMove={parentId => runMutation(moveEntry(moveTarget.kind, moveTarget.id, parentId))} /> : null}
       {createRequest ? (
         <CreateEntryDialog
           key={`${createRequest.mode}:${createRequest.parentFolderId ?? 'root'}`}

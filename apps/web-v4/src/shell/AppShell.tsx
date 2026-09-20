@@ -34,6 +34,7 @@ export interface AppShellProps {
     charCount?: number;
     savedAt?: string | null;
     saveState?: 'idle' | 'saving' | 'saved' | 'error';
+    saveError?: string | null;
     dataMode: 'api' | 'cache' | 'local' | 'loading';
     persistenceMode?: 'remote' | 'desktop-local';
     dataModeNote?: ReactNode;
@@ -108,6 +109,7 @@ export function AppShell({
         charCount={statusbar.charCount}
         savedAt={statusbar.savedAt}
         saveState={statusbar.saveState}
+        saveError={statusbar.saveError}
         dataMode={statusbar.dataMode}
         persistenceMode={statusbar.persistenceMode}
         dataModeNote={statusbar.dataModeNote}

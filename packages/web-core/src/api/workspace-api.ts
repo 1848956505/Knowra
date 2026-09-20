@@ -1,6 +1,7 @@
+import type { CreateKnowledgeCandidateInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
-import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, Tag, TagColor, TagGroup } from '../workspace/types.js';
+import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, Tag, TagColor, TagGroup } from '../workspace/types.js';
 
 export interface WorkspaceResources {
   folderTree: Folder[];
@@ -147,6 +148,14 @@ export interface EmptyRecycleBinResult {
 }
 
 export interface WorkspaceApi {
+  listKnowledgeItems?(query?: KnowledgeItemQuery): Promise<KnowledgeItem[]>;
+  getKnowledgeItem?(id: string): Promise<KnowledgeItem>;
+  createKnowledgeCandidate?(input: CreateKnowledgeCandidateInput): Promise<KnowledgeCandidateResult>;
+  updateKnowledgeItem?(id: string, input: UpdateKnowledgeItemInput): Promise<KnowledgeItem>;
+  confirmKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
+  archiveKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
+  restoreKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
+  listKnowledgeEvidence?(id: string): Promise<KnowledgeEvidence[]>;
   loadWorkspaceResources(spaceId: string): Promise<WorkspaceResources>;
   searchNoteIds(input: { query?: string; spaceId?: string }): Promise<string[]>;
   listKnowledgeSpaces(): Promise<KnowledgeSpace[]>;
@@ -187,6 +196,7 @@ export interface WorkspaceApi {
   createAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: ContentAnchor }): Promise<AnnotationExclusionResult>;
   deleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<AnnotationExclusionResult>;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
+  listNoteVersionPage?(noteId: string, options?: NoteVersionPageOptions): Promise<NoteVersionPage>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
   uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
@@ -203,7 +213,37 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
     return value;
   }
 
+  async function mutateKnowledgeItem(id: string, action: string, input: KnowledgeMutationInput = {}) {
+    return requireEntity(getData<KnowledgeItem>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/${action}`, {
+      method: 'POST', body: JSON.stringify(input)
+    })), '知识操作返回无效。');
+  }
+
   return {
+    async listKnowledgeItems(query = {}) {
+      const params = Object.entries(query).filter(([, value]) => value !== undefined)
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&');
+      return asArray<KnowledgeItem>(getData(await requestJson(`/api/knowledge/items${params ? `?${params}` : ''}`)));
+    },
+    async getKnowledgeItem(id) {
+      return requireEntity(getData<KnowledgeItem>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}`)), '知识内容返回无效。');
+    },
+    async createKnowledgeCandidate(input) {
+      const result = getData<KnowledgeCandidateResult>(await requestJson('/api/knowledge/items', { method: 'POST', body: JSON.stringify(input) }));
+      if (!result?.item?.id || !Array.isArray(result.evidence)) throw new Error('知识候选返回无效。');
+      return result;
+    },
+    async updateKnowledgeItem(id, input) {
+      return requireEntity(getData<KnowledgeItem>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}`, {
+        method: 'PATCH', body: JSON.stringify(input)
+      })), '知识保存返回无效。');
+    },
+    confirmKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'confirm', input),
+    archiveKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'archive', input),
+    restoreKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'restore', input),
+    async listKnowledgeEvidence(id) {
+      return asArray<KnowledgeEvidence>(getData(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence`)));
+    },
     async loadWorkspaceResources(spaceId) {
       const encodedSpaceId = encodeURIComponent(spaceId ?? '');
       const [folderTreePayload, notesPayload, tagsPayload, tagGroupsPayload] = await Promise.all([
@@ -473,6 +513,12 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       return asArray<NoteVersion>(getData(await requestJson(
         `/api/knowledge/notes/${encodeURIComponent(noteId)}/versions`
       )));
+    },
+    async listNoteVersionPage(noteId, options = {}) {
+      const query = `limit=${encodeURIComponent(String(options.limit ?? 20))}${options.cursor ? `&cursor=${encodeURIComponent(options.cursor)}` : ''}`;
+      const page = getData<NoteVersionPage>(await requestJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/versions?${query}`));
+      if (!page || !Array.isArray(page.items) || typeof page.total !== 'number') throw new Error('版本历史响应无效');
+      return page;
     },
     async getNoteVersion(noteId, versionId) {
       const version = getData<NoteVersion>(await requestJson(

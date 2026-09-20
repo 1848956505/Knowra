@@ -16,6 +16,8 @@ import styles from './NotesContextSidebar.module.css';
 export type SidebarTreeAction =
   | { type: 'create-folder'; folder: Folder }
   | { type: 'create-note'; folder: Folder }
+  | { type: 'move-folder'; folder: Folder }
+  | { type: 'move-note'; note: Note }
   | { type: 'rename-folder'; folder: Folder }
   | { type: 'delete-folder'; folder: Folder }
   | { type: 'toggle-favorite'; note: Note }
@@ -168,12 +170,14 @@ export function FolderContextMenu({ folder, canWrite, onAction, children, contex
         <Menu ariaLabel={`${folder.name}文件夹操作`} onAction={(key) => {
           if (key === 'create-folder') onAction({ type: 'create-folder', folder });
           if (key === 'create-note') onAction({ type: 'create-note', folder });
+          if (key === 'move') onAction({ type: 'move-folder', folder });
           if (key === 'rename') onAction({ type: 'rename-folder', folder });
           if (key === 'delete') onAction({ type: 'delete-folder', folder });
         }}>
           <MenuItem id="create-folder" icon={<FolderIcon size={14} />} isDisabled={!canWrite}>新建子文件夹</MenuItem>
           <MenuItem id="create-note" icon={<NoteIcon size={14} />} isDisabled={!canWrite}>新建笔记</MenuItem>
           <MenuSeparator />
+          <MenuItem id="move" isDisabled={!canWrite}>移动到…</MenuItem>
           <MenuItem id="rename" isDisabled={!canWrite}>重命名</MenuItem>
           <MenuItem id="delete" isDanger isDisabled={!canWrite}>删除</MenuItem>
         </Menu>
@@ -195,11 +199,13 @@ export function NoteContextMenu({ note, canWrite, onAction, children, contextMen
       <MenuPopover placement="right top">
         <Menu ariaLabel={`${note.title || '未命名笔记'}笔记操作`} onAction={(key) => {
           if (key === 'favorite') onAction({ type: 'toggle-favorite', note });
+          if (key === 'move') onAction({ type: 'move-note', note });
           if (key === 'rename') onAction({ type: 'rename-note', note });
           if (key === 'delete') onAction({ type: 'delete-note', note });
         }}>
           <MenuItem id="favorite" isDisabled={!canWrite}>{note.favorite ? '取消收藏' : '收藏笔记'}</MenuItem>
           <MenuSeparator />
+          <MenuItem id="move" isDisabled={!canWrite}>移动到…</MenuItem>
           <MenuItem id="rename" isDisabled={!canWrite}>重命名</MenuItem>
           <MenuItem id="delete" isDanger isDisabled={!canWrite}>删除</MenuItem>
         </Menu>

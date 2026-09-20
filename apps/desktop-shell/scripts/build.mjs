@@ -10,7 +10,7 @@ const staging = path.join(repo, 'dist/mac-staging');
 const output = path.join(repo, 'dist/mac');
 fs.rmSync(staging, { recursive: true, force: true });
 fs.mkdirSync(staging, { recursive: true });
-for (const name of ['main.cjs', 'preload.cjs']) fs.copyFileSync(path.join(repo, 'apps/desktop-shell/src', name), path.join(staging, name));
+for (const name of ['main.cjs', 'preload.cjs', 'draft-store.cjs']) fs.copyFileSync(path.join(repo, 'apps/desktop-shell/src', name), path.join(staging, name));
 await build({ entryPoints: [path.join(repo, 'apps/desktop-shell/src/runtime-entry.mjs')], outfile: path.join(staging, 'runtime.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', external: ['@prisma/client'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 fs.cpSync(path.join(repo, 'apps/web-v4/dist'), path.join(staging, 'web'), { recursive: true });
 const version = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'))).version;

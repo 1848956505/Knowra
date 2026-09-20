@@ -70,7 +70,7 @@ export function createPostgresKnowledgeEvidenceRepository({ db }) {
     },
     markByNoteId(noteId, status) { return mark({ noteId }, status); },
     markByAnnotationId(annotationId, status) { return mark({ annotationId }, status); },
-    markByNoteVersionId(noteVersionId, status) { return mark({ noteVersionId }, status); },
+    markByNoteVersionId(noteVersionId, status, sourceType = null) { return mark({ noteVersionId, ...(sourceType ? { sourceType } : {}) }, status); },
     supportsAsync: true
   };
 }

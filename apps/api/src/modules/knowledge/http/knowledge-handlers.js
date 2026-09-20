@@ -129,16 +129,21 @@ export function createKnowledgeHttpHandlers({
     previewAnalysisScope(body) { return annotationScopeService.previewAnalysisScope(body); },
     createAnalysisScope(body) { return annotationScopeService.createAnalysisScope(body); },
     getAnalysisScope(params, query) { return annotationScopeService.getAnalysisScope(params.id, query.spaceId); },
-    listNoteVersions(params, query = {}) { return noteVersionService.listVersions({ noteId: params.id, ...query }); },
-    getNoteVersion(params) { return noteVersionService.getVersion(params.versionId); },
+    listNoteVersions(params, query = {}) {
+      const note = noteService.getNote(params.id);
+      return query.limit !== undefined || query.cursor !== undefined
+        ? noteVersionService.listVersionPage(note, query)
+        : noteVersionService.listVersions({ ...query, noteId: params.id });
+    },
+    getNoteVersion(params) { noteService.getNote(params.id); return noteVersionService.getVersion(params.versionId, params.id); },
     listKnowledgeItems(query = {}) { return knowledgeItemService.listItems(query); },
     getKnowledgeItem(params) { return knowledgeItemService.getItem(params.id); },
     createKnowledgeItem(body) { return knowledgeItemService.createCandidate(body); },
     updateKnowledgeItem(params, body) { return knowledgeItemService.updateItem(params.id, body); },
-    confirmKnowledgeItem(params) { return knowledgeItemService.confirmItem(params.id); },
-    markKnowledgeItemNeedsRevision(params) { return knowledgeItemService.markNeedsRevision(params.id); },
-    archiveKnowledgeItem(params) { return knowledgeItemService.archive(params.id); },
-    restoreKnowledgeItem(params) { return knowledgeItemService.restore(params.id); },
+    confirmKnowledgeItem(params, body) { return knowledgeItemService.confirmItem(params.id, body); },
+    markKnowledgeItemNeedsRevision(params, body) { return knowledgeItemService.markNeedsRevision(params.id, body); },
+    archiveKnowledgeItem(params, body) { return knowledgeItemService.archive(params.id, body); },
+    restoreKnowledgeItem(params, body) { return knowledgeItemService.restore(params.id, body); },
     listKnowledgeEvidence(params) { return knowledgeItemService.listEvidence(params.id); },
     createKnowledgeEvidence(params, body) { return knowledgeItemService.createEvidence({ ...body, knowledgeItemId: params.id }); },
     listLearningObjectives(query = {}) { return learningObjectiveService.listObjectives(query); },

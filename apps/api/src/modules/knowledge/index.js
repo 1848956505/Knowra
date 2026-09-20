@@ -296,6 +296,8 @@ export function createKnowledgeModule(options = {}) {
       const oldVersionIds = noteVersionService.listVersions({ noteId: note.id })
         .filter((candidate) => candidate.id !== version.id)
         .map((candidate) => candidate.id);
+      const directEvidence = oldVersionIds.flatMap((id) => knowledgeItemService.markEvidenceByNoteVersionId(id, 'stale', 'noteVersion'));
+      questionService.markSourcesStale('knowledgeEvidence', directEvidence.map((record) => record.id));
       questionService.markSourcesStale('noteVersion', oldVersionIds);
     },
     onNoteDeleted: (noteId) => {

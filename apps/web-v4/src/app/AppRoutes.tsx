@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { PathSegment } from '../shell/path';
 import { useNavigate } from './router';
 import { useAppStore } from '../store/AppStoreProvider';
@@ -16,6 +16,10 @@ import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
 import type { WorkDomain } from '../store/types';
 import { TagManagerView } from '../features/tags';
+import type { Annotation } from '@study-accelerator/web-core';
+import { KnowledgeStage } from './KnowledgeStage';
+import { CreateKnowledgeCandidateDialog } from '../features/knowledge/CreateKnowledgeCandidateDialog';
+import { LOCAL_KNOWLEDGE_WRITE_REASON, workspaceCapabilities } from '../store/workspaceCapabilities';
 
 const ComponentShowcase = lazy(async () => {
   const module = await import('../components/ui/showcase');
@@ -29,7 +33,7 @@ export interface DomainDescriptor {
 
 export const DOMAIN_INFO: Record<WorkDomain, DomainDescriptor> = {
   materials: { title: '资料工作区', description: '按目录组织 Markdown 笔记，用标签串联主题。' },
-  knowledge: { title: '知识库', description: '知识单元与学习目标管理（V4-08 接入）。' },
+  knowledge: { title: '知识库', description: '整理知识候选、人工确认并追溯原文来源。' },
   training: { title: '试题库', description: '题目库与考试场景（V4-08 接入）。' },
   learning: { title: '执行', description: '待办、打卡与习惯追踪（V4-08 接入）。' },
   profile: { title: '我的', description: '工作区与个人设置。' }
@@ -57,6 +61,7 @@ export function AppRoutes(props: AppRoutesProps) {
   if (routePath === '/showcase') {
     return <Suspense fallback={<LoadingState label="正在加载组件展台…" />}><ComponentShowcase /></Suspense>;
   }
+  if (props.routeDomain === 'knowledge') return <KnowledgeStage pathname={props.pathname} onOpenNote={props.onOpenNote} />;
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;
   if (routePath === '/materials/tags') return <TagManagerView />;
   if (routePath === '/materials') {
@@ -116,6 +121,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const deleteTag = useAppStore((state) => state.deleteTag);
   const mergeTags = useAppStore((state) => state.mergeTags);
   const listNoteVersions = useAppStore((state) => state.listNoteVersions);
+  const listNoteVersionPage = useAppStore((state) => state.listNoteVersionPage);
+  const saveNoteVersionAs = useAppStore((state) => state.saveNoteVersionAs);
   const getNoteVersion = useAppStore((state) => state.getNoteVersion);
   const organizeNote = useAppStore((state) => state.organizeNote);
   const listNoteAttachments = useAppStore((state) => state.listNoteAttachments);
@@ -136,6 +143,12 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const createAnnotationExclusion = useAppStore((state) => state.createAnnotationExclusion);
   const deleteAnnotationExclusion = useAppStore((state) => state.deleteAnnotationExclusion);
   const setStatusMessage = useAppStore((state) => state.setStatusMessage);
+  const createKnowledgeCandidate = useAppStore(state => state.createKnowledgeCandidate);
+  const [knowledgeSource, setKnowledgeSource] = useState<Annotation | null>(null);
+  const canWriteKnowledge = canWrite && workspaceCapabilities(persistenceMode).writeKnowledge;
+  const knowledgeContext = useRef<{ noteId: string; canWrite: boolean } | null>(null);
+  knowledgeContext.current = { noteId, canWrite: canWriteKnowledge };
+  useEffect(() => () => { knowledgeContext.current = null; }, []);
   const navigate = useNavigate();
   const [createMode, setCreateMode] = useState<CreateMode>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -196,8 +209,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onCreateFolder={() => setCreateMode('folder')}
         onImportMarkdown={() => setImportOpen(true)}
         onRenameNote={(title) => note ? renameNote(note.id, title) : Promise.resolve()}
-        onSaveMarkdown={(targetNoteId, markdown, expectedUpdatedAt) => (
-          saveNoteContent(targetNoteId, markdown, expectedUpdatedAt)
+        onSaveMarkdown={(targetNoteId, markdown, expectedUpdatedAt, baseMarkdown) => (
+          saveNoteContent(targetNoteId, markdown, expectedUpdatedAt, baseMarkdown)
         )}
         onSaveAs={async () => {
           if (!note) return;
@@ -213,6 +226,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onOpenTagManager={() => navigate('/materials/tags')}
         onOpenTag={(tagId) => navigate(`/materials?tags=${encodeURIComponent(tagId)}&match=all`)}
         onListVersions={listNoteVersions}
+        onListVersionPage={listNoteVersionPage}
+        onSaveVersionAs={async version => { if (note) onOpenNote(await saveNoteVersionAs(note.id, version.id)); }}
         onGetVersion={getNoteVersion}
         onOrganizeNote={(input) => note ? organizeNote(note.id, input) : Promise.resolve()}
         onListAttachments={listNoteAttachments}
@@ -228,7 +243,15 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onUpdateAnnotation={updateAnnotation}
         onPreviewAnnotation={previewAnnotation}
         onGetAnnotationKnowledgeLinks={getAnnotationKnowledgeLinks}
-        onPreviewAnalysisScope={persistenceMode === 'desktop-local' ? undefined : previewAnalysisScope}
+        onCreateKnowledgeCandidate={canWriteKnowledge ? async annotation => {
+          const current = await previewAnnotation(annotation.id);
+          if (knowledgeContext.current?.noteId !== annotation.noteId || !knowledgeContext.current?.canWrite) throw new Error('已切换笔记或写入状态，请重新打开标注。');
+          if (current.resolution.status !== 'resolved') throw new Error('标注来源已变化，请重新定位后创建知识候选。');
+          setKnowledgeSource(current.annotation);
+        } : undefined}
+        onOpenKnowledgeItem={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)}
+        knowledgeWriteDisabledReason={persistenceMode === 'desktop-local' ? LOCAL_KNOWLEDGE_WRITE_REASON : undefined}
+        onPreviewAnalysisScope={previewAnalysisScope}
         onCreateAnalysisScope={persistenceMode === 'desktop-local' ? undefined : createAnalysisScope}
         onCreateAnnotationExclusion={createAnnotationExclusion}
         onDeleteAnnotationExclusion={deleteAnnotationExclusion}
@@ -241,6 +264,13 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
             .finally(() => setFavoritePending(false));
         }}
       />
+      {knowledgeSource ? <CreateKnowledgeCandidateDialog
+        source={knowledgeSource}
+        canWrite={canWriteKnowledge}
+        onClose={() => setKnowledgeSource(null)}
+        onCreate={createKnowledgeCandidate}
+        onCreated={item => { setKnowledgeSource(null); navigate(`/knowledge?item=${encodeURIComponent(item.id)}`); }}
+      /> : null}
       <CreateEntryDialog
         mode={createMode}
         parentFolderId={folder?.id ?? null}
@@ -288,6 +318,7 @@ function HomeStage({ onRetry, canWrite, onSelectNote, onOpenMaterials, onOpenSea
   const error = useAppStore((state) => state.workspaceError);
   const dataMode = useAppStore((state) => state.dataMode);
   const serverData = useAppStore((state) => state.serverData);
+  const navigate = useNavigate();
   return (
     <HomeView
       loadState={loadState}
@@ -299,6 +330,7 @@ function HomeStage({ onRetry, canWrite, onSelectNote, onOpenMaterials, onOpenSea
       isWritable={canWrite}
       onRetry={() => void onRetry()}
       onOpenMaterials={onOpenMaterials}
+      onOpenKnowledge={() => navigate('/knowledge')}
       onOpenSearch={onOpenSearch}
       onOpenCreate={onOpenCreate}
       onOpenSchedule={onOpenSchedule}

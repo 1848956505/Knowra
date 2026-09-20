@@ -87,11 +87,13 @@ describe('EditorInspector', () => {
     ));
     renderInspector({ onListVersions, onGetVersion });
 
-    await user.click(screen.getByRole('tab', { name: '版本' }));
-    expect(await screen.findByText('最新版本')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '历史记录' }));
+    expect(await screen.findByText('2 条历史记录')).toBeInTheDocument();
     expect(onListVersions).toHaveBeenCalledWith(note.id);
+    expect(onGetVersion).not.toHaveBeenCalled();
+    await user.click(screen.getAllByRole('button', { name: /历史正文/ })[0]);
     expect(await screen.findByText('# 第二版')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /历史版本 1/ }));
+    await user.click(screen.getAllByRole('button', { name: /历史正文/ })[1]);
     expect(await screen.findByText('# 第一版')).toBeInTheDocument();
     expect(onGetVersion).toHaveBeenLastCalledWith(note.id, 'version-1');
   });

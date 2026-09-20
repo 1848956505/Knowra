@@ -1,6 +1,6 @@
-import { registerDesktopSave } from '../../app/desktopLifecycle';
+import { readRuntimeConfig } from '../../app/runtimeConfig';
+import { registerDesktopSave, type DesktopCloseMode } from '../../app/desktopLifecycle';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { ApiRequestError } from '@study-accelerator/web-core';
 import { noteDraftRecovery, type RecoveredNoteDraft } from './noteDraftRecovery';
 
 const DEFAULT_AUTOSAVE_DELAY_MS = 700;
@@ -27,7 +27,8 @@ export interface UseNoteAutosaveOptions {
   onSave(
     noteId: string,
     markdown: string,
-    expectedUpdatedAt?: string
+    expectedUpdatedAt?: string,
+    baseMarkdown?: string
   ): Promise<NoteAutosaveSaveResult | void>;
 }
 
@@ -127,23 +128,24 @@ export function useNoteAutosave({
     }, renderDelayMs);
     renderTimerByNoteRef.current.set(next.noteId, timer);
   }, [renderDelayMs]);
-  const persist = useCallback(async (targetNoteId: string, markdown: string) => {
+  const persist = useCallback(async (targetNoteId: string, markdown: string, retryConflict = false) => {
     if (!canWriteRef.current) return;
     const previous = inFlightByNoteRef.current.get(targetNoteId) ?? Promise.resolve();
     const request = previous
       .catch(() => undefined)
       .then(async () => {
         const conflictMessage = conflictByNoteRef.current.get(targetNoteId);
-        if (conflictMessage) throw new Error(conflictMessage);
+        if (conflictMessage && !retryConflict) throw new Error(conflictMessage);
         const expectedUpdatedAt = baseUpdatedAtByNoteRef.current.get(targetNoteId);
         const revision = localRevisionByNoteRef.current.get(targetNoteId) ?? 0;
         try {
-          const saved = await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt);
+          const saved = await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt, serverMarkdownByNoteRef.current.get(targetNoteId));
           const savedMarkdown = saved?.rawMarkdown ?? markdown;
           serverMarkdownByNoteRef.current.set(targetNoteId, savedMarkdown);
           baseUpdatedAtByNoteRef.current.set(targetNoteId, saved?.updatedAt ?? expectedUpdatedAt);
           syncedRevisionByNoteRef.current.set(targetNoteId, revision);
           errorByNoteRef.current.delete(targetNoteId);
+          conflictByNoteRef.current.delete(targetNoteId);
           const latest = draftByNoteRef.current.get(targetNoteId) ?? markdown;
           if (latest === markdown) clearRecovery(targetNoteId);
           else retainDraft(targetNoteId, latest);
@@ -174,14 +176,14 @@ export function useNoteAutosave({
       }
     }
   }, [clearRecovery, publishFor, retainDraft]);
-  const flushNote = useCallback(async (targetNoteId: string, fallback?: string) => {
+  const flushNote = useCallback(async (targetNoteId: string, fallback?: string, retryConflict = false) => {
     const timer = timerByNoteRef.current.get(targetNoteId);
     if (timer) clearTimeout(timer);
     timerByNoteRef.current.delete(targetNoteId);
     const markdown = pendingByNoteRef.current.get(targetNoteId) ?? fallback;
     if (markdown === undefined || !canWriteRef.current) return;
     const serverMarkdown = serverMarkdownByNoteRef.current.get(targetNoteId);
-    if (!inFlightByNoteRef.current.has(targetNoteId) && markdown === serverMarkdown) {
+    if (!conflictByNoteRef.current.has(targetNoteId) && !inFlightByNoteRef.current.has(targetNoteId) && markdown === serverMarkdown) {
       pendingByNoteRef.current.delete(targetNoteId);
       clearRecovery(targetNoteId);
       syncedRevisionByNoteRef.current.set(
@@ -191,7 +193,7 @@ export function useNoteAutosave({
       publishFor(targetNoteId);
       return;
     }
-    await persist(targetNoteId, markdown);
+    await persist(targetNoteId, markdown, retryConflict);
   }, [clearRecovery, persist, publishFor]);
   const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean }) => {
     scheduleCurrentDraft({ noteId, markdown }, options?.immediate);
@@ -217,7 +219,7 @@ export function useNoteAutosave({
       pendingByNoteRef.current.set(noteId, latest);
       retainDraft(noteId, latest, draftScope);
     }
-    await flushNote(noteId, latest);
+    await flushNote(noteId, latest, true);
   }, [draftScope, flushNote, noteId, remoteMarkdown, retainDraft]);
   useEffect(() => {
     if (draftScope !== undefined && !restoredByNoteRef.current.has(noteId)) {
@@ -230,12 +232,28 @@ export function useNoteAutosave({
         pendingByNoteRef.current.set(noteId, recovered.markdown);
         localRevisionByNoteRef.current.set(noteId, 1);
         syncedRevisionByNoteRef.current.set(noteId, 0);
-        if (recovered.conflict || recovered.baseUpdatedAt !== remoteUpdatedAt || recovered.baseMarkdown !== remoteMarkdown) {
+        if (recovered.markdown === remoteMarkdown) {
+          pendingByNoteRef.current.delete(noteId);
+          clearRecovery(noteId);
+          serverMarkdownByNoteRef.current.set(noteId, remoteMarkdown);
+          baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
+          syncedRevisionByNoteRef.current.set(noteId, 1);
+        } else if (recovered.baseMarkdown === remoteMarkdown) {
+          // 已重新读取正文且内容未变：时间戳变化不构成正文冲突。
+          baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
+          retainDraft(noteId, recovered.markdown, draftScope);
+        } else {
           const message = recovered.conflict ?? '远端正文已更新，已恢复本地草稿，请导出草稿后核对。';
           conflictByNoteRef.current.set(noteId, message);
           errorByNoteRef.current.set(noteId, message);
         }
         setCurrentDraft({ noteId, markdown: recovered.markdown });
+        if (pendingByNoteRef.current.has(noteId) && !conflictByNoteRef.current.has(noteId) && canWriteRef.current) {
+          timerByNoteRef.current.set(noteId, setTimeout(() => {
+            timerByNoteRef.current.delete(noteId);
+            void flushNote(noteId).catch(() => undefined);
+          }, delayMs));
+        }
         return;
       }
     }
@@ -267,7 +285,7 @@ export function useNoteAutosave({
     if (draft.noteId !== noteId || draft.markdown !== localDraft) {
       setCurrentDraft({ noteId, markdown: localDraft });
     }
-  }, [draft.markdown, draft.noteId, draftScope, noteId, recoveryStore, remoteMarkdown, remoteUpdatedAt, setCurrentDraft]);
+  }, [clearRecovery, delayMs, flushNote, draft.markdown, draft.noteId, draftScope, noteId, recoveryStore, remoteMarkdown, remoteUpdatedAt, retainDraft, setCurrentDraft]);
   useEffect(() => () => {
     const renderTimer = renderTimerByNoteRef.current.get(noteId);
     if (renderTimer) clearTimeout(renderTimer);
@@ -290,9 +308,11 @@ export function useNoteAutosave({
     return () => window.removeEventListener('beforeunload', warnBeforeUnload);
   }, []);
   useEffect(() => {
-    if (!window.knowraDesktop) return;
-    const flushAll = async () => {
-      await Promise.all([...inFlightByNoteRef.current.values()]);
+    if (!window.knowraDesktop && readRuntimeConfig().persistenceMode !== 'desktop-local') return;
+    const flushAll = async (mode: DesktopCloseMode = 'save') => {
+      for (const timer of timerByNoteRef.current.values()) clearTimeout(timer);
+      timerByNoteRef.current.clear();
+      await Promise.allSettled([...inFlightByNoteRef.current.values()]);
       // 旧编辑器卸载后，重新打开的编辑器可能已经保存或处理了恢复草稿。
       for (const [id, owned] of recoveryByNoteRef.current) {
         if (recoveryStore.read(owned.scope, id) !== owned.draft) {
@@ -301,16 +321,26 @@ export function useNoteAutosave({
           errorByNoteRef.current.delete(id);
         }
       }
+      if (mode === 'recovery') {
+        for (const [id, markdown] of pendingByNoteRef.current) {
+          const owned = recoveryByNoteRef.current.get(id);
+          if (!owned) throw new Error('正文缺少恢复草稿，请返回笔记导出后退出。');
+          retainDraft(id, draftByNoteRef.current.get(id) ?? markdown);
+        }
+        await recoveryStore.flush();
+        return;
+      }
       if (!canWriteRef.current && pendingByNoteRef.current.size) throw new Error('当前正文尚未保存，请先处理只读或加载状态。');
-      for (const id of [...pendingByNoteRef.current.keys()]) await flushNote(id);
+      for (const id of [...pendingByNoteRef.current.keys()]) await flushNote(id, undefined, true);
       if (conflictByNoteRef.current.size) throw new Error('正文有未解决的保存冲突，请处理后退出。');
+      await recoveryStore.flush();
     };
     const remove = registerDesktopSave(flushAll);
     return () => {
       // 切换路由后仍保留失败草稿的退出保护，成功落盘才注销。
       void flushAll().then(remove).catch(() => undefined);
     };
-  }, [flushNote, recoveryStore]);
+  }, [flushNote, recoveryStore, retainDraft]);
   const hasLocalChanges = noteHasLocalWork(noteId, {
     pending: pendingByNoteRef.current,
     inFlight: inFlightByNoteRef.current,
@@ -360,9 +390,5 @@ function noteHasLocalWork(noteId: string, maps: LocalWorkMaps): boolean {
 }
 
 function isUpdateConflict(error: unknown): boolean {
-  return error instanceof ApiRequestError
-    ? error.code === NOTE_UPDATE_CONFLICT || error.status === 409
-    : typeof error === 'object' && error !== null
-      && (('code' in error && error.code === NOTE_UPDATE_CONFLICT)
-        || ('status' in error && error.status === 409));
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === NOTE_UPDATE_CONFLICT;
 }

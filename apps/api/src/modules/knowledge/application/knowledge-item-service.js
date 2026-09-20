@@ -1,3 +1,5 @@
+import { matchesKnowledgeCandidateRequest } from './knowledge-candidate-retry.js';
+import { assertKnowledgeItemBaseline, nextKnowledgeItemTimestamp } from './knowledge-item-concurrency.js';
 import { KnowledgeItem } from '../domain/knowledge-item.js';
 import { KnowledgeEvidence } from '../domain/knowledge-evidence.js';
 import {
@@ -76,8 +78,14 @@ export function createKnowledgeItemService({
     if (dto.sourceType === 'annotation') {
       annotation = annotationRepository?.findById(annotationId);
       if (!annotation) throw notFoundError('ANNOTATION_NOT_FOUND', 'Annotation not found');
+      if (dto.expectedAnnotationRevision !== undefined && dto.expectedAnnotationRevision !== (annotation.revision ?? 1)) {
+        throw conflictError('KNOWLEDGE_EVIDENCE_REVISION_CONFLICT', '标注已变化，请重新打开候选创建面板并核对来源。');
+      }
       if (noteId && noteId !== annotation.noteId) throw conflictError('KNOWLEDGE_EVIDENCE_NOTE_MISMATCH', 'Evidence note does not match annotation');
       noteId = annotation.noteId;
+      if (dto.noteVersionId && annotation.noteVersionId && dto.noteVersionId !== annotation.noteVersionId) {
+        throw conflictError('KNOWLEDGE_EVIDENCE_VERSION_MISMATCH', '标注来源版本已变化，请重新加载标注。');
+      }
       noteVersionId = annotation.noteVersionId ?? noteVersionId;
       if (!noteVersionId) throw validationError('KNOWLEDGE_EVIDENCE_VERSION_REQUIRED', 'Annotation evidence requires a NoteVersion-bound annotation');
       version = noteVersionRepository?.findById(noteVersionId);
@@ -106,7 +114,9 @@ export function createKnowledgeItemService({
       noteId,
       noteVersionId,
       annotationId,
-      sourceId: dto.sourceId ?? annotationId ?? noteVersionId,
+      sourceId: annotationId ?? noteVersionId ?? dto.sourceId,
+      quoteText: annotation?.quoteText ?? dto.quoteText,
+      headingPath: annotation?.headingPath ?? dto.headingPath,
       status,
       createdAt: now(),
       updatedAt: now()
@@ -115,17 +125,25 @@ export function createKnowledgeItemService({
 
   function createCandidate(input = {}) {
     const dto = buildCreateKnowledgeItemDto(input);
-    assertItemIdAvailable(dto.id);
     const evidenceInputs = Array.isArray(input.evidence) ? input.evidence : [];
+    if (input.id) {
+      const existing = repository.findById(dto.id);
+      if (existing) {
+        const evidence = evidenceRepository.list({ knowledgeItemId: dto.id });
+        if (matchesKnowledgeCandidateRequest(existing, dto, evidence, evidenceInputs)) return { item: existing, evidence };
+      }
+    }
+    assertItemIdAvailable(dto.id);
     if (dto.sourceMode !== 'manual' && evidenceInputs.length === 0) {
       throw validationError('KNOWLEDGE_EVIDENCE_REQUIRED', 'A non-manual KnowledgeItem candidate requires evidence');
     }
     const created = runTransaction(() => {
+      const resolved = evidenceInputs.map((evidenceInput) => resolveEvidence(evidenceInput, dto.id));
+      if (new Set(resolved.map((record) => record.id)).size !== resolved.length) {
+        throw conflictError('KNOWLEDGE_EVIDENCE_ID_CONFLICT', '同一候选不能包含重复的来源 ID。');
+      }
       const item = saveNew(repository, new KnowledgeItem({ ...dto, id: dto.id }));
-      const evidence = evidenceInputs.map((evidenceInput) => saveNew(
-        evidenceRepository,
-        resolveEvidence(evidenceInput, item.id)
-      ));
+      const evidence = resolved.map((record) => saveNew(evidenceRepository, record));
       return { item, evidence };
     });
     return created;
@@ -136,8 +154,9 @@ export function createKnowledgeItemService({
     return evidenceRepository.list({ knowledgeItemId });
   }
 
-  function updateItem(id, input) {
+  function updateItem(id, input = {}) {
     const current = requireItem(id);
+    assertKnowledgeItemBaseline(current, input);
     const dto = buildUpdateKnowledgeItemDto(input);
     const textChanged = ['title', 'canonicalStatement', 'userExplanation'].some((field) => Object.hasOwn(dto, field) && dto[field] !== current[field]);
     const nextStatus = current.reviewStatus === 'confirmed' && textChanged
@@ -148,42 +167,46 @@ export function createKnowledgeItemService({
         ...current,
         ...dto,
         reviewStatus: nextStatus,
-        updatedAt: now()
-      }));
+        updatedAt: nextKnowledgeItemTimestamp(current)
+      }), { expectedUpdatedAt: current.updatedAt });
       notifyIfInvalidated(current, next);
       return next;
     });
   }
 
-  function confirmItem(id) {
+  function confirmItem(id, input = {}) {
     const item = requireItem(id);
+    assertKnowledgeItemBaseline(item, input);
     const evidence = evidenceRepository.list({ knowledgeItemId: id });
     assertKnowledgeItemConfirmable(item, evidence);
-    return repository.save(new KnowledgeItem({ ...item, reviewStatus: 'confirmed', updatedAt: now() }));
+    return repository.save(new KnowledgeItem({ ...item, reviewStatus: 'confirmed', updatedAt: nextKnowledgeItemTimestamp(item) }), { expectedUpdatedAt: item.updatedAt });
   }
 
-  function markNeedsRevision(id) {
+  function markNeedsRevision(id, input = {}) {
     const current = requireItem(id);
+    assertKnowledgeItemBaseline(current, input);
     return runTransaction(() => {
-      const next = repository.save(new KnowledgeItem({ ...current, reviewStatus: 'needsRevision', updatedAt: now() }));
+      const next = repository.save(new KnowledgeItem({ ...current, reviewStatus: 'needsRevision', updatedAt: nextKnowledgeItemTimestamp(current) }), { expectedUpdatedAt: current.updatedAt });
       notifyIfInvalidated(current, next);
       return next;
     });
   }
 
-  function archive(id) {
+  function archive(id, input = {}) {
     const current = requireItem(id);
+    assertKnowledgeItemBaseline(current, input);
     return runTransaction(() => {
-      const next = repository.save(new KnowledgeItem({ ...current, reviewStatus: 'archived', updatedAt: now() }));
+      const next = repository.save(new KnowledgeItem({ ...current, reviewStatus: 'archived', updatedAt: nextKnowledgeItemTimestamp(current) }), { expectedUpdatedAt: current.updatedAt });
       notifyIfInvalidated(current, next);
       return next;
     });
   }
 
-  function restore(id) {
+  function restore(id, input = {}) {
     const current = requireItem(id);
+    assertKnowledgeItemBaseline(current, input);
     if (current.reviewStatus !== 'archived') return current;
-    return repository.save(new KnowledgeItem({ ...current, reviewStatus: 'candidate', updatedAt: now() }));
+    return repository.save(new KnowledgeItem({ ...current, reviewStatus: 'candidate', updatedAt: nextKnowledgeItemTimestamp(current) }), { expectedUpdatedAt: current.updatedAt });
   }
 
   return {
@@ -225,8 +248,8 @@ export function createKnowledgeItemService({
     markEvidenceByAnnotationId(annotationId, status = 'invalid') {
       return markEvidenceAndReconcile(() => evidenceRepository.markByAnnotationId(annotationId, status));
     },
-    markEvidenceByNoteVersionId(noteVersionId, status = 'stale') {
-      return markEvidenceAndReconcile(() => evidenceRepository.markByNoteVersionId(noteVersionId, status));
+    markEvidenceByNoteVersionId(noteVersionId, status = 'stale', sourceType = null) {
+      return markEvidenceAndReconcile(() => evidenceRepository.markByNoteVersionId(noteVersionId, status, sourceType));
     }
   };
 
@@ -247,8 +270,8 @@ export function createKnowledgeItemService({
         const next = repository.save(new KnowledgeItem({
           ...current,
           reviewStatus: 'needsRevision',
-          updatedAt: now()
-        }));
+          updatedAt: nextKnowledgeItemTimestamp(current)
+        }), { expectedUpdatedAt: current.updatedAt });
         notifyIfInvalidated(current, next);
       }
       return changed;

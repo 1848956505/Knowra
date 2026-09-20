@@ -30,6 +30,12 @@ test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及�
   const created = await request('/api/knowledge/notes', 'POST', { spaceId: space.id, title: '本地验证', rawMarkdown: '第一版' });
   assert.equal(created.status, 201);
   const note = created.body.data;
+  const pendingBeforePreview = runtime.store.getStatus().pendingOperations;
+  const analysisPreview = await request('/api/knowledge/analysis-scopes/preview', 'POST', { spaceId: space.id, noteIds: [note.id], mode: 'all' });
+  assert.equal(analysisPreview.status, 200);
+  assert.equal(analysisPreview.body.data.segments[0].markdown, '第一版');
+  assert.equal(runtime.store.getStatus().pendingOperations, pendingBeforePreview);
+  assert.equal(runtime.store.state.analysisScopeSnapshots.length, 0);
   const attachment = await request('/api/storage/attachments', 'POST', { noteId: note.id, fileName: '离线.txt', contentBase64: Buffer.from('已保存附件').toString('base64') });
   assert.equal(attachment.status, 201);
   const saved = await request(`/api/knowledge/notes/${note.id}`, 'PATCH', { rawMarkdown: '断网后保存', expectedUpdatedAt: note.updatedAt });
