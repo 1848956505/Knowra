@@ -4,12 +4,15 @@ import { Button, Dialog, DialogBody, DialogFooter } from '../../components/ui';
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeDetail } from './KnowledgeDetail';
 import { KnowledgeItemDialog } from './KnowledgeItemDialog';
+import { knowledgeFormValue } from './KnowledgeItemForm';
+import { getKnowledgeDraftScope, knowledgeDraftRecovery, type KnowledgeDraft } from './knowledgeDraftRecovery';
 import { filterKnowledgeItems, KNOWLEDGE_STATUS_LABELS, knowledgeError, knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
 import styles from './KnowledgeWorkspaceView.module.css';
 
 type VersionInput = { expectedUpdatedAt?: string };
 export interface KnowledgeWorkspaceViewProps {
   selectedItemId?: string | null;
+  refreshKey?: number;
   canWrite: boolean;
   readOnlyReason?: string;
   onSelectItem(id: string): void;
@@ -25,7 +28,7 @@ export interface KnowledgeWorkspaceViewProps {
 }
 
 export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
-  const { selectedItemId, canWrite, readOnlyReason, onList, onGet, onListEvidence } = props;
+  const { selectedItemId, refreshKey, canWrite, readOnlyReason, onList, onGet, onListEvidence } = props;
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
@@ -38,7 +41,11 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [editItem, setEditItem] = useState<KnowledgeItem | null>(null);
+  const [editDraft, setEditDraft] = useState<KnowledgeDraft | null>(null);
+  const [recoveryDraft, setRecoveryDraft] = useState<KnowledgeDraft | undefined>();
+  const [drafts, setDrafts] = useState<KnowledgeDraft[]>([]);
+  const [draftError, setDraftError] = useState('');
+  const scope = getKnowledgeDraftScope();
   const [archiveItem, setArchiveItem] = useState<KnowledgeItem | null>(null);
   const selectedRef = useRef(selectedItemId);
   selectedRef.current = selectedItemId;
@@ -50,7 +57,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       .catch(error => { if (active) setListError(knowledgeError(error, '知识列表加载失败。')); })
       .finally(() => { if (active) setListLoading(false); });
     return () => { active = false; };
-  }, [onList, refresh]);
+  }, [onList, refresh, refreshKey]);
 
   useEffect(() => {
     let active = true;
@@ -62,7 +69,19 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       .catch(error => { if (active) setDetailError(knowledgeError(error, '知识详情加载失败。')); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedItemId, onGet, onListEvidence, refresh]);
+  }, [selectedItemId, onGet, onListEvidence, refresh, refreshKey]);
+
+  useEffect(() => {
+    try { setDrafts(knowledgeDraftRecovery.list(scope)); setDraftError(''); }
+    catch (cause) { setDraftError(knowledgeError(cause, '知识恢复草稿读取失败，请保留恢复文件。')); }
+  }, [scope, createOpen, editDraft, refresh]);
+
+  function openEdit(item: KnowledgeItem) {
+    const previous = drafts.find(draft => draft.kind === 'edit' && draft.candidateId === item.id);
+    const initialValue = knowledgeFormValue(item);
+    setRecoveryDraft(previous);
+    setEditDraft(previous ?? { version: 1, kind: 'edit', candidateId: item.id, expectedUpdatedAt: item.updatedAt, initialValue, value: initialValue });
+  }
 
   const visible = useMemo(() => filterKnowledgeItems(items, status, query), [items, status, query]);
   const counts = useMemo(() => items.reduce((result, item) => {
@@ -87,9 +106,15 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
 
   return <main className={styles.page} aria-labelledby="knowledge-title">
     <header className={styles.header}><div><h1 id="knowledge-title">知识库</h1><p>从笔记中整理候选，核对来源，再确认知识。</p></div>
-      <div className={styles.actions}><Button variant="ghost" isDisabled={listLoading || pending} onPress={() => setRefresh(value => value + 1)}>刷新</Button><Button variant="primary" isDisabled={!canWrite || pending} onPress={() => setCreateOpen(true)}>新建知识候选</Button></div>
+      <div className={styles.actions}><Button variant="ghost" isDisabled={listLoading || pending} onPress={() => setRefresh(value => value + 1)}>刷新</Button><Button variant="primary" isDisabled={!canWrite || pending} onPress={() => { setRecoveryDraft(undefined); setCreateOpen(true); }}>新建知识候选</Button></div>
     </header>
     {!canWrite ? <p className={styles.readOnly} role="status">{readOnlyReason ?? '当前为只读模式，暂不能修改知识。'}</p> : null}
+    {draftError ? <p role="alert" className={styles.error}>{draftError}</p> : null}
+    {drafts.length ? <section className={styles.notice} aria-label="未保存的知识草稿"><strong>有 {drafts.length} 条知识草稿尚未保存</strong>
+      {drafts.map(draft => <Button key={draft.candidateId} variant="ghost" onPress={() => {
+        setRecoveryDraft(draft); if (draft.kind === 'create') setCreateOpen(true); else setEditDraft(draft);
+      }}>恢复草稿：{draft.value.title || '未命名知识'}</Button>)}
+    </section> : null}
     <div className={styles.layout}>
       <section className={styles.listPanel} aria-label="知识列表">
         <div className={styles.filters}><label className={styles.search}>搜索知识<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索标题、陈述或解释" /></label>
@@ -112,15 +137,15 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
         {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
         {detailError ? <p role="alert" className={styles.error}>{detailError} {!archiveItem ? <Button variant="ghost" onPress={() => setRefresh(value => value + 1)}>重新加载知识</Button> : null}</p> : null}
         {detailLoading ? <p className={styles.empty} role="status">正在加载详情与来源…</p> : detail ? <KnowledgeDetail {...detail} canWrite={canWrite} pending={pending}
-          onEdit={() => setEditItem(detail.item)} onConfirm={() => void mutate(detail.item, props.onConfirm, '已确认这条知识。')}
+          onEdit={() => openEdit(detail.item)} onConfirm={() => void mutate(detail.item, props.onConfirm, '已确认这条知识。')}
           onArchive={() => setArchiveItem(detail.item)} onRestore={() => void mutate(detail.item, props.onRestore, '已恢复为候选，请重新核对后确认。')} onOpenNote={props.onOpenNote} />
           : !detailError ? <div className={styles.empty}><h2>选择一条知识</h2><p>查看核心陈述、个人解释及来源，完成核对后确认。</p></div> : null}
       </section>
     </div>
-    {createOpen ? <CreateKnowledgeCandidateDialog canWrite={canWrite} readOnlyReason={readOnlyReason} onClose={() => setCreateOpen(false)} onCreate={props.onCreate}
+    {createOpen ? <CreateKnowledgeCandidateDialog recoveryDraft={recoveryDraft} canWrite={canWrite} readOnlyReason={readOnlyReason} onClose={() => setCreateOpen(false)} onCreate={props.onCreate}
       onCreated={item => { acceptItem(item); setStatus('candidate'); setQuery(''); props.onSelectItem(item.id); }} /> : null}
-    {editItem ? <KnowledgeItemDialog key={editItem.id} title="编辑知识" initialValue={editItem} canWrite={canWrite} readOnlyReason={readOnlyReason}
-      onClose={() => setEditItem(null)} onSubmit={async value => props.onUpdate(editItem.id, { ...value, expectedUpdatedAt: editItem.updatedAt })}
+    {editDraft ? <KnowledgeItemDialog key={editDraft.candidateId} title="编辑知识" draft={editDraft} recovered={Boolean(recoveryDraft)} canWrite={canWrite} readOnlyReason={readOnlyReason}
+      onClose={() => setEditDraft(null)} onSubmit={async (value, baseline) => props.onUpdate(baseline.candidateId, { ...value, expectedUpdatedAt: baseline.expectedUpdatedAt })}
       onSaved={item => { if (item) { acceptItem(item); setNotice('知识已保存。'); } }} /> : null}
     {archiveItem ? <Dialog title="归档这条知识？" description={`“${archiveItem.title || '未命名知识'}”将移入已归档，来源仍保留。恢复后会成为待核对的候选。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) { setArchiveItem(null); setDetailError(''); } }}>
       {detailError ? <DialogBody><p role="alert" className={styles.error}>{detailError}</p></DialogBody> : null}

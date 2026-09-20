@@ -379,7 +379,12 @@ export function createPostgresKnowledgeModule({
       repository: transaction.contentAnnotationRepository,
       noteRepository: transaction.noteRepository,
       noteVersionRepository: transaction.noteVersionRepository,
-      revisionRepository: transaction.annotationRevisionRepository
+      revisionRepository: transaction.annotationRevisionRepository,
+      onSourceChanged: async (annotation) => {
+        const formal = createTransactionFormalServices(transaction);
+        const changed = await formal.knowledgeItemService.markEvidenceByAnnotationId(annotation.id, annotation.anchorStatus === 'missing' ? 'insufficient' : 'stale');
+        await formal.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
+      }
     });
     const scopeService = createAsyncAnnotationScopeService({
       annotationService,

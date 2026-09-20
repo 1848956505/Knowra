@@ -1,3 +1,4 @@
+import { KNOWLEDGE_SYNC_CAPABILITY, KNOWLEDGE_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
 import { applyEntityRemote, nextEntityUpload, acknowledgeEntityUpload, getEntitySyncState, resolveEntityConflict } from './entity-sync-state.mjs';
 import { applyRemote, nextUpload, acknowledge, getSyncState, resolveConflict, readMeta, writeMeta } from './sync-state.mjs';
 
@@ -113,8 +114,13 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
   }
   async function uploadEntities() {
     for (let count = 0; count < 20; count++) {
-      const operation = nextEntityUpload(store);
+      const knowledgeSupported = meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? false;
+      const operation = nextEntityUpload(store, { knowledgeSupported });
       if (!operation) return;
+      if (!knowledgeSupported && operation.changes.some(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection))) {
+        const failure = new Error('云端尚不支持知识同步，知识已保存在本机；请升级云端后重试。');
+        failure.code = 'SYNC_KNOWLEDGE_UNSUPPORTED'; throw failure;
+      }
       for (const entry of operation.changes) if (entry.collection === 'attachments' && entry.value) {
         const content = entityTransfer.read(entry.value);
         await request('blobs', { deviceId: operation.deviceId, attachment: entry.value, contentBase64: content.toString('base64') });
@@ -149,7 +155,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
         const failure = new Error('云端同步协议不兼容，请升级应用。'); failure.code = 'PROTOCOL_UNSUPPORTED'; throw failure;
       }
       if (meta('ownerId') && info.ownerId !== meta('ownerId')) throw new Error('云端所属资料库已改变，请使用独立本地资料目录。');
-      store.syncTransaction(db => writeMeta(db, 'ownerId', info.ownerId));
+      store.syncTransaction(db => { writeMeta(db, 'ownerId', info.ownerId); writeMeta(db, 'capabilities', info.capabilities ?? []); });
       if (full) {
         const device = await request(`device?deviceId=${encodeURIComponent(store.getStatus().deviceId)}`);
         store.syncTransaction(db => writeMeta(db, 'entitySequence', Math.max(meta('entitySequence') ?? 0, device.sequence)));
@@ -168,6 +174,9 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       if (!await pull()) { if (full) await uploadEntities(); phase = 'conflict'; return; }
       const pending = full ? getEntitySyncState(store).pendingEntities : getSyncState(store).pendingNotes;
       if (!pending && !meta('attachmentPending')) store.syncTransaction(db => writeMeta(db, 'lastSyncedAt', new Date().toISOString()));
+      if (full && getEntitySyncState(store).pendingKnowledgeEntities && !info.capabilities?.includes(KNOWLEDGE_SYNC_CAPABILITY)) {
+        error = { code: 'SYNC_KNOWLEDGE_UNSUPPORTED', message: '云端尚不支持知识同步，知识已保存在本机；请升级云端后重试。' };
+      }
       failures = 0; retryAt = 0;
       phase = (getSyncState(store).conflicts.length || (full && getEntitySyncState(store).entityConflict)) ? 'conflict' : pending ? 'pending' : 'synced';
     } catch (failure) {
@@ -190,7 +199,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
   timer?.unref();
   if (autoSync) queueMicrotask(() => { void sync(); });
   return {
-    status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error }),
+    status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), knowledgeSyncSupported: meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? null, attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error }),
     async configure({ serverUrl, username = '', password = '' }) {
       if (running) await running;
       const url = new URL(serverUrl);

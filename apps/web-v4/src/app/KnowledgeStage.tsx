@@ -1,7 +1,7 @@
 import { useAppStore } from '../store/AppStoreProvider';
 import { KnowledgeWorkspaceView } from '../features/knowledge/KnowledgeWorkspaceView';
 import { Button, LoadingState } from '../components/ui';
-import { LOCAL_KNOWLEDGE_WRITE_REASON, workspaceCapabilities } from '../store/workspaceCapabilities';
+import { workspaceCapabilities } from '../store/workspaceCapabilities';
 import { useNavigate } from './router';
 
 export function KnowledgeStage({ pathname, onOpenNote }: { pathname: string; onOpenNote(id: string): void }) {
@@ -13,7 +13,8 @@ export function KnowledgeStage({ pathname, onOpenNote }: { pathname: string; onO
   return <KnowledgeWorkspaceView
     selectedItemId={new URLSearchParams(pathname.split('?')[1] ?? '').get('item')}
     canWrite={canWrite}
-    readOnlyReason={canWrite ? undefined : LOCAL_KNOWLEDGE_WRITE_REASON}
+    refreshKey={state.knowledgeGeneration}
+    readOnlyReason={canWrite ? undefined : '当前资料库为只读模式，请重试加载后再修改知识。'}
     onSelectItem={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)}
     onOpenNote={onOpenNote}
     onList={state.listKnowledgeItems}

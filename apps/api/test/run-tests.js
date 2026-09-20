@@ -1,4 +1,5 @@
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
+import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
 import { storageConfigTests } from './storage.config.test.js';
 import { localBusinessTransactionTests } from './local-business-transactions.test.js';
 import { noteDomainTests } from './note.domain.test.js';
@@ -43,6 +44,7 @@ import { batch3ConsistencyTests } from './batch3-consistency.test.js';
 import { batch5OperationAccessTests } from './batch5-operation-access.test.js';
 
 const tests = [
+  ...knowledgeExtractionContractTests,
   ...knowledgeReviewFlowTests,
   ...localBusinessTransactionTests,
   ...storageConfigTests,

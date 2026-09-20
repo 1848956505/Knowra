@@ -18,7 +18,7 @@ const contentHash = calculateContentHash;
 const fail = (code, message, statusCode = 400) => createAppError(code, message, statusCode);
 const requestHash = (value) => contentHash(JSON.stringify(value));
 
-export function createContentAnnotationService({ repository = createInMemoryContentAnnotationRepository(), noteRepository, noteVersionRepository, revisionRepository = null } = {}) {
+export function createContentAnnotationService({ repository = createInMemoryContentAnnotationRepository(), noteRepository, noteVersionRepository, revisionRepository = null, onSourceChanged = null } = {}) {
   function requireAnnotation(id) { const annotation = repository.findById(id); if (!annotation) throw fail('ANNOTATION_NOT_FOUND', '标注不存在', 404); return annotation; }
   function assertCurrentNote(dto) { const note = noteRepository?.findById(dto.noteId); if (!note || note.deleted) throw fail('ANNOTATION_NOTE_NOT_FOUND', '笔记不存在', 404); if (note.spaceId !== dto.spaceId) throw fail('ANNOTATION_SPACE_MISMATCH', '标注空间与笔记不一致', 409); if (contentHash(note.rawMarkdown) !== dto.noteContentHash) throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请重新选择标注范围', 409); return note; }
   function nextId() { return `annotation-${crypto.randomUUID()}`; }
@@ -74,6 +74,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       updatedAt: new Date().toISOString()
     }));
     recordRevision(updated, operation, annotation.anchor, reason);
+    if (updated.quoteText !== annotation.quoteText || updated.anchorStatus !== 'resolved') onSourceChanged?.(updated);
     return updated;
   }
   return {

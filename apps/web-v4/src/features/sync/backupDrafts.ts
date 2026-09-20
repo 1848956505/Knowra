@@ -4,7 +4,7 @@ export function captureBrowserBackupDrafts() {
   if (window.knowraDesktop?.readRecoveryDrafts) return { version: 1, drafts };
   for (let index = 0; index < sessionStorage.length; index++) {
     const key = sessionStorage.key(index);
-    if (!key?.startsWith('knowra:note-draft:v1:')) continue;
+    if (!key?.startsWith('knowra:note-draft:v1:') && !key?.startsWith('knowra:knowledge-draft:v1:')) continue;
     drafts[key] = JSON.parse(sessionStorage.getItem(key) ?? 'null');
   }
   return { version: 1, drafts };

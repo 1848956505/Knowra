@@ -10,7 +10,7 @@ export interface EntityConflict {
   reasons: { collection: string; id: string; message?: string }[];
 }
 
-export const entityNames: Record<string, string> = { spaces: '空间', folders: '目录', tagGroups: '标签组', tags: '标签', notes: '笔记', noteVersions: '历史版本', attachments: '附件', contentAnnotations: '重点标记', annotationExclusions: '排除范围', annotationRevisions: '标注修订', dependencies: '关联关系' };
+export const entityNames: Record<string, string> = { spaces: '空间', folders: '目录', tagGroups: '标签组', tags: '标签', notes: '笔记', noteVersions: '历史版本', attachments: '附件', contentAnnotations: '重点标记', annotationExclusions: '排除范围', annotationRevisions: '标注修订', dependencies: '关联关系', knowledgeItems: '知识', knowledgeEvidence: '知识来源' };
 const fieldNames: Record<string, string> = {
   id: '编号', title: '标题', name: '名称', description: '说明', color: '颜色', icon: '图标', order: '顺序', sortOrder: '排序',
   spaceId: '所属空间', folderId: '所属目录', parentId: '上级目录', groupId: '标签组', tagIds: '标签', noteId: '所属笔记',
@@ -29,14 +29,18 @@ const fieldNames: Record<string, string> = {
   fromPosition: '起始位置', toPosition: '结束位置', prefixText: '前文', suffixText: '后文', segments: '文本片段',
   anchorFingerprint: '定位指纹', noteContentHash: '笔记正文校验值', idempotencyKey: '操作标识', schemaVersion: '数据格式版本',
   resolvedContentHash: '已定位正文校验值', boundaryFingerprint: '范围边界指纹', requestHash: '请求校验值', operation: '变更操作',
-  createdBy: '创建者'
+  createdBy: '创建者', canonicalStatement: '核心陈述', userExplanation: '我的解释', knowledgeType: '知识类型', reviewStatus: '审核状态', knowledgeItemId: '所属知识', relationType: '支持关系', sourceStatus: '来源状态', sourceSnapshot: '来源快照', provenance: '提炼记录'
 };
 const ignored = new Set(['id', 'rawMarkdown', 'plainText', 'createdAt', 'updatedAt', 'storagePath', 'verifiedAt', 'pathCache']);
-const referenceCollections: Record<string, string> = { spaceId: 'spaces', folderId: 'folders', parentId: 'folders', groupId: 'tagGroups', tagIds: 'tags', internalLinks: 'notes', noteId: 'notes', noteVersionId: 'noteVersions', annotationId: 'contentAnnotations', parentAnnotationId: 'contentAnnotations' };
+const referenceCollections: Record<string, string> = { knowledgeItemId: 'knowledgeItems', spaceId: 'spaces', folderId: 'folders', parentId: 'folders', groupId: 'tagGroups', tagIds: 'tags', internalLinks: 'notes', noteId: 'notes', noteVersionId: 'noteVersions', annotationId: 'contentAnnotations', parentAnnotationId: 'contentAnnotations' };
 const enumNames: Record<string, Record<string, string>> = {
-  sourceType: { manual: '手动创建', 'markdown-import': 'Markdown 导入', 'web-clip': '网页摘录' },
-  sourceMode: { manual: '手动', ai: 'AI 辅助' },
-  status: { draft: '待整理', active: '有效', published: '已发布', archived: '已归档', stale: '需复核', ready: '可用', missing: '缺失', corrupt: '已损坏', failed: '失败', pending: '待处理', uploading: '上传中' },
+  sourceType: { annotation: '笔记标注', noteVersion: '笔记版本', manual: '手动创建', 'markdown-import': 'Markdown 导入', 'web-clip': '网页摘录' },
+  reviewStatus: { candidate: '候选', confirmed: '已确认', needsRevision: '需修订', archived: '已归档' },
+  sourceStatus: { valid: '有效', stale: '需复核', missing: '来源缺失' },
+  relationType: { supports: '支持' },
+  knowledgeType: { concept: '概念', fact: '事实', principle: '原理', process: '流程', algorithm: '算法', formula: '公式', comparison: '对比', application: '应用' },
+  sourceMode: { manual: '手动', annotation: '标注', selection: '选区', ai: 'AI 辅助' },
+  status: { valid: '有效', invalid: '失效', insufficient: '来源不足', draft: '待整理', active: '有效', published: '已发布', archived: '已归档', stale: '需复核', ready: '可用', missing: '缺失', corrupt: '已损坏', failed: '失败', pending: '待处理', uploading: '上传中' },
   scopeType: { selection: '选中文字', blocks: '段落范围', section: '标题范围' },
   lifecycleStatus: { active: '有效', archived: '已取消' },
   anchorStatus: { resolved: '已定位', needsReview: '需要复核', missing: '原文缺失' },

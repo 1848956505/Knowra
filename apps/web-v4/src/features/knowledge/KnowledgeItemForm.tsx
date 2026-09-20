@@ -21,13 +21,18 @@ export function KnowledgeItemForm({ value, disabled, onChange }: {
 }
 
 /** 显式保存的知识表单不能被关闭窗口或桌面退出静默丢弃。 */
-export function useKnowledgeFormSafety(dirty: boolean) {
+export function useKnowledgeFormSafety(dirty: boolean, persistRecovery?: () => Promise<void>) {
   const release = useRef(() => {});
+  const recovery = useRef(persistRecovery);
+  recovery.current = persistRecovery;
   useEffect(() => {
     if (!dirty) return;
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', beforeUnload);
-    const unregister = registerDesktopSave(async () => { throw new Error('知识表单仍有未保存的修改，请先保存或取消编辑，再退出。'); }, 0);
+    const unregister = registerDesktopSave(async mode => {
+      if (mode === 'recovery' && recovery.current) { await recovery.current(); return; }
+      throw new Error('知识表单仍有未保存的修改，请先保存或取消编辑，再退出。');
+    }, 0);
     const unregisterNavigation = registerNavigationGuard(() => false);
     const cleanup = () => { window.removeEventListener('beforeunload', beforeUnload); unregister(); unregisterNavigation(); };
     release.current = cleanup;

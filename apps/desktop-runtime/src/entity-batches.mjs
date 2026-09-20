@@ -1,5 +1,5 @@
 import { syncKey } from '../../api/src/modules/sync/journal.js';
-import { referencesFor } from '../../api/src/modules/sync/entity-contract.js';
+import { referencesFor, syncReferencesFor } from '../../api/src/modules/sync/entity-contract.js';
 
 /** 按笔记及其来源、文件组成不可拆事务；目录和标签先于使用它们的新笔记提交。 */
 export function selectEntityBatch(changes, state, base, { maxEntries = 1000, maxBytes = 12 * 1024 * 1024 } = {}) {
@@ -13,6 +13,7 @@ export function selectEntityBatch(changes, state, base, { maxEntries = 1000, max
     const value = entry.value ?? base.get(syncKey(entry.collection, entry.id))?.value;
     const noteId = value?.noteId ?? annotationNotes.get(value?.annotationId ?? value?.parentAnnotationId);
     if (noteId) join(syncKey(entry.collection, entry.id), syncKey('notes', noteId));
+    if (value?.knowledgeItemId) join(syncKey(entry.collection, entry.id), syncKey('knowledgeItems', value.knowledgeItemId));
     // 标注独立修改时，没有正文变化也必须与修订、排除范围一起提交。
     const annotationId = value?.annotationId ?? value?.parentAnnotationId;
     if (annotationId) join(syncKey(entry.collection, entry.id), syncKey('contentAnnotations', annotationId));
@@ -28,7 +29,7 @@ export function selectEntityBatch(changes, state, base, { maxEntries = 1000, max
     if (!groups.has(key)) groups.set(key, { entries: [], dependencies: new Set(), bytes: 0 });
     const group = groups.get(key); group.entries.push(entry); group.bytes += Buffer.byteLength(JSON.stringify(entry));
   }
-  for (const [key, group] of groups) for (const entry of group.entries) for (const ref of referencesFor(entry.collection, entry.value)) {
+  for (const [key, group] of groups) for (const entry of group.entries) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
     const refKey = syncKey(ref.collection, ref.id);
     if (byKey.has(refKey) && root(refKey) !== key) group.dependencies.add(root(refKey));
   }

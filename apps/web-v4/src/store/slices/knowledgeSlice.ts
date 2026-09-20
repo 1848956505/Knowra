@@ -1,6 +1,5 @@
 import type { WorkspaceDependencies } from '../types';
 import type { GetStore } from '../workspaceSnapshotState';
-import { LOCAL_KNOWLEDGE_WRITE_REASON, workspaceCapabilities } from '../workspaceCapabilities';
 import type { CreateKnowledgeCandidateInput, KnowledgeEvidence, KnowledgeItem, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
 
 export interface KnowledgeSlice {
@@ -23,7 +22,6 @@ export function createKnowledgeSlice(get: GetStore, { api }: WorkspaceDependenci
   }
   function assertWrite() {
     spaceId();
-    if (!workspaceCapabilities(get().persistenceMode).writeKnowledge) throw new Error(LOCAL_KNOWLEDGE_WRITE_REASON);
   }
   function requireMethod<T>(method: T | undefined): T {
     if (!method) throw new Error('当前服务尚未接通知识管理，请更新应用后重试。');

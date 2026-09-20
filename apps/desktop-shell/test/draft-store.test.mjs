@@ -20,3 +20,21 @@ test('恢复草稿原子落盘、重建实例可回读；失败不破坏旧文�
   assert.throws(() => createDraftStore(dir).write(key, draft));
   assert.equal(fs.readFileSync(path.join(dir, 'recovery-drafts.json'), 'utf8'), 'broken');
 });
+
+test('原生知识草稿保留来源与 CAS，兼容正文草稿，拒绝失去基线的记录', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-knowledge-drafts-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const key = 'knowra:knowledge-draft:v1:["dataset-a","k1"]';
+  const value = { title: '知识', canonicalStatement: '陈述', userExplanation: '', knowledgeType: 'concept' };
+  const draft = { version: 1, kind: 'create', candidateId: 'k1', value, initialValue: value, source: { annotationId: 'a1', noteVersionId: 'v1', expectedAnnotationRevision: 3, quoteText: '原文', headingPath: ['标题'] } };
+  const store = createDraftStore(dir);
+  store.write('knowra:note-draft:v1:["space","note"]', { markdown: '正文草稿', baseMarkdown: '原文' });
+  store.write(key, draft);
+  assert.deepEqual(createDraftStore(dir).read()[key], draft);
+  assert.throws(() => store.write(key, { ...draft, kind: 'edit', source: undefined }));
+  assert.throws(() => store.write(key, { ...draft, candidateId: 'other' }));
+  store.write(key, { ...draft, kind: 'edit', source: undefined, expectedUpdatedAt: 'old-version' });
+  assert.equal(createDraftStore(dir).read()[key].expectedUpdatedAt, 'old-version');
+  store.write(key, null);
+  assert.equal(Object.keys(createDraftStore(dir).read()).length, 1);
+});

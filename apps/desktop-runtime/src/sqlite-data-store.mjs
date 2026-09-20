@@ -19,6 +19,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   const db = new DatabaseSync(filePath);
   let state;
   let committed;
+  let repairKnowledge = false;
   let inTransaction = false;
   try {
     initializeDatabase(db, filePath);
@@ -29,7 +30,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       initial[row.collection].push(JSON.parse(row.payload));
     }
     state = validatePersistedLocalState(createPersistedLocalDocument(initial));
-    committed = cloneLocalState(state);
+    repairKnowledge = ['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(initial[collection]) !== JSON.stringify(state[collection]));
+    committed = cloneLocalState(repairKnowledge ? initial : state);
     db.prepare('INSERT OR IGNORE INTO metadata VALUES (?, ?)').run('deviceId', randomUUID());
     db.prepare('INSERT OR IGNORE INTO metadata VALUES (?, ?)').run('datasetId', randomUUID());
   } catch (error) { db.close(); throw error; }
@@ -109,6 +111,10 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   function commitImport(input) {
     const validated = validateLocalSnapshot(input);
     return runTransaction(() => { restore(validated.data); return exportSnapshot(); });
+  }
+
+  if (repairKnowledge) {
+    try { persist(); } catch (error) { db.close(); throw error; }
   }
 
   return {

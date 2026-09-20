@@ -1,3 +1,4 @@
+import { nextKnowledgeItemTimestamp } from '../modules/knowledge/application/knowledge-item-concurrency.js';
 import crypto from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import {
@@ -370,7 +371,8 @@ function validateKnowledgeEvidence(items, knowledgeItems, notes, noteVersions, a
       );
     }
     if (annotation?.anchorStatus === 'missing') derivedStatus = 'insufficient';
-    else if (annotation?.anchorStatus === 'needsReview' || annotation?.status === 'stale') derivedStatus = 'stale';
+    else if (annotation?.anchorStatus === 'needsReview' || annotation?.status === 'stale'
+      || (annotation && String(evidence.quoteText ?? '').trim() !== String(annotation.quoteText ?? '').trim())) derivedStatus = 'stale';
     if (note?.deleted) derivedStatus = 'invalid';
     else if (
       evidence.sourceType === 'noteVersion'
@@ -595,7 +597,10 @@ export function reconcileSyncedSourceStates(state) {
   validateKnowledgeEvidence(state.knowledgeEvidence, items, notes, versions, annotations);
   for (const item of state.knowledgeItems) {
     if (item.reviewStatus === 'confirmed' && item.sourceMode !== 'manual'
-      && !state.knowledgeEvidence.some(evidence => evidence.knowledgeItemId === item.id && evidence.status === 'valid')) item.reviewStatus = 'needsRevision';
+      && !state.knowledgeEvidence.some(evidence => evidence.knowledgeItemId === item.id && evidence.status === 'valid')) {
+      item.updatedAt = nextKnowledgeItemTimestamp(item);
+      item.reviewStatus = 'needsRevision';
+    }
   }
   for (const objective of state.learningObjectives) {
     const item = items.get(objective.knowledgeItemId);

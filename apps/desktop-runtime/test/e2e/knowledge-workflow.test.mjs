@@ -13,7 +13,7 @@ import { createV4WebServer } from '../../../web-v4/server/app.mjs';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
 import { projectMarkdown, anchorForSection, calculateContentHash } from '../../../../packages/content-anchor/src/index.js';
 
-test('真实页面：标注来源创建知识候选、确认、过期保护、归档与重载回读；桌面保持明确只读', { timeout: 60000 }, async t => {
+test('真实页面：标注来源审核与过期保护；桌面离线新建、确认和重载回读', { timeout: 60000 }, async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-knowledge-ui-'));
   const file = path.join(root, 'cloud.json');
   const dataStore = createFileDataStore(file);
@@ -80,7 +80,30 @@ test('真实页面：标注来源创建知识候选、确认、过期保护、�
   if (process.env.KNOWRA_E2E_OUTPUT) { fs.mkdirSync(process.env.KNOWRA_E2E_OUTPUT, { recursive: true }); await page.screenshot({ path: path.join(process.env.KNOWRA_E2E_OUTPUT, 'knowledge-workflow.png'), animations: 'disabled' }); }
   await page.goto(`${runtime.launchUrl}`);
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
-  await expect(page.getByText(/知识修改暂不支持离线同步/)).toBeVisible();
-  await expect(page.getByRole('button', { name: '新建知识候选', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '新建知识候选', exact: true }).click();
+  const localDialog = page.getByRole('dialog', { name: '新建知识候选', exact: true });
+  await localDialog.getByLabel('标题', { exact: true }).fill('离线知识');
+  await localDialog.getByLabel('核心陈述').fill('没有云端连接也能保存知识候选。');
+  await localDialog.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '离线知识', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '确认知识', exact: true }).click();
+  await expect.poll(() => runtime.store.state.knowledgeItems[0]?.reviewStatus).toBe('confirmed');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '离线知识', exact: true })).toBeVisible();
+  assert.equal(runtime.store.state.knowledgeItems[0].canonicalStatement, '没有云端连接也能保存知识候选。');
+  assert(runtime.store.getStatus().pendingOperations > 0);
+  const offlineId = runtime.store.state.knowledgeItems[0].id;
+  await page.getByRole('button', { name: '连接云端', exact: true }).click();
+  await page.getByLabel('云端服务地址', { exact: true }).fill(origin);
+  await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '云端同步', exact: true })).toContainText('云端已同步');
+  await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
+  assert.equal(dataStore.state.knowledgeItems.find(item => item.id === offlineId).reviewStatus, 'confirmed');
+  await expect(page.getByRole('button', { name: /注意力加权/ })).toBeVisible();
+  const cloudOffline = dataStore.state.knowledgeItems.find(item => item.id === offlineId);
+  k.knowledgeItemService.updateItem(offlineId, { canonicalStatement: '云端改动同步后自动显示。', expectedUpdatedAt: cloudOffline.updatedAt });
+  const syncReply = await page.request.post(`${runtime.origin}/api/local-runtime/sync/retry`, { data: {} });
+  assert.equal(syncReply.status(), 200);
+  await expect(page.getByRole('article', { name: '知识详情', exact: true })).toContainText('云端改动同步后自动显示。');
   assert.deepEqual(errors, []);
 });

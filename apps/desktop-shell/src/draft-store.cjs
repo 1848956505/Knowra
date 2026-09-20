@@ -2,6 +2,29 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+function validateDraft(key, draft) {
+  const prefix = typeof key === 'string' && ['knowra:note-draft:v1:', 'knowra:knowledge-draft:v1:'].find(value => key.startsWith(value));
+  if (!prefix || key.length > 2000) throw new Error('草稿标识无效');
+  let parts;
+  try { parts = JSON.parse(key.slice(prefix.length)); } catch { throw new Error('草稿标识无效'); }
+  if (!Array.isArray(parts) || parts.length !== 2 || parts.some(value => typeof value !== 'string' || !value)) throw new Error('草稿标识无效');
+  if (draft === null) return;
+  if (!draft || JSON.stringify(draft).length > 20000000) throw new Error('恢复草稿无效或过大');
+  if (prefix === 'knowra:note-draft:v1:') {
+    if (typeof draft.markdown !== 'string' || typeof draft.baseMarkdown !== 'string') throw new Error('恢复草稿无效');
+    return;
+  }
+  const form = value => value && ['title', 'canonicalStatement', 'userExplanation'].every(key => typeof value[key] === 'string')
+    && ['concept', 'fact', 'principle', 'process', 'algorithm', 'formula', 'comparison', 'application'].includes(value.knowledgeType);
+  const source = draft.source;
+  if (draft.version !== 1 || !['create', 'edit'].includes(draft.kind) || draft.candidateId !== parts[1] || !form(draft.initialValue) || !form(draft.value)
+    || (draft.kind === 'edit' && (typeof draft.expectedUpdatedAt !== 'string' || !draft.expectedUpdatedAt))
+    || (source && (draft.kind !== 'create' || typeof source.annotationId !== 'string' || !source.annotationId || typeof source.quoteText !== 'string'
+      || !Array.isArray(source.headingPath) || source.headingPath.some(value => typeof value !== 'string')
+      || (source.noteVersionId !== undefined && typeof source.noteVersionId !== 'string')
+      || (source.expectedAnnotationRevision !== undefined && (!Number.isInteger(source.expectedAnnotationRevision) || source.expectedAnnotationRevision < 1))))) throw new Error('知识恢复草稿格式无效');
+}
+
 // 只接受草稿键和值，渲染进程不能指定文件路径。
 function createDraftStore(directory) {
   const file = path.join(directory, 'recovery-drafts.json');
@@ -12,8 +35,7 @@ function createDraftStore(directory) {
     return value.drafts;
   }
   function write(key, draft) {
-    if (typeof key !== 'string' || !key.startsWith('knowra:note-draft:v1:') || key.length > 2000) throw new Error('草稿标识无效');
-    if (draft !== null && (!draft || typeof draft.markdown !== 'string' || typeof draft.baseMarkdown !== 'string' || JSON.stringify(draft).length > 20000000)) throw new Error('恢复草稿无效或过大');
+    validateDraft(key, draft);
     const drafts = read();
     if (draft === null) delete drafts[key]; else drafts[key] = draft;
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });

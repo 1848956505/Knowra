@@ -268,7 +268,11 @@ export function createKnowledgeModule(options = {}) {
     repository: contentAnnotationRepository,
     noteRepository,
     noteVersionRepository,
-    revisionRepository: annotationRevisionRepository
+    revisionRepository: annotationRevisionRepository,
+    onSourceChanged: (annotation) => {
+      const changed = knowledgeItemService.markEvidenceByAnnotationId(annotation.id, annotation.anchorStatus === 'missing' ? 'insufficient' : 'stale');
+      questionService?.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
+    }
   });
   const annotationScopeService = createAnnotationScopeService({
     annotationService: contentAnnotationService,

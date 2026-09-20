@@ -19,7 +19,7 @@ import { TagManagerView } from '../features/tags';
 import type { Annotation } from '@study-accelerator/web-core';
 import { KnowledgeStage } from './KnowledgeStage';
 import { CreateKnowledgeCandidateDialog } from '../features/knowledge/CreateKnowledgeCandidateDialog';
-import { LOCAL_KNOWLEDGE_WRITE_REASON, workspaceCapabilities } from '../store/workspaceCapabilities';
+import { workspaceCapabilities } from '../store/workspaceCapabilities';
 
 const ComponentShowcase = lazy(async () => {
   const module = await import('../components/ui/showcase');
@@ -250,7 +250,6 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
           setKnowledgeSource(current.annotation);
         } : undefined}
         onOpenKnowledgeItem={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)}
-        knowledgeWriteDisabledReason={persistenceMode === 'desktop-local' ? LOCAL_KNOWLEDGE_WRITE_REASON : undefined}
         onPreviewAnalysisScope={previewAnalysisScope}
         onCreateAnalysisScope={persistenceMode === 'desktop-local' ? undefined : createAnalysisScope}
         onCreateAnnotationExclusion={createAnnotationExclusion}

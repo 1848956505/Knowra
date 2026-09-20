@@ -39,6 +39,11 @@ export function createFileDataStore(filePath, {
   let committed = cloneLocalState(state);
   let journal = loadJournal(parsed.sync, state);
   let transaction = null;
+  if (['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
+    const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
+    journal = appendChanges(journal, previous, state);
+    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal });
+  }
 
   function flush() {
     if (transaction) {

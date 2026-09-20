@@ -7,6 +7,20 @@ const note = (rawMarkdown: string, title = '同步笔记') => ({ title, rawMarkd
 const conflict: Conflict = { noteId: 'note', kind: 'edit', base: note('基线正文'), local: note('本机正文'), remote: note('云端正文', '云端改名'), remoteRevision: 3, datasetEpoch: 'epoch' };
 
 describe('同步冲突对比', () => {
+  it('知识关联冲突展示中文审核字段且不提供仅合并正文的操作', () => {
+    const knowledge = { title: '注意力', canonicalStatement: '根据相关程度加权', reviewStatus: 'candidate', knowledgeType: 'principle' };
+    const group: EntityConflict = { id: 'knowledge-conflict', changedEpoch: false, reasons: [], items: [
+      { collection: 'knowledgeItems', id: 'knowledge', base: knowledge, local: { ...knowledge, reviewStatus: 'confirmed' }, remote: { ...knowledge, canonicalStatement: '另一份说明' } },
+      { collection: 'notes', id: 'note', base: note('原文'), local: note('本机'), remote: note('云端') }
+    ] };
+    render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: '注意力 · 关联资料需要核对' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /审核状态/ })).toHaveTextContent('已确认');
+    expect(screen.getByRole('row', { name: /核心陈述/ })).toHaveTextContent('另一份说明');
+    expect(screen.queryByRole('button', { name: '手动合并' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保留为两篇' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+  });
   it('正文派生文本不重复占用字段表，笔记和标注元数据使用中文名称与取值', () => {
     const local = { ...note('本机正文'), plainText: '重复的纯文本', sourceType: 'markdown-import', status: 'active', favorite: true, internalLinks: ['目标笔记'], charCount: 4 };
     render(<ConflictCard conflict={{ ...conflict, local }} disabled={false} onResolve={vi.fn()} />);

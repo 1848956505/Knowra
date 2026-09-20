@@ -1,7 +1,7 @@
 import { selectEntityBatch } from './entity-batches.mjs';
 import { reconcileSyncedSourceStates } from '../../api/src/infrastructure/local-data-relations.js';
 import { randomUUID } from 'node:crypto';
-import { WRITABLE_COLLECTIONS, sameEntity, referencesFor } from '../../api/src/modules/sync/entity-contract.js';
+import { WRITABLE_COLLECTIONS, sameEntity, referencesFor, syncReferencesFor, KNOWLEDGE_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
@@ -51,9 +51,9 @@ function canonicalizeVersions(state, base) {
   function remap(value) {
     if (Array.isArray(value)) return value.map(remap);
     if (!value || typeof value !== 'object') return value;
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, key === 'noteVersionId' && aliases.has(child) ? aliases.get(child) : remap(child)]));
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, (key === 'noteVersionId' || (key === 'sourceId' && value.sourceType === 'noteVersion')) && aliases.has(child) ? aliases.get(child) : remap(child)]));
   }
-  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions']) state[collection].splice(0, state[collection].length, ...state[collection].map(remap));
+  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence']) state[collection].splice(0, state[collection].length, ...state[collection].map(remap));
 }
 
 export function applyEntityRemote(store, entries, cursor, epoch, { reset = false } = {}) {
@@ -71,6 +71,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     // 规范化本地版本引用后再比较，避免相同正文版本造成虚假冲突。
     const local = structuredClone(state);
     canonicalizeVersions(local, base);
+    canonicalizeVersions(local, remote);
     const dirty = dirtyEntries(local, base);
     const conflicts = dirty.filter(entry => {
       const old = base.get(syncKey(entry.collection, entry.id));
@@ -130,17 +131,18 @@ function settle(db, state) {
   if (!dirtyEntries(state, bases(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged'").run();
 }
 
-export function nextEntityUpload(store) {
+export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   return store.syncTransaction((db, state) => {
     const blocked = new Set(readMeta(db, 'entityConflict')?.blocked ?? []);
     const frozen = readMeta(db, 'entityUpload');
     if (frozen) return frozen;
+    const allowed = entry => knowledgeSupported || !KNOWLEDGE_COLLECTIONS.includes(entry.collection);
     const base = bases(db);
-    const changes = selectEntityBatch(dirtyEntries(state, base).filter(entry => !blocked.has(syncKey(entry.collection, entry.id))), state, base);
+    const changes = selectEntityBatch(dirtyEntries(state, base).filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id))), state, base);
     if (!changes.length) { settle(db, state); return null; }
     const own = new Set(changes.map(entry => syncKey(entry.collection, entry.id)));
     const dependencies = new Map();
-    for (const entry of changes) for (const ref of referencesFor(entry.collection, entry.value)) {
+    for (const entry of changes) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
       const key = syncKey(ref.collection, ref.id);
       if (!own.has(key)) dependencies.set(key, { ...ref, baseRevision: base.get(key)?.revision ?? null });
     }
@@ -177,6 +179,7 @@ export function getEntitySyncState(store) {
     const conflict = readMeta(db, 'entityConflict');
     return {
       pendingEntities: dirty.length,
+      pendingKnowledgeEntities: dirty.filter(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection)).length,
       pendingAttachments: dirty.filter(entry => entry.collection === 'attachments').length,
       entityConflict: conflict ? {
         id: conflict.id, changedEpoch: conflict.changedEpoch,
@@ -197,11 +200,16 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     const allDirty = dirtyEntries(state, bases(db));
     const blocked = new Set(conflict.blocked ?? allDirty.map(entry => syncKey(entry.collection, entry.id)));
     const dirty = allDirty.filter(entry => blocked.has(syncKey(entry.collection, entry.id)));
+    if (['copy', 'manual'].includes(choice) && dirty.some(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection))) {
+      throw new Error('包含知识或来源的关联冲突请采用本地或云端；正文合并与保留两篇不能安全处理知识来源。');
+    }
     db.prepare('INSERT INTO sync_recovery VALUES (?, ?)').run(randomUUID(), JSON.stringify({
       kind: 'entity-conflict', choice, local: structuredClone(state), base: [...bases(db).values()], remote: conflict.remote, resolvedAt: new Date().toISOString()
     }));
     const remote = new Map(conflict.remote.map(entry => [syncKey(entry.collection, entry.id), entry]));
-    for (const [key, entry] of bases(db)) if (!blocked.has(key)) remote.set(key, entry);
+    // 只保留冲突形成后已确认的更新；失败合并时旧基线不能覆盖远端墓碑。
+    for (const [key, entry] of bases(db)) if (!blocked.has(key) && readMeta(db, 'epoch') === conflict.epoch
+      && (!remote.has(key) || (entry.revision ?? 0) > (remote.get(key).revision ?? 0))) remote.set(key, entry);
     const merged = stateFromBase(remote);
     for (const entry of allDirty) if (!blocked.has(syncKey(entry.collection, entry.id))) replace(merged, entry);
     if (choice !== 'remote' && choice !== 'copy') {
@@ -211,7 +219,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
         replace(merged, entry);
       }
     }
-    setState(state, merged);
+    setState(state, reconcileSyncedSourceStates(merged));
     if (choice === 'copy') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);
       if (notes.length !== 1) throw new Error('保留两篇仅适用于一篇笔记的冲突。');

@@ -8,7 +8,7 @@ import { buildCreateContentAnnotationDto, buildUpdateAnnotationAnchorDto, buildU
 const fail = (code, message, statusCode = 400) => createAppError(code, message, statusCode);
 const requestHash = (value) => calculateContentHash(JSON.stringify(value));
 
-export function createAsyncContentAnnotationService({ repository, noteRepository, noteVersionRepository, revisionRepository = null } = {}) {
+export function createAsyncContentAnnotationService({ repository, noteRepository, noteVersionRepository, revisionRepository = null, onSourceChanged = null } = {}) {
   if (!repository || !noteRepository) throw new TypeError('Async annotation service requires annotation and note repositories');
 
   async function requireAnnotation(id) {
@@ -51,6 +51,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
   async function saveUpdated(annotation, changes, operation, reason = null) {
     const updated = await repository.save(new ContentAnnotation({ ...annotation, ...changes, revision: annotation.revision + 1, updatedAt: new Date().toISOString() }));
     await recordRevision(updated, operation, annotation.anchor, reason);
+    if (updated.quoteText !== annotation.quoteText || updated.anchorStatus !== 'resolved') await onSourceChanged?.(updated);
     return updated;
   }
 

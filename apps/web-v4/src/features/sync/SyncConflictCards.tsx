@@ -82,15 +82,18 @@ function EntityDetails({ item, items, initiallyOpen, isConflict }: { item: Entit
 export function EntityConflictCard({ conflict, disabled, onResolve }: { conflict: EntityConflict; disabled: boolean; onResolve: Resolve }) {
   const notes = conflict.items.filter(item => item.collection === 'notes' && item.local);
   const [visibleCount, setVisibleCount] = useState(20);
-  const title = notes.length === 1 ? entityTitle(notes[0]) : '关联资料';
+  const knowledge = conflict.items.filter(item => item.collection === 'knowledgeItems');
+  const includesKnowledge = conflict.items.some(item => item.collection === 'knowledgeItems' || item.collection === 'knowledgeEvidence');
+  const allowMerge = notes.length === 1 && !includesKnowledge;
+  const title = knowledge.length === 1 ? entityTitle(knowledge[0]) : notes.length === 1 ? entityTitle(notes[0]) : '关联资料';
   return <section className={styles.conflict} aria-label={`冲突：${title}`}>
     <h3>{title} · 关联资料需要核对</h3>
     <p>以下 {conflict.items.length} 项本机修改属于同一组关联资料。处理前会保存完整恢复记录；确认期间暂缓这组资料上传，其他笔记可继续同步。</p>
-    <p className={styles.hint}>采用本地或云端会处理这一整组资料；保留两篇会另建本地正文副本；手动合并只编辑正文，其他关联资料沿用本地。</p>
+    <p className={styles.hint}>采用本地或云端会处理这一整组资料。{allowMerge ? '保留两篇会另建本地正文副本；手动合并只编辑正文，其他关联资料沿用本地。' : '请核对来源与审核状态后再选择；未采用的内容仍保留在恢复记录中。'}</p>
     {conflict.changedEpoch && <p className={styles.notice}>云端资料库已恢复或重建，请仔细核对。已删除对象不会自动恢复。</p>}
     {conflict.reasons.some(reason => reason.message) && <ul className={styles.reasons}>{conflict.reasons.filter(reason => reason.message).slice(0, 20).map((reason, index) => <li key={index}>{entityNames[reason.collection] ?? '资料'}：{reason.message}</li>)}</ul>}
     {conflict.items.slice(0, visibleCount).map((item, index) => <EntityDetails key={`${item.collection}:${item.id}`} item={item} items={conflict.items} initiallyOpen={index === 0} isConflict={conflict.reasons.some(reason => reason.collection === item.collection && reason.id === item.id)} />)}
     {visibleCount < conflict.items.length && <Button onPress={() => setVisibleCount(count => count + 20)}>继续查看关联资料（剩余 {conflict.items.length - visibleCount} 项）</Button>}
-    <ResolutionActions disabled={disabled} allowMerge={notes.length === 1} onResolve={onResolve} initialMarkdown={notes[0]?.local?.rawMarkdown ?? ''} />
+    <ResolutionActions disabled={disabled} allowMerge={allowMerge} onResolve={onResolve} initialMarkdown={notes[0]?.local?.rawMarkdown ?? ''} />
   </section>;
 }

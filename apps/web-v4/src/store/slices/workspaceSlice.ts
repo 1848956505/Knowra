@@ -33,6 +33,7 @@ export function createWorkspaceSlice(
 
   return {
     persistenceMode: dependencies.persistenceMode ?? 'remote',
+    knowledgeGeneration: 0,
     serverData: EMPTY_WORKSPACE_SERVER_DATA,
     dataMode: 'loading',
     workspaceLoadState: 'idle',
@@ -54,7 +55,7 @@ export function createWorkspaceSlice(
       }
       if (get().editorHasLocalChanges || get().saveState === 'saving' || get().serverData !== before.serverData) return false;
       const folderTree = normalizeFolderTree(resources.folderTree);
-      set({ serverData: { spaces, currentSpaceId, folderTree, foldersById: flattenFolderTree(folderTree), notes, tags: resources.tags, tagGroups: resources.tagGroups ?? [] } });
+      set({ knowledgeGeneration: get().knowledgeGeneration + 1, serverData: { spaces, currentSpaceId, folderTree, foldersById: flattenFolderTree(folderTree), notes, tags: resources.tags, tagGroups: resources.tagGroups ?? [] } });
       return true;
     },
     canWriteWorkspace: () => get().dataMode === 'api',

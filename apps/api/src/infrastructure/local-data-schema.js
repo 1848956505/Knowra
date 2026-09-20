@@ -1,6 +1,7 @@
 import { createAppError } from '../errors/app-error.js';
 import {
   normalizeLegacyNoteReferences,
+  reconcileSyncedSourceStates,
   validateLocalDataRelations
 } from './local-data-relations.js';
 import { isAttachmentStatus } from './attachment-status.js';
@@ -52,6 +53,13 @@ export function validatePersistedLocalState(input) {
   normalizeLegacyNoteReferences(state, {
     repairBrokenReferences: document.schemaVersion === undefined
   });
+  // 旧版重选标注没有降级知识：保留历史证据并修复派生状态，避免升级后拒绝打开资料库。
+  // 导入入口仍严格校验；同步显式确认由批量领域门槛验证。
+  const annotations = new Map(state.contentAnnotations.map(annotation => [annotation.id, annotation]));
+  if (state.knowledgeEvidence.some(evidence => {
+    const annotation = annotations.get(evidence.annotationId);
+    return annotation && String(evidence.quoteText ?? '').trim() !== String(annotation.quoteText ?? '').trim();
+  })) reconcileSyncedSourceStates(state);
   return validateLocalDataRelations(state);
 }
 

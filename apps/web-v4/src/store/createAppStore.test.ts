@@ -8,6 +8,16 @@ import {
 import { createAppStore } from './createAppStore';
 
 describe('single V4 application store', () => {
+  it('refreshes the knowledge generation only after safely applying local sync data', async () => {
+    const store = createAppStore({ api: createApi(), cacheKey: 'knowledge-generation', persistenceMode: 'desktop-local', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    store.getState().setEditorHasLocalChanges(true);
+    await expect(store.getState().refreshLocalWorkspace()).resolves.toBe(false);
+    expect(store.getState().knowledgeGeneration).toBe(0);
+    store.getState().setEditorHasLocalChanges(false);
+    await expect(store.getState().refreshLocalWorkspace()).resolves.toBe(true);
+    expect(store.getState().knowledgeGeneration).toBe(1);
+  });
   it('saves a historical body as a separate note without overwriting the current body', async () => {
     const api = createApi();
     vi.mocked(api.getNoteVersion).mockResolvedValue({ id: 'old-version', noteId: 'live-note', content: '历史正文', contentHash: 'a'.repeat(64), createdAt: '2026-09-01T00:00:00Z', createdBy: 'user' });

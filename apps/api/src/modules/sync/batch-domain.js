@@ -1,3 +1,4 @@
+import { normalizeKnowledgeChange, validateKnowledgeBatch } from './knowledge-batch-domain.js';
 import { buildCreateNoteDto } from '../knowledge/application/dto/note.dto.js';
 import { buildCreateFolderDto } from '../knowledge/application/dto/folder.dto.js';
 import { buildCreateTagDto } from '../knowledge/application/dto/tag.dto.js';
@@ -38,6 +39,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     const { collection, id } = change;
     const old = before[collection].find(item => item.id === id);
     let value = structuredClone(change.value);
+    value = normalizeKnowledgeChange(collection, value, old);
     if (value && value.id !== id) throw syncError('SYNC_ENTITY_INVALID', '实体 ID 与操作不一致。', 422);
     if (IMMUTABLE_COLLECTIONS.has(collection) && old && !sameEntity(collection, old, value)) throw syncError('SYNC_IMMUTABLE', '历史版本与修订记录不可覆盖或删除。', 422);
     if (old && value && ['tags', 'tagGroups'].includes(collection) && (Boolean(value.isSystem) !== Boolean(old.isSystem) || (value.code ?? null) !== (old.code ?? null))) throw syncError('SYSTEM_TAG_PROTECTED', '标签的系统标识不能改写。', 422);
@@ -77,9 +79,9 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   function remap(value) {
     if (Array.isArray(value)) return value.map(remap);
     if (!value || typeof value !== 'object') return value;
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, key === 'noteVersionId' && aliases[child] ? aliases[child] : remap(child)]));
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, (key === 'noteVersionId' || (key === 'sourceId' && value.sourceType === 'noteVersion')) && aliases[child] ? aliases[child] : remap(child)]));
   }
-  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions']) state[collection] = state[collection].map(remap);
+  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence']) state[collection] = state[collection].map(remap);
   for (const change of changes.filter(item => item.collection === 'contentAnnotations' && item.value)) {
     const annotation = state.contentAnnotations.find(item => item.id === change.id);
     const note = state.notes.find(item => item.id === annotation.noteId);
@@ -156,6 +158,8 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   }
   for (const folder of state.folders) folder.pathCache = folderPath(folder);
   // 校验器同时推导证据、知识点和试题来源状态，客户端不能自行提交这些状态。
-  state = validatePersistedLocalState(createPersistedLocalDocument(reconcileSyncedSourceStates(state)));
+  state = reconcileSyncedSourceStates(state);
+  validateKnowledgeBatch(before, state, changes);
+  state = validatePersistedLocalState(createPersistedLocalDocument(state));
   return { state, aliases };
 }

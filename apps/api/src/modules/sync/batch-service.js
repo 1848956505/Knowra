@@ -1,5 +1,5 @@
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
-import { WRITABLE_COLLECTIONS, referencesFor, sameEntity } from './entity-contract.js';
+import { WRITABLE_COLLECTIONS, syncReferencesFor, sameEntity } from './entity-contract.js';
 import { prepareBatchState } from './batch-domain.js';
 import { syncError, syncKey, requestHash, thenResult, rememberBatchReceipt } from './journal.js';
 
@@ -67,7 +67,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
           const result = { status: 'conflict', conflicts };
           rememberBatchReceipt(journal, key, hash, result, op); return result;
         }
-        for (const entry of op.changes) for (const ref of referencesFor(entry.collection, entry.value)) {
+        for (const entry of op.changes) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
           const refKey = syncKey(ref.collection, ref.id);
           if (!changes.has(refKey) && !dependencies.has(refKey)) throw syncError('SYNC_DEPENDENCY_REQUIRED', '同步事务缺少引用对象的基线。', 422);
         }

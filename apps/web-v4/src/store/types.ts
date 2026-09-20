@@ -37,6 +37,7 @@ export interface WorkspaceDependencies {
 
 export interface WorkspaceSlice {
   persistenceMode: 'remote' | 'desktop-local';
+  knowledgeGeneration: number;
   serverData: WorkspaceServerData;
   dataMode: WorkspaceDataMode;
   workspaceLoadState: WorkspaceLoadState;

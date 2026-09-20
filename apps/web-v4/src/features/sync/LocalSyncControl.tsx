@@ -10,6 +10,7 @@ import type { Conflict, EntityConflict } from './syncConflictModel';
 
 interface SyncStatus {
   deviceId?: string; pendingEntities?: number; pendingAttachments?: number; attachmentPending?: string | null; entityConflict?: EntityConflict | null;
+  pendingKnowledgeEntities?: number; knowledgeSyncSupported?: boolean;
   serverUrl: string | null; generation: number; phase: string; pendingNotes: number;
   lastSyncedAt: string | null; conflicts: Conflict[]; error: { message: string } | null;
   blockedNotes: { noteId: string; title: string; message: string }[];
@@ -72,7 +73,7 @@ export function LocalSyncControl() {
     <Dialog title="云端同步" isOpen={open} onOpenChange={setOpen} size="md" isPending={busy}>
       <DialogBody>
         <div className={styles.body}>
-          <p>笔记先保存到本机，联网后同步。目录、标签、附件、重点标记和回收站随笔记一起同步。</p>
+          <p>笔记和知识先保存到本机，联网后同步。目录、标签、附件、标注与知识来源一起同步；双方修改同一内容时，会保留冲突供你核对。</p>
           <form className={styles.form} onSubmit={event => { event.preventDefault(); void action('/configure', { serverUrl, username, password }); }}>
             <label>云端服务地址<input type="url" required placeholder="https://你的服务地址" value={serverUrl} readOnly={Boolean(status?.serverUrl)} onChange={event => setServerUrl(event.target.value)} /></label>
             <div className={styles.columns}>
@@ -92,6 +93,7 @@ export function LocalSyncControl() {
           </form>
           {status?.deviceId && <details><summary>设备信息</summary><p className={styles.hint}>设备编号：{status.deviceId}</p></details>}
           <p role="status">{label}{status?.lastSyncedAt ? ` · 上次完成 ${new Date(status.lastSyncedAt).toLocaleString('zh-CN')}` : ''}</p>
+          {Boolean(status?.pendingKnowledgeEntities) && <p className={styles.hint}>知识及来源：{status?.pendingKnowledgeEntities} 项待同步。{status?.knowledgeSyncSupported === false ? '云端需要升级后才能接收；本机已保存的知识会继续保留。' : ''}</p>}
           {(error || status?.error) && <p role="alert" className={styles.error}>{error || status?.error?.message}</p>}
           {status?.blockedNotes.map(note => <p key={note.noteId} className={styles.error}>{note.title}：{note.message}</p>)}
           {hasDraft && (status?.conflicts.length || status?.entityConflict) ? <p>请等待当前正文保存到本机后处理冲突。</p> : null}

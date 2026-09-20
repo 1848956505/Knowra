@@ -11,10 +11,10 @@ function fixture(persistenceMode: 'remote' | 'desktop-local' = 'remote') {
 const input = { title: '注意力', canonicalStatement: '根据相关程度加权。', sourceMode: 'manual' as const };
 
 describe('knowledge write boundary', () => {
-  it('prevents desktop knowledge writes before issuing an unsupported request', () => {
+  it('persists desktop knowledge through the local API', async () => {
     const { api, store } = fixture('desktop-local');
-    expect(() => store.getState().createKnowledgeCandidate(input)).toThrow('暂不支持离线同步');
-    expect(api.createKnowledgeCandidate).not.toHaveBeenCalled();
+    await store.getState().createKnowledgeCandidate(input);
+    expect(api.createKnowledgeCandidate).toHaveBeenCalledWith(input);
   });
   it('prevents writes from recovery cache and keeps the note save state intact', () => {
     const { api, store } = fixture();

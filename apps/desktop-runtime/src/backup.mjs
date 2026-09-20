@@ -63,11 +63,22 @@ export function validateBackupDrafts(record) {
   if (!record || record.version !== 1 || !record.drafts || typeof record.drafts !== 'object' || Array.isArray(record.drafts)) throw new Error('恢复草稿格式无效。');
   if (Buffer.byteLength(JSON.stringify(record)) > 8 * 1024 * 1024) throw new Error('恢复草稿过大，请先分批导出正文。');
   for (const [key, value] of Object.entries(record.drafts)) {
-    if (!key.startsWith('knowra:note-draft:v1:') || key.length > 2000) throw new Error('恢复草稿标识无效。');
+    const prefix = ['knowra:note-draft:v1:', 'knowra:knowledge-draft:v1:'].find(prefix => key.startsWith(prefix));
+    if (!prefix || key.length > 2000) throw new Error('恢复草稿标识无效。');
     let parts;
-    try { parts = JSON.parse(key.slice('knowra:note-draft:v1:'.length)); } catch { throw new Error('恢复草稿标识无效。'); }
+    try { parts = JSON.parse(key.slice(prefix.length)); } catch { throw new Error('恢复草稿标识无效。'); }
     if (!Array.isArray(parts) || parts.length !== 2 || parts.some(part => typeof part !== 'string' || !part)) throw new Error('恢复草稿标识无效。');
-    if (!value || typeof value.markdown !== 'string' || typeof value.baseMarkdown !== 'string'
+    if (prefix === 'knowra:knowledge-draft:v1:') {
+      const form = value => value && ['title', 'canonicalStatement', 'userExplanation'].every(key => typeof value[key] === 'string')
+        && ['concept', 'fact', 'principle', 'process', 'algorithm', 'formula', 'comparison', 'application'].includes(value.knowledgeType);
+      const source = value?.source;
+      if (!value || value.version !== 1 || !['create', 'edit'].includes(value.kind) || value.candidateId !== parts[1] || !form(value.initialValue) || !form(value.value)
+        || (value.kind === 'edit' && (typeof value.expectedUpdatedAt !== 'string' || !value.expectedUpdatedAt))
+        || (source && (value.kind !== 'create' || typeof source.annotationId !== 'string' || !source.annotationId || typeof source.quoteText !== 'string'
+          || !Array.isArray(source.headingPath) || source.headingPath.some(value => typeof value !== 'string')
+          || (source.noteVersionId !== undefined && typeof source.noteVersionId !== 'string')
+          || (source.expectedAnnotationRevision !== undefined && (!Number.isInteger(source.expectedAnnotationRevision) || source.expectedAnnotationRevision < 1))))) throw new Error('知识恢复草稿格式无效。');
+    } else if (!value || typeof value.markdown !== 'string' || typeof value.baseMarkdown !== 'string'
       || (value.baseUpdatedAt !== undefined && typeof value.baseUpdatedAt !== 'string')
       || (value.conflict !== undefined && typeof value.conflict !== 'string')) throw new Error('恢复草稿正文格式无效。');
   }

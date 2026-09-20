@@ -1,9 +1,10 @@
+import { KNOWLEDGE_SYNC_CAPABILITY } from './entity-contract.js';
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
 import { randomUUID } from 'node:crypto';
 import { cursorFor, readCursor, entriesFor, syncKey, syncError, requestHash, thenResult, NOTE_FIELDS } from './journal.js';
 
 export function createSyncService(provider, ownerId) {
-  const describe = journal => ({ protocolVersion: 1, entitySchemaVersion: 5, datasetEpoch: journal.epoch, ownerId, scope: 'notes', capabilities: ['atomic-entities-v2', 'attachment-transfer-v1'], pushEnabled: process.env.KNOWRA_SYNC_PUSH_ENABLED !== 'false', cursor: cursorFor(journal, ownerId) });
+  const describe = journal => ({ protocolVersion: 1, entitySchemaVersion: 5, datasetEpoch: journal.epoch, ownerId, scope: 'notes', capabilities: ['atomic-entities-v2', 'attachment-transfer-v1', KNOWLEDGE_SYNC_CAPABILITY], pushEnabled: process.env.KNOWRA_SYNC_PUSH_ENABLED !== 'false', cursor: cursorFor(journal, ownerId) });
   return {
     device: ({ deviceId }) => provider.read((_state, journal) => ({ sequence: journal.deviceSequences?.[String(deviceId)] ?? 0 })),
     status: () => provider.read((_state, journal) => describe(journal)),

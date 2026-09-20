@@ -1,11 +1,14 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Annotation, KnowledgeEvidence, KnowledgeItem } from '@study-accelerator/web-core';
 import { canNavigate } from '../../app/navigationGuard';
-import { flushBeforeWorkspaceRestore } from '../../app/desktopLifecycle';
+import { flushBeforeWorkspaceBackup, flushBeforeWorkspaceRestore } from '../../app/desktopLifecycle';
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeWorkspaceView, type KnowledgeWorkspaceViewProps } from './KnowledgeWorkspaceView';
+import { getKnowledgeDraftScope, knowledgeDraftRecovery } from './knowledgeDraftRecovery';
+
+afterEach(async () => { await knowledgeDraftRecovery.flush(); sessionStorage.clear(); delete window.knowraDesktop; });
 
 const candidate: KnowledgeItem = { id: 'k1', title: '数据增强', canonicalStatement: '通过变换样本扩充训练数据。', userExplanation: '用于训练阶段。', knowledgeType: 'concept', importance: null, reviewStatus: 'candidate', sourceMode: 'annotation', createdAt: '2026-09-21T10:00:00.000Z', updatedAt: '2026-09-21T10:00:00.000Z', deletedAt: null };
 const archived: KnowledgeItem = { ...candidate, id: 'k2', title: '已归档的观点', reviewStatus: 'archived' };
@@ -102,6 +105,47 @@ describe('KnowledgeWorkspaceView', () => {
     expect(screen.queryByRole('heading', { name: '数据增强' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '已归档的观点' })).toBeInTheDocument();
   });
+
+  it('本机同步刷新知识详情时保留正在编辑的输入与原 CAS；重启仍使用旧基线', async () => {
+    const user = userEvent.setup();
+    const input = props();
+    const view = render(<KnowledgeWorkspaceView {...input} refreshKey={0} />);
+    await user.click(await screen.findByRole('button', { name: '编辑' }));
+    await user.type(screen.getByRole('textbox', { name: '我的解释' }), '本机未提交');
+    const updated = { ...candidate, title: '另一端更新', updatedAt: '2026-09-21T12:00:00.000Z' };
+    vi.mocked(input.onGet).mockResolvedValue(updated);
+    view.rerender(<KnowledgeWorkspaceView {...input} refreshKey={1} />);
+    await waitFor(() => expect(input.onGet).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('textbox', { name: '我的解释' })).toHaveValue('用于训练阶段。本机未提交');
+    await expect(flushBeforeWorkspaceRestore()).rejects.toThrow('知识表单仍有未保存');
+    await expect(flushBeforeWorkspaceBackup()).resolves.toEqual({ hasUnsavedDrafts: true });
+    view.unmount();
+    render(<KnowledgeWorkspaceView {...input} refreshKey={2} />);
+    await user.click(await screen.findByRole('button', { name: '恢复草稿：数据增强' }));
+    expect(screen.getByRole('textbox', { name: '我的解释' })).toHaveValue('用于训练阶段。本机未提交');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    await waitFor(() => expect(input.onUpdate).toHaveBeenCalledWith('k1', expect.objectContaining({ expectedUpdatedAt: candidate.updatedAt, userExplanation: '用于训练阶段。本机未提交' })));
+    await waitFor(() => expect(knowledgeDraftRecovery.list(getKnowledgeDraftScope())).toEqual([]));
+  });
+
+  it('从标注创建后异常退出，恢复保留候选 id 和原来源，不会自动确认', async () => {
+    const user = userEvent.setup();
+    const source = { id: 'a-old', noteVersionId: 'v-old', revision: 3, headingPath: ['旧标注标题'], quoteText: '旧摘录' } as Annotation;
+    const first = render(<CreateKnowledgeCandidateDialog source={source} canWrite onClose={vi.fn()} onCreate={vi.fn()} />);
+    await user.type(screen.getByRole('textbox', { name: '标题' }), '草稿补充');
+    await knowledgeDraftRecovery.flush();
+    const original = knowledgeDraftRecovery.list(getKnowledgeDraftScope())[0]!;
+    first.unmount();
+    const input = props();
+    render(<KnowledgeWorkspaceView {...input} />);
+    await user.click(await screen.findByRole('button', { name: '恢复草稿：旧标注标题草稿补充' }));
+    expect(screen.getByRole('region', { name: '来源标注' })).toHaveTextContent('旧摘录');
+    expect(input.onCreate).not.toHaveBeenCalled();
+    expect(input.onConfirm).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    await waitFor(() => expect(input.onCreate).toHaveBeenCalledWith(expect.objectContaining({ id: original.candidateId, evidence: [{ sourceType: 'annotation', annotationId: 'a-old', noteVersionId: 'v-old', expectedAnnotationRevision: 3 }] })));
+    await waitFor(() => expect(knowledgeDraftRecovery.list(getKnowledgeDraftScope())).toEqual([]));
+  });
 });
 
 describe('CreateKnowledgeCandidateDialog', () => {
@@ -142,5 +186,30 @@ describe('CreateKnowledgeCandidateDialog', () => {
     await user.click(screen.getByRole('button', { name: '取消' }));
     await user.click(screen.getByRole('button', { name: '放弃修改' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('知识提交成功但草稿删除失败时，只重试清理，不再提交旧版本', async () => {
+    const disk: Record<string, unknown> = {};
+    let refuseDelete = true;
+    window.knowraDesktop = { onPrepareClose() {}, onCancelClose() {}, readRecoveryDrafts: () => disk,
+      async writeRecoveryDraft(key, value) {
+        if (value === null) { if (refuseDelete) throw new Error('磁盘暂时不可写'); delete disk[key]; }
+        else disk[key] = value;
+      } };
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue({ item: candidate, evidence: [] });
+    const onClose = vi.fn();
+    render(<CreateKnowledgeCandidateDialog canWrite onClose={onClose} onCreate={onCreate} />);
+    await user.type(screen.getByRole('textbox', { name: '标题' }), '提交后的草稿');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('知识已保存，但恢复草稿清理失败');
+    expect(screen.getByRole('textbox', { name: '标题' })).toBeDisabled();
+    expect(onCreate).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    refuseDelete = false;
+    await user.click(screen.getByRole('button', { name: '重试清理' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(onCreate).toHaveBeenCalledOnce();
+    expect(disk).toEqual({});
   });
 });

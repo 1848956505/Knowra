@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { startLocalRuntime } from '../src/runtime-server.mjs';
-import { inspectRuntimeBackup, backupPath } from '../src/backup.mjs';
+import { inspectRuntimeBackup, backupPath, validateBackupDrafts } from '../src/backup.mjs';
 import { readActiveDirectory } from '../src/restore-directory.mjs';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { temporaryDirectory } from './helpers.mjs';
@@ -35,6 +35,20 @@ async function setup(t) {
     async restart() { await runtime.close(); runtime = await startLocalRuntime(options); await connect(); }
   };
 }
+
+test('知识和正文恢复草稿共同备份并原样导出；缺失知识 CAS 或伪造候选 id 拒绝备份', async t => {
+  const app = await setup(t);
+  const form = { title: '未保存知识', canonicalStatement: '陈述', userExplanation: '', knowledgeType: 'concept' };
+  const draft = { version: 1, kind: 'edit', candidateId: 'k1', initialValue: form, value: { ...form, title: '草稿修改' }, expectedUpdatedAt: 'original-version' };
+  const key = `knowra:knowledge-draft:v1:${JSON.stringify([app.dataset(), 'k1'])}`;
+  const recoveryDrafts = { version: 1, drafts: { [key]: draft, 'knowra:note-draft:v1:["space","note"]': { markdown: '笔记草稿', baseMarkdown: '正文' } } };
+  const backup = await app.request('/api/local-runtime/backup', 'POST', { recoveryDrafts });
+  assert.equal(backup.status, 201);
+  assert.deepEqual((await app.request(`/api/local-runtime/backups/${backup.data.id}/drafts`)).data, recoveryDrafts);
+  assert.equal((await app.request(`/api/local-runtime/backups/${backup.data.id}/inspect`, 'POST', {})).data.draftCount, 2);
+  assert.throws(() => validateBackupDrafts({ version: 1, drafts: { [key]: { ...draft, expectedUpdatedAt: undefined } } }));
+  assert.throws(() => validateBackupDrafts({ version: 1, drafts: { [key]: { ...draft, candidateId: 'other' } } }));
+});
 
 test('备份检查可重复；恢复保留保护备份/草稿/队列，隔离旧窗口，并可重启继续读取', async t => {
   const app = await setup(t);

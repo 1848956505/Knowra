@@ -11,7 +11,7 @@ export function RecoveryDraftNotice({ onOpenNote }: { onOpenNote(id: string): vo
   const [dismissed, setDismissed] = useState(false);
   const [recovery] = useState(() => {
     try {
-      return Object.entries(window.knowraDesktop?.readRecoveryDrafts?.() ?? {}).map(([key, draft]) => {
+      return Object.entries(window.knowraDesktop?.readRecoveryDrafts?.() ?? {}).filter(([key]) => key.startsWith('knowra:note-draft:v1:')).map(([key, draft]) => {
         const [scope, noteId] = JSON.parse(key.slice('knowra:note-draft:v1:'.length));
         return { key, scope: String(scope), noteId: String(noteId), draft: draft as RecoveredNoteDraft };
       });
