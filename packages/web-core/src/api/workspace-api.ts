@@ -1,4 +1,4 @@
-import type { CreateKnowledgeCandidateInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
+import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
 import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, Tag, TagColor, TagGroup } from '../workspace/types.js';
@@ -156,6 +156,8 @@ export interface WorkspaceApi {
   archiveKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
   restoreKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
   listKnowledgeEvidence?(id: string): Promise<KnowledgeEvidence[]>;
+  createKnowledgeEvidence?(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
+  retireKnowledgeEvidence?(id: string, evidenceId: string, input?: RetireKnowledgeEvidenceInput): Promise<KnowledgeEvidenceMutationResult>;
   loadWorkspaceResources(spaceId: string): Promise<WorkspaceResources>;
   searchNoteIds(input: { query?: string; spaceId?: string }): Promise<string[]>;
   listKnowledgeSpaces(): Promise<KnowledgeSpace[]>;
@@ -243,6 +245,18 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
     restoreKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'restore', input),
     async listKnowledgeEvidence(id) {
       return asArray<KnowledgeEvidence>(getData(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence`)));
+    },
+    async createKnowledgeEvidence(id, input) {
+      return requireEntity(getData<KnowledgeEvidence>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence`, {
+        method: 'POST', body: JSON.stringify(input)
+      })), '知识来源返回无效。');
+    },
+    async retireKnowledgeEvidence(id, evidenceId, input = {}) {
+      const result = getData<KnowledgeEvidenceMutationResult>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence/${encodeURIComponent(evidenceId)}/retire`, {
+        method: 'POST', body: JSON.stringify(input)
+      }));
+      if (!result?.item?.id || !result?.evidence?.id) throw new Error('知识来源变更返回无效。');
+      return result;
     },
     async loadWorkspaceResources(spaceId) {
       const encodedSpaceId = encodeURIComponent(spaceId ?? '');

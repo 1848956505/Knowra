@@ -204,10 +204,11 @@ export function HomeView({
               title="还没有资料"
               description={
                 isWritable
-                  ? '资料创建将在 V4-06 接入；当前可先使用全局搜索。'
+                  ? '创建第一篇笔记，开始整理资料与知识。'
                   : '当前为只读模式：连接资料服务后可继续操作。'
               }
-              primaryAction={onOpenSearch ? <Button onClick={onOpenSearch}>打开全局搜索</Button> : undefined}
+              primaryAction={onOpenCreate ? <Button variant="accent" onClick={onOpenCreate}>新建笔记</Button> : undefined}
+              secondaryAction={onOpenSearch ? <Button onClick={onOpenSearch}>打开全局搜索</Button> : undefined}
             />
           </div>
         ) : (

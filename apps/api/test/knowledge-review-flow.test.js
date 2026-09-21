@@ -188,6 +188,26 @@ export const knowledgeReviewFlowTests = [
     }
   },
   {
+    name: '移除知识来源保留历史，并让失去有效来源的已确认知识转为待修订',
+    async run() {
+      const services = [createKnowledgeModule().knowledgeItemService, createAsyncKnowledgeItemService({
+        repository: asAsync(createInMemoryKnowledgeItemRepository()),
+        evidenceRepository: asAsync(createInMemoryKnowledgeEvidenceRepository())
+      })];
+      for (const service of services) {
+        const created = await service.createCandidate({ ...manual, sourceMode: 'annotation', evidence: [{ sourceType: 'manual', quoteText: '历史摘录' }] });
+        const confirmed = await service.confirmItem(created.item.id, { expectedUpdatedAt: created.item.updatedAt });
+        const result = await service.retireEvidence(created.item.id, created.evidence[0].id, { expectedUpdatedAt: created.evidence[0].updatedAt });
+        assert.equal(result.evidence.status, 'invalid');
+        assert.equal(result.evidence.quoteText, '历史摘录');
+        assert.equal(result.item.reviewStatus, 'needsRevision');
+        assert.equal((await service.listEvidence(created.item.id)).length, 1);
+        await assert.rejects(async () => service.retireEvidence(created.item.id, created.evidence[0].id, { expectedUpdatedAt: '2000-01-01T00:00:00.000Z' }), code('KNOWLEDGE_EVIDENCE_UPDATE_CONFLICT'));
+        assert(Date.parse(result.item.updatedAt) > Date.parse(confirmed.updatedAt));
+      }
+    }
+  },
+  {
     name: 'PostgreSQL 知识保存使用数据库时间基线比较，冲突不覆盖记录',
     async run() {
       let query;

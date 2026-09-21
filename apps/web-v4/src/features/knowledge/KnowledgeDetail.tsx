@@ -3,9 +3,10 @@ import { Button } from '../../components/ui';
 import { knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
 import styles from './KnowledgeWorkspaceView.module.css';
 
-export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onConfirm, onArchive, onRestore, onOpenNote }: {
+export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onConfirm, onArchive, onRestore, onOpenNote, onAddSource, onReplaceSource, onRetireSource }: {
   item: KnowledgeItem; evidence: KnowledgeEvidence[]; canWrite: boolean; pending: boolean;
   onEdit(): void; onConfirm(): void; onArchive(): void; onRestore(): void; onOpenNote(noteId: string): void;
+  onAddSource(): void; onReplaceSource(evidence: KnowledgeEvidence): void; onRetireSource(evidence: KnowledgeEvidence): void;
 }) {
   const archived = item.reviewStatus === 'archived';
   const sourceReady = item.sourceMode === 'manual' || evidence.some(record => record.status === 'valid');
@@ -26,12 +27,14 @@ export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onC
     </header>
     <section className={styles.detailSection}><h3>核心陈述</h3><p className={styles.prose}>{item.canonicalStatement || '尚未填写核心陈述'}</p></section>
     {item.userExplanation ? <section className={styles.detailSection}><h3>我的解释</h3><p className={styles.prose}>{item.userExplanation}</p></section> : null}
-    <section className={styles.detailSection} aria-label="知识来源"><h3>来源 <span className={styles.count}>{evidence.length}</span></h3>
+    <section className={styles.detailSection} aria-label="知识来源"><div className={styles.sectionHeading}><h3>来源 <span className={styles.count}>{evidence.length}</span></h3><Button variant="ghost" isDisabled={!canWrite || pending || archived} onPress={onAddSource}>添加来源</Button></div>
       {evidence.length === 0 ? <p className={styles.hint}>{item.sourceMode === 'manual' ? '手动创建的知识，没有关联笔记来源。' : '尚未关联可核对的来源。'}</p> : <ul className={styles.evidenceList}>{evidence.map(record => <li key={record.id} className={styles.evidence}>
         <div className={styles.meta}><strong>{record.sourceType === 'annotation' ? '标注摘录' : record.sourceType === 'noteVersion' ? '笔记快照' : '手动来源'}</strong><span>{evidenceStatusLabel(record.status)}</span></div>
         {record.headingPath?.length ? <p className={styles.hint}>{record.headingPath.join(' / ')}</p> : null}
         <blockquote className={styles.prose}>{record.quoteText || '该来源没有文字摘录'}</blockquote>
-        {record.noteId ? <Button variant="ghost" isDisabled={pending} onPress={() => onOpenNote(record.noteId!)}>打开来源笔记</Button> : null}
+        <div className={styles.evidenceActions}>{record.noteId ? <Button variant="ghost" isDisabled={pending} onPress={() => onOpenNote(record.noteId!)}>打开来源笔记</Button> : null}
+          {record.status !== 'invalid' && !archived ? <><Button variant="ghost" isDisabled={!canWrite || pending} onPress={() => onReplaceSource(record)}>更换来源</Button><Button variant="ghost" isDisabled={!canWrite || pending} onPress={() => onRetireSource(record)}>移除来源</Button></> : null}
+        </div>
         {record.status !== 'valid' ? <p className={styles.notice}>来源需要重新核对；保存的摘录仍可查看。</p> : null}
       </li>)}</ul>}
     </section>

@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 
 export interface GlobalShortcuts {
   onOpenSearch?(): void;
+  onOpenCreate?(): void;
   onReturnHome?(): void;
   onCycleDomain?(direction: 1 | -1): void;
 }
@@ -35,6 +36,12 @@ export function useGlobalShortcuts(shortcuts: GlobalShortcuts): void {
         return;
       }
 
+      if (key === 'n' && shortcuts.onOpenCreate) {
+        event.preventDefault();
+        shortcuts.onOpenCreate();
+        return;
+      }
+
       if (key === '/' && shortcuts.onReturnHome) {
         event.preventDefault();
         shortcuts.onReturnHome();
@@ -51,5 +58,5 @@ export function useGlobalShortcuts(shortcuts: GlobalShortcuts): void {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [shortcuts.onOpenSearch, shortcuts.onReturnHome, shortcuts.onCycleDomain]);
+  }, [shortcuts.onOpenSearch, shortcuts.onOpenCreate, shortcuts.onReturnHome, shortcuts.onCycleDomain]);
 }

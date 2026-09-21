@@ -88,6 +88,7 @@ export function createPostgresKnowledgeHttpHandlers({
     restoreKnowledgeItem: (params, body) => knowledgeItemService.restore(params.id, body),
     listKnowledgeEvidence: (params) => knowledgeItemService.listEvidence(params.id),
     createKnowledgeEvidence: (params, body) => knowledgeItemService.createEvidence({ ...body, knowledgeItemId: params.id }),
+    retireKnowledgeEvidence: (params, body) => knowledgeItemService.retireEvidence(params.id, params.evidenceId, body),
     listLearningObjectives: (query = {}) => learningObjectiveService.listObjectives(query),
     getLearningObjective: (params) => learningObjectiveService.getObjective(params.id),
     createLearningObjective: (body) => learningObjectiveService.createCandidate(body),

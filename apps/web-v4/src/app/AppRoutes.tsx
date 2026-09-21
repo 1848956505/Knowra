@@ -52,7 +52,7 @@ export interface AppRoutesProps {
   onSelectNote(noteId: string, title: string): void;
   onOpenMaterials(): void;
   onOpenSearch(): void;
-  onOpenCreate(): void;
+  onOpenCreate?(): void;
   onOpenSchedule(): void;
 }
 
@@ -310,7 +310,7 @@ function HomeStage({ onRetry, canWrite, onSelectNote, onOpenMaterials, onOpenSea
   onSelectNote(noteId: string, title: string): void;
   onOpenMaterials(): void;
   onOpenSearch(): void;
-  onOpenCreate(): void;
+  onOpenCreate?(): void;
   onOpenSchedule(): void;
 }) {
   const loadState = useAppStore((state) => state.workspaceLoadState);

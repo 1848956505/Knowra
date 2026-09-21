@@ -9,6 +9,7 @@ const MUTATION_OPERATIONS = new Set([
   'createAnnotationExclusion', 'deleteAnnotationExclusion', 'createAnalysisScope',
   'updateKnowledgeItem', 'confirmKnowledgeItem', 'markKnowledgeItemNeedsRevision',
   'archiveKnowledgeItem', 'restoreKnowledgeItem', 'createKnowledgeEvidence',
+  'retireKnowledgeEvidence',
   'createLearningObjective', 'updateLearningObjective', 'confirmLearningObjective',
   'requestLearningObjectiveRevision', 'archiveLearningObjective',
   'restoreLearningObjective', 'createExamProfile', 'updateExamProfile',

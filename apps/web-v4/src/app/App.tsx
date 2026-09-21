@@ -18,6 +18,7 @@ import { deriveStatusPath } from '../shell/statusPath';
 import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { NotesContextSidebar } from '../features/notes';
+import { CreateEntryDialog } from '../features/notes';
 import { getEditorNoteId } from '../features/editor/editorRoute';
 import {
   applyEditorViewAction,
@@ -54,6 +55,7 @@ export function App() {
   const indexFolders = useAppStore(state => state.serverData.foldersById);
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [createNoteOpen, setCreateNoteOpen] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const [editorView, setEditorView] = useState(initialEditorViewState);
   const previousPathRef = useRef(location.pathname);
@@ -94,6 +96,7 @@ export function App() {
   // 全局快捷键
   useGlobalShortcuts({
     onOpenSearch: () => setSearchOpen(true),
+    onOpenCreate: canWriteWorkspace() ? () => setCreateNoteOpen(true) : undefined,
     onReturnHome: () => {
       setActiveWorkDomain('materials');
       navigate('/');
@@ -213,7 +216,7 @@ export function App() {
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}
-      onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
+      onOpenCreate={canWrite ? () => setCreateNoteOpen(true) : undefined}
       onOpenShowcase={handleOpenShowcase}
       isShowcaseActive={isShowcaseActive}
       statusbar={{
@@ -280,7 +283,7 @@ export function App() {
           onEditorViewAction={handleEditorViewAction}
           onOpenNote={openNote}
           onOpenSearch={() => setSearchOpen(true)}
-          onOpenCreate={() => setLiveAnnouncement('新建笔记将在 V4-06 接入')}
+          onOpenCreate={canWrite ? () => setCreateNoteOpen(true) : undefined}
           onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
           onSelectNote={(noteId) => openNote(noteId)}
         />
@@ -289,6 +292,17 @@ export function App() {
         isOpen={searchOpen}
         onOpenChange={setSearchOpen}
         hits={searchHits}
+      />
+      <CreateEntryDialog
+        mode={createNoteOpen ? 'note' : null}
+        parentFolderId={isNotesIndex || isNoteEditor ? storeApi.getState().navigation.selectedFolderId : null}
+        onOpenChange={setCreateNoteOpen}
+        onCreateNote={async (folderId, title) => {
+          const createdId = await storeApi.getState().createNote(folderId, title);
+          openNote(createdId);
+          return createdId;
+        }}
+        onCreateFolder={storeApi.getState().createFolder}
       />
     </AppShell>
   );

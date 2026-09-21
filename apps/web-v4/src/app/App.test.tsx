@@ -157,6 +157,22 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(await screen.findByRole('dialog', { name: '全局搜索' })).toBeInTheDocument();
   });
 
+  it('creates and opens a note from the global button and ⌘ N shortcut', async () => {
+    const api = createWorkspaceApiStub({ notes: [] });
+    const store = createAppStore({ api, cacheKey: 'test-cache', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    const navigateMock = vi.fn();
+    render(<RouterProvider location={{ pathname: '/', navigate: navigateMock }}><AppProviders store={store}><App /></AppProviders></RouterProvider>);
+    await screen.findByText('还没有资料');
+
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+    const dialog = await screen.findByRole('dialog', { name: '新建笔记' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '笔记名称' }), { target: { value: '全局创建' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '创建' }));
+
+    await waitFor(() => expect(api.createNote).toHaveBeenCalledWith(expect.objectContaining({ title: '全局创建', folderId: null })));
+    expect(navigateMock).toHaveBeenCalledWith('/materials/notes/created-note');
+  });
+
   it('announces when clicking a locked rail module', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({

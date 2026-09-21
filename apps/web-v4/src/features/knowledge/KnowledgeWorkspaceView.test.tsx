@@ -14,7 +14,7 @@ const candidate: KnowledgeItem = { id: 'k1', title: '数据增强', canonicalSta
 const archived: KnowledgeItem = { ...candidate, id: 'k2', title: '已归档的观点', reviewStatus: 'archived' };
 const evidence: KnowledgeEvidence = { id: 'e1', knowledgeItemId: 'k1', sourceType: 'annotation', annotationId: 'a1', noteId: 'n1', noteVersionId: 'v1', sourceId: 'a1', quoteText: '样本变换', headingPath: ['样本操作'], relationType: 'supports', status: 'valid', createdAt: candidate.createdAt, updatedAt: candidate.updatedAt };
 function props(overrides: Partial<KnowledgeWorkspaceViewProps> = {}): KnowledgeWorkspaceViewProps {
-  return { selectedItemId: 'k1', canWrite: true, onSelectItem: vi.fn(), onOpenNote: vi.fn(), onList: vi.fn().mockResolvedValue([candidate, archived]), onGet: vi.fn().mockResolvedValue(candidate), onListEvidence: vi.fn().mockResolvedValue([evidence]), onCreate: vi.fn().mockResolvedValue({ item: candidate, evidence: [evidence] }), onUpdate: vi.fn().mockResolvedValue(candidate), onConfirm: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'confirmed', updatedAt: '2026-09-21T11:00:00.000Z' }), onArchive: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'archived' }), onRestore: vi.fn().mockResolvedValue(candidate), ...overrides };
+  return { selectedItemId: 'k1', canWrite: true, notes: [], onSelectItem: vi.fn(), onOpenNote: vi.fn(), onList: vi.fn().mockResolvedValue([candidate, archived]), onGet: vi.fn().mockResolvedValue(candidate), onListEvidence: vi.fn().mockResolvedValue([evidence]), onListAnnotations: vi.fn().mockResolvedValue([]), onCreateEvidence: vi.fn().mockResolvedValue(evidence), onRetireEvidence: vi.fn().mockResolvedValue({ item: candidate, evidence: { ...evidence, status: 'invalid' } }), onCreate: vi.fn().mockResolvedValue({ item: candidate, evidence: [evidence] }), onUpdate: vi.fn().mockResolvedValue(candidate), onConfirm: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'confirmed', updatedAt: '2026-09-21T11:00:00.000Z' }), onArchive: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'archived' }), onRestore: vi.fn().mockResolvedValue(candidate), ...overrides };
 }
 
 describe('KnowledgeWorkspaceView', () => {
@@ -90,6 +90,29 @@ describe('KnowledgeWorkspaceView', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('本次输入已保留');
     expect(screen.getByRole('textbox', { name: '我的解释' })).toHaveValue('用于训练阶段。新补充');
     expect(canNavigate()).toBe(false);
+  });
+
+  it('可从笔记重点追加、替换和移除来源，并保留旧来源记录', async () => {
+    const user = userEvent.setup();
+    const sourceNote = { id: 'n1', title: '来源笔记', folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '', contentLoaded: true, favorite: false, deleted: false };
+    const replacement = { id: 'a2', noteId: 'n1', noteVersionId: 'v2', revision: 2, quoteText: '新的来源摘录', headingPath: ['新章节'], lifecycleStatus: 'active', anchorStatus: 'resolved' } as Annotation;
+    const input = props({ notes: [sourceNote], onListAnnotations: vi.fn().mockResolvedValue([replacement]) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    await screen.findByText('样本变换');
+
+    await user.click(screen.getByRole('button', { name: '添加来源' }));
+    await user.click(await screen.findByRole('radio', { name: /新章节/ }));
+    await user.click(screen.getByRole('button', { name: '添加来源' }));
+    await waitFor(() => expect(input.onCreateEvidence).toHaveBeenCalledWith('k1', expect.objectContaining({ annotationId: 'a2', expectedAnnotationRevision: 2 })));
+
+    await user.click(screen.getByRole('button', { name: '更换来源' }));
+    await user.click(await screen.findByRole('radio', { name: /新章节/ }));
+    await user.click(screen.getByRole('button', { name: '确认更换' }));
+    await waitFor(() => expect(input.onRetireEvidence).toHaveBeenCalledWith('k1', 'e1', { expectedUpdatedAt: evidence.updatedAt }));
+
+    await user.click(screen.getByRole('button', { name: '移除来源' }));
+    await user.click(screen.getByRole('button', { name: '确认移除' }));
+    await waitFor(() => expect(input.onRetireEvidence).toHaveBeenCalledTimes(2));
   });
 
   it('后返回的旧详情不能覆盖新选择，加载错误可重试', async () => {

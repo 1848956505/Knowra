@@ -12,7 +12,9 @@ describe('framework-neutral API clients', () => {
       .mockResolvedValueOnce({ data: item })
       .mockResolvedValueOnce({ data: item })
       .mockResolvedValueOnce({ data: item })
-      .mockResolvedValueOnce({ data: [{ id: 'evidence', quoteText: '真实来源' }] });
+      .mockResolvedValueOnce({ data: [{ id: 'evidence', quoteText: '真实来源' }] })
+      .mockResolvedValueOnce({ data: { id: 'evidence-2', quoteText: '补充来源' } })
+      .mockResolvedValueOnce({ data: { item, evidence: { id: 'evidence', status: 'invalid' } } });
     const api = createWorkspaceApi({ requestJson });
     await expect(api.listKnowledgeItems!({ query: '核心 陈述', includeArchived: false })).resolves.toEqual([item]);
     await expect(api.getKnowledgeItem!(item.id)).resolves.toEqual(item);
@@ -24,6 +26,9 @@ describe('framework-neutral API clients', () => {
     await api.archiveKnowledgeItem!(item.id, baseline);
     await api.restoreKnowledgeItem!(item.id, baseline);
     await expect(api.listKnowledgeEvidence!(item.id)).resolves.toEqual([{ id: 'evidence', quoteText: '真实来源' }]);
+    const evidenceInput = { sourceType: 'annotation' as const, annotationId: 'annotation-2' };
+    await expect(api.createKnowledgeEvidence!(item.id, evidenceInput)).resolves.toEqual({ id: 'evidence-2', quoteText: '补充来源' });
+    await expect(api.retireKnowledgeEvidence!(item.id, 'evidence/1', baseline)).resolves.toEqual({ item, evidence: { id: 'evidence', status: 'invalid' } });
     expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/items?query=%E6%A0%B8%E5%BF%83%20%E9%99%88%E8%BF%B0&includeArchived=false');
     expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/items/knowledge%2F1');
     expect(requestJson).toHaveBeenNthCalledWith(3, '/api/knowledge/items', { method: 'POST', body: JSON.stringify(input) });
@@ -32,6 +37,8 @@ describe('framework-neutral API clients', () => {
       expect(requestJson).toHaveBeenNthCalledWith(index + 5, `/api/knowledge/items/knowledge%2F1/${action}`, { method: 'POST', body: JSON.stringify(baseline) });
     }
     expect(requestJson).toHaveBeenNthCalledWith(8, '/api/knowledge/items/knowledge%2F1/evidence');
+    expect(requestJson).toHaveBeenNthCalledWith(9, '/api/knowledge/items/knowledge%2F1/evidence', { method: 'POST', body: JSON.stringify(evidenceInput) });
+    expect(requestJson).toHaveBeenNthCalledWith(10, '/api/knowledge/items/knowledge%2F1/evidence/evidence%2F1/retire', { method: 'POST', body: JSON.stringify(baseline) });
   });
 
   it('preserves the response envelope and friendly API errors', async () => {

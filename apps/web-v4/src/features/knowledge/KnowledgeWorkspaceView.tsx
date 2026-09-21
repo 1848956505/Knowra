@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CreateKnowledgeCandidateInput, KnowledgeEvidence, KnowledgeItem, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import type { Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogFooter } from '../../components/ui';
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeDetail } from './KnowledgeDetail';
+import { KnowledgeSourceDialog } from './KnowledgeSourceDialog';
 import { KnowledgeItemDialog } from './KnowledgeItemDialog';
 import { knowledgeFormValue } from './KnowledgeItemForm';
 import { getKnowledgeDraftScope, knowledgeDraftRecovery, type KnowledgeDraft } from './knowledgeDraftRecovery';
@@ -20,6 +21,10 @@ export interface KnowledgeWorkspaceViewProps {
   onList(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string; includeArchived?: boolean }): Promise<KnowledgeItem[]>;
   onGet(id: string): Promise<KnowledgeItem>;
   onListEvidence(id: string): Promise<KnowledgeEvidence[]>;
+  notes: Note[];
+  onListAnnotations(noteId: string): Promise<Annotation[]>;
+  onCreateEvidence(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
+  onRetireEvidence(id: string, evidenceId: string, input?: { expectedUpdatedAt?: string }): Promise<KnowledgeEvidenceMutationResult>;
   onCreate(input: CreateKnowledgeCandidateInput): Promise<{ item: KnowledgeItem; evidence: KnowledgeEvidence[] }>;
   onUpdate(id: string, input: UpdateKnowledgeItemInput): Promise<KnowledgeItem>;
   onConfirm(id: string, input: VersionInput): Promise<KnowledgeItem>;
@@ -47,6 +52,8 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   const [draftError, setDraftError] = useState('');
   const scope = getKnowledgeDraftScope();
   const [archiveItem, setArchiveItem] = useState<KnowledgeItem | null>(null);
+  const [sourceDialog, setSourceDialog] = useState<{ replacing?: KnowledgeEvidence } | null>(null);
+  const [retireEvidence, setRetireEvidence] = useState<KnowledgeEvidence | null>(null);
   const selectedRef = useRef(selectedItemId);
   selectedRef.current = selectedItemId;
 
@@ -61,7 +68,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
 
   useEffect(() => {
     let active = true;
-    setDetail(null); setDetailError(''); setNotice('');
+    setDetail(null); setDetailError('');
     if (!selectedItemId) { setDetailLoading(false); return; }
     setDetailLoading(true);
     void Promise.all([onGet(selectedItemId), onListEvidence(selectedItemId)])
@@ -70,6 +77,8 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
   }, [selectedItemId, onGet, onListEvidence, refresh, refreshKey]);
+
+  useEffect(() => { setNotice(''); }, [selectedItemId]);
 
   useEffect(() => {
     try { setDrafts(knowledgeDraftRecovery.list(scope)); setDraftError(''); }
@@ -101,6 +110,50 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       acceptItem(result); setArchiveItem(null);
       if (selectedRef.current === item.id) setNotice(message);
     } catch (cause) { if (selectedRef.current === item.id) setDetailError(knowledgeError(cause)); }
+    finally { setPending(false); }
+  }
+
+  async function saveSource(annotation: Annotation, replacing?: KnowledgeEvidence | null) {
+    if (!detail || !canWrite || pending) return;
+    setPending(true); setDetailError(''); setNotice('');
+    let created = false;
+    try {
+      await props.onCreateEvidence(detail.item.id, {
+        sourceType: 'annotation',
+        annotationId: annotation.id,
+        ...(annotation.noteVersionId ? { noteVersionId: annotation.noteVersionId } : {}),
+        ...(annotation.revision !== undefined ? { expectedAnnotationRevision: annotation.revision } : {})
+      });
+      created = true;
+      if (replacing) {
+        const result = await props.onRetireEvidence(detail.item.id, replacing.id, { expectedUpdatedAt: replacing.updatedAt });
+        acceptItem(result.item);
+      }
+      setSourceDialog(null);
+      setNotice(replacing ? '来源已更换；旧来源已保留为历史记录。' : '来源已添加。');
+      setRefresh(value => value + 1);
+    } catch (cause) {
+      if (created && replacing) {
+        setSourceDialog(null);
+        setNotice('新来源已添加，但旧来源未能自动移除；请核对后手动移除旧来源。');
+        setRefresh(value => value + 1);
+        return;
+      }
+      setDetailError(knowledgeError(cause, '知识来源保存失败。'));
+      throw cause;
+    } finally { setPending(false); }
+  }
+
+  async function confirmRetire() {
+    if (!detail || !retireEvidence || !canWrite || pending) return;
+    setPending(true); setDetailError(''); setNotice('');
+    try {
+      const result = await props.onRetireEvidence(detail.item.id, retireEvidence.id, { expectedUpdatedAt: retireEvidence.updatedAt });
+      acceptItem(result.item);
+      setRetireEvidence(null);
+      setNotice('来源已移除，原摘录仍保留在来源历史中。');
+      setRefresh(value => value + 1);
+    } catch (cause) { setDetailError(knowledgeError(cause, '移除来源失败。')); }
     finally { setPending(false); }
   }
 
@@ -138,7 +191,8 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
         {detailError ? <p role="alert" className={styles.error}>{detailError} {!archiveItem ? <Button variant="ghost" onPress={() => setRefresh(value => value + 1)}>重新加载知识</Button> : null}</p> : null}
         {detailLoading ? <p className={styles.empty} role="status">正在加载详情与来源…</p> : detail ? <KnowledgeDetail {...detail} canWrite={canWrite} pending={pending}
           onEdit={() => openEdit(detail.item)} onConfirm={() => void mutate(detail.item, props.onConfirm, '已确认这条知识。')}
-          onArchive={() => setArchiveItem(detail.item)} onRestore={() => void mutate(detail.item, props.onRestore, '已恢复为候选，请重新核对后确认。')} onOpenNote={props.onOpenNote} />
+          onArchive={() => setArchiveItem(detail.item)} onRestore={() => void mutate(detail.item, props.onRestore, '已恢复为候选，请重新核对后确认。')} onOpenNote={props.onOpenNote}
+          onAddSource={() => setSourceDialog({})} onReplaceSource={record => setSourceDialog({ replacing: record })} onRetireSource={setRetireEvidence} />
           : !detailError ? <div className={styles.empty}><h2>选择一条知识</h2><p>查看核心陈述、个人解释及来源，完成核对后确认。</p></div> : null}
       </section>
     </div>
@@ -150,6 +204,11 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     {archiveItem ? <Dialog title="归档这条知识？" description={`“${archiveItem.title || '未命名知识'}”将移入已归档，来源仍保留。恢复后会成为待核对的候选。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) { setArchiveItem(null); setDetailError(''); } }}>
       {detailError ? <DialogBody><p role="alert" className={styles.error}>{detailError}</p></DialogBody> : null}
       <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => { setArchiveItem(null); setDetailError(''); }}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite} onPress={() => void mutate(archiveItem, props.onArchive, '知识已归档。')}>确认归档</Button></DialogFooter>
+    </Dialog> : null}
+    {sourceDialog && detail ? <KnowledgeSourceDialog notes={props.notes} evidence={detail.evidence} replacing={sourceDialog.replacing} onClose={() => setSourceDialog(null)} onListAnnotations={props.onListAnnotations} onSave={saveSource} /> : null}
+    {retireEvidence ? <Dialog title="移除这条来源？" description="来源不会被物理删除，而会标记为不可用并保留摘录历史。若这是已确认知识的最后一个有效来源，知识会转为待修订。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setRetireEvidence(null); }}>
+      <DialogBody><blockquote className={styles.prose}>{retireEvidence.quoteText || '该来源没有文字摘录'}</blockquote>{detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}</DialogBody>
+      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setRetireEvidence(null)}>取消</Button><Button variant="danger" isPending={pending} onPress={() => void confirmRetire()}>确认移除</Button></DialogFooter>
     </Dialog> : null}
   </main>;
 }

@@ -146,6 +146,7 @@ export function createKnowledgeHttpHandlers({
     restoreKnowledgeItem(params, body) { return knowledgeItemService.restore(params.id, body); },
     listKnowledgeEvidence(params) { return knowledgeItemService.listEvidence(params.id); },
     createKnowledgeEvidence(params, body) { return knowledgeItemService.createEvidence({ ...body, knowledgeItemId: params.id }); },
+    retireKnowledgeEvidence(params, body) { return knowledgeItemService.retireEvidence(params.id, params.evidenceId, body); },
     listLearningObjectives(query = {}) { return learningObjectiveService.listObjectives(query); },
     getLearningObjective(params) { return learningObjectiveService.getObjective(params.id); },
     createLearningObjective(body) { return learningObjectiveService.createCandidate(body); },

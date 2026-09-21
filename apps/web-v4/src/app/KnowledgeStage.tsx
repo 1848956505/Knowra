@@ -20,6 +20,10 @@ export function KnowledgeStage({ pathname, onOpenNote }: { pathname: string; onO
     onList={state.listKnowledgeItems}
     onGet={state.getKnowledgeItem}
     onListEvidence={state.listKnowledgeEvidence}
+    notes={state.serverData.notes}
+    onListAnnotations={state.listAnnotations}
+    onCreateEvidence={state.createKnowledgeEvidence}
+    onRetireEvidence={state.retireKnowledgeEvidence}
     onCreate={state.createKnowledgeCandidate}
     onUpdate={state.updateKnowledgeItem}
     onConfirm={state.confirmKnowledgeItem}

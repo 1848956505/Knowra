@@ -25,6 +25,15 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
     return true;
   }
 
+  const evidenceActionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/evidence\/([^/]+)\/retire$/);
+  if (evidenceActionMatch && request.method === 'POST') {
+    sendJson(response, 200, { data: await knowledge.retireKnowledgeEvidence({
+      id: decode(evidenceActionMatch[1]),
+      evidenceId: decode(evidenceActionMatch[2])
+    }, await parseBody(request)) });
+    return true;
+  }
+
   const actionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/(confirm|needs-revision|archive|restore|evidence)$/);
   if (actionMatch) {
     const id = decode(actionMatch[1]);

@@ -52,6 +52,15 @@ export interface CreateKnowledgeEvidenceInput {
   headingPath?: string[];
 }
 
+export interface RetireKnowledgeEvidenceInput {
+  expectedUpdatedAt?: string;
+}
+
+export interface KnowledgeEvidenceMutationResult {
+  item: KnowledgeItem;
+  evidence: KnowledgeEvidence;
+}
+
 export interface CreateKnowledgeCandidateInput {
   id?: string;
   title: string;

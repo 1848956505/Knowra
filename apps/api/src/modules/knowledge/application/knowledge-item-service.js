@@ -242,6 +242,34 @@ export function createKnowledgeItemService({
       const item = requireItem(input.knowledgeItemId);
       return runTransaction(() => saveNew(evidenceRepository, resolveEvidence(input, item.id)));
     },
+    retireEvidence(knowledgeItemId, evidenceId, input = {}) {
+      const currentItem = requireItem(knowledgeItemId);
+      const currentEvidence = evidenceRepository.findById(evidenceId);
+      if (!currentEvidence || currentEvidence.knowledgeItemId !== knowledgeItemId) {
+        throw notFoundError('KNOWLEDGE_EVIDENCE_NOT_FOUND', 'KnowledgeEvidence not found');
+      }
+      if (input.expectedUpdatedAt && input.expectedUpdatedAt !== currentEvidence.updatedAt) {
+        throw conflictError('KNOWLEDGE_EVIDENCE_UPDATE_CONFLICT', '知识来源已变化，请重新加载后再操作。');
+      }
+      return runTransaction(() => {
+        const evidence = currentEvidence.status === 'invalid' ? currentEvidence : evidenceRepository.save(new KnowledgeEvidence({
+          ...currentEvidence,
+          status: 'invalid',
+          updatedAt: now()
+        }));
+        let item = currentItem;
+        const remaining = evidenceRepository.list({ knowledgeItemId });
+        if (item.reviewStatus === 'confirmed' && item.sourceMode !== 'manual' && !remaining.some(record => record.status === 'valid')) {
+          item = repository.save(new KnowledgeItem({
+            ...item,
+            reviewStatus: 'needsRevision',
+            updatedAt: nextKnowledgeItemTimestamp(item)
+          }), { expectedUpdatedAt: item.updatedAt });
+          notifyIfInvalidated(currentItem, item);
+        }
+        return { item, evidence };
+      });
+    },
     markEvidenceByNoteId(noteId, status = 'invalid') {
       return markEvidenceAndReconcile(() => evidenceRepository.markByNoteId(noteId, status));
     },
