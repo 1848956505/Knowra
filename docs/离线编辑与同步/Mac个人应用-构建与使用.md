@@ -1,10 +1,10 @@
 # Mac 个人应用：构建与使用
 
-> 2026-09-21（2.25.0）。面向 Apple Silicon Mac 的个人使用版本。交付 `.app`，不走 App Store，不配置 Developer ID、公证或自动更新。本轮通过隔离资料库进行自动化验收，无需用户远程手动测试。
+> 2026-09-22（2.26.0）。面向 Apple Silicon Mac 的个人使用版本。交付 `.app`，不走 App Store，不配置 Developer ID、公证或自动更新。本轮通过隔离资料库进行自动化验收，无需用户远程手动测试。
 
 ## 打开应用
 
-将 `知境·Knowra.app` 放进“应用程序”目录，双击打开，无需安装 Node、npm 或另外启动 API。菜单提供编辑快捷键、窗口操作和“打开本机资料目录”。关闭窗口、`⌘W` 和 `⌘Q` 均先请求页面保存正文，成功后结束本地服务；失败时保留窗口并显示原因。
+`npm run build:mac` 会把唯一正式 APP 安装到 `/Applications/知境·Knowra.app`，双击打开即可，无需安装 Node、npm 或另外启动 API。菜单提供编辑快捷键、窗口操作和“打开本机资料目录”。关闭窗口、`⌘W` 和 `⌘Q` 均先请求页面保存正文，成功后结束本地服务；失败时保留窗口并显示原因。
 
 输入法候选尚未确认时，请先确认或取消候选，再退出。系统强制结束进程不能执行退出握手；已提交内容在 SQLite 中保留，尚未提交的笔记和知识表单由独立恢复草稿保护。恢复草稿写入失败时会显示错误，不保证最后输入已落盘。
 
@@ -21,7 +21,7 @@
 - 恢复前自动创建“恢复前保护”备份，原资料及待同步修改保留。恢复写入 `offline/restored/<编号>`，由 `offline/active-dataset.json` 选择活动资料；不要只复制根目录的 `local.sqlite` 作为当前备份。
 - 恢复完成后点击“重新加载已恢复资料”，核对正文和附件，再主动连接云端。旧窗口必须重新加载后才能读写业务数据；旧恢复草稿保留导出入口，不自动覆盖恢复后的正文。
 - CLI 独立救援导出会读取当前活动资料集并保留根目录恢复草稿。恢复与独立救援导出命令见阶段 4/5 文档。
-- 手动更新时先退出应用，保留备份，再替换 `.app`。替换程序不会清除独立资料目录。
+- 更新前先正常退出应用。构建脚本会验证签名与版本、运行打包 APP 测试、安装新版，再将旧安装包及仓库内历史 `.app` 副本移入废纸篓；不会清除独立资料目录，旧程序可从废纸篓恢复。升级前仍建议在应用内检查资料备份。
 
 个人版本采用本地 ad-hoc 签名，不是 Apple Developer ID 分发签名。若 macOS 拦截首次打开，按系统提供的“隐私与安全性”提示处理；不需要关闭全局安全保护。该构建未作其他 Mac、Intel 架构或所有 macOS 版本的兼容承诺。
 
@@ -32,7 +32,7 @@ npm install
 npm run build:mac
 ```
 
-输出：`dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app`，以及 `dist/mac/知境·Knowra-Mac-arm64.zip`。可通过 `KNOWRA_ELECTRON_ZIP_DIR` 指向已下载的 Electron ZIP 缓存目录，避免重复下载。版本锁定在 lockfile；应用内置 Electron 运行环境，SQLite 在独立 utility process 中运行。
+输出：唯一正式 APP `/Applications/知境·Knowra.app`，以及分发包 `dist/mac/知境·Knowra-Mac-arm64.zip`。构建过程中的 `dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app` 仅供自动化验收，安装完成后会移入废纸篓，避免 Finder 出现重复 APP。可通过 `KNOWRA_ELECTRON_ZIP_DIR` 指向已下载的 Electron ZIP 缓存目录，避免重复下载。版本锁定在 lockfile；应用内置 Electron 运行环境，SQLite 在独立 utility process 中运行。
 
 打包仅收集主进程、隔离 preload、编译后的本地服务和 V4 资源；不包含仓库 `storage/`、`.env`、云端凭据或测试资料。PostgreSQL 客户端不随本机服务分发，本机固定使用 SQLite，云端通过 HTTP 同步。
 

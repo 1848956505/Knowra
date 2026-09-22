@@ -564,6 +564,7 @@ export function NoteEditorView({
       className={styles.editor}
       data-view-mode={view.mode}
       data-content-mode={view.contentMode}
+      data-inspector-open={inspectorOpen || undefined}
       aria-label="笔记编辑页面骨架"
       style={documentEdge === null ? undefined : { '--doc-edge': `${documentEdge}px` } as CSSProperties}
     >

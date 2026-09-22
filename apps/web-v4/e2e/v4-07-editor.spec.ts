@@ -858,18 +858,27 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
   await expect(inspector).toBeVisible();
   const contextSidebar = page.getByRole('complementary', { name: '笔记上下文导航' });
+  const moduleRail = page.getByRole('navigation', { name: '工作域导航' });
   await expect.poll(async () => ({
     inspector: (await inspector.boundingBox())?.width ?? 0,
+    rail: (await moduleRail.boundingBox())?.width ?? 0,
     context: (await contextSidebar.boundingBox())?.width ?? 0
-  })).toEqual({ inspector: 224, context: 224 });
+  })).toEqual({ inspector: 288, rail: 64, context: 224 });
   await expect.poll(async () => ({
     inspector: await inspector.evaluate((element) => getComputedStyle(element).backgroundColor),
     header: await inspector.locator('header').evaluate((element) => getComputedStyle(element).backgroundColor)
   })).toEqual({ inspector: 'rgb(249, 247, 242)', header: 'rgb(249, 247, 242)' });
   await expect(inspector.getByRole('tablist', { name: '检查器视图' })).toBeVisible();
-  for (const name of ['信息', '大纲', '链接', 'AI']) {
+  for (const name of ['信息', '大纲', '链接', '记录', 'AI']) {
     await expect(inspector.getByRole('tab', { name, exact: true })).toBeVisible();
   }
+  await expect(page.getByRole('tablist', { name: '打开的笔记' })).toHaveCSS('background-color', 'rgb(249, 247, 242)');
+  await expect(contextSidebar).toHaveCSS('background-color', 'rgb(249, 247, 242)');
+  expect(await page.locator('article[data-pdf-document]').evaluate((paper) => {
+    const stage = paper.parentElement;
+    if (!stage) return Infinity;
+    return Math.round((stage.clientWidth - paper.getBoundingClientRect().width) / 2);
+  })).toBeLessThanOrEqual(20);
   await expect(inspector.getByText('Markdown 文档')).toBeVisible();
   await expect(inspector.getByText('工作')).toBeVisible();
   await expect(inspector.getByText('待整理')).toBeVisible();
@@ -900,6 +909,21 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await page.screenshot({ path: 'e2e/visual-baseline/screenshots/v4-07-editor-inspector-1280.png', fullPage: false });
   await page.setViewportSize({ width: 390, height: 760 });
   await expect.poll(async () => (await screenshotInspector.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(389);
+});
+
+test('V4-07 宽屏打开检查器不缩小纸张', async ({ page }) => {
+  await mockEditorWorkspace(page, []);
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.goto('/#/materials/notes/note-1');
+  const paper = page.locator('article[data-pdf-document]');
+  await expect(paper).toBeVisible();
+  const before = (await paper.boundingBox())?.width;
+  await page.getByRole('button', { name: '切换文档检查器' }).click();
+  await expect(page.getByRole('complementary', { name: '文档检查器' })).toBeVisible();
+  const after = (await paper.boundingBox())?.width;
+  expect(before).toBe(960);
+  expect(after).toBe(before);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
 });
 
 test('V4-07 大纲保留标题层级并精确跳转到重复标题', async ({ page }) => {
@@ -1326,6 +1350,11 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await selectionTools.screenshot({ path: '/tmp/knowra-selection-tools-v2.png' });
   await selectionTools.getByRole('button', { name: '标记重点', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
+  const highlight = editor.locator('.editor-annotation').first();
+  await expect(highlight).toHaveCSS('color', 'rgb(37, 99, 235)');
+  await expect(highlight).toHaveCSS('border-bottom-style', 'none');
+  await expect(highlight).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(highlight).toHaveCSS('outline-style', 'none');
   expect(created[0].scopeType).toBe('selection');
   await editor.locator('p').last().click();
   await editor.locator('p').first().hover();

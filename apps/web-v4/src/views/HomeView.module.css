@@ -40,12 +40,17 @@
 }
 
 .kicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin: 0 0 8px;
   color: var(--ink-accent);
   font: 800 11px/1.4 var(--font-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+
+.version { color: var(--ink-secondary); letter-spacing: .04em; text-transform: none; }
 
 .title {
   margin: 0;

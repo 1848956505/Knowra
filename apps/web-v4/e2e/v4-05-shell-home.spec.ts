@@ -10,6 +10,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
       await page.setViewportSize({ width, height: width === 1280 ? 720 : 1024 });
       await page.goto('/');
       await expect(page.getByRole('heading', { name: '笔记工作台' })).toBeVisible();
+      await expect(page.getByText(/版本 v\d+\.\d+\.\d+/)).toBeVisible();
       const overflow = await page.evaluate(() => (
         document.documentElement.scrollWidth - document.documentElement.clientWidth
       ));

@@ -2,12 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { _electron as electron, expect } from '@playwright/test';
+import { executablePath } from './packaged-app-path.mjs';
 
-const executablePath = fileURLToPath(new URL('../../../dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app/Contents/MacOS/Knowra', import.meta.url));
 const expectedVersion = JSON.parse(fs.readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')).version;
 
 function readRestoredNote(directory, noteId) {

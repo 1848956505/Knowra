@@ -87,7 +87,7 @@ describe('EditorInspector', () => {
     ));
     renderInspector({ onListVersions, onGetVersion });
 
-    await user.click(screen.getByRole('tab', { name: '历史记录' }));
+    await user.click(screen.getByRole('tab', { name: '记录' }));
     expect(await screen.findByText('2 条历史记录')).toBeInTheDocument();
     expect(onListVersions).toHaveBeenCalledWith(note.id);
     expect(onGetVersion).not.toHaveBeenCalled();

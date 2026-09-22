@@ -1,6 +1,6 @@
 {
   "name": "study-accelerator",
-  "version": "2.25.0",
+  "version": "2.26.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -37,7 +37,7 @@
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema prisma/schema.prisma",
     "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs",
     "check:attachments": "node scripts/check-attachments.mjs",
-    "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell"
+    "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell && npm test -w @study-accelerator/desktop-shell && node apps/desktop-shell/scripts/install-and-cleanup.mjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

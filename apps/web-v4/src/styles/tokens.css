@@ -60,7 +60,7 @@
   --rail-size: 64px;
   --sidebar-size: 224px;
   --sidebar-size-narrow: 208px;
-  --inspector-size: var(--sidebar-size);
+  --inspector-size: calc(var(--rail-size) + var(--sidebar-size));
   --tab-size: 36px;
   --docbar-size: 52px;
   --status-size: 32px;

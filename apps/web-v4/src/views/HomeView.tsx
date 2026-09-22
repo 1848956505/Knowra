@@ -3,6 +3,7 @@
 // 主页的视觉结构严格对应冻结的 V4-00.5 印格主页；卡片计数、最近资料、标签和时间仍来自真实工作区数据。
 
 import { useMemo, type ReactNode } from 'react';
+import { version as appVersion } from '../../../../package.json';
 import type { Note, Folder, Tag } from '@study-accelerator/web-core';
 import { Button } from '../components/ui/button/Button';
 import { EmptyState, LoadingState } from '../components/ui/status';
@@ -319,7 +320,7 @@ function HomeHeader({ id, today, title, subtitle, onOpenCreate, onOpenSchedule }
           proximity={120}
           idleAfterMs={25000}
         />
-        <p className={styles.kicker}>{today}</p>
+        <p className={styles.kicker}>{today}<span className={styles.version}>版本 v{appVersion}</span></p>
         <h1 id={id} className={styles.title}>{title}</h1>
         <p className={styles.subtitle}>{subtitle}</p>
       </div>

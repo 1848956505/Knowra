@@ -1,5 +1,6 @@
 .editor {
-  --doc-width: min(960px, calc(100% - 72px));
+  --doc-gutter: 72px;
+  --doc-width: min(960px, calc(100% - var(--doc-gutter)));
   --doc-edge: calc((100% - var(--doc-width)) / 2);
   --paper-pad-x: clamp(40px, 7vw, 84px);
   width: 100%;
@@ -11,13 +12,15 @@
   background: var(--ink-surface);
 }
 
+.editor[data-inspector-open] { --doc-gutter: 40px; }
+
 .editor[data-view-mode='focus'] {
-  --doc-width: min(1120px, calc(100% - 72px));
+  --doc-width: min(1120px, calc(100% - var(--doc-gutter)));
   --paper-pad-x: clamp(44px, 8vw, 112px);
 }
 
 .editor[data-content-mode='read'] {
-  --doc-width: min(880px, calc(100% - 72px));
+  --doc-width: min(880px, calc(100% - var(--doc-gutter)));
 }
 
 .tabs {
@@ -28,7 +31,7 @@
   align-items: stretch;
   gap: 4px;
   padding: 4px 6px 0 var(--doc-edge);
-  background-color: var(--ink-sunken);
+  background-color: var(--ink-bg);
   background-image: linear-gradient(var(--ink-shell), var(--ink-shell));
   background-repeat: no-repeat;
   background-size: 100% 1px;
@@ -331,7 +334,8 @@
 }
 
 @media (max-width: 1100px) {
-  .editor { --doc-width: min(780px, calc(100% - 44px)); --paper-pad-x: clamp(36px, 6vw, 64px); }
+  .editor { --doc-gutter: 44px; --doc-width: min(780px, calc(100% - var(--doc-gutter))); --paper-pad-x: clamp(36px, 6vw, 64px); }
+  .editor[data-inspector-open] { --doc-gutter: 24px; }
   .optionalTool { display: none !important; }
 }
 

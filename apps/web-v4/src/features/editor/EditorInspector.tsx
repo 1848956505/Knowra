@@ -39,7 +39,7 @@ const inspectorTabs: TabsItem[] = [
   { id: 'outline', label: '大纲' },
   { id: 'links', label: '链接' },
   { id: 'annotations', label: '标注' },
-  { id: 'versions', label: '历史记录' },
+  { id: 'versions', label: '记录' },
   { id: 'ai', label: 'AI' }
 ];
 

@@ -2,12 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { _electron as electron, expect } from '@playwright/test';
+import { executablePath } from './packaged-app-path.mjs';
 
-const executablePath = fileURLToPath(new URL('../../../dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app/Contents/MacOS/Knowra', import.meta.url));
 test('打包应用独立启动，隔离资料库正文在立即退出后落盘并可重启', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-mac-smoke-'));
   let app;

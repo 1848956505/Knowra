@@ -23,7 +23,7 @@ it('keeps the draft and its original concurrency baseline when saving before res
     onFileStatus: vi.fn(), onViewAction: vi.fn(), onToggleFavorite: vi.fn(), onToggleInspector: vi.fn()
   };
   render(<NoteEditorView {...props} />);
-  await user.click(screen.getByRole('tab', { name: '历史记录' }));
+  await user.click(screen.getByRole('tab', { name: '记录' }));
   await user.click(await screen.findByRole('button', { name: /^历史正文/ }));
   await screen.findByText('历史正文快照');
   const source = screen.getByRole('textbox', { name: 'Markdown 源码编辑器' });
