@@ -34,6 +34,9 @@ export function createPostgresKnowledgeSpaceRepository({ db }) {
         where: { id: spaceId }
       })));
     },
+    async delete(spaceId) {
+      return withRepositoryErrors(async () => mapSpace(await db.knowledgeSpace.delete({ where: { id: spaceId } })));
+    },
     async list(options = {}) {
       const where = options.userId ? { userId: options.userId } : {};
       return withRepositoryErrors(async () => (await db.knowledgeSpace.findMany({

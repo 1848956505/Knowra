@@ -37,6 +37,10 @@ import {
 import { postgresTagGroupMigrationTests } from './postgres-tag-group-migration.test.js';
 import { phase1PostgresTests } from './phase1-postgres.test.js';
 import { attachmentIntegrityTests } from './attachment-integrity.test.js';
+import { assetLifecycleStage0Tests } from './asset-lifecycle-stage0.test.js';
+import { assetLifecycleStage1Tests } from './asset-lifecycle-stage1.test.js';
+import { assetLifecycleStage2Tests } from './asset-lifecycle-stage2.test.js';
+import { assetLifecycleStage3Tests } from './asset-lifecycle-stage3.test.js';
 import { phase2KnowledgeDomainTests } from './phase2-knowledge-domain.test.js';
 import { phase3AssessmentTests } from './phase3-assessment.test.js';
 import { phase31WorkspaceQueryTests } from './phase31-workspace-query.test.js';
@@ -79,6 +83,10 @@ const tests = [
   ...phase1PostgresTests,
   ...postgresTagGroupMigrationTests,
   ...attachmentIntegrityTests,
+  ...assetLifecycleStage0Tests,
+  ...assetLifecycleStage1Tests,
+  ...assetLifecycleStage2Tests,
+  ...assetLifecycleStage3Tests,
   ...phase2KnowledgeDomainTests,
   ...phase3AssessmentTests,
   ...phase31WorkspaceQueryTests,

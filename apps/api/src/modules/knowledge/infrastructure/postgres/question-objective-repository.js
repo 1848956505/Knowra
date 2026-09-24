@@ -4,6 +4,7 @@ import { withRepositoryErrors } from './repository-utils.js';
 export function createPostgresQuestionObjectiveRepository({ db }) {
   if (!db?.questionObjective) throw new TypeError('PostgreSQL QuestionObjective repository requires db.questionObjective');
   return {
+    async deleteByQuestionId(questionId) { return withRepositoryErrors(() => db.questionObjective.deleteMany({ where: { questionId } }).then(result => result.count)); },
     async listByQuestionIds(questionIds = []) {
       if (!questionIds.length) return [];
       return withRepositoryErrors(() => db.questionObjective.findMany({ where: { questionId: { in: questionIds } }, orderBy: { order: 'asc' } }).then((rows) => rows.map(mapQuestionObjective)));

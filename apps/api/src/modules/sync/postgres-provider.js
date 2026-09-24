@@ -43,8 +43,10 @@ export function createPostgresSyncRuntime(client, ownerId) {
         const result = await operation(proxy);
         const after = await snapshot(tx);
         // 整库导入删除日志行；用新世代重新建立基线。
-        const exists = row ? await tx.syncJournal.findUnique({ where: { ownerId } }) : null;
-        const journal = row && !exists ? createJournal(after) : appendChanges(context.journal, before, after);
+        const exists = await tx.syncJournal.findUnique({ where: { ownerId } });
+        const journal = exists?.payload?.epoch && exists.payload.epoch !== context.journal.epoch
+          ? loadJournal(exists.payload, after)
+          : row && !exists ? createJournal(after) : appendChanges(context.journal, before, after);
         await tx.syncJournal.upsert({ where: { ownerId }, create: { ownerId, payload: journal }, update: { payload: journal } });
         return result;
       });

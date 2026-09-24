@@ -4,6 +4,8 @@ import { createInMemoryKnowledgeSpaceRepository } from '../infrastructure/knowle
 import { createInMemoryTagGroupRepository } from '../infrastructure/tag-group-repository.js';
 import { TagGroup } from '../domain/tag-group.js';
 import { buildDefaultTagGroups } from '../domain/default-tag-groups.js';
+import { randomUUID } from 'node:crypto';
+import { createAppError } from '../../../errors/app-error.js';
 
 export function createKnowledgeSpaceService({
   repository = createInMemoryKnowledgeSpaceRepository(),
@@ -18,6 +20,16 @@ export function createKnowledgeSpaceService({
     }
   }
   return {
+    createKnowledgeSpace({ userId, name, description = '' } = {}) {
+      if (!String(name ?? '').trim()) throw createAppError('KNOWLEDGE_SPACE_NAME_REQUIRED', '请输入空间名称。', 422);
+      return runTransaction(() => {
+        const normalized = String(name).trim().toLocaleLowerCase();
+        if (repository.list({ userId }).some(space => space.name.toLocaleLowerCase() === normalized)) throw createAppError('KNOWLEDGE_SPACE_NAME_CONFLICT', '同名空间已存在。', 409);
+        const space = repository.save(new KnowledgeSpace({ id: `space-${randomUUID()}`, userId, name, description, defaultFlag: false }));
+        ensureDefaultTagGroups(space.id);
+        return space;
+      });
+    },
     createDefaultKnowledgeSpace({ userId } = {}) {
       return runTransaction(() => {
         const dto = buildDefaultKnowledgeSpaceDto({ userId });

@@ -14,11 +14,26 @@ export async function handleAssessmentRoute({ request, response, url, knowledge 
     return true;
   }
   if (request.method === 'POST' && url.pathname === profileRoot) { sendJson(response, 201, { data: await knowledge.createExamProfile(await parseBody(request)) }); return true; }
+  const lifecycle = url.pathname.match(/^\/api\/knowledge\/(exam-profiles|exam-focuses|questions)\/([^/]+)\/(purge-preview|trash|restore-deleted|purge)$/);
+  if (lifecycle) {
+    const type = { 'exam-profiles': 'examProfile', 'exam-focuses': 'examFocus', questions: 'question' }[lifecycle[1]];
+    const params = { type, id: decode(lifecycle[2]) };
+    if (request.method === 'GET' && lifecycle[3] === 'purge-preview') sendJson(response, 200, { data: await knowledge.inspectTrainingAssetPurge(params) });
+    else if (request.method === 'POST' && lifecycle[3] === 'trash') sendJson(response, 200, { data: await knowledge.trashTrainingAsset(params) });
+    else if (request.method === 'POST' && lifecycle[3] === 'restore-deleted') sendJson(response, 200, { data: await knowledge.restoreDeletedTrainingAsset(params) });
+    else if (request.method === 'POST' && lifecycle[3] === 'purge') sendJson(response, 200, { data: await knowledge.permanentlyDeleteTrainingAsset(params, await parseBody(request)) });
+    else return false;
+    return true;
+  }
   const profileFocus = url.pathname.match(/^\/api\/knowledge\/exam-profiles\/([^/]+)\/focuses$/);
   if (profileFocus) {
     const examProfileId = decode(profileFocus[1]);
     if (request.method === 'GET') { sendJson(response, 200, { data: await knowledge.listExamFocuses({ ...toQueryObject(url), examProfileId }) }); return true; }
     if (request.method === 'POST') { sendJson(response, 201, { data: await knowledge.createExamFocus({ ...(await parseBody(request)), examProfileId }) }); return true; }
+  }
+  if (url.pathname === '/api/knowledge/exam-focuses') {
+    if (request.method === 'GET') { sendJson(response, 200, { data: await knowledge.listExamFocuses(toQueryObject(url)) }); return true; }
+    if (request.method === 'POST') { sendJson(response, 201, { data: await knowledge.createExamFocus(await parseBody(request)) }); return true; }
   }
   const profileAction = url.pathname.match(/^\/api\/knowledge\/exam-profiles\/([^/]+)\/(archive|restore)$/);
   if (profileAction && request.method === 'POST') {

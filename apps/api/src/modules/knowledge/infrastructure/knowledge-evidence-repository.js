@@ -38,6 +38,12 @@ export function createInMemoryKnowledgeEvidenceRepository(options = {}) {
     findById(id) {
       return records.find((item) => item.id === id) ?? null;
     },
+    deleteByKnowledgeItemId(knowledgeItemId) {
+      const deleted = records.filter(item => item.knowledgeItemId === knowledgeItemId);
+      for (const record of deleted) records.splice(records.indexOf(record), 1);
+      if (deleted.length) persist();
+      return deleted;
+    },
     list({ knowledgeItemId, noteId, noteVersionId, annotationId } = {}) {
       return records.filter((item) => (
         (!knowledgeItemId || item.knowledgeItemId === knowledgeItemId)

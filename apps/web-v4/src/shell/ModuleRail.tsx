@@ -51,7 +51,7 @@ export const PRIMARY_DOMAINS: readonly RailItem[] = [
     label: '试题',
     description: '题目库与考试场景。',
     Icon: QuestionIcon,
-    available: false
+    available: true
   },
   {
     id: 'learning',

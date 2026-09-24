@@ -2,6 +2,27 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiRequestError, createApiClient, createWorkspaceApi } from '../src/index.js';
 
 describe('framework-neutral API clients', () => {
+  it('uses the training lifecycle endpoints and preserves purge baselines', async () => {
+    const record = { id: 'question/1', updatedAt: '2026-09-24T00:00:00.000Z' };
+    const preview = { asset: { type: 'question', id: record.id }, decision: 'can-purge-no-history', expectedUpdatedAt: record.updatedAt, references: [], exclusiveRecords: {}, coverage: {} };
+    const requestJson = vi.fn()
+      .mockResolvedValueOnce({ data: [record] })
+      .mockResolvedValueOnce({ data: record })
+      .mockResolvedValueOnce({ data: record })
+      .mockResolvedValueOnce({ data: preview })
+      .mockResolvedValueOnce({ data: { status: 'subject-purged', asset: preview.asset } });
+    const api = createWorkspaceApi({ requestJson });
+    await api.listTrainingAssets!('question', { includeArchived: true, includeDeleted: true });
+    await api.createTrainingAsset!('question', { stem: '题干' });
+    await api.mutateTrainingAsset!('question', record.id, 'trash');
+    await api.inspectTrainingAssetPurge!('question', record.id);
+    await api.purgeTrainingAsset!('question', record.id, preview.expectedUpdatedAt);
+    expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/questions?includeArchived=true&includeDeleted=true');
+    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/questions', { method: 'POST', body: JSON.stringify({ stem: '题干' }) });
+    expect(requestJson).toHaveBeenNthCalledWith(3, '/api/knowledge/questions/question%2F1/trash', { method: 'POST' });
+    expect(requestJson).toHaveBeenNthCalledWith(4, '/api/knowledge/questions/question%2F1/purge-preview');
+    expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/questions/question%2F1/purge', { method: 'POST', body: JSON.stringify({ expectedUpdatedAt: preview.expectedUpdatedAt }) });
+  });
   it('keeps knowledge review mutations and source detail on the real API contracts', async () => {
     const item = { id: 'knowledge/1', updatedAt: '2026-09-21T00:00:00.000Z' };
     const requestJson = vi.fn()
@@ -332,7 +353,7 @@ describe('framework-neutral API clients', () => {
     await api.createAnalysisScope?.({ ...scopeInput, previewHash: 'preview', idempotencyKey: 'scope-request' });
 
     expect(requestJson).toHaveBeenNthCalledWith(1, '/api/knowledge/notes/note%2F1/links');
-    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/annotations?noteId=note%2F1&spaceId=space%2F1&includeDeleted=true');
+    expect(requestJson).toHaveBeenNthCalledWith(2, '/api/knowledge/annotations?noteId=note%2F1&spaceId=space%2F1');
     expect(requestJson).toHaveBeenNthCalledWith(3, '/api/knowledge/annotations', { method: 'POST', body: JSON.stringify(createInput) });
     expect(requestJson).toHaveBeenNthCalledWith(4, '/api/knowledge/annotations/annotation%2F1', { method: 'DELETE' });
     expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/annotations/annotation%2F1/restore', { method: 'POST' });

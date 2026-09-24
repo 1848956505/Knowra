@@ -263,10 +263,11 @@
 .title {
   min-width: 0;
   margin: 0 0 14px;
-  font-size: clamp(30px, 4.2vw, 44px);
-  font-weight: 850;
-  line-height: 1.18;
-  letter-spacing: -.045em;
+  font-family: var(--font-note);
+  font-size: clamp(30px, 3.8vw, 38px);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: .01em;
 }
 .title:has(.titleInput:focus-visible) { box-shadow: 0 2px 0 var(--ink-accent); }
 .title[data-invalid] { box-shadow: 0 2px 0 var(--ink-danger); }
@@ -319,7 +320,7 @@
   padding-top: 32px;
   border-top: 1px solid var(--ink-panel);
 }
-.content { min-width: 0; padding-top: 32px; border-top: 1px solid var(--ink-panel); font-size: 16px; line-height: 1.82; }
+.content { min-width: 0; padding-top: 32px; border-top: 1px solid var(--ink-panel); font-family: var(--font-note); font-size: 17px; line-height: 1.78; }
 .editorPanes[data-source-open] .content { padding-top: 0; border-top: 0; }
 .content pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
 .emptyBody h2 { margin: 0 0 8px; font-size: 23px; }

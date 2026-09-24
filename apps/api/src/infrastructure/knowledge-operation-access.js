@@ -3,32 +3,38 @@ const MUTATION_OPERATIONS = new Set([
   'deleteNotes', 'restoreNote', 'permanentlyDeleteNote', 'emptyRecycleBin', 'setFavorite',
   'removeTagFromNote', 'assignTagToNote', 'assignTagToNotes', 'setNoteTags',
   'updateTagsForNotes', 'createFolder', 'updateFolder', 'deleteFolder', 'createTag',
+  'restoreFolder',
   'updateTag', 'deleteTag', 'reorderTags', 'mergeTags', 'createTagGroup',
   'updateTagGroup', 'deleteTagGroup', 'createAnnotation', 'updateAnnotation', 'deleteAnnotation',
   'restoreAnnotation', 'updateAnnotationAnchor', 'createKnowledgeItem',
   'createAnnotationExclusion', 'deleteAnnotationExclusion', 'createAnalysisScope',
+  'trashAnalysisScope', 'restoreDeletedAnalysisScope',
   'updateKnowledgeItem', 'confirmKnowledgeItem', 'markKnowledgeItemNeedsRevision',
-  'archiveKnowledgeItem', 'restoreKnowledgeItem', 'createKnowledgeEvidence',
-  'retireKnowledgeEvidence',
+  'archiveKnowledgeItem', 'restoreKnowledgeItem', 'trashKnowledgeItem', 'restoreDeletedKnowledgeItem', 'permanentlyDeleteKnowledgeItem', 'createKnowledgeEvidence',
+  'retireKnowledgeEvidence', 'readoptKnowledgeEvidence',
   'createLearningObjective', 'updateLearningObjective', 'confirmLearningObjective',
   'requestLearningObjectiveRevision', 'archiveLearningObjective',
   'restoreLearningObjective', 'createExamProfile', 'updateExamProfile',
   'archiveExamProfile', 'restoreExamProfile', 'createExamFocus', 'updateExamFocus',
   'confirmExamFocus', 'archiveExamFocus', 'restoreExamFocus', 'createQuestion',
   'updateQuestion', 'validateQuestion', 'submitQuestionForReview', 'confirmQuestion',
-  'archiveQuestion', 'restoreQuestion', 'createDefaultKnowledgeSpace'
+  'archiveQuestion', 'restoreQuestion', 'createDefaultKnowledgeSpace', 'createKnowledgeSpace',
+  'trashTrainingAsset', 'restoreDeletedTrainingAsset', 'permanentlyDeleteTrainingAsset',
+  'deleteEmptySpace', 'migrateSpaceAssets'
 ]);
 
 const READ_OPERATIONS = new Set([
   'getNote', 'getLinkedNotes', 'listNotes', 'listFolders', 'listFolderTree', 'listTags',
-  'listTagGroups', 'listAnnotations', 'getAnnotation', 'listNoteVersions', 'getNoteVersion',
+  'listTagGroups', 'listAnnotations', 'getAnnotation', 'listNoteVersions', 'getNoteVersion', 'previewNoteVersionPrune',
   'previewAnnotation', 'getAnnotationKnowledgeLinks', 'previewAnalysisScope', 'getAnalysisScope',
-  'listKnowledgeItems', 'getKnowledgeItem', 'listKnowledgeEvidence',
+  'listAnalysisScopes',
+  'listKnowledgeItems', 'getKnowledgeItem', 'listKnowledgeEvidence', 'inspectKnowledgePurge',
   'listLearningObjectives', 'getLearningObjective', 'listExamProfiles', 'getExamProfile',
   'listExamFocuses', 'getExamFocus', 'listQuestions', 'getQuestion',
+  'inspectTrainingAssetPurge',
   'getKnowledgeOverview', 'getTrainingOverview', 'listWorkspaceKnowledgeItems',
   'listWorkspaceLearningObjectives', 'listWorkspaceQuestions', 'listWorkspaceExamProfiles',
-  'listReviewQueue', 'listKnowledgeSpaces', 'searchNotes'
+  'listReviewQueue', 'listKnowledgeSpaces', 'inspectEmptySpaceDeletion', 'previewSpaceMigration', 'searchNotes'
 ]);
 
 export function getKnowledgeOperationAccess(name) {

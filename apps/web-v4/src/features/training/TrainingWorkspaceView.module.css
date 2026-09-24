@@ -1,0 +1,16 @@
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.toolbar > :nth-child(2) { flex: 1 1 220px; min-width: 160px; }
+.body { padding: 28px; min-height: 0; overflow: auto; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; align-content: start; }
+.card { border: 1px solid var(--color-border, #d5d0c7); box-shadow: 4px 4px 0 #d5d0c7; background: #fff; padding: 20px; min-width: 0; }
+.cardTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cardTop h2 { font-size: 20px; line-height: 1.4; margin: 0; overflow-wrap: anywhere; }
+.cardTop span { color: #2458cc; font-size: 13px; white-space: nowrap; }
+.meta { color: #676767; font-size: 13px; overflow-wrap: anywhere; min-height: 35px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid #e2ded6; padding-top: 14px; }
+.empty, .gate { padding: 40px; }
+.info { color: #345daa; }
+.error { color: #b72525; }
+.form, .dialogContent { display: grid; gap: 14px; }
+.dialogContent ul { max-height: 180px; overflow: auto; padding-left: 22px; overflow-wrap: anywhere; }
+@media (max-width: 680px) { .body { padding: 16px; } .cards { grid-template-columns: 1fr; } }

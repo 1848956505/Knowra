@@ -22,6 +22,13 @@ export function createInMemoryKnowledgeSpaceRepository(options = {}) {
     findById(spaceId) {
       return spaces.find((space) => space.id === spaceId) ?? null;
     },
+    delete(spaceId) {
+      const index = spaces.findIndex(space => space.id === spaceId);
+      if (index < 0) return null;
+      const [removed] = spaces.splice(index, 1);
+      persist();
+      return removed;
+    },
     list(options = {}) {
       return spaces.filter((space) => (options.userId ? space.userId === options.userId : true));
     }

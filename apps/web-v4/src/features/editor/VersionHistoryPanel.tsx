@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateContentHash } from '@study-accelerator/content-anchor';
-import type { Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, NoteVersionSummary } from '@study-accelerator/web-core';
+import type { Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, NoteVersionPrunePreview, NoteVersionSummary } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter } from '../../components/ui';
 import { TextDiff } from '../../components/ui/TextDiff';
 import styles from './EditorInspector.module.css';
@@ -11,6 +11,7 @@ interface Props {
   canWrite: boolean;
   onListVersions(noteId: string): Promise<NoteVersion[]>;
   onListVersionPage?(noteId: string, options?: NoteVersionPageOptions): Promise<NoteVersionPage>;
+  onPreviewVersionPrune?(noteId: string): Promise<NoteVersionPrunePreview>;
   onGetVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   onRestoreVersion?(version: NoteVersion): Promise<void>;
   onSaveVersionAs?(version: NoteVersion): Promise<void>;
@@ -31,7 +32,7 @@ export function groupVersionSessions(versions: NoteVersionSummary[]) {
   return groups;
 }
 
-export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, onListVersionPage, onGetVersion, onRestoreVersion, onSaveVersionAs }: Props) {
+export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, onListVersionPage, onPreviewVersionPrune, onGetVersion, onRestoreVersion, onSaveVersionAs }: Props) {
   const [versions, setVersions] = useState<NoteVersionSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, 
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
+  const [prunePreview, setPrunePreview] = useState<NoteVersionPrunePreview | null>(null);
   const requestRef = useRef(0);
   const detailRequestRef = useRef(0);
   const currentHash = useMemo(() => calculateContentHash(markdown), [markdown]);
@@ -117,7 +119,7 @@ export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, 
   </button>;
 
   return <section className={`${styles.simplePanel} ${styles.versionPanel}`} aria-label="历史记录">
-    <div className={styles.versionSummary}><strong>{total} 条历史记录</strong><span>相邻修改间隔 5 分钟内归组，可展开全部快照。来源快照持续保留。</span></div>
+    <div className={styles.versionSummary}><strong>{total} 条历史记录</strong><span>相邻修改间隔 5 分钟内归组，可展开全部快照。来源快照持续保留。</span>{onPreviewVersionPrune ? <Button onPress={() => void onPreviewVersionPrune(note.id).then(setPrunePreview).catch(reason => setError(reason instanceof Error ? reason.message : '清理预览失败'))}>清理预览</Button> : null}</div>
     {markdown !== note.rawMarkdown ? <p role="status">当前草稿尚未保存；差异对比包含这部分修改。</p> : null}
     {error && !restoreOpen ? <p className={styles.versionError} role="alert">{error}</p> : null}
     {message ? <p role="status">{message}</p> : null}
@@ -143,6 +145,12 @@ export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, 
     <Dialog title="恢复历史正文" isOpen={restoreOpen} onOpenChange={setRestoreOpen} isPending={pending}>
       <DialogBody><p>先保存当前草稿，再恢复所选正文。恢复前的内容仍可在历史记录中找回；标题、目录和标签保持现状。关联标注会重新检查位置。</p>{error ? <p className={styles.versionError} role="alert">{error}</p> : null}</DialogBody>
       <DialogFooter><DialogClose variant="ghost">取消</DialogClose><Button variant="primary" isPending={pending} isDisabled={!canWrite} onPress={() => void act('restore')}>确认恢复</Button></DialogFooter>
+    </Dialog>
+    <Dialog title="历史版本清理预览" isOpen={Boolean(prunePreview)} onOpenChange={open => { if (!open) setPrunePreview(null); }}>
+      <DialogBody><p>当前只提供预览，不会自动裁剪。保留点尚无独立标记，任何版本都不会在此删除。</p>
+        <ul>{prunePreview?.versions.map(version => <li key={version.id}>{dateLabel(version.createdAt)}：{version.references.length ? `保留，${version.references.map(reference => `${reference.type} ${reference.id}`).join('、')}` : '暂无已知引用；需先核对是否为保留点'}</li>)}</ul>
+      </DialogBody>
+      <DialogFooter><Button onPress={() => setPrunePreview(null)}>关闭</Button></DialogFooter>
     </Dialog>
   </section>;
 }

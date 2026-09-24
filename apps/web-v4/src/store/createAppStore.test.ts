@@ -43,13 +43,13 @@ describe('single V4 application store', () => {
     const api = createApi();
     const store = createAppStore({ api, cacheKey: 'desktop-capabilities', persistenceMode: 'desktop-local', mockSnapshot: createEmptyWorkspaceSnapshot() });
     await store.getState().loadWorkspace();
-    const before = store.getState().saveState;
     await expect(store.getState().permanentlyDeleteNote('live-note')).rejects.toThrow('桌面端暂不支持彻底删除');
     await expect(store.getState().emptyRecycleBin()).rejects.toThrow('桌面端暂不支持彻底删除');
-    await expect(store.getState().createAnalysisScope({ spaceId: 'space-live', mode: 'all', previewHash: 'hash', idempotencyKey: 'key' })).rejects.toThrow('范围快照暂不支持离线同步');
+    vi.mocked(api.createAnalysisScope!).mockResolvedValue({ id: 'scope-1' });
+    await expect(store.getState().createAnalysisScope({ spaceId: 'space-live', mode: 'all', previewHash: 'hash', idempotencyKey: 'key' })).resolves.toEqual({ id: 'scope-1' });
     expect(api.permanentlyDeleteNote).not.toHaveBeenCalled();
     expect(api.emptyRecycleBin).not.toHaveBeenCalled();
-    expect(store.getState().saveState).toBe(before);
+    expect(store.getState().saveState).toBe('saved');
   });
   it('exposes serializable save failure state', () => {
     const store = createAppStore({
@@ -232,8 +232,8 @@ describe('single V4 application store', () => {
     expect(api.deleteNote).toHaveBeenCalledWith('live-note');
     expect(store.getState().notesIndex.scope).toBe('trash');
 
-    await store.getState().deleteFolder('folder-1');
-    expect(api.deleteFolder).toHaveBeenCalledWith('folder-1');
+    await store.getState().deleteFolder('folder-1', { mode: 'keep', destinationId: null });
+    expect(api.deleteFolder).toHaveBeenCalledWith('folder-1', { mode: 'keep', destinationId: null });
   });
 
   it('connects single-note recycle actions, tag editing and version reads', async () => {
@@ -588,6 +588,7 @@ describe('single V4 application store', () => {
 
 function createApi(): WorkspaceApi {
   return {
+    createAnalysisScope: vi.fn().mockResolvedValue({ id: 'scope-1' }),
     listKnowledgeSpaces: vi.fn().mockResolvedValue([{ id: 'space-live' }]),
     createDefaultKnowledgeSpace: vi.fn().mockResolvedValue({ id: 'space-live' }),
     loadWorkspaceResources: vi.fn().mockResolvedValue({

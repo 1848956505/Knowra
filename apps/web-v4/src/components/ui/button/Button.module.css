@@ -66,6 +66,33 @@
   opacity: 0.85;
 }
 
+/* 尺寸变体：页面只负责排列，按钮外观在此统一维护。 */
+.workspace,
+.compact,
+.mini {
+  height: auto;
+  min-width: 0;
+  min-height: var(--index-size-28);
+  padding: 0 var(--index-size-12);
+  gap: var(--index-size-7);
+  border-color: var(--ink-shell);
+  background: var(--ink-bg);
+  color: var(--ink-secondary);
+  font-size: var(--index-size-11);
+  font-weight: 750;
+}
+
+.compact { min-height: 29px; padding-inline: 10px; }
+.mini { min-height: 27px; padding-inline: 6px; font-size: 10px; box-shadow: none; }
+.soft { border-color: var(--ink-accent); background: var(--index-blue-wash); color: var(--ink-accent-hover); }
+.soft[data-hovered]:not([data-disabled]):not([data-pending]) { background: var(--ink-accent-soft); }
+.workspace[aria-pressed='true'],
+.workspace[aria-current='page'],
+.workspace[aria-expanded='true'] { background: var(--ink-accent); border-color: var(--ink-accent-hover); color: var(--ink-surface); }
+.workspace[aria-pressed='true'][data-hovered],
+.workspace[aria-current='page'][data-hovered],
+.workspace[aria-expanded='true'][data-hovered] { background: var(--ink-accent-hover); color: var(--ink-surface); }
+
 /* Variants */
 
 .primary {
@@ -91,6 +118,8 @@
   color: var(--ink-surface);
   border-color: var(--ink-accent);
 }
+
+.workspace.accent { border-color: var(--ink-accent-hover); }
 
 .accent[data-hovered]:not([data-disabled]):not([data-pending]) {
   background: var(--ink-accent-hover);

@@ -20,6 +20,7 @@ export class Question {
     reviewStatus = 'draft',
     sourceMode = 'manual',
     version = 1,
+    deletedAt = null,
     createdAt = new Date().toISOString(),
     updatedAt = createdAt
   }) {
@@ -45,6 +46,7 @@ export class Question {
       reviewStatus,
       sourceMode,
       version: Number(version),
+      deletedAt,
       createdAt,
       updatedAt
     });

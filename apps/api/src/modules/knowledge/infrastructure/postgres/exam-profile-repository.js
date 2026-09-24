@@ -13,6 +13,7 @@ export function createPostgresExamProfileRepository({ db }) {
       commonQuestionTypes: profile.commonQuestionTypes ?? [],
       difficultyProfile: profile.difficultyProfile ?? {},
       archivedAt: profile.archivedAt ? toDate(profile.archivedAt) : null,
+      deletedAt: profile.deletedAt ? toDate(profile.deletedAt) : null,
       createdAt: toDate(profile.createdAt),
       updatedAt: toDate(profile.updatedAt)
     };
@@ -28,10 +29,11 @@ export function createPostgresExamProfileRepository({ db }) {
       return withRepositoryErrors(() => db.examProfile.upsert({ where: { id: data.id }, create: data, update: (() => { const { id: _id, createdAt: _createdAt, ...rest } = data; return rest; })() }).then(mapExamProfile));
     },
     async findById(id) { return withRepositoryErrors(() => db.examProfile.findUnique({ where: { id } }).then(mapExamProfile)); },
-    list({ includeArchived = false } = {}) {
-      const where = includeArchived ? {} : { archivedAt: null };
+    list({ includeArchived = false, includeDeleted = false } = {}) {
+      const where = { ...(includeArchived ? {} : { archivedAt: null }), ...(includeDeleted ? {} : { deletedAt: null }) };
       return withRepositoryErrors(() => db.examProfile.findMany({ where, orderBy: { updatedAt: 'desc' } }).then((rows) => rows.map(mapExamProfile)));
     },
+    async delete(id) { return withRepositoryErrors(() => db.examProfile.delete({ where: { id } }).then(mapExamProfile)); },
     supportsAsync: true
   };
 }

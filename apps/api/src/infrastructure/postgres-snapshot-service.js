@@ -42,8 +42,14 @@ export function createPostgresSnapshotService({
     getAttachmentContent: (params) => gate.runOperation(
       () => attachmentStore.readAttachmentContent(params.id)
     ),
+    inspectAttachmentDeletion: (params) => gate.runOperation(
+      () => attachmentStore.inspectAttachmentDeletion(params.id)
+    ),
     deleteAttachment: (params) => gate.runMutation(
       () => attachmentStore.deleteAttachment(params.id)
+    ),
+    retryAttachmentCleanup: () => gate.runMutation(
+      () => attachmentStore.retryAttachmentCleanup()
     )
   };
 
@@ -66,7 +72,7 @@ export function createPostgresSnapshotService({
       attachmentStore.exportAttachmentsSnapshot(),
       repositories.annotationExclusionRepository?.list({ includeDeleted: true }) ?? [],
       repositories.annotationRevisionRepository?.list() ?? [],
-      repositories.analysisScopeRepository?.list() ?? []
+      repositories.analysisScopeRepository?.list({ includeDeleted: true }) ?? []
     ]);
     const questionIds = questions.map((question) => question.id);
     const [questionObjectives, questionSources] = await Promise.all([

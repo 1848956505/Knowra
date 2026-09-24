@@ -1,25 +1,14 @@
 import { createAppError } from '../errors/app-error.js';
-import { scheduleFileCleanup } from './local-attachment-store-utils.js';
+import { inspectAttachmentDeletion } from './attachment-deletion-preflight.js';
 
 export function createLocalAttachmentDeletionManager({
   dataStore,
   fileManager,
-  flush
+  flush,
+  cleanupQueue
 }) {
   function removeAttachmentFiles(attachments) {
-    attachments.forEach((attachment) => {
-      try {
-        fileManager.removeAttachmentFile(attachment);
-      } catch (error) {
-        console.error(
-          'removeAttachmentFile failed, scheduling cleanup retry:',
-          error?.message
-        );
-        scheduleFileCleanup(
-          fileManager.resolveManagedAttachmentPath(attachment)
-        );
-      }
-    });
+    return attachments.map(attachment => ({ id: attachment.id, cleanup: cleanupQueue.finish(attachment) }));
   }
 
   function deleteAttachment(attachmentId) {
@@ -34,21 +23,42 @@ export function createLocalAttachmentDeletionManager({
       );
     }
 
-    const [attachment] = dataStore.state.attachments.splice(existingIndex, 1);
+    const preflight = inspectAttachmentDeletion(attachmentId, dataStore.state);
+    if (preflight.references.length) {
+      throw createAppError(
+        'ATTACHMENT_REFERENCED',
+        '保留的资产仍引用此附件，不能删除。',
+        409
+      );
+    }
+
+    const attachment = dataStore.state.attachments[existingIndex];
+    cleanupQueue.enqueue(attachment);
+    dataStore.state.attachments.splice(existingIndex, 1);
     try {
       flush();
     } catch (error) {
       dataStore.state.attachments.splice(existingIndex, 0, attachment);
       throw error;
     }
-    removeAttachmentFiles([attachment]);
-    return attachment;
+    const [result] = removeAttachmentFiles([attachment]);
+    return { ...attachment, cleanup: result.cleanup };
   }
 
   function detachAttachmentsForNotes(noteIds) {
     const noteIdSet = new Set(noteIds);
     const detached = [];
 
+    for (const attachment of dataStore.state.attachments) {
+      if (!noteIdSet.has(attachment.noteId)) continue;
+      if (inspectAttachmentDeletion(attachment.id, dataStore.state).references.length) {
+        throw createAppError('ATTACHMENT_REFERENCED', '保留的资产仍引用此附件，不能删除。', 409);
+      }
+    }
+
+    for (const attachment of dataStore.state.attachments.filter(item => noteIdSet.has(item.noteId))) {
+      cleanupQueue.enqueue(attachment);
+    }
     for (
       let index = dataStore.state.attachments.length - 1;
       index >= 0;
@@ -68,6 +78,12 @@ export function createLocalAttachmentDeletionManager({
 
   return {
     deleteAttachment,
+    inspectAttachmentDeletion: (attachmentId) => {
+      if (!dataStore.state.attachments.some((item) => item.id === attachmentId)) {
+        throw createAppError('ATTACHMENT_NOT_FOUND', 'Attachment not found', 404);
+      }
+      return inspectAttachmentDeletion(attachmentId, dataStore.state);
+    },
     detachAttachmentsForNotes,
     removeDetachedAttachmentFiles: removeAttachmentFiles
   };

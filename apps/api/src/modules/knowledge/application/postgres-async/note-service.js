@@ -14,6 +14,7 @@ export function createAsyncNoteService({
   validateNoteReferences = null,
   normalizeTagIds = async (tagIds) => [...new Set(tagIds)],
   noteVersionService = null,
+  annotationRepository = null,
   runTransaction = (operation) => operation(),
   onNoteContentChanged = null,
   onNoteDeleted = null,
@@ -138,13 +139,18 @@ export function createAsyncNoteService({
     }
     return runTransaction(async ({
       noteRepository: transactionNoteRepository = repository,
+      annotationRepository: transactionAnnotationRepository = annotationRepository,
       onNoteDeleted: transactionOnNoteDeleted = onNoteDeleted
     } = {}) => {
+      const deletedAt = new Date().toISOString();
+      const annotationStates = deleted ? (await transactionAnnotationRepository?.list({ noteId, includeDeleted: true }) ?? []).map(annotation => ({ id: annotation.id, lifecycleStatus: annotation.lifecycleStatus ?? 'active', revision: annotation.revision ?? 1 })) : null;
       const saved = await transactionNoteRepository.save(new Note({
         ...currentNote,
         deleted,
+        deletionPackage: deleted ? { id: `note-${noteId}-${Date.now()}`, deletedAt, annotationStates } : currentNote.deletionPackage,
+        folderDeletionPackageId: deleted ? currentNote.folderDeletionPackageId : null,
         createdAt: currentNote.createdAt,
-        updatedAt: new Date().toISOString()
+        updatedAt: deletedAt
       }), {
         expectedUpdatedAt: currentNote.updatedAt
       });

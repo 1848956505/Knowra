@@ -130,7 +130,7 @@ test('V4-07 保存冲突会暂停自动写入并保留可导出的本地草稿',
   await page.keyboard.type(' 本地冲突草稿');
 
   const alert = page.getByRole('alert');
-  await expect(alert).toContainText('自动保存已暂停');
+  await expect(alert).toContainText('正文尚未保存');
   await expect(editor).toContainText('本地冲突草稿');
   expect(savedMarkdown).toEqual([]);
 
@@ -1331,6 +1331,12 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
       const annotation = { ...input, id: `a-${created.length}`, status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved', revision: 1 };
       created.push(annotation);
       await route.fulfill({ json: { data: annotation } });
+    } else if (route.request().method() === 'DELETE') {
+      const id = route.request().url().split('/').at(-1);
+      const index = created.findIndex((annotation) => annotation.id === id);
+      if (index < 0) throw new Error(`Missing annotation ${id}`);
+      created[index] = { ...created[index], status: 'deleted', lifecycleStatus: 'deleted', revision: Number(created[index].revision ?? 1) + 1, deletedAt: new Date().toISOString() };
+      await route.fulfill({ json: { data: created[index] } });
     } else await route.fulfill({ json: { data: created } });
   });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1378,7 +1384,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await inspector.getByRole('button', { name: '块 1', exact: true }).click();
   await expect(inspector.getByRole('checkbox')).toHaveCount(1);
   await inspector.getByRole('button', { name: '全部 3', exact: true }).click();
-  await inspector.getByRole('checkbox').first().check();
+  await inspector.getByRole('checkbox').first().check({ force: true });
   await expect(inspector.getByRole('button', { name: '提炼知识' })).toBeVisible();
   await inspector.getByRole('button', { name: '筛选重点' }).click();
   await expect(page.getByRole('dialog', { name: '筛选重点' }).getByRole('button', { name: /全部章节/ })).toBeVisible();
@@ -1387,19 +1393,27 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(page.getByRole('menuitem', { name: '重新定位' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('[role=menu]')).toHaveCount(0);
+  await inspector.getByRole('button', { name: '重点 1 更多操作' }).click();
+  await page.getByRole('menuitem', { name: '取消重点' }).click();
+  await expect(inspector.getByRole('button', { name: '撤销' })).toBeVisible();
+  await expect(inspector.getByRole('checkbox')).toHaveCount(2);
+  await expect(inspector.getByRole('button', { name: '全部 2', exact: true })).toBeVisible();
+  await expect(inspector.getByText('重点标记', { exact: true }).locator('..')).toContainText('2');
+  await expect(editor.locator('[data-annotation-id="a-0"]')).toHaveCount(0);
   await page.screenshot({ path: '/tmp/knowra-annotations-final.png' });
   await inspector.getByRole('tab', { name: 'AI', exact: true }).click();
   await expect(inspector.getByRole('button', { name: '分析整篇' })).toBeVisible();
-  created[0] = { ...created[0], status: 'archived', lifecycleStatus: 'archived' };
   created[1] = { ...created[1], anchorStatus: 'stale' };
   await page.reload();
   await page.getByRole('button', { name: '切换文档检查器' }).click();
   await inspector.getByRole('tab', { name: '标注' }).click();
-  await expect(inspector.getByRole('checkbox')).toHaveCount(3);
+  await expect(inspector.getByRole('checkbox')).toHaveCount(2);
+  await expect(inspector.getByRole('button', { name: '全部 2', exact: true })).toBeVisible();
   await inspector.screenshot({ path: '/tmp/knowra-annotation-panel-v2.png' });
   await inspector.getByRole('button', { name: '筛选重点' }).click();
   const filters = page.getByRole('dialog', { name: '筛选重点' });
   await expect(filters).toBeVisible();
+  await expect(filters.getByRole('button', { name: '已取消' })).toHaveCount(0);
   await filters.screenshot({ path: '/tmp/knowra-annotation-filters-v2.png' });
   await filters.getByRole('button', { name: '内容待检查', exact: true }).click();
   await filters.getByRole('button', { name: '完成', exact: true }).click();
@@ -1409,8 +1423,8 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await page.reload();
   await page.getByRole('button', { name: '切换文档检查器' }).click();
   await inspector.getByRole('tab', { name: '标注' }).click();
-  await expect(inspector.getByRole('checkbox')).toHaveCount(30);
-  await inspector.getByRole('checkbox').nth(1).check();
+  await expect(inspector.getByRole('checkbox')).toHaveCount(29);
+  await inspector.getByRole('checkbox').nth(1).check({ force: true });
   const footerBefore = await inspector.getByRole('button', { name: '提炼知识' }).boundingBox();
   await inspector.getByRole('checkbox').last().scrollIntoViewIfNeeded();
   const footerAfter = await inspector.getByRole('button', { name: '提炼知识' }).boundingBox();

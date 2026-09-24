@@ -1,11 +1,8 @@
 .body { display: grid; gap: 16px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .body p { margin: 0; line-height: 1.6; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.field { display: grid; gap: 8px; }
-.field select { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--ink-panel); background: var(--ink-surface); color: var(--ink-primary); font: inherit; }
 .inspection { padding: 16px; border: 1px solid var(--ink-panel); display: grid; gap: 12px; }
 .inspection h3 { margin: 0; font-size: 15px; }
 .hint { color: var(--ink-secondary); font-size: 12px; }
 .error { color: var(--ink-danger); }
 .confirm { display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; }
-.confirm input { margin-top: 4px; flex: none; }

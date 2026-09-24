@@ -33,6 +33,24 @@ async function fixture(t, options = {}) {
 }
 const clean = device => assert.equal(device.engine.status().error, null, JSON.stringify(device.engine.status()));
 
+test('训练资产作为云端只读集合下行回收与清理状态', async t => {
+  const cloud = await fixture(t);
+  const item = cloud.knowledge.knowledgeItemService.createCandidate({ id: 'sync-training-item', title: '训练来源', canonicalStatement: '知识内容', sourceMode: 'manual' }).item;
+  cloud.knowledge.knowledgeItemService.confirmItem(item.id);
+  const objective = cloud.knowledge.learningObjectiveService.createCandidate({ id: 'sync-training-objective', knowledgeItemId: item.id, objective: '能够解释知识内容', actionVerb: 'explain', cognitiveLevel: 'understand' });
+  cloud.knowledge.learningObjectiveService.confirmObjective(objective.id);
+  const question = cloud.knowledge.questionService.createQuestion({ id: 'sync-training-question', questionType: 'shortAnswer', stem: '请解释知识内容', learningObjectiveIds: [objective.id], sources: [{ sourceType: 'manual', quote: '人工编题' }] });
+  const device = cloud.device('training-reader');
+  await device.connect(); clean(device);
+  assert(device.store.state.questions.some(record => record.id === question.id));
+  const trashed = cloud.knowledge.trainingAssetLifecycle.trash('question', question.id);
+  await device.engine.sync(); clean(device);
+  assert(device.store.state.questions.find(record => record.id === question.id)?.deletedAt);
+  cloud.knowledge.trainingAssetLifecycle.purge('question', question.id, trashed.updatedAt);
+  await device.engine.sync(); clean(device);
+  assert.equal(device.store.state.questions.find(record => record.id === question.id), undefined);
+});
+
 test('完整事务：离线目录、标签、新笔记经 HTTP 在两个 SQLite 设备收敛', async t => {
   const cloud = await fixture(t); const a = cloud.device('a'); const b = cloud.device('b');
   await a.connect(); await b.connect(); clean(a); clean(b);
@@ -119,7 +137,13 @@ test('真实 PostgreSQL：完整笔记、目录、附件事务与两设备 HTTP 
   const server = createServer({ appContext: cloud, logger: { error(...args) { console.error(...args); } } });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const createdIds = [];
-  t.after(async () => { await new Promise(resolve => server.close(resolve)); if (createdIds.length) await cloud.prisma.note.deleteMany({ where: { id: { in: createdIds } } }); await cloud.close(); });
+  const createdScopeIds = [];
+  t.after(async () => {
+    await new Promise(resolve => server.close(resolve));
+    if (createdScopeIds.length) await cloud.prisma.analysisScopeSnapshot.deleteMany({ where: { id: { in: createdScopeIds } } });
+    if (createdIds.length) await cloud.prisma.note.deleteMany({ where: { id: { in: createdIds } } });
+    await cloud.close();
+  });
   const origin = `http://127.0.0.1:${server.address().port}`;
   const space = await cloud.modules.knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
   const workspace = openWorkspace(path.join(root, 'device'));
@@ -167,6 +191,36 @@ test('真实 PostgreSQL：完整笔记、目录、附件事务与两设备 HTTP 
   assert.equal((await cloud.http.sync.status()).cursor, cursor);
   await engine.sync(); clean({ engine });
   assert.equal(engine.status().pendingEntities, 0);
+  const scopeService = workspace.knowledge.annotationScopeService;
+  const scopeInput = { spaceId: space.id, mode: 'all', noteIds: [note.id], idempotencyKey: `pg-stage1-${Date.now()}` };
+  const scope = scopeService.createAnalysisScope({ ...scopeInput, previewHash: scopeService.previewAnalysisScope(scopeInput).previewHash });
+  createdScopeIds.push(scope.id);
+  const { item } = workspace.knowledge.knowledgeItemService.createCandidate({ title: 'PG 回收站知识', canonicalStatement: '保留独立身份', sourceMode: 'manual' });
+  const linked = workspace.knowledge.knowledgeItemService.createCandidate({ title: 'PG 来源撤回', canonicalStatement: '人工核对来源', sourceMode: 'annotation', evidence: [{ sourceType: 'manual', quoteText: '历史摘录' }] });
+  assert(workspace.store.state.analysisScopeSnapshots.some(row => row.id === scope.id));
+  assert((nextEntityUpload(workspace.store)?.changes ?? []).some(entry => entry.collection === 'analysisScopeSnapshots' && entry.id === scope.id));
+  await engine.sync(); clean({ engine });
+  assert.equal(engine.status().pendingEntities, 0, JSON.stringify(engine.status()));
+  assert.equal((await cloud.prisma.analysisScopeSnapshot.findUnique({ where: { id: scope.id } })).mode, 'all');
+  workspace.knowledge.knowledgeItemService.retireEvidence(linked.item.id, linked.evidence[0].id);
+  await engine.sync(); clean({ engine });
+  assert.equal((await cloud.prisma.knowledgeEvidence.findUnique({ where: { id: linked.evidence[0].id } })).applicabilityStatus, 'withdrawn');
+  workspace.knowledge.annotationScopeService.trashAnalysisScope(scope.id, { spaceId: space.id, expectedUpdatedAt: scope.updatedAt });
+  workspace.knowledge.knowledgeItemService.trash(item.id);
+  workspace.knowledge.deleteFolderAndCleanup(folder.id, { mode: 'with-content' });
+  await engine.sync(); clean({ engine });
+  assert(await cloud.prisma.analysisScopeSnapshot.findFirst({ where: { id: scope.id, deletedAt: { not: null } } }));
+  assert(await cloud.prisma.knowledgeItem.findFirst({ where: { id: item.id, deletedAt: { not: null } } }));
+  assert(await cloud.prisma.folder.findFirst({ where: { id: folder.id, deletedAt: { not: null } } }));
+  assert(await cloud.prisma.note.findFirst({ where: { id: note.id, deletedAt: { not: null } } }));
+  workspace.knowledge.restoreDeletedFolder(folder.id);
+  const trashedScope = scopeService.getAnalysisScope(scope.id, space.id, true);
+  scopeService.restoreAnalysisScope(scope.id, { spaceId: space.id, expectedUpdatedAt: trashedScope.updatedAt });
+  workspace.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  await engine.sync(); clean({ engine });
+  assert.equal((await cloud.prisma.analysisScopeSnapshot.findUnique({ where: { id: scope.id } })).deletedAt, null);
+  assert.equal((await cloud.prisma.knowledgeItem.findUnique({ where: { id: item.id } })).deletedAt, null);
+  assert.equal((await cloud.prisma.note.findUnique({ where: { id: note.id } })).deletedAt, null);
 });
 
 
@@ -178,15 +232,80 @@ test('目录删除和标签合并与笔记引用同组提交', async t => {
   const target = a.knowledge.tagService.createTag({ spaceId: cloud.space.id, name: '目标标签' });
   a.knowledge.noteService.updateNote(cloud.note.id, { folderId: folder.id, tagIds: [source.id] });
   await a.engine.sync(); clean(a); await b.engine.sync();
-  a.knowledge.deleteFolderAndCleanup(folder.id); a.knowledge.mergeTags(source.id, target.id);
+  a.knowledge.deleteFolderAndCleanup(folder.id, { mode: 'keep', destinationId: null }); a.knowledge.mergeTags(source.id, target.id);
   await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
   const note = b.knowledge.noteService.getNote(cloud.note.id);
   assert.equal(note.folderId, null); assert.deepEqual(note.tagIds, [target.id]);
   assert(!b.store.state.tags.some(item => item.id === source.id));
   const group = cloud.dataStore.getSyncJournal().changes.at(-1).items;
   assert(group.some(item => item.collection === 'notes'));
-  assert(group.some(item => item.collection === 'folders' && !item.value));
+  assert(group.some(item => item.collection === 'folders' && item.value?.deletedAt));
   assert(group.some(item => item.collection === 'tags' && !item.value));
+});
+
+test('阶段1 目录组合回收、标注和已保存分析范围删除恢复跨设备收敛', async t => {
+  const { anchorFromProjectedRange, projectMarkdown, calculateContentHash } = await import('@study-accelerator/content-anchor');
+  const cloud = await fixture(t); const a = cloud.device('stage1-a'); const b = cloud.device('stage1-b');
+  await a.connect(); await b.connect();
+  const folder = a.knowledge.folderService.createFolder({ spaceId: cloud.space.id, name: '可恢复目录' });
+  a.knowledge.noteService.updateNote(cloud.note.id, { folderId: folder.id });
+  const note = a.knowledge.noteService.getNote(cloud.note.id);
+  const anchor = anchorFromProjectedRange(projectMarkdown(note.rawMarkdown), 0, 2);
+  const annotation = a.knowledge.contentAnnotationService.createAnnotation({ spaceId: cloud.space.id, noteId: note.id, schemaVersion: 2, scopeType: 'selection', quoteText: anchor.quoteText,
+    fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, anchorFingerprint: 'stage1-sync', anchor,
+    noteContentHash: calculateContentHash(note.rawMarkdown), idempotencyKey: 'stage1-annotation' });
+  const scopeService = a.knowledge.annotationScopeService;
+  const scopeInput = { spaceId: cloud.space.id, mode: 'all', noteIds: [note.id], idempotencyKey: 'stage1-scope' };
+  const scope = scopeService.createAnalysisScope({ ...scopeInput, previewHash: scopeService.previewAnalysisScope(scopeInput).previewHash });
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  const removed = a.knowledge.contentAnnotationService.deleteAnnotation(annotation.id);
+  scopeService.trashAnalysisScope(scope.id, { spaceId: cloud.space.id, expectedUpdatedAt: scope.updatedAt });
+  a.knowledge.deleteFolderAndCleanup(folder.id, { mode: 'with-content' });
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  assert.equal(b.knowledge.noteService.getNote(note.id, { includeDeleted: true }).deleted, true);
+  assert.equal(b.store.state.folders.find(item => item.id === folder.id).deletedAt !== null, true);
+  assert.equal(b.store.state.contentAnnotations.find(item => item.id === annotation.id).lifecycleStatus, 'deleted');
+  assert.equal(b.knowledge.annotationScopeService.listAnalysisScopes({ spaceId: cloud.space.id }).length, 0);
+  assert.equal(b.knowledge.annotationScopeService.listAnalysisScopes({ spaceId: cloud.space.id, includeDeleted: true }).length, 1);
+  b.knowledge.restoreDeletedFolder(folder.id);
+  b.knowledge.contentAnnotationService.restoreAnnotation(annotation.id, { expectedRevision: removed.revision });
+  const trashedScope = b.knowledge.annotationScopeService.getAnalysisScope(scope.id, cloud.space.id, true);
+  b.knowledge.annotationScopeService.restoreAnalysisScope(scope.id, { spaceId: cloud.space.id, expectedUpdatedAt: trashedScope.updatedAt });
+  await b.engine.sync(); clean(b); await a.engine.sync(); clean(a);
+  assert.equal(a.knowledge.noteService.getNote(note.id).deleted, false);
+  assert.equal(a.store.state.contentAnnotations.find(item => item.id === annotation.id).lifecycleStatus, 'active');
+  assert.equal(cloud.dataStore.state.analysisScopeSnapshots.find(item => item.id === scope.id).deletedAt, null);
+});
+
+test('阶段1 标签删除事实阻止旧设备复活已删除标签', async t => {
+  const cloud = await fixture(t); const a = cloud.device('tag-a'); const b = cloud.device('tag-b');
+  await a.connect(); await b.connect();
+  const tag = a.knowledge.tagService.createTag({ spaceId: cloud.space.id, name: '即将删除' });
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  a.knowledge.deleteTagAndCleanup(tag.id);
+  await a.engine.sync(); clean(a);
+  assert.equal(cloud.dataStore.state.tags.some(item => item.id === tag.id), false);
+  b.knowledge.noteService.createNote({ spaceId: cloud.space.id, title: '旧端待传', rawMarkdown: '内容', tagIds: [tag.id] });
+  await b.engine.sync();
+  assert.equal(cloud.dataStore.state.tags.some(item => item.id === tag.id), false);
+  assert.equal(cloud.dataStore.state.notes.some(item => item.title === '旧端待传' && item.tagIds.includes(tag.id)), false);
+});
+
+test('阶段2 知识点永久删除后旧设备不能回写旧 ID', async t => {
+  const cloud = await fixture(t); const a = cloud.device('purge-a'); const b = cloud.device('purge-b');
+  await a.connect(); await b.connect();
+  const { item } = a.knowledge.knowledgeItemService.createCandidate({ title: '待清理知识', canonicalStatement: '原定义' });
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  const stale = b.knowledge.knowledgeItemService.getItem(item.id);
+  a.knowledge.knowledgeItemService.trash(item.id);
+  await a.engine.sync(); clean(a);
+  const preflight = cloud.knowledge.inspectKnowledgePurge(item.id);
+  assert.equal(preflight.decision, 'can-purge-no-history');
+  cloud.knowledge.permanentlyDeleteKnowledgeItem(item.id, { expectedUpdatedAt: preflight.expectedUpdatedAt });
+  b.knowledge.knowledgeItemService.updateItem(item.id, { title: '旧设备回写', expectedUpdatedAt: stale.updatedAt });
+  await b.engine.sync();
+  assert.equal(cloud.dataStore.state.knowledgeItems.some(record => record.id === item.id), false);
+  assert(cloud.dataStore.getSyncJournal().tombstones[JSON.stringify(['knowledgeItems', item.id])]);
 });
 
 test('附件上传失败不发布正文引用；重试后完成全部关联事务', async t => {

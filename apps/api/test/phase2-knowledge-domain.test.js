@@ -338,7 +338,7 @@ export const phase2KnowledgeDomainTests = [
         idempotencyKey: 'phase32-evidence-annotation'
       });
       knowledge.contentAnnotationService.archiveAnnotation(annotation.id);
-      const archivedAnnotationItem = knowledge.knowledgeItemService.createCandidate({
+      assert.throws(() => knowledge.knowledgeItemService.createCandidate({
         id: 'phase32-evidence-annotation-item',
         title: '归档标注证据',
         canonicalStatement: '归档标注不能作为有效证据',
@@ -348,8 +348,7 @@ export const phase2KnowledgeDomainTests = [
           sourceType: 'annotation',
           annotationId: annotation.id
         }]
-      });
-      assert.equal(archivedAnnotationItem.evidence[0].status, 'valid');
+      }), (error) => error.code === 'ANNOTATION_NOT_ACTIVE');
 
       knowledge.noteService.deleteNote(note.id);
       const deletedNoteItem = knowledge.knowledgeItemService.createCandidate({

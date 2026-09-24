@@ -38,6 +38,8 @@
 ## UI 与文档工作流
 
 - 沿用现有组件、tokens 和用户指定的视觉参考；视觉调整默认保持产品行为。新视觉方向可用 `frontend-design`，具体设计资料可用 `ui-ux-pro-max`，UI 规范审查可用 `web-design-guidelines`；只加载任务实际需要的技能。
+- V4 搜索框使用 `components/ui/input/SearchBox` 或共享同一 `SearchSurface` 的 `SearchField`；右键菜单使用 `components/ui/overlay/Menu`，普通坐标锚点使用 `PointMenu`。修改这些控件的外观应调整组件库样式及明确的尺寸变体，不在业务页面另写同类样式。
+- V4 常规按钮使用 `components/ui/button/Button` 的语义与尺寸变体，成组切换按钮使用 `SegmentedControl` / `SegmentedButton`；单行、多行、下拉和复选表单分别使用 `TextField`、`TextAreaField`、`Select`、`Checkbox`。新增外观先在 `components/ui/` 定义可复用变体，业务 CSS 只保留布局和特定内容样式。
 - 外壳常驻，侧栏、内容区和辅助面板独立滚动；业务弹窗用项目组件。
 - 开发约束与版本维护见 [docs/开发规范.md](docs/开发规范.md)；代码定位时按需读 [docs/项目结构导航.md](docs/项目结构导航.md)。结构性变更记入唯一的 [docs/工程变更日志.md](docs/工程变更日志.md)。
 - 产品领域变更按需读 [领域冻结稿](docs/知识库与试题模块/Knowra%20知识与考卷系统领域冻结稿.md)；不要用旧版知识点模型或占位导航推断当前业务。

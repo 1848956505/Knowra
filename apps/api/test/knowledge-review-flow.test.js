@@ -198,7 +198,8 @@ export const knowledgeReviewFlowTests = [
         const created = await service.createCandidate({ ...manual, sourceMode: 'annotation', evidence: [{ sourceType: 'manual', quoteText: '历史摘录' }] });
         const confirmed = await service.confirmItem(created.item.id, { expectedUpdatedAt: created.item.updatedAt });
         const result = await service.retireEvidence(created.item.id, created.evidence[0].id, { expectedUpdatedAt: created.evidence[0].updatedAt });
-        assert.equal(result.evidence.status, 'invalid');
+        assert.equal(result.evidence.status, 'valid');
+        assert.equal(result.evidence.applicabilityStatus, 'withdrawn');
         assert.equal(result.evidence.quoteText, '历史摘录');
         assert.equal(result.item.reviewStatus, 'needsRevision');
         assert.equal((await service.listEvidence(created.item.id)).length, 1);

@@ -2,6 +2,7 @@ import { matchesKnowledgeCandidateRequest } from '../knowledge-candidate-retry.j
 import { assertKnowledgeItemBaseline, nextKnowledgeItemTimestamp } from '../knowledge-item-concurrency.js';
 import { KnowledgeItem } from '../../domain/knowledge-item.js';
 import { KnowledgeEvidence } from '../../domain/knowledge-evidence.js';
+import { isEvidenceUsable } from '../../domain/evidence-applicability.js';
 import {
   buildCreateKnowledgeEvidenceDto,
   buildCreateKnowledgeItemDto,
@@ -18,6 +19,7 @@ export function createAsyncKnowledgeItemService({
   noteVersionRepository,
   annotationRepository,
   noteRepository,
+  getTombstone = null,
   onItemInvalidated = null,
   runTransaction = (operation) => operation()
 } = {}) {
@@ -30,6 +32,9 @@ export function createAsyncKnowledgeItemService({
   }
 
   async function assertItemIdAvailable(id) {
+    if (await getTombstone?.('knowledgeItems', id)) {
+      throw conflictError('KNOWLEDGE_ITEM_ID_DELETED', '已永久删除的知识点 ID 不能重新使用');
+    }
     if (await repository.findById(id)) {
       throw conflictError(
         'KNOWLEDGE_ITEM_ID_CONFLICT',
@@ -47,7 +52,7 @@ export function createAsyncKnowledgeItemService({
   async function notifyIfInvalidated(previous, next) {
     if (
       previous?.reviewStatus === 'confirmed'
-      && next?.reviewStatus !== 'confirmed'
+      && (next?.reviewStatus !== 'confirmed' || next?.deletedAt)
     ) {
       await onItemInvalidated?.(next.id);
     }
@@ -60,6 +65,9 @@ export function createAsyncKnowledgeItemService({
     noteRepository: sourceNoteRepository = noteRepository
   } = {}) {
     const dto = buildCreateKnowledgeEvidenceDto(input);
+    if (await getTombstone?.('knowledgeEvidence', dto.id)) {
+      throw conflictError('KNOWLEDGE_EVIDENCE_ID_DELETED', '已永久删除的来源 ID 不能重新使用');
+    }
     if (await sourceEvidenceRepository.findById(dto.id)) {
       throw conflictError(
         'KNOWLEDGE_EVIDENCE_ID_CONFLICT',
@@ -99,6 +107,7 @@ export function createAsyncKnowledgeItemService({
           'Annotation and NoteVersion must reference the same note'
         );
       }
+      if (annotation.lifecycleStatus !== 'active') throw conflictError('ANNOTATION_NOT_ACTIVE', '已删除或归档的标注不能用于新建知识来源');
       if (annotation.anchorStatus === 'missing') status = 'insufficient';
       else if (annotation.anchorStatus === 'needsReview' || annotation.status === 'stale') status = 'stale';
     }
@@ -147,6 +156,7 @@ export function createAsyncKnowledgeItemService({
       annotationRepository: sourceAnnotationRepository = annotationRepository,
       noteRepository: sourceNoteRepository = noteRepository
     } = {}) => {
+      await assertItemIdAvailable(dto.id);
       const evidence = [];
       for (const evidenceInput of evidenceInputs) {
         const resolved = await resolveEvidence(evidenceInput, dto.id, {
@@ -235,7 +245,30 @@ export function createAsyncKnowledgeItemService({
       if (item.reviewStatus !== 'archived') return item;
       return repository.save(new KnowledgeItem({ ...item, reviewStatus: 'candidate', updatedAt: nextKnowledgeItemTimestamp(item) }), { expectedUpdatedAt: item.updatedAt });
     },
-    async listEvidence(id) { await requireItem(id); return evidenceRepository.list({ knowledgeItemId: id }); },
+    async trash(id, input = {}) {
+      const current = await requireItem(id);
+      assertKnowledgeItemBaseline(current, input);
+      const next = await repository.save(new KnowledgeItem({ ...current, deletedAt: now(), updatedAt: nextKnowledgeItemTimestamp(current) }), { expectedUpdatedAt: current.updatedAt });
+      await notifyIfInvalidated(current, next);
+      return next;
+    },
+    async restoreDeleted(id, input = {}) {
+      const current = await repository.findById(id);
+      if (!current || !current.deletedAt) throw notFoundError('KNOWLEDGE_ITEM_NOT_IN_TRASH', '知识点不在回收站中');
+      assertKnowledgeItemBaseline(current, input);
+      const evidence = await evidenceRepository.list({ knowledgeItemId: id });
+      const reviewStatus = current.reviewStatus === 'confirmed' && current.sourceMode !== 'manual' && !evidence.some(isEvidenceUsable)
+        ? 'needsRevision' : current.reviewStatus;
+      return repository.save(new KnowledgeItem({ ...current, deletedAt: null, reviewStatus, updatedAt: nextKnowledgeItemTimestamp(current) }), { expectedUpdatedAt: current.updatedAt });
+    },
+    async listEvidence(id) {
+      if (!await repository.findById(id)) throw notFoundError('KNOWLEDGE_ITEM_NOT_FOUND', 'KnowledgeItem not found');
+      const records = await evidenceRepository.list({ knowledgeItemId: id });
+      return Promise.all(records.map(async record => ({
+        ...record,
+        sourceAnnotationRemoved: Boolean(record.annotationId && (await annotationRepository?.findById(record.annotationId))?.lifecycleStatus === 'deleted')
+      })));
+    },
     async createEvidence(input) {
       const item = await requireItem(input.knowledgeItemId);
       return runTransaction(async ({
@@ -260,14 +293,14 @@ export function createAsyncKnowledgeItemService({
         throw conflictError('KNOWLEDGE_EVIDENCE_UPDATE_CONFLICT', '知识来源已变化，请重新加载后再操作。');
       }
       return runTransaction(async ({ itemRepository = repository, evidenceRepository: transactionEvidenceRepository = evidenceRepository } = {}) => {
-        const evidence = currentEvidence.status === 'invalid' ? currentEvidence : await transactionEvidenceRepository.save(new KnowledgeEvidence({
+        const evidence = currentEvidence.applicabilityStatus === 'withdrawn' ? currentEvidence : await transactionEvidenceRepository.save(new KnowledgeEvidence({
           ...currentEvidence,
-          status: 'invalid',
+          applicabilityStatus: 'withdrawn',
           updatedAt: now()
         }));
         let item = currentItem;
         const remaining = await transactionEvidenceRepository.list({ knowledgeItemId });
-        if (item.reviewStatus === 'confirmed' && item.sourceMode !== 'manual' && !remaining.some(record => record.status === 'valid')) {
+        if (item.reviewStatus === 'confirmed' && item.sourceMode !== 'manual' && !remaining.some(isEvidenceUsable)) {
           item = await itemRepository.save(new KnowledgeItem({
             ...item,
             reviewStatus: 'needsRevision',
@@ -277,6 +310,18 @@ export function createAsyncKnowledgeItemService({
         }
         return { item, evidence };
       });
+    },
+    async readoptEvidence(knowledgeItemId, evidenceId, input = {}) {
+      const item = await requireItem(knowledgeItemId);
+      const current = await evidenceRepository.findById(evidenceId);
+      if (!current || current.knowledgeItemId !== knowledgeItemId) throw notFoundError('KNOWLEDGE_EVIDENCE_NOT_FOUND', 'KnowledgeEvidence not found');
+      if (input.expectedUpdatedAt && input.expectedUpdatedAt !== current.updatedAt) throw conflictError('KNOWLEDGE_EVIDENCE_UPDATE_CONFLICT', '知识来源已变化，请重新加载后再操作。');
+      const version = current.noteVersionId ? await noteVersionRepository?.findById(current.noteVersionId) : null;
+      if (current.status !== 'valid' || (current.sourceType !== 'manual' && (!version || version.noteId !== current.noteId || !version.content.includes(current.quoteText)))) {
+        throw conflictError('KNOWLEDGE_EVIDENCE_NOT_VERIFIABLE', '来源当前不可独立复核，不能重新采用。');
+      }
+      const evidence = await evidenceRepository.save(new KnowledgeEvidence({ ...current, applicabilityStatus: 'active', updatedAt: now() }));
+      return { item, evidence };
     },
     markEvidenceByNoteId(noteId, status = 'invalid') {
       return markEvidenceAndReconcile(() => evidenceRepository.markByNoteId(noteId, status));
@@ -301,7 +346,7 @@ export function createAsyncKnowledgeItemService({
         continue;
       }
       const evidence = await evidenceRepository.list({ knowledgeItemId });
-      if (evidence.some((record) => record.status === 'valid')) continue;
+      if (evidence.some(isEvidenceUsable)) continue;
       const next = await repository.save(new KnowledgeItem({
         ...current,
         reviewStatus: 'needsRevision',

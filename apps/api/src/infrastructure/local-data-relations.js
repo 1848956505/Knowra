@@ -127,6 +127,7 @@ function validateFolders(folderItems, spaces, folders) {
       parent.spaceId === folder.spaceId,
       `Folder ${folder.id} and its parent must belong to the same space`
     );
+    assertReference(folder.deletedAt || !parent.deletedAt, `Active folder ${folder.id} cannot be inside a deleted folder`);
   }
 }
 
@@ -214,6 +215,7 @@ function validateNoteFolder(note, folders) {
     note.spaceId === folder.spaceId,
     `Note ${note.id} and its folder must belong to the same space`
   );
+  assertReference(note.deleted || !folder.deletedAt, `Active note ${note.id} cannot be inside a deleted folder`);
 }
 
 function validateNoteTags(note, tags) {
@@ -370,10 +372,14 @@ function validateKnowledgeEvidence(items, knowledgeItems, notes, noteVersions, a
         `KnowledgeEvidence ${evidence.id} requires annotationId`
       );
     }
+    evidence.applicabilityStatus ??= evidence.status === 'invalid' ? 'needsReview' : 'active';
     if (annotation?.anchorStatus === 'missing') derivedStatus = 'insufficient';
     else if (annotation?.anchorStatus === 'needsReview' || annotation?.status === 'stale'
       || (annotation && String(evidence.quoteText ?? '').trim() !== String(annotation.quoteText ?? '').trim())) derivedStatus = 'stale';
+    // Deleting the source note suspends normal evidence use even while its version is retained.
     if (note?.deleted) derivedStatus = 'invalid';
+    // A deleted highlight alone can remain independently verifiable through its saved version.
+    else if (annotation?.lifecycleStatus === 'deleted' && !version) derivedStatus = 'invalid';
     else if (
       evidence.sourceType === 'noteVersion'
       &&
@@ -495,7 +501,7 @@ function validateFormalAssetGates(state, {
   }
 
   for (const objective of state.learningObjectives) {
-    if (objective.reviewStatus !== 'confirmed') continue;
+    if (objective.deletedAt || objective.reviewStatus !== 'confirmed') continue;
     assertFormalGate(
       () => assertLearningObjectiveConfirmable(
         objective,
@@ -514,7 +520,7 @@ function validateFormalAssetGates(state, {
     (source) => source.questionId
   );
   for (const question of state.questions) {
-    if (question.reviewStatus !== 'confirmed') continue;
+    if (question.deletedAt || question.reviewStatus !== 'confirmed') continue;
     const objectives = (objectiveLinksByQuestionId.get(question.id) ?? [])
       .map((relation) => learningObjectives.get(relation.learningObjectiveId));
     assertFormalGate(
@@ -597,7 +603,7 @@ export function reconcileSyncedSourceStates(state) {
   validateKnowledgeEvidence(state.knowledgeEvidence, items, notes, versions, annotations);
   for (const item of state.knowledgeItems) {
     if (item.reviewStatus === 'confirmed' && item.sourceMode !== 'manual'
-      && !state.knowledgeEvidence.some(evidence => evidence.knowledgeItemId === item.id && evidence.status === 'valid')) {
+      && !state.knowledgeEvidence.some(evidence => evidence.knowledgeItemId === item.id && evidence.status === 'valid' && evidence.applicabilityStatus === 'active')) {
       item.updatedAt = nextKnowledgeItemTimestamp(item);
       item.reviewStatus = 'needsRevision';
     }
@@ -612,7 +618,7 @@ export function reconcileSyncedSourceStates(state) {
   for (const question of state.questions) {
     if (question.reviewStatus === 'confirmed' && (
       state.questionSources.some(source => source.questionId === question.id && source.status === 'stale')
-      || state.questionObjectives.some(link => link.questionId === question.id && objectives.get(link.learningObjectiveId)?.reviewStatus !== 'confirmed')
+      || state.questionObjectives.some(link => link.questionId === question.id && (objectives.get(link.learningObjectiveId)?.deletedAt || objectives.get(link.learningObjectiveId)?.reviewStatus !== 'confirmed'))
     )) question.reviewStatus = 'candidate';
   }
   return state;

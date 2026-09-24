@@ -173,7 +173,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(navigateMock).toHaveBeenCalledWith('/materials/notes/created-note');
   });
 
-  it('announces when clicking a locked rail module', async () => {
+  it('keeps available and unavailable work domains distinct', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
       api,
@@ -186,17 +186,14 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
 
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
     const training = within(rail).getByRole('button', { name: /试题/ });
-    expect(training).toBeDisabled();
+    expect(training).toBeEnabled();
     expect(within(rail).getByRole('button', { name: /知识/ })).toBeEnabled();
     expect(within(rail).getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
-    // disabled 按钮 click 不会触发 live region 改变，但 we just verify 不抛错
-    fireEvent.click(training);
-    // 仍停留在主页（无切换）
-    expect(screen.getByRole('heading', { name: '笔记工作台' })).toBeInTheDocument();
+    expect(within(rail).getByRole('button', { name: /执行/ })).toBeDisabled();
   });
 
-  it('renders a truthful gate for an unavailable work-domain URL', async () => {
+  it('renders the training workspace for its route', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
       api,
@@ -210,9 +207,34 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       </RouterProvider>
     );
 
-    expect(await screen.findByRole('heading', { name: '试题库' })).toBeInTheDocument();
-    expect(screen.getByText('该工作域尚未上线')).toBeInTheDocument();
-    expect(api.listKnowledgeSpaces).not.toHaveBeenCalled();
+    expect(await screen.findByText('当前筛选下没有题目。')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '试题库' })).toBeInTheDocument();
+    expect(api.listKnowledgeSpaces).toHaveBeenCalled();
+    expect(api.listTrainingAssets).toHaveBeenCalledTimes(4);
+  });
+
+  it('shows training asset trash, restore and blocked purge states', async () => {
+    const api = createWorkspaceApiStub();
+    let question = { id: 'question-1', stem: '导数是什么意思？', updatedAt: '2026-09-24T00:00:00.000Z', reviewStatus: 'draft', deletedAt: null as string | null, learningObjectiveIds: [] };
+    api.listTrainingAssets = vi.fn(async kind => kind === 'question' ? [question] : []);
+    api.mutateTrainingAsset = vi.fn(async (_kind, _id, action) => {
+      question = { ...question, deletedAt: action === 'trash' ? '2026-09-24T00:00:01.000Z' : null };
+      return question;
+    });
+    api.inspectTrainingAssetPurge = vi.fn().mockResolvedValue({ asset: { type: 'question', id: question.id }, decision: 'requires-dependency-action', expectedUpdatedAt: question.updatedAt, references: [{ collection: 'analysisScopeSnapshots', id: 'scope-1', action: 'retain-or-resolve-history' }], exclusiveRecords: {}, coverage: {} });
+    const store = createAppStore({ api, cacheKey: 'training-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    render(<RouterProvider location={{ pathname: '/training', navigate: vi.fn() }}><AppProviders store={store}><App /></AppProviders></RouterProvider>);
+    expect(await screen.findByRole('heading', { name: '导数是什么意思？' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '删除…' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: '删除题目？' })).getByRole('button', { name: '移入回收站' }));
+    await waitFor(() => expect(api.mutateTrainingAsset).toHaveBeenCalledWith('question', 'question-1', 'trash'));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '删除题目？' })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: '回收站' }));
+    expect(await screen.findByRole('button', { name: '恢复' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '永久清理…' }));
+    const dialog = await screen.findByRole('dialog', { name: '永久清理题目？' });
+    expect(await within(dialog).findByText(/scope-1/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认永久清理' })).toBeDisabled();
   });
 
   it('does not highlight any rail module on the home page (/)', async () => {
@@ -268,13 +290,78 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       </RouterProvider>
     );
 
-    // 笔记索引页骨架包含唯一 h1「全部笔记」与侧栏。
-    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    // 笔记索引页包含独立的索引区域与侧栏。
+    expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
 
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
     // 笔记索引页才是"资料"工作域的着陆页：左轨"资料"按钮 aria-current='page'。
     expect(within(rail).getByRole('button', { name: '资料' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('toggles the context sidebar from the notes index status bar', async () => {
+    const store = createAppStore({
+      api: createWorkspaceApiStub(),
+      cacheKey: 'test-cache',
+      mockSnapshot: createEmptyWorkspaceSnapshot()
+    });
+
+    render(
+      <RouterProvider location={{ pathname: '/materials', navigate: vi.fn() }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+
+    expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
+    const toggle = within(screen.getByRole('contentinfo', { name: '状态栏' })).getByRole('button', { name: '切换侧栏' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('complementary', { name: '笔记上下文导航' })).not.toBeInTheDocument();
+    expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
+  });
+
+  it('remembers a collapsed notes sidebar after the app remounts', async () => {
+    const values = new Map<string, string>();
+    const storage: Storage = {
+      get length() { return values.size; },
+      clear: () => values.clear(),
+      getItem: (key) => values.get(key) ?? null,
+      key: (index) => [...values.keys()][index] ?? null,
+      removeItem: (key) => { values.delete(key); },
+      setItem: (key, value) => { values.set(key, value); }
+    };
+    vi.stubGlobal('localStorage', storage);
+    const renderIndex = () => render(
+      <RouterProvider location={{ pathname: '/materials', navigate: vi.fn() }}>
+        <AppProviders store={createAppStore({
+          api: createWorkspaceApiStub(),
+          cacheKey: 'test-cache',
+          mockSnapshot: createEmptyWorkspaceSnapshot()
+        })}><App /></AppProviders>
+      </RouterProvider>
+    );
+
+    try {
+      const first = renderIndex();
+      expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '切换侧栏' }));
+      await waitFor(() => expect(values.get('knowra:notes-sidebar-open')).toBe('false'));
+      first.unmount();
+
+      renderIndex();
+      expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '切换侧栏' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.queryByRole('complementary', { name: '笔记上下文导航' })).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('renders the note editor framework on a routed note URL', async () => {
@@ -334,7 +421,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
         <AppProviders store={store}><App /></AppProviders>
       </RouterProvider>
     );
-    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
 
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
     fireEvent.click(within(rail).getByRole('button', { name: '知境工作区' }));
@@ -375,7 +462,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       </RouterProvider>
     );
     // 等到 NotesIndexView 出现（即使 notes 为空）
-    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
 
     const breadcrumb = screen.getByLabelText('工作区位置');
     // 笔记库模块内不重复显示全局主页层级。
@@ -387,7 +474,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(topLocation).not.toHaveTextContent('主页');
     expect(within(topLocation).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
     expect(within(topLocation).getByText('全部笔记')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
   });
 
   it('StatusBar breadcrumb stays on the index surface when a note is selected in store state', async () => {
@@ -403,7 +490,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
         <AppProviders store={store}><App /></AppProviders>
       </RouterProvider>
     );
-    expect(await screen.findByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
 
     // 选择态可能由 workspace hydration 或全局搜索产生，但不代表进入了笔记详情路由。
     act(() => {
@@ -422,7 +509,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
 
     const topLocation = screen.getByRole('navigation', { name: '当前位置' });
     expect(within(topLocation).getByText('全部笔记')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
     expect(within(topLocation).queryByText('Note')).not.toBeInTheDocument();
   });
 });
@@ -441,6 +528,8 @@ function createWorkspaceApiStub(overrides: { notes?: Array<Record<string, unknow
   };
   const notes = overrides.notes !== undefined ? overrides.notes : [defaultNote];
   return {
+    listKnowledgeItems: vi.fn().mockResolvedValue([]),
+    listTrainingAssets: vi.fn().mockResolvedValue([]),
     listKnowledgeSpaces: vi.fn().mockResolvedValue([{ id: 'space-1', name: 'Main' }]),
     createDefaultKnowledgeSpace: vi.fn().mockResolvedValue({ id: 'space-1', name: 'Main' }),
     loadWorkspaceResources: vi.fn().mockResolvedValue({

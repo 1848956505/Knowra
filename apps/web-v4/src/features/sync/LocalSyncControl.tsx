@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Dialog, DialogBody } from '../../components/ui';
+import { Button, Dialog, DialogBody, TextField } from '../../components/ui';
 import { useAppStore, useAppStoreApi } from '../../store/AppStoreProvider';
 import styles from './LocalSyncControl.module.css';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
@@ -75,10 +75,10 @@ export function LocalSyncControl() {
         <div className={styles.body}>
           <p>笔记和知识先保存到本机，联网后同步。目录、标签、附件、标注与知识来源一起同步；双方修改同一内容时，会保留冲突供你核对。</p>
           <form className={styles.form} onSubmit={event => { event.preventDefault(); void action('/configure', { serverUrl, username, password }); }}>
-            <label>云端服务地址<input type="url" required placeholder="https://你的服务地址" value={serverUrl} readOnly={Boolean(status?.serverUrl)} onChange={event => setServerUrl(event.target.value)} /></label>
+            <TextField label="云端服务地址" type="url" isRequired placeholder="https://你的服务地址" value={serverUrl} isReadOnly={Boolean(status?.serverUrl)} onChange={setServerUrl} />
             <div className={styles.columns}>
-              <label>登录账号<input autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} /></label>
-              <label>登录密码<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
+              <TextField label="登录账号" autoComplete="username" value={username} onChange={setUsername} />
+              <TextField label="登录密码" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
             </div>
             <p className={styles.hint}>凭据仅在本次运行中使用；重启后需要重新登录。</p>
             <div className={styles.actions}>

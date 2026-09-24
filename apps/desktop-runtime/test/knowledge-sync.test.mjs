@@ -91,6 +91,27 @@ test('两设备编辑、重新确认、归档和恢复知识保留身份与来�
   assert.equal(cloud.store.state.knowledgeItems.length, 1);
 });
 
+test('阶段1 知识回收站与来源撤回在两个 SQLite 设备及云端收敛', async t => {
+  const cloud = await fixture(t);
+  const a = cloud.device('stage1-a'); const b = cloud.device('stage1-b');
+  await a.connect(); await b.connect();
+  const { item, evidence } = a.knowledge.knowledgeItemService.createCandidate({ title: '待撤回来源', canonicalStatement: '人工核对陈述', sourceMode: 'annotation', evidence: [{ sourceType: 'manual', quoteText: '历史摘录' }] });
+  a.knowledge.knowledgeItemService.confirmItem(item.id);
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  const withdrawn = a.knowledge.knowledgeItemService.retireEvidence(item.id, evidence[0].id);
+  assert.equal(withdrawn.evidence.status, 'valid');
+  assert.equal(withdrawn.evidence.applicabilityStatus, 'withdrawn');
+  a.knowledge.knowledgeItemService.trash(item.id);
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  assert.equal(b.knowledge.knowledgeItemService.listItems().some(row => row.id === item.id), false);
+  assert.equal(b.knowledge.knowledgeItemService.listItems({ includeDeleted: true }).find(row => row.id === item.id).deletedAt !== null, true);
+  assert.equal(b.store.state.knowledgeEvidence.find(row => row.id === evidence[0].id).applicabilityStatus, 'withdrawn');
+  b.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  await b.engine.sync(); clean(b); await a.engine.sync(); clean(a);
+  assert.equal(a.knowledge.knowledgeItemService.getItem(item.id).reviewStatus, 'needsRevision');
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+});
+
 test('知识创建丢响应后重启重放同一请求，后继编辑保留且证据不重复', async t => {
   const cloud = await fixture(t); let lose = true; const operationIds = [];
   const a = cloud.device('a', async (url, options) => {
@@ -119,7 +140,7 @@ test('并发知识修改进入冲突，采用本地保留远端恢复记录并�
   await b.engine.sync(); clean(b); assert.equal(b.knowledge.knowledgeItemService.getItem(item.id).canonicalStatement, 'A 编辑');
 });
 
-test('离线确认遇到另一端删除来源后降级，不允许无效证据绕过确认', async t => {
+test('来源笔记删除后历史摘录保留，跨端停止把来源当成有效依据', async t => {
   const cloud = await fixture(t); const source = annotation(cloud.knowledge, cloud.note); const { item } = candidate(cloud.knowledge, source);
   const a = cloud.device('a'); const b = cloud.device('b'); await a.connect(); await b.connect();
   a.knowledge.knowledgeItemService.confirmItem(item.id);
@@ -128,7 +149,6 @@ test('离线确认遇到另一端删除来源后降级，不允许无效证据�
   for (const knowledge of [a.knowledge, b.knowledge, cloud.knowledge]) {
     assert.equal(knowledge.knowledgeItemService.getItem(item.id).reviewStatus, 'needsRevision');
     assert.equal(knowledge.knowledgeItemService.listEvidence(item.id)[0].status, 'invalid');
-    assert.throws(() => knowledge.knowledgeItemService.confirmItem(item.id), error => error.code === 'KNOWLEDGE_ITEM_SOURCE_REQUIRED');
   }
 });
 

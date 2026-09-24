@@ -9,8 +9,9 @@ import {
   PressableButton
 } from '../../components/ui';
 import { ChevronRightIcon, FolderIcon, NoteIcon } from '../../shell/icons';
-import { useAppStore } from '../../store/AppStoreProvider';
+import { useAppStore, useAppStoreApi } from '../../store/AppStoreProvider';
 import { countFolderNotes, folderMatchesQuery } from './notesIndexModel';
+import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
 import styles from './NotesContextSidebar.module.css';
 
 export type SidebarTreeAction =
@@ -77,13 +78,19 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenI
   const isSelected = useAppStore((state) => state.navigation.selectedFolderId === folder.id);
   const selectedNoteId = useAppStore((state) => state.navigation.selectedNoteId);
   const toggleFolder = useAppStore((state) => state.toggleFolder);
+  const storeApi = useAppStoreApi();
+  const dragDrop = useEntryDragDrop();
   const selectFolder = useAppStore((state) => state.selectNotesFolder);
-  const selectNote = useAppStore((state) => state.selectNote);
   const directNotes = notes.filter((note) => !note.deleted && note.folderId === folder.id);
   const childFolders = folder.children.filter((child) => folderMatchesQuery(child, notes, query));
   const canExpand = childFolders.length > 0 || directNotes.length > 0;
   const forcedOpen = Boolean(query.trim());
   const expanded = canExpand && (isOpen || forcedOpen);
+  const folderDrop = useEntryDropTarget(folder.id, () => {
+    if (canExpand && !storeApi.getState().navigation.openFolders[folder.id]) {
+      storeApi.getState().toggleFolder(folder.id);
+    }
+  });
 
   return (
     <div role="treeitem" aria-level={level} aria-expanded={canExpand ? expanded : undefined}>
@@ -98,11 +105,21 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenI
         >
           <ChevronRightIcon size={14} data-open={expanded || undefined} />
         </button>
+        <div className={styles.entryDragArea}
+          draggable={canWrite}
+          onDragStart={(event) => dragDrop?.start(event, { kind: 'folder', id: folder.id })}
+          onDragEnd={() => dragDrop?.end()}
+          onDragOver={folderDrop.onDragOver}
+          onDragLeave={folderDrop.onDragLeave}
+          onDrop={folderDrop.onDrop}
+        >
         <FolderContextMenu folder={folder} canWrite={canWrite} onAction={onAction}>
           <PressableButton
             type="button"
             className={styles.folderRow}
             data-folder-id={folder.id}
+            data-drop-active={folderDrop.isOver || undefined}
+            data-dragging={dragDrop?.dragging?.kind === 'folder' && dragDrop.dragging.id === folder.id || undefined}
             aria-current={isSelected ? 'page' : undefined}
             onClick={() => {
               selectFolder(folder.id);
@@ -115,6 +132,7 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenI
             <small>{countFolderNotes(folder, notes)}</small>
           </PressableButton>
         </FolderContextMenu>
+        </div>
       </div>
       {expanded ? (
         <div role="group" className={styles.folderChildren}>
@@ -134,26 +152,46 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenI
           {directNotes
             .filter((note) => note.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
             .map((note) => (
-              <NoteContextMenu key={note.id} note={note} canWrite={canWrite} onAction={onAction}>
-                <PressableButton
-                  type="button"
-                  className={styles.documentRow}
-                  data-note-id={note.id}
-                  aria-current={selectedNoteId === note.id ? 'page' : undefined}
-                  onClick={() => {
-                    selectNote(note.id);
-                    onOpenNote?.(note.id);
-                  }}
-                >
-                  <NoteIcon size={15} />
-                  <span>{note.title || '未命名笔记'}</span>
-                </PressableButton>
-              </NoteContextMenu>
+              <SidebarNoteRow key={note.id} note={note} selected={selectedNoteId === note.id}
+                canWrite={canWrite} onAction={onAction} onOpenNote={onOpenNote} />
             ))}
         </div>
       ) : null}
     </div>
   );
+}
+
+function SidebarNoteRow({ note, selected, canWrite, onAction, onOpenNote }: {
+  note: Note;
+  selected: boolean;
+  canWrite: boolean;
+  onAction(action: SidebarTreeAction): void;
+  onOpenNote?(noteId: string): void;
+}) {
+  const dragDrop = useEntryDragDrop();
+  const selectNote = useAppStore((state) => state.selectNote);
+  return <div className={styles.entryDragArea}
+    draggable={canWrite}
+    onDragStart={(event) => dragDrop?.start(event, { kind: 'note', id: note.id })}
+    onDragEnd={() => dragDrop?.end()}
+  >
+  <NoteContextMenu note={note} canWrite={canWrite} onAction={onAction}>
+    <PressableButton
+      type="button"
+      className={styles.documentRow}
+      data-note-id={note.id}
+      data-dragging={dragDrop?.dragging?.kind === 'note' && dragDrop.dragging.id === note.id || undefined}
+      aria-current={selected ? 'page' : undefined}
+      onClick={() => {
+        selectNote(note.id);
+        onOpenNote?.(note.id);
+      }}
+    >
+      <NoteIcon size={15} />
+      <span>{note.title || '未命名笔记'}</span>
+    </PressableButton>
+  </NoteContextMenu>
+  </div>;
 }
 
 export function FolderContextMenu({ folder, canWrite, onAction, children, contextMenu = true }: {

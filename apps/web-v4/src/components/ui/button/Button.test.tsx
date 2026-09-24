@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { Button, IconButton } from './index';
+import { Button, IconButton, SegmentedButton, SegmentedControl } from './index';
 
 describe('V4-04 Button', () => {
   it('renders a button with accessible name and role', () => {
@@ -89,5 +89,17 @@ describe('V4-04 Button', () => {
     const { rerender } = render(<Demo />);
     rerender(<Demo />);
     expect(screen.getByRole('button', { name: /已点/ })).toBeInTheDocument();
+  });
+
+  it('keeps segmented count in the accessible name and switches via keyboard', async () => {
+    const user = userEvent.setup();
+    const onPress = vi.fn();
+    render(<SegmentedControl aria-label="类型筛选"><SegmentedButton count={2} aria-pressed="true">全部</SegmentedButton><SegmentedButton count={1} aria-pressed="false" onPress={onPress}>文稿</SegmentedButton></SegmentedControl>);
+    const group = screen.getByRole('group', { name: '类型筛选' });
+    expect(group).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: '文稿 1' });
+    button.focus();
+    await user.keyboard('{Enter}');
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogFooter } from '../../components/ui';
+import type { Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import { Button, Dialog, DialogBody, DialogFooter, SearchBox, SegmentedButton, SegmentedControl } from '../../components/ui';
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeDetail } from './KnowledgeDetail';
 import { KnowledgeSourceDialog } from './KnowledgeSourceDialog';
@@ -8,6 +8,10 @@ import { KnowledgeItemDialog } from './KnowledgeItemDialog';
 import { knowledgeFormValue } from './KnowledgeItemForm';
 import { getKnowledgeDraftScope, knowledgeDraftRecovery, type KnowledgeDraft } from './knowledgeDraftRecovery';
 import { filterKnowledgeItems, KNOWLEDGE_STATUS_LABELS, knowledgeError, knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
+import { useNavigate } from '../../app/router';
+import { PathTrail } from '../../shell/PathTrail';
+import { BookIcon, PlusIcon, RefreshIcon, SearchIcon } from '../../shell/icons';
+import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
 import styles from './KnowledgeWorkspaceView.module.css';
 
 type VersionInput = { expectedUpdatedAt?: string };
@@ -18,21 +22,27 @@ export interface KnowledgeWorkspaceViewProps {
   readOnlyReason?: string;
   onSelectItem(id: string): void;
   onOpenNote(noteId: string): void;
-  onList(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string; includeArchived?: boolean }): Promise<KnowledgeItem[]>;
+  onList(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string; includeArchived?: boolean; includeDeleted?: boolean }): Promise<KnowledgeItem[]>;
   onGet(id: string): Promise<KnowledgeItem>;
   onListEvidence(id: string): Promise<KnowledgeEvidence[]>;
   notes: Note[];
   onListAnnotations(noteId: string): Promise<Annotation[]>;
   onCreateEvidence(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
   onRetireEvidence(id: string, evidenceId: string, input?: { expectedUpdatedAt?: string }): Promise<KnowledgeEvidenceMutationResult>;
+  onReadoptEvidence?(id: string, evidenceId: string, input?: { expectedUpdatedAt?: string }): Promise<KnowledgeEvidenceMutationResult>;
   onCreate(input: CreateKnowledgeCandidateInput): Promise<{ item: KnowledgeItem; evidence: KnowledgeEvidence[] }>;
   onUpdate(id: string, input: UpdateKnowledgeItemInput): Promise<KnowledgeItem>;
   onConfirm(id: string, input: VersionInput): Promise<KnowledgeItem>;
   onArchive(id: string, input: VersionInput): Promise<KnowledgeItem>;
   onRestore(id: string, input: VersionInput): Promise<KnowledgeItem>;
+  onTrash?(id: string, input: VersionInput): Promise<KnowledgeItem>;
+  onRestoreDeleted?(id: string, input: VersionInput): Promise<KnowledgeItem>;
+  onInspectPurge?(id: string): Promise<KnowledgePurgePreview>;
+  onPermanentDelete?(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
 }
 
 export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
+  const navigate = useNavigate();
   const { selectedItemId, refreshKey, canWrite, readOnlyReason, onList, onGet, onListEvidence } = props;
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [status, setStatus] = useState('all');
@@ -52,15 +62,18 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   const [draftError, setDraftError] = useState('');
   const scope = getKnowledgeDraftScope();
   const [archiveItem, setArchiveItem] = useState<KnowledgeItem | null>(null);
+  const [trashItem, setTrashItem] = useState<KnowledgeItem | null>(null);
+  const [purgePreview, setPurgePreview] = useState<KnowledgePurgePreview | null>(null);
   const [sourceDialog, setSourceDialog] = useState<{ replacing?: KnowledgeEvidence } | null>(null);
   const [retireEvidence, setRetireEvidence] = useState<KnowledgeEvidence | null>(null);
   const selectedRef = useRef(selectedItemId);
   selectedRef.current = selectedItemId;
+  const selectedTrashed = items.find(item => item.id === selectedItemId && item.deletedAt);
 
   useEffect(() => {
     let active = true;
     setListLoading(true); setListError('');
-    void onList({ includeArchived: true }).then(result => { if (active) setItems(result); })
+    void onList({ includeArchived: true, includeDeleted: true }).then(result => { if (active) setItems(result); })
       .catch(error => { if (active) setListError(knowledgeError(error, '知识列表加载失败。')); })
       .finally(() => { if (active) setListLoading(false); });
     return () => { active = false; };
@@ -70,13 +83,21 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     let active = true;
     setDetail(null); setDetailError('');
     if (!selectedItemId) { setDetailLoading(false); return; }
+    if (selectedTrashed) {
+      setDetailLoading(true);
+      void onListEvidence(selectedItemId)
+        .then(evidence => { if (active) setDetail({ item: selectedTrashed, evidence }); })
+        .catch(error => { if (active) setDetailError(knowledgeError(error, '知识历史来源加载失败。')); })
+        .finally(() => { if (active) setDetailLoading(false); });
+      return () => { active = false; };
+    }
     setDetailLoading(true);
     void Promise.all([onGet(selectedItemId), onListEvidence(selectedItemId)])
       .then(([item, evidence]) => { if (active) setDetail({ item, evidence }); })
       .catch(error => { if (active) setDetailError(knowledgeError(error, '知识详情加载失败。')); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedItemId, onGet, onListEvidence, refresh, refreshKey]);
+  }, [selectedItemId, onGet, onListEvidence, refresh, refreshKey, selectedTrashed?.id]);
 
   useEffect(() => { setNotice(''); }, [selectedItemId]);
 
@@ -92,10 +113,13 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     setEditDraft(previous ?? { version: 1, kind: 'edit', candidateId: item.id, expectedUpdatedAt: item.updatedAt, initialValue, value: initialValue });
   }
 
-  const visible = useMemo(() => filterKnowledgeItems(items, status, query), [items, status, query]);
-  const counts = useMemo(() => items.reduce((result, item) => {
+  const activeItems = useMemo(() => items.filter(item => !item.deletedAt), [items]);
+  const visible = useMemo(() => status === 'trash'
+    ? items.filter(item => item.deletedAt && (!query || [item.title, item.canonicalStatement].some(value => value.toLocaleLowerCase().includes(query.toLocaleLowerCase()))))
+    : filterKnowledgeItems(activeItems, status, query), [activeItems, items, status, query]);
+  const counts = useMemo(() => activeItems.reduce((result, item) => {
     const key = item.reviewStatus ?? 'candidate'; result[key] = (result[key] ?? 0) + 1; return result;
-  }, {} as Record<string, number>), [items]);
+  }, {} as Record<string, number>), [activeItems]);
 
   function acceptItem(item: KnowledgeItem) {
     setItems(current => current.some(row => row.id === item.id) ? current.map(row => row.id === item.id ? item : row) : [item, ...current]);
@@ -157,32 +181,74 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     finally { setPending(false); }
   }
 
-  return <main className={styles.page} aria-labelledby="knowledge-title">
-    <header className={styles.header}><div><h1 id="knowledge-title">知识库</h1><p>从笔记中整理候选，核对来源，再确认知识。</p></div>
-      <div className={styles.actions}><Button variant="ghost" isDisabled={listLoading || pending} onPress={() => setRefresh(value => value + 1)}>刷新</Button><Button variant="primary" isDisabled={!canWrite || pending} onPress={() => { setRecoveryDraft(undefined); setCreateOpen(true); }}>新建知识候选</Button></div>
-    </header>
-    {!canWrite ? <p className={styles.readOnly} role="status">{readOnlyReason ?? '当前为只读模式，暂不能修改知识。'}</p> : null}
-    {draftError ? <p role="alert" className={styles.error}>{draftError}</p> : null}
-    {drafts.length ? <section className={styles.notice} aria-label="未保存的知识草稿"><strong>有 {drafts.length} 条知识草稿尚未保存</strong>
-      {drafts.map(draft => <Button key={draft.candidateId} variant="ghost" onPress={() => {
-        setRecoveryDraft(draft); if (draft.kind === 'create') setCreateOpen(true); else setEditDraft(draft);
-      }}>恢复草稿：{draft.value.title || '未命名知识'}</Button>)}
-    </section> : null}
-    <div className={styles.layout}>
+  async function readopt(record: KnowledgeEvidence) {
+    if (!detail || !props.onReadoptEvidence || !canWrite || pending) return;
+    setPending(true); setDetailError('');
+    try {
+      const result = await props.onReadoptEvidence(detail.item.id, record.id, { expectedUpdatedAt: record.updatedAt });
+      acceptItem(result.item); setNotice('来源已重新采用；请核对知识审核状态。'); setRefresh(value => value + 1);
+    } catch (cause) { setDetailError(knowledgeError(cause, '重新采用来源失败。')); }
+    finally { setPending(false); }
+  }
+
+  async function openPurgePreview(item: KnowledgeItem) {
+    if (!props.onInspectPurge || pending) return;
+    setPending(true); setDetailError('');
+    try { setPurgePreview(await props.onInspectPurge(item.id)); }
+    catch (cause) { setDetailError(knowledgeError(cause, '永久删除预检失败。')); }
+    finally { setPending(false); }
+  }
+
+  async function confirmPurge() {
+    if (!purgePreview || !props.onPermanentDelete || pending) return;
+    setPending(true); setDetailError('');
+    try {
+      await props.onPermanentDelete(purgePreview.asset.id, { expectedUpdatedAt: purgePreview.expectedUpdatedAt });
+      setItems(current => current.filter(item => item.id !== purgePreview.asset.id));
+      setPurgePreview(null); setDetail(null); setNotice('知识点主体及专属来源已清理；离线设备待同步，备份按保留策略处理。');
+      navigate('/knowledge');
+    } catch (cause) {
+      setDetailError(knowledgeError(cause, '永久删除失败，请重新预检。'));
+      setPurgePreview(null);
+    } finally { setPending(false); }
+  }
+
+  return <WorkspacePanel as="main" aria-labelledby="knowledge-title">
+    <WorkspacePanelHeader title="知识库" code="KNOW" titleId="knowledge-title" icon={<BookIcon size={13} />}
+      breadcrumb={<PathTrail path={[{ id: 'home', label: '主页', onNavigate: () => navigate('/') }, { id: 'knowledge', label: '知识库', current: true }]} variant="top" />}
+      breadcrumbTitle="主页 / 知识库" actionsLabel="知识操作"
+      actions={<>
+        <Button size="workspace" isDisabled={listLoading || pending} onPress={() => setRefresh(value => value + 1)}><RefreshIcon size={14} />刷新</Button>
+        <Button size="workspace" variant="accent" isDisabled={!canWrite || pending} onPress={() => { setRecoveryDraft(undefined); setCreateOpen(true); }}><PlusIcon size={17} />新建知识候选</Button>
+      </>} />
+    <WorkspacePanelToolbar className={styles.toolbar} role="toolbar" aria-label="知识库工具栏">
+      <SearchBox label="搜索知识" icon={<SearchIcon size={17} />} value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索标题、陈述或解释…" />
+      <SegmentedControl className={styles.statusFilters} aria-label="按知识状态筛选">
+        <SegmentedButton aria-label="全部未归档" aria-pressed={status === 'all'} count={activeItems.length - (counts.archived ?? 0)} onPress={() => setStatus('all')}>全部未归档</SegmentedButton>
+        {Object.entries(KNOWLEDGE_STATUS_LABELS).map(([key, label]) => <SegmentedButton key={key} aria-pressed={status === key} count={counts[key] ?? 0} onPress={() => setStatus(key)}>{label}</SegmentedButton>)}
+        <SegmentedButton aria-pressed={status === 'trash'} count={items.length - activeItems.length} onPress={() => setStatus('trash')}>回收站</SegmentedButton>
+      </SegmentedControl>
+    </WorkspacePanelToolbar>
+    <WorkspacePanelBody grid className={styles.content}>
+      {!canWrite || draftError || drafts.length ? <div className={styles.messages}>
+        {!canWrite ? <p className={styles.readOnly} role="status">{readOnlyReason ?? '当前为只读模式，暂不能修改知识。'}</p> : null}
+        {draftError ? <p role="alert" className={styles.error}>{draftError}</p> : null}
+        {drafts.length ? <section className={styles.notice} aria-label="未保存的知识草稿"><strong>有 {drafts.length} 条知识草稿尚未保存</strong>
+          {drafts.map(draft => <Button key={draft.candidateId} variant="ghost" onPress={() => {
+            setRecoveryDraft(draft); if (draft.kind === 'create') setCreateOpen(true); else setEditDraft(draft);
+          }}>恢复草稿：{draft.value.title || '未命名知识'}</Button>)}
+        </section> : null}
+      </div> : null}
+      <div className={styles.layout}>
       <section className={styles.listPanel} aria-label="知识列表">
-        <div className={styles.filters}><label className={styles.search}>搜索知识<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索标题、陈述或解释" /></label>
-          <div className={styles.statusFilters} role="group" aria-label="按知识状态筛选">
-            <button type="button" aria-pressed={status === 'all'} onClick={() => setStatus('all')}>全部未归档</button>
-            {Object.entries(KNOWLEDGE_STATUS_LABELS).map(([key, label]) => <button type="button" key={key} aria-pressed={status === key} onClick={() => setStatus(key)}>{label} <span>{counts[key] ?? 0}</span></button>)}
-          </div>
-        </div>
+        <header className={styles.columnHeader}><strong>知识条目 <span>{visible.length}</span></strong><small>从笔记中整理候选</small></header>
         <div className={styles.listScroll} aria-busy={listLoading}>
           {listError ? <p role="alert" className={styles.error}>{listError} <Button variant="ghost" onPress={() => setRefresh(value => value + 1)}>重试加载列表</Button></p> : null}
           {listLoading && items.length === 0 ? <p className={styles.empty} role="status">正在加载知识…</p> : null}
           {!listLoading && !listError && visible.length === 0 ? <p className={styles.empty}>{items.length === 0 ? '还没有知识。可从笔记标注创建候选，或手动新建。' : '没有符合条件的知识。'}</p> : null}
           <ul className={styles.items}>{visible.map(item => <li key={item.id}><button type="button" className={styles.item} aria-current={selectedItemId === item.id ? 'true' : undefined} disabled={pending} onClick={() => props.onSelectItem(item.id)}>
             <span className={styles.itemTitle}>{item.title || '未命名知识'}</span><span className={styles.itemStatement}>{item.canonicalStatement || '尚未填写核心陈述'}</span>
-            <span className={styles.meta}><span>{knowledgeStatusLabel(item.reviewStatus)}</span><span>{knowledgeTypeLabel(item.knowledgeType)}</span></span>
+            <span className={styles.meta}><span>{item.deletedAt ? '回收站' : knowledgeStatusLabel(item.reviewStatus)}</span><span>{knowledgeTypeLabel(item.knowledgeType)}</span></span>
           </button></li>)}</ul>
         </div>
       </section>
@@ -192,10 +258,14 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
         {detailLoading ? <p className={styles.empty} role="status">正在加载详情与来源…</p> : detail ? <KnowledgeDetail {...detail} canWrite={canWrite} pending={pending}
           onEdit={() => openEdit(detail.item)} onConfirm={() => void mutate(detail.item, props.onConfirm, '已确认这条知识。')}
           onArchive={() => setArchiveItem(detail.item)} onRestore={() => void mutate(detail.item, props.onRestore, '已恢复为候选，请重新核对后确认。')} onOpenNote={props.onOpenNote}
-          onAddSource={() => setSourceDialog({})} onReplaceSource={record => setSourceDialog({ replacing: record })} onRetireSource={setRetireEvidence} />
-          : !detailError ? <div className={styles.empty}><h2>选择一条知识</h2><p>查看核心陈述、个人解释及来源，完成核对后确认。</p></div> : null}
+          onTrash={() => setTrashItem(detail.item)} onRestoreDeleted={() => props.onRestoreDeleted && void mutate(detail.item, props.onRestoreDeleted, '知识已从回收站恢复；审核与来源已重新校验。')}
+          onPurgePreview={props.onPermanentDelete ? () => void openPurgePreview(detail.item) : undefined}
+          onAddSource={() => setSourceDialog({})} onReplaceSource={record => setSourceDialog({ replacing: record })} onRetireSource={setRetireEvidence} onReadoptSource={record => void readopt(record)} />
+          : !detailError ? <div className={`${styles.empty} ${styles.emptyDetail}`}><span className={styles.emptyIcon} aria-hidden="true"><BookIcon size={22} /></span><h2>选择一条知识</h2><p>查看核心陈述、个人解释及来源，完成核对后确认。</p></div> : null}
       </section>
-    </div>
+      </div>
+    </WorkspacePanelBody>
+    <WorkspacePanelFooter><span>显示 {visible.length} / {items.length} 条知识</span><span>{status === 'trash' ? '保留至手动清理；不会自动到期删除' : <>候选 {counts.candidate ?? 0} · 已确认 {counts.confirmed ?? 0} · 待修订 {counts.needsRevision ?? 0} · 已归档 {counts.archived ?? 0}</>}</span></WorkspacePanelFooter>
     {createOpen ? <CreateKnowledgeCandidateDialog recoveryDraft={recoveryDraft} canWrite={canWrite} readOnlyReason={readOnlyReason} onClose={() => setCreateOpen(false)} onCreate={props.onCreate}
       onCreated={item => { acceptItem(item); setStatus('candidate'); setQuery(''); props.onSelectItem(item.id); }} /> : null}
     {editDraft ? <KnowledgeItemDialog key={editDraft.candidateId} title="编辑知识" draft={editDraft} recovered={Boolean(recoveryDraft)} canWrite={canWrite} readOnlyReason={readOnlyReason}
@@ -205,10 +275,21 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       {detailError ? <DialogBody><p role="alert" className={styles.error}>{detailError}</p></DialogBody> : null}
       <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => { setArchiveItem(null); setDetailError(''); }}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite} onPress={() => void mutate(archiveItem, props.onArchive, '知识已归档。')}>确认归档</Button></DialogFooter>
     </Dialog> : null}
+    {trashItem ? <Dialog title="移入知识回收站？" description={`“${trashItem.title || '未命名知识'}”将退出日常使用；关联的学习目标、题目和来源历史不会一起删除。恢复后会重新检查来源与审核状态。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setTrashItem(null); }}>
+      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setTrashItem(null)}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite || !props.onTrash} onPress={() => props.onTrash && void mutate(trashItem, props.onTrash, '知识已移入回收站。').then(() => setTrashItem(null))}>确认移入回收站</Button></DialogFooter>
+    </Dialog> : null}
+    {purgePreview ? <Dialog title="永久删除知识点？" description="删除后无法普通恢复。来源笔记和标注不会删除；离线设备待同步，备份按保留策略处理。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setPurgePreview(null); }}>
+      <DialogBody>
+        <p>将清理 {purgePreview.exclusiveRecords.knowledgeEvidenceIds.length} 条专属来源记录。</p>
+        {purgePreview.references.length ? <><p>当前有 {purgePreview.references.length} 个关联对象，处理前不能永久删除：</p><ul>{purgePreview.references.map(reference => <li key={`${reference.collection}:${reference.id}`}>{reference.collection} · {reference.id}（{reference.reasonCode}）</li>)}</ul><p>请先核对并处理所列关联对象，然后重新预检。</p></> : null}
+        {detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}
+      </DialogBody>
+      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setPurgePreview(null)}>返回回收站</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite || purgePreview.decision !== 'can-purge-no-history'} onPress={() => void confirmPurge()}>确认永久删除</Button></DialogFooter>
+    </Dialog> : null}
     {sourceDialog && detail ? <KnowledgeSourceDialog notes={props.notes} evidence={detail.evidence} replacing={sourceDialog.replacing} onClose={() => setSourceDialog(null)} onListAnnotations={props.onListAnnotations} onSave={saveSource} /> : null}
-    {retireEvidence ? <Dialog title="移除这条来源？" description="来源不会被物理删除，而会标记为不可用并保留摘录历史。若这是已确认知识的最后一个有效来源，知识会转为待修订。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setRetireEvidence(null); }}>
+    {retireEvidence ? <Dialog title="撤回这条来源的适用性？" description="来源的技术健康状态与历史摘录会保留；若这是已确认知识的最后一个适用来源，知识会转为待修订。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setRetireEvidence(null); }}>
       <DialogBody><blockquote className={styles.prose}>{retireEvidence.quoteText || '该来源没有文字摘录'}</blockquote>{detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}</DialogBody>
       <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setRetireEvidence(null)}>取消</Button><Button variant="danger" isPending={pending} onPress={() => void confirmRetire()}>确认移除</Button></DialogFooter>
     </Dialog> : null}
-  </main>;
+  </WorkspacePanel>;
 }

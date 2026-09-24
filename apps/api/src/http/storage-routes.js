@@ -16,6 +16,11 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     return true;
   }
 
+  if (request.method === 'POST' && url.pathname === '/api/storage/attachments/cleanup/retry') {
+    sendJson(response, 200, { data: await storage.retryAttachmentCleanup() });
+    return true;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/storage/attachments') {
     const body = await parseBody(request);
     sendJson(response, 201, {
@@ -37,6 +42,13 @@ export async function handleStorageRoute({ request, response, url, storage }) {
   }
 
   const attachmentId = matchAttachmentRoute(url.pathname);
+  const preflightAttachmentId = matchAttachmentRoute(url.pathname, 'deletion-preflight');
+  if (request.method === 'GET' && preflightAttachmentId !== null) {
+    sendJson(response, 200, {
+      data: await storage.inspectAttachmentDeletion({ id: preflightAttachmentId })
+    });
+    return true;
+  }
   if (request.method === 'DELETE' && attachmentId !== null) {
     sendJson(response, 200, {
       data: await storage.deleteAttachment({ id: attachmentId })

@@ -31,7 +31,9 @@ export function dbFolder(folder) {
     sortOrder: folder.sortOrder,
     pathCache: folder.pathCache,
     createdAt: new Date(folder.createdAt),
-    updatedAt: new Date(folder.updatedAt)
+    updatedAt: new Date(folder.updatedAt),
+    deletedAt: folder.deletedAt ? new Date(folder.deletedAt) : null,
+    deletionPackage: folder.deletionPackage ?? undefined
   };
 }
 
@@ -64,6 +66,8 @@ export function dbNote(note) {
     sourceType: note.sourceType,
     favorite: note.favorite,
     deletedAt: note.deletedAt ? new Date(note.deletedAt) : null,
+    folderDeletionPackageId: note.folderDeletionPackageId ?? null,
+    deletionPackage: note.deletionPackage ?? undefined,
     createdAt: new Date(note.createdAt),
     updatedAt: new Date(note.updatedAt)
   };
@@ -115,7 +119,7 @@ export function dbAnnotationRevision(record) {
 }
 
 export function dbAnalysisScopeSnapshot(record) {
-  return { ...record, createdAt: new Date(record.createdAt) };
+  return { ...record, mode: record.mode ?? 'marked', createdAt: new Date(record.createdAt), updatedAt: new Date(record.updatedAt ?? record.createdAt), deletedAt: record.deletedAt ? new Date(record.deletedAt) : null };
 }
 
 export function dbNoteVersion(version) {
@@ -158,6 +162,7 @@ export function dbKnowledgeEvidence(evidence) {
     headingPath: evidence.headingPath ?? [],
     relationType: evidence.relationType ?? 'supports',
     status: evidence.status ?? 'valid',
+    applicabilityStatus: evidence.applicabilityStatus ?? (evidence.status === 'invalid' ? 'needsReview' : 'active'),
     createdAt: new Date(evidence.createdAt),
     updatedAt: new Date(evidence.updatedAt)
   };
@@ -173,6 +178,7 @@ export function dbLearningObjective(objective) {
     difficultyHint: objective.difficultyHint ?? null,
     reviewStatus: objective.reviewStatus ?? 'candidate',
     reviewNote: objective.reviewNote ?? null,
+    deletedAt: objective.deletedAt ? new Date(objective.deletedAt) : null,
     order: objective.order ?? 0,
     createdAt: new Date(objective.createdAt),
     updatedAt: new Date(objective.updatedAt)
@@ -189,6 +195,7 @@ export function dbExamProfile(profile) {
     commonQuestionTypes: profile.commonQuestionTypes ?? [],
     difficultyProfile: profile.difficultyProfile ?? {},
     archivedAt: profile.archivedAt ? new Date(profile.archivedAt) : null,
+    deletedAt: profile.deletedAt ? new Date(profile.deletedAt) : null,
     createdAt: new Date(profile.createdAt),
     updatedAt: new Date(profile.updatedAt)
   };
@@ -205,6 +212,7 @@ export function dbExamFocus(focus) {
     questionTypeSuggestions: focus.questionTypeSuggestions ?? [],
     sourceType: focus.sourceType ?? 'manual',
     reviewStatus: focus.reviewStatus ?? 'candidate',
+    deletedAt: focus.deletedAt ? new Date(focus.deletedAt) : null,
     createdAt: new Date(focus.createdAt),
     updatedAt: new Date(focus.updatedAt)
   };
@@ -223,6 +231,7 @@ export function dbQuestion(question) {
     reviewStatus: question.reviewStatus ?? 'draft',
     sourceMode: question.sourceMode ?? 'manual',
     version: question.version ?? 1,
+    deletedAt: question.deletedAt ? new Date(question.deletedAt) : null,
     createdAt: new Date(question.createdAt),
     updatedAt: new Date(question.updatedAt)
   };

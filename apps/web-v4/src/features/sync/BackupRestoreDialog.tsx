@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, DialogBody } from '../../components/ui';
+import { Button, Checkbox, Dialog, DialogBody, Select } from '../../components/ui';
 import { flushBeforeWorkspaceRestore, flushBeforeWorkspaceBackup } from '../../app/desktopLifecycle';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { useAppStore } from '../../store/AppStoreProvider';
@@ -55,12 +55,10 @@ export function BackupRestoreDialog({ isOpen, onOpenChange }: { isOpen: boolean;
           <Button onPress={() => { void action(load); }}>刷新列表</Button>
         </div>
         {!backups.length && <p className={styles.hint}>还没有本机备份。先创建一个备份，再从这里检查和恢复。</p>}
-        {backups.length > 0 && <label className={styles.field}>选择备份
-          <select aria-label="选择备份" value={selectedId} disabled={busy} onChange={event => { setSelectedId(event.target.value); setInspection(null); setConfirmed(false); setError(''); }}>
-            <option value="">请选择需要检查的备份</option>
-            {backups.map(backup => <option key={backup.id} value={backup.id}>{displayTime(backup.createdAt)} · {backup.purpose === 'before-restore' ? '恢复前保护' : '手动备份'} · {backup.id.slice(-8)}{backup.error ? '（清单异常）' : ''}</option>)}
-          </select>
-        </label>}
+        {backups.length > 0 && <>
+          <p className={styles.hint}>本机列出 {backups.length} 份备份，清单合计 {displaySize(backups.reduce((sum, backup) => sum + backup.size, 0))}。备份目前不会自动到期清理；清单异常的备份不计入此合计。</p>
+          <Select label="选择备份" selectedKey={selectedId || null} placeholder="请选择需要检查的备份" isDisabled={busy} onSelectionChange={key => { setSelectedId(String(key)); setInspection(null); setConfirmed(false); setError(''); }} options={backups.map(backup => ({ id: backup.id, label: `${displayTime(backup.createdAt)} · ${backup.purpose === 'before-restore' ? '恢复前保护' : backup.purpose === 'manual' ? '手动备份' : backup.purpose === 'legacy-unspecified' ? '历史备份' : '用途待检查'} · ${backup.error ? '大小待检查' : displaySize(backup.size)} · ${backup.id.slice(-8)}${backup.error ? '（清单异常）' : ''}` }))} />
+        </>}
         {selectedId && <div className={styles.actions}><Button onPress={() => { void action(async () => {
           setInspection(null); setConfirmed(false);
           setInspection(await callBackup<BackupInspection>(`backups/${encodeURIComponent(selectedId)}/inspect`, {}));
@@ -75,7 +73,7 @@ export function BackupRestoreDialog({ isOpen, onOpenChange }: { isOpen: boolean;
           }); }}>导出此备份的恢复草稿</Button></>}
           <p>恢复会切换整个本机资料库，并自动创建恢复前保护备份。恢复后云端同步暂停，需核对资料后重新连接。</p>
           {hasDraft && <p role="status" className={styles.hint}>请先保存或处理当前未保存的正文，再恢复备份。</p>}
-          <label className={styles.confirm}><input type="checkbox" checked={confirmed} disabled={hasDraft || busy} onChange={event => setConfirmed(event.target.checked)} />我确认使用所选备份恢复整个本机资料库</label>
+          <Checkbox className={styles.confirm} isSelected={confirmed} isDisabled={hasDraft || busy} onChange={setConfirmed}>我确认使用所选备份恢复整个本机资料库</Checkbox>
           <Button variant="danger" isDisabled={!confirmed || hasDraft || busy} onPress={() => { void action(async () => {
             await flushBeforeWorkspaceRestore();
             setRestored(await callBackup<BackupRestoreResult>(`backups/${encodeURIComponent(selectedId)}/restore`, { confirmBackupId: selectedId, recoveryDrafts: captureBrowserBackupDrafts() }));

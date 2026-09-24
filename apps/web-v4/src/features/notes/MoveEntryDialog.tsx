@@ -3,18 +3,12 @@ import type { Folder } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter, Select } from '../../components/ui';
 import type { TreeEntryTarget } from './TreeEntryDialogs';
 import { folderLocation } from './notesIndexNavigation';
+import { isFolderWithin } from './entryMove';
 
 export function moveDestinations(folders: Record<string, Folder>, target: TreeEntryTarget) {
   return Object.values(folders).filter(folder => {
     if (target.kind !== 'folder') return true;
-    const visited = new Set<string>();
-    let current: Folder | undefined = folder;
-    while (current) {
-      if (current.id === target.id || visited.has(current.id)) return false;
-      visited.add(current.id);
-      current = current.parentId ? folders[current.parentId] : undefined;
-    }
-    return true;
+    return !isFolderWithin(folder.id, target.id, folders);
   }).sort((a, b) => folderLocation(a.id, folders).localeCompare(folderLocation(b.id, folders), 'zh-CN'));
 }
 

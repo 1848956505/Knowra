@@ -14,15 +14,17 @@ export function createPostgresExamFocusRepository({ db }) {
       questionTypeSuggestions: focus.questionTypeSuggestions ?? [],
       sourceType: focus.sourceType ?? 'manual',
       reviewStatus: focus.reviewStatus ?? 'candidate',
+      deletedAt: focus.deletedAt ? toDate(focus.deletedAt) : null,
       createdAt: toDate(focus.createdAt),
       updatedAt: toDate(focus.updatedAt)
     };
   }
-  function whereFor({ examProfileId, learningObjectiveId, reviewStatus, includeArchived = false } = {}) {
+  function whereFor({ examProfileId, learningObjectiveId, reviewStatus, includeArchived = false, includeDeleted = false } = {}) {
     const where = {
       ...(examProfileId ? { examProfileId } : {}),
       ...(learningObjectiveId ? { learningObjectiveId } : {})
     };
+    if (!includeDeleted) where.deletedAt = null;
     if (reviewStatus) where.reviewStatus = reviewStatus;
     else if (!includeArchived) where.reviewStatus = { not: 'archived' };
     return where;
@@ -42,6 +44,7 @@ export function createPostgresExamFocusRepository({ db }) {
       return withRepositoryErrors(() => db.examFocus.findUnique({ where: { examProfileId_learningObjectiveId: { examProfileId, learningObjectiveId } } }).then(mapExamFocus));
     },
     list(options = {}) { return withRepositoryErrors(() => db.examFocus.findMany({ where: whereFor(options), orderBy: [{ priority: 'asc' }, { updatedAt: 'desc' }] }).then((rows) => rows.map(mapExamFocus))); },
+    async delete(id) { return withRepositoryErrors(() => db.examFocus.delete({ where: { id } }).then(mapExamFocus)); },
     supportsAsync: true
   };
 }

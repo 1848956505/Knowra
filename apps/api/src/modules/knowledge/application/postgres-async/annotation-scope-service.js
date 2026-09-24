@@ -50,7 +50,7 @@ export function createAsyncAnnotationScopeService({
   async function createExclusion(annotationId, input = {}) {
     const annotation = await requireAnnotation(annotationId);
     if (annotation.scopeType !== 'section') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '只有标题范围重点可以保存局部排除', 409);
-    if (annotation.lifecycleStatus === 'archived') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '已取消的重点不能新增排除', 409);
+    if (annotation.lifecycleStatus !== 'active') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '已取消的重点不能新增排除', 409);
     const note = await requireNote(annotation.noteId);
     if (calculateContentHash(note.rawMarkdown) !== input.noteContentHash) throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请刷新范围', 409);
     const resolved = resolveAnchor(note.rawMarkdown, input.anchor);
@@ -105,7 +105,7 @@ export function createAsyncAnnotationScopeService({
       for (const note of notes) if (note.rawMarkdown.length > 0) contributions.push({ noteId: note.id, start: 0, end: note.rawMarkdown.length, annotationId: null });
     } else {
       for (const annotation of annotations) {
-        if (annotation.lifecycleStatus === 'archived') continue;
+        if (annotation.lifecycleStatus !== 'active') continue;
         if (annotation.schemaVersion !== 2 || !annotation.anchor) { omittedItems.push({ annotationId: annotation.id, reason: 'legacyUnverified' }); continue; }
         const resolution = resolveAnchor(noteById.get(annotation.noteId).rawMarkdown, annotation.anchor);
         if (resolution.status !== 'resolved') { omittedItems.push({ annotationId: annotation.id, reason: resolution.reason }); continue; }
@@ -156,16 +156,29 @@ export function createAsyncAnnotationScopeService({
       return existing;
     }
     const { previewHash, ai: _ai, ...snapshotData } = preview;
-    return analysisScopeRepository.save({ id: newId('analysis-scope'), ...structuredClone(snapshotData), inputHash: previewHash, idempotencyKey, createdAt: new Date().toISOString() });
+    return analysisScopeRepository.save({ id: newId('analysis-scope'), ...structuredClone(snapshotData), inputHash: previewHash, idempotencyKey, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: null });
   }
 
-  async function getAnalysisScope(id, spaceId) {
+  async function getAnalysisScope(id, spaceId, includeDeleted = false) {
     const snapshot = await analysisScopeRepository.findById(id);
-    if (!snapshot || (spaceId && snapshot.spaceId !== spaceId)) throw fail('ANALYSIS_SCOPE_NOT_FOUND', '分析范围快照不存在', 404);
+    if (!snapshot || (spaceId && snapshot.spaceId !== spaceId) || (snapshot.deletedAt && !includeDeleted)) throw fail('ANALYSIS_SCOPE_NOT_FOUND', '分析范围快照不存在', 404);
     return snapshot;
   }
 
-  return { previewAnnotation, createExclusion, deleteExclusion, getKnowledgeLinks, previewAnalysisScope, createAnalysisScope, getAnalysisScope };
+  async function listAnalysisScopes({ spaceId, includeDeleted = false } = {}) {
+    if (!spaceId) throw fail('ANALYSIS_SCOPE_SPACE_REQUIRED', '缺少知识空间', 400);
+    return analysisScopeRepository.list({ spaceId, includeDeleted: includeDeleted === true || includeDeleted === 'true' });
+  }
+
+  async function changeAnalysisScope(id, input, deleted) {
+    const current = await getAnalysisScope(id, input.spaceId, true);
+    if (!input.expectedUpdatedAt || input.expectedUpdatedAt !== (current.updatedAt ?? current.createdAt)) throw fail('ANALYSIS_SCOPE_UPDATE_CONFLICT', '分析范围已变化，请刷新后重试。', 409);
+    if (Boolean(current.deletedAt) === deleted) return current;
+    const next = { ...current, deletedAt: deleted ? new Date().toISOString() : null, updatedAt: new Date(Math.max(Date.now(), Date.parse(current.updatedAt ?? current.createdAt) + 1)).toISOString() };
+    return analysisScopeRepository.update(next, current.updatedAt ?? current.createdAt);
+  }
+
+  return { previewAnnotation, createExclusion, deleteExclusion, getKnowledgeLinks, previewAnalysisScope, createAnalysisScope, getAnalysisScope, listAnalysisScopes, trashAnalysisScope: (id, input) => changeAnalysisScope(id, input, true), restoreAnalysisScope: (id, input) => changeAnalysisScope(id, input, false) };
 }
 
 function summarizeResolution(result) {

@@ -25,7 +25,15 @@ function dirtyEntries(state, base) {
       const value = current.get(id) ?? null;
       // 云端版本去重后的本地历史副本仅供恢复，不再上传。
       if (collection === 'noteVersions' && value && versionHashes.has(`${value.noteId}:${value.contentHash}`)) continue;
-      if (!sameEntity(collection, value, previous?.value)) changes.push({ collection, id, baseRevision: previous?.revision ?? null, value });
+      if (!sameEntity(collection, value, previous?.value)) {
+        const old = previous?.value;
+        const lifecycleAction = ['knowledgeItems', 'analysisScopeSnapshots', 'folders'].includes(collection) && old && value
+          ? (!old.deletedAt && value.deletedAt ? 'trash' : old.deletedAt && !value.deletedAt ? 'restore' : undefined)
+          : collection === 'knowledgeEvidence' && old && value && old.applicabilityStatus !== value.applicabilityStatus
+            ? (value.applicabilityStatus === 'withdrawn' ? 'withdraw' : value.applicabilityStatus === 'active' ? 'readopt' : undefined)
+            : undefined;
+        changes.push({ collection, id, baseRevision: previous?.revision ?? null, value, ...(lifecycleAction ? { lifecycleAction } : {}) });
+      }
     }
   }
   return changes;

@@ -4,6 +4,8 @@ import path from 'node:path';
 import { createAppError } from '../errors/app-error.js';
 import { createLocalAttachmentFileManager } from './local-attachment-file-manager.js';
 import { ATTACHMENT_STATUS } from './attachment-status.js';
+import { createAttachmentCleanupQueue } from './attachment-cleanup-queue.js';
+import { inspectAttachmentDeletion } from './attachment-deletion-preflight.js';
 import {
   createAttachmentId,
   moveFileSafely,
@@ -18,7 +20,9 @@ export function createPostgresAttachmentStore({
   uploadsDir = path.join('storage', 'uploads'),
   storageRootDir = process.cwd(),
   legacyUploadsDirs = [],
-  validateAttachmentNote = null
+  validateAttachmentNote = null,
+  loadReferenceState = null,
+  runTransaction = null
 } = {}) {
   if (!attachmentRepository) throw new TypeError('PostgreSQL attachment store requires a repository');
   const fileManager = createLocalAttachmentFileManager({
@@ -26,6 +30,7 @@ export function createPostgresAttachmentStore({
     storageRootDir,
     legacyUploadsDirs
   });
+  const cleanupQueue = createAttachmentCleanupQueue({ storageRootDir, fileManager });
 
   async function uploadAttachment({ noteId, fileName, mimeType = 'application/octet-stream', contentBase64 }) {
     if (!noteId?.trim()) throw new Error('Attachment noteId is required');
@@ -183,18 +188,31 @@ export function createPostgresAttachmentStore({
   }
 
   async function deleteAttachment(attachmentId) {
-    const attachment = await getRequiredAttachment(attachmentId);
-    const deleted = await attachmentRepository.delete(attachmentId);
-    try {
-      fileManager.removeAttachmentFile(deleted ?? attachment);
-    } catch (error) {
-      scheduleFileCleanup(
-        fileManager.resolveManagedAttachmentPath(deleted ?? attachment)
-      );
-      error.attachmentId = attachmentId;
-      throw error;
+    if (!runTransaction) {
+      throw createAppError('ATTACHMENT_PREFLIGHT_UNAVAILABLE', '附件事务保护暂不可用，已阻止删除。', 503);
     }
-    return deleted ?? attachment;
+    const queued = await getRequiredAttachment(attachmentId);
+    cleanupQueue.enqueue(queued);
+    const deleted = await runTransaction(async () => {
+      const current = await getRequiredAttachment(attachmentId);
+      if (current.storagePath !== queued.storagePath || current.fileName !== queued.fileName) {
+        throw createAppError('ATTACHMENT_DELETE_PREVIEW_STALE', '附件已变化，请重新检查后删除。', 409);
+      }
+      const preflight = await inspectDeletion(attachmentId);
+      if (preflight.references.length) {
+        throw createAppError('ATTACHMENT_REFERENCED', '保留的资产仍引用此附件，不能删除。', 409);
+      }
+      return attachmentRepository.delete(attachmentId);
+    });
+    return { ...deleted, cleanup: cleanupQueue.finish(deleted) };
+  }
+
+  async function inspectDeletion(attachmentId) {
+    await getRequiredAttachment(attachmentId);
+    if (!loadReferenceState) {
+      throw createAppError('ATTACHMENT_PREFLIGHT_UNAVAILABLE', '附件引用检查暂不可用，已阻止删除。', 503);
+    }
+    return inspectAttachmentDeletion(attachmentId, await loadReferenceState());
   }
 
   async function detachAttachmentsForNotes(noteIds) {
@@ -202,16 +220,7 @@ export function createPostgresAttachmentStore({
   }
 
   async function removeDetachedAttachmentFiles(attachments) {
-    for (const attachment of attachments) {
-      try {
-        fileManager.removeAttachmentFile(attachment);
-      } catch (error) {
-        scheduleFileCleanup(
-          fileManager.resolveManagedAttachmentPath(attachment)
-        );
-        throw createAppError('ATTACHMENT_FILE_CLEANUP_FAILED', 'Attachment metadata was deleted but file cleanup failed', 500, { cause: error });
-      }
-    }
+    return attachments.map(attachment => ({ id: attachment.id, cleanup: cleanupQueue.finish(attachment) }));
   }
 
   async function exportAttachmentsSnapshot() {
@@ -232,8 +241,11 @@ export function createPostgresAttachmentStore({
     readAttachmentContent,
     renameAttachment,
     deleteAttachment,
+    inspectAttachmentDeletion: inspectDeletion,
     detachAttachmentsForNotes,
+    prepareAttachmentCleanup: attachments => attachments.forEach(attachment => cleanupQueue.enqueue(attachment)),
     removeDetachedAttachmentFiles,
+    retryAttachmentCleanup: () => cleanupQueue.retry(id => attachmentRepository.findById(id)),
     exportAttachmentsSnapshot,
     fileManager
   };

@@ -20,7 +20,9 @@ export function createKnowledgeBaseSnapshotService({
     updateAttachment,
     listAttachments,
     getAttachmentContent,
-    deleteAttachment
+    inspectAttachmentDeletion,
+    deleteAttachment,
+    retryAttachmentCleanup
   };
 
   function exportKnowledgeBase() {
@@ -118,6 +120,16 @@ export function createKnowledgeBaseSnapshotService({
   function deleteAttachment(params) {
     requireAttachmentStore();
     return attachmentStore.deleteAttachment(params.id);
+  }
+
+  function inspectAttachmentDeletion(params) {
+    requireAttachmentStore();
+    return attachmentStore.inspectAttachmentDeletion(params.id);
+  }
+
+  function retryAttachmentCleanup() {
+    requireAttachmentStore();
+    return attachmentStore.retryAttachmentCleanup();
   }
 
   function requireAttachmentStore() {

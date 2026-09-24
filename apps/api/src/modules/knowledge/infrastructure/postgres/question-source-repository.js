@@ -4,6 +4,7 @@ import { withRepositoryErrors } from './repository-utils.js';
 export function createPostgresQuestionSourceRepository({ db }) {
   if (!db?.questionSource) throw new TypeError('PostgreSQL QuestionSource repository requires db.questionSource');
   return {
+    async deleteByQuestionId(questionId) { return withRepositoryErrors(() => db.questionSource.deleteMany({ where: { questionId } }).then(result => result.count)); },
     async findById(id) {
       return withRepositoryErrors(() => db.questionSource.findUnique({
         where: { id }

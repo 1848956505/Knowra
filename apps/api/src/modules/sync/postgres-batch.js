@@ -4,6 +4,7 @@ const tables = [
   ['spaces', 'knowledgeSpace', 'dbSpace'], ['tagGroups', 'tagGroup', 'dbTagGroup'],
   ['folders', 'folder', 'dbFolder'], ['tags', 'tag', 'dbTag'], ['notes', 'note', 'dbNote'],
   ['noteVersions', 'noteVersion', 'dbNoteVersion'], ['attachments', 'attachment', 'dbAttachment'],
+  ['analysisScopeSnapshots', 'analysisScopeSnapshot', 'dbAnalysisScopeSnapshot'],
   ['contentAnnotations', 'contentAnnotation', 'dbAnnotation'], ['annotationExclusions', 'annotationExclusion', 'dbAnnotationExclusion'],
   ['annotationRevisions', 'annotationRevision', 'dbAnnotationRevision'],
   ['knowledgeItems', 'knowledgeItem', 'dbKnowledgeItem'], ['knowledgeEvidence', 'knowledgeEvidence', 'dbKnowledgeEvidence'],

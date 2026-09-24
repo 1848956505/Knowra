@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { Prisma } from '@prisma/client';
 
 export function toDate(value, fallback = new Date()) {
   if (value instanceof Date) {
@@ -48,7 +49,9 @@ export function mapFolder(row) {
     pathCache: row.pathCache ?? '/',
     sortOrder: Number(row.sortOrder ?? 0),
     createdAt: toIso(row.createdAt),
-    updatedAt: toIso(row.updatedAt)
+    updatedAt: toIso(row.updatedAt),
+    deletedAt: row.deletedAt ? toIso(row.deletedAt) : null,
+    deletionPackage: row.deletionPackage ?? null
   };
 }
 
@@ -101,6 +104,8 @@ export function mapNote(row) {
     sourceType: row.sourceType,
     favorite: Boolean(row.favorite),
     deleted: row.deletedAt !== null && row.deletedAt !== undefined,
+    folderDeletionPackageId: row.folderDeletionPackageId ?? null,
+    deletionPackage: row.deletionPackage ?? null,
     tagIds: (row.noteTags ?? []).map((relation) => relation.tagId),
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
@@ -204,6 +209,7 @@ export function mapKnowledgeEvidence(row) {
     headingPath: Array.isArray(row.headingPath) ? [...row.headingPath] : [],
     relationType: row.relationType ?? 'supports',
     status: row.status ?? 'valid',
+    applicabilityStatus: row.applicabilityStatus ?? (row.status === 'invalid' ? 'needsReview' : 'active'),
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
   };
@@ -220,6 +226,7 @@ export function mapLearningObjective(row) {
     difficultyHint: row.difficultyHint ?? null,
     reviewStatus: row.reviewStatus ?? 'candidate',
     reviewNote: row.reviewNote ?? null,
+    deletedAt: row.deletedAt ? toIso(row.deletedAt) : null,
     order: Number(row.order ?? 0),
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
@@ -237,6 +244,7 @@ export function mapExamProfile(row) {
     commonQuestionTypes: Array.isArray(row.commonQuestionTypes) ? [...row.commonQuestionTypes] : [],
     difficultyProfile: row.difficultyProfile && typeof row.difficultyProfile === 'object' ? structuredClone(row.difficultyProfile) : {},
     archivedAt: row.archivedAt ? toIso(row.archivedAt) : null,
+    deletedAt: row.deletedAt ? toIso(row.deletedAt) : null,
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
   };
@@ -254,6 +262,7 @@ export function mapExamFocus(row) {
     questionTypeSuggestions: Array.isArray(row.questionTypeSuggestions) ? [...row.questionTypeSuggestions] : [],
     sourceType: row.sourceType ?? 'manual',
     reviewStatus: row.reviewStatus ?? 'candidate',
+    deletedAt: row.deletedAt ? toIso(row.deletedAt) : null,
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
   };
@@ -273,6 +282,7 @@ export function mapQuestion(row) {
     reviewStatus: row.reviewStatus ?? 'draft',
     sourceMode: row.sourceMode ?? 'manual',
     version: Number(row.version ?? 1),
+    deletedAt: row.deletedAt ? toIso(row.deletedAt) : null,
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt)
   };
@@ -323,6 +333,8 @@ export function buildNoteData(note) {
     sourceType: note.sourceType ?? 'manual',
     favorite: Boolean(note.favorite),
     deletedAt: note.deleted ? toDate(note.updatedAt) : null,
+    folderDeletionPackageId: note.folderDeletionPackageId ?? null,
+    deletionPackage: note.deletionPackage ?? Prisma.DbNull,
     createdAt: toDate(note.createdAt),
     updatedAt: toDate(note.updatedAt)
   };

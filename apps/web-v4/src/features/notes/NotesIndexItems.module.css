@@ -6,6 +6,8 @@
 .table tr[data-kind='folder'] td { background: var(--index-folder-bg); }
 .table tbody tr:hover td { background: var(--ink-bg); }
 .table tr[data-selected] td { background: var(--index-blue-wash); }
+.table tr[data-drop-active] td { background: var(--index-blue-wash); box-shadow: inset 0 0 0 2px var(--ink-accent); }
+.table tr[data-dragging] { opacity: 0.5; }
 .table .selectionColumn, .table .selectionCell { width: var(--index-size-40); padding-inline: var(--index-size-8); }
 .selectionCell label { justify-content: center; }
 .table .nameColumn { width: auto; }
@@ -16,6 +18,8 @@
 .locationData { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .updatedData { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .nameCell { width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--index-size-14); padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
+.nameCell[draggable='true'] { cursor: grab; }
+.nameCell[draggable='true']:active { cursor: grabbing; }
 .nameCell strong { overflow: hidden; font-size: var(--index-size-12); font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .nameCell:hover:not(:disabled) strong { color: var(--ink-accent-hover); }
 .nameCell:disabled { opacity: 1; cursor: default; }
@@ -36,9 +40,13 @@
 .grid { min-height: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--index-size-142), 1fr)); align-content: start; gap: var(--index-size-24); padding: var(--index-size-26); }
 .tileShell { min-width: 0; position: relative; }
 .tile { width: 100%; min-height: var(--index-size-164); display: flex; flex-direction: column; align-items: center; gap: var(--index-size-14); padding: var(--index-size-14) var(--index-size-10); border: var(--index-size-1) solid var(--index-tile-border); background: rgb(255 255 255 / 0.94); color: var(--ink); text-align: center; box-shadow: var(--index-size-2) var(--index-size-2) 0 var(--index-tile-shadow); transition: transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease); }
+.tile[draggable='true'] { cursor: grab; }
+.tile[draggable='true']:active { cursor: grabbing; }
 .tile:hover:not(:disabled) { border-color: var(--ink-accent); background: var(--ink-surface); transform: translate(var(--index-size-n2), var(--index-size-n2)); box-shadow: var(--index-size-4) var(--index-size-4) 0 var(--ink-accent), var(--index-size-8) var(--index-size-8) 0 var(--ink-shadow-hover); }
 .tile:hover:not(:disabled) .folderArt, .tile:hover:not(:disabled) .documentArt { transform: translateY(var(--index-size-n1)); }
 .tile[data-selected] { border-color: var(--ink-accent-hover); background: var(--index-blue-wash); box-shadow: var(--index-size-4) var(--index-size-4) 0 var(--ink-accent), var(--index-size-8) var(--index-size-8) 0 var(--ink-shadow-hover); }
+.tile[data-drop-active], .tile[data-drop-active]:hover:not(:disabled) { border-color: var(--ink-accent-hover); background: var(--index-blue-wash); box-shadow: inset 0 0 0 2px var(--ink-accent), var(--index-size-4) var(--index-size-4) 0 var(--ink-accent); transform: none; }
+.tile[data-dragging] { opacity: 0.5; }
 .tile:disabled { opacity: 1; cursor: default; }
 .tileArt { width: var(--index-size-84); height: var(--index-size-88); display: grid; place-items: center; }
 .folderArt { width: 82px; height: 58px; position: relative; margin-top: var(--index-size-14); border: var(--index-size-2) solid var(--ink-accent-hover); background: #dfe8fb; box-shadow: 5px 5px 0 var(--ink-accent); transition: transform var(--motion-fast) var(--motion-ease); }

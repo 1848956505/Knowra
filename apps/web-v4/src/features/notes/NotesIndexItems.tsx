@@ -5,9 +5,10 @@ import { countFolderNotes, formatUpdatedAt } from './notesIndexModel';
 import { folderLocation, displayNoteStatus } from './notesIndexNavigation';
 import { itemKey, statusClassName, documentToneClass, type IndexItem } from './notesIndexPresentation';
 import { IndexItemActions, RecycleNoteActions, openIndexItemMenu } from './IndexItemActions';
+import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
 import styles from './NotesIndexItems.module.css';
 
-export function NotesTable({ items, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection, canWrite, onItemAction }: {
+interface NotesTableProps {
   items: IndexItem[];
   selectedNoteId: string | null;
   onSelectFolder(id: string): void;
@@ -22,61 +23,75 @@ export function NotesTable({ items, selectedNoteId, onSelectFolder, onSelectNote
   onToggleSelection(noteId: string, selected: boolean): void;
   canWrite: boolean;
   onItemAction(action: SidebarTreeAction): void;
-}) {
+}
+
+export function NotesTable(props: NotesTableProps) {
+  const { items, selectionMode } = props;
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table} data-selection-mode={selectionMode || undefined}>
         <thead><tr>{selectionMode ? <th scope="col" className={styles.selectionColumn}><span className={styles.srOnly}>选择</span></th> : null}<th scope="col" className={styles.nameColumn}>名称</th><th scope="col" className={styles.statusColumn}>状态</th><th scope="col" className={styles.locationColumn}>位置</th><th scope="col" className={styles.updatedColumn}>最近更新</th><th scope="col" className={styles.actionColumn}><span className={styles.srOnly}>操作</span></th></tr></thead>
-        <tbody>{items.map((item) => {
-          const isFolder = item.kind === 'folder';
-          const id = isFolder ? item.folder.id : item.note.id;
-          const name = isFolder ? item.folder.name : item.note.title;
-          const updatedAt = isFolder ? item.folder.updatedAt : item.note.updatedAt;
-          const location = folderLocation(isFolder ? item.folder.parentId : item.note.folderId, foldersById);
-          const status = isFolder ? '文件夹' : (item.note.deleted ? '回收站' : displayNoteStatus(item.note.status));
-          return (
-            <tr
-              key={itemKey(item)}
-              data-kind={item.kind}
-              data-selected={!isFolder && (selectedNoteId === id || selectedNoteIds.has(id)) ? true : undefined}
-              onContextMenu={openIndexItemMenu}
-            >
-              {selectionMode ? <td className={styles.selectionCell}>{!isFolder ? (
-                <Checkbox
-                  aria-label={`选择${name || '未命名笔记'}`}
-                  isSelected={selectedNoteIds.has(id)}
-                  onChange={(selected) => onToggleSelection(id, selected)}
-                />
-              ) : null}</td> : null}
-              <td className={styles.nameData}>
-                <button type="button" className={styles.nameCell} disabled={isRecycleView && !isFolder} onClick={() => {
-                  if (!isFolder && selectionMode) onToggleSelection(id, !selectedNoteIds.has(id));
-                  else if (isFolder) onSelectFolder(id);
-                  else onSelectNote(id);
-                }}>
-                  <span className={`${styles.miniFile} ${isFolder ? styles.miniFolder : documentToneClass(status)}`} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true"><span className={styles.fileLines} /></span>
-                  <strong title={name || '未命名笔记'}>{name || '未命名笔记'}</strong>
-                </button>
-              </td>
-              <td className={styles.statusData}><span className={`${styles.status} ${statusClassName(status)}`}><span className={styles.statusDot} />{status}</span></td>
-              <td className={styles.locationData} title={location}>{location}</td>
-              <td className={styles.updatedData}>{formatUpdatedAt(updatedAt)}</td>
-              <td className={`${styles.more} ${styles.actionData}`}>{!isFolder && isRecycleView ? (
-                <RecycleNoteActions
-                  note={item.note}
-                  pending={recyclePendingId === item.note.id}
-                  onRestore={onRestore}
-                  onRequestPermanentDelete={onRequestPermanentDelete}
-                />
-              ) : (
-                <IndexItemActions item={item} canWrite={canWrite} onAction={onItemAction} />
-              )}</td>
-            </tr>
-          );
-        })}</tbody>
+        <tbody>{items.map((item) => <IndexTableRow key={itemKey(item)} {...props} item={item} />)}</tbody>
       </table>
     </div>
   );
+}
+
+function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection, canWrite, onItemAction }: NotesTableProps & { item: IndexItem }) {
+  const dragDrop = useEntryDragDrop();
+  const isFolder = item.kind === 'folder';
+  const id = isFolder ? item.folder.id : item.note.id;
+  const name = isFolder ? item.folder.name : item.note.title;
+  const updatedAt = isFolder ? item.folder.updatedAt : item.note.updatedAt;
+  const location = folderLocation(isFolder ? item.folder.parentId : item.note.folderId, foldersById);
+  const status = isFolder ? '文件夹' : (item.note.deleted ? '回收站' : displayNoteStatus(item.note.status));
+  const folderDrop = useEntryDropTarget(isFolder && !isRecycleView && !selectionMode ? id : undefined);
+  return <tr
+    data-entry-item
+    data-kind={item.kind}
+    data-selected={!isFolder && (selectedNoteId === id || selectedNoteIds.has(id)) ? true : undefined}
+    data-drop-active={folderDrop.isOver || undefined}
+    data-dragging={dragDrop?.dragging?.kind === item.kind && dragDrop.dragging.id === id || undefined}
+    onDragOver={folderDrop.onDragOver}
+    onDragLeave={folderDrop.onDragLeave}
+    onDrop={folderDrop.onDrop}
+    onContextMenu={openIndexItemMenu}
+  >
+    {selectionMode ? <td className={styles.selectionCell}>{!isFolder ? (
+      <Checkbox
+        aria-label={`选择${name || '未命名笔记'}`}
+        isSelected={selectedNoteIds.has(id)}
+        onChange={(selected) => onToggleSelection(id, selected)}
+      />
+    ) : null}</td> : null}
+    <td className={styles.nameData}>
+      <button type="button" className={styles.nameCell} disabled={isRecycleView && !isFolder}
+        draggable={canWrite && !isRecycleView && !selectionMode}
+        onDragStart={(event) => dragDrop?.start(event, { kind: item.kind, id })}
+        onDragEnd={() => dragDrop?.end()}
+        onClick={() => {
+        if (!isFolder && selectionMode) onToggleSelection(id, !selectedNoteIds.has(id));
+        else if (isFolder) onSelectFolder(id);
+        else onSelectNote(id);
+      }}>
+        <span className={`${styles.miniFile} ${isFolder ? styles.miniFolder : documentToneClass(status)}`} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true"><span className={styles.fileLines} /></span>
+        <strong title={name || '未命名笔记'}>{name || '未命名笔记'}</strong>
+      </button>
+    </td>
+    <td className={styles.statusData}><span className={`${styles.status} ${statusClassName(status)}`}><span className={styles.statusDot} />{status}</span></td>
+    <td className={styles.locationData} title={location}>{location}</td>
+    <td className={styles.updatedData}>{formatUpdatedAt(updatedAt)}</td>
+    <td className={`${styles.more} ${styles.actionData}`}>{!isFolder && isRecycleView ? (
+      <RecycleNoteActions
+        note={item.note}
+        pending={recyclePendingId === item.note.id}
+        onRestore={onRestore}
+        onRequestPermanentDelete={onRequestPermanentDelete}
+      />
+    ) : (
+      <IndexItemActions item={item} canWrite={canWrite} onAction={onItemAction} />
+    )}</td>
+  </tr>;
 }
 export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selected, onToggleSelection, canWrite, onItemAction }: {
   item: IndexItem; notes: Note[]; selectedNoteId: string | null;
@@ -95,8 +110,10 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
   const entity = isFolder ? item.folder : item.note;
   const count = isFolder ? countFolderNotes(item.folder, notes) : 0;
   const status = isFolder ? '文件夹' : displayNoteStatus(item.note.status);
+  const dragDrop = useEntryDragDrop();
+  const folderDrop = useEntryDropTarget(isFolder && !isRecycleView && !selectionMode ? entity.id : undefined);
   return (
-    <div className={styles.tileShell} onContextMenu={openIndexItemMenu}>
+    <div className={styles.tileShell} data-entry-item onContextMenu={openIndexItemMenu}>
       {!isFolder && selectionMode ? <span className={styles.tileSelection}>
         <Checkbox aria-label={`选择${item.note.title || '未命名笔记'}`} isSelected={selected} onChange={(next) => onToggleSelection(item.note.id, next)} />
       </span> : null}
@@ -105,6 +122,14 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
         className={styles.tile}
         disabled={isRecycleView && !isFolder}
         data-selected={!isFolder && (selectedNoteId === entity.id || selected) ? true : undefined}
+        data-drop-active={folderDrop.isOver || undefined}
+        data-dragging={dragDrop?.dragging?.kind === item.kind && dragDrop.dragging.id === entity.id || undefined}
+        draggable={canWrite && !isRecycleView && !selectionMode}
+        onDragStart={(event) => dragDrop?.start(event, { kind: item.kind, id: entity.id })}
+        onDragEnd={() => dragDrop?.end()}
+        onDragOver={folderDrop.onDragOver}
+        onDragLeave={folderDrop.onDragLeave}
+        onDrop={folderDrop.onDrop}
         onClick={() => {
           if (!isFolder && selectionMode) onToggleSelection(entity.id, !selected);
           else if (isFolder) onSelectFolder(entity.id);

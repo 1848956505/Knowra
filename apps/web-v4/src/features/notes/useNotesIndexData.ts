@@ -13,6 +13,7 @@ export function useNotesIndexData({ sort, typeFilter, queryString, urlTagIds, ta
   const notesIndex = useAppStore(state => state.notesIndex);
   const queryNotes = useAppStore(state => state.queryNotes);
   const dataMode = useAppStore(state => state.dataMode);
+  const knowledgeGeneration = useAppStore(state => state.knowledgeGeneration);
   const useServerQuery = dataMode === 'api' && !['root', 'unfiled'].includes(notesIndex.scope);
   const [remotePage, setRemotePage] = useState<NoteQueryPage | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
@@ -60,7 +61,7 @@ export function useNotesIndexData({ sort, typeFilter, queryString, urlTagIds, ta
       }
     });
     return () => { active = false; };
-  }, [queryNotes, queryString, remoteQuery, remoteRevision, useServerQuery]);
+  }, [knowledgeGeneration, queryNotes, queryString, remoteQuery, remoteRevision, useServerQuery]);
 
   const loadMore = useCallback(async () => {
     if (!useServerQuery || !remotePage?.hasNext || loadingRef.current) return;

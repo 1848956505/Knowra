@@ -35,10 +35,16 @@ export async function handleFolderRoute({ request, response, url, knowledge }) {
     return true;
   }
 
+  const restoreMatch = url.pathname.match(/^\/api\/knowledge\/folders\/([^/]+)\/restore$/);
+  if (request.method === 'POST' && restoreMatch) {
+    sendJson(response, 200, { data: await knowledge.restoreFolder({ id: decodeURIComponent(restoreMatch[1]) }) });
+    return true;
+  }
+
   if (request.method === 'DELETE' && folderMatch) {
     const folderId = folderMatch[1];
     sendJson(response, 200, {
-      data: await knowledge.deleteFolder({ id: decodeURIComponent(folderId) })
+      data: await knowledge.deleteFolder({ id: decodeURIComponent(folderId) }, await parseBody(request))
     });
     return true;
   }

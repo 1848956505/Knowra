@@ -13,6 +13,7 @@ export function createPostgresLearningObjectiveRepository({ db }) {
       difficultyHint: objective.difficultyHint ?? null,
       reviewStatus: objective.reviewStatus,
       reviewNote: objective.reviewNote ?? null,
+      deletedAt: objective.deletedAt ? toDate(objective.deletedAt) : null,
       order: objective.order,
       createdAt: toDate(objective.createdAt),
       updatedAt: toDate(objective.updatedAt)
@@ -29,12 +30,14 @@ export function createPostgresLearningObjectiveRepository({ db }) {
       return withRepositoryErrors(() => db.learningObjective.upsert({ where: { id: data.id }, create: data, update: (() => { const { id: _id, createdAt: _createdAt, ...rest } = data; return rest; })() }).then(mapLearningObjective));
     },
     async findById(id) { return withRepositoryErrors(() => db.learningObjective.findUnique({ where: { id } }).then(mapLearningObjective)); },
-    list({ knowledgeItemId, reviewStatus, includeArchived = false } = {}) {
+    list({ knowledgeItemId, reviewStatus, includeArchived = false, includeDeleted = false } = {}) {
       const where = { ...(knowledgeItemId ? { knowledgeItemId } : {}) };
+      if (!includeDeleted) where.deletedAt = null;
       if (reviewStatus) where.reviewStatus = reviewStatus;
       else if (!includeArchived) where.reviewStatus = { not: 'archived' };
       return withRepositoryErrors(() => db.learningObjective.findMany({ where, orderBy: [{ order: 'asc' }, { updatedAt: 'desc' }] }).then((rows) => rows.map(mapLearningObjective)));
     },
+    async delete(id) { return withRepositoryErrors(() => db.learningObjective.delete({ where: { id } }).then(mapLearningObjective)); },
     supportsAsync: true
   };
 }

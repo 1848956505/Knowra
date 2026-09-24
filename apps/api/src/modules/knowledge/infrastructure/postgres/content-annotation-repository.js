@@ -71,7 +71,7 @@ export function createPostgresContentAnnotationRepository({ db }) {
           where: {
             noteId,
             kind,
-            lifecycleStatus: { not: 'archived' },
+            lifecycleStatus: 'active',
             ...(anchorFingerprint
               ? { scopeType, anchorFingerprint }
               : { quoteText, fromPosition, toPosition })
@@ -86,7 +86,7 @@ export function createPostgresContentAnnotationRepository({ db }) {
         ...(kind ? { kind } : {}),
         ...(scopeType ? { scopeType } : {}),
         ...(anchorStatus ? { anchorStatus } : {}),
-        ...(includeDeleted ? {} : { lifecycleStatus: { not: 'archived' } })
+        ...(includeDeleted ? {} : { lifecycleStatus: 'active' })
       };
       return withRepositoryErrors(async () => (await db.contentAnnotation.findMany({
         where,
@@ -106,7 +106,7 @@ export function createPostgresContentAnnotationRepository({ db }) {
     async markStaleByNoteId(noteId, currentContentHash) {
       return withRepositoryErrors(async () => {
         const rows = await db.contentAnnotation.findMany({
-          where: { noteId, lifecycleStatus: { not: 'archived' }, noteContentHash: { not: currentContentHash } }
+          where: { noteId, lifecycleStatus: 'active', noteContentHash: { not: currentContentHash } }
         });
         if (!rows.length) return [];
         await db.contentAnnotation.updateMany({

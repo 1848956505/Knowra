@@ -21,6 +21,12 @@ export function createFolderService({
     return folder;
   }
 
+  function requireActiveFolder(folderId) {
+    const folder = requireFolder(folderId);
+    if (folder.deletedAt) throw conflictError('FOLDER_IN_TRASH', '文件夹位于回收站');
+    return folder;
+  }
+
   function normalizeSegment(name) {
     return String(name ?? '')
       .trim()
@@ -48,7 +54,7 @@ export function createFolderService({
       throw conflictError('FOLDER_PARENT_CONFLICT', 'Folder cannot be its own parent');
     }
 
-    const parentFolder = requireFolder(parentId);
+    const parentFolder = requireActiveFolder(parentId);
 
     if (parentFolder.spaceId !== spaceId) {
       throw conflictError(
@@ -91,7 +97,7 @@ export function createFolderService({
   }
 
   function collectSubtreeIds(folderId) {
-    const allFolders = repository.list();
+    const allFolders = repository.list({ includeDeleted: true });
     const ids = new Set([folderId]);
     const queue = [folderId];
 
@@ -138,7 +144,7 @@ export function createFolderService({
       return folder;
     },
     updateFolder(folderId, updates) {
-      const currentFolder = requireFolder(folderId);
+      const currentFolder = requireActiveFolder(folderId);
       const dto = buildUpdateFolderDto(updates);
       const nextParentId = dto.parentId !== undefined ? dto.parentId : currentFolder.parentId;
       validateSiblingNameConflict?.({
@@ -163,12 +169,18 @@ export function createFolderService({
       reindexDescendants(updatedFolder);
       return updatedFolder;
     },
-    deleteFolder(folderId) {
-      const folder = requireFolder(folderId);
+    trashFolder(folderId, deletionPackage) {
+      requireActiveFolder(folderId);
       const deletedIds = collectSubtreeIds(folderId);
-      const deletedFolders = deletedIds.map((id) => requireFolder(id));
-      deletedIds.forEach((id) => repository.delete(id));
-      return deletedFolders;
+      const deletedAt = new Date().toISOString();
+      return deletedIds.map(id => repository.save(new Folder({ ...requireActiveFolder(id), deletedAt, deletionPackage: id === folderId ? deletionPackage : null, updatedAt: deletedAt })));
+    },
+    restoreDeletedFolder(folderId) {
+      const root = requireFolder(folderId);
+      if (!root.deletedAt || !root.deletionPackage) throw conflictError('FOLDER_NOT_IN_TRASH', '文件夹不在回收站中');
+      const folders = root.deletionPackage.folderIds.map(id => requireFolder(id));
+      for (const folder of folders) validateSiblingNameConflict?.({ spaceId: folder.spaceId, parentId: folder.parentId, name: folder.name, currentFolderId: folder.id });
+      return folders.map(folder => repository.save(new Folder({ ...folder, deletedAt: null, deletionPackage: null, updatedAt: new Date().toISOString() })));
     },
     listFolders(options = {}) {
       return repository.list(options);

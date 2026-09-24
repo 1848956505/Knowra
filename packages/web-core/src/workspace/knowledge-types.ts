@@ -38,6 +38,8 @@ export interface KnowledgeEvidence {
   headingPath: string[];
   relationType: 'supports';
   status: KnowledgeEvidenceStatus;
+  applicabilityStatus?: 'active' | 'withdrawn' | 'needsReview';
+  sourceAnnotationRemoved?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +89,7 @@ export interface KnowledgeItemQuery {
   query?: string;
   noteId?: string;
   includeArchived?: boolean;
+  includeDeleted?: boolean;
 }
 
 export interface KnowledgeCandidateResult {

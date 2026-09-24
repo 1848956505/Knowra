@@ -3,11 +3,11 @@ const SOURCE_MODES = new Set(['manual', 'ai']);
 const ANNOTATION_STATUSES = new Set(['active', 'stale', 'archived']);
 const SCOPE_TYPES = new Set(['selection', 'blocks', 'section']);
 const IMPORTANCE_LEVELS = new Set([null, 'normal', 'important', 'core']);
-const LIFECYCLE_STATUSES = new Set(['active', 'archived']);
+const LIFECYCLE_STATUSES = new Set(['active', 'archived', 'deleted']);
 const ANCHOR_STATUSES = new Set(['resolved', 'needsReview', 'missing']);
 
 export function projectLegacyAnnotationStatus({ lifecycleStatus, anchorStatus }) {
-  if (lifecycleStatus === 'archived') return 'archived';
+  if (lifecycleStatus === 'archived' || lifecycleStatus === 'deleted') return 'archived';
   return anchorStatus === 'resolved' ? 'active' : 'stale';
 }
 

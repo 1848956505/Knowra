@@ -25,7 +25,7 @@ export function createWorkspaceSlice(
 
   const runLoad = async (force = false): Promise<void> => {
     if (activeLoad && !force) return activeLoad;
-    activeLoad = loadWorkspaceState(dependencies, set).finally(() => {
+    activeLoad = loadWorkspaceState(dependencies, set, get().serverData.currentSpaceId).finally(() => {
       activeLoad = null;
     });
     return activeLoad;
@@ -44,7 +44,8 @@ export function createWorkspaceSlice(
       const before = get();
       if (before.persistenceMode !== 'desktop-local' || before.editorHasLocalChanges || before.saveState === 'saving' || activeLoad) return false;
       const spaces = await dependencies.api.listKnowledgeSpaces();
-      const currentSpaceId = spaces[0]?.id;
+      const currentSpaceId = spaces.find(space => space.id === before.serverData.currentSpaceId)?.id
+        ?? spaces.find(space => space.defaultFlag)?.id ?? spaces[0]?.id;
       if (!currentSpaceId) return false;
       const resources = await dependencies.api.loadWorkspaceResources(currentSpaceId);
       const notes = normalizeNotes(resources.notes);
@@ -59,6 +60,40 @@ export function createWorkspaceSlice(
       return true;
     },
     canWriteWorkspace: () => get().dataMode === 'api',
+    async selectKnowledgeSpace(id) {
+      const before = get();
+      if (!before.serverData.spaces.some(space => space.id === id)) throw new Error('目标空间不存在。');
+      const resources = await dependencies.api.loadWorkspaceResources(id);
+      const folderTree = normalizeFolderTree(resources.folderTree);
+      set({ serverData: { ...get().serverData, currentSpaceId: id, folderTree, foldersById: flattenFolderTree(folderTree), notes: normalizeNotes(resources.notes), tags: resources.tags, tagGroups: resources.tagGroups ?? [] } });
+      await runLoad(true);
+    },
+    async createKnowledgeSpace(name) {
+      if (!dependencies.api.createKnowledgeSpace) throw new Error('当前服务尚不支持空间管理。');
+      const space = await dependencies.api.createKnowledgeSpace({ name });
+      await runLoad(true);
+      return space;
+    },
+    async inspectEmptySpaceDeletion(id) {
+      if (!dependencies.api.inspectEmptySpaceDeletion) throw new Error('当前服务尚不支持空间删除预检。');
+      return dependencies.api.inspectEmptySpaceDeletion(id);
+    },
+    async deleteEmptySpace(id, expectedUpdatedAt) {
+      if (get().persistenceMode === 'desktop-local') throw new Error('桌面端暂不支持永久删除空间，请在网页版完成。');
+      if (!dependencies.api.deleteEmptySpace) throw new Error('当前服务尚不支持空间删除。');
+      await dependencies.api.deleteEmptySpace(id, { expectedUpdatedAt });
+      await runLoad(true);
+    },
+    async previewSpaceMigration(sourceId, targetId) {
+      if (!dependencies.api.previewSpaceMigration) throw new Error('当前服务尚不支持空间迁移预检。');
+      return dependencies.api.previewSpaceMigration(sourceId, targetId);
+    },
+    async migrateSpaceAssets(sourceId, targetId, expectedPreviewHash) {
+      if (get().persistenceMode === 'desktop-local') throw new Error('桌面端暂不支持空间整包迁移，请在网页版完成。');
+      if (!dependencies.api.migrateSpaceAssets) throw new Error('当前服务尚不支持空间迁移。');
+      await dependencies.api.migrateSpaceAssets(sourceId, { targetSpaceId: targetId, expectedPreviewHash });
+      await runLoad(true);
+    },
     async createNote(folderId, title) {
       return executeWorkspaceMutation(set, get, '正在新建笔记…', async (spaceId) => {
         const created = await dependencies.api.createNote({
@@ -386,6 +421,15 @@ export function createWorkspaceSlice(
         message: '分析范围快照已保存'
       }));
     },
+    async listAnalysisScopes(spaceId) {
+      return dependencies.api.listAnalysisScopes!(spaceId);
+    },
+    async trashAnalysisScope(id, input) {
+      return executeWorkspaceMutation(set, get, '正在移入分析范围回收站…', async () => ({ result: await dependencies.api.trashAnalysisScope!(id, input), message: '分析范围已移入回收站' }));
+    },
+    async restoreAnalysisScope(id, input) {
+      return executeWorkspaceMutation(set, get, '正在恢复分析范围…', async () => ({ result: await dependencies.api.restoreAnalysisScope!(id, input), message: '分析范围已恢复' }));
+    },
     async createAnnotationExclusion(annotationId, input) {
       return executeWorkspaceMutation(set, get, '正在保存局部排除…', async () => ({
         result: await dependencies.api.createAnnotationExclusion!(annotationId, input),
@@ -404,6 +448,10 @@ export function createWorkspaceSlice(
     async listNoteVersionPage(noteId, options) {
       if (!dependencies.api.listNoteVersionPage) throw new Error('当前服务尚不支持分页历史记录，请升级后重试。');
       return dependencies.api.listNoteVersionPage(noteId, options);
+    },
+    async previewNoteVersionPrune(noteId) {
+      if (!dependencies.api.previewNoteVersionPrune) throw new Error('当前服务尚不支持版本清理预览，请升级后重试。');
+      return dependencies.api.previewNoteVersionPrune(noteId);
     },
     async saveNoteVersionAs(noteId, versionId) {
       return executeWorkspaceMutation(set, get, '正在另存历史版本…', async (spaceId) => {
@@ -470,14 +518,24 @@ export function createWorkspaceSlice(
         return { result: undefined, message: '文件夹已重命名' };
       });
     },
-    async deleteFolder(folderId) {
+    async deleteFolder(folderId, input) {
       return executeWorkspaceMutation(set, get, '正在删除文件夹…', async () => {
         const parentId = get().serverData.foldersById[folderId]?.parentId ?? null;
-        await dependencies.api.deleteFolder(folderId);
+        await dependencies.api.deleteFolder(folderId, input);
         await runLoad(true);
         get().selectNotesFolder(parentId);
-        return { result: undefined, message: '文件夹已删除，原有笔记已移至未整理' };
+        return { result: undefined, message: input.mode === 'keep' ? '文件夹已移入回收站，笔记已移至指定位置' : '文件夹和其中的笔记已移入回收站' };
       });
+    },
+    async restoreFolder(folderId) {
+      return executeWorkspaceMutation(set, get, '正在恢复文件夹…', async () => {
+        await dependencies.api.restoreFolder!(folderId);
+        await runLoad(true);
+        return { result: undefined, message: '文件夹已恢复' };
+      });
+    },
+    async listDeletedFolders(spaceId) {
+      return dependencies.api.listDeletedFolders!(spaceId);
     },
     async emptyRecycleBin() {
       if (!workspaceCapabilities(get().persistenceMode).permanentDelete) throw new Error(LOCAL_PERMANENT_DELETE_REASON);

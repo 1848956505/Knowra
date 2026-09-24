@@ -139,6 +139,8 @@ function validateEntity(collectionName, item, index) {
   } else if (collectionName === 'folders') {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.name, `${location}.name`);
+    if (item.deletedAt && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
+    if (item.deletionPackage && (!Array.isArray(item.deletionPackage.folderIds) || !Array.isArray(item.deletionPackage.noteIds))) invalidSnapshot(`${location}.deletionPackage is invalid`);
   } else if (collectionName === 'tags') {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.name, `${location}.name`);
@@ -147,6 +149,7 @@ function validateEntity(collectionName, item, index) {
     assertNonEmptyString(item.name, `${location}.name`);
   } else if (collectionName === 'notes') {
     assertNonEmptyString(item.title, `${location}.title`);
+    if (item.deletionPackage && (!Array.isArray(item.deletionPackage.annotationStates) || !item.deletionPackage.id)) invalidSnapshot(`${location}.deletionPackage is invalid`);
     if (typeof item.rawMarkdown !== 'string') {
       invalidSnapshot(`${location}.rawMarkdown must be a string`);
     }
@@ -201,12 +204,14 @@ function validateEntity(collectionName, item, index) {
       ['valid', 'stale', 'invalid', 'insufficient'],
       `${location}.status`
     );
+    assertAllowedValue(item.applicabilityStatus ?? (item.status === 'invalid' ? 'needsReview' : 'active'), ['active', 'withdrawn', 'needsReview'], `${location}.applicabilityStatus`);
     assertAllowedValue(
       item.relationType ?? 'supports',
       ['supports'],
       `${location}.relationType`
     );
   } else if (collectionName === 'learningObjectives') {
+    if (item.deletedAt != null && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
     assertNonEmptyString(item.knowledgeItemId, `${location}.knowledgeItemId`);
     if (typeof item.objective !== 'string' || typeof item.actionVerb !== 'string' || typeof item.cognitiveLevel !== 'string') invalidSnapshot(`${location} text fields are invalid`);
     assertAllowedValue(item.actionVerb ?? '', ['', 'identify', 'explain', 'apply', 'compare', 'analyze', 'calculate', 'design', 'evaluate'], `${location}.actionVerb`);
@@ -215,9 +220,11 @@ function validateEntity(collectionName, item, index) {
     assertAllowedValue(item.reviewStatus ?? 'candidate', ['candidate', 'confirmed', 'archived'], `${location}.reviewStatus`);
     if (!Number.isInteger(Number(item.order ?? 0)) || Number(item.order ?? 0) < 0) invalidSnapshot(`${location}.order is invalid`);
   } else if (collectionName === 'examProfiles') {
+    if (item.deletedAt != null && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
     assertNonEmptyString(item.name, `${location}.name`);
     if (!Array.isArray(item.scope ?? []) || !Array.isArray(item.commonQuestionTypes ?? []) || !item.difficultyProfile || typeof item.difficultyProfile !== 'object' || Array.isArray(item.difficultyProfile)) invalidSnapshot(`${location} structured fields are invalid`);
   } else if (collectionName === 'examFocuses') {
+    if (item.deletedAt != null && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
     assertNonEmptyString(item.examProfileId, `${location}.examProfileId`);
     assertNonEmptyString(item.learningObjectiveId, `${location}.learningObjectiveId`);
     assertAllowedValue(item.sourceType ?? 'manual', ['manual', 'ai', 'pastPaper', 'syllabus'], `${location}.sourceType`);
@@ -225,6 +232,7 @@ function validateEntity(collectionName, item, index) {
     if (!Number.isInteger(Number(item.priority ?? 1)) || Number(item.priority ?? 1) < 1) invalidSnapshot(`${location}.priority is invalid`);
     if (!Array.isArray(item.questionTypeSuggestions ?? [])) invalidSnapshot(`${location}.questionTypeSuggestions must be an array`);
   } else if (collectionName === 'questions') {
+    if (item.deletedAt != null && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
     assertAllowedValue(item.questionType ?? 'shortAnswer', ['singleChoice', 'multipleChoice', 'trueFalse', 'shortAnswer'], `${location}.questionType`);
     assertAllowedValue(item.reviewStatus ?? 'draft', ['draft', 'validating', 'candidate', 'confirmed', 'archived'], `${location}.reviewStatus`);
     assertAllowedValue(item.sourceMode ?? 'manual', ['manual', 'ai', 'import'], `${location}.sourceMode`);
@@ -257,7 +265,7 @@ function validateEntity(collectionName, item, index) {
     assertNonEmptyString(item.quoteText, `${location}.quoteText`);
     assertAllowedValue(item.schemaVersion ?? 1, [1, 2], `${location}.schemaVersion`);
     assertAllowedValue(item.scopeType ?? 'selection', ['selection', 'blocks', 'section'], `${location}.scopeType`);
-    assertAllowedValue(item.lifecycleStatus ?? (item.status === 'archived' ? 'archived' : 'active'), ['active', 'archived'], `${location}.lifecycleStatus`);
+    assertAllowedValue(item.lifecycleStatus ?? (item.status === 'archived' ? 'archived' : 'active'), ['active', 'archived', 'deleted'], `${location}.lifecycleStatus`);
     assertAllowedValue(item.anchorStatus ?? (item.status === 'stale' ? 'needsReview' : 'resolved'), ['resolved', 'needsReview', 'missing'], `${location}.anchorStatus`);
     if (item.schemaVersion === 2 && (!item.anchor || typeof item.anchor !== 'object' || Array.isArray(item.anchor))) invalidSnapshot(`${location}.anchor is invalid`);
   } else if (collectionName === 'annotationExclusions') {
@@ -271,6 +279,7 @@ function validateEntity(collectionName, item, index) {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.inputHash, `${location}.inputHash`);
     assertNonEmptyString(item.idempotencyKey, `${location}.idempotencyKey`);
+    if (item.deletedAt !== undefined && item.deletedAt !== null && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
     for (const field of ['noteVersions', 'selections', 'segments', 'contextSegments', 'exclusions', 'omittedItems', 'annotationRevisions']) {
       if (!Array.isArray(item[field])) invalidSnapshot(`${location}.${field} must be an array`);
     }

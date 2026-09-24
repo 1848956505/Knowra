@@ -14,7 +14,7 @@ const candidate: KnowledgeItem = { id: 'k1', title: '数据增强', canonicalSta
 const archived: KnowledgeItem = { ...candidate, id: 'k2', title: '已归档的观点', reviewStatus: 'archived' };
 const evidence: KnowledgeEvidence = { id: 'e1', knowledgeItemId: 'k1', sourceType: 'annotation', annotationId: 'a1', noteId: 'n1', noteVersionId: 'v1', sourceId: 'a1', quoteText: '样本变换', headingPath: ['样本操作'], relationType: 'supports', status: 'valid', createdAt: candidate.createdAt, updatedAt: candidate.updatedAt };
 function props(overrides: Partial<KnowledgeWorkspaceViewProps> = {}): KnowledgeWorkspaceViewProps {
-  return { selectedItemId: 'k1', canWrite: true, notes: [], onSelectItem: vi.fn(), onOpenNote: vi.fn(), onList: vi.fn().mockResolvedValue([candidate, archived]), onGet: vi.fn().mockResolvedValue(candidate), onListEvidence: vi.fn().mockResolvedValue([evidence]), onListAnnotations: vi.fn().mockResolvedValue([]), onCreateEvidence: vi.fn().mockResolvedValue(evidence), onRetireEvidence: vi.fn().mockResolvedValue({ item: candidate, evidence: { ...evidence, status: 'invalid' } }), onCreate: vi.fn().mockResolvedValue({ item: candidate, evidence: [evidence] }), onUpdate: vi.fn().mockResolvedValue(candidate), onConfirm: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'confirmed', updatedAt: '2026-09-21T11:00:00.000Z' }), onArchive: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'archived' }), onRestore: vi.fn().mockResolvedValue(candidate), ...overrides };
+  return { selectedItemId: 'k1', canWrite: true, notes: [], onSelectItem: vi.fn(), onOpenNote: vi.fn(), onList: vi.fn().mockResolvedValue([candidate, archived]), onGet: vi.fn().mockResolvedValue(candidate), onListEvidence: vi.fn().mockResolvedValue([evidence]), onListAnnotations: vi.fn().mockResolvedValue([]), onCreateEvidence: vi.fn().mockResolvedValue(evidence), onRetireEvidence: vi.fn().mockResolvedValue({ item: candidate, evidence: { ...evidence, status: 'invalid' } }), onCreate: vi.fn().mockResolvedValue({ item: candidate, evidence: [evidence] }), onUpdate: vi.fn().mockResolvedValue(candidate), onConfirm: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'confirmed', updatedAt: '2026-09-21T11:00:00.000Z' }), onArchive: vi.fn().mockResolvedValue({ ...candidate, reviewStatus: 'archived' }), onRestore: vi.fn().mockResolvedValue(candidate), onTrash: vi.fn().mockResolvedValue({ ...candidate, deletedAt: '2026-09-23T00:00:00.000Z' }), onRestoreDeleted: vi.fn().mockResolvedValue(candidate), ...overrides };
 }
 
 describe('KnowledgeWorkspaceView', () => {
@@ -22,13 +22,14 @@ describe('KnowledgeWorkspaceView', () => {
     const user = userEvent.setup(); const input = props();
     render(<KnowledgeWorkspaceView {...input} />);
     const list = screen.getByRole('region', { name: '知识列表' });
+    const statusFilters = screen.getByRole('group', { name: '按知识状态筛选' });
     await within(list).findByRole('button', { name: /数据增强/ });
     expect(within(list).queryByRole('button', { name: /已归档的观点/ })).not.toBeInTheDocument();
-    expect(input.onList).toHaveBeenCalledWith({ includeArchived: true });
-    await user.click(within(list).getByRole('button', { name: '已归档 1' }));
+    expect(input.onList).toHaveBeenCalledWith({ includeArchived: true, includeDeleted: true });
+    await user.click(within(statusFilters).getByRole('button', { name: '已归档 1' }));
     expect(within(list).getByRole('button', { name: /已归档的观点/ })).toBeInTheDocument();
     expect(within(list).queryByRole('button', { name: /数据增强/ })).not.toBeInTheDocument();
-    await user.click(within(list).getByRole('button', { name: '全部未归档' }));
+    await user.click(within(statusFilters).getByRole('button', { name: '全部未归档' }));
     await user.type(screen.getByRole('searchbox', { name: '搜索知识' }), '不存在的知识');
     expect(within(list).getByText('没有符合条件的知识。')).toBeInTheDocument();
     await user.clear(screen.getByRole('searchbox', { name: '搜索知识' }));
@@ -67,6 +68,25 @@ describe('KnowledgeWorkspaceView', () => {
     expect(input.onArchive).toHaveBeenCalledWith('k1', { expectedUpdatedAt: candidate.updatedAt });
     expect(input.onRestore).toHaveBeenCalledWith('k1', { expectedUpdatedAt: candidate.updatedAt });
     expect(await screen.findByText('已恢复为候选，请重新核对后确认。')).toBeInTheDocument();
+  });
+
+  it('知识进入回收站后可按原身份恢复并继续查看历史来源', async () => {
+    const user = userEvent.setup(); const input = props();
+    render(<KnowledgeWorkspaceView {...input} />);
+    await user.click(await screen.findByRole('button', { name: '移入回收站' }));
+    expect(screen.getByRole('dialog', { name: '移入知识回收站？' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '确认移入回收站' }));
+    await waitFor(() => expect(input.onTrash).toHaveBeenCalledWith('k1', { expectedUpdatedAt: candidate.updatedAt }));
+    expect(await screen.findByRole('button', { name: '从回收站恢复' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '知识来源' })).toHaveTextContent('样本变换');
+    await user.click(screen.getByRole('button', { name: '从回收站恢复' }));
+    await waitFor(() => expect(input.onRestoreDeleted).toHaveBeenCalledWith('k1', { expectedUpdatedAt: expect.any(String) }));
+  });
+
+  it('来源标注取消后明确标示历史摘录的原标注已移除', async () => {
+    render(<KnowledgeWorkspaceView {...props({ onListEvidence: vi.fn().mockResolvedValue([{ ...evidence, sourceAnnotationRemoved: true }]) })} />);
+    expect(await screen.findByText('原标注已移除')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '知识来源' })).toHaveTextContent('样本变换');
   });
 
   it('桌面只读原因可见，所有知识写入都禁用', async () => {
@@ -110,7 +130,7 @@ describe('KnowledgeWorkspaceView', () => {
     await user.click(screen.getByRole('button', { name: '确认更换' }));
     await waitFor(() => expect(input.onRetireEvidence).toHaveBeenCalledWith('k1', 'e1', { expectedUpdatedAt: evidence.updatedAt }));
 
-    await user.click(screen.getByRole('button', { name: '移除来源' }));
+    await user.click(screen.getByRole('button', { name: '撤回适用性' }));
     await user.click(screen.getByRole('button', { name: '确认移除' }));
     await waitFor(() => expect(input.onRetireEvidence).toHaveBeenCalledTimes(2));
   });

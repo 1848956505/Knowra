@@ -22,6 +22,7 @@ export class LearningObjective {
     difficultyHint = null,
     reviewStatus = 'candidate',
     reviewNote = null,
+    deletedAt = null,
     order = 0,
     createdAt = new Date().toISOString(),
     updatedAt = createdAt
@@ -48,6 +49,7 @@ export class LearningObjective {
       difficultyHint: difficultyHint || null,
       reviewStatus,
       reviewNote: reviewNote?.trim?.() || null,
+      deletedAt,
       order: Number(order),
       createdAt,
       updatedAt

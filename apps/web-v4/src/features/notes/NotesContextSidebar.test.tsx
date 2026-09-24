@@ -92,6 +92,23 @@ describe('NotesContextSidebar', () => {
     expect(screen.getByRole('button', { name: '设计' })).toBeInTheDocument();
   });
 
+  it('uses the shared menu for tag context actions and closes it with Escape', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+    const tag = screen.getByRole('button', { name: '设计' });
+
+    fireEvent.contextMenu(tag, { clientX: 160, clientY: 120 });
+    expect(await screen.findByRole('menu', { name: '标签操作' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '固定标签' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu', { name: '标签操作' })).not.toBeInTheDocument());
+
+    fireEvent.contextMenu(tag, { clientX: 180, clientY: 130 });
+    await user.click(await screen.findByRole('menuitem', { name: '固定标签' }));
+    fireEvent.contextMenu(tag, { clientX: 180, clientY: 130 });
+    expect(await screen.findByRole('menuitem', { name: '取消固定' })).toBeInTheDocument();
+  });
+
   it('offers folder creation from the folder section when the library is empty', async () => {
     renderSidebar({ empty: true });
 
@@ -152,9 +169,9 @@ describe('NotesContextSidebar', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /产品设计2/ }));
     await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
-    expect(screen.getByRole('dialog', { name: '删除文件夹？' })).toHaveTextContent('其中的笔记会移至未整理');
+    expect(screen.getByRole('dialog', { name: '删除文件夹？' })).toHaveTextContent('请选择其中笔记的处理方式');
     await userEvent.click(screen.getByRole('button', { name: '删除' }));
-    await waitFor(() => expect(api.deleteFolder).toHaveBeenCalledWith('folder-1'));
+    await waitFor(() => expect(api.deleteFolder).toHaveBeenCalledWith('folder-1', { mode: 'keep', destinationId: null }));
   });
 
   it('offers favorite, rename and delete actions from a note context menu', async () => {

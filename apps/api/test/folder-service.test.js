@@ -188,10 +188,11 @@ export const folderServiceTests = [
         name: 'Child'
       });
 
-      const deleted = folderService.deleteFolder('folder-root');
+      const deleted = folderService.trashFolder('folder-root', { id: 'package-1', mode: 'keep', folderIds: ['folder-root', 'folder-child'], noteIds: [], destinationId: null });
 
       assert.equal(deleted.length, 2);
       assert.equal(folderService.listFolders({ spaceId: 'space-1' }).length, 0);
+      assert.equal(folderService.restoreDeletedFolder('folder-root').length, 2);
     }
   },
   {
@@ -231,7 +232,7 @@ export const folderServiceTests = [
         name: 'Delete Me'
       });
 
-      const deleted = folderService.deleteFolder('folder-delete-1');
+      const deleted = folderService.trashFolder('folder-delete-1', { id: 'package-2', mode: 'keep', folderIds: ['folder-delete-1'], noteIds: [], destinationId: null });
 
       assert.equal(deleted[0].id, 'folder-delete-1');
       assert.equal(folderService.listFolders({ spaceId: 'space-1' }).length, 0);

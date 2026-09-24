@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
-import { appendChanges, createJournal, loadJournal } from '../modules/sync/journal.js';
+import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
 import {
   LOCAL_DATA_COLLECTIONS,
   LOCAL_DATA_SCHEMA_VERSION,
@@ -99,8 +99,19 @@ export function createFileDataStore(filePath, {
 
   function commitImport(preparedSnapshot) {
     const validated = validateLocalSnapshot(preparedSnapshot);
+    for (const collection of LOCAL_DATA_COLLECTIONS) {
+      for (const item of validated.data[collection]) {
+        if (journal.tombstones?.[syncKey(collection, item.id)]) {
+          throw createAppError('IMPORT_DELETED_ID', '旧备份包含已经永久删除的对象，请使用新的资产 ID 导入。', 409, { collection, id: item.id });
+        }
+      }
+    }
     const previousJournal = journal;
     journal = createJournal(validated.data);
+    journal.tombstones = structuredClone(previousJournal.tombstones ?? {});
+    for (const [key, tombstone] of Object.entries(journal.tombstones)) {
+      journal.revisions[key] = tombstone.revision;
+    }
     try { persistState(validated.data); } catch (error) { journal = previousJournal; throw error; }
     replaceState(state, validated.data);
     return exportSnapshot();

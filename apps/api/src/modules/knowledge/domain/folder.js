@@ -7,7 +7,9 @@ export class Folder {
     pathCache = '/',
     sortOrder = 0,
     createdAt = new Date().toISOString(),
-    updatedAt = createdAt
+    updatedAt = createdAt,
+    deletedAt = null,
+    deletionPackage = null
   }) {
     if (!id?.trim()) {
       throw new Error('Folder id is required');
@@ -27,5 +29,7 @@ export class Folder {
     this.sortOrder = sortOrder;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
+    this.deletedAt = deletedAt;
+    this.deletionPackage = deletionPackage;
   }
 }

@@ -31,7 +31,9 @@ export class Note {
     internalLinks,
     contentHash = null,
     createdAt = new Date().toISOString(),
-    updatedAt = createdAt
+    updatedAt = createdAt,
+    folderDeletionPackageId = null,
+    deletionPackage = null
   }) {
     if (!id?.trim()) {
       throw new Error('Note id is required');
@@ -62,5 +64,7 @@ export class Note {
     this.tagIds = [...new Set(tagIds)];
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
+    this.folderDeletionPackageId = folderDeletionPackageId;
+    this.deletionPackage = deletionPackage;
   }
 }

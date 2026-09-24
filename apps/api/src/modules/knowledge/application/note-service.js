@@ -15,6 +15,7 @@ export function createNoteService({
   validateNoteReferences = null,
   normalizeTagIds = (tagIds) => [...new Set(tagIds)],
   noteVersionService = null,
+  annotationRepository = null,
   runTransaction = (operation) => operation(),
   onNoteContentChanged = null,
   onNoteDeleted = null,
@@ -181,11 +182,15 @@ export function createNoteService({
     },
     deleteNote(noteId) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
+      if (currentNote.deleted) return currentNote;
+      const deletedAt = new Date().toISOString();
+      const annotationStates = annotationRepository?.list({ noteId, includeDeleted: true }).map(annotation => ({ id: annotation.id, lifecycleStatus: annotation.lifecycleStatus ?? 'active', revision: annotation.revision ?? 1 })) ?? [];
       const deletedNote = new Note({
         ...currentNote,
         deleted: true,
+        deletionPackage: { id: `note-${noteId}-${Date.now()}`, deletedAt, annotationStates },
         createdAt: currentNote.createdAt,
-        updatedAt: new Date().toISOString()
+        updatedAt: deletedAt
       });
 
       return runTransaction(() => {
@@ -211,6 +216,7 @@ export function createNoteService({
       const restoredNote = new Note({
         ...currentNote,
         deleted: false,
+        folderDeletionPackageId: null,
         createdAt: currentNote.createdAt,
         updatedAt: new Date().toISOString()
       });

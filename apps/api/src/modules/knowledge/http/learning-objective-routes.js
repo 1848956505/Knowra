@@ -32,6 +32,16 @@ export async function handleLearningObjectiveRoute({ request, response, url, kno
     sendJson(response, 201, { data: await knowledge.createLearningObjective(await parseBody(request)) });
     return true;
   }
+  const lifecycle = url.pathname.match(/^\/api\/knowledge\/learning-objectives\/([^/]+)\/(purge-preview|trash|restore-deleted|purge)$/);
+  if (lifecycle) {
+    const params = { type: 'learningObjective', id: decode(lifecycle[1]) };
+    if (request.method === 'GET' && lifecycle[2] === 'purge-preview') sendJson(response, 200, { data: await knowledge.inspectTrainingAssetPurge(params) });
+    else if (request.method === 'POST' && lifecycle[2] === 'trash') sendJson(response, 200, { data: await knowledge.trashTrainingAsset(params) });
+    else if (request.method === 'POST' && lifecycle[2] === 'restore-deleted') sendJson(response, 200, { data: await knowledge.restoreDeletedTrainingAsset(params) });
+    else if (request.method === 'POST' && lifecycle[2] === 'purge') sendJson(response, 200, { data: await knowledge.permanentlyDeleteTrainingAsset(params, await parseBody(request)) });
+    else return false;
+    return true;
+  }
   const action = url.pathname.match(/^\/api\/knowledge\/learning-objectives\/([^/]+)\/(confirm|request-revision|archive|restore)$/);
   if (action) {
     const params = { id: decode(action[1]) };

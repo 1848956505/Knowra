@@ -115,9 +115,13 @@ export function createContentAnnotationService({ repository = createInMemoryCont
     advanceRevision(id, input = {}) { const annotation = requireAnnotation(id); assertRevision(annotation, input.expectedRevision); return saveUpdated(annotation, {}, input.operation ?? 'rangeChanged', input.reason ?? null); },
     updateAnnotation(id, input) { const annotation = requireAnnotation(id); const dto = buildUpdateContentAnnotationDto(input); assertRevision(annotation, dto.expectedRevision); return saveUpdated(annotation, dto, 'metadataUpdated'); },
     archiveAnnotation(id, input = {}) { const annotation = requireAnnotation(id); assertRevision(annotation, input.expectedRevision); return saveUpdated(annotation, { lifecycleStatus: 'archived', deletedAt: new Date().toISOString() }, 'archived'); },
+    deleteAnnotation(id, input = {}) { const annotation = requireAnnotation(id); assertRevision(annotation, input.expectedRevision); if (annotation.lifecycleStatus === 'deleted') return annotation; return saveUpdated(annotation, { lifecycleStatus: 'deleted', deletedAt: new Date().toISOString() }, 'deleted'); },
     restoreAnnotation(id, input = {}) {
       const annotation = requireAnnotation(id);
       assertRevision(annotation, input.expectedRevision);
+      if (annotation.lifecycleStatus === 'active') return annotation;
+      const parent = noteRepository?.findById(annotation.noteId);
+      if (!parent || parent.deleted) throw fail('ANNOTATION_NOTE_IN_TRASH', '请先恢复来源笔记，再恢复标注。', 409);
       if (annotation.schemaVersion !== 2 || !annotation.anchor) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: annotation.status === 'stale' ? 'needsReview' : 'resolved', deletedAt: null }, 'restored');
       const note = noteRepository?.findById(annotation.noteId);
       if (!note || note.deleted) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: 'missing', anchorReason: 'sourceDeleted', deletedAt: null }, 'restored', 'sourceDeleted');
@@ -157,7 +161,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       const changed = [];
       const contentChangedAnnotationIds = [];
       for (const annotation of repository.list({ noteId, includeDeleted: true })) {
-        if (annotation.lifecycleStatus === 'archived' || annotation.noteContentHash === currentContentHash) continue;
+        if (annotation.lifecycleStatus !== 'active' || annotation.noteContentHash === currentContentHash) continue;
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           changed.push(saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'legacyUnverified', noteContentHash: currentContentHash }, 'anchorStatusChanged', 'legacyUnverified'));
           continue;
@@ -187,7 +191,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       return { annotations: changed, contentChangedAnnotationIds };
     },
     markStaleForNote(noteId, currentContentHash) { return repository.markStaleByNoteId?.(noteId, currentContentHash) ?? []; },
-    markAnnotationStale(id) { const annotation = requireAnnotation(id); return annotation.lifecycleStatus === 'archived' ? annotation : saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'contentChanged' }, 'anchorStatusChanged', 'contentChanged'); }
+    markAnnotationStale(id) { const annotation = requireAnnotation(id); return annotation.lifecycleStatus !== 'active' ? annotation : saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'contentChanged' }, 'anchorStatusChanged', 'contentChanged'); }
   };
 }
 

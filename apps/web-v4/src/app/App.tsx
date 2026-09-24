@@ -18,6 +18,7 @@ import { deriveStatusPath } from '../shell/statusPath';
 import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { NotesContextSidebar } from '../features/notes';
+import { EntryDragDropProvider } from '../features/notes/EntryDragDrop';
 import { CreateEntryDialog } from '../features/notes';
 import { getEditorNoteId } from '../features/editor/editorRoute';
 import {
@@ -57,10 +58,17 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createNoteOpen, setCreateNoteOpen] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
-  const [editorView, setEditorView] = useState(initialEditorViewState);
+  const [editorView, setEditorView] = useState(() => ({
+    ...initialEditorViewState,
+    showLeftSidebar: readNotesSidebarPreference()
+  }));
   const previousPathRef = useRef(location.pathname);
 
-  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials') || location.pathname.startsWith('/knowledge');
+  useEffect(() => {
+    writeNotesSidebarPreference(editorView.showLeftSidebar);
+  }, [editorView.showLeftSidebar]);
+
+  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials') || location.pathname.startsWith('/knowledge') || location.pathname.startsWith('/training');
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
     if (!shouldLoadWorkspace) return;
@@ -157,6 +165,7 @@ export function App() {
   const isShowcaseActive = routePathname === '/showcase';
   const isHome = routePathname === '/';
   const isNotesIndex = routePathname === '/materials';
+  const isTagManager = routePathname === '/materials/tags';
   const isKnowledgeWorkspace = routeDomain === 'knowledge';
   const editorNoteId = getEditorNoteId(location.pathname);
   const isNoteEditor = editorNoteId !== null;
@@ -203,15 +212,17 @@ export function App() {
     setEditorView((current) => applyEditorViewAction(current, action));
   }
 
-  const showNotesContextSidebar = isNotesIndex || (isNoteEditor && effectiveEditorView.showLeftSidebar);
+  const showNotesContextSidebar = (isNotesIndex && editorView.showLeftSidebar) || (isNoteEditor && effectiveEditorView.showLeftSidebar);
 
   return (
-    <AppShell
+    <EntryDragDropProvider>
+      <AppShell
       activeDomain={activeDomain}
       contextSidebar={showNotesContextSidebar ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
       ) : undefined}
-      stageMode={isNoteEditor || isNotesIndex || isKnowledgeWorkspace ? 'workspace' : 'default'}
+      stageMode={isNoteEditor || isNotesIndex || isTagManager || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
+      mergeContextSidebarTabs={isNoteEditor}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
@@ -231,10 +242,15 @@ export function App() {
           {
             id: 'sidebar',
             label: '侧栏',
-            active: isNotesIndex || (isNoteEditor && effectiveEditorView.showLeftSidebar),
+            active: (isNotesIndex && editorView.showLeftSidebar) || (isNoteEditor && effectiveEditorView.showLeftSidebar),
             onToggle: () => {
+              if (isNotesIndex) {
+                setLiveAnnouncement(editorView.showLeftSidebar ? '已隐藏左侧目录区' : '已显示左侧目录区');
+                setEditorView((current) => applyEditorViewAction(current, 'toggle-left-sidebar'));
+                return;
+              }
               if (!isNoteEditor) {
-                setLiveAnnouncement('侧栏仅在笔记编辑页面可切换');
+                setLiveAnnouncement('侧栏仅在笔记索引和编辑页面可切换');
                 return;
               }
               handleEditorViewAction('toggle-left-sidebar');
@@ -269,7 +285,7 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isKnowledgeWorkspace ? styles.routeWorkspace : ''}`}>
+      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
         <RecoveryDraftNotice onOpenNote={openNote} />
         <AppRoutes
           pathname={location.pathname}
@@ -304,7 +320,8 @@ export function App() {
         }}
         onCreateFolder={storeApi.getState().createFolder}
       />
-    </AppShell>
+      </AppShell>
+    </EntryDragDropProvider>
   );
 }
 
@@ -375,4 +392,16 @@ function useSearchHits({
 
 export function AppRoot() {
   return <App />;
+}
+
+const NOTES_SIDEBAR_PREFERENCE_KEY = 'knowra:notes-sidebar-open';
+
+function readNotesSidebarPreference(): boolean {
+  try { return localStorage.getItem(NOTES_SIDEBAR_PREFERENCE_KEY) !== 'false'; }
+  catch { return true; }
+}
+
+function writeNotesSidebarPreference(open: boolean): void {
+  try { localStorage.setItem(NOTES_SIDEBAR_PREFERENCE_KEY, String(open)); }
+  catch { /* 本地存储不可用时仍可在当前页面切换。 */ }
 }

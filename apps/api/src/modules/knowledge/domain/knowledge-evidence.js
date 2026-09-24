@@ -1,6 +1,7 @@
 const SOURCE_TYPES = new Set(['noteVersion', 'annotation', 'manual']);
 const EVIDENCE_STATUSES = new Set(['valid', 'stale', 'invalid', 'insufficient']);
 const RELATION_TYPES = new Set(['supports']);
+const APPLICABILITY_STATUSES = new Set(['active', 'withdrawn', 'needsReview']);
 
 export class KnowledgeEvidence {
   constructor({
@@ -15,13 +16,14 @@ export class KnowledgeEvidence {
     headingPath = [],
     relationType = 'supports',
     status = 'valid',
+    applicabilityStatus = status === 'invalid' ? 'needsReview' : 'active',
     createdAt = new Date().toISOString(),
     updatedAt = createdAt
   }) {
     if (!id?.trim() || !knowledgeItemId?.trim()) {
       throw new Error('KnowledgeEvidence identity is required');
     }
-    if (!SOURCE_TYPES.has(sourceType) || !EVIDENCE_STATUSES.has(status) || !RELATION_TYPES.has(relationType)) {
+    if (!SOURCE_TYPES.has(sourceType) || !EVIDENCE_STATUSES.has(status) || !RELATION_TYPES.has(relationType) || !APPLICABILITY_STATUSES.has(applicabilityStatus)) {
       throw new Error('KnowledgeEvidence type or status is invalid');
     }
     if (!Array.isArray(headingPath)) {
@@ -49,6 +51,7 @@ export class KnowledgeEvidence {
       headingPath: headingPath.map((item) => String(item).trim()).filter(Boolean),
       relationType,
       status,
+      applicabilityStatus,
       createdAt,
       updatedAt
     });

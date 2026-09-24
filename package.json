@@ -37,6 +37,7 @@
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema prisma/schema.prisma",
     "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs",
     "check:attachments": "node scripts/check-attachments.mjs",
+    "measure:assets": "node scripts/measure-asset-storage.mjs",
     "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell && npm test -w @study-accelerator/desktop-shell && node apps/desktop-shell/scripts/install-and-cleanup.mjs"
   },
   "devDependencies": {

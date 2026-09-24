@@ -136,6 +136,16 @@ export interface AnalysisScopeInput {
   selections?: Array<{ noteId: string; anchor: ContentAnchor }>;
 }
 
+export interface AnalysisScopeSnapshot {
+  id: string;
+  spaceId: string;
+  summary: { noteCount: number; segmentCount: number; annotationCount: number };
+  noteVersions: Array<{ noteId: string; noteVersionId: string; title?: string }>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
 export interface UpdateFolderInput {
   name?: string;
   parentId?: string | null;
@@ -147,7 +157,81 @@ export interface EmptyRecycleBinResult {
   noteIds?: string[];
 }
 
+export interface KnowledgePurgePreview {
+  asset: { type: 'knowledgeItem'; id: string };
+  decision: 'move-to-recycle-bin-first' | 'requires-dependency-action' | 'can-purge-no-history';
+  expectedUpdatedAt: string;
+  exclusiveRecords: { knowledgeEvidenceIds: string[] };
+  references: Array<{ collection: string; id: string; reasonCode: string; action: string }>;
+  coverage: { persistedCurrentAndHistory: boolean; runningTasks: string; offlineDevices: string; backups: string };
+}
+
+export interface KnowledgePurgeResult {
+  status: 'subject-purged' | 'already-purged';
+  asset: { type: 'knowledgeItem'; id: string };
+  exclusiveRecordsDeleted: { knowledgeEvidence: number };
+  offlineDevices: string;
+  backups: string;
+}
+
+export interface NoteVersionPrunePreview {
+  noteId: string;
+  mode: 'preview-only';
+  retentionPointMetadataAvailable: boolean;
+  versions: Array<{ id: string; createdAt: string; createdBy: string; references: Array<{ type: string; id: string }>; candidateAfterRetentionReview: boolean; canPruneNow: boolean; reason: string }>;
+}
+
+export interface SpaceDeletionPreview {
+  asset: { type: 'knowledgeSpace'; id: string };
+  decision: 'system-shell-protected' | 'requires-content-action' | 'can-delete-empty-container';
+  expectedUpdatedAt: string;
+  references: Array<{ collection: string; id: string; retention?: string }>;
+  systemGroupIds: string[];
+}
+
+export interface SpaceMigrationPreview {
+  sourceSpaceId: string;
+  targetSpaceId: string;
+  previewHash: string;
+  decision: 'blocked' | 'can-migrate';
+  blockers: string[];
+  counts: Record<string, number>;
+  coverage: { spaceScopedAssets: string[]; globalKnowledgeAndTraining: string; offlineDevices: string; backups: string };
+}
+
+export type TrainingAssetKind = 'learningObjective' | 'examProfile' | 'examFocus' | 'question';
+export interface TrainingAssetRecord {
+  id: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  archivedAt?: string | null;
+  reviewStatus?: string;
+  name?: string;
+  objective?: string;
+  stem?: string;
+  description?: string;
+  knowledgeItemId?: string;
+  examProfileId?: string;
+  learningObjectiveId?: string;
+  learningObjectiveIds?: string[];
+  [key: string]: unknown;
+}
+export interface TrainingPurgePreview {
+  asset: { type: TrainingAssetKind; id: string };
+  decision: 'move-to-recycle-bin-first' | 'requires-dependency-action' | 'can-purge-no-history';
+  expectedUpdatedAt: string;
+  references: Array<{ collection: string; id: string; action: string; relatedAsset?: { kind: TrainingAssetKind; id: string } }>;
+  exclusiveRecords: Record<string, string[]>;
+  coverage: Record<string, unknown>;
+}
+
 export interface WorkspaceApi {
+  listTrainingAssets?(kind: TrainingAssetKind, query?: { includeArchived?: boolean; includeDeleted?: boolean }): Promise<TrainingAssetRecord[]>;
+  createTrainingAsset?(kind: TrainingAssetKind, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
+  updateTrainingAsset?(kind: TrainingAssetKind, id: string, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
+  mutateTrainingAsset?(kind: TrainingAssetKind, id: string, action: 'validate' | 'confirm' | 'archive' | 'restore' | 'trash' | 'restore-deleted'): Promise<TrainingAssetRecord>;
+  inspectTrainingAssetPurge?(kind: TrainingAssetKind, id: string): Promise<TrainingPurgePreview>;
+  purgeTrainingAsset?(kind: TrainingAssetKind, id: string, expectedUpdatedAt: string): Promise<{ status: string; asset: { type: TrainingAssetKind; id: string } }>;
   listKnowledgeItems?(query?: KnowledgeItemQuery): Promise<KnowledgeItem[]>;
   getKnowledgeItem?(id: string): Promise<KnowledgeItem>;
   createKnowledgeCandidate?(input: CreateKnowledgeCandidateInput): Promise<KnowledgeCandidateResult>;
@@ -155,13 +239,23 @@ export interface WorkspaceApi {
   confirmKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
   archiveKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
   restoreKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
+  trashKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
+  restoreDeletedKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
+  inspectKnowledgePurge?(id: string): Promise<KnowledgePurgePreview>;
+  permanentlyDeleteKnowledgeItem?(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
   listKnowledgeEvidence?(id: string): Promise<KnowledgeEvidence[]>;
   createKnowledgeEvidence?(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
   retireKnowledgeEvidence?(id: string, evidenceId: string, input?: RetireKnowledgeEvidenceInput): Promise<KnowledgeEvidenceMutationResult>;
+  readoptKnowledgeEvidence?(id: string, evidenceId: string, input?: RetireKnowledgeEvidenceInput): Promise<KnowledgeEvidenceMutationResult>;
   loadWorkspaceResources(spaceId: string): Promise<WorkspaceResources>;
   searchNoteIds(input: { query?: string; spaceId?: string }): Promise<string[]>;
   listKnowledgeSpaces(): Promise<KnowledgeSpace[]>;
   createDefaultKnowledgeSpace(): Promise<KnowledgeSpace>;
+  createKnowledgeSpace?(input: { name: string }): Promise<KnowledgeSpace>;
+  inspectEmptySpaceDeletion?(id: string): Promise<SpaceDeletionPreview>;
+  deleteEmptySpace?(id: string, input: { expectedUpdatedAt: string }): Promise<{ status: string }>;
+  previewSpaceMigration?(sourceId: string, targetId: string): Promise<SpaceMigrationPreview>;
+  migrateSpaceAssets?(sourceId: string, input: { targetSpaceId: string; expectedPreviewHash: string }): Promise<{ status: string; counts: Record<string, number> }>;
   createNote(input: CreateNoteInput): Promise<Note>;
   importMarkdownNotes(items: CreateNoteInput[]): Promise<Note[]>;
   getNote(noteId: string): Promise<Note>;
@@ -195,21 +289,30 @@ export interface WorkspaceApi {
   getAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   previewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   createAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  listAnalysisScopes?(spaceId: string): Promise<AnalysisScopeSnapshot[]>;
+  trashAnalysisScope?(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<AnalysisScopeSnapshot>;
+  restoreAnalysisScope?(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<AnalysisScopeSnapshot>;
   createAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: ContentAnchor }): Promise<AnnotationExclusionResult>;
   deleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<AnnotationExclusionResult>;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   listNoteVersionPage?(noteId: string, options?: NoteVersionPageOptions): Promise<NoteVersionPage>;
+  previewNoteVersionPrune?(noteId: string): Promise<NoteVersionPrunePreview>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
   uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
   renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
   deleteNoteAttachment(attachmentId: string): Promise<Attachment>;
   updateFolder(folderId: string, input: UpdateFolderInput): Promise<Folder>;
-  deleteFolder(folderId: string): Promise<Folder[]>;
+  deleteFolder(folderId: string, input: { mode: 'keep' | 'with-content'; destinationId?: string | null }): Promise<{ folders: Folder[]; deletionPackage: Folder['deletionPackage'] }>;
+  restoreFolder?(folderId: string): Promise<{ folders: Folder[] }>;
+  listDeletedFolders?(spaceId: string): Promise<Folder[]>;
   emptyRecycleBin(spaceId: string): Promise<EmptyRecycleBinResult>;
 }
 
 export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }): WorkspaceApi {
+  function trainingAssetRoot(kind: TrainingAssetKind): string {
+    return `/api/knowledge/${({ learningObjective: 'learning-objectives', examProfile: 'exam-profiles', examFocus: 'exam-focuses', question: 'questions' } as const)[kind]}`;
+  }
   function requireEntity<T extends { id?: string }>(value: T | undefined, message: string): T {
     if (!value?.id) throw new Error(message);
     return value;
@@ -222,6 +325,30 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
   }
 
   return {
+    async listTrainingAssets(kind, query = {}) {
+      const root = trainingAssetRoot(kind);
+      const params = [query.includeArchived ? 'includeArchived=true' : '', query.includeDeleted ? 'includeDeleted=true' : ''].filter(Boolean).join('&');
+      return asArray<TrainingAssetRecord>(getData(await requestJson(`${root}${params ? `?${params}` : ''}`)));
+    },
+    async createTrainingAsset(kind, input) {
+      return requireEntity(getData<TrainingAssetRecord>(await requestJson(trainingAssetRoot(kind), { method: 'POST', body: JSON.stringify(input) })), '训练资产创建返回无效。');
+    },
+    async updateTrainingAsset(kind, id, input) {
+      return requireEntity(getData<TrainingAssetRecord>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })), '训练资产更新返回无效。');
+    },
+    async mutateTrainingAsset(kind, id, action) {
+      return requireEntity(getData<TrainingAssetRecord>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/${action}`, { method: 'POST' })), '训练资产操作返回无效。');
+    },
+    async inspectTrainingAssetPurge(kind, id) {
+      const result = getData<TrainingPurgePreview>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/purge-preview`));
+      if (!result?.asset?.id) throw new Error('训练资产清理预检返回无效。');
+      return result;
+    },
+    async purgeTrainingAsset(kind, id, expectedUpdatedAt) {
+      const result = getData<{ status: string; asset: { type: TrainingAssetKind; id: string } }>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/purge`, { method: 'POST', body: JSON.stringify({ expectedUpdatedAt }) }));
+      if (!result?.asset?.id) throw new Error('训练资产清理结果无效。');
+      return result;
+    },
     async listKnowledgeItems(query = {}) {
       const params = Object.entries(query).filter(([, value]) => value !== undefined)
         .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&');
@@ -243,6 +370,20 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
     confirmKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'confirm', input),
     archiveKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'archive', input),
     restoreKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'restore', input),
+    trashKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'trash', input),
+    restoreDeletedKnowledgeItem: (id, input) => mutateKnowledgeItem(id, 'restore-deleted', input),
+    async inspectKnowledgePurge(id) {
+      const result = getData<KnowledgePurgePreview>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/purge-preview`));
+      if (!result?.asset?.id) throw new Error('知识清理预检返回无效。');
+      return result;
+    },
+    async permanentlyDeleteKnowledgeItem(id, input) {
+      const result = getData<KnowledgePurgeResult>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/permanent`, {
+        method: 'DELETE', body: JSON.stringify(input)
+      }));
+      if (!result?.asset?.id) throw new Error('知识清理结果无效。');
+      return result;
+    },
     async listKnowledgeEvidence(id) {
       return asArray<KnowledgeEvidence>(getData(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence`)));
     },
@@ -253,6 +394,13 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
     },
     async retireKnowledgeEvidence(id, evidenceId, input = {}) {
       const result = getData<KnowledgeEvidenceMutationResult>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence/${encodeURIComponent(evidenceId)}/retire`, {
+        method: 'POST', body: JSON.stringify(input)
+      }));
+      if (!result?.item?.id || !result?.evidence?.id) throw new Error('知识来源变更返回无效。');
+      return result;
+    },
+    async readoptKnowledgeEvidence(id, evidenceId, input = {}) {
+      const result = getData<KnowledgeEvidenceMutationResult>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/evidence/${encodeURIComponent(evidenceId)}/readopt`, {
         method: 'POST', body: JSON.stringify(input)
       }));
       if (!result?.item?.id || !result?.evidence?.id) throw new Error('知识来源变更返回无效。');
@@ -292,6 +440,29 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       }));
       if (!space?.id) throw new Error('Default knowledge space response is invalid.');
       return space;
+    },
+    async createKnowledgeSpace(input) {
+      return requireEntity(getData<KnowledgeSpace>(await requestJson('/api/knowledge/spaces', { method: 'POST', body: JSON.stringify(input) })), '空间创建返回无效。');
+    },
+    async inspectEmptySpaceDeletion(id) {
+      const preview = getData<SpaceDeletionPreview>(await requestJson(`/api/knowledge/spaces/${encodeURIComponent(id)}/deletion-preflight`));
+      if (!preview?.asset?.id) throw new Error('空间删除预检返回无效。');
+      return preview;
+    },
+    async deleteEmptySpace(id, input) {
+      const result = getData<{ status: string }>(await requestJson(`/api/knowledge/spaces/${encodeURIComponent(id)}`, { method: 'DELETE', body: JSON.stringify(input) }));
+      if (result?.status !== 'empty-container-deleted') throw new Error('空间删除结果无效。');
+      return result;
+    },
+    async previewSpaceMigration(sourceId, targetId) {
+      const preview = getData<SpaceMigrationPreview>(await requestJson(`/api/knowledge/spaces/${encodeURIComponent(sourceId)}/migration-preview?targetSpaceId=${encodeURIComponent(targetId)}`));
+      if (!preview?.previewHash) throw new Error('空间迁移预检返回无效。');
+      return preview;
+    },
+    async migrateSpaceAssets(sourceId, input) {
+      const result = getData<{ status: string; counts: Record<string, number> }>(await requestJson(`/api/knowledge/spaces/${encodeURIComponent(sourceId)}/migrate`, { method: 'POST', body: JSON.stringify(input) }));
+      if (result?.status !== 'scoped-assets-migrated') throw new Error('空间迁移结果无效。');
+      return result;
     },
     async createNote(input) {
       const note = getData<Note>(await requestJson('/api/knowledge/notes', {
@@ -451,7 +622,7 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
     },
     async listAnnotations(noteId, spaceId) {
       return asArray<Annotation>(getData(await requestJson(
-        `/api/knowledge/annotations?noteId=${encodeURIComponent(noteId)}&spaceId=${encodeURIComponent(spaceId)}&includeDeleted=true`
+        `/api/knowledge/annotations?noteId=${encodeURIComponent(noteId)}&spaceId=${encodeURIComponent(spaceId)}`
       )));
     },
     async createAnnotation(input) {
@@ -513,6 +684,15 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!value?.id) throw new Error('Analysis scope response is invalid.');
       return value;
     },
+    async listAnalysisScopes(spaceId) {
+      return asArray<AnalysisScopeSnapshot>(getData(await requestJson(`/api/knowledge/analysis-scopes?spaceId=${encodeURIComponent(spaceId)}&includeDeleted=true`)));
+    },
+    async trashAnalysisScope(id, input) {
+      return requireEntity(getData<AnalysisScopeSnapshot>(await requestJson(`/api/knowledge/analysis-scopes/${encodeURIComponent(id)}/trash`, { method: 'POST', body: JSON.stringify(input) })), '分析范围返回无效。');
+    },
+    async restoreAnalysisScope(id, input) {
+      return requireEntity(getData<AnalysisScopeSnapshot>(await requestJson(`/api/knowledge/analysis-scopes/${encodeURIComponent(id)}/restore`, { method: 'POST', body: JSON.stringify(input) })), '分析范围返回无效。');
+    },
     async createAnnotationExclusion(annotationId, input) {
       const value = getData<AnnotationExclusionResult>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/exclusions`, { method: 'POST', body: JSON.stringify(input) }));
       if (!value?.annotation?.id || !value.exclusion?.id) throw new Error('Annotation exclusion response is invalid.');
@@ -533,6 +713,11 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       const page = getData<NoteVersionPage>(await requestJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/versions?${query}`));
       if (!page || !Array.isArray(page.items) || typeof page.total !== 'number') throw new Error('版本历史响应无效');
       return page;
+    },
+    async previewNoteVersionPrune(noteId) {
+      const preview = getData<NoteVersionPrunePreview>(await requestJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/versions/prune-preview`));
+      if (!preview || !Array.isArray(preview.versions)) throw new Error('版本清理预览返回无效。');
+      return preview;
     },
     async getNoteVersion(noteId, versionId) {
       const version = getData<NoteVersion>(await requestJson(
@@ -578,11 +763,17 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!folder?.id) throw new Error('Update folder response is invalid.');
       return folder;
     },
-    async deleteFolder(folderId) {
-      return asArray<Folder>(getData(await requestJson(
+    async deleteFolder(folderId, input) {
+      return getData<{ folders: Folder[]; deletionPackage: Folder['deletionPackage'] }>(await requestJson(
         `/api/knowledge/folders/${encodeURIComponent(folderId)}`,
-        { method: 'DELETE' }
-      )));
+        { method: 'DELETE', body: JSON.stringify(input) }
+      ))!;
+    },
+    async restoreFolder(folderId) {
+      return getData<{ folders: Folder[] }>(await requestJson(`/api/knowledge/folders/${encodeURIComponent(folderId)}/restore`, { method: 'POST', body: '{}' }))!;
+    },
+    async listDeletedFolders(spaceId) {
+      return asArray<Folder>(getData(await requestJson(`/api/knowledge/folders?spaceId=${encodeURIComponent(spaceId)}&includeDeleted=true`))).filter(folder => folder.deletedAt && folder.deletionPackage);
     },
     async emptyRecycleBin(spaceId) {
       return getData<EmptyRecycleBinResult>(await requestJson(

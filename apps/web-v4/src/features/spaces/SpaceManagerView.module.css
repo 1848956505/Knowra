@@ -1,0 +1,15 @@
+.body { display: grid; align-content: start; gap: 20px; padding: 24px; overflow: auto; }
+.section { border: 1px solid var(--ink-panel); background: var(--ink-surface); padding: 20px; }
+.section h2 { margin: 0 0 12px; font-size: 18px; }
+.section p { color: var(--ink-secondary); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.card { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 16px; border: 1px solid var(--ink-panel); }
+.card h3 { margin: 0; font-size: 16px; }
+.card p { margin: 6px 0 0; font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.migrationFields { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.migrationFields > * { min-width: 160px; }
+.preview { margin-top: 16px; padding: 16px; border: 1px solid var(--ink-panel); }
+.error { color: var(--ink-danger); }
+.notice { color: var(--ink-success); }
+@media (max-width: 700px) { .body { padding: 12px; } .card { align-items: start; flex-direction: column; } }

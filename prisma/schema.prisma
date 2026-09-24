@@ -56,6 +56,8 @@ model Folder {
   pathCache  String         @default("/")
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+  deletionPackage Json?
 
   space      KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   parent     Folder?        @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
@@ -117,6 +119,8 @@ model Note {
   sourceType     String              @default("manual")
   favorite       Boolean             @default(false)
   deletedAt      DateTime?
+  folderDeletionPackageId String?
+  deletionPackage Json?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -243,6 +247,7 @@ model AnnotationRevision {
 model AnalysisScopeSnapshot {
   id                  String   @id
   spaceId             String
+  mode                String   @default("marked")
   inputHash           String
   idempotencyKey      String
   noteVersions        Json
@@ -254,6 +259,8 @@ model AnalysisScopeSnapshot {
   annotationRevisions Json
   summary             Json
   createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
 
   space KnowledgeSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
 
@@ -306,6 +313,7 @@ model LearningObjective {
   difficultyHint     String?
   reviewStatus       String   @default("candidate")
   reviewNote         String?  @db.Text
+  deletedAt          DateTime?
   order              Int      @default(0)
   createdAt          DateTime
   updatedAt          DateTime
@@ -316,6 +324,7 @@ model LearningObjective {
 
   @@index([knowledgeItemId, reviewStatus, order])
   @@index([reviewStatus, updatedAt])
+  @@index([deletedAt])
 }
 
 model ExamProfile {
@@ -327,12 +336,14 @@ model ExamProfile {
   commonQuestionTypes  Json
   difficultyProfile    Json
   archivedAt           DateTime?
+  deletedAt            DateTime?
   createdAt            DateTime
   updatedAt            DateTime
 
   focuses              ExamFocus[]
 
   @@index([archivedAt, updatedAt])
+  @@index([deletedAt])
 }
 
 model ExamFocus {
@@ -345,6 +356,7 @@ model ExamFocus {
   questionTypeSuggestions Json
   sourceType              String            @default("manual")
   reviewStatus            String            @default("candidate")
+  deletedAt               DateTime?
   createdAt               DateTime
   updatedAt               DateTime
 
@@ -354,6 +366,7 @@ model ExamFocus {
   @@unique([examProfileId, learningObjectiveId])
   @@index([examProfileId, reviewStatus, priority])
   @@index([learningObjectiveId, reviewStatus])
+  @@index([deletedAt])
 }
 
 model Question {
@@ -368,6 +381,7 @@ model Question {
   reviewStatus       String             @default("draft")
   sourceMode         String             @default("manual")
   version            Int                @default(1)
+  deletedAt          DateTime?
   createdAt          DateTime
   updatedAt          DateTime
 
@@ -375,6 +389,7 @@ model Question {
   sources            QuestionSource[]
 
   @@index([reviewStatus, updatedAt])
+  @@index([deletedAt])
 }
 
 model QuestionObjective {
@@ -422,6 +437,7 @@ model KnowledgeEvidence {
   headingPath     Json
   relationType    String   @default("supports")
   status          String   @default("valid")
+  applicabilityStatus String @default("active")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

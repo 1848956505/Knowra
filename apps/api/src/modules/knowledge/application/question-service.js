@@ -20,17 +20,19 @@ export function createQuestionService({
   noteRepository,
   noteVersionRepository,
   knowledgeEvidenceRepository,
+  getTombstone = null,
   runTransaction = (operation) => operation()
 } = {}) {
   if (!repository || !questionObjectiveRepository || !questionSourceRepository || !learningObjectiveRepository) throw new TypeError('Question repositories are required');
 
   function requireQuestion(id, { includeArchived = false } = {}) {
     const question = repository.findById(id);
-    if (!question || (!includeArchived && question.reviewStatus === 'archived')) throw notFoundError('QUESTION_NOT_FOUND', 'Question not found');
+    if (!question || question.deletedAt || (!includeArchived && question.reviewStatus === 'archived')) throw notFoundError('QUESTION_NOT_FOUND', 'Question not found');
     return question;
   }
 
   function assertQuestionIdAvailable(id) {
+    if (getTombstone?.('questions', id)) throw conflictError('QUESTION_ID_DELETED', '已清理的题目 ID 不能复用');
     if (repository.findById(id)) {
       throw conflictError(
         'QUESTION_ID_CONFLICT',
@@ -43,7 +45,7 @@ export function createQuestionService({
     const uniqueIds = [...new Set(ids)];
     const objectives = uniqueIds.map((id) => {
       const objective = learningObjectiveRepository.findById(id);
-      if (!objective || objective.reviewStatus === 'archived') throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
+      if (!objective || objective.deletedAt || objective.reviewStatus === 'archived') throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
       if (confirmed && objective.reviewStatus !== 'confirmed') throw validationError('LEARNING_OBJECTIVE_NOT_CONFIRMED', 'Question requires confirmed LearningObjectives');
       return objective;
     });
@@ -69,7 +71,7 @@ export function createQuestionService({
     };
     const sourceRepository = repositories[source.sourceType];
     let reference = sourceRepository?.findById(source.sourceId);
-    if (!reference) throw notFoundError('QUESTION_SOURCE_NOT_FOUND', 'QuestionSource reference not found');
+    if (!reference || reference.deletedAt) throw notFoundError('QUESTION_SOURCE_NOT_FOUND', 'QuestionSource reference not found');
     if (source.sourceType === 'noteVersion' && noteRepository) {
       const note = noteRepository.findById(reference.noteId);
       reference = {
@@ -105,6 +107,7 @@ export function createQuestionService({
       }
       sourceIds.add(source.id);
       const existing = questionSourceRepository.findById(source.id);
+      if (!existing && getTombstone?.('questionSources', source.id)) throw conflictError('QUESTION_SOURCE_ID_DELETED', '已清理的题目来源 ID 不能复用');
       if (existing && existing.questionId !== questionId) {
         throw conflictError(
           'QUESTION_SOURCE_ID_CONFLICT',
@@ -215,7 +218,7 @@ export function createQuestionService({
       if (options.learningObjectiveId) filtered = filtered.filter((question) => links.some((link) => link.questionId === question.id && link.learningObjectiveId === options.learningObjectiveId));
       if (options.examFocusId) {
         const focus = examFocusRepository?.findById(options.examFocusId);
-        if (!focus) throw notFoundError('EXAM_FOCUS_NOT_FOUND', 'ExamFocus not found');
+        if (!focus || focus.deletedAt || focus.reviewStatus === 'archived') throw notFoundError('EXAM_FOCUS_NOT_FOUND', 'ExamFocus not found');
         filtered = filtered.filter((question) => links.some((link) => link.questionId === question.id && link.learningObjectiveId === focus.learningObjectiveId));
       }
       return filtered.map((question) => hydrate(question, links, sources));

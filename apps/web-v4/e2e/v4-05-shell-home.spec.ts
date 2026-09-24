@@ -45,11 +45,11 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page.getByRole('status')).toContainText('设计复盘');
   });
 
-  test('未上线工作域与入口使用真实禁用/门禁语义', async ({ page }) => {
+  test('工作域与未上线入口使用对应的可用/禁用语义', async ({ page }) => {
     await page.goto('/');
     const rail = page.getByRole('navigation', { name: '工作域导航' });
     await expect(rail.getByRole('button', { name: /知识/ })).toBeEnabled();
-    await expect(rail.getByRole('button', { name: /试题/ })).toBeDisabled();
+    await expect(rail.getByRole('button', { name: /试题/ })).toBeEnabled();
     await expect(rail.getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
     await expect(page.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
     await expect(rail.getByRole('button', { name: '组件库' })).toBeEnabled();
@@ -65,8 +65,8 @@ test.describe('V4-05 公共 Shell 与主页', () => {
 
     await page.goto('/#/training');
     await expect(page.getByRole('heading', { name: '试题库' })).toBeVisible();
-    await expect(page.getByText('该工作域尚未上线')).toBeVisible();
-    await page.getByRole('main').getByRole('button', { name: '返回主页' }).click();
+    await expect(page.getByRole('toolbar', { name: '训练资产筛选' })).toBeVisible();
+    await rail.getByRole('button', { name: '知境工作区' }).click();
     await expect(page).toHaveURL(/#\/$/);
   });
 

@@ -16,8 +16,10 @@ import { HomeView } from '../views/HomeView';
 import { PlaceholderView } from '../views/PlaceholderView';
 import type { WorkDomain } from '../store/types';
 import { TagManagerView } from '../features/tags';
+import { SpaceManagerView } from '../features/spaces/SpaceManagerView';
 import type { Annotation } from '@study-accelerator/web-core';
 import { KnowledgeStage } from './KnowledgeStage';
+import { TrainingWorkspaceView } from '../features/training/TrainingWorkspaceView';
 import { CreateKnowledgeCandidateDialog } from '../features/knowledge/CreateKnowledgeCandidateDialog';
 import { workspaceCapabilities } from '../store/workspaceCapabilities';
 
@@ -34,7 +36,7 @@ export interface DomainDescriptor {
 export const DOMAIN_INFO: Record<WorkDomain, DomainDescriptor> = {
   materials: { title: '资料工作区', description: '按目录组织 Markdown 笔记，用标签串联主题。' },
   knowledge: { title: '知识库', description: '整理知识候选、人工确认并追溯原文来源。' },
-  training: { title: '试题库', description: '题目库与考试场景（V4-08 接入）。' },
+  training: { title: '试题库', description: '学习目标、考试配置、考点与题目的管理。' },
   learning: { title: '执行', description: '待办、打卡与习惯追踪（V4-08 接入）。' },
   profile: { title: '我的', description: '工作区与个人设置。' }
 };
@@ -62,8 +64,10 @@ export function AppRoutes(props: AppRoutesProps) {
     return <Suspense fallback={<LoadingState label="正在加载组件展台…" />}><ComponentShowcase /></Suspense>;
   }
   if (props.routeDomain === 'knowledge') return <KnowledgeStage pathname={props.pathname} onOpenNote={props.onOpenNote} />;
+  if (props.routeDomain === 'training') return <TrainingWorkspaceView />;
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;
   if (routePath === '/materials/tags') return <TagManagerView />;
+  if (routePath === '/materials/spaces') return <SpaceManagerView />;
   if (routePath === '/materials') {
     return <NotesIndexView path={props.statusPath} onOpenNote={props.onOpenNote} />;
   }
@@ -122,6 +126,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const mergeTags = useAppStore((state) => state.mergeTags);
   const listNoteVersions = useAppStore((state) => state.listNoteVersions);
   const listNoteVersionPage = useAppStore((state) => state.listNoteVersionPage);
+  const previewNoteVersionPrune = useAppStore((state) => state.previewNoteVersionPrune);
   const saveNoteVersionAs = useAppStore((state) => state.saveNoteVersionAs);
   const getNoteVersion = useAppStore((state) => state.getNoteVersion);
   const organizeNote = useAppStore((state) => state.organizeNote);
@@ -140,6 +145,9 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const getAnnotationKnowledgeLinks = useAppStore((state) => state.getAnnotationKnowledgeLinks);
   const previewAnalysisScope = useAppStore((state) => state.previewAnalysisScope);
   const createAnalysisScope = useAppStore((state) => state.createAnalysisScope);
+  const listAnalysisScopes = useAppStore((state) => state.listAnalysisScopes);
+  const trashAnalysisScope = useAppStore((state) => state.trashAnalysisScope);
+  const restoreAnalysisScope = useAppStore((state) => state.restoreAnalysisScope);
   const createAnnotationExclusion = useAppStore((state) => state.createAnnotationExclusion);
   const deleteAnnotationExclusion = useAppStore((state) => state.deleteAnnotationExclusion);
   const setStatusMessage = useAppStore((state) => state.setStatusMessage);
@@ -227,6 +235,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onOpenTag={(tagId) => navigate(`/materials?tags=${encodeURIComponent(tagId)}&match=all`)}
         onListVersions={listNoteVersions}
         onListVersionPage={listNoteVersionPage}
+        onPreviewVersionPrune={previewNoteVersionPrune}
         onSaveVersionAs={async version => { if (note) onOpenNote(await saveNoteVersionAs(note.id, version.id)); }}
         onGetVersion={getNoteVersion}
         onOrganizeNote={(input) => note ? organizeNote(note.id, input) : Promise.resolve()}
@@ -251,7 +260,10 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         } : undefined}
         onOpenKnowledgeItem={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)}
         onPreviewAnalysisScope={previewAnalysisScope}
-        onCreateAnalysisScope={persistenceMode === 'desktop-local' ? undefined : createAnalysisScope}
+        onCreateAnalysisScope={createAnalysisScope}
+        onListAnalysisScopes={listAnalysisScopes}
+        onTrashAnalysisScope={trashAnalysisScope}
+        onRestoreAnalysisScope={restoreAnalysisScope}
         onCreateAnnotationExclusion={createAnnotationExclusion}
         onDeleteAnnotationExclusion={deleteAnnotationExclusion}
         onFileStatus={setStatusMessage}

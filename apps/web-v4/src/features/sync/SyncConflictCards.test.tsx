@@ -41,21 +41,25 @@ describe('同步冲突对比', () => {
     expect(row).toHaveTextContent('已变化云端改名');
     expect(container.querySelector('[data-diff="removed"]')).toHaveTextContent('本机正文');
     expect(container.querySelector('[data-diff="added"]')).toHaveTextContent('云端正文');
-    await userEvent.selectOptions(screen.getByLabelText('正文比较'), 'local');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /正文比较/ }));
+    await user.click(screen.getByRole('option', { name: '共同基线 → 本机' }));
     expect(container.querySelector('[data-diff="removed"]')).toHaveTextContent('基线正文');
     expect(container.querySelector('[data-diff="added"]')).toHaveTextContent('本机正文');
-    await userEvent.selectOptions(screen.getByLabelText('正文比较'), 'remote');
+    await user.click(screen.getByRole('button', { name: /正文比较/ }));
+    await user.click(screen.getByRole('option', { name: '共同基线 → 云端' }));
     expect(container.querySelector('[data-diff="added"]')).toHaveTextContent('云端正文');
   });
 
-  it('区分无基线的不存在、永久删除、回收站与空正文', () => {
+  it('区分无基线的不存在、永久删除、回收站与空正文', async () => {
     expect(entityPresence(null, null)).toContain('无法判定');
     expect(entityPresence(null, note(''))).toBe('已永久删除');
     expect(entityPresence({ deleted: true }, null)).toBe('已移入回收站');
     expect(entityPresence(note(''), null)).toBe('存在');
     render(<ConflictCard conflict={{ ...conflict, base: null, local: note(''), remote: null }} disabled={false} onResolve={vi.fn()} />);
     expect(screen.getByRole('row', { name: /对象状态/ })).toHaveTextContent('不存在（无共同基线，无法判定是否曾删除）');
-    expect(screen.getByRole('option', { name: '共同基线 → 本机' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /正文比较/ }));
+    expect(screen.getByRole('option', { name: '共同基线 → 本机' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('保留四种解决方式的请求语义，忙碌时禁用操作', async () => {

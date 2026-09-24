@@ -11,6 +11,14 @@
   min-width: 0;
 }
 
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.toolbarSelect { flex: 0 1 170px; min-width: 130px; }
+.toolbarSelect .selectTrigger { height: var(--index-size-34); border-color: var(--ink-shell); background: var(--ink-bg); box-shadow: var(--shadow-1); color: var(--ink-secondary); font: 750 var(--index-size-11)/1 var(--font-ui); }
+.selectLeadingIcon { display: inline-flex; flex: 0 0 auto; align-items: center; pointer-events: none; }
+@media (max-width: 1050px) { .toolbarSelect { flex: 1 1 180px; } }
+@media (max-width: 760px) { .toolbarSelect { flex-basis: 145px; } }
+@media (max-width: 480px) { .toolbarSelect { flex: 1 1 100%; } }
+
 .label {
   font-size: 12px;
   font-weight: 800;
@@ -73,6 +81,11 @@
     border-color var(--motion-fast) var(--motion-ease);
 }
 
+.textareaShell { height: auto; align-items: stretch; }
+.textarea { width: 100%; min-height: 96px; padding: 10px 11px; resize: vertical; border: 0; border-radius: 0; outline: 0; background: transparent; color: var(--ink); font: 600 14px/1.6 var(--font-ui); }
+.textarea::placeholder { color: var(--ink-muted); font-weight: 500; }
+.field[data-disabled] .textarea { color: var(--ink-muted); cursor: not-allowed; }
+
 .input::placeholder {
   color: var(--ink-muted);
   font-weight: 500;
@@ -119,113 +132,6 @@
   color: var(--ink-secondary);
 }
 
-/* Search field — 输入框 + 隐藏的清除按钮视觉占位 */
-.searchShell {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 36px;
-  border: 1px solid var(--ink-shell);
-  background: var(--ink-search-rest);
-  box-shadow: var(--shadow-search-rest);
-  transition:
-    box-shadow var(--motion-fast) var(--motion-ease),
-    background var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease);
-}
-
-.field:not([data-disabled]):focus-within .searchShell {
-  border-color: var(--ink-accent);
-  background: var(--ink-surface);
-  color: var(--ink-accent);
-  box-shadow: var(--shadow-search-focus);
-}
-
-.field[data-invalid] .searchShell {
-  border-color: var(--ink-danger);
-  background: var(--ink-danger-soft);
-  box-shadow: var(--shadow-input-invalid);
-}
-
-.field[data-invalid]:focus-within .searchShell {
-  box-shadow: var(--shadow-input-invalid);
-}
-
-.searchShell .input {
-  padding-left: 34px;
-  padding-right: 34px;
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-}
-
-/* 搜索文本框借用同一外壳契约，普通 TextField 保持原状。 */
-.inputShell:has(input[type='search']) {
-  border-color: var(--ink-shell);
-  background: var(--ink-search-rest);
-  box-shadow: var(--shadow-search-rest);
-}
-.inputShell:has(input[type='search']) .input {
-  background: transparent;
-  box-shadow: none;
-}
-.field:not([data-disabled]):focus-within .inputShell:has(input[type='search']) {
-  border-color: var(--ink-accent);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-search-focus);
-}
-.field[data-invalid] .inputShell:has(input[type='search']),
-.field[data-invalid]:focus-within .inputShell:has(input[type='search']) {
-  border-color: var(--ink-danger);
-  background: var(--ink-danger-soft);
-  box-shadow: var(--shadow-input-invalid);
-}
-.field[data-disabled] :is(.searchShell, .inputShell:has(input[type='search'])) {
-  border-color: var(--ink-panel);
-  background: var(--ink-sunken);
-  box-shadow: none;
-}
-.field:focus-within .searchIcon { color: var(--ink-accent); }
-
-.searchIcon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
-  color: var(--ink-secondary);
-  pointer-events: none;
-}
-
-.searchClear {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 0;
-  color: var(--ink-secondary);
-  cursor: pointer;
-  border-radius: 0;
-}
-
-.searchClear:hover {
-  color: var(--ink);
-  background: var(--ink-sunken);
-}
-
-.searchClear:focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
 /* Checkbox — 14px 方形，复选 + 方点 */
 
 .checkbox {
@@ -254,6 +160,10 @@
     background var(--motion-fast) var(--motion-ease),
     box-shadow var(--motion-fast) var(--motion-ease);
 }
+
+.checkboxCompact { gap: 0; }
+.checkboxCompact .box { width: 14px; height: 14px; box-shadow: none; }
+.checkboxCompact .check { width: 10px; height: 10px; }
 
 .box[data-selected] {
   background: var(--ink);
@@ -362,7 +272,6 @@
 /* 字段级壳：覆盖 label/输入/错误三角 */
 @media (max-width: 767px) {
   .inputShell,
-  .searchShell,
   .selectTrigger {
     min-height: 44px;
   }

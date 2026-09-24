@@ -22,7 +22,7 @@ export function createNoteDeletionCoordinator({
   }
 
   function finishAttachmentCleanup(attachments) {
-    attachmentStore?.removeDetachedAttachmentFiles?.(attachments);
+    return attachmentStore?.removeDetachedAttachmentFiles?.(attachments) ?? [];
   }
 
   function permanentlyDeleteNote(noteId) {
@@ -33,8 +33,8 @@ export function createNoteDeletionCoordinator({
       return result;
     });
 
-    finishAttachmentCleanup(detachedAttachments);
-    return deletedNote;
+    const attachmentCleanup = finishAttachmentCleanup(detachedAttachments);
+    return attachmentCleanup.length ? { ...deletedNote, attachmentCleanup } : deletedNote;
   }
 
   function emptyRecycleBin(spaceId = null) {
@@ -49,8 +49,8 @@ export function createNoteDeletionCoordinator({
       return deletion;
     });
 
-    finishAttachmentCleanup(detachedAttachments);
-    return result;
+    const attachmentCleanup = finishAttachmentCleanup(detachedAttachments);
+    return attachmentCleanup.length ? { ...result, attachmentCleanup } : result;
   }
 
   return {

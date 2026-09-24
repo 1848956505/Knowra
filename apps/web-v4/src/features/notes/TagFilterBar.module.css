@@ -1,0 +1,26 @@
+.bar { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: var(--index-size-8); min-width: 0; padding: var(--index-size-4) var(--index-size-14); border-bottom: var(--index-size-1) solid var(--ink-panel); }
+.label { flex: 0 0 auto; color: var(--ink-secondary); font: 700 var(--index-size-11) var(--font-ui); }
+.chipArea { display: flex; align-items: center; gap: var(--index-size-8); flex: 1 1 auto; min-width: 0; }
+.chipViewport { display: flex; align-items: center; gap: var(--index-size-8); flex: 1 1 auto; min-width: 0; overflow: hidden; padding: 2px 3px 3px 0; }
+.chipViewport > * { flex: 0 0 auto; }
+.empty { color: var(--ink-secondary); font: 700 var(--index-size-11) var(--font-ui); }
+.more { flex: 0 0 120px; width: 120px; padding-inline: 7px; gap: 4px; }
+.hiddenSelected { margin-left: auto; color: var(--ink-accent-hover); font-size: 10px; }
+.actions { display: flex; align-items: center; gap: var(--index-size-8); flex: 0 0 auto; padding-left: var(--index-size-8); border-left: 1px solid var(--ink-panel); }
+.manage { white-space: nowrap; }
+.measure { position: absolute; top: 0; left: 0; display: flex; gap: var(--index-size-8); width: max-content; height: 0; visibility: hidden; pointer-events: none; overflow: hidden; }
+.measure > * { flex: 0 0 auto; }
+.popover { width: min(360px, calc(100vw - 24px)); display: flex; flex-direction: column; overflow: hidden; }
+.popoverContent { display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; padding: 14px; min-width: 0; min-height: 0; max-height: min(60vh, 500px); outline: 0; }
+.popoverHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 750 12px var(--font-ui); }
+.popoverHeader span { color: var(--ink-secondary); font-weight: 650; }
+.popoverList { min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 12px; }
+.popoverSection { display: grid; gap: 8px; }
+.popoverSection h3 { margin: 0; color: var(--ink-secondary); font: 750 11px var(--font-ui); }
+.popoverChips { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 3px 3px 0; }
+.noResults { margin: 4px 0; color: var(--ink-secondary); font: 650 12px var(--font-ui); }
+@media (max-width: 767px) {
+  .bar { flex-wrap: wrap; padding-inline: var(--index-size-12); }
+  .chipArea { order: 3; flex-basis: 100%; }
+  .actions { margin-left: auto; }
+}

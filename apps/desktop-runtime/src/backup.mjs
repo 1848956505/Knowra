@@ -53,7 +53,7 @@ export function listRuntimeBackups(dataDirectory) {
   return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory() && /^\d+-[a-f0-9-]+$/.test(entry.name)).map(entry => {
     try {
       const manifest = JSON.parse(fs.readFileSync(path.join(root, entry.name, 'manifest.json'), 'utf8'));
-      return { id: entry.name, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'manual', fileCount: manifest.files?.length ?? 0, size: manifest.files?.reduce((sum, file) => sum + (Number(file.size) || 0), 0) ?? 0 };
+      return { id: entry.name, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: manifest.files?.length ?? 0, size: manifest.files?.reduce((sum, file) => sum + (Number(file.size) || 0), 0) ?? 0 };
     } catch { return { id: entry.name, createdAt: null, purpose: 'unknown', fileCount: 0, size: 0, error: '备份清单不可读，请检查此备份。' }; }
   }).sort((a, b) => b.id.localeCompare(a.id));
 }
@@ -129,7 +129,7 @@ export function inspectRuntimeBackup(backupDirectory) {
     }
     const draftRecord = readBackupDrafts(backupDirectory);
     const draftCount = [draftRecord, ...(draftRecord.archivedDrafts ?? [])].reduce((count, record) => count + Object.keys(record.drafts).length, 0);
-    return { valid: true, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'manual', fileCount: actual.length, size: actual.reduce((sum, file) => sum + file.size, 0), noteCount: state.notes.length, attachmentCount: state.attachments.length, pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count, draftCount };
+    return { valid: true, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: actual.length, size: actual.reduce((sum, file) => sum + file.size, 0), noteCount: state.notes.length, attachmentCount: state.attachments.length, pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count, draftCount };
   } finally { db.close(); }
 }
 

@@ -1,5 +1,6 @@
 import { validateQuestionStructure } from './question-validation.js';
 import { validationError } from './knowledge-errors.js';
+import { isEvidenceUsable } from '../domain/evidence-applicability.js';
 
 const ACTION_VERB_LEVELS = Object.freeze({
   identify: new Set(['remember']),
@@ -21,7 +22,7 @@ export function assertKnowledgeItemConfirmable(item, evidence = []) {
       'Confirmed KnowledgeItem requires title and canonicalStatement'
     );
   }
-  const hasValidEvidence = evidence.some((record) => record?.status === 'valid');
+  const hasValidEvidence = evidence.some(isEvidenceUsable);
   if (!hasValidEvidence && item.sourceMode !== 'manual') {
     throw validationError(
       'KNOWLEDGE_ITEM_SOURCE_REQUIRED',
@@ -71,7 +72,7 @@ export function deriveQuestionSourceStatus(source, reference = null) {
         ? 'active'
         : 'stale';
     case 'learningObjective':
-      return reference?.reviewStatus === 'confirmed' ? 'active' : 'stale';
+      return reference && !reference.deletedAt && reference.reviewStatus === 'confirmed' ? 'active' : 'stale';
     case 'noteVersion':
       return reference
         && reference.isCurrent !== false
@@ -79,7 +80,7 @@ export function deriveQuestionSourceStatus(source, reference = null) {
         ? 'active'
         : 'stale';
     case 'knowledgeEvidence':
-      return reference?.status === 'valid' ? 'active' : 'stale';
+      return isEvidenceUsable(reference) ? 'active' : 'stale';
     default:
       return 'stale';
   }
@@ -96,7 +97,7 @@ export function assertQuestionConfirmable(question, {
       'Question requires at least one LearningObjective'
     );
   }
-  if (objectives.some((objective) => objective?.reviewStatus !== 'confirmed')) {
+  if (objectives.some((objective) => objective?.deletedAt || objective?.reviewStatus !== 'confirmed')) {
     throw validationError(
       'LEARNING_OBJECTIVE_NOT_CONFIRMED',
       'Question requires all LearningObjectives to be confirmed'

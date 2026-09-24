@@ -13,6 +13,7 @@ export class ExamFocus {
     questionTypeSuggestions = [],
     sourceType = 'manual',
     reviewStatus = 'candidate',
+    deletedAt = null,
     createdAt = new Date().toISOString(),
     updatedAt = createdAt
   }) {
@@ -34,6 +35,7 @@ export class ExamFocus {
       questionTypeSuggestions: structuredClone(questionTypeSuggestions),
       sourceType,
       reviewStatus,
+      deletedAt,
       createdAt,
       updatedAt
     });

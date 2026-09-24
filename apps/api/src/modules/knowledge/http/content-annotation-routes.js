@@ -4,7 +4,14 @@ import { sendJson } from '../../../http/response.js';
 export async function handleContentAnnotationRoute({ request, response, url, knowledge }) {
   const root = '/api/knowledge/annotations';
   if (request.method === 'POST' && url.pathname === '/api/knowledge/analysis-scopes/preview') { sendJson(response, 200, { data: await knowledge.previewAnalysisScope(await parseBody(request)) }); return true; }
+  if (request.method === 'GET' && url.pathname === '/api/knowledge/analysis-scopes') { sendJson(response, 200, { data: await knowledge.listAnalysisScopes(toQueryObject(url)) }); return true; }
   if (request.method === 'POST' && url.pathname === '/api/knowledge/analysis-scopes') { sendJson(response, 201, { data: await knowledge.createAnalysisScope(await parseBody(request)) }); return true; }
+  const scopeAction = url.pathname.match(/^\/api\/knowledge\/analysis-scopes\/([^/]+)\/(trash|restore)$/);
+  if (request.method === 'POST' && scopeAction) {
+    const method = scopeAction[2] === 'trash' ? knowledge.trashAnalysisScope : knowledge.restoreDeletedAnalysisScope;
+    sendJson(response, 200, { data: await method({ id: decodeURIComponent(scopeAction[1]) }, await parseBody(request)) });
+    return true;
+  }
   const scopeMatch = url.pathname.match(/^\/api\/knowledge\/analysis-scopes\/([^/]+)$/);
   if (request.method === 'GET' && scopeMatch) { sendJson(response, 200, { data: await knowledge.getAnalysisScope({ id: decodeURIComponent(scopeMatch[1]) }, toQueryObject(url)) }); return true; }
   if (request.method === 'POST' && url.pathname === root) { sendJson(response, 201, { data: await knowledge.createAnnotation(await parseBody(request)) }); return true; }

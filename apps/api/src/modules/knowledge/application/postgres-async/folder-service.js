@@ -14,6 +14,11 @@ export function createAsyncFolderService({
     if (!folder) throw notFoundError('FOLDER_NOT_FOUND', 'Folder not found');
     return folder;
   }
+  async function requireActiveFolder(folderId) {
+    const folder = await requireFolder(folderId);
+    if (folder.deletedAt) throw conflictError('FOLDER_IN_TRASH', '文件夹位于回收站');
+    return folder;
+  }
 
   function normalizeSegment(name) {
     return String(name ?? '').trim().toLowerCase()
@@ -31,7 +36,7 @@ export function createAsyncFolderService({
     if (currentFolderId && parentId === currentFolderId) {
       throw conflictError('FOLDER_PARENT_CONFLICT', 'Folder cannot be its own parent');
     }
-    const parentFolder = await requireFolder(parentId);
+    const parentFolder = await requireActiveFolder(parentId);
     if (parentFolder.spaceId !== spaceId) {
       throw conflictError('FOLDER_SPACE_MISMATCH', 'Parent folder must belong to the same space');
     }
@@ -61,7 +66,7 @@ export function createAsyncFolderService({
   }
 
   async function collectSubtreeIds(folderId) {
-    const allFolders = await repository.list();
+    const allFolders = await repository.list({ includeDeleted: true });
     const ids = new Set([folderId]);
     const queue = [folderId];
     while (queue.length) {
@@ -96,7 +101,7 @@ export function createAsyncFolderService({
       }));
     },
     async updateFolder(folderId, updates) {
-      const currentFolder = await requireFolder(folderId);
+      const currentFolder = await requireActiveFolder(folderId);
       const dto = buildUpdateFolderDto(updates);
       const nextParentId = dto.parentId !== undefined ? dto.parentId : currentFolder.parentId;
       await validateSiblingNameConflict?.({
@@ -119,12 +124,22 @@ export function createAsyncFolderService({
       await reindexDescendants(updatedFolder);
       return updatedFolder;
     },
-    async deleteFolder(folderId) {
-      await requireFolder(folderId);
+    async trashFolder(folderId, deletionPackage) {
+      await requireActiveFolder(folderId);
       const deletedIds = await collectSubtreeIds(folderId);
-      const deletedFolders = await Promise.all(deletedIds.map((id) => requireFolder(id)));
-      await Promise.all(deletedIds.map((id) => repository.delete(id)));
-      return deletedFolders;
+      const deletedAt = new Date().toISOString();
+      const result = [];
+      for (const id of deletedIds) result.push(await repository.save(new Folder({ ...await requireActiveFolder(id), deletedAt, deletionPackage: id === folderId ? deletionPackage : null, updatedAt: deletedAt })));
+      return result;
+    },
+    async restoreDeletedFolder(folderId) {
+      const root = await requireFolder(folderId);
+      if (!root.deletedAt || !root.deletionPackage) throw conflictError('FOLDER_NOT_IN_TRASH', '文件夹不在回收站中');
+      const folders = await Promise.all(root.deletionPackage.folderIds.map(id => requireFolder(id)));
+      for (const folder of folders) await validateSiblingNameConflict?.({ spaceId: folder.spaceId, parentId: folder.parentId, name: folder.name, currentFolderId: folder.id });
+      const result = [];
+      for (const folder of folders) result.push(await repository.save(new Folder({ ...folder, deletedAt: null, deletionPackage: null, updatedAt: new Date().toISOString() })));
+      return result;
     },
     listFolders(options = {}) { return repository.list(options); },
     async listFolderTree(options = {}) {

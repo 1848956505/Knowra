@@ -103,9 +103,11 @@ export function useSidebarTreeOperations(onMutation?: () => void): {
         <DeleteTreeEntryDialog
           key={`${deleteTarget.kind}:${deleteTarget.id}`}
           target={deleteTarget}
+          parentId={deleteTarget.kind === 'folder' ? folders[deleteTarget.id]?.parentId ?? null : null}
+          folders={folders}
           onClose={() => setDeleteTarget(null)}
-          onDelete={() => deleteTarget.kind === 'folder'
-            ? runMutation(deleteFolder(deleteTarget.id))
+          onDelete={(input) => deleteTarget.kind === 'folder'
+            ? runMutation(deleteFolder(deleteTarget.id, input!))
             : runMutation(deleteNote(deleteTarget.id))}
         />
       ) : null}

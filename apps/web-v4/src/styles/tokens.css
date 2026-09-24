@@ -73,6 +73,8 @@
 
   /* 3.2 字体 */
   --font-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  /* 笔记纸面专用：优先使用笔画有明显起收锋的宋体系，保持应用控件字体不变。 */
+  --font-note: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", "SimSun", serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* 状态点 / 印章尺寸 */

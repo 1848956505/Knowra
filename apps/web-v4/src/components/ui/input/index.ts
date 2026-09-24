@@ -1,7 +1,11 @@
 export { TextField } from './Input';
 export type { TextFieldProps } from './Input';
+export { TextAreaField } from './TextAreaField';
+export type { TextAreaFieldProps } from './TextAreaField';
 export { SearchField } from './SearchField';
 export type { SearchFieldProps } from './SearchField';
+export { SearchBox } from './SearchBox';
+export type { SearchBoxProps, SearchBoxSize } from './SearchBox';
 export { Checkbox } from './Checkbox';
 export type { CheckboxProps } from './Checkbox';
 export { Select } from './Select';

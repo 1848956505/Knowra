@@ -20,6 +20,8 @@ export interface Folder extends EntityBase {
   parentId: string | null;
   pathCache?: string;
   children: Folder[];
+  deletedAt?: string | null;
+  deletionPackage?: { id: string; mode: 'keep' | 'with-content'; folderIds: string[]; noteIds: string[]; destinationId: string | null } | null;
 }
 
 export interface Note extends EntityBase {
@@ -117,7 +119,7 @@ export interface Annotation extends EntityBase {
   noteContentHash: string;
   idempotencyKey: string;
   status: string;
-  lifecycleStatus?: 'active' | 'archived';
+  lifecycleStatus?: 'active' | 'archived' | 'deleted';
   anchorStatus?: 'resolved' | 'needsReview' | 'missing';
   anchorReason?: string | null;
   revision?: number;

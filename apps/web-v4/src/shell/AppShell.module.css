@@ -91,6 +91,23 @@
   scrollbar-width: thin;
 }
 
+/* 笔记编辑页：让侧栏头部与标签栏相连，下方仍保留工作区分隔线。 */
+.mergedContextTabs .contextSidebar {
+  position: relative;
+  border-right: 0;
+}
+
+.mergedContextTabs .contextSidebar::after {
+  content: '';
+  position: absolute;
+  top: var(--tab-size);
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ink-panel);
+  pointer-events: none;
+}
+
 .stage::before,
 .stage::after {
   content: '';

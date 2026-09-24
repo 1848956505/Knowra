@@ -25,19 +25,27 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
     return true;
   }
 
-  const evidenceActionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/evidence\/([^/]+)\/retire$/);
+  const evidenceActionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/evidence\/([^/]+)\/(retire|readopt)$/);
   if (evidenceActionMatch && request.method === 'POST') {
-    sendJson(response, 200, { data: await knowledge.retireKnowledgeEvidence({
+    sendJson(response, 200, { data: await (evidenceActionMatch[3] === 'retire' ? knowledge.retireKnowledgeEvidence : knowledge.readoptKnowledgeEvidence)({
       id: decode(evidenceActionMatch[1]),
       evidenceId: decode(evidenceActionMatch[2])
     }, await parseBody(request)) });
     return true;
   }
 
-  const actionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/(confirm|needs-revision|archive|restore|evidence)$/);
+  const actionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/(confirm|needs-revision|archive|restore|trash|restore-deleted|purge-preview|permanent|evidence)$/);
   if (actionMatch) {
     const id = decode(actionMatch[1]);
     const action = actionMatch[2];
+    if (action === 'purge-preview' && request.method === 'GET') {
+      sendJson(response, 200, { data: await knowledge.inspectKnowledgePurge({ id }) });
+      return true;
+    }
+    if (action === 'permanent' && request.method === 'DELETE') {
+      sendJson(response, 200, { data: await knowledge.permanentlyDeleteKnowledgeItem({ id }, await parseBody(request)) });
+      return true;
+    }
     if (action === 'evidence' && request.method === 'GET') {
       sendJson(response, 200, { data: await knowledge.listKnowledgeEvidence({ id }) });
       return true;
@@ -60,6 +68,14 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
     }
     if (request.method === 'POST' && action === 'restore') {
       sendJson(response, 200, { data: await knowledge.restoreKnowledgeItem({ id }, await parseBody(request)) });
+      return true;
+    }
+    if (request.method === 'POST' && action === 'trash') {
+      sendJson(response, 200, { data: await knowledge.trashKnowledgeItem({ id }, await parseBody(request)) });
+      return true;
+    }
+    if (request.method === 'POST' && action === 'restore-deleted') {
+      sendJson(response, 200, { data: await knowledge.restoreDeletedKnowledgeItem({ id }, await parseBody(request)) });
       return true;
     }
     return false;

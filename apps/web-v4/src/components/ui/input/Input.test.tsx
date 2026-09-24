@@ -1,6 +1,7 @@
+import { createRef } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Checkbox, SearchField, Select, TextField } from './index';
+import { Checkbox, SearchBox, SearchField, Select, TextAreaField, TextField } from './index';
 
 describe('V4-04 TextField', () => {
   it('associates label and input', () => {
@@ -41,6 +42,20 @@ describe('V4-04 TextField', () => {
     expect(field).toBeTruthy();
     expect(shell).toBeTruthy();
     expect(input).toHaveAttribute('data-input-control', 'true');
+  });
+});
+
+describe('共享多行字段', () => {
+  it('keeps the label and controlled value connected during editing', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TextAreaField label="核心陈述" value="原文" onChange={onChange} rows={5} maxLength={2000} />);
+    const input = screen.getByRole('textbox', { name: '核心陈述' });
+    expect(input).toHaveValue('原文');
+    expect(input).toHaveAttribute('rows', '5');
+    expect(input).toHaveAttribute('maxLength', '2000');
+    await user.type(input, '新');
+    expect(onChange).toHaveBeenCalled();
   });
 });
 
@@ -94,6 +109,26 @@ describe('V4-04 SearchField', () => {
   });
 });
 
+describe('共享搜索框', () => {
+  it('lets page search and form search use the same visual shell while preserving native input focus', async () => {
+    const ref = createRef<HTMLInputElement>();
+    render(<><SearchBox ref={ref} label="搜索笔记索引" shortcut="⌘ K" /><SearchField label="搜索标签" /></>);
+
+    const pageInput = screen.getByRole('searchbox', { name: '搜索笔记索引' });
+    const fieldInput = screen.getByRole('searchbox', { name: /搜索标签/ });
+    const pageShell = pageInput.closest('[data-input-shadow-owner="true"]');
+    const fieldShell = fieldInput.closest('[data-input-shadow-owner="true"]');
+    expect(pageShell).toHaveAttribute('data-size', 'toolbar');
+    expect(fieldShell).toHaveAttribute('data-size', 'field');
+    expect(pageShell?.className).toBe(fieldShell?.className);
+    expect(screen.getByText('⌘ K')).toBeInTheDocument();
+    expect(ref.current).toBe(pageInput);
+    const user = userEvent.setup();
+    await user.click(pageShell as HTMLElement);
+    expect(pageInput).toHaveFocus();
+  });
+});
+
 describe('V4-04 Checkbox', () => {
   it('toggles selected state on click', async () => {
     const user = userEvent.setup();
@@ -114,6 +149,15 @@ describe('V4-04 Checkbox', () => {
 });
 
 describe('V4-04 Select', () => {
+  it('keeps a toolbar filter accessible and updates its selection', async () => {
+    const user = userEvent.setup();
+    const onSelectionChange = vi.fn();
+    render(<Select presentation="toolbar" label="按分组筛选" selectedKey="all" onSelectionChange={onSelectionChange} options={[{ id: 'all', label: '全部分组' }, { id: 'one', label: '普通标签' }]} />);
+    const trigger = screen.getByRole('button', { name: /按分组筛选/ });
+    await user.click(trigger);
+    await user.click(screen.getByRole('option', { name: '普通标签' }));
+    expect(onSelectionChange).toHaveBeenCalledWith('one');
+  });
   it('opens a listbox popover and selects an option', async () => {
     const user = userEvent.setup();
     render(

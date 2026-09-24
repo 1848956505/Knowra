@@ -1,4 +1,5 @@
 import type { KnowledgeSlice } from './slices/knowledgeSlice';
+import type { TrainingSlice } from './slices/trainingSlice';
 import type {
   WorkspaceDataMode,
   WorkspaceServerData,
@@ -9,6 +10,7 @@ import type {
   Attachment,
   Annotation,
   Note,
+  Folder,
   NoteVersion,
   NoteVersionPage,
   NoteQueryInput,
@@ -20,6 +22,7 @@ import type {
   AnnotationKnowledgeLinks,
   AnalysisScopeInput,
   AnalysisScopePreview,
+  AnalysisScopeSnapshot,
   AnnotationExclusionResult,
   UploadAttachmentInput,
   Tag,
@@ -46,6 +49,12 @@ export interface WorkspaceSlice {
   retryWorkspace(): Promise<void>;
   refreshLocalWorkspace(): Promise<boolean>;
   canWriteWorkspace(): boolean;
+  selectKnowledgeSpace(id: string): Promise<void>;
+  createKnowledgeSpace(name: string): Promise<import('@study-accelerator/web-core').KnowledgeSpace>;
+  inspectEmptySpaceDeletion(id: string): Promise<import('@study-accelerator/web-core').SpaceDeletionPreview>;
+  deleteEmptySpace(id: string, expectedUpdatedAt: string): Promise<void>;
+  previewSpaceMigration(sourceId: string, targetId: string): Promise<import('@study-accelerator/web-core').SpaceMigrationPreview>;
+  migrateSpaceAssets(sourceId: string, targetId: string, expectedPreviewHash: string): Promise<void>;
   createNote(folderId: string | null, title: string): Promise<string>;
   importMarkdownNotes(
     folderId: string | null,
@@ -84,10 +93,14 @@ export interface WorkspaceSlice {
   getAnnotationKnowledgeLinks(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   previewAnalysisScope(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   createAnalysisScope(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  listAnalysisScopes(spaceId: string): Promise<AnalysisScopeSnapshot[]>;
+  trashAnalysisScope(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<AnalysisScopeSnapshot>;
+  restoreAnalysisScope(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<AnalysisScopeSnapshot>;
   createAnnotationExclusion(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<AnnotationExclusionResult>;
   deleteAnnotationExclusion(annotationId: string, exclusionId: string, expectedRevision: number): Promise<AnnotationExclusionResult>;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   listNoteVersionPage(noteId: string, options?: { limit?: number; cursor?: string }): Promise<NoteVersionPage>;
+  previewNoteVersionPrune(noteId: string): Promise<import('@study-accelerator/web-core').NoteVersionPrunePreview>;
   saveNoteVersionAs(noteId: string, versionId: string): Promise<string>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   organizeNote(noteId: string, input: { folderId: string | null; status: string }): Promise<void>;
@@ -97,7 +110,9 @@ export interface WorkspaceSlice {
   deleteNoteAttachment(attachmentId: string): Promise<void>;
   moveEntry(kind: 'note' | 'folder', id: string, parentId: string | null): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
-  deleteFolder(folderId: string): Promise<void>;
+  deleteFolder(folderId: string, input: { mode: 'keep' | 'with-content'; destinationId?: string | null }): Promise<void>;
+  restoreFolder(folderId: string): Promise<void>;
+  listDeletedFolders(spaceId: string): Promise<Folder[]>;
   emptyRecycleBin(): Promise<number>;
 }
 
@@ -163,4 +178,4 @@ export interface StatusSlice {
   failSave(error: unknown): void;
 }
 
-export type AppStore = WorkspaceSlice & NavigationSlice & NotesIndexSlice & StatusSlice & KnowledgeSlice;
+export type AppStore = WorkspaceSlice & NavigationSlice & NotesIndexSlice & StatusSlice & KnowledgeSlice & TrainingSlice;

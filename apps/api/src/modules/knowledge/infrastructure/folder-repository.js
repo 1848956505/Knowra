@@ -34,7 +34,7 @@ export function createInMemoryFolderRepository(options = {}) {
       return deletedFolder;
     },
     list(options = {}) {
-      return folders.filter((folder) => (options.spaceId ? folder.spaceId === options.spaceId : true));
+      return folders.filter((folder) => (options.spaceId ? folder.spaceId === options.spaceId : true) && ((options.includeDeleted === true || options.includeDeleted === 'true') || !folder.deletedAt));
     }
   };
 }

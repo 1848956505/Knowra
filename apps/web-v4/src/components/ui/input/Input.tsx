@@ -14,6 +14,7 @@ import {
   type TextFieldProps as RATextFieldProps
 } from 'react-aria-components';
 import { cx } from '../classnames';
+import { SearchSurface, searchBoxStyles } from './SearchBox';
 import styles from './Input.module.css';
 
 export interface TextFieldProps extends Omit<RATextFieldProps, 'className' | 'children'> {
@@ -65,18 +66,13 @@ export const TextField = forwardRef<HTMLDivElement, TextFieldProps>(function Tex
           {description}
         </Text>
       ) : null}
-      <div className={styles.inputShell} data-input-shadow-owner="true">
-        {children ? (
-          children({ input: RAInput, label: Label, description: Text, error: FieldError })
-        ) : (
-          <RAInput
-            type={type}
-            placeholder={placeholder}
-            className={cx(styles.input, inputClassName)}
-            data-input-control="true"
-          />
-        )}
-      </div>
+      {type === 'search' ? <SearchSurface disabled={isDisabled} invalid={isInvalid}>
+        {children ? children({ input: RAInput, label: Label, description: Text, error: FieldError }) :
+          <RAInput type={type} placeholder={placeholder} className={cx(searchBoxStyles.input, inputClassName)} data-input-control="true" />}
+      </SearchSurface> : <div className={styles.inputShell} data-input-shadow-owner="true">
+        {children ? children({ input: RAInput, label: Label, description: Text, error: FieldError }) :
+          <RAInput type={type} placeholder={placeholder} className={cx(styles.input, inputClassName)} data-input-control="true" />}
+      </div>}
       {errorMessage ? (
         <FieldError className={styles.error}>{errorMessage}</FieldError>
       ) : null}

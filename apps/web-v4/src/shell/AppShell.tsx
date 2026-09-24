@@ -46,6 +46,8 @@ export interface AppShellProps {
   liveAnnouncement?: string;
   /** 编辑器等沉浸式页面由自身管理内边距和滚动边界。 */
   stageMode?: 'default' | 'workspace';
+  /** 笔记标签栏与上下文侧栏在顶端连成一体，保留下方工作区分隔线。 */
+  mergeContextSidebarTabs?: boolean;
   /** 专注模式隐藏应用轨道、上下文侧栏和移动端导航，只保留编辑舞台与状态栏。 */
   focusMode?: boolean;
 }
@@ -66,12 +68,14 @@ export function AppShell({
   mobileTabs,
   liveAnnouncement,
   stageMode = 'default',
+  mergeContextSidebarTabs = false,
   focusMode = false
 }: AppShellProps) {
   return (
     <div className={cx(
       styles.shell,
       contextSidebar && !focusMode ? styles.shellWithSidebar : undefined,
+      contextSidebar && !focusMode && mergeContextSidebarTabs ? styles.mergedContextTabs : undefined,
       focusMode ? styles.focusShell : undefined
     )}>
       <a href="#feature-stage" className={styles.skipLink}>

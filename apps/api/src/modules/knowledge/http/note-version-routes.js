@@ -11,6 +11,11 @@ function decode(value) {
 }
 
 export async function handleNoteVersionRoute({ request, response, url, knowledge }) {
+  const previewMatch = url.pathname.match(/^\/api\/knowledge\/notes\/([^/]+)\/versions\/prune-preview$/);
+  if (request.method === 'GET' && previewMatch) {
+    sendJson(response, 200, { data: await knowledge.previewNoteVersionPrune({ id: decode(previewMatch[1]) }) });
+    return true;
+  }
   const listMatch = url.pathname.match(/^\/api\/knowledge\/notes\/([^/]+)\/versions$/);
   if (request.method === 'GET' && listMatch) {
     sendJson(response, 200, { data: await knowledge.listNoteVersions({ id: decode(listMatch[1]) }, toQueryObject(url)) });

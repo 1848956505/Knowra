@@ -93,9 +93,18 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       assertRevision(annotation, input.expectedRevision);
       return saveUpdated(annotation, { lifecycleStatus: 'archived', deletedAt: new Date().toISOString() }, 'archived');
     },
+    async deleteAnnotation(id, input = {}) {
+      const annotation = await requireAnnotation(id);
+      assertRevision(annotation, input.expectedRevision);
+      if (annotation.lifecycleStatus === 'deleted') return annotation;
+      return saveUpdated(annotation, { lifecycleStatus: 'deleted', deletedAt: new Date().toISOString() }, 'deleted');
+    },
     async restoreAnnotation(id, input = {}) {
       const annotation = await requireAnnotation(id);
       assertRevision(annotation, input.expectedRevision);
+      if (annotation.lifecycleStatus === 'active') return annotation;
+      const parent = await noteRepository.findById(annotation.noteId);
+      if (!parent || parent.deleted) throw fail('ANNOTATION_NOTE_IN_TRASH', '请先恢复来源笔记，再恢复标注。', 409);
       if (annotation.schemaVersion !== 2 || !annotation.anchor) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: annotation.status === 'stale' ? 'needsReview' : 'resolved', deletedAt: null }, 'restored');
       const note = await noteRepository.findById(annotation.noteId);
       if (!note || note.deleted) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: 'missing', anchorReason: 'sourceDeleted', deletedAt: null }, 'restored', 'sourceDeleted');
@@ -119,7 +128,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       const changed = [];
       const contentChangedAnnotationIds = [];
       for (const annotation of await repository.list({ noteId, includeDeleted: true })) {
-        if (annotation.lifecycleStatus === 'archived' || annotation.noteContentHash === currentContentHash) continue;
+        if (annotation.lifecycleStatus !== 'active' || annotation.noteContentHash === currentContentHash) continue;
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           changed.push(await saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'legacyUnverified', noteContentHash: currentContentHash }, 'anchorStatusChanged', 'legacyUnverified'));
           continue;

@@ -25,6 +25,13 @@ function createCollectionRepository({ records = [], onChange = null, sort = null
     findById(id) {
       return records.find((item) => item.id === id) ?? null;
     },
+    delete(id) {
+      const index = records.findIndex((item) => item.id === id);
+      if (index < 0) return null;
+      const [removed] = records.splice(index, 1);
+      persist();
+      return removed;
+    },
     list(options = {}) {
       const result = records.filter((item) => filter(item, options));
       const ordered = sort ? result.sort(sort) : result;
@@ -52,6 +59,7 @@ export function createInMemoryLearningObjectiveRepository(options = {}) {
       (!query.knowledgeItemId || item.knowledgeItemId === query.knowledgeItemId)
       && (!query.reviewStatus || item.reviewStatus === query.reviewStatus)
       && (query.includeArchived || item.reviewStatus !== 'archived')
+      && (query.includeDeleted || !item.deletedAt)
     )
   });
 }
@@ -61,7 +69,7 @@ export function createInMemoryExamProfileRepository(options = {}) {
     records: options.records,
     onChange: options.onChange,
     sort: newestFirst,
-    filter: (item, query) => query.includeArchived || !item.archivedAt
+    filter: (item, query) => (query.includeArchived || !item.archivedAt) && (query.includeDeleted || !item.deletedAt)
   });
 }
 
@@ -76,6 +84,7 @@ export function createInMemoryExamFocusRepository(options = {}) {
       && (!query.learningObjectiveId || item.learningObjectiveId === query.learningObjectiveId)
       && (!query.reviewStatus || item.reviewStatus === query.reviewStatus)
       && (query.includeArchived || item.reviewStatus !== 'archived')
+      && (query.includeDeleted || !item.deletedAt)
     )
   });
   return {
@@ -94,6 +103,7 @@ export function createInMemoryQuestionRepository(options = {}) {
     filter: (item, query) => (
       (!query.reviewStatus || item.reviewStatus === query.reviewStatus)
       && (query.includeArchived || item.reviewStatus !== 'archived')
+      && (query.includeDeleted || !item.deletedAt)
     )
   });
 }
@@ -124,6 +134,9 @@ export function createInMemoryQuestionObjectiveRepository(options = {}) {
       records.push(...next);
       options.onChange?.(records);
       return next;
+    },
+    deleteByQuestionId(questionId) {
+      return repository.deleteByQuestionId(questionId);
     }
   };
 }
@@ -148,6 +161,9 @@ export function createInMemoryQuestionSourceRepository(options = {}) {
       records.push(...sources);
       options.onChange?.(records);
       return sources;
+    },
+    deleteByQuestionId(questionId) {
+      return repository.deleteByQuestionId(questionId);
     },
     markBySourceId(sourceType, sourceId, status = 'stale') {
       return this.markBySourceIds(sourceType, [sourceId], status);

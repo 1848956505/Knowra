@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within, type RenderResult } from '@testing-l
 import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { createEmptyWorkspaceSnapshot, type WorkspaceApi } from '@study-accelerator/web-core';
+import { createEmptyWorkspaceSnapshot, type Tag, type WorkspaceApi } from '@study-accelerator/web-core';
 import { AppShell } from '../../shell/AppShell';
 import { AppStoreProvider } from '../../store/AppStoreProvider';
 import { createAppStore } from '../../store/createAppStore';
@@ -23,7 +23,8 @@ describe('Notes index skeleton', () => {
       </AppShell>
     );
 
-    expect(screen.getAllByRole('heading', { name: '全部笔记', level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
+    expect(screen.queryByText(/个文件夹/)).not.toBeInTheDocument();
     expect(screen.queryByText('INDEX / LIST')).not.toBeInTheDocument();
     expect(screen.queryByText('QUICK LOOK')).not.toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
@@ -33,12 +34,12 @@ describe('Notes index skeleton', () => {
 
   it('separates the address from the title and navigates to the library root', async () => {
     renderWithStore(<NotesIndexView path={[]} />);
-    expect(screen.getByRole('heading', { name: '全部笔记', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
     const location = screen.getByRole('navigation', { name: '当前位置' });
     expect(location).toHaveTextContent('笔记库 / 全部笔记');
     expect(within(location).queryByRole('heading')).not.toBeInTheDocument();
     await userEvent.click(within(location).getByRole('button', { name: '跳转到「笔记库」' }));
-    expect(screen.getByRole('heading', { name: '笔记库', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '当前位置' })).toHaveTextContent('笔记库');
   });
 
   it('keeps the content scroll area between fixed controls and pagination', () => {
@@ -57,6 +58,29 @@ describe('Notes index skeleton', () => {
     renderWithStore(<NotesIndexView path={[]} />);
     await userEvent.click(screen.getByRole('button', { name: '导入' }));
     expect(screen.getByRole('dialog', { name: '导入 Markdown' })).toBeInTheDocument();
+  });
+
+  it('removes the summary block and toggles the tag filter row from the toolbar', async () => {
+    const user = userEvent.setup();
+    renderWithStore(<NotesIndexView path={[]} />, {
+      tags: [{ id: 'tag-1', name: '重点', color: 'orange' }]
+    });
+
+    expect(screen.queryByText(/个文件夹/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/篇文稿/)).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: '展开标签筛选' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('标签筛选条件')).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    const expandedToggle = screen.getByRole('button', { name: '收起标签筛选' });
+    expect(expandedToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('标签筛选条件')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重点' })).toBeInTheDocument();
+
+    await user.click(expandedToggle);
+    expect(screen.getByRole('button', { name: '展开标签筛选' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('标签筛选条件')).not.toBeInTheDocument();
   });
 
   it('delegates note opening without coupling the index to routing', async () => {
@@ -230,7 +254,7 @@ describe('Notes index skeleton', () => {
   });
 });
 
-function renderWithStore(ui: ReactNode, options: { scope?: 'trash'; extraNotes?: number; persistenceMode?: 'remote' | 'desktop-local' } = {}): RenderResult & {
+function renderWithStore(ui: ReactNode, options: { scope?: 'trash'; extraNotes?: number; persistenceMode?: 'remote' | 'desktop-local'; tags?: Tag[] } = {}): RenderResult & {
   api: WorkspaceApi;
   store: ReturnType<typeof createAppStore>;
 } {
@@ -261,7 +285,7 @@ function renderWithStore(ui: ReactNode, options: { scope?: 'trash'; extraNotes?:
         createNote('note-3', '灵感记录', null),
         { ...createNote('note-trash', '已删除', null), deleted: true }
       ],
-      tags: [],
+      tags: options.tags ?? [],
       tagGroups: []
     },
     ...(options.scope ? {

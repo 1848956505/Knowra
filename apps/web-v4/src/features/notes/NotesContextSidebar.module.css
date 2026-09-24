@@ -28,21 +28,6 @@
  * 视觉契约：30×30 透明方块，内部 SVG 20×20，与左轨 ModuleRail 图标
  * 视觉重量一致；hover 沉底加深、active translate(2px, 2px) 模拟按压。 */
 
-.search {
-  min-height: 36px;
-  flex: 0 0 36px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 14px 12px 10px;
-  padding: 0 10px;
-  border: 1px solid var(--ink-shell);
-  background: var(--ink-search-rest);
-  box-shadow: var(--shadow-search-rest);
-  color: var(--ink-secondary);
-  transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
-}
-
 .scrollBody {
   min-height: 0;
   flex: 1 1 auto;
@@ -54,25 +39,6 @@
   scrollbar-width: thin;
 }
 
-.search:focus-within {
-  border-color: var(--ink-accent);
-  background: var(--ink-surface);
-  color: var(--ink-accent);
-  box-shadow: var(--shadow-search-focus);
-}
-
-.search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 12px;
-  box-shadow: none;
-}
-
-.search input::placeholder,
 .empty {
   color: var(--ink-muted);
 }
@@ -194,6 +160,22 @@
   border-bottom: 1px solid var(--ink-panel);
 }
 
+.entryDragArea { min-width: 0; width: 100%; }
+.entryDragArea[draggable='true'] .folderRow,
+.entryDragArea[draggable='true'] .documentRow { cursor: grab; }
+.entryDragArea[draggable='true']:active .folderRow,
+.entryDragArea[draggable='true']:active .documentRow { cursor: grabbing; }
+
+.libraryRow[data-drop-active],
+.folderRow[data-drop-active] {
+  color: var(--ink-accent-hover);
+  background: var(--index-blue-wash);
+  box-shadow: inset 0 0 0 2px var(--ink-accent);
+}
+
+.folderRow[data-dragging],
+.documentRow[data-dragging] { opacity: 0.5; }
+
 .folderLine {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
@@ -275,12 +257,6 @@
 .tagHeaderActions { display: flex; align-items: center; gap: 2px; }
 .tagEmpty { display: grid; gap: 7px; width: 100%; }
 .tagEmpty button, .allTags { border: 0; background: transparent; padding: 3px 0; color: var(--ink-accent); text-align: left; font: 700 11px var(--font-ui); }
-.contextMenuBackdrop { position: fixed; inset: 0; z-index: 80; }
-.tagContextMenu { position: fixed; z-index: 81; min-width: 180px; display: grid; padding: 5px; border: 1px solid var(--ink); background: var(--ink-surface); box-shadow: var(--shadow-2); }
-.tagContextMenu button { border: 0; background: transparent; padding: 8px 10px; text-align: left; font: 12px var(--font-ui); }
-.tagContextMenu button:hover, .tagContextMenu button:focus-visible { background: var(--ink-sunken); outline: 0; }
-.quickTagField { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
-.quickTagField input { min-height: 38px; border: 1px solid var(--ink); padding: 7px 9px; box-shadow: var(--shadow-input-rest); }
 .tagError { color: var(--ink-danger); font-size: 12px; }
 
 .recycle {

@@ -27,10 +27,16 @@ import { createInMemoryQuestionRepository } from './infrastructure/question-repo
 import { createInMemoryQuestionObjectiveRepository } from './infrastructure/question-objective-repository.js';
 import { createInMemoryQuestionSourceRepository } from './infrastructure/question-source-repository.js';
 import { createNoteVersionService } from './application/note-version-service.js';
+import { buildNoteVersionPrunePreview } from './application/note-version-prune-preview.js';
+import { inspectSpaceDeletion, assertSpaceDeletionAllowed } from './application/space-deletion-preflight.js';
+import { inspectSpaceMigration, assertSpaceMigrationAllowed } from './application/space-migration.js';
+import { buildDefaultTagGroups } from './domain/default-tag-groups.js';
 import { createKnowledgeItemService } from './application/knowledge-item-service.js';
+import { inspectKnowledgeItemPurge, assertKnowledgeItemPurgeAllowed } from './application/knowledge-item-purge.js';
 import { createLearningObjectiveService } from './application/learning-objective-service.js';
 import { createAssessmentContextService } from './application/assessment-context-service.js';
 import { createQuestionService } from './application/question-service.js';
+import { createLocalTrainingAssetLifecycle } from './application/training-asset-lifecycle.js';
 import { createWorkspaceQueryService } from './application/workspace-query-service.js';
 import { bindLocalServiceTransactions } from './application/local-service-transactions.js';
 import {
@@ -199,6 +205,7 @@ export function createKnowledgeModule(options = {}) {
     noteVersionRepository,
     annotationRepository: contentAnnotationRepository,
     noteRepository,
+    getTombstone: options.getPurgeTombstone,
     onItemInvalidated: (knowledgeItemId) => {
       learningObjectiveService?.invalidateByKnowledgeItemId(knowledgeItemId);
       questionService?.markSourcesStale('knowledgeItem', [knowledgeItemId]);
@@ -208,6 +215,7 @@ export function createKnowledgeModule(options = {}) {
   learningObjectiveService = createLearningObjectiveService({
     repository: learningObjectiveRepository,
     knowledgeItemRepository,
+    getTombstone: options.getPurgeTombstone,
     onObjectiveInvalidated: (learningObjectiveId) => {
       questionService?.invalidateByObjectiveId(learningObjectiveId);
     },
@@ -217,6 +225,7 @@ export function createKnowledgeModule(options = {}) {
     examProfileRepository,
     examFocusRepository,
     learningObjectiveRepository,
+    getTombstone: options.getPurgeTombstone,
     runTransaction
   });
   questionService = createQuestionService({
@@ -229,7 +238,14 @@ export function createKnowledgeModule(options = {}) {
     noteRepository,
     noteVersionRepository,
     knowledgeEvidenceRepository,
+    getTombstone: options.getPurgeTombstone,
     runTransaction
+  });
+  const trainingAssetLifecycle = createLocalTrainingAssetLifecycle({
+    repositories: { learningObjectiveRepository, examProfileRepository, examFocusRepository, questionRepository,
+      questionObjectiveRepository, questionSourceRepository, knowledgeItemRepository, analysisScopeRepository },
+    runTransaction,
+    getTombstone: options.getPurgeTombstone
   });
   const folderService = createFolderService({
     repository: folderRepository,
@@ -286,6 +302,7 @@ export function createKnowledgeModule(options = {}) {
   });
   const noteService = createNoteService({
     repository: noteRepository,
+    annotationRepository: contentAnnotationRepository,
     validateNoteReferences: assertNoteReferences,
     normalizeTagIds,
     noteVersionService,
@@ -361,13 +378,44 @@ export function createKnowledgeModule(options = {}) {
     }
   });
 
-  function deleteFolderAndCleanup(folderId) {
+  function deleteFolderAndCleanup(folderId, input = {}) {
     return runTransaction(() => {
       const subtreeIds = folderService.getFolderSubtreeIds(folderId);
-      subtreeIds.forEach((id) => {
-        noteService.clearFolderFromNotes(id);
-      });
-      return folderService.deleteFolder(folderId);
+      const root = folderRepository.findById(folderId);
+      const mode = input.mode;
+      if (!['keep', 'with-content'].includes(mode)) throw validationError('FOLDER_DELETE_MODE_REQUIRED', '请选择保留并移动内容，或将内容一起移入回收站');
+      const destinationId = Object.hasOwn(input, 'destinationId') ? input.destinationId : root.parentId ?? null;
+      if (mode === 'keep' && destinationId) {
+        const destination = folderRepository.findById(destinationId);
+        if (!destination || destination.deletedAt || destination.spaceId !== root.spaceId || subtreeIds.includes(destinationId)) throw conflictError('FOLDER_DESTINATION_INVALID', '目标文件夹不可用');
+      }
+      const notes = noteRepository.list({ spaceId: root.spaceId, includeDeleted: true }).filter(note => subtreeIds.includes(note.folderId));
+      const packageId = `folder-${folderId}-${Date.now()}`;
+      const noteIds = [];
+      for (const note of notes.filter(note => !note.deleted)) {
+        if (mode === 'keep') { noteService.updateNote(note.id, { folderId: destinationId }); noteIds.push(note.id); }
+        else {
+          const deleted = noteService.deleteNote(note.id);
+          noteRepository.save({ ...deleted, folderDeletionPackageId: packageId });
+          noteIds.push(note.id);
+        }
+      }
+      const deletionPackage = { id: packageId, mode, folderIds: subtreeIds, noteIds, destinationId };
+      return { folders: folderService.trashFolder(folderId, deletionPackage), deletionPackage };
+    });
+  }
+
+  function restoreDeletedFolder(folderId) {
+    return runTransaction(() => {
+      const root = folderRepository.findById(folderId);
+      const deletionPackage = root?.deletionPackage;
+      if (!deletionPackage) throw conflictError('FOLDER_NOT_IN_TRASH', '文件夹不在回收站中');
+      const folders = folderService.restoreDeletedFolder(folderId);
+      for (const noteId of deletionPackage.mode === 'with-content' ? deletionPackage.noteIds : []) {
+        const note = noteRepository.findById(noteId);
+        if (note?.deleted && note.folderDeletionPackageId === deletionPackage.id) noteService.restoreNote(noteId);
+      }
+      return { folders, deletionPackage };
     });
   }
 
@@ -390,6 +438,115 @@ export function createKnowledgeModule(options = {}) {
       noteService.replaceTagInAllNotes(sourceTagId, targetTagId);
       tagRepository.delete(sourceTagId);
       return target;
+    });
+  }
+
+  function inspectKnowledgePurge(id) {
+    const item = knowledgeItemRepository.findById(id);
+    return inspectKnowledgeItemPurge({
+      item,
+      evidence: knowledgeEvidenceRepository.list({ knowledgeItemId: id }),
+      learningObjectives: learningObjectiveRepository.list({ includeArchived: true }),
+      questionSources: questionSourceRepository.list(),
+      analysisScopes: analysisScopeRepository.list({ includeDeleted: true })
+    });
+  }
+
+  function permanentlyDeleteKnowledgeItem(id, { expectedUpdatedAt } = {}) {
+    return runTransaction(() => {
+      if (!knowledgeItemRepository.findById(id)) {
+        const tombstone = options.getPurgeTombstone?.('knowledgeItems', id);
+        if (!expectedUpdatedAt || !tombstone || (tombstone.previousUpdatedAt && tombstone.previousUpdatedAt !== expectedUpdatedAt)) {
+          throw validationError('KNOWLEDGE_ITEM_NOT_FOUND', '知识点不存在');
+        }
+        return { status: 'already-purged', asset: { type: 'knowledgeItem', id }, exclusiveRecordsDeleted: { knowledgeEvidence: 0 }, offlineDevices: 'pending-sync', backups: 'retention-managed' };
+      }
+      const preflight = inspectKnowledgePurge(id);
+      assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt);
+      const removedEvidence = knowledgeEvidenceRepository.deleteByKnowledgeItemId(id);
+      knowledgeItemRepository.delete(id);
+      return {
+        status: 'subject-purged', asset: preflight.asset,
+        exclusiveRecordsDeleted: { knowledgeEvidence: removedEvidence.length },
+        offlineDevices: 'pending-sync', backups: 'retention-managed'
+      };
+    });
+  }
+
+  function previewNoteVersionPrune(noteId) {
+    const note = noteRepository.findById(noteId);
+    if (!note) throw validationError('NOTE_NOT_FOUND', '笔记不存在');
+    return buildNoteVersionPrunePreview({
+      note,
+      versions: noteVersionRepository.list({ noteId }),
+      evidence: knowledgeEvidenceRepository.list({ noteId }),
+      questionSources: questionSourceRepository.list(),
+      annotations: contentAnnotationRepository.list({ noteId, includeDeleted: true }),
+      exclusions: annotationExclusionRepository.list({ includeDeleted: true }),
+      analysisScopes: analysisScopeRepository.list({ includeDeleted: true })
+    });
+  }
+
+  function inspectEmptySpaceDeletion(id, ownerId = null) {
+    const space = knowledgeSpaceRepository.findById(id);
+    if (space && ownerId && space.userId !== ownerId) throw validationError('KNOWLEDGE_SPACE_NOT_FOUND', '知识空间不存在');
+    return inspectSpaceDeletion({
+      space,
+      folders: folderRepository.list({ spaceId: id, includeDeleted: true }),
+      notes: noteRepository.list({ spaceId: id, includeDeleted: true }),
+      tags: tagRepository.list({ spaceId: id }),
+      tagGroups: tagGroupRepository.list({ spaceId: id }),
+      annotations: contentAnnotationRepository.list({ spaceId: id, includeDeleted: true }),
+      analysisScopes: analysisScopeRepository.list({ spaceId: id, includeDeleted: true })
+    });
+  }
+
+  function deleteEmptySpace(id, { expectedUpdatedAt } = {}, ownerId = null) {
+    return runTransaction(() => {
+      const preflight = inspectEmptySpaceDeletion(id, ownerId);
+      assertSpaceDeletionAllowed(preflight, expectedUpdatedAt);
+      preflight.systemGroupIds.forEach(groupId => tagGroupRepository.delete(groupId));
+      knowledgeSpaceRepository.delete(id);
+      return { status: 'empty-container-deleted', asset: preflight.asset, offlineDevices: 'pending-sync', backups: 'retention-managed' };
+    });
+  }
+
+  function spaceAssets(id) {
+    return {
+      folders: folderRepository.list({ spaceId: id, includeDeleted: true }),
+      notes: noteRepository.list({ spaceId: id, includeDeleted: true }),
+      tags: tagRepository.list({ spaceId: id }),
+      tagGroups: tagGroupRepository.list({ spaceId: id }),
+      annotations: contentAnnotationRepository.list({ spaceId: id, includeDeleted: true }),
+      analysisScopes: analysisScopeRepository.list({ spaceId: id, includeDeleted: true })
+    };
+  }
+
+  function previewSpaceMigration(sourceId, targetId, ownerId = null) {
+    const source = knowledgeSpaceRepository.findById(sourceId);
+    const target = knowledgeSpaceRepository.findById(targetId);
+    if (ownerId && ((source && source.userId !== ownerId) || (target && target.userId !== ownerId))) throw validationError('KNOWLEDGE_SPACE_NOT_FOUND', '知识空间不存在');
+    return inspectSpaceMigration({ source, target, sourceAssets: spaceAssets(sourceId), targetAssets: spaceAssets(targetId), allNotes: noteRepository.list({ includeDeleted: true }), allNoteVersions: noteVersionRepository.list() });
+  }
+
+  function migrateSpaceAssets(sourceId, { targetSpaceId, expectedPreviewHash } = {}, ownerId = null) {
+    return runTransaction(() => {
+      const preview = previewSpaceMigration(sourceId, targetSpaceId, ownerId);
+      assertSpaceMigrationAllowed(preview, expectedPreviewHash);
+      const source = spaceAssets(sourceId);
+      const target = spaceAssets(targetSpaceId);
+      for (const definition of buildDefaultTagGroups(targetSpaceId)) {
+        if (!target.tagGroups.some(group => group.code === definition.code)) tagGroupRepository.create(definition);
+      }
+      const targetGroups = tagGroupRepository.list({ spaceId: targetSpaceId });
+      const groupMap = new Map(source.tagGroups.filter(group => group.isSystem).map(group => [group.id, targetGroups.find(candidate => candidate.code === group.code).id]));
+      for (const group of source.tagGroups.filter(group => !group.isSystem)) tagGroupRepository.save({ ...group, spaceId: targetSpaceId });
+      for (const tag of source.tags) tagRepository.save({ ...tag, spaceId: targetSpaceId, groupId: groupMap.get(tag.groupId) ?? tag.groupId ?? null });
+      for (const folder of source.folders) folderRepository.save({ ...folder, spaceId: targetSpaceId });
+      for (const note of source.notes) noteRepository.save({ ...note, spaceId: targetSpaceId });
+      for (const annotation of source.annotations) contentAnnotationRepository.save({ ...annotation, spaceId: targetSpaceId });
+      for (const scope of source.analysisScopes) analysisScopeRepository.save({ ...scope, spaceId: targetSpaceId });
+      return { status: 'scoped-assets-migrated', sourceSpaceId: sourceId, targetSpaceId, counts: preview.counts, globalKnowledgeAndTraining: 'unchanged', offlineDevices: 'pending-sync', backups: 'retention-managed' };
     });
   }
 
@@ -448,9 +605,18 @@ export function createKnowledgeModule(options = {}) {
     examProfileService,
     examFocusService,
     questionService,
+    trainingAssetLifecycle,
     workspaceQueryService,
     deleteFolderAndCleanup,
+    restoreDeletedFolder,
     deleteTagAndCleanup,
-    mergeTags
+    mergeTags,
+    inspectKnowledgePurge,
+    permanentlyDeleteKnowledgeItem,
+    previewNoteVersionPrune,
+    inspectEmptySpaceDeletion,
+    deleteEmptySpace,
+    previewSpaceMigration,
+    migrateSpaceAssets
   };
 }

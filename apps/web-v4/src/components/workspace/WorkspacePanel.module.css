@@ -1,0 +1,21 @@
+.panel { height: calc(100% - var(--index-size-26)); min-height: 0; min-width: 0; margin: var(--index-size-8) var(--index-size-18) var(--index-size-18); display: flex; flex-direction: column; position: relative; border: var(--index-size-1) solid var(--ink-shell); background: var(--ink-surface); color: var(--ink); box-shadow: var(--shadow-index-frame); }
+.header { flex: 0 0 auto; display: flex; align-items: center; gap: var(--index-size-14); min-height: var(--index-size-48); padding: var(--index-size-8) var(--index-size-12); border-bottom: var(--index-size-1) solid var(--ink-shell); background: var(--ink-surface); }
+.badge { flex: 0 0 auto; width: 115px; height: var(--index-size-28); display: flex; align-items: center; gap: var(--index-size-8); padding: 0 var(--index-size-9); background: var(--ink-accent); color: var(--ink-surface); font: 800 var(--index-size-11)/1 var(--font-ui); border: var(--index-size-1) solid var(--ink-accent-hover); box-shadow: var(--shadow-1); white-space: nowrap; }
+.badge h1 { margin: 0; font: inherit; }
+.badgeMark { width: var(--index-size-8); height: var(--index-size-8); flex: 0 0 auto; background: currentColor; box-shadow: var(--index-size-2) var(--index-size-2) 0 var(--ink-accent-soft); }
+.badge small { font: 750 var(--index-size-8)/1 var(--font-mono); letter-spacing: .08em; }
+.breadcrumb { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--index-size-8); border-left: var(--index-size-1) solid var(--ink-panel); padding-left: var(--index-size-14); }
+.breadcrumb > span:last-child { overflow-x: auto; scrollbar-width: thin; padding-block: 0; font-size: var(--index-size-10); gap: var(--index-size-6); }
+.breadcrumb > span:last-child > span { flex-shrink: 0; max-width: none; overflow: visible; gap: var(--index-size-6); }
+.breadcrumb button { min-height: var(--index-size-28); }
+.breadcrumb [aria-current='page'] { color: var(--ink-accent-hover); font-weight: 850; }
+.marker { width: var(--index-size-7); height: var(--index-size-7); flex: 0 0 auto; background: var(--ink-accent); box-shadow: var(--index-size-1) var(--index-size-1) 0 var(--ink-muted); }
+.actions { display: flex; align-items: center; gap: var(--index-size-9); flex: 0 0 auto; }
+.toolbarFrame { flex: 0 0 auto; display: flex; border-bottom: var(--index-size-1) solid var(--ink-panel); background: var(--ink-surface); }
+.toolbar { flex: 1 1 auto; width: 100%; min-width: 0; display: flex; align-items: center; gap: var(--index-size-8); padding: var(--index-size-10) var(--index-size-11); }
+.body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scroll-padding-top: var(--index-size-40); background: var(--ink-surface); }
+.gridBody { background-color: var(--index-grid-bg); background-image: linear-gradient(90deg, var(--index-grid-line) var(--index-size-1), transparent var(--index-size-1)), linear-gradient(var(--index-grid-line) var(--index-size-1), transparent var(--index-size-1)); background-size: var(--index-size-24) var(--index-size-24); }
+.footer { flex: 0 0 auto; min-height: 39px; display: flex; align-items: center; justify-content: space-between; gap: var(--index-size-12); padding: var(--index-size-5) var(--index-size-10); border-top: var(--index-size-1) solid var(--ink-shell); background: var(--ink-bg); color: var(--ink-secondary); font: 650 var(--index-size-10)/1.4 var(--font-mono); }
+@media (max-width: 1100px) { .badge small { display: none; } .header { gap: var(--index-size-10); } .toolbar { padding: var(--index-size-10) var(--index-size-14); } }
+@media (max-width: 950px) { .header { flex-wrap: wrap; } .breadcrumb { flex-basis: 50%; } .actions { margin-left: auto; } }
+@media (max-width: 767px) { .panel { margin: var(--index-size-12); height: calc(100% - var(--index-size-24)); } .header { padding: var(--index-size-10); gap: var(--index-size-8); } .badge { padding: var(--index-size-10); font-size: var(--index-size-12); } .breadcrumb { order: 3; flex-basis: 100%; padding-left: 0; border-left: 0; } .actions { flex: 1 0 100%; justify-content: flex-end; order: 4; } .toolbar { flex-wrap: wrap; gap: var(--index-size-8); } .footer { flex-wrap: wrap; justify-content: center; padding: var(--index-size-8); } }

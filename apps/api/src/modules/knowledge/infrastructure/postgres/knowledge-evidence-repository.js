@@ -16,6 +16,7 @@ export function createPostgresKnowledgeEvidenceRepository({ db }) {
       headingPath: evidence.headingPath ?? [],
       relationType: evidence.relationType ?? 'supports',
       status: evidence.status ?? 'valid',
+      applicabilityStatus: evidence.applicabilityStatus ?? (evidence.status === 'invalid' ? 'needsReview' : 'active'),
       createdAt: toDate(evidence.createdAt),
       updatedAt: toDate(evidence.updatedAt)
     };
@@ -61,6 +62,13 @@ export function createPostgresKnowledgeEvidenceRepository({ db }) {
     },
     async findById(id) {
       return withRepositoryErrors(() => db.knowledgeEvidence.findUnique({ where: { id } }).then(mapKnowledgeEvidence));
+    },
+    async deleteByKnowledgeItemId(knowledgeItemId) {
+      return withRepositoryErrors(async () => {
+        const rows = await db.knowledgeEvidence.findMany({ where: { knowledgeItemId } });
+        if (rows.length) await db.knowledgeEvidence.deleteMany({ where: { knowledgeItemId } });
+        return rows.map(mapKnowledgeEvidence);
+      });
     },
     list(options = {}) {
       return withRepositoryErrors(() => db.knowledgeEvidence.findMany({

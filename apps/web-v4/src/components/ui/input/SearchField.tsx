@@ -17,6 +17,7 @@ import {
   type SearchFieldProps as RASearchFieldProps
 } from 'react-aria-components';
 import { cx } from '../classnames';
+import { SearchSurface, searchBoxStyles } from './SearchBox';
 import styles from './Input.module.css';
 
 export interface SearchFieldProps
@@ -90,29 +91,15 @@ export const SearchField = forwardRef<HTMLDivElement, SearchFieldProps>(function
       {...rest}
     >
       <Label className={styles.label}>{label}</Label>
-      <div className={styles.searchShell} data-input-shadow-owner="true">
-        {icon ? <span className={styles.searchIcon}>{icon}</span> : null}
+      <SearchSurface icon={icon} disabled={rest.isDisabled} invalid={rest.isInvalid} onClear={hasValue ? handleClear : undefined}>
         <RAInput
           ref={inputRef}
           type={type}
           placeholder={placeholder}
-          className={styles.input as RAInputProps['className']}
+          className={searchBoxStyles.input as RAInputProps['className']}
           data-input-control="true"
         />
-        {hasValue ? (
-          <button
-            type="button"
-            className={styles.searchClear}
-            aria-label="清除搜索"
-            onClick={handleClear}
-            data-testid="search-clear"
-          >
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-              <path d="M2 2l8 8M10 2l-8 8" />
-            </svg>
-          </button>
-        ) : null}
-      </div>
+      </SearchSurface>
       {description ? <div className={styles.description}>{description}</div> : null}
       {errorMessage ? <div className={styles.error} role="alert">{errorMessage}</div> : null}
     </RASearchField>

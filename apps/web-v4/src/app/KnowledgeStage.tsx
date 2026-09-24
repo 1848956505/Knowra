@@ -24,10 +24,15 @@ export function KnowledgeStage({ pathname, onOpenNote }: { pathname: string; onO
     onListAnnotations={state.listAnnotations}
     onCreateEvidence={state.createKnowledgeEvidence}
     onRetireEvidence={state.retireKnowledgeEvidence}
+    onReadoptEvidence={state.readoptKnowledgeEvidence}
     onCreate={state.createKnowledgeCandidate}
     onUpdate={state.updateKnowledgeItem}
     onConfirm={state.confirmKnowledgeItem}
     onArchive={state.archiveKnowledgeItem}
     onRestore={state.restoreKnowledgeItem}
+    onTrash={state.trashKnowledgeItem}
+    onRestoreDeleted={state.restoreDeletedKnowledgeItem}
+    onInspectPurge={state.inspectKnowledgePurge}
+    onPermanentDelete={workspaceCapabilities(state.persistenceMode).permanentDelete ? state.permanentlyDeleteKnowledgeItem : undefined}
   />;
 }

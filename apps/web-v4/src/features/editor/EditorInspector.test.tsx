@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { Annotation } from '@study-accelerator/web-core';
 import { EditorInspector } from './EditorInspector';
 
 const root = { id: 'folder-root', name: '研究', parentId: null, children: [] };
@@ -98,6 +99,35 @@ describe('EditorInspector', () => {
     expect(onGetVersion).toHaveBeenLastCalledWith(note.id, 'version-1');
   });
 
+  it('取消重点后显示短期撤销，并以删除后的修订恢复', async () => {
+    const user = userEvent.setup();
+    const annotation = { id: 'annotation-undo', noteId: note.id, quoteText: '正文内容', headingPath: [], scopeType: 'selection', lifecycleStatus: 'active', revision: 2, noteContentHash: 'hash', idempotencyKey: 'undo' } as unknown as Annotation;
+    const onDeleteAnnotation = vi.fn().mockResolvedValue({ ...annotation, lifecycleStatus: 'deleted', revision: 3 });
+    const onRestoreAnnotation = vi.fn().mockResolvedValue(undefined);
+    renderInspector({ annotations: [annotation], onDeleteAnnotation, onRestoreAnnotation });
+    await user.click(screen.getByRole('tab', { name: '标注' }));
+    await user.click(screen.getByRole('button', { name: '重点 1 更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: '取消重点' }));
+    await user.click(await screen.findByRole('button', { name: '撤销' }));
+    await waitFor(() => expect(onRestoreAnnotation).toHaveBeenCalledWith('annotation-undo', 3));
+  });
+
+  it('已保存分析范围展示回收站与恢复入口', async () => {
+    const user = userEvent.setup();
+    const active = { id: 'scope-active', spaceId: 'space-1', createdAt: '2026-09-23T00:00:00.000Z', updatedAt: '2026-09-23T00:00:00.000Z', deletedAt: null, noteVersions: [{ noteId: note.id, title: note.title }], summary: { segmentCount: 1 } };
+    const trashed = { ...active, id: 'scope-trash', deletedAt: '2026-09-23T01:00:00.000Z' };
+    const onListAnalysisScopes = vi.fn().mockResolvedValue([active, trashed]);
+    const onTrashAnalysisScope = vi.fn().mockResolvedValue({ ...active, deletedAt: '2026-09-23T02:00:00.000Z' });
+    const onRestoreAnalysisScope = vi.fn().mockResolvedValue({ ...trashed, deletedAt: null });
+    renderInspector({ note: { ...note, spaceId: 'space-1' }, onListAnalysisScopes, onTrashAnalysisScope, onRestoreAnalysisScope });
+    await user.click(screen.getByRole('tab', { name: 'AI' }));
+    expect(await screen.findByRole('button', { name: '恢复范围' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '移入回收站' }));
+    await waitFor(() => expect(onTrashAnalysisScope).toHaveBeenCalledWith('scope-active', { spaceId: 'space-1', expectedUpdatedAt: active.updatedAt }));
+    await user.click(screen.getByRole('button', { name: '恢复范围' }));
+    await waitFor(() => expect(onRestoreAnalysisScope).toHaveBeenCalledWith('scope-trash', { spaceId: 'space-1', expectedUpdatedAt: trashed.updatedAt }));
+  });
+
   it('organizes the note location and status through one explicit save', async () => {
     const user = userEvent.setup();
     const onOrganizeNote = vi.fn().mockResolvedValue(undefined);
@@ -170,7 +200,6 @@ function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0
     onCreateAnnotation={overrides.onCreateAnnotation ?? vi.fn().mockResolvedValue(undefined)}
     onSelectAnnotation={overrides.onSelectAnnotation ?? vi.fn()}
     onDeleteAnnotation={overrides.onDeleteAnnotation ?? vi.fn().mockResolvedValue(undefined)}
-    onRestoreAnnotation={overrides.onRestoreAnnotation ?? vi.fn().mockResolvedValue(undefined)}
     onReanchorAnnotation={overrides.onReanchorAnnotation ?? vi.fn().mockResolvedValue(undefined)}
   />);
 }

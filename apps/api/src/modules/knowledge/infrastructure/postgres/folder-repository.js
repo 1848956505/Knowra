@@ -1,4 +1,5 @@
 import { mapFolder, toDate } from './mappers.js';
+import { Prisma } from '@prisma/client';
 import { withRepositoryErrors } from './repository-utils.js';
 
 export function createPostgresFolderRepository({ db }) {
@@ -14,7 +15,9 @@ export function createPostgresFolderRepository({ db }) {
         sortOrder: Number(folder.sortOrder ?? 0),
         pathCache: folder.pathCache ?? '/',
         createdAt: toDate(folder.createdAt),
-        updatedAt: toDate(folder.updatedAt)
+        updatedAt: toDate(folder.updatedAt),
+        deletedAt: folder.deletedAt ? toDate(folder.deletedAt) : null,
+        deletionPackage: folder.deletionPackage ?? Prisma.DbNull
       };
       return withRepositoryErrors(async () => mapFolder(await db.folder.upsert({
         where: { id: data.id },
@@ -25,7 +28,9 @@ export function createPostgresFolderRepository({ db }) {
           name: data.name,
           sortOrder: data.sortOrder,
           pathCache: data.pathCache,
-          updatedAt: data.updatedAt
+          updatedAt: data.updatedAt,
+          deletedAt: data.deletedAt,
+          deletionPackage: data.deletionPackage
         }
       })));
     },
@@ -40,7 +45,7 @@ export function createPostgresFolderRepository({ db }) {
       })));
     },
     async list(options = {}) {
-      const where = options.spaceId ? { spaceId: options.spaceId } : {};
+      const where = { ...(options.spaceId ? { spaceId: options.spaceId } : {}), ...((options.includeDeleted === true || options.includeDeleted === 'true') ? {} : { deletedAt: null }) };
       return withRepositoryErrors(async () => (await db.folder.findMany({
         where,
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }]

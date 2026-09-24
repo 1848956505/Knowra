@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react';
+import type { Folder } from '@study-accelerator/web-core';
+import { isFolderWithin } from './entryMove';
+import { folderLocation } from './notesIndexNavigation';
 import {
   Button,
   Dialog,
   DialogBody,
   DialogClose,
   DialogFooter,
-  TextField
+  TextField,
+  Select
 } from '../../components/ui';
 
 export interface TreeEntryTarget {
@@ -66,20 +70,24 @@ export function RenameTreeEntryDialog({ target, onClose, onRename }: {
   );
 }
 
-export function DeleteTreeEntryDialog({ target, onClose, onDelete }: {
+export function DeleteTreeEntryDialog({ target, parentId = null, folders = {}, onClose, onDelete }: {
   target: TreeEntryTarget;
+  parentId?: string | null;
+  folders?: Record<string, Folder>;
   onClose(): void;
-  onDelete(): Promise<void>;
+  onDelete(input?: { mode: 'keep' | 'with-content'; destinationId?: string | null }): Promise<void>;
 }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const isFolder = target.kind === 'folder';
+  const [mode, setMode] = useState<'keep' | 'with-content'>('keep');
+  const [destinationId, setDestinationId] = useState(parentId ?? '');
 
   async function handleDelete() {
     setPending(true);
     setError('');
     try {
-      await onDelete();
+      await onDelete(isFolder ? { mode, destinationId: destinationId || null } : undefined);
       onClose();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : '删除失败，请重试');
@@ -98,9 +106,12 @@ export function DeleteTreeEntryDialog({ target, onClose, onDelete }: {
       <DialogBody>
         <p>
           {isFolder
-            ? `“${target.name}”及其子文件夹将被删除，其中的笔记会移至未整理。`
+            ? `“${target.name}”及其子文件夹将移入回收站。请选择其中笔记的处理方式。`
             : `“${target.name}”将移入回收站。`}
         </p>
+        {isFolder ? <><Select label="内容处理方式" selectedKey={mode} onSelectionChange={key => setMode(String(key) as 'keep' | 'with-content')} options={[{ id: 'keep', label: '保留笔记并移至其他目录' }, { id: 'with-content', label: '笔记一起移入回收站' }]} />
+          {mode === 'keep' ? <Select label="笔记移至" selectedKey={destinationId || '__root__'} onSelectionChange={key => setDestinationId(key === '__root__' ? '' : String(key))}
+            options={[{ id: '__root__', label: '笔记库（根目录）' }, ...Object.values(folders).filter(folder => !isFolderWithin(folder.id, target.id, folders)).map(folder => ({ id: folder.id, label: folderLocation(folder.id, folders) }))]} /> : null}</> : null}
         {error ? <p role="alert">{error}</p> : null}
       </DialogBody>
       <DialogFooter>

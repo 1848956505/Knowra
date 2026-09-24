@@ -20,16 +20,18 @@ export function createAsyncQuestionService({
   noteRepository,
   noteVersionRepository,
   knowledgeEvidenceRepository,
+  getTombstone = null,
   runTransaction = (operation) => operation()
 } = {}) {
   if (!repository || !questionObjectiveRepository || !questionSourceRepository || !learningObjectiveRepository) throw new TypeError('Async Question repositories are required');
 
   async function requireQuestion(id, { includeArchived = false } = {}) {
     const question = await repository.findById(id);
-    if (!question || (!includeArchived && question.reviewStatus === 'archived')) throw notFoundError('QUESTION_NOT_FOUND', 'Question not found');
+    if (!question || question.deletedAt || (!includeArchived && question.reviewStatus === 'archived')) throw notFoundError('QUESTION_NOT_FOUND', 'Question not found');
     return question;
   }
   async function assertQuestionIdAvailable(id) {
+    if (await getTombstone?.('questions', id)) throw conflictError('QUESTION_ID_DELETED', '已清理的题目 ID 不能复用');
     if (await repository.findById(id)) {
       throw conflictError(
         'QUESTION_ID_CONFLICT',
@@ -40,7 +42,7 @@ export function createAsyncQuestionService({
   async function requireObjectives(ids, { confirmed = false } = {}) {
     return Promise.all([...new Set(ids)].map(async (id) => {
       const objective = await learningObjectiveRepository.findById(id);
-      if (!objective || objective.reviewStatus === 'archived') throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
+      if (!objective || objective.deletedAt || objective.reviewStatus === 'archived') throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
       if (confirmed && objective.reviewStatus !== 'confirmed') throw validationError('LEARNING_OBJECTIVE_NOT_CONFIRMED', 'Question requires confirmed LearningObjectives');
       return objective;
     }));
@@ -58,7 +60,7 @@ export function createAsyncQuestionService({
     if (!source.sourceId) throw validationError('QUESTION_SOURCE_ID_REQUIRED', 'QuestionSource sourceId is required for this source type');
     const repositories = { knowledgeItem: knowledgeItemRepository, learningObjective: learningObjectiveRepository, noteVersion: noteVersionRepository, knowledgeEvidence: knowledgeEvidenceRepository };
     let reference = await repositories[source.sourceType]?.findById(source.sourceId);
-    if (!reference) throw notFoundError('QUESTION_SOURCE_NOT_FOUND', 'QuestionSource reference not found');
+    if (!reference || reference.deletedAt) throw notFoundError('QUESTION_SOURCE_NOT_FOUND', 'QuestionSource reference not found');
     if (source.sourceType === 'noteVersion' && noteRepository) {
       const note = await noteRepository.findById(reference.noteId);
       reference = {
@@ -93,6 +95,7 @@ export function createAsyncQuestionService({
       }
       sourceIds.add(source.id);
       const existing = await questionSourceRepository.findById(source.id);
+      if (!existing && await getTombstone?.('questionSources', source.id)) throw conflictError('QUESTION_SOURCE_ID_DELETED', '已清理的题目来源 ID 不能复用');
       if (existing && existing.questionId !== questionId) {
         throw conflictError(
           'QUESTION_SOURCE_ID_CONFLICT',

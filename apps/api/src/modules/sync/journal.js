@@ -10,7 +10,7 @@ export const thenResult = (value, callback) => value && typeof value.then === 'f
 export function createJournal(state) {
   const revisions = {};
   for (const collection of LOCAL_DATA_COLLECTIONS) for (const item of state[collection] ?? []) revisions[syncKey(collection, item.id)] = 1;
-  return { version: 1, epoch: randomUUID(), head: 0, floor: 0, revisions, changes: [], receipts: {}, snapshots: {} };
+  return { version: 1, epoch: randomUUID(), head: 0, floor: 0, revisions, tombstones: {}, changes: [], receipts: {}, snapshots: {} };
 }
 
 export function loadJournal(value, state) {
@@ -18,7 +18,19 @@ export function loadJournal(value, state) {
   if (!value || value.version !== 1 || typeof value.epoch !== 'string'
     || !Number.isSafeInteger(value.head) || !Array.isArray(value.changes)
     || !value.revisions || !value.receipts || !value.snapshots) throw syncError('SYNC_STORAGE_INVALID', '同步日志格式无效，已停止加载。', 500);
-  return structuredClone(value);
+  const journal = structuredClone(value);
+  journal.tombstones ??= {};
+  if (LOCAL_DATA_COLLECTIONS.every(collection => Array.isArray(state[collection]))) {
+    const present = new Set(LOCAL_DATA_COLLECTIONS.flatMap(collection => state[collection].map(item => syncKey(collection, item.id))));
+    // 兼容旧日志：修订仍在而主体已消失的 ID 是历史删除事实。
+    for (const [key, revision] of Object.entries(journal.revisions)) {
+      if (!present.has(key) && !journal.tombstones[key]) {
+        const [collection, id] = JSON.parse(key);
+        journal.tombstones[key] = { collection, id, revision, eventId: `legacy:${key}`, deletedAt: null };
+      }
+    }
+  }
+  return journal;
 }
 
 export function appendChanges(journal, before, after) {
@@ -32,6 +44,10 @@ export function appendChanges(journal, before, after) {
       const key = syncKey(collection, id);
       const revision = (journal.revisions[key] ?? 0) + 1;
       journal.revisions[key] = revision;
+      if (old.has(id) && !next.has(id)) {
+        journal.tombstones ??= {};
+        journal.tombstones[key] = { collection, id, revision, eventId: randomUUID(), deletedAt: new Date().toISOString(), previousUpdatedAt: old.get(id)?.updatedAt ?? null, spaceId: old.get(id)?.spaceId ?? null };
+      }
       items.push({ collection, id, revision, value: structuredClone(value) });
     }
   }

@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Dialog, DialogBody } from '../components/ui/overlay/Dialog';
 import { EmptyState, LoadingState } from '../components/ui/status';
+import { SearchBox } from '../components/ui/input';
 import { cx } from '../components/ui/classnames';
 import { SearchIcon } from './icons';
 import styles from './SearchCommand.module.css';
@@ -105,41 +106,13 @@ export function SearchCommand({
     >
       <DialogBody>
         <div className={styles.commandPanel}>
-          <div className={styles.inputRow}>
-            <SearchIcon size={18} />
-            <input
-              data-input-control="true"
-              ref={inputRef}
-              type="text"
-              name="global-search"
-              autoComplete="off"
-              className={styles.input}
-              value={query}
-              placeholder={placeholder}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={handleKey}
-              aria-label="搜索关键字"
-              aria-controls="search-command-results"
-              aria-activedescendant={activeHit ? `search-hit-${activeHit.id}` : undefined}
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded="true"
-            />
-            {query ? (
-              <button
-                type="button"
-                className={styles.clearButton}
-                onClick={() => {
-                  setQuery('');
-                  setActiveIndex(0);
-                  inputRef.current?.focus();
-                }}
-                aria-label="清除搜索关键字"
-              >
-                清除
-              </button>
-            ) : null}
-          </div>
+          <SearchBox size="command" label="搜索关键字" icon={<SearchIcon size={18} />}
+            ref={inputRef} type="text" name="global-search" autoComplete="off"
+            value={query} placeholder={placeholder} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKey}
+            aria-controls="search-command-results" aria-activedescendant={activeHit ? `search-hit-${activeHit.id}` : undefined}
+            role="combobox" aria-autocomplete="list" aria-expanded="true"
+            onClear={query ? () => { setQuery(''); setActiveIndex(0); inputRef.current?.focus(); } : undefined}
+            clearText="清除" clearLabel="清除搜索关键字" />
           <div
             id="search-command-results"
             className={styles.hitList}

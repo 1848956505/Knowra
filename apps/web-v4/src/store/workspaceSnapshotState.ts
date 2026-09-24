@@ -41,7 +41,7 @@ export function updateWorkspaceNoteInStore(
     ...nextState.navigation
   }));
 }
-export async function loadWorkspaceState(dependencies: WorkspaceDependencies, set: SetStore): Promise<void> {
+export async function loadWorkspaceState(dependencies: WorkspaceDependencies, set: SetStore, preferredSpaceId: string | null = null): Promise<void> {
   const cachedSnapshot = readWorkspaceCache(dependencies.storage, dependencies.cacheKey);
   if (cachedSnapshot) {
     applyWorkspaceSnapshot(set, cachedSnapshot, 'cache', 'loading', null, '正在刷新最近一次资料缓存…');
@@ -52,7 +52,9 @@ export async function loadWorkspaceState(dependencies: WorkspaceDependencies, se
   try {
     let spaces = await dependencies.api.listKnowledgeSpaces();
     if (spaces.length === 0) spaces = [await dependencies.api.createDefaultKnowledgeSpace()];
-    const currentSpaceId = spaces[0]?.id ?? null;
+    const currentSpaceId = spaces.find(space => space.id === preferredSpaceId)?.id
+      ?? spaces.find(space => space.id === cachedSnapshot?.currentSpaceId)?.id
+      ?? spaces.find(space => space.defaultFlag)?.id ?? spaces[0]?.id ?? null;
     if (!currentSpaceId) throw new Error('资料服务未返回可用知识空间。');
     const resources = await dependencies.api.loadWorkspaceResources(currentSpaceId);
     const liveSnapshot = createBackendSnapshot({

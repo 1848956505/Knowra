@@ -8,6 +8,7 @@ const now = () => new Date().toISOString();
 export function createLearningObjectiveService({
   repository,
   knowledgeItemRepository,
+  getTombstone = null,
   onObjectiveInvalidated = null,
   runTransaction = (operation) => operation()
 } = {}) {
@@ -15,7 +16,7 @@ export function createLearningObjectiveService({
 
   function requireObjective(id, { includeArchived = false } = {}) {
     const objective = repository.findById(id);
-    if (!objective || (!includeArchived && objective.reviewStatus === 'archived')) {
+    if (!objective || objective.deletedAt || (!includeArchived && objective.reviewStatus === 'archived')) {
       throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
     }
     return objective;
@@ -38,6 +39,7 @@ export function createLearningObjectiveService({
   }
 
   function assertObjectiveIdAvailable(id) {
+    if (getTombstone?.('learningObjectives', id)) throw conflictError('LEARNING_OBJECTIVE_ID_DELETED', '已清理的学习目标 ID 不能复用');
     if (repository.findById(id)) {
       throw conflictError(
         'LEARNING_OBJECTIVE_ID_CONFLICT',
@@ -127,6 +129,7 @@ export function createLearningObjectiveService({
           knowledgeItemId,
           includeArchived: true
         })) {
+          if (current.deletedAt) continue;
           if (current.reviewStatus !== 'confirmed') continue;
           const next = repository.save(new LearningObjective({
             ...current,

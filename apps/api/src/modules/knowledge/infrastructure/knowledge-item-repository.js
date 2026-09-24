@@ -29,6 +29,13 @@ export function createInMemoryKnowledgeItemRepository(options = {}) {
     findById(id) {
       return records.find((item) => item.id === id) ?? null;
     },
+    delete(id) {
+      const index = records.findIndex(item => item.id === id);
+      if (index < 0) return null;
+      const [deleted] = records.splice(index, 1);
+      persist();
+      return deleted;
+    },
     list({ reviewStatus, query = '', includeArchived = false, includeDeleted = false } = {}) {
       const search = String(query).trim().toLocaleLowerCase();
       const showArchived = includeArchived === true || includeArchived === 'true';

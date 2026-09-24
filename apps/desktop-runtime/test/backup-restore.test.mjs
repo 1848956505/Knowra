@@ -50,6 +50,21 @@ test('知识和正文恢复草稿共同备份并原样导出；缺失知识 CAS 
   assert.throws(() => validateBackupDrafts({ version: 1, drafts: { [key]: { ...draft, candidateId: 'other' } } }));
 });
 
+test('阶段4 旧备份清单缺少用途时仍可检查，并明确标为历史备份', async t => {
+  const app = await setup(t);
+  const backup = (await app.request('/api/local-runtime/backup', 'POST', {})).data;
+  const manifestPath = path.join(backup.directory, 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  delete manifest.purpose;
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+  const listed = (await app.request('/api/local-runtime/backups')).data.items.find(item => item.id === backup.id);
+  assert.equal(listed.purpose, 'legacy-unspecified');
+  assert(listed.size > 0);
+  const inspected = await app.request(`/api/local-runtime/backups/${backup.id}/inspect`, 'POST', {});
+  assert.equal(inspected.status, 200);
+  assert.equal(inspected.data.purpose, 'legacy-unspecified');
+});
+
 test('备份检查可重复；恢复保留保护备份/草稿/队列，隔离旧窗口，并可重启继续读取', async t => {
   const app = await setup(t);
   const { request, note, options } = app;

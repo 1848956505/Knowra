@@ -14,11 +14,20 @@ export function createKnowledgeHttpHandlers({
     searchService,
     noteVersionService,
     knowledgeItemService,
+    inspectKnowledgePurge,
+    permanentlyDeleteKnowledgeItem,
+    previewNoteVersionPrune,
+    inspectEmptySpaceDeletion,
+    deleteEmptySpace,
+    previewSpaceMigration,
+    migrateSpaceAssets,
     learningObjectiveService,
     examProfileService,
     examFocusService,
     questionService,
+    trainingAssetLifecycle,
     deleteFolderAndCleanup,
+    restoreDeletedFolder,
     deleteTagAndCleanup,
     mergeTags
   } = knowledgeModule;
@@ -85,9 +94,10 @@ export function createKnowledgeHttpHandlers({
     updateFolder(params, body) {
       return folderService.updateFolder(params.id, body);
     },
-    deleteFolder(params) {
-      return deleteFolderAndCleanup(params.id);
+    deleteFolder(params, body) {
+      return deleteFolderAndCleanup(params.id, body);
     },
+    restoreFolder(params) { return restoreDeletedFolder(params.id); },
     listFolders(query = {}) {
       return folderService.listFolders(query);
     },
@@ -119,7 +129,7 @@ export function createKnowledgeHttpHandlers({
     listAnnotations(query = {}) { return contentAnnotationService.listAnnotationsByNote(query); },
     getAnnotation(params) { return contentAnnotationService.getAnnotation(params.id); },
     updateAnnotation(params, body) { return contentAnnotationService.updateAnnotation(params.id, body); },
-    deleteAnnotation(params, body) { return contentAnnotationService.archiveAnnotation(params.id, body); },
+    deleteAnnotation(params, body) { return contentAnnotationService.deleteAnnotation(params.id, body); },
     restoreAnnotation(params, body) { return contentAnnotationService.restoreAnnotation(params.id, body); },
     updateAnnotationAnchor(params, body) { return contentAnnotationService.updateAnnotationAnchor(params.id, body); },
     previewAnnotation(params) { return annotationScopeService.previewAnnotation(params.id); },
@@ -129,6 +139,9 @@ export function createKnowledgeHttpHandlers({
     previewAnalysisScope(body) { return annotationScopeService.previewAnalysisScope(body); },
     createAnalysisScope(body) { return annotationScopeService.createAnalysisScope(body); },
     getAnalysisScope(params, query) { return annotationScopeService.getAnalysisScope(params.id, query.spaceId); },
+    listAnalysisScopes(query) { return annotationScopeService.listAnalysisScopes(query); },
+    trashAnalysisScope(params, body) { return annotationScopeService.trashAnalysisScope(params.id, body); },
+    restoreDeletedAnalysisScope(params, body) { return annotationScopeService.restoreAnalysisScope(params.id, body); },
     listNoteVersions(params, query = {}) {
       const note = noteService.getNote(params.id);
       return query.limit !== undefined || query.cursor !== undefined
@@ -136,6 +149,7 @@ export function createKnowledgeHttpHandlers({
         : noteVersionService.listVersions({ ...query, noteId: params.id });
     },
     getNoteVersion(params) { noteService.getNote(params.id); return noteVersionService.getVersion(params.versionId, params.id); },
+    previewNoteVersionPrune(params) { return previewNoteVersionPrune(params.id); },
     listKnowledgeItems(query = {}) { return knowledgeItemService.listItems(query); },
     getKnowledgeItem(params) { return knowledgeItemService.getItem(params.id); },
     createKnowledgeItem(body) { return knowledgeItemService.createCandidate(body); },
@@ -144,9 +158,14 @@ export function createKnowledgeHttpHandlers({
     markKnowledgeItemNeedsRevision(params, body) { return knowledgeItemService.markNeedsRevision(params.id, body); },
     archiveKnowledgeItem(params, body) { return knowledgeItemService.archive(params.id, body); },
     restoreKnowledgeItem(params, body) { return knowledgeItemService.restore(params.id, body); },
+    trashKnowledgeItem(params, body) { return knowledgeItemService.trash(params.id, body); },
+    restoreDeletedKnowledgeItem(params, body) { return knowledgeItemService.restoreDeleted(params.id, body); },
+    inspectKnowledgePurge(params) { return inspectKnowledgePurge(params.id); },
+    permanentlyDeleteKnowledgeItem(params, body) { return permanentlyDeleteKnowledgeItem(params.id, body); },
     listKnowledgeEvidence(params) { return knowledgeItemService.listEvidence(params.id); },
     createKnowledgeEvidence(params, body) { return knowledgeItemService.createEvidence({ ...body, knowledgeItemId: params.id }); },
     retireKnowledgeEvidence(params, body) { return knowledgeItemService.retireEvidence(params.id, params.evidenceId, body); },
+    readoptKnowledgeEvidence(params, body) { return knowledgeItemService.readoptEvidence(params.id, params.evidenceId, body); },
     listLearningObjectives(query = {}) { return learningObjectiveService.listObjectives(query); },
     getLearningObjective(params) { return learningObjectiveService.getObjective(params.id); },
     createLearningObjective(body) { return learningObjectiveService.createCandidate(body); },
@@ -155,7 +174,7 @@ export function createKnowledgeHttpHandlers({
     requestLearningObjectiveRevision(params, body = {}) { return learningObjectiveService.requestRevision(params.id, body.reviewNote); },
     archiveLearningObjective(params) { return learningObjectiveService.archive(params.id); },
     restoreLearningObjective(params) { return learningObjectiveService.restore(params.id); },
-    listExamProfiles() { return examProfileService.list(); },
+    listExamProfiles(query = {}) { return examProfileService.list(query); },
     getExamProfile(params) { return examProfileService.get(params.id); },
     createExamProfile(body) { return examProfileService.create(body); },
     updateExamProfile(params, body) { return examProfileService.update(params.id, body); },
@@ -177,6 +196,10 @@ export function createKnowledgeHttpHandlers({
     confirmQuestion(params) { return questionService.confirmQuestion(params.id); },
     archiveQuestion(params) { return questionService.archiveQuestion(params.id); },
     restoreQuestion(params) { return questionService.restoreQuestion(params.id); },
+    inspectTrainingAssetPurge(params) { return trainingAssetLifecycle.inspect(params.type, params.id); },
+    trashTrainingAsset(params) { return trainingAssetLifecycle.trash(params.type, params.id); },
+    restoreDeletedTrainingAsset(params) { return trainingAssetLifecycle.restore(params.type, params.id); },
+    permanentlyDeleteTrainingAsset(params, body) { return trainingAssetLifecycle.purge(params.type, params.id, body.expectedUpdatedAt); },
     getKnowledgeOverview() { return knowledgeModule.workspaceQueryService.getKnowledgeOverview(); },
     getTrainingOverview() { return knowledgeModule.workspaceQueryService.getTrainingOverview(); },
     listWorkspaceKnowledgeItems(query = {}) { return knowledgeModule.workspaceQueryService.listKnowledgeItems(query); },
@@ -189,12 +212,17 @@ export function createKnowledgeHttpHandlers({
         userId: ownerId
       });
     },
+    createKnowledgeSpace(body) { return knowledgeSpaceService.createKnowledgeSpace({ ...body, userId: ownerId }); },
     listKnowledgeSpaces(query = {}) {
       return knowledgeSpaceService.listKnowledgeSpaces({
         ...query,
         userId: ownerId
       });
     },
+    inspectEmptySpaceDeletion(params) { return inspectEmptySpaceDeletion(params.id, ownerId); },
+    deleteEmptySpace(params, body) { return deleteEmptySpace(params.id, body, ownerId); },
+    previewSpaceMigration(params, query) { return previewSpaceMigration(params.id, query.targetSpaceId, ownerId); },
+    migrateSpaceAssets(params, body) { return migrateSpaceAssets(params.id, body, ownerId); },
     searchNotes(query) {
       const notes = searchService.searchNotes(query);
       return query.result === 'ids' ? notes.map((note) => note.id) : notes;

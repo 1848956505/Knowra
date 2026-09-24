@@ -7,6 +7,7 @@ import {
 } from './local-attachment-deletion.js';
 import { createLocalAttachmentSnapshotStore } from './local-attachment-snapshot-store.js';
 import { ATTACHMENT_STATUS } from './attachment-status.js';
+import { createAttachmentCleanupQueue } from './attachment-cleanup-queue.js';
 import { reconcileAttachmentIntegrity } from './attachment-record-reconciliation.js';
 import { createLocalAttachmentUpload } from './local-attachment-upload.js';
 import {
@@ -30,6 +31,7 @@ export function createLocalAttachmentStore({
     storageRootDir,
     legacyUploadsDirs
   });
+  const cleanupQueue = createAttachmentCleanupQueue({ storageRootDir, fileManager });
 
   function flush() {
     dataStore.flush();
@@ -217,8 +219,10 @@ export function createLocalAttachmentStore({
   const deletionManager = createLocalAttachmentDeletionManager({
     dataStore,
     fileManager,
-    flush
+    flush,
+    cleanupQueue
   });
+  void cleanupQueue.retry(id => Boolean(getAttachment(id)));
 
   return {
     uploadAttachment: createLocalAttachmentUpload({
@@ -231,6 +235,7 @@ export function createLocalAttachmentStore({
     readAttachmentContent,
     renameAttachment,
     ...deletionManager,
+    retryAttachmentCleanup: () => cleanupQueue.retry(id => Boolean(getAttachment(id))),
     ...snapshotStore
   };
 }

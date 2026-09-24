@@ -1,4 +1,4 @@
-import { normalizeKnowledgeChange, validateKnowledgeBatch } from './knowledge-batch-domain.js';
+import { normalizeKnowledgeChange, validateKnowledgeBatch, validateKnowledgeLifecycleChange } from './knowledge-batch-domain.js';
 import { buildCreateNoteDto } from '../knowledge/application/dto/note.dto.js';
 import { buildCreateFolderDto } from '../knowledge/application/dto/folder.dto.js';
 import { buildCreateTagDto } from '../knowledge/application/dto/tag.dto.js';
@@ -17,6 +17,7 @@ import { createInMemoryNoteVersionRepository } from '../knowledge/infrastructure
 import { createInMemoryAnnotationRevisionRepository } from '../knowledge/infrastructure/annotation-support-repositories.js';
 import { validatePersistedLocalState, createPersistedLocalDocument } from '../../infrastructure/local-data-schema.js';
 import { assertNoInsecureImageUrls } from '../knowledge/application/note-content-policy.js';
+import { inspectAttachmentDeletion } from '../../infrastructure/attachment-deletion-preflight.js';
 import { calculateContentHash, resolveAnchor } from '@study-accelerator/content-anchor';
 import { sameEntity, IMMUTABLE_COLLECTIONS, referencesFor } from './entity-contract.js';
 import { syncError } from './journal.js';
@@ -38,10 +39,33 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   for (const change of changes) {
     const { collection, id } = change;
     const old = before[collection].find(item => item.id === id);
+    validateKnowledgeLifecycleChange(change, old);
+    if (collection === 'analysisScopeSnapshots' && old) {
+      const action = !old.deletedAt && change.value?.deletedAt ? 'trash' : old.deletedAt && change.value && !change.value.deletedAt ? 'restore' : null;
+      if (action !== (change.lifecycleAction ?? null) || !change.value || old.createdAt !== change.value.createdAt
+        || !sameEntity(collection, { ...old, deletedAt: null }, { ...change.value, deletedAt: null })) throw syncError('SYNC_LIFECYCLE_ACTION_REQUIRED', '分析范围只能通过显式回收站操作修改。', 422);
+    }
+    if (collection === 'folders' && old) {
+      const action = !old.deletedAt && change.value?.deletedAt ? 'trash' : old.deletedAt && change.value && !change.value.deletedAt ? 'restore' : null;
+      if (action !== (change.lifecycleAction ?? null) || (action && (old.createdAt !== change.value.createdAt
+        || !sameEntity(collection, { ...old, deletedAt: null, deletionPackage: null }, { ...change.value, deletedAt: null, deletionPackage: null })))) {
+        throw syncError('SYNC_LIFECYCLE_ACTION_REQUIRED', '文件夹回收站操作需要显式动作与稳定内容。', 422);
+      }
+    }
+    if (collection === 'notes' && old && !old.deleted && change.value?.deleted) {
+      const packet = change.value.deletionPackage;
+      const priorStates = before.contentAnnotations.filter(annotation => annotation.noteId === id).map(annotation => {
+        const incoming = changes.find(entry => entry.collection === 'contentAnnotations' && entry.id === annotation.id)?.value;
+        return [annotation.id, incoming?.lifecycleStatus ?? annotation.lifecycleStatus ?? 'active'];
+      });
+      if (!packet?.id || !Array.isArray(packet.annotationStates) || priorStates.some(([annotationId, status]) => !packet.annotationStates.some(item => item.id === annotationId && item.lifecycleStatus === status))) {
+        throw syncError('SYNC_NOTE_DELETE_PACKAGE_REQUIRED', '笔记删除缺少子标注状态快照，请升级应用后重试。', 422);
+      }
+    }
     let value = structuredClone(change.value);
     value = normalizeKnowledgeChange(collection, value, old);
     if (value && value.id !== id) throw syncError('SYNC_ENTITY_INVALID', '实体 ID 与操作不一致。', 422);
-    if (IMMUTABLE_COLLECTIONS.has(collection) && old && !sameEntity(collection, old, value)) throw syncError('SYNC_IMMUTABLE', '历史版本与修订记录不可覆盖或删除。', 422);
+    if (IMMUTABLE_COLLECTIONS.has(collection) && old && !sameEntity(collection, old, value) && !['knowledgeEvidence', 'analysisScopeSnapshots'].includes(collection)) throw syncError('SYNC_IMMUTABLE', '历史版本与修订记录不可覆盖或删除。', 422);
     if (old && value && ['tags', 'tagGroups'].includes(collection) && (Boolean(value.isSystem) !== Boolean(old.isSystem) || (value.code ?? null) !== (old.code ?? null))) throw syncError('SYSTEM_TAG_PROTECTED', '标签的系统标识不能改写。', 422);
     if (old?.isSystem && (!value || value.spaceId !== old.spaceId || value.isSystem !== old.isSystem || value.code !== old.code || (collection === 'tags' && value.groupId !== old.groupId))) throw syncError('SYSTEM_TAG_PROTECTED', '系统标签和分组不能删除或改换归属。', 422);
     if (collection === 'spaces' && (!value || value.userId !== ownerId || (old && old.userId !== ownerId))) throw syncError('SYNC_OWNER_INVALID', '空间不属于当前资料库。', 422);
@@ -129,22 +153,31 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   for (const collection of ['folders', 'tags', 'tagGroups', 'notes']) {
     const names = new Set();
     for (const item of state[collection]) {
-      if (item.deleted) continue;
+      if (item.deleted || item.deletedAt) continue;
       const parent = collection === 'folders' ? item.parentId : collection === 'notes' ? item.folderId : null;
       const key = JSON.stringify([item.spaceId, parent ?? null, ['tags', 'tagGroups'].includes(collection) ? (item.name ?? item.title).trim().toLocaleLowerCase() : (item.name ?? item.title).trim()]);
       if (names.has(key)) throw syncError('SIBLING_NAME_CONFLICT', '同一位置存在重名对象，请重命名后重试。');
       names.add(key);
     }
   }
-  for (const folder of state.folders) if (state.notes.some(note => !note.deleted && note.spaceId === folder.spaceId && (note.folderId ?? null) === (folder.parentId ?? null) && note.title.trim() === folder.name.trim())) throw syncError('SIBLING_NAME_CONFLICT', '同一位置的目录和笔记不能重名。');
+  for (const folder of state.folders.filter(item => !item.deletedAt)) if (state.notes.some(note => !note.deleted && note.spaceId === folder.spaceId && (note.folderId ?? null) === (folder.parentId ?? null) && note.title.trim() === folder.name.trim())) throw syncError('SIBLING_NAME_CONFLICT', '同一位置的目录和笔记不能重名。');
   for (const note of state.notes) for (const ref of referencesFor('notes', note)) {
     if (!state[ref.collection].some(item => item.id === ref.id)) throw syncError('DEPENDENCY_MISSING', '正文引用的目录、标签或附件尚未同步。');
   }
   for (const entry of changes.filter(item => item.collection === 'attachments' && !item.value)) {
-    const reference = `/api/storage/attachments/${entry.id}/content`;
-    if (state.noteVersions.some(version => version.content.includes(reference))) throw syncError('ATTACHMENT_REFERENCED', '历史版本仍引用此附件，不能删除。');
+    const preflight = inspectAttachmentDeletion(entry.id, state);
+    if (preflight.references.length) throw syncError('ATTACHMENT_REFERENCED', '保留的资产仍引用此附件，不能删除。');
   }
   const folderMap = new Map(state.folders.map(folder => [folder.id, folder]));
+  for (const folder of state.folders.filter(item => item.deletionPackage)) {
+    const packet = folder.deletionPackage;
+    if (!folder.deletedAt || !Array.isArray(packet.folderIds) || !Array.isArray(packet.noteIds) || !packet.folderIds.includes(folder.id) || !['keep', 'with-content'].includes(packet.mode)) throw syncError('SYNC_FOLDER_PACKAGE_INVALID', '文件夹删除包不完整。', 422);
+    if (packet.folderIds.some(id => !folderMap.get(id)?.deletedAt)) throw syncError('SYNC_FOLDER_PACKAGE_INVALID', '删除包中的子文件夹尚未进入回收站。', 422);
+    if (packet.noteIds.some(id => {
+      const note = state.notes.find(item => item.id === id);
+      return !note || (packet.mode === 'with-content' ? !note.deleted || note.folderDeletionPackageId !== packet.id : note.deleted || packet.folderIds.includes(note.folderId));
+    })) throw syncError('SYNC_FOLDER_PACKAGE_INVALID', '删除包中的笔记状态不一致。', 422);
+  }
   const paths = new Map();
   function folderPath(folder, visiting = new Set()) {
     if (paths.has(folder.id)) return paths.get(folder.id);

@@ -38,6 +38,9 @@ export interface SelectProps<T extends Key = string>
   isInvalid?: boolean;
   isDisabled?: boolean;
   options: SelectOption[];
+  /** 工具栏中的紧凑筛选框；标签仍提供给辅助技术。 */
+  presentation?: 'field' | 'toolbar';
+  leadingIcon?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -52,6 +55,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     isInvalid,
     isDisabled,
     options,
+    presentation = 'field',
+    leadingIcon,
     className,
     ...rest
   },
@@ -63,10 +68,10 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       isRequired={isRequired}
       isInvalid={isInvalid}
       isDisabled={isDisabled}
-      className={cx(styles.field, className)}
+      className={cx(styles.field, presentation === 'toolbar' && styles.toolbarSelect, className)}
       {...rest}
     >
-      <Label className={styles.label}>
+      <Label className={cx(styles.label, presentation === 'toolbar' && styles.visuallyHidden)}>
         {label}
         {isRequired ? <span className={styles.required} aria-hidden="true">*</span> : null}
       </Label>
@@ -74,6 +79,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         <Text slot="description" className={styles.description}>{description}</Text>
       ) : null}
       <RAButton className={styles.selectTrigger} data-input-shadow-owner="true">
+        {leadingIcon ? <span className={styles.selectLeadingIcon} aria-hidden="true">{leadingIcon}</span> : null}
         <RASelectValue className={styles.selectValue}>
           {({ selectedText, isPlaceholder }) => (
             <span data-placeholder={isPlaceholder || undefined}>{selectedText ?? placeholder}</span>

@@ -10,6 +10,7 @@ import {
   type NoteVersion,
   type NoteVersionPage,
   type NoteVersionPageOptions,
+  type NoteVersionPrunePreview,
   type Tag,
   type TagColor,
   type TagGroup,
@@ -103,6 +104,7 @@ export interface NoteEditorViewProps {
   onOpenTag?(tagId: string): void;
   onListVersions(noteId: string): Promise<NoteVersion[]>;
   onListVersionPage?(noteId: string, options?: NoteVersionPageOptions): Promise<NoteVersionPage>;
+  onPreviewVersionPrune?(noteId: string): Promise<NoteVersionPrunePreview>;
   onSaveVersionAs?(version: NoteVersion): Promise<void>;
   onGetVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   onOrganizeNote(input: { folderId: string | null; status: string }): Promise<void>;
@@ -114,7 +116,7 @@ export interface NoteEditorViewProps {
   onListAnnotations(noteId: string): Promise<Annotation[]>;
   onCreateAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
   onDeleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
-  onRestoreAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
+  onRestoreAnnotation?(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   onUpdateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
   onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
   onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
@@ -124,6 +126,9 @@ export interface NoteEditorViewProps {
   knowledgeWriteDisabledReason?: string;
   onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  onListAnalysisScopes?(spaceId: string): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot[]>;
+  onTrashAnalysisScope?(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot>;
+  onRestoreAnalysisScope?(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot>;
   onCreateAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<{ annotation: Annotation }>;
   onDeleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<{ annotation: Annotation }>;
   onFileStatus(message: string): void;
@@ -171,6 +176,7 @@ export function NoteEditorView({
   onOpenTag,
   onListVersions,
   onListVersionPage,
+  onPreviewVersionPrune,
   onSaveVersionAs,
   onGetVersion,
   onOrganizeNote,
@@ -192,6 +198,9 @@ export function NoteEditorView({
   knowledgeWriteDisabledReason,
   onPreviewAnalysisScope,
   onCreateAnalysisScope,
+  onListAnalysisScopes,
+  onTrashAnalysisScope,
+  onRestoreAnalysisScope,
   onCreateAnnotationExclusion,
   onDeleteAnnotationExclusion,
   onFileStatus,
@@ -776,6 +785,7 @@ export function NoteEditorView({
           onOpenTag={onOpenTag}
           onListVersions={onListVersions}
           onListVersionPage={onListVersionPage}
+          onPreviewVersionPrune={onPreviewVersionPrune}
           onRestoreVersion={async (version) => {
             if (!canWrite || version.noteId !== note.id) throw new Error('当前状态无法恢复此历史记录');
             const current = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
@@ -809,8 +819,13 @@ export function NoteEditorView({
           }}
           onCreateAnnotation={createCurrentAnnotation}
           onSelectAnnotation={selectAnnotation}
-          onDeleteAnnotation={async (annotationId, expectedRevision) => replaceAnnotation(await onDeleteAnnotation(annotationId, expectedRevision))}
-          onRestoreAnnotation={async (annotationId, expectedRevision) => replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision))}
+          onDeleteAnnotation={async (annotationId, expectedRevision) => {
+            const deleted = await onDeleteAnnotation(annotationId, expectedRevision);
+            setAnnotations((current) => current.filter((item) => item.id !== annotationId));
+            setFocusedAnnotationId((current) => current === annotationId ? null : current);
+            return deleted;
+          }}
+          onRestoreAnnotation={onRestoreAnnotation ? async (annotationId, expectedRevision) => replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision)) : undefined}
           onReanchorAnnotation={reanchorAnnotation}
           onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => replaceAnnotation(await onUpdateAnnotation(annotationId, input)) : undefined}
           onPreviewAnnotation={onPreviewAnnotation}
@@ -825,6 +840,9 @@ export function NoteEditorView({
           knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
           onPreviewAnalysisScope={onPreviewAnalysisScope}
           onCreateAnalysisScope={onCreateAnalysisScope}
+          onListAnalysisScopes={onListAnalysisScopes}
+          onTrashAnalysisScope={onTrashAnalysisScope}
+          onRestoreAnalysisScope={onRestoreAnalysisScope}
           onCreateAnnotationExclusion={excludeCurrentBlock}
           onDeleteAnnotationExclusion={onDeleteAnnotationExclusion ? async (annotationId, exclusionId, expectedRevision) => replaceAnnotation((await onDeleteAnnotationExclusion(annotationId, exclusionId, expectedRevision)).annotation) : undefined}
           onNavigateHeading={(_heading, index) => {

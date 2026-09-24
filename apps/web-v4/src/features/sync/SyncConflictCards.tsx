@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '../../components/ui';
+import { Button, Select, TextAreaField } from '../../components/ui';
 import { TextDiff } from '../../components/ui/TextDiff';
 import { entityFields, entityNames, entityPresence, entityTitle, fieldLabel, fieldValue, sameField, type Conflict, type EntityConflict, type EntityConflictItem } from './syncConflictModel';
 import styles from './SyncConflictCards.module.css';
@@ -11,11 +11,11 @@ function MarkdownComparison({ base, local, remote }: { base: string | undefined;
   const before = mode === 'sides' ? local ?? '' : base ?? '';
   const after = mode === 'local' ? local ?? '' : remote ?? '';
   return <div className={styles.comparison}>
-    <label className={styles.mode}>正文比较<select value={mode} onChange={event => setMode(event.target.value)}>
-      <option value="sides">本机与云端</option>
-      <option value="local" disabled={base === undefined}>共同基线 → 本机</option>
-      <option value="remote" disabled={base === undefined}>共同基线 → 云端</option>
-    </select></label>
+    <Select label="正文比较" selectedKey={mode} onSelectionChange={key => setMode(String(key))} options={[
+      { id: 'sides', label: '本机与云端' },
+      { id: 'local', label: '共同基线 → 本机', isDisabled: base === undefined },
+      { id: 'remote', label: '共同基线 → 云端', isDisabled: base === undefined }
+    ]} />
     {base === undefined && <p className={styles.hint}>没有共同基线，无法判断各自从哪个版本开始修改。</p>}
     <TextDiff before={before} after={after} beforeLabel={mode === 'sides' ? '本机' : '共同基线'} afterLabel={mode === 'local' ? '本机' : '云端'} />
   </div>;
@@ -30,7 +30,7 @@ function ResolutionActions({ disabled, allowMerge, onResolve, initialMarkdown }:
       <Button isDisabled={disabled} onPress={() => { void onResolve('local'); }}>采用本地</Button>
       {allowMerge && <><Button isDisabled={disabled} onPress={() => { void onResolve('copy'); }}>保留为两篇</Button><Button isDisabled={disabled} onPress={() => setManual(!manual)}>手动合并</Button></>}
     </div>
-    {manual && <div className={styles.merge}><label>合并后的正文<textarea value={markdown} onChange={event => setMarkdown(event.target.value)} rows={10} /></label><Button isDisabled={disabled} onPress={() => { void onResolve('manual', markdown); }}>保存合并结果</Button></div>}
+    {manual && <div className={styles.merge}><TextAreaField label="合并后的正文" value={markdown} onChange={setMarkdown} rows={10} isDisabled={disabled} /><Button isDisabled={disabled} onPress={() => { void onResolve('manual', markdown); }}>保存合并结果</Button></div>}
   </>;
 }
 

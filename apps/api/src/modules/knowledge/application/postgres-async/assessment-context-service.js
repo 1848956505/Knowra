@@ -9,27 +9,29 @@ export function createAsyncAssessmentContextService({
   examProfileRepository,
   examFocusRepository,
   learningObjectiveRepository,
+  getTombstone = null,
   runTransaction = (operation) => operation()
 } = {}) {
   if (!examProfileRepository || !examFocusRepository || !learningObjectiveRepository) throw new TypeError('Async assessment context repositories are required');
 
   async function requireProfile(id, { includeArchived = false } = {}) {
     const profile = await examProfileRepository.findById(id);
-    if (!profile || (!includeArchived && profile.archivedAt)) throw notFoundError('EXAM_PROFILE_NOT_FOUND', 'ExamProfile not found');
+    if (!profile || profile.deletedAt || (!includeArchived && profile.archivedAt)) throw notFoundError('EXAM_PROFILE_NOT_FOUND', 'ExamProfile not found');
     return profile;
   }
   async function requireObjective(id, { confirmed = false } = {}) {
     const objective = await learningObjectiveRepository.findById(id);
-    if (!objective || objective.reviewStatus === 'archived') throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
+    if (!objective || objective.deletedAt || objective.reviewStatus === 'archived') throw notFoundError('LEARNING_OBJECTIVE_NOT_FOUND', 'LearningObjective not found');
     if (confirmed && objective.reviewStatus !== 'confirmed') throw validationError('LEARNING_OBJECTIVE_NOT_CONFIRMED', 'ExamFocus requires a confirmed LearningObjective');
     return objective;
   }
   async function requireFocus(id, { includeArchived = false } = {}) {
     const focus = await examFocusRepository.findById(id);
-    if (!focus || (!includeArchived && focus.reviewStatus === 'archived')) throw notFoundError('EXAM_FOCUS_NOT_FOUND', 'ExamFocus not found');
+    if (!focus || focus.deletedAt || (!includeArchived && focus.reviewStatus === 'archived')) throw notFoundError('EXAM_FOCUS_NOT_FOUND', 'ExamFocus not found');
     return focus;
   }
-  async function assertIdAvailable(repository, id, code, entityName) {
+  async function assertIdAvailable(repository, id, code, entityName, collection) {
+    if (await getTombstone?.(collection, id)) throw conflictError('TRAINING_ASSET_ID_DELETED', '已清理的考试资产 ID 不能复用');
     if (await repository.findById(id)) {
       throw conflictError(code, `A ${entityName} with the same id already exists`);
     }
@@ -47,12 +49,13 @@ export function createAsyncAssessmentContextService({
         examProfileRepository,
         dto.id,
         'EXAM_PROFILE_ID_CONFLICT',
-        'ExamProfile'
+        'ExamProfile',
+        'examProfiles'
       );
       return runTransaction(async ({ examProfileRepository: repository = examProfileRepository } = {}) => saveNew(repository, new ExamProfile(dto)));
     },
     get: (id) => requireProfile(id, { includeArchived: true }),
-    list: () => examProfileRepository.list(),
+    list: (options = {}) => examProfileRepository.list(options),
     async update(id, input = {}) { return examProfileRepository.save(new ExamProfile({ ...(await requireProfile(id)), ...buildUpdateExamProfileDto(input), updatedAt: now() })); },
     async archive(id) { const current = await requireProfile(id); return examProfileRepository.save(new ExamProfile({ ...current, archivedAt: now(), updatedAt: now() })); },
     async restore(id) { const current = await requireProfile(id, { includeArchived: true }); return !current.archivedAt ? current : examProfileRepository.save(new ExamProfile({ ...current, archivedAt: null, updatedAt: now() })); }
@@ -65,7 +68,8 @@ export function createAsyncAssessmentContextService({
         examFocusRepository,
         dto.id,
         'EXAM_FOCUS_ID_CONFLICT',
-        'ExamFocus'
+        'ExamFocus',
+        'examFocuses'
       );
       await requireProfile(dto.examProfileId);
       await requireObjective(dto.learningObjectiveId);

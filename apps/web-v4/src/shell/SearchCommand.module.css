@@ -7,54 +7,6 @@
   padding: 0;
 }
 
-.inputRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--ink-shell);
-  background: var(--ink-search-rest);
-  color: var(--ink);
-  box-shadow: var(--shadow-search-rest);
-  transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
-}
-
-.inputRow:focus-within {
-  border-color: var(--ink-accent);
-  background: var(--ink-surface);
-  color: var(--ink-accent);
-  box-shadow: var(--shadow-search-focus);
-}
-
-.input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: 700 14px/1.4 var(--font-ui);
-  outline: 0;
-  box-shadow: none;
-}
-
-.input::placeholder {
-  color: var(--ink-muted);
-}
-
-.clearButton {
-  min-height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--ink-panel);
-  background: var(--ink-surface);
-  color: var(--ink-secondary);
-  font: 800 10px/1 var(--font-mono);
-}
-
-.clearButton:hover {
-  color: var(--ink);
-  border-color: var(--ink);
-}
-
 .hitList {
   max-height: 50vh;
   overflow-y: auto;
@@ -136,10 +88,4 @@
   color: var(--ink-muted);
   font: 800 10px/1 var(--font-mono);
   letter-spacing: 0.04em;
-}
-
-@media (max-width: 767px) {
-  .input {
-    font-size: 16px;
-  }
 }

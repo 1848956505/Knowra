@@ -27,6 +27,8 @@ export function transformFolder(folder, fallbackTimestamp) {
     parentId: folder.parentId ?? null,
     pathCache: folder.pathCache ?? '/',
     sortOrder: Number(folder.sortOrder ?? 0),
+    deletedAt: folder.deletedAt ? normalizeTimestamp(folder.deletedAt, createdAt) : null,
+    deletionPackage: folder.deletionPackage ?? null,
     createdAt,
     updatedAt: normalizeTimestamp(folder.updatedAt ?? createdAt, createdAt)
   };
@@ -89,6 +91,8 @@ export function transformNote(note, fallbackTimestamp, reportTools) {
     sourceType: note.sourceType ?? 'manual',
     favorite: Boolean(note.favorite),
     deletedAt: note.deleted ? normalizeTimestamp(note.updatedAt ?? createdAt, createdAt) : null,
+    folderDeletionPackageId: note.folderDeletionPackageId ?? null,
+    deletionPackage: note.deletionPackage ?? null,
     createdAt,
     updatedAt: normalizeTimestamp(note.updatedAt ?? createdAt, createdAt),
     tagIds: [...new Set(note.tagIds ?? [])]
@@ -185,6 +189,7 @@ export function transformKnowledgeEvidence(evidence, fallbackTimestamp) {
     headingPath: Array.isArray(evidence.headingPath) ? evidence.headingPath : [],
     relationType: evidence.relationType ?? 'supports',
     status: evidence.status ?? 'valid',
+    applicabilityStatus: evidence.applicabilityStatus ?? (evidence.status === 'invalid' ? 'needsReview' : 'active'),
     createdAt,
     updatedAt: normalizeTimestamp(evidence.updatedAt ?? createdAt, createdAt)
   };
@@ -200,6 +205,7 @@ export function transformLearningObjective(objective, fallbackTimestamp) {
     difficultyHint: objective.difficultyHint || null,
     reviewStatus: objective.reviewStatus ?? 'candidate',
     reviewNote: objective.reviewNote ?? null,
+    deletedAt: objective.deletedAt ? normalizeTimestamp(objective.deletedAt, createdAt) : null,
     order: Number(objective.order ?? 0),
     createdAt,
     updatedAt: normalizeTimestamp(objective.updatedAt ?? createdAt, createdAt)
@@ -216,6 +222,7 @@ export function transformExamProfile(profile, fallbackTimestamp) {
     commonQuestionTypes: Array.isArray(profile.commonQuestionTypes) ? profile.commonQuestionTypes : [],
     difficultyProfile: profile.difficultyProfile && typeof profile.difficultyProfile === 'object' && !Array.isArray(profile.difficultyProfile) ? profile.difficultyProfile : {},
     archivedAt: profile.archivedAt ? normalizeTimestamp(profile.archivedAt, createdAt) : null,
+    deletedAt: profile.deletedAt ? normalizeTimestamp(profile.deletedAt, createdAt) : null,
     createdAt,
     updatedAt: normalizeTimestamp(profile.updatedAt ?? createdAt, createdAt)
   };
@@ -231,6 +238,7 @@ export function transformExamFocus(focus, fallbackTimestamp) {
     questionTypeSuggestions: Array.isArray(focus.questionTypeSuggestions) ? focus.questionTypeSuggestions : [],
     sourceType: focus.sourceType ?? 'manual',
     reviewStatus: focus.reviewStatus ?? 'candidate',
+    deletedAt: focus.deletedAt ? normalizeTimestamp(focus.deletedAt, createdAt) : null,
     createdAt,
     updatedAt: normalizeTimestamp(focus.updatedAt ?? createdAt, createdAt)
   };
@@ -250,6 +258,7 @@ export function transformQuestion(question, fallbackTimestamp) {
     reviewStatus: question.reviewStatus ?? 'draft',
     sourceMode: question.sourceMode ?? 'manual',
     version: Number(question.version ?? 1),
+    deletedAt: question.deletedAt ? normalizeTimestamp(question.deletedAt, createdAt) : null,
     createdAt,
     updatedAt: normalizeTimestamp(question.updatedAt ?? createdAt, createdAt)
   };

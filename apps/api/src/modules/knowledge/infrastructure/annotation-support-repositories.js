@@ -62,6 +62,6 @@ export function createInMemoryAnalysisScopeRepository(options = {}) {
     findByIdempotencyKey(spaceId, idempotencyKey) {
       return base.list((item) => item.spaceId === spaceId && item.idempotencyKey === idempotencyKey)[0] ?? null;
     },
-    list({ spaceId } = {}) { return base.list((item) => !spaceId || item.spaceId === spaceId); }
+    list({ spaceId, includeDeleted = false } = {}) { return base.list((item) => (!spaceId || item.spaceId === spaceId) && (includeDeleted || !item.deletedAt)); }
   };
 }

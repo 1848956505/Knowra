@@ -388,7 +388,7 @@ export const knowledgeHttpTests = [
         { id: 'http-folder-1' },
         { name: 'Final Folder', pathCache: '/final-folder' }
       );
-      handlers.deleteFolder({ id: 'http-folder-1' });
+      handlers.deleteFolder({ id: 'http-folder-1' }, { mode: 'keep', destinationId: null });
 
       handlers.createTag({
         id: 'http-tag-1',
@@ -462,7 +462,7 @@ export const knowledgeHttpTests = [
       });
       knowledgeModule.noteService.assignTagToNote('cleanup-note', 'cleanup-tag');
 
-      handlers.deleteFolder({ id: 'cleanup-folder' });
+      handlers.deleteFolder({ id: 'cleanup-folder' }, { mode: 'keep', destinationId: null });
       handlers.deleteTag({ id: 'cleanup-tag' });
 
       const note = handlers.getNote({ id: 'cleanup-note' });

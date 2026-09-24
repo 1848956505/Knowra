@@ -14,6 +14,11 @@ export function selectEntityBatch(changes, state, base, { maxEntries = 1000, max
     const noteId = value?.noteId ?? annotationNotes.get(value?.annotationId ?? value?.parentAnnotationId);
     if (noteId) join(syncKey(entry.collection, entry.id), syncKey('notes', noteId));
     if (value?.knowledgeItemId) join(syncKey(entry.collection, entry.id), syncKey('knowledgeItems', value.knowledgeItemId));
+    const folderPackage = entry.collection === 'folders' ? (value?.deletionPackage ?? base.get(syncKey(entry.collection, entry.id))?.value?.deletionPackage) : null;
+    if (folderPackage) {
+      for (const id of folderPackage.folderIds ?? []) join(syncKey(entry.collection, entry.id), syncKey('folders', id));
+      for (const id of folderPackage.noteIds ?? []) join(syncKey(entry.collection, entry.id), syncKey('notes', id));
+    }
     // 标注独立修改时，没有正文变化也必须与修订、排除范围一起提交。
     const annotationId = value?.annotationId ?? value?.parentAnnotationId;
     if (annotationId) join(syncKey(entry.collection, entry.id), syncKey('contentAnnotations', annotationId));

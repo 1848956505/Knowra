@@ -11,14 +11,15 @@ export interface CheckboxProps extends Omit<RACheckboxProps, 'className' | 'chil
   children?: ReactNode;
   className?: string;
   indeterminateIcon?: ReactNode;
+  size?: 'default' | 'compact';
 }
 
 export const Checkbox = forwardRef<HTMLLabelElement, CheckboxProps>(function Checkbox(
-  { children, className, ...rest },
+  { children, className, size = 'default', ...rest },
   ref
 ) {
   return (
-    <RACheckbox ref={ref} className={cx(styles.checkbox, className)} {...rest}>
+    <RACheckbox ref={ref} className={cx(styles.checkbox, size === 'compact' && styles.checkboxCompact, className)} {...rest}>
       {({ isSelected, isIndeterminate, isDisabled }) => (
         <>
           <span

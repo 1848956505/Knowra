@@ -51,6 +51,24 @@ import {
 } from './json-transformers.js';
 import { createPostgresAdvisoryLock } from '../postgres-advisory-lock.js';
 import { findInsecureImageUrls } from '../../modules/knowledge/application/note-content-policy.js';
+import { createJournal, loadJournal, syncKey } from '../../modules/sync/journal.js';
+
+const syncPlanCollections = Object.freeze({
+  spaces: 'spaces', folders: 'folders', tags: 'tags', tagGroups: 'tagGroups', notes: 'notes',
+  noteVersions: 'noteVersions', knowledgeItems: 'knowledgeItems', knowledgeEvidence: 'knowledgeEvidence',
+  learningObjectives: 'learningObjectives', examProfiles: 'examProfiles', examFocuses: 'examFocuses',
+  questions: 'questions', questionObjectives: 'questionObjectives', questionSources: 'questionSources',
+  attachments: 'attachments', contentAnnotations: 'annotations', annotationExclusions: 'annotationExclusions',
+  annotationRevisions: 'annotationRevisions', analysisScopeSnapshots: 'analysisScopeSnapshots'
+});
+const syncDbModels = Object.freeze({
+  spaces: 'knowledgeSpace', folders: 'folder', tags: 'tag', tagGroups: 'tagGroup', notes: 'note',
+  noteVersions: 'noteVersion', knowledgeItems: 'knowledgeItem', knowledgeEvidence: 'knowledgeEvidence',
+  learningObjectives: 'learningObjective', examProfiles: 'examProfile', examFocuses: 'examFocus',
+  questions: 'question', questionObjectives: 'questionObjective', questionSources: 'questionSource',
+  attachments: 'attachment', contentAnnotations: 'contentAnnotation', annotationExclusions: 'annotationExclusion',
+  annotationRevisions: 'annotationRevision', analysisScopeSnapshots: 'analysisScopeSnapshot'
+});
 
 export function loadJsonMigrationSource(filePath) {
   const absolutePath = path.resolve(filePath);
@@ -247,6 +265,20 @@ export async function applyJsonMigration({
   }
 
   const applyPlan = async (tx) => {
+    const previousJournals = tx.syncJournal ? await tx.syncJournal.findMany() : [];
+    const presentIds = previousJournals.length
+      ? Object.fromEntries(await Promise.all(Object.entries(syncDbModels).map(async ([collection, model]) => [collection, await tx[model].findMany({ select: { id: true } })])))
+      : {};
+    const normalizedJournals = previousJournals.map(old => ({ ...old, payload: loadJournal(old.payload, presentIds) }));
+    for (const old of normalizedJournals) {
+      for (const [collection, planCollection] of Object.entries(syncPlanCollections)) {
+        for (const item of plan[planCollection] ?? []) {
+          if (old.payload?.tombstones?.[syncKey(collection, item.id)]) {
+            throw createAppError('IMPORT_DELETED_ID', '旧备份包含已经永久删除的对象，请使用新的资产 ID 导入。', 409, { collection, id: item.id });
+          }
+        }
+      }
+    }
     if (tx.syncJournal) await tx.syncJournal.deleteMany();
     if (requireEmptyTarget) await assertEmptyTarget(tx);
     if (replaceExisting) {
@@ -294,6 +326,14 @@ export async function applyJsonMigration({
     if (plan.questionSources.length) await tx.questionSource.createMany({ data: plan.questionSources.map(dbQuestionSource) });
     if (plan.attachments.length) {
       await tx.attachment.createMany({ data: plan.attachments.map(dbAttachment) });
+    }
+    if (tx.syncJournal) {
+      const state = Object.fromEntries(Object.entries(syncPlanCollections).map(([collection, source]) => [collection, plan[source] ?? []]));
+      const previous = normalizedJournals.find(row => row.ownerId === plan.users[0]?.id);
+      const journal = createJournal(state);
+      journal.tombstones = structuredClone(previous?.payload?.tombstones ?? {});
+      for (const [key, tombstone] of Object.entries(journal.tombstones)) journal.revisions[key] = tombstone.revision;
+      await tx.syncJournal.create({ data: { ownerId: plan.users[0]?.id ?? 'demo', payload: journal } });
     }
   };
   const advisoryLock = createPostgresAdvisoryLock(client);

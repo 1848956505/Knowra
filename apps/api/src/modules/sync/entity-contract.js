@@ -5,9 +5,9 @@ export const KNOWLEDGE_SYNC_CAPABILITY = 'knowledge-items-v1';
 export const KNOWLEDGE_COLLECTIONS = Object.freeze(['knowledgeItems', 'knowledgeEvidence']);
 export const WRITABLE_COLLECTIONS = Object.freeze([
   'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions',
-  'attachments', 'contentAnnotations', 'annotationExclusions', 'annotationRevisions', ...KNOWLEDGE_COLLECTIONS
+  'attachments', 'contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'analysisScopeSnapshots', ...KNOWLEDGE_COLLECTIONS
 ]);
-export const IMMUTABLE_COLLECTIONS = new Set(['noteVersions', 'annotationRevisions', 'knowledgeEvidence']);
+export const IMMUTABLE_COLLECTIONS = new Set(['noteVersions', 'annotationRevisions', 'analysisScopeSnapshots', 'knowledgeEvidence']);
 export function entityContent(collection, value) {
   if (!value) return null;
   if (collection === 'notes') return noteContent(value);
@@ -24,9 +24,14 @@ export function referencesFor(collection, value) {
   const fields = { spaceId: 'spaces', folderId: 'folders', groupId: 'tagGroups', noteId: 'notes', noteVersionId: 'noteVersions', annotationId: 'contentAnnotations', parentAnnotationId: 'contentAnnotations', knowledgeItemId: 'knowledgeItems' };
   const refs = Object.entries(fields).filter(([field]) => value[field]).map(([field, target]) => ({ collection: target, id: value[field] }));
   if (collection === 'folders' && value.parentId) refs.push({ collection: 'folders', id: value.parentId });
+  if (collection === 'folders' && value.deletionPackage) for (const id of value.deletionPackage.noteIds ?? []) refs.push({ collection: 'notes', id });
   for (const id of value.tagIds ?? []) refs.push({ collection: 'tags', id });
   if (collection === 'notes') for (const match of value.rawMarkdown.matchAll(/\/api\/storage\/attachments\/([^/\s)]+)\/content/g)) {
     try { refs.push({ collection: 'attachments', id: decodeURIComponent(match[1]) }); } catch { throw new Error('正文中的附件引用无效。'); }
+  }
+  if (collection === 'analysisScopeSnapshots') {
+    for (const version of value.noteVersions ?? []) refs.push({ collection: 'noteVersions', id: version.noteVersionId });
+    for (const revision of value.annotationRevisions ?? []) refs.push({ collection: 'contentAnnotations', id: revision.annotationId });
   }
   return refs;
 }

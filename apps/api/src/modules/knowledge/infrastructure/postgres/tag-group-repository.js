@@ -21,6 +21,7 @@ export function createPostgresTagGroupRepository({ db }) {
     },
     async findById(id) { return withRepositoryErrors(async () => mapTagGroup(await db.tagGroup.findUnique({ where: { id } }))); },
     async delete(id) { return withRepositoryErrors(async () => mapTagGroup(await db.tagGroup.delete({ where: { id } }))); },
+    async moveToSpace(id, spaceId) { return withRepositoryErrors(async () => mapTagGroup(await db.tagGroup.update({ where: { id }, data: { spaceId } }))); },
     async list(options = {}) { return withRepositoryErrors(async () => (await db.tagGroup.findMany({ where: options.spaceId ? { spaceId: options.spaceId } : {}, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })).map(mapTagGroup)); },
     supportsAsync: true
   };

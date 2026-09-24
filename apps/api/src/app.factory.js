@@ -139,6 +139,9 @@ export function createAppContext(options = {}) {
     runTransaction: dataStore?.runTransaction
       ? (operation) => dataStore.runTransaction(operation)
       : undefined,
+    getPurgeTombstone: dataStore?.getSyncJournal
+      ? (collection, id) => dataStore.getSyncJournal().tombstones?.[JSON.stringify([collection, id])] ?? null
+      : undefined,
     enforceReferences: options.enforceReferences ?? true
   });
   const noteDeletionCoordinator = createNoteDeletionCoordinator({

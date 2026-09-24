@@ -1,4 +1,5 @@
 import { toDate, toIso } from './mappers.js';
+import { createAppError } from '../../../../errors/app-error.js';
 import { withRepositoryErrors } from './repository-utils.js';
 
 export function createPostgresAnnotationExclusionRepository({ db }) {
@@ -31,11 +32,19 @@ export function createPostgresAnnotationRevisionRepository({ db }) {
 export function createPostgresAnalysisScopeRepository({ db }) {
   return {
     save(record) {
-      return withRepositoryErrors(async () => mapCreated(await db.analysisScopeSnapshot.create({ data: { ...record, createdAt: toDate(record.createdAt) } })));
+      return withRepositoryErrors(async () => mapScope(await db.analysisScopeSnapshot.create({ data: { ...record, createdAt: toDate(record.createdAt), updatedAt: toDate(record.updatedAt ?? record.createdAt), deletedAt: record.deletedAt ? toDate(record.deletedAt) : null } })));
     },
-    async findById(id) { return mapCreated(await db.analysisScopeSnapshot.findUnique({ where: { id } })); },
-    async findByIdempotencyKey(spaceId, idempotencyKey) { return mapCreated(await db.analysisScopeSnapshot.findUnique({ where: { spaceId_idempotencyKey: { spaceId, idempotencyKey } } })); },
-    async list({ spaceId } = {}) { return (await db.analysisScopeSnapshot.findMany({ where: spaceId ? { spaceId } : {}, orderBy: { createdAt: 'desc' } })).map(mapCreated); },
+    async update(record, expectedUpdatedAt) {
+      return withRepositoryErrors(async () => {
+        const result = await db.analysisScopeSnapshot.updateMany({ where: { id: record.id, updatedAt: toDate(expectedUpdatedAt) }, data: { deletedAt: record.deletedAt ? toDate(record.deletedAt) : null, updatedAt: toDate(record.updatedAt) } });
+        if (result.count !== 1) throw createAppError('ANALYSIS_SCOPE_UPDATE_CONFLICT', '分析范围已变化，请刷新后重试。', 409);
+        return mapScope(await db.analysisScopeSnapshot.findUnique({ where: { id: record.id } }));
+      });
+    },
+    async findById(id) { return mapScope(await db.analysisScopeSnapshot.findUnique({ where: { id } })); },
+    async moveToSpace(id, spaceId) { return mapScope(await db.analysisScopeSnapshot.update({ where: { id }, data: { spaceId } })); },
+    async findByIdempotencyKey(spaceId, idempotencyKey) { return mapScope(await db.analysisScopeSnapshot.findUnique({ where: { spaceId_idempotencyKey: { spaceId, idempotencyKey } } })); },
+    async list({ spaceId, includeDeleted = false } = {}) { return (await db.analysisScopeSnapshot.findMany({ where: { ...(spaceId ? { spaceId } : {}), ...((includeDeleted === true || includeDeleted === 'true') ? {} : { deletedAt: null }) }, orderBy: { createdAt: 'desc' } })).map(mapScope); },
     supportsAsync: true
   };
 }
@@ -46,3 +55,4 @@ function omitCreateFields(data) {
 }
 function mapDates(record) { return record ? { ...record, createdAt: toIso(record.createdAt), updatedAt: toIso(record.updatedAt) } : null; }
 function mapCreated(record) { return record ? { ...record, createdAt: toIso(record.createdAt) } : null; }
+function mapScope(record) { return record ? { ...record, createdAt: toIso(record.createdAt), updatedAt: toIso(record.updatedAt), deletedAt: record.deletedAt ? toIso(record.deletedAt) : null } : null; }

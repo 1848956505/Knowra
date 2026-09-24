@@ -54,14 +54,15 @@ export const localBusinessTransactionTests = [
         api.createNote({ id: 'note-1', title: 'Note', rawMarkdown: 'text', folderId: 'child', spaceId: space.id });
         const before = snapshot();
         failNext();
-        assert.throws(() => api.deleteFolder({ id: 'parent' }), { code: 'STORAGE_WRITE_FAILED' });
+        assert.throws(() => api.deleteFolder({ id: 'parent' }, { mode: 'keep', destinationId: null }), { code: 'STORAGE_WRITE_FAILED' });
         assert.deepEqual(snapshot(), before);
         assert.equal(createFileDataStore(file).state.folders.length, 2);
         const count = writes();
-        api.deleteFolder({ id: 'parent' });
+        api.deleteFolder({ id: 'parent' }, { mode: 'keep', destinationId: null });
         assert.equal(writes() - count, 1);
         const restarted = createFileDataStore(file);
-        assert.equal(restarted.state.folders.length, 0);
+        assert.equal(restarted.state.folders.length, 2);
+        assert(restarted.state.folders.every(folder => folder.deletedAt));
         assert.equal(restarted.state.notes[0].folderId, null);
       });
     }

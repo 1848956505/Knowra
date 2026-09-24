@@ -13,6 +13,7 @@ export class ExamProfile {
     commonQuestionTypes = [],
     difficultyProfile = {},
     archivedAt = null,
+    deletedAt = null,
     createdAt = new Date().toISOString(),
     updatedAt = createdAt
   }) {
@@ -32,6 +33,7 @@ export class ExamProfile {
       commonQuestionTypes: cloneJson(commonQuestionTypes, []),
       difficultyProfile: cloneJson(difficultyProfile, {}),
       archivedAt,
+      deletedAt,
       createdAt,
       updatedAt
     });

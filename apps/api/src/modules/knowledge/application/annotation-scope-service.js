@@ -49,7 +49,7 @@ export function createAnnotationScopeService({
   function createExclusion(annotationId, input = {}) {
     const annotation = requireAnnotation(annotationId);
     if (annotation.scopeType !== 'section') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '只有标题范围重点可以保存局部排除', 409);
-    if (annotation.lifecycleStatus === 'archived') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '已取消的重点不能新增排除', 409);
+    if (annotation.lifecycleStatus !== 'active') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '已取消的重点不能新增排除', 409);
     const note = requireNote(annotation.noteId);
     if (calculateContentHash(note.rawMarkdown) !== input.noteContentHash) throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请刷新范围', 409);
     const resolved = resolveAnchor(note.rawMarkdown, input.anchor);
@@ -135,7 +135,7 @@ export function createAnnotationScopeService({
       }
     } else {
       for (const annotation of annotations) {
-        if (annotation.lifecycleStatus === 'archived') continue;
+        if (annotation.lifecycleStatus !== 'active') continue;
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           omittedItems.push({ annotationId: annotation.id, reason: 'legacyUnverified' });
           continue;
@@ -210,17 +210,32 @@ export function createAnnotationScopeService({
       ...structuredClone(snapshotData),
       inputHash: previewHash,
       idempotencyKey,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null
     });
   }
 
-  function getAnalysisScope(id, spaceId) {
+  function getAnalysisScope(id, spaceId, includeDeleted = false) {
     const snapshot = analysisScopeRepository.findById(id);
-    if (!snapshot || (spaceId && snapshot.spaceId !== spaceId)) throw fail('ANALYSIS_SCOPE_NOT_FOUND', '分析范围快照不存在', 404);
+    if (!snapshot || (spaceId && snapshot.spaceId !== spaceId) || (snapshot.deletedAt && !includeDeleted)) throw fail('ANALYSIS_SCOPE_NOT_FOUND', '分析范围快照不存在', 404);
     return snapshot;
   }
 
-  return { previewAnnotation, createExclusion, deleteExclusion, getKnowledgeLinks, previewAnalysisScope, createAnalysisScope, getAnalysisScope };
+  function listAnalysisScopes({ spaceId, includeDeleted = false } = {}) {
+    if (!spaceId) throw fail('ANALYSIS_SCOPE_SPACE_REQUIRED', '缺少知识空间', 400);
+    return analysisScopeRepository.list({ spaceId, includeDeleted: includeDeleted === true || includeDeleted === 'true' });
+  }
+
+  function changeAnalysisScope(id, input, deleted) {
+    const current = getAnalysisScope(id, input.spaceId, true);
+    if (!input.expectedUpdatedAt || input.expectedUpdatedAt !== (current.updatedAt ?? current.createdAt)) throw fail('ANALYSIS_SCOPE_UPDATE_CONFLICT', '分析范围已变化，请刷新后重试。', 409);
+    if (Boolean(current.deletedAt) === deleted) return current;
+    const next = { ...current, deletedAt: deleted ? new Date().toISOString() : null, updatedAt: new Date(Math.max(Date.now(), Date.parse(current.updatedAt ?? current.createdAt) + 1)).toISOString() };
+    return analysisScopeRepository.update ? analysisScopeRepository.update(next, current.updatedAt ?? current.createdAt) : analysisScopeRepository.save(next);
+  }
+
+  return { previewAnnotation, createExclusion, deleteExclusion, getKnowledgeLinks, previewAnalysisScope, createAnalysisScope, getAnalysisScope, listAnalysisScopes, trashAnalysisScope: (id, input) => changeAnalysisScope(id, input, true), restoreAnalysisScope: (id, input) => changeAnalysisScope(id, input, false) };
 }
 
 export function normalizeScopeInput(input) {

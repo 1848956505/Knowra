@@ -1,18 +1,23 @@
 import type { WorkspaceDependencies } from '../types';
 import type { GetStore } from '../workspaceSnapshotState';
-import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
 
 export interface KnowledgeSlice {
-  listKnowledgeItems(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string }): Promise<KnowledgeItem[]>;
+  listKnowledgeItems(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string; includeDeleted?: boolean }): Promise<KnowledgeItem[]>;
   getKnowledgeItem(id: string): Promise<KnowledgeItem>;
   listKnowledgeEvidence(id: string): Promise<KnowledgeEvidence[]>;
   createKnowledgeEvidence(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
   retireKnowledgeEvidence(id: string, evidenceId: string, input?: { expectedUpdatedAt?: string }): Promise<KnowledgeEvidenceMutationResult>;
+  readoptKnowledgeEvidence(id: string, evidenceId: string, input?: { expectedUpdatedAt?: string }): Promise<KnowledgeEvidenceMutationResult>;
   createKnowledgeCandidate(input: CreateKnowledgeCandidateInput): Promise<{ item: KnowledgeItem; evidence: KnowledgeEvidence[] }>;
   updateKnowledgeItem(id: string, input: UpdateKnowledgeItemInput): Promise<KnowledgeItem>;
   confirmKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
   archiveKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
   restoreKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
+  trashKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
+  restoreDeletedKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
+  inspectKnowledgePurge(id: string): Promise<KnowledgePurgePreview>;
+  permanentlyDeleteKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
 }
 
 /** 知识显式保存的错误留在表单中，不覆盖正在编辑的笔记保存状态。 */
@@ -35,10 +40,15 @@ export function createKnowledgeSlice(get: GetStore, { api }: WorkspaceDependenci
     listKnowledgeEvidence: id => { spaceId(); return requireMethod(api.listKnowledgeEvidence)(id); },
     createKnowledgeEvidence: (id, input) => { assertWrite(); return requireMethod(api.createKnowledgeEvidence)(id, input); },
     retireKnowledgeEvidence: (id, evidenceId, input) => { assertWrite(); return requireMethod(api.retireKnowledgeEvidence)(id, evidenceId, input); },
+    readoptKnowledgeEvidence: (id, evidenceId, input) => { assertWrite(); return requireMethod(api.readoptKnowledgeEvidence)(id, evidenceId, input); },
     createKnowledgeCandidate: input => { assertWrite(); return requireMethod(api.createKnowledgeCandidate)(input); },
     updateKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.updateKnowledgeItem)(id, input); },
     confirmKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.confirmKnowledgeItem)(id, input); },
     archiveKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.archiveKnowledgeItem)(id, input); },
     restoreKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.restoreKnowledgeItem)(id, input); },
+    trashKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.trashKnowledgeItem)(id, input); },
+    restoreDeletedKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.restoreDeletedKnowledgeItem)(id, input); },
+    inspectKnowledgePurge: id => { spaceId(); return requireMethod(api.inspectKnowledgePurge)(id); },
+    permanentlyDeleteKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.permanentlyDeleteKnowledgeItem)(id, input); },
   };
 }

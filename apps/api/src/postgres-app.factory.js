@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createPostgresSyncRuntime } from './modules/sync/postgres-provider.js';
 import { createPrismaRuntime } from './infrastructure/prisma-client.js';
 import { createPostgresAttachmentStore } from './infrastructure/postgres-attachment-store.js';
+import { loadPostgresAttachmentReferenceState } from './infrastructure/attachment-deletion-preflight.js';
 import { createPostgresSnapshotService } from './infrastructure/postgres-snapshot-service.js';
 import { createPostgresKnowledgeModule } from './modules/knowledge/postgres-async-module.js';
 import { createPostgresKnowledgeHttpHandlers } from './modules/knowledge/http/postgres-async-handlers.js';
@@ -85,12 +86,17 @@ export async function createPostgresAppContext({
     questionObjectiveRepository: createPostgresQuestionObjectiveRepository({ db }),
     questionSourceRepository: createPostgresQuestionSourceRepository({ db })
   };
-  const knowledge = createPostgresKnowledgeModule({ ...repositories, client: db });
+  const knowledge = createPostgresKnowledgeModule({ ...repositories, client: db, getPurgeTombstone: async (collection, id) => {
+    const journal = await db.syncJournal.findUnique({ where: { ownerId: normalizedOwnerId } });
+    return journal?.payload?.tombstones?.[JSON.stringify([collection, id])] ?? null;
+  } });
   const attachmentStore = createPostgresAttachmentStore({
     attachmentRepository: repositories.attachmentRepository,
     uploadsDir,
     storageRootDir,
     legacyUploadsDirs,
+    loadReferenceState: () => loadPostgresAttachmentReferenceState(db),
+    runTransaction: (operation) => db.$transaction(operation),
     validateAttachmentNote: async (noteId) => {
       const note = await repositories.noteRepository.findById(noteId);
       if (!note || note.deleted) throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
@@ -100,10 +106,12 @@ export async function createPostgresAppContext({
       }
     }
   });
+  await attachmentStore.retryAttachmentCleanup();
   const noteDeletionCoordinator = createAsyncNoteDeletionCoordinator({
     noteService: knowledge.noteService,
     noteRepository: repositories.noteRepository,
-    attachmentStore
+    attachmentStore,
+    runTransaction: (operation) => db.$transaction(operation)
   });
 
   const knowledgeHandlers = createPostgresKnowledgeHttpHandlers({

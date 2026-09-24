@@ -5,9 +5,15 @@ import { createAsyncTagGroupService } from './application/postgres-async/tag-gro
 import { createAsyncKnowledgeSpaceService } from './application/postgres-async/space-service.js';
 import { createAsyncContentAnnotationService } from './application/postgres-async/content-annotation-service.js';
 import { createAsyncNoteVersionService } from './application/note-version-service.js';
+import { buildNoteVersionPrunePreview } from './application/note-version-prune-preview.js';
+import { inspectSpaceDeletion, assertSpaceDeletionAllowed } from './application/space-deletion-preflight.js';
+import { inspectSpaceMigration, assertSpaceMigrationAllowed } from './application/space-migration.js';
+import { buildDefaultTagGroups } from './domain/default-tag-groups.js';
 import { createAsyncKnowledgeItemService } from './application/postgres-async/knowledge-domain-service.js';
+import { inspectKnowledgeItemPurge, assertKnowledgeItemPurgeAllowed } from './application/knowledge-item-purge.js';
 import { createAsyncSearchService } from './application/postgres-async/search-service.js';
 import { createPostgresNoteRepository } from './infrastructure/postgres/note-repository.js';
+import { createPostgresFolderRepository } from './infrastructure/postgres/folder-repository.js';
 import { createPostgresContentAnnotationRepository } from './infrastructure/postgres/content-annotation-repository.js';
 import { createPostgresNoteVersionRepository } from './infrastructure/postgres/note-version-repository.js';
 import { createPostgresKnowledgeItemRepository } from './infrastructure/postgres/knowledge-item-repository.js';
@@ -26,9 +32,11 @@ import {
 import { createAsyncAnnotationScopeService } from './application/postgres-async/annotation-scope-service.js';
 import { createPostgresKnowledgeSpaceRepository } from './infrastructure/postgres/knowledge-space-repository.js';
 import { createPostgresTagGroupRepository } from './infrastructure/postgres/tag-group-repository.js';
+import { createPostgresTagRepository } from './infrastructure/postgres/tag-repository.js';
 import { createAsyncLearningObjectiveService } from './application/postgres-async/learning-objective-service.js';
 import { createAsyncAssessmentContextService } from './application/postgres-async/assessment-context-service.js';
 import { createAsyncQuestionService } from './application/postgres-async/question-service.js';
+import { createTrainingAssetLifecycle } from './application/training-asset-lifecycle.js';
 import { createWorkspaceQueryService } from './application/workspace-query-service.js';
 import { conflictError, validationError } from './application/knowledge-errors.js';
 import { withPostgresErrors } from '../../infrastructure/postgres-errors.js';
@@ -52,7 +60,8 @@ export function createPostgresKnowledgeModule({
   questionRepository,
   questionObjectiveRepository,
   questionSourceRepository,
-  client = null
+  client = null,
+  getPurgeTombstone = null
 } = {}) {
   const repositories = {
     noteRepository,
@@ -79,7 +88,9 @@ export function createPostgresKnowledgeModule({
   });
 
   const transactionRepositories = {
+    folderRepository,
     knowledgeSpaceRepository,
+    tagRepository,
     tagGroupRepository,
     noteRepository,
     noteVersionRepository,
@@ -107,11 +118,13 @@ export function createPostgresKnowledgeModule({
       noteRepository: transaction.noteRepository,
       noteVersionRepository: transaction.noteVersionRepository,
       knowledgeEvidenceRepository: transaction.knowledgeEvidenceRepository,
+      getTombstone: getPurgeTombstone,
       runTransaction: (operation) => operation(transaction)
     });
     const transactionLearningObjectiveService = createAsyncLearningObjectiveService({
       repository: transaction.learningObjectiveRepository,
       knowledgeItemRepository: transaction.knowledgeItemRepository,
+      getTombstone: getPurgeTombstone,
       onObjectiveInvalidated: (learningObjectiveId) => (
         transactionQuestionService.invalidateByObjectiveId(learningObjectiveId)
       ),
@@ -123,6 +136,7 @@ export function createPostgresKnowledgeModule({
       noteVersionRepository: transaction.noteVersionRepository,
       annotationRepository: transaction.contentAnnotationRepository,
       noteRepository: transaction.noteRepository,
+      getTombstone: getPurgeTombstone,
       onItemInvalidated: async (knowledgeItemId) => {
         await transactionLearningObjectiveService.invalidateByKnowledgeItemId(
           knowledgeItemId
@@ -143,6 +157,7 @@ export function createPostgresKnowledgeModule({
     const formalServices = createTransactionFormalServices(transaction);
     return {
       noteRepository: transaction.noteRepository,
+      annotationRepository: transaction.contentAnnotationRepository,
       noteVersionService: createAsyncNoteVersionService({ repository: transaction.noteVersionRepository }),
       onNoteContentChanged: async (note, version) => {
         const transactionAnnotationService = buildTransactionAnnotationServices(transaction).annotationService;
@@ -205,7 +220,9 @@ export function createPostgresKnowledgeModule({
   const runTransaction = client?.$transaction
     ? (operation) => withPostgresErrors(() => client.$transaction(
       async (tx) => operation({
+        folderRepository: createPostgresFolderRepository({ db: tx }),
         knowledgeSpaceRepository: createPostgresKnowledgeSpaceRepository({ db: tx }),
+        tagRepository: createPostgresTagRepository({ db: tx }),
         tagGroupRepository: createPostgresTagGroupRepository({ db: tx }),
         noteRepository: createPostgresNoteRepository({ db: tx }),
         noteVersionRepository: createPostgresNoteVersionRepository({ db: tx }),
@@ -225,6 +242,7 @@ export function createPostgresKnowledgeModule({
       { isolationLevel: 'Serializable' }
     ))
     : (operation) => operation(transactionRepositories);
+  const trainingAssetLifecycle = createTrainingAssetLifecycle({ repositories, runTransaction, getTombstone: getPurgeTombstone });
 
   function normalizeComparableName(value) {
     return String(value ?? '').trim();
@@ -315,6 +333,7 @@ export function createPostgresKnowledgeModule({
     noteVersionRepository,
     annotationRepository: contentAnnotationRepository,
     noteRepository,
+    getTombstone: getPurgeTombstone,
     onItemInvalidated: async (knowledgeItemId) => {
       await learningObjectiveService?.invalidateByKnowledgeItemId(knowledgeItemId);
       await questionService?.markSourcesStale('knowledgeItem', [knowledgeItemId]);
@@ -327,7 +346,7 @@ export function createPostgresKnowledgeModule({
       annotationRepository: transaction.contentAnnotationRepository
     }))
   });
-  for (const method of ['updateItem', 'confirmItem', 'markNeedsRevision', 'archive', 'restore']) {
+  for (const method of ['updateItem', 'confirmItem', 'markNeedsRevision', 'archive', 'restore', 'trash', 'restoreDeleted']) {
     knowledgeItemService[method] = (...args) => runTransaction((transaction) => (
       createTransactionFormalServices(transaction).knowledgeItemService[method](...args)
     ));
@@ -335,6 +354,7 @@ export function createPostgresKnowledgeModule({
   learningObjectiveService = createAsyncLearningObjectiveService({
     repository: learningObjectiveRepository,
     knowledgeItemRepository,
+    getTombstone: getPurgeTombstone,
     onObjectiveInvalidated: (learningObjectiveId) => (
       questionService?.invalidateByObjectiveId(learningObjectiveId)
     ),
@@ -346,6 +366,7 @@ export function createPostgresKnowledgeModule({
     examProfileRepository,
     examFocusRepository,
     learningObjectiveRepository,
+    getTombstone: getPurgeTombstone,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation({
       examProfileRepository: transaction.examProfileRepository,
       examFocusRepository: transaction.examFocusRepository,
@@ -362,6 +383,7 @@ export function createPostgresKnowledgeModule({
     noteRepository,
     noteVersionRepository,
     knowledgeEvidenceRepository,
+    getTombstone: getPurgeTombstone,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation({
       questionRepository: transaction.questionRepository,
       questionObjectiveRepository: transaction.questionObjectiveRepository,
@@ -405,7 +427,7 @@ export function createPostgresKnowledgeModule({
     listAnnotationsByNote: (...args) => directAnnotationService.listAnnotationsByNote(...args),
     getAnnotation: (...args) => directAnnotationService.getAnnotation(...args),
     ...Object.fromEntries([
-      'createAnnotation', 'updateAnnotation', 'advanceRevision', 'archiveAnnotation',
+      'createAnnotation', 'updateAnnotation', 'advanceRevision', 'archiveAnnotation', 'deleteAnnotation',
       'restoreAnnotation', 'updateAnnotationAnchor', 'markAnnotationStale', 'markStaleForNote',
       'reconcileForNote'
     ].map((method) => [method, annotationMutation(method)]))
@@ -452,6 +474,7 @@ export function createPostgresKnowledgeModule({
   }
   const noteService = createAsyncNoteService({
     repository: noteRepository,
+    annotationRepository: contentAnnotationRepository,
     noteVersionService,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
     onNoteContentChanged: async (note, version) => {
@@ -492,6 +515,115 @@ export function createPostgresKnowledgeModule({
   });
   const workspaceQueryService = createWorkspaceQueryService({ repositories });
 
+  async function inspectKnowledgePurge(id, source = repositories) {
+    const [item, evidence, learningObjectives, questionSources, analysisScopes] = await Promise.all([
+      source.knowledgeItemRepository.findById(id),
+      source.knowledgeEvidenceRepository.list({ knowledgeItemId: id }),
+      source.learningObjectiveRepository.list({ includeArchived: true }),
+      source.questionSourceRepository.list(),
+      source.analysisScopeRepository.list({ includeDeleted: true })
+    ]);
+    return inspectKnowledgeItemPurge({ item, evidence, learningObjectives, questionSources, analysisScopes });
+  }
+
+  async function permanentlyDeleteKnowledgeItem(id, { expectedUpdatedAt } = {}) {
+    return runTransaction(async transaction => {
+      if (!(await transaction.knowledgeItemRepository.findById(id))) {
+        const tombstone = await getPurgeTombstone?.('knowledgeItems', id);
+        if (!expectedUpdatedAt || !tombstone || (tombstone.previousUpdatedAt && tombstone.previousUpdatedAt !== expectedUpdatedAt)) {
+          throw validationError('KNOWLEDGE_ITEM_NOT_FOUND', '知识点不存在');
+        }
+        return { status: 'already-purged', asset: { type: 'knowledgeItem', id }, exclusiveRecordsDeleted: { knowledgeEvidence: 0 }, offlineDevices: 'pending-sync', backups: 'retention-managed' };
+      }
+      const preflight = await inspectKnowledgePurge(id, transaction);
+      assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt);
+      const removedEvidence = await transaction.knowledgeEvidenceRepository.deleteByKnowledgeItemId(id);
+      await transaction.knowledgeItemRepository.delete(id);
+      return {
+        status: 'subject-purged', asset: preflight.asset,
+        exclusiveRecordsDeleted: { knowledgeEvidence: removedEvidence.length },
+        offlineDevices: 'pending-sync', backups: 'retention-managed'
+      };
+    });
+  }
+
+  async function previewNoteVersionPrune(noteId) {
+    const [note, versions, evidence, questionSources, annotations, exclusions, analysisScopes] = await Promise.all([
+      noteRepository.findById(noteId), noteVersionRepository.list({ noteId }),
+      knowledgeEvidenceRepository.list({ noteId }), questionSourceRepository.list(),
+      contentAnnotationRepository.list({ noteId, includeDeleted: true }),
+      annotationExclusionRepository.list({ includeDeleted: true }),
+      analysisScopeRepository.list({ includeDeleted: true })
+    ]);
+    if (!note) throw validationError('NOTE_NOT_FOUND', '笔记不存在');
+    return buildNoteVersionPrunePreview({ note, versions, evidence, questionSources, annotations, exclusions, analysisScopes });
+  }
+
+  async function inspectEmptySpaceDeletion(id, ownerId = null, source = repositories) {
+    const [space, folders, notes, tags, tagGroups, annotations, analysisScopes] = await Promise.all([
+      source.knowledgeSpaceRepository.findById(id),
+      source.folderRepository.list({ spaceId: id, includeDeleted: true }),
+      source.noteRepository.list({ spaceId: id, includeDeleted: true }),
+      source.tagRepository.list({ spaceId: id }),
+      source.tagGroupRepository.list({ spaceId: id }),
+      source.contentAnnotationRepository.list({ spaceId: id, includeDeleted: true }),
+      source.analysisScopeRepository.list({ spaceId: id, includeDeleted: true })
+    ]);
+    if (space && ownerId && space.userId !== ownerId) throw validationError('KNOWLEDGE_SPACE_NOT_FOUND', '知识空间不存在');
+    return inspectSpaceDeletion({ space, folders, notes, tags, tagGroups, annotations, analysisScopes });
+  }
+
+  async function deleteEmptySpace(id, { expectedUpdatedAt } = {}, ownerId = null) {
+    return runTransaction(async transaction => {
+      const preflight = await inspectEmptySpaceDeletion(id, ownerId, transaction);
+      assertSpaceDeletionAllowed(preflight, expectedUpdatedAt);
+      for (const groupId of preflight.systemGroupIds) await transaction.tagGroupRepository.delete(groupId);
+      await transaction.knowledgeSpaceRepository.delete(id);
+      return { status: 'empty-container-deleted', asset: preflight.asset, offlineDevices: 'pending-sync', backups: 'retention-managed' };
+    });
+  }
+
+  async function loadSpaceAssets(id, source = repositories) {
+    const [folders, notes, tags, tagGroups, annotations, analysisScopes] = await Promise.all([
+      source.folderRepository.list({ spaceId: id, includeDeleted: true }),
+      source.noteRepository.list({ spaceId: id, includeDeleted: true }),
+      source.tagRepository.list({ spaceId: id }), source.tagGroupRepository.list({ spaceId: id }),
+      source.contentAnnotationRepository.list({ spaceId: id, includeDeleted: true }),
+      source.analysisScopeRepository.list({ spaceId: id, includeDeleted: true })
+    ]);
+    return { folders, notes, tags, tagGroups, annotations, analysisScopes };
+  }
+
+  async function previewSpaceMigration(sourceId, targetId, ownerId = null, source = repositories) {
+    const [origin, target, sourceAssets, targetAssets, allNotes, allNoteVersions] = await Promise.all([
+      source.knowledgeSpaceRepository.findById(sourceId), source.knowledgeSpaceRepository.findById(targetId),
+      loadSpaceAssets(sourceId, source), loadSpaceAssets(targetId, source), source.noteRepository.list({ includeDeleted: true }), source.noteVersionRepository.list()
+    ]);
+    if (ownerId && ((origin && origin.userId !== ownerId) || (target && target.userId !== ownerId))) throw validationError('KNOWLEDGE_SPACE_NOT_FOUND', '知识空间不存在');
+    return inspectSpaceMigration({ source: origin, target, sourceAssets, targetAssets, allNotes, allNoteVersions });
+  }
+
+  async function migrateSpaceAssets(sourceId, { targetSpaceId, expectedPreviewHash } = {}, ownerId = null) {
+    return runTransaction(async transaction => {
+      const preview = await previewSpaceMigration(sourceId, targetSpaceId, ownerId, transaction);
+      assertSpaceMigrationAllowed(preview, expectedPreviewHash);
+      const source = await loadSpaceAssets(sourceId, transaction);
+      let targetGroups = await transaction.tagGroupRepository.list({ spaceId: targetSpaceId });
+      for (const definition of buildDefaultTagGroups(targetSpaceId)) {
+        if (!targetGroups.some(group => group.code === definition.code)) await transaction.tagGroupRepository.create(definition);
+      }
+      targetGroups = await transaction.tagGroupRepository.list({ spaceId: targetSpaceId });
+      const groupMap = new Map(source.tagGroups.filter(group => group.isSystem).map(group => [group.id, targetGroups.find(candidate => candidate.code === group.code).id]));
+      for (const group of source.tagGroups.filter(group => !group.isSystem)) await transaction.tagGroupRepository.moveToSpace(group.id, targetSpaceId);
+      for (const tag of source.tags) await transaction.tagRepository.save({ ...tag, spaceId: targetSpaceId, groupId: groupMap.get(tag.groupId) ?? tag.groupId ?? null });
+      for (const folder of source.folders) await transaction.folderRepository.save({ ...folder, spaceId: targetSpaceId });
+      for (const note of source.notes) await transaction.noteRepository.save({ ...note, spaceId: targetSpaceId });
+      for (const annotation of source.annotations) await transaction.contentAnnotationRepository.save({ ...annotation, spaceId: targetSpaceId });
+      for (const scope of source.analysisScopes) await transaction.analysisScopeRepository.moveToSpace(scope.id, targetSpaceId);
+      return { status: 'scoped-assets-migrated', sourceSpaceId: sourceId, targetSpaceId, counts: preview.counts, globalKnowledgeAndTraining: 'unchanged', offlineDevices: 'pending-sync', backups: 'retention-managed' };
+    });
+  }
+
   return {
     repositories,
     noteService,
@@ -506,13 +638,59 @@ export function createPostgresKnowledgeModule({
     examProfileService,
     examFocusService,
     questionService,
+    trainingAssetLifecycle,
     workspaceQueryService,
     knowledgeSpaceService,
     searchService,
-    async deleteFolderAndCleanup(folderId) {
-      const subtreeIds = await folderService.getFolderSubtreeIds(folderId);
-      for (const id of subtreeIds) await noteService.clearFolderFromNotes(id);
-      return folderService.deleteFolder(folderId);
+    inspectKnowledgePurge,
+    permanentlyDeleteKnowledgeItem,
+    previewNoteVersionPrune,
+    inspectEmptySpaceDeletion,
+    deleteEmptySpace,
+    previewSpaceMigration,
+    migrateSpaceAssets,
+    async deleteFolderAndCleanup(folderId, input = {}) {
+      return runTransaction(async transaction => {
+        const txFolderService = createAsyncFolderService({ repository: transaction.folderRepository, validateSiblingNameConflict: assertSiblingNameAvailable });
+        const txNoteService = createAsyncNoteService({ repository: transaction.noteRepository, annotationRepository: transaction.contentAnnotationRepository, runTransaction: operation => operation(buildNoteTransactionContext(transaction)), validateSiblingNameConflict: assertSiblingNameAvailable });
+        const root = await transaction.folderRepository.findById(folderId);
+        if (!root || root.deletedAt) throw conflictError('FOLDER_NOT_FOUND', '文件夹不存在');
+        if (!['keep', 'with-content'].includes(input.mode)) throw validationError('FOLDER_DELETE_MODE_REQUIRED', '请选择保留并移动内容，或将内容一起移入回收站');
+        const subtreeIds = await txFolderService.getFolderSubtreeIds(folderId);
+        const destinationId = Object.hasOwn(input, 'destinationId') ? input.destinationId : root.parentId ?? null;
+        if (input.mode === 'keep' && destinationId) {
+          const destination = await transaction.folderRepository.findById(destinationId);
+          if (!destination || destination.deletedAt || destination.spaceId !== root.spaceId || subtreeIds.includes(destinationId)) throw conflictError('FOLDER_DESTINATION_INVALID', '目标文件夹不可用');
+        }
+        const notes = (await transaction.noteRepository.list({ spaceId: root.spaceId, includeDeleted: true })).filter(note => subtreeIds.includes(note.folderId));
+        const packageId = `folder-${folderId}-${Date.now()}`;
+        const noteIds = [];
+        for (const note of notes.filter(note => !note.deleted)) {
+          if (input.mode === 'keep') { await txNoteService.updateNote(note.id, { folderId: destinationId }); noteIds.push(note.id); }
+          else {
+            const deleted = await txNoteService.deleteNote(note.id);
+            await transaction.noteRepository.save({ ...deleted, folderDeletionPackageId: packageId });
+            noteIds.push(note.id);
+          }
+        }
+        const deletionPackage = { id: packageId, mode: input.mode, folderIds: subtreeIds, noteIds, destinationId };
+        return { folders: await txFolderService.trashFolder(folderId, deletionPackage), deletionPackage };
+      });
+    },
+    async restoreDeletedFolder(folderId) {
+      return runTransaction(async transaction => {
+        const txFolderService = createAsyncFolderService({ repository: transaction.folderRepository, validateSiblingNameConflict: assertSiblingNameAvailable });
+        const txNoteService = createAsyncNoteService({ repository: transaction.noteRepository, annotationRepository: transaction.contentAnnotationRepository, runTransaction: operation => operation(buildNoteTransactionContext(transaction)), validateSiblingNameConflict: assertSiblingNameAvailable });
+        const root = await transaction.folderRepository.findById(folderId);
+        const deletionPackage = root?.deletionPackage;
+        if (!deletionPackage) throw conflictError('FOLDER_NOT_IN_TRASH', '文件夹不在回收站中');
+        const folders = await txFolderService.restoreDeletedFolder(folderId);
+        for (const noteId of deletionPackage.mode === 'with-content' ? deletionPackage.noteIds : []) {
+          const note = await transaction.noteRepository.findById(noteId);
+          if (note?.deleted && note.folderDeletionPackageId === deletionPackage.id) await txNoteService.restoreNote(noteId);
+        }
+        return { folders, deletionPackage };
+      });
     },
     async deleteTagAndCleanup(tagId) {
       const tag = await tagRepository.findById(tagId);

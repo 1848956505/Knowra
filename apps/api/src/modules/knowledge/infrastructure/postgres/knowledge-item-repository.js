@@ -47,6 +47,9 @@ export function createPostgresKnowledgeItemRepository({ db }) {
     async findById(id) {
       return withRepositoryErrors(() => db.knowledgeItem.findUnique({ where: { id } }).then(mapKnowledgeItem));
     },
+    async delete(id) {
+      return withRepositoryErrors(() => db.knowledgeItem.delete({ where: { id } }).then(mapKnowledgeItem));
+    },
     list({ reviewStatus, query = '', includeArchived = false, includeDeleted = false } = {}) {
       const search = String(query).trim();
       const showArchived = includeArchived === true || includeArchived === 'true';
