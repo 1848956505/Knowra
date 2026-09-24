@@ -11,7 +11,6 @@ import {
   loadJsonMigrationSource
 } from '../apps/api/src/infrastructure/migration/json-to-postgres.js';
 import { validatePersistedLocalState } from '../apps/api/src/infrastructure/local-data-schema.js';
-import { mapAttachment } from '../apps/api/src/modules/knowledge/infrastructure/postgres/mappers.js';
 
 const options = parseArgs(process.argv.slice(2));
 
@@ -77,6 +76,7 @@ function runLocalInspection({ sourcePath, fileManager, generatedAt, repair, ...c
 }
 
 async function runPostgresInspection({ fileManager, generatedAt, repair, ...context }) {
+  const { mapAttachment } = await import('../apps/api/src/modules/knowledge/infrastructure/postgres/mappers.js');
   const runtime = await createPrismaRuntime({ databaseUrl: process.env.DATABASE_URL });
   await runtime.connect();
   try {

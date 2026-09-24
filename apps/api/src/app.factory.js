@@ -28,7 +28,6 @@ import {
 import { createKnowledgeBaseSnapshotService } from './modules/knowledge/application/knowledge-base-snapshot-service.js';
 import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
 import { createStorageConfig } from './config/storage.config.js';
-import { createPostgresAppContext } from './postgres-app.factory.js';
 import { createLocalSyncService } from './modules/sync/local-provider.js';
 import {
   assertSpacesOwnedBy,
@@ -230,6 +229,11 @@ function ensureDataCollections(dataStore, collectionNames) {
       dataStore.state[collectionName] = [];
     }
   }
+}
+
+async function createPostgresAppContext(options) {
+  const { createPostgresAppContext: createContext } = await import('./postgres-app.factory.js');
+  return createContext(options);
 }
 
 export { createPostgresAppContext };
