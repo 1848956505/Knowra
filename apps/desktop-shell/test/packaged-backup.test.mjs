@@ -51,8 +51,7 @@ test('打包应用备份恢复隔离原生旧草稿，退出及重启均不会�
   await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
   await page.getByRole('button', { name: '创建本机备份', exact: true }).click();
   await expect(page.getByText(/备份已保存：/)).toBeVisible();
-  const backupId = await page.getByRole('combobox', { name: '选择备份' }).inputValue();
-  assert(backupId);
+  await expect(page.getByRole('button', { name: '检查所选备份', exact: true })).toBeEnabled();
   const draftKey = `knowra:note-draft:v1:${JSON.stringify([note.spaceId, note.id])}`;
   // 使用真正的 contextBridge / IPC 草稿写入，基线故意与备份正文相同。
   // 若恢复后仍沿用旧 scope，这份草稿会被认为可安全自动保存。
@@ -69,7 +68,8 @@ test('打包应用备份恢复隔离原生旧草稿，退出及重启均不会�
   assert.equal(JSON.parse(fs.readFileSync(recoveryPath, 'utf8')).drafts[draftKey].markdown, '恢复前原生草稿不应自动回写');
   await page.getByRole('button', { name: '检查所选备份', exact: true }).click();
   await expect(page.getByRole('heading', { name: '完整性检查通过' })).toBeVisible();
-  await page.getByRole('checkbox', { name: '我确认使用所选备份恢复整个本机资料库' }).check();
+  await page.getByText('我确认使用所选备份恢复整个本机资料库', { exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: '我确认使用所选备份恢复整个本机资料库' })).toBeChecked();
   await page.getByRole('button', { name: '确认恢复所选备份', exact: true }).click();
   await expect(page.getByText(/备份已恢复。重新加载后使用恢复的资料/)).toBeVisible();
   await page.getByRole('button', { name: '重新加载已恢复资料', exact: true }).click();
