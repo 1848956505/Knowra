@@ -206,7 +206,10 @@ export function createPersistentAppContext({
   context.http.modelSettings = createModelSettingsService();
   context.http.aiBudget = dataStore.aiBudgetAuthority;
   context.ai = createAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
-    budgetAuthority: dataStore.aiBudgetAuthority });
+    budgetAuthority: dataStore.aiBudgetAuthority, contextSources: {
+      ...context.modules.knowledge.repositories, ownerId: resolveOwnerId(ownerId, dataStore.state.spaces),
+      spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository
+    } });
   return context;
 }
 

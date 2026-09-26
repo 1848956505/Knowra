@@ -51,6 +51,7 @@ import { aiGatewayTests } from './ai-gateway.test.js';
 import { aiRecordRepositoryTests } from './ai-record-repository.test.js';
 import { aiPostgresRepositoryTests, aiPostgresBudgetTests } from './ai-postgres-repository.test.js';
 import { aiBudgetWorkerTests } from './ai-budget-worker.test.js';
+import { aiReadContextTests } from './ai-read-context.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -103,6 +104,7 @@ const tests = [
   ...aiPostgresRepositoryTests,
   ...aiPostgresBudgetTests,
   ...aiBudgetWorkerTests,
+  ...aiReadContextTests,
 ];
 
 let failed = 0;

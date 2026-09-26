@@ -1,10 +1,14 @@
 import { hashRecord, manifestHash, scopeHash } from '../src/modules/ai/record-contract.js';
+import { normalizeAiRequest } from '../src/modules/ai/gateway.js';
+import { outboundPayloadHash } from '../src/modules/ai/outbound-payload.js';
 
 const time = '2026-09-26T00:00:00.000Z';
 const later = '2030-09-26T00:00:00.000Z';
 const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-export function aiRecords({ datasetId, datasetEpoch }, suffix = '1', ownerId = 'demo') {
+export function aiRecords({ datasetId, datasetEpoch }, suffix = '1', ownerId = 'demo', outboundRequest = {
+  modelId: 'deepseek-flash', messages: [{ role: 'user', content: '合成测试' }], maxTokens: 100, tools: [], format: 'text'
+}) {
   const boundary = { ownerId, datasetId, datasetEpoch, spaceId: 'space-1' };
   const scope = {
     contractVersion: 1, kind: 'scopeSnapshot', scopeSnapshotId: `scope-${suffix}`, ...boundary,
@@ -16,7 +20,7 @@ export function aiRecords({ datasetId, datasetEpoch }, suffix = '1', ownerId = '
     contractVersion: 1, kind: 'contextManifest', manifestId: `manifest-${suffix}`, ...boundary,
     scopeSnapshotId: scope.scopeSnapshotId, scopeKind: 'empty', scopeHash: scope.scopeHash,
     recipient: 'deepseek', sources: [], excludedSourceIds: [], omissions: [], attachmentIds: [],
-    estimatedInputTokens: 0, payloadHash: emptyHash, createdAt: time
+    estimatedInputTokens: 0, payloadHash: outboundPayloadHash({ ...normalizeAiRequest(outboundRequest), modelId: outboundRequest.modelId }), createdAt: time
   };
   const grant = {
     contractVersion: 1, kind: 'aiGrant', grantId: `grant-${suffix}`, actorId: 'user-1',

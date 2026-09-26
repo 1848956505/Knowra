@@ -1,4 +1,5 @@
 import { AiGatewayError } from '../../gateway.js';
+import { serializedDeepSeekPayload } from '../../outbound-payload.js';
 
 const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
@@ -79,21 +80,13 @@ export function createDeepSeekAdapter({ fetchImpl = fetch, timeoutMs = 90000 } =
   };
 
   async function send(request, stream) {
-    const payload = {
-      model: request.modelId,
-      messages: request.messages,
-      max_tokens: request.maxTokens,
-      stream,
-      ...(request.format === 'json' ? { response_format: { type: 'json_object' } } : {}),
-      ...(request.tools.length ? { tools: request.tools.map(tool => ({ type: 'function', function: tool })), tool_choice: 'auto' } : {}),
-      ...(stream ? { stream_options: { include_usage: true } } : {})
-    };
+    const body = serializedDeepSeekPayload(request, { stream });
     let response;
     try {
       response = await fetchImpl(ENDPOINT, {
         method: 'POST', redirect: 'error',
         headers: { Authorization: `Bearer ${request.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body,
         signal: AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(request.signal ? [request.signal] : [])])
       });
     } catch {

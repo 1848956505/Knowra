@@ -55,7 +55,9 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     });
     const sync = createSyncEngine(store, { ...syncOptions, noteService, entityTransfer });
     if (credentialSource) context.ai = createAiRuntime({ modelSettings: credentialSource, repository: store.aiRepository,
-      budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)) });
+      budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
+      contextSources: { ...context.modules.knowledge.repositories,
+        spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } });
     const recoverAi = context.ai?.worker?.recover().catch(error => {
       logger.warn?.('AI task recovery deferred until cloud budget is available', { code: error.code ?? 'AI_BUDGET_UNAVAILABLE' });
     }) ?? Promise.resolve();

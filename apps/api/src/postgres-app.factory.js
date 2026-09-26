@@ -132,7 +132,8 @@ export async function createPostgresAppContext({
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget }),
+    ai: createAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget,
+      contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } }),
     repositories,
     http: {
       modelSettings,

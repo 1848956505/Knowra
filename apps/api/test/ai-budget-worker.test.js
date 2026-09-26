@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createFileDataStore } from '../src/infrastructure/file-data-store.js';
 import { beijingDay } from '../src/modules/ai/budget-ledger.js';
-import { createAiWorker } from '../src/modules/ai/worker.js';
+import { createAiWorker, quoteWorstCase } from '../src/modules/ai/worker.js';
 import { createServer } from '../src/server.js';
 import { createRemoteBudgetAuthority } from '../src/modules/ai/remote-budget-authority.js';
 import { createAiRuntime } from '../src/modules/ai/runtime.js';
@@ -27,6 +27,29 @@ const request = { credentialRef: 'credential-reference', modelId: 'deepseek-flas
   messages: [{ role: 'user', content: '合成测试' }], maxTokens: 100, tools: [], format: 'text' };
 
 export const aiBudgetWorkerTests = [
+  { name: '预算预留覆盖完整外发体，工具定义过大与已确认 payload 变化均拒绝', async run() {
+    const plain = quoteWorstCase({ request, priceProfile: profile, now: at() });
+    const withTool = quoteWorstCase({ request: { ...request, tools: [{ name: 'notes_read',
+      parameters: { type: 'object', description: 'x'.repeat(1000) } }] }, priceProfile: profile, now: at() });
+    assert(withTool.inputUpperBound > plain.inputUpperBound);
+    assert(withTool.reservedMicrounits > plain.reservedMicrounits);
+    assert.notEqual(withTool.payloadHash, plain.payloadHash);
+    assert.throws(() => quoteWorstCase({ request: { ...request, tools: [{ name: 'notes_read',
+      parameters: { type: 'object', description: 'x'.repeat(100_000) } }] }, priceProfile: profile, now: at() }),
+    { code: 'AI_REQUEST_LIMIT' });
+    await withStore(async store => {
+      const records = aiRecords(store.aiRepository.identity());
+      for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
+        ['aiGrant', records.grant], ['aiJob', records.job]]) store.aiRepository.insert(kind, record);
+      const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority,
+        gateway: { capabilities: () => ({ provider: 'mock' }), complete: async () => { throw new Error('must not send'); } },
+        priceProfile: profile, now: at });
+      await assert.rejects(worker.run(records.job.jobId, { ...request, messages: [{ role: 'user', content: '变更后的内容' }] }),
+        { code: 'AI_PAYLOAD_STALE' });
+      assert.equal(store.aiRepository.list('aiJobAttempt').length, 0);
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits, 0);
+    });
+  } },
   { name: '真实 adapter 只有 Worker 已预留的短期票据可调用，凭据读取在预算之后', async run() {
     await withStore(async store => {
       const records = aiRecords(store.aiRepository.identity());
@@ -35,7 +58,7 @@ export const aiBudgetWorkerTests = [
       let reads = 0;
       let calls = 0;
       const runtime = createAiRuntime({ repository: store.aiRepository, budgetAuthority: store.aiBudgetAuthority,
-        priceProfile: profile, allowExternal: true,
+        priceProfile: profile, allowExternal: true, verifySources: async () => {}, validateResult: async () => {},
         modelSettings: { credentialReference: () => 'credential-reference', async resolveCredential() {
           reads++; return { apiKey: 'synthetic-key', modelId: 'deepseek-flash' };
         } },

@@ -85,7 +85,9 @@ export const aiPostgresBudgetTests = process.env.KNOWRA_SYNC_TEST_DATABASE_URL ?
       const ownerId = `worker-${randomUUID()}`;
       const accountRef = `account-${randomUUID()}`;
       const repository = createPostgresAiRepository({ client: db, ownerId });
-      const records = aiRecords(await repository.identity(), randomUUID(), ownerId);
+      const request = { credentialRef: 'credential-reference', modelId: 'deepseek-flash',
+        messages: [{ role: 'user', content: 'synthetic' }], maxTokens: 64, tools: [] };
+      const records = aiRecords(await repository.identity(), randomUUID(), ownerId, request);
       for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
         ['aiGrant', records.grant], ['aiJob', records.job]]) await repository.insert(kind, record);
       let calls = 0;
@@ -96,8 +98,6 @@ export const aiPostgresBudgetTests = process.env.KNOWRA_SYNC_TEST_DATABASE_URL ?
       const common = { repository, budget: createPostgresBudgetAuthority(db), gateway, accountRef,
         priceProfile: { version: 'test', expiresAt: '2030-01-01T00:00:00.000Z',
           inputMicrounitsPerMillion: 2_000_000, outputMicrounitsPerMillion: 8_000_000 } };
-      const request = { credentialRef: records.job.credentialRef, modelId: records.job.modelId,
-        messages: [{ role: 'user', content: 'synthetic' }], maxTokens: 64, tools: [] };
       const results = await Promise.allSettled([
         createAiWorker(common).run(records.job.jobId, request),
         createAiWorker(common).run(records.job.jobId, request)

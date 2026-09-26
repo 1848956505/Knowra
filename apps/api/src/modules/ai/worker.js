@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { hashRecord } from './record-contract.js';
 import { beijingDay } from './budget-ledger.js';
+import { normalizeAiRequest } from './gateway.js';
+import { outboundPayloadHash, serializedDeepSeekPayload } from './outbound-payload.js';
 
 const MAX_ATTEMPTS = 4;
 const MAX_INPUT_TOKENS = 100_000;
@@ -21,20 +23,23 @@ export function quoteWorstCase({ request, priceProfile, now = new Date() }) {
     || request.maxTokens < 1 || request.maxTokens > MAX_OUTPUT_TOKENS
     || !Array.isArray(request.tools) || request.tools.length > 8
     || request.tools.some(tool => !allowedTools.has(tool.name))) fail('AI_REQUEST_LIMIT', '模型调用超过 P1 边界。');
-  // UTF-8 字节数作保守输入 token 上界；实际 usage 仍以供应商返回为准。
-  const inputUpperBound = Buffer.byteLength(JSON.stringify(request.messages));
+  // 以实际发送的完整 JSON 请求体字节数作保守输入上界，包含工具 schema 等元数据。
+  const normalized = normalizeAiRequest(request);
+  const outbound = { ...normalized, modelId: request.modelId };
+  const serialized = serializedDeepSeekPayload(outbound);
+  const inputUpperBound = Buffer.byteLength(serialized, 'utf8');
   if (inputUpperBound > MAX_INPUT_TOKENS) fail('AI_REQUEST_LIMIT', '输入超过单任务 token 上限。');
   const estimate = Math.ceil((inputUpperBound * priceProfile.inputMicrounitsPerMillion
     + request.maxTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000);
   // 两倍预留缓冲供应商 token 计数与价格差异；仍受 2 元任务上限限制。
   const reservedMicrounits = Math.max(1, estimate * 2);
   if (reservedMicrounits > 2_000_000) fail('AI_JOB_BUDGET_EXCEEDED', '最坏费用超过任务预留上限。');
-  return { reservedMicrounits, inputUpperBound };
+  return { reservedMicrounits, inputUpperBound, payloadHash: outboundPayloadHash(outbound) };
 }
 
 export function createAiWorker({ repository, budget, gateway, priceProfile, accountRef = 'deepseek-primary',
   workerId = randomUUID(), now = () => new Date(), allowExternal = false,
-  authorizeAttempt = () => {}, revokeAttempt = () => {} } = {}) {
+  authorizeAttempt = () => {}, revokeAttempt = () => {}, verifySources = null, validateResult = null } = {}) {
   if (!repository || !budget || !gateway) throw new TypeError('AI Worker needs repository, budget and gateway');
   const controllers = new Map();
 
@@ -90,7 +95,9 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     if (!job) fail('AI_JOB_NOT_FOUND', '任务不存在。');
     const provider = gateway.capabilities?.().provider;
     if (provider !== 'mock' && !allowExternal) fail('AI_EGRESS_NOT_READY', '实际资料发送范围尚未完成核验。');
+    if (provider !== 'mock' && (!verifySources || !validateResult)) fail('AI_CONTEXT_NOT_READY', '来源与回答校验尚未接入。');
     const { grant, manifest } = await validBoundary(job);
+    if (verifySources) await verifySources(job, request);
     if (request?.modelId !== job.modelId || request?.credentialRef !== job.credentialRef
       || job.jobKind !== 'answer' || !grant.actionKinds.includes('read')
       || request?.tools?.some(tool => !allowedTools.has(tool.name) || !grant.allowedTools.includes(tool.name))
@@ -98,6 +105,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       fail('AI_REQUEST_INVALID', '执行请求与任务配置不一致。');
     }
     const quote = quoteWorstCase({ request, priceProfile, now: now() });
+    if (manifest.payloadHash !== quote.payloadHash) fail('AI_PAYLOAD_STALE', '实际发送内容与已确认范围不一致。');
     const attempts = await repository.list('aiJobAttempt', { jobId });
     if (attempts.length >= MAX_ATTEMPTS) fail('AI_ATTEMPT_LIMIT', '任务已达到四次调用上限。');
     if (job.status === 'failed') job = await replace('aiJob', job, { status: 'retrying', phase: 'preparing' });
@@ -121,6 +129,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       reserved = true;
       const beforeSend = await repository.get('aiJob', jobId);
       await validBoundary(beforeSend);
+      if (verifySources) await verifySources(beforeSend, request);
       if (beforeSend.status !== 'running' || controller.signal.aborted) fail('AI_CANCELLED', '任务已取消，未发送模型请求。');
       attempt = await replace('aiJobAttempt', attempt, { status: 'sent' });
       sent = true;
@@ -134,6 +143,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
         || Date.parse(currentAttempt.leaseExpiresAt) <= now().getTime() || controller.signal.aborted) {
         fail('AI_LATE_RESULT', '任务已取消或租约失效，迟到响应已丢弃。');
       }
+      if (validateResult) await validateResult(currentJob, result);
       const usage = result.usage;
       const actual = usage?.unknown ? null : Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
         + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000);
