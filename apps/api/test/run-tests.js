@@ -49,7 +49,8 @@ import { batch5OperationAccessTests } from './batch5-operation-access.test.js';
 import { modelSettingsTests } from './model-settings.test.js';
 import { aiGatewayTests } from './ai-gateway.test.js';
 import { aiRecordRepositoryTests } from './ai-record-repository.test.js';
-import { aiPostgresRepositoryTests } from './ai-postgres-repository.test.js';
+import { aiPostgresRepositoryTests, aiPostgresBudgetTests } from './ai-postgres-repository.test.js';
+import { aiBudgetWorkerTests } from './ai-budget-worker.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -100,6 +101,8 @@ const tests = [
   ...aiGatewayTests,
   ...aiRecordRepositoryTests,
   ...aiPostgresRepositoryTests,
+  ...aiPostgresBudgetTests,
+  ...aiBudgetWorkerTests,
 ];
 
 let failed = 0;

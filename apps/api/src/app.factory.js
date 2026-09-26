@@ -204,7 +204,9 @@ export function createPersistentAppContext({
   const dataStore = createFileDataStore(dataFilePath);
   const context = createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
   context.http.modelSettings = createModelSettingsService();
-  context.ai = createAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository });
+  context.http.aiBudget = dataStore.aiBudgetAuthority;
+  context.ai = createAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
+    budgetAuthority: dataStore.aiBudgetAuthority });
   return context;
 }
 

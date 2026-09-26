@@ -43,6 +43,7 @@ import {
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createAiRuntime } from './modules/ai/runtime.js';
 import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
+import { createPostgresBudgetAuthority } from './modules/ai/postgres-budget-authority.js';
 
 export async function createPostgresAppContext({
   databaseUrl = process.env.DATABASE_URL,
@@ -67,6 +68,7 @@ export async function createPostgresAppContext({
   db = syncRuntime.client;
   const maintenanceGate = createMaintenanceGate();
   const advisoryLock = createPostgresAdvisoryLock(db);
+  const aiBudget = createPostgresBudgetAuthority(db);
 
   const repositories = {
     noteRepository: createPostgresNoteRepository({ db }),
@@ -130,10 +132,11 @@ export async function createPostgresAppContext({
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createAiRuntime({ modelSettings, repository: aiRepository }),
+    ai: createAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget }),
     repositories,
     http: {
       modelSettings,
+      aiBudget,
       sync: wrapHandlersWithMaintenanceGate(syncRuntime.service(knowledge.noteService, createAttachmentTransfer({ uploadsDir, storageRootDir })), maintenanceGate, {
         getAccess: name => ['push', 'pushBatch', 'uploadBlob', 'bootstrap'].includes(name) ? 'mutation' : 'read'
       }),

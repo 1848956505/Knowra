@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from './record-contract.js';
 import { createAiRecordRepository } from './record-repository.js';
+import { validateBudgetState } from './budget-ledger.js';
 
 export const AI_PRIVATE_STATE_VERSION = 1;
 const collections = Object.values(AI_RECORD_KINDS).map(value => value.collection);
@@ -11,7 +12,7 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
     datasetId,
     datasetEpoch,
     ...Object.fromEntries(collections.map(name => [name, []])),
-    events: []
+    events: [], budgetDays: [], budgetReservations: []
   };
 }
 
@@ -21,7 +22,7 @@ export function validateAiState(input) {
     || input.version !== AI_PRIVATE_STATE_VERSION
     || typeof input.datasetId !== 'string' || !input.datasetId
     || typeof input.datasetEpoch !== 'string' || !input.datasetEpoch
-    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', ...collections].includes(key))) {
+    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', ...collections].includes(key))) {
     throw new Error('AI 私有存储版本或结构无效，已停止加载。');
   }
   const state = structuredClone(input);
@@ -36,7 +37,7 @@ export function validateAiState(input) {
   }
   if (!Array.isArray(state.events)) throw new Error('AI 事件集合无效。');
   state.events.forEach(validateAiEvent);
-  return state;
+  return validateBudgetState(state);
 }
 
 export function createJsonAiRepository({ getState, runTransaction, onChange }) {

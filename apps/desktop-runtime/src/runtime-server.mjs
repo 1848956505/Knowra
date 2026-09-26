@@ -19,9 +19,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let server;
   let sync;
   let handleApi;
+  let recoverAi;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
+    ({ store, sync, handleApi, recoverAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
+    await recoverAi;
     const secret = randomBytes(32).toString('hex');
     const cookieName = `knowra_local_${randomBytes(8).toString('hex')}`;
     let origin;
@@ -82,10 +84,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                 try {
                   const protectionDirectory = createRuntimeBackup(store, activeDirectory, { backupRoot: dataDirectory, purpose: 'before-restore', recoveryDrafts: input.recoveryDrafts });
                   replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions, credentialSource });
+                  await replacement.recoverAi;
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
                   const previousStore = store;
-                  ({ store, sync, handleApi } = replacement);
+                  ({ store, sync, handleApi, recoverAi } = replacement);
                   activeDirectory = restoredDirectory;
                   try { previousStore.close(); } catch (failure) { logger.error?.('Previous local store close failed', failure); }
                   result = { ...record, datasetId: store.getStatus().datasetId, directory: restoredDirectory, syncPaused: true };
@@ -93,7 +96,8 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
+                  ({ store, sync, handleApi, recoverAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
+                  await recoverAi;
                   throw failure;
                 }
               } finally { restoring = false; }

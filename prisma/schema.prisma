@@ -596,6 +596,34 @@ model ai_runtime_epochs {
   updated_at    String
 }
 
+model ai_budget_days {
+  account_ref          String
+  beijing_day          String
+  spent_microunits     BigInt @default(0)
+  held_microunits      BigInt @default(0)
+  reservations         ai_budget_reservations[]
+
+  @@id([account_ref, beijing_day])
+}
+
+model ai_budget_reservations {
+  reservation_id       String @id
+  account_ref          String
+  beijing_day          String
+  job_id               String
+  attempt_id           String
+  price_version        String
+  reserved_microunits  BigInt
+  actual_microunits    BigInt?
+  status               String
+  created_at           String
+  settled_at           String?
+  day                  ai_budget_days @relation(fields: [account_ref, beijing_day], references: [account_ref, beijing_day])
+
+  @@unique([account_ref, attempt_id])
+  @@index([account_ref, job_id], map: "ai_budget_reservations_job")
+}
+
 model ai_scope_snapshots {
   scope_snapshot_id    String                 @id
   owner_id             String

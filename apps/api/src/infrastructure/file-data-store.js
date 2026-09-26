@@ -5,6 +5,7 @@ import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
 import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
 import { createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
+import { createJsonBudgetAuthority } from '../modules/ai/budget-ledger.js';
 import {
   LOCAL_DATA_COLLECTIONS,
   LOCAL_DATA_SCHEMA_VERSION,
@@ -146,6 +147,7 @@ export function createFileDataStore(filePath, {
 
   return {
     aiRepository: createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
+    aiBudgetAuthority: createJsonBudgetAuthority({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     getSyncJournal: () => journal,
     previewSyncJournal: () => appendChanges(structuredClone(journal), committed, state),
     runSyncTransaction: operation => runTransaction(() => { const result = operation(); flush(); return result; }),
