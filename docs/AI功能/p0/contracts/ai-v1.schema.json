@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knowra.local/schemas/ai-runtime-v1",
+  "title": "Knowra AI runtime v1 envelopes",
+  "description": "P0 frozen contract; runtime repositories and validators are P1 work.",
+  "oneOf": [
+    { "$ref": "#/$defs/scopeSnapshot" },
+    { "$ref": "#/$defs/contextManifest" },
+    { "$ref": "#/$defs/aiGrant" },
+    { "$ref": "#/$defs/aiJob" },
+    { "$ref": "#/$defs/aiJobAttempt" },
+    { "$ref": "#/$defs/aiAction" },
+    { "$ref": "#/$defs/aiArtifactProvenance" },
+    { "$ref": "#/$defs/aiUsageRecord" }
+  ],
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "time": { "type": "string", "format": "date-time" },
+    "sourceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceId", "noteId", "noteVersionId", "contentHash", "start", "end", "quoteHash", "characters", "estimatedTokens"],
+      "properties": {
+        "sourceId": { "$ref": "#/$defs/id" },
+        "noteId": { "$ref": "#/$defs/id" },
+        "noteVersionId": { "$ref": "#/$defs/id" },
+        "contentHash": { "$ref": "#/$defs/hash" },
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 1 },
+        "quoteHash": { "$ref": "#/$defs/hash" },
+        "characters": { "type": "integer", "minimum": 1 },
+        "estimatedTokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "scopeSnapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "scopeSnapshotId", "ownerId", "datasetId", "datasetEpoch", "spaceId", "scopeKind", "allowedSources", "allowedFolderIds", "excludedSourceIds", "scopeHash", "createdAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "scopeSnapshot" },
+        "scopeSnapshotId": { "$ref": "#/$defs/id" },
+        "ownerId": { "$ref": "#/$defs/id" }, "datasetId": { "$ref": "#/$defs/id" },
+        "datasetEpoch": { "$ref": "#/$defs/id" }, "spaceId": { "$ref": "#/$defs/id" },
+        "scopeKind": { "enum": ["empty", "selection", "heading", "note", "multiNote", "folder", "knowledgeItems"] },
+        "allowedSources": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/sourceRef" } },
+        "allowedFolderIds": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "excludedSourceIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "scopeHash": { "$ref": "#/$defs/hash" }, "createdAt": { "$ref": "#/$defs/time" }
+      }
+    },
+    "contextManifest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "manifestId", "ownerId", "datasetId", "datasetEpoch", "spaceId", "scopeSnapshotId", "scopeKind", "scopeHash", "recipient", "sources", "excludedSourceIds", "omissions", "attachmentIds", "estimatedInputTokens", "payloadHash", "createdAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "contextManifest" },
+        "manifestId": { "$ref": "#/$defs/id" }, "ownerId": { "$ref": "#/$defs/id" },
+        "datasetId": { "$ref": "#/$defs/id" }, "datasetEpoch": { "$ref": "#/$defs/id" },
+        "spaceId": { "$ref": "#/$defs/id" },
+        "scopeSnapshotId": { "$ref": "#/$defs/id" },
+        "scopeKind": { "enum": ["empty", "selection", "heading", "note", "multiNote", "folder", "knowledgeItems"] },
+        "scopeHash": { "$ref": "#/$defs/hash" },
+        "recipient": { "enum": ["deepseek"] },
+        "sources": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/sourceRef" } },
+        "excludedSourceIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "omissions": { "type": "array", "items": { "type": "string", "maxLength": 300 } },
+        "attachmentIds": { "type": "array", "maxItems": 0 },
+        "estimatedInputTokens": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "payloadHash": { "$ref": "#/$defs/hash" }, "createdAt": { "$ref": "#/$defs/time" }
+      }
+    },
+    "aiGrant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "grantId", "actorId", "entrypoint", "ownerId", "datasetId", "datasetEpoch", "spaceId", "scopeSnapshotId", "scopeHash", "allowedTools", "actionKinds", "maxTargets", "issuedAt", "expiresAt", "revokedAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "aiGrant" },
+        "grantId": { "$ref": "#/$defs/id" }, "actorId": { "$ref": "#/$defs/id" },
+        "entrypoint": { "enum": ["assistant", "analysisScope", "trustedApproval"] },
+        "ownerId": { "$ref": "#/$defs/id" }, "datasetId": { "$ref": "#/$defs/id" },
+        "datasetEpoch": { "$ref": "#/$defs/id" }, "spaceId": { "$ref": "#/$defs/id" },
+        "scopeSnapshotId": { "$ref": "#/$defs/id" },
+        "scopeHash": { "$ref": "#/$defs/hash" },
+        "allowedTools": { "type": "array", "uniqueItems": true, "items": { "enum": ["notes_search", "notes_read", "folders_list", "tags_list", "notes_create", "notes_append", "notes_propose_patch", "notes_propose_organize"] } },
+        "actionKinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["read", "create", "append", "patchProposal", "organizeProposal"] } },
+        "maxTargets": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "issuedAt": { "$ref": "#/$defs/time" }, "expiresAt": { "$ref": "#/$defs/time" },
+        "revokedAt": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }
+      }
+    },
+    "aiJob": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "jobId", "requestId", "parentJobId", "ownerId", "datasetId", "datasetEpoch", "spaceId", "grantId", "jobKind", "idempotencyKey", "inputHash", "manifestId", "manifestHash", "credentialRef", "provider", "modelId", "promptVersion", "resultSchemaVersion", "status", "phase", "acceptedAttemptId", "outputHash", "createdAt", "updatedAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "aiJob" },
+        "jobId": { "$ref": "#/$defs/id" }, "requestId": { "$ref": "#/$defs/id" },
+        "parentJobId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "ownerId": { "$ref": "#/$defs/id" }, "datasetId": { "$ref": "#/$defs/id" },
+        "datasetEpoch": { "$ref": "#/$defs/id" }, "spaceId": { "$ref": "#/$defs/id" },
+        "grantId": { "$ref": "#/$defs/id" },
+        "jobKind": { "enum": ["answer", "knowledgeExtraction", "noteActionPlan", "questionDraft", "gradingProposal"] },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "inputHash": { "$ref": "#/$defs/hash" }, "manifestId": { "$ref": "#/$defs/id" },
+        "manifestHash": { "$ref": "#/$defs/hash" },
+        "credentialRef": { "$ref": "#/$defs/id" }, "provider": { "enum": ["deepseek"] },
+        "modelId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "promptVersion": { "$ref": "#/$defs/id" }, "resultSchemaVersion": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["pending", "running", "retrying", "cancelling", "cancelled", "succeeded", "failed"] },
+        "phase": { "enum": ["preparing", "retrieving", "generating", "validating", "committing", "finished"] },
+        "acceptedAttemptId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "outputHash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
+      }
+    },
+    "aiJobAttempt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "attemptId", "jobId", "ordinal", "leaseGeneration", "leaseOwner", "leaseExpiresAt", "providerRequestId", "deliveryUncertain", "status", "startedAt", "finishedAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "aiJobAttempt" },
+        "attemptId": { "$ref": "#/$defs/id" }, "jobId": { "$ref": "#/$defs/id" },
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "leaseGeneration": { "type": "integer", "minimum": 1 },
+        "leaseOwner": { "$ref": "#/$defs/id" }, "leaseExpiresAt": { "$ref": "#/$defs/time" },
+        "providerRequestId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "deliveryUncertain": { "type": "boolean" },
+        "status": { "enum": ["leased", "sent", "validated", "rejected", "timedOut", "cancelled"] },
+        "startedAt": { "$ref": "#/$defs/time" },
+        "finishedAt": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }
+      }
+    },
+    "aiAction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "actionId", "jobId", "grantId", "ownerId", "datasetId", "datasetEpoch", "spaceId", "operationId", "actionKind", "targetIds", "baselineHash", "planHash", "planSchemaVersion", "approvalRef", "status", "receiptHash", "createdAt", "updatedAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "aiAction" },
+        "actionId": { "$ref": "#/$defs/id" }, "jobId": { "$ref": "#/$defs/id" },
+        "grantId": { "$ref": "#/$defs/id" }, "ownerId": { "$ref": "#/$defs/id" },
+        "datasetId": { "$ref": "#/$defs/id" }, "datasetEpoch": { "$ref": "#/$defs/id" },
+        "spaceId": { "$ref": "#/$defs/id" }, "operationId": { "$ref": "#/$defs/id" },
+        "actionKind": { "enum": ["noteCreate", "noteAppend", "notePatch", "noteOrganize"] },
+        "targetIds": { "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "baselineHash": { "$ref": "#/$defs/hash" }, "planHash": { "$ref": "#/$defs/hash" },
+        "planSchemaVersion": { "const": 1 },
+        "approvalRef": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "status": { "enum": ["planned", "awaitingApproval", "authorized", "applying", "applied", "rejected", "cancelled", "expired", "conflicted", "failed"] },
+        "receiptHash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
+      }
+    },
+    "aiArtifactProvenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "provenanceId", "ownerId", "datasetId", "spaceId", "artifactType", "artifactId", "jobId", "requestId", "provider", "modelId", "promptVersion", "resultSchemaVersion", "inputHash", "outputHash", "sourceRefs", "createdAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "aiArtifactProvenance" },
+        "provenanceId": { "$ref": "#/$defs/id" },
+        "ownerId": { "$ref": "#/$defs/id" }, "datasetId": { "$ref": "#/$defs/id" },
+        "spaceId": { "$ref": "#/$defs/id" },
+        "artifactType": { "enum": ["note", "knowledgeItem", "question", "gradingProposal"] },
+        "artifactId": { "$ref": "#/$defs/id" }, "jobId": { "$ref": "#/$defs/id" },
+        "requestId": { "$ref": "#/$defs/id" }, "provider": { "enum": ["deepseek"] },
+        "modelId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "promptVersion": { "$ref": "#/$defs/id" }, "resultSchemaVersion": { "$ref": "#/$defs/id" },
+        "inputHash": { "$ref": "#/$defs/hash" }, "outputHash": { "$ref": "#/$defs/hash" },
+        "sourceRefs": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/sourceRef" } },
+        "createdAt": { "$ref": "#/$defs/time" }
+      }
+    },
+    "aiUsageRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "usageId", "jobId", "attemptId", "beijingDay", "currency", "priceVersion", "inputTokens", "outputTokens", "reservedMicrounits", "actualMicrounits", "usageUnknown", "createdAt"],
+      "properties": {
+        "contractVersion": { "const": 1 }, "kind": { "const": "aiUsageRecord" },
+        "usageId": { "$ref": "#/$defs/id" }, "jobId": { "$ref": "#/$defs/id" },
+        "attemptId": { "$ref": "#/$defs/id" },
+        "beijingDay": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "currency": { "const": "CNY" }, "priceVersion": { "$ref": "#/$defs/id" },
+        "inputTokens": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "outputTokens": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "reservedMicrounits": { "type": "integer", "minimum": 0, "maximum": 2000000 },
+        "actualMicrounits": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "usageUnknown": { "type": "boolean" }, "createdAt": { "$ref": "#/$defs/time" }
+      }
+    }
+  }
+}

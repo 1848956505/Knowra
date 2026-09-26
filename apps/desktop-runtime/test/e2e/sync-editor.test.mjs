@@ -28,7 +28,7 @@ test('真实页面连接云端、后台刷新正文、三份冲突对照与手�
   page.on('pageerror', error => problems.push(error.message));
   await page.goto(runtime.launchUrl);
   await page.getByRole('button', { name: '连接云端', exact: true }).click();
-  await page.getByLabel('云端服务地址', { exact: true }).fill(origin);
+  await page.getByLabel(/云端服务地址/).fill(origin);
   await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('云端已同步');
   await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
@@ -56,10 +56,12 @@ test('真实页面连接云端、后台刷新正文、三份冲突对照与手�
   await expect(titleRow).toContainText('云端重命名');
   await expect(titleRow).toContainText('已变化');
   await expect(conflict.getByRole('row').filter({ has: page.getByRole('rowheader', { name: '对象状态', exact: true }) })).toContainText('存在');
-  await conflict.getByLabel('正文比较', { exact: false }).first().selectOption('local');
+  await conflict.getByLabel('正文比较', { exact: false }).first().click();
+  await page.getByRole('option', { name: '共同基线 → 本机' }).click();
   await expect(conflict).toContainText('网页先更新');
   await expect(conflict.locator('[data-diff="removed"]')).toContainText('网页先更新');
-  await conflict.getByLabel('正文比较', { exact: false }).first().selectOption('remote');
+  await conflict.getByLabel('正文比较', { exact: false }).first().click();
+  await page.getByRole('option', { name: '共同基线 → 云端' }).click();
   await expect(conflict.locator('[data-diff="added"]')).toContainText('云端并发的段落');
   const screenshots = process.env.KNOWRA_E2E_OUTPUT;
   if (screenshots) {

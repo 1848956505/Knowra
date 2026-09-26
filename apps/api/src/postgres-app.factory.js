@@ -40,6 +40,8 @@ import {
   createPostgresAdvisoryLock,
   wrapHandlersWithPostgresAdvisoryLock
 } from './infrastructure/postgres-advisory-lock.js';
+import { createModelSettingsService } from './modules/ai/model-settings.js';
+import { createAiRuntime } from './modules/ai/runtime.js';
 
 export async function createPostgresAppContext({
   databaseUrl = process.env.DATABASE_URL,
@@ -120,13 +122,16 @@ export async function createPostgresAppContext({
     ownerId: normalizedOwnerId
   });
 
+  const modelSettings = createModelSettingsService();
   return {
     driver: 'postgres',
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
+    ai: createAiRuntime({ modelSettings }),
     repositories,
     http: {
+      modelSettings,
       sync: wrapHandlersWithMaintenanceGate(syncRuntime.service(knowledge.noteService, createAttachmentTransfer({ uploadsDir, storageRootDir })), maintenanceGate, {
         getAccess: name => ['push', 'pushBatch', 'uploadBlob', 'bootstrap'].includes(name) ? 'mutation' : 'read'
       }),

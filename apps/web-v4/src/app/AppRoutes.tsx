@@ -22,6 +22,8 @@ import { KnowledgeStage } from './KnowledgeStage';
 import { TrainingWorkspaceView } from '../features/training/TrainingWorkspaceView';
 import { CreateKnowledgeCandidateDialog } from '../features/knowledge/CreateKnowledgeCandidateDialog';
 import { workspaceCapabilities } from '../store/workspaceCapabilities';
+import { SettingsView } from '../features/settings/SettingsView';
+import type { AppPreferences } from '../features/settings/preferences';
 
 const ComponentShowcase = lazy(async () => {
   const module = await import('../components/ui/showcase');
@@ -56,6 +58,10 @@ export interface AppRoutesProps {
   onOpenSearch(): void;
   onOpenCreate?(): void;
   onOpenSchedule(): void;
+  preferences: AppPreferences;
+  onPreferencesChange(preferences: AppPreferences): void;
+  sidebarOpen: boolean;
+  onSidebarOpenChange(open: boolean): void;
 }
 
 export function AppRoutes(props: AppRoutesProps) {
@@ -63,6 +69,12 @@ export function AppRoutes(props: AppRoutesProps) {
   if (routePath === '/showcase') {
     return <Suspense fallback={<LoadingState label="正在加载组件展台…" />}><ComponentShowcase /></Suspense>;
   }
+  if (routePath === '/settings') return <SettingsView
+    preferences={props.preferences}
+    onPreferencesChange={props.onPreferencesChange}
+    sidebarOpen={props.sidebarOpen}
+    onSidebarOpenChange={props.onSidebarOpenChange}
+  />;
   if (props.routeDomain === 'knowledge') return <KnowledgeStage pathname={props.pathname} onOpenNote={props.onOpenNote} />;
   if (props.routeDomain === 'training') return <TrainingWorkspaceView />;
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;

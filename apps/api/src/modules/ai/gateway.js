@@ -1,0 +1,132 @@
+const TOOL_NAMES = new Set([
+  'notes_search', 'notes_read', 'folders_list', 'tags_list',
+  'notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize'
+]);
+
+export class AiGatewayError extends Error {
+  constructor(code, message, { retryable = false } = {}) {
+    super(message);
+    this.name = 'AiGatewayError';
+    this.code = code;
+    this.retryable = retryable;
+  }
+}
+
+/** 仅供受信 worker 调用；预算服务未注入前真实供应商调用默认关闭。 */
+export function createAiGateway({ adapter, resolveCredential, authorizePaidCall = async () => false }) {
+  if (!adapter || typeof adapter.complete !== 'function' || typeof adapter.stream !== 'function') {
+    throw new TypeError('AI adapter is required');
+  }
+  return {
+    capabilities: () => adapter.capabilities(),
+    async complete(request) {
+      const prepared = await prepare(request);
+      return normalize(await adapter.complete(prepared), prepared, adapter.provider);
+    },
+    async *stream(request) {
+      const prepared = await prepare(request);
+      let resultReceived = false;
+      for await (const event of adapter.stream(prepared)) {
+        if (event?.type === 'delta' && typeof event.content === 'string') {
+          yield { type: 'delta', content: event.content };
+        } else if (event?.type === 'result' && !resultReceived) {
+          resultReceived = true;
+          yield { type: 'result', result: normalize(event.result, prepared, adapter.provider) };
+        } else throw new AiGatewayError('AI_STREAM_INVALID', '模型流响应无效。');
+      }
+      if (!resultReceived) throw new AiGatewayError('AI_STREAM_INCOMPLETE', '模型流未正常结束。', { retryable: true });
+    }
+  };
+
+  async function prepare(request) {
+    if (request?.signal?.aborted) throw new AiGatewayError('AI_CANCELLED', '模型请求已取消。');
+    const input = validateRequest(request);
+    if (adapter.provider === 'mock') return input;
+    if (!request?.credentialRef || typeof resolveCredential !== 'function') {
+      throw new AiGatewayError('AI_CREDENTIAL_UNAVAILABLE', '模型凭据不可用。');
+    }
+    if (await authorizePaidCall(request) !== true) {
+      throw new AiGatewayError('AI_BUDGET_NOT_AUTHORIZED', '模型费用尚未预留，不能调用供应商。');
+    }
+    const credential = await resolveCredential(request.credentialRef);
+    if (!credential || typeof credential.apiKey !== 'string' || !credential.apiKey || !/^[a-zA-Z0-9._-]{1,80}$/.test(credential.modelId)) {
+      throw new AiGatewayError('AI_CREDENTIAL_UNAVAILABLE', '模型凭据不可用。');
+    }
+    if (request.modelId && request.modelId !== credential.modelId) {
+      throw new AiGatewayError('AI_MODEL_CHANGED', '模型配置已变更，请重新开始任务。');
+    }
+    return { ...input, apiKey: credential.apiKey, modelId: credential.modelId };
+  }
+}
+
+function validateRequest(value) {
+  if (!value || !Array.isArray(value.messages) || value.messages.length < 1 || value.messages.length > 32) {
+    throw new AiGatewayError('AI_REQUEST_INVALID', '模型消息无效。');
+  }
+  const messages = value.messages.map(message => {
+    if (!message || !['system', 'user', 'assistant', 'tool'].includes(message.role)
+      || typeof message.content !== 'string' || message.content.length > 120000) {
+      throw new AiGatewayError('AI_REQUEST_INVALID', '模型消息无效。');
+    }
+    if (message.role === 'tool' && (typeof message.tool_call_id !== 'string' || !message.tool_call_id)) {
+      throw new AiGatewayError('AI_REQUEST_INVALID', '工具结果缺少调用 ID。');
+    }
+    return message.role === 'tool'
+      ? { role: 'tool', content: message.content, tool_call_id: message.tool_call_id }
+      : { role: message.role, content: message.content };
+  });
+  const maxTokens = value.maxTokens ?? 512;
+  if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 20000) throw new AiGatewayError('AI_REQUEST_INVALID', '输出 token 上限无效。');
+  const format = value.format ?? 'text';
+  if (!['text', 'json'].includes(format)) throw new AiGatewayError('AI_REQUEST_INVALID', '输出格式无效。');
+  if (format === 'json' && !messages.some(message => /json/i.test(message.content))) {
+    throw new AiGatewayError('AI_REQUEST_INVALID', 'JSON 输出请求需在提示词中明确指定 JSON。');
+  }
+  const tools = value.tools ?? [];
+  if (!Array.isArray(tools) || tools.length > 8 || tools.some(tool =>
+    !tool || !TOOL_NAMES.has(tool.name) || !tool.parameters || typeof tool.parameters !== 'object' || Array.isArray(tool.parameters))) {
+    throw new AiGatewayError('AI_REQUEST_INVALID', '模型工具定义无效。');
+  }
+  if (new Set(tools.map(tool => tool.name)).size !== tools.length) throw new AiGatewayError('AI_REQUEST_INVALID', '模型工具名称重复。');
+  return {
+    messages, maxTokens, format,
+    tools: tools.map(tool => ({ name: tool.name, description: String(tool.description ?? '').slice(0, 500), parameters: tool.parameters })),
+    signal: value.signal
+  };
+}
+
+function normalize(raw, request, provider) {
+  const choice = raw?.choices?.[0];
+  if (!choice || typeof choice.finish_reason !== 'string' || !choice.message || !Array.isArray(raw.choices)) {
+    throw new AiGatewayError('AI_RESPONSE_INVALID', '模型响应结构无效。');
+  }
+  const finishReason = choice.finish_reason;
+  if (!['stop', 'length', 'content_filter', 'tool_calls', 'insufficient_system_resource', 'aborted'].includes(finishReason)) {
+    throw new AiGatewayError('AI_RESPONSE_INVALID', '模型结束状态无效。');
+  }
+  const content = choice.message.content;
+  if (content !== null && typeof content !== 'string') throw new AiGatewayError('AI_RESPONSE_INVALID', '模型文本无效。');
+  const toolCalls = (choice.message.tool_calls ?? []).map(call => {
+    if (call?.type !== 'function' || !TOOL_NAMES.has(call.function?.name) || !request.tools.some(tool => tool.name === call.function.name)) {
+      throw new AiGatewayError('AI_TOOL_INVALID', '模型请求了未授权工具。');
+    }
+    let args;
+    try { args = JSON.parse(call.function.arguments); } catch { throw new AiGatewayError('AI_TOOL_ARGUMENTS_INVALID', '模型工具参数不是有效 JSON。'); }
+    if (!args || typeof args !== 'object' || Array.isArray(args)) throw new AiGatewayError('AI_TOOL_ARGUMENTS_INVALID', '模型工具参数无效。');
+    return { id: call.id, name: call.function.name, arguments: args };
+  });
+  const truncated = finishReason === 'length';
+  const refused = finishReason === 'content_filter' || typeof choice.message.refusal === 'string' && Boolean(choice.message.refusal);
+  let json = null;
+  if (request.format === 'json' && !truncated && !refused && finishReason === 'stop') {
+    try { json = JSON.parse(content); } catch { throw new AiGatewayError('AI_JSON_INVALID', '模型未返回有效 JSON。'); }
+    if (!json || typeof json !== 'object' || Array.isArray(json)) throw new AiGatewayError('AI_JSON_INVALID', '模型 JSON 结果无效。');
+  }
+  const usage = raw.usage && Number.isInteger(raw.usage.prompt_tokens) && Number.isInteger(raw.usage.completion_tokens)
+    ? { inputTokens: raw.usage.prompt_tokens, outputTokens: raw.usage.completion_tokens, unknown: false }
+    : { inputTokens: null, outputTokens: null, unknown: true };
+  return {
+    provider, modelId: raw.model ?? null, requestId: raw.id ?? null,
+    content: content ?? '', json, toolCalls, finishReason, truncated, refused, usage
+  };
+}

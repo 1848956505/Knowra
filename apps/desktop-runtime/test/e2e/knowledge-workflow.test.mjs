@@ -94,7 +94,7 @@ test('真实页面：标注来源审核与过期保护；桌面离线新建、�
   assert(runtime.store.getStatus().pendingOperations > 0);
   const offlineId = runtime.store.state.knowledgeItems[0].id;
   await page.getByRole('button', { name: '连接云端', exact: true }).click();
-  await page.getByLabel('云端服务地址', { exact: true }).fill(origin);
+  await page.getByLabel(/云端服务地址/).fill(origin);
   await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '云端同步', exact: true })).toContainText('云端已同步');
   await page.getByRole('button', { name: '关闭对话框', exact: true }).click();

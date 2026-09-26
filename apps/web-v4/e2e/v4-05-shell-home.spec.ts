@@ -50,7 +50,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     const rail = page.getByRole('navigation', { name: '工作域导航' });
     await expect(rail.getByRole('button', { name: /知识/ })).toBeEnabled();
     await expect(rail.getByRole('button', { name: /试题/ })).toBeEnabled();
-    await expect(rail.getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
+    await expect(rail.getByRole('button', { name: '设置' })).toBeEnabled();
     await expect(page.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
     await expect(rail.getByRole('button', { name: '组件库' })).toBeEnabled();
     await expect(page.getByRole('button', { name: '新建笔记（Ctrl+N）' })).toBeEnabled();
@@ -68,6 +68,35 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page.getByRole('toolbar', { name: '训练资产筛选' })).toBeVisible();
     await rail.getByRole('button', { name: '知境工作区' }).click();
     await expect(page).toHaveURL(/#\/$/);
+  });
+
+  test('设置页在桌面与移动端可访问，偏好可持久保存', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: '设置' }).click();
+    await expect(page).toHaveURL(/#\/settings$/);
+    await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '设置分类' })).toBeVisible();
+    const selectedCategory = page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: /全部设置/ });
+    await expect(selectedCategory).toHaveAttribute('aria-pressed', 'true');
+    expect(await selectedCategory.evaluate((element) => getComputedStyle(element).borderLeftWidth)).toBe('0px');
+    expect(await selectedCategory.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(244, 241, 234)');
+    await expect(page.getByText('显示 4 / 4 项设置')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '模型接入' })).toBeVisible();
+    await expect(page.getByText('尚未配置')).toBeVisible();
+    await page.getByLabel('API Key').fill('synthetic-no-save');
+    await expect(page.getByRole('button', { name: '保存配置' })).toBeEnabled();
+    await page.getByLabel('API Key').fill('');
+    await page.getByRole('button', { name: '大（19 像素）' }).click();
+    await page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: /辅助体验/ }).click();
+    await page.getByRole('checkbox', { name: '减少界面动效' }).locator('xpath=ancestor::label').click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--note-font-size'))).toBe('19px');
+    await page.reload();
+    await expect(page.getByRole('button', { name: '大（19 像素）' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('checkbox', { name: '减少界面动效' })).toBeChecked();
+
+    await page.setViewportSize({ width: 390, height: 843 });
+    await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: '设置', exact: true })).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(2);
   });
 
   test('移动端与 200% 缩放保留核心入口且无横向滚动', async ({ page }) => {
@@ -147,6 +176,13 @@ async function horizontalOverflow(page: Page): Promise<number> {
 }
 
 async function mockWorkspace(page: Page): Promise<void> {
+  await page.route('**/api/ai/model-settings', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { provider: 'deepseek', modelId: 'deepseek-flash', configured: false } })
+    });
+  });
   await page.route('**/api/knowledge/**', async (route) => {
     const url = new URL(route.request().url());
     let data: unknown = [];

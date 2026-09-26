@@ -31,6 +31,7 @@ import {
 import { PRIMARY_DOMAINS, UTILITY_ITEMS } from '../shell/ModuleRail';
 import { WORK_DOMAINS, type WorkDomain } from '../store/types';
 import { AppRoutes, DOMAIN_INFO } from './AppRoutes';
+import { applyAppPreferences, readAppPreferences } from '../features/settings/preferences';
 import styles from './App.module.css';
 
 export function App() {
@@ -58,6 +59,7 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createNoteOpen, setCreateNoteOpen] = useState(false);
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
+  const [preferences, setPreferences] = useState(readAppPreferences);
   const [editorView, setEditorView] = useState(() => ({
     ...initialEditorViewState,
     showLeftSidebar: readNotesSidebarPreference()
@@ -68,6 +70,10 @@ export function App() {
     writeNotesSidebarPreference(editorView.showLeftSidebar);
   }, [editorView.showLeftSidebar]);
 
+  useEffect(() => {
+    applyAppPreferences(preferences);
+  }, [preferences]);
+
   const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials') || location.pathname.startsWith('/knowledge') || location.pathname.startsWith('/training');
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
@@ -77,7 +83,7 @@ export function App() {
 
   // URL 是工作域真源：支持可分享链接、前进后退和未上线模块的真实门禁页。
   useEffect(() => {
-    if (location.pathname === '/showcase') return;
+    if (location.pathname.startsWith('/showcase') || location.pathname === '/settings') return;
     const segment = location.pathname.split('?')[0].replace(/^\//, '').split('/')[0];
     const routeDomain: WorkDomain = !segment || segment === 'materials'
       ? 'materials'
@@ -162,7 +168,8 @@ export function App() {
 
   const canWrite = canWriteWorkspace();
   const routePathname = location.pathname.split('?')[0];
-  const isShowcaseActive = routePathname === '/showcase';
+  const isShowcaseActive = routePathname.startsWith('/showcase');
+  const isSettingsActive = routePathname === '/settings';
   const isHome = routePathname === '/';
   const isNotesIndex = routePathname === '/materials';
   const isTagManager = routePathname === '/materials/tags';
@@ -174,7 +181,7 @@ export function App() {
   // 主页（/）不属于任何工作域的子页面：左轨不应高亮任何模块入口；
   // 笔记索引页（/materials）才是"资料"工作域的着陆页。
   const activeDomain: WorkDomain | null =
-    isShowcaseActive || isHome ? null : routeDomain;
+    isShowcaseActive || isSettingsActive || isHome ? null : routeDomain;
 
   // StatusBar 位置路径只描述当前路由 surface，不读取后台 selection。
   const statusPath = isNotesIndex ? buildIndexPath(indexScope, indexFolderId, indexFolders, navigate) : deriveStatusPath({
@@ -221,7 +228,7 @@ export function App() {
       contextSidebar={showNotesContextSidebar ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
       ) : undefined}
-      stageMode={isNoteEditor || isNotesIndex || isTagManager || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
+      stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
       mergeContextSidebarTabs={isNoteEditor}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
@@ -229,16 +236,19 @@ export function App() {
       onOpenSearch={() => setSearchOpen(true)}
       onOpenCreate={canWrite ? () => setCreateNoteOpen(true) : undefined}
       onOpenShowcase={handleOpenShowcase}
+      onOpenSettings={() => { navigate('/settings'); setLiveAnnouncement('已打开设置'); }}
+      isSettingsActive={isSettingsActive}
       isShowcaseActive={isShowcaseActive}
       statusbar={{
         path: statusPath,
-        saveState: editorSaveError ? 'error' : editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
+        saveState: isSettingsActive || isShowcaseActive ? 'idle' : editorSaveError ? 'error' : editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
         saveError: editorSaveError ?? saveError,
         persistenceMode,
         savedAt: editorNote?.updatedAt,
         dataMode,
+        showDataMode: !isSettingsActive && !isShowcaseActive,
         dataModeNote: persistenceMode === 'desktop-local' ? <LocalSyncControl /> : workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
-        panels: [
+        panels: isSettingsActive || isShowcaseActive ? [] : [
           {
             id: 'sidebar',
             label: '侧栏',
@@ -285,7 +295,7 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
+      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
         <RecoveryDraftNotice onOpenNote={openNote} />
         <AppRoutes
           pathname={location.pathname}
@@ -301,6 +311,10 @@ export function App() {
           onOpenSearch={() => setSearchOpen(true)}
           onOpenCreate={canWrite ? () => setCreateNoteOpen(true) : undefined}
           onOpenSchedule={() => setLiveAnnouncement('日程将在后续版本接入')}
+          preferences={preferences}
+          onPreferencesChange={setPreferences}
+          sidebarOpen={editorView.showLeftSidebar}
+          onSidebarOpenChange={(open) => setEditorView((current) => ({ ...current, showLeftSidebar: open }))}
           onSelectNote={(noteId) => openNote(noteId)}
         />
       </div>

@@ -36,8 +36,8 @@ test('真实页面：历史摘要分页、差异对比、恢复和另存后持�
   await page.reload();
   const editor = page.locator('.ProseMirror');
   await expect(editor).toContainText('历史第5版');
-  if (!await page.getByRole('tab', { name: '历史记录', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
-  await page.getByRole('tab', { name: '历史记录', exact: true }).click();
+  if (!await page.getByRole('tab', { name: '记录', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
+  await page.getByRole('tab', { name: '记录', exact: true }).click();
   const panel = page.getByRole('region', { name: '历史记录', exact: true });
   await expect(panel).toContainText('24 条历史记录');
   await panel.getByRole('button', { name: '加载更早记录' }).click();

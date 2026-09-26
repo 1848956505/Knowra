@@ -3,6 +3,7 @@ let registered = false;
 contextBridge.exposeInMainWorld('knowraDesktop', {
   readRecoveryDrafts() { const result = ipcRenderer.sendSync('read-recovery-drafts'); if (result.error) throw new Error(result.error); return result.drafts; },
   writeRecoveryDraft(key, draft) { return ipcRenderer.invoke('write-recovery-draft', key, draft); },
+  modelSettings(action, value) { return ipcRenderer.invoke('model-settings', action, value); },
   onCancelClose(callback) { if (typeof callback === 'function') ipcRenderer.on('cancel-close', () => callback()); },
   onPrepareClose(callback) {
     if (registered || typeof callback !== 'function') return;

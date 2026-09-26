@@ -5,7 +5,7 @@
 
 import { forwardRef } from 'react';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS, type RailItem } from './ModuleRail';
-import { SearchIcon } from './icons';
+import { SearchIcon, SettingsIcon } from './icons';
 import type { WorkDomain } from '../store/types';
 import styles from './MobileTabs.module.css';
 
@@ -13,12 +13,14 @@ export interface MobileTabsProps {
   activeDomain: WorkDomain | null;
   onSelect(domain: WorkDomain): void;
   onOpenSearch?(): void;
+  onOpenSettings?(): void;
+  isSettingsActive?: boolean;
 }
 
 const ALL_ITEMS: readonly RailItem[] = [...PRIMARY_DOMAINS, ...UTILITY_ITEMS];
 
 export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function MobileTabs(
-  { activeDomain, onSelect, onOpenSearch },
+  { activeDomain, onSelect, onOpenSearch, onOpenSettings, isSettingsActive },
   ref
 ) {
   return (
@@ -56,6 +58,17 @@ export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function Mobi
           </button>
         );
       })}
+      <button
+        type="button"
+        className={styles.mobileTab}
+        aria-label="设置"
+        aria-current={isSettingsActive ? 'page' : undefined}
+        onClick={onOpenSettings}
+        disabled={!onOpenSettings}
+      >
+        <span className={styles.mobileIcon}><SettingsIcon size={19} /></span>
+        <span className={styles.mobileLabel}>设置</span>
+      </button>
       <button
         type="button"
         className={styles.mobileTab}

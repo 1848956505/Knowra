@@ -59,6 +59,15 @@ body {
   }
 }
 
+:root[data-reduce-motion='true'] *,
+:root[data-reduce-motion='true'] *::before,
+:root[data-reduce-motion='true'] *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
 /* 移动端最小心智目标：所有 button / role=button 至少 36×36，移动端 44×44。 */
 @media (max-width: 767px) {
   :where(button, [role="button"]) {

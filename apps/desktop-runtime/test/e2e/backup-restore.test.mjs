@@ -27,7 +27,7 @@ test('真实页面：备份选择、完整性检查、确认恢复、重新加�
   await expect(page.getByText('还没有本机备份。先创建一个备份，再从这里检查和恢复。')).toBeVisible();
   await page.getByRole('button', { name: '创建本机备份', exact: true }).click();
   await expect(page.getByText(/备份已保存：/)).toBeVisible();
-  const backupId = await page.getByRole('combobox', { name: '选择备份' }).inputValue();
+  const backupId = await page.getByRole('button', { name: /选择备份/ }).textContent();
   assert(backupId);
   const update = await page.request.patch(`${runtime.origin}/api/knowledge/notes/${note.id}`, { data: { rawMarkdown: '稍后的正文', expectedUpdatedAt: note.updatedAt } });
   assert.equal(update.status(), 200);
@@ -36,7 +36,7 @@ test('真实页面：备份选择、完整性检查、确认恢复、重新加�
   await expect(page.getByText(/另保留 1 份恢复草稿/)).toBeVisible();
   const restore = page.getByRole('button', { name: '确认恢复所选备份' });
   await expect(restore).toBeDisabled();
-  await page.getByRole('checkbox', { name: '我确认使用所选备份恢复整个本机资料库' }).check();
+  await page.getByRole('checkbox', { name: '我确认使用所选备份恢复整个本机资料库' }).locator('xpath=ancestor::label').click();
   await expect(restore).toBeEnabled();
   await page.screenshot({ path: '/tmp/knowra-backup-restore-qa.png' });
   await restore.click();
@@ -61,8 +61,9 @@ test('真实页面：备份选择、完整性检查、确认恢复、重新加�
   assert.equal(runtime.store.getStatus().datasetId, datasetId);
   await page.getByRole('button', { name: '连接云端', exact: true }).click();
   await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
-  await expect(page.getByRole('combobox', { name: '选择备份' })).toBeVisible();
-  assert.match(await page.getByRole('combobox', { name: '选择备份' }).textContent(), /恢复前保护/);
+  await expect(page.getByRole('button', { name: /选择备份/ })).toBeVisible();
+  await page.getByRole('button', { name: /选择备份/ }).click();
+  await expect(page.getByRole('option', { name: /恢复前保护/ })).toBeVisible();
   const contentAfterRestart = await page.evaluate(async noteId => (await (await fetch(`/api/knowledge/notes/${noteId}`)).json()).data.rawMarkdown, note.id);
   assert.equal(contentAfterRestart, '备份中的正文');
 });

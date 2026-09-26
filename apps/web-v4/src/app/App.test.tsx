@@ -188,9 +188,52 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     const training = within(rail).getByRole('button', { name: /试题/ });
     expect(training).toBeEnabled();
     expect(within(rail).getByRole('button', { name: /知识/ })).toBeEnabled();
-    expect(within(rail).getByRole('button', { name: '设置（尚未上线）' })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: '设置' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '通知（尚未上线）' })).toBeDisabled();
     expect(within(rail).getByRole('button', { name: /执行/ })).toBeDisabled();
+  });
+
+  it('opens settings and applies local preferences', async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => { storage.set(key, value); },
+      removeItem: (key: string) => { storage.delete(key); }
+    });
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({ api, cacheKey: 'settings-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    const navigate = vi.fn();
+    const view = render(
+      <RouterProvider location={{ pathname: '/', navigate }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+    fireEvent.click(within(screen.getByRole('navigation', { name: '工作域导航' })).getByRole('button', { name: '设置' }));
+    expect(navigate).toHaveBeenCalledWith('/settings');
+    view.unmount();
+
+    render(
+      <RouterProvider location={{ pathname: '/settings', navigate }}>
+        <AppProviders store={store}><App /></AppProviders>
+      </RouterProvider>
+    );
+    expect(screen.getByRole('heading', { name: '设置' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '设置分类' })).toBeInTheDocument();
+    expect(screen.queryByText('个人偏好')).not.toBeInTheDocument();
+    expect(screen.queryByText('分类 / CATEGORIES')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '全部设置' })).not.toBeInTheDocument();
+    expect(screen.getByText('显示 4 / 4 项设置')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '大（19 像素）' }));
+    expect(document.documentElement.style.getPropertyValue('--note-font-size')).toBe('19px');
+    fireEvent.click(screen.getByRole('checkbox', { name: '减少界面动效' }));
+    expect(document.documentElement.dataset.reduceMotion).toBe('true');
+    expect(JSON.parse(localStorage.getItem('knowra:preferences:v1') ?? '{}')).toEqual({ noteFontSize: 19, reduceMotion: true });
+    fireEvent.click(screen.getByRole('checkbox', { name: '显示笔记目录栏' }));
+    expect(localStorage.getItem('knowra:notes-sidebar-open')).toBe('false');
+    fireEvent.click(within(screen.getByRole('navigation', { name: '设置分类' })).getByRole('button', { name: /辅助体验/ }));
+    expect(screen.queryByRole('heading', { name: '笔记正文字号' })).not.toBeInTheDocument();
+    expect(screen.getByText('显示 1 / 4 项设置')).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('renders the training workspace for its route', async () => {

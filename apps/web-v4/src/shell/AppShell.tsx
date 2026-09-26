@@ -23,6 +23,7 @@ export interface AppShellProps {
   onOpenCreate?(): void;
   onOpenNotifications?(): void;
   onOpenSettings?(): void;
+  isSettingsActive?: boolean;
   /** 打开组件展台（/showcase）。仅传入时，Rail 才会渲染该入口。 */
   onOpenShowcase?(): void;
   /** /showcase 路由激活态：仅用于 Rail 上组件库按钮的 aria-current。 */
@@ -36,6 +37,7 @@ export interface AppShellProps {
     saveState?: 'idle' | 'saving' | 'saved' | 'error';
     saveError?: string | null;
     dataMode: 'api' | 'cache' | 'local' | 'loading';
+    showDataMode?: boolean;
     persistenceMode?: 'remote' | 'desktop-local';
     dataModeNote?: ReactNode;
     panels?: StatusPanel[];
@@ -62,6 +64,7 @@ export function AppShell({
   onOpenCreate,
   onOpenNotifications,
   onOpenSettings,
+  isSettingsActive,
   onOpenShowcase,
   isShowcaseActive,
   statusbar,
@@ -90,6 +93,7 @@ export function AppShell({
         onOpenCreate={onOpenCreate}
         onOpenNotifications={onOpenNotifications}
         onOpenSettings={onOpenSettings}
+        isSettingsActive={isSettingsActive}
         onOpenShowcase={onOpenShowcase}
         isShowcaseActive={isShowcaseActive}
       /> : null}
@@ -115,6 +119,7 @@ export function AppShell({
         saveState={statusbar.saveState}
         saveError={statusbar.saveError}
         dataMode={statusbar.dataMode}
+        showDataMode={statusbar.showDataMode}
         persistenceMode={statusbar.persistenceMode}
         dataModeNote={statusbar.dataModeNote}
         panels={statusbar.panels}
@@ -125,6 +130,8 @@ export function AppShell({
           activeDomain={activeDomain}
           onSelect={onSelectDomain}
           onOpenSearch={onOpenSearch}
+          onOpenSettings={onOpenSettings}
+          isSettingsActive={isSettingsActive}
         />
       ) : null}
 

@@ -13,6 +13,7 @@ export function registerDesktopSave(save: (mode?: DesktopCloseMode) => Promise<v
   return () => { participants.delete(save); };
 }
 interface DesktopBridge {
+  modelSettings?(action: 'status' | 'save' | 'remove' | 'check', value?: { modelId: string; apiKey: string }): Promise<import('../features/settings/modelSettings').ModelSettingsStatus>;
   readRecoveryDrafts?(): Record<string, unknown>;
   writeRecoveryDraft?(key: string, draft: unknown): Promise<void>;
   onPrepareClose(callback: (mode?: DesktopCloseMode) => Promise<void>): void;

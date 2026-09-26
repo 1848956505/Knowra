@@ -29,6 +29,7 @@ export interface StatusBarProps {
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
   saveError?: string | null;
   dataMode: WorkspaceDataMode;
+  showDataMode?: boolean;
   persistenceMode?: 'remote' | 'desktop-local';
   /** 真实数据 / 缓存 / 本地恢复 之外的额外业务描述（如"重试"动作）。 */
   dataModeNote?: ReactNode;
@@ -36,7 +37,7 @@ export interface StatusBarProps {
 }
 
 export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function StatusBar(
-  { path, charCount, savedAt, saveState, saveError, dataMode, persistenceMode, dataModeNote, panels = [] },
+  { path, charCount, savedAt, saveState, saveError, dataMode, showDataMode = true, persistenceMode, dataModeNote, panels = [] },
   ref
 ) {
   const modeMeta = persistenceMode === 'desktop-local' && dataMode === 'api'
@@ -71,11 +72,11 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
 
       <span className={styles.spacer} />
 
-      <span className={styles.item} aria-label={`数据模式：${modeMeta.label}`}>
+      {showDataMode ? <span className={styles.item} aria-label={`数据模式：${modeMeta.label}`}>
         <span className={cx(styles.square, modeMeta.squareClass)} aria-hidden="true" />
         <span>{modeMeta.label}</span>
         {dataModeNote ? <span className={styles.note}>{dataModeNote}</span> : null}
-      </span>
+      </span> : null}
 
       {panels.length > 0 ? (
         <span className={styles.switches} aria-label="面板开关">

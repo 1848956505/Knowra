@@ -6,6 +6,7 @@ import { handleStorageRoute } from './http/storage-routes.js';
 import { handleKnowledgeRoute } from './modules/knowledge/http/knowledge-routes.js';
 import { AppError } from './errors/app-error.js';
 import { handleSyncRoute } from './modules/sync/routes.js';
+import { handleModelSettingsRoute } from './modules/ai/model-settings-routes.js';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
@@ -44,6 +45,8 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       }
 
       if (await handleSyncRoute({ request, response, url, sync: appContext.http.sync })) return;
+
+      if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
 
       if (await handleKnowledgeRoute({ request, response, url, knowledge })) {
         return;

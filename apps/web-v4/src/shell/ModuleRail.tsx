@@ -80,6 +80,7 @@ export interface ModuleRailProps {
   onOpenCreate?(): void;
   onOpenNotifications?(): void;
   onOpenSettings?(): void;
+  isSettingsActive?: boolean;
   /** 打开组件展台（/showcase）。组件库是开发工具，不属于 WorkDomain。 */
   onOpenShowcase?(): void;
   /** 当前是否在 /showcase 路由——只有为 true 时组件库按钮才显示选中态。 */
@@ -95,6 +96,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
     onOpenCreate,
     onOpenNotifications,
     onOpenSettings,
+    isSettingsActive,
     onOpenShowcase,
     isShowcaseActive
   },
@@ -153,6 +155,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
           type="button"
           className={styles.railItem}
           onClick={onOpenSettings}
+          aria-current={isSettingsActive ? 'page' : undefined}
           aria-label={onOpenSettings ? '设置' : '设置（尚未上线）'}
           title={onOpenSettings ? '设置' : '设置：尚未上线'}
           disabled={!onOpenSettings}

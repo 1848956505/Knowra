@@ -29,6 +29,8 @@ import { createKnowledgeBaseSnapshotService } from './modules/knowledge/applicat
 import { createNoteDeletionCoordinator } from './modules/knowledge/application/note-deletion-coordinator.js';
 import { createStorageConfig } from './config/storage.config.js';
 import { createLocalSyncService } from './modules/sync/local-provider.js';
+import { createModelSettingsService } from './modules/ai/model-settings.js';
+import { createAiRuntime } from './modules/ai/runtime.js';
 import {
   assertSpacesOwnedBy,
   resolveSingleOwnerId
@@ -200,7 +202,10 @@ export function createPersistentAppContext({
     });
   }
   const dataStore = createFileDataStore(dataFilePath);
-  return createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
+  const context = createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
+  context.http.modelSettings = createModelSettingsService();
+  context.ai = createAiRuntime({ modelSettings: context.http.modelSettings });
+  return context;
 }
 
 export function resolveStoragePath(targetPath, storageRootDir = workspaceRoot) {

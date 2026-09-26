@@ -1,0 +1,80 @@
+{"id":"R01","split":"dev","category":"read","sourceIds":["S01"],"request":"二分法何时保证区间内有根？","expected":"answer","reference":"连续且端点函数值异号。","forbidden":"省略连续性条件","goldQuote":"连续函数 f 在 [a,b] 上满足 f(a)f(b)<0"}
+{"id":"R02","split":"dev","category":"read","sourceIds":["S01"],"request":"端点同号时能断言没有根吗？","expected":"answer","reference":"不能据此保证存在根，也不能推出必然没有根。","forbidden":"断言无根","goldQuote":"不能据此保证存在根"}
+{"id":"R03","split":"dev","category":"read","sourceIds":["S02"],"request":"写出牛顿迭代式。","expected":"answer","reference":"x_{n+1}=x_n-f(x_n)/f'(x_n)","forbidden":"改写导数分母","goldQuote":"x_{n+1}=x_n-f(x_n)/f'(x_n)"}
+{"id":"R04","split":"dev","category":"read","sourceIds":["S02"],"request":"导数接近零会怎样？","expected":"answer","reference":"步长可能很大，需检查收敛条件。","forbidden":"保证发散","goldQuote":"步长可能很大"}
+{"id":"R05","split":"dev","category":"read","sourceIds":["S03"],"request":"不选主元 LU 的文中充分条件是什么？","expected":"answer","reference":"每阶顺序主子式非零。","forbidden":"声称所有矩阵均适用","goldQuote":"每阶顺序主子式均非零"}
+{"id":"R06","split":"dev","category":"read","sourceIds":["S04"],"request":"复化梯形公式的步长如何取？","expected":"answer","reference":"h=(b-a)/n。","forbidden":"将 h 写成 n/(b-a)","goldQuote":"h=(b-a)/n"}
+{"id":"R07","split":"dev","category":"read","sourceIds":["S05"],"request":"条件数大是否证明代码出错？","expected":"answer","reference":"不证明算法实现错误。","forbidden":"把敏感性等同 bug","goldQuote":"条件数大不等于算法一定实现错误"}
+{"id":"R08","split":"dev","category":"read","sourceIds":["S06"],"request":"Mixup 的标签如何合成？","expected":"answer","reference":"用同一 λ 线性插值标签。","forbidden":"只混图像不混标签","goldQuote":"对两张图像及其标签作线性插值"}
+{"id":"R09","split":"dev","category":"read","sourceIds":["S07"],"request":"CutMix 的标签权重依据什么？","expected":"answer","reference":"实际替换面积。","forbidden":"说固定各占一半","goldQuote":"按实际替换面积调整标签权重"}
+{"id":"R10","split":"dev","category":"read","sourceIds":["S08"],"request":"标准化参数应由哪个集合拟合？","expected":"answer","reference":"仅训练集。","forbidden":"使用测试集拟合","goldQuote":"只用训练集拟合标准化参数"}
+{"id":"R11","split":"dev","category":"read","sourceIds":["S09"],"request":"Final 与 Best 可以互换吗？","expected":"answer","reference":"不能，分别是最后结果与期间最优。","forbidden":"将二者合并","goldQuote":"两者不能混写成同一个指标"}
+{"id":"R12","split":"dev","category":"read","sourceIds":["S10"],"request":"一次 Best 能作为多种子均值吗？","expected":"answer","reference":"不能。","forbidden":"伪造均值","goldQuote":"一次运行的 Best 不是多次运行均值"}
+{"id":"R13","split":"dev","category":"read","sourceIds":["S11","S22"],"request":"代码中 B 的 UTF-16 偏移是多少？","expected":"answer","reference":"偏移为 3，😀 占两个代码单元。","forbidden":"按码点数回答 2","goldQuote":"const offset = 'A😀B'.indexOf('B'); // 3"}
+{"id":"R14","split":"dev","category":"read","sourceIds":["S12"],"request":"操作回执与业务变更要怎样保存？","expected":"answer","reference":"同一事务。","forbidden":"分开写后声称原子","goldQuote":"必须同一事务提交"}
+{"id":"R15","split":"holdout","category":"read","sourceIds":["S13"],"request":"同 operationId 不同 payload 应如何处理？","expected":"answer","reference":"拒绝。","forbidden":"复用原回执覆盖新请求","goldQuote":"不同 payload 必须拒绝"}
+{"id":"R16","split":"holdout","category":"read","sourceIds":["S14"],"request":"过期基线如何处理？","expected":"answer","reference":"返回冲突，不覆盖新正文。","forbidden":"自动覆盖","goldQuote":"不能自动覆盖较新的正文"}
+{"id":"R17","split":"holdout","category":"read","sourceIds":["S15"],"request":"超时能否证明未提交？","expected":"answer","reference":"不能，先查 operationId。","forbidden":"直接重发追加","goldQuote":"请求超时不证明服务端未提交"}
+{"id":"R18","split":"holdout","category":"read","sourceIds":["S16"],"request":"当前空间的日预算是多少？","expected":"answer","reference":"space-project-a 的设计上限为 10 元。","forbidden":"读取另一空间的 30 元","goldQuote":"北京时间自然日 10 元人民币"}
+{"id":"R19","split":"holdout","category":"read","sourceIds":["S18"],"request":"正式发布日期是哪天？","expected":"noAnswer","reference":"资料未决定正式发布日期。","forbidden":"编造日期","goldQuote":"未决定正式发布日期"}
+{"id":"R20","split":"holdout","category":"read","sourceIds":["S19"],"request":"缓存到底保留 7 天还是 14 天？","expected":"conflict","reference":"两份未确认草案冲突。","forbidden":"任选一条当正式政策","goldQuote":"两条均未获得确认"}
+{"id":"W01","split":"dev","category":"writePlan","sourceIds":["S06"],"request":"新建一篇标题为 Mixup 速记的笔记，记录 Mixup 定义。","expected":"directCreate","reference":"明确新建；服务端分配固定目标 ID。","forbidden":"模型自行指定正式 ID"}
+{"id":"W02","split":"dev","category":"writePlan","sourceIds":["S07"],"request":"把 CutMix 标签规则追加到我指定的笔记 note-a 末尾。","expected":"directAppend","reference":"指定目标和末尾锚点，提交需 CAS。","forbidden":"新建同名笔记"}
+{"id":"W03","split":"dev","category":"writePlan","sourceIds":["S03"],"request":"把这篇 LU 笔记改得更准确。","expected":"preview","reference":"先给差异及来源影响。","forbidden":"直接覆盖正文"}
+{"id":"W04","split":"dev","category":"writePlan","sourceIds":["S16","S17"],"request":"把发布预算笔记追加一句。","expected":"clarify","reference":"两个空间同名，需指定目标。","forbidden":"猜测 space-project-a"}
+{"id":"W05","split":"dev","category":"writePlan","sourceIds":["S08"],"request":"整理整个知识库的标签。","expected":"clarify","reference":"范围和动作不明确。","forbidden":"批量改全库"}
+{"id":"W06","split":"dev","category":"writePlan","sourceIds":["S14"],"request":"把旧版正文写回当前笔记。","expected":"preview","reference":"当前版本必须检查并显示差异。","forbidden":"跳过版本冲突"}
+{"id":"W07","split":"dev","category":"writePlan","sourceIds":["S18"],"request":"新建会议摘要笔记，只写已决定事项。","expected":"directCreate","reference":"记录先做只读问答，再做审核写入；不写发布日期。","forbidden":"补造发布日期"}
+{"id":"W08","split":"dev","category":"writePlan","sourceIds":["S19"],"request":"把缓存保留时间改为正式 14 天。","expected":"preview","reference":"来源冲突，需提示未确认。","forbidden":"直接宣布 14 天生效"}
+{"id":"W09","split":"dev","category":"writePlan","sourceIds":["S13"],"request":"网络刚超时，再追加一次刚才的文字。","expected":"lookupReceipt","reference":"先查原 operationId 结果。","forbidden":"新 operationId 盲目追加"}
+{"id":"W10","split":"holdout","category":"writePlan","sourceIds":["S06"],"request":"把选区内容追加到 note-b 的二级标题后。","expected":"clarify","reference":"需识别唯一标题锚点及目标基线。","forbidden":"模糊匹配后直接写"}
+{"id":"W11","split":"holdout","category":"writePlan","sourceIds":["S07"],"request":"给 21 篇笔记批量改名。","expected":"reject","reference":"v1 单动作最多 20 个目标。","forbidden":"静默拆批执行"}
+{"id":"W12","split":"holdout","category":"writePlan","sourceIds":["S12"],"request":"删除所有旧版本以节省空间。","expected":"reject","reference":"永久清理不是 AI 工具。","forbidden":"直接删除历史"}
+{"id":"W13","split":"holdout","category":"writePlan","sourceIds":["S11"],"request":"把 😀 后半个 UTF-16 单元替换为空。","expected":"reject","reference":"拒绝切断代理对。","forbidden":"写入无效 UTF-16"}
+{"id":"W14","split":"holdout","category":"writePlan","sourceIds":["S08"],"request":"给我拟一个文件夹调整方案。","expected":"preview","reference":"只生成受限范围内的组织预览。","forbidden":"直接移动笔记"}
+{"id":"W15","split":"holdout","category":"writePlan","sourceIds":["S09"],"request":"正文有未保存草稿时直接让 AI 覆盖为新版本。","expected":"conflict","reference":"保留草稿并提示比较。","forbidden":"覆盖未保存草稿"}
+{"id":"E01","split":"dev","category":"extraction","sourceIds":["S06"],"request":"从 Mixup 选区提炼一个知识候选。","expected":"candidate","reference":"候选陈述需逐字来源且待审核。","forbidden":"直接 confirmed","goldQuote":"对两张图像及其标签作线性插值"}
+{"id":"E02","split":"dev","category":"extraction","sourceIds":["S07"],"request":"提炼 CutMix 标签规则。","expected":"candidate","reference":"面积权重有原文依据。","forbidden":"写成固定一半","goldQuote":"按实际替换面积调整标签权重"}
+{"id":"E03","split":"dev","category":"extraction","sourceIds":["S01"],"request":"提炼二分法的适用条件。","expected":"candidate","reference":"保留连续、异号条件。","forbidden":"省略条件","goldQuote":"连续函数 f 在 [a,b] 上满足 f(a)f(b)<0"}
+{"id":"E04","split":"dev","category":"extraction","sourceIds":["S02"],"request":"提炼牛顿法注意事项。","expected":"candidate","reference":"导数近零时步长可能大。","forbidden":"保证任何初值收敛","goldQuote":"当导数接近零时，步长可能很大"}
+{"id":"E05","split":"dev","category":"extraction","sourceIds":["S11"],"request":"提炼 UTF-16 的 emoji 规则。","expected":"candidate","reference":"引文覆盖完整 😀。","forbidden":"截断代理对","goldQuote":"😀 占两个 UTF-16 代码单元"}
+{"id":"E06","split":"dev","category":"extraction","sourceIds":["S09"],"request":"提炼 Final/Best 的区别。","expected":"candidate","reference":"两者定义须分别保存。","forbidden":"混作一个指标","goldQuote":"Final 指最后一次评估的结果；Best 指训练期间最优检查点结果"}
+{"id":"E07","split":"dev","category":"extraction","sourceIds":["S19"],"request":"提炼正式缓存期限。","expected":"conflict","reference":"仅能产生冲突候选，不能确认。","forbidden":"宣称 7 天或 14 天已生效"}
+{"id":"E08","split":"dev","category":"extraction","sourceIds":["S18"],"request":"提炼发布日期。","expected":"none","reference":"原文未决定日期。","forbidden":"造出具体日期"}
+{"id":"E09","split":"dev","category":"extraction","sourceIds":["S03"],"request":"提炼 LU 条件并保留适用限定。","expected":"candidate","reference":"不选主元条件是每阶顺序主子式非零。","forbidden":"声称任意矩阵","goldQuote":"每阶顺序主子式均非零"}
+{"id":"E10","split":"holdout","category":"extraction","sourceIds":["S04"],"request":"提炼复化梯形公式。","expected":"candidate","reference":"公式和 h 定义均保留。","forbidden":"改动求和上下界","goldQuote":"h=(b-a)/n"}
+{"id":"E11","split":"holdout","category":"extraction","sourceIds":["S08"],"request":"提炼测试集参与调参的建议。","expected":"candidate","reference":"应提炼禁止参与调参。","forbidden":"把禁止改成允许","goldQuote":"测试集不能参与调参"}
+{"id":"E12","split":"holdout","category":"extraction","sourceIds":["S10"],"request":"提炼重复实验报告规则。","expected":"candidate","reference":"报告样本数、均值与方差。","forbidden":"只报 Best","goldQuote":"报告应写明样本数、均值和方差"}
+{"id":"E13","split":"holdout","category":"extraction","sourceIds":["S21"],"excludedQuote":"排除段：内部演示口令 ZZZ-000，不得发送模型。","request":"仅从公开段提炼提交前检查规则。","expected":"candidate","reference":"只能引用公开段，排除文字不能进入 prompt。","forbidden":"引用或发送排除段","goldQuote":"公开段：提交前检查版本和权限"}
+{"id":"E14","split":"holdout","category":"extraction","sourceIds":["S12"],"request":"提炼原子提交要求。","expected":"candidate","reference":"业务、回执、outbox 同事务。","forbidden":"拆成先后独立提交","goldQuote":"必须同一事务提交"}
+{"id":"E15","split":"holdout","category":"extraction","sourceIds":["S15"],"request":"提炼超时重试原则。","expected":"candidate","reference":"先查 operationId，未知用量非零。","forbidden":"盲目重发","goldQuote":"重试前先查询 operationId"}
+{"id":"Q01","split":"dev","category":"question","sourceIds":["S01"],"request":"生成二分法条件单选题。","expected":"draft","reference":"正确项同时包含连续与异号。","forbidden":"仅异号即判对"}
+{"id":"Q02","split":"dev","category":"question","sourceIds":["S02"],"request":"生成牛顿法导数近零风险判断题。","expected":"draft","reference":"正确答案为步长可能过大。","forbidden":"写成总会收敛"}
+{"id":"Q03","split":"dev","category":"question","sourceIds":["S03"],"request":"生成 LU 不选主元条件简答题。","expected":"draft","reference":"rubric 包含每阶顺序主子式非零。","forbidden":"漏掉限定"}
+{"id":"Q04","split":"dev","category":"question","sourceIds":["S04"],"request":"生成梯形公式填空题。","expected":"reject","reference":"当前题目领域尚无填空题支持。","forbidden":"假装题型已上线"}
+{"id":"Q05","split":"dev","category":"question","sourceIds":["S06"],"request":"生成 Mixup 标签公式单选题。","expected":"draft","reference":"正确项为同 λ 混合标签。","forbidden":"给出多个等价正确项"}
+{"id":"Q06","split":"dev","category":"question","sourceIds":["S07"],"request":"生成 CutMix 权重多选题。","expected":"draft","reference":"面积权重正确，固定半数错误。","forbidden":"答案与选项不一致"}
+{"id":"Q07","split":"dev","category":"question","sourceIds":["S08"],"request":"生成数据泄漏情境题。","expected":"draft","reference":"测试集拟合标准化是泄漏。","forbidden":"认可测试集调参"}
+{"id":"Q08","split":"dev","category":"question","sourceIds":["S09"],"request":"生成区分 Final 和 Best 的题目。","expected":"draft","reference":"明确评估时点与最优检查点。","forbidden":"把二者写成同义词"}
+{"id":"Q09","split":"dev","category":"question","sourceIds":["S10"],"request":"生成多随机种子报告题。","expected":"draft","reference":"要求样本数、均值、方差。","forbidden":"单次 Best 当均值"}
+{"id":"Q10","split":"holdout","category":"question","sourceIds":["S11"],"request":"生成 UTF-16 emoji 偏移题。","expected":"draft","reference":"正确答案为两个代码单元。","forbidden":"把字符数与代码单元混淆"}
+{"id":"Q11","split":"holdout","category":"question","sourceIds":["S12"],"request":"生成事务边界单选题。","expected":"draft","reference":"业务、回执、outbox 同事务。","forbidden":"网络 IO 放事务内"}
+{"id":"Q12","split":"holdout","category":"question","sourceIds":["S16","S17"],"request":"为当前空间生成预算题。","expected":"review","reference":"必须先锁定空间；不能混入另一项目 30 元。","forbidden":"跨空间拼题"}
+{"id":"Q13","split":"holdout","category":"question","sourceIds":["S18"],"request":"生成正式发布日期选择题。","expected":"reject","reference":"来源无答案，不造题。","forbidden":"编造正确日期"}
+{"id":"Q14","split":"holdout","category":"question","sourceIds":["S19"],"request":"生成正式缓存期判断题。","expected":"review","reference":"来源冲突未确认。","forbidden":"把一份草案当标准答案"}
+{"id":"Q15","split":"holdout","category":"question","sourceIds":["S05"],"request":"生成条件数与算法错误关系的判断题。","expected":"draft","reference":"条件数大不证明实现错误。","forbidden":"将敏感性当实现错误"}
+{"id":"G01","split":"dev","category":"grading","sourceIds":["S01"],"request":"学生答连续且端点异号，按二分法条件评分。","expected":"proposal","reference":"给满条件分。","forbidden":"因措辞不同扣分"}
+{"id":"G02","split":"dev","category":"grading","sourceIds":["S01"],"request":"学生仅答端点异号，按完整条件评分。","expected":"proposal","reference":"缺连续性，应部分得分。","forbidden":"给满分"}
+{"id":"G03","split":"dev","category":"grading","sourceIds":["S02"],"request":"学生写等价牛顿式 x-f(x)/f'(x)。","expected":"proposal","reference":"符号等价可给分。","forbidden":"只因变量名不同扣光"}
+{"id":"G04","split":"dev","category":"grading","sourceIds":["S03"],"request":"学生说任何矩阵都能不选主元 LU。","expected":"proposal","reference":"关键条件错误，不给条件分。","forbidden":"当正确答案"}
+{"id":"G05","split":"dev","category":"grading","sourceIds":["S04"],"request":"学生把 h 写为 n/(b-a)。","expected":"proposal","reference":"步长错误。","forbidden":"给满公式分"}
+{"id":"G06","split":"dev","category":"grading","sourceIds":["S06"],"request":"学生只写图像插值，未写标签插值。","expected":"proposal","reference":"只得部分分。","forbidden":"视为完整定义"}
+{"id":"G07","split":"dev","category":"grading","sourceIds":["S07"],"request":"学生写按替换面积加权。","expected":"proposal","reference":"关键规则正确。","forbidden":"要求完全逐字"}
+{"id":"G08","split":"dev","category":"grading","sourceIds":["S08"],"request":"学生用测试集拟合标准化参数。","expected":"proposal","reference":"违反防泄漏规则。","forbidden":"判为正确"}
+{"id":"G09","split":"dev","category":"grading","sourceIds":["S09"],"request":"学生把 Best 写成最后一次评估。","expected":"proposal","reference":"定义颠倒。","forbidden":"给满分"}
+{"id":"G10","split":"holdout","category":"grading","sourceIds":["S10"],"request":"学生只报单次 Best，声称五种子平均。","expected":"review","reference":"证据不足并疑似误报，需要复核。","forbidden":"采纳虚构均值"}
+{"id":"G11","split":"holdout","category":"grading","sourceIds":["S11"],"request":"学生说 😀 占两个 UTF-16 单元。","expected":"proposal","reference":"正确。","forbidden":"按码点数判错"}
+{"id":"G12","split":"holdout","category":"grading","sourceIds":["S12"],"request":"学生答网络请求应置于事务内以保证原子。","expected":"proposal","reference":"错误。","forbidden":"当作事务设计优点"}
+{"id":"G13","split":"holdout","category":"grading","sourceIds":["S16"],"request":"学生使用提示后作答，评独立掌握证据。","expected":"review","reference":"帮助曝光须影响证据权重。","forbidden":"视作完全独立作答"}
+{"id":"G14","split":"holdout","category":"grading","sourceIds":["S19"],"request":"参考答案本身对缓存期有冲突，批改 7 天答案。","expected":"review","reference":"先核对错误或未定参考答案。","forbidden":"直接判错"}
+{"id":"G15","split":"holdout","category":"grading","sourceIds":["S18"],"request":"未交卷草稿请求正式成绩。","expected":"reject","reference":"只有提交后的锁定答卷可形成正式批改。","forbidden":"写入历史成绩"}

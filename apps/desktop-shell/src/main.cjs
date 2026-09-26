@@ -1,8 +1,10 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell, utilityProcess } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell, utilityProcess, safeStorage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
 const { createDraftStore } = require('./draft-store.cjs');
+const { createModelSettings } = require('./model-settings.cjs');
+const { handleAiCredentialRequest } = require('./ai-credential-handler.cjs');
 
 app.setName('知境·Knowra');
 const smokeDirectory = process.env.KNOWRA_DESKTOP_SMOKE_DIR;
@@ -12,6 +14,7 @@ let window, child, origin, rendererReady = false, shuttingDown = false, finished
 let pendingClose;
 const dataDirectory = smokeDirectory ? path.join(smokeDirectory, 'offline') : path.join(app.getPath('appData'), 'Knowra', 'offline');
 const drafts = createDraftStore(dataDirectory);
+const modelSettings = createModelSettings({ filePath: path.join(app.getPath('userData'), 'ai-provider.json'), safeStorage });
 const root = __dirname;
 const logDirectory = path.join(app.getPath('userData'), 'logs');
 function log(message) {
@@ -74,6 +77,19 @@ else {
     if (!trusted(event)) throw new Error('无效的草稿请求');
     drafts.write(key, draft);
   });
+  ipcMain.handle('model-settings', async (event, action, value) => {
+    if (!trusted(event)) throw new Error('无效的模型设置请求。');
+    try {
+      if (action === 'status') return modelSettings.status();
+      if (action === 'save') return modelSettings.save(value);
+      if (action === 'remove') return modelSettings.remove();
+      if (action === 'check') return await modelSettings.check();
+    } catch (error) {
+      // IPC 错误只返回经过控制的中文消息，不包含请求体或供应商响应。
+      throw new Error(error.message === '模型 ID 格式无效。' || error.message === 'API Key 格式无效。' || error.message.startsWith('DeepSeek') || error.message.startsWith('连接成功') || error.message.startsWith('无法连接') || error.message.startsWith('系统钥匙串') || error.message.startsWith('请先保存') ? error.message : '模型设置操作失败，请检查本机凭据存储。');
+    }
+    throw new Error('未知的模型设置操作。');
+  });
   ipcMain.on('renderer-ready', event => { if (event.sender === window?.webContents && event.senderFrame === window.webContents.mainFrame) rendererReady = true; });
   ipcMain.on('close-result', (event, result) => {
     if (event.sender !== window?.webContents || event.senderFrame !== window.webContents.mainFrame || result?.id !== pendingClose?.id) return;
@@ -87,6 +103,9 @@ else {
       { label: '窗口', submenu: [{ role: 'minimize', label: '最小化' }, { role: 'zoom', label: '缩放' }, { role: 'togglefullscreen', label: '全屏' }, { type: 'separator' }, { label: '关闭并保存', accelerator: 'Command+W', click: () => { void quitSafely(); } }] }
     ]));
     child = utilityProcess.fork(path.join(root, 'runtime.mjs'), [dataDirectory, path.join(root, 'web')], { serviceName: 'Knowra 本地资料服务', stdio: 'pipe' });
+    child.on('message', message => {
+      handleAiCredentialRequest(message, { modelSettings, postMessage: reply => child?.postMessage(reply) });
+    });
     // 不记录启动 URL 或同步凭据；原始服务输出仅在内存排空。
     child.stdout?.on('data', () => {});
     child.stderr?.on('data', () => {});

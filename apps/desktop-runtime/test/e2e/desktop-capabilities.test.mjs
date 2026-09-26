@@ -35,8 +35,8 @@ test('桌面真实页面提前说明永久删除限制，并可预览分析范�
   await page.getByRole('button', { name: '分析整篇', exact: true }).click();
   const preview = page.getByRole('dialog', { name: '确认分析范围' });
   await expect(preview).toContainText('要预览的范围正文');
-  await expect(preview).toContainText('范围快照暂不支持离线同步');
-  await expect(preview.getByRole('button', { name: '保存范围快照' })).toBeDisabled();
+  await expect(preview).toContainText('提炼服务暂不可用；仍可保存不可变范围快照');
+  await expect(preview.getByRole('button', { name: '保存范围快照' })).toBeEnabled();
   assert.equal(runtime.store.state.analysisScopeSnapshots.length, 0);
   assert.deepEqual(errors, []);
   if (process.env.KNOWRA_E2E_OUTPUT) {

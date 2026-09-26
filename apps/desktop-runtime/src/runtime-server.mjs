@@ -11,7 +11,7 @@ import { runtimeSessionScript } from './runtime-session-script.mjs';
 import { permitsLocalRoute, sendRuntimeError } from './runtime-policy.mjs';
 import { parseBody } from '../../api/src/http/request.js';
 
-export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {} } = {}) {
+export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null } = {}) {
   if (!path.isAbsolute(dataDirectory ?? '')) throw new Error('本地数据目录必须是绝对路径。');
   if (!fs.existsSync(path.join(distRoot, 'index.html'))) throw new Error('缺少前端构建，请先运行 npm run build:web。');
   const release = lockDataDirectory(dataDirectory);
@@ -21,7 +21,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let handleApi;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions }));
+    ({ store, sync, handleApi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
     const secret = randomBytes(32).toString('hex');
     const cookieName = `knowra_local_${randomBytes(8).toString('hex')}`;
     let origin;
@@ -81,7 +81,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                 let replacement;
                 try {
                   const protectionDirectory = createRuntimeBackup(store, activeDirectory, { backupRoot: dataDirectory, purpose: 'before-restore', recoveryDrafts: input.recoveryDrafts });
-                  replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions });
+                  replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions, credentialSource });
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
                   const previousStore = store;
@@ -93,7 +93,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions }));
+                  ({ store, sync, handleApi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
                   throw failure;
                 }
               } finally { restoring = false; }

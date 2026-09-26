@@ -1,0 +1,33 @@
+.scope { color: var(--ink-secondary); font: 750 11px/1 var(--font-mono); white-space: nowrap; }
+.body { display: grid; grid-template-columns: 210px minmax(0, 1fr); overflow: hidden; padding: 0; }
+.categoryNav { min-height: 0; display: flex; flex-direction: column; gap: 4px; overflow: auto; padding: 22px 12px; border-right: 1px solid var(--ink-panel); background: var(--ink-bg); }
+.details { min-width: 0; min-height: 0; overflow: auto; padding: 30px clamp(22px, 4vw, 58px) 46px; }
+.group { max-width: 880px; margin-bottom: 28px; }
+.group h3 { margin: 0 0 12px; color: var(--ink); font-size: 14px; line-height: 1.5; }
+.settingList { border: 1px solid var(--ink-shell); background: var(--ink-surface); box-shadow: var(--shadow-1); }
+.settingRow { min-height: 98px; display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 18px 20px; }
+.settingRow + .settingRow { border-top: 1px solid var(--ink-panel); }
+.settingCopy { min-width: 0; }
+.settingCopy h4 { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.5; }
+.settingCopy p { margin: 5px 0 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.6; }
+.settingControl { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.settingControl > span { color: var(--ink-secondary); font: 750 11px/1.4 var(--font-mono); white-space: nowrap; }
+.settingCheckbox { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+.modelContent { padding: 20px; }
+.modelFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.modelState { margin: 20px 0 12px; color: var(--ink-secondary); font: 750 11px/1.5 var(--font-mono); }
+.modelActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.modelNotice, .modelError, .modelHint { margin: 14px 0 0; font-size: 12px; line-height: 1.6; }
+.modelNotice { color: var(--ink); }
+.modelError { color: #a32929; }
+.modelHint { color: var(--ink-secondary); }
+@media (max-width: 767px) {
+  .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .categoryNav { flex-direction: row; gap: 2px; overflow-x: auto; overflow-y: hidden; padding: 8px; border-right: 0; border-bottom: 1px solid var(--ink-panel); }
+  .categoryButton { width: auto; min-height: 44px; flex: 0 0 auto; gap: 10px; white-space: nowrap; }
+  .details { padding: 22px 16px 36px; }
+  .settingRow { flex-wrap: wrap; gap: 12px; padding: 16px; }
+  .settingControl { width: 100%; justify-content: space-between; }
+  .modelContent { padding: 16px; }
+  .modelFields { grid-template-columns: minmax(0, 1fr); }
+}

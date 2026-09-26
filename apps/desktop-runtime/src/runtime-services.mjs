@@ -4,15 +4,17 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
 import { createSyncEngine } from './sync-engine.mjs';
+import { createAiRuntime } from '../../api/src/modules/ai/runtime.js';
 
 /** 每次切换资料库都重建应用服务，避免 repository 留存旧 SQLite/内存引用。 */
-export function createRuntimeServices({ dataDirectory, logger = console, syncOptions = {} }) {
+export function createRuntimeServices({ dataDirectory, logger = console, syncOptions = {}, credentialSource = null }) {
     const store = createSqliteDataStore(path.join(dataDirectory, 'local.sqlite'));
     try {
     const context = createAppContext({
       dataStore: store, storageRootDir: dataDirectory,
       uploadsDir: path.join(dataDirectory, 'uploads'), ownerId: 'demo'
     });
+    if (credentialSource) context.ai = createAiRuntime({ modelSettings: credentialSource });
     // 复用业务规则，但本地更新时间不能在同一毫秒内重复。
     const noteService = context.modules.knowledge.noteService;
     const updateNote = noteService.updateNote.bind(noteService);

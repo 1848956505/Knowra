@@ -46,6 +46,8 @@ import { phase3AssessmentTests } from './phase3-assessment.test.js';
 import { phase31WorkspaceQueryTests } from './phase31-workspace-query.test.js';
 import { batch3ConsistencyTests } from './batch3-consistency.test.js';
 import { batch5OperationAccessTests } from './batch5-operation-access.test.js';
+import { modelSettingsTests } from './model-settings.test.js';
+import { aiGatewayTests } from './ai-gateway.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -92,6 +94,8 @@ const tests = [
   ...phase31WorkspaceQueryTests,
   ...batch3ConsistencyTests,
   ...batch5OperationAccessTests,
+  ...modelSettingsTests,
+  ...aiGatewayTests,
 ];
 
 let failed = 0;
