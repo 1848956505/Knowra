@@ -451,3 +451,181 @@ model KnowledgeEvidence {
   @@index([noteVersionId, status])
   @@index([annotationId, status])
 }
+
+// AI-01-03 private runtime tables; CHECK constraints remain in the SQL migration.
+model ai_actions {
+  action_id           String    @id
+  job_id              String
+  grant_id            String
+  owner_id            String
+  dataset_id          String
+  dataset_epoch       String
+  space_id            String
+  operation_id        String
+  action_kind         String
+  target_ids_json     String
+  baseline_hash       String
+  plan_hash           String
+  plan_schema_version Int
+  plan_json           String
+  approval_ref        String?
+  status              String
+  receipt_hash        String?
+  receipt_json        String?
+  created_at          String
+  updated_at          String
+  ai_grants           ai_grants @relation(fields: [grant_id], references: [grant_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_jobs             ai_jobs   @relation(fields: [job_id], references: [job_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([owner_id, dataset_id, operation_id])
+  @@index([job_id, status], map: "ai_actions_job")
+}
+
+model ai_context_manifests {
+  manifest_id        String             @id
+  scope_snapshot_id  String
+  owner_id           String
+  dataset_id         String
+  dataset_epoch      String
+  space_id           String
+  manifest_hash      String
+  payload_hash       String
+  manifest_json      String
+  created_at         String
+  ai_scope_snapshots ai_scope_snapshots @relation(fields: [scope_snapshot_id], references: [scope_snapshot_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_jobs            ai_jobs[]
+
+  @@index([scope_snapshot_id], map: "ai_context_manifests_scope")
+}
+
+model ai_grants {
+  grant_id           String             @id
+  actor_id           String
+  entrypoint         String
+  owner_id           String
+  dataset_id         String
+  dataset_epoch      String
+  space_id           String
+  scope_snapshot_id  String
+  scope_hash         String
+  allowed_tools_json String
+  action_kinds_json  String
+  max_targets        Int
+  issued_at          String
+  expires_at         String
+  revoked_at         String?
+  ai_actions         ai_actions[]
+  ai_scope_snapshots ai_scope_snapshots @relation(fields: [scope_snapshot_id], references: [scope_snapshot_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_jobs            ai_jobs[]
+
+  @@index([owner_id, dataset_id, dataset_epoch, space_id, expires_at], map: "ai_grants_scope")
+}
+
+model ai_job_attempts {
+  attempt_id          String            @id
+  job_id              String
+  ordinal             Int
+  lease_generation    Int
+  lease_owner         String
+  lease_expires_at    String
+  provider_request_id String?
+  delivery_uncertain  Int
+  status              String
+  started_at          String
+  finished_at         String?
+  ai_jobs             ai_jobs           @relation(fields: [job_id], references: [job_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_usage_records    ai_usage_records?
+
+  @@unique([job_id, lease_generation])
+  @@unique([job_id, ordinal])
+  @@index([lease_expires_at, status], map: "ai_attempts_lease")
+}
+
+model ai_job_events {
+  job_id            String
+  sequence          Int
+  event_kind        String
+  safe_payload_json String
+  created_at        String
+  ai_jobs           ai_jobs @relation(fields: [job_id], references: [job_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([job_id, sequence])
+}
+
+model ai_jobs {
+  job_id                String               @id
+  request_id            String               @unique
+  parent_job_id         String?
+  owner_id              String
+  dataset_id            String
+  dataset_epoch         String
+  space_id              String
+  grant_id              String
+  job_kind              String
+  idempotency_key       String
+  input_hash            String
+  manifest_id           String
+  manifest_hash         String
+  credential_ref        String
+  provider              String
+  model_id              String
+  prompt_version        String
+  result_schema_version String
+  status                String
+  phase                 String
+  accepted_attempt_id   String?
+  output_hash           String?
+  created_at            String
+  updated_at            String
+  ai_actions            ai_actions[]
+  ai_job_attempts       ai_job_attempts[]
+  ai_job_events         ai_job_events[]
+  ai_grants             ai_grants            @relation(fields: [grant_id], references: [grant_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_context_manifests  ai_context_manifests @relation(fields: [manifest_id], references: [manifest_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_usage_records      ai_usage_records[]
+
+  @@unique([owner_id, dataset_id, space_id, job_kind, idempotency_key])
+  @@index([status, updated_at], map: "ai_jobs_claim")
+  @@index([dataset_id, dataset_epoch, space_id, created_at], map: "ai_jobs_dataset")
+}
+
+model ai_runtime_epochs {
+  owner_id      String @id
+  dataset_id    String
+  dataset_epoch String
+  updated_at    String
+}
+
+model ai_scope_snapshots {
+  scope_snapshot_id    String                 @id
+  owner_id             String
+  dataset_id           String
+  dataset_epoch        String
+  space_id             String
+  scope_hash           String
+  snapshot_json        String
+  created_at           String
+  ai_context_manifests ai_context_manifests[]
+  ai_grants            ai_grants[]
+
+  @@index([dataset_id, dataset_epoch, space_id], map: "ai_scope_snapshots_dataset")
+}
+
+model ai_usage_records {
+  usage_id            String          @id
+  job_id              String
+  attempt_id          String          @unique
+  beijing_day         String
+  currency            String
+  price_version       String
+  input_tokens        Int?
+  output_tokens       Int?
+  reserved_microunits Int
+  actual_microunits   Int?
+  usage_unknown       Int
+  created_at          String
+  ai_job_attempts     ai_job_attempts @relation(fields: [attempt_id], references: [attempt_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_jobs             ai_jobs         @relation(fields: [job_id], references: [job_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([beijing_day, job_id], map: "ai_usage_day")
+}

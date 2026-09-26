@@ -15,7 +15,8 @@ export function createPostgresSnapshotService({
   attachmentStore,
   storageRootDir = process.cwd(),
   ownerId = 'demo',
-  maintenanceGate = null
+  maintenanceGate = null,
+  aiRepository = null
 } = {}) {
   if (!client?.$transaction) throw new TypeError('PostgreSQL snapshot service requires a Prisma client');
   if (!repositories?.noteRepository || !attachmentStore) throw new TypeError('PostgreSQL snapshot service dependencies are incomplete');
@@ -128,6 +129,8 @@ export function createPostgresSnapshotService({
       if (!migration.canApply) {
         throw createAppError('STORAGE_IMPORT_INVALID', 'PostgreSQL import preflight did not pass', 422, { report: migration.report });
       }
+      // 先作废旧 AI 领取权；若后续导入失败，保守失效优于让旧任务继续写入。
+      await aiRepository?.rotateEpoch();
       await applyJsonMigration({
         client,
         plan: migration.plan,

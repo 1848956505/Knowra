@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { createRuntimeBackup, restoreRuntimeBackup } from '../src/backup.mjs';
-import { createNote, openWorkspace, temporaryDirectory } from './helpers.mjs';
+import { createNote, openWorkspace, removeAiTablesForLegacyFixture, temporaryDirectory } from './helpers.mjs';
 
 test('schema 1 升级前备份，保留设备、正文和未确认队列', t => {
   const root = temporaryDirectory(t);
@@ -15,6 +15,7 @@ test('schema 1 升级前备份，保留设备、正文和未确认队列', t => 
   const outbox = workspace.store.readOutbox();
   workspace.store.close();
   const old = new DatabaseSync(path.join(root, 'local.sqlite'));
+  removeAiTablesForLegacyFixture(old);
   old.exec('DROP TABLE sync_uploads; DROP TABLE sync_conflicts; DROP TABLE sync_recovery; PRAGMA user_version = 1;');
   old.close();
   workspace = openWorkspace(root);

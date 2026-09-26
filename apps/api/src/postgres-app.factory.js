@@ -42,6 +42,7 @@ import {
 } from './infrastructure/postgres-advisory-lock.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createAiRuntime } from './modules/ai/runtime.js';
+import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
 
 export async function createPostgresAppContext({
   databaseUrl = process.env.DATABASE_URL,
@@ -123,12 +124,13 @@ export async function createPostgresAppContext({
   });
 
   const modelSettings = createModelSettingsService();
+  const aiRepository = createPostgresAiRepository({ client: runtime.client, ownerId: normalizedOwnerId });
   return {
     driver: 'postgres',
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createAiRuntime({ modelSettings }),
+    ai: createAiRuntime({ modelSettings, repository: aiRepository }),
     repositories,
     http: {
       modelSettings,
@@ -141,7 +143,8 @@ export async function createPostgresAppContext({
         attachmentStore,
         storageRootDir,
         ownerId: normalizedOwnerId,
-        maintenanceGate
+        maintenanceGate,
+        aiRepository
       }),
       knowledge: wrapHandlersWithMaintenanceGate(
         wrapHandlersWithPostgresAdvisoryLock(

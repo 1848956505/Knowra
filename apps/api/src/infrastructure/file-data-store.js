@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
 import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
+import { createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
 import {
   LOCAL_DATA_COLLECTIONS,
   LOCAL_DATA_SCHEMA_VERSION,
@@ -36,13 +38,14 @@ export function createFileDataStore(filePath, {
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = parsePersistedState(raw);
   const state = validatePersistedLocalState(parsed);
+  let aiRuntime = validateAiState(parsed.aiRuntime);
   let committed = cloneLocalState(state);
   let journal = loadJournal(parsed.sync, state);
   let transaction = null;
   if (['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
-    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal });
+    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime });
   }
 
   function flush() {
@@ -63,6 +66,7 @@ export function createFileDataStore(filePath, {
     }
 
     const previousState = cloneLocalState(state);
+    const previousAiRuntime = structuredClone(aiRuntime);
     const previousJournal = structuredClone(journal);
     transaction = { dirty: false };
 
@@ -77,6 +81,7 @@ export function createFileDataStore(filePath, {
       return result;
     } catch (error) {
       replaceState(state, previousState);
+      aiRuntime = previousAiRuntime;
       journal = previousJournal;
       throw error;
     } finally {
@@ -112,7 +117,9 @@ export function createFileDataStore(filePath, {
     for (const [key, tombstone] of Object.entries(journal.tombstones)) {
       journal.revisions[key] = tombstone.revision;
     }
-    try { persistState(validated.data); } catch (error) { journal = previousJournal; throw error; }
+    const previousAiRuntime = aiRuntime;
+    aiRuntime = { ...aiRuntime, datasetEpoch: randomUUID() };
+    try { persistState(validated.data); } catch (error) { journal = previousJournal; aiRuntime = previousAiRuntime; throw error; }
     replaceState(state, validated.data);
     return exportSnapshot();
   }
@@ -124,7 +131,7 @@ export function createFileDataStore(filePath, {
   function persistState(nextState) {
     try {
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
-      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal });
+      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal, aiRuntime: validateAiState(aiRuntime) });
       journal = nextJournal;
       committed = cloneLocalState(nextState);
     } catch (error) {
@@ -138,6 +145,7 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    aiRepository: createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     getSyncJournal: () => journal,
     previewSyncJournal: () => appendChanges(structuredClone(journal), committed, state),
     runSyncTransaction: operation => runTransaction(() => { const result = operation(); flush(); return result; }),

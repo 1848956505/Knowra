@@ -14,7 +14,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       dataStore: store, storageRootDir: dataDirectory,
       uploadsDir: path.join(dataDirectory, 'uploads'), ownerId: 'demo'
     });
-    if (credentialSource) context.ai = createAiRuntime({ modelSettings: credentialSource });
+    if (credentialSource) context.ai = createAiRuntime({ modelSettings: credentialSource, repository: store.aiRepository });
     // 复用业务规则，但本地更新时间不能在同一毫秒内重复。
     const noteService = context.modules.knowledge.noteService;
     const updateNote = noteService.updateNote.bind(noteService);

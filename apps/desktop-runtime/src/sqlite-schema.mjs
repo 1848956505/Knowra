@@ -1,11 +1,14 @@
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { AI_SQLITE_DDL } from './ai-sqlite-schema.mjs';
 
-export const LOCAL_DATABASE_VERSION = 3;
+export const LOCAL_DATABASE_VERSION = 4;
 export const SYNC_PROTOCOL_VERSION = 1;
 
 export function initializeDatabase(db, filePath) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
   if (version === LOCAL_DATABASE_VERSION) return;
+  if (version === 3) return upgradeAiSchema(db, filePath);
   if (version === 2) {
     const backup = `${filePath}.before-v3-${Date.now()}.bak`;
     db.prepare('VACUUM INTO ?').run(backup);
@@ -14,7 +17,7 @@ export function initializeDatabase(db, filePath) {
       INSERT OR REPLACE INTO metadata VALUES ('entitySyncVersion', '2');
       PRAGMA user_version = 3;
       COMMIT;`);
-    return;
+    return initializeDatabase(db, filePath);
   }
   if (version === 1) {
     const backup = `${filePath}.before-v2-${Date.now()}.bak`;
@@ -61,6 +64,24 @@ export function initializeDatabase(db, filePath) {
     `);
     db.exec('COMMIT');
     fs.chmodSync(filePath, 0o600);
+  } catch (error) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw error;
+  }
+  upgradeAiSchema(db, filePath, { backup: false });
+}
+
+function upgradeAiSchema(db, filePath, { backup = true } = {}) {
+  if (backup) {
+    const destination = `${filePath}.before-v4-${Date.now()}.bak`;
+    db.prepare('VACUUM INTO ?').run(destination);
+    fs.chmodSync(destination, 0o600);
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(AI_SQLITE_DDL);
+    db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)').run('aiRuntimeEpoch', randomUUID());
+    db.exec('PRAGMA user_version = 4; COMMIT;');
   } catch (error) {
     if (db.isTransaction) db.exec('ROLLBACK');
     throw error;

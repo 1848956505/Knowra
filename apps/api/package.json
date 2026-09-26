@@ -11,11 +11,13 @@
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema ../../prisma/schema.prisma"
   },
   "dependencies": {
-    "@study-accelerator/content-anchor": "1.0.0",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",
     "@prisma/client": "^6.9.0",
+    "@study-accelerator/content-anchor": "1.0.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "bullmq": "^5.56.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
