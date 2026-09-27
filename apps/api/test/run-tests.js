@@ -55,6 +55,8 @@ import { aiReadContextTests } from './ai-read-context.test.js';
 import { aiAssistantHttpTests } from './ai-assistant-http.test.js';
 import { aiPluginIsolationTests } from './ai-plugin-isolation.test.js';
 import { aiAccessV2Tests } from './ai-access-v2.test.js';
+import { aiConversationV2Tests } from './ai-conversation-v2.test.js';
+import { aiConversationPostgresTests } from './ai-conversation-postgres.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -111,6 +113,8 @@ const tests = [
   ...aiAssistantHttpTests,
   ...aiPluginIsolationTests,
   ...aiAccessV2Tests,
+  ...aiConversationV2Tests,
+  ...aiConversationPostgresTests,
 ];
 
 let failed = 0;

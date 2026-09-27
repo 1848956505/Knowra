@@ -11,6 +11,7 @@ import {
 import { initializeDatabase, SYNC_PROTOCOL_VERSION } from './sqlite-schema.mjs';
 import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
+import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { collectChanges, entityReferences } from './local-change-set.mjs';
 
 export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}) {
@@ -42,14 +43,17 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   const deviceId = readMeta('deviceId');
   let aiRepository = null;
   let aiAccessStore = null;
+  let aiConversationStore = null;
   if (!aiRuntimeError) {
     try {
       aiRepository = createSqliteAiRepository(db);
       aiRepository.list('aiJob');
       validateSqliteAccessRows(db);
       aiAccessStore = createSqliteAiAccessStore(db);
+      aiConversationStore = createSqliteAiConversationStore(db);
+      validateSqliteConversationRows(db);
     }
-    catch (error) { aiRuntimeError = error; aiRepository = null; aiAccessStore = null; }
+    catch (error) { aiRuntimeError = error; aiRepository = null; aiAccessStore = null; aiConversationStore = null; }
   }
 
   function restore(snapshot) {
@@ -156,6 +160,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   return {
     aiRepository,
     aiAccessStore,
+    aiConversationStore,
     aiRuntimeError,
     syncTransaction(operation, { local = false } = {}) {
       if (inTransaction) throw new Error('同步事务不能嵌入本地业务事务。');

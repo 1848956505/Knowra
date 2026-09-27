@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
 import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
-import { createJsonAiAccessStore, createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
+import { createJsonAiAccessStore, createJsonAiConversationStore, createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
 import { createJsonBudgetAuthority } from '../modules/ai/budget-ledger.js';
 import {
   LOCAL_DATA_COLLECTIONS,
@@ -156,6 +156,7 @@ export function createFileDataStore(filePath, {
   return {
     aiRepository: aiRuntimeError ? null : createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiAccessStore: aiRuntimeError ? null : createJsonAiAccessStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),
+    aiConversationStore: aiRuntimeError ? null : createJsonAiConversationStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiBudgetAuthority: aiRuntimeError ? null : createJsonBudgetAuthority({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiRuntimeError,
     getSyncJournal: () => journal,

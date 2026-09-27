@@ -2,12 +2,13 @@ import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { AI_SQLITE_DDL } from './ai-sqlite-schema.mjs';
 
-export const LOCAL_DATABASE_VERSION = 6;
+export const LOCAL_DATABASE_VERSION = 7;
 export const SYNC_PROTOCOL_VERSION = 1;
 
 export function initializeDatabase(db, filePath) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
   if (version === LOCAL_DATABASE_VERSION) return;
+  if (version === 6) return tryAiUpgrade(() => upgradeAiConversationSchema(db, filePath));
   if (version === 5) return tryAiUpgrade(() => upgradeAiAccessSchema(db, filePath));
   if (version === 4) return tryAiUpgrade(() => { upgradeAiAnswerSchema(db, filePath); upgradeAiAccessSchema(db, filePath); });
   if (version === 3) return tryAiUpgrade(() => upgradeAiSchema(db, filePath));
@@ -147,6 +148,30 @@ function upgradeAiAccessSchema(db, filePath, { backup = true } = {}) {
       CREATE INDEX IF NOT EXISTS ai_request_manifests_grant ON ai_request_manifests(grant_id);
       PRAGMA user_version = 6;
     `);
+    db.exec('COMMIT');
+  } catch (error) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw error;
+  }
+  upgradeAiConversationSchema(db, filePath, { backup: false });
+}
+
+function upgradeAiConversationSchema(db, filePath, { backup = true } = {}) {
+  if (backup) {
+    const destination = `${filePath}.before-v7-${Date.now()}.bak`;
+    db.prepare('VACUUM INTO ?').run(destination);
+    fs.chmodSync(destination, 0o600);
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS ai_conversation_records (
+      kind TEXT NOT NULL, record_id TEXT NOT NULL, owner_id TEXT NOT NULL,
+      dataset_id TEXT NOT NULL, dataset_epoch TEXT NOT NULL, space_id TEXT NOT NULL,
+      record_hash TEXT NOT NULL, record_json TEXT NOT NULL,
+      PRIMARY KEY (kind, record_id)
+    );
+    CREATE INDEX IF NOT EXISTS ai_conversation_scope ON ai_conversation_records(owner_id, dataset_id, dataset_epoch, space_id, kind);
+    PRAGMA user_version = 7;`);
     db.exec('COMMIT');
   } catch (error) {
     if (db.isTransaction) db.exec('ROLLBACK');

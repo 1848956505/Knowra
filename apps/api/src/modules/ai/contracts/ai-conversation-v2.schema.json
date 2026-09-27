@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knowra.local/ai-conversation-v2.schema.json",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "time": { "type": "string", "format": "date-time" },
+    "nullableTime": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] },
+    "nullableId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+    "nullableCode": { "oneOf": [{ "type": "string", "pattern": "^AI_[A-Z0-9_]{1,64}$" }, { "type": "null" }] },
+    "boundary": {
+      "type": "object", "properties": {
+        "contractVersion": { "const": 2 }, "ownerId": { "$ref": "#/$defs/id" },
+        "datasetId": { "$ref": "#/$defs/id" }, "datasetEpoch": { "$ref": "#/$defs/id" },
+        "spaceId": { "$ref": "#/$defs/id" }
+      }, "required": ["contractVersion", "ownerId", "datasetId", "datasetEpoch", "spaceId"]
+    },
+    "source": {
+      "type": "object", "properties": {
+        "noteId": { "$ref": "#/$defs/id" }, "noteVersionId": { "$ref": "#/$defs/id" },
+        "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "start": { "type": "integer", "minimum": 0 }, "end": { "type": "integer", "minimum": 1 },
+        "quoteHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }, "required": ["noteId", "noteVersionId", "contentHash", "start", "end", "quoteHash"],
+      "additionalProperties": false
+    },
+    "aiConversation": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiConversation" }, "conversationId": { "$ref": "#/$defs/id" },
+          "actorId": { "$ref": "#/$defs/id" }, "createdAt": { "$ref": "#/$defs/time" },
+          "updatedAt": { "$ref": "#/$defs/time" }, "archivedAt": { "$ref": "#/$defs/nullableTime" }
+        }, "required": ["kind", "conversationId", "actorId", "createdAt", "updatedAt", "archivedAt"]
+      }]
+    },
+    "aiConversationTurn": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiConversationTurn" }, "turnId": { "$ref": "#/$defs/id" },
+          "conversationId": { "$ref": "#/$defs/id" }, "jobId": { "$ref": "#/$defs/id" },
+          "ordinal": { "type": "integer", "minimum": 1 },
+          "idempotencyKey": { "type": "string", "pattern": "^[a-zA-Z0-9-]{8,80}$" },
+          "inputHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "userMessageId": { "$ref": "#/$defs/id" }, "assistantMessageId": { "$ref": "#/$defs/nullableId" },
+          "requestedPolicyId": { "$ref": "#/$defs/nullableId" },
+          "status": { "enum": ["staged", "running", "interrupted", "succeeded", "failed", "cancelled"] },
+          "phase": { "enum": ["waiting", "retrieving", "generating", "validating", "finished"] },
+          "leaseGeneration": { "type": "integer", "minimum": 0 },
+          "leaseExpiresAt": { "$ref": "#/$defs/nullableTime" },
+          "errorCode": { "$ref": "#/$defs/nullableCode" },
+          "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
+        }, "required": ["kind", "turnId", "conversationId", "jobId", "ordinal", "idempotencyKey", "inputHash", "userMessageId", "assistantMessageId", "requestedPolicyId", "status", "phase", "leaseGeneration", "leaseExpiresAt", "errorCode", "createdAt", "updatedAt"]
+      }]
+    },
+    "aiConversationMessage": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiConversationMessage" }, "messageId": { "$ref": "#/$defs/id" },
+          "conversationId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
+          "sequence": { "type": "integer", "minimum": 1 }, "role": { "enum": ["user", "assistant"] },
+          "content": { "type": "string", "minLength": 1, "maxLength": 120000 },
+          "sourceRefs": { "type": "array", "items": { "$ref": "#/$defs/source" }, "maxItems": 128 },
+          "provenanceManifestId": { "$ref": "#/$defs/nullableId" },
+          "sourceFree": { "type": "boolean" },
+          "finishReason": { "oneOf": [{ "enum": ["stop", "tool_calls"] }, { "type": "null" }] },
+          "createdAt": { "$ref": "#/$defs/time" }
+        }, "required": ["kind", "messageId", "conversationId", "turnId", "sequence", "role", "content", "sourceRefs", "provenanceManifestId", "sourceFree", "finishReason", "createdAt"]
+      }]
+    },
+    "aiConversationToolCall": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiConversationToolCall" }, "callId": { "$ref": "#/$defs/id" },
+          "conversationId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
+          "ordinal": { "type": "integer", "minimum": 1 },
+          "toolName": { "enum": ["notes_search", "notes_read"] },
+          "argumentsJson": { "type": "object" }, "resultJson": { "oneOf": [{ "type": "object" }, { "type": "null" }] },
+          "provenanceManifestId": { "$ref": "#/$defs/nullableId" },
+          "status": { "enum": ["requested", "succeeded", "failed"] },
+          "sourceRefs": { "type": "array", "items": { "$ref": "#/$defs/source" }, "maxItems": 128 },
+          "errorCode": { "$ref": "#/$defs/nullableCode" },
+          "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
+        }, "required": ["kind", "callId", "conversationId", "turnId", "ordinal", "toolName", "argumentsJson", "resultJson", "provenanceManifestId", "status", "sourceRefs", "errorCode", "createdAt", "updatedAt"]
+      }]
+    }
+  }
+}

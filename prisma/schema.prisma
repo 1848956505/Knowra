@@ -596,6 +596,20 @@ model ai_runtime_epochs {
   updated_at    String
 }
 
+model ai_conversation_records {
+  kind          String
+  record_id     String
+  owner_id      String
+  dataset_id    String
+  dataset_epoch String
+  space_id      String
+  record_hash   String
+  record_json   String
+
+  @@id([kind, record_id], map: "ai_conversation_records_pkey")
+  @@index([owner_id, dataset_id, dataset_epoch, space_id, kind], map: "ai_conversation_scope")
+}
+
 model ai_access_policies {
   policy_id     String @id
   owner_id      String

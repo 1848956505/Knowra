@@ -11,6 +11,7 @@ import { handleBudgetRoute } from './modules/ai/budget-routes.js';
 import { createAiAssistantService } from './modules/ai/assistant-service.js';
 import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
 import { handleAiAccessRoute } from './modules/ai/access-routes.js';
+import { handleConversationRoute } from './modules/ai/conversation-routes.js';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
@@ -18,7 +19,10 @@ export function createServer({ appContext, cors = {}, logger = console }) {
     ? createAiAssistantService({ getRuntime: () => appContext.ai, ownerId: appContext.aiOwnerId,
       location: appContext.aiLocation ?? 'server', logger }) : null;
   const aiRecovery = appContext.aiLocation === 'local' ? Promise.resolve() : Promise.resolve()
-    .then(() => appContext.ai?.worker?.recover?.())
+    .then(async () => {
+      await appContext.ai?.conversationStore?.recoverInterrupted?.();
+      await appContext.ai?.worker?.recover?.();
+    })
     .catch(error => logger.warn?.('AI task recovery failed', { code: error.code ?? 'AI_RECOVERY_FAILED' }));
 
   return http.createServer(async (request, response) => {
@@ -59,7 +63,9 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
       if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
       if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;
+      if (await handleConversationRoute({ request, response, url, conversation: appContext.ai?.conversation })) return;
       if (url.pathname.startsWith('/api/ai/assistant')) await aiRecovery;
+      if (url.pathname.startsWith('/api/ai/conversations')) await aiRecovery;
       if (await handleAssistantRoute({ request, response, url, assistant })) return;
 
       if (await handleKnowledgeRoute({ request, response, url, knowledge })) {

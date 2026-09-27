@@ -25,6 +25,7 @@ export function createNote(workspace, rawMarkdown = '初始正文') {
 /** 把当前测试库还原成真正没有 AI 私有表的旧版形状，用于迁移回归。 */
 export function removeAiTablesForLegacyFixture(db) {
   db.exec(`PRAGMA foreign_keys = OFF;
+    DROP TABLE ai_conversation_records;
     DROP TABLE ai_request_manifests;
     DROP TABLE ai_run_grants;
     DROP TABLE ai_access_policies;

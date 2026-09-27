@@ -60,6 +60,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       resolveCredential: async () => { throw new Error('请先在 Mac 应用设置中配置模型。'); }
     };
     context.ai = createOptionalAiRuntime({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
+      conversationStore: store.aiConversationStore,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...context.modules.knowledge.repositories,
@@ -68,9 +69,12 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
         unavailableReason: store.aiRuntimeError ? 'AI 私有存储无效，核心资料仍可使用。' : 'AI 功能已关闭。', logger });
     context.aiOwnerId = 'demo';
     context.aiLocation = 'local';
-    const recoverAi = context.ai?.worker?.recover().catch(error => {
+    const recoverAi = Promise.all([
+      context.ai?.conversationStore?.recoverInterrupted?.(),
+      context.ai?.worker?.recover?.()
+    ]).catch(error => {
       logger.warn?.('AI task recovery deferred until cloud budget is available', { code: error.code ?? 'AI_BUDGET_UNAVAILABLE' });
-    }) ?? Promise.resolve();
+    });
     const configureSync = sync.configure.bind(sync);
     sync.configure = async input => {
       const result = await configureSync(input);

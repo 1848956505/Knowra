@@ -6,6 +6,7 @@ import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, createPersistedLocalDocu
 import { LOCAL_DATABASE_VERSION } from './sqlite-schema.mjs';
 import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
+import { validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from '../../api/src/modules/ai/record-contract.js';
 import { copyRecoveryDraftFiles, listArchivedDraftFiles } from './recovery-draft-files.mjs';
 
@@ -125,6 +126,7 @@ export function inspectRuntimeBackup(backupDirectory) {
       for (const kind of Object.keys(AI_RECORD_KINDS)) ai.list(kind).forEach(record => validateAiRecord(kind, record));
       for (const job of ai.list('aiJob')) ai.listEvents(job.jobId).forEach(validateAiEvent);
       if (version >= 6) validateSqliteAccessRows(db);
+      if (version >= 7) validateSqliteConversationRows(db);
     }
     const state = createEmptyLocalState();
     for (const row of db.prepare('SELECT collection, payload FROM entities').all()) {

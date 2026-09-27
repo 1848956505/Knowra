@@ -51,7 +51,8 @@ export const aiAccessV2Tests = [
     insertAiRecords(store.aiRepository, old);
     const persisted = JSON.parse(fs.readFileSync(file, 'utf8'));
     persisted.aiRuntime = { ...persisted.aiRuntime, version: 1 };
-    for (const key of ['accessPolicies', 'runGrants', 'requestManifests']) delete persisted.aiRuntime[key];
+    for (const key of ['accessPolicies', 'runGrants', 'requestManifests',
+      'conversations', 'conversationTurns', 'conversationMessages', 'conversationToolCalls']) delete persisted.aiRuntime[key];
     fs.writeFileSync(file, JSON.stringify(persisted));
     const upgraded = createFileDataStore(file);
     assert.equal((await upgraded.aiAccessStore.list('aiAccessPolicy')).length, 0);

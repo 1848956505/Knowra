@@ -3,10 +3,12 @@ import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from './record-con
 import { createAiRecordRepository } from './record-repository.js';
 import { validateBudgetState } from './budget-ledger.js';
 import { ACCESS_KINDS, createJsonAiAccessStore, validateAccessRecord, validateAccessRelationships } from './access-records.js';
+import { CONVERSATION_KINDS, createJsonAiConversationStore, emptyConversationState, validateConversationState } from './conversation-store.js';
 
-export const AI_PRIVATE_STATE_VERSION = 2;
+export const AI_PRIVATE_STATE_VERSION = 3;
 const collections = Object.values(AI_RECORD_KINDS).map(value => value.collection);
 const accessCollections = Object.values(ACCESS_KINDS).map(value => value.collection);
+const conversationCollections = Object.values(CONVERSATION_KINDS).map(value => value.collection);
 
 export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = randomUUID() } = {}) {
   return {
@@ -15,6 +17,7 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
     datasetEpoch,
     ...Object.fromEntries(collections.map(name => [name, []])),
     ...Object.fromEntries(accessCollections.map(name => [name, []])),
+    ...emptyConversationState(),
     events: [], budgetDays: [], budgetReservations: []
   };
 }
@@ -22,10 +25,10 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
 export function validateAiState(input) {
   if (input === undefined) return createEmptyAiState();
   if (!input || typeof input !== 'object' || Array.isArray(input)
-    || ![1, AI_PRIVATE_STATE_VERSION].includes(input.version)
+    || ![1, 2, AI_PRIVATE_STATE_VERSION].includes(input.version)
     || typeof input.datasetId !== 'string' || !input.datasetId
     || typeof input.datasetEpoch !== 'string' || !input.datasetEpoch
-    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', ...collections, ...accessCollections].includes(key))) {
+    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
     throw new Error('AI 私有存储版本或结构无效，已停止加载。');
   }
   const state = structuredClone(input);
@@ -34,6 +37,13 @@ export function validateAiState(input) {
       throw new Error('AI v1 私有状态不能包含 v2 授权记录。');
     }
     for (const collection of accessCollections) state[collection] = [];
+    state.version = 2;
+  }
+  if (state.version === 2) {
+    if (conversationCollections.some(collection => Object.hasOwn(state, collection))) {
+      throw new Error('AI v2 私有状态不能包含 v3 会话记录。');
+    }
+    Object.assign(state, emptyConversationState());
     state.version = AI_PRIVATE_STATE_VERSION;
   }
   for (const [kind, { collection, id }] of Object.entries(AI_RECORD_KINDS)) {
@@ -57,10 +67,11 @@ export function validateAiState(input) {
     }
   }
   validateAccessRelationships(state);
+  validateConversationState(state);
   return validateBudgetState(state);
 }
 
-export { createJsonAiAccessStore };
+export { createJsonAiAccessStore, createJsonAiConversationStore };
 
 export function createJsonAiRepository({ getState, runTransaction, onChange }) {
   const adapter = {
