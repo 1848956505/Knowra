@@ -55,17 +55,17 @@ function validateLinks(storage, kind, record) {
 }
 
 const JOB_TRANSITIONS = {
-  pending: ['running', 'cancelling'],
+  pending: ['running', 'cancelling', 'failed'],
   running: ['succeeded', 'failed', 'cancelling'],
   failed: ['retrying'],
-  retrying: ['running', 'cancelling'],
+  retrying: ['running', 'cancelling', 'failed'],
   cancelling: ['cancelled'],
   cancelled: [],
   succeeded: []
 };
 const MUTABLE_FIELDS = {
   aiGrant: ['revokedAt'],
-  aiJob: ['status', 'phase', 'acceptedAttemptId', 'outputHash', 'updatedAt'],
+  aiJob: ['status', 'phase', 'acceptedAttemptId', 'outputHash', 'resultJson', 'updatedAt'],
   aiJobAttempt: ['status', 'leaseExpiresAt', 'providerRequestId', 'deliveryUncertain', 'finishedAt']
 };
 
@@ -132,6 +132,9 @@ export function createAiRecordRepository(storage) {
           if (Date.parse(record.updatedAt) <= Date.parse(previous.updatedAt)) reject('AI_RECORD_INVALID', '任务更新时间必须递增。');
           if (previous.acceptedAttemptId && record.acceptedAttemptId !== previous.acceptedAttemptId) {
             reject('AI_RECORD_INVALID', '已接纳的任务尝试不可更换。');
+          }
+          if (previous.resultJson && hashRecord(record.resultJson) !== hashRecord(previous.resultJson)) {
+            reject('AI_RECORD_IMMUTABLE', '已保存的任务结果不可更改。');
           }
           if (record.acceptedAttemptId) {
             const attempt = storage.get('aiJobAttempt', record.acceptedAttemptId);

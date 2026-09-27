@@ -23,7 +23,9 @@ export interface AppShellProps {
   onOpenCreate?(): void;
   onOpenNotifications?(): void;
   onOpenSettings?(): void;
+  onOpenAssistant?(): void;
   isSettingsActive?: boolean;
+  isAssistantActive?: boolean;
   /** 打开组件展台（/showcase）。仅传入时，Rail 才会渲染该入口。 */
   onOpenShowcase?(): void;
   /** /showcase 路由激活态：仅用于 Rail 上组件库按钮的 aria-current。 */
@@ -64,7 +66,9 @@ export function AppShell({
   onOpenCreate,
   onOpenNotifications,
   onOpenSettings,
+  onOpenAssistant,
   isSettingsActive,
+  isAssistantActive,
   onOpenShowcase,
   isShowcaseActive,
   statusbar,
@@ -93,7 +97,9 @@ export function AppShell({
         onOpenCreate={onOpenCreate}
         onOpenNotifications={onOpenNotifications}
         onOpenSettings={onOpenSettings}
+        onOpenAssistant={onOpenAssistant}
         isSettingsActive={isSettingsActive}
+        isAssistantActive={isAssistantActive}
         onOpenShowcase={onOpenShowcase}
         isShowcaseActive={isShowcaseActive}
       /> : null}
@@ -131,7 +137,9 @@ export function AppShell({
           onSelect={onSelectDomain}
           onOpenSearch={onOpenSearch}
           onOpenSettings={onOpenSettings}
+          onOpenAssistant={onOpenAssistant}
           isSettingsActive={isSettingsActive}
+          isAssistantActive={isAssistantActive}
         />
       ) : null}
 

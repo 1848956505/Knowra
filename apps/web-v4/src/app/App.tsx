@@ -74,7 +74,7 @@ export function App() {
     applyAppPreferences(preferences);
   }, [preferences]);
 
-  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/materials') || location.pathname.startsWith('/knowledge') || location.pathname.startsWith('/training');
+  const shouldLoadWorkspace = location.pathname === '/' || location.pathname.startsWith('/assistant') || location.pathname.startsWith('/materials') || location.pathname.startsWith('/knowledge') || location.pathname.startsWith('/training');
   // 仅在 / 路由（非 /showcase）触发 workspace 加载。
   useEffect(() => {
     if (!shouldLoadWorkspace) return;
@@ -83,7 +83,7 @@ export function App() {
 
   // URL 是工作域真源：支持可分享链接、前进后退和未上线模块的真实门禁页。
   useEffect(() => {
-    if (location.pathname.startsWith('/showcase') || location.pathname === '/settings') return;
+    if (location.pathname.startsWith('/showcase') || location.pathname === '/settings' || location.pathname.startsWith('/assistant')) return;
     const segment = location.pathname.split('?')[0].replace(/^\//, '').split('/')[0];
     const routeDomain: WorkDomain = !segment || segment === 'materials'
       ? 'materials'
@@ -170,6 +170,7 @@ export function App() {
   const routePathname = location.pathname.split('?')[0];
   const isShowcaseActive = routePathname.startsWith('/showcase');
   const isSettingsActive = routePathname === '/settings';
+  const isAssistantActive = routePathname === '/assistant';
   const isHome = routePathname === '/';
   const isNotesIndex = routePathname === '/materials';
   const isTagManager = routePathname === '/materials/tags';
@@ -181,10 +182,10 @@ export function App() {
   // 主页（/）不属于任何工作域的子页面：左轨不应高亮任何模块入口；
   // 笔记索引页（/materials）才是"资料"工作域的着陆页。
   const activeDomain: WorkDomain | null =
-    isShowcaseActive || isSettingsActive || isHome ? null : routeDomain;
+    isShowcaseActive || isSettingsActive || isAssistantActive || isHome ? null : routeDomain;
 
   // StatusBar 位置路径只描述当前路由 surface，不读取后台 selection。
-  const statusPath = isNotesIndex ? buildIndexPath(indexScope, indexFolderId, indexFolders, navigate) : deriveStatusPath({
+  const statusPath = isAssistantActive ? [{ id: 'assistant', label: 'AI 助手', current: true }] : isNotesIndex ? buildIndexPath(indexScope, indexFolderId, indexFolders, navigate) : deriveStatusPath({
     pathname: location.pathname,
     routeDomain,
     onNavigateHome: () => navigate('/'),
@@ -228,7 +229,7 @@ export function App() {
       contextSidebar={showNotesContextSidebar ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
       ) : undefined}
-      stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
+      stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
       mergeContextSidebarTabs={isNoteEditor}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
@@ -237,18 +238,20 @@ export function App() {
       onOpenCreate={canWrite ? () => setCreateNoteOpen(true) : undefined}
       onOpenShowcase={handleOpenShowcase}
       onOpenSettings={() => { navigate('/settings'); setLiveAnnouncement('已打开设置'); }}
+      onOpenAssistant={() => { navigate(isNoteEditor && editorNoteId ? `/assistant?noteId=${encodeURIComponent(editorNoteId)}` : '/assistant'); setLiveAnnouncement('已打开 AI 助手'); }}
       isSettingsActive={isSettingsActive}
+      isAssistantActive={isAssistantActive}
       isShowcaseActive={isShowcaseActive}
       statusbar={{
         path: statusPath,
-        saveState: isSettingsActive || isShowcaseActive ? 'idle' : editorSaveError ? 'error' : editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
+        saveState: isSettingsActive || isAssistantActive || isShowcaseActive ? 'idle' : editorSaveError ? 'error' : editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
         saveError: editorSaveError ?? saveError,
         persistenceMode,
         savedAt: editorNote?.updatedAt,
         dataMode,
-        showDataMode: !isSettingsActive && !isShowcaseActive,
+        showDataMode: !isSettingsActive && !isAssistantActive && !isShowcaseActive,
         dataModeNote: persistenceMode === 'desktop-local' ? <LocalSyncControl /> : workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
-        panels: isSettingsActive || isShowcaseActive ? [] : [
+        panels: isSettingsActive || isAssistantActive || isShowcaseActive ? [] : [
           {
             id: 'sidebar',
             label: '侧栏',
@@ -295,7 +298,7 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
+      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
         <RecoveryDraftNotice onOpenNote={openNote} />
         <AppRoutes
           pathname={location.pathname}

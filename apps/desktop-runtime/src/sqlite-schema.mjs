@@ -2,12 +2,13 @@ import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { AI_SQLITE_DDL } from './ai-sqlite-schema.mjs';
 
-export const LOCAL_DATABASE_VERSION = 4;
+export const LOCAL_DATABASE_VERSION = 5;
 export const SYNC_PROTOCOL_VERSION = 1;
 
 export function initializeDatabase(db, filePath) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
   if (version === LOCAL_DATABASE_VERSION) return;
+  if (version === 4) return upgradeAiAnswerSchema(db, filePath);
   if (version === 3) return upgradeAiSchema(db, filePath);
   if (version === 2) {
     const backup = `${filePath}.before-v3-${Date.now()}.bak`;
@@ -71,6 +72,24 @@ export function initializeDatabase(db, filePath) {
   upgradeAiSchema(db, filePath, { backup: false });
 }
 
+function upgradeAiAnswerSchema(db, filePath, { backup = true } = {}) {
+  if (backup) {
+    const destination = `${filePath}.before-v5-${Date.now()}.bak`;
+    db.prepare('VACUUM INTO ?').run(destination);
+    fs.chmodSync(destination, 0o600);
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const columns = new Set(db.prepare('PRAGMA table_info(ai_jobs)').all().map(column => column.name));
+    if (!columns.has('question')) db.exec('ALTER TABLE ai_jobs ADD COLUMN question TEXT');
+    if (!columns.has('result_json')) db.exec('ALTER TABLE ai_jobs ADD COLUMN result_json TEXT');
+    db.exec('PRAGMA user_version = 5; COMMIT;');
+  } catch (error) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 function upgradeAiSchema(db, filePath, { backup = true } = {}) {
   if (backup) {
     const destination = `${filePath}.before-v4-${Date.now()}.bak`;
@@ -86,4 +105,5 @@ function upgradeAiSchema(db, filePath, { backup = true } = {}) {
     if (db.isTransaction) db.exec('ROLLBACK');
     throw error;
   }
+  upgradeAiAnswerSchema(db, filePath, { backup: false });
 }

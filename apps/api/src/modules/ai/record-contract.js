@@ -65,6 +65,8 @@ export function validateAiRecord(kind, input) {
   if (kind === 'aiGrant' && Date.parse(record.expiresAt) <= Date.parse(record.issuedAt)) {
     invalid('授权有效期无效。');
   }
+  if (kind === 'aiJob' && record.resultJson && (record.status !== 'succeeded'
+    || record.outputHash !== hashRecord(record.resultJson))) invalid('任务结果与状态或哈希不一致。');
   if (kind === 'aiUsageRecord' && record.usageUnknown && record.actualMicrounits !== null) {
     invalid('未知用量不能写成已知实际费用。');
   }

@@ -18,7 +18,8 @@ export const AI_SQL_DEFINITIONS = {
     table: 'ai_jobs', id: 'job_id',
     fields: ['jobId', 'requestId', 'parentJobId', 'ownerId', 'datasetId', 'datasetEpoch', 'spaceId', 'grantId', 'jobKind',
       'idempotencyKey', 'inputHash', 'manifestId', 'manifestHash', 'credentialRef', 'provider', 'modelId',
-      'promptVersion', 'resultSchemaVersion', 'status', 'phase', 'acceptedAttemptId', 'outputHash', 'createdAt', 'updatedAt']
+      'promptVersion', 'resultSchemaVersion', 'status', 'phase', 'acceptedAttemptId', 'outputHash', 'createdAt', 'updatedAt',
+      'question', 'resultJson']
   },
   aiJobAttempt: {
     table: 'ai_job_attempts', id: 'attempt_id',
@@ -33,15 +34,15 @@ export const AI_SQL_DEFINITIONS = {
 };
 
 const sqlName = field => field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-const column = field => ({ allowedTools: 'allowed_tools_json', actionKinds: 'action_kinds_json' })[field] ?? sqlName(field);
-const jsonFields = new Set(['allowedTools', 'actionKinds']);
+const column = field => ({ allowedTools: 'allowed_tools_json', actionKinds: 'action_kinds_json', resultJson: 'result_json' })[field] ?? sqlName(field);
+const jsonFields = new Set(['allowedTools', 'actionKinds', 'resultJson']);
 const booleanFields = new Set(['deliveryUncertain', 'usageUnknown']);
 
 export function encodeAiRow(kind, record) {
   const definition = AI_SQL_DEFINITIONS[kind];
   const row = Object.fromEntries(definition.fields.map(field => [
-    column(field), jsonFields.has(field) ? JSON.stringify(record[field])
-      : booleanFields.has(field) ? Number(record[field]) : record[field]
+    column(field), jsonFields.has(field) ? record[field] === undefined ? null : JSON.stringify(record[field])
+      : booleanFields.has(field) ? Number(record[field]) : record[field] ?? null
   ]));
   if (definition.document) row[definition.document] = JSON.stringify(record);
   if (kind === 'contextManifest') row.manifest_hash = manifestHash(record);
@@ -59,12 +60,17 @@ export function decodeAiRow(kind, row) {
     }
     return record;
   }
-  return validateAiRecord(kind, {
+  const decoded = {
     contractVersion: 1,
     kind,
     ...Object.fromEntries(definition.fields.map(field => [
-      field, jsonFields.has(field) ? JSON.parse(row[column(field)])
+      field, jsonFields.has(field) ? row[column(field)] === null ? undefined : JSON.parse(row[column(field)])
         : booleanFields.has(field) ? Boolean(row[column(field)]) : row[column(field)]
     ]))
-  });
+  };
+  if (kind === 'aiJob') {
+    if (decoded.question === null) delete decoded.question;
+    if (decoded.resultJson === undefined) delete decoded.resultJson;
+  }
+  return validateAiRecord(kind, decoded);
 }

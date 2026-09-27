@@ -58,6 +58,8 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       contextSources: { ...context.modules.knowledge.repositories,
         spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } });
+    context.aiOwnerId = 'demo';
+    context.aiLocation = 'local';
     const recoverAi = context.ai?.worker?.recover().catch(error => {
       logger.warn?.('AI task recovery deferred until cloud budget is available', { code: error.code ?? 'AI_BUDGET_UNAVAILABLE' });
     }) ?? Promise.resolve();

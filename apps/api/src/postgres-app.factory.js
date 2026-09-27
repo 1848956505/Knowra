@@ -134,6 +134,8 @@ export async function createPostgresAppContext({
     modules: { knowledge },
     ai: createAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget,
       contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } }),
+    aiOwnerId: normalizedOwnerId,
+    aiLocation: 'server',
     repositories,
     http: {
       modelSettings,

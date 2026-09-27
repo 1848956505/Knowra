@@ -106,6 +106,14 @@
         "phase": { "enum": ["preparing", "retrieving", "generating", "validating", "committing", "finished"] },
         "acceptedAttemptId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
         "outputHash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "question": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "resultJson": { "type": "object", "additionalProperties": false,
+          "required": ["answer", "citations"],
+          "properties": {
+            "answer": { "type": "string", "maxLength": 20000 },
+            "citations": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/sourceRef" } }
+          }
+        },
         "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
       }
     },

@@ -4,12 +4,13 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { aiRecords, insertAiRecords } from '../../api/test/ai-record-fixtures.js';
+import { hashRecord } from '../../api/src/modules/ai/record-contract.js';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { createRuntimeBackup, inspectRuntimeBackup } from '../src/backup.mjs';
 import { prepareRestoredDirectory } from '../src/restore-directory.mjs';
 import { removeAiTablesForLegacyFixture, temporaryDirectory } from './helpers.mjs';
 
-test('SQLite AI v4 私有表持久化任务、授权、尝试、事件和未知用量，不进入业务同步', t => {
+test('SQLite AI 私有表持久化任务、授权、尝试、事件和未知用量，不进入业务同步', t => {
   const root = temporaryDirectory(t);
   const file = path.join(root, 'local.sqlite');
   let store = createSqliteDataStore(file);
@@ -27,6 +28,34 @@ test('SQLite AI v4 私有表持久化任务、授权、尝试、事件和未知�
   assert.deepEqual(store.aiRepository.listEvents(records.job.jobId), [records.event]);
   const backup = createRuntimeBackup(store, root);
   assert.equal(inspectRuntimeBackup(backup).valid, true);
+  store.close();
+});
+
+test('SQLite v4→v5 保留旧任务并持久恢复经确认的回答', t => {
+  const root = temporaryDirectory(t);
+  const file = path.join(root, 'local.sqlite');
+  let store = createSqliteDataStore(file);
+  const records = aiRecords(store.aiRepository.identity());
+  insertAiRecords(store.aiRepository, records);
+  store.close();
+  const old = new DatabaseSync(file);
+  old.exec('ALTER TABLE ai_jobs DROP COLUMN question; ALTER TABLE ai_jobs DROP COLUMN result_json; PRAGMA user_version = 4');
+  old.close();
+  store = createSqliteDataStore(file);
+  assert(fs.readdirSync(root).some(name => name.startsWith('local.sqlite.before-v5-')));
+  assert.equal(store.aiRepository.get('aiJob', records.job.jobId).status, 'pending');
+  const running = { ...store.aiRepository.get('aiJob', records.job.jobId), status: 'running',
+    updatedAt: '2026-09-27T00:00:00.000Z' };
+  store.aiRepository.replace('aiJob', running, hashRecord(records.job));
+  const resultJson = { answer: '合成回答', citations: [] };
+  const finished = { ...running, status: 'succeeded', phase: 'finished',
+    acceptedAttemptId: records.attempt.attemptId, outputHash: hashRecord(resultJson), resultJson,
+    updatedAt: '2026-09-27T00:00:01.000Z' };
+  store.aiRepository.replace('aiJob', finished, hashRecord(running));
+  store.close();
+  store = createSqliteDataStore(file);
+  assert.deepEqual(store.aiRepository.get('aiJob', records.job.jobId).resultJson, resultJson);
+  assert.equal(JSON.stringify(store.exportSnapshot()).includes('合成回答'), false);
   store.close();
 });
 

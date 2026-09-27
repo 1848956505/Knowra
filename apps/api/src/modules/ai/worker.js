@@ -65,6 +65,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     if (['cancelled', 'succeeded', 'failed'].includes(job.status)) return job;
     const next = job.status === 'cancelling' ? job : await replace('aiJob', job, { status: 'cancelling' });
     controllers.get(jobId)?.abort();
+    if (['pending', 'retrying'].includes(job.status)) return replace('aiJob', next, { status: 'cancelled', phase: 'finished' });
     return next;
   }
   async function recover() {
@@ -73,6 +74,9 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     let changed = 0;
     for (const job of jobs) {
       if (job.datasetId !== identity.datasetId || job.datasetEpoch !== identity.datasetEpoch) continue;
+      if (['pending', 'retrying'].includes(job.status)) {
+        await replace('aiJob', job, { status: 'failed', phase: 'finished' }); changed++; continue;
+      }
       if (!['running', 'cancelling'].includes(job.status)) continue;
       const attempts = (await repository.list('aiJobAttempt', { jobId: job.jobId })).sort((a, b) => b.ordinal - a.ordinal);
       const active = attempts[0];
@@ -143,7 +147,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
         || Date.parse(currentAttempt.leaseExpiresAt) <= now().getTime() || controller.signal.aborted) {
         fail('AI_LATE_RESULT', '任务已取消或租约失效，迟到响应已丢弃。');
       }
-      if (validateResult) await validateResult(currentJob, result);
+      const acceptedResult = validateResult ? await validateResult(currentJob, result) : null;
       const usage = result.usage;
       const actual = usage?.unknown ? null : Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
         + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000);
@@ -158,7 +162,8 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       attempt = await replace('aiJobAttempt', currentAttempt, { status: 'validated', providerRequestId: result.requestId ?? null,
         finishedAt: now().toISOString() });
       await replace('aiJob', currentJob, { status: 'succeeded', phase: 'finished', acceptedAttemptId: attempt.attemptId,
-        outputHash: hashRecord(result.content ?? '') });
+        outputHash: hashRecord(acceptedResult ?? result.content ?? ''),
+        ...(acceptedResult ? { resultJson: acceptedResult } : {}) });
       return result;
     } catch (error) {
       if (reserved) await Promise.resolve().then(() => budget.settle({ accountRef, attemptId: attempt.attemptId,

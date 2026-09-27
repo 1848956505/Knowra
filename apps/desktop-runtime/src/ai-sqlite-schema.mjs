@@ -68,6 +68,8 @@ CREATE TABLE ai_jobs (
   phase TEXT NOT NULL,
   accepted_attempt_id TEXT,
   output_hash TEXT,
+  question TEXT,
+  result_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(owner_id, dataset_id, space_id, job_kind, idempotency_key)

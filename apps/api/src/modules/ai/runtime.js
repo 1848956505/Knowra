@@ -16,6 +16,7 @@ export function createAiRuntime({ modelSettings, repository = null, budgetAuthor
   });
   const readContext = repository && contextSources ? createAiReadContextService({ repository, ...contextSources }) : null;
   return {
+    generationAvailable: () => Boolean(allowExternal && priceProfile?.version && Date.parse(priceProfile.expiresAt) > Date.now()),
     repository,
     budgetAuthority,
     gateway,

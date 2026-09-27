@@ -210,6 +210,8 @@ export function createPersistentAppContext({
       ...context.modules.knowledge.repositories, ownerId: resolveOwnerId(ownerId, dataStore.state.spaces),
       spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository
     } });
+  context.aiOwnerId = resolveOwnerId(ownerId, dataStore.state.spaces);
+  context.aiLocation = 'server';
   return context;
 }
 

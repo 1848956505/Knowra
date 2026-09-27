@@ -64,7 +64,7 @@ export const aiBudgetWorkerTests = [
         } },
         fetchImpl: async () => {
           calls++;
-          assert(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits > 0);
+          assert(store.aiBudgetAuthority.status('deepseek-primary', beijingDay(new Date())).heldMicrounits > 0);
           return new Response(JSON.stringify({ id: 'synthetic-response', model: 'deepseek-flash',
             usage: { prompt_tokens: 2, completion_tokens: 2 },
             choices: [{ finish_reason: 'stop', message: { content: '合成成功' } }] }), { status: 200 });

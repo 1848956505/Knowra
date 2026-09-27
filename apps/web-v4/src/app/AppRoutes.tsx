@@ -23,6 +23,7 @@ import { TrainingWorkspaceView } from '../features/training/TrainingWorkspaceVie
 import { CreateKnowledgeCandidateDialog } from '../features/knowledge/CreateKnowledgeCandidateDialog';
 import { workspaceCapabilities } from '../store/workspaceCapabilities';
 import { SettingsView } from '../features/settings/SettingsView';
+import { AssistantView } from '../features/assistant/AssistantView';
 import type { AppPreferences } from '../features/settings/preferences';
 
 const ComponentShowcase = lazy(async () => {
@@ -75,6 +76,7 @@ export function AppRoutes(props: AppRoutesProps) {
     sidebarOpen={props.sidebarOpen}
     onSidebarOpenChange={props.onSidebarOpenChange}
   />;
+  if (routePath === '/assistant') return <AssistantView pathname={props.pathname} onOpenNote={props.onOpenNote} />;
   if (props.routeDomain === 'knowledge') return <KnowledgeStage pathname={props.pathname} onOpenNote={props.onOpenNote} />;
   if (props.routeDomain === 'training') return <TrainingWorkspaceView />;
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;
