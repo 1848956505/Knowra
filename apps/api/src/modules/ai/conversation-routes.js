@@ -37,12 +37,15 @@ export async function handleConversationRoute({ request, response, url, conversa
       if (parts.length === 4 && parts[1] === 'turns' && parts[3] === 'cancel') {
         sendJson(response, 200, { data: await conversation.cancel(parts[0], parts[2]) }); return true;
       }
+      if (parts.length === 4 && parts[1] === 'turns' && parts[3] === 'retry') {
+        sendJson(response, 202, { data: await conversation.retry(parts[0], parts[2]) }); return true;
+      }
     }
   } catch (error) {
     if (error instanceof AppError) throw error;
     if (error.code?.startsWith('AI_')) {
       const status = ['AI_CONVERSATION_NOT_FOUND', 'AI_TURN_NOT_FOUND', 'AI_JOB_NOT_FOUND'].includes(error.code) ? 404
-        : ['AI_IDEMPOTENCY_CONFLICT', 'AI_TURN_ACTIVE', 'AI_DATASET_STALE'].includes(error.code) ? 409
+        : ['AI_IDEMPOTENCY_CONFLICT', 'AI_TURN_ACTIVE', 'AI_TURN_CONFLICT', 'AI_DATASET_STALE'].includes(error.code) ? 409
           : error.code === 'AI_SCOPE_FORBIDDEN' ? 403 : 422;
       throw createAppError(error.code, error.message, status);
     }

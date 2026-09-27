@@ -71,6 +71,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     context.aiLocation = 'local';
     const recoverAi = Promise.all([
       context.ai?.conversationStore?.recoverInterrupted?.(),
+      context.ai?.agent?.recover?.(),
       context.ai?.worker?.recover?.()
     ]).catch(error => {
       logger.warn?.('AI task recovery deferred until cloud budget is available', { code: error.code ?? 'AI_BUDGET_UNAVAILABLE' });
@@ -81,10 +82,15 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       await context.ai?.worker?.recover?.().catch(error => {
         logger.warn?.('AI task recovery deferred', { code: error.code ?? 'AI_RECOVERY_FAILED' });
       });
+      await context.ai?.agent?.recover?.().catch(error => {
+        logger.warn?.('AI agent recovery deferred', { code: error.code ?? 'AI_RECOVERY_FAILED' });
+      });
       return result;
     };
     const apiServer = createServer({ appContext: context, logger });
     const handleApi = apiServer.listeners('request')[0];
-    return { store, sync, handleApi, recoverAi, closeAi: () => context.ai?.worker?.close?.() ?? Promise.resolve() };
+    return { store, sync, handleApi, recoverAi, closeAi: () => Promise.all([
+      context.ai?.agent?.close?.(), context.ai?.worker?.close?.()
+    ]) };
     } catch (error) { store.close(); throw error; }
 }

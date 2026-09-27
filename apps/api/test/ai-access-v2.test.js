@@ -53,6 +53,7 @@ export const aiAccessV2Tests = [
     persisted.aiRuntime = { ...persisted.aiRuntime, version: 1 };
     for (const key of ['accessPolicies', 'runGrants', 'requestManifests',
       'conversations', 'conversationTurns', 'conversationMessages', 'conversationToolCalls']) delete persisted.aiRuntime[key];
+    delete persisted.aiRuntime.conversationModelAttempts;
     fs.writeFileSync(file, JSON.stringify(persisted));
     const upgraded = createFileDataStore(file);
     assert.equal((await upgraded.aiAccessStore.list('aiAccessPolicy')).length, 0);

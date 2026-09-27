@@ -8,7 +8,8 @@ export const CONVERSATION_KINDS = Object.freeze({
   aiConversation: { collection: 'conversations', id: 'conversationId' },
   aiConversationTurn: { collection: 'conversationTurns', id: 'turnId' },
   aiConversationMessage: { collection: 'conversationMessages', id: 'messageId' },
-  aiConversationToolCall: { collection: 'conversationToolCalls', id: 'callId' }
+  aiConversationToolCall: { collection: 'conversationToolCalls', id: 'callId' },
+  aiConversationModelAttempt: { collection: 'conversationModelAttempts', id: 'attemptId' }
 });
 const collections = Object.values(CONVERSATION_KINDS).map(item => item.collection);
 const ajv = new Ajv2020({ strict: false, allErrors: true });
@@ -41,10 +42,16 @@ export function validateConversationRecord(kind, record) {
     conversationError('AI_RECORD_INVALID', '消息来源区间无效。');
   }
   if (kind === 'aiConversationMessage' && (record.role === 'user'
-    ? record.sourceRefs.length || !record.sourceFree || record.provenanceManifestId || record.finishReason
+    ? record.sourceRefs.length || record.citations?.length || !record.sourceFree || record.provenanceManifestId || record.finishReason
     : record.finishReason !== 'stop' || record.sourceFree === Boolean(record.sourceRefs.length)
       || !record.sourceFree && !record.provenanceManifestId)) {
     conversationError('AI_RECORD_INVALID', '消息角色、终止状态或来源声明无效。');
+  }
+  if (kind === 'aiConversationMessage' && record.citations?.some(citation =>
+    !record.sourceRefs.some(ref => ref.noteId === citation.noteId
+      && ref.noteVersionId === citation.noteVersionId && ref.contentHash === citation.contentHash
+      && citation.start >= ref.start && citation.end <= ref.end))) {
+    conversationError('AI_RECORD_INVALID', '引用不在消息来源中。');
   }
   if (kind === 'aiConversationToolCall' && (
     record.status === 'requested' && (record.resultJson || record.errorCode || record.sourceRefs.length || record.provenanceManifestId)
@@ -52,6 +59,11 @@ export function validateConversationRecord(kind, record) {
     || record.status === 'failed' && (!record.errorCode || record.resultJson || record.sourceRefs.length || record.provenanceManifestId)
     || record.sourceRefs.some(ref => ref.end <= ref.start)
   )) conversationError('AI_RECORD_INVALID', '工具调用与结果状态不一致。');
+  if (kind === 'aiConversationModelAttempt' && (
+    record.status === 'settled' !== (record.actualMicrounits !== null)
+    || record.actualMicrounits !== null && record.actualMicrounits > record.reservedMicrounits
+    || Boolean(record.manifestId) !== Boolean(record.grantId)
+  )) conversationError('AI_RECORD_INVALID', '模型尝试状态或授权引用无效。');
   return structuredClone(record);
 }
 
@@ -72,6 +84,7 @@ export function validateConversationState(input) {
   const boundary = (a, b) => ['ownerId', 'datasetId', 'datasetEpoch', 'spaceId']
     .every(key => a[key] === b[key]);
   const ordinals = new Set(), sequences = new Set(), callOrdinals = new Set(), keys = new Set();
+  const attemptOrdinals = new Set();
   for (const turn of turns.values()) {
     const conversation = conversations.get(turn.conversationId);
     if (!conversation || !boundary(conversation, turn)) conversationError('AI_REFERENCE_INVALID', '会话任务引用无效。');
@@ -110,6 +123,16 @@ export function validateConversationState(input) {
     if (callOrdinals.has(key)) conversationError('AI_RECORD_DUPLICATE', '工具调用序号重复。');
     callOrdinals.add(key);
   }
+  for (const attempt of state.conversationModelAttempts) {
+    const conversation = conversations.get(attempt.conversationId), turn = turns.get(attempt.turnId);
+    if (!conversation || !turn || turn.conversationId !== attempt.conversationId
+      || !boundary(attempt, conversation) || !boundary(attempt, turn)) {
+      conversationError('AI_REFERENCE_INVALID', '模型尝试引用无效。');
+    }
+    const key = `${attempt.turnId}:${attempt.ordinal}`;
+    if (attemptOrdinals.has(key)) conversationError('AI_RECORD_DUPLICATE', '模型尝试序号重复。');
+    attemptOrdinals.add(key);
+  }
   for (const conversation of conversations.values()) {
     const turnOrdinals = state.conversationTurns.filter(row => row.conversationId === conversation.conversationId)
       .map(row => row.ordinal).sort((a, b) => a - b);
@@ -124,6 +147,9 @@ export function validateConversationState(input) {
     const ordinals = state.conversationToolCalls.filter(row => row.turnId === turn.turnId)
       .map(row => row.ordinal).sort((a, b) => a - b);
     if (ordinals.some((value, index) => value !== index + 1)) conversationError('AI_REFERENCE_INVALID', '工具调用序号不连续。');
+    const attempts = state.conversationModelAttempts.filter(row => row.turnId === turn.turnId)
+      .map(row => row.ordinal).sort((a, b) => a - b);
+    if (attempts.some((value, index) => value !== index + 1)) conversationError('AI_REFERENCE_INVALID', '模型尝试序号不连续。');
   }
   return state;
 }
@@ -155,12 +181,15 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
     },
     async getConversation(id) { return (await read()).conversations.find(row => row.conversationId === id) ?? null; },
     async getTurn(id) { return (await read()).conversationTurns.find(row => row.turnId === id) ?? null; },
-    async listTurns(conversationId) { return (await read()).conversationTurns.filter(row => row.conversationId === conversationId).sort((a,b) => a.ordinal-b.ordinal); },
+    async listTurns(conversationId = null) { return (await read()).conversationTurns
+      .filter(row => conversationId === null || row.conversationId === conversationId).sort((a,b) => a.ordinal-b.ordinal); },
     async listMessages(conversationId, afterSequence = 0, limit = 50) {
       return (await read()).conversationMessages.filter(row => row.conversationId === conversationId && row.sequence > afterSequence)
         .sort((a,b) => a.sequence-b.sequence).slice(0, limit);
     },
     async listToolCalls(turnId) { return (await read()).conversationToolCalls.filter(row => row.turnId === turnId).sort((a,b) => a.ordinal-b.ordinal); },
+    async listModelAttempts(turnId = null) { return (await read()).conversationModelAttempts
+      .filter(row => turnId === null || row.turnId === turnId).sort((a,b) => a.ordinal-b.ordinal); },
     async createConversation({ ownerId, spaceId, actorId, conversationId = randomUUID() }) {
       return write((state, identity) => {
         const existing = state.conversations.find(row => row.conversationId === conversationId);
@@ -215,9 +244,9 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
     async claimTurn(turnId, leaseMs = 60_000) {
       return write((state, identity) => {
         const turn = mustTurn(state, turnId);
-        if (!current(turn, identity) || !['staged', 'interrupted'].includes(turn.status)) conversationError('AI_TURN_CONFLICT', '任务不可领取。');
+        if (!current(turn, identity) || !['staged', 'interrupted', 'failed'].includes(turn.status)) conversationError('AI_TURN_CONFLICT', '任务不可领取。');
         if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000 || leaseMs > 300000) conversationError('AI_REQUEST_INVALID', '执行租期无效。');
-        turn.status = 'running'; turn.leaseGeneration += 1;
+        turn.status = 'running'; turn.phase = 'waiting'; turn.errorCode = null; turn.leaseGeneration += 1;
         turn.leaseExpiresAt = new Date(now().getTime() + leaseMs).toISOString(); turn.updatedAt = stamp();
         return turn;
       });
@@ -227,6 +256,16 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         const turn = mustTurn(state, turnId); lease(turn, identity, generation);
         if (!['retrieving', 'generating', 'validating'].includes(phase)) conversationError('AI_REQUEST_INVALID', '任务阶段无效。');
         turn.phase = phase; turn.updatedAt = stamp(); return turn;
+      });
+    },
+    async renewLease(turnId, generation, leaseMs = 300_000) {
+      return write((state, identity) => {
+        const turn = mustTurn(state, turnId); lease(turn, identity, generation);
+        if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000 || leaseMs > 300_000) {
+          conversationError('AI_REQUEST_INVALID', '执行租期无效。');
+        }
+        turn.leaseExpiresAt = new Date(now().getTime() + leaseMs).toISOString();
+        turn.updatedAt = stamp(); return turn;
       });
     },
     async appendToolCall(turnId, generation, { callId, toolName, argumentsJson }) {
@@ -275,15 +314,58 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         call.provenanceManifestId = manifestId; call.updatedAt = stamp(); return call;
       });
     },
-    async completeTurn(turnId, generation, { content, sourceRefs = [], provenanceManifestId = null, sourceFree = false,
+    async createModelAttempt(turnId, generation, input) {
+      return write((state, identity) => {
+        const turn = mustTurn(state, turnId); lease(turn, identity, generation);
+        const time = stamp();
+        const record = validateConversationRecord('aiConversationModelAttempt', {
+          kind: 'aiConversationModelAttempt', contractVersion: 2, ownerId: turn.ownerId,
+          datasetId: turn.datasetId, datasetEpoch: turn.datasetEpoch, spaceId: turn.spaceId,
+          conversationId: turn.conversationId, turnId, attemptId: input.attemptId,
+          ordinal: Math.max(0, ...state.conversationModelAttempts.filter(row => row.turnId === turnId).map(row => row.ordinal)) + 1,
+          leaseGeneration: generation, modelId: input.modelId, recipient: 'deepseek',
+          payloadHash: input.payloadHash, manifestId: input.manifestId ?? null,
+          grantId: input.grantId ?? null, reservedMicrounits: input.reservedMicrounits,
+          actualMicrounits: null, status: 'prepared', errorCode: null,
+          createdAt: time, updatedAt: time
+        });
+        if (state.conversationModelAttempts.some(row => row.attemptId === record.attemptId)) {
+          conversationError('AI_RECORD_DUPLICATE', '模型尝试 ID 重复。');
+        }
+        state.conversationModelAttempts.push(record); return record;
+      });
+    },
+    async advanceModelAttempt(attemptId, status, { generation = null, actualMicrounits = null, errorCode = null } = {}) {
+      return write((state, identity) => {
+        const attempt = state.conversationModelAttempts.find(row => row.attemptId === attemptId);
+        if (!attempt || !current(attempt, identity)) conversationError('AI_ATTEMPT_NOT_FOUND', '模型尝试不存在。');
+        const turn = mustTurn(state, attempt.turnId);
+        const transitions = { prepared: ['reserved', 'unknown', 'released'],
+          reserved: ['sent', 'unknown', 'released'], sent: ['settled', 'unknown'] };
+        if (attempt.status === status && attempt.actualMicrounits === actualMicrounits) return attempt;
+        if (!transitions[attempt.status]?.includes(status)) conversationError('AI_ATTEMPT_CONFLICT', '模型尝试状态不可变更。');
+        if (['reserved', 'sent'].includes(status)) lease(turn, identity, generation);
+        if (status === 'settled' && (!Number.isSafeInteger(actualMicrounits) || actualMicrounits < 0)) {
+          conversationError('AI_RECORD_INVALID', '实际费用无效。');
+        }
+        attempt.status = status; attempt.actualMicrounits = actualMicrounits;
+        attempt.errorCode = errorCode; attempt.updatedAt = stamp();
+        validateConversationRecord('aiConversationModelAttempt', attempt); return attempt;
+      });
+    },
+    async completeTurn(turnId, generation, { content, sourceRefs = [], citations = [], provenanceManifestId = null, sourceFree = false,
       finishReason = 'stop' }) {
       return write((state, identity) => {
         const turn = mustTurn(state, turnId); lease(turn, identity, generation);
         if (state.conversationToolCalls.some(row => row.turnId === turnId && row.status === 'requested')) {
           conversationError('AI_TOOL_CONFLICT', '仍有未结算的工具调用。');
         }
+        if (state.conversationModelAttempts.some(row => row.turnId === turnId
+          && ['prepared', 'reserved', 'sent'].includes(row.status))) {
+          conversationError('AI_ATTEMPT_CONFLICT', '模型费用尚未结算。');
+        }
         if (!sourceFree && (!sourceRefs.length || !provenanceManifestId)
-          || sourceFree && (sourceRefs.length || provenanceManifestId)) {
+          || sourceFree && sourceRefs.length) {
           conversationError('AI_SOURCE_REQUIRED', '回答来源与发送清单不匹配。');
         }
         const time = stamp(), messageId = randomUUID();
@@ -291,7 +373,7 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         const message = validateConversationRecord('aiConversationMessage', { kind: 'aiConversationMessage',
           contractVersion: 2, ownerId: turn.ownerId, datasetId: turn.datasetId, datasetEpoch: turn.datasetEpoch,
           spaceId: turn.spaceId, conversationId: turn.conversationId, turnId, messageId, sequence, role: 'assistant',
-          content, sourceRefs, provenanceManifestId, sourceFree, finishReason, createdAt: time });
+          content, sourceRefs, citations, provenanceManifestId, sourceFree, finishReason, createdAt: time });
         state.conversationMessages.push(message); turn.assistantMessageId = messageId;
         turn.status = 'succeeded'; turn.phase = 'finished'; turn.leaseExpiresAt = null; turn.updatedAt = time;
         state.conversations.find(row => row.conversationId === turn.conversationId).updatedAt = time;

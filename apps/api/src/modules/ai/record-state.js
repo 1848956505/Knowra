@@ -5,7 +5,7 @@ import { validateBudgetState } from './budget-ledger.js';
 import { ACCESS_KINDS, createJsonAiAccessStore, validateAccessRecord, validateAccessRelationships } from './access-records.js';
 import { CONVERSATION_KINDS, createJsonAiConversationStore, emptyConversationState, validateConversationState } from './conversation-store.js';
 
-export const AI_PRIVATE_STATE_VERSION = 3;
+export const AI_PRIVATE_STATE_VERSION = 4;
 const collections = Object.values(AI_RECORD_KINDS).map(value => value.collection);
 const accessCollections = Object.values(ACCESS_KINDS).map(value => value.collection);
 const conversationCollections = Object.values(CONVERSATION_KINDS).map(value => value.collection);
@@ -25,7 +25,7 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
 export function validateAiState(input) {
   if (input === undefined) return createEmptyAiState();
   if (!input || typeof input !== 'object' || Array.isArray(input)
-    || ![1, 2, AI_PRIVATE_STATE_VERSION].includes(input.version)
+    || ![1, 2, 3, AI_PRIVATE_STATE_VERSION].includes(input.version)
     || typeof input.datasetId !== 'string' || !input.datasetId
     || typeof input.datasetEpoch !== 'string' || !input.datasetEpoch
     || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
@@ -43,7 +43,14 @@ export function validateAiState(input) {
     if (conversationCollections.some(collection => Object.hasOwn(state, collection))) {
       throw new Error('AI v2 私有状态不能包含 v3 会话记录。');
     }
-    Object.assign(state, emptyConversationState());
+    for (const collection of conversationCollections.filter(name => name !== 'conversationModelAttempts')) state[collection] = [];
+    state.version = 3;
+  }
+  if (state.version === 3) {
+    if (Object.hasOwn(state, 'conversationModelAttempts')) {
+      throw new Error('AI v3 私有状态不能包含 v4 模型尝试记录。');
+    }
+    state.conversationModelAttempts = [];
     state.version = AI_PRIVATE_STATE_VERSION;
   }
   for (const [kind, { collection, id }] of Object.entries(AI_RECORD_KINDS)) {

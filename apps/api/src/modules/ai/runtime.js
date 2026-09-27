@@ -6,6 +6,7 @@ import { createIsolatedAiWorker } from './isolated-worker.js';
 import { createAiReadContextService } from './read-context-service.js';
 import { createAiAccessService } from './access-service.js';
 import { createAiConversationService } from './conversation-service.js';
+import { createAiAgentWorker } from './agent-worker.js';
 
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
@@ -20,9 +21,14 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   });
   const readContext = repository && contextSources ? createAiReadContextService({ repository, ...contextSources }) : null;
   const access = accessStore && contextSources ? createAiAccessService({ store: accessStore, ...contextSources }) : null;
+  const agent = conversationStore && access && budgetAuthority && priceProfile
+    ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
+      gateway, priceProfile, allowExternal,
+      authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,
-      accessStore, spaceRepository: contextSources.spaceRepository, ownerId: contextSources.ownerId }) : null;
+      accessStore, spaceRepository: contextSources.spaceRepository, ownerId: contextSources.ownerId,
+      agent }) : null;
   return {
     generationAvailable: modelId => Boolean(allowExternal && priceProfile?.version
       && priceProfile.modelId === modelId && Date.parse(priceProfile.expiresAt) > Date.now()),
@@ -34,6 +40,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
     access,
     conversationStore,
     conversation,
+    agent,
     worker: repository && budgetAuthority ? (fetchImpl || providerAdapter
       ? createAiWorker({ repository, budget: budgetAuthority, gateway, priceProfile,
         allowExternal, verifySources: verifySources ?? (readContext ? (job, request) => readContext.verifyJobSources(job, request) : null),
@@ -49,7 +56,7 @@ export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。
   return { unavailableReason: reason, generationAvailable: () => false,
     credentialReference: async () => null, repository: null, budgetAuthority: null,
     readContext: null, access: null, conversationStore: null, conversation: null,
-    worker: null, gateway: null, priceProfile: null };
+    agent: null, worker: null, gateway: null, priceProfile: null };
 }
 
 export function createOptionalAiRuntime(options, { enabled = process.env.KNOWRA_AI_ENABLED !== '0',

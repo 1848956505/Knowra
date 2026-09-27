@@ -3,7 +3,8 @@ import { conversationError } from './conversation-store.js';
 const validId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 
 /** v2 会话读写与 v1 历史只读入口。空间 owner 始终由服务端校验。 */
-export function createAiConversationService({ store, legacyRepository, accessStore, spaceRepository, ownerId }) {
+export function createAiConversationService({ store, legacyRepository, accessStore, spaceRepository, ownerId, agent = null,
+  logger = console }) {
   if (!store || !legacyRepository || !spaceRepository || !validId(ownerId)) {
     throw new TypeError('AI conversation service requires private stores and owned space repository');
   }
@@ -57,7 +58,9 @@ export function createAiConversationService({ store, legacyRepository, accessSto
     },
     async submit(id, input) {
       const conversation = await ownedConversation(id);
-      if (!input || Object.keys(input).some(key => !['content', 'idempotencyKey', 'requestedPolicyId'].includes(key))) {
+      if (!input || Object.keys(input).some(key => !['content', 'idempotencyKey', 'requestedPolicyId', 'execute'].includes(key))
+        || input.execute !== undefined && typeof input.execute !== 'boolean'
+        || input.execute && (typeof input.content !== 'string' || input.content.length > 3800)) {
         conversationError('AI_REQUEST_INVALID', '消息请求无效。');
       }
       if (input.requestedPolicyId != null) {
@@ -68,19 +71,36 @@ export function createAiConversationService({ store, legacyRepository, accessSto
           conversationError('AI_SCOPE_FORBIDDEN', '所选读取授权无效。');
         }
       }
-      const turn = await store.submitTurn({ ownerId, conversationId: id, ...input });
-      return { ...turn, executionAvailable: false };
+      if (input.execute && !agent) conversationError('AI_GENERATION_UNAVAILABLE', '当前执行端不可用。');
+      const { execute = false, ...submission } = input;
+      const turn = await store.submitTurn({ ownerId, conversationId: id, ...submission });
+      if (execute && ['staged', 'interrupted', 'failed'].includes(turn.status)) {
+        agent.run(turn.turnId).catch(error => logger.warn?.('AI agent turn failed', { code: error.code ?? 'AI_TASK_FAILED' }));
+      }
+      return { ...turn, executionAvailable: Boolean(agent) && execute };
     },
     async turn(conversationId, turnId) {
       await store.recoverInterrupted();
       const turn = await ownedTurn(conversationId, turnId);
       const identity = await store.identity();
       return { ...turn, historicalDataset: turn.datasetId !== identity.datasetId || turn.datasetEpoch !== identity.datasetEpoch,
-        toolCalls: await store.listToolCalls(turnId) };
+        toolCalls: await store.listToolCalls(turnId), modelAttempts: await store.listModelAttempts(turnId) };
     },
     async cancel(conversationId, turnId) {
       await ownedTurn(conversationId, turnId);
-      return store.cancelTurn(turnId);
+      const cancelled = await store.cancelTurn(turnId);
+      agent?.cancel(turnId);
+      return cancelled;
+    },
+    async retry(conversationId, turnId) {
+      const turn = await ownedTurn(conversationId, turnId);
+      if (!agent) conversationError('AI_GENERATION_UNAVAILABLE', '当前执行端不可用。');
+      if (!['staged', 'interrupted', 'failed'].includes(turn.status)) {
+        conversationError('AI_TURN_CONFLICT', '任务当前不可重试。');
+      }
+      (agent.retry ? agent.retry(turnId) : agent.run(turnId))
+        .catch(error => logger.warn?.('AI agent retry failed', { code: error.code ?? 'AI_TASK_FAILED' }));
+      return { ...turn, executionAvailable: true };
     },
     async legacyList(spaceId) {
       await requireSpace(spaceId);

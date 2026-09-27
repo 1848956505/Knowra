@@ -48,3 +48,27 @@ test('SQLite 会话正文损坏只关闭 AI，核心存储和备份保护继续�
   assert.throws(() => inspectRuntimeBackup(backup), /会话记录无效|AI 私有/);
   data.close();
 });
+
+test('SQLite R04 模型逐次尝试与引用消息可重启回读并进入完整备份校验', async t => {
+  const root = temporaryDirectory(t), file = path.join(root, 'local.sqlite');
+  let data = createSqliteDataStore(file);
+  const conversation = await data.aiConversationStore.createConversation({ ownerId: 'demo', actorId: 'demo', spaceId: 'space-1' });
+  const turn = await data.aiConversationStore.submitTurn({ ownerId: 'demo', conversationId: conversation.conversationId,
+    content: '合成提问', idempotencyKey: 'request-sqlite-r04' });
+  const running = await data.aiConversationStore.claimTurn(turn.turnId);
+  await data.aiConversationStore.createModelAttempt(turn.turnId, running.leaseGeneration, {
+    attemptId: 'attempt-sqlite-r04', modelId: 'deepseek-flash', payloadHash: 'a'.repeat(64),
+    reservedMicrounits: 1000 });
+  await data.aiConversationStore.advanceModelAttempt('attempt-sqlite-r04', 'reserved', { generation: running.leaseGeneration });
+  await data.aiConversationStore.advanceModelAttempt('attempt-sqlite-r04', 'sent', { generation: running.leaseGeneration });
+  await data.aiConversationStore.advanceModelAttempt('attempt-sqlite-r04', 'settled', { actualMicrounits: 100 });
+  await data.aiConversationStore.completeTurn(turn.turnId, running.leaseGeneration, {
+    content: '合成回答', sourceFree: true });
+  const backup = createRuntimeBackup(data, root);
+  assert.equal(inspectRuntimeBackup(backup).valid, true);
+  data.close();
+  data = createSqliteDataStore(file);
+  assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).status, 'succeeded');
+  assert.equal((await data.aiConversationStore.listModelAttempts(turn.turnId))[0].actualMicrounits, 100);
+  data.close();
+});

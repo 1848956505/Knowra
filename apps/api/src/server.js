@@ -21,6 +21,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
   const aiRecovery = appContext.aiLocation === 'local' ? Promise.resolve() : Promise.resolve()
     .then(async () => {
       await appContext.ai?.conversationStore?.recoverInterrupted?.();
+      await appContext.ai?.agent?.recover?.();
       await appContext.ai?.worker?.recover?.();
     })
     .catch(error => logger.warn?.('AI task recovery failed', { code: error.code ?? 'AI_RECOVERY_FAILED' }));

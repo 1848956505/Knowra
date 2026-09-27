@@ -59,6 +59,7 @@
           "sequence": { "type": "integer", "minimum": 1 }, "role": { "enum": ["user", "assistant"] },
           "content": { "type": "string", "minLength": 1, "maxLength": 120000 },
           "sourceRefs": { "type": "array", "items": { "$ref": "#/$defs/source" }, "maxItems": 128 },
+          "citations": { "type": "array", "items": { "$ref": "#/$defs/source" }, "maxItems": 128 },
           "provenanceManifestId": { "$ref": "#/$defs/nullableId" },
           "sourceFree": { "type": "boolean" },
           "finishReason": { "oneOf": [{ "enum": ["stop", "tool_calls"] }, { "type": "null" }] },
@@ -80,6 +81,24 @@
           "errorCode": { "$ref": "#/$defs/nullableCode" },
           "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
         }, "required": ["kind", "callId", "conversationId", "turnId", "ordinal", "toolName", "argumentsJson", "resultJson", "provenanceManifestId", "status", "sourceRefs", "errorCode", "createdAt", "updatedAt"]
+      }]
+    },
+    "aiConversationModelAttempt": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiConversationModelAttempt" },
+          "attemptId": { "$ref": "#/$defs/id" }, "conversationId": { "$ref": "#/$defs/id" },
+          "turnId": { "$ref": "#/$defs/id" }, "ordinal": { "type": "integer", "minimum": 1 },
+          "leaseGeneration": { "type": "integer", "minimum": 1 },
+          "modelId": { "$ref": "#/$defs/id" }, "recipient": { "enum": ["deepseek"] },
+          "payloadHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "manifestId": { "$ref": "#/$defs/nullableId" }, "grantId": { "$ref": "#/$defs/nullableId" },
+          "reservedMicrounits": { "type": "integer", "minimum": 1, "maximum": 2000000 },
+          "actualMicrounits": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+          "status": { "enum": ["prepared", "reserved", "sent", "settled", "unknown", "released"] },
+          "errorCode": { "$ref": "#/$defs/nullableCode" },
+          "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
+        }, "required": ["kind", "attemptId", "conversationId", "turnId", "ordinal", "leaseGeneration", "modelId", "recipient", "payloadHash", "manifestId", "grantId", "reservedMicrounits", "actualMicrounits", "status", "errorCode", "createdAt", "updatedAt"]
       }]
     }
   }
