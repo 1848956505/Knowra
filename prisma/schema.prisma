@@ -596,6 +596,49 @@ model ai_runtime_epochs {
   updated_at    String
 }
 
+model ai_access_policies {
+  policy_id     String @id
+  owner_id      String
+  dataset_id    String
+  dataset_epoch String
+  space_id      String
+  revision      Int
+  record_hash   String
+  record_json   String
+  ai_run_grants ai_run_grants[]
+
+  @@index([owner_id, dataset_id, dataset_epoch, space_id], map: "ai_access_policies_owner")
+}
+
+model ai_run_grants {
+  grant_id             String @id
+  policy_id            String
+  owner_id             String
+  dataset_id           String
+  dataset_epoch        String
+  space_id             String
+  record_hash          String
+  record_json          String
+  ai_access_policies   ai_access_policies @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction)
+  ai_request_manifests ai_request_manifests[]
+
+  @@index([policy_id], map: "ai_run_grants_policy")
+}
+
+model ai_request_manifests {
+  manifest_id   String @id
+  grant_id      String
+  owner_id      String
+  dataset_id    String
+  dataset_epoch String
+  space_id      String
+  record_hash   String
+  record_json   String
+  ai_run_grants ai_run_grants @relation(fields: [grant_id], references: [grant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([grant_id], map: "ai_request_manifests_grant")
+}
+
 model ai_budget_days {
   account_ref          String
   beijing_day          String

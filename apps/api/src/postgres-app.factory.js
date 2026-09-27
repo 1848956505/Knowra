@@ -44,6 +44,7 @@ import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createOptionalAiRuntime } from './modules/ai/runtime.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
+import { createPostgresAiAccessStore } from './modules/ai/postgres-access-store.js';
 import { createPostgresBudgetAuthority } from './modules/ai/postgres-budget-authority.js';
 
 export async function createPostgresAppContext({
@@ -128,12 +129,13 @@ export async function createPostgresAppContext({
 
   const modelSettings = createModelSettingsService();
   const aiRepository = createPostgresAiRepository({ client: runtime.client, ownerId: normalizedOwnerId });
+  const aiAccessStore = createPostgresAiAccessStore({ client: runtime.client, repository: aiRepository, ownerId: normalizedOwnerId });
   return {
     driver: 'postgres',
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createOptionalAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget,
+    ai: createOptionalAiRuntime({ modelSettings, repository: aiRepository, accessStore: aiAccessStore, budgetAuthority: aiBudget,
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } }),
     aiOwnerId: normalizedOwnerId,

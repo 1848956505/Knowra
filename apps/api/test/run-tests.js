@@ -54,6 +54,7 @@ import { aiBudgetWorkerTests } from './ai-budget-worker.test.js';
 import { aiReadContextTests } from './ai-read-context.test.js';
 import { aiAssistantHttpTests } from './ai-assistant-http.test.js';
 import { aiPluginIsolationTests } from './ai-plugin-isolation.test.js';
+import { aiAccessV2Tests } from './ai-access-v2.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -109,6 +110,7 @@ const tests = [
   ...aiReadContextTests,
   ...aiAssistantHttpTests,
   ...aiPluginIsolationTests,
+  ...aiAccessV2Tests,
 ];
 
 let failed = 0;

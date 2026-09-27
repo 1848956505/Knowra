@@ -51,6 +51,71 @@ test('SQLite AI 私有表持久化任务、授权、尝试、事件和未知用�
   store.close();
 });
 
+test('SQLite v5→v6 新增持续授权表，旧任务保留且恢复后 v2 授权失效', async t => {
+  const root = temporaryDirectory(t);
+  const file = path.join(root, 'local.sqlite');
+  let store = createSqliteDataStore(file);
+  const records = aiRecords(store.aiRepository.identity());
+  insertAiRecords(store.aiRepository, records);
+  store.close();
+  const old = new DatabaseSync(file);
+  old.exec(`PRAGMA foreign_keys = OFF;
+    DROP TABLE ai_request_manifests;
+    DROP TABLE ai_run_grants;
+    DROP TABLE ai_access_policies;
+    PRAGMA user_version = 5;`);
+  old.close();
+  store = createSqliteDataStore(file);
+  assert(fs.readdirSync(root).some(name => name.startsWith('local.sqlite.before-v6-')));
+  assert.equal(store.aiRepository.get('aiJob', records.job.jobId).status, 'pending');
+  const identity = store.aiRepository.identity();
+  const policy = { contractVersion: 2, kind: 'aiAccessPolicy', policyId: 'policy-sqlite', revision: 1,
+    actorId: 'demo', ownerId: 'demo', ...identity, spaceId: 'space-1', scope: { kind: 'library' },
+    excludedNoteIds: [], includeAttachments: false, read: true, egress: true, recipients: ['deepseek'],
+    issuedAt: '2026-09-27T00:00:00.000Z', expiresAt: '2026-09-28T00:00:00.000Z', revokedAt: null };
+  const outbox = store.readOutbox();
+  await store.aiAccessStore.insert('aiAccessPolicy', policy);
+  assert.deepEqual(store.readOutbox(), outbox);
+  assert.equal(JSON.stringify(store.exportSnapshot()).includes(policy.policyId), false);
+  store.close();
+  store = createSqliteDataStore(file);
+  assert.deepEqual(await store.aiAccessStore.get('aiAccessPolicy', policy.policyId), policy);
+  const backup = createRuntimeBackup(store, root);
+  assert.equal(inspectRuntimeBackup(backup).valid, true);
+  store.close();
+  const restored = prepareRestoredDirectory(root, backup);
+  const replacement = createSqliteDataStore(path.join(restored, 'local.sqlite'));
+  assert.notEqual(replacement.aiRepository.identity().datasetEpoch, identity.datasetEpoch);
+  assert.equal((await replacement.aiAccessStore.get('aiAccessPolicy', policy.policyId)).datasetEpoch, identity.datasetEpoch);
+  replacement.close();
+});
+
+test('SQLite v2 授权记录损坏只关闭 AI，备份检查阻止带损坏授权恢复', async t => {
+  const root = temporaryDirectory(t);
+  const file = path.join(root, 'local.sqlite');
+  let store = createSqliteDataStore(file);
+  const identity = store.aiRepository.identity();
+  await store.aiAccessStore.insert('aiAccessPolicy', {
+    contractVersion: 2, kind: 'aiAccessPolicy', policyId: 'policy-corrupt', revision: 1,
+    actorId: 'demo', ownerId: 'demo', ...identity, spaceId: 'space-1', scope: { kind: 'library' },
+    excludedNoteIds: [], includeAttachments: false, read: true, egress: false, recipients: [],
+    issuedAt: '2026-09-27T00:00:00.000Z', expiresAt: '2026-09-28T00:00:00.000Z', revokedAt: null
+  });
+  store.close();
+  const raw = new DatabaseSync(file);
+  raw.prepare('UPDATE ai_access_policies SET record_json = ? WHERE policy_id = ?').run('{"broken":true}', 'policy-corrupt');
+  raw.close();
+  store = createSqliteDataStore(file);
+  assert(store.aiRuntimeError);
+  assert.equal(store.aiRepository, null);
+  const app = createAppContext({ dataStore: store, ownerId: 'demo' });
+  const space = app.http.knowledge.createDefaultKnowledgeSpace({});
+  app.http.knowledge.createNote({ id: 'core-survives', title: '仍可保存', rawMarkdown: '安全正文', spaceId: space.id });
+  const backup = createRuntimeBackup(store, root);
+  assert.throws(() => inspectRuntimeBackup(backup), /v2 记录无效|AI 私有/);
+  store.close();
+});
+
 test('SQLite v4→v5 保留旧任务并持久恢复经确认的回答', t => {
   const root = temporaryDirectory(t);
   const file = path.join(root, 'local.sqlite');

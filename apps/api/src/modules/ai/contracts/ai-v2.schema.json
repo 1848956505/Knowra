@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knowra.local/ai-v2.schema.json",
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "date": { "type": "string", "format": "date-time" },
+    "ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "maxItems": 1000 },
+    "boundary": {
+      "type": "object", "properties": {
+        "contractVersion": { "const": 2 }, "ownerId": { "$ref": "#/$defs/id" },
+        "datasetId": { "$ref": "#/$defs/id" }, "datasetEpoch": { "$ref": "#/$defs/id" },
+        "spaceId": { "$ref": "#/$defs/id" }
+      }, "required": ["contractVersion", "ownerId", "datasetId", "datasetEpoch", "spaceId"]
+    },
+    "scope": {
+      "oneOf": [
+        { "type": "object", "properties": { "kind": { "const": "library" } }, "required": ["kind"], "additionalProperties": false },
+        { "type": "object", "properties": { "kind": { "const": "folder" }, "folderId": { "$ref": "#/$defs/id" } }, "required": ["kind", "folderId"], "additionalProperties": false },
+        { "type": "object", "properties": { "kind": { "const": "fixed" }, "noteIds": { "$ref": "#/$defs/ids", "minItems": 1, "maxItems": 100 } }, "required": ["kind", "noteIds"], "additionalProperties": false }
+      ]
+    },
+    "aiAccessPolicy": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiAccessPolicy" }, "policyId": { "$ref": "#/$defs/id" },
+          "revision": { "type": "integer", "minimum": 1 }, "actorId": { "$ref": "#/$defs/id" },
+          "scope": { "$ref": "#/$defs/scope" }, "excludedNoteIds": { "$ref": "#/$defs/ids" },
+          "includeAttachments": { "const": false }, "read": { "type": "boolean" },
+          "egress": { "type": "boolean" },
+          "recipients": { "type": "array", "items": { "enum": ["deepseek"] }, "uniqueItems": true },
+          "issuedAt": { "$ref": "#/$defs/date" }, "expiresAt": { "$ref": "#/$defs/date" },
+          "revokedAt": { "oneOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
+        }, "required": ["kind", "policyId", "revision", "actorId", "scope", "excludedNoteIds", "includeAttachments", "read", "egress", "recipients", "issuedAt", "expiresAt", "revokedAt"]
+      }]
+    },
+    "aiRunGrant": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiRunGrant" }, "grantId": { "$ref": "#/$defs/id" },
+          "policyId": { "$ref": "#/$defs/id" }, "policyRevision": { "type": "integer", "minimum": 1 },
+          "actorId": { "$ref": "#/$defs/id" }, "conversationId": { "$ref": "#/$defs/id" },
+          "allowedTools": { "type": "array", "items": { "enum": ["notes_search", "notes_read"] }, "uniqueItems": true },
+          "maxBudgetMicrounits": { "type": "integer", "minimum": 0, "maximum": 2000000 },
+          "issuedAt": { "$ref": "#/$defs/date" }, "expiresAt": { "$ref": "#/$defs/date" }
+        }, "required": ["kind", "grantId", "policyId", "policyRevision", "actorId", "conversationId", "allowedTools", "maxBudgetMicrounits", "issuedAt", "expiresAt"]
+      }]
+    },
+    "source": {
+      "type": "object", "properties": {
+        "noteId": { "$ref": "#/$defs/id" }, "noteVersionId": { "$ref": "#/$defs/id" },
+        "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "start": { "type": "integer", "minimum": 0 }, "end": { "type": "integer", "minimum": 1 },
+        "quoteHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }, "required": ["noteId", "noteVersionId", "contentHash", "start", "end", "quoteHash"], "additionalProperties": false
+    },
+    "aiRequestManifest": {
+      "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
+        "type": "object", "properties": {
+          "kind": { "const": "aiRequestManifest" }, "manifestId": { "$ref": "#/$defs/id" },
+          "grantId": { "$ref": "#/$defs/id" }, "policyId": { "$ref": "#/$defs/id" },
+          "policyRevision": { "type": "integer", "minimum": 1 },
+          "recipient": { "enum": ["deepseek"] },
+          "sources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "maxItems": 128 },
+          "historySources": { "type": "array", "items": { "$ref": "#/$defs/source" }, "maxItems": 128 },
+          "excludedNoteIds": { "$ref": "#/$defs/ids" },
+          "omissions": { "type": "array", "items": { "type": "string", "pattern": "^[a-zA-Z0-9_.:-]{1,128}$" }, "maxItems": 128 },
+          "estimatedInputTokens": { "type": "integer", "minimum": 0 },
+          "payloadHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "createdAt": { "$ref": "#/$defs/date" }
+        }, "required": ["kind", "manifestId", "grantId", "policyId", "policyRevision", "recipient", "sources", "historySources", "excludedNoteIds", "omissions", "estimatedInputTokens", "payloadHash", "createdAt"]
+      }]
+    }
+  }
+}

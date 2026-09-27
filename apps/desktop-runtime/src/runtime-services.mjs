@@ -59,7 +59,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       credentialReference: async () => null,
       resolveCredential: async () => { throw new Error('请先在 Mac 应用设置中配置模型。'); }
     };
-    context.ai = createOptionalAiRuntime({ modelSettings, repository: store.aiRepository,
+    context.ai = createOptionalAiRuntime({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...context.modules.knowledge.repositories,

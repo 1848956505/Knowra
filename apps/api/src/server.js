@@ -10,6 +10,7 @@ import { handleModelSettingsRoute } from './modules/ai/model-settings-routes.js'
 import { handleBudgetRoute } from './modules/ai/budget-routes.js';
 import { createAiAssistantService } from './modules/ai/assistant-service.js';
 import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
+import { handleAiAccessRoute } from './modules/ai/access-routes.js';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
@@ -57,6 +58,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
 
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
       if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
+      if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;
       if (url.pathname.startsWith('/api/ai/assistant')) await aiRecovery;
       if (await handleAssistantRoute({ request, response, url, assistant })) return;
 

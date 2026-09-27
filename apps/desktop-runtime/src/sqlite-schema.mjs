@@ -2,13 +2,14 @@ import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { AI_SQLITE_DDL } from './ai-sqlite-schema.mjs';
 
-export const LOCAL_DATABASE_VERSION = 5;
+export const LOCAL_DATABASE_VERSION = 6;
 export const SYNC_PROTOCOL_VERSION = 1;
 
 export function initializeDatabase(db, filePath) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
   if (version === LOCAL_DATABASE_VERSION) return;
-  if (version === 4) return tryAiUpgrade(() => upgradeAiAnswerSchema(db, filePath));
+  if (version === 5) return tryAiUpgrade(() => upgradeAiAccessSchema(db, filePath));
+  if (version === 4) return tryAiUpgrade(() => { upgradeAiAnswerSchema(db, filePath); upgradeAiAccessSchema(db, filePath); });
   if (version === 3) return tryAiUpgrade(() => upgradeAiSchema(db, filePath));
   if (version === 2) {
     const backup = `${filePath}.before-v3-${Date.now()}.bak`;
@@ -114,4 +115,41 @@ function upgradeAiSchema(db, filePath, { backup = true } = {}) {
     throw error;
   }
   upgradeAiAnswerSchema(db, filePath, { backup: false });
+  upgradeAiAccessSchema(db, filePath, { backup: false });
+}
+
+function upgradeAiAccessSchema(db, filePath, { backup = true } = {}) {
+  if (backup) {
+    const destination = `${filePath}.before-v6-${Date.now()}.bak`;
+    db.prepare('VACUUM INTO ?').run(destination);
+    fs.chmodSync(destination, 0o600);
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_access_policies (
+        policy_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, dataset_id TEXT NOT NULL,
+        dataset_epoch TEXT NOT NULL, space_id TEXT NOT NULL, revision INTEGER NOT NULL,
+        record_hash TEXT NOT NULL, record_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ai_access_policies_owner ON ai_access_policies(owner_id, dataset_id, dataset_epoch, space_id);
+      CREATE TABLE IF NOT EXISTS ai_run_grants (
+        grant_id TEXT PRIMARY KEY, policy_id TEXT NOT NULL REFERENCES ai_access_policies(policy_id),
+        owner_id TEXT NOT NULL, dataset_id TEXT NOT NULL, dataset_epoch TEXT NOT NULL,
+        space_id TEXT NOT NULL, record_hash TEXT NOT NULL, record_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ai_run_grants_policy ON ai_run_grants(policy_id);
+      CREATE TABLE IF NOT EXISTS ai_request_manifests (
+        manifest_id TEXT PRIMARY KEY, grant_id TEXT NOT NULL REFERENCES ai_run_grants(grant_id),
+        owner_id TEXT NOT NULL, dataset_id TEXT NOT NULL, dataset_epoch TEXT NOT NULL,
+        space_id TEXT NOT NULL, record_hash TEXT NOT NULL, record_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ai_request_manifests_grant ON ai_request_manifests(grant_id);
+      PRAGMA user_version = 6;
+    `);
+    db.exec('COMMIT');
+  } catch (error) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw error;
+  }
 }

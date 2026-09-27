@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { createPostgresAiRepository } from '../src/modules/ai/postgres-record-repository.js';
+import { createPostgresAiAccessStore } from '../src/modules/ai/postgres-access-store.js';
+import { hashRecord } from '../src/modules/ai/record-contract.js';
 import { createPostgresBudgetAuthority } from '../src/modules/ai/postgres-budget-authority.js';
 import { createAiWorker } from '../src/modules/ai/worker.js';
 import { aiRecords } from './ai-record-fixtures.js';
@@ -49,6 +51,38 @@ export const aiPostgresRepositoryTests = process.env.KNOWRA_SYNC_TEST_DATABASE_U
         first.insert('aiJobAttempt', { ...records.attempt, attemptId: `late-${randomUUID()}`, ordinal: 2, leaseGeneration: 2 }),
         { code: 'AI_REFERENCE_INVALID' }
       );
+    } finally { await db.$disconnect(); }
+  }
+}, {
+  name: 'AI PostgreSQL v2 策略并发收窄采用 CAS，旧运行授权不能跨 epoch 复用',
+  async run() {
+    const db = new PrismaClient({ datasources: { db: { url: process.env.KNOWRA_SYNC_TEST_DATABASE_URL } }, log: [] });
+    try {
+      await db.$connect();
+      const ownerId = `access-test-${randomUUID()}`;
+      const repository = createPostgresAiRepository({ client: db, ownerId });
+      const first = createPostgresAiAccessStore({ client: db, repository, ownerId });
+      const second = createPostgresAiAccessStore({ client: db, repository, ownerId });
+      const identity = await repository.identity();
+      const policy = { contractVersion: 2, kind: 'aiAccessPolicy', policyId: randomUUID(), revision: 1,
+        actorId: ownerId, ownerId, ...identity, spaceId: randomUUID(), scope: { kind: 'library' },
+        excludedNoteIds: [], includeAttachments: false, read: true, egress: true, recipients: ['deepseek'],
+        issuedAt: '2026-09-27T00:00:00.000Z', expiresAt: '2026-09-28T00:00:00.000Z', revokedAt: null };
+      await first.insert('aiAccessPolicy', policy);
+      assert.equal((await second.get('aiAccessPolicy', policy.policyId)).revision, 1);
+      const changed = { ...policy, revision: 2, excludedNoteIds: ['excluded-note'] };
+      const results = await Promise.allSettled([
+        first.replacePolicy(changed, hashRecord(policy)),
+        second.replacePolicy(changed, hashRecord(policy))
+      ]);
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      assert.equal(results.find(result => result.status === 'rejected').reason.code, 'AI_RECORD_CONFLICT');
+      const otherOwnerId = `other-${randomUUID()}`;
+      const anotherOwner = createPostgresAiAccessStore({ client: db,
+        repository: createPostgresAiRepository({ client: db, ownerId: otherOwnerId }), ownerId: otherOwnerId });
+      assert.equal(await anotherOwner.get('aiAccessPolicy', policy.policyId), null);
+      await repository.rotateEpoch();
+      await assert.rejects(first.replacePolicy({ ...changed, revision: 3 }, hashRecord(changed)), { code: 'AI_DATASET_STALE' });
     } finally { await db.$disconnect(); }
   }
 }] : [];
