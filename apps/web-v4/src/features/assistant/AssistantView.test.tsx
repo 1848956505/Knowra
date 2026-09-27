@@ -82,3 +82,36 @@ it('失败任务展示安全错误码、阶段、HTTP 状态与预算占额', as
   expect(screen.getByText(/模型请求或响应 · 错误码：AI_RATE_LIMITED · HTTP 429/)).toBeInTheDocument();
   expect(screen.getByText(/不记录 API Key、笔记正文或模型原始回答/)).toBeInTheDocument();
 });
+
+it('输出被截断时展示明确原因与已结算费用', async () => {
+  const job: AssistantJob = { jobId: 'truncated-job', spaceId: 'space-1', question: '请总结笔记', status: 'failed',
+    phase: 'finished', modelId: 'deepseek-flash', createdAt: '2026-09-27T00:00:00.000Z',
+    updatedAt: '2026-09-27T00:00:01.000Z', result: null, sources: [], omissions: [],
+    diagnostics: [{ sequence: 1, eventKind: 'providerResponseReceived', createdAt: '2026-09-27T00:00:00.000Z',
+      safePayload: { finishReason: 'length', inputTokens: 3446, outputTokens: 512 } },
+    { sequence: 2, eventKind: 'budgetSettled', createdAt: '2026-09-27T00:00:01.000Z',
+      safePayload: { budgetDisposition: 'settled', actualMicrounits: 10988 } },
+    { sequence: 3, eventKind: 'attemptFailed', createdAt: '2026-09-27T00:00:01.000Z',
+      safePayload: { stage: 'resultValidation', code: 'AI_OUTPUT_TRUNCATED', budgetDisposition: 'settled' } }] };
+  vi.mocked(assistantApi.list).mockResolvedValue([job]);
+  vi.mocked(assistantApi.get).mockResolvedValue(job);
+  render(<AssistantView pathname="/assistant" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText('任务未完成：模型回答达到输出上限（AI_OUTPUT_TRUNCATED）。')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('调用详情 · 3 条记录'));
+  expect(screen.getByText(/结束原因：length · 输入 3446 token · 输出 512 token/)).toBeInTheDocument();
+  expect(screen.getByText(/结算 0.01 元 · 已按模型用量结算/)).toBeInTheDocument();
+});
+
+it('旧任务误报格式错误时根据 length 诊断说明真实原因', async () => {
+  const job: AssistantJob = { jobId: 'old-truncated-job', spaceId: 'space-1', question: '请总结笔记', status: 'failed',
+    phase: 'finished', modelId: 'deepseek-flash', createdAt: '2026-09-27T00:00:00.000Z',
+    updatedAt: '2026-09-27T00:00:01.000Z', result: null, sources: [], omissions: [],
+    diagnostics: [{ sequence: 1, eventKind: 'providerResponseReceived', createdAt: '2026-09-27T00:00:00.000Z',
+      safePayload: { finishReason: 'length', outputTokens: 512 } },
+    { sequence: 2, eventKind: 'taskFailed', createdAt: '2026-09-27T00:00:01.000Z',
+      safePayload: { code: 'AI_ANSWER_INVALID' } }] };
+  vi.mocked(assistantApi.list).mockResolvedValue([job]);
+  vi.mocked(assistantApi.get).mockResolvedValue(job);
+  render(<AssistantView pathname="/assistant" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText('任务未完成：模型回答达到输出上限（AI_ANSWER_INVALID）。')).toBeInTheDocument();
+});

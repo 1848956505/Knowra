@@ -189,17 +189,17 @@ export const aiBudgetWorkerTests = [
       const events = store.aiRepository.listEvents(records.job.jobId);
       assert.deepEqual(events.map(event => event.eventKind), [
         'attemptPrepared', 'budgetReserved', 'providerRequestStarted', 'providerResponseReceived',
-        'resultValidated', 'budgetSettled', 'taskSucceeded'
+        'budgetSettled', 'resultValidated', 'taskSucceeded'
       ]);
       assert.equal(events[3].safePayload.responseId, 'provider-request');
       assert.equal(events[3].safePayload.inputTokens, 10);
-      assert.equal(events[5].safePayload.actualMicrounits, 60);
+      assert.equal(events[4].safePayload.actualMicrounits, 60);
       assert.equal(JSON.stringify(events).includes('合成回答'), false);
       assert.equal(JSON.stringify(events).includes('合成测试'), false);
       await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_JOB_NOT_RUNNABLE' });
     });
   } },
-  { name: 'Worker 校验失败记录阶段、错误码和保守费用，不保存原始回答', async run() {
+  { name: 'Worker 校验失败仍按供应商已知用量结算，不保存原始回答', async run() {
     await withStore(async (store, file) => {
       const records = aiRecords(store.aiRepository.identity());
       for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
@@ -215,12 +215,15 @@ export const aiBudgetWorkerTests = [
       assert.equal(events.at(-1).eventKind, 'attemptFailed');
       assert.deepEqual({ stage: events.at(-1).safePayload.stage, code: events.at(-1).safePayload.code,
         disposition: events.at(-1).safePayload.budgetDisposition },
-      { stage: 'resultValidation', code: 'AI_CITATION_INVALID', disposition: 'unknown' });
-      assert.equal(events.at(-2).eventKind, 'providerResponseReceived');
-      assert.equal(events.at(-2).safePayload.outputTokens, 5);
+      { stage: 'resultValidation', code: 'AI_CITATION_INVALID', disposition: 'settled' });
+      assert.equal(events.at(-2).eventKind, 'budgetSettled');
+      assert.equal(events.at(-2).safePayload.actualMicrounits, 60);
+      assert.equal(events.at(-3).safePayload.outputTokens, 5);
       assert.equal(JSON.stringify(events).includes('synthetic-raw-answer'), false);
       assert.equal(JSON.stringify(events).includes('合成测试'), false);
-      assert(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits > 0);
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits, 0);
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').spentMicrounits, 60);
+      assert.equal(store.aiRepository.list('aiUsageRecord')[0].actualMicrounits, 60);
     });
   } },
   { name: 'Worker 失败后显式重试最多四次，未知费用仍占日预算', async run() {

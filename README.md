@@ -160,4 +160,4 @@ Near-term priorities:
 
 ## Status
 
-Repository package version: `2.27.0`. Phase 0 through Phase3.2 are complete, and React V4 is the only launchable frontend. The completed stage plans are available under `docs/已归档/`. V3 source remains for regression coverage. PostgreSQL remains opt-in and a production cutover requires its own migration, access-control, backup and rollback checks; the application does not yet include a login system.
+Repository package version: `2.27.1`. Phase 0 through Phase3.2 are complete, and React V4 is the only launchable frontend. The completed stage plans are available under `docs/已归档/`. V3 source remains for regression coverage. PostgreSQL remains opt-in and a production cutover requires its own migration, access-control, backup and rollback checks; the application does not yet include a login system.

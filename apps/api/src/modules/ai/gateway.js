@@ -123,7 +123,8 @@ function normalize(raw, request, provider) {
     try { json = JSON.parse(content); } catch { throw new AiGatewayError('AI_JSON_INVALID', '模型未返回有效 JSON。'); }
     if (!json || typeof json !== 'object' || Array.isArray(json)) throw new AiGatewayError('AI_JSON_INVALID', '模型 JSON 结果无效。');
   }
-  const usage = raw.usage && Number.isInteger(raw.usage.prompt_tokens) && Number.isInteger(raw.usage.completion_tokens)
+  const usage = raw.usage && Number.isSafeInteger(raw.usage.prompt_tokens) && raw.usage.prompt_tokens >= 0
+    && Number.isSafeInteger(raw.usage.completion_tokens) && raw.usage.completion_tokens >= 0
     ? { inputTokens: raw.usage.prompt_tokens, outputTokens: raw.usage.completion_tokens, unknown: false }
     : { inputTokens: null, outputTokens: null, unknown: true };
   return {

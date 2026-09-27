@@ -116,6 +116,50 @@ export const aiAssistantHttpTests = [
       });
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },
+  { name: '助手 HTTP 将达到输出上限的回答标为截断，并结算已知用量', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-truncated-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
+      const space = context.http.knowledge.createDefaultKnowledgeSpace({});
+      context.http.knowledge.createNote({ id: 'truncated-note', title: '测试笔记',
+        rawMarkdown: '合成笔记正文', spaceId: space.id });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      context.ai.generationAvailable = true;
+      context.ai.worker = createAiWorker({ repository: context.ai.repository, budget: context.ai.budgetAuthority,
+        gateway: { capabilities: () => ({ provider: 'mock' }), complete: async () => ({
+          content: 'synthetic-incomplete-answer', json: null, finishReason: 'length', truncated: true,
+          usage: { inputTokens: 3446, outputTokens: 512, unknown: false }
+        }) }, priceProfile,
+        verifySources: (job, request) => context.ai.readContext.verifyJobSources(job, request),
+        validateResult: (job, result) => context.ai.readContext.validateAnswer({ jobId: job.jobId, result }) });
+      await withServer(context, async origin => {
+        const preview = (await call(origin, '/preview', { spaceId: space.id,
+          scope: { kind: 'note', noteId: 'truncated-note' }, question: '请总结笔记' })).payload.data;
+        const created = await call(origin, '/jobs', { previewId: preview.previewId,
+          scopeHash: preview.scopeHash, payloadHash: preview.payloadHash,
+          idempotencyKey: 'truncated-test-1' });
+        assert.equal(created.status, 202);
+        const jobId = created.payload.data.jobId;
+        for (let i = 0; i < 30; i++) {
+          const task = (await call(origin, `/jobs/${jobId}`)).payload.data;
+          if (task.status === 'failed' && task.diagnostics.some(event => event.eventKind === 'taskFailed')) {
+            assert.equal(task.result, null);
+            assert.equal(task.diagnostics.find(event => event.eventKind === 'attemptPrepared').safePayload.maxOutputTokens, 4096);
+            assert.equal(task.diagnostics.at(-1).safePayload.code, 'AI_OUTPUT_TRUNCATED');
+            assert.equal(task.diagnostics.find(event => event.eventKind === 'attemptFailed').safePayload.budgetDisposition, 'settled');
+            assert.equal(JSON.stringify(task.diagnostics).includes('synthetic-incomplete-answer'), false);
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 10));
+          if (i === 29) assert.fail('截断诊断未完成');
+        }
+      });
+      const budget = context.ai.budgetAuthority.status('deepseek-primary');
+      assert.equal(budget.heldMicrounits, 0);
+      assert.equal(budget.spentMicrounits, 10_988);
+      assert.equal(context.ai.repository.list('aiUsageRecord')[0].actualMicrounits, 10_988);
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '助手 HTTP 在模型任务失败后展示持久错误码，不泄露异常正文', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-assistant-failure-'));
     try {

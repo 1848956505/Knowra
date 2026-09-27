@@ -141,6 +141,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       priceVersion: priceProfile.version });
     let reserved = false;
     let sent = false;
+    let budgetDisposition = 'unconfirmed';
     let stage = 'budgetReservation';
     const controller = new AbortController();
     controllers.set(jobId, controller);
@@ -187,24 +188,28 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
         || Date.parse(currentAttempt.leaseExpiresAt) <= now().getTime() || controller.signal.aborted) {
         fail('AI_LATE_RESULT', '任务已取消或租约失效，迟到响应已丢弃。');
       }
-      const acceptedResult = validateResult ? await validateResult(currentJob, result) : null;
-      await recordEvent(jobId, 'resultValidated', { attemptId: attempt.attemptId });
       stage = 'budgetSettlement';
       const usage = result.usage;
-      const actual = usage?.unknown ? null : Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
-        + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000);
+      const actual = usage?.unknown === false && nonnegative(usage.inputTokens) && nonnegative(usage.outputTokens)
+        ? Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
+          + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000) : null;
+      if (usage?.unknown === false && actual === null) fail('AI_USAGE_LIMIT', '供应商用量无效。');
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > MAX_INPUT_TOKENS
         || usage.outputTokens > MAX_OUTPUT_TOKENS)) fail('AI_USAGE_LIMIT', '供应商用量超过预留或任务边界。');
       await budget.settle({ accountRef, attemptId: attempt.attemptId, disposition: actual === null ? 'unknown' : 'settled', actualMicrounits: actual });
+      budgetDisposition = actual === null ? 'unknown' : 'settled';
       await recordEvent(jobId, 'budgetSettled', { attemptId: attempt.attemptId,
-        budgetDisposition: actual === null ? 'unknown' : 'settled',
+        budgetDisposition,
         ...(actual === null ? {} : { actualMicrounits: actual }) });
-      stage = 'resultPersistence';
       await repository.insert('aiUsageRecord', { contractVersion: 1, kind: 'aiUsageRecord', usageId: randomUUID(),
         jobId, attemptId: attempt.attemptId, beijingDay: beijingDay(new Date(startedAt)), currency: 'CNY',
         priceVersion: priceProfile.version, inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null,
         reservedMicrounits: quote.reservedMicrounits, actualMicrounits: actual,
         usageUnknown: actual === null, createdAt: now().toISOString() });
+      stage = 'resultValidation';
+      const acceptedResult = validateResult ? await validateResult(currentJob, result) : null;
+      await recordEvent(jobId, 'resultValidated', { attemptId: attempt.attemptId });
+      stage = 'resultPersistence';
       attempt = await replace('aiJobAttempt', currentAttempt, { status: 'validated', providerRequestId: result.requestId ?? null,
         finishedAt: now().toISOString() });
       await replace('aiJob', currentJob, { status: 'succeeded', phase: 'finished', acceptedAttemptId: attempt.attemptId,
@@ -213,8 +218,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       await recordEvent(jobId, 'taskSucceeded', { attemptId: attempt.attemptId, status: 'succeeded' });
       return result;
     } catch (error) {
-      let budgetDisposition = 'unconfirmed';
-      if (reserved) await Promise.resolve().then(() => budget.settle({ accountRef, attemptId: attempt.attemptId,
+      if (reserved && budgetDisposition === 'unconfirmed') await Promise.resolve().then(() => budget.settle({ accountRef, attemptId: attempt.attemptId,
         disposition: sent ? 'unknown' : 'released' })).then(() => {
         budgetDisposition = sent ? 'unknown' : 'released';
       }).catch(() => undefined);

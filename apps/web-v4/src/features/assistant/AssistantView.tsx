@@ -26,6 +26,7 @@ const stageLabel: Record<string, string> = {
 };
 const failureLabel: Record<string, string> = {
   AI_JSON_INVALID: '模型没有返回有效的 JSON', AI_ANSWER_INVALID: '回答不符合约定格式',
+  AI_OUTPUT_TRUNCATED: '模型回答达到输出上限',
   AI_CITATION_INVALID: '引用与发送的原文不一致', AI_CITATION_MISSING: '回答缺少可核对引用',
   AI_RESPONSE_INVALID: '模型响应结构无效', AI_RESPONSE_TOO_LARGE: '模型响应超过大小上限',
   AI_CREDENTIAL_UNAVAILABLE: '模型凭据不可用', AI_MODEL_CHANGED: '模型配置已变更',
@@ -51,6 +52,7 @@ function diagnosticText(payload: Record<string, string | number | boolean>) {
     payload.reservedMicrounits !== undefined ? `预留 ${yuan(Number(payload.reservedMicrounits))} 元` : null,
     payload.actualMicrounits !== undefined ? `结算 ${yuan(Number(payload.actualMicrounits))} 元` : null,
     payload.budgetDisposition === 'unknown' ? '费用待核对，预留额暂占预算' : null,
+    payload.budgetDisposition === 'settled' ? '已按模型用量结算' : null,
     payload.budgetDisposition === 'released' ? '未发送，预留额已释放' : null,
     payload.responseId ? `供应商请求 ID：${payload.responseId}` : null
   ];
@@ -245,7 +247,9 @@ export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOp
           </> : <p className={styles.hint}>{selectedJob.status === 'failed'
             ? (() => { const failure = [...(selectedJob.diagnostics ?? [])].reverse().find(event => event.safePayload.code);
               const code = String(failure?.safePayload.code ?? '');
-              return code ? `任务未完成：${failureLabel[code] ?? '请查看调用详情'}（${code}）。`
+              const truncated = code === 'AI_ANSWER_INVALID' && selectedJob.diagnostics?.some(event =>
+                event.eventKind === 'providerResponseReceived' && event.safePayload.finishReason === 'length');
+              return code ? `任务未完成：${truncated ? failureLabel.AI_OUTPUT_TRUNCATED : failureLabel[code] ?? '请查看调用详情'}（${code}）。`
                 : '任务未完成。旧任务未记录失败原因；请查看下方调用详情。'; })()
             : `当前阶段：${selectedJob.phase}`}</p>}
           {selectedJob.diagnostics ? <details className={styles.diagnostics}>

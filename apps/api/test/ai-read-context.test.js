@@ -55,6 +55,10 @@ export const aiReadContextTests = [
         scope: { kind: 'note', noteId: note.id } });
       assert.equal(prepared.preview.sources[0].text, 'alpha 正文');
       assert.equal(prepared.scopeSnapshot.ownerId, 'demo');
+      const { maxTokens: ignored, ...withoutOutputLimit } = baseRequest;
+      const defaultOutput = await app.ai.readContext.prepareRead({ ...withoutOutputLimit, spaceId: space.id,
+        scope: { kind: 'note', noteId: note.id } });
+      assert.equal(defaultOutput.request.maxTokens, 4096);
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },
   { name: 'AI 选区只发送指定版本偏移，完整 payload 与预留和确认哈希一致', run: () => withContext(async ({ store, service, addNote }) => {
@@ -100,6 +104,8 @@ export const aiReadContextTests = [
       start: 4, end: 9, quote: '伪造' }] }), { code: 'AI_CITATION_INVALID' });
     await assert.rejects(service.validateAnswer({ jobId: job.jobId,
       result: { json: { answer: '无引文结论', citations: [] } } }), { code: 'AI_CITATION_MISSING' });
+    await assert.rejects(service.validateAnswer({ jobId: job.jobId,
+      result: { finishReason: 'length', truncated: true, json: null } }), { code: 'AI_OUTPUT_TRUNCATED' });
     await assert.rejects(service.validateAnswer({ jobId: job.jobId,
       result: { json: { answer: '伪造引用', citations: [{ sourceId: 'source-forged', start: 4, end: 9, quote: 'alpha' }] } } }),
     { code: 'AI_CITATION_INVALID' });
