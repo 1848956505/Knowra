@@ -11,18 +11,49 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
   const runtime = () => getRuntime?.();
   const identity = async () => runtime()?.repository?.identity();
 
-  function available() {
+  function available(reference) {
     const ai = runtime();
-    return Boolean(ai?.readContext && ai?.worker && (typeof ai.generationAvailable === 'function'
-      ? ai.generationAvailable() : ai.generationAvailable));
+    return Boolean(reference && ai?.readContext && ai?.worker && (typeof ai.generationAvailable === 'function'
+      ? ai.generationAvailable(reference.modelId) : ai.generationAvailable));
+  }
+
+  async function readiness(reference) {
+    if (!reference) return { ready: false, reason: '请先在设置中配置模型。', budget: null };
+    if (!available(reference)) {
+      const profile = runtime()?.priceProfile;
+      const reason = profile?.modelId !== reference.modelId ? '当前模型尚未核价，请在设置中选择 deepseek-flash。'
+        : profile?.expiresAt && Date.parse(profile.expiresAt) <= now().getTime() ? '模型价格档案已过期，请更新服务后重试。'
+          : '当前运行端尚未启用真实模型调用。';
+      return { ready: false, reason, budget: null };
+    }
+    try {
+      const budget = await runtime().budgetAuthority?.status('deepseek-primary');
+      if (!budget || budget.accountRef !== 'deepseek-primary' || !/^\d{4}-\d{2}-\d{2}$/.test(budget.day)
+        || budget.limitMicrounits !== 10_000_000 || !Number.isSafeInteger(budget.availableMicrounits)
+        || budget.availableMicrounits < 0 || budget.availableMicrounits > budget.limitMicrounits) {
+        return { ready: false, reason: '预算状态无效，已阻止模型调用。', budget: null };
+      }
+      return budget.availableMicrounits > 0
+        ? { ready: true, reason: null, budget: { day: budget.day, limitMicrounits: budget.limitMicrounits,
+          availableMicrounits: budget.availableMicrounits } }
+        : { ready: false, reason: '北京时间当日 10 元预算已用完。', budget: { day: budget.day,
+          limitMicrounits: budget.limitMicrounits, availableMicrounits: 0 } };
+    } catch {
+      return { ready: false, reason: '云端预算服务不可用，已阻止模型调用。', budget: null };
+    }
   }
 
   async function status() {
-    const reference = await runtime()?.credentialReference?.();
+    const ai = runtime();
+    const reference = await ai?.credentialReference?.();
+    const state = await readiness(reference);
+    const provider = ai?.gateway?.capabilities?.();
     return { provider: 'deepseek', modelId: reference?.modelId ?? null, configured: Boolean(reference),
-      executionLocation: location, generationAvailable: Boolean(reference) && available(),
-      unavailableReason: !reference ? '请先在设置中配置模型。'
-        : !available() ? '价格与真实外发验收尚未完成，当前只能预览发送范围。' : null };
+      executionLocation: location, generationAvailable: state.ready, unavailableReason: state.reason,
+      budget: state.budget,
+      capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'],
+        responseMode: 'polling', writeTools: false,
+        providerAdvertised: provider?.advertised ?? null, providerVerified: provider?.verified === true } };
   }
 
   async function assertJob(jobId) {
@@ -77,7 +108,9 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
   }
 
   async function start(input) {
-    if (!available()) fail('AI_GENERATION_UNAVAILABLE', '价格与真实外发验收尚未完成，暂不能发送模型请求。');
+    const reference = await runtime()?.credentialReference?.();
+    const state = await readiness(reference);
+    if (!state.ready) fail('AI_GENERATION_UNAVAILABLE', state.reason);
     const item = previews.get(input?.previewId);
     if (!item || item.expiresAt <= now().getTime()) fail('AI_PREVIEW_EXPIRED', '预览已过期，请重新预览。');
     if (input.scopeHash !== item.prepared.scopeSnapshot.scopeHash
@@ -86,7 +119,6 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       fail('AI_REQUEST_INVALID', '任务幂等键无效。');
     }
     const ai = runtime();
-    const reference = await ai.credentialReference();
     if (reference?.credentialRef !== item.credentialRef) fail('AI_CREDENTIAL_STALE', '模型配置已改变，请重新预览。');
     previews.delete(input.previewId);
     const { manifest, grant, request } = await ai.readContext.authorizeRead({ prepared: item.prepared,

@@ -31,6 +31,7 @@ import { createStorageConfig } from './config/storage.config.js';
 import { createLocalSyncService } from './modules/sync/local-provider.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createAiRuntime } from './modules/ai/runtime.js';
+import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import {
   assertSpacesOwnedBy,
   resolveSingleOwnerId
@@ -206,7 +207,8 @@ export function createPersistentAppContext({
   context.http.modelSettings = createModelSettingsService();
   context.http.aiBudget = dataStore.aiBudgetAuthority;
   context.ai = createAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
-    budgetAuthority: dataStore.aiBudgetAuthority, contextSources: {
+    budgetAuthority: dataStore.aiBudgetAuthority, priceProfile: reviewedDeepSeekPriceProfile,
+    allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0', contextSources: {
       ...context.modules.knowledge.repositories, ownerId: resolveOwnerId(ownerId, dataStore.state.spaces),
       spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository
     } });

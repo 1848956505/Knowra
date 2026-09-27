@@ -18,7 +18,9 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(assistantApi.status).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash',
     configured: true, executionLocation: 'server', generationAvailable: false,
-    unavailableReason: '价格与真实外发验收尚未完成，当前只能预览发送范围。' });
+    unavailableReason: '云端预算服务不可用，已阻止模型调用。', budget: null,
+    capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
+      writeTools: false, providerAdvertised: null, providerVerified: false } });
   vi.mocked(assistantApi.list).mockResolvedValue([]);
 });
 

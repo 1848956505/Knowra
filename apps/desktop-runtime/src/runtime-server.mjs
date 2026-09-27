@@ -53,7 +53,8 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
         if (url.pathname.startsWith('/api/')) {
           if (restoring) return sendRuntimeError(response, 503, 'LOCAL_RESTORE_BUSY', '正在恢复资料，请等待完成后重新加载。');
           const dataset = request.headers['x-knowra-dataset'];
-          const requiresDataset = activeDirectory !== dataDirectory && !['GET', 'HEAD'].includes(request.method);
+          const assistantRoute = /^\/api\/ai\/assistant(?:\/|$)/.test(url.pathname);
+          const requiresDataset = assistantRoute || activeDirectory !== dataDirectory && !['GET', 'HEAD'].includes(request.method);
           // 原生图片和下载请求无法附加 fetch header；只读资源可使用会话授权。
           if ((dataset || requiresDataset) && dataset !== store.getStatus().datasetId) {
             return sendRuntimeError(response, 409, 'LOCAL_DATASET_CHANGED', '资料库已恢复，请重新加载此窗口；当前草稿仍保留。');

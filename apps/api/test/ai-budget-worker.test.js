@@ -77,6 +77,43 @@ export const aiBudgetWorkerTests = [
       await assert.rejects(runtime.gateway.complete(request), { code: 'AI_BUDGET_NOT_AUTHORIZED' });
     });
   } },
+  { name: '预算预留跨北京时间零点时停止发送并释放旧日额度', async run() {
+    await withStore(async store => {
+      const records = aiRecords(store.aiRepository.identity());
+      for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
+        ['aiGrant', records.grant], ['aiJob', records.job]]) store.aiRepository.insert(kind, record);
+      let instant = new Date('2026-09-25T15:59:59.000Z');
+      let calls = 0;
+      const budget = { reserve: async input => {
+        const result = store.aiBudgetAuthority.reserve(input);
+        instant = new Date('2026-09-25T16:00:00.000Z');
+        return result;
+      }, settle: input => store.aiBudgetAuthority.settle(input) };
+      const worker = createAiWorker({ repository: store.aiRepository, budget,
+        gateway: { capabilities: () => ({ provider: 'mock' }), async complete() { calls++; return {}; } },
+        priceProfile: profile, now: () => instant });
+      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_BUDGET_DAY_CHANGED' });
+      assert.equal(calls, 0);
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-25').heldMicrounits, 0);
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').spentMicrounits, 0);
+    });
+  } },
+  { name: '远端预算回执日期或账户不匹配时不读取密钥且释放预留', async run() {
+    await withStore(async store => {
+      const records = aiRecords(store.aiRepository.identity());
+      for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
+        ['aiGrant', records.grant], ['aiJob', records.job]]) store.aiRepository.insert(kind, record);
+      let calls = 0;
+      const budget = { reserve: async input => ({ ...store.aiBudgetAuthority.reserve(input), day: '2026-09-27' }),
+        settle: input => store.aiBudgetAuthority.settle(input) };
+      const worker = createAiWorker({ repository: store.aiRepository, budget,
+        gateway: { capabilities: () => ({ provider: 'deepseek' }), async complete() { calls++; return {}; } },
+        priceProfile: profile, now: at, allowExternal: true, verifySources: async () => {}, validateResult: async () => {} });
+      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_BUDGET_INVALID' });
+      assert.equal(calls, 0);
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits, 0);
+    });
+  } },
   { name: '云端预算 HTTP 与远端客户端共用权威账本，错误和断网均拒绝执行', async run() {
     await withStore(async store => {
       const server = createServer({ appContext: { http: { aiBudget: store.aiBudgetAuthority } }, logger: { error() {} } });

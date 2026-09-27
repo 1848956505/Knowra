@@ -7,6 +7,10 @@ export interface AssistantStatus {
   executionLocation: 'local' | 'server';
   generationAvailable: boolean;
   unavailableReason: string | null;
+  budget: { day: string; limitMicrounits: number; availableMicrounits: number } | null;
+  capabilities: { readScopes: Array<'note' | 'folder'>; actions: Array<'answer' | 'cancel'>;
+    responseMode: 'polling'; writeTools: false; providerAdvertised: Record<string, boolean> | null;
+    providerVerified: boolean };
 }
 
 export interface AssistantSource {

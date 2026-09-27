@@ -5,6 +5,7 @@ import { createServer } from '../../api/src/server.js';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
 import { createSyncEngine } from './sync-engine.mjs';
 import { createAiRuntime } from '../../api/src/modules/ai/runtime.js';
+import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
 import { createRemoteBudgetAuthority } from '../../api/src/modules/ai/remote-budget-authority.js';
 
 /** 每次切换资料库都重建应用服务，避免 repository 留存旧 SQLite/内存引用。 */
@@ -54,8 +55,13 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       store.flush(); return attachment;
     });
     const sync = createSyncEngine(store, { ...syncOptions, noteService, entityTransfer });
-    if (credentialSource) context.ai = createAiRuntime({ modelSettings: credentialSource, repository: store.aiRepository,
+    const modelSettings = credentialSource ?? {
+      credentialReference: async () => null,
+      resolveCredential: async () => { throw new Error('请先在 Mac 应用设置中配置模型。'); }
+    };
+    context.ai = createAiRuntime({ modelSettings, repository: store.aiRepository,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
+      priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...context.modules.knowledge.repositories,
         spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } });
     context.aiOwnerId = 'demo';

@@ -23,6 +23,9 @@ export function quoteWorstCase({ request, priceProfile, now = new Date() }) {
     || request.maxTokens < 1 || request.maxTokens > MAX_OUTPUT_TOKENS
     || !Array.isArray(request.tools) || request.tools.length > 8
     || request.tools.some(tool => !allowedTools.has(tool.name))) fail('AI_REQUEST_LIMIT', '模型调用超过 P1 边界。');
+  if (priceProfile.modelId && request.modelId !== priceProfile.modelId) {
+    fail('AI_PRICE_UNAVAILABLE', '当前模型没有经过核价，已阻止付费调用。');
+  }
   // 以实际发送的完整 JSON 请求体字节数作保守输入上界，包含工具 schema 等元数据。
   const normalized = normalizeAiRequest(request);
   const outbound = { ...normalized, modelId: request.modelId };
@@ -127,14 +130,22 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     controllers.set(jobId, controller);
     const timer = setTimeout(() => controller.abort(), LEASE_MS);
     timer.unref?.();
+    const reservationDay = beijingDay(now());
     try {
-      await budget.reserve({ accountRef, jobId, attemptId: attempt.attemptId, priceVersion: priceProfile.version,
-        reservedMicrounits: quote.reservedMicrounits, day: beijingDay(now()) });
+      const reservation = await budget.reserve({ accountRef, jobId, attemptId: attempt.attemptId, priceVersion: priceProfile.version,
+        reservedMicrounits: quote.reservedMicrounits, day: reservationDay });
       reserved = true;
+      if (reservation?.accountRef !== accountRef || reservation.jobId !== jobId
+        || reservation.attemptId !== attempt.attemptId || reservation.priceVersion !== priceProfile.version
+        || reservation.reservedMicrounits !== quote.reservedMicrounits || reservation.day !== reservationDay) {
+        fail('AI_BUDGET_INVALID', '预算预留回执与任务不一致，已阻止模型调用。');
+      }
       const beforeSend = await repository.get('aiJob', jobId);
       await validBoundary(beforeSend);
       if (verifySources) await verifySources(beforeSend, request);
       if (beforeSend.status !== 'running' || controller.signal.aborted) fail('AI_CANCELLED', '任务已取消，未发送模型请求。');
+      if (beijingDay(now()) !== reservationDay) fail('AI_BUDGET_DAY_CHANGED', '预算日期已切换，请重新预览后重试。');
+      quoteWorstCase({ request, priceProfile, now: now() });
       attempt = await replace('aiJobAttempt', attempt, { status: 'sent' });
       sent = true;
       authorizeAttempt(attempt.attemptId);

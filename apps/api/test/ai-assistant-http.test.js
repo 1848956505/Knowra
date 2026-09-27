@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { createPersistentAppContext } from '../src/app.factory.js';
 import { createServer } from '../src/server.js';
-import { createAiWorker } from '../src/modules/ai/worker.js';
+import { createAiWorker, quoteWorstCase } from '../src/modules/ai/worker.js';
+import { reviewedDeepSeekPriceProfile } from '../src/modules/ai/reviewed-price-profile.js';
 
 const priceProfile = { version: 'synthetic', expiresAt: '2030-01-01T00:00:00.000Z',
   inputMicrounitsPerMillion: 2_000_000, outputMicrounitsPerMillion: 8_000_000 };
@@ -25,6 +26,32 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '核价模型、过期价格与预算故障均阻止真实生成并返回具体能力状态', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-readiness-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'other-model', credentialRef: 'synthetic-ref' });
+      await withServer(context, async origin => {
+        const wrongModel = (await call(origin, '/status')).payload.data;
+        assert.equal(wrongModel.generationAvailable, false);
+        assert.match(wrongModel.unavailableReason, /尚未核价/);
+        assert.equal(wrongModel.capabilities.writeTools, false);
+        assert.equal(wrongModel.capabilities.responseMode, 'polling');
+        context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+        context.ai.budgetAuthority.status = () => { throw new Error('offline'); };
+        const unavailable = (await call(origin, '/status')).payload.data;
+        assert.equal(unavailable.generationAvailable, false);
+        assert.match(unavailable.unavailableReason, /预算服务不可用/);
+      });
+      assert.throws(() => quoteWorstCase({ request: { modelId: 'other-model', messages: [
+        { role: 'system', content: 'JSON' }], maxTokens: 10, tools: [] }, priceProfile: reviewedDeepSeekPriceProfile }),
+      error => error.code === 'AI_PRICE_UNAVAILABLE');
+      assert.throws(() => quoteWorstCase({ request: { modelId: 'deepseek-flash', messages: [
+        { role: 'system', content: 'JSON' }], maxTokens: 10, tools: [] },
+      priceProfile: reviewedDeepSeekPriceProfile, now: new Date('2026-10-05T00:00:00.000Z') }),
+      error => error.code === 'AI_PRICE_UNAVAILABLE');
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '助手 HTTP 预览、确认、回答持久恢复与来源回读', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-assistant-'));
     try {
@@ -91,6 +118,7 @@ export const aiAssistantHttpTests = [
       const space = context.http.knowledge.createDefaultKnowledgeSpace({});
       const note = context.http.knowledge.createNote({ id: 'gated-note', title: '门禁', rawMarkdown: '正文', spaceId: space.id });
       context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      context.ai.generationAvailable = false;
       await withServer(context, async origin => {
         assert.equal((await call(origin, '/status')).payload.data.executionLocation, 'local');
         const preview = await call(origin, '/preview', { spaceId: space.id, scope: { kind: 'note', noteId: note.id }, question: '内容？' });

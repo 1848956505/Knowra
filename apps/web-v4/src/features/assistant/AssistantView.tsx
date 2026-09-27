@@ -156,6 +156,7 @@ export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOp
         <div className={styles.banner} role="status">
           <strong>{!status ? '正在读取模型状态' : status.modelId ? `DeepSeek · ${status.modelId}` : '模型未配置'}</strong>
           <span>{status?.unavailableReason ?? (status ? '当前可在确认来源范围后创建只读问答任务。' : '请稍候…')}</span>
+          {status?.budget ? <span>北京时间 {status.budget.day} · 今日剩余额度 {(status.budget.availableMicrounits / 1_000_000).toFixed(2)} 元</span> : null}
           {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
           {!status && error ? <Button variant="ghost" size="compact" onPress={() => void reloadStatus()}>重试读取状态</Button> : null}
         </div>
@@ -186,7 +187,7 @@ export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOp
           <div className={styles.actions}><Button variant="primary" isDisabled={pending || !status?.generationAvailable}
             onPress={() => void start()}>确认范围并提问</Button>
             <Button variant="ghost" onPress={resetPreview}>取消预览</Button></div>
-          {!status?.generationAvailable ? <p className={styles.hint}>当前仅可核对发送范围，生成将在价格与真实外发验收后开放。</p> : null}
+          {!status?.generationAvailable ? <p className={styles.hint}>{status?.unavailableReason ?? '当前仅可核对发送范围。'}</p> : null}
         </section> : null}
         {selectedJob ? <section className={styles.card} aria-label="任务详情">
           <div className={styles.jobHeader}><h2>{selectedJob.question || '只读问答'}</h2><span>{statusLabel[selectedJob.status]}</span></div>

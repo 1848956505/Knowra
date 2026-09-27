@@ -44,6 +44,10 @@ test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及�
   assert.equal((await request(`/api/knowledge/notes/${note.id}/permanent`, 'DELETE')).status, 409);
   const status = (await request('/api/local-runtime/status')).body.data;
   assert.equal(status.cloudSync, 'not-configured');
+  const assistantStatus = await fetch(`${runtime.origin}/api/ai/assistant/status`, { headers: {
+    Cookie: cookie, 'X-Knowra-Dataset': status.datasetId } }).then(response => response.json());
+  assert.equal(assistantStatus.data.configured, false);
+  assert.equal(assistantStatus.data.generationAvailable, false);
   assert(status.pendingOperations > 0);
   assert.equal((await request('/api/local-runtime/backup', 'POST')).status, 201);
   await runtime.close();
@@ -51,4 +55,48 @@ test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及�
   cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
   assert.equal((await request(`/api/knowledge/notes/${note.id}`)).body.data.rawMarkdown, '断网后保存');
   assert.equal((await request('/api/local-runtime/status')).body.data.pendingOperations, status.pendingOperations, JSON.stringify(runtime.store.readOutbox().at(-1)));
+});
+
+test('桌面助手路由放行受信预览，预算离线时禁止生成且所有助手请求绑定资料集', async t => {
+  const root = temporaryDirectory(t);
+  const distRoot = path.join(root, 'dist');
+  fs.mkdirSync(distRoot);
+  fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head><body>Knowra</body></html>');
+  const credentialSource = {
+    credentialReference: async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' }),
+    resolveCredential: async () => { throw new Error('合成验收不得读取真实密钥'); }
+  };
+  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'data'), distRoot,
+    credentialSource, syncOptions: { autoSync: false } });
+  t.after(async () => runtime.close());
+  const cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
+  const dataset = runtime.store.getStatus().datasetId;
+  async function call(route, method = 'GET', body, datasetHeader = dataset, extraHeaders = {}) {
+    const response = await fetch(`${runtime.origin}${route}`, { method, headers: { Cookie: cookie,
+      ...(datasetHeader ? { 'X-Knowra-Dataset': datasetHeader } : {}), 'Content-Type': 'application/json', ...extraHeaders },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    return { status: response.status, payload: await response.json() };
+  }
+  assert.equal((await call('/api/ai/assistant/status', 'GET', undefined, null)).payload.error.code, 'LOCAL_DATASET_CHANGED');
+  assert.equal((await call('/api/ai/assistant/status', 'GET', undefined, 'other')).status, 409);
+  const status = (await call('/api/ai/assistant/status')).payload.data;
+  assert.equal(status.executionLocation, 'local');
+  assert.equal(status.configured, true);
+  assert.equal(status.generationAvailable, false);
+  assert.deepEqual(status.capabilities.readScopes, ['note', 'folder']);
+  assert.equal(status.capabilities.writeTools, false);
+  const space = (await call('/api/knowledge/spaces/default', 'POST', {})).payload.data;
+  const note = (await call('/api/knowledge/notes', 'POST', { spaceId: space.id,
+    title: '合成笔记', rawMarkdown: 'alpha 正文' })).payload.data;
+  const preview = await call('/api/ai/assistant/preview', 'POST', { spaceId: space.id,
+    scope: { kind: 'note', noteId: note.id }, question: 'alpha 是什么？' }, dataset,
+  { 'X-Knowra-AI-Assistant': '1' });
+  assert.equal(preview.status, 200, JSON.stringify(preview.payload));
+  assert.deepEqual(preview.payload.data.sources.map(source => source.text), ['alpha 正文']);
+  assert.equal((await call('/api/ai/assistant/jobs', 'POST', { previewId: preview.payload.data.previewId,
+    scopeHash: preview.payload.data.scopeHash, payloadHash: preview.payload.data.payloadHash,
+    idempotencyKey: 'synthetic-01' }, dataset, { 'X-Knowra-AI-Assistant': '1' })).payload.error.code,
+  'AI_GENERATION_UNAVAILABLE');
+  assert.equal((await call('/api/ai/assistant/jobs', 'GET')).status, 422);
+  assert.equal((await runtime.store.aiRepository.list('aiJob')).length, 0);
 });
