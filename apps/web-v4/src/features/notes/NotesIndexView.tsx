@@ -15,7 +15,7 @@ import {
   ListIcon,
   SearchIcon,
   TagIcon
-} from '../../shell/icons';
+} from '../../components/icons/knowra';
 import {
   Button, SearchBox, SegmentedButton, SegmentedControl,
   Menu, MenuItem, MenuTrigger, MenuPopover, PointMenu,

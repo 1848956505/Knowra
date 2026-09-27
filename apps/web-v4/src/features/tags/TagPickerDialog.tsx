@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter, Select, TextField } from '../../components/ui';
-import { PlusIcon } from '../../shell/icons';
+import { PlusIcon } from '../../components/icons/knowra';
 import { TagChip, normalizeTagColor } from './TagChip';
 import styles from './TagPickerDialog.module.css';
 

@@ -15,7 +15,7 @@ import {
   PaperclipIcon,
   SparkIcon,
   TagIcon
-} from '../../shell/icons';
+} from '../../components/icons/knowra';
 import {
   buildFolderPath,
   extractInspectorOutline,

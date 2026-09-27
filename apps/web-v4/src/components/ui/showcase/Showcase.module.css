@@ -98,6 +98,9 @@
   background: var(--ink-panel);
 }
 
+.catalogLink { align-self: flex-start; color: var(--ink-accent); font: 750 12px/1.4 var(--font-ui); text-decoration: underline; text-underline-offset: 3px; }
+.catalogLink:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

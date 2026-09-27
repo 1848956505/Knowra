@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Knowra · 笔记内容样式原型</title>
+  <style>
+    :root {
+      --color-bg: #f3f1eb;
+      --color-paper: #fffefd;
+      --color-surface: #fbfaf6;
+      --color-surface-2: #f4f2ec;
+      --color-line: #d8d5cb;
+      --color-line-strong: #232323;
+      --color-text: #1d1d1b;
+      --color-text-2: #66635d;
+      --color-text-3: #969188;
+      --color-primary: #2864e8;
+      --color-primary-soft: #e8efff;
+      --color-primary-softer: #f3f6ff;
+      --color-orange: #eb6d11;
+      --color-orange-soft: #fff1e6;
+      --color-green: #18794e;
+      --color-green-soft: #eaf7f0;
+      --color-red: #c7362f;
+      --color-red-soft: #fff0ef;
+      --color-code-bg: #f7f6f1;
+      --shadow-offset: 4px 4px 0 #d6d2c8;
+      --shadow-blue: 5px 5px 0 var(--color-primary);
+      --rail-width: 78px;
+      --topbar-height: 52px;
+      --status-height: 30px;
+      --content-width: 780px;
+      --note-width: 1120px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-7: 32px;
+      --space-8: 40px;
+      --space-9: 48px;
+      --radius-sm: 2px;
+      --font-ui: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-serif: Georgia, "Times New Roman", "Songti SC", "STSong", serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      color: var(--color-text);
+      background: var(--color-bg);
+      font-family: var(--font-ui);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: var(--rail-width) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) var(--status-height);
+      background:
+        radial-gradient(circle at 1px 1px, rgba(35,35,35,.12) 1px, transparent 1.2px) 0 0 / 22px 22px,
+        var(--color-bg);
+    }
+
+    .rail {
+      grid-row: 1 / -1;
+      border-right: 1px solid var(--color-line);
+      background: var(--color-surface);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 0 12px;
+      gap: 18px;
+    }
+
+    .brand {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--color-line-strong);
+      background: var(--color-paper);
+      font-weight: 800;
+      box-shadow: 8px 8px 0 var(--color-primary);
+      margin-bottom: 12px;
+    }
+
+    .rail-btn {
+      width: 42px;
+      height: 42px;
+      border: 0;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      color: var(--color-text);
+      position: relative;
+    }
+
+    .rail-btn.active { color: var(--color-primary); }
+    .rail-btn.active::after {
+      content: "";
+      position: absolute;
+      right: -18px;
+      width: 3px;
+      height: 20px;
+      background: var(--color-primary);
+    }
+    .rail-spacer { flex: 1; }
+    .icon { width: 21px; height: 21px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+
+    .workspace {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+    }
+
+    .tabs {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-line);
+      display: flex;
+      align-items: stretch;
+      padding-left: 160px;
+      gap: 0;
+    }
+
+    .tab {
+      min-width: 245px;
+      padding: 0 16px;
+      border: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--color-text-2);
+      font-weight: 650;
+    }
+
+    .tab.active {
+      background: var(--color-paper);
+      color: var(--color-text);
+      border-left: 1px solid var(--color-line-strong);
+      border-right: 1px solid var(--color-line-strong);
+      border-top: 3px solid var(--color-primary);
+    }
+
+    .tab-index {
+      color: var(--color-primary);
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .tab .close { margin-left: auto; color: var(--color-text-2); }
+    .top-actions { margin-left: auto; padding-right: 16px; display: flex; align-items: center; gap: 6px; }
+    .dots { letter-spacing: 3px; color: var(--color-text-2); }
+    .plus { font-size: 28px; font-weight: 300; }
+
+    .viewport {
+      min-height: 0;
+      overflow: auto;
+      padding: 40px 72px 80px;
+      scrollbar-color: var(--color-text-3) transparent;
+      scrollbar-width: thin;
+    }
+
+    .note-sheet {
+      width: min(var(--note-width), calc(100vw - var(--rail-width) - 144px));
+      min-height: 1500px;
+      margin: 0 auto;
+      background: var(--color-paper);
+      border: 1px solid var(--color-line);
+      padding: 76px 94px 110px;
+    }
+
+    .note-head {
+      max-width: var(--content-width);
+      margin: 0 auto 36px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--color-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 10px; height: 10px; background: var(--color-primary); }
+
+    .note-title {
+      margin: 18px 0 16px;
+      font-family: var(--font-serif);
+      font-size: 42px;
+      line-height: 1.12;
+      letter-spacing: -.02em;
+    }
+
+    .meta { display: flex; gap: 20px; color: var(--color-text-2); font-size: 13px; }
+    .meta strong { color: var(--color-orange); font-family: var(--font-mono); font-size: 12px; }
+
+    .toolbar {
+      max-width: var(--content-width);
+      min-height: 42px;
+      margin: 0 auto 28px;
+      border: 2px solid var(--color-line-strong);
+      background: var(--color-paper);
+      box-shadow: var(--shadow-offset);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .toolbar::-webkit-scrollbar { display: none; }
+    .tool-group { display: flex; align-items: center; gap: 2px; padding: 0 8px; border-right: 1px solid var(--color-line); }
+    .tool-group:last-child { border-right: 0; }
+    .tool-btn {
+      height: 30px;
+      min-width: 30px;
+      padding: 0 8px;
+      border: 0;
+      background: transparent;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tool-btn:hover, .tool-btn.active { background: var(--color-primary-soft); color: var(--color-primary); }
+
+    .divider { max-width: var(--content-width); height: 1px; background: var(--color-line); margin: 0 auto 34px; }
+
+    .note-content {
+      max-width: var(--content-width);
+      margin: 0 auto;
+      font-size: 16px;
+      line-height: 1.82;
+      color: var(--color-text);
+    }
+    .note-content > *:first-child { margin-top: 0; }
+    .note-content p { margin: 0 0 18px; }
+    .note-content strong { font-weight: 750; }
+    .note-content em { font-style: italic; }
+    .note-content del { color: var(--color-text-3); }
+    .note-content a {
+      color: var(--color-primary);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+      text-decoration-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+    }
+    .note-content a:hover { color: var(--color-text); text-decoration-color: var(--color-primary); }
+    .note-content mark {
+      background: linear-gradient(transparent 34%, var(--color-orange-soft) 34% 94%, transparent 94%);
+      color: inherit;
+      padding: 0 2px;
+    }
+
+    .note-content h1, .note-content h2, .note-content h3 { scroll-margin-top: 24px; }
+    .note-content h1 {
+      font-family: var(--font-serif);
+      font-size: 34px;
+      line-height: 1.22;
+      margin: 52px 0 20px;
+      letter-spacing: -.015em;
+    }
+    .note-content h2 {
+      font-size: 24px;
+      line-height: 1.35;
+      margin: 46px 0 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--color-line);
+      position: relative;
+    }
+    .note-content h2::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: var(--color-primary);
+      margin-right: 10px;
+      transform: translateY(-1px);
+    }
+    .note-content h3 {
+      font-size: 18px;
+      line-height: 1.5;
+      margin: 32px 0 12px;
+    }
+    .note-content h3::before { content: "#"; color: var(--color-primary); font-family: var(--font-mono); margin-right: 8px; }
+
+    code.inline-code {
+      font-family: var(--font-mono);
+      font-size: .9em;
+      color: #184fbf;
+      background: var(--color-primary-softer);
+      border: 1px solid #b8c9f6;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+    }
+
+    .note-content ul, .note-content ol { margin: 10px 0 22px; padding-left: 0; }
+    .note-content li { margin: 8px 0; }
+    .note-content ul:not(.task-list) { list-style: none; }
+    .note-content ul:not(.task-list) > li { position: relative; padding-left: 24px; }
+    .note-content ul:not(.task-list) > li::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: .8em;
+      width: 7px;
+      height: 7px;
+      background: var(--color-primary);
+      transform: translateY(-50%);
+    }
+    .note-content ol { list-style: none; counter-reset: knowra-order; }
+    .note-content ol > li { counter-increment: knowra-order; position: relative; padding-left: 42px; }
+    .note-content ol > li::before {
+      content: counter(knowra-order, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 1px;
+      color: var(--color-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .06em;
+    }
+
+    .task-list { list-style: none; }
+    .task-list li { display: flex; align-items: flex-start; gap: 10px; }
+    .task-box {
+      width: 17px;
+      height: 17px;
+      flex: 0 0 auto;
+      margin-top: 6px;
+      border: 1.5px solid var(--color-line-strong);
+      background: var(--color-paper);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      line-height: 1;
+    }
+    .task-box.checked { color: var(--color-paper); background: var(--color-primary); border-color: var(--color-primary); }
+    .task-done { color: var(--color-text-3); text-decoration: line-through; }
+
+    blockquote {
+      margin: 28px 0;
+      padding: 18px 22px 18px 24px;
+      border-left: 4px solid var(--color-line-strong);
+      background: var(--color-surface-2);
+      position: relative;
+      color: var(--color-text-2);
+    }
+    blockquote::before {
+      content: "“";
+      position: absolute;
+      left: 9px;
+      top: -6px;
+      color: var(--color-primary);
+      font-family: var(--font-serif);
+      font-size: 34px;
+      font-weight: 800;
+    }
+    blockquote p { margin: 0; padding-left: 14px; }
+
+    .callout {
+      margin: 28px 0;
+      border: 1.5px solid var(--color-line-strong);
+      background: var(--color-paper);
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      box-shadow: var(--shadow-offset);
+    }
+    .callout-icon { display: grid; place-items: center; font-family: var(--font-mono); font-weight: 900; border-right: 1.5px solid var(--color-line-strong); }
+    .callout-body { padding: 14px 16px 14px; }
+    .callout-title { font-family: var(--font-mono); font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 4px; }
+    .callout.info .callout-icon, .callout.info .callout-title { color: var(--color-primary); background: var(--color-primary-soft); }
+    .callout.warn .callout-icon, .callout.warn .callout-title { color: var(--color-orange); background: var(--color-orange-soft); }
+    .callout.success .callout-icon, .callout.success .callout-title { color: var(--color-green); background: var(--color-green-soft); }
+
+    .code-block {
+      margin: 28px 0;
+      border: 1.5px solid var(--color-line-strong);
+      background: var(--color-code-bg);
+      box-shadow: var(--shadow-offset);
+      overflow: hidden;
+    }
+    .code-head {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px 0 14px;
+      border-bottom: 1px solid var(--color-line);
+      background: var(--color-paper);
+    }
+    .code-lang { color: var(--color-primary); font-family: var(--font-mono); font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+    .code-file { color: var(--color-text-3); font-family: var(--font-mono); font-size: 11px; }
+    .copy-btn {
+      margin-left: auto;
+      height: 26px;
+      padding: 0 9px;
+      border: 1px solid var(--color-line);
+      background: var(--color-paper);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .copy-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    pre {
+      margin: 0;
+      padding: 18px 20px;
+      overflow: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.72;
+      tab-size: 2;
+    }
+    .tok-key { color: #8b2bb8; }
+    .tok-fn { color: #145ab5; }
+    .tok-str { color: #9a4b12; }
+    .tok-com { color: #8a8780; }
+    .tok-num { color: #1b7963; }
+
+    .table-wrap { margin: 28px 0; overflow-x: auto; border: 1.5px solid var(--color-line-strong); }
+    table { width: 100%; border-collapse: collapse; min-width: 620px; font-size: 14px; line-height: 1.55; background: var(--color-paper); }
+    th, td { padding: 12px 14px; text-align: left; border-right: 1px solid var(--color-line); border-bottom: 1px solid var(--color-line); }
+    th:last-child, td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+    th { background: var(--color-surface-2); font-size: 12px; font-weight: 800; }
+    tbody tr:hover { background: var(--color-primary-softer); }
+    .mono { font-family: var(--font-mono); font-size: 12px; }
+    .table-tag { display: inline-block; padding: 1px 6px; border: 1px solid var(--color-line-strong); background: var(--color-paper); font-family: var(--font-mono); font-size: 10px; font-weight: 800; }
+    .table-tag.blue { border-color: var(--color-primary); color: var(--color-primary); }
+    .table-tag.orange { border-color: var(--color-orange); color: var(--color-orange); }
+
+    kbd {
+      display: inline-block;
+      min-width: 25px;
+      padding: 1px 6px;
+      border: 1px solid var(--color-line-strong);
+      background: var(--color-paper);
+      box-shadow: 2px 2px 0 var(--color-line);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    .note-hr {
+      height: 18px;
+      margin: 40px 0;
+      position: relative;
+    }
+    .note-hr::before { content: ""; position: absolute; left: 0; right: 0; top: 9px; height: 1px; background: var(--color-line); }
+    .note-hr::after { content: ""; position: absolute; width: 9px; height: 9px; background: var(--color-primary); left: 50%; top: 5px; transform: translateX(-50%); box-shadow: 0 0 0 5px var(--color-paper); }
+
+    .footnote { margin-top: 16px; color: var(--color-text-2); font-size: 13px; }
+    .footnote sup { color: var(--color-primary); font-family: var(--font-mono); font-weight: 900; }
+
+    .statusbar {
+      grid-column: 2;
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-line);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      font-size: 12px;
+      color: var(--color-text-2);
+    }
+    .status-left { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+    .status-dot { width: 9px; height: 9px; background: var(--color-primary); }
+    .status-mid { margin-left: auto; margin-right: auto; }
+    .status-right { display: flex; align-items: center; gap: 14px; }
+    .local-dot { width: 9px; height: 9px; background: var(--color-orange); display: inline-block; margin-right: 6px; }
+    .sync { color: var(--color-primary); }
+
+    @media (max-width: 980px) {
+      :root { --rail-width: 62px; }
+      .tabs { padding-left: 24px; }
+      .viewport { padding: 22px 18px 60px; }
+      .note-sheet { width: 100%; padding: 50px 34px 80px; }
+    }
+
+    @media (max-width: 680px) {
+      .rail { display: none; }
+      .app { grid-template-columns: 1fr; }
+      .statusbar { grid-column: 1; }
+      .tabs { padding-left: 0; }
+      .tab { min-width: 200px; }
+      .note-sheet { padding: 38px 22px 64px; border-left: 0; border-right: 0; }
+      .note-title { font-size: 36px; }
+      .toolbar { position: sticky; top: 0; z-index: 5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail" aria-label="主导航">
+      <div class="brand">知</div>
+      <button class="rail-btn" aria-label="搜索"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></button>
+      <button class="rail-btn" aria-label="新建"><svg class="icon" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></svg></button>
+      <button class="rail-btn active" aria-label="笔记"><svg class="icon" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4"/></svg></button>
+      <button class="rail-btn" aria-label="知识"><svg class="icon" viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z"/><path d="M5 4v16a2 2 0 0 1 2-2h12"/></svg></button>
+      <button class="rail-btn" aria-label="训练"><svg class="icon" viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="m8 12 2.5 2.5L16 9"/></svg></button>
+      <div class="rail-spacer"></div>
+      <button class="rail-btn" aria-label="设置"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></button>
+    </aside>
+
+    <main class="workspace">
+      <div class="tabs">
+        <button class="tab active"><span class="tab-index">01</span><span>笔记内容样式规范</span><span class="close">×</span></button>
+        <button class="tab"><span class="tab-index">02</span><span>附录：组件状态</span></button>
+        <div class="top-actions"><span class="dots">⋮</span><span class="plus">＋</span></div>
+      </div>
+
+      <section class="viewport">
+        <article class="note-sheet">
+          <header class="note-head">
+            <div class="eyebrow">NOTE · STYLE SPEC</div>
+            <h1 class="note-title">Knowra 笔记内容样式</h1>
+            <div class="meta"><strong>DRAFT</strong><span>内容排版样张</span><span>更新于 09/24</span></div>
+          </header>
+
+          <nav class="toolbar" aria-label="格式化工具栏">
+            <div class="tool-group"><button class="tool-btn">文件</button><button class="tool-btn">段落</button><button class="tool-btn">编辑</button></div>
+            <div class="tool-group"><button class="tool-btn">H1</button><button class="tool-btn active">H2</button><button class="tool-btn">H3</button></div>
+            <div class="tool-group"><button class="tool-btn"><b>B</b></button><button class="tool-btn"><i>I</i></button><button class="tool-btn">&lt;/&gt;</button></div>
+            <div class="tool-group"><button class="tool-btn">☷</button><button class="tool-btn">1.</button><button class="tool-btn">☑</button><button class="tool-btn">▦</button></div>
+            <div class="tool-group"><button class="tool-btn">☆</button><button class="tool-btn">＋</button><button class="tool-btn">⋮</button></div>
+          </nav>
+          <div class="divider"></div>
+
+          <div class="note-content">
+            <p>这份页面把笔记正文里的常见能力放进同一个真实阅读场景中。整体不采用“卡片套卡片”，而是尽量保持 <strong>内容优先、结构清楚、强调克制</strong>。正文默认是干净的白纸，蓝色只负责交互、层级与关键状态。</p>
+            <p>普通文本可以包含 <strong>粗体</strong>、<em>斜体</em>、<del>删除线</del>、<mark>高亮文本</mark>、<a href="#table">内部链接</a>，以及像 <code class="inline-code">torch.nn.Module</code> 这样的行内代码。</p>
+
+            <h2>标题与正文层级</h2>
+            <p>一级标题适合文档中的大章节；二级标题是最常用的结构层级；三级标题只做轻量分组。视觉上避免为每一级标题都添加厚重容器，而是通过字号、留白和少量蓝色标记建立节奏。</p>
+
+            <h3>三级标题示例</h3>
+            <p>三级标题使用更紧凑的间距，并保留一个轻量的 <code class="inline-code">#</code> 标识。正文阅读时不会被过度切碎。</p>
+
+            <h2>列表</h2>
+            <p>无序列表使用品牌蓝色方点，和你当前界面中的蓝色方块语言保持一致：</p>
+            <ul>
+              <li>Markdown 是知识库的主要编辑载体。</li>
+              <li>格式能力应该服务内容，而不是变成装饰性工具条。</li>
+              <li>同一套正文样式可以复用于知识点、试卷解析和 AI 生成内容。</li>
+            </ul>
+
+            <p>有序列表把序号改成两位等宽数字，更像“知识索引”，同时不会抢正文：</p>
+            <ol>
+              <li>先记录知识。</li>
+              <li>再抽取知识点与考点。</li>
+              <li>最后进入训练、批改与复习闭环。</li>
+            </ol>
+
+            <p>任务列表保持明确的方形交互感：</p>
+            <ul class="task-list">
+              <li><span class="task-box checked">✓</span><span class="task-done">整理数据增强综述</span></li>
+              <li><span class="task-box checked">✓</span><span class="task-done">完成 CutMix 主实验配置</span></li>
+              <li><span class="task-box"></span><span>补齐 RandAugment 实验记录</span></li>
+            </ul>
+
+            <h2>引用与提示</h2>
+            <blockquote><p>真正重要的不是让每个元素都“有设计感”，而是让用户在阅读时几乎意识不到设计的存在。</p></blockquote>
+
+            <div class="callout info">
+              <div class="callout-icon">i</div>
+              <div class="callout-body"><div class="callout-title">NOTE</div><div>用于补充说明、概念提示、学习备注。默认推荐这一类，视觉最轻。</div></div>
+            </div>
+
+            <div class="callout warn">
+              <div class="callout-icon">!</div>
+              <div class="callout-body"><div class="callout-title">IMPORTANT</div><div>用于实验前提、易错点、数据风险等真正需要用户注意的信息，不建议滥用。</div></div>
+            </div>
+
+            <div class="callout success">
+              <div class="callout-icon">✓</div>
+              <div class="callout-body"><div class="callout-title">DONE</div><div>用于任务完成、验证通过、知识点已掌握等正向状态。</div></div>
+            </div>
+
+            <h2>代码</h2>
+            <p>行内代码已经尽量轻量；完整代码块则保留“工具窗口”的机械感，与现有编辑器边框语言一致。</p>
+            <div class="code-block">
+              <div class="code-head"><span class="code-lang">PYTHON</span><span class="code-file">train.py</span><button class="copy-btn" data-copy>复制</button></div>
+              <pre><code><span class="tok-key">def</span> <span class="tok-fn">train_one_epoch</span>(model, loader, optimizer, device):
+    model.train()
+    total_loss = <span class="tok-num">0.0</span>
+
+    <span class="tok-key">for</span> images, targets <span class="tok-key">in</span> loader:
+        images = images.to(device)
+        targets = targets.to(device)
+        optimizer.zero_grad()
+        loss = model(images, targets)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+
+    <span class="tok-key">return</span> total_loss / len(loader)  <span class="tok-com"># epoch mean loss</span></code></pre>
+            </div>
+
+            <h2 id="table">表格</h2>
+            <p>表格不做大圆角，也不使用大面积色块。表头只用浅灰底，选中或悬停时再出现淡蓝色反馈。</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>方法</th><th>层次</th><th>核心机制</th><th>状态</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Mixup</strong></td><td class="mono">OPERATION</td><td>样本与标签线性插值</td><td><span class="table-tag blue">已复现</span></td></tr>
+                  <tr><td><strong>CutMix</strong></td><td class="mono">OPERATION</td><td>局部区域替换 + 面积加权标签</td><td><span class="table-tag blue">进行中</span></td></tr>
+                  <tr><td><strong>RandAugment</strong></td><td class="mono">POLICY</td><td>用 N / M 简化策略搜索</td><td><span class="table-tag orange">待实验</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2>快捷键与分隔</h2>
+            <p>轻量快捷键提示可以直接嵌入句子中，例如 <kbd>⌘</kbd> + <kbd>K</kbd> 打开命令菜单，<kbd>⌘</kbd> + <kbd>S</kbd> 保存。</p>
+            <div class="note-hr" aria-hidden="true"></div>
+
+            <h2>组合示例</h2>
+            <p>实际笔记里最常见的情况通常是多种结构混合。比如实验记录可以先写一个短结论，再列参数，最后附代码与结果表。样式系统的目标不是“每个块都显眼”，而是让这些内容自然拼在一起。</p>
+            <ol>
+              <li><strong>结论：</strong>CutMix 在当前配置下收敛正常。</li>
+              <li><strong>参数：</strong><code class="inline-code">beta=1.0</code>，<code class="inline-code">cutmix_prob=0.5</code>。</li>
+              <li><strong>下一步：</strong>保持同一训练预算，与 Mixup 和 baseline 对齐比较。</li>
+            </ol>
+            <p class="footnote"><sup>01</sup> 此 HTML 是视觉原型；真正接入编辑器时建议把 Token、正文样式和工具栏组件分别抽离。</p>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <div class="status-left"><span class="status-dot"></span><span>笔记库 / 笔记内容样式规范</span></div>
+      <div class="status-mid">已保存到本机&nbsp;&nbsp;<span class="mono">22:29</span></div>
+      <div class="status-right"><span><i class="local-dot"></i>本地资料</span><span class="sync">同步已暂停</span></div>
+    </footer>
+  </div>
+
+  <script>
+    document.querySelectorAll('[data-copy]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const code = button.closest('.code-block').querySelector('code').innerText;
+        try {
+          await navigator.clipboard.writeText(code);
+          const original = button.textContent;
+          button.textContent = '已复制';
+          setTimeout(() => { button.textContent = original; }, 1200);
+        } catch {
+          button.textContent = '复制失败';
+          setTimeout(() => { button.textContent = '复制'; }, 1200);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

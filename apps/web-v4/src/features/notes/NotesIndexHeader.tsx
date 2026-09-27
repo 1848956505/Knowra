@@ -2,7 +2,7 @@ import { CreateEntryMenu } from './CreateEntryMenu';
 import { Button } from '../../components/ui';
 import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
-import { UploadIcon, ChevronRightIcon, PlusIcon } from '../../shell/icons';
+import { UploadIcon, ChevronRightIcon, PlusIcon } from '../../components/icons/knowra';
 import { useLocation } from '../../app/router';
 import { WorkspacePanelHeader } from '../../components/workspace/WorkspacePanel';
 import styles from './NotesIndexView.module.css';

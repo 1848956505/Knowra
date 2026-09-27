@@ -42,7 +42,7 @@ The Phase2.0 knowledge-source foundation and Phase3.0 assessment foundation are 
 
 ## 本地离线运行与完整同步（阶段 0–5）
 
-执行 `npm run build:web` 后运行 `npm run start:desktop`，打开输出的本机入口。SQLite 原子保存支持离线编辑及重启恢复；升级后的云端支持目录、标签、笔记、附件和重点标注同步，以及冲突处理、备份和救援导出。运行、灰度、容量与验收边界见 [阶段 4/5 实施与验收](docs/离线编辑与同步/阶段4与阶段5-完整同步与发布验收.md)。本轮未部署生产。个人 Mac 应用通过 `npm run build:mac` 生成，详见 [构建与使用](docs/离线编辑与同步/Mac个人应用-构建与使用.md)。
+执行 `npm run build:web` 后运行 `npm run start:desktop`，打开输出的本机入口。SQLite 原子保存支持离线编辑及重启恢复；升级后的云端支持目录、标签、笔记、附件和重点标注同步，以及冲突处理、备份和救援导出。阶段 0～5 的工程实现与当时本机验收见[历史记录](docs/已归档/离线编辑与同步/阶段4与阶段5-完整同步与发布验收.md)，不以该记录判断当前生产发布状态。个人 Mac 应用通过 `npm run build:mac` 生成，详见[构建与使用](docs/离线编辑与同步/Mac个人应用-构建与使用.md)。
 
 ## Tech Stack
 
@@ -134,19 +134,18 @@ Runtime files and upload directories are ignored by git where appropriate.
 
 ## Key Docs
 
-- [领域冻结稿（当前领域基准）](docs/知识库与试题模块/Knowra%20知识与考卷系统领域冻结稿.md)
+- [领域冻结稿（当前领域基准）](docs/知识库与试题模块/基础/Knowra%20知识与考卷系统领域冻结稿.md)
+- [资产生命周期规范](docs/Knowra_资产生命周期规范_v1.0.md)
 - [开发规范](docs/开发规范.md)
 - [项目结构导航](docs/项目结构导航.md)
-- [知识与试题阶段 0 实施与准入说明](docs/知识库与试题模块/阶段0实施与准入说明.md)
-- [Phase1.0 PostgreSQL 基础设施与 JSON 迁移](docs/知识库与试题模块/Phase1.0%20PostgreSQL基础设施与JSON迁移.md)
-- [Phase2.0 知识来源与知识单元基础规划](docs/知识库与试题模块/Phase2.0%20知识来源与知识单元基础规划.md)
-- [Phase3.0 学习目标与基础训练题目规划](docs/知识库与试题模块/Phase3.0%20学习目标与基础训练题目规划.md)
-- [前端工作域与页面规划](docs/知识库与试题模块/模块规划.md)
-- [Phase3.1 四工作域前端与资产工作台规划](docs/知识库与试题模块/Phase3.1%20四工作域前端与资产工作台规划.md)
+- [Phase1.0 PostgreSQL 基础设施与 JSON 迁移](docs/知识库与试题模块/基础/Phase1.0%20PostgreSQL基础设施与JSON迁移.md)
+- [前端工作域与页面规划](docs/知识库与试题模块/基础/模块规划.md)
 
 历史参考：
 
-- [项目总控文档（已过时）](docs/学习加速器项目总控文档.md)
+- [项目总控文档（已过时）](docs/已归档/项目总控/学习加速器项目总控文档.md)
+- [已完成的领域实施阶段](docs/已归档/知识库与试题模块/基础/)
+- [已完成的全项目工程质量审查](docs/已归档/审查/)
 - [知识链路开发方案（已归档、已过时）](docs/已归档/功能设计/知识链路开发方案.md)
 
 ## Roadmap
@@ -161,4 +160,4 @@ Near-term priorities:
 
 ## Status
 
-Current stable version: `2.20.1`. Phase 0 through Phase3.2 are complete, and React V4 is the only launchable frontend. V3 source remains temporarily for regression coverage while its old launch entry and unused JSX exploration are retired. Historical HTTP images have been localized, the strict JSON migration preflight is ready and all local attachments must pass the deployment integrity gate. PostgreSQL remains opt-in and production deployment still requires access-control, backup and rollback gates; the application does not yet include a login system.
+Repository package version: `2.26.0`. Phase 0 through Phase3.2 are complete, and React V4 is the only launchable frontend. The completed stage plans are available under `docs/已归档/`. V3 source remains for regression coverage. PostgreSQL remains opt-in and a production cutover requires its own migration, access-control, backup and rollback checks; the application does not yet include a login system.

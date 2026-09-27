@@ -26,7 +26,7 @@ import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { exportElementToPdf } from '../../browser/exportPdf';
 import { Button, Dialog, DialogBody, DialogFooter, DialogClose } from '../../components/ui';
-import { NoteIcon } from '../../shell/icons';
+import { NoteIcon } from '../../components/icons/knowra';
 import { EditorDocumentHeader, type EditorDocumentHeaderHandle } from './EditorDocumentHeader';
 import { EditorContextMenu } from './EditorContextMenu';
 import { EditorDocumentRepairDialog } from './EditorDocumentRepairDialog';

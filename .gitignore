@@ -9,10 +9,7 @@ dist/
 .cache/
 .npm-cache/
 .DS_Store
-storage/temp/
-storage/uploads/
-storage/exports/
-storage/runtime/
+/storage/
 apps/api/storage/uploads/
 apps/api/storage/exports/
 apps/api/storage/temp/

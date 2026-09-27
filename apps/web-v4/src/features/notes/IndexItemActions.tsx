@@ -1,7 +1,7 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import type { Note } from '@study-accelerator/web-core';
 import { GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
-import { DeleteIcon, MoreHorizontalIcon, RefreshIcon } from '../../shell/icons';
+import { DeleteIcon, MoreHorizontalIcon, RefreshIcon } from '../../components/icons/knowra';
 import { FolderContextMenu, NoteContextMenu, type SidebarTreeAction } from './SidebarFolderTree';
 import type { IndexItem } from './notesIndexPresentation';
 import { useAppStore } from '../../store/AppStoreProvider';

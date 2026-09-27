@@ -7,7 +7,7 @@
   caret-color: var(--ink-accent);
   white-space: pre-wrap;
   color: var(--ink);
-  font: 400 17px/1.78 var(--font-note);
+  font: 400 var(--note-font-size, 17px)/1.78 var(--font-note);
 }
 
 /* 正文以高对比插入光标反馈编辑焦点，不绘制覆盖整张正文的容器焦点框。 */
@@ -19,33 +19,59 @@
 .milkdownEditor :global(.ProseMirror) > :first-child { margin-top: 0; }
 .milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4) { scroll-margin-top: calc(var(--docbar-size) + var(--tab-size) + 8px); }
 .milkdownEditor :global(.ProseMirror) h1 { margin: 1.35em 0 .5em; font-size: 1.82em; line-height: 1.35; font-weight: 700; }
+.milkdownEditor :global(.ProseMirror) h1::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 10px;
+  background: var(--ink-accent);
+  transform: translateY(-2px);
+}
 .milkdownEditor :global(.ProseMirror) h2 { margin: 1.3em 0 .48em; font-size: 1.47em; line-height: 1.4; font-weight: 700; }
 .milkdownEditor :global(.ProseMirror) h3 { margin: 1.25em 0 .4em; font-size: 1.24em; line-height: 1.45; font-weight: 700; }
 .milkdownEditor :global(.ProseMirror) h4 { margin: 1.15em 0 .35em; font-size: 1.06em; line-height: 1.5; font-weight: 700; }
 .milkdownEditor :global(.ProseMirror) p { margin: .68em 0; }
 .milkdownEditor :global(.ProseMirror) ul,
-.milkdownEditor :global(.ProseMirror) ol { margin: .75em 0; padding-left: 28px; }
-.milkdownEditor :global(.ProseMirror) ul { list-style: disc; }
+.milkdownEditor :global(.ProseMirror) ol { margin: .75em 0 1.3em; padding-left: 0; }
+.milkdownEditor :global(.ProseMirror) ul { list-style: none; }
 .milkdownEditor :global(.ProseMirror) ol { list-style: none; counter-reset: knowra-ordered-item; }
-.milkdownEditor :global(.ProseMirror) li { margin: .35em 0; padding-left: 4px; }
-.milkdownEditor :global(.ProseMirror) ul li::marker { color: var(--ink-accent); }
-.milkdownEditor :global(.ProseMirror) ol > li { position: relative; counter-increment: knowra-ordered-item; }
-.milkdownEditor :global(.ProseMirror) ol > li::before {
-  content: counter(knowra-ordered-item) '.';
+.milkdownEditor :global(.ProseMirror) li { margin: .45em 0; }
+.milkdownEditor :global(.ProseMirror) li > p:first-child { margin-top: 0; }
+.milkdownEditor :global(.ProseMirror) li > p:last-child { margin-bottom: 0; }
+.milkdownEditor :global(.ProseMirror) ul > li:not([data-item-type='task']) { position: relative; padding-left: 24px; }
+.milkdownEditor :global(.ProseMirror) ul > li:not([data-item-type='task'])::before {
+  content: '';
   position: absolute;
-  right: calc(100% + 8px);
-  min-width: 20px;
+  left: 4px;
+  top: .8em;
+  width: 7px;
+  height: 7px;
+  background: var(--ink-accent);
+  transform: translateY(-50%);
+}
+.milkdownEditor :global(.ProseMirror) ol > li:not([data-item-type='task']) {
+  position: relative;
+  padding-left: 42px;
+  counter-increment: knowra-ordered-item;
+}
+.milkdownEditor :global(.ProseMirror) ol > li:not([data-item-type='task'])::before {
+  content: counter(knowra-ordered-item, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 1px;
   color: var(--ink-accent);
-  font: 800 .85em/1.9 var(--font-mono);
-  text-align: right;
+  font: 800 12px/1.8 var(--font-mono);
+  letter-spacing: .06em;
 }
 .milkdownEditor :global(.ProseMirror) blockquote { margin: 1em 0; padding-left: 18px; border-left: 3px solid var(--ink-accent); color: var(--ink-secondary); }
 .milkdownEditor :global(.ProseMirror) code {
-  padding: .12em .38em;
-  border: 1px solid var(--ink-panel);
-  background: var(--ink-accent-soft);
-  color: var(--ink-accent-hover);
-  font: 600 .9em/1.5 var(--font-mono);
+  padding: 2px 6px;
+  border: 1px solid #b8c9f6;
+  border-radius: 2px;
+  background: #f3f6ff;
+  color: #184fbf;
+  font: 400 .9em/1.5 var(--font-mono);
   box-decoration-break: clone;
 }
 .milkdownEditor :global(.ProseMirror) del {
@@ -110,17 +136,17 @@
   color: var(--ink-accent);
 }
 .milkdownEditor :global(.ProseMirror) hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--ink-panel); }
-.milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { position: relative; margin: .35em 0; list-style: none; padding-left: 1.8em; }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { position: relative; list-style: none; padding-left: 27px; }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task']::before {
   content: '';
   position: absolute;
   left: 0;
-  top: .35em;
-  width: 1em;
-  height: 1em;
+  top: 6px;
+  width: 17px;
+  height: 17px;
   box-sizing: border-box;
-  border: 2px solid var(--ink-secondary);
-  background: transparent;
+  border: 1.5px solid var(--ink);
+  background: var(--ink-surface);
   cursor: pointer;
   transition: background var(--motion-fast), border-color var(--motion-fast);
 }
@@ -129,18 +155,37 @@
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true']::after {
   content: '';
   position: absolute;
-  left: .25em;
-  top: .42em;
-  width: .5em;
-  height: .25em;
+  left: 4px;
+  top: 10px;
+  width: 8px;
+  height: 4px;
   border-left: 2px solid var(--ink-surface);
   border-bottom: 2px solid var(--ink-surface);
   transform: rotate(-45deg);
 }
-.milkdownEditor :global(.ProseMirror) table { width: 100%; margin: 1em 0; border-collapse: collapse; }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true'] > p:first-child {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+.milkdownEditor :global(.ProseMirror) table {
+  width: 100%;
+  margin: 1em 0;
+  border-collapse: collapse;
+  background: var(--ink-surface);
+  font-size: .88em;
+  line-height: 1.55;
+}
 .milkdownEditor :global(.ProseMirror) th,
-.milkdownEditor :global(.ProseMirror) td { padding: 7px 9px; border: 1px solid var(--ink-panel); text-align: left; }
-.milkdownEditor :global(.ProseMirror) th { background: var(--ink-sunken); }
+.milkdownEditor :global(.ProseMirror) td {
+  height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #dce0e4;
+  text-align: left;
+  vertical-align: middle;
+}
+.milkdownEditor :global(.ProseMirror) th { background: #f7f7f7; font-weight: 700; }
+.milkdownEditor :global(.ProseMirror) tbody tr:nth-child(odd) { background: #f7f7f7; }
+.milkdownEditor :global(.ProseMirror) :is(th, td) p { margin: 0; }
 .milkdownEditor :global(.ProseMirror) .ProseMirror-selectednode { outline: 2px solid var(--ink-accent); }
 
 .milkdownEditor :global(.ProseMirror) pre[data-code-block] {

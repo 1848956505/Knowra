@@ -8,7 +8,7 @@ import {
   MenuTrigger,
   PressableButton
 } from '../../components/ui';
-import { ChevronRightIcon, FolderIcon, NoteIcon } from '../../shell/icons';
+import { ChevronRightIcon, FolderIcon, NoteIcon } from '../../components/icons/knowra';
 import { useAppStore, useAppStoreApi } from '../../store/AppStoreProvider';
 import { countFolderNotes, folderMatchesQuery } from './notesIndexModel';
 import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';

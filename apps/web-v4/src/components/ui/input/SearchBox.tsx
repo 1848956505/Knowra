@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { CloseIcon } from '../../icons/knowra';
 import styles from './SearchBox.module.css';
 
 export type SearchBoxSize = 'toolbar' | 'sidebar' | 'command' | 'field';
@@ -28,7 +29,7 @@ export function SearchSurface({ children, icon, size = 'field', shortcut, onClea
     {children}
     {shortcut ? <kbd className={styles.shortcut} aria-hidden="true">{shortcut}</kbd> : null}
     {onClear ? <button className={clearText ? styles.clearText : styles.clearIcon} type="button" aria-label={clearLabel} onClick={onClear} data-testid="search-clear">
-      {clearText ?? <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" /></svg>}
+      {clearText ?? <CloseIcon size={12} />}
     </button> : null}
   </div>;
 }

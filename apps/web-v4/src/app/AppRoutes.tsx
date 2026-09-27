@@ -30,6 +30,11 @@ const ComponentShowcase = lazy(async () => {
   return { default: module.ComponentShowcase };
 });
 
+const IconLibraryView = lazy(async () => {
+  const module = await import('../components/ui/showcase');
+  return { default: module.IconLibraryView };
+});
+
 export interface DomainDescriptor {
   title: string;
   description: string;
@@ -66,6 +71,9 @@ export interface AppRoutesProps {
 
 export function AppRoutes(props: AppRoutesProps) {
   const routePath = props.pathname.split('?')[0];
+  if (routePath === '/showcase/icons') {
+    return <Suspense fallback={<LoadingState label="正在加载图标库…" />}><IconLibraryView /></Suspense>;
+  }
   if (routePath === '/showcase') {
     return <Suspense fallback={<LoadingState label="正在加载组件展台…" />}><ComponentShowcase /></Suspense>;
   }

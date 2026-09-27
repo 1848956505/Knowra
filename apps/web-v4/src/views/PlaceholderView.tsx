@@ -7,7 +7,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { EmptyState } from '../components/ui/status';
 import { Button } from '../components/ui/button/Button';
-import { RefreshIcon } from '../shell/icons';
+import { RefreshIcon } from '../components/icons/knowra';
 import styles from './HomeView.module.css';
 
 export interface PlaceholderViewProps {

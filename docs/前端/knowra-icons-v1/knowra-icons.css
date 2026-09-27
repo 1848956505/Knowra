@@ -1,0 +1,13 @@
+/* Map this variable to your project design token. No icon source file contains a fixed brand color. */
+.knowra-icon--accent {
+  --knowra-icon-accent: var(--color-primary);
+}
+
+/* Optional semantic variants if these tokens exist in your design system. */
+.knowra-icon--success {
+  --knowra-icon-accent: var(--color-success);
+}
+
+.knowra-icon--warning {
+  --knowra-icon-accent: var(--color-warning);
+}

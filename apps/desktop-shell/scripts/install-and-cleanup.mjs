@@ -36,7 +36,9 @@ try {
 
 const oldApps = [
   source,
+  path.join(repo, '知境·Knowra.app'),
   path.join(repo, '知境·Knowra .app'),
+  path.join(repo, 'dist/mac/知境·Knowra.app'),
   '/Applications/知境·Knowra .app',
   path.join(os.homedir(), 'Applications/知境·Knowra.app'),
   path.join(os.homedir(), 'Applications/知境·Knowra .app'),

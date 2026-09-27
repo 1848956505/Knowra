@@ -1,0 +1,12 @@
+{
+  "name": "@knowra/icons",
+  "version": "1.0.0",
+  "private": true,
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

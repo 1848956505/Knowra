@@ -4,7 +4,7 @@ import { Button, Dialog, DialogBody, DialogClose, DialogFooter, SearchBox, Segme
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { TagChip, normalizeTagColor } from './TagChip';
-import { PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../shell/icons';
+import { PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../components/icons/knowra';
 import { PathTrail } from '../../shell/PathTrail';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
 import styles from './TagManagerView.module.css';

@@ -34,6 +34,10 @@ export function deriveStatusPath({
     return [home, { id: 'showcase', label: '组件库', current: true }];
   }
 
+  if (pathname === '/showcase/icons') {
+    return [home, { id: 'showcase', label: '组件库' }, { id: 'icons', label: '图标库', current: true }];
+  }
+
   if (pathname === '/settings') {
     return [home, { id: 'settings', label: '设置', current: true }];
   }

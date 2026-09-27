@@ -105,16 +105,14 @@
   display: none;
 }
 
-.navRow,
-.folderRow,
-.recycle {
+.folderRow {
   width: 100%;
-  min-height: 36px;
+  min-height: 34px;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 6px 8px 6px 2px;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -122,32 +120,20 @@
   text-align: left;
 }
 
-.navRow:hover,
-.folderRow:hover,
-.recycle:hover {
+.folderRow:hover {
   background: var(--ink-sunken);
 }
 
-.navRow[aria-current='page'],
 .folderRow[aria-current='page'],
-.documentRow[aria-current='page'],
-.recycle[aria-current='page'] {
+.documentRow[aria-current='page'] {
   color: var(--ink-accent);
   background: var(--ink-sunken);
   font-weight: 700;
 }
 
-.navRow small,
-.folderRow small,
-.recycle small {
+.folderRow small {
   color: var(--ink-secondary);
   font: 10px/1 var(--font-mono);
-}
-
-.folderRow {
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  min-height: 34px;
-  padding-left: 2px;
 }
 
 .folderTree {
@@ -264,14 +250,6 @@
   width: auto;
   margin: 0 10px 12px;
   border-top: 1px solid var(--ink-panel);
-  padding: 6px 8px;
-}
-
-.recycle span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 @media (max-width: 1439px) and (min-width: 921px) {

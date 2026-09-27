@@ -15,6 +15,8 @@ import {
   type DialogTriggerProps as RADialogTriggerProps
 } from 'react-aria-components';
 import { Button } from '../button/Button';
+import { SkeletonPulse } from '../status/SkeletonPulse';
+import { DialogCloseIcon } from '../../icons/knowra';
 import { cx } from '../classnames';
 import type { ButtonVariant } from '../tokens';
 import styles from './Overlay.module.css';
@@ -85,8 +87,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
             ) : null}
             {children}
             {isPending ? (
-              <div className={styles.busyOverlay} role="status" aria-label="提交中">
-                <span className={styles.spinner} aria-hidden="true" />
+              <div className={styles.busyOverlay} role="status" aria-label="提交中" aria-busy="true">
+                <div className={styles.busyContent}>
+                  <span className={styles.busyLabel} aria-hidden="true">正在处理…</span>
+                  <SkeletonPulse className={styles.busySkeleton} />
+                </div>
               </div>
             ) : null}
           </DialogCloseContext.Provider>
@@ -213,9 +218,7 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(funct
       }}
       aria-label={ariaLabel}
     >
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-        <path d="M2 2l10 10M12 2L2 12" />
-      </svg>
+      <DialogCloseIcon size={14} />
     </button>
   );
 });

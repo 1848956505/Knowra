@@ -13,9 +13,9 @@ import {
   RefreshIcon,
   SearchIcon,
   TagIcon
-} from '../../shell/icons';
+} from '../../components/icons/knowra';
 import {
-  GhostIconButton, PressableButton,
+  GhostIconButton, SideNavItem,
   Menu,
   MenuItem,
   MenuPopover,
@@ -152,20 +152,18 @@ export function NotesContextSidebar({
               && !selectedFolderId
               && !notesIndex.selectedTagId;
             return (
-              <button
+              <SideNavItem
                 key={entry.scope}
-                className={styles.navRow}
-                type="button"
+                density="compact"
+                icon={<entry.Icon size={16} />}
+                label={entry.label}
+                count={getScopeCount(entry.scope, serverData.notes)}
                 aria-current={current ? 'page' : undefined}
-                onClick={() => {
+                onPress={() => {
                   selectNotesScope(entry.scope);
                   onOpenIndex?.();
                 }}
-              >
-                <entry.Icon size={16} />
-                <span>{entry.label}</span>
-                <small>{getScopeCount(entry.scope, serverData.notes)}</small>
-              </button>
+              />
             );
           })}
         </SidebarSection>
@@ -191,20 +189,19 @@ export function NotesContextSidebar({
             onDrop={rootDrop.onDrop}
           >
           <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, null)} contextMenu>
-          <PressableButton
-            className={`${styles.navRow} ${styles.libraryRow}`}
-            type="button"
+          <SideNavItem
+            className={styles.libraryRow}
+            density="compact"
+            icon={<BookIcon size={16} />}
+            label="笔记库"
+            count={rootCount}
             data-drop-active={rootDrop.isOver || undefined}
             aria-current={notesIndex.scope === 'root' ? 'page' : undefined}
-            onClick={() => {
+            onPress={() => {
               selectNotesScope('root');
               onOpenIndex?.();
             }}
-          >
-            <BookIcon size={16} />
-            <span>笔记库</span>
-            <small>{rootCount}</small>
-          </PressableButton>
+          />
           </CreateEntryMenu>
           </div>
           <SidebarFolderTree
@@ -240,19 +237,18 @@ export function NotesContextSidebar({
         </SidebarSection>
       </div>
 
-      <button
+      <SideNavItem
         className={styles.recycle}
-        type="button"
+        density="compact"
+        icon={<RefreshIcon size={16} />}
+        label="回收站"
+        count={trashCount}
         aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}
-        onClick={() => {
+        onPress={() => {
           selectNotesScope('trash');
           onOpenIndex?.();
         }}
-      >
-        <RefreshIcon size={16} />
-        <span>回收站</span>
-        <small>{trashCount}</small>
-      </button>
+      />
 
       {treeOperations.dialogs}
       <EmptyRecycleDialog

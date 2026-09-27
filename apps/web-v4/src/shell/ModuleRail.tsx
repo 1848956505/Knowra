@@ -17,17 +17,18 @@ import {
   SearchIcon,
   SettingsIcon,
   UserIcon,
-  type IconProps
-} from './icons';
+  type KnowraIconProps
+} from '../components/icons/knowra';
 import type { WorkDomain } from '../store/types';
 import { cx } from '../components/ui/classnames';
+import brandMark from '../assets/knowra-brand-mark.svg';
 import styles from './ModuleRail.module.css';
 
 export interface RailItem {
   id: WorkDomain;
   label: string;
   description: string;
-  Icon: (props: IconProps) => ReactNode;
+  Icon: (props: KnowraIconProps) => ReactNode;
   available: boolean;
 }
 
@@ -115,7 +116,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
         title="知境工作区"
         onClick={onReturnHome}
       >
-        <span className={styles.brandGlyph} aria-hidden="true">知</span>
+        <img className={styles.brandMark} src={brandMark} alt="" aria-hidden="true" />
       </button>
 
       <div className={cx(styles.railGroup, styles.railGroupGlobal)} role="group" aria-label="全局操作">
@@ -237,7 +238,7 @@ function RailButton({ item, isActive, onClick }: RailButtonProps) {
 interface RailActionButtonProps {
   label: string;
   title: string;
-  Icon: (props: IconProps) => ReactNode;
+  Icon: (props: KnowraIconProps) => ReactNode;
   onClick?: () => void;
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MarkdownImportSource } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter, FileDropField } from '../../components/ui';
-import { CloseIcon, NoteIcon } from '../../shell/icons';
+import { CloseIcon, NoteIcon } from '../../components/icons/knowra';
 import styles from './MarkdownImportDialog.module.css';
 
 const ACCEPTED_MARKDOWN = '.md,.markdown,text/markdown,text/plain';

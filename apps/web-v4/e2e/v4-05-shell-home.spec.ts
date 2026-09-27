@@ -99,6 +99,21 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(2);
   });
 
+  test('图标库可从组件展台访问并在窄屏搜索', async ({ page }) => {
+    await page.goto('/#/showcase');
+    await page.getByRole('link', { name: '浏览完整图标库 →' }).click();
+    await expect(page).toHaveURL(/#\/showcase\/icons$/);
+    await expect(page.getByText('75 / 75')).toBeVisible();
+    await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText('图标库');
+    await expect(page.getByRole('contentinfo', { name: '状态栏' })).not.toContainText('加载中');
+    await page.getByRole('searchbox', { name: /搜索图标/ }).fill('Backup');
+    await expect(page.getByText('BackupIcon')).toBeVisible();
+    await expect(page.getByText('1 / 75')).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 843 });
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(2);
+  });
+
   test('移动端与 200% 缩放保留核心入口且无横向滚动', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 843 });
     await page.goto('/');

@@ -7,7 +7,7 @@
 import { forwardRef, type ReactNode } from 'react';
 import type { WorkspaceDataMode } from '@study-accelerator/web-core';
 import { cx } from '../components/ui/classnames';
-import { FocusIcon, PanelIcon, SidebarIcon } from './icons';
+import { FocusIcon, PanelIcon, SidebarIcon } from '../components/icons/knowra';
 import { PathTrail } from './PathTrail';
 import type { PathSegment } from './path';
 import styles from './StatusBar.module.css';

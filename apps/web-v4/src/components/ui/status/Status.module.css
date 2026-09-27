@@ -127,6 +127,37 @@
   font-weight: 700;
 }
 
+.loadingSkeleton {
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  width: min(100%, 300px);
+  gap: 10px;
+}
+
+.skeleton {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.skeletonBar {
+  display: block;
+  height: 12px;
+  background: var(--ink-panel);
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.skeletonBar:nth-child(1) { width: 70%; }
+.skeletonBar:nth-child(2) { width: 90%; }
+.skeletonBar:nth-child(3) { width: 55%; }
+.skeletonBar:nth-child(4) { width: 80%; }
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+
 .loadingBar {
   position: relative;
   width: 100%;
@@ -171,6 +202,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .skeletonBar,
   .loadingBar::after,
   .loadingDot {
     animation: none !important;

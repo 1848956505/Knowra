@@ -2,7 +2,7 @@
 
 ## Evidence
 
-- 视觉真源：[印格-demo-笔记索引页面.html](../../docs/前端重构/V4/V4-00.5/印格/印格-demo-笔记索引页面.html)
+- 视觉真源：[印格-demo-笔记索引页面.html](../../docs/前端/V4/V4-00.5/印格/印格-demo-笔记索引页面.html)
 - 参考截图：`C:/Users/DELL/AppData/Local/Temp/codex-clipboard-d119ef51-7d91-4413-80c9-dcecd7ea67c1.png`
 - 实现截图：`apps/web-v4/design-qa-implementation-1920.png`
 - 同屏比较图：`apps/web-v4/design-qa-comparison.png`

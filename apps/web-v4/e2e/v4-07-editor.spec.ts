@@ -326,7 +326,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   await page.getByRole('button', { name: '格式', exact: true }).click();
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^`缩进验收已有正文`/);
-  await expect(editor.locator('p code').first()).toHaveCSS('background-color', 'rgb(224, 242, 254)');
+  await expect(editor.locator('p code').first()).toHaveCSS('background-color', 'rgb(243, 246, 255)');
   await pinEditorToolbar(page);
   await page.getByRole('button', { name: '格式', exact: true }).click();
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
@@ -335,7 +335,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   await selectFirstParagraph();
   await chooseParagraphAction('无序列表');
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^[*-] 缩进验收已有正文/);
-  await expect(editor.locator('ul').first()).toHaveCSS('list-style-type', 'disc');
+  await expect(editor.locator('ul').first()).toHaveCSS('list-style-type', 'none');
 
   await chooseParagraphAction('有序列表');
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^1\. 缩进验收已有正文/);

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="rearBlue" x1="69" y1="69" x2="229" y2="229" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2678FF"/>
+      <stop offset=".52" stop-color="#1368F8"/>
+      <stop offset="1" stop-color="#0755E8"/>
+    </linearGradient>
+    <radialGradient id="rearLight" cx="99" cy="99" r="165" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity=".13"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="frontBlue" x1="26" y1="26" x2="186" y2="186" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1966F7"/>
+      <stop offset=".48" stop-color="#0B5CF0"/>
+      <stop offset="1" stop-color="#084BDD"/>
+    </linearGradient>
+    <linearGradient id="innerWhite" x1="37" y1="37" x2="175" y2="175" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset=".55" stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#F0F6FF"/>
+    </linearGradient>
+    <filter id="softShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#164AB8" flood-opacity=".14"/>
+    </filter>
+    <filter id="nodeShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="1" dy="1" stdDeviation="1.5" flood-color="#1A56B8" flood-opacity=".18"/>
+    </filter>
+    <linearGradient id="markBlue" x1="76" y1="76" x2="136" y2="136" gradientUnits="userSpaceOnUse"><stop stop-color="#3C8BFF"/><stop offset="1" stop-color="#0D55DC"/></linearGradient>
+    <linearGradient id="facetLight" x1="111" y1="76" x2="136" y2="136" gradientUnits="userSpaceOnUse"><stop stop-color="#7FC0FF"/><stop offset="1" stop-color="#438FF5"/></linearGradient>
+    <linearGradient id="facetMid" x1="76" y1="111" x2="136" y2="136" gradientUnits="userSpaceOnUse"><stop stop-color="#4998F8"/><stop offset="1" stop-color="#1A6AE7"/></linearGradient>
+    <radialGradient id="facetSheen" cx="86" cy="84" r="74" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF" stop-opacity=".14"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <clipPath id="markClip"><rect x="76" y="76" width="60" height="60" rx="9"/></clipPath>
+
+    <linearGradient id="macTile" x1="60" y1="22" x2="197" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset=".54" stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#E5F0FF"/>
+    </linearGradient>
+    <radialGradient id="macTileGlow" cx="128" cy="225" r="172" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#94C4FF" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="macTileEdge" x1="128" y1="18" x2="128" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset=".5" stop-color="#D9E6F6"/>
+      <stop offset="1" stop-color="#B4CBE9"/>
+    </linearGradient>
+    <filter id="macTileShadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#4A6C9C" flood-opacity=".23"/>
+    </filter>
+    <clipPath id="macTileClip"><rect x="18" y="18" width="220" height="220" rx="53"/></clipPath>
+  </defs>
+  <g filter="url(#macTileShadow)">
+    <rect x="18" y="18" width="220" height="220" rx="53" fill="url(#macTile)"/>
+    <g clip-path="url(#macTileClip)"><rect x="18" y="18" width="220" height="220" fill="url(#macTileGlow)"/></g>
+    <rect x="18.7" y="18.7" width="218.6" height="218.6" rx="52.3" stroke="url(#macTileEdge)" stroke-width="1.4"/>
+    <path d="M72 26C93 22 164 22 185 26" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(11 11) scale(.91)"><g filter="url(#softShadow)">
+    <rect x="69" y="69" width="160" height="160" rx="7" fill="url(#rearBlue)"/>
+    <rect x="69" y="69" width="160" height="160" rx="7" fill="url(#rearLight)"/>
+  </g>
+  <g filter="url(#softShadow)">
+    <rect x="26" y="26" width="160" height="160" rx="7" fill="url(#frontBlue)"/>
+    <rect x="37" y="37" width="138" height="138" rx="1.5" fill="url(#innerWhite)"/>
+  </g>
+  <g filter="url(#nodeShadow)">
+    <rect x="76" y="76" width="60" height="60" rx="9" fill="url(#markBlue)"/>
+    <g clip-path="url(#markClip)">
+      <path d="M136 76v60l-25-25Z" fill="url(#facetLight)"/>
+      <path d="M76 136h60l-25-25Z" fill="url(#facetMid)"/>
+      <rect x="76" y="76" width="60" height="60" fill="url(#facetSheen)"/>
+    </g>
+  </g></g>
+</svg>

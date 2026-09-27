@@ -52,6 +52,7 @@
 
 .btn[data-disabled],
 .btn[disabled] {
+  --knowra-icon-accent: currentColor;
   color: var(--ink-muted);
   background: var(--ink-sunken);
   border-color: var(--ink-panel);
@@ -88,7 +89,7 @@
 .soft[data-hovered]:not([data-disabled]):not([data-pending]) { background: var(--ink-accent-soft); }
 .workspace[aria-pressed='true'],
 .workspace[aria-current='page'],
-.workspace[aria-expanded='true'] { background: var(--ink-accent); border-color: var(--ink-accent-hover); color: var(--ink-surface); }
+.workspace[aria-expanded='true'] { --knowra-icon-accent: currentColor; background: var(--ink-accent); border-color: var(--ink-accent-hover); color: var(--ink-surface); }
 .workspace[aria-pressed='true'][data-hovered],
 .workspace[aria-current='page'][data-hovered],
 .workspace[aria-expanded='true'][data-hovered] { background: var(--ink-accent-hover); color: var(--ink-surface); }
@@ -114,6 +115,7 @@
 }
 
 .accent {
+  --knowra-icon-accent: currentColor;
   background: var(--ink-accent);
   color: var(--ink-surface);
   border-color: var(--ink-accent);

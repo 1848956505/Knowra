@@ -3,7 +3,7 @@ import type { TrainingAssetKind, TrainingAssetRecord, TrainingPurgePreview, Know
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter, SearchBox, SegmentedButton, SegmentedControl, Select, TextAreaField, TextField } from '../../components/ui';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
 import { PathTrail } from '../../shell/PathTrail';
-import { QuestionIcon, PlusIcon, SearchIcon } from '../../shell/icons';
+import { QuestionIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { useNavigate } from '../../app/router';
 import styles from './TrainingWorkspaceView.module.css';

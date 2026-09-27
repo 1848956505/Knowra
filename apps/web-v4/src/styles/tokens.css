@@ -1,11 +1,12 @@
 /* V4-04 Canonical Tokens
  *
- * 1:1 转译自 V4-00.5「印格」视觉冻结规范 §3（docs/前端重构/V4/V4-00.5/印格/V4-00.5-印格视觉冻结规范.md）。
+ * 1:1 转译自 V4-00.5「印格」视觉冻结规范 §3（docs/前端/V4/V4-00.5/印格/V4-00.5-印格视觉冻结规范.md）。
  * 2026-09-05：按用户截图更新搜索、组件浅色阴影及按钮 hover；其余沿用冻结基线。
  *
  * V4-04 复审扩展：V4-00.5 demo 实际使用了 1px / 3px 0 / 4px 4px 0 / 7px 7px 0 等多种硬阴影，
  * 以及 Dialog 背景的 rgba 半透明遮罩。这些值不在 §3.4 的初版 Token 中，本轮在 tokens.css
- * 集中登记为 --shadow-card / --shadow-card-danger / --shadow-dialog / --shadow-badge
+ * 集中登记为 --shadow-card / --shadow-card-danger / --shadow-dialog /
+ * --shadow-floating-panel / --shadow-badge
  * 以及 --scrim-* 系列，并保留 v4-04-扩展语义（见 V4-04-执行报告 §3.5）。
  */
 
@@ -20,6 +21,7 @@
   --ink-panel: #e5e2dc;
   --ink-dot: #d1d1d1;
   --ink-accent: #2563eb;
+  --knowra-icon-accent: var(--ink-accent);
   --ink-accent-hover: #1d4ed8;
   --ink-accent-soft: #e0f2fe;
   --ink-cover-shadow: #38bdf8;
@@ -51,9 +53,10 @@
   /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
   --shadow-card: 1px 1px 0 var(--ink-shadow);
   --shadow-card-danger: 3px 3px 0 var(--ink-danger);
-  /* V4-04 反馈（老公 2026-08-21）：Dialog 不再用双层硬阴影（之前 4px 黑 + 7px 蓝），
-     改为单层 4px 阴影；2026-09-05 跟随中性阴影浅色化。蓝色强调由关闭按钮承担。 */
-  --shadow-dialog: 4px 4px 0 var(--ink-shadow);
+  /* Dialog、Menu 与 Popover 面板共用印格状态板的浮层阴影色。 */
+  --overlay-shadow-color: #6b6b6b;
+  --shadow-dialog: 4px 4px 1px var(--overlay-shadow-color);
+  --shadow-floating-panel: 3px 3px 1px var(--overlay-shadow-color);
   --shadow-badge: 2px 2px 0 var(--ink-shadow);
 
   /* 3.6 外壳尺寸 */

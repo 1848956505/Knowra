@@ -242,6 +242,7 @@ function IconSection() {
   return (
     <section className={styles.section} aria-labelledby="section-icons">
       <h2 id="section-icons" className={styles.sectionTitle}>GhostIconButton（ghost icon 纯图标按钮）</h2>
+      <a className={styles.catalogLink} href="#/showcase/icons">浏览完整图标库 →</a>
       <p className={styles.sectionLead}>
         <strong>概念</strong>：纯图标无文字按钮（"ghost icon"），视觉与左轨 ModuleRail
         图标一致——30×30 透明方块，内部 SVG 20×20，hover 沉底加深、
@@ -546,7 +547,7 @@ function StatusSection() {
           />
         </div>
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>LoadingState（行内 / 方点）</span>
+          <span className={styles.exampleLabel}>LoadingState（骨架脉冲 / 方点）</span>
           <LoadingState label="正在加载资料…" />
           <LoadingState variant="dots" label="正在同步缓存…" />
         </div>

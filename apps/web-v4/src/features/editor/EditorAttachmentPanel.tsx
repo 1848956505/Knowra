@@ -14,7 +14,7 @@ import {
   PressableButton,
   TextField
 } from '../../components/ui';
-import { DeleteIcon, EditIcon, ImageIcon, LinkIcon, PaperclipIcon, PlusIcon } from '../../shell/icons';
+import { DeleteIcon, EditIcon, ImageIcon, LinkIcon, PaperclipIcon, PlusIcon } from '../../components/icons/knowra';
 import {
   buildAttachmentContentUrl,
   formatAttachmentSize,

@@ -30,7 +30,7 @@ import {
   StrikethroughIcon,
   TableIcon,
   TaskListIcon
-} from '../../shell/icons';
+} from '../../components/icons/knowra';
 import type { EditorCommand, EditorEditAction } from './editorCommands';
 import styles from './EditorContextMenu.module.css';
 

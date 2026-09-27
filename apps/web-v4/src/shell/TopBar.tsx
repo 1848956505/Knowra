@@ -6,7 +6,7 @@
 import { forwardRef, type ReactNode } from 'react';
 import { Button } from '../components/ui/button/Button';
 import { cx } from '../components/ui/classnames';
-import { BellIcon, PlusIcon, SearchIcon } from './icons';
+import { BellIcon, PlusIcon, SearchIcon } from '../components/icons/knowra';
 import styles from './TopBar.module.css';
 
 export interface TopBarKicker {

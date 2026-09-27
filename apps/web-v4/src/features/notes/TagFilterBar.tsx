@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Tag, TagGroup } from '@study-accelerator/web-core';
 import { Button, Popover, PopoverDialog, PopoverTrigger, SearchBox, SegmentedButton, SegmentedControl } from '../../components/ui';
-import { ChevronDownIcon, SearchIcon } from '../../shell/icons';
+import { ChevronDownIcon, SearchIcon } from '../../components/icons/knowra';
 import { TagChip } from '../tags';
 import styles from './TagFilterBar.module.css';
 

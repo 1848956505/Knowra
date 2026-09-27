@@ -9,7 +9,7 @@ import {
   WorkspacePanelHeader
 } from '../../components/workspace/WorkspacePanel';
 import { PathTrail } from '../../shell/PathTrail';
-import { SettingsIcon } from '../../shell/icons';
+import { SettingsIcon } from '../../components/icons/knowra';
 import type { AppPreferences, NoteFontSize } from './preferences';
 import { ModelConnectionSettings } from './ModelConnectionSettings';
 import styles from './SettingsView.module.css';

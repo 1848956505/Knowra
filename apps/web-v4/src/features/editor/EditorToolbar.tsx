@@ -4,7 +4,7 @@ import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui/ov
 import {
   CodeIcon, ImageIcon, ListIcon, MoreVerticalIcon, PanelIcon, PlusIcon,
   QuoteIcon, StarIcon, TableIcon
-} from '../../shell/icons';
+} from '../../components/icons/knowra';
 import type { EditorCommand } from './editorCommands';
 import type { EditorFileAction } from './editorCommands';
 import { renderEditorFileMenu } from './EditorFileMenu';

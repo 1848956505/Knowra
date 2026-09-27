@@ -20,8 +20,8 @@ import {
   RefreshIcon,
   TagIcon,
   TargetIcon,
-  type IconProps
-} from '../shell/icons';
+  type KnowraIconProps
+} from '../components/icons/knowra';
 import styles from './HomeView.module.css';
 
 interface DomainCardEntry {
@@ -29,7 +29,7 @@ interface DomainCardEntry {
   label: string;
   description: string;
   number: string;
-  Icon: (props: IconProps) => ReactNode;
+  Icon: (props: KnowraIconProps) => ReactNode;
   available: boolean;
 }
 

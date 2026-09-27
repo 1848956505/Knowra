@@ -1,7 +1,7 @@
 import { useEffect, useState, type RefObject } from 'react';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import { TextSelection } from '@milkdown/kit/prose/state';
-import { BoldIcon, ItalicIcon, CodeIcon, StarIcon } from '../../shell/icons';
+import { BoldIcon, ItalicIcon, CodeIcon, StarIcon } from '../../components/icons/knowra';
 import { GhostIconButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui/overlay';
 import type { EditorCommand } from './editorCommands';

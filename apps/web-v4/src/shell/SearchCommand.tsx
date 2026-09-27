@@ -10,7 +10,7 @@ import { Dialog, DialogBody } from '../components/ui/overlay/Dialog';
 import { EmptyState, LoadingState } from '../components/ui/status';
 import { SearchBox } from '../components/ui/input';
 import { cx } from '../components/ui/classnames';
-import { SearchIcon } from './icons';
+import { SearchIcon } from '../components/icons/knowra';
 import styles from './SearchCommand.module.css';
 
 export interface SearchHit {

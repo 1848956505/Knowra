@@ -5,7 +5,7 @@
 
 import { forwardRef } from 'react';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS, type RailItem } from './ModuleRail';
-import { SearchIcon, SettingsIcon } from './icons';
+import { SearchIcon, SettingsIcon } from '../components/icons/knowra';
 import type { WorkDomain } from '../store/types';
 import styles from './MobileTabs.module.css';
 

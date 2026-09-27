@@ -2,7 +2,7 @@ import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 're
 import type { Note } from '@study-accelerator/web-core';
 import { GhostIconButton, PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay';
-import { CloseIcon, MoreVerticalIcon, PlusIcon } from '../../shell/icons';
+import { CloseIcon, MoreVerticalIcon, PlusIcon } from '../../components/icons/knowra';
 import styles from './NoteEditorView.module.css';
 
 export interface EditorTabsProps {

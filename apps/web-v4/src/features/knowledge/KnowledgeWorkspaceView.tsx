@@ -10,7 +10,7 @@ import { getKnowledgeDraftScope, knowledgeDraftRecovery, type KnowledgeDraft } f
 import { filterKnowledgeItems, KNOWLEDGE_STATUS_LABELS, knowledgeError, knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
 import { useNavigate } from '../../app/router';
 import { PathTrail } from '../../shell/PathTrail';
-import { BookIcon, PlusIcon, RefreshIcon, SearchIcon } from '../../shell/icons';
+import { BookIcon, PlusIcon, RefreshIcon, SearchIcon } from '../../components/icons/knowra';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
 import styles from './KnowledgeWorkspaceView.module.css';
 

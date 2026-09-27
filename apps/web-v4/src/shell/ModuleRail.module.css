@@ -22,10 +22,11 @@
 }
 
 .brand {
-  width: 40px;
-  height: 40px;
-  position: relative;
-  flex: 0 0 40px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
   margin: 0 auto 7px;
   padding: 0;
   border: 0;
@@ -39,44 +40,10 @@
   box-shadow: var(--shadow-focus);
 }
 
-.brand::before,
-.brand::after {
-  content: '';
-  position: absolute;
-  width: 26px;
-  height: 26px;
-}
-
-.brand::before {
-  right: 3px;
-  bottom: 3px;
-  background: var(--ink-accent);
-  transition: background-color var(--motion-fast) var(--motion-ease);
-}
-
-.brand::after {
-  left: 3px;
-  top: 3px;
-  border: 2px solid var(--ink);
-  background: var(--ink-surface);
-}
-
-.brand:hover::before {
-  background: var(--ink-accent-hover);
-}
-
-.brandGlyph {
-  position: absolute;
-  inset: 4px auto auto 4px;
-  z-index: 1;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1;
-  color: var(--ink);
+.brandMark {
+  display: block;
+  width: 40px;
+  height: 40px;
 }
 
 .railGroup {

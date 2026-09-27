@@ -16,6 +16,7 @@ import {
   type TreeProps as RATreeProps
 } from 'react-aria-components';
 import { cx } from '../classnames';
+import { TreeExpandIcon } from '../../icons/knowra';
 import styles from './Collection.module.css';
 
 export interface TreeItemData {
@@ -76,9 +77,7 @@ function TreeRow<T extends TreeItemData>({ item, renderExtras }: TreeRowProps<T>
                 data-expanded={isExpanded || undefined}
                 aria-label={isExpanded ? '收起' : '展开'}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M3 2l4 3-4 3" />
-                </svg>
+                <TreeExpandIcon size={10} />
               </RAButton>
             ) : (
               <span className={styles.treeChevron} aria-hidden="true" />

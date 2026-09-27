@@ -163,16 +163,25 @@
   cursor: progress;
 }
 
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--ink);
-  border-top-color: transparent;
-  animation: spin 0.8s linear infinite;
+.busyContent {
+  display: grid;
+  justify-items: stretch;
+  gap: 10px;
+  width: min(220px, calc(100% - 32px));
+  padding: 14px;
+  border: 1px solid var(--ink-panel);
+  background: var(--ink-surface);
+  box-shadow: var(--shadow-1);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.busyLabel {
+  color: var(--ink-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.busySkeleton {
+  width: 100%;
 }
 
 .popover {
@@ -181,7 +190,7 @@
   outline: 0;
   background: var(--ink-surface);
   border: 1px solid var(--ink);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-floating-panel);
   padding: 6px;
 }
 
@@ -225,9 +234,14 @@
   max-width: 320px;
   background: var(--ink-surface);
   border: 1px solid var(--ink);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-floating-panel);
   padding: 4px 0;
   overflow: auto;
+}
+
+.menu:focus-visible {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-floating-panel);
 }
 
 .menuHead {
@@ -352,8 +366,5 @@
   .tooltip,
   .underlay {
     animation: none !important;
-  }
-  .spinner {
-    animation-duration: 1.6s !important;
   }
 }

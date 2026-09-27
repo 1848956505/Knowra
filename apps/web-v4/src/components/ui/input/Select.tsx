@@ -17,6 +17,7 @@ import {
   type Key
 } from 'react-aria-components';
 import { cx } from '../classnames';
+import { ChevronDownIcon } from '../../icons/knowra';
 import overlayStyles from '../overlay/Overlay.module.css';
 import collectionStyles from '../collection/Collection.module.css';
 import styles from './Input.module.css';
@@ -85,9 +86,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
             <span data-placeholder={isPlaceholder || undefined}>{selectedText ?? placeholder}</span>
           )}
         </RASelectValue>
-        <svg className={styles.selectChevron} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-          <path d="M2 4l4 4 4-4" />
-        </svg>
+        <ChevronDownIcon className={styles.selectChevron} size={12} />
       </RAButton>
       <RAPopover className={overlayStyles.popover} offset={4} placement="bottom start">
         {asRAListBox(options)}

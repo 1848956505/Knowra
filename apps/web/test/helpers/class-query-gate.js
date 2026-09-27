@@ -4,7 +4,7 @@ import path from 'node:path';
 /**
  * V4 静态门禁辅助：扫描非 bundle JavaScript 中的 class selector 查询。
  *
- * 背景（docs/前端重构/V4/01-现有前端遗留审计.md §4.3 与 P-02）：
+ * 背景（docs/前端/V4/01-现有前端遗留审计.md §4.3 与 P-02）：
  * 行为必须通过稳定 id / data-* / ARIA 绑定，不得依赖视觉 class。
  * 该模块为第三方编辑器内部契约提供最小白名单，并登记尚未解耦的 V3 耦合，
  * 使"既有耦合可解释、新耦合被门禁拦截"。

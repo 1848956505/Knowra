@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
-import { FolderIcon, NoteIcon } from '../../shell/icons';
+import { FolderIcon, NoteIcon } from '../../components/icons/knowra';
 
 export function CreateEntryChoices({ canWrite, onCreate }: { canWrite: boolean; onCreate(mode: 'note' | 'folder'): void }) {
   return <Menu ariaLabel="新建" onAction={key => onCreate(key as 'note' | 'folder')}>
