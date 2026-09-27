@@ -181,7 +181,7 @@
   outline: 0;
   background: var(--ink-surface);
   border: 1px solid var(--ink);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-floating-panel);
   padding: 6px;
 }
 
@@ -225,9 +225,14 @@
   max-width: 320px;
   background: var(--ink-surface);
   border: 1px solid var(--ink);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-floating-panel);
   padding: 4px 0;
   overflow: auto;
+}
+
+.menu:focus-visible {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-floating-panel);
 }
 
 .menuHead {

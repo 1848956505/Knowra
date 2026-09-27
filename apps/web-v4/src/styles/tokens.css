@@ -51,9 +51,10 @@
   /* V4-04 扩展：与 §3.4 同质，登记 §3.4 未列但 demo 在用的硬阴影 */
   --shadow-card: 1px 1px 0 var(--ink-shadow);
   --shadow-card-danger: 3px 3px 0 var(--ink-danger);
-  /* V4-04 反馈（老公 2026-08-21）：Dialog 不再用双层硬阴影（之前 4px 黑 + 7px 蓝），
-     改为单层 4px 阴影；2026-09-05 跟随中性阴影浅色化。蓝色强调由关闭按钮承担。 */
-  --shadow-dialog: 4px 4px 0 var(--ink-shadow);
+  /* Dialog 与悬浮面板使用相同的中性阴影色。 */
+  --overlay-shadow-color: #6b6b6b;
+  --shadow-dialog: 4px 4px 1px var(--overlay-shadow-color);
+  --shadow-floating-panel: 3px 3px 1px var(--overlay-shadow-color);
   --shadow-badge: 2px 2px 0 var(--ink-shadow);
 
   /* 3.6 外壳尺寸 */

@@ -5,6 +5,8 @@ import { build } from 'esbuild';
 import { packager } from '@electron/packager';
 import { execFileSync } from 'node:child_process';
 
+await import('./create-icon.mjs');
+
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const staging = path.join(repo, 'dist/mac-staging');
 const output = path.join(repo, 'dist/mac');
