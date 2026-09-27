@@ -36,6 +36,7 @@ export async function handleAssistantRoute({ request, response, url, assistant }
     if (error instanceof AppError) throw error;
     if (error.code?.startsWith('AI_')) {
       const status = ['AI_JOB_NOT_FOUND'].includes(error.code) ? 404
+        : error.code === 'AI_PRIVATE_STORAGE_UNAVAILABLE' ? 503
         : ['AI_GENERATION_UNAVAILABLE', 'AI_PREVIEW_EXPIRED', 'AI_APPROVAL_STALE', 'AI_CREDENTIAL_STALE',
           'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED'].includes(error.code) ? 409 : 422;
       throw createAppError(error.code, error.message, status);

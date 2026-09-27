@@ -14,6 +14,11 @@ fs.rmSync(staging, { recursive: true, force: true });
 fs.mkdirSync(staging, { recursive: true });
 for (const name of ['main.cjs', 'preload.cjs', 'draft-store.cjs', 'model-settings.cjs', 'ai-credential-handler.cjs']) fs.copyFileSync(path.join(repo, 'apps/desktop-shell/src', name), path.join(staging, name));
 await build({ entryPoints: [path.join(repo, 'apps/desktop-shell/src/runtime-entry.mjs')], outfile: path.join(staging, 'runtime.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', external: ['@prisma/client'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
+for (const name of ['worker-child', 'provider-child']) {
+  await build({ entryPoints: [path.join(repo, 'apps/api/src/modules/ai', `${name}.js`)],
+    outfile: path.join(staging, `${name}.js`), bundle: true, platform: 'node', format: 'esm', target: 'node24',
+    banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
+}
 fs.cpSync(path.join(repo, 'apps/web-v4/dist'), path.join(staging, 'web'), { recursive: true });
 const version = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'))).version;
 fs.writeFileSync(path.join(staging, 'package.json'), JSON.stringify({ name: 'knowra-desktop', productName: '知境·Knowra', version, main: 'main.cjs', description: '知境·Knowra 个人离线知识工作台', author: 'Knowra', private: true }));

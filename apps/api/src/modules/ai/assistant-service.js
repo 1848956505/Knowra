@@ -11,7 +11,10 @@ const safeCode = value => typeof value === 'string' && /^AI_[A-Z0-9_]{1,64}$/.te
 export function createAiAssistantService({ getRuntime, ownerId, location = 'server', now = () => new Date(), logger = console }) {
   const previews = new Map();
   const runtime = () => getRuntime?.();
-  const identity = async () => runtime()?.repository?.identity();
+  const identity = async () => {
+    try { return await runtime()?.repository?.identity(); }
+    catch { fail('AI_PRIVATE_STORAGE_UNAVAILABLE', 'AI 私有存储不可用，核心资料仍可使用。'); }
+  };
   async function appendDiagnostic(jobId, eventKind, safePayload) {
     try {
       const repository = runtime().repository;
@@ -61,8 +64,19 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
 
   async function status() {
     const ai = runtime();
-    const reference = await ai?.credentialReference?.();
-    const state = await readiness(reference);
+    let storageReason = ai?.unavailableReason ?? null;
+    if (!storageReason && ai?.repository) {
+      try { await identity(); }
+      catch { storageReason = 'AI 私有存储不可用，核心资料仍可使用。'; }
+    }
+    let reference = null;
+    if (!storageReason) {
+      try { reference = await ai?.credentialReference?.() ?? null; }
+      catch { storageReason = '模型凭据不可读取，AI 功能暂时不可用。'; }
+    }
+    const state = storageReason
+      ? { ready: false, reason: storageReason, budget: null }
+      : await readiness(reference);
     const provider = ai?.gateway?.capabilities?.();
     return { provider: 'deepseek', modelId: reference?.modelId ?? null, configured: Boolean(reference),
       executionLocation: location, generationAvailable: state.ready, unavailableReason: state.reason,
@@ -114,6 +128,8 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
 
   async function preview(input) {
     const ai = runtime();
+    if (ai?.unavailableReason) fail('AI_GENERATION_UNAVAILABLE', ai.unavailableReason);
+    await identity();
     const reference = await ai?.credentialReference?.();
     if (!reference || !ai?.readContext) fail('AI_NOT_CONFIGURED', '请先在设置中配置模型。');
     const prepared = await ai.readContext.prepareRead({ spaceId: input?.spaceId, scope: input?.scope,

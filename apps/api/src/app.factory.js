@@ -30,7 +30,7 @@ import { createNoteDeletionCoordinator } from './modules/knowledge/application/n
 import { createStorageConfig } from './config/storage.config.js';
 import { createLocalSyncService } from './modules/sync/local-provider.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
-import { createAiRuntime } from './modules/ai/runtime.js';
+import { createOptionalAiRuntime } from './modules/ai/runtime.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import {
   assertSpacesOwnedBy,
@@ -206,12 +206,13 @@ export function createPersistentAppContext({
   const context = createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
   context.http.modelSettings = createModelSettingsService();
   context.http.aiBudget = dataStore.aiBudgetAuthority;
-  context.ai = createAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
+  context.ai = createOptionalAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
     budgetAuthority: dataStore.aiBudgetAuthority, priceProfile: reviewedDeepSeekPriceProfile,
     allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0', contextSources: {
       ...context.modules.knowledge.repositories, ownerId: resolveOwnerId(ownerId, dataStore.state.spaces),
       spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository
-    } });
+    } }, { enabled: !dataStore.aiRuntimeError && process.env.KNOWRA_AI_ENABLED !== '0',
+      unavailableReason: dataStore.aiRuntimeError ? 'AI 私有存储无效，核心资料仍可使用。' : 'AI 功能已关闭。' });
   context.aiOwnerId = resolveOwnerId(ownerId, dataStore.state.spaces);
   context.aiLocation = 'server';
   return context;

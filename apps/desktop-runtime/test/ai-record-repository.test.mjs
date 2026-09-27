@@ -6,9 +6,29 @@ import { DatabaseSync } from 'node:sqlite';
 import { aiRecords, insertAiRecords } from '../../api/test/ai-record-fixtures.js';
 import { hashRecord } from '../../api/src/modules/ai/record-contract.js';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
+import { createAppContext } from '../../api/src/app.factory.js';
 import { createRuntimeBackup, inspectRuntimeBackup } from '../src/backup.mjs';
 import { prepareRestoredDirectory } from '../src/restore-directory.mjs';
 import { removeAiTablesForLegacyFixture, temporaryDirectory } from './helpers.mjs';
+
+test('SQLite AI 私有表升级失败时仍可创建和保存核心笔记', t => {
+  const root = temporaryDirectory(t);
+  const file = path.join(root, 'local.sqlite');
+  createSqliteDataStore(file).close();
+  const broken = new DatabaseSync(file);
+  broken.exec('DROP TABLE ai_jobs; PRAGMA user_version = 4');
+  broken.close();
+  const store = createSqliteDataStore(file);
+  try {
+    assert(store.aiRuntimeError);
+    assert.equal(store.aiRepository, null);
+    const app = createAppContext({ dataStore: store, ownerId: 'demo' });
+    const space = app.http.knowledge.createDefaultKnowledgeSpace({});
+    app.http.knowledge.createNote({ id: 'note-after-ai-failure', title: '核心仍可用',
+      rawMarkdown: '已保存', spaceId: space.id });
+    assert.equal(store.state.notes.find(note => note.id === 'note-after-ai-failure')?.rawMarkdown, '已保存');
+  } finally { store.close(); }
+});
 
 test('SQLite AI 私有表持久化任务、授权、尝试、事件和未知用量，不进入业务同步', t => {
   const root = temporaryDirectory(t);

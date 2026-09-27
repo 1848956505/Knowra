@@ -4,7 +4,7 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
 import { createSyncEngine } from './sync-engine.mjs';
-import { createAiRuntime } from '../../api/src/modules/ai/runtime.js';
+import { createOptionalAiRuntime } from '../../api/src/modules/ai/runtime.js';
 import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
 import { createRemoteBudgetAuthority } from '../../api/src/modules/ai/remote-budget-authority.js';
 
@@ -59,11 +59,13 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       credentialReference: async () => null,
       resolveCredential: async () => { throw new Error('请先在 Mac 应用设置中配置模型。'); }
     };
-    context.ai = createAiRuntime({ modelSettings, repository: store.aiRepository,
+    context.ai = createOptionalAiRuntime({ modelSettings, repository: store.aiRepository,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...context.modules.knowledge.repositories,
-        spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } });
+        spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } },
+      { enabled: !store.aiRuntimeError && process.env.KNOWRA_AI_ENABLED !== '0',
+        unavailableReason: store.aiRuntimeError ? 'AI 私有存储无效，核心资料仍可使用。' : 'AI 功能已关闭。', logger });
     context.aiOwnerId = 'demo';
     context.aiLocation = 'local';
     const recoverAi = context.ai?.worker?.recover().catch(error => {
@@ -72,11 +74,13 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     const configureSync = sync.configure.bind(sync);
     sync.configure = async input => {
       const result = await configureSync(input);
-      await context.ai?.worker?.recover();
+      await context.ai?.worker?.recover?.().catch(error => {
+        logger.warn?.('AI task recovery deferred', { code: error.code ?? 'AI_RECOVERY_FAILED' });
+      });
       return result;
     };
     const apiServer = createServer({ appContext: context, logger });
     const handleApi = apiServer.listeners('request')[0];
-    return { store, sync, handleApi, recoverAi };
+    return { store, sync, handleApi, recoverAi, closeAi: () => context.ai?.worker?.close?.() ?? Promise.resolve() };
     } catch (error) { store.close(); throw error; }
 }

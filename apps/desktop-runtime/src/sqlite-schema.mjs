@@ -8,8 +8,8 @@ export const SYNC_PROTOCOL_VERSION = 1;
 export function initializeDatabase(db, filePath) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
   if (version === LOCAL_DATABASE_VERSION) return;
-  if (version === 4) return upgradeAiAnswerSchema(db, filePath);
-  if (version === 3) return upgradeAiSchema(db, filePath);
+  if (version === 4) return tryAiUpgrade(() => upgradeAiAnswerSchema(db, filePath));
+  if (version === 3) return tryAiUpgrade(() => upgradeAiSchema(db, filePath));
   if (version === 2) {
     const backup = `${filePath}.before-v3-${Date.now()}.bak`;
     db.prepare('VACUUM INTO ?').run(backup);
@@ -69,7 +69,15 @@ export function initializeDatabase(db, filePath) {
     if (db.isTransaction) db.exec('ROLLBACK');
     throw error;
   }
-  upgradeAiSchema(db, filePath, { backup: false });
+  return tryAiUpgrade(() => upgradeAiSchema(db, filePath, { backup: false }));
+}
+
+function tryAiUpgrade(operation) {
+  try { operation(); return null; }
+  catch (error) {
+    // 这里只捕获独立 AI schema 的升级；核心表版本/完整性故障继续向上抛出。
+    return { aiError: error };
+  }
 }
 
 function upgradeAiAnswerSchema(db, filePath, { backup = true } = {}) {

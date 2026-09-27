@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import type { PathSegment } from '../shell/path';
 import { useNavigate } from './router';
 import { useAppStore } from '../store/AppStoreProvider';
 import { LoadingState } from '../components/ui/status';
+import { Button } from '../components/ui/button/Button';
 import { NoteEditorView } from '../features/editor';
 import {
   CreateEntryDialog,
@@ -23,8 +25,12 @@ import { TrainingWorkspaceView } from '../features/training/TrainingWorkspaceVie
 import { CreateKnowledgeCandidateDialog } from '../features/knowledge/CreateKnowledgeCandidateDialog';
 import { workspaceCapabilities } from '../store/workspaceCapabilities';
 import { SettingsView } from '../features/settings/SettingsView';
-import { AssistantView } from '../features/assistant/AssistantView';
 import type { AppPreferences } from '../features/settings/preferences';
+
+const AssistantView = lazy(async () => {
+  const module = await import('../features/assistant/AssistantView');
+  return { default: module.AssistantView };
+});
 
 const ComponentShowcase = lazy(async () => {
   const module = await import('../components/ui/showcase');
@@ -84,7 +90,18 @@ export function AppRoutes(props: AppRoutesProps) {
     sidebarOpen={props.sidebarOpen}
     onSidebarOpenChange={props.onSidebarOpenChange}
   />;
-  if (routePath === '/assistant') return <AssistantView pathname={props.pathname} onOpenNote={props.onOpenNote} />;
+  if (routePath === '/assistant') return <ErrorBoundary key={routePath} fallbackRender={() => (
+    <section aria-labelledby="assistant-error-title" style={{ padding: '2rem' }}>
+      <h1 id="assistant-error-title">AI 助手暂时不可用</h1>
+      <p role="alert">助手界面加载或运行失败，笔记仍可继续使用。</p>
+      <Button onPress={() => window.location.reload()}>重试助手</Button>
+      <Button variant="ghost" onPress={props.onOpenMaterials}>返回笔记</Button>
+    </section>
+  )}>
+    <Suspense fallback={<LoadingState label="正在加载 AI 助手…" />}>
+      <AssistantView pathname={props.pathname} onOpenNote={props.onOpenNote} />
+    </Suspense>
+  </ErrorBoundary>;
   if (props.routeDomain === 'knowledge') return <KnowledgeStage pathname={props.pathname} onOpenNote={props.onOpenNote} />;
   if (props.routeDomain === 'training') return <TrainingWorkspaceView />;
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;

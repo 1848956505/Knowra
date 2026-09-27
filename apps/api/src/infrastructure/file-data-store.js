@@ -39,7 +39,14 @@ export function createFileDataStore(filePath, {
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = parsePersistedState(raw);
   const state = validatePersistedLocalState(parsed);
-  let aiRuntime = validateAiState(parsed.aiRuntime);
+  let aiRuntime;
+  let aiRuntimeError = null;
+  try { aiRuntime = validateAiState(parsed.aiRuntime); }
+  catch (error) {
+    // 保留损坏的 AI 原文，核心事务继续原子写入；不能把坏记录当成空白 AI 数据覆盖。
+    aiRuntime = parsed.aiRuntime;
+    aiRuntimeError = error;
+  }
   let committed = cloneLocalState(state);
   let journal = loadJournal(parsed.sync, state);
   let transaction = null;
@@ -132,7 +139,8 @@ export function createFileDataStore(filePath, {
   function persistState(nextState) {
     try {
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
-      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal, aiRuntime: validateAiState(aiRuntime) });
+      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal,
+        aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime) });
       journal = nextJournal;
       committed = cloneLocalState(nextState);
     } catch (error) {
@@ -146,8 +154,9 @@ export function createFileDataStore(filePath, {
   }
 
   return {
-    aiRepository: createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
-    aiBudgetAuthority: createJsonBudgetAuthority({ getState: () => aiRuntime, runTransaction, onChange: flush }),
+    aiRepository: aiRuntimeError ? null : createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
+    aiBudgetAuthority: aiRuntimeError ? null : createJsonBudgetAuthority({ getState: () => aiRuntime, runTransaction, onChange: flush }),
+    aiRuntimeError,
     getSyncJournal: () => journal,
     previewSyncJournal: () => appendChanges(structuredClone(journal), committed, state),
     runSyncTransaction: operation => runTransaction(() => { const result = operation(); flush(); return result; }),

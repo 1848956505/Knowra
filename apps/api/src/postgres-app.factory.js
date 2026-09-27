@@ -41,7 +41,7 @@ import {
   wrapHandlersWithPostgresAdvisoryLock
 } from './infrastructure/postgres-advisory-lock.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
-import { createAiRuntime } from './modules/ai/runtime.js';
+import { createOptionalAiRuntime } from './modules/ai/runtime.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
 import { createPostgresBudgetAuthority } from './modules/ai/postgres-budget-authority.js';
@@ -133,7 +133,7 @@ export async function createPostgresAppContext({
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget,
+    ai: createOptionalAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget,
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } }),
     aiOwnerId: normalizedOwnerId,

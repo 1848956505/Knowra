@@ -22,8 +22,9 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let committed;
   let repairKnowledge = false;
   let inTransaction = false;
+  let aiRuntimeError = null;
   try {
-    initializeDatabase(db, filePath);
+    aiRuntimeError = initializeDatabase(db, filePath)?.aiError ?? null;
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON;');
     const initial = createEmptyLocalState();
     for (const row of db.prepare('SELECT collection, payload FROM entities ORDER BY rowid').all()) {
@@ -38,7 +39,14 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   } catch (error) { db.close(); throw error; }
   const readMeta = key => db.prepare('SELECT value FROM metadata WHERE key = ?').get(key)?.value;
   const deviceId = readMeta('deviceId');
-  const aiRepository = createSqliteAiRepository(db);
+  let aiRepository = null;
+  if (!aiRuntimeError) {
+    try {
+      aiRepository = createSqliteAiRepository(db);
+      aiRepository.list('aiJob');
+    }
+    catch (error) { aiRuntimeError = error; }
+  }
 
   function restore(snapshot) {
     for (const collection of LOCAL_DATA_COLLECTIONS) state[collection].splice(0, state[collection].length, ...structuredClone(snapshot[collection]));
@@ -125,7 +133,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     try {
       restore(validated.data);
       persist();
-      aiRepository.rotateEpoch();
+      aiRepository?.rotateEpoch();
       beforeCommit();
       db.exec('COMMIT');
       committed = cloneLocalState(validated.data);
@@ -143,6 +151,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
 
   return {
     aiRepository,
+    aiRuntimeError,
     syncTransaction(operation, { local = false } = {}) {
       if (inTransaction) throw new Error('同步事务不能嵌入本地业务事务。');
       db.exec('BEGIN IMMEDIATE');

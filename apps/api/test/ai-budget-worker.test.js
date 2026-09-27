@@ -165,7 +165,10 @@ export const aiBudgetWorkerTests = [
       const corrupt = JSON.parse(fs.readFileSync(file, 'utf8'));
       corrupt.aiRuntime.budgetDays[0].heldMicrounits = 0;
       fs.writeFileSync(file, JSON.stringify(corrupt));
-      assert.throws(() => createFileDataStore(file), { code: 'AI_BUDGET_INVALID' });
+      const degraded = createFileDataStore(file);
+      assert.equal(degraded.aiRepository, null);
+      assert.equal(degraded.aiBudgetAuthority, null);
+      assert.equal(degraded.aiRuntimeError?.code, 'AI_BUDGET_INVALID');
     });
   } },
   { name: 'Worker 合成调用领取一次、结算真实用量、拒绝重复运行', async run() {

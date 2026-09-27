@@ -40,3 +40,17 @@ test('助手真实页面展示执行位置、预览外发范围并在门禁关�
   await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: 'AI 助手' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
 });
+
+test('助手模块加载失败只影响助手页面，仍可返回笔记', async ({ page }) => {
+  await page.route('**/src/features/assistant/AssistantView.tsx*', route => route.abort());
+  await page.route('**/api/knowledge/**', async route => {
+    const data = new URL(route.request().url()).pathname.endsWith('/spaces')
+      ? [{ id: 'space-1', name: '主空间' }] : [];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
+  });
+  await page.goto('/#/assistant');
+  await expect(page.getByRole('heading', { name: 'AI 助手暂时不可用' })).toBeVisible();
+  await page.getByRole('button', { name: '返回笔记' }).click();
+  await expect(page).toHaveURL(/#\/materials$/);
+  await expect(page.getByRole('navigation', { name: '工作域导航' })).toBeVisible();
+});

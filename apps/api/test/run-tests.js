@@ -53,6 +53,7 @@ import { aiPostgresRepositoryTests, aiPostgresBudgetTests } from './ai-postgres-
 import { aiBudgetWorkerTests } from './ai-budget-worker.test.js';
 import { aiReadContextTests } from './ai-read-context.test.js';
 import { aiAssistantHttpTests } from './ai-assistant-http.test.js';
+import { aiPluginIsolationTests } from './ai-plugin-isolation.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -107,6 +108,7 @@ const tests = [
   ...aiBudgetWorkerTests,
   ...aiReadContextTests,
   ...aiAssistantHttpTests,
+  ...aiPluginIsolationTests,
 ];
 
 let failed = 0;
