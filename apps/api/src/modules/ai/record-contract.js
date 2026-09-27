@@ -87,7 +87,10 @@ export function validateAiEvent(input) {
     || typeof input.eventKind !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_]{0,79}$/.test(input.eventKind)
     || typeof input.createdAt !== 'string' || Number.isNaN(Date.parse(input.createdAt))
     || !input.safePayload || typeof input.safePayload !== 'object' || Array.isArray(input.safePayload)) invalid('AI 事件格式无效。');
-  const allowed = new Set(['phase', 'status', 'attemptId', 'usageId', 'code', 'deliveryUncertain']);
+  const allowed = new Set(['phase', 'status', 'attemptId', 'usageId', 'code', 'deliveryUncertain',
+    'stage', 'priceVersion', 'inputUpperBoundBytes', 'maxOutputTokens', 'sourceCount',
+    'reservedMicrounits', 'responseId', 'finishReason', 'inputTokens', 'outputTokens',
+    'usageUnknown', 'actualMicrounits', 'budgetDisposition', 'httpStatus']);
   if (Object.keys(input.safePayload).some(key => !allowed.has(key))
     || Buffer.byteLength(JSON.stringify(input.safePayload)) > 2048
     || Object.values(input.safePayload).some(value => !['string', 'number', 'boolean'].includes(typeof value))) {

@@ -4,12 +4,24 @@ import { hashRecord, manifestHash } from './record-contract.js';
 const PREVIEW_TTL_MS = 5 * 60_000;
 const MAX_PREVIEWS = 32;
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
+const safeCode = value => typeof value === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(value)
+  ? value : 'AI_TASK_FAILED';
 
 /** HTTP 层只传递经过白名单整理的任务视图。预览请求仅在进程内短时保留。 */
 export function createAiAssistantService({ getRuntime, ownerId, location = 'server', now = () => new Date(), logger = console }) {
   const previews = new Map();
   const runtime = () => getRuntime?.();
   const identity = async () => runtime()?.repository?.identity();
+  async function appendDiagnostic(jobId, eventKind, safePayload) {
+    try {
+      const repository = runtime().repository;
+      const sequence = (await repository.listEvents(jobId)).length + 1;
+      await repository.appendEvent({ jobId, sequence, eventKind, safePayload, createdAt: now().toISOString() });
+    } catch (error) {
+      logger.warn?.('AI diagnostic event could not be saved', { jobId, eventKind,
+        code: safeCode(error?.code) });
+    }
+  }
 
   function available(reference) {
     const ai = runtime();
@@ -30,14 +42,18 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       const budget = await runtime().budgetAuthority?.status('deepseek-primary');
       if (!budget || budget.accountRef !== 'deepseek-primary' || !/^\d{4}-\d{2}-\d{2}$/.test(budget.day)
         || budget.limitMicrounits !== 10_000_000 || !Number.isSafeInteger(budget.availableMicrounits)
+        || !Number.isSafeInteger(budget.spentMicrounits) || budget.spentMicrounits < 0
+        || !Number.isSafeInteger(budget.heldMicrounits) || budget.heldMicrounits < 0
         || budget.availableMicrounits < 0 || budget.availableMicrounits > budget.limitMicrounits) {
         return { ready: false, reason: '预算状态无效，已阻止模型调用。', budget: null };
       }
       return budget.availableMicrounits > 0
         ? { ready: true, reason: null, budget: { day: budget.day, limitMicrounits: budget.limitMicrounits,
-          availableMicrounits: budget.availableMicrounits } }
+          availableMicrounits: budget.availableMicrounits, spentMicrounits: budget.spentMicrounits,
+          heldMicrounits: budget.heldMicrounits } }
         : { ready: false, reason: '北京时间当日 10 元预算已用完。', budget: { day: budget.day,
-          limitMicrounits: budget.limitMicrounits, availableMicrounits: 0 } };
+          limitMicrounits: budget.limitMicrounits, availableMicrounits: 0,
+          spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits } };
     } catch {
       return { ready: false, reason: '云端预算服务不可用，已阻止模型调用。', budget: null };
     }
@@ -72,8 +88,13 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       status: job.status, phase: job.phase, modelId: job.modelId, createdAt: job.createdAt,
       updatedAt: job.updatedAt };
     if (!detailed) return base;
-    const manifest = await runtime().repository.get('contextManifest', job.manifestId);
+    const [manifest, events] = await Promise.all([
+      runtime().repository.get('contextManifest', job.manifestId),
+      runtime().repository.listEvents(job.jobId)
+    ]);
     return { ...base, result: job.status === 'succeeded' ? job.resultJson ?? null : null,
+      diagnostics: events.map(({ sequence, eventKind, safePayload, createdAt }) => (
+        { sequence, eventKind, safePayload, createdAt })),
       sources: manifest?.sources.map(({ sourceId, noteId, noteVersionId, start, end }) => (
         { sourceId, noteId, noteVersionId, start, end })) ?? [],
       omissions: manifest?.omissions ?? [] };
@@ -134,15 +155,18 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       provider: 'deepseek', modelId: request.modelId, promptVersion: 'p1-read-v1', resultSchemaVersion: 'p1-answer-v1',
       status: 'pending', phase: 'preparing', acceptedAttemptId: null, outputHash: null,
       question, createdAt: timestamp, updatedAt: timestamp });
+    await appendDiagnostic(job.jobId, 'taskCreated', { phase: 'preparing', status: 'pending' });
     queueMicrotask(() => { void ai.worker.run(job.jobId, request).catch(async error => {
       const current = await ai.repository.get('aiJob', job.jobId);
       if (current && ['pending', 'retrying'].includes(current.status)) {
         await ai.repository.replace('aiJob', { ...current, status: 'failed', phase: 'finished',
           updatedAt: new Date(Math.max(now().getTime(), Date.parse(current.updatedAt) + 1)).toISOString() }, hashRecord(current));
       }
-      logger.warn?.('AI assistant task failed', { jobId: job.jobId, code: error.code ?? 'AI_TASK_FAILED' });
+      await appendDiagnostic(job.jobId, 'taskFailed', {
+        code: safeCode(error?.code), status: 'failed' });
+      logger.warn?.('AI assistant task failed', { jobId: job.jobId, code: safeCode(error?.code) });
     }).catch(error => logger.error?.('AI task failure could not be persisted', { jobId: job.jobId,
-      code: error.code ?? 'AI_TASK_STORAGE_FAILED' })); });
+      code: safeCode(error?.code) })); });
     return view(job, true);
   }
 

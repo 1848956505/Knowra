@@ -123,7 +123,8 @@ export const aiGatewayTests = [
       const gateway = createAiGateway({ adapter, authorizePaidCall: async () => true,
         resolveCredential: async () => ({ apiKey: 'synthetic-secret', modelId: 'deepseek-flash' }) });
       await assert.rejects(gateway.complete({ messages, credentialRef: 'credential-1' }), error =>
-        error instanceof AiGatewayError && error.code === 'AI_RATE_LIMITED' && error.retryable && !error.message.includes('synthetic-secret'));
+        error instanceof AiGatewayError && error.code === 'AI_RATE_LIMITED' && error.retryable
+        && error.httpStatus === 429 && !error.message.includes('synthetic-secret'));
     }
   },
   {

@@ -42,7 +42,8 @@ export function quoteWorstCase({ request, priceProfile, now = new Date() }) {
 
 export function createAiWorker({ repository, budget, gateway, priceProfile, accountRef = 'deepseek-primary',
   workerId = randomUUID(), now = () => new Date(), allowExternal = false,
-  authorizeAttempt = () => {}, revokeAttempt = () => {}, verifySources = null, validateResult = null } = {}) {
+  authorizeAttempt = () => {}, revokeAttempt = () => {}, verifySources = null, validateResult = null,
+  logger = console } = {}) {
   if (!repository || !budget || !gateway) throw new TypeError('AI Worker needs repository, budget and gateway');
   const controllers = new Map();
 
@@ -50,6 +51,16 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     const next = { ...previous, ...patch };
     if (kind === 'aiJob') next.updatedAt = later(now(), previous.updatedAt);
     return repository.replace(kind, next, hashRecord(previous));
+  }
+  async function recordEvent(jobId, eventKind, safePayload) {
+    try {
+      const sequence = (await repository.listEvents(jobId)).length + 1;
+      await repository.appendEvent({ jobId, sequence, eventKind, safePayload, createdAt: now().toISOString() });
+    } catch (error) {
+      // 诊断写入不能改变模型调用、预算结算或任务状态。
+      logger.warn?.('AI diagnostic event could not be saved', { jobId, eventKind,
+        code: safeCode(error?.code) });
+    }
   }
   async function validBoundary(job) {
     const identity = await repository.identity();
@@ -124,8 +135,13 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       leaseGeneration: Math.max(0, ...attempts.map(item => item.leaseGeneration)) + 1,
       leaseOwner: workerId, leaseExpiresAt: new Date(now().getTime() + LEASE_MS).toISOString(),
       providerRequestId: null, deliveryUncertain: false, status: 'leased', startedAt, finishedAt: null });
+    await recordEvent(jobId, 'attemptPrepared', { attemptId: attempt.attemptId,
+      inputUpperBoundBytes: quote.inputUpperBound, maxOutputTokens: request.maxTokens,
+      sourceCount: manifest.sources.length, reservedMicrounits: quote.reservedMicrounits,
+      priceVersion: priceProfile.version });
     let reserved = false;
     let sent = false;
+    let stage = 'budgetReservation';
     const controller = new AbortController();
     controllers.set(jobId, controller);
     const timer = setTimeout(() => controller.abort(), LEASE_MS);
@@ -135,6 +151,9 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       const reservation = await budget.reserve({ accountRef, jobId, attemptId: attempt.attemptId, priceVersion: priceProfile.version,
         reservedMicrounits: quote.reservedMicrounits, day: reservationDay });
       reserved = true;
+      await recordEvent(jobId, 'budgetReserved', { attemptId: attempt.attemptId,
+        reservedMicrounits: quote.reservedMicrounits });
+      stage = 'preSendValidation';
       if (reservation?.accountRef !== accountRef || reservation.jobId !== jobId
         || reservation.attemptId !== attempt.attemptId || reservation.priceVersion !== priceProfile.version
         || reservation.reservedMicrounits !== quote.reservedMicrounits || reservation.day !== reservationDay) {
@@ -148,8 +167,18 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       quoteWorstCase({ request, priceProfile, now: now() });
       attempt = await replace('aiJobAttempt', attempt, { status: 'sent' });
       sent = true;
+      await recordEvent(jobId, 'providerRequestStarted', { attemptId: attempt.attemptId,
+        deliveryUncertain: true });
+      stage = 'providerResponse';
       authorizeAttempt(attempt.attemptId);
       const result = await gateway.complete({ ...request, signal: controller.signal, budgetAttemptId: attempt.attemptId });
+      await recordEvent(jobId, 'providerResponseReceived', { attemptId: attempt.attemptId,
+        ...(safeIdentifier(result.requestId) ? { responseId: result.requestId } : {}),
+        ...(safeIdentifier(result.finishReason) ? { finishReason: result.finishReason } : {}),
+        ...(Number.isSafeInteger(result.usage?.inputTokens) ? { inputTokens: result.usage.inputTokens } : {}),
+        ...(Number.isSafeInteger(result.usage?.outputTokens) ? { outputTokens: result.usage.outputTokens } : {}),
+        usageUnknown: result.usage?.unknown !== false });
+      stage = 'resultValidation';
       const currentJob = await repository.get('aiJob', jobId);
       const currentAttempt = await repository.get('aiJobAttempt', attempt.attemptId);
       await validBoundary(currentJob);
@@ -159,12 +188,18 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
         fail('AI_LATE_RESULT', '任务已取消或租约失效，迟到响应已丢弃。');
       }
       const acceptedResult = validateResult ? await validateResult(currentJob, result) : null;
+      await recordEvent(jobId, 'resultValidated', { attemptId: attempt.attemptId });
+      stage = 'budgetSettlement';
       const usage = result.usage;
       const actual = usage?.unknown ? null : Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
         + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000);
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > MAX_INPUT_TOKENS
         || usage.outputTokens > MAX_OUTPUT_TOKENS)) fail('AI_USAGE_LIMIT', '供应商用量超过预留或任务边界。');
       await budget.settle({ accountRef, attemptId: attempt.attemptId, disposition: actual === null ? 'unknown' : 'settled', actualMicrounits: actual });
+      await recordEvent(jobId, 'budgetSettled', { attemptId: attempt.attemptId,
+        budgetDisposition: actual === null ? 'unknown' : 'settled',
+        ...(actual === null ? {} : { actualMicrounits: actual }) });
+      stage = 'resultPersistence';
       await repository.insert('aiUsageRecord', { contractVersion: 1, kind: 'aiUsageRecord', usageId: randomUUID(),
         jobId, attemptId: attempt.attemptId, beijingDay: beijingDay(new Date(startedAt)), currency: 'CNY',
         priceVersion: priceProfile.version, inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null,
@@ -175,10 +210,18 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       await replace('aiJob', currentJob, { status: 'succeeded', phase: 'finished', acceptedAttemptId: attempt.attemptId,
         outputHash: hashRecord(acceptedResult ?? result.content ?? ''),
         ...(acceptedResult ? { resultJson: acceptedResult } : {}) });
+      await recordEvent(jobId, 'taskSucceeded', { attemptId: attempt.attemptId, status: 'succeeded' });
       return result;
     } catch (error) {
+      let budgetDisposition = 'unconfirmed';
       if (reserved) await Promise.resolve().then(() => budget.settle({ accountRef, attemptId: attempt.attemptId,
-        disposition: sent ? 'unknown' : 'released' })).catch(() => undefined);
+        disposition: sent ? 'unknown' : 'released' })).then(() => {
+        budgetDisposition = sent ? 'unknown' : 'released';
+      }).catch(() => undefined);
+      await recordEvent(jobId, 'attemptFailed', { attemptId: attempt.attemptId,
+        stage, code: safeCode(error?.code), deliveryUncertain: sent, budgetDisposition,
+        ...(Number.isInteger(error?.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599
+          ? { httpStatus: error.httpStatus } : {}) });
       const currentAttempt = await repository.get('aiJobAttempt', attempt.attemptId);
       if (['leased', 'sent'].includes(currentAttempt?.status)) await replace('aiJobAttempt', currentAttempt, {
         status: controller.signal.aborted ? 'cancelled' : 'rejected', deliveryUncertain: sent,
@@ -190,4 +233,12 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     } finally { revokeAttempt(attempt.attemptId); clearTimeout(timer); controllers.delete(jobId); }
   }
   return { run, cancel, recover };
+}
+
+function safeIdentifier(value) {
+  return typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,128}$/.test(value);
+}
+
+function safeCode(value) {
+  return typeof value === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(value) ? value : 'AI_TASK_FAILED';
 }

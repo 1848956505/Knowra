@@ -186,7 +186,41 @@ export const aiBudgetWorkerTests = [
       assert.equal(store.aiRepository.list('aiJobAttempt').length, 1);
       assert.equal(store.aiRepository.list('aiUsageRecord')[0].actualMicrounits, 60);
       assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').spentMicrounits, 60);
+      const events = store.aiRepository.listEvents(records.job.jobId);
+      assert.deepEqual(events.map(event => event.eventKind), [
+        'attemptPrepared', 'budgetReserved', 'providerRequestStarted', 'providerResponseReceived',
+        'resultValidated', 'budgetSettled', 'taskSucceeded'
+      ]);
+      assert.equal(events[3].safePayload.responseId, 'provider-request');
+      assert.equal(events[3].safePayload.inputTokens, 10);
+      assert.equal(events[5].safePayload.actualMicrounits, 60);
+      assert.equal(JSON.stringify(events).includes('合成回答'), false);
+      assert.equal(JSON.stringify(events).includes('合成测试'), false);
       await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_JOB_NOT_RUNNABLE' });
+    });
+  } },
+  { name: 'Worker 校验失败记录阶段、错误码和保守费用，不保存原始回答', async run() {
+    await withStore(async (store, file) => {
+      const records = aiRecords(store.aiRepository.identity());
+      for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
+        ['aiGrant', records.grant], ['aiJob', records.job]]) store.aiRepository.insert(kind, record);
+      const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority,
+        gateway: { capabilities: () => ({ provider: 'mock' }), complete: async () => ({
+          content: 'synthetic-raw-answer', requestId: 'provider-request', finishReason: 'stop',
+          usage: { inputTokens: 10, outputTokens: 5, unknown: false }
+        }) }, priceProfile: profile, now: at,
+        validateResult: async () => { throw Object.assign(new Error('synthetic-raw-answer'), { code: 'AI_CITATION_INVALID' }); } });
+      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_CITATION_INVALID' });
+      const events = createFileDataStore(file).aiRepository.listEvents(records.job.jobId);
+      assert.equal(events.at(-1).eventKind, 'attemptFailed');
+      assert.deepEqual({ stage: events.at(-1).safePayload.stage, code: events.at(-1).safePayload.code,
+        disposition: events.at(-1).safePayload.budgetDisposition },
+      { stage: 'resultValidation', code: 'AI_CITATION_INVALID', disposition: 'unknown' });
+      assert.equal(events.at(-2).eventKind, 'providerResponseReceived');
+      assert.equal(events.at(-2).safePayload.outputTokens, 5);
+      assert.equal(JSON.stringify(events).includes('synthetic-raw-answer'), false);
+      assert.equal(JSON.stringify(events).includes('合成测试'), false);
+      assert(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits > 0);
     });
   } },
   { name: 'Worker 失败后显式重试最多四次，未知费用仍占日预算', async run() {
@@ -197,13 +231,19 @@ export const aiBudgetWorkerTests = [
       let calls = 0;
       const gateway = { capabilities: () => ({ provider: 'mock' }), async complete() {
         calls++;
-        if (calls === 1) throw Object.assign(new Error('network lost'), { code: 'AI_PROVIDER_UNAVAILABLE', retryable: true });
+        if (calls === 1) throw Object.assign(new Error('provider-secret-body'), {
+          code: 'AI_RATE_LIMITED', retryable: true, httpStatus: 429 });
         return { content: '恢复后的合成回答', requestId: 'second', usage: { inputTokens: 1, outputTokens: 1, unknown: false } };
       } };
       const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority,
         gateway, priceProfile: profile, now: at });
-      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_PROVIDER_UNAVAILABLE' });
+      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_RATE_LIMITED' });
       assert.equal(store.aiRepository.get('aiJob', records.job.jobId).status, 'failed');
+      const failed = store.aiRepository.listEvents(records.job.jobId).at(-1);
+      assert.equal(failed.safePayload.stage, 'providerResponse');
+      assert.equal(failed.safePayload.code, 'AI_RATE_LIMITED');
+      assert.equal(failed.safePayload.httpStatus, 429);
+      assert.equal(JSON.stringify(failed).includes('provider-secret-body'), false);
       assert(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits > 0);
       await worker.run(records.job.jobId, request);
       assert.equal(store.aiRepository.list('aiJobAttempt').length, 2);

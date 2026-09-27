@@ -14,6 +14,48 @@ const statusLabel: Record<AssistantJob['status'], string> = {
   pending: '等待执行', running: '生成中', retrying: '重试中', cancelling: '取消中',
   cancelled: '已取消', succeeded: '已完成', failed: '失败'
 };
+const eventLabel: Record<string, string> = {
+  taskCreated: '任务已创建', attemptPrepared: '调用参数已核对', budgetReserved: '预算已预留',
+  providerRequestStarted: '开始请求模型', providerResponseReceived: '已收到模型响应',
+  resultValidated: '回答与引用已校验', budgetSettled: '费用已结算',
+  taskSucceeded: '任务已完成', attemptFailed: '本次调用失败', taskFailed: '任务失败'
+};
+const stageLabel: Record<string, string> = {
+  budgetReservation: '预算预留', preSendValidation: '发送前校验', providerResponse: '模型请求或响应',
+  resultValidation: '回答与引用校验', budgetSettlement: '费用结算', resultPersistence: '结果保存'
+};
+const failureLabel: Record<string, string> = {
+  AI_JSON_INVALID: '模型没有返回有效的 JSON', AI_ANSWER_INVALID: '回答不符合约定格式',
+  AI_CITATION_INVALID: '引用与发送的原文不一致', AI_CITATION_MISSING: '回答缺少可核对引用',
+  AI_RESPONSE_INVALID: '模型响应结构无效', AI_RESPONSE_TOO_LARGE: '模型响应超过大小上限',
+  AI_CREDENTIAL_UNAVAILABLE: '模型凭据不可用', AI_MODEL_CHANGED: '模型配置已变更',
+  AI_PROVIDER_REQUEST_INVALID: '模型服务拒绝了请求参数', AI_KEY_REJECTED: '模型服务拒绝了密钥',
+  AI_PROVIDER_BALANCE: '模型账户余额不足', AI_RATE_LIMITED: '模型服务请求过于频繁',
+  AI_PROVIDER_UNAVAILABLE: '模型服务暂时不可用', AI_USAGE_LIMIT: '模型用量超过预留范围',
+  AI_GRANT_STALE: '授权或来源范围已失效', AI_SOURCE_STALE: '来源版本已发生变化',
+  AI_TASK_FAILED: '调用未完成，具体原因未能识别'
+};
+const yuan = (microunits: number) => (microunits / 1_000_000).toFixed(2);
+
+function diagnosticText(payload: Record<string, string | number | boolean>) {
+  const parts = [
+    payload.stage ? `阶段：${stageLabel[String(payload.stage)] ?? payload.stage}` : null,
+    payload.code ? `错误码：${payload.code}` : null,
+    payload.httpStatus ? `HTTP ${payload.httpStatus}` : null,
+    payload.finishReason ? `结束原因：${payload.finishReason}` : null,
+    payload.inputTokens !== undefined ? `输入 ${payload.inputTokens} token` : null,
+    payload.outputTokens !== undefined ? `输出 ${payload.outputTokens} token` : null,
+    payload.maxOutputTokens !== undefined ? `输出上限 ${payload.maxOutputTokens} token` : null,
+    payload.sourceCount !== undefined ? `${payload.sourceCount} 个来源片段` : null,
+    payload.inputUpperBoundBytes !== undefined ? `请求体上界 ${payload.inputUpperBoundBytes} 字节` : null,
+    payload.reservedMicrounits !== undefined ? `预留 ${yuan(Number(payload.reservedMicrounits))} 元` : null,
+    payload.actualMicrounits !== undefined ? `结算 ${yuan(Number(payload.actualMicrounits))} 元` : null,
+    payload.budgetDisposition === 'unknown' ? '费用待核对，预留额暂占预算' : null,
+    payload.budgetDisposition === 'released' ? '未发送，预留额已释放' : null,
+    payload.responseId ? `供应商请求 ID：${payload.responseId}` : null
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
 
 export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOpenNote(noteId: string): void }) {
   const navigate = useNavigate();
@@ -64,6 +106,9 @@ export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOp
         if (cancelled) return;
         setSelectedJob(job);
         setJobs(previous => previous.map(item => item.jobId === job.jobId ? job : item));
+        if (!active(job.status)) void assistantApi.status().then(nextStatus => {
+          if (!cancelled) setStatus(nextStatus);
+        }).catch(() => undefined);
       }).catch(cause => { if (!cancelled) setError(cause.message); });
     }, 2000);
     return () => { cancelled = true; window.clearInterval(timer); };
@@ -156,7 +201,9 @@ export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOp
         <div className={styles.banner} role="status">
           <strong>{!status ? '正在读取模型状态' : status.modelId ? `DeepSeek · ${status.modelId}` : '模型未配置'}</strong>
           <span>{status?.unavailableReason ?? (status ? '当前可在确认来源范围后创建只读问答任务。' : '请稍候…')}</span>
-          {status?.budget ? <span>北京时间 {status.budget.day} · 今日剩余额度 {(status.budget.availableMicrounits / 1_000_000).toFixed(2)} 元</span> : null}
+          {status?.budget ? <span>北京时间 {status.budget.day} · 可用 {yuan(status.budget.availableMicrounits)} 元
+            {status.budget.heldMicrounits > 0 ? ` · 待核对预留 ${yuan(status.budget.heldMicrounits)} 元` : ''}
+            {status.budget.spentMicrounits > 0 ? ` · 已结算 ${yuan(status.budget.spentMicrounits)} 元` : ''}</span> : null}
           {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
           {!status && error ? <Button variant="ghost" size="compact" onPress={() => void reloadStatus()}>重试读取状态</Button> : null}
         </div>
@@ -195,7 +242,21 @@ export function AssistantView({ pathname, onOpenNote }: { pathname: string; onOp
             <p className={styles.answer}>{selectedJob.result.answer || '已核对来源，但未找到足够依据。'}</p>
             <h3>来源</h3>
             <div className={styles.citations}>{selectedJob.result.citations.map((citation, index) => sourceButton(citation, `引用 ${index + 1}`))}</div>
-          </> : <p className={styles.hint}>{selectedJob.status === 'failed' ? '任务未完成，可重新预览资料并提问。' : `当前阶段：${selectedJob.phase}`}</p>}
+          </> : <p className={styles.hint}>{selectedJob.status === 'failed'
+            ? (() => { const failure = [...(selectedJob.diagnostics ?? [])].reverse().find(event => event.safePayload.code);
+              const code = String(failure?.safePayload.code ?? '');
+              return code ? `任务未完成：${failureLabel[code] ?? '请查看调用详情'}（${code}）。`
+                : '任务未完成。旧任务未记录失败原因；请查看下方调用详情。'; })()
+            : `当前阶段：${selectedJob.phase}`}</p>}
+          {selectedJob.diagnostics ? <details className={styles.diagnostics}>
+            <summary>调用详情 · {selectedJob.diagnostics.length} 条记录</summary>
+            {selectedJob.diagnostics.length ? <ol>{selectedJob.diagnostics.map(event => <li key={event.sequence}>
+              <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-CN')}</time>
+              <strong>{eventLabel[event.eventKind] ?? event.eventKind}</strong>
+              {diagnosticText(event.safePayload) ? <span>{diagnosticText(event.safePayload)}</span> : null}
+            </li>)}</ol> : <p>这条旧任务没有诊断记录，无法追溯具体失败原因。</p>}
+            <p>仅记录状态、费用及错误码；不记录 API Key、笔记正文或模型原始回答。</p>
+          </details> : null}
           {sourceView && selectedJob.result?.citations.some(citation => citation.sourceId === sourceView.source.sourceId) ? <div className={styles.sourceDetail} aria-label="引用原文定位">
             <h3>{noteName(sourceView.source.noteId)} · 历史版本 {sourceView.source.noteVersionId}</h3>
             <p>{sourceView.content.slice(Math.max(0, sourceView.source.start - 80), sourceView.source.start)}

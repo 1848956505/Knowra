@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
-import { assistantApi } from './assistantApi';
+import { assistantApi, type AssistantJob } from './assistantApi';
 
 const fixture = vi.hoisted(() => ({
   state: {
@@ -56,4 +56,29 @@ it('刷新后读取已完成任务，并把引用定位到不可变笔记版本'
   expect(screen.getByText('alpha', { selector: 'mark' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '打开笔记' }));
   expect(onOpenNote).toHaveBeenCalledWith('note-1');
+});
+
+it('失败任务展示安全错误码、阶段、HTTP 状态与预算占额', async () => {
+  vi.mocked(assistantApi.status).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash',
+    configured: true, executionLocation: 'local', generationAvailable: true, unavailableReason: null,
+    budget: { day: '2026-09-27', limitMicrounits: 10_000_000, availableMicrounits: 9_800_000,
+      heldMicrounits: 200_000, spentMicrounits: 0 },
+    capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
+      writeTools: false, providerAdvertised: null, providerVerified: false } });
+  const job: AssistantJob = { jobId: 'failed-job', spaceId: 'space-1', question: '合成问题', status: 'failed',
+    phase: 'finished', modelId: 'deepseek-flash', createdAt: '2026-09-27T00:00:00.000Z',
+    updatedAt: '2026-09-27T00:00:01.000Z', result: null, sources: [], omissions: [],
+    diagnostics: [{ sequence: 1, eventKind: 'providerRequestStarted', createdAt: '2026-09-27T00:00:00.000Z',
+      safePayload: { attemptId: 'attempt-1', deliveryUncertain: true } },
+    { sequence: 2, eventKind: 'attemptFailed', createdAt: '2026-09-27T00:00:01.000Z',
+      safePayload: { stage: 'providerResponse', code: 'AI_RATE_LIMITED', httpStatus: 429,
+        budgetDisposition: 'unknown', deliveryUncertain: true } }] };
+  vi.mocked(assistantApi.list).mockResolvedValue([job]);
+  vi.mocked(assistantApi.get).mockResolvedValue(job);
+  render(<AssistantView pathname="/assistant" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText('任务未完成：模型服务请求过于频繁（AI_RATE_LIMITED）。')).toBeInTheDocument();
+  expect(screen.getByText(/待核对预留 0.20 元/)).toBeInTheDocument();
+  fireEvent.click(screen.getByText('调用详情 · 2 条记录'));
+  expect(screen.getByText(/模型请求或响应 · 错误码：AI_RATE_LIMITED · HTTP 429/)).toBeInTheDocument();
+  expect(screen.getByText(/不记录 API Key、笔记正文或模型原始回答/)).toBeInTheDocument();
 });

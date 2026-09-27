@@ -92,6 +92,11 @@ export const aiAssistantHttpTests = [
           if (task.payload.data.status === 'succeeded') {
             assert.equal(task.payload.data.result.answer, 'alpha');
             assert.equal(task.payload.data.result.citations[0].noteId, note.id);
+            assert.equal(task.payload.data.diagnostics[0].eventKind, 'taskCreated');
+            assert.equal(task.payload.data.diagnostics.at(-1).eventKind, 'taskSucceeded');
+            assert.equal(task.payload.data.diagnostics.some(event => event.eventKind === 'providerResponseReceived'), true);
+            assert.equal(JSON.stringify(task.payload.data.diagnostics).includes('alpha 正文'), false);
+            assert.equal(JSON.stringify(task.payload.data.diagnostics).includes('合成回答'), false);
             break;
           }
           await new Promise(resolve => setTimeout(resolve, 10));
@@ -107,6 +112,48 @@ export const aiAssistantHttpTests = [
         assert.equal(task.payload.data.question, 'alpha 是什么？');
         assert.equal(task.payload.data.result.answer, 'alpha');
         assert.equal(task.payload.data.sources[0].noteVersionId, source.noteVersionId);
+        assert.equal(task.payload.data.diagnostics.at(-1).eventKind, 'taskSucceeded');
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
+  { name: '助手 HTTP 在模型任务失败后展示持久错误码，不泄露异常正文', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-assistant-failure-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
+      const space = context.http.knowledge.createDefaultKnowledgeSpace({});
+      context.http.knowledge.createNote({ id: 'failure-note', title: '测试笔记',
+        rawMarkdown: '合成笔记正文', spaceId: space.id });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      context.ai.generationAvailable = true;
+      context.ai.worker = { async run() {
+        throw Object.assign(new Error('synthetic-secret-and-raw-answer'), { code: 'AI_PROVIDER_UNAVAILABLE' });
+      } };
+      let jobId;
+      await withServer(context, async origin => {
+        const preview = (await call(origin, '/preview', { spaceId: space.id,
+          scope: { kind: 'note', noteId: 'failure-note' }, question: '合成问题？' })).payload.data;
+        const created = await call(origin, '/jobs', { previewId: preview.previewId,
+          scopeHash: preview.scopeHash, payloadHash: preview.payloadHash,
+          idempotencyKey: 'failure-test-1' });
+        assert.equal(created.status, 202);
+        jobId = created.payload.data.jobId;
+        for (let i = 0; i < 30; i++) {
+          const task = (await call(origin, `/jobs/${jobId}`)).payload.data;
+          if (task.status === 'failed' && task.diagnostics.some(event => event.eventKind === 'taskFailed')) {
+            assert.equal(task.diagnostics.at(-1).safePayload.code, 'AI_PROVIDER_UNAVAILABLE');
+            assert.equal(JSON.stringify(task.diagnostics).includes('synthetic-secret'), false);
+            assert.equal(JSON.stringify(task.diagnostics).includes('合成笔记正文'), false);
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 10));
+          if (i === 29) assert.fail('失败诊断未完成');
+        }
+      });
+      const reopened = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
+      await withServer(reopened, async origin => {
+        const task = (await call(origin, `/jobs/${jobId}`)).payload.data;
+        assert.equal(task.status, 'failed');
+        assert.equal(task.diagnostics.at(-1).safePayload.code, 'AI_PROVIDER_UNAVAILABLE');
       });
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },

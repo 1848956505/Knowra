@@ -24,6 +24,13 @@
 .jobHeader { display: flex; justify-content: space-between; gap: 16px; }
 .jobHeader span { color: var(--ink-secondary); font: 750 11px/1.5 var(--font-mono); white-space: nowrap; }
 .answer { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; font-size: 13px; }
+.diagnostics { margin-top: 16px; padding: 12px; border: 1px solid var(--ink-panel); font-size: 12px; }
+.diagnostics summary { cursor: pointer; font-weight: 700; }
+.diagnostics ol { margin: 12px 0; padding-left: 22px; }
+.diagnostics li { margin: 8px 0; line-height: 1.5; overflow-wrap: anywhere; }
+.diagnostics time { margin-right: 8px; color: var(--ink-secondary); }
+.diagnostics strong { margin-right: 8px; }
+.diagnostics li span, .diagnostics p { color: var(--ink-secondary); }
 .citations { display: flex; flex-wrap: wrap; gap: 6px; }
 .sourceDetail { margin-top: 14px; padding: 14px; border: 1px solid var(--ink-panel); }
 .sourceDetail h3 { overflow-wrap: anywhere; }

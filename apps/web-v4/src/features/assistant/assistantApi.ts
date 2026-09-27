@@ -7,7 +7,8 @@ export interface AssistantStatus {
   executionLocation: 'local' | 'server';
   generationAvailable: boolean;
   unavailableReason: string | null;
-  budget: { day: string; limitMicrounits: number; availableMicrounits: number } | null;
+  budget: { day: string; limitMicrounits: number; availableMicrounits: number;
+    spentMicrounits: number; heldMicrounits: number } | null;
   capabilities: { readScopes: Array<'note' | 'folder'>; actions: Array<'answer' | 'cancel'>;
     responseMode: 'polling'; writeTools: false; providerAdvertised: Record<string, boolean> | null;
     providerVerified: boolean };
@@ -46,6 +47,8 @@ export interface AssistantJob {
   result?: { answer: string; citations: AssistantSource[] } | null;
   sources?: AssistantSource[];
   omissions?: string[];
+  diagnostics?: Array<{ sequence: number; eventKind: string; createdAt: string;
+    safePayload: Record<string, string | number | boolean> }>;
 }
 
 const root = '/api/ai/assistant';
