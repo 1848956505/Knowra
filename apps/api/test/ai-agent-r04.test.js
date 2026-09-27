@@ -118,10 +118,10 @@ export const aiAgentR04Tests = [
     await agent.run(first.turnId);
     const calls = await data.aiConversationStore.listToolCalls(first.turnId);
     const messages = await data.aiConversationStore.listMessages(conversation.conversationId);
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].status, 'succeeded');
-    assert.equal(calls[0].resultJson.hits[0].noteId, 'green-note');
-    assert(calls[0].provenanceManifestId);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls.map(call => call.status), ['succeeded', 'succeeded']);
+    assert(calls.every(call => call.resultJson.hits[0].noteId === 'green-note'));
+    assert(calls.every(call => call.provenanceManifestId));
     assert.deepEqual(requests[1].tools, []);
     assert.equal(messages[1].citations[0].noteId, 'green-note');
     assert.equal(messages[1].sourceFree, false);
@@ -148,9 +148,10 @@ export const aiAgentR04Tests = [
     const turn = await submit('请阅读指定合成笔记', 'read-001', selected.policyId);
     await agent.run(turn.turnId);
     const calls = await data.aiConversationStore.listToolCalls(turn.turnId);
-    assert.deepEqual(calls.map(call => call.status), ['succeeded', 'failed']);
-    assert.equal(calls[0].resultJson.text, '😀合成来源文字。');
-    assert.equal(calls[1].errorCode, 'AI_SCOPE_FORBIDDEN');
+    assert.deepEqual(calls.map(call => call.status), ['succeeded', 'succeeded', 'failed']);
+    assert.equal(calls[0].toolName, 'notes_search');
+    assert.equal(calls[1].resultJson.text, '😀合成来源文字。');
+    assert.equal(calls[2].errorCode, 'AI_SCOPE_FORBIDDEN');
     assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).status, 'succeeded');
   }) },
   { name: 'R04 无命中回答可声明无引用，授权清单仍保留并支持追问', run: () => withFixture(async ({ data, addNote, policy, conversation, submit, worker }) => {

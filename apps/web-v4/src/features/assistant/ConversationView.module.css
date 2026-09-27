@@ -1,0 +1,57 @@
+.body { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: 0; overflow: hidden; padding: 0; }
+.history { min-height: 0; overflow: auto; padding: 18px 12px; border-right: 1px solid var(--ink-panel); background: var(--ink-bg); }
+.history > button:first-child { width: 100%; }
+.history h2 { margin: 24px 9px 12px; font-size: 12px; color: var(--ink-secondary); }
+.historyItem { display: grid; width: 100%; gap: 5px; padding: 11px; border: 0; background: transparent; text-align: left; color: var(--ink); cursor: pointer; }
+.historyItem[aria-current] { background: var(--ink-surface); color: var(--ink-accent); }
+.historyItem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.historyItem small { color: var(--ink-secondary); font-size: 11px; }
+.historyItem:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: -2px; }
+.content { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--ink-bg); }
+.status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; padding: 10px clamp(16px, 4vw, 48px); border-bottom: 1px solid var(--ink-panel); color: var(--ink-secondary); font-size: 11px; }
+.status span:first-child { color: var(--ink); font-weight: 750; }
+.messages { flex: 1; min-height: 0; overflow: auto; padding: 24px clamp(16px, 4vw, 48px); }
+.welcome { max-width: 660px; margin: clamp(24px, 8vh, 96px) auto; text-align: center; }
+.welcome h2 { margin: 0 0 12px; font-size: 24px; }
+.welcome p { color: var(--ink-secondary); font-size: 13px; line-height: 1.7; }
+.message { max-width: 760px; margin: 0 auto 18px; padding: 16px 18px; border: 1px solid var(--ink-panel); background: var(--ink-surface); overflow-wrap: anywhere; }
+.user { margin-left: auto; margin-right: max(0px, calc((100% - 760px) / 2)); background: var(--ink-bg); }
+.messageMeta { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.messageMeta time { color: var(--ink-secondary); font-size: 11px; }
+.messageText { margin: 12px 0 0; white-space: pre-wrap; line-height: 1.75; font-size: 13px; }
+.muted { color: var(--ink-secondary); font-size: 12px; line-height: 1.6; }
+.sources { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.trace { margin-top: 14px; color: var(--ink-secondary); font-size: 12px; }
+.trace summary { cursor: pointer; color: var(--ink); }
+.traceBody { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--ink-panel); background: var(--ink-bg); }
+.traceBody p { margin: 0 0 6px; }
+.traceBody ol { margin: 0; padding-left: 22px; }
+.traceBody li { margin: 5px 0; }
+.sourceDetail { margin-top: 14px; padding: 13px; border: 1px solid var(--ink-panel); }
+.sourceDetail h3 { margin: 0 0 8px; font-size: 12px; }
+.sourceDetail p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; font-size: 12px; }
+.sourceDetail mark { background: #fff1ab; color: var(--ink); }
+.sourceDetail button + button { margin-left: 8px; }
+.turnState { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; max-width: 760px; margin: 0 auto; color: var(--ink-secondary); font-size: 12px; }
+.turnState strong { color: var(--ink); }
+.composer { flex: 0 0 auto; min-width: 0; padding: 16px clamp(16px, 4vw, 48px) 20px; border-top: 1px solid var(--ink-panel); background: var(--ink-surface); }
+.composer > * { max-width: 760px; margin-left: auto; margin-right: auto; }
+.scopeRow { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.scopeRow > div:first-child { flex: 1 1 230px; }
+.composerActions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.composerActions span { flex: 1; }
+.grantFields { display: grid; gap: 16px; }
+.grantFields p { margin: 0; }
+.error { max-width: 760px; width: 100%; margin: 0 auto 8px; padding: 8px 12px; color: #a32929; font-size: 12px; }
+.readOnly { max-width: 760px; margin: 0 auto 16px; padding: 10px; border: 1px solid var(--ink-panel); color: var(--ink-secondary); font-size: 12px; }
+@media (max-width: 767px) {
+  .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .history { display: flex; align-items: center; gap: 6px; padding: 8px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--ink-panel); }
+  .history > button:first-child { width: auto; flex: 0 0 auto; }
+  .history h2 { display: none; }
+  .historyItem { flex: 0 0 148px; }
+  .messages { padding: 14px 12px; }
+  .message { padding: 12px; }
+  .composer { padding: 10px 12px 12px; }
+  .composerActions { align-items: end; }
+}

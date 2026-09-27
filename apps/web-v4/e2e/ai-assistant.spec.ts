@@ -1,21 +1,39 @@
 import { expect, test } from '@playwright/test';
 
-test('助手真实页面展示执行位置、预览外发范围并在门禁关闭时禁用生成', async ({ page }) => {
-  let previewRequest: unknown = null;
-  await page.route('**/api/ai/assistant/**', async route => {
-    const url = new URL(route.request().url());
-    let data: unknown = null;
-    if (url.pathname.endsWith('/status')) data = { provider: 'deepseek', modelId: 'deepseek-flash',
-      configured: true, executionLocation: 'server', generationAvailable: false,
-      unavailableReason: '价格与真实外发验收尚未完成，当前只能预览发送范围。' };
-    else if (url.pathname.endsWith('/jobs')) data = [];
-    else if (url.pathname.endsWith('/preview')) {
-      previewRequest = route.request().postDataJSON();
-      data = { previewId: 'preview-1', expiresAt: '2030-01-01T00:00:00.000Z', scopeHash: 'scope-1',
-        payloadHash: 'payload-1', recipient: 'deepseek', spaceId: 'space-1', estimatedInputTokens: 180,
-        omissions: [], sources: [{ sourceId: 'source-1', noteId: 'note-1', noteVersionId: 'version-1',
-          start: 0, end: 8, text: 'alpha 正文' }] };
+test('对话主页面可不选笔记直接提问，并在刷新和移动端恢复消息', async ({ page }) => {
+  let submitted: Record<string, unknown> | null = null;
+  let messages: unknown[] = [];
+  const conversation = { conversationId: 'conversation-1', spaceId: 'space-1',
+    createdAt: '2026-09-27T00:00:00.000Z', updatedAt: '2026-09-27T00:00:00.000Z',
+    historicalDataset: false, readOnly: false };
+  const turn = { turnId: 'turn-1', conversationId: conversation.conversationId, requestedPolicyId: null,
+    status: 'succeeded', phase: 'finished', errorCode: null, toolCalls: [], modelAttempts: [] };
+  await page.route('**/api/ai/assistant/status', route => route.fulfill({ status: 200,
+    contentType: 'application/json', body: JSON.stringify({ data: { provider: 'deepseek', modelId: 'deepseek-flash',
+      configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null } }) }));
+  await page.route('**/api/ai/access-policies**', route => route.fulfill({ status: 200,
+    contentType: 'application/json', body: JSON.stringify({ data: [] }) }));
+  await page.route('**/api/ai/conversations**', async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    let data: unknown;
+    if (url.pathname.endsWith('/messages') && request.method() === 'POST') {
+      submitted = request.postDataJSON();
+      messages = [
+        { messageId: 'message-1', turnId: 'turn-1', sequence: 1, role: 'user', content: '解释梯度下降',
+          sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+        { messageId: 'message-2', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '梯度下降是一种优化方法。',
+          sourceRefs: [], citations: [], sourceFree: true, createdAt: conversation.createdAt }
+      ];
+      data = turn;
+    } else if (url.pathname.endsWith('/messages')) data = messages;
+    else if (url.pathname.includes('/turns/')) data = turn;
+    else if (request.method() === 'POST') {
+      conversation.conversationId = request.postDataJSON().conversationId;
+      turn.conversationId = conversation.conversationId;
+      data = conversation;
     }
+    else data = messages.length ? [conversation] : [];
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
   });
   await page.route('**/api/knowledge/**', async route => {
@@ -27,15 +45,15 @@ test('助手真实页面展示执行位置、预览外发范围并在门禁关�
       contentLoaded: false, favorite: false, deleted: false }];
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
   });
-  await page.goto('/#/assistant?noteId=note-1');
+  await page.goto('/#/assistant?new=1');
   await expect(page.getByRole('heading', { name: 'AI 助手', exact: true })).toBeVisible();
   await expect(page.getByText('服务器执行')).toBeVisible();
-  await page.getByRole('textbox', { name: '问题' }).fill('alpha 是什么？');
-  await page.getByRole('button', { name: '预览发送范围' }).click();
-  await expect(page.getByText('alpha 正文')).toBeVisible();
-  expect(previewRequest).toMatchObject({ spaceId: 'space-1', question: 'alpha 是什么？',
-    scope: { kind: 'note', noteId: 'note-1' } });
-  await expect(page.getByRole('button', { name: '确认范围并提问' })).toBeDisabled();
+  await page.getByRole('textbox', { name: '消息' }).fill('解释梯度下降');
+  await page.getByRole('button', { name: '发送消息' }).click();
+  await expect(page.getByText('梯度下降是一种优化方法。')).toBeVisible();
+  expect(submitted).toMatchObject({ content: '解释梯度下降', requestedPolicyId: null, execute: true });
+  await page.reload();
+  await expect(page.getByText('梯度下降是一种优化方法。')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 843 });
   await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: 'AI 助手' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);

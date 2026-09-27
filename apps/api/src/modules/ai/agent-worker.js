@@ -239,9 +239,23 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       .flatMap(row => row.citations?.length ? row.citations : row.sourceRefs)).slice(-8) : [];
     let searchTruncated = false;
     if (grant && /(我的|我记|笔记|资料|文档|记录|之前|根据|比较|总结|引用)/.test(user.content)) {
-      const initial = await search.search({ grantId: grant.grantId, query: user.content, limit: 3 });
-      sourceRefs = uniqueRefs([...sourceRefs, ...initial.hits.map(hit => hit.ref)]).slice(-12);
-      searchTruncated = initial.truncated;
+      const callId = hashRecord({ turnId: turn.turnId, generation, initialSearch: true });
+      await store.appendToolCall(turn.turnId, generation, { callId, toolName: 'notes_search',
+        argumentsJson: { query: user.content, limit: 3, origin: 'automatic' } });
+      try {
+        const initial = await search.search({ grantId: grant.grantId, query: user.content, limit: 3 });
+        await currentTurn(turn.turnId, generation, signal);
+        await store.settleToolCall(turn.turnId, generation, callId, { resultJson: {
+          hits: initial.hits.map(hit => ({ noteId: hit.noteId, title: hit.title, ref: hit.ref, text: hit.text })),
+          inspected: initial.inspected, truncated: initial.truncated
+        }, sourceRefs: initial.hits.map(hit => hit.ref) });
+        sourceRefs = uniqueRefs([...sourceRefs, ...initial.hits.map(hit => hit.ref)]).slice(-12);
+        searchTruncated = initial.truncated;
+      } catch (error) {
+        await store.settleToolCall(turn.turnId, generation, callId,
+          { errorCode: safeCode(error?.code) }).catch(() => undefined);
+        throw error;
+      }
     }
     let totalTools = 0;
     let forceAnswer = false;

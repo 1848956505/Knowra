@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { AssistantView } from './AssistantView';
+import { LegacyAssistantView as AssistantView } from './LegacyAssistantView';
 import { assistantApi, type AssistantJob } from './assistantApi';
 
 const fixture = vi.hoisted(() => ({

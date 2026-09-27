@@ -60,6 +60,8 @@ export const assistantApi = {
   status: () => data<AssistantStatus>(`${root}/status`),
   list: (spaceId: string) => data<AssistantJob[]>(`${root}/jobs?spaceId=${encodeURIComponent(spaceId)}`),
   get: (jobId: string) => data<AssistantJob>(`${root}/jobs/${encodeURIComponent(jobId)}`),
+  listLegacy: (spaceId: string) => data<AssistantJob[]>(`/api/ai/conversations/legacy-jobs?spaceId=${encodeURIComponent(spaceId)}`),
+  getLegacy: (jobId: string) => data<AssistantJob>(`/api/ai/conversations/legacy-jobs/${encodeURIComponent(jobId)}`),
   preview: (input: { spaceId: string; scope: { kind: 'note'; noteId: string } | { kind: 'folder'; folderId: string }; question: string }) =>
     data<AssistantPreview>(`${root}/preview`, { method: 'POST', headers: mutation, body: JSON.stringify(input) }),
   start: (preview: AssistantPreview, idempotencyKey: string) => data<AssistantJob>(`${root}/jobs`, {
