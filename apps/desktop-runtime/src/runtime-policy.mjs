@@ -1,5 +1,8 @@
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const MUTATIONS = [
+  ['POST', /^\/api\/ai\/assistant\/preview$/],
+  ['POST', /^\/api\/ai\/assistant\/jobs$/],
+  ['POST', /^\/api\/ai\/assistant\/jobs\/[^/]+\/cancel$/],
   // 该 POST 只计算预览，不保存分析范围或触发 AI。
   ['POST', /^\/api\/knowledge\/analysis-scopes\/preview$/],
   ['POST', /^\/api\/knowledge\/items$/],
@@ -26,7 +29,7 @@ const MUTATIONS = [
   ['POST', /^\/api\/knowledge\/tags\/(?:merge|reorder)$/]
 ];
 
-/** 离线支持笔记、知识审核和来源修订；试题、AI 和永久删除维持受限。 */
+/** 本地 AI 仅开放助手只读问答流程；试题和永久删除维持受限。 */
 export function permitsLocalRoute(method, pathname) {
   if (READ_METHODS.has(method)) return true;
   if (/\/(permanent|recycle-bin)(\/|$)/.test(pathname)) return false;

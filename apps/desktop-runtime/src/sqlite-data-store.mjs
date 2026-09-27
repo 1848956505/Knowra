@@ -9,6 +9,7 @@ import {
   validateLocalSnapshot, validatePersistedLocalState
 } from '../../api/src/infrastructure/local-data-schema.js';
 import { initializeDatabase, SYNC_PROTOCOL_VERSION } from './sqlite-schema.mjs';
+import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { collectChanges, entityReferences } from './local-change-set.mjs';
 
 export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}) {
@@ -37,6 +38,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   } catch (error) { db.close(); throw error; }
   const readMeta = key => db.prepare('SELECT value FROM metadata WHERE key = ?').get(key)?.value;
   const deviceId = readMeta('deviceId');
+  const aiRepository = createSqliteAiRepository(db);
 
   function restore(snapshot) {
     for (const collection of LOCAL_DATA_COLLECTIONS) state[collection].splice(0, state[collection].length, ...structuredClone(snapshot[collection]));
@@ -74,7 +76,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         (operation_id, device_id, protocol_version, state, changes, dependencies, created_at)
         VALUES (?, ?, ?, 'pending', ?, ?, ?)`)
         .run(operationId, deviceId, SYNC_PROTOCOL_VERSION, JSON.stringify(queuedChanges), JSON.stringify([...dependencies]), new Date().toISOString());
-      beforeCommit();
+      if (ownsTransaction) beforeCommit();
       if (ownsTransaction) {
         db.exec('COMMIT');
         restore(valid);
@@ -91,11 +93,20 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     if (inTransaction) return operation();
     inTransaction = true;
     try {
+      db.exec('BEGIN IMMEDIATE');
       const result = operation();
       if (result && typeof result.then === 'function') throw new TypeError('本地事务只能执行同步业务操作。');
-      persist();
+      const valid = persist();
+      beforeCommit();
+      db.exec('COMMIT');
+      restore(valid);
+      committed = cloneLocalState(valid);
       return result;
-    } catch (error) { restore(committed); throw error; }
+    } catch (error) {
+      if (db.isTransaction) db.exec('ROLLBACK');
+      restore(committed);
+      throw error;
+    }
     finally { inTransaction = false; }
   }
 
@@ -110,7 +121,20 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
 
   function commitImport(input) {
     const validated = validateLocalSnapshot(input);
-    return runTransaction(() => { restore(validated.data); return exportSnapshot(); });
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      restore(validated.data);
+      persist();
+      aiRepository.rotateEpoch();
+      beforeCommit();
+      db.exec('COMMIT');
+      committed = cloneLocalState(validated.data);
+      return exportSnapshot();
+    } catch (error) {
+      if (db.isTransaction) db.exec('ROLLBACK');
+      restore(committed);
+      throw error;
+    }
   }
 
   if (repairKnowledge) {
@@ -118,6 +142,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   }
 
   return {
+    aiRepository,
     syncTransaction(operation, { local = false } = {}) {
       if (inTransaction) throw new Error('同步事务不能嵌入本地业务事务。');
       db.exec('BEGIN IMMEDIATE');

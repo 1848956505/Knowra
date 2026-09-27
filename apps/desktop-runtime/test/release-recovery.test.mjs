@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
-import { createNote, openWorkspace, temporaryDirectory } from './helpers.mjs';
+import { createNote, openWorkspace, removeAiTablesForLegacyFixture, temporaryDirectory } from './helpers.mjs';
 import { exportLocalRecovery } from '../src/recovery-export.mjs';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { restoreRuntimeBackup } from '../src/backup.mjs';
@@ -14,7 +14,7 @@ test('schema 2 升级备份保留冻结请求和序号；未来 schema 仍可只
   let workspace = openWorkspace(directory); const note = createNote(workspace, '等待同步的中文正文');
   workspace.store.syncTransaction(db => { writeMeta(db, 'entitySequence', 8); writeMeta(db, 'entityUpload', { operationId: 'frozen', sequence: 8 }); });
   const outbox = workspace.store.readOutbox(); workspace.store.close();
-  let raw = new DatabaseSync(path.join(directory, 'local.sqlite')); raw.exec('PRAGMA user_version = 2'); raw.close();
+  let raw = new DatabaseSync(path.join(directory, 'local.sqlite')); removeAiTablesForLegacyFixture(raw); raw.exec('PRAGMA user_version = 2'); raw.close();
   workspace = openWorkspace(directory);
   assert.equal(workspace.store.readSync(db => readMeta(db, 'entityUpload')).operationId, 'frozen');
   assert.equal(workspace.store.readSync(db => readMeta(db, 'entitySequence')), 8);

@@ -48,6 +48,11 @@ import { batch3ConsistencyTests } from './batch3-consistency.test.js';
 import { batch5OperationAccessTests } from './batch5-operation-access.test.js';
 import { modelSettingsTests } from './model-settings.test.js';
 import { aiGatewayTests } from './ai-gateway.test.js';
+import { aiRecordRepositoryTests } from './ai-record-repository.test.js';
+import { aiPostgresRepositoryTests, aiPostgresBudgetTests } from './ai-postgres-repository.test.js';
+import { aiBudgetWorkerTests } from './ai-budget-worker.test.js';
+import { aiReadContextTests } from './ai-read-context.test.js';
+import { aiAssistantHttpTests } from './ai-assistant-http.test.js';
 
 const tests = [
   ...knowledgeExtractionContractTests,
@@ -96,6 +101,12 @@ const tests = [
   ...batch5OperationAccessTests,
   ...modelSettingsTests,
   ...aiGatewayTests,
+  ...aiRecordRepositoryTests,
+  ...aiPostgresRepositoryTests,
+  ...aiPostgresBudgetTests,
+  ...aiBudgetWorkerTests,
+  ...aiReadContextTests,
+  ...aiAssistantHttpTests,
 ];
 
 let failed = 0;

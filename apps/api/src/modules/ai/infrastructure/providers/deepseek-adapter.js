@@ -1,4 +1,5 @@
 import { AiGatewayError } from '../../gateway.js';
+import { serializedDeepSeekPayload } from '../../outbound-payload.js';
 
 const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
@@ -79,21 +80,13 @@ export function createDeepSeekAdapter({ fetchImpl = fetch, timeoutMs = 90000 } =
   };
 
   async function send(request, stream) {
-    const payload = {
-      model: request.modelId,
-      messages: request.messages,
-      max_tokens: request.maxTokens,
-      stream,
-      ...(request.format === 'json' ? { response_format: { type: 'json_object' } } : {}),
-      ...(request.tools.length ? { tools: request.tools.map(tool => ({ type: 'function', function: tool })), tool_choice: 'auto' } : {}),
-      ...(stream ? { stream_options: { include_usage: true } } : {})
-    };
+    const body = serializedDeepSeekPayload(request, { stream });
     let response;
     try {
       response = await fetchImpl(ENDPOINT, {
         method: 'POST', redirect: 'error',
         headers: { Authorization: `Bearer ${request.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body,
         signal: AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(request.signal ? [request.signal] : [])])
       });
     } catch {
@@ -106,11 +99,11 @@ export function createDeepSeekAdapter({ fetchImpl = fetch, timeoutMs = 90000 } =
 }
 
 function providerError(status) {
-  if (status === 401 || status === 403) return new AiGatewayError('AI_KEY_REJECTED', 'DeepSeek 拒绝了 API Key。');
-  if (status === 402) return new AiGatewayError('AI_PROVIDER_BALANCE', 'DeepSeek 账户余额不足。');
-  if (status === 429) return new AiGatewayError('AI_RATE_LIMITED', 'DeepSeek 请求过于频繁。', { retryable: true });
-  if (status === 400 || status === 422) return new AiGatewayError('AI_PROVIDER_REQUEST_INVALID', 'DeepSeek 拒绝了模型请求参数。');
-  return new AiGatewayError('AI_PROVIDER_UNAVAILABLE', 'DeepSeek 暂时无法处理请求。', { retryable: status >= 500 });
+  if (status === 401 || status === 403) return new AiGatewayError('AI_KEY_REJECTED', 'DeepSeek 拒绝了 API Key。', { httpStatus: status });
+  if (status === 402) return new AiGatewayError('AI_PROVIDER_BALANCE', 'DeepSeek 账户余额不足。', { httpStatus: status });
+  if (status === 429) return new AiGatewayError('AI_RATE_LIMITED', 'DeepSeek 请求过于频繁。', { retryable: true, httpStatus: status });
+  if (status === 400 || status === 422) return new AiGatewayError('AI_PROVIDER_REQUEST_INVALID', 'DeepSeek 拒绝了模型请求参数。', { httpStatus: status });
+  return new AiGatewayError('AI_PROVIDER_UNAVAILABLE', 'DeepSeek 暂时无法处理请求。', { retryable: status >= 500, httpStatus: status });
 }
 
 async function boundedText(response) {

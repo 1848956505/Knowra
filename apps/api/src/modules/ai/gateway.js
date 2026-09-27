@@ -4,11 +4,12 @@ const TOOL_NAMES = new Set([
 ]);
 
 export class AiGatewayError extends Error {
-  constructor(code, message, { retryable = false } = {}) {
+  constructor(code, message, { retryable = false, httpStatus = null } = {}) {
     super(message);
     this.name = 'AiGatewayError';
     this.code = code;
     this.retryable = retryable;
+    this.httpStatus = httpStatus;
   }
 }
 
@@ -40,7 +41,7 @@ export function createAiGateway({ adapter, resolveCredential, authorizePaidCall 
 
   async function prepare(request) {
     if (request?.signal?.aborted) throw new AiGatewayError('AI_CANCELLED', '模型请求已取消。');
-    const input = validateRequest(request);
+    const input = normalizeAiRequest(request);
     if (adapter.provider === 'mock') return input;
     if (!request?.credentialRef || typeof resolveCredential !== 'function') {
       throw new AiGatewayError('AI_CREDENTIAL_UNAVAILABLE', '模型凭据不可用。');
@@ -59,7 +60,7 @@ export function createAiGateway({ adapter, resolveCredential, authorizePaidCall 
   }
 }
 
-function validateRequest(value) {
+export function normalizeAiRequest(value) {
   if (!value || !Array.isArray(value.messages) || value.messages.length < 1 || value.messages.length > 32) {
     throw new AiGatewayError('AI_REQUEST_INVALID', '模型消息无效。');
   }

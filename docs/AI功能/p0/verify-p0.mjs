@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
-import { initializeDatabase } from '../../../apps/desktop-runtime/src/sqlite-schema.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -73,7 +72,14 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-p0-sqlite-'));
 const dbPath = path.join(tempDir, 'schema-check.sqlite');
 const db = new DatabaseSync(dbPath);
 try {
-  initializeDatabase(db, dbPath);
+  // P0 的冻结迁移仍以隔离的 v3 基线验证；当前运行库已升至 v4。
+  db.exec(`CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE entities (collection TEXT NOT NULL, id TEXT NOT NULL, payload TEXT NOT NULL,
+      local_revision INTEGER NOT NULL, PRIMARY KEY (collection, id));
+    CREATE TABLE sync_outbox (sequence INTEGER PRIMARY KEY AUTOINCREMENT, operation_id TEXT UNIQUE NOT NULL,
+      device_id TEXT NOT NULL, protocol_version INTEGER NOT NULL, state TEXT NOT NULL,
+      changes TEXT NOT NULL, dependencies TEXT NOT NULL, created_at TEXT NOT NULL);
+    PRAGMA user_version = 3;`);
   assert.equal(db.prepare('PRAGMA user_version').get().user_version, 3);
   db.exec('PRAGMA foreign_keys = ON; BEGIN IMMEDIATE;');
   db.exec(read('contracts/sqlite-v4-migration.sql'));

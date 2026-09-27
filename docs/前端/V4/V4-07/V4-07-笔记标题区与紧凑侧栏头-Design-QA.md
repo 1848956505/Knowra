@@ -2,7 +2,7 @@
 
 ## 比较目标
 
-- 唯一视觉真源：`docs/前端重构/V4/V4-00.5/印格/印格-demo-笔记页面.html`
+- 唯一视觉真源：`docs/前端/V4/V4-00.5/印格/印格-demo-笔记页面.html`
 - 侧栏头参考：`/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-860a6b48-6d65-4d50-b990-8fddc3f96541.png`
 - 标题区参考：`/var/folders/pb/fc84ns390y39c478dnyv74fm0000gn/T/codex-clipboard-737d53d1-3bb1-4168-8a8d-43347ac689c9.png`
 - 浏览器实现：`http://127.0.0.1:5173/#/materials/notes/note-item-1781422707366`

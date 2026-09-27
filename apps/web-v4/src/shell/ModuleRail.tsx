@@ -15,6 +15,7 @@ import {
   PlusIcon,
   QuestionIcon,
   SearchIcon,
+  SparkIcon,
   SettingsIcon,
   UserIcon,
   type KnowraIconProps
@@ -81,7 +82,9 @@ export interface ModuleRailProps {
   onOpenCreate?(): void;
   onOpenNotifications?(): void;
   onOpenSettings?(): void;
+  onOpenAssistant?(): void;
   isSettingsActive?: boolean;
+  isAssistantActive?: boolean;
   /** 打开组件展台（/showcase）。组件库是开发工具，不属于 WorkDomain。 */
   onOpenShowcase?(): void;
   /** 当前是否在 /showcase 路由——只有为 true 时组件库按钮才显示选中态。 */
@@ -97,7 +100,9 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
     onOpenCreate,
     onOpenNotifications,
     onOpenSettings,
+    onOpenAssistant,
     isSettingsActive,
+    isAssistantActive,
     onOpenShowcase,
     isShowcaseActive
   },
@@ -146,6 +151,11 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
       </div>
 
       <div className={cx(styles.railGroup, styles.railGroupUtility)} role="group" aria-label="工具">
+        <button type="button" className={styles.railItem} onClick={onOpenAssistant}
+          aria-label="AI 助手" title="AI 助手" aria-current={isAssistantActive ? 'page' : undefined}
+          disabled={!onOpenAssistant}>
+          <span className={styles.railIcon}><SparkIcon size={20} /></span>
+        </button>
         <RailActionButton
           label="通知"
           title="通知：尚未上线"

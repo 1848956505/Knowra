@@ -199,6 +199,24 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
   timer?.unref();
   if (autoSync) queueMicrotask(() => { void sync(); });
   return {
+    async budgetRequest(route, body) {
+      const serverUrl = meta('serverUrl');
+      if (!serverUrl || meta('clientPaused') || closed) {
+        const failure = new Error('云端预算权威不可用，已阻止模型调用。'); failure.code = 'AI_BUDGET_UNAVAILABLE'; throw failure;
+      }
+      const response = await fetcher(`${serverUrl}/api/ai/budget/${route}`, {
+        method: body === undefined ? 'GET' : 'POST', redirect: 'error',
+        headers: { ...(authorization ? { Authorization: authorization } : {}),
+          'X-Knowra-AI-Budget': '1', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(15000)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.data) {
+        const failure = new Error(data.error?.message ?? '云端预算权威不可用，已阻止模型调用。');
+        failure.code = data.error?.code ?? 'AI_BUDGET_UNAVAILABLE'; throw failure;
+      }
+      return data.data;
+    },
     status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), knowledgeSyncSupported: meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? null, attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error }),
     async configure({ serverUrl, username = '', password = '' }) {
       if (running) await running;

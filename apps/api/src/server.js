@@ -7,9 +7,18 @@ import { handleKnowledgeRoute } from './modules/knowledge/http/knowledge-routes.
 import { AppError } from './errors/app-error.js';
 import { handleSyncRoute } from './modules/sync/routes.js';
 import { handleModelSettingsRoute } from './modules/ai/model-settings-routes.js';
+import { handleBudgetRoute } from './modules/ai/budget-routes.js';
+import { createAiAssistantService } from './modules/ai/assistant-service.js';
+import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
+  const assistant = appContext.ai && appContext.aiOwnerId
+    ? createAiAssistantService({ getRuntime: () => appContext.ai, ownerId: appContext.aiOwnerId,
+      location: appContext.aiLocation ?? 'server', logger }) : null;
+  const aiRecovery = appContext.aiLocation === 'local' ? Promise.resolve() : Promise.resolve()
+    .then(() => appContext.ai?.worker?.recover?.())
+    .catch(error => logger.warn?.('AI task recovery failed', { code: error.code ?? 'AI_RECOVERY_FAILED' }));
 
   return http.createServer(async (request, response) => {
     try {
@@ -47,6 +56,9 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       if (await handleSyncRoute({ request, response, url, sync: appContext.http.sync })) return;
 
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
+      if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
+      if (url.pathname.startsWith('/api/ai/assistant')) await aiRecovery;
+      if (await handleAssistantRoute({ request, response, url, assistant })) return;
 
       if (await handleKnowledgeRoute({ request, response, url, knowledge })) {
         return;

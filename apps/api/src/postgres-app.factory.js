@@ -42,6 +42,9 @@ import {
 } from './infrastructure/postgres-advisory-lock.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createAiRuntime } from './modules/ai/runtime.js';
+import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
+import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
+import { createPostgresBudgetAuthority } from './modules/ai/postgres-budget-authority.js';
 
 export async function createPostgresAppContext({
   databaseUrl = process.env.DATABASE_URL,
@@ -66,6 +69,7 @@ export async function createPostgresAppContext({
   db = syncRuntime.client;
   const maintenanceGate = createMaintenanceGate();
   const advisoryLock = createPostgresAdvisoryLock(db);
+  const aiBudget = createPostgresBudgetAuthority(db);
 
   const repositories = {
     noteRepository: createPostgresNoteRepository({ db }),
@@ -123,15 +127,21 @@ export async function createPostgresAppContext({
   });
 
   const modelSettings = createModelSettingsService();
+  const aiRepository = createPostgresAiRepository({ client: runtime.client, ownerId: normalizedOwnerId });
   return {
     driver: 'postgres',
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createAiRuntime({ modelSettings }),
+    ai: createAiRuntime({ modelSettings, repository: aiRepository, budgetAuthority: aiBudget,
+      priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
+      contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } }),
+    aiOwnerId: normalizedOwnerId,
+    aiLocation: 'server',
     repositories,
     http: {
       modelSettings,
+      aiBudget,
       sync: wrapHandlersWithMaintenanceGate(syncRuntime.service(knowledge.noteService, createAttachmentTransfer({ uploadsDir, storageRootDir })), maintenanceGate, {
         getAccess: name => ['push', 'pushBatch', 'uploadBlob', 'bootstrap'].includes(name) ? 'mutation' : 'read'
       }),
@@ -141,7 +151,8 @@ export async function createPostgresAppContext({
         attachmentStore,
         storageRootDir,
         ownerId: normalizedOwnerId,
-        maintenanceGate
+        maintenanceGate,
+        aiRepository
       }),
       knowledge: wrapHandlersWithMaintenanceGate(
         wrapHandlersWithPostgresAdvisoryLock(

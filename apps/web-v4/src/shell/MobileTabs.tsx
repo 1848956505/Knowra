@@ -5,7 +5,7 @@
 
 import { forwardRef } from 'react';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS, type RailItem } from './ModuleRail';
-import { SearchIcon, SettingsIcon } from '../components/icons/knowra';
+import { SearchIcon, SettingsIcon, SparkIcon } from '../components/icons/knowra';
 import type { WorkDomain } from '../store/types';
 import styles from './MobileTabs.module.css';
 
@@ -14,13 +14,15 @@ export interface MobileTabsProps {
   onSelect(domain: WorkDomain): void;
   onOpenSearch?(): void;
   onOpenSettings?(): void;
+  onOpenAssistant?(): void;
   isSettingsActive?: boolean;
+  isAssistantActive?: boolean;
 }
 
 const ALL_ITEMS: readonly RailItem[] = [...PRIMARY_DOMAINS, ...UTILITY_ITEMS];
 
 export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function MobileTabs(
-  { activeDomain, onSelect, onOpenSearch, onOpenSettings, isSettingsActive },
+  { activeDomain, onSelect, onOpenSearch, onOpenSettings, onOpenAssistant, isSettingsActive, isAssistantActive },
   ref
 ) {
   return (
@@ -58,6 +60,11 @@ export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function Mobi
           </button>
         );
       })}
+      <button type="button" className={styles.mobileTab} aria-label="AI 助手"
+        aria-current={isAssistantActive ? 'page' : undefined} onClick={onOpenAssistant} disabled={!onOpenAssistant}>
+        <span className={styles.mobileIcon}><SparkIcon size={19} /></span>
+        <span className={styles.mobileLabel}>助手</span>
+      </button>
       <button
         type="button"
         className={styles.mobileTab}

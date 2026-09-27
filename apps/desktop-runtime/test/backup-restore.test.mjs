@@ -92,10 +92,13 @@ test('备份检查可重复；恢复保留保护备份/草稿/队列，隔离旧
   assert.equal(app.runtime().store.state.notes.find(item => item.id === note.id).rawMarkdown, '备份正文');
   assert.deepEqual(app.runtime().store.readOutbox(), expectedQueue);
   assert.equal((await request(`/api/knowledge/notes/${note.id}`, 'PATCH', { rawMarkdown: '旧窗口错误覆盖' })).error.code, 'LOCAL_DATASET_CHANGED');
+  assert.equal((await request('/api/ai/assistant/status')).error.code, 'LOCAL_DATASET_CHANGED');
+  assert.equal((await request(`/api/ai/assistant/jobs?spaceId=${encodeURIComponent(note.spaceId)}`)).error.code, 'LOCAL_DATASET_CHANGED');
   const oldStore = createSqliteDataStore(path.join(options.dataDirectory, 'local.sqlite'));
   try { assert.deepEqual(oldStore.readOutbox(), protectedQueue); assert.equal(oldStore.state.notes[0].rawMarkdown, '恢复前正文'); } finally { oldStore.close(); }
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(options.dataDirectory, 'recovery-drafts.json'), 'utf8')), drafts);
   app.adoptDataset();
+  assert.equal((await request('/api/ai/assistant/status')).status, 200);
   const protection = (await request('/api/local-runtime/backups')).data.items.find(item => item.id === restored.data.protectionBackupId);
   assert.equal(protection.purpose, 'before-restore');
   assert.equal(inspectRuntimeBackup(backupPath(options.dataDirectory, protection.id)).pendingOperations, protectedQueue.length);

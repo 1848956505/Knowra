@@ -20,6 +20,11 @@ fs.writeFileSync(path.join(staging, 'package.json'), JSON.stringify({ name: 'kno
 const apps = await packager({ electronZipDir: process.env.KNOWRA_ELECTRON_ZIP_DIR, dir: staging, out: output, name: '知境·Knowra', icon: path.join(repo, 'apps/desktop-shell/assets/Knowra.icns'), executableName: 'Knowra', appBundleId: 'com.knowra.personal', appVersion: version, buildVersion: `${version}.1`, platform: 'darwin', arch: 'arm64', electronVersion: JSON.parse(fs.readFileSync(path.join(repo, 'node_modules/electron/package.json'))).version, overwrite: true, asar: false, prune: false, darwinDarkModeSupport: true, extendInfo: { NSHumanReadableCopyright: 'Knowra 个人使用版' } });
 for (const directory of apps) {
   const application = path.join(directory, '知境·Knowra.app');
+  const iconName = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', path.join(application, 'Contents/Info.plist')], { encoding: 'utf8' }).trim();
+  const packagedIcon = path.join(application, 'Contents/Resources', iconName);
+  if (!fs.existsSync(packagedIcon) || !fs.readFileSync(packagedIcon).equals(fs.readFileSync(path.join(repo, 'apps/desktop-shell/assets/Knowra.icns')))) {
+    throw new Error('打包图标与新版 Knowra.icns 不一致，拒绝发布 Mac APP。');
+  }
   execFileSync('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', application], { stdio: 'inherit' });
   execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', application], { stdio: 'inherit' });
   const archive = path.join(output, '知境·Knowra-Mac-arm64.zip');
