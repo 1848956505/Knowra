@@ -1,3 +1,4 @@
+import { appendEdit, buildEditMapping, type EditEntry } from './annotationEditJournal';
 import { readRuntimeConfig } from '../../app/runtimeConfig';
 import { registerDesktopSave, type DesktopCloseMode } from '../../app/desktopLifecycle';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
@@ -28,7 +29,8 @@ export interface UseNoteAutosaveOptions {
     noteId: string,
     markdown: string,
     expectedUpdatedAt?: string,
-    baseMarkdown?: string
+    baseMarkdown?: string,
+    annotationMapping?: import('@study-accelerator/web-core').AnnotationMapping
   ): Promise<NoteAutosaveSaveResult | void>;
 }
 
@@ -37,7 +39,7 @@ export interface NoteAutosaveController {
   hasLocalChanges: boolean;
   hasConflict: boolean;
   saveError: string | null;
-  updateDraft(markdown: string, options?: { immediate?: boolean }): void;
+  updateDraft(markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
   saveNow(markdown?: string): Promise<void>;
   getLatestMarkdown(): string;
   discardRecoveredDraft(): void;
@@ -62,6 +64,7 @@ export function useNoteAutosave({
   const [, publishStateChange] = useReducer((version: number) => version + 1, 0);
   const currentNoteIdRef = useRef(noteId);
   const draftByNoteRef = useRef(new Map<string, string>([[noteId, remoteMarkdown]]));
+  const editsByNoteRef = useRef(new Map<string, EditEntry[]>());
   const pendingByNoteRef = useRef(new Map<string, string>());
   const timerByNoteRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const renderTimerByNoteRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -84,6 +87,7 @@ export function useNoteAutosave({
       markdown,
       baseMarkdown: serverMarkdownByNoteRef.current.get(targetNoteId) ?? '',
       baseUpdatedAt: baseUpdatedAtByNoteRef.current.get(targetNoteId),
+      annotationEdits: editsByNoteRef.current.get(targetNoteId),
       conflict: conflictByNoteRef.current.get(targetNoteId)
     };
     recoveryStore.write(targetScope, targetNoteId, next);
@@ -130,6 +134,7 @@ export function useNoteAutosave({
   }, [renderDelayMs]);
   const persist = useCallback(async (targetNoteId: string, markdown: string, retryConflict = false) => {
     if (!canWriteRef.current) return;
+    const capturedEdits = [...(editsByNoteRef.current.get(targetNoteId) ?? [])];
     const previous = inFlightByNoteRef.current.get(targetNoteId) ?? Promise.resolve();
     const request = previous
       .catch(() => undefined)
@@ -139,7 +144,14 @@ export function useNoteAutosave({
         const expectedUpdatedAt = baseUpdatedAtByNoteRef.current.get(targetNoteId);
         const revision = localRevisionByNoteRef.current.get(targetNoteId) ?? 0;
         try {
-          const saved = await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt, serverMarkdownByNoteRef.current.get(targetNoteId));
+          const pendingEdits = new Set((editsByNoteRef.current.get(targetNoteId) ?? []).map(edit => edit.sequence));
+          const batch = capturedEdits.filter(edit => pendingEdits.has(edit.sequence));
+          const mapping = buildEditMapping(serverMarkdownByNoteRef.current.get(targetNoteId) ?? '', markdown, batch);
+          const saved = mapping
+            ? await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt, serverMarkdownByNoteRef.current.get(targetNoteId), mapping)
+            : await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt, serverMarkdownByNoteRef.current.get(targetNoteId));
+          const acknowledged = new Set(batch.map(edit => edit.sequence));
+          editsByNoteRef.current.set(targetNoteId, (editsByNoteRef.current.get(targetNoteId) ?? []).filter(edit => !acknowledged.has(edit.sequence)));
           const savedMarkdown = saved?.rawMarkdown ?? markdown;
           serverMarkdownByNoteRef.current.set(targetNoteId, savedMarkdown);
           baseUpdatedAtByNoteRef.current.set(targetNoteId, saved?.updatedAt ?? expectedUpdatedAt);
@@ -183,7 +195,7 @@ export function useNoteAutosave({
     const markdown = pendingByNoteRef.current.get(targetNoteId) ?? fallback;
     if (markdown === undefined || !canWriteRef.current) return;
     const serverMarkdown = serverMarkdownByNoteRef.current.get(targetNoteId);
-    if (!conflictByNoteRef.current.has(targetNoteId) && !inFlightByNoteRef.current.has(targetNoteId) && markdown === serverMarkdown) {
+    if (!editsByNoteRef.current.get(targetNoteId)?.length && !conflictByNoteRef.current.has(targetNoteId) && !inFlightByNoteRef.current.has(targetNoteId) && markdown === serverMarkdown) {
       pendingByNoteRef.current.delete(targetNoteId);
       clearRecovery(targetNoteId);
       syncedRevisionByNoteRef.current.set(
@@ -195,7 +207,9 @@ export function useNoteAutosave({
     }
     await persist(targetNoteId, markdown, retryConflict);
   }, [clearRecovery, persist, publishFor]);
-  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean }) => {
+  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent }) => {
+    const before = draftByNoteRef.current.get(noteId) ?? remoteMarkdown;
+    editsByNoteRef.current.set(noteId, appendEdit(editsByNoteRef.current.get(noteId) ?? [], before, markdown, options?.editIntent));
     scheduleCurrentDraft({ noteId, markdown }, options?.immediate);
     if (!canWriteRef.current) return;
     localRevisionByNoteRef.current.set(noteId, (localRevisionByNoteRef.current.get(noteId) ?? 0) + 1);
@@ -227,6 +241,7 @@ export function useNoteAutosave({
       const recovered = recoveryStore.read(draftScope, noteId);
       if (recovered) {
         recoveryByNoteRef.current.set(noteId, { scope: draftScope, draft: recovered });
+        editsByNoteRef.current.set(noteId, recovered.annotationEdits ?? []);
         serverMarkdownByNoteRef.current.set(noteId, recovered.baseMarkdown);
         baseUpdatedAtByNoteRef.current.set(noteId, recovered.baseUpdatedAt);
         pendingByNoteRef.current.set(noteId, recovered.markdown);
@@ -274,6 +289,7 @@ export function useNoteAutosave({
       syncedRevisions: syncedRevisionByNoteRef.current
     });
     if (!hasLocalWork) {
+      editsByNoteRef.current.delete(noteId);
       serverMarkdownByNoteRef.current.set(noteId, remoteMarkdown);
       baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
       if (draft.noteId !== noteId || draft.markdown !== remoteMarkdown) {

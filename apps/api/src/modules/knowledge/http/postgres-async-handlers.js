@@ -73,6 +73,7 @@ export function createPostgresKnowledgeHttpHandlers({
     deleteAnnotation: (params, body) => contentAnnotationService.deleteAnnotation(params.id, body),
     restoreAnnotation: (params, body) => contentAnnotationService.restoreAnnotation(params.id, body),
     updateAnnotationAnchor: (params, body) => contentAnnotationService.updateAnnotationAnchor(params.id, body),
+    confirmAnnotationRange: (params, body) => contentAnnotationService.confirmAnnotationRange(params.id, body),
     previewAnnotation: (params) => annotationScopeService.previewAnnotation(params.id),
     createAnnotationExclusion: (params, body) => annotationScopeService.createExclusion(params.id, body),
     deleteAnnotationExclusion: (params, body) => annotationScopeService.deleteExclusion(params.id, params.exclusionId, body),

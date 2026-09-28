@@ -1,3 +1,4 @@
+import { calculateContentHash as trackingHash, updateStructure } from '@study-accelerator/content-anchor';
 import { normalizeKnowledgeChange, validateKnowledgeBatch, validateKnowledgeLifecycleChange } from './knowledge-batch-domain.js';
 import { buildCreateNoteDto } from '../knowledge/application/dto/note.dto.js';
 import { buildCreateFolderDto } from '../knowledge/application/dto/folder.dto.js';
@@ -76,6 +77,9 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
       if (builders[collection]) value = { ...value, ...builders[collection](value) };
       if (collection === 'notes') {
         assertNoInsecureImageUrls(value.rawMarkdown);
+        if (value.annotationStructure?.contentHash !== trackingHash(value.rawMarkdown)) {
+          value.annotationStructure = updateStructure(old?.rawMarkdown ?? '', value.rawMarkdown, old?.annotationStructure);
+        }
         value = { ...value, plainText: undefined, internalLinks: undefined, contentHash: sha(value.rawMarkdown) };
       }
       if (constructors[collection]) value = { ...new constructors[collection](value) };

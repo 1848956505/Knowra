@@ -52,8 +52,8 @@ export class ContentAnnotation {
     if (!LIFECYCLE_STATUSES.has(lifecycleStatus) || !ANCHOR_STATUSES.has(anchorStatus)) throw new Error('Annotation lifecycle or anchor status is invalid');
     if (![1, 2].includes(schemaVersion) || !Number.isInteger(revision) || revision < 1) throw new Error('Annotation schema or revision is invalid');
     if (typeof comment !== 'string' || comment.length > 2000) throw new Error('Annotation comment is invalid');
-    if (typeof quoteText !== 'string' || !quoteText.trim() || !anchorFingerprint?.trim() || !noteContentHash?.trim() || !idempotencyKey?.trim()) throw new Error('Annotation content is required');
-    if (!Number.isInteger(fromPosition) || !Number.isInteger(toPosition) || fromPosition < 0 || fromPosition >= toPosition) throw new Error('Annotation range is invalid');
+    if (typeof quoteText !== 'string' || (!quoteText.trim() && !anchor?.tracking?.empty) || !anchorFingerprint?.trim() || !noteContentHash?.trim() || !idempotencyKey?.trim()) throw new Error('Annotation content is required');
+    if (!Number.isInteger(fromPosition) || !Number.isInteger(toPosition) || fromPosition < 0 || (fromPosition >= toPosition && !anchor?.tracking?.empty)) throw new Error('Annotation range is invalid');
     if (!ANNOTATION_STATUSES.has(status)) throw new Error('Annotation status is invalid');
     if (schemaVersion === 2 && (!anchor || !originSnapshot)) throw new Error('Versioned annotation anchor is required');
 

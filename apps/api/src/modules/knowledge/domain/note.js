@@ -1,3 +1,4 @@
+import { updateStructure } from '@study-accelerator/content-anchor';
 function stripMarkdown(markdown) {
   return markdown
     .replace(/```[\s\S]*?```/g, ' ')
@@ -30,6 +31,7 @@ export class Note {
     plainText,
     internalLinks,
     contentHash = null,
+    annotationStructure = null,
     createdAt = new Date().toISOString(),
     updatedAt = createdAt,
     folderDeletionPackageId = null,
@@ -57,6 +59,7 @@ export class Note {
       ? [...new Set(internalLinks)]
       : extractInternalLinks(rawMarkdown);
     this.contentHash = contentHash;
+    this.annotationStructure = annotationStructure ?? updateStructure('', rawMarkdown);
     this.status = status;
     this.sourceType = sourceType;
     this.favorite = favorite;

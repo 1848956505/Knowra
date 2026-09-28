@@ -1,5 +1,37 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+for (const key of ['Backspace', 'Delete']) {
+  test(`V4-07 ${key} 删除文首空行时保留后续标题`, async ({ page }) => {
+    const saved: string[] = [];
+    await mockEditorWorkspace(page, saved, [], '# 1.0\n\n后续正文');
+    await page.goto('/#/materials/notes/note-1');
+    const editor = page.locator('.ProseMirror');
+    const firstParagraph = editor.locator(':scope > p').first();
+    await editor.locator(':scope > h1').first().click();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Enter');
+    await expect(firstParagraph).toBeEmpty();
+    await firstParagraph.evaluate((paragraph) => {
+      (paragraph.closest('[contenteditable]') as HTMLElement).focus();
+      const range = document.createRange();
+      range.setStart(paragraph, 0);
+      range.collapse(true);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+    await expect.poll(() => editor.evaluate((element) => {
+      const selection = window.getSelection();
+      return selection?.anchorNode === element.firstElementChild && selection.anchorOffset === 0;
+    })).toBe(true);
+    await page.keyboard.press(key);
+    await expect(editor.locator(':scope > :first-child')).toHaveText('1.0');
+    expect(await editor.locator(':scope > :first-child').evaluate(element => element.tagName)).toBe('H1');
+    await expect(editor).toContainText('后续正文');
+    await expect.poll(() => saved.at(-1) ?? '').toMatch(/^# 1\.0/);
+  });
+}
+
 test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({ page }) => {
   const savedMarkdown: string[] = [];
   const browserProblems: string[] = [];
@@ -380,6 +412,8 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
     const element = anchor instanceof Element ? anchor : anchor?.parentElement;
     return element?.closest('td, th')?.cellIndex ?? -1;
   })).toBe(0);
+  // Native selectionchange is delivered after the DOM selection; let ProseMirror consume it before Tab.
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await page.keyboard.press('Tab');
   await expect(editor).toBeFocused();
   await expect.poll(() => editor.evaluate(() => {
@@ -1363,6 +1397,106 @@ function createNote(
   };
 }
 
+test('V4-07 重点标记内的粗体保持醒目', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '# 第一节\n\n**需要标记的正文内容**');
+  const created: Array<Record<string, unknown>> = [];
+  await page.route('**/api/knowledge/annotations**', async (route) => {
+    if (route.request().method() === 'POST') {
+      const annotation = { ...route.request().postDataJSON(), id: 'bold-annotation', status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved', revision: 1 };
+      created.push(annotation);
+      await route.fulfill({ json: { data: annotation } });
+      return;
+    }
+    await route.fulfill({ json: { data: created } });
+  });
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  const strong = editor.locator('strong');
+  await expect(strong).toHaveText('需要标记的正文内容');
+  await editor.locator('p').first().click({ clickCount: 3 });
+  await page.getByRole('toolbar', { name: '选区工具' }).getByRole('button', { name: '标记重点' }).click();
+  await expect.poll(() => created.length).toBe(1);
+  await expect(editor.locator('.editor-annotation')).toHaveCSS('color', 'rgb(37, 99, 235)');
+  expect(Number(await strong.evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);
+  await editor.locator('p').first().screenshot({ path: '/tmp/knowra-bold-annotation.png' });
+});
+
+test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '# 等级颜色\n\n普通段落\n\n重要段落\n\n核心段落\n\n未评级段落');
+  const annotations = [
+    ['normal', '普通段落', 'normal'],
+    ['important', '重要段落', 'important'],
+    ['core', '核心段落', 'core'],
+    ['unrated', '未评级段落', null]
+  ].map(([id, quoteText, importance], index) => ({
+    id, spaceId: 'space-1', noteId: 'note-1', noteVersionId: null,
+    kind: 'important', importance, sourceMode: 'manual', scopeType: 'selection', quoteText,
+    headingPath: ['等级颜色'], fromPosition: index * 20, toPosition: index * 20 + String(quoteText).length,
+    prefixText: '', suffixText: '', anchorFingerprint: id, noteContentHash: 'same-version',
+    idempotencyKey: id, status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved'
+  }));
+  await page.route('**/api/knowledge/annotations**', route => route.fulfill({ json: { data: annotations } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#/materials/notes/note-1');
+  await page.getByRole('button', { name: '切换文档检查器' }).click();
+  const inspector = page.getByRole('complementary', { name: '文档检查器' });
+  await inspector.getByRole('tab', { name: '标注' }).click();
+  const editor = page.locator('.ProseMirror');
+  for (const [id, label, color] of [
+    ['normal', '普通', 'rgb(37, 99, 235)'],
+    ['important', '重要', 'rgb(194, 65, 12)'],
+    ['core', '核心', 'rgb(124, 58, 237)']
+  ]) {
+    const card = inspector.locator(`article[data-annotation-card-id="${id}"]`);
+    await expect(card).toHaveAttribute('data-importance', id);
+    await expect(card.getByText(label, { exact: true })).toHaveCSS('color', color);
+    expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).toContain(color);
+    const mark = editor.locator(`[data-annotation-id="${id}"]`);
+    await expect(mark).toHaveAttribute('data-importance', id);
+    await expect(mark).toHaveCSS('color', color);
+  }
+  await expect(inspector.locator('article[data-annotation-card-id="unrated"]')).not.toHaveAttribute('data-importance');
+  await expect(inspector.getByText('待评级')).toBeVisible();
+  await expect(editor.locator('[data-annotation-id="unrated"]')).toHaveCSS('color', 'rgb(37, 99, 235)');
+  await inspector.screenshot({ path: '/tmp/knowra-importance-colors.png' });
+});
+
+test('V4-07 重复文字不会让代码块重点越过代码块边界', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '## 示例\n\n```\n测试\n测试\n测试\n```\n\n测试测试测试\n\n```\n测试\n测试\n测试\n```');
+  const created: Array<Record<string, unknown>> = [];
+  await page.route('**/api/knowledge/annotations**', async (route) => {
+    if (route.request().method() === 'POST') {
+      const annotation = { ...route.request().postDataJSON(), id: 'code-annotation', status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved', revision: 1 };
+      created.push(annotation);
+      await route.fulfill({ json: { data: annotation } });
+      return;
+    }
+    await route.fulfill({ json: { data: created } });
+  });
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  await editor.locator('p').first().click();
+  await editor.locator('pre').last().hover();
+  const box = await editor.locator('pre').last().boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2 + 1, box!.y + box!.height / 2);
+  await page.getByRole('button', { name: '内容块重点菜单' }).click();
+  await page.getByRole('menuitem', { name: '标记此块为重点' }).click();
+  await expect.poll(() => created.length).toBe(1);
+  expect(created[0].scopeType).toBe('blocks');
+  expect(created[0].quoteText).toBe('测试\n测试\n测试');
+  const anchor = created[0].anchor as { structurePath: string; segments: Array<{ path: string }> };
+  expect(anchor.segments.every(segment => segment.path === anchor.structurePath)).toBe(true);
+  await expect(editor.locator('pre').first().locator('.editor-annotation')).toHaveCount(0);
+  await expect(editor.locator('p .editor-annotation')).toHaveCount(0);
+  await expect(editor.locator('pre').last().locator('.editor-annotation')).toContainText('测试\n测试\n测试');
+  await page.reload();
+  await expect(editor.locator('p .editor-annotation')).toHaveCount(0);
+  await expect(editor.locator('pre').first().locator('.editor-annotation')).toHaveCount(0);
+  await expect(editor.locator('pre').last().locator('.editor-annotation')).toContainText('测试\n测试\n测试');
+  await editor.screenshot({ path: '/tmp/knowra-code-annotation.png' });
+});
+
 test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({ page }) => {
   await mockEditorWorkspace(page, [], [], '# 第一节\n\n需要标记的正文内容\n\n## 第二节\n\n其他正文');
   const created: Array<Record<string, unknown>> = [];
@@ -1389,6 +1523,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(selectionTools.getByRole('button')).toHaveCount(4);
   await selectionTools.getByRole('button', { name: '加粗', exact: true }).click();
   await expect(editor.locator('strong')).toContainText('需要标记的正文内容');
+  expect(Number(await editor.locator('strong').first().evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);
   await selectionTools.getByRole('button', { name: '斜体', exact: true }).click();
   await expect(editor.locator('em')).toContainText('需要标记的正文内容');
   await selectionTools.getByRole('button', { name: '行内代码', exact: true }).click();
@@ -1453,7 +1588,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await page.getByRole('button', { name: '关闭筛选' }).click();
   const selectionCard = inspector.locator('article').filter({ hasText: '文字选区' });
   await selectionCard.getByRole('button', { name: /更多操作/ }).click();
-  await expect(page.getByRole('menuitem', { name: '重新定位' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: '重新选择来源' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('[role=menu]')).toHaveCount(0);
   await selectionCard.getByRole('button', { name: /更多操作/ }).click();
@@ -1501,4 +1636,17 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: '筛选重点' })).toBeHidden();
   await expect(inspector.getByRole('button', { name: '筛选重点' })).toBeFocused();
+});
+
+test('V4-07 浏览器保留编辑区内的原标签行', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '浏览器正文');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.getByLabel('笔记编辑页面骨架');
+  const tabs = editor.getByRole('tablist', { name: '打开的笔记' });
+  await expect(tabs.getByRole('tab', { name: '编辑器验收笔记' })).toBeVisible();
+  await expect(page.getByLabel('Mac 窗口标题栏')).toHaveCount(0);
+  await expect(editor).not.toHaveAttribute('data-window-tabs', 'true');
+  expect(Math.round((await tabs.boundingBox())!.height)).toBe(36);
+  await expect(page.locator('.ProseMirror')).toContainText('浏览器正文');
 });

@@ -21,6 +21,7 @@ import { NotesContextSidebar } from '../features/notes';
 import { EntryDragDropProvider } from '../features/notes/EntryDragDrop';
 import { CreateEntryDialog } from '../features/notes';
 import { getEditorNoteId } from '../features/editor/editorRoute';
+import { EditorTabs } from '../features/editor/EditorTabs';
 import {
   applyEditorViewAction,
   describeEditorViewAction,
@@ -51,6 +52,7 @@ export function App() {
   const editorHasLocalChanges = useAppStore((state) => state.editorHasLocalChanges);
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
+  const openNoteTabIds = useAppStore((state) => state.navigation.openNoteTabs);
   const storeApi = useAppStoreApi();
   const indexScope = useAppStore(state => state.notesIndex.scope);
   const indexFolderId = useAppStore(state => state.navigation.selectedFolderId);
@@ -179,6 +181,9 @@ export function App() {
   const isNoteEditor = editorNoteId !== null;
   const effectiveEditorView = useMemo(() => getEffectiveEditorViewState(editorView), [editorView]);
   const editorNote = editorNoteId ? notes.find((note) => note.id === editorNoteId) ?? null : null;
+  const openNoteTabs = openNoteTabIds
+    .map((id) => notes.find((note) => note.id === id && !note.deleted))
+    .filter((note): note is NonNullable<typeof note> => Boolean(note));
   // 主页（/）不属于任何工作域的子页面：左轨不应高亮任何模块入口；
   // 笔记索引页（/materials）才是"资料"工作域的着陆页。
   const activeDomain: WorkDomain | null =
@@ -231,6 +236,25 @@ export function App() {
       ) : undefined}
       stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
       mergeContextSidebarTabs={isNoteEditor}
+      desktopTitlebarEditor={isNoteEditor && Boolean(editorNote)}
+      desktopTitlebarTabs={openNoteTabs.length > 0 ? <EditorTabs
+        notes={openNoteTabs}
+        activeNoteId=""
+        canWrite={canWrite}
+        windowTitlebar
+        onOpenNote={openNote}
+        onCloseNote={(noteId) => { storeApi.getState().closeNoteTab(noteId); }}
+        onCloseOtherNotes={(noteId) => { storeApi.getState().closeOtherNoteTabs(noteId); }}
+        onReorderNotes={(sourceNoteId, targetNoteId) => { storeApi.getState().reorderNoteTabs(sourceNoteId, targetNoteId); }}
+        onCopyTabPath={(note) => {
+          const folder = note.folderId ? indexFolders[note.folderId] : null;
+          const path = [folder?.name, note.title || '无标题笔记'].filter(Boolean).join(' / ');
+          void navigator.clipboard.writeText(path)
+            .then(() => setLiveAnnouncement(`已复制路径：${path}`))
+            .catch(() => setLiveAnnouncement('复制路径失败，请检查剪贴板权限'));
+        }}
+        onCreateNote={() => setCreateNoteOpen(true)}
+      /> : undefined}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}

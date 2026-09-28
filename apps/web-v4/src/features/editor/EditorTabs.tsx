@@ -3,6 +3,7 @@ import type { Note } from '@study-accelerator/web-core';
 import { GhostIconButton, PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay';
 import { CloseIcon, MoreVerticalIcon, PlusIcon } from '../../components/icons/knowra';
+import { cx } from '../../components/ui/classnames';
 import styles from './NoteEditorView.module.css';
 
 export interface EditorTabsProps {
@@ -15,6 +16,7 @@ export interface EditorTabsProps {
   onReorderNotes(sourceNoteId: string, targetNoteId: string): void;
   onCopyTabPath(note: Note): void;
   onCreateNote(): void;
+  windowTitlebar?: boolean;
 }
 
 export function EditorTabs(props: EditorTabsProps) {
@@ -40,7 +42,7 @@ export function EditorTabs(props: EditorTabsProps) {
   }
 
   return (
-    <div className={styles.tabs} role="tablist" aria-label="打开的笔记" onKeyDown={handleKeyDown}>
+    <div className={cx(styles.tabs, props.windowTitlebar ? styles.windowTabs : undefined)} role="tablist" aria-label="打开的笔记" onKeyDown={handleKeyDown}>
       <div className={styles.tabScroller}>
         {props.notes.map((note, index) => {
           const selected = note.id === props.activeNoteId;
@@ -65,7 +67,7 @@ export function EditorTabs(props: EditorTabsProps) {
                   role="tab"
                   aria-selected={selected}
                   aria-label={note.title || '无标题笔记'}
-                  tabIndex={selected ? 0 : -1}
+                  tabIndex={selected || (!props.activeNoteId && index === 0) ? 0 : -1}
                   className={styles.tab}
                   title={`${String(index + 1).padStart(2, '0')} · ${note.title || '无标题笔记'}`}
                   onPress={() => props.onOpenNote(note.id)}

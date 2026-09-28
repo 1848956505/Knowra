@@ -285,6 +285,7 @@ export function createKnowledgeModule(options = {}) {
     noteRepository,
     noteVersionRepository,
     revisionRepository: annotationRevisionRepository,
+    exclusionRepository: annotationExclusionRepository,
     onSourceChanged: (annotation) => {
       const changed = knowledgeItemService.markEvidenceByAnnotationId(annotation.id, annotation.anchorStatus === 'missing' ? 'insufficient' : 'stale');
       questionService?.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
@@ -307,8 +308,8 @@ export function createKnowledgeModule(options = {}) {
     normalizeTagIds,
     noteVersionService,
     runTransaction,
-    onNoteContentChanged: (note, version) => {
-      const reconciliation = contentAnnotationService.reconcileForNote(note.id, version.contentHash);
+    onNoteContentChanged: (note, version, annotationChange) => {
+      const reconciliation = contentAnnotationService.reconcileForNote(note.id, version.contentHash, annotationChange);
       const changed = reconciliation.contentChangedAnnotationIds.flatMap((annotationId) => (
         knowledgeItemService.markEvidenceByAnnotationId(annotationId,
           contentAnnotationRepository.findById(annotationId)?.anchorStatus === 'missing' ? 'insufficient' : 'stale')

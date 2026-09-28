@@ -13,14 +13,18 @@ export interface AnnotationListRow {
 
 interface Range { start: number; end: number }
 
-function currentRangeOf(annotation: Annotation): Range | null {
-  if (annotation.anchorStatus && annotation.anchorStatus !== 'resolved') return null;
-  if (annotation.status === 'stale') return null;
+function storedRangeOf(annotation: Annotation): Range | null {
   const start = annotation.anchor?.sourceStart ?? annotation.fromPosition;
   const end = annotation.anchor?.sourceEnd ?? annotation.toPosition;
   return Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start
     ? { start, end }
     : null;
+}
+
+function currentRangeOf(annotation: Annotation): Range | null {
+  if (annotation.anchorStatus && annotation.anchorStatus !== 'resolved') return null;
+  if (annotation.status === 'stale') return null;
+  return storedRangeOf(annotation);
 }
 
 function originalRangeOf(annotation: Annotation): Range | null {
@@ -112,10 +116,10 @@ export function buildAnnotationListRows(annotations: Annotation[], sort: Annotat
   const documentOrder = (left: Annotation, right: Annotation): number => {
     const leftCurrent = currentRanges.get(left.id);
     const rightCurrent = currentRanges.get(right.id);
-    const leftRange = leftCurrent ?? originalRanges.get(left.id);
-    const rightRange = rightCurrent ?? originalRanges.get(right.id);
-    return Number(!leftCurrent) - Number(!rightCurrent)
-      || (leftRange?.start ?? Number.POSITIVE_INFINITY) - (rightRange?.start ?? Number.POSITIVE_INFINITY)
+    // 待核对标记使用原始范围或旧锚点估算位置，避免被统一排到正文末尾。
+    const leftRange = leftCurrent ?? originalRanges.get(left.id) ?? storedRangeOf(left);
+    const rightRange = rightCurrent ?? originalRanges.get(right.id) ?? storedRangeOf(right);
+    return (leftRange?.start ?? Number.POSITIVE_INFINITY) - (rightRange?.start ?? Number.POSITIVE_INFINITY)
       || (rightRange?.end ?? 0) - (leftRange?.end ?? 0)
       || (left.createdAt ?? '').localeCompare(right.createdAt ?? '')
       || left.id.localeCompare(right.id);

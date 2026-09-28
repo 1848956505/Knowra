@@ -147,6 +147,12 @@ export function anchorFromProjectedRange(projection, projectedStart, projectedEn
       segments.push(clipped);
     }
   }
+  if (options.scopeType === 'section') {
+    const index = projection.sections.findIndex(section => section.sourceStart <= segments[0].start
+      && projection.headings.find(h => h.path === section.path)?.sourceEnd >= segments[0].start);
+    if (index < 0) throw rangeError('Selected heading does not exist');
+    return anchorForSection(projection, index);
+  }
   return buildAnchor(projection, segments, {
     projectedStart,
     projectedEnd,
@@ -208,6 +214,10 @@ export function anchorForSection(projection, headingIndex) {
 
 export function resolveAnchor(markdown, anchor) {
   const projection = projectMarkdown(markdown);
+  if (anchor?.tracking?.empty && anchor.scopeType === 'blocks' && Array.isArray(anchor.segments) && anchor.segments.length === 0
+    && Number.isInteger(anchor.sourceStart) && anchor.sourceStart >= 0 && anchor.sourceStart <= projection.source.length) {
+    return { status: 'resolved', reason: null, projection, quoteText: '', segments: [], anchor };
+  }
   validateAnchorShape(anchor, Number.MAX_SAFE_INTEGER);
   // 旧版本的合法范围可能超出缩短后的正文；返回失效状态，让重定位继续查找。
   if (anchor.segments.some(segment => segment.end > projection.source.length)) {
@@ -506,3 +516,6 @@ function rangeError(message) {
   error.code = 'ANNOTATION_RANGE_INVALID';
   return error;
 }
+
+export { sourceEdit, applySourceEdit, verifiedSourceEdits, followAnchorChanges, updateStructure } from './dynamic.js';
+export { sourceEdits } from './source-diff.js';

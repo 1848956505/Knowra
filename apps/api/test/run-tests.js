@@ -1,3 +1,5 @@
+import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.test.js';
+import { annotationDynamicTests } from './annotation-dynamic.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
 import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
 import { storageConfigTests } from './storage.config.test.js';
@@ -90,6 +92,8 @@ const tests = [
   ...httpResponseTests,
   ...contentAnnotationServiceTests,
   ...annotationScopeServiceTests,
+  ...annotationDynamicTests,
+  ...annotationDynamicPostgresTests,
   ...serverHttpTests,
   ...knowledgeBaseSnapshotServiceTests,
   ...noteDeletionCoordinatorTests,

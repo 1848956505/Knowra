@@ -197,7 +197,7 @@ export function createWorkspaceSlice(
         throw error;
       }
     },
-    async saveNoteContent(noteId, rawMarkdown, expectedUpdatedAt, baseMarkdown) {
+    async saveNoteContent(noteId, rawMarkdown, expectedUpdatedAt, baseMarkdown, annotationMapping) {
       const previousSave = noteSaveQueues.get(noteId) ?? Promise.resolve(undefined);
       const currentSave = previousSave
         .catch(() => undefined)
@@ -210,7 +210,7 @@ export function createWorkspaceSlice(
             let updated;
             try {
               updated = await dependencies.api.updateNote(noteId, {
-                rawMarkdown,
+                rawMarkdown, annotationMapping,
                 ...(concurrencyToken ? { expectedUpdatedAt: concurrencyToken } : {})
               });
             } catch (error) {
@@ -225,7 +225,7 @@ export function createWorkspaceSlice(
                 if (baseline === undefined || latest.rawMarkdown !== baseline) throw error;
               // 仍携带刚读取的版本；读取后再次变化时由服务端拒绝，不无限重试。
               updated = await dependencies.api.updateNote(noteId, {
-                rawMarkdown, expectedUpdatedAt: latest.updatedAt
+                rawMarkdown, annotationMapping, expectedUpdatedAt: latest.updatedAt
               });
               }
             }
@@ -403,6 +403,11 @@ export function createWorkspaceSlice(
       return executeWorkspaceMutation(set, get, '正在更新重点信息…', async () => ({
         result: await dependencies.api.updateAnnotation!(annotationId, input),
         message: '重点信息已更新'
+      }));
+    },
+    async confirmAnnotationRange(annotationId, input) {
+      return executeWorkspaceMutation(set, get, '正在确认重点范围…', async () => ({
+        result: await dependencies.api.confirmAnnotationRange!(annotationId, input), message: '重点范围已确认'
       }));
     },
     async previewAnnotation(annotationId) {

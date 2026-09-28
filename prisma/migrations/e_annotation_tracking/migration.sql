@@ -1,0 +1,1 @@
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "annotationStructure" JSONB;

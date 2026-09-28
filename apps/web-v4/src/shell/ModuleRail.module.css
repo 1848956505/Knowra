@@ -2,7 +2,7 @@
 
 .rail {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: var(--shell-content-row, 1);
   z-index: 20;
   min-height: 0;
   display: flex;

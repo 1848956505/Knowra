@@ -46,7 +46,7 @@ it('创建候选等待正文保存期间切换笔记，保存完成后不再创�
   act(() => {
     result = inspector.createCandidate!({ id: 'source-annotation', noteId: note.id } as Annotation).catch(error => error);
   });
-  await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledWith(note.id, '即将保存的来源正文', note.updatedAt, note.rawMarkdown));
+  await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledWith(note.id, '即将保存的来源正文', note.updatedAt, note.rawMarkdown, expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) })));
   const nextNote = { ...note, id: 'knowledge-other-note', title: '另一篇笔记', rawMarkdown: '另一篇的正文' };
   rerender(<NoteEditorView {...props} note={nextNote} notes={[note, nextNote]} openNotes={[note, nextNote]} />);
   await act(async () => {

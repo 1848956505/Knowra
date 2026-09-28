@@ -186,6 +186,9 @@ describe('EditorInspector', () => {
     ]);
     expect(screen.getByText('包含 1 条重点')).toBeInTheDocument();
     expect(screen.getByText('位于另一条重点内')).toBeInTheDocument();
+    expect(screen.getByText('内层核心').closest('article')).toHaveAttribute('data-importance', 'core');
+    expect(screen.getByText('后段重要').closest('article')).toHaveAttribute('data-importance', 'important');
+    expect(screen.getByText('外层普通').closest('article')).toHaveAttribute('data-importance', 'normal');
 
     await user.click(screen.getByRole('button', { name: '排序重点' }));
     await user.click(screen.getByRole('button', { name: '重要级：高到低' }));
@@ -217,11 +220,33 @@ describe('EditorInspector', () => {
     expect(screen.getByText('原标记范围：包含 1 条重点')).toBeInTheDocument();
     expect(screen.getByText('原标记范围：位于另一条重点内')).toBeInTheDocument();
     expect(screen.getAllByText('待评级')).toHaveLength(2);
-    expect(screen.getAllByText('原文待核对')).toHaveLength(2);
+    expect(screen.getAllByText('范围待确认')).toHaveLength(2);
     const header = screen.getByText('重点标记').closest('header');
     expect(header?.querySelectorAll('button')[0]).toHaveAttribute('aria-label', '排序重点');
     expect(header?.querySelectorAll('button')[1]).toHaveAttribute('aria-label', '筛选重点');
     expect(screen.queryByText('排序方式')).not.toBeInTheDocument();
+  });
+
+  it('shows an earlier mark needing review before a later resolved mark in document order', async () => {
+    const user = userEvent.setup();
+    const makeAnnotation = (id: string, start: number, end: number): Annotation => ({
+      id, spaceId: 'space-1', noteId: note.id, noteVersionId: null,
+      kind: 'important', sourceMode: 'manual', scopeType: 'section', quoteText: id,
+      headingPath: [id], fromPosition: start, toPosition: end,
+      prefixText: '', suffixText: '', anchorFingerprint: id,
+      noteContentHash: 'current-version', idempotencyKey: id,
+      status: 'active', anchorStatus: 'resolved'
+    });
+    const intro = {
+      ...makeAnnotation('1.0 引言', 0, 80), status: 'stale' as const,
+      anchorStatus: 'needsReview' as const
+    };
+    renderInspector({ annotations: [makeAnnotation('1.2.1 数据', 120, 180), intro] });
+
+    await user.click(screen.getByRole('tab', { name: '标注' }));
+    expect(screen.getAllByRole('button', { name: /定位重点/ }).map((button) => button.textContent)).toEqual([
+      expect.stringContaining('1.0 引言'), expect.stringContaining('1.2.1 数据')
+    ]);
   });
 });
 

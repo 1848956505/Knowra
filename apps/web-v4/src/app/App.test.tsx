@@ -428,6 +428,63 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(screen.getByLabelText('工作区位置')).getByText('Note')).toHaveAttribute('aria-current', 'location');
   });
 
+  it('moves editor tabs into the Mac titlebar while keeping the browser layout intact', async () => {
+    window.knowraDesktop = { onPrepareClose() {}, onCancelClose() {} };
+    try {
+      const store = createAppStore({
+        api: createWorkspaceApiStub(),
+        cacheKey: 'test-cache',
+        mockSnapshot: createEmptyWorkspaceSnapshot()
+      });
+      render(
+        <RouterProvider location={{ pathname: '/materials/notes/note-1', navigate: vi.fn() }}>
+          <AppProviders store={store}><App /></AppProviders>
+        </RouterProvider>
+      );
+
+      const tabs = await screen.findByRole('tablist', { name: '打开的笔记' });
+      expect(tabs.closest('[aria-label="Mac 窗口标题栏"]')).toBeInTheDocument();
+      expect(screen.getByLabelText('笔记编辑页面骨架')).toHaveAttribute('data-window-tabs', 'true');
+      expect(within(tabs).getByRole('tab', { name: 'Note' })).toBeInTheDocument();
+      expect(within(tabs).getByRole('button', { name: '新建笔记' })).toBeInTheDocument();
+    } finally {
+      delete window.knowraDesktop;
+    }
+  });
+
+  it('keeps open Mac note tabs on other pages and restores the app title after closing them', async () => {
+    window.knowraDesktop = { onPrepareClose() {}, onCancelClose() {} };
+    try {
+      const store = createAppStore({
+        api: createWorkspaceApiStub(),
+        cacheKey: 'test-cache',
+        mockSnapshot: createEmptyWorkspaceSnapshot()
+      });
+      const navigateMock = vi.fn();
+      render(
+        <RouterProvider location={{ pathname: '/', navigate: navigateMock }}>
+          <AppProviders store={store}><App /></AppProviders>
+        </RouterProvider>
+      );
+      await screen.findByRole('heading', { name: '笔记工作台' });
+      act(() => store.getState().selectNote('note-1'));
+
+      const titlebar = screen.getByLabelText('Mac 窗口标题栏');
+      const tabs = within(titlebar).getByRole('tablist', { name: '打开的笔记' });
+      const tab = within(tabs).getByRole('tab', { name: 'Note' });
+      expect(tab).toHaveAttribute('aria-selected', 'false');
+      expect(tab).toHaveAttribute('tabindex', '0');
+      fireEvent.click(tab);
+      expect(navigateMock).toHaveBeenCalledWith('/materials/notes/note-1');
+
+      fireEvent.click(within(tabs).getByRole('button', { name: '关闭Note' }));
+      expect(within(titlebar).queryByRole('tablist', { name: '打开的笔记' })).not.toBeInTheDocument();
+      expect(titlebar).toHaveTextContent('知境·Knowra');
+    } finally {
+      delete window.knowraDesktop;
+    }
+  });
+
   it('returns from an open note to the index when a quick entry is selected', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({

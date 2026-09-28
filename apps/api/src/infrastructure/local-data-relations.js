@@ -1,3 +1,4 @@
+import { calculateContentHash, projectMarkdown } from '@study-accelerator/content-anchor';
 import { nextKnowledgeItemTimestamp } from '../modules/knowledge/application/knowledge-item-concurrency.js';
 import crypto from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
@@ -191,6 +192,18 @@ function validateNotes(noteItems, spaces, folders, tags) {
     validateNoteSpace(note, spaces);
     validateNoteFolder(note, folders);
     validateNoteTags(note, tags);
+    if (note.annotationStructure) {
+      const structure = note.annotationStructure;
+      assertReference(structure.formatVersion === 1 && Number.isInteger(structure.revision) && structure.revision > 0
+        && structure.contentHash === calculateContentHash(note.rawMarkdown) && Array.isArray(structure.nodes), `Note ${note.id} has invalid annotation structure`);
+      const blocks = projectMarkdown(note.rawMarkdown).blocks;
+      const ids = new Set();
+      for (const node of structure.nodes) {
+        assertReference(typeof node.id === 'string' && !ids.has(node.id) && blocks.some(block => block.path === node.path
+          && block.type === node.type && block.sourceStart === node.sourceStart && block.sourceEnd === node.sourceEnd), `Note ${note.id} has invalid block identity`);
+        ids.add(node.id);
+      }
+    }
   }
 }
 

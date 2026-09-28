@@ -132,6 +132,7 @@ export function createKnowledgeHttpHandlers({
     deleteAnnotation(params, body) { return contentAnnotationService.deleteAnnotation(params.id, body); },
     restoreAnnotation(params, body) { return contentAnnotationService.restoreAnnotation(params.id, body); },
     updateAnnotationAnchor(params, body) { return contentAnnotationService.updateAnnotationAnchor(params.id, body); },
+    confirmAnnotationRange: (params, body) => contentAnnotationService.confirmAnnotationRange(params.id, body),
     previewAnnotation(params) { return annotationScopeService.previewAnnotation(params.id); },
     createAnnotationExclusion(params, body) { return annotationScopeService.createExclusion(params.id, body); },
     deleteAnnotationExclusion(params, body) { return annotationScopeService.deleteExclusion(params.id, params.exclusionId, body); },

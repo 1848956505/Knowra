@@ -35,7 +35,8 @@ test('真实 PostgreSQL：两个 API 实例条件竞争、幂等结果及故障�
   const results = await Promise.all([a.http.sync.push(operation), b.http.sync.push(competing)]);
   assert.equal(results.filter(result => result.status === 'accepted').length, 1);
   assert.equal(results.filter(result => result.status === 'conflict').length, 1);
-  assert.equal((await a.prisma.knowledgeEvidence.findUnique({ where: { id: source.evidence[0].id } })).status, 'insufficient');
+  // 外部正文改写需核对来源；历史依据仍存在，不将待检查等同于原文删除。
+  assert.equal((await a.prisma.knowledgeEvidence.findUnique({ where: { id: source.evidence[0].id } })).status, 'stale');
   assert.deepEqual(await a.http.sync.push(operation), results[0]);
   const cursor = (await a.http.sync.status()).cursor;
   const current = await a.modules.knowledge.noteService.getNote(note.id);

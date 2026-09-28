@@ -1,8 +1,10 @@
+import { validRecoveredEdits } from './annotationEditJournal';
 export interface RecoveredNoteDraft {
   markdown: string;
   baseMarkdown: string;
   baseUpdatedAt?: string;
   conflict?: string;
+  annotationEdits?: import('./annotationEditJournal').EditEntry[];
 }
 
 /** 桌面使用独立原子文件；网页保留会话恢复。所有失败记录到 flush，不能误报已落盘。 */
@@ -43,6 +45,7 @@ export function createNoteDraftRecovery() {
         if (typeof value.markdown !== 'string' || typeof value.baseMarkdown !== 'string'
           || (value.baseUpdatedAt !== undefined && typeof value.baseUpdatedAt !== 'string')
           || (value.conflict !== undefined && typeof value.conflict !== 'string')) throw new Error('恢复草稿格式无效');
+        if (value.annotationEdits && !validRecoveredEdits(value.annotationEdits)) value.annotationEdits = undefined;
         drafts.set(key, value);
         return value;
       } catch { errors.set(key, new Error('恢复草稿读取失败，请保留草稿文件并重试。')); return undefined; }

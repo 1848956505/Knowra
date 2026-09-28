@@ -64,7 +64,7 @@ export interface WorkspaceSlice {
   createFolder(parentId: string | null, name: string): Promise<string>;
   renameNote(noteId: string, title: string): Promise<void>;
   loadNoteContent(noteId: string): Promise<void>;
-  saveNoteContent(noteId: string, rawMarkdown: string, expectedUpdatedAt?: string, baseMarkdown?: string): Promise<Note>;
+  saveNoteContent(noteId: string, rawMarkdown: string, expectedUpdatedAt?: string, baseMarkdown?: string, annotationMapping?: import('@study-accelerator/web-core').AnnotationMapping): Promise<Note>;
   deleteNote(noteId: string): Promise<void>;
   restoreNote(noteId: string): Promise<void>;
   permanentlyDeleteNote(noteId: string): Promise<void>;
@@ -89,6 +89,7 @@ export interface WorkspaceSlice {
   restoreAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   updateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
   updateAnnotation(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
+  confirmAnnotationRange(annotationId: string, input: import('@study-accelerator/web-core').ConfirmAnnotationRangeInput): Promise<Annotation>;
   previewAnnotation(annotationId: string): Promise<AnnotationPreview>;
   getAnnotationKnowledgeLinks(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   previewAnalysisScope(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;

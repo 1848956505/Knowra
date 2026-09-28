@@ -111,6 +111,7 @@ model Note {
   spaceId        String
   folderId       String?
   title          String
+  annotationStructure Json?
   rawMarkdown    String              @db.Text
   plainText      String              @db.Text
   internalLinks  Json                @default("[]")

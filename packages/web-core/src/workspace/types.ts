@@ -131,6 +131,8 @@ export interface Annotation extends EntityBase {
 }
 
 export interface ContentAnchor {
+  tracking?: { formatVersion?: number; empty?: boolean; emptyPosition?: number; emptyType?: string; [key: string]: unknown };
+  pending?: { anchor: ContentAnchor; contentHash: string; reason: string } | null;
   projectionVersion: number;
   scopeType: 'selection' | 'blocks' | 'section';
   segments: Array<{ start: number; end: number; path: string }>;
@@ -216,3 +218,13 @@ export interface WorkspaceServerData {
   tags: Tag[];
   tagGroups: TagGroup[];
 }
+
+export interface AnnotationMapping {
+  formatVersion: 1;
+  operationId: string;
+  baseContentHash: string;
+  targetContentHash: string;
+  baseStructureRevision?: number;
+  edits: Array<{ from: number; to: number; text: string; history?: boolean; moveId?: string; moveKind?: 'cut' | 'paste'; preserveEmptyBlock?: boolean; deletedEmptyAnnotationIds?: string[] }>;
+}
+export interface ConfirmAnnotationRangeInput { expectedRevision: number; noteContentHash: string; candidateHash: string }

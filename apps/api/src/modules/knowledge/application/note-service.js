@@ -1,3 +1,4 @@
+import { prepareAnnotationChange } from './annotation-change-context.js';
 import { Note } from '../domain/note.js';
 import { buildCreateNoteDto, buildUpdateNoteDto } from './dto/note.dto.js';
 import { createNoteSummary } from './note-summary.js';
@@ -21,12 +22,12 @@ export function createNoteService({
   onNoteDeleted = null,
   onBeforePermanentDelete = null
 } = {}) {
-  function persistNote(note, { createVersion = false } = {}) {
+  function persistNote(note, { createVersion = false, annotationChange = null } = {}) {
     return runTransaction(() => {
       const saved = repository.save(note);
       if (createVersion && noteVersionService) {
         const version = noteVersionService.ensureForNote(saved);
-        onNoteContentChanged?.(saved, version);
+        onNoteContentChanged?.(saved, version, annotationChange);
       }
       return saved;
     });
@@ -159,8 +160,10 @@ export function createNoteService({
         title: dto.title ?? currentNote.title,
         currentNoteId: currentNote.id
       });
+      const annotationChange = dto.rawMarkdown !== undefined ? prepareAnnotationChange(currentNote, dto.rawMarkdown, updates.annotationMapping) : null;
       const updatedNote = new Note({
         ...currentNote,
+        annotationStructure: annotationChange?.structure ?? currentNote.annotationStructure,
         ...dto,
         id: currentNote.id,
         spaceId: dto.spaceId ?? currentNote.spaceId,
@@ -176,8 +179,9 @@ export function createNoteService({
       });
 
       return persistNote(updatedNote, {
+        annotationChange,
         createVersion: dto.rawMarkdown !== undefined
-          && dto.rawMarkdown !== currentNote.rawMarkdown
+          && (dto.rawMarkdown !== currentNote.rawMarkdown || annotationChange?.edits?.length > 0)
       });
     },
     deleteNote(noteId) {

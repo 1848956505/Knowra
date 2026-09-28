@@ -1,3 +1,4 @@
+import { prepareAnnotationChange } from '../annotation-change-context.js';
 import { Note } from '../../domain/note.js';
 import { buildCreateNoteDto, buildUpdateNoteDto } from '../dto/note.dto.js';
 import { createNoteSummary } from '../note-summary.js';
@@ -46,6 +47,7 @@ export function createAsyncNoteService({
   }
 
   async function persistNote(note, {
+    annotationChange = null,
     createVersion = false,
     expectedUpdatedAt = null
   } = {}) {
@@ -59,7 +61,7 @@ export function createAsyncNoteService({
       });
       if (createVersion && transactionNoteVersionService) {
         const version = await transactionNoteVersionService.ensureForNote(saved);
-        await transactionOnNoteContentChanged?.(saved, version);
+        await transactionOnNoteContentChanged?.(saved, version, annotationChange);
       }
       return saved;
     });
@@ -105,8 +107,10 @@ export function createAsyncNoteService({
       title: dto.title ?? currentNote.title,
       currentNoteId: currentNote.id
     });
+    const annotationChange = dto.rawMarkdown !== undefined ? prepareAnnotationChange(currentNote, dto.rawMarkdown, updates.annotationMapping) : null;
     return persistNote(new Note({
       ...currentNote,
+      annotationStructure: annotationChange?.structure ?? currentNote.annotationStructure,
       ...dto,
       id: currentNote.id,
       spaceId: nextNote.spaceId,
@@ -120,8 +124,9 @@ export function createAsyncNoteService({
       createdAt: currentNote.createdAt,
       updatedAt: dto.updatedAt ?? new Date().toISOString()
     }), {
+      annotationChange,
       createVersion: dto.rawMarkdown !== undefined
-        && dto.rawMarkdown !== currentNote.rawMarkdown,
+        && (dto.rawMarkdown !== currentNote.rawMarkdown || annotationChange?.edits?.length > 0),
       expectedUpdatedAt: currentNote.updatedAt
     });
   }

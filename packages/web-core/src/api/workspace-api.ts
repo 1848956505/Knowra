@@ -33,6 +33,7 @@ export interface CreateFolderInput {
 }
 
 export interface UpdateNoteInput {
+  annotationMapping?: import('../workspace/types').AnnotationMapping;
   title?: string;
   folderId?: string | null;
   status?: string;
@@ -100,6 +101,7 @@ export interface UpdateAnnotationInput {
 }
 
 export interface AnnotationPreview {
+  pendingRange?: { anchor: ContentAnchor; reason: string; candidateHash: string } | null;
   annotation: Annotation;
   currentContentHash: string;
   resolution: { status: 'resolved' | 'needsReview' | 'missing'; reason: string | null; quoteText?: string; sourceStart?: number; sourceEnd?: number };
@@ -285,6 +287,7 @@ export interface WorkspaceApi {
   restoreAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   updateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
   updateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
+  confirmAnnotationRange?(annotationId: string, input: import('../workspace/types').ConfirmAnnotationRangeInput): Promise<Annotation>;
   previewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
   getAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   previewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
@@ -663,6 +666,11 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       ));
       if (!annotation?.id) throw new Error('Update annotation response is invalid.');
       return annotation;
+    },
+    async confirmAnnotationRange(annotationId, input) {
+      const value = getData<Annotation>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/confirm-range`, { method: 'POST', body: JSON.stringify(input) }));
+      if (!value?.id) throw new Error('范围确认返回无效');
+      return value;
     },
     async previewAnnotation(annotationId) {
       const value = getData<AnnotationPreview>(await requestJson(`/api/knowledge/annotations/${encodeURIComponent(annotationId)}/preview`));

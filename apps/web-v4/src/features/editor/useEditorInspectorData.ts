@@ -26,6 +26,7 @@ export function useEditorInspectorData({
   const [annotationsLoading, setAnnotationsLoading] = useState(false);
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | null>(null);
   const annotationRequestRef = useRef(0);
+  const annotationNoteRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -45,8 +46,11 @@ export function useEditorInspectorData({
   useEffect(() => {
     const requestId = ++annotationRequestRef.current;
     let active = true;
-    setAnnotations([]);
-    setFocusedAnnotationId(null);
+    if (annotationNoteRef.current !== noteId) {
+      setAnnotations([]);
+      setFocusedAnnotationId(null);
+      annotationNoteRef.current = noteId;
+    }
     if (!noteId) {
       setAnnotationsLoading(false);
       return () => { active = false; };

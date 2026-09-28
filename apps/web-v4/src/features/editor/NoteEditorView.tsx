@@ -1,5 +1,7 @@
 import { registerDesktopSave, trackDesktopTask } from '../../app/desktopLifecycle';
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
+import { useDesktopTitlebar } from '../../shell/DesktopTitlebarContext';
 import {
   buildExportFileName,
   type Annotation,
@@ -90,7 +92,7 @@ export interface NoteEditorViewProps {
   onCreateFolder(): void;
   onImportMarkdown(): void;
   onRenameNote(title: string): Promise<void>;
-  onSaveMarkdown(noteId: string, markdown: string, expectedUpdatedAt?: string, baseMarkdown?: string): Promise<Note>;
+  onSaveMarkdown(noteId: string, markdown: string, expectedUpdatedAt?: string, baseMarkdown?: string, annotationMapping?: import('@study-accelerator/web-core').AnnotationMapping): Promise<Note>;
   onDraftStateChange?(hasLocalChanges: boolean, error?: string | null): void;
   extendedWritesEnabled?: boolean;
   onSaveAs(): Promise<void>;
@@ -119,6 +121,7 @@ export interface NoteEditorViewProps {
   onRestoreAnnotation?(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   onUpdateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
   onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
+  onConfirmAnnotationRange?(annotationId: string, input: import('@study-accelerator/web-core').ConfirmAnnotationRangeInput): Promise<Annotation>;
   onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
@@ -192,6 +195,7 @@ export function NoteEditorView({
   onUpdateAnnotationAnchor,
   onUpdateAnnotation,
   onPreviewAnnotation,
+  onConfirmAnnotationRange,
   onGetAnnotationKnowledgeLinks,
   onCreateKnowledgeCandidate,
   onOpenKnowledgeItem,
@@ -208,6 +212,7 @@ export function NoteEditorView({
   onToggleFavorite,
   onToggleInspector
 }: NoteEditorViewProps) {
+  const desktopTitlebar = useDesktopTitlebar();
   const documentStageRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLElement>(null);
   const toolbarAnchorRef = useRef<HTMLDivElement>(null);
@@ -571,35 +576,41 @@ export function NoteEditorView({
     }
   };
 
+  const tabs = note ? <EditorTabs
+    notes={openNotes.length > 0 ? openNotes : [note]}
+    activeNoteId={note.id}
+    canWrite={canWrite}
+    windowTitlebar={desktopTitlebar.enabled}
+    onOpenNote={openNoteSafely}
+    onCloseNote={(closingNoteId) => {
+      if (closingNoteId !== note.id || !canWrite) {
+        onCloseNote(closingNoteId);
+        return;
+      }
+      saveCurrentScrollPosition();
+      void saveImmediately()
+        .then(() => onCloseNote(closingNoteId))
+        .catch((error) => onFileStatus(error instanceof Error ? error.message : '关闭前保存失败'));
+    }}
+    onCloseOtherNotes={onCloseOtherNotes}
+    onReorderNotes={onReorderNotes}
+    onCopyTabPath={onCopyTabPath}
+    onCreateNote={onCreateNote}
+  /> : null;
+
   return (
     <section
       className={styles.editor}
       data-view-mode={view.mode}
       data-content-mode={view.contentMode}
       data-inspector-open={inspectorOpen || undefined}
+      data-window-tabs={desktopTitlebar.enabled || undefined}
       aria-label="笔记编辑页面骨架"
       style={documentEdge === null ? undefined : { '--doc-edge': `${documentEdge}px` } as CSSProperties}
     >
-      <EditorTabs
-        notes={openNotes.length > 0 ? openNotes : [note]}
-        activeNoteId={note.id}
-        canWrite={canWrite}
-        onOpenNote={openNoteSafely}
-        onCloseNote={(closingNoteId) => {
-          if (closingNoteId !== note.id || !canWrite) {
-            onCloseNote(closingNoteId);
-            return;
-          }
-          saveCurrentScrollPosition();
-          void saveImmediately()
-            .then(() => onCloseNote(closingNoteId))
-            .catch((error) => onFileStatus(error instanceof Error ? error.message : '关闭前保存失败'));
-        }}
-        onCloseOtherNotes={onCloseOtherNotes}
-        onReorderNotes={onReorderNotes}
-        onCopyTabPath={onCopyTabPath}
-        onCreateNote={onCreateNote}
-      />
+      {desktopTitlebar.enabled
+        ? desktopTitlebar.host && tabs ? createPortal(tabs, desktopTitlebar.host) : null
+        : tabs}
       <div className={styles.workspace}>
         <div ref={documentStageRef} className={styles.documentStage} data-editor-scroll-root>
           <article ref={paperRef} className={styles.paper} data-pdf-document="true" aria-labelledby="note-editor-title">
@@ -842,6 +853,7 @@ export function NoteEditorView({
           onRestoreAnnotation={onRestoreAnnotation ? async (annotationId, expectedRevision) => replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision)) : undefined}
           onReanchorAnnotation={reanchorAnnotation}
           onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => replaceAnnotation(await onUpdateAnnotation(annotationId, input)) : undefined}
+          onConfirmAnnotationRange={onConfirmAnnotationRange ? async (id, input) => replaceAnnotation(await onConfirmAnnotationRange(id, input)) : undefined}
           onPreviewAnnotation={onPreviewAnnotation}
           onGetAnnotationKnowledgeLinks={onGetAnnotationKnowledgeLinks}
           onCreateKnowledgeCandidate={onCreateKnowledgeCandidate ? async annotation => {

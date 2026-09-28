@@ -1,6 +1,8 @@
 export type AnnotationScopeType = 'selection' | 'blocks' | 'section';
 export interface AnchorSegment { start: number; end: number; path: string; }
 export interface ContentAnchor {
+  tracking?: { formatVersion?: number; empty?: boolean; emptyPosition?: number; emptyType?: string; [key: string]: unknown };
+  pending?: { anchor: ContentAnchor; contentHash: string; reason: string } | null;
   projectionVersion: number;
   scopeType: AnnotationScopeType;
   segments: AnchorSegment[];
@@ -32,3 +34,13 @@ export function resolveAnchor(markdown: string, anchor: ContentAnchor): { status
 export function relocateAnchor(markdown: string, anchor: ContentAnchor): ReturnType<typeof resolveAnchor> & { candidates?: ContentAnchor[] };
 export function followSectionAnchor(markdown: string, anchor: ContentAnchor): ReturnType<typeof resolveAnchor>;
 export function headingPathForSourceOffset(projection: MarkdownProjection, sourceOffset: number): string[];
+
+export interface SourceEdit { from: number; to: number; text: string; history?: boolean; moveId?: string; moveKind?: 'cut' | 'paste'; preserveEmptyBlock?: boolean; deletedEmptyAnnotationIds?: string[] }
+export interface AnnotationMapping { formatVersion: 1; operationId: string; baseContentHash: string; targetContentHash: string; baseStructureRevision?: number; edits: SourceEdit[] }
+export interface AnnotationStructure { formatVersion: 1; revision: number; contentHash: string; nodes: Array<{ id: string; path: string; type: string; sourceStart: number; sourceEnd: number }> }
+export function sourceEdit(before: string, after: string): SourceEdit;
+export function applySourceEdit(source: string, edit: SourceEdit): string;
+export function verifiedSourceEdits(before: string, after: string, mapping?: AnnotationMapping): SourceEdit[] | null;
+export function followAnchorChanges(before: string, after: string, anchor: ContentAnchor, edits?: SourceEdit[] | null): ReturnType<typeof resolveAnchor>;
+export function updateStructure(before: string, after: string, previous?: AnnotationStructure | null, edits?: SourceEdit[] | null): AnnotationStructure;
+export function sourceEdits(before: string, after: string): SourceEdit[];

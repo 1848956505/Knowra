@@ -81,7 +81,7 @@ export interface MilkdownNoteEditorProps {
   annotations?: Annotation[];
   focusedAnnotationId?: string | null;
   onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section'): Promise<void>;
-  onChange(markdown: string): void;
+  onChange(markdown: string, options?: { editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
   onSelectAnnotation?(annotationIds: string[]): void;
   onStatus?(message: string): void;
   onReady?(): void | Promise<void>;
@@ -102,6 +102,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const incomingMarkdownRef = useRef(markdown);
     const editorMarkdownRef = useRef(markdown);
     const emittedMarkdownRef = useRef(markdown);
+    const applyingRemoteRef = useRef(false);
     const latestLocalMarkdownRef = useRef(markdown);
     const readyRef = useRef(false);
     const readOnlyRef = useRef(readOnly);
@@ -372,14 +373,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
               }
             };
           });
-          ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
-            if (nextMarkdown === editorMarkdownRef.current) return;
-            editorMarkdownRef.current = nextMarkdown;
-            if (!readyRef.current || composingRef.current) return;
-            emittedMarkdownRef.current = nextMarkdown;
-            latestLocalMarkdownRef.current = nextMarkdown;
-            onChangeRef.current(nextMarkdown);
-          });
+          // Document transactions publish synchronously through the annotation plugin.
+          // A debounced Markdown listener can replay an older document over a newer draft.
           ctx.get(listenerCtx).selectionUpdated((_ctx, selection) => {
             lastSelectionRef.current = { from: selection.from, to: selection.to };
           });
@@ -403,7 +398,13 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         ))
         .use(clipboard)
         .use(findHighlightBehavior)
-        .use(createAnnotationHighlightBehavior((annotationIds) => onSelectAnnotationRef.current?.(annotationIds)))
+        .use(createAnnotationHighlightBehavior((annotationIds) => onSelectAnnotationRef.current?.(annotationIds), (nextMarkdown, editIntent) => {
+          if (applyingRemoteRef.current || !readyRef.current || composingRef.current || (nextMarkdown === editorMarkdownRef.current && !editIntent.deletedEmptyAnnotationIds?.length && !editIntent.preserveEmptyBlock)) return;
+          editorMarkdownRef.current = nextMarkdown;
+          emittedMarkdownRef.current = nextMarkdown;
+          latestLocalMarkdownRef.current = nextMarkdown;
+          onChangeRef.current(nextMarkdown, { editIntent });
+        }))
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
         .use(editorInputBehavior)
@@ -459,7 +460,10 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       const view = editor.ctx.get(editorViewCtx);
       const scrollRoot = view.dom.closest<HTMLElement>('[data-editor-scroll-root]');
       const scrollTop = scrollRoot?.scrollTop;
-      editor.action(replaceAllMarkdown(markdown));
+      applyingRemoteRef.current = true;
+      try { editor.action(replaceAllMarkdown(markdown)); }
+      finally { applyingRemoteRef.current = false; }
+      latestLocalMarkdownRef.current = markdown;
       if (scrollRoot && scrollTop !== undefined) {
         scrollRoot.scrollTop = scrollTop;
         window.requestAnimationFrame(() => {

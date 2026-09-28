@@ -14,6 +14,38 @@
   grid-template-columns: var(--rail-size) var(--sidebar-size) minmax(0, 1fr);
 }
 
+.desktopShell {
+  --shell-content-row: 2;
+  --status-grid-row: 3;
+  grid-template-rows: var(--window-titlebar-size) minmax(0, 1fr) var(--status-size);
+}
+
+.desktopTitlebar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  border-bottom: 1px solid var(--ink-shell);
+  background: var(--ink-bg);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.desktopTitlebarHost {
+  min-width: 0;
+  width: calc(100% - max(var(--window-controls-clearance), env(titlebar-area-x, 0px)));
+  margin-left: max(var(--window-controls-clearance), env(titlebar-area-x, 0px));
+  display: flex;
+  align-items: stretch;
+}
+
+.desktopTitle {
+  align-self: center;
+  padding-left: 8px;
+  color: var(--ink-secondary);
+  font: 700 13px/1 var(--font-ui);
+}
+
 .focusShell {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -43,9 +75,18 @@
   outline: 0;
 }
 
+.desktopShell .skipLink {
+  top: -100px;
+  transform: none;
+}
+
+.desktopShell .skipLink:focus {
+  top: calc(var(--window-titlebar-size) + 8px);
+}
+
 .stage {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: var(--shell-content-row, 1);
   min-width: 0;
   min-height: 0;
   position: relative;
@@ -79,7 +120,7 @@
 
 .contextSidebar {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: var(--shell-content-row, 1);
   min-width: 0;
   min-height: 0;
   overflow-x: hidden;

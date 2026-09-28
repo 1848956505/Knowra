@@ -6,7 +6,7 @@ const MUTATION_OPERATIONS = new Set([
   'restoreFolder',
   'updateTag', 'deleteTag', 'reorderTags', 'mergeTags', 'createTagGroup',
   'updateTagGroup', 'deleteTagGroup', 'createAnnotation', 'updateAnnotation', 'deleteAnnotation',
-  'restoreAnnotation', 'updateAnnotationAnchor', 'createKnowledgeItem',
+  'restoreAnnotation', 'updateAnnotationAnchor', 'confirmAnnotationRange', 'createKnowledgeItem',
   'createAnnotationExclusion', 'deleteAnnotationExclusion', 'createAnalysisScope',
   'trashAnalysisScope', 'restoreDeletedAnalysisScope',
   'updateKnowledgeItem', 'confirmKnowledgeItem', 'markKnowledgeItemNeedsRevision',

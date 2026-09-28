@@ -93,6 +93,7 @@ export interface EditorInspectorProps {
   onRestoreAnnotation?(annotationId: string, expectedRevision?: number): Promise<void>;
   onReanchorAnnotation(annotation: Annotation): Promise<void>;
   onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<void>;
+  onConfirmAnnotationRange?(annotationId: string, input: import('@study-accelerator/web-core').ConfirmAnnotationRangeInput): Promise<void>;
   onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
@@ -412,7 +413,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
       setKind(annotation.kind as 'important' | 'question' | 'supplement' | 'pitfall' | 'temporary');
       setImportance(annotation.importance ?? 'unset');
       setComment(annotation.comment ?? '');
-      setDetail({ annotation, preview, links });
+      setDetail({ annotation: preview.annotation, preview, links });
     });
   }
 
@@ -493,19 +494,19 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
         {rows.map(({ annotation, depth, parentId, containedCount, overlapCount, historicalRelation }, index) => {
           const stale = annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale';
           const pending = pendingId === annotation.id;
-          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
+          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} data-importance={annotation.importance ?? undefined} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
             <Checkbox size="compact" aria-label={`选择重点 ${index + 1}`} isSelected={selectedIds.includes(annotation.id)} onChange={(selected) => setSelectedIds((current) => selected ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
             <button type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} disabled={pending} onClick={() => props.onSelectAnnotation(annotation.id)}>
-              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : <span className={styles.annotationUnrated}>待评级</span>}{stale ? <strong>原文待核对</strong> : null}</span>
-              <span className={styles.annotationQuote}>{annotation.quoteText}</span>
+              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : <span className={styles.annotationUnrated}>待评级</span>}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
+              <span className={styles.annotationQuote}>{annotation.quoteText || '空内容块，后续输入继续纳入'}</span>
               {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
               {parentId || containedCount || overlapCount ? <span className={styles.annotationRelation}>{historicalRelation ? '原标记范围：' : null}{parentId ? '位于另一条重点内' : null}{containedCount ? `${parentId ? ' · ' : ''}包含 ${containedCount} 条重点` : null}{overlapCount ? `${parentId || containedCount ? ' · ' : ''}与 ${overlapCount} 条重点重叠` : null}</span> : null}
             </button>
             <MenuTrigger><GhostIconButton size={24} aria-label={`重点 ${index + 1} 更多操作`}><MoreHorizontalIcon size={15} /></GhostIconButton>
               <MenuPopover placement="bottom end"><Menu ariaLabel="重点操作">
                 <MenuItem id="detail" isDisabled={pending || !props.onPreviewAnnotation || !props.onGetAnnotationKnowledgeLinks} onAction={() => void openDetail(annotation)}>预览与编辑</MenuItem>
-                <MenuItem id="knowledge" isDisabled={pending || stale || !props.canWrite || !props.onCreateKnowledgeCandidate} onAction={() => void run(annotation.id, () => props.onCreateKnowledgeCandidate!(annotation))}>创建知识候选</MenuItem>
-                <MenuItem id="reanchor" isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, () => props.onReanchorAnnotation(annotation))}>重新定位</MenuItem>
+                <MenuItem id="knowledge" isDisabled={pending || stale || !annotation.quoteText.trim() || !props.canWrite || !props.onCreateKnowledgeCandidate} onAction={() => void run(annotation.id, () => props.onCreateKnowledgeCandidate!(annotation))}>创建知识候选</MenuItem>
+                <MenuItem id="reanchor" isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, () => props.onReanchorAnnotation(annotation))}>重新选择来源</MenuItem>
                 {annotation.scopeType === 'section' ? <MenuItem id="exclude" isDisabled={pending || !props.canWrite || !props.onCreateAnnotationExclusion} onAction={() => void run(annotation.id, () => props.onCreateAnnotationExclusion!(annotation))}>排除当前块</MenuItem> : null}
                 <MenuItem id="archive" isDanger isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, async () => { const deleted = await props.onDeleteAnnotation(annotation.id, annotation.revision); setSelectedIds((ids) => ids.filter((id) => id !== annotation.id)); setUndo({ id: annotation.id, revision: deleted?.revision ?? (annotation.revision ?? 1) + 1 }); window.setTimeout(() => setUndo(current => current?.id === annotation.id ? null : current), 10000); })}>取消重点</MenuItem>
               </Menu></MenuPopover>
@@ -537,6 +538,15 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
           <Select label="重要程度" options={IMPORTANCE_OPTIONS} selectedKey={importance} onSelectionChange={(key) => setImportance(String(key))} />
           <TextAreaField label="备注" maxLength={2000} value={comment} onChange={setComment} />
           <pre>{detail.preview.resolution.quoteText ?? detail.annotation.quoteText}</pre>
+          {detail.preview.pendingRange ? <>
+            <p>原范围保留在上方。确认后将使用以下新范围：</p>
+            <pre>{detail.preview.pendingRange.anchor.quoteText}</pre>
+            <Button isDisabled={!props.canWrite || !props.onConfirmAnnotationRange || pendingId === detail.annotation.id} onPress={() => void run(detail.annotation.id, async () => {
+              await props.onConfirmAnnotationRange?.(detail.annotation.id, { expectedRevision: detail.annotation.revision ?? 1, noteContentHash: detail.preview.currentContentHash, candidateHash: detail.preview.pendingRange!.candidateHash });
+              setDetail(null);
+            })}>确认新范围</Button>
+          </> : null}
+          {detail.links.evidenceStatus.some(item => item.status !== 'valid') ? <p role="status">关联内容待检查：原文更新不会改写已有知识或历史依据。</p> : null}
           <p>关联候选 {detail.links.candidates.length} · 已确认知识 {detail.links.confirmed.length} · 局部排除 {detail.preview.exclusions.filter((item) => item.status === 'active').length}</p>
           {props.onOpenKnowledgeItem ? <div className={styles.noteLinks}>{[...detail.links.candidates, ...detail.links.confirmed].map(({ knowledgeItem }) => <button type="button" key={knowledgeItem.id} onClick={() => props.onOpenKnowledgeItem?.(knowledgeItem.id)}>{knowledgeItem.title}</button>)}</div> : null}
           {detail.preview.exclusions.filter((item) => item.status === 'active').map((exclusion) => <button key={exclusion.id} type="button" disabled={!props.onDeleteAnnotationExclusion} onClick={() => void props.onDeleteAnnotationExclusion?.(detail.annotation.id, exclusion.id, detail.annotation.revision ?? 1).then(() => setDetail(null)).catch((reason) => setError(reason instanceof Error ? reason.message : '恢复范围失败'))}>恢复排除范围：{exclusion.anchor.quoteText.slice(0, 32)}</button>)}

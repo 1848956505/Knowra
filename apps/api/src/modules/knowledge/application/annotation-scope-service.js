@@ -1,3 +1,4 @@
+import { pendingRange } from './annotation-range-preview.js';
 import crypto from 'node:crypto';
 import { calculateContentHash, projectMarkdown, resolveAnchor } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../../errors/app-error.js';
@@ -35,11 +36,12 @@ export function createAnnotationScopeService({
   function previewAnnotation(id) {
     const annotation = requireAnnotation(id);
     const note = requireNote(annotation.noteId);
-    const resolution = annotation.schemaVersion === 2 && annotation.anchor
+    const resolution = annotation.anchorStatus === 'resolved' && annotation.schemaVersion === 2 && annotation.anchor
       ? resolveAnchor(note.rawMarkdown, annotation.anchor)
-      : { status: 'needsReview', reason: 'legacyUnverified' };
+      : { status: annotation.anchorStatus ?? 'needsReview', reason: annotation.anchorReason ?? 'legacyUnverified' };
     return {
       annotation,
+      pendingRange: pendingRange(annotation, note),
       currentContentHash: calculateContentHash(note.rawMarkdown),
       resolution: summarizeResolution(resolution),
       exclusions: exclusionRepository.list({ parentAnnotationId: id, includeDeleted: true })
@@ -141,7 +143,7 @@ export function createAnnotationScopeService({
           continue;
         }
         const note = noteById.get(annotation.noteId);
-        const resolution = resolveAnchor(note.rawMarkdown, annotation.anchor);
+        const resolution = annotation.anchorStatus && annotation.anchorStatus !== 'resolved' ? { status: annotation.anchorStatus, reason: annotation.anchorReason } : resolveAnchor(note.rawMarkdown, annotation.anchor);
         if (resolution.status !== 'resolved') {
           omittedItems.push({ annotationId: annotation.id, reason: resolution.reason });
           continue;
@@ -162,6 +164,7 @@ export function createAnnotationScopeService({
     for (const annotation of annotations.filter((item) => item.scopeType === 'section')) {
       for (const exclusion of exclusionRepository.list({ parentAnnotationId: annotation.id })) {
         if (normalized.overrideExclusionIds.includes(exclusion.id)) continue;
+        if (exclusion.anchor?.unresolved) throw fail('ANNOTATION_EXCLUSION_CONFLICT', '局部排除位置待确认，请先修复排除范围', 409);
         persistentExclusions.push(...exclusion.anchor.segments.map((segment) => ({ noteId: annotation.noteId, start: segment.start, end: segment.end, exclusionId: exclusion.id })));
       }
     }

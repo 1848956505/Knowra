@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { Schema } from '@milkdown/kit/prose/model';
+import { EditorState, TextSelection } from '@milkdown/kit/prose/state';
 import {
+  removeLeadingEmptyParagraph,
   resolveEditorBoundaryAction,
   shouldInsertParagraphAfterTrailingCodeBlock,
   type EditorBoundaryInput,
@@ -15,6 +18,28 @@ const baseInput: EditorBoundaryInput = {
 };
 
 describe('editorInputBehavior', () => {
+  it('removes only the blank first paragraph and preserves the next heading', () => {
+    const schema = new Schema({
+      nodes: {
+        doc: { content: 'block+' },
+        paragraph: { content: 'text*', group: 'block' },
+        heading: { attrs: { level: { default: 1 } }, content: 'text*', group: 'block' },
+        text: { group: 'inline' }
+      }
+    });
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph'),
+      schema.node('heading', { level: 1 }, schema.text('1.0'))
+    ]);
+    const state = EditorState.create({ doc, selection: TextSelection.create(doc, 1) });
+    let next = state;
+    expect(removeLeadingEmptyParagraph(state, transaction => { next = state.apply(transaction); })).toBe(true);
+    expect(next.doc.firstChild?.type.name).toBe('heading');
+    expect(next.doc.firstChild?.textContent).toBe('1.0');
+    expect(next.selection.$from.parent.type.name).toBe('heading');
+    expect(removeLeadingEmptyParagraph(next)).toBe(false);
+  });
+
   it.each(['Enter', 'Backspace'])('exits an empty structured block with %s', (key) => {
     expect(resolveEditorBoundaryAction({ ...baseInput, key })).toBe('lift-empty-structured-block');
     expect(resolveEditorBoundaryAction({

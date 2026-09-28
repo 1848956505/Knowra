@@ -31,7 +31,7 @@ it('keeps the draft and its original concurrency baseline when saving before res
   await user.click(screen.getByRole('button', { name: '恢复此版本' }));
   await user.click(screen.getByRole('button', { name: '确认恢复' }));
   await waitFor(() => expect(onSaveMarkdown).toHaveBeenCalled());
-  expect(onSaveMarkdown).toHaveBeenLastCalledWith(note.id, '我尚未保存的草稿', note.updatedAt, note.rawMarkdown);
+  expect(onSaveMarkdown).toHaveBeenLastCalledWith(note.id, '我尚未保存的草稿', note.updatedAt, note.rawMarkdown, expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
   expect(source).toHaveValue('我尚未保存的草稿');
   expect(screen.getByRole('dialog', { name: '恢复历史正文' })).toHaveTextContent('另一端已修改正文');
   await user.click(screen.getByRole('button', { name: '取消' }));

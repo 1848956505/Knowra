@@ -27,14 +27,31 @@ describe('annotation list ordering and overlap', () => {
     expect(rows[2].parentId).toBe('inner-section');
   });
 
-  it('marks partial overlap without grouping and ignores unverified old positions', () => {
+  it('marks partial overlap without grouping while retaining approximate order for unverified positions', () => {
     const stale = { ...annotation('stale', 12, 22), anchorStatus: 'needsReview' as const };
     const rows = buildAnnotationListRows([
       annotation('first', 10, 30), annotation('second', 20, 40), stale
     ], 'document');
-    expect(rows.map((row) => row.annotation.id)).toEqual(['first', 'second', 'stale']);
+    expect(rows.map((row) => row.annotation.id)).toEqual(['first', 'stale', 'second']);
     expect(Object.fromEntries(rows.map((row) => [row.annotation.id, [row.depth, row.overlapCount]])))
       .toEqual({ first: [0, 1], second: [0, 1], stale: [0, 0] });
+  });
+
+  it('places an earlier mark needing review before a later resolved mark', () => {
+    const intro = {
+      ...annotation('1.0 引言', 0, 80),
+      anchorStatus: 'needsReview' as const,
+      status: 'stale' as const,
+      originSnapshot: {
+        contentHash: 'original-version', scopeType: 'section' as const,
+        quoteText: '1.0 引言', headingPath: ['1.0 引言'],
+        segments: [{ start: 0, end: 80, path: 'intro' }]
+      }
+    };
+    const rows = buildAnnotationListRows([
+      annotation('1.2.1 数据', 120, 180), intro
+    ], 'document');
+    expect(rows.map((row) => row.annotation.id)).toEqual(['1.0 引言', '1.2.1 数据']);
   });
 
   it('shows the original containment of marks needing review when their snapshots share a version', () => {

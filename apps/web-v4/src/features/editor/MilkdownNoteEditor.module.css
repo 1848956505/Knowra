@@ -32,6 +32,10 @@
 .milkdownEditor :global(.ProseMirror) h3 { margin: 1.25em 0 .4em; font-size: 1.24em; line-height: 1.45; font-weight: 700; }
 .milkdownEditor :global(.ProseMirror) h4 { margin: 1.15em 0 .35em; font-size: 1.06em; line-height: 1.5; font-weight: 700; }
 .milkdownEditor :global(.ProseMirror) p { margin: .68em 0; }
+.milkdownEditor :global(.ProseMirror) strong {
+  font-weight: 700;
+  -webkit-text-stroke: .4px currentColor;
+}
 .milkdownEditor :global(.ProseMirror) ul,
 .milkdownEditor :global(.ProseMirror) ol { margin: .75em 0 1.3em; padding-left: 0; }
 .milkdownEditor :global(.ProseMirror) ul { list-style: none; }
@@ -135,6 +139,8 @@
 .milkdownEditor :global(.editor-annotation-stale) {
   color: var(--ink-accent);
 }
+.milkdownEditor :global(.editor-annotation[data-importance='important']) { color: var(--ink-importance-important); }
+.milkdownEditor :global(.editor-annotation[data-importance='core']) { color: var(--ink-violet); }
 .milkdownEditor :global(.ProseMirror) hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--ink-panel); }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { position: relative; list-style: none; padding-left: 27px; }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task']::before {

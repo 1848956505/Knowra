@@ -126,7 +126,7 @@ else {
       });
     });
     origin = ready.origin;
-    window = new BrowserWindow({ width: 1380, height: 920, minWidth: 960, minHeight: 640, show: false, title: '知境·Knowra', backgroundColor: '#f8f7f3', webPreferences: { preload: path.join(root, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, spellcheck: false } });
+    window = new BrowserWindow({ width: 1380, height: 920, minWidth: 960, minHeight: 640, show: false, title: '知境·Knowra', titleBarStyle: 'hiddenInset', titleBarOverlay: true, backgroundColor: '#f8f7f3', webPreferences: { preload: path.join(root, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, spellcheck: false } });
     window.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     window.webContents.session.setPermissionCheckHandler(() => false);
     window.webContents.setWindowOpenHandler(({ url }) => { external(url); return { action: 'deny' }; });

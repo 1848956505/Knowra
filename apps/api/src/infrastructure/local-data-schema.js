@@ -262,7 +262,10 @@ function validateEntity(collectionName, item, index) {
   } else if (collectionName === 'contentAnnotations') {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.noteId, `${location}.noteId`);
-    assertNonEmptyString(item.quoteText, `${location}.quoteText`);
+    const emptyTrackedBlock = item.schemaVersion === 2 && item.scopeType === 'blocks'
+      && item.anchor?.tracking?.empty === true && item.anchor.quoteText === ''
+      && Array.isArray(item.anchor.segments) && item.anchor.segments.length === 0;
+    if (!emptyTrackedBlock || item.quoteText !== '') assertNonEmptyString(item.quoteText, `${location}.quoteText`);
     assertAllowedValue(item.schemaVersion ?? 1, [1, 2], `${location}.schemaVersion`);
     assertAllowedValue(item.scopeType ?? 'selection', ['selection', 'blocks', 'section'], `${location}.scopeType`);
     assertAllowedValue(item.lifecycleStatus ?? (item.status === 'archived' ? 'archived' : 'active'), ['active', 'archived', 'deleted'], `${location}.lifecycleStatus`);

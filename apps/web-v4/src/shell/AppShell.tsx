@@ -3,10 +3,11 @@
 // 冻结主页外壳：左侧 64px ModuleRail + 点阵 FeatureStage + 底部 StatusBar。
 // 主页的标题、动作和工作域入口都属于冻结主页本身，不再由一个额外 TopBar 注入。
 
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ModuleRail } from './ModuleRail';
 import { StatusBar, type PathSegment, type StatusPanel } from './StatusBar';
 import { MobileTabs } from './MobileTabs';
+import { DesktopTitlebarContext } from './DesktopTitlebarContext';
 import { cx } from '../components/ui/classnames';
 import type { WorkDomain } from '../store/types';
 import styles from './AppShell.module.css';
@@ -52,6 +53,10 @@ export interface AppShellProps {
   stageMode?: 'default' | 'workspace';
   /** 笔记标签栏与上下文侧栏在顶端连成一体，保留下方工作区分隔线。 */
   mergeContextSidebarTabs?: boolean;
+  /** Mac 应用的笔记页将标签栏放入原生窗口标题栏。 */
+  desktopTitlebarEditor?: boolean;
+  /** Mac 应用其他页面继续显示已打开的笔记标签。 */
+  desktopTitlebarTabs?: ReactNode;
   /** 专注模式隐藏应用轨道、上下文侧栏和移动端导航，只保留编辑舞台与状态栏。 */
   focusMode?: boolean;
 }
@@ -76,18 +81,30 @@ export function AppShell({
   liveAnnouncement,
   stageMode = 'default',
   mergeContextSidebarTabs = false,
+  desktopTitlebarEditor = false,
+  desktopTitlebarTabs,
   focusMode = false
 }: AppShellProps) {
+  const desktop = typeof window !== 'undefined' && Boolean(window.knowraDesktop);
+  const [titlebarHost, setTitlebarHost] = useState<HTMLDivElement | null>(null);
   return (
+    <DesktopTitlebarContext.Provider value={{ enabled: desktop, host: titlebarHost }}>
     <div className={cx(
       styles.shell,
+      desktop ? styles.desktopShell : undefined,
       contextSidebar && !focusMode ? styles.shellWithSidebar : undefined,
-      contextSidebar && !focusMode && mergeContextSidebarTabs ? styles.mergedContextTabs : undefined,
+      contextSidebar && !focusMode && mergeContextSidebarTabs && !desktop ? styles.mergedContextTabs : undefined,
       focusMode ? styles.focusShell : undefined
-    )}>
+    )} data-desktop={desktop || undefined}>
       <a href="#feature-stage" className={styles.skipLink}>
         跳到主内容
       </a>
+
+      {desktop ? <div className={styles.desktopTitlebar} aria-label="Mac 窗口标题栏">
+        <div ref={setTitlebarHost} className={styles.desktopTitlebarHost}>
+          {!desktopTitlebarEditor ? desktopTitlebarTabs ?? <span className={styles.desktopTitle}>知境·Knowra</span> : null}
+        </div>
+      </div> : null}
 
       {!focusMode ? <ModuleRail
         activeDomain={activeDomain}
@@ -147,5 +164,6 @@ export function AppShell({
         {liveAnnouncement ?? ''}
       </div>
     </div>
+    </DesktopTitlebarContext.Provider>
   );
 }

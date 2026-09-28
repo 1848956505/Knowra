@@ -1,6 +1,6 @@
 import { liftEmptyBlock } from '@milkdown/kit/prose/commands';
 import type { ResolvedPos } from '@milkdown/kit/prose/model';
-import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
+import { Plugin, PluginKey, TextSelection, type Command } from '@milkdown/kit/prose/state';
 import { $prose } from '@milkdown/kit/utils';
 
 const STRUCTURED_BLOCKS = new Set(['list_item', 'blockquote']);
@@ -66,6 +66,25 @@ export function shouldInsertParagraphAfterTrailingCodeBlock(
     && input.clientY > input.lastBlockBottom;
 }
 
+/** 删除文首空行，同时保留下一个块的标题格式。 */
+export const removeLeadingEmptyParagraph: Command = (state, dispatch) => {
+  const { doc, selection } = state;
+  const first = doc.firstChild;
+  if (
+    !selection.empty
+    || selection.from !== 1
+    || doc.childCount < 2
+    || first?.type.name !== 'paragraph'
+    || first.content.size !== 0
+  ) return false;
+  if (dispatch) {
+    const transaction = state.tr.delete(0, first.nodeSize);
+    transaction.setSelection(TextSelection.near(transaction.doc.resolve(0), 1));
+    dispatch(transaction.scrollIntoView());
+  }
+  return true;
+};
+
 export const editorInputBehavior = $prose(() => new Plugin({
   key: new PluginKey('V4_EDITOR_INPUT_BEHAVIOR'),
   props: {
@@ -97,6 +116,12 @@ export const editorInputBehavior = $prose(() => new Plugin({
       }
     },
     handleKeyDown(view, event) {
+      if (
+        (event.key === 'Backspace' || event.key === 'Delete')
+        && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
+        && !event.isComposing && event.keyCode !== 229 && !view.composing
+        && removeLeadingEmptyParagraph(view.state, view.dispatch)
+      ) return true;
       const { selection } = view.state;
       const action = resolveEditorBoundaryAction({
         key: event.key,

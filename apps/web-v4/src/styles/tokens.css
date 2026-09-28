@@ -29,6 +29,7 @@
   --ink-success-soft: #dcfce7;
   --ink-warning: #ea580c;
   --ink-warning-soft: #ffedd5;
+  --ink-importance-important: #c2410c;
   --ink-danger: #dc2626;
   --ink-danger-soft: #fee2e2;
   --ink-violet: #7c3aed;
@@ -65,6 +66,8 @@
   --sidebar-size-narrow: 208px;
   --inspector-size: calc(var(--rail-size) + var(--sidebar-size));
   --tab-size: 36px;
+  --window-titlebar-size: 34px;
+  --window-controls-clearance: 92px;
   --docbar-size: 52px;
   --status-size: 32px;
   --mobile-tabs-size: 56px;

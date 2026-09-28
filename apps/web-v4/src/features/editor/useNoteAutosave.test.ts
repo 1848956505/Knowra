@@ -19,7 +19,7 @@ describe('useNoteAutosave', () => {
     expect(onSave).not.toHaveBeenCalled();
     await act(async () => vi.advanceTimersByTimeAsync(700));
 
-    expect(onSave).toHaveBeenCalledWith('note-a', 'A-1', 'v1', 'A');
+    expect(onSave).toHaveBeenCalledWith('note-a', 'A-1', 'v1', 'A', expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
     expect(result.current.hasLocalChanges).toBe(false);
   });
 
@@ -77,8 +77,8 @@ describe('useNoteAutosave', () => {
     await act(async () => first.resolve({ rawMarkdown: 'A-1', updatedAt: 'v2' }));
     await act(async () => Promise.resolve());
 
-    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', 'A-1', 'v1', 'A');
-    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', 'A-2', 'v2', 'A-1');
+    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', 'A-1', 'v1', 'A', expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
+    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', 'A-2', 'v2', 'A-1', expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
   });
 
   it('flushes the previous note explicitly without writing its draft into the next note', async () => {
@@ -96,7 +96,7 @@ describe('useNoteAutosave', () => {
     expect(result.current.draftMarkdown).toBe('正文 B');
     await act(async () => Promise.resolve());
 
-    expect(onSave).toHaveBeenCalledWith('note-a', '正文 A（未到延迟）', 'a-v1', '正文 A');
+    expect(onSave).toHaveBeenCalledWith('note-a', '正文 A（未到延迟）', 'a-v1', '正文 A', expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
     expect(onSave).not.toHaveBeenCalledWith('note-b', '正文 A（未到延迟）', expect.anything());
   });
 
@@ -162,8 +162,8 @@ describe('useNoteAutosave', () => {
     await act(async () => vi.advanceTimersByTimeAsync(700));
     await act(async () => result.current.saveNow());
 
-    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', '不会丢失', 'v1', 'A');
-    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', '不会丢失', 'v1', 'A');
+    expect(onSave).toHaveBeenNthCalledWith(1, 'note-a', '不会丢失', 'v1', 'A', expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
+    expect(onSave).toHaveBeenNthCalledWith(2, 'note-a', '不会丢失', 'v1', 'A', expect.objectContaining({ formatVersion: 1, edits: expect.any(Array) }));
   });
 });
 

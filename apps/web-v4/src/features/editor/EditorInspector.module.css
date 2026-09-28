@@ -1,6 +1,6 @@
 .inspector {
   grid-column: 2;
-  grid-row: 1 / 3;
+  grid-row: var(--inspector-grid-row, 1 / 3);
   --inspector-control: 44px;
   --inspector-pad: 16px;
   --inspector-pad-wide: 20px;
@@ -256,6 +256,10 @@
 .annotationOverlapSummary button { flex: none; padding: 0; border: 0; background: transparent; color: var(--ink-accent); text-decoration: underline; font-size: 10px; cursor: pointer; }
 .annotationList { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1px 2px 12px; }
 .annotationList article { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr) 20px; align-items: start; gap: 7px; padding: 11px 9px; margin-bottom: 8px; border: 1px solid var(--ink-panel); background: var(--ink-surface); }
+.annotationList article[data-importance='normal'] { --annotation-grade-color: var(--ink-accent); --annotation-grade-bg: var(--ink-accent-soft); }
+.annotationList article[data-importance='important'] { --annotation-grade-color: var(--ink-importance-important); --annotation-grade-bg: var(--ink-warning-soft); }
+.annotationList article[data-importance='core'] { --annotation-grade-color: var(--ink-violet); --annotation-grade-bg: var(--ink-violet-soft); }
+.annotationList article[data-importance] { box-shadow: inset 3px 0 0 var(--annotation-grade-color); }
 .annotationList article:hover { border-color: var(--ink-muted); }
 .annotationList article[data-focused] { border-left: 2px solid var(--ink-accent); padding-left: 8px; }
 .annotationList article[data-selected] { border-color: var(--ink-accent); background: var(--ink-accent-soft); }
@@ -267,7 +271,7 @@
 .annotationTarget:disabled { cursor: default; }
 .annotationItemHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--ink-secondary); font-size: 10px; line-height: 1.5; }
 .annotationItemHeading strong { padding: 0 4px; background: var(--ink-warning-soft); color: var(--ink-warning); font-size: 9px; font-weight: 500; white-space: nowrap; }
-.annotationImportance { padding: 0 4px; background: var(--ink-accent-soft); color: var(--ink-accent); font-size: 9px; }
+.annotationImportance { padding: 1px 5px; background: var(--annotation-grade-bg); color: var(--annotation-grade-color); font-size: 10px; font-weight: 700; }
 .annotationUnrated { padding: 0 4px; background: var(--ink-sunken); color: var(--ink-secondary); font-size: 9px; }
 .annotationRelation { color: var(--ink-accent); font-size: 10px; line-height: 1.5; }
 .annotationList article[data-archived] .annotationItemHeading strong { background: var(--ink-sunken); color: var(--ink-secondary); }

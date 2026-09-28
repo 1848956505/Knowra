@@ -159,9 +159,9 @@ export function createPostgresKnowledgeModule({
       noteRepository: transaction.noteRepository,
       annotationRepository: transaction.contentAnnotationRepository,
       noteVersionService: createAsyncNoteVersionService({ repository: transaction.noteVersionRepository }),
-      onNoteContentChanged: async (note, version) => {
+      onNoteContentChanged: async (note, version, annotationChange) => {
         const transactionAnnotationService = buildTransactionAnnotationServices(transaction).annotationService;
-        const reconciliation = await transactionAnnotationService.reconcileForNote(note.id, version.contentHash);
+        const reconciliation = await transactionAnnotationService.reconcileForNote(note.id, version.contentHash, annotationChange);
         const changed = [];
         for (const annotationId of reconciliation.contentChangedAnnotationIds) {
           const annotation = await transaction.contentAnnotationRepository.findById(annotationId);
@@ -402,6 +402,7 @@ export function createPostgresKnowledgeModule({
       noteRepository: transaction.noteRepository,
       noteVersionRepository: transaction.noteVersionRepository,
       revisionRepository: transaction.annotationRevisionRepository,
+      exclusionRepository: transaction.annotationExclusionRepository,
       onSourceChanged: async (annotation) => {
         const formal = createTransactionFormalServices(transaction);
         const changed = await formal.knowledgeItemService.markEvidenceByAnnotationId(annotation.id, annotation.anchorStatus === 'missing' ? 'insufficient' : 'stale');
@@ -428,7 +429,7 @@ export function createPostgresKnowledgeModule({
     getAnnotation: (...args) => directAnnotationService.getAnnotation(...args),
     ...Object.fromEntries([
       'createAnnotation', 'updateAnnotation', 'advanceRevision', 'archiveAnnotation', 'deleteAnnotation',
-      'restoreAnnotation', 'updateAnnotationAnchor', 'markAnnotationStale', 'markStaleForNote',
+      'restoreAnnotation', 'updateAnnotationAnchor', 'confirmAnnotationRange', 'markAnnotationStale', 'markStaleForNote',
       'reconcileForNote'
     ].map((method) => [method, annotationMutation(method)]))
   };
@@ -477,7 +478,7 @@ export function createPostgresKnowledgeModule({
     annotationRepository: contentAnnotationRepository,
     noteVersionService,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
-    onNoteContentChanged: async (note, version) => {
+    onNoteContentChanged: async (note, version, annotationChange) => {
       const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash);
       for (const annotationId of reconciliation.contentChangedAnnotationIds) {
         await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale');

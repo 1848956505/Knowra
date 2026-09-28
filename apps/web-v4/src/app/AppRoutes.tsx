@@ -180,6 +180,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const restoreAnnotation = useAppStore((state) => state.restoreAnnotation);
   const updateAnnotationAnchor = useAppStore((state) => state.updateAnnotationAnchor);
   const updateAnnotation = useAppStore((state) => state.updateAnnotation);
+  const confirmAnnotationRange = useAppStore((state) => state.confirmAnnotationRange);
   const previewAnnotation = useAppStore((state) => state.previewAnnotation);
   const getAnnotationKnowledgeLinks = useAppStore((state) => state.getAnnotationKnowledgeLinks);
   const previewAnalysisScope = useAppStore((state) => state.previewAnalysisScope);
@@ -256,8 +257,8 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onCreateFolder={() => setCreateMode('folder')}
         onImportMarkdown={() => setImportOpen(true)}
         onRenameNote={(title) => note ? renameNote(note.id, title) : Promise.resolve()}
-        onSaveMarkdown={(targetNoteId, markdown, expectedUpdatedAt, baseMarkdown) => (
-          saveNoteContent(targetNoteId, markdown, expectedUpdatedAt, baseMarkdown)
+        onSaveMarkdown={(targetNoteId, markdown, expectedUpdatedAt, baseMarkdown, annotationMapping) => (
+          saveNoteContent(targetNoteId, markdown, expectedUpdatedAt, baseMarkdown, annotationMapping)
         )}
         onSaveAs={async () => {
           if (!note) return;
@@ -289,6 +290,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onRestoreAnnotation={restoreAnnotation}
         onUpdateAnnotationAnchor={updateAnnotationAnchor}
         onUpdateAnnotation={updateAnnotation}
+        onConfirmAnnotationRange={confirmAnnotationRange}
         onPreviewAnnotation={previewAnnotation}
         onGetAnnotationKnowledgeLinks={getAnnotationKnowledgeLinks}
         onCreateKnowledgeCandidate={canWriteKnowledge ? async annotation => {

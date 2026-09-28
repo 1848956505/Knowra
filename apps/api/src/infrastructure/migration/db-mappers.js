@@ -58,6 +58,7 @@ export function dbNote(note) {
     spaceId: note.spaceId,
     folderId: note.folderId,
     title: note.title,
+    annotationStructure: note.annotationStructure ?? undefined,
     rawMarkdown: note.rawMarkdown,
     plainText: note.plainText,
     internalLinks: note.internalLinks,
