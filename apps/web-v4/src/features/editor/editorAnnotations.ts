@@ -16,7 +16,7 @@ interface AnnotationPluginState {
 
 export const annotationPluginKey = new PluginKey<AnnotationPluginState>('KNOWRA_V4_ANNOTATIONS');
 
-export function createAnnotationHighlightBehavior(onSelect: (annotationId: string) => void) {
+export function createAnnotationHighlightBehavior(onSelect: (annotationIds: string[]) => void) {
   return $prose(() => new Plugin<AnnotationPluginState>({
     key: annotationPluginKey,
     state: {
@@ -42,11 +42,12 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationId: strin
       },
       handleClick(_view, _position, event) {
         const target = event.target instanceof Element
-          ? event.target.closest<HTMLElement>('[data-annotation-id]')
+          ? event.target.closest<HTMLElement>('[data-annotation-ids]')
           : null;
-        const annotationId = target?.dataset.annotationId;
-        if (!annotationId) return false;
-        onSelect(annotationId);
+        if (!target?.dataset.annotationIds) return false;
+        const annotationIds = JSON.parse(target.dataset.annotationIds) as string[];
+        if (annotationIds.length === 0) return false;
+        onSelect(annotationIds);
         return true;
       }
     }
@@ -98,21 +99,31 @@ export function selectEditorAnnotation(editor: Editor, annotationId: string): bo
 }
 
 function createDecorations(doc: ProseNode, annotations: Annotation[], focusedId: string | null): DecorationSet {
-  const decorations = annotations
-    .filter((annotation) => annotation.status !== 'archived')
+  const ranges = annotations
+    .filter((annotation) => annotation.lifecycleStatus !== 'deleted' && annotation.lifecycleStatus !== 'archived' && annotation.status !== 'archived')
     .flatMap((annotation) => {
       const range = resolveAnnotationRange(doc, annotation);
       if (!range) return [];
-      return [Decoration.inline(range.from, range.to, {
+      return [{ ...range, annotation }];
+    });
+  const boundaries = [...new Set(ranges.flatMap(({ from, to }) => [from, to]))].sort((left, right) => left - right);
+  const decorations = boundaries.slice(0, -1).flatMap((from, index) => {
+    const to = boundaries[index + 1];
+    const covering = ranges.filter((range) => range.from < to && range.to > from).map(({ annotation }) => annotation);
+    if (covering.length === 0) return [];
+    const ids = covering.map((annotation) => annotation.id);
+    return [Decoration.inline(from, to, {
         class: [
           'editor-annotation',
-          annotation.status === 'stale' ? 'editor-annotation-stale' : '',
-          annotation.id === focusedId ? 'editor-annotation-active' : ''
+          covering.some((annotation) => annotation.status === 'stale') ? 'editor-annotation-stale' : '',
+          ids.includes(focusedId ?? '') ? 'editor-annotation-active' : '',
         ].filter(Boolean).join(' '),
-        'data-annotation-id': annotation.id,
-        title: annotation.status === 'stale' ? '原文位置已变化' : '重要内容标注'
+        ...(ids.length === 1 ? { 'data-annotation-id': ids[0] } : {}),
+        'data-annotation-ids': JSON.stringify(ids),
+        'data-annotation-count': String(ids.length),
+        title: covering.some((annotation) => annotation.status === 'stale') ? '原文位置已变化' : '重要内容标注'
       })];
-    });
+  });
   return DecorationSet.create(doc, decorations);
 }
 

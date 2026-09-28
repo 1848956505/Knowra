@@ -7,7 +7,9 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+  position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: var(--tab-size) minmax(0, 1fr);
   background: var(--ink-surface);
 }
@@ -24,6 +26,8 @@
 }
 
 .tabs {
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   position: relative;
   z-index: 3;
@@ -143,11 +147,13 @@
 }
 
 .workspace {
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
   min-height: 0;
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
 }
 

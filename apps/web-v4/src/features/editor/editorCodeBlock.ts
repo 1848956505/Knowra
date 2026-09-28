@@ -31,7 +31,7 @@ export function createCodeBlockBehavior(onStatus: (message: string) => void) {
           exit.type = 'button';
           exit.textContent = '在下方继续';
           exit.title = '在代码块下方继续编写正文（Ctrl/⌘ + Enter）';
-          toolbar.append(language, copy, exit);
+          toolbar.append(language, exit, copy);
           const contentDOM = document.createElement('code');
           contentDOM.spellcheck = false;
           dom.append(toolbar, contentDOM);

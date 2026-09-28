@@ -363,8 +363,8 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('代码验收\n\n```');
   await expect(editor.locator('pre code').first()).toHaveText('');
   await expect(editor.locator('pre').first()).toHaveCSS('display', 'block');
-  await expect(editor.locator('pre').first()).toHaveCSS('background-color', 'rgb(244, 241, 234)');
-  await expect(editor.locator('pre code').first()).toHaveCSS('padding', '16px 20px');
+  await expect(editor.locator('pre').first()).toHaveCSS('background-color', 'rgb(249, 246, 241)');
+  await expect(editor.locator('pre code').first()).toHaveCSS('padding', '18px 20px');
 
   await replaceEditorParagraph(page, editor, '分割线验收');
   await chooseParagraphAction('分割线');
@@ -382,6 +382,11 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   })).toBe(0);
   await page.keyboard.press('Tab');
   await expect(editor).toBeFocused();
+  await expect.poll(() => editor.evaluate(() => {
+    const anchor = window.getSelection()?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    return element?.closest('td, th')?.cellIndex ?? -1;
+  })).toBe(1);
   await page.keyboard.type('单元格导航');
   await expect(editor.locator('td, th').nth(1)).toContainText('单元格导航');
 });
@@ -478,6 +483,9 @@ test('V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底�
   const contextMenu = page.getByRole('menu', { name: '编辑器右键快捷功能' });
   await expect(contextMenu).toBeVisible();
   await expect(contextMenu).toHaveCSS('border-top-width', '4px');
+  const quickButtonBox = await contextMenu.getByRole('menuitem', { name: '剪切', exact: true }).boundingBox();
+  expect(quickButtonBox?.height).toBeLessThanOrEqual(44);
+  expect((await contextMenu.boundingBox())?.width).toBeLessThanOrEqual(280);
   for (const label of ['剪切', '复制', '粘贴', '删除', '加粗', '斜体', '高亮', '行内代码', '有序', '无序', '任务']) {
     await expect(contextMenu.getByRole('menuitem', { name: label, exact: true })).toBeEnabled();
   }
@@ -854,6 +862,8 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto('/#/materials/notes/note-1');
 
+  const noteTabs = page.getByRole('tablist', { name: '打开的笔记' });
+  const closedTabsWidth = (await noteTabs.boundingBox())?.width ?? 0;
   await page.getByRole('button', { name: '切换文档检查器' }).click();
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
   await expect(inspector).toBeVisible();
@@ -862,8 +872,21 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await expect.poll(async () => ({
     inspector: (await inspector.boundingBox())?.width ?? 0,
     rail: (await moduleRail.boundingBox())?.width ?? 0,
-    context: (await contextSidebar.boundingBox())?.width ?? 0
-  })).toEqual({ inspector: 288, rail: 64, context: 224 });
+    context: (await contextSidebar.boundingBox())?.width ?? 0,
+    tabs: closedTabsWidth - ((await noteTabs.boundingBox())?.width ?? 0)
+  })).toEqual({ inspector: 288, rail: 64, context: 224, tabs: 288 });
+  await expect.poll(async () => {
+    const [inspectorBox, tabsBox, contextBox] = await Promise.all([
+      inspector.boundingBox(),
+      page.getByRole('tablist', { name: '打开的笔记' }).boundingBox(),
+      contextSidebar.boundingBox()
+    ]);
+    if (!inspectorBox || !tabsBox || !contextBox) return null;
+    return {
+      alignedTop: Math.abs(inspectorBox.y - contextBox.y) <= 1,
+      adjacentTabs: Math.abs(inspectorBox.x - (tabsBox.x + tabsBox.width)) <= 1
+    };
+  }).toEqual({ alignedTop: true, adjacentTabs: true });
   await expect.poll(async () => ({
     inspector: await inspector.evaluate((element) => getComputedStyle(element).backgroundColor),
     header: await inspector.locator('header').evaluate((element) => getComputedStyle(element).backgroundColor)
@@ -909,6 +932,13 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await page.screenshot({ path: 'e2e/visual-baseline/screenshots/v4-07-editor-inspector-1280.png', fullPage: false });
   await page.setViewportSize({ width: 390, height: 760 });
   await expect.poll(async () => (await screenshotInspector.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(389);
+  await expect.poll(async () => {
+    const [inspectorBox, editorBox] = await Promise.all([
+      screenshotInspector.boundingBox(),
+      page.getByRole('region', { name: '笔记编辑页面骨架' }).boundingBox()
+    ]);
+    return inspectorBox && editorBox ? Math.abs(inspectorBox.y - editorBox.y) : Infinity;
+  }).toBeLessThanOrEqual(1);
 });
 
 test('V4-07 宽屏打开检查器不缩小纸张', async ({ page }) => {
@@ -1006,16 +1036,25 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await language.fill('c++');
   await language.press('Enter');
   await expect.poll(() => saved.at(-1)).toContain('```c++');
-  await code.click();
-  await page.keyboard.press('ControlOrMeta+End');
+  await code.evaluate((element) => {
+    const text = element.firstChild;
+    if (!text?.textContent) throw new Error('代码块缺少文本节点');
+    element.closest<HTMLElement>('.ProseMirror')?.focus();
+    const range = document.createRange();
+    range.setStart(text, text.textContent.length);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
   await page.keyboard.press('Home');
   await page.keyboard.press('Shift+Tab');
-  await expect(code).toHaveText('    first\nsecond');
+  await expect.poll(() => code.textContent()).toBe('    first\nsecond');
   await page.keyboard.press('Tab');
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await page.keyboard.type('third');
-  await expect(code).toHaveText('    first\n    second\n    third');
+  await expect.poll(() => code.textContent()).toBe('    first\n    second\n    third');
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => code.textContent()).not.toContain('third');
   // Code paste must bypass Markdown parsing, including fences and headings.
@@ -1071,7 +1110,7 @@ test('V4-07 围栏输入支持语言符号且长代码仅在块内滚动', async
   await expect(editor.locator(':scope > p')).toHaveText('after');
 });
 
-test('V4-07 安静内凹代码块支持空块删除与非空行插入', async ({ page }) => {
+test('V4-07 参考样式代码块支持空块删除与非空行插入', async ({ page }) => {
   const saved: string[] = [];
   await mockEditorWorkspace(page, saved, [], '保留当前行');
   await page.goto('/#/materials/notes/note-1');
@@ -1083,9 +1122,11 @@ test('V4-07 安静内凹代码块支持空块删除与非空行插入', async ({
   const block = editor.locator('pre');
   await expect(editor.locator('p').first()).toHaveText('保留当前行');
   await expect(block.locator('code')).toHaveText('');
-  await expect.poll(() => block.evaluate(el => getComputedStyle(el).boxShadow)).toContain('inset');
-  await expect(block).toHaveCSS('border-left-width', '1px');
-  await expect(page.getByRole('textbox', { name: '代码语言', exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(block).toHaveCSS('border-left-color', 'rgb(35, 35, 35)');
+  await expect(block).toHaveCSS('background-color', 'rgb(249, 246, 241)');
+  await expect.poll(() => block.evaluate(el => getComputedStyle(el).boxShadow)).toContain('4px 4px 0px');
+  await expect(block.locator('[data-code-toolbar]')).toHaveCSS('border-bottom-width', '1px');
+  await expect(page.getByRole('textbox', { name: '代码语言', exact: true })).toHaveCSS('background-color', 'rgb(255, 254, 253)');
   await block.screenshot({ path: '/tmp/knowra-code-block-inset.png' });
   await page.keyboard.press('Backspace');
   await expect(block).toHaveCount(0);
@@ -1362,6 +1403,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(highlight).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(highlight).toHaveCSS('outline-style', 'none');
   expect(created[0].scopeType).toBe('selection');
+  expect(created[0].importance).toBeNull();
   await editor.locator('p').last().click();
   await editor.locator('p').first().hover();
   await page.getByRole('button', { name: '内容块重点菜单' }).click();
@@ -1370,14 +1412,33 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   expect(created[1].scopeType).toBe('blocks');
   expect(created[1].quoteText).toContain('需要标记的正文内容');
   await editor.locator('h1').hover();
+  const headingBox = await editor.locator('h1').boundingBox();
+  const blockButtonBox = await page.getByRole('button', { name: '标题重点菜单' }).boundingBox();
+  expect(headingBox).not.toBeNull();
+  expect(blockButtonBox).not.toBeNull();
+  if (headingBox && blockButtonBox) {
+    expect(Math.abs(blockButtonBox.y + blockButtonBox.height / 2 - (headingBox.y + headingBox.height / 2))).toBeLessThan(2);
+    expect(headingBox.x - (blockButtonBox.x + blockButtonBox.width)).toBeGreaterThanOrEqual(14);
+  }
   await page.getByRole('button', { name: '标题重点菜单' }).click();
   await page.getByRole('menuitem', { name: '标记本节为重点' }).click();
   await expect.poll(() => created.length).toBe(3);
   expect(created[2].scopeType).toBe('section');
   expect(created[2].quoteText).toContain('第一节');
-  await page.getByRole('button', { name: '切换文档检查器' }).click();
+  const overlappingHighlight = editor.locator('[data-annotation-count]:not([data-annotation-count="1"])').first();
+  await expect(overlappingHighlight).toBeVisible();
+  await expect(overlappingHighlight).toHaveCSS('text-decoration-line', 'none');
+  await overlappingHighlight.click();
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
-  await inspector.getByRole('tab', { name: '标注' }).click();
+  await expect(inspector.getByRole('tab', { name: '标注' })).toHaveAttribute('aria-selected', 'true');
+  await expect(inspector.getByText(/此处有 \d 条重点，已在下方标出/)).toBeVisible();
+  await expect(inspector.locator('article[data-overlap-focused]')).toHaveCount(3);
+  const sortButtonBox = await inspector.getByRole('button', { name: '排序重点' }).boundingBox();
+  const filterButtonBox = await inspector.getByRole('button', { name: '筛选重点' }).boundingBox();
+  expect(sortButtonBox && filterButtonBox && sortButtonBox.x < filterButtonBox.x).toBeTruthy();
+  await inspector.getByRole('button', { name: '排序重点' }).click();
+  await expect(page.getByRole('dialog', { name: '排序重点' }).getByRole('button', { name: '重要级：高到低' })).toBeVisible();
+  await page.getByRole('dialog', { name: '排序重点' }).getByRole('button', { name: '正文顺序' }).click();
   await expect(inspector.getByRole('checkbox')).toHaveCount(3);
   await expect(inspector.getByRole('button', { name: '提炼知识' })).toHaveCount(0);
   await expect(inspector.getByRole('button', { name: '分析整篇' })).toHaveCount(0);
@@ -1388,12 +1449,14 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(inspector.getByRole('button', { name: '提炼知识' })).toBeVisible();
   await inspector.getByRole('button', { name: '筛选重点' }).click();
   await expect(page.getByRole('dialog', { name: '筛选重点' }).getByRole('button', { name: /全部章节/ })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '筛选重点' }).getByRole('button', { name: /全部类型/ })).toBeVisible();
   await page.getByRole('button', { name: '关闭筛选' }).click();
-  await inspector.getByRole('button', { name: '重点 1 更多操作' }).click();
+  const selectionCard = inspector.locator('article').filter({ hasText: '文字选区' });
+  await selectionCard.getByRole('button', { name: /更多操作/ }).click();
   await expect(page.getByRole('menuitem', { name: '重新定位' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('[role=menu]')).toHaveCount(0);
-  await inspector.getByRole('button', { name: '重点 1 更多操作' }).click();
+  await selectionCard.getByRole('button', { name: /更多操作/ }).click();
   await page.getByRole('menuitem', { name: '取消重点' }).click();
   await expect(inspector.getByRole('button', { name: '撤销' })).toBeVisible();
   await expect(inspector.getByRole('checkbox')).toHaveCount(2);
@@ -1415,7 +1478,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(filters).toBeVisible();
   await expect(filters.getByRole('button', { name: '已取消' })).toHaveCount(0);
   await filters.screenshot({ path: '/tmp/knowra-annotation-filters-v2.png' });
-  await filters.getByRole('button', { name: '内容待检查', exact: true }).click();
+  await filters.getByRole('button', { name: '原文待核对', exact: true }).click();
   await filters.getByRole('button', { name: '完成', exact: true }).click();
   await expect(inspector.getByRole('checkbox')).toHaveCount(1);
   await inspector.getByRole('button', { name: '清除', exact: true }).click();

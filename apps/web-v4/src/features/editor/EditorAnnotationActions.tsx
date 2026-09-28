@@ -40,7 +40,15 @@ export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand,
       const target = event.target instanceof Element ? event.target.closest('p,h1,h2,h3,h4,h5,h6,pre,li,blockquote,table,hr') : null;
       if (!view || !target || !view.dom.contains(target)) { hideTimer = setTimeout(() => setBlock(null), 150); return; }
       const rect = target.getBoundingClientRect();
-      setBlock({ x: Math.max(4, rect.left - 32), y: rect.top, pos: view.posAtDOM(target, 0), heading: /^H[1-6]$/.test(target.tagName) });
+      const lineHeight = Number.parseFloat(getComputedStyle(target).lineHeight);
+      const isTextBlock = target.matches('p,h1,h2,h3,h4,h5,h6,li,blockquote');
+      const lineTop = isTextBlock && Number.isFinite(lineHeight) && lineHeight > 0
+        ? Math.max(0, Math.min(Math.floor((event.clientY - rect.top) / lineHeight) * lineHeight, rect.height - lineHeight))
+        : 0;
+      const lineCenter = isTextBlock && Number.isFinite(lineHeight)
+        ? rect.top + lineTop + lineHeight / 2
+        : rect.top + Math.min(rect.height, 28) / 2;
+      setBlock({ x: Math.max(4, rect.left - 44), y: lineCenter - 14, pos: view.posAtDOM(target, 0), heading: /^H[1-6]$/.test(target.tagName) });
     };
     const hide = () => { setSelection(null); if (!menuOpen) setBlock(null); };
     document.addEventListener('selectionchange', updateSelection);

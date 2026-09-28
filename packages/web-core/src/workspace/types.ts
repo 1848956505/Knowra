@@ -124,7 +124,7 @@ export interface Annotation extends EntityBase {
   anchorReason?: string | null;
   revision?: number;
   anchor?: ContentAnchor | null;
-  originSnapshot?: ContentAnchor | null;
+  originSnapshot?: AnnotationOriginSnapshot | null;
   resolvedContentHash?: string | null;
   boundaryFingerprint?: string | null;
   deletedAt?: string | null;
@@ -143,6 +143,15 @@ export interface ContentAnchor {
   projectedStart: number;
   projectedEnd: number;
   section?: Record<string, unknown>;
+}
+
+export interface AnnotationOriginSnapshot {
+  noteVersionId?: string | null;
+  contentHash: string;
+  scopeType: 'selection' | 'blocks' | 'section';
+  segments: Array<{ start: number; end: number; path: string }>;
+  quoteText: string;
+  headingPath: string[];
 }
 
 export type { KnowledgeItem } from './knowledge-types.js';

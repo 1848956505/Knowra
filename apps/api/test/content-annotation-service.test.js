@@ -42,6 +42,7 @@ export const contentAnnotationServiceTests = [
         noteRepository: { findById: () => note }
       });
       const created = service.createAnnotation(input());
+      assert.equal(created.importance, null);
       assert.equal(service.createAnnotation(input()).id, created.id);
       assert.equal(
         service.listAnnotationsByNote({ noteId: note.id }).length,
@@ -53,6 +54,14 @@ export const contentAnnotationServiceTests = [
         0
       );
       assert.equal(service.restoreAnnotation(created.id).status, 'active');
+    }
+  },
+  {
+    name: 'content annotation creation accepts an explicitly rated importance',
+    async run() {
+      const service = createContentAnnotationService({ noteRepository: { findById: () => note } });
+      const created = service.createAnnotation({ ...input('explicit-normal'), importance: 'normal' });
+      assert.equal(created.importance, 'normal');
     }
   },
   {

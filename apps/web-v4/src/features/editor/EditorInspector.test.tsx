@@ -165,6 +165,64 @@ describe('EditorInspector', () => {
     await user.click(screen.getByRole('menuitem', { name: '取消重点' }));
     expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-1', undefined);
   });
+
+  it('groups contained marks, sorts by document or importance, and filters by kind', async () => {
+    const user = userEvent.setup();
+    const makeAnnotation = (id: string, start: number, end: number, kind: string, importance: Annotation['importance']): Annotation => ({
+      id, spaceId: 'space-1', noteId: note.id, noteVersionId: null,
+      kind, importance, sourceMode: 'manual', quoteText: id, headingPath: ['核心原理'],
+      fromPosition: start, toPosition: end, prefixText: '', suffixText: '', anchorFingerprint: id,
+      noteContentHash: 'same-version', idempotencyKey: id, status: 'active', anchorStatus: 'resolved'
+    });
+    renderInspector({ annotations: [
+      makeAnnotation('内层核心', 10, 20, 'question', 'core'),
+      makeAnnotation('外层普通', 0, 30, 'important', 'normal'),
+      makeAnnotation('后段重要', 40, 50, 'pitfall', 'important')
+    ] });
+
+    await user.click(screen.getByRole('tab', { name: '标注' }));
+    expect(screen.getAllByRole('button', { name: /定位重点/ }).map((button) => button.textContent)).toEqual([
+      expect.stringContaining('外层普通'), expect.stringContaining('内层核心'), expect.stringContaining('后段重要')
+    ]);
+    expect(screen.getByText('包含 1 条重点')).toBeInTheDocument();
+    expect(screen.getByText('位于另一条重点内')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '排序重点' }));
+    await user.click(screen.getByRole('button', { name: '重要级：高到低' }));
+    expect(screen.getAllByRole('button', { name: /定位重点/ }).map((button) => button.textContent)).toEqual([
+      expect.stringContaining('内层核心'), expect.stringContaining('后段重要'), expect.stringContaining('外层普通')
+    ]);
+
+    await user.click(screen.getByRole('button', { name: '筛选重点' }));
+    await user.click(screen.getByRole('button', { name: /全部类型/ }));
+    await user.click(screen.getByRole('option', { name: '疑问' }));
+    await user.click(screen.getByRole('button', { name: '完成' }));
+    expect(screen.getAllByRole('button', { name: /定位重点/ })).toHaveLength(1);
+    expect(screen.getByText('内层核心')).toBeInTheDocument();
+  });
+
+  it('shows the original overlap of marks waiting for relocation in the inspector', async () => {
+    const user = userEvent.setup();
+    const makeSection = (id: string, start: number, end: number): Annotation => ({
+      id, spaceId: 'space-1', noteId: note.id, noteVersionId: null,
+      kind: 'important', sourceMode: 'manual', scopeType: 'section', quoteText: id,
+      headingPath: ['核心原理'], fromPosition: start, toPosition: end,
+      prefixText: '', suffixText: '', anchorFingerprint: id,
+      noteContentHash: 'current-version', idempotencyKey: id, status: 'stale', anchorStatus: 'needsReview',
+      originSnapshot: { contentHash: 'old-version', scopeType: 'section', quoteText: id,
+        headingPath: ['核心原理'], segments: [{ start, end, path: id }] }
+    });
+    renderInspector({ annotations: [makeSection('二级标题', 20, 50), makeSection('一级标题', 0, 80)] });
+    await user.click(screen.getByRole('tab', { name: '标注' }));
+    expect(screen.getByText('原标记范围：包含 1 条重点')).toBeInTheDocument();
+    expect(screen.getByText('原标记范围：位于另一条重点内')).toBeInTheDocument();
+    expect(screen.getAllByText('待评级')).toHaveLength(2);
+    expect(screen.getAllByText('原文待核对')).toHaveLength(2);
+    const header = screen.getByText('重点标记').closest('header');
+    expect(header?.querySelectorAll('button')[0]).toHaveAttribute('aria-label', '排序重点');
+    expect(header?.querySelectorAll('button')[1]).toHaveAttribute('aria-label', '筛选重点');
+    expect(screen.queryByText('排序方式')).not.toBeInTheDocument();
+  });
 });
 
 function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0]> = {}) {

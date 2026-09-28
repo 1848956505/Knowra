@@ -21,7 +21,7 @@
 }
 
 .menu {
-  width: min(292px, calc(100vw - 24px));
+  width: min(276px, calc(100vw - 24px));
   max-width: none;
   max-height: min(560px, calc(100vh - 24px));
   padding: 8px;
@@ -33,7 +33,7 @@
 .quickSection {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
 }
 
 .quickSection + .quickSection {
@@ -42,17 +42,17 @@
 
 .sectionLabel {
   grid-column: 1 / -1;
-  padding: 5px 2px 0;
+  padding: 4px 2px 1px;
 }
 
 .quickItem {
   min-width: 0;
-  min-height: 52px;
+  min-height: 42px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 3px;
+  gap: 3px;
+  padding: 5px 2px;
   border: 1px solid var(--ink-panel);
   color: var(--ink-secondary);
   font-size: 10px;
@@ -62,9 +62,14 @@
 }
 
 .quickItem > span:first-child {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: var(--ink);
+}
+
+.quickItem > span:first-child svg {
+  width: 16px;
+  height: 16px;
 }
 
 .quickItem[data-focused] {
@@ -101,14 +106,19 @@
 }
 
 .fullRow {
-  margin: 8px -8px 4px;
+  margin: 6px -8px 2px;
 }
 
 .submenuTrigger {
-  min-height: 44px;
+  min-height: 36px;
   margin-inline: -8px;
-  padding-inline: 16px;
+  padding-inline: 12px;
   border-top: 1px solid transparent;
+}
+
+.menu > :global([role='menuitem']) {
+  min-height: 36px;
+  padding-block: 6px;
 }
 
 .submenuTrigger[data-focused] {
@@ -141,7 +151,7 @@
   }
 
   .quickItem {
-    min-height: 46px;
+    min-height: 40px;
   }
 
   .sectionLabel {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import type { AnalysisScopeInput, AnalysisScopePreview, AnalysisScopeSnapshot, Annotation, AnnotationKnowledgeLinks, AnnotationPreview, Attachment, Folder, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, NoteVersionPrunePreview, Tag, TagColor, TagGroup, UpdateAnnotationInput } from '@study-accelerator/web-core';
 import { Button, Checkbox, Dialog, DialogBody, DialogClose, DialogFooter, Select, TextAreaField } from '../../components/ui';
 import { Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverTrigger, PopoverDialog } from '../../components/ui/overlay';
@@ -7,6 +7,7 @@ import { Tabs, type TabsItem } from '../../components/ui/collection';
 import {
   StarIcon,
   FilterIcon,
+  SortArrowsIcon,
   MoreHorizontalIcon,
   CloseIcon,
   LinkIcon,
@@ -33,6 +34,7 @@ import { VersionHistoryPanel } from './VersionHistoryPanel';
 import { EditorAttachmentPanel } from './EditorAttachmentPanel';
 import { OrganizeNoteDialog } from './OrganizeNoteDialog';
 import { TagChip, TagPickerDialog } from '../tags';
+import { buildAnnotationListRows, type AnnotationSort } from './annotationListModel';
 
 const inspectorTabs: TabsItem[] = [
   { id: 'info', label: '信息' },
@@ -62,6 +64,8 @@ export interface EditorInspectorProps {
   annotations: Annotation[];
   annotationsLoading: boolean;
   focusedAnnotationId: string | null;
+  overlappingAnnotationIds?: string[];
+  onClearOverlappingAnnotations?(): void;
   onClose(): void;
   onOpenNote(noteId: string): void;
   onNavigateHeading(heading: InspectorHeading, index: number): void;
@@ -126,6 +130,10 @@ export function EditorInspector(props: EditorInspectorProps) {
     () => props.open ? getDocumentStats(props.markdown) : { characterCount: 0, readingMinutes: 0 },
     [props.markdown, props.open]
   );
+
+  useEffect(() => {
+    if (props.overlappingAnnotationIds?.length) setSelectedTab('annotations');
+  }, [props.overlappingAnnotationIds]);
 
   return (
     <aside
@@ -317,6 +325,7 @@ function LinksPanel({ relations, loading, onOpenNote }: {
 }
 
 function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean }) {
+  const listRef = useRef<HTMLDivElement>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
@@ -325,8 +334,11 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
   const [scopeRefresh, setScopeRefresh] = useState(0);
   const [scopeFilter, setScopeFilter] = useState('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [sectionFilter, setSectionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState<AnnotationSort>('document');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detail, setDetail] = useState<{ annotation: Annotation; preview: AnnotationPreview; links: AnnotationKnowledgeLinks } | null>(null);
   const [analysis, setAnalysis] = useState<{ input: AnalysisScopeInput; preview: AnalysisScopePreview } | null>(null);
@@ -356,8 +368,25 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
     const status = (annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale') ? 'needsReview' : 'active';
     return (scopeFilter === 'all' || (annotation.scopeType ?? 'selection') === scopeFilter)
       && (sectionFilter === 'all' || (annotation.headingPath.at(-1) || '未分章节') === sectionFilter)
-      && (statusFilter === 'all' || status === statusFilter);
+      && (statusFilter === 'all' || status === statusFilter)
+      && (kindFilter === 'all' || annotation.kind === kindFilter);
   });
+  const rows = buildAnnotationListRows(visible, sortOrder);
+
+  useEffect(() => {
+    if (!props.overlappingAnnotationIds?.length) return;
+    setScopeFilter('all');
+    setSectionFilter('all');
+    setStatusFilter('all');
+    setKindFilter('all');
+  }, [props.overlappingAnnotationIds]);
+
+  useEffect(() => {
+    if (!props.overlappingAnnotationIds?.length) return;
+    const target = [...(listRef.current?.querySelectorAll<HTMLElement>('[data-annotation-card-id]') ?? [])]
+      .find((element) => props.overlappingAnnotationIds?.includes(element.dataset.annotationCardId ?? ''));
+    target?.scrollIntoView?.({ block: 'nearest' });
+  }, [props.overlappingAnnotationIds, scopeFilter, sectionFilter, statusFilter, kindFilter, sortOrder]);
 
   async function run(id: string, action: () => Promise<void>) {
     setPendingId(id);
@@ -428,34 +457,49 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
       </div> : <>
       <header className={styles.annotationHeader}>
         <div className={styles.annotationTitle}><StarIcon size={15} fill="currentColor" /><strong>重点标记</strong><span>{currentAnnotations.length}</span></div>
+        <div className={styles.annotationHeaderActions}>
+        <PopoverTrigger isOpen={sortOpen} onOpenChange={setSortOpen}>
+          <GhostIconButton size={24} aria-label="排序重点" title="排序重点" className={sortOrder !== 'document' ? styles.annotationFilterActive : undefined}><SortArrowsIcon size={15} /></GhostIconButton>
+          <Popover placement="bottom end" offset={8} className={styles.annotationSortPopover}>
+            <PopoverDialog aria-label="排序重点" className={styles.annotationSortOptions}>
+              <strong>排序重点</strong>
+              <button type="button" aria-pressed={sortOrder === 'document'} onClick={() => { setSortOrder('document'); setSortOpen(false); }}>正文顺序</button>
+              <button type="button" aria-pressed={sortOrder === 'importance'} onClick={() => { setSortOrder('importance'); setSortOpen(false); }}>重要级：高到低</button>
+            </PopoverDialog>
+          </Popover>
+        </PopoverTrigger>
         <PopoverTrigger isOpen={filtersOpen} onOpenChange={setFiltersOpen}>
-          <GhostIconButton size={24} aria-label="筛选重点" title="筛选重点" className={sectionFilter !== 'all' || statusFilter !== 'all' ? styles.annotationFilterActive : undefined}><FilterIcon size={15} /></GhostIconButton>
+          <GhostIconButton size={24} aria-label="筛选重点" title="筛选重点" className={sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? styles.annotationFilterActive : undefined}><FilterIcon size={15} /></GhostIconButton>
           <Popover placement="bottom end" offset={8} className={styles.annotationFilterPopover}>
             <PopoverDialog aria-label="筛选重点" className={styles.annotationFilters}>
               <header><strong>筛选重点</strong><GhostIconButton size={24} aria-label="关闭筛选" onPress={() => setFiltersOpen(false)}><CloseIcon size={14} /></GhostIconButton></header>
               <Select label="章节" options={[{ id: 'all', label: '全部章节' }, ...sections.map((section) => ({ id: section, label: section }))]} selectedKey={sectionFilter} onSelectionChange={(key) => setSectionFilter(String(key))} />
-              <fieldset><legend>状态</legend><div className={styles.annotationStatusOptions}>{STATUS_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={statusFilter === option.id} onClick={() => setStatusFilter(option.id)}>{option.label}</button>)}</div></fieldset>
-              <footer><button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); }}>重置筛选</button><Button variant="primary" onPress={() => setFiltersOpen(false)}>完成</Button></footer>
+              <Select label="类型" options={[{ id: 'all', label: '全部类型' }, ...KIND_OPTIONS]} selectedKey={kindFilter} onSelectionChange={(key) => setKindFilter(String(key))} />
+              <fieldset><legend>原文状态</legend><div className={styles.annotationStatusOptions}>{STATUS_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={statusFilter === option.id} onClick={() => setStatusFilter(option.id)}>{option.label}</button>)}</div></fieldset>
+              <footer><button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>重置筛选</button><Button variant="primary" onPress={() => setFiltersOpen(false)}>完成</Button></footer>
             </PopoverDialog>
           </Popover>
         </PopoverTrigger>
+        </div>
       </header>
       <div className={styles.annotationScopeFilters} role="group" aria-label="重点范围">
         {[['all', '全部'], ['selection', '选区'], ['blocks', '块'], ['section', '章节']].map(([id, label]) => <button key={id} type="button" aria-pressed={scopeFilter === id} onClick={() => setScopeFilter(id)}>{label} <span>{currentAnnotations.filter((item) => id === 'all' || (item.scopeType ?? 'selection') === id).length}</span></button>)}
       </div>
-      {sectionFilter !== 'all' || statusFilter !== 'all' ? <div className={styles.annotationFilterSummary}>已筛选 {[sectionFilter, statusFilter].filter((value) => value !== 'all').length} 项 <button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); }}>清除</button></div> : null}
+      {sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? <div className={styles.annotationFilterSummary}>已筛选 {[sectionFilter, statusFilter, kindFilter].filter((value) => value !== 'all').length} 项 <button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>清除</button></div> : null}
+      {props.overlappingAnnotationIds?.length ? <div className={styles.annotationOverlapSummary} role="status">此处有 {props.overlappingAnnotationIds.length} 条重点，已在下方标出。<button type="button" onClick={props.onClearOverlappingAnnotations}>清除定位</button></div> : null}
       {undo && props.onRestoreAnnotation ? <p role="status" className={styles.annotationFilterSummary}>重点已移入回收站。 <button type="button" onClick={() => void run(undo.id, async () => { await props.onRestoreAnnotation?.(undo.id, undo.revision); setUndo(null); })}>撤销</button></p> : null}
-      <div className={styles.annotationList}>
+      <div className={styles.annotationList} ref={listRef}>
         {props.annotationsLoading ? <p className={styles.emptyPanel} role="status">正在加载正文标注…</p> : visible.length === 0 ? <p className={styles.emptyPanel}>{currentAnnotations.length ? '没有符合筛选条件的重点。' : '暂无重点，选中正文或打开块菜单即可标记。'}</p> : null}
-        {visible.map((annotation, index) => {
+        {rows.map(({ annotation, depth, parentId, containedCount, overlapCount, historicalRelation }, index) => {
           const stale = annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale';
           const pending = pendingId === annotation.id;
-          return <article key={annotation.id} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
+          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
             <Checkbox size="compact" aria-label={`选择重点 ${index + 1}`} isSelected={selectedIds.includes(annotation.id)} onChange={(selected) => setSelectedIds((current) => selected ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
             <button type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} disabled={pending} onClick={() => props.onSelectAnnotation(annotation.id)}>
-              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span>{stale ? <strong>待检查</strong> : null}</span>
+              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : <span className={styles.annotationUnrated}>待评级</span>}{stale ? <strong>原文待核对</strong> : null}</span>
               <span className={styles.annotationQuote}>{annotation.quoteText}</span>
               {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
+              {parentId || containedCount || overlapCount ? <span className={styles.annotationRelation}>{historicalRelation ? '原标记范围：' : null}{parentId ? '位于另一条重点内' : null}{containedCount ? `${parentId ? ' · ' : ''}包含 ${containedCount} 条重点` : null}{overlapCount ? `${parentId || containedCount ? ' · ' : ''}与 ${overlapCount} 条重点重叠` : null}</span> : null}
             </button>
             <MenuTrigger><GhostIconButton size={24} aria-label={`重点 ${index + 1} 更多操作`}><MoreHorizontalIcon size={15} /></GhostIconButton>
               <MenuPopover placement="bottom end"><Menu ariaLabel="重点操作">
@@ -509,7 +553,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
 
 const KIND_OPTIONS = [{ id: 'important', label: '重点' }, { id: 'question', label: '疑问' }, { id: 'supplement', label: '补充' }, { id: 'pitfall', label: '易错' }, { id: 'temporary', label: '临时笔记' }];
 const IMPORTANCE_OPTIONS = [{ id: 'unset', label: '未设置' }, { id: 'normal', label: '普通' }, { id: 'important', label: '重要' }, { id: 'core', label: '核心' }];
-const STATUS_FILTERS = [{ id: 'active', label: '当前有效' }, { id: 'needsReview', label: '内容待检查' }, { id: 'all', label: '全部状态' }];
+const STATUS_FILTERS = [{ id: 'active', label: '原文可定位' }, { id: 'needsReview', label: '原文待核对' }, { id: 'all', label: '全部原文状态' }];
 function scopeLabel(scope?: Annotation['scopeType']) { return scope === 'blocks' ? '内容块' : scope === 'section' ? '标题章节' : '文字选区'; }
 
 function InspectorSection({ icon, title, count, action, children }: {

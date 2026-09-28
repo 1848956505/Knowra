@@ -226,6 +226,8 @@ export function NoteEditorView({
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
   const [repairDialogOpen, setRepairDialogOpen] = useState(false);
   const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
+  const [overlappingAnnotationIds, setOverlappingAnnotationIds] = useState<string[]>([]);
+  useEffect(() => setOverlappingAnnotationIds([]), [note?.id]);
   const [scrollPositions] = useState(readEditorScrollPositions);
   const autosave = useNoteAutosave({
     noteId: note?.id ?? 'missing-note',
@@ -485,6 +487,7 @@ export function NoteEditorView({
     setAnnotations((current) => current.map((item) => item.id === updated.id ? updated : item));
   };
   const selectAnnotation = (annotationId: string) => {
+    setOverlappingAnnotationIds([]);
     setFocusedAnnotationId(annotationId);
     if (!editorRef.current?.selectAnnotation(annotationId)) onFileStatus('原文位置已变化，请选中新文字后重新定位');
   };
@@ -736,7 +739,15 @@ export function NoteEditorView({
                         annotations={annotations}
                         focusedAnnotationId={focusedAnnotationId}
                         onChange={autosave.updateDraft}
-                        onSelectAnnotation={setFocusedAnnotationId}
+                        onSelectAnnotation={(ids) => {
+                          if (ids.length === 1) {
+                            setOverlappingAnnotationIds([]);
+                            setFocusedAnnotationId(ids[0]);
+                          } else {
+                            setOverlappingAnnotationIds(ids);
+                            if (!inspectorOpen) onToggleInspector();
+                          }
+                        }}
                         onStatus={onFileStatus}
                         onReady={restoreCurrentScrollPosition}
                         onUploadImage={async (file) => {
@@ -755,7 +766,8 @@ export function NoteEditorView({
             </div>
           </article>
         </div>
-        <EditorInspector
+      </div>
+      <EditorInspector
           note={note}
           folder={folder}
           foldersById={foldersById}
@@ -774,6 +786,8 @@ export function NoteEditorView({
           annotations={annotations}
           annotationsLoading={annotationsLoading}
           focusedAnnotationId={focusedAnnotationId}
+          overlappingAnnotationIds={overlappingAnnotationIds}
+          onClearOverlappingAnnotations={() => setOverlappingAnnotationIds([])}
           onClose={onToggleInspector}
           onOpenNote={openNoteSafely}
           onSetTags={onSetTags}
@@ -864,7 +878,6 @@ export function NoteEditorView({
             }
           }}
         />
-      </div>
     </section>
   );
 }

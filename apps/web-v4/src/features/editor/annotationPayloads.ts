@@ -23,6 +23,7 @@ export async function buildCreateAnnotationInput(note: { id: string; spaceId?: s
     noteContentHash,
     idempotencyKey: crypto.randomUUID(),
     kind: 'important',
+    importance: null,
     schemaVersion: 2,
     sourceMode: 'manual'
   };

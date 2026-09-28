@@ -82,7 +82,7 @@ export interface MilkdownNoteEditorProps {
   focusedAnnotationId?: string | null;
   onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section'): Promise<void>;
   onChange(markdown: string): void;
-  onSelectAnnotation?(annotationId: string): void;
+  onSelectAnnotation?(annotationIds: string[]): void;
   onStatus?(message: string): void;
   onReady?(): void | Promise<void>;
   onUploadImage?(file: File): Promise<{ url: string; alt: string }>;
@@ -403,7 +403,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         ))
         .use(clipboard)
         .use(findHighlightBehavior)
-        .use(createAnnotationHighlightBehavior((annotationId) => onSelectAnnotationRef.current?.(annotationId)))
+        .use(createAnnotationHighlightBehavior((annotationIds) => onSelectAnnotationRef.current?.(annotationIds)))
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
         .use(editorInputBehavior)
