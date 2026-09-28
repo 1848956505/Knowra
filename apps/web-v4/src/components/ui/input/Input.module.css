@@ -86,6 +86,12 @@
 .textarea::placeholder { color: var(--ink-muted); font-weight: 500; }
 .field[data-disabled] .textarea { color: var(--ink-muted); cursor: not-allowed; }
 
+/* 对话输入区由外层容器承载边框与焦点态，文本域本身保持完整宽度。 */
+.composerField { display: flex; width: 100%; gap: 0; }
+.composerField .textareaShell,
+.composerField:focus-within .textareaShell { border: 0; background: transparent; box-shadow: none; }
+.composerField .textarea { min-height: 64px; max-height: 180px; padding: 13px 15px 5px; resize: none; field-sizing: content; overflow-y: auto; }
+
 .input::placeholder {
   color: var(--ink-muted);
   font-weight: 500;

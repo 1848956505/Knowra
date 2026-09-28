@@ -339,28 +339,38 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           onPress={() => void reloadPage()}>重新加载助手</Button></div> : null}
         {notice ? <p className={styles.muted} role="status">{notice}</p> : null}
         <div className={styles.composer} aria-label="提问区">
-          {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.muted}>来自笔记「{noteName(initialNoteId)}」。可在下方授权这篇笔记后提问。</p> : null}
-          <div className={styles.scopeRow}>
-            <Select label="资料范围" selectedKey={scopeChoice} onSelectionChange={key => { setScopeChoice(String(key)); pendingSend.current = null; }}
-              options={[{ id: 'plain', label: '普通聊天 · 不读取笔记' }, ...activePolicies.map(policy => ({
-                id: policy.policyId, label: `${scopeName(policy)} · 至 ${formatTime(policy.expiresAt)}`
-              }))]} />
-            <Button variant="default" size="compact" onPress={() => {
-              setGrantKind(initialNoteId ? 'fixed' : 'library');
-              setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
-              setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
-            }}>设置读取范围</Button>
-            {chosenPolicy ? <Button variant="ghost" size="compact" isDisabled={pending}
-              onPress={() => void revokePolicy(chosenPolicy)}>撤销此授权</Button> : null}
-          </div>
-          <TextAreaField label="消息" value={draft} onChange={value => { setDraft(value); pendingSend.current = null; }}
-            placeholder={chosenPolicy ? '询问已授权资料中的内容…' : '问一个问题，或继续追问…'} rows={3} isDisabled={selected?.readOnly} />
-          <div className={styles.composerActions}>
-            <span className={styles.muted}>{chosenPolicy ? '仅相关且获授权的笔记片段可能发送给 DeepSeek。' : '普通聊天不会读取笔记。'}
-              {draft.length > 3800 ? ' 问题超过 3800 字符。' : ''}</span>
-            <Button variant="primary" isDisabled={!draft.trim() || draft.length > 3800 || pending || loading || !status?.generationAvailable
-              || selected?.readOnly || blocked(latestTurn) || scopeChoice !== 'plain' && !chosenPolicy}
-              onPress={() => void send()}>{pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}</Button>
+          <div className={styles.composerInner}>
+            {selected?.readOnly ? <div className={styles.readOnlyComposer}>
+              <span>这是历史会话，只能回看。</span>
+              <Button variant="accent" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
+            </div> : <>
+              {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
+              <div className={styles.composerCard}>
+                <TextAreaField label="消息" presentation="composer" value={draft}
+                  onChange={value => { setDraft(value); pendingSend.current = null; }}
+                  placeholder={chosenPolicy ? '询问已授权资料中的内容…' : '问一个问题，或继续追问…'} rows={2} />
+                <div className={styles.composerToolbar}>
+                  <div className={styles.scopePicker}><Select label="资料范围" presentation="toolbar" selectedKey={scopeChoice}
+                    onSelectionChange={key => { setScopeChoice(String(key)); pendingSend.current = null; }}
+                    options={[{ id: 'plain', label: '普通聊天 · 不读取笔记' }, ...activePolicies.map(policy => ({
+                      id: policy.policyId, label: `${scopeName(policy)} · 至 ${formatTime(policy.expiresAt)}`
+                    }))]} /></div>
+                  <Button variant="ghost" size="compact" onPress={() => {
+                    setGrantKind(initialNoteId ? 'fixed' : 'library');
+                    setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
+                    setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
+                  }}>设置读取范围</Button>
+                  {chosenPolicy ? <Button variant="ghost" size="compact" isDisabled={pending}
+                    onPress={() => void revokePolicy(chosenPolicy)}>撤销此授权</Button> : null}
+                  <span className={styles.composerSpacer} />
+                  <Button variant="primary" size="compact" isDisabled={!draft.trim() || draft.length > 3800 || pending || loading || !status?.generationAvailable
+                    || blocked(latestTurn) || scopeChoice !== 'plain' && !chosenPolicy}
+                    onPress={() => void send()}>{pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}</Button>
+                </div>
+              </div>
+              {chosenPolicy ? <p className={styles.composerHint}>仅相关且获授权的笔记片段可能发送给 DeepSeek。</p> : null}
+              {draft.length > 3800 ? <p className={styles.composerError} role="alert">问题超过 3800 字符。</p> : null}
+            </>}
           </div>
         </div>
       </div>

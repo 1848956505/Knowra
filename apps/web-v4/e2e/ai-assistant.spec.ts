@@ -48,6 +48,13 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   await page.goto('/#/assistant?new=1');
   await expect(page.getByRole('heading', { name: 'AI 助手', exact: true })).toBeVisible();
   await expect(page.getByText('服务器执行')).toBeVisible();
+  const composer = page.getByLabel('提问区');
+  const inputBounds = await page.getByRole('textbox', { name: '消息' }).boundingBox();
+  const composerBounds = await composer.boundingBox();
+  expect(inputBounds?.width).toBeGreaterThan(550);
+  expect(composerBounds?.height).toBeLessThan(210);
+  await page.getByRole('textbox', { name: '消息' }).focus();
+  expect(await page.getByRole('textbox', { name: '消息' }).evaluate(element => getComputedStyle(element).boxShadow)).toBe('none');
   await page.getByRole('textbox', { name: '消息' }).fill('解释梯度下降');
   await page.getByRole('button', { name: '发送消息' }).click();
   await expect(page.getByText('梯度下降是一种优化方法。')).toBeVisible();
@@ -56,6 +63,7 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   await expect(page.getByText('梯度下降是一种优化方法。')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 843 });
   await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: 'AI 助手' })).toBeVisible();
+  expect((await page.getByLabel('提问区').boundingBox())?.height).toBeLessThan(220);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
 });
 

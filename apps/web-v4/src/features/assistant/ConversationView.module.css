@@ -34,12 +34,18 @@
 .sourceDetail button + button { margin-left: 8px; }
 .turnState { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; max-width: 760px; margin: 0 auto; color: var(--ink-secondary); font-size: 12px; }
 .turnState strong { color: var(--ink); }
-.composer { flex: 0 0 auto; min-width: 0; padding: 16px clamp(16px, 4vw, 48px) 20px; border-top: 1px solid var(--ink-panel); background: var(--ink-surface); }
-.composer > * { max-width: 760px; margin-left: auto; margin-right: auto; }
-.scopeRow { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.scopeRow > div:first-child { flex: 1 1 230px; }
-.composerActions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
-.composerActions span { flex: 1; }
+.composer { flex: 0 0 auto; min-width: 0; padding: 12px clamp(16px, 4vw, 48px) 18px; border-top: 1px solid var(--ink-panel); background: var(--ink-bg); }
+.composerInner { width: 100%; max-width: 760px; margin: 0 auto; }
+.composerCard { min-width: 0; border: 1px solid var(--ink-shell); background: var(--ink-surface); box-shadow: var(--shadow-1); }
+.composerCard:focus-within { border-color: var(--ink); box-shadow: var(--shadow-input-focus); }
+.composerToolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
+.scopePicker { flex: 0 1 255px; min-width: 180px; }
+.scopePicker > div { width: 100%; }
+.composerSpacer { flex: 1 1 12px; }
+.composerHint { margin: 7px 0 0; color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
+.composerHint:first-child { margin: 0 0 7px; }
+.composerError { margin: 7px 0 0; color: var(--ink-danger); font-size: 11px; }
+.readOnlyComposer { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--ink-secondary); font-size: 12px; }
 .grantFields { display: grid; gap: 16px; }
 .grantFields p { margin: 0; }
 .error { max-width: 760px; width: 100%; margin: 0 auto 8px; padding: 8px 12px; color: #a32929; font-size: 12px; }
@@ -53,5 +59,6 @@
   .messages { padding: 14px 12px; }
   .message { padding: 12px; }
   .composer { padding: 10px 12px 12px; }
-  .composerActions { align-items: end; }
+  .scopePicker { flex: 1 1 100%; max-width: none; }
+  .composerToolbar { gap: 4px; padding: 0 8px 8px; }
 }

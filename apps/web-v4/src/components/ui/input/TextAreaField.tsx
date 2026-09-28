@@ -5,6 +5,7 @@ import styles from './Input.module.css';
 
 export interface TextAreaFieldProps extends Omit<RATextFieldProps, 'className' | 'children'> {
   label: string;
+  presentation?: 'field' | 'composer';
   description?: string;
   errorMessage?: string;
   placeholder?: string;
@@ -13,10 +14,10 @@ export interface TextAreaFieldProps extends Omit<RATextFieldProps, 'className' |
 }
 
 export const TextAreaField = forwardRef<HTMLDivElement, TextAreaFieldProps>(function TextAreaField(
-  { label, description, errorMessage, placeholder, rows = 3, className, isRequired, ...rest }, ref
+  { label, presentation = 'field', description, errorMessage, placeholder, rows = 3, className, isRequired, ...rest }, ref
 ) {
-  return <RATextField ref={ref} isRequired={isRequired} className={cx(styles.field, className)} {...rest}>
-    <Label className={styles.label}>{label}{isRequired ? <span className={styles.required} aria-hidden="true">*</span> : null}</Label>
+  return <RATextField ref={ref} isRequired={isRequired} className={cx(styles.field, presentation === 'composer' && styles.composerField, className)} {...rest}>
+    <Label className={cx(styles.label, presentation === 'composer' && styles.visuallyHidden)}>{label}{isRequired ? <span className={styles.required} aria-hidden="true">*</span> : null}</Label>
     {description ? <Text slot="description" className={styles.description}>{description}</Text> : null}
     <div className={cx(styles.inputShell, styles.textareaShell)} data-input-shadow-owner="true">
       <RATextArea className={styles.textarea} rows={rows} placeholder={placeholder} data-input-control="true" />
