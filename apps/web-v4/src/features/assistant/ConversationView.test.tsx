@@ -92,7 +92,7 @@ it('恢复历史消息与引用，来源打开历史版本，检索记录按需�
       start: 3, end: 8, quoteHash: '8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8' }],
     sourceFree: false, createdAt: conversation.createdAt }]);
   vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, toolCalls: [{ callId: 'call-1', ordinal: 1,
-    toolName: 'notes_search', argumentsJson: { query: 'alpha' }, resultJson: { hits: [] },
+    toolName: 'notes_search', argumentsJson: { query: 'alpha' }, resultJson: { hits: [], mode: 'keyword_fallback' },
     status: 'succeeded', sourceRefs: [], errorCode: null }] });
   const openNote = vi.fn();
   render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={openNote} />);
@@ -104,6 +104,7 @@ it('恢复历史消息与引用，来源打开历史版本，检索记录按需�
   expect(openNote).toHaveBeenCalledWith('note-1');
   fireEvent.click(screen.getByText('检索与调用记录'));
   expect(await screen.findByText(/检索笔记/)).toBeInTheDocument();
+  expect(screen.getByText(/索引无可用结果，已改用关键词检索/)).toBeInTheDocument();
 });
 
 it('中断轮次可重试，模型不可用时仍可回看消息且不能发送', async () => {

@@ -57,6 +57,7 @@ import { aiPluginIsolationTests } from './ai-plugin-isolation.test.js';
 import { aiAccessV2Tests } from './ai-access-v2.test.js';
 import { aiConversationV2Tests } from './ai-conversation-v2.test.js';
 import { aiAgentR04Tests } from './ai-agent-r04.test.js';
+import { aiRetrievalR06Tests } from './ai-retrieval-r06.test.js';
 import { aiConversationPostgresTests } from './ai-conversation-postgres.test.js';
 
 const tests = [
@@ -116,6 +117,7 @@ const tests = [
   ...aiAccessV2Tests,
   ...aiConversationV2Tests,
   ...aiAgentR04Tests,
+  ...aiRetrievalR06Tests,
   ...aiConversationPostgresTests,
 ];
 

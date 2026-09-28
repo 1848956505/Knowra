@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "description": "AI-01-R06 纯合成检索样本；关键词正例与语义改写观察集分开计数。",
+  "notes": [
+    { "id": "photo", "title": "光合作用", "content": "光合作用在叶绿体中进行。植物利用光照和水合成有机物，并释放氧气。" },
+    { "id": "respiration", "title": "细胞呼吸", "content": "细胞呼吸分解有机物释放能量。有氧呼吸需要氧气，主要在线粒体中进行。" },
+    { "id": "gradient", "title": "梯度下降", "content": "梯度下降沿损失函数的负梯度更新参数。学习率过大可能震荡，过小则收敛缓慢。" },
+    { "id": "overfit", "title": "过拟合", "content": "过拟合可通过正则化、早停和数据增强缓解。验证集用于观察泛化能力。" },
+    { "id": "newton", "title": "牛顿第二定律", "content": "牛顿第二定律写作 F=ma：合外力等于质量与加速度的乘积。" },
+    { "id": "sort", "title": "快速排序", "content": "快速排序选择基准元素，通过递归划分左右分区，平均时间复杂度为 O(n log n)。" },
+    { "id": "stats", "title": "统计显著性", "content": "p值表示在零假设成立时，观察到当前或更极端数据的概率。统计显著性不等于实际效应大。" },
+    { "id": "volcano", "title": "火山喷发", "content": "火山喷发时岩浆到达地表，火山灰可能影响航空和周围环境。" },
+    { "id": "poetry", "title": "诗歌意象", "content": "诗歌意象借具体景物表达情感。借景抒情把情绪融入景物描写。" },
+    { "id": "attention", "title": "注意力机制", "content": "Transformer 通过注意力机制建立序列元素间的联系，能够并行处理输入。" },
+    { "id": "unicode", "title": "字符规范化", "content": "😀ＡＢＣ 是全角字母示例；引用必须保留原始 UTF-16 偏移。" }
+  ],
+  "lexical": [
+    { "id": "L01", "query": "光合作用", "expected": ["photo"] },
+    { "id": "L02", "query": "叶绿体", "expected": ["photo"] },
+    { "id": "L03", "query": "细胞呼吸", "expected": ["respiration"] },
+    { "id": "L04", "query": "有氧呼吸", "expected": ["respiration"] },
+    { "id": "L05", "query": "梯度下降", "expected": ["gradient"] },
+    { "id": "L06", "query": "学习率", "expected": ["gradient"] },
+    { "id": "L07", "query": "过拟合", "expected": ["overfit"] },
+    { "id": "L08", "query": "正则化", "expected": ["overfit"] },
+    { "id": "L09", "query": "牛顿第二定律", "expected": ["newton"] },
+    { "id": "L10", "query": "F=ma", "expected": ["newton"] },
+    { "id": "L11", "query": "快速排序", "expected": ["sort"] },
+    { "id": "L12", "query": "递归", "expected": ["sort"] },
+    { "id": "L13", "query": "统计显著性", "expected": ["stats"] },
+    { "id": "L14", "query": "p值", "expected": ["stats"] },
+    { "id": "L15", "query": "火山喷发", "expected": ["volcano"] },
+    { "id": "L16", "query": "岩浆", "expected": ["volcano"] },
+    { "id": "L17", "query": "诗歌意象", "expected": ["poetry"] },
+    { "id": "L18", "query": "借景抒情", "expected": ["poetry"] },
+    { "id": "L19", "query": "注意力机制", "expected": ["attention"] },
+    { "id": "L20", "query": "Transformer", "expected": ["attention"] },
+    { "id": "L21", "query": "ABC", "expected": ["unicode"] },
+    { "id": "L22", "query": "光合作用与细胞呼吸", "expected": ["photo", "respiration"] },
+    { "id": "L23", "query": "正则化和学习率", "expected": ["overfit", "gradient"] },
+    { "id": "L24", "query": "火山与诗歌", "expected": ["volcano", "poetry"] }
+  ],
+  "noHit": [
+    { "id": "N01", "query": "量子纠缠" },
+    { "id": "N02", "query": "RNA剪接" }
+  ],
+  "semanticObservation": [
+    { "id": "S01", "query": "怎么防止模型死记硬背", "expected": ["overfit"] },
+    { "id": "S02", "query": "植物制造食物的过程", "expected": ["photo"] },
+    { "id": "S03", "query": "力会怎样改变运动", "expected": ["newton"] }
+  ]
+}

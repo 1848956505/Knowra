@@ -406,6 +406,8 @@ function Trace({ turn }: { turn: ConversationTurn }) {
       {typeof call.argumentsJson.query === 'string' ? ` · ${call.argumentsJson.query}` : null}
       <span> · {call.status === 'succeeded' ? `${call.sourceRefs.length} 个来源片段` : call.status === 'failed'
         ? `失败：${call.errorCode ?? '未知原因'}` : turn.status === 'running' ? '执行中' : '执行未完成'}</span>
+      {call.resultJson?.mode === 'keyword_fallback' ? <span> · 索引无可用结果，已改用关键词检索</span>
+        : call.resultJson?.mode === 'keyword' ? <span> · 关键词检索</span> : null}
       {call.resultJson?.truncated === true ? <span> · 检索范围受限</span> : null}
     </li>)}</ol> : <p>本轮没有检索或阅读工具记录。</p>}
   </div>;

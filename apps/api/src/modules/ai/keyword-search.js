@@ -34,8 +34,8 @@ export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, max
       if (typeof query !== 'string' || !query.trim() || query.length > 300
         || !Number.isSafeInteger(limit) || limit < 1 || limit > 8) fail('AI_SEARCH_INVALID', '检索参数无效。');
       const terms = tokens(query);
-      if (!terms.length) return { hits: [], inspected: 0, truncated: false };
       const candidates = await access.listAuthorizedNotes({ grantId });
+      if (!terms.length) return { hits: [], inspected: 0, truncated: false };
       const scored = [];
       let skippedOversize = 0;
       for (const candidate of candidates.slice(0, maxCandidates)) {

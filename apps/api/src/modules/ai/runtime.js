@@ -11,7 +11,7 @@ import { createAiAgentWorker } from './agent-worker.js';
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
-  verifySources = null, validateResult = null, providerAdapter = null } = {}) {
+  verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
   const gateway = createAiGateway({
@@ -23,7 +23,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const access = accessStore && contextSources ? createAiAccessService({ store: accessStore, ...contextSources }) : null;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
-      gateway, priceProfile, allowExternal,
+      gateway, priceProfile, allowExternal, retrievalCandidates,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,

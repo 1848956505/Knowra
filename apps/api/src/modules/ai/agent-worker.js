@@ -3,7 +3,7 @@ import { calculateContentHash } from '../knowledge/domain/note-version.js';
 import { beijingDay } from './budget-ledger.js';
 import { quoteWorstCase } from './worker.js';
 import { hashRecord } from './record-contract.js';
-import { createAuthorizedKeywordSearch } from './keyword-search.js';
+import { createAuthorizedRetrieval } from './retrieval.js';
 
 const MAX_ROUNDS = 4;
 const MAX_TOOLS = 6;
@@ -19,7 +19,7 @@ const boundary = (content, position) => position <= 0 || position >= content.len
     && content.charCodeAt(position) >= 0xDC00 && content.charCodeAt(position) <= 0xDFFF);
 
 const TOOLS = Object.freeze([
-  { name: 'notes_search', description: '在当前授权笔记中按关键词检索相关片段；若结果不足可以更换关键词再次搜索。',
+  { name: 'notes_search', description: '检索当前授权笔记中的相关片段；索引无可用结果时使用关键词，可更换关键词再次搜索。',
     parameters: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 5 } },
       required: ['query'], additionalProperties: false } },
   { name: 'notes_read', description: '读取当前授权笔记的一个片段，最多 1000 个 UTF-16 单位；只能使用搜索所得或用户明确提供的笔记 ID。',
@@ -30,13 +30,14 @@ const TOOLS = Object.freeze([
 /** R04 只读 Agent：供应商网络调用由现有隔离 adapter 执行，宿主仅处理授权、持久任务和预算。 */
 export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
-  accountRef = 'deepseek-primary', now = () => new Date(), logger = console } = {}) {
+  accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
+  retrievalCandidates = null } = {}) {
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
   const active = new Map();
   let closed = false;
-  const search = access ? createAuthorizedKeywordSearch({ access }) : null;
+  const search = access ? createAuthorizedRetrieval({ access, candidateSource: retrievalCandidates }) : null;
   const provider = gateway.capabilities?.().provider;
 
   async function currentTurn(turnId, generation, signal) {
@@ -173,7 +174,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         }
         const found = await search.search({ grantId, query: args.query, limit: args.limit ?? 5 });
         outcome = { resultJson: { hits: found.hits.map(hit => ({ noteId: hit.noteId, title: hit.title,
-          ref: hit.ref, text: hit.text })), inspected: found.inspected, truncated: found.truncated },
+          ref: hit.ref, text: hit.text })), inspected: found.inspected, truncated: found.truncated,
+          mode: found.mode, ...(found.fallbackReason ? { fallbackReason: found.fallbackReason } : {}) },
         sourceRefs: found.hits.map(hit => hit.ref) };
       } else if (call.name === 'notes_read') outcome = await readTool(grantId, call.arguments);
       else fail('AI_TOOL_INVALID', '模型请求了未开放的工具。');
@@ -181,12 +183,13 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       await store.settleToolCall(turn.turnId, generation, callId, outcome);
       return { sourceRefs: outcome.sourceRefs,
         truncated: outcome.resultJson?.truncated === true,
+        fallback: outcome.resultJson?.mode === 'keyword_fallback',
         inspected: outcome.resultJson?.inspected ?? 0 };
     } catch (error) {
       await store.settleToolCall(turn.turnId, generation, callId,
         { errorCode: safeCode(error?.code) }).catch(() => undefined);
       if (['AI_TOOL_ARGUMENTS_INVALID', 'AI_SEARCH_INVALID', 'AI_SCOPE_FORBIDDEN'].includes(error?.code)) {
-        return { sourceRefs: [], truncated: false, inspected: 0 };
+        return { sourceRefs: [], truncated: false, fallback: false, inspected: 0 };
       }
       throw error;
     }
@@ -238,6 +241,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     let sourceRefs = grant ? uniqueRefs(prior.filter(row => row.role === 'assistant')
       .flatMap(row => row.citations?.length ? row.citations : row.sourceRefs)).slice(-8) : [];
     let searchTruncated = false;
+    let searchFallback = false;
     if (grant && /(我的|我记|笔记|资料|文档|记录|之前|根据|比较|总结|引用)/.test(user.content)) {
       const callId = hashRecord({ turnId: turn.turnId, generation, initialSearch: true });
       await store.appendToolCall(turn.turnId, generation, { callId, toolName: 'notes_search',
@@ -247,10 +251,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         await currentTurn(turn.turnId, generation, signal);
         await store.settleToolCall(turn.turnId, generation, callId, { resultJson: {
           hits: initial.hits.map(hit => ({ noteId: hit.noteId, title: hit.title, ref: hit.ref, text: hit.text })),
-          inspected: initial.inspected, truncated: initial.truncated
+          inspected: initial.inspected, truncated: initial.truncated, mode: initial.mode,
+          ...(initial.fallbackReason ? { fallbackReason: initial.fallbackReason } : {})
         }, sourceRefs: initial.hits.map(hit => hit.ref) });
         sourceRefs = uniqueRefs([...sourceRefs, ...initial.hits.map(hit => hit.ref)]).slice(-12);
         searchTruncated = initial.truncated;
+        searchFallback = initial.mode === 'keyword_fallback';
       } catch (error) {
         await store.settleToolCall(turn.turnId, generation, callId,
           { errorCode: safeCode(error?.code) }).catch(() => undefined);
@@ -269,7 +275,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         const guidance = round ? finalOnly
             ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
             : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
-        const coverage = searchTruncated ? '\n检索受到候选数量或单篇长度上限限制，不得声称已检查完整授权范围。' : '';
+        const coverage = `${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到候选数量或单篇长度上限限制，不得声称已检查完整授权范围。' : ''}`;
         const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
         if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
         const context = plainContext && contextRoom >= 8
@@ -278,7 +284,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         const prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
           modelId: reference.modelId, credentialRef: reference.credentialRef,
           userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
-          omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : [])], maxTokens: 1024,
+          omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
+            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: 1024,
           tools: finalOnly ? [] : TOOLS, format: 'json' });
         request = prepared.request; manifest = prepared.manifest;
         for (const call of await store.listToolCalls(turn.turnId)) {
@@ -306,6 +313,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           const outcome = await executeTool(turn, generation, grant.grantId, call, signal);
           sourceRefs = uniqueRefs([...sourceRefs, ...outcome.sourceRefs]).slice(-12);
           searchTruncated ||= outcome.truncated;
+          searchFallback ||= outcome.fallback;
         }
         if (sourceRefs.every(ref => before.has(hashRecord(ref)))) {
           noProgressRounds++;
