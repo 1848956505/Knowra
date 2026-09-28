@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
 
-test('桌面真实页面声明本机只读助手、预览来源，并在云端预算不可用时禁止付费', { timeout: 60000 }, async t => {
+test('桌面真实页面声明本机执行、笔记读取需授权，并在云端预算不可用时禁止发送', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-desktop-page-'));
   const credentialSource = {
     credentialReference: async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' }),
@@ -30,10 +30,11 @@ test('桌面真实页面声明本机只读助手、预览来源，并在云端�
   await expect(page.getByRole('heading', { name: 'AI 助手', exact: true })).toBeVisible();
   await expect(page.getByText('本机执行')).toBeVisible();
   await expect(page.getByText('云端预算服务不可用，已阻止模型调用。')).toBeVisible();
-  await page.getByRole('textbox', { name: '问题' }).fill('会议日期是什么？');
-  await page.getByRole('button', { name: '预览发送范围' }).click();
-  await expect(page.getByText('合成事实：会议定在十月三日。')).toBeVisible();
-  await expect(page.getByRole('button', { name: '确认范围并提问' })).toBeDisabled();
+  await expect(page.getByText('来自笔记「合成会议笔记」；授权后才能读取。')).toBeVisible();
+  await page.getByRole('textbox', { name: '消息' }).fill('会议日期是什么？');
+  await expect(page.getByRole('button', { name: '发送消息' })).toBeDisabled();
+  await page.getByRole('button', { name: '设置读取范围' }).click();
+  await expect(page.getByRole('dialog', { name: '授权助手读取资料' })).toBeVisible();
   assert.equal((await runtime.store.aiRepository.list('aiJob')).length, 0);
   assert.deepEqual(errors, []);
 });
