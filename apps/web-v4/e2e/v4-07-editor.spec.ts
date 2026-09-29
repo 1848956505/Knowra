@@ -1270,6 +1270,23 @@ test('V4-07 Safari 中文上屏辅助元素不制造代码块视觉空行', asyn
   await expect.poll(() => code.textContent()).toBe('你好\n第二行');
 });
 
+test('V4-07 代码块输入法结束后仍等待编辑器完成组合输入再处理删除键', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '```\n```');
+  await page.goto('/#/materials/notes/note-1');
+  const code = page.locator('.ProseMirror pre code');
+  await code.click();
+  await code.evaluate(async (element) => {
+    element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }));
+  });
+  await expect(code).toHaveCount(1);
+  await page.waitForTimeout(30);
+  await page.keyboard.press('Backspace');
+  await expect(code).toHaveCount(0);
+});
+
 async function mockEditorWorkspace(
   page: Page,
   savedMarkdown: string[],

@@ -93,7 +93,7 @@ test('真实页面：标注来源审核与过期保护；桌面离线新建、�
   assert.equal(runtime.store.state.knowledgeItems[0].canonicalStatement, '没有云端连接也能保存知识候选。');
   assert(runtime.store.getStatus().pendingOperations > 0);
   const offlineId = runtime.store.state.knowledgeItems[0].id;
-  await page.getByRole('button', { name: '连接云端', exact: true }).click();
+  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
   await page.getByLabel(/云端服务地址/).fill(origin);
   await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '云端同步', exact: true })).toContainText('云端已同步');

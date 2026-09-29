@@ -1,4 +1,30 @@
-.trigger { border: 0; background: transparent; color: var(--ink-accent); cursor: pointer; font: inherit; padding: 2px 4px; }
+.trigger {
+  --sync-tone: var(--ink-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--sync-tone);
+  cursor: pointer;
+  font: inherit;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.trigger[data-tone='active'] { --sync-tone: var(--ink-accent); }
+.trigger[data-tone='success'] { --sync-tone: var(--ink-success); }
+.trigger[data-tone='warning'] { --sync-tone: var(--ink-warning); }
+.trigger[data-tone='danger'] { --sync-tone: var(--ink-danger); }
+.trigger:hover { background: var(--ink-sunken); }
+.trigger:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+.marker { width: 8px; height: 8px; flex: 0 0 8px; background: var(--sync-tone); }
+.main { color: color-mix(in srgb, var(--sync-tone) 70%, var(--ink)); font-weight: 600; }
+.detail { color: color-mix(in srgb, var(--sync-tone) 70%, var(--ink)); font-size: 11px; }
+.trigger[data-tone='active'] .marker { animation: syncPulse 1.3s ease-in-out infinite; }
+@keyframes syncPulse { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .trigger[data-tone='active'] .marker { animation: none; } }
 .body { display: grid; gap: 16px; text-align: left; white-space: normal; }
 .body p { margin: 0; line-height: 1.6; }
 .form { display: grid; gap: 12px; }

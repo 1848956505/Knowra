@@ -20,23 +20,37 @@ test('真实页面连接云端、后台刷新正文、三份冲突对照与手�
   const server = createServer({ appContext: cloud, logger: { error() {} } });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'local'), distRoot: fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url)), syncOptions: { autoSync: false } });
+  let cloudReachable = false;
+  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'local'), distRoot: fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url)), syncOptions: {
+    autoSync: false,
+    fetcher: (url, options) => cloudReachable ? fetch(url, options) : Promise.reject(new TypeError('fetch failed', { cause: Object.assign(new Error('name lookup failed'), { code: 'ENOTFOUND' }) }))
+  } });
   const browser = await chromium.launch({ ...(process.env.V4_BROWSER_CHANNEL === 'chrome' ? { channel: 'chrome' } : {}) });
   t.after(async () => { await browser.close(); await runtime.close(); await new Promise(resolve => server.close(resolve)); fs.rmSync(root, { recursive: true, force: true }); });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage(); const problems = [];
   page.on('pageerror', error => problems.push(error.message));
   await page.goto(runtime.launchUrl);
-  await page.getByRole('button', { name: '连接云端', exact: true }).click();
+  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
   await page.getByLabel(/云端服务地址/).fill(origin);
+  await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('无法解析云端服务地址');
+  await expect(page.getByRole('contentinfo').getByRole('button', { name: /本地资料待连接.*连接失败/ })).toBeVisible();
+  cloudReachable = true;
   await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('云端已同步');
   await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
+  if (process.env.KNOWRA_E2E_OUTPUT) {
+    fs.mkdirSync(process.env.KNOWRA_E2E_OUTPUT, { recursive: true });
+    await page.setViewportSize({ width: 960, height: 750 });
+    await page.screenshot({ path: path.join(process.env.KNOWRA_E2E_OUTPUT, 'sync-status-960.png'), animations: 'disabled' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
   await page.goto(`${runtime.origin}/#/materials/notes/${note.id}`);
   await expect(page.locator('.ProseMirror')).toContainText('页面共同基线');
   // 当前页面保持打开；远端更新后通过同步静默刷新，不需要重新导航。
   cloud.modules.knowledge.noteService.updateNote(note.id, { rawMarkdown: '网页先更新' });
-  await page.getByRole('button', { name: '云端已同步', exact: true }).click();
+  await page.getByRole('contentinfo').getByRole('button', { name: '本地资料已同步' }).click();
   await page.getByRole('button', { name: '立即同步', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('云端已同步');
   await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
@@ -81,4 +95,7 @@ test('真实页面连接云端、后台刷新正文、三份冲突对照与手�
   assert.equal(new Set(versions.map(version => version.contentHash)).size, versions.length);
   assert.deepEqual(problems, []);
   if (screenshots) await page.screenshot({ path: path.join(screenshots, 'sync-resolved.png') });
+  await page.getByRole('contentinfo').getByRole('button', { name: '本地资料已同步' }).click();
+  await page.getByRole('button', { name: '暂停云端同步', exact: true }).click();
+  await expect(page.getByRole('contentinfo').getByRole('button', { name: /仅使用本地资料.*云端同步已暂停/ })).toBeVisible();
 });

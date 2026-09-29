@@ -2,6 +2,41 @@ import { KNOWLEDGE_SYNC_CAPABILITY, KNOWLEDGE_COLLECTIONS } from '../../api/src/
 import { applyEntityRemote, nextEntityUpload, acknowledgeEntityUpload, getEntitySyncState, resolveEntityConflict } from './entity-sync-state.mjs';
 import { applyRemote, nextUpload, acknowledge, getSyncState, resolveConflict, readMeta, writeMeta } from './sync-state.mjs';
 
+function syncTransportError(failure) {
+  const causes = [failure];
+  const codes = new Set();
+  const seen = new Set();
+  for (let index = 0; index < causes.length; index++) {
+    const current = causes[index];
+    if (!current || typeof current !== 'object' || seen.has(current)) continue;
+    seen.add(current);
+    if (typeof current.code === 'string') codes.add(current.code);
+    if (current.cause) causes.push(current.cause);
+    if (Array.isArray(current.errors)) causes.push(...current.errors);
+  }
+  let code = 'SYNC_NETWORK_UNAVAILABLE';
+  let message = '无法连接云端，请检查网络、代理或服务地址后重试。';
+  if (failure?.name === 'TimeoutError' || codes.has('ETIMEDOUT') || codes.has('UND_ERR_CONNECT_TIMEOUT')) {
+    code = 'SYNC_NETWORK_TIMEOUT';
+    message = '连接云端超时，请检查网络后重试。';
+  } else if (codes.has('ENOTFOUND') || codes.has('EAI_AGAIN')) {
+    code = 'SYNC_NETWORK_DNS';
+    message = '无法解析云端服务地址，请检查网络、DNS 或服务地址后重试。';
+  } else if ([...codes].some(value => value.startsWith('CERT_') || value.startsWith('ERR_TLS_CERT_') || ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN'].includes(value))) {
+    code = 'SYNC_NETWORK_TLS';
+    message = '无法验证云端安全证书，请检查系统时间或云端证书。';
+  } else if (codes.has('ECONNREFUSED')) {
+    code = 'SYNC_CONNECTION_REFUSED';
+    message = '云端服务拒绝连接，请检查服务是否可用后重试。';
+  } else if (codes.has('ECONNRESET')) {
+    code = 'SYNC_CONNECTION_INTERRUPTED';
+    message = '云端连接中断，请检查网络后重试。';
+  }
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
 export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, noteService, autoSync = true, entityTransfer = null } = {}) {
   let authorization = '';
   const full = Boolean(entityTransfer);
@@ -13,22 +48,31 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
   let retryAt = 0;
   let wakeTimer;
   const meta = key => store.readSync(db => readMeta(db, key));
+  async function fetchSync(url, options) {
+    try { return await fetcher(url, options); }
+    catch (failure) { throw syncTransportError(failure); }
+  }
   async function request(route, body, serverUrl = meta('serverUrl')) {
-    const response = await fetcher(`${serverUrl}/api/sync/${route}`, {
+    const response = await fetchSync(`${serverUrl}/api/sync/${route}`, {
       method: body === undefined ? 'GET' : 'POST', redirect: 'error',
       headers: { ...(authorization ? { Authorization: authorization } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(15000)
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const failure = new Error(data.error?.message ?? (response.status === 401 ? '请重新输入云端登录凭据。' : `云端请求失败（${response.status}）。`));
-      failure.code = data.error?.code === 'SYNC_DEVICE_NOT_ENABLED' ? data.error.code : response.status === 401 || response.status === 403 ? 'AUTH_REQUIRED' : data.error?.code ?? 'NETWORK_ERROR';
+      const authRequired = response.status === 401 || response.status === 403;
+      const deviceNotEnabled = data.error?.code === 'SYNC_DEVICE_NOT_ENABLED';
+      const failure = new Error(deviceNotEnabled ? data.error?.message ?? '此设备尚未获准同步。'
+        : authRequired ? '云端登录凭据无效或已失效，请重新输入。'
+        : data.error?.message ?? (response.status >= 500 ? `云端服务暂不可用（${response.status}），请稍后重试。` : `云端请求失败（${response.status}）。`));
+      failure.code = deviceNotEnabled ? data.error.code : authRequired ? 'AUTH_REQUIRED'
+        : data.error?.code ?? (response.status >= 500 ? 'CLOUD_SERVICE_UNAVAILABLE' : 'CLOUD_REQUEST_FAILED');
       failure.status = response.status;
       const retryAfter = response.headers.get('retry-after');
       failure.retryAfterMs = retryAfter ? Math.max(0, /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now()) : 0;
       throw failure;
     }
-    if (!data.data) throw new Error('云端返回了无法识别的同步响应。');
+    if (!data.data) { const failure = new Error('云端返回了无法识别的同步响应，请稍后重试。'); failure.code = 'SYNC_INVALID_RESPONSE'; throw failure; }
     return data.data;
   }
   async function receive(entries, cursor, epoch, reset = false) {
@@ -41,7 +85,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       try { entityTransfer.verify(entry.value); }
       catch {
         store.syncTransaction(db => writeMeta(db, 'attachmentPending', entry.id));
-        const response = await fetcher(`${meta('serverUrl')}/api/storage/attachments/${encodeURIComponent(entry.id)}/content`, {
+        const response = await fetchSync(`${meta('serverUrl')}/api/storage/attachments/${encodeURIComponent(entry.id)}/content`, {
           headers: authorization ? { Authorization: authorization } : {}, redirect: 'error', signal: AbortSignal.timeout(30000)
         });
         if (!response.ok) {
@@ -225,7 +269,15 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) throw new Error('云端地址必须使用 HTTPS。');
       if (meta('serverUrl') && meta('serverUrl') !== url.origin) throw new Error('此本地资料库已绑定其他服务，请新建独立资料目录。');
       authorization = username ? `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}` : '';
-      const info = await request('status', undefined, url.origin);
+      let info;
+      try { info = await request('status', undefined, url.origin); }
+      catch (failure) {
+        if (meta('serverUrl')) {
+          error = { code: failure.code ?? 'SYNC_ACTION_FAILED', message: failure.message };
+          phase = failure.code === 'AUTH_REQUIRED' ? 'auth-required' : 'paused';
+        }
+        throw failure;
+      }
       if (info.protocolVersion !== 1 || info.scope !== 'notes' || (full && (info.entitySchemaVersion !== 5 || !info.capabilities?.includes('atomic-entities-v2')))) throw new Error('云端同步协议不兼容，请升级应用。');
       if (meta('ownerId') && info.ownerId !== meta('ownerId')) throw new Error('云端所属资料库已改变，请使用独立本地资料目录。');
       store.syncTransaction(db => { writeMeta(db, 'serverUrl', url.origin); writeMeta(db, 'clientPaused', false); });

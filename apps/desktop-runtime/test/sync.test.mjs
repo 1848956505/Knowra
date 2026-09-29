@@ -61,6 +61,39 @@ test('真实 HTTP：网页、两个 SQLite 设备收敛；同事务版本日志�
   assert.equal(stale.status, 428);
 });
 
+test('同步连接错误区分网络、超时与登录失败，恢复后清除错误', async t => {
+  const cloud = await fixture(t);
+  let responseMode = 'dns';
+  const device = cloud.device('connection-errors', async (url, options) => {
+    if (responseMode === 'dns') {
+      throw new TypeError('fetch failed', { cause: Object.assign(new Error('name lookup failed'), { code: 'ENOTFOUND' }) });
+    }
+    if (responseMode === 'timeout') throw new DOMException('request timed out', 'TimeoutError');
+    if (responseMode === 'auth') return new Response(null, { status: 401 });
+    if (responseMode === 'device') return new Response(JSON.stringify({ error: { code: 'SYNC_DEVICE_NOT_ENABLED', message: '此设备尚未获准同步。' } }), { status: 403 });
+    if (responseMode === 'offline') throw new TypeError('fetch failed');
+    return fetch(url, options);
+  });
+  await assert.rejects(device.connect(), failure => failure.code === 'SYNC_NETWORK_DNS' && /无法解析云端服务地址/.test(failure.message) && !failure.message.includes('fetch failed'));
+  responseMode = 'timeout';
+  await assert.rejects(device.connect(), failure => failure.code === 'SYNC_NETWORK_TIMEOUT' && /连接云端超时/.test(failure.message));
+  responseMode = 'auth';
+  await assert.rejects(device.connect(), failure => failure.code === 'AUTH_REQUIRED' && /登录凭据/.test(failure.message));
+  responseMode = 'device';
+  await assert.rejects(device.connect(), failure => failure.code === 'SYNC_DEVICE_NOT_ENABLED' && /设备尚未获准同步/.test(failure.message));
+  responseMode = 'online';
+  await device.connect();
+  responseMode = 'offline';
+  await device.engine.sync();
+  assert.equal(device.engine.status().phase, 'paused');
+  assert.equal(device.engine.status().error.code, 'SYNC_NETWORK_UNAVAILABLE');
+  assert.match(device.engine.status().error.message, /无法连接云端/);
+  responseMode = 'online';
+  await device.engine.sync();
+  assert.equal(device.engine.status().phase, 'synced');
+  assert.equal(device.engine.status().error, null);
+});
+
 test('丢失成功响应后原 ID 重试；发送期间的新编辑不会被旧确认清除', async t => {
   const cloud = await fixture(t);
   let lose = true; let edited = false; const ids = [];

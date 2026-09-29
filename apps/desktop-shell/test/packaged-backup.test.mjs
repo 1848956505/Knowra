@@ -47,7 +47,7 @@ test('打包应用备份恢复隔离原生旧草稿，退出及重启均不会�
     return post('/api/knowledge/notes', { spaceId: space.id, title: '打包备份隔离检查', rawMarkdown: '备份中的正文\n' });
   });
   await page.reload();
-  await page.getByRole('button', { name: '连接云端', exact: true }).click();
+  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
   await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
   await page.getByRole('button', { name: '创建本机备份', exact: true }).click();
   await expect(page.getByText(/备份已保存：/)).toBeVisible();

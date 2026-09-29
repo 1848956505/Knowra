@@ -121,4 +121,15 @@ describe('StatusBar breadcrumb path', () => {
     expect(screen.getByRole('button', { name: '切换检查器' })).toBeInTheDocument();
   });
 
+  it('将桌面同步的三块内容作为同一个操作区，网页版仍使用原数据模式', () => {
+    const control = <button type="button"><span>■</span><span>本地资料已同步</span></button>;
+    const { rerender } = render(<StatusBar path={[]} dataMode="api" persistenceMode="desktop-local" dataModeNote={control} />);
+    const button = screen.getByRole('button', { name: /本地资料已同步/ });
+    expect(button).toBeInTheDocument();
+    expect(button).not.toHaveTextContent('云端已同步');
+    expect(screen.queryByLabelText('数据模式：本地资料')).not.toBeInTheDocument();
+    rerender(<StatusBar path={[]} dataMode="api" persistenceMode="remote" />);
+    expect(screen.getByLabelText('数据模式：已同步')).toBeInTheDocument();
+  });
+
 });

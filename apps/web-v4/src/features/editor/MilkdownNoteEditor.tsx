@@ -125,8 +125,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       if (!editor || readOnlyRef.current) return;
       if (event.target instanceof Element && event.target.closest('[data-code-toolbar]')) return;
       userInteractionRef.current = true;
-      if (event.nativeEvent.isComposing || event.keyCode === 229 || composingRef.current) return;
       const view = editor.ctx.get(editorViewCtx);
+      if (event.nativeEvent.isComposing || event.keyCode === 229 || composingRef.current || view.composing) return;
       if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && createCodeFromFence(view.state, view.dispatch)) {
         event.preventDefault(); event.stopPropagation(); return;
       }
@@ -174,6 +174,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
 
     const handleCompositionEnd = () => {
       if (compositionFlushTimerRef.current) clearTimeout(compositionFlushTimerRef.current);
+      // ProseMirror finishes an IME composition in a 20 ms follow-up task. Keep
+      // code-block shortcuts dormant until that DOM reconciliation has settled.
       compositionFlushTimerRef.current = setTimeout(() => {
         compositionFlushTimerRef.current = null;
         composingRef.current = false;
@@ -185,7 +187,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         emittedMarkdownRef.current = nextMarkdown;
         latestLocalMarkdownRef.current = nextMarkdown;
         onChangeRef.current(nextMarkdown);
-      }, 0);
+      }, 30);
     };
 
     useImperativeHandle(ref, () => ({

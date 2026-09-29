@@ -72,11 +72,13 @@ export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function Status
 
       <span className={styles.spacer} />
 
-      {showDataMode ? <span className={styles.item} aria-label={`数据模式：${modeMeta.label}`}>
-        <span className={cx(styles.square, modeMeta.squareClass)} aria-hidden="true" />
-        <span>{modeMeta.label}</span>
-        {dataModeNote ? <span className={styles.note}>{dataModeNote}</span> : null}
-      </span> : null}
+      {showDataMode ? persistenceMode === 'desktop-local' && dataMode === 'api' && dataModeNote
+        ? <span className={styles.item}>{dataModeNote}</span>
+        : <span className={styles.item} aria-label={`数据模式：${modeMeta.label}`}>
+          <span className={cx(styles.square, modeMeta.squareClass)} aria-hidden="true" />
+          <span>{modeMeta.label}</span>
+          {dataModeNote ? <span className={styles.note}>{dataModeNote}</span> : null}
+        </span> : null}
 
       {panels.length > 0 ? (
         <span className={styles.switches} aria-label="面板开关">
