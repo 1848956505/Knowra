@@ -12,21 +12,35 @@ export interface EditorShortcutInput {
 }
 
 const shortcutLabels: Partial<Record<EditorCommand, string>> = {
-  paragraph: 'Ctrl+0',
-  'heading-1': 'Ctrl+1',
-  'heading-2': 'Ctrl+2',
-  'heading-3': 'Ctrl+3',
-  'heading-4': 'Ctrl+4',
-  'bullet-list': 'Ctrl+Shift+}',
-  'ordered-list': 'Ctrl+Shift+{',
-  'task-list': 'Ctrl+Shift+X',
-  bold: 'Ctrl+B',
-  'inline-code': 'Ctrl+E',
-  highlight: 'Ctrl+Shift+H'
+  paragraph: 'Mod+0',
+  'heading-1': 'Mod+1',
+  'heading-2': 'Mod+2',
+  'heading-3': 'Mod+3',
+  'heading-4': 'Mod+4',
+  'bullet-list': 'Mod+Alt+U',
+  'ordered-list': 'Mod+Alt+O',
+  'task-list': 'Mod+Shift+X',
+  blockquote: 'Mod+Alt+Q',
+  'code-block': 'Mod+Alt+C',
+  'horizontal-rule': 'Mod+Alt+R',
+  table: 'Mod+Alt+T',
+  bold: 'Mod+B',
+  italic: 'Mod+I',
+  strikethrough: 'Ctrl+Shift+`',
+  'inline-code': 'Mod+E',
+  highlight: 'Mod+Shift+H',
+  'internal-link': 'Mod+Alt+K',
+  'paragraph-above': 'Mod+Alt+↑',
+  'paragraph-below': 'Mod+Alt+↓'
 };
 
-export function getEditorShortcutLabel(command: EditorCommand): string | undefined {
-  return shortcutLabels[command];
+export function getEditorShortcutLabel(command: EditorCommand, isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)): string | undefined {
+  if (command === 'inline-code' && isMac) return '⌘+Shift+`';
+  return shortcutLabels[command]?.replaceAll('Mod', isMac ? '⌘' : 'Ctrl').replaceAll('Alt', isMac ? '⌥' : 'Alt');
+}
+
+export function getEditorPageShortcutLabel(keys: string, isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)): string {
+  return keys.replace('Mod+Ctrl+', isMac ? '⌘+Ctrl+' : 'Ctrl+Alt+').replaceAll('Mod', isMac ? '⌘' : 'Ctrl');
 }
 
 export function resolveEditorShortcutCommand(input: EditorShortcutInput): EditorCommand | null {
@@ -38,16 +52,28 @@ export function resolveEditorShortcutCommand(input: EditorShortcutInput): Editor
     return input.shiftKey ? 'outdent' : 'indent';
   }
 
-  if (
-    input.altKey
-    && !input.shiftKey
-    && (input.ctrlKey || input.metaKey)
-    && (input.key.toLowerCase() === 'c' || input.code === 'KeyC')
-  ) {
-    return 'code-block';
+  const mod = input.ctrlKey || input.metaKey;
+  const physicalKey = input.code?.startsWith('Key') ? input.code.slice(3).toLowerCase() : input.key.toLowerCase();
+  if (input.ctrlKey && !input.metaKey && !input.altKey && input.shiftKey && input.code === 'Backquote') {
+    return 'strikethrough';
   }
+  if (!mod) return null;
 
-  if (input.altKey || (!input.ctrlKey && !input.metaKey)) return null;
+  if (input.altKey && !input.shiftKey) {
+    const optionCommands: Record<string, EditorCommand> = {
+      c: 'code-block',
+      k: 'internal-link',
+      o: 'ordered-list',
+      q: 'blockquote',
+      r: 'horizontal-rule',
+      t: 'table',
+      u: 'bullet-list',
+      arrowup: 'paragraph-above',
+      arrowdown: 'paragraph-below'
+    };
+    return optionCommands[physicalKey] ?? null;
+  }
+  if (input.altKey) return null;
 
   if (!input.shiftKey) {
     const headingCommands: Record<string, EditorCommand> = {
@@ -59,13 +85,15 @@ export function resolveEditorShortcutCommand(input: EditorShortcutInput): Editor
     };
     const formattingCommands: Record<string, EditorCommand> = {
       b: 'bold',
-      e: 'inline-code'
+      e: 'inline-code',
+      i: 'italic'
     };
     return headingCommands[input.key] ?? formattingCommands[input.key.toLowerCase()] ?? null;
   }
 
   if (input.key.toLowerCase() === 'x') return 'task-list';
   if (input.key.toLowerCase() === 'h' || input.code === 'KeyH') return 'highlight';
+  if (input.code === 'Backquote') return 'inline-code';
   if (input.code === 'BracketLeft' || input.key === '{') return 'ordered-list';
   if (input.code === 'BracketRight' || input.key === '}') return 'bullet-list';
   return null;

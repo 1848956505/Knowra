@@ -1,6 +1,24 @@
 import { exitCode, setBlockType } from '@milkdown/kit/prose/commands';
 import { Fragment } from '@milkdown/kit/prose/model';
-import { TextSelection, type Command } from '@milkdown/kit/prose/state';
+import { TextSelection, type Command, type EditorState, type Transaction } from '@milkdown/kit/prose/state';
+
+/** Select only the code node's text; visual soft wraps do not add document breaks. */
+export function selectCodeBlockContentsAt(
+  state: EditorState,
+  from: number,
+  to: number,
+  dispatch?: (transaction: Transaction) => void
+): boolean {
+  const $from = state.doc.resolve(from);
+  const $to = state.doc.resolve(to);
+  if (!$from.parent.type.spec.code || !$from.sameParent($to)) return false;
+  dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())).scrollIntoView());
+  return true;
+}
+
+export const selectCodeBlockContents: Command = (state, dispatch) => (
+  selectCodeBlockContentsAt(state, state.selection.from, state.selection.to, dispatch)
+);
 
 export const indentCode: (outdent?: boolean) => Command = (outdent = false) => (state, dispatch) => {
   const { $from, $to, empty } = state.selection;

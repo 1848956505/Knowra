@@ -3,13 +3,16 @@ import { AllSelection } from '@milkdown/kit/prose/state';
 import { readClipboardText, runDocumentCommand, writeClipboardText } from '../../browser/clipboard';
 import type { EditorClipboardAction, EditorEditResult } from './editorCommands';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
+import { selectCodeBlockContents } from './editorCodeCommands';
 
 export async function runEditorClipboardAction(editor: Editor, action: EditorClipboardAction): Promise<EditorEditResult> {
   const view = editor.ctx.get(editorViewCtx);
   view.focus();
 
   if (action === 'select-all') {
-    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    if (!selectCodeBlockContents(view.state, view.dispatch)) {
+      view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    }
     return { ok: true };
   }
 

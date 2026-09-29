@@ -52,6 +52,7 @@ import {
   replaceCurrentMatch
 } from './editorFind';
 import { resolveEditorShortcutCommand } from './editorShortcuts';
+import { scrollEditorSelectionIntoView } from './editorSelectionScroll';
 import { editorInputBehavior } from './editorInputBehavior';
 import { createEditorPasteBehavior } from './editorPasteBehavior';
 import { highlightRemark, highlightSchema, toggleHighlightCommand } from './editorHighlight';
@@ -68,7 +69,7 @@ import {
   selectEditorAnnotation,
   setEditorAnnotations
 } from './editorAnnotations';
-import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode } from './editorCodeCommands';
+import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode, selectCodeBlockContentsAt } from './editorCodeCommands';
 import { createCodeBlockBehavior } from './editorCodeBlock';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
@@ -122,11 +123,25 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
 
     const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
       const editor = editorRef.current;
-      if (!editor || readOnlyRef.current) return;
+      if (!editor) return;
       if (event.target instanceof Element && event.target.closest('[data-code-toolbar]')) return;
-      userInteractionRef.current = true;
       const view = editor.ctx.get(editorViewCtx);
       if (event.nativeEvent.isComposing || event.keyCode === 229 || composingRef.current || view.composing) return;
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'a') {
+        const selection = window.getSelection();
+        if (selection?.anchorNode && selection.focusNode
+          && view.dom.contains(selection.anchorNode) && view.dom.contains(selection.focusNode)) {
+          const anchor = view.posAtDOM(selection.anchorNode, selection.anchorOffset);
+          const focus = view.posAtDOM(selection.focusNode, selection.focusOffset);
+          if (selectCodeBlockContentsAt(view.state, anchor, focus, view.dispatch)) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+        }
+      }
+      if (readOnlyRef.current) return;
+      userInteractionRef.current = true;
       if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && createCodeFromFence(view.state, view.dispatch)) {
         event.preventDefault(); event.stopPropagation(); return;
       }
@@ -341,11 +356,11 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           ctx.set(historyProviderConfig.key, { depth: 500, newGroupDelay: 750 });
           ctx.set(editorViewOptionsCtx, {
             editable: () => !readOnlyRef.current,
-            handleScrollToSelection: () => !userInteractionRef.current,
+            handleScrollToSelection: (view) => !userInteractionRef.current || scrollEditorSelectionIntoView(view),
             attributes: {
               'aria-label': '笔记正文',
               'aria-multiline': 'true',
-              'aria-keyshortcuts': 'Tab Shift+Tab Control+0 Control+1 Control+2 Control+3 Control+4 Control+B Control+E Control+Shift+H Control+Shift+X Meta+0 Meta+1 Meta+2 Meta+3 Meta+4 Meta+B Meta+E Meta+Shift+H Meta+Shift+X',
+              'aria-keyshortcuts': 'Tab Shift+Tab Meta+0 Meta+1 Meta+2 Meta+3 Meta+4 Meta+B Meta+I Meta+E Meta+Shift+Backquote Meta+Shift+H Meta+Shift+X Meta+Alt+U Meta+Alt+O Meta+Alt+Q Meta+Alt+C Meta+Alt+T Meta+Alt+R Meta+Alt+K Control+0 Control+1 Control+2 Control+3 Control+4 Control+B Control+I Control+E Control+Shift+H Control+Shift+X Control+Shift+Backquote',
               spellcheck: 'true'
             }
           });

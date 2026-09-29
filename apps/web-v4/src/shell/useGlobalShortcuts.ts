@@ -27,7 +27,7 @@ export function useGlobalShortcuts(shortcuts: GlobalShortcuts): void {
     function handler(event: KeyboardEvent) {
       if (event.defaultPrevented) return;
       const isMod = event.metaKey || event.ctrlKey;
-      if (!isMod) return;
+      if (!isMod || event.altKey) return;
       const key = event.key.toLowerCase();
 
       if (key === 'k' && shortcuts.onOpenSearch) {

@@ -1,5 +1,5 @@
 import { registerDesktopSave, trackDesktopTask } from '../../app/desktopLifecycle';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useDesktopTitlebar } from '../../shell/DesktopTitlebarContext';
 import {
@@ -576,6 +576,32 @@ export function NoteEditorView({
     }
   };
 
+  const handleEditorPageKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!(event.target instanceof HTMLElement) || !event.target.closest('.ProseMirror')) return;
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    const mod = event.metaKey || event.ctrlKey;
+    if (!mod) return;
+    const key = event.key.toLowerCase();
+    if (((event.metaKey && event.ctrlKey && !event.altKey) || (event.ctrlKey && event.altKey && !event.metaKey))
+      && !event.shiftKey && key === 'i' && canEditContent && extendedWritesEnabled) {
+      event.preventDefault();
+      event.stopPropagation();
+      imageInputRef.current?.click();
+    } else if (event.altKey) {
+      return;
+    } else if (!event.shiftKey && key === 'f') {
+      event.preventDefault();
+      setEditPanelMode('find');
+    } else if (!event.shiftKey && key === 'h' && canEditContent) {
+      event.preventDefault();
+      setEditPanelMode('replace');
+    } else if (key === 's' && canWrite) {
+      event.preventDefault();
+      void handleFileAction(event.shiftKey ? 'save-as' : 'save')
+        .catch((error) => onFileStatus(error instanceof Error ? error.message : '保存失败'));
+    }
+  };
+
   const tabs = note ? <EditorTabs
     notes={openNotes.length > 0 ? openNotes : [note]}
     activeNoteId={note.id}
@@ -601,6 +627,7 @@ export function NoteEditorView({
   return (
     <section
       className={styles.editor}
+      onKeyDownCapture={handleEditorPageKeyDown}
       data-view-mode={view.mode}
       data-content-mode={view.contentMode}
       data-inspector-open={inspectorOpen || undefined}

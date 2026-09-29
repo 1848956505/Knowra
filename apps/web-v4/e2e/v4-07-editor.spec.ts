@@ -817,6 +817,62 @@ test('V4-07 超长文档输入保持光标可见并按笔记恢复滚动位置',
   await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeLessThan(scrollBeforeSwitch + 80);
 });
 
+test('V4-07 在工具栏后方输入时只滚动到正文首个可见位置', async ({ page }) => {
+  const savedMarkdown: string[] = [];
+  const markdown = Array.from({ length: 36 }, (_, index) => `测试段落 ${index + 1}`).join('\n\n');
+  await mockEditorWorkspace(page, savedMarkdown, [], markdown);
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  await expect(editor.locator(':scope > p')).toHaveCount(36);
+  await expect(editor.locator('xpath=ancestor::*[@data-editor-ready][1]')).toHaveAttribute('data-editor-ready', 'true');
+  const target = editor.locator(':scope > p').nth(6);
+  const before = await target.evaluate((paragraph) => {
+    const stage = paragraph.closest<HTMLElement>('[data-editor-scroll-root]')!;
+    stage.scrollTop += paragraph.getBoundingClientRect().top - stage.getBoundingClientRect().top + 4;
+    paragraph.closest<HTMLElement>('.ProseMirror')!.focus({ preventScroll: true });
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.collapse(false);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    return stage.scrollTop;
+  });
+  await page.keyboard.type('z');
+  await expect(target).toContainText('z');
+  const position = await target.evaluate((paragraph) => {
+    const stage = paragraph.closest<HTMLElement>('[data-editor-scroll-root]')!;
+    const toolbar = stage.querySelector<HTMLElement>('[role="toolbar"][aria-label="笔记格式工具栏"]')!;
+    return { top: paragraph.getBoundingClientRect().top, toolbarBottom: toolbar.getBoundingClientRect().bottom, stageTop: stage.getBoundingClientRect().top, scrollTop: stage.scrollTop };
+  });
+  expect(position.top, JSON.stringify(position)).toBeGreaterThanOrEqual(Math.max(position.stageTop, position.toolbarBottom) - 4);
+  expect(position.top, JSON.stringify(position)).toBeLessThan(Math.max(position.stageTop, position.toolbarBottom) + 54);
+  expect(before - position.scrollTop, JSON.stringify(position)).toBeLessThan(160);
+});
+
+test('V4-07 Mac 笔记快捷键可执行格式、段落与查找', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '格式测试\n\n引用测试');
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  await expect(editor.locator(':scope > p')).toHaveCount(2);
+  await editor.locator(':scope > p').first().click({ clickCount: 3 });
+  await page.keyboard.press('Meta+i');
+  await expect(editor.locator(':scope > p em')).toHaveText('格式测试');
+  await page.keyboard.press('Meta+Alt+q');
+  await expect(editor.locator(':scope > blockquote')).toContainText('格式测试');
+  await page.keyboard.press('Meta+f');
+  await expect(page.getByRole('region', { name: '查找面板' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeFocused();
+  await page.keyboard.press('Meta+h');
+  await expect(page.getByRole('region', { name: '替换面板' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeFocused();
+  const fileChooser = page.waitForEvent('filechooser');
+  await page.keyboard.press('Meta+Control+i');
+  expect((await fileChooser).isMultiple()).toBe(false);
+});
+
 test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源码模式', async ({ page }) => {
   test.setTimeout(60_000);
   const savedMarkdown: string[] = [];
@@ -1124,8 +1180,10 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   expect(errors).toEqual([]);
 });
 
-test('V4-07 围栏输入支持语言符号且长代码仅在块内滚动', async ({ page }) => {
-  await mockEditorWorkspace(page, [], [], '');
+test('V4-07 围栏输入支持语言符号且长代码随宽度软换行', async ({ page, context }) => {
+  const saved: string[] = [];
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await mockEditorWorkspace(page, saved, [], '');
   await page.setViewportSize({ width: 600, height: 800 });
   await page.goto('/#/materials/notes/note-1');
   const editor = page.locator('.ProseMirror');
@@ -1136,12 +1194,63 @@ test('V4-07 围栏输入支持语言符号且长代码仅在块内滚动', async
   await expect(code).toBeVisible();
   await page.keyboard.type('x'.repeat(300));
   await expect(code).toHaveText('x'.repeat(300));
-  expect(await code.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+  await expect.poll(() => saved.at(-1) ?? '').toContain(`\n${'x'.repeat(300)}\n`);
+  const originalMarkdown = saved.at(-1);
+  const layout = async () => code.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    return { lines: range.getClientRects().length, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth };
+  });
+  const narrow = await layout();
+  expect(narrow.lines).toBeGreaterThan(1);
+  expect(narrow.scrollWidth).toBeLessThanOrEqual(narrow.clientWidth + 1);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const wide = await layout();
+  expect(wide.lines).toBeLessThan(narrow.lines);
+  expect(wide.scrollWidth).toBeLessThanOrEqual(wide.clientWidth + 1);
+  await page.setViewportSize({ width: 600, height: 800 });
+  expect((await layout()).lines).toBe(narrow.lines);
+  expect(saved.at(-1)).toBe(originalMarkdown);
+  await page.getByRole('button', { name: '复制代码', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('x'.repeat(300));
   expect(await editor.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  await page.screenshot({ path: '/tmp/knowra-code-block.png' });
-  await page.keyboard.press('ControlOrMeta+Enter');
+  await page.getByRole('button', { name: '在下方继续', exact: true }).click();
   await page.keyboard.type('after');
   await expect(editor.locator(':scope > p')).toHaveText('after');
+});
+
+test('V4-07 代码块内 ⌘A 仅选当前代码，正文 ⌘A 仍选整篇笔记', async ({ page }) => {
+  const codeText = 'first line\nsecond line';
+  await mockEditorWorkspace(page, [], [], `正文之前\n\n\`\`\`python\n${codeText}\n\`\`\`\n\n正文之后\n\n\`\`\`js\nother block\n\`\`\``);
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  const code = editor.locator('pre[data-code-block] > code').first();
+  await expect(code).toHaveText(codeText);
+  await code.evaluate((element) => {
+    element.closest<HTMLElement>('.ProseMirror')?.focus({ preventScroll: true });
+    const range = document.createRange();
+    range.setStart(element.firstChild!, 2);
+    range.setEnd(element.firstChild!, 5);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  });
+  const selectedText = () => page.evaluate(() => window.getSelection()?.toString() ?? '');
+  await expect.poll(selectedText).toBe('rst');
+  await page.keyboard.press('Meta+a');
+  await expect.poll(selectedText).toBe(codeText);
+  await page.keyboard.press('Meta+a');
+  await expect.poll(selectedText).toBe(codeText);
+  await editor.locator('pre[data-code-block] > code').last().click();
+  await page.keyboard.press('Meta+a');
+  await expect.poll(selectedText).toBe('other block');
+  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.getByRole('menuitem', { name: '全选', exact: true }).click();
+  await expect.poll(selectedText).toBe('other block');
+  await editor.locator(':scope > p').first().click();
+  await page.keyboard.press('Meta+a');
+  await expect.poll(selectedText).toContain('正文之前');
+  await expect.poll(selectedText).toContain('正文之后');
+  await expect.poll(selectedText).toContain('other block');
 });
 
 test('V4-07 参考样式代码块支持空块删除与非空行插入', async ({ page }) => {

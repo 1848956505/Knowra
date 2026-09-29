@@ -1,5 +1,6 @@
 import { MenuItem, MenuSeparator } from '../../components/ui/overlay';
 import type { EditorFileAction } from './editorCommands';
+import { getEditorPageShortcutLabel } from './editorShortcuts';
 
 export function renderEditorFileMenu({ canWrite, favorite, onAction }: {
   canWrite: boolean;
@@ -13,8 +14,8 @@ export function renderEditorFileMenu({ canWrite, favorite, onAction }: {
       <MenuItem id="new-folder" isDisabled={!canWrite} onAction={action('new-folder')}>新建文件夹</MenuItem>
       <MenuItem id="import-markdown" isDisabled={!canWrite} onAction={action('import-markdown')}>导入 Markdown</MenuItem>
       <MenuSeparator />
-      <MenuItem id="save" isDisabled={!canWrite} onAction={action('save')}>保存</MenuItem>
-      <MenuItem id="save-as" isDisabled={!canWrite} onAction={action('save-as')}>另存为</MenuItem>
+      <MenuItem id="save" aria-label="保存" kbd={getEditorPageShortcutLabel('Mod+S')} isDisabled={!canWrite} onAction={action('save')}>保存</MenuItem>
+      <MenuItem id="save-as" aria-label="另存为" kbd={getEditorPageShortcutLabel('Mod+Shift+S')} isDisabled={!canWrite} onAction={action('save-as')}>另存为</MenuItem>
       <MenuItem id="rename" isDisabled={!canWrite} onAction={action('rename')}>重命名</MenuItem>
       <MenuItem id="favorite-note" isDisabled={!canWrite} onAction={action('favorite-note')}>
         {favorite ? '取消收藏' : '收藏笔记'}

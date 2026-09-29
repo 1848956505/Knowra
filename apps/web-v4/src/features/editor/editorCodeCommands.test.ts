@@ -1,7 +1,7 @@
 import { Schema } from '@milkdown/kit/prose/model';
 import { EditorState, TextSelection, type Command } from '@milkdown/kit/prose/state';
 import { describe, expect, it } from 'vitest';
-import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode } from './editorCodeCommands';
+import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode, selectCodeBlockContents, selectCodeBlockContentsAt } from './editorCodeCommands';
 import { applyTyporaCodeBlockCommand } from './editorBlockCommands';
 const schema = new Schema({ nodes: {
   doc: { content: 'block+' }, paragraph: { content: 'text*', group: 'block' },
@@ -17,6 +17,27 @@ function run(state: EditorState, command: Command) {
   return next;
 }
 describe('代码块编辑', () => {
+  it('全选仅覆盖当前多行代码块，正文与相邻内容保持在选区外', () => {
+    const code = 'first\nsecond';
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', null, schema.text('before')),
+      schema.node('code_block', { language: 'python' }, schema.text(code)),
+      schema.node('paragraph', null, schema.text('after'))
+    ]);
+    const codeStart = doc.child(0).nodeSize + 1;
+    const state = EditorState.create({ doc, selection: TextSelection.create(doc, codeStart + 2, codeStart + 5) });
+    const next = run(state, selectCodeBlockContents);
+    expect(next.selection.from).toBe(codeStart);
+    expect(next.selection.to).toBe(codeStart + code.length);
+    expect(next.doc).toBe(doc);
+    expect(selectCodeBlockContents(next)).toBe(true);
+    let refreshed = state;
+    expect(selectCodeBlockContentsAt(state, codeStart + 4, codeStart + 4, tr => { refreshed = state.apply(tr); })).toBe(true);
+    expect(refreshed.selection.from).toBe(codeStart);
+    expect(refreshed.selection.to).toBe(codeStart + code.length);
+    const acrossBlocks = EditorState.create({ doc, selection: TextSelection.create(doc, codeStart, codeStart + code.length + 2) });
+    expect(selectCodeBlockContents(acrossBlocks)).toBe(false);
+  });
   it.each(['', '    ', '\n\t'])('删除空代码块 %j 后保留可输入的正文', text => {
     const next = run(make(text, text.length), removeEmptyCode);
     expect(next.doc.childCount).toBe(1);

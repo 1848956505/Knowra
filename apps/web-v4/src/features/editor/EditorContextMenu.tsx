@@ -32,6 +32,7 @@ import {
   TaskListIcon
 } from '../../components/icons/knowra';
 import type { EditorCommand, EditorEditAction } from './editorCommands';
+import { getEditorShortcutLabel } from './editorShortcuts';
 import styles from './EditorContextMenu.module.css';
 
 interface EditorContextMenuProps {
@@ -154,11 +155,11 @@ export function EditorContextMenu({
               <MenuItem id="heading-menu" className={styles.submenuTrigger}>标题</MenuItem>
               <MenuPopover placement="end top" offset={-1} containerPadding={12} className={styles.submenuPopover}>
                 <Menu ariaLabel="标题样式" className={styles.submenu} onAction={runAction}>
-                  <MenuItem id="paragraph" kbd="Ctrl+0" isDisabled={!canEdit}>段落</MenuItem>
-                  <MenuItem id="heading-1" kbd="Ctrl+1" isDisabled={!canEdit}>H1</MenuItem>
-                  <MenuItem id="heading-2" kbd="Ctrl+2" isDisabled={!canEdit}>H2</MenuItem>
-                  <MenuItem id="heading-3" kbd="Ctrl+3" isDisabled={!canEdit}>H3</MenuItem>
-                  <MenuItem id="heading-4" kbd="Ctrl+4" isDisabled={!canEdit}>H4</MenuItem>
+                  <MenuItem id="paragraph" kbd={getEditorShortcutLabel('paragraph')} isDisabled={!canEdit}>段落</MenuItem>
+                  <MenuItem id="heading-1" kbd={getEditorShortcutLabel('heading-1')} isDisabled={!canEdit}>H1</MenuItem>
+                  <MenuItem id="heading-2" kbd={getEditorShortcutLabel('heading-2')} isDisabled={!canEdit}>H2</MenuItem>
+                  <MenuItem id="heading-3" kbd={getEditorShortcutLabel('heading-3')} isDisabled={!canEdit}>H3</MenuItem>
+                  <MenuItem id="heading-4" kbd={getEditorShortcutLabel('heading-4')} isDisabled={!canEdit}>H4</MenuItem>
                 </Menu>
               </MenuPopover>
             </SubmenuTrigger>

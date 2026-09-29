@@ -200,7 +200,7 @@
   min-height: 0;
   position: relative;
   overflow: auto;
-  scroll-padding: 96px 0 64px;
+  scroll-padding: 44px 0 24px;
   background-color: var(--ink-bg);
   background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
   background-size: 20px 20px;

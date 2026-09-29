@@ -51,6 +51,17 @@ describe('editorShortcuts', () => {
     expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'ç', code: 'KeyC', ctrlKey: false, metaKey: true, altKey: true })).toBe('code-block');
   });
 
+  it('maps Typora style Mac combinations and preserves the existing list aliases', () => {
+    const mac = { ...baseShortcut, ctrlKey: false, metaKey: true };
+    expect(resolveEditorShortcutCommand({ ...mac, key: 'i', code: 'KeyI' })).toBe('italic');
+    expect(resolveEditorShortcutCommand({ ...mac, key: 'œ', code: 'KeyQ', altKey: true })).toBe('blockquote');
+    expect(resolveEditorShortcutCommand({ ...mac, key: 'ø', code: 'KeyO', altKey: true })).toBe('ordered-list');
+    expect(resolveEditorShortcutCommand({ ...mac, key: '¨', code: 'KeyU', altKey: true })).toBe('bullet-list');
+    expect(resolveEditorShortcutCommand({ ...mac, key: '†', code: 'KeyT', altKey: true })).toBe('table');
+    expect(resolveEditorShortcutCommand({ ...mac, key: '~', code: 'Backquote', shiftKey: true })).toBe('inline-code');
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: '~', code: 'Backquote', shiftKey: true })).toBe('strikethrough');
+  });
+
   it('prioritizes indentation while focus is inside the editor', () => {
     expect(resolveEditorShortcutCommand({
       ...baseShortcut, key: 'Tab', ctrlKey: false
@@ -76,6 +87,9 @@ describe('editorShortcuts', () => {
     expect(getEditorShortcutLabel('bold')).toBe('Ctrl+B');
     expect(getEditorShortcutLabel('inline-code')).toBe('Ctrl+E');
     expect(getEditorShortcutLabel('highlight')).toBe('Ctrl+Shift+H');
-    expect(getEditorShortcutLabel('blockquote')).toBeUndefined();
+    expect(getEditorShortcutLabel('blockquote', true)).toBe('⌘+⌥+Q');
+    expect(getEditorShortcutLabel('italic', true)).toBe('⌘+I');
+    expect(getEditorShortcutLabel('inline-code', true)).toBe('⌘+Shift+`');
+    expect(getEditorShortcutLabel('table', true)).toBe('⌘+⌥+T');
   });
 });

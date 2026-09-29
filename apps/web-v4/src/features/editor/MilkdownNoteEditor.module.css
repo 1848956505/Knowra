@@ -254,10 +254,9 @@
 .milkdownEditor :global(.ProseMirror) pre[data-code-block] > code {
   display: block;
   min-height: 3.5em;
-  overflow-x: auto;
   padding: 18px 20px;
-  white-space: pre;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: normal;
   tab-size: 2;
 }
