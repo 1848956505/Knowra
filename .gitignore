@@ -10,6 +10,10 @@ dist/
 .npm-cache/
 .DS_Store
 /storage/
+/.deploy-incoming/
+/.deploy-releases/
+/.deploy.lock
+/current
 apps/api/storage/uploads/
 apps/api/storage/exports/
 apps/api/storage/temp/

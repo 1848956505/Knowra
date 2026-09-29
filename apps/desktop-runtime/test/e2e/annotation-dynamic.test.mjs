@@ -91,7 +91,10 @@ test('真实页面：同笔记剪切粘贴跟随重点，复制不重复继承',
   const originalPosition = current().fromPosition;
   const moved = editor.locator(`[data-annotation-id="${annotation.id}"]`);
   await moved.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);el.closest('[contenteditable]').focus();window.getSelection().removeAllRanges();window.getSelection().addRange(range);document.dispatchEvent(new Event('selectionchange'));});
-  await page.keyboard.press('ControlOrMeta+c');await page.keyboard.press('ArrowRight');await page.keyboard.press('End');await page.keyboard.press('Enter');
+  await page.keyboard.press('ControlOrMeta+c');
+  // 各平台的 ArrowRight/End 在装饰节点选区后落点不同；明确把光标放在原段落末尾。
+  await moved.evaluate(el=>{const paragraph=el.closest('p');const range=document.createRange();range.selectNodeContents(paragraph);range.collapse(false);el.closest('[contenteditable]').focus();window.getSelection().removeAllRanges();window.getSelection().addRange(range);document.dispatchEvent(new Event('selectionchange'));});
+  await page.keyboard.press('Enter');
   await editor.evaluate(el=>{const data=new DataTransfer();data.setData('text/plain','重要文字');data.setData('application/x-knowra-move',window.__testMoveToken || '');el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));});
   await expect(editor.locator('p').filter({hasText:'重要文字'})).toHaveCount(2);
   await expect.poll(()=>k.noteService.getNote(note.id).rawMarkdown.split('重要文字').length).toBe(3);
