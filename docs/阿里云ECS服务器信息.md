@@ -1,6 +1,6 @@
 # 阿里云 ECS 服务器信息
 
-更新时间：2026-09-21
+更新时间：2026-09-29
 
 本文档用于在其他设备上的 Codex 继续接入和维护当前 知境·Knowra 服务器。不要在本文档中保存私钥、服务器密码、API Key 或其他明文密钥。
 
@@ -21,13 +21,13 @@
 
 ## SSH 连接
 
-当前 Windows 电脑已经把 SSH 公钥加入服务器，可以直接连接：
+当前运维 Mac 和此前的 Windows 电脑均已配置各自的 SSH 公钥，可以直接连接：
 
 ```bash
 ssh root@47.95.236.184
 ```
 
-MacBook 或其他新设备需要单独添加自己的 SSH 公钥，不能复用 Windows 私钥。
+其他新设备需要单独添加自己的 SSH 公钥，不能复用现有设备的私钥。
 
 ## MacBook Codex 接入步骤
 
@@ -65,7 +65,7 @@ chmod 600 ~/.ssh/authorized_keys
 ssh root@47.95.236.184
 ```
 
-测试通过后，MacBook 上的 Codex 就可以通过 SSH 管理这台服务器。
+测试通过后，该设备上的 Codex 就可以通过 SSH 管理这台服务器。当前 Mac 已于 2026-09-29 验证 SSH 连接。
 
 ## 项目部署位置
 
@@ -77,7 +77,7 @@ ssh root@47.95.236.184
 
 Git 仓库远程地址：`git@github.com:1848956505/Knowra.git`（部署用 Deploy Key 认证）
 
-当前部署方式：
+当前运行方式（首次 CI 发布包激活前）：
 
 - Node.js monorepo（Git 克隆）
 - 前端服务：`apps/web-v4/server.mjs`（静态服务 + `/api/*` 同源代理）
@@ -149,47 +149,27 @@ systemctl start knowra-baidu-backup.service
 
 敏感文件只保存在服务器 `/etc/knowra-backup/`，权限必须保持 `600`；备份客户端和脚本权限为 `700`。访问令牌会在到期前 7 天自动刷新。解密私钥不在服务器和 Git 中，只保存在运维工作站已被 Git 忽略的 `storage/exports/backup-keys/knowra-backup-private-key.pem`。若该私钥丢失，网盘中的 `.p7m` 备份无法解密；应另做离线保管，但不得把私钥上传到同一个百度网盘目录。
 
-正式部署只允许从 GitHub `main` 的已审核提交执行。完整 `npm test`、原始 E2E 和依赖审计必须先在 CI 或与生产隔离的验收机上完成，并将结果绑定到待部署提交。**不得在正在提供服务的生产主机上运行 `npm test`**；当前 1.6 GiB、无 swap 的主机已实测会因并行测试导致正式服务失去响应。
+正式部署只允许从 GitHub `main` 的已审核提交执行。完整 `npm test`、原始 E2E 和依赖审计必须先在 CI 或与生产隔离的验收机上完成，并将结果绑定到待部署提交。**不得在正在提供服务的生产主机上运行 `npm test`**；主机约 1.6 GiB 可用物理内存，曾因并行测试失去响应。2026-09-29 已检查到 2 GiB swap，但它不能替代物理内存。
 
-候选提交在隔离环境通过后，服务器端部署前先记录当前提交并备份运行时数据：
+### CI 构建、Codex 按需发布
+
+现有 `.github/workflows/ci.yml` 在 Ubuntu 24.04 上完成构建、测试、浏览器验收和依赖审计；推送触发的成功运行随后生成包含 Linux 生产依赖、V4 `dist`、源码及提交清单的发布包。发布包不包含 `storage/`、密钥或服务器配置。
+
+用户指定当前 `main` 的已验收提交后，Codex 在运维 Mac 上执行以下命令；用户无需在 GitHub 网页下载或手动上传：
 
 ```bash
-cd /opt/knowra
-
-# 1. 记录当前可回滚提交
-git rev-parse HEAD
-
-# 2. 备份 JSON 数据和附件
-backup_dir="/opt/knowra-backups/$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$backup_dir"
-cp storage/data/knowledge-base.json "$backup_dir/knowledge-base.json"
-tar -C storage -czf "$backup_dir/uploads.tar.gz" uploads
-
-# 3. 只接受 main 的 fast-forward 更新
-git switch main
-git fetch origin
-git pull --ff-only origin main
-
-# 4. 按锁文件做可复现安装，不执行未启用脚手架的第三方生命周期脚本
-npm ci --ignore-scripts
-
-# 5. 先校验附件完整性，再构建 V4 生产产物并刷新 knowra-api / knowra-web
-./scripts/post-deploy.sh
-
-# 6. 健康检查
-curl --fail http://127.0.0.1:3001/api/health
-curl --fail --head http://127.0.0.1:3000/
+cd /path/to/Knowra
+bash scripts/deploy-ci-release.sh <main的完整40位提交SHA> root@47.95.236.184
 ```
 
-`scripts/post-deploy.sh` 会依次完成：
+Mac 脚本核对 GitHub `main` 与成功 CI 运行，下载发布包并校验 SHA-256，然后经现有 SSH 权限传至 ECS。服务器脚本依次完成：
 
-1. 对当前服务器存储执行附件完整性只读检查，报告不是 `ready` 时在重载前中止。
-2. 在 `apps/web-v4/dist` 旁的临时目录以 `NODE_ENV=production` 构建 V4，并拒绝包含 Source Map 的生产产物。
-3. 将新哈希资源逐个原子发布到现有 `dist`，保留旧哈希资源，最后原子替换 `index.html`，避免已打开页面遇到入口与 chunk 不一致。
-4. 确认 `knowra-api`、`knowra-web` 两个 PM2 进程都存在；任一缺失即失败退出。
-5. 按 `deploy/ecosystem.config.cjs` 执行 `startOrReload`，确保 `knowra-web` 切换到 V4 入口，然后执行 `pm2 save`。
+1. 核对服务器源码干净、目标是当前 `main` 且允许快进，并确认两个 PM2 进程存在。
+2. 每次新建 `/opt/knowra-backups/ci-release-*`，备份当前 JSON 数据与附件；旧版和候选版均对服务器真源执行附件只读检查。
+3. 将上一版哈希资源补入候选目录，放入 `/opt/knowra/.deploy-releases/`，原子切换 `/opt/knowra/current`；两个进程从该目录启动，通过符号链接继续使用 `/opt/knowra/storage`。
+4. 本机 API/Web 健康检查通过后，快进 `/opt/knowra` 的 Git 提交并保存 PM2 状态；失败时恢复先前运行目录和进程。
 
-当前生产运行时使用本地 JSON 存储，没有加载 Prisma/Nest/BullMQ 脚手架。`npm ci --ignore-scripts` 用于避免未启用依赖在安装期间下载 Prisma 引擎或执行额外生命周期脚本；V4 产物由 `scripts/post-deploy.sh` 显式构建。未来正式启用 Prisma 前，必须把 Prisma Client 生成、数据库迁移和回滚验证纳入部署流程，不能沿用本条说明。
+生产主机不执行 `npm ci`、`npm test` 或 V4 构建。当前脚本只支持 `local-json`；正式切换 PostgreSQL 前必须增补数据库备份、迁移、验证和回滚门禁。旧 `scripts/post-deploy.sh` 仅保留为人工应急入口。
 
 附件完整性门禁：
 
@@ -214,7 +194,7 @@ npm run check:attachments -- \
 
 `check:attachments` 默认只读；只有确认报告中的可修复项后才允许追加 `--repair`。报告出现 `ATTACHMENT_FILE_MISSING` 或 `ATTACHMENT_HASH_MISMATCH` 时，不得以 `--repair` 伪造文件完整性，也不得继续把该库宣称为可恢复状态。
 
-生产构建完成后必须确认 V4 入口存在且不包含 Source Map：
+CI 构建完成后必须确认 V4 入口存在且不包含 Source Map：
 
 ```bash
 test -f apps/web-v4/dist/index.html
@@ -232,11 +212,13 @@ node scripts/migrate-transformer-http-images.mjs --apply
 
 > 经验教训：2026-07-05 的 404 事件就是因为部署只跑了 `git pull` + `pm2 restart`，
 > 忘了重新生成 bundle，PM2 起来后发现 bundle 不存在，前端 50% 资源加载失败。
-> 现在把 build 步骤收进 `scripts/post-deploy.sh` 避免再犯。
+> 常规发布由 CI 绑定提交生成完整发布包，避免遗漏构建产物。
 
 ### 代码回滚
 
-使用部署前记录的提交 SHA 回退代码，不重写 `main`：
+新发布在健康检查失败时自动恢复 `/opt/knowra/current` 的旧指向并重新加载旧进程。若发布成功后需要人工回退，先保留故障现场，再用 `/opt/knowra/.deploy-releases/` 中已验收的旧目录切回；首次采用 CI 发布包之前的版本位于原始 Git 工作区，需按下面的人工应急步骤恢复。数据格式不兼容时还需按备份恢复数据。不要只回退 Git 代码而保留新版进程。
+
+旧现场构建流程的人工应急回退方式如下；它会在服务器执行安装和构建，不属于常规发布：
 
 ```bash
 cd /opt/knowra
@@ -368,7 +350,17 @@ storage/data/knowledge-base.json
 - 不再把 Windows 风格 `storage\\uploads\\...`、Linux/macOS 绝对路径，或旧的 `apps/api/storage/uploads/...` 作为长期真源
 - 如遇旧快照或旧服务器目录残留，优先迁移文件到根级 `storage/uploads/`，再让元数据回写为上述统一格式
 
-服务器发布备份统一放在：
+CI 发布包的发布前备份放在：
+
+```text
+/opt/knowra-backups/ci-release-<随机标识>/
+├── previous-commit.txt
+├── storage.tar.gz
+├── attachments-before.json
+└── attachments-candidate.json
+```
+
+历史现场构建流程的发布备份格式为：
 
 ```text
 /opt/knowra-backups/<YYYYMMDD-HHMMSS>/
@@ -394,10 +386,13 @@ npm run check:attachments -- --driver postgres --report "$backup_dir/restore-che
 ```text
 deploy/README.md
 deploy/nginx/knowra.conf.example
+scripts/package-ci-release.sh
+scripts/deploy-ci-release.sh
+scripts/activate-ci-release.sh
 scripts/post-deploy.sh
 ```
 
-历史整包安装脚本和 tar 包不再作为当前发布入口；服务器统一从 GitHub `main` 拉取并执行可复现安装。
+常规发布使用 GitHub CI 生成的带提交清单与校验文件的 Linux 发布包；服务器只拉取 GitHub `main` 用于校验目标提交和更新备份所记录的版本。
 
 ## 安全组
 

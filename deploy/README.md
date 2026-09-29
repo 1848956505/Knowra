@@ -33,11 +33,13 @@ systemctl reload nginx
 
 Node 服务的 `3000`、`3001` 端口只供本机 Nginx 与 Web 代理访问，不应在云安全组或主机防火墙中对公网开放。
 
-当前正式运行时仍使用本地 JSON 存储，尚未加载 Prisma/Nest/BullMQ 脚手架。CI 与服务器部署统一使用 `npm ci --ignore-scripts`，避免未启用依赖的生命周期脚本下载 Prisma 引擎或执行额外安装代码；V4 产物由 `npm run build:web` 显式生成。未来正式启用 Prisma 前，必须同步调整这条门禁并增加生成与迁移验证。
+当前正式运行时仍使用本地 JSON 存储，尚未加载 Prisma/Nest/BullMQ 脚手架。正式发布包由 GitHub Actions 的 Ubuntu 24.04 运行器生成：先通过测试与审计，再用 `npm ci --omit=dev --ignore-scripts` 安装 Linux 生产依赖并打包 V4 产物。未来正式启用 Prisma 前，必须补齐客户端生成、数据库备份与迁移验证。
 
-完整单元/集成测试和 E2E 只在 CI 或独立验收机执行，不在正在提供服务的生产主机运行。生产主机只执行附件完整性门禁、生产构建、PM2 刷新和健康检查。
+完整单元/集成测试和 E2E 只在 CI 或独立验收机执行。按需发布时，Codex 在已登录 GitHub 且已有 ECS SSH 权限的 Mac 上运行 `scripts/deploy-ci-release.sh <main 的完整提交 SHA> root@47.95.236.184`。脚本只接受当前 `main` 且 CI 成功的提交，下载并核对发布包，再通过 SSH 交给服务器激活。用户无需手动下载或上传。
 
-`scripts/post-deploy.sh` 会先对服务器真源执行附件完整性只读检查，仅在报告为 `ready` 时继续构建 V4；构建在 `dist` 旁的临时目录完成，校验通过后逐个原子发布新资源，保留旧哈希资源，最后才替换 `index.html`。这样已有页面不会在发布窗口内拿到“新入口 + 缺失 chunk”或半写入的模块文件；脚本仍拒绝携带 Source Map 的生产产物，并通过 `deploy/ecosystem.config.cjs` 将 PM2 的 `knowra-web` 入口刷新为 `apps/web-v4/server.mjs`。Nginx 仍反向代理本机 `3000`，无需改变公网路由。V3 仅保留源码与回归测试，不再提供启动入口。
+`scripts/activate-ci-release.sh` 在服务器上确认提交与 GitHub `main` 一致，备份 `storage/data` 和 `storage/uploads`，对旧版与候选版分别执行附件完整性只读检查；随后将独立发布目录切为 `current`，刷新 PM2 并核对本机 API/Web 健康。失败时恢复上一运行目录。服务器保留 `/opt/knowra/storage` 作为唯一真源，不在生产机执行 `npm ci`、测试或前端构建。首次成功后 `/opt/knowra` 仍保留 Git 仓库供备份任务记录提交；`current` 指向实际运行版本。Nginx 路由不变。
+
+原 `scripts/post-deploy.sh` 仍作为需要现场构建时的人工应急入口；不要在常规发布中调用它。
 
 PM2 配置中，`KNOWRA_API_PORT` 同时决定 API 监听端口和 Web 的默认代理目标；只有显式设置非空 `API_ORIGIN` 时才覆盖该派生目标。调整 API 端口时不再需要重复维护默认 origin。`KNOWRA_WEB_PORT` 仍只控制 Web 监听端口，修改后需同步核对 Nginx 上游。
 

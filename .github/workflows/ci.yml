@@ -18,7 +18,7 @@ jobs:
   verify:
     name: Node 24 · build and test
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -92,3 +92,16 @@ jobs:
         # Prisma is future scaffolding and reaches its CLI through an optional
         # peer dependency. Audit the dependencies shipped by the active runtime.
         run: npm run audit:prod
+
+      - name: Package Linux release
+        if: github.event_name == 'push'
+        run: bash scripts/package-ci-release.sh "$GITHUB_SHA" "$RUNNER_TEMP/knowra-release"
+
+      - name: Save release for Codex deployment
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowra-linux-release-${{ github.sha }}
+          path: ${{ runner.temp }}/knowra-release/knowra-release-${{ github.sha }}.tar.gz*
+          if-no-files-found: error
+          retention-days: 14
