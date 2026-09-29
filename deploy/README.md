@@ -37,7 +37,7 @@ Node 服务的 `3000`、`3001` 端口只供本机 Nginx 与 Web 代理访问，�
 
 完整单元/集成测试和 E2E 只在 CI 或独立验收机执行。按需发布时，Codex 在已登录 GitHub 且已有 ECS SSH 权限的 Mac 上运行 `scripts/deploy-ci-release.sh <main 的完整提交 SHA> root@47.95.236.184`。脚本只接受当前 `main` 且 CI 成功的提交，下载并核对发布包，再通过 SSH 交给服务器激活。用户无需手动下载或上传。
 
-`scripts/activate-ci-release.sh` 在服务器上确认提交与 GitHub `main` 一致，备份 `storage/data` 和 `storage/uploads`，对旧版与候选版分别执行附件完整性只读检查；随后将独立发布目录切为 `current`，刷新 PM2 并核对本机 API/Web 健康。失败时恢复上一运行目录。服务器保留 `/opt/knowra/storage` 作为唯一真源，不在生产机执行 `npm ci`、测试或前端构建。首次成功后 `/opt/knowra` 仍保留 Git 仓库供备份任务记录提交；`current` 指向实际运行版本。Nginx 路由不变。
+`scripts/activate-ci-release.sh` 在服务器上确认提交与 GitHub `main` 一致，备份 `storage/data` 和 `storage/uploads`，对旧版与候选版分别执行附件完整性只读检查；随后将独立发布目录切为 `current`，从新目录重建 PM2 进程并核对实际执行路径及本机 API/Web 健康。进程切换期间有短暂重启窗口；失败时恢复上一运行目录。服务器保留 `/opt/knowra/storage` 作为唯一真源，不在生产机执行 `npm ci`、测试或前端构建。首次成功后 `/opt/knowra` 仍保留 Git 仓库供备份任务记录提交；`current` 指向实际运行版本。Nginx 路由不变。
 
 原 `scripts/post-deploy.sh` 仍作为需要现场构建时的人工应急入口；不要在常规发布中调用它。
 

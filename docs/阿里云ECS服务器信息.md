@@ -167,7 +167,7 @@ Mac 脚本核对 GitHub `main` 与成功 CI 运行，下载发布包并校验 SH
 1. 核对服务器源码干净、目标是当前 `main` 且允许快进，并确认两个 PM2 进程存在。
 2. 每次新建 `/opt/knowra-backups/ci-release-*`，备份当前 JSON 数据与附件；旧版和候选版均对服务器真源执行附件只读检查。
 3. 将上一版哈希资源补入候选目录，放入 `/opt/knowra/.deploy-releases/`，原子切换 `/opt/knowra/current`；两个进程从该目录启动，通过符号链接继续使用 `/opt/knowra/storage`。
-4. 本机 API/Web 健康检查通过后，快进 `/opt/knowra` 的 Git 提交并保存 PM2 状态；失败时恢复先前运行目录和进程。
+4. 删除旧 PM2 进程定义并从发布目录重新启动；确认两个进程的实际执行路径、API/Web 健康检查都通过后，快进 `/opt/knowra` 的 Git 提交并保存 PM2 状态。切换会短暂重启服务；失败时恢复先前运行目录和进程。
 
 生产主机不执行 `npm ci`、`npm test` 或 V4 构建。当前脚本只支持 `local-json`；正式切换 PostgreSQL 前必须增补数据库备份、迁移、验证和回滚门禁。旧 `scripts/post-deploy.sh` 仅保留为人工应急入口。
 

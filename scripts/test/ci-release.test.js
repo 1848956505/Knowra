@@ -24,7 +24,9 @@ test('CI 发布包切换后保留运行数据和旧页面资源', { skip: !suppo
     assert.equal(readlinkSync(path.join(release, 'storage')), path.join(fixture.root, 'storage'));
     assert.equal(readFileSync(path.join(release, 'apps/web-v4/dist/index.html'), 'utf8'), 'new index');
     assert.equal(readdirSync(fixture.backupRoot).length, 1);
-    assert.match(readFileSync(fixture.calls, 'utf8'), /pm2 startOrReload .*current\/deploy\/ecosystem\.config\.cjs --update-env/);
+    assert.match(readFileSync(fixture.calls, 'utf8'), /pm2 delete knowra-api knowra-web/);
+    assert.match(readFileSync(fixture.calls, 'utf8'), /pm2 start .*\.deploy-releases\/candidate\/deploy\/ecosystem\.config\.cjs --update-env/);
+    assert.equal(readFileSync(fixture.pm2State, 'utf8'), release);
     assert.match(readFileSync(fixture.calls, 'utf8'), /git merge --ff-only /);
   } finally {
     fixture.cleanup();
@@ -40,15 +42,30 @@ test('健康检查失败后恢复首次发布前的进程和 Git 提交', { skip
     assert.equal(existsSync(path.join(fixture.root, 'current')), false);
     assert.equal(readFileSync(fixture.gitState, 'utf8'), oldCommit);
     const calls = readFileSync(fixture.calls, 'utf8');
-    assert.match(calls, /pm2 startOrReload .*current\/deploy\/ecosystem\.config\.cjs --update-env/);
-    assert.match(calls, /pm2 startOrReload .*root\/deploy\/ecosystem\.config\.cjs --update-env/);
+    assert.match(calls, /pm2 start .*\.deploy-releases\/candidate\/deploy\/ecosystem\.config\.cjs --update-env/);
+    assert.match(calls, /pm2 start .*root\/deploy\/ecosystem\.config\.cjs --update-env/);
+    assert.equal(readFileSync(fixture.pm2State, 'utf8'), fixture.root);
     assert.doesNotMatch(calls, /git merge --ff-only/);
   } finally {
     fixture.cleanup();
   }
 });
 
-function createFixture({ healthFails = false } = {}) {
+test('PM2 沿用旧执行路径时拒绝成功并恢复旧进程', { skip: !supported }, () => {
+  const fixture = createFixture({ pm2StaysOnOldPath: true });
+  try {
+    const result = run(fixture);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /PM2 仍指向旧运行目录/);
+    assert.equal(existsSync(path.join(fixture.root, 'current')), false);
+    assert.equal(readFileSync(fixture.pm2State, 'utf8'), fixture.root);
+    assert.doesNotMatch(readFileSync(fixture.calls, 'utf8'), /git merge --ff-only/);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) {
   const base = mkdtempSync(path.join(tmpdir(), 'knowra-ci-release-'));
   const root = path.join(base, 'root');
   const stage = path.join(root, '.deploy-incoming', 'candidate', 'stage');
@@ -56,6 +73,7 @@ function createFixture({ healthFails = false } = {}) {
   const bin = path.join(base, 'bin');
   const calls = path.join(base, 'calls');
   const gitState = path.join(base, 'git-state');
+  const pm2State = path.join(base, 'pm2-state');
   mkdirSync(path.join(root, 'storage', 'data'), { recursive: true });
   mkdirSync(path.join(root, 'storage', 'uploads'));
   mkdirSync(path.join(root, 'apps', 'web-v4', 'dist', 'assets'), { recursive: true });
@@ -65,8 +83,11 @@ function createFixture({ healthFails = false } = {}) {
   for (const directory of [root, stage]) {
     mkdirSync(path.join(directory, 'scripts'), { recursive: true });
     mkdirSync(path.join(directory, 'deploy'), { recursive: true });
+    mkdirSync(path.join(directory, 'apps', 'api', 'src'), { recursive: true });
     writeFileSync(path.join(directory, 'scripts', 'check-attachments.mjs'), 'console.log("ready")\n');
     writeFileSync(path.join(directory, 'deploy', 'ecosystem.config.cjs'), 'module.exports = {}\n');
+    writeFileSync(path.join(directory, 'apps', 'api', 'src', 'main.js'), '');
+    writeFileSync(path.join(directory, 'apps', 'web-v4', 'server.mjs'), '');
   }
   writeFileSync(path.join(root, 'storage', 'data', 'knowledge-base.json'), '{}\n');
   writeFileSync(path.join(root, 'apps', 'web-v4', 'dist', 'assets', 'old.js'), 'old asset');
@@ -75,6 +96,7 @@ function createFixture({ healthFails = false } = {}) {
   writeFileSync(path.join(stage, '.knowra-release.json'), JSON.stringify({ commit: nextCommit, platform: 'linux-x64', nodeMajor: 24 }));
   writeFileSync(calls, '');
   writeFileSync(gitState, oldCommit);
+  writeFileSync(pm2State, root);
 
   writeExecutable(path.join(bin, 'git'), [
     '#!/usr/bin/env bash',
@@ -93,7 +115,10 @@ function createFixture({ healthFails = false } = {}) {
     '#!/usr/bin/env bash',
     'printf "pm2 %s\\n" "$*" >> "$CI_RELEASE_TEST_CALLS"',
     'if [[ "$1" == jlist ]]; then',
-    '  printf %s \'[{"name":"knowra-api","pm2_env":{"status":"online","PORT":"3001"}},{"name":"knowra-web","pm2_env":{"status":"online","PORT":"3000"}}]\'',
+    '  dir="$(cat "$CI_RELEASE_TEST_PM2_STATE")"',
+    '  printf \'[{"name":"knowra-api","pm2_env":{"status":"online","PORT":"3001","pm_cwd":"%s","pm_exec_path":"%s/apps/api/src/main.js"}},{"name":"knowra-web","pm2_env":{"status":"online","PORT":"3000","pm_cwd":"%s","pm_exec_path":"%s/apps/web-v4/server.mjs"}}]\' "$dir" "$dir" "$dir" "$dir"',
+    'elif [[ "$1" == start && "$CI_RELEASE_TEST_PM2_STICKY" != 1 ]]; then',
+    '  printf %s "$(dirname "$(dirname "$2")")" > "$CI_RELEASE_TEST_PM2_STATE"',
     'fi'
   ]);
   writeExecutable(path.join(bin, 'curl'), [
@@ -102,7 +127,7 @@ function createFixture({ healthFails = false } = {}) {
     'exit 0'
   ]);
   writeExecutable(path.join(bin, 'sleep'), ['#!/usr/bin/env bash', 'exit 0']);
-  return { root, stage, backupRoot, bin, calls, gitState, healthFails, cleanup: () => rmSync(base, { recursive: true, force: true }) };
+  return { root, stage, backupRoot, bin, calls, gitState, pm2State, healthFails, pm2StaysOnOldPath, cleanup: () => rmSync(base, { recursive: true, force: true }) };
 }
 
 function writeExecutable(filePath, lines) {
@@ -121,6 +146,8 @@ function run(fixture) {
       KNOWRA_DEPLOY_BACKUP_ROOT: fixture.backupRoot,
       CI_RELEASE_TEST_CALLS: fixture.calls,
       CI_RELEASE_TEST_GIT_STATE: fixture.gitState,
+      CI_RELEASE_TEST_PM2_STATE: fixture.pm2State,
+      CI_RELEASE_TEST_PM2_STICKY: fixture.pm2StaysOnOldPath ? '1' : '0',
       CI_RELEASE_TEST_OLD: oldCommit,
       CI_RELEASE_TEST_NEXT: nextCommit,
       CI_RELEASE_TEST_HEALTH_FAILS: fixture.healthFails ? '1' : '0'
