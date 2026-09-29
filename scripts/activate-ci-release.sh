@@ -11,6 +11,7 @@ fi
 root="$(realpath -e "$1")"
 commit="$2"
 stage="$(realpath -e "$3")"
+incoming_dir="$(dirname "$stage")"
 case "$stage" in
   "$root/.deploy-incoming/"*) ;;
   *) echo '发布包必须先解压到项目的 .deploy-incoming 目录。' >&2; exit 1 ;;
@@ -117,14 +118,14 @@ tar -C "$root" -czf "$backup_dir/storage.tar.gz" storage/data storage/uploads
 echo '校验当前服务器附件...'
 (
   cd "$root"
-  node scripts/check-attachments.mjs --driver local-json --report "$backup_dir/attachments-before.json"
+  node scripts/check-attachments.mjs --driver local-json --report "$backup_dir/attachments-before.json" >/dev/null
 )
 
 ln -s "$root/storage" "$stage/storage"
 echo '校验新版本读取当前服务器附件...'
 (
   cd "$stage"
-  node scripts/check-attachments.mjs --driver local-json --report "$backup_dir/attachments-candidate.json"
+  node scripts/check-attachments.mjs --driver local-json --report "$backup_dir/attachments-candidate.json" >/dev/null
 )
 mv -- "$stage" "$release_dir"
 
@@ -203,4 +204,11 @@ git -C "$root" merge --ff-only "$commit"
 pm2 save
 activated=0
 trap - EXIT
+# 成功后只删除本次传输的两个已校验文件；发布目录和备份继续保留。
+archive_name="knowra-release-$commit.tar.gz"
+if [[ -f "$incoming_dir/$archive_name" && -f "$incoming_dir/$archive_name.sha256" ]]; then
+  if ! rm -- "$incoming_dir/$archive_name" "$incoming_dir/$archive_name.sha256" || ! rmdir -- "$incoming_dir"; then
+    echo "发布已成功，但传输目录清理失败：$incoming_dir" >&2
+  fi
+fi
 echo "发布成功：$commit；发布前备份：$backup_dir"

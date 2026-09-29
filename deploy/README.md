@@ -39,6 +39,8 @@ Node 服务的 `3000`、`3001` 端口只供本机 Nginx 与 Web 代理访问，�
 
 `scripts/activate-ci-release.sh` 在服务器上确认提交与 GitHub `main` 一致，备份 `storage/data` 和 `storage/uploads`，对旧版与候选版分别执行附件完整性只读检查；随后将独立发布目录切为 `current`，从新目录重建 PM2 进程并核对实际执行路径及本机 API/Web 健康。进程切换期间有短暂重启窗口；失败时恢复上一运行目录。服务器保留 `/opt/knowra/storage` 作为唯一真源，不在生产机执行 `npm ci`、测试或前端构建。首次成功后 `/opt/knowra` 仍保留 Git 仓库供备份任务记录提交；`current` 指向实际运行版本。Nginx 路由不变。
 
+发布成功后删除本次传输的压缩包与校验文件，保留发布目录及备份供回滚；定期查看 `.deploy-releases/` 和 `/opt/knowra-backups/` 的占用后再清理过旧记录。
+
 原 `scripts/post-deploy.sh` 仍作为需要现场构建时的人工应急入口；不要在常规发布中调用它。
 
 PM2 配置中，`KNOWRA_API_PORT` 同时决定 API 监听端口和 Web 的默认代理目标；只有显式设置非空 `API_ORIGIN` 时才覆盖该派生目标。调整 API 端口时不再需要重复维护默认 origin。`KNOWRA_WEB_PORT` 仍只控制 Web 监听端口，修改后需同步核对 Nginx 上游。

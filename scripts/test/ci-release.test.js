@@ -24,6 +24,7 @@ test('CI 发布包切换后保留运行数据和旧页面资源', { skip: !suppo
     assert.equal(readlinkSync(path.join(release, 'storage')), path.join(fixture.root, 'storage'));
     assert.equal(readFileSync(path.join(release, 'apps/web-v4/dist/index.html'), 'utf8'), 'new index');
     assert.equal(readdirSync(fixture.backupRoot).length, 1);
+    assert.equal(existsSync(path.join(fixture.root, '.deploy-incoming', 'candidate')), false);
     assert.match(readFileSync(fixture.calls, 'utf8'), /pm2 delete knowra-api knowra-web/);
     assert.match(readFileSync(fixture.calls, 'utf8'), /pm2 start .*\.deploy-releases\/candidate\/deploy\/ecosystem\.config\.cjs --update-env/);
     assert.equal(readFileSync(fixture.pm2State, 'utf8'), release);
@@ -94,6 +95,8 @@ function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) 
   writeFileSync(path.join(stage, 'apps', 'web-v4', 'dist', 'index.html'), 'new index');
   writeFileSync(path.join(stage, 'packages', 'web-core', 'dist', 'index.js'), 'export {}\n');
   writeFileSync(path.join(stage, '.knowra-release.json'), JSON.stringify({ commit: nextCommit, platform: 'linux-x64', nodeMajor: 24 }));
+  writeFileSync(path.join(root, '.deploy-incoming', 'candidate', `knowra-release-${nextCommit}.tar.gz`), 'archive');
+  writeFileSync(path.join(root, '.deploy-incoming', 'candidate', `knowra-release-${nextCommit}.tar.gz.sha256`), 'checksum');
   writeFileSync(calls, '');
   writeFileSync(gitState, oldCommit);
   writeFileSync(pm2State, root);
