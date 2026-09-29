@@ -129,6 +129,27 @@ echo '校验新版本读取当前服务器附件...'
 mv -- "$stage" "$release_dir"
 
 activated=0
+switch_pm2() {
+  local target="$1"
+  # startOrReload 不会更新已有进程的 pm_exec_path/cwd；先移除旧定义再从目标目录启动。
+  pm2 delete knowra-api knowra-web >/dev/null 2>&1 || true
+  pm2 start "$target/deploy/ecosystem.config.cjs" --update-env
+}
+verify_pm2_release() {
+  pm2 jlist | node -e '
+const fs = require("node:fs");
+const path = require("node:path");
+let input = "";
+process.stdin.on("data", chunk => input += chunk).on("end", () => {
+  const target = fs.realpathSync(process.argv[1]);
+  const apps = JSON.parse(input);
+  for (const [name, script] of [["knowra-api", "apps/api/src/main.js"], ["knowra-web", "apps/web-v4/server.mjs"]]) {
+    const app = apps.find(item => item.name === name);
+    const env = app?.pm2_env;
+    if (!env || env.status !== "online" || fs.realpathSync(env.pm_cwd) !== target || fs.realpathSync(env.pm_exec_path) !== path.join(target, script)) process.exit(1);
+  }
+})' "$1"
+}
 rollback() {
   local result=$?
   local rollback_failed=0
@@ -144,7 +165,8 @@ rollback() {
       ln -s "$previous_release" "$current_link.rollback.$$" || rollback_failed=1
       mv -Tf -- "$current_link.rollback.$$" "$current_link" || rollback_failed=1
     fi
-    pm2 startOrReload "$previous_release/deploy/ecosystem.config.cjs" --update-env >&2 || rollback_failed=1
+    switch_pm2 "$previous_release" >&2 || rollback_failed=1
+    verify_pm2_release "$previous_release" >&2 || rollback_failed=1
     pm2 save >&2 || rollback_failed=1
     if [[ "$rollback_failed" == 1 ]]; then
       echo '自动恢复未完成，请立即检查 PM2、current 与 Git HEAD。' >&2
@@ -157,7 +179,11 @@ trap rollback EXIT
 ln -s "$release_dir" "$current_link.next.$$"
 mv -Tf -- "$current_link.next.$$" "$current_link"
 activated=1
-pm2 startOrReload "$current_link/deploy/ecosystem.config.cjs" --update-env
+switch_pm2 "$release_dir"
+verify_pm2_release "$release_dir" || {
+  echo 'PM2 仍指向旧运行目录，发布已停止。' >&2
+  exit 1
+}
 
 api_port="${KNOWRA_API_PORT:-3001}"
 web_port="${KNOWRA_WEB_PORT:-3000}"
