@@ -1,0 +1,17 @@
+.toolbar {
+  position: fixed;
+  z-index: 8;
+  display: flex;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
+  border: 1px solid var(--ink-panel);
+  background: var(--ink-surface);
+  box-shadow: 2px 2px var(--ink-shell);
+}
+.grip {
+  position: fixed;
+  z-index: 8;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: var(--ink-surface);
+}
