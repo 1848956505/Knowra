@@ -1,7 +1,8 @@
 import { apiClient } from '@study-accelerator/web-core';
 
 export interface AssistantStatus {
-  provider: 'deepseek';
+  provider: 'deepseek' | 'mock';
+  simulation?: boolean;
   modelId: string | null;
   configured: boolean;
   executionLocation: 'local' | 'server';
