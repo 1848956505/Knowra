@@ -34,6 +34,18 @@ function withFixture(run) {
 
 for (const scenario of coreOperationScenarios(withFixture)) test(`SQLite ${scenario.name}`, scenario.run);
 
+test('SQLite 运行期间回执变成 JSON null 时不能重新执行领域操作', () => withFixture(f => {
+  const input = request(f.space.id);
+  f.store.coreOperationStore.commit(input, () => resultFor(f.store,
+    f.api.createNote({ id: 'note-fixed', title: '已提交', rawMarkdown: '合成', spaceId: f.space.id })));
+  f.store.readSync(db => db.prepare('UPDATE core_operation_receipts SET receipt_json = ?').run('null'));
+  let ran = false;
+  assert.throws(() => f.store.coreOperationStore.get(lookup(input)), { code: 'CORE_OPERATION_INVALID' });
+  assert.throws(() => f.store.coreOperationStore.commit(input, () => { ran = true; }), { code: 'CORE_OPERATION_INVALID' });
+  assert.equal(ran, false); assert.equal(f.store.state.notes.length, 1);
+  assert.equal(f.store.readSync(db => db.prepare('SELECT receipt_json FROM core_operation_receipts').get().receipt_json), 'null');
+}));
+
 test('SQLite 核心回执增量迁移备份、完整备份恢复与损坏隔离', () => withFixture(f => {
   assert(fs.readdirSync(f.root).some(name => name.includes('.before-core-operations-v1-')));
   const input = request(f.space.id);

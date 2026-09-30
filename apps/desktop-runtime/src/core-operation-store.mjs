@@ -21,11 +21,17 @@ export function createSqliteCoreOperationStore(db, filePath, runTransaction) {
   } else if (version !== '1' || !exists) throw new Error('核心回执存储版本或结构无效。');
   validateSqliteCoreOperationRows(db);
   return createSyncCoreOperationStore({
-    transaction: runTransaction,
+    transaction: operation => {
+      if (db.isTransaction) throw new TypeError('核心操作必须拥有最外层事务，不能嵌套提交。');
+      return runTransaction(operation);
+    },
     get: input => {
       const row = db.prepare(`SELECT receipt_json FROM core_operation_receipts
         WHERE owner_id = ? AND dataset_id = ? AND operation_id = ?`).get(input.ownerId, input.datasetId, input.operationId);
-      return row ? JSON.parse(row.receipt_json) : null;
+      if (!row) return null;
+      const receipt = validateCoreOperationReceipt(JSON.parse(row.receipt_json));
+      if (coreOperationKey(receipt) !== coreOperationKey(input)) throw new Error('核心回执索引与内容不一致。');
+      return receipt;
     },
     insert: receipt => db.prepare('INSERT INTO core_operation_receipts VALUES (?, ?, ?, ?)')
       .run(receipt.ownerId, receipt.datasetId, receipt.operationId, JSON.stringify(receipt))

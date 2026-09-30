@@ -164,7 +164,10 @@ export function createFileDataStore(filePath, {
 
   return {
     coreOperationStore: coreOperationStoreError ? null : createSyncCoreOperationStore({
-      transaction: runTransaction,
+      transaction: operation => {
+        if (transaction) throw new TypeError('核心操作必须拥有最外层事务，不能嵌套提交。');
+        return runTransaction(operation);
+      },
       get: input => coreOperations.receipts.find(receipt => coreOperationKey(receipt) === coreOperationKey(input)) ?? null,
       insert: receipt => { coreOperations.receipts.push(receipt); flush(); }
     }),

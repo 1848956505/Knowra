@@ -10,7 +10,7 @@ export function createSyncCoreOperationStore({ transaction, get, insert }) {
     commit(input, operation) {
       const request = validateCoreOperationInput(input), key = coreOperationKey(request);
       if (typeof operation !== 'function') throw new TypeError('核心操作需要同步领域提交函数。');
-      if (running.has(key)) throw new TypeError('同一核心操作不能在提交中递归执行。');
+      if (running.size) throw new TypeError('核心操作不能嵌套或递归执行；批次必须共用一次提交。');
       return transaction(() => {
         const existing = reuseCoreOperationReceipt(get(request), request);
         if (existing) return existing;
@@ -35,7 +35,7 @@ export function createAsyncCoreOperationStore({ transaction, get, insert }) {
       const request = validateCoreOperationInput(input);
       if (typeof operation !== 'function') throw new TypeError('核心操作需要领域提交函数。');
       const key = coreOperationKey(request);
-      if (running.getStore()?.has(key)) throw new TypeError('同一核心操作不能在提交中递归执行。');
+      if (running.getStore()?.size) throw new TypeError('核心操作不能嵌套或递归执行；批次必须共用一次提交。');
       return transaction(async tx => {
         const existing = reuseCoreOperationReceipt(await get(request, tx), request);
         if (existing) return existing;

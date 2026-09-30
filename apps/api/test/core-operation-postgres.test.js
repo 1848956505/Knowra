@@ -64,7 +64,7 @@ export const coreOperationPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE_
     await withFixture(async ({ app, apply, input }) => {
       const before = await app.prisma.syncJournal.findUnique({ where: { ownerId: input.ownerId } });
       await app.prisma.$executeRawUnsafe(`CREATE FUNCTION fail_core_receipt() RETURNS trigger LANGUAGE plpgsql AS
-        'BEGIN RAISE EXCEPTION ''injected receipt failure''; END'`);
+        'BEGIN RAISE EXCEPTION ''injected receipt failure''; END;'`);
       await app.prisma.$executeRawUnsafe(`CREATE TRIGGER fail_core_receipt BEFORE INSERT ON core_operation_receipts
         FOR EACH ROW EXECUTE FUNCTION fail_core_receipt()`);
       try { await assert.rejects(app.coreOperationStore.commit(input, () => apply(app)), /injected receipt failure/); }
@@ -73,9 +73,20 @@ export const coreOperationPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE_
       assert.equal(await app.coreOperationStore.get(lookup(input)), null);
       assert.deepEqual(await app.prisma.syncJournal.findUnique({ where: { ownerId: input.ownerId } }), before);
       await assert.rejects(app.coreOperationStore.commit(input, () => app.coreOperationStore.commit(input, () => {})), /递归/);
+      let innerRan = false;
+      await app.prisma.$transaction(async () => {
+        await assert.rejects(async () => app.coreOperationStore.commit(input, () => { innerRan = true; }), /最外层/);
+      });
+      assert.equal(innerRan, false);
       await assert.rejects(app.coreOperationStore.commit(input, async () => ({ ...await apply(app), forged: true })), { code: 'CORE_OPERATION_INVALID' });
       assert.equal(await app.prisma.note.count(), 0);
-      assert.equal((await app.coreOperationStore.commit(input, () => apply(app))).status, 'applied');
+      assert.equal((await app.coreOperationStore.commit(input, async () => {
+        await assert.rejects(async () => app.coreOperationStore.commit({ ...input, operationId: 'different-inner-op' }, () => {
+          innerRan = true; return apply(app, '不能保存的内层', 'unreceipted');
+        }), /嵌套/);
+        return apply(app);
+      })).status, 'applied');
+      assert.equal(innerRan, false); assert.equal(await app.prisma.note.count(), 1);
     });
   } },
   { name: 'PostgreSQL 删除隔离测试库的 AI 私有表后核心回执与普通笔记仍可使用', async run() {
@@ -87,6 +98,22 @@ export const coreOperationPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE_
       assert.deepEqual(await app.coreOperationStore.commit(input, () => { throw new Error('不能再写'); }), receipt);
       await apply(app, '私有表故障后手工笔记', 'manual-after-ai-fault');
       assert.equal(await app.prisma.note.count(), 2);
+    });
+  } },
+  { name: 'PostgreSQL 已存在的 JSON null/坏回执/索引不一致在任何领域执行前拒绝并保留', async run() {
+    await withFixture(async ({ app, apply, input }) => {
+      const receipt = await app.coreOperationStore.commit(input, () => apply(app));
+      for (const value of [null, false, { ...receipt, schemaVersion: 999 }, { ...receipt, receiptHash: '0'.repeat(64) }]) {
+        await app.prisma.$executeRawUnsafe('UPDATE core_operation_receipts SET receipt_json = $1::jsonb', JSON.stringify(value));
+        let ran = false;
+        await assert.rejects(app.coreOperationStore.get(lookup(input)), { code: 'CORE_OPERATION_INVALID' });
+        await assert.rejects(app.coreOperationStore.commit(input, () => { ran = true; return apply(app); }), { code: 'CORE_OPERATION_INVALID' });
+        assert.equal(ran, false); assert.equal(await app.prisma.note.count(), 1);
+        const [row] = await app.prisma.$queryRawUnsafe('SELECT receipt_json FROM core_operation_receipts');
+        assert.deepEqual(row.receipt_json, value);
+      }
+      await app.prisma.$executeRawUnsafe('UPDATE core_operation_receipts SET receipt_json = $1::jsonb, plan_hash = $2', JSON.stringify(receipt), 'b'.repeat(64));
+      await assert.rejects(app.coreOperationStore.get(lookup(input)), { code: 'CORE_OPERATION_INVALID' });
     });
   } }
 ] : [];

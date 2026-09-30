@@ -65,6 +65,25 @@ export function coreOperationScenarios(withFixture) {
         assert.deepEqual(f.snapshot(), before);
       });
     } },
+    { name: '捕获不同键嵌套提交失败不会保存无回执业务，外层业务事务也不能包裹核心提交', run() {
+      withFixture(f => {
+        const input = request(f.space.id);
+        let innerRan = false;
+        const inner = () => { innerRan = true;
+          return resultFor(f.store, f.api.createNote({ id: 'unreceipted', title: '不能保存', rawMarkdown: '', spaceId: f.space.id })); };
+        const receipt = f.store.coreOperationStore.commit(input, () => {
+          assert.throws(() => f.store.coreOperationStore.commit({ ...input, operationId: 'inner-op' }, inner), /嵌套/);
+          return resultFor(f.store, f.api.createNote({ id: 'outer-only', title: '外层有效', rawMarkdown: '', spaceId: f.space.id }));
+        });
+        assert.equal(innerRan, false); assert.equal(receipt.result.changes[0].noteId, 'outer-only');
+        assert.equal(f.store.state.notes.length, 1); assert.equal(f.store.state.noteVersions.length, 1);
+        f.store.runTransaction(() => {
+          assert.throws(() => f.store.coreOperationStore.commit({ ...input, operationId: 'nested-in-business' }, inner), /最外层/);
+        });
+        assert.equal(innerRan, false); f.restart(); assert.equal(f.store.state.notes.length, 1);
+        assert.equal(f.store.coreOperationStore.get(lookup({ ...input, operationId: 'inner-op' })), null);
+      });
+    } },
     { name: 'AI 私有故障不会抹除核心回执，业务导入保留操作身份并使旧 epoch 失效', run() {
       withFixture(f => {
         const input = request(f.space.id);

@@ -1,6 +1,7 @@
 import { createBatchSyncService } from './batch-service.js';
 import { applyPostgresState } from './postgres-batch.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { PERSISTENCE_TRANSACTION_ACTIVE } from '../../infrastructure/transaction-context.js';
 import * as maps from '../knowledge/infrastructure/postgres/mappers.js';
 import { appendChanges, createJournal, loadJournal, syncError } from './journal.js';
 import { createSyncService } from './service.js';
@@ -55,6 +56,7 @@ export function createPostgresSyncRuntime(client, ownerId) {
   const delegates = new Map();
   const proxy = new Proxy(client, {
     get(_target, key) {
+      if (key === PERSISTENCE_TRANSACTION_ACTIVE) return Boolean(scope.getStore());
       if (key === '$transaction') return operation => {
         if (typeof operation !== 'function') throw new TypeError('同步持久化需要交互式事务。');
         return transaction(operation);
