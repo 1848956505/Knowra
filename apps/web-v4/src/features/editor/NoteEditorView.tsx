@@ -229,6 +229,12 @@ export function NoteEditorView({
   const annotationCreatePendingRef = useRef(false);
   const versionWriteStateRef = useRef({ noteId: note?.id, canWrite });
   versionWriteStateRef.current = { noteId: note?.id, canWrite };
+  const annotationWriteStateRef = useRef({ noteId: note?.id, editable: false });
+  const annotationEditable = Boolean(note && canWrite && view.contentMode === 'edit' && !view.showSourceEditor);
+  if (annotationWriteStateRef.current.noteId !== note?.id || annotationWriteStateRef.current.editable !== annotationEditable) {
+    annotationWriteStateRef.current = { noteId: note?.id, editable: annotationEditable };
+  }
+  useEffect(() => () => { annotationWriteStateRef.current = { noteId: undefined, editable: false }; }, []);
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingScrollRestoreRef = useRef<string | null>(null);
@@ -522,31 +528,49 @@ export function NoteEditorView({
     setFocusedAnnotationId(annotationId);
     if (!editorRef.current?.selectAnnotation(annotationId)) onFileStatus('原文位置已变化，请重新选择来源');
   };
-  const reanchorAnnotation = async (annotation: Annotation) => {
-    const selection = editorRef.current?.getAnnotationSelection(annotation.scopeType ?? 'selection');
-    if (!selection) throw new Error(annotation.scopeType === 'list' ? '请先将光标放在新的非空普通列表项内' : '请先在正文中选中新的对应文字');
-    const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+  const prepareAnnotationWrite = async (annotation: Annotation, scope: 'selection' | 'blocks' | 'section' | 'list') => {
+    const context = annotationWriteStateRef.current;
+    const editor = editorRef.current;
+    if (!context.editable || context.noteId !== annotation.noteId || !editor) throw new Error('笔记或编辑状态已变化，请重新选择');
+    const selection = editor.getAnnotationSelection(scope);
+    if (!selection) throw new Error('请先在正文中选择对应内容');
+    const markdown = editor.getMarkdown();
+    const signature = JSON.stringify(selection);
+    const assertCurrent = () => {
+      if (annotationWriteStateRef.current !== context || editorRef.current !== editor
+        || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope)) !== signature) {
+        throw new Error('正文、选区或编辑状态已变化，请重新选择');
+      }
+    };
     await autosave.saveNow(markdown);
+    assertCurrent();
+    const items = await onListAnnotations(annotation.noteId);
+    assertCurrent();
+    const latest = items.find(item => item.id === annotation.id && item.noteId === annotation.noteId);
+    if (!latest || latest.deletedAt || latest.lifecycleStatus && latest.lifecycleStatus !== 'active') throw new Error('标注状态已变化，请刷新后重试');
+    return { markdown, selection, revision: latest.revision ?? 1, assertCurrent,
+      isCurrentNote: () => annotationWriteStateRef.current === context };
+  };
+  const reanchorAnnotation = async (annotation: Annotation) => {
+    const prepared = await prepareAnnotationWrite(annotation, annotation.scopeType ?? 'selection');
+    const input = await buildUpdateAnnotationAnchorInput(prepared.markdown, prepared.selection, prepared.revision);
+    prepared.assertCurrent();
     const updated = await onUpdateAnnotationAnchor(
       annotation.id,
-      await buildUpdateAnnotationAnchorInput(markdown, selection, annotation.revision ?? 1)
+      input
     );
-    replaceAnnotation(updated);
-    setFocusedAnnotationId(updated.id);
+    if (prepared.isCurrentNote()) { replaceAnnotation(updated); setFocusedAnnotationId(updated.id); }
   };
   const excludeCurrentBlock = async (annotation: Annotation) => {
     if (!onCreateAnnotationExclusion) throw new Error('当前环境不支持局部排除');
-    const selection = editorRef.current?.getAnnotationSelection('blocks');
-    if (!selection) throw new Error('请先将光标放在要排除的内容块内');
-    const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-    await autosave.saveNow(markdown);
+    const prepared = await prepareAnnotationWrite(annotation, 'blocks');
+    prepared.assertCurrent();
     const result = await onCreateAnnotationExclusion(annotation.id, {
-      expectedRevision: annotation.revision ?? 1,
-      noteContentHash: calculateContentHash(markdown),
-      anchor: selection.anchor
+      expectedRevision: prepared.revision,
+      noteContentHash: calculateContentHash(prepared.markdown),
+      anchor: prepared.selection.anchor
     });
-    replaceAnnotation(result.annotation);
-    onFileStatus('已从所属重点中排除当前内容块');
+    if (prepared.isCurrentNote()) { replaceAnnotation(result.annotation); onFileStatus('已从所属重点中排除当前内容块'); }
   };
   const openNoteSafely = (targetNoteId: string) => {
     saveCurrentScrollPosition();
