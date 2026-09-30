@@ -74,6 +74,8 @@ import { createCodeBlockBehavior } from './editorCodeBlock';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
 import { EditorTableControls } from './EditorTableControls';
+import { EditorImageControls } from './EditorImageControls';
+import { configureImageSize, editorImageBehavior, imageHtmlWithRenderedSizes } from './editorImageBehavior';
 import { editorTableBehavior } from './editorTableBehavior';
 
 export interface MilkdownNoteEditorProps {
@@ -347,7 +349,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         return editorRef.current?.action(getMarkdown()) ?? editorMarkdownRef.current;
       },
       getHtml() {
-        return editorRef.current?.action(getHTML()) ?? '';
+        const editor = editorRef.current;
+        return editor ? imageHtmlWithRenderedSizes(editor.action(getHTML()), editor.ctx.get(editorViewCtx)) : '';
       }
     }), []);
 
@@ -364,6 +367,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       latestLocalMarkdownRef.current = incomingMarkdownRef.current;
       const editor = Editor.make()
         .config((ctx) => {
+          configureImageSize(ctx);
           ctx.set(rootCtx, root);
           ctx.set(defaultValueCtx, incomingMarkdownRef.current);
           ctx.set(historyProviderConfig.key, { depth: 500, newGroupDelay: 750 });
@@ -410,6 +414,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
         .use(gfm)
         .use(editorTableBehavior)
+        .use(editorImageBehavior)
         .use(highlightRemark)
         .use(highlightSchema)
         .use(toggleHighlightCommand)
@@ -522,6 +527,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       />
       {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={reportOperationStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); commandResolvers[command](editor); } }} /> : null}
       {!readOnly ? <EditorTableControls hostRef={hostRef} getView={getView} /> : null}
+      {!readOnly ? <EditorImageControls hostRef={hostRef} getView={getView} /> : null}
       {operationStatus ? <p className={styles.operationStatus} role="status" data-pdf-exclude="true">{operationStatus}</p> : null}
       </>
     );
