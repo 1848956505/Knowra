@@ -91,3 +91,27 @@ test('production proxy reaches a custom derived API port and honors an explicit 
     await close(upstream);
   }
 });
+
+test('Web proxy 按最终 UTF-8 JSON 字节数放行同步 batch/blob 边界并拒绝超限', async () => {
+  const received = [];
+  const upstream = http.createServer((request, response) => {
+    let size = 0;
+    request.on('data', chunk => { size += chunk.byteLength; });
+    request.on('end', () => { received.push([request.url, size]); response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ data: { size } })); });
+  });
+  const apiOrigin = await listen(upstream), proxy = createV4WebServer({ distRoot: '.', getApiOrigin: () => apiOrigin });
+  try {
+    const origin = await listen(proxy);
+    for (const [route, limit] of [['batch', 16 * 1024 * 1024], ['blobs', 9 * 1024 * 1024]]) {
+      for (const size of [limit, limit + 1]) {
+        // 中文采用 UTF-8 计量；body 本身始终是有效 JSON。
+        const body = JSON.stringify({ text: '中' + 'a'.repeat(size - 14) });
+        assert.equal(Buffer.byteLength(body), size);
+        const response = await fetch(`${origin}/api/sync/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+        assert.equal(response.status, size === limit ? 200 : 413, route);
+      }
+    }
+    assert.deepEqual(received, [['/api/sync/batch', 16 * 1024 * 1024], ['/api/sync/blobs', 9 * 1024 * 1024]]);
+  } finally { await close(proxy); await close(upstream); }
+});

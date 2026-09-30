@@ -1,6 +1,7 @@
 import { createAppError } from '../errors/app-error.js';
 
-export const DEFAULT_JSON_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
+import { DEFAULT_JSON_BODY_LIMIT_BYTES } from '@study-accelerator/shared/http-limits';
+export { DEFAULT_JSON_BODY_LIMIT_BYTES } from '@study-accelerator/shared/http-limits';
 
 function createRequestError(message, statusCode = 400, code = 'VALIDATION_ERROR') {
   return createAppError(code, message, statusCode);
@@ -40,7 +41,7 @@ export function parseBody(request, { limitBytes = DEFAULT_JSON_BODY_LIMIT_BYTES 
         resolve({});
         return;
       }
-      if (!contentType.includes('application/json')) {
+      if (typeof contentType !== 'string' || contentType.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
         fail(createRequestError('Content-Type must be application/json', 415, 'UNSUPPORTED_MEDIA_TYPE'));
         return;
       }

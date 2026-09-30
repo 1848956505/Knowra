@@ -42,7 +42,7 @@ export type EditorFindDirection = 'next' | 'previous';
 
 export interface EditorEditResult {
   ok: boolean;
-  reason?: 'empty-selection' | 'clipboard-empty' | 'clipboard-denied' | 'unsupported';
+  reason?: 'empty-selection' | 'clipboard-empty' | 'clipboard-denied' | 'unsupported' | 'context-changed';
 }
 
 export interface EditorFindResult {
