@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import fs from 'node:fs';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
@@ -74,6 +75,16 @@ test('附件文件先确认再发布引用；另一设备下载并按哈希读�
   const remote = b.store.state.attachments.find(item => item.id === attachment.id);
   assert.deepEqual(b.transfer.read(remote), bytes);
   assert.equal(a.engine.status().pendingEntities, 0);
+  fs.unlinkSync(path.join(cloud.root, 'b', remote.storagePath));
+  b.store.syncTransaction((_db, state) => { state.attachments.find(item => item.id === attachment.id).status = 'missing'; });
+  const generation = b.engine.status().generation;
+  await b.engine.sync(); clean(b);
+  assert.equal(b.store.state.attachments.find(item => item.id === attachment.id).status, 'ready');
+  assert.deepEqual(b.transfer.read(remote), bytes);
+  assert(b.engine.status().generation > generation, '空页中的附件修复也必须通知界面');
+  const repairedGeneration = b.engine.status().generation;
+  await b.engine.sync(); clean(b);
+  assert.equal(b.engine.status().generation, repairedGeneration);
 });
 
 test('完整事务丢响应重试保持原 ID，继续编辑不会被旧确认覆盖', async t => {

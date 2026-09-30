@@ -13,7 +13,7 @@ interface SyncStatus {
   deviceId?: string; pendingEntities?: number; pendingAttachments?: number; attachmentPending?: string | null; entityConflict?: EntityConflict | null;
   pendingKnowledgeEntities?: number; knowledgeSyncSupported?: boolean;
   serverUrl: string | null; generation: number; phase: string; pendingNotes: number;
-  lastSyncedAt: string | null; conflicts: Conflict[]; error: SyncIssue | null;
+  lastSyncedAt: string | null; lastCheckedAt?: string | null; conflicts: Conflict[]; error: SyncIssue | null;
   blockedNotes: { noteId: string; title: string; message: string }[];
 }
 async function callSync<T = SyncStatus>(path = '', body?: unknown): Promise<T> {
@@ -50,16 +50,47 @@ export function LocalSyncControl() {
   const [error, setError] = useState<SyncIssue | null>(null);
   const [backupOpen, setBackupOpen] = useState(false);
   const seenGeneration = useRef<number | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const latestStatus = useRef<SyncStatus | null>(null);
+  const requestRefresh = useRef<() => void>(() => {});
+  const workspaceRefresh = useRef<Promise<boolean> | null>(null);
+  const acceptStatus = async (next: SyncStatus) => {
+    if (seenGeneration.current !== null && next.generation < seenGeneration.current) return;
+    latestStatus.current = next;
+    setStatus(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
+    if (seenGeneration.current === null) seenGeneration.current = next.generation;
+    else if (seenGeneration.current !== next.generation) {
+      if (workspaceRefresh.current) await workspaceRefresh.current;
+      if (seenGeneration.current !== null && seenGeneration.current >= next.generation) return;
+      const refresh = store.getState().refreshLocalWorkspace();
+      workspaceRefresh.current = refresh;
+      try { if (await refresh) seenGeneration.current = next.generation; }
+      finally { if (workspaceRefresh.current === refresh) workspaceRefresh.current = null; }
+    }
+  };
+  const acceptStatusRef = useRef(acceptStatus);
+  acceptStatusRef.current = acceptStatus;
+  useEffect(() => { requestRefresh.current(); }, [open]);
   useEffect(() => {
     let stopped = false;
     let pending = false;
+    let timer: number | undefined;
+    const schedule = () => {
+      window.clearTimeout(timer);
+      if (stopped || document.visibilityState === 'hidden') return;
+      const current = latestStatus.current;
+      const active = openRef.current || current?.phase === 'syncing' || Boolean(current?.pendingEntities || current?.pendingNotes || current?.attachmentPending || current?.entityConflict || current?.conflicts.length);
+      timer = window.setTimeout(() => { void refresh(); }, active ? 2000 : 10000);
+    };
     const refresh = async () => {
-      if (pending) return;
+      if (pending || stopped || document.visibilityState === 'hidden') return;
+      window.clearTimeout(timer);
       pending = true;
       try {
         const next = await callSync();
         if (stopped) return;
-        setStatus(next);
+        await acceptStatusRef.current(next);
         setError(current => {
           if (!current || current.code?.startsWith('LOCAL_RUNTIME_')) return null;
           if (next.serverUrl && !next.error && ['synced', 'pending'].includes(next.phase)
@@ -67,24 +98,32 @@ export function LocalSyncControl() {
               || ['AUTH_REQUIRED', 'CLOUD_SERVICE_UNAVAILABLE', 'CLOUD_REQUEST_FAILED'].includes(current.code ?? ''))) return null;
           return current;
         });
-        if (seenGeneration.current === null) seenGeneration.current = next.generation;
-        else if (seenGeneration.current !== next.generation && await store.getState().refreshLocalWorkspace()) seenGeneration.current = next.generation;
       } catch { /* 状态查询失败不影响本机编辑；打开面板后手动重试会显示具体错误。 */ }
-      finally { pending = false; }
+      finally { pending = false; schedule(); }
     };
+    requestRefresh.current = () => { void refresh(); };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 2000);
-    const wake = () => { void callSync('/retry', {}).then(() => refresh()).catch(() => undefined); };
-    window.addEventListener('online', wake);
+    const wake = () => { void callSync('/wake', { reason: 'focus' }).then(() => refresh()).catch(() => undefined); };
+    const online = () => { void callSync('/wake', { reason: 'online' }).then(() => refresh()).catch(() => undefined); };
+    const visibility = () => {
+      window.clearTimeout(timer);
+      if (document.visibilityState !== 'hidden') { wake(); void refresh(); }
+    };
+    window.addEventListener('online', online);
     window.addEventListener('focus', wake);
-    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener('online', wake); window.removeEventListener('focus', wake); };
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      stopped = true; window.clearTimeout(timer); requestRefresh.current = () => {};
+      window.removeEventListener('online', online); window.removeEventListener('focus', wake);
+      document.removeEventListener('visibilitychange', visibility);
+    };
   }, [store]);
   const action = async (path: string, body: unknown) => {
     setBusy(true); setError(null);
-    try { setStatus(await callSync(path, body)); await store.getState().refreshLocalWorkspace(); }
+    try { await acceptStatus(await callSync(path, body)); }
     catch (failure) {
       setError(syncIssue(failure));
-      try { setStatus(await callSync()); } catch { /* 仍保留这次操作的明确错误。 */ }
+      try { await acceptStatus(await callSync()); } catch { /* 仍保留这次操作的明确错误。 */ }
     }
     finally { setBusy(false); setPassword(''); }
   };

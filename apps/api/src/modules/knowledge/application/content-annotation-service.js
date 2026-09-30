@@ -4,6 +4,7 @@ import { resolveStoredAnnotation } from './resolve-stored-annotation.js';
 import crypto from 'node:crypto';
 import {
   calculateContentHash,
+  listTracking,
   anchorForSection,
   followSectionAnchor,
   headingPathForSourceOffset,
@@ -36,8 +37,8 @@ export function createContentAnnotationService({ repository = createInMemoryCont
     const projection = result.projection;
     const sourceStart = dto.anchor.segments[0].start;
     const anchor = {
-      ...structuredClone(dto.anchor),
-      tracking: { formatVersion: 1, structureRevision: note.annotationStructure?.revision ?? 0 }, pending: null,
+      ...structuredClone(dto.anchor.scopeType === 'list' ? result.anchor : dto.anchor),
+      tracking: dto.anchor.scopeType === 'list' ? listTracking(result.projection, result.anchor, note.annotationStructure) : { formatVersion: 1, structureRevision: note.annotationStructure?.revision ?? 0 }, pending: null,
       noteVersionId: null,
       quoteText: result.quoteText,
       prefixText: dto.anchor.prefixText ?? '',
@@ -54,7 +55,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       suffixText: anchor.suffixText,
       anchorFingerprint: contentHash(JSON.stringify({ segments: anchor.segments, structurePath: anchor.structurePath })),
       resolvedContentHash: contentHash(result.quoteText),
-      boundaryFingerprint: dto.anchor.section?.memberFingerprint ?? null
+      boundaryFingerprint: anchor.list?.memberFingerprint ?? dto.anchor.section?.memberFingerprint ?? null
     };
   }
   function recordRevision(annotation, operation, oldAnchor = null, reason = null) {
@@ -131,6 +132,11 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       if (!note || note.deleted) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: 'missing', anchorReason: 'sourceDeleted', deletedAt: null }, 'restored', 'sourceDeleted');
       const oldVersion = noteVersionRepository?.findById(annotation.noteVersionId);
       const result = reconcileAnnotationSource({ ...annotation, anchorStatus: 'resolved' }, note, oldVersion, null);
+      if (annotation.scopeType === 'list') {
+        const version = noteVersionRepository?.findByNoteIdAndContentHash(note.id, calculateContentHash(note.rawMarkdown));
+        return saveUpdated(annotation, { ...reconciledAnnotationFields(annotation, note, version, result),
+          lifecycleStatus: 'active', deletedAt: null }, 'restored', result.reason);
+      }
       return saveUpdated(annotation, {
         lifecycleStatus: 'active', deletedAt: null,
         anchorStatus: result.status, anchorReason: result.reason,
@@ -146,6 +152,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
     updateAnnotationAnchor(id, input) {
       const annotation = requireAnnotation(id);
       const dto = buildUpdateAnnotationAnchorDto(input);
+      if (annotation.scopeType === 'list' && dto.anchor?.scopeType !== 'list') throw fail('ANNOTATION_RANGE_INVALID', '列表重点的新来源必须是完整列表项', 409);
       assertRevision(annotation, dto.expectedRevision);
       const note = assertCurrentNote({ ...annotation, ...dto });
       const version = noteVersionRepository?.findByNoteIdAndContentHash(annotation.noteId, dto.noteContentHash);
@@ -191,12 +198,15 @@ export function createContentAnnotationService({ repository = createInMemoryCont
         const fields = reconciledAnnotationFields(annotation, note, version, result);
         if (result.status !== 'resolved' || fields.resolvedContentHash !== annotation.resolvedContentHash) contentChangedAnnotationIds.push(annotation.id);
         changed.push(saveUpdated(annotation, fields, 'sourceReconciled', result.reason));
+        const parentRange = result.status === 'resolved' ? fields.anchor : fields.anchor?.pending?.anchor;
         for (const exclusion of exclusionRepository?.list({ parentAnnotationId: annotation.id }) ?? []) {
           const exclusionVersion = noteVersionRepository?.findById(exclusion.noteVersionId);
-          const resolution = reconcileAnnotationSource({ ...annotation, anchor: exclusion.anchor, anchorStatus: exclusion.anchor.unresolved ? 'needsReview' : 'resolved' }, note, exclusionVersion, context);
+          const resolution = reconcileAnnotationSource({ ...annotation, scopeType: exclusion.anchor.scopeType, anchor: exclusion.anchor, anchorStatus: exclusion.anchor.unresolved ? 'needsReview' : 'resolved' }, note, exclusionVersion, context);
           exclusionRepository.save({ ...exclusion, revision: exclusion.revision + 1,
-            anchor: { ...exclusion.anchor, unresolved: resolution.status !== 'resolved' },
-            ...(resolution.status === 'resolved' ? { anchor: resolution.anchor ?? exclusion.anchor, noteVersionId: version.id } : {})
+            anchor: { ...(resolution.anchor ?? exclusion.anchor), unresolved: resolution.status !== 'resolved'
+              || !parentRange || (resolution.anchor ?? exclusion.anchor).sourceStart < parentRange.sourceStart
+              || (resolution.anchor ?? exclusion.anchor).sourceEnd > parentRange.sourceEnd },
+            ...(resolution.status === 'resolved' ? { noteVersionId: version.id } : {})
           });
         }
       }

@@ -48,6 +48,24 @@ test('真实页面连接云端、后台刷新正文、三份冲突对照与手�
   }
   await page.goto(`${runtime.origin}/#/materials/notes/${note.id}`);
   await expect(page.locator('.ProseMirror')).toContainText('页面共同基线');
+  const workspaceReads = [];
+  const recordReads = request => {
+    if (request.method() === 'GET' && request.url().includes('/api/knowledge/')) workspaceReads.push(request.url());
+  };
+  await page.getByRole('contentinfo').getByRole('button', { name: '本地资料已同步' }).click();
+  page.on('request', recordReads);
+  for (let round = 0; round < 3; round++) {
+    const completed = page.waitForResponse(response => response.url().endsWith('/api/local-runtime/sync/retry'));
+    await page.getByRole('button', { name: '立即同步', exact: true }).click();
+    await completed;
+    await expect(page.getByRole('button', { name: '立即同步', exact: true })).toBeEnabled();
+  }
+  assert.deepEqual(workspaceReads, [], '无资料变化的同步不能重新加载工作区');
+  page.off('request', recordReads);
+  const wake = page.waitForRequest(request => request.url().endsWith('/api/local-runtime/sync/wake'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  assert.equal((await wake).postDataJSON().reason, 'focus');
+  await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
   // 当前页面保持打开；远端更新后通过同步静默刷新，不需要重新导航。
   cloud.modules.knowledge.noteService.updateNote(note.id, { rawMarkdown: '网页先更新' });
   await page.getByRole('contentinfo').getByRole('button', { name: '本地资料已同步' }).click();

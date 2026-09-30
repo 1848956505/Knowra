@@ -260,3 +260,5 @@
   word-break: normal;
   tab-size: 2;
 }
+
+.milkdownEditor :global(li.editor-list-annotation)::marker { color: var(--ink-violet); }

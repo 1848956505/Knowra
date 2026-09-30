@@ -4,10 +4,12 @@ import { TextSelection } from '@milkdown/kit/prose/state';
 import { BoldIcon, ItalicIcon, CodeIcon, StarIcon } from '../../components/icons/knowra';
 import { GhostIconButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui/overlay';
+import { listItemAt } from './editorListAnnotations';
+import { captureAnnotationActionTarget, currentAnnotationActionTarget } from './editorAnnotations';
 import type { EditorCommand } from './editorCommands';
 import styles from './EditorAnnotationActions.module.css';
 
-type Scope = 'selection' | 'blocks' | 'section';
+type Scope = 'selection' | 'blocks' | 'section' | 'list';
 interface Props {
   hostRef: RefObject<HTMLDivElement | null>;
   getView(): EditorView | null;
@@ -18,7 +20,7 @@ interface Props {
 
 export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand, onStatus }: Props) {
   const [selection, setSelection] = useState<{ x: number; y: number } | null>(null);
-  const [block, setBlock] = useState<{ x: number; y: number; pos: number; heading: boolean } | null>(null);
+  const [block, setBlock] = useState<{ x: number; y: number; pos: number; heading: boolean; list: boolean } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pending, setPending] = useState(false);
   useEffect(() => {
@@ -48,7 +50,18 @@ export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand,
       const lineCenter = isTextBlock && Number.isFinite(lineHeight)
         ? rect.top + lineTop + lineHeight / 2
         : rect.top + Math.min(rect.height, 28) / 2;
-      setBlock({ x: Math.max(4, rect.left - 44), y: lineCenter - 14, pos: view.posAtDOM(target, 0), heading: /^H[1-6]$/.test(target.tagName) });
+      const pos = view.posAtDOM(target, 0);
+      const listItem = listItemAt(view.state.doc, pos);
+      const list = Boolean(listItem && !listItem.task);
+      const itemElement = list ? target.closest('li') : null;
+      const itemRect = itemElement?.getBoundingClientRect();
+      const stage = view.dom.closest('[data-editor-scroll-root]');
+      const stageRect = stage?.getBoundingClientRect();
+      const toolbarRect = stage?.querySelector('[aria-label="笔记格式工具栏"]')?.getBoundingClientRect();
+      const top = Math.max(4, stageRect?.top ?? 4, toolbarRect?.bottom ?? 4);
+      const bottom = Math.min(window.innerHeight - 32, (stageRect?.bottom ?? window.innerHeight) - 32);
+      const itemTop = itemRect && itemRect.top >= top && itemRect.top <= bottom ? itemRect.top : lineCenter - 14;
+      setBlock({ list, x: Math.max(4, (itemRect?.left ?? rect.left) - 44), y: list ? Math.max(top, Math.min(itemTop, bottom)) : lineCenter - 14, pos, heading: /^H[1-6]$/.test(target.tagName) });
     };
     const hide = () => { setSelection(null); if (!menuOpen) setBlock(null); };
     document.addEventListener('selectionchange', updateSelection);
@@ -71,7 +84,9 @@ export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand,
       if (scope !== 'selection' && block) {
         const view = getView();
         if (!view) return;
-        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(Math.min(block.pos, view.state.doc.content.size)))));
+        const target = currentAnnotationActionTarget(view);
+        if (target === null) throw new Error('目标内容已变化，请重新选择');
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(Math.min(target, view.state.doc.content.size)))));
       }
       await onCreate(scope);
       setSelection(null);
@@ -89,10 +104,11 @@ export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand,
       <GhostIconButton size={24} aria-label="标记重点" title="标记重点" disabled={pending} onPress={() => void create('selection')}><StarIcon size={15} fill="currentColor" /></GhostIconButton>
     </div> : null}
     {block && !selection ? <div data-annotation-actions className={styles.blockAction} style={{ left: block.x, top: block.y }}>
-      <MenuTrigger isOpen={menuOpen} onOpenChange={setMenuOpen}>
-        <GhostIconButton aria-label={block.heading ? '标题重点菜单' : '内容块重点菜单'}>⋮</GhostIconButton>
+      <MenuTrigger isOpen={menuOpen} onOpenChange={(open) => { if (open) { const view = getView(); if (view) captureAnnotationActionTarget(view, block.pos); } setMenuOpen(open); }}>
+        <GhostIconButton aria-label={block.list ? '列表项重点菜单' : block.heading ? '标题重点菜单' : '内容块重点菜单'}>⋮</GhostIconButton>
         <MenuPopover placement="bottom start"><Menu ariaLabel="标记重点">
           <MenuItem id="blocks" isDisabled={pending} onAction={() => void create('blocks')}>标记此块为重点</MenuItem>
+          {block.list ? <MenuItem id="list" isDisabled={pending} onAction={() => void create('list')}>标记此列表项为重点（包含本项及全部子项）</MenuItem> : null}
           {block.heading ? <MenuItem id="section" isDisabled={pending} onAction={() => void create('section')}>标记本节为重点</MenuItem> : null}
         </Menu></MenuPopover>
       </MenuTrigger>

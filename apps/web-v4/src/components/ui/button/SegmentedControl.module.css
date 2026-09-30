@@ -10,4 +10,13 @@
 .count { color: var(--ink-muted); font: 750 var(--index-size-9)/1 var(--font-mono); }
 .segment[aria-pressed='true'] .count { color: var(--ink-accent-soft); }
 .iconOnly { width: var(--index-size-34); padding: 0; }
+.underline { border: 0; border-bottom: 1px solid var(--ink-panel); box-shadow: none; }
+.underline:focus-within { box-shadow: none; }
+.underline .segment { gap: 4px; min-width: 0; padding: 0 2px; border-bottom: 2px solid transparent; background: transparent; font-weight: 400; }
+.underline .segment + .segment { border-left: 0; }
+.underline .segment[data-hovered] { background: var(--ink-sunken); color: var(--ink); }
+.underline .segment[aria-pressed='true'] { color: var(--ink-accent); border-bottom-color: var(--ink-accent); background: transparent; box-shadow: none; font-weight: 700; }
+.underline .count { font-size: 10px; }
+.underline .segment[aria-pressed='true'] .count { color: var(--ink-accent); }
+.underline .segment[data-focus-visible] { outline: 2px solid var(--ink-accent); outline-offset: -2px; }
 @media (max-width: 767px) { .segment { min-height: var(--index-size-44); } .iconOnly { width: var(--index-size-44); } }

@@ -81,7 +81,7 @@ export interface MilkdownNoteEditorProps {
   allowExternalSync?: boolean;
   annotations?: Annotation[];
   focusedAnnotationId?: string | null;
-  onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section'): Promise<void>;
+  onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section' | 'list'): Promise<void>;
   onChange(markdown: string, options?: { editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
   onSelectAnnotation?(annotationIds: string[]): void;
   onStatus?(message: string): void;
@@ -392,9 +392,6 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           });
           // Document transactions publish synchronously through the annotation plugin.
           // A debounced Markdown listener can replay an older document over a newer draft.
-          ctx.get(listenerCtx).selectionUpdated((_ctx, selection) => {
-            lastSelectionRef.current = { from: selection.from, to: selection.to };
-          });
         })
         .use(commonmark)
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
@@ -421,7 +418,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           emittedMarkdownRef.current = nextMarkdown;
           latestLocalMarkdownRef.current = nextMarkdown;
           onChangeRef.current(nextMarkdown, { editIntent });
-        }))
+        }, (selection) => { lastSelectionRef.current = selection; }))
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
         .use(editorInputBehavior)

@@ -50,8 +50,9 @@ export function createAnnotationScopeService({
 
   function createExclusion(annotationId, input = {}) {
     const annotation = requireAnnotation(annotationId);
-    if (annotation.scopeType !== 'section') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '只有标题范围重点可以保存局部排除', 409);
+    if (!['section', 'list'].includes(annotation.scopeType)) throw fail('ANNOTATION_EXCLUSION_CONFLICT', '只有章节或列表项重点可以保存局部排除', 409);
     if (annotation.lifecycleStatus !== 'active') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '已取消的重点不能新增排除', 409);
+    if (annotation.anchorStatus !== 'resolved') throw fail('ANNOTATION_ANCHOR_UNRESOLVED', '请先确认所属重点范围', 409);
     const note = requireNote(annotation.noteId);
     if (calculateContentHash(note.rawMarkdown) !== input.noteContentHash) throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请刷新范围', 409);
     const resolved = resolveAnchor(note.rawMarkdown, input.anchor);
@@ -60,7 +61,7 @@ export function createAnnotationScopeService({
     const parentEnd = annotation.anchor?.sourceEnd;
     if (!Number.isInteger(parentStart) || !Number.isInteger(parentEnd)
       || input.anchor.sourceStart < parentStart || input.anchor.sourceEnd > parentEnd) {
-      throw fail('ANNOTATION_EXCLUSION_CONFLICT', '排除范围必须位于标题重点内', 409);
+      throw fail('ANNOTATION_EXCLUSION_CONFLICT', '排除范围必须位于所属重点内', 409);
     }
     const version = requireVersion(note);
     const existing = exclusionRepository.list({ parentAnnotationId: annotation.id })
@@ -138,6 +139,7 @@ export function createAnnotationScopeService({
     } else {
       for (const annotation of annotations) {
         if (annotation.lifecycleStatus !== 'active') continue;
+        if (annotation.scopeType === 'list' && annotation.anchor?.tracking?.empty) throw fail('ANALYSIS_SCOPE_EMPTY', '空列表项不能用于分析', 409);
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           omittedItems.push({ annotationId: annotation.id, reason: 'legacyUnverified' });
           continue;
@@ -161,10 +163,15 @@ export function createAnnotationScopeService({
     }
 
     const persistentExclusions = [];
-    for (const annotation of annotations.filter((item) => item.scopeType === 'section')) {
+    for (const annotation of annotations.filter((item) => ['section', 'list'].includes(item.scopeType))) {
       for (const exclusion of exclusionRepository.list({ parentAnnotationId: annotation.id })) {
         if (normalized.overrideExclusionIds.includes(exclusion.id)) continue;
         if (exclusion.anchor?.unresolved) throw fail('ANNOTATION_EXCLUSION_CONFLICT', '局部排除位置待确认，请先修复排除范围', 409);
+        const note = noteById.get(annotation.noteId);
+        if (!note || resolveAnchor(note.rawMarkdown, exclusion.anchor).status !== 'resolved'
+          || exclusion.anchor.sourceStart < annotation.anchor.sourceStart || exclusion.anchor.sourceEnd > annotation.anchor.sourceEnd) {
+          throw fail('ANNOTATION_EXCLUSION_CONFLICT', '局部排除不在当前重点范围内，请先修复排除范围', 409);
+        }
         persistentExclusions.push(...exclusion.anchor.segments.map((segment) => ({ noteId: annotation.noteId, start: segment.start, end: segment.end, exclusionId: exclusion.id })));
       }
     }

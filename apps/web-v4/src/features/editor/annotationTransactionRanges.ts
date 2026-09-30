@@ -1,6 +1,7 @@
+import { listItemAt } from './editorListAnnotations';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
 import type { Transaction } from '@milkdown/kit/prose/state';
-export interface TrackedAnnotationRange { from: number; to: number; scopeType: 'selection' | 'blocks' | 'section'; missing?: boolean; needsReview?: boolean }
+export interface TrackedAnnotationRange { from: number; to: number; scopeType: 'selection' | 'blocks' | 'section' | 'list'; missing?: boolean; needsReview?: boolean }
 export function mapAnnotationRange(range: TrackedAnnotationRange, transaction: Transaction): TrackedAnnotationRange {
   if (range.missing) return range;
   let from = range.from, to = range.to;
@@ -23,6 +24,13 @@ export function mapAnnotationRange(range: TrackedAnnotationRange, transaction: T
   if (from >= to && range.scopeType === 'selection') return { ...range, missing: true };
   from = Math.max(0, Math.min(from, transaction.doc.content.size));
   to = Math.max(from, Math.min(to, transaction.doc.content.size));
+  if (range.scopeType === 'list') {
+    const old = listItemAt(transaction.before, range.from);
+    const current = listItemAt(transaction.doc, from);
+    if (!old || !current || current.task) return { ...range, from, to, needsReview: true };
+    const structureChanged = old.depth !== current.depth || current.from !== from || current.to > to;
+    return { ...range, from: current.from, to: current.to, needsReview: range.needsReview || (!internal && structureChanged) };
+  }
   if (range.scopeType === 'section') {
     const previous = headingAt(transaction.before, range.from);
     const current = headingAt(transaction.doc, from);

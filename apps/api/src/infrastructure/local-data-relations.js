@@ -1,4 +1,4 @@
-import { calculateContentHash, projectMarkdown } from '@study-accelerator/content-anchor';
+import { calculateContentHash, projectMarkdown, resolveAnchor, listTracking } from '@study-accelerator/content-anchor';
 import { nextKnowledgeItemTimestamp } from '../modules/knowledge/application/knowledge-item-concurrency.js';
 import crypto from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
@@ -67,7 +67,7 @@ function validateAnnotationExtensions(state, spaces, annotations, noteVersions) 
   for (const exclusion of state.annotationExclusions ?? []) {
     const annotation = annotations.get(exclusion.parentAnnotationId);
     assertReference(Boolean(annotation), `AnnotationExclusion ${exclusion.id} references unknown annotation`);
-    assertReference(annotation.scopeType === 'section', `AnnotationExclusion ${exclusion.id} requires a section annotation`);
+    assertReference(['section', 'list'].includes(annotation.scopeType), `AnnotationExclusion ${exclusion.id} requires a section or list annotation`);
     if (exclusion.noteVersionId) assertReference(noteVersions.has(exclusion.noteVersionId), `AnnotationExclusion ${exclusion.id} references unknown NoteVersion`);
   }
   for (const revision of state.annotationRevisions ?? []) {
@@ -267,6 +267,15 @@ function validateAnnotations(annotationItems, spaces, notes, noteVersions) {
       note.spaceId === annotation.spaceId,
       `Annotation ${annotation.id} and its note must belong to the same space`
     );
+    if (annotation.scopeType === 'list' && annotation.lifecycleStatus === 'active' && annotation.anchorStatus === 'resolved'
+      && annotation.noteContentHash === calculateContentHash(note.rawMarkdown)) {
+      const resolution = resolveAnchor(note.rawMarkdown, annotation.anchor);
+      const tracking = listTracking(projectMarkdown(note.rawMarkdown), annotation.anchor, note.annotationStructure);
+      assertReference(resolution.status === 'resolved' && tracking.rootId === annotation.anchor.tracking?.rootId
+        && JSON.stringify(tracking.memberIds) === JSON.stringify(annotation.anchor.tracking?.memberIds)
+        && JSON.stringify(tracking.ancestorItemIds) === JSON.stringify(annotation.anchor.tracking?.ancestorItemIds),
+      `Annotation ${annotation.id} has invalid list identity`);
+    }
     if (annotation.noteVersionId !== null && annotation.noteVersionId !== undefined) {
       const version = noteVersions.get(annotation.noteVersionId);
       assertReference(

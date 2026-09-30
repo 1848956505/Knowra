@@ -479,7 +479,7 @@ export function createPostgresKnowledgeModule({
     noteVersionService,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
     onNoteContentChanged: async (note, version, annotationChange) => {
-      const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash);
+      const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash, annotationChange);
       for (const annotationId of reconciliation.contentChangedAnnotationIds) {
         await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale');
       }

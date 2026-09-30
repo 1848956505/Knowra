@@ -82,7 +82,7 @@ export interface CreateAnnotationInput {
   noteContentHash: string;
   idempotencyKey: string;
   schemaVersion?: 2;
-  scopeType?: 'selection' | 'blocks' | 'section';
+  scopeType?: 'selection' | 'blocks' | 'section' | 'list';
   anchor?: ContentAnchor;
   kind: 'important' | 'question' | 'supplement' | 'pitfall' | 'temporary';
   importance?: Annotation['importance'];

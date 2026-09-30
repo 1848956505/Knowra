@@ -2,7 +2,7 @@ import { assertRangeConfirmation } from '../annotation-range-preview.js';
 import { reconcileAnnotationSource, reconciledAnnotationFields } from '../reconcile-annotation-source.js';
 import { resolveStoredAnnotation } from '../resolve-stored-annotation.js';
 import crypto from 'node:crypto';
-import { anchorForSection, calculateContentHash, followSectionAnchor, headingPathForSourceOffset, relocateAnchor, resolveAnchor } from '@study-accelerator/content-anchor';
+import { listTracking, anchorForSection, calculateContentHash, followSectionAnchor, headingPathForSourceOffset, relocateAnchor, resolveAnchor } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../../../errors/app-error.js';
 import { ContentAnnotation } from '../../domain/content-annotation.js';
 import { buildCreateContentAnnotationDto, buildUpdateAnnotationAnchorDto, buildUpdateContentAnnotationDto } from '../dto/content-annotation-dto.js';
@@ -34,7 +34,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     const result = resolveAnchor(note.rawMarkdown, dto.anchor);
     if (result.status !== 'resolved') throw fail('ANNOTATION_ANCHOR_UNRESOLVED', '无法在当前笔记版本中确认标注范围', 409);
     if (result.quoteText !== dto.quoteText) throw fail('ANNOTATION_QUOTE_MISMATCH', '所选文字与当前笔记版本不一致', 409);
-    const anchor = { ...structuredClone(dto.anchor), tracking: { formatVersion: 1, structureRevision: note.annotationStructure?.revision ?? 0 }, pending: null, noteVersionId: null, quoteText: result.quoteText };
+    const anchor = { ...structuredClone(dto.anchor.scopeType === 'list' ? result.anchor : dto.anchor), tracking: dto.anchor.scopeType === 'list' ? listTracking(result.projection, result.anchor, note.annotationStructure) : { formatVersion: 1, structureRevision: note.annotationStructure?.revision ?? 0 }, pending: null, noteVersionId: null, quoteText: result.quoteText };
     return {
       anchor,
       quoteText: result.quoteText,
@@ -45,7 +45,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       suffixText: anchor.suffixText ?? '',
       anchorFingerprint: calculateContentHash(JSON.stringify({ segments: anchor.segments, structurePath: anchor.structurePath })),
       resolvedContentHash: calculateContentHash(result.quoteText),
-      boundaryFingerprint: dto.anchor.section?.memberFingerprint ?? null
+      boundaryFingerprint: anchor.list?.memberFingerprint ?? dto.anchor.section?.memberFingerprint ?? null
     };
   }
   async function recordRevision(annotation, operation, oldAnchor = null, reason = null) {
@@ -113,11 +113,17 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       if (!note || note.deleted) return saveUpdated(annotation, { lifecycleStatus: 'active', anchorStatus: 'missing', anchorReason: 'sourceDeleted', deletedAt: null }, 'restored', 'sourceDeleted');
       const oldVersion = await noteVersionRepository?.findById(annotation.noteVersionId);
       const result = reconcileAnnotationSource({ ...annotation, anchorStatus: 'resolved' }, note, oldVersion, null);
+      if (annotation.scopeType === 'list') {
+        const version = await noteVersionRepository?.findByNoteIdAndContentHash(note.id, calculateContentHash(note.rawMarkdown));
+        return saveUpdated(annotation, { ...reconciledAnnotationFields(annotation, note, version, result),
+          lifecycleStatus: 'active', deletedAt: null }, 'restored', result.reason);
+      }
       return saveUpdated(annotation, { lifecycleStatus: 'active', deletedAt: null, anchorStatus: result.status, anchorReason: result.reason, ...(result.status === 'resolved' && result.anchor ? { anchor: { ...result.anchor, noteVersionId: annotation.noteVersionId }, quoteText: result.quoteText, fromPosition: result.anchor.sourceStart, toPosition: result.anchor.sourceEnd, resolvedContentHash: calculateContentHash(result.quoteText) } : {}) }, 'restored', result.reason);
     },
     async updateAnnotationAnchor(id, input) {
       const annotation = await requireAnnotation(id);
       const dto = buildUpdateAnnotationAnchorDto(input);
+      if (annotation.scopeType === 'list' && dto.anchor?.scopeType !== 'list') throw fail('ANNOTATION_RANGE_INVALID', '列表重点的新来源必须是完整列表项', 409);
       assertRevision(annotation, dto.expectedRevision);
       const note = await assertCurrentNote({ ...annotation, ...dto });
       const version = await noteVersionRepository?.findByNoteIdAndContentHash(annotation.noteId, dto.noteContentHash);
@@ -157,12 +163,15 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
         const fields = reconciledAnnotationFields(annotation, note, version, result);
         if (result.status !== 'resolved' || fields.resolvedContentHash !== annotation.resolvedContentHash) contentChangedAnnotationIds.push(annotation.id);
         changed.push(await saveUpdated(annotation, fields, 'sourceReconciled', result.reason));
+        const parentRange = result.status === 'resolved' ? fields.anchor : fields.anchor?.pending?.anchor;
         for (const exclusion of await exclusionRepository?.list({ parentAnnotationId: annotation.id }) ?? []) {
           const exclusionVersion = await noteVersionRepository?.findById(exclusion.noteVersionId);
-          const resolution = reconcileAnnotationSource({ ...annotation, anchor: exclusion.anchor, anchorStatus: exclusion.anchor.unresolved ? 'needsReview' : 'resolved' }, note, exclusionVersion, context);
+          const resolution = reconcileAnnotationSource({ ...annotation, scopeType: exclusion.anchor.scopeType, anchor: exclusion.anchor, anchorStatus: exclusion.anchor.unresolved ? 'needsReview' : 'resolved' }, note, exclusionVersion, context);
           await exclusionRepository.save({ ...exclusion, revision: exclusion.revision + 1,
-            anchor: { ...exclusion.anchor, unresolved: resolution.status !== 'resolved' },
-            ...(resolution.status === 'resolved' ? { anchor: resolution.anchor ?? exclusion.anchor, noteVersionId: version.id } : {})
+            anchor: { ...(resolution.anchor ?? exclusion.anchor), unresolved: resolution.status !== 'resolved'
+              || !parentRange || (resolution.anchor ?? exclusion.anchor).sourceStart < parentRange.sourceStart
+              || (resolution.anchor ?? exclusion.anchor).sourceEnd > parentRange.sourceEnd },
+            ...(resolution.status === 'resolved' ? { noteVersionId: version.id } : {})
           });
         }
       }

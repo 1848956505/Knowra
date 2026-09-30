@@ -8,7 +8,7 @@ export interface AnnotationSelection {
   prefixText: string;
   suffixText: string;
   headingPath: string[];
-  scopeType: 'selection' | 'blocks' | 'section';
+  scopeType: 'selection' | 'blocks' | 'section' | 'list';
   anchor: ContentAnchor;
 }
 

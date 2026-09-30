@@ -392,7 +392,7 @@ export function validateDatabaseConstraints(plan, reportTools) {
   for (const exclusion of plan.annotationExclusions ?? []) {
     const parent = annotations.get(exclusion.parentAnnotationId);
     if (!parent) reportTools.error('ANNOTATION_NOT_FOUND', 'AnnotationExclusion references an unknown annotation', { exclusionId: exclusion.id });
-    else if (parent.scopeType !== 'section') reportTools.error('ANNOTATION_EXCLUSION_CONFLICT', 'AnnotationExclusion requires a section annotation', { exclusionId: exclusion.id });
+    else if (!['section', 'list'].includes(parent.scopeType)) reportTools.error('ANNOTATION_EXCLUSION_CONFLICT', 'AnnotationExclusion requires a section or list annotation', { exclusionId: exclusion.id });
     if (exclusion.noteVersionId && !noteVersions.has(exclusion.noteVersionId)) reportTools.error('NOTE_VERSION_NOT_FOUND', 'AnnotationExclusion references an unknown NoteVersion', { exclusionId: exclusion.id });
   }
   for (const revision of plan.annotationRevisions ?? []) {

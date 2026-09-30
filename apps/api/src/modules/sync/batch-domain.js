@@ -140,7 +140,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     const version = state.noteVersions.find(item => item.id === exclusion.noteVersionId);
     if (!version || !parent || parent.noteId !== version.noteId || parent.noteVersionId !== version.id
       || resolveAnchor(version.content, exclusion.anchor).status !== 'resolved'
-      || exclusion.anchor.sourceStart < parent.anchor.sourceStart || exclusion.anchor.sourceEnd > parent.anchor.sourceEnd) throw syncError('ANNOTATION_EXCLUSION_CONFLICT', '排除范围与标题重点的来源不一致。', 422);
+      || exclusion.anchor.sourceStart < parent.anchor.sourceStart || exclusion.anchor.sourceEnd > parent.anchor.sourceEnd) throw syncError('ANNOTATION_EXCLUSION_CONFLICT', '排除范围与所属重点的来源不一致。', 422);
   }
   // 本次正文变化后，云端已有但本机未知的标注同样参与领域重定位。
   const annotations = createContentAnnotationService({

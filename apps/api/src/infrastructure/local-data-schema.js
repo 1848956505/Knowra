@@ -6,7 +6,7 @@ import {
 } from './local-data-relations.js';
 import { isAttachmentStatus } from './attachment-status.js';
 
-export const LOCAL_DATA_SCHEMA_VERSION = 5;
+export const LOCAL_DATA_SCHEMA_VERSION = 6;
 export const LOCAL_SNAPSHOT_VERSION = 'v1-local-json';
 
 export const LOCAL_DATA_COLLECTIONS = Object.freeze([
@@ -262,15 +262,17 @@ function validateEntity(collectionName, item, index) {
   } else if (collectionName === 'contentAnnotations') {
     assertNonEmptyString(item.spaceId, `${location}.spaceId`);
     assertNonEmptyString(item.noteId, `${location}.noteId`);
-    const emptyTrackedBlock = item.schemaVersion === 2 && item.scopeType === 'blocks'
+    const emptyTrackedBlock = item.schemaVersion === 2 && ['blocks', 'list'].includes(item.scopeType)
       && item.anchor?.tracking?.empty === true && item.anchor.quoteText === ''
       && Array.isArray(item.anchor.segments) && item.anchor.segments.length === 0;
     if (!emptyTrackedBlock || item.quoteText !== '') assertNonEmptyString(item.quoteText, `${location}.quoteText`);
     assertAllowedValue(item.schemaVersion ?? 1, [1, 2], `${location}.schemaVersion`);
-    assertAllowedValue(item.scopeType ?? 'selection', ['selection', 'blocks', 'section'], `${location}.scopeType`);
+    assertAllowedValue(item.scopeType ?? 'selection', ['selection', 'blocks', 'section', 'list'], `${location}.scopeType`);
     assertAllowedValue(item.lifecycleStatus ?? (item.status === 'archived' ? 'archived' : 'active'), ['active', 'archived', 'deleted'], `${location}.lifecycleStatus`);
     assertAllowedValue(item.anchorStatus ?? (item.status === 'stale' ? 'needsReview' : 'resolved'), ['resolved', 'needsReview', 'missing'], `${location}.anchorStatus`);
     if (item.schemaVersion === 2 && (!item.anchor || typeof item.anchor !== 'object' || Array.isArray(item.anchor))) invalidSnapshot(`${location}.anchor is invalid`);
+    if (item.scopeType === 'list' && (item.schemaVersion !== 2 || item.anchor?.scopeType !== 'list'
+      || !item.anchor.list || typeof item.anchor.tracking?.rootId !== 'string')) invalidSnapshot(`${location}.list identity is invalid`);
   } else if (collectionName === 'annotationExclusions') {
     assertNonEmptyString(item.parentAnnotationId, `${location}.parentAnnotationId`);
     if (!item.anchor || typeof item.anchor !== 'object' || Array.isArray(item.anchor)) invalidSnapshot(`${location}.anchor is invalid`);
@@ -334,6 +336,7 @@ function assertSchemaVersion(schemaVersion) {
     || schemaVersion === 2
     || schemaVersion === 3
     || schemaVersion === 4
+    || schemaVersion === 5
     || schemaVersion === LOCAL_DATA_SCHEMA_VERSION
   ) {
     return;

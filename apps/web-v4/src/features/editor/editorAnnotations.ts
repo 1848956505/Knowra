@@ -1,3 +1,4 @@
+import { listItemAt, editorListAnchor, resolveEditorListRange } from './editorListAnnotations';
 import type { AnnotationEditIntent } from './annotationEditJournal';
 import { isHistoryTransaction } from '@milkdown/kit/prose/history';
 import { serializerCtx } from '@milkdown/kit/core';
@@ -15,6 +16,7 @@ export type { AnnotationSelection } from './annotationPayloads';
 interface AnnotationPluginState {
   annotations: Annotation[];
   focusedId: string | null;
+  actionTarget?: { pos: number; listDepth?: number; invalid?: boolean } | null;
   decorations: DecorationSet;
   ranges: Map<string, TrackedAnnotationRange>;
   editIntent: AnnotationEditIntent;
@@ -23,7 +25,8 @@ interface AnnotationPluginState {
 
 export const annotationPluginKey = new PluginKey<AnnotationPluginState>('KNOWRA_V4_ANNOTATIONS');
 
-export function createAnnotationHighlightBehavior(onSelect: (annotationIds: string[]) => void, onDocumentChange?: (markdown: string, intent: AnnotationEditIntent) => void) {
+export function createAnnotationHighlightBehavior(onSelect: (annotationIds: string[]) => void, onDocumentChange?: (markdown: string, intent: AnnotationEditIntent) => void,
+  onSelectionChange?: (selection: { from: number; to: number }) => void) {
   let pendingIntent: AnnotationEditIntent = {};
   let cut: { id: string; text: string; ranges: Array<{ id: string; range: TrackedAnnotationRange; quote: string }> } | null = null;
   let moving: Array<{ id: string; range: TrackedAnnotationRange; quote: string }> = [];
@@ -35,8 +38,15 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
         const meta = transaction.getMeta(annotationPluginKey) as {
           annotations?: Annotation[];
           focusedId?: string | null;
+          actionTarget?: { pos: number; listDepth?: number; invalid?: boolean } | null;
         } | undefined;
         const annotations = meta?.annotations ?? previous.annotations;
+        let actionTarget = meta && 'actionTarget' in meta ? meta.actionTarget : previous.actionTarget;
+        if (transaction.docChanged && actionTarget) {
+          const mapped = transaction.mapping.mapResult(actionTarget.pos, 1);
+          const item = listItemAt(transaction.doc, mapped.pos);
+          actionTarget = { ...actionTarget, pos: mapped.pos, invalid: actionTarget.invalid || mapped.deletedAcross || (actionTarget.listDepth !== undefined && item?.depth !== actionTarget.listDepth) };
+        }
         const focusedId = meta && 'focusedId' in meta ? meta.focusedId ?? null : previous.focusedId;
         if (!meta && !transaction.docChanged) return previous;
         let ranges = new Map(previous.ranges);
@@ -76,7 +86,7 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
             preserveEmptyBlock: [...ranges.values()].some(range => range.scopeType === 'blocks' && !range.missing && !transaction.doc.textBetween(range.from, range.to).trim()),
             deletedEmptyAnnotationIds: [...previous.ranges].filter(([id, range]) => range.scopeType === 'blocks' && !range.missing && range.from === range.to && ranges.get(id)?.missing).map(([id]) => id)
           } : {},
-          ranges, snapshots: snapshots.slice(-200),
+          actionTarget, ranges, snapshots: snapshots.slice(-200),
           annotations,
           focusedId,
           decorations: createDecorations(transaction.doc, annotations, focusedId, ranges)
@@ -102,6 +112,7 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
     },
     view: () => ({
       update(view, previousState) {
+        onSelectionChange?.({ from: view.state.selection.from, to: view.state.selection.to });
         if (onDocumentChange && !view.state.doc.eq(previousState.doc)) {
           const intent = annotationPluginKey.getState(view.state)?.editIntent ?? pendingIntent;
           pendingIntent = {};
@@ -159,7 +170,9 @@ export function getAnnotationSelection(editor: Editor, markdown: string, scopeTy
   const projection = projectMarkdown(markdown);
   const codeBlock = scopeType === 'blocks' ? view.state.doc.nodeAt(from - 1) : null;
   let anchor;
-  if (codeBlock?.type.name === 'code_block' && to === from + codeBlock.content.size) {
+  if (scopeType === 'list') {
+    anchor = editorListAnchor(view.state.doc, projection, view.state.selection.from);
+  } else if (codeBlock?.type.name === 'code_block' && to === from + codeBlock.content.size) {
     anchor = anchorForSelectedCodeBlock(view.state.doc, projection, from);
   } else {
     const projectedRange = mapProseRangeToProjection(view.state.doc, projection.text, from, to, visibleText);
@@ -248,15 +261,20 @@ function createDecorations(doc: ProseNode, annotations: Annotation[], focusedId:
       })];
   });
   for (const [id, range] of tracked ?? []) {
-    if (range.scopeType === 'blocks' && !range.missing && !doc.textBetween(range.from, range.to).trim() && range.from > 0 && range.from < doc.content.size) {
+    if (['blocks', 'list'].includes(range.scopeType) && !range.missing && !doc.textBetween(range.from, range.to).trim() && range.from > 0 && range.from < doc.content.size) {
       const node = doc.nodeAt(range.from - 1);
       if (node?.isTextblock) decorations.push(Decoration.node(range.from - 1, range.from - 1 + node.nodeSize, { class: 'editor-annotation', 'data-annotation-id': id, 'data-annotation-ids': JSON.stringify([id]) }));
     }
+  }
+  for (const range of ranges.filter(item => item.annotation.scopeType === 'list')) {
+    const item = listItemAt(doc, range.from);
+    if (item) decorations.push(Decoration.node(item.position, item.position + item.node.nodeSize, { 'data-list-annotation': range.annotation.id, class: 'editor-list-annotation' }));
   }
   return DecorationSet.create(doc, decorations);
 }
 
 export function resolveAnnotationRange(doc: ProseNode, annotation: Annotation): { from: number; to: number } | null {
+  if (annotation.scopeType === 'list') return resolveEditorListRange(doc, annotation.anchor?.structurePath ?? '', annotation.quoteText);
   if (annotation.anchor?.tracking?.empty) {
     const target = nodeAtStructurePath(doc, annotation.anchor.structurePath ?? '');
     return target?.node.isTextblock && !target.node.textContent.trim() ? { from: target.position + 1, to: target.position + 1 + target.node.content.size } : null;
@@ -374,6 +392,7 @@ function prosePositionForTextOffset(doc: ProseNode, offset: number, preferEnd: b
 }
 
 function scopeRange(doc: ProseNode, from: number, to: number, scopeType: AnnotationScopeType): { from: number; to: number } | null {
+  if (scopeType === 'list') { const item = listItemAt(doc, from); return item && !item.task ? { from: item.from, to: item.to } : null; }
   if (scopeType === 'selection') return from === to ? null : { from, to };
   const blocks: Array<{ from: number; to: number; node: ProseNode; offset: number }> = [];
   doc.forEach((node, offset) => blocks.push({ from: offset + 1, to: offset + node.nodeSize - 1, node, offset }));
@@ -402,6 +421,13 @@ function contentBlocks(doc: ProseNode, from: number, to: number): Array<{ from: 
     if (range.to >= from && range.from <= Math.max(from, to)) candidates.push(range);
     return true;
   });
+  if (from === to) {
+    const enclosing = candidates.filter(item => item.from <= from && item.to >= from);
+    const containers = enclosing.filter(item => ['list_item', 'blockquote', 'code_block', 'math_block', 'table'].includes(item.name));
+    const nearest = (containers.length ? containers : enclosing)
+      .sort((left, right) => (left.to - left.from) - (right.to - right.from))[0];
+    return nearest ? [{ from: nearest.from, to: nearest.to }] : [];
+  }
   const preferredContainers = candidates.filter((item) => ['list_item', 'blockquote', 'code_block', 'math_block', 'table'].includes(item.name));
   const selected = candidates.filter((item) => {
     if (preferredContainers.some((container) => container !== item && container.from <= item.from && container.to >= item.to)) return false;
@@ -426,4 +452,13 @@ function headingPathAt(doc: ProseNode, target: number): string[] {
     return true;
   });
   return [...path.entries()].sort(([left], [right]) => left - right).map(([, title]) => title);
+}
+
+export function captureAnnotationActionTarget(view: import('@milkdown/kit/prose/view').EditorView, pos: number) {
+  const list = listItemAt(view.state.doc, pos);
+  view.dispatch(view.state.tr.setMeta(annotationPluginKey, { actionTarget: { pos, listDepth: list?.depth } }).setMeta('addToHistory', false));
+}
+export function currentAnnotationActionTarget(view: import('@milkdown/kit/prose/view').EditorView) {
+  const target = annotationPluginKey.getState(view.state)?.actionTarget;
+  return target && !target.invalid ? target.pos : null;
 }

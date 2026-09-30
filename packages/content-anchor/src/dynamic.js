@@ -1,4 +1,5 @@
 import { sourceEdits } from './source-diff.js';
+import { listIdentityCandidates } from './list-identity.js';
 import { projectMarkdown, calculateContentHash, anchorForSourceRange, anchorForSection } from './index.js';
 
 // Each edit is relative to the preceding source, never to ProseMirror coordinates.
@@ -175,6 +176,7 @@ export function updateStructure(before, after, previous = null, edits = null) {
   for (const [step, edit] of changes.entries()) {
     const nextSource = applySourceEdit(source, edit);
     const next = projectMarkdown(nextSource);
+    const old = projectMarkdown(source);
     if (edit.moveKind === 'cut' && edit.moveId && (!edit.text.trim() || /^\s*<br\s*\/?>\s*$/i.test(edit.text))) {
       cuts = nodes.filter(node => node.sourceStart >= edit.from && node.sourceEnd <= edit.to).map(node => ({
         ...node, moveId: edit.moveId, text: source.slice(edit.from,edit.to), relativeStart: node.sourceStart-edit.from, relativeEnd: node.sourceEnd-edit.from
@@ -184,6 +186,7 @@ export function updateStructure(before, after, previous = null, edits = null) {
     const assigned = new Set();
     nodes = next.blocks.map(block => {
       let candidates = mapped.filter(({node,range}) => range && node.type === block.type && range.start === block.sourceStart && range.end === block.sourceEnd).map(({node})=>node);
+      if (!candidates.length) candidates = listIdentityCandidates(block, nodes, old, next, edit, mapRange, mapPoint);
       if (edit.moveKind === 'paste' && edit.moveId) {
         candidates = candidates.concat(cuts.filter(cut => {
           const text = cut.text.trim(), index = edit.text.indexOf(text);

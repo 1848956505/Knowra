@@ -123,6 +123,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
           else if (request.method === 'POST' && url.pathname.endsWith('/configure')) result = await sync.configure(await parseBody(request));
           else if (request.method === 'POST' && url.pathname.endsWith('/disconnect')) result = await sync.disconnect();
           else if (request.method === 'POST' && url.pathname.endsWith('/retry')) result = await sync.retry();
+          else if (request.method === 'POST' && url.pathname.endsWith('/wake')) {
+            const input = await parseBody(request);
+            sync.wake(input.reason === 'online' ? 'online' : 'focus');
+            result = sync.status();
+          }
           else if (request.method === 'POST' && url.pathname.endsWith('/resolve')) result = await sync.resolve(await parseBody(request));
           else return sendRuntimeError(response, 404, 'ROUTE_NOT_FOUND', '路径不存在。');
           response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -146,7 +151,6 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
             return sendRuntimeError(response, 409, 'LOCAL_FEATURE_UNAVAILABLE', '当前阶段尚未开放此操作，本地笔记已保留。');
           }
           await handleApi(request, response);
-          if (!['GET', 'HEAD'].includes(request.method)) sync.wake();
           return;
         }
         if (['GET', 'HEAD'].includes(request.method)) {

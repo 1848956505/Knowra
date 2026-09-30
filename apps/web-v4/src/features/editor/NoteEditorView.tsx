@@ -218,6 +218,8 @@ export function NoteEditorView({
   const toolbarAnchorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorCommandTarget>(null);
+  const annotationCreateInputRef = useRef<{ signature: string; input: CreateAnnotationInput } | null>(null);
+  const annotationCreatePendingRef = useRef(false);
   const versionWriteStateRef = useRef({ noteId: note?.id, canWrite });
   versionWriteStateRef.current = { noteId: note?.id, canWrite };
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
@@ -477,16 +479,26 @@ export function NoteEditorView({
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
   };
-  const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' = 'selection') => {
+  const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' | 'list' = 'selection') => {
     if (!canEditContent) throw new Error('阅读模式下无法创建标注');
+    if (annotationCreatePendingRef.current) return;
     const selection = editorRef.current?.getAnnotationSelection(scopeType);
-    if (!selection) throw new Error(scopeType === 'section' ? '请先将光标放在标题章节内' : '请先在正文中选中要标记的内容');
+    if (!selection) throw new Error(scopeType === 'list' ? '请先将光标放在非空的普通列表项内' : scopeType === 'section' ? '请先将光标放在标题章节内' : '请先在正文中选中要标记的内容');
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-    await autosave.saveNow(markdown);
-    const created = await onCreateAnnotation(await buildCreateAnnotationInput(note, markdown, selection));
-    setAnnotations((current) => [...current.filter((item) => item.id !== created.id), created]);
-    setFocusedAnnotationId(created.id);
-    onFileStatus('已标为重点');
+    const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
+    annotationCreatePendingRef.current = true;
+    try {
+      if (annotationCreateInputRef.current?.signature !== signature) {
+        annotationCreateInputRef.current = { signature, input: await buildCreateAnnotationInput(note, markdown, selection) };
+      }
+      const input = annotationCreateInputRef.current.input;
+      await autosave.saveNow(markdown);
+      const created = await onCreateAnnotation(input);
+      annotationCreateInputRef.current = null;
+      setAnnotations((current) => [...current.filter((item) => item.id !== created.id), created]);
+      setFocusedAnnotationId(created.id);
+      onFileStatus('已标为重点');
+    } finally { annotationCreatePendingRef.current = false; }
   };
   const replaceAnnotation = (updated: Annotation) => {
     setAnnotations((current) => current.map((item) => item.id === updated.id ? updated : item));
@@ -494,11 +506,11 @@ export function NoteEditorView({
   const selectAnnotation = (annotationId: string) => {
     setOverlappingAnnotationIds([]);
     setFocusedAnnotationId(annotationId);
-    if (!editorRef.current?.selectAnnotation(annotationId)) onFileStatus('原文位置已变化，请选中新文字后重新定位');
+    if (!editorRef.current?.selectAnnotation(annotationId)) onFileStatus('原文位置已变化，请重新选择来源');
   };
   const reanchorAnnotation = async (annotation: Annotation) => {
     const selection = editorRef.current?.getAnnotationSelection(annotation.scopeType ?? 'selection');
-    if (!selection) throw new Error('请先在正文中选中新的对应文字');
+    if (!selection) throw new Error(annotation.scopeType === 'list' ? '请先将光标放在新的非空普通列表项内' : '请先在正文中选中新的对应文字');
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
     const updated = await onUpdateAnnotationAnchor(
@@ -520,7 +532,7 @@ export function NoteEditorView({
       anchor: selection.anchor
     });
     replaceAnnotation(result.annotation);
-    onFileStatus('已从标题重点中排除当前内容块');
+    onFileStatus('已从所属重点中排除当前内容块');
   };
   const openNoteSafely = (targetNoteId: string) => {
     saveCurrentScrollPosition();

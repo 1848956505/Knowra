@@ -104,7 +104,7 @@ export interface Annotation extends EntityBase {
   noteId: string;
   noteVersionId: string | null;
   schemaVersion?: number;
-  scopeType?: 'selection' | 'blocks' | 'section';
+  scopeType?: 'selection' | 'blocks' | 'section' | 'list';
   kind: string;
   importance?: null | 'normal' | 'important' | 'core';
   comment?: string;
@@ -134,7 +134,7 @@ export interface ContentAnchor {
   tracking?: { formatVersion?: number; empty?: boolean; emptyPosition?: number; emptyType?: string; [key: string]: unknown };
   pending?: { anchor: ContentAnchor; contentHash: string; reason: string } | null;
   projectionVersion: number;
-  scopeType: 'selection' | 'blocks' | 'section';
+  scopeType: 'selection' | 'blocks' | 'section' | 'list';
   segments: Array<{ start: number; end: number; path: string }>;
   structurePath: string | null;
   quoteText: string;
@@ -144,13 +144,14 @@ export interface ContentAnchor {
   sourceEnd: number;
   projectedStart: number;
   projectedEnd: number;
+  list?: { itemPath: string; parentItemPath: string | null; depth: number; ordered: boolean; childCount: number; memberFingerprint: string };
   section?: Record<string, unknown>;
 }
 
 export interface AnnotationOriginSnapshot {
   noteVersionId?: string | null;
   contentHash: string;
-  scopeType: 'selection' | 'blocks' | 'section';
+  scopeType: 'selection' | 'blocks' | 'section' | 'list';
   segments: Array<{ start: number; end: number; path: string }>;
   quoteText: string;
   headingPath: string[];

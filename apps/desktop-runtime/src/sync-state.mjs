@@ -4,7 +4,7 @@ import { LOCAL_DATA_COLLECTIONS } from '../../api/src/infrastructure/local-data-
 
 export const equivalent = (a, b) => JSON.stringify(noteContent(a)) === JSON.stringify(noteContent(b));
 export const readMeta = (db, key) => JSON.parse(db.prepare('SELECT value FROM metadata WHERE key = ?').get(`sync:${key}`)?.value ?? 'null');
-export const writeMeta = (db, key, value) => db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)').run(`sync:${key}`, JSON.stringify(value));
+export const writeMeta = (db, key, value) => db.prepare('INSERT INTO metadata VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE value IS NOT excluded.value').run(`sync:${key}`, JSON.stringify(value));
 const baseFor = (db, id) => {
   const row = db.prepare("SELECT * FROM sync_base WHERE collection = 'notes' AND id = ?").get(id);
   return row ? { revision: row.server_revision, value: JSON.parse(row.payload) } : { revision: null, value: null };
@@ -50,7 +50,6 @@ function settleOutbox(db, state) {
 
 export function applyRemote(store, entries, cursor, epoch, { reset = false } = {}) {
   store.syncTransaction((db, state) => {
-    const before = JSON.stringify(state);
     const previousEpoch = readMeta(db, 'epoch');
     const changedEpoch = previousEpoch && previousEpoch !== epoch;
     if (reset) {
@@ -104,7 +103,6 @@ export function applyRemote(store, entries, cursor, epoch, { reset = false } = {
     writeMeta(db, 'epoch', epoch);
     writeMeta(db, 'bootstrap', null);
     settleOutbox(db, state);
-    if (before !== JSON.stringify(state)) writeMeta(db, 'generation', (readMeta(db, 'generation') ?? 0) + 1);
   });
 }
 
@@ -149,21 +147,33 @@ export function acknowledge(store, operation, result) {
     writeMeta(db, 'blocked', blocked);
     db.prepare('DELETE FROM sync_uploads WHERE note_id = ?').run(operation.noteId);
     settleOutbox(db, state);
-    writeMeta(db, 'generation', (readMeta(db, 'generation') ?? 0) + 1);
   });
 }
 
+const statusCache = new WeakMap();
+const pendingNotesCache = new WeakMap();
 export function getSyncState(store) {
-  return store.readSync((db, state) => ({
+  const key = store.getSyncCacheKey();
+  const cached = statusCache.get(store);
+  if (key !== null && cached?.key === key) return cached.value;
+  const entityKey = store.getEntityCacheKey();
+  let pending = pendingNotesCache.get(store);
+  if (entityKey === null || pending?.key !== entityKey) {
+    pending = { key: entityKey, count: store.readSync((db, state) => state.notes.filter(note => !equivalent(note, baseFor(db, note.id).value)).length) };
+    if (entityKey !== null) pendingNotesCache.set(store, pending);
+  }
+  const value = store.readSync((db, state) => ({
     serverUrl: readMeta(db, 'serverUrl'), ownerId: readMeta(db, 'ownerId'),
     generation: readMeta(db, 'generation') ?? 0, lastSyncedAt: readMeta(db, 'lastSyncedAt'),
     conflicts: db.prepare('SELECT payload FROM sync_conflicts').all().map(row => {
       const item = JSON.parse(row.payload);
-      return { ...item, local: state.notes.find(note => note.id === item.noteId) ?? item.local };
+      return { ...item, local: structuredClone(state.notes.find(note => note.id === item.noteId) ?? item.local) };
     }),
-    pendingNotes: state.notes.filter(note => !equivalent(note, baseFor(db, note.id).value)).length,
+    pendingNotes: pending.count,
     blockedNotes: Object.values(readMeta(db, 'blocked') ?? {}).filter(item => state.notes.some(note => note.id === item.noteId && JSON.stringify(noteContent(note)) === item.value))
   }));
+  if (key !== null) statusCache.set(store, { key, value });
+  return value;
 }
 
 export function resolveConflict(store, { noteId, choice, rawMarkdown, remoteRevision, datasetEpoch }, noteService) {
@@ -193,6 +203,5 @@ export function resolveConflict(store, { noteId, choice, rawMarkdown, remoteRevi
     }
     db.prepare('DELETE FROM sync_conflicts WHERE note_id = ?').run(noteId);
     db.prepare('DELETE FROM sync_uploads WHERE note_id = ?').run(noteId);
-    writeMeta(db, 'generation', (readMeta(db, 'generation') ?? 0) + 1);
   }, { local: true });
 }

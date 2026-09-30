@@ -14,6 +14,21 @@ const replace = (state, entry) => {
 function bases(db) {
   return new Map(db.prepare('SELECT * FROM sync_base').all().map(row => [syncKey(row.collection, row.id), { collection: row.collection, id: row.id, revision: row.server_revision, value: JSON.parse(row.payload) }]));
 }
+const snapshots = new WeakMap();
+const reconciledConflicts = new WeakMap();
+function snapshot(store) {
+  const key = store.getEntityCacheKey();
+  const previous = snapshots.get(store);
+  if (key !== null && previous?.key === key) return previous;
+  const value = store.readSync((db, state) => {
+    const base = bases(db);
+    const conflict = readMeta(db, 'entityConflict');
+    return { key, base, dirty: structuredClone(dirtyEntries(state, base)), epoch: readMeta(db, 'epoch'), conflict,
+      remote: conflict ? new Map(conflict.remote.map(entry => [syncKey(entry.collection, entry.id), entry])) : base };
+  });
+  if (key !== null) snapshots.set(store, value);
+  return value;
+}
 function dirtyEntries(state, base) {
   const changes = [];
   const versionHashes = new Set([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => `${entry.value.noteId}:${entry.value.contentHash}`));
@@ -44,10 +59,14 @@ function stateFromBase(base) {
   return state;
 }
 function setState(target, next) { for (const collection of LOCAL_DATA_COLLECTIONS) target[collection].splice(0, target[collection].length, ...next[collection]); }
-function persistBases(db, base) {
-  db.prepare('DELETE FROM sync_base').run();
-  const insert = db.prepare('INSERT INTO sync_base VALUES (?, ?, ?, ?)');
-  for (const entry of base.values()) insert.run(entry.collection, entry.id, entry.revision, JSON.stringify(entry.value));
+function persistBases(db, base, previous) {
+  const remove = db.prepare('DELETE FROM sync_base WHERE collection = ? AND id = ?');
+  for (const [key, entry] of previous) if (!base.has(key)) remove.run(entry.collection, entry.id);
+  const insert = db.prepare('INSERT INTO sync_base VALUES (?, ?, ?, ?) ON CONFLICT(collection, id) DO UPDATE SET server_revision = excluded.server_revision, payload = excluded.payload WHERE server_revision IS NOT excluded.server_revision OR payload IS NOT excluded.payload');
+  for (const [key, entry] of base) {
+    if (previous.get(key) === entry) continue;
+    insert.run(entry.collection, entry.id, entry.revision, JSON.stringify(entry.value));
+  }
 }
 function canonicalizeVersions(state, base) {
   const aliases = new Map();
@@ -65,7 +84,20 @@ function canonicalizeVersions(state, base) {
 }
 
 export function applyEntityRemote(store, entries, cursor, epoch, { reset = false } = {}) {
-  return store.syncTransaction((db, state) => {
+  const cached = snapshot(store);
+  const { epoch: previousEpoch, conflict: previousConflict } = cached;
+  const unchanged = entries.every(entry => {
+    const previous = cached.remote.get(syncKey(entry.collection, entry.id));
+    return previous && previous.revision === entry.revision && sameEntity(entry.collection, previous.value, entry.value);
+  });
+  // 本地新修改仍需经过版本别名规范化及关联校验，稳定空闲才复用合并结果。
+  const reconciled = reconciledConflicts.get(store) === cached.key;
+  if (!reset && previousEpoch === epoch && unchanged && (reconciled || (!previousConflict && !cached.dirty.length))) {
+    if (!previousConflict && store.readSync(db => readMeta(db, 'cursor')) !== cursor) store.metadataTransaction(db => writeMeta(db, 'cursor', cursor));
+    if (previousConflict) reconciledConflicts.set(store, store.getEntityCacheKey());
+    return !previousConflict;
+  }
+  const result = store.syncTransaction((db, state) => {
     const base = bases(db);
     const previousEpoch = readMeta(db, 'epoch');
     const changedEpoch = previousEpoch && previousEpoch !== epoch;
@@ -117,37 +149,42 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
         setState(state, valid);
         const acceptedBase = new Map(remote);
         for (const key of blocked) { if (base.has(key)) acceptedBase.set(key, base.get(key)); else acceptedBase.delete(key); }
-        persistBases(db, acceptedBase);
+        persistBases(db, acceptedBase, base);
         writeMeta(db, 'epoch', epoch); writeMeta(db, 'cursor', cursor);
         if (changedEpoch) writeMeta(db, 'entityUpload', null);
-        writeMeta(db, 'generation', (readMeta(db, 'generation') ?? 0) + 1);
       }
       return false;
     }
     setState(state, valid);
-    persistBases(db, remote);
+    persistBases(db, remote, base);
     writeMeta(db, 'epoch', epoch); writeMeta(db, 'cursor', cursor); writeMeta(db, 'bootstrap', null);
     writeMeta(db, 'entityConflict', null);
     if (changedEpoch) writeMeta(db, 'entityUpload', null);
     settle(db, state);
-    writeMeta(db, 'generation', (readMeta(db, 'generation') ?? 0) + 1);
     return true;
   });
+  reconciledConflicts.set(store, store.getEntityCacheKey());
+  return result;
 }
 
 function settle(db, state) {
-  if (!dirtyEntries(state, bases(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged'").run();
+  if (!dirtyEntries(state, bases(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
 }
 
 export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
-  return store.syncTransaction((db, state) => {
-    const blocked = new Set(readMeta(db, 'entityConflict')?.blocked ?? []);
-    const frozen = readMeta(db, 'entityUpload');
-    if (frozen) return frozen;
-    const allowed = entry => knowledgeSupported || !KNOWLEDGE_COLLECTIONS.includes(entry.collection);
-    const base = bases(db);
-    const changes = selectEntityBatch(dirtyEntries(state, base).filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id))), state, base);
-    if (!changes.length) { settle(db, state); return null; }
+  const frozen = store.readSync(db => readMeta(db, 'entityUpload'));
+  if (frozen) return frozen;
+  const { base, dirty, conflict } = snapshot(store);
+  const blocked = new Set(conflict?.blocked ?? []);
+  const allowed = entry => knowledgeSupported || !KNOWLEDGE_COLLECTIONS.includes(entry.collection);
+  const eligible = dirty.filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id)));
+  const changes = eligible.length ? selectEntityBatch(eligible, store.state, base) : [];
+  if (!changes.length) {
+    if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
+    return null;
+  }
+  return store.metadataTransaction(db => {
+    const state = store.state;
     const own = new Set(changes.map(entry => syncKey(entry.collection, entry.id)));
     const dependencies = new Map();
     for (const entry of changes) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
@@ -166,6 +203,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
   store.syncTransaction((db, state) => {
     if (result.status === 'accepted') {
       const base = bases(db);
+      const previousBase = new Map(base);
       for (const entry of result.entries) {
         const submitted = operation.changes.find(item => item.collection === entry.collection && (item.id === entry.id || result.aliases?.[item.id] === entry.id));
         const local = state[entry.collection].find(item => item.id === submitted?.id) ?? null;
@@ -173,7 +211,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
         base.set(syncKey(entry.collection, entry.id), entry);
       }
       canonicalizeVersions(state, base);
-      persistBases(db, base);
+      persistBases(db, base, previousBase);
     }
     // 冲突结果先解除冻结，下一次拉取会保存包含完整远端事务的冲突。
     writeMeta(db, 'entityUpload', null);
@@ -182,22 +220,22 @@ export function acknowledgeEntityUpload(store, operation, result) {
 }
 
 export function getEntitySyncState(store) {
-  return store.readSync((db, state) => {
-    const dirty = dirtyEntries(state, bases(db));
-    const conflict = readMeta(db, 'entityConflict');
-    return {
+  const cached = snapshot(store);
+  if (cached.status) return cached.status;
+  const { base, dirty, conflict } = cached;
+  cached.status = {
       pendingEntities: dirty.length,
       pendingKnowledgeEntities: dirty.filter(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection)).length,
       pendingAttachments: dirty.filter(entry => entry.collection === 'attachments').length,
       entityConflict: conflict ? {
         id: conflict.id, changedEpoch: conflict.changedEpoch,
         items: dirty.filter(entry => !conflict.blocked || conflict.blocked.includes(syncKey(entry.collection, entry.id))).map(entry => ({ collection: entry.collection, id: entry.id, local: entry.value,
-          base: bases(db).get(syncKey(entry.collection, entry.id))?.value ?? null,
+          base: base.get(syncKey(entry.collection, entry.id))?.value ?? null,
           remote: conflict.remote.find(item => item.collection === entry.collection && item.id === entry.id)?.value ?? null })),
         reasons: conflict.conflicts.map(entry => ({ collection: entry.collection, id: entry.id, message: entry.message }))
       } : null
     };
-  });
+  return cached.status;
 }
 
 export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }, noteService) {
@@ -243,10 +281,9 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
       if (notes[0].value.deleted) noteService.restoreNote(notes[0].id);
       noteService.updateNote(notes[0].id, { rawMarkdown });
     }
-    persistBases(db, remote);
+    persistBases(db, remote, bases(db));
     writeMeta(db, 'epoch', conflict.epoch); writeMeta(db, 'cursor', conflict.cursor);
     writeMeta(db, 'entityConflict', null); writeMeta(db, 'entityUpload', null);
-    writeMeta(db, 'generation', (readMeta(db, 'generation') ?? 0) + 1);
     settle(db, state);
   }, { local: true });
 }

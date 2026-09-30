@@ -7,6 +7,6 @@ export function prepareAnnotationChange(current, markdown, mapping) {
     throw createAppError('NOTE_UPDATE_CONFLICT', '标注映射基线已变化，请保留草稿并重新加载', 409);
   }
   const edits = verifiedSourceEdits(current.rawMarkdown, markdown, mapping);
-  return { before: current.rawMarkdown, edits, invalidMapping: Boolean(mapping && !edits),
+  return { before: current.rawMarkdown, previousStructure: current.annotationStructure, edits, invalidMapping: Boolean(mapping && !edits),
     structure: updateStructure(current.rawMarkdown, markdown, current.annotationStructure, edits) };
 }

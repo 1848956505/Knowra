@@ -223,12 +223,7 @@
 .annotationTitle > span { color: var(--ink-secondary); font: 11px/1 var(--font-mono); padding-left: 2px; }
 .annotationHeaderActions { display: flex; align-items: center; gap: 4px; flex: none; }
 .annotationFilterActive { color: var(--ink-accent); background: var(--ink-accent-soft); }
-.annotationScopeFilters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--ink-panel); margin-bottom: 12px; }
-.annotationScopeFilters button { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; height: 32px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-secondary); font-size: 11px; white-space: nowrap; }
-.annotationScopeFilters button span { font: 10px/1 var(--font-mono); color: var(--ink-muted); }
-.annotationScopeFilters button:hover { background: var(--ink-sunken); color: var(--ink); }
-.annotationScopeFilters button[aria-pressed='true'] { color: var(--ink-accent); border-bottom-color: var(--ink-accent); font-weight: 700; }
-.annotationScopeFilters button[aria-pressed='true'] span { color: var(--ink-accent); }
+.annotationScopeFilters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 12px; }
 .annotationSortPopover { width: min(180px, calc(100vw - 24px)); padding: 0; }
 .annotationSortOptions { display: grid; gap: 5px; padding: 12px; outline: none; }
 .annotationSortOptions strong { margin-bottom: 4px; color: var(--ink-secondary); font-size: 11px; }

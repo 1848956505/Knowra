@@ -2,7 +2,7 @@ import { validationError } from '../knowledge-errors.js';
 
 const annotationKinds = new Set(['important', 'question', 'supplement', 'pitfall', 'temporary']);
 const sourceModes = new Set(['manual', 'ai']);
-const scopeTypes = new Set(['selection', 'blocks', 'section']);
+const scopeTypes = new Set(['selection', 'blocks', 'section', 'list']);
 const importanceLevels = new Set([null, 'normal', 'important', 'core']);
 
 function text(value) {
@@ -73,6 +73,8 @@ export function buildCreateContentAnnotationDto(input = {}) {
   if (dto.schemaVersion === 2 && !dto.anchor) {
     throw validationError('ANNOTATION_ANCHOR_FIELDS_REQUIRED', 'Versioned annotation anchor is required');
   }
+  if (dto.anchor && dto.scopeType !== dto.anchor.scopeType) throw validationError('ANNOTATION_RANGE_INVALID', '标注类型与锚点不一致');
+  if (dto.scopeType === 'list' && dto.schemaVersion !== 2) throw validationError('ANNOTATION_ANCHOR_FIELDS_REQUIRED', '列表标记需要版本化锚点');
   return dto;
 }
 

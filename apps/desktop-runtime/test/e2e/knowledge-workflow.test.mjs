@@ -104,6 +104,7 @@ test('真实页面：标注来源审核与过期保护；桌面离线新建、�
   k.knowledgeItemService.updateItem(offlineId, { canonicalStatement: '云端改动同步后自动显示。', expectedUpdatedAt: cloudOffline.updatedAt });
   const syncReply = await page.request.post(`${runtime.origin}/api/local-runtime/sync/retry`, { data: {} });
   assert.equal(syncReply.status(), 200);
-  await expect(page.getByRole('article', { name: '知识详情', exact: true })).toContainText('云端改动同步后自动显示。');
+  // 面板关闭后的空闲状态查询间隔为 10 秒。
+  await expect(page.getByRole('article', { name: '知识详情', exact: true })).toContainText('云端改动同步后自动显示。', { timeout: 15000 });
   assert.deepEqual(errors, []);
 });

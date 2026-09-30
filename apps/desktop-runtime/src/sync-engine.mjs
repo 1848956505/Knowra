@@ -1,6 +1,7 @@
 import { KNOWLEDGE_SYNC_CAPABILITY, KNOWLEDGE_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
 import { applyEntityRemote, nextEntityUpload, acknowledgeEntityUpload, getEntitySyncState, resolveEntityConflict } from './entity-sync-state.mjs';
 import { applyRemote, nextUpload, acknowledge, getSyncState, resolveConflict, readMeta, writeMeta } from './sync-state.mjs';
+import { createSyncScheduler } from './sync-scheduler.mjs';
 
 function syncTransportError(failure) {
   const causes = [failure];
@@ -37,16 +38,18 @@ function syncTransportError(failure) {
   return error;
 }
 
-export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, noteService, autoSync = true, entityTransfer = null } = {}) {
+export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, noteService, autoSync = true, entityTransfer = null, clock } = {}) {
   let authorization = '';
   const full = Boolean(entityTransfer);
-  let running = null;
   let closed = false;
   let phase = 'not-configured';
   let error = null;
   let failures = 0;
   let retryAt = 0;
-  let wakeTimer;
+  let lastCheckedAt = null;
+  let changed = false;
+  let more = false;
+  let missingAttachments = { revision: -1, entries: [] };
   const meta = key => store.readSync(db => readMeta(db, key));
   async function fetchSync(url, options) {
     try { return await fetcher(url, options); }
@@ -77,14 +80,15 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
   }
   async function receive(entries, cursor, epoch, reset = false) {
     if (!full) { applyRemote(store, entries, cursor, epoch, { reset }); return true; }
-    const missing = store.readSync((db, state) => state.attachments.filter(item => ['missing', 'corrupt', 'failed'].includes(item.status)).flatMap(item => {
+    const revision = store.getEntityCacheKey();
+    if (missingAttachments.revision !== revision) missingAttachments = { revision, entries: store.readSync((db, state) => state.attachments.filter(item => ['missing', 'corrupt', 'failed'].includes(item.status)).flatMap(item => {
       const row = db.prepare("SELECT * FROM sync_base WHERE collection = 'attachments' AND id = ?").get(item.id);
       return row ? [{ collection: 'attachments', id: item.id, revision: row.server_revision, value: JSON.parse(row.payload) }] : [];
-    }));
-    for (const entry of [...entries, ...missing]) if (entry.collection === 'attachments' && entry.value?.status === 'ready') {
+    })) };
+    for (const entry of [...entries, ...missingAttachments.entries]) if (entry.collection === 'attachments' && entry.value?.status === 'ready') {
       try { entityTransfer.verify(entry.value); }
       catch {
-        store.syncTransaction(db => writeMeta(db, 'attachmentPending', entry.id));
+        store.metadataTransaction(db => writeMeta(db, 'attachmentPending', entry.id));
         const response = await fetchSync(`${meta('serverUrl')}/api/storage/attachments/${encodeURIComponent(entry.id)}/content`, {
           headers: authorization ? { Authorization: authorization } : {}, redirect: 'error', signal: AbortSignal.timeout(30000)
         });
@@ -117,14 +121,14 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
     if (!download) {
       const start = await request('bootstrap', {});
       download = { ...start, entries: [], offset: 0, ...(full ? { pages: [] } : {}) };
-      store.syncTransaction(db => writeMeta(db, 'bootstrap', download));
+      store.metadataTransaction(db => writeMeta(db, 'bootstrap', download));
     }
     while (download.offset !== null) {
       const page = await request(`snapshot?snapshotId=${encodeURIComponent(download.snapshotId)}&offset=${download.offset}`);
       const offset = download.offset;
       if (download.pages) download.pages.push(offset); else download.entries.push(...page.entries);
       download.offset = page.nextOffset;
-      store.syncTransaction(db => {
+      store.metadataTransaction(db => {
         if (download.pages) writeMeta(db, `bootstrapPage:${offset}`, page.entries);
         writeMeta(db, 'bootstrap', download);
       });
@@ -132,7 +136,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
     if (download.pages) download.entries = store.readSync(db => download.pages.flatMap(offset => readMeta(db, `bootstrapPage:${offset}`) ?? []));
     if (download.entries.length !== download.count) throw new Error('云端快照不完整，请重试。');
     const applied = await receive(download.entries, download.cursor, download.datasetEpoch, true);
-    if (download.pages) store.syncTransaction(db => db.prepare("DELETE FROM metadata WHERE key LIKE 'sync:bootstrapPage:%'").run());
+    if (download.pages) store.metadataTransaction(db => db.prepare("DELETE FROM metadata WHERE key LIKE 'sync:bootstrapPage:%'").run());
     if (full) await request('snapshot-release', { snapshotId: download.snapshotId }).catch(() => undefined);
     return applied;
   }
@@ -147,7 +151,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       try { acknowledge(store, operation, await request('push', operation)); }
       catch (failure) {
         if (['DEPENDENCY_MISSING', 'NOTE_DELETED', 'SIBLING_NAME_CONFLICT'].includes(failure.code) || [400, 413, 415, 422].includes(failure.status)) {
-          store.syncTransaction(db => {
+          store.metadataTransaction(db => {
             const blocked = meta('blocked') ?? {};
             blocked[operation.noteId] = { noteId: operation.noteId, title: operation.value.title, value: JSON.stringify(operation.value), message: failure.message };
             writeMeta(db, 'blocked', blocked);
@@ -173,36 +177,42 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       try { result = await request('batch', operation); }
       catch (failure) {
         if ([400, 413, 415, 422].includes(failure.status) || ['DEPENDENCY_MISSING', 'ENTITY_DELETED', 'SYNC_OPERATION_EXPIRED', 'SIBLING_NAME_CONFLICT'].includes(failure.code)) {
-          store.syncTransaction(db => writeMeta(db, 'entityUpload', null));
+          store.metadataTransaction(db => writeMeta(db, 'entityUpload', null));
         }
         throw failure;
       }
       acknowledgeEntityUpload(store, operation, result);
       if (result.status === 'conflict') return;
     }
+    more = true;
   }
   async function upload() {
     // 一轮有界，编辑中产生的后继修改下一轮继续。
     for (let count = 0; count < 100; count++) {
+      if (!getSyncState(store).pendingNotes) return;
       const operation = nextUpload(store);
       if (!operation) return;
       await sendOperation(operation);
     }
+    more = true;
   }
   async function cycle() {
+    changed = false; more = false;
     if (!meta('serverUrl') || closed) return;
     if (meta('clientPaused')) { phase = 'disconnected'; return; }
     phase = 'syncing'; error = null;
+    const startKey = store.getSyncCacheKey();
+    const hadPending = full ? getEntitySyncState(store).pendingEntities : getSyncState(store).pendingNotes;
     try {
       const info = await request('status');
-      if (info.protocolVersion !== 1 || info.scope !== 'notes' || (full && (info.entitySchemaVersion !== 5 || !info.capabilities?.includes('atomic-entities-v2')))) {
-        const failure = new Error('云端同步协议不兼容，请升级应用。'); failure.code = 'PROTOCOL_UNSUPPORTED'; throw failure;
+      if (info.protocolVersion !== 1 || info.scope !== 'notes' || (full && (info.entitySchemaVersion !== 6 || !info.capabilities?.includes('atomic-entities-v2')))) {
+        const failure = new Error('同步格式已升级，请更新应用。'); failure.code = 'PROTOCOL_UNSUPPORTED'; throw failure;
       }
       if (meta('ownerId') && info.ownerId !== meta('ownerId')) throw new Error('云端所属资料库已改变，请使用独立本地资料目录。');
-      store.syncTransaction(db => { writeMeta(db, 'ownerId', info.ownerId); writeMeta(db, 'capabilities', info.capabilities ?? []); });
+      store.metadataTransaction(db => { writeMeta(db, 'ownerId', info.ownerId); writeMeta(db, 'capabilities', info.capabilities ?? []); });
       if (full) {
         const device = await request(`device?deviceId=${encodeURIComponent(store.getStatus().deviceId)}`);
-        store.syncTransaction(db => writeMeta(db, 'entitySequence', Math.max(meta('entitySequence') ?? 0, device.sequence)));
+        store.metadataTransaction(db => writeMeta(db, 'entitySequence', Math.max(meta('entitySequence') ?? 0, device.sequence)));
       }
       if (meta('epoch') && meta('epoch') !== info.datasetEpoch && !await bootstrap()) { phase = 'conflict'; return; }
       // 先确认上次断线前已发送的不可变请求，再进行常规拉取。
@@ -217,7 +227,10 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       if (full) await uploadEntities(); else await upload();
       if (!await pull()) { if (full) await uploadEntities(); phase = 'conflict'; return; }
       const pending = full ? getEntitySyncState(store).pendingEntities : getSyncState(store).pendingNotes;
-      if (!pending && !meta('attachmentPending')) store.syncTransaction(db => writeMeta(db, 'lastSyncedAt', new Date().toISOString()));
+      changed = startKey !== store.getSyncCacheKey();
+      lastCheckedAt = new Date().toISOString();
+      if (!pending && !meta('attachmentPending') && !getSyncState(store).conflicts.length && !(full && getEntitySyncState(store).entityConflict)
+        && (changed || hadPending || !meta('lastSyncedAt'))) store.metadataTransaction(db => writeMeta(db, 'lastSyncedAt', lastCheckedAt));
       if (full && getEntitySyncState(store).pendingKnowledgeEntities && !info.capabilities?.includes(KNOWLEDGE_SYNC_CAPABILITY)) {
         error = { code: 'SYNC_KNOWLEDGE_UNSUPPORTED', message: '云端尚不支持知识同步，知识已保存在本机；请升级云端后重试。' };
       }
@@ -226,22 +239,20 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
     } catch (failure) {
       error = { code: failure.code ?? 'NETWORK_ERROR', message: failure.message };
       if (['CURSOR_EXPIRED', 'DATASET_CHANGED'].includes(failure.code)) {
-        store.syncTransaction(db => { writeMeta(db, 'cursor', null); writeMeta(db, 'bootstrap', null); });
+        store.metadataTransaction(db => { writeMeta(db, 'cursor', null); writeMeta(db, 'bootstrap', null); });
       }
       phase = failure.code === 'AUTH_REQUIRED' ? 'auth-required' : 'paused';
       failures++;
-      retryAt = Date.now() + Math.max(Math.min(300000, 1000 * 2 ** Math.min(failures, 8)) + Math.random() * 1000, failure.retryAfterMs || 0);
+      retryAt = (clock?.now() ?? Date.now()) + Math.max(Math.min(300000, 1000 * 2 ** Math.min(failures, 8)) + Math.random() * 1000, failure.retryAfterMs || 0);
     }
   }
-  function sync() {
-    if (!running) running = cycle().finally(() => { running = null; });
-    return running;
-  }
-  const timer = autoSync ? setInterval(() => {
-    if (phase !== 'auth-required' && error?.code !== 'PROTOCOL_UNSUPPORTED' && Date.now() >= retryAt) void sync();
-  }, intervalMs) : null;
-  timer?.unref();
-  if (autoSync) queueMicrotask(() => { void sync(); });
+  const scheduler = createSyncScheduler({ run: cycle, autoSync, intervalMs, clock, policy: () => ({
+    stopped: closed || !meta('serverUrl') || meta('clientPaused') || phase === 'auth-required' || error?.code === 'PROTOCOL_UNSUPPORTED',
+    retryAt, changed, more
+  }) });
+  const sync = () => scheduler.sync();
+  const unsubscribe = store.onLocalCommit(() => scheduler.wake('local'));
+  scheduler.start();
   return {
     async budgetRequest(route, body) {
       const serverUrl = meta('serverUrl');
@@ -261,9 +272,9 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       }
       return data.data;
     },
-    status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), knowledgeSyncSupported: meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? null, attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error }),
+    status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), lastCheckedAt, knowledgeSyncSupported: meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? null, attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error }),
     async configure({ serverUrl, username = '', password = '' }) {
-      if (running) await running;
+      await scheduler.wait();
       const url = new URL(serverUrl);
       if (url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('请输入不含账号、路径或参数的云端服务地址。');
       if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) throw new Error('云端地址必须使用 HTTPS。');
@@ -278,36 +289,33 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
         }
         throw failure;
       }
-      if (info.protocolVersion !== 1 || info.scope !== 'notes' || (full && (info.entitySchemaVersion !== 5 || !info.capabilities?.includes('atomic-entities-v2')))) throw new Error('云端同步协议不兼容，请升级应用。');
+      if (info.protocolVersion !== 1 || info.scope !== 'notes' || (full && (info.entitySchemaVersion !== 6 || !info.capabilities?.includes('atomic-entities-v2')))) throw new Error('同步格式已升级，请更新应用。');
       if (meta('ownerId') && info.ownerId !== meta('ownerId')) throw new Error('云端所属资料库已改变，请使用独立本地资料目录。');
-      store.syncTransaction(db => { writeMeta(db, 'serverUrl', url.origin); writeMeta(db, 'clientPaused', false); });
+      store.metadataTransaction(db => { writeMeta(db, 'serverUrl', url.origin); writeMeta(db, 'clientPaused', false); });
       await sync();
       return this.status();
     },
     async disconnect() {
-      if (running) await running;
-      authorization = ''; store.syncTransaction(db => writeMeta(db, 'clientPaused', true));
+      scheduler.pause();
+      await scheduler.wait();
+      authorization = ''; store.metadataTransaction(db => writeMeta(db, 'clientPaused', true));
+      scheduler.pause();
       phase = 'disconnected'; error = null; return this.status();
     },
     sync,
-    wake() {
-      if (!autoSync || closed || phase === 'auth-required' || error?.code === 'PROTOCOL_UNSUPPORTED') return;
-      clearTimeout(wakeTimer);
-      wakeTimer = setTimeout(() => { void sync(); }, 500);
-      wakeTimer.unref();
-    },
+    wake: reason => scheduler.wake(reason),
     recovery: () => store.readSync((db, state) => [
       ...(full ? [{ kind: 'pending-local-data', exportedAt: new Date().toISOString(), snapshot: structuredClone(state), conflict: readMeta(db, 'entityConflict'), upload: readMeta(db, 'entityUpload') }] : []),
       ...db.prepare('SELECT payload FROM sync_recovery ORDER BY rowid DESC').all().map(row => JSON.parse(row.payload))
     ]),
-    async retry() { store.syncTransaction(db => writeMeta(db, 'blocked', {})); await sync(); return this.status(); },
+    async retry() { store.metadataTransaction(db => writeMeta(db, 'blocked', {})); await sync(); return this.status(); },
     async resolve(input) {
-      if (running) await running;
+      await scheduler.wait();
       if (full && input.conflictId) resolveEntityConflict(store, input, noteService);
       else resolveConflict(store, input, noteService);
       await sync();
       return this.status();
     },
-    async close() { closed = true; clearInterval(timer); clearTimeout(wakeTimer); if (running) await running; }
+    async close() { closed = true; unsubscribe(); await scheduler.close(); }
   };
 }

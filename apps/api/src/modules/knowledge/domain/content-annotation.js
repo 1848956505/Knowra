@@ -1,7 +1,7 @@
 const ANNOTATION_KINDS = new Set(['important', 'question', 'supplement', 'pitfall', 'temporary']);
 const SOURCE_MODES = new Set(['manual', 'ai']);
 const ANNOTATION_STATUSES = new Set(['active', 'stale', 'archived']);
-const SCOPE_TYPES = new Set(['selection', 'blocks', 'section']);
+const SCOPE_TYPES = new Set(['selection', 'blocks', 'section', 'list']);
 const IMPORTANCE_LEVELS = new Set([null, 'normal', 'important', 'core']);
 const LIFECYCLE_STATUSES = new Set(['active', 'archived', 'deleted']);
 const ANCHOR_STATUSES = new Set(['resolved', 'needsReview', 'missing']);

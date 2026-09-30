@@ -1,6 +1,8 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfm } from 'micromark-extension-gfm';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
+import { collectListItems } from './list-projection.js';
+import { resolveListAnchor, followListAnchor } from './list-anchor.js';
 
 export const MARKDOWN_PROJECTION_VERSION = 1;
 
@@ -122,7 +124,8 @@ export function projectMarkdown(markdown) {
     units,
     blocks: blocks.sort((left, right) => left.sourceStart - right.sourceStart),
     headings,
-    sections
+    sections,
+    listItems: collectListItems(tree)
   };
 }
 
@@ -214,6 +217,7 @@ export function anchorForSection(projection, headingIndex) {
 
 export function resolveAnchor(markdown, anchor) {
   const projection = projectMarkdown(markdown);
+  if (anchor?.scopeType === 'list') return resolveListAnchor(projection, anchor);
   if (anchor?.tracking?.empty && anchor.scopeType === 'blocks' && Array.isArray(anchor.segments) && anchor.segments.length === 0
     && Number.isInteger(anchor.sourceStart) && anchor.sourceStart >= 0 && anchor.sourceStart <= projection.source.length) {
     return { status: 'resolved', reason: null, projection, quoteText: '', segments: [], anchor };
@@ -250,6 +254,7 @@ export function resolveAnchor(markdown, anchor) {
 }
 
 export function relocateAnchor(markdown, anchor) {
+  if (anchor?.scopeType === 'list') return followListAnchor(markdown, anchor);
   const exact = resolveAnchor(markdown, anchor);
   if (exact.status === 'resolved') return exact;
   const projection = exact.projection;
@@ -519,3 +524,6 @@ function rangeError(message) {
 
 export { sourceEdit, applySourceEdit, verifiedSourceEdits, followAnchorChanges, updateStructure } from './dynamic.js';
 export { sourceEdits } from './source-diff.js';
+
+export { anchorForListItem, followListAnchor, listTracking } from './list-anchor.js';
+export { followListAnchorChanges } from './list-follow.js';

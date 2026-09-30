@@ -24,6 +24,13 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let committed;
   let repairKnowledge = false;
   let inTransaction = false;
+  let dataRevision = 0;
+  let syncRevision = 0;
+  let baselineRevision = 0;
+  let pendingLocalChange = false;
+  let pendingDataChange = false;
+  let statusCache;
+  const localCommitListeners = new Set();
   let aiRuntimeError = null;
   try {
     aiRuntimeError = initializeDatabase(db, filePath)?.aiError ?? null;
@@ -60,9 +67,23 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     for (const collection of LOCAL_DATA_COLLECTIONS) state[collection].splice(0, state[collection].length, ...structuredClone(snapshot[collection]));
   }
 
+  const totalChanges = () => db.prepare('SELECT total_changes() AS count').get().count;
+  function didCommit({ dataChanged = false, syncChanged = false, baselineChanged = false } = {}) {
+    if (dataChanged) dataRevision++;
+    if (syncChanged) syncRevision++;
+    if (baselineChanged) baselineRevision++;
+    if (pendingLocalChange) {
+      pendingLocalChange = false;
+      for (const listener of localCommitListeners) {
+        try { listener(); } catch { /* 同步调度失败不能撤销已经完成的本地保存。 */ }
+      }
+    }
+  }
+
   function persist() {
     const valid = validatePersistedLocalState(createPersistedLocalDocument(state));
     const changes = collectChanges(committed, valid);
+    pendingDataChange = changes.length > 0;
     if (!changes.length) return valid;
     const operationId = randomUUID();
     const dependencies = new Set();
@@ -92,15 +113,18 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         (operation_id, device_id, protocol_version, state, changes, dependencies, created_at)
         VALUES (?, ?, ?, 'pending', ?, ?, ?)`)
         .run(operationId, deviceId, SYNC_PROTOCOL_VERSION, JSON.stringify(queuedChanges), JSON.stringify([...dependencies]), new Date().toISOString());
+      pendingLocalChange ||= queuedChanges.length > 0;
       if (ownsTransaction) beforeCommit();
       if (ownsTransaction) {
         db.exec('COMMIT');
         restore(valid);
         committed = cloneLocalState(valid);
+        didCommit({ dataChanged: true });
       }
       return valid;
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      pendingLocalChange = false;
       throw error;
     }
   }
@@ -113,14 +137,17 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       const result = operation();
       if (result && typeof result.then === 'function') throw new TypeError('本地事务只能执行同步业务操作。');
       const valid = persist();
+      const dataChanged = pendingDataChange;
       beforeCommit();
       db.exec('COMMIT');
       restore(valid);
       committed = cloneLocalState(valid);
+      didCommit({ dataChanged });
       return result;
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
       restore(committed);
+      pendingLocalChange = false;
       throw error;
     }
     finally { inTransaction = false; }
@@ -145,10 +172,12 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       beforeCommit();
       db.exec('COMMIT');
       committed = cloneLocalState(validated.data);
+      didCommit({ dataChanged: true, syncChanged: true, baselineChanged: true });
       return exportSnapshot();
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
       restore(committed);
+      pendingLocalChange = false;
       throw error;
     }
   }
@@ -166,14 +195,18 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       if (inTransaction) throw new Error('同步事务不能嵌入本地业务事务。');
       db.exec('BEGIN IMMEDIATE');
       inTransaction = true;
+      const beforeChanges = totalChanges();
       try {
         const result = operation(db, state);
         if (result?.then) throw new TypeError('同步落库事务不能包含网络请求。');
         let valid;
-        if (local) valid = persist();
+        let dataChanged;
+        if (local) { valid = persist(); dataChanged = pendingDataChange; }
         else {
           valid = validatePersistedLocalState(createPersistedLocalDocument(state));
-          for (const change of collectChanges(committed, valid)) {
+          const changes = collectChanges(committed, valid);
+          dataChanged = changes.length > 0;
+          for (const change of changes) {
             if (change.value === null) db.prepare('DELETE FROM entities WHERE collection = ? AND id = ?').run(change.collection, change.entityId);
             else {
               const revision = db.prepare('SELECT revision FROM local_revisions WHERE collection = ? AND id = ?').get(change.collection, change.entityId)?.revision ?? 0;
@@ -181,25 +214,57 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
             }
           }
         }
+        if (dataChanged) {
+          const generation = JSON.parse(readMeta('sync:generation') ?? '0');
+          db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)').run('sync:generation', JSON.stringify(generation + 1));
+        }
         beforeCommit();
         db.exec('COMMIT');
         restore(valid);
         committed = cloneLocalState(valid);
+        didCommit({ dataChanged, syncChanged: totalChanges() !== beforeChanges, baselineChanged: totalChanges() !== beforeChanges });
         return result;
       } catch (error) {
         if (db.isTransaction) db.exec('ROLLBACK');
         restore(committed);
+        pendingLocalChange = false;
         throw error;
       } finally { inTransaction = false; }
     },
+    metadataTransaction(operation) {
+      if (inTransaction) throw new Error('同步元数据事务不能嵌入业务事务。');
+      const beforeChanges = totalChanges();
+      db.exec('BEGIN IMMEDIATE');
+      inTransaction = true;
+      try {
+        const result = operation(db);
+        if (result?.then) throw new TypeError('同步元数据事务不能包含异步操作。');
+        beforeCommit();
+        db.exec('COMMIT');
+        didCommit({ syncChanged: totalChanges() !== beforeChanges });
+        return result;
+      } catch (error) {
+        if (db.isTransaction) db.exec('ROLLBACK');
+        throw error;
+      } finally { inTransaction = false; }
+    },
+    getSyncCacheKey: () => inTransaction ? null : `${dataRevision}:${syncRevision}`,
+    getEntityCacheKey: () => inTransaction ? null : `${dataRevision}:${baselineRevision}`,
+    onLocalCommit(listener) { localCommitListeners.add(listener); return () => localCommitListeners.delete(listener); },
     readSync: operation => operation(db, state),
     state, flush, runTransaction, exportSnapshot, prepareImport: validateLocalSnapshot,
     commitImport, importSnapshot: commitImport,
-    getStatus: () => ({
+    getStatus() {
+      const revision = totalChanges();
+      if (statusCache?.revision === revision && !inTransaction) return statusCache.value;
+      const value = {
       mode: 'desktop-local', deviceId, datasetId: readMeta('datasetId'),
       protocolVersion: SYNC_PROTOCOL_VERSION, cloudSync: readMeta('sync:serverUrl') ? 'configured' : 'not-configured',
       pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count
-    }),
+      };
+      if (!inTransaction) statusCache = { revision, value };
+      return value;
+    },
     readOutbox: () => db.prepare('SELECT * FROM sync_outbox ORDER BY sequence').all().map(row => ({
       operationId: row.operation_id, deviceId: row.device_id, protocolVersion: row.protocol_version,
       state: row.state, changes: JSON.parse(row.changes), dependencies: JSON.parse(row.dependencies)
@@ -209,6 +274,6 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       db.prepare('VACUUM INTO ?').run(destination);
       fs.chmodSync(destination, 0o600);
     },
-    close: () => db.close()
+    close: () => { localCommitListeners.clear(); db.close(); }
   };
 }

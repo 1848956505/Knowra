@@ -1,4 +1,4 @@
-export type AnnotationScopeType = 'selection' | 'blocks' | 'section';
+export type AnnotationScopeType = 'selection' | 'blocks' | 'section' | 'list';
 export interface AnchorSegment { start: number; end: number; path: string; }
 export interface ContentAnchor {
   tracking?: { formatVersion?: number; empty?: boolean; emptyPosition?: number; emptyType?: string; [key: string]: unknown };
@@ -14,9 +14,12 @@ export interface ContentAnchor {
   sourceEnd: number;
   projectedStart: number;
   projectedEnd: number;
+  list?: { itemPath: string; parentItemPath: string | null; depth: number; ordered: boolean; childCount: number; memberFingerprint: string };
   section?: { headingLevel: number; title: string; sourceStart: number; sourceEnd: number; endBoundaryPath: string | null; endBoundaryLevel: number | null; endBoundaryTitle: string | null; memberFingerprint: string; };
 }
+export interface ListItemProjection { path: string; parentListPath: string; parentItemPath: string | null; depth: number; ordered: boolean; task: boolean; sourceStart: number; sourceEnd: number }
 export interface MarkdownProjection {
+  listItems: ListItemProjection[];
   version: number; source: string; contentHash: string; text: string;
   units: Array<{ text: string; sourceStart: number | null; sourceEnd: number | null; projectedStart: number; projectedEnd: number; path: string; atomic?: boolean }>;
   blocks: Array<{ sourceStart: number; sourceEnd: number; path: string; type: string }>;
@@ -44,3 +47,8 @@ export function verifiedSourceEdits(before: string, after: string, mapping?: Ann
 export function followAnchorChanges(before: string, after: string, anchor: ContentAnchor, edits?: SourceEdit[] | null): ReturnType<typeof resolveAnchor>;
 export function updateStructure(before: string, after: string, previous?: AnnotationStructure | null, edits?: SourceEdit[] | null): AnnotationStructure;
 export function sourceEdits(before: string, after: string): SourceEdit[];
+
+export function anchorForListItem(projection: MarkdownProjection, itemPath: string, allowEmpty?: boolean): ContentAnchor;
+export function followListAnchor(markdown: string, anchor: ContentAnchor): ReturnType<typeof resolveAnchor>;
+export function listTracking(projection: MarkdownProjection, anchor: ContentAnchor, structure?: AnnotationStructure | null): NonNullable<ContentAnchor['tracking']>;
+export function followListAnchorChanges(before: string, after: string, anchor: ContentAnchor, edits?: SourceEdit[] | null, structures?: { before?: AnnotationStructure | null; after?: AnnotationStructure | null }): ReturnType<typeof resolveAnchor>;
