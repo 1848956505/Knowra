@@ -5,8 +5,9 @@ import type { EditorClipboardAction, EditorEditResult } from './editorCommands';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { selectCodeBlockContents } from './editorCodeCommands';
 
-export async function runEditorClipboardAction(editor: Editor, action: EditorClipboardAction): Promise<EditorEditResult> {
+export async function runEditorClipboardAction(editor: Editor, action: EditorClipboardAction, canMutate: () => boolean = () => true): Promise<EditorEditResult> {
   const view = editor.ctx.get(editorViewCtx);
+  if (view.isDestroyed) return { ok: false, reason: 'context-changed' };
   view.focus();
 
   if (action === 'select-all') {
@@ -20,7 +21,13 @@ export async function runEditorClipboardAction(editor: Editor, action: EditorCli
   const { from, to } = view.state.selection;
   const selectedText = view.state.doc.textBetween(from, to, '\n\n');
   if (!selectedText) return { ok: false, reason: 'empty-selection' };
-  if (await writeClipboardText(selectedText)) {
+  const { doc, selection } = view.state;
+  const canCut = () => !view.isDestroyed && view.editable && canMutate()
+    && view.state.doc === doc && selection.eq(view.state.selection);
+  if (action === 'cut' && !canCut()) return { ok: false, reason: 'context-changed' };
+  const copied = await writeClipboardText(selectedText);
+  if (action === 'cut' && !canCut()) return { ok: false, reason: 'context-changed' };
+  if (copied) {
     if (action === 'cut') view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
     return { ok: true };
   }

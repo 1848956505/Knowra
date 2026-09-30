@@ -478,6 +478,7 @@ export function NoteEditorView({
         'empty-selection': '请先选中要编辑的内容',
         'clipboard-empty': '剪贴板为空',
         'clipboard-denied': '无法访问剪贴板，请检查浏览器权限',
+        'context-changed': '正文、选区或编辑状态已变化，已取消剪切，请重新选择',
         unsupported: '当前环境暂不支持该编辑操作'
       } as const;
       onFileStatus(messages[result?.reason ?? 'unsupported']);

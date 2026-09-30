@@ -219,7 +219,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           return { ok: false, reason: 'unsupported' };
         }
         restoreRememberedSelection(editor, lastSelectionRef.current);
-        return runEditorClipboardAction(editor, action);
+        return runEditorClipboardAction(editor, action, () => editorRef.current === editor && !readOnlyRef.current);
       },
       find(query, currentIndex, direction) {
         const editor = editorRef.current;
