@@ -73,6 +73,8 @@ import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, new
 import { createCodeBlockBehavior } from './editorCodeBlock';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
+import { EditorTableControls } from './EditorTableControls';
+import { editorTableBehavior } from './editorTableBehavior';
 
 export interface MilkdownNoteEditorProps {
   noteId: string;
@@ -407,6 +409,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(commonmark)
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
         .use(gfm)
+        .use(editorTableBehavior)
         .use(highlightRemark)
         .use(highlightSchema)
         .use(toggleHighlightCommand)
@@ -518,6 +521,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         onCompositionEndCapture={handleCompositionEnd}
       />
       {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={reportOperationStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); commandResolvers[command](editor); } }} /> : null}
+      {!readOnly ? <EditorTableControls hostRef={hostRef} getView={getView} /> : null}
       {operationStatus ? <p className={styles.operationStatus} role="status" data-pdf-exclude="true">{operationStatus}</p> : null}
       </>
     );

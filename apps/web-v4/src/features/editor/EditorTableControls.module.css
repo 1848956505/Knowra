@@ -1,0 +1,1 @@
+.toolbar { position: fixed; z-index: 8; display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 16px); padding: 4px 8px; border: 1px solid var(--ink-panel); background: var(--ink-surface); color: var(--ink-secondary); font: 12px/1.5 var(--font-mono); box-shadow: 2px 2px 0 var(--ink-shell); }
