@@ -22,8 +22,10 @@ export async function createPostgresTestDatabase({
   }
 } = {}) {
   const url = new URL(databaseUrl);
+  // Prisma 的 host 查询参数会覆盖 URI hostname；拒绝全部覆盖（包括重复／编码参数）。
   if (!['postgres:', 'postgresql:'].includes(url.protocol)
       || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
+      || url.searchParams.has('host')
       || !/^\/knowra_[a-z0-9_]*test[a-z0-9_]*$/.test(url.pathname)
       || allowWrites !== '1') {
     throw new Error('只能显式允许写入回环 Knowra 测试数据库（KNOWRA_SYNC_TEST_ALLOW_WRITES=1）。');

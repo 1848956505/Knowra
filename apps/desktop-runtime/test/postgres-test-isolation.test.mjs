@@ -26,6 +26,21 @@ test('PostgreSQL fixture 拒绝未授权、非回环或非测试库，且不创�
   }
 });
 
+test('PostgreSQL fixture 在创建连接前拒绝 host 覆盖（含重复和编码参数）', async () => {
+  for (const query of ['host=remote.example.com', 'host=', 'host=127.0.0.1',
+    'host=127.0.0.1&host=remote.example.com', 'host=remote.example.com&host=127.0.0.1',
+    '%68ost=remote.example.com', 'schema=public&host=%2Ftmp']) {
+    let connected = false, migrated = false;
+    await assert.rejects(createPostgresTestDatabase({ ...options,
+      databaseUrl: `${options.databaseUrl}?${query}`,
+      createClient() { connected = true; throw new Error('不应连接'); },
+      migrate() { migrated = true; throw new Error('不应迁移'); }
+    }), /只能显式允许/);
+    assert.equal(connected, false, query);
+    assert.equal(migrated, false, query);
+  }
+});
+
 test('PostgreSQL fixture 并发分配唯一 schema；清理只删除自己且可重复调用', async () => {
   const first = stub(), second = stub();
   const [a, b] = await Promise.all([createPostgresTestDatabase({ ...options, ...first }),
