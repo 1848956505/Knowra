@@ -1,3 +1,4 @@
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -139,22 +140,28 @@ test('离线重点创建、取消和恢复保留版本与修订；缩短正文�
 });
 
 test('真实 PostgreSQL：完整笔记、目录、附件事务与两设备 HTTP 同步', { skip: !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000 }, async t => {
-  const databaseUrl = process.env.KNOWRA_SYNC_TEST_DATABASE_URL;
+  const database = await createPostgresTestDatabase();
+  let cloud, server;
+  const createdIds = [], createdScopeIds = [];
+  // node:test after 按注册顺序执行：先停止服务并清理记录／连接，最后删除 schema。
+  // 立即登记，初始化中途失败也清理；一项清理失败不得阻止其余资源释放。
+  t.after(async () => {
+    try {
+      if (server) await new Promise(resolve => server.close(resolve));
+      if (cloud && createdScopeIds.length) await cloud.prisma.analysisScopeSnapshot.deleteMany({ where: { id: { in: createdScopeIds } } });
+      if (cloud && createdIds.length) await cloud.prisma.note.deleteMany({ where: { id: { in: createdIds } } });
+    } finally {
+      try { await cloud?.close(); } finally { await database.close(); }
+    }
+  });
+  const { databaseUrl } = database;
   assert(['127.0.0.1', 'localhost'].includes(new URL(databaseUrl).hostname));
   assert.equal(process.env.KNOWRA_SYNC_TEST_ALLOW_WRITES, '1');
   const { createPostgresAppContext } = await import('../../api/src/postgres-app.factory.js');
   const root = temporaryDirectory(t);
-  const cloud = await createPostgresAppContext({ databaseUrl, uploadsDir: path.join(root, 'uploads'), storageRootDir: root });
-  const server = createServer({ appContext: cloud, logger: { error(...args) { console.error(...args); } } });
+  cloud = await createPostgresAppContext({ databaseUrl, uploadsDir: path.join(root, 'uploads'), storageRootDir: root });
+  server = createServer({ appContext: cloud, logger: { error(...args) { console.error(...args); } } });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  const createdIds = [];
-  const createdScopeIds = [];
-  t.after(async () => {
-    await new Promise(resolve => server.close(resolve));
-    if (createdScopeIds.length) await cloud.prisma.analysisScopeSnapshot.deleteMany({ where: { id: { in: createdScopeIds } } });
-    if (createdIds.length) await cloud.prisma.note.deleteMany({ where: { id: { in: createdIds } } });
-    await cloud.close();
-  });
   const origin = `http://127.0.0.1:${server.address().port}`;
   const space = await cloud.modules.knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
   const workspace = openWorkspace(path.join(root, 'device'));

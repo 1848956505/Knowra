@@ -1,3 +1,4 @@
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,8 +10,10 @@ export const annotationDynamicPostgresTests = process.env.KNOWRA_SYNC_TEST_DATAB
   name:'真实 PostgreSQL：章节跟随、范围确认、持久排除与事务回滚',
   async run(){
     const root=mkdtempSync(path.join(tmpdir(),'knowra-annotation-pg-'));
-    const app=await createPostgresAppContext({databaseUrl:process.env.KNOWRA_SYNC_TEST_DATABASE_URL,storageRootDir:root});
+    let database, app;
     try {
+      database = await createPostgresTestDatabase();
+      app=await createPostgresAppContext({databaseUrl:database.databaseUrl,storageRootDir:root});
       const k=app.modules.knowledge;const space=await k.knowledgeSpaceService.createDefaultKnowledgeSpace({userId:'demo'});
       const before='# A\n\n原内容\n\n# B\n\n尾部';
       const note=await k.noteService.createNote({id:randomUUID(),spaceId:space.id,title:randomUUID(),rawMarkdown:before});
@@ -39,6 +42,10 @@ export const annotationDynamicPostgresTests = process.env.KNOWRA_SYNC_TEST_DATAB
       } finally { await app.prisma.$executeRawUnsafe('DROP TRIGGER annotation_revision_failure ON "AnnotationRevision"');await app.prisma.$executeRawUnsafe('DROP FUNCTION fail_annotation_revision()'); }
       await k.noteService.updateNote(note.id,{rawMarkdown:boundary.replace('新增',''),expectedUpdatedAt:changed.updatedAt});
       await assert.rejects(k.annotationScopeService.previewAnalysisScope({spaceId:space.id,mode:'marked',annotationIds:[annotation.id]}),{code:'ANNOTATION_EXCLUSION_CONFLICT'});
-    } finally {await app.close();rmSync(root,{recursive:true,force:true});}
+    } finally {
+      try { await app?.close(); } finally {
+        try { await database?.close(); } finally { rmSync(root, { recursive: true, force: true }); }
+      }
+    }
   }
 }] : [];

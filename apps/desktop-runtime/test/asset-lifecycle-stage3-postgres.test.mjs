@@ -5,9 +5,14 @@ import { test } from 'node:test';
 import { createPostgresAppContext } from '../../api/src/postgres-app.factory.js';
 import { temporaryDirectory } from './helpers.mjs';
 
-const databaseUrl = process.env.KNOWRA_SYNC_TEST_DATABASE_URL;
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 
-test('阶段3 真实 PostgreSQL：训练资产回收、引用阻断、清理与墓碑', { skip: !databaseUrl, timeout: 60000 }, async t => {
+const enabled = Boolean(process.env.KNOWRA_SYNC_TEST_DATABASE_URL);
+
+test('阶段3 真实 PostgreSQL：训练资产回收、引用阻断、清理与墓碑', { skip: !enabled, timeout: 60000 }, async t => {
+  const database = await createPostgresTestDatabase();
+  t.after(() => database.close());
+  const { databaseUrl } = database;
   const url = new URL(databaseUrl);
   assert(['127.0.0.1', 'localhost'].includes(url.hostname), '只能使用回环测试数据库');
   assert.equal(process.env.KNOWRA_SYNC_TEST_ALLOW_WRITES, '1', '需要显式允许临时库测试写入');

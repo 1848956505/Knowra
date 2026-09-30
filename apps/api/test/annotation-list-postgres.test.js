@@ -1,3 +1,4 @@
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,8 +11,10 @@ export const annotationListPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE
   name: '真实 PostgreSQL：列表跟随、确认、排除与正文/结构/修订原子回滚',
   async run() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-list-pg-test-'));
-    const app = await createPostgresAppContext({ databaseUrl: process.env.KNOWRA_SYNC_TEST_DATABASE_URL, storageRootDir: root });
+    let database, app;
     try {
+      database = await createPostgresTestDatabase();
+      app = await createPostgresAppContext({ databaseUrl: database.databaseUrl, storageRootDir: root });
       const k = app.modules.knowledge, space = await k.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
       let note = await k.noteService.createNote({ id: randomUUID(), spaceId: space.id, title: randomUUID(), rawMarkdown: '- 父项\n- 相邻' });
       const anchor = anchorForListItem(projectMarkdown(note.rawMarkdown), '0.0');
@@ -48,6 +51,10 @@ export const annotationListPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE
       }
       const stored = await app.prisma.contentAnnotation.findUnique({ where: { id: annotation.id } });
       assert.equal(stored.scopeType, 'list'); assert.ok(stored.anchor.tracking.rootId);
-    } finally { await app.close(); fs.rmSync(root, { recursive: true, force: true }); }
+    } finally {
+      try { await app?.close(); } finally {
+        try { await database?.close(); } finally { fs.rmSync(root, { recursive: true, force: true }); }
+      }
+    }
   }
 }] : [];

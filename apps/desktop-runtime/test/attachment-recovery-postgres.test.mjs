@@ -5,8 +5,13 @@ import { test } from 'node:test';
 import { createPostgresAppContext } from '../../api/src/postgres-app.factory.js';
 import { temporaryDirectory } from './helpers.mjs';
 
-const databaseUrl = process.env.KNOWRA_SYNC_TEST_DATABASE_URL;
-test('真实 PostgreSQL 附件缺失损坏、同 ID 恢复、历史预检及清理', { skip: !databaseUrl, timeout: 60000 }, async t => {
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
+
+const enabled = Boolean(process.env.KNOWRA_SYNC_TEST_DATABASE_URL);
+test('真实 PostgreSQL 附件缺失损坏、同 ID 恢复、历史预检及清理', { skip: !enabled, timeout: 60000 }, async t => {
+  const database = await createPostgresTestDatabase();
+  t.after(() => database.close());
+  const { databaseUrl } = database;
   assert(['127.0.0.1', 'localhost'].includes(new URL(databaseUrl).hostname));
   assert.equal(process.env.KNOWRA_SYNC_TEST_ALLOW_WRITES, '1');
   const root = temporaryDirectory(t);

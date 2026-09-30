@@ -311,7 +311,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
     async retry() { store.metadataTransaction(db => writeMeta(db, 'blocked', {})); await sync(); return this.status(); },
     async resolve(input) {
       await scheduler.wait();
-      if (full && input.conflictId) resolveEntityConflict(store, input, noteService);
+      if (full && input.conflictId) resolveEntityConflict(store, input, noteService, entityTransfer);
       else resolveConflict(store, input, noteService);
       await sync();
       return this.status();
