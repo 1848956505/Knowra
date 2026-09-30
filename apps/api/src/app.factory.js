@@ -162,6 +162,8 @@ export function createAppContext(options = {}) {
 
   return {
     dataStore,
+    coreOperationStore: dataStore?.coreOperationStore ?? null,
+    coreOperationStoreError: dataStore?.coreOperationStoreError ?? null,
     modules: {
       knowledge
     },
