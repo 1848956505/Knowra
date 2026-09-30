@@ -506,9 +506,18 @@ export function NoteEditorView({
   const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' | 'list' = 'selection') => {
     if (!canEditContent) throw new Error('阅读模式下无法创建标注');
     if (annotationCreatePendingRef.current) return;
-    const selection = editorRef.current?.getAnnotationSelection(scopeType);
+    const context = annotationWriteStateRef.current;
+    const editor = editorRef.current;
+    const selection = editor?.getAnnotationSelection(scopeType);
     if (!selection) throw new Error(scopeType === 'list' ? '请先将光标放在非空的普通列表项内' : scopeType === 'section' ? '请先将光标放在标题章节内' : '请先在正文中选中要标记的内容');
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+    const selectionSignature = JSON.stringify(selection);
+    const assertCurrent = () => {
+      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
+        || editor?.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scopeType, { restoreSelection: false })) !== selectionSignature) {
+        throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
+      }
+    };
     const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
     annotationCreatePendingRef.current = true;
     try {
@@ -516,9 +525,12 @@ export function NoteEditorView({
         annotationCreateInputRef.current = { signature, input: await buildCreateAnnotationInput(note, markdown, selection) };
       }
       const input = annotationCreateInputRef.current.input;
+      assertCurrent();
       await autosave.saveNow(markdown);
+      assertCurrent();
       const created = await onCreateAnnotation(input);
       annotationCreateInputRef.current = null;
+      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context) return;
       setAnnotations((current) => [...current.filter((item) => item.id !== created.id), created]);
       setFocusedAnnotationId(created.id);
       onFileStatus('已标为重点');
@@ -542,7 +554,7 @@ export function NoteEditorView({
     const signature = JSON.stringify(selection);
     const assertCurrent = () => {
       if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
-        || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope)) !== signature) {
+        || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope, { restoreSelection: false })) !== signature) {
         throw new Error('正文、选区或编辑状态已变化，请重新选择');
       }
     };

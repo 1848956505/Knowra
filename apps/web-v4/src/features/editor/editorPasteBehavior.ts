@@ -4,6 +4,7 @@ import type { EditorView } from '@milkdown/kit/prose/view';
 import { $prose } from '@milkdown/kit/utils';
 import { parserCtx } from '@milkdown/kit/core';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
+import { assertInlineImageFile } from './attachmentFiles';
 
 const MARKDOWN_BLOCK_PATTERNS = [
   /^\s{0,3}#{1,6}\s+/m,
@@ -122,7 +123,7 @@ export function createEditorPasteBehavior(
   }));
 }
 
-async function uploadPastedImages(
+export async function uploadPastedImages(
   view: EditorView,
   files: File[],
   onUploadImage: (file: File) => Promise<UploadedEditorImage>,
@@ -130,7 +131,13 @@ async function uploadPastedImages(
 ): Promise<void> {
   try {
     for (const file of files) {
+      if (view.isDestroyed || !view.editable) throw new Error('编辑状态已变化，未插入正文');
+      assertInlineImageFile(file);
+      const original = view.state;
       const uploaded = await onUploadImage(file);
+      if (view.isDestroyed || !view.editable || !view.state.doc.eq(original.doc) || !view.state.selection.eq(original.selection)) {
+        throw new Error('图片已上传，正文、选区或编辑状态已变化，未插入正文，可从附件列表再次插入');
+      }
       const imageType = view.state.schema.nodes.image;
       if (!imageType) throw new Error('编辑器未启用图片节点');
       const image = imageType.create({ src: uploaded.url, alt: uploaded.alt, title: null });

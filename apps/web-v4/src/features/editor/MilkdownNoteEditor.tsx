@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
+import { forwardRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
 import {
   defaultValueCtx,
   Editor,
@@ -95,6 +95,12 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const editorRef = useRef<Editor | null>(null);
     const onChangeRef = useRef(onChange);
     const onStatusRef = useRef(onStatus);
+    const [operationStatus, setOperationStatus] = useState('');
+    const reportOperationStatus = useCallback((message: string) => {
+      if (!mountedRef.current) return;
+      setOperationStatus(message);
+      onStatusRef.current?.(message);
+    }, []);
     const onReadyRef = useRef(onReady);
     const onUploadImageRef = useRef(onUploadImage);
     const annotationsRef = useRef(annotations);
@@ -271,10 +277,10 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         }
         return true;
       },
-      getAnnotationSelection(scopeType = 'selection') {
+      getAnnotationSelection(scopeType = 'selection', options) {
         const editor = editorRef.current;
         if (!editor || !readyRef.current) return null;
-        restoreRememberedSelection(editor, lastSelectionRef.current);
+        if (options?.restoreSelection !== false) restoreRememberedSelection(editor, lastSelectionRef.current);
         return getAnnotationSelection(editor, editor.action(getMarkdown()), scopeType);
       },
       setAnnotations(nextAnnotations, focusedId = null) {
@@ -408,7 +414,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(internalLinkSchema)
         .use(insertInternalLinkCommand)
         .use(createEditorPasteBehavior(
-          (message) => onStatusRef.current?.(message),
+          reportOperationStatus,
           (file) => {
             const upload = onUploadImageRef.current;
             if (!upload) return Promise.reject(new Error('当前无法上传图片'));
@@ -511,7 +517,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         onCompositionStartCapture={handleCompositionStart}
         onCompositionEndCapture={handleCompositionEnd}
       />
-      {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={onStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); commandResolvers[command](editor); } }} /> : null}
+      {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={reportOperationStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); commandResolvers[command](editor); } }} /> : null}
+      {operationStatus ? <p className={styles.operationStatus} role="status" data-pdf-exclude="true">{operationStatus}</p> : null}
       </>
     );
   }

@@ -82,3 +82,53 @@ describe('标注变更等待真实 autosave 后的上下文与 revision', () => 
     expect(props.onUpdateAnnotationAnchor).not.toHaveBeenCalled();
   });
 });
+
+
+describe('新建章节重点的异步上下文', () => {
+  it.each(['note', 'readonly', 'selection', 'document', 'unmount'])('保存等待期间 %s 变化时不提交旧章节', async change => {
+    const props = fixture();
+    vi.mocked(props.onCreateAnnotation).mockResolvedValue({ ...annotation, scopeType: 'section' });
+    let finish!: () => void;
+    vi.mocked(props.onSaveMarkdown).mockImplementation(() => new Promise(resolve => { finish = () => resolve({ ...props.note!, updatedAt: 'v2', rawMarkdown: '保存后的正文' }); }));
+    const { rerender, unmount } = render(<NoteEditorView {...props} />);
+    await screen.findByTestId('mutation-editor');
+    let pending!: Promise<void>;
+    act(() => { pending = state.inspector.onCreateAnnotation('section'); });
+    await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledOnce());
+    if (change === 'note') rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
+    if (change === 'readonly') rerender(<NoteEditorView {...props} canWrite={false} />);
+    if (change === 'selection') state.selection = { ...state.selection, quoteText: '另一章节' };
+    if (change === 'document') state.markdown = '继续输入';
+    if (change === 'unmount') unmount();
+    await act(async () => { finish(); await expect(pending).rejects.toThrow('已变化'); });
+    expect(props.onCreateAnnotation).not.toHaveBeenCalled();
+  });
+});
+
+
+it('正常新建章节重点保留输入及幂等重试，不将失败当作成功', async () => {
+  const props = fixture();
+  vi.mocked(props.onCreateAnnotation).mockRejectedValueOnce(new Error('响应丢失')).mockResolvedValueOnce({ ...annotation, scopeType: 'section' });
+  render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('section')).rejects.toThrow('响应丢失'); });
+  await act(async () => { await state.inspector.onCreateAnnotation('section'); });
+  const calls = vi.mocked(props.onCreateAnnotation).mock.calls;
+  expect(calls).toHaveLength(2);
+  expect(calls[0][0].idempotencyKey).toBe(calls[1][0].idempotencyKey);
+  expect(props.onFileStatus).toHaveBeenCalledOnce();
+  expect(props.onFileStatus).toHaveBeenCalledWith('已标为重点');
+});
+
+it('新建章节重点提交后切换笔记，迟到成功回执不污染新笔记', async () => {
+  const props = fixture();
+  vi.mocked(props.onListAnnotations).mockResolvedValue([]);
+  let finish!: (item: Annotation) => void;
+  vi.mocked(props.onCreateAnnotation).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const { rerender } = render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  let pending!: Promise<void>; act(() => { pending = state.inspector.onCreateAnnotation('section'); });
+  await waitFor(() => expect(finish).toBeTypeOf('function'));
+  rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
+  await act(async () => { finish({ ...annotation, scopeType: 'section' }); await pending; });
+  expect(state.inspector.annotations).toEqual([]);
+  expect(props.onFileStatus).not.toHaveBeenCalledWith('已标为重点');
+});

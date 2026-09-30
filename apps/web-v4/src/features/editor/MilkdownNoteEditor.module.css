@@ -262,3 +262,5 @@
 }
 
 .milkdownEditor :global(li.editor-list-annotation)::marker { color: var(--ink-violet); }
+
+.operationStatus { margin: 8px 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.5; }
