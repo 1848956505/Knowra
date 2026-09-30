@@ -3,6 +3,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
+import { coreOperationKey, validateCoreOperationState } from './core-operation-contract.js';
+import { createSyncCoreOperationStore } from './core-operation-store.js';
 import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
 import { createJsonAiAccessStore, createJsonAiConversationStore, createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
 import { createJsonBudgetAuthority } from '../modules/ai/budget-ledger.js';
@@ -39,6 +41,10 @@ export function createFileDataStore(filePath, {
   const raw = fs.readFileSync(filePath, 'utf8');
   const parsed = parsePersistedState(raw);
   const state = validatePersistedLocalState(parsed);
+  let coreOperations = parsed.coreOperations;
+  let coreOperationStoreError = null;
+  try { coreOperations = validateCoreOperationState(coreOperations); }
+  catch (error) { coreOperationStoreError = error; }
   let aiRuntime;
   let aiRuntimeError = null;
   try { aiRuntime = validateAiState(parsed.aiRuntime); }
@@ -53,7 +59,7 @@ export function createFileDataStore(filePath, {
   if (['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
-    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime });
+    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations });
   }
 
   function flush() {
@@ -75,6 +81,7 @@ export function createFileDataStore(filePath, {
 
     const previousState = cloneLocalState(state);
     const previousAiRuntime = structuredClone(aiRuntime);
+    const previousCoreOperations = structuredClone(coreOperations);
     const previousJournal = structuredClone(journal);
     transaction = { dirty: false };
 
@@ -90,6 +97,7 @@ export function createFileDataStore(filePath, {
     } catch (error) {
       replaceState(state, previousState);
       aiRuntime = previousAiRuntime;
+      coreOperations = previousCoreOperations;
       journal = previousJournal;
       throw error;
     } finally {
@@ -140,7 +148,8 @@ export function createFileDataStore(filePath, {
     try {
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
       writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal,
-        aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime) });
+        aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
+        coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations) });
       journal = nextJournal;
       committed = cloneLocalState(nextState);
     } catch (error) {
@@ -154,6 +163,15 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    coreOperationStore: coreOperationStoreError ? null : createSyncCoreOperationStore({
+      transaction: operation => {
+        if (transaction) throw new TypeError('核心操作必须拥有最外层事务，不能嵌套提交。');
+        return runTransaction(operation);
+      },
+      get: input => coreOperations.receipts.find(receipt => coreOperationKey(receipt) === coreOperationKey(input)) ?? null,
+      insert: receipt => { coreOperations.receipts.push(receipt); flush(); }
+    }),
+    coreOperationStoreError,
     aiRepository: aiRuntimeError ? null : createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiAccessStore: aiRuntimeError ? null : createJsonAiAccessStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiConversationStore: aiRuntimeError ? null : createJsonAiConversationStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),

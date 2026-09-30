@@ -3,6 +3,18 @@ model SyncJournal {
   payload Json
 }
 
+// 与笔记同事务的最小回执；不依赖 AI 私有存储生命周期。
+model CoreOperationReceipt {
+  ownerId String @map("owner_id")
+  datasetId String @map("dataset_id")
+  operationId String @map("operation_id")
+  planHash String @map("plan_hash")
+  receiptHash String @map("receipt_hash")
+  receiptJson Json @map("receipt_json")
+  @@id([ownerId, datasetId, operationId])
+  @@map("core_operation_receipts")
+}
+
 generator client {
   provider = "prisma-client-js"
 }

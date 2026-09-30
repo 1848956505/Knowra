@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, createPersistedLocalDocument, validatePersistedLocalState } from '../../api/src/infrastructure/local-data-schema.js';
 import { LOCAL_DATABASE_VERSION } from './sqlite-schema.mjs';
+import { validateSqliteCoreOperationRows } from './core-operation-store.mjs';
 import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
@@ -120,6 +121,7 @@ export function inspectRuntimeBackup(backupDirectory) {
     if (db.prepare('PRAGMA integrity_check').all().some(row => row.integrity_check !== 'ok')) throw new Error('备份数据库完整性校验失败。');
     const version = db.prepare('PRAGMA user_version').get().user_version;
     if (version < 1 || version > LOCAL_DATABASE_VERSION) throw new Error('备份数据库版本不受支持，请升级应用。');
+    validateSqliteCoreOperationRows(db);
     if (version >= 4) {
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('备份 AI 私有记录引用不完整。');
       const ai = createSqliteAiRepository(db);

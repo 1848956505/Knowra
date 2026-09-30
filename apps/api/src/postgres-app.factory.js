@@ -1,4 +1,5 @@
 import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
+import { createPostgresCoreOperationStore } from './infrastructure/postgres-core-operation-store.js';
 import path from 'node:path';
 import { createPostgresSyncRuntime } from './modules/sync/postgres-provider.js';
 import { createPrismaRuntime } from './infrastructure/prisma-client.js';
@@ -135,6 +136,7 @@ export async function createPostgresAppContext({
   const aiConversationStore = createPostgresAiConversationStore({ client: runtime.client, repository: aiRepository, ownerId: normalizedOwnerId });
   return {
     driver: 'postgres',
+    coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }),
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },

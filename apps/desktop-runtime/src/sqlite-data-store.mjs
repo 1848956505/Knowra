@@ -9,6 +9,7 @@ import {
   validateLocalSnapshot, validatePersistedLocalState
 } from '../../api/src/infrastructure/local-data-schema.js';
 import { initializeDatabase, SYNC_PROTOCOL_VERSION } from './sqlite-schema.mjs';
+import { createSqliteCoreOperationStore } from './core-operation-store.mjs';
 import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
@@ -186,7 +187,13 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     try { persist(); } catch (error) { db.close(); throw error; }
   }
 
+  let coreOperationStore = null, coreOperationStoreError = null;
+  try { coreOperationStore = createSqliteCoreOperationStore(db, filePath, runTransaction); }
+  catch (error) { coreOperationStoreError = error; }
+
   return {
+    coreOperationStore,
+    coreOperationStoreError,
     aiRepository,
     aiAccessStore,
     aiConversationStore,
