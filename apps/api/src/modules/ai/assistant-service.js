@@ -78,12 +78,13 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       ? { ready: false, reason: storageReason, budget: null }
       : await readiness(reference);
     const provider = ai?.gateway?.capabilities?.();
-    return { provider: 'deepseek', modelId: reference?.modelId ?? null, configured: Boolean(reference),
+    const simulation = provider?.provider === 'mock';
+    return { provider: simulation ? 'mock' : 'deepseek', simulation, modelId: reference?.modelId ?? null, configured: Boolean(reference),
       executionLocation: location, generationAvailable: state.ready, unavailableReason: state.reason,
       budget: state.budget,
       capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'],
         responseMode: 'polling', writeTools: false,
-        providerAdvertised: provider?.advertised ?? null, providerVerified: provider?.verified === true } };
+        providerAdvertised: provider?.advertised ?? null, providerVerified: !simulation && provider?.verified === true } };
   }
 
   async function assertJob(jobId) {

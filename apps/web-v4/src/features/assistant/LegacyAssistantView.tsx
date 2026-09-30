@@ -204,7 +204,7 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
       </aside>
       <div className={styles.content}>
         <div className={styles.banner} role="status">
-          <strong>{!status ? '正在读取模型状态' : status.modelId ? `DeepSeek · ${status.modelId}` : '模型未配置'}</strong>
+          <strong>{!status ? '正在读取模型状态' : status.modelId ? `${status.simulation ? '离线模拟' : 'DeepSeek'} · ${status.modelId}` : '模型未配置'}</strong>
           <span>{readOnly ? '旧版任务只读回看。新提问请返回对话主页面。' : status?.unavailableReason ?? (status ? '当前可在确认来源范围后创建只读问答任务。' : '请稍候…')}</span>
           {readOnly ? <Button variant="ghost" size="compact" onPress={() => navigate('/assistant')}>返回对话</Button> : null}
           {status?.budget ? <span>北京时间 {status.budget.day} · 可用 {yuan(status.budget.availableMicrounits)} 元
@@ -215,7 +215,7 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
         </div>
         {!readOnly ? <section className={styles.card} aria-label="提出问题">
           <h2>向笔记提问</h2>
-          <p className={styles.hint}>仅选中的笔记或目录片段会进入发送预览；确认前不会发送给 DeepSeek。</p>
+          <p className={styles.hint}>{status?.simulation ? '离线模拟响应，未调用真实供应商。' : '仅选中的笔记或目录片段会进入发送预览；确认前不会发送给 DeepSeek。'}</p>
           <div className={styles.scopeRow}>
             <Select label="读取范围" selectedKey={scopeKind} onSelectionChange={key => { setScopeKind(String(key) as 'note' | 'folder'); resetPreview(); }}
               options={[{ id: 'note', label: '一篇笔记' }, { id: 'folder', label: '一个目录' }]} />
@@ -231,7 +231,7 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
         </section> : null}
         {!readOnly && preview ? <section className={styles.card} aria-label="发送预览">
           <h2>发送预览</h2>
-          <p className={styles.hint}>接收方：DeepSeek · {preview.sources.length} 个片段 · 输入上界约 {preview.estimatedInputTokens} 字节。预览将在 {new Date(preview.expiresAt).toLocaleTimeString('zh-CN')} 失效。</p>
+          <p className={styles.hint}>接收方：{status?.simulation ? '本端离线模拟' : 'DeepSeek'} · {preview.sources.length} 个片段 · 输入上界约 {preview.estimatedInputTokens} 字节。预览将在 {new Date(preview.expiresAt).toLocaleTimeString('zh-CN')} 失效。</p>
           <div className={styles.sources}>{preview.sources.map(source => <article key={source.sourceId} className={styles.source}>
             <strong>{noteName(source.noteId)} · {source.start + 1}–{source.end}</strong>
             <pre>{source.text}</pre>

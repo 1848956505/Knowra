@@ -34,6 +34,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
       && priceProfile.modelId === modelId && Date.parse(priceProfile.expiresAt) > Date.now()),
     priceProfile,
     repository,
+    accessStore,
     budgetAuthority,
     gateway,
     readContext,
@@ -55,7 +56,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
 export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。') {
   return { unavailableReason: reason, generationAvailable: () => false,
     credentialReference: async () => null, repository: null, budgetAuthority: null,
-    readContext: null, access: null, conversationStore: null, conversation: null,
+    readContext: null, accessStore: null, access: null, conversationStore: null, conversation: null,
     agent: null, worker: null, gateway: null, priceProfile: null };
 }
 

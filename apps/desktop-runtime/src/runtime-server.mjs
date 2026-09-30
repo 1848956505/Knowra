@@ -11,7 +11,8 @@ import { runtimeSessionScript } from './runtime-session-script.mjs';
 import { permitsLocalRoute, sendRuntimeError } from './runtime-policy.mjs';
 import { parseBody } from '../../api/src/http/request.js';
 
-export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null } = {}) {
+export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
+  aiRuntimeFactory } = {}) {
   if (!path.isAbsolute(dataDirectory ?? '')) throw new Error('本地数据目录必须是绝对路径。');
   if (!fs.existsSync(path.join(distRoot, 'index.html'))) throw new Error('缺少前端构建，请先运行 npm run build:web。');
   const release = lockDataDirectory(dataDirectory);
@@ -23,7 +24,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let closeAi;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi, recoverAi, closeAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
+    ({ store, sync, handleApi, recoverAi, closeAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
     // AI 恢复在后台进行，不能延迟本地笔记服务启动。
     void recoverAi;
     const secret = randomBytes(32).toString('hex');
@@ -87,7 +88,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                 let replacement;
                 try {
                   const protectionDirectory = createRuntimeBackup(store, activeDirectory, { backupRoot: dataDirectory, purpose: 'before-restore', recoveryDrafts: input.recoveryDrafts });
-                  replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions, credentialSource });
+                  replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory });
                   void replacement.recoverAi;
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
@@ -100,7 +101,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.closeAi(); await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi, recoverAi, closeAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource }));
+                  ({ store, sync, handleApi, recoverAi, closeAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
                   void recoverAi;
                   throw failure;
                 }
