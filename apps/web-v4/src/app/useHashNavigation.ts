@@ -47,6 +47,8 @@ export function useHashNavigation() {
     }
     globalThis.addEventListener('popstate', onChange);
     globalThis.addEventListener('hashchange', onChange);
+    // 首次渲染到订阅事件之间可能已改变地址；补读快照，避免页面仍停留在旧路由。
+    if (readPath() !== currentPath.current) onChange();
     return () => {
       globalThis.removeEventListener('popstate', onChange);
       globalThis.removeEventListener('hashchange', onChange);
