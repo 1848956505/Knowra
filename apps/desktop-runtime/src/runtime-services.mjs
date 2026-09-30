@@ -6,12 +6,13 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
 import { createSyncEngine } from './sync-engine.mjs';
-import { createOptionalAiRuntime } from '../../api/src/modules/ai/runtime.js';
+import { createOptionalAiRuntime, createUnavailableAiRuntime } from '../../api/src/modules/ai/runtime.js';
 import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
 import { createRemoteBudgetAuthority } from '../../api/src/modules/ai/remote-budget-authority.js';
 
 /** 每次切换资料库都重建应用服务，避免 repository 留存旧 SQLite/内存引用。 */
-export function createRuntimeServices({ dataDirectory, logger = console, syncOptions = {}, credentialSource = null }) {
+export function createRuntimeServices({ dataDirectory, logger = console, syncOptions = {}, credentialSource = null,
+  aiRuntimeFactory = createOptionalAiRuntime }) {
     const store = createSqliteDataStore(path.join(dataDirectory, 'local.sqlite'));
     try {
     const context = createAppContext({
@@ -60,14 +61,21 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       credentialReference: async () => null,
       resolveCredential: async () => { throw new Error('请先在 Mac 应用设置中配置模型。'); }
     };
-    context.ai = createOptionalAiRuntime({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
+    const aiEnabled = !store.aiRuntimeError && process.env.KNOWRA_AI_ENABLED !== '0';
+    const aiUnavailableReason = store.aiRuntimeError ? 'AI 私有存储无效，核心资料仍可使用。' : 'AI 功能已关闭。';
+    if (!aiEnabled) context.ai = createUnavailableAiRuntime(aiUnavailableReason);
+    else try {
+    context.ai = aiRuntimeFactory({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
       conversationStore: store.aiConversationStore,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...context.modules.knowledge.repositories,
         spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } },
-      { enabled: !store.aiRuntimeError && process.env.KNOWRA_AI_ENABLED !== '0',
-        unavailableReason: store.aiRuntimeError ? 'AI 私有存储无效，核心资料仍可使用。' : 'AI 功能已关闭。', logger });
+      { enabled: true, unavailableReason: aiUnavailableReason, logger });
+    } catch {
+      logger.warn?.('AI plugin assembly failed', { code: 'AI_ASSEMBLY_FAILED' });
+      context.ai = createUnavailableAiRuntime('AI 组件装配失败，核心资料仍可使用。');
+    }
     context.aiOwnerId = 'demo';
     context.aiLocation = 'local';
     const recoverAi = Promise.all([

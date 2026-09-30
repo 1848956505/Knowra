@@ -286,7 +286,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
       <div className={styles.content}>
         <div className={styles.status} role="status">
           <span>{status ? status.executionLocation === 'local' ? '本机执行' : '服务器执行' : '正在读取模型状态'}</span>
-          <span>{status?.modelId ? `DeepSeek · ${status.modelId}` : status ? '模型未配置' : ''}</span>
+          <span>{status?.modelId ? `${status.simulation ? '离线模拟' : 'DeepSeek'} · ${status.modelId}` : status ? '模型未配置' : ''}</span>
+          {status?.simulation ? <span>离线模拟响应，未调用真实供应商。</span> : null}
           {status?.budget ? <span>今日可用 {(status.budget.availableMicrounits / 1_000_000).toFixed(2)} 元</span> : null}
           {status && !status.generationAvailable ? <span>{status.unavailableReason ?? '当前无法生成回答。'}</span> : null}
           {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
@@ -375,7 +376,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
         </div>
       </div>
     </WorkspacePanelBody>
-    <Dialog title="授权助手读取资料" description="助手只在本次对话选择此范围时检索资料。相关片段可能发送给 DeepSeek；附件不会发送。可随时撤销，过期后自动失效。"
+    <Dialog title="授权助手读取资料" description={status?.simulation
+      ? '离线模拟仅在当前运行端处理授权片段，不向供应商发送。可随时撤销，过期后自动失效。'
+      : '助手只在本次对话选择此范围时检索资料。相关片段可能发送给 DeepSeek；附件不会发送。可随时撤销，过期后自动失效。'}
       isOpen={grantOpen} onOpenChange={setGrantOpen} isPending={pending} size="md">
       <DialogBody>
         <div className={styles.grantFields}>

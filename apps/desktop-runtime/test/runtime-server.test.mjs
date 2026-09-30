@@ -6,10 +6,10 @@ import { startLocalRuntime } from '../src/runtime-server.mjs';
 import { temporaryDirectory } from './helpers.mjs';
 import { anchorForListItem, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 
-async function localRequests(t) {
+async function localRequests(t, options = {}) {
   const root = temporaryDirectory(t), distRoot = path.join(root, 'dist');
   fs.mkdirSync(distRoot); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head><body>Knowra</body></html>');
-  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'data'), distRoot, syncOptions: { autoSync: false } });
+  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'data'), distRoot, syncOptions: { autoSync: false }, ...options });
   t.after(() => runtime.close());
   const cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
   async function call(route, method = 'GET', body, headers = {}) {
@@ -21,6 +21,35 @@ async function localRequests(t) {
   const space = (await call('/api/knowledge/spaces/default', 'POST', {})).data;
   return { runtime, call, space };
 }
+
+test('可选 AI 工厂装配失败只关闭助手，核心保存仍可用且日志不泄漏异常内容', async t => {
+  const warnings = [];
+  const { call, space } = await localRequests(t, { aiRuntimeFactory() { throw new Error('synthetic-secret-do-not-log'); },
+    logger: { warn: (...args) => warnings.push(args), error() {} } });
+  const status = await call('/api/ai/assistant/status');
+  assert.equal(status.data.generationAvailable, false);
+  assert.match(status.data.unavailableReason, /装配失败/);
+  const note = await call('/api/knowledge/notes', 'POST', { spaceId: space.id, title: '故障仍保存', rawMarkdown: '核心资料' });
+  assert.equal(note.status, 201);
+  assert.equal((await call(`/api/knowledge/notes/${note.data.id}`)).data.rawMarkdown, '核心资料');
+  assert(warnings.some(args => args[1]?.code === 'AI_ASSEMBLY_FAILED'));
+  assert(!JSON.stringify(warnings).includes('synthetic-secret'));
+});
+
+test('AI 关闭开关在调用可选工厂之前生效', async t => {
+  const previous = process.env.KNOWRA_AI_ENABLED;
+  process.env.KNOWRA_AI_ENABLED = '0';
+  try {
+    let calls = 0;
+    const { call, space } = await localRequests(t, { aiRuntimeFactory() { calls++; throw new Error('must not be invoked'); } });
+    assert.equal(calls, 0);
+    assert.match((await call('/api/ai/assistant/status')).data.unavailableReason, /已关闭/);
+    assert.equal((await call('/api/knowledge/notes', 'POST', { spaceId: space.id, title: '关闭仍保存', rawMarkdown: '核心资料' })).status, 201);
+  } finally {
+    if (previous === undefined) delete process.env.KNOWRA_AI_ENABLED;
+    else process.env.KNOWRA_AI_ENABLED = previous;
+  }
+});
 
 test('真实本地入口开放会话与授权写入，仍限制永久删除和试题', async t => {
   const { call, space } = await localRequests(t);
