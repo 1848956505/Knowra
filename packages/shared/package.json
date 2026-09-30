@@ -7,7 +7,8 @@
     "./attachments": {
       "types": "./src/attachments.d.ts",
       "default": "./src/attachments.js"
-    }
+    },
+    "./http-limits": "./src/http-limits.js"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

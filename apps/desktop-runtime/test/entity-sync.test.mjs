@@ -450,3 +450,24 @@ test('完整协议仅阻塞冲突关联组；其他笔记继续同步且解决�
   assert.equal(a.knowledge.noteService.getNote(other.id).rawMarkdown, '无关的新内容');
   assert.equal(a.knowledge.noteService.getNote(cloud.note.id).rawMarkdown, '云端冲突正文');
 });
+
+
+test('桌面分批容量包含最终 JSON 的操作信封和 UTF-8 字节', async t => {
+  const { nextEntityUpload } = await import('../src/entity-sync-state.mjs');
+  const { writeMeta } = await import('../src/sync-state.mjs');
+  const { SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES: limit } = await import('@study-accelerator/shared/http-limits');
+  const workspace = openWorkspace(temporaryDirectory(t));
+  t.after(() => workspace.store.close());
+  workspace.knowledge.noteService.createNote({ title: '大正文一', rawMarkdown: '', spaceId: workspace.space.id });
+  workspace.knowledge.noteService.createNote({ title: '大正文二', rawMarkdown: '', spaceId: workspace.space.id });
+  workspace.store.syncTransaction((_db, state) => { for (const note of state.notes) note.annotationStructure = null; });
+  const overhead = Buffer.byteLength(JSON.stringify(nextEntityUpload(workspace.store)));
+  workspace.store.syncTransaction((db, state) => {
+    writeMeta(db, 'entityUpload', null);
+    state.notes[0].rawMarkdown = '中' + 'a'.repeat(limit / 2 - 3);
+    state.notes[1].rawMarkdown = 'b'.repeat(limit / 2 - overhead + 1);
+  });
+  const operation = nextEntityUpload(workspace.store);
+  assert(Buffer.byteLength(JSON.stringify(operation)) <= limit);
+  assert.equal(operation.changes.filter(entry => entry.collection === 'notes').length, 1, '最终信封超限时应分批，不能按记录大小放行');
+});

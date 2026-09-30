@@ -1,9 +1,8 @@
-const DEFAULT_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
+import { requestBodyLimit } from '../../../packages/shared/src/http-limits.js';
 
 export async function proxyApiRequest({ request, response, url, apiOrigin, limitBytes }) {
   const upstreamUrl = new URL(url.pathname + url.search, apiOrigin);
-  const bodyLimit = limitBytes ?? (request.method === 'POST' && /^\/api\/storage\/attachments\/[^/]+\/restore$/.test(url.pathname)
-    ? 9 * 1024 * 1024 : DEFAULT_BODY_LIMIT_BYTES);
+  const bodyLimit = limitBytes ?? requestBodyLimit(request.method, url.pathname);
   const requestBody = await readRequestBody(request, bodyLimit);
   const upstreamResponse = await fetch(upstreamUrl, {
     method: request.method,

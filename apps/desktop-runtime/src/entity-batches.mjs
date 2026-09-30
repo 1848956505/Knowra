@@ -1,8 +1,9 @@
+import { SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES } from '@study-accelerator/shared/http-limits';
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { referencesFor, syncReferencesFor } from '../../api/src/modules/sync/entity-contract.js';
 
 /** 按笔记及其来源、文件组成不可拆事务；目录和标签先于使用它们的新笔记提交。 */
-export function selectEntityBatch(changes, state, base, { maxEntries = 1000, maxBytes = 12 * 1024 * 1024 } = {}) {
+export function selectEntityBatch(changes, state, base, { maxEntries = 1000, maxBytes = SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES, measureBytes = entries => Buffer.byteLength(JSON.stringify(entries)) } = {}) {
   const byKey = new Map(changes.map(entry => [syncKey(entry.collection, entry.id), entry]));
   const parents = new Map([...byKey.keys()].map(key => [key, key]));
   const root = key => { let cursor = key; while (parents.get(cursor) !== cursor) cursor = parents.get(cursor); return cursor; };
@@ -31,24 +32,24 @@ export function selectEntityBatch(changes, state, base, { maxEntries = 1000, max
   const groups = new Map();
   for (const entry of changes) {
     const key = root(syncKey(entry.collection, entry.id));
-    if (!groups.has(key)) groups.set(key, { entries: [], dependencies: new Set(), bytes: 0 });
-    const group = groups.get(key); group.entries.push(entry); group.bytes += Buffer.byteLength(JSON.stringify(entry));
+    if (!groups.has(key)) groups.set(key, { entries: [], dependencies: new Set() });
+    const group = groups.get(key); group.entries.push(entry);
   }
   for (const [key, group] of groups) for (const entry of group.entries) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
     const refKey = syncKey(ref.collection, ref.id);
     if (byKey.has(refKey) && root(refKey) !== key) group.dependencies.add(root(refKey));
   }
-  const selected = []; const completed = new Set(); let size = 0; let progress = true;
+  const selected = []; const completed = new Set(); let progress = true;
   while (progress) {
     progress = false;
     for (const [key, group] of groups) {
       if (completed.has(key) || [...group.dependencies].some(dependency => !completed.has(dependency))) continue;
-      if (group.entries.length > maxEntries || group.bytes > maxBytes) {
+      if (group.entries.length > maxEntries || measureBytes(group.entries) > maxBytes) {
         if (selected.length) return selected;
         throw new Error('单组关联修改超过同步容量，请先导出备份并减少单次批量操作。');
       }
-      if (selected.length + group.entries.length > maxEntries || size + group.bytes > maxBytes) return selected;
-      selected.push(...group.entries); size += group.bytes; completed.add(key); progress = true;
+      if (selected.length + group.entries.length > maxEntries || measureBytes([...selected, ...group.entries]) > maxBytes) return selected;
+      selected.push(...group.entries); completed.add(key); progress = true;
     }
   }
   if (!selected.length && changes.length) throw new Error('关联资料存在无法安全分批的依赖，请导出备份后核对。');

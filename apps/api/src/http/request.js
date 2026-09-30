@@ -1,6 +1,7 @@
 import { createAppError } from '../errors/app-error.js';
 
-export const DEFAULT_JSON_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
+import { DEFAULT_JSON_BODY_LIMIT_BYTES } from '@study-accelerator/shared/http-limits';
+export { DEFAULT_JSON_BODY_LIMIT_BYTES } from '@study-accelerator/shared/http-limits';
 
 function createRequestError(message, statusCode = 400, code = 'VALIDATION_ERROR') {
   return createAppError(code, message, statusCode);

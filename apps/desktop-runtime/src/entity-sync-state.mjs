@@ -189,21 +189,26 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   const blocked = new Set(conflict?.blocked ?? []);
   const allowed = entry => knowledgeSupported || !KNOWLEDGE_COLLECTIONS.includes(entry.collection);
   const eligible = dirty.filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id)));
-  const changes = eligible.length ? selectEntityBatch(eligible, store.state, base) : [];
+  const envelope = store.readSync(db => ({ protocolVersion: 2, datasetEpoch: readMeta(db, 'epoch'), deviceId: store.getStatus().deviceId,
+    operationId: randomUUID(), sequence: (readMeta(db, 'entitySequence') ?? 0) + 1 }));
+  const makeOperation = changes => {
+    const own = new Set(changes.map(entry => syncKey(entry.collection, entry.id)));
+    const dependencies = new Map();
+    for (const entry of changes) for (const ref of syncReferencesFor(entry.collection, entry.value, store.state)) {
+      const key = syncKey(ref.collection, ref.id);
+      if (!own.has(key)) dependencies.set(key, { ...ref, baseRevision: base.get(key)?.revision ?? null });
+    }
+    return { ...envelope, changes, dependencies: [...dependencies.values()] };
+  };
+  const changes = eligible.length ? selectEntityBatch(eligible, store.state, base, {
+    measureBytes: entries => Buffer.byteLength(JSON.stringify(makeOperation(entries)))
+  }) : [];
   if (!changes.length) {
     if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
     return null;
   }
   return store.metadataTransaction(db => {
-    const state = store.state;
-    const own = new Set(changes.map(entry => syncKey(entry.collection, entry.id)));
-    const dependencies = new Map();
-    for (const entry of changes) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
-      const key = syncKey(ref.collection, ref.id);
-      if (!own.has(key)) dependencies.set(key, { ...ref, baseRevision: base.get(key)?.revision ?? null });
-    }
-    const operation = { protocolVersion: 2, datasetEpoch: readMeta(db, 'epoch'), deviceId: store.getStatus().deviceId,
-      operationId: randomUUID(), sequence: (readMeta(db, 'entitySequence') ?? 0) + 1, changes, dependencies: [...dependencies.values()] };
+    const operation = makeOperation(changes);
     writeMeta(db, 'entitySequence', operation.sequence);
     writeMeta(db, 'entityUpload', operation);
     return operation;
