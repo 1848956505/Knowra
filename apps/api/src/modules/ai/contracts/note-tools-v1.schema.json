@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knowra.local/schemas/note-tools-v1",
+  "$defs": {
+    "notes_create": {
+      "type": "object", "additionalProperties": false,
+      "required": ["title", "rawMarkdown"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "rawMarkdown": { "type": "string", "maxLength": 100000 },
+        "folderId": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+        "tagIds": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
+    "notes_append": {
+      "type": "object", "additionalProperties": false,
+      "required": ["noteId", "rawMarkdown"],
+      "properties": {
+        "noteId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "rawMarkdown": { "type": "string", "minLength": 1, "maxLength": 100000 }
+      }
+    },
+    "notes_propose_patch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["noteId", "replacements"],
+      "properties": {
+        "noteId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "replacements": {
+          "type": "array", "minItems": 1, "maxItems": 20,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["start", "end", "quote", "replacement"],
+            "properties": {
+              "start": { "type": "integer", "minimum": 0 },
+              "end": { "type": "integer", "minimum": 1 },
+              "quote": { "type": "string", "minLength": 1, "maxLength": 100000 },
+              "replacement": { "type": "string", "maxLength": 100000 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
