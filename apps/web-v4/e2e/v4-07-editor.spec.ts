@@ -1777,3 +1777,96 @@ test('V4-07 浏览器保留编辑区内的原标签行', async ({ page }) => {
   expect(Math.round((await tabs.boundingBox())!.height)).toBe(36);
   await expect(page.locator('.ProseMirror')).toContainText('浏览器正文');
 });
+
+
+for (const stale of [false, true]) {
+  test(`V4-07 图片上传${stale ? '过期选区不覆盖正文且保留附件' : '正常插入可撤销并保留附件'}`, async ({ page }) => {
+    const saved: string[] = [];
+    await mockEditorWorkspace(page, saved, [], '保留正文');
+    let finishUpload: (() => Promise<void>) | undefined;
+    const attachment = { id: 'uploaded-image', noteId: 'note-1', fileName: 'paste.png', mimeType: 'image/png', size: 1, status: 'ready' };
+    const shared = { ...attachment, id: 'other-note-resource', noteId: 'note-2', fileName: '共享资源.png' };
+    const retained = [shared];
+    const deleted: string[] = [];
+    await page.route('**/api/storage/attachments**', async route => {
+      const request = route.request();
+      if (request.method() === 'POST') {
+        finishUpload = async () => { retained.push(attachment); await route.fulfill({ json: { data: attachment } }); };
+        return;
+      }
+      if (request.method() === 'DELETE') deleted.push(request.url());
+      if (request.url().includes('/cleanup')) await route.fulfill({ json: { data: { items: [], pending: 0 } } });
+      else if (request.url().includes('/content')) await route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9WQAAAAASUVORK5CYII=', 'base64') });
+      else await route.fulfill({ json: { data: retained.filter(item => item.noteId === new URL(request.url()).searchParams.get('noteId')) } });
+    });
+    await page.goto('/#/materials/notes/note-1');
+    const editor = page.locator('.ProseMirror');
+    await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+    await editor.locator('p').click();
+    await page.keyboard.press('Home');
+    await editor.evaluate(element => {
+      const clipboardData = new DataTransfer();
+      clipboardData.items.add(new File(['bytes'], 'paste.png', { type: 'image/png' }));
+      element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData }));
+    });
+    await expect.poll(() => Boolean(finishUpload)).toBe(true);
+    if (stale) {
+      await editor.locator('p').click({ clickCount: 3 });
+      await expect.poll(() => page.evaluate(() => window.getSelection()?.toString().trim())).toBe('保留正文');
+    }
+    await finishUpload!();
+    if (stale) {
+      await expect(page.getByText('图片已上传，正文、选区或编辑状态已变化，未插入正文，可从附件列表再次插入')).toBeVisible();
+      await expect(editor.locator('img:not(.ProseMirror-separator)')).toHaveCount(0);
+      await expect(editor).toHaveText('保留正文');
+    } else {
+      await expect(editor.locator('img:not(.ProseMirror-separator)')).toHaveCount(1);
+      await expect.poll(() => saved.at(-1) ?? '').toContain('uploaded-image');
+      await page.keyboard.press('ControlOrMeta+z');
+      await expect(editor.locator('img:not(.ProseMirror-separator)')).toHaveCount(0);
+      await expect(editor).toHaveText('保留正文');
+    }
+    if (!await page.getByRole('complementary', { name: '文档检查器' }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
+    await page.getByRole('tab', { name: '信息', exact: true }).click();
+    await expect(page.getByText('paste.png', { exact: true })).toBeVisible();
+    expect(retained).toContainEqual(shared);
+    expect(deleted).toEqual([]);
+  });
+}
+
+test('V4-07 章节重点保存等待后不抢走搜索框焦点', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '# 第一节\n\n章节正文');
+  let finishSave: (() => Promise<void>) | undefined;
+  const created: Array<Record<string, unknown>> = [];
+  await page.route('**/api/knowledge/notes/note-1', async route => {
+    if (route.request().method() !== 'PATCH') return route.fallback();
+    const markdown = route.request().postDataJSON().rawMarkdown;
+    finishSave = () => route.fulfill({ json: { data: createNote(markdown, true) } });
+  });
+  await page.route('**/api/knowledge/annotations**', async route => {
+    if (route.request().method() === 'POST') {
+      const item = { ...route.request().postDataJSON(), id: 'section-focus', status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved', revision: 1 };
+      created.push(item);
+      return route.fulfill({ json: { data: item } });
+    }
+    return route.fulfill({ json: { data: created } });
+  });
+  await page.goto('/#/materials/notes/note-1');
+  const heading = page.locator('.ProseMirror h1');
+  await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+  await heading.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText('新增');
+  await heading.hover();
+  await page.getByRole('button', { name: '标题重点菜单' }).click();
+  await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).click();
+  await expect.poll(() => Boolean(finishSave)).toBe(true);
+  const search = page.getByRole('searchbox', { name: '搜索笔记目录' });
+  await search.fill('查找');
+  await finishSave!();
+  await expect.poll(() => created.length).toBe(1);
+  await expect(search).toBeFocused();
+  await page.keyboard.insertText('继续');
+  await expect(search).toHaveValue('查找继续');
+  await expect(heading).toHaveText('第一节新增');
+});

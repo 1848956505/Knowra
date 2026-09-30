@@ -1,5 +1,5 @@
 import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
-import { attachmentIdsInText } from '@study-accelerator/web-core';
+import { attachmentIdsInText, ApiRequestError } from '@study-accelerator/web-core';
 import type { AttachmentActions } from './EditorAttachmentPanel';
 import { downloadAttachment, fetchAttachmentBlob } from './attachmentAccess';
 import { isAttachmentReferenced } from './attachmentFiles';
@@ -60,7 +60,7 @@ import { noteDraftRecovery } from './noteDraftRecovery';
 import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
 import { useEditorInspectorData } from './useEditorInspectorData';
-import { buildCreateAnnotationInput, buildUpdateAnnotationAnchorInput } from './annotationPayloads';
+import { buildCreateAnnotationInput, buildUpdateAnnotationAnchorInput, canContinueListAnnotation, type AnnotationSelection } from './annotationPayloads';
 import {
   INLINE_IMAGE_ACCEPT,
   assertInlineImageFile,
@@ -225,7 +225,7 @@ export function NoteEditorView({
   const toolbarAnchorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorCommandTarget>(null);
-  const annotationCreateInputRef = useRef<{ signature: string; input: CreateAnnotationInput } | null>(null);
+  const annotationCreateInputsRef = useRef(new Map<string, { markdown: string; selection: AnnotationSelection; input: CreateAnnotationInput }>());
   const annotationCreatePendingRef = useRef(false);
   const versionWriteStateRef = useRef({ noteId: note?.id, canWrite });
   versionWriteStateRef.current = { noteId: note?.id, canWrite };
@@ -506,19 +506,56 @@ export function NoteEditorView({
   const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' | 'list' = 'selection') => {
     if (!canEditContent) throw new Error('阅读模式下无法创建标注');
     if (annotationCreatePendingRef.current) return;
-    const selection = editorRef.current?.getAnnotationSelection(scopeType);
+    const context = annotationWriteStateRef.current;
+    const editor = editorRef.current;
+    let selection = editor?.getAnnotationSelection(scopeType);
     if (!selection) throw new Error(scopeType === 'list' ? '请先将光标放在非空的普通列表项内' : scopeType === 'section' ? '请先将光标放在标题章节内' : '请先在正文中选中要标记的内容');
-    const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-    const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
+    let markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+    let selectionSignature = JSON.stringify(selection);
+    const assertCurrent = () => {
+      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
+        || editor?.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scopeType, { restoreSelection: false })) !== selectionSignature) {
+        throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
+      }
+    };
+    const initialSignature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
+    const unresolved = [...annotationCreateInputsRef.current.entries()].find(([signature, request]) =>
+      signature === initialSignature || request.input.noteId === note.id
+        && canContinueListAnnotation(request.markdown, markdown, request.selection, selection ?? null));
     annotationCreatePendingRef.current = true;
     try {
-      if (annotationCreateInputRef.current?.signature !== signature) {
-        annotationCreateInputRef.current = { signature, input: await buildCreateAnnotationInput(note, markdown, selection) };
+      // 最多跟进三轮原列表项内的继续输入，避免持续打字时无限等待。
+      for (let attempt = 0; ; attempt++) {
+        assertCurrent();
+        await autosave.saveNow(markdown);
+        if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor) {
+          throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
+        }
+        const latestMarkdown = editor!.getMarkdown();
+        if (latestMarkdown === markdown) { assertCurrent(); break; }
+        const latestSelection = editor!.getAnnotationSelection(scopeType, { restoreSelection: false });
+        if (attempt >= 2 || !canContinueListAnnotation(markdown, latestMarkdown, selection, latestSelection)) {
+          throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
+        }
+        markdown = latestMarkdown;
+        selection = latestSelection;
+        selectionSignature = JSON.stringify(selection);
       }
-      const input = annotationCreateInputRef.current.input;
-      await autosave.saveNow(markdown);
-      const created = await onCreateAnnotation(input);
-      annotationCreateInputRef.current = null;
+      const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
+      // 未确认的请求须保持原 payload/key，服务端会先恢复幂等结果，再校验正文版本。
+      const requestKey = unresolved?.[0] ?? signature;
+      const request = unresolved?.[1] ?? { markdown, selection, input: await buildCreateAnnotationInput(note, markdown, selection) };
+      assertCurrent();
+      annotationCreateInputsRef.current.set(requestKey, request);
+      let created: Annotation;
+      try { created = await onCreateAnnotation(request.input); }
+      catch (error) {
+        // 该明确冲突在服务端幂等查询之后抛出，证明旧请求未创建，下一次显式操作可用最新正文。
+        if (error instanceof ApiRequestError && error.code === 'ANNOTATION_CONTENT_CONFLICT') annotationCreateInputsRef.current.delete(requestKey);
+        throw error;
+      }
+      annotationCreateInputsRef.current.delete(requestKey);
+      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context) return;
       setAnnotations((current) => [...current.filter((item) => item.id !== created.id), created]);
       setFocusedAnnotationId(created.id);
       onFileStatus('已标为重点');
@@ -542,7 +579,7 @@ export function NoteEditorView({
     const signature = JSON.stringify(selection);
     const assertCurrent = () => {
       if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
-        || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope)) !== signature) {
+        || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope, { restoreSelection: false })) !== signature) {
         throw new Error('正文、选区或编辑状态已变化，请重新选择');
       }
     };

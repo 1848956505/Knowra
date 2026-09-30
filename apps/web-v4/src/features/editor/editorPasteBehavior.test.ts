@@ -1,6 +1,9 @@
 import { Fragment, Schema, Slice } from '@milkdown/kit/prose/model';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { EditorState, TextSelection } from '@milkdown/kit/prose/state';
+import type { EditorView } from '@milkdown/kit/prose/view';
 import {
+  uploadPastedImages,
   findUnsupportedPasteSources,
   looksLikeMarkdown,
   removeSpuriousEmptyCodeBlocks,
@@ -53,5 +56,29 @@ describe('editorPasteBehavior', () => {
     expect(findUnsupportedPasteSources('<img src=http://unsafe.test/unquoted.png>', ''))
       .toEqual(['http://unsafe.test/unquoted.png']);
     expect(findUnsupportedPasteSources('', '[site](http://example.test)')).toEqual([]);
+  });
+});
+
+
+describe('异步粘贴图片', () => {
+  it.each(['selection', 'document', 'readonly', 'destroyed'])('上传等待期间 %s 改变则保留正文并取消插入', async change => {
+    const imageSchema = new Schema({ nodes: {
+      doc: { content: 'block+' }, paragraph: { content: 'inline*', group: 'block' },
+      text: { group: 'inline' }, image: { inline: true, group: 'inline', attrs: { src: {}, alt: {}, title: { default: null } } }
+    } });
+    const doc = imageSchema.node('doc', null, imageSchema.node('paragraph', null, imageSchema.text('保留正文')));
+    const view = { state: EditorState.create({ doc, selection: TextSelection.create(doc, 1) }), editable: true, isDestroyed: false, dispatch: vi.fn() };
+    let finish!: (value: { url: string; alt: string }) => void;
+    const upload = vi.fn(() => new Promise<{ url: string; alt: string }>(resolve => { finish = resolve; }));
+    const status = vi.fn();
+    const pending = uploadPastedImages(view as unknown as EditorView, [new File(['bytes'], 'a.png', { type: 'image/png' })], upload, status);
+    if (change === 'selection') view.state = view.state.apply(view.state.tr.setSelection(TextSelection.create(doc, 1, 5)));
+    if (change === 'document') view.state = view.state.apply(view.state.tr.insertText('新输入', 1));
+    if (change === 'readonly') view.editable = false;
+    if (change === 'destroyed') view.isDestroyed = true;
+    finish({ url: '/api/storage/attachments/a/content', alt: 'a' });
+    await pending;
+    expect(view.dispatch).not.toHaveBeenCalled();
+    expect(status).toHaveBeenLastCalledWith(expect.stringContaining('未插入正文'));
   });
 });

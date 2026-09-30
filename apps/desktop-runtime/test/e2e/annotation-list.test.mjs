@@ -90,6 +90,9 @@ test('真实页面：已有同级项缩进归入后确认新范围，排除子�
   const dialog = page.getByRole('dialog', { name: '重点详情' }); await expect(dialog).toContainText('相邻');
   await dialog.getByRole('button', { name: '确认新范围', exact: true }).click();
   await expect.poll(() => current().anchorStatus).toBe('resolved'); assert.match(current().quoteText, /相邻/);
+  // 等待确认回执关闭对话框并完成焦点归还，不能仅等服务端落库后操作仍被遮罩的正文。
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '重点 1 更多操作', exact: true })).toBeFocused();
   // Keep a body caret while the inspector menu receives focus.
   await placeCaret(editor.locator('p').filter({ hasText: /^子项$/ }).first());
   await page.getByRole('button', { name: '重点 1 更多操作', exact: true }).click();
@@ -140,6 +143,41 @@ test('真实页面：创建响应丢失后重试复用幂等键，慢保存期�
   await expect.poll(() => annotations().length).toBe(2);
   assert.equal(annotations().filter(annotation => annotation.quoteText.includes('保存中继续')).length, 2);
   await page.unroute(`**/api/knowledge/notes/${note.id}`);
+});
+
+test('真实页面：响应丢失重试期间续输入恢复原幂等请求，不重复创建列表重点', { timeout: 60000 }, async t => {
+  const { page, editor, k, note, annotations } = await fixture(t, 'json');
+  const requests = []; let dropped = false;
+  await page.route('**/api/knowledge/annotations', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    requests.push(route.request().postDataJSON());
+    if (!dropped) { dropped = true; await route.fetch(); await route.abort('failed'); }
+    else await route.continue();
+  });
+  const child = editor.locator('p').filter({ hasText: /^子项$/ }).first();
+  await mark(page, child);
+  await expect.poll(() => annotations().length).toBe(1);
+  await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText('保存失败');
+  let release, intercepted;
+  const arrived = new Promise(resolve => { intercepted = resolve; });
+  const barrier = new Promise(resolve => { release = resolve; });
+  await page.route(`**/api/knowledge/notes/${note.id}`, async route => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    intercepted(); await barrier; await route.continue();
+  });
+  await placeCaret(child); await page.keyboard.insertText('临时');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(child).toHaveText('子项');
+  await mark(page, child); await arrived;
+  await placeCaret(child); await page.keyboard.insertText('继续');
+  release();
+  await expect.poll(() => k.noteService.getNote(note.id).rawMarkdown).toContain('子项继续');
+  await expect.poll(() => requests.length).toBe(2);
+  assert.deepEqual(requests[1], requests[0]);
+  assert.equal(annotations().length, 1);
+  await expect.poll(() => annotations()[0].quoteText).toBe('子项继续');
+  await page.unroute(`**/api/knowledge/notes/${note.id}`);
+  await page.unroute('**/api/knowledge/annotations');
 });
 
 test('真实页面：长列表续段滚动后入口仍可操作，窄屏与阅读模式保持边界', { timeout: 60000 }, async t => {
