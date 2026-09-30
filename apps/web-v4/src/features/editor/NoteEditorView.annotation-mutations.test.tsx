@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { NoteEditorView, type NoteEditorViewProps } from './NoteEditorView';
 import { getEffectiveEditorViewState, initialEditorViewState } from './editorViewState';
-import type { Annotation } from '@study-accelerator/web-core';
+import { ApiRequestError, type Annotation } from '@study-accelerator/web-core';
 import { StrictMode } from 'react';
 import { anchorForListItem, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 
@@ -191,4 +191,38 @@ it.each(['note', 'readonly'])('同项继续输入后第二轮保存期间 %s 变
   rerender(<NoteEditorView {...props} {...(change === 'note' ? { note: { ...props.note!, id: 'note-2' } } : { canWrite: false })} />);
   await act(async () => { finish(); await expect(pending).rejects.toThrow('已变化'); });
   expect(props.onCreateAnnotation).not.toHaveBeenCalled();
+});
+
+it('响应丢失重试与慢保存续输入组合始终恢复原 payload/key，不重复创建', async () => {
+  const props = fixture(); const source = '- 父项\n  - 子项\n- 相邻'; selectList(source, 1);
+  vi.mocked(props.onCreateAnnotation).mockRejectedValueOnce(new Error('响应丢失')).mockResolvedValueOnce({ ...annotation, scopeType: 'list', quoteText: '子项继续' });
+  render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('list')).rejects.toThrow('响应丢失'); });
+  let finish!: () => void;
+  vi.mocked(props.onSaveMarkdown).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ ...props.note!, updatedAt: 'v2' }); }));
+  selectList(source.replace('子项', '子项先'), 1);
+  let pending!: Promise<void>; act(() => { pending = state.inspector.onCreateAnnotation('list'); });
+  await waitFor(() => expect(finish).toBeTypeOf('function'));
+  selectList(source.replace('子项', '子项先继续'), 1);
+  await act(async () => { finish(); await pending; });
+  const calls = vi.mocked(props.onCreateAnnotation).mock.calls;
+  expect(calls).toHaveLength(2);
+  expect(calls[1][0]).toEqual(calls[0][0]);
+  expect(state.inspector.annotations).toHaveLength(1);
+});
+it('未落库的旧请求经明确内容冲突确认后，下一次显式创建才生成最新 payload/key', async () => {
+  const props = fixture(); const source = '- 父项\n  - 子项\n- 相邻'; selectList(source, 1);
+  vi.mocked(props.onCreateAnnotation).mockRejectedValueOnce(new Error('连接失败'))
+    .mockRejectedValueOnce(new ApiRequestError('正文已变化', { status: 409, code: 'ANNOTATION_CONTENT_CONFLICT' }))
+    .mockResolvedValueOnce({ ...annotation, scopeType: 'list' });
+  render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('list')).rejects.toThrow('连接失败'); });
+  selectList(source.replace('子项', '子项继续'), 1);
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('list')).rejects.toThrow('正文已变化'); });
+  expect(props.onCreateAnnotation).toHaveBeenCalledTimes(2);
+  await act(async () => { await state.inspector.onCreateAnnotation('list'); });
+  const calls = vi.mocked(props.onCreateAnnotation).mock.calls;
+  expect(calls[1][0]).toEqual(calls[0][0]);
+  expect(calls[2][0].idempotencyKey).not.toBe(calls[0][0].idempotencyKey);
+  expect(calls[2][0].quoteText).toBe('子项继续');
 });
