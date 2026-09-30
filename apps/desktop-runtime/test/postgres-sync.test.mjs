@@ -9,8 +9,13 @@ import { createPostgresAppContext } from '../../api/src/postgres-app.factory.js'
 import { noteContent } from '../../api/src/modules/sync/journal.js';
 import { temporaryDirectory } from './helpers.mjs';
 
-const databaseUrl = process.env.KNOWRA_SYNC_TEST_DATABASE_URL;
-test('真实 PostgreSQL：两个 API 实例条件竞争、幂等结果及故障回滚保持原子，导入提升世代', { skip: !databaseUrl, timeout: 60000 }, async t => {
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
+
+const enabled = Boolean(process.env.KNOWRA_SYNC_TEST_DATABASE_URL);
+test('真实 PostgreSQL：两个 API 实例条件竞争、幂等结果及故障回滚保持原子，导入提升世代', { skip: !enabled, timeout: 60000 }, async t => {
+  const database = await createPostgresTestDatabase();
+  t.after(() => database.close());
+  const { databaseUrl } = database;
   const url = new URL(databaseUrl);
   assert(['127.0.0.1', 'localhost'].includes(url.hostname), '只能显式指定回环测试数据库');
   assert.equal(process.env.KNOWRA_SYNC_TEST_ALLOW_WRITES, '1', '需要显式允许临时库测试写入');

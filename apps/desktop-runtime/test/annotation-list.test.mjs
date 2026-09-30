@@ -1,3 +1,4 @@
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -82,7 +83,9 @@ for (const driver of ['json', 'sqlite']) test(`${driver}：列表、排除与身
 for (const cloud of ['json', ...(process.env.KNOWRA_SYNC_TEST_DATABASE_URL && process.env.KNOWRA_SYNC_TEST_ALLOW_WRITES === '1' ? ['postgres'] : [])]) test(`两个 SQLite 设备经 ${cloud} HTTP 同步列表及排除，另一设备编辑后返回来源状态`, async t => {
   const root = temporaryDirectory(t);
   const dataStore = createFileDataStore(path.join(root, 'cloud.json'));
-  const context = cloud === 'postgres' ? await createPostgresAppContext({ databaseUrl: process.env.KNOWRA_SYNC_TEST_DATABASE_URL, storageRootDir: root })
+  const database = cloud === 'postgres' ? await createPostgresTestDatabase() : null;
+  if (database) t.after(() => database.close());
+  const context = cloud === 'postgres' ? await createPostgresAppContext({ databaseUrl: database.databaseUrl, storageRootDir: root })
     : createAppContext({ dataStore, storageRootDir: root });
   if (cloud === 'postgres') t.after(() => context.close());
   const space = await context.modules.knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });

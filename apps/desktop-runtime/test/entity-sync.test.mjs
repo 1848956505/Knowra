@@ -1,3 +1,4 @@
+import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -139,7 +140,9 @@ test('离线重点创建、取消和恢复保留版本与修订；缩短正文�
 });
 
 test('真实 PostgreSQL：完整笔记、目录、附件事务与两设备 HTTP 同步', { skip: !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000 }, async t => {
-  const databaseUrl = process.env.KNOWRA_SYNC_TEST_DATABASE_URL;
+  const database = await createPostgresTestDatabase();
+  t.after(() => database.close());
+  const { databaseUrl } = database;
   assert(['127.0.0.1', 'localhost'].includes(new URL(databaseUrl).hostname));
   assert.equal(process.env.KNOWRA_SYNC_TEST_ALLOW_WRITES, '1');
   const { createPostgresAppContext } = await import('../../api/src/postgres-app.factory.js');
