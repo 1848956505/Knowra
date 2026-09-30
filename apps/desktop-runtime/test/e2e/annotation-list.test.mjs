@@ -7,24 +7,31 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
 import { createFileDataStore } from '../../../api/src/infrastructure/file-data-store.js';
-import { createSqliteDataStore } from '../../src/sqlite-data-store.mjs';
+import { startLocalRuntime } from '../../src/runtime-server.mjs';
 import { createAppContext } from '../../../api/src/app.factory.js';
 import { createServer } from '../../../api/src/server.js';
 import { createV4WebServer } from '../../../web-v4/server/app.mjs';
 
 async function fixture(t, driver, rawMarkdown = '- 父项\n  - 子项\n- 相邻') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-list-page-'));
-  const store = driver === 'sqlite' ? createSqliteDataStore(path.join(root, 'local.sqlite')) : createFileDataStore(path.join(root, 'data.json'));
+  const distRoot = fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url));
+  const runtime = driver === 'sqlite' ? await startLocalRuntime({ dataDirectory: path.join(root, 'runtime'), distRoot, syncOptions: { autoSync: false } }) : null;
+  const store = runtime?.store ?? createFileDataStore(path.join(root, 'data.json'));
   const app = createAppContext({ dataStore: store, storageRootDir: root }), k = app.modules.knowledge;
   const space = k.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
   const note = k.noteService.createNote({ spaceId: space.id, title: '列表重点真实页面', rawMarkdown });
-  const api = createServer({ appContext: app }); api.listen(0, '127.0.0.1'); await once(api, 'listening');
-  const web = createV4WebServer({ distRoot: fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url)), getApiOrigin: () => `http://127.0.0.1:${api.address().port}` });
-  web.listen(0, '127.0.0.1'); await once(web, 'listening');
+  let api, web;
+  if (!runtime) {
+    api = createServer({ appContext: app }); api.listen(0, '127.0.0.1'); await once(api, 'listening');
+    web = createV4WebServer({ distRoot, getApiOrigin: () => `http://127.0.0.1:${api.address().port}` });
+    web.listen(0, '127.0.0.1'); await once(web, 'listening');
+  }
   const browser = await chromium.launch(), page = await browser.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
-  t.after(async () => { await browser.close(); await new Promise(resolve => web.close(resolve)); await new Promise(resolve => api.close(resolve)); store.close?.(); fs.rmSync(root, { recursive: true, force: true }); assert.deepEqual(errors, []); });
-  await page.goto(`http://127.0.0.1:${web.address().port}/#/materials/notes/${note.id}`);
+  t.after(async () => { await browser.close(); if (runtime) await runtime.close(); else { await new Promise(resolve => web.close(resolve)); await new Promise(resolve => api.close(resolve)); } fs.rmSync(root, { recursive: true, force: true }); assert.deepEqual(errors, []); });
+  if (runtime) await page.goto(runtime.launchUrl);
+  const origin = runtime?.origin ?? `http://127.0.0.1:${web.address().port}`;
+  await page.goto(`${origin}/#/materials/notes/${note.id}`);
   const editor = page.locator('.ProseMirror'); await expect(editor).toContainText('子项');
   const annotations = () => k.contentAnnotationService.listAnnotationsByNote({ noteId: note.id });
   return { page, editor, k, note, annotations };

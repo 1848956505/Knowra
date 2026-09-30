@@ -1,5 +1,10 @@
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const MUTATIONS = [
+  ['POST', /^\/api\/ai\/conversations$/],
+  ['POST', /^\/api\/ai\/conversations\/[^/]+\/messages$/],
+  ['POST', /^\/api\/ai\/conversations\/[^/]+\/turns\/[^/]+\/(?:cancel|retry)$/],
+  ['POST', /^\/api\/ai\/access-policies$/],
+  ['PATCH', /^\/api\/ai\/access-policies\/[^/]+$/],
   ['POST', /^\/api\/ai\/assistant\/preview$/],
   ['POST', /^\/api\/ai\/assistant\/jobs$/],
   ['POST', /^\/api\/ai\/assistant\/jobs\/[^/]+\/cancel$/],
@@ -14,7 +19,7 @@ const MUTATIONS = [
   ['POST', /^\/api\/storage\/attachments\/[^/]+\/(?:verify|restore)$/],
   ['POST', /^\/api\/storage\/attachments\/cleanup\/retry$/],
   ['POST', /^\/api\/storage\/attachments\/[^/]+\/rename$/],
-  ['POST', /^\/api\/knowledge\/annotations(?:\/[^/]+\/(?:restore|exclusions))?$/],
+  ['POST', /^\/api\/knowledge\/annotations(?:\/[^/]+\/(?:restore|exclusions|confirm-range))?$/],
   ['PATCH', /^\/api\/knowledge\/annotations\/[^/]+(?:\/anchor)?$/],
   ['DELETE', /^\/api\/knowledge\/annotations\/[^/]+(?:\/exclusions\/[^/]+)?$/],
   ['POST', /^\/api\/knowledge\/spaces\/default$/],

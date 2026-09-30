@@ -4,6 +4,69 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { startLocalRuntime } from '../src/runtime-server.mjs';
 import { temporaryDirectory } from './helpers.mjs';
+import { anchorForListItem, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
+
+async function localRequests(t) {
+  const root = temporaryDirectory(t), distRoot = path.join(root, 'dist');
+  fs.mkdirSync(distRoot); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head><body>Knowra</body></html>');
+  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'data'), distRoot, syncOptions: { autoSync: false } });
+  t.after(() => runtime.close());
+  const cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
+  async function call(route, method = 'GET', body, headers = {}) {
+    const response = await fetch(`${runtime.origin}${route}`, { method,
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', 'X-Knowra-Dataset': runtime.store.getStatus().datasetId, ...headers },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    return { status: response.status, ...(await response.json()) };
+  }
+  const space = (await call('/api/knowledge/spaces/default', 'POST', {})).data;
+  return { runtime, call, space };
+}
+
+test('真实本地入口开放会话与授权写入，仍限制永久删除和试题', async t => {
+  const { call, space } = await localRequests(t);
+  const headers = { 'X-Knowra-AI-Conversation': '1' };
+  const created = await call('/api/ai/conversations', 'POST', { spaceId: space.id }, headers);
+  assert.equal(created.status, 201, JSON.stringify(created));
+  const id = created.data.conversationId;
+  const submitted = await call(`/api/ai/conversations/${id}/messages`, 'POST', { content: '合成消息', idempotencyKey: 'local-01' }, headers);
+  assert.equal(submitted.status, 202, JSON.stringify(submitted));
+  const turnId = submitted.data.turnId;
+  const retry = await call(`/api/ai/conversations/${id}/turns/${turnId}/retry`, 'POST', undefined, headers);
+  assert.notEqual(retry.error?.code, 'LOCAL_FEATURE_UNAVAILABLE');
+  assert([202, 422].includes(retry.status), JSON.stringify(retry));
+  const cancelled = await call(`/api/ai/conversations/${id}/turns/${turnId}/cancel`, 'POST', undefined, headers);
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled));
+  const policy = await call('/api/ai/access-policies', 'POST', { spaceId: space.id, scope: { kind: 'library' },
+    excludedNoteIds: [], includeAttachments: false, read: true, egress: false, recipients: [],
+    expiresAt: new Date(Date.now() + 86400000).toISOString() }, { 'X-Knowra-AI-Access': '1' });
+  assert.equal(policy.status, 201, JSON.stringify(policy));
+  const revoked = await call(`/api/ai/access-policies/${policy.data.policyId}`, 'PATCH',
+    { revision: policy.data.revision, revoke: true }, { 'X-Knowra-AI-Access': '1' });
+  assert.equal(revoked.status, 200, JSON.stringify(revoked));
+  for (const route of ['/api/ai/conversations/unknown/delete', '/api/knowledge/notes/unknown/permanent', '/api/questions']) {
+    assert.equal((await call(route, route.endsWith('permanent') ? 'DELETE' : 'POST', {})).error.code, 'LOCAL_FEATURE_UNAVAILABLE');
+  }
+});
+
+test('真实本地入口确认列表重点范围，保留 revision 并发保护', async t => {
+  const { call, space } = await localRequests(t);
+  const rawMarkdown = '- 父项\n- 相邻';
+  const note = (await call('/api/knowledge/notes', 'POST', { spaceId: space.id, title: '列表确认', rawMarkdown })).data;
+  const anchor = anchorForListItem(projectMarkdown(rawMarkdown), '0.0');
+  const created = await call('/api/knowledge/annotations', 'POST', { spaceId: space.id, noteId: note.id,
+    schemaVersion: 2, scopeType: 'list', anchor, quoteText: anchor.quoteText, fromPosition: anchor.sourceStart,
+    toPosition: anchor.sourceEnd, noteContentHash: calculateContentHash(rawMarkdown), anchorFingerprint: 'local', idempotencyKey: 'local-list' });
+  assert.equal(created.status, 201, JSON.stringify(created));
+  await call(`/api/knowledge/notes/${note.id}`, 'PATCH', { rawMarkdown: '- 父项\n  - 相邻', expectedUpdatedAt: note.updatedAt });
+  const preview = (await call(`/api/knowledge/annotations/${created.data.id}/preview`)).data;
+  assert(preview.pendingRange, JSON.stringify(preview));
+  const body = { expectedRevision: preview.annotation.revision, noteContentHash: preview.currentContentHash,
+    candidateHash: preview.pendingRange.candidateHash };
+  const confirmed = await call(`/api/knowledge/annotations/${created.data.id}/confirm-range`, 'POST', body);
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed));
+  assert.match(confirmed.data.quoteText, /相邻/);
+  assert.equal((await call(`/api/knowledge/annotations/${created.data.id}/confirm-range`, 'POST', body)).status, 409);
+});
 
 test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及重启恢复', async t => {
   const root = temporaryDirectory(t);
