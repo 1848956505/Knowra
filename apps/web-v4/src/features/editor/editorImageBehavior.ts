@@ -1,4 +1,5 @@
 import { NodeSelection, Plugin } from '@milkdown/kit/prose/state';
+import { Fragment, Slice, type Node as ProseMirrorNode } from '@milkdown/kit/prose/model';
 import type { Ctx } from '@milkdown/kit/ctx';
 import type { EditorProps, EditorView } from '@milkdown/kit/prose/view';
 import { imageAttr, imageSchema } from '@milkdown/kit/preset/commonmark';
@@ -31,6 +32,7 @@ export function imageHtmlWithRenderedSizes(html: string, view: Pick<EditorView, 
 export function configureImageSize(ctx: Ctx) {
   ctx.update(imageSchema.key, original => schemaCtx => ({
     ...original(schemaCtx),
+    attrs: { ...original(schemaCtx).attrs, clipboardWidth: { default: null } },
     parseDOM: [{ tag: 'img[src]', getAttrs: dom => {
       if (!(dom instanceof HTMLElement)) return false;
       const attrs = { src: dom.getAttribute('src') ?? '', alt: dom.getAttribute('alt') ?? '', title: dom.getAttribute('title') ?? '' };
@@ -39,15 +41,40 @@ export function configureImageSize(ctx: Ctx) {
     } }],
     toDOM: node => {
       const size = readImageSize(node.attrs);
-      return ['img', { ...schemaCtx.get(imageAttr.key)(node), ...node.attrs,
+      const width = Number(node.attrs.clipboardWidth);
+      return ['img', { ...schemaCtx.get(imageAttr.key)(node), src: node.attrs.src, alt: node.attrs.alt,
         title: size.title, 'data-knowra-image-ratio': size.ratio,
-        style: `width:${size.ratio * 100}%;max-width:100%;height:auto` }];
+        style: `width:${width > 0 ? `${width}px` : `${size.ratio * 100}%`};max-width:100%;height:auto` }];
     }
   }));
 }
 
+/** 只转换复制用的 Slice；像素宽度不写入正文，也不进入 Markdown。 */
+export function imageClipboardSlice(slice: Slice, view: EditorView): Slice {
+  const widths = new Map<ProseMirrorNode, number[]>();
+  view.state.doc.descendants((node, pos) => {
+    if (node.type.name !== 'image' || !view.state.selection.ranges.some(range => pos >= range.$from.pos && pos < range.$to.pos)) return;
+    const dom = view.nodeDOM(pos);
+    if (!(dom instanceof HTMLImageElement)) return;
+    const queue = widths.get(node) ?? [];
+    queue.push(dom.getBoundingClientRect().width); widths.set(node, queue);
+  });
+  const transform = (fragment: Fragment): Fragment => {
+    const nodes: ProseMirrorNode[] = [];
+    fragment.forEach(node => {
+      const width = widths.get(node)?.shift();
+      nodes.push(node.type.name === 'image' && width && width > 0
+        ? node.type.create({ ...node.attrs, clipboardWidth: width }, null, node.marks)
+        : node.copy(transform(node.content)));
+    });
+    return Fragment.fromArray(nodes);
+  };
+  return new Slice(transform(slice.content), slice.openStart, slice.openEnd);
+}
+
 export const editorImageBehavior = $prose(() => new Plugin({
   props: {
+    transformCopied: imageClipboardSlice,
     handleClickOn: selectImage,
     handleDoubleClickOn: selectImage,
     handleTripleClickOn: selectImage,
@@ -56,8 +83,14 @@ export const editorImageBehavior = $prose(() => new Plugin({
         let node = initial;
         const image = document.createElement('img');
         image.dataset.editorImage = 'true';
+        let observedParent: Element | null = null;
         const notify = () => view.dom.dispatchEvent(new Event(IMAGE_CONTEXT_EVENT, { bubbles: true }));
         const resize = () => {
+          if (image.parentElement !== observedParent) {
+            if (observedParent) observer.unobserve(observedParent);
+            observedParent = image.parentElement;
+            if (observedParent) observer.observe(observedParent);
+          }
           if (image.dataset.resizePreview === 'true') return;
           if (!image.naturalWidth) return;
           const size = fittedImageSize(image.naturalWidth, image.parentElement?.clientWidth || view.dom.clientWidth, readImageSize(node.attrs).ratio);

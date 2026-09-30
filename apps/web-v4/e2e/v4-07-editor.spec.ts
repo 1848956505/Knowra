@@ -2048,3 +2048,44 @@ test('V4-07 旧比例长图保持等比与窄屏键盘预设，阅读模式隐�
   await expect(controls).toHaveCount(0);
   await expect(page.getByRole('button', { name: '拖动缩放图片', exact: true })).toHaveCount(0);
 });
+
+test('V4-07 原生图片复制剪切保留同附件各实例的实际像素尺寸', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await mockEditorWorkspace(page, [], [], '![第一张](/api/attachments/image-1/content "标题 {knowra-image-ratio=0.40}")\n\n![第二张](/api/attachments/image-1/content "标题 {knowra-image-ratio=0.66}")\n\n保留正文');
+  await page.route('**/api/attachments/image-1/content', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><rect width="100" height="50" fill="blue"/></svg>' }));
+  await page.goto('/#/materials/notes/note-1');
+  const images = page.locator('.ProseMirror img[data-editor-image]');
+  await expect(images).toHaveCount(2);
+  const readCopied = () => page.evaluate(async () => {
+    const item = (await navigator.clipboard.read()).find(value => value.types.includes('text/html'));
+    if (!item) return [];
+    const parsed = new DOMParser().parseFromString(await (await item.getType('text/html')).text(), 'text/html');
+    return Array.from(parsed.body.querySelectorAll('img')).map(image => ({ alt: image.alt, title: image.title, width: image.style.width }));
+  });
+  await images.first().click(); await page.keyboard.press('ControlOrMeta+c');
+  await expect.poll(readCopied).toEqual([{ alt: '第一张', title: '标题', width: '40px' }]);
+  await images.nth(1).click(); await page.keyboard.press('ControlOrMeta+x');
+  await expect.poll(readCopied).toEqual([{ alt: '第二张', title: '标题', width: '66px' }]);
+  await expect(images).toHaveCount(1);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(images).toHaveCount(2);
+  await expect(page.locator('.ProseMirror')).toContainText('保留正文');
+});
+
+test('V4-07 表格删列后复用图片节点仍按局部容器宽度等比调整', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '| 图片 | 其他 |\n| --- | --- |\n| ![说明](/api/attachments/image-1/content "{knowra-image-ratio=0.40}") | 文字 |');
+  await page.route('**/api/attachments/image-1/content', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500"><rect width="1000" height="500" fill="blue"/></svg>' }));
+  await page.goto('/#/materials/notes/note-1');
+  const image = page.locator('.ProseMirror img[data-editor-image]');
+  await expect(image).toBeVisible();
+  await page.locator('.ProseMirror').evaluate(root => { (root as HTMLElement).style.height = '2500px'; });
+  const original = await image.elementHandle();
+  const originalWidth = (await image.boundingBox())!.width;
+  await page.locator('.ProseMirror td').nth(1).click();
+  await page.getByRole('button', { name: '表格操作', exact: true }).click();
+  await page.getByRole('menuitem', { name: '删除当前列', exact: true }).click();
+  await expect(page.locator('.ProseMirror th')).toHaveCount(1);
+  expect(await image.evaluate((node, previous) => node === previous, original)).toBe(true);
+  await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(originalWidth + 10);
+  await expect.poll(() => image.evaluate(node => Math.abs(node.getBoundingClientRect().width - node.parentElement!.clientWidth * 0.4))).toBeLessThan(1);
+});
