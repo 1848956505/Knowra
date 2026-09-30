@@ -5,6 +5,7 @@ import { WRITABLE_COLLECTIONS, sameEntity, referencesFor, syncReferencesFor, KNO
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
+import { createEntityConflictCopy } from './entity-conflict-copy.mjs';
 
 const replace = (state, entry) => {
   const index = state[entry.collection].findIndex(item => item.id === entry.id);
@@ -248,8 +249,9 @@ export function getEntitySyncState(store) {
   return cached.status;
 }
 
-export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }, noteService) {
-  store.syncTransaction((db, state) => {
+export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }, noteService, entityTransfer) {
+  const preparedCopies = [];
+  const resolve = (db, state) => {
     const conflict = readMeta(db, 'entityConflict');
     if (!conflict || conflict.id !== conflictId) throw new Error('冲突已变化，请重新查看。');
     if (!['remote', 'local', 'manual', 'copy'].includes(choice)) throw new Error('请选择有效的冲突处理方式。');
@@ -275,16 +277,13 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
         replace(merged, entry);
       }
     }
+    const localAttachments = state.attachments.map(attachment => ({ ...attachment }));
     preserveAttachmentHealth(merged, state);
     setState(state, reconcileSyncedSourceStates(merged));
     if (choice === 'copy') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);
       if (notes.length !== 1) throw new Error('保留两篇仅适用于一篇笔记的冲突。');
-      const original = notes[0].value;
-      if (!state.spaces.some(space => space.id === original.spaceId)) throw new Error('云端已删除此空间，请导出恢复记录。');
-      noteService.createNote({ ...original, id: randomUUID(), title: `${original.title}（本地副本 ${randomUUID().slice(0, 4)}）`, deleted: false,
-        folderId: state.folders.some(folder => folder.id === original.folderId) ? original.folderId : null,
-        tagIds: original.tagIds.filter(id => state.tags.some(tag => tag.id === id)) });
+      createEntityConflictCopy({ original: notes[0].value, localAttachments, state, noteService, entityTransfer, preparedCopies });
     }
     if (choice === 'manual') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);
@@ -296,5 +295,14 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     writeMeta(db, 'epoch', conflict.epoch); writeMeta(db, 'cursor', conflict.cursor);
     writeMeta(db, 'entityConflict', null); writeMeta(db, 'entityUpload', null);
     settle(db, state);
-  }, { local: true });
+  };
+  try { store.syncTransaction(resolve, { local: true }); }
+  catch (error) {
+    // SQLite 已回滚正文、元数据、基线及恢复记录；只清理本次新建的文件。
+    for (const prepared of preparedCopies.reverse()) {
+      try { prepared.rollback(); }
+      catch (rollbackError) { (error.rollbackErrors ??= []).push(rollbackError); }
+    }
+    throw error;
+  }
 }
