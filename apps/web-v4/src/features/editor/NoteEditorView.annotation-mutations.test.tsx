@@ -4,6 +4,7 @@ import { NoteEditorView, type NoteEditorViewProps } from './NoteEditorView';
 import { getEffectiveEditorViewState, initialEditorViewState } from './editorViewState';
 import type { Annotation } from '@study-accelerator/web-core';
 import { StrictMode } from 'react';
+import { anchorForListItem, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 
 const state = vi.hoisted(() => ({ markdown: '保存后的正文', selection: { anchor: { segments: [] }, quoteText: '正文', headingPath: [], fromPosition: 1, toPosition: 3, prefixText: '', suffixText: '', scopeType: 'blocks' }, inspector: {} as Record<string, Function> }));
 vi.mock('./MilkdownNoteEditor', async () => {
@@ -16,7 +17,7 @@ vi.mock('./MilkdownNoteEditor', async () => {
 vi.mock('./EditorInspector', () => ({ EditorInspector: (props: Record<string, Function>) => { state.inspector = props; return null; } }));
 const annotation = { id: 'annotation-1', noteId: 'note-1', scopeType: 'blocks', revision: 1, lifecycleStatus: 'active' } as Annotation;
 function fixture() {
-  state.markdown = '保存后的正文'; state.selection = { ...state.selection, quoteText: '正文' };
+  state.markdown = '保存后的正文'; state.selection = { anchor: { segments: [] }, quoteText: '正文', headingPath: [], fromPosition: 1, toPosition: 3, prefixText: '', suffixText: '', scopeType: 'blocks' };
   let revision = 1;
   const props = {
     note: { id: 'note-1', title: '标注并发', spaceId: 'space-1', rawMarkdown: '旧正文', contentLoaded: true, updatedAt: 'v1', tagIds: [], internalLinks: [], deleted: false },
@@ -131,4 +132,63 @@ it('新建章节重点提交后切换笔记，迟到成功回执不污染新笔�
   await act(async () => { finish({ ...annotation, scopeType: 'section' }); await pending; });
   expect(state.inspector.annotations).toEqual([]);
   expect(props.onFileStatus).not.toHaveBeenCalledWith('已标为重点');
+});
+
+function selectList(markdown: string, item = 0) {
+  state.markdown = markdown;
+  const projection = projectMarkdown(markdown);
+  const anchor = anchorForListItem(projection, projection.listItems[item].path);
+  state.selection = { anchor, quoteText: anchor.quoteText, headingPath: [], fromPosition: anchor.sourceStart,
+    toPosition: anchor.sourceEnd, prefixText: anchor.prefixText, suffixText: anchor.suffixText, scopeType: 'list' } as unknown as typeof state.selection;
+}
+it.each(['continue', 'sibling', 'structure', 'outside'])('慢保存期间列表 %s：只接纳同一项内的继续输入', async change => {
+  const props = fixture();
+  selectList('- 父项\n  - 子项未保存\n- 相邻', 1);
+  vi.mocked(props.onCreateAnnotation).mockResolvedValue({ ...annotation, scopeType: 'list' });
+  let finish!: () => void;
+  vi.mocked(props.onSaveMarkdown).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ ...props.note!, updatedAt: 'v2' }); }));
+  render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  let pending!: Promise<void>;
+  act(() => { pending = state.inspector.onCreateAnnotation('list'); });
+  await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledOnce());
+  const latest = change === 'structure' ? '- 父项\n  - 子项未保存\n    - 新子项\n- 相邻'
+    : change === 'outside' ? '- 父项外部变化\n  - 子项未保存\n- 相邻' : '- 父项\n  - 子项未保存继续输入\n- 相邻';
+  selectList(latest, change === 'sibling' ? 2 : 1);
+  await act(async () => { finish(); if (change === 'continue') await pending; else await expect(pending).rejects.toThrow('已变化'); });
+  if (change === 'continue') {
+    expect(vi.mocked(props.onSaveMarkdown).mock.calls.at(-1)?.[1]).toBe(latest);
+    expect(props.onCreateAnnotation).toHaveBeenCalledWith(expect.objectContaining({ quoteText: '子项未保存继续输入', noteContentHash: calculateContentHash(latest) }));
+  } else expect(props.onCreateAnnotation).not.toHaveBeenCalled();
+});
+it('同项持续输入最多保存三轮，不循环提交或重复标注，取消后仍可重试', async () => {
+  const props = fixture(); let source = '- 父项\n  - 子项\n- 相邻'; selectList(source, 1);
+  vi.mocked(props.onCreateAnnotation).mockResolvedValue({ ...annotation, scopeType: 'list' });
+  vi.mocked(props.onSaveMarkdown).mockImplementation(async () => {
+    source = source.replace('子项', '子项继续'); selectList(source, 1);
+    return { ...props.note!, updatedAt: crypto.randomUUID() };
+  });
+  render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('list')).rejects.toThrow('已变化'); });
+  expect(props.onSaveMarkdown).toHaveBeenCalledTimes(3);
+  expect(props.onCreateAnnotation).not.toHaveBeenCalled();
+  vi.mocked(props.onSaveMarkdown).mockResolvedValue({ ...props.note!, updatedAt: 'v4' });
+  await act(async () => { await state.inspector.onCreateAnnotation('list'); });
+  expect(props.onCreateAnnotation).toHaveBeenCalledOnce();
+});
+
+it.each(['note', 'readonly'])('同项继续输入后第二轮保存期间 %s 变化，迟到保存回执不提交；重复触发只执行一次', async change => {
+  const props = fixture(); selectList('- 父项\n  - 子项\n- 相邻', 1);
+  let finish!: () => void;
+  vi.mocked(props.onSaveMarkdown)
+    .mockImplementationOnce(async () => { selectList('- 父项\n  - 子项继续\n- 相邻', 1); return { ...props.note!, updatedAt: 'v2' }; })
+    .mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ ...props.note!, updatedAt: 'v3' }); }));
+  const { rerender } = render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  let pending!: Promise<void>;
+  act(() => { pending = state.inspector.onCreateAnnotation('list'); });
+  await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledTimes(2));
+  await act(async () => { await state.inspector.onCreateAnnotation('list'); });
+  expect(props.onSaveMarkdown).toHaveBeenCalledTimes(2);
+  rerender(<NoteEditorView {...props} {...(change === 'note' ? { note: { ...props.note!, id: 'note-2' } } : { canWrite: false })} />);
+  await act(async () => { finish(); await expect(pending).rejects.toThrow('已变化'); });
+  expect(props.onCreateAnnotation).not.toHaveBeenCalled();
 });

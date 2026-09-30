@@ -1,4 +1,4 @@
-import { calculateContentHash, type ContentAnchor } from '@study-accelerator/content-anchor';
+import { calculateContentHash, sourceEdits, followListAnchorChanges, type ContentAnchor } from '@study-accelerator/content-anchor';
 import type { CreateAnnotationInput, UpdateAnnotationAnchorInput } from '@study-accelerator/web-core';
 
 export interface AnnotationSelection {
@@ -36,4 +36,18 @@ export async function buildUpdateAnnotationAnchorInput(markdown: string, selecti
     noteContentHash: calculateContentHash(markdown),
     expectedRevision
   };
+}
+
+/** 仅允许原列表项内继续输入；结构或目标变化仍须用户重新选择。 */
+export function canContinueListAnnotation(before: string, after: string, previous: AnnotationSelection, next: AnnotationSelection | null): next is AnnotationSelection {
+  if (!next || previous.scopeType !== 'list' || next.scopeType !== 'list') return false;
+  const edits = sourceEdits(before, after);
+  if (!edits.length || edits.some(edit => edit.from !== edit.to || /[\r\n]/.test(edit.text)
+    || edit.from < previous.fromPosition || edit.to > previous.toPosition)) return false;
+  const followed = followListAnchorChanges(before, after, previous.anchor, edits);
+  return followed.status === 'resolved' && Boolean(followed.anchor)
+    && followed.anchor!.structurePath === next.anchor.structurePath
+    && followed.anchor!.sourceStart === next.fromPosition && followed.anchor!.sourceEnd === next.toPosition
+    && followed.anchor!.quoteText === next.quoteText
+    && previous.anchor.list?.memberFingerprint === next.anchor.list?.memberFingerprint;
 }
