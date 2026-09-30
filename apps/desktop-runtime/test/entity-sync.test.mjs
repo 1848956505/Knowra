@@ -452,8 +452,8 @@ test('完整协议仅阻塞冲突关联组；其他笔记继续同步且解决�
 });
 
 
-test('桌面分批容量包含最终 JSON 的操作信封和 UTF-8 字节', async t => {
-  const { nextEntityUpload } = await import('../src/entity-sync-state.mjs');
+for (const hasDependencies of [false, true]) test(`桌面分批容量包含最终 JSON 的操作信封、UTF-8 与${hasDependencies ? '非空依赖' : '空依赖'}`, async t => {
+  const { nextEntityUpload, acknowledgeEntityUpload } = await import('../src/entity-sync-state.mjs');
   const { writeMeta } = await import('../src/sync-state.mjs');
   const { SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES: limit } = await import('@study-accelerator/shared/http-limits');
   const workspace = openWorkspace(temporaryDirectory(t));
@@ -461,13 +461,23 @@ test('桌面分批容量包含最终 JSON 的操作信封和 UTF-8 字节', asyn
   workspace.knowledge.noteService.createNote({ title: '大正文一', rawMarkdown: '', spaceId: workspace.space.id });
   workspace.knowledge.noteService.createNote({ title: '大正文二', rawMarkdown: '', spaceId: workspace.space.id });
   workspace.store.syncTransaction((_db, state) => { for (const note of state.notes) note.annotationStructure = null; });
-  const overhead = Buffer.byteLength(JSON.stringify(nextEntityUpload(workspace.store)));
+  if (hasDependencies) {
+    const initial = nextEntityUpload(workspace.store);
+    acknowledgeEntityUpload(workspace.store, initial, { status: 'accepted', entries: initial.changes.map(entry => ({ ...entry, revision: 1 })) });
+    workspace.store.syncTransaction((_db, state) => { state.notes[0].rawMarkdown = 'x'; state.notes[1].rawMarkdown = 'y'; });
+  }
+  const small = nextEntityUpload(workspace.store);
+  const overhead = Buffer.byteLength(JSON.stringify(small));
   workspace.store.syncTransaction((db, state) => {
     writeMeta(db, 'entityUpload', null);
     state.notes[0].rawMarkdown = '中' + 'a'.repeat(limit / 2 - 3);
-    state.notes[1].rawMarkdown = 'b'.repeat(limit / 2 - overhead + 1);
+    state.notes[1].rawMarkdown = 'b'.repeat(limit / 2 - overhead + 1 + (hasDependencies ? 2 : 0));
   });
+  const candidate = { ...small, changes: small.changes.map(entry => entry.collection === 'notes'
+    ? { ...entry, value: { ...entry.value, rawMarkdown: workspace.store.state.notes.find(note => note.id === entry.id).rawMarkdown } } : entry) };
+  assert.equal(Buffer.byteLength(JSON.stringify(candidate)), limit + 1);
   const operation = nextEntityUpload(workspace.store);
+  assert.equal(operation.dependencies.length, hasDependencies ? 1 : 0);
   assert(Buffer.byteLength(JSON.stringify(operation)) <= limit);
   assert.equal(operation.changes.filter(entry => entry.collection === 'notes').length, 1, '最终信封超限时应分批，不能按记录大小放行');
 });

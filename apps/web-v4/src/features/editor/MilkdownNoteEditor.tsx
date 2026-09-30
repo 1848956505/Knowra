@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useRef, type KeyboardEvent } from 'react';
 import {
   defaultValueCtx,
   Editor,
@@ -107,6 +107,11 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const latestLocalMarkdownRef = useRef(markdown);
     const readyRef = useRef(false);
     const readOnlyRef = useRef(readOnly);
+    const mountedRef = useRef(true);
+    useLayoutEffect(() => {
+      mountedRef.current = true;
+      return () => { mountedRef.current = false; };
+    }, []);
     const userInteractionRef = useRef(false);
     const composingRef = useRef(false);
     const compositionFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -219,7 +224,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           return { ok: false, reason: 'unsupported' };
         }
         restoreRememberedSelection(editor, lastSelectionRef.current);
-        return runEditorClipboardAction(editor, action, () => editorRef.current === editor && !readOnlyRef.current);
+        return runEditorClipboardAction(editor, action, () => mountedRef.current && editorRef.current === editor && !readOnlyRef.current);
       },
       find(query, currentIndex, direction) {
         const editor = editorRef.current;

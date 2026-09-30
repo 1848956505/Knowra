@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { NoteEditorView, type NoteEditorViewProps } from './NoteEditorView';
 import { getEffectiveEditorViewState, initialEditorViewState } from './editorViewState';
 import type { Annotation } from '@study-accelerator/web-core';
+import { StrictMode } from 'react';
 
 const state = vi.hoisted(() => ({ markdown: '保存后的正文', selection: { anchor: { segments: [] }, quoteText: '正文', headingPath: [], fromPosition: 1, toPosition: 3, prefixText: '', suffixText: '', scopeType: 'blocks' }, inspector: {} as Record<string, Function> }));
 vi.mock('./MilkdownNoteEditor', async () => {
@@ -50,6 +51,34 @@ describe('标注变更等待真实 autosave 后的上下文与 revision', () => 
     if (change === 'selection') state.selection = { ...state.selection, quoteText: '另一选区' };
     if (change === 'document') state.markdown = '继续输入';
     await act(async () => { finish(); await expect(pending).rejects.toThrow(); });
+    expect(props.onUpdateAnnotationAnchor).not.toHaveBeenCalled();
+  });
+  it('StrictMode 重放挂载后仍可正常写入最新修订', async () => {
+    const props = fixture(); render(<StrictMode><NoteEditorView {...props} /></StrictMode>); await screen.findByTestId('mutation-editor');
+    await act(async () => { await state.inspector.onReanchorAnnotation(annotation); });
+    expect(props.onUpdateAnnotationAnchor).toHaveBeenCalledWith(annotation.id, expect.objectContaining({ expectedRevision: 2 }));
+  });
+  it('保存失败不能进入标注写入', async () => {
+    const props = fixture(); vi.mocked(props.onSaveMarkdown).mockRejectedValue(new Error('保存失败'));
+    render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+    await act(async () => { await expect(state.inspector.onReanchorAnnotation(annotation)).rejects.toThrow('保存失败'); });
+    expect(props.onUpdateAnnotationAnchor).not.toHaveBeenCalled();
+  });
+  it('标注刷新期间导航到其他笔记也取消提交', async () => {
+    const props = fixture(); const { rerender } = render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+    let finish!: (items: Annotation[]) => void;
+    vi.mocked(props.onListAnnotations).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    let pending!: Promise<void>; act(() => { pending = state.inspector.onReanchorAnnotation(annotation); });
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    const refresh = finish;
+    rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
+    await act(async () => { refresh([{ ...annotation, revision: 2 }]); await expect(pending).rejects.toThrow(); });
+    expect(props.onUpdateAnnotationAnchor).not.toHaveBeenCalled();
+  });
+  it('保存后发现标注已删除则取消提交', async () => {
+    const props = fixture(); render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+    vi.mocked(props.onListAnnotations).mockResolvedValue([{ ...annotation, lifecycleStatus: 'deleted' }]);
+    await act(async () => { await expect(state.inspector.onReanchorAnnotation(annotation)).rejects.toThrow('标注状态'); });
     expect(props.onUpdateAnnotationAnchor).not.toHaveBeenCalled();
   });
 });

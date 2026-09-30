@@ -234,7 +234,11 @@ export function NoteEditorView({
   if (annotationWriteStateRef.current.noteId !== note?.id || annotationWriteStateRef.current.editable !== annotationEditable) {
     annotationWriteStateRef.current = { noteId: note?.id, editable: annotationEditable };
   }
-  useEffect(() => () => { annotationWriteStateRef.current = { noteId: undefined, editable: false }; }, []);
+  const annotationMountedRef = useRef(true);
+  useLayoutEffect(() => {
+    annotationMountedRef.current = true;
+    return () => { annotationMountedRef.current = false; };
+  }, []);
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingScrollRestoreRef = useRef<string | null>(null);
@@ -531,13 +535,13 @@ export function NoteEditorView({
   const prepareAnnotationWrite = async (annotation: Annotation, scope: 'selection' | 'blocks' | 'section' | 'list') => {
     const context = annotationWriteStateRef.current;
     const editor = editorRef.current;
-    if (!context.editable || context.noteId !== annotation.noteId || !editor) throw new Error('笔记或编辑状态已变化，请重新选择');
+    if (!annotationMountedRef.current || !context.editable || context.noteId !== annotation.noteId || !editor) throw new Error('笔记或编辑状态已变化，请重新选择');
     const selection = editor.getAnnotationSelection(scope);
     if (!selection) throw new Error('请先在正文中选择对应内容');
     const markdown = editor.getMarkdown();
     const signature = JSON.stringify(selection);
     const assertCurrent = () => {
-      if (annotationWriteStateRef.current !== context || editorRef.current !== editor
+      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
         || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope)) !== signature) {
         throw new Error('正文、选区或编辑状态已变化，请重新选择');
       }
@@ -549,7 +553,7 @@ export function NoteEditorView({
     const latest = items.find(item => item.id === annotation.id && item.noteId === annotation.noteId);
     if (!latest || latest.deletedAt || latest.lifecycleStatus && latest.lifecycleStatus !== 'active') throw new Error('标注状态已变化，请刷新后重试');
     return { markdown, selection, revision: latest.revision ?? 1, assertCurrent,
-      isCurrentNote: () => annotationWriteStateRef.current === context };
+      isCurrentNote: () => annotationMountedRef.current && annotationWriteStateRef.current === context };
   };
   const reanchorAnnotation = async (annotation: Annotation) => {
     const prepared = await prepareAnnotationWrite(annotation, annotation.scopeType ?? 'selection');
