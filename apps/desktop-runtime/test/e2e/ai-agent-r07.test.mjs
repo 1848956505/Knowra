@@ -7,8 +7,9 @@ import { createR07Fixture } from '../fixtures/ai-r07-runtime.mjs';
 for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABASE_URL ? ['postgres'] : [])]) {
   test(`R07 ${driver} 实际服务/生产页面与离线模型：聊天、授权工具、追问、取消及恢复`, { timeout: 120000 }, async t => {
     const fixture = await createR07Fixture(driver);
-    const browser = await chromium.launch(process.env.KNOWRA_TEST_BROWSER_CHANNEL ? { channel: process.env.KNOWRA_TEST_BROWSER_CHANNEL } : {});
-    t.after(async () => { await browser.close(); await fixture.close(); });
+    let browser;
+    t.after(async () => { try { await browser?.close(); } finally { await fixture.close(); } });
+    browser = await chromium.launch(process.env.KNOWRA_TEST_BROWSER_CHANNEL ? { channel: process.env.KNOWRA_TEST_BROWSER_CHANNEL } : {});
     const context = await browser.newContext();
     const page = await context.newPage();
     const errors = []; const external = [];
