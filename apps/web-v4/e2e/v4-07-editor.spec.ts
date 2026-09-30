@@ -1803,7 +1803,8 @@ for (const stale of [false, true]) {
     const editor = page.locator('.ProseMirror');
     await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
     await editor.locator('p').click();
-    await page.keyboard.press('Home');
+    await page.keyboard.press('End');
+    await expect.poll(() => page.evaluate(() => window.getSelection()?.anchorOffset)).toBe(4);
     await editor.evaluate(element => {
       const clipboardData = new DataTransfer();
       clipboardData.items.add(new File(['bytes'], 'paste.png', { type: 'image/png' }));
@@ -1869,4 +1870,62 @@ test('V4-07 章节重点保存等待后不抢走搜索框焦点', async ({ page 
   await page.keyboard.insertText('继续');
   await expect(search).toHaveValue('查找继续');
   await expect(heading).toHaveText('第一节新增');
+});
+
+test('V4-07 表格行列菜单支持结构编辑、对齐、保存与撤销', async ({ page }) => {
+  const saved: string[] = [];
+  await mockEditorWorkspace(page, saved, [], '| 名称 | 数量 |\n| --- | --- |\n| 苹果 | 2 |\n| 梨 | 3 |');
+  await page.goto('/#/materials/notes/note-1');
+  const table = page.locator('.ProseMirror table');
+  await expect(table).toBeVisible();
+  await table.locator('td').first().click();
+  const open = async () => { await page.getByRole('button', { name: '表格操作', exact: true }).click(); };
+  await expect(page.getByRole('button', { name: '表格操作', exact: true })).toBeVisible();
+  await open();
+  await page.getByRole('menuitem', { name: '在下方插入行', exact: true }).click();
+  await expect(table.locator('tr')).toHaveCount(4);
+  await open();
+  await page.getByRole('menuitem', { name: '在右侧插入列', exact: true }).click();
+  await expect(table.locator('tr').first().locator('th')).toHaveCount(3);
+  await open();
+  await page.getByRole('menuitem', { name: '当前列居中', exact: true }).click();
+  await expect(table.locator('th').first()).toHaveCSS('text-align', 'center');
+  await expect.poll(() => saved.at(-1) ?? '').toContain(':');
+  await page.reload();
+  await expect(table.locator('tr')).toHaveCount(4);
+  await expect(table.locator('th').first()).toHaveCSS('text-align', 'center');
+  await table.locator('td').first().click();
+  await open();
+  await page.getByRole('menuitem', { name: '选择当前行', exact: true }).click();
+  await expect(table.locator('tr').nth(1).locator('.selectedCell')).toHaveCount(3);
+  await open();
+  await page.getByRole('menuitem', { name: '删除当前行', exact: true }).click();
+  await expect(table.locator('tr')).toHaveCount(3);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(table.locator('tr')).toHaveCount(4);
+  await table.locator('th').first().click();
+  await open();
+  await expect(page.getByRole('menuitem', { name: '删除当前行', exact: true })).toBeDisabled();
+  await expect(page.getByRole('menuitem', { name: '在上方插入行', exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+});
+
+test('V4-07 窄屏表格菜单可由键盘访问，阅读模式不显示写入控件', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], '| 名称 |\n| --- |\n| 苹果 |');
+  await page.setViewportSize({ width: 700, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  await page.locator('.ProseMirror td').first().click();
+  const trigger = page.getByRole('button', { name: '表格操作', exact: true });
+  await expect(trigger).toBeVisible();
+  const rect = await trigger.boundingBox();
+  expect(rect!.x).toBeGreaterThanOrEqual(0); expect(rect!.x + rect!.width).toBeLessThanOrEqual(700);
+  await trigger.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('menu', { name: '表格操作', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: '删除当前列', exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
+  await expect(trigger).toHaveCount(0);
 });
