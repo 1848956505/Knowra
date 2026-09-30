@@ -1929,3 +1929,23 @@ test('V4-07 窄屏表格菜单可由键盘访问，阅读模式不显示写入�
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(trigger).toHaveCount(0);
 });
+
+test('V4-07 长表滚动后操作栏避开固定格式栏', async ({ page }) => {
+  const rows = Array.from({ length: 45 }, (_, index) => `| 第${index + 1}行 |`).join('\n');
+  await mockEditorWorkspace(page, [], [], `| 名称 |\n| --- |\n${rows}`);
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  await page.locator('.ProseMirror td').first().click();
+  const controls = page.getByRole('toolbar', { name: '表格操作工具栏', exact: true });
+  await expect(controls).toBeVisible();
+  await page.locator('[data-editor-scroll-root]').evaluate(stage => { stage.scrollTop = 500; });
+  await expect.poll(async () => {
+    const table = await page.locator('.ProseMirror table').boundingBox();
+    const format = await page.getByRole('toolbar', { name: '笔记格式工具栏', exact: true }).boundingBox();
+    const operations = await controls.boundingBox();
+    return Boolean(table && format && operations && table.y < format.y && table.y + table.height > format.y + format.height
+      && operations.y >= format.y + format.height + 8);
+  }).toBe(true);
+  await page.getByRole('button', { name: '表格操作', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: '在下方插入行', exact: true })).toBeVisible();
+});

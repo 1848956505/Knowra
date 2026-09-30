@@ -28,9 +28,12 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       const table = view.nodeDOM(tableStart - 1);
       if (!(table instanceof Element)) { setControls(null); return; }
       const rect = table.getBoundingClientRect();
-      const stage = view.dom.closest('[data-editor-scroll-root]')?.getBoundingClientRect();
+      const scrollRoot = view.dom.closest('[data-editor-scroll-root]');
+      const stage = scrollRoot?.getBoundingClientRect();
+      const formatToolbar = scrollRoot?.querySelector('[aria-label="笔记格式工具栏"]')?.getBoundingClientRect();
       if (rect.bottom < (stage?.top ?? 0) || rect.top > (stage?.bottom ?? window.innerHeight)) { setControls(null); return; }
-      const next = { ...state, x: Math.max(8, Math.min(rect.left, window.innerWidth - 220)), y: Math.max((stage?.top ?? 0) + 8, Math.min(rect.top - 40, window.innerHeight - 44)) };
+      const top = Math.max(stage?.top ?? 0, formatToolbar?.bottom ?? 0) + 8;
+      const next = { ...state, x: Math.max(8, Math.min(rect.left, window.innerWidth - 220)), y: Math.max(top, Math.min(rect.top - 40, window.innerHeight - 44)) };
       setControls(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
     };
     // selectionchange 跟随鼠标、键盘和 CellSelection；菜单操作后也主动刷新。
@@ -84,4 +87,3 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
     </MenuTrigger>
   </div>;
 }
-
