@@ -27,6 +27,7 @@ import { knowledgeModuleTests } from './knowledge-module.test.js';
 import { knowledgeHttpTests } from './knowledge-http.test.js';
 import { appFactoryTests } from './app-factory.test.js';
 import { httpRequestTests } from './http-request.test.js';
+import { httpOriginTests } from './http-origin.test.js';
 import { httpResponseTests } from './http-response.test.js';
 import { contentAnnotationServiceTests } from './content-annotation-service.test.js';
 import { annotationScopeServiceTests } from './annotation-scope-service.test.js';
@@ -96,6 +97,7 @@ const tests = [
   ...knowledgeHttpTests,
   ...appFactoryTests,
   ...httpRequestTests,
+  ...httpOriginTests,
   ...httpResponseTests,
   ...contentAnnotationServiceTests,
   ...annotationScopeServiceTests,

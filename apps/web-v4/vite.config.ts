@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       ...(webPort ? { port: webPort } : {}),
       proxy: {
-        '/api': `http://127.0.0.1:${apiPort}`
+        '/api': { target: `http://127.0.0.1:${apiPort}`, changeOrigin: false }
       }
     }
   };

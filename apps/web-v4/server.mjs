@@ -28,7 +28,9 @@ function getApiOrigin() {
   return `http://127.0.0.1:${apiPort}`;
 }
 
-const server = createV4WebServer({ distRoot, getApiOrigin });
+const server = createV4WebServer({ distRoot, getApiOrigin,
+  allowedOrigins: String(process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean),
+  trustProxy: process.env.WEB_TRUST_LOOPBACK_PROXY === '1' });
 listenOnConfiguredPort(server, preferredPort, { allowPortFallback })
   .then((port) => {
     activeWebPort = port;

@@ -1,5 +1,6 @@
 import { parseBody, toQueryObject } from './request.js';
 import { sendBinary, sendJson } from './response.js';
+import { requestBodyLimit } from '@study-accelerator/shared/http-limits';
 
 export async function handleStorageRoute({ request, response, url, storage }) {
   if (request.method === 'GET' && url.pathname === '/api/storage/export') {
@@ -26,7 +27,7 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     if (request.method === 'POST' && id !== null) {
       const result = action === 'verify'
         ? await storage.verifyAttachment({ id })
-        : await storage.restoreAttachment({ id }, await parseBody(request, { limitBytes: 9 * 1024 * 1024 }));
+        : await storage.restoreAttachment({ id }, await parseBody(request, { limitBytes: requestBodyLimit(request.method, url.pathname) }));
       sendJson(response, 200, { data: result });
       return true;
     }

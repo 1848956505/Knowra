@@ -20,6 +20,18 @@ function createRequest({ contentType = 'application/json', chunks = [] } = {}) {
 
 export const httpRequestTests = [
   {
+    name: 'parseBody 严格匹配 JSON MIME essence，保留参数、大小写与空正文',
+    async run() {
+      for (const contentType of ['text/plain; charset=application/json', 'application/jsonp', 'text/application/json', 'application/json,text/plain']) {
+        await assert.rejects(() => parseBody(createRequest({ contentType, chunks: ['{}'] })), error => error.statusCode === 415);
+      }
+      for (const contentType of ['application/json', 'Application/JSON; charset=UTF-8', ' application/json ; charset=utf-8']) {
+        assert.deepEqual(await parseBody(createRequest({ contentType, chunks: ['{}'] })), {});
+      }
+      assert.deepEqual(await parseBody(createRequest({ contentType: '', chunks: [] })), {});
+    }
+  },
+  {
     name: 'parseBody preserves multilingual JSON at every byte boundary',
     async run() {
       const expected = { title: '中文😀e\u0301', rawMarkdown: '# 标题\n\n保存“正文”与 emoji 🚀' };

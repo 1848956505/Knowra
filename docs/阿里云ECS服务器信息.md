@@ -233,6 +233,8 @@ curl --fail http://127.0.0.1:3001/api/health
 
 ## Nginx 配置
 
+> 待发布代码的来源保护约定（未在生产应用）：`deploy/ecosystem.config.cjs` 显式设置 `WEB_TRUST_LOOPBACK_PROXY=1`，Web 仅对回环连接采纳单值 `X-Forwarded-Proto: http|https`。前置 Nginx 必须覆盖该头与 Host；示例改为 `$http_host` 保留非默认端口。独立运行 Web 默认不信任转发头，API 始终不信任它们。Web 校验外部同源写入后改写上游 Origin 并清除转发头；具体 `CORS_ALLOWED_ORIGINS` 保持跨源客户端兼容，`*` 仅开放读取，跨源写入需列出可信来源。来源保护不是身份认证，Basic Auth 仍需保留。本次仅修改配置与隔离测试，未部署、未验证线上浏览器凭据行为。
+
 当前配置文件：
 
 ```text

@@ -12,6 +12,7 @@ import { createAiAssistantService } from './modules/ai/assistant-service.js';
 import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
 import { handleAiAccessRoute } from './modules/ai/access-routes.js';
 import { handleConversationRoute } from './modules/ai/conversation-routes.js';
+import { isWriteMethod, writeOriginDecision } from '@study-accelerator/shared/http-origin';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
@@ -33,6 +34,10 @@ export function createServer({ appContext, cors = {}, logger = console }) {
 
       applyCorsHeaders(response, request, allowedOrigins);
       if (handleCorsPreflight({ request, response, allowedOrigins })) {
+        return;
+      }
+      if (isWriteMethod(request.method) && !writeOriginDecision(request, { allowedOrigins }).allowed) {
+        sendError(response, 403, 'REQUEST_ORIGIN_FORBIDDEN', '写入请求来源不被允许');
         return;
       }
 

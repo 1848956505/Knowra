@@ -41,7 +41,7 @@ export function parseBody(request, { limitBytes = DEFAULT_JSON_BODY_LIMIT_BYTES 
         resolve({});
         return;
       }
-      if (!contentType.includes('application/json')) {
+      if (typeof contentType !== 'string' || contentType.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
         fail(createRequestError('Content-Type must be application/json', 415, 'UNSUPPORTED_MEDIA_TYPE'));
         return;
       }
