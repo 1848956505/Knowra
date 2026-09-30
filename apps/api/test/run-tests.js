@@ -62,12 +62,14 @@ import { aiAccessV2Tests } from './ai-access-v2.test.js';
 import { aiConversationV2Tests } from './ai-conversation-v2.test.js';
 import { aiAgentR04Tests } from './ai-agent-r04.test.js';
 import { aiRetrievalR06Tests } from './ai-retrieval-r06.test.js';
+import { aiNotePlanTests } from './ai-note-plan.test.js';
 import { aiConversationPostgresTests } from './ai-conversation-postgres.test.js';
 
 import { annotationListPostgresTests } from './annotation-list-postgres.test.js';
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...aiNotePlanTests,
   ...attachmentRecoveryTests,
   ...annotationListTests,
   ...annotationListPostgresTests,
