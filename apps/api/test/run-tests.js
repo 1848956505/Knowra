@@ -1,3 +1,4 @@
+import { attachmentRecoveryTests } from './attachment-recovery.test.js';
 import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.test.js';
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
@@ -66,6 +67,7 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...attachmentRecoveryTests,
   ...annotationListTests,
   ...annotationListPostgresTests,
   ...knowledgeExtractionContractTests,

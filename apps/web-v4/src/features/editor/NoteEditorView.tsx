@@ -1,5 +1,10 @@
+import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
+import { attachmentIdsInText } from '@study-accelerator/web-core';
+import type { AttachmentActions } from './EditorAttachmentPanel';
+import { downloadAttachment, fetchAttachmentBlob } from './attachmentAccess';
+import { isAttachmentReferenced } from './attachmentFiles';
 import { registerDesktopSave, trackDesktopTask } from '../../app/desktopLifecycle';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useDesktopTitlebar } from '../../shell/DesktopTitlebarContext';
 import {
@@ -113,7 +118,8 @@ export interface NoteEditorViewProps {
   onListAttachments(noteId: string): Promise<Attachment[]>;
   onUploadAttachment(input: UploadAttachmentInput): Promise<Attachment>;
   onRenameAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
-  onDeleteAttachment(attachmentId: string): Promise<void>;
+  onDeleteAttachment(attachmentId: string): Promise<AttachmentDeleteResult | void>;
+  attachmentActions?: AttachmentActions;
   onGetLinkedNotes(noteId: string): Promise<Note[]>;
   onListAnnotations(noteId: string): Promise<Annotation[]>;
   onCreateAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
@@ -187,6 +193,7 @@ export function NoteEditorView({
   onUploadAttachment,
   onRenameAttachment,
   onDeleteAttachment,
+  attachmentActions,
   onGetLinkedNotes,
   onListAnnotations,
   onCreateAnnotation,
@@ -228,6 +235,10 @@ export function NoteEditorView({
   const restoringScrollRef = useRef(false);
   const scrollRestoreAttemptRef = useRef(false);
   const retryScrollRestoreRef = useRef<() => void>(() => undefined);
+  const [bodySavedToken, setBodySavedToken] = useState<string | null>(null);
+  const [bodyPreview, setBodyPreview] = useState<{ name: string; url: string } | null>(null);
+  useEffect(() => () => { if (bodyPreview) URL.revokeObjectURL(bodyPreview.url); }, [bodyPreview]);
+  useEffect(() => { setBodyPreview(null); setBodySavedToken(null); }, [note?.id]);
   const [toolbarPinned, setToolbarPinned] = useState(false);
   const [documentEdge, setDocumentEdge] = useState<number | null>(null);
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
@@ -375,12 +386,13 @@ export function NoteEditorView({
   const uploadAttachmentFile = (file: File) => trackDesktopTask(async () => {
     const input = await readAttachmentFile(note.id, file);
     const attachment = await onUploadAttachment(input);
-    setAttachments((current) => [attachment, ...current.filter((item) => item.id !== attachment.id)]);
+    if (versionWriteStateRef.current.noteId === note.id) setAttachments((current) => [attachment, ...current.filter((item) => item.id !== attachment.id)]);
     return attachment;
   });
   const insertImageFile = (file: File) => trackDesktopTask(async () => {
     assertInlineImageFile(file);
     const attachment = await uploadAttachmentFile(file);
+    if (versionWriteStateRef.current.noteId !== note.id) throw new Error('图片已上传，笔记已切换，未插入正文');
     const inserted = editorRef.current?.insertImage(
       buildAttachmentReferenceUrl(attachment.id),
       attachmentImageAlt(attachment)
@@ -389,6 +401,7 @@ export function NoteEditorView({
     onFileStatus('图片已插入正文');
   });
   const insertStoredAttachment = async (attachment: Attachment) => {
+    if (attachment.status !== 'ready') throw new Error('附件尚不可用，请先核验或恢复');
     const url = buildAttachmentReferenceUrl(attachment.id);
     const inserted = isInlineImageAttachment(attachment)
       ? editorRef.current?.insertImage(url, attachmentImageAlt(attachment))
@@ -614,6 +627,32 @@ export function NoteEditorView({
     }
   };
 
+  const handleAttachmentLink = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 && event.button !== 1) return;
+    const element = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    const href = element?.getAttribute('href');
+    const id = href ? attachmentIdsInText(href)[0] : undefined;
+    if (!id) return;
+    event.preventDefault(); event.stopPropagation();
+    void trackDesktopTask(async () => {
+      const attachment = attachments.find(item => item.id === id) ?? (await onListAttachments('')).find(item => item.id === id);
+      if (!attachment) throw new Error('附件不存在');
+      if (attachment.status !== 'ready') throw new Error('附件尚不可用，请先核验或恢复原文件');
+      if (isInlineImageAttachment(attachment)) {
+        const blob = await fetchAttachmentBlob(id);
+        if (versionWriteStateRef.current.noteId === note.id) setBodyPreview({ name: attachment.fileName, url: URL.createObjectURL(blob) });
+      } else {
+        const token = await downloadAttachment(attachment);
+        if (versionWriteStateRef.current.noteId === note.id) setBodySavedToken(token);
+      }
+    }).catch(async error => {
+      if (versionWriteStateRef.current.noteId !== note.id) return;
+      onFileStatus(error instanceof Error ? error.message : '附件读取失败');
+      const items = await onListAttachments(note.id).catch(() => null);
+      if (items && versionWriteStateRef.current.noteId === note.id) setAttachments(items);
+    });
+  };
+
   const tabs = note ? <EditorTabs
     notes={openNotes.length > 0 ? openNotes : [note]}
     activeNoteId={note.id}
@@ -650,8 +689,10 @@ export function NoteEditorView({
       {desktopTitlebar.enabled
         ? desktopTitlebar.host && tabs ? createPortal(tabs, desktopTitlebar.host) : null
         : tabs}
+      {bodySavedToken ? <div className={styles.attachmentDownloadNotice} role="status"><span>附件已保存</span><Button size="compact" onPress={() => void trackDesktopTask(async () => { await window.knowraDesktop?.openSavedAttachment?.(bodySavedToken); }).catch(error => onFileStatus(String(error)))}>打开已保存附件</Button><Button variant="ghost" size="mini" onPress={() => setBodySavedToken(null)}>关闭</Button></div> : null}
+      {bodyPreview ? <Dialog title={bodyPreview.name} isOpen onOpenChange={open => { if (!open) setBodyPreview(null); }}><DialogBody><img src={bodyPreview.url} alt={bodyPreview.name} className={styles.attachmentPreviewImage} /></DialogBody></Dialog> : null}
       <div className={styles.workspace}>
-        <div ref={documentStageRef} className={styles.documentStage} data-editor-scroll-root>
+        <div ref={documentStageRef} className={styles.documentStage} data-editor-scroll-root onClickCapture={handleAttachmentLink} onAuxClickCapture={handleAttachmentLink}>
           <article ref={paperRef} className={styles.paper} data-pdf-document="true" aria-labelledby="note-editor-title">
             <EditorDocumentHeader
               ref={documentHeaderRef}
@@ -829,6 +870,22 @@ export function NoteEditorView({
           canWrite={canWrite}
           canInsertAttachment={canEditContent}
           extendedWritesEnabled={extendedWritesEnabled}
+          attachmentActions={attachmentActions ? { ...attachmentActions,
+            refreshAttachments: async () => {
+              const items = await onListAttachments(note.id);
+              if (versionWriteStateRef.current.noteId === note.id) setAttachments(items);
+            },
+            verifyNoteAttachment: async id => {
+              const updated = await attachmentActions.verifyNoteAttachment(id);
+              if (versionWriteStateRef.current.noteId === note.id) setAttachments(current => current.map(item => item.id === id ? updated : item));
+              return updated;
+            },
+            restoreNoteAttachment: async (id, bytes) => {
+              const updated = await attachmentActions.restoreNoteAttachment(id, bytes);
+              if (versionWriteStateRef.current.noteId === note.id) setAttachments(current => current.map(item => item.id === id ? updated : item));
+              return updated;
+            }
+          } : undefined}
           attachments={attachments}
           attachmentsLoading={attachmentsLoading}
           linkedNotes={linkedNotes}
@@ -874,12 +931,20 @@ export function NoteEditorView({
           onInsertAttachment={insertStoredAttachment}
           onRenameAttachment={async (attachmentId, fileName) => {
             const updated = await onRenameAttachment(attachmentId, fileName);
-            setAttachments((current) => current.map((item) => item.id === updated.id ? updated : item));
+            if (versionWriteStateRef.current.noteId === note.id) setAttachments((current) => current.map((item) => item.id === updated.id ? updated : item));
             return updated;
           }}
           onDeleteAttachment={async (attachmentId) => {
-            await onDeleteAttachment(attachmentId);
-            setAttachments((current) => current.filter((item) => item.id !== attachmentId));
+            const currentMarkdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+            if (isAttachmentReferenced(currentMarkdown, attachmentId)) throw new Error('当前正文或草稿仍引用此附件，请先移除引用');
+            await autosave.saveNow(currentMarkdown);
+            if (versionWriteStateRef.current.noteId !== note.id || !versionWriteStateRef.current.canWrite) throw new Error('笔记或写入状态已变化，请重新检查');
+            const latestMarkdown = autosave.getLatestMarkdown();
+            if (isAttachmentReferenced(latestMarkdown, attachmentId)) throw new Error('当前草稿新增了附件引用，已阻止删除');
+            if (latestMarkdown !== currentMarkdown) throw new Error('正文在保存期间发生变化，请保存后重新检查');
+            const result = await onDeleteAttachment(attachmentId);
+            if (versionWriteStateRef.current.noteId === note.id) setAttachments((current) => current.filter((item) => item.id !== attachmentId));
+            return result;
           }}
           onCreateAnnotation={createCurrentAnnotation}
           onSelectAnnotation={selectAnnotation}

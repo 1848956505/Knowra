@@ -45,7 +45,14 @@ test('production proxy accepts the body limit and rejects larger requests before
       if (size === limit) assert.equal(payload.data.size, limit);
       else assert.equal(payload.error.code, 'PAYLOAD_TOO_LARGE');
     }
-    assert.deepEqual(received, [limit]);
+    const restoreBody = JSON.stringify({ contentBase64: Buffer.alloc(6 * 1024 * 1024).toString('base64') });
+    const restored = await fetch(`${origin}/api/storage/attachments/attachment-legacy/restore`, { method: 'POST', body: restoreBody });
+    assert.equal(restored.status, 200, '6 MiB 原文件包含 JSON 包装后仍可转发');
+    const upload = await fetch(`${origin}/api/storage/attachments`, { method: 'POST', body: restoreBody });
+    assert.equal(upload.status, 413, '其他接口保持 8 MiB 请求限制');
+    const tooLarge = await fetch(`${origin}/api/storage/attachments/attachment-legacy/restore`, { method: 'POST', body: 'a'.repeat(9 * 1024 * 1024 + 1) });
+    assert.equal(tooLarge.status, 413);
+    assert.deepEqual(received, [limit, Buffer.byteLength(restoreBody)]);
   } finally {
     await close(proxy);
     await close(upstream);

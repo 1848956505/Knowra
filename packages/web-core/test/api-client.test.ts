@@ -253,7 +253,25 @@ describe('framework-neutral API clients', () => {
     expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/notes/note%2F1/versions/version%2F1');
   });
 
-  it('connects note organization and attachment management contracts', async () => {
+  it('preserves attachment cleanup results and connects preflight, verification, restoration and retry', async () => {
+    const attachment = { id: 'attachment-1', noteId: 'note', fileName: 'file.txt', size: 8, mimeType: 'text/plain', status: 'ready' };
+    const preflight = { asset: { type: 'attachment', id: attachment.id }, references: [], decision: 'can-purge-no-history' };
+    const cleanup = { items: [{ attachmentId: attachment.id, fileName: 'file.txt', cleanup: 'pending-retry' }], pending: 1 };
+    const requestJson = vi.fn().mockResolvedValueOnce({ data: preflight }).mockResolvedValueOnce({ data: attachment })
+      .mockResolvedValueOnce({ data: attachment }).mockResolvedValueOnce({ data: { ...attachment, cleanup: 'retained-local' } })
+      .mockResolvedValueOnce({ data: cleanup }).mockResolvedValueOnce({ data: { completed: 1, pending: 0 } });
+    const api = createWorkspaceApi({ requestJson });
+    await expect(api.inspectAttachmentDeletion(attachment.id)).resolves.toEqual(preflight);
+    await api.verifyNoteAttachment(attachment.id);
+    await api.restoreNoteAttachment(attachment.id, 'b3JpZ2luYWw=');
+    await expect(api.deleteNoteAttachment(attachment.id)).resolves.toMatchObject({ cleanup: 'retained-local' });
+    await expect(api.listAttachmentCleanup()).resolves.toEqual(cleanup);
+    await expect(api.retryAttachmentCleanup()).resolves.toEqual({ completed: 1, pending: 0 });
+    expect(requestJson).toHaveBeenNthCalledWith(3, '/api/storage/attachments/attachment-1/restore', { method: 'POST', body: JSON.stringify({ contentBase64: 'b3JpZ2luYWw=' }) });
+    expect(requestJson).toHaveBeenNthCalledWith(6, '/api/storage/attachments/cleanup/retry', { method: 'POST' });
+  });
+
+  it('connects note organization and attachment management contracts' , async () => {
     const attachment = {
       id: 'attachment/1', noteId: 'note/1', fileName: 'diagram.png',
       mimeType: 'image/png', size: 128, status: 'ready'

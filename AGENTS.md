@@ -15,6 +15,7 @@
 | API 测试 | `npm run test:api` |
 | V4 测试 | `npm run test:web` |
 | V4 类型、架构边界和测试 | `npm run check:web:v4` |
+| 共享工具 | `npm run test:shared` |
 | 共享契约 / V3 回归 / 脚本测试 | `npm run test:web-core` / `npm run test:web:legacy` / `npm run test:scripts` |
 | 全部测试 | `npm test` |
 | 本地离线运行服务（先构建 V4） | `npm run start:desktop` |

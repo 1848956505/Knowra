@@ -22,7 +22,10 @@ export function createKnowledgeBaseSnapshotService({
     getAttachmentContent,
     inspectAttachmentDeletion,
     deleteAttachment,
-    retryAttachmentCleanup
+    retryAttachmentCleanup,
+    verifyAttachment: (params) => { requireAttachmentStore(); return attachmentStore.verifyAttachment(params.id); },
+    restoreAttachment: (params, body) => { requireAttachmentStore(); return attachmentStore.restoreAttachment(params.id, body); },
+    listAttachmentCleanup: () => { requireAttachmentStore(); return attachmentStore.listAttachmentCleanup(); }
   };
 
   function exportKnowledgeBase() {

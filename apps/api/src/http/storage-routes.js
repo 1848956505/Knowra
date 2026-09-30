@@ -16,6 +16,22 @@ export async function handleStorageRoute({ request, response, url, storage }) {
     return true;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/storage/attachments/cleanup') {
+    sendJson(response, 200, { data: await storage.listAttachmentCleanup() });
+    return true;
+  }
+
+  for (const action of ['verify', 'restore']) {
+    const id = matchAttachmentRoute(url.pathname, action);
+    if (request.method === 'POST' && id !== null) {
+      const result = action === 'verify'
+        ? await storage.verifyAttachment({ id })
+        : await storage.restoreAttachment({ id }, await parseBody(request, { limitBytes: 9 * 1024 * 1024 }));
+      sendJson(response, 200, { data: result });
+      return true;
+    }
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/storage/attachments/cleanup/retry') {
     sendJson(response, 200, { data: await storage.retryAttachmentCleanup() });
     return true;

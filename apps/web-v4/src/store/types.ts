@@ -8,6 +8,9 @@ import type {
   WorkspaceApi,
   KeyValueStorage,
   Attachment,
+  AttachmentDeleteResult,
+  AttachmentDeletionPreflight,
+  AttachmentCleanupStatus,
   Annotation,
   Note,
   Folder,
@@ -108,7 +111,12 @@ export interface WorkspaceSlice {
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
   uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
   renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
-  deleteNoteAttachment(attachmentId: string): Promise<void>;
+  deleteNoteAttachment(attachmentId: string): Promise<AttachmentDeleteResult>;
+  inspectAttachmentDeletion(attachmentId: string): Promise<AttachmentDeletionPreflight>;
+  verifyNoteAttachment(attachmentId: string): Promise<Attachment>;
+  restoreNoteAttachment(attachmentId: string, contentBase64: string): Promise<Attachment>;
+  listAttachmentCleanup(): Promise<AttachmentCleanupStatus>;
+  retryAttachmentCleanup(): Promise<{ completed: number; pending: number }>;
   moveEntry(kind: 'note' | 'folder', id: string, parentId: string | null): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
   deleteFolder(folderId: string, input: { mode: 'keep' | 'with-content'; destinationId?: string | null }): Promise<void>;

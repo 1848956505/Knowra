@@ -500,10 +500,22 @@ export function createWorkspaceSlice(
         message: '附件已重命名'
       }));
     },
+    inspectAttachmentDeletion: (id) => dependencies.api.inspectAttachmentDeletion(id),
+    listAttachmentCleanup: () => dependencies.api.listAttachmentCleanup(),
+    async verifyNoteAttachment(id) {
+      return executeWorkspaceMutation(set, get, '正在核验附件…', async () => ({ result: await dependencies.api.verifyNoteAttachment(id), message: '附件核验完成' }));
+    },
+    async restoreNoteAttachment(id, contentBase64) {
+      return executeWorkspaceMutation(set, get, '正在恢复原文件…', async () => ({ result: await dependencies.api.restoreNoteAttachment(id, contentBase64), message: '原附件已恢复' }));
+    },
+    async retryAttachmentCleanup() {
+      return executeWorkspaceMutation(set, get, '正在重试文件清理…', async () => ({ result: await dependencies.api.retryAttachmentCleanup(), message: '文件清理重试完成' }));
+    },
     async deleteNoteAttachment(attachmentId) {
       return executeWorkspaceMutation(set, get, '正在删除附件…', async () => {
-        await dependencies.api.deleteNoteAttachment(attachmentId);
-        return { result: undefined, message: '附件已删除' };
+        const result = await dependencies.api.deleteNoteAttachment(attachmentId);
+        const message = result.cleanup === 'complete' ? '附件已删除，文件已清理' : result.cleanup === 'retained-local' ? '附件记录已删除，本机副本按同步与恢复规则保留' : '附件已删除，文件清理待重试';
+        return { result, message };
       });
     },
     async moveEntry(kind, id, parentId) {

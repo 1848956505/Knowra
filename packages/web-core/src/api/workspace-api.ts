@@ -1,3 +1,4 @@
+import type { AttachmentDeleteResult, AttachmentDeletionPreflight, AttachmentCleanupStatus } from '../workspace/types.js';
 import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
@@ -304,7 +305,12 @@ export interface WorkspaceApi {
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
   uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
   renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
-  deleteNoteAttachment(attachmentId: string): Promise<Attachment>;
+  deleteNoteAttachment(attachmentId: string): Promise<AttachmentDeleteResult>;
+  inspectAttachmentDeletion(attachmentId: string): Promise<AttachmentDeletionPreflight>;
+  verifyNoteAttachment(attachmentId: string): Promise<Attachment>;
+  restoreNoteAttachment(attachmentId: string, contentBase64: string): Promise<Attachment>;
+  listAttachmentCleanup(): Promise<AttachmentCleanupStatus>;
+  retryAttachmentCleanup(): Promise<{ completed: number; pending: number }>;
   updateFolder(folderId: string, input: UpdateFolderInput): Promise<Folder>;
   deleteFolder(folderId: string, input: { mode: 'keep' | 'with-content'; destinationId?: string | null }): Promise<{ folders: Folder[]; deletionPackage: Folder['deletionPackage'] }>;
   restoreFolder?(folderId: string): Promise<{ folders: Folder[] }>;
@@ -755,8 +761,23 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!attachment?.id) throw new Error('Rename attachment response is invalid.');
       return attachment;
     },
+    async inspectAttachmentDeletion(id) {
+      return getData<AttachmentDeletionPreflight>(await requestJson(`/api/storage/attachments/${encodeURIComponent(id)}/deletion-preflight`))!;
+    },
+    async verifyNoteAttachment(id) {
+      return getData<Attachment>(await requestJson(`/api/storage/attachments/${encodeURIComponent(id)}/verify`, { method: 'POST' }))!;
+    },
+    async restoreNoteAttachment(id, contentBase64) {
+      return getData<Attachment>(await requestJson(`/api/storage/attachments/${encodeURIComponent(id)}/restore`, { method: 'POST', body: JSON.stringify({ contentBase64 }) }))!;
+    },
+    async listAttachmentCleanup() {
+      return getData<AttachmentCleanupStatus>(await requestJson('/api/storage/attachments/cleanup'))!;
+    },
+    async retryAttachmentCleanup() {
+      return getData<{ completed: number; pending: number }>(await requestJson('/api/storage/attachments/cleanup/retry', { method: 'POST' }))!;
+    },
     async deleteNoteAttachment(attachmentId) {
-      const attachment = getData<Attachment>(await requestJson(
+      const attachment = getData<AttachmentDeleteResult>(await requestJson(
         `/api/storage/attachments/${encodeURIComponent(attachmentId)}`,
         { method: 'DELETE' }
       ));

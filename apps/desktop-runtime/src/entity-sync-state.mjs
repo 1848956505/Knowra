@@ -59,6 +59,15 @@ function stateFromBase(base) {
   return state;
 }
 function setState(target, next) { for (const collection of LOCAL_DATA_COLLECTIONS) target[collection].splice(0, target[collection].length, ...next[collection]); }
+function preserveAttachmentHealth(next, previous) {
+  const local = new Map(previous.attachments.map(item => [item.id, item]));
+  for (const attachment of next.attachments) {
+    const before = local.get(attachment.id);
+    if (before && before.sha256 === attachment.sha256 && before.size === attachment.size && before.fileName === attachment.fileName) {
+      Object.assign(attachment, { status: before.status, verifiedAt: before.verifiedAt, storagePath: before.storagePath });
+    }
+  }
+}
 function persistBases(db, base, previous) {
   const remove = db.prepare('DELETE FROM sync_base WHERE collection = ? AND id = ?');
   for (const [key, entry] of previous) if (!base.has(key)) remove.run(entry.collection, entry.id);
@@ -121,6 +130,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     });
     const merged = stateFromBase(remote);
     for (const entry of dirty) replace(merged, entry);
+    preserveAttachmentHealth(merged, state);
     // 未修改的历史别名仍可在本地按稳定 ID 读取。
     const versionIds = new Set(merged.noteVersions.map(item => item.id));
     const noteIds = new Set(merged.notes.map(item => item.id));
@@ -265,6 +275,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
         replace(merged, entry);
       }
     }
+    preserveAttachmentHealth(merged, state);
     setState(state, reconcileSyncedSourceStates(merged));
     if (choice === 'copy') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);

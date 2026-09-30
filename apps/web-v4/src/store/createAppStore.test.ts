@@ -274,7 +274,7 @@ describe('single V4 application store', () => {
     vi.mocked(api.listNoteAttachments).mockResolvedValue([attachment]);
     vi.mocked(api.uploadNoteAttachment).mockResolvedValue(attachment);
     vi.mocked(api.renameNoteAttachment).mockResolvedValue({ ...attachment, fileName: 'renamed.png' });
-    vi.mocked(api.deleteNoteAttachment).mockResolvedValue(attachment);
+    vi.mocked(api.deleteNoteAttachment).mockResolvedValue({ ...attachment, cleanup: 'complete' });
     const store = createAppStore({
       api,
       cacheKey: 'workspace-p1-note-actions',
@@ -627,6 +627,11 @@ function createApi(): WorkspaceApi {
     listNoteAttachments: vi.fn().mockResolvedValue([]),
     uploadNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
     renameNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
+    inspectAttachmentDeletion: vi.fn().mockResolvedValue({ asset: { type: 'attachment', id: 'attachment-1' }, decision: 'can-purge-no-history', references: [], reasonCodes: [], coverage: { persistedCurrentAndHistory: true } }),
+    verifyNoteAttachment: vi.fn(),
+    restoreNoteAttachment: vi.fn(),
+    listAttachmentCleanup: vi.fn().mockResolvedValue({ items: [], pending: 0 }),
+    retryAttachmentCleanup: vi.fn().mockResolvedValue({ completed: 0, pending: 0 }),
     deleteNoteAttachment: vi.fn().mockResolvedValue({ id: 'attachment-1' }),
     updateFolder: vi.fn().mockResolvedValue({ id: 'folder-1' }),
     deleteFolder: vi.fn().mockResolvedValue([]),

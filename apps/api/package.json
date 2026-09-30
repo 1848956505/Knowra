@@ -20,7 +20,8 @@
     "ajv-formats": "^3.0.1",
     "bullmq": "^5.56.2",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "@study-accelerator/shared": "0.1.0"
   },
   "devDependencies": {
     "prisma": "^6.9.0"

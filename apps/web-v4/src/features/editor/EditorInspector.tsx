@@ -31,6 +31,8 @@ import {
 } from './editorInspectorModel';
 import styles from './EditorInspector.module.css';
 import { VersionHistoryPanel } from './VersionHistoryPanel';
+import type { AttachmentActions } from './EditorAttachmentPanel';
+import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
 import { EditorAttachmentPanel } from './EditorAttachmentPanel';
 import { OrganizeNoteDialog } from './OrganizeNoteDialog';
 import { TagChip, TagPickerDialog } from '../tags';
@@ -86,7 +88,8 @@ export interface EditorInspectorProps {
   onUploadAttachment(file: File): Promise<Attachment>;
   onInsertAttachment(attachment: Attachment): Promise<void>;
   onRenameAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
-  onDeleteAttachment(attachmentId: string): Promise<void>;
+  onDeleteAttachment(attachmentId: string): Promise<AttachmentDeleteResult | void>;
+  attachmentActions?: AttachmentActions;
   onCreateAnnotation(scopeType?: 'selection' | 'blocks' | 'section' | 'list'): Promise<void>;
   onSelectAnnotation(annotationId: string): void;
   onDeleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation | undefined>;
@@ -268,6 +271,10 @@ function InfoPanel(props: EditorInspectorProps & {
       <InspectorSection icon={<PaperclipIcon size={18} />} title="附件" count={props.attachments.length}>
         {props.extendedWritesEnabled === false ? <p className={styles.emptyInline}>离线附件当前仅支持阅读已导入的文件。</p> : null}
         <EditorAttachmentPanel
+          key={props.note.id}
+          actions={props.attachmentActions}
+          onOpenNote={props.onOpenNote}
+          onOpenKnowledgeItem={props.onOpenKnowledgeItem}
           attachments={props.attachments}
           markdown={props.markdown}
           canWrite={props.canWrite && props.extendedWritesEnabled !== false}

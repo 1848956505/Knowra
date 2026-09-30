@@ -1,3 +1,5 @@
+import { inspectAttachmentDeletion } from '../../api/src/infrastructure/attachment-deletion-preflight.js';
+import { createAppError } from '../../api/src/errors/app-error.js';
 import path from 'node:path';
 import { createAttachmentTransfer } from '../../api/src/modules/sync/attachment-transfer.js';
 import { createAppContext } from '../../api/src/app.factory.js';
@@ -44,15 +46,14 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       return renameAttachment(params, body);
     };
     context.http.storage.deleteAttachment = params => store.runTransaction(() => {
-      const reference = `/api/storage/attachments/${params.id}/content`;
-      if ([...store.state.notes.map(note => note.rawMarkdown), ...store.state.noteVersions.map(version => version.content)].some(content => content.includes(reference))) {
-        const error = new Error('正文或历史版本仍引用此附件，不能删除。'); error.code = 'ATTACHMENT_REFERENCED'; error.statusCode = 409; throw error;
+      if (inspectAttachmentDeletion(params.id, store.state).references.length) {
+        throw createAppError('ATTACHMENT_REFERENCED', '保留的资产仍引用此附件，不能删除。', 409);
       }
       const index = store.state.attachments.findIndex(item => item.id === params.id);
-      if (index < 0) throw new Error('附件不存在。');
+      if (index < 0) throw createAppError('ATTACHMENT_NOT_FOUND', '附件不存在。', 404);
       const [attachment] = store.state.attachments.splice(index, 1);
       // 同步确认与备份完成前保留文件，删除只产生元数据墓碑。
-      store.flush(); return attachment;
+      store.flush(); return { ...attachment, cleanup: 'retained-local' };
     });
     const sync = createSyncEngine(store, { ...syncOptions, noteService, entityTransfer });
     const modelSettings = credentialSource ?? {

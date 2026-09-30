@@ -1,3 +1,4 @@
+import { inspectAttachmentFile, assertReadableStatus, throwFileHealth, prepareAttachmentRestore, assertSameAttachment, recoverAttachmentRestores } from './attachment-recovery.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createAppError } from '../errors/app-error.js';
@@ -12,8 +13,7 @@ import { reconcileAttachmentIntegrity } from './attachment-record-reconciliation
 import { createLocalAttachmentUpload } from './local-attachment-upload.js';
 import {
   moveFileSafely,
-  sanitizeFileName,
-  sha256Buffer
+  sanitizeFileName
 } from './local-attachment-store-utils.js';
 
 export function createLocalAttachmentStore({
@@ -76,71 +76,46 @@ export function createLocalAttachmentStore({
       .find((attachment) => attachment.id === attachmentId) ?? null;
   }
 
-  function readAttachmentContent(attachmentId) {
-    const attachment = getAttachment(attachmentId);
+  function requiredAttachment(id) {
+    const attachment = getAttachment(id);
+    if (!attachment) throw createAppError('ATTACHMENT_NOT_FOUND', '附件不存在。', 404);
+    return attachment;
+  }
 
-    if (!attachment) {
-      throw createAppError(
-        'ATTACHMENT_NOT_FOUND',
-        'Attachment not found',
-        404
-      );
+  function verifyAttachment(id) {
+    const attachment = requiredAttachment(id);
+    const previous = { ...attachment };
+    const { content, ...health } = inspectAttachmentFile(attachment, fileManager);
+    if (attachment.status !== health.status || attachment.verifiedAt !== health.verifiedAt) {
+      Object.assign(attachment, health);
+      try { flush(); } catch (error) { Object.assign(attachment, previous); throw error; }
     }
+    return requiredAttachment(id);
+  }
 
-    if (attachment.status === ATTACHMENT_STATUS.CORRUPT) {
-      throw createAppError(
-        'ATTACHMENT_FILE_CORRUPT',
-        `Attachment file failed integrity check: ${attachmentId}`,
-        409
-      );
+  function readAttachmentContent(id) {
+    const attachment = requiredAttachment(id);
+    assertReadableStatus(attachment);
+    const health = inspectAttachmentFile(attachment, fileManager);
+    if (health.status !== 'ready') {
+      verifyAttachment(id);
+      throwFileHealth(health.status);
     }
-    if (
-      attachment.status === ATTACHMENT_STATUS.PENDING
-      || attachment.status === ATTACHMENT_STATUS.FAILED
-    ) {
-      throw createAppError(
-        'ATTACHMENT_NOT_READY',
-        `Attachment is not ready: ${attachmentId}`,
-        409
-      );
-    }
+    return { attachment, content: health.content };
+  }
 
-    const readablePath = fileManager.resolveReadableAttachmentPath(attachment);
-    if (!readablePath) {
-      // Attachment record exists in the JSON store, but the file on disk is
-      // missing. This happens when the JSON snapshot was restored without
-      // the corresponding `storage/uploads/` files.
-      throw createAppError(
-        'ATTACHMENT_FILE_MISSING',
-        `Attachment file missing: ${attachmentId}`,
-        404
-      );
-    }
-
-    const content = fs.readFileSync(readablePath);
-    if (
-      attachment.sha256
-      && sha256Buffer(content) !== attachment.sha256.toLowerCase()
-    ) {
-      attachment.status = ATTACHMENT_STATUS.CORRUPT;
-      attachment.verifiedAt = null;
-      const corrupt = createAppError(
-        'ATTACHMENT_FILE_CORRUPT',
-        `Attachment file failed integrity check: ${attachmentId}`,
-        409
-      );
-      try {
-        flush();
-      } catch (statusError) {
-        corrupt.statusPersistError = statusError;
-      }
-      throw corrupt;
-    }
-
-    return {
-      attachment,
-      content
-    };
+  function restoreAttachment(id, body) {
+    const original = { ...requiredAttachment(id) };
+    const transaction = prepareAttachmentRestore(original, body, fileManager);
+    try {
+      assertSameAttachment(getAttachment(id), original);
+      transaction.commit();
+      const current = requiredAttachment(id);
+      Object.assign(current, { status: 'ready', verifiedAt: new Date().toISOString() });
+      try { flush(); } catch (error) { Object.assign(current, original); throw error; }
+      transaction.finalize();
+      return requiredAttachment(id);
+    } catch (error) { transaction.rollback(); throw error; }
   }
 
   function renameAttachment(attachmentId, fileName) {
@@ -185,7 +160,7 @@ export function createLocalAttachmentStore({
 
     attachment.fileName = nextSafeName;
     attachment.storagePath = nextStoragePath;
-    if (fs.existsSync(nextAbsolutePath)) {
+    if (!attachment.sha256 && fs.existsSync(nextAbsolutePath)) {
       attachment.size = fs.statSync(nextAbsolutePath).size;
     }
     reconcileAttachmentIntegrity(attachment, nextAbsolutePath);
@@ -222,6 +197,7 @@ export function createLocalAttachmentStore({
     flush,
     cleanupQueue
   });
+  void recoverAttachmentRestores(fileManager, getAttachment, verifyAttachment);
   void cleanupQueue.retry(id => Boolean(getAttachment(id)));
 
   return {
@@ -233,8 +209,11 @@ export function createLocalAttachmentStore({
     listAttachments,
     getAttachment,
     readAttachmentContent,
+    verifyAttachment,
+    restoreAttachment,
     renameAttachment,
     ...deletionManager,
+    listAttachmentCleanup: () => cleanupQueue.list(id => Boolean(getAttachment(id))),
     retryAttachmentCleanup: () => cleanupQueue.retry(id => Boolean(getAttachment(id))),
     ...snapshotStore
   };

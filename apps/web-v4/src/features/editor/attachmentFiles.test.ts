@@ -15,7 +15,8 @@ describe('attachment file helpers', () => {
     expect(buildAttachmentContentUrl('file/1')).toBe('/api/storage/attachments/file%2F1/content');
     const url = buildAttachmentReferenceUrl('file/1');
     expect(url).toBe('/api/storage/attachments/file%2F1/content#attachment=file%2F1');
-    expect(isAttachmentReferenced(`![图](${url})`, 'file/1')).toBe(true);
+    expect(isAttachmentReferenced(`![图](${url})`, 'file/1')).toBe(false);
+    expect(isAttachmentReferenced('[图](/api/storage/attachments/%61ttachment-real/content#attachment=wrong)', 'attachment-real')).toBe(true);
     expect(isAttachmentReferenced('无附件', 'file/1')).toBe(false);
   });
 

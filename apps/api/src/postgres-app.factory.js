@@ -114,6 +114,7 @@ export async function createPostgresAppContext({
       }
     }
   });
+  await attachmentStore.recoverAttachmentRestores();
   await attachmentStore.retryAttachmentCleanup();
   const noteDeletionCoordinator = createAsyncNoteDeletionCoordinator({
     noteService: knowledge.noteService,

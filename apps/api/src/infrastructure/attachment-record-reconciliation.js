@@ -27,7 +27,7 @@ export function reconcileAttachmentIntegrity(
   const stats = fs.statSync(filePath);
   const actualSha256 = sha256FileSync(filePath);
   const expectedSha256 = normalizeSha256(attachment.sha256);
-  if (expectedSha256 && expectedSha256 !== actualSha256) {
+  if (expectedSha256 && (expectedSha256 !== actualSha256 || attachment.size !== stats.size)) {
     attachment.status = ATTACHMENT_STATUS.CORRUPT;
     attachment.verifiedAt = null;
     return hasChanged(attachment, previous);

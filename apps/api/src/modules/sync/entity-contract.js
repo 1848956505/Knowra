@@ -1,3 +1,4 @@
+import { attachmentIdsInText } from '@study-accelerator/shared/attachments';
 import { noteContent } from './journal.js';
 
 // 兼容实体 v2：知识写入通过独立 capability 协商，试题仍只接收云端变化。
@@ -12,7 +13,7 @@ export function entityContent(collection, value) {
   if (!value) return null;
   if (collection === 'notes') return noteContent(value);
   const ignored = new Set(['createdAt', 'updatedAt']);
-  if (collection === 'attachments') for (const key of ['verifiedAt', 'storagePath']) ignored.add(key);
+  if (collection === 'attachments') for (const key of ['verifiedAt', 'storagePath', 'status']) ignored.add(key);
   if (collection === 'folders') ignored.add('pathCache');
   if (collection === 'knowledgeEvidence') ignored.add('status'); // 来源健康由当前领域状态推导。
   return canonical(Object.fromEntries(Object.entries(value).filter(([key]) => !ignored.has(key))));
@@ -26,9 +27,7 @@ export function referencesFor(collection, value) {
   if (collection === 'folders' && value.parentId) refs.push({ collection: 'folders', id: value.parentId });
   if (collection === 'folders' && value.deletionPackage) for (const id of value.deletionPackage.noteIds ?? []) refs.push({ collection: 'notes', id });
   for (const id of value.tagIds ?? []) refs.push({ collection: 'tags', id });
-  if (collection === 'notes') for (const match of value.rawMarkdown.matchAll(/\/api\/storage\/attachments\/([^/\s)]+)\/content/g)) {
-    try { refs.push({ collection: 'attachments', id: decodeURIComponent(match[1]) }); } catch { throw new Error('正文中的附件引用无效。'); }
-  }
+  if (collection === 'notes') for (const id of attachmentIdsInText(value.rawMarkdown)) refs.push({ collection: 'attachments', id });
   if (collection === 'analysisScopeSnapshots') {
     for (const version of value.noteVersions ?? []) refs.push({ collection: 'noteVersions', id: version.noteVersionId });
     for (const revision of value.annotationRevisions ?? []) refs.push({ collection: 'contentAnnotations', id: revision.annotationId });

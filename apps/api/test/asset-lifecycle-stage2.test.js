@@ -84,7 +84,9 @@ export const assetLifecycleStage2Tests = [
         } });
         const attachment = { id: 'attachment-1', fileName: 'file.bin' };
         queue.enqueue(attachment);
-        assert.equal((await queue.retry(() => true)).pending, 1);
+        // 未提交删除的意图保留，但不计入已提交删除的待清理文件。
+        assert.equal((await queue.retry(() => true)).pending, 0);
+        assert.equal((await queue.list(() => true)).pending, 0);
         assert.equal(removed, 0);
         assert.deepEqual(await queue.retry(() => false), { completed: 0, pending: 1 });
         assert.deepEqual(await queue.retry(() => false), { completed: 1, pending: 0 });

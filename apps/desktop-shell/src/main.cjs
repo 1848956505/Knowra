@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, utilityProcess, safeStorage } = require('electron');
 const path = require('node:path');
+const { createAttachmentDownloads } = require('./attachment-downloads.cjs');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
 const { createDraftStore } = require('./draft-store.cjs');
@@ -68,6 +69,9 @@ else {
   app.on('second-instance', focus);
   app.on('activate', focus);
   app.on('before-quit', event => { if (!finished) { event.preventDefault(); void quitSafely(); } });
+  const attachmentDownloads = createAttachmentDownloads({ getWindow: () => window, getOrigin: () => origin, dataDirectory, dialog, shell });
+  ipcMain.handle('attachment-download', (event, id) => attachmentDownloads.download(event, id));
+  ipcMain.handle('attachment-open-saved', (event, token) => attachmentDownloads.open(event, token));
   const trusted = event => event.sender === window?.webContents && event.senderFrame === window.webContents.mainFrame;
   ipcMain.on('read-recovery-drafts', event => {
     try { if (!trusted(event)) throw new Error('无效的草稿请求'); event.returnValue = { drafts: drafts.read() }; }

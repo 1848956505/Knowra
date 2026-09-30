@@ -1,3 +1,4 @@
+import { decodeAttachmentBytes } from './attachment-recovery.js';
 import { ATTACHMENT_STATUS } from './attachment-status.js';
 import {
   createAttachmentId,
@@ -29,7 +30,7 @@ export function createLocalAttachmentUpload({
 
     const id = createAttachmentId();
     const safeName = sanitizeFileName(fileName);
-    const buffer = Buffer.from(contentBase64, 'base64');
+    const buffer = decodeAttachmentBytes(contentBase64);
     const contentSha256 = sha256Buffer(buffer);
     const storagePath = fileManager.buildStoragePath(id, safeName);
     const absoluteFilePath = fileManager.resolveManagedAbsolutePath(

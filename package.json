@@ -11,7 +11,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "npm run test:api && npm run test:content-anchor && npm run test:web-core && npm run test:web:legacy && npm run test:web && npm run test:scripts && npm run test:desktop",
+    "test": "npm run test:api && npm run test:content-anchor && npm run test:shared && npm run test:web-core && npm run test:web:legacy && npm run test:web && npm run test:scripts && npm run test:desktop",
     "test:content-anchor": "npm test -w @study-accelerator/content-anchor",
     "test:api": "node apps/api/test/run-tests.js",
     "test:desktop": "npm test -w @study-accelerator/desktop-runtime",
@@ -38,7 +38,8 @@
     "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs",
     "check:attachments": "node scripts/check-attachments.mjs",
     "measure:assets": "node scripts/measure-asset-storage.mjs",
-    "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell && npm test -w @study-accelerator/desktop-shell && node apps/desktop-shell/scripts/install-and-cleanup.mjs"
+    "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell && npm test -w @study-accelerator/desktop-shell && node apps/desktop-shell/scripts/install-and-cleanup.mjs",
+    "test:shared": "npm test -w @study-accelerator/shared"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

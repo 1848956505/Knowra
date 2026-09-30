@@ -1,3 +1,4 @@
+import { hasAttachmentReference } from '@study-accelerator/shared/attachments';
 import { LOCAL_DATA_COLLECTIONS } from './local-data-schema.js';
 
 // Only persisted business records are scanned here. Offline copies, backups and
@@ -35,29 +36,19 @@ function referenceCategory(collection) {
   return 'exclusive';
 }
 
-function containsAttachmentReference(value, attachmentId, seen = new Set()) {
-  if (typeof value === 'string') {
-    const path = `/api/storage/attachments/${encodeURIComponent(attachmentId)}/content`;
-    return value.includes(path) || value.includes(
-      `/api/storage/attachments/${attachmentId}/content`
-    );
-  }
-  if (!value || typeof value !== 'object' || seen.has(value)) return false;
-  seen.add(value);
-  if (value.attachmentId === attachmentId
-    || (value.sourceType === 'attachment' && value.sourceId === attachmentId)) return true;
-  return Object.values(value).some((child) => containsAttachmentReference(child, attachmentId, seen));
-}
-
 export function inspectAttachmentDeletion(attachmentId, state) {
   const references = [];
   for (const collection of REFERENCE_COLLECTIONS) {
     for (const record of state[collection] ?? []) {
-      if (!containsAttachmentReference(record, attachmentId)) continue;
+      if (!hasAttachmentReference(record, attachmentId)) continue;
+      const knowledgeItemId = collection === 'knowledgeItems' ? record.id : record.knowledgeItemId;
+      const item = state.knowledgeItems?.find(item => item.id === knowledgeItemId && !item.deletedAt);
       references.push({
         category: referenceCategory(collection),
         collection,
         id: record.id,
+        title: String(record.title || record.fileName || record.name || item?.title || (record.noteId && state.notes?.find(note => note.id === record.noteId)?.title) || record.id),
+        ...(item ? { knowledgeItemId: item.id } : {}),
         ...(record.noteId ? { noteId: record.noteId } : {}),
         ...(collection === 'notes' && (record.deleted || record.deletedAt)
           ? { retention: 'recycle-bin' } : {}),

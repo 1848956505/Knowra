@@ -1,3 +1,4 @@
+import { hasAttachmentReference, MAX_ATTACHMENT_RESTORE_BYTES } from '@study-accelerator/web-core';
 import type { Attachment, UploadAttachmentInput } from '@study-accelerator/web-core';
 
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -20,8 +21,7 @@ export function buildAttachmentReferenceUrl(attachmentId: string): string {
 }
 
 export function isAttachmentReferenced(markdown: string, attachmentId: string): boolean {
-  const encodedId = encodeURIComponent(attachmentId);
-  return markdown.includes(`/api/storage/attachments/${encodedId}/content`);
+  return hasAttachmentReference(markdown, attachmentId);
 }
 
 export function formatAttachmentSize(bytes: number): string {
@@ -58,7 +58,7 @@ export async function readAttachmentFile(noteId: string, file: File): Promise<Up
   };
 }
 
-function fileToBase64(file: File): Promise<string> {
+export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -72,4 +72,11 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('文件读取失败'));
     reader.readAsDataURL(file);
   });
+}
+
+export async function readRestoreFile(attachment: Attachment, file: File): Promise<string> {
+  if (!/^[a-f0-9]{64}$/i.test(attachment.sha256 ?? '')) throw new Error('缺少可信原哈希，不能恢复原附件');
+  if (file.size > MAX_ATTACHMENT_RESTORE_BYTES) throw new Error('原文件恢复不能超过 6 MB');
+  if (file.size !== attachment.size) throw new Error('所选文件大小与原附件不一致');
+  return fileToBase64(file);
 }

@@ -128,7 +128,7 @@ export function createLocalAttachmentFileManager({
 
     if (isSafeRegularFile(managedAbsolutePath, normalizedUploadsDir)) {
       const stats = fs.statSync(managedAbsolutePath);
-      if (attachment.size !== stats.size) {
+      if (!attachment.sha256 && attachment.size !== stats.size) {
         attachment.size = stats.size;
         changed = true;
       }

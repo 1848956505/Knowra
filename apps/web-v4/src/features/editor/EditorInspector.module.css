@@ -336,7 +336,7 @@
 .attachmentRow {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 28px 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px;
   min-height: 44px;
@@ -361,20 +361,6 @@
 .attachmentTarget span { min-width: 0; display: grid; gap: 2px; }
 .attachmentTarget strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .attachmentTarget small { color: var(--ink-secondary); font: 9px/1.2 var(--font-mono); }
-.attachmentActionButton {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-secondary);
-}
-.attachmentActionButton:hover:not(:disabled) { background: var(--ink-sunken); color: var(--ink); }
-.attachmentActionButton:last-child:hover:not(:disabled) { color: var(--ink-danger); }
-.attachmentActionButton:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.attachmentActionButton:disabled { color: var(--ink-muted); cursor: not-allowed; }
 .referenceBadge {
   padding: 3px 5px;
   border: 1px solid var(--ink-accent);
@@ -423,3 +409,8 @@
     box-shadow: none;
   }
 }
+
+.attachmentControls { display: flex; align-items: center; gap: 4px; }
+.attachmentRecoveryActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.attachmentRecoveryActions small { color: var(--ink-secondary); }
+.attachmentPreviewImage { display: block; max-width: 100%; max-height: 65vh; margin-inline: auto; }

@@ -11,6 +11,8 @@ const MUTATIONS = [
   ['POST', /^\/api\/knowledge\/items\/[^/]+\/(?:confirm|archive|restore)$/],
   ['DELETE', /^\/api\/storage\/attachments\/[^/]+$/],
   ['POST', /^\/api\/storage\/attachments$/],
+  ['POST', /^\/api\/storage\/attachments\/[^/]+\/(?:verify|restore)$/],
+  ['POST', /^\/api\/storage\/attachments\/cleanup\/retry$/],
   ['POST', /^\/api\/storage\/attachments\/[^/]+\/rename$/],
   ['POST', /^\/api\/knowledge\/annotations(?:\/[^/]+\/(?:restore|exclusions))?$/],
   ['PATCH', /^\/api\/knowledge\/annotations\/[^/]+(?:\/anchor)?$/],

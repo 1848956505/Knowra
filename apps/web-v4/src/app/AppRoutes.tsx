@@ -173,6 +173,11 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
   const uploadNoteAttachment = useAppStore((state) => state.uploadNoteAttachment);
   const renameNoteAttachment = useAppStore((state) => state.renameNoteAttachment);
   const deleteNoteAttachment = useAppStore((state) => state.deleteNoteAttachment);
+  const inspectAttachmentDeletion = useAppStore(state => state.inspectAttachmentDeletion);
+  const verifyNoteAttachment = useAppStore(state => state.verifyNoteAttachment);
+  const restoreNoteAttachment = useAppStore(state => state.restoreNoteAttachment);
+  const listAttachmentCleanup = useAppStore(state => state.listAttachmentCleanup);
+  const retryAttachmentCleanup = useAppStore(state => state.retryAttachmentCleanup);
   const getLinkedNotes = useAppStore((state) => state.getLinkedNotes);
   const listAnnotations = useAppStore((state) => state.listAnnotations);
   const createAnnotation = useAppStore((state) => state.createAnnotation);
@@ -283,6 +288,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onUploadAttachment={uploadNoteAttachment}
         onRenameAttachment={renameNoteAttachment}
         onDeleteAttachment={deleteNoteAttachment}
+        attachmentActions={{ inspectAttachmentDeletion, verifyNoteAttachment, restoreNoteAttachment, listAttachmentCleanup, retryAttachmentCleanup }}
         onGetLinkedNotes={getLinkedNotes}
         onListAnnotations={listAnnotations}
         onCreateAnnotation={createAnnotation}

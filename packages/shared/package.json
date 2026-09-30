@@ -2,5 +2,14 @@
   "name": "@study-accelerator/shared",
   "version": "0.1.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    "./attachments": {
+      "types": "./src/attachments.d.ts",
+      "default": "./src/attachments.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
 }

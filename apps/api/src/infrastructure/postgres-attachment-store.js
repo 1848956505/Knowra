@@ -1,3 +1,5 @@
+import { inspectAttachmentFile, assertReadableStatus, throwFileHealth, prepareAttachmentRestore, assertSameAttachment, recoverAttachmentRestores } from './attachment-recovery.js';
+import { decodeAttachmentBytes } from './attachment-recovery.js';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -39,7 +41,7 @@ export function createPostgresAttachmentStore({
     if (!contentBase64?.trim()) throw new Error('Attachment contentBase64 is required');
     const id = createAttachmentId();
     const safeName = sanitizeFileName(fileName);
-    const buffer = Buffer.from(contentBase64, 'base64');
+    const buffer = decodeAttachmentBytes(contentBase64);
     const contentSha256 = sha256Buffer(buffer);
     const storagePath = fileManager.buildStoragePath(id, safeName);
     const absoluteFilePath = fileManager.resolveManagedAbsolutePath(id, safeName);
@@ -112,50 +114,47 @@ export function createPostgresAttachmentStore({
     return attachment;
   }
 
-  async function readAttachmentContent(attachmentId) {
-    const attachment = await getRequiredAttachment(attachmentId);
-    if (attachment.status === ATTACHMENT_STATUS.CORRUPT) {
-      throw createAppError(
-        'ATTACHMENT_FILE_CORRUPT',
-        `Attachment file failed integrity check: ${attachmentId}`,
-        409
-      );
+  async function saveHealth(original, health) {
+    const save = async () => {
+      const current = await getAttachment(original.id);
+      assertSameAttachment(current, original);
+      return attachmentRepository.save({ ...current, ...health });
+    };
+    return runTransaction ? runTransaction(save) : save();
+  }
+
+  async function verifyAttachment(id) {
+    const attachment = await getRequiredAttachment(id);
+    const { content, ...health } = inspectAttachmentFile(attachment, fileManager);
+    if (attachment.status === health.status && attachment.verifiedAt === health.verifiedAt) return attachment;
+    return saveHealth(attachment, health);
+  }
+
+  async function readAttachmentContent(id) {
+    const attachment = await getRequiredAttachment(id);
+    assertReadableStatus(attachment);
+    const health = inspectAttachmentFile(attachment, fileManager);
+    if (health.status !== 'ready') {
+      await saveHealth(attachment, { status: health.status, verifiedAt: null });
+      throwFileHealth(health.status);
     }
-    if (
-      attachment.status === ATTACHMENT_STATUS.PENDING
-      || attachment.status === ATTACHMENT_STATUS.FAILED
-    ) {
-      throw createAppError(
-        'ATTACHMENT_NOT_READY',
-        `Attachment is not ready: ${attachmentId}`,
-        409
-      );
-    }
-    const readablePath = fileManager.resolveReadableAttachmentPath(attachment);
-    if (!readablePath) throw createAppError('ATTACHMENT_FILE_MISSING', `Attachment file missing: ${attachmentId}`, 404);
+    return { attachment, content: health.content };
+  }
+
+  async function restoreAttachment(id, body) {
+    if (!runTransaction) throw createAppError('ATTACHMENT_RESTORE_UNAVAILABLE', '附件事务保护暂不可用。', 503);
+    const original = await getRequiredAttachment(id);
+    const transaction = prepareAttachmentRestore(original, body, fileManager);
     try {
-      const content = await fsp.readFile(readablePath);
-      if (
-        attachment.sha256
-        && sha256Buffer(content) !== attachment.sha256.toLowerCase()
-      ) {
-        const corrupt = createAppError(
-          'ATTACHMENT_FILE_CORRUPT',
-          `Attachment file failed integrity check: ${attachmentId}`,
-          409
-        );
-        attachment.status = ATTACHMENT_STATUS.CORRUPT;
-        attachment.verifiedAt = null;
-        try {
-          await attachmentRepository.save(attachment);
-        } catch (statusError) {
-          corrupt.statusPersistError = statusError;
-        }
-        throw corrupt;
-      }
-      return { attachment, content };
+      assertSameAttachment(await getAttachment(id), original);
+      transaction.commit();
+      const updated = await saveHealth(original, { status: 'ready', verifiedAt: new Date().toISOString() });
+      transaction.finalize();
+      return updated;
     } catch (error) {
-      if (error.code === 'ENOENT') throw createAppError('ATTACHMENT_FILE_MISSING', `Attachment file missing: ${attachmentId}`, 404, { cause: error });
+      const current = await getAttachment(id).catch(() => null);
+      if (current && current.fileName === original.fileName && current.storagePath === original.storagePath) transaction.rollback();
+      // 并发删除／重命名时保留恢复材料，不改写新的文件路径。
       throw error;
     }
   }
@@ -174,7 +173,7 @@ export function createPostgresAttachmentStore({
       ...attachment,
       fileName: nextSafeName,
       storagePath: nextStoragePath,
-      size: fs.existsSync(nextAbsolutePath) ? fs.statSync(nextAbsolutePath).size : attachment.size
+      size: attachment.size
     };
     try {
       return await attachmentRepository.save(updated);
@@ -239,12 +238,16 @@ export function createPostgresAttachmentStore({
     listAttachments,
     getAttachment,
     readAttachmentContent,
+    verifyAttachment,
+    restoreAttachment,
+    recoverAttachmentRestores: () => recoverAttachmentRestores(fileManager, getAttachment, verifyAttachment),
     renameAttachment,
     deleteAttachment,
     inspectAttachmentDeletion: inspectDeletion,
     detachAttachmentsForNotes,
     prepareAttachmentCleanup: attachments => attachments.forEach(attachment => cleanupQueue.enqueue(attachment)),
     removeDetachedAttachmentFiles,
+    listAttachmentCleanup: () => cleanupQueue.list(id => attachmentRepository.findById(id)),
     retryAttachmentCleanup: () => cleanupQueue.retry(id => attachmentRepository.findById(id)),
     exportAttachmentsSnapshot,
     fileManager

@@ -49,6 +49,9 @@ export function createPostgresSnapshotService({
     deleteAttachment: (params) => gate.runMutation(
       () => attachmentStore.deleteAttachment(params.id)
     ),
+    verifyAttachment: (params) => gate.runMutation(() => attachmentStore.verifyAttachment(params.id)),
+    restoreAttachment: (params, body) => gate.runMutation(() => attachmentStore.restoreAttachment(params.id, body)),
+    listAttachmentCleanup: () => gate.runOperation(() => attachmentStore.listAttachmentCleanup()),
     retryAttachmentCleanup: () => gate.runMutation(
       () => attachmentStore.retryAttachmentCleanup()
     )

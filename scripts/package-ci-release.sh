@@ -21,6 +21,8 @@ root="$(git rev-parse --show-toplevel)"
 }
 test -f "$root/apps/web-v4/dist/index.html"
 test -f "$root/packages/web-core/dist/index.js"
+test -f "$root/packages/shared/src/attachments.js"
+test -f "$root/packages/shared/src/attachments.d.ts"
 if find "$root/apps/web-v4/dist" -type f -name '*.map' -print -quit | grep -q .; then
   echo '生产前端产物包含 Source Map。' >&2
   exit 1
@@ -37,7 +39,7 @@ cp -a "$root/packages/web-core/dist/." "$stage/packages/web-core/dist/"
 (
   cd "$stage"
   npm ci --omit=dev --ignore-scripts
-  node --input-type=module -e "await import('./apps/api/src/app.factory.js'); await import('./apps/web-v4/server/app.mjs')"
+  node --input-type=module -e "await import('@study-accelerator/shared/attachments'); await import('./apps/api/src/app.factory.js'); await import('./apps/web-v4/server/app.mjs')"
 )
 
 printf '{"commit":"%s","platform":"linux-x64","nodeMajor":24}\n' "$commit" > "$stage/.knowra-release.json"

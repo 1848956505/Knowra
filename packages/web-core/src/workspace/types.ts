@@ -68,12 +68,33 @@ export interface NoteVersionPageOptions {
   cursor?: string;
 }
 
+export type AttachmentStatus = 'pending' | 'ready' | 'missing' | 'corrupt' | 'failed';
+export type AttachmentCleanup = 'complete' | 'pending-retry' | 'retained-local';
+export interface AttachmentDeleteResult extends Attachment { cleanup: AttachmentCleanup; }
+export interface AttachmentDeletionReference {
+  category: string; collection: string; id: string; title?: string; noteId?: string; knowledgeItemId?: string;
+  retention?: 'recycle-bin'; reasonCode: string;
+}
+export interface AttachmentDeletionPreflight {
+  asset: { type: 'attachment'; id: string };
+  operation: string;
+  decision: 'requires-dependency-action' | 'can-purge-no-history';
+  references: AttachmentDeletionReference[];
+  reasonCodes: string[];
+  coverage: { persistedCurrentAndHistory: boolean; offlineDevices: string; backups: string; runningTasks: string };
+}
+export interface AttachmentCleanupTask {
+  attachmentId: string | null; fileName: string; noteId?: string | null;
+  createdAt?: string; cleanup: 'pending-retry'; reasonCode: string;
+}
+export interface AttachmentCleanupStatus { items: AttachmentCleanupTask[]; pending: number; }
+
 export interface Attachment extends EntityBase {
   noteId: string;
   fileName: string;
   mimeType: string;
   size: number;
-  status: string;
+  status: AttachmentStatus | (string & {});
   sha256?: string | null;
   verifiedAt?: string | null;
 }

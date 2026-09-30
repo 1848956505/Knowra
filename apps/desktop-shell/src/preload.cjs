@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 let registered = false;
 contextBridge.exposeInMainWorld('knowraDesktop', {
+  downloadAttachment(id) { return ipcRenderer.invoke('attachment-download', id); },
+  openSavedAttachment(token) { return ipcRenderer.invoke('attachment-open-saved', token); },
   readRecoveryDrafts() { const result = ipcRenderer.sendSync('read-recovery-drafts'); if (result.error) throw new Error(result.error); return result.drafts; },
   writeRecoveryDraft(key, draft) { return ipcRenderer.invoke('write-recovery-draft', key, draft); },
   modelSettings(action, value) { return ipcRenderer.invoke('model-settings', action, value); },
