@@ -6,12 +6,17 @@ import { validateCoreOperationReceipt } from '../../infrastructure/core-operatio
 import { createAppError } from '../../errors/app-error.js';
 
 export const actionError = (code, message, status = 409) => { throw createAppError(code, message, status); };
-export const emptyActionState = () => ({ version: 1, actions: [], drafts: [] });
+export const DRAFT_LEASE_MS = 120000;
+export const emptyActionState = () => ({ version: 2, actions: [], drafts: [] });
 export const actionIdentityKeys = ['ownerId', 'actorId', 'datasetId', 'datasetEpoch', 'spaceId', 'requestId', 'operationId'];
 const validatePlanSchema = new Ajv2020({ strict: false }).compile(schema);
 const statuses = ['awaitingApproval', 'authorized', 'applying', 'applied', 'rejected', 'cancelled', 'expired', 'conflicted', 'failed'];
 export function validateActionState(value) {
-  if (!value || value.version !== 1 || !Array.isArray(value.actions) || !Array.isArray(value.drafts)
+  if (value?.version === 1 && Array.isArray(value.drafts)) {
+    if (value.drafts.some(row => !row || 'leaseExpiresAt' in row)) invalid();
+    value = { ...structuredClone(value), version: 2, drafts: value.drafts.map(row => ({ ...row, leaseExpiresAt: new Date(Date.now() + DRAFT_LEASE_MS).toISOString() })) };
+  }
+  if (!value || value.version !== 2 || !Array.isArray(value.actions) || !Array.isArray(value.drafts)
     || Object.keys(value).some(key => !['version', 'actions', 'drafts'].includes(key))) invalid();
   const ids = new Set(), requests = new Set();
   for (const row of value.actions) {
@@ -47,7 +52,7 @@ export function validateActionState(value) {
   if (new Set(value.actions.map(row => row.actionId)).size !== value.actions.length) invalid();
   for (const row of value.drafts) {
     if (!row || ['ownerId', 'datasetId', 'datasetEpoch', 'noteId', 'clientId'].some(key => typeof row[key] !== 'string' || !row[key])
-      || typeof row.dirty !== 'boolean') invalid();
+      || typeof row.dirty !== 'boolean' || typeof row.leaseExpiresAt !== 'string' || !Number.isFinite(Date.parse(row.leaseExpiresAt))) invalid();
   }
   return structuredClone(value);
 }
@@ -100,17 +105,31 @@ function invalid() { actionError('AI_ACTION_STORAGE_INVALID', '动作记录无�
 
 /** adapter 的 write 和业务提交使用同一核心事务锁，防止批准/撤销与提交交错。 */
 export function createActionStore(adapter) {
+  let initialized = false, initializing = null;
+  const write = operation => {
+    const result = adapter.write((input, identity) => {
+      const state = validateActionState(input);
+      const output = operation(state, identity);
+      if (output?.then) throw new TypeError('动作状态变更必须同步。');
+      const validated = validateActionState(state);
+      return { state: validated, result: structuredClone(output) };
+    });
+    const done = value => { initialized = true; return value; };
+    return result?.then ? result.then(done) : done(result);
+  };
+  function initialize() {
+    if (initialized) return;
+    if (initializing) return initializing;
+    // 将 v1 无期限草稿锁的一次性宽限租约持久化；重复读取和重启不能无限续期。
+    const result = write(() => null);
+    if (result?.then) initializing = result.finally(() => { initializing = null; });
+    return initializing;
+  }
   return {
     transaction: adapter.transaction,
     identity: adapter.identity,
-    read: adapter.read,
-    write: operation => adapter.write((input, identity) => {
-      const state = validateActionState(input);
-      const result = operation(state, identity);
-      if (result?.then) throw new TypeError('动作状态变更必须同步。');
-      validateActionState(state);
-      return { state, result: structuredClone(result) };
-    })
+    read: () => { const ready = initialize(); return ready?.then ? ready.then(adapter.read) : adapter.read(); },
+    write
   };
 }
 export function createJsonActionStore({ getState, runTransaction, onChange }) {

@@ -2,7 +2,7 @@ import { validateWriteIntent } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { hashRecord } from './record-contract.js';
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
-import { actionError, actionIdentityKeys } from './action-state.js';
+import { actionError, actionIdentityKeys, DRAFT_LEASE_MS } from './action-state.js';
 import { assertBaseline, baseline, buildActionPlan, finalizePlan, image, runAsync, runSync } from './action-plan.js';
 import { reuseCoreOperationReceipt } from '../../infrastructure/core-operation-contract.js';
 
@@ -70,7 +70,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
     }
     for (const item of row.plan.items) {
       if (state.drafts.some(draft => draft.ownerId === ownerId && draft.datasetId === row.datasetId
-        && draft.datasetEpoch === row.datasetEpoch && draft.noteId === item.after.id && draft.dirty)) {
+        && draft.datasetEpoch === row.datasetEpoch && draft.noteId === item.after.id && draft.dirty && Date.parse(draft.leaseExpiresAt) > now().getTime())) {
         actionError('AI_ACTION_DRAFT_CONFLICT', '目标有未保存草稿，请先保存或比较草稿，再重新预览。');
       }
       assertBaseline(item, yield repos.noteRepository.findById(item.after.id));
@@ -226,8 +226,9 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       await run(space(note.spaceId));
       return store.write((state, identity) => {
         state.drafts = state.drafts.filter(row => !(row.ownerId === ownerId && row.datasetId === identity.datasetId && row.datasetEpoch === identity.datasetEpoch && row.noteId === input.noteId && row.clientId === input.clientId));
-        if (input.dirty) state.drafts.push({ ...identity, ownerId, ...input });
-        return { ...input, ...identity };
+        const leaseExpiresAt = new Date(now().getTime() + DRAFT_LEASE_MS).toISOString();
+        if (input.dirty) state.drafts.push({ ...identity, ownerId, ...input, leaseExpiresAt });
+        return { ...input, ...identity, leaseExpiresAt };
       });
     },
     async undoPreview(actionId, input) {

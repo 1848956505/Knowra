@@ -5,9 +5,9 @@ export function createPostgresActionStore({ client, repository, ownerId }) {
   async function load() {
     const [row] = await client.$queryRawUnsafe('SELECT state_json, state_hash FROM ai_note_action_states WHERE owner_id = $1', ownerId);
     if (!row) return emptyActionState();
-    const state = validateActionState(JSON.parse(row.state_json));
-    if (hashRecord(state) !== row.state_hash) throw new Error('动作账本索引与正文不一致。');
-    return state;
+    const raw = JSON.parse(row.state_json);
+    if (hashRecord(raw) !== row.state_hash) throw new Error('动作账本索引与正文不一致。');
+    return validateActionState(raw);
   }
   return createActionStore({
     transaction: operation => client.$transaction(async () => {

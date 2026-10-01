@@ -97,6 +97,21 @@ export function noteActionScenarios(withFixture) {
       assert.equal((await f.actions.apply(committed.actionId)).status,'applied');assert.equal(cancelResult.cancellation,'alreadyCommitted');assert.equal((await f.notes()).length,1);
       f.core.commit=original;
     }) },
+    { name: 'P2 死亡草稿租约释放、活跃窗口续租、重启及迟到保存 CAS', run: () => withFixture(async f => {
+      const note=await f.create({title:'租约目标',rawMarkdown:'原文'});
+      const apply=async()=>{const row=await f.actions.plan({spaceId:f.space.id,requestId:randomUUID(),toolName:'notes_append',arguments:{noteId:note.id,rawMarkdown:'一次追加'}});await f.actions.approve(row.actionId,{planHash:row.plan.planHash});return f.actions.apply(row.actionId);};
+      await assert.rejects(f.actions.draft({noteId:note.id,clientId:'old',dirty:true,leaseExpiresAt:'1900-01-01'}),{code:'AI_REQUEST_INVALID'});
+      await f.actions.draft({noteId:note.id,clientId:'old',dirty:true});await f.actions.draft({noteId:note.id,clientId:'new',dirty:false});
+      await assert.rejects(apply(),{code:'AI_ACTION_DRAFT_CONFLICT'});f.advance(90000);await f.actions.draft({noteId:note.id,clientId:'old',dirty:true});f.advance(90000);
+      await assert.rejects(apply(),{code:'AI_ACTION_DRAFT_CONFLICT'});await f.restart();f.advance(120001);assert.equal((await apply()).status,'applied');
+      await assert.rejects(Promise.resolve().then(()=>f.update(note.id,{rawMarkdown:'迟到旧草稿',expectedUpdatedAt:new Date(note.updatedAt).toISOString()})));assert.equal((await f.getNote(note.id)).rawMarkdown,'原文一次追加');
+    }) },
+    { name: 'P2 无期限草稿旧状态一次性迁移，重启不得延长宽限期', run: () => withFixture(async f => {
+      const note=await f.create({title:'迁移草稿',rawMarkdown:'正文'});await f.actions.draft({noteId:note.id,clientId:'legacy',dirty:true});
+      const old=await f.actionStore.read();old.version=1;old.drafts.forEach(row=>{delete row.leaseExpiresAt;});await f.legacy(old);await f.restart();
+      const migrated=await f.actionStore.read();assert.equal(migrated.version,2);assert.equal((await f.rawActionState()).version,2);assert(Number.isFinite(Date.parse(migrated.drafts[0].leaseExpiresAt)));
+      const expiry=migrated.drafts[0].leaseExpiresAt;f.advance(60000);await f.restart();assert.equal((await f.actionStore.read()).drafts[0].leaseExpiresAt,expiry);assert.equal((await f.rawActionState()).drafts[0].leaseExpiresAt,expiry);
+    }) },
     { name: 'P2 损坏恢复计划和回执 fail closed，不能改变精确正文工具语义', run: () => withFixture(async f => {
       const note=await f.create({title:'恢复校验',rawMarkdown:'原文'});
       const row=await f.actions.plan({spaceId:f.space.id,requestId:randomUUID(),toolName:'notes_append',arguments:{noteId:note.id,rawMarkdown:'追加'}});

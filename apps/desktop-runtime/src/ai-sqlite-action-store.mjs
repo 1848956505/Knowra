@@ -28,7 +28,7 @@ export function validateSqliteActionRows(db) {
   if (version !== '1') throw new Error('动作账本版本无效。');
   const row = db.prepare('SELECT * FROM ai_note_action_state WHERE id = 1').get();
   if (!row) return emptyActionState();
-  const state = validateActionState(JSON.parse(row.state_json));
-  if (hashRecord(state) !== row.state_hash) throw new Error('动作账本索引与正文不一致。');
-  return state;
+  const raw = JSON.parse(row.state_json);
+  if (hashRecord(raw) !== row.state_hash) throw new Error('动作账本索引与正文不一致。');
+  return validateActionState(raw);
 }

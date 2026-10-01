@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRuntimeBackup, inspectRuntimeBackup, restoreRuntimeBackup } from '../src/backup.mjs';
+import { hashRecord } from '../../api/src/modules/ai/record-contract.js';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,7 +12,7 @@ import { noteActionScenarios } from '../../api/test/fixtures/note-action-scenari
 async function withFixture(run) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'knowra-p2-sqlite-'));let store,app,actions,time=Date.now();
   const restart=()=>{store?.close();store=createSqliteDataStore(path.join(root,'local.sqlite'));app=createAppContext({dataStore:store,ownerId:'test',storageRootDir:root});actions=createNoteActionService({store:store.aiActionStore,core:store.coreOperationStore,knowledge:app.modules.knowledge,ownerId:'test',now:()=>new Date(time)});};
-  try {restart();const space=app.http.knowledge.createDefaultKnowledgeSpace();await run({root,get store(){return store;},space,ownerId:'test',get actions(){return actions;},get core(){return store.coreOperationStore;},get actionStore(){return store.aiActionStore;},restart,advance:ms=>{time+=ms;},rotate:()=>store.aiRepository.rotateEpoch(),
+  try {restart();const space=app.http.knowledge.createDefaultKnowledgeSpace();await run({root,get store(){return store;},space,ownerId:'test',get actions(){return actions;},get core(){return store.coreOperationStore;},get actionStore(){return store.aiActionStore;},restart,rawActionState:()=>store.readSync(db=>JSON.parse(db.prepare('SELECT state_json FROM ai_note_action_state WHERE id=1').get().state_json)),legacy:state=>store.readSync(db=>db.prepare('UPDATE ai_note_action_state SET state_json=?,state_hash=? WHERE id=1').run(JSON.stringify(state),hashRecord(state))),advance:ms=>{time+=ms;},rotate:()=>store.aiRepository.rotateEpoch(),
     createFolder:input=>app.modules.knowledge.folderService.createFolder({...input,spaceId:space.id}),createTag:input=>app.modules.knowledge.tagService.createTag({...input,spaceId:space.id}),updateTag:(id,input)=>app.modules.knowledge.tagService.updateTag(id,input),
     create:input=>app.modules.knowledge.noteService.createNote({...input,spaceId:space.id}),update:(id,input)=>app.modules.knowledge.noteService.updateNote(id,input),getNote:(id,includeDeleted=false)=>app.modules.knowledge.noteService.getNote(id,{includeDeleted}),notes:()=>app.modules.knowledge.noteService.listNotes()});}
   finally{store?.close();fs.rmSync(root,{recursive:true,force:true});}
