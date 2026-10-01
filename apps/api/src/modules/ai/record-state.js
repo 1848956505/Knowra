@@ -1,3 +1,4 @@
+import { emptyActionState, validateActionState } from './action-state.js';
 import { randomUUID } from 'node:crypto';
 import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from './record-contract.js';
 import { createAiRecordRepository } from './record-repository.js';
@@ -5,7 +6,7 @@ import { validateBudgetState } from './budget-ledger.js';
 import { ACCESS_KINDS, createJsonAiAccessStore, validateAccessRecord, validateAccessRelationships } from './access-records.js';
 import { CONVERSATION_KINDS, createJsonAiConversationStore, emptyConversationState, validateConversationState } from './conversation-store.js';
 
-export const AI_PRIVATE_STATE_VERSION = 4;
+export const AI_PRIVATE_STATE_VERSION = 5;
 const collections = Object.values(AI_RECORD_KINDS).map(value => value.collection);
 const accessCollections = Object.values(ACCESS_KINDS).map(value => value.collection);
 const conversationCollections = Object.values(CONVERSATION_KINDS).map(value => value.collection);
@@ -17,7 +18,7 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
     datasetEpoch,
     ...Object.fromEntries(collections.map(name => [name, []])),
     ...Object.fromEntries(accessCollections.map(name => [name, []])),
-    ...emptyConversationState(),
+    ...emptyConversationState(), actionLedger: emptyActionState(),
     events: [], budgetDays: [], budgetReservations: []
   };
 }
@@ -25,10 +26,10 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
 export function validateAiState(input) {
   if (input === undefined) return createEmptyAiState();
   if (!input || typeof input !== 'object' || Array.isArray(input)
-    || ![1, 2, 3, AI_PRIVATE_STATE_VERSION].includes(input.version)
+    || ![1, 2, 3, 4, AI_PRIVATE_STATE_VERSION].includes(input.version)
     || typeof input.datasetId !== 'string' || !input.datasetId
     || typeof input.datasetEpoch !== 'string' || !input.datasetEpoch
-    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
+    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', 'actionLedger', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
     throw new Error('AI 私有存储版本或结构无效，已停止加载。');
   }
   const state = structuredClone(input);
@@ -51,8 +52,13 @@ export function validateAiState(input) {
       throw new Error('AI v3 私有状态不能包含 v4 模型尝试记录。');
     }
     state.conversationModelAttempts = [];
-    state.version = AI_PRIVATE_STATE_VERSION;
+    state.version = 4;
   }
+  if (state.version === 4) {
+    if (Object.hasOwn(state, 'actionLedger')) throw new Error('旧版本不能包含新动作账本。');
+    state.actionLedger = emptyActionState(); state.version = 5;
+  }
+  validateActionState(state.actionLedger);
   for (const [kind, { collection, id }] of Object.entries(AI_RECORD_KINDS)) {
     if (!Array.isArray(state[collection])) throw new Error(`AI 私有集合 ${collection} 无效。`);
     const ids = new Set();

@@ -1,3 +1,6 @@
+import { flushAiDraftCoordination, hasCoordinatedDraft } from '../editor/aiDraftCoordination';
+import { getNoteDraftScope } from '../editor/noteDraftScope';
+import { NoteActions } from './NoteActions';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
 import { Select, TextAreaField } from '../../components/ui/input';
@@ -26,7 +29,7 @@ const blocked = (turn: ConversationTurn | null) => isActive(turn) || turn?.statu
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback;
 const formatTime = (value: string) => new Date(value).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-interface PendingSend { conversationId: string; idempotencyKey: string; content: string; requestedPolicyId: string | null }
+interface PendingSend { conversationId: string; idempotencyKey: string; content: string; requestedPolicyId: string | null; writeIntent?: { toolName: string; noteId?: string } }
 
 interface AssistantViewProps { pathname: string; onOpenNote(noteId: string): void }
 
@@ -53,6 +56,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const [turns, setTurns] = useState<Record<string, ConversationTurn>>({});
   const [scopeChoice, setScopeChoice] = useState('plain');
   const [draft, setDraft] = useState('');
+  const [writeMode, setWriteMode] = useState('chat');
+  const [writeTarget, setWriteTarget] = useState(initialNoteId ?? '');
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +67,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const [grantNoteId, setGrantNoteId] = useState(initialNoteId ?? '');
   const [grantFolderId, setGrantFolderId] = useState('');
   const [grantDays, setGrantDays] = useState('7');
+  const [recordMessage, setRecordMessage] = useState<ConversationMessage | null>(null);
   const [sourceView, setSourceView] = useState<{ ref: SourceRef; text: string; messageId: string } | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const pendingSend = useRef<PendingSend | null>(null);
@@ -89,7 +95,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     let cancelled = false;
     setConversations([]); setPolicies([]); setMessages([]); setTurns({}); setTitles({});
     setStatus(null); setScopeChoice('plain'); setError(null); setNotice(null); setSourceView(null);
-    pendingSend.current = null;
+    pendingSend.current = null; setRecordMessage(null);
     void conversationApi.list(spaceId).then(rows => { if (!cancelled) setConversations(rows); })
       .catch(cause => { if (!cancelled) setError(errorText(cause, '无法加载会话历史。')); });
     void conversationApi.policies(spaceId).then(rows => { if (!cancelled) setPolicies(rows); })
@@ -175,17 +181,22 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     const intent = pendingSend.current?.content === content && pendingSend.current.requestedPolicyId === requestedPolicyId
       && pendingSend.current.conversationId === (selectedId ?? pendingSend.current.conversationId)
       ? pendingSend.current : { conversationId: selectedId ?? crypto.randomUUID(),
-        idempotencyKey: crypto.randomUUID(), content, requestedPolicyId };
+        idempotencyKey: crypto.randomUUID(), content, requestedPolicyId, ...(writeMode !== 'chat' ? { writeIntent: { toolName: writeMode, ...(writeMode !== 'notes_create' ? { noteId: writeTarget } : {}) } } : {}) };
     pendingSend.current = intent;
     setPending(true); setError(null); setNotice(null);
     try {
+      if (intent.writeIntent) {
+        await flushAiDraftCoordination();
+        if (writeMode !== 'notes_create' && (!writeTarget || !chosenPolicy)) throw new Error('请选择明确目标和读取授权。');
+        if (hasCoordinatedDraft(getNoteDraftScope(spaceId) ?? spaceId, writeTarget ? [writeTarget] : [])) throw new Error('目标有未保存草稿，请先保存后重新预览。');
+      }
       if (!selectedId) {
         const created = await conversationApi.create(spaceId, intent.conversationId);
         if (space.current !== spaceId) return;
         setConversations(previous => [created, ...previous.filter(item => item.conversationId !== created.conversationId)]);
       }
       const turn = await conversationApi.send(intent.conversationId, {
-        content: intent.content, idempotencyKey: intent.idempotencyKey, requestedPolicyId: intent.requestedPolicyId
+        content: intent.content, idempotencyKey: intent.idempotencyKey, requestedPolicyId: intent.requestedPolicyId, ...(intent.writeIntent ? { writeIntent: intent.writeIntent } : {})
       });
       if (space.current !== spaceId) return;
       pendingSend.current = null; setDraft('');
@@ -293,6 +304,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
           {!status?.generationAvailable ? <Button variant="ghost" size="compact" onPress={() => void reloadPage()}>重试读取状态</Button> : null}
         </div>
+        {spaceId ? <NoteActions key={`${spaceId}:${recordMessage?.messageId ?? 'management'}`} spaceId={spaceId} refreshKey={messages.at(-1)?.messageId} conversationId={selectedId ?? undefined} message={recordMessage ?? undefined} onCloseSource={() => setRecordMessage(null)} onOpenNote={onOpenNote} /> : null}
         <div className={styles.messages} aria-live="polite">
           {!selected && !newConversation && conversations.length === 0 ? <div className={styles.welcome}>
             <h2>从一个问题开始</h2><p>可以直接聊天、解释概念或继续追问。需要引用笔记时，再选择授权的资料范围。</p>
@@ -311,6 +323,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                   {citations.map((ref, index) => <Button key={`${ref.noteVersionId}:${ref.start}:${index}`} variant="default" size="compact"
                     onPress={() => void openSource(ref, message.messageId)}>来源 {index + 1} · {noteName(ref.noteId)} · {ref.start + 1}–{ref.end}</Button>)}
                 </div> : <p className={styles.muted}>{message.sourceFree ? '此回答没有笔记来源。' : '此回答未列出可核对引用。'}</p>}
+                {!selected?.readOnly ? <Button variant="default" size="compact" onPress={() => setRecordMessage(message)}>记录为笔记</Button> : null}
                 <details className={styles.trace} onToggle={event => { if (event.currentTarget.open) void showTrace(message.turnId); }}>
                   <summary>检索与调用记录</summary>
                   {turn ? <Trace turn={turn} /> : <p>正在读取记录…</p>}
@@ -347,7 +360,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             </div> : <>
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               <div className={styles.composerCard}>
-                <TextAreaField label="消息" presentation="composer" value={draft}
+                <Select label="本轮用途" selectedKey={writeMode} onSelectionChange={key => { pendingSend.current = null; setWriteMode(String(key)); }} options={[{ id: 'chat', label: '普通对话' }, { id: 'notes_create', label: '生成新笔记计划' }, { id: 'notes_append', label: '生成追加计划' }, { id: 'notes_propose_patch', label: '生成局部改写计划' }, { id: 'notes_propose_organize', label: '生成整理计划' }]} />
+          {writeMode !== 'chat' && writeMode !== 'notes_create' ? <Select label="本轮固定写入目标" selectedKey={writeTarget || null} onSelectionChange={key => { pendingSend.current = null; setWriteTarget(String(key)); }} options={notes.map(note => ({ id: note.id, label: note.title }))} /> : null}
+          <TextAreaField label="消息" presentation="composer" value={draft}
                   onChange={value => { setDraft(value); pendingSend.current = null; }}
                   placeholder={chosenPolicy ? '询问已授权资料中的内容…' : '问一个问题，或继续追问…'} rows={2} />
                 <div className={styles.composerToolbar}>
@@ -405,7 +420,7 @@ function Trace({ turn }: { turn: ConversationTurn }) {
   return <div className={styles.traceBody}>
     <p>本轮：{statusName[turn.status]}{turn.errorCode ? ` · ${turn.errorCode}` : ''} · 模型尝试 {turn.modelAttempts?.length ?? 0} 次</p>
     {calls.length ? <ol>{calls.map(call => <li key={call.callId}>
-      <strong>{call.toolName === 'notes_search' ? call.argumentsJson.origin === 'automatic' ? '自动检索笔记' : '检索笔记' : '阅读笔记'}</strong>
+      <strong>{call.toolName === 'notes_search' ? call.argumentsJson.origin === 'automatic' ? '自动检索笔记' : '检索笔记' : call.toolName === 'notes_read' ? '阅读笔记' : '生成笔记计划（尚未写入）'}</strong>
       {typeof call.argumentsJson.query === 'string' ? ` · ${call.argumentsJson.query}` : null}
       <span> · {call.status === 'succeeded' ? `${call.sourceRefs.length} 个来源片段` : call.status === 'failed'
         ? `失败：${call.errorCode ?? '未知原因'}` : turn.status === 'running' ? '执行中' : '执行未完成'}</span>

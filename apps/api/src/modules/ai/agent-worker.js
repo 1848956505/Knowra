@@ -1,3 +1,4 @@
+import { toolsForWriteIntent } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
 import { beijingDay } from './budget-ledger.js';
@@ -31,7 +32,7 @@ const TOOLS = Object.freeze([
 export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
   accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
-  retrievalCandidates = null } = {}) {
+  retrievalCandidates = null, actions = null } = {}) {
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
@@ -59,7 +60,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   async function paidCall(turn, generation, request, manifest, grantId, credentialRef, signal) {
     if (provider !== 'mock' && !allowExternal) fail('AI_EGRESS_NOT_READY', '当前运行端未启用模型外发。');
     if ((await store.listModelAttempts(turn.turnId)).length >= MAX_ATTEMPTS) fail('AI_ATTEMPT_LIMIT', '模型调用次数已达到上限。');
-    const quote = quoteWorstCase({ request, priceProfile, now: now() });
+    const quote = quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null });
     if (manifest && manifest.payloadHash !== quote.payloadHash) fail('AI_PAYLOAD_STALE', '实际请求与发送清单不一致。');
     const attemptId = randomUUID(), day = beijingDay(now());
     await store.createModelAttempt(turn.turnId, generation, { attemptId, modelId: request.modelId,
@@ -79,7 +80,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       await currentTurn(turn.turnId, generation, signal);
       if (beijingDay(now()) !== day) fail('AI_BUDGET_DAY_CHANGED', '预算日期已切换。');
       if (manifest) await access.assertRequest({ grantId, manifestId: manifest.manifestId, request, recipient: 'deepseek' });
-      quoteWorstCase({ request, priceProfile, now: now() });
+      quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null });
       await store.advanceModelAttempt(attemptId, 'sent', { generation });
       sent = true;
       authorizeAttempt(attemptId);
@@ -160,14 +161,20 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
 
   async function executeTool(turn, generation, grantId, call, signal) {
     await currentTurn(turn.turnId, generation, signal);
-    if (!grantId || !access) fail('AI_SCOPE_FORBIDDEN', '当前会话没有笔记读取授权。');
+    const writeCall = turn.writeIntent && call.name === turn.writeIntent.toolName;
+    if (!writeCall && (!grantId || !access)) fail('AI_SCOPE_FORBIDDEN', '当前会话没有笔记读取授权。');
     if (typeof call.id !== 'string' || !call.id || call.id.length > 128) fail('AI_TOOL_INVALID', '模型工具调用 ID 无效。');
     const callId = hashRecord({ turnId: turn.turnId, providerCallId: call.id });
     await store.appendToolCall(turn.turnId, generation, { callId,
       toolName: call.name, argumentsJson: call.arguments });
     try {
       let outcome;
-      if (call.name === 'notes_search') {
+      if (writeCall) {
+        if (grantId && turn.writeIntent.noteId) await access.verifyRead({ grantId, noteId: turn.writeIntent.noteId });
+        if (!actions) fail('AI_ACTION_UNAVAILABLE', '写入计划服务不可用。');
+        const action = await actions.planForTurn(turn, turn.writeIntent, call);
+        outcome = { resultJson: { actionId: action.actionId, planHash: action.plan.planHash, status: action.status }, sourceRefs: [] };
+      } else if (call.name === 'notes_search') {
         const args = call.arguments;
         if (!args || Object.keys(args).some(key => !['query', 'limit'].includes(key))) {
           fail('AI_TOOL_ARGUMENTS_INVALID', '检索参数无效。');
@@ -184,7 +191,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       return { sourceRefs: outcome.sourceRefs,
         truncated: outcome.resultJson?.truncated === true,
         fallback: outcome.resultJson?.mode === 'keyword_fallback',
-        inspected: outcome.resultJson?.inspected ?? 0 };
+        inspected: outcome.resultJson?.inspected ?? 0, actionId: outcome.resultJson?.actionId };
     } catch (error) {
       await store.settleToolCall(turn.turnId, generation, callId,
         { errorCode: safeCode(error?.code) }).catch(() => undefined);
@@ -230,6 +237,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const prior = await historyFor(turn);
     const grant = turn.requestedPolicyId
       ? await access?.createRunGrant({ policyId: turn.requestedPolicyId, conversationId: turn.conversationId }) : null;
+    if (turn.writeIntent && !actions) fail('AI_ACTION_UNAVAILABLE', '当前写入计划服务不可用。');
+    if (turn.writeIntent?.noteId) {
+      if (!grant) fail('AI_SCOPE_FORBIDDEN', '已有笔记写入需要读取授权。');
+      await access.verifyRead({ grantId: grant.grantId, noteId: turn.writeIntent.noteId });
+    }
     if (turn.requestedPolicyId && !grant) fail('AI_ACCESS_REVOKED', '读取授权不可用。');
     const { entries: history, plainContext } = grant ? authorizedHistory(prior) : { entries: [], plainContext: '' };
     for (const call of await store.listToolCalls(turn.turnId)) {
@@ -286,7 +298,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
           omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
             ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: 1024,
-          tools: finalOnly ? [] : TOOLS, format: 'json' });
+          writeToolName: turn.writeIntent?.toolName ?? null, tools: finalOnly ? [] : [...TOOLS, ...(turn.writeIntent && actions ? toolsForWriteIntent(turn.writeIntent) : [])], format: 'json' });
         request = prepared.request; manifest = prepared.manifest;
         for (const call of await store.listToolCalls(turn.turnId)) {
           if (call.status === 'succeeded' && call.sourceRefs.length && !call.provenanceManifestId
@@ -298,19 +310,26 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         request = { credentialRef: reference.credentialRef, modelId: reference.modelId,
           messages: [{ role: 'system', content: '你是知境助手。回答普通学习问题，允许追问。此会话没有笔记读取授权；不得声称读过用户资料或编造笔记引用。' },
             ...plainHistory(prior), { role: 'user', content: user.content }], maxTokens: 1024,
-          format: 'text', tools: [] };
+          format: 'text', tools: turn.writeIntent && actions ? toolsForWriteIntent(turn.writeIntent) : [] };
+        if (turn.writeIntent) request.messages[0].content += '用户已明确请求生成笔记计划，只调用所开放的写入计划工具；不得宣称已保存。';
       }
       const result = await paidCall(turn, generation, request, manifest, grant?.grantId ?? null,
         reference.credentialRef, signal);
       if (result.finishReason === 'tool_calls') {
-        if (!grant || !result.toolCalls.length || result.toolCalls.length > 2
+        if ((!grant && !turn.writeIntent) || !result.toolCalls.length || result.toolCalls.length > 2
           || totalTools + result.toolCalls.length > MAX_TOOLS || round === MAX_ROUNDS - 1) {
           fail('AI_AGENT_LIMIT', '工具轮次达到上限。');
         }
+        if (result.toolCalls.some(call => call.name === turn.writeIntent?.toolName) && result.toolCalls.length !== 1) fail('AI_TOOL_INVALID', '一轮只可提出一个明确的写入计划。');
         totalTools += result.toolCalls.length;
         const before = new Set(sourceRefs.map(hashRecord));
         for (const call of result.toolCalls) {
-          const outcome = await executeTool(turn, generation, grant.grantId, call, signal);
+          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal);
+          if (outcome.actionId) {
+            await currentTurn(turn.turnId, generation, signal);
+            await store.completeTurn(turn.turnId, generation, { content: '已生成笔记计划，尚未写入。请在执行记录中查看差异并确认。', sourceRefs: [], citations: [], provenanceManifestId: null, sourceFree: true });
+            return;
+          }
           sourceRefs = uniqueRefs([...sourceRefs, ...outcome.sourceRefs]).slice(-12);
           searchTruncated ||= outcome.truncated;
           searchFallback ||= outcome.fallback;

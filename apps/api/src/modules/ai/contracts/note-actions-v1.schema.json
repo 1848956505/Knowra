@@ -1,0 +1,26 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "id":{"type":"string","minLength":1,"maxLength":200},
+    "hash":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "image":{"type":"object","additionalProperties":false,"required":["id","spaceId","title","folderId","tagIds","rawMarkdown"],"properties":{
+      "id":{"$ref":"#/$defs/id"},"spaceId":{"$ref":"#/$defs/id"},"title":{"type":"string","minLength":1,"maxLength":200},
+      "folderId":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/id"}]},"tagIds":{"type":"array","maxItems":20,"uniqueItems":true,"items":{"$ref":"#/$defs/id"}},"rawMarkdown":{"type":"string"}}},
+    "baseline":{"oneOf":[
+      {"type":"object","additionalProperties":false,"required":["targetNoteId","exists"],"properties":{"targetNoteId":{"$ref":"#/$defs/id"},"exists":{"const":false}}},
+      {"type":"object","additionalProperties":false,"required":["targetNoteId","exists","expectedUpdatedAt","contentHash","metadataHash"],"properties":{"targetNoteId":{"$ref":"#/$defs/id"},"exists":{"const":true},"expectedUpdatedAt":{"type":"string"},"contentHash":{"$ref":"#/$defs/hash"},"metadataHash":{"$ref":"#/$defs/hash"}}}]},
+    "item":{"type":"object","additionalProperties":false,"required":["before","after","baseline","edits"],"properties":{
+      "before":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/image"}]},"after":{"$ref":"#/$defs/image"},"baseline":{"$ref":"#/$defs/baseline"},"softDelete":{"type":"boolean"},
+      "edits":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":false,"required":["start","end","quote","replacement"],"properties":{"start":{"type":"integer","minimum":0},"end":{"type":"integer","minimum":0},"quote":{"type":"string"},"replacement":{"type":"string","maxLength":100000}}}}}},
+    "reference":{"type":"object","additionalProperties":false,"required":["kind","id","hash"],"properties":{"kind":{"enum":["folder","tag"]},"id":{"$ref":"#/$defs/id"},"hash":{"$ref":"#/$defs/hash"}}}
+  },
+  "type":"object","additionalProperties":false,
+  "required":["schemaVersion","toolVersion","toolName","ownerId","actorId","datasetId","datasetEpoch","spaceId","requestId","operationId","items","references","provenance","approvalMode","planHash"],
+  "properties":{
+    "schemaVersion":{"const":1},"toolVersion":{"const":1},"toolName":{"enum":["notes_create","notes_append","notes_propose_patch","notes_propose_organize","notes_undo"]},
+    "ownerId":{"$ref":"#/$defs/id"},"actorId":{"$ref":"#/$defs/id"},"datasetId":{"$ref":"#/$defs/id"},"datasetEpoch":{"$ref":"#/$defs/id"},"spaceId":{"$ref":"#/$defs/id"},"requestId":{"$ref":"#/$defs/id"},"operationId":{"$ref":"#/$defs/id"},
+    "items":{"type":"array","minItems":1,"maxItems":20,"items":{"$ref":"#/$defs/item"}},
+    "references":{"type":"array","maxItems":840,"items":{"$ref":"#/$defs/reference"}},
+    "provenance":{"type":["null","object"]},"approvalMode":{"const":"previewRequired"},"planHash":{"$ref":"#/$defs/hash"}
+  }
+}

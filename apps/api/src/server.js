@@ -1,3 +1,4 @@
+import { handleActionRoute } from './modules/ai/action-routes.js';
 import { URL } from 'node:url';
 import http from 'node:http';
 import { applyCorsHeaders, handleCorsPreflight } from './http/cors.js';
@@ -69,6 +70,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
       if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
       if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;
+      if (await handleActionRoute({ request, response, url, actions: appContext.ai?.actions })) return;
       if (await handleConversationRoute({ request, response, url, conversation: appContext.ai?.conversation })) return;
       if (url.pathname.startsWith('/api/ai/assistant')) await aiRecovery;
       if (url.pathname.startsWith('/api/ai/conversations')) await aiRecovery;

@@ -1,5 +1,6 @@
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const MUTATIONS = [
+  ['POST', /^\/api\/ai\/actions(?:\/drafts|\/[^/]+\/(?:approve|apply|cancel|reject|undo-preview))?$/],
   ['POST', /^\/api\/ai\/conversations$/],
   ['POST', /^\/api\/ai\/conversations\/[^/]+\/messages$/],
   ['POST', /^\/api\/ai\/conversations\/[^/]+\/turns\/[^/]+\/(?:cancel|retry)$/],
@@ -36,7 +37,7 @@ const MUTATIONS = [
   ['POST', /^\/api\/knowledge\/tags\/(?:merge|reorder)$/]
 ];
 
-/** 本地 AI 仅开放助手只读问答流程；试题和永久删除维持受限。 */
+/** 本地 AI 开放只读问答与受审笔记计划；试题和永久删除维持受限。 */
 export function permitsLocalRoute(method, pathname) {
   if (READ_METHODS.has(method)) return true;
   if (/\/(permanent|recycle-bin)(\/|$)/.test(pathname)) return false;

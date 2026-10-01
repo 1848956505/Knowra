@@ -35,7 +35,7 @@ export const aiAssistantHttpTests = [
         const wrongModel = (await call(origin, '/status')).payload.data;
         assert.equal(wrongModel.generationAvailable, false);
         assert.match(wrongModel.unavailableReason, /尚未核价/);
-        assert.equal(wrongModel.capabilities.writeTools, false);
+        assert.equal(wrongModel.capabilities.writeTools, true);
         assert.equal(wrongModel.capabilities.responseMode, 'polling');
         context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
         context.ai.budgetAuthority.status = () => { throw new Error('offline'); };

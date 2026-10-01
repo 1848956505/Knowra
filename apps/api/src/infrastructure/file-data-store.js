@@ -1,3 +1,4 @@
+import { createJsonActionStore } from '../modules/ai/action-state.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -174,6 +175,7 @@ export function createFileDataStore(filePath, {
     coreOperationStoreError,
     aiRepository: aiRuntimeError ? null : createJsonAiRepository({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiAccessStore: aiRuntimeError ? null : createJsonAiAccessStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),
+    aiActionStore: aiRuntimeError ? null : createJsonActionStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiConversationStore: aiRuntimeError ? null : createJsonAiConversationStore({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiBudgetAuthority: aiRuntimeError ? null : createJsonBudgetAuthority({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiRuntimeError,

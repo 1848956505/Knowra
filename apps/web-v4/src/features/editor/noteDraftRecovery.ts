@@ -1,3 +1,4 @@
+import { registerAiDraft } from './aiDraftCoordination';
 import { validRecoveredEdits } from './annotationEditJournal';
 export interface RecoveredNoteDraft {
   markdown: string;
@@ -8,7 +9,7 @@ export interface RecoveredNoteDraft {
 }
 
 /** 桌面使用独立原子文件；网页保留会话恢复。所有失败记录到 flush，不能误报已落盘。 */
-export function createNoteDraftRecovery() {
+export function createNoteDraftRecovery(onChange: (scope: string, noteId: string, dirty: boolean) => void = () => {}) {
   const drafts = new Map<string, RecoveredNoteDraft | undefined>();
   const pending = new Map<string, Promise<void>>();
   const errors = new Map<string, Error>();
@@ -47,18 +48,21 @@ export function createNoteDraftRecovery() {
           || (value.conflict !== undefined && typeof value.conflict !== 'string')) throw new Error('恢复草稿格式无效');
         if (value.annotationEdits && !validRecoveredEdits(value.annotationEdits)) value.annotationEdits = undefined;
         drafts.set(key, value);
+        onChange(scope, noteId, value.markdown !== value.baseMarkdown || Boolean(value.conflict));
         return value;
       } catch { errors.set(key, new Error('恢复草稿读取失败，请保留草稿文件并重试。')); return undefined; }
     },
     write(scope: string, noteId: string, draft: RecoveredNoteDraft) {
       const key = keyFor(scope, noteId);
       drafts.set(key, draft);
+      onChange(scope, noteId, draft.markdown !== draft.baseMarkdown || Boolean(draft.conflict));
       persist(key, draft);
     },
     remove(scope: string, noteId: string, expected: RecoveredNoteDraft) {
       const key = keyFor(scope, noteId);
       if (drafts.get(key) !== expected) return;
       drafts.set(key, undefined);
+      onChange(scope, noteId, false);
       persist(key, null);
     },
     async flush() {
@@ -70,4 +74,4 @@ export function createNoteDraftRecovery() {
   };
 }
 
-export const noteDraftRecovery = createNoteDraftRecovery();
+export const noteDraftRecovery = createNoteDraftRecovery(registerAiDraft);
