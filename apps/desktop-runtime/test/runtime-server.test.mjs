@@ -176,7 +176,7 @@ test('桌面助手路由放行受信预览，预算离线时禁止生成且所�
   assert.equal(status.configured, true);
   assert.equal(status.generationAvailable, false);
   assert.deepEqual(status.capabilities.readScopes, ['note', 'folder']);
-  assert.equal(status.capabilities.writeTools, false);
+  assert.equal(status.capabilities.writeTools, true);
   const space = (await call('/api/knowledge/spaces/default', 'POST', {})).payload.data;
   const note = (await call('/api/knowledge/notes', 'POST', { spaceId: space.id,
     title: '合成笔记', rawMarkdown: 'alpha 正文' })).payload.data;
@@ -191,4 +191,20 @@ test('桌面助手路由放行受信预览，预算离线时禁止生成且所�
   'AI_GENERATION_UNAVAILABLE');
   assert.equal((await call('/api/ai/assistant/jobs', 'GET')).status, 422);
   assert.equal((await runtime.store.aiRepository.list('aiJob')).length, 0);
+});
+
+test('P2 真实本地入口受信预览、确认、提交、草稿及撤销，旧 dataset 被拒绝',async t=>{
+  const {runtime,call,space}=await localRequests(t),headers={'X-Knowra-AI-Action':'1'};
+  const input={spaceId:space.id,requestId:'local-p2-plan',toolName:'notes_create',arguments:{title:'本地 P2 合成',rawMarkdown:'正文'}};
+  assert.equal((await call('/api/ai/actions','POST',input)).status,403);
+  assert.equal((await call('/api/ai/actions','POST',input,{...headers,'X-Knowra-Dataset':'old'})).error.code,'LOCAL_DATASET_CHANGED');
+  const row=(await call('/api/ai/actions','POST',input,headers)).data;assert.equal(row.status,'awaitingApproval');
+  await call(`/api/ai/actions/${row.actionId}/approve`,'POST',{planHash:row.plan.planHash},headers);
+  const applied=await call(`/api/ai/actions/${row.actionId}/apply`,'POST',{},headers);assert.equal(applied.data.status,'applied');
+  assert.equal((await call('/api/ai/actions/drafts','POST',{noteId:row.plan.items[0].after.id,clientId:'tab',dirty:true},headers)).status,200);
+  await call('/api/ai/actions/drafts','POST',{noteId:row.plan.items[0].after.id,clientId:'tab',dirty:false},headers);
+  const undo=(await call(`/api/ai/actions/${row.actionId}/undo-preview`,'POST',{requestId:'local-p2-undo'},headers)).data;
+  await call(`/api/ai/actions/${undo.actionId}/approve`,'POST',{planHash:undo.plan.planHash},headers);
+  assert.equal((await call(`/api/ai/actions/${undo.actionId}/apply`,'POST',{},headers)).data.status,'applied');
+  assert.equal(runtime.store.state.notes[0].deleted,true);
 });

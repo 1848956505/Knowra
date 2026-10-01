@@ -14,7 +14,7 @@ function later(now, previous) { return new Date(Math.max(now.getTime(), Date.par
 const nonnegative = value => Number.isSafeInteger(value) && value >= 0;
 
 /** 价格配置由受信部署代码提供；过期或缺失时拒绝付费调用。 */
-export function quoteWorstCase({ request, priceProfile, now = new Date() }) {
+export function quoteWorstCase({ request, priceProfile, now = new Date(), writeToolName = null }) {
   if (!priceProfile?.version || !Number.isFinite(Date.parse(priceProfile.expiresAt)) || Date.parse(priceProfile.expiresAt) <= now.getTime()
     || !nonnegative(priceProfile.inputMicrounitsPerMillion) || !nonnegative(priceProfile.outputMicrounitsPerMillion)) {
     fail('AI_PRICE_UNAVAILABLE', '当前价格配置不可用，已阻止模型调用。');
@@ -22,7 +22,7 @@ export function quoteWorstCase({ request, priceProfile, now = new Date() }) {
   if (!request || !Array.isArray(request.messages) || !Number.isSafeInteger(request.maxTokens)
     || request.maxTokens < 1 || request.maxTokens > MAX_OUTPUT_TOKENS
     || !Array.isArray(request.tools) || request.tools.length > 8
-    || request.tools.some(tool => !allowedTools.has(tool.name))) fail('AI_REQUEST_LIMIT', '模型调用超过 P1 边界。');
+    || request.tools.some(tool => !allowedTools.has(tool.name) && !(tool.name === writeToolName && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize'].includes(writeToolName)))) fail('AI_REQUEST_LIMIT', '模型调用超过 P1 边界。');
   if (priceProfile.modelId && request.modelId !== priceProfile.modelId) {
     fail('AI_PRICE_UNAVAILABLE', '当前模型没有经过核价，已阻止付费调用。');
   }

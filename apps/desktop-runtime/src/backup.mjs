@@ -1,3 +1,4 @@
+import { validateSqliteActionRows } from './ai-sqlite-action-store.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -122,6 +123,7 @@ export function inspectRuntimeBackup(backupDirectory) {
     const version = db.prepare('PRAGMA user_version').get().user_version;
     if (version < 1 || version > LOCAL_DATABASE_VERSION) throw new Error('备份数据库版本不受支持，请升级应用。');
     validateSqliteCoreOperationRows(db);
+    validateSqliteActionRows(db);
     if (version >= 4) {
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('备份 AI 私有记录引用不完整。');
       const ai = createSqliteAiRepository(db);

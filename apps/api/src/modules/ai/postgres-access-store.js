@@ -42,10 +42,13 @@ export function createPostgresAiAccessStore({ client, repository, ownerId }) {
       await client.$executeRawUnsafe(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${values.map((_, index) => `$${index + 1}`).join(', ')})`, ...values);
     },
     async compareAndSwap(record, expectedHash) {
-      const changed = await client.$executeRawUnsafe(`UPDATE ai_access_policies
+      const changed = await client.$transaction(async tx => {
+        await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(1266775634, 32)::text');
+        return tx.$executeRawUnsafe(`UPDATE ai_access_policies
         SET revision = $1, record_hash = $2, record_json = $3
         WHERE policy_id = $4 AND owner_id = $5 AND record_hash = $6`, record.revision,
       hashRecord(record), JSON.stringify(record), record.policyId, ownerId, expectedHash);
+      });
       if (Number(changed) !== 1) accessError('AI_RECORD_CONFLICT', '授权策略已变化。');
     }
   });

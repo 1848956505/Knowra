@@ -82,8 +82,8 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return { provider: simulation ? 'mock' : 'deepseek', simulation, modelId: reference?.modelId ?? null, configured: Boolean(reference),
       executionLocation: location, generationAvailable: state.ready, unavailableReason: state.reason,
       budget: state.budget,
-      capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'],
-        responseMode: 'polling', writeTools: false,
+      capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel', ...(ai?.actions ? ['note-plan', 'note-confirm', 'note-undo-preview'] : [])],
+        responseMode: 'polling', writeTools: Boolean(ai?.actions),
         providerAdvertised: provider?.advertised ?? null, providerVerified: !simulation && provider?.verified === true } };
   }
 

@@ -1,3 +1,7 @@
+import { aiNoteActionHttpTests } from './ai-note-action-http.test.js';
+import { aiNoteActionAgentTests } from './ai-note-action-agent.test.js';
+import { aiNoteActionPostgresTests } from './ai-note-actions-postgres.test.js';
+import { aiNoteActionTests } from './ai-note-actions.test.js';
 import { attachmentRecoveryTests } from './attachment-recovery.test.js';
 import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.test.js';
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
@@ -71,6 +75,10 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...aiNoteActionAgentTests,
+  ...aiNoteActionHttpTests,
+  ...aiNoteActionTests,
+  ...aiNoteActionPostgresTests,
   ...coreOperationStoreTests,
   ...coreOperationPostgresTests,
   ...aiNotePlanTests,

@@ -36,6 +36,7 @@ export function createR07Adapter() {
       calls.push(structuredClone({ format: request.format, messages: request.messages, tools: request.tools }));
       const last = request.messages.at(-1).content;
       if (last.includes('等待取消')) { lateFormat = request.format; return new Promise(resolve => { release = resolve; }); }
+      if (last.includes('生成合成笔记') && request.tools.some(tool => tool.name === 'notes_create')) return response(null, [{ id: 'p2-create', type: 'function', function: { name: 'notes_create', arguments: JSON.stringify({ title: '合成 AI 记录', rawMarkdown: '# 合成内容\n只记录一次。' }) } }]);
       if (request.format === 'text') return response(last.includes('继续') ? '合成追问：第一轮上下文仍在。' : '合成聊天：可以直接提问。');
       const payload = JSON.parse(last);
       const source = payload.sources[0];
@@ -87,7 +88,8 @@ export async function createR07Fixture(driver, { aiEnabled = true } = {}) {
       const repositories = app.repositories ?? app.modules.knowledge.repositories;
       runtime = createOptionalAiRuntime({ modelSettings: syntheticCredentials, repository: previous.repository,
         accessStore: previous.accessStore,
-        conversationStore: previous.conversationStore, budgetAuthority: previous.budgetAuthority,
+        conversationStore: previous.conversationStore, actionStore: app.dataStore?.aiActionStore ?? previous.actionStore,
+        coreOperationStore: app.coreOperationStore, knowledge: { ...app.modules.knowledge, repositories }, asyncDomain: driver === 'postgres', budgetAuthority: previous.budgetAuthority,
         priceProfile, providerAdapter: adapter, allowExternal: true,
         contextSources: { ...repositories,
           spaceRepository: repositories.knowledgeSpaceRepository, ownerId: 'demo' } }, { enabled: aiEnabled });

@@ -1,3 +1,4 @@
+import { createPostgresActionStore } from './modules/ai/postgres-action-store.js';
 import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
 import { createPostgresCoreOperationStore } from './infrastructure/postgres-core-operation-store.js';
 import path from 'node:path';
@@ -131,19 +132,21 @@ export async function createPostgresAppContext({
   });
 
   const modelSettings = createModelSettingsService();
-  const aiRepository = createPostgresAiRepository({ client: runtime.client, ownerId: normalizedOwnerId });
-  const aiAccessStore = createPostgresAiAccessStore({ client: runtime.client, repository: aiRepository, ownerId: normalizedOwnerId });
-  const aiConversationStore = createPostgresAiConversationStore({ client: runtime.client, repository: aiRepository, ownerId: normalizedOwnerId });
+  const aiRepository = createPostgresAiRepository({ client: db, ownerId: normalizedOwnerId });
+  const aiAccessStore = createPostgresAiAccessStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId });
+  const aiConversationStore = createPostgresAiConversationStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId });
+  const ai = createOptionalAiRuntime({ modelSettings, repository: aiRepository, accessStore: aiAccessStore,
+    conversationStore: aiConversationStore, actionStore: createPostgresActionStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId }),
+    coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }), knowledge: { ...knowledge, repositories }, asyncDomain: true, maintenanceGate, budgetAuthority: aiBudget,
+    priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
+    contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } });
   return {
     driver: 'postgres',
     coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }),
     prisma: db,
     close: runtime.disconnect,
     modules: { knowledge },
-    ai: createOptionalAiRuntime({ modelSettings, repository: aiRepository, accessStore: aiAccessStore,
-      conversationStore: aiConversationStore, budgetAuthority: aiBudget,
-      priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
-      contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } }),
+    ai,
     aiOwnerId: normalizedOwnerId,
     aiLocation: 'server',
     repositories,

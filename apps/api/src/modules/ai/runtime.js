@@ -1,3 +1,5 @@
+import { wrapHandlersWithMaintenanceGate } from '../../infrastructure/maintenance-gate.js';
+import { createNoteActionService } from './action-service.js';
 import { createAiGateway } from './gateway.js';
 import { createDeepSeekAdapter } from './infrastructure/providers/deepseek-adapter.js';
 import { createIsolatedDeepSeekAdapter } from './isolated-provider.js';
@@ -10,6 +12,7 @@ import { createAiAgentWorker } from './agent-worker.js';
 
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
+  actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
   verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
@@ -21,15 +24,19 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   });
   const readContext = repository && contextSources ? createAiReadContextService({ repository, ...contextSources }) : null;
   const access = accessStore && contextSources ? createAiAccessService({ store: accessStore, ...contextSources }) : null;
+  const actionService = actionStore && coreOperationStore && knowledge ? createNoteActionService({ store: actionStore, core: coreOperationStore, knowledge,
+    ownerId: contextSources.ownerId, conversationStore, accessStore, asyncDomain }) : null;
+  const actions = actionService && maintenanceGate ? wrapHandlersWithMaintenanceGate(actionService, maintenanceGate, { getAccess: () => 'read' }) : actionService;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
-      gateway, priceProfile, allowExternal, retrievalCandidates,
+      gateway, priceProfile, allowExternal, retrievalCandidates, actions,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,
       accessStore, spaceRepository: contextSources.spaceRepository, ownerId: contextSources.ownerId,
       agent }) : null;
   return {
+    actions, actionStore,
     generationAvailable: modelId => Boolean(allowExternal && priceProfile?.version
       && priceProfile.modelId === modelId && Date.parse(priceProfile.expiresAt) > Date.now()),
     priceProfile,
@@ -54,7 +61,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
 }
 
 export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。') {
-  return { unavailableReason: reason, generationAvailable: () => false,
+  return { actions: null, unavailableReason: reason, generationAvailable: () => false,
     credentialReference: async () => null, repository: null, budgetAuthority: null,
     readContext: null, accessStore: null, access: null, conversationStore: null, conversation: null,
     agent: null, worker: null, gateway: null, priceProfile: null };

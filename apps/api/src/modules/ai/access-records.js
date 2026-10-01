@@ -88,6 +88,12 @@ export function createAiAccessStore(adapter) {
     }
   }
   return {
+    peek(kind, id) {
+      if (!ACCESS_KINDS[kind]) accessError('AI_RECORD_INVALID', '未知的 v2 AI 记录。');
+      const row = adapter.get(kind, id);
+      const validate = value => value ? validateAccessRecord(kind, value) : null;
+      return row?.then ? row.then(validate) : validate(row);
+    },
     async identity() { return structuredClone(await adapter.identity()); },
     async get(kind, id) {
       if (!ACCESS_KINDS[kind]) accessError('AI_RECORD_INVALID', '未知的 v2 AI 记录。');

@@ -257,7 +257,7 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
   }
   async function prepareRequest({ grantId, recipient, modelId, credentialRef, userMessage,
     history = [], sourceRanges = [], omissions = [], maxTokens = 4096,
-    tools = [], format = 'text' } = {}) {
+    tools = [], format = 'text', writeToolName = null } = {}) {
     const { grant, policy } = await activeGrant(grantId);
     if (!policy.egress || !policy.recipients.includes(recipient)) fail('AI_EGRESS_FORBIDDEN', '接收方不在外发授权内。');
     if (recipient !== 'deepseek' || !validId(modelId) || !validId(credentialRef)
@@ -265,7 +265,8 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
       || !Array.isArray(history) || history.length > 30 || !Array.isArray(sourceRanges) || sourceRanges.length > 128
       || !Array.isArray(omissions) || omissions.length > 128 || omissions.some(item => typeof item !== 'string'
         || !/^[a-zA-Z0-9_.:-]{1,128}$/.test(item))
-      || !Array.isArray(tools) || tools.length > 2 || tools.some(tool => !grant.allowedTools.includes(tool?.name))
+      || !Array.isArray(tools) || tools.length > 2 + (writeToolName ? 1 : 0) || tools.some(tool => !grant.allowedTools.includes(tool?.name)
+        && !(tool?.name === writeToolName && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize'].includes(writeToolName)))
       || !['text', 'json'].includes(format)
       || !Number.isSafeInteger(maxTokens) || maxTokens < 1 || maxTokens > 20_000) {
       fail('AI_CONTEXT_INVALID', '模型请求参数无效。');

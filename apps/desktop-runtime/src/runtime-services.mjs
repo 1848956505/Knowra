@@ -66,7 +66,8 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     if (!aiEnabled) context.ai = createUnavailableAiRuntime(aiUnavailableReason);
     else try {
     context.ai = aiRuntimeFactory({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
-      conversationStore: store.aiConversationStore,
+      conversationStore: store.aiConversationStore, actionStore: store.aiActionStore,
+      coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       contextSources: { ...context.modules.knowledge.repositories,

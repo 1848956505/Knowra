@@ -1,3 +1,4 @@
+import { createSqliteActionStore } from './ai-sqlite-action-store.mjs';
 import { sameEntity } from '../../api/src/modules/sync/entity-contract.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -187,6 +188,11 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     try { persist(); } catch (error) { db.close(); throw error; }
   }
 
+  let aiActionStore = null;
+  if (!aiRuntimeError) {
+    try { aiActionStore = createSqliteActionStore(db, filePath, runTransaction); }
+    catch (error) { aiRuntimeError = error; }
+  }
   let coreOperationStore = null, coreOperationStoreError = null;
   try { coreOperationStore = createSqliteCoreOperationStore(db, filePath, runTransaction); }
   catch (error) { coreOperationStoreError = error; }
@@ -196,6 +202,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     coreOperationStoreError,
     aiRepository,
     aiAccessStore,
+    aiActionStore,
     aiConversationStore,
     aiRuntimeError,
     syncTransaction(operation, { local = false } = {}) {

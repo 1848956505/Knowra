@@ -1,3 +1,4 @@
+import { validateWriteIntent } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
@@ -27,6 +28,9 @@ export function conversationError(code, message) {
 export function validateConversationRecord(kind, record) {
   if (!validators[kind]?.(record) || record.kind !== kind) {
     conversationError('AI_RECORD_INVALID', `AI ${kind} 会话记录无效。`);
+  }
+  if (kind === 'aiConversationTurn' && record.writeIntent) {
+    try { validateWriteIntent(record.writeIntent); } catch { conversationError('AI_RECORD_INVALID', '恢复的写入意图缺少固定目标。'); }
   }
   if (kind === 'aiConversationTurn' && record.turnId !== record.jobId) {
     conversationError('AI_RECORD_INVALID', '会话轮次与任务 ID 不一致。');
@@ -95,7 +99,7 @@ export function validateConversationState(input) {
       || turn.status === 'succeeded' !== Boolean(assistant)
       || assistant && assistant.sequence <= user.sequence
       || turn.inputHash !== hashRecord({ conversationId: turn.conversationId, content: user.content,
-        requestedPolicyId: turn.requestedPolicyId })) {
+        requestedPolicyId: turn.requestedPolicyId, ...(turn.writeIntent ? { writeIntent: turn.writeIntent } : {}) })) {
       conversationError('AI_REFERENCE_INVALID', '任务消息引用或终态不一致。');
     }
     const ordinalKey = `${turn.conversationId}:${turn.ordinal}`;
@@ -174,6 +178,11 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
     }
   };
   return {
+    peekTurn(id) {
+      const value = adapter.read();
+      const find = state => structuredClone(validateConversationState(state).conversationTurns.find(row => row.turnId === id) ?? null);
+      return value?.then ? value.then(find) : find(value);
+    },
     identity: () => adapter.identity(),
     async listConversations(filter) {
       const state = await read();
@@ -203,7 +212,7 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         state.conversations.push(record); return record;
       });
     },
-    async submitTurn({ ownerId, conversationId, content, idempotencyKey, requestedPolicyId = null }) {
+    async submitTurn({ ownerId, conversationId, content, idempotencyKey, requestedPolicyId = null, writeIntent = undefined }) {
       return write((state, identity) => {
         const conversation = state.conversations.find(row => row.conversationId === conversationId);
         if (!conversation || conversation.ownerId !== ownerId) conversationError('AI_CONVERSATION_NOT_FOUND', '会话不存在。');
@@ -213,7 +222,8 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
           || requestedPolicyId !== null && (typeof requestedPolicyId !== 'string' || !requestedPolicyId || requestedPolicyId.length > 128)) {
           conversationError('AI_REQUEST_INVALID', '消息或请求键无效。');
         }
-        const inputHash = hashRecord({ conversationId, content, requestedPolicyId });
+        if (writeIntent) validateWriteIntent(writeIntent);
+        const inputHash = hashRecord({ conversationId, content, requestedPolicyId, ...(writeIntent ? { writeIntent } : {}) });
         const prior = state.conversationTurns.find(row => row.ownerId === ownerId && current(row, identity)
           && row.spaceId === conversation.spaceId && row.idempotencyKey === idempotencyKey);
         if (prior) {
@@ -233,7 +243,7 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
           sourceFree: true, finishReason: null, createdAt: time });
         const turn = validateConversationRecord('aiConversationTurn', { ...common, kind: 'aiConversationTurn',
           turnId, jobId: turnId, ordinal: Math.max(0, ...state.conversationTurns.filter(row => row.conversationId === conversationId).map(row => row.ordinal)) + 1,
-          idempotencyKey, inputHash, userMessageId: messageId, assistantMessageId: null, requestedPolicyId,
+          idempotencyKey, inputHash, userMessageId: messageId, assistantMessageId: null, requestedPolicyId, ...(writeIntent ? { writeIntent } : {}),
           status: 'staged', phase: 'waiting', leaseGeneration: 0, leaseExpiresAt: null, errorCode: null,
           createdAt: time, updatedAt: time });
         state.conversationMessages.push(message); state.conversationTurns.push(turn);

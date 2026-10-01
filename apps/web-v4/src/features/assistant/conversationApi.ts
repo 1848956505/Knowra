@@ -33,7 +33,7 @@ export interface ConversationMessage {
 export interface ToolCall {
   callId: string;
   ordinal: number;
-  toolName: 'notes_search' | 'notes_read';
+  toolName: 'notes_search' | 'notes_read' | 'notes_create' | 'notes_append' | 'notes_propose_patch' | 'notes_propose_organize';
   argumentsJson: Record<string, unknown>;
   resultJson: Record<string, unknown> | null;
   status: 'requested' | 'succeeded' | 'failed';
@@ -78,7 +78,7 @@ export const conversationApi = {
   }),
   messages: (id: string, afterSequence = 0) => data<ConversationMessage[]>(
     `${path(id)}/messages?afterSequence=${afterSequence}&limit=100`),
-  send: (id: string, input: { content: string; idempotencyKey: string; requestedPolicyId: string | null }) =>
+  send: (id: string, input: { content: string; idempotencyKey: string; requestedPolicyId: string | null; writeIntent?: { toolName: string; noteId?: string } }) =>
     data<ConversationTurn>(`${path(id)}/messages`, {
       method: 'POST', headers: conversationHeaders, body: JSON.stringify({ ...input, execute: true })
     }),

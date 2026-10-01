@@ -1,3 +1,4 @@
+import { validateWriteIntent } from './note-write-intent.js';
 import { conversationError } from './conversation-store.js';
 
 const validId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
@@ -58,10 +59,15 @@ export function createAiConversationService({ store, legacyRepository, accessSto
     },
     async submit(id, input) {
       const conversation = await ownedConversation(id);
-      if (!input || Object.keys(input).some(key => !['content', 'idempotencyKey', 'requestedPolicyId', 'execute'].includes(key))
+      if (!input || Object.keys(input).some(key => !['content', 'idempotencyKey', 'requestedPolicyId', 'execute', 'writeIntent'].includes(key))
         || input.execute !== undefined && typeof input.execute !== 'boolean'
         || input.execute && (typeof input.content !== 'string' || input.content.length > 3800)) {
         conversationError('AI_REQUEST_INVALID', '消息请求无效。');
+      }
+      if (input.writeIntent) {
+        validateWriteIntent(input.writeIntent);
+        if (!agent || !input.execute) conversationError('AI_GENERATION_UNAVAILABLE', '写入计划需要可用的执行器。');
+        if (input.writeIntent.toolName !== 'notes_create' && !input.requestedPolicyId) conversationError('AI_SCOPE_FORBIDDEN', '修改现有笔记需要选择读取授权。');
       }
       if (input.requestedPolicyId != null) {
         const policy = await accessStore?.get('aiAccessPolicy', input.requestedPolicyId);

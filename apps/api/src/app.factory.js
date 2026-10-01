@@ -210,7 +210,8 @@ export function createPersistentAppContext({
   context.http.aiBudget = dataStore.aiBudgetAuthority;
   context.ai = createOptionalAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
     accessStore: dataStore.aiAccessStore,
-    conversationStore: dataStore.aiConversationStore,
+    conversationStore: dataStore.aiConversationStore, actionStore: dataStore.aiActionStore,
+    coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
     budgetAuthority: dataStore.aiBudgetAuthority, priceProfile: reviewedDeepSeekPriceProfile,
     allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0', contextSources: {
       ...context.modules.knowledge.repositories, ownerId: resolveOwnerId(ownerId, dataStore.state.spaces),

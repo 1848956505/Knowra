@@ -57,9 +57,9 @@ export const aiAgentR04Tests = [
   { name: 'R04 v3 私有状态仅补逐次模型尝试空集合', async run() {
     const old = createEmptyAiState();
     old.version = 3;
-    delete old.conversationModelAttempts;
+    delete old.conversationModelAttempts; delete old.actionLedger;
     const upgraded = validateAiState(old);
-    assert.equal(upgraded.version, 4);
+    assert.equal(upgraded.version, 5);
     assert.deepEqual(upgraded.conversationModelAttempts, []);
     assert.deepEqual(upgraded.conversations, old.conversations);
   } },

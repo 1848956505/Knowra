@@ -1,3 +1,4 @@
+vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => []) } }));
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
@@ -10,7 +11,7 @@ const fixture = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('../../store/AppStoreProvider', () => ({ useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
+vi.mock('../../store/AppStoreProvider', () => ({ useAppStoreApi: () => ({ getState: () => fixture.state }), useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
 vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn() } }));
 vi.mock('./conversationApi', () => ({ conversationApi: {
   list: vi.fn(), create: vi.fn(), messages: vi.fn(), send: vi.fn(), turn: vi.fn(), cancel: vi.fn(), retry: vi.fn(),
