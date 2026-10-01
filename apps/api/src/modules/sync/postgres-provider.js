@@ -28,6 +28,12 @@ async function snapshot(db) {
   return result;
 }
 
+// 维护世代重建只需主体身份；不读取正文/文件，也不改变业务表。
+export async function loadPostgresSyncIdentityState(db) {
+  return Object.fromEntries(await Promise.all(Object.entries(collections).map(async ([collection, [model]]) =>
+    [collection, await db[model].findMany({ select: { id: true } })])));
+}
+
 // 所有 repository 共用当前事务连接；业务、派生来源和同步日志一次提交。
 export function createPostgresSyncRuntime(client, ownerId) {
   const scope = new AsyncLocalStorage();
