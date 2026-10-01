@@ -360,12 +360,14 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             </div> : <>
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               <div className={styles.composerCard}>
-                <Select label="本轮用途" selectedKey={writeMode} onSelectionChange={key => { pendingSend.current = null; setWriteMode(String(key)); }} options={[{ id: 'chat', label: '普通对话' }, { id: 'notes_create', label: '生成新笔记计划' }, { id: 'notes_append', label: '生成追加计划' }, { id: 'notes_propose_patch', label: '生成局部改写计划' }, { id: 'notes_propose_organize', label: '生成整理计划' }]} />
           {writeMode !== 'chat' && writeMode !== 'notes_create' ? <Select label="本轮固定写入目标" selectedKey={writeTarget || null} onSelectionChange={key => { pendingSend.current = null; setWriteTarget(String(key)); }} options={notes.map(note => ({ id: note.id, label: note.title }))} /> : null}
           <TextAreaField label="消息" presentation="composer" value={draft}
                   onChange={value => { setDraft(value); pendingSend.current = null; }}
                   placeholder={chosenPolicy ? '询问已授权资料中的内容…' : '问一个问题，或继续追问…'} rows={2} />
                 <div className={styles.composerToolbar}>
+                  <div className={styles.purposePicker}>
+                    <Select label="本轮用途" presentation="toolbar" selectedKey={writeMode} onSelectionChange={key => { pendingSend.current = null; setWriteMode(String(key)); }} options={[{ id: 'chat', label: '普通对话' }, { id: 'notes_create', label: '生成新笔记计划' }, { id: 'notes_append', label: '生成追加计划' }, { id: 'notes_propose_patch', label: '生成局部改写计划' }, { id: 'notes_propose_organize', label: '生成整理计划' }]} />
+                  </div>
                   <div className={styles.scopePicker}><Select label="资料范围" presentation="toolbar" selectedKey={scopeChoice}
                     onSelectionChange={key => { setScopeChoice(String(key)); pendingSend.current = null; }}
                     options={[{ id: 'plain', label: '普通聊天 · 不读取笔记' }, ...activePolicies.map(policy => ({

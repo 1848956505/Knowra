@@ -1,3 +1,5 @@
+import { attachmentCleanupCrashTests } from './attachment-cleanup-crash.test.js';
+import { reviewPostgresAcceptanceTests } from './review-postgres-acceptance.test.js';
 import { aiNoteActionHttpTests } from './ai-note-action-http.test.js';
 import { aiNoteActionAgentTests } from './ai-note-action-agent.test.js';
 import { aiNoteActionPostgresTests } from './ai-note-actions-postgres.test.js';
@@ -75,6 +77,8 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...attachmentCleanupCrashTests,
+  ...reviewPostgresAcceptanceTests,
   ...aiNoteActionAgentTests,
   ...aiNoteActionHttpTests,
   ...aiNoteActionTests,

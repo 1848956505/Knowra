@@ -1402,6 +1402,7 @@ async function mockEditorWorkspace(
   savedRequests: Array<{ noteId: string; markdown: string }> = [],
   initialMarkdown?: string
 ): Promise<void> {
+  await page.route('**/api/ai/actions/drafts', route => route.fulfill({ json: { data: { accepted: true } } }));
   await page.route('**/api/storage/attachments/cleanup', route => route.fulfill({ json: { data: { items: [], pending: 0 } } }));
   let sourceMarkdown = initialMarkdown
     ?? ['已有正文', ...Array.from({ length: 64 }, (_, index) => `验收段落 ${index + 1}`)].join('\n\n');
