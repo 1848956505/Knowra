@@ -9,6 +9,9 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('V4 PixelFace 主页装饰基线', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/knowledge/**', route => route.fulfill({ json: { data: new URL(route.request().url()).pathname.endsWith('/spaces') ? [{ id: 'space-1', name: '合成空间' }] : [] } }));
+  });
   test('桌面 1440: 主页标题区出现 PixelFace，无 console 错误', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {

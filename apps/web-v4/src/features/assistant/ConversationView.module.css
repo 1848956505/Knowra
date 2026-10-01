@@ -39,6 +39,8 @@
 .composerCard { min-width: 0; border: 1px solid var(--ink-shell); background: var(--ink-surface); box-shadow: var(--shadow-1); }
 .composerCard:focus-within { border-color: var(--ink); box-shadow: var(--shadow-input-focus); }
 .composerToolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
+.purposePicker { flex: 0 1 170px; min-width: 150px; }
+.purposePicker > div { width: 100%; }
 .scopePicker { flex: 0 1 255px; min-width: 180px; }
 .scopePicker > div { width: 100%; }
 .composerSpacer { flex: 1 1 12px; }
@@ -59,6 +61,6 @@
   .messages { padding: 14px 12px; }
   .message { padding: 12px; }
   .composer { padding: 10px 12px 12px; }
-  .scopePicker { flex: 1 1 100%; max-width: none; }
+  .purposePicker, .scopePicker { flex: 1 1 calc(50% - 2px); min-width: 0; max-width: none; }
   .composerToolbar { gap: 4px; padding: 0 8px 8px; }
 }
