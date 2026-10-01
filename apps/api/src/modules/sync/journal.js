@@ -33,6 +33,36 @@ export function loadJournal(value, state) {
   return journal;
 }
 
+// 只重建传输世代；已知的不可逆删除事实不属于可重建缓存。
+export function resetJournalKeepingTombstones(value, state) {
+  const validate = (key, tombstone) => {
+    if (!tombstone || !LOCAL_DATA_COLLECTIONS.includes(tombstone.collection)
+      || typeof tombstone.id !== 'string' || key !== syncKey(tombstone.collection, tombstone.id)
+      || !Number.isSafeInteger(tombstone.revision) || tombstone.revision < 1) {
+      throw syncError('SYNC_STORAGE_INVALID', '删除事实格式无效，已停止同步世代重建。', 500);
+    }
+  };
+  // 旧日志缺少墓碑集合可从修订补出；显式损坏的删除事实不能静默重释。
+  if (value?.tombstones !== undefined) {
+    if (!value.tombstones || typeof value.tombstones !== 'object' || Array.isArray(value.tombstones)) {
+      throw syncError('SYNC_STORAGE_INVALID', '删除事实格式无效，已停止同步世代重建。', 500);
+    }
+    for (const [key, tombstone] of Object.entries(value.tombstones)) validate(key, tombstone);
+  }
+  const previous = loadJournal(value, state);
+  const next = { ...createJournal(state), deviceSequences: {} };
+  const present = new Set(LOCAL_DATA_COLLECTIONS.flatMap(collection => (state[collection] ?? []).map(item => syncKey(collection, item.id))));
+  for (const [key, tombstone] of Object.entries(previous.tombstones)) {
+    validate(key, tombstone);
+    if (present.has(key)) {
+      throw syncError('SYNC_RESET_DELETED_ID_PRESENT', '恢复数据包含已知永久删除的对象，请先核对并处置删除事实。');
+    }
+    next.tombstones[key] = structuredClone(tombstone);
+    next.revisions[key] = tombstone.revision;
+  }
+  return next;
+}
+
 export function appendChanges(journal, before, after) {
   const items = [];
   for (const collection of LOCAL_DATA_COLLECTIONS) {
