@@ -1,3 +1,4 @@
+import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -19,6 +20,7 @@ test('桌面真实页面声明本机执行、笔记读取需授权，并在云�
   const browser = await chromium.launch();
   t.after(async () => { await browser.close(); await runtime.close(); fs.rmSync(directory, { recursive: true, force: true }); });
   const page = await browser.newPage();
+    await withPageFailureDiagnostics(page, async () => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(runtime.launchUrl);
@@ -38,4 +40,5 @@ test('桌面真实页面声明本机执行、笔记读取需授权，并在云�
   await expect(page.getByRole('dialog', { name: '授权助手读取资料' })).toBeVisible();
   assert.equal((await runtime.store.aiRepository.list('aiJob')).length, 0);
   assert.deepEqual(errors, []);
+    });
 });

@@ -1,3 +1,4 @@
+import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
@@ -12,6 +13,7 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     browser = await chromium.launch(process.env.KNOWRA_TEST_BROWSER_CHANNEL ? { channel: process.env.KNOWRA_TEST_BROWSER_CHANNEL } : {});
     const context = await browser.newContext();
     const page = await context.newPage();
+    await withPageFailureDiagnostics(page, async () => {
     const errors = []; const external = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => {
@@ -114,5 +116,6 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     await expect(faultPage.getByText('合成授权笔记', { exact: true }).first()).toBeVisible();
     await faultPage.close();
     assert.deepEqual(errors, []); assert.deepEqual(external, []);
+    });
   });
 }
