@@ -38,3 +38,11 @@ it('确认查询期间关闭弹窗后，不发送迟到批准或写入',async()=
   fireEvent.click(screen.getByRole('button',{name:'确认并保存'}));await waitFor(()=>expect(noteActionApi.get).toHaveBeenCalled());fireEvent.click(screen.getByRole('button',{name:'关闭'}));release(action);
   await new Promise(resolve=>setTimeout(resolve,0));expect(noteActionApi.approve).not.toHaveBeenCalled();expect(noteActionApi.apply).not.toHaveBeenCalled();expect(state.loadWorkspace).not.toHaveBeenCalled();
 });
+
+it('切换空间清空旧记录，迟到手动刷新不能显示旧空间计划',async()=>{
+  let release:(rows:NoteAction[])=>void=()=>{};
+  vi.mocked(noteActionApi.list).mockResolvedValueOnce([action]).mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;})).mockResolvedValueOnce([]);
+  const view=render(<NoteActions spaceId="space" onOpenNote={vi.fn()}/>);await screen.findByText('执行记录（1）');
+  fireEvent.click(screen.getByRole('button',{name:'刷新执行记录'}));view.rerender(<NoteActions spaceId="next-space" onOpenNote={vi.fn()}/>);
+  release([action]);await waitFor(()=>expect(screen.getByText('执行记录（0）')).toBeInTheDocument());expect(screen.queryByRole('button',{name:'查看计划与结果'})).not.toBeInTheDocument();
+});

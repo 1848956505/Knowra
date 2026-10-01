@@ -35,10 +35,12 @@ export function NoteActions({ refreshKey, spaceId, conversationId, message, onOp
   const undoKeys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const mounted = useRef(true);
+  const currentSpace = useRef(spaceId);
+  currentSpace.current = spaceId;
   useEffect(() => {
     mounted.current = true;
     generation.current++;
-    setBusy(false); setAction(null); pendingInput.current = null;
+    setBusy(false); setAction(null); setHistory([]); pendingInput.current = null;
     return () => { mounted.current = false; generation.current++; };
   }, [spaceId]);
   useEffect(() => {
@@ -112,7 +114,7 @@ export function NoteActions({ refreshKey, spaceId, conversationId, message, onOp
   function close() { generation.current++; setBusy(false); setOpen(false); onCloseSource?.(); }
   return <section className={styles.panel} aria-label="笔记写入与执行记录">
     <div className={styles.toolbar}><Button variant="default" size="compact" onPress={() => { changed(); setOpen(true); }}>记录或整理笔记</Button>
-      <Button variant="ghost" size="compact" onPress={() => { void noteActionApi.list(spaceId).then(setHistory).catch(cause => setError(String(cause))); }}>刷新执行记录</Button></div>
+      <Button variant="ghost" size="compact" onPress={() => { const requestedSpace = spaceId; void noteActionApi.list(requestedSpace).then(rows => { if (mounted.current && currentSpace.current === requestedSpace) setHistory(rows); }).catch(cause => { if (mounted.current && currentSpace.current === requestedSpace) setError(String(cause)); }); }}>刷新执行记录</Button></div>
     <details><summary>执行记录（{history.length}）</summary>{history.map(row => <div key={row.actionId} className={styles.record}>
       <span>{row.plan.items.map(item => item.after.title).join('、')} · {labels[row.status] ?? row.status}</span>
       <Button variant="ghost" size="compact" onPress={() => { generation.current++; setBusy(false); update(row); setOpen(true); }}>查看计划与结果</Button>
