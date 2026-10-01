@@ -96,6 +96,42 @@ test('JSON恢复主体与已知墓碑冲突时命令失败，原文件字节不�
   assert.deepEqual(fs.readFileSync(file), before);
 });
 
+test('JSON旧证据待修正时仍先校验原始墓碑，损坏或主体冲突均不写主文件', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-reset-legacy-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const scenario of ['malformed', 'collision']) {
+    const state = createEmptyLocalState();
+    state.knowledgeItems.push({ id: 'live-k', title: '合成知识', sourceMode: 'manual', reviewStatus: 'candidate' });
+    // 普通store加载会补status/applicabilityStatus并持久化，此处必须在任何写入前拒绝。
+    state.knowledgeEvidence.push({ id: 'e1', knowledgeItemId: 'live-k', sourceType: 'manual', quoteText: '合成证据' });
+    const journal = createJournal(state);
+    const key = syncKey(scenario === 'collision' ? 'knowledgeItems' : 'tags', scenario === 'collision' ? 'live-k' : 'deleted-tag');
+    journal.revisions[key] = 7;
+    journal.tombstones[key] = scenario === 'malformed' ? null : { collection: 'knowledgeItems', id: 'live-k', revision: 7, eventId: 'synthetic', deletedAt: null };
+    const file = path.join(root, `${scenario}.json`);
+    const document = { schemaVersion: 6, ...state, sync: journal, customMetadata: { preserved: true } };
+    fs.writeFileSync(file, JSON.stringify(document));
+    const before = fs.readFileSync(file);
+    const expected = scenario === 'malformed' ? 'SYNC_STORAGE_INVALID' : 'SYNC_RESET_DELETED_ID_PRESENT';
+    assert.throws(() => execFileSync(process.execPath, [script, '--driver', 'local-json', '--data-file', file], { stdio: 'pipe' }),
+      error => error.stderr.toString().includes(expected));
+    assert.deepEqual(fs.readFileSync(file), before);
+    const backup = fs.readdirSync(root).find(name => name.startsWith(`${scenario}.json.before-sync-reset-`));
+    assert.deepEqual(fs.readFileSync(path.join(root, backup)), before);
+    if (scenario === 'malformed') {
+      journal.tombstones[key] = { collection: 'tags', id: 'deleted-tag', revision: 7, eventId: 'synthetic', deletedAt: null };
+      fs.writeFileSync(file, JSON.stringify(document));
+      const result = JSON.parse(execFileSync(process.execPath, [script, '--driver', 'local-json', '--data-file', file], { encoding: 'utf8' }));
+      const after = JSON.parse(fs.readFileSync(file, 'utf8'));
+      assert.notEqual(result.datasetEpoch, journal.epoch);
+      assert.deepEqual(after.sync.tombstones, journal.tombstones);
+      assert.equal(after.knowledgeEvidence[0].status, 'valid');
+      assert.equal(after.knowledgeEvidence[0].applicabilityStatus, 'active');
+      assert.deepEqual(after.customMetadata, document.customMetadata);
+    }
+  }
+});
+
 test('真实PostgreSQL世代重建保留墓碑，旧ID阻断、已知事实冲突及多日志故障整体回滚', {
   skip: !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000
 }, async t => {

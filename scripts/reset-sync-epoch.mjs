@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { createFileDataStore } from '../apps/api/src/infrastructure/file-data-store.js';
+import { createPersistedLocalDocument, validatePersistedLocalState } from '../apps/api/src/infrastructure/local-data-schema.js';
+import { writeJsonFileAtomically } from '../apps/api/src/infrastructure/atomic-json-file.js';
 import { resetJournalKeepingTombstones } from '../apps/api/src/modules/sync/journal.js';
 import { loadPostgresSyncIdentityState } from '../apps/api/src/modules/sync/postgres-provider.js';
 import { createPrismaRuntime } from '../apps/api/src/infrastructure/prisma-client.js';
@@ -14,11 +15,12 @@ if (values.driver === 'local-json') {
   const backup = `${values['data-file']}.before-sync-reset-${Date.now()}.bak`;
   fs.copyFileSync(values['data-file'], backup, fs.constants.COPYFILE_EXCL);
   fs.chmodSync(backup, 0o600);
-  const store = createFileDataStore(values['data-file']);
   const persisted = JSON.parse(fs.readFileSync(values['data-file'], 'utf8'));
-  const journal = resetJournalKeepingTombstones(persisted.sync, store.state);
-  store.runSyncTransaction(() => Object.assign(store.getSyncJournal(), journal));
-  console.log(JSON.stringify({ datasetEpoch: store.getSyncJournal().epoch, retainedTombstones: Object.keys(journal.tombstones).length, backup }));
+  // 普通加载器可能持久化旧版字段修正；恢复命令须先只读校验原文，成功后才一次原子替换。
+  const state = validatePersistedLocalState(persisted);
+  const journal = resetJournalKeepingTombstones(persisted.sync, state);
+  writeJsonFileAtomically(values['data-file'], { ...persisted, ...createPersistedLocalDocument(state), sync: journal });
+  console.log(JSON.stringify({ datasetEpoch: journal.epoch, retainedTombstones: Object.keys(journal.tombstones).length, backup }));
 } else if (values.driver === 'postgres') {
   const databaseUrl = process.env.KNOWRA_SYNC_RESET_DATABASE_URL;
   if (!databaseUrl) throw new Error('请显式设置 KNOWRA_SYNC_RESET_DATABASE_URL，避免误用其他数据库配置。');
