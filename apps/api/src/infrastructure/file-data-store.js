@@ -1,5 +1,5 @@
 import { createJsonActionStore } from '../modules/ai/action-state.js';
-import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
+import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -179,8 +179,8 @@ export function createFileDataStore(filePath, {
         if (transaction) throw new TypeError('提炼接纳必须拥有最外层事务，不能嵌套提交。');
         return runTransaction(operation);
       },
-      get: input => knowledgeExtractionCommits.receipts.find(receipt => knowledgeExtractionCommitKey(receipt) === knowledgeExtractionCommitKey(input)) ?? null,
-      insert: receipt => { knowledgeExtractionCommits.receipts.push(receipt); flush(); }
+      get: input => structuredClone(knowledgeExtractionCommits.receipts.find(receipt => knowledgeExtractionCommitKey(receipt) === knowledgeExtractionCommitKey(input)) ?? null),
+      insert: receipt => { knowledgeExtractionCommits.receipts.push(validateKnowledgeExtractionCommit(receipt)); flush(); }
     },
     knowledgeExtractionCommitStoreError,
     coreOperationStore: coreOperationStoreError ? null : createSyncCoreOperationStore({

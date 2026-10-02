@@ -48,6 +48,25 @@ export const aiKnowledgeExtractionCommitTests = [
       assert.equal(JSON.stringify(receipt.request.sources).includes(f.excluded), false);
     });
   } },
+  { name: 'P3 JSON 提炼：修改返回或读取的回执不污染内部记录，普通编辑和重试仍可完成', async run() {
+    await withFixture(async f => {
+      const returned = f.app.knowledgeExtractionCommit.commit(f.input);
+      const expected = structuredClone(returned);
+      returned.result.candidates[0].title = '调用方修改结果';
+      returned.request.sources[0].markdown = '调用方修改请求';
+      returned.candidates[0].candidateInput.title = '调用方修改计划';
+      const read = f.app.dataStore.knowledgeExtractionCommitStore.get(f.records.job);
+      assert.deepEqual(read, expected);
+      read.result.candidates[0].title = '调用方修改读取回执';
+      read.candidates[0].provenance[0].quoteText = '调用方修改来源';
+      f.knowledge.noteService.updateNote(f.note.id, { rawMarkdown: '修改回执后的正常合成编辑' });
+      assert.deepEqual(f.app.knowledgeExtractionCommit.commit(f.input), expected);
+      assert.deepEqual(JSON.parse(fs.readFileSync(f.file, 'utf8')).knowledgeExtractionCommits.receipts[0], expected);
+      const restarted = f.open();
+      assert.deepEqual(restarted.knowledgeExtractionCommit.commit(f.input), expected);
+      assert.equal(restarted.modules.knowledge.noteService.getNote(f.note.id).rawMarkdown, '修改回执后的正常合成编辑');
+    });
+  } },
   { name: 'P3 JSON 提炼：同任务异输出冲突；相同输出重试保留用户修订、删除状态和首份 provenance', async run() {
     await withFixture(async f => {
       const receipt = f.app.knowledgeExtractionCommit.commit(f.input);

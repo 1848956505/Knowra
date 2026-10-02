@@ -29,7 +29,10 @@ export function createPostgresKnowledgeExtractionCommitStore({ client, ownerId }
       const [row] = await tx.$queryRawUnsafe(`SELECT * FROM knowledge_extraction_commits
         WHERE owner_id = $1 AND dataset_id = $2 AND job_id = $3`, ownerId, input.datasetId, input.jobId);
       if (!row) return null;
-      const receipt = validateKnowledgeExtractionCommit(row.receipt_json);
+      let content;
+      try { content = JSON.parse(row.receipt_json); }
+      catch { throw createAppError('KNOWLEDGE_EXTRACTION_COMMIT_INVALID', '提炼提交记录 JSON 无效。', 422); }
+      const receipt = validateKnowledgeExtractionCommit(content);
       if (knowledgeExtractionCommitKey(receipt) !== knowledgeExtractionCommitKey({ ownerId: row.owner_id,
         datasetId: row.dataset_id, jobId: row.job_id }) || receipt.receiptHash !== row.receipt_hash) {
         throw createAppError('KNOWLEDGE_EXTRACTION_COMMIT_INVALID', '提炼提交索引与内容不一致。', 422);
@@ -37,7 +40,7 @@ export function createPostgresKnowledgeExtractionCommitStore({ client, ownerId }
       return receipt;
     },
     insert: (receipt, tx) => tx.$executeRawUnsafe(`INSERT INTO knowledge_extraction_commits
-      (owner_id, dataset_id, job_id, receipt_hash, receipt_json) VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      (owner_id, dataset_id, job_id, receipt_hash, receipt_json) VALUES ($1, $2, $3, $4, $5)`,
     receipt.ownerId, receipt.datasetId, receipt.jobId, receipt.receiptHash, JSON.stringify(receipt))
   };
 }

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createPostgresAppContext } from '../src/postgres-app.factory.js';
 import { createPostgresAiRepository } from '../src/modules/ai/postgres-record-repository.js';
+import { validateKnowledgeExtractionCommit } from '../src/modules/ai/knowledge-extraction-commit-contract.js';
 import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import { createKnowledgeExtractionJobFixture } from './fixtures/knowledge-extraction-job.fixture.js';
 
@@ -36,6 +37,10 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
       assert.equal(count, 1); assert.equal((await f.ai.get('aiJob', f.input.jobId)).status, 'succeeded');
       assert.equal((await f.ai.get('aiJobAttempt', f.input.attemptId)).status, 'validated');
       const receipt = receipts[0], item = await f.app.repositories.knowledgeItemRepository.findById(receipt.candidates[0].candidateInput.id);
+      const [stored] = await f.app.prisma.$queryRawUnsafe('SELECT receipt_json FROM knowledge_extraction_commits');
+      assert.equal(typeof stored.receipt_json, 'string');
+      assert.equal(stored.receipt_json, JSON.stringify(receipt));
+      assert.deepEqual(validateKnowledgeExtractionCommit(JSON.parse(stored.receipt_json)), receipt);
       assert.equal(item.reviewStatus, 'candidate');
       await f.app.http.knowledge.updateKnowledgeItem({ id: item.id }, { title: '用户合成修订', expectedUpdatedAt: item.updatedAt });
       const restarted = await f.start(); assert.deepEqual(await restarted.knowledgeExtractionCommit.commit(f.input), receipt);
