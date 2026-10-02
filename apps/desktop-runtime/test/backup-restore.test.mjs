@@ -124,6 +124,7 @@ test('损坏附件或非法路径拒绝恢复，现有资料仍可继续写入',
   const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
   const entry = manifest.files.find(item => item.path.startsWith('uploads/'));
   entry.sha256 = createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  entry.size = fs.statSync(file).size;
   fs.writeFileSync(manifestFile, JSON.stringify(manifest));
   assert.match((await request(`/api/local-runtime/backups/${backup.id}/restore`, 'POST', { confirmBackupId: backup.id })).error.message, /附件/);
   assert.equal(readActiveDirectory(app.options.dataDirectory), app.options.dataDirectory);
@@ -212,4 +213,33 @@ test('再次备份和重复恢复保留来源草稿；与当前草稿同键也�
     assert.equal(checked.data.draftCount, 2);
     assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), currentDrafts);
   }
+});
+
+test('私有完整备份通道拒绝过期资料集、恢复停写及关闭，HTTP 无任意目录入口', async t => {
+  const app = await setup(t);
+  const backup = (await app.request('/api/local-runtime/backup', 'POST', {})).data;
+  const external = path.join(path.dirname(app.options.dataDirectory), 'external'); fs.mkdirSync(external);
+  const stat = fs.lstatSync(external);
+  const input = { action: 'export', datasetId: 'stale', backupId: backup.id, selection: { path: external, dev: stat.dev, ino: stat.ino } };
+  assert.throws(() => app.runtime().backupTransfer(input), /资料库已变化/);
+  const unsupported = await app.request('/api/local-runtime/backups/import', 'POST', { filePath: external });
+  assert.notEqual(unsupported.status, 200);
+  let endBody;
+  const holding = new Promise(resolve => {
+    const request = http.request(`${app.runtime().origin}/api/knowledge/notes/${app.note.id}`, { method: 'PATCH', headers: app.headers() }, response => {
+      response.resume(); response.on('end', resolve);
+    });
+    request.write('{"rawMarkdown":"最后正文",'); endBody = () => request.end(`"expectedUpdatedAt":${JSON.stringify(app.note.updatedAt)}}`);
+  });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const restoring = app.request(`/api/local-runtime/backups/${backup.id}/restore`, 'POST', { confirmBackupId: backup.id });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.throws(() => app.runtime().backupTransfer({ ...input, datasetId: app.dataset() }), /正在恢复/);
+  endBody(); await holding; assert.equal((await restoring).status, 200);
+  assert.throws(() => app.runtime().backupTransfer({ ...input, datasetId: app.dataset() }), /资料库已变化/);
+  app.adoptDataset();
+  const closing = app.runtime().close();
+  assert.throws(() => app.runtime().backupTransfer({ ...input, datasetId: app.dataset() }), /关闭/);
+  await closing;
+  assert.deepEqual(fs.readdirSync(external), []);
 });
