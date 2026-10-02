@@ -69,6 +69,7 @@ import { aiAccessV2Tests } from './ai-access-v2.test.js';
 import { aiConversationV2Tests } from './ai-conversation-v2.test.js';
 import { aiAgentR04Tests } from './ai-agent-r04.test.js';
 import { aiRetrievalR06Tests } from './ai-retrieval-r06.test.js';
+import { aiKeywordCoverageTests } from './ai-keyword-coverage.test.js';
 import { aiNotePlanTests } from './ai-note-plan.test.js';
 import { coreOperationStoreTests } from './core-operation-store.test.js';
 import { coreOperationPostgresTests } from './core-operation-postgres.test.js';
@@ -151,6 +152,7 @@ const tests = [
   ...aiConversationV2Tests,
   ...aiAgentR04Tests,
   ...aiRetrievalR06Tests,
+  ...aiKeywordCoverageTests,
   ...aiConversationPostgresTests,
 ];
 

@@ -287,7 +287,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         const guidance = round ? finalOnly
             ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
             : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
-        const coverage = `${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到候选数量或单篇长度上限限制，不得声称已检查完整授权范围。' : ''}`;
+        const coverage = `${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
         const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
         if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
         const context = plainContext && contextRoom >= 8
