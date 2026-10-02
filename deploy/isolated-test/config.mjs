@@ -41,7 +41,8 @@ export function validateInstance({ instanceId, dataRoot, databaseUrl, port = 431
       || !['127.0.0.1', 'localhost', '[::1]', 'postgres'].includes(url.hostname)
       || decodeURIComponent(url.pathname) !== `/${name}`
       || [...url.searchParams.keys()].some(key => !['connection_limit', 'pool_timeout'].includes(key))) throw new Error('数据库须为私有PostgreSQL及该实例的专用库，禁止schema/host等连接覆盖。');
-  return { instanceId, dataRoot: root, databaseName: name, ownerId: name, port,
+  // 当前桌面运行时固定demo；隔离由专用数据库/目录/世代及持久实例标识提供。
+  return { instanceId, dataRoot: root, databaseName: name, ownerId: 'demo', port,
     databaseIdentity: `${url.hostname}:${url.port || '5432'}/${name}` };
 }
 

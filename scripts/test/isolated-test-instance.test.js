@@ -9,16 +9,14 @@ import test from 'node:test';
 import { PrismaClient } from '@prisma/client';
 import { validateInstance, repositoryRoot } from '../../deploy/isolated-test/config.mjs';
 import { startIsolatedInstance } from '../../deploy/isolated-test/runtime.mjs';
-import { createSqliteDataStore } from '../../apps/desktop-runtime/src/sqlite-data-store.mjs';
-import { createAppContext } from '../../apps/api/src/app.factory.js';
-import { createSyncEngine } from '../../apps/desktop-runtime/src/sync-engine.mjs';
+import { startLocalRuntime } from '../../apps/desktop-runtime/src/runtime-server.mjs';
 const run = promisify(execFile);
 
 test('隔离配置拒绝生产数据库、连接覆盖、端口、目录及符号链接', t => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-isolation-config-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const input = { instanceId: 'qa', dataRoot: path.join(root, 'instance'), databaseUrl: 'postgresql://test@127.0.0.1/knowra_acceptance_qa' };
-  assert.equal(validateInstance(input).ownerId, 'knowra_acceptance_qa');
+  assert.equal(validateInstance(input).ownerId, 'demo');
   for (const override of [{ databaseUrl: 'postgresql://test@127.0.0.1/knowra_prod' },
     { databaseUrl: input.databaseUrl + '?schema=prod' }, { databaseUrl: input.databaseUrl + '?host=remote' },
     { dataRoot: '/opt/knowra/storage' }, { dataRoot: repositoryRoot }, { dataRoot: path.join(repositoryRoot, 'storage', 'test') },
@@ -43,7 +41,7 @@ test('真实独立数据库/目录、同步双端、附件及重启隔离；拒�
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-isolation-real-')));
   const databases = [], instances = [], devices = [], clients = [];
   t.after(async () => {
-    for (const device of devices) { await device.engine.close(); device.store.close(); }
+    for (const device of devices) await device.runtime.close();
     for (const instance of instances) await instance.close();
     for (const client of clients) await client.$disconnect();
     try { for (const name of databases) await admin.$executeRawUnsafe(`DROP DATABASE "${name}"`); }
@@ -86,21 +84,36 @@ test('真实独立数据库/目录、同步双端、附件及重启隔离；拒�
   const statusA = (await call(a.origin, '/api/sync/status')).body.data;
   const statusB = (await call(b.origin, '/api/sync/status')).body.data;
   assert.notEqual(statusA.datasetEpoch, statusB.datasetEpoch);
-  assert.notEqual(statusA.ownerId, statusB.ownerId);
+  assert.equal(statusA.ownerId, 'demo'); assert.equal(statusB.ownerId, 'demo');
   for (const id of ['device_a', 'device_b']) {
     const directory = path.join(root, id);
-    const store = createSqliteDataStore(path.join(directory, 'local.sqlite'));
-    const context = createAppContext({ dataStore: store, ownerId: a.config.ownerId, storageRootDir: directory, uploadsDir: path.join(directory, 'uploads') });
-    const engine = createSyncEngine(store, { intervalMs: 3600000, noteService: context.modules.knowledge.noteService });
-    const device = { engine, store, knowledge: context.modules.knowledge }; devices.push(device);
-    await engine.configure({ serverUrl: a.origin });
-    assert.equal(engine.status().error, null);
-    assert.equal(device.knowledge.noteService.getNote(note.id).rawMarkdown, '独立A正文');
+    const runtime = await startLocalRuntime({ dataDirectory: directory,
+      distRoot: path.join(repositoryRoot, 'apps/web-v4/dist'), syncOptions: { intervalMs: 3600000 } });
+    const session = await fetch(runtime.launchUrl, { redirect: 'manual' });
+    const cookie = session.headers.get('set-cookie').split(';')[0];
+    const device = { runtime, directory, cookie }; devices.push(device);
+    const configured = await call(runtime.origin, '/api/local-runtime/sync/configure', 'POST', { serverUrl: a.origin }, { Cookie: cookie });
+    assert.equal(configured.status, 200);
+    assert.equal(configured.body.data.error, null);
+    const visibleSpaces = await call(runtime.origin, '/api/knowledge/spaces', 'GET', undefined, { Cookie: cookie });
+    assert(visibleSpaces.body.data.some(item => item.id === space.id), '默认桌面空间列表必须能看到同步空间');
+    const defaultSpace = await call(runtime.origin, '/api/knowledge/spaces/default', 'POST', {}, { Cookie: cookie });
+    assert.equal(defaultSpace.status, 201); assert.equal(defaultSpace.body.data.id, space.id);
+    assert.equal((await call(runtime.origin, `/api/knowledge/notes/${note.id}`, 'GET', undefined, { Cookie: cookie })).body.data.rawMarkdown, '独立A正文');
   }
-  devices[0].knowledge.noteService.updateNote(note.id, { rawMarkdown: '合成设备离线后提交' });
-  await devices[0].engine.sync(); await devices[1].engine.sync();
-  assert.equal(devices[1].knowledge.noteService.getNote(note.id).rawMarkdown, '合成设备离线后提交');
+  assert.equal((await call(devices[0].runtime.origin, `/api/knowledge/notes/${note.id}`, 'PATCH', {
+    rawMarkdown: '合成设备离线后提交', expectedUpdatedAt: note.updatedAt }, { Cookie: devices[0].cookie })).status, 200);
+  for (const device of devices) {
+    const synced = await call(device.runtime.origin, '/api/local-runtime/sync/retry', 'POST', {}, { Cookie: device.cookie });
+    assert.equal(synced.status, 200); assert.equal(synced.body.data.error, null);
+  }
+  assert.equal((await call(devices[1].runtime.origin, `/api/knowledge/notes/${note.id}`, 'GET', undefined, { Cookie: devices[1].cookie })).body.data.rawMarkdown, '合成设备离线后提交');
   assert.equal((await call(a.origin, `/api/knowledge/notes/${note.id}`)).body.data.rawMarkdown, '合成设备离线后提交');
+  await devices[0].runtime.close();
+  const reopenedDevice = await startLocalRuntime({ dataDirectory: devices[0].directory,
+    distRoot: path.join(repositoryRoot, 'apps/web-v4/dist'), syncOptions: { intervalMs: 3600000 } });
+  devices.push({ runtime: reopenedDevice });
+  assert.equal(reopenedDevice.store.state.notes.find(item => item.id === note.id).rawMarkdown, '合成设备离线后提交');
   await a.close();
   const restarted = await startIsolatedInstance(aConfig); instances.push(restarted);
   await run(process.execPath, ['scripts/verify-isolated-instance.mjs', restarted.origin, aConfig.instanceId, '--verify-existing'], { cwd: repositoryRoot, timeout: 10000 });

@@ -13,7 +13,7 @@
 ## 隔离边界
 
 - Compose项目名、网络和两份命名卷按测试ID区分；PG/迁移仅接`internal: true`私有网络，PG无宿主端口。app同时接专属普通桥接access网络以支持127.0.0.1端口发布；只接internal网络时Docker不会发布端口。app具有网络出口，AI入口明确503拒绝且执行器关闭，不能写模型凭据或调用供应商；不宣称app全部网络流量被防火墙阻断。[Docker网络说明](https://docs.docker.com/reference/compose-file/networks/)、[端口发布说明](https://docs.docker.com/engine/network/port-publishing/)
-- 专用PG数据库及owner为`knowra_acceptance_<ID>`，新库产生新同步世代；业务、同步日志、队列和附件元数据都在该库，附件/清理意图及backups/exports/temp/logs在实例卷。无生产DB URL默认值或生产目录挂载。
+- 专用PG数据库为`knowra_acceptance_<ID>`，业务owner保持`demo`兼容当前Mac运行时；新库产生新同步世代。业务、同步日志、队列和附件元数据都在独立库，附件/清理意图及backups/exports/temp/logs在实例卷。隔离不依赖owner名称，无生产DB URL默认值或生产目录挂载。
 - 未登记非空数据库/目录拒绝接管；DB与目录持久标识必须对应同一实例，源码/生产目录、符号链接、schema/host连接覆盖、生产端口/生产域名拒绝。启动不自动迁移旧资料或重新绑定丢失标识。初次登记跨文件/数据库若遭中断，保留现场并停止，须维护者核验，不自动删数据。
 - 页面醒目显示“测试环境 · 仅合成资料 · ID”，响应有`X-Knowra-Test-Instance`，health返回实例ID和syntheticOnly。提示不能自动识别真实正文；只允许人工合成资料，不上传原用户备份或笔记。
 - Basic用户名不映射独立owner。测试库本身也按单owner运行；多访问者共享该合成库。独立隔离来自实例/DB/卷，非完整多租户认证。
@@ -48,6 +48,6 @@ docker compose -f deploy/isolated-test/compose.yml up -d
 
 `docker compose ... stop`仅停止该测试项目、保留卷。不要对用户持续验收库运行`down --volumes`，保留DB dump、完整实例卷和固定提交，恢复先核对标识。此规范不宣称生产灾难恢复或LC34通过。
 
-标准scripts测试实际创建两份临时独立数据库和目录，验证不同owner/世代、笔记和附件不可串库、两个真实SQLite设备与网页HTTP同步、重启保留、旧非空库和符号链接拒绝。CI另实际构建镜像/启PG/迁移/写读/重启，并验证仅回环发布和独立卷；其密码/数据库/卷全为一次性合成测试。CI脚本明确拒绝在用户主机执行，只有它在结束后销毁自身CI卷。当地无Docker daemon则不虚称容器通过，以确切head CI为准。
+标准scripts测试实际创建两份临时独立数据库和目录，验证不同世代、笔记和附件不可串库；两个真实桌面本地运行时通过session/HTTP配置同步、空间列表和默认空间、改正文与重启回读，保持现有固定demo owner兼容。另验证服务重启保留、旧非空待迁移库拒绝且schema/记录不变、错绑定及符号链接拒绝。CI另实际构建镜像/启PG/迁移/写读/重启，并验证仅回环发布和独立卷；其密码/数据库/卷全为一次性合成测试。CI脚本明确拒绝在用户主机执行，只有它在结束后销毁自身CI卷。当地无Docker daemon则不虚称容器通过，以确切head CI为准。
 
 本机合成回环验证不代表已上线公网、真实Mac App双端或供应商通过。当前真实上线仍阻塞于独立目标与相应资源/访问授权；配置和固定head测试/审查/CI证据在对应PR。
