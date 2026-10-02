@@ -1,5 +1,6 @@
 import fs from 'node:fs';
-import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit } from '../../api/src/modules/ai/knowledge-extraction-commit-contract.js';
+import { decodeSqliteKnowledgeExtractionCommit as decode, validateSqliteKnowledgeExtractionCommits } from './knowledge-extraction-validation.mjs';
+export { validateSqliteKnowledgeExtractionCommits } from './knowledge-extraction-validation.mjs';
 
 /** 核心提交扩展独立版本；原库备份后升级，不改变可选 AI user_version。 */
 export function createSqliteKnowledgeExtractionCommitStore(db, filePath, runTransaction) {
@@ -33,19 +34,4 @@ export function createSqliteKnowledgeExtractionCommitStore(db, filePath, runTran
     insert: receipt => db.prepare('INSERT INTO knowledge_extraction_commits VALUES (?, ?, ?, ?)')
       .run(receipt.ownerId, receipt.datasetId, receipt.jobId, JSON.stringify(receipt))
   };
-}
-
-function decode(row) {
-  const receipt = validateKnowledgeExtractionCommit(JSON.parse(row.receipt_json));
-  if (knowledgeExtractionCommitKey(receipt) !== knowledgeExtractionCommitKey({ ownerId: row.owner_id,
-    datasetId: row.dataset_id, jobId: row.job_id })) throw new Error('提炼提交索引与内容不一致。');
-  return receipt;
-}
-
-export function validateSqliteKnowledgeExtractionCommits(db) {
-  const version = db.prepare("SELECT value FROM metadata WHERE key = 'knowledgeExtractionCommitsVersion'").get()?.value;
-  const exists = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'knowledge_extraction_commits'").get();
-  if (version === undefined && !exists) return;
-  if (version !== '1' || !exists) throw new Error('提炼提交存储版本或结构无效。');
-  db.prepare('SELECT * FROM knowledge_extraction_commits').all().forEach(decode);
 }

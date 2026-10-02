@@ -12,6 +12,7 @@ import { validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from '../../api/src/modules/ai/record-contract.js';
 import { copyRecoveryDraftFiles, listArchivedDraftFiles } from './recovery-draft-files.mjs';
+import { validateSqliteKnowledgeExtractionBackup } from './knowledge-extraction-validation.mjs';
 
 function readBackupFile(file) {
   const expected = fs.lstatSync(file);
@@ -156,14 +157,17 @@ export function inspectRuntimeBackup(backupDirectory) {
     if (version < 1 || version > LOCAL_DATABASE_VERSION) throw new Error('备份数据库版本不受支持，请升级应用。');
     validateSqliteCoreOperationRows(db);
     validateSqliteActionRows(db);
+    let aiJobs = [];
     if (version >= 4) {
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('备份 AI 私有记录引用不完整。');
       const ai = createSqliteAiRepository(db);
       for (const kind of Object.keys(AI_RECORD_KINDS)) ai.list(kind).forEach(record => validateAiRecord(kind, record));
-      for (const job of ai.list('aiJob')) ai.listEvents(job.jobId).forEach(validateAiEvent);
+      aiJobs = ai.list('aiJob');
+      for (const job of aiJobs) ai.listEvents(job.jobId).forEach(validateAiEvent);
       if (version >= 6) validateSqliteAccessRows(db);
       if (version >= 7) validateSqliteConversationRows(db);
     }
+    validateSqliteKnowledgeExtractionBackup(db, aiJobs);
     const state = createEmptyLocalState();
     for (const row of db.prepare('SELECT collection, payload FROM entities').all()) {
       if (!LOCAL_DATA_COLLECTIONS.includes(row.collection)) throw new Error('备份包含未知资料类型。');
