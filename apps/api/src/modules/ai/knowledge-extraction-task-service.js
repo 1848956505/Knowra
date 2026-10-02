@@ -10,6 +10,13 @@ export function createKnowledgeExtractionTaskService({ store, createContext, own
   gateway, clock = () => new Date(), workerId = randomUUID(), maintenanceGate = null, schedule, logger = console }) {
   if (!store || !createContext || !ownerId || !commit || !receiptStore) throw new TypeError('提炼任务需要同库宿主事务和接纳服务。');
   let closed = false;
+  const background = new Set();
+  const trackBackground = promise => {
+    background.add(promise);
+    const done = () => background.delete(promise);
+    promise.then(done, done);
+    return promise;
+  };
   const lifecycle = createExtractionTaskLifecycle({ store, ownerId, clock, workerId });
   const transact = (operation, jobId) => store.runTransaction(tx => runTaskSteps(operation(createContext(tx)), store.supportsAsync), { jobId });
   const mutate = (operation, jobId) => Promise.resolve().then(() => maintenanceGate
@@ -49,7 +56,7 @@ export function createKnowledgeExtractionTaskService({ store, createContext, own
   const queries = createExtractionTaskQueries({ read, load: lifecycle.load, view, store, ownerId, clock, canUse });
   return {
     get,
-    ready: () => { assertMockGateway(gateway); return queries.ready(); },
+    ready: () => { assertMockGateway(gateway); return trackBackground(queries.ready()); },
     list: queries.list,
     inspect: jobId => { checkJobId(jobId); return queries.inspect(jobId); },
     async start(input) {
@@ -98,13 +105,19 @@ export function createKnowledgeExtractionTaskService({ store, createContext, own
       await enqueue(jobId);
       return get(jobId);
     },
-    async recover() {
-      const changed = await mutate(context => lifecycle.recover(context));
-      changed.forEach(jobId => worker.abort(jobId));
-      return changed.length;
+    recover() {
+      if (closed) return Promise.reject(taskError('KNOWLEDGE_EXTRACTION_NOT_RUNNABLE', '提炼服务已关闭。'));
+      return trackBackground(mutate(context => lifecycle.recover(context)).then(changed => {
+        changed.forEach(jobId => worker.abort(jobId));
+        return changed.length;
+      }));
     },
     run: jobId => { checkJobId(jobId); return worker.run(jobId); },
     idle: () => worker.idle(),
-    close: () => { closed = true; return worker.close(); }
+    async close() {
+      closed = true;
+      // 不占维护门等待：后台 ready/recover 和 worker 收尾仍需要进入各自短事务。
+      await Promise.allSettled([worker.close(), ...background]);
+    }
   };
 }
