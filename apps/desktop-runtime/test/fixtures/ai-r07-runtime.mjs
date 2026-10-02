@@ -108,14 +108,24 @@ export async function createR07Fixture(driver, { aiEnabled = true } = {}) {
       };
     }
     return { get origin() { return local?.origin ?? origin; }, get launchUrl() { return local?.launchUrl ?? launchUrl; },
-      adapter, get runtime() { return runtime; }, get store() { return local?.store.aiConversationStore ?? store; }, restart, close };
+      adapter, get runtime() { return runtime; }, get store() { return local?.store.aiConversationStore ?? store; },
+      // 直接读取 fixture 持久层，避开业务 actionStore.read 的首次初始化写入。
+      async readActionSnapshot() {
+        if (driver === 'json') return JSON.parse(fs.readFileSync(path.join(directory, 'storage/data/knowledge-base.json'), 'utf8')).aiRuntime?.actionLedger ?? { actions: [] };
+        if (driver === 'sqlite') return local.store.readSync(db => {
+          const row = db.prepare('SELECT state_json FROM ai_note_action_state WHERE id = 1').get();
+          return row ? JSON.parse(row.state_json) : { actions: [] };
+        });
+        const [row] = await app.prisma.$queryRawUnsafe('SELECT state_json FROM ai_note_action_states WHERE owner_id = $1', 'demo');
+        return row ? JSON.parse(row.state_json) : { actions: [] };
+      }, restart, close };
   } catch (error) { await close(); throw error; }
 }
 
 /** 仅失败后读取合成fixture；不输出正文、工具参数、凭据或模型请求。 */
 export async function inspectR07FixtureState(fixture) {
   const [turns, attempts, actionState] = await Promise.all([
-    fixture.store.listTurns(), fixture.store.listModelAttempts(), fixture.runtime.actionStore.read()
+    fixture.store.listTurns(), fixture.store.listModelAttempts(), fixture.readActionSnapshot()
   ]);
   const conversationIds = [...new Set(turns.map(turn => turn.conversationId))];
   const messages = (await Promise.all(conversationIds.map(id => fixture.store.listMessages(id, 0, 100)))).flat();
