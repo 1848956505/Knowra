@@ -9,6 +9,7 @@ import type { PropsWithChildren } from 'react';
 import { AppStoreProvider } from '../store/AppStoreProvider';
 import type { AppStoreApi } from '../store/createAppStore';
 import { readRuntimeConfig } from './runtimeConfig';
+import { ExtractionEnvironmentProvider } from '../features/editor/ExtractionEnvironment';
 
 export interface AppProvidersProps extends PropsWithChildren {
   store?: AppStoreApi;
@@ -27,7 +28,7 @@ export function AppProviders({ children, store }: AppProvidersProps) {
         mockSnapshot: createEmptyWorkspaceSnapshot()
       }}
     >
-      {children}
+      <ExtractionEnvironmentProvider>{children}</ExtractionEnvironmentProvider>
     </AppStoreProvider>
   );
 }

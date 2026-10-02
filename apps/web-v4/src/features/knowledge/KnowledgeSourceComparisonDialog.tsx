@@ -1,3 +1,4 @@
+import { ExtractionDemoNotice } from '../editor/ExtractionEnvironment';
 import { useEffect, useState } from 'react';
 import type { KnowledgeEvidence, KnowledgeItem, NoteVersion } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter } from '../../components/ui';
@@ -52,6 +53,7 @@ export function KnowledgeSourceComparisonDialog({ item, evidence, onGetVersion, 
   return <Dialog title="来源对照" size="md" isOpen onOpenChange={open => { if (!open) onClose(); }}
     description="对照知识陈述与来源绑定的历史版本，核对依据和适用性。">
     <DialogBody>
+      <ExtractionDemoNotice />
       <div className={styles.columns}>
         <section className={styles.section} aria-label="待核对知识">
           <header className={styles.heading}><h3>知识陈述</h3><span>{knowledgeStatusLabel(item.reviewStatus)}</span></header>

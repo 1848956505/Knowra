@@ -1,3 +1,4 @@
+import { ExtractionDemoNotice } from '../editor/ExtractionEnvironment';
 import { useRef, useState, type ReactNode } from 'react';
 import type { KnowledgeItem } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogFooter } from '../../components/ui';
@@ -61,6 +62,7 @@ export function KnowledgeItemDialog({ title, draft, recovered = false, canWrite,
   return <>
     <Dialog title={title} size="md" isOpen isPending={pending} onOpenChange={open => { if (!open) requestClose(); }}>
       <DialogBody>
+      <ExtractionDemoNotice />
         {!canWrite ? <p className={styles.notice}>{readOnlyReason ?? '当前为只读模式，暂不能修改知识。'}</p> : null}
         {recovered ? <p role="status" className={styles.notice}>已恢复未保存的知识草稿。原来源与编辑版本已保留，请核对后保存。</p> : null}
         {children}

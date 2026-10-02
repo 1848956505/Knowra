@@ -33,6 +33,7 @@ export function createWorkspaceSlice(
   };
 
   return {
+    knowledgeExtraction: dependencies.api.knowledgeExtraction,
     persistenceMode: dependencies.persistenceMode ?? 'remote',
     knowledgeGeneration: 0,
     serverData: EMPTY_WORKSPACE_SERVER_DATA,

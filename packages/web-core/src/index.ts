@@ -1,4 +1,5 @@
 export * from './api/client.js';
+export * from './api/knowledge-extraction-api.js';
 export * from './api/response.js';
 export * from './api/workspace-api.js';
 export * from './api/command-note-search.js';
