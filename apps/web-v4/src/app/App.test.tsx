@@ -715,7 +715,7 @@ describe('CmdK 打开尚未预载的服务端笔记', () => {
     await searchAndSelect();
     expect(await screen.findByRole('heading', { name: detail().title })).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(document.querySelector('.ProseMirror')).toHaveTextContent('完整服务端正文 remote-a');
+    await waitFor(() => expect(document.querySelector('.ProseMirror')).toHaveTextContent('完整服务端正文 remote-a'));
     expect(store.getState().serverData.notes).toEqual([detail()]);
     expect(store.getState().navigation).toEqual(expect.objectContaining({ selectedNoteId: 'remote-a', selectedFolderId: 'folder-1', openNoteTabs: ['remote-a'] }));
     expect(api.getNote).toHaveBeenCalledExactlyOnceWith('remote-a');
