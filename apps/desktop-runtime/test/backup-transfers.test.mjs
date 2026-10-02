@@ -171,6 +171,43 @@ test('复制中替换 owned 子项时放弃清理，绝不删除外部替换文�
   assert.equal(fs.readFileSync(file, 'utf8'), '外部替换文件');
 });
 
+for (const level of ['staging', 'final']) test(`${level} 独占创建前普通移动并替换目录，写资料前拒绝且保留原有文件列表`, t => {
+  const f = fixture(t);
+  const foreign = path.join(f.root, 'replacement'); fs.mkdirSync(foreign);
+  const sentinel = Buffer.from('替换目录原有合成文件');
+  fs.writeFileSync(path.join(foreign, 'sentinel.txt'), sentinel);
+  const sourceNames = ['manifest.json', ...JSON.parse(fs.readFileSync(path.join(f.backup, 'manifest.json'), 'utf8')).files.map(item => item.path)];
+  const sourceInventory = () => sourceNames.map(name => [name, backupTransferDigest(fs.readFileSync(path.join(f.backup, name)))]);
+  const before = sourceInventory();
+  const sourceDatabase = fs.readFileSync(path.join(f.backup, 'local.sqlite'));
+  const original = fs.openSync;
+  let replaced = false, replacedRoot;
+  fs.openSync = (file, flags, ...args) => {
+    const parent = typeof file === 'string' ? path.dirname(file) : '';
+    const matching = level === 'staging' ? path.basename(parent).startsWith('.knowra-transfer-') : path.basename(parent) === `Knowra-完整备份-${f.id}`;
+    if (!replaced && matching && path.basename(file) === 'local.sqlite' && typeof flags === 'number'
+      && flags & fs.constants.O_CREAT && flags & fs.constants.O_EXCL) {
+      replaced = true; replacedRoot = parent;
+      fs.renameSync(parent, `${parent}-original-owned`);
+      fs.renameSync(foreign, parent); // 两次真实普通目录移动，不使用链接。
+    }
+    return original(file, flags, ...args);
+  };
+  try { assert.throws(() => exportRuntimeBackup(f.dataRoot, f.id, selection(f.external)), /复制已中断/); }
+  finally { fs.openSync = original; }
+  assert.equal(replaced, true);
+  const unexpected = path.join(replacedRoot, 'local.sqlite');
+  const bytes = fs.existsSync(unexpected) ? fs.readFileSync(unexpected) : Buffer.alloc(0);
+  const unchangedSource = JSON.stringify(sourceInventory()) === JSON.stringify(before);
+  t.diagnostic(JSON.stringify({ level, replacementFiles: fs.readdirSync(replacedRoot), unexpectedBytes: bytes.length,
+    copiedSourceBytes: bytes.equals(sourceDatabase), sourceDatabaseBytes: sourceDatabase.length, unchangedSource }));
+  assert.equal(unchangedSource, true);
+  assert.deepEqual(fs.readFileSync(path.join(replacedRoot, 'sentinel.txt')), sentinel);
+  assert.equal(fs.existsSync(path.join(replacedRoot, 'manifest.json')), false);
+  assert.deepEqual(fs.readdirSync(replacedRoot), ['sentinel.txt']);
+  assert.equal(bytes.length, 0, '替换目录不能留下完整数据库或任何资料字节');
+});
+
 test('读取前文件被换成符号链接时 O_NOFOLLOW 阻止复制并清理本次 staging', t => {
   const f = fixture(t);
   const exported = exportRuntimeBackup(f.dataRoot, f.id, selection(f.external)).directory;

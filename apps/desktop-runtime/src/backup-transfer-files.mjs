@@ -103,6 +103,15 @@ export function readBackupTransferFile(tree, name) {
   } finally { fs.closeSync(fd); }
 }
 
+function removeCreatedEmptyFile(target, fd, created) {
+  try {
+    if (!created?.isFile() || created.size !== 0 || created.nlink !== 1
+      || !unchangedFile(created, fs.fstatSync(fd)) || !unchangedFile(created, fs.lstatSync(target))) return false;
+    fs.unlinkSync(target); // 只处理仍绑定本次 FD 的空文件，不清理替换目录。
+    return true;
+  } catch { return false; }
+}
+
 /** 每个目录和文件均独占创建；最终清单是有效完整备份的提交标志。 */
 export function createOwnedBackupDirectory(parent, name) {
   parent.check();
@@ -140,8 +149,22 @@ export function createOwnedBackupDirectory(parent, name) {
     checkParents(name);
     const target = path.join(root, name);
     const fd = fs.openSync(target, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY | (fs.constants.O_NOFOLLOW ?? 0), 0o600);
-    try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); }
-    finally { owned.set(name, fs.fstatSync(fd)); fs.closeSync(fd); }
+    let created, writing = false, removed = false;
+    try {
+      created = fs.fstatSync(fd);
+      if (!created.isFile() || created.size !== 0 || created.nlink !== 1) throw changed();
+      // O_EXCL 只保护文件名；打开后、写资料前还须确认目录和实际路径仍绑定本次创建。
+      checkParents(name);
+      if (!unchangedFile(created, fs.lstatSync(target)) || !unchangedFile(created, fs.fstatSync(fd))) throw changed();
+      writing = true;
+      fs.writeFileSync(fd, bytes); fs.fsyncSync(fd);
+    } catch (error) {
+      if (!writing) removed = removeCreatedEmptyFile(target, fd, created);
+      throw error;
+    } finally {
+      try { if (!removed) owned.set(name, fs.fstatSync(fd)); }
+      finally { fs.closeSync(fd); }
+    }
     checkParents(name);
     if (!unchangedFile(owned.get(name), fs.lstatSync(target))) throw changed();
   };
