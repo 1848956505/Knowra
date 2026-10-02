@@ -84,7 +84,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
   }
   async function recover() {
     const identity = await repository.identity();
-    const jobs = await repository.list('aiJob');
+    const jobs = await repository.list('aiJob', { jobKind: 'answer' });
     let changed = 0;
     for (const job of jobs) {
       if (job.datasetId !== identity.datasetId || job.datasetEpoch !== identity.datasetEpoch) continue;

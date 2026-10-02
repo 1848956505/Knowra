@@ -12,6 +12,7 @@ import {
 import { initializeDatabase, SYNC_PROTOCOL_VERSION } from './sqlite-schema.mjs';
 import { createSqliteCoreOperationStore } from './core-operation-store.mjs';
 import { createSqliteKnowledgeExtractionCommitStore } from './knowledge-extraction-commit-store.mjs';
+import { createSqliteKnowledgeExtractionTaskStore } from './knowledge-extraction-task-store.mjs';
 import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
@@ -200,8 +201,13 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let knowledgeExtractionCommitStore = null, knowledgeExtractionCommitStoreError = null;
   try { knowledgeExtractionCommitStore = createSqliteKnowledgeExtractionCommitStore(db, filePath, runTransaction); }
   catch (error) { knowledgeExtractionCommitStoreError = error; }
+  let knowledgeExtractionTaskStore = null, knowledgeExtractionTaskStoreError = null;
+  try { knowledgeExtractionTaskStore = createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransaction); }
+  catch (error) { knowledgeExtractionTaskStoreError = error; }
 
   return {
+    knowledgeExtractionTaskStore,
+    knowledgeExtractionTaskStoreError,
     knowledgeExtractionCommitStore,
     knowledgeExtractionCommitStoreError,
     coreOperationStore,
