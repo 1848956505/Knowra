@@ -39,7 +39,9 @@ test('真实生产页面 CmdK：SQLite 未预载长中文正文的可见命中�
     const browserProblems = [];
     page.on('console', message => { if (['warning', 'error'].includes(message.type())) browserProblems.push(`${message.type()}: ${message.text()}`); });
     page.on('pageerror', error => browserProblems.push(error.message));
-    await page.goto(runtime.launchUrl);
+    // APIRequestContext 与页面共享临时会话，但不会执行页面脚本或启动旧工作区请求。
+    const sessionResponse = await page.request.get(runtime.launchUrl);
+    assert.equal(sessionResponse.ok(), true, `合成会话 HTTP ${sessionResponse.status()}`);
     const post = async (pathname, data) => {
       const response = await page.request.post(`${runtime.origin}${pathname}`, { data });
       assert.equal(response.ok(), true, `合成夹具 HTTP ${response.status()}：${pathname}`);
@@ -59,15 +61,23 @@ test('真实生产页面 CmdK：SQLite 未预载长中文正文的可见命中�
     runtime.store.runTransaction(() => { runtime.store.state.spaces.push(otherSpace); runtime.store.flush(); });
     const other = await post('/api/knowledge/notes', { spaceId: otherSpace.id, title: '其他空间资料', rawMarkdown: query });
 
+    const fixturePageUrl = page.url();
+    assert.equal(fixturePageUrl, 'about:blank');
     const summaryResponse = page.waitForResponse(response => {
       const url = new URL(response.url());
-      return url.pathname === '/api/knowledge/notes' && url.searchParams.get('summaryOnly') === 'true';
+      return url.origin === runtime.origin && url.pathname === '/api/knowledge/notes'
+        && url.searchParams.get('spaceId') === space.id && url.searchParams.get('summaryOnly') === 'true'
+        && response.request().method() === 'GET';
     });
-    await page.reload();
+    await page.goto(runtime.origin);
     await expect(page).toHaveURL(`${runtime.origin}/`);
+    const pageSummaryResponse = await summaryResponse;
+    assert.equal(pageSummaryResponse.status(), 200);
+    assert.equal(pageSummaryResponse.request().frame(), page.mainFrame());
+    const summaryPageUrl = page.url();
+    const summaries = (await pageSummaryResponse.json()).data;
     await expect(page.getByRole('heading', { name: '笔记工作台' })).toBeVisible();
     await expect(page.getByRole('button', { name: preloaded.title, exact: true })).toBeVisible();
-    const summaries = (await (await summaryResponse).json()).data;
     const summary = summaries.find(item => item.id === preloaded.id);
     assert.equal(summary.summary.length, 240);
     assert.equal(summary.summary.includes(query), false);
@@ -147,6 +157,9 @@ test('真实生产页面 CmdK：SQLite 未预载长中文正文的可见命中�
     assert.deepEqual(browserProblems, []);
     fs.writeFileSync(path.join(evidenceRoot, 'result.json'), `${JSON.stringify({ driver: 'real-sqlite', browser: 'chromium',
       api: 'real-local-runtime-http', productionBuild,
+      fixturePageUrl, summarySource: 'browser-initial-document', summaryStatus: pageSummaryResponse.status(),
+      summaryRequest: new URL(pageSummaryResponse.url()).pathname + new URL(pageSummaryResponse.url()).search,
+      summaryPagePath: new URL(summaryPageUrl).pathname + new URL(summaryPageUrl).hash,
       spaceId: space.id, noteId: note.id, query, responseStatus: response.status(), route: new URL(editorUrl).hash,
       targetPreloaded: false, detailStatus: detail.status(), detailRequestCount,
       visibleViewports: [{ width: 1280, height: 720 }, { width: 390, height: 843 }],
