@@ -29,7 +29,8 @@ export const aiAssistantHttpTests = [
   { name: '核价模型、过期价格与预算故障均阻止真实生成并返回具体能力状态', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-readiness-'));
     try {
-      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
       context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'other-model', credentialRef: 'synthetic-ref' });
       await withServer(context, async origin => {
         const wrongModel = (await call(origin, '/status')).payload.data;
@@ -48,7 +49,7 @@ export const aiAssistantHttpTests = [
       error => error.code === 'AI_PRICE_UNAVAILABLE');
       assert.throws(() => quoteWorstCase({ request: { modelId: 'deepseek-flash', messages: [
         { role: 'system', content: 'JSON' }], maxTokens: 10, tools: [] },
-      priceProfile: reviewedDeepSeekPriceProfile, now: new Date('2026-10-05T00:00:00.000Z') }),
+      priceProfile: reviewedDeepSeekPriceProfile, now: new Date(reviewedDeepSeekPriceProfile.expiresAt) }),
       error => error.code === 'AI_PRICE_UNAVAILABLE');
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },
