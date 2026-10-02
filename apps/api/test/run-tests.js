@@ -9,6 +9,7 @@ import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.te
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
 import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
+import { aiKnowledgeExtractionGatewayTests } from './ai-knowledge-extraction-gateway.test.js';
 import { storageConfigTests } from './storage.config.test.js';
 import { localBusinessTransactionTests } from './local-business-transactions.test.js';
 import { noteDomainTests } from './note.domain.test.js';
@@ -90,6 +91,7 @@ const tests = [
   ...annotationListTests,
   ...annotationListPostgresTests,
   ...knowledgeExtractionContractTests,
+  ...aiKnowledgeExtractionGatewayTests,
   ...knowledgeReviewFlowTests,
   ...localBusinessTransactionTests,
   ...storageConfigTests,
