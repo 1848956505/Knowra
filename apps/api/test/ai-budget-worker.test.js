@@ -9,6 +9,7 @@ import { createServer } from '../src/server.js';
 import { createRemoteBudgetAuthority } from '../src/modules/ai/remote-budget-authority.js';
 import { createAiRuntime } from '../src/modules/ai/runtime.js';
 import { aiRecords } from './ai-record-fixtures.js';
+import { reviewedPriceProfileTests } from './reviewed-price-profile.test.js';
 
 function withStore(run) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-worker-'));
@@ -27,6 +28,7 @@ const request = { credentialRef: 'credential-reference', modelId: 'deepseek-flas
   messages: [{ role: 'user', content: '合成测试' }], maxTokens: 100, tools: [], format: 'text' };
 
 export const aiBudgetWorkerTests = [
+  ...reviewedPriceProfileTests,
   { name: '预算预留覆盖完整外发体，工具定义过大与已确认 payload 变化均拒绝', async run() {
     const plain = quoteWorstCase({ request, priceProfile: profile, now: at() });
     const withTool = quoteWorstCase({ request: { ...request, tools: [{ name: 'notes_read',
