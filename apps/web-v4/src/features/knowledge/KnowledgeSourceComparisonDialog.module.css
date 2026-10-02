@@ -1,0 +1,16 @@
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.section { min-width: 0; }
+.heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ink-panel); }
+.heading h3 { margin: 0; color: var(--ink); font: 800 13px/1.4 var(--font-ui); }
+.heading span, .statuses { color: var(--ink-secondary); font: 11px/1.6 var(--font-ui); }
+.title { margin: 12px 0; color: var(--ink); font: 750 15px/1.6 var(--font-ui); overflow-wrap: anywhere; }
+.label { margin: 16px 0 8px; color: var(--ink); font: 750 12px/1.4 var(--font-ui); }
+.prose, .quote { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.85 var(--font-ui); }
+.quote { padding-left: 12px; border-left: 3px solid var(--ink-accent); }
+.statuses { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 12px; }
+.path, .hint { margin: 12px 0; color: var(--ink-secondary); font: 12px/1.7 var(--font-ui); overflow-wrap: anywhere; }
+.snapshot { min-width: 0; margin-top: 8px; padding-bottom: 16px; }
+.versionId { margin: 12px 0; color: var(--ink-secondary); font: 11px/1.7 var(--font-mono); overflow-wrap: anywhere; }
+.failure { display: grid; justify-items: start; gap: 8px; margin-top: 12px; }
+.failure p { margin: 0; color: var(--ink-danger); font: 13px/1.7 var(--font-ui); }
+@media (max-width: 560px) { .columns { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
