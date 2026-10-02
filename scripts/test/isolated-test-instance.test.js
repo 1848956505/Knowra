@@ -107,6 +107,13 @@ test('真实独立数据库/目录、同步双端、附件及重启隔离；拒�
   assert.equal((await call(restarted.origin, `/api/knowledge/notes/${note.id}`)).body.data.rawMarkdown, '合成设备离线后提交');
   assert.equal((await call(restarted.origin, '/api/storage/attachments')).body.data.length, 1);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(aConfig.dataRoot, 'instance.json'), 'utf8')).instanceId, aConfig.instanceId);
+  const migration = await run(process.execPath, ['scripts/migrate-isolated-test.mjs'], { cwd: repositoryRoot,
+    env: { ...process.env, KNOWRA_TEST_INSTANCE: aConfig.instanceId, KNOWRA_TEST_DATA_ROOT: aConfig.dataRoot,
+      KNOWRA_TEST_DATABASE_URL: aConfig.databaseUrl }, timeout: 30000 });
+  assert(migration.stdout.includes('专用测试数据库迁移完成'));
+  await assert.rejects(run(process.execPath, ['scripts/migrate-isolated-test.mjs'], { cwd: repositoryRoot,
+    env: { ...process.env, KNOWRA_TEST_INSTANCE: aConfig.instanceId, KNOWRA_TEST_DATA_ROOT: path.join(root, 'wrong_root'),
+      KNOWRA_TEST_DATABASE_URL: aConfig.databaseUrl }, timeout: 10000 }), error => error.code === 1);
   await assert.rejects(startIsolatedInstance({ ...aConfig, dataRoot: path.join(root, 'wrong_root') }), /数据库绑定其他实例/);
   fs.symlinkSync(bConfig.dataRoot, path.join(aConfig.dataRoot, 'unexpected-link'));
   await assert.rejects(startIsolatedInstance(aConfig), /符号链接/);
@@ -115,7 +122,19 @@ test('真实独立数据库/目录、同步双端、附件及重启隔离；拒�
   const raw = new PrismaClient({ datasources: { db: { url: bConfig.databaseUrl } }, log: [] }); clients.push(raw);
   await raw.$executeRawUnsafe('DROP TABLE knowra_acceptance_instance');
   await raw.user.create({ data: { id: 'synthetic_existing' } });
+  // 构造真正有待应用迁移的非空旧库；后置拒绝无法撤销迁移CLI写入。
+  await raw.$executeRawUnsafe('DROP TABLE core_operation_receipts');
+  await raw.$executeRawUnsafe("DELETE FROM _prisma_migrations WHERE migration_name = 'f_core_operation_receipts'");
   fs.rmSync(bConfig.dataRoot, { recursive: true });
+  const beforeMigrations = await raw.$queryRawUnsafe('SELECT count(*)::text AS count FROM _prisma_migrations');
+  await assert.rejects(run(process.execPath, ['scripts/migrate-isolated-test.mjs'], { cwd: repositoryRoot,
+    env: { ...process.env, KNOWRA_TEST_INSTANCE: bConfig.instanceId, KNOWRA_TEST_DATA_ROOT: bConfig.dataRoot,
+      KNOWRA_TEST_DATABASE_URL: bConfig.databaseUrl }, timeout: 10000 }), error => {
+    assert(!error.stderr.includes(bConfig.databaseUrl));
+    return error.code === 1 && error.stderr.includes('专用测试迁移失败');
+  });
+  assert.deepEqual(await raw.$queryRawUnsafe('SELECT count(*)::text AS count FROM _prisma_migrations'), beforeMigrations);
+  assert.equal((await raw.$queryRawUnsafe("SELECT to_regclass('public.core_operation_receipts')::text AS name"))[0].name, null);
   await assert.rejects(startIsolatedInstance(bConfig), /已有数据/);
   assert.equal(await raw.user.count(), 2);
 });

@@ -39,7 +39,8 @@ services:
       KNOWRA_TEST_PUBLIC_ORIGIN: ${KNOWRA_TEST_PUBLIC_ORIGIN:-}
     secrets: [postgres_password]
     volumes: [instance:/var/lib/knowra-test]
-    networks: [private]
+    # internal-only网络不发布宿主端口；仅app增加普通桥接网，PG/迁移仍只在private。
+    networks: [private, access]
     ports: ["127.0.0.1:${KNOWRA_TEST_PORT:?需要独立回环端口}:43100"]
     depends_on:
       migrate: {condition: service_completed_successfully}
@@ -53,6 +54,7 @@ services:
       retries: 10
 networks:
   private: {internal: true}
+  access: {}
 volumes:
   database: {}
   instance: {}

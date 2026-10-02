@@ -43,6 +43,8 @@ docker inspect "$app_id" "$db_id" | node --input-type=module -e '
   const [app, db]=JSON.parse(input), project="knowra-acceptance-"+process.env.KNOWRA_TEST_INSTANCE;
   assert.deepEqual(app.NetworkSettings.Ports["43100/tcp"], [{HostIp:"127.0.0.1", HostPort:"43100"}]);
   assert(!Object.values(db.NetworkSettings.Ports).some(value=>value?.length));
+  assert.deepEqual(Object.keys(db.NetworkSettings.Networks), [project+"_private"]);
+  assert.deepEqual(Object.keys(app.NetworkSettings.Networks).sort(), [project+"_access", project+"_private"]);
   for(const item of [app,db]) for(const mount of item.Mounts.filter(x=>x.Type==="volume")) assert(mount.Name.startsWith(project+"_"));
   console.log("仅回环发布、数据库无发布端口及项目专属卷通过。");'
 docker network inspect "knowra-acceptance-${KNOWRA_TEST_INSTANCE}_private" --format '{{.Internal}}' | node --input-type=module -e '

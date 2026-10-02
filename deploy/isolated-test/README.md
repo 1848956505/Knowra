@@ -12,7 +12,7 @@
 
 ## 隔离边界
 
-- Compose项目名、私有网络和两份命名卷按测试ID区分；PG无任何宿主机端口，app只发布到127.0.0.1。网络`internal: true`隔绝容器外部连接，AI入口另明确503拒绝，不能写模型凭据或调用供应商。[Docker网络说明](https://docs.docker.com/reference/compose-file/networks/)
+- Compose项目名、网络和两份命名卷按测试ID区分；PG/迁移仅接`internal: true`私有网络，PG无宿主端口。app同时接专属普通桥接access网络以支持127.0.0.1端口发布；只接internal网络时Docker不会发布端口。app具有网络出口，AI入口明确503拒绝且执行器关闭，不能写模型凭据或调用供应商；不宣称app全部网络流量被防火墙阻断。[Docker网络说明](https://docs.docker.com/reference/compose-file/networks/)、[端口发布说明](https://docs.docker.com/engine/network/port-publishing/)
 - 专用PG数据库及owner为`knowra_acceptance_<ID>`，新库产生新同步世代；业务、同步日志、队列和附件元数据都在该库，附件/清理意图及backups/exports/temp/logs在实例卷。无生产DB URL默认值或生产目录挂载。
 - 未登记非空数据库/目录拒绝接管；DB与目录持久标识必须对应同一实例，源码/生产目录、符号链接、schema/host连接覆盖、生产端口/生产域名拒绝。启动不自动迁移旧资料或重新绑定丢失标识。初次登记跨文件/数据库若遭中断，保留现场并停止，须维护者核验，不自动删数据。
 - 页面醒目显示“测试环境 · 仅合成资料 · ID”，响应有`X-Knowra-Test-Instance`，health返回实例ID和syntheticOnly。提示不能自动识别真实正文；只允许人工合成资料，不上传原用户备份或笔记。
@@ -36,7 +36,7 @@ docker compose -f deploy/isolated-test/compose.yml build migrate
 docker compose -f deploy/isolated-test/compose.yml up -d
 ```
 
-迁移容器仅接该专用库，成功后app启动；数据库/目录初次登记为空，后续重启保持数据。镜像包含已有Prisma客户端、迁移CLI及V4生产构建；不改正式生产发布包。没有自动restart或systemd/PM2持久化配置，持久访问/自启需明确授权。
+迁移容器仅接该专用库，迁移前只读确认库为空或已登记同一实例；成功后app启动。数据库/目录初次登记为空，后续重启保持数据。镜像包含已有Prisma客户端、迁移CLI及V4生产构建；不改正式生产发布包。没有自动restart或systemd/PM2持久化配置，持久访问/自启需明确授权。
 
 隧道只使用已有授权SSH目标，例如`ssh -N -L 43100:127.0.0.1:43100 <已批准的验收主机>`；浏览器打开本机对应端口。不要将当前真实App改接此库。Mac端应先核实独立资料目录/独立启动方式，再只使用合成笔记，不清空或迁移日常资料。
 

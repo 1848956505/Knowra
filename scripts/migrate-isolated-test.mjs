@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
+import { PrismaClient } from '@prisma/client';
 import { readTestDatabaseUrl } from '../deploy/isolated-test/connection.mjs';
-import { validateInstance, repositoryRoot } from '../deploy/isolated-test/config.mjs';
+import { validateInstance, verifyDatabaseForMigration, repositoryRoot } from '../deploy/isolated-test/config.mjs';
 try {
   const databaseUrl = readTestDatabaseUrl();
-  validateInstance({ instanceId: process.env.KNOWRA_TEST_INSTANCE, dataRoot: '/var/lib/knowra-test', databaseUrl });
+  const config = validateInstance({ instanceId: process.env.KNOWRA_TEST_INSTANCE,
+    dataRoot: process.env.KNOWRA_TEST_DATA_ROOT || '/var/lib/knowra-test', databaseUrl });
+  const client = new PrismaClient({ datasources: { db: { url: databaseUrl } }, log: [] });
+  try { await client.$connect(); await verifyDatabaseForMigration(client, config); }
+  finally { await client.$disconnect(); }
   const result = spawnSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'], {
     cwd: repositoryRoot, env: { ...process.env, DATABASE_URL: databaseUrl }, stdio: 'pipe', timeout: 120000
   });
