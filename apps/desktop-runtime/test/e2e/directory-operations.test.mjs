@@ -17,11 +17,19 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
     await withPageFailureDiagnostics(page, async () => {
   page.setDefaultTimeout(10000);
   await page.goto(runtime.launchUrl);
-  const space = (await (await page.request.post(`${runtime.origin}/api/knowledge/spaces/default`, { data: {} })).json()).data;
-  const parent = (await (await page.request.post(`${runtime.origin}/api/knowledge/folders`, { data: { spaceId: space.id, name: '目标目录' } })).json()).data;
-  await page.goto(`${runtime.origin}/#/materials?scope=root`);
-  await page.reload();
+  const spaceResponse = await page.request.post(`${runtime.origin}/api/knowledge/spaces/default`, { data: {} });
+  assert.equal(spaceResponse.ok(), true, `目录夹具创建空间失败：HTTP ${spaceResponse.status()}`);
+  const space = (await spaceResponse.json()).data;
+  const parentResponse = await page.request.post(`${runtime.origin}/api/knowledge/folders`, { data: { spaceId: space.id, name: '目标目录' } });
+  assert.equal(parentResponse.ok(), true, `目录夹具创建目标文件夹失败：HTTP ${parentResponse.status()}`);
+  const parent = (await parentResponse.json()).data;
+  const materialsUrl = `${runtime.origin}/#/materials?scope=root`;
+  await page.goto(materialsUrl);
+  await expect(page).toHaveURL(materialsUrl, { timeout: 10000 });
   const root = page.getByRole('button', { name: /^笔记库\s*\d+/ });
+  await expect(root).toBeVisible({ timeout: 10000 });
+  await page.reload();
+  await expect(page).toHaveURL(materialsUrl, { timeout: 10000 });
   await page.screenshot({ path: '/tmp/knowra-directory-qa.png' });
   await root.click({ button: 'right' });
   await page.getByRole('menuitem', { name: '新建文件夹', exact: true }).click();
