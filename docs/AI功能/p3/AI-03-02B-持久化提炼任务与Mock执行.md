@@ -1,6 +1,6 @@
 # AI-03-02B 持久化提炼任务与 Mock 执行
 
-状态：2026-10-02，基于主干 `72d34bc24b903dd5349d00ea580376fce2a08213` 实施。受信宿主的真实任务启动、Mock 调度和 [02A 原子接纳](AI-03-02A-提炼结果原子接纳.md) 已连接；本地 JSON/SQLite 定向验收通过，原生 PostgreSQL、最终固定提交独立审查与 CI 待完成。此记录不宣称 P3、AI-03-01 或 AI-03-02 的完整产品链路完成。
+状态：2026-10-02，基于主干 `72d34bc24b903dd5349d00ea580376fce2a08213` 实施，并正常同步至 `4ef9ace522c30c7884b07480d4f3e3e811a1309d`。受信宿主的真实任务启动、Mock 调度和 [02A 原子接纳](AI-03-02A-提炼结果原子接纳.md) 已连接；本地 JSON/SQLite 定向验收与独立修正复验通过。本页保留本地验证及其限制，最终集成审查与真实 PostgreSQL/完整 CI 证据以对应 PR 为准。此记录不宣称 P3、AI-03-01 或 AI-03-02 的完整产品链路完成。
 
 ## 交付边界
 
@@ -19,7 +19,7 @@ v1 的 AIJob 没有 scopeId/executionMode，且 resultJson 仅用于问答。本
 - `recover()` 仅处理本描述绑定的当前 epoch 提炼任务：pending/retrying 标为失败，过期 running 的 attempt 标 timedOut，cancelling 完成取消；活租约不抢占。恢复不自动发送，需显式 `retry(jobId)`，且原 grant、来源和次数上限继续生效。旧 epoch 不复活。
 - 队列沿用现有 2 个并发槽、8 个等待位；所有直接/队列运行共用 promise 跟踪，`idle/close` 等待活动任务收尾，关闭后拒绝新 run。队列信号不承担持久化权威，进程中断后仍以库内任务恢复。
 
-`598aa87` 的独立审查确认了恢复与重试的 P2 竞态：旧 attempt 已 timedOut、任务已 retrying 时，旧 run 的迟到失败仍可能覆盖新状态；同实例旧 run 尚在收尾时也可能吞掉 retry 唤醒。修复限定带 attemptId 的失败只能收尾仍 leased/sent 且任务仍 running/cancelling 的当前代，保留未成功领取时的失败收尾；待重试信号进入原有有界队列，调度跳过仍 active 的同 job，旧 run 退出后再唤醒，不改变超时或恢复后显式重试规则。新回归在原实现上复现失败，仅修失败归属时仍能检出丢失唤醒，完整修复后通过；最终固定提交仍须独立复验。
+`598aa87` 的独立审查确认了恢复与重试的 P2 竞态：旧 attempt 已 timedOut、任务已 retrying 时，旧 run 的迟到失败仍可能覆盖新状态；同实例旧 run 尚在收尾时也可能吞掉 retry 唤醒。修复限定带 attemptId 的失败只能收尾仍 leased/sent 且任务仍 running/cancelling 的当前代，保留未成功领取时的失败收尾；待重试信号进入原有有界队列，调度跳过仍 active 的同 job，旧 run 退出后再唤醒，不改变超时或恢复后显式重试规则。新回归在原实现上复现失败，仅修失败归属时仍能检出丢失唤醒，完整修复后通过；修正提交 `52a0e79c4cd8279ea5baedfd1bca50ea51815f52` 已独立复验为 `findings=[]`，原 P2 关闭。最终主线集成与 CI 另在对应 PR 留证。
 
 旧 `worker.recover()` 原来枚举所有 jobKind，可能将新持久化提炼 pending/running 误当问答终止，并尝试结算其预算。现仅增加 `{ jobKind: 'answer' }` 过滤，与旧 `run()` 已有的 answer 限制对齐；不修改 Agent worker、访问授权或关键词检索。原 answer/budget suite 保持通过，新增提炼测试断言旧恢复器不修改提炼任务或调用预算。
 
@@ -43,7 +43,7 @@ v1 的 AIJob 没有 scopeId/executionMode，且 resultJson 仅用于问答。本
 | 新增任务与重试 suite，逐项 `await test.run()` | 13/13：原任务 10 项，加跨实例 recover→retry→旧代迟到、默认调度同实例旧 run 收尾期间重试、本机/跨实例取消待重试 3 项。断言只接纳第二代一份结果、取消不重发；旧任务回归继续覆盖真实启动、故障回滚、claim 失败收尾、权限/来源/epoch、最多四代、维护门和旧 worker 隔离。直接 run/排队/idle/close 场景仍在 15 秒硬超时子进程内执行。 |
 | 受影响既有 API 回归 | 02A 原子接纳 10/10、旧 answer/budget worker 11/11、JSON 文件持久层 7/7；均明确执行 `.run()`。 |
 | SQLite 原生 node:test | 任务 14/14（含跨实例旧代迟到、默认调度重试/取消），02A 接纳 4/4、核心回执 7/7；包含真实 SQL trigger/commit 回滚、双执行器、重启、完整备份恢复、独立升级与未来/损坏描述。竞态修复本轮重跑任务 14 项；未受影响的接纳/核心结果沿用前轮。 |
-| 新 PG 条件 suite | 源码注册 5 项，尚未执行；测试用独立真实 schema/完整迁移，覆盖两实例 start/领取、重启、SQL 触发器创建/取消/恢复回滚、来源/epoch/描述隔离。连只收集导入也因未生成的 Prisma Client 缺少 `Prisma` 导出失败，不能计为 PG 通过。环境已知二进制下载受限，本批未重复下载或绕过；需最终 CI 生成客户端并运行。 |
+| 新 PG 条件 suite | 源码注册 5 项，本地尚未执行；测试用独立真实 schema/完整迁移，覆盖两实例 start/领取、重启、SQL 触发器创建/取消/恢复回滚、来源/epoch/描述隔离。连只收集导入也因未生成的 Prisma Client 缺少 `Prisma` 导出失败，不能计为 PG 通过。环境已知二进制下载受限，本批未重复下载或绕过；需最终 CI 生成客户端并运行。 |
 
 API 定向复现（仓库根目录）：
 
@@ -61,4 +61,4 @@ NODE
 node --test --test-concurrency=1 apps/desktop-runtime/test/knowledge-extraction-task.test.mjs apps/desktop-runtime/test/knowledge-extraction-commit.test.mjs apps/desktop-runtime/test/core-operation-store.test.mjs
 ```
 
-`apps/api/test/run-tests.js` 注册新 JSON 与 PG suite；具备生成的 Prisma Client、回环专用 Knowra 测试库、`KNOWRA_SYNC_TEST_DATABASE_URL` 与 `KNOWRA_SYNC_TEST_ALLOW_WRITES=1` 的 CI 会实际执行 PG 条件 suite。未运行完整本地测试、浏览器、真实 PG 或容器；合并前须在最终同步提交完成独立审查及完整 CI，不能以本地 Mock 通过替代。
+`apps/api/test/run-tests.js` 注册新 JSON 与 PG suite；具备生成的 Prisma Client、回环专用 Knowra 测试库、`KNOWRA_SYNC_TEST_DATABASE_URL` 与 `KNOWRA_SYNC_TEST_ALLOW_WRITES=1` 的 CI 会实际执行 PG 条件 suite。本地未运行完整测试、浏览器、真实 PG 或容器；合并前须在最终同步提交完成独立审查及完整 CI，不能以本地 Mock 通过替代。
