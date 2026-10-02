@@ -1,5 +1,5 @@
 import type { KnowledgeEvidence, KnowledgeItem, NoteVersion, TrainingAssetRecord } from '@study-accelerator/web-core';
-import { textValue, type QuestionSource } from './questionDetailModel';
+import { questionSources, textValue, type QuestionSource } from './questionDetailModel';
 
 export interface QuestionSourceContent { title: string; content: string; contentLabel: string; noteId?: string; knowledgeItemId?: string; notice?: string }
 interface SourceDependencies {
@@ -25,8 +25,11 @@ export async function loadQuestionSource(source: QuestionSource, dependencies: S
     return { title: '学习目标', content: objective.objective || '', contentLabel: '当前目标内容', knowledgeItemId: objective.knowledgeItemId,
       notice: objective.reviewStatus !== 'confirmed' ? '关联目标当前未确认，请核对其状态。' : undefined };
   }
+  const declaredSources = questionSources(question);
+  const objectiveIds = [...(question.learningObjectiveIds ?? []), ...declaredSources.filter(item => item.sourceType === 'learningObjective').map(item => item.sourceId)];
   const knowledgeIds = [...new Set([textValue(source.locator?.knowledgeItemId),
-    ...(question.learningObjectiveIds ?? []).map(id => objectives.find(item => item.id === id)?.knowledgeItemId ?? '')].filter(Boolean))];
+    ...declaredSources.filter(item => item.sourceType === 'knowledgeItem').map(item => item.sourceId),
+    ...objectiveIds.map(id => objectives.find(item => item.id === id)?.knowledgeItemId ?? '')].filter((id): id is string => Boolean(id)))];
   async function relatedEvidence() {
     // Read only directly related knowledge; never scan the user's library to guess a source.
     return (await Promise.all(knowledgeIds.map(id => onListEvidence(id)))).flat();
