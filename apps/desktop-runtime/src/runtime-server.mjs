@@ -34,6 +34,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     let sessionClaimed = false;
     let restoring = false;
     let closed = false;
+    let closing;
     const checkBackupTransfer = datasetId => {
       if (closed || restoring) throw new Error('正在恢复资料或关闭应用，请完成后重新选择备份。');
       if (datasetId !== store.getStatus().datasetId) throw new Error('资料库已变化，请重新加载后操作备份。');
@@ -196,19 +197,26 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
         checkBackupTransfer(datasetId);
         return result;
       },
-      async close() {
-        if (closed) return;
+      close() {
+        if (closing) return closing;
         closed = true;
-        await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-        await sync.close();
-        await closeAi();
-        store.close();
-        release();
+        closing = (async () => {
+          await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+          await sync.close();
+          await closeAi();
+          store.close();
+          release();
+        })();
+        return closing;
       }
     };
   } catch (error) {
-    server?.close();
+    if (server) await new Promise(resolve => server.close(resolve));
+    const results = await Promise.allSettled([sync?.close(), closeAi?.()]);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw new AggregateError([error, failed.reason], '本地服务启动和关闭失败。');
     store?.close();
+    // 关闭失败时保留目录锁，避免尚存的 SQLite owner 与重试启动共用资料库。
     release();
     throw error;
   }

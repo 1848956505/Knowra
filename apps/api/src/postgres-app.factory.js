@@ -44,6 +44,7 @@ import {
 } from './infrastructure/postgres-advisory-lock.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createOptionalAiRuntime } from './modules/ai/runtime.js';
+import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
 import { createKnowledgeExtractionCommitService } from './modules/ai/knowledge-extraction-commit.js';
@@ -152,13 +153,21 @@ export async function createPostgresAppContext({
   const knowledgeExtractionTasks = knowledgeExtractionMock ? createKnowledgeExtractionTaskService({ ...knowledgeExtractionMock,
     ownerId: normalizedOwnerId, maintenanceGate, createContext: extractionContext, commit: knowledgeExtractionCommit,
     receiptStore: extractionReceipts, store: createPostgresKnowledgeExtractionTaskStore({ client: db, ownerId: normalizedOwnerId }) }) : null;
-  return {
+  let closing;
+  const context = {
     knowledgeExtractionCommit,
     knowledgeExtractionTasks,
     driver: 'postgres',
     coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }),
     prisma: db,
-    close: runtime.disconnect,
+    close: () => closing ??= (async () => {
+      const results = await Promise.allSettled([
+        aiRuntimeLifecycle(context.ai).close(), context.knowledgeExtractionTasks?.close()
+      ]);
+      const failed = results.find(result => result.status === 'rejected');
+      if (failed) throw failed.reason;
+      await runtime.disconnect();
+    })(),
     modules: { knowledge },
     ai,
     aiOwnerId: normalizedOwnerId,
@@ -188,6 +197,7 @@ export async function createPostgresAppContext({
       )
     }
   };
+  return context;
 }
 
 async function ensureOwner(db, ownerId) {

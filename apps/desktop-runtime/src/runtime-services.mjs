@@ -7,6 +7,7 @@ import { createServer } from '../../api/src/server.js';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
 import { createSyncEngine } from './sync-engine.mjs';
 import { createOptionalAiRuntime, createUnavailableAiRuntime } from '../../api/src/modules/ai/runtime.js';
+import { aiRuntimeLifecycle } from '../../api/src/modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
 import { createRemoteBudgetAuthority } from '../../api/src/modules/ai/remote-budget-authority.js';
 
@@ -79,28 +80,27 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     }
     context.aiOwnerId = 'demo';
     context.aiLocation = 'local';
-    const recoverAi = Promise.all([
-      context.ai?.conversationStore?.recoverInterrupted?.(),
-      context.ai?.agent?.recover?.(),
-      context.ai?.worker?.recover?.()
-    ]).catch(error => {
-      logger.warn?.('AI task recovery deferred until cloud budget is available', { code: error.code ?? 'AI_BUDGET_UNAVAILABLE' });
-    });
+    const aiLifecycle = aiRuntimeLifecycle(context.ai);
     const configureSync = sync.configure.bind(sync);
     sync.configure = async input => {
       const result = await configureSync(input);
-      await context.ai?.worker?.recover?.().catch(error => {
+      await aiLifecycle.recover(['worker']).catch(error => {
         logger.warn?.('AI task recovery deferred', { code: error.code ?? 'AI_RECOVERY_FAILED' });
       });
-      await context.ai?.agent?.recover?.().catch(error => {
+      await aiLifecycle.recover(['agent']).catch(error => {
         logger.warn?.('AI agent recovery deferred', { code: error.code ?? 'AI_RECOVERY_FAILED' });
       });
       return result;
     };
     const apiServer = createServer({ appContext: context, logger });
     const handleApi = apiServer.listeners('request')[0];
-    return { store, sync, handleApi, recoverAi, closeAi: () => Promise.all([
-      context.ai?.agent?.close?.(), context.ai?.worker?.close?.()
-    ]) };
+    // 先完成同步装配再启动恢复；并发恢复的一支失败不能提前结束整体等待。
+    const recoverAi = Promise.allSettled(['conversation', 'agent', 'worker'].map(stage => aiLifecycle.recover([stage])))
+      .then(results => {
+        const failed = results.find(result => result.status === 'rejected');
+        if (failed) logger.warn?.('AI task recovery deferred until cloud budget is available',
+          { code: failed.reason?.code ?? 'AI_BUDGET_UNAVAILABLE' });
+      });
+    return { store, sync, handleApi, recoverAi, closeAi: aiLifecycle.close };
     } catch (error) { store.close(); throw error; }
 }

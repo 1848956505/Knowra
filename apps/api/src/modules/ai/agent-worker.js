@@ -5,6 +5,7 @@ import { beijingDay } from './budget-ledger.js';
 import { quoteWorstCase } from './worker.js';
 import { hashRecord } from './record-contract.js';
 import { createAuthorizedRetrieval } from './retrieval.js';
+import { createAiRecoveryScope } from './recovery-scope.js';
 
 const MAX_ROUNDS = 4;
 const MAX_TOOLS = 6;
@@ -38,6 +39,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   }
   const active = new Map();
   let closed = false;
+  const recovery = createAiRecoveryScope();
   const search = access ? createAuthorizedRetrieval({ access, candidateSource: retrievalCandidates }) : null;
   const provider = gateway.capabilities?.().provider;
 
@@ -407,11 +409,13 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     }
     return run(turnId);
   }
-  async function close() {
+  function close() {
     closed = true;
-    const running = [...active.values()];
-    for (const entry of running) entry.controller.abort();
-    await Promise.allSettled(running.map(entry => entry.promise));
+    return recovery.close(async () => {
+      const running = [...active.values()];
+      for (const entry of running) entry.controller.abort();
+      await Promise.allSettled(running.map(entry => entry.promise));
+    });
   }
-  return { run, retry, cancel, recover, close };
+  return { run, retry, cancel, recover: () => recovery.run(recover), close };
 }
