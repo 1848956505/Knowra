@@ -1,4 +1,5 @@
 import { createJsonActionStore } from '../modules/ai/action-state.js';
+import { extractionPageRows } from '../modules/ai/knowledge-extraction-task-page.js';
 import { taskKey, validateExtractionTask, validateExtractionTaskState } from '../modules/ai/knowledge-extraction-task-contract.js';
 import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
 import fs from 'node:fs';
@@ -190,6 +191,8 @@ export function createFileDataStore(filePath, {
       },
       get: input => structuredClone(extractionTasks.tasks.find(task => taskKey(task) === taskKey(input)) ?? null),
       list: input => extractionTasks.tasks.filter(task => task.ownerId === input.ownerId && task.datasetId === input.datasetId).map(task => structuredClone(task)),
+      listPage: input => extractionPageRows(aiRuntime.jobs, new Set(extractionTasks.tasks.filter(task => task.ownerId === input.ownerId
+        && task.datasetId === input.datasetId && task.datasetEpoch === input.datasetEpoch).map(task => task.jobId)), input),
       insert(task) {
         const record = validateExtractionTask(task);
         if (extractionTasks.tasks.some(task => taskKey(task) === taskKey(record))) throw new Error('提炼任务描述已存在。');

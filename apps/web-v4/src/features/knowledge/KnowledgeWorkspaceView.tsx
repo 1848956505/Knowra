@@ -1,3 +1,4 @@
+import { ExtractionDemoNotice } from '../editor/ExtractionEnvironment';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogFooter, SearchBox, SegmentedButton, SegmentedControl } from '../../components/ui';
@@ -230,6 +231,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       </SegmentedControl>
     </WorkspacePanelToolbar>
     <WorkspacePanelBody grid className={styles.content}>
+      <ExtractionDemoNotice />
       {!canWrite || draftError || drafts.length ? <div className={styles.messages}>
         {!canWrite ? <p className={styles.readOnly} role="status">{readOnlyReason ?? '当前为只读模式，暂不能修改知识。'}</p> : null}
         {draftError ? <p role="alert" className={styles.error}>{draftError}</p> : null}

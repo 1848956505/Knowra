@@ -1,3 +1,4 @@
+import { useExtractionEnvironment } from './ExtractionEnvironment';
 import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
 import { attachmentIdsInText, ApiRequestError } from '@study-accelerator/web-core';
 import type { AttachmentActions } from './EditorAttachmentPanel';
@@ -275,6 +276,24 @@ export function NoteEditorView({
     }
   }, 0), [autosave, note?.rawMarkdown, view.showSourceEditor]);
 
+  const extractionEnvironment = useExtractionEnvironment();
+  const analysisContext = useRef({ noteId: note?.id, spaceId: note?.spaceId, canWrite, scope: extractionEnvironment.scopeKey,
+    markdown: () => view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown() });
+  analysisContext.current = { noteId: note?.id, spaceId: note?.spaceId, canWrite, scope: extractionEnvironment.scopeKey,
+    markdown: () => view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown() };
+  async function previewSavedAnalysis(input: AnalysisScopeInput) {
+    const before = analysisContext.current;
+    const markdown = before.markdown();
+    if (!before.canWrite || !before.noteId || input.spaceId !== before.spaceId || !onPreviewAnalysisScope) throw new Error('当前笔记无法预览分析范围。');
+    const stillCurrent = () => annotationMountedRef.current && analysisContext.current.canWrite
+      && analysisContext.current.noteId === before.noteId && analysisContext.current.spaceId === before.spaceId
+      && analysisContext.current.scope === before.scope && analysisContext.current.markdown() === markdown;
+    await autosave.saveNow(markdown);
+    if (!stillCurrent()) throw new Error('保存期间笔记或草稿已变化，请重新预览。');
+    const preview = await onPreviewAnalysisScope(input);
+    if (!stillCurrent()) throw new Error('预览期间笔记或草稿已变化，请重新预览。');
+    return preview;
+  }
   const draftMarkdown = autosave.draftMarkdown;
   useEffect(() => {
     onDraftStateChange?.(autosave.hasLocalChanges, autosave.saveError);
@@ -1034,7 +1053,7 @@ export function NoteEditorView({
           } : undefined}
           onOpenKnowledgeItem={onOpenKnowledgeItem}
           knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
-          onPreviewAnalysisScope={onPreviewAnalysisScope}
+          onPreviewAnalysisScope={onPreviewAnalysisScope ? previewSavedAnalysis : undefined}
           onCreateAnalysisScope={onCreateAnalysisScope}
           onListAnalysisScopes={onListAnalysisScopes}
           onTrashAnalysisScope={onTrashAnalysisScope}

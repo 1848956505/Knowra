@@ -30,6 +30,11 @@ async function fixture(run, { onCall, storeOptions, maintenanceGate } = {}) {
 const counts = ai => ['scopeSnapshot', 'contextManifest', 'aiGrant', 'aiJob', 'aiJobAttempt'].map(kind => ai.list(kind).length);
 
 export const aiKnowledgeExtractionTaskTests = [
+  { name: '02C 自动恢复在异步事务中关闭须等收尾，关闭后不可重新恢复且不持维护门等待', async run() {
+    const probe = fileURLToPath(new URL('./fixtures/knowledge-extraction-recovery-close.probe.js', import.meta.url));
+    const { stdout } = await promisify(execFile)(process.execPath, [probe], { timeout: 15_000 });
+    assert.match(stdout, /startup recovery close tracking passed/);
+  } },
   { name: '02B direct run 与排队共享运行跟踪，idle/close 不忙循环且等待收尾', async run() {
     const probe = fileURLToPath(new URL('./fixtures/knowledge-extraction-worker-tracking.probe.js', import.meta.url));
     const { stdout } = await promisify(execFile)(process.execPath, [probe], { timeout: 15_000 });

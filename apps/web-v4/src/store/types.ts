@@ -44,6 +44,7 @@ export interface WorkspaceDependencies {
 }
 
 export interface WorkspaceSlice {
+  knowledgeExtraction?: import('@study-accelerator/web-core').KnowledgeExtractionApi;
   searchCommandNotes?: CommandNoteSearcher;
   loadCommandNote(input: CommandNoteLoadInput): Promise<CommandNoteLoadResult | null>;
   persistenceMode: 'remote' | 'desktop-local';

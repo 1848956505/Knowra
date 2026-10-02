@@ -13,10 +13,14 @@ import { createAiAssistantService } from './modules/ai/assistant-service.js';
 import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
 import { handleAiAccessRoute } from './modules/ai/access-routes.js';
 import { handleConversationRoute } from './modules/ai/conversation-routes.js';
+import { handleAiJobRoute } from './modules/ai/job-routes.js';
+import { createKnowledgeExtractionHttpService } from './modules/ai/knowledge-extraction-http-service.js';
 import { isWriteMethod, writeOriginDecision } from '@study-accelerator/shared/http-origin';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
   const allowedOrigins = cors.allowedOrigins ?? [];
+  const extraction = createKnowledgeExtractionHttpService({ tasks: appContext.knowledgeExtractionTasks,
+    location: appContext.aiLocation ?? 'server', logger });
   const assistant = appContext.ai && appContext.aiOwnerId
     ? createAiAssistantService({ getRuntime: () => appContext.ai, ownerId: appContext.aiOwnerId,
       location: appContext.aiLocation ?? 'server', logger }) : null;
@@ -69,6 +73,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
 
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
       if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
+      if (await handleAiJobRoute({ request, response, url, extraction })) return;
       if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;
       if (await handleActionRoute({ request, response, url, actions: appContext.ai?.actions })) return;
       if (await handleConversationRoute({ request, response, url, conversation: appContext.ai?.conversation })) return;

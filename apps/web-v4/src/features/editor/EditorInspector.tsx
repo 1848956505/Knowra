@@ -30,6 +30,10 @@ import {
   type InspectorRelations
 } from './editorInspectorModel';
 import styles from './EditorInspector.module.css';
+import { AnalysisScopeDialog, type AnalysisIntent } from './AnalysisScopeDialog';
+import { KnowledgeExtractionTaskPanel } from './KnowledgeExtractionTaskPanel';
+import { useKnowledgeExtractionTasks } from './useKnowledgeExtractionTasks';
+import { useExtractionEnvironment, ExtractionDemoNotice } from './ExtractionEnvironment';
 import { VersionHistoryPanel } from './VersionHistoryPanel';
 import type { AttachmentActions } from './EditorAttachmentPanel';
 import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
@@ -349,7 +353,12 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
   const [sortOrder, setSortOrder] = useState<AnnotationSort>('document');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [detail, setDetail] = useState<{ annotation: Annotation; preview: AnnotationPreview; links: AnnotationKnowledgeLinks } | null>(null);
-  const [analysis, setAnalysis] = useState<{ input: AnalysisScopeInput; preview: AnalysisScopePreview } | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisIntent | null>(null);
+  const environment = useExtractionEnvironment();
+  const task = useKnowledgeExtractionTasks(props.note.spaceId ?? '', props.note.id, props.canWrite);
+  const analysisScope = useMemo(() => ({}), [props.note.id, props.note.spaceId, environment.scopeKey]);
+  const currentAnalysisScope = useRef(analysisScope); currentAnalysisScope.current = analysisScope;
+  useEffect(() => { setAnalysis(null); setError(''); setCreating(false); }, [analysisScope]);
   const [kind, setKind] = useState<'important' | 'question' | 'supplement' | 'pitfall' | 'temporary'>('important');
   const [importance, setImportance] = useState('unset');
   const [comment, setComment] = useState('');
@@ -359,12 +368,13 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
   );
 
   useEffect(() => {
+    setSavedScopes([]);
     if (!props.analysisOnly || !props.onListAnalysisScopes || !props.note.spaceId) return;
     let active = true;
     void props.onListAnalysisScopes(props.note.spaceId).then(rows => { if (active) setSavedScopes(rows); })
       .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '已保存范围加载失败'); });
     return () => { active = false; };
-  }, [props.analysisOnly, props.note.spaceId, props.onListAnalysisScopes, scopeRefresh]);
+  }, [props.analysisOnly, props.note.spaceId, props.onListAnalysisScopes, scopeRefresh, environment.scopeKey]);
 
   useEffect(() => {
     const available = new Set(currentAnnotations.map((item) => item.id));
@@ -447,11 +457,12 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
     setCreating(true);
     setError('');
     try {
-      setAnalysis({ input, preview: await props.onPreviewAnalysisScope(input) });
+      const preview = await props.onPreviewAnalysisScope(input);
+      if (currentAnalysisScope.current === analysisScope) setAnalysis({ input, preview, scopeKey: crypto.randomUUID(), taskKey: crypto.randomUUID() });
     } catch (analysisError) {
-      setError(analysisError instanceof Error ? analysisError.message : '分析范围预览失败');
+      if (currentAnalysisScope.current === analysisScope) setError(analysisError instanceof Error ? analysisError.message : '分析范围预览失败');
     } finally {
-      setCreating(false);
+      if (currentAnalysisScope.current === analysisScope) setCreating(false);
     }
   }
 
@@ -460,8 +471,12 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
       {props.analysisOnly ? <div className={styles.aiPanel}>
         <span className={styles.aiIcon}><SparkIcon size={26} /></span>
         <h3>整篇分析</h3>
+        <ExtractionDemoNotice />
         <p>预览当前笔记的分析范围。</p>
+        {!environment.capability.canStart ? <p>知识提炼暂不可用；仍可保存分析范围和手动整理知识。</p> : null}
+        {environment.api ? <Button variant="ghost" isDisabled={environment.checking} onPress={environment.recheck}>重新检查提炼能力</Button> : null}
         <Button variant="primary" isPending={creating} isDisabled={!props.canWrite || !props.onPreviewAnalysisScope} onPress={() => void previewAnalysis('all')}>分析整篇</Button>
+        <Button variant="ghost" onPress={() => task.setOpen(true)}>查看提炼任务</Button>
       </div> : <>
       <header className={styles.annotationHeader}>
         <div className={styles.annotationTitle}><StarIcon size={15} fill="currentColor" /><strong>重点标记</strong><span>{currentAnnotations.length}</span></div>
@@ -535,6 +550,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
             await action?.(scope.id, { spaceId: scope.spaceId, expectedUpdatedAt: scope.updatedAt ?? scope.createdAt });
             setScopeRefresh(value => value + 1);
           })}>{scope.deletedAt ? '恢复范围' : '移入回收站'}</Button>
+          {!scope.deletedAt && environment.capability.canStart ? <Button isDisabled={!props.canWrite || task.pending} onPress={() => task.prepare(scope.id)}>提炼此范围</Button> : null}
         </div>)}</div>}
       </InspectorSection> : null}
       {error ? <p className={styles.versionError} role="alert">{error}</p> : null}
@@ -561,10 +577,11 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
         </div></DialogBody>
         <DialogFooter><DialogClose variant="ghost">关闭</DialogClose><Button variant="primary" onPress={() => void saveMetadata()}>保存信息</Button></DialogFooter>
       </Dialog> : null}
-      {analysis ? <Dialog title="确认分析范围" description={analysis.preview.ai.message} isOpen onOpenChange={(open) => { if (!open) setAnalysis(null); }}>
-        <DialogBody><div className={styles.annotationScopePreview}><strong>{analysis.preview.summary.noteCount} 篇笔记 · {analysis.preview.summary.segmentCount} 个去重片段</strong>{analysis.preview.segments.map((segment, index) => <pre key={`${segment.noteId}-${segment.start}`}>{index + 1}. {segment.markdown}</pre>)}{analysis.preview.omittedItems.length > 0 ? <p>{analysis.preview.omittedItems.length} 项未纳入，请在开始前检查。</p> : null}<p role="status">{!props.onCreateAnalysisScope ? '桌面端可预览分析范围；范围快照暂不支持离线同步，请在网页版保存。' : analysis.preview.ai.available ? '提炼服务可用' : '提炼服务暂不可用；仍可保存不可变范围快照。'}</p></div></DialogBody>
-        <DialogFooter><DialogClose variant="ghost">取消</DialogClose><Button variant="primary" isDisabled={!props.onCreateAnalysisScope} onPress={() => void props.onCreateAnalysisScope?.({ ...analysis.input, previewHash: analysis.preview.previewHash, idempotencyKey: crypto.randomUUID() }).then(() => { setAnalysis(null); setScopeRefresh(value => value + 1); }).catch((reason) => setError(reason instanceof Error ? reason.message : '范围快照保存失败'))}>保存范围快照</Button></DialogFooter>
-      </Dialog> : null}
+      {analysis ? <AnalysisScopeDialog key={analysis.scopeKey} analysis={analysis} onSave={props.onCreateAnalysisScope}
+        startDisabledReason={task.pending ? '已有任务请求尚未完成，请先查询任务结果，再开始新的范围。' : undefined}
+        onSaved={() => setScopeRefresh(value => value + 1)} onClose={() => setAnalysis(null)}
+        onStart={input => { setAnalysis(null); void task.start(input); }} /> : null}
+      <KnowledgeExtractionTaskPanel task={task} onOpenCandidate={props.onOpenKnowledgeItem} />
     </section>
   );
 }

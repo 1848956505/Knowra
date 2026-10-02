@@ -1,0 +1,9 @@
+.demo { padding: 12px; margin: 0 0 12px; border: 1px solid var(--ink-warning); background: var(--ink-warning-soft); color: var(--ink); font-weight: 600; overflow-wrap: anywhere; grid-column: 1 / -1; }
+.body { display: grid; gap: var(--space-3, 12px); min-width: 0; }
+.body pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font: inherit; padding: 12px; background: var(--ink-sunken); }
+.body p { margin: 0; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2, 8px); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2, 8px); }
+.list li { border-bottom: 1px solid var(--ink-panel); padding: 8px 0; overflow-wrap: anywhere; }
+.error { color: var(--ink-danger); }
+.muted { color: var(--ink-secondary); font-size: 12px; }

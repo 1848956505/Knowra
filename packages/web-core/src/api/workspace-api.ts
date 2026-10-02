@@ -2,6 +2,7 @@ import type { AttachmentDeleteResult, AttachmentDeletionPreflight, AttachmentCle
 import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
+import { createKnowledgeExtractionApi, type KnowledgeExtractionApi } from './knowledge-extraction-api.js';
 import { requestCommandNoteSearch, type CommandNoteSearcher } from './command-note-search.js';
 import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, Tag, TagColor, TagGroup } from '../workspace/types.js';
 
@@ -128,6 +129,8 @@ export interface AnalysisScopePreview {
   previewHash: string;
   summary: { noteCount: number; segmentCount: number; annotationCount: number };
   segments: Array<{ noteId: string; noteVersionId: string; start: number; end: number; markdown: string; annotationIds: string[] }>;
+  exclusions?: Array<{ noteId: string; start: number; end: number; exclusionId?: string }>;
+  noteVersions?: Array<{ noteId: string; noteVersionId: string; contentHash: string; title: string }>;
   omittedItems: Array<Record<string, unknown>>;
   ai: { available: boolean; message: string };
 }
@@ -230,6 +233,7 @@ export interface TrainingPurgePreview {
 }
 
 export interface WorkspaceApi {
+  knowledgeExtraction?: KnowledgeExtractionApi;
   listTrainingAssets?(kind: TrainingAssetKind, query?: { includeArchived?: boolean; includeDeleted?: boolean }): Promise<TrainingAssetRecord[]>;
   createTrainingAsset?(kind: TrainingAssetKind, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
   updateTrainingAsset?(kind: TrainingAssetKind, id: string, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
@@ -336,6 +340,7 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
   }
 
   return {
+    knowledgeExtraction: createKnowledgeExtractionApi(requestJson),
     async listTrainingAssets(kind, query = {}) {
       const root = trainingAssetRoot(kind);
       const params = [query.includeArchived ? 'includeArchived=true' : '', query.includeDeleted ? 'includeDeleted=true' : ''].filter(Boolean).join('&');
