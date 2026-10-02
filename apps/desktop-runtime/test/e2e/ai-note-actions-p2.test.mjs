@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
-import { createR07Fixture } from '../fixtures/ai-r07-runtime.mjs';
+import { createR07Fixture, inspectR07FixtureState } from '../fixtures/ai-r07-runtime.mjs';
+import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面：模型计划、明确确认、丢响应重试、撤销与草稿保护`,{skip:driver==='postgres' && !process.env.KNOWRA_SYNC_TEST_DATABASE_URL},async t=>{
   const fixture=await createR07Fixture(driver);let browser;t.after(async()=>{try{await browser?.close();}finally{await fixture.close();}});
   browser=await chromium.launch();const context=await browser.newContext(),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await withPageFailureDiagnostics(page, async () => {
   await page.route('**/*',route=>new URL(route.request().url()).origin===fixture.origin?route.continue():route.abort());
   await page.goto(fixture.launchUrl);const headers=driver==='sqlite'?{'X-Knowra-Dataset':(await fixture.store.identity()).datasetId}:{};
   const post=async(path,data)=>{const result=await page.request.post(fixture.origin+path,{headers,data});assert(result.ok(),await result.text());return(await result.json()).data;};
@@ -30,4 +32,5 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   await page.request.post(`${fixture.origin}/api/ai/actions/${planned.actionId}/approve`,{headers:writeHeaders,data:{planHash:planned.plan.planHash}});
   const denied=await page.request.post(`${fixture.origin}/api/ai/actions/${planned.actionId}/apply`,{headers:writeHeaders,data:{}});assert.equal(denied.status(),409);assert.equal((await denied.json()).error.code,'AI_ACTION_DRAFT_CONFLICT');
   await page.reload();await expect(page.getByText('执行记录（3）',{exact:true})).toBeVisible();assert.deepEqual(errors,[]);
+  }, () => inspectR07FixtureState(fixture));
 });

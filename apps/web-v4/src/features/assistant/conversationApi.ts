@@ -48,6 +48,7 @@ export interface ConversationTurn {
   status: 'staged' | 'running' | 'interrupted' | 'succeeded' | 'failed' | 'cancelled';
   phase: 'waiting' | 'retrieving' | 'generating' | 'validating' | 'finished';
   errorCode: string | null;
+  assistantMessageId?: string | null;
   toolCalls?: ToolCall[];
   modelAttempts?: Array<{ attemptId: string; status: string; actualMicrounits: number | null }>;
 }

@@ -111,3 +111,20 @@ export async function createR07Fixture(driver, { aiEnabled = true } = {}) {
       adapter, get runtime() { return runtime; }, get store() { return local?.store.aiConversationStore ?? store; }, restart, close };
   } catch (error) { await close(); throw error; }
 }
+
+/** 仅失败后读取合成fixture；不输出正文、工具参数、凭据或模型请求。 */
+export async function inspectR07FixtureState(fixture) {
+  const [turns, attempts, actionState] = await Promise.all([
+    fixture.store.listTurns(), fixture.store.listModelAttempts(), fixture.runtime.actionStore.read()
+  ]);
+  const conversationIds = [...new Set(turns.map(turn => turn.conversationId))];
+  const messages = (await Promise.all(conversationIds.map(id => fixture.store.listMessages(id, 0, 100)))).flat();
+  return {
+    turns: turns.slice(-30).map(({ turnId, conversationId, status, phase, assistantMessageId, errorCode }) =>
+      ({ turnId, conversationId, status, phase, assistantMessageId, errorCode })),
+    messages: messages.slice(-100).map(({ messageId, turnId, sequence, role }) => ({ messageId, turnId, sequence, role })),
+    actions: actionState.actions.slice(-30).map(({ actionId, status }) => ({ actionId, status })),
+    attempts: attempts.slice(-30).map(({ attemptId, turnId, status }) => ({ attemptId, turnId, status })),
+    modelCallCount: fixture.adapter.calls.length
+  };
+}
