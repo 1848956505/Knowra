@@ -9,7 +9,7 @@ import { createV4WebServer } from '../../../web-v4/server/app.mjs';
 import { createFileDataStore } from '../../../api/src/infrastructure/file-data-store.js';
 import { createOptionalAiRuntime } from '../../../api/src/modules/ai/runtime.js';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
-import { createPostgresTestDatabase } from '../../../../scripts/test-support/postgres-test-database.mjs';
+import { createR07PostgresDatabase } from './ai-r07-postgres.mjs';
 
 const distRoot = fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url));
 const logger = { warn() {}, error() {} };
@@ -52,7 +52,7 @@ export function createR07Adapter() {
   };
 }
 
-export async function createR07Fixture(driver, { aiEnabled = true } = {}) {
+export async function createR07Fixture(driver, { aiEnabled = true, isolatePostgres = false } = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), `knowra-r07-${driver}-`));
   const adapter = createR07Adapter();
   let app, database, local, api, web, runtime;
@@ -79,7 +79,7 @@ export async function createR07Fixture(driver, { aiEnabled = true } = {}) {
       local = await start(); origin = local.origin; launchUrl = local.launchUrl; store = local.store.aiConversationStore;
       restart = async () => { await local.close(); local = await start(); return local.launchUrl; };
     } else {
-      if (driver === 'postgres') database = await createPostgresTestDatabase();
+      if (driver === 'postgres') database = await createR07PostgresDatabase({ isolated: isolatePostgres });
       const start = async () => {
       if (driver === 'postgres') {
         app = await createPostgresAppContext({ databaseUrl: database.databaseUrl, storageRootDir: directory, ownerId: 'demo' });

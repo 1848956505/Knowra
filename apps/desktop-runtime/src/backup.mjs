@@ -1,6 +1,7 @@
 import { validateSqliteActionRows } from './ai-sqlite-action-store.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, createPersistedLocalDocument, validatePersistedLocalState } from '../../api/src/infrastructure/local-data-schema.js';
@@ -12,13 +13,28 @@ import { validateSqliteConversationRows } from './ai-sqlite-conversation-store.m
 import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from '../../api/src/modules/ai/record-contract.js';
 import { copyRecoveryDraftFiles, listArchivedDraftFiles } from './recovery-draft-files.mjs';
 
-const digest = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+function readBackupFile(file) {
+  const expected = fs.lstatSync(file);
+  if (!expected.isFile() || expected.isSymbolicLink() || expected.nlink !== 1) throw new Error('备份文件必须是独立普通文件，不能是符号链接或硬链接。');
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0));
+  try {
+    const matches = stat => stat.isFile() && stat.nlink === 1 && expected.dev === stat.dev && expected.ino === stat.ino
+      && expected.size === stat.size && expected.mtimeMs === stat.mtimeMs;
+    if (!matches(fs.fstatSync(fd))) throw new Error('备份文件在检查期间已变化。');
+    const bytes = fs.readFileSync(fd);
+    if (!matches(fs.fstatSync(fd)) || !matches(fs.lstatSync(file))) throw new Error('备份文件在检查期间已变化。');
+    return bytes;
+  } finally { fs.closeSync(fd); }
+}
+const digest = file => createHash('sha256').update(readBackupFile(file)).digest('hex');
 function inventory(root, relative = '') {
   if (fs.lstatSync(path.join(root, relative)).isSymbolicLink()) throw new Error('备份目录中不允许符号链接。');
   return fs.readdirSync(path.join(root, relative), { withFileTypes: true }).flatMap(entry => {
     const name = path.join(relative, entry.name);
     if (entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) throw new Error('备份中只能包含普通文件和目录。');
-    return entry.isDirectory() ? inventory(root, name) : [{ path: name.split(path.sep).join('/'), sha256: digest(path.join(root, name)), size: fs.statSync(path.join(root, name)).size }];
+    const stat = fs.lstatSync(path.join(root, name));
+    if (stat.isFile() && stat.nlink !== 1) throw new Error('备份文件不允许硬链接。');
+    return entry.isDirectory() ? inventory(root, name) : [{ path: name.split(path.sep).join('/'), sha256: digest(path.join(root, name)), size: stat.size }];
   }).sort((a, b) => a.path.localeCompare(b.path));
 }
 const supportedPath = name => name === 'local.sqlite' || name === 'recovery-drafts.json' || name === 'recovery.json' || /^recovery-draft-archives\/[a-f0-9]{64}\.json$/.test(name) || (typeof name === 'string' && name.startsWith('uploads/') && !name.includes('\\') && name.split('/').every(segment => segment && segment !== '.' && segment !== '..'));
@@ -56,18 +72,19 @@ export function listRuntimeBackups(dataDirectory) {
   const root = path.join(dataDirectory, 'backups');
   if (!fs.existsSync(root)) return [];
   if (fs.lstatSync(root).isSymbolicLink()) throw new Error('备份目录不允许符号链接。');
-  return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory() && /^\d+-[a-f0-9-]+$/.test(entry.name)).map(entry => {
+  return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory() && /^\d+-[a-f0-9-]+$/.test(entry.name)
+    && fs.existsSync(path.join(root, entry.name, 'manifest.json'))).map(entry => {
     try {
-      const manifest = JSON.parse(fs.readFileSync(path.join(root, entry.name, 'manifest.json'), 'utf8'));
+      const manifest = JSON.parse(readBackupFile(path.join(root, entry.name, 'manifest.json')).toString('utf8'));
       return { id: entry.name, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: manifest.files?.length ?? 0, size: manifest.files?.reduce((sum, file) => sum + (Number(file.size) || 0), 0) ?? 0 };
     } catch { return { id: entry.name, createdAt: null, purpose: 'unknown', fileCount: 0, size: 0, error: '备份清单不可读，请检查此备份。' }; }
   }).sort((a, b) => b.id.localeCompare(a.id));
 }
 
 /** 请求正文总量由 HTTP 解析器限制；这里仅接受草稿键和值，不接受文件路径。 */
-export function validateBackupDrafts(record) {
+export function validateBackupDrafts(record, { maxBytes = 8 * 1024 * 1024 } = {}) {
   if (!record || record.version !== 1 || !record.drafts || typeof record.drafts !== 'object' || Array.isArray(record.drafts)) throw new Error('恢复草稿格式无效。');
-  if (Buffer.byteLength(JSON.stringify(record)) > 8 * 1024 * 1024) throw new Error('恢复草稿过大，请先分批导出正文。');
+  if (Buffer.byteLength(JSON.stringify(record)) > maxBytes) throw new Error('恢复草稿过大，请先分批导出正文。');
   for (const [key, value] of Object.entries(record.drafts)) {
     const prefix = ['knowra:note-draft:v1:', 'knowra:knowledge-draft:v1:'].find(prefix => key.startsWith(prefix));
     if (!prefix || key.length > 2000) throw new Error('恢复草稿标识无效。');
@@ -92,33 +109,48 @@ export function validateBackupDrafts(record) {
 }
 
 export function readBackupDrafts(directory) {
-  const readRecord = file => {
+  const readRecord = (file, archiveId) => {
     if (fs.lstatSync(file).isSymbolicLink()) throw new Error('恢复草稿不能是符号链接。');
-    const record = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (record.version !== 1 || !record.drafts || typeof record.drafts !== 'object' || Array.isArray(record.drafts)) throw new Error('恢复草稿格式无效。');
+    const bytes = readBackupFile(file);
+    if (archiveId && createHash('sha256').update(bytes).digest('hex') !== archiveId) throw new Error('恢复草稿归档内容校验失败。');
+    const record = JSON.parse(bytes.toString('utf8'));
+    // 原生旧草稿不受 HTTP 正文大小限制；仍逐项检查键、正文和知识表单。
+    validateBackupDrafts(record, { maxBytes: Infinity });
     return { version: 1, drafts: record.drafts };
   };
   const file = path.join(directory, 'recovery-drafts.json');
   const record = fs.existsSync(file) ? readRecord(file) : { version: 1, drafts: {} };
-  const archives = listArchivedDraftFiles(directory).map(({ id, file }) => ({ id, ...readRecord(file) }));
+  const archives = listArchivedDraftFiles(directory, { verify: false }).map(({ id, file }) => ({ id, ...readRecord(file, id) }));
   if (archives.length) record.archivedDrafts = archives;
   return record;
 }
 
 function verifyBackupFiles(backupDirectory) {
-  const manifest = JSON.parse(fs.readFileSync(path.join(backupDirectory, 'manifest.json'), 'utf8'));
-  if (manifest.version !== 1 || !Array.isArray(manifest.files) || !manifest.files.every(file => supportedPath(file.path))) throw new Error('备份清单版本或文件路径无效。');
+  const manifestStat = fs.lstatSync(path.join(backupDirectory, 'manifest.json'));
+  if (!manifestStat.isFile() || manifestStat.isSymbolicLink() || manifestStat.nlink !== 1) throw new Error('备份清单必须是独立普通文件。');
+  const manifest = JSON.parse(readBackupFile(path.join(backupDirectory, 'manifest.json')).toString('utf8'));
+  if (manifest.version !== 1 || !Array.isArray(manifest.files) || !manifest.files.every(file => file && supportedPath(file.path)
+    && /^[a-f0-9]{64}$/.test(file.sha256) && (file.size === undefined || Number.isSafeInteger(file.size) && file.size >= 0))) throw new Error('备份清单版本或文件路径无效。');
   const actual = inventory(backupDirectory).filter(item => item.path !== 'manifest.json');
-  const expected = new Map(manifest.files.map(file => [file.path, file.sha256]));
-  if (!expected.has('local.sqlite') || expected.size !== manifest.files.length || actual.length !== expected.size || actual.some(file => expected.get(file.path) !== file.sha256)) throw new Error('备份文件完整性校验失败，未恢复任何内容。');
+  const expected = new Map(manifest.files.map(file => [file.path, file]));
+  if (!expected.has('local.sqlite') || expected.size !== manifest.files.length || actual.length !== expected.size || actual.some(file => expected.get(file.path)?.sha256 !== file.sha256
+    || expected.get(file.path)?.size !== undefined && expected.get(file.path).size !== file.size)) throw new Error('备份文件完整性校验失败，未恢复任何内容。');
   return { manifest, actual };
 }
 
 /** 界面激活前检查数据库版本、资料引用和附件；离线救援复制不依赖应用 schema。 */
 export function inspectRuntimeBackup(backupDirectory) {
   const { manifest, actual } = verifyBackupFiles(backupDirectory);
-  const db = new DatabaseSync(path.join(backupDirectory, 'local.sqlite'), { readOnly: true });
+  // 旧 CLI 导出保留 WAL 模式；直接只读打开也可能在来源生成 sidecar。
+  // 在私有临时副本检查，既不修改原文件，也不污染其清单。
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-backup-inspect-'));
+  let db;
   try {
+    const bytes = readBackupFile(path.join(backupDirectory, 'local.sqlite'));
+    if (createHash('sha256').update(bytes).digest('hex') !== actual.find(file => file.path === 'local.sqlite').sha256) throw new Error('备份文件完整性校验失败，未恢复任何内容。');
+    const databasePath = path.join(temporary, 'local.sqlite');
+    fs.writeFileSync(databasePath, bytes, { flag: 'wx', mode: 0o600 });
+    db = new DatabaseSync(databasePath, { readOnly: true });
     if (db.prepare('PRAGMA integrity_check').all().some(row => row.integrity_check !== 'ok')) throw new Error('备份数据库完整性校验失败。');
     const version = db.prepare('PRAGMA user_version').get().user_version;
     if (version < 1 || version > LOCAL_DATABASE_VERSION) throw new Error('备份数据库版本不受支持，请升级应用。');
@@ -146,7 +178,7 @@ export function inspectRuntimeBackup(backupDirectory) {
     const draftRecord = readBackupDrafts(backupDirectory);
     const draftCount = [draftRecord, ...(draftRecord.archivedDrafts ?? [])].reduce((count, record) => count + Object.keys(record.drafts).length, 0);
     return { valid: true, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: actual.length, size: actual.reduce((sum, file) => sum + file.size, 0), noteCount: state.notes.length, attachmentCount: state.attachments.length, pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count, draftCount };
-  } finally { db.close(); }
+  } finally { try { db?.close(); } finally { fs.rmSync(temporary, { recursive: true, force: true }); } }
 }
 
 /** 只能恢复到不存在的新目录，保留同步队列；不覆盖运行中的数据库。 */

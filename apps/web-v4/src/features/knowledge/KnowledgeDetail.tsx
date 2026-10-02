@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import type { KnowledgeEvidence, KnowledgeItem } from '@study-accelerator/web-core';
 import { Button } from '../../components/ui';
 import { knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
+import { evidenceApplicabilityLabel, evidenceHealthLabel } from './knowledgeSourceViewModel';
+import { KnowledgeSourceComparison } from './KnowledgeSourceComparisonDialog';
 import styles from './KnowledgeWorkspaceView.module.css';
 
 export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onConfirm, onArchive, onRestore, onTrash, onRestoreDeleted, onPurgePreview, onOpenNote, onAddSource, onReplaceSource, onRetireSource, onReadoptSource }: {
@@ -8,6 +11,8 @@ export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onC
   onEdit(): void; onConfirm(): void; onArchive(): void; onRestore(): void; onTrash(): void; onRestoreDeleted(): void; onPurgePreview?: () => void; onOpenNote(noteId: string): void;
   onAddSource(): void; onReplaceSource(evidence: KnowledgeEvidence): void; onRetireSource(evidence: KnowledgeEvidence): void; onReadoptSource(evidence: KnowledgeEvidence): void;
 }) {
+  const [comparisonId, setComparisonId] = useState<string | null>(null);
+  const comparisonEvidence = evidence.find(record => record.id === comparisonId);
   const archived = item.reviewStatus === 'archived';
   const sourceReady = item.sourceMode === 'manual' || evidence.some(record => record.status === 'valid' && (record.applicabilityStatus ?? 'active') === 'active');
   return <article className={styles.detail} aria-label="知识详情">
@@ -32,10 +37,10 @@ export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onC
     {item.userExplanation ? <section className={styles.detailSection}><h3>我的解释</h3><p className={styles.prose}>{item.userExplanation}</p></section> : null}
     <section className={styles.detailSection} aria-label="知识来源"><div className={styles.sectionHeading}><h3>来源 <span className={styles.count}>{evidence.length}</span></h3>{!item.deletedAt ? <Button variant="ghost" isDisabled={!canWrite || pending || archived} onPress={onAddSource}>添加来源</Button> : null}</div>
       {evidence.length === 0 ? <p className={styles.hint}>{item.sourceMode === 'manual' ? '手动创建的知识，没有关联笔记来源。' : '尚未关联可核对的来源。'}</p> : <ul className={styles.evidenceList}>{evidence.map(record => <li key={record.id} className={styles.evidence}>
-        <div className={styles.meta}><strong>{record.sourceType === 'annotation' ? '标注摘录' : record.sourceType === 'noteVersion' ? '笔记快照' : '手动来源'}</strong><span>{record.applicabilityStatus === 'withdrawn' ? '已撤回适用性' : record.applicabilityStatus === 'needsReview' ? '适用性待核对' : evidenceStatusLabel(record.status)}</span>{record.sourceAnnotationRemoved ? <span>原标注已移除</span> : null}</div>
+        <div className={styles.meta}><strong>{record.sourceType === 'annotation' ? '标注摘录' : record.sourceType === 'noteVersion' ? '笔记快照' : '手动来源'}</strong><span>{evidenceHealthLabel(record.status)}</span><span>{evidenceApplicabilityLabel(record.applicabilityStatus)}</span>{record.sourceAnnotationRemoved ? <span>原标注已移除</span> : null}</div>
         {record.headingPath?.length ? <p className={styles.hint}>{record.headingPath.join(' / ')}</p> : null}
         <blockquote className={styles.prose}>{record.quoteText || '该来源没有文字摘录'}</blockquote>
-        <div className={styles.evidenceActions}>{record.noteId ? <Button variant="ghost" isDisabled={pending} onPress={() => onOpenNote(record.noteId!)}>打开来源笔记</Button> : null}
+        <div className={styles.evidenceActions}><Button variant="ghost" isDisabled={pending} onPress={() => setComparisonId(record.id)}>对照来源</Button>{record.noteId ? <Button variant="ghost" isDisabled={pending} onPress={() => onOpenNote(record.noteId!)}>打开来源笔记</Button> : null}
           {!item.deletedAt && !archived && record.applicabilityStatus === 'withdrawn' ? <Button variant="ghost" isDisabled={!canWrite || pending || record.status !== 'valid'} onPress={() => onReadoptSource(record)}>重新采用</Button> : null}
           {!item.deletedAt && !archived && record.applicabilityStatus !== 'withdrawn' ? <><Button variant="ghost" isDisabled={!canWrite || pending} onPress={() => onReplaceSource(record)}>更换来源</Button><Button variant="ghost" isDisabled={!canWrite || pending} onPress={() => onRetireSource(record)}>撤回适用性</Button></> : null}
         </div>
@@ -43,9 +48,6 @@ export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onC
       </li>)}</ul>}
     </section>
     {item.updatedAt ? <p className={styles.hint}>更新于 {new Date(item.updatedAt).toLocaleString('zh-CN')}</p> : null}
+    {comparisonEvidence ? <KnowledgeSourceComparison key={`${item.id}:${comparisonEvidence.id}`} item={item} evidence={comparisonEvidence} onClose={() => setComparisonId(null)} onOpenNote={onOpenNote} /> : null}
   </article>;
-}
-
-function evidenceStatusLabel(status: string) {
-  return ({ valid: '来源可用', stale: '需复核', invalid: '来源不可用', insufficient: '来源不足' } as Record<string, string>)[status] ?? '待核对';
 }
