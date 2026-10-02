@@ -550,7 +550,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
             await action?.(scope.id, { spaceId: scope.spaceId, expectedUpdatedAt: scope.updatedAt ?? scope.createdAt });
             setScopeRefresh(value => value + 1);
           })}>{scope.deletedAt ? '恢复范围' : '移入回收站'}</Button>
-          {!scope.deletedAt && environment.capability.canStart ? <Button isDisabled={!props.canWrite} onPress={() => task.prepare(scope.id)}>提炼此范围</Button> : null}
+          {!scope.deletedAt && environment.capability.canStart ? <Button isDisabled={!props.canWrite || task.pending} onPress={() => task.prepare(scope.id)}>提炼此范围</Button> : null}
         </div>)}</div>}
       </InspectorSection> : null}
       {error ? <p className={styles.versionError} role="alert">{error}</p> : null}
@@ -578,6 +578,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
         <DialogFooter><DialogClose variant="ghost">关闭</DialogClose><Button variant="primary" onPress={() => void saveMetadata()}>保存信息</Button></DialogFooter>
       </Dialog> : null}
       {analysis ? <AnalysisScopeDialog key={analysis.scopeKey} analysis={analysis} onSave={props.onCreateAnalysisScope}
+        startDisabledReason={task.pending ? '已有任务请求尚未完成，请先查询任务结果，再开始新的范围。' : undefined}
         onSaved={() => setScopeRefresh(value => value + 1)} onClose={() => setAnalysis(null)}
         onStart={input => { setAnalysis(null); void task.start(input); }} /> : null}
       <KnowledgeExtractionTaskPanel task={task} onOpenCandidate={props.onOpenKnowledgeItem} />

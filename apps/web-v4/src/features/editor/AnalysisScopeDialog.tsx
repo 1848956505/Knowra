@@ -5,12 +5,13 @@ import { ExtractionDemoNotice, useExtractionEnvironment } from './ExtractionEnvi
 import styles from './KnowledgeExtraction.module.css';
 
 export interface AnalysisIntent { input: AnalysisScopeInput; preview: AnalysisScopePreview; scopeKey: string; taskKey: string }
-export function AnalysisScopeDialog({ analysis, onSave, onSaved, onStart, onClose }: {
+export function AnalysisScopeDialog({ analysis, onSave, onSaved, onStart, onClose, startDisabledReason }: {
   analysis: AnalysisIntent;
   onSave?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
   onSaved(): void;
   onStart(input: { scopeId: string; taskKey: string }): void;
   onClose(): void;
+  startDisabledReason?: string;
 }) {
   const { capability } = useExtractionEnvironment();
   const [pending, setPending] = useState(false);
@@ -55,10 +56,11 @@ export function AnalysisScopeDialog({ analysis, onSave, onSaved, onStart, onClos
       {!capability.canStart ? <p className={styles.muted}>提炼服务暂不可用；仍可保存不可变范围快照。</p> : null}
       {savedId ? <p role="status">范围快照已保存，尚未启动新任务。</p> : null}
       {error ? <p role="alert">{error}</p> : null}
+      {startDisabledReason ? <p role="status">{startDisabledReason}</p> : null}
     </div></DialogBody>
     <DialogFooter className={styles.actions}><DialogClose variant="ghost">关闭</DialogClose>
       <Button isDisabled={!onSave || pending || Boolean(savedId)} onPress={() => void save(false)}>保存范围快照</Button>
-      {capability.canStart && capability.executionMode === 'mock' ? <Button variant="primary" isDisabled={!onSave || pending} onPress={() => void save(true)}>开始提炼</Button> : null}
+      {capability.canStart && capability.executionMode === 'mock' ? <Button variant="primary" isDisabled={!onSave || pending || Boolean(startDisabledReason)} onPress={() => void save(true)}>开始提炼</Button> : null}
     </DialogFooter>
   </Dialog>;
 }

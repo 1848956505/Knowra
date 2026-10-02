@@ -37,7 +37,7 @@ export function KnowledgeExtractionTaskPanel({ task, onOpenCandidate }: {
           </> : null}
         </section> : null}
         <h3>当前空间的任务</h3>
-        {!task.items.length && !task.pending ? <p>暂无提炼任务。</p> : null}
+        {task.historyLoaded && !task.items.length && !task.pending && !(task.intent?.submitted && !job) ? <p>暂无提炼任务。</p> : null}
         <ul className={styles.list}>{task.items.map(item => <li key={item.jobId}><Button variant="ghost" isDisabled={task.pending} onPress={() => void task.select(item.jobId)} aria-label={`查看任务 ${item.jobId}`}>{EXTRACTION_STATUS_LABELS[item.status]} · {new Date(item.createdAt).toLocaleString('zh-CN')}</Button></li>)}</ul>
         {task.nextCursor ? <Button isDisabled={task.pending} onPress={() => void task.refresh(task.nextCursor!)}>加载更多任务</Button> : null}
       </>}
