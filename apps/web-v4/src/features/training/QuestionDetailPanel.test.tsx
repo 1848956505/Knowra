@@ -48,4 +48,11 @@ describe('题目详情', () => {
     expect(screen.getByText('尚未关联学习目标。')).toBeInTheDocument();
     expect(screen.getByText('尚未记录题目来源。')).toBeInTheDocument();
   });
+
+  it.each([[1, 1], [' A ', 'A'], ['A', ' A ']])('后端合法的选项ID %s 与答案 %s 按同一规则匹配', (optionId, answerId) => {
+    render(<QuestionDetailPanel {...props({ ...question, questionType: 'singleChoice', options: [{ id: optionId, text: '正确选项' }, { id: 'B', text: '其他选项' }], referenceAnswer: answerId })} />);
+    const answer = screen.getByRole('region', { name: '参考答案' });
+    expect(answer).toHaveTextContent('正确选项');
+    expect(answer).not.toHaveTextContent('未找到对应选项');
+  });
 });

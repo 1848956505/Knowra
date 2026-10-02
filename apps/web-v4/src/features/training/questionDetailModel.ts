@@ -35,7 +35,7 @@ export const sourceStatusLabel = (value: string) => ({ active: '来源记录有�
 export function choiceOptions(question: TrainingAssetRecord) {
   return Array.isArray(question.options) ? question.options.flatMap(value => {
     const option = objectValue(value);
-    return option ? [{ id: textValue(option.id), text: textValue(option.text) }] : [];
+    return option ? [{ id: String(option.id ?? '').trim(), text: String(option.text ?? '') }] : [];
   }) : [];
 }
 
@@ -43,7 +43,7 @@ export function choiceAnswer(question: TrainingAssetRecord): string[] {
   const options = choiceOptions(question);
   const answers = Array.isArray(question.referenceAnswer) ? question.referenceAnswer : [question.referenceAnswer];
   return answers.filter(value => value !== null && value !== undefined).map(value => {
-    const id = String(value);
+    const id = String(value).trim();
     const option = options.find(item => item.id === id);
     return option ? `${id} · ${option.text}` : `${id}（未找到对应选项）`;
   });

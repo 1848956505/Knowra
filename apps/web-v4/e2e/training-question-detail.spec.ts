@@ -11,9 +11,17 @@ const shortAnswer = { id: 'detail-question', stem: '解释导数，并计算 f(x
   reviewStatus: 'candidate', sourceMode: 'manual', version: 2, updatedAt: date, learningObjectiveIds: objectives.map(value => value.id), deletedAt: null,
   sources: [{ id: 'detail-source', sourceType: 'noteVersion', sourceId: 'detail-version', quote: '编题时的原始摘录。', locator: { noteId: 'detail-note' }, status: 'stale' }] };
 
-async function fixture(page: Page, options: { readOnly?: boolean; missingLocator?: boolean; failVersionOnce?: boolean } = {}) {
+async function fixture(page: Page, options: { readOnly?: boolean; missingLocator?: boolean; failVersionOnce?: boolean; numericChoice?: boolean; directKnowledgeSource?: boolean } = {}) {
   if (options.readOnly) await page.addInitScript(() => { Object.assign(window, { knowraRuntime: { persistenceMode: 'desktop-local', datasetId: 'synthetic-training-details' } }); });
-  let question = { ...shortAnswer, sources: shortAnswer.sources.map(source => ({ ...source, locator: options.missingLocator ? null : source.locator })) };
+  const sourceItem = { ...item, id: 'detail-source-knowledge', title: '独立的来源知识' };
+  let question = { ...shortAnswer, questionType: options.numericChoice ? 'singleChoice' : shortAnswer.questionType,
+    referenceAnswer: options.numericChoice ? 1 : shortAnswer.referenceAnswer,
+    options: options.numericChoice ? [{ id: 1, text: '正确选项' }, { id: 2, text: '干扰选项' }] : null,
+    sources: options.directKnowledgeSource ? [
+      { id: 'direct-knowledge', sourceType: 'knowledgeItem', sourceId: sourceItem.id, quote: '另一知识提供编题依据', status: 'active', locator: null },
+      { ...shortAnswer.sources[0], locator: null },
+      { id: 'direct-evidence', sourceType: 'knowledgeEvidence', sourceId: 'direct-evidence-id', quote: '编题时的证据', status: 'active', locator: null }
+    ] : shortAnswer.sources.map(source => ({ ...source, locator: options.missingLocator ? null : source.locator })) };
   let versionReads = 0;
   let refuseVersionRead = Boolean(options.failVersionOnce);
   let currentNoteReads = 0;
@@ -26,8 +34,10 @@ async function fixture(page: Page, options: { readOnly?: boolean; missingLocator
     if (pathname === '/api/local-runtime/sync') data = { serverUrl: null, generation: 1, phase: 'synced', pendingNotes: 0, pendingEntities: 0, lastSyncedAt: null, conflicts: [], error: null, blockedNotes: [] };
     if (request.method() !== 'GET') writes.push(`${request.method()} ${pathname}`);
     if (pathname === '/api/knowledge/spaces') data = [{ id: 'detail-space', name: '合成试题验收', defaultFlag: true }];
-    else if (pathname === '/api/knowledge/items') data = [item];
+    else if (pathname === '/api/knowledge/items') data = options.directKnowledgeSource ? [item, sourceItem] : [item];
     else if (pathname === '/api/knowledge/items/detail-knowledge') data = item;
+    else if (pathname === '/api/knowledge/items/detail-source-knowledge') data = sourceItem;
+    else if (pathname === '/api/knowledge/items/detail-source-knowledge/evidence') data = [{ id: 'direct-evidence-id', knowledgeItemId: sourceItem.id, noteId: 'detail-note', noteVersionId: 'detail-version', quoteText: '独立来源知识的证据摘录', status: 'valid', headingPath: ['来源章节'] }];
     else if (pathname === '/api/knowledge/learning-objectives') data = objectives;
     else if (pathname === '/api/knowledge/questions') data = [question, { ...shortAnswer, id: 'detail-bool', stem: '导数一定大于零。', questionType: 'trueFalse', referenceAnswer: false, rubric: null, sources: [] }];
     else if (pathname === '/api/knowledge/questions/detail-question' && request.method() === 'PATCH') {
@@ -108,4 +118,25 @@ test('现有编辑保存后详情更新，搜索隐藏题目时不残留另一�
   await page.getByRole('button', { name: '查看详情' }).click();
   await expect(page.getByRole('region', { name: '参考答案' })).toContainText('错误');
   expect(state.writes).toEqual(['PATCH /api/knowledge/questions/detail-question']);
+});
+
+test('合法的数字选项标识在浏览器中对应参考答案文本', async ({ page }) => {
+  await fixture(page, { numericChoice: true });
+  await page.goto('/#/training'); await page.getByRole('button', { name: '查看详情' }).first().click();
+  const answer = page.getByRole('region', { name: '参考答案' });
+  await expect(answer).toContainText('1 · 正确选项');
+  await expect(answer).not.toContainText('未找到对应选项');
+});
+
+test('目标知识与直接来源知识不同，仍可准确对照笔记版本和证据', async ({ page }) => {
+  const state = await fixture(page, { directKnowledgeSource: true });
+  await page.goto('/#/training'); await page.getByRole('button', { name: '查看详情' }).first().click();
+  const detail = page.getByRole('article', { name: '题目详情' });
+  await detail.getByRole('button', { name: '对照来源' }).nth(1).click();
+  const dialog = page.getByRole('dialog', { name: '题目来源对照' });
+  await expect(dialog.getByRole('region', { name: '来源内容' })).toContainText('这是引用的历史正文');
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await detail.getByRole('button', { name: '对照来源' }).nth(2).click();
+  await expect(dialog.getByRole('region', { name: '来源内容' })).toContainText('独立来源知识的证据摘录');
+  expect(state.getCurrentNoteReads()).toBe(0); expect(state.writes).toEqual([]);
 });
