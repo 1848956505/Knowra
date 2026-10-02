@@ -14,6 +14,7 @@ import { assistantApi, type AssistantStatus } from './assistantApi';
 import { conversationApi, type AccessPolicy, type Conversation, type ConversationMessage,
   type ConversationTurn, type SourceRef } from './conversationApi';
 import { LegacyAssistantView } from './LegacyAssistantView';
+import { readConversationSnapshot } from './conversationSnapshot';
 import styles from './ConversationView.module.css';
 
 const phaseName: Record<ConversationTurn['phase'], string> = {
@@ -72,6 +73,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const [titles, setTitles] = useState<Record<string, string>>({});
   const pendingSend = useRef<PendingSend | null>(null);
   const selection = useRef<string | null>(null);
+  const refreshSequence = useRef(0);
   const space = useRef(spaceId);
   space.current = spaceId;
 
@@ -106,26 +108,26 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   }, [spaceId]);
 
   async function refreshConversation(id: string) {
-    const all: ConversationMessage[] = [];
-    for (;;) {
-      const page = await conversationApi.messages(id, all.at(-1)?.sequence ?? 0);
-      all.push(...page);
-      if (page.length < 100) break;
-    }
     if (selection.current !== id) return;
-    setMessages(all);
-    const first = all.find(message => message.role === 'user');
-    if (first) setTitles(previous => ({ ...previous, [id]: first.content }));
-    const last = all.at(-1);
-    if (last) {
-      const turn = await conversationApi.turn(id, last.turnId);
-      if (selection.current !== id) return;
-      setTurns(previous => ({ ...previous, [turn.turnId]: turn }));
-      setScopeChoice(turn.requestedPolicyId ?? 'plain');
-    } else setScopeChoice('plain');
+    const sequence = ++refreshSequence.current;
+    const capturedSpace = space.current;
+    const isCurrent = () => refreshSequence.current === sequence && selection.current === id && space.current === capturedSpace;
+    try {
+      const snapshot = await readConversationSnapshot(id, isCurrent);
+      if (!snapshot || !isCurrent()) return;
+      setMessages(snapshot.messages);
+      const first = snapshot.messages.find(message => message.role === 'user');
+      if (first) setTitles(previous => ({ ...previous, [id]: first.content }));
+      if (snapshot.turn) {
+        const turn = snapshot.turn;
+        setTurns(previous => ({ ...previous, [turn.turnId]: turn }));
+      }
+      setScopeChoice(snapshot.turn?.requestedPolicyId ?? 'plain');
+    } catch (cause) { if (isCurrent()) throw cause; }
   }
 
   useEffect(() => {
+    refreshSequence.current++;
     setMessages([]); setTurns({}); setSourceView(null); setError(null);
     if (!selectedId) { setLoading(false); return; }
     let cancelled = false;
@@ -133,13 +135,17 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     void refreshConversation(selectedId).catch(cause => {
       if (!cancelled) setError(errorText(cause, '无法恢复会话。'));
     }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [selectedId]);
+    return () => { cancelled = true; refreshSequence.current++; };
+  }, [selectedId, spaceId]);
 
   useEffect(() => {
     if (!selectedId || !isActive(latestTurn)) return;
+    let polling = false;
     const timer = window.setInterval(() => {
-      void refreshConversation(selectedId).catch(cause => setError(errorText(cause, '会话状态暂时无法更新，请稍后重试。')));
+      if (polling) return;
+      polling = true;
+      void refreshConversation(selectedId).catch(cause => setError(errorText(cause, '会话状态暂时无法更新，请稍后重试。')))
+        .finally(() => { polling = false; });
     }, 2000);
     return () => window.clearInterval(timer);
   }, [selectedId, latestTurn?.turnId, latestTurn?.status]);
@@ -183,6 +189,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
       ? pendingSend.current : { conversationId: selectedId ?? crypto.randomUUID(),
         idempotencyKey: crypto.randomUUID(), content, requestedPolicyId, ...(writeMode !== 'chat' ? { writeIntent: { toolName: writeMode, ...(writeMode !== 'notes_create' ? { noteId: writeTarget } : {}) } } : {}) };
     pendingSend.current = intent;
+    refreshSequence.current++;
     setPending(true); setError(null); setNotice(null);
     try {
       if (intent.writeIntent) {
@@ -209,6 +216,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
 
   async function actOnTurn(action: 'cancel' | 'retry') {
     if (!selectedId || !latestTurn || pending) return;
+    refreshSequence.current++;
     setPending(true); setError(null);
     try {
       const result = action === 'cancel' ? await conversationApi.cancel(selectedId, latestTurn.turnId)

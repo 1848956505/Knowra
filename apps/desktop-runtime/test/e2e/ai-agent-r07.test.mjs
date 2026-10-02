@@ -1,8 +1,9 @@
+import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
-import { createR07Fixture } from '../fixtures/ai-r07-runtime.mjs';
+import { createR07Fixture, inspectR07FixtureState } from '../fixtures/ai-r07-runtime.mjs';
 
 for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABASE_URL ? ['postgres'] : [])]) {
   test(`R07 ${driver} 实际服务/生产页面与离线模型：聊天、授权工具、追问、取消及恢复`, { timeout: 120000 }, async t => {
@@ -12,6 +13,7 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     browser = await chromium.launch(process.env.KNOWRA_TEST_BROWSER_CHANNEL ? { channel: process.env.KNOWRA_TEST_BROWSER_CHANNEL } : {});
     const context = await browser.newContext();
     const page = await context.newPage();
+    await withPageFailureDiagnostics(page, async () => {
     const errors = []; const external = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => {
@@ -114,5 +116,6 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     await expect(faultPage.getByText('合成授权笔记', { exact: true }).first()).toBeVisible();
     await faultPage.close();
     assert.deepEqual(errors, []); assert.deepEqual(external, []);
+    }, () => inspectR07FixtureState(fixture));
   });
 }

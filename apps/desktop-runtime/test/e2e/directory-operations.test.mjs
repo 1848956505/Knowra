@@ -1,3 +1,4 @@
+import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,6 +14,7 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   const browser = await chromium.launch();
   t.after(async () => { await browser.close(); await runtime.close(); fs.rmSync(directory, { recursive: true, force: true }); });
   const page = await browser.newPage();
+    await withPageFailureDiagnostics(page, async () => {
   page.setDefaultTimeout(10000);
   await page.goto(runtime.launchUrl);
   const space = (await (await page.request.post(`${runtime.origin}/api/knowledge/spaces/default`, { data: {} })).json()).data;
@@ -78,4 +80,5 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   await page.getByRole('button', { name: '创建', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   assert.equal(runtime.store.state.notes.find(note => note.title === '始终在根目录').folderId, null);
+    });
 });

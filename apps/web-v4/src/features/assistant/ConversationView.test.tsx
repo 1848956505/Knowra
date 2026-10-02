@@ -1,5 +1,5 @@
 vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => []) } }));
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
 import { conversationApi, type Conversation, type ConversationTurn } from './conversationApi';
@@ -176,4 +176,68 @@ it('旧版任务走历史只读入口，不显示旧版创建与取消操作', a
   expect(assistantApi.listLegacy).toHaveBeenCalledWith('space-1');
   expect(screen.queryByRole('button', { name: '预览发送范围' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '取消任务' })).not.toBeInTheDocument();
+});
+
+it('消息读取后轮次完成时补读结果，不能因新终态停在旧用户消息', async () => {
+  const user = { messageId: 'race-user', turnId: 'turn-1', sequence: 1,
+    role: 'user' as const, content: '生成合成笔记', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt };
+  const answer = { ...user, messageId: 'race-answer', sequence: 2, role: 'assistant' as const,
+    content: '已生成笔记计划，尚未写入。请在执行记录中查看差异并确认。' };
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  // 两个请求之间服务器已完成；旧消息快照与新终态都是合法响应。
+  vi.mocked(conversationApi.messages).mockResolvedValueOnce([user]).mockResolvedValue([user, answer]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, assistantMessageId: answer.messageId });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(answer.content, { selector: 'p' })).toBeInTheDocument();
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(done => { resolve = done; });
+  return { promise, resolve };
+}
+const raceUser = { messageId: 'race-user', turnId: 'turn-1', sequence: 1,
+  role: 'user' as const, content: '合成问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt };
+const raceAnswer = { ...raceUser, messageId: 'race-answer', sequence: 2, role: 'assistant' as const, content: '新的完整合成回答' };
+
+it('晚到的旧消息读取不覆盖已经展示的新快照', async () => {
+  const oldRead = deferred<typeof raceUser[]>();
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockReturnValueOnce(oldRead.promise).mockResolvedValue([raceUser, raceAnswer]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, assistantMessageId: raceAnswer.messageId });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledOnce());
+  fireEvent(window, new Event('online'));
+  expect(await screen.findByText(raceAnswer.content, { selector: 'p' })).toBeInTheDocument();
+  await act(async () => { oldRead.resolve([raceUser]); await oldRead.promise; });
+  expect(screen.getByText(raceAnswer.content, { selector: 'p' })).toBeInTheDocument();
+});
+
+it('切换会话再回来后，旧会话同ID的未完成读取仍然失效', async () => {
+  const oldRead = deferred<typeof raceUser[]>();
+  const second = { ...conversation, conversationId: 'conversation-2' };
+  const secondAnswer = { ...raceAnswer, messageId: 'second-answer', turnId: 'turn-2', content: '第二会话合成回答' };
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation, second]);
+  vi.mocked(conversationApi.messages).mockReturnValueOnce(oldRead.promise)
+    .mockResolvedValueOnce([secondAnswer]).mockResolvedValue([raceUser, raceAnswer]);
+  vi.mocked(conversationApi.turn).mockImplementation(async (id, turnId) => ({ ...succeeded,
+    conversationId: id, turnId, assistantMessageId: id === second.conversationId ? secondAnswer.messageId : raceAnswer.messageId }));
+  const view = render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledOnce());
+  view.rerender(<AssistantView pathname="/assistant?conversationId=conversation-2" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(secondAnswer.content, { selector: 'p' })).toBeInTheDocument();
+  view.rerender(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(raceAnswer.content, { selector: 'p' })).toBeInTheDocument();
+  await act(async () => { oldRead.resolve([raceUser]); await oldRead.promise; });
+  expect(screen.getByText(raceAnswer.content, { selector: 'p' })).toBeInTheDocument();
+});
+
+it('终态缺失的答案补读仍不一致时明确报错并提供重新加载', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([raceUser]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, assistantMessageId: raceAnswer.messageId });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(/回答已完成，但消息尚未完整读取/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '重新加载助手' })).toBeEnabled();
+  expect(conversationApi.messages).toHaveBeenCalledTimes(2);
 });
