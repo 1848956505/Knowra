@@ -1,6 +1,8 @@
 import fs from 'node:fs';
-import { taskKey, validateExtractionTask } from '../../api/src/modules/ai/knowledge-extraction-task-contract.js';
+import { validateExtractionTask } from '../../api/src/modules/ai/knowledge-extraction-task-contract.js';
 import { extractionPageSql } from '../../api/src/modules/ai/knowledge-extraction-task-page.js';
+import { decodeSqliteKnowledgeExtractionTask as decode, validateSqliteKnowledgeExtractionTasks } from './knowledge-extraction-validation.mjs';
+export { validateSqliteKnowledgeExtractionTasks } from './knowledge-extraction-validation.mjs';
 
 /** 独立私有扩展；保持 AI user_version，备份后升级，不能覆盖未来或损坏描述。 */
 export function createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransaction) {
@@ -18,7 +20,7 @@ export function createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransa
       ); INSERT INTO metadata VALUES ('aiKnowledgeExtractionTasksVersion', '1'); COMMIT;`);
     } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; }
   } else if (version !== '1' || !exists) throw new Error('提炼任务存储版本或结构无效。');
-  db.prepare('SELECT * FROM ai_knowledge_extraction_tasks').all().forEach(decode);
+  validateSqliteKnowledgeExtractionTasks(db);
   return {
     supportsAsync: false,
     runTransaction(operation) {
@@ -42,12 +44,4 @@ export function createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransa
         .run(task.ownerId, task.datasetId, task.jobId, JSON.stringify(task));
     }
   };
-}
-
-function decode(row) {
-  const task = validateExtractionTask(JSON.parse(row.descriptor_json));
-  if (taskKey(task) !== taskKey({ ownerId: row.owner_id, datasetId: row.dataset_id, jobId: row.job_id })) {
-    throw new Error('提炼任务索引与内容不一致。');
-  }
-  return task;
 }
