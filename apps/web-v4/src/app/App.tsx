@@ -12,6 +12,7 @@ import { buildIndexPath, indexRoute } from '../features/notes/notesIndexNavigati
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from './router';
+import { canNavigate } from './navigationGuard';
 import { useAppStore, useAppStoreApi } from '../store/AppStoreProvider';
 import { AppShell } from '../shell/AppShell';
 import { deriveStatusPath } from '../shell/statusPath';
@@ -54,6 +55,10 @@ export function App() {
   const notes = useAppStore((state) => state.serverData.notes);
   const currentSpaceId = useAppStore((state) => state.serverData.currentSpaceId);
   const searchCommandNotes = useAppStore((state) => state.searchCommandNotes);
+  const commandSpaces = useAppStore((state) => state.serverData.spaces);
+  const commandGeneration = useAppStore((state) => state.knowledgeGeneration);
+  const workspaceLoadState = useAppStore((state) => state.workspaceLoadState);
+  const commandScopeKey = useMemo(() => ({}), [currentSpaceId, commandSpaces, commandGeneration, dataMode, workspaceLoadState]);
   const openNoteTabIds = useAppStore((state) => state.navigation.openNoteTabs);
   const storeApi = useAppStoreApi();
   const indexScope = useAppStore(state => state.notesIndex.scope);
@@ -69,6 +74,8 @@ export function App() {
     showLeftSidebar: readNotesSidebarPreference()
   }));
   const previousPathRef = useRef(location.pathname);
+  const commandPathRef = useRef(location.pathname);
+  commandPathRef.current = location.pathname;
 
   useEffect(() => {
     writeNotesSidebarPreference(editorView.showLeftSidebar);
@@ -354,14 +361,31 @@ export function App() {
         commandSearch={searchCommandNotes ? {
           spaceId: currentSpaceId,
           search: searchCommandNotes,
-          onSelect: (note) => {
+          scopeKey: commandScopeKey,
+          onSelect: async (hit, context) => {
+            const before = storeApi.getState();
+            const originPath = location.pathname;
+            const isCurrent = () => context.isCurrent() && commandPathRef.current === originPath
+              && storeApi.getState().navigation === before.navigation;
+            if (!currentSpaceId || before.serverData.currentSpaceId !== currentSpaceId || !isCurrent()) return false;
+            if (!canNavigate()) throw new Error('请先保存或放弃当前更改，再打开笔记。');
+            const loaded = await before.loadCommandNote({ noteId: hit.id, spaceId: currentSpaceId, isCurrent });
+            if (!loaded || !isCurrent()) return false;
             const state = storeApi.getState();
-            if (state.serverData.currentSpaceId !== currentSpaceId) return;
+            if (state.serverData !== loaded.snapshot || state.serverData.currentSpaceId !== currentSpaceId
+              || state.dataMode !== before.dataMode || state.workspaceLoadState !== before.workspaceLoadState
+              || state.knowledgeGeneration !== before.knowledgeGeneration) return false;
+            const note = loaded.note;
+            if (note.id !== hit.id || note.spaceId !== currentSpaceId || note.deleted || !state.serverData.notes.includes(note)) {
+              throw new Error('笔记已变化，请重新搜索。');
+            }
+            if (!canNavigate()) throw new Error('请先保存或放弃当前更改，再打开笔记。');
             state.setActiveWorkDomain('materials');
             state.selectNotesFolder(note.folderId);
             state.selectNote(note.id);
             navigate(`/materials/notes/${encodeURIComponent(note.id)}`);
             setLiveAnnouncement(`已打开笔记“${note.title || '无标题'}”`);
+            return true;
           }
         } : undefined}
       />

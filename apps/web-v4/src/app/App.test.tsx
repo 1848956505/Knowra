@@ -1,10 +1,11 @@
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { createEmptyWorkspaceSnapshot, type WorkspaceApi } from '@study-accelerator/web-core';
+import { createEmptyWorkspaceSnapshot, normalizeNotes, type Note, type WorkspaceApi } from '@study-accelerator/web-core';
 import { App } from './App';
 import { AppProviders } from './AppProviders';
 import { RouterProvider } from './router';
 import { createAppStore } from '../store/createAppStore';
+import { registerNavigationGuard } from './navigationGuard';
 
 describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
   it('deduplicates workspace loading under React Strict Mode and renders the home shell', async () => {
@@ -177,7 +178,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(await within(dialog).findByRole('option', { name: /合成正文资料/ })).toBeInTheDocument();
     expect(api.searchCommandNotes).toHaveBeenCalledWith({ query: '超过摘要的中文', spaceId: 'space-1' });
     fireEvent.keyDown(within(dialog).getByRole('combobox'), { key: 'Enter' });
-    expect(navigate).toHaveBeenLastCalledWith('/materials/notes/note%2F%E6%AD%A3%E6%96%87');
+    await waitFor(() => expect(navigate).toHaveBeenLastCalledWith('/materials/notes/note%2F%E6%AD%A3%E6%96%87'));
     expect(store.getState().navigation.selectedNoteId).toBe(note.id);
     expect(store.getState().navigation.selectedFolderId).toBe(note.folderId);
     expect(store.getState().navigation.openNoteTabs).toContain(note.id);
@@ -668,6 +669,170 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(topLocation).getByText('全部笔记')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
     expect(within(topLocation).queryByText('Note')).not.toBeInTheDocument();
+  });
+});
+
+describe('CmdK 打开尚未预载的服务端笔记', () => {
+  beforeEach(() => Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() }));
+
+  const detail = (id = 'remote-a') => normalizeNotes([{ id, spaceId: 'space-1', title: `正式详情 ${id}`, folderId: 'folder-1',
+    rawMarkdown: `# 详情正文\n\n${'超过摘要的前文。'.repeat(50)}完整服务端正文 ${id}`, deleted: false }])[0];
+  function setup() {
+    const api = createWorkspaceApiStub({ notes: [] });
+    api.searchCommandNotes = vi.fn(async input => input.query.startsWith('目标') ? [{ id: input.query === '目标 B' ? 'remote-b' : 'remote-a',
+      title: '正文匹配资料', folderId: 'folder-1', snippet: `…${input.query}…` }] : []);
+    vi.mocked(api.getNote).mockImplementation(async id => detail(id));
+    const store = createAppStore({ api, cacheKey: 'synthetic-command-unseen', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    let setPath!: (path: string) => void;
+    const navigate = vi.fn((path: string) => setPath(path));
+    function Harness() {
+      const [pathname, setPathname] = useState('/');
+      setPath = setPathname;
+      return <RouterProvider location={{ pathname, navigate }}><AppProviders store={store}><App /></AppProviders></RouterProvider>;
+    }
+    render(<Harness />);
+    return { api, store, navigate };
+  }
+  async function searchAndSelect(query = '目标 A') {
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const dialog = await screen.findByRole('dialog', { name: '全局搜索' });
+    const input = within(dialog).getByRole('combobox');
+    fireEvent.change(input, { target: { value: query } });
+    await within(dialog).findByRole('option', { name: /正文匹配资料/ });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    return { dialog, input };
+  }
+  function deferredDetail() {
+    let resolve!: (note: Note) => void, reject!: (error: Error) => void;
+    const promise = new Promise<Note>((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+  }
+
+  it('读取未知 ID 的完整详情并打开实际编辑页面，无需重载摘要列表', async () => {
+    const { api, store, navigate } = setup();
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    expect(store.getState().serverData.notes).toEqual([]);
+    await searchAndSelect();
+    expect(await screen.findByRole('heading', { name: detail().title })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(document.querySelector('.ProseMirror')).toHaveTextContent('完整服务端正文 remote-a');
+    expect(store.getState().serverData.notes).toEqual([detail()]);
+    expect(store.getState().navigation).toEqual(expect.objectContaining({ selectedNoteId: 'remote-a', selectedFolderId: 'folder-1', openNoteTabs: ['remote-a'] }));
+    expect(api.getNote).toHaveBeenCalledExactlyOnceWith('remote-a');
+    expect(api.loadWorkspaceResources).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('/materials/notes/remote-a');
+    expect(screen.queryByRole('heading', { name: '未找到这篇笔记' })).not.toBeInTheDocument();
+  });
+
+  it('详情载入期间保持 Dialog 并阻止重复 Enter；404 可见且可重试', async () => {
+    const { api, store, navigate } = setup();
+    const pending = deferredDetail();
+    vi.mocked(api.getNote).mockReturnValueOnce(pending.promise);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    const { dialog, input } = await searchAndSelect();
+    expect(await within(dialog).findByText('正在载入笔记…')).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.getNote).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => pending.reject(new Error('笔记不存在（404）')));
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('笔记不存在（404）');
+    expect(store.getState().serverData.notes).toEqual([]);
+    expect(store.getState().navigation.selectedNoteId).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await screen.findByRole('heading', { name: detail().title });
+    expect(api.getNote).toHaveBeenCalledTimes(2);
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['详情 ID 不一致', { id: 'wrong-id' }, '与搜索命中不一致'],
+    ['其他空间', { spaceId: 'space-2' }, '不属于当前空间'],
+    ['已删除', { deleted: true }, '已被删除'],
+    ['仅摘要片段', { rawMarkdown: undefined }, '不完整']
+  ])('%s显示错误，不导航、不伪造正文', async (_, override, message) => {
+    const { api, store, navigate } = setup();
+    vi.mocked(api.getNote).mockResolvedValue({ ...detail(), ...override } as Note);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    const { dialog } = await searchAndSelect();
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(String(message));
+    expect(store.getState().serverData.notes).toEqual([]);
+    expect(store.getState().navigation.selectedNoteId).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it.each(['关闭', '输入变化', '空间往返', '同空间新快照', '另行导航'])('%s后迟到详情不插入、不重开 Dialog 或抢导航', async change => {
+    const { api, store, navigate } = setup();
+    const pending = deferredDetail();
+    vi.mocked(api.getNote).mockReturnValueOnce(pending.promise);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    const { dialog, input } = await searchAndSelect();
+    await within(dialog).findByText('正在载入笔记…');
+    if (change === '关闭') fireEvent.click(within(dialog).getByRole('button', { name: '关闭对话框' }));
+    else if (change === '输入变化') fireEvent.change(input, { target: { value: '返回主页' } });
+    else if (change === '空间往返') act(() => {
+      store.setState(state => ({ serverData: { ...state.serverData, currentSpaceId: 'space-2' } }));
+      store.setState(state => ({ serverData: { ...state.serverData, currentSpaceId: 'space-1' } }));
+    });
+    else if (change === '同空间新快照') act(() => store.setState(state => ({ serverData: { ...state.serverData, spaces: [...state.serverData.spaces] } })));
+    else act(() => navigate('/settings'));
+    const scopedData = store.getState().serverData;
+    await act(async () => pending.resolve(detail()));
+    expect(store.getState().serverData).toBe(scopedData);
+    expect(store.getState().serverData.notes).toEqual([]);
+    expect(navigate.mock.calls).toEqual(change === '另行导航' ? [['/settings']] : []);
+    expect(screen.queryByRole('heading', { name: detail().title })).not.toBeInTheDocument();
+    if (change === '关闭') expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each(['成功', '失败'])('后选 B 先完成，旧 A 迟到%s不会抢回选中项或路由', async outcome => {
+    const { api, store, navigate } = setup();
+    const first = deferredDetail(), second = deferredDetail();
+    vi.mocked(api.getNote).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    const { dialog, input } = await searchAndSelect();
+    await within(dialog).findByText('正在载入笔记…');
+    fireEvent.change(input, { target: { value: '目标 B' } });
+    await within(dialog).findByRole('option', { name: /正文匹配资料/ });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.getNote).toHaveBeenLastCalledWith('remote-b');
+    await act(async () => second.resolve(detail('remote-b')));
+    await screen.findByRole('heading', { name: detail('remote-b').title });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await act(async () => outcome === '成功' ? first.resolve(detail()) : first.reject(new Error('旧 A 请求失败')));
+    expect(store.getState().navigation.selectedNoteId).toBe('remote-b');
+    expect(store.getState().serverData.notes.map(note => note.id)).toEqual(['remote-b']);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('/materials/notes/remote-b');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('保留已有导航 Guard：被阻止时不改变选中项或读取未知详情', async () => {
+    const { api, store, navigate } = setup();
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    const removeGuard = registerNavigationGuard(() => false);
+    try {
+      const before = store.getState().navigation;
+      const { dialog } = await searchAndSelect();
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('请先保存或放弃当前更改');
+      expect(store.getState().navigation).toBe(before);
+      expect(api.getNote).not.toHaveBeenCalled();
+      expect(navigate).not.toHaveBeenCalled();
+    } finally { removeGuard(); }
+  });
+
+  it('详情完成与选择之间出现新资料快照时，不把已失效笔记打开为空页面', async () => {
+    const { store, navigate } = setup();
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    const load = store.getState().loadCommandNote;
+    store.setState({ loadCommandNote: async input => {
+      const result = await load(input);
+      store.setState(state => ({ serverData: { ...state.serverData, notes: [] } }));
+      return result;
+    } });
+    const { dialog } = await searchAndSelect();
+    await waitFor(() => expect(within(dialog).queryByText('正在载入笔记…')).not.toBeInTheDocument());
+    expect(navigate).not.toHaveBeenCalled();
+    expect(store.getState().navigation.selectedNoteId).toBeNull();
+    expect(store.getState().serverData.notes).toEqual([]);
   });
 });
 

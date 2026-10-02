@@ -13,6 +13,7 @@ import { SearchBox } from '../components/ui/input';
 import { cx } from '../components/ui/classnames';
 import { SearchIcon } from '../components/icons/knowra';
 import { useCommandNoteSearch } from './useCommandNoteSearch';
+import { useCommandSelection, type CommandSelectionContext, type CommandSelectionResult } from './useCommandSelection';
 import styles from './SearchCommand.module.css';
 
 export interface SearchHit {
@@ -21,7 +22,7 @@ export interface SearchHit {
   secondary?: string;
   hint?: string;
   group: '资料' | '标签' | '动作';
-  onSelect(): void;
+  onSelect(context: CommandSelectionContext): CommandSelectionResult;
 }
 
 export interface SearchCommandProps {
@@ -32,7 +33,8 @@ export interface SearchCommandProps {
   commandSearch?: {
     spaceId: string | null;
     search: CommandNoteSearcher;
-    onSelect(note: CommandNoteSearchHit): void;
+    scopeKey?: unknown;
+    onSelect(note: CommandNoteSearchHit, context: CommandSelectionContext): CommandSelectionResult;
   };
   /** 输入框 placeholder。 */
   placeholder?: string;
@@ -49,13 +51,14 @@ export function SearchCommand({
   const [query, setQuery] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const spaceId = commandSearch?.spaceId ?? null;
-  const selectionScope = useMemo(() => ({}), [query, spaceId, isOpen]);
+  const bodySearch = useCommandNoteSearch({ isOpen, isComposing, query, spaceId, search: commandSearch?.search, scopeKey: commandSearch?.scopeKey });
+  const selectionScope = useMemo(() => ({}), [query, spaceId, isOpen, isComposing, commandSearch?.search, commandSearch?.scopeKey, bodySearch.hits]);
+  const opening = useCommandSelection(selectionScope, () => onOpenChange(false));
   const [selection, setSelection] = useState({ scope: selectionScope, index: 0 });
   const activeIndex = selection.scope === selectionScope ? selection.index : 0;
   const setActiveIndex = (index: number) => setSelection({ scope: selectionScope, index });
   const inputRef = useRef<HTMLInputElement>(null);
-  const bodySearch = useCommandNoteSearch({ isOpen, isComposing, query, spaceId, search: commandSearch?.search });
-  const pending = Boolean(isLoading) || bodySearch.state === 'loading' || isComposing;
+  const pending = Boolean(isLoading) || bodySearch.state === 'loading' || isComposing || opening.pending;
   const selectable = isOpen && !pending && bodySearch.state !== 'error';
 
   // 每次打开清空 query 并聚焦。
@@ -86,7 +89,7 @@ export function SearchCommand({
     // 正文已由服务端匹配，不能再次用标题过滤丢弃。
     for (const [id, note] of remoteHits) {
       if (localIds.has(id) || !commandSearch) continue;
-      merged.push({ id, primary: note.title || '（无标题）', secondary: note.snippet, hint: '资料', group: '资料', onSelect: () => commandSearch.onSelect(note) });
+      merged.push({ id, primary: note.title || '（无标题）', secondary: note.snippet, hint: '资料', group: '资料', onSelect: context => commandSearch.onSelect(note, context) });
     }
     return merged;
   }, [hits, query, isOpen, bodySearch.hits, commandSearch]);
@@ -97,7 +100,7 @@ export function SearchCommand({
     if (boundedIndex !== activeIndex) setActiveIndex(boundedIndex);
   }, [filtered, activeIndex, selectionScope]);
 
-  const closeSearch = () => onOpenChange(false);
+  const handleOpenChange = (open: boolean) => { if (!open) opening.cancel(); onOpenChange(open); };
 
   function handleKey(event: KeyboardEvent<HTMLInputElement>) {
     if (event.nativeEvent.isComposing || isComposing || event.nativeEvent.keyCode === 229) return;
@@ -116,10 +119,7 @@ export function SearchCommand({
     } else if (event.key === 'Enter') {
       event.preventDefault();
       const hit = filtered[activeIndex];
-      if (hit) {
-        hit.onSelect();
-        closeSearch();
-      }
+      if (hit) opening.select(hit.onSelect);
     }
   }
 
@@ -130,27 +130,28 @@ export function SearchCommand({
       title="全局搜索"
       description="使用 ⌘ K / Ctrl K 随时唤起。"
       isOpen={isOpen}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       size="md"
     >
       <DialogBody>
         <div className={styles.commandPanel}>
           <SearchBox size="command" label="搜索关键字" icon={<SearchIcon size={18} />}
             ref={inputRef} type="text" name="global-search" autoComplete="off"
-            value={query} maxLength={COMMAND_SEARCH_QUERY_LIMIT} placeholder={placeholder} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKey}
-            onCompositionStart={() => setIsComposing(true)}
+            value={query} maxLength={COMMAND_SEARCH_QUERY_LIMIT} placeholder={placeholder} onChange={(event) => { opening.cancel(); setQuery(event.target.value); }} onKeyDown={handleKey}
+            onCompositionStart={() => { opening.cancel(); setIsComposing(true); }}
             onCompositionEnd={(event) => { setQuery(event.currentTarget.value); setIsComposing(false); }}
             aria-controls="search-command-results" aria-activedescendant={activeHit ? `search-hit-${activeHit.id}` : undefined}
             role="combobox" aria-autocomplete="list" aria-expanded={isOpen}
-            onClear={query ? () => { setQuery(''); setIsComposing(false); inputRef.current?.focus(); } : undefined}
+            onClear={query ? () => { opening.cancel(); setQuery(''); setIsComposing(false); inputRef.current?.focus(); } : undefined}
             clearText="清除" clearLabel="清除搜索关键字" />
           <div
             id="search-command-results"
             className={styles.hitList}
             aria-busy={pending ? 'true' : undefined}
           >
+            {opening.error ? <div role="alert"><EmptyState title="打开笔记失败" description={opening.error} /></div> : null}
             {pending ? (
-              <LoadingState label={isComposing ? '输入完成后搜索…' : '正在搜索…'} />
+              <LoadingState label={opening.pending ? '正在载入笔记…' : isComposing ? '输入完成后搜索…' : '正在搜索…'} />
             ) : bodySearch.state === 'error' ? (
               <div role="alert"><EmptyState title="正文搜索失败" description={bodySearch.error ?? '请重新输入关键字重试。'} /></div>
             ) : filtered.length === 0 ? (
@@ -165,8 +166,7 @@ export function SearchCommand({
                 onActiveChange={setActiveIndex}
                 onSelect={(hit) => {
                   if (!selectable || !filtered.includes(hit)) return;
-                  hit.onSelect();
-                  closeSearch();
+                  opening.select(hit.onSelect);
                 }}
               />
             )}

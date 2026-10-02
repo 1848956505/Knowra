@@ -77,7 +77,7 @@ describe('命令搜索交互', () => {
     expect(screen.getByRole('option')).toHaveTextContent(note.title);
     expect(screen.getByRole('option')).toHaveTextContent(note.snippet);
     fireEvent.keyDown(view.input, { key: 'Enter' });
-    expect(view.onBody).toHaveBeenCalledExactlyOnceWith(note);
+    expect(view.onBody).toHaveBeenCalledExactlyOnceWith(note, expect.objectContaining({ isCurrent: expect.any(Function) }));
     expect(view.onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -238,5 +238,56 @@ describe('命令搜索交互', () => {
     fireEvent.keyDown(view.input, { key: 'Enter' });
     expect(search).not.toHaveBeenCalled();
     expect(view.onBody).not.toHaveBeenCalled();
+  });
+
+  it('详情载入期间保持弹窗和 loading Enter 保护，callback 对象重建不取消实际选择', async () => {
+    const note = bodyHit('new', '未预载正文');
+    const view = setup(vi.fn().mockResolvedValue([note]));
+    const pending = deferred<void>();
+    view.onBody.mockReturnValue(pending.promise);
+    fireEvent.change(view.input, { target: { value: '正文' } }); await tick();
+    fireEvent.keyDown(view.input, { key: 'Enter' });
+    expect(screen.getByText('正在载入笔记…')).toBeInTheDocument();
+    fireEvent.keyDown(view.input, { key: 'Enter' });
+    expect(view.onBody).toHaveBeenCalledTimes(1);
+    expect(view.onOpenChange).not.toHaveBeenCalled();
+    const context = view.onBody.mock.calls[0][1];
+    const rebuiltOnSelect = vi.fn();
+    view.rerender(<SearchCommand {...view.props} commandSearch={{ ...view.props.commandSearch!, onSelect: rebuiltOnSelect }} />);
+    expect(context.isCurrent()).toBe(true);
+    await act(async () => pending.resolve());
+    expect(view.onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(rebuiltOnSelect).not.toHaveBeenCalled();
+  });
+
+  it('同空间 dataset key 变化时立即隐藏旧命中，必须接受新请求后才能选择', async () => {
+    const search = vi.fn().mockResolvedValueOnce([bodyHit('old', '正文')]).mockResolvedValueOnce([bodyHit('new', '正文')]);
+    const view = setup(search);
+    fireEvent.change(view.input, { target: { value: '正文' } }); await tick();
+    expect(screen.getByText('合成资料 old')).toBeInTheDocument();
+    view.rerender(<SearchCommand {...view.props} commandSearch={{ ...view.props.commandSearch!, scopeKey: {} }} />);
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+    fireEvent.keyDown(view.input, { key: 'Enter' });
+    expect(view.onBody).not.toHaveBeenCalled();
+    await tick();
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('option')).toHaveTextContent('合成资料 new');
+  });
+
+  it('关闭后迟到的详情失败不会设置隐藏错误或再次关闭新弹窗', async () => {
+    const view = setup(vi.fn().mockResolvedValue([bodyHit('new', '正文')]));
+    const pending = deferred<void>();
+    view.onBody.mockReturnValueOnce(pending.promise);
+    fireEvent.change(view.input, { target: { value: '正文' } }); await tick();
+    fireEvent.keyDown(view.input, { key: 'Enter' });
+    const context = view.onBody.mock.calls[0][1];
+    fireEvent.click(screen.getByRole('button', { name: '关闭对话框' }));
+    expect(context.isCurrent()).toBe(false);
+    view.rerender(<SearchCommand {...view.props} isOpen={false} />);
+    view.rerender(<SearchCommand {...view.props} />);
+    await act(async () => pending.reject(new Error('旧详情失败')));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(view.onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(screen.getByRole('combobox')).toHaveValue('');
   });
 });

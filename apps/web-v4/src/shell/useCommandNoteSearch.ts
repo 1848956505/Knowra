@@ -7,6 +7,7 @@ interface SearchScope {
   query: string;
   spaceId: string | null;
   search?: CommandNoteSearcher;
+  scopeKey?: unknown;
 }
 
 interface Completion {
@@ -18,8 +19,8 @@ interface Completion {
 const EMPTY_HITS: CommandNoteSearchHit[] = [];
 
 /** 返回值在 render 时绑定完整 scope；effect 尚未运行时也不会展示/选择旧结果。 */
-export function useCommandNoteSearch({ isOpen, isComposing, query, spaceId, search }: SearchScope) {
-  const scope = useMemo(() => ({ isOpen, isComposing, query, spaceId, search }), [isOpen, isComposing, query, spaceId, search]);
+export function useCommandNoteSearch({ isOpen, isComposing, query, spaceId, search, scopeKey }: SearchScope) {
+  const scope = useMemo(() => ({ isOpen, isComposing, query, spaceId, search, scopeKey }), [isOpen, isComposing, query, spaceId, search, scopeKey]);
   const [completion, setCompletion] = useState<Completion | null>(null);
   const normalizedQuery = query.trim();
   const inputError = query.length > COMMAND_SEARCH_QUERY_LIMIT ? '搜索关键字最多 200 字符。'
