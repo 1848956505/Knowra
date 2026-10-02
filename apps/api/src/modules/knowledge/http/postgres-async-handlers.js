@@ -157,6 +157,7 @@ export function createPostgresKnowledgeHttpHandlers({
     previewSpaceMigration: (params, query) => previewSpaceMigration(params.id, query.targetSpaceId, ownerId),
     migrateSpaceAssets: (params, body) => migrateSpaceAssets(params.id, body, ownerId),
     async searchNotes(query = {}) {
+      if (query.result === 'command') return searchService.searchCommandNotes(query, ownerId);
       const notes = await searchService.searchNotes(query);
       return query.result === 'ids' ? notes.map((note) => note.id) : notes;
     }

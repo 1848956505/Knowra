@@ -512,6 +512,7 @@ export function createPostgresKnowledgeModule({
     validateSiblingNameConflict: assertSiblingNameAvailable
   });
   const searchService = createAsyncSearchService({
+    findKnowledgeSpace: (spaceId) => knowledgeSpaceRepository.findById(spaceId),
     listNotes: (options) => noteService.listNotes(options)
   });
   const workspaceQueryService = createWorkspaceQueryService({ repositories });

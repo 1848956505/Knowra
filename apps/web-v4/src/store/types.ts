@@ -6,6 +6,7 @@ import type {
   WorkspaceSnapshot,
   WorkspaceLoadState,
   WorkspaceApi,
+  CommandNoteSearcher,
   KeyValueStorage,
   Attachment,
   AttachmentDeleteResult,
@@ -42,6 +43,7 @@ export interface WorkspaceDependencies {
 }
 
 export interface WorkspaceSlice {
+  searchCommandNotes?: CommandNoteSearcher;
   persistenceMode: 'remote' | 'desktop-local';
   knowledgeGeneration: number;
   serverData: WorkspaceServerData;

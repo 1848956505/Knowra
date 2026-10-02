@@ -157,6 +157,63 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(await screen.findByRole('dialog', { name: '全局搜索' })).toBeInTheDocument();
   });
 
+  it('CmdK 正文投影经过真实 store 能力打开资料路径并选中目录；标签与主页动作保留', async () => {
+    const note = { id: 'note/正文', spaceId: 'space-1', title: '合成正文资料', folderId: 'folder-1', summary: '前文'.repeat(120),
+      contentLoaded: false, rawMarkdown: '', tagIds: [], internalLinks: [], favorite: false, deleted: false };
+    const api = createWorkspaceApiStub({ notes: [note] });
+    api.searchCommandNotes = vi.fn(async () => [{ id: note.id, title: note.title, folderId: note.folderId, snippet: '…超过摘要的中文命中…' }]);
+    vi.mocked(api.loadWorkspaceResources).mockResolvedValue({
+      folderTree: [{ id: 'folder-1', name: '合成目录', parentId: null, children: [] }],
+      notes: [note], tags: [{ id: 'tag-current', spaceId: 'space-1', name: '合成标签', color: 'blue' }]
+    });
+    const store = createAppStore({ api, cacheKey: 'synthetic-command', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    const navigate = vi.fn();
+    render(<RouterProvider location={{ pathname: '/', navigate }}><AppProviders store={store}><App /></AppProviders></RouterProvider>);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    let dialog = await screen.findByRole('dialog', { name: '全局搜索' });
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: '超过摘要的中文' } });
+    expect(within(dialog).queryByRole('option')).not.toBeInTheDocument();
+    expect(await within(dialog).findByRole('option', { name: /合成正文资料/ })).toBeInTheDocument();
+    expect(api.searchCommandNotes).toHaveBeenCalledWith({ query: '超过摘要的中文', spaceId: 'space-1' });
+    fireEvent.keyDown(within(dialog).getByRole('combobox'), { key: 'Enter' });
+    expect(navigate).toHaveBeenLastCalledWith('/materials/notes/note%2F%E6%AD%A3%E6%96%87');
+    expect(store.getState().navigation.selectedNoteId).toBe(note.id);
+    expect(store.getState().navigation.selectedFolderId).toBe(note.folderId);
+    expect(store.getState().navigation.openNoteTabs).toContain(note.id);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    vi.mocked(api.searchCommandNotes).mockResolvedValue([]);
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    dialog = await screen.findByRole('dialog', { name: '全局搜索' });
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: '合成标签' } });
+    fireEvent.click(await within(dialog).findByRole('option', { name: /#合成标签/ }));
+    expect(store.getState().notesIndex.selectedTagId).toBe('tag-current');
+    expect(navigate).toHaveBeenLastCalledWith('/materials');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    dialog = await screen.findByRole('dialog', { name: '全局搜索' });
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: '返回主页' } });
+    fireEvent.click(await within(dialog).findByRole('option', { name: /返回主页/ }));
+    expect(navigate).toHaveBeenLastCalledWith('/');
+  });
+
+  it('当前空间变化后，全局搜索不展示旧空间本地标题或标签', async () => {
+    const api = createWorkspaceApiStub();
+    const store = createAppStore({ api, cacheKey: 'synthetic-space', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    render(<AppProviders store={store}><App /></AppProviders>);
+    await screen.findByRole('heading', { name: '笔记工作台' });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const dialog = await screen.findByRole('dialog', { name: '全局搜索' });
+    expect(within(dialog).getByText('Note')).toBeInTheDocument();
+    act(() => store.setState(state => ({ serverData: { ...state.serverData, currentSpaceId: 'space-2',
+      tags: [{ id: 'old-tag', name: '旧空间标签', spaceId: 'space-1', color: 'blue' }] } })));
+    expect(within(dialog).queryByText('Note')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('#旧空间标签')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('option')).toHaveTextContent('返回主页');
+  });
+
   it('creates and opens a note from the global button and ⌘ N shortcut', async () => {
     const api = createWorkspaceApiStub({ notes: [] });
     const store = createAppStore({ api, cacheKey: 'test-cache', mockSnapshot: createEmptyWorkspaceSnapshot() });
@@ -617,6 +674,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
 function createWorkspaceApiStub(overrides: { notes?: Array<Record<string, unknown>> } = {}): WorkspaceApi {
   const defaultNote = {
     id: 'note-1',
+    spaceId: 'space-1',
     title: 'Note',
     folderId: 'folder-1',
     tagIds: [],

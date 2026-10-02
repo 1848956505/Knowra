@@ -52,6 +52,8 @@ export function App() {
   const editorHasLocalChanges = useAppStore((state) => state.editorHasLocalChanges);
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
+  const currentSpaceId = useAppStore((state) => state.serverData.currentSpaceId);
+  const searchCommandNotes = useAppStore((state) => state.searchCommandNotes);
   const openNoteTabIds = useAppStore((state) => state.navigation.openNoteTabs);
   const storeApi = useAppStoreApi();
   const indexScope = useAppStore(state => state.notesIndex.scope);
@@ -349,6 +351,19 @@ export function App() {
         isOpen={searchOpen}
         onOpenChange={setSearchOpen}
         hits={searchHits}
+        commandSearch={searchCommandNotes ? {
+          spaceId: currentSpaceId,
+          search: searchCommandNotes,
+          onSelect: (note) => {
+            const state = storeApi.getState();
+            if (state.serverData.currentSpaceId !== currentSpaceId) return;
+            state.setActiveWorkDomain('materials');
+            state.selectNotesFolder(note.folderId);
+            state.selectNote(note.id);
+            navigate(`/materials/notes/${encodeURIComponent(note.id)}`);
+            setLiveAnnouncement(`已打开笔记“${note.title || '无标题'}”`);
+          }
+        } : undefined}
       />
       <CreateEntryDialog
         mode={createNoteOpen ? 'note' : null}
@@ -374,6 +389,7 @@ function useSearchHits({
 }): SearchHit[] {
   const notes = useAppStore((s) => s.serverData.notes);
   const tags = useAppStore((s) => s.serverData.tags);
+  const spaceId = useAppStore((s) => s.serverData.currentSpaceId);
   const selectNote = useAppStore((s) => s.selectNote);
   const setActiveWorkDomain = useAppStore((s) => s.setActiveWorkDomain);
   const selectNotesFolder = useAppStore((s) => s.selectNotesFolder);
@@ -394,7 +410,7 @@ function useSearchHits({
       }
     });
     for (const note of notes) {
-      if (note.deleted) continue;
+      if (note.deleted || note.spaceId !== spaceId) continue;
       hits.push({
         id: `note:${note.id}`,
         primary: note.title || '（无标题）',
@@ -413,7 +429,7 @@ function useSearchHits({
       });
     }
     for (const tag of tags) {
-      if (!tag.name) continue;
+      if (!tag.name || tag.spaceId !== spaceId) continue;
       hits.push({
         id: `tag:${tag.id}`,
         primary: `#${tag.name}`,
@@ -428,7 +444,7 @@ function useSearchHits({
       });
     }
     return hits;
-  }, [notes, tags, selectNote, setActiveWorkDomain, selectNotesFolder, selectNotesTag, onSelect]);
+  }, [notes, tags, spaceId, selectNote, setActiveWorkDomain, selectNotesFolder, selectNotesTag, onSelect]);
 }
 
 export function AppRoot() {

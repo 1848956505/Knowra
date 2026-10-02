@@ -2,15 +2,17 @@
 //
 // 全局搜索 + 跳转面板（Cmd/Ctrl+K 触发）。
 // 1. 视觉：印格 Dialog 风格，1px 墨边 + 硬阴影 + 暖纸底；命令式键盘导航。
-// 2. 数据源：当前工作区的资料标题 + 标签；为空时显示跳转提示。
+// 2. 数据源：当前空间的资料标题、正文片段、标签与动作。
 // 3. 键盘：↑↓ 移动高亮、Enter 跳转、Esc 关闭、focus 由 Dialog 焦点陷阱接管。
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { COMMAND_SEARCH_QUERY_LIMIT, type CommandNoteSearcher, type CommandNoteSearchHit } from '@study-accelerator/web-core';
 import { Dialog, DialogBody } from '../components/ui/overlay/Dialog';
 import { EmptyState, LoadingState } from '../components/ui/status';
 import { SearchBox } from '../components/ui/input';
 import { cx } from '../components/ui/classnames';
 import { SearchIcon } from '../components/icons/knowra';
+import { useCommandNoteSearch } from './useCommandNoteSearch';
 import styles from './SearchCommand.module.css';
 
 export interface SearchHit {
@@ -27,6 +29,11 @@ export interface SearchCommandProps {
   onOpenChange(open: boolean): void;
   hits: SearchHit[];
   isLoading?: boolean;
+  commandSearch?: {
+    spaceId: string | null;
+    search: CommandNoteSearcher;
+    onSelect(note: CommandNoteSearchHit): void;
+  };
   /** 输入框 placeholder。 */
   placeholder?: string;
 }
@@ -36,17 +43,26 @@ export function SearchCommand({
   onOpenChange,
   hits,
   isLoading,
-  placeholder = '搜索资料、标签、动作…'
+  commandSearch,
+  placeholder = '搜索资料正文、标签、动作…'
 }: SearchCommandProps) {
   const [query, setQuery] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [isComposing, setIsComposing] = useState(false);
+  const spaceId = commandSearch?.spaceId ?? null;
+  const selectionScope = useMemo(() => ({}), [query, spaceId, isOpen]);
+  const [selection, setSelection] = useState({ scope: selectionScope, index: 0 });
+  const activeIndex = selection.scope === selectionScope ? selection.index : 0;
+  const setActiveIndex = (index: number) => setSelection({ scope: selectionScope, index });
   const inputRef = useRef<HTMLInputElement>(null);
+  const bodySearch = useCommandNoteSearch({ isOpen, isComposing, query, spaceId, search: commandSearch?.search });
+  const pending = Boolean(isLoading) || bodySearch.state === 'loading' || isComposing;
+  const selectable = isOpen && !pending && bodySearch.state !== 'error';
 
   // 每次打开清空 query 并聚焦。
   useEffect(() => {
     if (!isOpen) {
       setQuery('');
-      setActiveIndex(0);
+      setIsComposing(false);
       return;
     }
     const handle = window.requestAnimationFrame(() => {
@@ -57,33 +73,46 @@ export function SearchCommand({
   }, [isOpen]);
 
   const filtered = useMemo(() => {
+    if (!isOpen) return [];
     if (!query.trim()) return hits;
     const needle = query.trim().toLowerCase();
-    return hits.filter((hit) => {
+    const localHits = hits.filter((hit) => {
       const haystack = `${hit.primary} ${hit.secondary ?? ''}`.toLowerCase();
       return haystack.includes(needle);
     });
-  }, [hits, query]);
+    const remoteHits = new Map(bodySearch.hits.map(note => [`note:${note.id}`, note]));
+    const merged = localHits.map(hit => remoteHits.has(hit.id) ? { ...hit, secondary: remoteHits.get(hit.id)!.snippet } : hit);
+    const localIds = new Set(localHits.map(hit => hit.id));
+    // 正文已由服务端匹配，不能再次用标题过滤丢弃。
+    for (const [id, note] of remoteHits) {
+      if (localIds.has(id) || !commandSearch) continue;
+      merged.push({ id, primary: note.title || '（无标题）', secondary: note.snippet, hint: '资料', group: '资料', onSelect: () => commandSearch.onSelect(note) });
+    }
+    return merged;
+  }, [hits, query, isOpen, bodySearch.hits, commandSearch]);
 
   // 当过滤结果变化时，保证 activeIndex 不越界。
   useEffect(() => {
-    if (activeIndex > filtered.length - 1) {
-      setActiveIndex(Math.max(0, filtered.length - 1));
-    }
-  }, [filtered, activeIndex]);
+    const boundedIndex = Math.min(activeIndex, Math.max(0, filtered.length - 1));
+    if (boundedIndex !== activeIndex) setActiveIndex(boundedIndex);
+  }, [filtered, activeIndex, selectionScope]);
 
   const closeSearch = () => onOpenChange(false);
 
   function handleKey(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.nativeEvent.isComposing) return;
+    if (event.nativeEvent.isComposing || isComposing || event.nativeEvent.keyCode === 229) return;
+    if (!selectable) {
+      if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) event.preventDefault();
+      return;
+    }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       if (filtered.length === 0) return;
-      setActiveIndex((idx) => (idx + 1) % filtered.length);
+      setActiveIndex((activeIndex + 1) % filtered.length);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       if (filtered.length === 0) return;
-      setActiveIndex((idx) => (idx - 1 + filtered.length) % filtered.length);
+      setActiveIndex((activeIndex - 1 + filtered.length) % filtered.length);
     } else if (event.key === 'Enter') {
       event.preventDefault();
       const hit = filtered[activeIndex];
@@ -94,7 +123,7 @@ export function SearchCommand({
     }
   }
 
-  const activeHit = filtered[activeIndex];
+  const activeHit = selectable ? filtered[activeIndex] : undefined;
 
   return (
     <Dialog
@@ -108,22 +137,26 @@ export function SearchCommand({
         <div className={styles.commandPanel}>
           <SearchBox size="command" label="搜索关键字" icon={<SearchIcon size={18} />}
             ref={inputRef} type="text" name="global-search" autoComplete="off"
-            value={query} placeholder={placeholder} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKey}
+            value={query} maxLength={COMMAND_SEARCH_QUERY_LIMIT} placeholder={placeholder} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleKey}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={(event) => { setQuery(event.currentTarget.value); setIsComposing(false); }}
             aria-controls="search-command-results" aria-activedescendant={activeHit ? `search-hit-${activeHit.id}` : undefined}
-            role="combobox" aria-autocomplete="list" aria-expanded="true"
-            onClear={query ? () => { setQuery(''); setActiveIndex(0); inputRef.current?.focus(); } : undefined}
+            role="combobox" aria-autocomplete="list" aria-expanded={isOpen}
+            onClear={query ? () => { setQuery(''); setIsComposing(false); inputRef.current?.focus(); } : undefined}
             clearText="清除" clearLabel="清除搜索关键字" />
           <div
             id="search-command-results"
             className={styles.hitList}
-            aria-busy={isLoading ? 'true' : undefined}
+            aria-busy={pending ? 'true' : undefined}
           >
-            {isLoading ? (
-              <LoadingState label="正在搜索…" />
+            {pending ? (
+              <LoadingState label={isComposing ? '输入完成后搜索…' : '正在搜索…'} />
+            ) : bodySearch.state === 'error' ? (
+              <div role="alert"><EmptyState title="正文搜索失败" description={bodySearch.error ?? '请重新输入关键字重试。'} /></div>
             ) : filtered.length === 0 ? (
               <EmptyState
                 title={query ? `没有匹配「${query.trim()}」的结果` : '没有可跳转的目标'}
-                description={query ? '试试更换关键词，或新建一份资料。' : '连接资料服务后可搜索资料标题与标签。'}
+                description={query ? '试试更换关键词，或新建一份资料。' : '连接资料服务后可搜索资料标题、正文与标签。'}
               />
             ) : (
               <SearchResults
@@ -131,6 +164,7 @@ export function SearchCommand({
                 activeIndex={activeIndex}
                 onActiveChange={setActiveIndex}
                 onSelect={(hit) => {
+                  if (!selectable || !filtered.includes(hit)) return;
                   hit.onSelect();
                   closeSearch();
                 }}

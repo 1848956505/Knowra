@@ -1,6 +1,7 @@
 export * from './api/client.js';
 export * from './api/response.js';
 export * from './api/workspace-api.js';
+export * from './api/command-note-search.js';
 export * from './workspace/cache.js';
 export * from './workspace/loading.js';
 export * from './workspace/note-file-actions.js';
