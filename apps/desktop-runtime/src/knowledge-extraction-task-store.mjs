@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { taskKey, validateExtractionTask } from '../../api/src/modules/ai/knowledge-extraction-task-contract.js';
+import { extractionPageSql } from '../../api/src/modules/ai/knowledge-extraction-task-page.js';
 
 /** 独立私有扩展；保持 AI user_version，备份后升级，不能覆盖未来或损坏描述。 */
 export function createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransaction) {
@@ -31,6 +32,10 @@ export function createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransa
     },
     list: input => db.prepare('SELECT * FROM ai_knowledge_extraction_tasks WHERE owner_id = ? AND dataset_id = ?')
       .all(input.ownerId, input.datasetId).map(decode),
+    listPage(input) {
+      const { sql, values } = extractionPageSql(input);
+      return db.prepare(sql).all(...values).map(row => ({ jobId: row.job_id, createdAt: row.created_at }));
+    },
     insert(input) {
       const task = validateExtractionTask(input);
       db.prepare('INSERT INTO ai_knowledge_extraction_tasks VALUES (?, ?, ?, ?)')

@@ -7,6 +7,8 @@ import { createPostgresAppContext } from '../src/postgres-app.factory.js';
 import { createPostgresAiRepository } from '../src/modules/ai/postgres-record-repository.js';
 import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import { createExtractionTaskSources, extractionTaskGateway, deferredTaskResponse, quietTaskLogger } from './fixtures/knowledge-extraction-task.fixture.js';
+import { startExtractionHttpServer, callExtractionHttp as call } from './fixtures/knowledge-extraction-http.fixture.js';
+import { createPostgresKnowledgeExtractionTaskStore } from '../src/modules/ai/postgres-knowledge-extraction-task-store.js';
 
 async function fixture(run, onCall) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-extraction-task-pg-')), apps = [];
@@ -36,6 +38,60 @@ async function failTrigger(db, table, event, condition = '') {
 }
 
 export const aiKnowledgeExtractionTaskPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE_URL ? [
+  { name: '02C PostgreSQL HTTP真实参数分页、空间/epoch/精确键限域及安全DTO', async run() {
+    await fixture(async f => {
+      const http = await startExtractionHttpServer(f.app);
+      const list = (spaceId, tail = '') => `/jobs?kind=knowledgeExtraction&spaceId=${encodeURIComponent(spaceId)}${tail}`;
+      try {
+        const ids = [];
+        for (let index = 0; index < 4; index++) {
+          const created = await call(http.origin, '/jobs', { kind: 'knowledgeExtraction', ...f.input, idempotencyKey: `pg-page-${index}` });
+          assert.equal(created.status, 202); ids.push(created.data.data.jobId);
+          await call(http.origin, `/jobs/${created.data.data.jobId}/cancel`, {});
+        }
+        const other = await f.app.http.knowledge.createKnowledgeSpace({ name: 'PG另一空间' });
+        const first = await call(http.origin, list(f.space.id, '&limit=2'));
+        const second = await call(http.origin, list(f.space.id, `&limit=2&cursor=${first.data.data.nextCursor}`));
+        assert.equal(first.status, 200); assert.equal(first.data.data.items.length, 2); assert.equal(second.data.data.nextCursor, null);
+        assert.deepEqual([...first.data.data.items, ...second.data.data.items].map(row => row.jobId), ids.sort().reverse());
+        assert.equal(Object.hasOwn(first.data.data.items[0], 'candidateIds'), false);
+        const store = createPostgresKnowledgeExtractionTaskStore({ client: f.app.prisma, ownerId: f.ownerId });
+        assert.equal((await store.listPage({ ...await f.ai.identity(), ownerId: f.ownerId, spaceId: f.space.id, limit: 2 })).length, 3);
+        assert.equal((await call(http.origin, list(other.id))).data.data.items.length, 0);
+        assert.equal((await call(http.origin, list(other.id, `&cursor=${first.data.data.nextCursor}`))).status, 422);
+        assert.equal((await call(http.origin, list('foreign-space'))).status, 404);
+        assert.equal((await call(http.origin, list(f.space.id, '&idempotencyKey=pg-page-2'))).data.data.items.length, 1);
+        assert.equal((await call(http.origin, list(f.space.id, '&idempotencyKey=%27%20OR%201%3D1--'))).data.data.items.length, 0);
+        await f.ai.rotateEpoch();
+        assert.equal((await call(http.origin, list(f.space.id))).data.data.items.length, 0);
+        assert.equal((await call(http.origin, `/jobs/${ids[0]}`)).status, 404);
+        assert.equal((await call(http.origin, list(f.space.id, `&cursor=${first.data.data.nextCursor}`))).status, 422);
+        assert.equal(f.mock.calls.length, 0);
+      } finally { await http.close(); }
+    });
+  } },
+  { name: '02C PostgreSQL 双HTTP实例同键只有一束，跨实例取消拒绝迟到候选', async run() {
+    const deferred = deferredTaskResponse();
+    await fixture(async f => {
+      const secondApp = await f.open(), a = await startExtractionHttpServer(f.app), b = await startExtractionHttpServer(secondApp);
+      try {
+        for (const host of [a, b]) assert.equal((await call(host.origin, `/jobs?kind=knowledgeExtraction&spaceId=${f.space.id}`)).status, 200);
+        const body = { kind: 'knowledgeExtraction', ...f.input };
+        const [one, two] = await Promise.all([call(a.origin, '/jobs', body), call(b.origin, '/jobs', body)]);
+        assert.equal(one.status, 202); assert.equal(two.status, 202); assert.equal(one.data.data.jobId, two.data.data.jobId);
+        assert.equal((await f.ai.list('aiJob')).length, 1); assert.equal((await f.ai.list('aiGrant')).length, 1);
+        const jobId = one.data.data.jobId;
+        const running = f.app.knowledgeExtractionTasks.run(jobId), rejected = assert.rejects(running); await deferred.called;
+        assert.equal((await call(a.origin, `/jobs/${jobId}`)).data.data.actions.canCancel, true);
+        const cancelled = await call(b.origin, `/jobs/${jobId}/cancel`, {});
+        assert.equal(cancelled.data.data.status, 'cancelled'); assert.equal(cancelled.data.data.actions.retryUnavailableReason, null);
+        deferred.release(); await rejected;
+        assert.equal(await f.app.prisma.knowledgeItem.count(), 0); assert.equal(await f.app.prisma.knowledgeEvidence.count(), 0);
+        assert.equal((await call(a.origin, `/jobs/${jobId}/retry`, {})).status, 409);
+        assert.equal(f.mock.calls.length, 1);
+      } finally { deferred.release(); await a.close(); await b.close(); }
+    }, deferred.onCall);
+  } },
   { name: '02B PostgreSQL 两实例start同键只创建一束，领取只执行一次；重启保留回执与用户修订', async run() {
     const deferred = deferredTaskResponse();
     await fixture(async f => {

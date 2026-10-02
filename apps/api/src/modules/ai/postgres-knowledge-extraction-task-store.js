@@ -1,5 +1,6 @@
 import { taskKey, taskError, validateExtractionTask } from './knowledge-extraction-task-contract.js';
 import { createPostgresKnowledgeExtractionCommitStore } from './postgres-knowledge-extraction-commit-store.js';
+import { extractionPageSql } from './knowledge-extraction-task-page.js';
 
 export function createPostgresKnowledgeExtractionTaskStore({ client, ownerId }) {
   const transactions = createPostgresKnowledgeExtractionCommitStore({ client, ownerId });
@@ -22,6 +23,10 @@ export function createPostgresKnowledgeExtractionTaskStore({ client, ownerId }) 
     },
     async list(input, tx = client) {
       return (await tx.$queryRawUnsafe('SELECT * FROM ai_knowledge_extraction_tasks WHERE owner_id = $1 AND dataset_id = $2', ownerId, input.datasetId)).map(decode);
+    },
+    async listPage(input, tx = client) {
+      const { sql, values } = extractionPageSql({ ...input, ownerId }, true);
+      return (await tx.$queryRawUnsafe(sql, ...values)).map(row => ({ jobId: row.job_id, createdAt: row.created_at }));
     },
     insert(input, tx) {
       const task = validateExtractionTask(input);

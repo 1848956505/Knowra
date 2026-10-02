@@ -3,15 +3,23 @@ import { assertMockGateway, runTaskSteps, taskError, taskId } from './knowledge-
 import { buildTaskRecords, prepareTaskSources } from './knowledge-extraction-task-context.js';
 import { createExtractionTaskLifecycle, taskEvent } from './knowledge-extraction-task-lifecycle.js';
 import { createExtractionMockWorker } from './knowledge-extraction-mock-worker.js';
+import { createExtractionTaskQueries } from './knowledge-extraction-task-queries.js';
 
-/** 受信宿主入口；只有显式注入 Mock 才装配，没有 HTTP/IPC 注册或默认启动。 */
+/** 仅受信宿主显式注入 Mock 才装配；HTTP 包装不扩展真实执行权限或默认启动能力。 */
 export function createKnowledgeExtractionTaskService({ store, createContext, ownerId, commit, receiptStore,
   gateway, clock = () => new Date(), workerId = randomUUID(), maintenanceGate = null, schedule, logger = console }) {
   if (!store || !createContext || !ownerId || !commit || !receiptStore) throw new TypeError('提炼任务需要同库宿主事务和接纳服务。');
+  let closed = false;
   const lifecycle = createExtractionTaskLifecycle({ store, ownerId, clock, workerId });
   const transact = (operation, jobId) => store.runTransaction(tx => runTaskSteps(operation(createContext(tx)), store.supportsAsync), { jobId });
   const mutate = (operation, jobId) => Promise.resolve().then(() => maintenanceGate
     ? maintenanceGate.runMutation(() => transact(operation, jobId)) : transact(operation, jobId));
+  const read = (operation, jobId) => Promise.resolve().then(() => maintenanceGate
+    ? maintenanceGate.runOperation(() => transact(operation, jobId)) : transact(operation, jobId));
+  const canUse = () => {
+    const gate = maintenanceGate?.getState();
+    return !closed && !gate?.maintenanceActive && !gate?.waitingMaintenances;
+  };
   const worker = createExtractionMockWorker({ gateway, clock, schedule, logger,
     claim: jobId => mutate(context => lifecycle.claim(context, jobId), jobId),
     send: (jobId, attemptId) => mutate(context => lifecycle.send(context, jobId, attemptId), jobId),
@@ -38,8 +46,12 @@ export function createKnowledgeExtractionTaskService({ store, createContext, own
     try { worker.enqueue(jobId); }
     catch (error) { await mutate(context => lifecycle.fail(context, jobId, null, error), jobId); throw error; }
   };
+  const queries = createExtractionTaskQueries({ read, load: lifecycle.load, view, store, ownerId, clock, canUse });
   return {
     get,
+    ready: () => { assertMockGateway(gateway); return queries.ready(); },
+    list: queries.list,
+    inspect: jobId => { checkJobId(jobId); return queries.inspect(jobId); },
     async start(input) {
       assertMockGateway(gateway);
       if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).length !== 2
@@ -93,6 +105,6 @@ export function createKnowledgeExtractionTaskService({ store, createContext, own
     },
     run: jobId => { checkJobId(jobId); return worker.run(jobId); },
     idle: () => worker.idle(),
-    close: () => worker.close()
+    close: () => { closed = true; return worker.close(); }
   };
 }
