@@ -10,6 +10,7 @@ import { readActiveDirectory, prepareRestoredDirectory, activateRestoredDirector
 import { runtimeSessionScript } from './runtime-session-script.mjs';
 import { permitsLocalRoute, sendRuntimeError } from './runtime-policy.mjs';
 import { parseBody } from '../../api/src/http/request.js';
+import { exportRuntimeBackup, importRuntimeBackup } from './backup-transfers.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
   aiRuntimeFactory } = {}) {
@@ -32,6 +33,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     let origin;
     let sessionClaimed = false;
     let restoring = false;
+    let closed = false;
+    const checkBackupTransfer = datasetId => {
+      if (closed || restoring) throw new Error('正在恢复资料或关闭应用，请完成后重新选择备份。');
+      if (datasetId !== store.getStatus().datasetId) throw new Error('资料库已变化，请重新加载后操作备份。');
+    };
     const activeRequests = new Set();
     server = http.createServer(async (request, response) => {
       let finishRequest;
@@ -54,7 +60,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
           return sendRuntimeError(response, 401, 'LOCAL_SESSION_REQUIRED', '请从本地运行入口打开应用。');
         }
         if (url.pathname.startsWith('/api/')) {
-          if (restoring) return sendRuntimeError(response, 503, 'LOCAL_RESTORE_BUSY', '正在恢复资料，请等待完成后重新加载。');
+          if (closed || restoring) return sendRuntimeError(response, 503, 'LOCAL_RESTORE_BUSY', '正在恢复资料或关闭应用，请等待完成后重新加载。');
           const dataset = request.headers['x-knowra-dataset'];
           const assistantRoute = /^\/api\/ai\/(?:assistant|conversations|access-policies|actions)(?:\/|$)/.test(url.pathname);
           const requiresDataset = assistantRoute || activeDirectory !== dataDirectory && !['GET', 'HEAD'].includes(request.method);
@@ -177,9 +183,19 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
       server.listen(port, '127.0.0.1', resolve);
     });
     origin = `http://127.0.0.1:${server.address().port}`;
-    let closed = false;
     return {
       origin, launchUrl: `${origin}/local-session/${secret}`, get store() { return store; },
+      // 仅程序装配的私有 IPC 调用；HTTP 不接收本机路径。
+      backupTransfer({ action, datasetId, backupId, selection }) {
+        checkBackupTransfer(datasetId);
+        if (action === 'status') return { datasetId };
+        let result;
+        if (action === 'export') result = exportRuntimeBackup(dataDirectory, backupId, selection);
+        else if (action === 'import') result = importRuntimeBackup(dataDirectory, selection);
+        else throw new Error('未知的完整备份操作。');
+        checkBackupTransfer(datasetId);
+        return result;
+      },
       async close() {
         if (closed) return;
         closed = true;

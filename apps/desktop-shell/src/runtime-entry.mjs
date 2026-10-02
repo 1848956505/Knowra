@@ -13,6 +13,16 @@ try {
   } });
   process.parentPort.postMessage({ type: 'ready', launchUrl: runtime.launchUrl, origin: runtime.origin });
   process.parentPort.on('message', async ({ data }) => {
+    if (data?.type === 'backup-transfer-request') {
+      try {
+        const result = runtime.backupTransfer(data);
+        process.parentPort.postMessage({ type: 'backup-transfer-response', requestId: data.requestId, ok: true, result });
+      } catch (error) {
+        const message = /^[\u4e00-\u9fff]/.test(error.message ?? '') ? error.message : '完整备份校验或复制失败，原资料和已有目标已保留。';
+        process.parentPort.postMessage({ type: 'backup-transfer-response', requestId: data.requestId, ok: false, message });
+      }
+      return;
+    }
     if (data !== 'shutdown') return;
     try { await runtime.close(); credentials.close(); process.exit(0); }
     catch { process.parentPort.postMessage({ type: 'error', message: '本地服务未能正常关闭，数据目录已保留。' }); }

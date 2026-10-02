@@ -6,6 +6,7 @@ const { randomUUID } = require('node:crypto');
 const { createDraftStore } = require('./draft-store.cjs');
 const { createModelSettings } = require('./model-settings.cjs');
 const { handleAiCredentialRequest } = require('./ai-credential-handler.cjs');
+const { createBackupRpc, createBackupTransfers } = require('./backup-transfers.cjs');
 
 app.setName('知境·Knowra');
 const smokeDirectory = process.env.KNOWRA_DESKTOP_SMOKE_DIR;
@@ -70,6 +71,9 @@ else {
   app.on('activate', focus);
   app.on('before-quit', event => { if (!finished) { event.preventDefault(); void quitSafely(); } });
   const attachmentDownloads = createAttachmentDownloads({ getWindow: () => window, getOrigin: () => origin, dataDirectory, dialog, shell });
+  const backupRpc = createBackupRpc({ getChild: () => child });
+  const backupTransfers = createBackupTransfers({ getWindow: () => window, getOrigin: () => origin, isClosing: () => shuttingDown || finished, rpc: backupRpc, dialog });
+  ipcMain.handle('backup-transfer', (event, input) => backupTransfers.transfer(event, input));
   ipcMain.handle('attachment-download', (event, id) => attachmentDownloads.download(event, id));
   ipcMain.handle('attachment-open-saved', (event, token) => attachmentDownloads.open(event, token));
   const trusted = event => event.sender === window?.webContents && event.senderFrame === window.webContents.mainFrame;
@@ -113,11 +117,13 @@ else {
     child = utilityProcess.fork(path.join(root, 'runtime.mjs'), [dataDirectory, path.join(root, 'web')], { serviceName: 'Knowra 本地资料服务', stdio: 'pipe' });
     child.on('message', message => {
       handleAiCredentialRequest(message, { modelSettings, postMessage: reply => child?.postMessage(reply) });
+      backupRpc.onMessage(message);
     });
     // 不记录启动 URL 或同步凭据；原始服务输出仅在内存排空。
     child.stdout?.on('data', () => {});
     child.stderr?.on('data', () => {});
     child.on('exit', code => {
+      backupRpc.close();
       child = null;
       if (!shuttingDown && !finished) {
         log(`本地服务退出：${code}`);

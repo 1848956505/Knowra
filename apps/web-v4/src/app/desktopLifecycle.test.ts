@@ -12,7 +12,7 @@ beforeEach(() => {
     onCancelClose: callback => { cancel = callback; }
   };
 });
-afterEach(() => { delete window.knowraDesktop; window.fetch = originalFetch; document.body.innerHTML = ''; });
+afterEach(() => { delete window.knowraDesktop; window.fetch = originalFetch; document.body.innerHTML = ''; vi.unstubAllGlobals(); });
 
 describe('桌面退出保存', () => {
   it('先等待附件操作，再提取编辑器正文和清空保存队列；等待期间禁止继续编辑', async () => {
@@ -50,6 +50,25 @@ describe('桌面退出保存', () => {
 });
 
 describe('本机备份与恢复前保存', () => {
+  it.each(['close', 'restore'] as const)('完整目录 IPC 未完成时 %s 保存屏障必须等待', async mode => {
+    const { installDesktopLifecycle, registerDesktopSave, flushBeforeWorkspaceRestore } = await import('./desktopLifecycle');
+    const { transferBackup } = await import('../features/sync/backupApi');
+    vi.stubGlobal('knowraRuntime', { persistenceMode: 'desktop-local', datasetId: 'dataset-test' });
+    let finish!: (value: null) => void;
+    window.knowraDesktop!.transferBackup = vi.fn(() => new Promise<null>(resolve => { finish = resolve; }));
+    const save = vi.fn(async () => {});
+    registerDesktopSave(save);
+    installDesktopLifecycle();
+    const transfer = transferBackup('export', '123-aaaaaaaa');
+    const barrier = mode === 'close' ? prepare() : flushBeforeWorkspaceRestore();
+    try {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(save).not.toHaveBeenCalled();
+      finish(null); await transfer; await barrier;
+      expect(save).toHaveBeenCalledOnce();
+      expect(window.knowraDesktop!.transferBackup).toHaveBeenCalledWith({ action: 'export', datasetId: 'dataset-test', backupId: '123-aaaaaaaa' });
+    } finally { finish(null); await Promise.allSettled([transfer, barrier]); if (mode === 'close') cancel(); }
+  });
   it('正文保存失败时可备份恢复草稿，但严格恢复仍拒绝', async () => {
     const { flushBeforeWorkspaceBackup, flushBeforeWorkspaceRestore, registerDesktopSave } = await import('./desktopLifecycle');
     const calls: string[] = [];

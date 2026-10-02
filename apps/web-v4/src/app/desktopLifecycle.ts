@@ -15,6 +15,7 @@ export function registerDesktopSave(save: (mode?: DesktopCloseMode) => Promise<v
 interface DesktopBridge {
   downloadAttachment?(id: string): Promise<string | null>;
   openSavedAttachment?(token: string): Promise<void>;
+  transferBackup?(input: import('../features/sync/backupApi').BackupTransferRequest): Promise<import('../features/sync/backupApi').BackupTransferResult | null>;
   modelSettings?(action: 'status' | 'save' | 'remove' | 'check', value?: { modelId: string; apiKey: string }): Promise<import('../features/settings/modelSettings').ModelSettingsStatus>;
   readRecoveryDrafts?(): Record<string, unknown>;
   writeRecoveryDraft?(key: string, draft: unknown): Promise<void>;
