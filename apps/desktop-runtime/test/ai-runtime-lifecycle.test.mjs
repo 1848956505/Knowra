@@ -3,6 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { startLocalRuntime } from '../src/runtime-server.mjs';
 import { createRuntimeServices } from '../src/runtime-services.mjs';
@@ -78,6 +81,23 @@ test('真实SQLite listen失败先排空后台AI，再关库与释放目录锁',
     release.resolve(); await Promise.allSettled([starting]); await new Promise(resolve => blocker.close(resolve));
     fs.rmSync(f.root, { recursive: true, force: true });
   }
+});
+
+test('真实SQLite listen失败且AI关闭失败时保留目录锁，拒绝第二个存储owner', { timeout: 5000 }, async () => {
+  const f = directory();
+  try {
+    // 失败启动没有返回关闭句柄；让独立子进程退出后再清理目录，避免泄漏 SQLite owner。
+    const { stdout } = await promisify(execFile)(process.execPath,
+      [fileURLToPath(new URL('./fixtures/ai-listen-close-failure.mjs', import.meta.url)), f.root], { timeout: 3000 });
+    const result = JSON.parse(stdout);
+    assert.equal(result.startErrorCode, 'EADDRINUSE', stdout);
+    assert.equal(result.closeError, 'synthetic close failure', stdout);
+    assert.equal(result.oldStoreStillOpen, true, stdout);
+    assert.equal(result.runtimeLockExists, true, stdout);
+    assert.equal(result.lockOwnerPid, result.ownerPid, stdout);
+    assert.equal(result.secondRuntimeStarted, false, stdout);
+    assert.match(result.secondStartError, /本地数据目录已被使用/, stdout);
+  } finally { fs.rmSync(f.root, { recursive: true, force: true }); }
 });
 
 for (const rollback of [false, true]) test(`真实SQLite恢复资料库${rollback ? '失败回滚' : '成功切换'}等待对应AI owner`, { timeout: 5000 }, async () => {

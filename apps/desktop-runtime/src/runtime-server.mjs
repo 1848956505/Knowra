@@ -212,12 +212,12 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     };
   } catch (error) {
     if (server) await new Promise(resolve => server.close(resolve));
-    try {
-      const results = await Promise.allSettled([sync?.close(), closeAi?.()]);
-      const failed = results.find(result => result.status === 'rejected');
-      if (failed) throw new AggregateError([error, failed.reason], '本地服务启动和关闭失败。');
-      store?.close();
-    } finally { release(); }
+    const results = await Promise.allSettled([sync?.close(), closeAi?.()]);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw new AggregateError([error, failed.reason], '本地服务启动和关闭失败。');
+    store?.close();
+    // 关闭失败时保留目录锁，避免尚存的 SQLite owner 与重试启动共用资料库。
+    release();
     throw error;
   }
 }
