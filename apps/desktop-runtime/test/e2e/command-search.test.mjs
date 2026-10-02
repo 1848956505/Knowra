@@ -8,6 +8,19 @@ import { chromium, expect } from '@playwright/test';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
 import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 
+async function assertVisibleMatch(snippet, query) {
+  const visible = await snippet.evaluate((element, needle) => {
+    const node = element.firstChild, text = element.textContent ?? '', offset = text.indexOf(needle);
+    if (!node || node.nodeType !== Node.TEXT_NODE || offset < 0) return false;
+    const range = document.createRange();
+    range.setStart(node, offset); range.setEnd(node, offset + needle.length);
+    const bounds = element.getBoundingClientRect(), rects = [...range.getClientRects()];
+    return rects.length > 0 && rects.every(rect => rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1
+      && rect.top >= bounds.top - 1 && rect.bottom <= bounds.bottom + 1);
+  }, query);
+  assert.equal(visible, true, '正文关键字必须完整落在片段的可见边界内，不能被省略样式截掉。');
+}
+
 test('真实生产页面 CmdK：SQLite 长中文正文的有界命中、排除回收站/其他空间并 Enter 打开', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-command-search-e2e-'));
   const distRoot = fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url));
@@ -87,9 +100,17 @@ test('真实生产页面 CmdK：SQLite 长中文正文的有界命中、排除�
     await expect(dialog.getByRole('option')).toHaveCount(1);
     await expect(dialog.getByRole('option')).toContainText(note.title);
     await expect(dialog.getByRole('option')).toContainText(query);
+    const snippet = dialog.getByText(hit.snippet, { exact: true });
     fs.mkdirSync(evidenceRoot, { recursive: true });
+    const productionBuild = JSON.parse(fs.readFileSync(path.join(distRoot, 'build-info.json'), 'utf8'));
+    fs.writeFileSync(path.join(evidenceRoot, 'build-info.json'), `${JSON.stringify(productionBuild, null, 2)}\n`);
     await dialog.screenshot({ path: path.join(evidenceRoot, 'command-results.png') });
+    await assertVisibleMatch(snippet, query);
     fs.writeFileSync(path.join(evidenceRoot, 'command-http.json'), `${JSON.stringify(payload, null, 2)}\n`);
+    await page.setViewportSize({ width: 390, height: 843 });
+    await dialog.screenshot({ path: path.join(evidenceRoot, 'command-results-mobile.png') });
+    await assertVisibleMatch(snippet, query);
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     await input.press('Enter');
     await expect(dialog).toBeHidden();
@@ -100,8 +121,9 @@ test('真实生产页面 CmdK：SQLite 长中文正文的有界命中、排除�
     await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText(note.title);
     assert.deepEqual(browserProblems, []);
     fs.writeFileSync(path.join(evidenceRoot, 'result.json'), `${JSON.stringify({ driver: 'real-sqlite', browser: 'chromium',
-      api: 'real-local-runtime-http', productionBuild: JSON.parse(fs.readFileSync(path.join(distRoot, 'build-info.json'), 'utf8')),
+      api: 'real-local-runtime-http', productionBuild,
       spaceId: space.id, noteId: note.id, query, responseStatus: response.status(), route: new URL(editorUrl).hash,
+      visibleViewports: [{ width: 1280, height: 720 }, { width: 390, height: 843 }],
       excludedNoteIds: [deleted.id, other.id], browserProblems, completedAt: new Date().toISOString() }, null, 2)}\n`);
   });
 });
