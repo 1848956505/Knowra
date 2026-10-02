@@ -47,6 +47,8 @@ import { createOptionalAiRuntime } from './modules/ai/runtime.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
 import { createKnowledgeExtractionCommitService } from './modules/ai/knowledge-extraction-commit.js';
+import { createKnowledgeExtractionTaskService } from './modules/ai/knowledge-extraction-task-service.js';
+import { createPostgresKnowledgeExtractionTaskStore } from './modules/ai/postgres-knowledge-extraction-task-store.js';
 import { createPostgresKnowledgeExtractionCommitStore, createPostgresKnowledgeExtractionContext } from './modules/ai/postgres-knowledge-extraction-commit-store.js';
 import { createPostgresAiAccessStore } from './modules/ai/postgres-access-store.js';
 import { createPostgresAiConversationStore } from './modules/ai/postgres-conversation-store.js';
@@ -58,7 +60,8 @@ export async function createPostgresAppContext({
   storageRootDir = process.cwd(),
   uploadsDir = path.join(storageRootDir, process.env.STORAGE_UPLOADS_DIR || 'storage/uploads'),
   legacyUploadsDirs = [],
-  ownerId = process.env.KNOWRA_OWNER_ID || 'demo'
+  ownerId = process.env.KNOWRA_OWNER_ID || 'demo',
+  knowledgeExtractionMock = null
 } = {}) {
   const runtime = await createPrismaRuntime({ databaseUrl, client });
   await runtime.connect();
@@ -142,10 +145,16 @@ export async function createPostgresAppContext({
     coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }), knowledge: { ...knowledge, repositories }, asyncDomain: true, maintenanceGate, budgetAuthority: aiBudget,
     priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
     contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } });
+  const extractionContext = tx => createPostgresKnowledgeExtractionContext(tx, normalizedOwnerId);
+  const extractionReceipts = createPostgresKnowledgeExtractionCommitStore({ client: db, ownerId: normalizedOwnerId });
+  const knowledgeExtractionCommit = createKnowledgeExtractionCommitService({ ownerId: normalizedOwnerId,
+    store: extractionReceipts, createContext: extractionContext, clock: knowledgeExtractionMock?.clock });
+  const knowledgeExtractionTasks = knowledgeExtractionMock ? createKnowledgeExtractionTaskService({ ...knowledgeExtractionMock,
+    ownerId: normalizedOwnerId, maintenanceGate, createContext: extractionContext, commit: knowledgeExtractionCommit,
+    receiptStore: extractionReceipts, store: createPostgresKnowledgeExtractionTaskStore({ client: db, ownerId: normalizedOwnerId }) }) : null;
   return {
-    knowledgeExtractionCommit: createKnowledgeExtractionCommitService({ ownerId: normalizedOwnerId,
-      store: createPostgresKnowledgeExtractionCommitStore({ client: db, ownerId: normalizedOwnerId }),
-      createContext: tx => createPostgresKnowledgeExtractionContext(tx, normalizedOwnerId) }),
+    knowledgeExtractionCommit,
+    knowledgeExtractionTasks,
     driver: 'postgres',
     coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }),
     prisma: db,

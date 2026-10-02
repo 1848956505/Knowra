@@ -1,4 +1,5 @@
 import { createJsonActionStore } from '../modules/ai/action-state.js';
+import { taskKey, validateExtractionTask, validateExtractionTaskState } from '../modules/ai/knowledge-extraction-task-contract.js';
 import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -51,6 +52,10 @@ export function createFileDataStore(filePath, {
   let knowledgeExtractionCommitStoreError = null;
   try { knowledgeExtractionCommits = validateKnowledgeExtractionCommitState(knowledgeExtractionCommits); }
   catch (error) { knowledgeExtractionCommitStoreError = error; }
+  let extractionTasks = parsed.aiKnowledgeExtractionTasks;
+  let knowledgeExtractionTaskStoreError = null;
+  try { extractionTasks = validateExtractionTaskState(extractionTasks); }
+  catch (error) { knowledgeExtractionTaskStoreError = error; }
   let aiRuntime;
   let aiRuntimeError = null;
   try { aiRuntime = validateAiState(parsed.aiRuntime); }
@@ -65,7 +70,8 @@ export function createFileDataStore(filePath, {
   if (['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
-    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations, knowledgeExtractionCommits });
+    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations, knowledgeExtractionCommits,
+      aiKnowledgeExtractionTasks: extractionTasks });
   }
 
   function flush() {
@@ -89,6 +95,7 @@ export function createFileDataStore(filePath, {
     const previousAiRuntime = structuredClone(aiRuntime);
     const previousCoreOperations = structuredClone(coreOperations);
     const previousExtractionCommits = structuredClone(knowledgeExtractionCommits);
+    const previousExtractionTasks = structuredClone(extractionTasks);
     const previousJournal = structuredClone(journal);
     transaction = { dirty: false };
 
@@ -106,6 +113,7 @@ export function createFileDataStore(filePath, {
       aiRuntime = previousAiRuntime;
       coreOperations = previousCoreOperations;
       knowledgeExtractionCommits = previousExtractionCommits;
+      extractionTasks = previousExtractionTasks;
       journal = previousJournal;
       throw error;
     } finally {
@@ -159,7 +167,8 @@ export function createFileDataStore(filePath, {
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
         coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations),
         knowledgeExtractionCommits: knowledgeExtractionCommitStoreError ? knowledgeExtractionCommits
-          : validateKnowledgeExtractionCommitState(knowledgeExtractionCommits) });
+          : validateKnowledgeExtractionCommitState(knowledgeExtractionCommits),
+        aiKnowledgeExtractionTasks: knowledgeExtractionTaskStoreError ? extractionTasks : validateExtractionTaskState(extractionTasks) });
       journal = nextJournal;
       committed = cloneLocalState(nextState);
     } catch (error) {
@@ -173,6 +182,21 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    knowledgeExtractionTaskStore: knowledgeExtractionTaskStoreError ? null : {
+      supportsAsync: false,
+      runTransaction(operation) {
+        if (transaction) throw new TypeError('提炼任务必须拥有最外层事务。');
+        return runTransaction(operation);
+      },
+      get: input => structuredClone(extractionTasks.tasks.find(task => taskKey(task) === taskKey(input)) ?? null),
+      list: input => extractionTasks.tasks.filter(task => task.ownerId === input.ownerId && task.datasetId === input.datasetId).map(task => structuredClone(task)),
+      insert(task) {
+        const record = validateExtractionTask(task);
+        if (extractionTasks.tasks.some(task => taskKey(task) === taskKey(record))) throw new Error('提炼任务描述已存在。');
+        extractionTasks.tasks.push(record); flush();
+      }
+    },
+    knowledgeExtractionTaskStoreError,
     knowledgeExtractionCommitStore: knowledgeExtractionCommitStoreError ? null : {
       supportsAsync: false,
       runTransaction(operation) {

@@ -12,6 +12,9 @@ import { knowledgeExtractionContractTests } from './knowledge-extraction-contrac
 import { aiKnowledgeExtractionGatewayTests } from './ai-knowledge-extraction-gateway.test.js';
 import { aiKnowledgeExtractionCommitTests } from './ai-knowledge-extraction-commit.test.js';
 import { aiKnowledgeExtractionCommitPostgresTests } from './ai-knowledge-extraction-commit-postgres.test.js';
+import { aiKnowledgeExtractionTaskTests } from './ai-knowledge-extraction-task.test.js';
+import { aiKnowledgeExtractionTaskRetryTests } from './ai-knowledge-extraction-task-retry.test.js';
+import { aiKnowledgeExtractionTaskPostgresTests } from './ai-knowledge-extraction-task-postgres.test.js';
 import { storageConfigTests } from './storage.config.test.js';
 import { localBusinessTransactionTests } from './local-business-transactions.test.js';
 import { noteDomainTests } from './note.domain.test.js';
@@ -100,6 +103,9 @@ const tests = [
   ...aiKnowledgeExtractionGatewayTests,
   ...aiKnowledgeExtractionCommitTests,
   ...aiKnowledgeExtractionCommitPostgresTests,
+  ...aiKnowledgeExtractionTaskTests,
+  ...aiKnowledgeExtractionTaskRetryTests,
+  ...aiKnowledgeExtractionTaskPostgresTests,
   ...knowledgeReviewFlowTests,
   ...localBusinessTransactionTests,
   ...storageConfigTests,
