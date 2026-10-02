@@ -5,6 +5,7 @@ import { createStatusSlice } from './slices/statusSlice';
 import { createWorkspaceSlice } from './slices/workspaceSlice';
 import { createKnowledgeSlice } from './slices/knowledgeSlice';
 import { createTrainingSlice } from './slices/trainingSlice';
+import { bindCommandNoteSearch } from './commandNoteSearch';
 import type { AppStore, WorkspaceDependencies } from './types';
 
 export function createAppStore(dependencies: WorkspaceDependencies) {
@@ -14,7 +15,8 @@ export function createAppStore(dependencies: WorkspaceDependencies) {
     ...createNotesIndexSlice(set, get, dependencies.api.searchNoteIds),
     ...createWorkspaceSlice(set, get, dependencies),
     ...createKnowledgeSlice(get, dependencies),
-    ...createTrainingSlice(get, dependencies)
+    ...createTrainingSlice(get, dependencies),
+    searchCommandNotes: bindCommandNoteSearch(dependencies.api.searchCommandNotes, () => get().serverData.currentSpaceId)
   }));
 }
 

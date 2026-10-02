@@ -224,7 +224,8 @@ export function createKnowledgeHttpHandlers({
     deleteEmptySpace(params, body) { return deleteEmptySpace(params.id, body, ownerId); },
     previewSpaceMigration(params, query) { return previewSpaceMigration(params.id, query.targetSpaceId, ownerId); },
     migrateSpaceAssets(params, body) { return migrateSpaceAssets(params.id, body, ownerId); },
-    searchNotes(query) {
+    searchNotes(query = {}) {
+      if (query.result === 'command') return searchService.searchCommandNotes(query, ownerId);
       const notes = searchService.searchNotes(query);
       return query.result === 'ids' ? notes.map((note) => note.id) : notes;
     }

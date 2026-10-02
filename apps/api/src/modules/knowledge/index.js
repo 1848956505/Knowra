@@ -362,6 +362,7 @@ export function createKnowledgeModule(options = {}) {
     }
   });
   const searchService = createSearchService({
+    findKnowledgeSpace: (spaceId) => knowledgeSpaceRepository.findById(spaceId),
     listNotes: (options) => noteService.listNotes(options)
   });
   const workspaceQueryService = createWorkspaceQueryService({

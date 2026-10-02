@@ -25,10 +25,15 @@ export function updateWorkspaceNoteInStore(
   get: GetStore,
   dependencies: WorkspaceDependencies,
   updatedNote: unknown,
-  fallbackFields: Record<string, unknown>
+  fallbackFields: Record<string, unknown>,
+  options: { insertMissing?: boolean } = {}
 ): void {
   const state = get();
-  const notes = replaceNoteInCollection(state.serverData.notes, updatedNote, fallbackFields);
+  let notes = replaceNoteInCollection(state.serverData.notes, updatedNote, fallbackFields);
+  if (options.insertMissing) {
+    const inserted = normalizeNotes([updatedNote])[0];
+    if (inserted && !notes.some(note => note.id === inserted.id)) notes = [...notes, inserted];
+  }
   set({ serverData: { ...state.serverData, notes } });
   const nextState = get();
   writeWorkspaceCache(dependencies.storage, dependencies.cacheKey, createBackendSnapshot({

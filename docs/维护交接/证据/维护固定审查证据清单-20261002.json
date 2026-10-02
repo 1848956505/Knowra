@@ -1,0 +1,360 @@
+{
+  "purpose": "云端接管的只读历史审查证据，原文和原路径字符串保留；复验使用仓库相对命令，不依赖Mac文件系统",
+  "files": [
+    {
+      "name": "CmdK-140-Max-api-target.json",
+      "bytes": 489,
+      "sha256": "7e0b87915ab3874f366bb019567205ad94f6912801464f82206bee3288bde2f6"
+    },
+    {
+      "name": "CmdK-140-Max-api-target.log",
+      "bytes": 2389,
+      "sha256": "023a7ce376489db41771e03d44a8e6acad96e122701a5f617963990133ab42b7"
+    },
+    {
+      "name": "CmdK-140-Max-ci-failed.log",
+      "bytes": 278984,
+      "sha256": "3ceba8b54b5ab9392ac8bd4e6acc3b31ea5bdd41c988ce4c7a38c7902fc3af82"
+    },
+    {
+      "name": "CmdK-140-Max-ci-result.json",
+      "bytes": 5584,
+      "sha256": "87b038df12355e7d34e5d726c9114bd9e25b532ea04ab6e74f87805d7e309311"
+    },
+    {
+      "name": "CmdK-140-Max-core-target.json",
+      "bytes": 611,
+      "sha256": "fc1fd397bb677a2d91dc03fe4152026db6aa0d98446e6fbbd84c5ae0906dfeb0"
+    },
+    {
+      "name": "CmdK-140-Max-core-target.log",
+      "bytes": 272,
+      "sha256": "2feef4e4487c72fc85c2ec5988522239d6f0cb51fcd54e3843a2a38c5ddcd110"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount-fixture-parse-attempt.json",
+      "bytes": 814,
+      "sha256": "6184864f4b2c22a2dcebbea5cfc4da8c3950d34fa30cb564dc2e2554702819be"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount-fixture-parse-attempt.log",
+      "bytes": 2221,
+      "sha256": "162960a36788b3b6a67f031081c8ca92f90885aa9bdba85e9a4e2e0a9b2389db"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount-observation.json",
+      "bytes": 807,
+      "sha256": "b0ca92343527a5ac18024a436ebf129bae5afb0055ea02ac16ee4e48d7d5fb4d"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount.json",
+      "bytes": 814,
+      "sha256": "cac623bfdbbd0c848deaf6d1d6c573cdcf6235a1e9098e771caaf8a674109661"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount.log",
+      "bytes": 249,
+      "sha256": "4b4d150ac7efff838dc655efc4d718cc983390e0635ac0ab670de77748709565"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount.test.tsx",
+      "bytes": 8980,
+      "sha256": "95f16b874ec81eb04bf3517aa25ebc16e63b9666ba6ad5c4ef0c86043cb42d1e"
+    },
+    {
+      "name": "CmdK-140-Max-editor-mount.vitest.config.mjs",
+      "bytes": 1541,
+      "sha256": "21c28e9ebda02eb8047216cda52d2c04a47e1e739fd9fe7162cc8d8890d30cb8"
+    },
+    {
+      "name": "CmdK-140-Max-end.json",
+      "bytes": 8945,
+      "sha256": "a7ca59a47b3e16ea9fb3c306724d0c50b0b8c0e465a481cbd96bb6ce32f7d801"
+    },
+    {
+      "name": "CmdK-140-Max-feature-diff.patch",
+      "bytes": 137479,
+      "sha256": "26bd96272f259981c892c78942d1565a550867fceaf1aa411e755d241e849132"
+    },
+    {
+      "name": "CmdK-140-Max-original-probe.json",
+      "bytes": 827,
+      "sha256": "2f320d15b5dc90d748f7ffa79696e553b44dd67e9a0622ca17bdc7d5a531d1d8"
+    },
+    {
+      "name": "CmdK-140-Max-original-probe.log",
+      "bytes": 249,
+      "sha256": "cf844a59ffb18b5de18c50ff074cc310a22665a39574490c40fd57e3a2dcac75"
+    },
+    {
+      "name": "CmdK-140-Max-p2-diff.patch",
+      "bytes": 56554,
+      "sha256": "85b8ff84ffec254b8f480baccabbb9de42b91290b8c179bf1ae19c2ec5c91145"
+    },
+    {
+      "name": "CmdK-140-Max-start.json",
+      "bytes": 5974,
+      "sha256": "3f2dd806e588b4569a215321253315bc046fd919d58423bb2bc6900de80fedb6"
+    },
+    {
+      "name": "CmdK-140-Max-static.json",
+      "bytes": 4661,
+      "sha256": "9d6fef86fbc6fecc10298ccde639cfb3ad473164612acc4119c52735c673e465"
+    },
+    {
+      "name": "CmdK-140-Max-static.log",
+      "bytes": 2180,
+      "sha256": "0c2f268310f74e2786a7c5406cd8ad5c2dbaef255a2cd79c61ac300e9d3ce5ff"
+    },
+    {
+      "name": "CmdK-140-Max-ui-target.json",
+      "bytes": 727,
+      "sha256": "6671011d4641ef11b5bfcca0c8570385add4c26936577b3a82aba343de210b68"
+    },
+    {
+      "name": "CmdK-140-Max-ui-target.log",
+      "bytes": 273,
+      "sha256": "ecf5a6c43d55e54d49880e6458e061c95b5a8ca7c7f7c91157b74cddba6a310e"
+    },
+    {
+      "name": "CmdK-140固定独立Max复审.md",
+      "bytes": 13554,
+      "sha256": "53b623b7d7f97e68d8ca1a7e950e2f19cf9d9979a61d37898753fb8b482e3ba6"
+    },
+    {
+      "name": "CmdK-5ad-Max-api-target-approved.json",
+      "bytes": 429,
+      "sha256": "8cd7886b0b63e764b893db9fa5e177dd5c1a34b0f1e1f5cd4ba2ef347a91d09c"
+    },
+    {
+      "name": "CmdK-5ad-Max-api-target-approved.log",
+      "bytes": 2389,
+      "sha256": "023a7ce376489db41771e03d44a8e6acad96e122701a5f617963990133ab42b7"
+    },
+    {
+      "name": "CmdK-5ad-Max-api-target.json",
+      "bytes": 327,
+      "sha256": "ea232c844d3e0dc342b20cb02387a398c634b31ff3c94b8685da9a9f58e15e33"
+    },
+    {
+      "name": "CmdK-5ad-Max-api-target.log",
+      "bytes": 3773,
+      "sha256": "fb866613f1d4708b932e8943ded3c6b5fa6aba26841297ac3ee2e90adf7d4e58"
+    },
+    {
+      "name": "CmdK-5ad-Max-completion.json",
+      "bytes": 957,
+      "sha256": "37781af6f6c7d60b83665bfe759b40199db77eddfa8c399e247de76f690d1b07"
+    },
+    {
+      "name": "CmdK-5ad-Max-core-target.json",
+      "bytes": 557,
+      "sha256": "399a8d3c21ec952589652df5f8749d12729d03e0bcb571e97e1ef4bbc5c72d60"
+    },
+    {
+      "name": "CmdK-5ad-Max-core-target.log",
+      "bytes": 272,
+      "sha256": "6020a2ec91659816d7f8c5b416a4170fcee1c2445cdb42ed54f85a006855a467"
+    },
+    {
+      "name": "CmdK-5ad-Max-diff.patch",
+      "bytes": 100663,
+      "sha256": "70fb34311d3ad939be3c5b1eccb3970c79973d852f04b11c4c4a068f10a53845"
+    },
+    {
+      "name": "CmdK-5ad-Max-end.json",
+      "bytes": 4887,
+      "sha256": "fbc94174ee9140526bfb1927c1c2dee28f03a7d3c63152008ffd7d83e25c168c"
+    },
+    {
+      "name": "CmdK-5ad-Max-probe.vitest.config.mjs",
+      "bytes": 1537,
+      "sha256": "e9a8aeb99e867cc697235ddb26669902299a867d82cb515f193152e7cd02a88a"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening-config-error-2.json",
+      "bytes": 584,
+      "sha256": "c6f3b35c9b34e01106df9c2891a0f670ac4bdef6f3f3933e1e46de0395878c92"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening-config-error-2.log",
+      "bytes": 648,
+      "sha256": "cb300dd91c806d8191b5547da1c6d896b74765e27a7d7222d6c72bccd60840cc"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening-config-error.json",
+      "bytes": 584,
+      "sha256": "07093759be096bb9f2b1d74d6bdc04ad22f7c6ec98cea7b3a201277117d068e1"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening-config-error.log",
+      "bytes": 623,
+      "sha256": "bf6ad9034d18d6b134ff64293ed7574742d0c5be815e88d0b8095ede240b0da6"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening-environment-error.json",
+      "bytes": 584,
+      "sha256": "f299112380add0c69fa3b8bc4bc976bbe0ca9e3882a0e2cd55e7ce7a44e5c853"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening-environment-error.log",
+      "bytes": 2289,
+      "sha256": "a48b8efc17a3bfa4b8dfb3fe75601f6394800ee20ff426c56bbc6255fb0ec725"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening.json",
+      "bytes": 975,
+      "sha256": "ab320fac77e66d5cc0349afa021eb74268d226a5afc9246e844f7ea7cc1c2e67"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening.log",
+      "bytes": 16206,
+      "sha256": "0176bc3ea6ca6adfe41105f7256cf94a17eea21348561bbc8b35ef0ef849258a"
+    },
+    {
+      "name": "CmdK-5ad-Max-remote-opening.test.tsx",
+      "bytes": 7648,
+      "sha256": "444953d916695760fe337fc875be6230273acff8bf5bb16d800f58928a07064e"
+    },
+    {
+      "name": "CmdK-5ad-Max-start.json",
+      "bytes": 4916,
+      "sha256": "4994c72f2808ae16907b8d1f9b231f005ea6fd9a1feb54c327840e432136d101"
+    },
+    {
+      "name": "CmdK-5ad-Max-static.json",
+      "bytes": 4661,
+      "sha256": "825bde1405e9e3f083ca9622c84bef4775fb304f30e65efaadee2d645cf274c8"
+    },
+    {
+      "name": "CmdK-5ad-Max-static.log",
+      "bytes": 2180,
+      "sha256": "25a5d2ff77b954d42046479f2fceefd741e2e3cd5f9b8af383905103fe89b302"
+    },
+    {
+      "name": "CmdK-5ad-Max-ui-target.json",
+      "bytes": 629,
+      "sha256": "80857bf62e9e3a3272948371e41068fba87393b119b708784bbb7f67ab043635"
+    },
+    {
+      "name": "CmdK-5ad-Max-ui-target.log",
+      "bytes": 273,
+      "sha256": "1fa1d599d58cb35bbaa1e00fbb2cef74bd4995770c7f73188406b5fcc70c8077"
+    },
+    {
+      "name": "CmdK-5ad固定独立Max审查.md",
+      "bytes": 11255,
+      "sha256": "310f8e4b1a004f4547a80cd81b5d92d3a2c43cc30352544c4657e5bb2848b8c1"
+    },
+    {
+      "name": "关键词-a347-Max-baseline-red.log",
+      "bytes": 2607,
+      "sha256": "616714bb09506af5ef004fbee9dea8c6810a6c2734709d30e0edf787881ac0b2"
+    },
+    {
+      "name": "关键词-a347-Max-ci-excerpts.log",
+      "bytes": 2713,
+      "sha256": "8223b9b437ace50f3734ca007e769f9eeea3817bd5f6298a4cbcfde1764115f2"
+    },
+    {
+      "name": "关键词-a347-Max-ci-verification.json",
+      "bytes": 2546,
+      "sha256": "8bb3223bfc6e84650086bf6ccfb4cbdc6b9547c6f4f2e92395a2c40682580aae"
+    },
+    {
+      "name": "关键词-a347-Max-end.json",
+      "bytes": 1913,
+      "sha256": "3cd012f837b2a3284bb66712245c907102be00e02a27d3ebeb45c0e97de8ecf2"
+    },
+    {
+      "name": "关键词-a347-Max-full-diff.patch",
+      "bytes": 63895,
+      "sha256": "6851255ce4ef903a3cf030d5489f145816b8837abfddd1630c1d327e501543b7"
+    },
+    {
+      "name": "关键词-a347-Max-metadata.json",
+      "bytes": 10179,
+      "sha256": "d85f20aa8f38faa75c4d970b99e067f4f90d4e481815e8900fd6fa7b869ea997"
+    },
+    {
+      "name": "关键词-a347-Max-probes.json",
+      "bytes": 3184,
+      "sha256": "91658fee2e3383eb8e963e5f7231bce2a440347afb5bcd48cf50b95b7134f54b"
+    },
+    {
+      "name": "关键词-a347-Max-probes.log",
+      "bytes": 3012,
+      "sha256": "b78440fbfae90de1ce27e5a0739eba257bf3aff7a741d0ff2cfb06298f8542de"
+    },
+    {
+      "name": "关键词-a347-Max-regression.json",
+      "bytes": 10580,
+      "sha256": "57d89ccb9d77bfd65e4b72256fc9c082e022ffa43d2412a6364a8a816f07ad13"
+    },
+    {
+      "name": "关键词-a347-Max-regression.log",
+      "bytes": 5464,
+      "sha256": "2f03af69afbecae3c60998e7ca12b5160bee31e71e7b861b059e3aa7794e28f9"
+    },
+    {
+      "name": "关键词-a347-Max-start.json",
+      "bytes": 2116,
+      "sha256": "70707e2af417d849cc47fb0ddc8d2791ce1e00cdbc9f74534536577f71dd3675"
+    },
+    {
+      "name": "关键词-a347-Max-static.json",
+      "bytes": 2834,
+      "sha256": "3ecea03ee8a5f120366c164610ad7a875ebeeaeaed44f1eae1cc49e8f16b4608"
+    },
+    {
+      "name": "关键词-a347-Max-static.log",
+      "bytes": 1080,
+      "sha256": "edc0923b7bb09f59b306a8f956796ff6943ec0a7cd559a2fc28065acce034191"
+    },
+    {
+      "name": "关键词-a347固定独立Max审查.md",
+      "bytes": 8867,
+      "sha256": "49d208285a8d4e50bceb24be73b9815efc1d9339bde52b69688a2238ef001ab8"
+    },
+    {
+      "name": "核价-7c69-Max-metadata.json",
+      "bytes": 2879,
+      "sha256": "6020d890fdc4679e877397489435cee96d4b5626edc855803ee9ef4f7a7d74db"
+    },
+    {
+      "name": "核价-7c69-Max-static.json",
+      "bytes": 8710,
+      "sha256": "f2f1c0fa8c4b169f63f9a0782ee200c86d1e04d3c02582ff83dad64dda8e70bb"
+    },
+    {
+      "name": "核价-7c69-Max-target-sandbox.log",
+      "bytes": 1620,
+      "sha256": "fb4829e40584acad7be278402e0f26f4984c0348abbb9cf631ecc55bd7d5bbe8"
+    },
+    {
+      "name": "核价-7c69-Max-target.log",
+      "bytes": 1197,
+      "sha256": "2a0759eabb3a4b63ab23e704fa93508e21db35c84277f65f47765984600c79c9"
+    },
+    {
+      "name": "核价-7c69固定独立Max审查.md",
+      "bytes": 8625,
+      "sha256": "3f62c33a2175fd0e08c578309fad8c20a3a1f9a25a32eed9af7c7af345c1fbe3"
+    },
+    {
+      "name": "训练首版决策-b0e31c7-独立Max-静态核对.json",
+      "bytes": 6043,
+      "sha256": "ba3371ba4da94f1afd3ca6c42bba3b94487192a7b3c0ce8d0f208908e0268ee1"
+    },
+    {
+      "name": "训练首版决策-b0e31c7-独立Max审查.md",
+      "bytes": 7126,
+      "sha256": "e9bbaaada58981a5ad482f8716956206ec113b90e146ad481a61deab8ae57064"
+    }
+  ],
+  "archive": {
+    "name": "维护固定审查原始证据-20261002.zip",
+    "bytes": 239319,
+    "sha256": "78861f6416cc187d08fe0b1f9fae133052d0b736474065d277c722c48ec109e9"
+  }
+}

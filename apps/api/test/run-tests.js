@@ -21,6 +21,8 @@ import { tagServiceTests } from './tag-service.test.js';
 import { tagSystemTests } from './tag-system.test.js';
 import { knowledgeSpaceServiceTests } from './knowledge-space-service.test.js';
 import { searchServiceTests } from './search-service.test.js';
+import { commandSearchHttpTests } from './command-search-http.test.js';
+import { commandSearchPostgresTests } from './command-search-postgres.test.js';
 import { noteRepositoryTests } from './note-repository.test.js';
 import { noteDtoTests } from './note-dto.test.js';
 import { markdownPreviewTests } from './markdown-preview.test.js';
@@ -117,6 +119,8 @@ const tests = [
   ...tagSystemTests,
   ...knowledgeSpaceServiceTests,
   ...searchServiceTests,
+  ...commandSearchHttpTests,
+  ...commandSearchPostgresTests,
   ...knowledgeModuleTests,
   ...knowledgeHttpTests,
   ...appFactoryTests,
