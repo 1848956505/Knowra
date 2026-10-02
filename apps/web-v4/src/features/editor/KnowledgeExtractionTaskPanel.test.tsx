@@ -45,3 +45,31 @@ it('面板关闭后的终态回执不会把焦点从外部控件抢回', async (
   rerender(view(false, 'running')); await waitFor(() => expect(outside).toHaveFocus());
   rerender(view(false, 'succeeded')); expect(outside).toHaveFocus(); expect(screen.queryByRole('dialog')).toBeNull();
 });
+it.each(['刷新任务', '查看任务 history-job', '加载更多任务'])('等待 %s 保留同一控件焦点并阻止重复请求，授权过期回执后仍可 Esc 关闭', async label => {
+  const user = userEvent.setup();
+  const failed: ExtractionJobDetail = { ...running, status: 'failed', phase: 'finished', actions: { canCancel: false, canRetry: true, retryUnavailableReason: null } };
+  const task = { ...taskFor(failed), items: [{ ...failed, jobId: 'history-job' }], nextCursor: 'page-2' };
+  const { rerender } = render(<KnowledgeExtractionTaskPanel task={task} />);
+  const button = screen.getByRole('button', { name: label });
+  const request = label === '查看任务 history-job' ? task.select : task.refresh;
+  await user.click(button); expect(button).toHaveFocus(); expect(request).toHaveBeenCalledTimes(1);
+  rerender(<KnowledgeExtractionTaskPanel task={{ ...task, pending: true }} />);
+  // Native disabled makes Chromium drop focus to BODY even though the button remains connected.
+  // The existing Button pending contract suppresses activation without making the focused node inert.
+  expect(button).not.toBeDisabled(); expect(button).toHaveAttribute('aria-disabled', 'true'); expect(button).toHaveFocus();
+  await user.click(button); await user.keyboard('{Enter}'); await user.keyboard(' ');
+  expect(request).toHaveBeenCalledTimes(1);
+  const expired = { ...failed, actions: { canCancel: false, canRetry: false, retryUnavailableReason: { code: 'KNOWLEDGE_EXTRACTION_GRANT_EXPIRED', message: '本次授权或来源已失效' } } };
+  rerender(<KnowledgeExtractionTaskPanel task={{ ...task, job: expired }} />);
+  expect(screen.getByRole('button', { name: label })).toBe(button); expect(button).toHaveFocus();
+  expect(screen.queryByRole('button', { name: '重试任务' })).toBeNull();
+  await user.keyboard('{Escape}'); expect(task.setOpen).toHaveBeenCalledWith(false);
+});
+it('轮询等待不抢稳定关闭按钮的焦点，权限禁用仍然有效', async () => {
+  const user = userEvent.setup(), task = taskFor(running), { rerender } = render(<KnowledgeExtractionTaskPanel task={task} />);
+  const close = screen.getByRole('button', { name: '关闭' }); act(() => close.focus());
+  rerender(<KnowledgeExtractionTaskPanel task={{ ...task, pending: true }} />); expect(close).toHaveFocus();
+  rerender(<KnowledgeExtractionTaskPanel task={{ ...task, canWrite: false }} />);
+  const stop = screen.getByRole('button', { name: '停止任务' }); expect(stop).toBeDisabled();
+  await user.click(stop); expect(task.action).not.toHaveBeenCalled();
+});

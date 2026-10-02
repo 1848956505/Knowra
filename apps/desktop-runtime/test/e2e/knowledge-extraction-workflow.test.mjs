@@ -176,9 +176,27 @@ test('真实 Web Mock 提炼：取消晚响应、显式重试、失效授权和�
     const expired = await start(page, host, 'fail');
     await expect(taskDialog(page).getByRole('button', { name: '重试任务', exact: true })).toBeEnabled();
     host.advance(300_001);
-    await taskDialog(page).getByRole('button', { name: '刷新任务', exact: true }).click();
+    let releaseRefresh, capturedRefresh;
+    const refreshHeld = new Promise(resolve => { releaseRefresh = resolve; });
+    const refreshReady = new Promise(resolve => { capturedRefresh = resolve; });
+    const refreshRoute = `**/api/ai/jobs/${expired}`;
+    // Hold the real response so a fast local request cannot hide focus loss while pending.
+    await page.route(refreshRoute, async route => {
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      capturedRefresh(); await refreshHeld; await route.fulfill({ response });
+    });
+    const refreshButton = taskDialog(page).getByRole('button', { name: '刷新任务', exact: true });
+    try {
+      await refreshButton.click();
+      await refreshReady;
+      await expect(taskDialog(page).getByText('正在读取或提交任务…', { exact: true })).toBeVisible();
+      await expect(refreshButton).toBeFocused();
+    } finally { releaseRefresh(); }
     await expect(taskDialog(page)).toContainText('本次授权或来源已失效');
     await expect(taskDialog(page).getByRole('button', { name: '重试任务', exact: true })).toHaveCount(0);
+    await expect(refreshButton).toBeFocused();
+    await page.unroute(refreshRoute);
     assert.equal((await host.app.knowledgeExtractionTasks.get(expired)).status, 'failed');
     assert.equal(host.calls.length, 4);
     await screenshot(page, 'expired-authorization');
