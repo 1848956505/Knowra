@@ -6,7 +6,7 @@ import { createAppContext } from '../src/app.factory.js';
 import { createFileDataStore } from '../src/infrastructure/file-data-store.js';
 import { createMaintenanceGate } from '../src/infrastructure/maintenance-gate.js';
 import { createExtractionTaskSources, extractionTaskGateway, deferredTaskResponse, quietTaskLogger } from './fixtures/knowledge-extraction-task.fixture.js';
-import { startExtractionHttpServer, callExtractionHttp as call } from './fixtures/knowledge-extraction-http.fixture.js';
+import { startExtractionHttpServer, waitForExtractionReady, callExtractionHttp as call } from './fixtures/knowledge-extraction-http.fixture.js';
 
 async function fixture(run, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-extraction-http-')), file = path.join(root, 'data.json');
@@ -34,6 +34,55 @@ const request = input => ({ kind: 'knowledgeExtraction', ...input });
 const listUrl = (spaceId, tail = '') => `/jobs?kind=knowledgeExtraction&spaceId=${encodeURIComponent(spaceId)}${tail}`;
 
 export const aiKnowledgeExtractionHttpTests = [
+  { name: '02C 测试宿主显式只读等就绪，恢复失败/超时有诊断且关闭，不隐式重试POST', async run() {
+    for (const mode of ['success', 'failure', 'timeout']) await fixture(async f => {
+      const held = Promise.withResolvers(), entered = Promise.withResolvers(), polled = Promise.withResolvers();
+      const recover = f.app.knowledgeExtractionTasks.recover;
+      f.app.knowledgeExtractionTasks.recover = async () => {
+        entered.resolve(); await held.promise;
+        if (mode === 'failure') throw new Error('synthetic private recovery failure');
+        return recover();
+      };
+      const http = await startExtractionHttpServer(f.app), requests = [];
+      try {
+        await entered.promise;
+        const early = await call(http.origin, '/jobs', request(f.input));
+        assert.equal(early.status, 503, JSON.stringify(early.data));
+        assert.equal(early.data.error.code, 'KNOWLEDGE_EXTRACTION_RECOVERING');
+        assert.equal(f.app.dataStore.aiRepository.list('aiJob').length, 0);
+        http.server.on('request', request => {
+          requests.push(`${request.method} ${request.url}`);
+          if (requests.length === 2) polled.resolve();
+        });
+        let settled = false;
+        const waiting = waitForExtractionReady(http.origin, { timeoutMs: 1000 });
+        waiting.then(() => { settled = true; }, () => { settled = true; });
+        await Promise.race([polled.promise, waiting]);
+        assert.equal(settled, false, '恢复未释放，准备阶段必须仍在等待');
+        if (mode === 'timeout') {
+          await assert.rejects(waiting, error => error.code === 'EXTRACTION_HTTP_READY_TIMEOUT'
+            && error.message.includes('KNOWLEDGE_EXTRACTION_RECOVERING'));
+        } else {
+          held.resolve();
+          if (mode === 'failure') await assert.rejects(waiting, error => error.code === 'EXTRACTION_HTTP_NOT_READY'
+            && error.message.includes('KNOWLEDGE_EXTRACTION_UNAVAILABLE') && !error.message.includes('synthetic private'));
+          else assert.equal((await waiting).canStart, true);
+        }
+        assert.ok(requests.length >= 2);
+        assert.ok(requests.every(value => value === 'GET /api/ai/capabilities'));
+        assert.equal(f.app.dataStore.aiRepository.list('aiJob').length, 0);
+        assert.equal(f.mock.calls.length, 0);
+        if (mode === 'success') {
+          const explicit = await call(http.origin, '/jobs', request(f.input));
+          assert.equal(explicit.status, 202, JSON.stringify(explicit.data));
+          assert.equal(f.app.dataStore.aiRepository.list('aiJob').length, 1);
+        }
+      } finally {
+        held.resolve(); await http.close();
+        assert.equal(http.server.listening, false);
+      }
+    }, { noServer: true });
+  } },
   { name: '02C 恢复中jobs立即503且不排队，核心可读写，完成后需新明确POST', async run() {
     await fixture(async f => {
       const held = Promise.withResolvers(), entered = Promise.withResolvers(), finished = Promise.withResolvers();
