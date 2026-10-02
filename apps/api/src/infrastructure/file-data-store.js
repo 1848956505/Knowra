@@ -1,4 +1,5 @@
 import { createJsonActionStore } from '../modules/ai/action-state.js';
+import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -46,6 +47,10 @@ export function createFileDataStore(filePath, {
   let coreOperationStoreError = null;
   try { coreOperations = validateCoreOperationState(coreOperations); }
   catch (error) { coreOperationStoreError = error; }
+  let knowledgeExtractionCommits = parsed.knowledgeExtractionCommits;
+  let knowledgeExtractionCommitStoreError = null;
+  try { knowledgeExtractionCommits = validateKnowledgeExtractionCommitState(knowledgeExtractionCommits); }
+  catch (error) { knowledgeExtractionCommitStoreError = error; }
   let aiRuntime;
   let aiRuntimeError = null;
   try { aiRuntime = validateAiState(parsed.aiRuntime); }
@@ -60,7 +65,7 @@ export function createFileDataStore(filePath, {
   if (['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
-    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations });
+    writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations, knowledgeExtractionCommits });
   }
 
   function flush() {
@@ -83,6 +88,7 @@ export function createFileDataStore(filePath, {
     const previousState = cloneLocalState(state);
     const previousAiRuntime = structuredClone(aiRuntime);
     const previousCoreOperations = structuredClone(coreOperations);
+    const previousExtractionCommits = structuredClone(knowledgeExtractionCommits);
     const previousJournal = structuredClone(journal);
     transaction = { dirty: false };
 
@@ -99,6 +105,7 @@ export function createFileDataStore(filePath, {
       replaceState(state, previousState);
       aiRuntime = previousAiRuntime;
       coreOperations = previousCoreOperations;
+      knowledgeExtractionCommits = previousExtractionCommits;
       journal = previousJournal;
       throw error;
     } finally {
@@ -150,7 +157,9 @@ export function createFileDataStore(filePath, {
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
       writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal,
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
-        coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations) });
+        coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations),
+        knowledgeExtractionCommits: knowledgeExtractionCommitStoreError ? knowledgeExtractionCommits
+          : validateKnowledgeExtractionCommitState(knowledgeExtractionCommits) });
       journal = nextJournal;
       committed = cloneLocalState(nextState);
     } catch (error) {
@@ -164,6 +173,16 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    knowledgeExtractionCommitStore: knowledgeExtractionCommitStoreError ? null : {
+      supportsAsync: false,
+      runTransaction(operation) {
+        if (transaction) throw new TypeError('提炼接纳必须拥有最外层事务，不能嵌套提交。');
+        return runTransaction(operation);
+      },
+      get: input => structuredClone(knowledgeExtractionCommits.receipts.find(receipt => knowledgeExtractionCommitKey(receipt) === knowledgeExtractionCommitKey(input)) ?? null),
+      insert: receipt => { knowledgeExtractionCommits.receipts.push(validateKnowledgeExtractionCommit(receipt)); flush(); }
+    },
+    knowledgeExtractionCommitStoreError,
     coreOperationStore: coreOperationStoreError ? null : createSyncCoreOperationStore({
       transaction: operation => {
         if (transaction) throw new TypeError('核心操作必须拥有最外层事务，不能嵌套提交。');
