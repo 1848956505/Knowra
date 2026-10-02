@@ -183,7 +183,59 @@ test('真实 Web Mock 提炼：取消晚响应、显式重试、失效授权和�
     assert.deepEqual((await host.app.knowledgeExtractionTasks.get(empty)).candidateIds, []);
     assert.equal(host.dataStore.state.knowledgeItems.length, 1);
     assert.equal(host.calls.length, 5);
+    await taskDialog(page).getByRole('button', { name: '刷新任务', exact: true }).click();
+    for (const jobId of [cancelled, failed, expired, empty]) {
+      await expect(taskDialog(page).getByRole('button', { name: `查看任务 ${jobId}`, exact: true })).toBeVisible();
+    }
     await screenshot(page, 'empty-success');
+    await page.keyboard.press('Escape');
+    await page.reload();
+    await openAI(page, host, { navigate: false });
+    await page.getByRole('button', { name: '查看提炼任务', exact: true }).click();
+    for (const jobId of [cancelled, failed, expired, empty]) {
+      await expect(taskDialog(page).getByRole('button', { name: `查看任务 ${jobId}`, exact: true })).toBeVisible();
+    }
+    await screenshot(page, 'space-task-history');
+  });
+});
+
+test('真实 Web Mock 提炼：关闭延迟读取后仍接纳新开始，旧列表不覆盖新任务', { timeout: 60_000 }, async t => {
+  await withPage(t, {}, async (page, host) => {
+    let release, captured, delayed = false;
+    const hold = new Promise(resolve => { release = resolve; });
+    const ready = new Promise(resolve => { captured = resolve; });
+    const starts = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/ai/jobs') starts.push(request.postDataJSON());
+    });
+    await page.route('**/api/ai/jobs?**', async route => {
+      if (delayed) return route.continue();
+      delayed = true;
+      const response = await route.fetch();
+      assert.equal(response.status(), 200);
+      assert.deepEqual((await response.json()).data.items, []);
+      captured();
+      await hold;
+      await route.fulfill({ response });
+    });
+    try {
+      await openAI(page, host);
+      await page.getByRole('button', { name: '查看提炼任务', exact: true }).click();
+      await ready;
+      await page.keyboard.press('Escape');
+      await expect(taskDialog(page)).toHaveCount(0);
+      const id = await start(page, host);
+      await expect(taskDialog(page).getByRole('button', { name: '查看候选 1', exact: true })).toBeVisible();
+      assert.equal(starts.length, 1);
+      assert.equal(jobRecords(host).length, 1);
+      assert.equal(host.calls.length, 1);
+      release();
+      await taskDialog(page).getByRole('button', { name: '刷新任务', exact: true }).click();
+      await expect(taskDialog(page).getByRole('button', { name: `查看任务 ${id}`, exact: true })).toBeVisible();
+      await expect(taskDialog(page).getByRole('button', { name: '查看候选 1', exact: true })).toBeVisible();
+      assert.equal(host.dataStore.state.analysisScopeSnapshots.length, 1);
+      await screenshot(page, 'closed-read-new-start');
+    } finally { release(); }
   });
 });
 
