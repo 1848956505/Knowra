@@ -6,6 +6,7 @@ import {
 } from '@study-accelerator/web-core';
 import type { WorkspaceDependencies, WorkspaceSlice } from '../types';
 import { workspaceCapabilities, LOCAL_PERMANENT_DELETE_REASON, LOCAL_ANALYSIS_SCOPE_REASON } from '../workspaceCapabilities';
+import { createCommandNoteLoader } from '../commandNoteOpening';
 import {
   EMPTY_WORKSPACE_SERVER_DATA,
   loadWorkspaceState,
@@ -38,6 +39,7 @@ export function createWorkspaceSlice(
     dataMode: 'loading',
     workspaceLoadState: 'idle',
     workspaceError: null,
+    loadCommandNote: createCommandNoteLoader(set, get, dependencies),
     loadWorkspace: () => runLoad(false),
     retryWorkspace: () => runLoad(true),
     async refreshLocalWorkspace() {

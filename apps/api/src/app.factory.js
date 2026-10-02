@@ -2,6 +2,7 @@ import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js'
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createKnowledgeModule } from './modules/knowledge/index.js';
+import { createKnowledgeExtractionCommitService } from './modules/ai/knowledge-extraction-commit.js';
 import { createKnowledgeHttpHandlers } from './modules/knowledge/http/knowledge-handlers.js';
 import { createFileDataStore } from './infrastructure/file-data-store.js';
 import { createLocalAttachmentStore } from './infrastructure/local-attachment-store.js';
@@ -161,6 +162,11 @@ export function createAppContext(options = {}) {
   });
 
   return {
+    knowledgeExtractionCommit: dataStore?.knowledgeExtractionCommitStore && dataStore.aiRepository
+      ? createKnowledgeExtractionCommitService({ store: dataStore.knowledgeExtractionCommitStore, ownerId,
+        createContext: () => ({ repositories: knowledge.repositories, knowledgeItemService: knowledge.knowledgeItemService,
+          aiRepository: dataStore.aiRepository }) })
+      : null,
     dataStore,
     coreOperationStore: dataStore?.coreOperationStore ?? null,
     coreOperationStoreError: dataStore?.coreOperationStoreError ?? null,

@@ -1,11 +1,13 @@
 import type { KnowledgeSlice } from './slices/knowledgeSlice';
 import type { TrainingSlice } from './slices/trainingSlice';
+import type { CommandNoteLoadInput, CommandNoteLoadResult } from './commandNoteOpening';
 import type {
   WorkspaceDataMode,
   WorkspaceServerData,
   WorkspaceSnapshot,
   WorkspaceLoadState,
   WorkspaceApi,
+  CommandNoteSearcher,
   KeyValueStorage,
   Attachment,
   AttachmentDeleteResult,
@@ -42,6 +44,8 @@ export interface WorkspaceDependencies {
 }
 
 export interface WorkspaceSlice {
+  searchCommandNotes?: CommandNoteSearcher;
+  loadCommandNote(input: CommandNoteLoadInput): Promise<CommandNoteLoadResult | null>;
   persistenceMode: 'remote' | 'desktop-local';
   knowledgeGeneration: number;
   serverData: WorkspaceServerData;
