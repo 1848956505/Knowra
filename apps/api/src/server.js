@@ -15,6 +15,7 @@ import { handleAiAccessRoute } from './modules/ai/access-routes.js';
 import { handleConversationRoute } from './modules/ai/conversation-routes.js';
 import { handleAiJobRoute } from './modules/ai/job-routes.js';
 import { createKnowledgeExtractionHttpService } from './modules/ai/knowledge-extraction-http-service.js';
+import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
 import { isWriteMethod, writeOriginDecision } from '@study-accelerator/shared/http-origin';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
@@ -24,15 +25,11 @@ export function createServer({ appContext, cors = {}, logger = console }) {
   const assistant = appContext.ai && appContext.aiOwnerId
     ? createAiAssistantService({ getRuntime: () => appContext.ai, ownerId: appContext.aiOwnerId,
       location: appContext.aiLocation ?? 'server', logger }) : null;
-  const aiRecovery = appContext.aiLocation === 'local' ? Promise.resolve() : Promise.resolve()
-    .then(async () => {
-      await appContext.ai?.conversationStore?.recoverInterrupted?.();
-      await appContext.ai?.agent?.recover?.();
-      await appContext.ai?.worker?.recover?.();
-    })
+  const aiLifecycle = aiRuntimeLifecycle(appContext.ai);
+  const aiRecovery = appContext.aiLocation === 'local' ? Promise.resolve() : aiLifecycle.recover()
     .catch(error => logger.warn?.('AI task recovery failed', { code: error.code ?? 'AI_RECOVERY_FAILED' }));
 
-  return http.createServer(async (request, response) => {
+  const server = http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, 'http://localhost');
       const { knowledge, storage } = appContext.http;
@@ -107,4 +104,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       );
     }
   });
+  // 原生 close/close 事件仍只表示网络关闭；持库宿主另等 closeAi 或 context.close。
+  server.closeAi = aiLifecycle.close;
+  return server;
 }

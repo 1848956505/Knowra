@@ -3,6 +3,7 @@ import { hashRecord } from './record-contract.js';
 import { createAiWorker } from './worker.js';
 import { AI_PROCESS_LIMITS } from './isolated-provider.js';
 import { watchChildResources } from './process-resource-guard.js';
+import { createAiRecoveryScope } from './recovery-scope.js';
 
 const kinds = new Set(['aiJob', 'aiJobAttempt', 'aiUsageRecord', 'aiGrant', 'contextManifest']);
 const code = error => typeof error?.code === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(error.code)
@@ -19,6 +20,7 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
   const waiting = [];
   let occupied = 0;
   let closed = false;
+  const recovery = createAiRecoveryScope();
   const recoveryWorker = createAiWorker({ repository, budget, gateway, priceProfile, allowExternal,
     verifySources: readContext ? (job, request) => readContext.verifyJobSources(job, request) : null,
     validateResult: readContext ? (job, result) => readContext.validateAnswer({ jobId: job.jobId, result }) : null,
@@ -201,14 +203,15 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
     }
     return result;
   }
-  async function close() {
-    if (closed) return;
+  function close() {
     closed = true;
-    while (waiting.length) waiting.shift()();
-    await Promise.all([...active.keys()].map(async jobId => {
-      await Promise.resolve().then(() => recoveryWorker.cancel(jobId)).catch(() => undefined);
-      await active.get(jobId)?.stop(failure('AI_CANCELLED', 'AI 功能已关闭。'));
-    }));
+    return recovery.close(async () => {
+      while (waiting.length) waiting.shift()();
+      await Promise.all([...active.keys()].map(async jobId => {
+        await Promise.resolve().then(() => recoveryWorker.cancel(jobId)).catch(() => undefined);
+        await active.get(jobId)?.stop(failure('AI_CANCELLED', 'AI 功能已关闭。'));
+      }));
+    });
   }
-  return { run, cancel, recover: recoveryWorker.recover, close };
+  return { run, cancel, recover: () => recovery.run(recoveryWorker.recover), close };
 }

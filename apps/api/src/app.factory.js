@@ -33,6 +33,7 @@ import { createStorageConfig } from './config/storage.config.js';
 import { createLocalSyncService } from './modules/sync/local-provider.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createOptionalAiRuntime } from './modules/ai/runtime.js';
+import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import {
   assertSpacesOwnedBy,
@@ -233,6 +234,14 @@ export function createPersistentAppContext({
       unavailableReason: dataStore.aiRuntimeError ? 'AI 私有存储无效，核心资料仍可使用。' : 'AI 功能已关闭。' });
   context.aiOwnerId = resolveOwnerId(ownerId, dataStore.state.spaces);
   context.aiLocation = 'server';
+  let closing;
+  context.close = () => closing ??= (async () => {
+    const results = await Promise.allSettled([
+      aiRuntimeLifecycle(context.ai).close(), context.knowledgeExtractionTasks?.close()
+    ]);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw failed.reason;
+  })();
   return context;
 }
 

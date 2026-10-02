@@ -16,6 +16,7 @@ import { aiKnowledgeExtractionTaskTests } from './ai-knowledge-extraction-task.t
 import { aiKnowledgeExtractionTaskRetryTests } from './ai-knowledge-extraction-task-retry.test.js';
 import { aiKnowledgeExtractionTaskPostgresTests } from './ai-knowledge-extraction-task-postgres.test.js';
 import { aiKnowledgeExtractionHttpTests } from './ai-knowledge-extraction-http.test.js';
+import { aiRuntimeLifecycleTests, aiRuntimeLifecyclePostgresTests } from './ai-runtime-lifecycle.test.js';
 import { storageConfigTests } from './storage.config.test.js';
 import { localBusinessTransactionTests } from './local-business-transactions.test.js';
 import { noteDomainTests } from './note.domain.test.js';
@@ -108,6 +109,8 @@ const tests = [
   ...aiKnowledgeExtractionTaskRetryTests,
   ...aiKnowledgeExtractionTaskPostgresTests,
   ...aiKnowledgeExtractionHttpTests,
+  ...aiRuntimeLifecycleTests,
+  ...aiRuntimeLifecyclePostgresTests,
   ...knowledgeReviewFlowTests,
   ...localBusinessTransactionTests,
   ...storageConfigTests,

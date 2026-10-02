@@ -28,7 +28,9 @@ listenOnConfiguredPort(server, preferredPort, { allowPortFallback })
     console.log(`知境·Knowra API running at http://localhost:${port}${suffix}`);
     console.log('Knowledge module ready:', Object.keys(app.modules.knowledge).join(', '));
   })
-  .catch((error) => {
+  .catch(async (error) => {
     console.error('Failed to start 知境·Knowra API:', error.message);
+    try { await server.closeAi(); await app.close?.(); }
+    catch (failure) { console.error('Failed to close AI runtime:', failure.code ?? 'AI_CLOSE_FAILED'); }
     process.exitCode = 1;
   });
