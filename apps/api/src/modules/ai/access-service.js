@@ -69,10 +69,15 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     }
     return note;
   }
-  async function currentVersion(note) {
+  async function currentVersion(note, maxContentChars = null) {
+    if (maxContentChars !== null && note.rawMarkdown.length > maxContentChars) {
+      fail('AI_SOURCE_STALE', '来源当前正文超出本次检索上限。');
+    }
     const contentHash = calculateContentHash(note.rawMarkdown);
     const version = await read(noteVersionRepository.findByNoteIdAndContentHash(note.id, contentHash));
-    if (!version || version.contentHash !== contentHash || calculateContentHash(version.content) !== contentHash) {
+    if (!version || typeof version.content !== 'string'
+      || maxContentChars !== null && version.content.length > maxContentChars
+      || version.contentHash !== contentHash || calculateContentHash(version.content) !== contentHash) {
       fail('AI_SOURCE_STALE', '来源当前版本不可用。');
     }
     return { version, contentHash };
@@ -224,10 +229,13 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
       ownerId, datasetId: policy.datasetId, datasetEpoch: policy.datasetEpoch, spaceId: policy.spaceId,
       allowedTools: [...allowedTools].sort(), maxBudgetMicrounits, issuedAt, expiresAt: end });
   }
-  async function verifyRead({ grantId, noteId, tool = 'notes_read' }) {
+  async function verifyRead({ grantId, noteId, tool = 'notes_read', maxContentChars = null }) {
     const { policy } = await activeGrant(grantId, tool);
     const note = await noteInScope(policy, noteId);
-    const { version, contentHash } = await currentVersion(note);
+    if (maxContentChars !== null && (!Number.isSafeInteger(maxContentChars) || maxContentChars < 1)) {
+      throw new TypeError('Trusted read content limit must be null or a positive safe integer');
+    }
+    const { version, contentHash } = await currentVersion(note, maxContentChars);
     return { note, version, contentHash };
   }
   async function listAuthorizedNotes({ grantId }) {
@@ -282,7 +290,7 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     if (coverage.matchedNotes > maxCandidates) limitedBy.add('candidates');
     const candidates = [];
     for (const { note, score } of pool) {
-      const { version, contentHash } = await currentVersion(note);
+      const { version, contentHash } = await currentVersion(note, maxNoteChars);
       if (version.noteId !== note.id) fail('AI_SOURCE_STALE', '来源当前版本不匹配。');
       candidates.push({ noteId: note.id, title: note.title, score, noteVersionId: version.id, contentHash });
     }

@@ -338,5 +338,41 @@ export const aiKeywordCoverageTests = [...storageTests,
     assert.equal(found.hits[0].score, 2);
     assert.equal(found.hits[0].text, 'Ｃａｆｅ\u0301');
     await assertReference(access, run.grantId, found.hits[0]);
+  }) },
+  { name: '关键词覆盖 KW21：预选后正文增至单篇上限外，复核在超大版本查询前失败', run: () => withFixture(async ({ data, access, notes, versions, put, grant }) => {
+    put('growing', '标题', 'growthtoken 原正文');
+    const { run } = await grant();
+    const select = access.findAuthorizedSearchCandidates;
+    access.findAuthorizedSearchCandidates = async input => {
+      const selected = await select(input);
+      put('growing', '标题', `growthtoken${'x'.repeat(200_001 - 'growthtoken'.length)}`);
+      data.flush();
+      return selected;
+    };
+    const find = versions.findByNoteIdAndContentHash;
+    versions.findByNoteIdAndContentHash = (...args) => {
+      assert(notes.findById(args[0]).rawMarkdown.length <= 200_000, '单篇上限外的当前正文不能触发版本查询');
+      return find(...args);
+    };
+    await assert.rejects(createAuthorizedKeywordSearch({ access }).search({ grantId: run.grantId, query: 'growthtoken' }), { code: 'AI_SOURCE_STALE' });
+  }) },
+  { name: '关键词覆盖 KW22：普通 R02 read 保留大正文语义，可选受信上限验证仍先复核授权', run: () => withFixture(async ({ access, versions, put, grant }) => {
+    put('large', '标题', 'x'.repeat(200_001));
+    const { policy, run } = await grant({ kind: 'fixed', noteIds: ['large'] });
+    const input = { grantId: run.grantId, noteId: 'large' };
+    const find = versions.findByNoteIdAndContentHash;
+    let reads = 0;
+    versions.findByNoteIdAndContentHash = (...args) => { reads++; return find(...args); };
+    const ordinary = await access.verifyRead(input);
+    assert.equal(ordinary.version.content.length, 200_001);
+    const before = reads;
+    await assert.rejects(access.verifyRead({ ...input, maxContentChars: 200_000 }), { code: 'AI_SOURCE_STALE' });
+    assert.equal(reads, before);
+    for (const maxContentChars of [0, -1, 1.5, Infinity, undefined]) {
+      if (maxContentChars === undefined) assert.equal((await access.verifyRead({ ...input, maxContentChars })).version.id, ordinary.version.id);
+      else await assert.rejects(access.verifyRead({ ...input, maxContentChars }), TypeError);
+    }
+    await access.narrowPolicy(policy.policyId, { revision: 1, revoke: true });
+    await assert.rejects(access.verifyRead({ ...input, maxContentChars: 0 }), { code: 'AI_ACCESS_REVOKED' });
   }) }
 ];

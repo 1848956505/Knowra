@@ -59,7 +59,7 @@ export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, max
       const scored = [];
       for (const candidate of candidates) {
         const { note, version, contentHash } = await access.verifyRead({ grantId,
-          noteId: candidate.noteId, tool: 'notes_search' });
+          noteId: candidate.noteId, tool: 'notes_search', maxContentChars: maxNoteChars });
         if (note.id !== candidate.noteId || version.noteId !== note.id || note.title !== candidate.title
           || version.id !== candidate.noteVersionId || contentHash !== candidate.contentHash
           || version.content.length > maxNoteChars) fail('AI_SOURCE_STALE', '检索期间来源已变化。');
@@ -85,7 +85,7 @@ export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, max
       const hits = scored.slice(0, limit);
       for (const hit of hits) {
         const { note, version, contentHash } = await access.verifyRead({ grantId,
-          noteId: hit.noteId, tool: 'notes_search' });
+          noteId: hit.noteId, tool: 'notes_search', maxContentChars: maxNoteChars });
         const { ref } = hit;
         if (note.id !== hit.noteId || ref.noteId !== note.id || version.noteId !== note.id || note.title !== hit.title
           || version.id !== ref.noteVersionId || contentHash !== ref.contentHash
