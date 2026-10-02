@@ -6,7 +6,7 @@ export function createKnowledgeExtractionHttpService({ tasks = null, location = 
   // 本批只验隔离 Web 宿主；本地运行服务的写屏障/退出恢复尚未接入，不能凭注入就宣称支持。
   const hostEnabled = () => location !== 'local' && enabled();
   let recovering = Boolean(tasks && hostEnabled()), recoveryFailed = false;
-  const recovery = Promise.resolve().then(async () => {
+  Promise.resolve().then(async () => {
     if (tasks && hostEnabled()) {
       if (!await tasks.ready()) { recoveryFailed = true; return; }
       await tasks.recover();
@@ -20,7 +20,7 @@ export function createKnowledgeExtractionHttpService({ tasks = null, location = 
     return Boolean(tasks && hostEnabled() && !recoveryFailed && await tasks.ready());
   }
   async function requireTasks() {
-    await recovery;
+    if (recovering) throw extractionHttpError({ code: 'KNOWLEDGE_EXTRACTION_RECOVERING' });
     if (!await available()) throw extractionUnavailable();
     return tasks;
   }

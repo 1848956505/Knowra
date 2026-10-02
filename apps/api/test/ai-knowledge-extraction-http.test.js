@@ -34,6 +34,57 @@ const request = input => ({ kind: 'knowledgeExtraction', ...input });
 const listUrl = (spaceId, tail = '') => `/jobs?kind=knowledgeExtraction&spaceId=${encodeURIComponent(spaceId)}${tail}`;
 
 export const aiKnowledgeExtractionHttpTests = [
+  { name: '02C 恢复中jobs立即503且不排队，核心可读写，完成后需新明确POST', async run() {
+    await fixture(async f => {
+      const held = Promise.withResolvers(), entered = Promise.withResolvers(), finished = Promise.withResolvers();
+      const recover = f.app.knowledgeExtractionTasks.recover;
+      f.app.knowledgeExtractionTasks.recover = async () => {
+        entered.resolve(); await held.promise;
+        try { return await recover(); } finally { finished.resolve(); }
+      };
+      let timer, requests;
+      try {
+        const http = await f.serve(f.app); await entered.promise;
+        const cap = (await call(http.origin, '/capabilities')).data.data.knowledgeExtraction;
+        assert.equal(cap.canStart, false); assert.equal(cap.canReadJobs, false);
+        assert.equal(cap.reasonCode, 'KNOWLEDGE_EXTRACTION_RECOVERING');
+        requests = Promise.all([
+          call(http.origin, '/jobs', request(f.input)), call(http.origin, listUrl(f.space.id)),
+          call(http.origin, '/jobs/missing'), call(http.origin, '/jobs/missing/cancel', {}),
+          call(http.origin, '/jobs/missing/retry', {})
+        ]);
+        const responses = await Promise.race([requests, new Promise(resolve => { timer = setTimeout(() => resolve(null), 1000); })]);
+        if (!responses) {
+          // 失败路径也释放宿主，记录旧实现是否在恢复结束后自动创建任务，避免悬挂测试。
+          held.resolve();
+          const delayed = await requests;
+          assert.fail(`恢复中请求被排队：恢复后HTTP=${delayed.map(value => value.status)},任务数=${f.app.dataStore.aiRepository.list('aiJob').length}`);
+        }
+        clearTimeout(timer);
+        for (const response of responses) {
+          assert.equal(response.status, 503); assert.equal(response.data.error.code, 'KNOWLEDGE_EXTRACTION_RECOVERING');
+          assert.equal(response.cacheControl, 'no-store');
+        }
+        assert.equal(f.app.dataStore.aiRepository.list('aiJob').length, 0);
+        assert.equal(f.app.dataStore.aiRepository.list('aiGrant').length, 0);
+        const created = await fetch(`${http.origin}/api/knowledge/notes`, { method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: f.space.id,
+            title: '恢复期间手动资料', rawMarkdown: '独立合成内容' }) });
+        assert.equal(created.status, 201);
+        const note = (await created.json()).data;
+        const read = await fetch(`${http.origin}/api/knowledge/notes/${note.id}`);
+        assert.equal(read.status, 200); assert.equal((await read.json()).data.title, '恢复期间手动资料');
+        held.resolve(); await finished.promise;
+        assert.equal((await call(http.origin, '/capabilities')).data.data.knowledgeExtraction.canStart, true);
+        assert.equal((await call(http.origin, listUrl(f.space.id))).data.data.items.length, 0);
+        assert.equal(f.app.dataStore.aiRepository.list('aiGrant').length, 0); assert.equal(f.mock.calls.length, 0);
+        const explicit = await call(http.origin, '/jobs', request(f.input));
+        assert.equal(explicit.status, 202); assert.equal(f.app.dataStore.aiRepository.list('aiJob').length, 1);
+        await call(http.origin, `/jobs/${explicit.data.data.jobId}/cancel`, {});
+        assert.equal(f.mock.calls.length, 0);
+      } finally { clearTimeout(timer); held.resolve(); await requests; }
+    }, { noServer: true });
+  } },
   { name: '02C 默认无任务reader，能力可读且jobs503，范围与手动知识不依赖AI', async run() {
     await fixture(async f => {
       assert.equal(f.app.knowledgeExtractionTasks, null);
