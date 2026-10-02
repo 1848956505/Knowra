@@ -38,4 +38,13 @@ describe('题目来源读取', () => {
     const result = await loadQuestionSource({ ...source, sourceType: 'knowledgeEvidence', sourceId: 'e1' }, dependencies());
     expect(result).toMatchObject({ content: '证据原摘录', notice: expect.stringContaining('需要重新核对') });
   });
+
+  it.each([['noteVersion', 'v1', '完整历史正文'], ['knowledgeEvidence', 'e-source', '来源知识摘录']])('直接知识来源中的 %s 可精确解析，目标知识可以不同', async (sourceType, sourceId, expected) => {
+    const input = dependencies();
+    const question = { ...input.question, sources: [{ id: 's-knowledge', sourceType: 'knowledgeItem', sourceId: 'k-source', quote: '直接知识来源', status: 'active' }] };
+    input.onListEvidence.mockImplementation(async id => id === 'k-source' ? [{ id: 'e-source', knowledgeItemId: 'k-source', noteId: 'n1', noteVersionId: 'v1', quoteText: '来源知识摘录', status: 'valid', headingPath: ['来源章节'] }] : []);
+    const result = await loadQuestionSource({ ...source, sourceType, sourceId, locator: null }, { ...input, question });
+    expect(result.content).toBe(expected);
+    expect(input.onListEvidence.mock.calls.map(call => call[0]).sort()).toEqual(['k-source', 'k1']);
+  });
 });
