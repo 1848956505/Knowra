@@ -33,6 +33,13 @@ async function preview(page) {
   await expect(previewDialog(page)).toContainText('数据增强通过变换样本增加训练变化。');
 }
 
+async function closeTasksWithEscape(page) {
+  const dialog = taskDialog(page);
+  await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+}
+
 async function start(page, host, step = 'success') {
   const before = jobRecords(host).length;
   host.next(step);
@@ -97,8 +104,7 @@ test('真实 Web Mock 提炼：关闭和刷新不取消，候选对照、个人�
     assert.equal(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
     await expect(dialog.getByRole('button', { name: '停止任务', exact: true })).toBeVisible();
     await screenshot(page, 'running-390');
-    await page.keyboard.press('Escape');
-    await expect(dialog).toHaveCount(0);
+    await closeTasksWithEscape(page);
     assert.equal((await host.app.knowledgeExtractionTasks.get(id)).status, 'running');
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.reload();
@@ -152,7 +158,7 @@ test('真实 Web Mock 提炼：取消晚响应、显式重试、失效授权和�
     assert.equal((await host.app.knowledgeExtractionTasks.get(cancelled)).status, 'cancelled');
     assert.equal(host.dataStore.state.knowledgeItems.length, 0);
     await screenshot(page, 'cancelled');
-    await page.keyboard.press('Escape');
+    await closeTasksWithEscape(page);
 
     const failed = await start(page, host, 'fail');
     await expect(taskDialog(page).getByRole('button', { name: '重试任务', exact: true })).toBeEnabled();
@@ -165,7 +171,7 @@ test('真实 Web Mock 提炼：取消晚响应、显式重试、失效授权和�
     assert.equal(jobRecords(host).length, 2);
     assert.equal(host.calls.length, 3);
     assert.equal(host.dataStore.state.knowledgeItems.length, 1);
-    await page.keyboard.press('Escape');
+    await closeTasksWithEscape(page);
 
     const expired = await start(page, host, 'fail');
     await expect(taskDialog(page).getByRole('button', { name: '重试任务', exact: true })).toBeEnabled();
@@ -176,7 +182,7 @@ test('真实 Web Mock 提炼：取消晚响应、显式重试、失效授权和�
     assert.equal((await host.app.knowledgeExtractionTasks.get(expired)).status, 'failed');
     assert.equal(host.calls.length, 4);
     await screenshot(page, 'expired-authorization');
-    await page.keyboard.press('Escape');
+    await closeTasksWithEscape(page);
 
     const empty = await start(page, host, 'empty');
     await expect(taskDialog(page)).toContainText('未发现可提炼内容，没有新增知识候选。');
@@ -188,7 +194,7 @@ test('真实 Web Mock 提炼：取消晚响应、显式重试、失效授权和�
       await expect(taskDialog(page).getByRole('button', { name: `查看任务 ${jobId}`, exact: true })).toBeVisible();
     }
     await screenshot(page, 'empty-success');
-    await page.keyboard.press('Escape');
+    await closeTasksWithEscape(page);
     await page.reload();
     await openAI(page, host, { navigate: false });
     await page.getByRole('button', { name: '查看提炼任务', exact: true }).click();
@@ -222,8 +228,7 @@ test('真实 Web Mock 提炼：关闭延迟读取后仍接纳新开始，旧列�
       await openAI(page, host);
       await page.getByRole('button', { name: '查看提炼任务', exact: true }).click();
       await ready;
-      await page.keyboard.press('Escape');
-      await expect(taskDialog(page)).toHaveCount(0);
+      await closeTasksWithEscape(page);
       const id = await start(page, host);
       await expect(taskDialog(page).getByRole('button', { name: '查看候选 1', exact: true })).toBeVisible();
       assert.equal(starts.length, 1);
