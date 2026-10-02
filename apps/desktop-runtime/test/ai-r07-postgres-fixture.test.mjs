@@ -69,8 +69,30 @@ test('R07 独立数据库清理可重复调用且不会留下合成库', {
   const name = new URL(fixture.databaseUrl).pathname.slice(1);
   const admin = new PrismaClient({ datasources: { db: { url: process.env.KNOWRA_SYNC_TEST_DATABASE_URL } }, log: [] });
   try {
-    await fixture.close();
+    await Promise.all([fixture.close(), fixture.close()]);
     await fixture.close();
     assert.deepEqual(await admin.$queryRawUnsafe('SELECT datname FROM pg_database WHERE datname=$1', name), []);
   } finally { try { await fixture.close(); } finally { await admin.$disconnect(); } }
+});
+
+test('R07 独立数据库关闭失败后释放占用连接可重试清理', {
+  skip: !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000
+}, async () => {
+  const { PrismaClient } = await import('@prisma/client');
+  const fixture = await createR07PostgresDatabase({ isolated: true });
+  const name = new URL(fixture.databaseUrl).pathname.slice(1);
+  const occupied = new PrismaClient({ datasources: { db: { url: fixture.databaseUrl } }, log: [] });
+  const admin = new PrismaClient({ datasources: { db: { url: process.env.KNOWRA_SYNC_TEST_DATABASE_URL } }, log: [] });
+  try {
+    await occupied.$connect();
+    await assert.rejects(fixture.close(), /R07 独立测试数据库清理失败/);
+    assert.equal((await admin.$queryRawUnsafe('SELECT datname FROM pg_database WHERE datname=$1', name)).length, 1);
+    await occupied.$disconnect();
+    await fixture.close();
+    assert.deepEqual(await admin.$queryRawUnsafe('SELECT datname FROM pg_database WHERE datname=$1', name), []);
+  } finally {
+    try { await occupied.$disconnect(); } finally {
+      try { await fixture.close(); } finally { await admin.$disconnect(); }
+    }
+  }
 });

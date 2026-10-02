@@ -20,17 +20,26 @@ export async function createR07PostgresDatabase({
   const { PrismaClient } = await import('@prisma/client');
   const admin = new PrismaClient({ datasources: { db: { url: url.toString() } }, log: [] });
   const name = `knowra_r07_${randomUUID().replaceAll('-', '')}_test`;
-  let fixture, created = false, closed = false;
-  const close = async () => {
-    if (closed) return;
-    closed = true;
-    const failures = [];
-    try { await fixture?.close(); } catch (error) { failures.push(error); }
-    // 名称只来自 UUID；只删除本次创建的库，不终止其他测试的连接。
-    try { if (created) await admin.$executeRawUnsafe(`DROP DATABASE "${name}"`); }
-    catch (error) { failures.push(error); }
-    try { await admin.$disconnect(); } catch (error) { failures.push(error); }
-    if (failures.length) throw new AggregateError(failures, 'R07 独立测试数据库清理失败');
+  let fixture, created = false, closed = false, closing;
+  const close = () => {
+    if (closed) return Promise.resolve();
+    if (closing) return closing;
+    // 并发关闭共用同一次清理；失败后允许释放占用连接再重试。
+    closing = (async () => {
+      const failures = [];
+      try { await fixture?.close(); } catch (error) { failures.push(error); }
+      // 名称只来自 UUID；只删除本次创建的库，不终止其他测试的连接。
+      try {
+        if (created) {
+          await admin.$executeRawUnsafe(`DROP DATABASE "${name}"`);
+          created = false;
+        }
+      } catch (error) { failures.push(error); }
+      try { await admin.$disconnect(); } catch (error) { failures.push(error); }
+      if (failures.length) throw new AggregateError(failures, 'R07 独立测试数据库清理失败');
+      closed = true;
+    })().finally(() => { closing = undefined; });
+    return closing;
   };
   try {
     await admin.$executeRawUnsafe(`CREATE DATABASE "${name}"`);
