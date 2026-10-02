@@ -28,6 +28,7 @@ esac
   echo '发布包清单与目标提交或运行平台不匹配。' >&2
   exit 1
 }
+node "$stage/scripts/release-artifact.mjs" --verify-linux "$stage" "$commit"
 test -f "$stage/apps/web-v4/dist/index.html"
 test -d "$stage/node_modules"
 test -f "$stage/packages/web-core/dist/index.js"

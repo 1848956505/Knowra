@@ -20,6 +20,7 @@ root="$(git rev-parse --show-toplevel)"
   exit 1
 }
 test -f "$root/apps/web-v4/dist/index.html"
+node "$root/scripts/release-artifact.mjs" --verify-web "$root" "$commit"
 test -f "$root/packages/web-core/dist/index.js"
 test -f "$root/packages/shared/src/attachments.js"
 test -f "$root/packages/shared/src/attachments.d.ts"
@@ -42,7 +43,7 @@ cp -a "$root/packages/web-core/dist/." "$stage/packages/web-core/dist/"
   node --input-type=module -e "await import('@study-accelerator/shared/attachments'); await import('./apps/api/src/app.factory.js'); await import('./apps/web-v4/server/app.mjs')"
 )
 
-printf '{"commit":"%s","platform":"linux-x64","nodeMajor":24}\n' "$commit" > "$stage/.knowra-release.json"
+node "$stage/scripts/release-artifact.mjs" --write-linux "$stage" "$commit"
 mkdir -p "$output_dir"
 archive="$output_dir/knowra-release-$commit.tar.gz"
 tar -C "$stage" -czf "$archive.tmp" .

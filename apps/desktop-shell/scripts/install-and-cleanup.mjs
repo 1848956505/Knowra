@@ -3,18 +3,23 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { assertBuildInfo, resolveBuildInfo } from '../../../scripts/build-info.mjs';
+import { assertDesktopBuild, assertMacDistribution } from '../../../scripts/release-artifact.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const source = path.join(repo, 'dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app');
 const installed = '/Applications/知境·Knowra.app';
 const trash = path.join(os.homedir(), '.Trash');
 const expectedId = 'com.knowra.personal';
-const expectedVersion = JSON.parse(fs.readFileSync(path.join(repo, 'package.json'), 'utf8')).version;
+const expected = assertBuildInfo(resolveBuildInfo(repo), { requireClean: true });
+const expectedVersion = expected.version;
+const expectedIdentity = { version: expectedVersion, commit: expected.commit, state: 'clean', requireClean: true };
 
 if (process.platform !== 'darwin') throw new Error('个人 Mac APP 安装仅支持 macOS。');
 if (process.argv.slice(2).length) throw new Error('此脚本不接受额外路径参数。');
 if (!fs.existsSync(path.join(repo, 'dist/mac/知境·Knowra-Mac-arm64.zip'))) throw new Error('缺少已打包的 APP 压缩包。');
 assertKnowraBundle(source, expectedVersion);
+assertMacDistribution(path.join(repo, 'dist/mac/知境·Knowra-Mac-arm64.zip'), source, expectedIdentity);
 if (isKnowraRunning()) throw new Error('知境·Knowra 正在运行，请先正常退出并确认草稿已保存，再重新运行 npm run build:mac。');
 if (fs.existsSync(installed)) assertKnowraBundle(installed);
 
@@ -23,6 +28,7 @@ if (fs.existsSync(staged)) throw new Error(`临时安装位置已存在：${stag
 execFileSync('/usr/bin/ditto', [source, staged]);
 try {
   assertKnowraBundle(staged, expectedVersion);
+  assertDesktopBuild(staged, expectedIdentity);
   const previous = fs.existsSync(installed) ? moveToTrash(installed) : null;
   try {
     fs.renameSync(staged, installed);
@@ -52,7 +58,7 @@ for (const candidate of new Set(oldApps)) {
   moveToTrash(candidate);
   cleaned += 1;
 }
-console.log(`已安装唯一正式 APP：${installed}（v${expectedVersion}）；${cleaned} 个旧/重复 Knowra APP 已移入废纸篓。`);
+console.log(`已安装唯一正式 APP：${installed}（v${expectedVersion}，${expected.commit}，clean）；${cleaned} 个旧/重复 Knowra APP 已移入废纸篓。`);
 
 function backupApps(directory) {
   if (!fs.existsSync(directory)) return [];
@@ -70,6 +76,11 @@ function assertKnowraBundle(application, version) {
   if (bundleId !== expectedId) throw new Error(`APP 标识不符，拒绝覆盖或清理：${application}`);
   const actualVersion = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', plist], { encoding: 'utf8' }).trim();
   if (version && actualVersion !== version) throw new Error(`APP 版本不符：预期 ${version}，实际 ${actualVersion}（${application}）`);
+  if (version) {
+    const actualCommit = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :KnowraBuildCommit', plist], { encoding: 'utf8' }).trim();
+    const actualState = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :KnowraBuildState', plist], { encoding: 'utf8' }).trim();
+    if (actualCommit !== expected.commit || actualState !== 'clean') throw new Error(`APP 提交或构建状态不符：${application}`);
+  }
   if (version) execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', application]);
 }
 
