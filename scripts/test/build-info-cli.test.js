@@ -14,7 +14,7 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const file of manifests) writeJson(path.join(root, file), { version: '2.27.2' });
   fs.mkdirSync(path.join(root, 'scripts'));
-  for (const file of ['build-info.mjs', 'release-artifact.mjs']) {
+  for (const file of ['build-info.mjs', 'release-artifact.mjs', 'cli-entry.mjs']) {
     fs.copyFileSync(path.resolve(import.meta.dirname, '..', file), path.join(root, 'scripts', file));
   }
   fs.writeFileSync(path.join(root, '.gitignore'), '.aliases/\n');
@@ -86,5 +86,34 @@ test('真实构建 CLI 经普通、目录与文件符号链接入口执行 clean
     assert.equal(visibleUnknown.status, 0, visibleUnknown.stderr);
     const unknownInfo = JSON.parse(visibleUnknown.stdout);
     assert.equal(unknownInfo.commit, null); assert.equal(unknownInfo.state, 'unknown');
+  }
+});
+
+test('stdin/eval 导入两个 helper 可用，附加非文件或模块路径参数不执行 CLI', t => {
+  const { root } = fixture(t);
+  const buildInfo = { schemaVersion: 1, version: '2.27.2', commit, state: 'clean', source: 'git', builtAt: '2026-10-02T00:00:00.000Z' };
+  writeJson(path.join(root, 'apps/web-v4/dist/build-info.json'), buildInfo);
+  const source = `
+    import { pathToFileURL } from 'node:url';
+    const root = ${JSON.stringify(root)};
+    const build = await import(pathToFileURL(root + '/scripts/build-info.mjs'));
+    const release = await import(pathToFileURL(root + '/scripts/release-artifact.mjs'));
+    const identity = build.assertBuildInfo(build.resolveBuildInfo(root, { env: {} }));
+    const web = release.assertWebBuild(root, ${JSON.stringify(commit)});
+    console.log(JSON.stringify({ version: identity.version, state: identity.state, webCommit: web.commit }));
+  `;
+  const variants = [
+    { args: ['--input-type=module', '-', '--write-linux', root, commit], input: source },
+    { args: ['--input-type=module', '-e', source, 'non-file-entry', '--write-linux', root, commit] },
+    { args: ['--input-type=module', '--eval', source, path.join(root, 'scripts/build-info.mjs'), '--require-clean'] },
+    { args: ['--input-type=module', `--eval=${source}`, path.join(root, 'scripts/release-artifact.mjs'), '--write-linux', root, commit] }
+  ];
+  for (const { args, input } of variants) {
+    const result = spawnSync(process.execPath, args, {
+      cwd: root, input, encoding: 'utf8', env: { ...process.env, KNOWRA_BUILD_COMMIT: '', KNOWRA_BUILD_STATE: '' }
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), { version: '2.27.2', state: 'unknown', webCommit: commit });
+    assert.equal(fs.existsSync(path.join(root, '.knowra-release.json')), false, 'helper 导入不得执行写发布清单 CLI');
   }
 });

@@ -115,7 +115,7 @@ function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) 
     mkdirSync(path.dirname(path.join(stage, file)), { recursive: true });
     writeFileSync(path.join(stage, file), JSON.stringify({ version: buildInfo.version }));
   }
-  for (const file of ['build-info.mjs', 'release-artifact.mjs']) {
+  for (const file of ['build-info.mjs', 'release-artifact.mjs', 'cli-entry.mjs']) {
     writeFileSync(path.join(stage, 'scripts', file), readFileSync(path.join(workspaceRoot, 'scripts', file)));
   }
   writeFileSync(path.join(stage, 'apps/web-v4/dist/build-info.json'), JSON.stringify(buildInfo));

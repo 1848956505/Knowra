@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { isDirectExecution } from './cli-entry.mjs';
 
 const commitPattern = /^[0-9a-f]{40}$/;
 const manifests = ['package.json', 'apps/api/package.json', 'apps/web/package.json', 'apps/web-v4/package.json'];
@@ -52,8 +53,7 @@ export function readBuildInfo(file, expected) {
   return assertBuildInfo(JSON.parse(fs.readFileSync(file, 'utf8')), expected);
 }
 
-// Node 规范化模块路径；argv 仍可能保留 /var 别名或文件/目录符号链接。
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
+if (isDirectExecution(import.meta.url)) {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const info = assertBuildInfo(resolveBuildInfo(root), { requireClean: process.argv.includes('--require-clean') });
   console.log(JSON.stringify(info, null, 2));
