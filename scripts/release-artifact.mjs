@@ -47,7 +47,8 @@ export function assertLinuxRelease(root, commit) {
   return manifest;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// 以真实文件身份判定 CLI，避免路径别名使发布校验静默跳过。
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   const [action, root, commit] = process.argv.slice(2);
   if (action === '--verify-web') assertWebBuild(root, commit);
   else if (action === '--verify-linux') assertLinuxRelease(root, commit);

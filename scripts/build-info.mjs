@@ -52,7 +52,8 @@ export function readBuildInfo(file, expected) {
   return assertBuildInfo(JSON.parse(fs.readFileSync(file, 'utf8')), expected);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Node 规范化模块路径；argv 仍可能保留 /var 别名或文件/目录符号链接。
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const info = assertBuildInfo(resolveBuildInfo(root), { requireClean: process.argv.includes('--require-clean') });
   console.log(JSON.stringify(info, null, 2));
