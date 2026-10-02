@@ -14,3 +14,15 @@
 .form, .dialogContent { display: grid; gap: 14px; }
 .dialogContent ul { max-height: 180px; overflow: auto; padding-left: 22px; overflow-wrap: anywhere; }
 @media (max-width: 680px) { .body { padding: 16px; } .cards { grid-template-columns: 1fr; } }
+.questionBody { display: flex; flex-direction: column; overflow: hidden; padding: 20px; gap: 12px; }
+.questionLayout { flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(280px, 32%) minmax(0, 1fr); gap: 20px; }
+.questionList, .detailPanel { min-height: 0; min-width: 0; overflow: auto; border: 1px solid var(--ink-panel); background: var(--ink-surface); overscroll-behavior: contain; }
+.questionRows { display: grid; align-content: start; }
+.questionRows .card { border: 0; border-bottom: 1px solid var(--ink-panel); border-left: 3px solid transparent; box-shadow: none; padding: 18px 16px; background: var(--ink-surface); }
+.questionRows .selected { border-left-color: var(--ink-accent); background: var(--index-blue-wash); }
+.questionRows h2 { font-size: 15px; }
+.questionRows .meta { min-height: 0; margin-block: 10px; color: var(--ink-secondary); }
+.emptyDetail { display: grid; align-content: center; min-height: 100%; padding: 28px; text-align: center; color: var(--ink-secondary); }
+.emptyDetail h2 { font: 800 18px/1.5 var(--font-ui); color: var(--ink); }
+.emptyDetail p { font: 13px/1.8 var(--font-ui); }
+@media (max-width: 760px) { .questionBody { overflow: auto; padding: 14px; } .questionLayout { display: flex; flex-direction: column; flex: 0 0 auto; gap: 14px; } .questionList { max-height: 260px; flex: 0 0 auto; } .detailPanel { min-height: 360px; overflow: visible; } }
