@@ -1,0 +1,63 @@
+name: knowra-acceptance-${KNOWRA_TEST_INSTANCE:?需要独立测试实例ID}
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: knowra_acceptance_${KNOWRA_TEST_INSTANCE}
+      POSTGRES_USER: knowra_acceptance_${KNOWRA_TEST_INSTANCE}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [database:/var/lib/postgresql/data]
+    networks: [private]
+    mem_limit: 384m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    image: knowra-isolated-test:${KNOWRA_TEST_RELEASE:?需要固定提交标签}
+    build:
+      context: ../..
+      dockerfile: deploy/isolated-test/Dockerfile
+    environment:
+      KNOWRA_TEST_INSTANCE: ${KNOWRA_TEST_INSTANCE}
+      KNOWRA_TEST_DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    networks: [private]
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: [node, scripts/migrate-isolated-test.mjs]
+    mem_limit: 384m
+    cpus: 0.5
+  app:
+    image: knowra-isolated-test:${KNOWRA_TEST_RELEASE}
+    environment:
+      KNOWRA_TEST_INSTANCE: ${KNOWRA_TEST_INSTANCE}
+      KNOWRA_TEST_DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+      KNOWRA_TEST_PUBLIC_ORIGIN: ${KNOWRA_TEST_PUBLIC_ORIGIN:-}
+    secrets: [postgres_password]
+    volumes: [instance:/var/lib/knowra-test]
+    # internal-only网络不发布宿主端口；仅app增加普通桥接网，PG/迁移仍只在private。
+    networks: [private, access]
+    ports: ["127.0.0.1:${KNOWRA_TEST_PORT:?需要独立回环端口}:43100"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    init: true
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:43100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+networks:
+  private: {internal: true}
+  access: {}
+volumes:
+  database: {}
+  instance: {}
+secrets:
+  postgres_password:
+    file: ${KNOWRA_TEST_DATABASE_PASSWORD_FILE:?密码文件须由获授权维护者安全提供}

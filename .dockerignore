@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+.git
+.agents
+.codex
+.aws
+storage
+**/evidence
+**/*.log
+**/.env*
+**/*.pem
+**/*.key
+**/*htpasswd*

@@ -1,0 +1,16 @@
+# 仅用于获授权的独立验收主机。域名/证书/专用认证须另获批准并由维护者配置。
+# 不覆盖生产站点，不复用生产密码文件。容器上游只发布到该主机回环。
+server {
+    listen 443 ssl;
+    server_name test.example.invalid;
+    ssl_certificate /etc/letsencrypt/live/test.example.invalid/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/test.example.invalid/privkey.pem;
+    client_max_body_size 100m;
+    auth_basic "Knowra Synthetic Test";
+    auth_basic_user_file /etc/nginx/knowra-tests/acceptance.htpasswd;
+    location / {
+        proxy_pass http://127.0.0.1:43100;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
