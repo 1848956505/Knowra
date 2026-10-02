@@ -2,6 +2,7 @@ import type { AttachmentDeleteResult, AttachmentDeletionPreflight, AttachmentCle
 import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
+import { requestCommandNoteSearch, type CommandNoteSearcher } from './command-note-search.js';
 import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, Tag, TagColor, TagGroup } from '../workspace/types.js';
 
 export interface WorkspaceResources {
@@ -252,6 +253,7 @@ export interface WorkspaceApi {
   readoptKnowledgeEvidence?(id: string, evidenceId: string, input?: RetireKnowledgeEvidenceInput): Promise<KnowledgeEvidenceMutationResult>;
   loadWorkspaceResources(spaceId: string): Promise<WorkspaceResources>;
   searchNoteIds(input: { query?: string; spaceId?: string }): Promise<string[]>;
+  searchCommandNotes?: CommandNoteSearcher;
   listKnowledgeSpaces(): Promise<KnowledgeSpace[]>;
   createDefaultKnowledgeSpace(): Promise<KnowledgeSpace>;
   createKnowledgeSpace?(input: { name: string }): Promise<KnowledgeSpace>;
@@ -439,6 +441,7 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       ].map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&');
       return asArray<string>(getData(await requestJson(`/api/knowledge/search/notes?${params}`)));
     },
+    searchCommandNotes: (input) => requestCommandNoteSearch(requestJson, input),
     async listKnowledgeSpaces() {
       return asArray<KnowledgeSpace>(getData(await requestJson('/api/knowledge/spaces')));
     },

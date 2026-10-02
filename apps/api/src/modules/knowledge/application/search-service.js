@@ -1,9 +1,17 @@
+import { assertCommandSearchOwner, commandSearchInput, commandSearchResults } from './command-note-search.js';
+
 function normalizeQuery(value) {
   return value?.trim().toLowerCase() || '';
 }
 
-export function createSearchService({ listNotes }) {
-  return {
+export function createSearchService({ listNotes, findKnowledgeSpace }) {
+  const service = {
+    searchCommandNotes(input, ownerId) {
+      const scoped = commandSearchInput(input);
+      assertCommandSearchOwner(findKnowledgeSpace(scoped.spaceId), ownerId);
+      const notes = service.searchNotes({ ...scoped, includeDeleted: false, deletedOnly: false });
+      return commandSearchResults(notes, scoped);
+    },
     searchNotes({ query, spaceId, folderId = null, tagId = null, tagIds = [], tagMatch, match, sortBy, order, limit, offset, includeDeleted, deletedOnly, favoriteOnly }) {
       const normalizedQuery = normalizeQuery(query);
 
@@ -41,4 +49,5 @@ export function createSearchService({ listNotes }) {
       return results;
     }
   };
+  return service;
 }
