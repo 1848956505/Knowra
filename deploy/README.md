@@ -39,6 +39,8 @@ Node 服务的 `3000`、`3001` 端口只供本机 Nginx 与 Web 代理访问，�
 
 完整单元/集成测试和 E2E 只在 CI 或独立验收机执行。按需发布时，Codex 在已登录 GitHub 且已有 ECS SSH 权限的 Mac 上运行 `scripts/deploy-ci-release.sh <main 的完整提交 SHA> root@47.95.236.184`。脚本只接受当前 `main` 且 CI 成功的提交，下载并核对发布包，再通过 SSH 交给服务器激活。用户无需手动下载或上传。
 
+V4 构建在 `dist/build-info.json` 和设置 → 关于知境记录版本、完整提交 SHA、clean/dirty/unknown、来源和 UTC 时间。CI 在构建后核对 SHA 等于本次 checkout；Linux 发布包的 `.knowra-release.json` 保存同一 `buildInfo`。打包与激活都核对四个正式应用版本、前端及发布清单，非 clean、缺失标识或同版本旧 SHA 在切换进程前停止。打包校验不会为旧前端文件补写新 SHA。Mac 分发的构建核对方法见[使用说明](../docs/离线编辑与同步/Mac个人应用-构建与使用.md)。
+
 `scripts/activate-ci-release.sh` 在服务器上确认提交与 GitHub `main` 一致，备份 `storage/data` 和 `storage/uploads`，对旧版与候选版分别执行附件完整性只读检查；随后将独立发布目录切为 `current`，从新目录重建 PM2 进程并核对实际执行路径及本机 API/Web 健康。进程切换期间有短暂重启窗口；失败时恢复上一运行目录。服务器保留 `/opt/knowra/storage` 作为唯一真源，不在生产机执行 `npm ci`、测试或前端构建。首次成功后 `/opt/knowra` 仍保留 Git 仓库供备份任务记录提交；`current` 指向实际运行版本。Nginx 路由不变。
 
 发布成功后删除本次传输的压缩包与校验文件，保留发布目录及备份供回滚；定期查看 `.deploy-releases/` 和 `/opt/knowra-backups/` 的占用后再清理过旧记录。

@@ -66,6 +66,22 @@ test('PM2 沿用旧执行路径时拒绝成功并恢复旧进程', { skip: !supp
   }
 });
 
+test('同版本旧前端 SHA 或 dirty 构建在备份/进程切换前被拒绝', { skip: !supported }, () => {
+  for (const replacement of [{ commit: oldCommit }, { state: 'dirty' }]) {
+    const fixture = createFixture();
+    try {
+      const file = path.join(fixture.stage, 'apps/web-v4/dist/build-info.json');
+      writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), ...replacement }));
+      const result = run(fixture);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /构建标识|dirty\/unknown/);
+      assert.equal(readFileSync(fixture.calls, 'utf8'), '');
+      assert.equal(existsSync(fixture.backupRoot), false);
+      assert.equal(existsSync(path.join(fixture.root, 'current')), false);
+    } finally { fixture.cleanup(); }
+  }
+});
+
 function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) {
   const base = mkdtempSync(path.join(tmpdir(), 'knowra-ci-release-'));
   const root = path.join(base, 'root');
@@ -94,7 +110,16 @@ function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) 
   writeFileSync(path.join(root, 'apps', 'web-v4', 'dist', 'assets', 'old.js'), 'old asset');
   writeFileSync(path.join(stage, 'apps', 'web-v4', 'dist', 'index.html'), 'new index');
   writeFileSync(path.join(stage, 'packages', 'web-core', 'dist', 'index.js'), 'export {}\n');
-  writeFileSync(path.join(stage, '.knowra-release.json'), JSON.stringify({ commit: nextCommit, platform: 'linux-x64', nodeMajor: 24 }));
+  const buildInfo = { schemaVersion: 1, version: '2.27.2', commit: nextCommit, state: 'clean', source: 'git', builtAt: '2026-10-02T00:00:00.000Z' };
+  for (const file of ['package.json', 'apps/api/package.json', 'apps/web/package.json', 'apps/web-v4/package.json']) {
+    mkdirSync(path.dirname(path.join(stage, file)), { recursive: true });
+    writeFileSync(path.join(stage, file), JSON.stringify({ version: buildInfo.version }));
+  }
+  for (const file of ['build-info.mjs', 'release-artifact.mjs', 'cli-entry.mjs']) {
+    writeFileSync(path.join(stage, 'scripts', file), readFileSync(path.join(workspaceRoot, 'scripts', file)));
+  }
+  writeFileSync(path.join(stage, 'apps/web-v4/dist/build-info.json'), JSON.stringify(buildInfo));
+  writeFileSync(path.join(stage, '.knowra-release.json'), JSON.stringify({ commit: nextCommit, platform: 'linux-x64', nodeMajor: 24, buildInfo }));
   writeFileSync(path.join(root, '.deploy-incoming', 'candidate', `knowra-release-${nextCommit}.tar.gz`), 'archive');
   writeFileSync(path.join(root, '.deploy-incoming', 'candidate', `knowra-release-${nextCommit}.tar.gz.sha256`), 'checksum');
   writeFileSync(calls, '');

@@ -1,6 +1,6 @@
 {
   "name": "study-accelerator",
-  "version": "2.27.1",
+  "version": "2.27.2",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -38,7 +38,7 @@
     "migrate:postgres": "node scripts/migrate-json-to-postgres.mjs",
     "check:attachments": "node scripts/check-attachments.mjs",
     "measure:assets": "node scripts/measure-asset-storage.mjs",
-    "build:mac": "npm run build:web && npm run build -w @study-accelerator/desktop-shell && npm test -w @study-accelerator/desktop-shell && node apps/desktop-shell/scripts/install-and-cleanup.mjs",
+    "build:mac": "node scripts/build-info.mjs --require-clean && npm run build:web && npm run build -w @study-accelerator/desktop-shell && npm test -w @study-accelerator/desktop-shell && node apps/desktop-shell/scripts/install-and-cleanup.mjs",
     "test:shared": "npm test -w @study-accelerator/shared"
   },
   "devDependencies": {

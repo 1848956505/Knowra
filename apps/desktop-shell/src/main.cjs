@@ -101,6 +101,10 @@ else {
     else pendingClose.reject(String(result.message || '保存未完成').slice(0, 500));
   });
   app.whenReady().then(async () => {
+    const buildInfo = JSON.parse(fs.readFileSync(path.join(root, 'build-info.json'), 'utf8'));
+    app.setAboutPanelOptions({ applicationName: '知境·Knowra', applicationVersion: buildInfo.version,
+      version: `${buildInfo.commit || 'unknown'} · ${buildInfo.state}`,
+      copyright: `构建时间（UTC）：${buildInfo.builtAt}\n标识来源：${buildInfo.source}` });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: '知境·Knowra', submenu: [{ role: 'about', label: '关于知境·Knowra' }, { type: 'separator' }, { label: '打开本机资料目录', click: () => { void shell.openPath(dataDirectory); } }, { type: 'separator' }, { role: 'hide', label: '隐藏知境·Knowra' }, { role: 'hideOthers', label: '隐藏其他应用' }, { role: 'unhide', label: '显示全部' }, { type: 'separator' }, { label: '退出知境·Knowra', accelerator: 'Command+Q', click: () => { void quitSafely(); } }] },
       { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
@@ -143,7 +147,7 @@ else {
     await window.loadURL(ready.launchUrl);
     window.show();
     log(`启动完成，Electron ${process.versions.electron}，Node ${process.versions.node}`);
-    if (smokeDirectory) fs.writeFileSync(path.join(smokeDirectory, 'ready.json'), JSON.stringify({ origin, node: process.versions.node, electron: process.versions.electron }));
+    if (smokeDirectory) fs.writeFileSync(path.join(smokeDirectory, 'ready.json'), JSON.stringify({ origin, node: process.versions.node, electron: process.versions.electron, buildInfo }));
   }).catch(error => {
     log(`启动失败：${error.message}`);
     dialog.showErrorBox('无法启动知境·Knowra', `${error.message}\n\n资料目录：${dataDirectory}`);

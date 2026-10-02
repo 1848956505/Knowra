@@ -1,6 +1,6 @@
 # Mac 个人应用：构建与使用
 
-> 2026-09-22（2.26.0）。面向 Apple Silicon Mac 的个人使用版本。交付 `.app`，不走 App Store，不配置 Developer ID、公证或自动更新。本轮通过隔离资料库进行自动化验收，无需用户远程手动测试。
+> 2026-10-02（准备 2.27.2）。面向 Apple Silicon Mac 的个人使用版本。交付 `.app`，不走 App Store，不配置 Developer ID、公证或自动更新。验收使用隔离资料库；构建版本不等同于已经安装或已经发布。
 
 ## 打开应用
 
@@ -21,7 +21,7 @@
 - 恢复前自动创建“恢复前保护”备份，原资料及待同步修改保留。恢复写入 `offline/restored/<编号>`，由 `offline/active-dataset.json` 选择活动资料；不要只复制根目录的 `local.sqlite` 作为当前备份。
 - 恢复完成后点击“重新加载已恢复资料”，核对正文和附件，再主动连接云端。旧窗口必须重新加载后才能读写业务数据；旧恢复草稿保留导出入口，不自动覆盖恢复后的正文。
 - CLI 独立救援导出会读取当前活动资料集并保留根目录恢复草稿。恢复与独立救援导出命令见阶段 4/5 文档。
-- 更新前先正常退出应用。构建脚本会验证签名与版本、运行打包 APP 测试、安装新版，再将旧安装包及仓库内历史 `.app` 副本移入废纸篓；不会清除独立资料目录，旧程序可从废纸篓恢复。升级前仍建议在应用内检查资料备份。
+- 更新前先正常退出应用。正式入口要求干净工作树，验证签名、版本、完整提交 SHA、内置前端身份及 ZIP 校验和，运行打包 APP 测试、安装新版，再将旧安装包及仓库内历史 `.app` 副本移入废纸篓；不会清除独立资料目录，旧程序可从废纸篓恢复。升级前仍建议在应用内检查资料备份。
 
 个人版本采用本地 ad-hoc 签名，不是 Apple Developer ID 分发签名。若 macOS 拦截首次打开，按系统提供的“隐私与安全性”提示处理；不需要关闭全局安全保护。该构建未作其他 Mac、Intel 架构或所有 macOS 版本的兼容承诺。
 
@@ -33,6 +33,25 @@ npm run build:mac
 ```
 
 输出：唯一正式 APP `/Applications/知境·Knowra.app`，以及分发包 `dist/mac/知境·Knowra-Mac-arm64.zip`。构建过程中的 `dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app` 仅供自动化验收，安装完成后会移入废纸篓，避免 Finder 出现重复 APP。可通过 `KNOWRA_ELECTRON_ZIP_DIR` 指向已下载的 Electron ZIP 缓存目录，避免重复下载。版本锁定在 lockfile；应用内置 Electron 运行环境，SQLite 在独立 utility process 中运行。
+
+## 核对构建与隔离验收
+
+设置 → 关于知境，以及 macOS 菜单 → 关于知境·Knowra，可查看应用版本、完整提交 SHA、构建状态和 UTC 时间。`clean` 表示构建时没有未提交的源码修改；`dirty` 明确表示含未提交修改，`unknown` 表示无法确认。SHA 是构建时实际检出的提交；PR 合并后产生不同 SHA 时，已有包仍保留原始来源，不覆盖为合并提交。需要交付合并提交包时，应重新构建。
+
+APP 的 `Contents/Resources/app/build-info.json` 和 `web/build-info.json` 必须完全一致。`Contents/Info.plist` 也记录提交与状态。ZIP 旁的 `知境·Knowra-Mac-arm64.zip.build-info.json` 记录同一身份与 ZIP 的 SHA-256；分发时一起保留。正式安装校验当前工作树的版本/HEAD 和产物，未知/脏树、缺少标识或同版本旧 SHA 都会停止。
+
+只生成隔离产物、不安装或清理用户 APP：
+
+```bash
+npm run build:web
+npm run build -w @study-accelerator/desktop-shell
+# 可复制生成的 APP 到临时目录，并用此变量指定验收副本。
+KNOWRA_DESKTOP_TEST_APP=/tmp/knowra-验收/知境·Knowra.app node --test apps/desktop-shell/test/packaged-build-info.test.mjs
+```
+
+桌面打包测试自行创建 `KNOWRA_DESKTOP_SMOKE_DIR` 合成资料目录，不自动回退到 `/Applications`。本批验收不运行 `packaged-list.test.mjs`（会写系统剪贴板）；需要完整验收时，需另行允许该测试。`npm run build:mac` 是安装并清理入口，不能用于仅构建验收。
+
+没有 `.git` 的源码导出或容器构建，默认记录未知 SHA/状态。可在进程环境显式提供 `KNOWRA_BUILD_COMMIT=<40位小写SHA>`；不提供 `KNOWRA_BUILD_STATE` 时仍为 `unknown`。受控构建者确认来源后才可显式提供 `clean` 或 `dirty`，信息来源显示为 `external`，不宣称是本地 Git 核验。隔离 Dockerfile 支持同名 `--build-arg`。Git 工作树中，显式输入必须与实际 HEAD/状态相同。发布身份不读取开发 `.env`；正式安装和 Linux 发布均要求完整 SHA 与 `clean`。
 
 打包仅收集主进程、隔离 preload、编译后的本地服务和 V4 资源；不包含仓库 `storage/`、`.env`、云端凭据或测试资料。PostgreSQL 客户端不随本机服务分发，本机固定使用 SQLite，云端通过 HTTP 同步。
 

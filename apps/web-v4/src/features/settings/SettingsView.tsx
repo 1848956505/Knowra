@@ -12,6 +12,7 @@ import { PathTrail } from '../../shell/PathTrail';
 import { SettingsIcon } from '../../components/icons/knowra';
 import type { AppPreferences, NoteFontSize } from './preferences';
 import { ModelConnectionSettings } from './ModelConnectionSettings';
+import { BuildInformation } from './BuildInformation';
 import styles from './SettingsView.module.css';
 
 interface SettingsViewProps {
@@ -21,14 +22,15 @@ interface SettingsViewProps {
   onSidebarOpenChange(open: boolean): void;
 }
 
-type SettingsCategory = 'all' | 'workspace' | 'reading' | 'accessibility' | 'model';
+type SettingsCategory = 'all' | 'workspace' | 'reading' | 'accessibility' | 'model' | 'about';
 
 const categories: { id: SettingsCategory; label: string; count: number }[] = [
-  { id: 'all', label: '全部设置', count: 4 },
+  { id: 'all', label: '全部设置', count: 5 },
   { id: 'workspace', label: '工作区', count: 1 },
   { id: 'reading', label: '阅读与编辑', count: 1 },
   { id: 'accessibility', label: '辅助体验', count: 1 },
-  { id: 'model', label: '模型接入', count: 1 }
+  { id: 'model', label: '模型接入', count: 1 },
+  { id: 'about', label: '关于知境', count: 1 }
 ];
 
 const fontSizes: { value: NoteFontSize; label: string }[] = [
@@ -131,10 +133,11 @@ export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, on
         </section> : null}
 
         {category === 'all' || category === 'model' ? <ModelConnectionSettings /> : null}
+        {category === 'all' || category === 'about' ? <BuildInformation /> : null}
       </div>
     </WorkspacePanelBody>
     <WorkspacePanelFooter>
-      <span>显示 {selectedCategory.count} / 4 项设置</span>
+      <span>显示 {selectedCategory.count} / 5 项设置</span>
       <span>个人偏好即时保存 · 模型配置手动保存</span>
     </WorkspacePanelFooter>
   </WorkspacePanel>;
