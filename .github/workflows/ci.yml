@@ -15,6 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  isolated-image:
+    name: Isolated test image and PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Build and verify isolated synthetic containers
+        run: bash scripts/smoke-isolated-compose.sh
   verify:
     name: Node 24 · build and test
     runs-on: ubuntu-24.04
