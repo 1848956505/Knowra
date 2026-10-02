@@ -52,6 +52,11 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     }
     return false;
   }
+  function listedNoteInScope(policy, note, byId) {
+    return !note.deleted && note.spaceId === policy.spaceId && !policy.excludedNoteIds.includes(note.id)
+      && (policy.scope.kind !== 'fixed' || policy.scope.noteIds.includes(note.id))
+      && (policy.scope.kind !== 'folder' || withinFolder(note.folderId, policy.scope.folderId, byId));
+  }
   async function noteInScope(policy, noteId) {
     const note = await read(noteRepository.findById(noteId));
     if (!note || note.deleted || note.spaceId !== policy.spaceId || policy.excludedNoteIds.includes(noteId)) {
@@ -64,10 +69,15 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     }
     return note;
   }
-  async function currentVersion(note) {
+  async function currentVersion(note, maxContentChars = null) {
+    if (maxContentChars !== null && note.rawMarkdown.length > maxContentChars) {
+      fail('AI_SOURCE_STALE', '来源当前正文超出本次检索上限。');
+    }
     const contentHash = calculateContentHash(note.rawMarkdown);
     const version = await read(noteVersionRepository.findByNoteIdAndContentHash(note.id, contentHash));
-    if (!version || version.contentHash !== contentHash || calculateContentHash(version.content) !== contentHash) {
+    if (!version || typeof version.content !== 'string'
+      || maxContentChars !== null && version.content.length > maxContentChars
+      || version.contentHash !== contentHash || calculateContentHash(version.content) !== contentHash) {
       fail('AI_SOURCE_STALE', '来源当前版本不可用。');
     }
     return { version, contentHash };
@@ -219,10 +229,13 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
       ownerId, datasetId: policy.datasetId, datasetEpoch: policy.datasetEpoch, spaceId: policy.spaceId,
       allowedTools: [...allowedTools].sort(), maxBudgetMicrounits, issuedAt, expiresAt: end });
   }
-  async function verifyRead({ grantId, noteId, tool = 'notes_read' }) {
+  async function verifyRead({ grantId, noteId, tool = 'notes_read', maxContentChars = null }) {
     const { policy } = await activeGrant(grantId, tool);
     const note = await noteInScope(policy, noteId);
-    const { version, contentHash } = await currentVersion(note);
+    if (maxContentChars !== null && (!Number.isSafeInteger(maxContentChars) || maxContentChars < 1)) {
+      throw new TypeError('Trusted read content limit must be null or a positive safe integer');
+    }
+    const { version, contentHash } = await currentVersion(note, maxContentChars);
     return { note, version, contentHash };
   }
   async function listAuthorizedNotes({ grantId }) {
@@ -231,14 +244,60 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     const notes = await read(noteRepository.list({ spaceId: policy.spaceId }));
     const result = [];
     for (const note of notes) {
-      if (note.deleted || note.spaceId !== policy.spaceId || policy.excludedNoteIds.includes(note.id)
-        || policy.scope.kind === 'fixed' && !policy.scope.noteIds.includes(note.id)
-        || policy.scope.kind === 'folder' && !withinFolder(note.folderId, policy.scope.folderId, byId)) continue;
+      if (!listedNoteInScope(policy, note, byId)) continue;
       const { version, contentHash } = await currentVersion(note);
       result.push({ noteId: note.id, title: note.title, noteVersionId: version.id, contentHash });
     }
     return result;
   }
+  // 受信宿主传入纯评分函数；未授权笔记不进入正文谓词，候选不携带可外发正文。
+  async function findAuthorizedSearchCandidates({ grantId, scoreNote, maxCandidates,
+    maxScanNotes, maxScanChars, maxNoteChars }) {
+    if (typeof scoreNote !== 'function' || [maxCandidates, maxScanNotes, maxScanChars, maxNoteChars]
+      .some(value => !Number.isSafeInteger(value) || value < 1)) {
+      throw new TypeError('Authorized candidate scan needs positive work limits and a scorer');
+    }
+    let { policy } = await activeGrant(grantId, 'notes_search');
+    const notes = await read(noteRepository.list({ spaceId: policy.spaceId }));
+    ({ policy } = await activeGrant(grantId, 'notes_search'));
+    const byId = policy.scope.kind === 'folder' ? await folders(policy.spaceId) : null;
+    await activeGrant(grantId, 'notes_search');
+    const pool = [], limitedBy = new Set();
+    const coverage = { scannedNotes: 0, scannedChars: 0, matchedNotes: 0, skippedOversize: 0 };
+    const compare = (a, b) => b.score - a.score || a.note.id.localeCompare(b.note.id);
+    for (const note of notes) {
+      if (!listedNoteInScope(policy, note, byId)) continue;
+      if (coverage.scannedNotes === maxScanNotes) { limitedBy.add('notes'); break; }
+      if (note.rawMarkdown.length > maxNoteChars) {
+        coverage.scannedNotes++; coverage.skippedOversize++; limitedBy.add('oversize'); continue;
+      }
+      const chars = note.title.length + note.rawMarkdown.length;
+      if (coverage.scannedChars + chars > maxScanChars) { limitedBy.add('chars'); break; }
+      coverage.scannedNotes++; coverage.scannedChars += chars;
+      const score = scoreNote({ title: note.title, rawMarkdown: note.rawMarkdown });
+      if (!Number.isFinite(score) || score < 0) throw new TypeError('Candidate score must be finite and nonnegative');
+      if (!score) continue;
+      coverage.matchedNotes++;
+      // 即使满 300 个候选仍在扫描预算内继续排序，后面的高分或相同分数小 ID 可以进入。
+      const entry = { note: { id: note.id, title: note.title, rawMarkdown: note.rawMarkdown }, score };
+      let start = 0, end = pool.length;
+      while (start < end) {
+        const middle = (start + end) >>> 1;
+        if (compare(entry, pool[middle]) < 0) end = middle; else start = middle + 1;
+      }
+      if (start < maxCandidates) { pool.splice(start, 0, entry); if (pool.length > maxCandidates) pool.pop(); }
+    }
+    if (coverage.matchedNotes > maxCandidates) limitedBy.add('candidates');
+    const candidates = [];
+    for (const { note, score } of pool) {
+      const { version, contentHash } = await currentVersion(note, maxNoteChars);
+      if (version.noteId !== note.id) fail('AI_SOURCE_STALE', '来源当前版本不匹配。');
+      candidates.push({ noteId: note.id, title: note.title, score, noteVersionId: version.id, contentHash });
+    }
+    await activeGrant(grantId, 'notes_search');
+    return { candidates, coverage: { ...coverage, limitedBy: [...limitedBy] }, truncated: limitedBy.size > 0 };
+  }
+  async function assertSearchGrant({ grantId }) { await activeGrant(grantId, 'notes_search'); }
   async function sourceFromRange(policy, spec) {
     if (!own(spec, ['noteId', 'start', 'end']) || !validId(spec.noteId)) fail('AI_SCOPE_INVALID', '来源范围无效。');
     const note = await noteInScope(policy, spec.noteId);
@@ -338,5 +397,6 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     return send(input.request);
   }
   return { createPolicy, listPolicies, narrowPolicy, createRunGrant, verifyRead, listAuthorizedNotes,
+    findAuthorizedSearchCandidates, assertSearchGrant,
     prepareRequest, assertRequest, withAuthorizedRequest };
 }

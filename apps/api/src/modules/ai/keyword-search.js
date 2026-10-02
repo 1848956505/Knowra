@@ -2,6 +2,11 @@ import { calculateContentHash } from '../knowledge/domain/note-version.js';
 
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 const normalize = value => value.normalize('NFKC').toLocaleLowerCase();
+const normalizeContent = value => {
+  let text = '';
+  for (const character of value) text += normalize(character);
+  return text;
+};
 const normalizeWithOffsets = value => {
   let text = '';
   const offsets = [];
@@ -26,22 +31,38 @@ const boundary = (text, index) => index <= 0 || index >= text.length
   || !(text.charCodeAt(index - 1) >= 0xD800 && text.charCodeAt(index - 1) <= 0xDBFF
     && text.charCodeAt(index) >= 0xDC00 && text.charCodeAt(index) <= 0xDFFF);
 
-/** 可替换的检索接口；所有候选先经过 R02 grant/当前版本检查，再计算关键词分数。 */
-export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, maxNoteChars = 200_000 } = {}) {
-  if (!access?.listAuthorizedNotes || !access?.verifyRead) throw new TypeError('Authorized search needs R02 access service');
+/** 扫描预算约束查询预选，300 上限只约束匹配后当前版本评分；外发仍走 R02 逐请求复核。 */
+export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, maxNoteChars = 200_000,
+  maxScanNotes = 5000, maxScanChars = 4_000_000 } = {}) {
+  if (!access?.findAuthorizedSearchCandidates || !access?.assertSearchGrant || !access?.verifyRead
+    || [maxCandidates, maxNoteChars, maxScanNotes, maxScanChars]
+      .some(value => !Number.isSafeInteger(value) || value < 1)) {
+    throw new TypeError('Authorized search needs R02 access service and positive work limits');
+  }
   return {
     async search({ grantId, query, limit = 5 }) {
       if (typeof query !== 'string' || !query.trim() || query.length > 300
         || !Number.isSafeInteger(limit) || limit < 1 || limit > 8) fail('AI_SEARCH_INVALID', '检索参数无效。');
       const terms = tokens(query);
-      const candidates = await access.listAuthorizedNotes({ grantId });
-      if (!terms.length) return { hits: [], inspected: 0, truncated: false };
+      if (!terms.length) {
+        await access.assertSearchGrant({ grantId });
+        return { hits: [], inspected: 0, truncated: false };
+      }
+      const selected = await access.findAuthorizedSearchCandidates({ grantId, maxCandidates,
+        maxScanNotes, maxScanChars, maxNoteChars, scoreNote({ title, rawMarkdown }) {
+          if (!rawMarkdown.length) return 0;
+          const text = normalizeContent(rawMarkdown), foldedTitle = normalize(title);
+          return terms.reduce((score, term) => score + (foldedTitle.includes(term) ? 5 : 0)
+            + (text.includes(term) ? 2 : 0), 0);
+        } });
+      const { candidates } = selected;
       const scored = [];
-      let skippedOversize = 0;
-      for (const candidate of candidates.slice(0, maxCandidates)) {
+      for (const candidate of candidates) {
         const { note, version, contentHash } = await access.verifyRead({ grantId,
-          noteId: candidate.noteId, tool: 'notes_search' });
-        if (version.content.length > maxNoteChars) { skippedOversize++; continue; }
+          noteId: candidate.noteId, tool: 'notes_search', maxContentChars: maxNoteChars });
+        if (note.id !== candidate.noteId || version.noteId !== note.id || note.title !== candidate.title
+          || version.id !== candidate.noteVersionId || contentHash !== candidate.contentHash
+          || version.content.length > maxNoteChars) fail('AI_SOURCE_STALE', '检索期间来源已变化。');
         const content = version.content, indexed = normalizeWithOffsets(content), title = normalize(note.title);
         let score = 0, best = -1;
         for (const term of terms) {
@@ -61,8 +82,20 @@ export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, max
         }, text });
       }
       scored.sort((a, b) => b.score - a.score || a.noteId.localeCompare(b.noteId));
-      return { hits: scored.slice(0, limit), inspected: Math.min(candidates.length, maxCandidates),
-        truncated: candidates.length > maxCandidates || skippedOversize > 0 };
+      const hits = scored.slice(0, limit);
+      for (const hit of hits) {
+        const { note, version, contentHash } = await access.verifyRead({ grantId,
+          noteId: hit.noteId, tool: 'notes_search', maxContentChars: maxNoteChars });
+        const { ref } = hit;
+        if (note.id !== hit.noteId || ref.noteId !== note.id || version.noteId !== note.id || note.title !== hit.title
+          || version.id !== ref.noteVersionId || contentHash !== ref.contentHash
+          || !Number.isSafeInteger(ref.start) || !Number.isSafeInteger(ref.end)
+          || ref.start < 0 || ref.end <= ref.start || ref.end > version.content.length || !boundary(version.content, ref.start)
+          || !boundary(version.content, ref.end) || version.content.slice(ref.start, ref.end) !== hit.text
+          || calculateContentHash(hit.text) !== ref.quoteHash) fail('AI_SOURCE_STALE', '检索期间来源已变化。');
+      }
+      await access.assertSearchGrant({ grantId });
+      return { hits, inspected: candidates.length, truncated: selected.truncated, coverage: selected.coverage };
     }
   };
 }

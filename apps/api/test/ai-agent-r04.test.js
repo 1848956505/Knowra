@@ -169,6 +169,27 @@ export const aiAgentR04Tests = [
     await agent.run(followup.turnId);
     assert.equal((await data.aiConversationStore.getTurn(followup.turnId)).status, 'succeeded');
   }) },
+  { name: 'R04 扫描预算受限时模型收到通用覆盖说明，工具结果保持既有字段', run: () => withFixture(async ({ data, access, addNote, policy, submit, worker }) => {
+    addNote('scan-first', '普通记录甲'); addNote('scan-last', '普通记录乙');
+    const selected = await policy(['scan-first', 'scan-last']);
+    const select = access.findAuthorizedSearchCandidates;
+    access.findAuthorizedSearchCandidates = input => select({ ...input, maxScanNotes: 1 });
+    const requests = [];
+    const agent = worker({ capabilities: () => ({ provider: 'mock' }), async complete(request) {
+      requests.push(request);
+      return answer('', { answer: '当前检索范围没有足够信息。', citations: [] });
+    } });
+    const turn = await submit('根据我的笔记解释 coveragetoken', 'coverage-limit-001', selected.policyId);
+    await agent.run(turn.turnId);
+    const calls = await data.aiConversationStore.listToolCalls(turn.turnId);
+    assert.equal(calls[0].resultJson.truncated, true);
+    assert.equal(calls[0].resultJson.inspected, 0);
+    assert.equal(calls[0].resultJson.mode, 'keyword');
+    assert(!Object.hasOwn(calls[0].resultJson, 'coverage'));
+    assert(requests[0].messages.some(message => message.role === 'user'
+      && message.content.includes('检索受到本次处理上限限制，不得声称已检查完整授权范围。')));
+    assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).status, 'succeeded');
+  }) },
   { name: 'R04 伪造来源引用拒绝入库，但已知模型费用照实结算', run: () => withFixture(async ({ data, addNote, policy, conversation, submit, worker }) => {
     addNote('source-note', '真实资料只能引用原文。');
     const selected = await policy(['source-note']);
