@@ -15,7 +15,9 @@ export function createExtractionMockWorker({ gateway, claim, send, accept, fail,
   };
   function drain() {
     while (!closed && pending.size && active.size < AI_PROCESS_LIMITS.concurrency) {
-      const jobId = pending.values().next().value;
+      // 恢复后的显式 retry 可先排队；同 job 旧 run 收尾前不再次领取，也不堵住其他任务。
+      const jobId = [...pending].find(id => !active.has(id));
+      if (jobId === undefined) break;
       pending.delete(jobId);
       void run(jobId).catch(log);
     }
@@ -65,7 +67,7 @@ export function createExtractionMockWorker({ gateway, claim, send, accept, fail,
     run,
     enqueue(jobId) {
       if (closed) throw taskError('KNOWLEDGE_EXTRACTION_NOT_RUNNABLE', '提炼执行器已关闭。');
-      if (pending.has(jobId) || active.has(jobId)) return;
+      if (pending.has(jobId)) return;
       if (pending.size >= AI_PROCESS_LIMITS.queue) throw taskError('KNOWLEDGE_EXTRACTION_QUEUE_FULL', '提炼等待队列已满，任务已保存，可稍后恢复。');
       pending.add(jobId); wake();
     },

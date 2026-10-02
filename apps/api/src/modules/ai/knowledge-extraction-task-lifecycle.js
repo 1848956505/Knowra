@@ -59,8 +59,9 @@ export function createExtractionTaskLifecycle({ store, ownerId, clock, workerId 
       const attempts = yield ai.list('aiJobAttempt', { jobId });
       const attempt = latest(attempts);
       // 另一 worker 的新代、已接纳或已终止任务不能被迟到失败覆盖。
-      if (attemptId ? attempt?.attemptId !== attemptId : active(attempt) || !['pending', 'retrying'].includes(job.status)) return;
-      if (!['pending', 'retrying', 'running', 'cancelling'].includes(job.status)) return;
+      if (attemptId) {
+        if (attempt?.attemptId !== attemptId || !active(attempt) || !['running', 'cancelling'].includes(job.status)) return;
+      } else if (active(attempt) || !['pending', 'retrying'].includes(job.status)) return;
       const now = clock(), cancelled = job.status === 'cancelling';
       yield* finishAttempt(ai, attempt, cancelled ? 'cancelled' : Date.parse(attempt?.leaseExpiresAt) <= now.getTime() ? 'timedOut' : 'rejected', now);
       yield* replaceTaskJob(ai, job, { status: cancelled ? 'cancelled' : 'failed', phase: 'finished' }, now);

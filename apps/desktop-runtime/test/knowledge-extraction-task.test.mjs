@@ -8,6 +8,7 @@ import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { createRuntimeBackup, restoreRuntimeBackup } from '../src/backup.mjs';
 import { createAppContext } from '../../api/src/app.factory.js';
 import { createExtractionTaskSources, extractionTaskGateway, deferredTaskResponse, quietTaskLogger } from '../../api/test/fixtures/knowledge-extraction-task.fixture.js';
+import { assertCrossInstanceExtractionRetry, assertSameInstanceExtractionRetry } from '../../api/test/fixtures/knowledge-extraction-retry-scenarios.js';
 
 async function fixture(t, options = {}) {
   const root = temporaryDirectory(t), file = path.join(root, 'local.sqlite'), opened = [];
@@ -16,7 +17,7 @@ async function fixture(t, options = {}) {
   const open = (location = root, sharedStore = null) => {
     const store = sharedStore ?? createSqliteDataStore(path.join(location, 'local.sqlite'), options.storeOptions);
     const app = createAppContext({ dataStore: store, ownerId: 'demo', storageRootDir: location, uploadsDir: path.join(location, 'uploads'),
-      knowledgeExtractionMock: { gateway: mock.gateway, clock: () => time, schedule() {}, logger: quietTaskLogger } });
+      knowledgeExtractionMock: { gateway: mock.gateway, clock: () => time, ...(options.auto ? {} : { schedule() {} }), logger: quietTaskLogger } });
     let closed = false;
     const close = async () => { if (closed) return; closed = true; await app.knowledgeExtractionTasks?.close(); if (!sharedStore) store.close(); };
     opened.push(close); return { app, store, service: app.knowledgeExtractionTasks, close };
@@ -135,4 +136,18 @@ test('02B SQLite 提炼任务独立版本升级前备份；未来/损坏描述�
   future.exec("UPDATE metadata SET value = '99' WHERE key = 'aiKnowledgeExtractionTasksVersion'"); future.close();
   assert.equal(f.open().service, null);
   assert(job.jobId);
+});
+
+test('02B SQLite 跨实例恢复/重试不被旧代迟到失败覆盖', async t => {
+  const deferred = deferredTaskResponse(), f = await fixture(t, { onCall: deferred.onCall });
+  try { await assertCrossInstanceExtractionRetry({ ...f, deferred, other: f.open(f.root, f.store).service }); }
+  finally { deferred.release(); }
+});
+
+test('02B SQLite 默认调度保留同实例重试唤醒，取消不误重发', async t => {
+  for (const cancel of [false, true]) await t.test(cancel ? 'cancel' : 'retry', async t => {
+    const deferred = deferredTaskResponse(), f = await fixture(t, { auto: true, onCall: deferred.onCall });
+    try { await assertSameInstanceExtractionRetry({ ...f, deferred, cancel }); }
+    finally { deferred.release(); }
+  });
 });
