@@ -1,3 +1,4 @@
+import { observeRemoteDeletionFacts } from './sqlite-deletion-facts.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { selectEntityBatch } from './entity-batches.mjs';
 import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
@@ -105,11 +106,16 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
   // 本地新修改仍需经过版本别名规范化及关联校验，稳定空闲才复用合并结果。
   const reconciled = reconciledConflicts.get(store) === cached.key;
   if (!reset && previousEpoch === epoch && unchanged && (reconciled || (!previousConflict && !cached.dirty.length))) {
-    if (!previousConflict && store.readSync(db => readMeta(db, 'cursor')) !== cursor) store.metadataTransaction(db => writeMeta(db, 'cursor', cursor));
+    const unseenDelete = entries.some(entry => entry.value === null && Number.isSafeInteger(entry.revision) && entry.revision > 0 && !store.deletionFacts.has(entry.collection, entry.id));
+    if (unseenDelete || (!previousConflict && store.readSync(db => readMeta(db, 'cursor')) !== cursor)) store.metadataTransaction(db => {
+      observeRemoteDeletionFacts(db, entries, { epoch });
+      if (!previousConflict) writeMeta(db, 'cursor', cursor);
+    });
     if (previousConflict) reconciledConflicts.set(store, store.getEntityCacheKey());
     return !previousConflict;
   }
   const result = store.syncTransaction((db, state) => {
+    observeRemoteDeletionFacts(db, entries, { epoch });
     const base = bases(db);
     const previousEpoch = readMeta(db, 'epoch');
     const changedEpoch = previousEpoch && previousEpoch !== epoch;
@@ -227,6 +233,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
 
 export function acknowledgeEntityUpload(store, operation, result) {
   store.syncTransaction((db, state) => {
+    observeRemoteDeletionFacts(db, [...(result.entries ?? []), ...(result.conflicts ?? []), ...(result.current ? [result.current] : [])], { epoch: operation.datasetEpoch });
     if (result.status === 'accepted') {
       const previous = structuredClone(state);
       const base = bases(db);
@@ -318,7 +325,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     writeMeta(db, 'entityConflict', null); writeMeta(db, 'entityUpload', null);
     settle(db, state);
   };
-  try { store.syncTransaction(resolve, { local: true }); }
+  try { store.syncTransaction(resolve, { local: true, origin: 'sync-resolution' }); }
   catch (error) {
     // SQLite 已回滚正文、元数据、基线及恢复记录；只清理本次新建的文件。
     for (const prepared of preparedCopies.reverse()) {

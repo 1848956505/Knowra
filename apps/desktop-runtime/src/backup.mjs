@@ -1,3 +1,4 @@
+import { validateSqliteDeletionFacts } from './sqlite-deletion-facts-contract.mjs';
 import { validateSqliteActionRows } from './ai-sqlite-action-store.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -155,6 +156,7 @@ export function inspectRuntimeBackup(backupDirectory) {
     if (db.prepare('PRAGMA integrity_check').all().some(row => row.integrity_check !== 'ok')) throw new Error('备份数据库完整性校验失败。');
     const version = db.prepare('PRAGMA user_version').get().user_version;
     if (version < 1 || version > LOCAL_DATABASE_VERSION) throw new Error('备份数据库版本不受支持，请升级应用。');
+    validateSqliteDeletionFacts(db);
     validateSqliteCoreOperationRows(db);
     validateSqliteActionRows(db);
     let aiJobs = [];

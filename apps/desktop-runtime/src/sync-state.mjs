@@ -1,3 +1,4 @@
+import { observeRemoteDeletionFacts } from './sqlite-deletion-facts.mjs';
 import { randomUUID } from 'node:crypto';
 import { noteContent, syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS } from '../../api/src/infrastructure/local-data-schema.js';
@@ -50,6 +51,7 @@ function settleOutbox(db, state) {
 
 export function applyRemote(store, entries, cursor, epoch, { reset = false } = {}) {
   store.syncTransaction((db, state) => {
+    observeRemoteDeletionFacts(db, entries, { epoch });
     const previousEpoch = readMeta(db, 'epoch');
     const changedEpoch = previousEpoch && previousEpoch !== epoch;
     if (reset) {
@@ -132,6 +134,7 @@ export function nextUpload(store) {
 export function acknowledge(store, operation, result) {
   store.syncTransaction((db, state) => {
     const entry = result.current;
+    observeRemoteDeletionFacts(db, [entry], { epoch: operation.datasetEpoch });
     const local = state.notes.find(note => note.id === operation.noteId);
     if (result.status === 'conflict' && !equivalent(local, entry.value)) {
       db.prepare('INSERT OR REPLACE INTO sync_conflicts VALUES (?, ?)').run(operation.noteId, JSON.stringify({
@@ -203,5 +206,5 @@ export function resolveConflict(store, { noteId, choice, rawMarkdown, remoteRevi
     }
     db.prepare('DELETE FROM sync_conflicts WHERE note_id = ?').run(noteId);
     db.prepare('DELETE FROM sync_uploads WHERE note_id = ?').run(noteId);
-  }, { local: true });
+  }, { local: true, origin: 'sync-resolution' });
 }
