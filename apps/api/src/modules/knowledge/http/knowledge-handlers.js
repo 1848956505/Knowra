@@ -173,7 +173,7 @@ export function createKnowledgeHttpHandlers({
     getLearningObjective(params) { return learningObjectiveService.getObjective(params.id); },
     createLearningObjective(body) { return learningObjectiveService.createCandidate(body); },
     updateLearningObjective(params, body) { return learningObjectiveService.updateObjective(params.id, body); },
-    confirmLearningObjective(params) { return learningObjectiveService.confirmObjective(params.id); },
+    confirmLearningObjective(params, body) { return learningObjectiveService.confirmObjective(params.id, body); },
     requestLearningObjectiveRevision(params, body = {}) { return learningObjectiveService.requestRevision(params.id, body.reviewNote); },
     archiveLearningObjective(params) { return learningObjectiveService.archive(params.id); },
     restoreLearningObjective(params) { return learningObjectiveService.restore(params.id); },

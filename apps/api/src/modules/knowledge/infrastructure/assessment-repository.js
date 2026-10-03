@@ -1,6 +1,6 @@
 import { createAppError } from '../../../errors/app-error.js';
 
-function createCollectionRepository({ records = [], onChange = null, sort = null, filter = () => true } = {}) {
+function createCollectionRepository({ records = [], onChange = null, sort = null, filter = () => true, conflictCode = null } = {}) {
   const persist = () => onChange?.(records);
   return {
     create(record) {
@@ -15,8 +15,11 @@ function createCollectionRepository({ records = [], onChange = null, sort = null
       persist();
       return record;
     },
-    save(record) {
+    save(record, { expectedUpdatedAt } = {}) {
       const index = records.findIndex((item) => item.id === record.id);
+      if (expectedUpdatedAt && (index < 0 || records[index].updatedAt !== expectedUpdatedAt)) {
+        throw createAppError(conflictCode ?? 'ASSESSMENT_ASSET_UPDATE_CONFLICT', '学习资产已变化，请重新加载并核对。', 409);
+      }
       if (index < 0) records.push(record);
       else records[index] = record;
       persist();
@@ -52,6 +55,7 @@ const newestFirst = (left, right) => new Date(right.updatedAt).getTime() - new D
 
 export function createInMemoryLearningObjectiveRepository(options = {}) {
   return createCollectionRepository({
+    conflictCode: 'LEARNING_OBJECTIVE_UPDATE_CONFLICT',
     records: options.records,
     onChange: options.onChange,
     sort: (left, right) => left.order - right.order || newestFirst(left, right),

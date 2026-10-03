@@ -1,3 +1,4 @@
+import { createAppError } from '../../../../errors/app-error.js';
 import { mapLearningObjective, toDate } from './mappers.js';
 import { withRepositoryErrors } from './repository-utils.js';
 
@@ -20,13 +21,24 @@ export function createPostgresLearningObjectiveRepository({ db }) {
     };
   }
   return {
+    async lockById(id) {
+      await withRepositoryErrors(() => db.$queryRawUnsafe('SELECT id FROM "LearningObjective" WHERE id = $1 FOR UPDATE', id));
+    },
     async create(objective) {
       return withRepositoryErrors(() => db.learningObjective.create({
         data: toData(objective)
       }).then(mapLearningObjective));
     },
-    async save(objective) {
+    async save(objective, { expectedUpdatedAt } = {}) {
       const data = toData(objective);
+      if (expectedUpdatedAt) {
+        return withRepositoryErrors(async () => {
+          const { id, createdAt: _createdAt, ...update } = data;
+          const result = await db.learningObjective.updateMany({ where: { id, updatedAt: toDate(expectedUpdatedAt) }, data: update });
+          if (result.count !== 1) throw createAppError('LEARNING_OBJECTIVE_UPDATE_CONFLICT', '学习目标已被其他操作修改，请重新加载并核对。', 409);
+          return mapLearningObjective(await db.learningObjective.findUnique({ where: { id } }));
+        });
+      }
       return withRepositoryErrors(() => db.learningObjective.upsert({ where: { id: data.id }, create: data, update: (() => { const { id: _id, createdAt: _createdAt, ...rest } = data; return rest; })() }).then(mapLearningObjective));
     },
     async findById(id) { return withRepositoryErrors(() => db.learningObjective.findUnique({ where: { id } }).then(mapLearningObjective)); },

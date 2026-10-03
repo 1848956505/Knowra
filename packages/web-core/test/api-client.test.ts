@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiRequestError, createApiClient, createWorkspaceApi } from '../src/index.js';
 
 describe('framework-neutral API clients', () => {
+  it('学习目标确认将明确审阅的父知识与目标版本发送到HTTP body', async () => {
+    const requestJson = vi.fn().mockResolvedValue({ data: { id: 'objective/1' } });
+    const api = createWorkspaceApi({ requestJson });
+    const input = { reviewBaseline: { objectiveUpdatedAt: '2026-10-03T01:00:00.000Z', knowledgeUpdatedAt: '2026-10-03T00:00:00.000Z' } };
+    await api.mutateTrainingAsset!('learningObjective', 'objective/1', 'confirm', input);
+    expect(requestJson).toHaveBeenCalledWith('/api/knowledge/learning-objectives/objective%2F1/confirm', { method: 'POST', body: JSON.stringify(input) });
+  });
   it('uses the training lifecycle endpoints and preserves purge baselines', async () => {
     const record = { id: 'question/1', updatedAt: '2026-09-24T00:00:00.000Z' };
     const preview = { asset: { type: 'question', id: record.id }, decision: 'can-purge-no-history', expectedUpdatedAt: record.updatedAt, references: [], exclusiveRecords: {}, coverage: {} };

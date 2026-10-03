@@ -114,7 +114,7 @@ export function createPostgresKnowledgeHttpHandlers({
     getLearningObjective: (params) => learningObjectiveService.getObjective(params.id),
     createLearningObjective: (body) => learningObjectiveService.createCandidate(body),
     updateLearningObjective: (params, body) => learningObjectiveService.updateObjective(params.id, body),
-    confirmLearningObjective: (params) => learningObjectiveService.confirmObjective(params.id),
+    confirmLearningObjective: (params, body) => learningObjectiveService.confirmObjective(params.id, body),
     requestLearningObjectiveRevision: (params, body = {}) => learningObjectiveService.requestRevision(params.id, body.reviewNote),
     archiveLearningObjective: (params) => learningObjectiveService.archive(params.id),
     restoreLearningObjective: (params) => learningObjectiveService.restore(params.id),

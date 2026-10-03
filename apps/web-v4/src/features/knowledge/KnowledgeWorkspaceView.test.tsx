@@ -7,6 +7,8 @@ import { flushBeforeWorkspaceBackup, flushBeforeWorkspaceRestore } from '../../a
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeWorkspaceView, type KnowledgeWorkspaceViewProps } from './KnowledgeWorkspaceView';
 import { getKnowledgeDraftScope, knowledgeDraftRecovery } from './knowledgeDraftRecovery';
+const trainingRead = vi.hoisted(() => ({ listTrainingAssets: vi.fn().mockResolvedValue([]) }));
+vi.mock('../../store/AppStoreProvider', () => ({ useAppStore: (select: (state: unknown) => unknown) => select({ ...trainingRead, dataMode: 'api', persistenceMode: 'remote', knowledgeGeneration: 0, canWriteWorkspace: () => false }) }));
 
 afterEach(async () => { await knowledgeDraftRecovery.flush(); sessionStorage.clear(); delete window.knowraDesktop; });
 

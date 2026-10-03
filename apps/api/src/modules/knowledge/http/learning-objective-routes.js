@@ -45,8 +45,8 @@ export async function handleLearningObjectiveRoute({ request, response, url, kno
   const action = url.pathname.match(/^\/api\/knowledge\/learning-objectives\/([^/]+)\/(confirm|request-revision|archive|restore)$/);
   if (action) {
     const params = { id: decode(action[1]) };
-    const body = request.method === 'POST' && action[2] === 'request-revision' ? await parseBody(request) : {};
-    if (request.method === 'POST' && action[2] === 'confirm') sendJson(response, 200, { data: await knowledge.confirmLearningObjective(params) });
+    const body = request.method === 'POST' && ['confirm', 'request-revision'].includes(action[2]) ? await parseBody(request) : {};
+    if (request.method === 'POST' && action[2] === 'confirm') sendJson(response, 200, { data: await knowledge.confirmLearningObjective(params, body) });
     else if (request.method === 'POST' && action[2] === 'request-revision') sendJson(response, 200, { data: await knowledge.requestLearningObjectiveRevision(params, body) });
     else if (request.method === 'POST' && action[2] === 'archive') sendJson(response, 200, { data: await knowledge.archiveLearningObjective(params) });
     else if (request.method === 'POST' && action[2] === 'restore') sendJson(response, 200, { data: await knowledge.restoreLearningObjective(params) });
