@@ -16,7 +16,7 @@ const boundaries = {
   'after-pointer': 'pointer-published-before-response'
 };
 for (const [phase, boundary] of Object.entries(boundaries)) {
-  test(`真实恢复子进程SIGKILL：${phase} 重启选择完整资料并保留恢复点`, { timeout: 30000 }, async t => {
+  test(`真实恢复子进程SIGKILL：${phase} 重启选择完整资料并保留恢复点及删除事实`, { timeout: 30000 }, async t => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-restore-crash-'));
     let runtime;
     const child = fork(new URL('./fixtures/backup-restore-crash-child.mjs', import.meta.url), [root, phase],
@@ -57,6 +57,11 @@ for (const [phase, boundary] of Object.entries(boundaries)) {
     assert.equal(status.datasetId === evidence.datasetId, !published);
     assert.equal(runtime.store.state.notes.find(note => note.id === evidence.noteId).rawMarkdown, published ? '备份正文' : '恢复前正文');
     assert.deepEqual(runtime.store.readOutbox(), published ? evidence.backupQueue : evidence.currentQueue);
+    assert.equal(runtime.store.deletionFacts.has('tags', evidence.deletedTagId), true);
+    assert.equal(runtime.store.state.tags.some(tag => tag.id === evidence.deletedTagId), false);
+    assert.deepEqual(runtime.store.readSync(db => db.prepare('SELECT * FROM deletion_facts ORDER BY collection,entity_id').all().map(row => ({ ...row }))), evidence.deletionRows);
+    assert.equal(runtime.store.readSync(db => db.prepare("SELECT value FROM metadata WHERE key='deletionFactsScope'").get().value), evidence.deletionScope);
+    assert.deepEqual(runtime.store.deletionFacts.getCoverage(), evidence.deletionCoverage);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dataDirectory, 'recovery-drafts.json'), 'utf8')), evidence.currentDrafts);
     const source = backupPath(dataDirectory, evidence.backupId);
     assert.equal(inspectRuntimeBackup(source).valid, true);
@@ -81,6 +86,7 @@ for (const [phase, boundary] of Object.entries(boundaries)) {
       assert.notEqual(runtime.store.getStatus().datasetId, status.datasetId);
       assert.equal(runtime.store.state.notes.find(note => note.id === evidence.noteId).rawMarkdown, '恢复前正文');
       assert.deepEqual(runtime.store.readOutbox(), evidence.currentQueue);
+      assert.deepEqual(runtime.store.readSync(db => db.prepare('SELECT * FROM deletion_facts ORDER BY collection,entity_id').all().map(row => ({ ...row }))), evidence.deletionRows);
       await attachmentReadable();
     } else if (phase === 'before-pointer') {
       const backups = (await request('/api/local-runtime/backups')).data.items;
@@ -90,5 +96,9 @@ for (const [phase, boundary] of Object.entries(boundaries)) {
     const saved = await request(`/api/knowledge/notes/${evidence.noteId}`, 'PATCH', {
       rawMarkdown: '强杀后仍可编辑', expectedUpdatedAt: runtime.store.state.notes.find(note => note.id === evidence.noteId).updatedAt });
     assert.equal(saved.status, 200, JSON.stringify(saved));
+    const resurrection = await request('/api/knowledge/tags', 'POST', {
+      id: evidence.deletedTagId, name: '禁止强杀后复活', spaceId: runtime.store.state.notes.find(note => note.id === evidence.noteId).spaceId });
+    assert.equal(resurrection.status, 409, JSON.stringify(resurrection));
+    assert.equal(resurrection.error.code, 'LOCAL_DELETION_FACT_CONFLICT');
   });
 }

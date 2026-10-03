@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
+import { mergeRestoreFacts } from './restore-readiness.mjs';
 import { restoreRuntimeBackup, inspectRuntimeBackup } from './backup.mjs';
 
 const pointerFile = root => path.join(root, 'active-dataset.json');
@@ -19,8 +20,8 @@ export function readActiveDirectory(root) {
   if (pointer.version !== 1 || !fs.existsSync(path.join(directory, 'local.sqlite'))) throw new Error('活动资料目录不存在，已停止启动。');
   return directory;
 }
-export function prepareRestoredDirectory(root, backupDirectory) {
-  inspectRuntimeBackup(backupDirectory);
+export function prepareRestoredDirectory(root, backupDirectory, options) {
+  inspectRuntimeBackup(backupDirectory, options);
   const directory = managedDirectory(root, `restored/${randomUUID()}`);
   restoreRuntimeBackup(backupDirectory, directory);
   const restored = createSqliteDataStore(path.join(directory, 'local.sqlite'));
@@ -32,6 +33,11 @@ export function prepareRestoredDirectory(root, backupDirectory) {
     });
   } finally { restored.close(); }
   return directory;
+}
+export function finalizeRestoredDirectory(directory, current) {
+  const candidate = createSqliteDataStore(path.join(directory, 'local.sqlite'));
+  try { mergeRestoreFacts(candidate, current); }
+  finally { candidate.close(); }
 }
 export function activateRestoredDirectory(root, directory, record) {
   const relative = path.relative(root, directory).split(path.sep).join('/');

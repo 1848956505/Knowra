@@ -6,7 +6,8 @@ import { resolveAssetPath, serveV4Asset } from '../../web-v4/server/static-asset
 import { lockDataDirectory } from './data-directory.mjs';
 import { createRuntimeBackup, listRuntimeBackups, backupPath, inspectRuntimeBackup, readBackupDrafts, validateBackupDrafts } from './backup.mjs';
 import { createRuntimeServices } from './runtime-services.mjs';
-import { readActiveDirectory, prepareRestoredDirectory, activateRestoredDirectory } from './restore-directory.mjs';
+import { readActiveDirectory, prepareRestoredDirectory, finalizeRestoredDirectory, activateRestoredDirectory } from './restore-directory.mjs';
+import { readRestoreContext, RESTORE_READINESS_CONFLICTS } from './restore-readiness.mjs';
 import { runtimeSessionScript } from './runtime-session-script.mjs';
 import { permitsLocalRoute, sendRuntimeError } from './runtime-policy.mjs';
 import { parseBody } from '../../api/src/http/request.js';
@@ -79,7 +80,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
           try {
             const directory = backupPath(dataDirectory, backupRoute[1]);
             let result;
-            if (request.method === 'POST' && backupRoute[2] === 'inspect') result = inspectRuntimeBackup(directory);
+            if (request.method === 'POST' && backupRoute[2] === 'inspect') result = inspectRuntimeBackup(directory, { restoreContext: readRestoreContext(store) });
             else if (request.method === 'GET' && backupRoute[2] === 'drafts') { inspectRuntimeBackup(directory); result = readBackupDrafts(directory); }
             else if (request.method === 'POST' && backupRoute[2] === 'restore') {
               restoring = true;
@@ -89,11 +90,13 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                 if (input.recoveryDrafts !== undefined) validateBackupDrafts(input.recoveryDrafts);
                 await Promise.all([...activeRequests].filter(item => item !== requestDone));
                 // 先在独立目录验证和准备，任何错误都不触碰当前资料。
-                const restoredDirectory = prepareRestoredDirectory(dataDirectory, directory);
+                const restoredDirectory = prepareRestoredDirectory(dataDirectory, directory, { restoreContext: readRestoreContext(store) });
                 await sync.close();
                 await closeAi();
                 let replacement;
                 try {
+                  // 两个后台 owner 都已排空；此处重新读取，不沿用 prepare 时的快照。
+                  finalizeRestoredDirectory(restoredDirectory, readRestoreContext(store));
                   const protectionDirectory = createRuntimeBackup(store, activeDirectory, { backupRoot: dataDirectory, purpose: 'before-restore', recoveryDrafts: input.recoveryDrafts });
                   replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory });
                   void replacement.recoverAi;
@@ -116,7 +119,10 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
             } else return sendRuntimeError(response, 404, 'ROUTE_NOT_FOUND', '路径不存在。');
             response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
             response.end(JSON.stringify({ data: result })); return;
-          } catch (failure) { return sendRuntimeError(response, 422, 'LOCAL_BACKUP_FAILED', failure.message ?? '备份操作失败，原资料已保留。'); }
+          } catch (failure) {
+            const readiness = RESTORE_READINESS_CONFLICTS.has(failure.code);
+            return sendRuntimeError(response, readiness ? 409 : 422, readiness ? failure.code : 'LOCAL_BACKUP_FAILED', failure.message ?? '备份操作失败，原资料已保留。');
+          }
         }
         if (request.method === 'GET' && url.pathname === '/api/local-runtime/status') {
           response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });

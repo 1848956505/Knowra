@@ -32,17 +32,35 @@ export function observeRemoteDeletionFacts(db, entries, { epoch, kind = 'remote-
     insert(db, entry.collection, entry.id, { kind, ...bound, epoch: epoch ?? null, revision: entry.revision });
   }
 }
-function backfill(db) {
-  if (!binding(db)) return;
-  observeRemoteDeletionFacts(db, db.prepare("SELECT collection,id,server_revision AS revision FROM sync_base WHERE payload='null'").all()
-    .map(row => ({ ...row, value: null })), { kind: 'legacy-remote-base', epoch: null });
-  for (const row of db.prepare('SELECT payload FROM sync_conflicts').all()) {
+/** 仅用来源库自身完整绑定投影可补录的旧观察；不接受恢复目标补来的绑定。 */
+export function legacyDeletionObservations(db) {
+  const bound = binding(db);
+  if (!bound) return [];
+  const observations = [];
+  const append = (entries, kind, epoch) => {
+    for (const entry of entries) {
+      if (entry?.value !== null || entry.revision === null || entry.revision === undefined) continue;
+      if (!Number.isSafeInteger(entry.revision) || entry.revision < 1) throw invalidFacts('远端删除修订无效，已停止提交。');
+      observations.push({ collection: entry.collection, entityId: entry.id, source: { kind, ...bound, epoch, revision: entry.revision } });
+    }
+  };
+  append(db.prepare("SELECT collection,id,server_revision AS revision FROM sync_base WHERE payload='null'").all()
+    .map(row => ({ ...row, value: null })), 'legacy-remote-base', null);
+  // v1 的冲突表要到 staging 的 v2 迁移才创建；只读投影不能要求它已存在。
+  const conflicts = db.prepare('PRAGMA user_version').get().user_version === 1
+    && !db.prepare("SELECT name FROM sqlite_master WHERE name='sync_conflicts'").get() ? []
+    : db.prepare('SELECT payload FROM sync_conflicts').all();
+  for (const row of conflicts) {
     const conflict = JSON.parse(row.payload);
-    observeRemoteDeletionFacts(db, [{ collection: 'notes', id: conflict.noteId, value: conflict.remote, revision: conflict.remoteRevision }],
-      { kind: 'legacy-remote-conflict', epoch: conflict.datasetEpoch ?? null });
+    append([{ collection: 'notes', id: conflict.noteId, value: conflict.remote, revision: conflict.remoteRevision }],
+      'legacy-remote-conflict', conflict.datasetEpoch ?? null);
   }
   const conflict = meta(db, 'entityConflict');
-  if (conflict) observeRemoteDeletionFacts(db, conflict.remote ?? [], { kind: 'legacy-remote-conflict', epoch: conflict.epoch ?? null });
+  if (conflict) append(conflict.remote ?? [], 'legacy-remote-conflict', conflict.epoch ?? null);
+  return observations;
+}
+function backfill(db) {
+  for (const observation of legacyDeletionObservations(db)) insert(db, observation.collection, observation.entityId, observation.source);
 }
 export function initializeDeletionFacts(db, { newStore = false, filePath } = {}) {
   const existing = validateSqliteDeletionFacts(db);
