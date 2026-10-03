@@ -27,7 +27,11 @@ export function createTrainingSlice(get: GetStore, { api }: WorkspaceDependencie
     listTrainingAssets: kind => { requireConnected(); return requireMethod(api.listTrainingAssets)(kind, { includeArchived: true, includeDeleted: true }); },
     createTrainingAsset: (kind, input) => { requireWrite(); return requireMethod(api.createTrainingAsset)(kind, input); },
     updateTrainingAsset: (kind, id, input) => { requireWrite(); return requireMethod(api.updateTrainingAsset)(kind, id, input); },
-    mutateTrainingAsset: (kind, id, action, input) => { requireWrite(); return requireMethod(api.mutateTrainingAsset)(kind, id, action, input); },
+    mutateTrainingAsset: (kind, id, action, input) => {
+      requireWrite();
+      const mutate = requireMethod(api.mutateTrainingAsset);
+      return input === undefined ? mutate(kind, id, action) : mutate(kind, id, action, input);
+    },
     inspectTrainingAssetPurge: (kind, id) => { requireConnected(); return requireMethod(api.inspectTrainingAssetPurge)(kind, id); },
     purgeTrainingAsset: (kind, id, expectedUpdatedAt) => { requireWrite(); return requireMethod(api.purgeTrainingAsset)(kind, id, expectedUpdatedAt); }
   };
