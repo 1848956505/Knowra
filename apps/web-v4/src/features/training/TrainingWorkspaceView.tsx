@@ -67,15 +67,15 @@ export function TrainingWorkspaceView() {
   const [comparedSource, setComparedSource] = useState<QuestionSource | null>(null);
 
   useEffect(() => {
-    if (persistenceMode !== 'desktop-local' || !purgeStatus) return;
+    if (dataMode !== 'api' || persistenceMode !== 'desktop-local' || !purgeStatus) return;
     let active = true;
-    void purgeStatus().then(status => {
+    void Promise.resolve().then(() => purgeStatus()).then(status => {
       if (active && status.pending && KINDS.includes(status.pending.type as TrainingAssetKind)) {
         setPurgeAwaiting({ kind: status.pending.type as TrainingAssetKind, id: status.pending.id }); setNotice(PURGE_PENDING_MESSAGE);
       }
     }).catch(() => { /* 预检入口负责说明当前服务不兼容或未连接。 */ });
     return () => { active = false; };
-  }, [persistenceMode, purgeStatus]);
+  }, [dataMode, persistenceMode, purgeStatus]);
 
   const reload = useCallback(async () => {
     const [objectives, profiles, focuses, questions, items] = await Promise.all([
@@ -206,7 +206,7 @@ export function TrainingWorkspaceView() {
       </section> : null}
       </div>}
     </WorkspacePanelBody>
-    <WorkspacePanelFooter><span>显示 {visible.length} 个{LABELS[kind]}</span><span>{persistenceMode === 'desktop-local' ? '回收站对象独立于归档；可恢复，永久清理需在网页版操作' : view === 'trash' ? '保留至手动清理；永久清理前会复核引用' : '回收站对象独立于归档；永久清理前会复核引用'}</span></WorkspacePanelFooter>
+    <WorkspacePanelFooter><span>显示 {visible.length} 个{LABELS[kind]}</span><span>{persistenceMode === 'desktop-local' ? '回收站对象独立于归档；永久清理需联网预检，离线保留原件' : view === 'trash' ? '保留至手动清理；永久清理前会复核引用' : '回收站对象独立于归档；永久清理前会复核引用'}</span></WorkspacePanelFooter>
     {selectedQuestion && activeComparedSource ? <QuestionSourceComparison key={`${selectedQuestion.id}-${selectedQuestion.updatedAt}-${activeComparedSource.id}`} source={activeComparedSource} onLoad={loadSource} onClose={() => setComparedSource(null)}
       onOpenNote={id => navigate(`/materials/notes/${encodeURIComponent(id)}`)} onOpenKnowledge={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)} /> : null}
     {objectiveReview ? <LearningObjectiveReviewDialog key={objectiveReview.record?.id ?? 'new'} record={objectiveReview.record} knowledgeItems={knowledgeItems} onClose={() => setObjectiveReview(null)} onSaved={() => { setNotice('学习目标已更新，请核对当前状态。'); setGeneration(n => n + 1); }} /> : null}

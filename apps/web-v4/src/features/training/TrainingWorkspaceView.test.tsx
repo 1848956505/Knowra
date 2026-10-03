@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppStore } from '../../store/types';
 import type { TrainingAssetRecord } from '@study-accelerator/web-core';
 import { TrainingWorkspaceView } from './TrainingWorkspaceView';
+import { createAppStore } from '../../store/createAppStore';
+import { createEmptyWorkspaceSnapshot, type AuthoritativePurgeStatus, type WorkspaceApi } from '@study-accelerator/web-core';
 
 const mocked = vi.hoisted(() => ({ state: null as unknown as AppStore, navigate: vi.fn() }));
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStore: (selector: (state: AppStore) => unknown) => selector(mocked.state) }));
@@ -28,6 +30,51 @@ beforeEach(() => { mocked.navigate.mockReset(); });
 
 describe('训练工作台详情流程', () => {
   const purgePreview = { asset: { type: 'question' as const, id: 'q1' }, decision: 'can-purge-no-history' as const, expectedUpdatedAt: question.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token', references: [], exclusiveRecords: {}, coverage: { runningTasks: 'verified' } };
+  function localStatusStore(readStatus = vi.fn().mockResolvedValue({ pending: { type: 'question', id: 'q1' }, result: null })) {
+    const store = createAppStore({ api: { getAuthoritativePurgeStatus: readStatus } as unknown as WorkspaceApi, cacheKey: 'training-purge-status-test', mockSnapshot: createEmptyWorkspaceSnapshot(), persistenceMode: 'desktop-local' });
+    store.setState({ dataMode: 'loading' });
+    return { store, readStatus, connect() { store.setState(state => ({ dataMode: 'api', serverData: { ...state.serverData, currentSpaceId: 'local-space' } })); } };
+  }
+  it('首次桌面加载不读取未连接状态，连接API后恢复待核对保护', async () => {
+    const local = localStatusStore();
+    const state = setup({ dataMode: 'loading', persistenceMode: 'desktop-local', getAuthoritativePurgeStatus: local.store.getState().getAuthoritativePurgeStatus });
+    const view = render(<TrainingWorkspaceView />);
+    expect(screen.getByRole('alert')).toHaveTextContent('资料库尚未连接');
+    expect(local.readStatus).not.toHaveBeenCalled();
+    local.connect(); mocked.state = { ...mocked.state, dataMode: 'api' };
+    view.rerender(<TrainingWorkspaceView />);
+    expect(await screen.findByRole('button', { name: '核对清理结果' })).toBeEnabled();
+    expect(screen.getByText(/清理结果待核对，原件已保留/)).toBeInTheDocument();
+    expect(local.readStatus).toHaveBeenCalledTimes(1);
+    expect(state.purgeTrainingAsset).not.toHaveBeenCalled();
+  });
+  it('同步连接getter失败不会崩溃，重新连接后仍恢复待核对状态', async () => {
+    const local = localStatusStore();
+    local.store.setState({ dataMode: 'api' }); // 无currentSpaceId，真实slice getter同步拒绝。
+    setup({ persistenceMode: 'desktop-local', getAuthoritativePurgeStatus: local.store.getState().getAuthoritativePurgeStatus });
+    const view = render(<TrainingWorkspaceView />);
+    expect(await screen.findByRole('heading', { name: question.stem })).toBeInTheDocument();
+    expect(local.readStatus).not.toHaveBeenCalled();
+    mocked.state = { ...mocked.state, dataMode: 'loading' }; view.rerender(<TrainingWorkspaceView />);
+    local.connect(); mocked.state = { ...mocked.state, dataMode: 'api' }; view.rerender(<TrainingWorkspaceView />);
+    expect(await screen.findByRole('button', { name: '核对清理结果' })).toBeEnabled();
+    expect(local.readStatus).toHaveBeenCalledTimes(1);
+  });
+  it('离开API模式后旧状态响应不能覆盖重新连接的清理状态', async () => {
+    let finish!: (status: AuthoritativePurgeStatus) => void;
+    const readStatus = vi.fn().mockImplementationOnce(() => new Promise<AuthoritativePurgeStatus>(resolve => { finish = resolve; })).mockResolvedValue({ pending: null, result: null });
+    const local = localStatusStore(readStatus); local.connect();
+    setup({ persistenceMode: 'desktop-local', getAuthoritativePurgeStatus: local.store.getState().getAuthoritativePurgeStatus });
+    const view = render(<TrainingWorkspaceView />);
+    await waitFor(() => expect(readStatus).toHaveBeenCalledTimes(1));
+    local.store.setState({ dataMode: 'cache' }); mocked.state = { ...mocked.state, dataMode: 'cache' }; view.rerender(<TrainingWorkspaceView />);
+    await act(async () => finish({ pending: { type: 'question', id: 'q1' }, result: null }));
+    local.connect(); mocked.state = { ...mocked.state, dataMode: 'api' }; view.rerender(<TrainingWorkspaceView />);
+    await waitFor(() => expect(readStatus).toHaveBeenCalledTimes(2));
+    await screen.findByRole('heading', { name: question.stem });
+    expect(screen.queryByRole('button', { name: '核对清理结果' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/清理结果待核对，原件已保留/)).not.toBeInTheDocument();
+  });
   it('桌面回收站题目可联网预检清理，原凭据确认且恢复分支仍显示', async () => {
     const state = setup({ persistenceMode: 'desktop-local', listTrainingAssets: vi.fn(async kind => kind === 'question' ? [{ ...question, deletedAt: question.updatedAt }] : []), inspectTrainingAssetPurge: vi.fn().mockResolvedValue(purgePreview), purgeTrainingAsset: vi.fn().mockResolvedValue({ status: 'subject-purged', asset: purgePreview.asset, localState: 'recovery-required' }) });
     render(<TrainingWorkspaceView />); await userEvent.click(screen.getByRole('button', { name: '回收站' }));
