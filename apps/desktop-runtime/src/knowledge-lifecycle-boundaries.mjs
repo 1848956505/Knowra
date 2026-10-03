@@ -14,8 +14,9 @@ const isDescriptor = entry => entry && Object.keys(entry).sort().join(',') === '
 
 /** 私有描述符只引用本地用户事务，不重放来源不明的历史 outbox 或远端落库。 */
 export function readKnowledgeLifecycleBoundaries(db) {
+  const persisted = db.prepare('SELECT value FROM metadata WHERE key = ?').get(`sync:${QUEUE}`);
   let queue;
-  try { queue = readMeta(db, QUEUE) ?? []; } catch { throw invalid(); }
+  try { queue = persisted ? JSON.parse(persisted.value) : []; } catch { throw invalid(); }
   if (!Array.isArray(queue)) throw invalid();
   const seen = new Set();
   const boundaries = queue.map(entry => {

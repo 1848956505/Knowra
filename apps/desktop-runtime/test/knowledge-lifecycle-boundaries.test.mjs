@@ -56,19 +56,25 @@ test('SQLite备份保留待发送边界、原outbox和私有冻结绑定，wire�
   assert.deepEqual(nextEntityUpload(restored), operation);
 });
 
-for (const mutation of ['malformed', 'missing-outbox', 'acknowledged-outbox', 'malformed-binding']) {
+for (const mutation of ['malformed', 'json-null', 'missing-outbox', 'acknowledged-outbox', 'malformed-binding']) {
   test(`生命周期${mutation}停止同步和重启，保留原实体与元数据`, t => {
     const f = fixture(t);
     f.knowledge.knowledgeItemService.trash(f.item.id);
+    if (mutation === 'json-null') f.knowledge.knowledgeItemService.restoreDeleted(f.item.id);
     const boundary = f.store.readSync(db => readKnowledgeLifecycleBoundaries(db)[0]);
     f.store.metadataTransaction(db => {
       if (mutation === 'malformed') writeMeta(db, 'knowledgeLifecycleQueue', { invalid: true });
+      if (mutation === 'json-null') writeMeta(db, 'knowledgeLifecycleQueue', null);
       if (mutation === 'missing-outbox') db.prepare('DELETE FROM sync_outbox WHERE operation_id=?').run(boundary.operationId);
       if (mutation === 'acknowledged-outbox') db.prepare("UPDATE sync_outbox SET state='acknowledged' WHERE operation_id=?").run(boundary.operationId);
       if (mutation === 'malformed-binding') writeMeta(db, 'knowledgeLifecycleUpload', { operationId: 'invalid', boundaries: [{ ...boundary, sequence: 999 }] });
     });
+    const outbox = f.store.readOutbox();
+    const metadata = f.store.readSync(db => db.prepare('SELECT * FROM metadata ORDER BY key').all());
     assert.throws(() => f.store.readSync(db => readKnowledgeLifecycleBoundaries(db)), { code: 'LOCAL_KNOWLEDGE_LIFECYCLE_INVALID' });
-    assert(f.store.state.knowledgeItems.find(row => row.id === f.item.id).deletedAt);
+    assert.equal(Boolean(f.store.state.knowledgeItems.find(row => row.id === f.item.id).deletedAt), mutation !== 'json-null');
     assert.throws(() => createSqliteDataStore(path.join(f.root, 'active', 'local.sqlite')), { code: 'LOCAL_KNOWLEDGE_LIFECYCLE_INVALID' });
+    assert.deepEqual(f.store.readOutbox(), outbox);
+    assert.deepEqual(f.store.readSync(db => db.prepare('SELECT * FROM metadata ORDER BY key').all()), metadata);
   });
 }
