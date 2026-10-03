@@ -48,6 +48,10 @@ async function fixture(t, title, withSource = false) {
     return page.getByRole('dialog', { name: '云端同步', exact: true });
   }
   await page.goto(runtime.launchUrl);
+  // 首次资料加载会从 loading 切换为 api 并重挂载状态栏同步控件。
+  // 先等待真实本地工作区可写，避免在初始化期间点开随后被重挂载的面板。
+  await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
+  await expect(page.getByRole('button', { name: '新建知识候选', exact: true })).toBeEnabled();
   const sync = await openSync();
   await sync.getByLabel(/云端服务地址/).fill(origin);
   await sync.getByRole('button', { name: '连接并比较资料', exact: true }).click();
