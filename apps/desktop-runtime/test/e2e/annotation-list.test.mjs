@@ -123,6 +123,8 @@ test('真实页面：创建响应丢失后重试复用幂等键，慢保存期�
   await expect.poll(() => requests.length).toBe(2);
   assert.equal(requests[0].idempotencyKey, requests[1].idempotencyKey);
   assert.equal(annotations().length, 1);
+  // 首次丢响应已落库；须等重试回执应用到正文，再开始下一次标记。
+  await expect(editor.locator(`[data-list-annotation="${annotations()[0].id}"]`)).toContainText('子项');
   await page.unroute('**/api/knowledge/annotations');
   await placeCaret(editor.locator('p').filter({ hasText: /^子项$/ }).first());
   await page.keyboard.insertText('未保存');
