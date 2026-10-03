@@ -65,3 +65,9 @@ C2 尚未实现：本批 `prepareRestoredDirectory` 仅沿用格式检查与候�
 在 PR37 的精确 main `be1ec9988f603c5b9df145240fa2579eced99909`、tree `2fde4863f456391922d92845bfe67244926c1e87` 通过 CI `37086118576` 后，C1 正常 merge 该 main，不改写既有提交。9 个冲突均为机械的重叠改动：5 个 C1 未修改的 05B 文件采用精确 main；其余 4 个 C1 文件的 main 内容与原 `60309f5` 相同，保留已审 `17962d2`。相对 main 的差异仍严格限定于原 14 个 C1 文件；6 个生产文件和 4 个测试文件与 `17962d2` 逐字节一致，05B 的笔记嵌套 JSON 键序修复及回归原样带入。
 
 同一 `node --test --test-concurrency=1` 命令执行四个 C1 文件与 `provenance-sync-contract.test.mjs`、`provenance-sync.test.mjs`：61 项通过、0 失败、0 跳过（C1 46 + 05B 15），日志 `main-integration-green.log`。`git diff --check origin/main` 通过。此轮没有重跑 build、完整 desktop/API/V4 或真实 PostgreSQL；新候选的完整 CI、最终审查、PR 与合并仍待后续门禁。
+
+## HTTP 错误边界窄修复验证
+
+在修复前本地 `d9f04982654076982013d1f81e5cb4b88a15a259`（tree `f79d34fd488237132aaa915d21ad827419834e24`）用临时合成 SQLite 和真实 HTTP 复现两例：API `createServer` 的旧快照 `POST /api/storage/import`、有会话的 `startLocalRuntime` 已开放标签入口同 ID 重建，均在账本阻断后返回通用 500，丢失业务原因；先验证数据、修订、outbox、事实和 metadata 不变，再因期望 409 而失败。保留 `http-guard/http-red.log`（2 失败），没有模拟错误 handler。desktop 业务导入原 policy 仍返回 `409 / LOCAL_FEATURE_UNAVAILABLE`，这不是删除碰撞，未开放该入口。
+
+只把已知删除碰撞改为既有 `createAppError`，保留 `LOCAL_DELETION_FACT_CONFLICT` 和原中文原因，HTTP 返回 409；坏账本和无关内部错误不改。新增 `sqlite-deletion-facts-http.test.mjs` 两例确认拒绝后数据/事实/队列不变，同时真实 POST 合法新 ID 快照导入为 200、desktop 新 ID 标签创建为 201，既有事实保持。以 `node --test --test-concurrency=1` 执行该文件与四个既有 `sqlite-deletion-facts*.test.mjs` C1 文件，共 48 通过、0 失败、0 跳过，日志 `http-guard/http-fix-c1-green.log`。日志根仍为 `/workspace/scratch/deletion-facts-validation/`；本轮未重跑 API/V4/完整 desktop/真实 PostgreSQL 或构建，未下载引擎、未使用真实资料或付费调用。

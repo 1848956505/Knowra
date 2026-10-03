@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import { createAppError } from '../../api/src/errors/app-error.js';
 import { LOCAL_DATA_COLLECTIONS } from '../../api/src/infrastructure/local-data-schema.js';
 import { DELETION_FACTS_DDL, FACT_METADATA_KEYS, factHash, invalidFacts, serverOrigin, validateFact, validateSqliteDeletionFacts } from './sqlite-deletion-facts-contract.mjs';
 
@@ -68,7 +69,7 @@ export function assertNoDeletedEntities(db, state, previous = null) {
   for (const collection of LOCAL_DATA_COLLECTIONS) {
     const existing = new Set((previous?.[collection] ?? []).map(record => record.id));
     for (const record of state[collection]) if (!existing.has(record.id) && hasDeletionFact(db, collection, record.id)) {
-      throw Object.assign(new Error('已永久删除的对象不能用原 ID 重新写入；原数据和删除事实已保留。'), { code: 'LOCAL_DELETION_FACT_CONFLICT' });
+      throw createAppError('LOCAL_DELETION_FACT_CONFLICT', '已永久删除的对象不能用原 ID 重新写入；原数据和删除事实已保留。', 409);
     }
   }
 }
