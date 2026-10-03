@@ -1,3 +1,7 @@
+import {
+  validateSqliteDeletionFacts, initializeDeletionFacts, assertNoDeletedEntities,
+  recordLocalDeletions, hasDeletionFact, deletionFactsReader
+} from './sqlite-deletion-facts.mjs';
 import { createSqliteActionStore } from './ai-sqlite-action-store.mjs';
 import { sameEntity } from '../../api/src/modules/sync/entity-contract.js';
 import fs from 'node:fs';
@@ -42,7 +46,11 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   const localCommitListeners = new Set();
   let aiRuntimeError = null;
   try {
+    // 必需核心扩展先于任何可选 AI 升级或来源修复校验。
+    validateSqliteDeletionFacts(db);
+    const newStore = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().length === 0;
     aiRuntimeError = initializeDatabase(db, filePath)?.aiError ?? null;
+    initializeDeletionFacts(db, { newStore, filePath });
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON;');
     const initial = createEmptyLocalState();
     for (const row of db.prepare('SELECT collection, payload FROM entities ORDER BY rowid').all()) {
@@ -73,11 +81,12 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       deleted.add(JSON.stringify([row.collection, row.id]));
     }
     provenanceMigration = backfillKnowledgeArtifactProvenance(state, {
-      receipts, getTombstone: (collection, id) => deleted.has(JSON.stringify([collection, id]))
+      receipts, getTombstone: (collection, id) => deleted.has(JSON.stringify([collection, id])) || hasDeletionFact(db, collection, id)
     });
-    if (state.knowledgeArtifactProvenance.some(record => deleted.has(JSON.stringify(['knowledgeArtifactProvenance', record.id])))) {
+    if (state.knowledgeArtifactProvenance.some(record => !initial.knowledgeArtifactProvenance.some(old => old.id === record.id) && deleted.has(JSON.stringify(['knowledgeArtifactProvenance', record.id])))) {
       throw new Error('已永久删除的来源记录不能通过迁移重建。');
     }
+    assertNoDeletedEntities(db, state, initial);
     migrateProvenance = schemaVersion !== LOCAL_DATA_SCHEMA_VERSION;
     repairKnowledge = ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(initial[collection]) !== JSON.stringify(state[collection]));
     committed = cloneLocalState(repairKnowledge ? initial : state);
@@ -118,7 +127,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     }
   }
 
-  function persist() {
+  function persist({ origin = 'local-business' } = {}) {
     const valid = validatePersistedLocalState(createPersistedLocalDocument(state));
     assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
     const changes = collectChanges(committed, valid);
@@ -129,6 +138,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     const ownsTransaction = !db.isTransaction;
     if (ownsTransaction) db.exec('BEGIN IMMEDIATE');
     try {
+      assertNoDeletedEntities(db, valid, committed);
+      if (origin === 'local-business') recordLocalDeletions(db, changes, operationId);
       for (const change of changes) {
         const { collection, entityId, value } = change;
         const previous = db.prepare('SELECT revision, last_operation_id FROM local_revisions WHERE collection = ? AND id = ?').get(collection, entityId);
@@ -168,14 +179,14 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     }
   }
 
-  function runTransaction(operation) {
+  function runTransaction(operation, { origin = 'local-business' } = {}) {
     if (inTransaction) return operation();
     inTransaction = true;
     try {
       db.exec('BEGIN IMMEDIATE');
       const result = operation();
       if (result && typeof result.then === 'function') throw new TypeError('本地事务只能执行同步业务操作。');
-      const valid = persist();
+      const valid = persist({ origin });
       const dataChanged = pendingDataChange;
       beforeCommit();
       db.exec('COMMIT');
@@ -201,11 +212,18 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     return { exportedAt: new Date().toISOString(), version: LOCAL_SNAPSHOT_VERSION, schemaVersion: LOCAL_DATA_SCHEMA_VERSION, data: cloneLocalState(state) };
   }
 
-  function commitImport(input) {
+  function prepareImport(input) {
     const validated = validateLocalSnapshot(input);
+    assertNoDeletedEntities(db, validated.data);
+    return validated;
+  }
+
+  function commitImport(input) {
+    const validated = prepareImport(input);
     assertNoKnowledgeArtifactProvenanceDowngrade(state, validated.data);
     db.exec('BEGIN IMMEDIATE');
     try {
+      assertNoDeletedEntities(db, validated.data);
       restore(validated.data);
       persist();
       aiRepository?.rotateEpoch();
@@ -228,7 +246,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       db.prepare('VACUUM INTO ?').run(backup);
       fs.chmodSync(backup, 0o600);
       runTransaction(() => db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)')
-        .run('localDataSchemaVersion', String(LOCAL_DATA_SCHEMA_VERSION)));
+        .run('localDataSchemaVersion', String(LOCAL_DATA_SCHEMA_VERSION)), { origin: 'migration' });
     } catch (error) { db.close(); throw error; }
   }
 
@@ -248,6 +266,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   catch (error) { knowledgeExtractionTaskStoreError = error; }
 
   return {
+    deletionFacts: deletionFactsReader(db),
     provenanceMigration,
     knowledgeExtractionTaskStore,
     knowledgeExtractionTaskStoreError,
@@ -260,7 +279,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     aiActionStore,
     aiConversationStore,
     aiRuntimeError,
-    syncTransaction(operation, { local = false } = {}) {
+    syncTransaction(operation, { local = false, origin = 'sync-resolution' } = {}) {
       if (inTransaction) throw new Error('同步事务不能嵌入本地业务事务。');
       db.exec('BEGIN IMMEDIATE');
       inTransaction = true;
@@ -270,10 +289,11 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         if (result?.then) throw new TypeError('同步落库事务不能包含网络请求。');
         let valid;
         let dataChanged;
-        if (local) { valid = persist(); dataChanged = pendingDataChange; }
+        if (local) { valid = persist({ origin }); dataChanged = pendingDataChange; }
         else {
           valid = validatePersistedLocalState(createPersistedLocalDocument(state));
           assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
+          assertNoDeletedEntities(db, valid, committed);
           const changes = collectChanges(committed, valid);
           dataChanged = changes.length > 0;
           for (const change of changes) {
@@ -322,7 +342,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     getEntityCacheKey: () => inTransaction ? null : `${dataRevision}:${baselineRevision}`,
     onLocalCommit(listener) { localCommitListeners.add(listener); return () => localCommitListeners.delete(listener); },
     readSync: operation => operation(db, state),
-    state, flush, runTransaction, exportSnapshot, prepareImport: validateLocalSnapshot,
+    state, flush, runTransaction, exportSnapshot, prepareImport,
     commitImport, importSnapshot: commitImport,
     getStatus() {
       const revision = totalChanges();
