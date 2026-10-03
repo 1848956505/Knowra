@@ -10,6 +10,15 @@ import { validateKnowledgeExtractionCommit } from '../src/modules/ai/knowledge-e
 import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import { createKnowledgeExtractionJobFixture } from './fixtures/knowledge-extraction-job.fixture.js';
 
+function assertInjectedRepositoryFailure(error, injectionPattern) {
+  assert.equal(error.name, 'AppError');
+  assert.equal(error.code, 'DATABASE_OPERATION_FAILED');
+  assert.equal(error.statusCode, 500);
+  assert.equal(error.message, 'PostgreSQL operation failed');
+  assert.match(error.cause?.message ?? '', injectionPattern);
+  return true;
+}
+
 async function withFixture(run) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-extraction-pg-')); const apps = [];
   let database;
@@ -79,7 +88,11 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
         'BEGIN RAISE EXCEPTION ''injected extraction sql failure''; END;'`);
       await f.app.prisma.$executeRawUnsafe(`CREATE TRIGGER fail_extraction_commit BEFORE ${table === 'ai_jobs' ? 'UPDATE' : 'INSERT'} ON ${table}
         FOR EACH ROW EXECUTE FUNCTION fail_extraction_commit()`);
-      try { await assert.rejects(f.app.knowledgeExtractionCommit.commit(f.input), /injected extraction sql failure/); }
+      try {
+        await assert.rejects(f.app.knowledgeExtractionCommit.commit(f.input), table === '"KnowledgeArtifactProvenance"'
+          ? error => assertInjectedRepositoryFailure(error, /injected extraction sql failure/)
+          : /injected extraction sql failure/);
+      }
       finally { await f.app.prisma.$executeRawUnsafe(`DROP TRIGGER fail_extraction_commit ON ${table}`); }
       assert.equal(await f.app.prisma.knowledgeItem.count(), 0); assert.equal(await f.app.prisma.knowledgeEvidence.count(), 0);
       assert.equal(await f.app.prisma.knowledgeArtifactProvenance.count(), 0);
@@ -108,7 +121,8 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
         'BEGIN RAISE EXCEPTION ''injected provenance purge''; END;'`);
       await f.app.prisma.$executeRawUnsafe('CREATE TRIGGER fail_provenance_purge BEFORE DELETE ON "KnowledgeEvidence" FOR EACH ROW EXECUTE FUNCTION fail_provenance_purge()');
       try {
-        await assert.rejects(f.app.http.knowledge.permanentlyDeleteKnowledgeItem({ id }, { expectedUpdatedAt: trashed.updatedAt }), /injected provenance purge/);
+        await assert.rejects(f.app.http.knowledge.permanentlyDeleteKnowledgeItem({ id }, { expectedUpdatedAt: trashed.updatedAt }),
+          error => assertInjectedRepositoryFailure(error, /injected provenance purge/));
       } finally { await f.app.prisma.$executeRawUnsafe('DROP TRIGGER fail_provenance_purge ON "KnowledgeEvidence"'); }
       assert.deepEqual(await f.app.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(id), provenance);
       assert.equal(await f.app.prisma.knowledgeEvidence.count(), 1); assert.equal(await f.app.prisma.knowledgeItem.count(), 1);
