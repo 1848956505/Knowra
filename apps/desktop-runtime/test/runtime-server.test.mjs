@@ -97,6 +97,38 @@ test('真实本地入口确认列表重点范围，保留 revision 并发保护'
   assert.equal((await call(`/api/knowledge/annotations/${created.data.id}/confirm-range`, 'POST', body)).status, 409);
 });
 
+test('真实本地入口知识回收站恢复与来源重新采用保留版本和审核保护', async t => {
+  const { runtime, call } = await localRequests(t);
+  const created = await call('/api/knowledge/items', 'POST', { title: '本地生命周期', canonicalStatement: '可人工核对的陈述',
+    sourceMode: 'annotation', evidence: [{ sourceType: 'manual', quoteText: '不可覆盖的历史摘录' }] });
+  assert.equal(created.status, 201, JSON.stringify(created));
+  const { item, evidence } = created.data;
+  const root = `/api/knowledge/items/${item.id}`;
+  const confirmed = await call(`${root}/confirm`, 'POST', { expectedUpdatedAt: item.updatedAt });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed));
+  const retired = await call(`${root}/evidence/${evidence[0].id}/retire`, 'POST', { expectedUpdatedAt: evidence[0].updatedAt });
+  assert.equal(retired.status, 200, JSON.stringify(retired));
+  assert.equal(retired.data.item.reviewStatus, 'needsRevision');
+  const readopted = await call(`${root}/evidence/${evidence[0].id}/readopt`, 'POST', { expectedUpdatedAt: retired.data.evidence.updatedAt });
+  assert.equal(readopted.status, 200, JSON.stringify(readopted));
+  assert.equal(readopted.data.evidence.applicabilityStatus, 'active');
+  assert.equal(readopted.data.evidence.quoteText, evidence[0].quoteText);
+  assert.equal(readopted.data.item.reviewStatus, 'needsRevision');
+  const trashed = await call(`${root}/trash`, 'POST', { expectedUpdatedAt: readopted.data.item.updatedAt });
+  assert.equal(trashed.status, 200, JSON.stringify(trashed));
+  assert(trashed.data.deletedAt);
+  assert.equal((await call('/api/knowledge/items')).data.some(row => row.id === item.id), false);
+  assert.equal((await call('/api/knowledge/items?includeDeleted=true')).data.find(row => row.id === item.id).deletedAt, trashed.data.deletedAt);
+  assert.equal((await call(`${root}/restore-deleted`, 'POST', { expectedUpdatedAt: readopted.data.item.updatedAt })).status, 409);
+  const restored = await call(`${root}/restore-deleted`, 'POST', { expectedUpdatedAt: trashed.data.updatedAt });
+  assert.equal(restored.status, 200, JSON.stringify(restored));
+  assert.equal(restored.data.deletedAt, null);
+  assert.equal(restored.data.reviewStatus, 'needsRevision');
+  assert.equal((await call(`${root}/permanent`, 'DELETE', { expectedUpdatedAt: restored.data.updatedAt })).error.code, 'LOCAL_FEATURE_UNAVAILABLE');
+  assert(runtime.store.getStatus().pendingOperations > 0);
+  assert.equal(runtime.store.deletionFacts.has('knowledgeItems', item.id), false);
+});
+
 test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及重启恢复', async t => {
   const root = temporaryDirectory(t);
   const distRoot = path.join(root, 'dist');

@@ -7,6 +7,63 @@ const note = (rawMarkdown: string, title = '同步笔记') => ({ title, rawMarkd
 const conflict: Conflict = { noteId: 'note', kind: 'edit', base: note('基线正文'), local: note('本机正文'), remote: note('云端正文', '云端改名'), remoteRevision: 3, datasetEpoch: 'epoch' };
 
 describe('同步冲突对比', () => {
+  const knowledge = { title: '删除冲突知识', canonicalStatement: '共同基线', deletedAt: null };
+  const deletedKnowledge = { ...knowledge, deletedAt: '2026-10-03T01:00:00.000Z' };
+  const knowledgeConflict = (base = knowledge, remote: typeof knowledge | typeof deletedKnowledge | null = deletedKnowledge): EntityConflict => ({
+    id: 'knowledge-delete', changedEpoch: false, reasons: [], items: [{ collection: 'knowledgeItems', id: 'knowledge', base, local: { ...knowledge, canonicalStatement: '离线编辑' }, remote }]
+  });
+
+  it('知识 deletedAt 在对象状态中显示回收站，旧编辑采用本地禁用并说明恢复路径', async () => {
+    const onResolve = vi.fn().mockResolvedValue(undefined);
+    render(<EntityConflictCard conflict={knowledgeConflict()} disabled={false} onResolve={onResolve} />);
+    const states = within(screen.getByRole('row', { name: /对象状态/ })).getAllByRole('cell');
+    expect(states[2]).toHaveTextContent('已移入回收站');
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+    expect(screen.getByText(/先采用云端.*恢复记录.*从回收站.*恢复/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '采用本地' }));
+    expect(onResolve).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: '采用云端' }));
+    expect(onResolve).toHaveBeenCalledWith('remote');
+  });
+
+  it('无共同基线的云端回收站知识也不能由本地活跃内容隐式恢复', () => {
+    const group = knowledgeConflict(); group.items[0].base = null;
+    render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+  });
+
+  it('知识已永久删除时禁用采用本地，云端选择保留可恢复内容的说明', () => {
+    render(<EntityConflictCard conflict={knowledgeConflict(knowledge, null)} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+    expect(screen.getByText(/云端知识已永久删除.*恢复记录/)).toBeInTheDocument();
+  });
+
+  it('世代变化后不存在的知识无法采用本地，但同世代无基线新知识仍可采用', () => {
+    const group = knowledgeConflict(knowledge, null); group.items[0].base = null;
+    const { rerender } = render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+    rerender(<EntityConflictCard conflict={{ ...group, changedEpoch: true }} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+  });
+
+  it('共同基线已在回收站的显式恢复冲突可采用本地，保留已删除状态也可采用', () => {
+    const group = knowledgeConflict(); group.items[0].base = deletedKnowledge;
+    const { rerender } = render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+    group.items[0].base = knowledge; group.items[0].local = { ...deletedKnowledge, canonicalStatement: '回收站内容' };
+    rerender(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+  });
+
+  it('关联组中任一旧知识编辑会禁用整组采用本地，不改变其他领域 deletedAt 的原语义', () => {
+    const group = knowledgeConflict();
+    group.items.unshift({ collection: 'notes', id: 'note', base: note('原文'), local: note('编辑'), remote: { ...note('云端'), deletedAt: '2026-10-03T01:00:00.000Z' } });
+    const { rerender } = render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+    rerender(<EntityConflictCard conflict={{ ...group, items: [group.items[0]] }} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+    expect(entityPresence({ deletedAt: '2026-10-03T01:00:00.000Z' }, null)).toBe('存在');
+  });
   it('知识关联冲突展示中文审核字段且不提供仅合并正文的操作', () => {
     const knowledge = { title: '注意力', canonicalStatement: '根据相关程度加权', reviewStatus: 'candidate', knowledgeType: 'principle' };
     const group: EntityConflict = { id: 'knowledge-conflict', changedEpoch: false, reasons: [], items: [

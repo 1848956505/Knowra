@@ -9,6 +9,9 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
 import { createSyncEngine } from '../src/sync-engine.mjs';
 import { nextEntityUpload } from '../src/entity-sync-state.mjs';
+import { readKnowledgeLifecycleBoundaries } from '../src/knowledge-lifecycle-boundaries.mjs';
+import { readMeta, writeMeta } from '../src/sync-state.mjs';
+import { requestHash } from '../../api/src/modules/sync/journal.js';
 import { temporaryDirectory, openWorkspace } from './helpers.mjs';
 
 async function fixture(t) {
@@ -52,7 +55,68 @@ const clean = device => {
   const status = device.engine.status();
   assert.equal(status.error, null, JSON.stringify(status)); assert.equal(status.entityConflict, null, JSON.stringify(status));
   assert.equal(status.pendingEntities, 0, JSON.stringify(status));
+  assert.equal(device.store.readSync(db => readKnowledgeLifecycleBoundaries(db).length), 0);
 };
+const meta = (device, key) => device.store.readSync(db => readMeta(db, key));
+
+test('缺少知识生命周期能力的旧云端在拉取前停止，冻结边界及后继修改完整保留', async t => {
+  const cloud = await fixture(t); let oldServer = false, dataRequests = 0;
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '协商边界', canonicalStatement: '合成正文', sourceMode: 'manual' });
+  const a = cloud.device('old-lifecycle-server', async (url, init) => {
+    if (oldServer && !url.endsWith('/status')) dataRequests++;
+    const response = await fetch(url, init);
+    if (oldServer && url.endsWith('/status')) {
+      const body = await response.json(); body.data.capabilities = body.data.capabilities.filter(value => value !== 'knowledge-lifecycle-v1');
+      return Response.json(body, { status: response.status });
+    }
+    return response;
+  });
+  await a.connect(); a.knowledge.knowledgeItemService.trash(item.id);
+  const frozen = nextEntityUpload(a.store);
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  const state = a.store.exportSnapshot().data, outbox = a.store.readOutbox(), queue = meta(a, 'knowledgeLifecycleQueue'), binding = meta(a, 'knowledgeLifecycleUpload'), cursor = meta(a, 'cursor');
+  oldServer = true; await a.engine.sync();
+  assert.equal(a.engine.status().error.code, 'SYNC_CLIENT_UPGRADE_REQUIRED'); assert.equal(dataRequests, 0);
+  assert.deepEqual(meta(a, 'entityUpload'), frozen); assert.deepEqual(meta(a, 'knowledgeLifecycleUpload'), binding);
+  assert.deepEqual(meta(a, 'knowledgeLifecycleQueue'), queue); assert.deepEqual(a.store.readOutbox(), outbox);
+  assert.deepEqual(a.store.exportSnapshot().data, state); assert.equal(meta(a, 'cursor'), cursor);
+  await a.restart(); assert.deepEqual(meta(a, 'entityUpload'), frozen);
+  oldServer = false; await a.engine.sync(); clean(a); assert.equal(cloud.knowledge.knowledgeItemService.getItem(item.id).deletedAt, null);
+});
+
+for (const receiptState of ['accepted', 'missing', 'unknown']) test(`新增强制能力后旧冻结知识边界回执${receiptState}使用原hash，私有绑定与队列一致`, async t => {
+  const cloud = await fixture(t), sent = [];
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '旧合同回执', canonicalStatement: '合成正文', sourceMode: 'manual' });
+  const a = cloud.device(`legacy-boundary-${receiptState}`, (url, init) => {
+    if (url.endsWith('/batch')) sent.push(JSON.parse(init.body)); return fetch(url, init);
+  });
+  await a.connect(); a.knowledge.knowledgeItemService.trash(item.id);
+  const current = nextEntityUpload(a.store), old = structuredClone(current);
+  old.capabilities = old.capabilities.filter(value => value !== 'knowledge-lifecycle-v1');
+  a.store.metadataTransaction(db => writeMeta(db, 'entityUpload', old));
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  if (receiptState === 'accepted') {
+    const accepted = await cloud.context.http.sync.pushBatch(current);
+    cloud.store.runSyncTransaction(() => { cloud.store.getSyncJournal().receipts[JSON.stringify([old.deviceId, old.operationId])] = { hash: requestHash(old), result: accepted }; });
+  } else if (receiptState === 'unknown') {
+    cloud.store.runSyncTransaction(() => { (cloud.store.getSyncJournal().deviceSequences ??= {})[old.deviceId] = old.sequence; });
+  }
+  const state = a.store.exportSnapshot().data, outbox = a.store.readOutbox(), queue = meta(a, 'knowledgeLifecycleQueue'), binding = meta(a, 'knowledgeLifecycleUpload'), cursor = meta(a, 'cursor');
+  await a.restart(); await a.engine.sync();
+  if (receiptState === 'unknown') {
+    assert.equal(a.engine.status().error.code, 'SYNC_LEGACY_OPERATION_UNRESOLVED'); assert.equal(sent.length, 0);
+    assert.deepEqual(meta(a, 'entityUpload'), old); assert.deepEqual(meta(a, 'knowledgeLifecycleUpload'), binding);
+    assert.deepEqual(meta(a, 'knowledgeLifecycleQueue'), queue); assert.deepEqual(a.store.readOutbox(), outbox);
+    assert.deepEqual(a.store.exportSnapshot().data, state); assert.equal(meta(a, 'cursor'), cursor);
+    return;
+  }
+  clean(a); assert.equal(meta(a, 'entityUpload'), null); assert.equal(meta(a, 'knowledgeLifecycleUpload'), null);
+  assert.equal(cloud.knowledge.knowledgeItemService.getItem(item.id).deletedAt, null);
+  assert.deepEqual(sent.flatMap(op => op.changes.filter(entry => entry.collection === 'knowledgeItems').map(entry => entry.lifecycleAction)), receiptState === 'accepted' ? ['restore'] : ['trash', 'restore']);
+  assert(sent.every(op => op.operationId !== old.operationId && op.capabilities.includes('knowledge-lifecycle-v1')));
+  if (receiptState === 'accepted') assert.equal(cloud.store.getSyncJournal().receipts[JSON.stringify([old.deviceId, old.operationId])].hash, requestHash(old));
+  await a.restart(); clean(a);
+});
 
 // 全部通过真实 HTTP 云端及 SQLite 设备；不会触及用户资料。
 test('离线新笔记、标注、知识和来源跨重启持久化，并在两设备原子收敛', async t => {
@@ -138,6 +202,166 @@ test('并发知识修改进入冲突，采用本地保留远端恢复记录并�
   await a.engine.resolve({ conflictId: conflict.id, choice: 'local' }); clean(a);
   assert(a.engine.recovery().some(record => record.remote?.some(entry => entry.id === item.id && entry.value.canonicalStatement === 'B 编辑')));
   await b.engine.sync(); clean(b); assert.equal(b.knowledge.knowledgeItemService.getItem(item.id).canonicalStatement, 'A 编辑');
+});
+
+test('云端知识已移入回收站时采用本地旧编辑不得隐式恢复', async t => {
+  const cloud = await fixture(t);
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '删除冲突', canonicalStatement: '共同基线', sourceMode: 'manual' });
+  const a = cloud.device('delete-conflict'); await a.connect(); clean(a);
+  a.knowledge.knowledgeItemService.updateItem(item.id, { canonicalStatement: '需要保全的离线编辑' });
+  const deleted = cloud.knowledge.knowledgeItemService.trash(item.id);
+  await a.engine.sync();
+  const conflict = a.engine.status().entityConflict; assert(conflict);
+  const before = a.store.exportSnapshot().data;
+  await assert.rejects(a.engine.resolve({ conflictId: conflict.id, choice: 'local' }), error => error.code === 'SYNC_RESTORE_REQUIRED');
+  assert.deepEqual(a.store.exportSnapshot().data, before);
+  assert.equal(a.engine.status().entityConflict.id, conflict.id);
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, deleted.deletedAt);
+  await a.restart();
+  assert.equal(a.engine.status().entityConflict.id, conflict.id);
+  await a.engine.resolve({ conflictId: conflict.id, choice: 'remote' }); clean(a);
+  assert.equal(a.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, deleted.deletedAt);
+  assert(a.engine.recovery().some(record => record.local?.knowledgeItems.some(row => row.id === item.id && row.canonicalStatement === '需要保全的离线编辑')));
+  const restored = a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  assert.equal(restored.deletedAt, null);
+  await a.engine.sync(); clean(a);
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+});
+
+test('离线知识删除再恢复即使父项净零也保留目标和题目的审核失效', async t => {
+  const cloud = await fixture(t);
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '净零生命周期', canonicalStatement: '知识内容', sourceMode: 'manual' });
+  cloud.knowledge.knowledgeItemService.confirmItem(item.id);
+  const objective = cloud.knowledge.learningObjectiveService.createCandidate({ knowledgeItemId: item.id, objective: '能够解释知识内容', actionVerb: 'explain', cognitiveLevel: 'understand' });
+  cloud.knowledge.learningObjectiveService.confirmObjective(objective.id);
+  const question = cloud.knowledge.questionService.createQuestion({ questionType: 'shortAnswer', stem: '请解释知识内容', referenceAnswer: '知识内容',
+    learningObjectiveIds: [objective.id], sources: [{ sourceType: 'knowledgeItem', sourceId: item.id, quote: '知识内容' }] });
+  cloud.knowledge.questionService.validateQuestion(question.id);
+  cloud.knowledge.questionService.confirmQuestion(question.id);
+  const a = cloud.device('net-zero-a'); const b = cloud.device('net-zero-b'); await a.connect(); await b.connect();
+  const deleted = a.knowledge.knowledgeItemService.trash(item.id);
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id, { expectedUpdatedAt: deleted.updatedAt });
+  assert.equal(a.store.state.learningObjectives.find(row => row.id === objective.id).reviewStatus, 'candidate');
+  assert.equal(a.store.state.questions.find(row => row.id === question.id).reviewStatus, 'candidate');
+  await a.restart();
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  for (const store of [a.store, b.store, cloud.store]) {
+    assert.equal(store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+    assert.equal(store.state.learningObjectives.find(row => row.id === objective.id).reviewStatus, 'candidate');
+    assert.equal(store.state.questions.find(row => row.id === question.id).reviewStatus, 'candidate');
+  }
+});
+
+test('离线恢复知识后解除归档并确认可合并上传，不能形成永久校验错误', async t => {
+  const cloud = await fixture(t);
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '恢复后连续审核', canonicalStatement: '有效手动声明', sourceMode: 'manual' });
+  cloud.knowledge.knowledgeItemService.archive(item.id);
+  cloud.knowledge.knowledgeItemService.trash(item.id);
+  const a = cloud.device('restore-confirm-a'); const b = cloud.device('restore-confirm-b'); await a.connect(); await b.connect();
+  const restored = a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  assert.equal(restored.reviewStatus, 'archived');
+  const candidateItem = a.knowledge.knowledgeItemService.restore(item.id, { expectedUpdatedAt: restored.updatedAt });
+  a.knowledge.knowledgeItemService.confirmItem(item.id, { expectedUpdatedAt: candidateItem.updatedAt });
+  await a.restart(); await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  for (const store of [a.store, b.store, cloud.store]) {
+    assert.equal(store.state.knowledgeItems.find(row => row.id === item.id).reviewStatus, 'confirmed');
+    assert.equal(store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+  }
+});
+
+test('无下游的离线知识多次删除恢复按边界同步，净零动作也不被吞掉', async t => {
+  const cloud = await fixture(t); const sent = [];
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '多次生命周期', canonicalStatement: '保持正文', sourceMode: 'manual' });
+  const a = cloud.device('multi-boundary', async (url, options) => {
+    if (url.endsWith('/batch')) sent.push(JSON.parse(options.body));
+    return fetch(url, options);
+  });
+  const b = cloud.device('multi-boundary-reader'); await a.connect(); await b.connect();
+  let service = a.knowledge.knowledgeItemService;
+  service.trash(item.id); service.restoreDeleted(item.id);
+  await a.restart(); await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  assert.deepEqual(sent.flatMap(op => op.changes.filter(row => row.id === item.id).map(row => row.lifecycleAction)), ['trash', 'restore']);
+  assert(sent.every(op => !Object.keys(op).some(key => key.includes('Lifecycle'))));
+  sent.length = 0;
+  service = a.knowledge.knowledgeItemService;
+  service.trash(item.id); service.restoreDeleted(item.id); service.trash(item.id);
+  service.restoreDeleted(item.id); const deleted = service.trash(item.id);
+  await a.restart(); await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  assert.deepEqual(sent.flatMap(op => op.changes.filter(row => row.id === item.id).map(row => row.lifecycleAction)), ['trash', 'restore', 'trash', 'restore', 'trash']);
+  for (const store of [a.store, b.store, cloud.store]) assert.equal(store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, deleted.deletedAt);
+  await a.restart(); clean(a);
+});
+
+test('知识删除边界丢响应后重启重放原操作，后继恢复与编辑继续同步', async t => {
+  const cloud = await fixture(t); let lose = false; const sent = [];
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '边界幂等', canonicalStatement: '原正文', sourceMode: 'manual' });
+  const a = cloud.device('lost-boundary', async (url, options) => {
+    const response = await fetch(url, options);
+    if (url.endsWith('/batch')) { sent.push(JSON.parse(options.body)); if (lose) { lose = false; throw new Error('删除已接受但响应丢失'); } }
+    return response;
+  });
+  await a.connect(); lose = true;
+  a.knowledge.knowledgeItemService.trash(item.id);
+  await a.engine.sync(); assert(a.engine.status().error);
+  assert(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt);
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  a.knowledge.knowledgeItemService.updateItem(item.id, { canonicalStatement: '响应丢失之后的后继编辑' });
+  await a.restart(); await a.engine.sync(); clean(a);
+  assert.deepEqual(sent[0], sent[1]);
+  assert.equal(sent[0].changes.find(row => row.id === item.id).lifecycleAction, 'trash');
+  assert.equal(sent.at(-1).changes.find(row => row.id === item.id).lifecycleAction, 'restore');
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).canonicalStatement, '响应丢失之后的后继编辑');
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+  await a.restart(); clean(a);
+});
+
+test('已收到与最早知识边界相同的权威基线可消费它并继续后继恢复', async t => {
+  const cloud = await fixture(t); const sent = [];
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '已观察边界', canonicalStatement: '共同正文', sourceMode: 'manual' });
+  const a = cloud.device('observed-boundary', async (url, options) => {
+    if (url.endsWith('/batch')) sent.push(JSON.parse(options.body));
+    return fetch(url, options);
+  });
+  await a.connect();
+  const deleted = a.knowledge.knowledgeItemService.trash(item.id);
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  // 模拟另一权威入口已经提交同一删除状态，真实 HTTP pull 仍负责观察修订。
+  cloud.store.runTransaction(() => cloud.knowledge.repositories.knowledgeItemRepository.save(deleted));
+  await a.engine.sync(); clean(a);
+  assert.deepEqual(sent.flatMap(op => op.changes.filter(row => row.id === item.id).map(row => row.lifecycleAction)), ['restore']);
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+  await a.restart(); clean(a);
+});
+
+test('知识撤回后删除恢复、重新采用并确认的净零终态同步后仍可重启', async t => {
+  const cloud = await fixture(t);
+  const { item, evidence } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '连续来源操作', canonicalStatement: '有效声明', sourceMode: 'annotation',
+    evidence: [{ sourceType: 'manual', quoteText: '保留历史摘录' }] });
+  cloud.knowledge.knowledgeItemService.confirmItem(item.id);
+  const a = cloud.device('source-cycle'); await a.connect();
+  a.knowledge.knowledgeItemService.retireEvidence(item.id, evidence[0].id);
+  a.knowledge.knowledgeItemService.trash(item.id); await a.restart();
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  a.knowledge.knowledgeItemService.readoptEvidence(item.id, evidence[0].id);
+  a.knowledge.knowledgeItemService.confirmItem(item.id);
+  await a.engine.sync(); clean(a); await a.restart(); clean(a);
+  assert.equal(a.store.state.knowledgeItems.find(row => row.id === item.id).reviewStatus, 'confirmed');
+  assert.equal(a.store.state.knowledgeEvidence.find(row => row.id === evidence[0].id).applicabilityStatus, 'active');
+});
+
+test('共同基线已在回收站时显式恢复可处理新的云端编辑冲突', async t => {
+  const cloud = await fixture(t);
+  const { item } = cloud.knowledge.knowledgeItemService.createCandidate({ title: '合法显式恢复', canonicalStatement: '共同正文', sourceMode: 'manual' });
+  cloud.knowledge.knowledgeItemService.trash(item.id);
+  const a = cloud.device('explicit-restore'); await a.connect();
+  a.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  cloud.knowledge.knowledgeItemService.restoreDeleted(item.id);
+  cloud.knowledge.knowledgeItemService.updateItem(item.id, { canonicalStatement: '云端中间修改' });
+  cloud.knowledge.knowledgeItemService.trash(item.id);
+  await a.engine.sync(); const conflict = a.engine.status().entityConflict; assert(conflict);
+  await a.engine.resolve({ conflictId: conflict.id, choice: 'local' }); clean(a);
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt, null);
+  assert.equal(cloud.store.state.knowledgeItems.find(row => row.id === item.id).canonicalStatement, '共同正文');
 });
 
 test('来源笔记删除后历史摘录保留，跨端停止把来源当成有效依据', async t => {

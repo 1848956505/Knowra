@@ -9,6 +9,11 @@ import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
 import { createEntityConflictCopy } from './entity-conflict-copy.mjs';
+import {
+  readKnowledgeLifecycleBoundaries, firstKnowledgeLifecycleBoundaries, consumeKnowledgeLifecycleBoundaries,
+  bindKnowledgeLifecycleUpload, acknowledgeKnowledgeLifecycleUpload, clearKnowledgeLifecycleUpload,
+  discardKnowledgeLifecycleBoundaries, preserveKnowledgeLifecycleInvalidations
+} from './knowledge-lifecycle-boundaries.mjs';
 
 const replace = (state, entry) => {
   const index = state[entry.collection].findIndex(item => item.id === entry.id);
@@ -27,13 +32,14 @@ function snapshot(store) {
   const value = store.readSync((db, state) => {
     const base = bases(db);
     const conflict = readMeta(db, 'entityConflict');
-    return { key, base, dirty: structuredClone(dirtyEntries(state, base)), epoch: readMeta(db, 'epoch'), conflict,
+    const boundaries = readKnowledgeLifecycleBoundaries(db);
+    return { key, base, boundaries, dirty: structuredClone(dirtyEntries(state, base, boundaries)), epoch: readMeta(db, 'epoch'), conflict,
       remote: conflict ? new Map(conflict.remote.map(entry => [syncKey(entry.collection, entry.id), entry])) : base };
   });
   if (key !== null) snapshots.set(store, value);
   return value;
 }
-function dirtyEntries(state, base) {
+function dirtyEntries(state, base, boundaries = []) {
   const changes = [];
   const versionHashes = new Set([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => `${entry.value.noteId}:${entry.value.contentHash}`));
   for (const collection of WRITABLE_COLLECTIONS) {
@@ -53,6 +59,13 @@ function dirtyEntries(state, base) {
             : undefined;
         changes.push({ collection, id, baseRevision: previous?.revision ?? null, value, ...(lifecycleAction ? { lifecycleAction } : {}) });
       }
+    }
+  }
+  // 生命周期不能因当前业务终态净零而消失；拉取时仍保留用户当前值。
+  for (const id of firstKnowledgeLifecycleBoundaries(boundaries).keys()) {
+    if (!changes.some(entry => entry.collection === 'knowledgeItems' && entry.id === id)) {
+      changes.push({ collection: 'knowledgeItems', id, baseRevision: base.get(syncKey('knowledgeItems', id))?.revision ?? null,
+        value: state.knowledgeItems.find(item => item.id === id) ?? null });
     }
   }
   return changes;
@@ -130,15 +143,21 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     const local = structuredClone(state);
     canonicalizeVersions(local, base);
     canonicalizeVersions(local, remote);
-    const dirty = dirtyEntries(local, base);
+    const boundaries = readKnowledgeLifecycleBoundaries(db);
+    const dirty = dirtyEntries(local, base, boundaries);
+    const firstBoundaries = firstKnowledgeLifecycleBoundaries(boundaries);
     const conflicts = dirty.filter(entry => {
       const old = base.get(syncKey(entry.collection, entry.id));
       const next = remote.get(syncKey(entry.collection, entry.id));
+      // 已收到自己的最早边界时，保留后继本地值并确认该权威基线。
+      if (!changedEpoch && entry.collection === 'knowledgeItems' && firstBoundaries.has(entry.id)
+        && sameEntity(entry.collection, firstBoundaries.get(entry.id).value, next?.value)) return false;
       return !sameEntity(entry.collection, entry.value, next?.value)
         && (changedEpoch || (!previousEpoch && next?.value) || (old?.revision ?? null) !== (next?.revision ?? null));
     });
     const merged = stateFromBase(remote);
     for (const entry of dirty) replace(merged, entry);
+    preserveKnowledgeLifecycleInvalidations(merged, local, boundaries);
     preserveAttachmentHealth(merged, state);
     // 未修改的历史别名仍可在本地按稳定 ID 读取。
     const versionIds = new Set(merged.noteVersions.map(item => item.id));
@@ -170,7 +189,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
         for (const key of blocked) { if (base.has(key)) acceptedBase.set(key, base.get(key)); else acceptedBase.delete(key); }
         persistBases(db, acceptedBase, base);
         writeMeta(db, 'epoch', epoch); writeMeta(db, 'cursor', cursor);
-        if (changedEpoch) writeMeta(db, 'entityUpload', null);
+        if (changedEpoch) { writeMeta(db, 'entityUpload', null); clearKnowledgeLifecycleUpload(db); }
       }
       return false;
     }
@@ -178,7 +197,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     persistBases(db, remote, base);
     writeMeta(db, 'epoch', epoch); writeMeta(db, 'cursor', cursor); writeMeta(db, 'bootstrap', null);
     writeMeta(db, 'entityConflict', null);
-    if (changedEpoch) writeMeta(db, 'entityUpload', null);
+    if (changedEpoch) { writeMeta(db, 'entityUpload', null); clearKnowledgeLifecycleUpload(db); }
     settle(db, state);
     return true;
   });
@@ -187,16 +206,37 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
 }
 
 function settle(db, state) {
-  if (!dirtyEntries(state, bases(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
+  if (!dirtyEntries(state, bases(db), readKnowledgeLifecycleBoundaries(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
 }
 
 export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   const frozen = store.readSync(db => readMeta(db, 'entityUpload'));
   if (frozen) return frozen;
-  const { base, dirty, conflict } = snapshot(store);
+  let cached = snapshot(store);
+  // 权威基线已包含该边界时不用重复提交，但必须可靠消费后再选后继动作。
+  while (true) {
+    const reflected = [...firstKnowledgeLifecycleBoundaries(cached.boundaries).values()].filter(boundary =>
+      !cached.conflict?.blocked?.includes(syncKey('knowledgeItems', boundary.entityId))
+      && sameEntity('knowledgeItems', boundary.value, cached.base.get(syncKey('knowledgeItems', boundary.entityId))?.value));
+    if (!reflected.length) break;
+    store.metadataTransaction(db => { clearKnowledgeLifecycleUpload(db); consumeKnowledgeLifecycleBoundaries(db, reflected); });
+    // 此次只有私有队列变化；实体缓存键刻意不随普通同步 metadata 变化。
+    snapshots.delete(store);
+    cached = snapshot(store);
+  }
+  const { base, dirty, conflict, boundaries } = cached;
+  const firstBoundaries = firstKnowledgeLifecycleBoundaries(boundaries);
   const blocked = new Set(conflict?.blocked ?? []);
   const allowed = entry => knowledgeSupported || !KNOWLEDGE_COLLECTIONS.includes(entry.collection);
-  const eligible = dirty.filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id)));
+  const eligible = dirty.filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id))).map(entry => {
+    const boundary = entry.collection === 'knowledgeItems' && firstBoundaries.get(entry.id);
+    if (!boundary || !entry.value) return entry;
+    // 正文和审核仍合并为最新业务终态，仅删除状态按用户事务顺序发送。
+    const value = { ...entry.value, deletedAt: boundary.value.deletedAt };
+    const previous = base.get(syncKey(entry.collection, entry.id))?.value;
+    const lifecycleAction = previous && (!previous.deletedAt && value.deletedAt ? 'trash' : previous.deletedAt && !value.deletedAt ? 'restore' : null);
+    return { collection: entry.collection, id: entry.id, baseRevision: entry.baseRevision, value, ...(lifecycleAction ? { lifecycleAction } : {}) };
+  });
   if (!eligible.length) {
     if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
     return null;
@@ -227,6 +267,8 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
     const operation = makeOperation(changes);
     writeMeta(db, 'entitySequence', operation.sequence);
     writeMeta(db, 'entityUpload', operation);
+    bindKnowledgeLifecycleUpload(db, operation.operationId, changes.flatMap(entry =>
+      entry.collection === 'knowledgeItems' && firstBoundaries.has(entry.id) ? [firstBoundaries.get(entry.id)] : []));
     return operation;
   });
 }
@@ -248,6 +290,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
       assertNoKnowledgeArtifactProvenanceDowngrade(previous, state);
       persistBases(db, base, previousBase);
     }
+    acknowledgeKnowledgeLifecycleUpload(db, operation.operationId, result.status === 'accepted');
     // 冲突结果先解除冻结，下一次拉取会保存包含完整远端事务的冲突。
     writeMeta(db, 'entityUpload', null);
     settle(db, state);
@@ -279,7 +322,8 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     const conflict = readMeta(db, 'entityConflict');
     if (!conflict || conflict.id !== conflictId) throw new Error('冲突已变化，请重新查看。');
     if (!['remote', 'local', 'manual', 'copy'].includes(choice)) throw new Error('请选择有效的冲突处理方式。');
-    const allDirty = dirtyEntries(state, bases(db));
+    const boundaries = readKnowledgeLifecycleBoundaries(db);
+    const allDirty = dirtyEntries(state, bases(db), boundaries);
     const blocked = new Set(conflict.blocked ?? allDirty.map(entry => syncKey(entry.collection, entry.id)));
     const dirty = allDirty.filter(entry => blocked.has(syncKey(entry.collection, entry.id)));
     if (['copy', 'manual'].includes(choice) && dirty.some(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection))) {
@@ -295,6 +339,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     const merged = stateFromBase(remote);
     for (const entry of allDirty) if (!blocked.has(syncKey(entry.collection, entry.id))) replace(merged, entry);
     if (choice === 'remote' || choice === 'copy') {
+      discardKnowledgeLifecycleBoundaries(db, new Set(dirty.filter(entry => entry.collection === 'knowledgeItems').map(entry => entry.id)));
       const noteIds = new Set(merged.notes.map(note => note.id));
       merged.noteVersions = merged.noteVersions.filter(version => noteIds.has(version.noteId));
     }
@@ -302,6 +347,10 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
       for (const entry of dirty) {
         const current = remote.get(syncKey(entry.collection, entry.id));
         if (entry.value && !current?.value && (entry.baseRevision !== null || conflict.changedEpoch)) throw new Error('云端已永久删除相关对象。请先导出恢复记录，再采用云端版本；原内容保存在恢复记录中。');
+        // 旧编辑不能因冲突选择变成恢复；共同基线已在回收站的显式恢复仍可继续。
+        if (entry.collection === 'knowledgeItems' && current?.value?.deletedAt && entry.value && !entry.value.deletedAt && entry.lifecycleAction !== 'restore') {
+          throw Object.assign(new Error('云端知识已移入回收站。请先采用云端版本，再从回收站显式恢复；本地修改会保存在恢复记录中。'), { code: 'SYNC_RESTORE_REQUIRED' });
+        }
         replace(merged, entry);
       }
     }
@@ -323,6 +372,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     persistBases(db, remote, bases(db));
     writeMeta(db, 'epoch', conflict.epoch); writeMeta(db, 'cursor', conflict.cursor);
     writeMeta(db, 'entityConflict', null); writeMeta(db, 'entityUpload', null);
+    clearKnowledgeLifecycleUpload(db);
     settle(db, state);
   };
   try { store.syncTransaction(resolve, { local: true, origin: 'sync-resolution' }); }

@@ -21,6 +21,7 @@ import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { collectChanges, entityReferences } from './local-change-set.mjs';
+import { recordKnowledgeLifecycleBoundaries, readKnowledgeLifecycleBoundaries } from './knowledge-lifecycle-boundaries.mjs';
 import { projectSqliteProvenance } from './sqlite-provenance-projection.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 
@@ -60,6 +61,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     if (schema !== undefined && !/^[1-7]$/.test(schema)) throw new Error('本地业务 schema 版本未知，请升级应用。');
     const schemaVersion = schema === undefined ? 6 : Number(schema);
     state = validatePersistedLocalState({ schemaVersion, ...initial });
+    readKnowledgeLifecycleBoundaries(db);
     const { migration } = projectSqliteProvenance(db, state, { initialState: initial, hasFact: (collection, id) => hasDeletionFact(db, collection, id) });
     provenanceMigration = migration;
     assertNoDeletedEntities(db, state, initial);
@@ -139,6 +141,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         (operation_id, device_id, protocol_version, state, changes, dependencies, created_at)
         VALUES (?, ?, ?, 'pending', ?, ?, ?)`)
         .run(operationId, deviceId, SYNC_PROTOCOL_VERSION, JSON.stringify(queuedChanges), JSON.stringify([...dependencies]), new Date().toISOString());
+      recordKnowledgeLifecycleBoundaries(db, queuedChanges, operationId, origin);
       pendingLocalChange ||= queuedChanges.length > 0;
       if (ownsTransaction) beforeCommit();
       if (ownsTransaction) {

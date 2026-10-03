@@ -12,9 +12,9 @@ const MUTATIONS = [
   // 该 POST 只计算预览，不保存分析范围或触发 AI。
   ['POST', /^\/api\/knowledge\/analysis-scopes\/preview$/],
   ['POST', /^\/api\/knowledge\/items$/],
-  ['POST', /^\/api\/knowledge\/items\/[^/]+\/evidence(?:\/[^/]+\/retire)?$/],
+  ['POST', /^\/api\/knowledge\/items\/[^/]+\/evidence(?:\/[^/]+\/(?:retire|readopt))?$/],
   ['PATCH', /^\/api\/knowledge\/items\/[^/]+$/],
-  ['POST', /^\/api\/knowledge\/items\/[^/]+\/(?:confirm|archive|restore)$/],
+  ['POST', /^\/api\/knowledge\/items\/[^/]+\/(?:confirm|archive|restore|trash|restore-deleted)$/],
   ['DELETE', /^\/api\/storage\/attachments\/[^/]+$/],
   ['POST', /^\/api\/storage\/attachments$/],
   ['POST', /^\/api\/storage\/attachments\/[^/]+\/(?:verify|restore)$/],
