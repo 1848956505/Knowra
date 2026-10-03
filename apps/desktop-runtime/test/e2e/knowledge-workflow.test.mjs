@@ -32,8 +32,12 @@ test('真实页面：标注来源审核与过期保护；桌面离线新建、�
   web.listen(0, '127.0.0.1'); await once(web, 'listening');
   const webOrigin = `http://127.0.0.1:${web.address().port}`;
   const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'local'), distRoot, syncOptions: { autoSync: false } });
-  const browser = await chromium.launch();
-  t.after(async () => { await browser.close(); await runtime.close(); await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => web.close(resolve))]); fs.rmSync(root, { recursive: true, force: true }); });
+  let browser;
+  t.after(async () => { await browser?.close(); await runtime.close(); await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => web.close(resolve))]); fs.rmSync(root, { recursive: true, force: true }); });
+  browser = await chromium.launch({
+    ...(process.env.KNOWRA_TEST_BROWSER_CHANNEL ? { channel: process.env.KNOWRA_TEST_BROWSER_CHANNEL } : {}),
+    ...(process.env.KNOWRA_TEST_BROWSER_EXECUTABLE ? { executablePath: process.env.KNOWRA_TEST_BROWSER_EXECUTABLE } : {})
+  });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${webOrigin}/#/materials/notes/${note.id}`);

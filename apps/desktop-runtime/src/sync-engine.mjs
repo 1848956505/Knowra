@@ -4,6 +4,7 @@ import { KNOWLEDGE_SYNC_CAPABILITY, KNOWLEDGE_COLLECTIONS } from '../../api/src/
 import { applyEntityRemote, nextEntityUpload, acknowledgeEntityUpload, getEntitySyncState, resolveEntityConflict } from './entity-sync-state.mjs';
 import { applyRemote, nextUpload, acknowledge, getSyncState, resolveConflict, readMeta, writeMeta } from './sync-state.mjs';
 import { createSyncScheduler } from './sync-scheduler.mjs';
+import { clearKnowledgeLifecycleUpload } from './knowledge-lifecycle-boundaries.mjs';
 
 function syncTransportError(failure) {
   const causes = [failure];
@@ -208,7 +209,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       try { result = await request('batch', operation); }
       catch (failure) {
         if (failure.code !== 'SYNC_CLIENT_UPGRADE_REQUIRED' && ([400, 413, 415, 422].includes(failure.status) || ['DEPENDENCY_MISSING', 'ENTITY_DELETED', 'SYNC_OPERATION_EXPIRED', 'SIBLING_NAME_CONFLICT'].includes(failure.code))) {
-          store.metadataTransaction(db => writeMeta(db, 'entityUpload', null));
+          store.metadataTransaction(db => { writeMeta(db, 'entityUpload', null); clearKnowledgeLifecycleUpload(db); });
         }
         throw failure;
       }
@@ -257,7 +258,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
         }
         // 同一 epoch 的原子回执证明该请求未接纳；只解除旧传输封装，领域数据/outbox 保持待传。
         store.metadataTransaction(db => {
-          if (operation.protocolVersion === 2) writeMeta(db, 'entityUpload', null);
+          if (operation.protocolVersion === 2) { writeMeta(db, 'entityUpload', null); clearKnowledgeLifecycleUpload(db); }
           else db.prepare('DELETE FROM sync_uploads WHERE note_id = ?').run(operation.noteId);
         });
       }

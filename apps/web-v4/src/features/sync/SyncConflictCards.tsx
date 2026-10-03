@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Select, TextAreaField } from '../../components/ui';
 import { TextDiff } from '../../components/ui/TextDiff';
-import { entityFields, entityNames, entityPresence, entityTitle, fieldLabel, fieldValue, sameField, type Conflict, type EntityConflict, type EntityConflictItem } from './syncConflictModel';
+import { entityFields, entityNames, entityPresence, entityTitle, fieldLabel, fieldValue, localKnowledgeResolutionBlock, sameField, type Conflict, type EntityConflict, type EntityConflictItem } from './syncConflictModel';
 import styles from './SyncConflictCards.module.css';
 
 type Resolve = (choice: string, markdown?: string) => Promise<void>;
@@ -21,13 +21,13 @@ function MarkdownComparison({ base, local, remote }: { base: string | undefined;
   </div>;
 }
 
-function ResolutionActions({ disabled, allowMerge, onResolve, initialMarkdown }: { disabled: boolean; allowMerge: boolean; onResolve: Resolve; initialMarkdown: string }) {
+function ResolutionActions({ disabled, allowMerge, onResolve, initialMarkdown, localBlocked = false }: { disabled: boolean; allowMerge: boolean; onResolve: Resolve; initialMarkdown: string; localBlocked?: boolean }) {
   const [manual, setManual] = useState(false);
   const [markdown, setMarkdown] = useState(initialMarkdown);
   return <>
     <div className={styles.actions}>
       <Button isDisabled={disabled} onPress={() => { void onResolve('remote'); }}>采用云端</Button>
-      <Button isDisabled={disabled} onPress={() => { void onResolve('local'); }}>采用本地</Button>
+      <Button isDisabled={disabled || localBlocked} onPress={() => { void onResolve('local'); }}>采用本地</Button>
       {allowMerge && <><Button isDisabled={disabled} onPress={() => { void onResolve('copy'); }}>保留为两篇</Button><Button isDisabled={disabled} onPress={() => setManual(!manual)}>手动合并</Button></>}
     </div>
     {manual && <div className={styles.merge}><TextAreaField label="合并后的正文" value={markdown} onChange={setMarkdown} rows={10} isDisabled={disabled} /><Button isDisabled={disabled} onPress={() => { void onResolve('manual', markdown); }}>保存合并结果</Button></div>}
@@ -56,7 +56,7 @@ function EntityComparison({ item, items }: { item: EntityConflictItem; items: En
       <table className={styles.fields}>
         <thead><tr><th scope="col">字段</th><th scope="col">共同基线</th><th scope="col">本机</th><th scope="col">云端</th></tr></thead>
         <tbody>
-          <tr><th scope="row">对象状态</th>{(['base', 'local', 'remote'] as const).map(side => <td key={side} className={side !== 'base' && entityPresence(item[side], item.base) !== entityPresence(item.base, item.base) ? styles.changed : ''}>{entityPresence(item[side], item.base, side === 'base')}</td>)}</tr>
+          <tr><th scope="row">对象状态</th>{(['base', 'local', 'remote'] as const).map(side => <td key={side} className={side !== 'base' && entityPresence(item[side], item.base, false, item.collection) !== entityPresence(item.base, item.base, false, item.collection) ? styles.changed : ''}>{entityPresence(item[side], item.base, side === 'base', item.collection)}</td>)}</tr>
           {shown.slice(0, 80).map(key => <tr key={key}><th scope="row">{fieldLabel(key)}</th>{(['base', 'local', 'remote'] as const).map(side => {
             const changed = side !== 'base' && !sameField(item[side]?.[key], item.base?.[key]);
             return <td key={side} className={changed ? styles.changed : ''}>{changed && <span className={styles.changeLabel}>已变化</span>}{item[side] === null ? '—（对象不存在）' : fieldValue(item[side]?.[key], key, items, 0, item.collection)}</td>;
@@ -85,6 +85,7 @@ export function EntityConflictCard({ conflict, disabled, onResolve }: { conflict
   const knowledge = conflict.items.filter(item => item.collection === 'knowledgeItems');
   const includesKnowledge = conflict.items.some(item => item.collection === 'knowledgeItems' || item.collection === 'knowledgeEvidence');
   const allowMerge = notes.length === 1 && !includesKnowledge;
+  const localBlock = localKnowledgeResolutionBlock(conflict);
   const title = knowledge.length === 1 ? entityTitle(knowledge[0]) : notes.length === 1 ? entityTitle(notes[0]) : '关联资料';
   return <section className={styles.conflict} aria-label={`冲突：${title}`}>
     <h3>{title} · 关联资料需要核对</h3>
@@ -94,6 +95,7 @@ export function EntityConflictCard({ conflict, disabled, onResolve }: { conflict
     {conflict.reasons.some(reason => reason.message) && <ul className={styles.reasons}>{conflict.reasons.filter(reason => reason.message).slice(0, 20).map((reason, index) => <li key={index}>{entityNames[reason.collection] ?? '资料'}：{reason.message}</li>)}</ul>}
     {conflict.items.slice(0, visibleCount).map((item, index) => <EntityDetails key={`${item.collection}:${item.id}`} item={item} items={conflict.items} initiallyOpen={index === 0} isConflict={conflict.reasons.some(reason => reason.collection === item.collection && reason.id === item.id)} />)}
     {visibleCount < conflict.items.length && <Button onPress={() => setVisibleCount(count => count + 20)}>继续查看关联资料（剩余 {conflict.items.length - visibleCount} 项）</Button>}
-    <ResolutionActions disabled={disabled} allowMerge={allowMerge} onResolve={onResolve} initialMarkdown={notes[0]?.local?.rawMarkdown ?? ''} />
+    {localBlock && <p className={styles.notice}>{localBlock}</p>}
+    <ResolutionActions disabled={disabled} localBlocked={Boolean(localBlock)} allowMerge={allowMerge} onResolve={onResolve} initialMarkdown={notes[0]?.local?.rawMarkdown ?? ''} />
   </section>;
 }

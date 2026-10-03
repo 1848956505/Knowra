@@ -58,10 +58,22 @@ export function entityTitle(item: EntityConflictItem): string {
   return item.id;
 }
 
-export function entityPresence(value: EntityValue | SyncNote | null, base: EntityValue | SyncNote | null, baseline = false): string {
+export function entityPresence(value: EntityValue | SyncNote | null, base: EntityValue | SyncNote | null, baseline = false, collection = ''): string {
   if (value === null) return baseline ? '无共同基线' : base ? '已永久删除' : '不存在（无共同基线，无法判定是否曾删除）';
-  if (value.deleted) return '已移入回收站';
+  if (value.deleted || (collection === 'knowledgeItems' && value.deletedAt)) return '已移入回收站';
   return '存在';
+}
+
+export function localKnowledgeResolutionBlock(conflict: EntityConflict): string | undefined {
+  const knowledge = conflict.items.filter(item => item.collection === 'knowledgeItems' && item.local);
+  if (knowledge.some(item => !item.remote && (item.base || conflict.changedEpoch))) {
+    return '云端知识已永久删除，不能采用本地恢复原编号。请采用云端版本；本地修改会保存在恢复记录中。';
+  }
+  // 以回收站基线发起的恢复是显式操作；旧活跃基线的编辑不能代替恢复。
+  if (knowledge.some(item => item.remote?.deletedAt && !item.local?.deletedAt && !item.base?.deletedAt)) {
+    return '云端知识已移入回收站，不能用本地旧编辑直接恢复。请先采用云端版本，将本地修改保存在恢复记录中，再从回收站显式恢复。';
+  }
+  return undefined;
 }
 
 function canonical(value: unknown): string {
