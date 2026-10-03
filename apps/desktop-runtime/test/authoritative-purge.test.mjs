@@ -86,13 +86,18 @@ test('清理响应丢失后重启先拉取核对，不再次发送DELETE', async
 
 for (const outcome of ['accepted-with-edit', 'not-delivered']) test(`真实513次日志裁剪后清理${outcome}只读快照恢复游标，先核对墓碑并保全修改`, async t => {
   const cloud = await fixture(t); let lose = true, deletes = 0, snapshots = 0, uploadBeforeFact = false;
+  const requests = [];
   const space = cloud.knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
   const note = cloud.knowledge.noteService.createNote({ title: '无关日志活动', rawMarkdown: '0', spaceId: space.id });
   const a = cloud.device(`expired-${outcome}`, async (url, init) => {
     if (init?.method === 'DELETE') { deletes++; if (lose && outcome === 'not-delivered') { lose = false; throw new Error('合成未送达'); } }
     if (url.includes('/snapshot?')) snapshots++;
     if (url.endsWith('/batch') && !a.store.deletionFacts.has('knowledgeItems', cloud.item.id)) uploadBeforeFact = true;
-    const response = await fetch(url, init);
+    const entry = { path: new URL(url).pathname, method: init?.method ?? 'GET' }; requests.push(entry);
+    let response;
+    // 513次同步JSON写入会阻塞事件循环并耗尽空闲keepalive；本例专测游标恢复，使用独立真实HTTP连接。
+    try { response = await fetch(url, { ...init, headers: { ...init?.headers, Connection: 'close' } }); entry.status = response.status; }
+    catch (failure) { entry.failure = { code: failure.code ?? null, causeCode: failure.cause?.code ?? null, message: failure.message }; throw failure; }
     if (init?.method === 'DELETE' && lose) { lose = false; throw new Error('合成已接纳但丢响应'); }
     return response;
   });
@@ -106,8 +111,12 @@ for (const outcome of ['accepted-with-edit', 'not-delivered']) test(`真实513�
     a.knowledge.knowledgeItemService.restoreDeleted(cloud.item.id);
     a.knowledge.knowledgeItemService.updateItem(cloud.item.id, { canonicalStatement: '裁剪后仍须保全的新编辑' });
   }
-  await a.restart(); snapshots = 0; await a.engine.sync();
-  assert(snapshots > 0); assert(meta(a, 'cursor')); assert.equal(deletes, 1); assert.equal(uploadBeforeFact, false);
+  await a.restart(); snapshots = 0; requests.length = 0; await a.engine.sync();
+  assert(snapshots > 0, JSON.stringify({ outcome, requests, error: a.engine.status().error, floor: cloud.store.getSyncJournal().floor, sequence }));
+  assert(requests.some(entry => entry.path === '/api/sync/bootstrap' && entry.method === 'POST' && entry.status === 200));
+  assert(requests.some(entry => entry.path === '/api/sync/snapshot' && entry.method === 'GET' && entry.status === 200));
+  assert(!requests.some(entry => entry.method === 'DELETE'));
+  assert(meta(a, 'cursor')); assert.equal(deletes, 1); assert.equal(uploadBeforeFact, false);
   if (outcome === 'accepted-with-edit') {
     assert.equal(a.engine.status().error, null); assert.equal(meta(a, 'authoritativePurgePending'), null);
     const fact = a.store.deletionFacts.list().find(row => row.entityId === cloud.item.id); assert.equal(fact.source.kind, 'remote-delete'); assert(fact.source.revision > 0);
