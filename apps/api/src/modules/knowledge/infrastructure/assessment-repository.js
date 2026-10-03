@@ -1,4 +1,5 @@
 import { createAppError } from '../../../errors/app-error.js';
+import { questionObjectiveRecords } from './question-objective-identity.js';
 
 function createCollectionRepository({ records = [], onChange = null, sort = null, filter = () => true, conflictCode = null } = {}) {
   const persist = () => onChange?.(records);
@@ -127,14 +128,7 @@ export function createInMemoryQuestionObjectiveRepository(options = {}) {
     replaceForQuestion(questionId, objectiveIds = []) {
       const removed = records.filter((item) => item.questionId === questionId);
       for (const item of removed) records.splice(records.indexOf(item), 1);
-      const next = [...new Set(objectiveIds)].map((learningObjectiveId, index) => ({
-        id: `question-objective-${questionId}-${learningObjectiveId}`,
-        questionId,
-        learningObjectiveId,
-        isPrimary: index === 0,
-        order: index,
-        createdAt: new Date().toISOString()
-      }));
+      const next = questionObjectiveRecords(questionId, objectiveIds, removed);
       records.push(...next);
       options.onChange?.(records);
       return next;

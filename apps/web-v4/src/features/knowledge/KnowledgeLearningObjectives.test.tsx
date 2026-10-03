@@ -32,12 +32,22 @@ describe('知识详情关联学习目标', () => {
     list.mockResolvedValue([]); mocked.state = { ...mocked.state, knowledgeGeneration: 1 }; view.rerender(<KnowledgeLearningObjectives item={{ ...knowledge, id: 'k2' }} />);
     expect(await screen.findByText('尚无关联学习目标。')).toBeInTheDocument(); expect(screen.queryByText('新知识目标')).not.toBeInTheDocument();
   });
-  it('桌面知识可写不等于训练可写；只读关联列表可检查而不能创建', async () => {
-    setup(vi.fn().mockResolvedValue([objective]), { persistenceMode: 'desktop-local' }); render(<KnowledgeLearningObjectives item={knowledge} />);
+  it('只读工作区关联列表可检查而不能创建', async () => {
+    setup(vi.fn().mockResolvedValue([objective]), { dataMode: 'api', persistenceMode: 'desktop-local', canWriteWorkspace: () => false }); render(<KnowledgeLearningObjectives item={knowledge} />);
     await screen.findByText('计算变化率'); expect(screen.getByRole('button', { name: '新建学习目标候选' })).toBeDisabled();
     const trigger = screen.getByRole('button', { name: '查看并审阅目标' }); await userEvent.click(trigger);
     await screen.findByText(/目标状态/); expect(screen.getByRole('button', { name: '确认已审阅目标' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: '关闭' })); await waitFor(() => expect(trigger).toHaveFocus());
+  });
+  it('桌面本地关联列表可创建并带双基线确认目标', async () => {
+    const mutate = vi.fn().mockResolvedValue(objective);
+    setup(vi.fn().mockResolvedValue([objective]), { persistenceMode: 'desktop-local', mutateTrainingAsset: mutate });
+    render(<KnowledgeLearningObjectives item={knowledge} />); await screen.findByText('计算变化率');
+    expect(screen.getByRole('button', { name: '新建学习目标候选' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: '查看并审阅目标' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '确认已审阅目标' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: '确认已审阅目标' }));
+    expect(mutate).toHaveBeenCalledWith('learningObjective', 'o1', 'confirm', { reviewBaseline: { knowledgeUpdatedAt: knowledge.updatedAt, objectiveUpdatedAt: objective.updatedAt } });
   });
   it('已打开目标时切换知识立即卸载旧审阅，不能混用新父知识与旧目标', async () => {
     const list = vi.fn().mockResolvedValue([objective]); setup(list);

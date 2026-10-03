@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Select, TextAreaField } from '../../components/ui';
 import { TextDiff } from '../../components/ui/TextDiff';
-import { entityFields, entityNames, entityPresence, entityTitle, fieldLabel, fieldValue, localKnowledgeResolutionBlock, sameField, type Conflict, type EntityConflict, type EntityConflictItem } from './syncConflictModel';
+import { entityFields, entityNames, entityPresence, entityTitle, fieldLabel, fieldValue, includesTrainingAssets, localAssetResolutionBlock, sameField, type Conflict, type EntityConflict, type EntityConflictItem } from './syncConflictModel';
 import styles from './SyncConflictCards.module.css';
 
 type Resolve = (choice: string, markdown?: string) => Promise<void>;
@@ -59,7 +59,7 @@ function EntityComparison({ item, items }: { item: EntityConflictItem; items: En
           <tr><th scope="row">对象状态</th>{(['base', 'local', 'remote'] as const).map(side => <td key={side} className={side !== 'base' && entityPresence(item[side], item.base, false, item.collection) !== entityPresence(item.base, item.base, false, item.collection) ? styles.changed : ''}>{entityPresence(item[side], item.base, side === 'base', item.collection)}</td>)}</tr>
           {shown.slice(0, 80).map(key => <tr key={key}><th scope="row">{fieldLabel(key)}</th>{(['base', 'local', 'remote'] as const).map(side => {
             const changed = side !== 'base' && !sameField(item[side]?.[key], item.base?.[key]);
-            return <td key={side} className={changed ? styles.changed : ''}>{changed && <span className={styles.changeLabel}>已变化</span>}{item[side] === null ? '—（对象不存在）' : fieldValue(item[side]?.[key], key, items, 0, item.collection)}</td>;
+            return <td key={side} className={changed ? styles.changed : ''}>{changed && <span className={styles.changeLabel}>已变化</span>}{item[side] === null ? '—（对象不存在）' : fieldValue(item[side]?.[key], key, items, 0, item.collection, item[side]?.sourceType)}</td>;
           })}</tr>)}
         </tbody>
       </table>
@@ -84,8 +84,8 @@ export function EntityConflictCard({ conflict, disabled, onResolve }: { conflict
   const [visibleCount, setVisibleCount] = useState(20);
   const knowledge = conflict.items.filter(item => item.collection === 'knowledgeItems');
   const includesKnowledge = conflict.items.some(item => item.collection === 'knowledgeItems' || item.collection === 'knowledgeEvidence');
-  const allowMerge = notes.length === 1 && !includesKnowledge;
-  const localBlock = localKnowledgeResolutionBlock(conflict);
+  const allowMerge = notes.length === 1 && !includesKnowledge && !includesTrainingAssets(conflict.items);
+  const localBlock = localAssetResolutionBlock(conflict);
   const title = knowledge.length === 1 ? entityTitle(knowledge[0]) : notes.length === 1 ? entityTitle(notes[0]) : '关联资料';
   return <section className={styles.conflict} aria-label={`冲突：${title}`}>
     <h3>{title} · 关联资料需要核对</h3>

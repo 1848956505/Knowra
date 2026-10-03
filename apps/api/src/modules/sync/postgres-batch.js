@@ -9,11 +9,17 @@ const tables = [
   ['annotationRevisions', 'annotationRevision', 'dbAnnotationRevision'],
   ['knowledgeItems', 'knowledgeItem', 'dbKnowledgeItem'], ['knowledgeEvidence', 'knowledgeEvidence', 'dbKnowledgeEvidence'],
   ['knowledgeArtifactProvenance', 'knowledgeArtifactProvenance', 'dbKnowledgeArtifactProvenance'],
-  ['learningObjectives', 'learningObjective', 'dbLearningObjective'], ['questions', 'question', 'dbQuestion'],
+  ['learningObjectives', 'learningObjective', 'dbLearningObjective'], ['examProfiles', 'examProfile', 'dbExamProfile'],
+  ['examFocuses', 'examFocus', 'dbExamFocus'], ['questions', 'question', 'dbQuestion'],
+  ['questionObjectives', 'questionObjective', 'dbQuestionObjective'],
   ['questionSources', 'questionSource', 'dbQuestionSource']
 ];
 
 export async function applyPostgresState(db, before, after) {
+  // 同一唯一组合的旧关系可能在离线解除后以新身份重建；先释放旧组合。
+  const linkIds = new Set(after.questionObjectives.map(item => item.id));
+  const removedLinks = before.questionObjectives.filter(item => !linkIds.has(item.id));
+  if (removedLinks.length) await db.questionObjective.deleteMany({ where: { id: { in: removedLinks.map(item => item.id) } } });
   const oldNotes = new Map(before.notes.map(note => [note.id, note]));
   const nextNotes = new Set(after.notes.map(note => note.id));
   const changedNotes = after.notes.filter(note => JSON.stringify(note) !== JSON.stringify(oldNotes.get(note.id)));

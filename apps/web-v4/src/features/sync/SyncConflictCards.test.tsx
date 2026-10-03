@@ -35,7 +35,7 @@ describe('同步冲突对比', () => {
   it('知识已永久删除时禁用采用本地，云端选择保留可恢复内容的说明', () => {
     render(<EntityConflictCard conflict={knowledgeConflict(knowledge, null)} disabled={false} onResolve={vi.fn()} />);
     expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
-    expect(screen.getByText(/云端知识已永久删除.*恢复记录/)).toBeInTheDocument();
+    expect(screen.getByText(/云端资产已永久删除.*恢复记录/)).toBeInTheDocument();
   });
 
   it('世代变化后不存在的知识无法采用本地，但同世代无基线新知识仍可采用', () => {
@@ -160,5 +160,52 @@ describe('同步冲突对比', () => {
     render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
     expect(screen.queryByRole('button', { name: '手动合并' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '保留为两篇' })).not.toBeInTheDocument();
+  });
+});
+
+describe('训练资产关联冲突', () => {
+  const collections = ['learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources'];
+  it.each(collections)('%s关联组不提供笔记复制或正文合并', collection => {
+    const asset = { objective: '计算一步更新', stem: '计算导数', description: '考核应用', reviewStatus: 'candidate' };
+    const group: EntityConflict = { id: 'training-conflict', changedEpoch: false, reasons: [], items: [
+      { collection, id: 'asset', base: asset, local: asset, remote: asset },
+      { collection: 'notes', id: 'note', base: note('原文'), local: note('本机'), remote: note('云端') }
+    ] };
+    render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: '保留为两篇' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '手动合并' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+  });
+  it.each(['learningObjectives', 'examProfiles', 'examFocuses', 'questions'])('%s回收站不能由旧活跃基线编辑隐式恢复，显式恢复仍可采用本地', collection => {
+    const active = { name: '人工资产', deletedAt: null };
+    const trashed = { ...active, deletedAt: '2026-10-03T00:00:00.000Z' };
+    const group: EntityConflict = { id: 'training-delete', changedEpoch: false, reasons: [], items: [{ collection, id: 'asset', base: active, local: active, remote: trashed }] };
+    const view = render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('row', { name: /对象状态/ })).toHaveTextContent('已移入回收站');
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+    expect(screen.getByText(/不能用本地旧编辑直接恢复/)).toBeInTheDocument();
+    view.rerender(<EntityConflictCard conflict={{ ...group, items: [{ ...group.items[0], base: trashed }] }} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeEnabled();
+  });
+  it.each(collections)('%s永久删除或世代变化的旧编号不能采用本地复活', collection => {
+    const local = { name: '待保留的修改' };
+    const group: EntityConflict = { id: 'training-purge', changedEpoch: false, reasons: [], items: [{ collection, id: 'asset', base: local, local, remote: null }] };
+    const view = render(<EntityConflictCard conflict={group} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '采用云端' })).toBeEnabled();
+    view.rerender(<EntityConflictCard conflict={{ ...group, changedEpoch: true, items: [{ ...group.items[0], base: null }] }} disabled={false} onResolve={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '采用本地' })).toBeDisabled();
+  });
+  it('字段、动作层级、题型和训练引用使用中文与对应对象名称', () => {
+    const items = [
+      { collection: 'learningObjectives', id: 'o1', base: null, remote: null, local: { objective: '计算一步更新' } },
+      { collection: 'examProfiles', id: 'p1', base: null, remote: null, local: { name: '期末考试' } },
+      { collection: 'questions', id: 'q1', base: null, remote: null, local: { stem: '求导数' } }
+    ];
+    expect(fieldValue('o1', 'learningObjectiveId', items)).toBe('计算一步更新（o1）');
+    expect(fieldValue('p1', 'examProfileId', items)).toBe('期末考试（p1）');
+    expect(fieldValue('q1', 'questionId', items)).toBe('求导数（q1）');
+    expect(fieldValue('o1', 'sourceId', items, 0, 'questionSources', 'learningObjective')).toBe('计算一步更新（o1）');
+    expect(fieldValue({ actionVerb: 'calculate', cognitiveLevel: 'apply', questionType: 'shortAnswer', referenceAnswer: '2x' }, 'content', items)).toBe('动作：计算；认知层级：应用；题型：简答题；参考答案：2x');
   });
 });

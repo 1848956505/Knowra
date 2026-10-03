@@ -22,6 +22,7 @@ import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite
 import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { collectChanges, entityReferences } from './local-change-set.mjs';
 import { recordKnowledgeLifecycleBoundaries, readKnowledgeLifecycleBoundaries } from './knowledge-lifecycle-boundaries.mjs';
+import { recordExamFocusReviewBoundaries, readExamFocusReviewBoundaries } from './exam-focus-review-boundaries.mjs';
 import { projectSqliteProvenance } from './sqlite-provenance-projection.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 
@@ -62,6 +63,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     const schemaVersion = schema === undefined ? 6 : Number(schema);
     state = validatePersistedLocalState({ schemaVersion, ...initial });
     readKnowledgeLifecycleBoundaries(db);
+    readExamFocusReviewBoundaries(db);
     const { migration } = projectSqliteProvenance(db, state, { initialState: initial, hasFact: (collection, id) => hasDeletionFact(db, collection, id) });
     provenanceMigration = migration;
     assertNoDeletedEntities(db, state, initial);
@@ -142,6 +144,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         VALUES (?, ?, ?, 'pending', ?, ?, ?)`)
         .run(operationId, deviceId, SYNC_PROTOCOL_VERSION, JSON.stringify(queuedChanges), JSON.stringify([...dependencies]), new Date().toISOString());
       recordKnowledgeLifecycleBoundaries(db, queuedChanges, operationId, origin);
+      recordExamFocusReviewBoundaries(db, queuedChanges, operationId, origin, valid);
       pendingLocalChange ||= queuedChanges.length > 0;
       if (ownsTransaction) beforeCommit();
       if (ownsTransaction) {

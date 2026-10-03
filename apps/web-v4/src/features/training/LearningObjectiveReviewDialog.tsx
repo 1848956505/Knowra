@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KnowledgeItem, TrainingAssetRecord } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogFooter, Select } from '../../components/ui';
 import { useAppStore } from '../../store/AppStoreProvider';
+import { workspaceCapabilities } from '../../store/workspaceCapabilities';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { useKnowledgeFormSafety } from '../knowledge/KnowledgeItemForm';
 import { LearningObjectiveForm, type LearningObjectiveFormValue } from './LearningObjectiveForm';
@@ -22,7 +23,7 @@ export function LearningObjectiveReviewDialog({ record, knowledge, knowledgeItem
   const persistenceMode = useAppStore(s => s.persistenceMode);
   const workspaceWritable = useAppStore(s => s.canWriteWorkspace);
   const generation = useAppStore(s => s.knowledgeGeneration);
-  const canWrite = dataMode === 'api' && persistenceMode === 'remote' && workspaceWritable();
+  const canWrite = dataMode === 'api' && workspaceCapabilities(persistenceMode).writeTraining && workspaceWritable();
   const [knowledgeId, setKnowledgeId] = useState(record?.knowledgeItemId ?? knowledge?.id ?? knowledgeItems.find(item => item.reviewStatus === 'confirmed' && !item.deletedAt)?.id ?? '');
   const [baseline, setBaseline] = useState(record);
   const [parent, setParent] = useState<KnowledgeItem | null>(null);
@@ -90,7 +91,7 @@ export function LearningObjectiveReviewDialog({ record, knowledge, knowledgeItem
   }
   return <><Dialog title={record ? '审阅学习目标' : '新建学习目标候选'} size="md" isOpen isPending={pending} onOpenChange={open => { if (!open) requestClose(); }}>
     <DialogBody><div className={styles.form}>
-      {!canWrite ? <p role="status">当前资料只读，学习目标写入请在可写的网页版操作。</p> : null}
+      {!canWrite ? <p role="status">当前资料只读，请重新连接并加载资料后操作。</p> : null}
       {!record && !knowledge ? <Select label="所属知识" selectedKey={knowledgeId || null} options={knowledgeItems.filter(item => item.reviewStatus === 'confirmed' && !item.deletedAt).map(item => ({ id: item.id, label: item.title }))} isDisabled={pending} onSelectionChange={key => { initialLoad.current = true; setParent(null); setError(''); setStale(false); setKnowledgeId(String(key)); }} /> : null}
       {loading ? <p role="status">正在读取审阅版本…</p> : null}
       {parent ? <section aria-label="审阅的父知识"><h3>{parent.title}</h3><p>{parent.canonicalStatement}</p>{parent.userExplanation ? <p>{parent.userExplanation}</p> : null}<p>知识版本：{parent.updatedAt} · {parentReady ? '已确认' : '尚未确认或已删除'}</p></section> : null}

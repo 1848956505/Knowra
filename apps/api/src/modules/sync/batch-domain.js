@@ -1,5 +1,6 @@
 import { calculateContentHash as trackingHash, updateStructure } from '@study-accelerator/content-anchor';
 import { normalizeKnowledgeChange, validateKnowledgeBatch, validateKnowledgeLifecycleChange } from './knowledge-batch-domain.js';
+import { normalizeTrainingChange, reconcileTrainingChanges, validateTrainingBatch } from './training-batch-domain.js';
 import { buildCreateNoteDto } from '../knowledge/application/dto/note.dto.js';
 import { buildCreateFolderDto } from '../knowledge/application/dto/folder.dto.js';
 import { buildCreateTagDto } from '../knowledge/application/dto/tag.dto.js';
@@ -66,6 +67,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     }
     let value = structuredClone(change.value);
     value = normalizeKnowledgeChange(collection, value, old);
+    value = normalizeTrainingChange({ ...change, value }, old, changes);
     if (collection === 'knowledgeArtifactProvenance') {
       if (!value) throw syncError('SYNC_PROVENANCE_DELETE_UNSUPPORTED', '来源摘要只能随受控知识清理删除。', 422);
       value = validateKnowledgeArtifactProvenance(value);
@@ -118,7 +120,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     if (!value || typeof value !== 'object') return value;
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, (key === 'noteVersionId' || (key === 'sourceId' && value.sourceType === 'noteVersion')) && aliases[child] ? aliases[child] : remap(child)]));
   }
-  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence']) state[collection] = state[collection].map(remap);
+  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence', 'questionSources']) state[collection] = state[collection].map(remap);
   for (const change of changes.filter(item => item.collection === 'contentAnnotations' && item.value)) {
     const annotation = state.contentAnnotations.find(item => item.id === change.id);
     const note = state.notes.find(item => item.id === annotation.noteId);
@@ -204,8 +206,9 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   }
   for (const folder of state.folders) folder.pathCache = folderPath(folder);
   // 校验器同时推导证据、知识点和试题来源状态，客户端不能自行提交这些状态。
-  state = reconcileSyncedSourceStates(state);
+  state = reconcileSyncedSourceStates(reconcileTrainingChanges(before, state, changes));
   validateKnowledgeBatch(before, state, changes);
+  validateTrainingBatch(before, state, changes);
   state = validatePersistedLocalState(createPersistedLocalDocument(state));
   return { state, aliases };
 }

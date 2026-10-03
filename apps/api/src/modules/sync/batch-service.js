@@ -1,6 +1,6 @@
 import { assertSyncContract } from './protocol-contract.js';
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
-import { WRITABLE_COLLECTIONS, syncReferencesFor, sameEntity } from './entity-contract.js';
+import { WRITABLE_COLLECTIONS, changeReferencesFor, sameEntity } from './entity-contract.js';
 import { prepareBatchState } from './batch-domain.js';
 import { syncError, syncKey, requestHash, thenResult, rememberBatchReceipt } from './journal.js';
 
@@ -70,12 +70,12 @@ export function createBatchSyncService(provider, ownerId, transfer) {
           const result = { status: 'conflict', conflicts };
           rememberBatchReceipt(journal, key, hash, result, op); return result;
         }
-        const referenceState = { ...state, noteVersions: [...state.noteVersions] };
-        for (const entry of op.changes.filter(change => change.collection === 'noteVersions' && change.value)) {
-          referenceState.noteVersions = referenceState.noteVersions.filter(version => version.id !== entry.id);
-          referenceState.noteVersions.push(entry.value);
+        const referenceState = structuredClone(state);
+        for (const entry of op.changes) {
+          referenceState[entry.collection] = referenceState[entry.collection].filter(value => value.id !== entry.id);
+          if (entry.value) referenceState[entry.collection].push(entry.value);
         }
-        for (const entry of op.changes) for (const ref of syncReferencesFor(entry.collection, entry.value, referenceState)) {
+        for (const entry of op.changes) for (const ref of changeReferencesFor(entry, state, referenceState)) {
           const refKey = syncKey(ref.collection, ref.id);
           if (!changes.has(refKey) && !dependencies.has(refKey)) throw syncError('SYNC_DEPENDENCY_REQUIRED', '同步事务缺少引用对象的基线。', 422);
         }
