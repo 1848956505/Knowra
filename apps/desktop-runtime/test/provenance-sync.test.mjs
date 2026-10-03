@@ -15,8 +15,9 @@ import { createSyncEngine } from '../src/sync-engine.mjs';
 import { applyEntityRemote, nextEntityUpload } from '../src/entity-sync-state.mjs';
 import { readMeta, writeMeta } from '../src/sync-state.mjs';
 import { temporaryDirectory, openWorkspace } from './helpers.mjs';
+import { reorderJsonObjectKeys } from './fixtures/sync-json-order.mjs';
 
-async function fixture(t) {
+async function fixture(t, { reorderResponseKeys = false } = {}) {
   const root = temporaryDirectory(t), store = createFileDataStore(path.join(root, 'cloud.json'));
   const app = createAppContext({ dataStore: store, uploadsDir: path.join(root, 'uploads'), storageRootDir: root });
   app.http.knowledge.createDefaultKnowledgeSpace();
@@ -27,7 +28,11 @@ async function fixture(t) {
   function device(name, fetcher) {
     const directory = path.join(root, name), workspace = openWorkspace(directory);
     const context = createAppContext({ dataStore: workspace.store, uploadsDir: path.join(directory, 'uploads'), storageRootDir: directory });
-    const engine = createSyncEngine(workspace.store, { autoSync: false, fetcher, noteService: workspace.knowledge.noteService,
+    const transport = reorderResponseKeys ? async (url, init) => {
+      const response = await (fetcher ?? fetch)(url, init);
+      return Response.json(reorderJsonObjectKeys(await response.json()), { status: response.status, headers: response.headers });
+    } : fetcher;
+    const engine = createSyncEngine(workspace.store, { autoSync: false, fetcher: transport, noteService: workspace.knowledge.noteService,
       entityTransfer: createAttachmentTransfer({ uploadsDir: path.join(directory, 'uploads'), storageRootDir: directory }) });
     t.after(async () => { await engine.close(); workspace.store.close(); });
     return { ...workspace, app: context, engine, connect: () => engine.configure({ serverUrl: origin }) };
@@ -62,11 +67,15 @@ test('云端Mock摘要通过增量与逐页bootstrap到两SQLite端，原文编�
   assert.equal((await fresh.app.http.knowledge.getKnowledgeProvenance({ id: artifactId })).sources[0].sourceState, 'stale');
 });
 
-test('SQLite Mock上行同正文版本alias、scope与摘要不可变，丢确认重试后另一端仍可回读', async t => {
-  const cloud = await fixture(t); let lose = true; const operations = [];
+for (const reorderResponseKeys of [false, true]) test(`SQLite Mock上行同正文版本alias、scope与摘要不可变，丢确认重试后另一端仍可回读（${reorderResponseKeys ? 'JSONB式对象键序' : 'JSON原键序'}）`, async t => {
+  const cloud = await fixture(t, { reorderResponseKeys }); let lose = true; const operations = [], results = [];
   const a = cloud.device('author', async (url, options) => {
     const response = await fetch(url, options);
-    if (url.endsWith('/batch')) { operations.push(JSON.parse(options.body)); if (lose) { lose = false; throw new Error('合成确认丢失'); } }
+    if (url.endsWith('/batch')) {
+      operations.push(JSON.parse(options.body));
+      const result = await response.clone().json(); results.push({ status: response.status, body: result });
+      if (lose && response.ok && result.data?.status === 'accepted') { lose = false; throw new Error('合成确认丢失'); }
+    }
     return response;
   });
   await a.connect(); const job = await createKnowledgeExtractionJobFixture(a.app);
@@ -75,9 +84,25 @@ test('SQLite Mock上行同正文版本alias、scope与摘要不可变，丢确�
   await cloud.app.http.knowledge.createNote({ id: job.note.id, title: job.note.title, rawMarkdown: job.note.rawMarkdown, spaceId: job.space.id });
   const canonical = cloud.store.state.noteVersions.find(version => version.noteId === job.note.id);
   assert.notEqual(canonical.id, record.sources[0].originNoteVersionId);
-  assert(a.engine.status().pendingEntities > 0, JSON.stringify({ stage: 'before-sync', status:a.engine.status(), items:a.store.state.knowledgeItems, scopes:a.store.state.analysisScopeSnapshots }));
-  await a.engine.sync(); assert(a.engine.status().error, JSON.stringify(a.engine.status())); await a.engine.sync(); clean(a);
+  assert(a.engine.status().pendingEntities > 0);
+  await a.engine.sync();
+  assert.equal(operations.length, 1, JSON.stringify({ phase: a.engine.status().phase, reasons: a.engine.status().entityConflict?.reasons }));
+  assert.equal(results[0].status, 200); assert.equal(results[0].body.data.status, 'accepted'); assert.equal(lose, false);
+  assert.equal(a.engine.status().error?.code, 'SYNC_NETWORK_UNAVAILABLE');
+  assert.deepEqual(meta(a, 'entityUpload'), operations[0]);
+  assert.deepEqual(cloud.store.state.knowledgeArtifactProvenance, [record]);
+  assert.deepEqual(cloud.store.state.analysisScopeSnapshots, [scope]);
+  const receiptInput = { ...syncContract(), datasetEpoch: operations[0].datasetEpoch, deviceId: operations[0].deviceId,
+    operationId: operations[0].operationId, requestHash: requestHash(operations[0]) };
+  const accepted = await cloud.app.http.sync.operationReceipt(receiptInput);
+  assert.equal(accepted.status, 'found'); assert.deepEqual(accepted.result, results[0].body.data);
+  await a.engine.sync(); clean(a);
+  assert.equal(operations.length, 2); assert.deepEqual(operations[1], operations[0]);
   assert.equal(operations[0].operationId, operations[1].operationId);
+  assert.equal(requestHash(operations[1]), receiptInput.requestHash);
+  assert.deepEqual(results[1], results[0]);
+  assert.equal(meta(a, 'entityUpload'), null); assert.equal(a.engine.status().pendingEntities, 0);
+  assert.equal(a.engine.status().entityConflict, null); assert.equal(a.store.getStatus().pendingOperations, 0);
   assertMinimalProvenanceTransport(operations[0].changes, record);
   assert.deepEqual(cloud.store.state.knowledgeArtifactProvenance, [record]);
   assert.deepEqual(cloud.store.state.analysisScopeSnapshots, [scope]);
@@ -88,6 +113,7 @@ test('SQLite Mock上行同正文版本alias、scope与摘要不可变，丢确�
   assert.equal(read.sources[0].originalVersionId, record.sources[0].originNoteVersionId);
   assert.equal(read.sources[0].resolvedVersionId, canonical.id); assert.equal(read.sources[0].aliasUsed, true);
   assert.deepEqual(read.record, record);
+  assert.deepEqual(b.store.state.analysisScopeSnapshots, [scope]);
 });
 
 test('下行不能将已保存的recorded降为legacy，校验失败不推进游标或覆盖本地摘要', async t => {

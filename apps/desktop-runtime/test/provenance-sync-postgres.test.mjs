@@ -9,9 +9,11 @@ import { createPostgresAiRepository } from '../../api/src/modules/ai/postgres-re
 import { createServer } from '../../api/src/server.js';
 import { createAttachmentTransfer } from '../../api/src/modules/sync/attachment-transfer.js';
 import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
+import { requestHash } from '../../api/src/modules/sync/journal.js';
 import { createKnowledgeExtractionJobFixture } from '../../api/test/fixtures/knowledge-extraction-job.fixture.js';
 import { assertMinimalProvenanceTransport } from '../../api/test/fixtures/knowledge-artifact-provenance.fixture.js';
 import { createSyncEngine } from '../src/sync-engine.mjs';
+import { readMeta } from '../src/sync-state.mjs';
 import { temporaryDirectory, openWorkspace } from './helpers.mjs';
 
 async function fixture(t) {
@@ -58,20 +60,43 @@ test('真实PostgreSQL05B：Mock摘要通过优化分页与增量到SQLite，sch
 });
 
 test('真实PostgreSQL05B：SQLite摘要原子上行alias与丢确认重试，另一SQLite保留不可变scope/hash', options, async t => {
-  const cloud = await fixture(t); let lose = true; const operations = [];
+  const cloud = await fixture(t); let lose = true; const operations = [], results = [];
   const author = cloud.device('author', async (url, init) => {
     const response = await fetch(url, init);
-    if (url.endsWith('/batch')) { operations.push(JSON.parse(init.body)); if (lose) { lose = false; throw new Error('合成丢确认'); } }
+    if (url.endsWith('/batch')) {
+      operations.push(JSON.parse(init.body));
+      const result = await response.clone().json(); results.push({ status: response.status, body: result });
+      if (lose && response.ok && result.data?.status === 'accepted') { lose = false; throw new Error('合成丢确认'); }
+    }
     return response;
   });
   await author.connect(); clean(author);
   const job = await createKnowledgeExtractionJobFixture(author.app), receipt = author.app.knowledgeExtractionCommit.commit(job.input);
   const record = structuredClone(author.store.state.knowledgeArtifactProvenance[0]), scope = structuredClone(author.store.state.analysisScopeSnapshots[0]);
-  await cloud.app.http.knowledge.createNote({ id: job.note.id, title: job.note.title, rawMarkdown: job.note.rawMarkdown, spaceId: job.space.id });
+  const cloudNote = await cloud.app.http.knowledge.createNote({ id: job.note.id, title: job.note.title, rawMarkdown: job.note.rawMarkdown, spaceId: job.space.id });
+  assert.deepEqual(cloudNote.annotationStructure, job.note.annotationStructure);
   const canonical = (await cloud.app.modules.knowledge.noteVersionService.listVersions({ noteId: job.note.id }))[0];
   assert.notEqual(canonical.id, record.sources[0].originNoteVersionId);
-  await author.engine.sync(); assert(author.engine.status().error); await author.engine.sync(); clean(author);
+  assert(author.engine.status().pendingEntities > 0);
+  await author.engine.sync();
+  assert.equal(operations.length, 1, JSON.stringify({ phase: author.engine.status().phase, reasons: author.engine.status().entityConflict?.reasons }));
+  assert.equal(results[0].status, 200); assert.equal(results[0].body.data.status, 'accepted'); assert.equal(lose, false);
+  assert.equal(author.engine.status().error?.code, 'SYNC_NETWORK_UNAVAILABLE');
+  assert.deepEqual(author.store.readSync(db => readMeta(db, 'entityUpload')), operations[0]);
+  assert.deepEqual(await cloud.app.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(record.artifactId), record);
+  assert.deepEqual(await cloud.app.http.knowledge.getAnalysisScope({ id: scope.id }, { spaceId: job.space.id }), scope);
+  const receiptInput = { ...syncContract(), datasetEpoch: operations[0].datasetEpoch, deviceId: operations[0].deviceId,
+    operationId: operations[0].operationId, requestHash: requestHash(operations[0]) };
+  const accepted = await cloud.app.http.sync.operationReceipt(receiptInput);
+  assert.equal(accepted.status, 'found'); assert.deepEqual(accepted.result, results[0].body.data);
+  await author.engine.sync(); clean(author);
+  assert.equal(operations.length, 2); assert.deepEqual(operations[1], operations[0]);
   assert.equal(operations[0].operationId, operations[1].operationId);
+  assert.equal(requestHash(operations[1]), receiptInput.requestHash);
+  assert.deepEqual(results[1], results[0]);
+  assert.equal(author.store.readSync(db => readMeta(db, 'entityUpload')), null);
+  assert.equal(author.engine.status().pendingEntities, 0); assert.equal(author.engine.status().entityConflict, null);
+  assert.equal(author.store.getStatus().pendingOperations, 0);
   assertMinimalProvenanceTransport(operations[0].changes, record);
   assert.equal(await cloud.app.prisma.knowledgeArtifactProvenance.count(), 1);
   const reader = cloud.device('reader'); await reader.connect(); clean(reader);

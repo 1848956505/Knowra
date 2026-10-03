@@ -5,6 +5,31 @@ import { createSyncService } from '../../api/src/modules/sync/service.js';
 import { createBatchSyncService } from '../../api/src/modules/sync/batch-service.js';
 import { createJournal, requestHash } from '../../api/src/modules/sync/journal.js';
 import { assertSyncContract, syncContract } from '../../api/src/modules/sync/protocol-contract.js';
+import { sameEntity } from '../../api/src/modules/sync/entity-contract.js';
+import { Note } from '../../api/src/modules/knowledge/domain/note.js';
+import { reorderJsonObjectKeys } from './fixtures/sync-json-order.mjs';
+
+test('笔记实体比较忽略嵌套JSON对象键序，仍区分字段值和数组顺序且不改原请求hash', () => {
+  const local = new Note({ id: 'json-order-note', title: '合成资料', rawMarkdown: '## 标题\n\n第一段。\n\n第二段。' });
+  const remote = reorderJsonObjectKeys(local);
+  assert.deepEqual(remote, { ...local });
+  assert.notDeepEqual(Object.keys(remote.annotationStructure), Object.keys(local.annotationStructure));
+  assert.notDeepEqual(Object.keys(remote.annotationStructure.nodes[0]), Object.keys(local.annotationStructure.nodes[0]));
+  const before = structuredClone(local), hash = requestHash(local);
+  assert.equal(sameEntity('notes', local, remote), true);
+  for (const change of [
+    value => { value.title += '变化'; },
+    value => { value.rawMarkdown += '变化'; },
+    value => { value.annotationStructure.nodes[0].sourceEnd++; },
+    value => { value.annotationStructure.nodes.reverse(); }
+  ]) {
+    const different = structuredClone(remote); change(different);
+    assert.equal(sameEntity('notes', local, different), false);
+  }
+  assert.deepEqual({ ...local }, before);
+  assert.equal(requestHash(local), hash);
+  assert.notEqual(requestHash(remote), hash, '实体语义比较不能重写冻结传输请求的哈希规则');
+});
 
 function fixture() {
   const state = createEmptyLocalState(), journal = createJournal(state);

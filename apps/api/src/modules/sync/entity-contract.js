@@ -12,7 +12,7 @@ export const WRITABLE_COLLECTIONS = Object.freeze([
 export const IMMUTABLE_COLLECTIONS = new Set(['noteVersions', 'annotationRevisions', 'analysisScopeSnapshots', 'knowledgeEvidence', 'knowledgeArtifactProvenance']);
 export function entityContent(collection, value) {
   if (!value) return null;
-  if (collection === 'notes') return noteContent(value);
+  if (collection === 'notes') return canonical(noteContent(value));
   const ignored = new Set(['createdAt', 'updatedAt']);
   if (collection === 'attachments') for (const key of ['verifiedAt', 'storagePath', 'status']) ignored.add(key);
   if (collection === 'folders') ignored.add('pathCache');
