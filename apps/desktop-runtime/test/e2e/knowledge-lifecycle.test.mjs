@@ -182,7 +182,7 @@ test('生产页面：云端永久删除知识后禁用采用本地，并保全�
   const sync = await f.openSync();
   await expect(sync.getByRole('row', { name: /对象状态/ })).toContainText('已永久删除');
   await expect(sync.getByRole('button', { name: '采用本地', exact: true })).toBeDisabled();
-  await expect(sync).toContainText('云端知识已永久删除，不能采用本地恢复原编号');
+  await expect(sync).toContainText('云端资产已永久删除，不能采用本地恢复原编号');
   await sync.getByRole('button', { name: '采用本地', exact: true }).evaluate(button => button.scrollIntoView({ block: 'end' }));
   await expect(sync.getByRole('button', { name: '采用本地', exact: true })).toBeInViewport();
   await f.screenshot('knowledge-permanent-conflict-actions.png');

@@ -4,7 +4,7 @@ import { selectEntityBatch } from './entity-batches.mjs';
 import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import { reconcileSyncedSourceStates } from '../../api/src/infrastructure/local-data-relations.js';
 import { randomUUID } from 'node:crypto';
-import { WRITABLE_COLLECTIONS, sameEntity, changeReferencesFor, KNOWLEDGE_COLLECTIONS, TRAINING_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
+import { WRITABLE_COLLECTIONS, sameEntity, syncReferencesFor, changeReferencesFor, KNOWLEDGE_COLLECTIONS, TRAINING_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
@@ -71,6 +71,14 @@ function dirtyEntries(state, base, boundaries = [], reviews = []) {
       changes.push({ collection, id, baseRevision: base.get(syncKey(collection, id))?.revision ?? null,
         value: state[collection].find(item => item.id === id) ?? null });
     }
+  }
+  // 已登记回收事务中实际失效的下游，即使随后人工重新确认净零也必须保留终态。
+  for (const boundary of boundaries) for (const change of boundary.changes) {
+    const value = state[change.collection]?.find(item => item.id === change.entityId) ?? null;
+    if (!['learningObjectives', 'questions'].includes(change.collection) || sameEntity(change.collection, change.before, change.value)
+      || value?.reviewStatus !== 'confirmed' || changes.some(entry => entry.collection === change.collection && entry.id === change.entityId)) continue;
+    changes.push({ collection: change.collection, id: change.entityId, baseRevision: base.get(syncKey(change.collection, change.entityId))?.revision ?? null,
+      value });
   }
   for (const review of reviews) if (!changes.some(entry => entry.collection === 'examFocuses' && entry.id === review.focusId)) {
     changes.push({ collection: 'examFocuses', id: review.focusId, baseRevision: base.get(syncKey('examFocuses', review.focusId))?.revision ?? null,
@@ -160,6 +168,10 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
       // 已收到自己的最早边界时，保留后继本地值并确认该权威基线。
       const boundary = firstBoundaries.get(syncKey(entry.collection, entry.id));
       if (!changedEpoch && boundary && sameEntity(entry.collection, boundary.value, next?.value)) return false;
+      // 已登记回收实际失效的题目旧来源只变化派生健康状态时，采用新健康基线而保留本地解除。
+      if (!changedEpoch && entry.collection === 'questionSources' && old?.value && next?.value && sameEntity(entry.collection, old.value, next.value)
+        && boundaries.some(item => item.changes.some(change => change.collection === 'questions' && change.entityId === old.value.questionId
+          && !sameEntity('questions', change.before, change.value)))) return false;
       return !sameEntity(entry.collection, entry.value, next?.value)
         && (changedEpoch || (!previousEpoch && next?.value) || (old?.revision ?? null) !== (next?.revision ?? null));
     });
@@ -269,6 +281,37 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
     const lifecycleAction = previous && (!previous.deletedAt && value.deletedAt ? 'trash' : previous.deletedAt && !value.deletedAt ? 'restore' : null);
     return { collection: entry.collection, id: entry.id, baseRevision: entry.baseRevision, value, ...(lifecycleAction ? { lifecycleAction } : {}) };
   });
+  // 回收前像只推进基线；正式确认留待所有回收父项恢复后的普通终态批次。
+  const trashedParents = new Set(eligible.filter(entry => ['knowledgeItems', 'learningObjectives'].includes(entry.collection) && entry.value?.deletedAt).map(entry => syncKey(entry.collection, entry.id)));
+  const deferredQuestions = new Set();
+  for (const entry of eligible) {
+    const previous = base.get(syncKey(entry.collection, entry.id))?.value;
+    if (entry.collection === 'questionObjectives' && entry.value && !previous && trashedParents.has(syncKey('learningObjectives', entry.value.learningObjectiveId))) deferredQuestions.add(entry.value.questionId);
+    if (entry.collection === 'questionSources' && entry.value && (!previous || previous.sourceType !== entry.value.sourceType || previous.sourceId !== entry.value.sourceId)) {
+      const collection = { knowledgeItem: 'knowledgeItems', learningObjective: 'learningObjectives' }[entry.value.sourceType];
+      if (collection && trashedParents.has(syncKey(collection, entry.value.sourceId))) deferredQuestions.add(entry.value.questionId);
+    }
+  }
+  const deferBindings = changes => changes.flatMap(entry => {
+    if (['questionObjectives', 'questionSources'].includes(entry.collection)
+      && deferredQuestions.has(entry.value?.questionId ?? base.get(syncKey(entry.collection, entry.id))?.value?.questionId)) return [];
+    if (entry.collection !== 'questions' || !deferredQuestions.has(entry.id)) return [entry];
+    const previous = base.get(syncKey('questions', entry.id));
+    return previous?.value ? [{ collection: entry.collection, id: entry.id, baseRevision: previous.revision,
+      value: { ...previous.value, reviewStatus: previous.value.deletedAt ? previous.value.reviewStatus : 'candidate' } }] : [];
+  });
+  eligible = deferBindings(eligible);
+  if (trashedParents.size) {
+    for (const entry of eligible) if (entry.collection === 'learningObjectives' && entry.value?.reviewStatus === 'confirmed'
+      && trashedParents.has(syncKey('knowledgeItems', entry.value.knowledgeItemId))) entry.value = { ...entry.value, reviewStatus: 'candidate' };
+    const projection = structuredClone(store.state);
+    for (const entry of eligible) replace(projection, entry);
+    for (const entry of eligible) if (entry.collection === 'questions' && entry.value?.reviewStatus === 'confirmed'
+      && (syncReferencesFor('questions', entry.value, projection).some(ref => trashedParents.has(syncKey(ref.collection, ref.id)))
+        || projection.questionObjectives.some(link => link.questionId === entry.id && projection.learningObjectives.find(goal => goal.id === link.learningObjectiveId)?.reviewStatus !== 'confirmed'))) {
+      entry.value = { ...entry.value, reviewStatus: 'candidate' };
+    }
+  }
   const reviewPlan = prepareExamFocusReviewChanges(reviews.filter(review => !blocked.has(syncKey('examFocuses', review.focusId))), eligible, store.state, base, cached.epoch);
   if (reviewPlan.conflict) {
     const id = reviewPlan.conflict.focusId;
@@ -277,7 +320,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
       changedEpoch: false, changedAt: new Date().toISOString() }));
     snapshots.delete(store); return null;
   }
-  eligible = reviewPlan.changes;
+  eligible = deferBindings(reviewPlan.changes);
   if (!eligible.length) {
     if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
     return null;
@@ -289,6 +332,11 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   for (const version of store.state.noteVersions) if (!canonicalVersions.has(`${version.noteId}:${version.contentHash}`)) canonicalVersions.set(`${version.noteId}:${version.contentHash}`, version);
   const referenceState = structuredClone({ ...store.state, noteVersions: [...canonicalVersions.values()] });
   for (const entry of eligible) replace(referenceState, entry);
+  // 临时旧题目投影使用同一旧子图，不能把尚未交付的新关系误当作依赖。
+  for (const collection of ['questionObjectives', 'questionSources']) {
+    referenceState[collection] = referenceState[collection].filter(child => !deferredQuestions.has(child.questionId));
+    referenceState[collection].push(...[...base.values()].filter(entry => entry.collection === collection && entry.value && deferredQuestions.has(entry.value.questionId)).map(entry => structuredClone(entry.value)));
+  }
   const before = stateFromBase(base);
   const makeOperation = changes => {
     const own = new Set(changes.map(entry => syncKey(entry.collection, entry.id)));
@@ -326,10 +374,12 @@ export function acknowledgeEntityUpload(store, operation, result) {
       const previous = structuredClone(state);
       const base = bases(db);
       const previousBase = new Map(base);
+      const pending = new Set(dirtyEntries(state, base, readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).map(entry => syncKey(entry.collection, entry.id)));
       for (const entry of result.entries) {
         const submitted = operation.changes.find(item => item.collection === entry.collection && (item.id === entry.id || result.aliases?.[item.id] === entry.id));
-        const local = state[entry.collection].find(item => item.id === submitted?.id) ?? null;
-        if (sameEntity(entry.collection, local, submitted?.value)) replace(state, entry);
+        const local = state[entry.collection].find(item => item.id === (submitted?.id ?? entry.id)) ?? null;
+        if (submitted ? sameEntity(entry.collection, local, submitted.value)
+          : !pending.has(syncKey(entry.collection, entry.id)) && sameEntity(entry.collection, local, previousBase.get(syncKey(entry.collection, entry.id))?.value)) replace(state, entry);
         base.set(syncKey(entry.collection, entry.id), entry);
       }
       canonicalizeVersions(state, base);
@@ -337,7 +387,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
       persistBases(db, base, previousBase);
     }
     acknowledgeKnowledgeLifecycleUpload(db, operation.operationId, result.status === 'accepted');
-    acknowledgeExamFocusReviewUpload(db, operation.operationId, result.status === 'accepted');
+    acknowledgeExamFocusReviewUpload(db, operation, result);
     // 冲突结果先解除冻结，下一次拉取会保存包含完整远端事务的冲突。
     writeMeta(db, 'entityUpload', null);
     settle(db, state);

@@ -8,13 +8,14 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
 import { createAttachmentTransfer } from '../../api/src/modules/sync/attachment-transfer.js';
 import { createSyncEngine } from '../src/sync-engine.mjs';
-import { nextEntityUpload } from '../src/entity-sync-state.mjs';
+import { nextEntityUpload, acknowledgeEntityUpload } from '../src/entity-sync-state.mjs';
 import { prepareBatchState } from '../../api/src/modules/sync/batch-domain.js';
 import { TRAINING_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
 import { assertSyncContract, syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import { temporaryDirectory, openWorkspace } from './helpers.mjs';
 import { createPostgresTestDatabase } from '../../../scripts/test-support/postgres-test-database.mjs';
 import { readExamFocusReviewBoundaries } from '../src/exam-focus-review-boundaries.mjs';
+import { readKnowledgeLifecycleBoundaries } from '../src/knowledge-lifecycle-boundaries.mjs';
 import { readMeta, writeMeta } from '../src/sync-state.mjs';
 import { anchorFromProjectedRange, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
@@ -324,6 +325,259 @@ test('考点旧审阅上传冻结时后继归档恢复与重新确认保留两�
   assert.equal(cloud.knowledge.examFocusService.get(created.focus.id).description, '后继人工重新确认的考点');
   assert.equal(a.store.readSync(db => readExamFocusReviewBoundaries(db).length), 0);
 });
+
+function multipleFocusReviews(knowledge, count) {
+  const created = assets(knowledge); const focuses = [created.focus];
+  for (let index = 1; index < count; index++) {
+    knowledge.learningObjectiveService.updateObjective(created.objective.id, { objective: `能够解释第${index + 1}次人工核对的目标` });
+    knowledge.learningObjectiveService.confirmObjective(created.objective.id);
+    const profile = knowledge.examProfileService.create({ name: `第${index + 1}份考试配置` });
+    const focus = knowledge.examFocusService.create({ examProfileId: profile.id, learningObjectiveId: created.objective.id, description: `第${index + 1}份人工考点` });
+    knowledge.examFocusService.confirm(focus.id); focuses.push(focus);
+  }
+  knowledge.learningObjectiveService.updateObjective(created.objective.id, { objective: '能够解释最终待核对的目标' });
+  return { ...created, focuses };
+}
+
+test('多考点不同父审阅前像按本机权威ack因果顺序推进，二三四个考点真实循环收敛', async t => {
+  const cloud = await fixture(t); const a = cloud.device('multiple-review-a'); const b = cloud.device('multiple-review-b'); await a.connect(); await b.connect();
+  for (const count of [2, 3, 4]) {
+    const created = multipleFocusReviews(a.knowledge, count);
+    await a.restart(); await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+    for (const focus of created.focuses) assert.equal(b.knowledge.examFocusService.get(focus.id).reviewStatus, 'confirmed');
+    assert.equal(b.knowledge.learningObjectiveService.getObjective(created.objective.id).objective, '能够解释最终待核对的目标');
+    assert.equal(b.knowledge.learningObjectiveService.getObjective(created.objective.id).reviewStatus, 'candidate');
+    assert.equal(a.store.readSync(db => readExamFocusReviewBoundaries(db).length), 0);
+  }
+});
+
+test('多考点前像接纳响应丢失跨重启，原冻结请求重放且后继审阅队列逐项保全', async t => {
+  const cloud = await fixture(t); let lose = true; const operations = [];
+  const a = cloud.device('multiple-review-loss', async (url, options) => {
+    const response = await fetch(url, options);
+    if (url.endsWith('/batch')) { operations.push(JSON.parse(options.body)); if (lose) { lose = false; throw new Error('模拟多考点第一前像丢响应'); } }
+    return response;
+  }); await a.connect(); const created = multipleFocusReviews(a.knowledge, 3);
+  await a.engine.sync(); assert(a.engine.status().error);
+  const queue = a.store.readSync(db => readExamFocusReviewBoundaries(db));
+  assert.equal(queue.length, 3);
+  await a.restart(); assert.deepEqual(a.store.readSync(db => readExamFocusReviewBoundaries(db)), queue);
+  await a.engine.sync(); clean(a);
+  assert.deepEqual(operations[0], operations[1]);
+  for (const focus of created.focuses) assert.equal(cloud.knowledge.examFocusService.get(focus.id).reviewStatus, 'confirmed');
+  assert.equal(a.store.readSync(db => readExamFocusReviewBoundaries(db).length), 0);
+});
+
+test('多考点期待基线只能由固定请求hash的权威ack推进，错信封同事务回滚并可重放恢复', async t => {
+  const cloud = await fixture(t); let lose = true, acceptedOperation, acceptedResult;
+  const a = cloud.device('multiple-review-hash', async (url, options) => {
+    const response = await fetch(url, options);
+    if (url.endsWith('/batch') && lose) { lose = false; acceptedOperation = JSON.parse(options.body); acceptedResult = (await response.clone().json()).data; throw new Error('模拟固定请求已接纳但丢响应'); }
+    return response;
+  }); await a.connect(); multipleFocusReviews(a.knowledge, 2); await a.engine.sync(); assert(a.engine.status().error);
+  const state = structuredClone(a.store.state), outbox = a.store.readOutbox();
+  const metadata = a.store.readSync(db => db.prepare('SELECT * FROM metadata ORDER BY key').all());
+  assert.throws(() => acknowledgeEntityUpload(a.store, { ...acceptedOperation, sequence: acceptedOperation.sequence + 1 }, acceptedResult), { code: 'LOCAL_EXAM_FOCUS_REVIEW_INVALID' });
+  assert.deepEqual(a.store.state, state); assert.deepEqual(a.store.readOutbox(), outbox);
+  assert.deepEqual(a.store.readSync(db => db.prepare('SELECT * FROM metadata ORDER BY key').all()), metadata);
+  await a.restart(); await a.engine.sync(); clean(a);
+});
+
+test('首次离线null epoch审阅可按原请求推进期间后继，实际云端换epoch仍暂停保全', async t => {
+  for (const changedEpoch of [false, true]) {
+    const cloud = await fixture(t); let late = true, created, second;
+    const a = cloud.device(`first-offline-epoch-${changedEpoch}`, async (url, options) => {
+      const response = await fetch(url, options);
+      if (url.endsWith('/batch') && late) {
+        late = false;
+        assert.equal(a.store.readSync(db => readExamFocusReviewBoundaries(db))[0].datasetEpoch, null);
+        const epoch = a.store.readSync(db => readMeta(db, 'epoch'));
+        a.knowledge.learningObjectiveService.updateObjective(created.objective.id, { objective: '能够解释首次请求期间再次审阅的目标' });
+        a.knowledge.learningObjectiveService.confirmObjective(created.objective.id);
+        const profile = a.knowledge.examProfileService.create({ name: '首次请求期间第二配置' });
+        second = a.knowledge.examFocusService.create({ examProfileId: profile.id, learningObjectiveId: created.objective.id, description: '首次请求期间再次确认' }); a.knowledge.examFocusService.confirm(second.id);
+        assert.equal(a.store.readSync(db => readExamFocusReviewBoundaries(db)).at(-1).datasetEpoch, epoch);
+        a.knowledge.learningObjectiveService.updateObjective(created.objective.id, { objective: '能够解释首次请求后最新候选目标' });
+        if (changedEpoch) cloud.store.commitImport(cloud.store.exportSnapshot());
+      }
+      return response;
+    }); created = assets(a.knowledge); await a.connect(); await a.engine.sync();
+    if (changedEpoch) {
+      assert(a.engine.status().entityConflict || a.engine.status().error);
+      assert.equal(cloud.store.state.examFocuses.some(focus => focus.id === second.id), false);
+      assert.equal(a.knowledge.examFocusService.get(second.id).reviewStatus, 'confirmed');
+      assert(a.store.readSync(db => readExamFocusReviewBoundaries(db)).some(entry => entry.focusId === second.id));
+    } else {
+      clean(a); assert.equal(cloud.knowledge.examFocusService.get(second.id).reviewStatus, 'confirmed');
+    }
+  }
+});
+
+test('多考点本机前像ack之后真实远端编辑仍拒绝后继旧审阅，不把foreign revision当因果ack', async t => {
+  const cloud = await fixture(t); let created, edit = true;
+  const a = cloud.device('multiple-review-remote', async (url, options) => {
+    const response = await fetch(url, options);
+    if (created && url.endsWith('/batch') && edit) { edit = false; cloud.knowledge.learningObjectiveService.updateObjective(created.objective.id, { objective: '真正云端并发编辑后的目标' }); }
+    return response;
+  }); await a.connect(); created = multipleFocusReviews(a.knowledge, 2);
+  await a.engine.sync(); await a.engine.sync();
+  assert(a.engine.status().entityConflict);
+  assert.equal(cloud.store.state.examFocuses.length, 1);
+  assert.equal(cloud.knowledge.learningObjectiveService.getObjective(created.objective.id).objective, '真正云端并发编辑后的目标');
+  const next = a.store.readSync(db => readExamFocusReviewBoundaries(db)).find(entry => entry.focusId === created.focuses[1].id);
+  assert.equal(next.parents.find(parent => parent.collection === 'learningObjectives').baseRevision, 1);
+  const conflictId = a.engine.status().entityConflict.id;
+  await assert.rejects(a.engine.resolve({ conflictId, choice: 'local' }), { code: 'SYNC_REVIEW_REQUIRED' });
+});
+
+test('父目标及知识回收恢复后的实际重新确认保留净零终态，正文改动与丢响应重启矩阵收敛', async t => {
+  for (const type of ['learningObjective', 'knowledgeItem']) for (const edited of [false, true]) for (const loss of [false, true]) {
+    const cloud = await fixture(t); let lose = false; const operations = [];
+    const a = cloud.device(`reconfirm-${type}-${edited}-${loss}`, async (url, options) => {
+      const response = await fetch(url, options);
+      if (url.endsWith('/batch')) { operations.push(JSON.parse(options.body)); if (lose) { lose = false; throw new Error('模拟重新确认临时回收批次丢响应'); } }
+      return response;
+    }); const b = cloud.device(`reconfirm-b-${type}-${edited}-${loss}`); await a.connect(); await b.connect();
+    const created = assets(a.knowledge);
+    const additionalGoal = a.knowledge.learningObjectiveService.createCandidate({ knowledgeItemId: created.item.id, objective: '能够解释另一既有目标', actionVerb: 'explain', cognitiveLevel: 'understand' });
+    a.knowledge.learningObjectiveService.confirmObjective(additionalGoal.id);
+    await a.engine.sync(); clean(a); await b.engine.sync(); clean(b); operations.length = 0;
+    if (type === 'knowledgeItem') {
+      a.knowledge.knowledgeItemService.trash(created.item.id); a.knowledge.knowledgeItemService.restoreDeleted(created.item.id); a.knowledge.knowledgeItemService.confirmItem(created.item.id);
+    } else {
+      a.knowledge.trainingAssetLifecycle.trash(type, created.objective.id); a.knowledge.trainingAssetLifecycle.restore(type, created.objective.id);
+    }
+    a.knowledge.learningObjectiveService.confirmObjective(created.objective.id);
+    if (type === 'knowledgeItem') a.knowledge.learningObjectiveService.confirmObjective(additionalGoal.id);
+    if (edited) a.knowledge.questionService.updateQuestion(created.question.id, { stem: '恢复后已经重新审阅的改写题干？', learningObjectiveIds: [created.objective.id, additionalGoal.id], sources: [{ sourceType: 'learningObjective', sourceId: additionalGoal.id }, { sourceType: 'manual', quote: '明确追加的人工来源' }] });
+    a.knowledge.questionService.validateQuestion(created.question.id); a.knowledge.questionService.confirmQuestion(created.question.id);
+    const finalQuestion = structuredClone(a.knowledge.questionService.getQuestion(created.question.id));
+    await a.restart(); lose = loss; await a.engine.sync();
+    if (loss) {
+      assert(a.engine.status().error); assert.equal(a.knowledge.questionService.getQuestion(created.question.id).reviewStatus, 'confirmed');
+      await a.restart(); await a.engine.sync(); assert.deepEqual(operations[0], operations[1]);
+    }
+    // 派生来源健康 revision 经 journal 拉取后，下一轮使用新基线交付恢复终态。
+    await a.engine.sync();
+    clean(a); await b.engine.sync(); clean(b);
+    assert.equal(a.knowledge.questionService.getQuestion(created.question.id).reviewStatus, 'confirmed');
+    assert.equal(b.knowledge.questionService.getQuestion(created.question.id).reviewStatus, 'confirmed');
+    assert.equal(b.knowledge.questionService.getQuestion(created.question.id).stem, finalQuestion.stem);
+    assert.equal(b.knowledge.questionService.getQuestion(created.question.id).version, finalQuestion.version);
+    const trash = operations.find(operation => operation.changes.some(entry => ['knowledgeItems', 'learningObjectives'].includes(entry.collection) && entry.value?.deletedAt));
+    assert.equal(trash.changes.find(entry => entry.collection === 'questions' && entry.id === created.question.id).value.reviewStatus, 'candidate');
+    assert.equal(b.knowledge.learningObjectiveService.getObjective(created.objective.id).reviewStatus, 'confirmed');
+  }
+});
+
+test('回收前像ack后真实云端修改关联题目仍产生CAS冲突，保留本机人工重新确认', async t => {
+  const cloud = await fixture(t); let created, edit = false;
+  const a = cloud.device('reconfirm-real-remote', async (url, options) => {
+    const response = await fetch(url, options);
+    if (edit && url.endsWith('/batch')) { edit = false; cloud.knowledge.questionService.updateQuestion(created.question.id, { stem: '实际云端并发题干？', learningObjectiveIds: [] }); }
+    return response;
+  }); await a.connect(); created = assets(a.knowledge); await a.engine.sync(); clean(a);
+  a.knowledge.trainingAssetLifecycle.trash('learningObjective', created.objective.id); a.knowledge.trainingAssetLifecycle.restore('learningObjective', created.objective.id);
+  a.knowledge.learningObjectiveService.confirmObjective(created.objective.id); a.knowledge.questionService.validateQuestion(created.question.id); a.knowledge.questionService.confirmQuestion(created.question.id);
+  edit = true; await a.engine.sync(); await a.engine.sync();
+  assert(a.engine.status().entityConflict); assert.equal(a.knowledge.questionService.getQuestion(created.question.id).reviewStatus, 'confirmed');
+  assert.equal(cloud.knowledge.questionService.getQuestion(created.question.id).stem, '实际云端并发题干？');
+});
+
+test('恢复同一父对象后新题和解除再关联新来源暂缓到restore，新子图跨丢响应重启完整保留', async t => {
+  for (const type of ['learningObjective', 'knowledgeItem']) for (const loss of [false, true]) {
+    const cloud = await fixture(t); let lose = false; const operations = [];
+    const a = cloud.device(`new-binding-${type}-${loss}`, async (url, options) => {
+      const response = await fetch(url, options);
+      if (url.endsWith('/batch')) { operations.push(JSON.parse(options.body)); if (lose) { lose = false; throw new Error('模拟新关联临时回收批次丢响应'); } }
+      return response;
+    }); const b = cloud.device(`new-binding-b-${type}-${loss}`); await a.connect(); await b.connect();
+    const created = assets(a.knowledge); await a.engine.sync(); clean(a); operations.length = 0;
+    if (type === 'knowledgeItem') { a.knowledge.knowledgeItemService.trash(created.item.id); a.knowledge.knowledgeItemService.restoreDeleted(created.item.id); a.knowledge.knowledgeItemService.confirmItem(created.item.id); }
+    else { a.knowledge.trainingAssetLifecycle.trash(type, created.objective.id); a.knowledge.trainingAssetLifecycle.restore(type, created.objective.id); }
+    a.knowledge.learningObjectiveService.confirmObjective(created.objective.id);
+    const source = { sourceType: type, sourceId: type === 'knowledgeItem' ? created.item.id : created.objective.id };
+    a.knowledge.questionService.updateQuestion(created.question.id, { learningObjectiveIds: [] });
+    a.knowledge.questionService.updateQuestion(created.question.id, { learningObjectiveIds: [created.objective.id], sources: [source] });
+    a.knowledge.questionService.validateQuestion(created.question.id); a.knowledge.questionService.confirmQuestion(created.question.id);
+    const fresh = a.knowledge.questionService.createQuestion({ stem: '恢复父对象后人工新建题？', referenceAnswer: '已明确审阅', learningObjectiveIds: [created.objective.id], sources: [source] });
+    a.knowledge.questionService.validateQuestion(fresh.id); a.knowledge.questionService.confirmQuestion(fresh.id);
+    const childIds = a.store.state.questionObjectives.concat(a.store.state.questionSources).map(child => child.id);
+    await a.restart(); lose = loss; await a.engine.sync();
+    if (loss) { assert(a.engine.status().error); await a.restart(); await a.engine.sync(); assert.deepEqual(operations[0], operations[1]); }
+    await a.engine.sync();
+    clean(a); await b.engine.sync(); clean(b);
+    assert.equal(b.knowledge.questionService.getQuestion(fresh.id).reviewStatus, 'confirmed');
+    assert.equal(b.knowledge.questionService.getQuestion(created.question.id).reviewStatus, 'confirmed');
+    assert.deepEqual(b.store.state.questionObjectives.concat(b.store.state.questionSources).map(child => child.id).sort(), childIds.sort());
+    const trash = operations.find(operation => operation.changes.some(entry => ['knowledgeItems', 'learningObjectives'].includes(entry.collection) && entry.value?.deletedAt));
+    assert(!trash.changes.some(entry => entry.id === fresh.id || childIds.includes(entry.id)));
+    assert.equal(a.store.readSync(db => readKnowledgeLifecycleBoundaries(db).length), 0);
+    assert.equal(a.store.getStatus().pendingOperations, 0); assert(a.store.readOutbox().every(row => row.state === 'acknowledged'));
+    await a.restart(); await a.engine.sync(); clean(a);
+  }
+});
+
+test('已登记失效旧来源的实际远端quote改写仍冲突，health专例不能吞掉业务变更', async t => {
+  const cloud = await fixture(t); let created, oldSource, edit = false;
+  const a = cloud.device('source-health-real-content', async (url, options) => {
+    const response = await fetch(url, options);
+    if (edit && url.endsWith('/batch')) {
+      edit = false;
+      cloud.knowledge.questionService.updateQuestion(created.question.id, { learningObjectiveIds: [], sources: [{ id: oldSource.id, sourceType: 'manual', quote: '实际远端人工改写的来源摘录' }] });
+    }
+    return response;
+  }); await a.connect(); created = assets(a.knowledge); await a.engine.sync(); clean(a); oldSource = a.store.state.questionSources[0];
+  a.knowledge.trainingAssetLifecycle.trash('learningObjective', created.objective.id); a.knowledge.trainingAssetLifecycle.restore('learningObjective', created.objective.id);
+  a.knowledge.learningObjectiveService.confirmObjective(created.objective.id);
+  a.knowledge.questionService.updateQuestion(created.question.id, { learningObjectiveIds: [] });
+  a.knowledge.questionService.updateQuestion(created.question.id, { learningObjectiveIds: [created.objective.id], sources: [{ sourceType: 'learningObjective', sourceId: created.objective.id }] });
+  a.knowledge.questionService.validateQuestion(created.question.id); a.knowledge.questionService.confirmQuestion(created.question.id);
+  edit = true; await a.engine.sync(); await a.engine.sync();
+  const conflict = a.engine.status().entityConflict; assert(conflict);
+  assert(conflict.items.some(entry => entry.collection === 'questionSources' && entry.id === oldSource.id && entry.remote?.quote === '实际远端人工改写的来源摘录'));
+  assert.equal(cloud.store.state.questionSources.find(source => source.id === oldSource.id).quote, '实际远端人工改写的来源摘录');
+  assert.equal(a.knowledge.questionService.getQuestion(created.question.id).reviewStatus, 'confirmed');
+});
+
+for (const mutation of ['malformed', 'malformed-binding-invalidation', 'missing-outbox', 'acknowledged-outbox', 'legacy-without-field']) {
+  test(`生命周期继承失效引用${mutation}：消费原trash后重启核对且正常终态清理`, async t => {
+    const cloud = await fixture(t); let pause = false, batches = 0;
+    const a = cloud.device(`invalidation-reference-${mutation}`, async (url, options) => {
+      if (pause && url.endsWith('/batch') && ++batches === 2) throw new Error('模拟回收已ack、恢复尚未发出');
+      return fetch(url, options);
+    }); await a.connect(); const created = assets(a.knowledge); await a.engine.sync(); clean(a);
+    a.knowledge.trainingAssetLifecycle.trash('learningObjective', created.objective.id); a.knowledge.trainingAssetLifecycle.restore('learningObjective', created.objective.id);
+    a.knowledge.learningObjectiveService.confirmObjective(created.objective.id); a.knowledge.questionService.validateQuestion(created.question.id); a.knowledge.questionService.confirmQuestion(created.question.id);
+    pause = true; await a.engine.sync(); assert(a.engine.status().error);
+    const boundaries = a.store.readSync(db => readKnowledgeLifecycleBoundaries(db)); assert.equal(boundaries.length, 1);
+    const cause = boundaries[0].invalidatedBy; assert(cause);
+    assert(a.store.readOutbox().some(row => row.operationId === cause.operationId && row.state !== 'acknowledged'));
+    if (mutation === 'legacy-without-field') {
+      a.store.metadataTransaction(db => {
+        const queue = readMeta(db, 'knowledgeLifecycleQueue'); delete queue[0].invalidatedBy; writeMeta(db, 'knowledgeLifecycleQueue', queue);
+        const binding = readMeta(db, 'knowledgeLifecycleUpload'); delete binding.boundaries[0].invalidatedBy; writeMeta(db, 'knowledgeLifecycleUpload', binding);
+      });
+      await a.restart(); pause = false; await a.engine.sync(); await a.engine.sync(); clean(a);
+      assert.equal(a.store.readSync(db => readKnowledgeLifecycleBoundaries(db).length), 0);
+      assert.equal(a.store.getStatus().pendingOperations, 0);
+      assert(a.store.readOutbox().every(row => row.state === 'acknowledged'));
+      await a.restart(); await a.engine.sync(); clean(a);
+      return;
+    }
+    a.store.metadataTransaction(db => {
+      if (mutation === 'malformed') { const queue = readMeta(db, 'knowledgeLifecycleQueue'); queue[0].invalidatedBy = null; writeMeta(db, 'knowledgeLifecycleQueue', queue); }
+      if (mutation === 'malformed-binding-invalidation') { const binding = readMeta(db, 'knowledgeLifecycleUpload'); binding.boundaries[0].invalidatedBy = null; writeMeta(db, 'knowledgeLifecycleUpload', binding); }
+      if (mutation === 'missing-outbox') db.prepare('DELETE FROM sync_outbox WHERE operation_id = ?').run(cause.operationId);
+      if (mutation === 'acknowledged-outbox') db.prepare("UPDATE sync_outbox SET state='acknowledged' WHERE operation_id = ?").run(cause.operationId);
+    });
+    const state = structuredClone(a.store.state), outbox = a.store.readOutbox(), metadata = a.store.readSync(db => db.prepare('SELECT * FROM metadata ORDER BY key').all());
+    assert.throws(() => nextEntityUpload(a.store), { code: 'LOCAL_KNOWLEDGE_LIFECYCLE_INVALID' });
+    assert.throws(() => createSqliteDataStore(path.join(cloud.root, `invalidation-reference-${mutation}`, 'local.sqlite')), { code: 'LOCAL_KNOWLEDGE_LIFECYCLE_INVALID' });
+    assert.deepEqual(a.store.state, state); assert.deepEqual(a.store.readOutbox(), outbox);
+    assert.deepEqual(a.store.readSync(db => db.prepare('SELECT * FROM metadata ORDER BY key').all()), metadata);
+  });
+}
 
 test('考点确认后真实远端父依赖 CAS 变化进入可恢复冲突，禁止采用本地旧审阅自动确认', async t => {
   const cloud = await fixture(t); const created = assets(cloud.knowledge); const a = cloud.device('review-cas-a'); const b = cloud.device('review-cas-b'); await a.connect(); await b.connect();

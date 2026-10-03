@@ -100,9 +100,30 @@ export function discardExamFocusReviewBoundaries(db, focusIds) {
 export function bindExamFocusReviewUpload(db, operationId, entries) {
   writeMeta(db, UPLOAD, entries.length ? { operationId, boundaries: entries.map(key) } : null);
 }
-export function acknowledgeExamFocusReviewUpload(db, operationId, accepted) {
+export function acknowledgeExamFocusReviewUpload(db, operation, result) {
   const entries = readExamFocusReviewBoundaries(db); const binding = readMeta(db, UPLOAD);
-  if (binding && binding.operationId !== operationId) throw invalid();
+  if (binding && binding.operationId !== operation.operationId) throw invalid();
+  const accepted = result.status === 'accepted';
+  if (accepted && binding) {
+    const frozen = readMeta(db, 'entityUpload');
+    if (!frozen || requestHash(frozen) !== requestHash(operation)) throw invalid();
+    const reviewed = entries.filter(entry => binding.boundaries.includes(key(entry)));
+    // 仅权威接纳本机更早审阅前像，才推进同一旧基线上的后继审阅期待版本。
+    for (const entry of entries.filter(entry => !binding.boundaries.includes(key(entry)))) {
+      for (const parent of entry.parents) {
+        const submitted = operation.changes.find(change => change.collection === parent.collection && change.id === parent.id);
+        const acknowledged = result.entries?.find(change => change.collection === parent.collection && change.id === parent.id);
+        if (!submitted || !acknowledged || !Number.isSafeInteger(acknowledged.revision) || acknowledged.revision < 1
+          || submitted.baseRevision !== parent.baseRevision || !sameEntity(parent.collection, submitted.value, acknowledged.value)) continue;
+        const causal = reviewed.some(previous => previous.sequence < entry.sequence
+          && (previous.datasetEpoch === entry.datasetEpoch || (previous.datasetEpoch === null && entry.datasetEpoch === operation.datasetEpoch))
+          && previous.parents.some(old => old.collection === parent.collection && old.id === parent.id && old.baseRevision === parent.baseRevision
+            && sameEntity(parent.collection, old.value, submitted.value)));
+        if (causal) parent.baseRevision = acknowledged.revision;
+      }
+      entry.contextHash = requestHash(entry.parents);
+    }
+  }
   writeMeta(db, UPLOAD, null);
   if (accepted && binding) writeMeta(db, QUEUE, entries.filter(entry => !binding.boundaries.includes(key(entry))).map(({ value, ...entry }) => entry));
 }
