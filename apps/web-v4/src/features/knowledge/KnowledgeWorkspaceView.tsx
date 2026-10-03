@@ -1,6 +1,8 @@
 import { ExtractionDemoNotice } from '../editor/ExtractionEnvironment';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import type { AuthoritativePurgeResult, AuthoritativePurgeStatus, PurgeConfirmationInput, Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import { isPurgeResultPending, PURGE_PENDING_MESSAGE, purgeConfirmation, purgeResultMessage } from '../../store/assetPurge';
+import { LOCAL_ASSET_PURGE_REASON } from '../../store/workspaceCapabilities';
 import { Button, Dialog, DialogBody, DialogFooter, SearchBox, SegmentedButton, SegmentedControl } from '../../components/ui';
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeDetail } from './KnowledgeDetail';
@@ -39,7 +41,9 @@ export interface KnowledgeWorkspaceViewProps {
   onTrash?(id: string, input: VersionInput): Promise<KnowledgeItem>;
   onRestoreDeleted?(id: string, input: VersionInput): Promise<KnowledgeItem>;
   onInspectPurge?(id: string): Promise<KnowledgePurgePreview>;
-  onPermanentDelete?(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
+  onPermanentDelete?(id: string, input: PurgeConfirmationInput): Promise<KnowledgePurgeResult>;
+  authoritativePurge?: boolean;
+  onPurgeStatus?(): Promise<AuthoritativePurgeStatus>;
 }
 
 export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
@@ -65,11 +69,24 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   const [archiveItem, setArchiveItem] = useState<KnowledgeItem | null>(null);
   const [trashItem, setTrashItem] = useState<KnowledgeItem | null>(null);
   const [purgePreview, setPurgePreview] = useState<KnowledgePurgePreview | null>(null);
+  const [purgeAwaitingId, setPurgeAwaitingId] = useState<string | null>(null);
+  const [purgedItemId, setPurgedItemId] = useState<string | null>(null);
   const [sourceDialog, setSourceDialog] = useState<{ replacing?: KnowledgeEvidence } | null>(null);
   const [retireEvidence, setRetireEvidence] = useState<KnowledgeEvidence | null>(null);
   const selectedRef = useRef(selectedItemId);
   selectedRef.current = selectedItemId;
   const selectedTrashed = items.find(item => item.id === selectedItemId && item.deletedAt);
+
+  useEffect(() => {
+    if (!props.authoritativePurge || !props.onPurgeStatus) return;
+    let active = true;
+    void props.onPurgeStatus().then(status => {
+      if (active && status.pending?.type === 'knowledgeItem' && status.pending.id === selectedItemId) {
+        setPurgeAwaitingId(status.pending.id); setNotice(PURGE_PENDING_MESSAGE);
+      }
+    }).catch(() => { /* 尚未执行清理时，预检入口负责说明连接或兼容问题。 */ });
+    return () => { active = false; };
+  }, [props.authoritativePurge, props.onPurgeStatus, selectedItemId]);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +101,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     let active = true;
     setDetail(null); setDetailError('');
     if (!selectedItemId) { setDetailLoading(false); return; }
+    if (selectedItemId === purgedItemId) { setDetailLoading(false); return; }
     if (selectedTrashed) {
       setDetailLoading(true);
       void onListEvidence(selectedItemId)
@@ -98,7 +116,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       .catch(error => { if (active) setDetailError(knowledgeError(error, '知识详情加载失败。')); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
-  }, [selectedItemId, onGet, onListEvidence, refresh, refreshKey, selectedTrashed?.id]);
+  }, [selectedItemId, onGet, onListEvidence, refresh, refreshKey, selectedTrashed?.id, purgedItemId]);
 
   useEffect(() => { setNotice(''); }, [selectedItemId]);
 
@@ -195,24 +213,51 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   async function openPurgePreview(item: KnowledgeItem) {
     if (!props.onInspectPurge || pending) return;
     setPending(true); setDetailError('');
-    try { setPurgePreview(await props.onInspectPurge(item.id)); }
+    try { setPurgePreview(await props.onInspectPurge(item.id)); setPurgeAwaitingId(null); setNotice(''); }
     catch (cause) { setDetailError(knowledgeError(cause, '永久删除预检失败。')); }
     finally { setPending(false); }
   }
 
-  async function confirmPurge() {
-    if (!purgePreview || !props.onPermanentDelete || pending) return;
+  function acceptPurgeResult(result: AuthoritativePurgeResult) {
+    setPurgeAwaitingId(null); setPurgePreview(null); setDetailError('');
+    if (props.authoritativePurge) setNotice(purgeResultMessage(result));
+    else setNotice('知识点主体及专属来源已清理；离线设备待同步，备份按保留策略处理。');
+    if (result.localState === 'recovery-required') { setRefresh(value => value + 1); return; }
+    setItems(current => current.filter(item => item.id !== result.asset.id));
+    setPurgedItemId(result.asset.id); setDetail(null);
+    if (!props.authoritativePurge) navigate('/knowledge');
+  }
+  async function checkPurgeResult() {
+    if (!purgeAwaitingId || !props.onPurgeStatus || pending) return;
     setPending(true); setDetailError('');
     try {
-      await props.onPermanentDelete(purgePreview.asset.id, { expectedUpdatedAt: purgePreview.expectedUpdatedAt });
-      setItems(current => current.filter(item => item.id !== purgePreview.asset.id));
-      setPurgePreview(null); setDetail(null); setNotice('知识点主体及专属来源已清理；离线设备待同步，备份按保留策略处理。');
-      navigate('/knowledge');
+      const status = await props.onPurgeStatus();
+      if (status.result?.asset.type === 'knowledgeItem' && status.result.asset.id === purgeAwaitingId && !status.pending) acceptPurgeResult(status.result);
+      else setNotice(PURGE_PENDING_MESSAGE);
+    } catch (cause) { setDetailError(knowledgeError(cause, '暂时无法核对清理结果，请保留原件并重试。')); }
+    finally { setPending(false); }
+  }
+
+  async function confirmPurge() {
+    if (!purgePreview || !props.onPermanentDelete || pending || purgeAwaitingId || !canWrite) return;
+    setPending(true); setDetailError('');
+    try {
+      const result = await props.onPermanentDelete(purgePreview.asset.id, purgeConfirmation(purgePreview));
+      acceptPurgeResult(result);
     } catch (cause) {
+      if (props.authoritativePurge && isPurgeResultPending(cause)) {
+        setPurgeAwaitingId(purgePreview.asset.id); setNotice(PURGE_PENDING_MESSAGE); return;
+      }
       setDetailError(knowledgeError(cause, '永久删除失败，请重新预检。'));
       setPurgePreview(null);
     } finally { setPending(false); }
   }
+
+  useEffect(() => {
+    if (purgeAwaitingId && props.onPurgeStatus) void checkPurgeResult();
+    // 云端同步已落库后才重新读取核对结果，不重新执行清理。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   return <WorkspacePanel as="main" aria-labelledby="knowledge-title">
     <WorkspacePanelHeader title="知识库" code="KNOW" titleId="knowledge-title" icon={<BookIcon size={13} />}
@@ -256,6 +301,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       </section>
       <section className={styles.detailPanel} aria-label="知识详情面板" aria-busy={detailLoading || pending}>
         {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
+        {purgeAwaitingId && !purgePreview ? <Button isDisabled={pending} onPress={() => void checkPurgeResult()}>核对清理结果</Button> : null}
         {detailError ? <p role="alert" className={styles.error}>{detailError} {!archiveItem ? <Button variant="ghost" onPress={() => setRefresh(value => value + 1)}>重新加载知识</Button> : null}</p> : null}
         {detailLoading ? <p className={styles.empty} role="status">正在加载详情与来源…</p> : detail ? <KnowledgeDetail {...detail} canWrite={canWrite} pending={pending}
           onEdit={() => openEdit(detail.item)} onConfirm={() => void mutate(detail.item, props.onConfirm, '已确认这条知识。')}
@@ -282,11 +328,12 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     </Dialog> : null}
     {purgePreview ? <Dialog title="永久删除知识点？" description="删除后无法普通恢复。来源笔记和标注不会删除；离线设备待同步，备份按保留策略处理。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setPurgePreview(null); }}>
       <DialogBody>
+        {props.authoritativePurge ? <p>{LOCAL_ASSET_PURGE_REASON}</p> : null}
         <p>将清理 {purgePreview.exclusiveRecords.knowledgeEvidenceIds.length} 条专属来源记录和 {purgePreview.exclusiveRecords.knowledgeArtifactProvenanceIds?.length ?? 0} 条生成来源摘要。</p>
         {purgePreview.references.length ? <><p>当前有 {purgePreview.references.length} 个关联对象，处理前不能永久删除：</p><ul>{purgePreview.references.map(reference => <li key={`${reference.collection}:${reference.id}`}>{reference.collection} · {reference.id}（{reference.reasonCode}）</li>)}</ul><p>请先核对并处理所列关联对象，然后重新预检。</p></> : null}
         {detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}
       </DialogBody>
-      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setPurgePreview(null)}>返回回收站</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite || purgePreview.decision !== 'can-purge-no-history'} onPress={() => void confirmPurge()}>确认永久删除</Button></DialogFooter>
+      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setPurgePreview(null)}>返回回收站</Button>{purgeAwaitingId ? <Button isDisabled={pending} onPress={() => void checkPurgeResult()}>核对清理结果</Button> : <Button isDisabled={pending} onPress={() => detail && void openPurgePreview(detail.item)}>重新预检</Button>}<Button variant="danger" isPending={pending} isDisabled={!canWrite || Boolean(purgeAwaitingId) || purgePreview.decision !== 'can-purge-no-history'} onPress={() => void confirmPurge()}>确认永久删除</Button></DialogFooter>
     </Dialog> : null}
     {sourceDialog && detail ? <KnowledgeSourceDialog notes={props.notes} evidence={detail.evidence} replacing={sourceDialog.replacing} onClose={() => setSourceDialog(null)} onListAnnotations={props.onListAnnotations} onSave={saveSource} /> : null}
     {retireEvidence ? <Dialog title="撤回这条来源的适用性？" description="来源的技术健康状态与历史摘录会保留；若这是已确认知识的最后一个适用来源，知识会转为待修订。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setRetireEvidence(null); }}>

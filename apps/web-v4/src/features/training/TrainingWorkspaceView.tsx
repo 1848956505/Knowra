@@ -5,7 +5,6 @@ import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePane
 import { PathTrail } from '../../shell/PathTrail';
 import { QuestionIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
 import { useAppStore } from '../../store/AppStoreProvider';
-import { workspaceCapabilities, LOCAL_TRAINING_PURGE_REASON } from '../../store/workspaceCapabilities';
 import { useNavigate } from '../../app/router';
 import { QuestionDetailPanel } from './QuestionDetailPanel';
 import { QuestionSourceComparison } from './QuestionSourceComparison';
@@ -15,6 +14,9 @@ import { QuestionValue } from './QuestionValue';
 import { LearningObjectiveReviewDialog } from './LearningObjectiveReviewDialog';
 import { objectiveActionLabel, objectiveLevelLabel } from './learningObjectiveModel';
 import styles from './TrainingWorkspaceView.module.css';
+import { LOCAL_ASSET_PURGE_REASON, workspaceCapabilities } from '../../store/workspaceCapabilities';
+import { isPurgeResultPending, PURGE_PENDING_MESSAGE, purgeConfirmation, purgeResultMessage } from '../../store/assetPurge';
+import type { AuthoritativePurgeResult } from '@study-accelerator/web-core';
 
 const KINDS: TrainingAssetKind[] = ['learningObjective', 'examProfile', 'examFocus', 'question'];
 const LABELS: Record<TrainingAssetKind, string> = { learningObjective: '学习目标', examProfile: '考试配置', examFocus: '考点', question: '题目' };
@@ -38,13 +40,14 @@ export function TrainingWorkspaceView() {
   const mutate = useAppStore(s => s.mutateTrainingAsset);
   const inspect = useAppStore(s => s.inspectTrainingAssetPurge);
   const purge = useAppStore(s => s.purgeTrainingAsset);
+  const purgeStatus = useAppStore(s => s.getAuthoritativePurgeStatus);
   const listKnowledgeItems = useAppStore(s => s.listKnowledgeItems);
   const getKnowledgeItem = useAppStore(s => s.getKnowledgeItem);
   const listKnowledgeEvidence = useAppStore(s => s.listKnowledgeEvidence);
   const getNoteVersion = useAppStore(s => s.getNoteVersion);
   const knowledgeGeneration = useAppStore(s => s.knowledgeGeneration);
   const canWrite = dataMode === 'api' && workspaceCapabilities(persistenceMode).writeTraining && canWriteWorkspace();
-  const canPurge = canWrite && workspaceCapabilities(persistenceMode).permanentDelete;
+  const canPurge = dataMode === 'api' && canWriteWorkspace() && workspaceCapabilities(persistenceMode).purgeTraining;
   const [records, setRecords] = useState<Record<TrainingAssetKind, TrainingAssetRecord[]>>({ learningObjective: [], examProfile: [], examFocus: [], question: [] });
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [kind, setKind] = useState<TrainingAssetKind>('question');
@@ -57,10 +60,22 @@ export function TrainingWorkspaceView() {
   const [objectiveReview, setObjectiveReview] = useState<{ record?: TrainingAssetRecord } | null>(null);
   const [action, setAction] = useState<ActionTarget>(null);
   const [preview, setPreview] = useState<TrainingPurgePreview | null>(null);
+  const [purgeAwaiting, setPurgeAwaiting] = useState<{ kind: TrainingAssetKind; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [comparedSource, setComparedSource] = useState<QuestionSource | null>(null);
+
+  useEffect(() => {
+    if (persistenceMode !== 'desktop-local' || !purgeStatus) return;
+    let active = true;
+    void purgeStatus().then(status => {
+      if (active && status.pending && KINDS.includes(status.pending.type as TrainingAssetKind)) {
+        setPurgeAwaiting({ kind: status.pending.type as TrainingAssetKind, id: status.pending.id }); setNotice(PURGE_PENDING_MESSAGE);
+      }
+    }).catch(() => { /* 预检入口负责说明当前服务不兼容或未连接。 */ });
+    return () => { active = false; };
+  }, [persistenceMode, purgeStatus]);
 
   const reload = useCallback(async () => {
     const [objectives, profiles, focuses, questions, items] = await Promise.all([
@@ -107,20 +122,46 @@ export function TrainingWorkspaceView() {
   }
   async function openPurge(value: TrainingAssetRecord, selectedKind: TrainingAssetKind) {
     setBusy(true); setError(''); setPreview(null); setAction({ kind: selectedKind, value, action: 'purge' });
-    try { setPreview(await inspect(selectedKind, value.id)); }
+    try { setPreview(await inspect(selectedKind, value.id)); setPurgeAwaiting(null); setNotice(''); }
     catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
+  function acceptPurgeResult(result: AuthoritativePurgeResult) {
+    setNotice(persistenceMode === 'desktop-local' ? purgeResultMessage(result) : '已永久清理。');
+    setAction(null); setPreview(null); setPurgeAwaiting(null); setGeneration(n => n + 1);
+  }
+  async function checkPurgeResult() {
+    if (!purgeAwaiting || !purgeStatus || busy) return;
+    setBusy(true); setError('');
+    try {
+      const status = await purgeStatus();
+      if (!status.pending && status.result?.asset.id === purgeAwaiting.id && status.result.asset.type === purgeAwaiting.kind) acceptPurgeResult(status.result);
+      else setNotice(PURGE_PENDING_MESSAGE);
+    } catch (cause) { setError(errorText(cause)); }
+    finally { setBusy(false); }
+  }
+  useEffect(() => {
+    if (purgeAwaiting) void checkPurgeResult();
+    // 只在已同步工作区刷新后核对，不自动重发清理。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [knowledgeGeneration]);
   async function commitAction() {
-    if (!action) return;
+    if (!action || purgeAwaiting || (action.action === 'purge' && !canPurge)) return;
     setBusy(true); setError(''); setNotice('');
     try {
       if (action.action === 'trash') await mutate(action.kind, action.value.id, 'trash');
-      else if (preview?.decision === 'can-purge-no-history') await purge(action.kind, action.value.id, preview.expectedUpdatedAt);
+      else if (preview?.decision === 'can-purge-no-history') {
+        const result = await purge(action.kind, action.value.id, preview.confirmationToken ? purgeConfirmation(preview) : preview.expectedUpdatedAt);
+        acceptPurgeResult(result); return;
+      }
       else return;
       setNotice(action.action === 'trash' ? '已移入回收站。' : '已永久清理。');
       setAction(null); setPreview(null); setGeneration(n => n + 1);
-    } catch (cause) { setError(errorText(cause)); }
+    } catch (cause) {
+      if (action.action === 'purge' && persistenceMode === 'desktop-local' && isPurgeResultPending(cause)) {
+        setPurgeAwaiting({ kind: action.kind, id: action.value.id }); setNotice(PURGE_PENDING_MESSAGE);
+      } else { setError(errorText(cause)); if (action.action === 'purge') setPreview(null); }
+    }
     finally { setBusy(false); }
   }
 
@@ -136,9 +177,10 @@ export function TrainingWorkspaceView() {
     </WorkspacePanelToolbar>
     <WorkspacePanelBody className={`${styles.body} ${kind === 'question' ? styles.questionBody : ''}`}>
       {!canWrite ? <p className={styles.info}>当前资料只读，可查看训练资产；请重新连接并加载资料后操作。</p> : null}
-      {persistenceMode === 'desktop-local' && view === 'trash' ? <p className={styles.info}>{LOCAL_TRAINING_PURGE_REASON}</p> : null}
+      {persistenceMode === 'desktop-local' && view === 'trash' ? <p className={styles.info}>{LOCAL_ASSET_PURGE_REASON}</p> : null}
       {error ? <div><p role="alert" className={styles.error}>{error}</p>{!form && !action ? <Button size="compact" onPress={() => setGeneration(value => value + 1)}>重新加载训练资产</Button> : null}</div> : null}
       {notice ? <p role="status" className={styles.info}>{notice}</p> : null}
+      {purgeAwaiting && !action ? <Button isDisabled={busy} onPress={() => void checkPurgeResult()}>核对清理结果</Button> : null}
       {loading ? <p role="status">正在加载训练资产…</p> : <div className={kind === 'question' ? styles.questionLayout : undefined}>
       <section className={kind === 'question' ? styles.questionList : undefined} aria-label={`${LABELS[kind]}列表`}>
       {visible.length === 0 ? <p className={styles.empty}>当前筛选下没有{LABELS[kind]}。</p> : <div className={kind === 'question' ? styles.questionRows : styles.cards}>{visible.map(record => <article className={`${styles.card} ${record.id === selectedQuestion?.id ? styles.selected : ''}`} key={record.id}>
@@ -176,6 +218,7 @@ export function TrainingWorkspaceView() {
     }} /> : null}
     {action ? <Dialog title={action.action === 'trash' ? `删除${LABELS[action.kind]}？` : `永久清理${LABELS[action.kind]}？`} isOpen onOpenChange={open => { if (!open && !busy) { setAction(null); setPreview(null); setError(''); } }} isPending={busy}>
       <DialogBody><div className={styles.dialogContent}><p>“{label(action.value, action.kind)}”{action.action === 'trash' ? '将移入回收站，相关资产不会自动删除。' : '将被永久清理。备份与离线设备副本仍按各自保留规则处理。'}</p>
+        {action.action === 'purge' && persistenceMode === 'desktop-local' ? <p>{LOCAL_ASSET_PURGE_REASON}</p> : null}
         {action.action === 'purge' && preview ? <><p>预检结果：{preview.decision === 'can-purge-no-history' ? '可以清理' : '需要先处理关联引用'}</p>{preview.references.length ? <ul>{preview.references.map(ref => <li key={`${ref.collection}-${ref.id}`}>{ref.collection} / {ref.id} · {ref.action} {ref.relatedAsset ? <Button variant="ghost" size="mini" onPress={() => {
           const target = records[ref.relatedAsset!.kind].find(item => item.id === ref.relatedAsset!.id);
           setKind(ref.relatedAsset!.kind);
@@ -184,7 +227,7 @@ export function TrainingWorkspaceView() {
           setAction(null); setPreview(null);
         }}>查看{LABELS[ref.relatedAsset.kind]}</Button> : null}</li>)}</ul> : null}</> : null}
         {error ? <p role="alert" className={styles.error}>{error}</p> : null}</div></DialogBody>
-      <DialogFooter><DialogClose variant="ghost">取消</DialogClose><Button variant="danger" isDisabled={busy || (action.action === 'purge' && preview?.decision !== 'can-purge-no-history')} onPress={() => void commitAction()}>{action.action === 'trash' ? '移入回收站' : '确认永久清理'}</Button></DialogFooter>
+      <DialogFooter><DialogClose variant="ghost">取消</DialogClose>{action.action === 'purge' ? purgeAwaiting ? <Button isDisabled={busy} onPress={() => void checkPurgeResult()}>核对清理结果</Button> : <Button isDisabled={busy} onPress={() => void openPurge(action.value, action.kind)}>重新预检</Button> : null}<Button variant="danger" isDisabled={busy || Boolean(purgeAwaiting) || (action.action === 'purge' && (!canPurge || preview?.decision !== 'can-purge-no-history'))} onPress={() => void commitAction()}>{action.action === 'trash' ? '移入回收站' : '确认永久清理'}</Button></DialogFooter>
     </Dialog> : null}
   </WorkspacePanel>;
 }

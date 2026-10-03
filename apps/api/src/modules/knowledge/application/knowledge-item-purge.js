@@ -35,6 +35,6 @@ export function assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt) {
     throw createAppError('KNOWLEDGE_ITEM_UPDATE_CONFLICT', '知识点已变化，请重新预览。', 409, { preflight });
   }
   if (preflight.decision !== 'can-purge-no-history') {
-    throw createAppError('KNOWLEDGE_ITEM_PURGE_BLOCKED', '请先处理知识点的关联引用。', 409, { preflight });
+    throw createAppError('KNOWLEDGE_ITEM_PURGE_BLOCKED', preflight.references.find(reference => reference.reasonCode === 'TASK_REFERENCE_COVERAGE_UNAVAILABLE')?.message ?? '请先处理知识点的关联引用。', 409, { preflight });
   }
 }

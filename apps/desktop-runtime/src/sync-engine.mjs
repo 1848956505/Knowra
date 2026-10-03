@@ -6,6 +6,8 @@ import { applyRemote, nextUpload, acknowledge, getSyncState, resolveConflict, re
 import { createSyncScheduler } from './sync-scheduler.mjs';
 import { clearKnowledgeLifecycleUpload } from './knowledge-lifecycle-boundaries.mjs';
 import { clearExamFocusReviewUpload } from './exam-focus-review-boundaries.mjs';
+import { createSyncExecutionGate } from './sync-execution-gate.mjs';
+import { createAuthoritativePurge } from './authoritative-purge.mjs';
 
 function syncTransportError(failure) {
   const causes = [failure];
@@ -43,6 +45,7 @@ function syncTransportError(failure) {
 }
 
 export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, noteService, autoSync = true, entityTransfer = null, clock } = {}) {
+  const execution = createSyncExecutionGate();
   let authorization = '';
   const full = Boolean(entityTransfer);
   let closed = false;
@@ -67,9 +70,9 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
     try { return await fetcher(url, options); }
     catch (failure) { throw syncTransportError(failure); }
   }
-  async function request(route, body, serverUrl = meta('serverUrl')) {
-    const response = await fetchSync(`${serverUrl}/api/sync/${route}`, {
-      method: body === undefined ? 'GET' : 'POST', redirect: 'error',
+  async function request(route, body, serverUrl = meta('serverUrl'), method = body === undefined ? 'GET' : 'POST') {
+    const response = await fetchSync(`${serverUrl}${route.startsWith('/api/') ? route : `/api/sync/${route}`}`, {
+      method, redirect: 'error',
       headers: { ...(authorization ? { Authorization: authorization } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(15000)
     });
@@ -277,6 +280,11 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       requireServer(info);
       if (meta('ownerId') && info.ownerId !== meta('ownerId')) throw new Error('云端所属资料库已改变，请使用独立本地资料目录。');
       store.metadataTransaction(db => { writeMeta(db, 'ownerId', info.ownerId); writeMeta(db, 'capabilities', info.capabilities ?? []); writeMeta(db, 'serverEpoch', info.datasetEpoch); });
+      // 未知执行结果必须先读真实删除事实；不得先把旧主体上传或重发清理。
+      if (!await purge.reconcile()) {
+        const failure = new Error('上次清理结果待核对，请联网重新预检并再次确认；原件已保留。');
+        failure.code = 'LOCAL_PURGE_RESULT_PENDING'; throw failure;
+      }
       if (full) {
         const device = await request(`device?deviceId=${encodeURIComponent(store.getStatus().deviceId)}`);
         store.metadataTransaction(db => writeMeta(db, 'entitySequence', Math.max(meta('entitySequence') ?? 0, device.sequence)));
@@ -308,7 +316,27 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       retryAt = (clock?.now() ?? Date.now()) + Math.max(Math.min(300000, 1000 * 2 ** Math.min(failures, 8)) + Math.random() * 1000, failure.retryAfterMs || 0);
     }
   }
-  const scheduler = createSyncScheduler({ run: cycle, autoSync, intervalMs, clock, policy: () => ({
+  const exclusive = operation => execution.run(() => {
+    if (closed) { const failure = new Error('应用正在关闭，请重新打开后操作。'); failure.code = 'LOCAL_RUNTIME_CLOSED'; throw failure; }
+    return operation();
+  });
+  async function pullPurgeFacts() {
+    // 核对命令只读恢复过期基线；快照内带修订号的墓碑才是事实，主体缺席不是。
+    if (!meta('cursor')) return bootstrap();
+    try { return await pull(); }
+    catch (failure) {
+      if (failure.code !== 'CURSOR_EXPIRED') throw failure;
+      store.metadataTransaction(db => { writeMeta(db, 'cursor', null); writeMeta(db, 'bootstrap', null); });
+      return bootstrap();
+    }
+  }
+  const purge = createAuthoritativePurge({ store, exclusive, connection: () => full,
+    synchronize: async () => {
+      await cycle();
+      if (error) throw Object.assign(new Error(error.message), { code: error.code });
+    },
+    request: (route, body, method) => request(route, body, meta('serverUrl'), method), pull: pullPurgeFacts });
+  const scheduler = createSyncScheduler({ run: () => execution.run(cycle), autoSync, intervalMs, clock, policy: () => ({
     stopped: closed || !meta('serverUrl') || meta('clientPaused') || phase === 'auth-required' || ['PROTOCOL_UNSUPPORTED', 'SYNC_CLIENT_UPGRADE_REQUIRED', 'SYNC_LEGACY_OPERATION_UNRESOLVED'].includes(error?.code),
     retryAt, changed, more
   }) });
@@ -334,9 +362,12 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       }
       return data.data;
     },
-    status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), lastCheckedAt, knowledgeSyncSupported: meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? null, attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error }),
+    status: () => ({ ...getSyncState(store), ...(full ? getEntitySyncState(store) : {}), lastCheckedAt, knowledgeSyncSupported: meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? null, attachmentPending: meta('attachmentPending'), deviceId: store.getStatus().deviceId, phase, error,
+      authoritativePurge: purge.status() }),
+    purgePreview: purge.preview,
+    purge: purge.execute,
     async configure({ serverUrl, username = '', password = '' }) {
-      await scheduler.wait();
+      return exclusive(async () => {
       const url = new URL(serverUrl);
       if (url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('请输入不含账号、路径或参数的云端服务地址。');
       if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) throw new Error('云端地址必须使用 HTTPS。');
@@ -353,15 +384,17 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       }
       if (meta('ownerId') && info.ownerId !== meta('ownerId')) throw new Error('云端所属资料库已改变，请使用独立本地资料目录。');
       store.metadataTransaction(db => { writeMeta(db, 'serverUrl', url.origin); writeMeta(db, 'clientPaused', false); });
-      await sync();
+      await cycle();
       return this.status();
+      });
     },
     async disconnect() {
       scheduler.pause();
-      await scheduler.wait();
+      return exclusive(async () => {
       authorization = ''; store.metadataTransaction(db => writeMeta(db, 'clientPaused', true));
       scheduler.pause();
       phase = 'disconnected'; error = null; return this.status();
+      });
     },
     sync,
     wake: reason => scheduler.wake(reason),
@@ -369,14 +402,15 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       ...(full ? [{ kind: 'pending-local-data', exportedAt: new Date().toISOString(), snapshot: structuredClone(state), conflict: readMeta(db, 'entityConflict'), upload: readMeta(db, 'entityUpload') }] : []),
       ...db.prepare('SELECT payload FROM sync_recovery ORDER BY rowid DESC').all().map(row => JSON.parse(row.payload))
     ]),
-    async retry() { store.metadataTransaction(db => writeMeta(db, 'blocked', {})); await sync(); return this.status(); },
+    async retry() { return exclusive(async () => { store.metadataTransaction(db => writeMeta(db, 'blocked', {})); await cycle(); return this.status(); }); },
     async resolve(input) {
-      await scheduler.wait();
+      return exclusive(async () => {
       if (full && input.conflictId) resolveEntityConflict(store, input, noteService, entityTransfer);
       else resolveConflict(store, input, noteService);
-      await sync();
+      await cycle();
       return this.status();
+      });
     },
-    async close() { closed = true; unsubscribe(); await scheduler.close(); }
+    async close() { closed = true; unsubscribe(); await scheduler.close(); await execution.drain(); }
   };
 }

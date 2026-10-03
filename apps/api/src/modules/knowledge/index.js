@@ -1,3 +1,4 @@
+import { taskCoverage, supplementPurgePreview, assertPurgeDatasetEpoch, assertManualPurgeScope } from './application/asset-purge-guard.js';
 import { createNoteService } from './application/note-service.js';
 import { createFolderService } from './application/folder-service.js';
 import { createTagService } from './application/tag-service.js';
@@ -249,7 +250,9 @@ export function createKnowledgeModule(options = {}) {
     repositories: { learningObjectiveRepository, examProfileRepository, examFocusRepository, questionRepository,
       questionObjectiveRepository, questionSourceRepository, knowledgeItemRepository, analysisScopeRepository },
     runTransaction,
-    getTombstone: options.getPurgeTombstone
+    getTombstone: options.getPurgeTombstone,
+    readPurgeTaskState: options.readPurgeTaskState,
+    getPurgeDatasetEpoch: options.getPurgeDatasetEpoch
   });
   const folderService = createFolderService({
     repository: folderRepository,
@@ -449,18 +452,20 @@ export function createKnowledgeModule(options = {}) {
 
   function inspectKnowledgePurge(id) {
     const item = knowledgeItemRepository.findById(id);
-    return inspectKnowledgeItemPurge({
+    return supplementPurgePreview(inspectKnowledgeItemPurge({
       item,
       evidence: knowledgeEvidenceRepository.list({ knowledgeItemId: id }),
       provenance: knowledgeArtifactProvenanceRepository.list({ artifactId: id }),
-      learningObjectives: learningObjectiveRepository.list({ includeArchived: true }),
+      learningObjectives: learningObjectiveRepository.list({ includeArchived: true, includeDeleted: true }),
       questionSources: questionSourceRepository.list(),
       analysisScopes: analysisScopeRepository.list({ includeDeleted: true })
-    });
+    }), taskCoverage(options.readPurgeTaskState), options.getPurgeDatasetEpoch?.());
   }
 
-  function permanentlyDeleteKnowledgeItem(id, { expectedUpdatedAt } = {}) {
+  function permanentlyDeleteKnowledgeItem(id, input = {}) {
+    const { expectedUpdatedAt } = input;
     return runTransaction(() => {
+      assertPurgeDatasetEpoch(input, options.getPurgeDatasetEpoch?.());
       if (!knowledgeItemRepository.findById(id)) {
         const tombstone = options.getPurgeTombstone?.('knowledgeItems', id);
         if (!expectedUpdatedAt || !tombstone || (tombstone.previousUpdatedAt && tombstone.previousUpdatedAt !== expectedUpdatedAt)) {
@@ -470,6 +475,7 @@ export function createKnowledgeModule(options = {}) {
       }
       const preflight = inspectKnowledgePurge(id);
       assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt);
+      assertManualPurgeScope('knowledgeItem', knowledgeItemRepository.findById(id), input, knowledgeArtifactProvenanceRepository.list({ artifactId: id }));
       const removedProvenance = knowledgeArtifactProvenanceRepository.deleteByKnowledgeItemId(id);
       const removedEvidence = knowledgeEvidenceRepository.deleteByKnowledgeItemId(id);
       knowledgeItemRepository.delete(id);

@@ -164,7 +164,22 @@ export interface EmptyRecycleBinResult {
   noteIds?: string[];
 }
 
-export interface KnowledgePurgePreview {
+export interface PurgeConfirmationInput {
+  expectedUpdatedAt: string;
+  expectedDatasetEpoch?: string;
+  confirmationToken?: string;
+}
+export interface AuthoritativePurgeResult {
+  status: 'subject-purged' | 'already-purged';
+  asset: { type: 'knowledgeItem' | TrainingAssetKind; id: string };
+  localState?: 'synchronized' | 'recovery-required';
+  message?: string;
+}
+export interface AuthoritativePurgeStatus {
+  pending: { type: 'knowledgeItem' | TrainingAssetKind; id: string } | null;
+  result: AuthoritativePurgeResult | null;
+}
+export interface KnowledgePurgePreview extends PurgeConfirmationInput {
   asset: { type: 'knowledgeItem'; id: string };
   decision: 'move-to-recycle-bin-first' | 'requires-dependency-action' | 'can-purge-no-history';
   expectedUpdatedAt: string;
@@ -173,7 +188,7 @@ export interface KnowledgePurgePreview {
   coverage: { persistedCurrentAndHistory: boolean; runningTasks: string; offlineDevices: string; backups: string };
 }
 
-export interface KnowledgePurgeResult {
+export interface KnowledgePurgeResult extends AuthoritativePurgeResult {
   status: 'subject-purged' | 'already-purged';
   asset: { type: 'knowledgeItem'; id: string };
   exclusiveRecordsDeleted: { knowledgeEvidence: number; knowledgeArtifactProvenance: number };
@@ -230,7 +245,7 @@ export interface TrainingAssetRecord {
   learningObjectiveIds?: string[];
   [key: string]: unknown;
 }
-export interface TrainingPurgePreview {
+export interface TrainingPurgePreview extends PurgeConfirmationInput {
   asset: { type: TrainingAssetKind; id: string };
   decision: 'move-to-recycle-bin-first' | 'requires-dependency-action' | 'can-purge-no-history';
   expectedUpdatedAt: string;
@@ -246,7 +261,8 @@ export interface WorkspaceApi {
   updateTrainingAsset?(kind: TrainingAssetKind, id: string, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
   mutateTrainingAsset?(kind: TrainingAssetKind, id: string, action: 'validate' | 'confirm' | 'archive' | 'restore' | 'trash' | 'restore-deleted', input?: TrainingMutationInput): Promise<TrainingAssetRecord>;
   inspectTrainingAssetPurge?(kind: TrainingAssetKind, id: string): Promise<TrainingPurgePreview>;
-  purgeTrainingAsset?(kind: TrainingAssetKind, id: string, expectedUpdatedAt: string): Promise<{ status: string; asset: { type: TrainingAssetKind; id: string } }>;
+  purgeTrainingAsset?(kind: TrainingAssetKind, id: string, confirmation: string | PurgeConfirmationInput): Promise<AuthoritativePurgeResult>;
+  getAuthoritativePurgeStatus?(): Promise<AuthoritativePurgeStatus>;
   listKnowledgeItems?(query?: KnowledgeItemQuery): Promise<KnowledgeItem[]>;
   getKnowledgeItem?(id: string): Promise<KnowledgeItem>;
   createKnowledgeCandidate?(input: CreateKnowledgeCandidateInput): Promise<KnowledgeCandidateResult>;
@@ -257,7 +273,7 @@ export interface WorkspaceApi {
   trashKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
   restoreDeletedKnowledgeItem?(id: string, input?: KnowledgeMutationInput): Promise<KnowledgeItem>;
   inspectKnowledgePurge?(id: string): Promise<KnowledgePurgePreview>;
-  permanentlyDeleteKnowledgeItem?(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
+  permanentlyDeleteKnowledgeItem?(id: string, input: PurgeConfirmationInput): Promise<KnowledgePurgeResult>;
   listKnowledgeEvidence?(id: string): Promise<KnowledgeEvidence[]>;
   getKnowledgeProvenance?(id: string): Promise<KnowledgeProvenance>;
   createKnowledgeEvidence?(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
@@ -368,10 +384,16 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!result?.asset?.id) throw new Error('训练资产清理预检返回无效。');
       return result;
     },
-    async purgeTrainingAsset(kind, id, expectedUpdatedAt) {
-      const result = getData<{ status: string; asset: { type: TrainingAssetKind; id: string } }>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/purge`, { method: 'POST', body: JSON.stringify({ expectedUpdatedAt }) }));
+    async purgeTrainingAsset(kind, id, confirmation) {
+      const input = typeof confirmation === 'string' ? { expectedUpdatedAt: confirmation } : confirmation;
+      const result = getData<AuthoritativePurgeResult>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/purge`, { method: 'POST', body: JSON.stringify(input) }));
       if (!result?.asset?.id) throw new Error('训练资产清理结果无效。');
       return result;
+    },
+    async getAuthoritativePurgeStatus() {
+      const result = getData<{ authoritativePurge: AuthoritativePurgeStatus }>(await requestJson('/api/local-runtime/sync'));
+      if (!result?.authoritativePurge) throw new Error('当前本地服务尚不支持清理结果核对，请升级后重试。');
+      return result.authoritativePurge;
     },
     async listKnowledgeItems(query = {}) {
       const params = Object.entries(query).filter(([, value]) => value !== undefined)

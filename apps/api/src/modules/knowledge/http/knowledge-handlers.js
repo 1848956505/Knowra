@@ -202,7 +202,7 @@ export function createKnowledgeHttpHandlers({
     inspectTrainingAssetPurge(params) { return trainingAssetLifecycle.inspect(params.type, params.id); },
     trashTrainingAsset(params) { return trainingAssetLifecycle.trash(params.type, params.id); },
     restoreDeletedTrainingAsset(params) { return trainingAssetLifecycle.restore(params.type, params.id); },
-    permanentlyDeleteTrainingAsset(params, body) { return trainingAssetLifecycle.purge(params.type, params.id, body.expectedUpdatedAt); },
+    permanentlyDeleteTrainingAsset(params, body) { return trainingAssetLifecycle.purge(params.type, params.id, body.expectedUpdatedAt, body); },
     getKnowledgeOverview() { return knowledgeModule.workspaceQueryService.getKnowledgeOverview(); },
     getTrainingOverview() { return knowledgeModule.workspaceQueryService.getTrainingOverview(); },
     listWorkspaceKnowledgeItems(query = {}) { return knowledgeModule.workspaceQueryService.listKnowledgeItems(query); },

@@ -43,11 +43,11 @@ describe('桌面训练资产人工操作能力', () => {
       expect(api.mutateTrainingAsset).toHaveBeenLastCalledWith(kind, 'asset1', action);
     }
   });
-  it('桌面不能预检或永久清理训练资产', () => {
+  it('桌面允许专用联网预检，缺少原确认凭据不能永久清理训练资产', async () => {
     const { api, store } = fixture('desktop-local');
-    expect(() => store.getState().inspectTrainingAssetPurge('question', 'q1')).toThrow(/永久清理/);
+    await store.getState().inspectTrainingAssetPurge('question', 'q1');
     expect(() => store.getState().purgeTrainingAsset('question', 'q1', '2026-10-03T00:00:00.000Z')).toThrow(/永久清理/);
-    expect(api.inspectTrainingAssetPurge).not.toHaveBeenCalled();
+    expect(api.inspectTrainingAssetPurge).toHaveBeenCalledWith('question', 'q1');
     expect(api.purgeTrainingAsset).not.toHaveBeenCalled();
   });
 });

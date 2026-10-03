@@ -143,7 +143,7 @@ export function createPostgresKnowledgeHttpHandlers({
     inspectTrainingAssetPurge: (params) => knowledgeModule.trainingAssetLifecycle.inspect(params.type, params.id),
     trashTrainingAsset: (params) => knowledgeModule.trainingAssetLifecycle.trash(params.type, params.id),
     restoreDeletedTrainingAsset: (params) => knowledgeModule.trainingAssetLifecycle.restore(params.type, params.id),
-    permanentlyDeleteTrainingAsset: (params, body) => knowledgeModule.trainingAssetLifecycle.purge(params.type, params.id, body.expectedUpdatedAt),
+    permanentlyDeleteTrainingAsset: (params, body) => knowledgeModule.trainingAssetLifecycle.purge(params.type, params.id, body.expectedUpdatedAt, body),
     getKnowledgeOverview: () => knowledgeModule.workspaceQueryService.getKnowledgeOverview(),
     getTrainingOverview: () => knowledgeModule.workspaceQueryService.getTrainingOverview(),
     listWorkspaceKnowledgeItems: (query = {}) => knowledgeModule.workspaceQueryService.listKnowledgeItems(query),

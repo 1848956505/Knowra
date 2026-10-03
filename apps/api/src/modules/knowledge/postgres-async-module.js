@@ -1,3 +1,4 @@
+import { asyncTaskCoverage, supplementPurgePreview, assertPurgeDatasetEpoch, assertManualPurgeScope } from './application/asset-purge-guard.js';
 import { createAsyncNoteService } from './application/postgres-async/note-service.js';
 import { createAsyncFolderService } from './application/postgres-async/folder-service.js';
 import { createAsyncTagService } from './application/postgres-async/tag-service.js';
@@ -65,7 +66,9 @@ export function createPostgresKnowledgeModule({
   questionObjectiveRepository,
   questionSourceRepository,
   client = null,
-  getPurgeTombstone = null
+  getPurgeTombstone = null,
+  readPurgeTaskState = null,
+  getPurgeDatasetEpoch = null
 } = {}) {
   const repositories = {
     noteRepository,
@@ -250,7 +253,7 @@ export function createPostgresKnowledgeModule({
       { isolationLevel: 'Serializable' }
     ))
     : (operation) => operation(transactionRepositories);
-  const trainingAssetLifecycle = createTrainingAssetLifecycle({ repositories, runTransaction, getTombstone: getPurgeTombstone });
+  const trainingAssetLifecycle = createTrainingAssetLifecycle({ repositories, runTransaction, getTombstone: getPurgeTombstone, readPurgeTaskState, getPurgeDatasetEpoch });
 
   function normalizeComparableName(value) {
     return String(value ?? '').trim();
@@ -537,20 +540,25 @@ export function createPostgresKnowledgeModule({
 
   const getKnowledgeProvenance = createKnowledgeArtifactProvenanceReader(repositories);
 
-  async function inspectKnowledgePurge(id, source = repositories) {
+  async function inspectKnowledgePurge(id, source = null) {
+    if (!source) return runTransaction(transaction => inspectKnowledgePurge(id, transaction));
     const [item, evidence, provenance, learningObjectives, questionSources, analysisScopes] = await Promise.all([
       source.knowledgeItemRepository.findById(id),
       source.knowledgeEvidenceRepository.list({ knowledgeItemId: id }),
       source.knowledgeArtifactProvenanceRepository.list({ artifactId: id }),
-      source.learningObjectiveRepository.list({ includeArchived: true }),
+      source.learningObjectiveRepository.list({ includeArchived: true, includeDeleted: true }),
       source.questionSourceRepository.list(),
       source.analysisScopeRepository.list({ includeDeleted: true })
     ]);
-    return inspectKnowledgeItemPurge({ item, evidence, provenance, learningObjectives, questionSources, analysisScopes });
+    const epoch = await getPurgeDatasetEpoch?.();
+    return supplementPurgePreview(inspectKnowledgeItemPurge({ item, evidence, provenance, learningObjectives, questionSources, analysisScopes }),
+      await asyncTaskCoverage(readPurgeTaskState), epoch);
   }
 
-  async function permanentlyDeleteKnowledgeItem(id, { expectedUpdatedAt } = {}) {
+  async function permanentlyDeleteKnowledgeItem(id, input = {}) {
+    const { expectedUpdatedAt } = input;
     return runTransaction(async transaction => {
+      assertPurgeDatasetEpoch(input, await getPurgeDatasetEpoch?.());
       if (!(await transaction.knowledgeItemRepository.findById(id))) {
         const tombstone = await getPurgeTombstone?.('knowledgeItems', id);
         if (!expectedUpdatedAt || !tombstone || (tombstone.previousUpdatedAt && tombstone.previousUpdatedAt !== expectedUpdatedAt)) {
@@ -560,6 +568,7 @@ export function createPostgresKnowledgeModule({
       }
       const preflight = await inspectKnowledgePurge(id, transaction);
       assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt);
+      assertManualPurgeScope('knowledgeItem', await transaction.knowledgeItemRepository.findById(id), input, await transaction.knowledgeArtifactProvenanceRepository.list({ artifactId: id }));
       const removedProvenance = await transaction.knowledgeArtifactProvenanceRepository.deleteByKnowledgeItemId(id);
       const removedEvidence = await transaction.knowledgeEvidenceRepository.deleteByKnowledgeItemId(id);
       await transaction.knowledgeItemRepository.delete(id);

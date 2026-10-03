@@ -1,3 +1,4 @@
+import { taskCoverage, asyncTaskCoverage, supplementPurgePreview, assertPurgeDatasetEpoch, assertManualPurgeScope } from './asset-purge-guard.js';
 import { createAppError } from '../../../errors/app-error.js';
 
 const TYPES = Object.freeze({
@@ -22,8 +23,9 @@ function nextTimestamp(previous) {
   return new Date(Math.max(Date.now(), Date.parse(previous ?? 0) + 1)).toISOString();
 }
 
-export function createTrainingAssetLifecycle({ repositories, runTransaction = operation => operation(repositories), getTombstone = null }) {
-  async function inspect(type, id, source = repositories) {
+export function createTrainingAssetLifecycle({ repositories, runTransaction = operation => operation(repositories), getTombstone = null, readPurgeTaskState = null, getPurgeDatasetEpoch = null }) {
+  async function inspect(type, id, source = null) {
+    if (!source) return runTransaction(transaction => inspect(type, id, transaction));
     const config = TYPES[type];
     if (!config) throw new TypeError(`Unknown training asset: ${type}`);
     const asset = await source[config.repository].findById(id);
@@ -45,7 +47,9 @@ export function createTrainingAssetLifecycle({ repositories, runTransaction = op
     }
     const scopes = await source.analysisScopeRepository?.list?.({ includeDeleted: true }) ?? [];
     references.push(...scopes.filter(record => includesExactId(record, id)).map(record => ({ collection: 'analysisScopeSnapshots', id: record.id, action: 'retain-or-resolve-history' })));
-    return {
+    const epoch = await getPurgeDatasetEpoch?.();
+    const coverage = await asyncTaskCoverage(readPurgeTaskState);
+    return supplementPurgePreview({
       asset: { type, id },
       operation: 'permanent-delete',
       expectedUpdatedAt: asset.updatedAt,
@@ -55,8 +59,8 @@ export function createTrainingAssetLifecycle({ repositories, runTransaction = op
         questionObjectives: (await source.questionObjectiveRepository.listByQuestionIds([id])).map(record => record.id),
         questionSources: (await source.questionSourceRepository.listByQuestionIds([id])).map(record => record.id)
       } : {},
-      coverage: { persistedCurrentAndHistory: true, runningTasks: 'not-implemented', offlineDevices: 'pending-sync', backups: 'retention-managed' }
-    };
+      coverage: { persistedCurrentAndHistory: true, runningTasks: 'unverified', offlineDevices: 'pending-sync', backups: 'retention-managed' }
+    }, coverage, epoch);
   }
 
   async function trash(type, id) {
@@ -114,10 +118,11 @@ export function createTrainingAssetLifecycle({ repositories, runTransaction = op
     });
   }
 
-  async function purge(type, id, expectedUpdatedAt) {
+  async function purge(type, id, expectedUpdatedAt, input = {}) {
     const config = TYPES[type];
     if (!config) throw new TypeError(`Unknown training asset: ${type}`);
     return runTransaction(async source => {
+      assertPurgeDatasetEpoch(input, await getPurgeDatasetEpoch?.());
       if (!(await source[config.repository].findById(id))) {
         const tombstone = await getTombstone?.(config.collection, id);
         if (expectedUpdatedAt && tombstone?.previousUpdatedAt === expectedUpdatedAt) return { status: 'already-purged', asset: { type, id }, exclusiveRecordsDeleted: {}, offlineDevices: 'pending-sync', backups: 'retention-managed' };
@@ -125,7 +130,8 @@ export function createTrainingAssetLifecycle({ repositories, runTransaction = op
       }
       const preflight = await inspect(type, id, source);
       if (!expectedUpdatedAt || expectedUpdatedAt !== preflight.expectedUpdatedAt) fail('TRAINING_ASSET_UPDATE_CONFLICT', '资产已变化，请重新预检。', { preflight });
-      if (preflight.decision !== 'can-purge-no-history') fail('TRAINING_ASSET_PURGE_BLOCKED', '请先处理关联引用。', { preflight });
+      if (preflight.decision !== 'can-purge-no-history') fail('TRAINING_ASSET_PURGE_BLOCKED', preflight.references.find(reference => reference.reasonCode === 'TASK_REFERENCE_COVERAGE_UNAVAILABLE')?.message ?? '请先处理关联引用。', { preflight });
+      assertManualPurgeScope(type, await source[config.repository].findById(id), input);
       if (type === 'question') {
         await source.questionObjectiveRepository.deleteByQuestionId(id);
         await source.questionSourceRepository.deleteByQuestionId(id);
@@ -139,7 +145,7 @@ export function createTrainingAssetLifecycle({ repositories, runTransaction = op
 }
 
 // The local JSON store deliberately rejects Promise-returning transactions.
-export function createLocalTrainingAssetLifecycle({ repositories, runTransaction = operation => operation(), getTombstone = null }) {
+export function createLocalTrainingAssetLifecycle({ repositories, runTransaction = operation => operation(), getTombstone = null, readPurgeTaskState = null, getPurgeDatasetEpoch = null }) {
   function inspect(type, id) {
     const config = TYPES[type];
     if (!config) throw new TypeError(`Unknown training asset: ${type}`);
@@ -153,13 +159,13 @@ export function createLocalTrainingAssetLifecycle({ repositories, runTransaction
     }
     if (type === 'examProfile') references.push(...repositories.examFocusRepository.list({ examProfileId: id, includeArchived: true, includeDeleted: true }).map(record => ({ collection: 'examFocuses', id: record.id, action: 'rebind-or-purge-focus', relatedAsset: { kind: 'examFocus', id: record.id } })));
     references.push(...(repositories.analysisScopeRepository?.list?.({ includeDeleted: true }) ?? []).filter(record => includesExactId(record, id)).map(record => ({ collection: 'analysisScopeSnapshots', id: record.id, action: 'retain-or-resolve-history' })));
-    return { asset: { type, id }, operation: 'permanent-delete', expectedUpdatedAt: asset.updatedAt,
+    return supplementPurgePreview({ asset: { type, id }, operation: 'permanent-delete', expectedUpdatedAt: asset.updatedAt,
       decision: !asset.deletedAt ? 'move-to-recycle-bin-first' : references.length ? 'requires-dependency-action' : 'can-purge-no-history', references,
       exclusiveRecords: type === 'question' ? {
         questionObjectives: repositories.questionObjectiveRepository.listByQuestionIds([id]).map(record => record.id),
         questionSources: repositories.questionSourceRepository.listByQuestionIds([id]).map(record => record.id)
       } : {},
-      coverage: { persistedCurrentAndHistory: true, runningTasks: 'not-implemented', offlineDevices: 'pending-sync', backups: 'retention-managed' } };
+      coverage: { persistedCurrentAndHistory: true, runningTasks: 'unverified', offlineDevices: 'pending-sync', backups: 'retention-managed' } }, taskCoverage(readPurgeTaskState), getPurgeDatasetEpoch?.());
   }
   function trash(type, id) {
     return runTransaction(() => {
@@ -210,8 +216,9 @@ export function createLocalTrainingAssetLifecycle({ repositories, runTransaction
       return repository.save(updated);
     });
   }
-  function purge(type, id, expectedUpdatedAt) {
+  function purge(type, id, expectedUpdatedAt, input = {}) {
     return runTransaction(() => {
+      assertPurgeDatasetEpoch(input, getPurgeDatasetEpoch?.());
       const config = TYPES[type];
       if (!config) throw new TypeError(`Unknown training asset: ${type}`);
       if (!repositories[config.repository].findById(id)) {
@@ -221,7 +228,8 @@ export function createLocalTrainingAssetLifecycle({ repositories, runTransaction
       }
       const preflight = inspect(type, id);
       if (!expectedUpdatedAt || expectedUpdatedAt !== preflight.expectedUpdatedAt) fail('TRAINING_ASSET_UPDATE_CONFLICT', '资产已变化，请重新预检。', { preflight });
-      if (preflight.decision !== 'can-purge-no-history') fail('TRAINING_ASSET_PURGE_BLOCKED', '请先处理关联引用。', { preflight });
+      if (preflight.decision !== 'can-purge-no-history') fail('TRAINING_ASSET_PURGE_BLOCKED', preflight.references.find(reference => reference.reasonCode === 'TASK_REFERENCE_COVERAGE_UNAVAILABLE')?.message ?? '请先处理关联引用。', { preflight });
+      assertManualPurgeScope(type, repositories[config.repository].findById(id), input);
       if (type === 'question') {
         repositories.questionObjectiveRepository.deleteByQuestionId(id);
         repositories.questionSourceRepository.deleteByQuestionId(id);

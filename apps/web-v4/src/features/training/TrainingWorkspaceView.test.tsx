@@ -27,6 +27,26 @@ function setup(overrides: Partial<AppStore> = {}) {
 beforeEach(() => { mocked.navigate.mockReset(); });
 
 describe('训练工作台详情流程', () => {
+  const purgePreview = { asset: { type: 'question' as const, id: 'q1' }, decision: 'can-purge-no-history' as const, expectedUpdatedAt: question.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token', references: [], exclusiveRecords: {}, coverage: { runningTasks: 'verified' } };
+  it('桌面回收站题目可联网预检清理，原凭据确认且恢复分支仍显示', async () => {
+    const state = setup({ persistenceMode: 'desktop-local', listTrainingAssets: vi.fn(async kind => kind === 'question' ? [{ ...question, deletedAt: question.updatedAt }] : []), inspectTrainingAssetPurge: vi.fn().mockResolvedValue(purgePreview), purgeTrainingAsset: vi.fn().mockResolvedValue({ status: 'subject-purged', asset: purgePreview.asset, localState: 'recovery-required' }) });
+    render(<TrainingWorkspaceView />); await userEvent.click(screen.getByRole('button', { name: '回收站' }));
+    await userEvent.click(await screen.findByRole('button', { name: '永久清理…' }));
+    await userEvent.click(screen.getByRole('button', { name: '确认永久清理' }));
+    expect(state.purgeTrainingAsset).toHaveBeenCalledWith('question', 'q1', { expectedUpdatedAt: question.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token' });
+    expect(await screen.findByText(/云端清理已确认；本地新修改仍保存在/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: question.stem })).toBeInTheDocument();
+  });
+  it('离线预检失败保留回收站题目，确认禁用且允许显式重新预检', async () => {
+    const state = setup({ persistenceMode: 'desktop-local', listTrainingAssets: vi.fn(async kind => kind === 'question' ? [{ ...question, deletedAt: question.updatedAt }] : []), inspectTrainingAssetPurge: vi.fn().mockRejectedValue(new Error('请先连接兼容的云端并完成同步')), purgeTrainingAsset: vi.fn() });
+    render(<TrainingWorkspaceView />); await userEvent.click(screen.getByRole('button', { name: '回收站' }));
+    await userEvent.click(await screen.findByRole('button', { name: '永久清理…' }));
+    const dialog = screen.getByRole('dialog', { name: '永久清理题目？' });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('请先连接兼容的云端');
+    expect(within(dialog).getByRole('button', { name: '确认永久清理' })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '重新预检' }));
+    expect(state.inspectTrainingAssetPurge).toHaveBeenCalledTimes(2); expect(state.purgeTrainingAsset).not.toHaveBeenCalled();
+  });
   it('学习目标确认入口打开真实审阅而不直接id确认，编辑复用结构字段', async () => {
     const parent = { id: 'k1', title: '导数知识', canonicalStatement: '瞬时变化率', reviewStatus: 'confirmed', updatedAt: '2026-10-03T00:00:00.000Z' };
     const target = { ...objective, knowledgeItemId: 'k1', actionVerb: 'calculate', cognitiveLevel: 'apply', reviewStatus: 'candidate' };
@@ -88,14 +108,14 @@ describe('训练工作台详情流程', () => {
     expect(state.updateTrainingAsset).not.toHaveBeenCalled();
   });
 
-  it('桌面可编辑题目且回收站仅恢复，永久清理保留关闭', async () => {
+  it('桌面人工写入和回收站恢复可用，专用联网预检入口独立开放', async () => {
     const state = setup({ persistenceMode: 'desktop-local', listTrainingAssets: vi.fn(async kind => kind === 'question' ? [{ ...question, deletedAt: question.updatedAt }] : []) });
     render(<TrainingWorkspaceView />);
     expect(screen.getByRole('button', { name: '新建题目' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '回收站' }));
     await userEvent.click(await screen.findByRole('button', { name: '恢复' }));
     expect(state.mutateTrainingAsset).toHaveBeenCalledWith('question', 'q1', 'restore-deleted');
-    expect(screen.queryByRole('button', { name: '永久清理…' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '永久清理…' })).toBeEnabled();
     expect(state.inspectTrainingAssetPurge).not.toHaveBeenCalled();
   });
 

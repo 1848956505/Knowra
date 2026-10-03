@@ -124,7 +124,9 @@ test('真实本地入口知识回收站恢复与来源重新采用保留版本�
   assert.equal(restored.status, 200, JSON.stringify(restored));
   assert.equal(restored.data.deletedAt, null);
   assert.equal(restored.data.reviewStatus, 'needsRevision');
-  assert.equal((await call(`${root}/permanent`, 'DELETE', { expectedUpdatedAt: restored.data.updatedAt })).error.code, 'LOCAL_FEATURE_UNAVAILABLE');
+  const blockedPurge = await call(`${root}/permanent`, 'DELETE', { expectedUpdatedAt: restored.data.updatedAt });
+  assert.equal(blockedPurge.status, 409);
+  assert.equal(blockedPurge.error.code, 'LOCAL_PURGE_PREVIEW_REQUIRED');
   assert(runtime.store.getStatus().pendingOperations > 0);
   assert.equal(runtime.store.deletionFacts.has('knowledgeItems', item.id), false);
 });
