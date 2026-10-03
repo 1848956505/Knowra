@@ -30,6 +30,16 @@ describe('framework-neutral API clients', () => {
     expect(requestJson).toHaveBeenNthCalledWith(4, '/api/knowledge/questions/question%2F1/purge-preview');
     expect(requestJson).toHaveBeenNthCalledWith(5, '/api/knowledge/questions/question%2F1/purge', { method: 'POST', body: JSON.stringify({ expectedUpdatedAt: preview.expectedUpdatedAt }) });
   });
+
+  it('preserves the exact authoritative purge confirmation for both asset endpoints', async () => {
+    const input = { expectedUpdatedAt: '2026-10-03T00:00:00Z', expectedDatasetEpoch: 'epoch-original', confirmationToken: 'original-token' };
+    const requestJson = vi.fn().mockResolvedValue({ data: { status: 'subject-purged', asset: { type: 'question', id: 'q1' } } });
+    const api = createWorkspaceApi({ requestJson });
+    await api.purgeTrainingAsset!('question', 'q1', input);
+    expect(requestJson).toHaveBeenCalledWith('/api/knowledge/questions/q1/purge', { method: 'POST', body: JSON.stringify(input) });
+    await api.permanentlyDeleteKnowledgeItem!('k1', input);
+    expect(requestJson).toHaveBeenCalledWith('/api/knowledge/items/k1/permanent', { method: 'DELETE', body: JSON.stringify(input) });
+  });
   it('keeps knowledge review mutations and source detail on the real API contracts', async () => {
     const item = { id: 'knowledge/1', updatedAt: '2026-09-21T00:00:00.000Z' };
     const requestJson = vi.fn()

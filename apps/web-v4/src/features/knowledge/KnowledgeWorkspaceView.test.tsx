@@ -20,6 +20,29 @@ function props(overrides: Partial<KnowledgeWorkspaceViewProps> = {}): KnowledgeW
 }
 
 describe('KnowledgeWorkspaceView', () => {
+  const trashed = { ...candidate, sourceMode: 'manual' as const, deletedAt: candidate.updatedAt };
+  const purgePreview = { asset: { type: 'knowledgeItem' as const, id: 'k1' }, decision: 'can-purge-no-history' as const, expectedUpdatedAt: candidate.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token', exclusiveRecords: { knowledgeEvidenceIds: [], knowledgeArtifactProvenanceIds: [] }, references: [], coverage: { persistedCurrentAndHistory: true, runningTasks: 'verified', offlineDevices: 'pending', backups: 'retained' } };
+  it('联网知识清理使用原预检凭据，云端已清理但本地恢复分支不会假称消失', async () => {
+    const input = props({ authoritativePurge: true, onList: vi.fn().mockResolvedValue([trashed]), onGet: vi.fn().mockResolvedValue(trashed), onInspectPurge: vi.fn().mockResolvedValue(purgePreview), onPermanentDelete: vi.fn().mockResolvedValue({ status: 'subject-purged', asset: purgePreview.asset, localState: 'recovery-required' }) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    await userEvent.click(await screen.findByRole('button', { name: '永久删除…' }));
+    await userEvent.click(screen.getByRole('button', { name: '确认永久删除' }));
+    expect(input.onPermanentDelete).toHaveBeenCalledWith('k1', { expectedUpdatedAt: candidate.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token' });
+    expect(await screen.findByText(/云端清理已确认；本地新修改仍保存在/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: candidate.title })).toBeInTheDocument();
+  });
+  it('未知清理结果保留对象并禁止重发，完成同步后只读核对删除事实', async () => {
+    const input = props({ authoritativePurge: true, onList: vi.fn().mockResolvedValue([trashed]), onGet: vi.fn().mockResolvedValue(trashed), onInspectPurge: vi.fn().mockResolvedValue(purgePreview), onPermanentDelete: vi.fn().mockRejectedValue(Object.assign(new Error('响应丢失'), { code: 'SYNC_NETWORK_UNAVAILABLE' })), onPurgeStatus: vi.fn().mockResolvedValue({ pending: null, result: { status: 'subject-purged', asset: purgePreview.asset, localState: 'synchronized' } }) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    await userEvent.click(await screen.findByRole('button', { name: '永久删除…' }));
+    await userEvent.click(screen.getByRole('button', { name: '确认永久删除' }));
+    expect(await screen.findByText(/清理结果待核对，原件已保留/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认永久删除' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: '核对清理结果' }));
+    expect(input.onPermanentDelete).toHaveBeenCalledTimes(1);
+    expect(input.onPurgeStatus).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/本机已收到删除事实/)).toBeInTheDocument();
+  });
   it('筛选知识状态、搜索正文，展示来源并打开笔记', async () => {
     const user = userEvent.setup(); const input = props();
     render(<KnowledgeWorkspaceView {...input} />);

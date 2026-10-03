@@ -198,6 +198,13 @@ export function createFileDataStore(filePath, {
 
   return {
     provenanceMigration,
+    // Internal, synchronous snapshot of every retained dataset; never hide unreadable private records.
+    getPurgeTaskState() {
+      if (aiRuntimeError || knowledgeExtractionTaskStoreError || knowledgeExtractionCommitStoreError) {
+        throw new Error('持久化任务或提炼历史不可读，无法核查清理引用。');
+      }
+      return structuredClone({ ai: aiRuntime, tasks: extractionTasks.tasks, receipts: knowledgeExtractionCommits.receipts });
+    },
     knowledgeExtractionTaskStore: knowledgeExtractionTaskStoreError ? null : {
       supportsAsync: false,
       runTransaction(operation) {

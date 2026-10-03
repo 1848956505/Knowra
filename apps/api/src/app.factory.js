@@ -1,3 +1,4 @@
+import { createLocalPurgeTaskReader } from './infrastructure/asset-purge-task-state.js';
 import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -152,6 +153,8 @@ export function createAppContext(options = {}) {
     getPurgeTombstone: dataStore?.getSyncJournal
       ? (collection, id) => dataStore.getSyncJournal().tombstones?.[JSON.stringify([collection, id])] ?? null
       : undefined,
+    readPurgeTaskState: createLocalPurgeTaskReader(dataStore),
+    getPurgeDatasetEpoch: dataStore?.getSyncJournal ? () => dataStore.getSyncJournal().epoch : undefined,
     enforceReferences: options.enforceReferences ?? true
   });
   const noteDeletionCoordinator = createNoteDeletionCoordinator({

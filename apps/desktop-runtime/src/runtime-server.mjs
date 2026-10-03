@@ -12,6 +12,7 @@ import { runtimeSessionScript } from './runtime-session-script.mjs';
 import { permitsLocalRoute, sendRuntimeError } from './runtime-policy.mjs';
 import { parseBody } from '../../api/src/http/request.js';
 import { exportRuntimeBackup, importRuntimeBackup } from './backup-transfers.mjs';
+import { authoritativePurgeRoute } from './authoritative-purge.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
   aiRuntimeFactory } = {}) {
@@ -128,6 +129,17 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
           response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
           response.end(JSON.stringify({ data: store.getStatus() }));
           return;
+        }
+        const purgeRoute = authoritativePurgeRoute(request.method, url.pathname);
+        if (purgeRoute) {
+          try {
+            const result = purgeRoute.action === 'preview' ? await sync.purgePreview(purgeRoute.type, purgeRoute.id)
+              : await sync.purge(purgeRoute.type, purgeRoute.id, await parseBody(request));
+            response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+            response.end(JSON.stringify({ data: result })); return;
+          } catch (failure) {
+            return sendRuntimeError(response, failure.status ?? 409, failure.code ?? 'LOCAL_PURGE_FAILED', failure.message ?? '清理未完成，原件已保留。');
+          }
         }
         if (url.pathname.startsWith('/api/local-runtime/sync')) {
           try {

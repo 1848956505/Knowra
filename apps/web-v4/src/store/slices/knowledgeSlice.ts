@@ -1,6 +1,8 @@
 import type { WorkspaceDependencies } from '../types';
 import type { GetStore } from '../workspaceSnapshotState';
-import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeProvenance, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import type { AuthoritativePurgeStatus, PurgeConfirmationInput, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeProvenance, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import { assertLocalPurgeConfirmation } from '../assetPurge';
+import { workspaceCapabilities } from '../workspaceCapabilities';
 
 export interface KnowledgeSlice {
   listKnowledgeItems(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string; includeDeleted?: boolean }): Promise<KnowledgeItem[]>;
@@ -18,7 +20,8 @@ export interface KnowledgeSlice {
   trashKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
   restoreDeletedKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgeItem>;
   inspectKnowledgePurge(id: string): Promise<KnowledgePurgePreview>;
-  permanentlyDeleteKnowledgeItem(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
+  permanentlyDeleteKnowledgeItem(id: string, input: PurgeConfirmationInput): Promise<KnowledgePurgeResult>;
+  getAuthoritativePurgeStatus(): Promise<AuthoritativePurgeStatus>;
 }
 
 /** 知识显式保存的错误留在表单中，不覆盖正在编辑的笔记保存状态。 */
@@ -51,6 +54,12 @@ export function createKnowledgeSlice(get: GetStore, { api }: WorkspaceDependenci
     trashKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.trashKnowledgeItem)(id, input); },
     restoreDeletedKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.restoreDeletedKnowledgeItem)(id, input); },
     inspectKnowledgePurge: id => { spaceId(); return requireMethod(api.inspectKnowledgePurge)(id); },
-    permanentlyDeleteKnowledgeItem: (id, input) => { assertWrite(); return requireMethod(api.permanentlyDeleteKnowledgeItem)(id, input); },
+    permanentlyDeleteKnowledgeItem: (id, input) => {
+      assertWrite();
+      if (!get().canWriteWorkspace() || !workspaceCapabilities(get().persistenceMode).purgeKnowledge) throw new Error('当前资料库只读，不能永久清理。');
+      if (get().persistenceMode === 'desktop-local') assertLocalPurgeConfirmation(input);
+      return requireMethod(api.permanentlyDeleteKnowledgeItem)(id, input);
+    },
+    getAuthoritativePurgeStatus: () => { spaceId(); return requireMethod(api.getAuthoritativePurgeStatus)(); },
   };
 }

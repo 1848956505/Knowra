@@ -33,6 +33,8 @@ export function KnowledgeStage({ pathname, onOpenNote }: { pathname: string; onO
     onTrash={state.trashKnowledgeItem}
     onRestoreDeleted={state.restoreDeletedKnowledgeItem}
     onInspectPurge={state.inspectKnowledgePurge}
-    onPermanentDelete={workspaceCapabilities(state.persistenceMode).permanentDelete ? state.permanentlyDeleteKnowledgeItem : undefined}
+    onPermanentDelete={workspaceCapabilities(state.persistenceMode).purgeKnowledge ? state.permanentlyDeleteKnowledgeItem : undefined}
+    authoritativePurge={state.persistenceMode === 'desktop-local'}
+    onPurgeStatus={state.persistenceMode === 'desktop-local' ? state.getAuthoritativePurgeStatus : undefined}
   />;
 }

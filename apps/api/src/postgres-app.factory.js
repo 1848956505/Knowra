@@ -1,3 +1,4 @@
+import { createPostgresPurgeTaskReader } from './infrastructure/asset-purge-task-state.js';
 import { createPostgresActionStore } from './modules/ai/postgres-action-store.js';
 import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
 import { createPostgresCoreOperationStore } from './infrastructure/postgres-core-operation-store.js';
@@ -107,10 +108,14 @@ export async function createPostgresAppContext({
     questionObjectiveRepository: createPostgresQuestionObjectiveRepository({ db }),
     questionSourceRepository: createPostgresQuestionSourceRepository({ db })
   };
-  const knowledge = createPostgresKnowledgeModule({ ...repositories, client: db, getPurgeTombstone: async (collection, id) => {
-    const journal = await db.syncJournal.findUnique({ where: { ownerId: normalizedOwnerId } });
-    return journal?.payload?.tombstones?.[JSON.stringify([collection, id])] ?? null;
-  } });
+  const knowledge = createPostgresKnowledgeModule({ ...repositories, client: db,
+    readPurgeTaskState: createPostgresPurgeTaskReader(db, normalizedOwnerId),
+    getPurgeDatasetEpoch: async () => (await db.syncJournal.findUnique({ where: { ownerId: normalizedOwnerId } }))?.payload?.epoch,
+    getPurgeTombstone: async (collection, id) => {
+      const journal = await db.syncJournal.findUnique({ where: { ownerId: normalizedOwnerId } });
+      return journal?.payload?.tombstones?.[JSON.stringify([collection, id])] ?? null;
+    }
+  });
   const attachmentStore = createPostgresAttachmentStore({
     attachmentRepository: repositories.attachmentRepository,
     uploadsDir,

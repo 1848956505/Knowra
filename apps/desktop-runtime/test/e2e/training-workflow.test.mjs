@@ -145,6 +145,8 @@ test('桌面人工训练：目标候选重启审阅、配置考点题目保存�
     await review.getByRole('button', { name: '确认已审阅目标', exact: true }).click();
     assert.deepEqual((await confirmRequest).postDataJSON().reviewBaseline, { knowledgeUpdatedAt: restartedKnowledge.updatedAt, objectiveUpdatedAt: restartedObjective.updatedAt });
     await expect.poll(() => a.store.state.learningObjectives[0]?.reviewStatus).toBe('confirmed');
+    // 本地提交先于确认响应；等待审阅结束并释放导航保护后再切换工作域。
+    await expect(review).toHaveCount(0);
 
     await training(page, a, '考试配置');
     await page.getByRole('button', { name: '新建考试配置', exact: true }).click();
@@ -222,8 +224,8 @@ test('桌面人工训练：目标候选重启审阅、配置考点题目保存�
     await page.getByRole('button', { name: '回收站', exact: true }).click();
     // 另一设备的 HTTP 同步由关闭面板后的 10 秒状态查询刷新当前页面。
     await expect(card(page, question.stem)).toContainText('回收站', { timeout: 15000 });
-    await expect(page.getByRole('button', { name: '永久清理…', exact: true })).toHaveCount(0);
-    await expect(page.getByText(/桌面端暂不支持训练资产永久清理/)).toBeVisible();
+    await expect(card(page, question.stem).getByRole('button', { name: '永久清理…', exact: true })).toBeEnabled();
+    await expect(page.getByText('永久清理需要连接兼容的云端并完成同步；离线时保留本地原件。', { exact: true })).toBeVisible();
     await screenshot(page, 'training-question-trash.png');
     await card(page, question.stem).getByRole('button', { name: '恢复', exact: true }).click();
     await expect.poll(() => a.store.state.questions[0]?.deletedAt).toBe(null);
