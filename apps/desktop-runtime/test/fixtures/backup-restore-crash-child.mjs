@@ -27,11 +27,19 @@ const key = `knowra:note-draft:v1:${JSON.stringify([datasetId, note.id])}`;
 const drafts = markdown => ({ version: 1, drafts: { [key]: { markdown, baseMarkdown: '备份正文' } } });
 const backup = await request('/api/local-runtime/backup', 'POST', { recoveryDrafts: drafts('来源草稿') });
 const backupQueue = runtime.store.readOutbox();
+// 来源备份不含此对象；恢复仍必须联合保留备份完成后的永久删除事实。
+const deletedTagId = 'synthetic-crash-deleted-after-backup';
+await request('/api/knowledge/tags', 'POST', { id: deletedTagId, name: '合成强杀删除事实', spaceId: space.id });
+await request(`/api/knowledge/tags/${deletedTagId}`, 'DELETE');
+assert.equal(runtime.store.deletionFacts.has('tags', deletedTagId), true);
+const deletionRows = runtime.store.readSync(db => db.prepare('SELECT * FROM deletion_facts ORDER BY collection,entity_id').all());
+const deletionScope = runtime.store.readSync(db => db.prepare("SELECT value FROM metadata WHERE key='deletionFactsScope'").get().value);
+const deletionCoverage = runtime.store.deletionFacts.getCoverage();
 await request(`/api/knowledge/notes/${note.id}`, 'PATCH', { rawMarkdown: '恢复前正文', expectedUpdatedAt: note.updatedAt });
 const currentDrafts = drafts('恢复前草稿');
 fs.writeFileSync(path.join(dataDirectory, 'recovery-drafts.json'), JSON.stringify(currentDrafts));
 const summary = { phase, datasetId, noteId: note.id, attachmentId: attachment.id, backupId: backup.id,
-  backupQueue, currentQueue: runtime.store.readOutbox(), currentDrafts };
+  backupQueue, currentQueue: runtime.store.readOutbox(), currentDrafts, deletedTagId, deletionRows, deletionScope, deletionCoverage };
 function freeze(boundary) {
   fs.writeFileSync(path.join(root, 'boundary.json'), JSON.stringify({ ...summary, boundary }));
   fs.writeSync(1, 'boundary-ready\n');

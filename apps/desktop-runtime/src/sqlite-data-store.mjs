@@ -21,8 +21,7 @@ import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { collectChanges, entityReferences } from './local-change-set.mjs';
-import { backfillKnowledgeArtifactProvenance } from '../../api/src/infrastructure/migration/knowledge-artifact-provenance-backfill.js';
-import { knowledgeExtractionCommitKey } from '../../api/src/modules/ai/knowledge-extraction-commit-contract.js';
+import { projectSqliteProvenance } from './sqlite-provenance-projection.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 
 export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}) {
@@ -61,31 +60,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     if (schema !== undefined && !/^[1-7]$/.test(schema)) throw new Error('本地业务 schema 版本未知，请升级应用。');
     const schemaVersion = schema === undefined ? 6 : Number(schema);
     state = validatePersistedLocalState({ schemaVersion, ...initial });
-    const receiptVersion = db.prepare("SELECT value FROM metadata WHERE key = 'knowledgeExtractionCommitsVersion'").get()?.value;
-    const receiptTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'knowledge_extraction_commits'").get();
-    let receipts = [];
-    if (receiptVersion === '1' && receiptTable) {
-      try { receipts = db.prepare('SELECT * FROM knowledge_extraction_commits').all().map(row => {
-        try {
-          const record = JSON.parse(row.receipt_json);
-          return knowledgeExtractionCommitKey(record) === knowledgeExtractionCommitKey({ ownerId: row.owner_id,
-            datasetId: row.dataset_id, jobId: row.job_id }) ? record : null;
-        } catch { return null; }
-      }); } catch { /* 可选旧 receipt 扩展独立隔离。 */ }
-    }
-    const deleted = new Set();
-    for (const row of db.prepare("SELECT collection, id, server_revision FROM sync_base WHERE payload = 'null'").all()) {
-      // 旧 reset 用 null 修订记录缺席；只有已确认的正修订才表示永久删除。
-      if (row.server_revision === null) continue;
-      if (!Number.isSafeInteger(row.server_revision) || row.server_revision < 1) throw new Error('同步基线删除修订无效，已停止来源回填。');
-      deleted.add(JSON.stringify([row.collection, row.id]));
-    }
-    provenanceMigration = backfillKnowledgeArtifactProvenance(state, {
-      receipts, getTombstone: (collection, id) => deleted.has(JSON.stringify([collection, id])) || hasDeletionFact(db, collection, id)
-    });
-    if (state.knowledgeArtifactProvenance.some(record => !initial.knowledgeArtifactProvenance.some(old => old.id === record.id) && deleted.has(JSON.stringify(['knowledgeArtifactProvenance', record.id])))) {
-      throw new Error('已永久删除的来源记录不能通过迁移重建。');
-    }
+    const { migration } = projectSqliteProvenance(db, state, { initialState: initial, hasFact: (collection, id) => hasDeletionFact(db, collection, id) });
+    provenanceMigration = migration;
     assertNoDeletedEntities(db, state, initial);
     migrateProvenance = schemaVersion !== LOCAL_DATA_SCHEMA_VERSION;
     repairKnowledge = ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(initial[collection]) !== JSON.stringify(state[collection]));

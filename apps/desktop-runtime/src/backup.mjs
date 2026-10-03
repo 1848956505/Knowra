@@ -1,3 +1,4 @@
+import { assertRestoreReadiness, readRestoreSnapshot } from './restore-readiness.mjs';
 import { validateSqliteDeletionFacts } from './sqlite-deletion-facts-contract.mjs';
 import { validateSqliteActionRows } from './ai-sqlite-action-store.mjs';
 import fs from 'node:fs';
@@ -141,7 +142,7 @@ function verifyBackupFiles(backupDirectory) {
 }
 
 /** 界面激活前检查数据库版本、资料引用和附件；离线救援复制不依赖应用 schema。 */
-export function inspectRuntimeBackup(backupDirectory) {
+export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
   const { manifest, actual } = verifyBackupFiles(backupDirectory);
   // 旧 CLI 导出保留 WAL 模式；直接只读打开也可能在来源生成 sidecar。
   // 在私有临时副本检查，既不修改原文件，也不污染其清单。
@@ -157,6 +158,8 @@ export function inspectRuntimeBackup(backupDirectory) {
     const version = db.prepare('PRAGMA user_version').get().user_version;
     if (version < 1 || version > LOCAL_DATABASE_VERSION) throw new Error('备份数据库版本不受支持，请升级应用。');
     validateSqliteDeletionFacts(db);
+    const datasetId = db.prepare("SELECT value FROM metadata WHERE key='datasetId'").get()?.value;
+    if (manifest.datasetId !== undefined && datasetId !== undefined && manifest.datasetId !== datasetId) throw new Error('备份清单与数据库资料集标识不一致。');
     validateSqliteCoreOperationRows(db);
     validateSqliteActionRows(db);
     let aiJobs = [];
@@ -180,7 +183,7 @@ export function inspectRuntimeBackup(backupDirectory) {
     if ((schemaMarker !== undefined && !/^[1-9][0-9]*$/.test(schemaMarker))
       || !Number.isSafeInteger(schemaVersion) || schemaVersion < 1 || schemaVersion > LOCAL_DATA_SCHEMA_VERSION) throw new Error('备份核心资料格式版本无效或不受支持。');
     // 只读旧格式投影；不会回写备份、升级表或将新版损坏摘要降级。
-    validatePersistedLocalState({ ...createPersistedLocalDocument(state), schemaVersion });
+    const normalized = validatePersistedLocalState({ ...createPersistedLocalDocument(state), schemaVersion });
     const files = new Map(actual.map(file => [file.path, file]));
     for (const attachment of state.attachments.filter(item => item.status === 'ready')) {
       const file = files.get(`uploads/${attachment.id}-${attachment.fileName}`);
@@ -188,6 +191,8 @@ export function inspectRuntimeBackup(backupDirectory) {
     }
     const draftRecord = readBackupDrafts(backupDirectory);
     const draftCount = [draftRecord, ...(draftRecord.archivedDrafts ?? [])].reduce((count, record) => count + Object.keys(record.drafts).length, 0);
+    // 固有格式检查始终独立可用；只有恢复入口传入当前上下文。
+    if (restoreContext) assertRestoreReadiness(restoreContext, readRestoreSnapshot(db, normalized, { projectProvenance: true, initialState: state }));
     return { valid: true, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: actual.length, size: actual.reduce((sum, file) => sum + file.size, 0), noteCount: state.notes.length, attachmentCount: state.attachments.length, pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count, draftCount };
   } finally { try { db?.close(); } finally { fs.rmSync(temporary, { recursive: true, force: true }); } }
 }
