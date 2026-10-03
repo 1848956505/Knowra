@@ -2,12 +2,16 @@ import { readMeta, writeMeta } from './sync-state.mjs';
 
 const QUEUE = 'knowledgeLifecycleQueue';
 const UPLOAD = 'knowledgeLifecycleUpload';
-const key = entry => JSON.stringify([entry.operationId, entry.entityId]);
+const COLLECTIONS = new Set(['knowledgeItems', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions']);
+const collectionFor = entry => entry.collection ?? 'knowledgeItems';
+export const lifecycleEntityKey = entry => JSON.stringify([collectionFor(entry), entry.entityId]);
+const key = entry => JSON.stringify([entry.operationId, collectionFor(entry), entry.entityId]);
 const invalid = () => Object.assign(new Error('知识生命周期待同步记录不完整，已停止同步；请保留本地资料并导出备份。'), { code: 'LOCAL_KNOWLEDGE_LIFECYCLE_INVALID' });
 const actionFor = (before, value) => before && value
   ? !before.deletedAt && value.deletedAt ? 'trash' : before.deletedAt && !value.deletedAt ? 'restore' : null
   : null;
-const isDescriptor = entry => entry && Object.keys(entry).sort().join(',') === 'entityId,operationId,sequence'
+const isDescriptor = entry => entry && ['entityId,operationId,sequence', 'collection,entityId,operationId,sequence'].includes(Object.keys(entry).filter(field => field !== 'invalidatedBy').sort().join(','))
+  && COLLECTIONS.has(collectionFor(entry))
   && Number.isSafeInteger(entry.sequence) && entry.sequence > 0
   && typeof entry.operationId === 'string' && entry.operationId.length > 0
   && typeof entry.entityId === 'string' && entry.entityId.length > 0;
@@ -27,10 +31,21 @@ export function readKnowledgeLifecycleBoundaries(db) {
     let changes;
     try { changes = JSON.parse(row.changes); } catch { throw invalid(); }
     if (!Array.isArray(changes)) throw invalid();
-    const change = changes.find(item => item.collection === 'knowledgeItems' && item.entityId === entry.entityId);
+    const collection = collectionFor(entry);
+    const change = changes.find(item => item.collection === collection && item.entityId === entry.entityId);
     const action = actionFor(change?.before, change?.value);
     if (!action) throw invalid();
-    return { ...entry, action, value: change.value, changes };
+    let inherited = [];
+    if (Object.hasOwn(entry, 'invalidatedBy')) {
+      const cause = entry.invalidatedBy;
+      if (!isDescriptor(cause) || Object.hasOwn(cause, 'invalidatedBy') || action !== 'restore' || cause.sequence >= entry.sequence
+        || collectionFor(cause) !== collection || cause.entityId !== entry.entityId) throw invalid();
+      const source = db.prepare('SELECT operation_id, state, changes FROM sync_outbox WHERE sequence = ?').get(cause.sequence);
+      if (!source || source.operation_id !== cause.operationId || source.state === 'acknowledged') throw invalid();
+      try { inherited = JSON.parse(source.changes); } catch { throw invalid(); }
+      if (!Array.isArray(inherited) || !inherited.some(item => item.collection === collection && item.entityId === entry.entityId && actionFor(item.before, item.value) === 'trash')) throw invalid();
+    }
+    return { ...entry, collection, action, before: change.before, value: change.value, changes: [...changes, ...inherited] };
   }).sort((a, b) => a.sequence - b.sequence);
   readKnowledgeLifecycleBinding(db, boundaries);
   return boundaries;
@@ -44,26 +59,37 @@ function readKnowledgeLifecycleBinding(db, boundaries) {
     || (frozen && frozen.operationId !== binding.operationId) || !Array.isArray(binding.boundaries) || !binding.boundaries.length) throw invalid();
   const ids = new Set();
   for (const entry of binding.boundaries) {
-    if (!isDescriptor(entry) || ids.has(key(entry)) || !boundaries.some(row => key(row) === key(entry) && row.sequence === entry.sequence)) throw invalid();
+    if (!isDescriptor(entry)) throw invalid();
+    const registered = boundaries.find(row => key(row) === key(entry) && row.sequence === entry.sequence);
+    if (ids.has(key(entry)) || !registered
+      || Object.hasOwn(entry, 'invalidatedBy') !== Object.hasOwn(registered, 'invalidatedBy')
+      || (Object.hasOwn(entry, 'invalidatedBy') && (!isDescriptor(entry.invalidatedBy) || Object.hasOwn(entry.invalidatedBy, 'invalidatedBy')
+        || key(entry.invalidatedBy) !== key(registered.invalidatedBy) || entry.invalidatedBy.sequence !== registered.invalidatedBy.sequence))) throw invalid();
     ids.add(key(entry));
   }
   return binding;
 }
 
-const descriptors = entries => entries.map(({ operationId, sequence, entityId }) => ({ operationId, sequence, entityId }));
+const descriptor = entry => ({ operationId: entry.operationId, sequence: entry.sequence, entityId: entry.entityId,
+  ...(collectionFor(entry) === 'knowledgeItems' ? {} : { collection: entry.collection }),
+  ...(entry.invalidatedBy ? { invalidatedBy: entry.invalidatedBy } : {}) });
+const descriptors = entries => entries.map(descriptor);
 export function recordKnowledgeLifecycleBoundaries(db, changes, operationId, origin) {
   if (origin !== 'local-business') return;
-  const lifecycle = changes.filter(change => change.collection === 'knowledgeItems' && actionFor(change.before, change.value));
+  const lifecycle = changes.filter(change => COLLECTIONS.has(change.collection) && actionFor(change.before, change.value));
   if (!lifecycle.length) return;
   const row = db.prepare('SELECT sequence FROM sync_outbox WHERE operation_id = ?').get(operationId);
   if (!row) throw invalid();
   const queue = readKnowledgeLifecycleBoundaries(db);
-  writeMeta(db, QUEUE, [...descriptors(queue), ...lifecycle.map(change => ({ operationId, sequence: row.sequence, entityId: change.entityId }))]);
+  writeMeta(db, QUEUE, [...descriptors(queue), ...lifecycle.map(change => {
+    const cause = actionFor(change.before, change.value) === 'restore' && [...queue].reverse().find(entry => entry.action === 'trash' && entry.collection === change.collection && entry.entityId === change.entityId);
+    return descriptor({ operationId, sequence: row.sequence, entityId: change.entityId, collection: change.collection, ...(cause ? { invalidatedBy: descriptor(cause) } : {}) });
+  })]);
 }
 
 export function firstKnowledgeLifecycleBoundaries(boundaries) {
   const first = new Map();
-  for (const boundary of boundaries) if (!first.has(boundary.entityId)) first.set(boundary.entityId, boundary);
+  for (const boundary of boundaries) if (!first.has(lifecycleEntityKey(boundary))) first.set(lifecycleEntityKey(boundary), boundary);
   return first;
 }
 
@@ -91,11 +117,11 @@ export function acknowledgeKnowledgeLifecycleUpload(db, operationId, accepted) {
 export function clearKnowledgeLifecycleUpload(db) { writeMeta(db, UPLOAD, null); }
 
 export function discardKnowledgeLifecycleBoundaries(db, entityIds) {
-  consumeKnowledgeLifecycleBoundaries(db, readKnowledgeLifecycleBoundaries(db).filter(entry => entityIds.has(entry.entityId)));
+  consumeKnowledgeLifecycleBoundaries(db, readKnowledgeLifecycleBoundaries(db).filter(entry => entityIds.has(lifecycleEntityKey(entry)) || (collectionFor(entry) === 'knowledgeItems' && entityIds.has(entry.entityId))));
   clearKnowledgeLifecycleUpload(db);
 }
 
-/** 发送期间保留本地删除造成的降级；只读训练资产仍由云端接收生命周期后重算。 */
+/** 发送期间保留本地删除造成的降级，云端接收每次生命周期后也会重算。 */
 export function preserveKnowledgeLifecycleInvalidations(merged, local, boundaries) {
   for (const collection of ['learningObjectives', 'questions']) {
     const affected = new Set(boundaries.flatMap(boundary => boundary.changes.filter(change => change.collection === collection).map(change => change.entityId)));

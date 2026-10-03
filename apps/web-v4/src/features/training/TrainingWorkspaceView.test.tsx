@@ -78,7 +78,7 @@ describe('训练工作台详情流程', () => {
   });
 
   it('只读训练资产仍能查看详情和来源，写操作不出现', async () => {
-    const state = setup({ persistenceMode: 'desktop-local' }); render(<TrainingWorkspaceView />);
+    const state = setup({ persistenceMode: 'desktop-local', canWriteWorkspace: () => false }); render(<TrainingWorkspaceView />);
     await userEvent.click(await screen.findByRole('button', { name: '查看详情' }));
     expect(screen.getByRole('article', { name: '题目详情' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '编辑' })).not.toBeInTheDocument();
@@ -86,6 +86,17 @@ describe('训练工作台详情流程', () => {
     await userEvent.click(screen.getByRole('button', { name: '对照来源' }));
     expect(await screen.findByRole('dialog', { name: '题目来源对照' })).toBeInTheDocument();
     expect(state.updateTrainingAsset).not.toHaveBeenCalled();
+  });
+
+  it('桌面可编辑题目且回收站仅恢复，永久清理保留关闭', async () => {
+    const state = setup({ persistenceMode: 'desktop-local', listTrainingAssets: vi.fn(async kind => kind === 'question' ? [{ ...question, deletedAt: question.updatedAt }] : []) });
+    render(<TrainingWorkspaceView />);
+    expect(screen.getByRole('button', { name: '新建题目' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '回收站' }));
+    await userEvent.click(await screen.findByRole('button', { name: '恢复' }));
+    expect(state.mutateTrainingAsset).toHaveBeenCalledWith('question', 'q1', 'restore-deleted');
+    expect(screen.queryByRole('button', { name: '永久清理…' })).not.toBeInTheDocument();
+    expect(state.inspectTrainingAssetPurge).not.toHaveBeenCalled();
   });
 
   it('结构化答案编辑不会展示可输入却被静默忽略的空白答案框', async () => {

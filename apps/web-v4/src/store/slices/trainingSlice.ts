@@ -1,5 +1,6 @@
 import type { TrainingAssetKind, TrainingAssetRecord, TrainingMutationInput, TrainingPurgePreview } from '@study-accelerator/web-core';
 import type { WorkspaceDependencies } from '../types';
+import { workspaceCapabilities, LOCAL_TRAINING_PURGE_REASON } from '../workspaceCapabilities';
 import type { GetStore } from '../workspaceSnapshotState';
 
 export interface TrainingSlice {
@@ -17,7 +18,11 @@ export function createTrainingSlice(get: GetStore, { api }: WorkspaceDependencie
   }
   function requireWrite() {
     requireConnected();
-    if (get().persistenceMode === 'desktop-local' || !get().canWriteWorkspace()) throw new Error('当前资料库暂不支持训练资产写入，请在网页版操作。');
+    if (!workspaceCapabilities(get().persistenceMode).writeTraining || !get().canWriteWorkspace()) throw new Error('当前资料库只读，请重新连接并加载后重试。');
+  }
+  function requirePurge() {
+    requireConnected();
+    if (!workspaceCapabilities(get().persistenceMode).permanentDelete) throw new Error(LOCAL_TRAINING_PURGE_REASON);
   }
   function requireMethod<T>(method: T | undefined): T {
     if (!method) throw new Error('当前服务尚未接通训练工作域，请更新应用后重试。');
@@ -32,7 +37,7 @@ export function createTrainingSlice(get: GetStore, { api }: WorkspaceDependencie
       const mutate = requireMethod(api.mutateTrainingAsset);
       return input === undefined ? mutate(kind, id, action) : mutate(kind, id, action, input);
     },
-    inspectTrainingAssetPurge: (kind, id) => { requireConnected(); return requireMethod(api.inspectTrainingAssetPurge)(kind, id); },
-    purgeTrainingAsset: (kind, id, expectedUpdatedAt) => { requireWrite(); return requireMethod(api.purgeTrainingAsset)(kind, id, expectedUpdatedAt); }
+    inspectTrainingAssetPurge: (kind, id) => { requirePurge(); return requireMethod(api.inspectTrainingAssetPurge)(kind, id); },
+    purgeTrainingAsset: (kind, id, expectedUpdatedAt) => { requireWrite(); requirePurge(); return requireMethod(api.purgeTrainingAsset)(kind, id, expectedUpdatedAt); }
   };
 }

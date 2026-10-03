@@ -1,5 +1,13 @@
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const MUTATIONS = [
+  ['POST', /^\/api\/knowledge\/items\/[^/]+\/learning-objectives$/],
+  ['POST', /^\/api\/knowledge\/(?:learning-objectives|exam-profiles|exam-focuses|questions)$/],
+  ['PATCH', /^\/api\/knowledge\/(?:learning-objectives|exam-profiles|exam-focuses|questions)\/[^/]+$/],
+  ['POST', /^\/api\/knowledge\/exam-profiles\/[^/]+\/focuses$/],
+  ['POST', /^\/api\/knowledge\/learning-objectives\/[^/]+\/(?:confirm|request-revision|archive|restore|trash|restore-deleted)$/],
+  ['POST', /^\/api\/knowledge\/exam-profiles\/[^/]+\/(?:archive|restore|trash|restore-deleted)$/],
+  ['POST', /^\/api\/knowledge\/exam-focuses\/[^/]+\/(?:confirm|archive|restore|trash|restore-deleted)$/],
+  ['POST', /^\/api\/knowledge\/questions\/[^/]+\/(?:validate|submit-review|confirm|archive|restore|trash|restore-deleted)$/],
   ['POST', /^\/api\/ai\/actions(?:\/drafts|\/[^/]+\/(?:approve|apply|cancel|reject|undo-preview))?$/],
   ['POST', /^\/api\/ai\/conversations$/],
   ['POST', /^\/api\/ai\/conversations\/[^/]+\/messages$/],
@@ -37,7 +45,7 @@ const MUTATIONS = [
   ['POST', /^\/api\/knowledge\/tags\/(?:merge|reorder)$/]
 ];
 
-/** 本地 AI 开放只读问答与受审笔记计划；试题和永久删除维持受限。 */
+/** 人工训练资产与笔记可本地保存；永久删除仍需单独权威入口。 */
 export function permitsLocalRoute(method, pathname) {
   if (READ_METHODS.has(method)) return true;
   if (/\/(permanent|recycle-bin)(\/|$)/.test(pathname)) return false;

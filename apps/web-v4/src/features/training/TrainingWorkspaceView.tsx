@@ -5,6 +5,7 @@ import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePane
 import { PathTrail } from '../../shell/PathTrail';
 import { QuestionIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
 import { useAppStore } from '../../store/AppStoreProvider';
+import { workspaceCapabilities, LOCAL_TRAINING_PURGE_REASON } from '../../store/workspaceCapabilities';
 import { useNavigate } from '../../app/router';
 import { QuestionDetailPanel } from './QuestionDetailPanel';
 import { QuestionSourceComparison } from './QuestionSourceComparison';
@@ -42,7 +43,8 @@ export function TrainingWorkspaceView() {
   const listKnowledgeEvidence = useAppStore(s => s.listKnowledgeEvidence);
   const getNoteVersion = useAppStore(s => s.getNoteVersion);
   const knowledgeGeneration = useAppStore(s => s.knowledgeGeneration);
-  const canWrite = dataMode === 'api' && persistenceMode === 'remote' && canWriteWorkspace();
+  const canWrite = dataMode === 'api' && workspaceCapabilities(persistenceMode).writeTraining && canWriteWorkspace();
+  const canPurge = canWrite && workspaceCapabilities(persistenceMode).permanentDelete;
   const [records, setRecords] = useState<Record<TrainingAssetKind, TrainingAssetRecord[]>>({ learningObjective: [], examProfile: [], examFocus: [], question: [] });
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [kind, setKind] = useState<TrainingAssetKind>('question');
@@ -133,7 +135,8 @@ export function TrainingWorkspaceView() {
       <SegmentedControl aria-label="生命周期状态"><SegmentedButton aria-pressed={view === 'active'} onPress={() => setView('active')}>使用中</SegmentedButton><SegmentedButton aria-pressed={view === 'archived'} onPress={() => setView('archived')}>已归档</SegmentedButton><SegmentedButton aria-pressed={view === 'trash'} onPress={() => setView('trash')}>回收站</SegmentedButton></SegmentedControl>
     </WorkspacePanelToolbar>
     <WorkspacePanelBody className={`${styles.body} ${kind === 'question' ? styles.questionBody : ''}`}>
-      {!canWrite ? <p className={styles.info}>桌面端暂不支持训练资产写入和清理。请在网页版处理。</p> : null}
+      {!canWrite ? <p className={styles.info}>当前资料只读，可查看训练资产；请重新连接并加载资料后操作。</p> : null}
+      {persistenceMode === 'desktop-local' && view === 'trash' ? <p className={styles.info}>{LOCAL_TRAINING_PURGE_REASON}</p> : null}
       {error ? <div><p role="alert" className={styles.error}>{error}</p>{!form && !action ? <Button size="compact" onPress={() => setGeneration(value => value + 1)}>重新加载训练资产</Button> : null}</div> : null}
       {notice ? <p role="status" className={styles.info}>{notice}</p> : null}
       {loading ? <p role="status">正在加载训练资产…</p> : <div className={kind === 'question' ? styles.questionLayout : undefined}>
@@ -143,7 +146,7 @@ export function TrainingWorkspaceView() {
         <p className={styles.meta}>{kind === 'learningObjective' ? `知识 ${knowledgeItems.find(item => item.id === record.knowledgeItemId)?.title ?? record.knowledgeItemId ?? '—'} · ${objectiveActionLabel(record.actionVerb)} / ${objectiveLevelLabel(record.cognitiveLevel)}` : kind === 'examFocus' ? `配置 ${record.examProfileId ?? '—'} · 目标 ${record.learningObjectiveId ?? '—'}` : kind === 'question' ? `${record.learningObjectiveIds?.length ?? 0} 个学习目标` : record.description || '考试语境配置'}</p>
         <div className={styles.actions} aria-label={`${label(record, kind)}的操作`}>
           {kind === 'question' ? <Button id={`question-detail-${record.id}`} size="compact" emphasis="soft" aria-pressed={selectedQuestionId === record.id} onPress={() => { setSelectedQuestionId(record.id); setComparedSource(null); }}>查看详情</Button> : null}
-          {record.deletedAt ? <>{canWrite ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, 'restore-deleted')}>恢复</Button> : null}{canWrite ? <Button size="compact" variant="danger" isDisabled={busy} onPress={() => void openPurge(record, kind)}>永久清理…</Button> : null}</> : <>
+          {record.deletedAt ? <>{canWrite ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, 'restore-deleted')}>恢复</Button> : null}{canPurge ? <Button size="compact" variant="danger" isDisabled={busy} onPress={() => void openPurge(record, kind)}>永久清理…</Button> : null}</> : <>
             {canWrite ? <Button size="compact" isDisabled={busy} onPress={() => kind === 'learningObjective' ? setObjectiveReview({ record }) : setForm({ kind, value: record })}>编辑</Button> : null}
             {canWrite && kind === 'question' && record.reviewStatus === 'draft' ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, 'validate')}>校验</Button> : null}
             {canWrite && record.reviewStatus === 'candidate' && kind !== 'examProfile' ? <Button size="compact" isDisabled={busy} onPress={() => kind === 'learningObjective' ? setObjectiveReview({ record }) : void runMutation(record, kind, 'confirm')}>确认</Button> : null}
@@ -161,7 +164,7 @@ export function TrainingWorkspaceView() {
       </section> : null}
       </div>}
     </WorkspacePanelBody>
-    <WorkspacePanelFooter><span>显示 {visible.length} 个{LABELS[kind]}</span><span>{view === 'trash' ? '保留至手动清理；永久清理前会复核引用' : '回收站对象独立于归档；永久清理前会复核引用'}</span></WorkspacePanelFooter>
+    <WorkspacePanelFooter><span>显示 {visible.length} 个{LABELS[kind]}</span><span>{persistenceMode === 'desktop-local' ? '回收站对象独立于归档；可恢复，永久清理需在网页版操作' : view === 'trash' ? '保留至手动清理；永久清理前会复核引用' : '回收站对象独立于归档；永久清理前会复核引用'}</span></WorkspacePanelFooter>
     {selectedQuestion && activeComparedSource ? <QuestionSourceComparison key={`${selectedQuestion.id}-${selectedQuestion.updatedAt}-${activeComparedSource.id}`} source={activeComparedSource} onLoad={loadSource} onClose={() => setComparedSource(null)}
       onOpenNote={id => navigate(`/materials/notes/${encodeURIComponent(id)}`)} onOpenKnowledge={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)} /> : null}
     {objectiveReview ? <LearningObjectiveReviewDialog key={objectiveReview.record?.id ?? 'new'} record={objectiveReview.record} knowledgeItems={knowledgeItems} onClose={() => setObjectiveReview(null)} onSaved={() => { setNotice('学习目标已更新，请核对当前状态。'); setGeneration(n => n + 1); }} /> : null}

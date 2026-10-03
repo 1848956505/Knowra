@@ -46,8 +46,8 @@ describe('人工学习目标审阅', () => {
     expect(state.mutateTrainingAsset).not.toHaveBeenCalled();
   });
 
-  it('新建目标不硬编码解释理解，八动作四层级由用户明确选择', async () => {
-    const state = setup(); const user = userEvent.setup();
+  it.each(['remote', 'desktop-local'] as const)('新建%s目标不硬编码解释理解，八动作四层级由用户明确选择', async mode => {
+    const state = setup({ persistenceMode: mode }); const user = userEvent.setup();
     render(<LearningObjectiveReviewDialog knowledge={knowledge} onSaved={vi.fn()} onClose={vi.fn()} />); await ready();
     expect(screen.getByRole('button', { name: '保存候选' })).toBeDisabled();
     await user.type(screen.getByRole('textbox', { name: '可观察的学习目标' }), '设计变化率实验');
@@ -93,7 +93,7 @@ describe('人工学习目标审阅', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('动作与认知层级不匹配'); expect(screen.getByRole('textbox', { name: '可观察的学习目标' })).toHaveValue(objective.objective);
   });
 
-  it.each([{ persistenceMode: 'desktop-local' as const }, { dataMode: 'cache' as const }, { canWriteWorkspace: () => false }])('训练写门禁在只读状态%j关闭', async overrides => {
+  it.each([{ dataMode: 'cache' as const }, { canWriteWorkspace: () => false }])('训练写门禁在只读状态%j关闭', async overrides => {
     const state = setup(overrides); render(<LearningObjectiveReviewDialog record={objective} knowledge={knowledge} onSaved={vi.fn()} onClose={vi.fn()} />); await ready();
     expect(screen.getByRole('button', { name: '保存候选' })).toBeDisabled(); expect(screen.getByRole('button', { name: '确认已审阅目标' })).toBeDisabled();
     expect(screen.getByRole('textbox', { name: '可观察的学习目标' })).toBeDisabled(); expect(state.mutateTrainingAsset).not.toHaveBeenCalled();
