@@ -16,6 +16,7 @@ import { createInMemoryContentAnnotationRepository } from './modules/knowledge/i
 import { createInMemoryNoteVersionRepository } from './modules/knowledge/infrastructure/note-version-repository.js';
 import { createInMemoryKnowledgeItemRepository } from './modules/knowledge/infrastructure/knowledge-item-repository.js';
 import { createInMemoryKnowledgeEvidenceRepository } from './modules/knowledge/infrastructure/knowledge-evidence-repository.js';
+import { createInMemoryKnowledgeArtifactProvenanceRepository } from './modules/knowledge/infrastructure/knowledge-artifact-provenance-repository.js';
 import { createInMemoryLearningObjectiveRepository } from './modules/knowledge/infrastructure/learning-objective-repository.js';
 import { createInMemoryExamProfileRepository } from './modules/knowledge/infrastructure/exam-profile-repository.js';
 import { createInMemoryExamFocusRepository } from './modules/knowledge/infrastructure/exam-focus-repository.js';
@@ -50,6 +51,7 @@ export function createAppContext(options = {}) {
     'noteVersions',
     'knowledgeItems',
     'knowledgeEvidence',
+    'knowledgeArtifactProvenance',
     'learningObjectives',
     'examProfiles',
     'examFocuses',
@@ -122,6 +124,9 @@ export function createAppContext(options = {}) {
       : undefined),
     knowledgeEvidenceRepository: options.knowledgeEvidenceRepository ?? (dataStore
       ? createInMemoryKnowledgeEvidenceRepository({ records: dataStore.state.knowledgeEvidence, onChange: dataStore.flush })
+      : undefined),
+    knowledgeArtifactProvenanceRepository: options.knowledgeArtifactProvenanceRepository ?? (dataStore
+      ? createInMemoryKnowledgeArtifactProvenanceRepository({ records: dataStore.state.knowledgeArtifactProvenance, onChange: dataStore.flush })
       : undefined),
     learningObjectiveRepository: options.learningObjectiveRepository ?? (dataStore
       ? createInMemoryLearningObjectiveRepository({ records: dataStore.state.learningObjectives, onChange: dataStore.flush })

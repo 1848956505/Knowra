@@ -1,3 +1,4 @@
+import { assertSyncContract } from './protocol-contract.js';
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
 import { WRITABLE_COLLECTIONS, syncReferencesFor, sameEntity } from './entity-contract.js';
 import { prepareBatchState } from './batch-domain.js';
@@ -5,6 +6,7 @@ import { syncError, syncKey, requestHash, thenResult, rememberBatchReceipt } fro
 
 export function createBatchSyncService(provider, ownerId, transfer) {
   function validate(op) {
+    assertSyncContract(op);
     if (op?.protocolVersion !== 2 || ![op.deviceId, op.operationId, op.datasetEpoch].every(value => typeof value === 'string' && value.length > 0 && value.length <= 200)) throw syncError('PROTOCOL_UNSUPPORTED', '同步请求版本或标识无效。', 422);
     if (!Number.isSafeInteger(op.sequence) || op.sequence < 1) throw syncError('SYNC_SEQUENCE_INVALID', '设备操作序号无效。', 422);
     if (!Array.isArray(op.changes) || op.changes.length < 1 || op.changes.length > 2000 || !Array.isArray(op.dependencies) || op.dependencies.length > 10000) throw syncError('SYNC_BATCH_INVALID', '同步事务大小无效。', 422);
@@ -20,6 +22,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
   }
   return {
     uploadBlob: body => {
+      assertSyncContract(body);
       assertSyncDeviceEnabled(body?.deviceId);
       if (!transfer) throw syncError('SYNC_UNAVAILABLE', '此服务未配置附件传输。', 503);
       return transfer.put(body);
@@ -67,7 +70,12 @@ export function createBatchSyncService(provider, ownerId, transfer) {
           const result = { status: 'conflict', conflicts };
           rememberBatchReceipt(journal, key, hash, result, op); return result;
         }
-        for (const entry of op.changes) for (const ref of syncReferencesFor(entry.collection, entry.value, state)) {
+        const referenceState = { ...state, noteVersions: [...state.noteVersions] };
+        for (const entry of op.changes.filter(change => change.collection === 'noteVersions' && change.value)) {
+          referenceState.noteVersions = referenceState.noteVersions.filter(version => version.id !== entry.id);
+          referenceState.noteVersions.push(entry.value);
+        }
+        for (const entry of op.changes) for (const ref of syncReferencesFor(entry.collection, entry.value, referenceState)) {
           const refKey = syncKey(ref.collection, ref.id);
           if (!changes.has(refKey) && !dependencies.has(refKey)) throw syncError('SYNC_DEPENDENCY_REQUIRED', '同步事务缺少引用对象的基线。', 422);
         }

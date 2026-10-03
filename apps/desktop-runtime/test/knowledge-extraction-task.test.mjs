@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { assertMinimalProvenanceTransport } from '../../api/test/fixtures/knowledge-artifact-provenance.fixture.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -35,7 +36,7 @@ test('02B SQLite start到接纳同库持久化；重启和完整备份保留描�
   await f.service.idle(); const result = await f.service.get(job.jobId);
   assert.equal(result.status, 'succeeded'); assert.equal(f.mock.calls.length, 1);
   const queue = f.store.readOutbox();
-  assert.equal(JSON.stringify(queue).includes(job.jobId), false);
+  assertMinimalProvenanceTransport(queue, f.store.state.knowledgeArtifactProvenance[0]);
   const backup = createRuntimeBackup(f.store, f.root), restored = path.join(f.root, 'restored');
   restoreRuntimeBackup(backup, restored);
   const copy = f.open(restored); assert.deepEqual(await copy.service.start(f.input), result);

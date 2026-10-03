@@ -5,8 +5,10 @@ import {
   validateLocalDataRelations
 } from './local-data-relations.js';
 import { isAttachmentStatus } from './attachment-status.js';
+import { validateKnowledgeArtifactProvenance } from '../modules/knowledge/domain/knowledge-artifact-provenance-contract.js';
+import { migrateLegacyKnowledgeArtifactProvenance } from '../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 
-export const LOCAL_DATA_SCHEMA_VERSION = 6;
+export const LOCAL_DATA_SCHEMA_VERSION = 7;
 export const LOCAL_SNAPSHOT_VERSION = 'v1-local-json';
 
 export const LOCAL_DATA_COLLECTIONS = Object.freeze([
@@ -18,6 +20,7 @@ export const LOCAL_DATA_COLLECTIONS = Object.freeze([
   'noteVersions',
   'knowledgeItems',
   'knowledgeEvidence',
+  'knowledgeArtifactProvenance',
   'learningObjectives',
   'examProfiles',
   'examFocuses',
@@ -47,9 +50,11 @@ export function createEmptyLocalState() {
 export function validatePersistedLocalState(input) {
   const document = assertRecord(input, 'Local data file');
   assertSchemaVersion(document.schemaVersion);
+  assertProvenanceSchemaVersion(document, document.schemaVersion);
   const state = validateCollections(document, {
     allowMissingOptionalCollections: true
   });
+  if ((document.schemaVersion ?? 1) < 7) migrateLegacyKnowledgeArtifactProvenance(state);
   normalizeLegacyNoteReferences(state, {
     repairBrokenReferences: document.schemaVersion === undefined
   });
@@ -71,10 +76,12 @@ export function validateLocalSnapshot(snapshot) {
   const data = Object.hasOwn(document, 'data')
     ? assertRecord(document.data, 'Import payload data')
     : document;
+  assertProvenanceSchemaVersion(data, document.schemaVersion);
 
   const state = validateCollections(data, {
     allowMissingOptionalCollections: true
   });
+  if ((document.schemaVersion ?? 1) < 7) migrateLegacyKnowledgeArtifactProvenance(state);
   normalizeLegacyNoteReferences(state, {
     repairBrokenReferences: document.schemaVersion === undefined
   });
@@ -210,6 +217,8 @@ function validateEntity(collectionName, item, index) {
       ['supports'],
       `${location}.relationType`
     );
+  } else if (collectionName === 'knowledgeArtifactProvenance') {
+    validateKnowledgeArtifactProvenance(item);
   } else if (collectionName === 'learningObjectives') {
     if (item.deletedAt != null && Number.isNaN(Date.parse(item.deletedAt))) invalidSnapshot(`${location}.deletedAt is invalid`);
     assertNonEmptyString(item.knowledgeItemId, `${location}.knowledgeItemId`);
@@ -337,6 +346,7 @@ function assertSchemaVersion(schemaVersion) {
     || schemaVersion === 3
     || schemaVersion === 4
     || schemaVersion === 5
+    || schemaVersion === 6
     || schemaVersion === LOCAL_DATA_SCHEMA_VERSION
   ) {
     return;
@@ -346,6 +356,12 @@ function assertSchemaVersion(schemaVersion) {
     `Unsupported local data schema version: ${schemaVersion}`,
     422
   );
+}
+
+function assertProvenanceSchemaVersion(data, schemaVersion) {
+  if ((schemaVersion ?? 1) < 7 && Array.isArray(data.knowledgeArtifactProvenance) && data.knowledgeArtifactProvenance.length) {
+    throw createAppError('STORAGE_SCHEMA_VERSION_UNSUPPORTED', '来源摘要必须使用业务 schema7。', 422);
+  }
 }
 
 function assertRecord(value, label) {

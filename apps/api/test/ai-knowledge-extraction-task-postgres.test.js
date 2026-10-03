@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { assertMinimalProvenanceTransport } from './fixtures/knowledge-artifact-provenance.fixture.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -118,7 +119,9 @@ export const aiKnowledgeExtractionTaskPostgresTests = process.env.KNOWRA_SYNC_TE
       const restarted = await f.open(); assert.deepEqual(await restarted.knowledgeExtractionTasks.start(f.input), completed);
       assert.equal((await restarted.repositories.knowledgeItemRepository.findById(item.id)).title, '用户PG修订');
       const journal = await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } });
-      assert.equal(JSON.stringify(journal.payload).includes(one.jobId), false);
+      const provenance = await f.app.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(item.id);
+      assert.equal(provenance.origin.jobId, one.jobId);
+      assertMinimalProvenanceTransport(journal.payload, provenance);
       const [{ count }] = await f.app.prisma.$queryRawUnsafe('SELECT count(*)::int AS count FROM ai_knowledge_extraction_tasks');
       assert.equal(count, 1);
     }, deferred.onCall);

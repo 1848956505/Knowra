@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
-import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, createPersistedLocalDocument, validatePersistedLocalState } from '../../api/src/infrastructure/local-data-schema.js';
+import { LOCAL_DATA_COLLECTIONS, LOCAL_DATA_SCHEMA_VERSION, createEmptyLocalState, createPersistedLocalDocument, validatePersistedLocalState } from '../../api/src/infrastructure/local-data-schema.js';
 import { LOCAL_DATABASE_VERSION } from './sqlite-schema.mjs';
 import { validateSqliteCoreOperationRows } from './core-operation-store.mjs';
 import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
@@ -173,7 +173,12 @@ export function inspectRuntimeBackup(backupDirectory) {
       if (!LOCAL_DATA_COLLECTIONS.includes(row.collection)) throw new Error('备份包含未知资料类型。');
       state[row.collection].push(JSON.parse(row.payload));
     }
-    validatePersistedLocalState(createPersistedLocalDocument(state));
+    const schemaMarker = db.prepare("SELECT value FROM metadata WHERE key = 'localDataSchemaVersion'").get()?.value;
+    const schemaVersion = schemaMarker === undefined ? 6 : Number(schemaMarker);
+    if ((schemaMarker !== undefined && !/^[1-9][0-9]*$/.test(schemaMarker))
+      || !Number.isSafeInteger(schemaVersion) || schemaVersion < 1 || schemaVersion > LOCAL_DATA_SCHEMA_VERSION) throw new Error('备份核心资料格式版本无效或不受支持。');
+    // 只读旧格式投影；不会回写备份、升级表或将新版损坏摘要降级。
+    validatePersistedLocalState({ ...createPersistedLocalDocument(state), schemaVersion });
     const files = new Map(actual.map(file => [file.path, file]));
     for (const attachment of state.attachments.filter(item => item.status === 'ready')) {
       const file = files.get(`uploads/${attachment.id}-${attachment.fileName}`);

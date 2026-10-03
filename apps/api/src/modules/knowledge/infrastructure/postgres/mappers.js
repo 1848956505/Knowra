@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { createAppError } from '../../../../errors/app-error.js';
+import { validateKnowledgeArtifactProvenance } from '../../domain/knowledge-artifact-provenance-contract.js';
 
 export function toDate(value, fallback = new Date()) {
   if (value instanceof Date) {
@@ -340,4 +342,12 @@ export function buildNoteData(note) {
     createdAt: toDate(note.createdAt),
     updatedAt: toDate(note.updatedAt)
   };
+}
+export function mapKnowledgeArtifactProvenance(row) {
+  if (!row) return null;
+  const record = validateKnowledgeArtifactProvenance(row.payload);
+  if (['id', 'artifactId', 'schemaVersion', 'state', 'provenanceHash'].some(key => row[key] !== record[key])) {
+    throw createAppError('KNOWLEDGE_ARTIFACT_PROVENANCE_INVALID', '来源摘要索引与内容不一致。', 422);
+  }
+  return structuredClone(record);
 }

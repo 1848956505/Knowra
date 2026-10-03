@@ -17,6 +17,8 @@ import { createPostgresFolderRepository } from './infrastructure/postgres/folder
 import { createPostgresContentAnnotationRepository } from './infrastructure/postgres/content-annotation-repository.js';
 import { createPostgresNoteVersionRepository } from './infrastructure/postgres/note-version-repository.js';
 import { createPostgresKnowledgeItemRepository } from './infrastructure/postgres/knowledge-item-repository.js';
+import { createKnowledgeArtifactProvenanceReader } from './application/knowledge-artifact-provenance-read.js';
+import { createPostgresKnowledgeArtifactProvenanceRepository } from './infrastructure/postgres/knowledge-artifact-provenance-repository.js';
 import { createPostgresKnowledgeEvidenceRepository } from './infrastructure/postgres/knowledge-evidence-repository.js';
 import { createPostgresLearningObjectiveRepository } from './infrastructure/postgres/learning-objective-repository.js';
 import { createPostgresExamProfileRepository } from './infrastructure/postgres/exam-profile-repository.js';
@@ -54,6 +56,7 @@ export function createPostgresKnowledgeModule({
   noteVersionRepository,
   knowledgeItemRepository,
   knowledgeEvidenceRepository,
+  knowledgeArtifactProvenanceRepository,
   learningObjectiveRepository,
   examProfileRepository,
   examFocusRepository,
@@ -76,6 +79,7 @@ export function createPostgresKnowledgeModule({
     noteVersionRepository,
     knowledgeItemRepository,
     knowledgeEvidenceRepository,
+    knowledgeArtifactProvenanceRepository,
     learningObjectiveRepository,
     examProfileRepository,
     examFocusRepository,
@@ -96,6 +100,7 @@ export function createPostgresKnowledgeModule({
     noteVersionRepository,
     knowledgeItemRepository,
     knowledgeEvidenceRepository,
+    knowledgeArtifactProvenanceRepository,
     contentAnnotationRepository,
     annotationExclusionRepository,
     annotationRevisionRepository,
@@ -211,7 +216,7 @@ export function createPostgresKnowledgeModule({
           );
         }
         const snapshots = await transaction.analysisScopeRepository.list();
-        if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => versionIds.has(version.noteVersionId)))) {
+        if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => (version.noteId === noteId || versionIds.has(version.noteVersionId))))) {
           throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
         }
       }
@@ -228,6 +233,7 @@ export function createPostgresKnowledgeModule({
         noteVersionRepository: createPostgresNoteVersionRepository({ db: tx }),
         knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db: tx }),
         knowledgeEvidenceRepository: createPostgresKnowledgeEvidenceRepository({ db: tx }),
+        knowledgeArtifactProvenanceRepository: createPostgresKnowledgeArtifactProvenanceRepository({ db: tx }),
         contentAnnotationRepository: createPostgresContentAnnotationRepository({ db: tx }),
         annotationExclusionRepository: createPostgresAnnotationExclusionRepository({ db: tx }),
         annotationRevisionRepository: createPostgresAnnotationRevisionRepository({ db: tx }),
@@ -503,7 +509,7 @@ export function createPostgresKnowledgeModule({
         );
       }
       const snapshots = await analysisScopeRepository.list();
-      if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => versionIds.has(version.noteVersionId)))) {
+      if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => (version.noteId === noteId || versionIds.has(version.noteVersionId))))) {
         throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
       }
     },
@@ -517,15 +523,18 @@ export function createPostgresKnowledgeModule({
   });
   const workspaceQueryService = createWorkspaceQueryService({ repositories });
 
+  const getKnowledgeProvenance = createKnowledgeArtifactProvenanceReader(repositories);
+
   async function inspectKnowledgePurge(id, source = repositories) {
-    const [item, evidence, learningObjectives, questionSources, analysisScopes] = await Promise.all([
+    const [item, evidence, provenance, learningObjectives, questionSources, analysisScopes] = await Promise.all([
       source.knowledgeItemRepository.findById(id),
       source.knowledgeEvidenceRepository.list({ knowledgeItemId: id }),
+      source.knowledgeArtifactProvenanceRepository.list({ artifactId: id }),
       source.learningObjectiveRepository.list({ includeArchived: true }),
       source.questionSourceRepository.list(),
       source.analysisScopeRepository.list({ includeDeleted: true })
     ]);
-    return inspectKnowledgeItemPurge({ item, evidence, learningObjectives, questionSources, analysisScopes });
+    return inspectKnowledgeItemPurge({ item, evidence, provenance, learningObjectives, questionSources, analysisScopes });
   }
 
   async function permanentlyDeleteKnowledgeItem(id, { expectedUpdatedAt } = {}) {
@@ -535,30 +544,31 @@ export function createPostgresKnowledgeModule({
         if (!expectedUpdatedAt || !tombstone || (tombstone.previousUpdatedAt && tombstone.previousUpdatedAt !== expectedUpdatedAt)) {
           throw validationError('KNOWLEDGE_ITEM_NOT_FOUND', '知识点不存在');
         }
-        return { status: 'already-purged', asset: { type: 'knowledgeItem', id }, exclusiveRecordsDeleted: { knowledgeEvidence: 0 }, offlineDevices: 'pending-sync', backups: 'retention-managed' };
+        return { status: 'already-purged', asset: { type: 'knowledgeItem', id }, exclusiveRecordsDeleted: { knowledgeEvidence: 0, knowledgeArtifactProvenance: 0 }, offlineDevices: 'pending-sync', backups: 'retention-managed' };
       }
       const preflight = await inspectKnowledgePurge(id, transaction);
       assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt);
+      const removedProvenance = await transaction.knowledgeArtifactProvenanceRepository.deleteByKnowledgeItemId(id);
       const removedEvidence = await transaction.knowledgeEvidenceRepository.deleteByKnowledgeItemId(id);
       await transaction.knowledgeItemRepository.delete(id);
       return {
         status: 'subject-purged', asset: preflight.asset,
-        exclusiveRecordsDeleted: { knowledgeEvidence: removedEvidence.length },
+        exclusiveRecordsDeleted: { knowledgeEvidence: removedEvidence.length, knowledgeArtifactProvenance: removedProvenance.length },
         offlineDevices: 'pending-sync', backups: 'retention-managed'
       };
     });
   }
 
   async function previewNoteVersionPrune(noteId) {
-    const [note, versions, evidence, questionSources, annotations, exclusions, analysisScopes] = await Promise.all([
+    const [note, versions, evidence, questionSources, annotations, exclusions, analysisScopes, provenance] = await Promise.all([
       noteRepository.findById(noteId), noteVersionRepository.list({ noteId }),
       knowledgeEvidenceRepository.list({ noteId }), questionSourceRepository.list(),
       contentAnnotationRepository.list({ noteId, includeDeleted: true }),
       annotationExclusionRepository.list({ includeDeleted: true }),
-      analysisScopeRepository.list({ includeDeleted: true })
+      analysisScopeRepository.list({ includeDeleted: true }), knowledgeArtifactProvenanceRepository.list()
     ]);
     if (!note) throw validationError('NOTE_NOT_FOUND', '笔记不存在');
-    return buildNoteVersionPrunePreview({ note, versions, evidence, questionSources, annotations, exclusions, analysisScopes });
+    return buildNoteVersionPrunePreview({ note, versions, evidence, questionSources, annotations, exclusions, analysisScopes, provenance });
   }
 
   async function inspectEmptySpaceDeletion(id, ownerId = null, source = repositories) {
@@ -644,6 +654,7 @@ export function createPostgresKnowledgeModule({
     workspaceQueryService,
     knowledgeSpaceService,
     searchService,
+    getKnowledgeProvenance,
     inspectKnowledgePurge,
     permanentlyDeleteKnowledgeItem,
     previewNoteVersionPrune,

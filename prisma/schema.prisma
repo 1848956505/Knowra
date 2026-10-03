@@ -312,9 +312,21 @@ model KnowledgeItem {
   deletedAt          DateTime?
 
   evidence           KnowledgeEvidence[]
+  provenance         KnowledgeArtifactProvenance?
   learningObjectives LearningObjective[]
 
   @@index([reviewStatus, updatedAt])
+}
+
+model KnowledgeArtifactProvenance {
+  id             String @id
+  artifactId     String @unique
+  schemaVersion  Int
+  state          String
+  provenanceHash String
+  payload        Json
+
+  artifact KnowledgeItem @relation(fields: [artifactId], references: [id], onDelete: Restrict)
 }
 
 model LearningObjective {

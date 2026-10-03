@@ -282,7 +282,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     </Dialog> : null}
     {purgePreview ? <Dialog title="永久删除知识点？" description="删除后无法普通恢复。来源笔记和标注不会删除；离线设备待同步，备份按保留策略处理。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setPurgePreview(null); }}>
       <DialogBody>
-        <p>将清理 {purgePreview.exclusiveRecords.knowledgeEvidenceIds.length} 条专属来源记录。</p>
+        <p>将清理 {purgePreview.exclusiveRecords.knowledgeEvidenceIds.length} 条专属来源记录和 {purgePreview.exclusiveRecords.knowledgeArtifactProvenanceIds?.length ?? 0} 条生成来源摘要。</p>
         {purgePreview.references.length ? <><p>当前有 {purgePreview.references.length} 个关联对象，处理前不能永久删除：</p><ul>{purgePreview.references.map(reference => <li key={`${reference.collection}:${reference.id}`}>{reference.collection} · {reference.id}（{reference.reasonCode}）</li>)}</ul><p>请先核对并处理所列关联对象，然后重新预检。</p></> : null}
         {detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}
       </DialogBody>

@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { resetJournalKeepingTombstones, createJournal, syncKey } from '../../apps/api/src/modules/sync/journal.js';
+import { syncContract } from '../../apps/api/src/modules/sync/protocol-contract.js';
 import { createEmptyLocalState } from '../../apps/api/src/infrastructure/local-data-schema.js';
 import { createPostgresTestDatabase } from '../test-support/postgres-test-database.mjs';
 import { createPostgresAppContext } from '../../apps/api/src/postgres-app.factory.js';
@@ -34,7 +35,7 @@ test('手动恢复 JSON 后重建世代，保留业务数据并备份原日志',
 const script = fileURLToPath(new URL('../reset-sync-epoch.mjs', import.meta.url));
 const candidate = { id: 'deleted-concept', title: '合成知识', canonicalStatement: '合成定义', sourceMode: 'manual' };
 function batch(epoch, item) {
-  return { protocolVersion: 2, deviceId: 'old-device', operationId: 'late-create', datasetEpoch: epoch,
+  return { ...syncContract(), protocolVersion: 2, deviceId: 'old-device', operationId: 'late-create', datasetEpoch: epoch,
     sequence: 1, changes: [{ collection: 'knowledgeItems', id: item.id, baseRevision: null, value: item }], dependencies: [] };
 }
 

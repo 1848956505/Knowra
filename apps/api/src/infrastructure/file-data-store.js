@@ -9,6 +9,8 @@ import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
 import { coreOperationKey, validateCoreOperationState } from './core-operation-contract.js';
 import { createSyncCoreOperationStore } from './core-operation-store.js';
+import { backfillKnowledgeArtifactProvenance, legacyKnowledgeExtractionReceipts } from './migration/knowledge-artifact-provenance-backfill.js';
+import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
 import { createJsonAiAccessStore, createJsonAiConversationStore, createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
 import { createJsonBudgetAuthority } from '../modules/ai/budget-ledger.js';
@@ -65,10 +67,19 @@ export function createFileDataStore(filePath, {
     aiRuntime = parsed.aiRuntime;
     aiRuntimeError = error;
   }
-  let committed = cloneLocalState(state);
   let journal = loadJournal(parsed.sync, state);
+  const provenanceMigration = backfillKnowledgeArtifactProvenance(state, {
+    receipts: legacyKnowledgeExtractionReceipts(parsed.knowledgeExtractionCommits),
+    getTombstone: (collection, id) => journal.tombstones?.[syncKey(collection, id)]
+  });
+  for (const record of state.knowledgeArtifactProvenance) {
+    if (journal.tombstones?.[syncKey('knowledgeArtifactProvenance', record.id)]) {
+      throw createAppError('KNOWLEDGE_ARTIFACT_PROVENANCE_CONFLICT', '已永久删除的来源记录不能通过迁移重建。', 409);
+    }
+  }
+  let committed = cloneLocalState(state);
   let transaction = null;
-  if (['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
+  if (parsed.schemaVersion !== LOCAL_DATA_SCHEMA_VERSION || ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
     writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations, knowledgeExtractionCommits,
@@ -137,6 +148,7 @@ export function createFileDataStore(filePath, {
 
   function commitImport(preparedSnapshot) {
     const validated = validateLocalSnapshot(preparedSnapshot);
+    assertNoKnowledgeArtifactProvenanceDowngrade(state, validated.data);
     for (const collection of LOCAL_DATA_COLLECTIONS) {
       for (const item of validated.data[collection]) {
         if (journal.tombstones?.[syncKey(collection, item.id)]) {
@@ -163,6 +175,8 @@ export function createFileDataStore(filePath, {
 
   function persistState(nextState) {
     try {
+      validatePersistedLocalState(createPersistedLocalDocument(nextState));
+      assertNoKnowledgeArtifactProvenanceDowngrade(committed, nextState);
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
       writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal,
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
@@ -183,6 +197,7 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    provenanceMigration,
     knowledgeExtractionTaskStore: knowledgeExtractionTaskStoreError ? null : {
       supportsAsync: false,
       runTransaction(operation) {

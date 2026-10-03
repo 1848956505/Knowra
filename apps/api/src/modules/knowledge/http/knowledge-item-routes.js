@@ -10,6 +10,14 @@ function decode(value) {
   }
 }
 
+async function parseKnowledgeInput(request) {
+  const body = await parseBody(request);
+  if (body?.sourceMode === 'ai') {
+    throw createAppError('KNOWLEDGE_ITEM_AI_SOURCE_RESERVED', 'AI 来源只能由经过校验的提炼结果接纳，不能手动声明。', 422);
+  }
+  return body;
+}
+
 export async function handleKnowledgeItemRoute({ request, response, url, knowledge }) {
   const root = '/api/knowledge/items';
   if (request.method === 'GET' && url.pathname === root) {
@@ -21,7 +29,7 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
     return true;
   }
   if (request.method === 'POST' && url.pathname === root) {
-    sendJson(response, 201, { data: await knowledge.createKnowledgeItem(await parseBody(request)) });
+    sendJson(response, 201, { data: await knowledge.createKnowledgeItem(await parseKnowledgeInput(request)) });
     return true;
   }
 
@@ -34,10 +42,14 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
     return true;
   }
 
-  const actionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/(confirm|needs-revision|archive|restore|trash|restore-deleted|purge-preview|permanent|evidence)$/);
+  const actionMatch = url.pathname.match(/^\/api\/knowledge\/items\/([^/]+)\/(confirm|needs-revision|archive|restore|trash|restore-deleted|purge-preview|permanent|evidence|provenance)$/);
   if (actionMatch) {
     const id = decode(actionMatch[1]);
     const action = actionMatch[2];
+    if (action === 'provenance' && request.method === 'GET') {
+      sendJson(response, 200, { data: await knowledge.getKnowledgeProvenance({ id }) });
+      return true;
+    }
     if (action === 'purge-preview' && request.method === 'GET') {
       sendJson(response, 200, { data: await knowledge.inspectKnowledgePurge({ id }) });
       return true;
@@ -89,7 +101,7 @@ export async function handleKnowledgeItemRoute({ request, response, url, knowled
     return true;
   }
   if (request.method === 'PATCH') {
-    sendJson(response, 200, { data: await knowledge.updateKnowledgeItem({ id }, await parseBody(request)) });
+    sendJson(response, 200, { data: await knowledge.updateKnowledgeItem({ id }, await parseKnowledgeInput(request)) });
     return true;
   }
   return false;

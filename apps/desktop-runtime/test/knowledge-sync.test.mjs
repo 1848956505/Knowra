@@ -163,19 +163,22 @@ test('离线候选遇到原文变更仍保留历史证据，来源失效后两�
   assert.equal(b.knowledge.knowledgeItemService.listEvidence(item.id)[0].status, 'insufficient');
 });
 
-test('旧云端能力协商保留知识待传，同时笔记继续同步；升级后自动补传', async t => {
-  const cloud = await fixture(t); let old = true;
+test('schema7整段拒绝旧云端并保留知识、笔记与冻结队列；升级后全部补传', async t => {
+  const cloud = await fixture(t); let old = false;
   const a = cloud.device('a', async (url, options) => {
     const response = await fetch(url, options);
-    if (old && url.endsWith('/status')) { const body = await response.json(); body.data.capabilities = body.data.capabilities.filter(value => value !== 'knowledge-items-v1'); return Response.json(body); }
+    if (old && url.endsWith('/status')) { const body = await response.json(); body.data.entitySchemaVersion = 6; body.data.capabilities = body.data.capabilities.filter(value => value !== 'knowledge-provenance-v1'); return Response.json(body); }
     return response;
   });
   await a.connect(); const { item } = a.knowledge.knowledgeItemService.createCandidate({ title: '待同步知识', canonicalStatement: '保留本机', sourceMode: 'manual' });
-  a.knowledge.noteService.updateNote(cloud.note.id, { rawMarkdown: '旧云端仍同步正文' });
-  await a.engine.sync(); assert.equal(a.engine.status().error.code, 'SYNC_KNOWLEDGE_UNSUPPORTED');
-  assert.equal(cloud.knowledge.noteService.getNote(cloud.note.id).rawMarkdown, '旧云端仍同步正文');
+  a.knowledge.noteService.updateNote(cloud.note.id, { rawMarkdown: '升级期间保留的离线正文' });
+  const frozen = nextEntityUpload(a.store), before = a.store.exportSnapshot();
+  old = true; await a.engine.sync(); assert.equal(a.engine.status().error.code, 'SYNC_CLIENT_UPGRADE_REQUIRED');
+  assert.deepEqual(nextEntityUpload(a.store), frozen); assert.deepEqual(a.store.exportSnapshot().data, before.data);
+  assert.equal(cloud.knowledge.noteService.getNote(cloud.note.id).rawMarkdown, cloud.note.rawMarkdown);
   assert.equal(a.knowledge.knowledgeItemService.getItem(item.id).title, '待同步知识'); assert.equal(cloud.store.state.knowledgeItems.length, 0);
   old = false; await a.engine.sync(); clean(a); assert.equal(cloud.store.state.knowledgeItems.length, 1);
+  assert.equal(cloud.knowledge.noteService.getNote(cloud.note.id).rawMarkdown, '升级期间保留的离线正文');
 });
 
 test('同步拒绝伪造有效状态和改写证据快照，业务与回执均不落盘', async t => {

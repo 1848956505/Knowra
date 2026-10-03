@@ -3,7 +3,7 @@ import type { KnowledgeEvidence, KnowledgeItem } from '@study-accelerator/web-co
 import { Button } from '../../components/ui';
 import { knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
 import { evidenceApplicabilityLabel, evidenceHealthLabel } from './knowledgeSourceViewModel';
-import { KnowledgeSourceComparison } from './KnowledgeSourceComparisonDialog';
+import { KnowledgeProvenanceNotice, KnowledgeSourceComparison } from './KnowledgeSourceComparisonDialog';
 import styles from './KnowledgeWorkspaceView.module.css';
 
 export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onConfirm, onArchive, onRestore, onTrash, onRestoreDeleted, onPurgePreview, onOpenNote, onAddSource, onReplaceSource, onRetireSource, onReadoptSource }: {
@@ -46,6 +46,7 @@ export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onC
         </div>
         {record.status !== 'valid' ? <p className={styles.notice}>来源需要重新核对；保存的摘录仍可查看。</p> : null}
       </li>)}</ul>}
+      {!evidence.length && item.sourceMode === 'ai' ? <KnowledgeProvenanceNotice item={item} /> : null}
     </section>
     {item.updatedAt ? <p className={styles.hint}>更新于 {new Date(item.updatedAt).toLocaleString('zh-CN')}</p> : null}
     {comparisonEvidence ? <KnowledgeSourceComparison key={`${item.id}:${comparisonEvidence.id}`} item={item} evidence={comparisonEvidence} onClose={() => setComparisonId(null)} onOpenNote={onOpenNote} /> : null}

@@ -1,17 +1,18 @@
+import { resolveAnalysisScopeNoteVersion } from '../knowledge/domain/analysis-scope-version-alias.js';
 import { attachmentIdsInText } from '@study-accelerator/shared/attachments';
 import { noteContent } from './journal.js';
 
-// 兼容实体 v2：知识写入通过独立 capability 协商，试题仍只接收云端变化。
+// schema7 完整实体契约；试题仍只接收云端变化。
 export const KNOWLEDGE_SYNC_CAPABILITY = 'knowledge-items-v1';
-export const KNOWLEDGE_COLLECTIONS = Object.freeze(['knowledgeItems', 'knowledgeEvidence']);
+export const KNOWLEDGE_COLLECTIONS = Object.freeze(['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance']);
 export const WRITABLE_COLLECTIONS = Object.freeze([
   'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions',
   'attachments', 'contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'analysisScopeSnapshots', ...KNOWLEDGE_COLLECTIONS
 ]);
-export const IMMUTABLE_COLLECTIONS = new Set(['noteVersions', 'annotationRevisions', 'analysisScopeSnapshots', 'knowledgeEvidence']);
+export const IMMUTABLE_COLLECTIONS = new Set(['noteVersions', 'annotationRevisions', 'analysisScopeSnapshots', 'knowledgeEvidence', 'knowledgeArtifactProvenance']);
 export function entityContent(collection, value) {
   if (!value) return null;
-  if (collection === 'notes') return noteContent(value);
+  if (collection === 'notes') return canonical(noteContent(value));
   const ignored = new Set(['createdAt', 'updatedAt']);
   if (collection === 'attachments') for (const key of ['verifiedAt', 'storagePath', 'status']) ignored.add(key);
   if (collection === 'folders') ignored.add('pathCache');
@@ -32,6 +33,10 @@ export function referencesFor(collection, value) {
     for (const version of value.noteVersions ?? []) refs.push({ collection: 'noteVersions', id: version.noteVersionId });
     for (const revision of value.annotationRevisions ?? []) refs.push({ collection: 'contentAnnotations', id: revision.annotationId });
   }
+  if (collection === 'knowledgeArtifactProvenance') {
+    refs.push({ collection: 'knowledgeItems', id: value.artifactId });
+    for (const source of value.sources ?? []) refs.push({ collection: 'knowledgeEvidence', id: source.evidenceId });
+  }
   return refs;
 }
 
@@ -42,9 +47,19 @@ function canonical(value) {
 }
 
 export function syncReferencesFor(collection, value, state) {
-  const refs = referencesFor(collection, value);
+  const refs = referencesFor(collection, value).filter(ref => collection !== 'analysisScopeSnapshots' || ref.collection !== 'noteVersions');
+  if (collection === 'analysisScopeSnapshots' && value) for (const binding of value.noteVersions ?? []) {
+    refs.push({ collection: 'noteVersions', id: resolveAnalysisScopeNoteVersion(value, binding, state.noteVersions).id });
+  }
   if (collection === 'knowledgeItems' && value) for (const evidence of state.knowledgeEvidence.filter(item => item.knowledgeItemId === value.id)) {
     refs.push({ collection: 'knowledgeEvidence', id: evidence.id }, ...referencesFor('knowledgeEvidence', evidence));
+  }
+  if (collection === 'knowledgeItems' && value) for (const record of state.knowledgeArtifactProvenance ?? []) {
+    if (record.artifactId === value.id) refs.push({ collection: 'knowledgeArtifactProvenance', id: record.id });
+  }
+  if (collection === 'knowledgeArtifactProvenance' && value) for (const source of value.sources ?? []) {
+    const evidence = state.knowledgeEvidence.find(item => item.id === source.evidenceId);
+    if (evidence) refs.push(...referencesFor('knowledgeEvidence', evidence));
   }
   return [...new Map(refs.map(ref => [JSON.stringify([ref.collection, ref.id]), ref])).values()];
 }

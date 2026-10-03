@@ -8,6 +8,7 @@ const tables = [
   ['contentAnnotations', 'contentAnnotation', 'dbAnnotation'], ['annotationExclusions', 'annotationExclusion', 'dbAnnotationExclusion'],
   ['annotationRevisions', 'annotationRevision', 'dbAnnotationRevision'],
   ['knowledgeItems', 'knowledgeItem', 'dbKnowledgeItem'], ['knowledgeEvidence', 'knowledgeEvidence', 'dbKnowledgeEvidence'],
+  ['knowledgeArtifactProvenance', 'knowledgeArtifactProvenance', 'dbKnowledgeArtifactProvenance'],
   ['learningObjectives', 'learningObjective', 'dbLearningObjective'], ['questions', 'question', 'dbQuestion'],
   ['questionSources', 'questionSource', 'dbQuestionSource']
 ];

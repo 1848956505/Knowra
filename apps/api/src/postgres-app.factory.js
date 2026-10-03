@@ -19,6 +19,8 @@ import { createPostgresAttachmentRepository } from './modules/knowledge/infrastr
 import { createPostgresNoteVersionRepository } from './modules/knowledge/infrastructure/postgres/note-version-repository.js';
 import { createPostgresKnowledgeItemRepository } from './modules/knowledge/infrastructure/postgres/knowledge-item-repository.js';
 import { createPostgresKnowledgeEvidenceRepository } from './modules/knowledge/infrastructure/postgres/knowledge-evidence-repository.js';
+import { createPostgresKnowledgeArtifactProvenanceRepository } from './modules/knowledge/infrastructure/postgres/knowledge-artifact-provenance-repository.js';
+import { migratePostgresKnowledgeArtifactProvenance } from './infrastructure/migration/postgres-knowledge-artifact-provenance.js';
 import { createPostgresLearningObjectiveRepository } from './modules/knowledge/infrastructure/postgres/learning-objective-repository.js';
 import { createPostgresExamProfileRepository } from './modules/knowledge/infrastructure/postgres/exam-profile-repository.js';
 import { createPostgresExamFocusRepository } from './modules/knowledge/infrastructure/postgres/exam-focus-repository.js';
@@ -78,6 +80,8 @@ export async function createPostgresAppContext({
   const syncRuntime = createPostgresSyncRuntime(db, normalizedOwnerId);
   db = syncRuntime.client;
   const maintenanceGate = createMaintenanceGate();
+  try { await maintenanceGate.runMaintenance(() => migratePostgresKnowledgeArtifactProvenance(db, normalizedOwnerId)); }
+  catch (error) { await runtime.disconnect(); throw error; }
   const advisoryLock = createPostgresAdvisoryLock(db);
   const aiBudget = createPostgresBudgetAuthority(db);
 
@@ -95,6 +99,7 @@ export async function createPostgresAppContext({
     noteVersionRepository: createPostgresNoteVersionRepository({ db }),
     knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db }),
     knowledgeEvidenceRepository: createPostgresKnowledgeEvidenceRepository({ db }),
+    knowledgeArtifactProvenanceRepository: createPostgresKnowledgeArtifactProvenanceRepository({ db }),
     learningObjectiveRepository: createPostgresLearningObjectiveRepository({ db }),
     examProfileRepository: createPostgresExamProfileRepository({ db }),
     examFocusRepository: createPostgresExamFocusRepository({ db }),

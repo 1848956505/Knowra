@@ -11,6 +11,7 @@ import { createMaintenanceGate } from '../src/infrastructure/maintenance-gate.js
 import { hashRecord } from '../src/modules/ai/record-contract.js';
 import { createAiWorker } from '../src/modules/ai/worker.js';
 import { createExtractionTaskSources, extractionTaskGateway, deferredTaskResponse, quietTaskLogger } from './fixtures/knowledge-extraction-task.fixture.js';
+import { assertMinimalProvenanceTransport } from './fixtures/knowledge-artifact-provenance.fixture.js';
 
 async function fixture(run, { onCall, storeOptions, maintenanceGate } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-extraction-task-')), file = path.join(root, 'data.json');
@@ -65,7 +66,9 @@ export const aiKnowledgeExtractionTaskTests = [
       assert.equal(f.mock.calls.length, 1);
       assert.equal(JSON.stringify(result).includes('credential'), false);
       assert.equal(JSON.stringify(f.app.dataStore.exportSnapshot()).includes('creationHash'), false);
-      assert.equal(JSON.stringify(f.app.dataStore.getSyncJournal()).includes(job.jobId), false);
+      const provenance = f.app.dataStore.state.knowledgeArtifactProvenance[0];
+      assert.equal(provenance.origin.jobId, job.jobId);
+      assertMinimalProvenanceTransport(f.app.dataStore.getSyncJournal(), provenance);
     });
   } },
   { name: '02B JSON 创建每个依赖/描述或最终写盘失败整束回滚，同键异范围拒绝', async run() {

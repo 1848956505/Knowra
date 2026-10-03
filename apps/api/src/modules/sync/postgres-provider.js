@@ -1,3 +1,5 @@
+import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../knowledge/domain/knowledge-artifact-provenance-state.js';
+import { assertSnapshotBinding, snapshotBinding } from './protocol-contract.js';
 import { createBatchSyncService } from './batch-service.js';
 import { applyPostgresState } from './postgres-batch.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -16,7 +18,8 @@ const collections = {
   examProfiles: ['examProfile', 'mapExamProfile'], examFocuses: ['examFocus', 'mapExamFocus'],
   questions: ['question', 'mapQuestion'], questionObjectives: ['questionObjective', 'mapQuestionObjective'],
   questionSources: ['questionSource', 'mapQuestionSource'], annotationExclusions: ['annotationExclusion'],
-  annotationRevisions: ['annotationRevision'], analysisScopeSnapshots: ['analysisScopeSnapshot']
+  annotationRevisions: ['annotationRevision'], analysisScopeSnapshots: ['analysisScopeSnapshot'],
+  knowledgeArtifactProvenance: ['knowledgeArtifactProvenance', 'mapKnowledgeArtifactProvenance']
 };
 
 async function snapshot(db) {
@@ -49,6 +52,7 @@ export function createPostgresSyncRuntime(client, ownerId) {
       return scope.run(context, async () => {
         const result = await operation(proxy);
         const after = await snapshot(tx);
+        assertNoKnowledgeArtifactProvenanceDowngrade(before, after);
         // 整库导入删除日志行；用新世代重新建立基线。
         const exists = await tx.syncJournal.findUnique({ where: { ownerId } });
         const journal = exists?.payload?.epoch && exists.payload.epoch !== context.journal.epoch
@@ -89,17 +93,20 @@ export function createPostgresSyncRuntime(client, ownerId) {
       };
       const provider = {
         read, mutate: access,
-        snapshotPage: async ({ snapshotId, start, size }) => {
+        snapshotPage: async ({ snapshotId, start, size, contract, ownerId: requestedOwner }) => {
           const [row] = await client.$queryRawUnsafe(`SELECT
             payload ->> 'epoch' AS epoch,
+            (payload -> 'snapshots' -> $2) - 'entries' AS binding,
             payload -> 'snapshots' -> $2 ->> 'cursor' AS cursor,
             payload -> 'snapshots' -> $2 ->> 'expiresAt' AS expires,
             jsonb_array_length(payload -> 'snapshots' -> $2 -> 'entries') AS count,
             jsonb_path_query_array(payload -> 'snapshots' -> $2, $3::jsonpath) AS entries
             FROM "SyncJournal" WHERE "ownerId" = $1`, ownerId, String(snapshotId), `$.entries[${start} to ${start + size - 1}]`);
           if (!row?.expires || Number(row.expires) < Date.now()) throw syncError('CURSOR_EXPIRED', '初始化快照已过期。');
+          const binding = assertSnapshotBinding(row.binding, contract, requestedOwner, row.epoch);
+          if (binding.snapshotId !== snapshotId || binding.count !== row.count) throw syncError('SYNC_SNAPSHOT_CONTRACT_MISMATCH', '初始化快照绑定不一致。');
           if (start > row.count) throw syncError('CURSOR_INVALID', '快照分页无效。', 422);
-          return { entries: row.entries, nextOffset: start + size < row.count ? start + size : null, cursor: row.cursor, datasetEpoch: row.epoch };
+          return { ...snapshotBinding(binding), entries: row.entries, nextOffset: start + size < row.count ? start + size : null };
         },
         preview: async () => {
           const context = scope.getStore();

@@ -1,3 +1,5 @@
+import { validateKnowledgeArtifactProvenance } from '../../modules/knowledge/domain/knowledge-artifact-provenance-contract.js';
+
 export function dbUser(user) {
   return {
     id: user.id,
@@ -291,4 +293,9 @@ export function dbTagGroup(group) {
     createdAt: new Date(group.createdAt),
     updatedAt: new Date(group.updatedAt)
   };
+}
+export function dbKnowledgeArtifactProvenance(input) {
+  const record = validateKnowledgeArtifactProvenance(input);
+  return { id: record.id, artifactId: record.artifactId, schemaVersion: record.schemaVersion,
+    state: record.state, provenanceHash: record.provenanceHash, payload: structuredClone(record) };
 }

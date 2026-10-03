@@ -1,3 +1,5 @@
+import { knowledgeArtifactProvenancePersistenceTests } from './knowledge-artifact-provenance-persistence.test.js';
+import { knowledgeProvenanceReadLifecycleTests } from './knowledge-provenance-read-lifecycle.test.js';
 import { attachmentCleanupCrashTests } from './attachment-cleanup-crash.test.js';
 import { reviewPostgresAcceptanceTests } from './review-postgres-acceptance.test.js';
 import { aiNoteActionHttpTests } from './ai-note-action-http.test.js';
@@ -89,6 +91,8 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...knowledgeArtifactProvenancePersistenceTests,
+  ...knowledgeProvenanceReadLifecycleTests,
   ...attachmentCleanupCrashTests,
   ...reviewPostgresAcceptanceTests,
   ...aiNoteActionAgentTests,

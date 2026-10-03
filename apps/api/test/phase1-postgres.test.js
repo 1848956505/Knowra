@@ -73,6 +73,7 @@ export const phase1PostgresTests = [
       const { createPostgresAppContext } = await import('../src/postgres-app.factory.js');
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-phase1-context-'));
       let ownerUpserts = 0;
+      let provenanceSchemaChecks = 0;
       try {
         const model = () => ({
           async findUnique() { return null; },
@@ -99,6 +100,11 @@ export const phase1PostgresTests = [
           noteVersion: model(),
           knowledgeItem: model(),
           knowledgeEvidence: model(),
+          knowledgeArtifactProvenance: model(),
+          annotationExclusion: model(),
+          annotationRevision: model(),
+          analysisScopeSnapshot: model(),
+          syncJournal: model(),
           learningObjective: model(),
           examProfile: model(),
           examFocus: model(),
@@ -107,6 +113,14 @@ export const phase1PostgresTests = [
           questionSource: model(),
           async $connect() {},
           async $disconnect() {},
+          async $queryRawUnsafe(sql) {
+            if (sql === 'SELECT version FROM knowledge_artifact_provenance_migrations') {
+              provenanceSchemaChecks += 1;
+              return [{ version: 1 }];
+            }
+            return [];
+          },
+          async $executeRawUnsafe() { return 0; },
           async $transaction(operation) { return operation(this); }
         };
         const app = await createPostgresAppContext({ client, storageRootDir: tempRoot });
@@ -114,6 +128,7 @@ export const phase1PostgresTests = [
         assert.equal(typeof app.http.knowledge.createNote, 'function');
         assert.equal(typeof app.http.storage.exportKnowledgeBase, 'function');
         assert.equal(ownerUpserts, 1);
+        assert.equal(provenanceSchemaChecks, 1);
         await app.close();
       } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -607,7 +622,8 @@ export const phase1PostgresTests = [
                 events.push(`spaces:${data.length}`);
               }
             },
-            tagGroup: { async createMany({ data }) { events.push(`groups:${data.length}`); } }
+            tagGroup: { async createMany({ data }) { events.push(`groups:${data.length}`); } },
+            knowledgeArtifactProvenance: { async findMany() { return []; } }
           });
         }
       };

@@ -50,7 +50,7 @@ for (const driver of ['json', 'sqlite']) test(`${driver}：列表、排除与身
   note = save(k, k.noteService.getNote(note.id), note.rawMarkdown.replace('子项', '子项\n  - 新子项'));
   assert.match(k.contentAnnotationService.getAnnotation(f.annotation.id).quoteText, /新子项/);
   const snapshot = context.http.storage.exportKnowledgeBase();
-  assert.equal(snapshot.schemaVersion, 6);
+  assert.equal(snapshot.schemaVersion, 7);
   const forged = structuredClone(snapshot);
   forged.data.contentAnnotations.find(item => item.id === f.annotation.id).anchor.tracking.rootId = 'forged-root';
   assert.throws(() => context.http.storage.importKnowledgeBase(forged), /invalid list identity/);
