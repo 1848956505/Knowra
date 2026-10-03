@@ -3,7 +3,7 @@ import { buildCreateLearningObjectiveDto, buildUpdateLearningObjectiveDto } from
 import { assertLearningObjectiveConfirmable } from './formal-asset-validation.js';
 import { conflictError, notFoundError, validationError } from './knowledge-errors.js';
 
-const now = () => new Date().toISOString();
+import { assertLearningObjectiveBaseline, nextLearningObjectiveTimestamp } from './learning-objective-concurrency.js';
 
 export function createLearningObjectiveService({
   repository,
@@ -63,22 +63,26 @@ export function createLearningObjectiveService({
 
   function createCandidate(input = {}) {
     const dto = buildCreateLearningObjectiveDto(input);
-    requireKnowledgeItem(dto.knowledgeItemId);
-    assertObjectiveIdAvailable(dto.id);
-    return runTransaction(() => saveNew(new LearningObjective({ ...dto, id: dto.id })));
+    return runTransaction(() => {
+      const item = requireKnowledgeItem(dto.knowledgeItemId, { confirmed: Object.hasOwn(input, 'reviewBaseline') });
+      assertLearningObjectiveBaseline(null, item, input);
+      assertObjectiveIdAvailable(dto.id);
+      return saveNew(new LearningObjective({ ...dto, id: dto.id }));
+    });
   }
 
   function updateObjective(id, input = {}) {
-    const current = requireObjective(id);
     const dto = buildUpdateLearningObjectiveDto(input);
-    const changed = Object.keys(dto).some((field) => dto[field] !== current[field]);
     return runTransaction(() => {
+      const current = requireObjective(id);
+      assertLearningObjectiveBaseline(current, requireKnowledgeItem(current.knowledgeItemId), input);
+      const changed = Object.keys(dto).some((field) => dto[field] !== current[field]);
       const next = repository.save(new LearningObjective({
         ...current,
         ...dto,
         reviewStatus: current.reviewStatus === 'confirmed' && changed ? 'candidate' : current.reviewStatus,
-        updatedAt: now()
-      }));
+        updatedAt: nextLearningObjectiveTimestamp(current)
+      }), { expectedUpdatedAt: current.updatedAt });
       notifyIfInvalidated(current, next);
       return next;
     });
@@ -91,10 +95,13 @@ export function createLearningObjectiveService({
       return repository.list(options);
     },
     updateObjective,
-    confirmObjective(id) {
-      const current = requireObjective(id);
-      assertConfirmable(current);
-      return repository.save(new LearningObjective({ ...current, reviewStatus: 'confirmed', reviewNote: null, updatedAt: now() }));
+    confirmObjective(id, input = {}) {
+      return runTransaction(() => {
+        const current = requireObjective(id);
+        assertLearningObjectiveBaseline(current, requireKnowledgeItem(current.knowledgeItemId), input);
+        assertConfirmable(current);
+        return repository.save(new LearningObjective({ ...current, reviewStatus: 'confirmed', reviewNote: null, updatedAt: nextLearningObjectiveTimestamp(current) }), { expectedUpdatedAt: current.updatedAt });
+      });
     },
     requestRevision(id, reviewNote = null) {
       const current = requireObjective(id);
@@ -103,7 +110,7 @@ export function createLearningObjectiveService({
           ...current,
           reviewStatus: 'candidate',
           reviewNote: reviewNote?.trim?.() || current.reviewNote || null,
-          updatedAt: now()
+          updatedAt: nextLearningObjectiveTimestamp(current)
         }));
         notifyIfInvalidated(current, next);
         return next;
@@ -112,7 +119,7 @@ export function createLearningObjectiveService({
     archive(id) {
       const current = requireObjective(id);
       return runTransaction(() => {
-        const next = repository.save(new LearningObjective({ ...current, reviewStatus: 'archived', updatedAt: now() }));
+        const next = repository.save(new LearningObjective({ ...current, reviewStatus: 'archived', updatedAt: nextLearningObjectiveTimestamp(current) }));
         notifyIfInvalidated(current, next);
         return next;
       });
@@ -120,7 +127,7 @@ export function createLearningObjectiveService({
     restore(id) {
       const current = requireObjective(id, { includeArchived: true });
       if (current.reviewStatus !== 'archived') return current;
-      return repository.save(new LearningObjective({ ...current, reviewStatus: 'candidate', updatedAt: now() }));
+      return repository.save(new LearningObjective({ ...current, reviewStatus: 'candidate', updatedAt: nextLearningObjectiveTimestamp(current) }));
     },
     invalidateByKnowledgeItemId(knowledgeItemId) {
       return runTransaction(() => {
@@ -135,7 +142,7 @@ export function createLearningObjectiveService({
             ...current,
             reviewStatus: 'candidate',
             reviewNote: current.reviewNote || 'Parent KnowledgeItem requires review',
-            updatedAt: now()
+            updatedAt: nextLearningObjectiveTimestamp(current)
           }));
           changed.push(next);
           notifyIfInvalidated(current, next);

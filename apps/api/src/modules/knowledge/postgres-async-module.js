@@ -42,6 +42,7 @@ import { createTrainingAssetLifecycle } from './application/training-asset-lifec
 import { createWorkspaceQueryService } from './application/workspace-query-service.js';
 import { conflictError, validationError } from './application/knowledge-errors.js';
 import { withPostgresErrors } from '../../infrastructure/postgres-errors.js';
+import { withLearningObjectiveReviewErrors } from './application/learning-objective-concurrency.js';
 
 export function createPostgresKnowledgeModule({
   noteRepository,
@@ -155,6 +156,7 @@ export function createPostgresKnowledgeModule({
     });
     return {
       knowledgeItemService: transactionKnowledgeItemService,
+      learningObjectiveService: transactionLearningObjectiveService,
       questionService: transactionQuestionService
     };
   }
@@ -352,7 +354,7 @@ export function createPostgresKnowledgeModule({
       annotationRepository: transaction.contentAnnotationRepository
     }))
   });
-  for (const method of ['updateItem', 'confirmItem', 'markNeedsRevision', 'archive', 'restore', 'trash', 'restoreDeleted']) {
+  for (const method of ['updateItem', 'confirmItem', 'markNeedsRevision', 'archive', 'restore', 'trash', 'restoreDeleted', 'retireEvidence', 'markEvidenceByNoteId', 'markEvidenceByAnnotationId', 'markEvidenceByNoteVersionId']) {
     knowledgeItemService[method] = (...args) => runTransaction((transaction) => (
       createTransactionFormalServices(transaction).knowledgeItemService[method](...args)
     ));
@@ -368,6 +370,16 @@ export function createPostgresKnowledgeModule({
       learningObjectiveRepository: transaction.learningObjectiveRepository
     }))
   });
+  for (const method of ['createCandidate', 'updateObjective', 'confirmObjective', 'requestRevision', 'archive', 'restore', 'invalidateByKnowledgeItemId']) {
+    learningObjectiveService[method] = (...args) => {
+      const operation = () => runTransaction((transaction) => (
+        createTransactionFormalServices(transaction).learningObjectiveService[method](...args)
+      ));
+      return ['createCandidate', 'updateObjective', 'confirmObjective'].includes(method)
+        ? withLearningObjectiveReviewErrors(method === 'createCandidate' ? args[0] : args[1], operation, { hasObjective: method !== 'createCandidate' })
+        : operation();
+    };
+  }
   const { profileService: examProfileService, focusService: examFocusService } = createAsyncAssessmentContextService({
     examProfileRepository,
     examFocusRepository,

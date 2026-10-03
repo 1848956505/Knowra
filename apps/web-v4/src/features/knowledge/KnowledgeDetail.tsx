@@ -4,6 +4,7 @@ import { Button } from '../../components/ui';
 import { knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
 import { evidenceApplicabilityLabel, evidenceHealthLabel } from './knowledgeSourceViewModel';
 import { KnowledgeProvenanceNotice, KnowledgeSourceComparison } from './KnowledgeSourceComparisonDialog';
+import { KnowledgeLearningObjectives } from './KnowledgeLearningObjectives';
 import styles from './KnowledgeWorkspaceView.module.css';
 
 export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onConfirm, onArchive, onRestore, onTrash, onRestoreDeleted, onPurgePreview, onOpenNote, onAddSource, onReplaceSource, onRetireSource, onReadoptSource }: {
@@ -48,6 +49,7 @@ export function KnowledgeDetail({ item, evidence, canWrite, pending, onEdit, onC
       </li>)}</ul>}
       {!evidence.length && item.sourceMode === 'ai' ? <KnowledgeProvenanceNotice item={item} /> : null}
     </section>
+    <KnowledgeLearningObjectives key={item.id} item={item} />
     {item.updatedAt ? <p className={styles.hint}>更新于 {new Date(item.updatedAt).toLocaleString('zh-CN')}</p> : null}
     {comparisonEvidence ? <KnowledgeSourceComparison key={`${item.id}:${comparisonEvidence.id}`} item={item} evidence={comparisonEvidence} onClose={() => setComparisonId(null)} onOpenNote={onOpenNote} /> : null}
   </article>;

@@ -11,6 +11,8 @@ import { QuestionSourceComparison } from './QuestionSourceComparison';
 import { loadQuestionSource } from './questionSourceModel';
 import { questionSources, type QuestionSource } from './questionDetailModel';
 import { QuestionValue } from './QuestionValue';
+import { LearningObjectiveReviewDialog } from './LearningObjectiveReviewDialog';
+import { objectiveActionLabel, objectiveLevelLabel } from './learningObjectiveModel';
 import styles from './TrainingWorkspaceView.module.css';
 
 const KINDS: TrainingAssetKind[] = ['learningObjective', 'examProfile', 'examFocus', 'question'];
@@ -50,6 +52,7 @@ export function TrainingWorkspaceView() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState<FormTarget>(null);
+  const [objectiveReview, setObjectiveReview] = useState<{ record?: TrainingAssetRecord } | null>(null);
   const [action, setAction] = useState<ActionTarget>(null);
   const [preview, setPreview] = useState<TrainingPurgePreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -123,7 +126,7 @@ export function TrainingWorkspaceView() {
   return <WorkspacePanel as="main" aria-labelledby="training-title">
     <WorkspacePanelHeader title="试题库" code="TRAIN" titleId="training-title" icon={<QuestionIcon size={14} />}
       breadcrumb={<PathTrail path={[{ id: 'training', label: '试题库', current: true }]} variant="top" />}
-      actionsLabel="训练资产操作" actions={canWrite ? <Button variant="accent" size="workspace" onPress={() => setForm({ kind })}><PlusIcon size={17} />新建{LABELS[kind]}</Button> : null} />
+      actionsLabel="训练资产操作" actions={canWrite ? <Button variant="accent" size="workspace" onPress={() => kind === 'learningObjective' ? setObjectiveReview({}) : setForm({ kind })}><PlusIcon size={17} />新建{LABELS[kind]}</Button> : null} />
     <WorkspacePanelToolbar className={styles.toolbar} role="toolbar" aria-label="训练资产筛选">
       <SegmentedControl aria-label="训练资产类型">{KINDS.map(value => <SegmentedButton key={value} aria-pressed={kind === value} onPress={() => { setKind(value); setQuery(''); }}>{LABELS[value]}</SegmentedButton>)}</SegmentedControl>
       <SearchBox label={`搜索${LABELS[kind]}`} icon={<SearchIcon size={17} />} value={query} onChange={event => setQuery(event.target.value)} placeholder={`搜索${LABELS[kind]}…`} />
@@ -137,13 +140,13 @@ export function TrainingWorkspaceView() {
       <section className={kind === 'question' ? styles.questionList : undefined} aria-label={`${LABELS[kind]}列表`}>
       {visible.length === 0 ? <p className={styles.empty}>当前筛选下没有{LABELS[kind]}。</p> : <div className={kind === 'question' ? styles.questionRows : styles.cards}>{visible.map(record => <article className={`${styles.card} ${record.id === selectedQuestion?.id ? styles.selected : ''}`} key={record.id}>
         <div className={styles.cardTop}><h2>{label(record, kind)}</h2><span>{record.deletedAt ? '回收站' : record.archivedAt ? '已归档' : STATUS[record.reviewStatus ?? ''] ?? '使用中'}</span></div>
-        <p className={styles.meta}>{kind === 'learningObjective' ? `知识点 ${record.knowledgeItemId ?? '—'}` : kind === 'examFocus' ? `配置 ${record.examProfileId ?? '—'} · 目标 ${record.learningObjectiveId ?? '—'}` : kind === 'question' ? `${record.learningObjectiveIds?.length ?? 0} 个学习目标` : record.description || '考试语境配置'}</p>
+        <p className={styles.meta}>{kind === 'learningObjective' ? `知识 ${knowledgeItems.find(item => item.id === record.knowledgeItemId)?.title ?? record.knowledgeItemId ?? '—'} · ${objectiveActionLabel(record.actionVerb)} / ${objectiveLevelLabel(record.cognitiveLevel)}` : kind === 'examFocus' ? `配置 ${record.examProfileId ?? '—'} · 目标 ${record.learningObjectiveId ?? '—'}` : kind === 'question' ? `${record.learningObjectiveIds?.length ?? 0} 个学习目标` : record.description || '考试语境配置'}</p>
         <div className={styles.actions} aria-label={`${label(record, kind)}的操作`}>
           {kind === 'question' ? <Button id={`question-detail-${record.id}`} size="compact" emphasis="soft" aria-pressed={selectedQuestionId === record.id} onPress={() => { setSelectedQuestionId(record.id); setComparedSource(null); }}>查看详情</Button> : null}
           {record.deletedAt ? <>{canWrite ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, 'restore-deleted')}>恢复</Button> : null}{canWrite ? <Button size="compact" variant="danger" isDisabled={busy} onPress={() => void openPurge(record, kind)}>永久清理…</Button> : null}</> : <>
-            {canWrite ? <Button size="compact" isDisabled={busy} onPress={() => setForm({ kind, value: record })}>编辑</Button> : null}
+            {canWrite ? <Button size="compact" isDisabled={busy} onPress={() => kind === 'learningObjective' ? setObjectiveReview({ record }) : setForm({ kind, value: record })}>编辑</Button> : null}
             {canWrite && kind === 'question' && record.reviewStatus === 'draft' ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, 'validate')}>校验</Button> : null}
-            {canWrite && record.reviewStatus === 'candidate' && kind !== 'examProfile' ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, 'confirm')}>确认</Button> : null}
+            {canWrite && record.reviewStatus === 'candidate' && kind !== 'examProfile' ? <Button size="compact" isDisabled={busy} onPress={() => kind === 'learningObjective' ? setObjectiveReview({ record }) : void runMutation(record, kind, 'confirm')}>确认</Button> : null}
             {canWrite ? <Button size="compact" isDisabled={busy} onPress={() => void runMutation(record, kind, record.reviewStatus === 'archived' || record.archivedAt ? 'restore' : 'archive')}>{record.reviewStatus === 'archived' || record.archivedAt ? '取消归档' : '归档'}</Button> : null}
             {canWrite ? <Button size="compact" variant="danger" isDisabled={busy} onPress={() => setAction({ kind, value: record, action: 'trash' })}>删除…</Button> : null}
           </>}
@@ -161,6 +164,7 @@ export function TrainingWorkspaceView() {
     <WorkspacePanelFooter><span>显示 {visible.length} 个{LABELS[kind]}</span><span>{view === 'trash' ? '保留至手动清理；永久清理前会复核引用' : '回收站对象独立于归档；永久清理前会复核引用'}</span></WorkspacePanelFooter>
     {selectedQuestion && activeComparedSource ? <QuestionSourceComparison key={`${selectedQuestion.id}-${selectedQuestion.updatedAt}-${activeComparedSource.id}`} source={activeComparedSource} onLoad={loadSource} onClose={() => setComparedSource(null)}
       onOpenNote={id => navigate(`/materials/notes/${encodeURIComponent(id)}`)} onOpenKnowledge={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)} /> : null}
+    {objectiveReview ? <LearningObjectiveReviewDialog key={objectiveReview.record?.id ?? 'new'} record={objectiveReview.record} knowledgeItems={knowledgeItems} onClose={() => setObjectiveReview(null)} onSaved={() => { setNotice('学习目标已更新，请核对当前状态。'); setGeneration(n => n + 1); }} /> : null}
     {form ? <TrainingForm key={`${form.kind}-${form.value?.id ?? 'new'}`} target={form} knowledgeItems={knowledgeItems} objectives={activeObjectives} profiles={activeProfiles} pending={busy} error={error} onClose={() => { setForm(null); setError(''); }} onSave={async input => {
       setBusy(true); setError('');
       try { if (form.value) await update(form.kind, form.value.id, input); else await create(form.kind, input); setForm(null); setNotice(`${LABELS[form.kind]}已保存。`); setGeneration(n => n + 1); }
@@ -189,26 +193,22 @@ function TrainingForm({ target, knowledgeItems, objectives, profiles, pending, e
   const current = target.value;
   const [name, setName] = useState(String(current?.name ?? ''));
   const [description, setDescription] = useState(String(current?.description ?? ''));
-  const [objective, setObjective] = useState(String(current?.objective ?? ''));
   const [stem, setStem] = useState(String(current?.stem ?? ''));
   const [answer, setAnswer] = useState(typeof current?.referenceAnswer === 'string' ? current.referenceAnswer : '');
-  const [knowledgeItemId, setKnowledgeItemId] = useState(String(current?.knowledgeItemId ?? knowledgeItems.find(item => item.reviewStatus === 'confirmed' && !item.deletedAt)?.id ?? ''));
   const [objectiveId, setObjectiveId] = useState(String(current?.learningObjectiveId ?? current?.learningObjectiveIds?.[0] ?? objectives[0]?.id ?? ''));
   const [profileId, setProfileId] = useState(String(current?.examProfileId ?? profiles[0]?.id ?? ''));
   const kind = target.kind;
   const structuredAnswer = current?.referenceAnswer !== null && current?.referenceAnswer !== undefined && typeof current.referenceAnswer !== 'string';
   async function submit() {
     const input: Record<string, unknown> = kind === 'examProfile' ? { name, description }
-      : kind === 'learningObjective' ? { objective, ...(current ? {} : { actionVerb: 'explain', cognitiveLevel: 'understand', knowledgeItemId }) }
       : kind === 'examFocus' ? { description, ...(current ? {} : { examProfileId: profileId, learningObjectiveId: objectiveId }) }
       : { stem, ...(structuredAnswer ? {} : { referenceAnswer: answer }), ...(current ? {} : { questionType: 'shortAnswer', learningObjectiveIds: [objectiveId], sources: [{ sourceType: 'manual', quote: '人工编题' }] }) };
     await onSave(input);
   }
-  const valid = kind === 'examProfile' ? Boolean(name.trim()) : kind === 'learningObjective' ? Boolean(objective.trim() && (current || knowledgeItemId)) : kind === 'examFocus' ? Boolean(current || (profileId && objectiveId)) : Boolean(stem.trim() && (current || objectiveId));
+  const valid = kind === 'examProfile' ? Boolean(name.trim()) : kind === 'examFocus' ? Boolean(current || (profileId && objectiveId)) : Boolean(stem.trim() && (current || objectiveId));
   return <Dialog title={`${current ? '编辑' : '新建'}${LABELS[kind]}`} isOpen onOpenChange={open => { if (!open && !pending) onClose(); }} isPending={pending}>
     <DialogBody><div className={styles.form}>
       {kind === 'examProfile' ? <><TextField label="配置名称" value={name} onChange={setName} isRequired /><TextAreaField label="说明" value={description} onChange={setDescription} /></> : null}
-      {kind === 'learningObjective' ? <>{!current ? <Select label="所属知识点" selectedKey={knowledgeItemId} onSelectionChange={key => setKnowledgeItemId(String(key))} options={knowledgeItems.filter(item => item.reviewStatus === 'confirmed' && !item.deletedAt).map(item => ({ id: item.id, label: item.title }))} /> : null}<TextAreaField label="可观察的学习目标" value={objective} onChange={setObjective} isRequired description="新目标默认使用“解释 / 理解”，可在后续编辑中调整。" /></> : null}
       {kind === 'examFocus' ? <>{!current ? <><Select label="考试配置" selectedKey={profileId} onSelectionChange={key => setProfileId(String(key))} options={profiles.map(item => ({ id: item.id, label: label(item, 'examProfile') }))} /><Select label="学习目标" selectedKey={objectiveId} onSelectionChange={key => setObjectiveId(String(key))} options={objectives.map(item => ({ id: item.id, label: label(item, 'learningObjective') }))} /></> : null}<TextAreaField label="考点说明" value={description} onChange={setDescription} /></> : null}
       {kind === 'question' ? <>{!current ? <Select label="学习目标" selectedKey={objectiveId} onSelectionChange={key => setObjectiveId(String(key))} options={objectives.map(item => ({ id: item.id, label: label(item, 'learningObjective') }))} /> : null}<TextAreaField label="题干" value={stem} onChange={setStem} isRequired />{structuredAnswer ? <section aria-label="已有参考答案"><p>此题的参考答案为结构化内容，当前编辑器只修改题干。</p><QuestionValue value={current?.referenceAnswer} /></section> : <TextAreaField label="参考答案" value={answer} onChange={setAnswer} />}</> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}

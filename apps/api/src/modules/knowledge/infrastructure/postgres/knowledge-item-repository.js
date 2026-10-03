@@ -20,6 +20,9 @@ export function createPostgresKnowledgeItemRepository({ db }) {
     };
   }
   return {
+    async lockById(id) {
+      await withRepositoryErrors(() => db.$queryRawUnsafe('SELECT id FROM "KnowledgeItem" WHERE id = $1 FOR UPDATE', id));
+    },
     async create(item) {
       return withRepositoryErrors(() => db.knowledgeItem.create({
         data: toData(item)

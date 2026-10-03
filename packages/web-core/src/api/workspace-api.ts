@@ -207,6 +207,11 @@ export interface SpaceMigrationPreview {
 }
 
 export type TrainingAssetKind = 'learningObjective' | 'examProfile' | 'examFocus' | 'question';
+export interface LearningObjectiveReviewBaseline {
+  knowledgeUpdatedAt: string;
+  objectiveUpdatedAt?: string;
+}
+export interface TrainingMutationInput { reviewBaseline?: LearningObjectiveReviewBaseline }
 export interface TrainingAssetRecord {
   id: string;
   updatedAt: string;
@@ -215,6 +220,8 @@ export interface TrainingAssetRecord {
   reviewStatus?: string;
   name?: string;
   objective?: string;
+  actionVerb?: string;
+  cognitiveLevel?: string;
   stem?: string;
   description?: string;
   knowledgeItemId?: string;
@@ -237,7 +244,7 @@ export interface WorkspaceApi {
   listTrainingAssets?(kind: TrainingAssetKind, query?: { includeArchived?: boolean; includeDeleted?: boolean }): Promise<TrainingAssetRecord[]>;
   createTrainingAsset?(kind: TrainingAssetKind, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
   updateTrainingAsset?(kind: TrainingAssetKind, id: string, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
-  mutateTrainingAsset?(kind: TrainingAssetKind, id: string, action: 'validate' | 'confirm' | 'archive' | 'restore' | 'trash' | 'restore-deleted'): Promise<TrainingAssetRecord>;
+  mutateTrainingAsset?(kind: TrainingAssetKind, id: string, action: 'validate' | 'confirm' | 'archive' | 'restore' | 'trash' | 'restore-deleted', input?: TrainingMutationInput): Promise<TrainingAssetRecord>;
   inspectTrainingAssetPurge?(kind: TrainingAssetKind, id: string): Promise<TrainingPurgePreview>;
   purgeTrainingAsset?(kind: TrainingAssetKind, id: string, expectedUpdatedAt: string): Promise<{ status: string; asset: { type: TrainingAssetKind; id: string } }>;
   listKnowledgeItems?(query?: KnowledgeItemQuery): Promise<KnowledgeItem[]>;
@@ -353,8 +360,8 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
     async updateTrainingAsset(kind, id, input) {
       return requireEntity(getData<TrainingAssetRecord>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })), '训练资产更新返回无效。');
     },
-    async mutateTrainingAsset(kind, id, action) {
-      return requireEntity(getData<TrainingAssetRecord>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/${action}`, { method: 'POST' })), '训练资产操作返回无效。');
+    async mutateTrainingAsset(kind, id, action, input) {
+      return requireEntity(getData<TrainingAssetRecord>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/${action}`, { method: 'POST', ...(input ? { body: JSON.stringify(input) } : {}) })), '训练资产操作返回无效。');
     },
     async inspectTrainingAssetPurge(kind, id) {
       const result = getData<TrainingPurgePreview>(await requestJson(`${trainingAssetRoot(kind)}/${encodeURIComponent(id)}/purge-preview`));

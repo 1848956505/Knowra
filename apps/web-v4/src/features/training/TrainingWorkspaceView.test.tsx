@@ -27,6 +27,21 @@ function setup(overrides: Partial<AppStore> = {}) {
 beforeEach(() => { mocked.navigate.mockReset(); });
 
 describe('训练工作台详情流程', () => {
+  it('学习目标确认入口打开真实审阅而不直接id确认，编辑复用结构字段', async () => {
+    const parent = { id: 'k1', title: '导数知识', canonicalStatement: '瞬时变化率', reviewStatus: 'confirmed', updatedAt: '2026-10-03T00:00:00.000Z' };
+    const target = { ...objective, knowledgeItemId: 'k1', actionVerb: 'calculate', cognitiveLevel: 'apply', reviewStatus: 'candidate' };
+    const state = setup({ listTrainingAssets: vi.fn(async kind => kind === 'learningObjective' ? [target] : []), listKnowledgeItems: vi.fn().mockResolvedValue([parent]), getKnowledgeItem: vi.fn().mockResolvedValue(parent) });
+    const user = userEvent.setup(); render(<TrainingWorkspaceView />);
+    await user.click(screen.getByRole('button', { name: '学习目标' }));
+    await user.click(await screen.findByRole('button', { name: '确认' }));
+    const dialog = screen.getByRole('dialog', { name: '审阅学习目标' });
+    expect(state.mutateTrainingAsset).not.toHaveBeenCalled();
+    await within(dialog).findByText('导数知识');
+    expect(within(dialog).getByRole('button', { name: /动作/ })).toHaveTextContent('计算');
+    expect(within(dialog).getByRole('button', { name: /认知层级/ })).toHaveTextContent('应用');
+    await user.click(within(dialog).getByRole('button', { name: '确认已审阅目标' }));
+    expect(state.mutateTrainingAsset).toHaveBeenCalledWith('learningObjective', 'o1', 'confirm', { reviewBaseline: { knowledgeUpdatedAt: parent.updatedAt, objectiveUpdatedAt: target.updatedAt } });
+  });
   it('选择题目、对照目标、关闭归还焦点，过滤后不显示隐藏题目的详情', async () => {
     setup(); const user = userEvent.setup(); render(<TrainingWorkspaceView />);
     const open = await screen.findByRole('button', { name: '查看详情' });

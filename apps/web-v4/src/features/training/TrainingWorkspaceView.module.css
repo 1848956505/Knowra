@@ -12,6 +12,7 @@
 .info { color: #345daa; }
 .error { color: #b72525; }
 .form, .dialogContent { display: grid; gap: 14px; }
+.objectiveFooter { flex-wrap: wrap; justify-content: flex-end; }
 .dialogContent ul { max-height: 180px; overflow: auto; padding-left: 22px; overflow-wrap: anywhere; }
 @media (max-width: 680px) { .body { padding: 16px; } .cards { grid-template-columns: 1fr; } }
 .questionBody { display: flex; flex-direction: column; overflow: hidden; padding: 20px; gap: 12px; }

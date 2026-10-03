@@ -1,3 +1,6 @@
+import { learningObjectiveReviewErrorTests } from './learning-objective-review-errors.test.js';
+import { learningObjectiveReviewTests } from './learning-objective-review.test.js';
+import { learningObjectiveReviewPostgresTests } from './learning-objective-review-postgres.test.js';
 import { knowledgeArtifactProvenancePersistenceTests } from './knowledge-artifact-provenance-persistence.test.js';
 import { knowledgeProvenanceReadLifecycleTests } from './knowledge-provenance-read-lifecycle.test.js';
 import { attachmentCleanupCrashTests } from './attachment-cleanup-crash.test.js';
@@ -116,6 +119,9 @@ const tests = [
   ...aiRuntimeLifecycleTests,
   ...aiRuntimeLifecyclePostgresTests,
   ...knowledgeReviewFlowTests,
+  ...learningObjectiveReviewTests,
+  ...learningObjectiveReviewErrorTests,
+  ...learningObjectiveReviewPostgresTests,
   ...localBusinessTransactionTests,
   ...storageConfigTests,
   ...noteDomainTests,
