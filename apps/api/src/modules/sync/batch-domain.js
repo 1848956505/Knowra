@@ -22,6 +22,7 @@ import { inspectAttachmentDeletion } from '../../infrastructure/attachment-delet
 import { calculateContentHash, resolveAnchor } from '@study-accelerator/content-anchor';
 import { sameEntity, IMMUTABLE_COLLECTIONS, referencesFor } from './entity-contract.js';
 import { syncError } from './journal.js';
+import { validateKnowledgeArtifactProvenance } from '../knowledge/domain/knowledge-artifact-provenance-contract.js';
 
 const sha = text => createHash('sha256').update(text).digest('hex');
 const builders = { notes: buildCreateNoteDto, folders: buildCreateFolderDto, tags: buildCreateTagDto, tagGroups: buildCreateTagGroupDto };
@@ -65,8 +66,16 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     }
     let value = structuredClone(change.value);
     value = normalizeKnowledgeChange(collection, value, old);
+    if (collection === 'knowledgeArtifactProvenance') {
+      if (!value) throw syncError('SYNC_PROVENANCE_DELETE_UNSUPPORTED', '来源摘要只能随受控知识清理删除。', 422);
+      value = validateKnowledgeArtifactProvenance(value);
+      if (old && !sameEntity(collection, old, value)
+        && !(old.state === 'legacy-unavailable' && value.state === 'recorded' && old.artifactId === value.artifactId)) {
+        throw syncError('SYNC_IMMUTABLE', '已保存的生成来源事实不可覆盖或降级。', 422);
+      }
+    }
     if (value && value.id !== id) throw syncError('SYNC_ENTITY_INVALID', '实体 ID 与操作不一致。', 422);
-    if (IMMUTABLE_COLLECTIONS.has(collection) && old && !sameEntity(collection, old, value) && !['knowledgeEvidence', 'analysisScopeSnapshots'].includes(collection)) throw syncError('SYNC_IMMUTABLE', '历史版本与修订记录不可覆盖或删除。', 422);
+    if (IMMUTABLE_COLLECTIONS.has(collection) && old && !sameEntity(collection, old, value) && !['knowledgeEvidence', 'analysisScopeSnapshots', 'knowledgeArtifactProvenance'].includes(collection)) throw syncError('SYNC_IMMUTABLE', '历史版本与修订记录不可覆盖或删除。', 422);
     if (old && value && ['tags', 'tagGroups'].includes(collection) && (Boolean(value.isSystem) !== Boolean(old.isSystem) || (value.code ?? null) !== (old.code ?? null))) throw syncError('SYSTEM_TAG_PROTECTED', '标签的系统标识不能改写。', 422);
     if (old?.isSystem && (!value || value.spaceId !== old.spaceId || value.isSystem !== old.isSystem || value.code !== old.code || (collection === 'tags' && value.groupId !== old.groupId))) throw syncError('SYSTEM_TAG_PROTECTED', '系统标签和分组不能删除或改换归属。', 422);
     if (collection === 'spaces' && (!value || value.userId !== ownerId || (old && old.userId !== ownerId))) throw syncError('SYNC_OWNER_INVALID', '空间不属于当前资料库。', 422);

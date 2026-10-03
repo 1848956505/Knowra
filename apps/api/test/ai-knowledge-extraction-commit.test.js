@@ -8,6 +8,7 @@ import { hashRecord } from '../src/modules/ai/record-contract.js';
 import { validateKnowledgeExtractionCommit } from '../src/modules/ai/knowledge-extraction-commit-contract.js';
 import { createKnowledgeExtractionCommitService } from '../src/modules/ai/knowledge-extraction-commit.js';
 import { createKnowledgeExtractionJobFixture } from './fixtures/knowledge-extraction-job.fixture.js';
+import { assertMinimalProvenanceTransport } from './fixtures/knowledge-artifact-provenance.fixture.js';
 
 async function withFixture(run, options) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-extraction-commit-'));
@@ -19,6 +20,7 @@ async function withFixture(run, options) {
 const empty = fixture => {
   assert.equal(fixture.knowledge.knowledgeItemService.listItems().length, 0);
   assert.equal(fixture.knowledge.repositories.knowledgeEvidenceRepository.list().length, 0);
+  assert.equal(fixture.knowledge.repositories.knowledgeArtifactProvenanceRepository.list().length, 0);
   assert.equal(fixture.app.dataStore.knowledgeExtractionCommitStore.get(fixture.records.job), null);
   assert.equal(fixture.ai.get('aiJob', fixture.input.jobId).status, 'running');
 };
@@ -43,8 +45,12 @@ export const aiKnowledgeExtractionCommitTests = [
       assert.equal(restarted.dataStore.aiRepository.get('aiJobAttempt', f.input.attemptId).status, 'validated');
       const journal = restarted.dataStore.getSyncJournal();
       assert(JSON.stringify(journal).includes(item.id));
-      assert.equal(JSON.stringify(journal).includes(f.input.jobId), false);
-      assert.equal(JSON.stringify(restarted.dataStore.exportSnapshot()).includes('receiptHash'), false);
+      const provenance = restarted.modules.knowledge.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(item.id);
+      assert.equal(provenance.provider, 'mock'); assert.equal(f.records.job.provider, 'deepseek');
+      assert.equal(provenance.origin.receiptHash, receipt.receiptHash);
+      assert.equal(provenance.outputHash, receipt.outputHash);
+      assertMinimalProvenanceTransport(journal, provenance);
+      assertMinimalProvenanceTransport(restarted.dataStore.exportSnapshot(), provenance);
       assert.equal(JSON.stringify(receipt.request.sources).includes(f.excluded), false);
     });
   } },
@@ -70,10 +76,12 @@ export const aiKnowledgeExtractionCommitTests = [
   { name: 'P3 JSON 提炼：同任务异输出冲突；相同输出重试保留用户修订、删除状态和首份 provenance', async run() {
     await withFixture(async f => {
       const receipt = f.app.knowledgeExtractionCommit.commit(f.input);
+      const originalProvenance = f.knowledge.repositories.knowledgeArtifactProvenanceRepository.list();
       const item = f.knowledge.knowledgeItemService.getItem(receipt.candidates[0].candidateInput.id);
       f.knowledge.knowledgeItemService.updateItem(item.id, { title: '用户自己的标题', expectedUpdatedAt: item.updatedAt });
       assert.deepEqual(f.app.knowledgeExtractionCommit.commit(f.input), receipt);
       assert.equal(f.knowledge.knowledgeItemService.getItem(item.id).title, '用户自己的标题');
+      assert.deepEqual(f.knowledge.repositories.knowledgeArtifactProvenanceRepository.list(), originalProvenance);
       const other = structuredClone(f.output); other.candidates[0].title = '重新生成的标题';
       assert.throws(() => f.app.knowledgeExtractionCommit.commit({ ...f.input, result: { ...f.input.result, content: JSON.stringify(other) } }), { code: 'KNOWLEDGE_EXTRACTION_OUTPUT_CONFLICT' });
       const current = f.knowledge.knowledgeItemService.getItem(item.id);
@@ -152,6 +160,7 @@ export const aiKnowledgeExtractionCommitTests = [
       const result = await f.respond({ ...f.output, candidates: [] });
       const receipt = f.app.knowledgeExtractionCommit.commit({ ...f.input, result });
       assert.deepEqual(receipt.candidates, []); assert.equal(f.app.dataStore.state.knowledgeItems.length, 0);
+      assert.deepEqual(f.app.dataStore.state.knowledgeArtifactProvenance, []);
       assert.equal(f.ai.get('aiJob', f.input.jobId).status, 'succeeded');
     });
   } },

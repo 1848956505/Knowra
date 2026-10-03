@@ -5,6 +5,7 @@ import { createPostgresAiRepository } from './postgres-record-repository.js';
 import { createAsyncKnowledgeItemService } from '../knowledge/application/postgres-async/knowledge-domain-service.js';
 import { createPostgresKnowledgeItemRepository } from '../knowledge/infrastructure/postgres/knowledge-item-repository.js';
 import { createPostgresKnowledgeEvidenceRepository } from '../knowledge/infrastructure/postgres/knowledge-evidence-repository.js';
+import { createPostgresKnowledgeArtifactProvenanceRepository } from '../knowledge/infrastructure/postgres/knowledge-artifact-provenance-repository.js';
 import { createPostgresNoteRepository } from '../knowledge/infrastructure/postgres/note-repository.js';
 import { createPostgresNoteVersionRepository } from '../knowledge/infrastructure/postgres/note-version-repository.js';
 import { createPostgresKnowledgeSpaceRepository } from '../knowledge/infrastructure/postgres/knowledge-space-repository.js';
@@ -55,6 +56,7 @@ export function createPostgresKnowledgeExtractionContext(tx, ownerId) {
   const repositories = {
     knowledgeItemRepository: createPostgresKnowledgeItemRepository({ db: tx }),
     knowledgeEvidenceRepository: createPostgresKnowledgeEvidenceRepository({ db: tx }),
+    knowledgeArtifactProvenanceRepository: createPostgresKnowledgeArtifactProvenanceRepository({ db: tx }),
     noteRepository: createPostgresNoteRepository({ db: tx }),
     noteVersionRepository: createPostgresNoteVersionRepository({ db: tx }),
     knowledgeSpaceRepository: createPostgresKnowledgeSpaceRepository({ db: tx }),

@@ -7,7 +7,7 @@ function includesExactId(value, id, seen = new Set()) {
   return Object.values(value).some(child => includesExactId(child, id, seen));
 }
 
-export function inspectKnowledgeItemPurge({ item, evidence = [], learningObjectives = [], questionSources = [], analysisScopes = [] }) {
+export function inspectKnowledgeItemPurge({ item, evidence = [], provenance = [], learningObjectives = [], questionSources = [], analysisScopes = [] }) {
   if (!item) throw createAppError('KNOWLEDGE_ITEM_NOT_FOUND', '知识点不存在。', 404);
   const evidenceIds = new Set(evidence.map(record => record.id));
   const references = [
@@ -24,7 +24,7 @@ export function inspectKnowledgeItemPurge({ item, evidence = [], learningObjecti
     operation: 'permanent-delete',
     decision: !item.deletedAt ? 'move-to-recycle-bin-first' : references.length ? 'requires-dependency-action' : 'can-purge-no-history',
     expectedUpdatedAt: item.updatedAt,
-    exclusiveRecords: { knowledgeEvidenceIds: evidence.map(record => record.id) },
+    exclusiveRecords: { knowledgeEvidenceIds: evidence.map(record => record.id), knowledgeArtifactProvenanceIds: provenance.map(record => record.id) },
     references,
     coverage: { persistedCurrentAndHistory: true, runningTasks: 'unverified', offlineDevices: 'pending-sync', backups: 'retention-managed' }
   };

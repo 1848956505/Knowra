@@ -28,7 +28,7 @@ const READ_OPERATIONS = new Set([
   'listTagGroups', 'listAnnotations', 'getAnnotation', 'listNoteVersions', 'getNoteVersion', 'previewNoteVersionPrune',
   'previewAnnotation', 'getAnnotationKnowledgeLinks', 'previewAnalysisScope', 'getAnalysisScope',
   'listAnalysisScopes',
-  'listKnowledgeItems', 'getKnowledgeItem', 'listKnowledgeEvidence', 'inspectKnowledgePurge',
+  'listKnowledgeItems', 'getKnowledgeItem', 'getKnowledgeProvenance', 'listKnowledgeEvidence', 'inspectKnowledgePurge',
   'listLearningObjectives', 'getLearningObjective', 'listExamProfiles', 'getExamProfile',
   'listExamFocuses', 'getExamFocus', 'listQuestions', 'getQuestion',
   'inspectTrainingAssetPurge',

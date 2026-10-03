@@ -1,6 +1,7 @@
 import { calculateContentHash } from '../domain/note-version.js';
+import { resolveAnalysisScopeNoteVersion } from '../domain/analysis-scope-version-alias.js';
 
-export function buildNoteVersionPrunePreview({ note, versions, evidence, questionSources, annotations, exclusions, analysisScopes }) {
+export function buildNoteVersionPrunePreview({ note, versions, evidence, provenance = [], questionSources, annotations, exclusions, analysisScopes }) {
   const currentHash = calculateContentHash(note.rawMarkdown);
   const evidenceByVersion = new Map();
   for (const record of evidence) {
@@ -17,6 +18,11 @@ export function buildNoteVersionPrunePreview({ note, versions, evidence, questio
       const references = [];
       if (version.contentHash === currentHash) references.push({ type: 'current-content', id: note.id });
       for (const id of evidenceByVersion.get(version.id) ?? []) references.push({ type: 'knowledgeEvidence', id });
+      for (const record of provenance) {
+        if (record.sources?.some(source => source.noteId === note.id && (
+          source.originNoteVersionId === version.id || (evidenceByVersion.get(version.id) ?? []).includes(source.evidenceId)
+        ))) references.push({ type: 'knowledgeArtifactProvenance', id: record.id });
+      }
       for (const source of questionSources) {
         if ((source.sourceType === 'noteVersion' && source.sourceId === version.id)
           || (source.sourceType === 'knowledgeEvidence' && (evidenceByVersion.get(version.id) ?? []).includes(source.sourceId))) {
@@ -25,7 +31,9 @@ export function buildNoteVersionPrunePreview({ note, versions, evidence, questio
       }
       for (const annotation of annotations) if (annotation.noteVersionId === version.id) references.push({ type: 'contentAnnotation', id: annotation.id });
       for (const exclusion of exclusions) if (exclusion.noteVersionId === version.id) references.push({ type: 'annotationExclusion', id: exclusion.id });
-      for (const scope of analysisScopes) if (scope.noteVersions?.some(record => record.noteVersionId === version.id)) references.push({ type: 'analysisScopeSnapshot', id: scope.id });
+      for (const scope of analysisScopes) if (scope.noteVersions?.some(binding => (
+        binding.noteId === note.id && resolveAnalysisScopeNoteVersion(scope, binding, versions).id === version.id
+      ))) references.push({ type: 'analysisScopeSnapshot', id: scope.id });
       return {
         id: version.id,
         createdAt: version.createdAt,

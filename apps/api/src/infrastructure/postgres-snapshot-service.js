@@ -58,7 +58,7 @@ export function createPostgresSnapshotService({
   };
 
   async function exportKnowledgeBase() {
-    const [spaces, folders, tags, tagGroups, notes, noteVersions, annotations, knowledgeItems, knowledgeEvidence, learningObjectives, examProfiles, examFocuses, questions, attachments, attachmentFiles, annotationExclusions, annotationRevisions, analysisScopeSnapshots] = await Promise.all([
+    const [spaces, folders, tags, tagGroups, notes, noteVersions, annotations, knowledgeItems, knowledgeEvidence, knowledgeArtifactProvenance, learningObjectives, examProfiles, examFocuses, questions, attachments, attachmentFiles, annotationExclusions, annotationRevisions, analysisScopeSnapshots] = await Promise.all([
       repositories.knowledgeSpaceRepository.list(),
       repositories.folderRepository.list(),
       repositories.tagRepository.list(),
@@ -68,6 +68,7 @@ export function createPostgresSnapshotService({
       repositories.contentAnnotationRepository.list({ includeDeleted: true }),
       repositories.knowledgeItemRepository.list({ includeArchived: true, includeDeleted: true }),
       repositories.knowledgeEvidenceRepository.list(),
+      repositories.knowledgeArtifactProvenanceRepository.list(),
       repositories.learningObjectiveRepository.list({ includeArchived: true }),
       repositories.examProfileRepository.list({ includeArchived: true }),
       repositories.examFocusRepository.list({ includeArchived: true }),
@@ -96,6 +97,7 @@ export function createPostgresSnapshotService({
         noteVersions,
         knowledgeItems,
         knowledgeEvidence,
+        knowledgeArtifactProvenance,
         learningObjectives,
         examProfiles,
         examFocuses,

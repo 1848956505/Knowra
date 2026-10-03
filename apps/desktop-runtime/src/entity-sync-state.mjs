@@ -1,4 +1,6 @@
+import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { selectEntityBatch } from './entity-batches.mjs';
+import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import { reconcileSyncedSourceStates } from '../../api/src/infrastructure/local-data-relations.js';
 import { randomUUID } from 'node:crypto';
 import { WRITABLE_COLLECTIONS, sameEntity, referencesFor, syncReferencesFor, KNOWLEDGE_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
@@ -137,8 +139,8 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     const noteIds = new Set(merged.notes.map(item => item.id));
     for (const version of local.noteVersions) if (!versionIds.has(version.id) && noteIds.has(version.noteId)) merged.noteVersions.push(version);
     let valid;
-    try { valid = validatePersistedLocalState(createPersistedLocalDocument(reconcileSyncedSourceStates(merged))); }
-    catch (error) { conflicts.push({ collection: 'dependencies', id: 'references', message: error.message }); }
+    try { valid = validatePersistedLocalState(createPersistedLocalDocument(reconcileSyncedSourceStates(merged))); assertNoKnowledgeArtifactProvenanceDowngrade(state, valid); }
+    catch (error) { valid = undefined; conflicts.push({ collection: 'dependencies', id: 'references', message: error.message }); }
     if (conflicts.length) {
       const existing = readMeta(db, 'entityConflict');
       const blocked = new Set(conflicts.map(entry => syncKey(entry.collection, entry.id)));
@@ -189,18 +191,26 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   const blocked = new Set(conflict?.blocked ?? []);
   const allowed = entry => knowledgeSupported || !KNOWLEDGE_COLLECTIONS.includes(entry.collection);
   const eligible = dirty.filter(allowed).filter(entry => !blocked.has(syncKey(entry.collection, entry.id)));
-  const envelope = store.readSync(db => ({ protocolVersion: 2, datasetEpoch: readMeta(db, 'epoch'), deviceId: store.getStatus().deviceId,
+  if (!eligible.length) {
+    if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
+    return null;
+  }
+  const envelope = store.readSync(db => ({ protocolVersion: 2, ...syncContract(), datasetEpoch: readMeta(db, 'epoch'), deviceId: store.getStatus().deviceId,
     operationId: randomUUID(), sequence: (readMeta(db, 'entitySequence') ?? 0) + 1 }));
+  // 本地恢复副本可保留原版本 ID；传输依赖使用基线中已经确认的同正文版本。
+  const canonicalVersions = new Map([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => [`${entry.value.noteId}:${entry.value.contentHash}`, entry.value]));
+  for (const version of store.state.noteVersions) if (!canonicalVersions.has(`${version.noteId}:${version.contentHash}`)) canonicalVersions.set(`${version.noteId}:${version.contentHash}`, version);
+  const referenceState = { ...store.state, noteVersions: [...canonicalVersions.values()] };
   const makeOperation = changes => {
     const own = new Set(changes.map(entry => syncKey(entry.collection, entry.id)));
     const dependencies = new Map();
-    for (const entry of changes) for (const ref of syncReferencesFor(entry.collection, entry.value, store.state)) {
+    for (const entry of changes) for (const ref of syncReferencesFor(entry.collection, entry.value, referenceState)) {
       const key = syncKey(ref.collection, ref.id);
       if (!own.has(key)) dependencies.set(key, { ...ref, baseRevision: base.get(key)?.revision ?? null });
     }
     return { ...envelope, changes, dependencies: [...dependencies.values()] };
   };
-  const changes = eligible.length ? selectEntityBatch(eligible, store.state, base, {
+  const changes = eligible.length ? selectEntityBatch(eligible, referenceState, base, {
     measureBytes: entries => Buffer.byteLength(JSON.stringify(makeOperation(entries)))
   }) : [];
   if (!changes.length) {
@@ -218,6 +228,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
 export function acknowledgeEntityUpload(store, operation, result) {
   store.syncTransaction((db, state) => {
     if (result.status === 'accepted') {
+      const previous = structuredClone(state);
       const base = bases(db);
       const previousBase = new Map(base);
       for (const entry of result.entries) {
@@ -227,6 +238,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
         base.set(syncKey(entry.collection, entry.id), entry);
       }
       canonicalizeVersions(state, base);
+      assertNoKnowledgeArtifactProvenanceDowngrade(previous, state);
       persistBases(db, base, previousBase);
     }
     // 冲突结果先解除冻结，下一次拉取会保存包含完整远端事务的冲突。
@@ -275,6 +287,10 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
       && (!remote.has(key) || (entry.revision ?? 0) > (remote.get(key).revision ?? 0))) remote.set(key, entry);
     const merged = stateFromBase(remote);
     for (const entry of allDirty) if (!blocked.has(syncKey(entry.collection, entry.id))) replace(merged, entry);
+    if (choice === 'remote' || choice === 'copy') {
+      const noteIds = new Set(merged.notes.map(note => note.id));
+      merged.noteVersions = merged.noteVersions.filter(version => noteIds.has(version.noteId));
+    }
     if (choice !== 'remote' && choice !== 'copy') {
       for (const entry of dirty) {
         const current = remote.get(syncKey(entry.collection, entry.id));
@@ -284,6 +300,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     }
     const localAttachments = state.attachments.map(attachment => ({ ...attachment }));
     preserveAttachmentHealth(merged, state);
+    assertNoKnowledgeArtifactProvenanceDowngrade(state, merged);
     setState(state, reconcileSyncedSourceStates(merged));
     if (choice === 'copy') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);

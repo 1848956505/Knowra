@@ -17,6 +17,9 @@ import { createSqliteAiRepository } from './ai-sqlite-repository.mjs';
 import { createSqliteAiAccessStore, validateSqliteAccessRows } from './ai-sqlite-access-store.mjs';
 import { createSqliteAiConversationStore, validateSqliteConversationRows } from './ai-sqlite-conversation-store.mjs';
 import { collectChanges, entityReferences } from './local-change-set.mjs';
+import { backfillKnowledgeArtifactProvenance } from '../../api/src/infrastructure/migration/knowledge-artifact-provenance-backfill.js';
+import { knowledgeExtractionCommitKey } from '../../api/src/modules/ai/knowledge-extraction-commit-contract.js';
+import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 
 export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}) {
   if (fs.existsSync(filePath) && fs.statSync(filePath).size === 0) {
@@ -27,6 +30,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let state;
   let committed;
   let repairKnowledge = false;
+  let migrateProvenance = false;
+  let provenanceMigration;
   let inTransaction = false;
   let dataRevision = 0;
   let syncRevision = 0;
@@ -44,8 +49,37 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       if (!LOCAL_DATA_COLLECTIONS.includes(row.collection)) throw new Error('本地实体类型未知，请升级应用。');
       initial[row.collection].push(JSON.parse(row.payload));
     }
-    state = validatePersistedLocalState(createPersistedLocalDocument(initial));
-    repairKnowledge = ['knowledgeItems', 'knowledgeEvidence'].some(collection => JSON.stringify(initial[collection]) !== JSON.stringify(state[collection]));
+    const schema = db.prepare("SELECT value FROM metadata WHERE key = 'localDataSchemaVersion'").get()?.value;
+    if (schema !== undefined && !/^[1-7]$/.test(schema)) throw new Error('本地业务 schema 版本未知，请升级应用。');
+    const schemaVersion = schema === undefined ? 6 : Number(schema);
+    state = validatePersistedLocalState({ schemaVersion, ...initial });
+    const receiptVersion = db.prepare("SELECT value FROM metadata WHERE key = 'knowledgeExtractionCommitsVersion'").get()?.value;
+    const receiptTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'knowledge_extraction_commits'").get();
+    let receipts = [];
+    if (receiptVersion === '1' && receiptTable) {
+      try { receipts = db.prepare('SELECT * FROM knowledge_extraction_commits').all().map(row => {
+        try {
+          const record = JSON.parse(row.receipt_json);
+          return knowledgeExtractionCommitKey(record) === knowledgeExtractionCommitKey({ ownerId: row.owner_id,
+            datasetId: row.dataset_id, jobId: row.job_id }) ? record : null;
+        } catch { return null; }
+      }); } catch { /* 可选旧 receipt 扩展独立隔离。 */ }
+    }
+    const deleted = new Set();
+    for (const row of db.prepare("SELECT collection, id, server_revision FROM sync_base WHERE payload = 'null'").all()) {
+      // 旧 reset 用 null 修订记录缺席；只有已确认的正修订才表示永久删除。
+      if (row.server_revision === null) continue;
+      if (!Number.isSafeInteger(row.server_revision) || row.server_revision < 1) throw new Error('同步基线删除修订无效，已停止来源回填。');
+      deleted.add(JSON.stringify([row.collection, row.id]));
+    }
+    provenanceMigration = backfillKnowledgeArtifactProvenance(state, {
+      receipts, getTombstone: (collection, id) => deleted.has(JSON.stringify([collection, id]))
+    });
+    if (state.knowledgeArtifactProvenance.some(record => deleted.has(JSON.stringify(['knowledgeArtifactProvenance', record.id])))) {
+      throw new Error('已永久删除的来源记录不能通过迁移重建。');
+    }
+    migrateProvenance = schemaVersion !== LOCAL_DATA_SCHEMA_VERSION;
+    repairKnowledge = ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(initial[collection]) !== JSON.stringify(state[collection]));
     committed = cloneLocalState(repairKnowledge ? initial : state);
     db.prepare('INSERT OR IGNORE INTO metadata VALUES (?, ?)').run('deviceId', randomUUID());
     db.prepare('INSERT OR IGNORE INTO metadata VALUES (?, ?)').run('datasetId', randomUUID());
@@ -86,6 +120,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
 
   function persist() {
     const valid = validatePersistedLocalState(createPersistedLocalDocument(state));
+    assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
     const changes = collectChanges(committed, valid);
     pendingDataChange = changes.length > 0;
     if (!changes.length) return valid;
@@ -168,6 +203,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
 
   function commitImport(input) {
     const validated = validateLocalSnapshot(input);
+    assertNoKnowledgeArtifactProvenanceDowngrade(state, validated.data);
     db.exec('BEGIN IMMEDIATE');
     try {
       restore(validated.data);
@@ -186,8 +222,14 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     }
   }
 
-  if (repairKnowledge) {
-    try { persist(); } catch (error) { db.close(); throw error; }
+  if (repairKnowledge || migrateProvenance) {
+    try {
+      const backup = `${filePath}.before-provenance-v1-${Date.now()}.bak`;
+      db.prepare('VACUUM INTO ?').run(backup);
+      fs.chmodSync(backup, 0o600);
+      runTransaction(() => db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)')
+        .run('localDataSchemaVersion', String(LOCAL_DATA_SCHEMA_VERSION)));
+    } catch (error) { db.close(); throw error; }
   }
 
   let aiActionStore = null;
@@ -206,6 +248,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   catch (error) { knowledgeExtractionTaskStoreError = error; }
 
   return {
+    provenanceMigration,
     knowledgeExtractionTaskStore,
     knowledgeExtractionTaskStoreError,
     knowledgeExtractionCommitStore,
@@ -230,6 +273,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         if (local) { valid = persist(); dataChanged = pendingDataChange; }
         else {
           valid = validatePersistedLocalState(createPersistedLocalDocument(state));
+          assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
           const changes = collectChanges(committed, valid);
           dataChanged = changes.length > 0;
           for (const change of changes) {

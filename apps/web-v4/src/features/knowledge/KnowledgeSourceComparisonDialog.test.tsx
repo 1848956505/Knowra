@@ -2,13 +2,13 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { KnowledgeEvidence, KnowledgeItem, NoteVersion } from '@study-accelerator/web-core';
+import type { KnowledgeEvidence, KnowledgeItem, KnowledgeProvenance, NoteVersion } from '@study-accelerator/web-core';
 import { KnowledgeDetail } from './KnowledgeDetail';
 import { KnowledgeSourceComparisonDialog } from './KnowledgeSourceComparisonDialog';
 
-const { getNoteVersion } = vi.hoisted(() => ({ getNoteVersion: vi.fn() }));
+const { getNoteVersion, getKnowledgeProvenance } = vi.hoisted(() => ({ getNoteVersion: vi.fn(), getKnowledgeProvenance: vi.fn() }));
 vi.mock('../../store/AppStoreProvider', () => ({
-  useAppStore: (select: (state: { getNoteVersion: typeof getNoteVersion }) => unknown) => select({ getNoteVersion })
+  useAppStore: (select: (state: { getNoteVersion: typeof getNoteVersion; getKnowledgeProvenance: typeof getKnowledgeProvenance }) => unknown) => select({ getNoteVersion, getKnowledgeProvenance })
 }));
 
 const item: KnowledgeItem = { id: 'k1', title: '样本增强', canonicalStatement: '通过样本变换扩充训练集。', userExplanation: '用于训练阶段。', knowledgeType: 'concept', importance: null, sourceMode: 'annotation', reviewStatus: 'candidate', createdAt: '2026-09-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z', deletedAt: null };
@@ -25,6 +25,80 @@ function deferred<T>() {
   const promise = new Promise<T>((accept, decline) => { resolve = accept; reject = decline; });
   return { promise, resolve, reject };
 }
+
+const provenance: KnowledgeProvenance = { artifactId: item.id, state: 'recorded', record: {
+  id: 'provenance-k1', schemaVersion: 1, state: 'recorded', artifactKind: 'knowledgeItem', artifactId: item.id,
+  provenanceHash: 'a'.repeat(64), executionMode: 'mock', provider: 'mock', modelId: 'historical-model',
+  promptVersion: 'original-prompt-v1', resultSchemaVersion: 'knowledge-extraction-v1',
+  origin: { jobId: 'old-job', requestId: 'old-request', scopeId: 'old-scope', spaceId: 'old-space', receiptHash: 'b'.repeat(64) },
+  inputHash: 'c'.repeat(64), outputHash: 'd'.repeat(64), committedAt: item.createdAt,
+  sources: [{ evidenceId: evidence.id, sourceId: 'source-1', noteId: 'n1', originNoteVersionId: 'v-origin',
+    contentHash: version.contentHash, start: 0, end: 7, quoteText: '  精确摘录 ', quoteHash: 'e'.repeat(64), annotationRevisions: [] }]
+}, sources: [{ evidenceId: evidence.id, originalVersionId: 'v-origin', resolvedVersionId: 'v-old', aliasUsed: true, sourceState: 'available' }] };
+
+describe('知识来源摘要', () => {
+  it('AI关闭后的核心读取展示模拟生成事实、精确摘录及可核对alias', async () => {
+    const onGetProvenance = vi.fn().mockResolvedValue(provenance);
+    render(<StrictMode><KnowledgeSourceComparisonDialog {...input({ onGetProvenance })} /></StrictMode>);
+    const region = await screen.findByRole('region', { name: '生成来源记录' });
+    expect(await within(region).findByText(/模拟生成记录 · 未调用真实模型/)).toBeVisible();
+    expect(within(region).getByText('原模型标识：historical-model')).toBeVisible();
+    expect(region.querySelector('blockquote')?.textContent).toBe('  精确摘录 ');
+    expect(within(region).getByText('原始版本：v-origin')).toBeVisible();
+    expect(within(region).getByText('当前解析版本：v-old')).toBeVisible();
+    expect(within(region).getByText(/已核对为同一笔记、相同内容/)).toBeVisible();
+    expect(onGetProvenance).toHaveBeenCalledExactlyOnceWith(item.id);
+    expect(screen.queryByRole('button', { name: /生成|重试任务/ })).not.toBeInTheDocument();
+  });
+  it.each(['stale', 'unavailable'] as const)('派生%s状态保留原模拟生成事实', async sourceState => {
+    const value = { ...provenance, sources: provenance.sources.map(source => ({ ...source, sourceState })) };
+    render(<KnowledgeSourceComparisonDialog {...input({ onGetProvenance: vi.fn().mockResolvedValue(value) })} />);
+    expect(await screen.findByText(sourceState === 'stale' ? '来源笔记已更新，请复核适用性。' : '来源当前不可用；这里保留生成时的事实。')).toBeVisible();
+    expect(screen.getByText(/模拟生成记录 · 未调用真实模型/)).toBeVisible();
+  });
+  it('旧来源缺失只显示缺失说明，不虚构模型或原始版本', async () => {
+    const value: KnowledgeProvenance = { artifactId: item.id, state: 'legacy-unavailable', sources: [], record: {
+      id: 'legacy-k1', schemaVersion: 1, artifactKind: 'knowledgeItem', artifactId: item.id,
+      provenanceHash: 'f'.repeat(64), state: 'legacy-unavailable', reason: 'origin-record-unavailable'
+    } };
+    render(<KnowledgeSourceComparisonDialog {...input({ onGetProvenance: vi.fn().mockResolvedValue(value) })} />);
+    expect(await screen.findByText(/旧知识未保存可校验的生成来源记录/)).toBeVisible();
+    expect(screen.queryByText(/原模型标识/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/模拟生成记录/)).not.toBeInTheDocument();
+  });
+  it.each(['live', 'trash'] as const)('没有Evidence的旧AI知识在%s仍显示明确的缺失说明', async status => {
+    getKnowledgeProvenance.mockResolvedValue({ artifactId: item.id, state: 'legacy-unavailable', sources: [], record: {
+      id: 'legacy-k1', schemaVersion: 1, artifactKind: 'knowledgeItem', artifactId: item.id,
+      provenanceHash: 'f'.repeat(64), state: 'legacy-unavailable', reason: 'origin-record-unavailable'
+    } });
+    render(<KnowledgeDetail item={{ ...item, sourceMode: 'ai', deletedAt: status === 'trash' ? item.updatedAt : null }} evidence={[]} canWrite={false} pending={false}
+      onOpenNote={vi.fn()} onEdit={vi.fn()} onConfirm={vi.fn()} onArchive={vi.fn()} onRestore={vi.fn()} onTrash={vi.fn()}
+      onRestoreDeleted={vi.fn()} onAddSource={vi.fn()} onReplaceSource={vi.fn()} onRetireSource={vi.fn()} onReadoptSource={vi.fn()} />);
+    expect(await screen.findByText(/旧知识未保存可校验的生成来源记录/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: '对照来源' })).not.toBeInTheDocument();
+    expect(getKnowledgeProvenance).toHaveBeenLastCalledWith(item.id);
+  });
+  it('读取失败显示安全文案，重试只重新读取摘要', async () => {
+    const onGetProvenance = vi.fn().mockRejectedValueOnce(new Error('秘密数据库异常')).mockResolvedValueOnce(provenance);
+    render(<KnowledgeSourceComparisonDialog {...input({ onGetProvenance })} />);
+    expect(await screen.findByText('来源摘要暂时无法读取，尚不能核对生成事实。')).toBeVisible();
+    expect(screen.queryByText(/秘密数据库/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '重试来源摘要' }));
+    expect(await screen.findByText(/模拟生成记录 · 未调用真实模型/)).toBeVisible();
+    expect(onGetProvenance).toHaveBeenCalledTimes(2);
+  });
+  it('切换知识后忽略旧摘要迟到响应，不把旧生成事实显示在新知识', async () => {
+    const old = deferred<KnowledgeProvenance>();
+    const onGetProvenance = vi.fn().mockReturnValueOnce(old.promise).mockResolvedValueOnce({ artifactId: 'k2', state: 'absent', record: null, sources: [] });
+    const props = input({ onGetProvenance });
+    const view = render(<KnowledgeSourceComparisonDialog {...props} />);
+    await waitFor(() => expect(onGetProvenance).toHaveBeenCalledTimes(1));
+    view.rerender(<KnowledgeSourceComparisonDialog {...props} item={{ ...item, id: 'k2' }} />);
+    await waitFor(() => expect(onGetProvenance).toHaveBeenCalledTimes(2));
+    await act(async () => { old.resolve(provenance); });
+    expect(screen.queryByRole('region', { name: '生成来源记录' })).not.toBeInTheDocument();
+  });
+});
 
 describe('KnowledgeSourceComparisonDialog', () => {
   it('StrictMode挂载时取消首个effect的读取，保留真实请求错误', async () => {

@@ -1,41 +1,67 @@
-import { KNOWLEDGE_SYNC_CAPABILITY } from './entity-contract.js';
+import { assertSyncContract, assertSnapshotBinding, snapshotBinding, syncContract, REQUIRED_SYNC_CAPABILITIES } from './protocol-contract.js';
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
 import { randomUUID } from 'node:crypto';
 import { cursorFor, readCursor, entriesFor, syncKey, syncError, requestHash, thenResult, NOTE_FIELDS } from './journal.js';
 
 export function createSyncService(provider, ownerId) {
-  const describe = journal => ({ protocolVersion: 1, entitySchemaVersion: 6, datasetEpoch: journal.epoch, ownerId, scope: 'notes', capabilities: ['atomic-entities-v2', 'attachment-transfer-v1', KNOWLEDGE_SYNC_CAPABILITY, 'asset-lifecycle-v1'], pushEnabled: process.env.KNOWRA_SYNC_PUSH_ENABLED !== 'false', cursor: cursorFor(journal, ownerId) });
+  const describe = journal => ({ protocolVersion: 1, ...syncContract(), requiredCapabilities: [...REQUIRED_SYNC_CAPABILITIES], datasetEpoch: journal.epoch, ownerId, scope: 'notes', pushEnabled: process.env.KNOWRA_SYNC_PUSH_ENABLED !== 'false', cursor: cursorFor(journal, ownerId) });
   return {
     device: ({ deviceId }) => provider.read((_state, journal) => ({ sequence: journal.deviceSequences?.[String(deviceId)] ?? 0 })),
     status: () => provider.read((_state, journal) => describe(journal)),
-    bootstrap: () => provider.mutate((state, journal) => {
+    bootstrap: input => {
+      const contract = assertSyncContract(input);
+      return provider.mutate((state, journal) => {
       for (const [id, snapshot] of Object.entries(journal.snapshots)) if (snapshot.expiresAt < Date.now()) delete journal.snapshots[id];
       if (Object.keys(journal.snapshots).length >= 8) throw syncError('SYNC_BUSY', '快照数量已达上限，请稍后重试。', 429);
       const id = randomUUID();
-      journal.snapshots[id] = { entries: entriesFor(state, journal), cursor: cursorFor(journal, ownerId), expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
-      return { ...describe(journal), snapshotId: id, count: journal.snapshots[id].entries.length };
-    }),
+      const entries = entriesFor(state, journal);
+      journal.snapshots[id] = { ...contract, snapshotId: id, ownerId, datasetEpoch: journal.epoch, entries, count: entries.length, cursor: cursorFor(journal, ownerId), expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
+      return { ...describe(journal), ...snapshotBinding(journal.snapshots[id]) };
+      });
+    },
     releaseSnapshot: ({ snapshotId }) => provider.mutate((_state, journal) => { delete journal.snapshots[snapshotId]; return { released: true }; }),
-    snapshot: ({ snapshotId, offset = 0, limit = 200 }) => {
+    snapshot: input => {
+      const contract = assertSyncContract(input, { query: true });
+      const { snapshotId, offset = 0, limit = 200 } = input;
       const start = Number(offset); const size = pageSize(limit);
       if (!Number.isSafeInteger(start) || start < 0) throw syncError('CURSOR_INVALID', '快照分页无效。', 422);
-      if (provider.snapshotPage) return provider.snapshotPage({ snapshotId, start, size });
+      if (provider.snapshotPage) return provider.snapshotPage({ snapshotId, start, size, contract, ownerId });
       return provider.read((_state, journal) => {
       const snapshot = journal.snapshots[snapshotId];
       if (!snapshot || snapshot.expiresAt < Date.now()) throw syncError('CURSOR_EXPIRED', '初始化快照已过期。');
+      assertSnapshotBinding(snapshot, contract, ownerId, journal.epoch);
+      if (snapshot.snapshotId !== snapshotId || !Array.isArray(snapshot.entries) || snapshot.count !== snapshot.entries.length) throw syncError('SYNC_SNAPSHOT_CONTRACT_MISMATCH', '快照绑定或实体数量不一致。', 409);
       const start = Number(offset);
       if (!Number.isSafeInteger(start) || start < 0 || start > snapshot.entries.length) throw syncError('CURSOR_INVALID', '快照分页无效。', 422);
       const end = Math.min(snapshot.entries.length, start + pageSize(limit));
-      return { entries: snapshot.entries.slice(start, end), nextOffset: end < snapshot.entries.length ? end : null, cursor: snapshot.cursor, datasetEpoch: journal.epoch };
+      return { ...snapshotBinding(snapshot), entries: snapshot.entries.slice(start, end), nextOffset: end < snapshot.entries.length ? end : null };
       });
     },
-    changes: ({ cursor, limit = 50 }) => provider.read((_state, journal) => {
+    changes: input => {
+      const contract = assertSyncContract(input, { query: true });
+      const { cursor, limit = 50 } = input;
+      return provider.read((_state, journal) => {
       const sequence = readCursor(cursor, journal, ownerId);
       const groups = journal.changes.filter(group => group.sequence > sequence).slice(0, pageSize(limit));
       const end = groups.at(-1)?.sequence ?? sequence;
-      return { groups, cursor: cursorFor(journal, ownerId, end), hasMore: end < journal.head, datasetEpoch: journal.epoch };
-    }),
-    push: operation => provider.mutate((state, journal) => {
+      return { ...contract, ownerId, groups, cursor: cursorFor(journal, ownerId, end), hasMore: end < journal.head, datasetEpoch: journal.epoch };
+      });
+    },
+    operationReceipt: input => {
+      assertSyncContract(input, { query: true });
+      if (![input.deviceId, input.operationId].every(value => typeof value === 'string' && value.length > 0 && value.length <= 200)
+        || !/^[a-f0-9]{64}$/.test(input.requestHash ?? '')) throw syncError('SYNC_OPERATION_INVALID', '操作回执查询无效。', 422);
+      return provider.read((_state, journal) => {
+        if (input.datasetEpoch !== journal.epoch) throw syncError('DATASET_CHANGED', '云端资料库已变化。');
+        const saved = journal.receipts[JSON.stringify([input.deviceId, input.operationId])];
+        if (saved && saved.hash !== input.requestHash) throw syncError('OPERATION_REUSED', '同一操作 ID 的内容不能改变。', 422);
+        return { ...syncContract(), datasetEpoch: journal.epoch, status: saved ? 'found' : 'missing',
+          lastSequence: journal.deviceSequences?.[input.deviceId] ?? 0, ...(saved ? { result: structuredClone(saved.result) } : {}) };
+      });
+    },
+    push: operation => {
+      assertSyncContract(operation);
+      return provider.mutate((state, journal) => {
       validateOperation(operation);
       if (operation.datasetEpoch !== journal.epoch) throw syncError('DATASET_CHANGED', '云端资料库基线已变化。');
       const key = JSON.stringify([operation.deviceId, operation.operationId]);
@@ -66,7 +92,8 @@ export function createSyncService(provider, ownerId) {
         journal.receipts[key] = { hash, result };
         return result;
       }));
-    })
+      });
+    }
   };
 }
 

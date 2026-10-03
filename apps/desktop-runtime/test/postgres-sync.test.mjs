@@ -1,3 +1,4 @@
+import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -33,9 +34,9 @@ test('真实 PostgreSQL：两个 API 实例条件竞争、幂等结果及故障�
     anchorFingerprint: 'test', noteContentHash: calculateContentHash(note.rawMarkdown), idempotencyKey: randomUUID()
   });
   const source = await a.modules.knowledge.knowledgeItemService.createCandidate({ title: 'PG 来源', canonicalStatement: '保留原文证据', sourceMode: 'selection', evidence: [{ sourceType: 'annotation', annotationId: annotation.id }] });
-  const bootstrap = await a.http.sync.bootstrap();
-  const entry = (await a.http.sync.snapshot({ snapshotId: bootstrap.snapshotId })).entries.find(item => item.id === note.id);
-  const operation = { protocolVersion: 1, deviceId: 'pg-test', operationId: randomUUID(), noteId: note.id, datasetEpoch: bootstrap.datasetEpoch, baseRevision: entry.revision, value: { ...noteContent(note), rawMarkdown: '数据库 A 提交' } };
+  const bootstrap = await a.http.sync.bootstrap(syncContract());
+  const entry = (await a.http.sync.snapshot({ ...syncContract(), snapshotId: bootstrap.snapshotId })).entries.find(item => item.id === note.id);
+  const operation = { protocolVersion: 1, ...syncContract(), deviceId: 'pg-test', operationId: randomUUID(), noteId: note.id, datasetEpoch: bootstrap.datasetEpoch, baseRevision: entry.revision, value: { ...noteContent(note), rawMarkdown: '数据库 A 提交' } };
   const competing = { ...operation, operationId: randomUUID(), value: { ...operation.value, rawMarkdown: '数据库 B 提交' } };
   const results = await Promise.all([a.http.sync.push(operation), b.http.sync.push(competing)]);
   assert.equal(results.filter(result => result.status === 'accepted').length, 1);
@@ -67,7 +68,7 @@ test('真实 PostgreSQL：两个 API 实例条件竞争、幂等结果及故障�
   await a.http.storage.importKnowledgeBase(snapshot);
   assert.equal(await a.prisma.annotationRevision.count({ where: { annotationId: annotation.id } }), snapshot.data.annotationRevisions.filter(revision => revision.annotationId === annotation.id).length);
   assert.notEqual((await a.http.sync.status()).datasetEpoch, bootstrap.datasetEpoch);
-  await assert.rejects(() => a.http.sync.changes({ cursor }), failure => failure.code === 'DATASET_CHANGED');
+  await assert.rejects(() => a.http.sync.changes({ ...syncContract(), cursor }), failure => failure.code === 'DATASET_CHANGED');
   const importedEpoch = (await a.http.sync.status()).datasetEpoch;
   execFileSync(process.execPath, [fileURLToPath(new URL('../../../scripts/reset-sync-epoch.mjs', import.meta.url)), '--driver', 'postgres'], {
     env: { ...process.env, KNOWRA_SYNC_RESET_DATABASE_URL: databaseUrl }, timeout: 15000

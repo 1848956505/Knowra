@@ -1,3 +1,4 @@
+import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyEntityRemote, getEntitySyncState, nextEntityUpload, acknowledgeEntityUpload } from '../src/entity-sync-state.mjs';
@@ -28,8 +29,8 @@ function fixture(t, count = 1, options) {
 
 function engineFor(t, workspace) {
   const engine = createSyncEngine(workspace.store, { autoSync: false, entityTransfer: {}, fetcher: async url => {
-    const data = url.endsWith('/status') ? { protocolVersion: 1, scope: 'notes', entitySchemaVersion: 6, ownerId: 'demo', datasetEpoch: 'epoch', capabilities: ['atomic-entities-v2'] }
-      : url.includes('/device?') ? { sequence: 0 } : { groups: [], cursor: 'cursor', datasetEpoch: 'epoch', hasMore: false };
+    const data = url.endsWith('/status') ? { protocolVersion: 1, scope: 'notes', ...syncContract(), ownerId: 'demo', datasetEpoch: 'epoch' }
+      : url.includes('/device?') ? { sequence: 0 } : { ...syncContract(), ownerId: 'demo', groups: [], cursor: 'cursor', datasetEpoch: 'epoch', hasMore: false };
     return new Response(JSON.stringify({ data }));
   } });
   t.after(() => engine.close());

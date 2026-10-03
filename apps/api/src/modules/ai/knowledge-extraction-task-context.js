@@ -17,7 +17,7 @@ export function* prepareTaskSources(context, ownerId, scopeId, idempotencyKey) {
     const version = yield repos.noteVersionRepository.findById(binding.noteVersionId);
     const note = version && (yield repos.noteRepository.findById(version.noteId));
     if (!version || !note || note.deleted || note.spaceId !== scope.spaceId) {
-      throw taskError('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '提炼来源已删除或迁移。');
+      throw taskError('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼版本不可用或来源已删除、迁移；请重新保存范围。');
     }
     versions.push(version);
   }

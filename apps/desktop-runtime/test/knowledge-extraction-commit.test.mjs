@@ -8,6 +8,7 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { createKnowledgeExtractionJobFixture } from '../../api/test/fixtures/knowledge-extraction-job.fixture.js';
 import { validateSqliteKnowledgeExtractionCommits } from '../src/knowledge-extraction-commit-store.mjs';
+import { assertMinimalProvenanceTransport } from '../../api/test/fixtures/knowledge-artifact-provenance.fixture.js';
 
 function appFor(workspace, root) {
   return createAppContext({ dataStore: workspace.store, ownerId: 'demo', storageRootDir: root, uploadsDir: path.join(root, 'uploads') });
@@ -25,8 +26,8 @@ test('P3 SQLite 模拟提炼与候选、证据、提交记录、任务和同步 
   try {
     assert.equal(db.prepare('SELECT count(*) AS count FROM knowledge_extraction_commits').get().count, 1);
     const changes = db.prepare('SELECT changes FROM sync_outbox').all().map(row => JSON.parse(row.changes));
-    assert(changes.some(batch => batch.some(change => change.collection === 'knowledgeItems') && batch.some(change => change.collection === 'knowledgeEvidence')));
-    assert.equal(JSON.stringify(changes).includes(fixture.input.jobId), false);
+    assert(changes.some(batch => ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].every(collection => batch.some(change => change.collection === collection))));
+    assertMinimalProvenanceTransport(changes, restarted.state.knowledgeArtifactProvenance[0]);
     validateSqliteKnowledgeExtractionCommits(db);
   } finally { db.close(); }
 });
@@ -43,6 +44,7 @@ test('P3 SQLite 最终 commit 故障与提交表 insert 故障共同回滚，重
     if (failure === 'commit') fail = true;
     assert.throws(() => app.knowledgeExtractionCommit.commit(fixture.input), /injected sqlite/);
     assert.equal(workspace.store.state.knowledgeItems.length, 0); assert.equal(workspace.store.state.knowledgeEvidence.length, 0);
+    assert.deepEqual(workspace.store.state.knowledgeArtifactProvenance, []);
     assert.equal(workspace.store.aiRepository.get('aiJob', fixture.input.jobId).status, 'running');
     assert.equal(db.prepare('SELECT count(*) AS count FROM knowledge_extraction_commits').get().count, 0);
     assert.equal(db.prepare('SELECT count(*) AS count FROM sync_outbox').get().count, before);

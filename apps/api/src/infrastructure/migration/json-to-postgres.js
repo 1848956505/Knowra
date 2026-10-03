@@ -15,6 +15,7 @@ import {
   dbAttachment,
   dbFolder,
   dbKnowledgeEvidence,
+  dbKnowledgeArtifactProvenance,
   dbKnowledgeItem,
   dbLearningObjective,
   dbExamProfile,
@@ -52,10 +53,14 @@ import {
 import { createPostgresAdvisoryLock } from '../postgres-advisory-lock.js';
 import { findInsecureImageUrls } from '../../modules/knowledge/application/note-content-policy.js';
 import { createJournal, loadJournal, syncKey } from '../../modules/sync/journal.js';
+import { backfillKnowledgeArtifactProvenance, legacyKnowledgeExtractionReceipts } from './knowledge-artifact-provenance-backfill.js';
+import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
+import { mapKnowledgeArtifactProvenance } from '../../modules/knowledge/infrastructure/postgres/mappers.js';
 
 const syncPlanCollections = Object.freeze({
   spaces: 'spaces', folders: 'folders', tags: 'tags', tagGroups: 'tagGroups', notes: 'notes',
   noteVersions: 'noteVersions', knowledgeItems: 'knowledgeItems', knowledgeEvidence: 'knowledgeEvidence',
+  knowledgeArtifactProvenance: 'knowledgeArtifactProvenance',
   learningObjectives: 'learningObjectives', examProfiles: 'examProfiles', examFocuses: 'examFocuses',
   questions: 'questions', questionObjectives: 'questionObjectives', questionSources: 'questionSources',
   attachments: 'attachments', contentAnnotations: 'annotations', annotationExclusions: 'annotationExclusions',
@@ -64,6 +69,7 @@ const syncPlanCollections = Object.freeze({
 const syncDbModels = Object.freeze({
   spaces: 'knowledgeSpace', folders: 'folder', tags: 'tag', tagGroups: 'tagGroup', notes: 'note',
   noteVersions: 'noteVersion', knowledgeItems: 'knowledgeItem', knowledgeEvidence: 'knowledgeEvidence',
+  knowledgeArtifactProvenance: 'knowledgeArtifactProvenance',
   learningObjectives: 'learningObjective', examProfiles: 'examProfile', examFocuses: 'examFocus',
   questions: 'question', questionObjectives: 'questionObjective', questionSources: 'questionSource',
   attachments: 'attachment', contentAnnotations: 'contentAnnotation', annotationExclusions: 'annotationExclusion',
@@ -98,6 +104,12 @@ export function buildJsonMigrationPlan({
     state = Object.hasOwn(input ?? {}, 'data')
       ? validateLocalSnapshot(input).data
       : validatePersistedLocalState(input);
+    if (!Object.hasOwn(input ?? {}, 'data') && (input.schemaVersion ?? 1) < LOCAL_DATA_SCHEMA_VERSION) {
+      backfillKnowledgeArtifactProvenance(state, {
+        receipts: legacyKnowledgeExtractionReceipts(input.knowledgeExtractionCommits),
+        getTombstone: (collection, id) => input.sync?.tombstones?.[syncKey(collection, id)]
+      });
+    }
   } catch (error) {
     reportTools.error(error.code ?? 'MIGRATION_SOURCE_INVALID', error.message);
     return { plan: null, report: reportTools.finish(), canApply: false };
@@ -127,6 +139,7 @@ export function buildJsonMigrationPlan({
     noteVersions: [],
     knowledgeItems: state.knowledgeItems.map((item) => transformKnowledgeItem(item, fallbackTimestamp, reportTools)),
     knowledgeEvidence: state.knowledgeEvidence.map((evidence) => transformKnowledgeEvidence(evidence, fallbackTimestamp)),
+    knowledgeArtifactProvenance: structuredClone(state.knowledgeArtifactProvenance),
     learningObjectives: state.learningObjectives.map((objective) => transformLearningObjective(objective, fallbackTimestamp)),
     examProfiles: state.examProfiles.map((profile) => transformExamProfile(profile, fallbackTimestamp)),
     examFocuses: state.examFocuses.map((focus) => transformExamFocus(focus, fallbackTimestamp)),
@@ -203,8 +216,10 @@ export function buildJsonMigrationPlan({
     }
   }
   const versionByKey = new Map(plan.noteVersions.map((version) => [`${version.noteId}\u0000${version.contentHash}`, version]));
+  const versionAliases = new Map(state.noteVersions.map(version => [version.id,
+    versionByKey.get(`${version.noteId}\u0000${version.contentHash}`)?.id ?? version.id]));
   plan.annotations = plan.annotations.map((annotation) => {
-    if (annotation.noteVersionId) return annotation;
+    if (annotation.noteVersionId) return { ...annotation, noteVersionId: versionAliases.get(annotation.noteVersionId) ?? annotation.noteVersionId };
     const version = versionByKey.get(`${annotation.noteId}\u0000${annotation.noteContentHash}`);
     if (version) return { ...annotation, noteVersionId: version.id };
     reportTools.warn('ANNOTATION_VERSION_UNRESOLVED', 'Annotation could not be safely bound to a NoteVersion', { annotationId: annotation.id });
@@ -214,17 +229,23 @@ export function buildJsonMigrationPlan({
   const versionById = new Map(plan.noteVersions.map((version) => [version.id, version]));
   plan.knowledgeEvidence = plan.knowledgeEvidence.map((evidence) => {
     const annotation = evidence.annotationId ? annotationById.get(evidence.annotationId) : null;
-    const version = evidence.noteVersionId ? versionById.get(evidence.noteVersionId) : null;
+    const resolvedVersionId = versionAliases.get(evidence.noteVersionId) ?? evidence.noteVersionId;
+    const version = resolvedVersionId ? versionById.get(resolvedVersionId) : null;
     return {
       ...evidence,
       noteId: evidence.noteId ?? annotation?.noteId ?? version?.noteId ?? null,
-      noteVersionId: evidence.noteVersionId ?? annotation?.noteVersionId ?? null,
-      sourceId: evidence.sourceId ?? annotation?.id ?? version?.id ?? null,
+      noteVersionId: resolvedVersionId ?? annotation?.noteVersionId ?? null,
+      sourceId: evidence.sourceType === 'noteVersion' ? version?.id ?? evidence.sourceId ?? null
+        : evidence.sourceId ?? annotation?.id ?? version?.id ?? null,
       status: evidence.sourceType === 'annotation' && !annotation?.noteVersionId && evidence.status === 'valid'
         ? 'stale'
         : evidence.status
     };
   });
+  plan.annotationExclusions = plan.annotationExclusions.map(record => ({ ...record,
+    noteVersionId: versionAliases.get(record.noteVersionId) ?? record.noteVersionId }));
+  plan.questionSources = plan.questionSources.map(record => record.sourceType === 'noteVersion'
+    ? { ...record, sourceId: versionAliases.get(record.sourceId) ?? record.sourceId } : record);
   plan.noteTags = plan.notes.flatMap((note) => note.tagIds.map((tagId) => ({ noteId: note.id, tagId })));
 
   const noteIds = new Set(plan.notes.map((note) => note.id));
@@ -240,7 +261,7 @@ export function buildJsonMigrationPlan({
     if (transformed) plan.attachments.push(transformed);
   }
 
-  for (const collection of ['users', 'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions', 'knowledgeItems', 'knowledgeEvidence', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources', 'noteTags', 'annotations', 'annotationExclusions', 'annotationRevisions', 'analysisScopeSnapshots', 'attachments']) {
+  for (const collection of ['users', 'spaces', 'folders', 'tagGroups', 'tags', 'notes', 'noteVersions', 'knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions', 'questionObjectives', 'questionSources', 'noteTags', 'annotations', 'annotationExclusions', 'annotationRevisions', 'analysisScopeSnapshots', 'attachments']) {
     reportTools.count(collection, plan[collection].length);
   }
   report.checksum = checksumPlan(plan);
@@ -265,6 +286,8 @@ export async function applyJsonMigration({
   }
 
   const applyPlan = async (tx) => {
+    const existingProvenance = await tx.knowledgeArtifactProvenance.findMany();
+    assertNoKnowledgeArtifactProvenanceDowngrade({ knowledgeArtifactProvenance: existingProvenance.map(mapKnowledgeArtifactProvenance) }, plan);
     const previousJournals = tx.syncJournal ? await tx.syncJournal.findMany() : [];
     const presentIds = previousJournals.length
       ? Object.fromEntries(await Promise.all(Object.entries(syncDbModels).map(async ([collection, model]) => [collection, await tx[model].findMany({ select: { id: true } })])))
@@ -292,6 +315,7 @@ export async function applyJsonMigration({
       await tx.examProfile.deleteMany();
       await tx.learningObjective.deleteMany();
       await tx.knowledgeEvidence.deleteMany();
+      await tx.knowledgeArtifactProvenance.deleteMany();
       await tx.knowledgeItem.deleteMany();
       await tx.contentAnnotation.deleteMany();
       await tx.noteVersion.deleteMany();
@@ -318,6 +342,7 @@ export async function applyJsonMigration({
     if (plan.analysisScopeSnapshots.length) await tx.analysisScopeSnapshot.createMany({ data: plan.analysisScopeSnapshots.map(dbAnalysisScopeSnapshot) });
     if (plan.knowledgeItems.length) await tx.knowledgeItem.createMany({ data: plan.knowledgeItems.map(dbKnowledgeItem) });
     if (plan.knowledgeEvidence.length) await tx.knowledgeEvidence.createMany({ data: plan.knowledgeEvidence.map(dbKnowledgeEvidence) });
+    if (plan.knowledgeArtifactProvenance.length) await tx.knowledgeArtifactProvenance.createMany({ data: plan.knowledgeArtifactProvenance.map(dbKnowledgeArtifactProvenance) });
     if (plan.learningObjectives.length) await tx.learningObjective.createMany({ data: plan.learningObjectives.map(dbLearningObjective) });
     if (plan.examProfiles.length) await tx.examProfile.createMany({ data: plan.examProfiles.map(dbExamProfile) });
     if (plan.examFocuses.length) await tx.examFocus.createMany({ data: plan.examFocuses.map(dbExamFocus) });
@@ -348,7 +373,7 @@ export async function applyJsonMigration({
 }
 
 export async function assertEmptyTarget(client) {
-  const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'annotationExclusion', 'annotationRevision', 'analysisScopeSnapshot', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
+  const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'annotationExclusion', 'annotationRevision', 'analysisScopeSnapshot', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'knowledgeArtifactProvenance', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
   for (const model of models) {
     const count = await client[model].count();
     if (count > 0) {

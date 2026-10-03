@@ -1,3 +1,4 @@
+import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,9 +22,9 @@ test('打包 Mac 应用：7201 条基线稳定空闲不写库、不刷新资料�
   const server = http.createServer((request, response) => {
     requests++;
     const data = request.url === '/api/sync/status'
-      ? { protocolVersion: 1, scope: 'notes', entitySchemaVersion: 6, ownerId: 'demo', datasetEpoch: 'energy', capabilities: ['atomic-entities-v2', 'knowledge-items-v1'] }
+      ? { protocolVersion: 1, scope: 'notes', ...syncContract(), ownerId: 'demo', datasetEpoch: 'energy' }
       : request.url.startsWith('/api/sync/device?') ? { sequence: 0 }
-        : { groups: [], cursor: 'idle', datasetEpoch: 'energy', hasMore: false };
+        : { ...syncContract(), ownerId: 'demo', groups: [], cursor: 'idle', datasetEpoch: 'energy', hasMore: false };
     response.writeHead(200, { 'Content-Type': 'application/json' }); response.end(JSON.stringify({ data }));
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');

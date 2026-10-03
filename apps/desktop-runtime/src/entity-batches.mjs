@@ -15,6 +15,10 @@ export function selectEntityBatch(changes, state, base, { maxEntries = 1000, max
     const noteId = value?.noteId ?? annotationNotes.get(value?.annotationId ?? value?.parentAnnotationId);
     if (noteId) join(syncKey(entry.collection, entry.id), syncKey('notes', noteId));
     if (value?.knowledgeItemId) join(syncKey(entry.collection, entry.id), syncKey('knowledgeItems', value.knowledgeItemId));
+    if (entry.collection === 'knowledgeArtifactProvenance' && value?.artifactId) {
+      join(syncKey(entry.collection, entry.id), syncKey('knowledgeItems', value.artifactId));
+      for (const source of value.sources ?? []) join(syncKey(entry.collection, entry.id), syncKey('knowledgeEvidence', source.evidenceId));
+    }
     const folderPackage = entry.collection === 'folders' ? (value?.deletionPackage ?? base.get(syncKey(entry.collection, entry.id))?.value?.deletionPackage) : null;
     if (folderPackage) {
       for (const id of folderPackage.folderIds ?? []) join(syncKey(entry.collection, entry.id), syncKey('folders', id));

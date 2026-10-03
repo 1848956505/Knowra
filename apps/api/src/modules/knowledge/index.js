@@ -19,6 +19,8 @@ import {
 import { createAnnotationScopeService } from './application/annotation-scope-service.js';
 import { createInMemoryNoteVersionRepository } from './infrastructure/note-version-repository.js';
 import { createInMemoryKnowledgeItemRepository } from './infrastructure/knowledge-item-repository.js';
+import { createKnowledgeArtifactProvenanceReader } from './application/knowledge-artifact-provenance-read.js';
+import { createInMemoryKnowledgeArtifactProvenanceRepository } from './infrastructure/knowledge-artifact-provenance-repository.js';
 import { createInMemoryKnowledgeEvidenceRepository } from './infrastructure/knowledge-evidence-repository.js';
 import { createInMemoryLearningObjectiveRepository } from './infrastructure/learning-objective-repository.js';
 import { createInMemoryExamProfileRepository } from './infrastructure/exam-profile-repository.js';
@@ -59,6 +61,8 @@ export function createKnowledgeModule(options = {}) {
   const noteVersionRepository = options.noteVersionRepository ?? createInMemoryNoteVersionRepository({ records: options.noteVersions ?? [] });
   const knowledgeItemRepository = options.knowledgeItemRepository ?? createInMemoryKnowledgeItemRepository({ records: options.knowledgeItems ?? [] });
   const knowledgeEvidenceRepository = options.knowledgeEvidenceRepository ?? createInMemoryKnowledgeEvidenceRepository({ records: options.knowledgeEvidence ?? [] });
+  const knowledgeArtifactProvenanceRepository = options.knowledgeArtifactProvenanceRepository ?? createInMemoryKnowledgeArtifactProvenanceRepository({ records: options.knowledgeArtifactProvenance ?? [] });
+  const getKnowledgeProvenance = createKnowledgeArtifactProvenanceReader({ knowledgeArtifactProvenanceRepository, knowledgeItemRepository, knowledgeEvidenceRepository, noteRepository, noteVersionRepository, knowledgeSpaceRepository });
   const learningObjectiveRepository = options.learningObjectiveRepository ?? createInMemoryLearningObjectiveRepository({ records: options.learningObjectives ?? [] });
   const examProfileRepository = options.examProfileRepository ?? createInMemoryExamProfileRepository({ records: options.examProfiles ?? [] });
   const examFocusRepository = options.examFocusRepository ?? createInMemoryExamFocusRepository({ records: options.examFocuses ?? [] });
@@ -346,7 +350,7 @@ export function createKnowledgeModule(options = {}) {
         );
       }
       if (analysisScopeRepository.list().some((snapshot) => (
-        snapshot.noteVersions?.some((version) => versionIds.has(version.noteVersionId))
+        snapshot.noteVersions?.some((version) => (version.noteId === noteId || versionIds.has(version.noteVersionId)))
       ))) {
         throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
       }
@@ -448,6 +452,7 @@ export function createKnowledgeModule(options = {}) {
     return inspectKnowledgeItemPurge({
       item,
       evidence: knowledgeEvidenceRepository.list({ knowledgeItemId: id }),
+      provenance: knowledgeArtifactProvenanceRepository.list({ artifactId: id }),
       learningObjectives: learningObjectiveRepository.list({ includeArchived: true }),
       questionSources: questionSourceRepository.list(),
       analysisScopes: analysisScopeRepository.list({ includeDeleted: true })
@@ -461,15 +466,16 @@ export function createKnowledgeModule(options = {}) {
         if (!expectedUpdatedAt || !tombstone || (tombstone.previousUpdatedAt && tombstone.previousUpdatedAt !== expectedUpdatedAt)) {
           throw validationError('KNOWLEDGE_ITEM_NOT_FOUND', '知识点不存在');
         }
-        return { status: 'already-purged', asset: { type: 'knowledgeItem', id }, exclusiveRecordsDeleted: { knowledgeEvidence: 0 }, offlineDevices: 'pending-sync', backups: 'retention-managed' };
+        return { status: 'already-purged', asset: { type: 'knowledgeItem', id }, exclusiveRecordsDeleted: { knowledgeEvidence: 0, knowledgeArtifactProvenance: 0 }, offlineDevices: 'pending-sync', backups: 'retention-managed' };
       }
       const preflight = inspectKnowledgePurge(id);
       assertKnowledgeItemPurgeAllowed(preflight, expectedUpdatedAt);
+      const removedProvenance = knowledgeArtifactProvenanceRepository.deleteByKnowledgeItemId(id);
       const removedEvidence = knowledgeEvidenceRepository.deleteByKnowledgeItemId(id);
       knowledgeItemRepository.delete(id);
       return {
         status: 'subject-purged', asset: preflight.asset,
-        exclusiveRecordsDeleted: { knowledgeEvidence: removedEvidence.length },
+        exclusiveRecordsDeleted: { knowledgeEvidence: removedEvidence.length, knowledgeArtifactProvenance: removedProvenance.length },
         offlineDevices: 'pending-sync', backups: 'retention-managed'
       };
     });
@@ -481,6 +487,7 @@ export function createKnowledgeModule(options = {}) {
     return buildNoteVersionPrunePreview({
       note,
       versions: noteVersionRepository.list({ noteId }),
+      provenance: knowledgeArtifactProvenanceRepository.list(),
       evidence: knowledgeEvidenceRepository.list({ noteId }),
       questionSources: questionSourceRepository.list(),
       annotations: contentAnnotationRepository.list({ noteId, includeDeleted: true }),
@@ -586,6 +593,7 @@ export function createKnowledgeModule(options = {}) {
       noteVersionRepository,
       knowledgeItemRepository,
       knowledgeEvidenceRepository,
+      knowledgeArtifactProvenanceRepository,
       learningObjectiveRepository,
       examProfileRepository,
       examFocusRepository,
@@ -613,6 +621,7 @@ export function createKnowledgeModule(options = {}) {
     restoreDeletedFolder,
     deleteTagAndCleanup,
     mergeTags,
+    getKnowledgeProvenance,
     inspectKnowledgePurge,
     permanentlyDeleteKnowledgeItem,
     previewNoteVersionPrune,

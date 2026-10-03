@@ -96,3 +96,52 @@ export interface KnowledgeCandidateResult {
   item: KnowledgeItem;
   evidence: KnowledgeEvidence[];
 }
+
+export interface KnowledgeProvenanceSource {
+  evidenceId: string;
+  sourceId: string;
+  noteId: string;
+  originNoteVersionId: string;
+  contentHash: string;
+  start: number;
+  end: number;
+  quoteText: string;
+  quoteHash: string;
+  annotationRevisions: Array<{ annotationId: string; revision: number }>;
+}
+
+interface KnowledgeProvenanceIdentity {
+  id: string;
+  schemaVersion: 1;
+  artifactKind: 'knowledgeItem';
+  artifactId: string;
+  provenanceHash: string;
+}
+
+export interface RecordedKnowledgeProvenance extends KnowledgeProvenanceIdentity {
+  state: 'recorded';
+  executionMode: 'mock';
+  provider: 'mock';
+  modelId: string;
+  promptVersion: string;
+  resultSchemaVersion: string;
+  origin: { jobId: string; requestId: string; scopeId: string; spaceId: string; receiptHash: string };
+  inputHash: string;
+  outputHash: string;
+  committedAt: string;
+  sources: KnowledgeProvenanceSource[];
+}
+
+export interface ResolvedKnowledgeProvenanceSource {
+  evidenceId: string;
+  originalVersionId: string;
+  resolvedVersionId: string;
+  aliasUsed: boolean;
+  sourceState: 'available' | 'stale' | 'unavailable';
+}
+
+export type KnowledgeProvenance = { artifactId: string } & (
+  | { state: 'absent'; record: null; sources: [] }
+  | { state: 'legacy-unavailable'; record: KnowledgeProvenanceIdentity & { state: 'legacy-unavailable'; reason: 'origin-record-unavailable' }; sources: [] }
+  | { state: 'recorded'; record: RecordedKnowledgeProvenance; sources: ResolvedKnowledgeProvenanceSource[] }
+);

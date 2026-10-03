@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { validateKnowledgeArtifactProvenanceRelations } from '../../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
+import { resolveAnalysisScopeNoteVersion } from '../../modules/knowledge/domain/analysis-scope-version-alias.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ATTACHMENT_STATUS } from '../attachment-status.js';
@@ -356,6 +358,8 @@ export function checksumPlan(plan) {
 }
 
 export function validateDatabaseConstraints(plan, reportTools) {
+  try { validateKnowledgeArtifactProvenanceRelations(plan); }
+  catch (error) { reportTools.error(error.code ?? 'KNOWLEDGE_ARTIFACT_PROVENANCE_INVALID', error.message); }
   assertUniqueBy(plan.tagGroups, (group) => `${group.spaceId}\u0000${group.name}`, 'TAG_GROUP_NAME_CONFLICT', 'Tag group names must be unique within a space', reportTools);
   assertUniqueBy(plan.tagGroups.filter((group) => group.code !== null), (group) => `${group.spaceId}\u0000${group.code}`, 'TAG_GROUP_CODE_CONFLICT', 'Tag group codes must be unique within a space', reportTools);
   assertUniqueBy(plan.tags, (tag) => `${tag.spaceId}\u0000${tag.name}`, 'TAG_NAME_CONFLICT', 'Tag names must be unique within a space', reportTools);
@@ -401,7 +405,8 @@ export function validateDatabaseConstraints(plan, reportTools) {
   for (const snapshot of plan.analysisScopeSnapshots ?? []) {
     if (!spaces.has(snapshot.spaceId)) reportTools.error('KNOWLEDGE_SPACE_NOT_FOUND', 'AnalysisScopeSnapshot references an unknown space', { snapshotId: snapshot.id });
     for (const version of snapshot.noteVersions ?? []) {
-      if (!noteVersions.has(version.noteVersionId)) reportTools.error('NOTE_VERSION_NOT_FOUND', 'AnalysisScopeSnapshot references an unknown NoteVersion', { snapshotId: snapshot.id, noteVersionId: version.noteVersionId });
+      try { resolveAnalysisScopeNoteVersion(snapshot, version, noteVersions); }
+      catch { reportTools.error('ANALYSIS_SCOPE_VERSION_MISMATCH', 'AnalysisScopeSnapshot references an unresolvable NoteVersion', { snapshotId: snapshot.id }); }
     }
   }
   assertUniqueBy(plan.examFocuses, (focus) => `${focus.examProfileId}\u0000${focus.learningObjectiveId}`, 'EXAM_FOCUS_CONFLICT', 'ExamProfile and LearningObjective can only have one ExamFocus', reportTools);

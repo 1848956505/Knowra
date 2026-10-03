@@ -5,6 +5,7 @@ import { outboundPayloadHash } from './outbound-payload.js';
 import { prepareKnowledgeExtractionGateway, validateKnowledgeExtractionGatewayResult,
   KNOWLEDGE_EXTRACTION_PROMPT_VERSION } from './knowledge-extraction-gateway.js';
 import { validateKnowledgeExtractionCommit } from './knowledge-extraction-commit-contract.js';
+import { createKnowledgeArtifactProvenanceFromReceipt } from '../../infrastructure/migration/knowledge-artifact-provenance-backfill.js';
 
 const fail = (code, message) => { throw createAppError(code, message, 409); };
 const sameBoundary = (left, right) => ['ownerId', 'datasetId', 'datasetEpoch', 'spaceId'].every(key => left[key] === right[key]);
@@ -89,7 +90,7 @@ export function createKnowledgeExtractionCommitService({ store, createContext, o
       const version = yield repos.noteVersionRepository.findById(binding.noteVersionId);
       const note = version && (yield repos.noteRepository.findById(version.noteId));
       if (!version || !note || note.deleted || note.spaceId !== job.spaceId) {
-        fail('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '提炼来源已删除或迁移，未保存任何候选。');
+        fail('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼版本不可用或来源已删除、迁移；请重新保存范围，未保存任何候选。');
       }
       versions.push(version);
     }
@@ -125,6 +126,9 @@ export function createKnowledgeExtractionCommitService({ store, createContext, o
       modelId: job.modelId, promptVersion: job.promptVersion, resultSchemaVersion: job.resultSchemaVersion,
       committedAt: committedAt.toISOString(), request, result: JSON.parse(input.result.content), candidates: plan.candidates };
     const receipt = validateKnowledgeExtractionCommit({ ...receiptContent, receiptHash: hashRecord(receiptContent) });
+    for (const candidate of receipt.candidates) {
+      yield repos.knowledgeArtifactProvenanceRepository.create(createKnowledgeArtifactProvenanceFromReceipt(receipt, candidate));
+    }
     yield store.insert(receipt, context.transaction);
     yield ai.replace('aiJobAttempt', { ...attempt, status: 'validated', finishedAt: committedAt.toISOString() }, hashRecord(attempt));
     if (Date.parse(attempt.leaseExpiresAt) <= clock().getTime() || Date.parse(grant.expiresAt) <= clock().getTime()) {

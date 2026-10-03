@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { assertMinimalProvenanceTransport } from './fixtures/knowledge-artifact-provenance.fixture.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,6 +34,7 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
       const receipts = await Promise.all([f.app, other].map(app => app.knowledgeExtractionCommit.commit(f.input)));
       assert.deepEqual(receipts[0], receipts[1]);
       assert.equal(await f.app.prisma.knowledgeItem.count(), 1); assert.equal(await f.app.prisma.knowledgeEvidence.count(), 1);
+      assert.equal(await f.app.prisma.knowledgeArtifactProvenance.count(), 1);
       const [{ count }] = await f.app.prisma.$queryRawUnsafe('SELECT count(*)::int AS count FROM knowledge_extraction_commits');
       assert.equal(count, 1); assert.equal((await f.ai.get('aiJob', f.input.jobId)).status, 'succeeded');
       assert.equal((await f.ai.get('aiJobAttempt', f.input.attemptId)).status, 'validated');
@@ -46,7 +48,13 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
       const restarted = await f.start(); assert.deepEqual(await restarted.knowledgeExtractionCommit.commit(f.input), receipt);
       assert.equal((await restarted.repositories.knowledgeItemRepository.findById(item.id)).title, '用户合成修订');
       const journal = await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } });
-      assert(JSON.stringify(journal.payload).includes(item.id)); assert.equal(JSON.stringify(journal.payload).includes(f.input.jobId), false);
+      assert(JSON.stringify(journal.payload).includes(item.id));
+      const provenance = await f.app.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(item.id);
+      assert.equal(provenance.origin.receiptHash, receipt.receiptHash); assert.equal(provenance.provider, 'mock');
+      assertMinimalProvenanceTransport(journal.payload, provenance);
+      const projection = await f.app.http.knowledge.getKnowledgeProvenance({ id: item.id });
+      assert.equal(projection.state, 'recorded'); assert.deepEqual(projection.record, provenance);
+      assert.equal(projection.sources[0].resolvedVersionId, provenance.sources[0].originNoteVersionId);
       const changed = structuredClone(f.output); changed.candidates[0].title = '另一模拟结果';
       await assert.rejects(f.app.knowledgeExtractionCommit.commit({ ...f.input, result: await f.respond(changed) }), { code: 'KNOWLEDGE_EXTRACTION_OUTPUT_CONFLICT' });
     });
@@ -65,7 +73,7 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
     });
   } },
   { name: 'P3 PostgreSQL 提炼：提交记录及最后任务更新 SQL 故障都回滚所有业务和同步记录', async run() {
-    for (const table of ['knowledge_extraction_commits', 'ai_jobs']) await withFixture(async f => {
+    for (const table of ['"KnowledgeArtifactProvenance"', 'knowledge_extraction_commits', 'ai_jobs']) await withFixture(async f => {
       const before = await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } });
       await f.app.prisma.$executeRawUnsafe(`CREATE FUNCTION fail_extraction_commit() RETURNS trigger LANGUAGE plpgsql AS
         'BEGIN RAISE EXCEPTION ''injected extraction sql failure''; END;'`);
@@ -74,11 +82,67 @@ export const aiKnowledgeExtractionCommitPostgresTests = process.env.KNOWRA_SYNC_
       try { await assert.rejects(f.app.knowledgeExtractionCommit.commit(f.input), /injected extraction sql failure/); }
       finally { await f.app.prisma.$executeRawUnsafe(`DROP TRIGGER fail_extraction_commit ON ${table}`); }
       assert.equal(await f.app.prisma.knowledgeItem.count(), 0); assert.equal(await f.app.prisma.knowledgeEvidence.count(), 0);
+      assert.equal(await f.app.prisma.knowledgeArtifactProvenance.count(), 0);
       assert.equal((await f.ai.get('aiJob', f.input.jobId)).status, 'running');
       assert.equal((await f.ai.get('aiJobAttempt', f.input.attemptId)).status, 'sent');
       const [{ count }] = await f.app.prisma.$queryRawUnsafe('SELECT count(*)::int AS count FROM knowledge_extraction_commits'); assert.equal(count, 0);
       assert.deepEqual(await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } }), before);
       const accepted = await f.app.knowledgeExtractionCommit.commit(f.input); assert.equal(accepted.candidates.length, 1);
+    });
+  } },
+  { name: '05B PostgreSQL核心来源读取与purge原子回滚；摘要清理留墓碑，历史receipt重试不复活', async run() {
+    await withFixture(async f => {
+      const receipt = await f.app.knowledgeExtractionCommit.commit(f.input), id = receipt.candidates[0].candidateInput.id;
+      const provenance = (await f.app.http.knowledge.getKnowledgeProvenance({ id })).record;
+      const item = await f.app.repositories.knowledgeItemRepository.findById(id);
+      const trashed = await f.app.http.knowledge.trashKnowledgeItem({ id }, { expectedUpdatedAt: item.updatedAt });
+      const trashedProjection = await f.app.http.knowledge.getKnowledgeProvenance({ id });
+      assert.equal(trashedProjection.state, 'recorded');
+      assert.deepEqual(trashedProjection.record, provenance);
+      assert.equal(trashedProjection.sources.length, provenance.sources.length);
+      assert(trashedProjection.sources.every(source => source.sourceState === 'unavailable'));
+      const preflight = await f.app.http.knowledge.inspectKnowledgePurge({ id });
+      assert.deepEqual(preflight.exclusiveRecords.knowledgeArtifactProvenanceIds, [provenance.id]);
+      const before = await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } });
+      await f.app.prisma.$executeRawUnsafe(`CREATE FUNCTION fail_provenance_purge() RETURNS trigger LANGUAGE plpgsql AS
+        'BEGIN RAISE EXCEPTION ''injected provenance purge''; END;'`);
+      await f.app.prisma.$executeRawUnsafe('CREATE TRIGGER fail_provenance_purge BEFORE DELETE ON "KnowledgeEvidence" FOR EACH ROW EXECUTE FUNCTION fail_provenance_purge()');
+      try {
+        await assert.rejects(f.app.http.knowledge.permanentlyDeleteKnowledgeItem({ id }, { expectedUpdatedAt: trashed.updatedAt }), /injected provenance purge/);
+      } finally { await f.app.prisma.$executeRawUnsafe('DROP TRIGGER fail_provenance_purge ON "KnowledgeEvidence"'); }
+      assert.deepEqual(await f.app.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(id), provenance);
+      assert.equal(await f.app.prisma.knowledgeEvidence.count(), 1); assert.equal(await f.app.prisma.knowledgeItem.count(), 1);
+      assert.deepEqual(await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } }), before);
+      const purged = await f.app.http.knowledge.permanentlyDeleteKnowledgeItem({ id }, { expectedUpdatedAt: trashed.updatedAt });
+      assert.equal(purged.exclusiveRecordsDeleted.knowledgeArtifactProvenance, 1);
+      assert.equal(purged.exclusiveRecordsDeleted.knowledgeEvidence, 1);
+      assert.equal(await f.app.prisma.knowledgeArtifactProvenance.count(), 0);
+      const journal = await f.app.prisma.syncJournal.findUnique({ where: { ownerId: f.ownerId } });
+      assert(journal.payload.tombstones[JSON.stringify(['knowledgeArtifactProvenance', provenance.id])]);
+      const reopened = await f.start();
+      assert.deepEqual(await reopened.knowledgeExtractionCommit.commit(f.input), receipt);
+      assert.equal(await reopened.prisma.knowledgeItem.count(), 0); assert.equal(await reopened.prisma.knowledgeArtifactProvenance.count(), 0);
+      const [row] = await reopened.prisma.$queryRawUnsafe('SELECT receipt_json FROM knowledge_extraction_commits');
+      assert.equal(row.receipt_json, JSON.stringify(receipt));
+      await assert.rejects(reopened.http.knowledge.getKnowledgeProvenance({ id }), { code: 'KNOWLEDGE_ITEM_NOT_FOUND' });
+    });
+  } },
+  { name: '05B PostgreSQL旧receipt回填保留当前编辑及原receipt TEXT，重启幂等', async run() {
+    await withFixture(async f => {
+      const receipt = await f.app.knowledgeExtractionCommit.commit(f.input);
+      const id = receipt.candidates[0].candidateInput.id;
+      const provenance = await f.app.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(id);
+      const item = await f.app.repositories.knowledgeItemRepository.findById(id);
+      await f.app.http.knowledge.updateKnowledgeItem({ id }, { title: '旧库中的用户编辑', expectedUpdatedAt: item.updatedAt });
+      // 合成升级前形状；raw SQL 仅用于此隔离库 fixture，不制造业务 purge tombstone。
+      await f.app.prisma.$executeRawUnsafe('DELETE FROM "KnowledgeArtifactProvenance"');
+      await f.app.prisma.$executeRawUnsafe('DELETE FROM knowledge_artifact_provenance_migrations');
+      const reopened = await f.start();
+      assert.deepEqual(await reopened.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(id), provenance);
+      assert.equal((await reopened.repositories.knowledgeItemRepository.findById(id)).title, '旧库中的用户编辑');
+      const [row] = await reopened.prisma.$queryRawUnsafe('SELECT receipt_json FROM knowledge_extraction_commits');
+      assert.equal(row.receipt_json, JSON.stringify(receipt));
+      assert.deepEqual(await (await f.start()).repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(id), provenance);
     });
   } },
   { name: 'P3 PostgreSQL 提炼：核心源删除/旧 epoch 拒绝，嵌套接纳不绕过事务边界', async run() {

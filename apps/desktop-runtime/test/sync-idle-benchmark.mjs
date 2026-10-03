@@ -1,3 +1,4 @@
+import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -34,8 +35,8 @@ try {
   engine = createSyncEngine(store, { autoSync: false, entityTransfer: {}, fetcher: async url => {
     requests++;
     const data = url.endsWith('/status')
-      ? { protocolVersion: 1, scope: 'notes', entitySchemaVersion: 6, ownerId: 'demo', datasetEpoch: epoch, capabilities: ['atomic-entities-v2', 'knowledge-sync-v1'] }
-      : url.includes('/device?') ? { sequence: 0 } : { groups: [], cursor, datasetEpoch: epoch, hasMore: false };
+      ? { protocolVersion: 1, scope: 'notes', ...syncContract(), ownerId: 'demo', datasetEpoch: epoch }
+      : url.includes('/device?') ? { sequence: 0 } : { ...syncContract(), ownerId: 'demo', groups: [], cursor, datasetEpoch: epoch, hasMore: false };
     return new Response(JSON.stringify({ data }), { headers: { 'Content-Type': 'application/json' } });
   } });
   await engine.sync(); engine.status();

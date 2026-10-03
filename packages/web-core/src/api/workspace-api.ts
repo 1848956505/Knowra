@@ -1,5 +1,5 @@
 import type { AttachmentDeleteResult, AttachmentDeletionPreflight, AttachmentCleanupStatus } from '../workspace/types.js';
-import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
+import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, KnowledgeProvenance, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
 import { createKnowledgeExtractionApi, type KnowledgeExtractionApi } from './knowledge-extraction-api.js';
@@ -168,7 +168,7 @@ export interface KnowledgePurgePreview {
   asset: { type: 'knowledgeItem'; id: string };
   decision: 'move-to-recycle-bin-first' | 'requires-dependency-action' | 'can-purge-no-history';
   expectedUpdatedAt: string;
-  exclusiveRecords: { knowledgeEvidenceIds: string[] };
+  exclusiveRecords: { knowledgeEvidenceIds: string[]; knowledgeArtifactProvenanceIds: string[] };
   references: Array<{ collection: string; id: string; reasonCode: string; action: string }>;
   coverage: { persistedCurrentAndHistory: boolean; runningTasks: string; offlineDevices: string; backups: string };
 }
@@ -176,7 +176,7 @@ export interface KnowledgePurgePreview {
 export interface KnowledgePurgeResult {
   status: 'subject-purged' | 'already-purged';
   asset: { type: 'knowledgeItem'; id: string };
-  exclusiveRecordsDeleted: { knowledgeEvidence: number };
+  exclusiveRecordsDeleted: { knowledgeEvidence: number; knowledgeArtifactProvenance: number };
   offlineDevices: string;
   backups: string;
 }
@@ -252,6 +252,7 @@ export interface WorkspaceApi {
   inspectKnowledgePurge?(id: string): Promise<KnowledgePurgePreview>;
   permanentlyDeleteKnowledgeItem?(id: string, input: { expectedUpdatedAt: string }): Promise<KnowledgePurgeResult>;
   listKnowledgeEvidence?(id: string): Promise<KnowledgeEvidence[]>;
+  getKnowledgeProvenance?(id: string): Promise<KnowledgeProvenance>;
   createKnowledgeEvidence?(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
   retireKnowledgeEvidence?(id: string, evidenceId: string, input?: RetireKnowledgeEvidenceInput): Promise<KnowledgeEvidenceMutationResult>;
   readoptKnowledgeEvidence?(id: string, evidenceId: string, input?: RetireKnowledgeEvidenceInput): Promise<KnowledgeEvidenceMutationResult>;
@@ -398,6 +399,15 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
         method: 'DELETE', body: JSON.stringify(input)
       }));
       if (!result?.asset?.id) throw new Error('知识清理结果无效。');
+      return result;
+    },
+    async getKnowledgeProvenance(id) {
+      const result = getData<KnowledgeProvenance>(await requestJson(`/api/knowledge/items/${encodeURIComponent(id)}/provenance`));
+      if (!result || result.artifactId !== id || !['absent', 'legacy-unavailable', 'recorded'].includes(result.state)
+        || !Array.isArray(result.sources) || (result.state === 'absent' ? result.record !== null
+          : !result.record || result.record.artifactId !== id || result.record.state !== result.state)) {
+        throw new Error('知识来源摘要返回无效。');
+      }
       return result;
     },
     async listKnowledgeEvidence(id) {

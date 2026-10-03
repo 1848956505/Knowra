@@ -9,6 +9,8 @@ import {
   deriveQuestionSourceStatus
 } from '../modules/knowledge/application/formal-asset-validation.js';
 import { buildDefaultTagGroups } from '../modules/knowledge/domain/default-tag-groups.js';
+import { validateKnowledgeArtifactProvenanceRelations } from '../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
+import { resolveAnalysisScopeNoteVersion } from '../modules/knowledge/domain/analysis-scope-version-alias.js';
 
 export function validateLocalDataRelations(state) {
   normalizeTagSystem(state);
@@ -41,6 +43,7 @@ export function validateLocalDataRelations(state) {
     noteVersions,
     annotations
   );
+  validateKnowledgeArtifactProvenanceRelations(state);
   validateAttachments(state.attachments, notes);
   validateLearningObjectives(state.learningObjectives, knowledgeItems);
   validateExamProfiles(state.examProfiles);
@@ -76,7 +79,7 @@ function validateAnnotationExtensions(state, spaces, annotations, noteVersions) 
   for (const snapshot of state.analysisScopeSnapshots ?? []) {
     assertReference(spaces.has(snapshot.spaceId), `AnalysisScopeSnapshot ${snapshot.id} references unknown space`);
     for (const version of snapshot.noteVersions ?? []) {
-      assertReference(noteVersions.has(version.noteVersionId), `AnalysisScopeSnapshot ${snapshot.id} references unknown NoteVersion`);
+      resolveAnalysisScopeNoteVersion(snapshot, version, noteVersions);
     }
   }
 }

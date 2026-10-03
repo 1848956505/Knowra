@@ -1,10 +1,11 @@
 import type { WorkspaceDependencies } from '../types';
 import type { GetStore } from '../workspaceSnapshotState';
-import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
+import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeProvenance, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
 
 export interface KnowledgeSlice {
   listKnowledgeItems(query?: { reviewStatus?: KnowledgeReviewStatus; query?: string; noteId?: string; includeDeleted?: boolean }): Promise<KnowledgeItem[]>;
   getKnowledgeItem(id: string): Promise<KnowledgeItem>;
+  getKnowledgeProvenance(id: string): Promise<KnowledgeProvenance>;
   listKnowledgeEvidence(id: string): Promise<KnowledgeEvidence[]>;
   createKnowledgeEvidence(id: string, input: CreateKnowledgeEvidenceInput): Promise<KnowledgeEvidence>;
   retireKnowledgeEvidence(id: string, evidenceId: string, input?: { expectedUpdatedAt?: string }): Promise<KnowledgeEvidenceMutationResult>;
@@ -37,6 +38,7 @@ export function createKnowledgeSlice(get: GetStore, { api }: WorkspaceDependenci
   return {
     listKnowledgeItems: query => { spaceId(); return requireMethod(api.listKnowledgeItems)({ includeArchived: true, ...query }); },
     getKnowledgeItem: id => { spaceId(); return requireMethod(api.getKnowledgeItem)(id); },
+    getKnowledgeProvenance: id => { spaceId(); return requireMethod(api.getKnowledgeProvenance)(id); },
     listKnowledgeEvidence: id => { spaceId(); return requireMethod(api.listKnowledgeEvidence)(id); },
     createKnowledgeEvidence: (id, input) => { assertWrite(); return requireMethod(api.createKnowledgeEvidence)(id, input); },
     retireKnowledgeEvidence: (id, evidenceId, input) => { assertWrite(); return requireMethod(api.retireKnowledgeEvidence)(id, evidenceId, input); },

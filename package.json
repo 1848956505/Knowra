@@ -13,7 +13,7 @@
   "scripts": {
     "test": "npm run test:api && npm run test:content-anchor && npm run test:shared && npm run test:web-core && npm run test:web:legacy && npm run test:web && npm run test:scripts && npm run test:desktop",
     "test:content-anchor": "npm test -w @study-accelerator/content-anchor",
-    "test:api": "node apps/api/test/run-tests.js",
+    "test:api": "node apps/api/test/run-tests.js && node --test apps/api/test/knowledge-artifact-provenance-*.node.test.js",
     "test:desktop": "npm test -w @study-accelerator/desktop-runtime",
     "start:desktop": "npm run start -w @study-accelerator/desktop-runtime --",
     "test:web": "npm test -w @study-accelerator/web-v4",

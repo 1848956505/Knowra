@@ -14,7 +14,7 @@ const source = () => ({
   tags: [{ id: 'tag', spaceId: 's', name: '标签', groupId: 'custom' }],
   notes: [{ id: 'note', spaceId: 's', title: '正文', rawMarkdown: 'text', tagIds: ['tag'] }]
 });
-const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'annotationExclusion', 'annotationRevision', 'analysisScopeSnapshot', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
+const models = ['user', 'knowledgeSpace', 'folder', 'tagGroup', 'tag', 'note', 'noteTag', 'attachment', 'contentAnnotation', 'annotationExclusion', 'annotationRevision', 'analysisScopeSnapshot', 'noteVersion', 'knowledgeItem', 'knowledgeEvidence', 'knowledgeArtifactProvenance', 'learningObjective', 'examProfile', 'examFocus', 'question', 'questionObjective', 'questionSource'];
 
 // Contract double enforces the group foreign-key ordering and transaction rollback.
 // This is deliberately not represented as a real PostgreSQL integration test.
@@ -22,6 +22,7 @@ function database() {
   let rows = Object.fromEntries(models.map(model => [model, []]));
   let failTags = false;
   const client = Object.fromEntries(models.map(model => [model, {
+    async findMany() { return structuredClone(rows[model]); },
     async count() { return rows[model].length; },
     async deleteMany() {
       if (model === 'tagGroup') assert.equal(rows.tag.length, 0);
@@ -74,7 +75,7 @@ export const postgresTagGroupMigrationTests = [
         const db = database();
         const prepared = buildJsonMigrationPlan({ input: source() });
         await applyJsonMigration({ client: db.client, ...prepared });
-        const repositoryModels = { knowledgeSpace: 'knowledgeSpace', folder: 'folder', tag: 'tag', tagGroup: 'tagGroup', note: 'note', noteVersion: 'noteVersion', contentAnnotation: 'contentAnnotation', knowledgeItem: 'knowledgeItem', knowledgeEvidence: 'knowledgeEvidence', learningObjective: 'learningObjective', examProfile: 'examProfile', examFocus: 'examFocus', question: 'question', questionObjective: 'questionObjective', questionSource: 'questionSource' };
+        const repositoryModels = { knowledgeSpace: 'knowledgeSpace', folder: 'folder', tag: 'tag', tagGroup: 'tagGroup', note: 'note', noteVersion: 'noteVersion', contentAnnotation: 'contentAnnotation', knowledgeItem: 'knowledgeItem', knowledgeEvidence: 'knowledgeEvidence', knowledgeArtifactProvenance: 'knowledgeArtifactProvenance', learningObjective: 'learningObjective', examProfile: 'examProfile', examFocus: 'examFocus', question: 'question', questionObjective: 'questionObjective', questionSource: 'questionSource' };
         const repositories = Object.fromEntries(Object.entries(repositoryModels).map(([name, model]) => [`${name}Repository`, {
           async list() {
             return JSON.parse(JSON.stringify(db.rows()[model])).map(row => model === 'note' ? { ...row, tagIds: db.rows().noteTag.filter(link => link.noteId === row.id).map(link => link.tagId), deleted: false } : row);

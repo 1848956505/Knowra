@@ -47,6 +47,7 @@ async function mockSources(page: Page, options: {
     else if (url.pathname.endsWith('/items')) data = [knowledge];
     else if (url.pathname.endsWith(`/items/${item.id}`)) data = knowledge;
     else if (url.pathname.endsWith(`/items/${item.id}/evidence`)) data = [record];
+    else if (url.pathname.endsWith(`/items/${item.id}/provenance`)) data = { artifactId: item.id, state: 'absent', record: null, sources: [] };
     else if (url.pathname.includes('/versions/')) {
       reads.push(url.pathname);
       versionRequests++;

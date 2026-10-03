@@ -205,10 +205,11 @@ test('桌面备份检查拒绝 AI 私有表中的断裂授权引用', t => {
 
 test('SQLite 同一事务内 AI 授权与业务对象一起提交或回滚', t => {
   const root = temporaryDirectory(t);
-  let fail = true;
+  let fail = false;
   const file = path.join(root, 'local.sqlite');
   const store = createSqliteDataStore(file, { beforeCommit: () => { if (fail) throw new Error('模拟提交故障'); } });
   const records = aiRecords(store.aiRepository.identity());
+  fail = true;
   const writeTogether = () => store.runTransaction(() => {
     store.state.spaces.push({ id: 'space-1', userId: 'demo', name: '测试空间' });
     store.flush();

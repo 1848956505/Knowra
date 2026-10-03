@@ -9,7 +9,8 @@ export async function handleSyncRoute({ request, response, url, sync }) {
   const handlers = {
     'GET /api/sync/device': () => sync.device(toQueryObject(url)),
     'GET /api/sync/status': () => sync.status(),
-    'POST /api/sync/bootstrap': () => sync.bootstrap(),
+    'POST /api/sync/bootstrap': async () => sync.bootstrap(await parseBody(request)),
+    'GET /api/sync/operation-receipt': () => sync.operationReceipt(toQueryObject(url)),
     'GET /api/sync/snapshot': () => sync.snapshot(toQueryObject(url)),
     'POST /api/sync/snapshot-release': async () => sync.releaseSnapshot(await parseBody(request)),
     'GET /api/sync/changes': () => sync.changes(toQueryObject(url)),
