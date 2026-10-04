@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import type { AnalysisScopeInput, AnalysisScopePreview, AnalysisScopeSnapshot, Annotation, AnnotationKnowledgeLinks, AnnotationPreview, Attachment, Folder, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, NoteVersionPrunePreview, Tag, TagColor, TagGroup, UpdateAnnotationInput } from '@study-accelerator/web-core';
 import { Button, Checkbox, Dialog, DialogBody, DialogClose, DialogFooter, Select, TextAreaField } from '../../components/ui';
-import { Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverTrigger, PopoverDialog } from '../../components/ui/overlay';
+import { Menu, MenuItem, MenuPopover, MenuTrigger, PointMenu, Popover, PopoverTrigger, PopoverDialog } from '../../components/ui/overlay';
 import { GhostIconButton, SegmentedControl, SegmentedButton } from '../../components/ui/button';
 import { Tabs, type TabsItem } from '../../components/ui/collection';
 import {
@@ -342,6 +342,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [undo, setUndo] = useState<{ id: string; revision?: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [savedScopes, setSavedScopes] = useState<AnalysisScopeSnapshot[]>([]);
   const [scopeRefresh, setScopeRefresh] = useState(0);
   const [scopeFilter, setScopeFilter] = useState('all');
@@ -360,7 +361,8 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
   const currentAnalysisScope = useRef(analysisScope); currentAnalysisScope.current = analysisScope;
   useEffect(() => { setAnalysis(null); setError(''); setCreating(false); }, [analysisScope]);
   const [kind, setKind] = useState<'important' | 'question' | 'supplement' | 'pitfall' | 'temporary'>('important');
-  const [importance, setImportance] = useState('unset');
+  const [importance, setImportance] = useState('normal');
+  const [importanceChanged, setImportanceChanged] = useState(false);
   const [comment, setComment] = useState('');
   const currentAnnotations = useMemo(
     () => props.annotations.filter((item) => item.lifecycleStatus === 'active' || (!item.lifecycleStatus && item.status !== 'archived' && !item.deletedAt)),
@@ -428,7 +430,8 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
         getKnowledgeLinks(annotation.id)
       ]);
       setKind(annotation.kind as 'important' | 'question' | 'supplement' | 'pitfall' | 'temporary');
-      setImportance(annotation.importance ?? 'unset');
+      setImportance(annotation.importance ?? 'normal');
+      setImportanceChanged(false);
       setComment(annotation.comment ?? '');
       setDetail({ annotation: preview.annotation, preview, links });
     });
@@ -441,7 +444,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
       await updateAnnotation(detail.annotation.id, {
         expectedRevision: detail.annotation.revision ?? 1,
         kind,
-        importance: importance === 'unset' ? null : importance as Annotation['importance'],
+        ...(importanceChanged ? { importance: importance as Annotation['importance'] } : {}),
         comment
       });
       setDetail(null);
@@ -464,6 +467,24 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
     } finally {
       if (currentAnalysisScope.current === analysisScope) setCreating(false);
     }
+  }
+
+  const contextAnnotation = currentAnnotations.find(item => item.id === contextMenu?.id);
+  function annotationActions(annotation: Annotation) {
+    const pending = pendingId === annotation.id;
+    const stale = annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale';
+    return <Menu ariaLabel="重点操作" onAction={() => setContextMenu(null)}>
+      <MenuItem id="detail" isDisabled={pending || !props.onPreviewAnnotation || !props.onGetAnnotationKnowledgeLinks} onAction={() => void openDetail(annotation)}>预览与编辑</MenuItem>
+      <MenuItem id="knowledge" isDisabled={pending || stale || !annotation.quoteText.trim() || !props.canWrite || !props.onCreateKnowledgeCandidate} onAction={() => void run(annotation.id, () => props.onCreateKnowledgeCandidate!(annotation))}>创建知识候选</MenuItem>
+      <MenuItem id="reanchor" isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, () => props.onReanchorAnnotation(annotation))}>重新选择来源</MenuItem>
+      {['section', 'list'].includes(annotation.scopeType ?? '') ? <MenuItem id="exclude" isDisabled={pending || !props.canWrite || !props.onCreateAnnotationExclusion} onAction={() => void run(annotation.id, () => props.onCreateAnnotationExclusion!(annotation))}>排除当前块</MenuItem> : null}
+      <MenuItem id="archive" isDanger isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, async () => {
+        const deleted = await props.onDeleteAnnotation(annotation.id, annotation.revision);
+        setSelectedIds(ids => ids.filter(id => id !== annotation.id));
+        setUndo({ id: annotation.id, revision: deleted?.revision ?? (annotation.revision ?? 1) + 1 });
+        window.setTimeout(() => setUndo(current => current?.id === annotation.id ? null : current), 10000);
+      })}>取消重点</MenuItem>
+    </Menu>;
   }
 
   return (
@@ -516,26 +537,23 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
         {rows.map(({ annotation, depth, parentId, containedCount, overlapCount, historicalRelation }, index) => {
           const stale = annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale';
           const pending = pendingId === annotation.id;
-          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} data-importance={annotation.importance ?? undefined} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
+          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setContextMenu({ id: annotation.id, x: event.clientX || rect.left + 12, y: event.clientY || rect.top + 12 }); }} data-importance={annotation.importance ?? undefined} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
             <Checkbox size="compact" aria-label={`选择重点 ${index + 1}`} isSelected={selectedIds.includes(annotation.id)} onChange={(selected) => setSelectedIds((current) => selected ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
             <button type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} disabled={pending} onClick={() => props.onSelectAnnotation(annotation.id)}>
-              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : <span className={styles.annotationUnrated}>待评级</span>}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
+              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : null}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
               <span className={styles.annotationQuote}>{annotation.quoteText || '空内容块，后续输入继续纳入'}</span>
               {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
               {parentId || containedCount || overlapCount ? <span className={styles.annotationRelation}>{historicalRelation ? '原标记范围：' : null}{parentId ? '位于另一条重点内' : null}{containedCount ? `${parentId ? ' · ' : ''}包含 ${containedCount} 条重点` : null}{overlapCount ? `${parentId || containedCount ? ' · ' : ''}与 ${overlapCount} 条重点重叠` : null}</span> : null}
             </button>
             <MenuTrigger><GhostIconButton size={24} aria-label={`重点 ${index + 1} 更多操作`}><MoreHorizontalIcon size={15} /></GhostIconButton>
-              <MenuPopover placement="bottom end"><Menu ariaLabel="重点操作">
-                <MenuItem id="detail" isDisabled={pending || !props.onPreviewAnnotation || !props.onGetAnnotationKnowledgeLinks} onAction={() => void openDetail(annotation)}>预览与编辑</MenuItem>
-                <MenuItem id="knowledge" isDisabled={pending || stale || !annotation.quoteText.trim() || !props.canWrite || !props.onCreateKnowledgeCandidate} onAction={() => void run(annotation.id, () => props.onCreateKnowledgeCandidate!(annotation))}>创建知识候选</MenuItem>
-                <MenuItem id="reanchor" isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, () => props.onReanchorAnnotation(annotation))}>重新选择来源</MenuItem>
-                {['section', 'list'].includes(annotation.scopeType ?? '') ? <MenuItem id="exclude" isDisabled={pending || !props.canWrite || !props.onCreateAnnotationExclusion} onAction={() => void run(annotation.id, () => props.onCreateAnnotationExclusion!(annotation))}>排除当前块</MenuItem> : null}
-                <MenuItem id="archive" isDanger isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, async () => { const deleted = await props.onDeleteAnnotation(annotation.id, annotation.revision); setSelectedIds((ids) => ids.filter((id) => id !== annotation.id)); setUndo({ id: annotation.id, revision: deleted?.revision ?? (annotation.revision ?? 1) + 1 }); window.setTimeout(() => setUndo(current => current?.id === annotation.id ? null : current), 10000); })}>取消重点</MenuItem>
-              </Menu></MenuPopover>
+              <MenuPopover placement="bottom end">{annotationActions(annotation)}</MenuPopover>
             </MenuTrigger>
           </article>;
         })}
       </div>
+      <PointMenu point={contextAnnotation && contextMenu ? contextMenu : null} onOpenChange={open => { if (!open) setContextMenu(null); }}>
+        {contextAnnotation ? annotationActions(contextAnnotation) : null}
+      </PointMenu>
       {selectedIds.length > 0 ? <div className={styles.annotationAnalysisActions}>
         <span>已选择 {selectedIds.length} 项</span>
         <Button variant="primary" isPending={creating} isDisabled={!props.canWrite || !props.onPreviewAnalysisScope} onPress={() => void previewAnalysis('marked')}>提炼知识</Button>
@@ -558,7 +576,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
       {detail ? <Dialog title="重点详情" description={`${scopeLabel(detail.annotation.scopeType)} · ${detail.preview.resolution.status === 'resolved' ? '当前范围可定位' : '范围需要检查'}`} isOpen onOpenChange={(open) => { if (!open) setDetail(null); }} isPending={pendingId === detail.annotation.id}>
         <DialogBody><div className={styles.annotationDetailFields}>
           <Select label="类型" options={KIND_OPTIONS} selectedKey={kind} onSelectionChange={(key) => setKind(String(key) as typeof kind)} />
-          <Select label="重要程度" options={IMPORTANCE_OPTIONS} selectedKey={importance} onSelectionChange={(key) => setImportance(String(key))} />
+          <Select label="重要程度" options={IMPORTANCE_OPTIONS} selectedKey={importance} onSelectionChange={(key) => { setImportance(String(key)); setImportanceChanged(true); }} />
           <TextAreaField label="备注" maxLength={2000} value={comment} onChange={setComment} />
           {detail.annotation.scopeType === 'list' ? <p>本项及全部子项 · 子项 {detail.annotation.anchor?.list?.childCount ?? 0} 项</p> : null}
           <pre>{detail.preview.resolution.quoteText ?? detail.annotation.quoteText}</pre>
@@ -587,7 +605,7 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
 }
 
 const KIND_OPTIONS = [{ id: 'important', label: '重点' }, { id: 'question', label: '疑问' }, { id: 'supplement', label: '补充' }, { id: 'pitfall', label: '易错' }, { id: 'temporary', label: '临时笔记' }];
-const IMPORTANCE_OPTIONS = [{ id: 'unset', label: '未设置' }, { id: 'normal', label: '普通' }, { id: 'important', label: '重要' }, { id: 'core', label: '核心' }];
+const IMPORTANCE_OPTIONS = [{ id: 'normal', label: '普通' }, { id: 'important', label: '重点' }, { id: 'core', label: '核心' }];
 const STATUS_FILTERS = [{ id: 'active', label: '原文可定位' }, { id: 'needsReview', label: '原文待核对' }, { id: 'all', label: '全部原文状态' }];
 function scopeLabel(scope?: Annotation['scopeType']) { return scope === 'list' ? '列表项' : scope === 'blocks' ? '内容块' : scope === 'section' ? '标题章节' : '文字选区'; }
 

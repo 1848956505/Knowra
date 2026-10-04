@@ -219,7 +219,7 @@ describe('EditorInspector', () => {
     await user.click(screen.getByRole('tab', { name: '标注' }));
     expect(screen.getByText('原标记范围：包含 1 条重点')).toBeInTheDocument();
     expect(screen.getByText('原标记范围：位于另一条重点内')).toBeInTheDocument();
-    expect(screen.getAllByText('待评级')).toHaveLength(2);
+    expect(screen.queryByText('待评级')).not.toBeInTheDocument();
     expect(screen.getAllByText('范围待确认')).toHaveLength(2);
     const header = screen.getByText('重点标记').closest('header');
     expect(header?.querySelectorAll('button')[0]).toHaveAttribute('aria-label', '排序重点');

@@ -53,7 +53,7 @@ test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务�
   await expect(page.getByRole('contentinfo')).toContainText('已保存到本机');
   await expect(page.getByRole('contentinfo')).toContainText('连接云端');
   await editor.press('ControlOrMeta+a');
-  await page.getByRole('button', { name: '标记重点', exact: true }).click();
+  await page.getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(async () => (await (await request.get(`${runtime.origin}/api/knowledge/annotations?noteId=${note.id}`)).json()).data.length).toBe(1);
   await editor.press('ArrowRight');
   const [chooser] = await Promise.all([

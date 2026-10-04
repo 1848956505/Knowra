@@ -115,7 +115,7 @@ describe('editor annotation inputs', () => {
 
     expect(input).toMatchObject({
       noteId: 'note-1', spaceId: 'space-1', quoteText: selection.quoteText,
-      kind: 'important', importance: null, sourceMode: 'manual'
+      kind: 'important', importance: 'normal', sourceMode: 'manual'
     });
     expect(input.noteContentHash).toMatch(/^[a-f0-9]{64}$/);
     expect(input.anchorFingerprint).toMatch(/^[a-f0-9]{64}$/);

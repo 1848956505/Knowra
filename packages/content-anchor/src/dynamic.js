@@ -1,6 +1,6 @@
 import { sourceEdits } from './source-diff.js';
 import { listIdentityCandidates } from './list-identity.js';
-import { projectMarkdown, calculateContentHash, anchorForSourceRange, anchorForSection } from './index.js';
+import { projectMarkdown, calculateContentHash, anchorForSourceRange, anchorForSection, anchorForBlock } from './index.js';
 
 // Each edit is relative to the preceding source, never to ProseMirror coordinates.
 export function sourceEdit(before, after) {
@@ -58,6 +58,16 @@ function emptyAnchor(projection, block, previous) {
   return { ...previous, scopeType: 'blocks', structurePath: block.path, sourceStart: block.sourceStart,
     sourceEnd: block.sourceEnd, segments: [], quoteText: '', projectedStart: 0, projectedEnd: 0,
     tracking: { ...previous.tracking, empty: true } };
+}
+
+function completeSelectedCode(projection, anchor) {
+  if (anchor.scopeType !== 'selection') return null;
+  const index = projection.blocks.findIndex(block => block.type === 'code' && block.path === anchor.structurePath);
+  if (index < 0) return null;
+  let full;
+  try { full = anchorForBlock(projection, index); } catch { return null; }
+  return full.sourceStart === anchor.sourceStart && full.sourceEnd === anchor.sourceEnd && full.quoteText === anchor.quoteText
+    ? projection.blocks[index] : null;
 }
 
 /** Reconcile against an immutable old version. Ambiguous whole replacements without edit provenance are never inherited. */
@@ -122,6 +132,18 @@ function followEdits(before, after, original, edits = null) {
         }
       }
       let range = mapRange(start, end, edit, Boolean(edits));
+      const selectedCode = completeSelectedCode(old, anchor);
+      const contentEnd = end + (source.slice(end, end + 2) === '\r\n' ? 2 : source[end] === '\n' ? 1 : 0);
+      if (selectedCode && range && range.start < range.end && edit.from >= start && edit.to <= contentEnd) {
+        const mappedStart = mapPoint(selectedCode.sourceStart, edit, -1), mappedEnd = mapPoint(selectedCode.sourceEnd, edit, 1);
+        const index = next.blocks.findIndex(block => block.type === 'code' && block.sourceStart === mappedStart && block.sourceEnd === mappedEnd);
+        if (index >= 0) {
+          try {
+            const full = anchorForBlock(next, index);
+            range = { start: full.sourceStart, end: full.sourceEnd };
+          } catch { /* Empty selected text continues through the normal deletion guard. */ }
+        }
+      }
       if (!range || range.start >= range.end) {
         if (edit.preserveEmptyBlock && blocks.length === 1 && ['paragraph', 'code'].includes(blocks[0].type)
           && !edit.text.trim() && edit.from <= start && edit.to >= end) {

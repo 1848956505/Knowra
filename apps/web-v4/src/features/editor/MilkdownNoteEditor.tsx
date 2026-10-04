@@ -85,7 +85,7 @@ export interface MilkdownNoteEditorProps {
   allowExternalSync?: boolean;
   annotations?: Annotation[];
   focusedAnnotationId?: string | null;
-  onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section' | 'list'): Promise<void>;
+  onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section' | 'list', importance?: 'normal' | 'important' | 'core'): Promise<void>;
   onChange(markdown: string, options?: { editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
   onSelectAnnotation?(annotationIds: string[]): void;
   onStatus?(message: string): void;
