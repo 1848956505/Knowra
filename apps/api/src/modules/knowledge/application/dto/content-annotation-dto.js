@@ -9,6 +9,10 @@ function text(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function quote(value, versioned) {
+  return typeof value === 'string' ? (versioned ? value : value.trim()) : '';
+}
+
 function positions(input) {
   const fromPosition = Number(input.fromPosition);
   const toPosition = Number(input.toPosition);
@@ -29,7 +33,7 @@ export function buildCreateContentAnnotationDto(input = {}) {
     spaceId: text(input.spaceId),
     noteId: text(input.noteId),
     noteVersionId: text(input.noteVersionId) || null,
-    quoteText: text(input.quoteText),
+    quoteText: quote(input.quoteText, schemaVersion === 2),
     headingPath: Array.isArray(input.headingPath) ? input.headingPath.map(text).filter(Boolean) : [],
     prefixText: text(input.prefixText),
     suffixText: text(input.suffixText),
@@ -40,7 +44,7 @@ export function buildCreateContentAnnotationDto(input = {}) {
     sourceMode: input.sourceMode ?? 'manual',
     schemaVersion,
     scopeType: input.scopeType ?? input.anchor?.scopeType ?? 'selection',
-    importance: input.importance ?? null,
+    importance: input.importance === undefined ? 'normal' : input.importance,
     comment: typeof input.comment === 'string' ? input.comment : '',
     anchor: input.anchor && typeof input.anchor === 'object' && !Array.isArray(input.anchor)
       ? structuredClone(input.anchor)
@@ -50,7 +54,7 @@ export function buildCreateContentAnnotationDto(input = {}) {
   if (
     !dto.spaceId
     || !dto.noteId
-    || !dto.quoteText
+    || !dto.quoteText.trim()
     || !dto.anchorFingerprint
     || !dto.noteContentHash
     || !dto.idempotencyKey
@@ -80,7 +84,7 @@ export function buildCreateContentAnnotationDto(input = {}) {
 
 export function buildUpdateAnnotationAnchorDto(input = {}) {
   const dto = {
-    quoteText: text(input.quoteText),
+    quoteText: quote(input.quoteText, Boolean(input.anchor)),
     prefixText: text(input.prefixText),
     suffixText: text(input.suffixText),
     anchorFingerprint: text(input.anchorFingerprint),
@@ -94,7 +98,7 @@ export function buildUpdateAnnotationAnchorDto(input = {}) {
     expectedRevision: Number(input.expectedRevision),
     ...positions(input)
   };
-  if (!dto.quoteText || !dto.anchorFingerprint || !dto.noteContentHash) {
+  if (!dto.quoteText.trim() || !dto.anchorFingerprint || !dto.noteContentHash) {
     throw validationError(
       'ANNOTATION_ANCHOR_FIELDS_REQUIRED',
       'Annotation anchor fields are required'

@@ -141,6 +141,20 @@ function selectList(markdown: string, item = 0) {
   state.selection = { anchor, quoteText: anchor.quoteText, headingPath: [], fromPosition: anchor.sourceStart,
     toPosition: anchor.sourceEnd, prefixText: anchor.prefixText, suffixText: anchor.suffixText, scopeType: 'list' } as unknown as typeof state.selection;
 }
+
+it('丢响应重试按等级保留原请求，不把核心意图复用于普通', async () => {
+  const props = fixture();
+  vi.mocked(props.onCreateAnnotation).mockRejectedValueOnce(new Error('响应丢失'))
+    .mockRejectedValueOnce(new Error('响应丢失')).mockResolvedValue(annotation);
+  render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('blocks', 'core')).rejects.toThrow('响应丢失'); });
+  await act(async () => { await expect(state.inspector.onCreateAnnotation('blocks', 'normal')).rejects.toThrow('响应丢失'); });
+  await act(async () => { await state.inspector.onCreateAnnotation('blocks', 'core'); });
+  const requests = vi.mocked(props.onCreateAnnotation).mock.calls.map(([input]) => input);
+  expect(requests.map(input => input.importance)).toEqual(['core', 'normal', 'core']);
+  expect(requests[0].idempotencyKey).not.toBe(requests[1].idempotencyKey);
+  expect(requests[2]).toEqual(requests[0]);
+});
 it.each(['continue', 'sibling', 'structure', 'outside'])('慢保存期间列表 %s：只接纳同一项内的继续输入', async change => {
   const props = fixture();
   selectList('- 父项\n  - 子项未保存\n- 相邻', 1);

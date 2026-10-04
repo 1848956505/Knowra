@@ -99,3 +99,17 @@ test('中文、emoji、行内格式、列表子树、引用、代码、公式和
     assert.equal(outcome.anchor.quoteText, anchor.quoteText.replace('重点', '新重点'));
   }
 });
+
+test('整段代码选区末尾增行继承，部分选区和相同复制块不吸附，删除不复活', () => {
+  const before = '前文\n\n```\n甲\n乙\n```\n\n```\n甲\n乙\n```';
+  const projection = projectMarkdown(before), index = projection.blocks.findIndex(block => block.type === 'code');
+  const full = { ...anchorForBlock(projection, index), scopeType: 'selection' };
+  const after = before.slice(0, full.sourceEnd) + '\n新增行' + before.slice(full.sourceEnd);
+  const result = follow(before, after, full);
+  assert.equal(result.status, 'resolved'); assert.equal(result.anchor.scopeType, 'selection');
+  assert.equal(result.quoteText, '甲\n乙\n新增行'); assert.equal(result.anchor.structurePath, full.structurePath);
+  const partial = anchorFromProjectedRange(projection, full.projectedStart + 2, full.projectedEnd);
+  assert.equal(follow(before, after, partial).quoteText, '乙');
+  const removed = before.slice(0, full.sourceStart) + before.slice(full.sourceEnd);
+  assert.notEqual(followAnchorChanges(before, before, full, [sourceEdit(before, removed), sourceEdit(removed, before)]).status, 'resolved');
+});

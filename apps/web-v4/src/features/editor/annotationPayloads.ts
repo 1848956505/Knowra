@@ -12,7 +12,9 @@ export interface AnnotationSelection {
   anchor: ContentAnchor;
 }
 
-export async function buildCreateAnnotationInput(note: { id: string; spaceId?: string }, markdown: string, selection: AnnotationSelection): Promise<CreateAnnotationInput> {
+export type AnnotationImportance = 'normal' | 'important' | 'core';
+
+export async function buildCreateAnnotationInput(note: { id: string; spaceId?: string }, markdown: string, selection: AnnotationSelection, importance: AnnotationImportance = 'normal'): Promise<CreateAnnotationInput> {
   if (!note.spaceId) throw new Error('当前笔记缺少空间信息');
   const noteContentHash = calculateContentHash(markdown);
   return {
@@ -23,7 +25,7 @@ export async function buildCreateAnnotationInput(note: { id: string; spaceId?: s
     noteContentHash,
     idempotencyKey: crypto.randomUUID(),
     kind: 'important',
-    importance: null,
+    importance,
     schemaVersion: 2,
     sourceMode: 'manual'
   };

@@ -4,7 +4,7 @@ import { EditorState } from '@milkdown/kit/prose/state';
 import { mapAnnotationRange } from './annotationTransactionRanges';
 import { appendEdit, buildEditMapping } from './annotationEditJournal';
 import { applySourceEdit } from '@study-accelerator/content-anchor';
-const schema = new Schema({ nodes: { doc: { content: 'block+' }, paragraph: { group:'block',content:'text*' }, heading:{group:'block',content:'text*',attrs:{level:{default:1}}}, text:{group:'inline'} } });
+const schema = new Schema({ nodes: { doc: { content: 'block+' }, paragraph: { group:'block',content:'text*' }, code_block: { group: 'block', content: 'text*', code: true }, heading:{group:'block',content:'text*',attrs:{level:{default:1}}}, text:{group:'inline'} } });
 const paragraph=(value:string)=>schema.nodes.paragraph.create(null,value?schema.text(value):null);
 function state(value='重要文字'){return EditorState.create({schema,doc:schema.nodes.doc.create(null,[paragraph(value)])});}
 describe('重点事务映射',()=>{
@@ -43,4 +43,13 @@ describe('重点事务映射',()=>{
     expect(mapping.edits).toHaveLength(2);
     expect(mapping.edits[0]).toMatchObject({from:1,to:1,text:'新增'});
   });
+});
+
+it('整段代码选区保留scope并继承末尾输入，部分代码仍排他，清空不复活', () => {
+  const doc = schema.nodes.doc.create(null, [schema.nodes.code_block.create(null, schema.text('甲\n乙'))]);
+  const current = EditorState.create({ schema, doc });
+  const full = { from: 1, to: 4, scopeType: 'selection' as const };
+  expect(mapAnnotationRange(full, current.tr.insertText('\n新增', 4))).toMatchObject({ from: 1, to: 7, scopeType: 'selection' });
+  expect(mapAnnotationRange({ ...full, from: 3 }, current.tr.insertText('\n新增', 4))).toMatchObject({ from: 3, to: 4 });
+  expect(mapAnnotationRange(full, current.tr.delete(1, 4)).missing).toBe(true);
 });
