@@ -568,7 +568,7 @@ export function createKnowledgeModule(options = {}) {
   // New service operations default to a transaction; only explicitly read-only
   // methods skip the snapshot/commit boundary. Nested writes share one commit.
   for (const [service, reads] of [
-    [noteService, ['getNote', 'getLinkedNotes', 'listNotes']],
+    [noteService, ['getNote', 'getLinkedNotes', 'getNoteLinkRelations', 'listNotes']],
     [folderService, ['listFolders', 'listFolderTree', 'getFolderSubtreeIds']],
     [tagService, ['listTags']],
     [tagGroupService, ['listTagGroups']],

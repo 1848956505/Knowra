@@ -374,6 +374,10 @@ export function createWorkspaceSlice(
     async getLinkedNotes(noteId) {
       return dependencies.api.getLinkedNotes(noteId);
     },
+    async getNoteLinkRelations(noteId) {
+      if (!dependencies.api.getNoteLinkRelations) throw new Error('当前服务尚不支持笔记引用查询。');
+      return dependencies.api.getNoteLinkRelations(noteId);
+    },
     async listAnnotations(noteId) {
       const spaceId = get().serverData.currentSpaceId;
       if (!spaceId) return [];

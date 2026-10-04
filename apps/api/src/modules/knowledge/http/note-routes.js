@@ -94,6 +94,11 @@ export async function handleNoteRoute({ request, response, url, knowledge }) {
   }
 
   const linksMatch = matchNotePath(url.pathname, '/links');
+  const relationsMatch = matchNotePath(url.pathname, '/link-relations');
+  if (request.method === 'GET' && relationsMatch) {
+    sendJson(response, 200, { data: await knowledge.getNoteLinkRelations({ id: decodeRouteId(relationsMatch[1]) }) });
+    return true;
+  }
   if (request.method === 'GET' && linksMatch) {
     sendJson(response, 200, {
       data: await knowledge.getLinkedNotes({ id: decodeRouteId(linksMatch[1]) })

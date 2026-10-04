@@ -13,6 +13,19 @@ export interface WorkspaceResources {
   tagGroups?: TagGroup[];
 }
 
+export interface NoteLinkOccurrence {
+  targetNoteId: string; occurrenceId: string; url: string;
+  sourceStart: number; sourceEnd: number; label: string; context: string;
+}
+export interface NoteLinkGroup {
+  id: string; title: string; folderId: string | null; occurrences: NoteLinkOccurrence[];
+}
+export interface NoteLinkRelations {
+  noteId: string; spaceId: string; contentHash: string;
+  outgoing: Array<NoteLinkGroup & { status: 'active' | 'deleted' }>;
+  backlinks: NoteLinkGroup[];
+}
+
 export interface CreateNoteInput {
   aiVisibility?: import('../workspace/types').NoteAiVisibility;
   id?: string;
@@ -314,6 +327,7 @@ export interface WorkspaceApi {
   updateTagsForNotes(noteIds: string[], addTagIds: string[], removeTagIds: string[]): Promise<Note[]>;
   queryNotes(input: NoteQueryInput): Promise<NoteQueryPage>;
   getLinkedNotes(noteId: string): Promise<Note[]>;
+  getNoteLinkRelations?(noteId: string): Promise<NoteLinkRelations>;
   listAnnotations(noteId: string, spaceId: string): Promise<Annotation[]>;
   createAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
   deleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;
@@ -677,6 +691,12 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       return asArray<Note>(getData(await requestJson(
         `/api/knowledge/notes/${encodeURIComponent(noteId)}/links`
       )));
+    },
+    async getNoteLinkRelations(noteId) {
+      const data = getData<NoteLinkRelations>(await requestJson(`/api/knowledge/notes/${encodeURIComponent(noteId)}/link-relations`));
+      if (!data || data.noteId !== noteId || typeof data.spaceId !== 'string' || !/^[a-f0-9]{64}$/.test(data.contentHash)
+        || !Array.isArray(data.outgoing) || !Array.isArray(data.backlinks)) throw new Error('笔记引用查询返回无效。');
+      return data;
     },
     async listAnnotations(noteId, spaceId) {
       return asArray<Annotation>(getData(await requestJson(

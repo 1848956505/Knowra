@@ -95,6 +95,11 @@
   text-decoration-style: dotted;
   text-underline-offset: 3px;
 }
+
+.milkdownEditor :global(.ProseMirror) [data-note-link-deleted] {
+  color: var(--ink-secondary);
+  font-size: 0.85em;
+}
 /* Safari IME inserts an inline cursor separator. Keep the global img reset from
    turning this editor-only helper into a visible extra line. */
 .milkdownEditor :global(img.ProseMirror-separator) {

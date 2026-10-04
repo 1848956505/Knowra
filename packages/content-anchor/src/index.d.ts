@@ -1,4 +1,10 @@
 export type AnnotationScopeType = 'selection' | 'blocks' | 'section' | 'list';
+export interface NoteLinkLocator { targetNoteId: string; occurrenceId: string; }
+export interface NoteLinkOccurrence extends NoteLinkLocator { url: string; sourceStart: number; sourceEnd: number; label: string; context: string; }
+export function parseNoteLinkUrl(url: unknown): NoteLinkLocator | null;
+export function createNoteLinkUrl(targetNoteId: string, occurrenceId: string): string;
+export function extractNoteLinks(markdown: string): { targetIds: string[]; occurrences: NoteLinkOccurrence[] };
+export function resolveNoteLinkOccurrence(markdown: string, locator: NoteLinkLocator): NoteLinkOccurrence | null;
 export interface AnchorSegment { start: number; end: number; path: string; }
 export interface ContentAnchor {
   tracking?: { formatVersion?: number; empty?: boolean; emptyPosition?: number; emptyType?: string; [key: string]: unknown };

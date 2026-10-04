@@ -3,6 +3,7 @@ import { gfm } from 'micromark-extension-gfm';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { collectListItems } from './list-projection.js';
 import { resolveListAnchor, followListAnchor } from './list-anchor.js';
+export { parseNoteLinkUrl, createNoteLinkUrl, extractNoteLinks, resolveNoteLinkOccurrence } from './internal-links.js';
 
 export const MARKDOWN_PROJECTION_VERSION = 1;
 

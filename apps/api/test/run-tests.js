@@ -1,4 +1,5 @@
 import { annotationWhitespaceTests } from './annotation-whitespace.test.js';
+import { noteLinkTests, noteLinkPostgresTests } from './note-links.test.js';
 import { aiAssistantAutonomyTests } from './ai-assistant-autonomy.test.js';
 import { aiConversationAttachmentHttpTests } from './ai-conversation-attachment-http.test.js';
 import { aiConversationAttachmentTests } from './ai-conversation-attachments.test.js';
@@ -106,6 +107,8 @@ const tests = [
   ...aiConversationAttachmentTests,
   ...aiConversationAttachmentPostgresTests,
   ...annotationWhitespaceTests,
+  ...noteLinkTests,
+  ...noteLinkPostgresTests,
   ...aiAssistantAutonomyTests,
   ...knowledgeArtifactProvenancePersistenceTests,
   ...knowledgeProvenanceReadLifecycleTests,

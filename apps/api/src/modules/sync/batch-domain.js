@@ -24,6 +24,7 @@ import { calculateContentHash, resolveAnchor } from '@study-accelerator/content-
 import { sameEntity, IMMUTABLE_COLLECTIONS, referencesFor } from './entity-contract.js';
 import { syncError } from './journal.js';
 import { validateKnowledgeArtifactProvenance } from '../knowledge/domain/knowledge-artifact-provenance-contract.js';
+import { addedNoteLinkTargets } from '../knowledge/application/note-link-relations.js';
 
 const sha = text => createHash('sha256').update(text).digest('hex');
 const builders = { notes: buildCreateNoteDto, folders: buildCreateFolderDto, tags: buildCreateTagDto, tagGroups: buildCreateTagGroupDto };
@@ -141,6 +142,15 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     if (!note) throw syncError('DEPENDENCY_MISSING', '标注引用的笔记不存在。');
   }
   const revisionKeys = new Set();
+  for (const change of changes.filter(item => item.collection === 'notes' && item.value)) {
+    const note = state.notes.find(item => item.id === change.id);
+    const old = before.notes.find(item => item.id === change.id);
+    for (const targetId of addedNoteLinkTargets(note.rawMarkdown, old?.rawMarkdown)) {
+      const target = state.notes.find(item => item.id === targetId);
+      // 离线期间目标可能已被永久删除：保留失效链接；存在的目标必须属于同一空间。
+      if (target && target.spaceId !== note.spaceId) throw syncError('NOTE_LINK_TARGET_INVALID', '链接目标必须是当前空间内的笔记。', 422);
+    }
+  }
   for (const revision of state.annotationRevisions) {
     const key = `${revision.annotationId}:${revision.revision}`;
     if (revisionKeys.has(key)) throw syncError('ANNOTATION_REVISION_CONFLICT', '同一标注修订不能存在不同记录。');

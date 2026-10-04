@@ -77,8 +77,13 @@ import { EditorTableControls } from './EditorTableControls';
 import { EditorImageControls } from './EditorImageControls';
 import { configureImageSize, editorImageBehavior, imageHtmlWithRenderedSizes } from './editorImageBehavior';
 import { editorTableBehavior } from './editorTableBehavior';
+import { noteLinkSchema, noteLinkDomBehavior, captureNoteLinkEdit, applyNoteLinkEdit, selectNoteLinkOccurrence, type NoteLinkEditSession } from './editorNoteLinks';
+import { parseNoteLinkUrl, type NoteLinkLocator } from '@study-accelerator/content-anchor';
 
 export interface MilkdownNoteEditorProps {
+  onRequestNoteLink?(session: NoteLinkEditSession): void;
+  onOpenNoteLink?(locator: NoteLinkLocator): void;
+  noteLinkStatuses?: Record<string, 'active' | 'deleted'>;
   noteId: string;
   markdown: string;
   readOnly: boolean;
@@ -94,11 +99,23 @@ export interface MilkdownNoteEditorProps {
 }
 
 export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEditorProps>(
-  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage }, ref) {
+  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage, onRequestNoteLink, onOpenNoteLink, noteLinkStatuses }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<Editor | null>(null);
     const onChangeRef = useRef(onChange);
     const onStatusRef = useRef(onStatus);
+    const noteLinkCallbacks = useRef({ onRequestNoteLink, onOpenNoteLink, noteLinkStatuses });
+    noteLinkCallbacks.current = { onRequestNoteLink, onOpenNoteLink, noteLinkStatuses };
+    const requestNoteLink = (editor: Editor) => {
+      const session = captureNoteLinkEdit(editor.ctx.get(editorViewCtx));
+      if (!session) { onStatusRef.current?.('请先选中同一段落内不含换行或图片的连续文字，或将光标放在已有笔记链接内'); return true; }
+      noteLinkCallbacks.current.onRequestNoteLink?.(session);
+      return true;
+    };
+    const decorateNoteLinks = () => {
+      const view = readyRef.current ? editorRef.current?.ctx.get(editorViewCtx) : null;
+      if (view) view.dispatch(view.state.tr.setMeta('noteLinkStatusesChanged', true).setMeta('addToHistory', false));
+    };
     const [operationStatus, setOperationStatus] = useState('');
     const reportOperationStatus = useCallback((message: string) => {
       if (!mountedRef.current) return;
@@ -192,6 +209,9 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         event.preventDefault();
         return;
       }
+      if (command === 'internal-link' && noteLinkCallbacks.current.onRequestNoteLink) {
+        requestNoteLink(editor); event.preventDefault(); return;
+      }
       if (commandResolvers[command](editor)) event.preventDefault();
     };
 
@@ -225,8 +245,29 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         const editor = editorRef.current;
         if (!editor || readOnlyRef.current) return false;
         restoreRememberedSelection(editor, lastSelectionRef.current);
+        if (command === 'internal-link' && noteLinkCallbacks.current.onRequestNoteLink) return requestNoteLink(editor);
         const resolver = commandResolvers[command];
         return resolver ? resolver(editor) : false;
+      },
+      captureNoteLinkEdit() {
+        const editor = editorRef.current;
+        if (!editor || !readyRef.current || readOnlyRef.current) return null;
+        restoreRememberedSelection(editor, lastSelectionRef.current);
+        return captureNoteLinkEdit(editor.ctx.get(editorViewCtx));
+      },
+      applyNoteLinkEdit(session, targetId, label) {
+        const editor = editorRef.current;
+        return Boolean(editor && readyRef.current && !readOnlyRef.current && applyNoteLinkEdit(editor.ctx.get(editorViewCtx), session, targetId, label));
+      },
+      selectNoteLinkOccurrence(locator) {
+        const editor = editorRef.current;
+        return Boolean(editor && readyRef.current && selectNoteLinkOccurrence(editor.ctx.get(editorViewCtx), editor.action(getMarkdown()), locator));
+      },
+      matchesMarkdownDocument(markdown) {
+        const editor = editorRef.current;
+        if (!editor || !readyRef.current) return false;
+        try { return editor.ctx.get(editorViewCtx).state.doc.eq(editor.ctx.get(parserCtx)(markdown)); }
+        catch { return false; }
       },
       async runEdit(action) {
         const editor = editorRef.current;
@@ -411,6 +452,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           // A debounced Markdown listener can replay an older document over a newer draft.
         })
         .use(commonmark)
+        .use(noteLinkSchema)
+        .use(noteLinkDomBehavior(() => noteLinkCallbacks.current.noteLinkStatuses))
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
         .use(gfm)
         .use(editorTableBehavior)
@@ -460,6 +503,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         await onReadyRef.current?.();
         if (cancelled) return;
         root.dataset.editorReady = 'true';
+        decorateNoteLinks();
       });
       return () => {
         cancelled = true;
@@ -513,6 +557,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     }, [annotations, focusedAnnotationId]);
 
     const getView = useCallback(() => readyRef.current ? editorRef.current?.ctx.get(editorViewCtx) ?? null : null, []);
+    useEffect(decorateNoteLinks, [markdown, noteLinkStatuses]);
 
     return (
       <> <div
@@ -520,12 +565,19 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         className={styles.milkdownEditor}
         data-readonly={readOnly || undefined}
         onKeyDownCapture={handleKeyDown}
+        onClickCapture={(event) => {
+          const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+          const parsed = anchor && parseNoteLinkUrl(anchor.getAttribute('data-note-link-url'));
+          if (!parsed) return;
+          event.preventDefault(); event.stopPropagation();
+          noteLinkCallbacks.current.onOpenNoteLink?.(parsed);
+        }}
         onBeforeInputCapture={() => { userInteractionRef.current = true; }}
         onPointerDownCapture={() => { userInteractionRef.current = true; }}
         onCompositionStartCapture={handleCompositionStart}
         onCompositionEndCapture={handleCompositionEnd}
       />
-      {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={reportOperationStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); commandResolvers[command](editor); } }} /> : null}
+      {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={reportOperationStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); if (command === 'internal-link' && noteLinkCallbacks.current.onRequestNoteLink) requestNoteLink(editor); else commandResolvers[command](editor); } }} /> : null}
       {!readOnly ? <EditorTableControls hostRef={hostRef} getView={getView} /> : null}
       {!readOnly ? <EditorImageControls hostRef={hostRef} getView={getView} /> : null}
       {operationStatus ? <p className={styles.operationStatus} role="status" data-pdf-exclude="true">{operationStatus}</p> : null}

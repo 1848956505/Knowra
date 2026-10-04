@@ -67,6 +67,11 @@ export interface EditorInspectorProps {
   attachmentsLoading: boolean;
   linkedNotes: Note[];
   linkedNotesLoading: boolean;
+  noteLinkRelations?: import('@study-accelerator/web-core').NoteLinkRelations;
+  noteLinkRelationsLoading?: boolean;
+  noteLinkRelationsError?: string;
+  onOpenLinkedOccurrence?(sourceId: string, locator: import('@study-accelerator/content-anchor').NoteLinkLocator): void;
+  onOpenLinkedNote?(id: string): void;
   annotations: Annotation[];
   annotationsLoading: boolean;
   focusedAnnotationId: string | null;
@@ -179,7 +184,9 @@ export function EditorInspector(props: EditorInspectorProps) {
               <OutlinePanel outline={outline} onNavigate={props.onNavigateHeading} />
             ) : null}
             {item.id === 'links' ? (
-              <LinksPanel relations={relations} loading={props.linkedNotesLoading} onOpenNote={props.onOpenNote} />
+              <LinksPanel relations={relations} loading={props.linkedNotesLoading} onOpenNote={props.onOpenNote}
+                noteLinks={props.noteLinkRelations} linksLoading={props.noteLinkRelationsLoading} error={props.noteLinkRelationsError}
+                onOpenOccurrence={props.onOpenLinkedOccurrence} onOpenLinkedNote={props.onOpenLinkedNote} />
             ) : null}
             {item.id === 'annotations' ? (
               <AnnotationPanel key={props.note.id} {...props} canWrite={props.canWrite && props.extendedWritesEnabled !== false} />
@@ -318,11 +325,34 @@ function OutlinePanel({ outline, onNavigate }: {
   );
 }
 
-function LinksPanel({ relations, loading, onOpenNote }: {
+function LinksPanel({ relations, loading, onOpenNote, noteLinks, linksLoading, error, onOpenOccurrence, onOpenLinkedNote }: {
   relations: InspectorRelations;
   loading: boolean;
   onOpenNote(noteId: string): void;
+  noteLinks?: import('@study-accelerator/web-core').NoteLinkRelations;
+  linksLoading?: boolean; error?: string;
+  onOpenOccurrence?(sourceId: string, locator: import('@study-accelerator/content-anchor').NoteLinkLocator): void;
+  onOpenLinkedNote?(id: string): void;
 }) {
+  if (noteLinks || error || linksLoading) return <div className={styles.linksPanel}>
+    {linksLoading ? <p role="status">正在更新笔记引用…</p> : null}
+    {error ? <p role="alert">{error}</p> : null}
+    <InspectorSection icon={<LinkIcon size={18} />} title="引用这篇笔记" count={noteLinks?.backlinks.length ?? 0}>
+      {noteLinks?.backlinks.length ? noteLinks.backlinks.map(source => <div key={source.id} className={styles.noteLinkGroup}>
+        <strong>{source.title}</strong>
+        {!source.occurrences.length ? <Button variant="ghost" onPress={() => onOpenNote(source.id)}>旧链接，打开来源笔记</Button> : null}
+        {source.occurrences.map(item => <Button key={`${item.occurrenceId}:${item.sourceStart}`} variant="ghost"
+          onPress={() => onOpenOccurrence?.(source.id, { occurrenceId: item.occurrenceId, targetNoteId: item.targetNoteId })}>{item.context || item.label}</Button>)}
+      </div>) : <p className={styles.emptyPanel}>暂无反向链接</p>}
+    </InspectorSection>
+    <InspectorSection icon={<NoteIcon size={18} />} title="本页链接" count={noteLinks?.outgoing.length ?? 0}>
+      {noteLinks?.outgoing.length ? noteLinks.outgoing.map(target => <div key={target.id} className={styles.noteLinkGroup}>
+        <Button variant="ghost" isDisabled={target.status === 'deleted'} onPress={() => (onOpenLinkedNote ?? onOpenNote)(target.id)}>
+          {target.title}{target.status === 'deleted' && target.title !== '目标已删除' ? '（目标已删除）' : ''}
+        </Button>
+      </div>) : <p className={styles.emptyPanel}>暂无内部链接</p>}
+    </InspectorSection>
+  </div>;
   return (
     <div className={styles.linksPanel}>
       {loading ? <p className={styles.panelStatus} role="status">正在同步服务端链接…</p> : null}

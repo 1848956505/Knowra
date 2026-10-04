@@ -401,3 +401,4 @@
 .attachmentPreviewImage { display: block; max-width: 100%; max-height: 65vh; margin-inline: auto; }
 
 .attachmentDownloadNotice { position: absolute; z-index: 4; left: 12px; bottom: 12px; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 8px; padding: 4px 12px; color: var(--ink-secondary); background: var(--ink-surface); }
+.linkNotice { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-secondary); padding: 8px 16px; font-size: 13px; }

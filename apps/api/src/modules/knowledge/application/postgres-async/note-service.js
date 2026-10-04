@@ -8,6 +8,7 @@ import {
   validationError
 } from '../knowledge-errors.js';
 import { createAsyncNoteAssociationOperations } from './note-association-operations.js';
+import { addedNoteLinkTargets, assertNoteLinkTarget, buildNoteLinkRelations } from '../note-link-relations.js';
 
 export function createAsyncNoteService({
   repository,
@@ -69,6 +70,7 @@ export function createAsyncNoteService({
 
   async function createNote(input) {
     const dto = buildCreateNoteDto(input);
+    for (const id of addedNoteLinkTargets(dto.rawMarkdown)) assertNoteLinkTarget(await repository.findById(id), dto.spaceId);
     if (await repository.findById(dto.id)) {
       throw conflictError('NOTE_ID_CONFLICT', 'A note with the same id already exists');
     }
@@ -85,6 +87,9 @@ export function createAsyncNoteService({
   async function updateNote(noteId, updates) {
     const currentNote = await requireNote(noteId, { includeDeleted: true });
     const dto = buildUpdateNoteDto(updates);
+    if (dto.rawMarkdown !== undefined) for (const id of addedNoteLinkTargets(dto.rawMarkdown, currentNote.rawMarkdown)) {
+      assertNoteLinkTarget(await repository.findById(id), dto.spaceId ?? currentNote.spaceId);
+    }
     if (
       dto.expectedUpdatedAt
       && dto.expectedUpdatedAt !== new Date(currentNote.updatedAt).toISOString()
@@ -176,6 +181,10 @@ export function createAsyncNoteService({
       return Promise.all(items.map((item) => service.importMarkdown(item)));
     },
     getNote: requireNote,
+    async getNoteLinkRelations(noteId) {
+      const note = await requireNote(noteId);
+      return buildNoteLinkRelations(note, await repository.list({ spaceId: note.spaceId, includeDeleted: true }));
+    },
     async getLinkedNotes(noteId) {
       const note = await requireNote(noteId, { includeDeleted: true });
       const internalLinks = Array.isArray(note.internalLinks)
