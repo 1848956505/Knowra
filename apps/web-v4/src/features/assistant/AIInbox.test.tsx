@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AIInbox } from './AIInbox';
 import { noteActionApi, type NoteAction } from './noteActionApi';
 const state = vi.hoisted(() => ({ canWriteWorkspace: () => true, loadWorkspace: vi.fn(async () => {}),
@@ -74,6 +74,44 @@ it('切换空间后旧列表响应不混入新空间', async () => {
   const view = render(<AIInbox spaceId="space" onOpenNote={vi.fn()} />);
   view.rerender(<AIInbox spaceId="next" onOpenNote={vi.fn()} />); release([action]);
   await waitFor(() => expect(screen.getByRole('button', { name: 'AI 成果收件箱（0）' })).toBeInTheDocument());
+});
+it('同 action 远端修订同步正文和新 plan，旧列表迟到不能回滚', async () => {
+  const revised = { ...action, plan: { ...action.plan, planHash: 'new-hash', items: [{ ...action.plan.items[0],
+    after: { ...action.plan.items[0].after, rawMarkdown: '第二版' } }] } } as NoteAction;
+  let release!: (rows: NoteAction[]) => void;
+  const delayed = new Promise<NoteAction[]>(resolve => { release = resolve; });
+  const selectedChange = vi.fn();
+  vi.mocked(noteActionApi.inbox).mockResolvedValueOnce([action]).mockReturnValueOnce(delayed).mockResolvedValue([revised]);
+  const view = render(<AIInbox spaceId="space" isOpen refreshKey="initial" onOpenNote={vi.fn()} onSelectedActionChange={selectedChange} />);
+  fireEvent.click(await screen.findByRole('button', { name: '审阅成果' }));
+  expect(screen.getByText('原稿')).toBeInTheDocument();
+  view.rerender(<AIInbox spaceId="space" isOpen refreshKey="slow" onOpenNote={vi.fn()} onSelectedActionChange={selectedChange} />);
+  view.rerender(<AIInbox spaceId="space" isOpen refreshKey="latest" onOpenNote={vi.fn()} onSelectedActionChange={selectedChange} />);
+  await screen.findByText('第二版');
+  release([action]); await act(async () => { await delayed; });
+  expect(screen.getByText('第二版')).toBeInTheDocument();
+  expect(selectedChange).toHaveBeenLastCalledWith(revised);
+  vi.mocked(noteActionApi.get).mockResolvedValue(revised);
+  fireEvent.click(screen.getByRole('button', { name: '确认采纳到笔记' }));
+  await waitFor(() => expect(noteActionApi.approve).toHaveBeenCalledWith(revised));
+});
+
+it('编辑中远端 plan 变化保留本地输入，明确放弃后才显示最新版', async () => {
+  const revised = { ...action, plan: { ...action.plan, planHash: 'new-hash', items: [{ ...action.plan.items[0],
+    after: { ...action.plan.items[0].after, rawMarkdown: '远端新版' } }] } } as NoteAction;
+  vi.mocked(noteActionApi.inbox).mockResolvedValueOnce([action]).mockResolvedValue([revised]);
+  const view = render(<AIInbox spaceId="space" isOpen refreshKey="initial" onOpenNote={vi.fn()} />);
+  fireEvent.click(await screen.findByRole('button', { name: '审阅成果' }));
+  showActions(); fireEvent.click(screen.getByRole('button', { name: '编辑新稿' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '成果正文' }), { target: { value: '本地未保存输入' } });
+  view.rerender(<AIInbox spaceId="space" isOpen refreshKey="remote" onOpenNote={vi.fn()} />);
+  await screen.findByRole('button', { name: '放弃本地编辑并查看最新成果' });
+  expect(screen.getByRole('textbox', { name: '成果正文' })).toHaveValue('本地未保存输入');
+  expect(screen.getByRole('button', { name: '保存修订预览' })).toBeDisabled();
+  expect(screen.queryByText('远端新版')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '放弃本地编辑并查看最新成果' }));
+  expect(screen.getByText('远端新版')).toBeInTheDocument();
+  expect(noteActionApi.revise).not.toHaveBeenCalled();
 });
 it('恢复旧资料集草稿只读，查询后仍不开放写入', async () => {
   vi.mocked(noteActionApi.inbox).mockResolvedValue([{ ...action, datasetStale: true }]);

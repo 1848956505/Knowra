@@ -12,10 +12,10 @@ import inboxStyles from './AIInbox.module.css';
 const labels: Record<string, string> = { awaitingApproval: '待审阅', authorized: '已确认，尚未采纳', applying: '待对账',
   applied: '已采纳', rejected: '已拒绝', cancelled: '已取消', conflicted: '版本冲突', expired: '需重新预览', failed: '提交失败' };
 const activeStatuses = ['awaitingApproval', 'authorized', 'applying'];
-export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange, onRowsChange, focusActionId, currentTurnId, onSelectedActionChange }: {
+export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange, onRowsChange, focusActionId, selectedMismatch, onSelectedActionChange }: {
   spaceId: string; refreshKey?: string; onOpenNote(id: string): void;
   isOpen?: boolean; onOpenChange?(open: boolean): void; onRowsChange?(rows: NoteAction[]): void; focusActionId?: string | null;
-  currentTurnId?: string | null; onSelectedActionChange?(action: NoteAction | null): void;
+  selectedMismatch?: boolean; onSelectedActionChange?(action: NoteAction | null): void;
 }) {
   const store = useAppStoreApi();
   const [localOpen, setLocalOpen] = useState(false);
@@ -23,6 +23,7 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
   const setOpen = (next: boolean) => { setLocalOpen(next); onOpenChange?.(next); };
   const [rows, setRows] = useState<NoteAction[]>([]);
   const [selected, setSelected] = useState<NoteAction | null>(null);
+  const [queuedRemote, setQueuedRemote] = useState<NoteAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,12 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
   const [title, setTitle] = useState('');
   const [markdown, setMarkdown] = useState('');
   const generation = useRef(0);
+  const listSequence = useRef(0);
+  const selectedRef = useRef<NoteAction | null>(null);
+  const busyRef = useRef(false);
+  const editingRef = useRef(false);
+  const refreshAfterBusy = useRef(false);
+  const [refreshSerial, setRefreshSerial] = useState(0);
   const requestKey = useRef<string | null>(null);
   const handledFocusAction = useRef<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -37,39 +44,60 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
   const mounted = useRef(true);
   useEffect(() => { if (open) heading.current?.focus(); }, [open]);
   useEffect(() => {
+    if (open) return;
+    generation.current++; listSequence.current++; selectedRef.current = null; busyRef.current = false; editingRef.current = false; refreshAfterBusy.current = false;
+    setSelected(null); setQueuedRemote(null); setBusy(false); setEditing(false); onSelectedActionChange?.(null);
+  }, [open]);
+  useEffect(() => {
     mounted.current = true; generation.current++;
-    setOpen(false); setRows([]); setSelected(null); onSelectedActionChange?.(null); setBusy(false); setError(null); setEditing(false);
+    setOpen(false); setRows([]); selectedRef.current = null; setSelected(null); setQueuedRemote(null);
+    onSelectedActionChange?.(null); setBusy(false); setError(null); setEditing(false);
     return () => { mounted.current = false; generation.current++; };
   }, [spaceId]);
   useEffect(() => {
-    let current = true; setLoading(true);
-    void noteActionApi.inbox(spaceId).then(items => { if (current) { setRows(items); onRowsChange?.(items); setError(null); } })
-      .catch(cause => { if (current) setError(cause instanceof Error ? cause.message : '成果加载失败。'); })
-      .finally(() => { if (current) setLoading(false); });
+    let current = true; const sequence = ++listSequence.current; setLoading(true);
+    void noteActionApi.inbox(spaceId).then(items => { if (current && sequence === listSequence.current) {
+      setRows(items); onRowsChange?.(items); setError(null);
+      const previous = selectedRef.current;
+      if (previous && open) {
+        const fresh = items.find(item => item.actionId === previous.actionId);
+        if (!fresh) { selectedRef.current = null; setSelected(null); setQueuedRemote(null); onSelectedActionChange?.(null); }
+        else if (busyRef.current) refreshAfterBusy.current = true;
+        else if (editingRef.current && fresh.plan.planHash !== previous.plan.planHash) setQueuedRemote(fresh);
+        else { selectedRef.current = fresh; setSelected(fresh); setQueuedRemote(null); onSelectedActionChange?.(fresh); }
+      }
+    } })
+      .catch(cause => { if (current && sequence === listSequence.current) setError(cause instanceof Error ? cause.message : '成果加载失败。'); })
+      .finally(() => { if (current && sequence === listSequence.current) setLoading(false); });
     return () => { current = false; };
-  }, [spaceId, refreshKey, open]);
+  }, [spaceId, refreshKey, refreshSerial, open]);
+  useEffect(() => { if (!busy && refreshAfterBusy.current) { refreshAfterBusy.current = false; setRefreshSerial(value => value + 1); } }, [busy]);
   useEffect(() => {
     if (!open || !focusActionId) { handledFocusAction.current = null; return; }
     if (handledFocusAction.current === focusActionId) return;
     const action = rows.find(row => row.actionId === focusActionId);
     if (action) { handledFocusAction.current = focusActionId; choose(action); }
   }, [open, focusActionId, rows]);
-  function close() { generation.current++; setOpen(false); onSelectedActionChange?.(null); setBusy(false); setEditing(false); }
+  function close() { generation.current++; listSequence.current++; selectedRef.current = null; busyRef.current = false; editingRef.current = false; refreshAfterBusy.current = false;
+    setSelected(null); setQueuedRemote(null); setOpen(false); onSelectedActionChange?.(null); setBusy(false); setEditing(false); }
   function choose(action: NoteAction) {
-    generation.current++; requestKey.current = null; setBusy(false); setError(null); setEditing(false); setSelected(action); onSelectedActionChange?.(action);
+    generation.current++; requestKey.current = null; selectedRef.current = action; busyRef.current = false; editingRef.current = false;
+    setBusy(false); setError(null); setEditing(false); setQueuedRemote(null); setSelected(action); onSelectedActionChange?.(action);
   }
   function update(action: NoteAction) {
+    selectedRef.current = action;
     setSelected(previous => previous?.actionId === action.actionId ? { ...previous, ...action } : action);
     onSelectedActionChange?.(action);
     setRows(previous => previous.map(row => row.actionId === action.actionId ? { ...row, ...action } : row));
   }
   async function perform(work: (assertCurrent: () => void) => Promise<NoteAction>) {
     if (busy) return;
-    const captured = generation.current; setBusy(true); setError(null);
+    const captured = generation.current; listSequence.current++; refreshAfterBusy.current = true;
+    busyRef.current = true; setBusy(true); setError(null);
     const assertCurrent = () => { if (!mounted.current || generation.current !== captured) throw new Error('页面已变化，请重新查看成果。'); };
     try { const action = await work(assertCurrent); assertCurrent(); update(action); }
     catch (cause) { if (mounted.current && generation.current === captured) setError(cause instanceof Error ? cause.message : '操作失败，请查询原成果后重试。'); }
-    finally { if (mounted.current && generation.current === captured) setBusy(false); }
+    finally { if (mounted.current && generation.current === captured) { busyRef.current = false; setBusy(false); } }
   }
   function ensureWritable(action: NoteAction) {
     if (action.datasetStale) throw new Error('资料集已恢复，旧草稿仅供查看；请在当前资料集重新生成。');
@@ -106,12 +134,13 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
         {!selected ? <p>在这里审阅成果，采纳后才保存到正式笔记。普通聊天不会自动进入收件箱。</p> : null}
         {loading ? <p role="status">正在恢复成果…</p> : rows.length === 0 ? <p>暂无成果。</p> : null}
         {error ? <p role="alert">{error}</p> : null}
-        {selected ? <Button variant="ghost" size="compact" onPress={() => { setSelected(null); onSelectedActionChange?.(null); }}>返回成果列表</Button> : rows.map(row => <div className={styles.record} key={row.actionId}>
+        {selected ? <Button variant="ghost" size="compact" onPress={() => { selectedRef.current = null; setSelected(null); setQueuedRemote(null); onSelectedActionChange?.(null); }}>返回成果列表</Button> : rows.map(row => <div className={styles.record} key={row.actionId}>
           <span>{row.plan.items.map(item => item.after.title).join('、')} · {labels[row.status] ?? row.status}</span>
           <Button variant="ghost" size="compact" onPress={() => choose(row)}>审阅成果</Button>
         </div>)}
         {selected ? <section aria-label="成果预览" className={styles.form}>
-          {currentTurnId !== undefined && selected.requestId !== currentTurnId ? <p className={inboxStyles.contextNotice} role="status">此成果不是当前对话的最后一轮。右侧选稿不会自动成为聊天修改目标；请在成果内编辑，或回到产生该成果的对话再继续。</p> : null}
+          {selectedMismatch ? <p className={inboxStyles.contextNotice} role="status">当前审阅成果不能作为此轮聊天的修改目标；右侧选稿不会改变实际目标。关闭审阅后可继续普通对话。</p> : null}
+          {queuedRemote ? <p role="alert">成果已在别处更新。当前编辑内容仍在此处；请放弃本地编辑并查看最新成果，再继续操作。</p> : null}
           <p className={inboxStyles.status} role="status">{labels[selected.status] ?? selected.status}{selected.errorCode ? ` · ${selected.errorCode}` : ''}</p>
           {selected.plan.items.map(item => <article key={item.after.id} className={inboxStyles.document}>
             <h3>{item.after.title}</h3>
@@ -128,11 +157,15 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
           {selected.status === 'applied' ? <p>成果已保存。旧版本可从笔记版本历史恢复。</p> : <p>待审成果当前不参与笔记库检索；正式采纳后可按笔记隐私设置读取。</p>}
           {editing ? <><TextField label="成果标题" value={title} onChange={value => { requestKey.current = null; setTitle(value); }} isDisabled={busy} />
             <TextAreaField label="成果正文" value={markdown} onChange={value => { requestKey.current = null; setMarkdown(value); }} isDisabled={busy} />
-            <Button variant="default" isDisabled={busy || !title.trim()} onPress={() => void perform(async assertCurrent => {
+            <Button variant="default" isDisabled={busy || !title.trim() || Boolean(queuedRemote)} onPress={() => void perform(async assertCurrent => {
               requestKey.current ??= crypto.randomUUID(); const item = selected.plan.items[0];
               const action = await noteActionApi.revise(selected, requestKey.current, { title, rawMarkdown: markdown, folderId: item.after.folderId, tagIds: item.after.tagIds });
-              assertCurrent(); setEditing(false); requestKey.current = null; return action;
-            })}>保存修订预览</Button></> : null}
+              assertCurrent(); editingRef.current = false; setEditing(false); requestKey.current = null; return action;
+            })}>保存修订预览</Button>
+            <Button variant="ghost" isDisabled={busy} onPress={() => {
+              editingRef.current = false; setEditing(false); requestKey.current = null;
+              if (queuedRemote) { selectedRef.current = queuedRemote; setSelected(queuedRemote); onSelectedActionChange?.(queuedRemote); setQueuedRemote(null); }
+            }}>{queuedRemote ? '放弃本地编辑并查看最新成果' : '取消编辑'}</Button></> : null}
         </section> : null}
       </div></div>
       <div className={inboxStyles.footer}>
@@ -145,7 +178,7 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
           })}>查询成果状态</Button>
           {!editing && !selected.datasetStale && !['applied', 'cancelled', 'rejected'].includes(selected.status) ? <>
             {selected.plan.toolName === 'notes_create' && selected.plan.items.length === 1 ? <Button variant="default" isDisabled={busy} onPress={() => {
-              moreActions.current?.removeAttribute('open'); requestKey.current = null; setTitle(selected.plan.items[0].after.title); setMarkdown(selected.plan.items[0].after.rawMarkdown); setEditing(true);
+              moreActions.current?.removeAttribute('open'); requestKey.current = null; setTitle(selected.plan.items[0].after.title); setMarkdown(selected.plan.items[0].after.rawMarkdown); editingRef.current = true; setEditing(true);
             }}>编辑新稿</Button> : null}
             {selected.status !== 'applying' ? <Button variant="default" isDisabled={busy} onPress={() => void perform(async assertCurrent => {
               requestKey.current ??= crypto.randomUUID(); const action = await noteActionApi.repreview(selected, requestKey.current);

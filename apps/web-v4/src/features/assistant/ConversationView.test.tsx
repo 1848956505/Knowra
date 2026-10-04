@@ -72,6 +72,57 @@ it('审阅旧轮成果时不把聊天修改误指向右侧选稿，关闭后恢�
   expect(conversationApi.send).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '关闭成果' }));
   expect(screen.getByRole('button', { name: '发送消息' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'AI 成果收件箱' }));
+  expect(screen.queryByRole('heading', { name: '旧稿' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '审阅成果' }));
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '对话' }));
+  fireEvent.click(screen.getByRole('button', { name: 'AI 成果收件箱' }));
+  expect(screen.queryByRole('heading', { name: '旧稿' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeEnabled();
+});
+
+it('同一成果 A 建稿到 B 续改后刷新右侧正文与 plan，并允许继续发送 C', async () => {
+  const first = { actionId: 'draft-a', requestId: 'turn-a', status: 'awaitingApproval',
+    grant: { originTurnId: 'turn-a', revoked: false }, inboxEvents: [],
+    plan: { planHash: 'hash-a', toolName: 'notes_create', items: [{ before: null,
+      after: { id: 'draft-note', title: '合成新稿', rawMarkdown: '第一版', folderId: null, tagIds: [] } }] } } as unknown as NoteAction;
+  const revised: NoteAction = { ...first, inboxEvents: [{ kind: 'revise', requestId: 'turn-b', originTurnId: 'turn-b', resultPlanHash: 'hash-b' }],
+    plan: { ...first.plan, planHash: 'hash-b', items: [{ ...first.plan.items[0], after: { ...first.plan.items[0].after, rawMarkdown: '第二版' } }] } };
+  const message = (turnId: string, role: ConversationMessage['role'], sequence: number): ConversationMessage => ({
+    messageId: `${turnId}-${role}`, turnId, sequence, role, content: role === 'assistant' ? `${turnId} 完成` : `${turnId} 请求`,
+    sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt
+  });
+  let rows: ConversationMessage[] = [message('turn-a', 'user', 1), message('turn-a', 'assistant', 2)];
+  let currentAction = first;
+  const actionCall = { callId: 'call', ordinal: 1, toolName: 'notes_create' as const, argumentsJson: {},
+    resultJson: { actionId: 'draft-a' }, status: 'succeeded' as const, sourceRefs: [], errorCode: null };
+  const turnA = { ...succeeded, turnId: 'turn-a', toolCalls: [actionCall] };
+  const turnB = { ...succeeded, turnId: 'turn-b', toolCalls: [actionCall] };
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockImplementation(async () => rows);
+  vi.mocked(conversationApi.turn).mockImplementation(async (_id, id) => id === 'turn-a' ? turnA : turnB);
+  vi.mocked(noteActionApi.inbox).mockImplementation(async () => [currentAction]);
+  vi.mocked(conversationApi.send).mockImplementation(async () => {
+    currentAction = revised; rows = [...rows, message('turn-b', 'user', 3), message('turn-b', 'assistant', 4)];
+    return turnB;
+  });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await screen.findByText('turn-a 完成');
+  fireEvent.click(screen.getByRole('button', { name: 'AI 成果收件箱' }));
+  fireEvent.click(await screen.findByRole('button', { name: '审阅成果' }));
+  expect(screen.getByText('第一版')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '短一点' } });
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
+  await screen.findByText('第二版');
+  expect(screen.queryByText('第一版')).not.toBeInTheDocument();
+  expect(screen.getByRole('region', { name: '成果预览' })).toHaveTextContent('第二版');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '再改得完整些' } });
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
+  await waitFor(() => expect(conversationApi.send).toHaveBeenCalledTimes(2));
 });
 
 it.each(['create', 'upload'] as const)('空白会话切换空间后清除旧附件状态（%s响应迟到）', async phase => {

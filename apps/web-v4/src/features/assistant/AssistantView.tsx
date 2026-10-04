@@ -13,6 +13,7 @@ import { assistantApi, type AssistantStatus } from './assistantApi';
 import { conversationApi, type AccessPolicy, type Conversation, type ConversationMessage,
   type ConversationTurn, type SourceRef } from './conversationApi';
 import type { NoteAction } from './noteActionApi';
+import { isCurrentReviewTarget } from './reviewTarget';
 import { LegacyAssistantView } from './LegacyAssistantView';
 import { readConversationSnapshot } from './conversationSnapshot';
 import { ReadableMarkdown } from './ReadableMarkdown';
@@ -93,7 +94,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const selectedId = selected?.conversationId ?? null;
   selection.current = selectedId;
   const latestTurn = messages.length ? turns[messages[messages.length - 1].turnId] ?? null : null;
-  const reviewingOtherDraft = inboxOpen && reviewedAction && reviewedAction.requestId !== latestTurn?.turnId;
+  const reviewingOtherDraft = Boolean(inboxOpen && reviewedAction
+    && !isCurrentReviewTarget(reviewedAction, selectedId, messages, latestTurn));
   const deliveryUncertain = latestTurn?.modelAttempts?.some(attempt =>
     (attempt.ordinal ?? Infinity) > (latestTurn.checkpoint?.handledAttemptOrdinal ?? 0)
     && (attempt.status === 'sent' || ['settled', 'unknown'].includes(attempt.status) && !attempt.modelResult)) ?? false;
@@ -462,7 +464,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
         {error ? <div className={styles.error} role="alert">{error} <Button variant="ghost" size="compact"
           onPress={() => void reloadPage()}>重新加载助手</Button></div> : null}
         {notice ? <p className={styles.muted} role="status">{notice}</p> : null}
-        {reviewingOtherDraft ? <p className={styles.reviewWarning} role="status">当前审阅的成果不属于此对话最后一轮。聊天不会自动修改右侧成果；关闭审阅后可继续普通对话。</p> : null}
+        {reviewingOtherDraft ? <p className={styles.reviewWarning} role="status">当前审阅成果不能作为此轮聊天的修改目标；右侧选稿不会改变实际目标。关闭审阅后可继续普通对话。</p> : null}
         <div className={styles.composer} aria-label="提问区">
           <div className={styles.composerInner}>
             {selected?.readOnly ? <div className={styles.readOnlyComposer}>
@@ -500,7 +502,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           </div>
         </div>
       </div>
-      {spaceId ? <AIInbox key={spaceId} spaceId={spaceId} isOpen={inboxOpen} focusActionId={focusedActionId} currentTurnId={latestTurn?.turnId ?? null}
+      {spaceId ? <AIInbox key={spaceId} spaceId={spaceId} isOpen={inboxOpen} focusActionId={focusedActionId} selectedMismatch={reviewingOtherDraft}
         onSelectedActionChange={setReviewedAction} onRowsChange={setArtifacts} onOpenChange={next => {
         setInboxOpen(next); if (!next && inboxOpen) { const opener = inboxOpener.current ?? inboxTrigger.current;
           window.requestAnimationFrame(() => opener?.focus()); setFocusedActionId(null); }

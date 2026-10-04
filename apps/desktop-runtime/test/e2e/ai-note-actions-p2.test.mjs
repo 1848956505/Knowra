@@ -46,8 +46,17 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
     await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-long-390.png`});
   }
   await page.setViewportSize({width:1280,height:720});await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
-  let lost=true;await page.route('**/api/ai/actions/*/apply',async route=>{const response=await route.fetch();if(lost){lost=false;await route.abort();}else await route.fulfill({response});});
-  await inbox.getByRole('button',{name:'确认采纳到笔记',exact:true}).click();await expect(inbox.getByRole('alert')).toBeVisible();
+  let lost=true,applyRequests=0;await page.route('**/api/ai/actions/*/apply',async route=>{applyRequests++;const response=await route.fetch();if(lost){lost=false;await route.abort();}else await route.fulfill({response});});
+  await inbox.getByRole('button',{name:'确认采纳到笔记',exact:true}).click();
+  await expect.poll(()=>applyRequests).toBe(1);
+  await expect.poll(async()=>{
+    const result=await page.request.get(`${fixture.origin}/api/ai/actions/${action.actionId}`,{headers});
+    assert(result.ok(),await result.text());return(await result.json()).data.status;
+  }).toBe('applied');
+  await expect.poll(()=>lost).toBe(false);
+  const notesAfterLostResponse=(await(await page.request.get(`${fixture.origin}/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}`,{headers})).json()).data;
+  assert.equal(notesAfterLostResponse.length,1,'丢失响应后仅保存原成果一次');
+  assert.equal(applyRequests,1,'只读收件箱对账不得重发采纳请求');
   await inbox.getByText('更多成果操作',{exact:true}).click();await inbox.getByRole('button',{name:'查询成果状态',exact:true}).click();await expect(inbox.getByRole('button',{name:'打开正式笔记',exact:true})).toBeVisible();
   await inbox.getByRole('button',{name:'关闭成果',exact:true}).click();
   await page.getByText(executionLabel, { exact: true }).click();await page.getByRole('button',{name:'执行记录',exact:true}).click();
