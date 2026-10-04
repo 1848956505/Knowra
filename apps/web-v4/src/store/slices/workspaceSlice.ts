@@ -162,6 +162,7 @@ export function createWorkspaceSlice(
           folderId: source.folderId,
           spaceId,
           sourceType: source.sourceType ?? 'manual',
+          aiVisibility: source.aiVisibility ?? 'normal',
           status: source.status ?? 'draft'
         });
         await runLoad(true);
@@ -472,7 +473,7 @@ export function createWorkspaceSlice(
         const baseTitle = `${source.title || '未命名笔记'} · 历史副本`;
         const title = [...names, ...folderNames].includes(baseTitle) ? createDuplicateTitle([...names, ...folderNames], baseTitle) : baseTitle;
         const created = await dependencies.api.createNote({ title, rawMarkdown: version.content, folderId: source.folderId, spaceId,
-          sourceType: source.sourceType ?? 'manual', status: 'draft', tagIds: source.tagIds });
+          sourceType: source.sourceType ?? 'manual', status: 'draft', tagIds: source.tagIds, aiVisibility: source.aiVisibility ?? 'normal' });
         await runLoad(true);
         get().selectNote(created.id);
         return { result: created.id, message: `历史版本已另存为：${title}` };

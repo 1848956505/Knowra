@@ -1,6 +1,8 @@
 import { hashRecord } from './record-contract.js';
 
 export const MAX_AGENT_RUN_MS = 10 * 60_000;
+export const REJECTED_RESPONSE_CODES = new Set(['AI_CITATION_INVALID', 'AI_OUTPUT_INVALID',
+  'AI_OUTPUT_TRUNCATED', 'AI_PROVIDER_REFUSED', 'AI_TOOL_INVALID']);
 
 export const emptyAgentCheckpoint = () => ({ version: 1, nextRound: 0, totalTools: 0,
   initialSearchDone: false, sourceRefs: [], searchTruncated: false, searchFallback: false,
@@ -51,10 +53,27 @@ export function validateDurableModelResult(result) {
 /** 不确定发送须由用户显式重试；存在响应的 unknown 只代表费用未知。 */
 export function assertResumableAttempts(attempts, checkpoint) {
   const handled = checkpoint?.handledAttemptOrdinal ?? 0;
+  if (attempts.some(attempt => attempt.ordinal > handled && attempt.responseRejectedCode)) {
+    throw Object.assign(new Error('模型响应已验证拒绝，请显式重试。'), { code: 'AI_RESPONSE_REJECTED' });
+  }
   if (attempts.some(attempt => attempt.ordinal > handled
     && (attempt.status === 'sent' || ['settled', 'unknown'].includes(attempt.status) && !attempt.modelResult))) {
     throw Object.assign(new Error('模型发送结果未确定，请显式重试；继续不会自动重发。'), { code: 'AI_DELIVERY_UNCERTAIN' });
   }
+}
+
+/** 显式重试的跳过与领取须同事务提交，避免领取后崩溃丢失验证拒绝状态。 */
+export function retryRejectedResponses(attempts, checkpoint, toolCount) {
+  const next = structuredClone(checkpoint ?? emptyAgentCheckpoint());
+  next.totalTools = Math.max(next.totalTools, toolCount);
+  for (const attempt of attempts.filter(row => row.ordinal > next.handledAttemptOrdinal && row.modelResult)
+    .sort((a, b) => a.ordinal - b.ordinal)) {
+    if (!attempt.responseRejectedCode) break;
+    next.nextRound += 1;
+    next.handledAttemptOrdinal = attempt.ordinal;
+  }
+  if (next.nextRound >= 4) throw Object.assign(new Error('本轮模型轮次已达到上限，请提交新任务。'), { code: 'AI_AGENT_LIMIT' });
+  return validateAgentCheckpoint(next, checkpoint);
 }
 
 export function sameDurableModelResult(left, right) { return hashRecord(left) === hashRecord(right); }

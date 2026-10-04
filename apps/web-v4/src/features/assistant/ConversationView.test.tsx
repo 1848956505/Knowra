@@ -2,7 +2,7 @@ vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => [])
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
-import { conversationApi, type Conversation, type ConversationTurn } from './conversationApi';
+import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
 
 const fixture = vi.hoisted(() => ({
   state: {
@@ -36,6 +36,59 @@ beforeEach(() => {
     configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null,
     capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
       writeTools: false, providerAdvertised: null, providerVerified: false } });
+});
+
+it('迟到的联网恢复快照不覆盖用户关闭的资料读取范围', async () => {
+  const policy = { policyId: 'policy-1', revision: 1, spaceId: 'space-1', scope: { kind: 'library' as const },
+    egress: true, recipients: ['deepseek'], expiresAt: '2030-01-01T00:00:00Z', revokedAt: null };
+  const messages: ConversationMessage[] = [
+    { messageId: 'old-user', turnId: 'turn-1', sequence: 1, role: 'user', content: '旧提问', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+    { messageId: 'old-answer', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '旧回答', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }
+  ];
+  let release!: (rows: ConversationMessage[]) => void;
+  const delayed = new Promise<ConversationMessage[]>(resolve => { release = resolve; });
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.policies).mockResolvedValue([policy]);
+  vi.mocked(conversationApi.messages).mockResolvedValueOnce(messages).mockReturnValueOnce(delayed).mockResolvedValue(messages);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, requestedPolicyId: 'policy-1', assistantMessageId: 'old-answer' });
+  vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, turnId: 'turn-2', status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await screen.findByText('旧回答');
+  const scope = Array.from(document.querySelectorAll('select')).find(select => Array.from(select.options).some(option => option.value === 'policy-1'))!;
+  expect(scope.value).toBe('policy-1');
+  fireEvent(window, new Event('online'));
+  await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledTimes(2));
+  fireEvent.change(scope, { target: { value: 'plain' } });
+  await act(async () => { release(messages); await delayed; });
+  expect(scope.value).toBe('plain');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '新的私事' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
+  await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: null })));
+});
+
+it('初次会话快照也不能覆盖加载期间用户新选择的授权', async () => {
+  const policies = ['policy-1', 'policy-2'].map(policyId => ({ policyId, revision: 1, spaceId: 'space-1',
+    scope: { kind: 'library' as const }, egress: true, recipients: ['deepseek'], expiresAt: '2030-01-01T00:00:00Z', revokedAt: null }));
+  const messages: ConversationMessage[] = [
+    { messageId: 'old-user', turnId: 'turn-1', sequence: 1, role: 'user', content: '旧问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+    { messageId: 'old-answer', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '旧答复', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }
+  ];
+  let release!: (rows: ConversationMessage[]) => void;
+  const delayed = new Promise<ConversationMessage[]>(resolve => { release = resolve; });
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.policies).mockResolvedValue(policies);
+  vi.mocked(conversationApi.messages).mockReturnValueOnce(delayed).mockResolvedValue(messages);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, requestedPolicyId: 'policy-1', assistantMessageId: 'old-answer' });
+  vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, turnId: 'turn-2', status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledOnce());
+  const scope = Array.from(document.querySelectorAll('select')).find(select => Array.from(select.options).some(option => option.value === 'policy-2'))!;
+  fireEvent.change(scope, { target: { value: 'policy-2' } });
+  await act(async () => { release(messages); await delayed; });
+  await screen.findByText('旧答复'); expect(scope.value).toBe('policy-2');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '沿用新选择' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
+  await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: 'policy-2' })));
 });
 
 it('没有笔记选择时可直接创建普通聊天，发送请求不带读取授权', async () => {

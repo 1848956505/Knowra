@@ -74,6 +74,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const pendingSend = useRef<PendingSend | null>(null);
   const selection = useRef<string | null>(null);
   const refreshSequence = useRef(0);
+  const scopeRevision = useRef(0);
   const space = useRef(spaceId);
   space.current = spaceId;
 
@@ -99,7 +100,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     if (!spaceId) return;
     let cancelled = false;
     setConversations([]); setPolicies([]); setMessages([]); setTurns({}); setTitles({});
-    setStatus(null); setScopeChoice('plain'); setError(null); setNotice(null); setSourceView(null);
+    setStatus(null); scopeRevision.current++; setScopeChoice('plain'); setError(null); setNotice(null); setSourceView(null);
     pendingSend.current = null; setRecordMessage(null);
     void conversationApi.list(spaceId).then(rows => { if (!cancelled) setConversations(rows); })
       .catch(cause => { if (!cancelled) setError(errorText(cause, '无法加载会话历史。')); });
@@ -110,10 +111,11 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     return () => { cancelled = true; };
   }, [spaceId]);
 
-  async function refreshConversation(id: string) {
+  async function refreshConversation(id: string, initializeScope = false) {
     if (selection.current !== id) return;
     const sequence = ++refreshSequence.current;
     const capturedSpace = space.current;
+    const capturedScopeRevision = scopeRevision.current;
     const isCurrent = () => refreshSequence.current === sequence && selection.current === id && space.current === capturedSpace;
     try {
       const snapshot = await readConversationSnapshot(id, isCurrent);
@@ -125,17 +127,20 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
         const turn = snapshot.turn;
         setTurns(previous => ({ ...previous, [turn.turnId]: turn }));
       }
-      setScopeChoice(snapshot.turn?.requestedPolicyId ?? 'plain');
+      if (initializeScope && scopeRevision.current === capturedScopeRevision) {
+        setScopeChoice(snapshot.turn?.requestedPolicyId ?? 'plain');
+      }
     } catch (cause) { if (isCurrent()) throw cause; }
   }
 
   useEffect(() => {
     refreshSequence.current++;
+    scopeRevision.current++; setScopeChoice('plain');
     setMessages([]); setTurns({}); setSourceView(null); setError(null); setRetryConfirmOpen(false);
     if (!selectedId) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
-    void refreshConversation(selectedId).catch(cause => {
+    void refreshConversation(selectedId, true).catch(cause => {
       if (!cancelled) setError(errorText(cause, '无法恢复会话。'));
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; refreshSequence.current++; };
@@ -235,12 +240,14 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
       : grantKind === 'folder' && grantFolderId ? { kind: 'folder', folderId: grantFolderId }
         : grantKind === 'fixed' && grantNoteId ? { kind: 'fixed', noteIds: [grantNoteId] } : null;
     if (!scope) { setError('请选择有效的目录或笔记。'); return; }
+    const capturedScopeRevision = scopeRevision.current;
     setPending(true); setError(null);
     try {
       const policy = await conversationApi.createPolicy({ spaceId, scope,
         expiresAt: new Date(Date.now() + Number(grantDays) * 86400_000).toISOString() });
       if (space.current !== spaceId) return;
-      setPolicies(previous => [policy, ...previous]); setScopeChoice(policy.policyId);
+      setPolicies(previous => [policy, ...previous]);
+      if (scopeRevision.current === capturedScopeRevision) { scopeRevision.current++; setScopeChoice(policy.policyId); }
       setGrantOpen(false); setNotice(`已授权${scopeName(policy)}，有效期至 ${formatTime(policy.expiresAt)}。`);
     } catch (cause) { setError(errorText(cause, '无法创建读取授权。')); }
     finally { setPending(false); }
@@ -248,11 +255,15 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
 
   async function revokePolicy(policy: AccessPolicy) {
     if (pending) return;
+    const capturedSpace = space.current;
+    const capturedScopeRevision = scopeRevision.current;
     setPending(true); setError(null);
     try {
       const revoked = await conversationApi.revokePolicy(policy);
+      if (space.current !== capturedSpace) return;
       setPolicies(previous => previous.map(item => item.policyId === revoked.policyId ? revoked : item));
-      setScopeChoice('plain'); setNotice('读取授权已撤销。');
+      if (scopeRevision.current === capturedScopeRevision) { scopeRevision.current++; setScopeChoice('plain'); }
+      setNotice('读取授权已撤销。');
     } catch (cause) { setError(errorText(cause, '撤销授权失败。')); }
     finally { setPending(false); }
   }
@@ -381,7 +392,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                     <span className={styles.composerHint}>助手自主选择工具</span>
                   </div>
                   <div className={styles.scopePicker}><Select label="资料范围" presentation="toolbar" selectedKey={scopeChoice}
-                    onSelectionChange={key => { setScopeChoice(String(key)); pendingSend.current = null; }}
+                    onSelectionChange={key => { scopeRevision.current++; setScopeChoice(String(key)); pendingSend.current = null; }}
                     options={[{ id: 'plain', label: '普通聊天 · 不读取笔记' }, ...activePolicies.map(policy => ({
                       id: policy.policyId, label: `${scopeName(policy)} · 至 ${formatTime(policy.expiresAt)}`
                     }))]} /></div>

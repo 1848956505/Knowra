@@ -388,6 +388,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
       assertNoKnowledgeArtifactProvenanceDowngrade(previous, state);
       persistBases(db, base, previousBase);
     }
+    preserveRemoteNotePrivacy(state, new Map([...(result.entries ?? []), ...(result.conflicts ?? []), ...(result.current ? [result.current] : [])].map(entry => [syncKey(entry.collection, entry.id), entry])));
     acknowledgeKnowledgeLifecycleUpload(db, operation.operationId, result.status === 'accepted');
     acknowledgeExamFocusReviewUpload(db, operation, result);
     // 冲突结果先解除冻结，下一次拉取会保存包含完整远端事务的冲突。
@@ -500,6 +501,9 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
 
 function preserveRemoteNotePrivacy(state, remote) {
   for (const note of state.notes) {
-    if (remote.get(syncKey('notes', note.id))?.value?.aiVisibility === 'private') note.aiVisibility = 'private';
+    if (remote.get(syncKey('notes', note.id))?.value?.aiVisibility === 'private' && note.aiVisibility !== 'private') {
+      note.aiVisibility = 'private';
+      note.updatedAt = new Date(Math.max(Date.now(), Date.parse(note.updatedAt) + 1 || 0)).toISOString();
+    }
   }
 }

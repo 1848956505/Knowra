@@ -5,7 +5,9 @@ import { applyNoteOperation } from '../../api/src/modules/sync/local-provider.js
 import { assertSyncContract, syncContract } from '../../api/src/modules/sync/protocol-contract.js';
 import { createNoteService } from '../../api/src/modules/knowledge/application/note-service.js';
 import { noteContent } from '../../api/src/modules/sync/journal.js';
-import { applyEntityRemote, getEntitySyncState, resolveEntityConflict } from '../src/entity-sync-state.mjs';
+import { applyEntityRemote, getEntitySyncState, resolveEntityConflict, nextEntityUpload, acknowledgeEntityUpload } from '../src/entity-sync-state.mjs';
+import { applyRemote, nextUpload, acknowledge, resolveConflict } from '../src/sync-state.mjs';
+import { isAiReadableNote } from '../../api/src/modules/ai/note-privacy.js';
 import { openWorkspace, temporaryDirectory } from './helpers.mjs';
 
 test('普通缺省、非法值拒绝；旧PATCH及旧笔记同步缺省保留私密状态', () => {
@@ -53,5 +55,28 @@ test('SQLite重启保留私密；云端私密化在本地正文冲突时立即�
   assert.equal(workspace.knowledge.noteService.getNote(note.id).aiVisibility, 'private');
   assert.equal(workspace.knowledge.noteService.getNote(note.id).rawMarkdown, choice === 'copy' ? '基线' : '本地未合并正文');
   assert.ok(workspace.store.state.notes.every(item => item.aiVisibility === 'private'));
+  }
+});
+
+
+for (const protocol of ['entity', 'legacy']) test(`${protocol} 私密冲突回包即时隔离：不依赖后续拉取，并阻止旧基线解除私密`, t => {
+  const w = openWorkspace(temporaryDirectory(t)); t.after(() => w.store.close());
+  const note = w.knowledge.noteService.createNote({ title: '合成私密回包', rawMarkdown: '基线', spaceId: w.space.id });
+  const entries = [{ collection: 'spaces', id: w.space.id, revision: 1, value: { ...w.space } },
+    { collection: 'notes', id: note.id, revision: 1, value: { ...note } }];
+  (protocol === 'entity' ? applyEntityRemote : applyRemote)(w.store, entries, 'cursor1', 'epoch1');
+  const dirty = w.knowledge.noteService.updateNote(note.id, { rawMarkdown: '本地未合并正文' });
+  const operation = (protocol === 'entity' ? nextEntityUpload : nextUpload)(w.store);
+  const remote = { collection: 'notes', id: note.id, revision: 2, value: { ...note, aiVisibility: 'private' } };
+  if (protocol === 'entity') acknowledgeEntityUpload(w.store, operation, { status: 'conflict', conflicts: [remote] });
+  else acknowledge(w.store, operation, { status: 'conflict', current: remote });
+  const current = w.knowledge.noteService.getNote(note.id);
+  assert.equal(current.aiVisibility, 'private');
+  assert.equal(current.rawMarkdown, '本地未合并正文');
+  assert.equal(isAiReadableNote(current), false);
+  assert.throws(() => w.knowledge.noteService.updateNote(note.id, { aiVisibility: 'normal', expectedUpdatedAt: dirty.updatedAt }), { code: 'NOTE_UPDATE_CONFLICT' });
+  if (protocol === 'legacy') {
+    resolveConflict(w.store, { noteId: note.id, choice: 'copy', remoteRevision: 2, datasetEpoch: 'epoch1' }, w.knowledge.noteService);
+    assert.ok(w.store.state.notes.every(item => item.aiVisibility === 'private'));
   }
 });

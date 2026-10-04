@@ -88,7 +88,7 @@
     "aiConversationModelAttempt": {
       "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
         "type": "object", "properties": {
-          "modelResult": { "type": "object" }, "kind": { "const": "aiConversationModelAttempt" },
+          "responseRejectedCode": { "$ref": "#/$defs/nullableCode" }, "responseRejectedAt": { "$ref": "#/$defs/time" }, "modelResult": { "type": "object" }, "kind": { "const": "aiConversationModelAttempt" },
           "attemptId": { "$ref": "#/$defs/id" }, "conversationId": { "$ref": "#/$defs/id" },
           "turnId": { "$ref": "#/$defs/id" }, "ordinal": { "type": "integer", "minimum": 1 },
           "leaseGeneration": { "type": "integer", "minimum": 1 },

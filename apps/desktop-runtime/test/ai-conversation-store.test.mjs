@@ -103,3 +103,34 @@ test('SQLite Agent 检查点及持久工具请求重启回读，租约与单调�
     { ...checkpoint, nextRound: 0 }), { code: 'AI_CHECKPOINT_INVALID' });
   data.close();
 });
+
+test('SQLite 持久拒绝响应跨重启仅显式重试推进，领取后崩溃不再回放', async t => {
+  const root = temporaryDirectory(t), file = path.join(root, 'rejected.sqlite');
+  let data = createSqliteDataStore(file);
+  const store = data.aiConversationStore;
+  const conversation = await store.createConversation({ ownerId: 'demo', actorId: 'demo', spaceId: 'space-1' });
+  const turn = await store.submitTurn({ ownerId: 'demo', conversationId: conversation.conversationId,
+    content: '合成拒绝响应', idempotencyKey: 'sqlite-rejected-1' });
+  const claimed = await store.claimTurn(turn.turnId);
+  await store.createModelAttempt(turn.turnId, claimed.leaseGeneration, { attemptId: 'sqlite-rejected-attempt',
+    modelId: 'deepseek-flash', payloadHash: 'a'.repeat(64), reservedMicrounits: 1000 });
+  await store.advanceModelAttempt('sqlite-rejected-attempt', 'reserved', { generation: claimed.leaseGeneration });
+  await store.advanceModelAttempt('sqlite-rejected-attempt', 'sent', { generation: claimed.leaseGeneration });
+  await store.advanceModelAttempt('sqlite-rejected-attempt', 'settled', { generation: claimed.leaseGeneration,
+    actualMicrounits: 100, modelResult: { content: '截断回答', toolCalls: [], finishReason: 'length', truncated: true, refused: false } });
+  await store.rejectModelResult(turn.turnId, claimed.leaseGeneration, 1, 'AI_OUTPUT_TRUNCATED');
+  await store.failTurn(turn.turnId, claimed.leaseGeneration, 'AI_OUTPUT_TRUNCATED');
+  data.close(); data = createSqliteDataStore(file);
+  assert.equal((await data.aiConversationStore.listModelAttempts(turn.turnId))[0].responseRejectedCode, 'AI_OUTPUT_TRUNCATED');
+  await assert.rejects(data.aiConversationStore.claimTurn(turn.turnId), { code: 'AI_RESPONSE_REJECTED' });
+  const retry = await data.aiConversationStore.claimTurn(turn.turnId, 60000, { mode: 'retry' });
+  assert.equal(retry.checkpoint.nextRound, 1);
+  await data.aiConversationStore.failTurn(turn.turnId, retry.leaseGeneration, 'AI_TASK_INTERRUPTED');
+  data.close(); data = createSqliteDataStore(file);
+  const resumed = await data.aiConversationStore.claimTurn(turn.turnId);
+  assert.equal(resumed.checkpoint.nextRound, 1);
+  assert.equal(resumed.checkpoint.handledAttemptOrdinal, 1);
+  assert.equal((await data.aiConversationStore.listModelAttempts(turn.turnId)).length, 1);
+  assert.equal(inspectRuntimeBackup(createRuntimeBackup(data, root)).valid, true);
+  data.close();
+});

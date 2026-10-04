@@ -36,6 +36,45 @@ async function attempt(store, turn, id = 'checkpoint-attempt-1') {
 }
 
 export const aiAgentCheckpointTests = [
+  { name: 'Agent 验证拒绝响应持久保存，显式重试领取崩溃后仍保留推进计数与工具幂等', run: () => fixture(async ({ store, file }) => {
+    const turn = await start(store, 'rejected-1');
+    await store.renewLease(turn.turnId, turn.leaseGeneration);
+    const id = await attempt(store, turn);
+    await store.advanceModelAttempt(id, 'settled', { generation: turn.leaseGeneration, actualMicrounits: 100, modelResult: result });
+    await store.appendToolCall(turn.turnId, turn.leaseGeneration, { callId: 'rejected-side-effect', toolName: 'notes_create', argumentsJson: { title: '合成稿' } });
+    await store.settleToolCall(turn.turnId, turn.leaseGeneration, 'rejected-side-effect', { resultJson: { actionId: 'synthetic-action' } });
+    await store.rejectModelResult(turn.turnId, turn.leaseGeneration, 1, 'AI_TOOL_INVALID');
+    await store.failTurn(turn.turnId, turn.leaseGeneration, 'AI_TOOL_INVALID');
+    const reopened = createFileDataStore(file).aiConversationStore;
+    assert.equal((await reopened.listModelAttempts(turn.turnId))[0].responseRejectedCode, 'AI_TOOL_INVALID');
+    await assert.rejects(reopened.claimTurn(turn.turnId), { code: 'AI_RESPONSE_REJECTED' });
+    const retried = await reopened.claimTurn(turn.turnId, 60000, { mode: 'retry' });
+    assert.equal(retried.checkpoint.nextRound, 1);
+    assert.equal(retried.checkpoint.handledAttemptOrdinal, 1);
+    assert.equal(retried.checkpoint.totalTools, 1);
+    await reopened.failTurn(turn.turnId, retried.leaseGeneration, 'AI_TASK_INTERRUPTED');
+    const resumed = await reopened.claimTurn(turn.turnId);
+    assert.equal(resumed.checkpoint.nextRound, 1);
+    const same = await reopened.appendToolCall(turn.turnId, resumed.leaseGeneration, { callId: 'rejected-side-effect', toolName: 'notes_create', argumentsJson: { title: '合成稿' } });
+    assert.equal(same.resultJson.actionId, 'synthetic-action');
+    assert.equal((await reopened.listToolCalls(turn.turnId)).length, 1);
+    assert.equal((await reopened.listModelAttempts(turn.turnId)).length, 1);
+  }) },
+  { name: 'Agent 连续拒绝响应的显式重试不重置四轮模型上限', run: () => fixture(async ({ store }) => {
+    let turn = await start(store, 'rejected-rounds');
+    for (let round = 1; round <= 4; round++) {
+      await store.renewLease(turn.turnId, turn.leaseGeneration);
+      const id = await attempt(store, turn, `rejected-round-${round}`);
+      await store.advanceModelAttempt(id, 'settled', { generation: turn.leaseGeneration, actualMicrounits: 100, modelResult: result });
+      await store.rejectModelResult(turn.turnId, turn.leaseGeneration, round, 'AI_OUTPUT_INVALID');
+      await store.failTurn(turn.turnId, turn.leaseGeneration, 'AI_OUTPUT_INVALID');
+      if (round < 4) {
+        turn = await store.claimTurn(turn.turnId, 60000, { mode: 'retry' });
+        assert.equal(turn.checkpoint.nextRound, round);
+      } else await assert.rejects(store.claimTurn(turn.turnId, 60000, { mode: 'retry' }), { code: 'AI_AGENT_LIMIT' });
+    }
+    assert.equal((await store.listModelAttempts(turn.turnId)).length, 4);
+  }) },
   { name: 'Agent 模型响应落盘失败时费用状态和响应一并回滚，未确认请求仍不可自动重发', async run() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-checkpoint-failure-'));
     try {

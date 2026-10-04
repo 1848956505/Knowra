@@ -5,7 +5,7 @@ import addFormats from 'ajv-formats';
 import schema from './contracts/ai-conversation-v2.schema.json' with { type: 'json' };
 import { hashRecord } from './record-contract.js';
 import { assertResumableAttempts, validateAgentCheckpoint, validateDurableModelResult,
-  sameDurableModelResult, MAX_AGENT_RUN_MS } from './agent-checkpoint.js';
+  sameDurableModelResult, MAX_AGENT_RUN_MS, REJECTED_RESPONSE_CODES, retryRejectedResponses } from './agent-checkpoint.js';
 
 export const CONVERSATION_KINDS = Object.freeze({
   aiConversation: { collection: 'conversations', id: 'conversationId' },
@@ -38,6 +38,10 @@ export function validateConversationRecord(kind, record) {
   if (kind === 'aiConversationModelAttempt' && record.modelResult) {
     validateDurableModelResult(record.modelResult);
     if (!['settled', 'unknown'].includes(record.status)) conversationError('AI_RECORD_INVALID', '响应与费用结算状态不一致。');
+  }
+  if (kind === 'aiConversationModelAttempt' && (Boolean(record.responseRejectedCode) !== Boolean(record.responseRejectedAt)
+    || record.responseRejectedCode && (!record.modelResult || !REJECTED_RESPONSE_CODES.has(record.responseRejectedCode)))) {
+    conversationError('AI_RECORD_INVALID', '模型响应拒绝状态无效。');
   }
   if (kind === 'aiConversationTurn' && record.turnId !== record.jobId) {
     conversationError('AI_RECORD_INVALID', '会话轮次与任务 ID 不一致。');
@@ -270,6 +274,9 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         if (!current(turn, identity) || !['staged', 'interrupted', 'failed'].includes(turn.status)) conversationError('AI_TURN_CONFLICT', '任务不可领取。');
         if (!['resume', 'retry'].includes(mode)) conversationError('AI_REQUEST_INVALID', '任务恢复方式无效。');
         if (mode === 'resume') assertResumableAttempts(state.conversationModelAttempts.filter(row => row.turnId === turnId), turn.checkpoint);
+        if (mode === 'retry') turn.checkpoint = retryRejectedResponses(
+          state.conversationModelAttempts.filter(row => row.turnId === turnId), turn.checkpoint,
+          state.conversationToolCalls.filter(row => row.turnId === turnId).length);
         if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000 || leaseMs > 300000) conversationError('AI_REQUEST_INVALID', '执行租期无效。');
         if (turn.executionStartedAt && now().getTime() >= Date.parse(turn.executionStartedAt) + MAX_AGENT_RUN_MS) {
           conversationError('AI_RUN_LIMIT', '本轮任务的总执行时间已达到上限，请提交新一轮任务。');
@@ -291,6 +298,21 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         }
         turn.checkpoint = next; turn.updatedAt = stamp();
         validateConversationRecord('aiConversationTurn', turn); return turn;
+      });
+    },
+    async rejectModelResult(turnId, generation, attemptOrdinal, errorCode) {
+      return write((state, identity) => {
+        const turn = mustTurn(state, turnId); lease(turn, identity, generation);
+        const attempt = state.conversationModelAttempts.find(row => row.turnId === turnId && row.ordinal === attemptOrdinal);
+        if (!attempt?.modelResult || !REJECTED_RESPONSE_CODES.has(errorCode)) {
+          conversationError('AI_REQUEST_INVALID', '只有已持久保存且验证拒绝的模型响应可标记。');
+        }
+        if (attempt.responseRejectedCode) {
+          if (attempt.responseRejectedCode !== errorCode) conversationError('AI_IDEMPOTENCY_CONFLICT', '响应拒绝原因与原记录不一致。');
+          return attempt;
+        }
+        attempt.responseRejectedCode = errorCode; attempt.responseRejectedAt = stamp(); attempt.updatedAt = stamp();
+        validateConversationRecord('aiConversationModelAttempt', attempt); return attempt;
       });
     },
     async setPhase(turnId, generation, phase) {

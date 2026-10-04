@@ -34,6 +34,24 @@ export const aiConversationPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE
       await first.saveCheckpoint(running.turnId, running.leaseGeneration, checkpoint);
       assert.deepEqual((await second.getTurn(running.turnId)).checkpoint, checkpoint);
       assert.deepEqual((await second.listModelAttempts(running.turnId))[0].modelResult, modelResult);
+      const rejectedId = randomUUID();
+      await first.createModelAttempt(running.turnId, running.leaseGeneration, { attemptId: rejectedId,
+        modelId: 'deepseek-flash', payloadHash: 'b'.repeat(64), reservedMicrounits: 1000 });
+      await first.advanceModelAttempt(rejectedId, 'reserved', { generation: running.leaseGeneration });
+      await first.advanceModelAttempt(rejectedId, 'sent', { generation: running.leaseGeneration });
+      await first.advanceModelAttempt(rejectedId, 'settled', { generation: running.leaseGeneration, actualMicrounits: 100,
+        modelResult: { ...modelResult, content: '拒绝回答', refused: true } });
+      await first.rejectModelResult(running.turnId, running.leaseGeneration, 2, 'AI_PROVIDER_REFUSED');
+      await first.failTurn(running.turnId, running.leaseGeneration, 'AI_PROVIDER_REFUSED');
+      await assert.rejects(second.claimTurn(running.turnId), { code: 'AI_RESPONSE_REJECTED' });
+      const retried = await second.claimTurn(running.turnId, 60000, { mode: 'retry' });
+      assert.equal(retried.checkpoint.nextRound, 2);
+      assert.equal(retried.checkpoint.handledAttemptOrdinal, 2);
+      assert.equal((await first.listModelAttempts(running.turnId))[1].responseRejectedCode, 'AI_PROVIDER_REFUSED');
+      await second.failTurn(running.turnId, retried.leaseGeneration, 'AI_TASK_INTERRUPTED');
+      const resumed = await first.claimTurn(running.turnId);
+      assert.equal(resumed.checkpoint.nextRound, 2);
+      assert.equal((await second.listModelAttempts(running.turnId)).length, 2);
       const otherOwner = `other-${randomUUID()}`;
       const otherRepo = createPostgresAiRepository({ client: db, ownerId: otherOwner });
       const isolated = createPostgresAiConversationStore({ client: db, repository: otherRepo, ownerId: otherOwner });

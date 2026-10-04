@@ -39,8 +39,8 @@ export function validateActionState(value) {
       if (row.grant.autonomousOrigin !== undefined && row.grant.autonomousOrigin !== true) invalid();
       if (row.grant.policyId === null ? row.grant.policyRevision !== null || row.plan.toolName !== 'notes_create'
         : typeof row.grant.policyId !== 'string' || !row.grant.policyId || !Number.isSafeInteger(row.grant.policyRevision) || row.grant.policyRevision < 1) invalid();
-    } else if (['originGeneration', 'policyId', 'policyRevision', 'autonomousOrigin'].some(key => key in row.grant)) invalid();
-    if (row.grant.sourceRefs !== undefined && (!row.grant.autonomousOrigin || !Array.isArray(row.grant.sourceRefs) || row.grant.sourceRefs.length > 128
+    } else if (['originGeneration', 'policyId', 'policyRevision', 'autonomousOrigin', 'sourceRefs'].some(key => key in row.grant)) invalid();
+    if (row.grant.sourceRefs !== undefined && (!row.grant.originTurnId || !Array.isArray(row.grant.sourceRefs) || row.grant.sourceRefs.length > 128
       || row.grant.sourceRefs.some(ref => !ref || typeof ref.noteId !== 'string' || !ref.noteId || typeof ref.noteVersionId !== 'string' || !ref.noteVersionId
         || !/^[a-f0-9]{64}$/.test(ref.contentHash) || !/^[a-f0-9]{64}$/.test(ref.quoteHash)
         || !Number.isSafeInteger(ref.start) || !Number.isSafeInteger(ref.end) || ref.start < 0 || ref.end <= ref.start

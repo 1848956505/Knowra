@@ -8,6 +8,24 @@ import {
 import { createAppStore } from './createAppStore';
 
 describe('single V4 application store', () => {
+  for (const copyMode of ['duplicate', 'history'] as const) {
+    it(`preserves private AI visibility when creating a ${copyMode} copy`, async () => {
+      const api = createApi();
+      vi.mocked(api.loadWorkspaceResources).mockResolvedValue({ folderTree: [], tags: [], notes: [{
+        id: 'live-note', title: '私密原稿', folderId: null, tagIds: [], internalLinks: [],
+        rawMarkdown: '合成私密正文', contentLoaded: true, favorite: false, deleted: false, aiVisibility: 'private'
+      }] });
+      vi.mocked(api.getNoteVersion).mockResolvedValue({ id: 'old-version', noteId: 'live-note', content: '合成私密历史正文',
+        contentHash: 'a'.repeat(64), createdAt: '2026-09-01T00:00:00Z', createdBy: 'user' });
+      const store = createAppStore({ api, cacheKey: `private-copy-${copyMode}`, mockSnapshot: createEmptyWorkspaceSnapshot() });
+      await store.getState().loadWorkspace();
+      if (copyMode === 'duplicate') await store.getState().duplicateNote('live-note');
+      else await store.getState().saveNoteVersionAs('live-note', 'old-version');
+      expect(api.createNote).toHaveBeenCalledWith(expect.objectContaining({ aiVisibility: 'private',
+        rawMarkdown: copyMode === 'duplicate' ? '合成私密正文' : '合成私密历史正文' }));
+      expect(api.updateNote).not.toHaveBeenCalled();
+    });
+  }
   it('changes AI visibility through ordinary update CAS, preserving workspace write guards', async () => {
     const api = createApi();
     const store = createAppStore({ api, cacheKey: 'note-ai-privacy', mockSnapshot: createEmptyWorkspaceSnapshot() });
@@ -533,6 +551,7 @@ describe('single V4 application store', () => {
       folderId: 'folder-1',
       spaceId: 'space-live',
       sourceType: 'manual',
+      aiVisibility: 'normal',
       status: 'draft'
     });
     expect(store.getState().navigation.selectedNoteId).toBe('copy-note');

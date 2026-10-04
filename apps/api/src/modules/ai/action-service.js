@@ -46,6 +46,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
   function* verifyOrigin(row, identity, allowExpired = false) {
     checkCurrent(row, identity, allowExpired);
     if (row.grant.originTurnId) {
+      if (!Array.isArray(row.grant.sourceRefs)) actionError('AI_ACTION_GRANT_REVOKED', '旧模型成果缺少可靠来源记录，请重新生成。', 403);
       const turn = yield conversationStore?.peekTurn(row.grant.originTurnId);
       if (!turn || !row.grant.autonomousOrigin && (!turn.writeIntent || turn.writeIntent.toolName !== row.plan.toolName)
         || !row.grant.autonomousOrigin && turn.writeIntent?.noteId && (row.plan.items.length !== 1 || turn.writeIntent.noteId !== row.plan.items[0].after.id)
@@ -148,7 +149,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
           || row.grant.policyId && (!policy || policy.revokedAt || policy.revision !== row.grant.policyRevision || Date.parse(policy.expiresAt) <= now().getTime())) actionError('AI_ACTION_GRANT_REVOKED', '恢复任务的来源授权已失效。', 403);
         return yield store.write(state => {
           const latest = rowFor(state, actionId, ownerId);
-          if (latest.grant.revoked || !['awaitingApproval', 'authorized'].includes(latest.status)) actionError('AI_ACTION_GRANT_REVOKED', '成果当前不可恢复绑定。', 403);
+          if (!Array.isArray(latest.grant.sourceRefs) || latest.grant.revoked || !['awaitingApproval', 'authorized'].includes(latest.status)) actionError('AI_ACTION_GRANT_REVOKED', '成果当前不可恢复绑定。', 403);
           const event = latest.inboxEvents?.find(event => event.originTurnId === turn.turnId);
           if (latest.grant.originTurnId === turn.turnId) latest.grant.originGeneration = turn.leaseGeneration;
           else if (event) event.originGeneration = turn.leaseGeneration;
@@ -174,7 +175,11 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
         await verifyRunSources(grantId, [...(prior.grant.sourceRefs ?? []), ...sourceRefs], targetIds);
         const originalTurn = prior.grant.originTurnId ? await conversationStore?.peekTurn(prior.grant.originTurnId) : null;
         if (!originalTurn || originalTurn.conversationId !== current.conversationId || prior.spaceId !== turn.spaceId || prior.plan.toolName !== call.name) actionError('AI_SCOPE_FORBIDDEN', '成果修订范围不匹配。', 403);
-        return service.reviseForAssistantTurn(actionId, { planHash: prior.plan.planHash, requestId: turn.turnId, arguments: args }, { ...turn, sourceRefs });
+        // 重试使用该 turn 已落盘的原始预览 hash；最新 planHash 已是修订结果，不能重建成另一个输入。
+        const priorEvent = prior.inboxEvents?.find(event => event.requestId === turn.turnId);
+        if (priorEvent && (priorEvent.kind !== 'revise' || priorEvent.originTurnId !== turn.turnId)) actionError('AI_IDEMPOTENCY_CONFLICT', '修订请求已被其他成果操作使用。');
+        const action = await service.reviseForAssistantTurn(actionId, { planHash: priorEvent?.previousPlan.planHash ?? prior.plan.planHash, requestId: turn.turnId, arguments: args }, { ...turn, sourceRefs });
+        return service.resumeForTurn(action.actionId, turn, { sourceRefs, grantId });
       }
       const row = await service.plan({ spaceId: turn.spaceId, requestId: turn.turnId, toolName: call.name, arguments: call.arguments }, { ...turn, writePolicy: policy, autonomousOrigin: true, sourceRefs });
       return store.transaction(() => run((function* () {
@@ -184,13 +189,17 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
           && latest.spaceId === row.spaceId && Date.parse(latest.leaseExpiresAt) > now().getTime();
         return yield store.write(state => {
           const action = rowFor(state, row.actionId, ownerId);
-          action.grant.autonomousOrigin = true;
+          if (valid) {
+            if (!Array.isArray(action.grant.sourceRefs) || action.grant.revoked || !['awaitingApproval', 'authorized'].includes(action.status)
+              || action.grant.originTurnId !== turn.turnId) actionError('AI_ACTION_GRANT_REVOKED', '成果当前不可恢复绑定。', 403);
+            action.grant.originGeneration = turn.leaseGeneration;
+          }
           if (!valid) { action.status = 'cancelled'; action.grant.revoked = true; }
           return action;
         });
       })()));
     },
-    async planForTurn(turn, intent, call) {
+    async planForTurn(turn, intent, call, { sourceRefs = [], grantId = null } = {}) {
       validateWriteIntent(intent);
       if (!turn.writeIntent || hashRecord(turn.writeIntent) !== hashRecord(intent)) actionError('AI_SCOPE_FORBIDDEN', '写入意图与原指令不一致。', 403);
       const identity = await store.identity();
@@ -198,13 +207,17 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       if (call.name !== intent.toolName || intent.noteId && (call.name === 'notes_propose_organize' ? call.arguments?.changes?.length !== 1 || call.arguments.changes[0]?.noteId !== intent.noteId : call.arguments?.noteId !== intent.noteId)) actionError('AI_SCOPE_FORBIDDEN', '模型只能为明确指令的固定目标提出计划。', 403);
       const policy = turn.requestedPolicyId ? await accessStore?.get('aiAccessPolicy', turn.requestedPolicyId) : null;
       if (turn.requestedPolicyId && (!policy || policy.revokedAt || Date.parse(policy.expiresAt) <= now().getTime())) actionError('AI_ACTION_GRANT_REVOKED', '模型来源授权已失效。', 403);
-      const row = await service.plan({ spaceId: turn.spaceId, requestId: turn.turnId, toolName: call.name, arguments: call.arguments }, { ...turn, writePolicy: policy });
+      const targetIds = call.name === 'notes_create' ? [] : call.name === 'notes_propose_organize' ? (call.arguments?.changes ?? []).map(row => row.noteId) : [call.arguments?.noteId];
+      // 兼容明确固定目标的旧入口；工作线程提供 run grant 时连目标一起复核。
+      await verifyRunSources(grantId, sourceRefs, grantId ? targetIds : []);
+      const row = await service.plan({ spaceId: turn.spaceId, requestId: turn.turnId, toolName: call.name, arguments: call.arguments }, { ...turn, writePolicy: policy, sourceRefs });
       return store.transaction(() => run((function* () {
         const current = yield conversationStore.peekTurn(turn.turnId);
         const valid = current && current.status === 'running' && current.leaseGeneration === turn.leaseGeneration
           && current.ownerId === ownerId && current.datasetId === row.datasetId && current.datasetEpoch === row.datasetEpoch
           && current.spaceId === row.spaceId && current.turnId === row.requestId && (current.requestedPolicyId ?? null) === row.grant.policyId && Date.parse(current.leaseExpiresAt) > now().getTime();
         return yield store.write(state => { const action = rowFor(state, row.actionId, ownerId);
+          if (valid && (!Array.isArray(action.grant.sourceRefs) || action.grant.revoked || !['awaitingApproval', 'authorized'].includes(action.status))) actionError('AI_ACTION_GRANT_REVOKED', '成果当前不可恢复绑定。', 403);
           action.grant.originTurnId = turn.turnId; action.grant.originGeneration = turn.leaseGeneration;
           if (!valid) { action.status = 'cancelled'; action.grant.revoked = true; }
           return action;
@@ -257,7 +270,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
         if (prior) { if (prior.inputHash !== inputHash) actionError('AI_IDEMPOTENCY_CONFLICT', '相同指令输入冲突。'); return prior; }
         const row = { ...identityFields, actionId: randomUUID(), inputHash, plan, status: 'awaitingApproval', approval: null,
           receipt: null, errorCode: null, createdAt: now().toISOString(), expiresAt: new Date(now().getTime() + 30 * 60000).toISOString() };
-        row.grant = { ...identityFields, requestHash: inputHash, toolName: plan.toolName, targetIds: plan.items.map(item => item.after.id), expiresAt: row.expiresAt, revoked: false, ...(origin ? { ...(origin.autonomousOrigin ? { autonomousOrigin: true, sourceRefs: structuredClone(origin.sourceRefs ?? []) } : {}), originTurnId: origin.turnId, originGeneration: origin.leaseGeneration, policyId: origin.writePolicy?.policyId ?? null, policyRevision: origin.writePolicy?.revision ?? null } : {}) };
+        row.grant = { ...identityFields, requestHash: inputHash, toolName: plan.toolName, targetIds: plan.items.map(item => item.after.id), expiresAt: row.expiresAt, revoked: false, ...(origin ? { ...(origin.autonomousOrigin ? { autonomousOrigin: true } : {}), sourceRefs: structuredClone(origin.sourceRefs ?? []), originTurnId: origin.turnId, originGeneration: origin.leaseGeneration, policyId: origin.writePolicy?.policyId ?? null, policyRevision: origin.writePolicy?.revision ?? null } : {}) };
         state.actions.push(row); return row;
       });
     },
@@ -286,7 +299,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
         const recovered = await reconcile(row);
         if (recovered.status === 'applied') return recovered;
         // applying 保留可对账重试；确定的 CAS/授权拒绝才进入终态。
-        if (/CONFLICT|STALE|EXPIRED|APPROVAL|GRANT_REVOKED/.test(error.code ?? '')) await store.write(state => {
+        if (/CONFLICT|STALE|EXPIRED|APPROVAL|GRANT_REVOKED|SCOPE_FORBIDDEN/.test(error.code ?? '')) await store.write(state => {
           const current = rowFor(state, actionId, ownerId);
           if (current.status === 'applying') { current.status = 'conflicted'; current.errorCode = error.code; }
           return current;

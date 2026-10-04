@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { calculateContentHash } from '../../src/modules/knowledge/domain/note-version.js';
 import { randomUUID } from 'node:crypto';
 import { hashRecord } from '../../src/modules/ai/record-contract.js';
 import { finalizePlan } from '../../src/modules/ai/action-plan.js';
@@ -6,6 +7,61 @@ import { validateActionState } from '../../src/modules/ai/action-state.js';
 
 export function noteActionScenarios(withFixture) {
   return [
+    { name: '成果已落盘而工具结果未落盘：新稿和修订重启精确重放、不刷新预览并可唯一采纳', run: () => withFixture(async f => {
+      const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
+      const stage = async (content, args) => {
+        const submitted = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content, idempotencyKey: randomUUID() });
+        const turn = await f.conversations.claimTurn(submitted.turnId), callId = randomUUID();
+        const call = await f.conversations.appendToolCall(turn.turnId, turn.leaseGeneration, { callId, toolName: 'notes_create', argumentsJson: args });
+        const action = await f.actions.planForAssistantTurn(turn, { name: call.toolName, arguments: call.argumentsJson });
+        const settle = f.conversations.settleToolCall;
+        f.conversations.settleToolCall = async () => { throw new Error('工具结果写盘失败'); };
+        await assert.rejects(f.conversations.settleToolCall(turn.turnId, turn.leaseGeneration, callId, { resultJson: { actionId: action.actionId } }), /工具结果写盘失败/);
+        f.conversations.settleToolCall = settle;
+        assert.equal((await f.conversations.listToolCalls(turn.turnId))[0].status, 'requested');
+        await f.conversations.failTurn(turn.turnId, turn.leaseGeneration, 'AI_SYNTHETIC_INTERRUPTED'); await f.restart();
+        const resumed = await f.conversations.claimTurn(turn.turnId), persisted = (await f.conversations.listToolCalls(turn.turnId))[0];
+        await assert.rejects(f.actions.planForAssistantTurn(resumed, { name: persisted.toolName, arguments: { ...persisted.argumentsJson, rawMarkdown: '篡改重试' } }), { code: 'AI_IDEMPOTENCY_CONFLICT' });
+        const replayed = await f.actions.planForAssistantTurn(resumed, { name: persisted.toolName, arguments: persisted.argumentsJson });
+        assert.equal(replayed.actionId, action.actionId); assert.deepEqual(replayed.plan, action.plan); assert.equal(replayed.expiresAt, action.expiresAt);
+        assert.equal(replayed.inboxEvents?.length ?? 0, action.inboxEvents?.length ?? 0);
+        await f.conversations.settleToolCall(resumed.turnId, resumed.leaseGeneration, callId, { resultJson: { actionId: replayed.actionId, planHash: replayed.plan.planHash } });
+        await f.conversations.completeTurn(resumed.turnId, resumed.leaseGeneration, { content: '成果可审阅', sourceFree: true });
+        return { action: replayed, turn: resumed };
+      };
+      const first = await stage('生成笔记新稿', { title: '落盘间隙草稿', rawMarkdown: '第一稿' });
+      assert.equal(first.action.grant.originGeneration, first.turn.leaseGeneration);
+      const second = await stage('短一点', { actionId: first.action.actionId, title: '落盘间隙草稿', rawMarkdown: '第二稿' });
+      assert.equal(second.action.inboxEvents[0].originGeneration, second.turn.leaseGeneration);
+      assert.equal((await f.actions.listInbox(f.space.id)).length, 1);
+      await f.actions.approve(second.action.actionId, { planHash: second.action.plan.planHash }); const result = await f.actions.apply(second.action.actionId);
+      await f.restart(); assert.deepEqual((await f.actions.apply(second.action.actionId)).receipt, result.receipt);
+      assert.equal((await f.notes()).length, 1); assert.equal((await f.getNote(second.action.plan.items[0].after.id)).rawMarkdown, '第二稿');
+    }) },
+    { name: '明确写入意图同样绑定个人来源；私密转换和旧模型无来源记录拒绝采纳', run: () => withFixture(async f => {
+      const source = await f.create({ title: '合成来源', rawMarkdown: '仅普通笔记允许读取' });
+      const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
+      const policy = await f.access.createPolicy({ spaceId: f.space.id, scope: { kind: 'library' }, excludedNoteIds: [], includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
+      const grant = await f.access.createRunGrant({ policyId: policy.policyId, conversationId: conversation.conversationId });
+      const verified = await f.access.verifyRead({ grantId: grant.grantId, noteId: source.id });
+      const refs = [{ noteId: source.id, noteVersionId: verified.version.id, contentHash: verified.contentHash, start: 0, end: source.rawMarkdown.length, quoteHash: calculateContentHash(source.rawMarkdown) }];
+      const create = async () => {
+        const submitted = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '根据笔记生成总结', idempotencyKey: randomUUID(), requestedPolicyId: policy.policyId, writeIntent: { toolName: 'notes_create' } });
+        const turn = await f.conversations.claimTurn(submitted.turnId);
+        const action = await f.actions.planForTurn(turn, turn.writeIntent, { name: 'notes_create', arguments: { title: '来源派生草稿', rawMarkdown: source.rawMarkdown } }, { sourceRefs: refs, grantId: grant.grantId });
+        await f.conversations.completeTurn(turn.turnId, turn.leaseGeneration, { content: '已生成草稿', sourceFree: true }); return action;
+      };
+      const action = await create(), legacy = await create(); assert.deepEqual(action.grant.sourceRefs, refs);
+      await f.actionStore.write(state => { delete state.actions.find(row => row.actionId === legacy.actionId).grant.sourceRefs; });
+      await f.restart(); await f.actions.approve(legacy.actionId, { planHash: legacy.plan.planHash });
+      await assert.rejects(f.actions.apply(legacy.actionId), { code: 'AI_ACTION_GRANT_REVOKED' });
+      await f.update(source.id, { aiVisibility: 'private' });
+      await f.actions.approve(action.actionId, { planHash: action.plan.planHash });
+      await assert.rejects(f.actions.apply(action.actionId), { code: 'AI_SCOPE_FORBIDDEN' });
+      await assert.rejects(f.actions.repreview(action.actionId, { planHash: action.plan.planHash, requestId: randomUUID() }), { code: 'AI_SCOPE_FORBIDDEN' });
+      await assert.rejects(f.actions.revise(action.actionId, { planHash: action.plan.planHash, requestId: randomUUID(), arguments: { title: '来源派生草稿', rawMarkdown: '修改派生稿' } }), { code: 'AI_SCOPE_FORBIDDEN' });
+      assert.equal((await f.actions.listInbox(f.space.id)).length, 2); assert.equal((await f.notes()).length, 1);
+    }) },
     { name: '自主成果与对话修订在恢复后重绑 generation，取消修订拒绝采纳', run: () => withFixture(async f => {
       const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
       const submitted = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '生成周总结', idempotencyKey: randomUUID() });

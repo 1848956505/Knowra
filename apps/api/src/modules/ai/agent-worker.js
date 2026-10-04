@@ -13,6 +13,11 @@ const MAX_ROUNDS = 4;
 const MAX_TOOLS = 6;
 const MAX_ATTEMPTS = 8;
 const MAX_RUN_MS = 10 * 60_000;
+const deterministicWriteFailure = code => typeof code === 'string'
+  && (/^AI_NOTE_(TOOL_INVALID|TARGET_INVALID|TARGET_CONFLICT|REFERENCE_DENIED|BASELINE_INVALID|ANCHOR_INVALID|PATCH_INVALID|NO_CHANGE|PLAN_LIMIT|TARGET_NOT_READ)$/.test(code)
+    || ['AI_REQUEST_INVALID', 'AI_IDEMPOTENCY_CONFLICT', 'AI_DATASET_STALE', 'AI_SCOPE_FORBIDDEN',
+      'AI_TOOL_ARGUMENTS_INVALID', 'AI_ACTION_GRANT_REVOKED', 'AI_ACTION_CONFLICT', 'AI_ACTION_EXPIRED',
+      'AI_ACTION_PLAN_CHANGED', 'AI_ACTION_SOURCE_INVALID'].includes(code));
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 const safeCode = value => typeof value === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(value)
   ? value : 'AI_TASK_FAILED';
@@ -190,6 +195,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs });
       return toolOutcome(persisted);
     }
+    let receiptPending = false;
     try {
       let outcome;
       if (writeCall) {
@@ -203,8 +209,10 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           }
         }
         if (!actions) fail('AI_ACTION_UNAVAILABLE', '写入计划服务不可用。');
-        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call)
+        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs, grantId })
           : await actions.planForAssistantTurn(turn, call, { sourceRefs, grantId });
+        receiptPending = true;
+        await actions.resumeForTurn(action.actionId, turn, { sourceRefs, grantId });
         outcome = { resultJson: { actionId: action.actionId, planHash: action.plan.planHash, status: action.status }, sourceRefs: [] };
       } else if (call.name === 'notes_search') {
         const found = await searchAssistantNotes({ search, access, grantId, args: call.arguments });
@@ -215,11 +223,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       } else if (call.name === 'notes_read') outcome = await readTool(grantId, call.arguments);
       else if (call.name === 'web_search') outcome = await webSearch.search(call.arguments, userMessage, signal);
       else fail('AI_TOOL_INVALID', '模型请求了未开放的工具。');
+      receiptPending = true;
       await currentTurn(turn.turnId, generation, signal);
       await store.settleToolCall(turn.turnId, generation, callId, outcome);
       return toolOutcome(outcome);
     } catch (error) {
-      await store.settleToolCall(turn.turnId, generation, callId,
+      if (!receiptPending && (!writeCall || deterministicWriteFailure(error?.code))) await store.settleToolCall(turn.turnId, generation, callId,
         { errorCode: safeCode(error?.code) }).catch(() => undefined);
       if (['AI_TOOL_ARGUMENTS_INVALID', 'AI_SEARCH_INVALID', 'AI_SCOPE_FORBIDDEN', 'AI_WEB_QUERY_REQUIRES_CLARIFICATION', 'AI_NOTE_TARGET_NOT_READ'].includes(error?.code)) {
         return { sourceRefs: [], truncated: false, fallback: false, inspected: 0, errorCode: safeCode(error?.code) };
@@ -404,6 +413,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       const { result, attemptOrdinal } = delivery;
       const permittedTools = pending ? availableTools(turn, Boolean(grant), false, artifactRequested) : request.tools;
       if (result.toolCalls.some(call => !permittedTools.some(tool => tool.name === call.name))) {
+        await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, 'AI_TOOL_INVALID');
         fail('AI_TOOL_INVALID', '恢复的工具请求不在当前授权工具范围内。');
       }
       if (result.finishReason === 'tool_calls') {
@@ -412,7 +422,10 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           || totalTools + result.toolCalls.filter(call => !persistedCalls.some(item => item.callId === hashRecord({ turnId: turn.turnId, providerCallId: call.id }))).length > MAX_TOOLS || round === MAX_ROUNDS - 1) {
           fail('AI_AGENT_LIMIT', '工具轮次达到上限。');
         }
-        if (result.toolCalls.some(call => proposalNames.has(call.name)) && result.toolCalls.length !== 1) fail('AI_TOOL_INVALID', '一轮只可提出一个明确的写入计划。');
+        if (result.toolCalls.some(call => proposalNames.has(call.name)) && result.toolCalls.length !== 1) {
+          await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, 'AI_TOOL_INVALID');
+          fail('AI_TOOL_INVALID', '一轮只可提出一个明确的写入计划。');
+        }
 
         const before = new Set(sourceRefs.map(hashRecord));
         for (const call of result.toolCalls) {
@@ -443,14 +456,21 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         continue;
       }
       if (result.finishReason !== 'stop' || result.truncated || result.refused) {
-        fail(result.truncated ? 'AI_OUTPUT_TRUNCATED' : result.refused ? 'AI_PROVIDER_REFUSED' : 'AI_OUTPUT_INVALID',
-          '模型未返回完整可用回答。');
+        const code = result.truncated ? 'AI_OUTPUT_TRUNCATED' : result.refused ? 'AI_PROVIDER_REFUSED' : 'AI_OUTPUT_INVALID';
+        await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, code);
+        fail(code, '模型未返回完整可用回答。');
       }
       await store.setPhase(turn.turnId, generation, 'validating');
-      const answer = grant ? citedResult(result, request, manifest)
-        : { content: result.content.trim(), sourceRefs: [], citations: [], provenanceManifestId: null, sourceFree: true };
+      let answer;
+      try {
+        answer = grant ? citedResult(result, request, manifest)
+          : { content: result.content.trim(), sourceRefs: [], citations: [], provenanceManifestId: null, sourceFree: true };
+        if (!answer.content) fail('AI_OUTPUT_INVALID', '模型返回空回答。');
+      } catch (error) {
+        if (['AI_CITATION_INVALID', 'AI_OUTPUT_INVALID'].includes(error.code)) await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, error.code);
+        throw error;
+      }
       if (externalContext) answer.content += '\n\n外部检索来源（合成验收，非真实联网）：' + renderExternalSources(externalContext);
-      if (!answer.content) fail('AI_OUTPUT_INVALID', '模型返回空回答。');
       await currentTurn(turn.turnId, generation, signal);
       await store.completeTurn(turn.turnId, generation, answer);
       return;

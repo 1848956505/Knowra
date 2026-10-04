@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { aiAssistantCrashgapTests } from './ai-assistant-crashgap.test.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,14 +30,27 @@ async function fixture(run, webSearchAdapter = null) {
     budgetAuthority: app.dataStore.aiBudgetAuthority, priceProfile, webSearchAdapter,
     contextSources: { ...app.modules.knowledge.repositories, spaceRepository: app.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'test' } });
     const conversation = await runtime.conversation.create({ spaceId: space.id });
-    const submit = (content, idempotencyKey, requestedPolicyId = null) => runtime.conversationStore.submitTurn({
-      ownerId: 'test', conversationId: conversation.conversationId, content, idempotencyKey: `assistant-${idempotencyKey}`, requestedPolicyId });
+    const submit = (content, idempotencyKey, requestedPolicyId = null, writeIntent = null) => runtime.conversationStore.submitTurn({
+      ownerId: 'test', conversationId: conversation.conversationId, content, idempotencyKey: `assistant-${idempotencyKey}`, requestedPolicyId,
+      ...(writeIntent ? { writeIntent } : {}) });
     const policy = () => runtime.access.createPolicy({ spaceId: space.id, scope: { kind: 'library' }, excludedNoteIds: [],
       includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
     await run({ app, runtime, space, conversation, requests, submit, policy, respond: next => { respond = next; } });
   } finally { await runtime?.agent?.close(); fs.rmSync(root, { recursive: true, force: true }); }
 }
 export const aiAssistantAutonomyTests = [
+  ...aiAssistantCrashgapTests,
+  { name: '兼容明确写意图也绑定个人来源，源转私密后拒绝采纳派生新稿', run: () => fixture(async ({ app, runtime, space, policy, submit, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '个人资料', rawMarkdown: '合成个人资料秘密' });
+    const p = await policy(); respond(() => tool('notes_create', { title: '派生稿', rawMarkdown: '合成个人资料秘密' }));
+    const turn = await submit('根据我的笔记生成资料新稿', 'explicit-source-bound', p.policyId, { toolName: 'notes_create' });
+    await runtime.agent.run(turn.turnId); const [draft] = await runtime.actions.listInbox(space.id);
+    assert(draft.grant.sourceRefs.some(ref => ref.noteId === note.id));
+    await runtime.actions.approve(draft.actionId, { planHash: draft.plan.planHash });
+    app.modules.knowledge.noteService.updateNote(note.id, { aiVisibility: 'private' });
+    await assert.rejects(runtime.actions.apply(draft.actionId), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(app.dataStore.state.notes.length, 1);
+  }) },
   { name: '自主助手：解释怎么保存文件保持普通聊天，禁止模型乱提成果', run: () => fixture(async ({ runtime, requests, submit, space, respond }) => {
     respond(() => tool('notes_create', { title: '错误成果', rawMarkdown: '模型乱提' }));
     const turn = await submit('解释怎么保存文件', 'explain-save');
