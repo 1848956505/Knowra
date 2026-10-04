@@ -29,6 +29,7 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
       ];
       data = turn;
     } else if (url.pathname.endsWith('/messages')) data = messages;
+    else if (url.pathname.endsWith('/attachments')) data = { attachments: [] };
     else if (url.pathname.includes('/turns/')) data = turn;
     else if (request.method() === 'POST') {
       conversation.conversationId = request.postDataJSON().conversationId;
@@ -48,8 +49,10 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
   });
   await page.goto('/#/assistant?new=1');
-  await expect(page.getByRole('heading', { name: 'AI 助手', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '知境助手', exact: true })).toBeVisible();
   await expect(page.getByText('服务器执行')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '今天想聊些什么？' })).toBeVisible();
+  await test.info().attach('欢迎态', { body: await page.screenshot(), contentType: 'image/png' });
   const composer = page.getByLabel('提问区');
   const inputBounds = await page.getByRole('textbox', { name: '消息' }).boundingBox();
   const composerBounds = await composer.boundingBox();
@@ -60,15 +63,17 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   await page.getByRole('textbox', { name: '消息' }).fill('解释梯度下降');
   await page.getByRole('button', { name: '发送消息' }).click();
   await expect(page.getByText('梯度下降是一种优化方法。')).toBeVisible();
+  await test.info().attach('回答态', { body: await page.screenshot(), contentType: 'image/png' });
   expect(submitted).toMatchObject({ content: '解释梯度下降', requestedPolicyId: null, execute: true });
   await page.reload();
   await expect(page.getByText('梯度下降是一种优化方法。')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 843 });
-  await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: 'AI 助手' })).toBeVisible();
+  await expect(page.getByText('菜单', { exact: true })).toBeVisible();
   expect((await page.getByLabel('提问区').boundingBox())?.height).toBeLessThan(220);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 320, height: 740 });
-  await expect(page.getByText('助手自主选择工具')).toBeVisible();
+  await page.getByText('菜单', { exact: true }).click();
+  await expect(page.getByText('菜单', { exact: true }).locator('..').getByRole('button', { name: '返回笔记' })).toBeVisible();
   expect(submitted).not.toHaveProperty('writeIntent');
   await expect(page.getByRole('button', { name: '普通聊天 · 不读取笔记 资料范围' })).toBeVisible();
   expect((await page.getByLabel('提问区').boundingBox())?.height).toBeLessThan(220);

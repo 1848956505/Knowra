@@ -5,6 +5,7 @@ import { assistantApi } from './assistantApi';
 import { conversationAttachmentApi } from './conversationAttachmentApi';
 import type { ConversationAttachment } from './ConversationAttachmentPicker';
 import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
+import { noteActionApi, type NoteAction } from './noteActionApi';
 
 const fixture = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -39,6 +40,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   fixture.state.serverData.currentSpaceId = 'space-1';
   vi.mocked(conversationApi.list).mockResolvedValue([]);
+  vi.mocked(noteActionApi.inbox).mockResolvedValue([]);
   vi.mocked(conversationAttachmentApi.list).mockResolvedValue([]);
   vi.mocked(conversationApi.policies).mockResolvedValue([]);
   vi.mocked(conversationApi.messages).mockResolvedValue([]);
@@ -48,6 +50,28 @@ beforeEach(() => {
     configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null,
     capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
       writeTools: false, providerAdvertised: null, providerVerified: false } });
+});
+
+it('审阅旧轮成果时不把聊天修改误指向右侧选稿，关闭后恢复发送', async () => {
+  const oldAction = { actionId: 'older-action', requestId: 'older-turn', status: 'awaitingApproval',
+    plan: { planHash: 'older-hash', toolName: 'notes_create', items: [{ before: null,
+      after: { id: 'older-note', title: '旧稿', rawMarkdown: '原内容', folderId: null, tagIds: [] } }] } } as unknown as NoteAction;
+  vi.mocked(noteActionApi.inbox).mockResolvedValue([oldAction]);
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([
+    { messageId: 'last-user', turnId: 'turn-1', sequence: 1, role: 'user', content: '新的问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+    { messageId: 'last-answer', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '当前回答', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }
+  ]);
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await screen.findByText('当前回答');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '把这份改一下' } });
+  fireEvent.click(screen.getByRole('button', { name: 'AI 成果收件箱' }));
+  fireEvent.click(await screen.findByRole('button', { name: '审阅成果' }));
+  expect(screen.getByText(/聊天不会自动修改右侧成果/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled();
+  expect(conversationApi.send).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '关闭成果' }));
+  expect(screen.getByRole('button', { name: '发送消息' })).toBeEnabled();
 });
 
 it.each(['create', 'upload'] as const)('空白会话切换空间后清除旧附件状态（%s响应迟到）', async phase => {

@@ -44,13 +44,18 @@ for (const driver of ['json', 'sqlite', 'postgres']) {
       const spaceResponse = await page.request.post(`${fixture.origin}/api/knowledge/spaces/default`, { headers, data: {} });
       assert(spaceResponse.ok());
       await page.goto(`${fixture.origin}/#/assistant?new=1`);
+      const executionLabel=driver==='sqlite'?'本机执行':'服务器执行';
+      await page.getByText(executionLabel, { exact: true }).click();
       await expect(page.getByText('离线模拟响应，未调用真实供应商。')).toBeVisible();
+      await page.getByText(executionLabel, { exact: true }).click();
       await expect(page.getByRole('button', { name: /本轮用途/ })).toHaveCount(0);
       await page.getByRole('textbox', { name: '消息', exact: true }).fill('生成合成笔记');
       await page.getByRole('button', { name: '发送消息', exact: true }).click();
       await expect(page.getByText('已生成待审成果。请在 AI 成果收件箱继续修改或确认采纳。', { exact: true })).toBeVisible({ timeout: 15000 });
       assert(oldSnapshot, '必须实际返回消息旧快照，不能跳过竞态屏障');
       assert(racedTurn);
+      await page.getByText(executionLabel, { exact: true }).click();
+      await page.getByRole('button', { name: '执行记录', exact: true }).click();
       await expect(page.getByText('执行记录（1）', { exact: true })).toBeVisible();
     }, () => inspectR07FixtureState(fixture));
   });

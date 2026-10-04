@@ -1,0 +1,14 @@
+.readable { min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.78; }
+.readable > :first-child { margin-top: 0; }
+.readable > :last-child { margin-bottom: 0; }
+.readable p { margin: .5em 0 1em; }
+.readable h2, .readable h3, .readable h4 { margin: 1.2em 0 .45em; color: var(--ink); line-height: 1.35; }
+.readable h2 { font-size: 1.4em; }
+.readable h3 { font-size: 1.2em; }
+.readable h4 { font-size: 1.05em; }
+.readable ul { margin: .6em 0 1em; padding-left: 1.5em; }
+.readable li { margin: .22em 0; }
+.readable blockquote { margin: 1em 0; padding: .25em 1em; border-left: 3px solid var(--ink-accent); color: var(--ink-secondary); }
+.readable pre { max-width: 100%; overflow: auto; padding: 12px; border-radius: 8px; background: var(--ink-bg); white-space: pre; }
+.readable code { padding: .12em .3em; border-radius: 4px; background: var(--ink-bg); font-family: var(--font-mono); font-size: .9em; }
+.readable pre code { padding: 0; background: none; }

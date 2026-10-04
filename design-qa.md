@@ -1,16 +1,21 @@
 # AI 完整页视觉实现验收
 
-日期：2026-10-04。
+日期：2026-10-04。范围为已批准的空白聊天、引用回答与附件、左聊右审三态；数据均为合成数据。
 
-用户已批准同一设计的空白聊天、引用回答与附件预览、左聊右审三种状态；完整页优先，不增加笔记侧栏。
+原图由当前 Library 官方助手落地至本任务外部 `reference-images/`，逐张读取的 PNG 分别为 1487×1058：`image(20261004-113018).png`、`image(20261004-113020).png`、`image(20261004-113021).png`。三图属于同一视觉系统，实际功能以现有授权、成果审批和附件未解析契约为准。
 
-- source visual truth：Library 中 Knowra-empty-chat-concept.png、Knowra-cited-answer-concept.png、Knowra-artifact-review-concept.png。三项已成功解析元数据，但当前云执行环境的官方传输均失败；图片读取明确返回 `Native image pixels were unavailable; returned extracted text only.`。
-- implementation screenshot：本批尚未开始对照视觉实现，无相同状态截图。
-- viewport / pixel dimensions / density：图片像素尚不可读，不能测量或虚构尺寸。
-- state：三态概念图是同一视觉系统，文字与数据为合成参考，真实功能仍以当前契约为准。
-- full-view comparison / focused comparison：源图像素不可用，尚不能比较。
-- comparison history：先执行当前 Library 技能的 resolved-reference materialization；三文件下载失败，明确网络访问重试仍失败；备用图片读取仅有文字。未以 OCR 或描述冒称看图。
-- findings：P1 阻塞为原图像素访问缺失。需要在当前云环境恢复可读取原图后再实现并截图对照；功能四包仍独立修复和验收。
-- primary interactions / console errors：已有四包功能页面实际通过 JSON/SQLite 快照、宽窄成果审阅、丢响应对账、撤销恢复、隐私和草稿冲突；这不是已批准视觉的验收。
+本地浏览器对照图位于工作树外的 `../ui-evidence/`，不提交原图或合成运行数据：
 
-final result: blocked
+| 状态 | 截图 | 核对 |
+| --- | --- | --- |
+| 空白聊天 | `welcome-desktop.png` | 独立历史栏、居中引导和底部自然语言输入；笔记目录不叠加。 |
+| 笔记引用回答 | `cited-answer-desktop.png`、`cited-answer-attachment-desktop.png` | 合成授权笔记的实际来源按钮可见且定位历史原文；附件已实际保存，仍标明未解析且未发送给 AI。 |
+| 左聊右审 | `review-desktop.png`、`review-390.png`、`review-320.png` | 宽屏对话与成果同时可交互；新稿以标题与可读正文为主，采纳需明确点击；窄屏审阅占满工作区。 |
+| 长稿窄屏 | `review-long-390.png`、`review-long-320.png` | 28 段合成正文在独立区域滚动，底部成果操作始终可见。 |
+| 附件信息与图片预览 | `attachment-saved-unparsed-desktop.png`、`attachment-image-preview-desktop.png` | 实际保存的合成附件只展示信息；PNG 预览不冒称图片理解。 |
+
+重点交互由合成浏览器场景覆盖：自然聊天、授权引用、成果卡片审阅、采纳响应丢失后查询原成果、取消与恢复、会话和空间切换、附件粘贴与移除。UI 单测覆盖旧轮成果与当前会话不匹配时禁止误改、空标题 Markdown 渲染、并发及晚到响应。来源与执行记录按需展开，预算和模型状态从次级入口可达。
+
+对照中发现并修复窄屏多余网格行导致的审阅面板只占半屏，以及编辑菜单遮挡正文保存按钮。原截图缺失的旧阻塞记录属于上一执行环境；本任务已读取像素并完成三态对照。Mac 本机初次附件浏览器运行因 `/var/folders` 为符号链接触发既有安全目录校验 503；仅将测试 `TMPDIR` 指向同目录的物理路径 `/private/var/folders/.../T` 后，JSON/SQLite 页面通过，产品校验未更改。失败日志保留在工作树外。
+
+结果：上述合成页面及截图已通过本地验收；固定提交的独立审查和精确 CI 由 PR 门禁完成。未调用真实模型、解析附件、联网搜索、用户资料或部署安装。
