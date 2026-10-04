@@ -67,6 +67,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     if (!aiEnabled) context.ai = createUnavailableAiRuntime(aiUnavailableReason);
     else try {
     context.ai = aiRuntimeFactory({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
+      uploadsDir: path.join(dataDirectory, 'uploads'),
       conversationStore: store.aiConversationStore, actionStore: store.aiActionStore,
       coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
@@ -95,7 +96,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     const apiServer = createServer({ appContext: context, logger });
     const handleApi = apiServer.listeners('request')[0];
     // 先完成同步装配再启动恢复；并发恢复的一支失败不能提前结束整体等待。
-    const recoverAi = Promise.allSettled(['conversation', 'agent', 'worker'].map(stage => aiLifecycle.recover([stage])))
+    const recoverAi = Promise.allSettled(['attachments', 'conversation', 'agent', 'worker'].map(stage => aiLifecycle.recover([stage])))
       .then(results => {
         const failed = results.find(result => result.status === 'rejected');
         if (failed) logger.warn?.('AI task recovery deferred until cloud budget is available',

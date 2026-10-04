@@ -42,6 +42,27 @@ function inventory(root, relative = '') {
 }
 const supportedPath = name => name === 'local.sqlite' || name === 'recovery-drafts.json' || name === 'recovery.json' || /^recovery-draft-archives\/[a-f0-9]{64}\.json$/.test(name) || (typeof name === 'string' && name.startsWith('uploads/') && !name.includes('\\') && name.split('/').every(segment => segment && segment !== '.' && segment !== '..'));
 
+function verifyConversationAttachmentFiles(attachments, inventoryFiles) {
+  const files = new Map(inventoryFiles.map(file => [file.path, file]));
+  for (const attachment of attachments.filter(item => item.storageStatus === 'ready' && !item.removedAt)) {
+    const file = files.get(`uploads/ai-conversations/${attachment.attachmentId}.bin`);
+    if (!file || file.sha256 !== attachment.sha256 || file.size !== attachment.size) {
+      throw new Error(`备份对话附件“${attachment.fileName}”缺失或内容校验失败。`);
+    }
+  }
+}
+
+function verifyNewConversationAttachmentBackup(databaseFile, files) {
+  const db = new DatabaseSync(databaseFile, { readOnly: true });
+  try {
+    // 保留既有旧备份/损坏AI原始资料救援语义，仅新增附件的成功发布前检查。
+    if (db.prepare('PRAGMA user_version').get().user_version >= 7
+      && db.prepare("SELECT 1 FROM ai_conversation_records WHERE kind = 'aiConversationAttachment' LIMIT 1").get()) {
+      verifyConversationAttachmentFiles(validateSqliteConversationRows(db).conversationAttachments, files);
+    }
+  } finally { db.close(); }
+}
+
 export function backupPath(dataDirectory, id) {
   if (typeof id !== 'string' || !/^\d+-[a-f0-9-]+$/.test(id)) throw new Error('备份编号无效。');
   const root = path.join(dataDirectory, 'backups');
@@ -66,6 +87,7 @@ export function createRuntimeBackup(store, dataDirectory, { backupRoot = dataDir
       fs.writeFileSync(path.join(backupDirectory, 'recovery-drafts.json'), JSON.stringify(combined), { mode: 0o600 });
     }
     const files = inventory(backupDirectory);
+    verifyNewConversationAttachmentBackup(path.join(backupDirectory, 'local.sqlite'), files);
     fs.writeFileSync(path.join(backupDirectory, 'manifest.json'), JSON.stringify({ version: 1, createdAt: new Date().toISOString(), purpose, datasetId: store.getStatus().datasetId, files }, null, 2), { mode: 0o600 });
     return backupDirectory;
   } catch (error) { fs.rmSync(backupDirectory, { recursive: true, force: true }); throw error; }
@@ -162,7 +184,7 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
     if (manifest.datasetId !== undefined && datasetId !== undefined && manifest.datasetId !== datasetId) throw new Error('备份清单与数据库资料集标识不一致。');
     validateSqliteCoreOperationRows(db);
     validateSqliteActionRows(db);
-    let aiJobs = [];
+    let aiJobs = [], conversationAttachments = [];
     if (version >= 4) {
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('备份 AI 私有记录引用不完整。');
       const ai = createSqliteAiRepository(db);
@@ -170,7 +192,7 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
       aiJobs = ai.list('aiJob');
       for (const job of aiJobs) ai.listEvents(job.jobId).forEach(validateAiEvent);
       if (version >= 6) validateSqliteAccessRows(db);
-      if (version >= 7) validateSqliteConversationRows(db);
+      if (version >= 7) conversationAttachments = validateSqliteConversationRows(db).conversationAttachments;
     }
     validateSqliteKnowledgeExtractionBackup(db, aiJobs);
     const state = createEmptyLocalState();
@@ -189,6 +211,7 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
       const file = files.get(`uploads/${attachment.id}-${attachment.fileName}`);
       if (!file || file.sha256 !== attachment.sha256 || file.size !== attachment.size) throw new Error(`备份附件“${attachment.fileName}”缺失或内容校验失败。`);
     }
+    verifyConversationAttachmentFiles(conversationAttachments, actual);
     const draftRecord = readBackupDrafts(backupDirectory);
     const draftCount = [draftRecord, ...(draftRecord.archivedDrafts ?? [])].reduce((count, record) => count + Object.keys(record.drafts).length, 0);
     // 固有格式检查始终独立可用；只有恢复入口传入当前上下文。

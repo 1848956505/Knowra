@@ -1,4 +1,5 @@
 import { NoteActions } from './NoteActions';
+import { ConversationAttachmentPicker } from './ConversationAttachmentPicker';
 import { AIInbox } from './AIInbox';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
@@ -185,6 +186,22 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   function chooseConversation(id: string) {
     pendingSend.current = null; setDraft(''); setError(null); setNotice(null);
     navigate(`/assistant?conversationId=${encodeURIComponent(id)}`);
+  }
+
+  async function ensureAttachmentConversation() {
+    if (selectedId) return selectedId;
+    if (!spaceId) throw new Error('请先选择知识空间。');
+    if (pending) throw new Error('正在处理消息，请稍后添加附件。');
+    const capturedSpace = spaceId;
+    const capturedSelection = selection.current;
+    setPending(true);
+    try {
+      const created = await conversationApi.create(spaceId, crypto.randomUUID());
+      if (space.current !== capturedSpace || selection.current !== capturedSelection) throw new Error('对话已变化，请重新添加附件。');
+      setConversations(previous => [created, ...previous.filter(item => item.conversationId !== created.conversationId)]);
+      navigate(`/assistant?conversationId=${encodeURIComponent(created.conversationId)}`);
+      return created.conversationId;
+    } finally { setPending(false); }
   }
 
   async function send() {
@@ -382,6 +399,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
               <span>这是历史会话，只能回看。</span>
               <Button variant="accent" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
             </div> : <>
+              <ConversationAttachmentPicker key={spaceId ?? 'no-space'} conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               <div className={styles.composerCard}>
           <TextAreaField label="消息" presentation="composer" value={draft}

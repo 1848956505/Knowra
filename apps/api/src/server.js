@@ -13,6 +13,7 @@ import { createAiAssistantService } from './modules/ai/assistant-service.js';
 import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
 import { handleAiAccessRoute } from './modules/ai/access-routes.js';
 import { handleConversationRoute } from './modules/ai/conversation-routes.js';
+import { handleConversationAttachmentRoute } from './modules/ai/conversation-attachment-routes.js';
 import { handleAiJobRoute } from './modules/ai/job-routes.js';
 import { createKnowledgeExtractionHttpService } from './modules/ai/knowledge-extraction-http-service.js';
 import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
@@ -73,6 +74,8 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       if (await handleAiJobRoute({ request, response, url, extraction })) return;
       if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;
       if (await handleActionRoute({ request, response, url, actions: appContext.ai?.actions })) return;
+      if (url.pathname.startsWith('/api/ai/conversations/') && url.pathname.split('/')[5] === 'attachments') await aiRecovery;
+      if (await handleConversationAttachmentRoute({ request, response, url, attachments: appContext.ai?.attachments })) return;
       if (await handleConversationRoute({ request, response, url, conversation: appContext.ai?.conversation })) return;
       if (url.pathname.startsWith('/api/ai/assistant')) await aiRecovery;
       if (url.pathname.startsWith('/api/ai/conversations')) await aiRecovery;
