@@ -54,6 +54,7 @@ async function acceptance(app) {
     await k.restoreNote({ id: source.id });
     assert.equal((await request(target.id)).backlinks[0].occurrences.length, 2);
     await assert.rejects(async () => k.updateNote({ id: source.id }, { rawMarkdown: `[越界](${createNoteLinkUrl(foreign.id, 'ref-cross')})` }), { code: 'NOTE_LINK_TARGET_INVALID' });
+    await assert.rejects(async () => k.updateNote({ id: source.id }, { rawMarkdown: `[越界][ref]\n\n[ref]: ${createNoteLinkUrl(foreign.id, 'ref-cross')}\n[ref]: ${first}` }), { code: 'NOTE_LINK_TARGET_INVALID' });
     await k.deleteNote({ id: target.id });
     await k.permanentlyDeleteNote({ id: target.id });
     assert.equal((await request(source.id)).outgoing[0].status, 'deleted');

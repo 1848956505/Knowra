@@ -34,6 +34,13 @@ test('格式化文字和引用式 Markdown 仍按真实 AST 链接位置提取',
   assert.equal(parsed.occurrences[0].sourceStart, 0);
   assert.equal(parsed.occurrences[0].sourceEnd, 14);
 });
+test('重复引用定义与Markdown编辑器一致采用首个定义', () => {
+  const first = createNoteLinkUrl('first-target', 'ref-first');
+  const second = createNoteLinkUrl('second-target', 'ref-second');
+  const parsed = extractNoteLinks(`[Display][ref]\n\n[ref]: ${first}\n[ref]: ${second}`);
+  assert.deepEqual(parsed.targetIds, ['first-target']);
+  assert.equal(parsed.occurrences[0].occurrenceId, 'ref-first');
+});
 test('同段上下文只显示可见文字，不带相邻链接协议或位置ID', () => {
   const result = extractNoteLinks(`[甲](${url}) 前文 [乙](${createNoteLinkUrl('另一目标', 'occ-second')}) 后文`);
   assert.match(result.occurrences[1].context, /甲.*前文.*乙.*后文/);

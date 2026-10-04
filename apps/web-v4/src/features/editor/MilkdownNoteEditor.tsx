@@ -108,7 +108,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     noteLinkCallbacks.current = { onRequestNoteLink, onOpenNoteLink, noteLinkStatuses };
     const requestNoteLink = (editor: Editor) => {
       const session = captureNoteLinkEdit(editor.ctx.get(editorViewCtx));
-      if (!session) { onStatusRef.current?.('请先选中同一段落内的文字，或将光标放在已有笔记链接内'); return true; }
+      if (!session) { onStatusRef.current?.('请先选中同一段落内不含换行或图片的连续文字，或将光标放在已有笔记链接内'); return true; }
       noteLinkCallbacks.current.onRequestNoteLink?.(session);
       return true;
     };
@@ -262,6 +262,12 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       selectNoteLinkOccurrence(locator) {
         const editor = editorRef.current;
         return Boolean(editor && readyRef.current && selectNoteLinkOccurrence(editor.ctx.get(editorViewCtx), editor.action(getMarkdown()), locator));
+      },
+      matchesMarkdownDocument(markdown) {
+        const editor = editorRef.current;
+        if (!editor || !readyRef.current) return false;
+        try { return editor.ctx.get(editorViewCtx).state.doc.eq(editor.ctx.get(parserCtx)(markdown)); }
+        catch { return false; }
       },
       async runEdit(action) {
         const editor = editorRef.current;

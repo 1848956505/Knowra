@@ -56,6 +56,24 @@ it('弹窗期间正文变化拒绝旧选区，不覆盖新内容', async () => {
     expect(view.state.doc.textContent).toBe('新增合成正文');
   });
 });
+it('跨硬换行或图片选区不创建重复引用身份，单行仍可创建定位', async () => {
+  for (const markdown of ['First  \nSecond', 'First ![图](https://example.test/image.png) Second']) {
+    await withEditor(markdown, editor => {
+      const view = editor.ctx.get(editorViewCtx);
+      const before = editor.ctx.get(serializerCtx)(view.state.doc);
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, view.state.doc.content.size - 1)));
+      expect(captureNoteLinkEdit(view)).toBeNull();
+      expect(editor.ctx.get(serializerCtx)(view.state.doc)).toBe(before);
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 6)));
+      const session = captureNoteLinkEdit(view)!;
+      expect(applyNoteLinkEdit(view, session, 'target-note', session.label)).toBe(true);
+      const saved = editor.ctx.get(serializerCtx)(view.state.doc);
+      const occurrences = extractNoteLinks(saved).occurrences;
+      expect(occurrences).toHaveLength(1);
+      expect(selectNoteLinkOccurrence(view, saved, occurrences[0])).toBe(true);
+    });
+  }
+});
 it('内部URL以安全hash渲染，外部危险协议仍被上游过滤', async () => {
   const href = createNoteLinkUrl('target-id', 'ref-safe-link');
   await withEditor(`[内部](${href}) [危险](javascript:alert%281%29)`, editor => {

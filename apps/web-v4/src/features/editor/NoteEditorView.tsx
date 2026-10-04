@@ -669,15 +669,17 @@ export function NoteEditorView({
     try {
       if (!canWrite && autosave.hasLocalChanges) throw new Error('当前正文尚未保存，请先处理草稿');
       await saveImmediately();
+      if (!annotationMountedRef.current) return;
       if (linkContext.current !== before || (editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown()) !== markdown) throw new Error('保存期间来源已变化，请重试');
       const relations = await onGetNoteLinkRelations(locator ? targetNoteId : note.id);
+      if (!annotationMountedRef.current) return;
       if (linkContext.current !== before || (editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown()) !== markdown) throw new Error('跳转期间来源已变化，请重试');
       if (relations.noteId !== (locator ? targetNoteId : note.id) || relations.spaceId !== note.spaceId) throw new Error('引用查询已失效');
       if (!locator && !relations.outgoing.some(item => item.id === targetNoteId && item.status === 'active')) throw new Error('目标已删除或链接已移除');
       saveCurrentScrollPosition();
       if (locator) requestNoteLinkNavigation(targetNoteId, linkScope, locator, relations.contentHash);
       onOpenNote(targetNoteId);
-    } catch (cause) { onFileStatus(cause instanceof Error ? cause.message : '跳转失败'); }
+    } catch (cause) { if (annotationMountedRef.current) onFileStatus(cause instanceof Error ? cause.message : '跳转失败'); }
   };
   const handleFileAction = async (action: EditorFileAction) => {
     switch (action) {
@@ -982,10 +984,13 @@ export function NoteEditorView({
                         onOpenNoteLink={locator => { void openLinkedNote(locator.targetNoteId); }}
                         noteLinkStatuses={noteLinkStatuses}
                         onReady={async () => {
+                          const readyContext = linkContext.current;
                           await restoreCurrentScrollPosition();
+                          if (!annotationMountedRef.current || linkContext.current !== readyContext || readyContext.noteId !== note.id) return;
                           const navigation = takeNoteLinkNavigation(note.id, linkScope);
                           if (navigation) {
                             const located = calculateContentHash(note.rawMarkdown) === navigation.contentHash
+                              && editorRef.current?.matchesMarkdownDocument?.(note.rawMarkdown)
                               && editorRef.current?.selectNoteLinkOccurrence?.(navigation.locator);
                             setLinkNavigationNotice(located ? null : { noteId: note.id, scope: linkScope });
                           }

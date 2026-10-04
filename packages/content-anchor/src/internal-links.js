@@ -26,7 +26,7 @@ export function extractNoteLinks(markdown) {
   const source = String(markdown ?? '');
   const tree = fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
   const definitions = new Map();
-  walk(tree, node => { if (node.type === 'definition') definitions.set(node.identifier, node.url); });
+  walk(tree, node => { if (node.type === 'definition' && !definitions.has(node.identifier)) definitions.set(node.identifier, node.url); });
   const occurrences = [];
   const targetIds = new Set();
   function visit(node, block = tree, inLink = false) {

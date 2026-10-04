@@ -69,6 +69,11 @@ export function captureNoteLinkEdit(view: EditorView): NoteLinkEditSession | nul
   if (from === to) return null;
   const start = view.state.doc.resolve(from), end = view.state.doc.resolve(to);
   if (!start.sameParent(end) || !start.parent.inlineContent || start.parent.type.spec.code) return null;
+  // Inline atoms / hard breaks split a link during Markdown serialization. Only a
+  // contiguous text range can retain exactly one occurrence identity.
+  let textOnly = true;
+  view.state.doc.nodesBetween(from, to, node => { if (node.isInline && !node.isText) textOnly = false; });
+  if (!textOnly) return null;
   return { document: view.state.doc, from, to, label: view.state.doc.textBetween(from, to),
     targetNoteId: existing?.targetNoteId, occurrenceId: existing?.occurrenceId };
 }
