@@ -111,3 +111,26 @@ it.each(canonicalCases)('%s：复用规范投影，创建和持久化高亮仍�
     expect(resolveAnnotationRange(doc, selected! as Annotation, projection)?.from).toBe(positions[index]);
   } finally { await editor.destroy(); root.remove(); }
 });
+
+it.each([[3, 1, 'Nested\nInside'], [2, 0, 'Parent\nOutside']] as const)('引用容器内标题等级%s：章节%s创建和重开不扩大', async (level, index, quote) => {
+  const markdown = '## Parent\n\nOutside\n\n> ' + '#'.repeat(level) + ' Nested\n>\n> Inside\n\n## Next\n\nNext body';
+  const root = document.createElement('div'); document.body.append(root);
+  const editor = await Editor.make().config(ctx => { ctx.set(rootCtx, root); ctx.set(defaultValueCtx, markdown); })
+    .use(commonmark).use(gfm).use(createAnnotationHighlightBehavior(() => {})).create();
+  try {
+    const view = editor.ctx.get(editorViewCtx), doc = view.state.doc;
+    let position = -1; doc.descendants((node, offset) => { if (node.type.name === 'heading' && node.textContent === (index ? 'Nested' : 'Parent')) position = offset + 1; });
+    const serialized = editor.ctx.get(serializerCtx)(doc), projection = projectMarkdown(serialized);
+    const anchor = anchorForSection(projectMarkdown(markdown), index);
+    const annotation = { id: 'nested', scopeType: 'section', anchor, quoteText: anchor.quoteText, anchorStatus: 'resolved' } as Annotation;
+    expect(resolveAnnotationRange(doc, annotation, projection)?.from).toBe(position);
+    setEditorAnnotations(editor, [annotation], null);
+    expect(annotationPluginKey.getState(view.state)?.ranges.get('nested')?.from).toBe(position);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, position)));
+    const selected = getAnnotationSelection(editor, serialized, 'section');
+    expect(selected?.quoteText).toBe(quote);
+    const resolved = resolveAnnotationRange(doc, selected! as Annotation, projection)!;
+    expect(doc.textBetween(resolved.from, resolved.to, '\n')).toBe(quote);
+    expect(resolveAnnotationRange(doc, selected! as Annotation, projection)?.from).toBe(position);
+  } finally { await editor.destroy(); root.remove(); }
+});

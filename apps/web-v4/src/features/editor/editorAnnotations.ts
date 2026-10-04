@@ -311,7 +311,8 @@ export function resolveAnnotationRange(doc: ProseNode, annotation: Annotation, p
       if (!currentSection || candidate.projectedEnd !== annotation.anchor.projectedEnd || candidate.quoteText !== annotation.quoteText
         || currentSection.title !== section.title || currentSection.headingLevel !== section.headingLevel
         || currentSection.endBoundaryLevel !== section.endBoundaryLevel || currentSection.endBoundaryTitle !== section.endBoundaryTitle) return null;
-      return scopeRange(doc, headings[index].position + 1, headings[index].position + 1, 'section');
+      const range = scopeRange(doc, headings[index].position + 1, headings[index].position + 1, 'section');
+      return range?.from === headings[index].position + 1 ? range : null;
     }
     return null;
   }
@@ -435,7 +436,9 @@ function scopeRange(doc: ProseNode, from: number, to: number, scopeType: Annotat
   if (scopeType === 'list') { const item = listItemAt(doc, from); return item && !item.task ? { from: item.from, to: item.to } : null; }
   if (scopeType === 'selection') return from === to ? null : { from, to };
   const blocks: Array<{ from: number; to: number; node: ProseNode; offset: number }> = [];
-  doc.forEach((node, offset) => blocks.push({ from: offset + 1, to: offset + node.nodeSize - 1, node, offset }));
+  doc.descendants((node, offset) => {
+    if (node.type.name === 'heading') blocks.push({ from: offset + 1, to: offset + node.nodeSize - 1, node, offset });
+  });
   if (scopeType === 'blocks') {
     const selected = contentBlocks(doc, from, to);
     return selected.length ? { from: selected[0].from, to: selected.at(-1)!.to } : null;

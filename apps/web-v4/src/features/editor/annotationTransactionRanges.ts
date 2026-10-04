@@ -4,6 +4,14 @@ import type { Transaction } from '@milkdown/kit/prose/state';
 export interface TrackedAnnotationRange { from: number; to: number; scopeType: 'selection' | 'blocks' | 'section' | 'list'; missing?: boolean; needsReview?: boolean }
 export function mapAnnotationRange(range: TrackedAnnotationRange, transaction: Transaction): TrackedAnnotationRange {
   if (range.missing) return range;
+  if (range.scopeType === 'selection') {
+    const start = transaction.before.resolve(range.from), end = transaction.before.resolve(range.to);
+    if (start.sameParent(end) && start.parent.type.name === 'code_block'
+      && range.from === start.start() && range.to === end.end()) {
+      const mapped = mapAnnotationRange({ ...range, scopeType: 'blocks' }, transaction);
+      return { ...mapped, scopeType: 'selection', ...(mapped.from >= mapped.to ? { missing: true } : {}) };
+    }
+  }
   let from = range.from, to = range.to;
   let internal = true;
   for (let index = 0; index < transaction.mapping.maps.length; index++) {

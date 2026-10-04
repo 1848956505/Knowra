@@ -23,7 +23,8 @@ async function fixture(t, rawMarkdown, marked = true, sectionIndex = 0) {
   if (marked) {
     const p = projectMarkdown(rawMarkdown), anchor = marked === 'section' ? anchorForSection(p, sectionIndex) : anchorForBlock(p, p.blocks.findIndex(block => block.type === 'code'));
     annotation = k.contentAnnotationService.createAnnotation({
-      spaceId: space.id, noteId: note.id, schemaVersion: 2, scopeType: anchor.scopeType, anchor,
+      spaceId: space.id, noteId: note.id, schemaVersion: 2, scopeType: marked === 'selection' ? 'selection' : anchor.scopeType,
+      anchor: { ...anchor, scopeType: marked === 'selection' ? 'selection' : anchor.scopeType },
       quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd,
       anchorFingerprint: 'synthetic', noteContentHash: calculateContentHash(rawMarkdown),
       idempotencyKey: 'synthetic', importance: 'core', comment: '合成备注'
@@ -52,8 +53,8 @@ async function fixture(t, rawMarkdown, marked = true, sectionIndex = 0) {
   return { page, editor, k, note, annotation, annotations };
 }
 
-test('真实代码块：末尾换行后文字即时、保存、重开和撤销重做继承核心颜色', { timeout: 60000 }, async t => {
-  const { page, editor, k, annotation } = await fixture(t, '## 合成章节\n\n```\n原始甲\n原始乙\n```\n\n尾段');
+for (const scope of ['blocks', 'selection']) test(`真实代码${scope}：末尾换行后文字即时、保存、重开和撤销重做继承核心颜色`, { timeout: 60000 }, async t => {
+  const { page, editor, k, annotation } = await fixture(t, '## 合成章节\n\n```\n原始甲\n原始乙\n```\n\n尾段', scope);
   const code = editor.locator('pre code');
   await code.evaluate(el => {
     const range = document.createRange(); range.selectNodeContents(el); range.collapse(false);
@@ -148,3 +149,39 @@ test('真实菜单：空行代码块通过悬停子菜单创建指定等级，�
   await page.getByRole('button', { name: '撤销', exact: true }).click();
   await expect.poll(() => annotations().length).toBe(1);
 });
+
+test('真实整段代码拖选入口：末尾新增行即时继承并保存重开', { timeout: 60000 }, async t => {
+  const { page, editor, annotations } = await fixture(t, '## 合成\n\n```\n甲\n乙\n```', false);
+  const code = editor.locator('pre code');
+  await code.evaluate(el => {
+    const range = document.createRange(); range.selectNodeContents(el); el.closest('[contenteditable]').focus();
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(range); document.dispatchEvent(new Event('selectionchange'));
+  });
+  await page.getByRole('button', { name: '标记重点（核心）', exact: true }).click();
+  await expect.poll(() => annotations().length).toBe(1);
+  const id = annotations()[0].id; assert.equal(annotations()[0].scopeType, 'selection');
+  await code.evaluate(el => {
+    const range = document.createRange(); range.selectNodeContents(el); range.collapse(false); el.closest('[contenteditable]').focus();
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(range); document.dispatchEvent(new Event('selectionchange'));
+  });
+  await page.keyboard.press('Enter'); await page.keyboard.insertText('新增行');
+  const decoration = editor.locator(`[data-annotation-id="${id}"]`);
+  await expect.poll(async () => (await decoration.allTextContents()).join('')).toContain('新增行');
+  await expect.poll(() => annotations()[0].quoteText).toContain('新增行');
+  await page.reload(); await expect.poll(async () => (await decoration.allTextContents()).join('')).toContain('新增行');
+  assert.equal(annotations()[0].id, id); assert.equal(annotations()[0].scopeType, 'selection');
+});
+
+for (const [level, index, quote] of [[3, 1, 'Nested\nInside'], [2, 0, 'Parent\nOutside']])
+  test(`真实引用内标题：等级${level}章节${index}创建后范围不扩大并重开`, { timeout: 60000 }, async t => {
+    const markdown = '## Parent\n\nOutside\n\n> ' + '#'.repeat(level) + ' Nested\n>\n> Inside\n\n## Next\n\nNext body';
+    const { page, editor, annotations } = await fixture(t, markdown, false);
+    await editor.locator('h2,h3').nth(index).hover();
+    await page.getByRole('button', { name: '标题重点菜单', exact: true }).click();
+    await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).hover();
+    await page.getByRole('menuitem', { name: '普通', exact: true }).click();
+    await expect.poll(() => annotations().length).toBe(1); assert.equal(annotations()[0].quoteText, quote);
+    const decoration = editor.locator(`[data-annotation-id="${annotations()[0].id}"]`);
+    await expect.poll(async () => (await decoration.allTextContents()).join('\n')).toBe(quote);
+    await page.reload(); await expect.poll(async () => (await decoration.allTextContents()).join('\n')).toBe(quote);
+  });
