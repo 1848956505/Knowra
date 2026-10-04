@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
 import { conversationAttachmentApi } from './conversationAttachmentApi';
+import type { ConversationAttachment } from './ConversationAttachmentPicker';
 import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
 
 const fixture = vi.hoisted(() => ({
@@ -36,6 +37,7 @@ const succeeded: ConversationTurn = { turnId: 'turn-1', conversationId: 'convers
 
 beforeEach(() => {
   vi.resetAllMocks();
+  fixture.state.serverData.currentSpaceId = 'space-1';
   vi.mocked(conversationApi.list).mockResolvedValue([]);
   vi.mocked(conversationAttachmentApi.list).mockResolvedValue([]);
   vi.mocked(conversationApi.policies).mockResolvedValue([]);
@@ -46,6 +48,38 @@ beforeEach(() => {
     configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null,
     capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
       writeTools: false, providerAdvertised: null, providerVerified: false } });
+});
+
+it.each(['create', 'upload'] as const)('空白会话切换空间后清除旧附件状态（%s响应迟到）', async phase => {
+  let releaseCreate!: (value: Conversation) => void;
+  let releaseUpload!: (value: ConversationAttachment) => void;
+  const delayedCreate = new Promise<Conversation>(resolve => { releaseCreate = resolve; });
+  const delayedUpload = new Promise<ConversationAttachment>(resolve => { releaseUpload = resolve; });
+  const created = { ...conversation, conversationId: 'created-a' };
+  vi.mocked(conversationApi.create).mockReturnValue(phase === 'create' ? delayedCreate : Promise.resolve(created));
+  vi.mocked(conversationAttachmentApi.upload).mockReturnValue(delayedUpload);
+  const view = render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  await screen.findByText('服务器执行');
+  fireEvent.click(screen.getByText('附件（0）'));
+  fireEvent.change(screen.getByLabelText('添加对话附件'), {
+    target: { files: [new File(['空间A提供的附件'], 'space-a.txt', { type: 'text/plain' })] }
+  });
+  await waitFor(() => expect(phase === 'create' ? conversationApi.create : conversationAttachmentApi.upload).toHaveBeenCalledOnce());
+  fixture.state.serverData.currentSpaceId = 'space-b';
+  view.rerender(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  await act(async () => {
+    if (phase === 'create') { releaseCreate(created); await delayedCreate; }
+    else {
+      releaseUpload({ attachmentId: 'old-attachment', conversationId: created.conversationId, revision: 3,
+        fileName: 'space-a.txt', mimeType: 'text/plain', size: 10, sha256: 'a'.repeat(64), storageStatus: 'ready',
+        parseStatus: 'ready', errorCode: null, parserVersion: 'v1', parsedTextHash: 'b'.repeat(64), imageMetadata: null,
+        removedAt: null, createdAt: conversation.createdAt, updatedAt: conversation.updatedAt });
+      await delayedUpload;
+    }
+  });
+  expect(screen.queryByText(/space-a.txt/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '重试上传' })).not.toBeInTheDocument();
+  if (phase === 'create') expect(conversationAttachmentApi.upload).not.toHaveBeenCalled();
 });
 
 it('附件创建会话期间暂停消息发送，迟到创建不会覆盖用户切换的会话', async () => {

@@ -399,7 +399,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
               <span>这是历史会话，只能回看。</span>
               <Button variant="accent" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
             </div> : <>
-              <ConversationAttachmentPicker conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
+              <ConversationAttachmentPicker key={spaceId ?? 'no-space'} conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               <div className={styles.composerCard}>
           <TextAreaField label="消息" presentation="composer" value={draft}

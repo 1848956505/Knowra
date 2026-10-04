@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { createSqliteDataStore } from '../src/sqlite-data-store.mjs';
 import { createFileDataStore } from '../../api/src/infrastructure/file-data-store.js';
 import { createConversationAttachmentService } from '../../api/src/modules/ai/conversation-attachments.js';
-import { createRuntimeBackup, inspectRuntimeBackup, restoreRuntimeBackup } from '../src/backup.mjs';
+import { createRuntimeBackup, inspectRuntimeBackup, restoreRuntimeBackup, listRuntimeBackups } from '../src/backup.mjs';
 import { prepareRestoredDirectory } from '../src/restore-directory.mjs';
 import { temporaryDirectory } from './helpers.mjs';
 
@@ -141,4 +141,22 @@ test('完整 App 备份拒绝对话附件缺失及篡改，即使重签文件清
     assert.throws(() => inspectRuntimeBackup(backup), /完整性|对话附件.*校验失败/);
   }
   assert.equal((await f.service.readVerified({ conversationId: f.conversation.conversationId, attachmentId: attachment.attachmentId })).record.sha256, attachment.sha256);
+});
+
+test('创建或恢复前保护备份拒绝源对话附件缺失/改写，不发布无效成功备份', async t => {
+  const f = await fixture(t), attachment = await f.upload();
+  const file = path.join(f.root, 'uploads', 'ai-conversations', `${attachment.attachmentId}.bin`);
+  const original = fs.readFileSync(file), known = listRuntimeBackups(f.root);
+  for (const purpose of ['manual', 'before-restore']) {
+    for (const state of ['missing', 'modified']) {
+      if (state === 'missing') fs.unlinkSync(file);
+      else fs.writeFileSync(file, '已改写的合成附件');
+      assert.throws(() => createRuntimeBackup(f.data, f.root, { purpose }), /对话附件.*校验失败/);
+      assert.deepEqual(listRuntimeBackups(f.root), known);
+      assert.deepEqual(fs.readdirSync(path.join(f.root, 'backups')), [], '失败备份不留下目录或清单');
+      fs.writeFileSync(file, original);
+    }
+  }
+  const good = createRuntimeBackup(f.data, f.root, { purpose: 'before-restore' });
+  assert.equal(inspectRuntimeBackup(good).valid, true);
 });
