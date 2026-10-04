@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createKnowledgeModule } from '../src/modules/knowledge/index.js';
-import { anchorForBlock, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
+import { anchorForBlock, projectMarkdown, calculateContentHash, sourceEdit } from '@study-accelerator/content-anchor';
 
 export const annotationWhitespaceTests = [
   { name: '版本化代码重点保留首尾和内部空行，重复块按锚点区分', run() {
@@ -33,5 +33,36 @@ export const annotationWhitespaceTests = [
         ...second, idempotencyKey: 'stale', noteContentHash: 'stale'
       }), { code: 'ANNOTATION_CONTENT_CONFLICT' });
     }
+  }},
+  { name: '代码增行保留标注和知识关联身份，历史依据只转待核对', run() {
+    const k = createKnowledgeModule(), before = '## 合成章节\n\n```\n原始甲\n原始乙\n```\n\n尾段';
+    const note = k.noteService.createNote({ spaceId: 'synthetic-space', title: '合成关联', rawMarkdown: before });
+    const p = projectMarkdown(before), anchor = anchorForBlock(p, p.blocks.findIndex(block => block.type === 'code'));
+    const annotation = k.contentAnnotationService.createAnnotation({
+      spaceId: note.spaceId, noteId: note.id, schemaVersion: 2, scopeType: 'blocks', anchor,
+      quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd,
+      noteContentHash: calculateContentHash(before), anchorFingerprint: 'synthetic', idempotencyKey: 'synthetic',
+      importance: 'core', comment: '合成备注'
+    });
+    const candidate = k.knowledgeItemService.createCandidate({
+      title: '合成知识候选', canonicalStatement: '合成说明', sourceMode: 'annotation',
+      evidence: [{ sourceType: 'annotation', annotationId: annotation.id, expectedAnnotationRevision: annotation.revision }]
+    });
+    const evidence = candidate.evidence[0], after = before.replace('原始乙\n```', '原始乙\n新增行\n```');
+    k.noteService.updateNote(note.id, {
+      rawMarkdown: after, expectedUpdatedAt: note.updatedAt,
+      annotationMapping: { formatVersion: 1, operationId: 'synthetic-edit', baseContentHash: calculateContentHash(before),
+        targetContentHash: calculateContentHash(after), edits: [sourceEdit(before, after)] }
+    });
+    const updated = k.contentAnnotationService.getAnnotation(annotation.id);
+    const links = k.annotationScopeService.getKnowledgeLinks(annotation.id);
+    assert.equal(updated.id, annotation.id); assert.equal(updated.comment, annotation.comment);
+    assert.equal(updated.importance, annotation.importance); assert.match(updated.quoteText, /新增行/);
+    assert.equal(links.candidates[0].knowledgeItem.id, candidate.item.id);
+    assert.equal(links.candidates[0].evidence.id, evidence.id);
+    assert.equal(links.candidates[0].evidence.annotationId, annotation.id);
+    assert.equal(links.candidates[0].evidence.quoteText, evidence.quoteText);
+    assert.equal(links.candidates[0].evidence.noteVersionId, evidence.noteVersionId);
+    assert.equal(links.candidates[0].evidence.status, 'stale');
   }}
 ];

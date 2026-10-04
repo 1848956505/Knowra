@@ -211,12 +211,29 @@ function anchorForEditorSection(doc: ProseNode, projection: MarkdownProjection, 
 
 function sectionTextBetween(doc: ProseNode, from: number, to: number) {
   const leaves: string[] = [];
-  doc.descendants((node, position) => {
-    if (position + 1 >= from && position < to && node.isTextblock && node.content.size > 0) {
+  doc.descendants((node, position, parent) => {
+    if (position + 1 >= from && position < to && isProjectedTextBlock(node, parent)) {
       leaves.push(node.textBetween(0, node.content.size, '\n', '\uFFFC'));
     }
   });
   return leaves.join('\n');
+}
+
+function isProjectedTextBlock(node: ProseNode, parent: ProseNode | null) {
+  return node.isTextblock && (node.content.size > 0 || node.type.name === 'code_block'
+    || parent?.type.name === 'table_cell' || parent?.type.name === 'table_header');
+}
+
+function sectionHeadingAtProjectedOffset(doc: ProseNode, offset: number) {
+  let length = 0, count = 0;
+  let found: { node: ProseNode; position: number } | null = null;
+  doc.descendants((node, position, parent) => {
+    if (!isProjectedTextBlock(node, parent)) return;
+    if (count++) length += 1;
+    if (node.type.name === 'heading' && length === offset) found = { node, position };
+    length += node.textBetween(0, node.content.size, '\n', '\uFFFC').length;
+  });
+  return found as { node: ProseNode; position: number } | null;
 }
 
 function anchorForSelectedCodeBlock(doc: ProseNode, projection: MarkdownProjection, from: number) {
@@ -303,10 +320,16 @@ function createDecorations(doc: ProseNode, annotations: Annotation[], focusedId:
 export function resolveAnnotationRange(doc: ProseNode, annotation: Annotation): { from: number; to: number } | null {
   if (annotation.scopeType === 'list') return resolveEditorListRange(doc, annotation.anchor?.structurePath ?? '', annotation.quoteText);
   if (annotation.scopeType === 'section' && annotation.anchor?.section) {
-    const target = nodeAtStructurePath(doc, annotation.anchor.structurePath ?? '');
+    // Markdown definitions are omitted by ProseMirror. Bind to the exact projected heading offset,
+    // not a source child path or a title search, so identical sections stay distinct.
+    const offset = annotation.anchor.projectedStart;
+    const target = Number.isInteger(offset) ? sectionHeadingAtProjectedOffset(doc, offset!) : null;
     if (target?.node.type.name !== 'heading' || target.node.textContent !== annotation.anchor.section.title
       || Number(target.node.attrs.level) !== annotation.anchor.section.headingLevel) return null;
     const range = scopeRange(doc, target.position + 1, target.position + 1, 'section');
+    const boundary = range && range.to < doc.content.size ? doc.nodeAt(range.to) : null;
+    if ((boundary ? Number(boundary.attrs.level) : null) !== (annotation.anchor.section.endBoundaryLevel ?? null)
+      || (boundary?.textContent ?? null) !== (annotation.anchor.section.endBoundaryTitle ?? null)) return null;
     return range && sectionTextBetween(doc, range.from, range.to) === annotation.quoteText ? range : null;
   }
   if (annotation.anchor?.tracking?.empty) {

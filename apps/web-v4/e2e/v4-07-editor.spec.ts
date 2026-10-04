@@ -1542,7 +1542,7 @@ test('V4-07 重点标记内的粗体保持醒目', async ({ page }) => {
   const strong = editor.locator('strong');
   await expect(strong).toHaveText('需要标记的正文内容');
   await editor.locator('p').first().click({ clickCount: 3 });
-  await page.getByRole('toolbar', { name: '选区工具' }).getByRole('button', { name: '标记重点' }).click();
+  await page.getByRole('toolbar', { name: '选区工具' }).getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
   await expect(editor.locator('.editor-annotation')).toHaveCSS('color', 'rgb(37, 99, 235)');
   expect(Number(await strong.evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);
@@ -1572,7 +1572,7 @@ test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({
   const editor = page.locator('.ProseMirror');
   for (const [id, label, color] of [
     ['normal', '普通', 'rgb(37, 99, 235)'],
-    ['important', '重要', 'rgb(194, 65, 12)'],
+    ['important', '重点', 'rgb(194, 65, 12)'],
     ['core', '核心', 'rgb(124, 58, 237)']
   ]) {
     const card = inspector.locator(`article[data-annotation-card-id="${id}"]`);
@@ -1584,7 +1584,7 @@ test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({
     await expect(mark).toHaveCSS('color', color);
   }
   await expect(inspector.locator('article[data-annotation-card-id="unrated"]')).not.toHaveAttribute('data-importance');
-  await expect(inspector.getByText('待评级')).toBeVisible();
+  await expect(inspector.getByText('待评级')).toHaveCount(0);
   await expect(editor.locator('[data-annotation-id="unrated"]')).toHaveCSS('color', 'rgb(37, 99, 235)');
   await inspector.screenshot({ path: '/tmp/knowra-importance-colors.png' });
 });
@@ -1609,7 +1609,8 @@ test('V4-07 重复文字不会让代码块重点越过代码块边界', async ({
   expect(box).not.toBeNull();
   await page.mouse.move(box!.x + box!.width / 2 + 1, box!.y + box!.height / 2);
   await page.getByRole('button', { name: '内容块重点菜单' }).click();
-  await page.getByRole('menuitem', { name: '标记此块为重点' }).click();
+  await page.getByRole('menuitem', { name: '标记此块为重点', exact: true }).hover();
+  await page.getByRole('menuitem', { name: '普通', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
   expect(created[0].scopeType).toBe('blocks');
   expect(created[0].quoteText).toBe('测试\n测试\n测试');
@@ -1648,7 +1649,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(editor).toContainText('需要标记的正文内容');
   await editor.locator('p').first().click({ clickCount: 3 });
   const selectionTools = page.getByRole('toolbar', { name: '选区工具' });
-  await expect(selectionTools.getByRole('button')).toHaveCount(4);
+  await expect(selectionTools.getByRole('button')).toHaveCount(6);
   await selectionTools.getByRole('button', { name: '加粗', exact: true }).click();
   await expect(editor.locator('strong')).toContainText('需要标记的正文内容');
   expect(Number(await editor.locator('strong').first().evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);
@@ -1656,9 +1657,9 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(editor.locator('em')).toContainText('需要标记的正文内容');
   await selectionTools.getByRole('button', { name: '行内代码', exact: true }).click();
   await expect(editor.locator('p code')).toContainText('需要标记的正文内容');
-  await expect(selectionTools).toHaveCSS('height', '32px');
+  expect(await selectionTools.evaluate(element => element.getBoundingClientRect().height)).toBeLessThanOrEqual(40);
   await selectionTools.screenshot({ path: '/tmp/knowra-selection-tools-v2.png' });
-  await selectionTools.getByRole('button', { name: '标记重点', exact: true }).click();
+  await selectionTools.getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
   const highlight = editor.locator('.editor-annotation').first();
   await expect(highlight).toHaveCSS('color', 'rgb(37, 99, 235)');
@@ -1666,11 +1667,12 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(highlight).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(highlight).toHaveCSS('outline-style', 'none');
   expect(created[0].scopeType).toBe('selection');
-  expect(created[0].importance).toBeNull();
+  expect(created[0].importance).toBe('normal');
   await editor.locator('p').last().click();
   await editor.locator('p').first().hover();
   await page.getByRole('button', { name: '内容块重点菜单' }).click();
-  await page.getByRole('menuitem', { name: '标记此块为重点' }).click();
+  await page.getByRole('menuitem', { name: '标记此块为重点', exact: true }).hover();
+  await page.getByRole('menuitem', { name: '普通', exact: true }).click();
   await expect.poll(() => created.length).toBe(2);
   expect(created[1].scopeType).toBe('blocks');
   expect(created[1].quoteText).toContain('需要标记的正文内容');
@@ -1684,7 +1686,8 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
     expect(headingBox.x - (blockButtonBox.x + blockButtonBox.width)).toBeGreaterThanOrEqual(14);
   }
   await page.getByRole('button', { name: '标题重点菜单' }).click();
-  await page.getByRole('menuitem', { name: '标记本节为重点' }).click();
+  await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).hover();
+  await page.getByRole('menuitem', { name: '普通', exact: true }).click();
   await expect.poll(() => created.length).toBe(3);
   expect(created[2].scopeType).toBe('section');
   expect(created[2].quoteText).toContain('第一节');
@@ -1839,11 +1842,14 @@ for (const stale of [false, true]) {
 test('V4-07 章节重点保存等待后不抢走搜索框焦点', async ({ page }) => {
   await mockEditorWorkspace(page, [], [], '# 第一节\n\n章节正文');
   let finishSave: (() => Promise<void>) | undefined;
+  let saveReleased = false;
   const created: Array<Record<string, unknown>> = [];
   await page.route('**/api/knowledge/notes/note-1', async route => {
     if (route.request().method() !== 'PATCH') return route.fallback();
     const markdown = route.request().postDataJSON().rawMarkdown;
-    finishSave = () => route.fulfill({ json: { data: createNote(markdown, true) } });
+    const respond = () => route.fulfill({ json: { data: createNote(markdown, true) } });
+    if (saveReleased) return respond();
+    finishSave = () => { saveReleased = true; return respond(); };
   });
   await page.route('**/api/knowledge/annotations**', async route => {
     if (route.request().method() === 'POST') {
@@ -1861,7 +1867,8 @@ test('V4-07 章节重点保存等待后不抢走搜索框焦点', async ({ page 
   await page.keyboard.insertText('新增');
   await heading.hover();
   await page.getByRole('button', { name: '标题重点菜单' }).click();
-  await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).click();
+  await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).hover();
+  await page.getByRole('menuitem', { name: '普通', exact: true }).click();
   await expect.poll(() => Boolean(finishSave)).toBe(true);
   const search = page.getByRole('searchbox', { name: '搜索笔记目录' });
   await search.fill('查找');

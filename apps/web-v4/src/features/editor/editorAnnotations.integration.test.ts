@@ -5,6 +5,7 @@ import { gfm } from '@milkdown/kit/preset/gfm';
 import { getAnnotationSelection, resolveAnnotationRange } from './editorAnnotations';
 import type { Annotation } from '@study-accelerator/web-core';
 import { TextSelection } from '@milkdown/kit/prose/state';
+import { anchorForSection, projectMarkdown } from '@study-accelerator/content-anchor';
 
 const long = '### 合成流程\n\n总述\n\n' + Array.from({ length: 7 }, (_, i) =>
   '### 步骤' + i + '\n\n**说明**' + '说明'.repeat(70)
@@ -35,5 +36,27 @@ it.each(cases)('%s：创建和重开依标题身份定位，保留同级边界',
     if (hasPeerBoundary) expect(selected!.quoteText).toBe('合成流程\n总述');
     if (_label === '二级父标题长流程') expect(selected!.quoteText).toContain('步骤6');
     expect(getAnnotationSelection(editor, serialized.replace(/标题|合成流程|合成父标题|长度对照|复杂结构/, '不同标题'), 'section')).toBeNull();
+  } finally { await editor.destroy(); root.remove(); }
+});
+
+it.each([false, true])('引用定义省略后重开首节：重复标题=%s仍绑定原投影位置', async duplicate => {
+  const markdown = duplicate
+    ? '[甲]: https://example.com/a\n\n[乙]: https://example.com/b\n\n## 同名\n\n正文\n\n## 同名\n\n正文'
+    : '[甲]: https://example.com/a\n\n## 唯一\n\n正文';
+  const root = document.createElement('div'); document.body.append(root);
+  const editor = await Editor.make().config(ctx => {
+    ctx.set(rootCtx, root); ctx.set(defaultValueCtx, markdown);
+  }).use(commonmark).use(gfm).create();
+  try {
+    const doc = editor.ctx.get(editorViewCtx).state.doc;
+    const projection = projectMarkdown(markdown);
+    for (let index = 0; index < projection.sections.length; index++) {
+      const anchor = anchorForSection(projection, index);
+      const annotation = { scopeType: 'section', anchor, quoteText: anchor.quoteText } as Annotation;
+      const expectedFrom = index === 0 ? 1 : doc.child(0).nodeSize + doc.child(1).nodeSize + 1;
+      const resolved = resolveAnnotationRange(doc, annotation);
+      expect(resolved?.from).toBe(expectedFrom);
+      expect(resolved!.to).toBe(index === 0 && duplicate ? expectedFrom - 1 + doc.child(0).nodeSize + doc.child(1).nodeSize : doc.content.size);
+    }
   } finally { await editor.destroy(); root.remove(); }
 });
