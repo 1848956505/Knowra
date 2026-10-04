@@ -34,7 +34,10 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '合成提纲.md', mimeType: 'text/markdown', buffer: Buffer.from('# 合成 Markdown\n仅在附件预览显示。') });
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(2);
     await picker.getByRole('button', { name: '预览 合成提纲.md', exact: true }).click();
-    await expect(picker.getByText('仅显示附件信息，当前不提供文档正文预览。', { exact: true })).toBeVisible();
+    const markdownPreview = picker.getByRole('region', { name: '附件预览', exact: true });
+    await expect(markdownPreview.getByText('合成提纲.md', { exact: true })).toBeVisible();
+    await expect(markdownPreview.getByText('仅显示附件信息，当前不提供文档正文预览。', { exact: true })).toBeVisible();
+    await expect(picker.getByLabel('添加对话附件')).toBeEnabled();
     await expect(picker.getByText('# 合成 Markdown\n仅在附件预览显示。', { exact: true })).toHaveCount(0);
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '旧版资料.doc', mimeType: 'application/msword', buffer: Buffer.from('unsupported') });
     await expect(picker.getByRole('alert')).toContainText('旧版 DOC 暂不支持');
