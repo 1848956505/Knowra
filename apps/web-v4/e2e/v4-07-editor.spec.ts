@@ -483,8 +483,11 @@ test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ pa
   await runFormatAction(/^高亮/);
 
   await runFormatAction('内部链接');
-  await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^\[\[已有正文\]\]/);
-  await expect(editor.locator('[data-internal-link]').first()).toHaveText('已有正文');
+  const linkDialog = page.getByRole('dialog', { name: '插入笔记链接', exact: true });
+  await linkDialog.getByRole('button', { name: '关联验收笔记 · 工作', exact: true }).click();
+  await linkDialog.getByRole('button', { name: '确认', exact: true }).click();
+  await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^\[已有正文\]\(knowra:\/\/note\/note-2#ref=/);
+  await expect(editor.locator('[data-note-link]').first()).toHaveText('已有正文');
 });
 
 test('V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底部碰撞', async ({ page }) => {
@@ -1413,7 +1416,9 @@ async function mockEditorWorkspace(
     const request = route.request();
     const url = new URL(request.url());
     let data: unknown = [];
-    if (url.pathname.endsWith('/notes/note-1/links')) data = [createNote(relatedMarkdown, true, 'note-2', '关联验收笔记')];
+    if (url.pathname.endsWith('/search/notes') && url.searchParams.get('result') === 'command') data = [{ id: 'note-2', title: '关联验收笔记', folderId: 'folder-1', snippet: '合成内容' }];
+    else if (url.pathname.endsWith('/link-relations')) data = { noteId: url.pathname.split('/').at(-2), spaceId: 'space-1', contentHash: 'a'.repeat(64), outgoing: [], backlinks: [] };
+    else if (url.pathname.endsWith('/notes/note-1/links')) data = [createNote(relatedMarkdown, true, 'note-2', '关联验收笔记')];
     else if (url.pathname.endsWith('/spaces')) data = [{ id: 'space-1', name: '主空间' }];
     else if (url.pathname.endsWith('/folders/tree')) data = [{ id: 'folder-1', name: '工作', parentId: null, children: [] }];
     else if (url.pathname.endsWith('/notes/note-1')) {

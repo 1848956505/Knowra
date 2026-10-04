@@ -91,6 +91,7 @@ export interface WorkspaceSlice {
   updateTagsForNotes(noteIds: string[], addTagIds: string[], removeTagIds: string[]): Promise<void>;
   queryNotes(input: NoteQueryInput): Promise<NoteQueryPage>;
   getLinkedNotes(noteId: string): Promise<Note[]>;
+  getNoteLinkRelations(noteId: string): Promise<import('@study-accelerator/web-core').NoteLinkRelations>;
   listAnnotations(noteId: string): Promise<Annotation[]>;
   createAnnotation(input: CreateAnnotationInput): Promise<Annotation>;
   deleteAnnotation(annotationId: string, expectedRevision?: number): Promise<Annotation>;

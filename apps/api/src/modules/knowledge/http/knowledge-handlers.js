@@ -1,3 +1,5 @@
+import { assertCommandSearchOwner } from '../application/command-note-search.js';
+
 export function createKnowledgeHttpHandlers({
   knowledgeModule,
   noteDeletionCoordinator,
@@ -50,6 +52,11 @@ export function createKnowledgeHttpHandlers({
     },
     getLinkedNotes(params) {
       return noteService.getLinkedNotes(params.id);
+    },
+    getNoteLinkRelations(params) {
+      const note = noteService.getNote(params.id);
+      assertCommandSearchOwner(knowledgeModule.repositories.knowledgeSpaceRepository.findById(note.spaceId), ownerId);
+      return noteService.getNoteLinkRelations(params.id);
     },
     listNotes(query = {}) {
       return noteService.listNotes(query);

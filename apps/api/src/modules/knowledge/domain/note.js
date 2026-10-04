@@ -1,4 +1,4 @@
-import { updateStructure } from '@study-accelerator/content-anchor';
+import { updateStructure, extractNoteLinks } from '@study-accelerator/content-anchor';
 function stripMarkdown(markdown) {
   return markdown
     .replace(/```[\s\S]*?```/g, ' ')
@@ -12,8 +12,7 @@ function stripMarkdown(markdown) {
 }
 
 function extractInternalLinks(markdown) {
-  const matches = String(markdown ?? '').match(/\[\[([^\]]+)\]\]/g) ?? [];
-  return [...new Set(matches.map((value) => value.slice(2, -2).trim()).filter(Boolean))];
+  return extractNoteLinks(markdown).targetIds;
 }
 
 export class Note {

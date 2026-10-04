@@ -24,7 +24,7 @@ const MUTATION_OPERATIONS = new Set([
 ]);
 
 const READ_OPERATIONS = new Set([
-  'getNote', 'getLinkedNotes', 'listNotes', 'listFolders', 'listFolderTree', 'listTags',
+  'getNote', 'getLinkedNotes', 'getNoteLinkRelations', 'listNotes', 'listFolders', 'listFolderTree', 'listTags',
   'listTagGroups', 'listAnnotations', 'getAnnotation', 'listNoteVersions', 'getNoteVersion', 'previewNoteVersionPrune',
   'previewAnnotation', 'getAnnotationKnowledgeLinks', 'previewAnalysisScope', 'getAnalysisScope',
   'listAnalysisScopes',

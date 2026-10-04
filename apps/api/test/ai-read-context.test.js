@@ -46,6 +46,20 @@ function withContext(run) {
 }
 
 export const aiReadContextTests = [
+  { name: '笔记内部链接与反链不扩大AI范围，不读取私密或范围外目标正文', run: () => withContext(async ({ service, addNote, noteRepository }) => {
+    addNote('private-target', '私密目标独有正文');
+    noteRepository.save({ ...noteRepository.findById('private-target'), aiVisibility: 'private' });
+    addNote('outside-target', '其他空间独有正文', 'space-other');
+    const source = 'alpha [显示文字](knowra://note/private-target#ref=ref-private) [范围外](knowra://note/outside-target#ref=ref-outside)';
+    addNote('linked-source', source);
+    addNote('backlink-source', '反链独有正文 [引用](knowra://note/linked-source#ref=ref-backlink)');
+    const prepared = await service.prepareRead({ ...baseRequest, scope: { kind: 'note', noteId: 'linked-source' } });
+    assert.deepEqual([...new Set(prepared.manifest.sources.map(item => item.noteId))], ['linked-source']);
+    assert(!JSON.stringify(prepared).includes('私密目标独有正文'));
+    assert(!JSON.stringify(prepared).includes('其他空间独有正文'));
+    assert(!JSON.stringify(prepared).includes('反链独有正文'));
+    assert(prepared.request.messages.some(message => message.content.includes('显示文字')));
+  }) },
   { name: '旧Worker记录sent或凭据等待中切私密，最终供应商边界不调用合成适配器', async run() {
     for (const stage of ['sentRecord', 'credential']) await withContext(async ({ store, service, addNote, noteRepository }) => {
       addNote('note-1', 'alpha');

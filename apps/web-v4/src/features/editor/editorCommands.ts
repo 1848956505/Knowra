@@ -53,6 +53,9 @@ export interface EditorFindResult {
 }
 
 export interface EditorCommandTarget {
+  captureNoteLinkEdit?(): import('./editorNoteLinks').NoteLinkEditSession | null;
+  applyNoteLinkEdit?(session: import('./editorNoteLinks').NoteLinkEditSession, targetId: string | null, label: string): boolean;
+  selectNoteLinkOccurrence?(locator: import('@study-accelerator/content-anchor').NoteLinkLocator): boolean;
   run(command: EditorCommand): boolean;
   runEdit(action: EditorClipboardAction): Promise<EditorEditResult>;
   find(query: string, currentIndex: number, direction: EditorFindDirection): EditorFindResult;

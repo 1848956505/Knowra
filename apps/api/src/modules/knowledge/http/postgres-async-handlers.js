@@ -1,3 +1,5 @@
+import { assertCommandSearchOwner } from '../application/command-note-search.js';
+
 export function createPostgresKnowledgeHttpHandlers({
   knowledgeModule,
   noteDeletionCoordinator,
@@ -38,6 +40,11 @@ export function createPostgresKnowledgeHttpHandlers({
     importMarkdownBatch: (body) => noteService.importMarkdownBatch(body.items ?? []),
     getNote: (params, query = {}) => noteService.getNote(params.id, { includeDeleted: query.includeDeleted }),
     getLinkedNotes: (params) => noteService.getLinkedNotes(params.id),
+    async getNoteLinkRelations(params) {
+      const note = await noteService.getNote(params.id);
+      assertCommandSearchOwner(await knowledgeModule.repositories.knowledgeSpaceRepository.findById(note.spaceId), ownerId);
+      return noteService.getNoteLinkRelations(params.id);
+    },
     listNotes: (query = {}) => noteService.listNotes(query),
     updateNote: (params, body) => noteService.updateNote(params.id, body),
     deleteNote: (params) => noteService.deleteNote(params.id),

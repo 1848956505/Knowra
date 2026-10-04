@@ -9,6 +9,7 @@ import {
   validationError
 } from './knowledge-errors.js';
 import { createNoteAssociationOperations } from './note-association-operations.js';
+import { addedNoteLinkTargets, assertNoteLinkTarget, buildNoteLinkRelations } from './note-link-relations.js';
 
 export function createNoteService({
   repository = createInMemoryNoteRepository(),
@@ -86,6 +87,7 @@ export function createNoteService({
   return {
     createNote(input) {
       const dto = buildCreateNoteDto(input);
+      addedNoteLinkTargets(dto.rawMarkdown).forEach(id => assertNoteLinkTarget(repository.findById(id), dto.spaceId));
       assertNewNoteId(dto.id);
       assertReferences(dto);
       validateSiblingNameConflict?.({
@@ -133,9 +135,15 @@ export function createNoteService({
 
       return linkedNotes;
     },
+    getNoteLinkRelations(noteId) {
+      const note = requireNote(noteId);
+      return buildNoteLinkRelations(note, repository.list({ spaceId: note.spaceId, includeDeleted: true }));
+    },
     updateNote(noteId, updates) {
       const currentNote = requireNote(noteId, { includeDeleted: true });
       const dto = buildUpdateNoteDto(updates);
+      if (dto.rawMarkdown !== undefined) addedNoteLinkTargets(dto.rawMarkdown, currentNote.rawMarkdown)
+        .forEach(id => assertNoteLinkTarget(repository.findById(id), dto.spaceId ?? currentNote.spaceId));
       if (
         dto.expectedUpdatedAt
         && dto.expectedUpdatedAt !== new Date(currentNote.updatedAt).toISOString()
