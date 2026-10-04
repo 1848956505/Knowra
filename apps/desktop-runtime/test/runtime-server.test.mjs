@@ -63,6 +63,9 @@ test('真实本地入口开放会话与授权写入，仍限制永久删除和�
   const retry = await call(`/api/ai/conversations/${id}/turns/${turnId}/retry`, 'POST', undefined, headers);
   assert.notEqual(retry.error?.code, 'LOCAL_FEATURE_UNAVAILABLE');
   assert([202, 422].includes(retry.status), JSON.stringify(retry));
+  const resumed = await call(`/api/ai/conversations/${id}/turns/${turnId}/resume`, 'POST', undefined, headers);
+  assert.notEqual(resumed.error?.code, 'LOCAL_FEATURE_UNAVAILABLE');
+  assert([202, 422].includes(resumed.status), JSON.stringify(resumed));
   const cancelled = await call(`/api/ai/conversations/${id}/turns/${turnId}/cancel`, 'POST', undefined, headers);
   assert.equal(cancelled.status, 200, JSON.stringify(cancelled));
   const policy = await call('/api/ai/access-policies', 'POST', { spaceId: space.id, scope: { kind: 'library' },

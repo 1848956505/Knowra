@@ -2,17 +2,26 @@ vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => [])
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
+import { conversationAttachmentApi } from './conversationAttachmentApi';
 import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
 
 const fixture = vi.hoisted(() => ({
+  navigate: vi.fn(),
   state: {
     serverData: { currentSpaceId: 'space-1', notes: [{ id: 'note-1', title: '笔记 A', spaceId: 'space-1', deleted: false }], folderTree: [] },
     getNoteVersion: vi.fn(async () => ({ content: '前文 alpha 后文', contentHash: 'e1ad18f75b0295b8a3845a76fc8e148b8eef2107f58336fe9bca6a23ebb608d6' }))
   }
 }));
 
+vi.mock('../../app/router', async importOriginal => ({
+  ...await importOriginal<typeof import('../../app/router')>(), useNavigate: () => fixture.navigate
+}));
+
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStoreApi: () => ({ getState: () => fixture.state }), useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
 vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn() } }));
+vi.mock('./conversationAttachmentApi', () => ({ conversationAttachmentApi: {
+  list: vi.fn(), upload: vi.fn(), preview: vi.fn(), content: vi.fn(), remove: vi.fn()
+} }));
 vi.mock('./conversationApi', () => ({ conversationApi: {
   list: vi.fn(), create: vi.fn(), messages: vi.fn(), send: vi.fn(), turn: vi.fn(), cancel: vi.fn(), retry: vi.fn(), resume: vi.fn(),
   policies: vi.fn(), createPolicy: vi.fn(), revokePolicy: vi.fn()
@@ -28,6 +37,7 @@ const succeeded: ConversationTurn = { turnId: 'turn-1', conversationId: 'convers
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(conversationApi.list).mockResolvedValue([]);
+  vi.mocked(conversationAttachmentApi.list).mockResolvedValue([]);
   vi.mocked(conversationApi.policies).mockResolvedValue([]);
   vi.mocked(conversationApi.messages).mockResolvedValue([]);
   vi.mocked(conversationApi.turn).mockResolvedValue(succeeded);
@@ -36,6 +46,25 @@ beforeEach(() => {
     configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null,
     capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
       writeTools: false, providerAdvertised: null, providerVerified: false } });
+});
+
+it('附件创建会话期间暂停消息发送，迟到创建不会覆盖用户切换的会话', async () => {
+  let release!: (value: Conversation) => void;
+  const delayed = new Promise<Conversation>(resolve => { release = resolve; });
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.create).mockReturnValue(delayed);
+  const view = render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  await screen.findByText('服务器执行');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '独立问题' } });
+  const fileInput = document.querySelector('input[type=file]')!;
+  fireEvent.change(fileInput, { target: { files: [new File(['资料'], '资料.txt', { type: 'text/plain' })] } });
+  await waitFor(() => expect(conversationApi.create).toHaveBeenCalledOnce());
+  expect(screen.getByRole('button', { name: '处理中…' })).toBeDisabled();
+  view.rerender(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await act(async () => { release({ ...conversation, conversationId: 'late-conversation' }); await delayed; });
+  expect(conversationAttachmentApi.upload).not.toHaveBeenCalled();
+  expect(conversationApi.send).not.toHaveBeenCalled();
+  expect(fixture.navigate).not.toHaveBeenCalled();
 });
 
 it('迟到的联网恢复快照不覆盖用户关闭的资料读取范围', async () => {

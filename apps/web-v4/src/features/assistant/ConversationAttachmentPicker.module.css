@@ -1,0 +1,8 @@
+.picker { min-width: 0; padding: 8px 0; color: var(--ink); font-size: 12px; }
+.picker summary { cursor: pointer; }
+.picker p { margin: 6px 0; color: var(--ink-secondary); line-height: 1.5; }
+.row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--ink-panel); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.preview { display: grid; gap: 8px; margin-top: 12px; }
+.preview pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow: auto; font: inherit; }
+.preview img { max-width: 100%; max-height: 20rem; object-fit: contain; }

@@ -231,6 +231,7 @@ export function createPersistentAppContext({
   context.http.modelSettings = createModelSettingsService();
   context.http.aiBudget = dataStore.aiBudgetAuthority;
   context.ai = createOptionalAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
+    uploadsDir,
     accessStore: dataStore.aiAccessStore,
     conversationStore: dataStore.aiConversationStore, actionStore: dataStore.aiActionStore,
     coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,

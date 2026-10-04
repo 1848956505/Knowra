@@ -103,6 +103,209 @@
         }, "required": ["kind", "attemptId", "conversationId", "turnId", "ordinal", "leaseGeneration", "modelId", "recipient", "payloadHash", "manifestId", "grantId", "reservedMicrounits", "actualMicrounits", "status", "errorCode", "createdAt", "updatedAt"]
       }]
     },
-    "checkpoint": {"type": "object", "additionalProperties": false, "properties": {"version": {"const": 1}, "nextRound": {"type": "integer", "minimum": 0, "maximum": 4}, "totalTools": {"type": "integer", "minimum": 0, "maximum": 6}, "handledAttemptOrdinal": {"type": "integer", "minimum": 0, "maximum": 8}, "noProgressRounds": {"type": "integer", "minimum": 0, "maximum": 4}, "sourceRefs": {"type": "array", "items": {"$ref": "#/$defs/source"}, "maxItems": 128}, "initialSearchDone": {"type": "boolean"}, "searchTruncated": {"type": "boolean"}, "searchFallback": {"type": "boolean"}, "forceAnswer": {"type": "boolean"}, "externalContext": {"type": "string", "maxLength": 3000}, "toolFeedback": {"type": "string", "maxLength": 3000}}, "required": ["version", "nextRound", "totalTools", "handledAttemptOrdinal", "noProgressRounds", "sourceRefs", "initialSearchDone", "searchTruncated", "searchFallback", "forceAnswer", "externalContext", "toolFeedback"]}
+    "checkpoint": {"type": "object", "additionalProperties": false, "properties": {"version": {"const": 1}, "nextRound": {"type": "integer", "minimum": 0, "maximum": 4}, "totalTools": {"type": "integer", "minimum": 0, "maximum": 6}, "handledAttemptOrdinal": {"type": "integer", "minimum": 0, "maximum": 8}, "noProgressRounds": {"type": "integer", "minimum": 0, "maximum": 4}, "sourceRefs": {"type": "array", "items": {"$ref": "#/$defs/source"}, "maxItems": 128}, "initialSearchDone": {"type": "boolean"}, "searchTruncated": {"type": "boolean"}, "searchFallback": {"type": "boolean"}, "forceAnswer": {"type": "boolean"}, "externalContext": {"type": "string", "maxLength": 3000}, "toolFeedback": {"type": "string", "maxLength": 3000}}, "required": ["version", "nextRound", "totalTools", "handledAttemptOrdinal", "noProgressRounds", "sourceRefs", "initialSearchDone", "searchTruncated", "searchFallback", "forceAnswer", "externalContext", "toolFeedback"]},
+    "aiConversationAttachment": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/boundary"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "aiConversationAttachment"
+            },
+            "attachmentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "conversationId": {
+              "$ref": "#/$defs/id"
+            },
+            "uploadKey": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9-]{8,80}$"
+            },
+            "fileName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 180,
+              "pattern": "^[^/\\\\\\x00-\\x1f\\x7f]+$"
+            },
+            "mimeType": {
+              "enum": [
+                "application/pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "text/plain",
+                "text/markdown",
+                "image/png",
+                "image/jpeg"
+              ]
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5242880
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "storageStatus": {
+              "enum": [
+                "pending",
+                "ready",
+                "missing",
+                "removed"
+              ]
+            },
+            "parseStatus": {
+              "enum": [
+                "pending",
+                "ready",
+                "failed",
+                "vision_unsupported"
+              ]
+            },
+            "parserVersion": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parsedTextHash": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "segments": {
+              "type": "array",
+              "maxItems": 4000,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200000
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "text",
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            "imageMetadata": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "width": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20000
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20000
+                    },
+                    "format": {
+                      "enum": [
+                        "png",
+                        "jpeg"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "width",
+                    "height",
+                    "format"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "errorCode": {
+              "$ref": "#/$defs/nullableCode"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "removedAt": {
+              "$ref": "#/$defs/nullableTime"
+            },
+            "cleanupStatus": {
+              "enum": [
+                "none",
+                "pending",
+                "complete"
+              ]
+            },
+            "createdAt": {
+              "$ref": "#/$defs/time"
+            },
+            "updatedAt": {
+              "$ref": "#/$defs/time"
+            }
+          },
+          "required": [
+            "kind",
+            "attachmentId",
+            "conversationId",
+            "uploadKey",
+            "fileName",
+            "mimeType",
+            "size",
+            "sha256",
+            "storageStatus",
+            "parseStatus",
+            "parserVersion",
+            "parsedTextHash",
+            "segments",
+            "imageMetadata",
+            "errorCode",
+            "revision",
+            "removedAt",
+            "cleanupStatus",
+            "createdAt",
+            "updatedAt"
+          ]
+        }
+      ]
+    }
   }
 }

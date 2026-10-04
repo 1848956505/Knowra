@@ -1,5 +1,5 @@
 import { validateWriteIntent } from './note-write-intent.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import schema from './contracts/ai-conversation-v2.schema.json' with { type: 'json' };
@@ -12,7 +12,8 @@ export const CONVERSATION_KINDS = Object.freeze({
   aiConversationTurn: { collection: 'conversationTurns', id: 'turnId' },
   aiConversationMessage: { collection: 'conversationMessages', id: 'messageId' },
   aiConversationToolCall: { collection: 'conversationToolCalls', id: 'callId' },
-  aiConversationModelAttempt: { collection: 'conversationModelAttempts', id: 'attemptId' }
+  aiConversationModelAttempt: { collection: 'conversationModelAttempts', id: 'attemptId' },
+  aiConversationAttachment: { collection: 'conversationAttachments', id: 'attachmentId' }
 });
 const collections = Object.values(CONVERSATION_KINDS).map(item => item.collection);
 const ajv = new Ajv2020({ strict: false, allErrors: true });
@@ -45,6 +46,24 @@ export function validateConversationRecord(kind, record) {
   }
   if (kind === 'aiConversationTurn' && record.turnId !== record.jobId) {
     conversationError('AI_RECORD_INVALID', '会话轮次与任务 ID 不一致。');
+  }
+  if (kind === 'aiConversationAttachment') {
+    let offset = 0;
+    for (const segment of record.segments) {
+      if (segment.start !== offset || segment.end !== segment.start + segment.text.length) {
+        conversationError('AI_RECORD_INVALID', '附件解析区间无效。');
+      }
+      offset = segment.end;
+    }
+    const textHash = createHash('sha256').update(record.segments.map(row => row.text).join('')).digest('hex');
+    if (offset > 200000 || record.parseStatus === 'ready' && (!offset || record.parsedTextHash !== textHash || !record.parserVersion)
+      || record.parseStatus !== 'ready' && (record.segments.length || record.parsedTextHash)
+      || Boolean(record.removedAt) !== (record.storageStatus === 'removed')
+      || record.removedAt && (record.segments.length || record.imageMetadata || record.cleanupStatus === 'none')
+      || record.storageStatus !== 'removed' && record.cleanupStatus !== 'none'
+      || ['ready', 'vision_unsupported'].includes(record.parseStatus) && record.storageStatus !== 'ready') {
+      conversationError('AI_RECORD_INVALID', '附件读取、解析或移除状态无效。');
+    }
   }
   if (kind === 'aiConversationTurn' && (
     record.status === 'running' !== Boolean(record.leaseExpiresAt)
@@ -100,6 +119,14 @@ export function validateConversationState(input) {
     .every(key => a[key] === b[key]);
   const ordinals = new Set(), sequences = new Set(), callOrdinals = new Set(), keys = new Set();
   const attemptOrdinals = new Set();
+  const attachmentKeys = new Set();
+  for (const attachment of state.conversationAttachments) {
+    const conversation = conversations.get(attachment.conversationId);
+    if (!conversation || !boundary(conversation, attachment)) conversationError('AI_REFERENCE_INVALID', '附件会话引用无效。');
+    const key = `${attachment.conversationId}:${attachment.uploadKey}`;
+    if (attachmentKeys.has(key)) conversationError('AI_RECORD_DUPLICATE', '附件上传请求键重复。');
+    attachmentKeys.add(key);
+  }
   for (const turn of turns.values()) {
     const conversation = conversations.get(turn.conversationId);
     if (!conversation || !boundary(conversation, turn)) conversationError('AI_REFERENCE_INVALID', '会话任务引用无效。');
@@ -195,6 +222,51 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
   const leaseEnd = (turn, leaseMs) => new Date(Math.min(now().getTime() + leaseMs,
     Date.parse(turn.executionStartedAt) + MAX_AGENT_RUN_MS)).toISOString();
   return {
+    async listAttachments(conversationId = null) {
+      return (await read()).conversationAttachments.filter(row => conversationId === null || row.conversationId === conversationId);
+    },
+    async getAttachment(id) { return (await read()).conversationAttachments.find(row => row.attachmentId === id) ?? null; },
+    async stageAttachment({ ownerId, conversationId, uploadKey, fileName, mimeType, size, sha256 }) {
+      return write((state, identity) => {
+        const conversation = state.conversations.find(row => row.conversationId === conversationId && row.ownerId === ownerId);
+        if (!conversation) conversationError('AI_CONVERSATION_NOT_FOUND', '会话不存在。');
+        if (!current(conversation, identity) || conversation.archivedAt) conversationError('AI_DATASET_STALE', '会话已切换或归档。');
+        const existing = state.conversationAttachments.find(row => row.conversationId === conversationId && row.uploadKey === uploadKey);
+        if (existing) {
+          if (['fileName', 'mimeType', 'size', 'sha256'].some(key => existing[key] !== ({ fileName, mimeType, size, sha256 })[key])) {
+            conversationError('AI_IDEMPOTENCY_CONFLICT', '上传请求键已用于不同内容。');
+          }
+          return existing;
+        }
+        const active = state.conversationAttachments.filter(row => row.conversationId === conversationId && !row.removedAt);
+        if (active.length >= 20 || active.reduce((sum, row) => sum + row.size, 0) + size > 25 * 1024 * 1024) {
+          conversationError('AI_ATTACHMENT_QUOTA_EXCEEDED', '此对话最多保存 20 个附件，总大小不超过 25 MB。');
+        }
+        const time = stamp();
+        const record = validateConversationRecord('aiConversationAttachment', { kind: 'aiConversationAttachment', contractVersion: 2,
+          ownerId, ...identity, spaceId: conversation.spaceId, conversationId, attachmentId: randomUUID(), uploadKey,
+          fileName, mimeType, size, sha256, storageStatus: 'pending', parseStatus: 'pending', parserVersion: null,
+          parsedTextHash: null, segments: [], imageMetadata: null, errorCode: null, revision: 1, removedAt: null,
+          cleanupStatus: 'none', createdAt: time, updatedAt: time });
+        state.conversationAttachments.push(record); return record;
+      });
+    },
+    async updateAttachment({ ownerId, attachmentId, expectedRevision, patch }) {
+      return write((state, identity) => {
+        const row = state.conversationAttachments.find(item => item.attachmentId === attachmentId && item.ownerId === ownerId);
+        if (!row) conversationError('AI_ATTACHMENT_NOT_FOUND', '附件不存在。');
+        const conversation = state.conversations.find(item => item.conversationId === row.conversationId);
+        if (!current(row, identity) || conversation?.archivedAt) conversationError('AI_DATASET_STALE', '附件执行权已失效。');
+        if (row.revision !== expectedRevision) conversationError('AI_ATTACHMENT_CONFLICT', '附件已更新，请刷新后重试。');
+        const allowed = ['storageStatus', 'parseStatus', 'errorCode', 'parserVersion', 'parsedTextHash', 'segments', 'imageMetadata', 'cleanupStatus', 'removedAt'];
+        if (!patch || Object.keys(patch).some(key => !allowed.includes(key))
+          || row.removedAt && Object.keys(patch).some(key => key !== 'cleanupStatus')) {
+          conversationError('AI_REQUEST_INVALID', '附件修改无效。');
+        }
+        Object.assign(row, structuredClone(patch), { revision: row.revision + 1, updatedAt: stamp() });
+        validateConversationRecord('aiConversationAttachment', row); return row;
+      });
+    },
     peekTurn(id) {
       const value = adapter.read();
       const find = state => structuredClone(validateConversationState(state).conversationTurns.find(row => row.turnId === id) ?? null);

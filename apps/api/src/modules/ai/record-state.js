@@ -6,10 +6,11 @@ import { validateBudgetState } from './budget-ledger.js';
 import { ACCESS_KINDS, createJsonAiAccessStore, validateAccessRecord, validateAccessRelationships } from './access-records.js';
 import { CONVERSATION_KINDS, createJsonAiConversationStore, emptyConversationState, validateConversationState } from './conversation-store.js';
 
-export const AI_PRIVATE_STATE_VERSION = 5;
+export const AI_PRIVATE_STATE_VERSION = 6;
 const collections = Object.values(AI_RECORD_KINDS).map(value => value.collection);
 const accessCollections = Object.values(ACCESS_KINDS).map(value => value.collection);
 const conversationCollections = Object.values(CONVERSATION_KINDS).map(value => value.collection);
+const v5ConversationCollections = conversationCollections.filter(name => name !== 'conversationAttachments');
 
 export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = randomUUID() } = {}) {
   return {
@@ -26,7 +27,7 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
 export function validateAiState(input) {
   if (input === undefined) return createEmptyAiState();
   if (!input || typeof input !== 'object' || Array.isArray(input)
-    || ![1, 2, 3, 4, AI_PRIVATE_STATE_VERSION].includes(input.version)
+    || ![1, 2, 3, 4, 5, AI_PRIVATE_STATE_VERSION].includes(input.version)
     || typeof input.datasetId !== 'string' || !input.datasetId
     || typeof input.datasetEpoch !== 'string' || !input.datasetEpoch
     || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', 'actionLedger', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
@@ -44,7 +45,7 @@ export function validateAiState(input) {
     if (conversationCollections.some(collection => Object.hasOwn(state, collection))) {
       throw new Error('AI v2 私有状态不能包含 v3 会话记录。');
     }
-    for (const collection of conversationCollections.filter(name => name !== 'conversationModelAttempts')) state[collection] = [];
+    for (const collection of v5ConversationCollections.filter(name => name !== 'conversationModelAttempts')) state[collection] = [];
     state.version = 3;
   }
   if (state.version === 3) {
@@ -57,6 +58,10 @@ export function validateAiState(input) {
   if (state.version === 4) {
     if (Object.hasOwn(state, 'actionLedger')) throw new Error('旧版本不能包含新动作账本。');
     state.actionLedger = emptyActionState(); state.version = 5;
+  }
+  if (state.version === 5) {
+    if (Object.hasOwn(state, 'conversationAttachments')) throw new Error('旧版本不能包含对话附件。');
+    state.conversationAttachments = []; state.version = 6;
   }
   validateActionState(state.actionLedger);
   for (const [kind, { collection, id }] of Object.entries(AI_RECORD_KINDS)) {

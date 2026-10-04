@@ -162,7 +162,7 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
     if (manifest.datasetId !== undefined && datasetId !== undefined && manifest.datasetId !== datasetId) throw new Error('备份清单与数据库资料集标识不一致。');
     validateSqliteCoreOperationRows(db);
     validateSqliteActionRows(db);
-    let aiJobs = [];
+    let aiJobs = [], conversationAttachments = [];
     if (version >= 4) {
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('备份 AI 私有记录引用不完整。');
       const ai = createSqliteAiRepository(db);
@@ -170,7 +170,7 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
       aiJobs = ai.list('aiJob');
       for (const job of aiJobs) ai.listEvents(job.jobId).forEach(validateAiEvent);
       if (version >= 6) validateSqliteAccessRows(db);
-      if (version >= 7) validateSqliteConversationRows(db);
+      if (version >= 7) conversationAttachments = validateSqliteConversationRows(db).conversationAttachments;
     }
     validateSqliteKnowledgeExtractionBackup(db, aiJobs);
     const state = createEmptyLocalState();
@@ -188,6 +188,12 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
     for (const attachment of state.attachments.filter(item => item.status === 'ready')) {
       const file = files.get(`uploads/${attachment.id}-${attachment.fileName}`);
       if (!file || file.sha256 !== attachment.sha256 || file.size !== attachment.size) throw new Error(`备份附件“${attachment.fileName}”缺失或内容校验失败。`);
+    }
+    for (const attachment of conversationAttachments.filter(item => item.storageStatus === 'ready' && !item.removedAt)) {
+      const file = files.get(`uploads/ai-conversations/${attachment.attachmentId}.bin`);
+      if (!file || file.sha256 !== attachment.sha256 || file.size !== attachment.size) {
+        throw new Error(`备份对话附件“${attachment.fileName}”缺失或内容校验失败。`);
+      }
     }
     const draftRecord = readBackupDrafts(backupDirectory);
     const draftCount = [draftRecord, ...(draftRecord.archivedDrafts ?? [])].reduce((count, record) => count + Object.keys(record.drafts).length, 0);

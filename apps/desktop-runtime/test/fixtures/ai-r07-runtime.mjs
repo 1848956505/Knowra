@@ -87,6 +87,7 @@ export async function createR07Fixture(driver, { aiEnabled = true, isolatePostgr
       const previous = app.ai;
       const repositories = app.repositories ?? app.modules.knowledge.repositories;
       runtime = createOptionalAiRuntime({ modelSettings: syntheticCredentials, repository: previous.repository,
+        uploadsDir: path.join(directory, 'uploads'),
         accessStore: previous.accessStore,
         conversationStore: previous.conversationStore, actionStore: app.dataStore?.aiActionStore ?? previous.actionStore,
         coreOperationStore: app.coreOperationStore, knowledge: { ...app.modules.knowledge, repositories }, asyncDomain: driver === 'postgres', budgetAuthority: previous.budgetAuthority,
@@ -102,7 +103,7 @@ export async function createR07Fixture(driver, { aiEnabled = true, isolatePostgr
       };
       await start();
       restart = async () => {
-        await runtime.agent?.close?.(); await runtime.worker?.close?.();
+        await runtime.attachments?.close?.(); await runtime.agent?.close?.(); await runtime.worker?.close?.();
         await closeServer(web); await closeServer(api); await app.close?.();
         await start(); return launchUrl;
       };

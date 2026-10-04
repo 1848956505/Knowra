@@ -7,12 +7,13 @@ export function aiRuntimeLifecycle(runtime) {
   if (runtime && owners.has(runtime)) return owners.get(runtime);
   const scope = createAiRecoveryScope();
   const stages = {
+    attachments: () => runtime?.attachments?.recover?.(),
     conversation: () => runtime?.conversationStore?.recoverInterrupted?.(),
     agent: () => runtime?.agent?.recover?.(),
     worker: () => runtime?.worker?.recover?.()
   };
   const owner = {
-    recover(names = ['conversation', 'agent', 'worker']) {
+    recover(names = ['attachments', 'conversation', 'agent', 'worker']) {
       return scope.run(async () => {
         for (const name of names) {
           if (scope.closed) return;
@@ -22,6 +23,7 @@ export function aiRuntimeLifecycle(runtime) {
     },
     close: () => scope.close(async () => {
       const results = await Promise.allSettled([
+        Promise.resolve().then(() => runtime?.attachments?.close?.()),
         Promise.resolve().then(() => runtime?.agent?.close?.()),
         Promise.resolve().then(() => runtime?.worker?.close?.())
       ]);

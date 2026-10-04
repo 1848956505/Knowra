@@ -9,12 +9,14 @@ import { createAiReadContextService } from './read-context-service.js';
 import { createAiAccessService } from './access-service.js';
 import { createAiConversationService } from './conversation-service.js';
 import { createAiAgentWorker } from './agent-worker.js';
+import { createConversationAttachmentService } from './conversation-attachments.js';
 
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
   actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
-  verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null } = {}) {
+  verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null,
+  uploadsDir = null, attachmentParser = undefined } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
   const gateway = createAiGateway({
@@ -35,8 +37,17 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,
       accessStore, spaceRepository: contextSources.spaceRepository, ownerId: contextSources.ownerId,
       agent }) : null;
+  const attachmentService = conversation && uploadsDir ? createConversationAttachmentService({
+    conversationStore, uploadsDir, ownerId: contextSources.ownerId, parser: attachmentParser,
+    assertConversation: id => conversation.get(id)
+  }) : null;
+  const attachments = attachmentService && maintenanceGate ? {
+    ...wrapHandlersWithMaintenanceGate(attachmentService, maintenanceGate, {
+      getAccess: name => ['upload', 'remove'].includes(name) ? 'mutation' : 'read'
+    }), close: attachmentService.close
+  } : attachmentService;
   return {
-    actions, actionStore,
+    actions, actionStore, attachments,
     generationAvailable: modelId => Boolean(allowExternal && priceProfile?.version
       && priceProfile.modelId === modelId && Date.parse(priceProfile.expiresAt) > Date.now()),
     priceProfile,
@@ -61,7 +72,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
 }
 
 export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。') {
-  return { actions: null, unavailableReason: reason, generationAvailable: () => false,
+  return { actions: null, attachments: null, unavailableReason: reason, generationAvailable: () => false,
     credentialReference: async () => null, repository: null, budgetAuthority: null,
     readContext: null, accessStore: null, access: null, conversationStore: null, conversation: null,
     agent: null, worker: null, gateway: null, priceProfile: null };
