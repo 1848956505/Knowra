@@ -10,7 +10,7 @@ import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 import { $prose } from '@milkdown/kit/utils';
 import type { AnnotationSelection } from './annotationPayloads';
-import { anchorForBlock, anchorFromProjectedRange, projectMarkdown, calculateContentHash, type AnnotationScopeType, type MarkdownProjection } from '@study-accelerator/content-anchor';
+import { anchorForBlock, anchorForSection, anchorFromProjectedRange, projectMarkdown, calculateContentHash, type AnnotationScopeType, type MarkdownProjection } from '@study-accelerator/content-anchor';
 export type { AnnotationSelection } from './annotationPayloads';
 
 interface AnnotationPluginState {
@@ -172,6 +172,8 @@ export function getAnnotationSelection(editor: Editor, markdown: string, scopeTy
   let anchor;
   if (scopeType === 'list') {
     anchor = editorListAnchor(view.state.doc, projection, view.state.selection.from);
+  } else if (scopeType === 'section') {
+    anchor = anchorForEditorSection(view.state.doc, projection, from, to);
   } else if (codeBlock?.type.name === 'code_block' && to === from + codeBlock.content.size) {
     anchor = anchorForSelectedCodeBlock(view.state.doc, projection, from);
   } else {
@@ -179,7 +181,7 @@ export function getAnnotationSelection(editor: Editor, markdown: string, scopeTy
     if (!projectedRange) return null;
     anchor = anchorFromProjectedRange(projection, projectedRange.from, projectedRange.to, { scopeType });
   }
-  if (!anchor || anchor.quoteText !== visibleText) return null;
+  if (!anchor || (scopeType !== 'section' && anchor.quoteText !== visibleText)) return null;
   return {
     quoteText: anchor.quoteText,
     fromPosition: anchor.sourceStart,
@@ -190,6 +192,31 @@ export function getAnnotationSelection(editor: Editor, markdown: string, scopeTy
     scopeType,
     anchor
   };
+}
+
+function anchorForEditorSection(doc: ProseNode, projection: MarkdownProjection, from: number, to: number) {
+  const headings: Array<{ position: number; level: number; title: string }> = [];
+  doc.descendants((node, position) => {
+    if (node.type.name === 'heading') headings.push({ position, level: Number(node.attrs.level), title: node.textContent });
+  });
+  // Ordinal + full heading identity prevent repeated titles from selecting a different section.
+  if (headings.length !== projection.headings.length || headings.some((heading, index) =>
+    heading.level !== projection.headings[index].level || heading.title !== projection.headings[index].title)) return null;
+  const index = headings.findIndex(heading => heading.position + 1 === from);
+  if (index < 0) return null;
+  const anchor = anchorForSection(projection, index);
+  // Empty editor paragraphs and rule nodes have no Markdown text. Code newlines remain meaningful.
+  return anchor.quoteText === sectionTextBetween(doc, from, to) ? anchor : null;
+}
+
+function sectionTextBetween(doc: ProseNode, from: number, to: number) {
+  const leaves: string[] = [];
+  doc.descendants((node, position) => {
+    if (position + 1 >= from && position < to && node.isTextblock && node.content.size > 0) {
+      leaves.push(node.textBetween(0, node.content.size, '\n', '\uFFFC'));
+    }
+  });
+  return leaves.join('\n');
 }
 
 function anchorForSelectedCodeBlock(doc: ProseNode, projection: MarkdownProjection, from: number) {
@@ -275,6 +302,13 @@ function createDecorations(doc: ProseNode, annotations: Annotation[], focusedId:
 
 export function resolveAnnotationRange(doc: ProseNode, annotation: Annotation): { from: number; to: number } | null {
   if (annotation.scopeType === 'list') return resolveEditorListRange(doc, annotation.anchor?.structurePath ?? '', annotation.quoteText);
+  if (annotation.scopeType === 'section' && annotation.anchor?.section) {
+    const target = nodeAtStructurePath(doc, annotation.anchor.structurePath ?? '');
+    if (target?.node.type.name !== 'heading' || target.node.textContent !== annotation.anchor.section.title
+      || Number(target.node.attrs.level) !== annotation.anchor.section.headingLevel) return null;
+    const range = scopeRange(doc, target.position + 1, target.position + 1, 'section');
+    return range && sectionTextBetween(doc, range.from, range.to) === annotation.quoteText ? range : null;
+  }
   if (annotation.anchor?.tracking?.empty) {
     const target = nodeAtStructurePath(doc, annotation.anchor.structurePath ?? '');
     return target?.node.isTextblock && !target.node.textContent.trim() ? { from: target.position + 1, to: target.position + 1 + target.node.content.size } : null;

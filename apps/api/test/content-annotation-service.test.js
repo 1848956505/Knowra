@@ -42,7 +42,7 @@ export const contentAnnotationServiceTests = [
         noteRepository: { findById: () => note }
       });
       const created = service.createAnnotation(input());
-      assert.equal(created.importance, null);
+      assert.equal(created.importance, 'normal');
       assert.equal(service.createAnnotation(input()).id, created.id);
       assert.equal(
         service.listAnnotationsByNote({ noteId: note.id }).length,
@@ -54,6 +54,18 @@ export const contentAnnotationServiceTests = [
         0
       );
       assert.equal(service.restoreAnnotation(created.id).status, 'active');
+    }
+  },
+  {
+    name: 'explicit legacy null importance remains idempotent without changing existing records',
+    async run() {
+      const service = createContentAnnotationService({ noteRepository: { findById: () => note } });
+      const request = { ...input('legacy-null'), importance: null };
+      const legacy = service.createAnnotation(request);
+      assert.equal(legacy.importance, null);
+      assert.equal(service.createAnnotation(request).id, legacy.id);
+      assert.equal(service.createAnnotation({ ...input('new-default'), kind: 'question' }).importance, 'normal');
+      assert.equal(service.getAnnotation(legacy.id).importance, null);
     }
   },
   {

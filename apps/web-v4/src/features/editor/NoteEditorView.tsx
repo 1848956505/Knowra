@@ -522,7 +522,7 @@ export function NoteEditorView({
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
   };
-  const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' | 'list' = 'selection') => {
+  const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' | 'list' = 'selection', importance: 'normal' | 'important' | 'core' = 'normal') => {
     if (!canEditContent) throw new Error('阅读模式下无法创建标注');
     if (annotationCreatePendingRef.current) return;
     const context = annotationWriteStateRef.current;
@@ -537,9 +537,9 @@ export function NoteEditorView({
         throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
       }
     };
-    const initialSignature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
+    const initialSignature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor, importance]);
     const unresolved = [...annotationCreateInputsRef.current.entries()].find(([signature, request]) =>
-      signature === initialSignature || request.input.noteId === note.id
+      signature === initialSignature || request.input.noteId === note.id && request.input.importance === importance
         && canContinueListAnnotation(request.markdown, markdown, request.selection, selection ?? null));
     annotationCreatePendingRef.current = true;
     try {
@@ -560,10 +560,10 @@ export function NoteEditorView({
         selection = latestSelection;
         selectionSignature = JSON.stringify(selection);
       }
-      const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor]);
+      const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor, importance]);
       // 未确认的请求须保持原 payload/key，服务端会先恢复幂等结果，再校验正文版本。
       const requestKey = unresolved?.[0] ?? signature;
-      const request = unresolved?.[1] ?? { markdown, selection, input: await buildCreateAnnotationInput(note, markdown, selection) };
+      const request = unresolved?.[1] ?? { markdown, selection, input: await buildCreateAnnotationInput(note, markdown, selection, importance) };
       assertCurrent();
       annotationCreateInputsRef.current.set(requestKey, request);
       let created: Annotation;
