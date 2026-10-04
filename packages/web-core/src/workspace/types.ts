@@ -24,7 +24,10 @@ export interface Folder extends EntityBase {
   deletionPackage?: { id: string; mode: 'keep' | 'with-content'; folderIds: string[]; noteIds: string[]; destinationId: string | null } | null;
 }
 
+export type NoteAiVisibility = 'normal' | 'private';
+
 export interface Note extends EntityBase {
+  aiVisibility?: NoteAiVisibility;
   title: string;
   spaceId?: string;
   folderId: string | null;

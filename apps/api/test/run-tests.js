@@ -1,3 +1,4 @@
+import { aiAssistantAutonomyTests } from './ai-assistant-autonomy.test.js';
 import { learningObjectiveReviewErrorTests } from './learning-objective-review-errors.test.js';
 import { learningObjectiveReviewTests } from './learning-objective-review.test.js';
 import { learningObjectiveReviewPostgresTests } from './learning-objective-review-postgres.test.js';
@@ -97,6 +98,7 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...aiAssistantAutonomyTests,
   ...knowledgeArtifactProvenancePersistenceTests,
   ...knowledgeProvenanceReadLifecycleTests,
   ...attachmentCleanupCrashTests,

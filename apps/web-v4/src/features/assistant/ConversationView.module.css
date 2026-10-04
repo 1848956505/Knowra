@@ -1,4 +1,5 @@
 .body { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: 0; overflow: hidden; padding: 0; }
+.withInbox { grid-template-columns: 180px minmax(280px, 1fr) minmax(300px, 38%); }
 .history { min-height: 0; overflow: auto; padding: 18px 12px; border-right: 1px solid var(--ink-panel); background: var(--ink-bg); }
 .history > button:first-child { width: 100%; }
 .history h2 { margin: 24px 9px 12px; font-size: 12px; color: var(--ink-secondary); }
@@ -63,4 +64,8 @@
   .composer { padding: 10px 12px 12px; }
   .purposePicker, .scopePicker { flex: 1 1 calc(50% - 2px); min-width: 0; max-width: none; }
   .composerToolbar { gap: 4px; padding: 0 8px 8px; }
+}
+@media (max-width: 1100px) {
+  .withInbox { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .withInbox > .history, .withInbox > .content { display: none; }
 }

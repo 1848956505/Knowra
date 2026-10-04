@@ -26,6 +26,7 @@ export class Note {
     status = 'draft',
     sourceType = 'manual',
     favorite = false,
+    aiVisibility = 'normal',
     deleted = false,
     tagIds = [],
     plainText,
@@ -63,6 +64,7 @@ export class Note {
     this.status = status;
     this.sourceType = sourceType;
     this.favorite = favorite;
+    this.aiVisibility = aiVisibility;
     this.deleted = deleted;
     this.tagIds = [...new Set(tagIds)];
     this.createdAt = createdAt;

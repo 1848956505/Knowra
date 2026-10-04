@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { NotePrivacyDialog } from '../assistant/NotePrivacyDialog';
 import type { Folder, Note } from '@study-accelerator/web-core';
 import {
   Menu,
@@ -231,8 +232,9 @@ export function NoteContextMenu({ note, canWrite, onAction, children, contextMen
   children: ReactNode;
   contextMenu?: boolean;
 }) {
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   return (
-    <MenuTrigger {...(contextMenu ? { trigger: 'contextMenu' as const } : {})}>
+    <><MenuTrigger {...(contextMenu ? { trigger: 'contextMenu' as const } : {})}>
       {children}
       <MenuPopover placement="right top">
         <Menu ariaLabel={`${note.title || '未命名笔记'}笔记操作`} onAction={(key) => {
@@ -240,14 +242,16 @@ export function NoteContextMenu({ note, canWrite, onAction, children, contextMen
           if (key === 'move') onAction({ type: 'move-note', note });
           if (key === 'rename') onAction({ type: 'rename-note', note });
           if (key === 'delete') onAction({ type: 'delete-note', note });
+          if (key === 'privacy') setPrivacyOpen(true);
         }}>
           <MenuItem id="favorite" isDisabled={!canWrite}>{note.favorite ? '取消收藏' : '收藏笔记'}</MenuItem>
           <MenuSeparator />
           <MenuItem id="move" isDisabled={!canWrite}>移动到…</MenuItem>
           <MenuItem id="rename" isDisabled={!canWrite}>重命名</MenuItem>
+          <MenuItem id="privacy" isDisabled={!canWrite}>AI 隐私：{note.aiVisibility === 'private' ? '私密' : '普通'}</MenuItem>
           <MenuItem id="delete" isDanger isDisabled={!canWrite}>删除</MenuItem>
         </Menu>
       </MenuPopover>
-    </MenuTrigger>
+    </MenuTrigger><NotePrivacyDialog note={note} isOpen={privacyOpen} onOpenChange={setPrivacyOpen} /></>
   );
 }

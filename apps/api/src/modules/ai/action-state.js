@@ -36,9 +36,15 @@ export function validateActionState(value) {
     if (row.grant.originTurnId !== undefined) {
       if (row.grant.originTurnId !== row.requestId || !Number.isSafeInteger(row.grant.originGeneration) || row.grant.originGeneration < 1
         || !['notes_create', 'notes_append', 'notes_propose_patch','notes_propose_organize'].includes(row.plan.toolName)) invalid();
+      if (row.grant.autonomousOrigin !== undefined && row.grant.autonomousOrigin !== true) invalid();
       if (row.grant.policyId === null ? row.grant.policyRevision !== null || row.plan.toolName !== 'notes_create'
         : typeof row.grant.policyId !== 'string' || !row.grant.policyId || !Number.isSafeInteger(row.grant.policyRevision) || row.grant.policyRevision < 1) invalid();
-    } else if (['originGeneration', 'policyId', 'policyRevision'].some(key => key in row.grant)) invalid();
+    } else if (['originGeneration', 'policyId', 'policyRevision', 'autonomousOrigin'].some(key => key in row.grant)) invalid();
+    if (row.grant.sourceRefs !== undefined && (!row.grant.autonomousOrigin || !Array.isArray(row.grant.sourceRefs) || row.grant.sourceRefs.length > 128
+      || row.grant.sourceRefs.some(ref => !ref || typeof ref.noteId !== 'string' || !ref.noteId || typeof ref.noteVersionId !== 'string' || !ref.noteVersionId
+        || !/^[a-f0-9]{64}$/.test(ref.contentHash) || !/^[a-f0-9]{64}$/.test(ref.quoteHash)
+        || !Number.isSafeInteger(ref.start) || !Number.isSafeInteger(ref.end) || ref.start < 0 || ref.end <= ref.start
+        || Object.keys(ref).some(key => !['noteId', 'noteVersionId', 'contentHash', 'start', 'end', 'quoteHash'].includes(key))))) invalid();
     if (row.approval && (row.approval.planHash !== row.plan.planHash || row.approval.actorId !== row.actorId
       || !Number.isFinite(Date.parse(row.approval.expiresAt)))) invalid();
     if (row.receipt) {
@@ -46,6 +52,26 @@ export function validateActionState(value) {
       if (actionIdentityKeys.some(key => row[key] !== receipt[key]) || receipt.planHash !== row.plan.planHash
         || receipt.kind !== row.plan.toolName || hashRecord(receipt.result.changes.map(change => change.noteId).sort()) !== hashRecord(row.plan.items.map(item => item.after.id).sort())
         || receipt.result.changes.some(change => change.contentHash !== calculateContentHash(row.plan.items.find(item => item.after.id === change.noteId).after.rawMarkdown))) invalid();
+    }
+    if (row.inboxEvents !== undefined) {
+      if (!Array.isArray(row.inboxEvents) || new Set(row.inboxEvents.map(event => event?.requestId)).size !== row.inboxEvents.length) invalid();
+      let previousResult = null;
+      for (const event of row.inboxEvents) {
+        if (!event || !['revise', 'repreview'].includes(event.kind) || typeof event.requestId !== 'string' || !event.requestId
+          || !/^[a-f0-9]{64}$/.test(event.inputHash) || !/^[a-f0-9]{64}$/.test(event.resultPlanHash)
+          || !Number.isFinite(Date.parse(event.createdAt))) invalid();
+        if (event.originTurnId !== undefined && (event.kind !== 'revise' || typeof event.originTurnId !== 'string' || !event.originTurnId
+          || event.requestId !== event.originTurnId || !Number.isSafeInteger(event.originGeneration) || event.originGeneration < 1)) invalid();
+        validateActionPlan(event.previousPlan);
+        if (actionIdentityKeys.some(key => event.previousPlan[key] !== row[key])
+          || event.previousPlan.toolName !== row.plan.toolName
+          || previousResult && event.previousPlan.planHash !== previousResult
+          || event.kind === 'repreview' && event.previousPlan.planHash !== event.resultPlanHash
+          || hashRecord(event.previousPlan.items.map(item => ({ before: item.before, baseline: item.baseline })))
+            !== hashRecord(row.plan.items.map(item => ({ before: item.before, baseline: item.baseline })))) invalid();
+        previousResult = event.resultPlanHash;
+      }
+      if (previousResult && previousResult !== row.plan.planHash) invalid();
     }
     if (row.status === 'applied' && !row.receipt) invalid();
   }
@@ -71,7 +97,7 @@ export function validateActionPlan(plan) {
       if (item.before.id !== item.after.id || item.before.spaceId !== plan.spaceId
         || !Number.isFinite(Date.parse(item.baseline.expectedUpdatedAt))
         || calculateContentHash(item.before.rawMarkdown) !== item.baseline.contentHash
-        || hashRecord({ title: item.before.title, folderId: item.before.folderId, tagIds: [...item.before.tagIds].sort(), spaceId: item.before.spaceId }) !== item.baseline.metadataHash) invalid();
+        || hashRecord({ title: item.before.title, folderId: item.before.folderId, tagIds: [...item.before.tagIds].sort(), spaceId: item.before.spaceId, ...(item.before.aiVisibility !== undefined ? { aiVisibility: item.before.aiVisibility } : {}) }) !== item.baseline.metadataHash) invalid();
       if (plan.toolName === 'notes_propose_organize' && item.before.rawMarkdown !== item.after.rawMarkdown) invalid();
     }
     if (['notes_append','notes_propose_patch'].includes(plan.toolName)) {
@@ -91,6 +117,7 @@ export function validateActionPlan(plan) {
       if (body !== afterBody || body === beforeBody) invalid();
     } else if (item.edits.length) invalid();
     for (const target of [item.before, item.after].filter(Boolean)) {
+      if (target.aiVisibility !== undefined && target.aiVisibility !== 'normal') invalid();
       if (target.folderId && !plan.references.some(ref => ref.kind === 'folder' && ref.id === target.folderId)
         || target.tagIds.some(id => !plan.references.some(ref => ref.kind === 'tag' && ref.id === id))) invalid();
     }

@@ -3,6 +3,7 @@ import { calculateContentHash } from '../knowledge/domain/note-version.js';
 import { hashRecord, manifestHash, scopeHash } from './record-contract.js';
 import { normalizeAiRequest } from './gateway.js';
 import { outboundPayloadHash, serializedDeepSeekPayload } from './outbound-payload.js';
+import { isAiReadableNote, assertAiNoteUnchanged, assertAiSourcesReadable } from './note-privacy.js';
 
 const MAX_SOURCES = 128;
 const CHUNK_CHARS = 1000;
@@ -68,18 +69,20 @@ export function createAiReadContextService({ repository, noteRepository, noteVer
   }
   async function currentVersion(noteId, spaceId, expectedVersionId = null) {
     const note = await read(noteRepository.findById(noteId));
-    if (!note || note.deleted || note.spaceId !== spaceId) fail('AI_SCOPE_FORBIDDEN', '笔记不在授权空间或已删除。');
+    if (!isAiReadableNote(note) || note.spaceId !== spaceId) fail('AI_SCOPE_FORBIDDEN', '笔记不在 AI 可读取空间。');
     const contentHash = calculateContentHash(note.rawMarkdown);
     const version = await read(noteVersionRepository.findByNoteIdAndContentHash(noteId, contentHash));
     if (!version || version.noteId !== noteId || version.contentHash !== contentHash
       || calculateContentHash(version.content) !== contentHash || expectedVersionId && version.id !== expectedVersionId) {
       fail('AI_SOURCE_STALE', '笔记当前版本不可用，请重新预览。');
     }
+    await assertAiNoteUnchanged(noteRepository, note);
     return { note, version };
   }
   async function loadSource(ref, spaceId, allowedFolderIds = []) {
     const note = await read(noteRepository.findById(ref.noteId));
-    if (!note || note.deleted || note.spaceId !== spaceId
+    if (!isAiReadableNote(note)) fail('AI_SCOPE_FORBIDDEN', '来源不在当前 AI 可读取范围。');
+    if (note.spaceId !== spaceId
       || allowedFolderIds.length && !allowedFolderIds.includes(note.folderId)) fail('AI_SOURCE_STALE', '来源笔记已失效。');
     const version = await read(noteVersionRepository.findById(ref.noteVersionId));
     if (!version || version.noteId !== ref.noteId || version.contentHash !== ref.contentHash
@@ -93,6 +96,7 @@ export function createAiReadContextService({ repository, noteRepository, noteVer
     if (calculateContentHash(text) !== ref.quoteHash || text.length !== ref.characters) {
       fail('AI_SOURCE_STALE', '来源摘录与原版本不一致。');
     }
+    await assertAiNoteUnchanged(noteRepository, note);
     return text;
   }
   async function validateFolders(folderIds, spaceId, scopeKind) {
@@ -135,7 +139,7 @@ export function createAiReadContextService({ repository, noteRepository, noteVer
     } else if (kind === 'folder') {
       if (!validId(scope.folderId)) fail('AI_SCOPE_INVALID', '请选择目录。');
       allowedFolderIds = await expandFolder(scope.folderId, spaceId);
-      noteIds = (await read(noteRepository.list({ spaceId }))).filter(note => !note.deleted
+      noteIds = (await read(noteRepository.list({ spaceId }))).filter(note => isAiReadableNote(note)
         && allowedFolderIds.includes(note.folderId)).map(note => note.id).sort();
     } else fail('AI_SCOPE_INVALID', '当前只支持明确选中的笔记、选区和目录。');
 
@@ -219,6 +223,8 @@ export function createAiReadContextService({ repository, noteRepository, noteVer
       recipient: 'deepseek', sources: selected.map(source => source.ref), excludedSourceIds: snapshot.excludedSourceIds,
       omissions, attachmentIds: [], estimatedInputTokens: requestBytes(request),
       payloadHash: outboundPayloadHash(outward(request)), createdAt: now().toISOString() };
+    for (const source of selected) await loadSource(source.ref, spaceId, allowedFolderIds);
+    await assertAiSourcesReadable(noteRepository, selected.map(source => source.ref), spaceId, { requireCurrentVersion: false });
     return { scopeSnapshot: snapshot, manifest, request, preview: {
       recipient: 'deepseek', spaceId, sources: selected.map(({ ref, text }) => ({ ...ref, text })),
       omissions, estimatedInputTokens: manifest.estimatedInputTokens
@@ -309,6 +315,7 @@ export function createAiReadContextService({ repository, noteRepository, noteVer
     await validateFolders(scope.allowedFolderIds, job.spaceId, scope.scopeKind);
     for (const source of manifest.sources) await loadSource(source, job.spaceId, scope.allowedFolderIds);
     if (request) await verifyRequestContent(request, manifest, scope);
+    await assertAiSourcesReadable(noteRepository, manifest.sources, job.spaceId, { requireCurrentVersion: false });
     return { scope, manifest, grant };
   }
 

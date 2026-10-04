@@ -35,7 +35,7 @@
     "aiConversationTurn": {
       "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
         "type": "object", "properties": {
-          "kind": { "const": "aiConversationTurn" }, "turnId": { "$ref": "#/$defs/id" },
+          "executionStartedAt": { "$ref": "#/$defs/time" }, "checkpoint": { "$ref": "#/$defs/checkpoint" }, "kind": { "const": "aiConversationTurn" }, "turnId": { "$ref": "#/$defs/id" },
           "conversationId": { "$ref": "#/$defs/id" }, "jobId": { "$ref": "#/$defs/id" },
           "ordinal": { "type": "integer", "minimum": 1 },
           "idempotencyKey": { "type": "string", "pattern": "^[a-zA-Z0-9-]{8,80}$" },
@@ -75,7 +75,7 @@
           "kind": { "const": "aiConversationToolCall" }, "callId": { "$ref": "#/$defs/id" },
           "conversationId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
           "ordinal": { "type": "integer", "minimum": 1 },
-          "toolName": { "enum": ["notes_search", "notes_read", "notes_create", "notes_append", "notes_propose_patch", "notes_propose_organize"] },
+          "toolName": { "enum": ["notes_search", "notes_read", "notes_create", "notes_append", "notes_propose_patch", "notes_propose_organize", "web_search"] },
           "argumentsJson": { "type": "object" }, "resultJson": { "oneOf": [{ "type": "object" }, { "type": "null" }] },
           "provenanceManifestId": { "$ref": "#/$defs/nullableId" },
           "status": { "enum": ["requested", "succeeded", "failed"] },
@@ -88,7 +88,7 @@
     "aiConversationModelAttempt": {
       "unevaluatedProperties": false, "allOf": [{ "$ref": "#/$defs/boundary" }, {
         "type": "object", "properties": {
-          "kind": { "const": "aiConversationModelAttempt" },
+          "modelResult": { "type": "object" }, "kind": { "const": "aiConversationModelAttempt" },
           "attemptId": { "$ref": "#/$defs/id" }, "conversationId": { "$ref": "#/$defs/id" },
           "turnId": { "$ref": "#/$defs/id" }, "ordinal": { "type": "integer", "minimum": 1 },
           "leaseGeneration": { "type": "integer", "minimum": 1 },
@@ -102,6 +102,7 @@
           "createdAt": { "$ref": "#/$defs/time" }, "updatedAt": { "$ref": "#/$defs/time" }
         }, "required": ["kind", "attemptId", "conversationId", "turnId", "ordinal", "leaseGeneration", "modelId", "recipient", "payloadHash", "manifestId", "grantId", "reservedMicrounits", "actualMicrounits", "status", "errorCode", "createdAt", "updatedAt"]
       }]
-    }
+    },
+    "checkpoint": {"type": "object", "additionalProperties": false, "properties": {"version": {"const": 1}, "nextRound": {"type": "integer", "minimum": 0, "maximum": 4}, "totalTools": {"type": "integer", "minimum": 0, "maximum": 6}, "handledAttemptOrdinal": {"type": "integer", "minimum": 0, "maximum": 8}, "noProgressRounds": {"type": "integer", "minimum": 0, "maximum": 4}, "sourceRefs": {"type": "array", "items": {"$ref": "#/$defs/source"}, "maxItems": 128}, "initialSearchDone": {"type": "boolean"}, "searchTruncated": {"type": "boolean"}, "searchFallback": {"type": "boolean"}, "forceAnswer": {"type": "boolean"}, "externalContext": {"type": "string", "maxLength": 3000}, "toolFeedback": {"type": "string", "maxLength": 3000}}, "required": ["version", "nextRound", "totalTools", "handledAttemptOrdinal", "noProgressRounds", "sourceRefs", "initialSearchDone", "searchTruncated", "searchFallback", "forceAnswer", "externalContext", "toolFeedback"]}
   }
 }

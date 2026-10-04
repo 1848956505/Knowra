@@ -4,6 +4,8 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import schema from './contracts/ai-conversation-v2.schema.json' with { type: 'json' };
 import { hashRecord } from './record-contract.js';
+import { assertResumableAttempts, validateAgentCheckpoint, validateDurableModelResult,
+  sameDurableModelResult, MAX_AGENT_RUN_MS } from './agent-checkpoint.js';
 
 export const CONVERSATION_KINDS = Object.freeze({
   aiConversation: { collection: 'conversations', id: 'conversationId' },
@@ -31,6 +33,11 @@ export function validateConversationRecord(kind, record) {
   }
   if (kind === 'aiConversationTurn' && record.writeIntent) {
     try { validateWriteIntent(record.writeIntent); } catch { conversationError('AI_RECORD_INVALID', '恢复的写入意图缺少固定目标。'); }
+  }
+  if (kind === 'aiConversationTurn' && record.checkpoint) validateAgentCheckpoint(record.checkpoint);
+  if (kind === 'aiConversationModelAttempt' && record.modelResult) {
+    validateDurableModelResult(record.modelResult);
+    if (!['settled', 'unknown'].includes(record.status)) conversationError('AI_RECORD_INVALID', '响应与费用结算状态不一致。');
   }
   if (kind === 'aiConversationTurn' && record.turnId !== record.jobId) {
     conversationError('AI_RECORD_INVALID', '会话轮次与任务 ID 不一致。');
@@ -154,6 +161,10 @@ export function validateConversationState(input) {
     const attempts = state.conversationModelAttempts.filter(row => row.turnId === turn.turnId)
       .map(row => row.ordinal).sort((a, b) => a - b);
     if (attempts.some((value, index) => value !== index + 1)) conversationError('AI_REFERENCE_INVALID', '模型尝试序号不连续。');
+    if (turn.checkpoint?.handledAttemptOrdinal && !state.conversationModelAttempts.some(row =>
+      row.turnId === turn.turnId && row.ordinal === turn.checkpoint.handledAttemptOrdinal && row.modelResult)) {
+      conversationError('AI_REFERENCE_INVALID', '检查点引用的模型响应不存在。');
+    }
   }
   return state;
 }
@@ -177,6 +188,8 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
       conversationError('AI_LEASE_STALE', '任务执行权已失效。');
     }
   };
+  const leaseEnd = (turn, leaseMs) => new Date(Math.min(now().getTime() + leaseMs,
+    Date.parse(turn.executionStartedAt) + MAX_AGENT_RUN_MS)).toISOString();
   return {
     peekTurn(id) {
       const value = adapter.read();
@@ -251,14 +264,33 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         return turn;
       });
     },
-    async claimTurn(turnId, leaseMs = 60_000) {
+    async claimTurn(turnId, leaseMs = 60_000, { mode = 'resume' } = {}) {
       return write((state, identity) => {
         const turn = mustTurn(state, turnId);
         if (!current(turn, identity) || !['staged', 'interrupted', 'failed'].includes(turn.status)) conversationError('AI_TURN_CONFLICT', '任务不可领取。');
+        if (!['resume', 'retry'].includes(mode)) conversationError('AI_REQUEST_INVALID', '任务恢复方式无效。');
+        if (mode === 'resume') assertResumableAttempts(state.conversationModelAttempts.filter(row => row.turnId === turnId), turn.checkpoint);
         if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000 || leaseMs > 300000) conversationError('AI_REQUEST_INVALID', '执行租期无效。');
+        if (turn.executionStartedAt && now().getTime() >= Date.parse(turn.executionStartedAt) + MAX_AGENT_RUN_MS) {
+          conversationError('AI_RUN_LIMIT', '本轮任务的总执行时间已达到上限，请提交新一轮任务。');
+        }
+        turn.executionStartedAt ??= stamp();
         turn.status = 'running'; turn.phase = 'waiting'; turn.errorCode = null; turn.leaseGeneration += 1;
-        turn.leaseExpiresAt = new Date(now().getTime() + leaseMs).toISOString(); turn.updatedAt = stamp();
+        turn.leaseExpiresAt = leaseEnd(turn, leaseMs); turn.updatedAt = stamp();
         return turn;
+      });
+    },
+    async saveCheckpoint(turnId, generation, checkpoint) {
+      return write((state, identity) => {
+        const turn = mustTurn(state, turnId); lease(turn, identity, generation);
+        const next = validateAgentCheckpoint(checkpoint, turn.checkpoint);
+        const attempts = state.conversationModelAttempts.filter(row => row.turnId === turnId);
+        if (next.handledAttemptOrdinal > attempts.length
+          || next.totalTools < state.conversationToolCalls.filter(row => row.turnId === turnId).length) {
+          conversationError('AI_CHECKPOINT_INVALID', '检查点与持久调用记录不一致。');
+        }
+        turn.checkpoint = next; turn.updatedAt = stamp();
+        validateConversationRecord('aiConversationTurn', turn); return turn;
       });
     },
     async setPhase(turnId, generation, phase) {
@@ -274,7 +306,7 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         if (!Number.isSafeInteger(leaseMs) || leaseMs < 1000 || leaseMs > 300_000) {
           conversationError('AI_REQUEST_INVALID', '执行租期无效。');
         }
-        turn.leaseExpiresAt = new Date(now().getTime() + leaseMs).toISOString();
+        turn.leaseExpiresAt = turn.executionStartedAt ? leaseEnd(turn, leaseMs) : new Date(now().getTime() + leaseMs).toISOString();
         turn.updatedAt = stamp(); return turn;
       });
     },
@@ -285,6 +317,9 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         if (existing) {
           if (existing.turnId === turnId && existing.toolName === toolName && hashRecord(existing.argumentsJson) === hashRecord(argumentsJson)) return existing;
           conversationError('AI_IDEMPOTENCY_CONFLICT', '工具调用 ID 已被其他请求使用。');
+        }
+        if (state.conversationToolCalls.filter(row => row.turnId === turnId).length >= 6) {
+          conversationError('AI_AGENT_LIMIT', '本轮工具次数已达到上限，恢复不会重置计数。');
         }
         const time = stamp();
         const record = validateConversationRecord('aiConversationToolCall', { kind: 'aiConversationToolCall',
@@ -327,6 +362,9 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
     async createModelAttempt(turnId, generation, input) {
       return write((state, identity) => {
         const turn = mustTurn(state, turnId); lease(turn, identity, generation);
+        if (state.conversationModelAttempts.filter(row => row.turnId === turnId).length >= 8) {
+          conversationError('AI_ATTEMPT_LIMIT', '本轮模型尝试已达到上限，恢复不会重置计数。');
+        }
         const time = stamp();
         const record = validateConversationRecord('aiConversationModelAttempt', {
           kind: 'aiConversationModelAttempt', contractVersion: 2, ownerId: turn.ownerId,
@@ -345,20 +383,31 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         state.conversationModelAttempts.push(record); return record;
       });
     },
-    async advanceModelAttempt(attemptId, status, { generation = null, actualMicrounits = null, errorCode = null } = {}) {
+    async advanceModelAttempt(attemptId, status, { generation = null, actualMicrounits = null, errorCode = null, modelResult = undefined } = {}) {
       return write((state, identity) => {
         const attempt = state.conversationModelAttempts.find(row => row.attemptId === attemptId);
         if (!attempt || !current(attempt, identity)) conversationError('AI_ATTEMPT_NOT_FOUND', '模型尝试不存在。');
         const turn = mustTurn(state, attempt.turnId);
         const transitions = { prepared: ['reserved', 'unknown', 'released'],
           reserved: ['sent', 'unknown', 'released'], sent: ['settled', 'unknown'] };
-        if (attempt.status === status && attempt.actualMicrounits === actualMicrounits) return attempt;
+        if (modelResult !== undefined) {
+          lease(turn, identity, generation);
+          validateDurableModelResult(modelResult);
+          if (!['settled', 'unknown'].includes(status)) conversationError('AI_ATTEMPT_CONFLICT', '模型响应只能随费用结算持久保存。');
+        }
+        if (attempt.status === status && attempt.actualMicrounits === actualMicrounits) {
+          if (modelResult !== undefined && (!attempt.modelResult || !sameDurableModelResult(attempt.modelResult, modelResult))) {
+            conversationError('AI_IDEMPOTENCY_CONFLICT', '模型响应结算与原记录不一致。');
+          }
+          return attempt;
+        }
         if (!transitions[attempt.status]?.includes(status)) conversationError('AI_ATTEMPT_CONFLICT', '模型尝试状态不可变更。');
         if (['reserved', 'sent'].includes(status)) lease(turn, identity, generation);
         if (status === 'settled' && (!Number.isSafeInteger(actualMicrounits) || actualMicrounits < 0)) {
           conversationError('AI_RECORD_INVALID', '实际费用无效。');
         }
         attempt.status = status; attempt.actualMicrounits = actualMicrounits;
+        if (modelResult !== undefined) attempt.modelResult = structuredClone(modelResult);
         attempt.errorCode = errorCode; attempt.updatedAt = stamp();
         validateConversationRecord('aiConversationModelAttempt', attempt); return attempt;
       });

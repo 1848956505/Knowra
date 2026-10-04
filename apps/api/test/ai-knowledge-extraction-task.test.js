@@ -31,6 +31,15 @@ async function fixture(run, { onCall, storeOptions, maintenanceGate } = {}) {
 const counts = ai => ['scopeSnapshot', 'contextManifest', 'aiGrant', 'aiJob', 'aiJobAttempt'].map(kind => ai.list(kind).length);
 
 export const aiKnowledgeExtractionTaskTests = [
+  { name: '已保存提炼范围切私密后阻止原资料任务创建与模型调用', async run() {
+    await fixture(async f => {
+      const repo = f.app.modules.knowledge.repositories.noteRepository;
+      repo.save({ ...repo.findById(f.note.id), aiVisibility: 'private' });
+      await assert.rejects(f.app.knowledgeExtractionTasks.start(f.input), { code: 'KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE' });
+      assert.deepEqual(counts(f.app.dataStore.aiRepository), [0, 0, 0, 0, 0]);
+      assert.equal(f.mock.calls.length, 0);
+    });
+  } },
   { name: '02C 自动恢复在异步事务中关闭须等收尾，关闭后不可重新恢复且不持维护门等待', async run() {
     const probe = fileURLToPath(new URL('./fixtures/knowledge-extraction-recovery-close.probe.js', import.meta.url));
     const { stdout } = await promisify(execFile)(process.execPath, [probe], { timeout: 15_000 });

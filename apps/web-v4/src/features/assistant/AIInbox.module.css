@@ -1,0 +1,5 @@
+.panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid var(--ink-panel); background: var(--ink-bg); }
+.header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 12px; border-bottom: 1px solid var(--ink-panel); }
+.header h2 { margin: 0; font-size: 14px; }
+.body { flex: 1; min-height: 0; overflow: auto; padding: 12px; font-size: 12px; overflow-wrap: anywhere; }
+.footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-top: 1px solid var(--ink-panel); }

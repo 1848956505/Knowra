@@ -12,6 +12,8 @@ import { createInMemoryKnowledgeSpaceRepository } from '../src/modules/knowledge
 import { NoteVersion } from '../src/modules/knowledge/domain/note-version.js';
 import { createAiAccessService } from '../src/modules/ai/access-service.js';
 import { hashRecord } from '../src/modules/ai/record-contract.js';
+import { createAuthorizedKeywordSearch } from '../src/modules/ai/keyword-search.js';
+import { createAuthorizedRetrieval } from '../src/modules/ai/retrieval.js';
 import { aiRecords, insertAiRecords } from './ai-record-fixtures.js';
 
 const instant = new Date('2026-09-27T00:00:00.000Z');
@@ -37,7 +39,7 @@ async function withContext(run) {
         deleted: false, favorite: false, createdAt: instant.toISOString(), updatedAt: instant.toISOString() });
       noteVersionRepository.save(new NoteVersion({ id: `version-${id}`, noteId: id, content }));
     };
-    await run({ directory, file, store, service, noteRepository, folderRepository, addNote });
+    await run({ directory, file, store, service, noteRepository, noteVersionRepository, folderRepository, addNote });
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 }
 
@@ -46,6 +48,124 @@ const requestInput = (grantId, sourceRanges = []) => ({ grantId, recipient: 'dee
   maxTokens: 128 });
 
 export const aiAccessV2Tests = [
+  { name: '私密与未知隐私标记覆盖库授权，标题正文不进入扫描或索引候选', run: () => withContext(async ({ service, addNote, noteRepository }) => {
+    addNote('normal', 'alpha 普通');
+    addNote('private', 'alpha 私密原文');
+    addNote('unknown', 'alpha 未知标记');
+    noteRepository.save({ ...noteRepository.findById('private'), title: '绝密标题', aiVisibility: 'private' });
+    noteRepository.save({ ...noteRepository.findById('unknown'), aiVisibility: 'unexpected' });
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy' });
+    for (const noteId of ['private', 'unknown']) await assert.rejects(service.verifyRead({ grantId: grant.grantId, noteId }), { code: 'AI_SCOPE_FORBIDDEN' });
+    const seen = [];
+    await service.findAuthorizedSearchCandidates({ grantId: grant.grantId, maxCandidates: 10,
+      maxScanNotes: 10, maxScanChars: 1000, maxNoteChars: 1000,
+      scoreNote(note) { seen.push(note); return 1; } });
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].rawMarkdown, 'alpha 普通');
+    assert.equal((await createAuthorizedKeywordSearch({ access: service }).search({ grantId: grant.grantId, query: 'alpha' })).hits.length, 1);
+    let allowed;
+    const retrieval = createAuthorizedRetrieval({ access: service, candidateSource: { async searchCandidates(input) {
+      allowed = input.authorized;
+      return { candidates: [{ noteId: 'private', noteVersionId: 'version-private', contentHash: 'cached', start: 0, end: 5, score: 9 }], truncated: false };
+    } } });
+    const result = await retrieval.search({ grantId: grant.grantId, query: 'alpha' });
+    assert.deepEqual(allowed.map(row => row.noteId), ['normal']);
+    assert.deepEqual(result.hits.map(row => row.noteId), ['normal']);
+    assert.equal(JSON.stringify(result).includes('绝密标题'), false);
+    assert.equal(JSON.stringify(result).includes('私密原文'), false);
+  }) },
+  { name: '切为私密后阻断已准备请求与历史原资料外发，并保留历史记录', run: () => withContext(async ({ service, addNote, noteRepository, store }) => {
+    addNote('note-1', 'alpha 原资料');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy' });
+    const prepared = await service.prepareRequest(requestInput(grant.grantId, [{ noteId: 'note-1', start: 0, end: 5 }]));
+    const history = { role: 'assistant', content: 'alpha', sourceRefs: prepared.manifest.sources,
+      provenanceManifestId: prepared.manifest.manifestId };
+    history.provenanceHash = hashRecord({ ...history, sourceFree: false });
+    noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'private' });
+    let sent = false;
+    await assert.rejects(service.withAuthorizedRequest({ grantId: grant.grantId,
+      manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' }, () => { sent = true; }), { code: 'AI_SCOPE_FORBIDDEN' });
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), history: [history] }), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(sent, false);
+    assert.ok(await store.aiAccessStore.get('aiRequestManifest', prepared.manifest.manifestId));
+  }) },
+  { name: '索引等待期间切私密，旧定位不能生成标题正文引用', run: () => withContext(async ({ service, addNote, noteRepository }) => {
+    addNote('note-1', 'alpha 私密前原文');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy' });
+    const before = await service.verifyRead({ grantId: grant.grantId, noteId: 'note-1' });
+    const retrieval = createAuthorizedRetrieval({ access: service, candidateSource: { async searchCandidates() {
+      noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'private' });
+      return { candidates: [{ noteId: 'note-1', noteVersionId: before.version.id,
+        contentHash: before.contentHash, start: 0, end: 5, score: 1 }], truncated: false };
+    } } });
+    const result = await retrieval.search({ grantId: grant.grantId, query: 'alpha' });
+    assert.deepEqual(result.hits, []);
+    assert.equal(result.fallbackReason, 'stale');
+  }) },
+  { name: '列表快照后切私密，旧标题正文不进入评分函数', run: () => withContext(async ({ service, addNote, noteRepository }) => {
+    addNote('note-1', 'alpha');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy' });
+    const original = noteRepository.list;
+    noteRepository.list = async (...args) => {
+      const result = original(...args).map(note => ({ ...note }));
+      noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'private' });
+      return result;
+    };
+    let scored = false;
+    await assert.rejects(service.findAuthorizedSearchCandidates({ grantId: grant.grantId, maxCandidates: 10,
+      maxScanNotes: 10, maxScanChars: 1000, maxNoteChars: 1000, scoreNote() { scored = true; return 1; } }), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(scored, false);
+  }) },
+  { name: '多来源最终批量屏障捕获A在B版本等待中切私密或修改', run: () => withContext(async ({ service, addNote, noteRepository, noteVersionRepository }) => {
+    addNote('a', 'alpha'); addNote('b', 'bravo');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy' });
+    const prepared = await service.prepareRequest(requestInput(grant.grantId, [{ noteId: 'a', start: 0, end: 5 }, { noteId: 'b', start: 0, end: 5 }]));
+    const original = noteVersionRepository.findByNoteIdAndContentHash;
+    for (const change of [{ aiVisibility: 'private' }, { rawMarkdown: '变更正文' }]) {
+      noteRepository.save({ ...noteRepository.findById('a'), aiVisibility: 'normal', rawMarkdown: 'alpha' });
+      noteVersionRepository.findByNoteIdAndContentHash = async (...args) => {
+        const result = original(...args);
+        if (args[0] === 'b') noteRepository.save({ ...noteRepository.findById('a'), ...change });
+        return result;
+      };
+      let sent = false;
+      await assert.rejects(service.withAuthorizedRequest({ grantId: grant.grantId,
+        manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' }, () => { sent = true; }),
+      { code: change.aiVisibility ? 'AI_SCOPE_FORBIDDEN' : 'AI_SOURCE_STALE' });
+      assert.equal(sent, false);
+    }
+  }) },
+  { name: '版本读取等待中改为私密，直接读取与扫描候选均不能返回快照', run: () => withContext(async ({ service, addNote, noteRepository, noteVersionRepository }) => {
+    addNote('note-1', 'alpha');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy' });
+    const original = noteVersionRepository.findByNoteIdAndContentHash;
+    noteVersionRepository.findByNoteIdAndContentHash = async (...args) => {
+      const result = original(...args);
+      noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'private' });
+      return result;
+    };
+    await assert.rejects(service.verifyRead({ grantId: grant.grantId, noteId: 'note-1' }), { code: 'AI_SCOPE_FORBIDDEN' });
+    noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'normal' });
+    await assert.rejects(service.findAuthorizedSearchCandidates({ grantId: grant.grantId, maxCandidates: 10,
+      maxScanNotes: 10, maxScanChars: 1000, maxNoteChars: 1000, scoreNote: () => 1 }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: '助手工具仅由受信标记开启，读工具仍受运行授权约束', run: () => withContext(async ({ service }) => {
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'privacy', allowedTools: ['notes_search'] });
+    const tool = name => ({ name, description: '合成工具', parameters: { type: 'object', properties: {}, additionalProperties: false } });
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), tools: [tool('web_search')] }), { code: 'AI_CONTEXT_INVALID' });
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      tools: [tool('web_search'), tool('notes_create'), tool('notes_search')] });
+    assert.equal(prepared.request.tools.length, 3);
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, tools: [tool('notes_read')] }), { code: 'AI_CONTEXT_INVALID' });
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, tools: [tool('arbitrary')] }), { code: 'AI_CONTEXT_INVALID' });
+  }) },
   { name: 'AI v1 私有记录升级只增加 v2 空集合，旧授权不转换成持续策略', run: () => withContext(async ({ file, store, service, addNote }) => {
     const old = aiRecords(store.aiRepository.identity());
     insertAiRecords(store.aiRepository, old);

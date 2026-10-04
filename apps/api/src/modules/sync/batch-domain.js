@@ -85,6 +85,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
       if (field in old && value[field] !== old[field]) throw syncError('SYNC_IDENTITY_CHANGED', '不能更改实体所属对象。', 422);
     }
     if (value) {
+      if (collection === 'notes' && !Object.hasOwn(value, 'aiVisibility')) value = { ...value, aiVisibility: old?.aiVisibility ?? 'normal' };
       if (builders[collection]) value = { ...value, ...builders[collection](value) };
       if (collection === 'notes') {
         assertNoInsecureImageUrls(value.rawMarkdown);

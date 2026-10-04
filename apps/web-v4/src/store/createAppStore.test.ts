@@ -8,6 +8,16 @@ import {
 import { createAppStore } from './createAppStore';
 
 describe('single V4 application store', () => {
+  it('changes AI visibility through ordinary update CAS, preserving workspace write guards', async () => {
+    const api = createApi();
+    const store = createAppStore({ api, cacheKey: 'note-ai-privacy', mockSnapshot: createEmptyWorkspaceSnapshot() });
+    await store.getState().loadWorkspace();
+    await store.getState().setNoteAiVisibility('live-note', { aiVisibility: 'private', expectedUpdatedAt: 'version-1' });
+    expect(api.updateNote).toHaveBeenCalledWith('live-note', { aiVisibility: 'private', expectedUpdatedAt: 'version-1' });
+    store.setState({ dataMode: 'cache' });
+    await expect(store.getState().setNoteAiVisibility('live-note', { aiVisibility: 'normal', expectedUpdatedAt: 'version-2' })).rejects.toThrow();
+    expect(api.updateNote).toHaveBeenCalledTimes(1);
+  });
   it('refreshes the knowledge generation only after safely applying local sync data', async () => {
     const store = createAppStore({ api: createApi(), cacheKey: 'knowledge-generation', persistenceMode: 'desktop-local', mockSnapshot: createEmptyWorkspaceSnapshot() });
     await store.getState().loadWorkspace();

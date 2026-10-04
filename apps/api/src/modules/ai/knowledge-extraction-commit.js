@@ -6,6 +6,8 @@ import { prepareKnowledgeExtractionGateway, validateKnowledgeExtractionGatewayRe
   KNOWLEDGE_EXTRACTION_PROMPT_VERSION } from './knowledge-extraction-gateway.js';
 import { validateKnowledgeExtractionCommit } from './knowledge-extraction-commit-contract.js';
 import { createKnowledgeArtifactProvenanceFromReceipt } from '../../infrastructure/migration/knowledge-artifact-provenance-backfill.js';
+import { isAiReadableNote } from './note-privacy.js';
+import { verifyExtractionSourcePrivacy } from './knowledge-extraction-task-context.js';
 
 const fail = (code, message) => { throw createAppError(code, message, 409); };
 const sameBoundary = (left, right) => ['ownerId', 'datasetId', 'datasetEpoch', 'spaceId'].every(key => left[key] === right[key]);
@@ -87,13 +89,17 @@ export function createKnowledgeExtractionCommitService({ store, createContext, o
     }
     const versions = [];
     for (const binding of scope.noteVersions) {
+      const note = yield repos.noteRepository.findById(binding.noteId);
+      if (!isAiReadableNote(note) || note.spaceId !== job.spaceId) {
+        fail('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼来源不在当前 AI 可读取范围，未保存任何候选。');
+      }
       const version = yield repos.noteVersionRepository.findById(binding.noteVersionId);
-      const note = version && (yield repos.noteRepository.findById(version.noteId));
-      if (!version || !note || note.deleted || note.spaceId !== job.spaceId) {
+      if (!version || version.noteId !== note.id) {
         fail('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼版本不可用或来源已删除、迁移；请重新保存范围，未保存任何候选。');
       }
       versions.push(version);
     }
+    yield* verifyExtractionSourcePrivacy(repos, versions, job.spaceId);
     const prepared = prepareKnowledgeExtractionGateway({ scope, noteVersions: versions, idempotencyKey: job.idempotencyKey });
     const request = prepared.extractionRequest;
     const sourceRefs = request.sources.map(source => ({ sourceId: source.sourceId, noteId: source.noteId,

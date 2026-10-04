@@ -92,6 +92,16 @@ export function createAuthorizedRetrieval({ access, candidateSource = null,
           ref: { noteId: note.id, noteVersionId: version.id, contentHash,
             start: candidate.start, end: candidate.end, quoteHash: calculateContentHash(text) }, text });
       }
+      for (const hit of hits) {
+        const { note, version, contentHash } = await access.verifyRead({ grantId,
+          noteId: hit.noteId, tool: 'notes_search' });
+        if (note.title !== hit.title || version.id !== hit.ref.noteVersionId
+          || contentHash !== hit.ref.contentHash || version.content.slice(hit.ref.start, hit.ref.end) !== hit.text) {
+          return fallback({ grantId, query, limit }, 'stale');
+        }
+      }
+      await access.assertSearchGrant({ grantId });
+      await access.assertSearchSources({ grantId, sourceRefs: hits.map(hit => hit.ref) });
       return { hits: hits.slice(0, limit), inspected: found.candidates.length,
         truncated: found.truncated || found.candidates.length > limit, mode: 'index' };
     }

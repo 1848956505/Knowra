@@ -42,11 +42,11 @@ function fixture() {
     mutations: () => mutations };
 }
 
-test('schema7拒绝缺失/旧/未来/伪造协商，所有数据入口在修改日志前停止', async () => {
+test('schema8拒绝缺失/旧/未来/伪造协商，所有数据入口在修改日志前停止', async () => {
   const f = fixture();
   for (const input of [{}, { entitySchemaVersion: 6, capabilities: [] },
     { ...syncContract(), capabilities: syncContract().capabilities.filter(value => value !== 'knowledge-lifecycle-v1') },
-    { ...syncContract(), entitySchemaVersion: 8 }, { ...syncContract(), capabilities: [...syncContract().capabilities, 'unknown-v1'] }]) {
+    { ...syncContract(), entitySchemaVersion: 9 }, { ...syncContract(), capabilities: [...syncContract().capabilities, 'unknown-v1'] }]) {
     assert.throws(() => f.service.bootstrap(input), { code: 'SYNC_CLIENT_UPGRADE_REQUIRED' });
     assert.throws(() => f.service.changes({ ...input, cursor: 'old' }), { code: 'SYNC_CLIENT_UPGRADE_REQUIRED' });
     assert.throws(() => f.service.snapshot({ ...input, snapshotId: 'old' }), { code: 'SYNC_CLIENT_UPGRADE_REQUIRED' });
@@ -59,10 +59,10 @@ test('schema7拒绝缺失/旧/未来/伪造协商，所有数据入口在修改�
   assert.deepEqual(f.journal.receipts, {});
 });
 
-test('schema7快照绑定owner/epoch/schema/capabilities/cursor/count且不接受旧快照', () => {
+test('schema8快照绑定owner/epoch/schema/capabilities/cursor/count且不接受旧快照', () => {
   const f = fixture(), contract = syncContract();
   const start = f.service.bootstrap(contract);
-  assert.equal(start.entitySchemaVersion, 7);
+  assert.equal(start.entitySchemaVersion, 8);
   const page = f.service.snapshot({ ...contract, snapshotId: start.snapshotId });
   for (const key of ['snapshotId', 'ownerId', 'datasetEpoch', 'entitySchemaVersion', 'capabilities', 'cursor', 'count']) {
     assert.deepEqual(page[key], start[key]);
@@ -98,5 +98,5 @@ test('升级前冻结请求只读核回执，不能改requestHash或借查询重
   assert.throws(() => f.service.operationReceipt({ ...input, requestHash: '0'.repeat(64) }), { code: 'OPERATION_REUSED' });
   assert.throws(() => f.service.operationReceipt({ ...input, datasetEpoch: 'old' }), { code: 'DATASET_CHANGED' });
   assert.equal(f.mutations(), 0);
-  assert.equal(assertSyncContract({ entitySchemaVersion: '7', capabilities: syncContract().capabilities.join(',') }, { query: true }).entitySchemaVersion, 7);
+  assert.equal(assertSyncContract({ entitySchemaVersion: '8', capabilities: syncContract().capabilities.join(',') }, { query: true }).entitySchemaVersion, 8);
 });

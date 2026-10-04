@@ -1,3 +1,4 @@
+import { assertAiReadableNote } from './note-privacy.js';
 import Ajv2020 from 'ajv/dist/2020.js';
 import schema from './contracts/note-tools-v1.schema.json' with { type: 'json' };
 import { hashRecord } from './record-contract.js';
@@ -41,7 +42,7 @@ export function createNoteWritePlan({ toolName, arguments: input, trusted }) {
     if (!args.title.trim()) fail('AI_NOTE_TOOL_INVALID', '新笔记标题不能为空。');
     const dto = buildCreateNoteDto({ ...args, id: trusted.targetNoteId, spaceId: trusted.spaceId, folderId, tagIds });
     after = { id: dto.id, spaceId: dto.spaceId, title: dto.title, folderId: dto.folderId,
-      tagIds: dto.tagIds, rawMarkdown: dto.rawMarkdown };
+      tagIds: dto.tagIds, rawMarkdown: dto.rawMarkdown, aiVisibility: 'normal' };
     baseline = { targetNoteId: trusted.targetNoteId, exists: false };
   } else {
     const note = trusted.note;
@@ -49,13 +50,14 @@ export function createNoteWritePlan({ toolName, arguments: input, trusted }) {
       || note.spaceId !== trusted.spaceId || note.deleted || typeof note.rawMarkdown !== 'string') {
       fail('AI_NOTE_TARGET_INVALID', '只能修改宿主指定的当前空间有效笔记。');
     }
+    assertAiReadableNote(note);
     const expectedUpdatedAt = new Date(note.updatedAt);
     if (Number.isNaN(expectedUpdatedAt.getTime()) || note.updatedAt == null) fail('AI_NOTE_BASELINE_INVALID', '笔记基线时间无效。');
     before = { id: note.id, spaceId: note.spaceId, title: note.title, folderId: note.folderId ?? null,
-      tagIds: [...(note.tagIds ?? [])], rawMarkdown: note.rawMarkdown };
+      tagIds: [...(note.tagIds ?? [])], rawMarkdown: note.rawMarkdown, aiVisibility: note.aiVisibility ?? 'normal' };
     baseline = { targetNoteId: note.id, exists: true, expectedUpdatedAt: expectedUpdatedAt.toISOString(),
       contentHash: calculateContentHash(note.rawMarkdown), metadataHash: hashRecord({ title: before.title,
-        folderId: before.folderId, tagIds: [...before.tagIds].sort(), spaceId: before.spaceId }) };
+        folderId: before.folderId, tagIds: [...before.tagIds].sort(), spaceId: before.spaceId, aiVisibility: before.aiVisibility }) };
     if (toolName === 'notes_append') {
       const offset = trusted.appendOffset ?? note.rawMarkdown.length;
       if (!Number.isSafeInteger(offset) || offset < 0 || offset > note.rawMarkdown.length || !boundary(note.rawMarkdown, offset)) {

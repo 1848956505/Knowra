@@ -126,7 +126,7 @@ test('下行不能将已保存的recorded降为legacy，校验失败不推进游
   assert.deepEqual(device.store.state.knowledgeArtifactProvenance, [record]); assert.equal(meta(device, 'cursor'), cursor);
 });
 
-test('旧notes-only引擎明确拒绝schema7，不清空本地修改或推进游标', async t => {
+test('旧notes-only引擎明确拒绝schema8，不清空本地修改或推进游标', async t => {
   const cloud = await fixture(t), workspace = openWorkspace(path.join(cloud.root, 'old'));
   const note = workspace.knowledge.noteService.createNote({ title: '升级前编辑', rawMarkdown: '保留', spaceId: workspace.space.id });
   const before = workspace.store.exportSnapshot(), pending = workspace.store.readOutbox();
@@ -137,7 +137,7 @@ test('旧notes-only引擎明确拒绝schema7，不清空本地修改或推进游
   assert.equal(meta(workspace, 'cursor'), null); assert.equal(workspace.knowledge.noteService.getNote(note.id).rawMarkdown, '保留');
 });
 
-test('schema6冻结批次以原hash查已接纳回执，保留后继编辑且只新请求加schema7', async t => {
+test('schema6冻结批次以原hash查已接纳回执，保留后继编辑且只新请求加schema8', async t => {
   const cloud = await fixture(t), device = cloud.device('upgrade'); await device.connect();
   const note = device.knowledge.noteService.createNote({ title: '旧冻结操作', rawMarkdown: '已提交版', spaceId: device.space.id });
   const current = nextEntityUpload(device.store), old = structuredClone(current); delete old.entitySchemaVersion; delete old.capabilities;
@@ -173,7 +173,7 @@ test('旧冻结批次确知未接纳时只解除旧信封，新operation完整�
   device.store.metadataTransaction(db => writeMeta(db, 'entityUpload', old));
   await device.engine.sync(); clean(device);
   assert.equal(sent.length, 1); assert.notEqual(sent[0].operationId, old.operationId);
-  assert.equal(sent[0].entitySchemaVersion, 7); assert(sent[0].capabilities.includes('knowledge-provenance-v1'));
+  assert.equal(sent[0].entitySchemaVersion, 8); assert(sent[0].capabilities.includes('knowledge-provenance-v1'));
   assert.equal(cloud.store.state.notes.find(value => value.id === note.id).rawMarkdown, note.rawMarkdown);
   assert.equal(device.engine.status().pendingEntities, 0);
 });
@@ -198,7 +198,7 @@ test('快照分页绑定被替换或未来schema响应时，不应用半页、�
     const device = cloud.device(`tamper-${field}`, async (url, init) => {
       const response = await fetch(url, init);
       if (tamper && url.includes('/snapshot?')) {
-        const body = await response.json(); body.data[field] = field === 'entitySchemaVersion' ? 8 : field === 'count' ? body.data.count + 1 : field === 'nextOffset' ? -1 : 'foreign';
+        const body = await response.json(); body.data[field] = field === 'entitySchemaVersion' ? 9 : field === 'count' ? body.data.count + 1 : field === 'nextOffset' ? -1 : 'foreign';
         return Response.json(body);
       }
       return response;

@@ -37,6 +37,9 @@ export async function handleConversationRoute({ request, response, url, conversa
       if (parts.length === 4 && parts[1] === 'turns' && parts[3] === 'cancel') {
         sendJson(response, 200, { data: await conversation.cancel(parts[0], parts[2]) }); return true;
       }
+      if (parts.length === 4 && parts[1] === 'turns' && parts[3] === 'resume') {
+        sendJson(response, 202, { data: await conversation.resume(parts[0], parts[2]) }); return true;
+      }
       if (parts.length === 4 && parts[1] === 'turns' && parts[3] === 'retry') {
         sendJson(response, 202, { data: await conversation.retry(parts[0], parts[2]) }); return true;
       }

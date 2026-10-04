@@ -236,9 +236,64 @@ export const aiAgentR04Tests = [
     assert.equal(await agent.recover(), 1);
     assert.equal((await data.aiConversationStore.listModelAttempts(turn.turnId))[0].status, 'unknown');
     assert.equal(data.aiBudgetAuthority.status('deepseek-primary', beijingDay(new Date())).heldMicrounits, 1000);
-    await agent.run(turn.turnId);
+    await assert.rejects(agent.run(turn.turnId), { code: 'AI_DELIVERY_UNCERTAIN' });
+    await agent.retry(turn.turnId);
     assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).status, 'succeeded');
     assert.deepEqual((await data.aiConversationStore.listModelAttempts(turn.turnId)).map(row => row.status), ['unknown', 'settled']);
+  }) },
+  { name: 'Agent 工具成功后检查点写盘中断，续跑复用持久响应及工具结果不再计费搜索', run: () => withFixture(async ({ data, addNote, policy, submit, worker }) => {
+    addNote('checkpoint-note', '光合作用把光能转为化学能');
+    const selected = await policy(['checkpoint-note']);
+    const turn = await submit('解释光合作用', 'checkpoint-worker-1', selected.policyId);
+    const store = data.aiConversationStore, save = store.saveCheckpoint.bind(store);
+    let crashed = false, deliveries = 0;
+    store.saveCheckpoint = async (...args) => {
+      if (!crashed && args[2].nextRound === 1) {
+        crashed = true;
+        throw Object.assign(new Error('synthetic checkpoint disk interruption'), { code: 'AI_TASK_FAILED' });
+      }
+      return save(...args);
+    };
+    const gateway = { capabilities: () => ({ provider: 'mock' }), async complete() {
+      deliveries++;
+      return deliveries === 1 ? { ...answer(''), finishReason: 'tool_calls', toolCalls: [
+        { id: 'checkpoint-search', name: 'notes_search', arguments: { query: '光合作用', limit: 1 } }
+      ] } : answer('', { answer: '光合作用把光能转为化学能。', citations: [] });
+    } };
+    await assert.rejects(worker(gateway).run(turn.turnId), { code: 'AI_TASK_FAILED' });
+    assert.equal(deliveries, 1);
+    assert.equal((await store.listToolCalls(turn.turnId)).length, 1);
+    await worker(gateway).run(turn.turnId);
+    assert.equal(deliveries, 2);
+    assert.equal((await store.listToolCalls(turn.turnId)).length, 1);
+    assert.equal((await store.listModelAttempts(turn.turnId)).length, 2);
+    assert.equal((await store.getTurn(turn.turnId)).status, 'succeeded');
+  }) },
+  { name: 'Agent 检查点来源变私密后续跑拒绝，不重发保存的响应或原文', run: () => withFixture(async ({ data, addNote, policy, submit, worker, noteRepository }) => {
+    addNote('checkpoint-private-note', '光合作用私有候选资料');
+    const selected = await policy(['checkpoint-private-note']);
+    const turn = await submit('解释光合作用', 'checkpoint-private-1', selected.policyId);
+    const store = data.aiConversationStore, save = store.saveCheckpoint.bind(store);
+    let crashed = false, deliveries = 0;
+    store.saveCheckpoint = async (...args) => {
+      const saved = await save(...args);
+      if (!crashed && args[2].nextRound === 1) {
+        crashed = true;
+        throw Object.assign(new Error('synthetic process interruption'), { code: 'AI_TASK_FAILED' });
+      }
+      return saved;
+    };
+    const gateway = { capabilities: () => ({ provider: 'mock' }), async complete() {
+      deliveries++;
+      return { ...answer(''), finishReason: 'tool_calls', toolCalls: [
+        { id: 'checkpoint-private-search', name: 'notes_search', arguments: { query: '光合作用', limit: 1 } }
+      ] };
+    } };
+    await assert.rejects(worker(gateway).run(turn.turnId), { code: 'AI_TASK_FAILED' });
+    const note = noteRepository.findById('checkpoint-private-note');
+    noteRepository.save({ ...note, aiVisibility: 'private' });
+    await assert.rejects(worker(gateway).run(turn.turnId), error => ['AI_NOTE_PRIVATE', 'AI_SCOPE_FORBIDDEN', 'AI_SOURCE_STALE', 'AI_SOURCE_PRIVATE'].includes(error.code));
+    assert.equal(deliveries, 1);
   }) },
   { name: 'R04 HTTP 显式 execute、重试与取消只触发指定会话任务', async run() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-agent-http-'));

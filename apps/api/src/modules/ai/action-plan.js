@@ -1,3 +1,4 @@
+import { assertAiReadableNote } from './note-privacy.js';
 import { createNoteWritePlan } from './note-plan.js';
 import { hashRecord } from './record-contract.js';
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
@@ -5,12 +6,12 @@ import { buildUpdateNoteDto } from '../knowledge/application/dto/note.dto.js';
 import { actionError } from './action-state.js';
 
 export const image = note => ({ id: note.id, spaceId: note.spaceId, title: note.title,
-  folderId: note.folderId ?? null, tagIds: [...(note.tagIds ?? [])], rawMarkdown: note.rawMarkdown });
+  folderId: note.folderId ?? null, tagIds: [...(note.tagIds ?? [])], rawMarkdown: note.rawMarkdown, aiVisibility: note.aiVisibility ?? 'normal' });
 export const metadataHash = note => hashRecord({ title: note.title, folderId: note.folderId ?? null,
-  tagIds: [...(note.tagIds ?? [])].sort(), spaceId: note.spaceId });
+  tagIds: [...(note.tagIds ?? [])].sort(), spaceId: note.spaceId, ...(note.aiVisibility !== undefined ? { aiVisibility: note.aiVisibility } : {}) });
 export const baseline = note => ({ targetNoteId: note.id, exists: true,
   expectedUpdatedAt: new Date(note.updatedAt).toISOString(), contentHash: calculateContentHash(note.rawMarkdown),
-  metadataHash: metadataHash(note) });
+  metadataHash: metadataHash(image(note)) });
 export const finalizePlan = content => ({ ...content, planHash: hashRecord(content) });
 
 export function buildActionPlan({ toolName, args, trusted, notes, references }) {
@@ -27,6 +28,7 @@ export function buildActionPlan({ toolName, args, trusted, notes, references }) 
       }
       const note = notes.find(row => row.id === change.noteId);
       if (!note || note.deleted || note.spaceId !== trusted.spaceId) actionError('AI_NOTE_TARGET_INVALID', '整理目标无效。', 422);
+      assertAiReadableNote(note);
       const { noteId, ...updates } = change;
       const dto = buildUpdateNoteDto(updates), before = image(note), after = { ...before, ...dto };
       if (!Object.keys(dto).length || metadataHash(before) === metadataHash(after)) actionError('AI_NOTE_NO_CHANGE', '整理未产生变化。', 422);
@@ -52,8 +54,12 @@ export function assertBaseline(item, note) {
     if (note) actionError('AI_ACTION_CONFLICT', '固定新建目标已存在。');
     return;
   }
+  if (note) assertAiReadableNote(note);
+  const currentBaseline = note ? baseline(note) : null;
+  // 旧计划缺少可读性字段时只兼容普通笔记，保持已持久化 hash。
+  if (note && item.before?.aiVisibility === undefined) currentBaseline.metadataHash = metadataHash({ ...note, aiVisibility: undefined });
   if (!note || note.deleted || note.spaceId !== item.after.spaceId
-    || hashRecord(baseline(note)) !== hashRecord(item.baseline)) actionError('AI_ACTION_CONFLICT', '笔记已经变化，请保留建议并重新预览。');
+    || hashRecord(currentBaseline) !== hashRecord(item.baseline)) actionError('AI_ACTION_CONFLICT', '笔记已经变化，请保留建议并重新预览。');
 }
 
 // 同一领域流程可由同步 JSON/SQLite 或异步 PostgreSQL 驱动；本地事务不接受 Promise。

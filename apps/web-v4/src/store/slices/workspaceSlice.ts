@@ -481,6 +481,13 @@ export function createWorkspaceSlice(
     async getNoteVersion(noteId, versionId) {
       return dependencies.api.getNoteVersion(noteId, versionId);
     },
+    async setNoteAiVisibility(noteId, input) {
+      return executeWorkspaceMutation(set, get, '正在更新笔记隐私…', async () => {
+        await dependencies.api.updateNote(noteId, input);
+        await runLoad(true);
+        return { result: undefined, message: input.aiVisibility === 'private' ? '笔记已设为私密，AI 不再读取' : '笔记已设为普通，可供 AI 读取' };
+      });
+    },
     async organizeNote(noteId, input) {
       return executeWorkspaceMutation(set, get, '正在整理笔记…', async () => {
         await dependencies.api.updateNote(noteId, input);

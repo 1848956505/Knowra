@@ -8,6 +8,13 @@ import {
 import { assertNoInsecureImageUrls } from '../note-content-policy.js';
 import { validationError } from '../knowledge-errors.js';
 
+function aiVisibility(value) {
+  if (!['normal', 'private'].includes(value)) {
+    throw validationError('NOTE_AI_VISIBILITY_INVALID', '笔记 AI 可读性只能为普通或私密。');
+  }
+  return value;
+}
+
 function deriveTitleFromMarkdown(markdown) {
   if (typeof markdown !== 'string') {
     return null;
@@ -65,6 +72,7 @@ export function buildCreateNoteDto(input = {}) {
     status: input.status ?? 'draft',
     sourceType: input.sourceType ?? 'manual',
     favorite: input.favorite ?? false,
+    aiVisibility: aiVisibility(input.aiVisibility === undefined ? 'normal' : input.aiVisibility),
     tagIds: normalizeIdList(input.tagIds ?? [], 'NOTE_TAGS_INVALID', 'Note tagIds must contain valid ids'),
     createdAt: input.createdAt,
     updatedAt: input.updatedAt
@@ -122,6 +130,7 @@ export function buildUpdateNoteDto(input = {}) {
   if (input.tagIds !== undefined) {
     dto.tagIds = normalizeIdList(input.tagIds, 'NOTE_TAGS_INVALID', 'Note tagIds must contain valid ids');
   }
+  if (input.aiVisibility !== undefined) dto.aiVisibility = aiVisibility(input.aiVisibility);
   if (input.updatedAt !== undefined) {
     dto.updatedAt = input.updatedAt;
   }

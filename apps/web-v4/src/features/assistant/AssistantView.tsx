@@ -1,6 +1,5 @@
-import { flushAiDraftCoordination, hasCoordinatedDraft } from '../editor/aiDraftCoordination';
-import { getNoteDraftScope } from '../editor/noteDraftScope';
 import { NoteActions } from './NoteActions';
+import { AIInbox } from './AIInbox';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
 import { Select, TextAreaField } from '../../components/ui/input';
@@ -30,7 +29,7 @@ const blocked = (turn: ConversationTurn | null) => isActive(turn) || turn?.statu
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback;
 const formatTime = (value: string) => new Date(value).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-interface PendingSend { conversationId: string; idempotencyKey: string; content: string; requestedPolicyId: string | null; writeIntent?: { toolName: string; noteId?: string } }
+interface PendingSend { conversationId: string; idempotencyKey: string; content: string; requestedPolicyId: string | null }
 
 interface AssistantViewProps { pathname: string; onOpenNote(noteId: string): void }
 
@@ -57,18 +56,19 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const [turns, setTurns] = useState<Record<string, ConversationTurn>>({});
   const [scopeChoice, setScopeChoice] = useState('plain');
   const [draft, setDraft] = useState('');
-  const [writeMode, setWriteMode] = useState('chat');
-  const [writeTarget, setWriteTarget] = useState(initialNoteId ?? '');
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [grantOpen, setGrantOpen] = useState(false);
-  const [grantKind, setGrantKind] = useState<'library' | 'folder' | 'fixed'>(initialNoteId ? 'fixed' : 'library');
+  const [grantKind, setGrantKind] = useState<'library' | 'folder' | 'fixed'>('library');
   const [grantNoteId, setGrantNoteId] = useState(initialNoteId ?? '');
   const [grantFolderId, setGrantFolderId] = useState('');
   const [grantDays, setGrantDays] = useState('7');
   const [recordMessage, setRecordMessage] = useState<ConversationMessage | null>(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
+  const inboxTrigger = useRef<HTMLButtonElement>(null);
   const [sourceView, setSourceView] = useState<{ ref: SourceRef; text: string; messageId: string } | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const pendingSend = useRef<PendingSend | null>(null);
@@ -82,6 +82,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const selectedId = selected?.conversationId ?? null;
   selection.current = selectedId;
   const latestTurn = messages.length ? turns[messages[messages.length - 1].turnId] ?? null : null;
+  const deliveryUncertain = latestTurn?.modelAttempts?.some(attempt =>
+    (attempt.ordinal ?? Infinity) > (latestTurn.checkpoint?.handledAttemptOrdinal ?? 0)
+    && (attempt.status === 'sent' || ['settled', 'unknown'].includes(attempt.status) && !attempt.modelResult)) ?? false;
   const activePolicies = policies.filter(item => !item.revokedAt && Date.parse(item.expiresAt) > Date.now() && item.egress);
   const chosenPolicy = activePolicies.find(item => item.policyId === scopeChoice);
   const noteName = (id: string) => notes.find(note => note.id === id)?.title || '已移除的笔记';
@@ -128,7 +131,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
 
   useEffect(() => {
     refreshSequence.current++;
-    setMessages([]); setTurns({}); setSourceView(null); setError(null);
+    setMessages([]); setTurns({}); setSourceView(null); setError(null); setRetryConfirmOpen(false);
     if (!selectedId) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
@@ -187,23 +190,18 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     const intent = pendingSend.current?.content === content && pendingSend.current.requestedPolicyId === requestedPolicyId
       && pendingSend.current.conversationId === (selectedId ?? pendingSend.current.conversationId)
       ? pendingSend.current : { conversationId: selectedId ?? crypto.randomUUID(),
-        idempotencyKey: crypto.randomUUID(), content, requestedPolicyId, ...(writeMode !== 'chat' ? { writeIntent: { toolName: writeMode, ...(writeMode !== 'notes_create' ? { noteId: writeTarget } : {}) } } : {}) };
+        idempotencyKey: crypto.randomUUID(), content, requestedPolicyId };
     pendingSend.current = intent;
     refreshSequence.current++;
     setPending(true); setError(null); setNotice(null);
     try {
-      if (intent.writeIntent) {
-        await flushAiDraftCoordination();
-        if (writeMode !== 'notes_create' && (!writeTarget || !chosenPolicy)) throw new Error('请选择明确目标和读取授权。');
-        if (hasCoordinatedDraft(getNoteDraftScope(spaceId) ?? spaceId, writeTarget ? [writeTarget] : [])) throw new Error('目标有未保存草稿，请先保存后重新预览。');
-      }
       if (!selectedId) {
         const created = await conversationApi.create(spaceId, intent.conversationId);
         if (space.current !== spaceId) return;
         setConversations(previous => [created, ...previous.filter(item => item.conversationId !== created.conversationId)]);
       }
       const turn = await conversationApi.send(intent.conversationId, {
-        content: intent.content, idempotencyKey: intent.idempotencyKey, requestedPolicyId: intent.requestedPolicyId, ...(intent.writeIntent ? { writeIntent: intent.writeIntent } : {})
+        content: intent.content, idempotencyKey: intent.idempotencyKey, requestedPolicyId: intent.requestedPolicyId
       });
       if (space.current !== spaceId) return;
       pendingSend.current = null; setDraft('');
@@ -214,17 +212,19 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     finally { setPending(false); }
   }
 
-  async function actOnTurn(action: 'cancel' | 'retry') {
+  async function actOnTurn(action: 'cancel' | 'retry' | 'resume', confirmed = false) {
     if (!selectedId || !latestTurn || pending) return;
+    if (action === 'retry' && deliveryUncertain && !confirmed) { setRetryConfirmOpen(true); return; }
+    setRetryConfirmOpen(false);
     refreshSequence.current++;
     setPending(true); setError(null);
     try {
       const result = action === 'cancel' ? await conversationApi.cancel(selectedId, latestTurn.turnId)
-        : await conversationApi.retry(selectedId, latestTurn.turnId);
+        : action === 'resume' ? await conversationApi.resume(selectedId, latestTurn.turnId) : await conversationApi.retry(selectedId, latestTurn.turnId);
       if (selection.current !== selectedId) return;
       setTurns(previous => ({ ...previous, [result.turnId]: result }));
       await refreshConversation(selectedId);
-      setNotice(action === 'cancel' ? '已请求停止。' : '已请求重试，状态会自动更新。');
+      setNotice(action === 'cancel' ? '已请求停止。' : action === 'resume' ? '已请求从检查点继续，不自动重发未知模型请求。' : '已请求重试，状态会自动更新。');
     } catch (cause) { setError(errorText(cause, '操作失败。')); }
     finally { setPending(false); }
   }
@@ -288,8 +288,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   return <WorkspacePanel as="main" aria-labelledby="assistant-title">
     <WorkspacePanelHeader title="AI 助手" code="AI" titleId="assistant-title" icon={<SparkIcon size={14} />}
       breadcrumb={<PathTrail path={[{ id: 'assistant', label: 'AI 助手', current: true }]} variant="top" />}
-      actionsLabel="助手操作" actions={<Button variant="ghost" size="compact" onPress={() => navigate('/assistant?view=legacy')}>旧版任务</Button>} />
-    <WorkspacePanelBody grid className={styles.body} aria-label="AI 助手工作区">
+      actionsLabel="助手操作" actions={<><Button ref={inboxTrigger} variant="default" size="compact" onPress={() => setInboxOpen(true)}>AI 成果收件箱</Button><Button variant="ghost" size="compact" onPress={() => navigate('/assistant?view=legacy')}>旧版任务</Button></>} />
+    <WorkspacePanelBody grid className={`${styles.body} ${inboxOpen ? styles.withInbox : ''}`} aria-label="AI 助手工作区">
       <aside className={styles.history} aria-label="会话历史">
         <Button variant="accent" size="workspace" onPress={() => {
           pendingSend.current = null; setDraft(''); navigate('/assistant?new=1');
@@ -315,7 +315,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
         {spaceId ? <NoteActions key={`${spaceId}:${recordMessage?.messageId ?? 'management'}`} spaceId={spaceId} refreshKey={messages.at(-1)?.messageId} conversationId={selectedId ?? undefined} message={recordMessage ?? undefined} onCloseSource={() => setRecordMessage(null)} onOpenNote={onOpenNote} /> : null}
         <div className={styles.messages} aria-live="polite">
           {!selected && !newConversation && conversations.length === 0 ? <div className={styles.welcome}>
-            <h2>从一个问题开始</h2><p>可以直接聊天、解释概念或继续追问。需要引用笔记时，再选择授权的资料范围。</p>
+            <h2>从一个问题开始</h2><p>可以直接聊天、解释或写作。授权笔记库后，助手会结合任务自主检索、阅读，并把需要保存的成果交给你审阅。</p>
           </div> : null}
           {newConversation ? <div className={styles.welcome}><h2>新对话</h2><p>默认是普通聊天，不读取笔记。</p></div> : null}
           {selected?.readOnly ? <p className={styles.readOnly}>此会话属于历史资料集，只能回看。请新建对话继续提问。</p> : null}
@@ -353,8 +353,13 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             <span>{latestTurn.status === 'running' ? phaseName[latestTurn.phase] : latestTurn.errorCode ?? ''}</span>
             {isActive(latestTurn) ? <Button variant="ghost" size="compact" isDisabled={pending}
               onPress={() => void actOnTurn('cancel')}>停止生成</Button> : null}
-            {['failed', 'interrupted', 'staged'].includes(latestTurn.status) ? <Button variant="default" size="compact" isDisabled={pending || !status?.generationAvailable || selected?.readOnly}
-              onPress={() => void actOnTurn('retry')}>重试本轮</Button> : null}
+            {['failed', 'interrupted', 'staged'].includes(latestTurn.status) ? <>
+              <Button variant="default" size="compact" isDisabled={pending || !status?.generationAvailable || selected?.readOnly || deliveryUncertain}
+                onPress={() => void actOnTurn('resume')}>从检查点继续</Button>
+              <Button variant="default" size="compact" isDisabled={pending || !status?.generationAvailable || selected?.readOnly}
+                onPress={() => void actOnTurn('retry')}>重试本轮</Button>
+              {deliveryUncertain ? <p>此前模型请求的发送结果未知，继续不会自动重发。重新调用可能产生重复费用。</p> : null}
+            </> : null}
           </div> : null}
         </div>
         {error ? <div className={styles.error} role="alert">{error} <Button variant="ghost" size="compact"
@@ -368,13 +373,12 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             </div> : <>
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               <div className={styles.composerCard}>
-          {writeMode !== 'chat' && writeMode !== 'notes_create' ? <Select label="本轮固定写入目标" selectedKey={writeTarget || null} onSelectionChange={key => { pendingSend.current = null; setWriteTarget(String(key)); }} options={notes.map(note => ({ id: note.id, label: note.title }))} /> : null}
           <TextAreaField label="消息" presentation="composer" value={draft}
                   onChange={value => { setDraft(value); pendingSend.current = null; }}
                   placeholder={chosenPolicy ? '询问已授权资料中的内容…' : '问一个问题，或继续追问…'} rows={2} />
                 <div className={styles.composerToolbar}>
                   <div className={styles.purposePicker}>
-                    <Select label="本轮用途" presentation="toolbar" selectedKey={writeMode} onSelectionChange={key => { pendingSend.current = null; setWriteMode(String(key)); }} options={[{ id: 'chat', label: '普通对话' }, { id: 'notes_create', label: '生成新笔记计划' }, { id: 'notes_append', label: '生成追加计划' }, { id: 'notes_propose_patch', label: '生成局部改写计划' }, { id: 'notes_propose_organize', label: '生成整理计划' }]} />
+                    <span className={styles.composerHint}>助手自主选择工具</span>
                   </div>
                   <div className={styles.scopePicker}><Select label="资料范围" presentation="toolbar" selectedKey={scopeChoice}
                     onSelectionChange={key => { setScopeChoice(String(key)); pendingSend.current = null; }}
@@ -382,7 +386,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                       id: policy.policyId, label: `${scopeName(policy)} · 至 ${formatTime(policy.expiresAt)}`
                     }))]} /></div>
                   <Button variant="ghost" size="compact" onPress={() => {
-                    setGrantKind(initialNoteId ? 'fixed' : 'library');
+                    setGrantKind('library');
                     setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
                     setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
                   }}>设置读取范围</Button>
@@ -400,7 +404,15 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           </div>
         </div>
       </div>
-    </WorkspacePanelBody>
+      {spaceId ? <AIInbox key={spaceId} spaceId={spaceId} isOpen={inboxOpen} onOpenChange={next => {
+        setInboxOpen(next); if (!next && inboxOpen) inboxTrigger.current?.focus();
+      }} refreshKey={`${messages.at(-1)?.messageId ?? ''}:${latestTurn?.status ?? ''}`} onOpenNote={onOpenNote} /> : null}
+  </WorkspacePanelBody>
+    <Dialog title="确认重新调用模型" isOpen={retryConfirmOpen} onOpenChange={setRetryConfirmOpen} size="sm">
+      <DialogBody><p>此前请求可能已发送，结果与费用尚未核清。重试会重新调用模型，可能产生重复费用；已发送的内容无法收回。</p></DialogBody>
+      <DialogFooter><Button variant="ghost" onPress={() => setRetryConfirmOpen(false)}>暂不重试</Button>
+        <Button variant="primary" isDisabled={pending} onPress={() => void actOnTurn('retry', true)}>确认重试本轮</Button></DialogFooter>
+    </Dialog>
     <Dialog title="授权助手读取资料" description={status?.simulation
       ? '离线模拟仅在当前运行端处理授权片段，不向供应商发送。可随时撤销，过期后自动失效。'
       : '助手只在本次对话选择此范围时检索资料。相关片段可能发送给 DeepSeek；附件不会发送。可随时撤销，过期后自动失效。'}
@@ -415,7 +427,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             options={notes.map(note => ({ id: note.id, label: note.title || '无标题笔记' }))} /> : null}
           <Select label="有效期" selectedKey={grantDays} onSelectionChange={key => setGrantDays(String(key))}
             options={[{ id: '1', label: '1 天' }, { id: '7', label: '7 天' }, { id: '30', label: '30 天' }]} />
-          <p className={styles.muted}>授权不自动发送整篇资料。助手每次检索和外发前都会核对范围、版本和有效期。</p>
+          <p className={styles.muted}>普通笔记可供 AI 读取，不代表公开共享；私密笔记始终排除。授权不自动发送整篇资料。助手每次检索和外发前都会核对范围、版本和有效期。</p>
         </div>
       </DialogBody>
       <DialogFooter><Button variant="ghost" onPress={() => setGrantOpen(false)}>取消</Button>

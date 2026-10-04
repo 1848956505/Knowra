@@ -1,3 +1,5 @@
+import { assertAiReadableNote } from './note-privacy.js';
+import { createActionInboxMethods } from './action-inbox.js';
 import { validateWriteIntent } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { hashRecord } from './record-contract.js';
@@ -16,19 +18,19 @@ const requestFor = row => ({ ...Object.fromEntries(actionIdentityKeys.map(key =>
 const lookupFor = row => ({ ownerId: row.ownerId, datasetId: row.datasetId, operationId: row.operationId });
 const serial = value => JSON.parse(JSON.stringify(value));
 
-export function createNoteActionService({ store, core, knowledge, ownerId, conversationStore = null, accessStore = null, now = () => new Date(), asyncDomain = false }) {
+export function createNoteActionService({ store, core, knowledge, ownerId, conversationStore = null, accessStore = null, access = null, now = () => new Date(), asyncDomain = false }) {
   const repos = knowledge.repositories;
   const run = asyncDomain ? runAsync : runSync;
   function* space(spaceId) {
     const record = yield repos.knowledgeSpaceRepository.findById(spaceId);
     if (!record || record.userId !== ownerId) actionError('AI_SCOPE_FORBIDDEN', '无权访问知识空间。', 403);
   }
-  function checkCurrent(row, identity) {
+  function checkCurrent(row, identity, allowExpired = false) {
     if (row.datasetId !== identity.datasetId || row.datasetEpoch !== identity.datasetEpoch) actionError('AI_DATASET_STALE', '资料集已切换或恢复，旧动作不可提交。');
     if (!row.grant || row.grant.revoked || row.grant.requestHash !== row.inputHash || row.grant.toolName !== row.plan.toolName
       || hashRecord(row.grant.targetIds) !== hashRecord(row.plan.items.map(item => item.after.id))
       || actionIdentityKeys.some(key => row.grant[key] !== row[key])) actionError('AI_ACTION_GRANT_REVOKED', '写入指令授权已失效。', 403);
-    if (Date.parse(row.expiresAt) <= now().getTime()) actionError('AI_ACTION_EXPIRED', '写入指令已过期。');
+    if (!allowExpired && Date.parse(row.expiresAt) <= now().getTime()) actionError('AI_ACTION_EXPIRED', '写入指令已过期。');
   }
   function* references(spaceId, ids) {
     const result = [];
@@ -41,15 +43,23 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
     }
     return result;
   }
-  function* verify(row, state, identity) {
-    checkCurrent(row, identity);
+  function* verifyOrigin(row, identity, allowExpired = false) {
+    checkCurrent(row, identity, allowExpired);
     if (row.grant.originTurnId) {
       const turn = yield conversationStore?.peekTurn(row.grant.originTurnId);
-      if (!turn || !turn.writeIntent || turn.writeIntent.toolName !== row.plan.toolName
-        || turn.writeIntent.noteId && (row.plan.items.length !== 1 || turn.writeIntent.noteId !== row.plan.items[0].after.id)
+      if (!turn || !row.grant.autonomousOrigin && (!turn.writeIntent || turn.writeIntent.toolName !== row.plan.toolName)
+        || !row.grant.autonomousOrigin && turn.writeIntent?.noteId && (row.plan.items.length !== 1 || turn.writeIntent.noteId !== row.plan.items[0].after.id)
         || turn.status !== 'succeeded' || turn.leaseGeneration !== row.grant.originGeneration
         || turn.ownerId !== ownerId || turn.datasetId !== row.datasetId || turn.datasetEpoch !== row.datasetEpoch
         || turn.spaceId !== row.spaceId || turn.turnId !== row.requestId || (turn.requestedPolicyId ?? null) !== row.grant.policyId) actionError('AI_ACTION_GRANT_REVOKED', '模型计划的指令任务已失效。', 403);
+    }
+    for (const event of row.inboxEvents ?? []) {
+      if (!event.originTurnId) continue;
+      const turn = yield conversationStore?.peekTurn(event.originTurnId);
+      const original = yield conversationStore?.peekTurn(row.grant.originTurnId);
+      if (!turn || !original || turn.conversationId !== original.conversationId || turn.status !== 'succeeded'
+        || turn.leaseGeneration !== event.originGeneration || turn.ownerId !== ownerId
+        || turn.datasetId !== row.datasetId || turn.datasetEpoch !== row.datasetEpoch || turn.spaceId !== row.spaceId) actionError('AI_ACTION_GRANT_REVOKED', '成果修订任务未成功完成。', 403);
     }
     if (row.grant.policyId) {
       const policy = yield accessStore?.peek('aiAccessPolicy', row.grant.policyId);
@@ -57,11 +67,10 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
         || policy.datasetEpoch !== row.datasetEpoch || policy.spaceId !== row.spaceId || policy.revokedAt
         || policy.revision !== row.grant.policyRevision || Date.parse(policy.expiresAt) <= now().getTime()) actionError('AI_ACTION_GRANT_REVOKED', '计划来源授权已撤销或变化。', 403);
     }
+    for (const ref of row.grant.sourceRefs ?? []) assertAiReadableNote(yield repos.noteRepository.findById(ref.noteId));
     yield* space(row.spaceId);
-    if (row.status !== 'applying' || !row.approval || row.approval.planHash !== row.plan.planHash
-      || row.approval.actorId !== ownerId || Date.parse(row.approval.expiresAt) <= now().getTime()) {
-      actionError('AI_ACTION_APPROVAL_REQUIRED', '需要对当前计划明确确认。', 403);
-    }
+  }
+  function* verifyTargets(row, state) {
     for (const ref of row.plan.references) {
       const record = yield (ref.kind === 'folder' ? repos.folderRepository : repos.tagRepository).findById(ref.id);
       if (!record || record.spaceId !== row.spaceId || record.deletedAt || hashRecord(serial(record)) !== ref.hash) {
@@ -75,6 +84,14 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       }
       assertBaseline(item, yield repos.noteRepository.findById(item.after.id));
     }
+  }
+  function* verify(row, state, identity) {
+    yield* verifyOrigin(row, identity);
+    if (row.status !== 'applying' || !row.approval || row.approval.planHash !== row.plan.planHash
+      || row.approval.actorId !== ownerId || Date.parse(row.approval.expiresAt) <= now().getTime()) {
+      actionError('AI_ACTION_APPROVAL_REQUIRED', '需要对当前计划明确确认。', 403);
+    }
+    yield* verifyTargets(row, state);
   }
   function* commit(actionId) {
     const state = yield store.read(), row = rowFor(state, actionId, ownerId);
@@ -105,7 +122,74 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
     try { return await store.write(state => { const current = rowFor(state, row.actionId, ownerId); current.status = 'applied'; current.receipt = receipt; current.errorCode = null; return current; }); }
     catch { return { ...row, status: 'applied', receipt, reconciliationPending: true }; }
   }
+  async function verifyRunSources(grantId, sourceRefs, targetIds = []) {
+    if (!Array.isArray(sourceRefs) || sourceRefs.length > 128) actionError('AI_REQUEST_INVALID', '成果来源列表无效。', 422);
+    for (const noteId of new Set([...targetIds, ...sourceRefs.map(ref => ref.noteId)])) {
+      if (!access || !grantId) actionError('AI_SCOPE_FORBIDDEN', '成果来源需要本轮读取授权。', 403);
+      const verified = await access.verifyRead({ grantId, noteId });
+      for (const ref of sourceRefs.filter(ref => ref.noteId === noteId)) {
+        if (ref.noteVersionId !== verified.version.id || ref.contentHash !== verified.contentHash) actionError('AI_SOURCE_STALE', '成果来源已变化，请重新读取。');
+      }
+    }
+  }
   const service = {
+    async resumeForTurn(actionId, turn, { sourceRefs = [], grantId = null } = {}) {
+      const row = await service.get(actionId);
+      const targets = row.plan.items.filter(item => item.before).map(item => item.after.id);
+      await verifyRunSources(grantId, [...(row.grant.sourceRefs ?? []), ...sourceRefs], targets);
+      return store.transaction(() => run((function* () {
+        const current = yield conversationStore?.peekTurn(turn.turnId);
+        const identity = yield store.identity();
+        const policy = row.grant.policyId ? yield accessStore?.peek('aiAccessPolicy', row.grant.policyId) : null;
+        if (!current || current.status !== 'running' || current.leaseGeneration !== turn.leaseGeneration || current.ownerId !== ownerId
+          || current.datasetId !== identity.datasetId || current.datasetEpoch !== identity.datasetEpoch || current.spaceId !== row.spaceId
+          || current.datasetId !== row.datasetId || current.datasetEpoch !== row.datasetEpoch
+          || Date.parse(current.leaseExpiresAt) <= now().getTime() || (current.requestedPolicyId ?? null) !== row.grant.policyId
+          || row.grant.policyId && (!policy || policy.revokedAt || policy.revision !== row.grant.policyRevision || Date.parse(policy.expiresAt) <= now().getTime())) actionError('AI_ACTION_GRANT_REVOKED', '恢复任务的来源授权已失效。', 403);
+        return yield store.write(state => {
+          const latest = rowFor(state, actionId, ownerId);
+          if (latest.grant.revoked || !['awaitingApproval', 'authorized'].includes(latest.status)) actionError('AI_ACTION_GRANT_REVOKED', '成果当前不可恢复绑定。', 403);
+          const event = latest.inboxEvents?.find(event => event.originTurnId === turn.turnId);
+          if (latest.grant.originTurnId === turn.turnId) latest.grant.originGeneration = turn.leaseGeneration;
+          else if (event) event.originGeneration = turn.leaseGeneration;
+          else actionError('AI_SCOPE_FORBIDDEN', '恢复任务与成果来源不匹配。', 403);
+          return latest;
+        });
+      })()));
+    },
+    async planForAssistantTurn(turn, call, { sourceRefs = [], grantId = null } = {}) {
+      const identity = await store.identity();
+      if (turn.datasetId !== identity.datasetId || turn.datasetEpoch !== identity.datasetEpoch || turn.ownerId !== ownerId) actionError('AI_DATASET_STALE', '旧资料集的模型结果不可生成计划。');
+      const current = await conversationStore?.peekTurn(turn.turnId);
+      if (!current || current.status !== 'running' || current.leaseGeneration !== turn.leaseGeneration
+        || current.ownerId !== ownerId || current.datasetId !== turn.datasetId || current.datasetEpoch !== turn.datasetEpoch
+        || current.spaceId !== turn.spaceId || (current.requestedPolicyId ?? null) !== (turn.requestedPolicyId ?? null) || Date.parse(current.leaseExpiresAt) <= now().getTime()) actionError('AI_ACTION_GRANT_REVOKED', '模型任务已失效。', 403);
+      const policy = turn.requestedPolicyId ? await accessStore?.get('aiAccessPolicy', turn.requestedPolicyId) : null;
+      if (policy && (policy.revokedAt || Date.parse(policy.expiresAt) <= now().getTime()) || turn.requestedPolicyId && !policy) actionError('AI_ACTION_GRANT_REVOKED', '模型来源授权已失效。', 403);
+      const targetIds = call.name === 'notes_create' ? [] : call.name === 'notes_propose_organize' ? (call.arguments?.changes ?? []).map(row => row.noteId) : [call.arguments?.noteId];
+      await verifyRunSources(grantId, sourceRefs, targetIds);
+      if (call.arguments?.actionId) {
+        const { actionId, ...args } = call.arguments;
+        const prior = await service.get(actionId);
+        await verifyRunSources(grantId, [...(prior.grant.sourceRefs ?? []), ...sourceRefs], targetIds);
+        const originalTurn = prior.grant.originTurnId ? await conversationStore?.peekTurn(prior.grant.originTurnId) : null;
+        if (!originalTurn || originalTurn.conversationId !== current.conversationId || prior.spaceId !== turn.spaceId || prior.plan.toolName !== call.name) actionError('AI_SCOPE_FORBIDDEN', '成果修订范围不匹配。', 403);
+        return service.reviseForAssistantTurn(actionId, { planHash: prior.plan.planHash, requestId: turn.turnId, arguments: args }, { ...turn, sourceRefs });
+      }
+      const row = await service.plan({ spaceId: turn.spaceId, requestId: turn.turnId, toolName: call.name, arguments: call.arguments }, { ...turn, writePolicy: policy, autonomousOrigin: true, sourceRefs });
+      return store.transaction(() => run((function* () {
+        const latest = yield conversationStore.peekTurn(turn.turnId);
+        const valid = latest && latest.status === 'running' && latest.leaseGeneration === turn.leaseGeneration
+          && latest.ownerId === ownerId && latest.datasetId === row.datasetId && latest.datasetEpoch === row.datasetEpoch
+          && latest.spaceId === row.spaceId && Date.parse(latest.leaseExpiresAt) > now().getTime();
+        return yield store.write(state => {
+          const action = rowFor(state, row.actionId, ownerId);
+          action.grant.autonomousOrigin = true;
+          if (!valid) { action.status = 'cancelled'; action.grant.revoked = true; }
+          return action;
+        });
+      })()));
+    },
     async planForTurn(turn, intent, call) {
       validateWriteIntent(intent);
       if (!turn.writeIntent || hashRecord(turn.writeIntent) !== hashRecord(intent)) actionError('AI_SCOPE_FORBIDDEN', '写入意图与原指令不一致。', 403);
@@ -158,6 +242,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
         ? await Promise.all((input.arguments.changes ?? []).map(change => repos.noteRepository.findById(change.noteId)))
         : input.toolName === 'notes_create' ? [] : [await repos.noteRepository.findById(targetNoteId)];
       if (notes.some(note => !note || note.deleted || note.spaceId !== input.spaceId)) actionError('AI_NOTE_TARGET_INVALID', '写入目标无效。', 422);
+      notes.forEach(assertAiReadableNote);
       const identityFields = { ...identity, actorId: ownerId, ownerId, spaceId: input.spaceId, requestId: input.requestId, operationId: randomUUID() };
       const args = input.arguments;
       const changes = input.toolName === 'notes_propose_organize' ? args.changes : [args];
@@ -172,7 +257,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
         if (prior) { if (prior.inputHash !== inputHash) actionError('AI_IDEMPOTENCY_CONFLICT', '相同指令输入冲突。'); return prior; }
         const row = { ...identityFields, actionId: randomUUID(), inputHash, plan, status: 'awaitingApproval', approval: null,
           receipt: null, errorCode: null, createdAt: now().toISOString(), expiresAt: new Date(now().getTime() + 30 * 60000).toISOString() };
-        row.grant = { ...identityFields, requestHash: inputHash, toolName: plan.toolName, targetIds: plan.items.map(item => item.after.id), expiresAt: row.expiresAt, revoked: false, ...(origin ? { originTurnId: origin.turnId, originGeneration: origin.leaseGeneration, policyId: origin.writePolicy?.policyId ?? null, policyRevision: origin.writePolicy?.revision ?? null } : {}) };
+        row.grant = { ...identityFields, requestHash: inputHash, toolName: plan.toolName, targetIds: plan.items.map(item => item.after.id), expiresAt: row.expiresAt, revoked: false, ...(origin ? { ...(origin.autonomousOrigin ? { autonomousOrigin: true, sourceRefs: structuredClone(origin.sourceRefs ?? []) } : {}), originTurnId: origin.turnId, originGeneration: origin.leaseGeneration, policyId: origin.writePolicy?.policyId ?? null, policyRevision: origin.writePolicy?.revision ?? null } : {}) };
         state.actions.push(row); return row;
       });
     },
@@ -245,7 +330,10 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       const items = [];
       for (const item of original.plan.items) {
         const note = await repos.noteRepository.findById(item.after.id);
-        if (!note || note.deleted || hashRecord(image(note)) !== hashRecord(item.after)) actionError('AI_ACTION_CONFLICT', '已有后续修改，不能撤销覆盖。');
+        if (note) assertAiReadableNote(note);
+        const currentImage = note ? image(note) : null;
+        if (currentImage && item.after.aiVisibility === undefined) delete currentImage.aiVisibility;
+        if (!note || note.deleted || hashRecord(currentImage) !== hashRecord(item.after)) actionError('AI_ACTION_CONFLICT', '已有后续修改，不能撤销覆盖。');
         items.push({ before: image(note), after: item.before ?? image(note), baseline: baseline(note), edits: [], softDelete: !item.before });
       }
       const refs = await run(references(original.spaceId, { folders: items.flatMap(item => [item.before.folderId, item.after.folderId]), tags: items.flatMap(item => [...item.before.tagIds, ...item.after.tagIds]) }));
@@ -264,5 +352,15 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       });
     }
   };
+  Object.assign(service, createActionInboxMethods({ service, store, ownerId, now, run, rowFor, checkCurrent, references,
+    verifyRevisionTurn: (turn, row) => run((function* () {
+      const current = yield conversationStore?.peekTurn(turn.turnId);
+      const original = yield conversationStore?.peekTurn(row.grant.originTurnId);
+      if (!current || !original || current.status !== 'running' || current.leaseGeneration !== turn.leaseGeneration
+        || current.conversationId !== original.conversationId || current.ownerId !== ownerId || current.datasetId !== row.datasetId
+        || current.datasetEpoch !== row.datasetEpoch || current.spaceId !== row.spaceId
+        || Date.parse(current.leaseExpiresAt) <= now().getTime()) actionError('AI_ACTION_GRANT_REVOKED', '成果修订任务已失效。', 403);
+    })()),
+    verifyDraft: (row, state, identity) => run((function* () { yield* verifyOrigin(row, identity, true); yield* verifyTargets(row, state); })()) }));
   return service;
 }

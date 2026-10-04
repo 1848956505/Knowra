@@ -1,4 +1,4 @@
-vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => []) } }));
+vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => []), inbox: vi.fn(async () => []) } }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
@@ -14,7 +14,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStoreApi: () => ({ getState: () => fixture.state }), useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
 vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn() } }));
 vi.mock('./conversationApi', () => ({ conversationApi: {
-  list: vi.fn(), create: vi.fn(), messages: vi.fn(), send: vi.fn(), turn: vi.fn(), cancel: vi.fn(), retry: vi.fn(),
+  list: vi.fn(), create: vi.fn(), messages: vi.fn(), send: vi.fn(), turn: vi.fn(), cancel: vi.fn(), retry: vi.fn(), resume: vi.fn(),
   policies: vi.fn(), createPolicy: vi.fn(), revokePolicy: vi.fn()
 } }));
 
@@ -43,6 +43,8 @@ it('没有笔记选择时可直接创建普通聊天，发送请求不带读取�
   vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, status: 'running', phase: 'generating' });
   render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
   expect(await screen.findByText('服务器执行')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '本轮用途' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '本轮固定写入目标' })).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '解释梯度下降' } });
   fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
   await waitFor(() => expect(conversationApi.send).toHaveBeenCalledOnce());
@@ -162,6 +164,35 @@ it('运行轮次可停止，中断轮次可显式重试', async () => {
   await waitFor(() => expect(conversationApi.cancel).toHaveBeenCalledWith('conversation-1', 'turn-1'));
   fireEvent.click(await screen.findByRole('button', { name: '重试本轮' }));
   await waitFor(() => expect(conversationApi.retry).toHaveBeenCalledWith('conversation-1', 'turn-1'));
+});
+
+it('安全继续调用resume，不改走显式retry', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([{ messageId: 'message-1', turnId: 'turn-1', sequence: 1,
+    role: 'user', content: '中断问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, status: 'interrupted' });
+  vi.mocked(conversationApi.resume).mockResolvedValue({ ...succeeded, status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  fireEvent.click(await screen.findByRole('button', { name: '从检查点继续' }));
+  await waitFor(() => expect(conversationApi.resume).toHaveBeenCalledWith('conversation-1', 'turn-1'));
+  expect(conversationApi.retry).not.toHaveBeenCalled();
+});
+
+it('未知发送不能安全继续，显式重试前确认可能重复费用', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([{ messageId: 'message-1', turnId: 'turn-1', sequence: 1,
+    role: 'user', content: '发送中断问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, status: 'interrupted',
+    modelAttempts: [{ attemptId: 'unknown', status: 'unknown', actualMicrounits: null, ordinal: 1, modelResult: null }] });
+  vi.mocked(conversationApi.retry).mockResolvedValue({ ...succeeded, status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByRole('button', { name: '从检查点继续' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '重试本轮' }));
+  await screen.findByRole('dialog', { name: '确认重新调用模型' }); expect(conversationApi.retry).not.toHaveBeenCalled();
+  expect(screen.getByText(/重试会重新调用模型/)).toHaveTextContent('重复费用');
+  fireEvent.click(screen.getByRole('button', { name: '确认重试本轮' }));
+  await waitFor(() => expect(conversationApi.retry).toHaveBeenCalledWith('conversation-1', 'turn-1'));
+  expect(conversationApi.resume).not.toHaveBeenCalled();
 });
 
 it('旧版任务走历史只读入口，不显示旧版创建与取消操作', async () => {

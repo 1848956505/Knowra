@@ -9,6 +9,7 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   const turn = { turnId: 'turn-1', conversationId: conversation.conversationId, requestedPolicyId: null,
     status: 'succeeded', phase: 'finished', errorCode: null, toolCalls: [], modelAttempts: [] };
   await page.route('**/api/ai/actions**', route => route.fulfill({ json: { data: [] } }));
+  await page.route('**/api/ai/inbox**', route => route.fulfill({ json: { data: [] } }));
   await page.route('**/api/ai/assistant/status', route => route.fulfill({ status: 200,
     contentType: 'application/json', body: JSON.stringify({ data: { provider: 'deepseek', modelId: 'deepseek-flash',
       configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null } }) }));
@@ -67,7 +68,8 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   expect((await page.getByLabel('提问区').boundingBox())?.height).toBeLessThan(220);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 320, height: 740 });
-  await expect(page.getByRole('button', { name: '普通对话 本轮用途' })).toBeVisible();
+  await expect(page.getByText('助手自主选择工具')).toBeVisible();
+  expect(submitted).not.toHaveProperty('writeIntent');
   await expect(page.getByRole('button', { name: '普通聊天 · 不读取笔记 资料范围' })).toBeVisible();
   expect((await page.getByLabel('提问区').boundingBox())?.height).toBeLessThan(220);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);

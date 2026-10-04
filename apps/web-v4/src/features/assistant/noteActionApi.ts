@@ -2,6 +2,9 @@ import { apiClient, type Note } from '@study-accelerator/web-core';
 export interface NoteAction {
   actionId: string; requestId: string; status: string; errorCode: string | null; expiresAt: string;
   reconciliationPending?: boolean;
+  reviewRequired?: boolean; reauthorizationRequired?: boolean; revision?: number;
+  datasetStale?: boolean;
+  draftRetrieval?: 'excluded';
   plan: { planHash: string; toolName: string; items: Array<{ before: Note | null; after: Note; softDelete?: boolean }> };
   receipt: null | { result: { saveState: 'localCommitted'; changes: Array<{ noteId: string }> } };
 }
@@ -11,6 +14,9 @@ const post = <T>(path: string, body: unknown = {}) => data<T>(`/api/ai/actions${
   method: 'POST', headers: { 'X-Knowra-AI-Action': '1' }, body: JSON.stringify(body)
 });
 export const noteActionApi = {
+  inbox: (spaceId: string) => data<NoteAction[]>(`/api/ai/inbox?spaceId=${encodeURIComponent(spaceId)}`),
+  repreview: (action: NoteAction, requestId: string) => post<NoteAction>(`/${encodeURIComponent(action.actionId)}/repreview`, { planHash: action.plan.planHash, requestId }),
+  revise: (action: NoteAction, requestId: string, args: Record<string, unknown>) => post<NoteAction>(`/${encodeURIComponent(action.actionId)}/revise`, { planHash: action.plan.planHash, requestId, arguments: args }),
   list: (spaceId: string) => data<NoteAction[]>(`/api/ai/actions?spaceId=${encodeURIComponent(spaceId)}`),
   get: (id: string) => data<NoteAction>(`/api/ai/actions/${encodeURIComponent(id)}`),
   plan: (input: Record<string, unknown>) => post<NoteAction>('', input),

@@ -68,6 +68,7 @@ export function applyRemote(store, entries, cursor, epoch, { reset = false } = {
       if (!LOCAL_DATA_COLLECTIONS.includes(entry.collection)) throw new Error('同步实体类型不兼容，请升级客户端。');
       if (entry.collection !== 'notes') continue;
       const local = state.notes.find(note => note.id === entry.id) ?? null;
+      if (local && entry.value?.aiVisibility === 'private') local.aiVisibility = 'private';
       const base = baseFor(db, entry.id);
       const existing = conflictFor(db, entry.id);
       if (existing || (!equivalent(local, base.value) && !equivalent(local, entry.value)

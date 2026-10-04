@@ -6,6 +6,109 @@ import { validateActionState } from '../../src/modules/ai/action-state.js';
 
 export function noteActionScenarios(withFixture) {
   return [
+    { name: '自主成果与对话修订在恢复后重绑 generation，取消修订拒绝采纳', run: () => withFixture(async f => {
+      const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
+      const submitted = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '生成周总结', idempotencyKey: randomUUID() });
+      const turn = await f.conversations.claimTurn(submitted.turnId);
+      const action = await f.actions.planForAssistantTurn(turn, { name: 'notes_create', arguments: { title: '自主草稿', rawMarkdown: '第一版' } });
+      assert.equal(action.grant.autonomousOrigin, true); assert.deepEqual(action.grant.sourceRefs, []);
+      await f.conversations.failTurn(turn.turnId, turn.leaseGeneration, 'AI_SYNTHETIC_INTERRUPTED');
+      await f.restart(); const resumed = await f.conversations.claimTurn(turn.turnId);
+      const rebound = await f.actions.resumeForTurn(action.actionId, resumed); assert.equal(rebound.grant.originGeneration, resumed.leaseGeneration);
+      await f.conversations.completeTurn(turn.turnId, resumed.leaseGeneration, { content: '已生成草稿', sourceFree: true });
+      const revisionInput = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '简短一点', idempotencyKey: randomUUID() });
+      const revisionTurn = await f.conversations.claimTurn(revisionInput.turnId);
+      const revised = await f.actions.planForAssistantTurn(revisionTurn, { name: 'notes_create', arguments: { actionId: action.actionId, title: '自主草稿', rawMarkdown: '短稿' } });
+      assert.equal(revised.actionId, action.actionId); assert.equal(revised.inboxEvents[0].originTurnId, revisionTurn.turnId);
+      await f.conversations.failTurn(revisionTurn.turnId, revisionTurn.leaseGeneration, 'AI_SYNTHETIC_INTERRUPTED');
+      await f.restart(); const revisionResume = await f.conversations.claimTurn(revisionTurn.turnId);
+      await f.actions.resumeForTurn(action.actionId, revisionResume);
+      await f.conversations.completeTurn(revisionResume.turnId, revisionResume.leaseGeneration, { content: '已缩短草稿', sourceFree: true });
+      await f.actions.approve(action.actionId, { planHash: revised.plan.planHash }); await f.actions.apply(action.actionId);
+      assert.equal((await f.getNote(action.plan.items[0].after.id)).rawMarkdown, '短稿');
+      const otherInput = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '另一草稿', idempotencyKey: randomUUID() });
+      const otherTurn = await f.conversations.claimTurn(otherInput.turnId);
+      const other = await f.actions.planForAssistantTurn(otherTurn, { name: 'notes_create', arguments: { title: '取消结果', rawMarkdown: '不采纳' } });
+      await f.conversations.cancelTurn(otherTurn.turnId);
+      await f.actions.approve(other.actionId, { planHash: other.plan.planHash });
+      await assert.rejects(f.actions.apply(other.actionId), { code: 'AI_ACTION_GRANT_REVOKED' });
+    }) },
+    { name: '成果收件箱跨重启保留新稿、修订同目标，明确采纳与重复响应唯一提交', run: () => withFixture(async f => {
+      assert.deepEqual(await f.actions.listInbox(f.space.id), []);
+      const row = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '周总结草稿', rawMarkdown: '第一版' } });
+      assert.equal((await f.notes()).length, 0);
+      await f.actions.approve(row.actionId, { planHash: row.plan.planHash });
+      const input = { planHash: row.plan.planHash, requestId: randomUUID(), arguments: { title: '周总结草稿', rawMarkdown: '对话修订第二版' } };
+      const revised = await f.actions.revise(row.actionId, input);
+      assert.equal(revised.actionId, row.actionId); assert.equal(revised.plan.items[0].after.id, row.plan.items[0].after.id);
+      assert.equal(revised.operationId, row.operationId); assert.equal(revised.approval, null);
+      assert.deepEqual(await f.actions.revise(row.actionId, input), revised);
+      await assert.rejects(f.actions.revise(row.actionId, { ...input, arguments: { ...input.arguments, rawMarkdown: '不同重试' } }), { code: 'AI_IDEMPOTENCY_CONFLICT' });
+      await assert.rejects(f.actions.apply(row.actionId), { code: 'AI_ACTION_APPROVAL_REQUIRED' });
+      await f.restart(); const [restored] = await f.actions.listInbox(f.space.id);
+      assert.equal(restored.plan.items[0].after.rawMarkdown, '对话修订第二版'); assert.equal(restored.revision, 2); assert.equal(restored.draftRetrieval, 'excluded');
+      await f.actions.approve(row.actionId, { planHash: revised.plan.planHash }); const result = await f.actions.apply(row.actionId);
+      await f.restart(); assert.deepEqual((await f.actions.apply(row.actionId)).receipt, result.receipt);
+      assert.equal((await f.notes()).length, 1); assert.equal((await f.getNote(row.plan.items[0].after.id)).rawMarkdown, '对话修订第二版');
+    }) },
+    { name: '长期待审显式重新授权保留原 ID 和 CAS，旧批准与重复延期不能生效', run: () => withFixture(async f => {
+      const row = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '长期草稿', rawMarkdown: '等待审阅' } });
+      await f.actions.approve(row.actionId, { planHash: row.plan.planHash }); f.advance(7 * 86400000); await f.restart();
+      assert.equal((await f.actions.listInbox(f.space.id))[0].reauthorizationRequired, true);
+      await assert.rejects(f.actions.apply(row.actionId), { code: 'AI_ACTION_EXPIRED' });
+      const input = { planHash: row.plan.planHash, requestId: randomUUID() }, renewed = await f.actions.repreview(row.actionId, input);
+      assert.equal(renewed.actionId, row.actionId); assert.deepEqual(renewed.plan, row.plan); assert.equal(renewed.approval, null);
+      f.advance(60000); const retry = await f.actions.repreview(row.actionId, input); assert.equal(retry.expiresAt, renewed.expiresAt);
+      await assert.rejects(f.actions.apply(row.actionId), { code: 'AI_ACTION_APPROVAL_REQUIRED' });
+      await f.actions.approve(row.actionId, { planHash: row.plan.planHash }); assert.equal((await f.actions.apply(row.actionId)).status, 'applied');
+    }) },
+    { name: '差异稿修订保留 before 与版本基线；并发变化/私密转换拒绝重新预览和覆盖', run: () => withFixture(async f => {
+      const note = await f.create({ title: '差异稿目标', rawMarkdown: '原文' });
+      const row = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_append', arguments: { noteId: note.id, rawMarkdown: '第一稿' } });
+      const revised = await f.actions.revise(row.actionId, { planHash: row.plan.planHash, requestId: randomUUID(), arguments: { noteId: note.id, rawMarkdown: '第二稿' } });
+      assert.deepEqual(revised.plan.items[0].before, row.plan.items[0].before); assert.deepEqual(revised.plan.items[0].baseline, row.plan.items[0].baseline);
+      assert.equal(revised.plan.items[0].after.rawMarkdown, '原文第二稿'); assert.equal((await f.getNote(note.id)).rawMarkdown, '原文');
+      await f.update(note.id, { rawMarkdown: '用户后续编辑' });
+      await assert.rejects(f.actions.repreview(row.actionId, { planHash: revised.plan.planHash, requestId: randomUUID() }), { code: 'AI_ACTION_CONFLICT' });
+      await f.update(note.id, { aiVisibility: 'private' });
+      await assert.rejects(f.actions.repreview(row.actionId, { planHash: revised.plan.planHash, requestId: randomUUID() }), { code: 'AI_SCOPE_FORBIDDEN' });
+      await assert.rejects(f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_append', arguments: { noteId: note.id, rawMarkdown: '不能读取' } }), { code: 'AI_SCOPE_FORBIDDEN' });
+      assert.equal((await f.actions.listInbox(f.space.id))[0].plan.items[0].after.rawMarkdown, '原文第二稿');
+    }) },
+    { name: '恢复切换 epoch 后保留同资料集待审成果只读，禁止重新授权修订采纳', run: () => withFixture(async f => {
+      const action = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '恢复前草稿', rawMarkdown: '保留待审' } });
+      await f.actions.approve(action.actionId, { planHash: action.plan.planHash });
+      await f.rotate(); await f.restart(); const [restored] = await f.actions.listInbox(f.space.id);
+      assert.equal(restored.actionId, action.actionId); assert.equal(restored.datasetStale, true); assert.equal(restored.plan.items[0].after.rawMarkdown, '保留待审');
+      const input = { planHash: action.plan.planHash, requestId: randomUUID() };
+      await assert.rejects(f.actions.repreview(action.actionId, input), { code: 'AI_DATASET_STALE' });
+      await assert.rejects(f.actions.revise(action.actionId, { ...input, arguments: { title: '恢复前草稿', rawMarkdown: '无权改写' } }), { code: 'AI_DATASET_STALE' });
+      await assert.rejects(f.actions.apply(action.actionId), { code: 'AI_DATASET_STALE' }); assert.equal((await f.notes()).length, 0);
+    }) },
+    { name: '旧动作快照兼容普通笔记，修订保持旧 CAS 且私密不能绕过', run: () => withFixture(async f => {
+      const note = await f.create({ title: '旧动作目标', rawMarkdown: '基线' });
+      const action = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_append', arguments: { noteId: note.id, rawMarkdown: '旧稿' } });
+      const legacy = await f.actionStore.write(state => {
+        const row = state.actions.find(row => row.actionId === action.actionId), { planHash: _hash, ...plan } = structuredClone(row.plan);
+        for (const item of plan.items) {
+          delete item.before.aiVisibility; delete item.after.aiVisibility;
+          item.baseline.metadataHash = hashRecord({ title: item.before.title, folderId: item.before.folderId, tagIds: [...item.before.tagIds].sort(), spaceId: item.before.spaceId });
+        }
+        row.plan = finalizePlan(plan); return row;
+      });
+      await f.restart();
+      const revised = await f.actions.revise(action.actionId, { planHash: legacy.plan.planHash, requestId: randomUUID(), arguments: { noteId: note.id, rawMarkdown: '新稿' } });
+      assert.deepEqual(revised.plan.items[0].before, legacy.plan.items[0].before); assert.deepEqual(revised.plan.items[0].baseline, legacy.plan.items[0].baseline);
+      await f.actions.approve(action.actionId, { planHash: revised.plan.planHash }); await f.actions.apply(action.actionId);
+      assert.equal((await f.getNote(note.id)).rawMarkdown, '基线新稿');
+    }) },
+    { name: '成果修订历史损坏 fail closed，恢复不允许偷偷改原始基线', run: () => withFixture(async f => {
+      const note = await f.create({ title: '历史恢复目标', rawMarkdown: '原文' });
+      const row = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_append', arguments: { noteId: note.id, rawMarkdown: 'A' } });
+      await f.actions.revise(row.actionId, { planHash: row.plan.planHash, requestId: randomUUID(), arguments: { noteId: note.id, rawMarkdown: 'B' } });
+      const state = await f.actionStore.read(); state.actions[0].inboxEvents[0].resultPlanHash = 'a'.repeat(64);
+      assert.throws(() => validateActionState(state), { code: 'AI_ACTION_STORAGE_INVALID' });
+    }) },
     { name: 'P2 固定新建、明确确认、首次输入接纳与重复提交/重启唯一结果', run: () => withFixture(async f => {
       const input = { spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '合成记录', rawMarkdown: '一次记录' } };
       const first = await f.actions.plan(input), again = await f.actions.plan(input);

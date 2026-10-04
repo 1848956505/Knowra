@@ -11,6 +11,7 @@ import { createInMemoryKnowledgeSpaceRepository } from '../src/modules/knowledge
 import { NoteVersion } from '../src/modules/knowledge/domain/note-version.js';
 import { createAiReadContextService } from '../src/modules/ai/read-context-service.js';
 import { normalizeAiRequest } from '../src/modules/ai/gateway.js';
+import { createAiGateway } from '../src/modules/ai/gateway.js';
 import { outboundPayloadHash, serializedDeepSeekPayload } from '../src/modules/ai/outbound-payload.js';
 import { hashRecord, manifestHash } from '../src/modules/ai/record-contract.js';
 import { createAiWorker, quoteWorstCase } from '../src/modules/ai/worker.js';
@@ -45,6 +46,56 @@ function withContext(run) {
 }
 
 export const aiReadContextTests = [
+  { name: '旧Worker记录sent或凭据等待中切私密，最终供应商边界不调用合成适配器', async run() {
+    for (const stage of ['sentRecord', 'credential']) await withContext(async ({ store, service, addNote, noteRepository }) => {
+      addNote('note-1', 'alpha');
+      const prepared = await service.prepareRead({ ...baseRequest, scope: { kind: 'note', noteId: 'note-1' } });
+      const authorized = await service.authorizeRead({ prepared, actorId: 'demo', approvedScopeHash: prepared.scopeSnapshot.scopeHash,
+        approvedPayloadHash: prepared.manifest.payloadHash });
+      const fixture = aiRecords(store.aiRepository.identity());
+      const job = { ...fixture.job, jobId: `privacy-worker-${stage}`, grantId: authorized.grant.grantId,
+        manifestId: authorized.manifest.manifestId, manifestHash: manifestHash(authorized.manifest), inputHash: hashRecord(authorized.request) };
+      store.aiRepository.insert('aiJob', job);
+      const privatize = () => noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'private' });
+      const originalEvent = store.aiRepository.appendEvent;
+      store.aiRepository.appendEvent = async event => {
+        const result = originalEvent(event);
+        if (stage === 'sentRecord' && event.eventKind === 'providerRequestStarted') privatize();
+        return result;
+      };
+      let calls = 0;
+      const gateway = createAiGateway({ adapter: { provider: 'deepseek', capabilities: () => ({ provider: 'deepseek' }),
+        complete: async () => { calls++; throw new Error('不得到达合成适配器'); }, async *stream() {} }, authorizePaidCall: () => true,
+        resolveCredential: async () => { if (stage === 'credential') privatize(); return { apiKey: 'synthetic-unusable-key', modelId: baseRequest.modelId }; } });
+      const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority, gateway,
+        priceProfile, now: () => instant, allowExternal: true,
+        verifySources: (current, request) => service.verifyJobSources(current, request), validateResult: () => ({}) });
+      await assert.rejects(worker.run(job.jobId, authorized.request), { code: 'AI_SCOPE_FORBIDDEN' });
+      assert.equal(calls, 0);
+    });
+  } },
+  { name: '旧只读入口禁止私密历史版本，目录预览自动排除私密原文', run: () => withContext(async ({ service, addNote, noteRepository, folderRepository }) => {
+    folderRepository.save({ id: 'folder-1', spaceId: 'space-1', parentId: null, name: '目录', deletedAt: null });
+    addNote('normal', 'alpha 普通', 'space-1', 'folder-1');
+    addNote('private', 'alpha 私密', 'space-1', 'folder-1');
+    noteRepository.save({ ...noteRepository.findById('private'), aiVisibility: 'private' });
+    await assert.rejects(service.prepareRead({ ...baseRequest, scope: { kind: 'note', noteId: 'private' } }), { code: 'AI_SCOPE_FORBIDDEN' });
+    const prepared = await service.prepareRead({ ...baseRequest, scope: { kind: 'folder', folderId: 'folder-1' } });
+    assert.deepEqual(prepared.manifest.sources.map(ref => ref.noteId), ['normal']);
+    noteRepository.save({ ...noteRepository.findById('normal'), aiVisibility: 'private' });
+    await assert.rejects(service.authorizeRead({ prepared, actorId: 'demo', approvedScopeHash: prepared.scopeSnapshot.scopeHash,
+      approvedPayloadHash: prepared.manifest.payloadHash }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: '旧只读版本等待中切私密后不生成原文预览', run: () => withContext(async ({ service, addNote, noteRepository, noteVersionRepository }) => {
+    addNote('note-1', 'alpha');
+    const original = noteVersionRepository.findByNoteIdAndContentHash;
+    noteVersionRepository.findByNoteIdAndContentHash = async (...args) => {
+      const version = original(...args);
+      noteRepository.save({ ...noteRepository.findById('note-1'), aiVisibility: 'private' });
+      return version;
+    };
+    await assert.rejects(service.prepareRead({ ...baseRequest, scope: { kind: 'note', noteId: 'note-1' } }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
   { name: 'AI JSON 应用装配提供受信范围服务，并读取真实笔记版本', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-context-app-'));
     try {

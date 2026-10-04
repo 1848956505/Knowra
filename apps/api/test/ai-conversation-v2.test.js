@@ -8,6 +8,7 @@ import { createServer } from '../src/server.js';
 import { aiRecords, insertAiRecords } from './ai-record-fixtures.js';
 import { createEmptyAiState } from '../src/modules/ai/record-state.js';
 import { createJsonAiConversationStore } from '../src/modules/ai/conversation-store.js';
+import { aiAgentCheckpointTests } from './ai-agent-checkpoint.test.js';
 
 async function withStore(run) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-conversation-'));
@@ -19,6 +20,7 @@ const source = { noteId: 'note-1', noteVersionId: 'version-1', contentHash: 'a'.
   start: 0, end: 4, quoteHash: 'b'.repeat(64) };
 
 export const aiConversationV2Tests = [
+  ...aiAgentCheckpointTests,
   { name: 'R03 JSON 写盘失败不留下半条任务或消息', async run() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-conversation-failure-'));
     try {
