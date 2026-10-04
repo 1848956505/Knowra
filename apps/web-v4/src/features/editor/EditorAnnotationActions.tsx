@@ -102,7 +102,7 @@ export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand,
       <GhostIconButton className={styles.formatAction} size={24} aria-label="斜体" title="斜体" onPress={() => onCommand('italic')}><ItalicIcon size={15} /></GhostIconButton>
       <GhostIconButton className={styles.formatAction} size={24} aria-label="行内代码" title="行内代码" onPress={() => onCommand('inline-code')}><CodeIcon size={15} /></GhostIconButton>
       <span className={styles.divider} aria-hidden="true" />
-      {IMPORTANCE_LEVELS.map(level => <Button key={level.id} variant="ghost" size="mini" aria-label={`标记重点（${level.label}）`} title={`标记重点（${level.label}）`} isDisabled={pending} onPress={() => void create('selection', level.id)} icon={<StarIcon size={15} fill={level.id === 'normal' ? 'none' : 'currentColor'} />}>{level.label}</Button>)}
+      {IMPORTANCE_LEVELS.map(level => <Button key={level.id} variant="ghost" size="mini" aria-label={`标记重点（${level.label}）`} isDisabled={pending} onPress={() => void create('selection', level.id)} icon={<StarIcon size={15} fill={level.id === 'normal' ? 'none' : 'currentColor'} />}>{level.label}</Button>)}
     </div> : null}
     {block && !selection ? <div data-annotation-actions className={styles.blockAction} style={{ left: block.x, top: block.y }}>
       <MenuTrigger isOpen={menuOpen} onOpenChange={(open) => { if (open) { const view = getView(); if (view) captureAnnotationActionTarget(view, block.pos); } setMenuOpen(open); }}>
