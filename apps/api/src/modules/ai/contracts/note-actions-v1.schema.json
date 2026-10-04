@@ -5,7 +5,7 @@
     "hash":{"type":"string","pattern":"^[a-f0-9]{64}$"},
     "image":{"type":"object","additionalProperties":false,"required":["id","spaceId","title","folderId","tagIds","rawMarkdown"],"properties":{
       "id":{"$ref":"#/$defs/id"},"spaceId":{"$ref":"#/$defs/id"},"title":{"type":"string","minLength":1,"maxLength":200},
-      "folderId":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/id"}]},"tagIds":{"type":"array","maxItems":20,"uniqueItems":true,"items":{"$ref":"#/$defs/id"}},"rawMarkdown":{"type":"string"}}},
+      "folderId":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/id"}]},"tagIds":{"type":"array","maxItems":20,"uniqueItems":true,"items":{"$ref":"#/$defs/id"}},"aiVisibility":{"enum":["normal","private"]},"rawMarkdown":{"type":"string"}}},
     "baseline":{"oneOf":[
       {"type":"object","additionalProperties":false,"required":["targetNoteId","exists"],"properties":{"targetNoteId":{"$ref":"#/$defs/id"},"exists":{"const":false}}},
       {"type":"object","additionalProperties":false,"required":["targetNoteId","exists","expectedUpdatedAt","contentHash","metadataHash"],"properties":{"targetNoteId":{"$ref":"#/$defs/id"},"exists":{"const":true},"expectedUpdatedAt":{"type":"string"},"contentHash":{"$ref":"#/$defs/hash"},"metadataHash":{"$ref":"#/$defs/hash"}}}]},

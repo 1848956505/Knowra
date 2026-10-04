@@ -14,7 +14,7 @@ import { createAiAgentWorker } from './agent-worker.js';
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
   actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
-  verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null } = {}) {
+  verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
   const gateway = createAiGateway({
@@ -25,11 +25,11 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const readContext = repository && contextSources ? createAiReadContextService({ repository, ...contextSources }) : null;
   const access = accessStore && contextSources ? createAiAccessService({ store: accessStore, ...contextSources }) : null;
   const actionService = actionStore && coreOperationStore && knowledge ? createNoteActionService({ store: actionStore, core: coreOperationStore, knowledge,
-    ownerId: contextSources.ownerId, conversationStore, accessStore, asyncDomain }) : null;
+    ownerId: contextSources.ownerId, conversationStore, accessStore, access, asyncDomain }) : null;
   const actions = actionService && maintenanceGate ? wrapHandlersWithMaintenanceGate(actionService, maintenanceGate, { getAccess: () => 'read' }) : actionService;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
-      gateway, priceProfile, allowExternal, retrievalCandidates, actions,
+      gateway, priceProfile, allowExternal, retrievalCandidates, actions, webSearchAdapter,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,

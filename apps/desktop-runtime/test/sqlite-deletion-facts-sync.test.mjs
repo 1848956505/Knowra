@@ -209,7 +209,7 @@ test('C1 legacy reset 人工 null 与无修订缺席不造事实，真正 positi
   device.store.commitImport(original);
   cloud.purgeNote();
   const start = await cloud.request('bootstrap', syncContract());
-  const query = new URLSearchParams({ snapshotId: start.snapshotId, entitySchemaVersion: '7', capabilities: syncContract().capabilities.join(',') });
+  const query = new URLSearchParams({ snapshotId: start.snapshotId, entitySchemaVersion: String(syncContract().entitySchemaVersion), capabilities: syncContract().capabilities.join(',') });
   const snapshot = await cloud.request(`snapshot?${query}`);
   applyRemote(device.store, snapshot.entries, snapshot.cursor, snapshot.datasetEpoch, { reset: true });
   assertRemoteFact(device, cloud, 'notes', cloud.note.id);

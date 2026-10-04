@@ -109,5 +109,6 @@ function validateOperation(op) {
   if (op.baseRevision !== null && (!Number.isSafeInteger(op.baseRevision) || op.baseRevision < 1)) throw syncError('SYNC_OPERATION_INVALID', '基线修订无效。', 422);
   if (!op.value || typeof op.value.title !== 'string' || typeof op.value.rawMarkdown !== 'string'
     || typeof op.value.deleted !== 'boolean' || !Array.isArray(op.value.tagIds)
+    || (op.value.aiVisibility !== undefined && !['normal', 'private'].includes(op.value.aiVisibility))
     || Object.keys(op.value).some(key => !NOTE_FIELDS.includes(key))) throw syncError('SYNC_OPERATION_INVALID', '笔记同步内容无效。', 422);
 }

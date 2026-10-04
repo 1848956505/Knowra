@@ -120,11 +120,11 @@ export function readCursor(token, journal, ownerId) {
   return cursor.sequence;
 }
 
-export const NOTE_FIELDS = ['title', 'rawMarkdown', 'annotationStructure', 'spaceId', 'folderId', 'tagIds', 'favorite', 'status', 'sourceType', 'deleted'];
+export const NOTE_FIELDS = ['title', 'rawMarkdown', 'annotationStructure', 'spaceId', 'folderId', 'tagIds', 'favorite', 'status', 'sourceType', 'deleted', 'aiVisibility'];
 export function noteContent(note) {
   if (!note) return null;
   return Object.fromEntries(NOTE_FIELDS.map(key => [key, key === 'tagIds' ? [...(note.tagIds ?? [])].sort()
-    : key === 'folderId' ? note.folderId ?? null : key === 'favorite' || key === 'deleted' ? Boolean(note[key]) : note[key] ?? null]));
+    : key === 'aiVisibility' ? note.aiVisibility ?? 'normal' : key === 'folderId' ? note.folderId ?? null : key === 'favorite' || key === 'deleted' ? Boolean(note[key]) : note[key] ?? null]));
 }
 
 export function rememberBatchReceipt(journal, key, hash, result, operation) {

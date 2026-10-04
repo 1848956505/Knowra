@@ -26,6 +26,14 @@ const empty = fixture => {
 };
 
 export const aiKnowledgeExtractionCommitTests = [
+  { name: '提炼迟到结果在来源切私密后拒绝接纳，不生成候选', async run() {
+    await withFixture(async f => {
+      const repo = f.knowledge.repositories.noteRepository;
+      repo.save({ ...repo.findById(f.note.id), aiVisibility: 'private' });
+      assert.throws(() => f.app.knowledgeExtractionCommit.commit(f.input), { code: 'KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE' });
+      empty(f);
+    });
+  } },
   { name: 'P3 JSON 提炼：Mock 结果、任务、候选、证据和 provenance 原子提交并可重启读取', async run() {
     await withFixture(async f => {
       const receipt = f.app.knowledgeExtractionCommit.commit(f.input);

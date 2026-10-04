@@ -4,6 +4,20 @@ import { hashRecord, manifestHash, scopeHash, validateAiRecord } from './record-
 import { outboundPayloadHash, serializedDeepSeekPayload } from './outbound-payload.js';
 import { prepareKnowledgeExtractionGateway, KNOWLEDGE_EXTRACTION_PROMPT_VERSION } from './knowledge-extraction-gateway.js';
 import { EXTRACTION_MOCK_PROFILE as profile, extractionCreationHash, taskBoundary, taskError, validateExtractionTask } from './knowledge-extraction-task-contract.js';
+import { isAiReadableNote } from './note-privacy.js';
+
+export function* verifyExtractionSourcePrivacy(repos, sourceRefs, spaceId) {
+  const ids = [...new Set(sourceRefs.map(ref => ref.noteId))];
+  if (!repos.noteRepository.findByIds && ids.length > 1) {
+    throw taskError('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '当前仓库未提供批量来源隐私检查。');
+  }
+  const notes = repos.noteRepository.findByIds ? yield repos.noteRepository.findByIds(ids)
+    : [yield repos.noteRepository.findById(ids[0])];
+  const byId = new Map(notes.filter(Boolean).map(note => [note.id, note]));
+  if (ids.some(id => !isAiReadableNote(byId.get(id)) || byId.get(id).spaceId !== spaceId)) {
+    throw taskError('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼来源不在当前 AI 可读取范围。');
+  }
+}
 
 export function* prepareTaskSources(context, ownerId, scopeId, idempotencyKey) {
   const repos = context.repositories;
@@ -14,13 +28,17 @@ export function* prepareTaskSources(context, ownerId, scopeId, idempotencyKey) {
   }
   const versions = [];
   for (const binding of scope.noteVersions) {
+    const note = yield repos.noteRepository.findById(binding.noteId);
+    if (!isAiReadableNote(note) || note.spaceId !== scope.spaceId) {
+      throw taskError('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼来源不在当前 AI 可读取范围。');
+    }
     const version = yield repos.noteVersionRepository.findById(binding.noteVersionId);
-    const note = version && (yield repos.noteRepository.findById(version.noteId));
-    if (!version || !note || note.deleted || note.spaceId !== scope.spaceId) {
+    if (!version || version.noteId !== note.id) {
       throw taskError('KNOWLEDGE_EXTRACTION_SOURCE_UNAVAILABLE', '原始提炼版本不可用或来源已删除、迁移；请重新保存范围。');
     }
     versions.push(version);
   }
+  yield* verifyExtractionSourcePrivacy(repos, versions, scope.spaceId);
   const prepared = prepareKnowledgeExtractionGateway({ scope, noteVersions: versions, idempotencyKey });
   const request = { ...prepared.gatewayRequest, modelId: profile.modelId, credentialRef: profile.credentialRef };
   const estimatedInputTokens = Buffer.byteLength(serializedDeepSeekPayload(request), 'utf8');
@@ -105,5 +123,6 @@ export function* verifyTaskRequest(context, ownerId, task, clock) {
     || prepared.extractionRequest.inputHash !== job.inputHash || prepared.extractionRequest.requestId !== job.requestId) {
     throw taskError('KNOWLEDGE_EXTRACTION_GRANT_INVALID', '提炼来源、请求或创建授权已失效。');
   }
+  yield* verifyExtractionSourcePrivacy(context.repositories, prepared.refs, job.spaceId);
   return { request: prepared.request, grantExpiresAt: grant.expiresAt };
 }

@@ -113,6 +113,7 @@ export interface WorkspaceSlice {
   saveNoteVersionAs(noteId: string, versionId: string): Promise<string>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
   organizeNote(noteId: string, input: { folderId: string | null; status: string }): Promise<void>;
+  setNoteAiVisibility(noteId: string, input: { aiVisibility: 'normal' | 'private'; expectedUpdatedAt: string }): Promise<void>;
   listNoteAttachments(noteId: string): Promise<Attachment[]>;
   uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
   renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;

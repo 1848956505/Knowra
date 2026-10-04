@@ -18,6 +18,7 @@ export function createNoteSummary(note) {
     status: note.status,
     sourceType: note.sourceType,
     favorite: note.favorite,
+    aiVisibility: note.aiVisibility ?? 'normal',
     deleted: note.deleted,
     tagIds: Array.isArray(note.tagIds) ? [...note.tagIds] : [],
     createdAt: note.createdAt,

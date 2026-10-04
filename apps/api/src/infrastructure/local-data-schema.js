@@ -156,6 +156,7 @@ function validateEntity(collectionName, item, index) {
     assertNonEmptyString(item.name, `${location}.name`);
   } else if (collectionName === 'notes') {
     assertNonEmptyString(item.title, `${location}.title`);
+    if (item.aiVisibility !== undefined && !['normal', 'private'].includes(item.aiVisibility)) invalidSnapshot(`${location}.aiVisibility is invalid`);
     if (item.deletionPackage && (!Array.isArray(item.deletionPackage.annotationStates) || !item.deletionPackage.id)) invalidSnapshot(`${location}.deletionPackage is invalid`);
     if (typeof item.rawMarkdown !== 'string') {
       invalidSnapshot(`${location}.rawMarkdown must be a string`);

@@ -15,3 +15,13 @@ export function toolsForWriteIntent(intent) {
   return [...NOTE_WRITE_TOOLS, { name: 'notes_propose_organize', toolVersion: 1, description: '为固定目标提出改名、移动或标签整理；不修改正文。', parameters: organizeParameters }].filter(tool => tool.name === valid.toolName).map(({toolVersion, ...tool}) => ({...tool,
     description: `${tool.description} ${valid.noteId ? `唯一目标 ID：${valid.noteId}。` : ''}仅提出计划，禁止宣称已经保存。`}));
 }
+
+/** 自主助手只能提出待审成果；实际提交仍由 action service 的用户确认契约保护。 */
+export function toolsForAssistant({ canRead = false } = {}) {
+  return [...NOTE_WRITE_TOOLS, { name: 'notes_propose_organize', description: '为已读取的笔记提出改名、移动或标签整理，不修改正文。', parameters: organizeParameters }]
+    .filter(tool => canRead || tool.name === 'notes_create')
+    .map(({ toolVersion, ...tool }) => ({ ...tool,
+      parameters: { ...tool.parameters, properties: { ...tool.parameters.properties,
+        actionId: { type: 'string', minLength: 1, maxLength: 128, description: '继续修改同一待审成果时使用其 ID。' } } },
+      description: `${tool.description} 仅在用户希望形成或修改成果时调用；普通聊天直接回答。既有目标必须先读取；仅形成收件箱待审稿，禁止宣称已保存。` }));
+}

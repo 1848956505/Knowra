@@ -68,6 +68,10 @@ export function applyRemote(store, entries, cursor, epoch, { reset = false } = {
       if (!LOCAL_DATA_COLLECTIONS.includes(entry.collection)) throw new Error('同步实体类型不兼容，请升级客户端。');
       if (entry.collection !== 'notes') continue;
       const local = state.notes.find(note => note.id === entry.id) ?? null;
+      if (local && entry.value?.aiVisibility === 'private' && local.aiVisibility !== 'private') {
+        local.aiVisibility = 'private';
+        local.updatedAt = new Date(Math.max(Date.now(), Date.parse(local.updatedAt) + 1 || 0)).toISOString();
+      }
       const base = baseFor(db, entry.id);
       const existing = conflictFor(db, entry.id);
       if (existing || (!equivalent(local, base.value) && !equivalent(local, entry.value)
@@ -143,6 +147,13 @@ export function acknowledge(store, operation, result) {
         remoteRevision: entry.revision, datasetEpoch: operation.datasetEpoch, changedAt: new Date().toISOString()
       }));
     } else if (equivalent(local, operation.value) || equivalent(local, entry.value)) replace(state, entry);
+    if (entry.value?.aiVisibility === 'private') {
+      const retained = state.notes.find(note => note.id === operation.noteId);
+      if (retained && retained.aiVisibility !== 'private') {
+        retained.aiVisibility = 'private';
+        retained.updatedAt = new Date(Math.max(Date.now(), Date.parse(retained.updatedAt) + 1 || 0)).toISOString();
+      }
+    }
     setBase(db, entry);
     if (result.status === 'accepted') confirmNote(db, operation.noteId, db.prepare('SELECT local_revision FROM sync_uploads WHERE note_id = ?').get(operation.noteId)?.local_revision);
     const blocked = readMeta(db, 'blocked') ?? {};
@@ -185,6 +196,7 @@ export function resolveConflict(store, { noteId, choice, rawMarkdown, remoteRevi
     if (!conflict || conflict.remoteRevision !== remoteRevision || conflict.datasetEpoch !== datasetEpoch) throw new Error('云端版本已变化，请重新查看冲突。');
     if (!['remote', 'local', 'copy', 'manual'].includes(choice)) throw new Error('请选择有效的冲突处理方式。');
     const local = state.notes.find(note => note.id === noteId) ?? conflict.local;
+    if (local && conflict.remote?.aiVisibility === 'private') local.aiVisibility = 'private';
     db.prepare('INSERT INTO sync_recovery VALUES (?, ?)').run(randomUUID(), JSON.stringify({ ...conflict, local, choice, resolvedAt: new Date().toISOString() }));
     if (choice === 'remote' || choice === 'copy' || !conflict.remote) replace(state, { collection: 'notes', id: noteId, value: conflict.remote });
     if (choice === 'copy' || (!conflict.remote && choice !== 'remote')) {

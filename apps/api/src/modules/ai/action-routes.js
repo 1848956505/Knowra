@@ -3,6 +3,12 @@ import { sendJson } from '../../http/response.js';
 import { createAppError } from '../../errors/app-error.js';
 
 export async function handleActionRoute({ request, response, url, actions }) {
+  if (url.pathname === '/api/ai/inbox' && request.method === 'GET') {
+    if (!actions) throw createAppError('AI_ACTION_UNAVAILABLE', '成果收件箱不可用。', 503);
+    response.setHeader('Cache-Control', 'no-store');
+    sendJson(response, 200, { data: await actions.listInbox(url.searchParams.get('spaceId')) });
+    return true;
+  }
   const root = '/api/ai/actions';
   if (url.pathname !== root && !url.pathname.startsWith(`${root}/`)) return false;
   if (!actions) throw createAppError('AI_ACTION_UNAVAILABLE', '笔记写入服务不可用，核心资料仍可编辑。', 503);
@@ -23,6 +29,8 @@ export async function handleActionRoute({ request, response, url, actions }) {
       if (operation === 'approve') result = await actions.approve(id, input);
       else if (operation === 'apply') result = await actions.apply(id);
       else if (operation === 'cancel' || operation === 'reject') result = await actions.cancel(id, operation === 'reject');
+      else if (operation === 'repreview') result = await actions.repreview(id, input);
+      else if (operation === 'revise') result = await actions.revise(id, input);
       else if (operation === 'undo-preview') result = await actions.undoPreview(id, input);
     }
     if (result) { sendJson(response, 200, { data: result }); return true; }

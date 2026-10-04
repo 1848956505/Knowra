@@ -1,5 +1,6 @@
 import { validateWriteIntent } from './note-write-intent.js';
 import { conversationError } from './conversation-store.js';
+import { assertResumableAttempts } from './agent-checkpoint.js';
 
 const validId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 
@@ -106,6 +107,17 @@ export function createAiConversationService({ store, legacyRepository, accessSto
       }
       (agent.retry ? agent.retry(turnId) : agent.run(turnId))
         .catch(error => logger.warn?.('AI agent retry failed', { code: error.code ?? 'AI_TASK_FAILED' }));
+      return { ...turn, executionAvailable: true };
+    },
+    async resume(conversationId, turnId) {
+      const turn = await ownedTurn(conversationId, turnId);
+      if (!agent) conversationError('AI_GENERATION_UNAVAILABLE', '当前执行端不可用。');
+      if (!['staged', 'interrupted', 'failed'].includes(turn.status)) conversationError('AI_TURN_CONFLICT', '任务当前不可继续。');
+      const identity = await store.identity();
+      if (turn.datasetId !== identity.datasetId || turn.datasetEpoch !== identity.datasetEpoch) conversationError('AI_DATASET_STALE', '旧资料集的任务不能继续。');
+      if (turn.executionStartedAt && Date.now() >= Date.parse(turn.executionStartedAt) + 10 * 60_000) conversationError('AI_RUN_LIMIT', '本轮任务的总执行时间已达到上限，请提交新一轮任务。');
+      assertResumableAttempts(await store.listModelAttempts(turnId), turn.checkpoint);
+      agent.run(turnId).catch(error => logger.warn?.('AI agent resume failed', { code: error.code ?? 'AI_TASK_FAILED' }));
       return { ...turn, executionAvailable: true };
     },
     async legacyList(spaceId) {

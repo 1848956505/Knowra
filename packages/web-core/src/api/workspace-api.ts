@@ -14,6 +14,7 @@ export interface WorkspaceResources {
 }
 
 export interface CreateNoteInput {
+  aiVisibility?: import('../workspace/types').NoteAiVisibility;
   id?: string;
   title?: string;
   rawMarkdown: string;
@@ -36,6 +37,7 @@ export interface CreateFolderInput {
 }
 
 export interface UpdateNoteInput {
+  aiVisibility?: import('../workspace/types').NoteAiVisibility;
   annotationMapping?: import('../workspace/types').AnnotationMapping;
   title?: string;
   folderId?: string | null;

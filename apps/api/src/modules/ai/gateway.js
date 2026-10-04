@@ -1,5 +1,5 @@
 const TOOL_NAMES = new Set([
-  'notes_search', 'notes_read', 'folders_list', 'tags_list',
+  'notes_search', 'notes_read', 'folders_list', 'tags_list', 'web_search',
   'notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize'
 ]);
 
@@ -22,10 +22,12 @@ export function createAiGateway({ adapter, resolveCredential, authorizePaidCall 
     capabilities: () => adapter.capabilities(),
     async complete(request) {
       const prepared = await prepare(request);
+      if (typeof request.verifyBeforeSend === 'function') await request.verifyBeforeSend();
       return normalize(await adapter.complete(prepared), prepared, adapter.provider);
     },
     async *stream(request) {
       const prepared = await prepare(request);
+      if (typeof request.verifyBeforeSend === 'function') await request.verifyBeforeSend();
       let resultReceived = false;
       for await (const event of adapter.stream(prepared)) {
         if (event?.type === 'delta' && typeof event.content === 'string') {

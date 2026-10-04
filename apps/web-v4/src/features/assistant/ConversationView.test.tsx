@@ -1,8 +1,8 @@
-vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => []) } }));
+vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => []), inbox: vi.fn(async () => []) } }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
-import { conversationApi, type Conversation, type ConversationTurn } from './conversationApi';
+import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
 
 const fixture = vi.hoisted(() => ({
   state: {
@@ -14,7 +14,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStoreApi: () => ({ getState: () => fixture.state }), useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
 vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn() } }));
 vi.mock('./conversationApi', () => ({ conversationApi: {
-  list: vi.fn(), create: vi.fn(), messages: vi.fn(), send: vi.fn(), turn: vi.fn(), cancel: vi.fn(), retry: vi.fn(),
+  list: vi.fn(), create: vi.fn(), messages: vi.fn(), send: vi.fn(), turn: vi.fn(), cancel: vi.fn(), retry: vi.fn(), resume: vi.fn(),
   policies: vi.fn(), createPolicy: vi.fn(), revokePolicy: vi.fn()
 } }));
 
@@ -38,11 +38,66 @@ beforeEach(() => {
       writeTools: false, providerAdvertised: null, providerVerified: false } });
 });
 
+it('迟到的联网恢复快照不覆盖用户关闭的资料读取范围', async () => {
+  const policy = { policyId: 'policy-1', revision: 1, spaceId: 'space-1', scope: { kind: 'library' as const },
+    egress: true, recipients: ['deepseek'], expiresAt: '2030-01-01T00:00:00Z', revokedAt: null };
+  const messages: ConversationMessage[] = [
+    { messageId: 'old-user', turnId: 'turn-1', sequence: 1, role: 'user', content: '旧提问', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+    { messageId: 'old-answer', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '旧回答', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }
+  ];
+  let release!: (rows: ConversationMessage[]) => void;
+  const delayed = new Promise<ConversationMessage[]>(resolve => { release = resolve; });
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.policies).mockResolvedValue([policy]);
+  vi.mocked(conversationApi.messages).mockResolvedValueOnce(messages).mockReturnValueOnce(delayed).mockResolvedValue(messages);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, requestedPolicyId: 'policy-1', assistantMessageId: 'old-answer' });
+  vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, turnId: 'turn-2', status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await screen.findByText('旧回答');
+  const scope = Array.from(document.querySelectorAll('select')).find(select => Array.from(select.options).some(option => option.value === 'policy-1'))!;
+  expect(scope.value).toBe('policy-1');
+  fireEvent(window, new Event('online'));
+  await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledTimes(2));
+  fireEvent.change(scope, { target: { value: 'plain' } });
+  await act(async () => { release(messages); await delayed; });
+  expect(scope.value).toBe('plain');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '新的私事' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
+  await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: null })));
+});
+
+it('初次会话快照也不能覆盖加载期间用户新选择的授权', async () => {
+  const policies = ['policy-1', 'policy-2'].map(policyId => ({ policyId, revision: 1, spaceId: 'space-1',
+    scope: { kind: 'library' as const }, egress: true, recipients: ['deepseek'], expiresAt: '2030-01-01T00:00:00Z', revokedAt: null }));
+  const messages: ConversationMessage[] = [
+    { messageId: 'old-user', turnId: 'turn-1', sequence: 1, role: 'user', content: '旧问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+    { messageId: 'old-answer', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '旧答复', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }
+  ];
+  let release!: (rows: ConversationMessage[]) => void;
+  const delayed = new Promise<ConversationMessage[]>(resolve => { release = resolve; });
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.policies).mockResolvedValue(policies);
+  vi.mocked(conversationApi.messages).mockReturnValueOnce(delayed).mockResolvedValue(messages);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, requestedPolicyId: 'policy-1', assistantMessageId: 'old-answer' });
+  vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, turnId: 'turn-2', status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledOnce());
+  const scope = Array.from(document.querySelectorAll('select')).find(select => Array.from(select.options).some(option => option.value === 'policy-2'))!;
+  fireEvent.change(scope, { target: { value: 'policy-2' } });
+  await act(async () => { release(messages); await delayed; });
+  await screen.findByText('旧答复'); expect(scope.value).toBe('policy-2');
+  fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '沿用新选择' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
+  await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: 'policy-2' })));
+});
+
 it('没有笔记选择时可直接创建普通聊天，发送请求不带读取授权', async () => {
   vi.mocked(conversationApi.create).mockImplementation(async (_space, id) => ({ ...conversation, conversationId: id }));
   vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, status: 'running', phase: 'generating' });
   render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
   expect(await screen.findByText('服务器执行')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '本轮用途' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '本轮固定写入目标' })).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '解释梯度下降' } });
   fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
   await waitFor(() => expect(conversationApi.send).toHaveBeenCalledOnce());
@@ -162,6 +217,35 @@ it('运行轮次可停止，中断轮次可显式重试', async () => {
   await waitFor(() => expect(conversationApi.cancel).toHaveBeenCalledWith('conversation-1', 'turn-1'));
   fireEvent.click(await screen.findByRole('button', { name: '重试本轮' }));
   await waitFor(() => expect(conversationApi.retry).toHaveBeenCalledWith('conversation-1', 'turn-1'));
+});
+
+it('安全继续调用resume，不改走显式retry', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([{ messageId: 'message-1', turnId: 'turn-1', sequence: 1,
+    role: 'user', content: '中断问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, status: 'interrupted' });
+  vi.mocked(conversationApi.resume).mockResolvedValue({ ...succeeded, status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  fireEvent.click(await screen.findByRole('button', { name: '从检查点继续' }));
+  await waitFor(() => expect(conversationApi.resume).toHaveBeenCalledWith('conversation-1', 'turn-1'));
+  expect(conversationApi.retry).not.toHaveBeenCalled();
+});
+
+it('未知发送不能安全继续，显式重试前确认可能重复费用', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([{ messageId: 'message-1', turnId: 'turn-1', sequence: 1,
+    role: 'user', content: '发送中断问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, status: 'interrupted',
+    modelAttempts: [{ attemptId: 'unknown', status: 'unknown', actualMicrounits: null, ordinal: 1, modelResult: null }] });
+  vi.mocked(conversationApi.retry).mockResolvedValue({ ...succeeded, status: 'running' });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByRole('button', { name: '从检查点继续' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '重试本轮' }));
+  await screen.findByRole('dialog', { name: '确认重新调用模型' }); expect(conversationApi.retry).not.toHaveBeenCalled();
+  expect(screen.getByText(/重试会重新调用模型/)).toHaveTextContent('重复费用');
+  fireEvent.click(screen.getByRole('button', { name: '确认重试本轮' }));
+  await waitFor(() => expect(conversationApi.retry).toHaveBeenCalledWith('conversation-1', 'turn-1'));
+  expect(conversationApi.resume).not.toHaveBeenCalled();
 });
 
 it('旧版任务走历史只读入口，不显示旧版创建与取消操作', async () => {

@@ -95,6 +95,7 @@ export function createAuthorizedKeywordSearch({ access, maxCandidates = 300, max
           || calculateContentHash(hit.text) !== ref.quoteHash) fail('AI_SOURCE_STALE', '检索期间来源已变化。');
       }
       await access.assertSearchGrant({ grantId });
+      if (hits.length) await access.assertSearchSources({ grantId, sourceRefs: hits.map(hit => hit.ref) });
       return { hits, inspected: candidates.length, truncated: selected.truncated, coverage: selected.coverage };
     }
   };

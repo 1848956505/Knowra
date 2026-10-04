@@ -177,6 +177,8 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     });
     const merged = stateFromBase(remote);
     for (const entry of dirty) replace(merged, entry);
+    // 云端私密化立即隔离本地待合并正文；冲突审阅不自动恢复 AI 可读性。
+    preserveRemoteNotePrivacy(merged, remote);
     preserveKnowledgeLifecycleInvalidations(merged, local, boundaries);
     preserveAttachmentHealth(merged, state);
     // 未修改的历史别名仍可在本地按稳定 ID 读取。
@@ -386,6 +388,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
       assertNoKnowledgeArtifactProvenanceDowngrade(previous, state);
       persistBases(db, base, previousBase);
     }
+    preserveRemoteNotePrivacy(state, new Map([...(result.entries ?? []), ...(result.conflicts ?? []), ...(result.current ? [result.current] : [])].map(entry => [syncKey(entry.collection, entry.id), entry])));
     acknowledgeKnowledgeLifecycleUpload(db, operation.operationId, result.status === 'accepted');
     acknowledgeExamFocusReviewUpload(db, operation, result);
     // 冲突结果先解除冻结，下一次拉取会保存包含完整远端事务的冲突。
@@ -462,6 +465,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
         replace(merged, entry);
       }
     }
+    preserveRemoteNotePrivacy(merged, remote);
     const localAttachments = state.attachments.map(attachment => ({ ...attachment }));
     preserveAttachmentHealth(merged, state);
     assertNoKnowledgeArtifactProvenanceDowngrade(state, merged);
@@ -469,7 +473,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     if (choice === 'copy') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);
       if (notes.length !== 1) throw new Error('保留两篇仅适用于一篇笔记的冲突。');
-      createEntityConflictCopy({ original: notes[0].value, localAttachments, state, noteService, entityTransfer, preparedCopies });
+      createEntityConflictCopy({ original: { ...notes[0].value, ...(remote.get(syncKey('notes', notes[0].id))?.value?.aiVisibility === 'private' ? { aiVisibility: 'private' } : {}) }, localAttachments, state, noteService, entityTransfer, preparedCopies });
     }
     if (choice === 'manual') {
       const notes = dirty.filter(entry => entry.collection === 'notes' && entry.value);
@@ -492,5 +496,14 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
       catch (rollbackError) { (error.rollbackErrors ??= []).push(rollbackError); }
     }
     throw error;
+  }
+}
+
+function preserveRemoteNotePrivacy(state, remote) {
+  for (const note of state.notes) {
+    if (remote.get(syncKey('notes', note.id))?.value?.aiVisibility === 'private' && note.aiVisibility !== 'private') {
+      note.aiVisibility = 'private';
+      note.updatedAt = new Date(Math.max(Date.now(), Date.parse(note.updatedAt) + 1 || 0)).toISOString();
+    }
   }
 }

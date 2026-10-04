@@ -50,7 +50,8 @@ export interface ConversationTurn {
   errorCode: string | null;
   assistantMessageId?: string | null;
   toolCalls?: ToolCall[];
-  modelAttempts?: Array<{ attemptId: string; status: string; actualMicrounits: number | null }>;
+  checkpoint?: { handledAttemptOrdinal: number };
+  modelAttempts?: Array<{ attemptId: string; status: string; actualMicrounits: number | null; ordinal?: number; modelResult?: unknown }>;
 }
 
 export interface AccessPolicy {
@@ -89,6 +90,8 @@ export const conversationApi = {
     `${path(id)}/turns/${encodeURIComponent(turnId)}/cancel`, { method: 'POST', headers: conversationHeaders }),
   retry: (id: string, turnId: string) => data<ConversationTurn>(
     `${path(id)}/turns/${encodeURIComponent(turnId)}/retry`, { method: 'POST', headers: conversationHeaders }),
+  resume: (id: string, turnId: string) => data<ConversationTurn>(
+    `${path(id)}/turns/${encodeURIComponent(turnId)}/resume`, { method: 'POST', headers: conversationHeaders }),
   policies: (spaceId: string) => data<AccessPolicy[]>(
     `${accessRoot}?spaceId=${encodeURIComponent(spaceId)}`, { headers: accessHeaders }),
   createPolicy: (input: { spaceId: string; scope: AccessPolicy['scope']; expiresAt: string }) =>

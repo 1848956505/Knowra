@@ -1,11 +1,11 @@
 import { syncError } from './journal.js';
 import { TRAINING_SYNC_CAPABILITY } from './entity-contract.js';
 
-export const SYNC_ENTITY_SCHEMA_VERSION = 7;
+export const SYNC_ENTITY_SCHEMA_VERSION = 8;
 export const KNOWLEDGE_PROVENANCE_SYNC_CAPABILITY = 'knowledge-provenance-v1';
 export const KNOWLEDGE_LIFECYCLE_SYNC_CAPABILITY = 'knowledge-lifecycle-v1';
 export const REQUIRED_SYNC_CAPABILITIES = Object.freeze([
-  'asset-lifecycle-v1', 'atomic-entities-v2', 'knowledge-items-v1', KNOWLEDGE_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_LIFECYCLE_SYNC_CAPABILITY, TRAINING_SYNC_CAPABILITY
+  'note-ai-visibility-v1', 'asset-lifecycle-v1', 'atomic-entities-v2', 'knowledge-items-v1', KNOWLEDGE_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_LIFECYCLE_SYNC_CAPABILITY, TRAINING_SYNC_CAPABILITY
 ]);
 export const SYNC_CAPABILITIES = Object.freeze([...REQUIRED_SYNC_CAPABILITIES, 'attachment-transfer-v1'].sort());
 export const syncContract = () => ({ entitySchemaVersion: SYNC_ENTITY_SCHEMA_VERSION, capabilities: [...SYNC_CAPABILITIES] });
@@ -17,7 +17,7 @@ export function assertSyncContract(input, { query = false } = {}) {
     || capabilities.length > SYNC_CAPABILITIES.length || new Set(capabilities).size !== capabilities.length
     || capabilities.some(value => typeof value !== 'string' || !SYNC_CAPABILITIES.includes(value))
     || REQUIRED_SYNC_CAPABILITIES.some(value => !capabilities.includes(value))) {
-    throw syncError('SYNC_CLIENT_UPGRADE_REQUIRED', '知识与训练同步格式已升级，请更新应用与云端；本地数据和待同步修改已保留。', 422);
+    throw syncError('SYNC_CLIENT_UPGRADE_REQUIRED', '笔记隐私与知识同步格式已升级，请更新应用与云端；本地数据和待同步修改已保留。', 422);
   }
   return { entitySchemaVersion: schema, capabilities: [...capabilities].sort() };
 }

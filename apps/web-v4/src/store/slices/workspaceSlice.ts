@@ -162,6 +162,7 @@ export function createWorkspaceSlice(
           folderId: source.folderId,
           spaceId,
           sourceType: source.sourceType ?? 'manual',
+          aiVisibility: source.aiVisibility ?? 'normal',
           status: source.status ?? 'draft'
         });
         await runLoad(true);
@@ -472,7 +473,7 @@ export function createWorkspaceSlice(
         const baseTitle = `${source.title || '未命名笔记'} · 历史副本`;
         const title = [...names, ...folderNames].includes(baseTitle) ? createDuplicateTitle([...names, ...folderNames], baseTitle) : baseTitle;
         const created = await dependencies.api.createNote({ title, rawMarkdown: version.content, folderId: source.folderId, spaceId,
-          sourceType: source.sourceType ?? 'manual', status: 'draft', tagIds: source.tagIds });
+          sourceType: source.sourceType ?? 'manual', status: 'draft', tagIds: source.tagIds, aiVisibility: source.aiVisibility ?? 'normal' });
         await runLoad(true);
         get().selectNote(created.id);
         return { result: created.id, message: `历史版本已另存为：${title}` };
@@ -480,6 +481,13 @@ export function createWorkspaceSlice(
     },
     async getNoteVersion(noteId, versionId) {
       return dependencies.api.getNoteVersion(noteId, versionId);
+    },
+    async setNoteAiVisibility(noteId, input) {
+      return executeWorkspaceMutation(set, get, '正在更新笔记隐私…', async () => {
+        await dependencies.api.updateNote(noteId, input);
+        await runLoad(true);
+        return { result: undefined, message: input.aiVisibility === 'private' ? '笔记已设为私密，AI 不再读取' : '笔记已设为普通，可供 AI 读取' };
+      });
     },
     async organizeNote(noteId, input) {
       return executeWorkspaceMutation(set, get, '正在整理笔记…', async () => {

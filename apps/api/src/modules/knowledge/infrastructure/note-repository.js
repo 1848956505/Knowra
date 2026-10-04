@@ -43,6 +43,10 @@ export function createInMemoryNoteRepository(options = {}) {
     findById(noteId) {
       return notes.find((note) => note.id === noteId) ?? null;
     },
+    findByIds(noteIds) {
+      const ids = new Set(noteIds ?? []);
+      return notes.filter(note => ids.has(note.id)).map(note => ({ ...note, tagIds: [...(note.tagIds ?? [])] }));
+    },
     delete(noteId) {
       const existingIndex = notes.findIndex((note) => note.id === noteId);
       if (existingIndex === -1) {

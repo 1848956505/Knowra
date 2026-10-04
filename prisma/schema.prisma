@@ -131,6 +131,7 @@ model Note {
   status         String              @default("draft")
   sourceType     String              @default("manual")
   favorite       Boolean             @default(false)
+  aiVisibility   String              @default("normal")
   deletedAt      DateTime?
   folderDeletionPackageId String?
   deletionPackage Json?
