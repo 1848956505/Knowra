@@ -72,7 +72,7 @@ it.each(['create', 'upload'] as const)('空白会话切换空间后清除旧附�
     else {
       releaseUpload({ attachmentId: 'old-attachment', conversationId: created.conversationId, revision: 3,
         fileName: 'space-a.txt', mimeType: 'text/plain', size: 10, sha256: 'a'.repeat(64), storageStatus: 'ready',
-        parseStatus: 'ready', errorCode: null, parserVersion: 'v1', parsedTextHash: 'b'.repeat(64), imageMetadata: null,
+        parseStatus: 'not_parsed', errorCode: 'AI_ATTACHMENT_NOT_PARSED', parserVersion: null, parsedTextHash: null, imageMetadata: null,
         removedAt: null, createdAt: conversation.createdAt, updatedAt: conversation.updatedAt });
       await delayedUpload;
     }

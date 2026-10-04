@@ -1,5 +1,5 @@
 import { validateWriteIntent } from './note-write-intent.js';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import schema from './contracts/ai-conversation-v2.schema.json' with { type: 'json' };
@@ -48,20 +48,12 @@ export function validateConversationRecord(kind, record) {
     conversationError('AI_RECORD_INVALID', '会话轮次与任务 ID 不一致。');
   }
   if (kind === 'aiConversationAttachment') {
-    let offset = 0;
-    for (const segment of record.segments) {
-      if (segment.start !== offset || segment.end !== segment.start + segment.text.length) {
-        conversationError('AI_RECORD_INVALID', '附件解析区间无效。');
-      }
-      offset = segment.end;
-    }
-    const textHash = createHash('sha256').update(record.segments.map(row => row.text).join('')).digest('hex');
-    if (offset > 200000 || record.parseStatus === 'ready' && (!offset || record.parsedTextHash !== textHash || !record.parserVersion)
-      || record.parseStatus !== 'ready' && (record.segments.length || record.parsedTextHash)
+    if (record.segments.length || record.parsedTextHash !== null || record.parserVersion !== null || record.imageMetadata !== null
       || Boolean(record.removedAt) !== (record.storageStatus === 'removed')
-      || record.removedAt && (record.segments.length || record.imageMetadata || record.cleanupStatus === 'none')
+      || record.removedAt && record.cleanupStatus === 'none'
       || record.storageStatus !== 'removed' && record.cleanupStatus !== 'none'
-      || ['ready', 'vision_unsupported'].includes(record.parseStatus) && record.storageStatus !== 'ready') {
+      || ['missing', 'removed'].includes(record.storageStatus) && record.parseStatus !== 'failed'
+      || ['pending', 'ready'].includes(record.storageStatus) && (record.parseStatus !== 'not_parsed' || record.errorCode !== 'AI_ATTACHMENT_NOT_PARSED')) {
       conversationError('AI_RECORD_INVALID', '附件读取、解析或移除状态无效。');
     }
   }
@@ -245,8 +237,8 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         const time = stamp();
         const record = validateConversationRecord('aiConversationAttachment', { kind: 'aiConversationAttachment', contractVersion: 2,
           ownerId, ...identity, spaceId: conversation.spaceId, conversationId, attachmentId: randomUUID(), uploadKey,
-          fileName, mimeType, size, sha256, storageStatus: 'pending', parseStatus: 'pending', parserVersion: null,
-          parsedTextHash: null, segments: [], imageMetadata: null, errorCode: null, revision: 1, removedAt: null,
+          fileName, mimeType, size, sha256, storageStatus: 'pending', parseStatus: 'not_parsed', parserVersion: null,
+          parsedTextHash: null, segments: [], imageMetadata: null, errorCode: 'AI_ATTACHMENT_NOT_PARSED', revision: 1, removedAt: null,
           cleanupStatus: 'none', createdAt: time, updatedAt: time });
         state.conversationAttachments.push(record); return record;
       });

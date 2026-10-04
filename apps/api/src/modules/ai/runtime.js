@@ -16,7 +16,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
   verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null,
-  uploadsDir = null, attachmentParser = undefined } = {}) {
+  uploadsDir = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
   const gateway = createAiGateway({
@@ -38,7 +38,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
       accessStore, spaceRepository: contextSources.spaceRepository, ownerId: contextSources.ownerId,
       agent }) : null;
   const attachmentService = conversation && uploadsDir ? createConversationAttachmentService({
-    conversationStore, uploadsDir, ownerId: contextSources.ownerId, parser: attachmentParser,
+    conversationStore, uploadsDir, ownerId: contextSources.ownerId,
     assertConversation: id => conversation.get(id)
   }) : null;
   const attachments = attachmentService && maintenanceGate ? {

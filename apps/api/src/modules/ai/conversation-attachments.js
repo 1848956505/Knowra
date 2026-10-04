@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { createAppError } from '../../errors/app-error.js';
-import { parseConversationAttachment } from './conversation-attachment-parsers/index.js';
 
 export const CONVERSATION_ATTACHMENT_LIMITS = Object.freeze({ maxFileBytes: 5 * 1024 * 1024, maxActiveFiles: 20, maxConversationBytes: 25 * 1024 * 1024 });
 const mimeTypes = new Set(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown', 'image/png', 'image/jpeg']);
@@ -11,36 +10,8 @@ const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const fail = (code, message, status = 409) => { throw createAppError(code, message, status); };
 const sameBoundary = (record, scope) => record && ['ownerId', 'datasetId', 'datasetEpoch', 'spaceId', 'conversationId'].every(key => record[key] === scope[key]);
 const removed = row => row.storageStatus === 'removed' || row.removedAt !== null;
-const safeCode = code => typeof code === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(code) ? code : 'AI_ATTACHMENT_PARSE_FAILED';
-
-function parsedPatch(result, mimeType) {
-  const parserVersion = 'conversation-attachment-parser-v1';
-  if (result?.status === 'unsupported' && ['image/png', 'image/jpeg'].includes(mimeType)) {
-    if (!Number.isSafeInteger(result.width) || result.width < 1 || result.width > 20000 || !Number.isSafeInteger(result.height)
-      || result.height < 1 || result.height > 20000 || result.width * result.height > 20000000) {
-      return { parseStatus: 'failed', parserVersion, parsedTextHash: null, segments: [], imageMetadata: null, errorCode: 'AI_ATTACHMENT_IMAGE_INVALID' };
-    }
-    const imageMetadata = { width: result.width, height: result.height, format: mimeType === 'image/png' ? 'png' : 'jpeg' };
-    return { parseStatus: 'vision_unsupported', parserVersion, parsedTextHash: null, segments: [], imageMetadata, errorCode: 'AI_ATTACHMENT_VISION_UNSUPPORTED' };
-  }
-  if (result?.status !== 'ready') return { parseStatus: 'failed', parserVersion, parsedTextHash: null, segments: [], imageMetadata: null, errorCode: safeCode(result?.errorCode) };
-  if (typeof result.text !== 'string' || !result.text.length || result.text.length > 200000 || !Array.isArray(result.segments) || result.segments.length > 4000) fail('AI_ATTACHMENT_PARSER_INVALID', '附件解析结果无效。', 503);
-  const segments = [];
-  let cursor = 0;
-  for (const part of result.segments) {
-    if (!Number.isSafeInteger(part.start) || !Number.isSafeInteger(part.end) || part.start < cursor || part.end < part.start || part.end > result.text.length
-      || part.page !== undefined && (!Number.isSafeInteger(part.page) || part.page < 1)) fail('AI_ATTACHMENT_PARSER_INVALID', '附件解析范围无效。', 503);
-    if (part.start > cursor) segments.push({ text: result.text.slice(cursor, part.start), start: cursor, end: part.start });
-    if (part.end > part.start) segments.push({ text: result.text.slice(part.start, part.end), start: part.start, end: part.end, ...(part.page !== undefined ? { page: part.page } : {}) });
-    cursor = part.end;
-  }
-  if (cursor < result.text.length) segments.push({ text: result.text.slice(cursor), start: cursor, end: result.text.length });
-  if (segments.length > 4000) fail('AI_ATTACHMENT_PARSE_LIMIT', '附件解析段落超过上限。', 422);
-  return { parseStatus: 'ready', parserVersion, parsedTextHash: sha256(Buffer.from(result.text, 'utf8')), segments, imageMetadata: null, errorCode: null };
-}
-
-export function createConversationAttachmentService({ conversationStore: store, uploadsDir, ownerId, parser = parseConversationAttachment, assertConversation = null }) {
-  if (!store || typeof uploadsDir !== 'string' || !uploadsDir || typeof ownerId !== 'string' || !ownerId || typeof parser !== 'function') throw new TypeError('会话附件服务需要存储、上传目录和解析器。');
+export function createConversationAttachmentService({ conversationStore: store, uploadsDir, ownerId, assertConversation = null }) {
+  if (!store || typeof uploadsDir !== 'string' || !uploadsDir || typeof ownerId !== 'string' || !ownerId) throw new TypeError('会话附件服务需要存储、上传目录和归属。');
   const baseDir = path.resolve(uploadsDir), attachmentDir = path.join(baseDir, 'ai-conversations');
   let accepting = true, closed = false, closing = null;
   const operations = new Set(), activeTemps = new Set();
@@ -111,16 +82,6 @@ export function createConversationAttachmentService({ conversationStore: store, 
     checkOpen(); return store.updateAttachment({ ownerId, attachmentId: record.attachmentId, expectedRevision: record.revision, patch });
   }
   async function current(record) { return owned(record.conversationId, record.attachmentId); }
-  async function parse(record, bytes) {
-    let patch;
-    try { patch = parsedPatch(await parser({ buffer: bytes, mimeType: record.mimeType, fileName: record.fileName }), record.mimeType); }
-    catch (error) { patch = { parseStatus: 'failed', parserVersion: 'conversation-attachment-parser-v1', parsedTextHash: null, segments: [], imageMetadata: null, errorCode: safeCode(error.code) }; }
-    const latest = await current(record);
-    if (removed(latest) || latest.revision !== record.revision) return latest;
-    // 解析过程中删除、恢复或其他修订都由当前版本 CAS 阻断，禁止复活已删正文。
-    try { return await update(record, patch); }
-    catch (error) { const after = await current(record); if (removed(after) || after.revision !== record.revision) return after; throw error; }
-  }
   async function cleanup(record) {
     if (!removed(record)) fail('AI_ATTACHMENT_CONFLICT', '只允许清理已删除的附件。');
     try {
@@ -189,12 +150,13 @@ export function createConversationAttachmentService({ conversationStore: store, 
         try { await directory(); await io(() => fs.promises.unlink(temporary)); } catch (error) { if (error.code !== 'ENOENT') throw error; }
         finally { activeTemps.delete(temporary); }
       }
-      const verified = await bytesFor(record), latest = await current(record);
+      await bytesFor(record);
+      const latest = await current(record);
       if (removed(latest)) { await cleanup(latest); return current(latest); }
       if (latest.revision !== record.revision) return latest;
-      record = await updateIfUnchanged(record, { storageStatus: 'ready', parseStatus: 'pending', errorCode: null });
+      record = await updateIfUnchanged(record, { storageStatus: 'ready', parseStatus: 'not_parsed', errorCode: 'AI_ATTACHMENT_NOT_PARSED' });
       if (removed(record)) { await cleanup(record); return current(record); }
-      return record.parseStatus === 'pending' ? parse(record, verified) : record;
+      return record;
     }),
     list: conversationId => run(async () => {
       const scope = await owned(conversationId);
@@ -206,7 +168,6 @@ export function createConversationAttachmentService({ conversationStore: store, 
       if (record.storageStatus !== 'ready') fail('AI_ATTACHMENT_NOT_READY', '附件文件尚未就绪。');
       const bytes = await bytesFor(record), latest = await current(record);
       if (removed(latest) || latest.revision !== record.revision) fail('AI_ATTACHMENT_CONFLICT', '读取期间附件已变化。');
-      if (record.parseStatus === 'ready' && sha256(Buffer.from(record.segments.map(segment => segment.text).join(''), 'utf8')) !== record.parsedTextHash) fail('AI_ATTACHMENT_STORAGE_INVALID', '附件解析正文完整性校验失败。', 503);
       return { record, bytes, segments: record.segments };
     }),
     remove: input => run(async () => {
@@ -226,15 +187,14 @@ export function createConversationAttachmentService({ conversationStore: store, 
         try { record = await current(original); } catch (error) { if (['AI_DATASET_STALE', 'AI_ATTACHMENT_SCOPE_FORBIDDEN', 'AI_SCOPE_FORBIDDEN', 'AI_CONVERSATION_NOT_FOUND'].includes(error.code)) continue; throw error; }
         eligible.push(record);
         if (removed(record)) { if (record.cleanupStatus !== 'complete') recovered.push(await cleanup(record)); continue; }
-        let bytes;
-        try { bytes = await bytesFor(record); }
+        try { await bytesFor(record); }
         catch (error) {
           if (error.code !== 'ENOENT' && error.code !== 'AI_ATTACHMENT_STORAGE_INVALID') throw error;
           recovered.push(await updateIfUnchanged(record, { storageStatus: 'missing', parseStatus: 'failed', errorCode: error.code === 'ENOENT' ? 'AI_ATTACHMENT_FILE_MISSING' : 'AI_ATTACHMENT_STORAGE_INVALID', segments: [], parsedTextHash: null, imageMetadata: null, parserVersion: null })); continue;
         }
-        if (record.storageStatus !== 'ready') record = await updateIfUnchanged(record, { storageStatus: 'ready', parseStatus: 'pending', errorCode: null });
+        if (record.storageStatus !== 'ready') record = await updateIfUnchanged(record, { storageStatus: 'ready', parseStatus: 'not_parsed', errorCode: 'AI_ATTACHMENT_NOT_PARSED' });
         if (removed(record)) { recovered.push(record); continue; }
-        recovered.push(record.parseStatus === 'pending' ? await parse(record, bytes) : record);
+        recovered.push(record);
       }
       await cleanTemporaryFiles(eligible);
       return recovered;

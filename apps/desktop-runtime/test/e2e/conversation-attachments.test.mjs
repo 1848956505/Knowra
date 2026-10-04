@@ -1,23 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { crc32, deflateSync } from 'node:zlib';
 import { chromium, expect } from '@playwright/test';
 import { createR07Fixture, inspectR07FixtureState } from '../fixtures/ai-r07-runtime.mjs';
 import { withPageFailureDiagnostics } from '../fixtures/page-failure-diagnostics.mjs';
 
-const pngChunk = (type, data) => {
-  const name = Buffer.from(type), length = Buffer.alloc(4), checksum = Buffer.alloc(4);
-  length.writeUInt32BE(data.length); checksum.writeUInt32BE(crc32(Buffer.concat([name, data])));
-  return Buffer.concat([length, name, data, checksum]);
-};
-const imageHeader = Buffer.alloc(13); imageHeader.writeUInt32BE(1, 0); imageHeader.writeUInt32BE(1, 4); imageHeader[8] = 8; imageHeader[9] = 6;
-const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', imageHeader),
-  pngChunk('IDAT', deflateSync(Buffer.from([0, 255, 0, 0, 255]))), pngChunk('IEND', Buffer.alloc(0))]);
-const invalidPixels = Buffer.concat([png.subarray(0, 8), pngChunk('IHDR', imageHeader),
-  pngChunk('FAIL', Buffer.from('unsupported critical image chunk')),
-  pngChunk('IDAT', deflateSync(Buffer.from([0, 255, 0, 0, 255]))), pngChunk('IEND', Buffer.alloc(0))]);
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==', 'base64');
 
-for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver} 真实页面：文本上传预览、DOC拒绝、粘贴图片、重启恢复与移除`, {
+for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver} 真实页面：未解析存储、DOC拒绝、粘贴图片、重启恢复与移除`, {
   timeout: 60000, skip: driver === 'postgres' && !process.env.KNOWRA_SYNC_TEST_DATABASE_URL
 }, async t => {
   const fixture = await createR07Fixture(driver); let browser;
@@ -35,12 +24,18 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '合成资料.txt', mimeType: 'text/plain', buffer: Buffer.from('附件合成文本，尚未传入模型。') });
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(1);
     await picker.getByRole('button', { name: '预览 合成资料.txt', exact: true }).click();
-    await expect(picker.getByText('附件合成文本，尚未传入模型。', { exact: true })).toBeVisible();
+    await expect(picker.getByText('仅显示附件信息，当前不提供文档正文预览。', { exact: true })).toBeVisible();
+    await expect(picker.getByText('附件合成文本，尚未传入模型。', { exact: true })).toHaveCount(0);
     const conversationId = new URLSearchParams(page.url().split('?')[1]).get('conversationId'); assert(conversationId);
+    const stored = (await (await page.request.get(`${fixture.origin}/api/ai/conversations/${conversationId}/attachments`, { headers })).json()).data.attachments;
+    assert.equal(stored[0].parseStatus, 'not_parsed'); assert.equal(stored[0].errorCode, 'AI_ATTACHMENT_NOT_PARSED');
+    assert.equal(stored[0].parserVersion, null); assert.equal(stored[0].parsedTextHash, null); assert.equal(stored[0].imageMetadata, null);
+    await expect(picker.getByText('未解析，不能用于附件问答；尚未发送给 AI。', { exact: true })).toHaveCount(2);
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '合成提纲.md', mimeType: 'text/markdown', buffer: Buffer.from('# 合成 Markdown\n仅在附件预览显示。') });
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(2);
     await picker.getByRole('button', { name: '预览 合成提纲.md', exact: true }).click();
-    await expect(picker.getByText('# 合成 Markdown\n仅在附件预览显示。', { exact: true })).toBeVisible();
+    await expect(picker.getByText('仅显示附件信息，当前不提供文档正文预览。', { exact: true })).toBeVisible();
+    await expect(picker.getByText('# 合成 Markdown\n仅在附件预览显示。', { exact: true })).toHaveCount(0);
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '旧版资料.doc', mimeType: 'application/msword', buffer: Buffer.from('unsupported') });
     await expect(picker.getByRole('alert')).toContainText('旧版 DOC 暂不支持');
     await picker.getByRole('button', { name: '移除待上传文件', exact: true }).click();
@@ -54,20 +49,19 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await picker.getByRole('button', { name: '预览 粘贴图片.png', exact: true }).click();
     await expect(picker.getByRole('img')).toBeVisible();
     await expect.poll(() => picker.getByRole('img').evaluate(image => image.naturalWidth)).toBe(1);
-    await picker.getByLabel('添加对话附件').setInputFiles({ name: '像素损坏.png', mimeType: 'image/png', buffer: invalidPixels });
-    await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(4);
-    await picker.getByRole('button', { name: '预览 像素损坏.png', exact: true }).click();
-    await expect(picker.getByRole('alert')).toContainText('图片内容无法显示'); await expect(picker.getByRole('img')).toHaveCount(0);
-    await picker.getByRole('button', { name: '移除 像素损坏.png', exact: true }).click();
-    await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(3);
-    let loseUploadResponse = true;
+    let loseUploadResponse = true; const retriedUploads = [];
     await page.route('**/api/ai/conversations/*/attachments', async route => {
-      if (route.request().method() !== 'POST' || !loseUploadResponse) return route.continue();
+      if (route.request().method() !== 'POST') return route.continue();
+      retriedUploads.push(route.request().postDataJSON());
+      if (!loseUploadResponse) return route.continue();
       const response = await route.fetch(); assert(response.ok()); loseUploadResponse = false; await route.abort();
     });
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '丢响应资料.txt', mimeType: 'text/plain', buffer: Buffer.from('已保存在会话的合成内容。') });
     await expect(picker.getByRole('alert')).toBeVisible(); await expect(picker.getByText(/上传未完成；尚未发送给 AI/)).toBeVisible();
-    assert.equal(fixture.adapter.calls.length, 0, '附件上传、解析和预览不得触发模型调用');
+    await picker.getByRole('button', { name: '重试上传', exact: true }).click();
+    await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(4);
+    assert.equal(retriedUploads.length, 2); assert.deepEqual(retriedUploads[0], retriedUploads[1], '重试复用上传幂等键与原payload');
+    assert.equal(fixture.adapter.calls.length, 0, '附件保存和信息预览不得触发模型调用');
     assert.equal((await fixture.store.listMessages(conversationId, 0, 100)).length, 0, '附件不得暗中成为聊天消息');
     await page.goto(await fixture.restart());
     await page.goto(`${fixture.origin}/#/assistant?conversationId=${encodeURIComponent(conversationId)}`);
@@ -75,7 +69,8 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(4);
     await expect(picker.getByRole('button', { name: '预览 丢响应资料.txt', exact: true })).toBeVisible();
     await picker.getByRole('button', { name: '预览 合成资料.txt', exact: true }).click();
-    await expect(picker.getByText('附件合成文本，尚未传入模型。', { exact: true })).toBeVisible();
+    await expect(picker.getByText('仅显示附件信息，当前不提供文档正文预览。', { exact: true })).toBeVisible();
+    await expect(picker.getByText('附件合成文本，尚未传入模型。', { exact: true })).toHaveCount(0);
     await picker.getByRole('button', { name: '移除 合成资料.txt', exact: true }).click();
     await expect(picker.getByRole('button', { name: '预览 合成资料.txt', exact: true })).toHaveCount(0);
     await picker.getByRole('button', { name: '预览 粘贴图片.png', exact: true }).click(); await expect(picker.getByRole('img')).toBeVisible();

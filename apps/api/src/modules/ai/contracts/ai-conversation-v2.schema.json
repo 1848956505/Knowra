@@ -162,101 +162,22 @@
             },
             "parseStatus": {
               "enum": [
-                "pending",
-                "ready",
-                "failed",
-                "vision_unsupported"
+                "not_parsed",
+                "failed"
               ]
             },
             "parserVersion": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "null"
             },
             "parsedTextHash": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{64}$"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "null"
             },
             "segments": {
               "type": "array",
-              "maxItems": 4000,
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "text": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 200000
-                  },
-                  "start": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  "end": {
-                    "type": "integer",
-                    "minimum": 1
-                  },
-                  "page": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 100
-                  }
-                },
-                "required": [
-                  "text",
-                  "start",
-                  "end"
-                ]
-              }
+              "maxItems": 0
             },
             "imageMetadata": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "width": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 20000
-                    },
-                    "height": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 20000
-                    },
-                    "format": {
-                      "enum": [
-                        "png",
-                        "jpeg"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "width",
-                    "height",
-                    "format"
-                  ]
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "null"
             },
             "errorCode": {
               "$ref": "#/$defs/nullableCode"

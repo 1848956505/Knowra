@@ -21,6 +21,12 @@ export const aiConversationAttachmentPostgresTests = process.env.KNOWRA_SYNC_TES
       assert.equal(duplicates[0].attachmentId, duplicates[1].attachmentId);
       await assert.rejects(second.stageAttachment({ ...input('same'), sha256: 'b'.repeat(64) }), { code: 'AI_IDEMPOTENCY_CONFLICT' });
       const record = duplicates[0];
+      assert.equal(record.parseStatus, 'not_parsed');
+      assert.equal(record.errorCode, 'AI_ATTACHMENT_NOT_PARSED');
+      assert.equal(record.parserVersion, null);
+      assert.equal(record.parsedTextHash, null);
+      assert.equal(record.imageMetadata, null);
+      assert.deepEqual(record.segments, []);
       const patch = { storageStatus: 'removed', parseStatus: 'failed', removedAt: new Date().toISOString(),
         cleanupStatus: 'pending', errorCode: 'AI_ATTACHMENT_REMOVED', segments: [], parsedTextHash: null, imageMetadata: null, parserVersion: null };
       const writes = await Promise.allSettled([first.updateAttachment({ ownerId, attachmentId: record.attachmentId,

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createPersistentAppContext } from '../src/app.factory.js';
 import { createServer } from '../src/server.js';
 import { createEmptyAiState, validateAiState } from '../src/modules/ai/record-state.js';
-import { png } from './fixtures/conversation-attachment-parsers/synthetic.mjs';
+const png = () => Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==', 'base64');
 
 async function withServer(run) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-conversation-attachment-http-'));
@@ -39,17 +39,19 @@ export const aiConversationAttachmentHttpTests = [
       assert.throws(() => validateAiState(old));
     }
   } },
-  { name: '对话附件HTTP保存解析预览/版本删除，普通聊天与导出不携带原文', run: () => withServer(async ({ context, root, call, conversation }) => {
+  { name: '对话附件HTTP保存未解析信息/版本删除，普通聊天与导出不携带原文', run: () => withServer(async ({ context, root, call, conversation }) => {
     const text = '# 对话独有附件秘密\n附件正文 😀';
     const input = { uploadKey: 'http-upload-0001', fileName: '资料.md', mimeType: 'text/markdown', contentBase64: Buffer.from(text).toString('base64') };
     assert.equal((await call('/attachments', input, 'POST', '0')).response.status, 403);
     const uploaded = await call('/attachments', input);
     assert.equal(uploaded.response.status, 201);
     const attachment = uploaded.payload.data.attachment;
-    assert.equal(attachment.parseStatus, 'ready'); assert(!Object.hasOwn(attachment, 'segments'));
+    assert.equal(attachment.parseStatus, 'not_parsed'); assert.equal(attachment.errorCode, 'AI_ATTACHMENT_NOT_PARSED'); assert(!Object.hasOwn(attachment, 'segments'));
     assert(!Object.hasOwn(attachment, 'ownerId')); assert(!Object.hasOwn(attachment, 'uploadKey'));
     const preview = await call(`/attachments/${attachment.attachmentId}/preview`);
-    assert.equal(preview.payload.data.segments.map(row => row.text).join(''), text);
+    assert.deepEqual(preview.payload.data.segments, []); assert.equal(preview.payload.data.imageMetadata, null);
+    assert(!JSON.stringify(preview.payload).includes(text));
+    assert.equal((await fetch(`${root}/attachments/${attachment.attachmentId}/content`)).status, 422);
     assert.equal((await call('/attachments', input)).payload.data.attachment.attachmentId, attachment.attachmentId);
     assert.equal((await call('/attachments', { ...input, contentBase64: Buffer.from('不同内容').toString('base64') })).response.status, 409);
     assert.equal((await call(`/attachments/${attachment.attachmentId}`, { expectedRevision: attachment.revision - 1 }, 'DELETE')).response.status, 409);
@@ -62,23 +64,20 @@ export const aiConversationAttachmentHttpTests = [
     assert.equal((await fetch(`${root}/attachments/${attachment.attachmentId}/preview`)).status, 410);
     assert.equal((await call(`/attachments/${attachment.attachmentId}`, { expectedRevision: attachment.revision }, 'DELETE')).response.status, 200);
   }) },
-  { name: '对话附件HTTP图片只预览/不理解，拒绝伪格式、超量字段及附件模型输入', run: () => withServer(async ({ root, call }) => {
+  { name: '对话附件HTTP图片原字节只预览/不解析，拒绝超量字段及附件模型输入', run: () => withServer(async ({ root, call }) => {
     const uploaded = await call('/attachments', { uploadKey: 'http-image-0001', fileName: '合成.png', mimeType: 'image/png', contentBase64: png().toString('base64') });
     assert.equal(uploaded.response.status, 201); const attachment = uploaded.payload.data.attachment;
-    assert.equal(attachment.parseStatus, 'vision_unsupported');
+    assert.equal(attachment.parseStatus, 'not_parsed'); assert.equal(attachment.imageMetadata, null);
     const content = await fetch(`${root}/attachments/${attachment.attachmentId}/content`);
     assert.equal(content.status, 200); assert.equal(content.headers.get('content-type'), 'image/png');
     assert.equal(content.headers.get('cache-control'), 'no-store'); assert.equal(content.headers.get('x-content-type-options'), 'nosniff');
     assert.deepEqual(Buffer.from(await content.arrayBuffer()), png());
-    const invalid = await call('/attachments', { uploadKey: 'http-image-0002', fileName: '伪装.png', mimeType: 'image/png', contentBase64: Buffer.from('<svg>fake</svg>').toString('base64') });
-    assert.equal(invalid.payload.data.attachment.parseStatus, 'failed');
-    assert.equal((await fetch(`${root}/attachments/${invalid.payload.data.attachment.attachmentId}/content`)).status, 422);
     assert.equal((await call('/messages', { content: '理解图片', idempotencyKey: 'http-message-0002', execute: true, attachmentIds: [attachment.attachmentId] })).response.status, 422);
     assert.equal((await call('/attachments', { ownerId: 'other', contentBase64: 'AAAA' })).response.status, 422);
     assert.equal((await call('/attachments', { contentBase64: 'AAA=' })).response.status, 422);
     // 5MB边界不使用分组重复的Base64正则，避免合法大上传触发调用栈溢出。
     const large = await call('/attachments', { uploadKey: 'http-limit-0001', fileName: '大文本.txt', mimeType: 'text/plain', contentBase64: Buffer.alloc(5 * 1024 * 1024, 65).toString('base64') });
-    assert.equal(large.response.status, 201); assert.equal(large.payload.data.attachment.parseStatus, 'failed');
-    assert.equal(large.payload.data.attachment.errorCode, 'AI_ATTACHMENT_TEXT_LIMIT');
+    assert.equal(large.response.status, 201); assert.equal(large.payload.data.attachment.parseStatus, 'not_parsed');
+    assert.equal(large.payload.data.attachment.errorCode, 'AI_ATTACHMENT_NOT_PARSED');
   }) }
 ];

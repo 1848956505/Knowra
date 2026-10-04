@@ -1,5 +1,4 @@
 import { aiAssistantAutonomyTests } from './ai-assistant-autonomy.test.js';
-import { aiConversationAttachmentParserTests } from './ai-conversation-attachment-parser.test.js';
 import { aiConversationAttachmentHttpTests } from './ai-conversation-attachment-http.test.js';
 import { aiConversationAttachmentTests } from './ai-conversation-attachments.test.js';
 import { aiConversationAttachmentPostgresTests } from './ai-conversation-attachments-postgres.test.js';
@@ -102,7 +101,6 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
-  ...aiConversationAttachmentParserTests,
   ...aiConversationAttachmentHttpTests,
   ...aiConversationAttachmentTests,
   ...aiConversationAttachmentPostgresTests,

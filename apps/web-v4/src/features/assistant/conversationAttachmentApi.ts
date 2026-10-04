@@ -11,7 +11,11 @@ export const conversationAttachmentApi: ConversationAttachmentApi = {
   upload: async (id, input) => (await data<{ attachment: ConversationAttachment }>(path(id), {
     method: 'POST', headers, body: JSON.stringify(input)
   })).attachment,
-  preview: (id, attachmentId) => data<ConversationAttachmentPreview>(`${path(id, attachmentId)}/preview`),
+  preview: async (id, attachmentId) => {
+    const detail = await data<ConversationAttachmentPreview>(`${path(id, attachmentId)}/preview`);
+    // This batch exposes attachment information only, including for older stored records.
+    return { ...detail, segments: [], imageMetadata: null };
+  },
   content: async (id, attachmentId) => {
     const response = await fetch(`${path(id, attachmentId)}/content`, { cache: 'no-store', credentials: 'same-origin' });
     if (!response.ok) {

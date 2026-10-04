@@ -8,7 +8,7 @@ const publicAttachment = record => {
   return result;
 };
 
-/** 附件正文只在显式预览中返回；不进入消息、业务导出或模型请求。 */
+/** 文档只返回附件信息；图片原字节仅供显式本地预览，不解析或发送模型。 */
 export async function handleConversationAttachmentRoute({ request, response, url, attachments }) {
   if (!url.pathname.startsWith(root)) return false;
   const parts = url.pathname.slice(root.length).split('/');
@@ -27,13 +27,13 @@ export async function handleConversationAttachmentRoute({ request, response, url
     if (request.method === 'GET' && parts.length === 4 && ['preview', 'content'].includes(operation)) {
       const result = await attachments.readVerified({ conversationId, attachmentId });
       if (operation === 'content') {
-        if (result.record.parseStatus !== 'vision_unsupported' || !result.record.imageMetadata) {
+        if (!['image/png', 'image/jpeg'].includes(result.record.mimeType)) {
           throw createAppError('AI_ATTACHMENT_PREVIEW_UNSUPPORTED', '此附件不能作为图片预览。', 422);
         }
         sendBinary(response, 200, result.bytes, result.record.mimeType, result.record.fileName);
       } else {
         sendJson(response, 200, { data: { attachment: publicAttachment(result.record),
-          segments: result.segments, imageMetadata: result.record.imageMetadata } });
+          segments: [], imageMetadata: null } });
       }
       return true;
     }
@@ -71,7 +71,7 @@ export async function handleConversationAttachmentRoute({ request, response, url
       const status = ['AI_ATTACHMENT_NOT_FOUND', 'AI_CONVERSATION_NOT_FOUND'].includes(error.code) ? 404
         : ['AI_DATASET_STALE', 'AI_IDEMPOTENCY_CONFLICT', 'AI_ATTACHMENT_CONFLICT', 'AI_ATTACHMENT_REMOVED'].includes(error.code) ? 409
           : ['AI_SCOPE_FORBIDDEN'].includes(error.code) ? 403
-            : ['AI_ATTACHMENT_UNAVAILABLE', 'AI_RUNTIME_CLOSED', 'AI_ATTACHMENT_ISOLATION_UNAVAILABLE'].includes(error.code) ? 503 : 422;
+            : ['AI_ATTACHMENT_UNAVAILABLE', 'AI_RUNTIME_CLOSED'].includes(error.code) ? 503 : 422;
       throw createAppError(error.code, error.message, status);
     }
     throw error;

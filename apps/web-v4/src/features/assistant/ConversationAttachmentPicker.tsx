@@ -7,7 +7,7 @@ import styles from './ConversationAttachmentPicker.module.css';
 export interface ConversationAttachment {
   attachmentId: string; conversationId: string; revision: number; fileName: string; mimeType: string; size: number;
   sha256: string; storageStatus: 'pending' | 'ready' | 'missing' | 'removed';
-  parseStatus: 'pending' | 'ready' | 'failed' | 'vision_unsupported'; errorCode: string | null;
+  parseStatus: 'not_parsed' | 'failed'; errorCode: string | null;
   parserVersion: string | null; parsedTextHash: string | null; imageMetadata: ImageMetadata | null;
   removedAt: string | null; createdAt: string; updatedAt: string;
 }
@@ -27,26 +27,22 @@ const accepted = '.txt,.md,.markdown,.pdf,.docx,.png,.jpg,.jpeg';
 const types: Record<string, string> = { txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown', pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
 const maxBytes = 5 * 1024 * 1024;
-function parseErrorText(code: string | null) {
+function attachmentErrorText(code: string | null) {
   if (code === 'AI_ATTACHMENT_CONFLICT') return '附件版本已变化，请刷新附件后重试。';
   if (code === 'AI_ATTACHMENT_SCOPE_FORBIDDEN') return '无权访问当前对话附件。';
   if (code === 'AI_ATTACHMENT_REMOVED' || code === 'AI_ATTACHMENT_NOT_FOUND') return '附件已移除或不存在，请刷新附件列表。';
   if (code === 'AI_ATTACHMENT_STORAGE_INVALID') return '附件完整性校验失败，请移除后重新上传。';
-  if (code === 'AI_ATTACHMENT_UPLOAD_INVALID') return '附件格式或大小无效，请检查文件后重新上传。';
-  if (code === 'AI_ATTACHMENT_ENCRYPTED') return '文件已加密，请解密后重新上传。';
-  if (code === 'AI_ATTACHMENT_PDF_NO_TEXT_LAYER') return 'PDF 没有可提取的文字层，当前尚不支持 OCR。';
-  if (code === 'AI_ATTACHMENT_NO_TEXT') return '未找到可提取的文字，请检查文件内容。';
-  if (code === 'AI_ATTACHMENT_IMAGE_INVALID') return '图片格式无效或已损坏，请检查后重新上传。';
+  if (code === 'AI_ATTACHMENT_FILE_MISSING') return '附件内容缺失，请移除后重新上传。';
+  if (code === 'AI_ATTACHMENT_UPLOAD_INVALID') return '附件类型或大小无效，请检查文件后重新上传。';
   if (code === 'AI_ATTACHMENT_DOC_UNSUPPORTED') return '旧版 DOC 暂不支持，请另存为 DOCX 后上传。';
-  if (code?.endsWith('_LIMIT')) return '文件内容超过当前解析上限，请减少内容后重新上传。';
-  if (code === 'AI_ATTACHMENT_PARSE_TIMEOUT') return '文件解析超时，请减少内容或稍后重试。';
-  if (code && /UNAVAILABLE|PARSER_BUSY|NETWORK_FORBIDDEN/.test(code)) return '当前附件解析服务不可用，请稍后重试。';
-  if (code && /INVALID|MISMATCH|BINARY_TEXT/.test(code)) return '文件格式不正确或内容已损坏，请检查后重新上传。';
-  return '附件解析失败，请检查文件后重新上传。';
+  if (code?.endsWith('_LIMIT')) return '附件数量或大小超过当前上限，请移除部分附件后重试。';
+  return '附件操作失败，请重试。';
 }
+const unparsedNotice = '未解析，不能用于附件问答；尚未发送给 AI。';
+const isImage = (mimeType: string) => ['image/png', 'image/jpeg'].includes(mimeType);
 const errorText = (cause: unknown) => {
   const code = cause && typeof cause === 'object' && 'code' in cause ? cause.code : null;
-  return typeof code === 'string' && code.startsWith('AI_ATTACHMENT_') ? parseErrorText(code)
+  return typeof code === 'string' && code.startsWith('AI_ATTACHMENT_') ? attachmentErrorText(code)
     : cause instanceof Error ? cause.message : '附件操作失败，请重试。';
 };
 interface UploadTask { file: File; uploadKey: string; conversationId: string | null; mimeType: string; error: string | null; valid: boolean; contentBase64?: string }
@@ -138,7 +134,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   }
   return <section className={styles.picker} aria-label="对话附件" tabIndex={0} onPaste={paste}>
     <details><summary>附件（{attachments.length}）</summary>
-      <p>已保存到此对话的附件尚未发送给 AI。</p>
+      <p>附件仅保存到此对话。{unparsedNotice}</p>
       <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"
         description="TXT、Markdown、PDF、DOCX、PNG、JPEG；单个最多 5 MB。可在此附件区域粘贴 PNG 或 JPEG。"
         onSelect={files => { if (files[0]) select(files[0]); }} />
@@ -154,15 +150,14 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
       </div> : null}
       {attachments.map(attachment => <div className={styles.row} key={attachment.attachmentId}>
         <div><strong>{attachment.fileName}</strong><p>{attachment.storageStatus === 'ready' ? '已保存到此对话；尚未发送给 AI' : '附件内容尚未就绪；尚未发送给 AI'}</p>
-          {attachment.parseStatus === 'failed' ? <p>{parseErrorText(attachment.errorCode)}</p>
-            : attachment.parseStatus === 'vision_unsupported' || attachment.mimeType.startsWith('image/') ? <p>当前模型尚不支持图片理解。</p>
-              : attachment.parseStatus === 'pending' ? <p>文档尚未完成解析。</p> : null}
+          <p>{unparsedNotice}</p>
+          {isImage(attachment.mimeType) ? <p>当前模型尚不支持图片理解。</p> : null}
           {attachment.storageStatus === 'missing' ? <p>附件内容缺失，请移除后重新上传。</p> : null}
         </div>
-        <div className={styles.actions}><Button variant="default" size="compact" isDisabled={busy || attachment.storageStatus !== 'ready' || attachment.parseStatus === 'failed'} onPress={() => void perform(async (id, assertCurrent) => {
+        <div className={styles.actions}><Button variant="default" size="compact" isDisabled={busy || attachment.storageStatus !== 'ready'} onPress={() => void perform(async (id, assertCurrent) => {
           const detail = await api.preview(id, attachment.attachmentId); assertCurrent();
           let url: string | undefined;
-          if (attachment.mimeType.startsWith('image/')) { const blob = await api.content(id, attachment.attachmentId); assertCurrent(); url = URL.createObjectURL(blob); }
+          if (isImage(attachment.mimeType)) { const blob = await api.content(id, attachment.attachmentId); assertCurrent(); url = URL.createObjectURL(blob); }
           setPreview({ attachmentId: attachment.attachmentId, detail, url });
         })}>预览 {attachment.fileName}</Button>
           <Button variant="ghost" size="compact" isDisabled={loading || busy} onPress={() => void perform(async (id, assertCurrent) => {
@@ -177,8 +172,10 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
           if (previewRef.current?.url !== preview.url) return;
           setError('图片内容无法显示，可能已损坏。请检查文件后重新上传。'); setPreview(null);
         }} />
-          : preview.detail.segments.map((segment, index) => <pre key={index}>{segment.page ? `第 ${segment.page} 页\n` : ''}{segment.text}</pre>)}
-        {preview.detail.imageMetadata ? <p>{preview.detail.imageMetadata.width} × {preview.detail.imageMetadata.height} · 当前模型尚不支持图片理解。</p> : null}
+          : <p>仅显示附件信息，当前不提供文档正文预览。</p>}
+        <p>{preview.detail.attachment.mimeType} · {preview.detail.attachment.size} 字节</p>
+        <p>{unparsedNotice}</p>
+        {preview.url ? <p>当前模型尚不支持图片理解。</p> : null}
         <Button variant="ghost" size="compact" onPress={() => setPreview(null)}>关闭附件预览</Button>
       </section> : null}
     </details>
