@@ -25,6 +25,8 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(1);
     await picker.getByRole('button', { name: '预览 合成资料.txt', exact: true }).click();
     await expect(picker.getByText('仅显示附件信息，当前不提供文档正文预览。', { exact: true })).toBeVisible();
+    if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR){await page.setViewportSize({width:1487,height:1058});
+      await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/attachment-saved-unparsed-desktop.png`});}
     await expect(picker.getByText('附件合成文本，尚未传入模型。', { exact: true })).toHaveCount(0);
     const conversationId = new URLSearchParams(page.url().split('?')[1]).get('conversationId'); assert(conversationId);
     const stored = (await (await page.request.get(`${fixture.origin}/api/ai/conversations/${conversationId}/attachments`, { headers })).json()).data.attachments;
@@ -42,8 +44,8 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '旧版资料.doc', mimeType: 'application/msword', buffer: Buffer.from('unsupported') });
     await expect(picker.getByRole('alert')).toContainText('旧版 DOC 暂不支持');
     await picker.getByRole('button', { name: '移除待上传文件', exact: true }).click();
-    await picker.focus();
-    await picker.evaluate((element, bytes) => {
+    const messageBox=page.getByRole('textbox',{name:'消息',exact:true});await messageBox.focus();
+    await messageBox.evaluate((element, bytes) => {
       const transfer = new DataTransfer(); transfer.items.add(new File([new Uint8Array(bytes)], 'clipboard.png', { type: 'image/png' }));
       element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }));
     }, Array.from(png));
@@ -52,6 +54,7 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await picker.getByRole('button', { name: '预览 粘贴图片.png', exact: true }).click();
     await expect(picker.getByRole('img')).toBeVisible();
     await expect.poll(() => picker.getByRole('img').evaluate(image => image.naturalWidth)).toBe(1);
+    if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/attachment-image-preview-desktop.png`});
     let loseUploadResponse = true; const retriedUploads = [];
     await page.route('**/api/ai/conversations/*/attachments', async route => {
       if (route.request().method() !== 'POST') return route.continue();

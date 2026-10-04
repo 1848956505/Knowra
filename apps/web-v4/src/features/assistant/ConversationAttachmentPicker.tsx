@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
 import { FileDropField } from '../../components/ui/file/FileDropField';
 import { conversationAttachmentApi } from './conversationAttachmentApi';
@@ -60,6 +60,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   const currentConversation = useRef(conversationId); currentConversation.current = conversationId;
   const previousConversation = useRef(conversationId);
   const uploadTask = useRef<UploadTask | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const mounted = useRef(true);
   const generation = useRef(0);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
@@ -108,6 +109,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   }
   function select(file: File) {
     if (busy || uploadTask.current) return;
+    detailsRef.current?.setAttribute('open', '');
     const extension = file.name.split('.').at(-1)?.toLowerCase() ?? '';
     const mimeType = types[extension];
     const validation = !mimeType ? extension === 'doc' ? '旧版 DOC 暂不支持，请另存为 DOCX 后上传。' : '不支持此文件类型，请选择 TXT、Markdown、PDF、DOCX、PNG 或 JPEG。'
@@ -116,14 +118,19 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     uploadTask.current = task; setUpload(task); setError(validation);
     if (task.valid) void sendFile(task);
   }
-  function paste(event: ClipboardEvent<HTMLElement>) {
-    const image = Array.from(event.clipboardData.items).find(item => item.kind === 'file' && ['image/png', 'image/jpeg'].includes(item.type));
+  function paste(event: ClipboardEvent) {
+    if (!(event.target instanceof Element) || !event.target.closest('[data-conversation-composer], [aria-label="对话附件"]')) return;
+    const image = Array.from(event.clipboardData?.items ?? []).find(item => item.kind === 'file' && ['image/png', 'image/jpeg'].includes(item.type));
     if (!image || loading || busy || uploadTask.current) return;
     const file = image.getAsFile(); if (!file) return;
     event.preventDefault();
     const name = `粘贴图片.${image.type === 'image/png' ? 'png' : 'jpg'}`;
     select(new File([file], name, { type: image.type }));
   }
+  useEffect(() => {
+    document.addEventListener('paste', paste);
+    return () => document.removeEventListener('paste', paste);
+  });
   async function perform(work: (id: string, assertCurrent: () => void) => Promise<void>) {
     if (!conversationId || busy) return;
     const captured = generation.current, id = conversationId; setBusy(true); setError(null);
@@ -132,11 +139,11 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     catch (cause) { if (mounted.current && generation.current === captured) setError(errorText(cause)); }
     finally { if (mounted.current && generation.current === captured) setBusy(false); }
   }
-  return <section className={styles.picker} aria-label="对话附件" tabIndex={0} onPaste={paste}>
-    <details><summary>附件（{attachments.length}）</summary>
+  return <section className={styles.picker} aria-label="对话附件" tabIndex={0}>
+    <details ref={detailsRef}><summary>附件（{attachments.length}）</summary><div className={styles.popover}>
       <p>附件仅保存到此对话。{unparsedNotice}</p>
       <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"
-        description="TXT、Markdown、PDF、DOCX、PNG、JPEG；单个最多 5 MB。可在此附件区域粘贴 PNG 或 JPEG。"
+        description="TXT、Markdown、PDF、DOCX、PNG、JPEG；单个最多 5 MB。也可在消息输入区粘贴 PNG 或 JPEG。"
         onSelect={files => { if (files[0]) select(files[0]); }} />
       {conversationId ? <Button variant="ghost" size="compact" isDisabled={loading || busy} onPress={() => void perform(async (id, assertCurrent) => {
         const rows = await api.list(id); assertCurrent(); setAttachments(rows.filter(row => row.storageStatus !== 'removed'));
@@ -178,7 +185,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
         {preview.url ? <p>当前模型尚不支持图片理解。</p> : null}
         <Button variant="ghost" size="compact" onPress={() => setPreview(null)}>关闭附件预览</Button>
       </section> : null}
-    </details>
+    </div></details>
   </section>;
 }
 

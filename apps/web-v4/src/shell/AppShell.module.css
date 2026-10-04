@@ -214,6 +214,10 @@
     grid-template-rows: minmax(0, 1fr) var(--status-size) var(--mobile-tabs-size);
   }
 
+  .focusShell {
+    grid-template-rows: minmax(0, 1fr) var(--status-size);
+  }
+
   .shellWithSidebar {
     grid-template-columns: minmax(0, 1fr);
   }

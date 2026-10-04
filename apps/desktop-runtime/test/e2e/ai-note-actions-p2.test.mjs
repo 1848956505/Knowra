@@ -11,7 +11,13 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   await page.goto(fixture.launchUrl);const headers=driver==='sqlite'?{'X-Knowra-Dataset':(await fixture.store.identity()).datasetId}:{};
   const post=async(path,data)=>{const result=await page.request.post(fixture.origin+path,{headers,data});assert(result.ok(),await result.text());return(await result.json()).data;};
   const space=await post('/api/knowledge/spaces/default',{});await page.goto(`${fixture.origin}/#/assistant?new=1`);
+  const executionLabel=driver==='sqlite'?'本机执行':'服务器执行';
+  if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR){await page.setViewportSize({width:1487,height:1058});
+    await expect(page.getByRole('heading',{name:'今天想聊些什么？'})).toBeVisible();
+    await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/welcome-desktop.png`});}
+  await page.getByText(executionLabel, { exact: true }).click();
   await expect(page.getByText('离线模拟响应，未调用真实供应商。')).toBeVisible();
+  await page.getByText(executionLabel, { exact: true }).click();
   await expect(page.getByRole('button',{name:/本轮用途/})).toHaveCount(0);
   await page.getByRole('textbox',{name:'消息',exact:true}).fill('生成合成笔记');await page.getByRole('button',{name:'发送消息',exact:true}).click();
   await expect(page.getByText('已生成待审成果。请在 AI 成果收件箱继续修改或确认采纳。',{exact:true})).toBeVisible({timeout:15000});
@@ -20,14 +26,42 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   const notesBefore=(await(await page.request.get(`${fixture.origin}/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}`,{headers})).json()).data;assert.equal(notesBefore.length,0);
   await page.getByRole('button',{name:'AI 成果收件箱',exact:true}).click();
   const inbox=page.getByRole('complementary',{name:'AI 成果收件箱',exact:true});await inbox.getByRole('button',{name:'审阅成果',exact:true}).click();
+  await expect(inbox.getByRole('heading',{name:'合成 AI 记录',exact:true})).toBeVisible();
+  await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
   await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
+  if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-desktop.png`});
   assert.equal(await page.getByRole('dialog',{name:'AI 成果收件箱',exact:true}).count(),0);
-  await page.setViewportSize({width:390,height:843});await expect(inbox).toBeVisible();await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeHidden();
-  await page.setViewportSize({width:1280,height:720});await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
-  let lost=true;await page.route('**/api/ai/actions/*/apply',async route=>{const response=await route.fetch();if(lost){lost=false;await route.abort();}else await route.fulfill({response});});
-  await inbox.getByRole('button',{name:'确认采纳到笔记',exact:true}).click();await expect(inbox.getByRole('alert')).toBeVisible();
-  await inbox.getByRole('button',{name:'查询成果状态',exact:true}).click();await expect(inbox.getByRole('button',{name:'打开正式笔记',exact:true})).toBeVisible();
+  await page.setViewportSize({width:390,height:843});await expect(inbox).toBeVisible();await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeHidden();
+  if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-390.png`});
+  await page.setViewportSize({width:320,height:740});await expect(inbox).toBeVisible();await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
+  if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-320.png`});
+  if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR){
+    await inbox.getByText('更多成果操作',{exact:true}).click();await inbox.getByRole('button',{name:'编辑新稿',exact:true}).click();
+    const longText='# 合成内容\n\n'+Array.from({length:28},(_,index)=>`第 ${index+1} 段仅用于验证长正文滚动。`).join('\n\n');
+    await inbox.getByRole('textbox',{name:'成果正文'}).fill(longText);await inbox.getByRole('button',{name:'保存修订预览'}).click();
+    await expect(inbox.getByText('第 28 段仅用于验证长正文滚动。')).toBeVisible();
+    const sizes=await inbox.evaluate(element=>({height:element.clientHeight,scroll:element.querySelector('[data-ai-inbox-scroll]')?.scrollHeight,viewport:element.querySelector('[data-ai-inbox-scroll]')?.clientHeight}));
+    assert(sizes.scroll>sizes.viewport,JSON.stringify(sizes));
+    await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
+    await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-long-320.png`});
+    await page.setViewportSize({width:390,height:843});await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
+    await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-long-390.png`});
+  }
+  await page.setViewportSize({width:1280,height:720});await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
+  let lost=true,applyRequests=0;await page.route('**/api/ai/actions/*/apply',async route=>{applyRequests++;const response=await route.fetch();if(lost){lost=false;await route.abort();}else await route.fulfill({response});});
+  await inbox.getByRole('button',{name:'确认采纳到笔记',exact:true}).click();
+  await expect.poll(()=>applyRequests).toBe(1);
+  await expect.poll(async()=>{
+    const result=await page.request.get(`${fixture.origin}/api/ai/actions/${action.actionId}`,{headers});
+    assert(result.ok(),await result.text());return(await result.json()).data.status;
+  }).toBe('applied');
+  await expect.poll(()=>lost).toBe(false);
+  const notesAfterLostResponse=(await(await page.request.get(`${fixture.origin}/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}`,{headers})).json()).data;
+  assert.equal(notesAfterLostResponse.length,1,'丢失响应后仅保存原成果一次');
+  assert.equal(applyRequests,1,'只读收件箱对账不得重发采纳请求');
+  await inbox.getByText('更多成果操作',{exact:true}).click();await inbox.getByRole('button',{name:'查询成果状态',exact:true}).click();await expect(inbox.getByRole('button',{name:'打开正式笔记',exact:true})).toBeVisible();
   await inbox.getByRole('button',{name:'关闭成果',exact:true}).click();
+  await page.getByText(executionLabel, { exact: true }).click();await page.getByRole('button',{name:'执行记录',exact:true}).click();
   await page.getByText('执行记录（1）',{exact:true}).click();await page.getByRole('button',{name:'查看计划与结果',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'笔记变更预览',exact:true});await dialog.getByRole('button',{name:'查询执行结果',exact:true}).click();await expect(dialog.getByText('已保存',{exact:true})).toBeVisible();
   await dialog.getByRole('button',{name:'预览撤销',exact:true}).click();await expect(dialog.getByText('合成 AI 记录 · 移入回收站',{exact:true})).toBeVisible();
@@ -47,6 +81,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   const append=await page.request.post(`${fixture.origin}/api/ai/actions`,{headers:writeHeaders,data:{spaceId:space.id,requestId:'p2-draft-check',toolName:'notes_append',arguments:{noteId:saved.id,rawMarkdown:'不能覆盖草稿'}}});const planned=(await append.json()).data;
   await page.request.post(`${fixture.origin}/api/ai/actions/${planned.actionId}/approve`,{headers:writeHeaders,data:{planHash:planned.plan.planHash}});
   const denied=await page.request.post(`${fixture.origin}/api/ai/actions/${planned.actionId}/apply`,{headers:writeHeaders,data:{}});assert.equal(denied.status(),409);assert.equal((await denied.json()).error.code,'AI_ACTION_DRAFT_CONFLICT');
-  await page.reload();await expect(page.getByText('执行记录（3）',{exact:true})).toBeVisible();assert.deepEqual(errors,[]);
+  await page.reload();await page.getByText(executionLabel, { exact: true }).click();await page.getByRole('button',{name:'执行记录',exact:true}).click();
+  await expect(page.getByText('执行记录（3）',{exact:true})).toBeVisible();assert.deepEqual(errors,[]);
   }, () => inspectR07FixtureState(fixture));
 });

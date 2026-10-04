@@ -1,16 +1,39 @@
 # AI 完整页视觉实现验收
 
-日期：2026-10-04。
+日期：2026-10-04。范围为已批准的空白聊天、引用回答与附件、左聊右审三态；数据均为合成数据。
 
-用户已批准同一设计的空白聊天、引用回答与附件预览、左聊右审三种状态；完整页优先，不增加笔记侧栏。
+原图由当前 Library 官方助手落地至本任务外部 `reference-images/`，逐张读取的 PNG 分别为 1487×1058：`image(20261004-113018).png`、`image(20261004-113020).png`、`image(20261004-113021).png`。三图属于同一视觉系统，实际功能以现有授权、成果审批和附件未解析契约为准。
 
-- source visual truth：Library 中 Knowra-empty-chat-concept.png、Knowra-cited-answer-concept.png、Knowra-artifact-review-concept.png。三项已成功解析元数据，但当前云执行环境的官方传输均失败；图片读取明确返回 `Native image pixels were unavailable; returned extracted text only.`。
-- implementation screenshot：本批尚未开始对照视觉实现，无相同状态截图。
-- viewport / pixel dimensions / density：图片像素尚不可读，不能测量或虚构尺寸。
-- state：三态概念图是同一视觉系统，文字与数据为合成参考，真实功能仍以当前契约为准。
-- full-view comparison / focused comparison：源图像素不可用，尚不能比较。
-- comparison history：先执行当前 Library 技能的 resolved-reference materialization；三文件下载失败，明确网络访问重试仍失败；备用图片读取仅有文字。未以 OCR 或描述冒称看图。
-- findings：P1 阻塞为原图像素访问缺失。需要在当前云环境恢复可读取原图后再实现并截图对照；功能四包仍独立修复和验收。
-- primary interactions / console errors：已有四包功能页面实际通过 JSON/SQLite 快照、宽窄成果审阅、丢响应对账、撤销恢复、隐私和草稿冲突；这不是已批准视觉的验收。
+桌面合成截图的 Playwright 页面设置为 1487×1058 CSS 像素，输出 PNG 逐张核对亦为 1487×1058 像素，此次有效 DPR 为 1。已逐张查看源图和实现图，并列证据为 `../ui-evidence/welcome-comparison.png`、`citation-comparison.png`、`review-comparison.png`；输入与操作区域另有 `../ui-evidence/welcome-controls-comparison.png`、`citation-controls-comparison.png`、`review-controls-comparison.png`。这些图便于核对方向，不代表逐像素克隆。
 
-final result: blocked
+| 维度 | 源图与实现核对 |
+| --- | --- |
+| 字体 | 保留欢迎标题、回答小标题、成果大标题的阅读层级；实现沿用 V4 字体与字重 token，字面尺寸与参考稿略有差异。 |
+| 布局 | 三态均沿用左历史、中央对话/输入、右成果的构图；成果宽屏并列，窄屏独占。实现保留应用标题栏与状态栏，右审阅宽度随容器响应。 |
+| 颜色 | 亮蓝色用于品牌、新对话、发送和采纳；浅色背景、柔和蓝色选中态与深色正文沿用现有 token。 |
+| 资产 | 书本与星点使用仓库已有图标；没有生成或引入参考图的光泽图标、头像等新资产。 |
+| 文案 | 参考的概率公式与笔记是概念内容；实现截图使用真实合成笔记/ledger、可核对来源和未解析附件告知，不伪造联网或图片理解。 |
+
+本地浏览器对照图位于工作树外的 `../ui-evidence/`，不提交原图或合成运行数据：
+
+| 状态 | 截图 | 核对 |
+| --- | --- | --- |
+| 空白聊天 | `welcome-desktop.png` | 独立历史栏、居中引导和底部自然语言输入；笔记目录不叠加。 |
+| 笔记引用回答 | `cited-answer-desktop.png`、`cited-answer-attachment-desktop.png` | 合成授权笔记的实际来源按钮可见且定位历史原文；附件已实际保存，仍标明未解析且未发送给 AI。 |
+| 左聊右审 | `review-desktop.png`、`review-390.png`、`review-320.png` | 宽屏对话与成果同时可交互；新稿以标题与可读正文为主，采纳需明确点击；窄屏审阅占满工作区。 |
+| 长稿窄屏 | `review-long-390.png`、`review-long-320.png` | 28 段合成正文在独立区域滚动，底部成果操作始终可见。 |
+| 附件信息与图片预览 | `attachment-saved-unparsed-desktop.png`、`attachment-image-preview-desktop.png` | 实际保存的合成附件只展示信息；PNG 预览不冒称图片理解。 |
+
+重点交互由合成浏览器场景覆盖：自然聊天、授权引用、成果卡片审阅、采纳响应丢失后查询原成果、取消与恢复、会话和空间切换、附件粘贴与移除。UI 单测覆盖旧轮成果与当前会话不匹配时禁止误改、空标题 Markdown 渲染、并发及晚到响应。来源与执行记录按需展开，预算和模型状态从次级入口可达。
+
+首个固定提交独立审查发现三项生命周期问题：关闭再开曾保留旧稿却放开发送，同一 action 的成功续改后曾误禁下一轮，收件箱刷新后选中稿曾仍显示旧 plan。后续修复以当前会话最后助手轮次的最后成功成果工具 actionId 为目标，且要求可续改状态、原始轮次在本会话、原稿或可信修订事件对应当前轮次；关闭与外部关闭均清选。远端新 plan 同步选中稿，编辑期间保留本地文字并提示明确放弃后查看最新版。生产构建的合成浏览器专项 `../reviewfix-browser-2.log` 验证关闭/受控关闭重开，以及 A 建稿→B 同 action 续改→右侧新正文→C 实际提交，2/2 通过；定向单测 63/63 通过，覆盖跨会话、其他 action、已采纳/撤销、晚到响应与编辑保留。P2 JSON 合成页面 `../reviewfix-p2-json-3.log` 通过：首个采纳响应丢失后，原 action 为已采纳、正式笔记仅一份，采纳请求恰好一次，收件箱自动通过只读查询对账。旧审查与首次失败日志保留在工作树外。
+
+对照中发现并修复窄屏多余网格行导致的审阅面板只占半屏，以及编辑菜单遮挡正文保存按钮。原截图缺失的旧阻塞记录属于上一执行环境；本任务已读取像素并完成三态对照。Mac 本机初次附件浏览器运行因 `/var/folders` 为符号链接触发既有安全目录校验 503；仅将测试 `TMPDIR` 指向同目录的物理路径 `/private/var/folders/.../T` 后，JSON/SQLite 页面通过，产品校验未更改。失败日志保留在工作树外。
+
+第二轮固定提交审查确认三项产品问题已修复，另发现一处单测仍匹配旧警告文案，导致该固定 HEAD 的审查套件 32/33；本次只将测试断言对齐实际的“右侧选稿不会改变实际目标”，保留旧稿禁发、无 POST、关闭重开清选等断言。提交后精确 HEAD 的重跑日志保存在工作树外 `../unit-postcommit-<HEAD短号>.log`。
+
+随后 `26065b7` 的 push CI 在 PostgreSQL P2 页面 65/66 处超时：收件箱最终显示待审列表、无采纳请求，测试却在点击“审阅成果”后只等待原本始终可见的聊天输入框，未观察选稿是否进入预览。诊断保留于 `../ci-26065b7-push-failed.log`、`../ci-26065b7-push-failure-diagnostics.json`；该证据不能单独判定点击未提交还是选中态随后被清除。本次将 P2 页面改为单次点击后明确等待同一成果标题和采纳按钮，并在 390、320、1280 宽度逐次验证；JSON/SQLite 合成页面 2/2 通过（`../selection-race-p2-json-sqlite.log`）。另以受控延迟收件箱响应验证已选预览在三次视口切换及响应完成后保持，生产构建浏览器 3/3 通过（`../selection-race-browser-3.log`）。首次受控脚本误在初始加载阶段拦住请求的失败日志亦保留，未据此改动产品逻辑。PostgreSQL 仍待新固定 HEAD 的精确 CI 复核。
+
+`166c2dd` 的 PR 与 push CI 均通过 PostgreSQL P2，但受控延迟场景等待瞬时“正在恢复成果…”提示失败（push 日志 `../ci-166c2dd-push-failed.log`），当时选中稿与采纳按钮实际可见。修正后的场景先确认初始成果卡、打开时的收件箱响应和选中稿，再由会话恢复触发明确的新刷新；日志记录拦截的请求序号。三次视口切换期间断言没有另一收件箱请求取代受控刷新，然后释放该响应并检查其新 planHash、新正文已渲染且旧正文消失，证明页面处理了这笔响应，不依赖短暂提示。合成生产构建浏览器 3/3 与加强后的受控场景连续三次通过（`../selection-race-browser-5.log`、`../selection-race-browser-stress-final.log`）；产品代码未变，精确 CI 仍待新 HEAD 验证。
+
+Final result: passed。本地视觉与交互验收无未解决 P0/P1/P2；新固定提交仍需独立复审和精确 CI 作为后续门禁。未调用真实模型、解析附件、联网搜索、用户资料或部署安装。

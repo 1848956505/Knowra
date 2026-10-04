@@ -1,5 +1,9 @@
-.picker { min-width: 0; padding: 8px 0; color: var(--ink); font-size: 12px; }
-.picker summary { cursor: pointer; }
+.picker { position: relative; min-width: 0; color: var(--ink); font-size: 12px; }
+.picker summary { padding: 8px 9px; border-radius: 8px; color: var(--ink-secondary); cursor: pointer; list-style: none; white-space: nowrap; }
+.picker summary::-webkit-details-marker { display: none; }
+.picker summary:hover { background: var(--ink-accent-soft); color: var(--ink-accent); }
+.picker summary:focus-visible { outline: 2px solid var(--ink-accent); }
+.popover { position: absolute; z-index: 7; bottom: calc(100% + 9px); left: 0; width: min(430px, calc(100vw - 36px)); max-height: min(55dvh, 440px); overflow: auto; padding: 16px; border: 1px solid var(--ink-panel); border-radius: 13px; background: var(--ink-surface); box-shadow: var(--shadow-1); }
 .picker p { margin: 6px 0; color: var(--ink-secondary); line-height: 1.5; }
 .row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--ink-panel); overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }

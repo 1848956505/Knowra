@@ -30,7 +30,10 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     const note = await post('/api/knowledge/notes', { id: randomUUID(), spaceId: space.id, title: '合成授权笔记', rawMarkdown: '光合作用需要阳光和水。' });
     await post('/api/knowledge/notes', { id: randomUUID(), spaceId: space.id, title: '范围外笔记', rawMarkdown: '范围外秘密绝不能进入模型。' });
     await page.goto(`${fixture.origin}/#/assistant?new=1&noteId=${encodeURIComponent(note.id)}`);
+    const executionLabel=driver==='sqlite'?'本机执行':'服务器执行';
+    await page.getByText(executionLabel, { exact: true }).click();
     await expect(page.getByText('离线模拟响应，未调用真实供应商。')).toBeVisible();
+    await page.getByText(executionLabel, { exact: true }).click();
     const status = (await (await page.request.get(`${fixture.origin}/api/ai/assistant/status`, { headers })).json()).data;
     assert.equal(status.provider, 'mock'); assert.equal(status.capabilities.providerVerified, false);
     const send = async message => {
@@ -56,6 +59,15 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     await expect(grant).toHaveCount(0);
     await send('根据笔记解释光合作用');
     await expect(page.getByText('合成资料回答：光合作用需要阳光和水。', { exact: true })).toBeVisible({ timeout: 15000 });
+    if (driver === 'json' && process.env.KNOWRA_UI_SCREENSHOT_DIR) {
+      await page.setViewportSize({ width: 1487, height: 1058 });
+      await page.screenshot({ path: `${process.env.KNOWRA_UI_SCREENSHOT_DIR}/cited-answer-desktop.png` });
+      const picker=page.getByRole('region',{name:'对话附件',exact:true});await picker.locator('summary').click();
+      await picker.getByLabel('添加对话附件').setInputFiles({name:'课堂练习.txt',mimeType:'text/plain',buffer:Buffer.from('合成附件，未解析。')});
+      await expect(picker.getByText('已保存到此对话；尚未发送给 AI',{exact:true})).toBeVisible();
+      await picker.locator('summary').click();
+      await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/cited-answer-attachment-desktop.png`});
+    }
     assert(!JSON.stringify(fixture.adapter.calls).includes('范围外秘密绝不能进入模型。'));
     await page.getByRole('button', { name: /^来源 1 · 合成授权笔记/ }).click();
     await expect(page.getByRole('region', { name: '引用原文定位' }).locator('mark')).toHaveText('光合作用需要阳光和水。');

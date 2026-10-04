@@ -5,6 +5,8 @@ export interface NoteAction {
   reviewRequired?: boolean; reauthorizationRequired?: boolean; revision?: number;
   datasetStale?: boolean;
   draftRetrieval?: 'excluded';
+  grant?: { originTurnId?: string; revoked?: boolean };
+  inboxEvents?: Array<{ kind: 'revise' | 'repreview'; requestId: string; originTurnId?: string; resultPlanHash: string }>;
   plan: { planHash: string; toolName: string; items: Array<{ before: Note | null; after: Note; softDelete?: boolean }> };
   receipt: null | { result: { saveState: 'localCommitted'; changes: Array<{ noteId: string }> } };
 }
