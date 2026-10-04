@@ -97,30 +97,42 @@ test('A 建稿到 B 同 action 续改，右侧显示新 plan 后继续发送 C',
 
 test('成果已选中时，延迟的收件箱刷新与窄屏切换不清除审阅预览', { timeout: 30000 }, async t => {
   const draft = action('draft-resize', 'turn-resize', '可见正文');
+  const revised = { ...draft, plan: { ...draft.plan, planHash: 'hash-after-resize', items: [{ ...draft.plan.items[0],
+    after: { ...draft.plan.items[0].after, rawMarkdown: '刷新后正文' } }] } };
   let releaseRefresh = () => {};
-  const delayedRefresh = new Promise(resolve => { releaseRefresh = () => resolve([draft]); });
+  const delayedRefresh = new Promise(resolve => { releaseRefresh = () => resolve([revised]); });
   const state = { actions: [draft], messages: [message('turn-resize', 'user', 1), message('turn-resize', 'assistant', 2)],
     turns: new Map([['turn-resize', turn('turn-resize', 'draft-resize')]]),
-    holdNext: false, held: false,
-    inboxResponse() { if (this.holdNext) { this.holdNext = false; this.held = true; return delayedRefresh; } return [draft]; },
+    holdNext: false, inboxCalls: 0, heldRequestId: 0,
+    inboxResponse() { const id = ++this.inboxCalls; if (this.holdNext) { this.holdNext = false; this.heldRequestId = id; return delayedRefresh; } return this.actions; },
     send() { throw new Error('审阅视口切换不得发送消息'); } };
   const { page, errors } = await pageWithSyntheticState(t, state);
-  state.holdNext = true;
+  await expect(page.getByRole('button', { name: '成果 draft-resize 成果草稿 · 点击审阅' })).toBeVisible();
+  const openedInbox = page.waitForResponse(response => new URL(response.url()).pathname === '/api/ai/inbox');
   await page.getByRole('button', { name: 'AI 成果收件箱' }).click();
-  await expect.poll(() => state.held).toBe(true);
+  await openedInbox;
   await page.getByRole('button', { name: '审阅成果' }).click();
   const inbox = page.getByRole('complementary', { name: 'AI 成果收件箱' });
   const draftTitle = inbox.getByRole('heading', { name: '成果 draft-resize' });
   const adopt = inbox.getByRole('button', { name: '确认采纳到笔记' });
   await expect(draftTitle).toBeVisible(); await expect(adopt).toBeVisible();
+  const beforeRefresh = state.inboxCalls;
+  state.holdNext = true;
+  state.messages = [state.messages[0], { ...state.messages[1], messageId: 'turn-resize-assistant-refreshed' }];
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect.poll(() => state.heldRequestId).toBe(beforeRefresh + 1);
+  t.diagnostic(`inbox refresh held: initial=${beforeRefresh}, held=${state.heldRequestId}`);
   for (const viewport of [{ width: 390, height: 843 }, { width: 320, height: 740 }, { width: 1280, height: 720 }]) {
     await page.setViewportSize(viewport); await expect(draftTitle).toBeVisible(); await expect(adopt).toBeVisible();
+    await expect(inbox.getByText('可见正文')).toBeVisible();
   }
-  await expect(inbox.getByText('正在恢复成果…')).toBeVisible();
+  assert.equal(state.inboxCalls, beforeRefresh + 1, '视口切换期间不得用另一次收件箱请求取代受控刷新');
   const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/ai/inbox');
   releaseRefresh();
-  await refreshed; await expect(inbox.getByText('正在恢复成果…')).toBeHidden();
+  const response = await refreshed;
+  assert.equal((await response.json()).data[0].plan.planHash, 'hash-after-resize');
+  await expect(inbox.getByText('刷新后正文')).toBeVisible();
   await expect(draftTitle).toBeVisible(); await expect(adopt).toBeVisible();
-  await expect(inbox.getByText('可见正文')).toBeVisible();
+  await expect(inbox.getByText('可见正文')).toHaveCount(0);
   assert.deepEqual(errors, []);
 });
