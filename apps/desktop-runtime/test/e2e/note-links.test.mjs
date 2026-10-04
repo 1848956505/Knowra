@@ -8,6 +8,41 @@ import { chromium, expect } from '@playwright/test';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
 import { extractNoteLinks } from '@study-accelerator/content-anchor';
 
+test('真实SQLite页面：恢复冲突来源草稿时不在不同版本中定位引用', { timeout: 45000 }, async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-link-draft-version-'));
+  const runtime = await startLocalRuntime({ dataDirectory: directory, distRoot: fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url)) });
+  const browser = await chromium.launch({ executablePath: process.env.KNOWRA_TEST_BROWSER_EXECUTABLE });
+  t.after(async () => { await browser.close(); await runtime.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  const page = await browser.newPage(); await page.goto(runtime.launchUrl);
+  const post = async (pathname, data) => {
+    const response = await page.request.post(runtime.origin + pathname, { data });
+    assert.equal(response.ok(), true, await response.text()); return (await response.json()).data;
+  };
+  const space = await post('/api/knowledge/spaces/default', {});
+  const target = await post('/api/knowledge/notes', { id: 'version-target', spaceId: space.id, title: '版本目标', rawMarkdown: '目标正文' });
+  const url = 'knowra://note/version-target#ref=ref-version-guard';
+  const remote = `Remote version [Display](${url})`;
+  const local = `Local recovered version [Display](${url})`;
+  const source = await post('/api/knowledge/notes', { id: 'version-source', spaceId: space.id, title: '版本来源', rawMarkdown: remote });
+  await page.goto(`${runtime.origin}/#/materials/notes/${target.id}`); await page.reload();
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await page.evaluate(({ spaceId, sourceId, local, url }) => {
+    sessionStorage.setItem(`knowra:note-draft:v1:${JSON.stringify([spaceId, sourceId])}`, JSON.stringify({
+      markdown: local, baseMarkdown: `Base version [Display](${url})`, baseUpdatedAt: '2020-01-01T00:00:00.000Z', conflict: '合成恢复草稿冲突'
+    }));
+  }, { spaceId: space.id, sourceId: source.id, local, url });
+  if (!await page.getByRole('tab', { name: '链接', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
+  await page.getByRole('tab', { name: '链接', exact: true }).click();
+  await page.getByRole('button', { name: 'Remote versionDisplay', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`notes/${source.id}$`));
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(page.locator('.ProseMirror')).toContainText('Local recovered version');
+  assert.notEqual(await page.evaluate(() => window.getSelection()?.toString()), 'Display');
+  await expect(page.getByText('引用位置或来源版本已变化，已打开来源笔记', { exact: true })).toBeVisible();
+  const persisted = (await (await page.request.get(`${runtime.origin}/api/knowledge/notes/${source.id}`)).json()).data;
+  assert.equal(persisted.rawMarkdown, remote);
+});
+
 test('真实页面：已移除或重复引用位置安全回退；保存冲突保留来源草稿', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-link-navigation-e2e-'));
   const runtime = await startLocalRuntime({ dataDirectory: directory, distRoot: fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url)) });
