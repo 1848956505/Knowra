@@ -29,7 +29,8 @@ async function pageWithSyntheticState(t, state) {
     if (pathname.startsWith('/api/knowledge/')) return json(route, []);
     if (pathname === '/api/ai/assistant/status') return json(route, { provider: 'mock', modelId: 'synthetic', configured: true,
       executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null, simulation: true });
-    if (pathname === '/api/ai/inbox') return json(route, state.actions);
+    if (pathname === '/api/ai/inbox') return state.inboxResponse
+      ? Promise.resolve(state.inboxResponse()).then(rows => json(route, rows)) : json(route, state.actions);
     if (pathname === '/api/ai/access-policies') return json(route, []);
     if (pathname.endsWith('/attachments')) return json(route, { attachments: [] });
     if (pathname.endsWith('/messages') && method === 'POST') return json(route, state.send(route.request().postDataJSON()));
@@ -91,5 +92,35 @@ test('A 建稿到 B 同 action 续改，右侧显示新 plan 后继续发送 C',
   await page.getByRole('button', { name: '发送消息' }).click();
   await expect.poll(() => state.sent.length).toBe(2);
   assert.equal(state.sent[0].content, '短一点'); assert.equal(state.sent[1].content, '再改得完整些');
+  assert.deepEqual(errors, []);
+});
+
+test('成果已选中时，延迟的收件箱刷新与窄屏切换不清除审阅预览', { timeout: 30000 }, async t => {
+  const draft = action('draft-resize', 'turn-resize', '可见正文');
+  let releaseRefresh = () => {};
+  const delayedRefresh = new Promise(resolve => { releaseRefresh = () => resolve([draft]); });
+  const state = { actions: [draft], messages: [message('turn-resize', 'user', 1), message('turn-resize', 'assistant', 2)],
+    turns: new Map([['turn-resize', turn('turn-resize', 'draft-resize')]]),
+    holdNext: false, held: false,
+    inboxResponse() { if (this.holdNext) { this.holdNext = false; this.held = true; return delayedRefresh; } return [draft]; },
+    send() { throw new Error('审阅视口切换不得发送消息'); } };
+  const { page, errors } = await pageWithSyntheticState(t, state);
+  state.holdNext = true;
+  await page.getByRole('button', { name: 'AI 成果收件箱' }).click();
+  await expect.poll(() => state.held).toBe(true);
+  await page.getByRole('button', { name: '审阅成果' }).click();
+  const inbox = page.getByRole('complementary', { name: 'AI 成果收件箱' });
+  const draftTitle = inbox.getByRole('heading', { name: '成果 draft-resize' });
+  const adopt = inbox.getByRole('button', { name: '确认采纳到笔记' });
+  await expect(draftTitle).toBeVisible(); await expect(adopt).toBeVisible();
+  for (const viewport of [{ width: 390, height: 843 }, { width: 320, height: 740 }, { width: 1280, height: 720 }]) {
+    await page.setViewportSize(viewport); await expect(draftTitle).toBeVisible(); await expect(adopt).toBeVisible();
+  }
+  await expect(inbox.getByText('正在恢复成果…')).toBeVisible();
+  const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/ai/inbox');
+  releaseRefresh();
+  await refreshed; await expect(inbox.getByText('正在恢复成果…')).toBeHidden();
+  await expect(draftTitle).toBeVisible(); await expect(adopt).toBeVisible();
+  await expect(inbox.getByText('可见正文')).toBeVisible();
   assert.deepEqual(errors, []);
 });

@@ -26,12 +26,14 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   const notesBefore=(await(await page.request.get(`${fixture.origin}/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}`,{headers})).json()).data;assert.equal(notesBefore.length,0);
   await page.getByRole('button',{name:'AI 成果收件箱',exact:true}).click();
   const inbox=page.getByRole('complementary',{name:'AI 成果收件箱',exact:true});await inbox.getByRole('button',{name:'审阅成果',exact:true}).click();
+  await expect(inbox.getByRole('heading',{name:'合成 AI 记录',exact:true})).toBeVisible();
+  await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
   await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
   if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-desktop.png`});
   assert.equal(await page.getByRole('dialog',{name:'AI 成果收件箱',exact:true}).count(),0);
-  await page.setViewportSize({width:390,height:843});await expect(inbox).toBeVisible();await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeHidden();
+  await page.setViewportSize({width:390,height:843});await expect(inbox).toBeVisible();await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeHidden();
   if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-390.png`});
-  await page.setViewportSize({width:320,height:740});await expect(inbox).toBeVisible();
+  await page.setViewportSize({width:320,height:740});await expect(inbox).toBeVisible();await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
   if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-320.png`});
   if(driver==='json'&&process.env.KNOWRA_UI_SCREENSHOT_DIR){
     await inbox.getByText('更多成果操作',{exact:true}).click();await inbox.getByRole('button',{name:'编辑新稿',exact:true}).click();
@@ -45,7 +47,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
     await page.setViewportSize({width:390,height:843});await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();
     await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/review-long-390.png`});
   }
-  await page.setViewportSize({width:1280,height:720});await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
+  await page.setViewportSize({width:1280,height:720});await expect(inbox.getByRole('button',{name:'确认采纳到笔记',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'消息',exact:true})).toBeVisible();
   let lost=true,applyRequests=0;await page.route('**/api/ai/actions/*/apply',async route=>{applyRequests++;const response=await route.fetch();if(lost){lost=false;await route.abort();}else await route.fulfill({response});});
   await inbox.getByRole('button',{name:'确认采纳到笔记',exact:true}).click();
   await expect.poll(()=>applyRequests).toBe(1);
