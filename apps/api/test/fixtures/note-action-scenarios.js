@@ -7,6 +7,53 @@ import { validateActionState } from '../../src/modules/ai/action-state.js';
 
 export function noteActionScenarios(withFixture) {
   return [
+    { name: '记录助手个人回答绑定完整消息来源、独立请求及发送清单，私密化后前向隔离', run: () => withFixture(async f => {
+      const source = await f.create({ title: '消息来源', rawMarkdown: '合成个人来源原文' });
+      const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
+      const policy = await f.access.createPolicy({ spaceId: f.space.id, scope: { kind: 'library' }, excludedNoteIds: [], includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
+      const submitted = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '个人资料问答', idempotencyKey: randomUUID(), requestedPolicyId: policy.policyId });
+      const turn = await f.conversations.claimTurn(submitted.turnId);
+      const grant = await f.access.createRunGrant({ policyId: policy.policyId, conversationId: conversation.conversationId });
+      const { manifest } = await f.access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek', modelId: 'synthetic', credentialRef: 'synthetic', userMessage: '合成问题', sourceRanges: [{ noteId: source.id, start: 0, end: source.rawMarkdown.length }] });
+      const { message } = await f.conversations.completeTurn(turn.turnId, turn.leaseGeneration, { content: '个人问答合成回答', sourceRefs: manifest.sources, provenanceManifestId: manifest.manifestId });
+      const input = { spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '记录助手回答', rawMarkdown: message.content }, sourceMessageId: message.messageId, conversationId: conversation.conversationId };
+      const action = await f.actions.plan(input), binding = action.plan.provenance;
+      assert.equal(action.requestId, input.requestId); assert.notEqual(action.requestId, turn.turnId); assert.equal(action.grant.originTurnId, undefined);
+      assert.equal(binding.sourceKind, 'assistantMessage'); assert.equal(binding.policyId, policy.policyId); assert.equal(binding.policyRevision, policy.revision);
+      assert.deepEqual(binding.sourceRefs, manifest.sources); assert.equal(binding.provenanceManifestId, manifest.manifestId); assert.equal(binding.manifestHash, hashRecord(manifest));
+      assert.deepEqual(await f.actions.plan(input), action);
+      await f.restart(); await f.update(source.id, { aiVisibility: 'private' });
+      await assert.rejects(f.actions.plan(input), { code: 'AI_SCOPE_FORBIDDEN' });
+      await assert.rejects(f.actions.plan({ ...input, requestId: randomUUID() }), { code: 'AI_SCOPE_FORBIDDEN' });
+      await assert.rejects(f.actions.repreview(action.actionId, { planHash: action.plan.planHash, requestId: randomUUID() }), { code: 'AI_SCOPE_FORBIDDEN' });
+      await assert.rejects(f.actions.revise(action.actionId, { planHash: action.plan.planHash, requestId: randomUUID(), arguments: { title: '记录助手回答', rawMarkdown: '持续修订' } }), { code: 'AI_SCOPE_FORBIDDEN' });
+      await f.actions.approve(action.actionId, { planHash: action.plan.planHash }); await assert.rejects(f.actions.apply(action.actionId), { code: 'AI_SCOPE_FORBIDDEN' });
+      assert.equal((await f.actions.listInbox(f.space.id))[0].plan.items[0].after.rawMarkdown, message.content); assert.equal((await f.notes()).length, 1);
+    }) },
+    { name: '助手消息另存复核撤权和过期，缺失来源旧稿拒绝；纯手工与无来源回答可采纳', run: () => withFixture(async f => {
+      const source = await f.create({ title: '政策来源', rawMarkdown: '合成来源' });
+      const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
+      const policy = await f.access.createPolicy({ spaceId: f.space.id, scope: { kind: 'library' }, excludedNoteIds: [], includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
+      const submitted = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '资料问答', idempotencyKey: randomUUID(), requestedPolicyId: policy.policyId });
+      const turn = await f.conversations.claimTurn(submitted.turnId), grant = await f.access.createRunGrant({ policyId: policy.policyId, conversationId: conversation.conversationId });
+      const { manifest } = await f.access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek', modelId: 'synthetic', credentialRef: 'synthetic', userMessage: '合成问题', sourceRanges: [{ noteId: source.id, start: 0, end: source.rawMarkdown.length }] });
+      const { message } = await f.conversations.completeTurn(turn.turnId, turn.leaseGeneration, { content: '有来源回答', sourceRefs: manifest.sources, provenanceManifestId: manifest.manifestId });
+      const input = { spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '另存来源答案', rawMarkdown: message.content }, sourceMessageId: message.messageId, conversationId: conversation.conversationId };
+      const action = await f.actions.plan(input), old = await f.actions.plan({ ...input, requestId: randomUUID() });
+      await f.actionStore.write(state => { const row = state.actions.find(row => row.actionId === old.actionId); const { planHash: _hash, ...content } = row.plan; content.provenance = { conversationId: conversation.conversationId, messageId: message.messageId, turnId: message.turnId, contentHash: hashRecord(message.content) }; row.plan = finalizePlan(content); });
+      const legacy = await f.actions.get(old.actionId); await f.actions.approve(old.actionId, { planHash: legacy.plan.planHash });
+      await assert.rejects(f.actions.apply(old.actionId), { code: 'AI_ACTION_GRANT_REVOKED' });
+      f.advance(2 * 86400000); await assert.rejects(f.actions.repreview(action.actionId, { planHash: action.plan.planHash, requestId: randomUUID() }), { code: 'AI_ACTION_GRANT_REVOKED' }); f.advance(-2 * 86400000);
+      await f.access.narrowPolicy(policy.policyId, { revision: policy.revision, revoke: true });
+      await assert.rejects(f.actions.repreview(action.actionId, { planHash: action.plan.planHash, requestId: randomUUID() }), { code: 'AI_ACTION_GRANT_REVOKED' });
+      await assert.rejects(f.actions.plan({ ...input, requestId: randomUUID() }), { code: 'AI_ACTION_GRANT_REVOKED' });
+      const plainInput = await f.conversations.submitTurn({ ownerId: f.ownerId, conversationId: conversation.conversationId, content: '纯写作', idempotencyKey: randomUUID() }), plainTurn = await f.conversations.claimTurn(plainInput.turnId);
+      const { message: plain } = await f.conversations.completeTurn(plainTurn.turnId, plainTurn.leaseGeneration, { content: '无个人来源的写作回答', sourceFree: true });
+      const plainAction = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '无来源回答', rawMarkdown: plain.content }, sourceMessageId: plain.messageId, conversationId: conversation.conversationId });
+      const manual = await f.actions.plan({ spaceId: f.space.id, requestId: randomUUID(), toolName: 'notes_create', arguments: { title: '手工稿', rawMarkdown: '用户独立输入' } });
+      await f.restart(); for (const row of [plainAction, manual]) { await f.actions.approve(row.actionId, { planHash: row.plan.planHash }); await f.actions.apply(row.actionId); }
+      assert.equal((await f.notes()).length, 3);
+    }) },
     { name: '成果已落盘而工具结果未落盘：新稿和修订重启精确重放、不刷新预览并可唯一采纳', run: () => withFixture(async f => {
       const conversation = await f.conversations.createConversation({ ownerId: f.ownerId, actorId: f.ownerId, spaceId: f.space.id });
       const stage = async (content, args) => {

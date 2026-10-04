@@ -14,7 +14,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   await expect(page.getByText('离线模拟响应，未调用真实供应商。')).toBeVisible();
   await expect(page.getByRole('button',{name:/本轮用途/})).toHaveCount(0);
   await page.getByRole('textbox',{name:'消息',exact:true}).fill('生成合成笔记');await page.getByRole('button',{name:'发送消息',exact:true}).click();
-  await expect(page.getByText('已生成笔记计划，尚未写入。请在执行记录中查看差异并确认。',{exact:true})).toBeVisible({timeout:15000});
+  await expect(page.getByText('已生成待审成果。请在 AI 成果收件箱继续修改或确认采纳。',{exact:true})).toBeVisible({timeout:15000});
   const actions=(await(await page.request.get(`${fixture.origin}/api/ai/actions?spaceId=${encodeURIComponent(space.id)}`,{headers})).json()).data;
   assert.equal(actions.length,1);const action=actions[0];assert.equal(action.status,'awaitingApproval');
   const notesBefore=(await(await page.request.get(`${fixture.origin}/api/knowledge/notes?spaceId=${encodeURIComponent(space.id)}`,{headers})).json()).data;assert.equal(notesBefore.length,0);

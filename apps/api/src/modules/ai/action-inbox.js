@@ -1,3 +1,4 @@
+import { assertAiReadableNote } from './note-privacy.js';
 import { hashRecord } from './record-contract.js';
 import { actionError } from './action-state.js';
 import { buildActionPlan, finalizePlan } from './action-plan.js';
@@ -96,4 +97,83 @@ export function createActionInboxMethods({ service, store, ownerId, now, run, ro
     }
   };
   return methods;
+}
+
+/** 把历史助手消息记录成成果是独立用户请求，原 turn 仅作为不可变来源证据。 */
+export function createAssistantMessageSourceGuard({ conversationStore, accessStore, repositories: repos, ownerId, now }) {
+  const boundary = (row, scope) => row && row.ownerId === ownerId
+    && ['datasetId', 'datasetEpoch', 'spaceId'].every(key => row[key] === scope[key]);
+  const refsHash = refs => hashRecord([...new Set(refs.map(hashRecord))].sort());
+  const denied = () => actionError('AI_ACTION_GRANT_REVOKED', '助手消息来源授权已失效或记录不完整，请重新生成。', 403);
+  function* verify(source, scope) {
+    if (source?.sourceKind !== 'assistantMessage' || !/^[a-f0-9]{64}$/.test(source.contentHash)
+      || !validId(source.messageId) || !validId(source.conversationId) || !validId(source.turnId)
+      || !Number.isSafeInteger(source.originGeneration) || source.originGeneration < 1
+      || !Array.isArray(source.sourceRefs) || typeof source.sourceFree !== 'boolean'
+      || source.sourceFree === Boolean(source.sourceRefs.length)) denied();
+    const turn = yield conversationStore?.peekTurn(source.turnId);
+    if (!boundary(turn, scope) || turn.status !== 'succeeded' || turn.conversationId !== source.conversationId
+      || turn.assistantMessageId !== source.messageId || turn.leaseGeneration !== source.originGeneration
+      || (turn.requestedPolicyId ?? null) !== source.policyId) denied();
+    let policy = null;
+    if (source.policyId) {
+      policy = yield accessStore?.peek('aiAccessPolicy', source.policyId);
+      if (!boundary(policy, scope) || policy.actorId !== ownerId || policy.revokedAt || policy.read !== true
+        || policy.revision !== source.policyRevision || Date.parse(policy.expiresAt) <= now().getTime()) denied();
+    } else if (source.policyRevision !== null || source.sourceRefs.length || source.provenanceManifestId) denied();
+    if (source.provenanceManifestId) {
+      const manifest = yield accessStore?.peek('aiRequestManifest', source.provenanceManifestId);
+      const grant = manifest ? yield accessStore?.peek('aiRunGrant', manifest.grantId) : null;
+      if (!boundary(manifest, scope) || !boundary(grant, scope) || grant.actorId !== ownerId
+        || grant.conversationId !== source.conversationId || manifest.policyId !== source.policyId
+        || manifest.policyRevision !== source.policyRevision || grant.policyId !== source.policyId
+        || grant.policyRevision !== source.policyRevision || hashRecord(manifest) !== source.manifestHash
+        || refsHash([...manifest.sources, ...manifest.historySources]) !== refsHash(source.sourceRefs)) denied();
+    } else if (source.manifestHash !== null || !source.sourceFree || source.sourceRefs.length) denied();
+    for (const ref of source.sourceRefs) {
+      const note = yield repos.noteRepository.findById(ref.noteId);
+      try { assertAiReadableNote(note); } catch (error) {
+        if (error.code === 'AI_SCOPE_FORBIDDEN') actionError(error.code, error.message, 403);
+        throw error;
+      }
+      if (!policy || note.spaceId !== scope.spaceId || policy.excludedNoteIds.includes(note.id)
+        || policy.scope.kind === 'fixed' && !policy.scope.noteIds.includes(note.id)) denied();
+      if (policy.scope.kind === 'folder') {
+        let folderId = note.folderId, allowed = false;
+        const seen = new Set();
+        while (folderId && !seen.has(folderId)) {
+          seen.add(folderId);
+          const folder = yield repos.folderRepository.findById(folderId);
+          if (!folder || folder.deletedAt || folder.spaceId !== scope.spaceId) break;
+          if (folderId === policy.scope.folderId) { allowed = true; break; }
+          folderId = folder.parentId;
+        }
+        if (!allowed) denied();
+      }
+    }
+  }
+  return {
+    verify,
+    async resolve(input, scope) {
+      const conversation = await conversationStore?.getConversation(input.conversationId);
+      const message = conversation && (await conversationStore.listMessages(input.conversationId, 0, 100_000)).find(row => row.messageId === input.sourceMessageId);
+      if (!boundary(conversation, scope) || !boundary(message, scope) || message.role !== 'assistant'
+        || message.conversationId !== input.conversationId || typeof message.sourceFree !== 'boolean'
+        || !Array.isArray(message.sourceRefs) || message.sourceFree === Boolean(message.sourceRefs.length)) actionError('AI_ACTION_SOURCE_INVALID', '对话来源不可用。', 422);
+      const turn = await conversationStore.peekTurn(message.turnId);
+      if (!boundary(turn, scope) || turn.status !== 'succeeded' || turn.conversationId !== input.conversationId
+        || turn.assistantMessageId !== message.messageId) denied();
+      const manifest = message.provenanceManifestId ? await accessStore?.get('aiRequestManifest', message.provenanceManifestId) : null;
+      const policy = turn.requestedPolicyId ? await accessStore?.get('aiAccessPolicy', turn.requestedPolicyId) : null;
+      if (message.provenanceManifestId && (!manifest || refsHash([...manifest.sources, ...manifest.historySources]) !== refsHash(message.sourceRefs))) denied();
+      const source = { sourceKind: 'assistantMessage', conversationId: input.conversationId, messageId: message.messageId,
+        turnId: message.turnId, originGeneration: turn.leaseGeneration, contentHash: hashRecord(message.content),
+        sourceFree: message.sourceFree, sourceRefs: structuredClone(manifest
+          ? [...new Map([...manifest.sources, ...manifest.historySources].map(ref => [hashRecord(ref), ref])).values()]
+          : message.sourceRefs),
+        provenanceManifestId: message.provenanceManifestId ?? null, manifestHash: manifest ? hashRecord(manifest) : null,
+        policyId: turn.requestedPolicyId ?? null, policyRevision: policy?.revision ?? null };
+      return source;
+    }
+  };
 }

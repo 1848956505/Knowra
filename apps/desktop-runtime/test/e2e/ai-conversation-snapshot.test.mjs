@@ -48,7 +48,7 @@ for (const driver of ['json', 'sqlite', 'postgres']) {
       await expect(page.getByRole('button', { name: /本轮用途/ })).toHaveCount(0);
       await page.getByRole('textbox', { name: '消息', exact: true }).fill('生成合成笔记');
       await page.getByRole('button', { name: '发送消息', exact: true }).click();
-      await expect(page.getByText('已生成笔记计划，尚未写入。请在执行记录中查看差异并确认。', { exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText('已生成待审成果。请在 AI 成果收件箱继续修改或确认采纳。', { exact: true })).toBeVisible({ timeout: 15000 });
       assert(oldSnapshot, '必须实际返回消息旧快照，不能跳过竞态屏障');
       assert(racedTurn);
       await expect(page.getByText('执行记录（1）', { exact: true })).toBeVisible();

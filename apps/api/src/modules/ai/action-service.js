@@ -1,5 +1,5 @@
 import { assertAiReadableNote } from './note-privacy.js';
-import { createActionInboxMethods } from './action-inbox.js';
+import { createActionInboxMethods, createAssistantMessageSourceGuard } from './action-inbox.js';
 import { validateWriteIntent } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { hashRecord } from './record-contract.js';
@@ -21,6 +21,7 @@ const serial = value => JSON.parse(JSON.stringify(value));
 export function createNoteActionService({ store, core, knowledge, ownerId, conversationStore = null, accessStore = null, access = null, now = () => new Date(), asyncDomain = false }) {
   const repos = knowledge.repositories;
   const run = asyncDomain ? runAsync : runSync;
+  const messageSources = createAssistantMessageSourceGuard({ conversationStore, accessStore, repositories: repos, ownerId, now });
   function* space(spaceId) {
     const record = yield repos.knowledgeSpaceRepository.findById(spaceId);
     if (!record || record.userId !== ownerId) actionError('AI_SCOPE_FORBIDDEN', '无权访问知识空间。', 403);
@@ -45,6 +46,7 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
   }
   function* verifyOrigin(row, identity, allowExpired = false) {
     checkCurrent(row, identity, allowExpired);
+    if (row.plan.provenance?.messageId) yield* messageSources.verify(row.plan.provenance, row);
     if (row.grant.originTurnId) {
       if (!Array.isArray(row.grant.sourceRefs)) actionError('AI_ACTION_GRANT_REVOKED', '旧模型成果缺少可靠来源记录，请重新生成。', 403);
       const turn = yield conversationStore?.peekTurn(row.grant.originTurnId);
@@ -239,16 +241,18 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       const identity = await store.identity(), inputHash = hashRecord(input);
       const existing = (await store.read()).actions.find(row => row.ownerId === ownerId && row.datasetId === identity.datasetId
         && row.spaceId === input.spaceId && row.requestId === input.requestId);
-      if (existing) { if (existing.inputHash !== inputHash) actionError('AI_IDEMPOTENCY_CONFLICT', '相同指令 ID 的输入已变化。'); return reconcile(existing); }
+      if (existing) {
+        if (existing.inputHash !== inputHash) actionError('AI_IDEMPOTENCY_CONFLICT', '相同指令 ID 的输入已变化。');
+        if (existing.plan.provenance?.messageId && existing.status !== 'applied') {
+          checkCurrent(existing, identity, true); await run(messageSources.verify(existing.plan.provenance, existing));
+        }
+        return reconcile(existing);
+      }
       let provenance = null;
       if (input.sourceMessageId || input.conversationId) {
-        const conversation = await conversationStore?.getConversation(input.conversationId);
-        const message = conversation && (await conversationStore.listMessages(input.conversationId, 0, 100)).find(row => row.messageId === input.sourceMessageId);
-        if (!conversation || conversation.ownerId !== ownerId || conversation.spaceId !== input.spaceId
-          || conversation.datasetId !== identity.datasetId || conversation.datasetEpoch !== identity.datasetEpoch || !message || message.role !== 'assistant') {
-          actionError('AI_ACTION_SOURCE_INVALID', '对话来源不可用。', 422);
-        }
-        provenance = { conversationId: input.conversationId, messageId: message.messageId, turnId: message.turnId, contentHash: hashRecord(message.content) };
+        if (!id(input.sourceMessageId) || !id(input.conversationId)) actionError('AI_ACTION_SOURCE_INVALID', '对话来源不可用。', 422);
+        provenance = await messageSources.resolve(input, { ...identity, spaceId: input.spaceId });
+        await run(messageSources.verify(provenance, { ...identity, spaceId: input.spaceId }));
       }
       const targetNoteId = input.toolName === 'notes_create' ? `note-${randomUUID()}` : input.arguments.noteId;
       const notes = input.toolName === 'notes_propose_organize'
@@ -264,15 +268,18 @@ export function createNoteActionService({ store, core, knowledge, ownerId, conve
       const plan = buildActionPlan({ toolName: input.toolName, args, notes, references: refs,
         trusted: { ...identityFields, identity: identityFields, targetNoteId, note: notes[0], provenance,
           allowedFolderIds: refs.filter(ref => ref.kind === 'folder').map(ref => ref.id), allowedTagIds: refs.filter(ref => ref.kind === 'tag').map(ref => ref.id) } });
-      return store.write((state, current) => {
-        if (hashRecord(current) !== hashRecord(identity)) actionError('AI_DATASET_STALE', '资料集已变化。');
-        const prior = state.actions.find(row => row.ownerId === ownerId && row.datasetId === identity.datasetId && row.spaceId === input.spaceId && row.requestId === input.requestId);
-        if (prior) { if (prior.inputHash !== inputHash) actionError('AI_IDEMPOTENCY_CONFLICT', '相同指令输入冲突。'); return prior; }
-        const row = { ...identityFields, actionId: randomUUID(), inputHash, plan, status: 'awaitingApproval', approval: null,
-          receipt: null, errorCode: null, createdAt: now().toISOString(), expiresAt: new Date(now().getTime() + 30 * 60000).toISOString() };
-        row.grant = { ...identityFields, requestHash: inputHash, toolName: plan.toolName, targetIds: plan.items.map(item => item.after.id), expiresAt: row.expiresAt, revoked: false, ...(origin ? { ...(origin.autonomousOrigin ? { autonomousOrigin: true } : {}), sourceRefs: structuredClone(origin.sourceRefs ?? []), originTurnId: origin.turnId, originGeneration: origin.leaseGeneration, policyId: origin.writePolicy?.policyId ?? null, policyRevision: origin.writePolicy?.revision ?? null } : {}) };
-        state.actions.push(row); return row;
-      });
+      return store.transaction(() => run((function* () {
+        if (provenance) yield* messageSources.verify(provenance, { ...identity, spaceId: input.spaceId });
+        return yield store.write((state, current) => {
+          if (hashRecord(current) !== hashRecord(identity)) actionError('AI_DATASET_STALE', '资料集已变化。');
+          const prior = state.actions.find(row => row.ownerId === ownerId && row.datasetId === identity.datasetId && row.spaceId === input.spaceId && row.requestId === input.requestId);
+          if (prior) { if (prior.inputHash !== inputHash) actionError('AI_IDEMPOTENCY_CONFLICT', '相同指令输入冲突。'); return prior; }
+          const row = { ...identityFields, actionId: randomUUID(), inputHash, plan, status: 'awaitingApproval', approval: null,
+            receipt: null, errorCode: null, createdAt: now().toISOString(), expiresAt: new Date(now().getTime() + 30 * 60000).toISOString() };
+          row.grant = { ...identityFields, requestHash: inputHash, toolName: plan.toolName, targetIds: plan.items.map(item => item.after.id), expiresAt: row.expiresAt, revoked: false, ...(origin ? { ...(origin.autonomousOrigin ? { autonomousOrigin: true } : {}), sourceRefs: structuredClone(origin.sourceRefs ?? []), originTurnId: origin.turnId, originGeneration: origin.leaseGeneration, policyId: origin.writePolicy?.policyId ?? null, policyRevision: origin.writePolicy?.revision ?? null } : {}) };
+          state.actions.push(row); return row;
+        });
+      })()));
     },
     async approve(actionId, input) {
       if (!input || Object.keys(input).some(key => key !== 'planHash')) actionError('AI_REQUEST_INVALID', '批准请求无效。', 422);
