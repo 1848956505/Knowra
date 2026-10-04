@@ -12,7 +12,7 @@ import { createServer } from '../../../api/src/server.js';
 import { createV4WebServer } from '../../../web-v4/server/app.mjs';
 import { projectMarkdown, anchorForBlock, anchorForSection, calculateContentHash } from '../../../../packages/content-anchor/src/index.js';
 
-async function fixture(t, rawMarkdown, marked = true) {
+async function fixture(t, rawMarkdown, marked = true, sectionIndex = 0) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-code-boundary-'));
   const store = createFileDataStore(path.join(root, 'data.json'));
   const app = createAppContext({ dataStore: store, storageRootDir: root });
@@ -21,7 +21,7 @@ async function fixture(t, rawMarkdown, marked = true) {
   const note = k.noteService.createNote({ title: '合成重点边界', spaceId: space.id, rawMarkdown });
   let annotation;
   if (marked) {
-    const p = projectMarkdown(rawMarkdown), anchor = marked === 'section' ? anchorForSection(p, 0) : anchorForBlock(p, p.blocks.findIndex(block => block.type === 'code'));
+    const p = projectMarkdown(rawMarkdown), anchor = marked === 'section' ? anchorForSection(p, sectionIndex) : anchorForBlock(p, p.blocks.findIndex(block => block.type === 'code'));
     annotation = k.contentAnnotationService.createAnnotation({
       spaceId: space.id, noteId: note.id, schemaVersion: 2, scopeType: anchor.scopeType, anchor,
       quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd,
@@ -114,15 +114,21 @@ test('真实章节：首尾空段与混合结构可创建和重开，同级标�
   await expect(editor.locator('h3').last()).not.toHaveAttribute('data-annotation-id');
 });
 
-test('真实已保存章节：引用定义省略后重开仍标首个同名同文章节', { timeout: 60000 }, async t => {
-  const markdown = '[甲]: https://example.com/a\n\n[乙]: https://example.com/b\n\n## 同名\n\n同文\n\n## 同名\n\n同文';
-  const { page, editor, annotation } = await fixture(t, markdown, 'section');
+for (const [label, prefix, index] of [
+  ['引用定义省略', '[甲]: https://example.com/a\n\n[乙]: https://example.com/b', 0],
+  ['HTML与生产标记规范投影', Array(5).fill('<!-- metadata -->').join('\n\n') + '\n\n==高亮== [[合成链接]]', 1]
+]) test(`真实已保存章节：${label}后重开仍标准确同名同文章节`, { timeout: 60000 }, async t => {
+  const markdown = prefix + '\n\n' + Array(3).fill('## 同名\n\n同文').join('\n\n');
+  const { page, editor, annotation } = await fixture(t, markdown, 'section', index);
   const selector = `[data-annotation-id="${annotation.id}"]`;
-  await expect(editor.locator('h2').first().locator(selector)).toBeVisible();
-  await expect(editor.locator('h2').last().locator(selector)).toHaveCount(0);
-  await page.reload();
-  await expect(editor.locator('h2').first().locator(selector)).toBeVisible();
-  await expect(editor.locator('h2').last().locator(selector)).toHaveCount(0);
+  for (const reload of [false, true]) {
+    if (reload) await page.reload();
+    for (let heading = 0; heading < 3; heading++) {
+      const decoration = editor.locator('h2').nth(heading).locator(selector);
+      if (heading === index) await expect(decoration).toBeVisible();
+      else await expect(decoration).toHaveCount(0);
+    }
+  }
 });
 
 test('真实菜单：空行代码块通过悬停子菜单创建指定等级，右键卡片复用取消及撤销', { timeout: 60000 }, async t => {

@@ -72,10 +72,12 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
         if (meta?.annotations) {
           const ids = new Set(annotations.map(annotation => annotation.id));
           for (const id of ranges.keys()) if (!ids.has(id)) ranges.delete(id);
-          const currentContentHash = calculateContentHash(ctx.get(serializerCtx)(transaction.doc));
+          const currentMarkdown = ctx.get(serializerCtx)(transaction.doc);
+          const currentContentHash = calculateContentHash(currentMarkdown);
+          const projection = annotations.some(annotation => annotation.scopeType === 'section') ? projectMarkdown(currentMarkdown) : undefined;
           for (const annotation of annotations) {
             if (ranges.has(annotation.id) && previous.snapshots.length && annotation.noteContentHash !== currentContentHash) continue;
-            const resolved = annotation.anchorStatus === 'missing' ? null : resolveAnnotationRange(transaction.doc, annotation);
+            const resolved = annotation.anchorStatus === 'missing' ? null : resolveAnnotationRange(transaction.doc, annotation, projection);
             if (resolved) ranges.set(annotation.id, { ...resolved, scopeType: annotation.scopeType ?? 'selection', needsReview: annotation.anchorStatus === 'needsReview' });
             else if (!ranges.has(annotation.id)) ranges.set(annotation.id, { from: 0, to: 0, scopeType: annotation.scopeType ?? 'selection', missing: true });
           }
@@ -173,7 +175,10 @@ export function getAnnotationSelection(editor: Editor, markdown: string, scopeTy
   if (scopeType === 'list') {
     anchor = editorListAnchor(view.state.doc, projection, view.state.selection.from);
   } else if (scopeType === 'section') {
-    anchor = anchorForEditorSection(view.state.doc, projection, from, to);
+    const currentProjection = projectMarkdown(editor.ctx.get(serializerCtx)(view.state.doc));
+    if (currentProjection.text !== projection.text || currentProjection.headings.length !== projection.headings.length
+      || currentProjection.headings.some((heading, index) => heading.level !== projection.headings[index].level || heading.title !== projection.headings[index].title)) return null;
+    anchor = anchorForEditorSection(view.state.doc, projection, from);
   } else if (codeBlock?.type.name === 'code_block' && to === from + codeBlock.content.size) {
     anchor = anchorForSelectedCodeBlock(view.state.doc, projection, from);
   } else {
@@ -194,46 +199,17 @@ export function getAnnotationSelection(editor: Editor, markdown: string, scopeTy
   };
 }
 
-function anchorForEditorSection(doc: ProseNode, projection: MarkdownProjection, from: number, to: number) {
-  const headings: Array<{ position: number; level: number; title: string }> = [];
+function anchorForEditorSection(doc: ProseNode, projection: MarkdownProjection, from: number) {
+  const headings: Array<{ position: number; level: number }> = [];
   doc.descendants((node, position) => {
-    if (node.type.name === 'heading') headings.push({ position, level: Number(node.attrs.level), title: node.textContent });
+    if (node.type.name === 'heading') headings.push({ position, level: Number(node.attrs.level) });
   });
-  // Ordinal + full heading identity prevent repeated titles from selecting a different section.
+  // Canonical text and heading identities were checked against the current serializer.
   if (headings.length !== projection.headings.length || headings.some((heading, index) =>
-    heading.level !== projection.headings[index].level || heading.title !== projection.headings[index].title)) return null;
+    heading.level !== projection.headings[index].level)) return null;
   const index = headings.findIndex(heading => heading.position + 1 === from);
   if (index < 0) return null;
-  const anchor = anchorForSection(projection, index);
-  // Empty editor paragraphs and rule nodes have no Markdown text. Code newlines remain meaningful.
-  return anchor.quoteText === sectionTextBetween(doc, from, to) ? anchor : null;
-}
-
-function sectionTextBetween(doc: ProseNode, from: number, to: number) {
-  const leaves: string[] = [];
-  doc.descendants((node, position, parent) => {
-    if (position + 1 >= from && position < to && isProjectedTextBlock(node, parent)) {
-      leaves.push(node.textBetween(0, node.content.size, '\n', '\uFFFC'));
-    }
-  });
-  return leaves.join('\n');
-}
-
-function isProjectedTextBlock(node: ProseNode, parent: ProseNode | null) {
-  return node.isTextblock && (node.content.size > 0 || node.type.name === 'code_block'
-    || parent?.type.name === 'table_cell' || parent?.type.name === 'table_header');
-}
-
-function sectionHeadingAtProjectedOffset(doc: ProseNode, offset: number) {
-  let length = 0, count = 0;
-  let found: { node: ProseNode; position: number } | null = null;
-  doc.descendants((node, position, parent) => {
-    if (!isProjectedTextBlock(node, parent)) return;
-    if (count++) length += 1;
-    if (node.type.name === 'heading' && length === offset) found = { node, position };
-    length += node.textBetween(0, node.content.size, '\n', '\uFFFC').length;
-  });
-  return found as { node: ProseNode; position: number } | null;
+  return anchorForSection(projection, index);
 }
 
 function anchorForSelectedCodeBlock(doc: ProseNode, projection: MarkdownProjection, from: number) {
@@ -263,7 +239,7 @@ export function selectEditorAnnotation(editor: Editor, annotationId: string): bo
   const view = editor.ctx.get(editorViewCtx);
   const annotation = annotationPluginKey.getState(view.state)?.annotations.find((item) => item.id === annotationId);
   const tracked = annotationPluginKey.getState(view.state)?.ranges.get(annotationId);
-  const range = tracked && !tracked.missing ? tracked : annotation && resolveAnnotationRange(view.state.doc, annotation);
+  const range = tracked && !tracked.missing ? tracked : annotation && resolveAnnotationRange(view.state.doc, annotation, projectMarkdown(editor.ctx.get(serializerCtx)(view.state.doc)));
   if (!range) return false;
   view.dispatch(view.state.tr
     .setSelection(TextSelection.create(view.state.doc, range.from, range.to))
@@ -317,20 +293,27 @@ function createDecorations(doc: ProseNode, annotations: Annotation[], focusedId:
   return DecorationSet.create(doc, decorations);
 }
 
-export function resolveAnnotationRange(doc: ProseNode, annotation: Annotation): { from: number; to: number } | null {
+export function resolveAnnotationRange(doc: ProseNode, annotation: Annotation, projection?: MarkdownProjection): { from: number; to: number } | null {
   if (annotation.scopeType === 'list') return resolveEditorListRange(doc, annotation.anchor?.structurePath ?? '', annotation.quoteText);
   if (annotation.scopeType === 'section' && annotation.anchor?.section) {
-    // Markdown definitions are omitted by ProseMirror. Bind to the exact projected heading offset,
-    // not a source child path or a title search, so identical sections stay distinct.
-    const offset = annotation.anchor.projectedStart;
-    const target = Number.isInteger(offset) ? sectionHeadingAtProjectedOffset(doc, offset!) : null;
-    if (target?.node.type.name !== 'heading' || target.node.textContent !== annotation.anchor.section.title
-      || Number(target.node.attrs.level) !== annotation.anchor.section.headingLevel) return null;
-    const range = scopeRange(doc, target.position + 1, target.position + 1, 'section');
-    const boundary = range && range.to < doc.content.size ? doc.nodeAt(range.to) : null;
-    if ((boundary ? Number(boundary.attrs.level) : null) !== (annotation.anchor.section.endBoundaryLevel ?? null)
-      || (boundary?.textContent ?? null) !== (annotation.anchor.section.endBoundaryTitle ?? null)) return null;
-    return range && sectionTextBetween(doc, range.from, range.to) === annotation.quoteText ? range : null;
+    // Source paths can differ from ProseMirror paths (definitions and HTML). Only the
+    // serializer's canonical projection can bind an exact offset to a heading ordinal.
+    if (!projection || !Number.isInteger(annotation.anchor.projectedStart)) return null;
+    const headings: Array<{ node: ProseNode; position: number }> = [];
+    doc.descendants((node, position) => { if (node.type.name === 'heading') headings.push({ node, position }); });
+    if (headings.length !== projection.headings.length || headings.some(({ node }, index) =>
+      Number(node.attrs.level) !== projection.headings[index].level)) return null;
+    for (let index = 0; index < headings.length; index++) {
+      let candidate;
+      try { candidate = anchorForSection(projection, index); } catch { continue; }
+      if (candidate.projectedStart !== annotation.anchor.projectedStart) continue;
+      const section = annotation.anchor.section, currentSection = candidate.section;
+      if (!currentSection || candidate.projectedEnd !== annotation.anchor.projectedEnd || candidate.quoteText !== annotation.quoteText
+        || currentSection.title !== section.title || currentSection.headingLevel !== section.headingLevel
+        || currentSection.endBoundaryLevel !== section.endBoundaryLevel || currentSection.endBoundaryTitle !== section.endBoundaryTitle) return null;
+      return scopeRange(doc, headings[index].position + 1, headings[index].position + 1, 'section');
+    }
+    return null;
   }
   if (annotation.anchor?.tracking?.empty) {
     const target = nodeAtStructurePath(doc, annotation.anchor.structurePath ?? '');
