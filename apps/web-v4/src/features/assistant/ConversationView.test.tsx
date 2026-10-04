@@ -67,7 +67,7 @@ it('审阅旧轮成果时不把聊天修改误指向右侧选稿，关闭后恢�
   fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '把这份改一下' } });
   fireEvent.click(screen.getByRole('button', { name: 'AI 成果收件箱' }));
   fireEvent.click(await screen.findByRole('button', { name: '审阅成果' }));
-  expect(screen.getByText(/聊天不会自动修改右侧成果/)).toBeInTheDocument();
+  expect(screen.getAllByText(/右侧选稿不会改变实际目标/)).toHaveLength(2);
   expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled();
   expect(conversationApi.send).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '关闭成果' }));
