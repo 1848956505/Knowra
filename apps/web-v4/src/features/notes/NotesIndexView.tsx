@@ -18,7 +18,7 @@ import {
 } from '../../components/icons/knowra';
 import {
   Button, SearchBox, SegmentedButton, SegmentedControl,
-  Menu, MenuItem, MenuTrigger, MenuPopover, PointMenu,
+  Tooltip, TooltipTrigger, Menu, MenuItem, MenuTrigger, MenuPopover, PointMenu,
   Checkbox,
   Dialog,
   DialogBody,
@@ -203,15 +203,18 @@ export function NotesIndexView({
             <SegmentedButton iconOnly aria-label="列表视图" aria-pressed={view === 'list'} onPress={() => setView('list')}><ListIcon size={16} /></SegmentedButton>
             <SegmentedButton iconOnly aria-label="图标视图" aria-pressed={view === 'grid'} onPress={() => setView('grid')}><ComponentLibraryIcon size={16} /></SegmentedButton>
           </SegmentedControl>
-          <Button size="workspace"
+          <TooltipTrigger>
+          <Button size="workspace" iconOnly
             className={styles.tagToggle}
             aria-label={tagFiltersOpen ? '收起标签筛选' : '展开标签筛选'}
             aria-expanded={tagFiltersOpen}
             aria-controls="notes-index-tag-filters"
             onPress={() => setTagFiltersOpen((current) => !current)}
           >
-            <TagIcon size={16} />标签
+            <TagIcon size={16} />
           </Button>
+            <Tooltip>标签筛选</Tooltip>
+          </TooltipTrigger>
       </WorkspacePanelToolbar>
 
       {tagFiltersOpen ? <TagFilterBar tags={serverData.tags} groups={serverData.tagGroups} selectedIds={urlTagIds} match={tagMatch}
