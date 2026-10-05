@@ -1,0 +1,144 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { calculateContentHash } from '@study-accelerator/content-anchor';
+import { createPersistentAppContext } from '../src/app.factory.js';
+import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
+import { buildKnowledgeProposalPlan } from '../src/modules/ai/knowledge-propose-tool.js';
+
+const priceProfile = { version: 'propose-synthetic-v1', modelId: 'deepseek-flash', expiresAt: '2030-01-01T00:00:00Z',
+  inputMicrounitsPerMillion: 2000000, outputMicrounitsPerMillion: 8000000 };
+const tool = (name, args, id = name) => ({ choices: [{ finish_reason: 'tool_calls', message: { content: null,
+  tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }] } }], usage: { prompt_tokens: 10, completion_tokens: 10 } });
+const answer = (content, citations = null) => ({ choices: [{ finish_reason: 'stop', message: {
+  content: citations === null ? content : JSON.stringify({ answer: content, citations }) } }], usage: { prompt_tokens: 10, completion_tokens: 10 } });
+
+const MARKDOWN = '数据增强通过变换样本增加训练变化。\n\n过拟合指模型在训练集表现好而泛化差。';
+const Q1 = '数据增强通过变换样本增加训练变化。', Q2 = '过拟合指模型在训练集表现好而泛化差。';
+const at = quote => MARKDOWN.indexOf(quote);
+const proposal = (noteId, overrides = {}) => ({ candidates: [{ title: '数据增强', canonicalStatement: Q1, knowledgeType: 'concept',
+  citations: [{ noteId, start: at(Q1), end: at(Q1) + Q1.length, quote: Q1 }], ...overrides }] });
+
+async function fixture(run, { knowledgeProposals = true } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-knowledge-propose-'));
+  let runtime;
+  try {
+    const app = createPersistentAppContext({ storageRootDir: root, ownerId: 'test' });
+    const space = app.http.knowledge.createDefaultKnowledgeSpace();
+    const requests = [];
+    let respond = () => answer('完成');
+    const providerAdapter = { provider: 'mock', capabilities: () => ({ provider: 'mock' }), async *stream() {},
+      async complete(request) { requests.push(request); return respond(request); } };
+    runtime = createOptionalAiRuntime({ modelSettings: { credentialReference: async () => ({ modelId: 'deepseek-flash', credentialRef: 'synthetic' }),
+      resolveCredential: async () => { throw new Error('Synthetic scenarios must not resolve real credentials'); } }, providerAdapter,
+    repository: app.dataStore.aiRepository, accessStore: app.dataStore.aiAccessStore, conversationStore: app.dataStore.aiConversationStore,
+    actionStore: app.dataStore.aiActionStore, coreOperationStore: app.coreOperationStore, knowledge: app.modules.knowledge,
+    budgetAuthority: app.dataStore.aiBudgetAuthority, priceProfile, knowledgeProposals,
+    contextSources: { ...app.modules.knowledge.repositories, spaceRepository: app.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'test' } });
+    const conversation = await runtime.conversation.create({ spaceId: space.id });
+    const submit = (content, key, requestedPolicyId = null) => runtime.conversationStore.submitTurn({
+      ownerId: 'test', conversationId: conversation.conversationId, content, idempotencyKey: `propose-${key}`, requestedPolicyId });
+    const policy = () => runtime.access.createPolicy({ spaceId: space.id, scope: { kind: 'library' }, excludedNoteIds: [],
+      includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
+    const items = () => app.modules.knowledge.repositories.knowledgeItemRepository.list();
+    await run({ app, runtime, space, requests, submit, policy, items, respond: next => { respond = next; } });
+  } finally { await runtime?.agent?.close(); fs.rmSync(root, { recursive: true, force: true }); }
+}
+const toolCalls = async (runtime, turn, name) => (await runtime.conversationStore.listToolCalls(turn.turnId)).filter(item => item.toolName === name);
+
+const hashOf = content => calculateContentHash(content);
+function fakeAccess(content, { noteId = 'n1', versionId = 'v1', spaceId = 's' } = {}) {
+  return { async verifyRead({ noteId: requested }) {
+    return { note: { id: requested, spaceId }, version: { id: versionId, content }, contentHash: hashOf(content) };
+  } };
+}
+const refFor = (content, start, end, extra = {}) => ({ noteId: 'n1', noteVersionId: 'v1', contentHash: hashOf(content), start, end,
+  quoteHash: hashOf(content.slice(start, end)), ...extra });
+const args = (start, end, quote, noteId = 'n1') => ({ candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept',
+  citations: [{ noteId, start, end, quote }] }] });
+const plan = (content, input, refs, access = fakeAccess(content)) => buildKnowledgeProposalPlan({ access, grantId: 'g',
+  args: input, sourceRefs: refs, turnId: 't', callId: 'c' });
+
+export const aiKnowledgePropose = [
+  { name: '知识提议：读后提交通过校验，只返回提议摘要，不创建任何正式知识', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); let round = 0;
+    respond(() => ++round === 1 ? tool('notes_read', { noteId: note.id }) : round === 2 ? tool('knowledge_propose', proposal(note.id))
+      : answer('已提交一条候选。', [{ sourceId: 'S1', quote: Q1 }]));
+    const turn = await submit('提炼这篇笔记的知识点', 'ok', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    assert(requests[0].tools.some(item => item.name === 'knowledge_propose'));
+    const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.equal(call.status, 'succeeded'); assert.equal(call.resultJson.status, 'validated'); assert.equal(call.resultJson.saved, false);
+    assert.equal(call.resultJson.candidates.length, 1); assert.equal(call.resultJson.candidates[0].title, '数据增强');
+    assert.equal(items().length, 0);
+  }) },
+  { name: '知识提议：默认不开放该工具', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); respond(() => answer('普通回答', []));
+    const turn = await submit(`读读 ${note.title}`, 'off', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')));
+  }, { knowledgeProposals: false }) },
+  { name: '知识提议：伪造引文被拒绝并反馈给模型，模型可更正后通过', run: () => fixture(async ({ app, runtime, space, submit, policy, items, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); let round = 0;
+    const forged = proposal(note.id); forged.candidates[0].citations[0].quote = '伪造的原文';
+    respond(() => ++round === 1 ? tool('knowledge_propose', forged, 'bad')
+      : round === 2 ? tool('knowledge_propose', proposal(note.id), 'good') : answer('已更正并提交。', [{ sourceId: 'S1', quote: Q1 }]));
+    const turn = await submit('提炼这篇笔记的知识点', 'forged', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    const calls = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].status, 'failed'); assert.equal(calls[0].errorCode, 'AI_PROPOSAL_CITATION_INVALID');
+    assert.equal(calls[1].resultJson.status, 'validated'); assert.equal(items().length, 0);
+  }) },
+  { name: '知识提议：未读先提交被拒绝，不创建任何知识', run: () => fixture(async ({ app, runtime, space, submit, policy, items, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); let round = 0;
+    respond(() => ++round === 1 ? tool('knowledge_propose', proposal(note.id)) : answer('需要先读取原文。', []));
+    const turn = await submit('今天天气怎么样', 'unread', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.equal(call.errorCode, 'AI_PROPOSAL_NOT_READ'); assert.equal(items().length, 0);
+  }) },
+  { name: '知识提议：引文必须落在已读片段内，读过的片段之外的原文不可引', async run() {
+    const content = `${'甲'.repeat(20)}${Q2}${'乙'.repeat(20)}`;
+    const start = 20, ref = refFor(content, 0, 20);
+    await assert.rejects(plan(content, args(start, start + Q2.length, Q2), [ref]), { code: 'AI_PROPOSAL_CITATION_INVALID' });
+    const ok = await plan(content, args(start, start + Q2.length, Q2), [ref, refFor(content, 20, 20 + Q2.length)]);
+    assert.equal(ok.candidates.length, 1);
+    assert.equal(ok.candidates[0].provenance[0].start, start); assert.equal(ok.candidates[0].reviewStatus, 'candidate');
+    assert.equal(ok.candidates[0].candidateInput.sourceMode, 'ai');
+  } },
+  { name: '知识提议：笔记版本已变化时拒绝，且不同空间的来源不可混用', async run() {
+    const content = Q2;
+    const stale = refFor(content, 0, content.length, { contentHash: 'old' });
+    await assert.rejects(plan(content, args(0, 2, content.slice(0, 2)), [stale]), { code: 'AI_PROPOSAL_SOURCE_STALE' });
+    const spaces = { async verifyRead({ noteId }) { return { note: { id: noteId, spaceId: noteId === 'n1' ? 's1' : 's2' },
+      version: { id: 'v1', content }, contentHash: hashOf(content) }; } };
+    await assert.rejects(plan(content, args(0, 2, content.slice(0, 2)), [refFor(content, 0, content.length), refFor(content, 0, content.length, { noteId: 'n2' })], spaces),
+      { code: 'AI_PROPOSAL_INVALID' });
+  } },
+  { name: '知识提议：模型不能指定审核状态或业务字段，参数严格校验', async run() {
+    const content = Q2, ref = refFor(content, 0, content.length);
+    const good = args(0, 2, content.slice(0, 2));
+    const withStatus = structuredClone(good); withStatus.candidates[0].reviewStatus = 'confirmed';
+    const extraRoot = { ...good, scopeId: 'x' };
+    const noCites = structuredClone(good); noCites.candidates[0].citations = [];
+    const badType = structuredClone(good); badType.candidates[0].knowledgeType = 'opinion';
+    for (const input of [null, {}, { candidates: [] }, withStatus, extraRoot, noCites, badType]) {
+      await assert.rejects(plan(content, input, [ref]), { code: 'AI_TOOL_ARGUMENTS_INVALID' });
+    }
+    await assert.rejects(plan(content, { candidates: [{ ...good.candidates[0], title: '   ' }] }, [ref]), { code: 'AI_PROPOSAL_INVALID' });
+  } },
+  { name: '知识提议：同一回合同一调用得到稳定候选 ID，重复引用同一片段被拒绝', async run() {
+    const content = Q2, ref = refFor(content, 0, content.length);
+    const input = args(0, 4, content.slice(0, 4));
+    const first = await plan(content, input, [ref]), second = await plan(content, input, [ref]);
+    assert.equal(first.candidates[0].candidateInput.id, second.candidates[0].candidateInput.id); assert.equal(first.outputHash, second.outputHash);
+    const duplicate = structuredClone(input); duplicate.candidates[0].citations.push({ ...duplicate.candidates[0].citations[0] });
+    await assert.rejects(plan(content, duplicate, [ref]), { code: 'AI_PROPOSAL_CITATION_INVALID' });
+  } }
+];

@@ -15,7 +15,7 @@ const uniqueIds = (values, limit = 1000) => Array.isArray(values) && values.leng
   && values.every(validId) && new Set(values).size === values.length;
 const fail = (code, message) => accessError(code, message);
 const assistantToolNames = new Set(['notes_search', 'notes_read', 'notes_create', 'notes_append',
-  'notes_propose_patch', 'notes_propose_organize', 'web_search', 'annotations_list']);
+  'notes_propose_patch', 'notes_propose_organize', 'web_search', 'annotations_list', 'knowledge_propose']);
 
 function safeBoundary(text, position) {
   if (position <= 0 || position >= text.length) return true;
@@ -342,12 +342,12 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
       || !Array.isArray(omissions) || omissions.length > 128 || omissions.some(item => typeof item !== 'string'
         || !/^[a-zA-Z0-9_.:-]{1,128}$/.test(item))
       || typeof assistantTools !== 'boolean'
-      || !Array.isArray(tools) || tools.length > (assistantTools ? 8 : 2 + (writeToolName ? 1 : 0))
+      || !Array.isArray(tools) || tools.length > (assistantTools ? 9 : 2 + (writeToolName ? 1 : 0))
       || tools.some(tool => assistantTools
         ? !assistantToolNames.has(tool?.name)
           || ['notes_search', 'notes_read'].includes(tool.name) && !grant.allowedTools.includes(tool.name)
           // 重点列表与阅读同一原文，沿用 notes_read 的运行授权，不扩大授权词表。
-          || tool.name === 'annotations_list' && !grant.allowedTools.includes('notes_read')
+          || ['annotations_list', 'knowledge_propose'].includes(tool.name) && !grant.allowedTools.includes('notes_read')
         : !grant.allowedTools.includes(tool?.name)
           && !(tool?.name === writeToolName && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize'].includes(writeToolName)))
       || !['text', 'json'].includes(format)
