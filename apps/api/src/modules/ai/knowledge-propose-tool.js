@@ -10,7 +10,7 @@ const isObject = value => value !== null && typeof value === 'object' && !Array.
 const exactKeys = (value, keys) => isObject(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 
 export const KNOWLEDGE_PROPOSE_TOOL = Object.freeze({ name: 'knowledge_propose',
-  description: '把从用户笔记中提炼出的知识点作为待审核候选提交。只能引用本次对话中已经通过 notes_read、notes_search 或 annotations_list 读到的原文；每个候选至少一条引文，引文用 noteId 与该笔记内的绝对 start/end 偏移指向原文，quote 必须与原文逐字一致。陈述只能依据所引原文，不添加背景知识；没有可提炼内容时不要调用。提交只是提议，不会直接成为正式知识。',
+  description: '把从用户笔记中提炼出的知识点作为待审核候选提交。只能引用本次对话中已经通过 notes_read、notes_search 或 annotations_list 读到的原文；每个候选至少一条引文：给出 noteId 与逐字摘自原文的 quote 即可，服务端会在已读原文中定位（quote 须在已读原文里唯一；出现多次时再补充该笔记内的绝对 start/end 偏移），无需自己计算偏移。陈述只能依据所引原文，不添加背景知识；没有可提炼内容时不要调用。提交只是提议，不会直接成为正式知识。',
   parameters: { type: 'object', additionalProperties: false, required: ['candidates'], properties: {
     candidates: { type: 'array', minItems: 1, maxItems: MAX_CANDIDATES, items: { type: 'object', additionalProperties: false,
       required: ['title', 'canonicalStatement', 'knowledgeType', 'citations'], properties: {
@@ -18,7 +18,7 @@ export const KNOWLEDGE_PROPOSE_TOOL = Object.freeze({ name: 'knowledge_propose',
         canonicalStatement: { type: 'string', minLength: 1, maxLength: 8000 },
         knowledgeType: { type: 'string', enum: TYPES },
         citations: { type: 'array', minItems: 1, maxItems: MAX_CITATIONS, items: { type: 'object', additionalProperties: false,
-          required: ['noteId', 'start', 'end', 'quote'], properties: {
+          required: ['noteId', 'quote'], properties: {
             noteId: { type: 'string' }, start: { type: 'integer', minimum: 0 }, end: { type: 'integer', minimum: 1 },
             quote: { type: 'string', minLength: 1, maxLength: 8000 } } } } } } } } } });
 
@@ -38,9 +38,11 @@ function parseArguments(args) {
       || !TYPES.includes(candidate.knowledgeType) || !Array.isArray(candidate.citations)
       || !candidate.citations.length || candidate.citations.length > MAX_CITATIONS) throw invalidArguments();
     for (const citation of candidate.citations) {
-      if (!exactKeys(citation, ['noteId', 'start', 'end', 'quote']) || typeof citation.noteId !== 'string' || !citation.noteId
-        || citation.noteId.length > 128 || !Number.isSafeInteger(citation.start) || !Number.isSafeInteger(citation.end)
-        || typeof citation.quote !== 'string') throw invalidArguments();
+      // start/end 可同时省略（由服务端按 quote 定位），但不得只给其一。
+      const located = exactKeys(citation, ['noteId', 'start', 'end', 'quote']), unlocated = exactKeys(citation, ['noteId', 'quote']);
+      if (!(located || unlocated) || typeof citation.noteId !== 'string' || !citation.noteId
+        || citation.noteId.length > 128 || typeof citation.quote !== 'string'
+        || located && (!Number.isSafeInteger(citation.start) || !Number.isSafeInteger(citation.end))) throw invalidArguments();
     }
   }
   return args.candidates;
@@ -73,7 +75,28 @@ export async function buildKnowledgeProposalPlan({ access, grantId, args, source
   const inputHash = hash([KNOWLEDGE_EXTRACTION_CONTRACT_VERSION, sources]);
   const request = { contractVersion: KNOWLEDGE_EXTRACTION_CONTRACT_VERSION, requestId: `agent-proposal-${hash([turnId, callId])}`,
     scopeId: null, spaceId: [...spaces][0], inputHash, sources };
-  const candidates = proposals.map(candidate => ({ ...candidate, citations: candidate.citations.map(citation => {
+  // 省略偏移时按 quote 在本次已读原文里定位：同一笔记内按绝对位置去重（重叠的来源片段不算多处），必须恰好一处。
+  const locate = citation => {
+    if (Number.isSafeInteger(citation.start)) return citation;
+    const positions = new Set();
+    if (citation.quote) {
+      for (const source of sources.filter(item => item.noteId === citation.noteId)) {
+        for (let at = source.markdown.indexOf(citation.quote); at !== -1; at = source.markdown.indexOf(citation.quote, at + 1)) positions.add(source.start + at);
+      }
+    }
+    if (positions.size === 0) {
+      throw Object.assign(toolError('AI_PROPOSAL_CITATION_INVALID', '引文不在本次已读的原文范围内。'),
+        { hint: '有引文无法在已读原文中找到：quote 必须逐字摘自已读原文（含标点），或先读取相关片段。' });
+    }
+    if (positions.size > 1) {
+      throw Object.assign(toolError('AI_PROPOSAL_CITATION_INVALID', '引文在已读原文中出现多次，无法唯一定位。'),
+        { hint: '有引文在原文中出现多次：请加长 quote 使其唯一，或补充该笔记内的绝对 start/end。' });
+    }
+    const [start] = positions;
+    return { ...citation, start, end: start + citation.quote.length };
+  };
+  const candidates = proposals.map(candidate => ({ ...candidate, citations: candidate.citations.map(raw => {
+    const citation = locate(raw);
     const source = sources.find(item => item.noteId === citation.noteId && item.start <= citation.start && citation.end <= item.end);
     if (!source) throw toolError('AI_PROPOSAL_CITATION_INVALID', '引文不在本次已读的原文范围内。');
     return { sourceId: source.sourceId, start: citation.start - source.start, end: citation.end - source.start, quote: citation.quote };

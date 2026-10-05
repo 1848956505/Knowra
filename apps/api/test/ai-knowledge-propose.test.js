@@ -326,6 +326,44 @@ export const aiKnowledgePropose = [
     assert(!sent.includes('私密甲笔记') && !sent.includes(a.id) && !sent.includes('甲0段重点'), '已私密且被窗口淘汰的笔记不得再出现在请求里');
     assert(sent.includes('已完成：annotations_list'), '仍在窗口内的笔记应有进度说明');
   }) },
+  { name: '知识提议：引文可省略偏移，服务端按 quote 在已读原文中唯一定位；多处、找不到或只给一半偏移均被拒绝并带提示', run: async () => {
+    const content = '甲乙丙。\n\n丁戊己。\n\n甲乙丙。', one = '丁戊己。', twice = '甲乙丙。';
+    const whole = refFor(content, 0, content.length), part = refFor(content, 6, 6 + one.length);
+    const quoteOnly = quote => ({ candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept', citations: [{ noteId: 'n1', quote }] }] });
+    // 唯一：整篇与重叠子片段指向同一绝对位置，只算一处；定位结果与显式偏移完全一致
+    const located = await plan(content, quoteOnly(one), [whole, part]);
+    const explicit = await plan(content, args(6, 6 + one.length, one), [whole, part]);
+    assert.deepEqual(located.candidates[0].provenance, explicit.candidates[0].provenance);
+    assert.equal(located.candidates[0].provenance[0].quoteText, one);
+    // 出现多次：拒绝并提示补偏移；补上偏移后通过
+    await assert.rejects(plan(content, quoteOnly(twice), [whole]), error => error.code === 'AI_PROPOSAL_CITATION_INVALID' && /多次|唯一/.test(error.message) && /start\/end/.test(error.hint));
+    assert.ok(await plan(content, args(content.lastIndexOf(twice), content.lastIndexOf(twice) + twice.length, twice), [whole]));
+    // 找不到或不在已读窗口内：拒绝并提示逐字摘自原文
+    await assert.rejects(plan(content, quoteOnly('不存在的句子'), [whole]), error => error.code === 'AI_PROPOSAL_CITATION_INVALID' && /逐字/.test(error.hint));
+    await assert.rejects(plan(content, quoteOnly(one), [refFor(content, 0, 4)]), { code: 'AI_PROPOSAL_CITATION_INVALID' });
+    await assert.rejects(plan(content, quoteOnly(''), [whole]), error => ['AI_PROPOSAL_CITATION_INVALID', 'AI_PROPOSAL_INVALID'].includes(error.code));
+    // 只给 start 或 end 之一、或多余字段：参数无效
+    for (const citation of [{ noteId: 'n1', start: 6, quote: one }, { noteId: 'n1', end: 9, quote: one }, { noteId: 'n1', quote: one, extra: 1 }]) {
+      await assert.rejects(plan(content, { candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept', citations: [citation] }] }, [whole]),
+        { code: 'AI_TOOL_ARGUMENTS_INVALID' });
+    }
+    // 其他笔记的同文引文不能借已读窗口定位
+    await assert.rejects(plan(content, { candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept', citations: [{ noteId: 'n2', quote: one }] }] }, [whole]),
+      { code: 'AI_PROPOSAL_CITATION_INVALID' });
+  } },
+  { name: '知识提议：Agent 提交只含 noteId 与 quote 的引文即可保存，偏移由服务端定位', run: () => fixture(async ({ app, runtime, space, submit, policy, items, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); let round = 0;
+    const quoteOnly = { candidates: [{ title: '数据增强', canonicalStatement: Q1, knowledgeType: 'concept', citations: [{ noteId: note.id, quote: Q1 }] }] };
+    respond(() => ++round === 1 ? tool('notes_read', { noteId: note.id }) : round === 2 ? tool('knowledge_propose', quoteOnly)
+      : answer('已提交一条候选。', [{ sourceId: 'S1', quote: Q1 }]));
+    const turn = await submit('提炼这篇笔记的知识点', 'quote-only', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.equal(call.status, 'succeeded'); assert.equal(items().length, 1);
+    const evidence = app.modules.knowledge.repositories.knowledgeEvidenceRepository.list({ knowledgeItemId: items()[0].id });
+    assert.equal(evidence[0].quoteText, Q1); assert.equal(evidence[0].start ?? evidence[0].fromPosition ?? 0, 0);
+  }) },
   { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); respond(() => answer('这篇笔记讲数据增强。', []));
