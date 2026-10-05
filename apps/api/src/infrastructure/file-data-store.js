@@ -142,6 +142,28 @@ export function createFileDataStore(filePath, {
     };
   }
 
+  // 仅供传输快照缓存使用：业务实体、修订和删除事实在该事务内只读。
+  function runSyncJournalTransaction(operation) {
+    if (transaction) throw new TypeError('同步快照缓存必须拥有最外层事务。');
+    const candidate = appendChanges(structuredClone(journal), committed, state);
+    // 兼容尚未 flush 的内部业务写入；先走完整校验与提交，不能把未登记实体藏在快照外。
+    if (candidate.head !== journal.head) {
+      return runTransaction(() => { const result = operation(); flush(); return result; });
+    }
+    const previousJournal = journal;
+    journal = candidate;
+    try {
+      const result = operation();
+      if (result && typeof result.then === 'function') throw new TypeError('快照缓存事务必须同步。');
+      writeJson(filePath, { schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...state, sync: journal,
+        aiRuntime, coreOperations, knowledgeExtractionCommits, aiKnowledgeExtractionTasks: extractionTasks });
+      return result;
+    } catch (error) {
+      journal = previousJournal;
+      throw error;
+    }
+  }
+
   function prepareImport(snapshot) {
     return validateLocalSnapshot(snapshot);
   }
@@ -175,10 +197,12 @@ export function createFileDataStore(filePath, {
 
   function persistState(nextState) {
     try {
-      validatePersistedLocalState(createPersistedLocalDocument(nextState));
+      // 校验器自身返回独立副本，不先复制一次完整历史库。
+      validatePersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });
       assertNoKnowledgeArtifactProvenanceDowngrade(committed, nextState);
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
-      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal,
+      // 原子写入器同步序列化且不修改输入，写入期间保留事务回滚前像。
+      writeJson(filePath, { schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState, sync: nextJournal,
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
         coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations),
         knowledgeExtractionCommits: knowledgeExtractionCommitStoreError ? knowledgeExtractionCommits
@@ -250,6 +274,7 @@ export function createFileDataStore(filePath, {
     getSyncJournal: () => journal,
     previewSyncJournal: () => appendChanges(structuredClone(journal), committed, state),
     runSyncTransaction: operation => runTransaction(() => { const result = operation(); flush(); return result; }),
+    runSyncJournalTransaction,
     state,
     flush,
     runTransaction,

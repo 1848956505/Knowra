@@ -17,7 +17,7 @@ import { createInMemoryContentAnnotationRepository } from '../knowledge/infrastr
 import { createInMemoryNoteRepository } from '../knowledge/infrastructure/note-repository.js';
 import { createInMemoryNoteVersionRepository } from '../knowledge/infrastructure/note-version-repository.js';
 import { createInMemoryAnnotationRevisionRepository } from '../knowledge/infrastructure/annotation-support-repositories.js';
-import { validatePersistedLocalState, createPersistedLocalDocument } from '../../infrastructure/local-data-schema.js';
+import { validatePersistedLocalState, LOCAL_DATA_SCHEMA_VERSION } from '../../infrastructure/local-data-schema.js';
 import { assertNoInsecureImageUrls } from '../knowledge/application/note-content-policy.js';
 import { inspectAttachmentDeletion } from '../../infrastructure/attachment-deletion-preflight.js';
 import { calculateContentHash, resolveAnchor } from '@study-accelerator/content-anchor';
@@ -220,6 +220,6 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   state = reconcileSyncedSourceStates(reconcileTrainingChanges(before, state, changes));
   validateKnowledgeBatch(before, state, changes);
   validateTrainingBatch(before, state, changes);
-  state = validatePersistedLocalState(createPersistedLocalDocument(state));
+  state = validatePersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...state });
   return { state, aliases };
 }
