@@ -250,7 +250,9 @@ export const aiKnowledgePropose = [
       '先别急着总结，帮我提炼知识点', '可不可以生成知识点']) assert.equal(requestsKnowledgeProposal(text), true, text);
     for (const text of ['这篇笔记讲了什么', '怎么提炼知识点', '解释一下什么是知识点', '总结本周学习', '你好', '提炼一下这段话的意思',
       '不要生成知识点', '别提炼知识点', '不用提取知识点', '无需生成知识点', '先不要整理知识点', '暂不创建知识点', '我不想生成知识点',
-      '请勿提炼知识点', '知识点先不用生成', '知识点不要提炼了', '不是要生成知识点，只是想问问', '禁止创建知识点', '不必归纳知识点']) {
+      '请勿提炼知识点', '知识点先不用生成', '知识点不要提炼了', '不是要生成知识点，只是想问问', '禁止创建知识点', '不必归纳知识点',
+      '我不希望你生成知识点', '不要根据这篇笔记自动生成知识点', '请解释知识项如何提炼', '我不想要你提取知识项', '别根据这些重点自动整理出知识点',
+      '知识项是怎么提炼出来的', '介绍一下知识点的生成原理']) {
       assert.equal(requestsKnowledgeProposal(text), false, text);
     }
   } },
@@ -261,6 +263,18 @@ export const aiKnowledgePropose = [
     await runtime.agent.run(turn.turnId);
     assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')));
   }) },
+  { name: '知识提议：否定与解释类请求不开放该工具，也不会保存候选', run: async () => {
+    for (const text of ['我不希望你生成知识点', '不要根据这篇笔记自动生成知识点', '请解释知识项如何提炼']) {
+      await fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+        app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+        const p = await policy(); respond(() => answer('好的，不会生成。', []));
+        const turn = await submit(text, 'plain', p.policyId);
+        await runtime.agent.run(turn.turnId);
+        assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')), text);
+        assert.equal(items().length, 0, text);
+      });
+    }
+  } },
   { name: '知识提议：提议回合放宽轮数，保存成功算进展，连续分批提交不被判无进展', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
     const sentences = ['甲概念是第一个要点。', '乙概念是第二个要点。', '丙概念是第三个要点。', '丁概念是第四个要点。', '戊概念是第五个要点。'];
     const content = sentences.join('\n\n');
