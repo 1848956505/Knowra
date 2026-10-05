@@ -1,0 +1,111 @@
+import { createAppError } from '../../errors/app-error.js';
+import { hashRecord } from './record-contract.js';
+import { runAsync, runSync } from './action-plan.js';
+import { verifyExtractionSourcePrivacy } from './knowledge-extraction-task-context.js';
+import { assertAiReadableNote } from './note-privacy.js';
+import { createKnowledgeArtifactProvenanceFromProposal } from './agent-knowledge-provenance.js';
+
+const refuse = (code, message, status = 409) => { throw createAppError(code, message, status); };
+
+/**
+ * 受信宿主的 Agent 知识候选保存入口：全部候选、证据与来源摘要在一次核心操作事务内提交，
+ * 任一失败整体回滚；相同回合与工具调用重试时复用已提交的回执，不重复创建。
+ * 只创建 candidate，不执行确认；调用方须先用 buildKnowledgeProposalPlan 校验提议。
+ */
+export function createAgentKnowledgeCommitService({ core, knowledge, ownerId, conversationStore, accessStore, asyncDomain = false, now = () => new Date() }) {
+  if (!core || !knowledge || !ownerId || !conversationStore || !accessStore) {
+    throw new TypeError('Agent 知识保存需要核心操作账本、知识模块、对话与授权存储和 owner。');
+  }
+  const repos = knowledge.repositories, run = asyncDomain ? runAsync : runSync;
+
+  const stamp = () => now().getTime();
+  // 保存时在事务内重新复核回合与授权：取消、租约失效、授权撤销/收窄后迟到的提议不得入库。
+  // 与动作服务一致，通过 peek 读取私有存储，本地同步事务内不会与取消/撤销交错。
+  function* verifyOrigin({ plan, origin, identity, grantId, generation }) {
+    const stale = () => refuse('AI_CANCELLED', '任务已取消或租约失效，未保存任何候选。');
+    const revoked = () => refuse('AI_ACCESS_REVOKED', '本次运行授权已撤销或已变化，未保存任何候选。', 403);
+    const turn = yield conversationStore.peekTurn(origin.turnId);
+    if (!turn || turn.ownerId !== ownerId || turn.datasetId !== identity.datasetId || turn.datasetEpoch !== identity.datasetEpoch
+      || turn.spaceId !== plan.spaceId || turn.conversationId !== origin.conversationId || turn.status !== 'running'
+      || turn.leaseGeneration !== generation || Date.parse(turn.leaseExpiresAt) <= stamp()) stale();
+    const grant = grantId ? yield accessStore.peek('aiRunGrant', grantId) : null;
+    if (!grant || grant.ownerId !== ownerId || grant.conversationId !== origin.conversationId || Date.parse(grant.expiresAt) <= stamp()
+      || !grant.allowedTools?.includes('notes_read') || grant.datasetId !== identity.datasetId
+      || grant.datasetEpoch !== identity.datasetEpoch || grant.spaceId !== plan.spaceId) revoked();
+    const policy = yield accessStore.peek('aiAccessPolicy', grant.policyId);
+    if (!policy || policy.ownerId !== ownerId || policy.actorId !== grant.actorId || policy.revokedAt || policy.read !== true
+      || policy.revision !== grant.policyRevision || Date.parse(policy.expiresAt) <= stamp()
+      || policy.datasetId !== identity.datasetId || policy.datasetEpoch !== identity.datasetEpoch || policy.spaceId !== plan.spaceId) revoked();
+    const noteIds = [...new Set(plan.candidates.flatMap(candidate => candidate.provenance.map(source => source.noteId)))];
+    for (const noteId of noteIds) {
+      const note = yield repos.noteRepository.findById(noteId);
+      if (!note || note.spaceId !== plan.spaceId || policy.excludedNoteIds.includes(note.id)
+        || policy.scope.kind === 'fixed' && !policy.scope.noteIds.includes(note.id)) revoked();
+      assertAiReadableNote(note);
+      if (policy.scope.kind === 'folder') {
+        let folderId = note.folderId, allowed = false;
+        const seen = new Set();
+        while (folderId && !seen.has(folderId)) {
+          seen.add(folderId);
+          const folder = yield repos.folderRepository.findById(folderId);
+          if (!folder || folder.deletedAt || folder.spaceId !== plan.spaceId) break;
+          if (folderId === policy.scope.folderId) { allowed = true; break; }
+          folderId = folder.parentId;
+        }
+        if (!allowed) revoked();
+      }
+    }
+  }
+  function* verifySources(plan) {
+    const sources = plan.candidates.flatMap(candidate => candidate.provenance);
+    yield* verifyExtractionSourcePrivacy(repos, sources, plan.spaceId);
+    const versions = new Map();
+    for (const source of sources) {
+      if (!versions.has(source.noteVersionId)) versions.set(source.noteVersionId, yield repos.noteVersionRepository.findById(source.noteVersionId));
+      const version = versions.get(source.noteVersionId);
+      if (!version || version.noteId !== source.noteId || version.contentHash !== source.contentHash
+        || version.content.slice(source.start, source.end) !== source.quoteText) {
+        refuse('AI_PROPOSAL_SOURCE_STALE', '来源笔记版本不可用或原文已变化，未保存任何候选。');
+      }
+    }
+  }
+  function* apply({ plan, origin, identity, grantId, generation, provider, modelId, committedAt }) {
+    yield* verifyOrigin({ plan, origin, identity, grantId, generation });
+    const space = yield repos.knowledgeSpaceRepository.findById(plan.spaceId);
+    if (!space || space.userId !== ownerId) refuse('AI_SCOPE_FORBIDDEN', '无权在该知识空间保存知识候选。', 403);
+    yield* verifySources(plan);
+    const saved = [];
+    for (const candidate of plan.candidates) {
+      yield knowledge.knowledgeItemService.createCandidate(candidate.candidateInput);
+      const provenance = createKnowledgeArtifactProvenanceFromProposal({ plan, candidate, origin, provider, modelId, committedAt });
+      yield repos.knowledgeArtifactProvenanceRepository.create(provenance);
+      saved.push({ candidateId: candidate.candidateInput.id, provenanceId: provenance.id });
+    }
+    return { candidates: saved, saveState: 'localCommitted' };
+  }
+
+  const operationId = origin => `knowledge-propose-${hashRecord([origin.turnId, origin.toolCallId])}`;
+  return {
+    async commit({ plan, origin, identity, grantId, generation, provider, modelId }) {
+      const candidateIds = plan.candidates.map(candidate => candidate.candidateInput.id);
+      const request = { ownerId, datasetId: identity.datasetId, datasetEpoch: identity.datasetEpoch, actorId: ownerId,
+        spaceId: plan.spaceId, requestId: plan.requestId, operationId: operationId(origin), kind: 'knowledge_propose',
+        planHash: hashRecord({ requestId: plan.requestId, inputHash: plan.inputHash, outputHash: plan.outputHash, candidateIds }) };
+      const committedAt = now().toISOString();
+      return core.commit(request, () => run(apply({ plan, origin, identity, grantId, generation, provider, modelId, committedAt })));
+    },
+    /** 同一回合与工具调用已提交时返回回执摘要：用于响应丢失或重试后的对账，不重新校验提议。 */
+    async findCommitted({ origin, identity }) {
+      const receipt = await core.get({ ownerId, datasetId: identity.datasetId, operationId: operationId(origin) });
+      if (!receipt || receipt.kind !== 'knowledge_propose' || receipt.ownerId !== ownerId) return null;
+      const candidates = [];
+      for (const { candidateId } of receipt.result.candidates) {
+        const item = await Promise.resolve(repos.knowledgeItemRepository.findById(candidateId));
+        const provenance = await Promise.resolve(repos.knowledgeArtifactProvenanceRepository.findByArtifactId(candidateId));
+        candidates.push({ candidateId, title: item?.title ?? '', knowledgeType: item?.knowledgeType ?? 'concept',
+          citationCount: provenance?.sources?.length ?? 0 });
+      }
+      return { requestId: receipt.requestId, candidates };
+    }
+  };
+}

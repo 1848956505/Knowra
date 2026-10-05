@@ -88,10 +88,29 @@ export async function buildKnowledgeProposalPlan({ access, grantId, args, source
   }
 }
 
-/** Agent 工具入口：返回校验结果摘要。校验通过也不等于已保存。 */
-export async function proposeKnowledge(input) {
+function savedOutcome(requestId, outputHash, candidates) {
+  return { resultJson: { status: 'saved', saved: true, requestId, outputHash, candidates }, sourceRefs: [] };
+}
+
+/**
+ * Agent 工具入口。传入 commit 时把候选原子保存为 candidate；未传入则只返回校验摘要（saved: false）。
+ * 无论哪种，提议都不会成为正式知识，仍须用户在知识候选区审核。
+ */
+export async function proposeKnowledge({ commit = null, ...input }) {
+  // 同一调用已经提交（响应丢失、租约恢复后重试）：直接按回执报告，不重新校验也不重复保存。
+  const committed = commit ? await commit.find() : null;
+  if (committed) return savedOutcome(committed.requestId, null, committed.candidates);
   const plan = await buildKnowledgeProposalPlan(input);
-  return { resultJson: { status: 'validated', saved: false, requestId: plan.requestId, outputHash: plan.outputHash,
+  if (commit) {
+    try { await commit.save(plan); }
+    catch (error) {
+      // 提交可能已成功但响应丢失：以回执为准，确实没有提交才报告失败。
+      const landed = await commit.find().catch(() => null);
+      if (!landed) throw error;
+      return savedOutcome(landed.requestId, plan.outputHash, landed.candidates);
+    }
+  }
+  return { resultJson: { status: commit ? 'saved' : 'validated', saved: Boolean(commit), requestId: plan.requestId, outputHash: plan.outputHash,
     candidates: plan.candidates.map(({ candidateInput, provenance }) => ({ candidateId: candidateInput.id,
       title: candidateInput.title, knowledgeType: candidateInput.knowledgeType, citationCount: provenance.length })) },
   sourceRefs: [] };

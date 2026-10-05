@@ -5,7 +5,9 @@ import path from 'node:path';
 import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { createPersistentAppContext } from '../src/app.factory.js';
 import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
-import { buildKnowledgeProposalPlan } from '../src/modules/ai/knowledge-propose-tool.js';
+import { buildKnowledgeProposalPlan, proposeKnowledge } from '../src/modules/ai/knowledge-propose-tool.js';
+import { createAgentKnowledgeCommitService } from '../src/modules/ai/agent-knowledge-commit.js';
+import { createCoreOperationReceipt, validateCoreOperationReceipt } from '../src/infrastructure/core-operation-contract.js';
 
 const priceProfile = { version: 'propose-synthetic-v1', modelId: 'deepseek-flash', expiresAt: '2030-01-01T00:00:00Z',
   inputMicrounitsPerMillion: 2000000, outputMicrounitsPerMillion: 8000000 };
@@ -60,8 +62,48 @@ const args = (start, end, quote, noteId = 'n1') => ({ candidates: [{ title: '标
 const plan = (content, input, refs, access = fakeAccess(content)) => buildKnowledgeProposalPlan({ access, grantId: 'g',
   args: input, sourceRefs: refs, turnId: 't', callId: 'c' });
 
+
+const TWO = '数据增强通过变换样本增加训练变化。\n\n过拟合指模型在训练集表现好而泛化差。';
+function proposalInputs(app, note) {
+  const content = note.rawMarkdown, version = app.modules.knowledge.repositories.noteVersionRepository
+    .findByNoteIdAndContentHash(note.id, calculateContentHash(content));
+  const access = { async verifyRead() { return { note, version, contentHash: version.contentHash }; } };
+  const ref = { noteId: note.id, noteVersionId: version.id, contentHash: version.contentHash, start: 0, end: content.length,
+    quoteHash: calculateContentHash(content) };
+  const cite = quote => [{ noteId: note.id, start: content.indexOf(quote), end: content.indexOf(quote) + quote.length, quote }];
+  return { access, sourceRefs: [ref], args: { candidates: [{ title: '数据增强', canonicalStatement: Q1, knowledgeType: 'concept', citations: cite(Q1) },
+    { title: '过拟合', canonicalStatement: Q2, knowledgeType: 'concept', citations: cite(Q2) }] } };
+}
+async function commitPlan(app, note, requestSuffix = 'main') {
+  return buildKnowledgeProposalPlan({ ...proposalInputs(app, note), grantId: 'g', turnId: `turn-${requestSuffix}`, callId: 'call-1' });
+}
+function originState(spaceId, origin, identity) {
+  const future = new Date(Date.now() + 3600_000).toISOString(), boundary = { ownerId: 'test', ...identity, spaceId };
+  return {
+    turn: { ...boundary, turnId: origin.turnId, conversationId: origin.conversationId, status: 'running', leaseGeneration: 1, leaseExpiresAt: future },
+    grant: { ...boundary, grantId: 'grant-1', conversationId: origin.conversationId, actorId: 'test', policyId: 'policy-1', policyRevision: 1,
+      expiresAt: future, allowedTools: ['notes_search', 'notes_read'] },
+    policy: { ...boundary, policyId: 'policy-1', actorId: 'test', revision: 1, read: true, revokedAt: null, expiresAt: future,
+      excludedNoteIds: [], scope: { kind: 'library' } }
+  };
+}
+async function commitFixture(run) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-knowledge-commit-'));
+  try {
+    const app = createPersistentAppContext({ storageRootDir: root, ownerId: 'test' });
+    const space = app.http.knowledge.createDefaultKnowledgeSpace();
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: TWO });
+    const origin = { conversationId: 'conversation-1', turnId: 'turn-main', toolCallId: 'call-1' };
+    const identity = { datasetId: 'dataset-1', datasetEpoch: 'epoch-1' };
+    const state = originState(space.id, origin, identity);
+    const stores = { conversationStore: { peekTurn: () => state.turn }, accessStore: { peek: (kind) => kind === 'aiRunGrant' ? state.grant : state.policy } };
+    const make = (core = app.coreOperationStore) => createAgentKnowledgeCommitService({ core, knowledge: app.modules.knowledge, ownerId: 'test', ...stores });
+    await run({ app, space, note, service: make(), make, state, build: () => commitPlan(app, note), origin, identity, grantId: 'grant-1', generation: 1 });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+
 export const aiKnowledgePropose = [
-  { name: '知识提议：读后提交通过校验，只返回提议摘要，不创建任何正式知识', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+  { name: '知识提议：读后提交原子保存为候选，附 agent 来源摘要，不产生正式知识', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
     const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); let round = 0;
     respond(() => ++round === 1 ? tool('notes_read', { noteId: note.id }) : round === 2 ? tool('knowledge_propose', proposal(note.id))
@@ -70,9 +112,16 @@ export const aiKnowledgePropose = [
     await runtime.agent.run(turn.turnId);
     assert(requests[0].tools.some(item => item.name === 'knowledge_propose'));
     const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
-    assert.equal(call.status, 'succeeded'); assert.equal(call.resultJson.status, 'validated'); assert.equal(call.resultJson.saved, false);
+    assert.equal(call.status, 'succeeded'); assert.equal(call.resultJson.status, 'saved'); assert.equal(call.resultJson.saved, true);
     assert.equal(call.resultJson.candidates.length, 1); assert.equal(call.resultJson.candidates[0].title, '数据增强');
-    assert.equal(items().length, 0);
+    const [saved] = items();
+    assert.equal(saved.id, call.resultJson.candidates[0].candidateId); assert.equal(saved.reviewStatus, 'candidate'); assert.equal(saved.sourceMode, 'ai');
+    assert.equal(items().filter(item => item.reviewStatus === 'confirmed').length, 0);
+    const provenance = app.modules.knowledge.repositories.knowledgeArtifactProvenanceRepository.findByArtifactId(saved.id);
+    assert.equal(provenance.executionMode, 'agent'); assert.equal(provenance.provider, 'simulated');
+    assert.equal(provenance.origin.turnId, turn.turnId); assert.equal(provenance.sources[0].quoteText, Q1);
+    const evidence = app.modules.knowledge.repositories.knowledgeEvidenceRepository.list({ knowledgeItemId: saved.id });
+    assert.equal(evidence.length, 1); assert.equal(evidence[0].quoteText, Q1);
   }) },
   { name: '知识提议：默认不开放该工具', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
@@ -92,7 +141,7 @@ export const aiKnowledgePropose = [
     const calls = await toolCalls(runtime, turn, 'knowledge_propose');
     assert.equal(calls.length, 2);
     assert.equal(calls[0].status, 'failed'); assert.equal(calls[0].errorCode, 'AI_PROPOSAL_CITATION_INVALID');
-    assert.equal(calls[1].resultJson.status, 'validated'); assert.equal(items().length, 0);
+    assert.equal(calls[1].resultJson.status, 'saved'); assert.equal(items().length, 1);
   }) },
   { name: '知识提议：未读先提交被拒绝，不创建任何知识', run: () => fixture(async ({ app, runtime, space, submit, policy, items, respond }) => {
     const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
@@ -140,5 +189,104 @@ export const aiKnowledgePropose = [
     assert.equal(first.candidates[0].candidateInput.id, second.candidates[0].candidateInput.id); assert.equal(first.outputHash, second.outputHash);
     const duplicate = structuredClone(input); duplicate.candidates[0].citations.push({ ...duplicate.candidates[0].citations[0] });
     await assert.rejects(plan(content, duplicate, [ref]), { code: 'AI_PROPOSAL_CITATION_INVALID' });
-  } }
+  } },
+  { name: '知识保存：全部候选与来源摘要同事务提交，重试复用回执不重复创建', run: () => commitFixture(async ({ app, space, note, build, service, origin, identity, grantId, generation }) => {
+    const plan = await build();
+    const receipt = await service.commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' });
+    assert.equal(receipt.kind, 'knowledge_propose'); assert.equal(receipt.result.candidates.length, 2);
+    const repos = app.modules.knowledge.repositories;
+    assert.equal(repos.knowledgeItemRepository.list().length, 2);
+    assert.equal(repos.knowledgeArtifactProvenanceRepository.list({}).length, 2);
+    const again = await service.commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' });
+    assert.equal(again.receiptHash, receipt.receiptHash); assert.equal(repos.knowledgeItemRepository.list().length, 2);
+    for (const item of repos.knowledgeItemRepository.list()) {
+      assert.equal(repos.knowledgeArtifactProvenanceRepository.findByArtifactId(item.id).provider, 'deepseek');
+    }
+  }) },
+  { name: '知识保存：中途失败整体回滚，不留下部分候选或来源摘要', run: () => commitFixture(async ({ app, build, service, origin, identity, grantId, generation }) => {
+    const plan = await build(), repos = app.modules.knowledge.repositories;
+    // 第二个候选 ID 已被不同内容占用，创建时冲突；第一个候选必须一并回滚。
+    const second = plan.candidates[1].candidateInput;
+    app.modules.knowledge.knowledgeItemService.createCandidate({ id: second.id, title: '别人的候选', canonicalStatement: '占用 ID',
+      knowledgeType: 'concept', sourceMode: 'manual', userExplanation: '', evidence: [] });
+    const before = repos.knowledgeItemRepository.list().length;
+    await assert.rejects(service.commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' }));
+    assert.equal(repos.knowledgeItemRepository.list().length, before);
+    assert.equal(repos.knowledgeItemRepository.findById(plan.candidates[0].candidateInput.id), null);
+    assert.equal(repos.knowledgeArtifactProvenanceRepository.list({}).length, 0);
+    assert.equal(await app.coreOperationStore.get({ ownerId: 'test', datasetId: identity.datasetId,
+      operationId: `knowledge-propose-${(await import('../src/modules/ai/record-contract.js')).hashRecord([origin.turnId, origin.toolCallId])}` }), null);
+  }) },
+  { name: '知识保存：计划提交前来源转私密则整体拒绝，且同操作绑定另一份计划时冲突', run: () => commitFixture(async ({ app, note, build, service, origin, identity, grantId, generation }) => {
+    const plan = await build(), repos = app.modules.knowledge.repositories;
+    app.modules.knowledge.noteService.updateNote(note.id, { aiVisibility: 'private' });
+    await assert.rejects(service.commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' }),
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(repos.knowledgeItemRepository.list().length, 0);
+    app.modules.knowledge.noteService.updateNote(note.id, { aiVisibility: 'normal' });
+    await service.commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' });
+    const other = await commitPlan(app, note, 'other-request');
+    await assert.rejects(service.commit({ plan: { ...other, requestId: plan.requestId }, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' }),
+      { code: 'CORE_OPERATION_CONFLICT' });
+  }) },
+  { name: '核心回执：知识提议回执与笔记回执结果格式互不通用', run() {
+    const base = { ownerId: 'o', datasetId: 'd', datasetEpoch: 'e', actorId: 'o', spaceId: 's', requestId: 'r', operationId: 'op', planHash: 'a'.repeat(64) };
+    const knowledge = { candidates: [{ candidateId: 'k1', provenanceId: 'p1' }], saveState: 'localCommitted' };
+    const note = { changes: [{ noteId: 'n', beforeVersionId: null, afterVersionId: 'v', contentHash: 'b'.repeat(64), metadataBefore: null }], saveState: 'localCommitted' };
+    const receipt = createCoreOperationReceipt({ ...base, kind: 'knowledge_propose' }, knowledge);
+    assert.deepEqual(validateCoreOperationReceipt(receipt), receipt);
+    assert.throws(() => createCoreOperationReceipt({ ...base, kind: 'knowledge_propose' }, note), { code: 'CORE_OPERATION_INVALID' });
+    assert.throws(() => createCoreOperationReceipt({ ...base, kind: 'notes_create' }, knowledge), { code: 'CORE_OPERATION_INVALID' });
+    assert.ok(createCoreOperationReceipt({ ...base, kind: 'notes_create' }, note));
+    for (const bad of [{ ...knowledge, candidates: [] }, { ...knowledge, candidates: [knowledge.candidates[0], knowledge.candidates[0]] },
+      { ...knowledge, candidates: [{ candidateId: 'k1' }] }, { ...knowledge, saveState: 'pending' }]) {
+      assert.throws(() => createCoreOperationReceipt({ ...base, kind: 'knowledge_propose' }, bad), { code: 'CORE_OPERATION_INVALID' });
+    }
+  } },
+  { name: '知识保存：取消、租约失效或授权撤销/收窄后迟到的提议不得入库', run: () => commitFixture(async ({ app, note, build, make, state, origin, identity, grantId, generation }) => {
+    const plan = await build(), items = () => app.modules.knowledge.repositories.knowledgeItemRepository.list().length;
+    const save = () => make().commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' });
+    const past = new Date(Date.now() - 1000).toISOString();
+    const scenarios = {
+      '回合已取消': [() => { state.turn.status = 'cancelled'; }, 'AI_CANCELLED'],
+      '回合租约代数变化': [() => { state.turn.leaseGeneration = 2; }, 'AI_CANCELLED'],
+      '回合租约过期': [() => { state.turn.leaseExpiresAt = past; }, 'AI_CANCELLED'],
+      '运行授权过期': [() => { state.grant.expiresAt = past; }, 'AI_ACCESS_REVOKED'],
+      '运行授权缺少读取工具': [() => { state.grant.allowedTools = ['notes_search']; }, 'AI_ACCESS_REVOKED'],
+      '策略已撤销': [() => { state.policy.revokedAt = past; }, 'AI_ACCESS_REVOKED'],
+      '策略修订变化': [() => { state.policy.revision = 2; }, 'AI_ACCESS_REVOKED'],
+      '来源笔记被策略排除': [() => { state.policy.excludedNoteIds = [note.id]; }, 'AI_ACCESS_REVOKED'],
+      '策略收窄为不含来源的固定集合': [() => { state.policy.scope = { kind: 'fixed', noteIds: ['other-note'] }; }, 'AI_ACCESS_REVOKED'],
+      '策略收窄为不含来源的目录': [() => { state.policy.scope = { kind: 'folder', folderId: 'missing-folder' }; }, 'AI_ACCESS_REVOKED']
+    };
+    const baseline = structuredClone(state);
+    for (const [name, [mutate, code]] of Object.entries(scenarios)) {
+      Object.assign(state, structuredClone(baseline)); mutate();
+      await assert.rejects(save(), { code }, name); assert.equal(items(), 0, name);
+    }
+    Object.assign(state, structuredClone(baseline));
+    assert.equal((await save()).result.candidates.length, 2);
+  }) },
+  { name: '知识保存：提交后响应丢失按回执对账为成功，重试不重复也不因原文后续变化而误报失败', run: () => commitFixture(async ({ app, note, make, origin, identity, grantId, generation }) => {
+    const repos = app.modules.knowledge.repositories, inputs = proposalInputs(app, note);
+    const lossy = { get: input => app.coreOperationStore.get(input), async commit(...args) { await app.coreOperationStore.commit(...args); throw new Error('connection lost after commit'); } };
+    const service = make(lossy), real = make();
+    const wrap = commitService => ({ find: () => commitService.findCommitted({ origin, identity }),
+      save: plan => commitService.commit({ plan, origin, identity, grantId, generation, provider: 'deepseek', modelId: 'deepseek-flash' }) });
+    // 核心提交成功但响应丢失：工具按回执报告成功，而不是失败。
+    const first = await proposeKnowledge({ ...inputs, grantId: 'g', turnId: origin.turnId, callId: origin.toolCallId, commit: wrap(service) });
+    assert.equal(first.resultJson.status, 'saved'); assert.equal(first.resultJson.candidates.length, 2);
+    assert.equal(repos.knowledgeItemRepository.list().length, 2);
+    // 没有提交时，真实失败仍按失败报告（不会被对账吞掉）。
+    const never = { find: async () => null, save: async () => { throw new Error('boom'); } };
+    await assert.rejects(proposeKnowledge({ ...inputs, grantId: 'g', turnId: 'other-turn', callId: 'other-call', commit: never }), /boom/);
+    // 原文后续被修改：同一调用重试仍按回执报告成功，不重新读取来源，也不重复保存。
+    app.modules.knowledge.noteService.updateNote(note.id, { rawMarkdown: `${note.rawMarkdown}\n\n新增一段。`, expectedUpdatedAt: note.updatedAt });
+    const retried = await proposeKnowledge({ args: { candidates: [] }, sourceRefs: [], grantId: 'g', turnId: origin.turnId, callId: origin.toolCallId,
+      access: { async verifyRead() { throw new Error('已提交的调用不应重新读取来源'); } },
+      commit: { ...wrap(real), save: () => assert.fail('不得重复保存') } });
+    assert.equal(retried.resultJson.status, 'saved'); assert.equal(retried.resultJson.candidates.length, 2);
+    assert.equal(retried.resultJson.candidates[0].citationCount, 1);
+    assert.equal(repos.knowledgeItemRepository.list().length, 2);
+  }) }
 ];

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 
 const identityKeys = ['ownerId', 'datasetId', 'datasetEpoch', 'actorId', 'spaceId', 'requestId', 'operationId'];
-const kinds = ['notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize', 'notes_undo'];
+const kinds = ['notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize', 'notes_undo', 'knowledge_propose'];
 const id = value => typeof value === 'string' && value.length > 0 && value.length <= 200
   && value.trim() === value && !/[\u0000-\u001f]/.test(value);
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -42,7 +42,19 @@ function validateChange(change) {
     || new Set(metadata.tagIds).size !== metadata.tagIds.length)) invalid();
 }
 
-export function validateCoreOperationResult(result) {
+// 知识候选提议：回执只记录保存的候选与来源摘要 ID，内容仍由知识核心仓库保存。
+function validateKnowledgeProposalResult(result) {
+  if (!exact(result, ['candidates', 'saveState']) || result.saveState !== 'localCommitted'
+    || !Array.isArray(result.candidates) || result.candidates.length < 1 || result.candidates.length > 20) invalid();
+  for (const candidate of result.candidates) {
+    if (!exact(candidate, ['candidateId', 'provenanceId']) || !id(candidate.candidateId) || !id(candidate.provenanceId)) invalid();
+  }
+  if (new Set(result.candidates.map(candidate => candidate.candidateId)).size !== result.candidates.length) invalid();
+  return structuredClone(result);
+}
+
+export function validateCoreOperationResult(result, kind = 'notes_create') {
+  if (kind === 'knowledge_propose') return validateKnowledgeProposalResult(result);
   if (!exact(result, ['changes', 'saveState']) || result.saveState !== 'localCommitted'
     || !Array.isArray(result.changes) || result.changes.length < 1 || result.changes.length > 20) invalid();
   result.changes.forEach(validateChange);
@@ -51,8 +63,9 @@ export function validateCoreOperationResult(result) {
 }
 
 export function createCoreOperationReceipt(input, result, now = new Date()) {
-  const receipt = { schemaVersion: 1, ...validateCoreOperationInput(input), status: 'applied',
-    appliedAt: now.toISOString(), result: validateCoreOperationResult(result) };
+  const request = validateCoreOperationInput(input);
+  const receipt = { schemaVersion: 1, ...request, status: 'applied',
+    appliedAt: now.toISOString(), result: validateCoreOperationResult(result, request.kind) };
   return { ...receipt, receiptHash: hashCoreOperation(receipt) };
 }
 
@@ -61,7 +74,7 @@ export function validateCoreOperationReceipt(value) {
     || value.schemaVersion !== 1 || value.status !== 'applied' || !hash(value.receiptHash)
     || typeof value.appliedAt !== 'string' || !Number.isFinite(Date.parse(value.appliedAt))) invalid();
   validateCoreOperationInput(Object.fromEntries([...identityKeys, 'kind', 'planHash'].map(key => [key, value[key]])));
-  validateCoreOperationResult(value.result);
+  validateCoreOperationResult(value.result, value.kind);
   const { receiptHash, ...content } = value;
   if (hashCoreOperation(content) !== receiptHash) invalid();
   return structuredClone(value);
