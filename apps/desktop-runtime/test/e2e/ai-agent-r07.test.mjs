@@ -33,7 +33,7 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     const executionLabel=driver==='sqlite'?'本机执行':'服务器执行';
     await page.getByText(executionLabel, { exact: true }).click();
     await expect(page.getByText('离线模拟响应，未调用真实供应商。')).toBeVisible();
-    await page.getByText(executionLabel, { exact: true }).click();
+    await page.keyboard.press('Escape'); await expect(page.getByRole('dialog', { name: '助手执行状态', exact: true })).toBeHidden();
     const status = (await (await page.request.get(`${fixture.origin}/api/ai/assistant/status`, { headers })).json()).data;
     assert.equal(status.provider, 'mock'); assert.equal(status.capabilities.providerVerified, false);
     const send = async message => {
@@ -48,7 +48,8 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     await expect(page.getByText('合成追问：第一轮上下文仍在。', { exact: true })).toBeVisible();
     assert(fixture.adapter.calls[1].messages.some(message => message.role === 'assistant' && message.content === '合成聊天：可以直接提问。'));
     // 用实际 UI 建立固定单篇范围，避免把模型或测试响应当成授权凭据。
-    await page.getByRole('button', { name: '设置读取范围', exact: true }).click();
+    await page.getByRole('button', { name: /资料范围：/ }).click();
+    await page.getByRole('menuitem', { name: '设置读取范围', exact: true }).click();
     const grant = page.getByRole('dialog', { name: '授权助手读取资料', exact: true });
     // 首次发送改变路由后 initialNoteId 消失，显式选择一篇笔记。
     await grant.getByRole('button', { name: /授权范围/ }).click();
@@ -69,7 +70,7 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
       await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/cited-answer-attachment-desktop.png`});
     }
     assert(!JSON.stringify(fixture.adapter.calls).includes('范围外秘密绝不能进入模型。'));
-    await page.getByRole('button', { name: /^来源 1 · 合成授权笔记/ }).click();
+    await page.getByRole('button', { name: /来源 1 · 合成授权笔记/ }).click();
     await expect(page.getByRole('region', { name: '引用原文定位' }).locator('mark')).toHaveText('光合作用需要阳光和水。');
     const conversations = await fixture.store.listConversations({ ownerId: 'demo', spaceId: space.id });
     assert.equal(conversations.length, 1);

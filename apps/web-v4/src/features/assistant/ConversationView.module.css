@@ -1,6 +1,6 @@
 .body { display: grid; grid-template-columns: var(--sidebar-size) minmax(0, 1fr); min-height: 0; overflow: hidden; padding: 0; background: var(--ink-surface); }
-.withInbox { grid-template-columns: var(--sidebar-size) minmax(0, 1fr); }
-.withInbox > .content { display: none; }
+/* 宽屏成果审阅与对话并列（侧栏 / 对话 / 成果）；窄屏由下方媒体查询让成果独占。 */
+.withInbox { grid-template-columns: var(--sidebar-size) minmax(320px, 1fr) minmax(360px, 42%); }
 .history { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; padding: 14px 12px 12px; overflow: hidden; border-right: 1px solid var(--ink-panel); background: var(--ink-bg); }
 .areaTabs { width: 100%; }
 .areaTabs > button { flex: 1; justify-content: center; }
