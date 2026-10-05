@@ -7,6 +7,8 @@ import { hashRecord } from './record-contract.js';
 import { createAuthorizedRetrieval } from './retrieval.js';
 import { createAiRecoveryScope } from './recovery-scope.js';
 import { emptyAgentCheckpoint } from './agent-checkpoint.js';
+import { ANNOTATIONS_TOOL, listAnnotatedRanges } from './annotation-read-tool.js';
+import { KNOWLEDGE_PROPOSE_TOOL, proposeKnowledge } from './knowledge-propose-tool.js';
 import { ASSISTANT_GUIDANCE, WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, renderExternalSources } from './assistant-tools.js';
 
 const MAX_ROUNDS = 4;
@@ -41,7 +43,7 @@ const TOOLS = Object.freeze([
 export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
   accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
-  retrievalCandidates = null, actions = null, webSearchAdapter = null } = {}) {
+  retrievalCandidates = null, actions = null, webSearchAdapter = null, annotations = null, knowledgeProposals = false } = {}) {
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
@@ -53,7 +55,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   const webSearch = createAssistantWebSearch(webSearchAdapter);
   const proposalNames = new Set(['notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize']);
   const availableTools = (turn, canRead, finalOnly = false, artifactRequested = false) => finalOnly ? [] : [
-    ...(canRead ? TOOLS : []), ...(actions ? turn.writeIntent ? toolsForWriteIntent(turn.writeIntent) : artifactRequested ? toolsForAssistant({ canRead }) : [] : []),
+    ...(canRead ? TOOLS : []), ...(canRead && annotations && !turn.writeIntent ? [ANNOTATIONS_TOOL] : []),
+    ...(canRead && knowledgeProposals && !turn.writeIntent ? [KNOWLEDGE_PROPOSE_TOOL] : []), ...(actions ? turn.writeIntent ? toolsForWriteIntent(turn.writeIntent) : artifactRequested ? toolsForAssistant({ canRead }) : [] : []),
     ...(webSearch.enabled ? [WEB_SEARCH_TOOL] : [])];
 
   async function currentTurn(turnId, generation, signal) {
@@ -221,6 +224,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           mode: found.mode, ...(found.fallbackReason ? { fallbackReason: found.fallbackReason } : {}) },
         sourceRefs: found.hits.map(hit => hit.ref) };
       } else if (call.name === 'notes_read') outcome = await readTool(grantId, call.arguments);
+      else if (call.name === 'annotations_list' && annotations && !turn.writeIntent) {
+        outcome = await listAnnotatedRanges({ access, repository: annotations, grantId, args: call.arguments });
+      } else if (call.name === 'knowledge_propose' && knowledgeProposals && !turn.writeIntent) {
+        outcome = await proposeKnowledge({ access, grantId, args: call.arguments, sourceRefs, turnId: turn.turnId, callId });
+      }
       else if (call.name === 'web_search') outcome = await webSearch.search(call.arguments, userMessage, signal);
       else fail('AI_TOOL_INVALID', '模型请求了未开放的工具。');
       receiptPending = true;
@@ -230,7 +238,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     } catch (error) {
       if (!receiptPending && (!writeCall || deterministicWriteFailure(error?.code))) await store.settleToolCall(turn.turnId, generation, callId,
         { errorCode: safeCode(error?.code) }).catch(() => undefined);
-      if (['AI_TOOL_ARGUMENTS_INVALID', 'AI_SEARCH_INVALID', 'AI_SCOPE_FORBIDDEN', 'AI_WEB_QUERY_REQUIRES_CLARIFICATION', 'AI_NOTE_TARGET_NOT_READ'].includes(error?.code)) {
+      if (['AI_TOOL_ARGUMENTS_INVALID', 'AI_SEARCH_INVALID', 'AI_SCOPE_FORBIDDEN', 'AI_WEB_QUERY_REQUIRES_CLARIFICATION', 'AI_NOTE_TARGET_NOT_READ',
+        'AI_PROPOSAL_NOT_READ', 'AI_PROPOSAL_SOURCE_STALE', 'AI_PROPOSAL_CITATION_INVALID', 'AI_PROPOSAL_INVALID'].includes(error?.code)) {
         return { sourceRefs: [], truncated: false, fallback: false, inspected: 0, errorCode: safeCode(error?.code) };
       }
       throw error;
@@ -440,7 +449,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
             return;
           }
           if (outcome.external) externalContext = `\n外部来源（合成验收，非真实联网；不得当作个人笔记引用）：${JSON.stringify(outcome.external.hits)}`;
-          if (outcome.errorCode) toolFeedback = `\n最近工具结果：${outcome.errorCode}。请调整参数，缺少公开关键词时只问关键问题。`;
+          if (outcome.errorCode?.startsWith('AI_PROPOSAL_')) toolFeedback = `\n最近工具结果：${outcome.errorCode}。知识候选的引文必须与本次已读原文逐字一致并落在已读范围内；请先读取原文再修正，或向用户说明无法提议。`;
+          else if (outcome.errorCode) toolFeedback = `\n最近工具结果：${outcome.errorCode}。请调整参数，缺少公开关键词时只问关键问题。`;
           sourceRefs = uniqueRefs([...sourceRefs, ...outcome.sourceRefs]).slice(-12);
           searchTruncated ||= outcome.truncated;
           searchFallback ||= outcome.fallback;

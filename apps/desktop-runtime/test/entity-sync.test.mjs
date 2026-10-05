@@ -460,7 +460,8 @@ for (const hasDependencies of [false, true]) test(`桌面分批容量包含最�
   t.after(() => workspace.store.close());
   workspace.knowledge.noteService.createNote({ title: '大正文一', rawMarkdown: '', spaceId: workspace.space.id });
   workspace.knowledge.noteService.createNote({ title: '大正文二', rawMarkdown: '', spaceId: workspace.space.id });
-  workspace.store.syncTransaction((_db, state) => { for (const note of state.notes) note.annotationStructure = null; });
+  // 本例隔离信封与依赖的容量计量；完整正文版本的原子分批由 long-edit-sync 的 HTTP 用例覆盖。
+  workspace.store.syncTransaction((_db, state) => { state.noteVersions.length = 0; for (const note of state.notes) note.annotationStructure = null; });
   if (hasDependencies) {
     const initial = nextEntityUpload(workspace.store);
     acknowledgeEntityUpload(workspace.store, initial, { status: 'accepted', entries: initial.changes.map(entry => ({ ...entry, revision: 1 })) });
@@ -476,7 +477,15 @@ for (const hasDependencies of [false, true]) test(`桌面分批容量包含最�
   const candidate = { ...small, changes: small.changes.map(entry => entry.collection === 'notes'
     ? { ...entry, value: { ...entry.value, rawMarkdown: workspace.store.state.notes.find(note => note.id === entry.id).rawMarkdown } } : entry) };
   assert.equal(Buffer.byteLength(JSON.stringify(candidate)), limit + 1);
-  const operation = nextEntityUpload(workspace.store);
+  // 隔离硬容量边界，避免慢速传输的软目标提前结束本例选择。
+  const { selectEntityBatch } = await import('../src/entity-batches.mjs');
+  const base = workspace.store.readSync(db => new Map(db.prepare('SELECT * FROM sync_base').all().map(row =>
+    [JSON.stringify([row.collection, row.id]), { collection: row.collection, id: row.id, revision: row.server_revision, value: JSON.parse(row.payload) }])));
+  const entries = selectEntityBatch(candidate.changes, workspace.store.state, base, {
+    targetEntries: Infinity, targetBytes: Infinity,
+    measureBytes: changes => Buffer.byteLength(JSON.stringify({ ...candidate, changes }))
+  });
+  const operation = { ...candidate, changes: entries };
   assert.equal(operation.dependencies.length, hasDependencies ? 1 : 0);
   assert(Buffer.byteLength(JSON.stringify(operation)) <= limit);
   assert.equal(operation.changes.filter(entry => entry.collection === 'notes').length, 1, '最终信封超限时应分批，不能按记录大小放行');

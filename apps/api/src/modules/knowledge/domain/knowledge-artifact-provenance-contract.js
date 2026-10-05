@@ -10,6 +10,10 @@ const RECORDED = ['executionMode', 'provider', 'modelId', 'promptVersion', 'resu
   'origin', 'inputHash', 'outputHash', 'committedAt', 'sources'];
 const SOURCE = ['evidenceId', 'sourceId', 'noteId', 'originNoteVersionId', 'contentHash',
   'start', 'end', 'quoteText', 'quoteHash', 'annotationRevisions'];
+const ORIGIN_KEYS = Object.freeze({
+  mock: ['jobId', 'requestId', 'scopeId', 'spaceId', 'receiptHash'],
+  agent: ['conversationId', 'turnId', 'toolCallId', 'requestId', 'spaceId', 'receiptHash']
+});
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const sha256 = value => createHash('sha256').update(value, 'utf8').digest('hex');
 const identifier = value => typeof value === 'string' && value.length > 0
@@ -104,14 +108,18 @@ export function validateKnowledgeArtifactProvenance(record) {
     || !identifier(record.artifactId) || record.id !== knowledgeArtifactProvenanceId(record.artifactId)
     || !digest(record.provenanceHash)) invalid();
   if (record.state === 'recorded') {
-    if (record.executionMode !== 'mock' || record.provider !== 'mock'
+    // mock：受信宿主的模拟验收；agent：笔记助手经受控工具提议并由核心事务保存的候选。
+    // 两种模式的 provider 互斥，origin 字段各自固定，既有 mock 记录与其哈希保持不变。
+    if (!['mock', 'agent'].includes(record.executionMode)
+      || (record.executionMode === 'mock' ? record.provider !== 'mock' : !identifier(record.provider) || record.provider === 'mock')
       || ['modelId', 'promptVersion', 'resultSchemaVersion'].some(key => !identifier(record[key]))
       || !digest(record.inputHash) || !digest(record.outputHash)
       || typeof record.committedAt !== 'string'
       || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(record.committedAt)
       || !Number.isFinite(Date.parse(record.committedAt))) invalid();
-    assertKeys(record.origin, ['jobId', 'requestId', 'scopeId', 'spaceId', 'receiptHash']);
-    if (['jobId', 'requestId', 'scopeId', 'spaceId'].some(key => !identifier(record.origin[key]))
+    const originKeys = ORIGIN_KEYS[record.executionMode];
+    assertKeys(record.origin, originKeys);
+    if (originKeys.some(key => key !== 'receiptHash' && !identifier(record.origin[key]))
       || !digest(record.origin.receiptHash)) invalid();
     assertArray(record.sources);
     if (record.sources.length < 1 || record.sources.length > KNOWLEDGE_ARTIFACT_PROVENANCE_LIMITS.sources) invalid();

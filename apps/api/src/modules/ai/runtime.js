@@ -15,7 +15,7 @@ import { createConversationAttachmentService } from './conversation-attachments.
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
   actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
-  verifySources = null, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null,
+  verifySources = null, knowledgeProposals = false, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null,
   uploadsDir = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
@@ -32,6 +32,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
       gateway, priceProfile, allowExternal, retrievalCandidates, actions, webSearchAdapter,
+      annotations: knowledge?.repositories?.contentAnnotationRepository ?? null, knowledgeProposals,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,
