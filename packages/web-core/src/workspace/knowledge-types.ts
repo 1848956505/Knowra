@@ -118,19 +118,30 @@ interface KnowledgeProvenanceIdentity {
   provenanceHash: string;
 }
 
-export interface RecordedKnowledgeProvenance extends KnowledgeProvenanceIdentity {
+interface RecordedKnowledgeProvenanceBase extends KnowledgeProvenanceIdentity {
   state: 'recorded';
-  executionMode: 'mock';
-  provider: 'mock';
   modelId: string;
   promptVersion: string;
   resultSchemaVersion: string;
-  origin: { jobId: string; requestId: string; scopeId: string; spaceId: string; receiptHash: string };
   inputHash: string;
   outputHash: string;
   committedAt: string;
   sources: KnowledgeProvenanceSource[];
 }
+
+export interface MockKnowledgeProvenance extends RecordedKnowledgeProvenanceBase {
+  executionMode: 'mock';
+  provider: 'mock';
+  origin: { jobId: string; requestId: string; scopeId: string; spaceId: string; receiptHash: string };
+}
+
+export interface AgentKnowledgeProvenance extends RecordedKnowledgeProvenanceBase {
+  executionMode: 'agent';
+  provider: string;
+  origin: { conversationId: string; turnId: string; toolCallId: string; requestId: string; spaceId: string; receiptHash: string };
+}
+
+export type RecordedKnowledgeProvenance = MockKnowledgeProvenance | AgentKnowledgeProvenance;
 
 export interface ResolvedKnowledgeProvenanceSource {
   evidenceId: string;
