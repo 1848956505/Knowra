@@ -3,12 +3,18 @@ import { ConversationAttachmentPicker } from './ConversationAttachmentPicker';
 import { AIInbox } from './AIInbox';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
+import { SegmentedButton, SegmentedControl } from '../../components/ui/button/SegmentedControl';
+import { Badge } from '../../components/ui/status/Badge';
+import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay/Menu';
+import { ArrowRightIcon, CheckIcon, ChevronDownIcon, CopyIcon, EditIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
 import { Select, TextAreaField } from '../../components/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '../../components/ui/overlay/Dialog';
-import { WorkspacePanel, WorkspacePanelBody } from '../../components/workspace/WorkspacePanel';
+import { Popover, PopoverDialog, PopoverTrigger } from '../../components/ui/overlay/Popover';
+import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelHeader } from '../../components/workspace/WorkspacePanel';
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
-import { BookIcon, FolderIcon, HomeIcon, NoteIcon, SettingsIcon, SparkIcon } from '../../shell/icons';
+import { BookIcon, NoteIcon, SparkIcon } from '../../shell/icons';
+import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantStatus } from './assistantApi';
 import { conversationApi, type AccessPolicy, type Conversation, type ConversationMessage,
   type ConversationTurn, type SourceRef } from './conversationApi';
@@ -31,6 +37,17 @@ const isActive = (turn: ConversationTurn | null) => turn?.status === 'staged' ||
 const blocked = (turn: ConversationTurn | null) => isActive(turn) || turn?.status === 'interrupted';
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback;
 const formatTime = (value: string) => new Date(value).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+const formatClock = (value: string) => new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+const formatDay = (value: string) => new Date(value).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+function dayGroup(value: string) {
+  const day = new Date(value); day.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - day.getTime()) / 86400_000);
+  return diff <= 0 ? '今天' : diff === 1 ? '昨天' : '更早';
+}
+const scopeMark = (selected: boolean) => selected ? <CheckIcon size={14} /> : <span style={{ display: 'inline-block', width: 14 }} />;
+const activeActionStatuses = ['awaitingApproval', 'authorized', 'applying'];
 
 interface PendingSend { conversationId: string; idempotencyKey: string; content: string; requestedPolicyId: string | null }
 
@@ -101,6 +118,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     && (attempt.status === 'sent' || ['settled', 'unknown'].includes(attempt.status) && !attempt.modelResult)) ?? false;
   const activePolicies = policies.filter(item => !item.revokedAt && Date.parse(item.expiresAt) > Date.now() && item.egress);
   const chosenPolicy = activePolicies.find(item => item.policyId === scopeChoice);
+  const pendingArtifacts = artifacts.filter(action => activeActionStatuses.includes(action.status)).length;
+  const conversationTitle = selected ? (titles[selected.conversationId] ?? `会话 · ${formatTime(selected.createdAt)}`) : '新对话';
+  const historyGroups = ['今天', '昨天', '更早'].map(label => ({ label, items: conversations.filter(item => dayGroup(item.createdAt) === label) })).filter(group => group.items.length);
   const noteName = (id: string) => notes.find(note => note.id === id)?.title || '已移除的笔记';
   const scopeName = (policy: AccessPolicy) => {
     const scope = policy.scope;
@@ -340,19 +360,51 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     } catch (cause) { setError(errorText(cause, '无法读取检索记录。')); }
   }
 
-  return <WorkspacePanel as="main" className={styles.assistantPanel} aria-labelledby="assistant-title">
+  return <WorkspacePanel as="main" aria-labelledby="assistant-title">
+    <WorkspacePanelHeader title="AI 助手" code={inboxOpen ? 'INBOX' : 'CHAT'} titleId="assistant-title" icon={<SparkIcon size={14} />}
+      breadcrumb={<PathTrail path={[{ id: 'assistant', label: 'AI 助手' }, { id: 'assistant-area', label: inboxOpen ? '成果收件箱' : '对话' },
+        ...(inboxOpen ? [] : [{ id: 'assistant-conversation', label: conversationTitle, current: true }])]} variant="top" />}
+      breadcrumbTitle={inboxOpen ? 'AI 助手 / 成果收件箱' : `AI 助手 / 对话 / ${conversationTitle}`}
+      actionsLabel="助手操作" actions={<>
+        <PopoverTrigger isOpen={statusOpen} onOpenChange={setStatusOpen}>
+          <Button size="workspace" variant="ghost" className={styles.modelState}>
+            <span className={styles.stateDot} data-state={status ? status.generationAvailable ? 'ready' : 'blocked' : 'loading'} aria-hidden="true" />
+            {status ? status.executionLocation === 'local' ? '本机执行' : '服务器执行' : '正在读取模型状态'}
+          </Button>
+          <Popover placement="bottom end">
+            <PopoverDialog aria-label="助手执行状态" className={styles.statusDetails}>
+              <span>{status ? `执行位置：${status.executionLocation === 'local' ? '本机' : '服务器'}` : '正在读取模型状态'}</span>
+              <span>{status?.modelId ? `${status.simulation ? '离线模拟' : 'DeepSeek'} · ${status.modelId}` : status ? '模型未配置' : ''}</span>
+              {status?.simulation ? <span>离线模拟响应，未调用真实供应商。</span> : null}
+              {status?.budget ? <span>今日可用 {(status.budget.availableMicrounits / 1_000_000).toFixed(2)} 元</span> : null}
+              {status && !status.generationAvailable ? <span>{status.unavailableReason ?? '当前无法生成回答。'}</span> : null}
+              {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
+              {!status?.generationAvailable ? <Button variant="ghost" size="compact" onPress={() => void reloadPage()}>重试读取状态</Button> : null}
+            </PopoverDialog>
+          </Popover>
+        </PopoverTrigger>
+        <Button size="workspace" variant="accent" onPress={() => {
+          pendingSend.current = null; setDraft(''); setInboxOpen(false); navigate('/assistant?new=1');
+        }}><PlusIcon size={17} />新对话</Button>
+        <MenuTrigger>
+          <Button size="workspace" iconOnly aria-label="更多操作"><MoreHorizontalIcon size={16} /></Button>
+          <MenuPopover><Menu ariaLabel="更多操作" onAction={key => {
+            if (key === 'records') setManagementOpen(open => !open);
+            else if (key === 'settings') navigate('/settings');
+            else navigate('/assistant?view=legacy');
+          }}>
+            <MenuItem id="records">执行记录</MenuItem>
+            <MenuItem id="settings">模型设置</MenuItem>
+            <MenuItem id="legacy">旧版任务</MenuItem>
+          </Menu></MenuPopover>
+        </MenuTrigger>
+      </>} />
     <WorkspacePanelBody className={`${styles.body} ${inboxOpen ? styles.withInbox : ''}`} aria-label="AI 助手工作区">
       <aside className={styles.history} aria-label="会话历史">
-        <button type="button" className={styles.brand} onClick={() => navigate('/materials')} aria-label="返回笔记"><BookIcon size={25} accent /><strong>Knowra</strong></button>
-        <Button className={styles.newConversation} variant="accent" size="workspace" onPress={() => {
-          pendingSend.current = null; setDraft(''); navigate('/assistant?new=1');
-        }}>新对话</Button>
-        <nav className={styles.historyNavigation} aria-label="助手导航">
-          <button type="button" className={styles.navigationItem} aria-current={!inboxOpen ? 'page' : undefined}
-            onClick={() => setInboxOpen(false)}><SparkIcon size={17} />对话</button>
-          <button ref={inboxTrigger} type="button" className={styles.navigationItem} aria-label="AI 成果收件箱" aria-current={inboxOpen ? 'page' : undefined}
-            onClick={() => openInbox()}><FolderIcon size={17} />成果收件箱</button>
-        </nav>
+        <SegmentedControl className={styles.areaTabs} aria-label="助手导航">
+          <SegmentedButton aria-pressed={!inboxOpen} onPress={() => setInboxOpen(false)}>对话</SegmentedButton>
+          <SegmentedButton ref={inboxTrigger} aria-label="AI 成果收件箱" aria-pressed={inboxOpen} count={pendingArtifacts || undefined} onPress={() => openInbox()}>成果</SegmentedButton>
+        </SegmentedControl>
         <details className={styles.mobileMenu} ref={mobileMenu}>
           <summary>菜单</summary>
           <div className={styles.mobileMenuBody}>
@@ -361,55 +413,39 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
               {titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</button>)}
             <Select label="知识空间" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
               options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} />
-            <button type="button" onClick={() => navigate('/settings')}>设置</button>
-            <button type="button" onClick={() => navigate('/materials')}>返回笔记</button>
           </div>
         </details>
-        <h2>最近对话</h2>
-        <div className={styles.historyList}>{conversations.length ? conversations.map(item => <button key={item.conversationId} type="button"
-          className={styles.historyItem} aria-current={item.conversationId === selectedId ? 'true' : undefined}
-          onClick={() => chooseConversation(item.conversationId)}>
-          <NoteIcon size={16} /><span>{titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</span>
-          {item.readOnly ? <small>只读</small> : null}
-        </button>) : <p className={styles.muted}>还没有会话。</p>}</div>
-        <div className={styles.historyFooter}>
-          <Select label="知识空间" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
-            options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} />
-          <button type="button" className={styles.navigationItem} onClick={() => navigate('/settings')}><SettingsIcon size={17} />设置</button>
-          <button type="button" className={styles.navigationItem} onClick={() => navigate('/materials')}><HomeIcon size={17} />返回笔记</button>
-        </div>
+        <div className={styles.spaceSwitch}><Select label="知识空间" presentation="toolbar" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
+          options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} /></div>
+        <div className={styles.historyList}>{conversations.length ? historyGroups.map(group => <section key={group.label} className={styles.historyGroup}>
+          <h2>{group.label}</h2>
+          {group.items.map(item => <button key={item.conversationId} type="button"
+            className={styles.historyItem} aria-current={item.conversationId === selectedId && !inboxOpen ? 'true' : undefined}
+            onClick={() => { setInboxOpen(false); chooseConversation(item.conversationId); }}>
+            <span>{titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</span>
+            {item.readOnly ? <small>只读</small> : <time dateTime={item.createdAt}>{group.label === '今天' ? formatClock(item.createdAt) : formatDay(item.createdAt)}</time>}
+          </button>)}
+        </section>) : <p className={styles.muted}>还没有会话。</p>}</div>
       </aside>
-      <div className={`${styles.content} ${!selected ? styles.emptyContent : ''}`}>
-        <header className={styles.chatHeader}>
-          <h1 id="assistant-title">{selected ? titles[selected.conversationId] ?? '知境助手' : '知境助手'}</h1>
-          {status && !status.generationAvailable ? <span className={styles.statusWarning}>{status.unavailableReason ?? '当前无法生成回答。'}</span> : null}
-          <details className={styles.status} onToggle={event => setStatusOpen(event.currentTarget.open)}>
-            <summary>{status ? status.executionLocation === 'local' ? '本机执行' : '服务器执行' : '正在读取模型状态'}</summary>
-            {statusOpen ? <div className={styles.statusDetails} role="status">
-          <span>{status ? `执行位置：${status.executionLocation === 'local' ? '本机' : '服务器'}` : '正在读取模型状态'}</span>
-          <span>{status?.modelId ? `${status.simulation ? '离线模拟' : 'DeepSeek'} · ${status.modelId}` : status ? '模型未配置' : ''}</span>
-          {status?.simulation ? <span>离线模拟响应，未调用真实供应商。</span> : null}
-          {status?.budget ? <span>今日可用 {(status.budget.availableMicrounits / 1_000_000).toFixed(2)} 元</span> : null}
-          {status && !status.generationAvailable ? <span>{status.unavailableReason ?? '当前无法生成回答。'}</span> : null}
-          {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
-          {!status?.generationAvailable ? <Button variant="ghost" size="compact" onPress={() => void reloadPage()}>重试读取状态</Button> : null}
-            <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>设置</Button>
-            <Button variant="ghost" size="compact" onPress={() => setManagementOpen(open => !open)}>执行记录</Button>
-            <Button variant="ghost" size="compact" onPress={() => {
-              setGrantKind('library'); setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
-              setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
-            }}>设置读取范围</Button>
-            {chosenPolicy ? <Button variant="ghost" size="compact" isDisabled={pending}
-              onPress={() => void revokePolicy(chosenPolicy)}>撤销此授权</Button> : null}
-            <Button variant="ghost" size="compact" onPress={() => navigate('/assistant?view=legacy')}>旧版任务</Button>
-            </div> : null}
-          </details>
-        </header>
+      <div className={styles.content}>
+        {status && !status.generationAvailable ? <p className={styles.statusWarning} role="status">{status.unavailableReason ?? '当前无法生成回答。'}</p> : null}
         {spaceId && (recordMessage || managementOpen) ? <NoteActions key={`${spaceId}:${recordMessage?.messageId ?? 'management'}`} spaceId={spaceId} refreshKey={messages.at(-1)?.messageId} conversationId={selectedId ?? undefined} message={recordMessage ?? undefined} onCloseSource={() => { setRecordMessage(null); setManagementOpen(false); }} onOpenNote={onOpenNote} /> : null}
         <div className={styles.messages} aria-live="polite">
           {!selected ? <div className={styles.welcome}>
             <span className={styles.welcomeMark}><BookIcon size={48} accent /><SparkIcon size={22} /></span>
-            <h2>今天想聊些什么？</h2><p>提问、梳理知识，或一起完成一份笔记。</p>
+            <h2>和你的笔记聊聊</h2>
+            <p>{activePolicies.length ? '助手可以检索你已授权的笔记，回答附带来源，整理结果先放进成果等你确认。'
+              : '现在是普通聊天，不会读取任何笔记。授权后，助手可以检索、引用并整理你的笔记。'}</p>
+            <div className={styles.starters}>
+              <Button className={styles.starter} onPress={() => { setDraft('请基于我的笔记回答：'); pendingSend.current = null; }}>
+                <SearchIcon size={18} /><strong>基于笔记提问</strong><span>回答附带来源，可以逐条核对。</span></Button>
+              <Button className={styles.starter} onPress={() => { setDraft('帮我把下面的内容整理成一篇笔记：'); pendingSend.current = null; }}>
+                <EditIcon size={18} /><strong>整理成笔记</strong><span>生成草稿放进成果，确认后才写入。</span></Button>
+              <Button className={styles.starter} onPress={() => {
+                setGrantKind('library'); setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
+                setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
+              }}><BookIcon size={18} /><strong>先授权读取范围</strong><span>选择整个知识空间、一个目录或一篇笔记。</span></Button>
+            </div>
           </div> : null}
           {selected?.readOnly ? <p className={styles.readOnly}>此会话属于历史资料集，只能回看。请新建对话继续提问。</p> : null}
           {loading ? <p className={styles.muted}>正在恢复消息…</p> : null}
@@ -417,23 +453,25 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             const turn = turns[message.turnId];
             const citations = message.citations ?? [];
             return <article key={message.messageId} className={`${styles.message} ${message.role === 'user' ? styles.user : styles.assistant}`}>
-              {message.role === 'assistant' ? <div className={styles.messageMeta}><BookIcon size={18} accent /><strong>Knowra</strong><time dateTime={message.createdAt}>{formatTime(message.createdAt)}</time></div> : null}
+              {message.role === 'assistant' ? <div className={styles.messageMeta}><BookIcon size={18} accent /><strong>Knowra</strong><time dateTime={message.createdAt}>{formatClock(message.createdAt)}</time></div> : null}
               <div className={styles.messageText}><ReadableMarkdown text={message.content} /></div>
               {message.role === 'assistant' ? <>
                 {citations.length ? <div className={styles.sources} aria-label="回答来源">
-                  {citations.map((ref, index) => <Button key={`${ref.noteVersionId}:${ref.start}:${index}`} variant="default" size="compact"
-                    onPress={() => void openSource(ref, message.messageId)}>来源 {index + 1} · {noteName(ref.noteId)} · {ref.start + 1}–{ref.end}</Button>)}
+                  {citations.map((ref, index) => <Button key={`${ref.noteVersionId}:${ref.start}:${index}`} variant="default" size="compact" className={styles.sourceChip}
+                    onPress={() => void openSource(ref, message.messageId)}><b>{index + 1}</b>来源 {index + 1} · {noteName(ref.noteId)}</Button>)}
                 </div> : !message.sourceFree ? <p className={styles.muted}>此回答未列出可核对引用。</p> : null}
                 <div className={styles.messageActions}>
-                  {!selected?.readOnly ? <Button variant="ghost" size="compact" onPress={() => setRecordMessage(message)}>记录为笔记</Button> : null}
+                  <Button variant="ghost" size="compact" iconOnly aria-label="复制回答" onPress={() => { void navigator.clipboard?.writeText(message.content).then(() => setNotice('已复制回答。'), () => setNotice('浏览器不允许复制，请手动选择文字。')); }}><CopyIcon size={15} /></Button>
+                  {!selected?.readOnly ? <Button variant="ghost" size="compact" onPress={() => setRecordMessage(message)}><NoteIcon size={15} />记录为笔记</Button> : null}
                 <details className={styles.trace} onToggle={event => { if (event.currentTarget.open) void showTrace(message.turnId); }}>
-                  <summary>检索与调用记录</summary>
+                  <summary><SearchIcon size={13} />检索与调用记录</summary>
                   {turn ? <Trace turn={turn} /> : <p>正在读取记录…</p>}
                 </details>
                 </div>
                 {artifacts.filter(action => action.requestId === message.turnId).map(action => <button
                   key={action.actionId} type="button" className={styles.artifactCard} onClick={() => openInbox(action.actionId)}>
                   <NoteIcon size={19} /><span>{action.plan.items.map(item => item.after.title).join('、')}<small>成果草稿 · 点击审阅</small></span>
+                  <Badge tone={activeActionStatuses.includes(action.status) ? 'warning' : 'neutral'}>{activeActionStatuses.includes(action.status) ? '待审阅' : '已处理'}</Badge>
                 </button>)}
               </> : null}
               {sourceView?.messageId === message.messageId ? <section className={styles.sourceDetail} aria-label="引用原文定位">
@@ -477,23 +515,31 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                   onChange={value => { setDraft(value); pendingSend.current = null; }}
                   placeholder={selected ? '继续追问，或说说接下来想做什么…' : '给 Knowra 发消息…'} rows={2} />
                 <div className={styles.composerToolbar}>
+                  <MenuTrigger>
+                    <Button className={styles.scopeChip} size="compact" emphasis={chosenPolicy ? 'soft' : 'normal'} aria-label={`资料范围：${chosenPolicy ? scopeName(chosenPolicy) : '普通聊天'}`}>
+                      <BookIcon size={14} />{chosenPolicy ? `可读取：${scopeName(chosenPolicy)} · 至 ${formatDay(chosenPolicy.expiresAt)}` : '普通聊天 · 不读取笔记'}<ChevronDownIcon size={12} />
+                    </Button>
+                    <MenuPopover><Menu ariaLabel="读取范围" onAction={key => {
+                      if (key === 'grant') {
+                        setGrantKind('library'); setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
+                        setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
+                      } else if (key === 'revoke') { if (chosenPolicy) void revokePolicy(chosenPolicy); }
+                      else { scopeRevision.current++; setScopeChoice(String(key)); pendingSend.current = null; }
+                    }}>
+                      <MenuItem id="plain" icon={scopeMark(scopeChoice === 'plain')}>普通聊天 · 不读取笔记</MenuItem>
+                      {activePolicies.map(policy => <MenuItem id={policy.policyId} key={policy.policyId} icon={scopeMark(scopeChoice === policy.policyId)}>{`${scopeName(policy)} · 至 ${formatTime(policy.expiresAt)}`}</MenuItem>)}
+                      <MenuSeparator />
+                      <MenuItem id="grant">设置读取范围</MenuItem>
+                      <MenuItem id="revoke" isDisabled={!chosenPolicy || pending} isDanger>撤销此授权</MenuItem>
+                    </Menu></MenuPopover>
+                  </MenuTrigger>
                   <ConversationAttachmentPicker key={spaceId ?? 'no-space'} conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
-                  <div className={styles.scopePicker}><Select label="资料范围" presentation="toolbar" selectedKey={scopeChoice}
-                    onSelectionChange={key => { scopeRevision.current++; setScopeChoice(String(key)); pendingSend.current = null; }}
-                    options={[{ id: 'plain', label: '普通聊天 · 不读取笔记' }, ...activePolicies.map(policy => ({
-                      id: policy.policyId, label: `${scopeName(policy)} · 至 ${formatTime(policy.expiresAt)}`
-                    }))]} /></div>
-                  <Button className={styles.scopeAction} variant="ghost" size="compact" onPress={() => {
-                    setGrantKind('library');
-                    setGrantNoteId(initialNoteId ?? notes[0]?.id ?? '');
-                    setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true);
-                  }}>设置读取范围</Button>
-                  {chosenPolicy ? <Button className={styles.scopeAction} variant="ghost" size="compact" isDisabled={pending}
-                    onPress={() => void revokePolicy(chosenPolicy)}>撤销此授权</Button> : null}
                   <span className={styles.composerSpacer} />
-                  <Button variant="accent" shape="pill" size="compact" isDisabled={!draft.trim() || draft.length > 3800 || pending || loading || reviewingOtherDraft || !status?.generationAvailable
+                  {draft.length > 3000 ? <span className={styles.charCount} data-over={draft.length > 3800 || undefined}>{draft.length} / 3800</span> : null}
+                  <Button variant="accent" size="compact" iconOnly aria-label={pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}
+                    isDisabled={!draft.trim() || draft.length > 3800 || pending || loading || reviewingOtherDraft || !status?.generationAvailable
                     || blocked(latestTurn) || scopeChoice !== 'plain' && !chosenPolicy}
-                    onPress={() => void send()}>{pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}</Button>
+                    onPress={() => void send()}><span className={styles.sendIcon}><ArrowRightIcon size={16} /></span></Button>
                 </div>
               </div>
               <p className={styles.composerHint}>{chosenPolicy ? '仅相关且获授权的笔记片段可能发送给 DeepSeek。' : '附件仅存于当前对话，尚不能用于内容问答；需授权后才能读取笔记。'}</p>

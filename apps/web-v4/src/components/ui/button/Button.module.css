@@ -83,11 +83,11 @@
   font-weight: 750;
 }
 
-.iconOnly { min-width: var(--index-size-30); min-height: var(--index-size-30); padding: 0; justify-content: center; }
 .compact { min-height: 29px; padding-inline: 10px; }
 .pill { border-radius: 999px; box-shadow: none; }
 .pill[data-hovered]:not([data-disabled]):not([data-pending]) { box-shadow: var(--shadow-1); }
 .mini { min-height: 27px; padding-inline: 6px; font-size: 10px; box-shadow: none; }
+.iconOnly { min-width: var(--index-size-30); min-height: var(--index-size-30); padding: 0; justify-content: center; }
 .soft { border-color: var(--ink-accent); background: var(--index-blue-wash); color: var(--ink-accent-hover); }
 .soft[data-hovered]:not([data-disabled]):not([data-pending]) { background: var(--ink-accent-soft); }
 .workspace[aria-pressed='true'],
