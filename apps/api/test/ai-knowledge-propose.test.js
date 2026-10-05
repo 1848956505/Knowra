@@ -115,7 +115,7 @@ export const aiKnowledgePropose = [
     await runtime.agent.run(turn.turnId);
     assert(requests[0].tools.some(item => item.name === 'knowledge_propose'));
     assert(JSON.stringify(requests[0].messages).includes('这是提炼知识点请求'), '提炼回合必须带“读后提交候选”的行为指引');
-    assert.equal(requests[0].maxTokens, 2048);
+    assert.equal(requests[0].maxTokens, 4096);
     assert(!JSON.stringify(requests[0].messages).includes('已完成：'), '尚无工具结果时不得声称已完成');
     assert(JSON.stringify(requests[1].messages).includes('已完成：notes_read 已读取一篇笔记的原文片段'), '读取成功后必须明确告知模型，避免重复读取');
     assert(!JSON.stringify(requests[1].messages).includes('没有可用重点'), '只读过正文不得被说成没有重点');
@@ -274,6 +274,7 @@ export const aiKnowledgePropose = [
     const complete = proposalProgress([call('annotations_list', { noteId: 'n', title: '绝密标题', total: 3, offset: 0, hasMore: false, annotations: full },
       full.map(entry => ref('n', entry.start, entry.end)))], full.map(entry => ref('n', entry.start, entry.end)));
     assert(complete.includes('已读取一篇笔记的 3/3 处重点，其中 3 处原文在当前 sources 中（core×1、important×2）'), complete);
+    assert(complete.includes('重点原文即 S1（core）、S2（important）、S3（important），其余 source 只是上下文'), complete);
     assert(complete.includes('信息已足够时现在调用 knowledge_propose') && !complete.includes('绝密标题'), complete);
     // 分页未读完：不得声称已全部读取，并给出下一页位置
     const page = Array.from({ length: 8 }, (_, index) => item(`p${index}`, 'important', index * 10, index * 10 + 5));
@@ -284,6 +285,10 @@ export const aiKnowledgePropose = [
     // 来源窗口已淘汰该笔记：完全不提及，不泄露其标题或数量
     assert.equal(proposalProgress([call('annotations_list', { noteId: 'a', title: '私密甲笔记', total: 9, offset: 0, annotations: [item('x', 'core', 0, 4)] }, [ref('a', 0, 4)]),
       call('notes_read', { noteId: 'a', title: '私密甲笔记' }, [ref('a', 0, 50)])], [ref('b', 0, 4)]), '');
+    // 整篇原文排第一、重点片段随后：编号按 sourceRefs 顺序，重点不会与整篇混淆
+    const withWhole = proposalProgress([call('annotations_list', { noteId: 'n', total: 2, offset: 0, annotations: [item('w1', 'core', 16, 44), item('w2', 'important', 78, 112)] })],
+      [ref('n', 0, 201), ref('n', 16, 44), ref('n', 78, 112)]);
+    assert(withWhole.includes('重点原文即 S2（core）、S3（important）'), withWhole);
     // 没有重点：仅当该笔记仍在 sources 窗口内才如实说明；窗口外不提及
     const none = call('annotations_list', { noteId: 'n', total: 0, offset: 0, annotations: [] });
     assert(proposalProgress([none], [ref('n', 0, 9)]).includes('没有可用重点'));

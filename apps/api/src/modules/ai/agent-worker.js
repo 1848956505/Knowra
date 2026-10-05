@@ -46,7 +46,11 @@ export function proposalProgress(calls, sourceRefs = []) {
       const detail = [...counts].map(([level, count]) => `${level}×${count}`).join('、');
       const unread = note.total - note.seen.size, dropped = note.seen.size - items.length;
       if (unread > 0 || dropped > 0) incomplete = true;
+      // 明确“重点原文就是哪几个 source、各自重要度”：sources 的编号即其在 sourceRefs 中的顺序（与 prepareRequest 一致）。
+      const labels = items.map(item => ({ item, index: sourceRefs.findIndex(ref => ref.noteId === noteId && ref.start === item.start && ref.end === item.end) }))
+        .filter(entry => entry.index >= 0).map(entry => `S${entry.index + 1}（${entry.item.importance}）`);
       steps.push(`annotations_list 已读取一篇笔记的 ${note.seen.size}/${note.total} 处重点，其中 ${items.length} 处原文在当前 sources 中${detail ? `（${detail}）` : ''}`
+        + `${labels.length ? `；重点原文即 ${labels.join('、')}，其余 source 只是上下文` : ''}`
         + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}${dropped > 0 ? `；${dropped} 处原文已不在 sources 中，需要时重新读取` : ''}`);
     } else if (note.listed && !note.seen.size && sourceRefs.some(ref => ref.noteId === noteId)) steps.push('annotations_list 显示一篇笔记没有可用重点，可读取正文后提炼');
     if (note.read) steps.push('notes_read 已读取一篇笔记的原文片段，已在 sources 中');
@@ -459,7 +463,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           modelId: reference.modelId, credentialRef: reference.credentialRef,
           userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
           omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
-            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: proposalRequested ? 2048 : 1024,
+            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: proposalRequested ? 4096 : 1024,
           writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
           tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
         request = prepared.request; manifest = prepared.manifest;
