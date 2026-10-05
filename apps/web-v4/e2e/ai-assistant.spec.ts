@@ -51,7 +51,7 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   await page.goto('/#/assistant?new=1');
   await expect(page.getByRole('heading', { name: 'AI 助手', exact: true })).toBeVisible();
   await expect(page.getByText('服务器执行')).toBeVisible();
-  await expect(page.getByRole('heading', { name: '今天想聊些什么？' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '和你的笔记聊聊' })).toBeVisible();
   await test.info().attach('欢迎态', { body: await page.screenshot(), contentType: 'image/png' });
   const composer = page.getByLabel('提问区');
   const inputBounds = await page.getByRole('textbox', { name: '消息' }).boundingBox();
@@ -73,7 +73,10 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.getByText('菜单', { exact: true }).click();
-  await expect(page.getByText('菜单', { exact: true }).locator('..').getByRole('button', { name: '返回笔记' })).toBeVisible();
+  const history = page.getByRole('complementary', { name: '会话历史' });
+  await expect(history.getByText('最近对话')).toBeVisible();
+  await expect(history.getByRole('button', { name: '解释梯度下降' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: '资料' })).toBeVisible();
   expect(submitted).not.toHaveProperty('writeIntent');
   await expect(page.getByRole('button', { name: '资料范围：普通聊天' })).toBeVisible();
   expect((await page.getByLabel('提问区').boundingBox())?.height).toBeLessThan(220);
