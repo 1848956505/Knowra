@@ -16,6 +16,30 @@ const MAX_TOOLS = 6;
 // 仅明确要求提炼知识的回合使用：需要读取多处重点并分批提交候选。预算仍受 20 元日额度与 2 元单任务预留约束。
 const PROPOSAL_ROUNDS = 8;
 const PROPOSAL_TOOLS = 14;
+// 提炼知识点回合的行为指引：把“读后提交候选”说清楚，避免模型只在回答里罗列或反复读取同一份重点。
+const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功，不要重复调用同一个工具。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文，引文逐字摘自 sources。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
+// 工具结果只以来源片段回到模型，看不到“已成功”。提炼回合另用一句话说明已完成的步骤，避免模型因看不到结果而反复调用、迟迟不提交。
+const noteLabel = value => String(value ?? '').replace(/[\r\n]+/g, ' ').slice(0, 80);
+export function proposalProgress(calls) {
+  const done = calls.filter(call => call.status === 'succeeded' && call.resultJson && typeof call.resultJson === 'object');
+  const latest = (name, key) => [...new Map(done.filter(call => call.toolName === name).map(call => [call.resultJson[key] ?? call.callId, call.resultJson])).values()];
+  const steps = [];
+  for (const result of latest('annotations_list', 'noteId')) {
+    if (!Number.isSafeInteger(result.total)) continue;
+    const counts = new Map();
+    for (const item of result.annotations ?? []) counts.set(item.importance, (counts.get(item.importance) ?? 0) + 1);
+    const detail = [...counts].map(([level, count]) => `${level}×${count}`).join('、');
+    steps.push(result.total
+      ? `annotations_list 已返回《${noteLabel(result.title)}》的 ${result.total} 处重点${detail ? `（本页 ${detail}）` : ''}，其原文已在 sources 中`
+      : `annotations_list 显示《${noteLabel(result.title)}》没有可用重点，可读取正文后提炼`);
+  }
+  for (const result of latest('notes_read', 'noteId')) steps.push(`notes_read 已读取《${noteLabel(result.title)}》的原文片段，已在 sources 中`);
+  const saved = done.filter(call => call.toolName === 'knowledge_propose' && call.resultJson.saved === true)
+    .reduce((sum, call) => sum + (call.resultJson.candidates?.length ?? 0), 0);
+  if (saved) steps.push(`knowledge_propose 已保存 ${saved} 条待审核候选，不要重复提交`);
+  if (!steps.length) return '';
+  return `\n已完成：${steps.join('；')}。${saved ? '请用一两句话告知用户。' : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。'}`;
+}
 const MAX_ATTEMPTS = 8;
 const MAX_RUN_MS = 10 * 60_000;
 const deterministicWriteFailure = code => typeof code === 'string'
@@ -400,10 +424,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       let request, manifest = null;
       if (grant) {
         const finalOnly = forceAnswer || round === maxRounds - 1 || totalTools >= maxTools;
-        const guidance = round ? finalOnly
+        const roundGuidance = round ? finalOnly
             ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
             : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
-        const coverage = `${draftContext}${toolFeedback}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
+        const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
+        const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId)) : '';
+        const coverage = `${draftContext}${toolFeedback}${progress}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
         const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
         if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
         const context = plainContext && contextRoom >= 8
@@ -413,7 +439,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           modelId: reference.modelId, credentialRef: reference.credentialRef,
           userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
           omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
-            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: 1024,
+            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: proposalRequested ? 2048 : 1024,
           writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
           tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
         request = prepared.request; manifest = prepared.manifest;

@@ -7,6 +7,7 @@ import { createPersistentAppContext } from '../src/app.factory.js';
 import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
 import { buildKnowledgeProposalPlan, proposeKnowledge } from '../src/modules/ai/knowledge-propose-tool.js';
 import { requestsKnowledgeProposal } from '../src/modules/ai/assistant-tools.js';
+import { proposalProgress } from '../src/modules/ai/agent-worker.js';
 import { createAgentKnowledgeCommitService } from '../src/modules/ai/agent-knowledge-commit.js';
 import { createCoreOperationReceipt, validateCoreOperationReceipt } from '../src/infrastructure/core-operation-contract.js';
 
@@ -112,6 +113,10 @@ export const aiKnowledgePropose = [
     const turn = await submit('提炼这篇笔记的知识点', 'ok', p.policyId);
     await runtime.agent.run(turn.turnId);
     assert(requests[0].tools.some(item => item.name === 'knowledge_propose'));
+    assert(JSON.stringify(requests[0].messages).includes('这是提炼知识点请求'), '提炼回合必须带“读后提交候选”的行为指引');
+    assert.equal(requests[0].maxTokens, 2048);
+    assert(!JSON.stringify(requests[0].messages).includes('已完成：'), '尚无工具结果时不得声称已完成');
+    assert(JSON.stringify(requests[1].messages).includes('已完成：notes_read 已读取《笔记》'), '读取成功后必须明确告知模型，避免重复读取');
     const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
     assert.equal(call.status, 'succeeded'); assert.equal(call.resultJson.status, 'saved'); assert.equal(call.resultJson.saved, true);
     assert.equal(call.resultJson.candidates.length, 1); assert.equal(call.resultJson.candidates[0].title, '数据增强');
@@ -256,12 +261,30 @@ export const aiKnowledgePropose = [
       assert.equal(requestsKnowledgeProposal(text), false, text);
     }
   } },
+  { name: '知识提议：提炼回合向模型说明已完成的工具步骤（重点数量、已读原文、已保存候选），不泄露原文以外内容', run() {
+    const call = (toolName, resultJson, status = 'succeeded') => ({ toolName, status, resultJson, callId: `${toolName}-${Math.random()}` });
+    assert.equal(proposalProgress([]), '');
+    assert.equal(proposalProgress([call('notes_search', { hits: [] }), call('notes_read', { noteId: 'n', title: '笔记', text: 'x' }, 'failed')]), '');
+    const listed = proposalProgress([call('annotations_list', { noteId: 'n', title: '笔记', total: 3, annotations: [
+      { importance: 'core' }, { importance: 'important' }, { importance: 'important' }] })]);
+    assert(listed.includes('已完成：annotations_list 已返回《笔记》的 3 处重点（本页 core×1、important×2）'), listed);
+    assert(listed.includes('不要重复') && listed.includes('调用 knowledge_propose'), listed);
+    // 同一笔记的重复读取只算一次；没有重点时提示改读正文
+    const repeated = proposalProgress([call('notes_read', { noteId: 'n', title: '笔记' }), call('notes_read', { noteId: 'n', title: '笔记' }),
+      call('annotations_list', { noteId: 'n', title: '笔记', total: 0, annotations: [] })]);
+    assert.equal(repeated.split('notes_read 已读取').length - 1, 1); assert(repeated.includes('没有可用重点'), repeated);
+    const saved = proposalProgress([call('knowledge_propose', { saved: true, candidates: [{}, {}] })]);
+    assert(saved.includes('已保存 2 条待审核候选') && saved.includes('告知用户') && !saved.includes('调用 knowledge_propose 提交'), saved);
+    assert(!proposalProgress([call('notes_read', { noteId: 'n', title: '甲\n乙'.repeat(60) })]).includes('\n甲'), '标题须压成单行并限长');
+  } },
   { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); respond(() => answer('这篇笔记讲数据增强。', []));
     const turn = await submit('这篇笔记讲了什么', 'plain', p.policyId);
     await runtime.agent.run(turn.turnId);
     assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')));
+    assert(requests.every(request => !JSON.stringify(request.messages).includes('这是提炼知识点请求')), '普通提问不得带提炼指引');
+    assert(requests.every(request => request.maxTokens === 1024));
   }) },
   { name: '知识提议：否定与解释类请求不开放该工具，也不会保存候选', run: async () => {
     for (const text of ['我不希望你生成知识点', '不要根据这篇笔记自动生成知识点', '请解释知识项如何提炼']) {
