@@ -13,6 +13,15 @@ export function requestsAssistantArtifact(content) {
   });
 }
 
+// 只在用户明确要求提炼/生成知识点时开放知识提议并放宽轮数；解释“怎么提炼”之类的问题仍是普通对话。
+export function requestsKnowledgeProposal(content) {
+  return content.split(/[，,；;。\n]/).some(clause => {
+    if (/(解释|讲解|说明|怎么|如何|怎样|什么是|是什么).{0,30}(知识点|知识条目|考点)/.test(clause)) return false;
+    return /(提炼|提取|抽取|整理|归纳|梳理|总结|生成|创建).{0,20}(知识点|知识条目|知识项|考点)/.test(clause)
+      || /(知识点|知识条目|知识项|考点).{0,12}(提炼|提取|抽取|生成|创建)/.test(clause);
+  });
+}
+
 export function renderExternalSources(context) {
   const hits = JSON.parse(context.slice(context.indexOf('：') + 1));
   return hits.map(hit => `[${hit.title.replace(/[\[\]\\]/g, '')}](${hit.url.replace(/\)/g, '%29')})`).join('、');

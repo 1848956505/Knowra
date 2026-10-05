@@ -139,7 +139,7 @@ export const reviewedPriceProfileTests = [
       const held = authority.status(accountRef, day);
       assert.equal(held.spentMicrounits, 0);
       assert.equal(held.heldMicrounits, 2048);
-      assert.equal(held.availableMicrounits, 10_000_000 - 2048);
+      assert.equal(held.availableMicrounits, 20_000_000 - 2048);
       assert.equal(reopened.aiRepository.list('aiUsageRecord')[0].actualMicrounits, null);
       assert.throws(() => authority.reserve({ accountRef, day, jobId: records.job.jobId,
         attemptId: 'same-job-over-limit', priceVersion, reservedMicrounits: 2_000_000 }),
@@ -152,7 +152,7 @@ export const reviewedPriceProfileTests = [
       assert.throws(() => authority.reserve({ accountRef, day, jobId: 'daily-over-limit',
         attemptId: 'daily-over-limit', priceVersion, reservedMicrounits: 1 }),
       { code: 'AI_DAILY_BUDGET_EXCEEDED' });
-      assert.equal(createFileDataStore(file).aiBudgetAuthority.status(accountRef, day).heldMicrounits, 10_000_000);
+      assert.equal(createFileDataStore(file).aiBudgetAuthority.status(accountRef, day).heldMicrounits, 20_000_000);
     });
   } },
   { name: 'Worker 已知用量按 2/8 档结算，超出供应商用量边界仍保守占额', async run() {
@@ -179,7 +179,7 @@ export const reviewedPriceProfileTests = [
     await withWorkerStore(async (store, records, file) => {
       const authority = store.aiBudgetAuthority;
       const day = beijingDay(new Date(reviewedAt));
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 10; i++) {
         authority.reserve({ accountRef, day, jobId: `previous-job-${i}`, attemptId: `previous-attempt-${i}`,
           priceVersion: 'deepseek-flash-cny-2026-09-27', reservedMicrounits: 2_000_000 });
         authority.settle({ accountRef, attemptId: `previous-attempt-${i}`, disposition: 'unknown' });
@@ -196,7 +196,7 @@ export const reviewedPriceProfileTests = [
           assert.fail('刷新核价不得绕过旧日预算');
         } } });
       await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_DAILY_BUDGET_EXCEEDED' });
-      assert.equal(budget.status(accountRef, day).heldMicrounits, 10_000_000);
+      assert.equal(budget.status(accountRef, day).heldMicrounits, 20_000_000);
     });
   } },
   { name: 'Agent 共用正式核价：旧截止日可执行，到期及预留中到期均不发送', async run() {

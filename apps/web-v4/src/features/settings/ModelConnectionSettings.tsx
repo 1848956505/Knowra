@@ -69,7 +69,7 @@ export function ModelConnectionSettings() {
         </div>
         {notice ? <p role="status" className={styles.modelNotice}>{notice}</p> : null}
         {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
-        <p className={styles.modelHint}>连接检查仅读取 DeepSeek 的账号模型列表，不发送笔记，也不执行生成。AI 助手与 10 元每日预算仍待后续阶段接通。</p>
+        <p className={styles.modelHint}>连接检查仅读取 DeepSeek 的账号模型列表，不发送笔记，也不执行生成。AI 助手与 20 元每日预算仍待后续阶段接通。</p>
       </div>
     </div>
   </section>;

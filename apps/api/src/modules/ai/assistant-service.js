@@ -44,7 +44,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     try {
       const budget = await runtime().budgetAuthority?.status('deepseek-primary');
       if (!budget || budget.accountRef !== 'deepseek-primary' || !/^\d{4}-\d{2}-\d{2}$/.test(budget.day)
-        || budget.limitMicrounits !== 10_000_000 || !Number.isSafeInteger(budget.availableMicrounits)
+        || budget.limitMicrounits !== 20_000_000 || !Number.isSafeInteger(budget.availableMicrounits)
         || !Number.isSafeInteger(budget.spentMicrounits) || budget.spentMicrounits < 0
         || !Number.isSafeInteger(budget.heldMicrounits) || budget.heldMicrounits < 0
         || budget.availableMicrounits < 0 || budget.availableMicrounits > budget.limitMicrounits) {
@@ -54,7 +54,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
         ? { ready: true, reason: null, budget: { day: budget.day, limitMicrounits: budget.limitMicrounits,
           availableMicrounits: budget.availableMicrounits, spentMicrounits: budget.spentMicrounits,
           heldMicrounits: budget.heldMicrounits } }
-        : { ready: false, reason: '北京时间当日 10 元预算已用完。', budget: { day: budget.day,
+        : { ready: false, reason: '北京时间当日 20 元预算已用完。', budget: { day: budget.day,
           limitMicrounits: budget.limitMicrounits, availableMicrounits: 0,
           spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits } };
     } catch {

@@ -6,6 +6,7 @@ import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { createPersistentAppContext } from '../src/app.factory.js';
 import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
 import { buildKnowledgeProposalPlan } from '../src/modules/ai/knowledge-propose-tool.js';
+import { requestsKnowledgeProposal } from '../src/modules/ai/assistant-tools.js';
 import { createAgentKnowledgeCommitService } from '../src/modules/ai/agent-knowledge-commit.js';
 import { createCoreOperationReceipt, validateCoreOperationReceipt } from '../src/infrastructure/core-operation-contract.js';
 
@@ -132,7 +133,7 @@ export const aiKnowledgePropose = [
     const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); let round = 0;
     respond(() => ++round === 1 ? tool('knowledge_propose', proposal(note.id)) : answer('需要先读取原文。', []));
-    const turn = await submit('今天天气怎么样', 'unread', p.policyId);
+    const turn = await submit('请提炼知识点', 'unread', p.policyId);
     await runtime.agent.run(turn.turnId);
     const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
     assert.equal(call.errorCode, 'AI_PROPOSAL_NOT_READ'); assert.equal(items().length, 0);
@@ -227,6 +228,50 @@ export const aiKnowledgePropose = [
       { ...knowledge, candidates: [{ candidateId: 'k1' }] }, { ...knowledge, saveState: 'pending' }]) {
       assert.throws(() => createCoreOperationReceipt({ ...base, kind: 'knowledge_propose' }, bad), { code: 'CORE_OPERATION_INVALID' });
     }
+  } },
+  { name: '知识提议：只有明确要求提炼知识点的提问才视为提议意图，解释类与普通问题不是', run() {
+    for (const text of ['帮我提炼这篇笔记的知识点', '提取知识点', '把重点生成知识点', '请整理考点', '知识点提炼一下']) assert.equal(requestsKnowledgeProposal(text), true, text);
+    for (const text of ['这篇笔记讲了什么', '怎么提炼知识点', '解释一下什么是知识点', '总结本周学习', '你好', '提炼一下这段话的意思']) assert.equal(requestsKnowledgeProposal(text), false, text);
+  } },
+  { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
+    app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); respond(() => answer('这篇笔记讲数据增强。', []));
+    const turn = await submit('这篇笔记讲了什么', 'plain', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')));
+  }) },
+  { name: '知识提议：提议回合放宽轮数，保存成功算进展，连续分批提交不被判无进展', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+    const sentences = ['甲概念是第一个要点。', '乙概念是第二个要点。', '丙概念是第三个要点。', '丁概念是第四个要点。', '戊概念是第五个要点。'];
+    const content = sentences.join('\n\n');
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '多要点', rawMarkdown: content });
+    const p = await policy(); let round = 0;
+    const propose = index => tool('knowledge_propose', { candidates: [{ title: `要点${index}`, canonicalStatement: sentences[index], knowledgeType: 'concept',
+      citations: [{ noteId: note.id, start: content.indexOf(sentences[index]), end: content.indexOf(sentences[index]) + sentences[index].length, quote: sentences[index] }] }] }, `p${index}`);
+    respond(() => round < 5 ? propose(round++) : answer('已提交五个要点。', [{ sourceId: 'S1', quote: sentences[0] }]));
+    const turn = await submit('帮我提炼多要点笔记的知识点', 'batches', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    assert.equal(items().length, 5); assert.equal(requests.length, 6);
+    assert(requests[4].tools.some(item => item.name === 'knowledge_propose'));
+    assert.equal((await toolCalls(runtime, turn, 'knowledge_propose')).filter(call => call.status === 'succeeded').length, 5);
+  }) },
+  { name: '知识提议：与已有知识或本次其他候选陈述重复时整体拒绝并只提示序号', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); let round = 0;
+    const twice = proposal(note.id); twice.candidates.push({ ...structuredClone(twice.candidates[0]), title: '数据增强（重复）' });
+    respond(() => ++round === 1 ? tool('knowledge_propose', proposal(note.id), 'first') : round === 2 ? tool('knowledge_propose', proposal(note.id), 'second')
+      : round === 3 ? tool('knowledge_propose', twice, 'third') : answer('已完成。', [{ sourceId: 'S1', quote: Q1 }]));
+    const turn = await submit('提炼这篇笔记的知识点', 'dup', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    const calls = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.deepEqual(calls.map(call => call.status), ['succeeded', 'failed', 'failed']);
+    assert.deepEqual(calls.slice(1).map(call => call.errorCode), ['AI_PROPOSAL_DUPLICATE', 'AI_PROPOSAL_DUPLICATE']);
+    assert.equal(items().length, 1);
+    const feedback = JSON.stringify(requests[2].messages);
+    assert(feedback.includes('第 1 个候选')); assert(!feedback.includes('数据增强（重复）'));
+  }) },
+  { name: '预算：北京日额度为 20 元，单任务预留上限仍为 2 元', async run() {
+    const { DAILY_LIMIT_MICROUNITS, JOB_LIMIT_MICROUNITS } = await import('../src/modules/ai/budget-ledger.js');
+    assert.equal(DAILY_LIMIT_MICROUNITS, 20_000_000); assert.equal(JOB_LIMIT_MICROUNITS, 2_000_000);
   } }
 
 ];

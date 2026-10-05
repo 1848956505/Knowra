@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-export const DAILY_LIMIT_MICROUNITS = 10_000_000;
+export const DAILY_LIMIT_MICROUNITS = 20_000_000;
 export const JOB_LIMIT_MICROUNITS = 2_000_000;
 
 function fail(code, message) { const error = new Error(message); error.code = code; throw error; }

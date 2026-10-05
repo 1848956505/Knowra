@@ -88,21 +88,21 @@ export const aiPostgresRepositoryTests = process.env.KNOWRA_SYNC_TEST_DATABASE_U
 }] : [];
 
 export const aiPostgresBudgetTests = process.env.KNOWRA_SYNC_TEST_DATABASE_URL ? [{
-  name: 'AI PostgreSQL 预算按计费账户串行化，并发设备共用 10 元日额度',
+  name: 'AI PostgreSQL 预算按计费账户串行化，并发设备共用 20 元日额度',
   async run() {
     const db = new PrismaClient({ datasources: { db: { url: process.env.KNOWRA_SYNC_TEST_DATABASE_URL } }, log: [] });
     try {
       await db.$connect();
       const budget = createPostgresBudgetAuthority(db);
       const accountRef = `budget-${randomUUID()}`;
-      const requests = Array.from({ length: 6 }, (_, index) => budget.reserve({ accountRef,
+      const requests = Array.from({ length: 11 }, (_, index) => budget.reserve({ accountRef,
         jobId: `job-${index}`, attemptId: `attempt-${index}`, priceVersion: 'test-price', reservedMicrounits: 2_000_000 }));
       const settled = await Promise.allSettled(requests);
-      assert.equal(settled.filter(item => item.status === 'fulfilled').length, 5);
+      assert.equal(settled.filter(item => item.status === 'fulfilled').length, 10);
       assert.equal(settled.filter(item => item.status === 'rejected' && item.reason.code === 'AI_DAILY_BUDGET_EXCEEDED').length, 1,
         settled.filter(item => item.status === 'rejected').map(item => `${item.reason.code}: ${item.reason.message}`).join('; '));
       const status = await budget.status(accountRef);
-      assert.equal(status.heldMicrounits, 10_000_000);
+      assert.equal(status.heldMicrounits, 20_000_000);
       const first = settled.find(item => item.status === 'fulfilled').value;
       await budget.settle({ accountRef, attemptId: first.attemptId, disposition: 'unknown' });
       assert.equal((await budget.status(accountRef)).availableMicrounits, 0);

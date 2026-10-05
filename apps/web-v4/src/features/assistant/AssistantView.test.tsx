@@ -61,7 +61,7 @@ it('刷新后读取已完成任务，并把引用定位到不可变笔记版本'
 it('失败任务展示安全错误码、阶段、HTTP 状态与预算占额', async () => {
   vi.mocked(assistantApi.status).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash',
     configured: true, executionLocation: 'local', generationAvailable: true, unavailableReason: null,
-    budget: { day: '2026-09-27', limitMicrounits: 10_000_000, availableMicrounits: 9_800_000,
+    budget: { day: '2026-09-27', limitMicrounits: 20_000_000, availableMicrounits: 19_800_000,
       heldMicrounits: 200_000, spentMicrounits: 0 },
     capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
       writeTools: false, providerAdvertised: null, providerVerified: false } });

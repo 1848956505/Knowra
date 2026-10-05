@@ -19,7 +19,7 @@ export function validateAgentCheckpoint(checkpoint, previous = null) {
     || checkpoint.version !== 1 || !Array.isArray(checkpoint.sourceRefs) || checkpoint.sourceRefs.length > 128) {
     invalid('执行检查点结构无效。');
   }
-  for (const [key, maximum] of [['nextRound', 4], ['totalTools', 6], ['noProgressRounds', 4], ['handledAttemptOrdinal', 8]]) {
+  for (const [key, maximum] of [['nextRound', 8], ['totalTools', 14], ['noProgressRounds', 4], ['handledAttemptOrdinal', 16]]) {
     if (!Number.isSafeInteger(checkpoint[key]) || checkpoint[key] < 0 || checkpoint[key] > maximum) invalid('执行检查点计数无效。');
   }
   for (const key of ['initialSearchDone', 'searchTruncated', 'searchFallback', 'forceAnswer']) {

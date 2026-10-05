@@ -143,17 +143,17 @@ export const aiBudgetWorkerTests = [
       } finally { await new Promise(resolve => server.close(resolve)); }
     });
   } },
-  { name: '预算账本跨调用者共享北京日 10 元，重试幂等、未知用量占额且重启保留', run() {
+  { name: '预算账本跨调用者共享北京日 20 元，重试幂等、未知用量占额且重启保留', run() {
     withStore((store, file) => {
       const a = store.aiBudgetAuthority;
       assert.equal(beijingDay(new Date('2026-09-25T16:00:00.000Z')), '2026-09-26');
-      for (let i = 0; i < 5; i++) a.reserve({ accountRef: 'deepseek-primary', jobId: `job-${i}`,
+      for (let i = 0; i < 10; i++) a.reserve({ accountRef: 'deepseek-primary', jobId: `job-${i}`,
         attemptId: `attempt-${i}`, priceVersion: 'v1', reservedMicrounits: 2_000_000, day: '2026-09-26' });
       const before = a.status('deepseek-primary', '2026-09-26');
       assert.equal(before.availableMicrounits, 0);
       assert.equal(a.reserve({ accountRef: 'deepseek-primary', jobId: 'job-0', attemptId: 'attempt-0',
         priceVersion: 'v1', reservedMicrounits: 2_000_000, day: '2026-09-26' }).attemptId, 'attempt-0');
-      assert.throws(() => a.reserve({ accountRef: 'deepseek-primary', jobId: 'job-6', attemptId: 'attempt-6',
+      assert.throws(() => a.reserve({ accountRef: 'deepseek-primary', jobId: 'job-99', attemptId: 'attempt-99',
         priceVersion: 'v1', reservedMicrounits: 1, day: '2026-09-26' }), { code: 'AI_DAILY_BUDGET_EXCEEDED' });
       a.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-0', disposition: 'unknown' });
       assert.equal(a.status('deepseek-primary', '2026-09-26').availableMicrounits, 0);
