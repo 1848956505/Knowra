@@ -477,7 +477,15 @@ for (const hasDependencies of [false, true]) test(`桌面分批容量包含最�
   const candidate = { ...small, changes: small.changes.map(entry => entry.collection === 'notes'
     ? { ...entry, value: { ...entry.value, rawMarkdown: workspace.store.state.notes.find(note => note.id === entry.id).rawMarkdown } } : entry) };
   assert.equal(Buffer.byteLength(JSON.stringify(candidate)), limit + 1);
-  const operation = nextEntityUpload(workspace.store);
+  // 隔离硬容量边界，避免慢速传输的软目标提前结束本例选择。
+  const { selectEntityBatch } = await import('../src/entity-batches.mjs');
+  const base = workspace.store.readSync(db => new Map(db.prepare('SELECT * FROM sync_base').all().map(row =>
+    [JSON.stringify([row.collection, row.id]), { collection: row.collection, id: row.id, revision: row.server_revision, value: JSON.parse(row.payload) }])));
+  const entries = selectEntityBatch(candidate.changes, workspace.store.state, base, {
+    targetEntries: Infinity, targetBytes: Infinity,
+    measureBytes: changes => Buffer.byteLength(JSON.stringify({ ...candidate, changes }))
+  });
+  const operation = { ...candidate, changes: entries };
   assert.equal(operation.dependencies.length, hasDependencies ? 1 : 0);
   assert(Buffer.byteLength(JSON.stringify(operation)) <= limit);
   assert.equal(operation.changes.filter(entry => entry.collection === 'notes').length, 1, '最终信封超限时应分批，不能按记录大小放行');

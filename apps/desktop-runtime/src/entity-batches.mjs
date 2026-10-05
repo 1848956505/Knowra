@@ -4,7 +4,8 @@ import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { referencesFor, changeReferencesFor, TRAINING_COLLECTIONS } from '../../api/src/modules/sync/entity-contract.js';
 
 /** 当前笔记及标注保持原子提交；不可变的旧版本、旧修订在所属对象之后分批交付。 */
-export function selectEntityBatch(changes, state, base, { maxEntries = 1000, maxBytes = SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES, measureBytes = entries => Buffer.byteLength(JSON.stringify(entries)) } = {}) {
+export function selectEntityBatch(changes, state, base, { maxEntries = 1000, maxBytes = SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES,
+  targetEntries = 250, targetBytes = 1024 * 1024, measureBytes = entries => Buffer.byteLength(JSON.stringify(entries)) } = {}) {
   const byKey = new Map(changes.map(entry => [syncKey(entry.collection, entry.id), entry]));
   const parents = new Map([...byKey.keys()].map(key => [key, key]));
   const root = key => { let cursor = key; while (parents.get(cursor) !== cursor) cursor = parents.get(cursor); return cursor; };
@@ -68,7 +69,11 @@ export function selectEntityBatch(changes, state, base, { maxEntries = 1000, max
         const failure = new Error('当前正文及必要关联资料超过单次同步容量；本地修改已保留，请导出完整备份后检查超大正文或关联资料。');
         failure.code = 'SYNC_ATOMIC_GROUP_TOO_LARGE'; throw failure;
       }
-      if (selected.length + group.entries.length > maxEntries || measureBytes([...selected, ...group.entries]) > maxBytes) return selected;
+      if (selected.length + group.entries.length > maxEntries) return selected;
+      const combinedBytes = measureBytes([...selected, ...group.entries]);
+      if (combinedBytes > maxBytes) return selected;
+      // 小批次适应慢速上行；目标是软上限，合法的大原子组仍可独立交付。
+      if (selected.length && (selected.length + group.entries.length > targetEntries || combinedBytes > targetBytes)) return selected;
       selected.push(...group.entries); completed.add(key); progress = true;
     }
   }

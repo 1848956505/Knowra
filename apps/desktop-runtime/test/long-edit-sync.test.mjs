@@ -11,6 +11,7 @@ import { anchorForBlock, projectMarkdown, calculateContentHash } from '../../../
 import { SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES } from '@study-accelerator/shared/http-limits';
 import { createSyncEngine } from '../src/sync-engine.mjs';
 import { nextEntityUpload, getEntitySyncState, acknowledgeEntityUpload } from '../src/entity-sync-state.mjs';
+import { writeMeta } from '../src/sync-state.mjs';
 import { temporaryDirectory, openWorkspace } from './helpers.mjs';
 
 async function fixture(t) {
@@ -98,7 +99,7 @@ for (const existing of [false, true]) test(`长时间编辑${existing ? '已有'
     for (const revision of revisions) assert.deepEqual(store.state.annotationRevisions.find(item => item.id === revision.id), revision);
     for (const version of versions) assert.deepEqual(store.state.noteVersions.find(item => item.id === version.id), version);
   }
-  assert(sent.every(operation => operation.changes.length <= 1000 && Buffer.byteLength(JSON.stringify(operation)) <= SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES));
+  assert(sent.every(operation => operation.changes.length <= 250 && Buffer.byteLength(JSON.stringify(operation)) <= 1024 * 1024));
 });
 
 test('单篇累计历史超过12MiB时按最终请求容量自动分批', async t => {
@@ -117,6 +118,105 @@ test('单篇累计历史超过12MiB时按最终请求容量自动分批', async 
   assert(operations.length >= 2);
   assert(operations.every(operation => Buffer.byteLength(JSON.stringify(operation)) <= SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES));
   assert.equal(f.cloud.state.noteVersions.filter(item => item.noteId === ids.noteId).length, a.store.state.noteVersions.length);
+});
+
+test('1MiB 是传输目标：合法的大正文及当前版本仍独立原子上传，旧历史留到后批', async t => {
+  const f = await fixture(t); const operations = [];
+  const a = f.device('large-core', async (url, options) => {
+    if (url.endsWith('/batch')) operations.push(JSON.parse(options.body));
+    return fetch(url, options);
+  });
+  await a.connect(); operations.length = 0;
+  const rawMarkdown = 'x'.repeat(650000);
+  const note = a.knowledge.noteService.createNote({ title: '大正文原子提交', rawMarkdown, spaceId: f.space.id });
+  a.store.runTransaction(() => {
+    for (let i = 0; i < 3; i++) a.store.state.noteVersions.push(new NoteVersion({ id: `older-large-${i}`, noteId: note.id, content: `旧历史 ${i}` }));
+  });
+  await a.engine.sync(); assert.equal(a.engine.status().error, null);
+  const core = operations.find(operation => operation.changes.some(entry => entry.collection === 'notes' && entry.id === note.id));
+  assert(Buffer.byteLength(JSON.stringify(core)) > 1024 * 1024);
+  assert(Buffer.byteLength(JSON.stringify(core)) <= SYNC_CLIENT_BATCH_BODY_LIMIT_BYTES);
+  assert(core.changes.some(entry => entry.collection === 'noteVersions' && entry.value.contentHash === calculateContentHash(rawMarkdown)));
+  assert(!core.changes.some(entry => entry.id.startsWith('older-large-')));
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.equal(f.cloud.state.notes.find(item => item.id === note.id).rawMarkdown, rawMarkdown);
+  assert.equal(f.cloud.state.noteVersions.filter(item => item.noteId === note.id).length, 4);
+});
+
+for (const stage of ['fetch', 'receipt']) test(`上传${stage === 'fetch' ? '等待响应' : '下载回执'}超时保留固定请求，90秒上传预算与15秒连通性预算分离，重启不丢后继编辑`, async t => {
+  const originalTimeout = AbortSignal.timeout;
+  const budgets = new WeakMap();
+  AbortSignal.timeout = ms => { const signal = originalTimeout(ms); budgets.set(signal, ms); return signal; };
+  t.after(() => { AbortSignal.timeout = originalTimeout; });
+  const f = await fixture(t); let armed = false, lost = false;
+  const requests = [];
+  const a = f.device(`timeout-${stage}`, async (url, options) => {
+    const upload = url.endsWith('/batch');
+    requests.push({ upload, budget: budgets.get(options.signal), ...(upload ? { operation: JSON.parse(options.body) } : {}) });
+    const response = await fetch(url, options);
+    if (armed && upload && !lost) {
+      lost = true; await response.arrayBuffer();
+      const failure = new DOMException('upload timed out', 'TimeoutError');
+      if (stage === 'fetch') throw failure;
+      return { ok: true, status: 200, headers: response.headers, json: async () => { throw failure; } };
+    }
+    return response;
+  });
+  await a.connect();
+  const note = a.knowledge.noteService.createNote({ title: `上传超时-${stage}`, rawMarkdown: '已在云端接受的正文', spaceId: f.space.id });
+  armed = true; await a.engine.sync();
+  assert.equal(a.engine.status().error.code, 'SYNC_UPLOAD_TIMEOUT');
+  assert.match(a.engine.status().error.message, /本地修改和原请求已保留/);
+  const frozen = a.store.readSync(db => JSON.parse(db.prepare("SELECT value FROM metadata WHERE key='sync:entityUpload'").get().value));
+  assert(frozen);
+  a.knowledge.noteService.updateNote(note.id, { rawMarkdown: '超时后继续编辑仍然保留' });
+  await a.restart(); await a.connect();
+  assert.equal(a.engine.status().error, null);
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.equal(f.cloud.state.notes.find(item => item.id === note.id).rawMarkdown, '超时后继续编辑仍然保留');
+  const retries = requests.filter(item => item.operation?.operationId === frozen.operationId);
+  assert.equal(retries.length, 2);
+  assert.deepEqual(retries[0].operation, retries[1].operation);
+  assert(requests.filter(item => item.upload).every(item => item.budget === 90000));
+  assert(requests.filter(item => !item.upload).every(item => item.budget === 15000));
+});
+
+test('升级前的1000条冻结请求不按新软目标拆改，超时重启仍原样重放，后续历史采用小批次', async t => {
+  const f = await fixture(t); const sent = []; let lost = false;
+  const a = f.device('legacy-frozen', async (url, options) => {
+    const response = await fetch(url, options);
+    if (url.endsWith('/batch')) {
+      const operation = JSON.parse(options.body); sent.push(operation);
+      if (operation.changes.length === 1000 && !lost) {
+        lost = true; await response.arrayBuffer(); throw new DOMException('legacy upload timeout', 'TimeoutError');
+      }
+    }
+    return response;
+  });
+  await a.connect(); sent.length = 0;
+  const ids = annotatedNote(a, f.space.id);
+  a.store.runTransaction(() => {
+    const annotation = a.store.state.contentAnnotations.find(item => item.id === ids.annotationId);
+    const template = a.store.state.annotationRevisions.find(item => item.annotationId === ids.annotationId);
+    for (let i = annotation.revision + 1; i <= 1105; i++) a.store.state.annotationRevisions.push({
+      ...structuredClone(template), id: `legacy-revision-${i}`, revision: i, operation: 'comment' });
+    annotation.revision = 1105;
+  });
+  const legacy = nextEntityUpload(a.store);
+  const own = new Set(legacy.changes.map(entry => entry.id));
+  legacy.changes.push(...a.store.state.annotationRevisions.filter(item => !own.has(item.id)).slice(0, 1000 - legacy.changes.length)
+    .map(value => ({ collection: 'annotationRevisions', id: value.id, baseRevision: null, value: structuredClone(value) })));
+  assert.equal(legacy.changes.length, 1000);
+  a.store.metadataTransaction(db => writeMeta(db, 'entityUpload', legacy));
+  await a.engine.sync(); assert.equal(a.engine.status().error.code, 'SYNC_UPLOAD_TIMEOUT');
+  await a.restart(); await a.connect();
+  assert.equal(a.engine.status().error, null);
+  const replayed = sent.filter(operation => operation.operationId === legacy.operationId);
+  assert.equal(replayed.length, 2);
+  assert.deepEqual(replayed[0], legacy); assert.deepEqual(replayed[1], legacy);
+  assert(sent.filter(operation => operation.operationId !== legacy.operationId).every(operation => operation.changes.length <= 250));
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.equal(f.cloud.state.annotationRevisions.length, 1105);
 });
 
 test('真正超大的当前正文组明确阻塞，正文、历史、outbox和冻结元数据原样保留', t => {
