@@ -35,23 +35,24 @@ async function fixture(t) {
     t.after(async () => { await engine.close(); workspace.store.close(); });
     return { ...workspace, app: context, engine, connect: () => engine.configure({ serverUrl: origin }) };
   }
-  async function saveAgentCandidate() {
-    const version = knowledge.repositories.noteVersionRepository.findByNoteIdAndContentHash(note.id, calculateContentHash(CONTENT));
-    const access = { async verifyRead() { return { note, version, contentHash: version.contentHash }; } };
-    const ref = { noteId: note.id, noteVersionId: version.id, contentHash: version.contentHash, start: 0, end: CONTENT.length,
+  // 默认写入云端；传入设备的知识模块、笔记与核心账本时，在该设备的 SQLite 本地保存。
+  async function saveAgentCandidate({ knowledge: host = knowledge, note: source = note, core = app.coreOperationStore } = {}) {
+    const version = host.repositories.noteVersionRepository.findByNoteIdAndContentHash(source.id, calculateContentHash(CONTENT));
+    const access = { async verifyRead() { return { note: source, version, contentHash: version.contentHash }; } };
+    const ref = { noteId: source.id, noteVersionId: version.id, contentHash: version.contentHash, start: 0, end: CONTENT.length,
       quoteHash: calculateContentHash(CONTENT) };
     const plan = await buildKnowledgeProposalPlan({ access, grantId: 'g', sourceRefs: [ref], turnId: 'turn-sync', callId: 'call-sync',
       args: { candidates: [{ title: '数据增强', canonicalStatement: QUOTE, knowledgeType: 'concept',
-        citations: [{ noteId: note.id, start: 0, end: QUOTE.length, quote: QUOTE }] }] } });
+        citations: [{ noteId: source.id, start: 0, end: QUOTE.length, quote: QUOTE }] }] } });
     // 保存时会复核回合与授权：这里提供处于运行中的回合、有效运行授权与库级读取策略。
     const origin = { conversationId: 'conversation-sync', turnId: 'turn-sync', toolCallId: 'call-sync' };
     const identity = { datasetId: 'dataset-sync', datasetEpoch: 'epoch-sync' };
-    const future = new Date(Date.now() + 3600_000).toISOString(), boundary = { ownerId: 'demo', ...identity, spaceId: note.spaceId };
+    const future = new Date(Date.now() + 3600_000).toISOString(), boundary = { ownerId: 'demo', ...identity, spaceId: source.spaceId };
     const turn = { ...boundary, turnId: origin.turnId, conversationId: origin.conversationId, status: 'running', leaseGeneration: 1, leaseExpiresAt: future };
     const grant = { ...boundary, conversationId: origin.conversationId, actorId: 'demo', policyId: 'policy-sync', policyRevision: 1, expiresAt: future,
       allowedTools: ['notes_search', 'notes_read'] };
     const policy = { ...boundary, actorId: 'demo', revision: 1, read: true, revokedAt: null, expiresAt: future, excludedNoteIds: [], scope: { kind: 'library' } };
-    const service = createAgentKnowledgeCommitService({ core: app.coreOperationStore, knowledge, ownerId: 'demo',
+    const service = createAgentKnowledgeCommitService({ core, knowledge: host, ownerId: 'demo',
       conversationStore: { peekTurn: () => turn }, accessStore: { peek: kind => kind === 'aiRunGrant' ? grant : policy } });
     await service.commit({ plan, origin, identity, grantId: 'grant-sync', generation: 1, provider: 'deepseek', modelId: 'deepseek-flash' });
     return plan.candidates[0].candidateInput.id;
@@ -109,4 +110,27 @@ test('云端 agent 来源摘要通过增量与逐页 bootstrap 同步到 SQLite 
     for (const forbidden of ['argumentsJson', 'candidateInput', 'conversationMessages', 'credentialRef', 'apiKey']) assert(!transported.includes(forbidden), forbidden);
     assert.equal(device.store.state.knowledgeItems.find(item => item.id === artifactId).reviewStatus, 'candidate');
   }
+});
+
+test('SQLite 桌面端本地保存 agent 候选（核心账本原子提交）后可推送，云端与另一台设备得到相同的候选与来源摘要', async t => {
+  const cloud = await fixture(t), a = cloud.device('local-save'), b = cloud.device('peer');
+  await a.connect(); clean(a); await b.connect(); clean(b);
+  const space = a.knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+  const note = a.knowledge.noteService.createNote({ spaceId: space.id, title: '本地笔记', rawMarkdown: CONTENT });
+  assert(a.app.coreOperationStore, '桌面 SQLite 端必须提供核心操作账本');
+  const artifactId = await cloud.saveAgentCandidate({ knowledge: a.knowledge, note, core: a.app.coreOperationStore });
+  const local = a.store.state.knowledgeArtifactProvenance.find(item => item.artifactId === artifactId);
+  assert.equal(local.executionMode, 'agent');
+  assert.equal(a.store.state.knowledgeItems.find(item => item.id === artifactId).reviewStatus, 'candidate');
+  await a.engine.sync(); clean(a); await b.engine.sync(); clean(b);
+  for (const state of [cloud.store.state, b.store.state]) {
+    assert.deepEqual(state.knowledgeArtifactProvenance.find(item => item.artifactId === artifactId), local);
+    assert.equal(state.knowledgeItems.find(item => item.id === artifactId).reviewStatus, 'candidate');
+  }
+  const forbidden = JSON.stringify(cloud.store.state);
+  for (const word of ['argumentsJson', 'candidateInput', 'credentialRef', 'apiKey']) assert(!forbidden.includes(word), word);
+  // 同一回合与工具调用重复保存复用已提交回执，不重复创建
+  const again = await cloud.saveAgentCandidate({ knowledge: a.knowledge, note, core: a.app.coreOperationStore });
+  assert.equal(again, artifactId);
+  assert.equal(a.store.state.knowledgeItems.filter(item => item.id === artifactId).length, 1);
 });
