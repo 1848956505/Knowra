@@ -43,9 +43,17 @@ async function fixture(t) {
     const plan = await buildKnowledgeProposalPlan({ access, grantId: 'g', sourceRefs: [ref], turnId: 'turn-sync', callId: 'call-sync',
       args: { candidates: [{ title: '数据增强', canonicalStatement: QUOTE, knowledgeType: 'concept',
         citations: [{ noteId: note.id, start: 0, end: QUOTE.length, quote: QUOTE }] }] } });
-    const service = createAgentKnowledgeCommitService({ core: app.coreOperationStore, knowledge, ownerId: 'demo' });
-    await service.commit({ plan, origin: { conversationId: 'conversation-sync', turnId: 'turn-sync', toolCallId: 'call-sync' },
-      identity: { datasetId: 'dataset-sync', datasetEpoch: 'epoch-sync' }, provider: 'deepseek', modelId: 'deepseek-flash' });
+    // 保存时会复核回合与授权：这里提供处于运行中的回合、有效运行授权与库级读取策略。
+    const origin = { conversationId: 'conversation-sync', turnId: 'turn-sync', toolCallId: 'call-sync' };
+    const identity = { datasetId: 'dataset-sync', datasetEpoch: 'epoch-sync' };
+    const future = new Date(Date.now() + 3600_000).toISOString(), boundary = { ownerId: 'demo', ...identity, spaceId: note.spaceId };
+    const turn = { ...boundary, turnId: origin.turnId, conversationId: origin.conversationId, status: 'running', leaseGeneration: 1, leaseExpiresAt: future };
+    const grant = { ...boundary, conversationId: origin.conversationId, actorId: 'demo', policyId: 'policy-sync', policyRevision: 1, expiresAt: future,
+      allowedTools: ['notes_search', 'notes_read'] };
+    const policy = { ...boundary, actorId: 'demo', revision: 1, read: true, revokedAt: null, expiresAt: future, excludedNoteIds: [], scope: { kind: 'library' } };
+    const service = createAgentKnowledgeCommitService({ core: app.coreOperationStore, knowledge, ownerId: 'demo',
+      conversationStore: { peekTurn: () => turn }, accessStore: { peek: kind => kind === 'aiRunGrant' ? grant : policy } });
+    await service.commit({ plan, origin, identity, grantId: 'grant-sync', generation: 1, provider: 'deepseek', modelId: 'deepseek-flash' });
     return plan.candidates[0].candidateInput.id;
   }
   return { store, app, knowledge, note, device, saveAgentCandidate };

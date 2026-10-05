@@ -70,7 +70,8 @@ export function createBatchSyncService(provider, ownerId, transfer) {
           const result = { status: 'conflict', conflicts };
           rememberBatchReceipt(journal, key, hash, result, op); return result;
         }
-        const referenceState = structuredClone(state);
+        // 仅供引用查找的后像不修改记录；替换受影响集合，避免复制所有历史正文。
+        const referenceState = { ...state };
         for (const entry of op.changes) {
           referenceState[entry.collection] = referenceState[entry.collection].filter(value => value.id !== entry.id);
           if (entry.value) referenceState[entry.collection].push(entry.value);

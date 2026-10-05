@@ -66,17 +66,31 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
     }
   }
   const contractedRoute = route => `${route}${route.includes('?') ? '&' : '?'}${syncContractQuery()}`;
-  async function fetchSync(url, options) {
+  function transportFailure(failure, upload = false) {
+    const error = syncTransportError(failure);
+    if (upload && error.code === 'SYNC_NETWORK_TIMEOUT') {
+      error.code = 'SYNC_UPLOAD_TIMEOUT';
+      error.message = '资料上传等待超时；本地修改和原请求已保留，重试会安全核对提交结果。';
+    }
+    return error;
+  }
+  async function fetchSync(url, options, upload = false) {
     try { return await fetcher(url, options); }
-    catch (failure) { throw syncTransportError(failure); }
+    catch (failure) { throw transportFailure(failure, upload); }
   }
   async function request(route, body, serverUrl = meta('serverUrl'), method = body === undefined ? 'GET' : 'POST') {
-    const response = await fetchSync(`${serverUrl}${route.startsWith('/api/') ? route : `/api/sync/${route}`}`, {
+    const upload = ['batch', 'blobs', 'push'].includes(route);
+    // 连通性检查仍快速失败；上传包含 TLS、请求体发送、云端处理及回执下载。
+    const options = {
       method, redirect: 'error',
       headers: { ...(authorization ? { Authorization: authorization } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(15000)
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(upload ? 90000 : 15000)
+    };
+    const response = await fetchSync(`${serverUrl}${route.startsWith('/api/') ? route : `/api/sync/${route}`}`, options, upload);
+    const data = await response.json().catch(failure => {
+      if (options.signal.aborted || failure?.name === 'TimeoutError') throw transportFailure(options.signal.reason ?? failure, upload);
+      return {};
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const authRequired = response.status === 401 || response.status === 403;
       const deviceNotEnabled = data.error?.code === 'SYNC_DEVICE_NOT_ENABLED';
