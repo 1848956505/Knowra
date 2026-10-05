@@ -17,28 +17,48 @@ const MAX_TOOLS = 6;
 const PROPOSAL_ROUNDS = 8;
 const PROPOSAL_TOOLS = 14;
 // 提炼知识点回合的行为指引：把“读后提交候选”说清楚，避免模型只在回答里罗列或反复读取同一份重点。
-const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功，不要重复调用同一个工具。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文，引文逐字摘自 sources。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
+const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具，重点未读完时用 offset 翻页。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文，引文逐字摘自 sources。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
 // 工具结果只以来源片段回到模型，看不到“已成功”。提炼回合另用一句话说明已完成的步骤，避免模型因看不到结果而反复调用、迟迟不提交。
-const noteLabel = value => String(value ?? '').replace(/[\r\n]+/g, ' ').slice(0, 80);
-export function proposalProgress(calls) {
+// 说明只能描述“本轮真的会随请求发出的来源”：按当前 sources 窗口（sourceRefs，发送前会逐条重新核验权限与版本）过滤，
+// 窗口外（被淘汰）的笔记不再提及；不含笔记标题，避免经说明文字绕过发送清单与授权复核。
+export function proposalProgress(calls, sourceRefs = []) {
+  const live = (noteId, start, end) => sourceRefs.some(ref => ref.noteId === noteId && ref.start <= start && end <= ref.end);
   const done = calls.filter(call => call.status === 'succeeded' && call.resultJson && typeof call.resultJson === 'object');
-  const latest = (name, key) => [...new Map(done.filter(call => call.toolName === name).map(call => [call.resultJson[key] ?? call.callId, call.resultJson])).values()];
-  const steps = [];
-  for (const result of latest('annotations_list', 'noteId')) {
-    if (!Number.isSafeInteger(result.total)) continue;
-    const counts = new Map();
-    for (const item of result.annotations ?? []) counts.set(item.importance, (counts.get(item.importance) ?? 0) + 1);
-    const detail = [...counts].map(([level, count]) => `${level}×${count}`).join('、');
-    steps.push(result.total
-      ? `annotations_list 已返回《${noteLabel(result.title)}》的 ${result.total} 处重点${detail ? `（本页 ${detail}）` : ''}，其原文已在 sources 中`
-      : `annotations_list 显示《${noteLabel(result.title)}》没有可用重点，可读取正文后提炼`);
+  const notes = new Map();
+  const noteOf = id => notes.get(id) ?? notes.set(id, { total: 0, seen: new Map(), nextOffset: 0, read: false, listed: false }).get(id);
+  for (const call of done) {
+    const result = call.resultJson;
+    if (call.toolName === 'annotations_list' && typeof result.noteId === 'string' && Number.isSafeInteger(result.total)) {
+      const note = noteOf(result.noteId);
+      note.total = result.total; note.listed = true;
+      for (const item of result.annotations ?? []) note.seen.set(item.annotationId, item);
+      if (Number.isSafeInteger(result.offset)) note.nextOffset = Math.max(note.nextOffset, result.offset + (result.annotations?.length ?? 0));
+    } else if (call.toolName === 'notes_read' && typeof result.noteId === 'string'
+      && (call.sourceRefs ?? []).some(ref => ref.noteId === result.noteId && live(ref.noteId, ref.start, ref.end))) noteOf(result.noteId).read = true;
   }
-  for (const result of latest('notes_read', 'noteId')) steps.push(`notes_read 已读取《${noteLabel(result.title)}》的原文片段，已在 sources 中`);
+  const steps = []; let incomplete = false;
+  for (const [noteId, note] of notes) {
+    const items = [...note.seen.values()].filter(item => live(noteId, item.start, item.end));
+    if (note.total) {
+      if (!items.length && !note.read) continue; // 来源窗口已淘汰该笔记：不再提及，需要时模型可重新读取
+      const counts = new Map();
+      for (const item of items) counts.set(item.importance, (counts.get(item.importance) ?? 0) + 1);
+      const detail = [...counts].map(([level, count]) => `${level}×${count}`).join('、');
+      const unread = note.total - note.seen.size, dropped = note.seen.size - items.length;
+      if (unread > 0 || dropped > 0) incomplete = true;
+      steps.push(`annotations_list 已读取一篇笔记的 ${note.seen.size}/${note.total} 处重点，其中 ${items.length} 处原文在当前 sources 中${detail ? `（${detail}）` : ''}`
+        + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}${dropped > 0 ? `；${dropped} 处原文已不在 sources 中，需要时重新读取` : ''}`);
+    } else if (note.listed && !note.seen.size && sourceRefs.some(ref => ref.noteId === noteId)) steps.push('annotations_list 显示一篇笔记没有可用重点，可读取正文后提炼');
+    if (note.read) steps.push('notes_read 已读取一篇笔记的原文片段，已在 sources 中');
+  }
   const saved = done.filter(call => call.toolName === 'knowledge_propose' && call.resultJson.saved === true)
     .reduce((sum, call) => sum + (call.resultJson.candidates?.length ?? 0), 0);
   if (saved) steps.push(`knowledge_propose 已保存 ${saved} 条待审核候选，不要重复提交`);
   if (!steps.length) return '';
-  return `\n已完成：${steps.join('；')}。${saved ? '请用一两句话告知用户。' : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。'}`;
+  const next = saved ? '请用一两句话告知用户。' : incomplete
+    ? '重点尚未读完或部分原文已不在 sources 中：先按上面的提示继续读取（可换分页参数或片段），读完后再调用 knowledge_propose。'
+    : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。';
+  return `\n已完成：${steps.join('；')}。${next}`;
 }
 const MAX_ATTEMPTS = 8;
 const MAX_RUN_MS = 10 * 60_000;
@@ -428,7 +448,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
             ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
             : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
         const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
-        const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId)) : '';
+        const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs) : '';
         const coverage = `${draftContext}${toolFeedback}${progress}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
         const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
         if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
