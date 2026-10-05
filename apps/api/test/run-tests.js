@@ -3,6 +3,7 @@ import { noteLinkTests, noteLinkPostgresTests } from './note-links.test.js';
 import { aiAssistantAutonomyTests } from './ai-assistant-autonomy.test.js';
 import { aiAnnotationsListTests } from './ai-annotations-list.test.js';
 import { aiKnowledgePropose } from './ai-knowledge-propose.test.js';
+import { aiKnowledgeProposePostgresTests } from './ai-knowledge-propose-postgres.test.js';
 import { aiConversationAttachmentHttpTests } from './ai-conversation-attachment-http.test.js';
 import { aiConversationAttachmentTests } from './ai-conversation-attachments.test.js';
 import { aiConversationAttachmentPostgresTests } from './ai-conversation-attachments-postgres.test.js';
@@ -114,6 +115,7 @@ const tests = [
   ...aiAssistantAutonomyTests,
   ...aiAnnotationsListTests,
   ...aiKnowledgePropose,
+  ...aiKnowledgeProposePostgresTests,
   ...knowledgeArtifactProvenancePersistenceTests,
   ...knowledgeProvenanceReadLifecycleTests,
   ...attachmentCleanupCrashTests,
