@@ -40,6 +40,8 @@ export interface ButtonProps extends Omit<RAButtonProps, 'className' | 'children
   shape?: 'square' | 'pill';
   /** 低强调蓝色操作，用于卡片内的“查看”等入口。 */
   emphasis?: 'normal' | 'soft';
+  /** 仅图标的方形按钮，必须同时提供 aria-label。 */
+  iconOnly?: boolean;
   /** 图标（仅 icon 模式时作为主内容；其它模式可与 label 并列）。 */
   icon?: ReactNode;
   /** 提交/保存中状态，禁用按压但保留焦点。 */
@@ -57,10 +59,10 @@ const variantClass: Record<ButtonVariant, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'default', size = 'default', shape = 'square', emphasis = 'normal', icon, children, className, isPending, ...rest },
+  { variant = 'default', size = 'default', shape = 'square', emphasis = 'normal', iconOnly = false, icon, children, className, isPending, ...rest },
   ref
 ) {
-  const composed = cx(variantClass[variant], size !== 'default' && styles[size], shape === 'pill' && styles.pill, emphasis === 'soft' && styles.soft, className);
+  const composed = cx(variantClass[variant], size !== 'default' && styles[size], shape === 'pill' && styles.pill, emphasis === 'soft' && styles.soft, iconOnly && styles.iconOnly, className);
   return (
     <RAButton ref={ref} className={composed} isPending={isPending} {...rest}>
       {icon}

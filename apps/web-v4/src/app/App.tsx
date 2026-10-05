@@ -264,7 +264,7 @@ export function App() {
         }}
         onCreateNote={() => setCreateNoteOpen(true)}
       /> : undefined}
-      focusMode={isAssistantActive || isNoteEditor && effectiveEditorView.mode === 'focus'}
+      focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}

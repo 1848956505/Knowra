@@ -244,7 +244,8 @@ describe('Notes index skeleton', () => {
       sortBy: 'updatedAt', order: 'desc', offset: 0, limit: 30
     })));
 
-    await user.click(screen.getByRole('button', { name: '批量管理' }));
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: '批量管理' }));
     await user.click(screen.getByRole('checkbox', { name: '选择规划草案' }));
     expect(screen.getByText('已选 1 篇')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '移入回收站' }));

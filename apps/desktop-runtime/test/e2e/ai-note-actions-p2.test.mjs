@@ -17,7 +17,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
     await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/welcome-desktop.png`});}
   await page.getByText(executionLabel, { exact: true }).click();
   await expect(page.getByText('离线模拟响应，未调用真实供应商。')).toBeVisible();
-  await page.getByText(executionLabel, { exact: true }).click();
+  await page.keyboard.press('Escape'); await expect(page.getByRole('dialog', { name: '助手执行状态', exact: true })).toBeHidden();
   await expect(page.getByRole('button',{name:/本轮用途/})).toHaveCount(0);
   await page.getByRole('textbox',{name:'消息',exact:true}).fill('生成合成笔记');await page.getByRole('button',{name:'发送消息',exact:true}).click();
   await expect(page.getByText('已生成待审成果。请在 AI 成果收件箱继续修改或确认采纳。',{exact:true})).toBeVisible({timeout:15000});
@@ -61,7 +61,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   assert.equal(applyRequests,1,'只读收件箱对账不得重发采纳请求');
   await inbox.getByText('更多成果操作',{exact:true}).click();await inbox.getByRole('button',{name:'查询成果状态',exact:true}).click();await expect(inbox.getByRole('button',{name:'打开正式笔记',exact:true})).toBeVisible();
   await inbox.getByRole('button',{name:'关闭成果',exact:true}).click();
-  await page.getByText(executionLabel, { exact: true }).click();await page.getByRole('button',{name:'执行记录',exact:true}).click();
+  await page.getByRole('button',{name:'更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'执行记录',exact:true}).click();
   await page.getByText('执行记录（1）',{exact:true}).click();await page.getByRole('button',{name:'查看计划与结果',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'笔记变更预览',exact:true});await dialog.getByRole('button',{name:'查询执行结果',exact:true}).click();await expect(dialog.getByText('已保存',{exact:true})).toBeVisible();
   await dialog.getByRole('button',{name:'预览撤销',exact:true}).click();await expect(dialog.getByText('合成 AI 记录 · 移入回收站',{exact:true})).toBeVisible();
@@ -81,7 +81,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   const append=await page.request.post(`${fixture.origin}/api/ai/actions`,{headers:writeHeaders,data:{spaceId:space.id,requestId:'p2-draft-check',toolName:'notes_append',arguments:{noteId:saved.id,rawMarkdown:'不能覆盖草稿'}}});const planned=(await append.json()).data;
   await page.request.post(`${fixture.origin}/api/ai/actions/${planned.actionId}/approve`,{headers:writeHeaders,data:{planHash:planned.plan.planHash}});
   const denied=await page.request.post(`${fixture.origin}/api/ai/actions/${planned.actionId}/apply`,{headers:writeHeaders,data:{}});assert.equal(denied.status(),409);assert.equal((await denied.json()).error.code,'AI_ACTION_DRAFT_CONFLICT');
-  await page.reload();await page.getByText(executionLabel, { exact: true }).click();await page.getByRole('button',{name:'执行记录',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'执行记录',exact:true}).click();
   await expect(page.getByText('执行记录（3）',{exact:true})).toBeVisible();assert.deepEqual(errors,[]);
   }, () => inspectR07FixtureState(fixture));
 });

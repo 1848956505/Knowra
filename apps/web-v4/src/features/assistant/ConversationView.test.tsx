@@ -52,6 +52,15 @@ beforeEach(() => {
       writeTools: false, providerAdvertised: null, providerVerified: false } });
 });
 
+async function pickScope(index: number) {
+  fireEvent.click(screen.getByRole('button', { name: /资料范围/ }));
+  fireEvent.click((await screen.findAllByRole('menuitem'))[index]);
+}
+async function clickScopeAction(name: string) {
+  fireEvent.click(screen.getByRole('button', { name: /资料范围/ }));
+  fireEvent.click(await screen.findByText(name));
+}
+
 it('审阅旧轮成果时不把聊天修改误指向右侧选稿，关闭后恢复发送', async () => {
   const oldAction = { actionId: 'older-action', requestId: 'older-turn', status: 'awaitingApproval',
     plan: { planHash: 'older-hash', toolName: 'notes_create', items: [{ before: null,
@@ -192,13 +201,12 @@ it('迟到的联网恢复快照不覆盖用户关闭的资料读取范围', asyn
   vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, turnId: 'turn-2', status: 'running' });
   render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
   await screen.findByText('旧回答');
-  const scope = Array.from(document.querySelectorAll('select')).find(select => Array.from(select.options).some(option => option.value === 'policy-1'))!;
-  expect(scope.value).toBe('policy-1');
+  expect(screen.getByRole('button', { name: /资料范围：当前知识空间/ })).toBeInTheDocument();
   fireEvent(window, new Event('online'));
   await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledTimes(2));
-  fireEvent.change(scope, { target: { value: 'plain' } });
+  await pickScope(0);
   await act(async () => { release(messages); await delayed; });
-  expect(scope.value).toBe('plain');
+  expect(screen.getByRole('button', { name: /资料范围：普通聊天/ })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '新的私事' } });
   fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
   await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: null })));
@@ -220,10 +228,10 @@ it('初次会话快照也不能覆盖加载期间用户新选择的授权', asyn
   vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, turnId: 'turn-2', status: 'running' });
   render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
   await waitFor(() => expect(conversationApi.messages).toHaveBeenCalledOnce());
-  const scope = Array.from(document.querySelectorAll('select')).find(select => Array.from(select.options).some(option => option.value === 'policy-2'))!;
-  fireEvent.change(scope, { target: { value: 'policy-2' } });
+  await screen.findByRole('button', { name: /资料范围/ });
+  await pickScope(2);
   await act(async () => { release(messages); await delayed; });
-  await screen.findByText('旧答复'); expect(scope.value).toBe('policy-2');
+  await screen.findByText('旧答复'); expect(screen.getByRole('button', { name: /资料范围：当前知识空间/ })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '沿用新选择' } });
   fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
   await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: 'policy-2' })));
@@ -328,7 +336,7 @@ it('首次授权明确的知识空间范围后，提问使用该授权并可撤�
   vi.mocked(conversationApi.revokePolicy).mockResolvedValue({ ...policy, revision: 2, revokedAt: '2026-09-28T00:00:00.000Z' });
   render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
   await screen.findByText('服务器执行');
-  fireEvent.click(screen.getByRole('button', { name: '设置读取范围' }));
+  await clickScopeAction('设置读取范围');
   expect(await screen.findByRole('dialog', { name: '授权助手读取资料' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '确认授权' }));
   await waitFor(() => expect(conversationApi.createPolicy).toHaveBeenCalledWith(expect.objectContaining({
@@ -338,7 +346,7 @@ it('首次授权明确的知识空间范围后，提问使用该授权并可撤�
   fireEvent.click(screen.getByRole('button', { name: '发送消息' }));
   await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith(expect.any(String),
     expect.objectContaining({ content: '总结资料', requestedPolicyId: 'policy-1' })));
-  fireEvent.click(screen.getByRole('button', { name: '撤销此授权' }));
+  await clickScopeAction('撤销此授权');
   await waitFor(() => expect(conversationApi.revokePolicy).toHaveBeenCalledWith(policy));
 });
 

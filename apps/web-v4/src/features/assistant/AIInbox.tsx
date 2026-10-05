@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, TextAreaField, TextField } from '../../components/ui';
+import { Badge, Button, TextAreaField, TextField } from '../../components/ui';
 import { useAppStoreApi } from '../../store/AppStoreProvider';
 import { flushAiDraftCoordination, hasCoordinatedDraft } from '../editor/aiDraftCoordination';
 import { getNoteDraftScope } from '../editor/noteDraftScope';
@@ -11,6 +11,8 @@ import inboxStyles from './AIInbox.module.css';
 
 const labels: Record<string, string> = { awaitingApproval: '待审阅', authorized: '已确认，尚未采纳', applying: '待对账',
   applied: '已采纳', rejected: '已拒绝', cancelled: '已取消', conflicted: '版本冲突', expired: '需重新预览', failed: '提交失败' };
+const statusTone = (status: string) => ['awaitingApproval', 'authorized', 'applying'].includes(status) ? 'warning' as const
+  : status === 'applied' ? 'success' as const : ['conflicted', 'failed', 'expired'].includes(status) ? 'danger' as const : 'neutral' as const;
 const activeStatuses = ['awaitingApproval', 'authorized', 'applying'];
 export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange, onRowsChange, focusActionId, selectedMismatch, onSelectedActionChange }: {
   spaceId: string; refreshKey?: string; onOpenNote(id: string): void;
@@ -134,9 +136,10 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
         {!selected ? <p>在这里审阅成果，采纳后才保存到正式笔记。普通聊天不会自动进入收件箱。</p> : null}
         {loading ? <p role="status">正在恢复成果…</p> : rows.length === 0 ? <p>暂无成果。</p> : null}
         {error ? <p role="alert">{error}</p> : null}
-        {selected ? <Button variant="ghost" size="compact" onPress={() => { selectedRef.current = null; setSelected(null); setQueuedRemote(null); onSelectedActionChange?.(null); }}>返回成果列表</Button> : rows.map(row => <div className={styles.record} key={row.actionId}>
-          <span>{row.plan.items.map(item => item.after.title).join('、')} · {labels[row.status] ?? row.status}</span>
-          <Button variant="ghost" size="compact" onPress={() => choose(row)}>审阅成果</Button>
+        {selected ? <Button variant="ghost" size="compact" onPress={() => { selectedRef.current = null; setSelected(null); setQueuedRemote(null); onSelectedActionChange?.(null); }}>返回成果列表</Button> : rows.map(row => <div className={inboxStyles.row} key={row.actionId}>
+          <span className={inboxStyles.rowTitle}>{row.plan.items.map(item => item.after.title).join('、')}</span>
+          <Badge tone={statusTone(row.status)}>{labels[row.status] ?? row.status}</Badge>
+          <Button variant="default" size="compact" onPress={() => choose(row)}>审阅成果</Button>
         </div>)}
         {selected ? <section aria-label="成果预览" className={styles.form}>
           {selectedMismatch ? <p className={inboxStyles.contextNotice} role="status">当前审阅成果不能作为此轮聊天的修改目标；右侧选稿不会改变实际目标。关闭审阅后可继续普通对话。</p> : null}
@@ -187,7 +190,7 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
             <Button variant="ghost" isDisabled={busy} onPress={() => void perform(() => noteActionApi.reject(selected.actionId))}>拒绝成果</Button>
           </> : null}
           </div></details>
-          {canAdopt && !editing ? <Button variant="accent" shape="pill" className={inboxStyles.adoptButton} isDisabled={busy} onPress={() => void adopt()}>{selected.status === 'applying' ? '对账并重试原成果' : '确认采纳到笔记'}</Button> : null}
+          {canAdopt && !editing ? <Button variant="accent" className={inboxStyles.adoptButton} isDisabled={busy} onPress={() => void adopt()}>{selected.status === 'applying' ? '对账并重试原成果' : '确认采纳到笔记'}</Button> : null}
         </> : null}
       </div>
     </aside> : null}
