@@ -1,6 +1,7 @@
 import { createSyncService } from './service.js';
 import { createBatchSyncService } from './batch-service.js';
 import { thenResult } from './journal.js';
+import { compactSnapshotEntries, readCompactSnapshot } from './compact-snapshot.js';
 
 export function applyNoteOperation(service, operation, current) {
   const { deleted, ...fields } = operation.value;
@@ -12,6 +13,11 @@ export function applyNoteOperation(service, operation, current) {
 export function createLocalSyncService(dataStore, noteService, ownerId, transfer) {
   if (!dataStore.getSyncJournal) return null;
   const provider = {
+    snapshotEntries: compactSnapshotEntries,
+    readSnapshotEntries: readCompactSnapshot,
+    mutateJournal: callback => dataStore.runSyncJournalTransaction
+      ? dataStore.runSyncJournalTransaction(() => callback(dataStore.state, dataStore.getSyncJournal()))
+      : dataStore.runSyncTransaction(() => callback(dataStore.state, dataStore.getSyncJournal())),
     read: callback => callback(dataStore.state, dataStore.getSyncJournal()),
     mutate: callback => dataStore.runSyncTransaction(() => callback(dataStore.state, dataStore.getSyncJournal())),
     preview: () => ({ state: dataStore.state, journal: dataStore.previewSyncJournal() }),
