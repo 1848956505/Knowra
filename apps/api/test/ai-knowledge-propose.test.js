@@ -369,6 +369,21 @@ export const aiKnowledgePropose = [
     const evidence = app.modules.knowledge.repositories.knowledgeEvidenceRepository.list({ knowledgeItemId: items()[0].id });
     assert.equal(evidence[0].quoteText, Q1); assert.equal(evidence[0].start ?? evidence[0].fromPosition ?? 0, 0);
   }) },
+  { name: '助手回答：JSON 漏写 citations 等价于空引用，回合照常完成；给出的引用仍逐条严格校验', run: async () => {
+    for (const [content, ok] of [[JSON.stringify({ answer: '没有引用的回答。' }), true],
+      [JSON.stringify({ answer: '引用了不存在的原文。', citations: [{ sourceId: 'S1', quote: '原文里没有这句话' }] }), false],
+      [JSON.stringify({ answer: '引用字段类型错误。', citations: 'S1' }), false]]) {
+      await fixture(async ({ app, runtime, space, submit, policy, respond }) => {
+        app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+        const p = await policy(); respond(() => answer(content));
+        const turn = await submit('这篇笔记讲了什么', `cit-${ok}-${content.length}`, p.policyId);
+        const outcome = await runtime.agent.run(turn.turnId).then(() => 'ok', error => error.code);
+        const status = (await runtime.conversationStore.getTurn(turn.turnId)).status;
+        if (ok) { assert.equal(outcome, 'ok', content); assert.equal(status, 'succeeded'); }
+        else { assert.notEqual(status, 'succeeded', content); assert.notEqual(outcome, 'ok', content); }
+      });
+    }
+  } },
   { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); respond(() => answer('这篇笔记讲数据增强。', []));
@@ -376,7 +391,7 @@ export const aiKnowledgePropose = [
     await runtime.agent.run(turn.turnId);
     assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')));
     assert(requests.every(request => !JSON.stringify(request.messages).includes('这是提炼知识点请求')), '普通提问不得带提炼指引');
-    assert(requests.every(request => request.maxTokens === 1024));
+    assert(requests.every(request => request.maxTokens === 4096), '所有对话回合统一使用 4096 输出上限');
   }) },
   { name: '知识提议：否定与解释类请求不开放该工具，也不会保存候选', run: async () => {
     for (const text of ['我不希望你生成知识点', '不要根据这篇笔记自动生成知识点', '请解释知识项如何提炼']) {

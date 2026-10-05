@@ -16,6 +16,8 @@ const MAX_TOOLS = 6;
 // 仅明确要求提炼知识的回合使用：需要读取多处重点并分批提交候选。预算仍受 20 元日额度与 2 元单任务预留约束。
 const PROPOSAL_ROUNDS = 8;
 const PROPOSAL_TOOLS = 14;
+// 推理模型的推理 token 计入完成量；1024 在真实验收中 5 次里有 3 次在写出回答前被截断。上限只在真正用到时才产生费用。
+const MAX_OUTPUT_TOKENS = 4096;
 // 提炼知识点回合的行为指引：把“读后提交候选”说清楚，避免模型只在回答里罗列或反复读取同一份重点。
 const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具，重点未读完时用 offset 翻页。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文；引文只需给 noteId 和逐字摘自 sources 的 quote，不要自己数字符偏移。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
 // 工具结果只以来源片段回到模型，看不到“已成功”。提炼回合另用一句话说明已完成的步骤，避免模型因看不到结果而反复调用、迟迟不提交。
@@ -350,13 +352,15 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
 
   function citedResult(result, request, manifest) {
     const payload = result.json;
+    // 系统提示允许“未用资料可返回空 citations”；漏写该字段等价于空，不作为结构错误（引用一旦给出仍逐条严格校验）。
+    const given = payload && payload.citations === undefined ? [] : payload?.citations;
     if (!payload || typeof payload.answer !== 'string' || !payload.answer.trim()
-      || payload.answer.length > 120000 || !Array.isArray(payload.citations) || payload.citations.length > 32) {
+      || payload.answer.length > 120000 || !Array.isArray(given) || given.length > 32) {
       fail('AI_OUTPUT_INVALID', '模型回答结构无效。');
     }
     const sources = JSON.parse(request.messages.at(-1).content).sources;
     const citations = [];
-    for (const item of payload.citations) {
+    for (const item of given) {
       if (!item || !/^S\d{1,3}$/.test(item.sourceId) || typeof item.quote !== 'string' || !item.quote
         || item.quote.length > 1000) fail('AI_CITATION_INVALID', '模型引用格式无效。');
       const source = sources[Number(item.sourceId.slice(1)) - 1];
@@ -463,7 +467,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           modelId: reference.modelId, credentialRef: reference.credentialRef,
           userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
           omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
-            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: proposalRequested ? 4096 : 1024,
+            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
           writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
           tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
         request = prepared.request; manifest = prepared.manifest;
@@ -476,7 +480,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       } else {
         request = { credentialRef: reference.credentialRef, modelId: reference.modelId,
           messages: [{ role: 'system', content: `${ASSISTANT_GUIDANCE} 此会话没有笔记读取授权；不得声称读过用户资料或编造笔记引用。${webSearch.enabled ? '联网工具仅返回合成验收资料。' : '真实联网尚未配置；需要最新信息或核实时明确说明不可用，不能假称已联网。'}` },
-            ...plainHistory(prior), { role: 'user', content: `${user.content}${draftContext}${toolFeedback}${externalContext}` }], maxTokens: 1024,
+            ...plainHistory(prior), { role: 'user', content: `${user.content}${draftContext}${toolFeedback}${externalContext}` }], maxTokens: MAX_OUTPUT_TOKENS,
           format: 'text', tools: availableTools(turn, false, forceAnswer || round === maxRounds - 1 || totalTools >= maxTools, artifactRequested, proposalRequested) };
         if (turn.writeIntent) request.messages[0].content += '用户已明确请求生成笔记计划，只调用所开放的写入计划工具；不得宣称已保存。';
       }
