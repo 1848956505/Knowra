@@ -32,6 +32,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
       gateway, priceProfile, allowExternal, retrievalCandidates, actions, webSearchAdapter,
+      annotations: knowledge?.repositories?.contentAnnotationRepository ?? null,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,

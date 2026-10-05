@@ -7,6 +7,7 @@ import { hashRecord } from './record-contract.js';
 import { createAuthorizedRetrieval } from './retrieval.js';
 import { createAiRecoveryScope } from './recovery-scope.js';
 import { emptyAgentCheckpoint } from './agent-checkpoint.js';
+import { ANNOTATIONS_TOOL, listAnnotatedRanges } from './annotation-read-tool.js';
 import { ASSISTANT_GUIDANCE, WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, renderExternalSources } from './assistant-tools.js';
 
 const MAX_ROUNDS = 4;
@@ -41,7 +42,7 @@ const TOOLS = Object.freeze([
 export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
   accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
-  retrievalCandidates = null, actions = null, webSearchAdapter = null } = {}) {
+  retrievalCandidates = null, actions = null, webSearchAdapter = null, annotations = null } = {}) {
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
@@ -53,7 +54,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   const webSearch = createAssistantWebSearch(webSearchAdapter);
   const proposalNames = new Set(['notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize']);
   const availableTools = (turn, canRead, finalOnly = false, artifactRequested = false) => finalOnly ? [] : [
-    ...(canRead ? TOOLS : []), ...(actions ? turn.writeIntent ? toolsForWriteIntent(turn.writeIntent) : artifactRequested ? toolsForAssistant({ canRead }) : [] : []),
+    ...(canRead ? TOOLS : []), ...(canRead && annotations && !turn.writeIntent ? [ANNOTATIONS_TOOL] : []), ...(actions ? turn.writeIntent ? toolsForWriteIntent(turn.writeIntent) : artifactRequested ? toolsForAssistant({ canRead }) : [] : []),
     ...(webSearch.enabled ? [WEB_SEARCH_TOOL] : [])];
 
   async function currentTurn(turnId, generation, signal) {
@@ -221,6 +222,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           mode: found.mode, ...(found.fallbackReason ? { fallbackReason: found.fallbackReason } : {}) },
         sourceRefs: found.hits.map(hit => hit.ref) };
       } else if (call.name === 'notes_read') outcome = await readTool(grantId, call.arguments);
+      else if (call.name === 'annotations_list' && annotations && !turn.writeIntent) {
+        outcome = await listAnnotatedRanges({ access, repository: annotations, grantId, args: call.arguments });
+      }
       else if (call.name === 'web_search') outcome = await webSearch.search(call.arguments, userMessage, signal);
       else fail('AI_TOOL_INVALID', '模型请求了未开放的工具。');
       receiptPending = true;
