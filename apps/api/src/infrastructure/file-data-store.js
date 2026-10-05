@@ -175,10 +175,12 @@ export function createFileDataStore(filePath, {
 
   function persistState(nextState) {
     try {
-      validatePersistedLocalState(createPersistedLocalDocument(nextState));
+      // 校验器自身返回独立副本，不先复制一次完整历史库。
+      validatePersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });
       assertNoKnowledgeArtifactProvenanceDowngrade(committed, nextState);
       const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
-      writeJson(filePath, { ...createPersistedLocalDocument(nextState), sync: nextJournal,
+      // 原子写入器同步序列化且不修改输入，写入期间保留事务回滚前像。
+      writeJson(filePath, { schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState, sync: nextJournal,
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
         coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations),
         knowledgeExtractionCommits: knowledgeExtractionCommitStoreError ? knowledgeExtractionCommits
