@@ -1,6 +1,6 @@
 const TOOL_NAMES = new Set([
   'notes_search', 'notes_read', 'folders_list', 'tags_list', 'web_search',
-  'notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize'
+  'notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize', 'annotations_list'
 ]);
 
 export class AiGatewayError extends Error {
