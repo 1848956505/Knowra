@@ -230,8 +230,14 @@ export const aiKnowledgePropose = [
     }
   } },
   { name: '知识提议：只有明确要求提炼知识点的提问才视为提议意图，解释类与普通问题不是', run() {
-    for (const text of ['帮我提炼这篇笔记的知识点', '提取知识点', '把重点生成知识点', '请整理考点', '知识点提炼一下']) assert.equal(requestsKnowledgeProposal(text), true, text);
-    for (const text of ['这篇笔记讲了什么', '怎么提炼知识点', '解释一下什么是知识点', '总结本周学习', '你好', '提炼一下这段话的意思']) assert.equal(requestsKnowledgeProposal(text), false, text);
+    for (const text of ['帮我提炼这篇笔记的知识点', '提取知识点', '把重点生成知识点', '请整理考点', '知识点提炼一下',
+      '能不能帮我提炼知识点', '要不要提炼知识点', '整理概念的区别并生成知识点', '提炼知识点，不要超过五个', '不要遗漏，提炼知识点',
+      '先别急着总结，帮我提炼知识点', '可不可以生成知识点']) assert.equal(requestsKnowledgeProposal(text), true, text);
+    for (const text of ['这篇笔记讲了什么', '怎么提炼知识点', '解释一下什么是知识点', '总结本周学习', '你好', '提炼一下这段话的意思',
+      '不要生成知识点', '别提炼知识点', '不用提取知识点', '无需生成知识点', '先不要整理知识点', '暂不创建知识点', '我不想生成知识点',
+      '请勿提炼知识点', '知识点先不用生成', '知识点不要提炼了', '不是要生成知识点，只是想问问', '禁止创建知识点', '不必归纳知识点']) {
+      assert.equal(requestsKnowledgeProposal(text), false, text);
+    }
   } },
   { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });

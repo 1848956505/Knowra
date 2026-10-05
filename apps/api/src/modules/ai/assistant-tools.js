@@ -13,12 +13,18 @@ export function requestsAssistantArtifact(content) {
   });
 }
 
-// 只在用户明确要求提炼/生成知识点时开放知识提议并放宽轮数；解释“怎么提炼”之类的问题仍是普通对话。
+// 只在用户明确要求提炼/生成知识点时开放知识提议并放宽轮数；解释“怎么提炼”之类的问题、
+// 以及“不要/别/无需生成知识点”这类否定请求都不是提议意图。判断宁可漏判（用户可换种说法），不可误判。
+// 否定词前若紧跟同字（“能不能”“要不要”“想不想”）是疑问而非否定，故用后行断言排除。
+const NEGATION = '(?:(?<![能可要是想用需必])(?:不要再|不要|不用|无需|不必|不需要|不想|不是要|不是想|不能|不可以|暂不|先不|暂时不)|请勿|禁止|勿|(?<![区分差特辨识])别)';
+const PROPOSAL_VERB = '(?:提炼|提取|抽取|整理|归纳|梳理|总结|生成|创建)';
+const PROPOSAL_OBJECT = '(?:知识点|知识条目|知识项|考点)';
+const NEGATED_PROPOSAL = new RegExp(`${NEGATION}.{0,6}${PROPOSAL_VERB}|${PROPOSAL_OBJECT}.{0,8}${NEGATION}.{0,4}${PROPOSAL_VERB}`);
 export function requestsKnowledgeProposal(content) {
   return content.split(/[，,；;。\n]/).some(clause => {
     if (/(解释|讲解|说明|怎么|如何|怎样|什么是|是什么).{0,30}(知识点|知识条目|考点)/.test(clause)) return false;
-    return /(提炼|提取|抽取|整理|归纳|梳理|总结|生成|创建).{0,20}(知识点|知识条目|知识项|考点)/.test(clause)
-      || /(知识点|知识条目|知识项|考点).{0,12}(提炼|提取|抽取|生成|创建)/.test(clause);
+    if (NEGATED_PROPOSAL.test(clause)) return false;
+    return new RegExp(`${PROPOSAL_VERB}.{0,20}${PROPOSAL_OBJECT}|${PROPOSAL_OBJECT}.{0,12}(?:提炼|提取|抽取|生成|创建)`).test(clause);
   });
 }
 
