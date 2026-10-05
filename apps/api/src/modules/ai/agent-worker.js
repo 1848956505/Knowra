@@ -43,7 +43,7 @@ const TOOLS = Object.freeze([
 export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
   accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
-  retrievalCandidates = null, actions = null, webSearchAdapter = null, annotations = null, knowledgeProposals = false } = {}) {
+  retrievalCandidates = null, actions = null, webSearchAdapter = null, annotations = null, knowledgeProposals = false, knowledgeCommit = null } = {}) {
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
@@ -185,7 +185,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     return { resultJson: { noteId: note.id, title: note.title, text }, sourceRefs: [ref] };
   }
 
-  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage) {
+  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null) {
     await currentTurn(turn.turnId, generation, signal);
     const writeCall = proposalNames.has(call.name) && (!turn.writeIntent || call.name === turn.writeIntent.toolName);
     if (!writeCall && call.name !== 'web_search' && (!grantId || !access)) fail('AI_SCOPE_FORBIDDEN', '当前会话没有笔记读取授权。');
@@ -227,7 +227,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       else if (call.name === 'annotations_list' && annotations && !turn.writeIntent) {
         outcome = await listAnnotatedRanges({ access, repository: annotations, grantId, args: call.arguments });
       } else if (call.name === 'knowledge_propose' && knowledgeProposals && !turn.writeIntent) {
-        outcome = await proposeKnowledge({ access, grantId, args: call.arguments, sourceRefs, turnId: turn.turnId, callId });
+        outcome = await proposeKnowledge({ access, grantId, args: call.arguments, sourceRefs, turnId: turn.turnId, callId,
+          commit: knowledgeCommit ? plan => knowledgeCommit.commit({ plan, modelId,
+            origin: { conversationId: turn.conversationId, turnId: turn.turnId, toolCallId: callId },
+            identity: { datasetId: turn.datasetId, datasetEpoch: turn.datasetEpoch },
+            // 模拟适配器不是真实供应商，来源摘要以 simulated 标明，契约不允许 agent 记录使用 mock。
+            provider: provider === 'mock' ? 'simulated' : provider }) : null });
       }
       else if (call.name === 'web_search') outcome = await webSearch.search(call.arguments, userMessage, signal);
       else fail('AI_TOOL_INVALID', '模型请求了未开放的工具。');
@@ -439,7 +444,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         const before = new Set(sourceRefs.map(hashRecord));
         for (const call of result.toolCalls) {
           const planSources = uniqueRefs([...sourceRefs, ...(manifest?.historySources ?? [])]);
-          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content);
+          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId);
           totalTools = (await store.listToolCalls(turn.turnId)).length;
           if (outcome.actionId) {
             await currentTurn(turn.turnId, generation, signal);

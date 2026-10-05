@@ -88,10 +88,14 @@ export async function buildKnowledgeProposalPlan({ access, grantId, args, source
   }
 }
 
-/** Agent 工具入口：返回校验结果摘要。校验通过也不等于已保存。 */
-export async function proposeKnowledge(input) {
+/**
+ * Agent 工具入口。传入 commit 时把候选原子保存为 candidate；未传入则只返回校验摘要（saved: false）。
+ * 无论哪种，提议都不会成为正式知识，仍须用户在知识候选区审核。
+ */
+export async function proposeKnowledge({ commit = null, ...input }) {
   const plan = await buildKnowledgeProposalPlan(input);
-  return { resultJson: { status: 'validated', saved: false, requestId: plan.requestId, outputHash: plan.outputHash,
+  if (commit) await commit(plan);
+  return { resultJson: { status: commit ? 'saved' : 'validated', saved: Boolean(commit), requestId: plan.requestId, outputHash: plan.outputHash,
     candidates: plan.candidates.map(({ candidateInput, provenance }) => ({ candidateId: candidateInput.id,
       title: candidateInput.title, knowledgeType: candidateInput.knowledgeType, citationCount: provenance.length })) },
   sourceRefs: [] };

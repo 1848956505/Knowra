@@ -9,6 +9,7 @@ import { createAiReadContextService } from './read-context-service.js';
 import { createAiAccessService } from './access-service.js';
 import { createAiConversationService } from './conversation-service.js';
 import { createAiAgentWorker } from './agent-worker.js';
+import { createAgentKnowledgeCommitService } from './agent-knowledge-commit.js';
 import { createConversationAttachmentService } from './conversation-attachments.js';
 
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
@@ -29,10 +30,12 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const actionService = actionStore && coreOperationStore && knowledge ? createNoteActionService({ store: actionStore, core: coreOperationStore, knowledge,
     ownerId: contextSources.ownerId, conversationStore, accessStore, access, asyncDomain }) : null;
   const actions = actionService && maintenanceGate ? wrapHandlersWithMaintenanceGate(actionService, maintenanceGate, { getAccess: () => 'read' }) : actionService;
+  const knowledgeCommit = knowledgeProposals && coreOperationStore && knowledge
+    ? createAgentKnowledgeCommitService({ core: coreOperationStore, knowledge, ownerId: contextSources?.ownerId, asyncDomain }) : null;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
       gateway, priceProfile, allowExternal, retrievalCandidates, actions, webSearchAdapter,
-      annotations: knowledge?.repositories?.contentAnnotationRepository ?? null, knowledgeProposals,
+      annotations: knowledge?.repositories?.contentAnnotationRepository ?? null, knowledgeProposals: Boolean(knowledgeCommit), knowledgeCommit,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,
