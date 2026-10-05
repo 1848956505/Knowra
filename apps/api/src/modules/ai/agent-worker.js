@@ -231,11 +231,16 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         outcome = await listAnnotatedRanges({ access, repository: annotations, grantId, args: call.arguments });
       } else if (call.name === 'knowledge_propose' && knowledgeProposals && !turn.writeIntent && requestsKnowledgeProposal(userMessage)) {
         outcome = await proposeKnowledge({ access, grantId, args: call.arguments, sourceRefs, turnId: turn.turnId, callId,
-          commit: knowledgeCommit ? plan => knowledgeCommit.commit({ plan, modelId,
-            origin: { conversationId: turn.conversationId, turnId: turn.turnId, toolCallId: callId },
-            identity: { datasetId: turn.datasetId, datasetEpoch: turn.datasetEpoch },
-            // 模拟适配器不是真实供应商，来源摘要以 simulated 标明，契约不允许 agent 记录使用 mock。
-            provider: provider === 'mock' ? 'simulated' : provider }) : null });
+          commit: knowledgeCommit ? (() => {
+            const origin = { conversationId: turn.conversationId, turnId: turn.turnId, toolCallId: callId };
+            const identity = { datasetId: turn.datasetId, datasetEpoch: turn.datasetEpoch };
+            return {
+              find: () => knowledgeCommit.findCommitted({ origin, identity }),
+              // 模拟适配器不是真实供应商，来源摘要以 simulated 标明，契约不允许 agent 记录使用 mock。
+              save: plan => knowledgeCommit.commit({ plan, modelId, origin, identity, grantId, generation,
+                provider: provider === 'mock' ? 'simulated' : provider })
+            };
+          })() : null });
       }
       else if (call.name === 'web_search') outcome = await webSearch.search(call.arguments, userMessage, signal);
       else fail('AI_TOOL_INVALID', '模型请求了未开放的工具。');

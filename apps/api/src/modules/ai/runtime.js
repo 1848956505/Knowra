@@ -30,8 +30,8 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const actionService = actionStore && coreOperationStore && knowledge ? createNoteActionService({ store: actionStore, core: coreOperationStore, knowledge,
     ownerId: contextSources.ownerId, conversationStore, accessStore, access, asyncDomain }) : null;
   const actions = actionService && maintenanceGate ? wrapHandlersWithMaintenanceGate(actionService, maintenanceGate, { getAccess: () => 'read' }) : actionService;
-  const knowledgeCommit = knowledgeProposals && coreOperationStore && knowledge
-    ? createAgentKnowledgeCommitService({ core: coreOperationStore, knowledge, ownerId: contextSources?.ownerId, asyncDomain }) : null;
+  const knowledgeCommit = knowledgeProposals && coreOperationStore && knowledge && conversationStore && accessStore
+    ? createAgentKnowledgeCommitService({ core: coreOperationStore, knowledge, ownerId: contextSources?.ownerId, conversationStore, accessStore, asyncDomain }) : null;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
       gateway, priceProfile, allowExternal, retrievalCandidates, actions, webSearchAdapter,
