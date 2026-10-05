@@ -13,6 +13,24 @@ export function requestsAssistantArtifact(content) {
   });
 }
 
+// 只在用户明确要求提炼/生成知识点时开放知识提议并放宽轮数；解释“怎么提炼”之类的问题、
+// 以及“不要/别/无需生成知识点”这类否定请求都不是提议意图。判断宁可漏判（用户可换种说法），不可误判。
+// 否定词前若紧跟同字（“能不能”“要不要”“想不想”）是疑问而非否定，故用后行断言排除。
+const NEGATION = '(?:(?<![能可要是想用需必])(?:不要再|不要|不用|无需|不必|不需要|不希望|不想要|不想|不是要|不是想|不能|不可以|暂不|先不|暂时不|不打算|不愿)|请勿|禁止|勿|(?<![区分差特辨识])别)';
+const PROPOSAL_VERB = '(?:提炼|提取|抽取|整理|归纳|梳理|总结|生成|创建)';
+const PROPOSAL_OBJECT = '(?:知识点|知识条目|知识项|考点)';
+// 否定词之后任意位置（同一分句内）出现提议动词即视为否定，如“不要根据这篇笔记自动生成知识点”。
+const NEGATED_PROPOSAL = new RegExp(`${NEGATION}.{0,30}${PROPOSAL_VERB}|${PROPOSAL_OBJECT}.{0,8}${NEGATION}.{0,4}${PROPOSAL_VERB}`);
+// 询问“是什么/怎么做/为什么”属于解释类问题，不是要求动手提炼。
+const EXPLAIN_QUESTION = /(解释|讲解|说明|介绍|教我|怎么|如何|怎样|什么是|是什么|为什么|为何|原理)/;
+export function requestsKnowledgeProposal(content) {
+  return content.split(/[，,；;。\n]/).some(clause => {
+    if (EXPLAIN_QUESTION.test(clause)) return false;
+    if (NEGATED_PROPOSAL.test(clause)) return false;
+    return new RegExp(`${PROPOSAL_VERB}.{0,20}${PROPOSAL_OBJECT}|${PROPOSAL_OBJECT}.{0,12}(?:提炼|提取|抽取|生成|创建)`).test(clause);
+  });
+}
+
 export function renderExternalSources(context) {
   const hits = JSON.parse(context.slice(context.indexOf('：') + 1));
   return hits.map(hit => `[${hit.title.replace(/[\[\]\\]/g, '')}](${hit.url.replace(/\)/g, '%29')})`).join('、');
