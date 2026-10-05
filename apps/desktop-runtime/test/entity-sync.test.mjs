@@ -460,7 +460,8 @@ for (const hasDependencies of [false, true]) test(`桌面分批容量包含最�
   t.after(() => workspace.store.close());
   workspace.knowledge.noteService.createNote({ title: '大正文一', rawMarkdown: '', spaceId: workspace.space.id });
   workspace.knowledge.noteService.createNote({ title: '大正文二', rawMarkdown: '', spaceId: workspace.space.id });
-  workspace.store.syncTransaction((_db, state) => { for (const note of state.notes) note.annotationStructure = null; });
+  // 本例隔离信封与依赖的容量计量；完整正文版本的原子分批由 long-edit-sync 的 HTTP 用例覆盖。
+  workspace.store.syncTransaction((_db, state) => { state.noteVersions.length = 0; for (const note of state.notes) note.annotationStructure = null; });
   if (hasDependencies) {
     const initial = nextEntityUpload(workspace.store);
     acknowledgeEntityUpload(workspace.store, initial, { status: 'accepted', entries: initial.changes.map(entry => ({ ...entry, revision: 1 })) });
