@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { jsonChunks } from './json-chunks.js';
 
 const WINDOWS_REPLACE_ERROR_CODES = new Set([
   'EACCES',
@@ -27,12 +28,11 @@ export function writeJsonFileAtomically(
     directoryPath,
     `.${baseName}.${uniqueId}.bak`
   );
-  const content = JSON.stringify(value, null, 2);
   let preserveBackup = false;
 
   fileSystem.mkdirSync(directoryPath, { recursive: true });
   try {
-    writeAndSyncTemporaryFile(fileSystem, temporaryPath, content);
+    writeAndSyncTemporaryFile(fileSystem, temporaryPath, value);
     replaceTarget(fileSystem, temporaryPath, filePath, backupPath);
   } catch (error) {
     preserveBackup = Boolean(error?.restoreError);
@@ -45,7 +45,7 @@ export function writeJsonFileAtomically(
   }
 }
 
-function writeAndSyncTemporaryFile(fileSystem, temporaryPath, content) {
+function writeAndSyncTemporaryFile(fileSystem, temporaryPath, value) {
   const descriptor = fileSystem.openSync(
     temporaryPath,
     'wx',
@@ -53,7 +53,18 @@ function writeAndSyncTemporaryFile(fileSystem, temporaryPath, content) {
   );
 
   try {
-    fileSystem.writeFileSync(descriptor, content, 'utf8');
+    let buffer = '', wrote = false;
+    for (const chunk of jsonChunks(value)) {
+      wrote = true;
+      if (buffer.length + chunk.length > 64 * 1024) {
+        if (buffer) fileSystem.writeFileSync(descriptor, buffer, 'utf8');
+        buffer = '';
+        if (chunk.length > 64 * 1024) { fileSystem.writeFileSync(descriptor, chunk, 'utf8'); continue; }
+      }
+      buffer += chunk;
+    }
+    if (!wrote) throw new TypeError('JSON root must be serializable');
+    if (buffer) fileSystem.writeFileSync(descriptor, buffer, 'utf8');
     fileSystem.fsyncSync(descriptor);
   } finally {
     fileSystem.closeSync(descriptor);

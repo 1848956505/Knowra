@@ -12,7 +12,7 @@
     "@codemirror/commands": "^6.10.4",
     "@codemirror/view": "^6.43.6",
     "@milkdown/kit": "^7.21.2",
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "esbuild": "^0.28.1"
   }
 }

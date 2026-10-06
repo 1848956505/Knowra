@@ -37,7 +37,9 @@ const replace = (state, collection, id, value) => {
 
 /** 只在内存中构造并校验完整事务后像；不做文件或网络 IO。 */
 export function prepareBatchState(before, changes, ownerId, preparedAttachments = {}) {
-  let state = structuredClone(before);
+  // 不可变历史只复制集合；领域流程不修改旧版本/修订，最终校验仍返回独立副本。
+  let state = Object.fromEntries(Object.entries(before).map(([collection, items]) => [collection,
+    ['noteVersions', 'annotationRevisions'].includes(collection) ? [...items] : structuredClone(items)]));
   const aliases = {};
   const now = new Date().toISOString();
   for (const change of changes) {
@@ -122,7 +124,9 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     if (!value || typeof value !== 'object') return value;
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, (key === 'noteVersionId' || (key === 'sourceId' && value.sourceType === 'noteVersion')) && aliases[child] ? aliases[child] : remap(child)]));
   }
-  for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence', 'questionSources']) state[collection] = state[collection].map(remap);
+  if (Object.keys(aliases).length) {
+    for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence', 'questionSources']) state[collection] = state[collection].map(remap);
+  }
   for (const change of changes.filter(item => item.collection === 'contentAnnotations' && item.value)) {
     const annotation = state.contentAnnotations.find(item => item.id === change.id);
     const note = state.notes.find(item => item.id === annotation.noteId);

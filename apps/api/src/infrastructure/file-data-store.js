@@ -7,11 +7,12 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
+import { cloneJsonData } from './json-clone.js';
 import { coreOperationKey, validateCoreOperationState } from './core-operation-contract.js';
 import { createSyncCoreOperationStore } from './core-operation-store.js';
 import { backfillKnowledgeArtifactProvenance, legacyKnowledgeExtractionReceipts } from './migration/knowledge-artifact-provenance-backfill.js';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
-import { appendChanges, createJournal, loadJournal, syncKey } from '../modules/sync/journal.js';
+import { appendChanges, createJournal, createSyncBaseline, cloneJournalForChanges, loadJournal, syncKey } from '../modules/sync/journal.js';
 import { createJsonAiAccessStore, createJsonAiConversationStore, createJsonAiRepository, validateAiState } from '../modules/ai/record-state.js';
 import { createJsonBudgetAuthority } from '../modules/ai/budget-ledger.js';
 import {
@@ -44,8 +45,7 @@ export function createFileDataStore(filePath, {
     writeJson(filePath, createPersistedLocalDocument(createEmptyLocalState()));
   }
 
-  const raw = fs.readFileSync(filePath, 'utf8');
-  const parsed = parsePersistedState(raw);
+  const parsed = parsePersistedState(fs.readFileSync(filePath, 'utf8'));
   const state = validatePersistedLocalState(parsed);
   let coreOperations = parsed.coreOperations;
   let coreOperationStoreError = null;
@@ -77,7 +77,7 @@ export function createFileDataStore(filePath, {
       throw createAppError('KNOWLEDGE_ARTIFACT_PROVENANCE_CONFLICT', '已永久删除的来源记录不能通过迁移重建。', 409);
     }
   }
-  let committed = cloneLocalState(state);
+  let committed = createSyncBaseline(state);
   let transaction = null;
   if (parsed.schemaVersion !== LOCAL_DATA_SCHEMA_VERSION || ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
@@ -108,7 +108,7 @@ export function createFileDataStore(filePath, {
     const previousCoreOperations = structuredClone(coreOperations);
     const previousExtractionCommits = structuredClone(knowledgeExtractionCommits);
     const previousExtractionTasks = structuredClone(extractionTasks);
-    const previousJournal = structuredClone(journal);
+    const previousJournal = cloneJsonData(journal);
     transaction = { dirty: false };
 
     try {
@@ -142,10 +142,30 @@ export function createFileDataStore(filePath, {
     };
   }
 
+  // 仅供批量同步：领域层在独立后像中工作，applyState 只替换集合，不原地修改旧记录。
+  // 普通业务及旧版笔记同步仍使用完整前像事务，不能复用此路径。
+  function runSyncBatchTransaction(operation) {
+    if (transaction) throw new TypeError('批量同步必须拥有最外层事务。');
+    const previousState = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, [...state[collection]]]));
+    const previousJournal = journal;
+    journal = { ...cloneJournalForChanges(journal), receipts: { ...journal.receipts }, deviceSequences: { ...journal.deviceSequences } };
+    transaction = { dirty: true };
+    try {
+      const result = operation();
+      if (result && typeof result.then === 'function') throw new TypeError('批量同步事务必须同步。');
+      persistState(state);
+      return result;
+    } catch (error) {
+      replaceState(state, previousState);
+      journal = previousJournal;
+      throw error;
+    } finally { transaction = null; }
+  }
+
   // 仅供传输快照缓存使用：业务实体、修订和删除事实在该事务内只读。
   function runSyncJournalTransaction(operation) {
     if (transaction) throw new TypeError('同步快照缓存必须拥有最外层事务。');
-    const candidate = appendChanges(structuredClone(journal), committed, state);
+    const candidate = appendChanges(cloneJsonData(journal), committed, state);
     // 兼容尚未 flush 的内部业务写入；先走完整校验与提交，不能把未登记实体藏在快照外。
     if (candidate.head !== journal.head) {
       return runTransaction(() => { const result = operation(); flush(); return result; });
@@ -200,7 +220,8 @@ export function createFileDataStore(filePath, {
       // 校验器自身返回独立副本，不先复制一次完整历史库。
       validatePersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });
       assertNoKnowledgeArtifactProvenanceDowngrade(committed, nextState);
-      const nextJournal = appendChanges(structuredClone(journal), committed, nextState);
+      const nextJournal = appendChanges(cloneJournalForChanges(journal), committed, nextState);
+      const nextCommitted = createSyncBaseline(nextState);
       // 原子写入器同步序列化且不修改输入，写入期间保留事务回滚前像。
       writeJson(filePath, { schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState, sync: nextJournal,
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
@@ -209,7 +230,7 @@ export function createFileDataStore(filePath, {
           : validateKnowledgeExtractionCommitState(knowledgeExtractionCommits),
         aiKnowledgeExtractionTasks: knowledgeExtractionTaskStoreError ? extractionTasks : validateExtractionTaskState(extractionTasks) });
       journal = nextJournal;
-      committed = cloneLocalState(nextState);
+      committed = nextCommitted;
     } catch (error) {
       throw createAppError(
         'STORAGE_WRITE_FAILED',
@@ -272,8 +293,9 @@ export function createFileDataStore(filePath, {
     aiBudgetAuthority: aiRuntimeError ? null : createJsonBudgetAuthority({ getState: () => aiRuntime, runTransaction, onChange: flush }),
     aiRuntimeError,
     getSyncJournal: () => journal,
-    previewSyncJournal: () => appendChanges(structuredClone(journal), committed, state),
+    previewSyncJournal: () => appendChanges(cloneJournalForChanges(journal), committed, state),
     runSyncTransaction: operation => runTransaction(() => { const result = operation(); flush(); return result; }),
+    runSyncBatchTransaction,
     runSyncJournalTransaction,
     state,
     flush,
