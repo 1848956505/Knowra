@@ -7,6 +7,25 @@ const GRANT_TOOLS = ['notes_search', 'notes_read'];
 const MIN_GRANT_LEFT_MS = 60_000;
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isInt = value => Number.isSafeInteger(value) && value >= 0;
+// 响应封装（socket 的 data 外壳与 JSON-RPC 信封）的预留字节数；上限对最终发给客户端的消息生效。
+const ENVELOPE_ALLOWANCE = 256;
+
+/** 严格按工具公布的 inputSchema 校验：类型、枚举、范围、长度、必填与多余字段；公布的与实际接受的必须一致。 */
+export function validateInput(schema, input) {
+  const bad = () => mcpError('MCP_REQUEST_INVALID', '工具参数不符合公布的参数结构。', { status: 400 });
+  if (!isPlainObject(input)) throw bad();
+  const properties = schema.properties ?? {};
+  for (const key of Object.keys(input)) if (!Object.hasOwn(properties, key)) throw bad();
+  for (const key of schema.required ?? []) if (!Object.hasOwn(input, key)) throw bad();
+  for (const [key, value] of Object.entries(input)) {
+    const rule = properties[key];
+    const typeOk = rule.type === 'string' ? typeof value === 'string' : rule.type === 'integer' ? Number.isSafeInteger(value)
+      : rule.type === 'boolean' ? typeof value === 'boolean' : false;
+    if (!typeOk || rule.enum && !rule.enum.includes(value)
+      || rule.minimum !== undefined && value < rule.minimum || rule.maximum !== undefined && value > rule.maximum
+      || rule.minLength !== undefined && value.length < rule.minLength || rule.maxLength !== undefined && value.length > rule.maxLength) throw bad();
+  }
+}
 
 /**
  * 外部 AI 客户端调用的统一外发出口。读取授权不等于外发许可：
@@ -105,9 +124,10 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     if (fragments.length) {
       await access.assertSearchSources({ grantId, sourceRefs: [...verified.values()].map(({ note, contentHash }) => ({ noteId: note.id, contentHash })) });
     }
-    // 上限按最终序列化的响应计（含 JSON 转义、标题、偏移等全部字段），不是只数正文字节。
-    const serialized = Buffer.byteLength(JSON.stringify({ data: { fragments, meta } }), 'utf8');
-    if (serialized > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
+    // 上限对最终发给客户端的消息生效：适配器把结果序列化后放进文本内容，JSON 会被再转义一次，所以按“二次序列化”计，
+    // 再加封装预留。这样转义、标题、偏移与信封开销都算在内，不会出现运行端放行而最终消息超限的情况。
+    const finalSize = Buffer.byteLength(JSON.stringify(JSON.stringify({ fragments, meta })), 'utf8') + ENVELOPE_ALLOWANCE;
+    if (finalSize > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
     return { fragments, manifest, bytes, meta };
   }
 
@@ -123,6 +143,7 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
       const handler = entry?.run ?? null;
       if (!handler) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
       if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
+      if (entry.inputSchema) validateInput(entry.inputSchema, input);
       admit(row); admitted = true;
       const access = getAccess();
       if (!access) throw mcpError('MCP_AI_DISABLED', 'AI 功能未开启，外部客户端暂不可读取。', { status: 403 });

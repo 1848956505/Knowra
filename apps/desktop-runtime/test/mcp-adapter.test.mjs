@@ -13,11 +13,11 @@ import { temporaryDirectory } from './helpers.mjs';
 const ADAPTER = fileURLToPath(new URL('../src/mcp/adapter.mjs', import.meta.url));
 const BODY = '线粒体是细胞的能量工厂，负责有氧呼吸。\n\n细胞核储存遗传信息，指导蛋白质合成。\n\n核糖体在细胞质中合成蛋白质。';
 
-async function setup(t, { dataDirectory } = {}) {
+async function setup(t, { dataDirectory, limits } = {}) {
   const root = temporaryDirectory(t), distRoot = path.join(root, 'dist');
   fs.mkdirSync(distRoot, { recursive: true }); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head><body>Knowra</body></html>');
   const data = dataDirectory ?? path.join(root, 'data');
-  let runtime = await startLocalRuntime({ dataDirectory: data, distRoot, syncOptions: { autoSync: false }, logger: { warn() {}, error() {} } });
+  let runtime = await startLocalRuntime({ dataDirectory: data, distRoot, syncOptions: { autoSync: false }, mcpLimits: limits, logger: { warn() {}, error() {} } });
   t.after(() => runtime?.close());
   const env = { data, distRoot, root, get runtime() { return runtime; } };
   const login = async () => { env.cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0]; };
@@ -52,7 +52,9 @@ async function connect(t, pairingFile) {
   t.after(() => client.close());
   const call = async (name, args) => {
     const result = await client.callTool({ name, arguments: args });
-    return { ...result, text: result.content?.[0]?.text ?? '', stderr: () => Buffer.concat(stderr).toString() };
+    const text = result.content?.[0]?.text ?? '';
+    assert.equal(result.structuredContent, undefined, '只返回文本内容，避免最终消息翻倍');
+    return { ...result, text, data: result.isError ? undefined : JSON.parse(text), stderr: () => Buffer.concat(stderr).toString() };
   };
   return { client, call, stderr: () => Buffer.concat(stderr).toString() };
 }
@@ -71,27 +73,27 @@ test('真实 stdio 子进程：initialize、列工具、检索、读取、重点
 
   const found = await call('notes_search', { query: '线粒体' });
   assert.equal(found.isError, undefined, found.text);
-  assert.equal(found.structuredContent.fragments[0].noteId, note.id);
-  assert.match(found.structuredContent.fragments[0].text, /线粒体/);
-  const hit = found.structuredContent.fragments[0];
+  assert.equal(found.data.fragments[0].noteId, note.id);
+  assert.match(found.data.fragments[0].text, /线粒体/);
+  const hit = found.data.fragments[0];
   assert.equal(BODY.slice(hit.start, hit.end), hit.text);
 
   const read = await call('notes_read', { noteId: note.id, start: 0, end: 12 });
-  assert.equal(read.structuredContent.fragments[0].text, BODY.slice(0, 12));
-  assert.deepEqual(read.structuredContent.meta, { length: BODY.length, hasMore: true });
+  assert.equal(read.data.fragments[0].text, BODY.slice(0, 12));
+  assert.deepEqual(read.data.meta, { length: BODY.length, hasMore: true });
   const more = await call('notes_read', { noteId: note.id, start: 12 });
-  assert.equal(more.structuredContent.fragments[0].end, BODY.length);
-  assert.equal(more.structuredContent.meta.hasMore, false);
+  assert.equal(more.data.fragments[0].end, BODY.length);
+  assert.equal(more.data.meta.hasMore, false);
 
   const annotations = await call('annotations_list', { noteId: note.id });
-  assert.equal(annotations.structuredContent.fragments.length, 2);
-  assert.equal(annotations.structuredContent.fragments[0].attrs.importance, 'core');
-  assert.match(annotations.structuredContent.fragments[0].text, /线粒体/);
-  assert.equal(annotations.structuredContent.meta.total, 2);
+  assert.equal(annotations.data.fragments.length, 2);
+  assert.equal(annotations.data.fragments[0].attrs.importance, 'core');
+  assert.match(annotations.data.fragments[0].text, /线粒体/);
+  assert.equal(annotations.data.meta.total, 2);
   const important = await call('annotations_list', { noteId: note.id, minImportance: 'core' });
-  assert.equal(important.structuredContent.fragments.length, 1);
+  assert.equal(important.data.fragments.length, 1);
   const paged = await call('annotations_list', { noteId: note.id, limit: 1, offset: 1 });
-  assert.equal(paged.structuredContent.fragments.length, 1); assert.equal(paged.structuredContent.meta.hasMore, false);
+  assert.equal(paged.data.fragments.length, 1); assert.equal(paged.data.meta.hasMore, false);
 
   const token = JSON.parse(fs.readFileSync(pairing.pairingFile, 'utf8')).token;
   assert(!found.stderr().includes(token) && !JSON.stringify(found).includes(token), '令牌不出现在输出里');
@@ -113,11 +115,14 @@ test('越权、私密、被排除、非法与伪造参数：工具错误且不�
     }
   }
   const search = await call('notes_search', { query: '线粒体' });
-  assert.deepEqual(search.structuredContent.fragments.map(item => item.noteId), [inside.id], '检索只返回授权范围内的笔记');
+  assert.deepEqual(search.data.fragments.map(item => item.noteId), [inside.id], '检索只返回授权范围内的笔记');
   // 参数：多余字段（owner/授权/审核状态）、类型错误、越界。
   for (const [tool, args] of [['notes_read', { noteId: inside.id, ownerId: 'x' }], ['notes_read', { noteId: inside.id, start: -1 }], ['notes_read', { noteId: inside.id, start: 99999 }],
     ['notes_read', { noteId: 5 }], ['notes_search', { query: '' }], ['notes_search', { query: '线粒体', limit: 99 }], ['notes_search', { query: '线粒体', limit: 6 }], ['notes_search', { query: '线粒体', policyId: 'p' }],
-    ['annotations_list', { noteId: inside.id, minImportance: 'x' }], ['annotations_list', { noteId: inside.id, grantId: 'g', status: 'confirmed' }]]) {
+    ['annotations_list', { noteId: inside.id, minImportance: 'x' }], ['annotations_list', { noteId: inside.id, minImportance: ['core'] }], ['annotations_list', { noteId: inside.id, minImportance: 'constructor' }],
+    ['annotations_list', { noteId: inside.id, limit: null }], ['annotations_list', { noteId: inside.id, offset: null }], ['annotations_list', { noteId: inside.id, limit: '2' }],
+    ['notes_read', { noteId: inside.id, start: null }], ['notes_read', { noteId: inside.id, end: null }], ['notes_read', { noteId: inside.id, start: '0' }], ['notes_read', { noteId: inside.id, end: 0 }],
+    ['notes_search', { query: '线粒体', limit: null }], ['notes_search', { query: ['线粒体'] }], ['notes_search', {}], ['annotations_list', { noteId: inside.id, grantId: 'g', status: 'confirmed' }]]) {
     assert.equal(errorCode(await call(tool, args)), 'MCP_REQUEST_INVALID', `${tool} ${JSON.stringify(args)}`);
   }
   assert.equal(errorCode(await call('notes_write', { noteId: inside.id })), 'MCP_TOOL_UNKNOWN');
@@ -174,4 +179,48 @@ test('协议健壮性：非法行、未知方法不使进程崩溃，stdout 只�
   assert.equal((await waitFor(item => item.id === 4)).result.tools.length, 3);
   assert(lines.every(line => { try { JSON.parse(line); return true; } catch { return false; } }), `stdout 出现非 JSON-RPC 内容：${lines}`);
   assert.equal(child.exitCode, null, '进程仍在运行');
+});
+
+test('空笔记：读取返回空片段与 length 0，不是参数错误；越界起点仍被拒', async t => {
+  const env = await setup(t);
+  const empty = await env.note('空笔记', { rawMarkdown: '' });
+  const pairing = await env.pair();
+  const { call } = await connect(t, pairing.pairingFile);
+  const read = await call('notes_read', { noteId: empty.id });
+  assert.equal(read.isError, undefined, read.text);
+  assert.deepEqual(read.data, { fragments: [], meta: { length: 0, hasMore: false } });
+  assert.deepEqual((await call('notes_read', { noteId: empty.id, start: 0, end: 10 })).data.meta, { length: 0, hasMore: false });
+  assert.equal(errorCode(await call('notes_read', { noteId: empty.id, start: 1 })), 'MCP_REQUEST_INVALID');
+  const full = await env.note('有内容');
+  const tail = await call('notes_read', { noteId: full.id, start: BODY.length });
+  assert.deepEqual(tail.data, { fragments: [], meta: { length: BODY.length, hasMore: false } }, '恰好读到末尾得到空片段');
+  assert.equal(errorCode(await call('notes_read', { noteId: full.id, start: BODY.length + 1 })), 'MCP_REQUEST_INVALID');
+  assert.deepEqual((await call('annotations_list', { noteId: empty.id })).data.fragments, []);
+});
+
+test('大小上限对最终消息生效：转义后超限被拒，成功响应的完整 stdio 消息不超过上限', async t => {
+  const limit = 3200;
+  const env = await setup(t, { limits: { maxResultBytes: limit } });
+  const quotes = await env.note('引号', { rawMarkdown: '"'.repeat(1000) });
+  const plain = await env.note('普通', { rawMarkdown: '知'.repeat(300) });
+  const pairing = await env.pair();
+  const child = spawn(process.execPath, [ADAPTER, '--pairing-file', pairing.pairingFile]);
+  t.after(() => child.kill());
+  const lines = []; let buffer = '';
+  child.stdout.on('data', chunk => { buffer += chunk; let index; while ((index = buffer.indexOf('\n')) >= 0) { lines.push(buffer.slice(0, index)); buffer = buffer.slice(index + 1); } });
+  const rpc = async (id, method, params) => {
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`);
+    for (let i = 0; i < 100; i += 1) { const line = lines.find(item => JSON.parse(item).id === id); if (line) return line; await new Promise(r => setTimeout(r, 30)); }
+    throw new Error('no response');
+  };
+  await rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'raw', version: '0' } });
+  // 1000 个双引号：运行端 JSON 约 2.5 KB 可放行，但进入文本内容后被再次转义，最终消息超过上限。
+  const big = await rpc(2, 'tools/call', { name: 'notes_read', arguments: { noteId: quotes.id } });
+  assert.match(JSON.parse(big).result.content[0].text, /MCP_RESULT_TOO_LARGE/);
+  // 同一正文只读一部分则放行，且完整消息（含 JSON-RPC 信封）不超过上限。
+  for (const [index, args] of [[3, { noteId: quotes.id, start: 0, end: 400 }], [4, { noteId: plain.id }]]) {
+    const line = await rpc(index, 'tools/call', { name: 'notes_read', arguments: args });
+    assert.equal(JSON.parse(line).result.isError, undefined, line);
+    assert(Buffer.byteLength(line) <= limit, `完整消息 ${Buffer.byteLength(line)} 字节超过上限 ${limit}`);
+  }
 });

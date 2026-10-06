@@ -109,7 +109,7 @@
 - **身份验证**：适配器侧的 `client.mjs`（M2 的适配器直接复用）每次调用先检查配对文件（普通文件、当前用户、无组/他人权限）和 socket（socket、当前用户、无组/他人权限、目录同样），再发 nonce，运行端以 verifier 为密钥返回 HMAC，通过后才发令牌。运行端启动时在已持有数据目录锁的前提下清理旧 socket；非 socket 文件占用路径则拒绝启动。
 - **授权**：创建配对时生成一条 `read: true, egress: false, recipients: []` 的访问策略（复用内置助手的范围、排除项、私密笔记、资料集代际与撤销规则）；外发许可记在配对上（创建必须 `egressConfirmed: true`）。每个配对有一条运行授权（工具集仅 `notes_search`/`notes_read`，预算 0），到期前 60 秒内续发。
 - **统一外发出口**（`mcp-gate.mjs`）：工具只返回 `{ fragments: [{ noteId, title, start, end, text }], meta }`。出口逐条用 `verifyRead` 对照授权范围内笔记的**当前正文**，要求标题一致且 `text` 与 `content.slice(start, end)` 逐字相同，才生成响应与片段清单；`meta` 只允许数字与布尔值。工具无法返回授权外或改写过的内容。执行前后各复核一次配对状态、AI 总开关与 `allowExternal`，执行中撤销或关闭外发则不返回正文。
-- **限流默认值**：每配对每分钟 30 次、每日 1000 次（按 UTC 日历日）、并发 2、单次响应 64 KiB（按最终序列化的响应计，含 JSON 转义、标题与偏移）、单次最多 50 个片段、工具超时 15 秒；超限返回 `MCP_RATE_LIMITED`（含 `retryAfterSeconds`）或 `MCP_RESULT_TOO_LARGE`，不截断。实测出口加协议开销 p95 约 2.6–3.1 ms（含 60 KB 返回、60 万字节笔记），所以这些数值是为保护用户资料与客户端额度而设，不是容量上限，可在 M4 真实验收后调整。
+- **限流默认值**：每配对每分钟 30 次、每日 1000 次（按 UTC 日历日）、并发 2、单次响应 64 KiB（对最终发给客户端的消息生效：按“结果再序列化进文本内容”的二次转义大小加 256 字节封装预留计，所以转义、标题、偏移与信封开销都算在内）、单次最多 50 个片段、工具超时 15 秒；超限返回 `MCP_RATE_LIMITED`（含 `retryAfterSeconds`）或 `MCP_RESULT_TOO_LARGE`，不截断。实测出口加协议开销 p95 约 2.6–3.1 ms（含 60 KB 返回、60 万字节笔记），所以这些数值是为保护用户资料与客户端额度而设，不是容量上限，可在 M4 真实验收后调整。
 - **过期与撤销清理**：配对过期或撤销后，含原始令牌的配对文件立即删除；运行端启动与列出配对时再清扫一次（含没有对应记录的孤儿文件），所以崩溃或重启后也不会残留。清扫只在配对记录**成功加载**后进行：记录文件不存在视为首次使用（空列表），而记录读取失败、JSON 损坏或结构无效时，整个配对能力停用（返回 `MCP_STORE_UNAVAILABLE`），不清扫、不写入、保留所有原文件；记录修复后下一次访问自动恢复，无需重启。
 - **审计**：`mcp/audit.jsonl`（0600，超过 1 MiB 轮转一代），只记事件、配对 ID、工具名、状态、错误码、片段数、字节数与片段清单（笔记 ID、版本 ID、偏移、字节数）。
 - **稳定错误码**：`MCP_TOKEN_INVALID`、`MCP_PAIRING_REVOKED`、`MCP_PAIRING_EXPIRED`、`MCP_AI_DISABLED`、`MCP_EGRESS_DISABLED`、`MCP_ACCESS_REVOKED`、`MCP_RATE_LIMITED`、`MCP_RESULT_TOO_LARGE`、`MCP_RESULT_INVALID`、`MCP_TOOL_UNKNOWN`、`MCP_REQUEST_INVALID`、`MCP_TIMEOUT`、`MCP_RUNTIME_UNAVAILABLE`、`MCP_RUNTIME_UNTRUSTED`、`MCP_PAIRING_FILE_MISSING`/`UNSAFE`。
@@ -123,7 +123,8 @@
   - `notes_search(query, limit≤5)`：授权范围内的关键词检索（不含时间筛选与向量索引）；附加信息 `inspected`、`truncated`。
   - `notes_read(noteId, start?, end?)`：单次最多 1000 个 UTF-16 单位，不拆代理对；附加信息 `length`、`hasMore`。
   - `annotations_list(noteId, minImportance?, limit≤8, offset?)`：当前版本上仍有效的重点；片段附加字段 `importance`（枚举）、`truncated`（布尔）、`annotationId`（限定格式的标识符）；附加信息 `total`、`offset`、`hasMore`、`unavailableCount`。重点的备注、标题路径等自由文本不返回。
-  - 所有参数严格校验（多余字段、类型、范围），客户端传入的 owner/授权/审核状态等字段一律被拒；新增错误码 `MCP_SOURCE_CHANGED`（读取期间笔记变化）、`MCP_TOOL_UNAVAILABLE`。
+  - `notes_read` 读到末尾（含空笔记从 0 开始）返回空片段与 `length`、`hasMore: false`，不是参数错误；起点超过长度才报参数无效。
+  - 所有参数由出口按工具公布的 `inputSchema` 统一严格校验（类型、枚举、范围、长度、必填、多余字段；`null`、数组、`"constructor"` 这类原型键都不会被当成有效值），公布的结构与实际接受的一致；客户端传入的 owner/授权/审核状态等多余字段一律被拒。新增错误码 `MCP_SOURCE_CHANGED`（读取期间笔记变化）、`MCP_TOOL_UNAVAILABLE`。
 - **出口扩展**：工具可声明 `fragmentAttrs`（枚举、布尔值、限定格式的标识符三种），出口逐值校验，自由文本不能借此外发。
 - **打包**：适配器目前以 `node apps/desktop-runtime/src/mcp/adapter.mjs` 运行，未并入 Mac 应用包；设置页提供的配置片段与应用内路径（通过 esbuild 打成单文件放进应用包）在 M3 处理。
 

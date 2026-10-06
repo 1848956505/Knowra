@@ -17,7 +17,8 @@ export function createAdapterHandlers({ client }) {
     async callTool(name, args) {
       try {
         const result = await client.call(name, args ?? {});
-        return { content: [{ type: 'text', text: textOf(result) }], structuredContent: result };
+        // 只返回文本内容：同时带 structuredContent 会让最终消息翻倍，超出运行端按最终消息计算的大小上限。
+        return { content: [{ type: 'text', text: textOf(result) }] };
       } catch (error) { return failure(error); }
     }
   };

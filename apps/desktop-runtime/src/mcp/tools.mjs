@@ -44,8 +44,10 @@ export function createReadOnlyTools({ getAnnotations }) {
         if (!onlyKeys(input, ['noteId', 'start', 'end']) || !noteId(input.noteId)) throw invalid('阅读参数无效。');
         const { note, version } = await access.verifyRead({ grantId, noteId: input.noteId, tool: 'notes_read' });
         const content = version.content, start = input.start ?? 0, requestedEnd = input.end ?? start + MAX_READ_UNITS;
+        // 读到末尾（含空笔记从 0 开始）是正常结果：返回空片段，不是参数错误。
+        if (start === content.length && requestedEnd > start) return { fragments: [], meta: { length: content.length, hasMore: false } };
         if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start < 0 || requestedEnd <= start
-          || start >= content.length || !boundary(content, start)) throw invalid('阅读范围无效。');
+          || start > content.length || !boundary(content, start)) throw invalid('阅读范围无效。');
         let end = Math.min(requestedEnd, start + MAX_READ_UNITS, content.length);
         while (!boundary(content, end)) end--;
         if (end <= start) throw invalid('阅读范围无效。');
