@@ -259,6 +259,7 @@ test('C1 旧冻结请求遇新 epoch 先暂停，保留已知事实且不把未�
 test('C1 HTTP 知识 purge 的主体/证据/来源事实与存活冲突共存，继续编辑后可采用云端', async t => {
   const cloud = await fixture(t), synthetic = seedProvenance(cloud), device = cloud.device('knowledge-delete');
   await device.connect(); clean(device);
+  await device.engine.sync(); clean(device);
   const before = device.store.exportSnapshot(), id = synthetic.artifactId;
   device.knowledge.knowledgeItemService.updateItem(id, { title: '删除前的本地后继编辑' });
   purgeKnowledge(cloud, id); await device.engine.sync(); clean(device);
@@ -281,6 +282,8 @@ test('C1 HTTP 知识 purge 的主体/证据/来源事实与存活冲突共存，
 test('C1 真实来源墓碑引发无效合并时仍同事务记账，保留完整 live 来源和原游标', async t => {
   const cloud = await fixture(t), synthetic = seedProvenance(cloud), device = cloud.device('invalid-provenance-merge');
   await device.connect(); clean(device);
+  // 云端直接写入的日志头惰性追加；游标一致时跳过拉取，需再轮询一次才与云端收敛。
+  await device.engine.sync(); clean(device);
   const before = device.store.exportSnapshot().data, cursor = meta(device, 'cursor');
   purgeKnowledge(cloud, synthetic.artifactId);
   const page = await cloud.request(`changes?cursor=${encodeURIComponent(cursor)}&${syncContractQuery()}`);

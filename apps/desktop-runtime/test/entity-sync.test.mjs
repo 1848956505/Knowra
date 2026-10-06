@@ -420,6 +420,8 @@ test('完整协议遇到未知实体或 schema 时不推进本地游标', async 
   await a.connect();
   const { readMeta } = await import('../src/sync-state.mjs');
   const cursor = a.store.readSync(db => readMeta(db, 'cursor'));
+  // 云端游标与本地一致时不会拉取，先让云端前进一步才会触发拉取。
+  cloud.knowledge.noteService.updateNote(cloud.note.id, { rawMarkdown: '云端新正文' });
   unknown = true; await a.engine.sync(); assert(a.engine.status().error);
   assert.equal(a.store.readSync(db => readMeta(db, 'cursor')), cursor);
   assert.equal(a.knowledge.noteService.getNote(cloud.note.id).rawMarkdown, '基线');

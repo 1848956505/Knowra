@@ -57,6 +57,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
   let changed = false;
   let more = false;
   let missingAttachments = { revision: -1, entries: [] };
+  let sequenceVerified = false;
   const meta = key => store.readSync(db => readMeta(db, key));
   function requireServer(info) {
     assertSyncContract(info);
@@ -210,11 +211,21 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
         } else throw failure;
       }
   }
+  // 设备序号仅在本机即将生成新操作时向云端校准；序号只由本设备推进，进程内核对一次即可。
+  async function verifyDeviceSequence() {
+    if (sequenceVerified || meta('entityUpload') || !getEntitySyncState(store).pendingEntities) return;
+    const device = await request(`device?deviceId=${encodeURIComponent(store.getStatus().deviceId)}`);
+    store.metadataTransaction(db => writeMeta(db, 'entitySequence', Math.max(meta('entitySequence') ?? 0, device.sequence)));
+    sequenceVerified = true;
+  }
+  // 返回本轮是否实际提交过操作；未提交时云端游标不会因本机而前进。
   async function uploadEntities() {
+    let sent = false;
+    await verifyDeviceSequence();
     for (let count = 0; count < 20; count++) {
       const knowledgeSupported = meta('capabilities')?.includes(KNOWLEDGE_SYNC_CAPABILITY) ?? false;
       const operation = nextEntityUpload(store, { knowledgeSupported });
-      if (!operation) return;
+      if (!operation) return sent;
       if (!knowledgeSupported && operation.changes.some(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection))) {
         const failure = new Error('云端尚不支持知识同步，知识已保存在本机；请升级云端后重试。');
         failure.code = 'SYNC_KNOWLEDGE_UNSUPPORTED'; throw failure;
@@ -232,19 +243,30 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
         throw failure;
       }
       acknowledgeEntityUpload(store, operation, result);
-      if (result.status === 'conflict') return;
+      sent = true;
+      if (result.status === 'conflict') return sent;
     }
     more = true;
+    return sent;
   }
   async function upload() {
+    let sent = false;
     // 一轮有界，编辑中产生的后继修改下一轮继续。
     for (let count = 0; count < 100; count++) {
-      if (!getSyncState(store).pendingNotes) return;
+      if (!getSyncState(store).pendingNotes) return sent;
       const operation = nextUpload(store);
-      if (!operation) return;
+      if (!operation) return sent;
       await sendOperation(operation);
+      sent = true;
     }
     more = true;
+    return sent;
+  }
+  // 云端游标与本地一致且无待核对事项时，拉取只会得到空页；附件待补传输时仍需进入拉取重试下载。
+  function canSkipPull(info) {
+    if (!info.cursor || info.cursor !== meta('cursor') || info.datasetEpoch !== meta('epoch') || meta('attachmentPending')) return false;
+    if (getSyncState(store).conflicts.length || (full && getEntitySyncState(store).entityConflict)) return false;
+    return !store.readSync((_db, state) => state.attachments.some(item => ['missing', 'corrupt', 'failed'].includes(item.status)));
   }
   async function reconcileLegacyUploads() {
     const notes = store.readSync(db => db.prepare('SELECT request FROM sync_uploads').all().map(row => JSON.parse(row.request)));
@@ -299,17 +321,14 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
         const failure = new Error('上次清理结果待核对，请联网重新预检并再次确认；原件已保留。');
         failure.code = 'LOCAL_PURGE_RESULT_PENDING'; throw failure;
       }
-      if (full) {
-        const device = await request(`device?deviceId=${encodeURIComponent(store.getStatus().deviceId)}`);
-        store.metadataTransaction(db => writeMeta(db, 'entitySequence', Math.max(meta('entitySequence') ?? 0, device.sequence)));
-      }
       await reconcileLegacyUploads();
       if (meta('epoch') && meta('epoch') !== info.datasetEpoch && !await bootstrap()) { phase = 'conflict'; return; }
       if (!meta('cursor') && !await bootstrap() && full) { phase = 'conflict'; return; }
-      if (full && meta('entityUpload')) await uploadEntities();
-      if (!await pull()) { if (full) await uploadEntities(); phase = 'conflict'; return; }
-      if (full) await uploadEntities(); else await upload();
-      if (!await pull()) { if (full) await uploadEntities(); phase = 'conflict'; return; }
+      const resumed = full && meta('entityUpload') ? await uploadEntities() : false;
+      const upToDate = !resumed && canSkipPull(info);
+      if (!upToDate && !await pull()) { if (full) await uploadEntities(); phase = 'conflict'; return; }
+      const sent = full ? await uploadEntities() : await upload();
+      if (sent && !await pull()) { if (full) await uploadEntities(); phase = 'conflict'; return; }
       const pending = full ? getEntitySyncState(store).pendingEntities : getSyncState(store).pendingNotes;
       changed = startKey !== store.getSyncCacheKey();
       lastCheckedAt = new Date().toISOString();
@@ -322,6 +341,7 @@ export function createSyncEngine(store, { fetcher = fetch, intervalMs = 15000, n
       phase = (getSyncState(store).conflicts.length || (full && getEntitySyncState(store).entityConflict)) ? 'conflict' : pending ? 'pending' : 'synced';
     } catch (failure) {
       error = { code: failure.code ?? 'NETWORK_ERROR', message: failure.message };
+      if (failure.code === 'SYNC_OPERATION_EXPIRED') sequenceVerified = false;
       if (['CURSOR_EXPIRED', 'DATASET_CHANGED'].includes(failure.code)) {
         store.metadataTransaction(db => { writeMeta(db, 'cursor', null); writeMeta(db, 'bootstrap', null); });
       }
