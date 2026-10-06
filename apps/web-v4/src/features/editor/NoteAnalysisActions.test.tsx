@@ -72,3 +72,31 @@ it('让 AI 提炼知识点：保存等待期间切换笔记，旧笔记不会打
   await act(async () => { pending.resolve(); await pending.promise; });
   expect(props.onExtractWithAssistant).not.toHaveBeenCalled(); expect(next.onExtractWithAssistant).not.toHaveBeenCalled();
 });
+it('让 AI 提炼知识点：保存期间继续输入则不跳转并提示重试，重试时保存最新草稿后才打开助手', async () => {
+  const pending = deferred<void>(), props = propsFor('extract-keeps-typing');
+  props.onSaveMarkdown = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(undefined); props.onExtractWithAssistant = vi.fn();
+  render(<NoteEditorView {...props} />); const user = await openAI(), source = screen.getByRole('textbox', { name: 'Markdown 源码编辑器' });
+  fireEvent.change(source, { target: { value: '草稿 A' } });
+  await user.click(screen.getByRole('button', { name: '让 AI 提炼知识点' }));
+  expect(props.onSaveMarkdown).toHaveBeenCalledTimes(1);
+  fireEvent.change(source, { target: { value: '草稿 A，保存期间又输入了 B' } });
+  await act(async () => { pending.resolve(); await pending.promise; });
+  expect(await screen.findByRole('alert')).toHaveTextContent('保存期间笔记或草稿已变化，请确认内容后重试。');
+  expect(props.onExtractWithAssistant).not.toHaveBeenCalled();
+  expect(source).toHaveValue('草稿 A，保存期间又输入了 B');
+  await user.click(screen.getByRole('button', { name: '让 AI 提炼知识点' }));
+  await waitFor(() => expect(props.onExtractWithAssistant).toHaveBeenCalledExactlyOnceWith('extract-keeps-typing'));
+  expect(vi.mocked(props.onSaveMarkdown!).mock.calls.at(-1)?.[1]).toBe('草稿 A，保存期间又输入了 B');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+it('让 AI 提炼知识点：保存进行中再次点击不会重复保存或重复跳转', async () => {
+  const pending = deferred<void>(), props = propsFor('extract-double-click');
+  props.onSaveMarkdown = vi.fn().mockReturnValue(pending.promise); props.onExtractWithAssistant = vi.fn();
+  render(<NoteEditorView {...props} />); const user = await openAI();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Markdown 源码编辑器' }), { target: { value: '待提炼草稿' } });
+  const button = screen.getByRole('button', { name: '让 AI 提炼知识点' });
+  await user.click(button); await user.click(button);
+  expect(props.onSaveMarkdown).toHaveBeenCalledTimes(1);
+  await act(async () => { pending.resolve(); await pending.promise; });
+  await waitFor(() => expect(props.onExtractWithAssistant).toHaveBeenCalledTimes(1));
+});

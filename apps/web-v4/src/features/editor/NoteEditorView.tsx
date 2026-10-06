@@ -1129,11 +1129,17 @@ export function NoteEditorView({
           } : undefined}
           onOpenKnowledgeItem={onOpenKnowledgeItem}
           onExtractWithAssistant={onExtractWithAssistant ? async () => {
-            // 助手读取的是已保存的版本：先保存当前草稿；保存失败则留在编辑器，由保存状态提示用户。
-            const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-            try { await autosave.saveNow(markdown); } catch { return; }
-            if (versionWriteStateRef.current.noteId !== note.id) return;
-            onExtractWithAssistant(note.id);
+            // 助手读取的是已保存的版本：保存当前草稿，并在保存完成后重新核验——保存期间继续输入、切换笔记或写入状态变化都不能跳转，
+            // 否则助手会读到旧内容；保存失败同样留在编辑器。出错时抛出说明，由检查器显示并允许重试。
+            const before = analysisContext.current;
+            if (!before.canWrite || !before.noteId) throw new Error('当前笔记不可写，无法提炼知识点。');
+            const markdown = before.markdown();
+            await autosave.saveNow(markdown);
+            const now = analysisContext.current;
+            if (!annotationMountedRef.current || !now.canWrite || now.noteId !== before.noteId || now.spaceId !== before.spaceId || now.markdown() !== markdown) {
+              throw new Error('保存期间笔记或草稿已变化，请确认内容后重试。');
+            }
+            onExtractWithAssistant(before.noteId);
           } : undefined}
           knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
           onPreviewAnalysisScope={onPreviewAnalysisScope ? previewSavedAnalysis : undefined}
