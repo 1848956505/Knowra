@@ -396,7 +396,8 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         turn.updatedAt = stamp(); return turn;
       });
     },
-    async appendToolCall(turnId, generation, { callId, toolName, argumentsJson }) {
+    // maxCalls：宿主按回合类型放宽的工具次数上限（提炼知识点回合），默认 6，硬顶 14，恢复不会重置计数。
+    async appendToolCall(turnId, generation, { callId, toolName, argumentsJson, maxCalls = 6 }) {
       return write((state, identity) => {
         const turn = mustTurn(state, turnId); lease(turn, identity, generation);
         const existing = state.conversationToolCalls.find(row => row.callId === callId);
@@ -404,7 +405,7 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
           if (existing.turnId === turnId && existing.toolName === toolName && hashRecord(existing.argumentsJson) === hashRecord(argumentsJson)) return existing;
           conversationError('AI_IDEMPOTENCY_CONFLICT', '工具调用 ID 已被其他请求使用。');
         }
-        if (state.conversationToolCalls.filter(row => row.turnId === turnId).length >= 6) {
+        if (state.conversationToolCalls.filter(row => row.turnId === turnId).length >= (Number.isSafeInteger(maxCalls) ? Math.min(Math.max(maxCalls, 6), 14) : 6)) {
           conversationError('AI_AGENT_LIMIT', '本轮工具次数已达到上限，恢复不会重置计数。');
         }
         const time = stamp();
