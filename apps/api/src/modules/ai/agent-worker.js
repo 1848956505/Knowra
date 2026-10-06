@@ -24,14 +24,14 @@ const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_li
 // 说明只能描述“本轮真的会随请求发出的来源”：按当前 sources 窗口（sourceRefs，发送前会逐条重新核验权限与版本）过滤，
 // 窗口外（被淘汰）的笔记不再提及；不含笔记标题，避免经说明文字绕过发送清单与授权复核。
 // 重点数量可能超过 sources 窗口容量，所以按“批”推进：把重点分成 未读 / 已读待提交（在窗口内或已移出）/ 已提交 三类，
-// 先提交窗口内待提交的，再翻页读下一批；一次成功保存即视为此前已读的重点已处理（重复陈述会被保存阶段拒绝）。
+// 先提交窗口内待提交的，再翻页读下一批；只有被已保存候选引文实际覆盖的重点才算已提交，其余仍待处理。
 export function proposalProgress(calls, sourceRefs = []) {
   const live = (noteId, start, end) => sourceRefs.some(ref => ref.noteId === noteId && ref.start <= start && end <= ref.end);
   const done = calls.filter(call => call.status === 'succeeded' && call.resultJson && typeof call.resultJson === 'object');
   const notes = new Map();
   const noteOf = id => notes.get(id) ?? notes.set(id, { total: 0, seen: new Map(), handled: new Set(), nextOffset: 0, read: false, listed: false }).get(id);
-  let saved = 0;
-  for (const call of done) { // 按发生顺序处理：保存只覆盖它之前已读到的重点
+  let saved = 0; const cited = [];
+  for (const call of done) {
     const result = call.resultJson;
     if (call.toolName === 'annotations_list' && typeof result.noteId === 'string' && Number.isSafeInteger(result.total)) {
       const note = noteOf(result.noteId);
@@ -42,7 +42,17 @@ export function proposalProgress(calls, sourceRefs = []) {
       && (call.sourceRefs ?? []).some(ref => ref.noteId === result.noteId && live(ref.noteId, ref.start, ref.end))) noteOf(result.noteId).read = true;
     else if (call.toolName === 'knowledge_propose' && result.saved === true) {
       saved += result.candidates?.length ?? 0;
-      for (const note of notes.values()) for (const id of note.seen.keys()) note.handled.add(id);
+      for (const range of result.citedRanges ?? []) {
+        if (typeof range?.noteId === 'string' && Number.isSafeInteger(range.start) && Number.isSafeInteger(range.end) && range.start < range.end) cited.push(range);
+      }
+    }
+  }
+  // 只把“被已保存候选的引文实际覆盖”的重点算作已提交：引文与重点原文相交，且引文不超过重点长度的 3 倍
+  // （排除用整篇原文当引文而“顺带覆盖”所有重点的情形）。保存成功本身不代表此前读到的重点都已处理。
+  for (const [noteId, note] of notes) {
+    for (const item of note.seen.values()) {
+      if (cited.some(range => range.noteId === noteId && range.start < item.end && item.start < range.end
+        && range.end - range.start <= 3 * (item.end - item.start))) note.handled.add(item.annotationId);
     }
   }
   const steps = []; let needPropose = false, needPage = false, needReread = false;

@@ -113,14 +113,15 @@ export function createAgentKnowledgeCommitService({ core, knowledge, ownerId, co
     async findCommitted({ origin, identity }) {
       const receipt = await core.get({ ownerId, datasetId: identity.datasetId, operationId: operationId(origin) });
       if (!receipt || receipt.kind !== 'knowledge_propose' || receipt.ownerId !== ownerId) return null;
-      const candidates = [];
+      const candidates = [], cited = new Map();
       for (const { candidateId } of receipt.result.candidates) {
         const item = await Promise.resolve(repos.knowledgeItemRepository.findById(candidateId));
         const provenance = await Promise.resolve(repos.knowledgeArtifactProvenanceRepository.findByArtifactId(candidateId));
         candidates.push({ candidateId, title: item?.title ?? '', knowledgeType: item?.knowledgeType ?? 'concept',
           citationCount: provenance?.sources?.length ?? 0 });
+        for (const source of provenance?.sources ?? []) cited.set(`${source.noteId}:${source.start}:${source.end}`, { noteId: source.noteId, start: source.start, end: source.end });
       }
-      return { requestId: receipt.requestId, candidates };
+      return { requestId: receipt.requestId, candidates, citedRanges: [...cited.values()] };
     }
   };
 }

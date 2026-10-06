@@ -111,8 +111,14 @@ export async function buildKnowledgeProposalPlan({ access, grantId, args, source
   }
 }
 
-function savedOutcome(requestId, outputHash, candidates) {
-  return { resultJson: { status: 'saved', saved: true, requestId, outputHash, candidates }, sourceRefs: [] };
+// 已保存候选实际引用的原文范围（笔记内绝对位置）。进度说明据此判断哪些重点已被覆盖，而不是把“保存成功”当作“全部已读重点已提交”。
+const rangesOf = sources => {
+  const seen = new Map();
+  for (const source of sources) seen.set(`${source.noteId}:${source.start}:${source.end}`, { noteId: source.noteId, start: source.start, end: source.end });
+  return [...seen.values()];
+};
+function savedOutcome(requestId, outputHash, candidates, citedRanges) {
+  return { resultJson: { status: 'saved', saved: true, requestId, outputHash, candidates, citedRanges }, sourceRefs: [] };
 }
 
 /**
@@ -122,7 +128,7 @@ function savedOutcome(requestId, outputHash, candidates) {
 export async function proposeKnowledge({ commit = null, ...input }) {
   // 同一调用已经提交（响应丢失、租约恢复后重试）：直接按回执报告，不重新校验也不重复保存。
   const committed = commit ? await commit.find() : null;
-  if (committed) return savedOutcome(committed.requestId, null, committed.candidates);
+  if (committed) return savedOutcome(committed.requestId, null, committed.candidates, committed.citedRanges ?? []);
   const plan = await buildKnowledgeProposalPlan(input);
   if (commit) {
     try { await commit.save(plan); }
@@ -130,11 +136,12 @@ export async function proposeKnowledge({ commit = null, ...input }) {
       // 提交可能已成功但响应丢失：以回执为准，确实没有提交才报告失败。
       const landed = await commit.find().catch(() => null);
       if (!landed) throw error;
-      return savedOutcome(landed.requestId, plan.outputHash, landed.candidates);
+      return savedOutcome(landed.requestId, plan.outputHash, landed.candidates, landed.citedRanges ?? rangesOf(plan.candidates.flatMap(item => item.provenance)));
     }
   }
   return { resultJson: { status: commit ? 'saved' : 'validated', saved: Boolean(commit), requestId: plan.requestId, outputHash: plan.outputHash,
     candidates: plan.candidates.map(({ candidateInput, provenance }) => ({ candidateId: candidateInput.id,
-      title: candidateInput.title, knowledgeType: candidateInput.knowledgeType, citationCount: provenance.length })) },
+      title: candidateInput.title, knowledgeType: candidateInput.knowledgeType, citationCount: provenance.length })),
+    citedRanges: rangesOf(plan.candidates.flatMap(item => item.provenance)) },
   sourceRefs: [] };
 }

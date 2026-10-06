@@ -122,6 +122,7 @@ export const aiKnowledgePropose = [
     const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
     assert.equal(call.status, 'succeeded'); assert.equal(call.resultJson.status, 'saved'); assert.equal(call.resultJson.saved, true);
     assert.equal(call.resultJson.candidates.length, 1); assert.equal(call.resultJson.candidates[0].title, '数据增强');
+    assert.deepEqual(call.resultJson.citedRanges, [{ noteId: note.id, start: 0, end: Q1.length }], '结果必须带已保存引文的绝对位置，供进度判断覆盖了哪些重点');
     const [saved] = items();
     assert.equal(saved.id, call.resultJson.candidates[0].candidateId); assert.equal(saved.reviewStatus, 'candidate'); assert.equal(saved.sourceMode, 'ai');
     assert.equal(items().filter(item => item.reviewStatus === 'confirmed').length, 0);
@@ -282,19 +283,39 @@ export const aiKnowledgePropose = [
     assert(paged.includes('读一批提交一批') && !paged.includes('信息已足够'), paged);
     // 评审场景：13 处重点按 8+5 读完，窗口只放得下 12 条——已提交的不再算待处理，不要求补读，直接提交剩余
     const second = Array.from({ length: 5 }, (_, index) => item(`q${index}`, 'important', 100 + index * 10, 105 + index * 10));
+    const saveOf = items => call('knowledge_propose', { saved: true, candidates: new Array(items.length).fill({}), citedRanges: refsOf(items) });
     const overflow = [call('annotations_list', { noteId: 'n', total: 13, offset: 0, annotations: page }, refsOf(page)),
-      call('knowledge_propose', { saved: true, candidates: new Array(8).fill({}) }),
+      saveOf(page),
       call('annotations_list', { noteId: 'n', total: 13, offset: 8, annotations: second }, refsOf(second))];
     const window = [...refsOf(page).slice(-7), ...refsOf(second)];            // 12 条窗口：最早的 1 处已被挤出
     const afterSave = proposalProgress(overflow, window);
     assert(afterSave.includes('13 处重点中的 13 处，其中 8 处已提交；5 处待提交'), afterSave);
     assert(!afterSave.includes('已读但原文已移出') && !afterSave.includes('重新读取') && afterSave.includes('现在就对上面待提交的重点调用 knowledge_propose'), afterSave);
     // 全部提交完：只提示告知用户，不再要求读取或提交
-    const finished = proposalProgress([...overflow, call('knowledge_propose', { saved: true, candidates: new Array(5).fill({}) })], window);
+    const finished = proposalProgress([...overflow, saveOf(second)], window);
     assert(finished.includes('13 处已提交') && finished.includes('重点已全部处理，请用一两句话告知用户') && !finished.includes('待提交'), finished);
     // 部分保存后仍有未读：只提示继续翻页，不重复读取已读页
     const midway = proposalProgress([overflow[0], overflow[1]], refsOf(page));
     assert(midway.includes('先别重复读取已读的页') && midway.includes('offset=8') && !midway.includes('待提交'), midway);
+    // 评审：保存成功不等于所有已读重点都已提交——只算引文实际覆盖到的重点
+    const all13 = [...page, ...second];
+    const readAll = [call('annotations_list', { noteId: 'n', total: 13, offset: 0, annotations: page }, refsOf(page)),
+      call('annotations_list', { noteId: 'n', total: 13, offset: 8, annotations: second }, refsOf(second))];
+    // 读完 13 处，只保存了窗口内的 12 条（页 0 的第一处没被引用）：那一处仍待处理且需重新读取
+    const savedWindow = proposalProgress([...readAll, saveOf(all13.slice(1))], [...refsOf(page).slice(-7), ...refsOf(second)]);
+    assert(savedWindow.includes('13 处重点中的 13 处，其中 12 处已提交') && savedWindow.includes('1 处已读但原文已移出 sources 且尚未提交'), savedWindow);
+    assert(savedWindow.includes('重新读取被移出 sources 的重点') && !savedWindow.includes('重点已全部处理') && !savedWindow.includes('告知用户'), savedWindow);
+    // 读了 8 处只保存 1 条：其余 7 处仍在窗口内待提交，不得宣称全部完成
+    const oneOfEight = proposalProgress([call('annotations_list', { noteId: 'n', total: 8, offset: 0, annotations: page }, refsOf(page)), saveOf(page.slice(0, 1))], refsOf(page));
+    assert(oneOfEight.includes('其中 1 处已提交；7 处待提交') && oneOfEight.includes('现在就对上面待提交的重点调用 knowledge_propose'), oneOfEight);
+    assert(!oneOfEight.includes('重点已全部处理') && !oneOfEight.includes('告知用户'), oneOfEight);
+    // 用整篇原文当引文不会“顺带覆盖”所有重点；结果缺少 citedRanges（旧记录）也按未覆盖处理
+    const wholeCited = proposalProgress([call('annotations_list', { noteId: 'n', total: 8, offset: 0, annotations: page }, refsOf(page)),
+      call('knowledge_propose', { saved: true, candidates: [{}], citedRanges: [ref('n', 0, 1000)] })], refsOf(page));
+    assert(wholeCited.includes('其中 0 处已提交；8 处待提交'), wholeCited);
+    const legacy = proposalProgress([call('annotations_list', { noteId: 'n', total: 8, offset: 0, annotations: page }, refsOf(page)),
+      call('knowledge_propose', { saved: true, candidates: [{}] })], refsOf(page));
+    assert(legacy.includes('其中 0 处已提交；8 处待提交'), legacy);
     // 已读但原文被挤出且尚未提交：要求重新读取（读一批提交一批），而非无限补读
     const lost = proposalProgress([call('annotations_list', { noteId: 'n', total: 2, offset: 0, annotations: [item('k1', 'core', 0, 4), item('k2', 'core', 5, 9)] },
       [ref('n', 0, 4), ref('n', 5, 9)])], [ref('n', 0, 4)]);
