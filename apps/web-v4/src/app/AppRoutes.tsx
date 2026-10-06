@@ -310,6 +310,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
           setKnowledgeSource(current.annotation);
         } : undefined}
         onOpenKnowledgeItem={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)}
+        onExtractWithAssistant={noteId => navigate(`/assistant?new=1&noteId=${encodeURIComponent(noteId)}&intent=extract`)}
         onPreviewAnalysisScope={previewAnalysisScope}
         onCreateAnalysisScope={createAnalysisScope}
         onListAnalysisScopes={listAnalysisScopes}

@@ -45,3 +45,30 @@ it('保存等待期间切换笔记，旧保存完成不能对新笔记发预览'
   await act(async () => { pending.resolve(); await pending.promise; });
   expect(props.onPreviewAnalysisScope).not.toHaveBeenCalled(); expect(next.onPreviewAnalysisScope).not.toHaveBeenCalled(); expect(screen.queryByRole('dialog', { name: '确认分析范围' })).toBeNull();
 });
+it('让 AI 提炼知识点：先保存当前草稿并等待成功，再带着笔记 ID 打开助手', async () => {
+  const pending = deferred<void>(), props = propsFor('extract-save'); props.onSaveMarkdown = vi.fn().mockReturnValue(pending.promise); props.onExtractWithAssistant = vi.fn();
+  render(<NoteEditorView {...props} />); const user = await openAI();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Markdown 源码编辑器' }), { target: { value: '提炼前尚未保存的草稿' } });
+  await user.click(screen.getByRole('button', { name: '让 AI 提炼知识点' }));
+  expect(props.onSaveMarkdown).toHaveBeenCalledWith(props.note!.id, '提炼前尚未保存的草稿', props.note!.updatedAt, props.note!.rawMarkdown, expect.any(Object));
+  expect(props.onExtractWithAssistant).not.toHaveBeenCalled();
+  await act(async () => { pending.resolve(); await pending.promise; });
+  await waitFor(() => expect(props.onExtractWithAssistant).toHaveBeenCalledExactlyOnceWith('extract-save'));
+});
+it('让 AI 提炼知识点：保存失败时留在编辑器并保留草稿，不打开助手', async () => {
+  const props = propsFor('extract-save-fails'); props.onSaveMarkdown = vi.fn().mockRejectedValue(Object.assign(new Error('合成正文保存冲突'), { code: 'NOTE_UPDATE_CONFLICT' }));
+  props.onExtractWithAssistant = vi.fn();
+  render(<NoteEditorView {...props} />); const user = await openAI(), source = screen.getByRole('textbox', { name: 'Markdown 源码编辑器' });
+  fireEvent.change(source, { target: { value: '必须保留的草稿' } }); await user.click(screen.getByRole('button', { name: '让 AI 提炼知识点' }));
+  await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalled());
+  await waitFor(() => expect(screen.getAllByText('合成正文保存冲突').length).toBeGreaterThan(0));
+  expect(source).toHaveValue('必须保留的草稿'); expect(props.onExtractWithAssistant).not.toHaveBeenCalled();
+});
+it('让 AI 提炼知识点：保存等待期间切换笔记，旧笔记不会打开助手', async () => {
+  const props = propsFor('extract-old'), pending = deferred<void>(); props.onSaveMarkdown = vi.fn().mockReturnValue(pending.promise); props.onExtractWithAssistant = vi.fn();
+  const { rerender } = render(<NoteEditorView {...props} />); const user = await openAI();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Markdown 源码编辑器' }), { target: { value: '旧草稿' } }); await user.click(screen.getByRole('button', { name: '让 AI 提炼知识点' }));
+  const next = propsFor('extract-new'); next.onExtractWithAssistant = vi.fn(); rerender(<NoteEditorView {...next} />);
+  await act(async () => { pending.resolve(); await pending.promise; });
+  expect(props.onExtractWithAssistant).not.toHaveBeenCalled(); expect(next.onExtractWithAssistant).not.toHaveBeenCalled();
+});

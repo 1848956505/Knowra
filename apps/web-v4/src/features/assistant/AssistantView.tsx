@@ -16,7 +16,7 @@ import { useAppStore } from '../../store/AppStoreProvider';
 import { BookIcon, NoteIcon, SparkIcon } from '../../shell/icons';
 import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantStatus } from './assistantApi';
-import { conversationApi, type AccessPolicy, type Conversation, type ConversationMessage,
+import { conversationApi, type ToolCall, type AccessPolicy, type Conversation, type ConversationMessage,
   type ConversationTurn, type SourceRef } from './conversationApi';
 import type { NoteAction } from './noteActionApi';
 import { isCurrentReviewTarget } from './reviewTarget';
@@ -72,6 +72,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const folders = useMemo(() => serverData.folderTree.filter(folder => !folder.deletedAt && (!folder.spaceId || folder.spaceId === spaceId)), [serverData.folderTree, spaceId]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [policies, setPolicies] = useState<AccessPolicy[]>([]);
+  const [policiesReady, setPoliciesReady] = useState(false);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -132,17 +133,44 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   useEffect(() => {
     if (!spaceId) return;
     let cancelled = false;
-    setConversations([]); setPolicies([]); setMessages([]); setTurns({}); setTitles({}); setArtifacts([]); setReviewedAction(null);
+    setConversations([]); setPolicies([]); setPoliciesReady(false); setMessages([]); setTurns({}); setTitles({}); setArtifacts([]); setReviewedAction(null);
     setStatus(null); scopeRevision.current++; setScopeChoice('plain'); setError(null); setNotice(null); setSourceView(null);
     pendingSend.current = null; setRecordMessage(null); setManagementOpen(false);
     void conversationApi.list(spaceId).then(rows => { if (!cancelled) setConversations(rows); })
       .catch(cause => { if (!cancelled) setError(errorText(cause, '无法加载会话历史。')); });
-    void conversationApi.policies(spaceId).then(rows => { if (!cancelled) setPolicies(rows); })
+    void conversationApi.policies(spaceId).then(rows => { if (!cancelled) { setPolicies(rows); setPoliciesReady(true); } })
       .catch(cause => { if (!cancelled) setError(errorText(cause, '无法加载读取授权。')); });
     void assistantApi.status().then(next => { if (!cancelled) setStatus(next); })
       .catch(cause => { if (!cancelled) setError(errorText(cause, '无法读取模型状态。')); });
     return () => { cancelled = true; };
   }, [spaceId]);
+
+  // 从编辑器进入“提炼知识点”：预填明确的请求（含笔记标题与 ID，助手据此定位本篇）；已有覆盖本篇的有效授权就直接选用，
+  // 否则打开授权对话框（预设为仅本篇）——读取与外发必须由用户明确授权，这里不自动授权、不自动发送。
+  const extractNote = newConversation && params.get('intent') === 'extract' && initialNoteId ? notes.find(note => note.id === initialNoteId) ?? null : null;
+  const extractApplied = useRef<string | null>(null);
+  useEffect(() => {
+    if (!extractNote || !policiesReady || !spaceId) return;
+    const key = `${spaceId}:${extractNote.id}`;
+    if (extractApplied.current === key) return;
+    extractApplied.current = key;
+    const title = (extractNote.title || '未命名笔记').replace(/\s+/g, ' ').slice(0, 60);
+    setDraft(current => current.trim() ? current : `请根据我在笔记《${title}》（noteId: ${extractNote.id}）里标记的重点，提炼知识点。`);
+    pendingSend.current = null;
+    const covers = (policy: AccessPolicy) => {
+      if (policy.scope.kind === 'library') return true;
+      if (policy.scope.kind === 'fixed') return policy.scope.noteIds.includes(extractNote.id);
+      const seen = new Set<string>();
+      for (let id = extractNote.folderId; id && !seen.has(id); id = folders.find(folder => folder.id === id)?.parentId ?? null) {
+        if (id === policy.scope.folderId) return true;
+        seen.add(id);
+      }
+      return false;
+    };
+    const covering = activePolicies.find(covers);
+    if (covering) { scopeRevision.current++; setScopeChoice(covering.policyId); setNotice(`已选用现有读取授权：${scopeName(covering)}。确认请求后发送。`); }
+    else { setGrantKind('fixed'); setGrantNoteId(extractNote.id); setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true); }
+  }, [extractNote?.id, policiesReady, spaceId]);
 
   async function refreshConversation(id: string, initializeScope = false) {
     if (selection.current !== id) return;
@@ -465,7 +493,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                   {!selected?.readOnly ? <Button variant="ghost" size="compact" onPress={() => setRecordMessage(message)}><NoteIcon size={15} />记录为笔记</Button> : null}
                 <details className={styles.trace} onToggle={event => { if (event.currentTarget.open) void showTrace(message.turnId); }}>
                   <summary><SearchIcon size={13} />检索与调用记录</summary>
-                  {turn ? <Trace turn={turn} /> : <p>正在读取记录…</p>}
+                  {turn ? <Trace turn={turn} onReviewCandidates={() => navigate('/knowledge')} /> : <p>正在读取记录…</p>}
                 </details>
                 </div>
                 {artifacts.filter(action => action.requestId === message.turnId).map(action => <button
@@ -583,18 +611,39 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   </WorkspacePanel>;
 }
 
-function Trace({ turn }: { turn: ConversationTurn }) {
+const toolLabel = (call: ToolCall) => call.toolName === 'notes_search' ? call.argumentsJson.origin === 'automatic' ? '自动检索笔记' : '检索笔记'
+  : call.toolName === 'notes_read' ? '阅读笔记' : call.toolName === 'annotations_list' ? '读取重点标记'
+    : call.toolName === 'knowledge_propose' ? '提交知识候选（待审核）' : '生成笔记计划（尚未写入）';
+
+/** 每个工具调用结果的一句话摘要；提议工具没有来源片段，不能显示“0 个来源片段”。 */
+function toolSummary(call: ToolCall, turn: ConversationTurn) {
+  if (call.status === 'failed') return `失败：${call.errorCode ?? '未知原因'}`;
+  if (call.status !== 'succeeded') return turn.status === 'running' ? '执行中' : '执行未完成';
+  const result = call.resultJson;
+  if (call.toolName === 'knowledge_propose') {
+    const saved = Array.isArray(result?.candidates) ? result.candidates.length : 0;
+    return result?.saved === true ? `已保存 ${saved} 条候选，尚未入库，需在知识库审核` : `已校验 ${saved} 条候选（未保存）`;
+  }
+  if (call.toolName === 'annotations_list') {
+    const shown = Array.isArray(result?.annotations) ? result.annotations.length : 0;
+    return `${typeof result?.total === 'number' ? `共 ${result.total} 处重点，本页 ${shown} 处` : `${shown} 处重点`} · ${call.sourceRefs.length} 个来源片段`;
+  }
+  return `${call.sourceRefs.length} 个来源片段`;
+}
+
+function Trace({ turn, onReviewCandidates }: { turn: ConversationTurn; onReviewCandidates?: () => void }) {
   const calls = turn.toolCalls ?? [];
+  const savedCandidates = calls.some(call => call.toolName === 'knowledge_propose' && call.status === 'succeeded' && call.resultJson?.saved === true);
   return <div className={styles.traceBody}>
     <p>本轮：{statusName[turn.status]}{turn.errorCode ? ` · ${turn.errorCode}` : ''} · 模型尝试 {turn.modelAttempts?.length ?? 0} 次</p>
     {calls.length ? <ol>{calls.map(call => <li key={call.callId}>
-      <strong>{call.toolName === 'notes_search' ? call.argumentsJson.origin === 'automatic' ? '自动检索笔记' : '检索笔记' : call.toolName === 'notes_read' ? '阅读笔记' : '生成笔记计划（尚未写入）'}</strong>
+      <strong>{toolLabel(call)}</strong>
       {typeof call.argumentsJson.query === 'string' ? ` · ${call.argumentsJson.query}` : null}
-      <span> · {call.status === 'succeeded' ? `${call.sourceRefs.length} 个来源片段` : call.status === 'failed'
-        ? `失败：${call.errorCode ?? '未知原因'}` : turn.status === 'running' ? '执行中' : '执行未完成'}</span>
+      <span> · {toolSummary(call, turn)}</span>
       {call.resultJson?.mode === 'keyword_fallback' ? <span> · 索引无可用结果，已改用关键词检索</span>
         : call.resultJson?.mode === 'keyword' ? <span> · 关键词检索</span> : null}
       {call.resultJson?.truncated === true ? <span> · 检索范围受限</span> : null}
     </li>)}</ol> : <p>本轮没有检索或阅读工具记录。</p>}
+    {savedCandidates && onReviewCandidates ? <Button variant="default" size="compact" onPress={onReviewCandidates}>在知识库审核候选</Button> : null}
   </div>;
 }

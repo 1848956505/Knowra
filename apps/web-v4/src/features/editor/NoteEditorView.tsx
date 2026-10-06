@@ -141,6 +141,7 @@ export interface NoteEditorViewProps {
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
   onOpenKnowledgeItem?(itemId: string): void;
+  onExtractWithAssistant?(noteId: string): void;
   knowledgeWriteDisabledReason?: string;
   onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
@@ -217,6 +218,7 @@ export function NoteEditorView({
   onGetAnnotationKnowledgeLinks,
   onCreateKnowledgeCandidate,
   onOpenKnowledgeItem,
+  onExtractWithAssistant,
   knowledgeWriteDisabledReason,
   onPreviewAnalysisScope,
   onCreateAnalysisScope,
@@ -1126,6 +1128,13 @@ export function NoteEditorView({
             await onCreateKnowledgeCandidate(annotation);
           } : undefined}
           onOpenKnowledgeItem={onOpenKnowledgeItem}
+          onExtractWithAssistant={onExtractWithAssistant ? async () => {
+            // 助手读取的是已保存的版本：先保存当前草稿；保存失败则留在编辑器，由保存状态提示用户。
+            const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
+            try { await autosave.saveNow(markdown); } catch { return; }
+            if (versionWriteStateRef.current.noteId !== note.id) return;
+            onExtractWithAssistant(note.id);
+          } : undefined}
           knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
           onPreviewAnalysisScope={onPreviewAnalysisScope ? previewSavedAnalysis : undefined}
           onCreateAnalysisScope={onCreateAnalysisScope}
