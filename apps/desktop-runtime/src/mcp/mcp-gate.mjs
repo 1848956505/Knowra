@@ -1,0 +1,123 @@
+import { mcpError } from './mcp-error.mjs';
+
+export const DEFAULT_MCP_LIMITS = Object.freeze({
+  perMinute: 30, perDay: 1000, concurrent: 2, maxResultBytes: 65_536, maxFragments: 50, toolTimeoutMs: 15_000
+});
+const GRANT_TOOLS = ['notes_search', 'notes_read'];
+const MIN_GRANT_LEFT_MS = 60_000;
+const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isInt = value => Number.isSafeInteger(value) && value >= 0;
+
+/**
+ * 外部 AI 客户端调用的统一外发出口。读取授权不等于外发许可：
+ * 工具只能返回“正文片段 + 偏移”，由本出口逐条对照授权范围内笔记的当前正文复核，再生成响应与片段清单，
+ * 因此响应内容与清单来自同一处，工具实现无法绕过。
+ */
+export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
+  const limit = { ...DEFAULT_MCP_LIMITS, ...limits };
+  const windows = new Map();
+  const inflight = new Map();
+  const grants = new Map();
+
+  function assertFlags() {
+    const { aiEnabled, allowExternal } = flags();
+    if (!aiEnabled) throw mcpError('MCP_AI_DISABLED', 'AI 功能未开启，外部客户端暂不可读取。', { status: 403 });
+    if (!allowExternal) throw mcpError('MCP_EGRESS_DISABLED', '外发已被紧急停止，外部客户端暂不可读取。', { status: 403 });
+  }
+  function admit(row) {
+    const nowMs = now().getTime();
+    const recent = (windows.get(row.pairingId) ?? []).filter(time => nowMs - time < 60_000);
+    if (recent.length >= limit.perMinute) {
+      throw mcpError('MCP_RATE_LIMITED', '调用过于频繁，请稍后重试。', { status: 429, retryAfterSeconds: Math.max(1, Math.ceil((recent[0] + 60_000 - nowMs) / 1000)) });
+    }
+    if (pairings.dayCalls(row) >= limit.perDay) {
+      const midnight = Date.parse(`${now().toISOString().slice(0, 10)}T00:00:00Z`) + 86_400_000;
+      throw mcpError('MCP_RATE_LIMITED', '今日调用次数已达上限。', { status: 429, retryAfterSeconds: Math.max(1, Math.ceil((midnight - nowMs) / 1000)) });
+    }
+    if ((inflight.get(row.pairingId) ?? 0) >= limit.concurrent) {
+      throw mcpError('MCP_RATE_LIMITED', '同时进行的调用过多，请稍后重试。', { status: 429, retryAfterSeconds: 1 });
+    }
+    recent.push(nowMs); windows.set(row.pairingId, recent);
+    inflight.set(row.pairingId, (inflight.get(row.pairingId) ?? 0) + 1);
+    pairings.recordUse(row);
+  }
+  const mapAccess = error => error?.code?.startsWith?.('AI_')
+    ? mcpError('MCP_ACCESS_REVOKED', error.code === 'AI_SCOPE_FORBIDDEN' ? '来源不在授权范围。' : '授权已撤销、过期、资料集已切换或来源已变化。', { status: 403 })
+    : error;
+  async function ensureGrant(access, row) {
+    const cached = grants.get(row.pairingId);
+    if (cached && cached.expiresAt - now().getTime() > MIN_GRANT_LEFT_MS) {
+      await access.assertSearchGrant({ grantId: cached.grantId });
+      return cached.grantId;
+    }
+    const grant = await access.createRunGrant({ policyId: row.policyId, conversationId: `mcp-${row.pairingId}`,
+      allowedTools: GRANT_TOOLS, maxBudgetMicrounits: 0 });
+    grants.set(row.pairingId, { grantId: grant.grantId, expiresAt: Date.parse(grant.expiresAt) });
+    return grant.grantId;
+  }
+  /** 逐条核对片段：来自授权范围内、未被排除、非私密笔记的当前正文，标题与偏移文本必须逐字一致。 */
+  async function verifyFragments(access, grantId, result) {
+    if (!isPlainObject(result) || !Array.isArray(result.fragments) || result.fragments.length > limit.maxFragments) {
+      throw mcpError('MCP_RESULT_INVALID', '工具返回格式无效。', { status: 500 });
+    }
+    const meta = result.meta ?? {};
+    if (!isPlainObject(meta) || Object.values(meta).some(value => typeof value !== 'number' && typeof value !== 'boolean' || typeof value === 'number' && !Number.isFinite(value))) {
+      throw mcpError('MCP_RESULT_INVALID', '工具返回的附加信息只允许数字与布尔值。', { status: 500 });
+    }
+    const verified = new Map();
+    const fragments = [], manifest = [];
+    let bytes = 0;
+    for (const item of result.fragments) {
+      if (!isPlainObject(item) || typeof item.noteId !== 'string' || typeof item.title !== 'string' || typeof item.text !== 'string'
+        || !isInt(item.start) || !isInt(item.end) || item.end <= item.start) throw mcpError('MCP_RESULT_INVALID', '工具返回的片段无效。', { status: 500 });
+      if (!verified.has(item.noteId)) verified.set(item.noteId, await access.verifyRead({ grantId, noteId: item.noteId, tool: 'notes_read' }));
+      const { note, version, contentHash } = verified.get(item.noteId);
+      if (item.title !== note.title || item.end > version.content.length || item.text !== version.content.slice(item.start, item.end)) {
+        throw mcpError('MCP_RESULT_INVALID', '工具返回内容与授权笔记的当前正文不一致，已拦截。', { status: 500 });
+      }
+      const size = Buffer.byteLength(item.text, 'utf8');
+      bytes += size;
+      fragments.push({ noteId: note.id, title: note.title, noteVersionId: version.id, contentHash, start: item.start, end: item.end, text: item.text });
+      manifest.push({ noteId: note.id, noteVersionId: version.id, start: item.start, end: item.end, bytes: size });
+    }
+    if (bytes > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
+    return { fragments, manifest, bytes, meta };
+  }
+
+  async function call({ token, tool, input = {} }) {
+    let row;
+    try { row = pairings.authenticate(token); } catch (error) { audit.append({ event: 'rejected', status: 'error', code: error.code }); throw error; }
+    const base = { event: 'call', pairingId: row.pairingId, tool: typeof tool === 'string' ? tool.slice(0, 64) : '?' };
+    let admitted = false;
+    try {
+      pairings.assertActive(row);
+      assertFlags();
+      const handler = Object.hasOwn(tools, tool) ? tools[tool] : null;
+      if (!handler) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
+      if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
+      admit(row); admitted = true;
+      const access = getAccess();
+      if (!access) throw mcpError('MCP_AI_DISABLED', 'AI 功能未开启，外部客户端暂不可读取。', { status: 403 });
+      let timer;
+      const outcome = await (async () => {
+        const grantId = await ensureGrant(access, row);
+        const raw = await Promise.race([handler({ input, grantId, access }),
+          new Promise((_, reject) => { timer = setTimeout(() => reject(mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 })), limit.toolTimeoutMs); })])
+          .finally(() => clearTimeout(timer));
+        // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
+        pairings.assertActive(row); assertFlags(); await access.assertSearchGrant({ grantId });
+        return verifyFragments(access, grantId, raw);
+      })().catch(error => { pairings.assertActive(row); throw mapAccess(error); });
+      pairings.assertActive(row); assertFlags();
+      audit.append({ ...base, status: 'ok', fragments: outcome.fragments.length, bytes: outcome.bytes, manifest: outcome.manifest });
+      return { fragments: outcome.fragments, meta: outcome.meta };
+    } catch (error) {
+      const failure = error.code?.startsWith?.('MCP_') ? error : mcpError('MCP_INTERNAL', '外部调用失败。', { status: 500 });
+      audit.append({ ...base, status: 'error', code: failure.code, retryAfterSeconds: failure.retryAfterSeconds });
+      throw failure;
+    } finally {
+      if (admitted) inflight.set(row.pairingId, Math.max(0, (inflight.get(row.pairingId) ?? 1) - 1));
+    }
+  }
+  return { call, limits: limit, forgetGrant: id => grants.delete(id) };
+}
