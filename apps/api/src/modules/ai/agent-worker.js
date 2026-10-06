@@ -19,13 +19,13 @@ const PROPOSAL_TOOLS = 14;
 // 推理模型的推理 token 计入完成量；1024 在真实验收中 5 次里有 3 次在写出回答前被截断。上限只在真正用到时才产生费用。
 const MAX_OUTPUT_TOKENS = 4096;
 // 提炼知识点回合的行为指引：把“读后提交候选”说清楚，避免模型只在回答里罗列或反复读取同一份重点。
-const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具；重点很多、sources 放不下时分批处理：读一页重点、提交一批候选，再用 offset 翻到下一页。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文；引文只需给 noteId 和逐字摘自 sources 的 quote，不要自己数字符偏移。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
+const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具；重点很多、sources 放不下时分批处理：读一页重点、提交一批候选，再用 offset 翻到下一页。随后调用 knowledge_propose 一次性提交候选，只有调用 knowledge_propose 才算提交，在回答里声称已提交或罗列知识点都无效。每条候选只依据所引原文；引文只需给 noteId 和逐字摘自 sources 的 quote，不要自己数字符偏移。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
 // 工具结果只以来源片段回到模型，看不到“已成功”。提炼回合另用一句话说明已完成的步骤，避免模型因看不到结果而反复调用、迟迟不提交。
 // 说明只能描述“本轮真的会随请求发出的来源”：按当前 sources 窗口（sourceRefs，发送前会逐条重新核验权限与版本）过滤，
 // 窗口外（被淘汰）的笔记不再提及；不含笔记标题，避免经说明文字绕过发送清单与授权复核。
 // 重点数量可能超过 sources 窗口容量，所以按“批”推进：把重点分成 未读 / 已读待提交（在窗口内或已移出）/ 已提交 三类，
 // 先提交窗口内待提交的，再翻页读下一批；只有被已保存候选引文实际覆盖的重点才算已提交，其余仍待处理。
-export function proposalProgress(calls, sourceRefs = []) {
+function analyzeProposal(calls, sourceRefs = [], capacity = null) {
   const live = (noteId, start, end) => sourceRefs.some(ref => ref.noteId === noteId && ref.start <= start && end <= ref.end);
   const done = calls.filter(call => call.status === 'succeeded' && call.resultJson && typeof call.resultJson === 'object');
   const notes = new Map();
@@ -36,7 +36,7 @@ export function proposalProgress(calls, sourceRefs = []) {
     if (call.toolName === 'annotations_list' && typeof result.noteId === 'string' && Number.isSafeInteger(result.total)) {
       const note = noteOf(result.noteId);
       note.total = result.total; note.listed = true;
-      for (const item of result.annotations ?? []) note.seen.set(item.annotationId, item);
+      (result.annotations ?? []).forEach((item, position) => note.seen.set(item.annotationId, { ...item, index: (Number.isSafeInteger(result.offset) ? result.offset : 0) + position }));
       if (Number.isSafeInteger(result.offset)) note.nextOffset = Math.max(note.nextOffset, result.offset + (result.annotations?.length ?? 0));
     } else if (call.toolName === 'notes_read' && typeof result.noteId === 'string'
       && (call.sourceRefs ?? []).some(ref => ref.noteId === result.noteId && live(ref.noteId, ref.start, ref.end))) noteOf(result.noteId).read = true;
@@ -59,7 +59,8 @@ export function proposalProgress(calls, sourceRefs = []) {
   for (const [noteId, note] of notes) {
     const inWindow = [...note.seen.values()].filter(item => live(noteId, item.start, item.end));
     const pending = inWindow.filter(item => !note.handled.has(item.annotationId));
-    const dropped = [...note.seen.values()].filter(item => !live(noteId, item.start, item.end) && !note.handled.has(item.annotationId)).length;
+    const lost = [...note.seen.values()].filter(item => !live(noteId, item.start, item.end) && !note.handled.has(item.annotationId));
+    const dropped = lost.length, lostFrom = Math.min(...lost.map(item => item.index));
     const unread = note.total - note.seen.size;
     if (note.total) {
       if (!inWindow.length && !note.read) continue; // 来源窗口已淘汰该笔记：不再提及，需要时模型可重新读取
@@ -75,20 +76,21 @@ export function proposalProgress(calls, sourceRefs = []) {
       steps.push(`annotations_list 已读取一篇笔记 ${note.total} 处重点中的 ${note.seen.size} 处，其中 ${note.handled.size} 处已提交`
         + `${pending.length ? `；${pending.length} 处待提交且原文在当前 sources 中（${detail}），即 ${labels.join('、')}，其余 source 只是上下文` : ''}`
         + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}`
-        + `${dropped > 0 ? `；${dropped} 处已读但原文已移出 sources 且尚未提交` : ''}`);
+        + `${dropped > 0 ? `；${dropped} 处已读但原文已移出 sources 且尚未提交（${capacity ? `sources 一次约容纳 ${capacity} 条，` : ''}可从 offset=${lostFrom} 起用 limit=${capacity ? Math.max(1, capacity) : '较小值'} 重新读取）` : ''}`);
     } else if (note.listed && !note.seen.size && sourceRefs.some(ref => ref.noteId === noteId)) steps.push('annotations_list 显示一篇笔记没有可用重点，可读取正文后提炼');
     if (note.read) steps.push('notes_read 已读取一篇笔记的原文片段，已在 sources 中');
   }
   if (saved) steps.push(`knowledge_propose 已保存 ${saved} 条待审核候选（同一陈述不要重复提交）`);
-  if (!steps.length) return '';
+  if (!steps.length) return { text: '', needPropose };
   const batch = needPage ? '；提交后再翻页读取剩余重点，读一批提交一批' : needReread ? '；提交后再用 annotations_list 重新读取被移出的重点，读一批提交一批' : '';
   const next = needPropose ? `sources 放不下全部重点，不必等读完：现在就对上面待提交的重点调用 knowledge_propose${batch}。`
     : needPage ? '先别重复读取已读的页：继续用 annotations_list 翻页读取剩余重点，读到一批就提交一批。'
-    : needReread ? '用 annotations_list 重新读取被移出 sources 的重点（读一批提交一批）。'
+    : needReread ? '用 annotations_list 按上面给出的 offset 和 limit 重新读取被移出 sources 的重点（读一批提交一批；limit 不要超过 sources 的容量）。'
     : saved ? '重点已全部处理，请用一两句话告知用户。'
     : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。';
-  return `\n已完成：${steps.join('；')}。${next}`;
+  return { text: `\n已完成：${steps.join('；')}。${next}`, needPropose };
 }
+export const proposalProgress = (calls, sourceRefs = [], capacity = null) => analyzeProposal(calls, sourceRefs, capacity).text;
 const MAX_ATTEMPTS = 8;
 const MAX_RUN_MS = 10 * 60_000;
 const deterministicWriteFailure = code => typeof code === 'string'
@@ -268,7 +270,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     if (typeof call.id !== 'string' || !call.id || call.id.length > 128) fail('AI_TOOL_INVALID', '模型工具调用 ID 无效。');
     const callId = hashRecord({ turnId: turn.turnId, providerCallId: call.id });
     const persisted = await store.appendToolCall(turn.turnId, generation, { callId,
-      toolName: call.name, argumentsJson: call.arguments });
+      toolName: call.name, argumentsJson: call.arguments,
+      maxCalls: knowledgeProposals && !turn.writeIntent && requestsKnowledgeProposal(userMessage) ? PROPOSAL_TOOLS : 6 });
     if (persisted.status !== 'requested') {
       for (const ref of persisted.sourceRefs) await verifyRef(grantId, ref);
       if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs });
@@ -436,6 +439,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     let toolFeedback = checkpoint.toolFeedback;
     let totalTools = Math.max(checkpoint.totalTools, (await store.listToolCalls(turn.turnId)).length);
     let forceAnswer = checkpoint.forceAnswer;
+    let budgetCapacity = null, proposalNudges = 0, proposalNudge = ''; // 本轮运行内的临时状态：请求预算容量、已提醒次数、一次性提醒
     let noProgressRounds = checkpoint.noProgressRounds;
     let handledAttemptOrdinal = checkpoint.handledAttemptOrdinal;
     let nextRound = checkpoint.nextRound;
@@ -447,7 +451,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       initialTools++;
       const callId = hashRecord({ turnId: turn.turnId, initialSearch: true });
       const initialCall = await store.appendToolCall(turn.turnId, generation, { callId, toolName: 'notes_search',
-        argumentsJson: { query: user.content, limit: 3, origin: 'automatic' } });
+        argumentsJson: { query: user.content, limit: 3, origin: 'automatic' }, maxCalls: maxTools });
       try {
         const initial = initialCall.status === 'succeeded' ? { ...initialCall.resultJson, hits: initialCall.resultJson.hits }
           : await search.search({ grantId: grant.grantId, query: user.content, limit: 3 });
@@ -479,20 +483,33 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
             ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
             : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
         const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
-        const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs) : '';
-        const coverage = `${draftContext}${toolFeedback}${progress}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
-        const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
-        if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
-        const context = plainContext && contextRoom >= 8
-          ? `先前普通聊天：${plainContext}\n`.slice(0, contextRoom) : '';
-        const boundedQuestion = `${context}${user.content}${guidance}${coverage}`;
-        const prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
-          modelId: reference.modelId, credentialRef: reference.credentialRef,
-          userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
-          omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
-            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
-          writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
-          tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
+        let prepared;
+        for (;;) {
+          const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs, budgetCapacity) : '';
+          const coverage = `${draftContext}${toolFeedback}${progress}${proposalNudge}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
+          const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
+          if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
+          const context = plainContext && contextRoom >= 8
+            ? `先前普通聊天：${plainContext}\n`.slice(0, contextRoom) : '';
+          const boundedQuestion = `${context}${user.content}${guidance}${coverage}`;
+          try {
+            prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
+              modelId: reference.modelId, credentialRef: reference.credentialRef,
+              userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
+              omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
+                ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
+              writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
+              tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
+            break;
+          } catch (error) {
+            // 提炼回合：来源体积超过请求预算（固定开销约 7KB，每条来源再加数百字节）时不让回合失败，
+            // 从最旧的来源起移出窗口直到装得下；说明文字随后按移出后的真实窗口重算，并提示被移出重点的重新读取位置。
+            if (!proposalRequested || error?.code !== 'AI_CONTEXT_BUDGET' || sourceRefs.length <= 1) throw error;
+            sourceRefs = sourceRefs.slice(1);
+            budgetCapacity = Math.min(budgetCapacity ?? Infinity, sourceRefs.length);
+          }
+        }
+        proposalNudge = '';
         request = prepared.request; manifest = prepared.manifest;
         for (const call of await store.listToolCalls(turn.turnId)) {
           if (call.status === 'succeeded' && call.sourceRefs.length && !call.provenanceManifestId
@@ -565,6 +582,17 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         const code = result.truncated ? 'AI_OUTPUT_TRUNCATED' : result.refused ? 'AI_PROVIDER_REFUSED' : 'AI_OUTPUT_INVALID';
         await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, code);
         fail(code, '模型未返回完整可用回答。');
+      }
+      // 提炼回合：仍有待提交的重点却直接作答（常见于把“最终回答”误当作提交方式、声称已提交）时，先提醒一次再决定，
+      // 而不是接受一句虚假的完成声明；最多提醒 2 次，之后按模型回答照常收尾（已保存的候选不受影响）。
+      if (proposalRequested && grant && proposalNudges < 2 && request.tools.some(tool => tool.name === 'knowledge_propose')
+        && analyzeProposal(await store.listToolCalls(turn.turnId), sourceRefs, budgetCapacity).needPropose) {
+        proposalNudges++;
+        proposalNudge = '\n注意：上一条回答没有调用 knowledge_propose，但仍有待提交的重点。只有调用该工具才算提交，在回答里声称已提交无效；请现在调用 knowledge_propose 提交上面待提交的重点。';
+        nextRound = round + 1;
+        handledAttemptOrdinal = attemptOrdinal;
+        await save();
+        continue;
       }
       await store.setPhase(turn.turnId, generation, 'validating');
       let answer;
