@@ -36,7 +36,7 @@ export function proposalProgress(calls, sourceRefs = []) {
     if (call.toolName === 'annotations_list' && typeof result.noteId === 'string' && Number.isSafeInteger(result.total)) {
       const note = noteOf(result.noteId);
       note.total = result.total; note.listed = true;
-      for (const item of result.annotations ?? []) note.seen.set(item.annotationId, item);
+      (result.annotations ?? []).forEach((item, position) => note.seen.set(item.annotationId, { ...item, index: (Number.isSafeInteger(result.offset) ? result.offset : 0) + position }));
       if (Number.isSafeInteger(result.offset)) note.nextOffset = Math.max(note.nextOffset, result.offset + (result.annotations?.length ?? 0));
     } else if (call.toolName === 'notes_read' && typeof result.noteId === 'string'
       && (call.sourceRefs ?? []).some(ref => ref.noteId === result.noteId && live(ref.noteId, ref.start, ref.end))) noteOf(result.noteId).read = true;
@@ -59,7 +59,8 @@ export function proposalProgress(calls, sourceRefs = []) {
   for (const [noteId, note] of notes) {
     const inWindow = [...note.seen.values()].filter(item => live(noteId, item.start, item.end));
     const pending = inWindow.filter(item => !note.handled.has(item.annotationId));
-    const dropped = [...note.seen.values()].filter(item => !live(noteId, item.start, item.end) && !note.handled.has(item.annotationId)).length;
+    const lost = [...note.seen.values()].filter(item => !live(noteId, item.start, item.end) && !note.handled.has(item.annotationId));
+    const dropped = lost.length, lostFrom = Math.min(...lost.map(item => item.index));
     const unread = note.total - note.seen.size;
     if (note.total) {
       if (!inWindow.length && !note.read) continue; // 来源窗口已淘汰该笔记：不再提及，需要时模型可重新读取
@@ -75,7 +76,7 @@ export function proposalProgress(calls, sourceRefs = []) {
       steps.push(`annotations_list 已读取一篇笔记 ${note.total} 处重点中的 ${note.seen.size} 处，其中 ${note.handled.size} 处已提交`
         + `${pending.length ? `；${pending.length} 处待提交且原文在当前 sources 中（${detail}），即 ${labels.join('、')}，其余 source 只是上下文` : ''}`
         + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}`
-        + `${dropped > 0 ? `；${dropped} 处已读但原文已移出 sources 且尚未提交` : ''}`);
+        + `${dropped > 0 ? `；${dropped} 处已读但原文已移出 sources 且尚未提交（sources 容量有限，可从 offset=${lostFrom} 起用较小的 limit 重新读取，如 limit=3）` : ''}`);
     } else if (note.listed && !note.seen.size && sourceRefs.some(ref => ref.noteId === noteId)) steps.push('annotations_list 显示一篇笔记没有可用重点，可读取正文后提炼');
     if (note.read) steps.push('notes_read 已读取一篇笔记的原文片段，已在 sources 中');
   }
@@ -84,7 +85,7 @@ export function proposalProgress(calls, sourceRefs = []) {
   const batch = needPage ? '；提交后再翻页读取剩余重点，读一批提交一批' : needReread ? '；提交后再用 annotations_list 重新读取被移出的重点，读一批提交一批' : '';
   const next = needPropose ? `sources 放不下全部重点，不必等读完：现在就对上面待提交的重点调用 knowledge_propose${batch}。`
     : needPage ? '先别重复读取已读的页：继续用 annotations_list 翻页读取剩余重点，读到一批就提交一批。'
-    : needReread ? '用 annotations_list 重新读取被移出 sources 的重点（读一批提交一批）。'
+    : needReread ? '用 annotations_list 按上面给出的 offset 和较小的 limit 重新读取被移出 sources 的重点（读一批提交一批）。'
     : saved ? '重点已全部处理，请用一两句话告知用户。'
     : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。';
   return `\n已完成：${steps.join('；')}。${next}`;
@@ -479,20 +480,31 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
             ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
             : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
         const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
-        const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs) : '';
-        const coverage = `${draftContext}${toolFeedback}${progress}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
-        const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
-        if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
-        const context = plainContext && contextRoom >= 8
-          ? `先前普通聊天：${plainContext}\n`.slice(0, contextRoom) : '';
-        const boundedQuestion = `${context}${user.content}${guidance}${coverage}`;
-        const prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
-          modelId: reference.modelId, credentialRef: reference.credentialRef,
-          userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
-          omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
-            ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
-          writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
-          tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
+        let prepared;
+        for (;;) {
+          const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs) : '';
+          const coverage = `${draftContext}${toolFeedback}${progress}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
+          const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
+          if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
+          const context = plainContext && contextRoom >= 8
+            ? `先前普通聊天：${plainContext}\n`.slice(0, contextRoom) : '';
+          const boundedQuestion = `${context}${user.content}${guidance}${coverage}`;
+          try {
+            prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
+              modelId: reference.modelId, credentialRef: reference.credentialRef,
+              userMessage: boundedQuestion, history, sourceRanges: sourceRefs.map(refRange),
+              omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
+                ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
+              writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
+              tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
+            break;
+          } catch (error) {
+            // 提炼回合：来源体积超过请求预算（固定开销约 7KB，每条来源再加数百字节）时不让回合失败，
+            // 从最旧的来源起移出窗口直到装得下；说明文字随后按移出后的真实窗口重算，并提示被移出重点的重新读取位置。
+            if (!proposalRequested || error?.code !== 'AI_CONTEXT_BUDGET' || sourceRefs.length <= 1) throw error;
+            sourceRefs = sourceRefs.slice(1);
+          }
+        }
         request = prepared.request; manifest = prepared.manifest;
         for (const call of await store.listToolCalls(turn.turnId)) {
           if (call.status === 'succeeded' && call.sourceRefs.length && !call.provenanceManifestId

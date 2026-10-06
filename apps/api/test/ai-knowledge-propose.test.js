@@ -370,6 +370,37 @@ export const aiKnowledgePropose = [
     assert.deepEqual(calls.map(call => call.status), ['succeeded', 'succeeded']);
     assert(requests.length <= 8, `模型请求 ${requests.length} 次`);
   }) },
+  { name: '知识提议：重点原文较长、来源超过请求预算时从最旧来源起移出窗口，按较小的页分批提交，不因 AI_CONTEXT_BUDGET 失败', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+    const filler = index => Array.from({ length: 24 }, (_, part) => `第${index}条要点的第${part}个细节说明内容`).join('，') + '。';
+    const sentences = Array.from({ length: 6 }, (_, index) => filler(index));
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '长重点', rawMarkdown: sentences.join('\n\n') });
+    for (let index = 0; index < 6; index++) {
+      const anchor = anchorForBlock(projectMarkdown(note.rawMarkdown), index);
+      app.modules.knowledge.contentAnnotationService.createAnnotation({ noteId: note.id, spaceId: note.spaceId, schemaVersion: 2, scopeType: 'blocks', anchor,
+        quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, noteContentHash: calculateContentHash(note.rawMarkdown),
+        anchorFingerprint: `l${index}`, idempotencyKey: `l${index}`, importance: 'important' });
+    }
+    const p = await policy(), proposed = new Set(), sourceCounts = [];
+    respond(request => {
+      const user = JSON.parse(request.messages.at(-1).content), progress = user.question.match(/已完成：[^\n]*/)?.[0] ?? '';
+      sourceCounts.push(user.sources.length);
+      const fresh = user.sources.filter(source => sentences.includes(source.text) && !proposed.has(source.text));
+      if (!progress) return tool('annotations_list', { noteId: note.id, limit: 8 }, 'first');
+      if (/现在就对上面待提交的重点调用 knowledge_propose/.test(progress) && fresh.length) {
+        fresh.forEach(source => proposed.add(source.text));
+        return tool('knowledge_propose', { candidates: fresh.map(source => ({ title: source.text.slice(0, 8), canonicalStatement: source.text, knowledgeType: 'concept',
+          citations: [{ noteId: note.id, quote: source.text }] })) }, `propose-${proposed.size}`);
+      }
+      const reread = progress.match(/offset=(\d+) 起用较小的 limit/) ?? progress.match(/offset=(\d+) 继续翻页/);
+      if (reread) return tool('annotations_list', { noteId: note.id, limit: 3, offset: Number(reread[1]) }, `again-${reread[1]}-${requests.length}`);
+      return answer('已提交候选。', []);
+    });
+    const turn = await submit('提炼这篇笔记里标记的重点知识点', 'long-highlights', p.policyId);
+    const outcome = await runtime.agent.run(turn.turnId).then(() => 'ok', error => error.code ?? error.message);
+    assert.equal(outcome, 'ok', `${outcome}；每次请求的来源数 ${sourceCounts}`);
+    assert.equal(items().length, 6, `候选数 ${items().length}；每次请求的来源数 ${sourceCounts}`);
+    assert(Math.max(...sourceCounts) < 8, `来源数应被预算限制在 8 以下：${sourceCounts}`);
+  }) },
   { name: '知识提议：笔记在进度说明之前被改为私密且已被来源窗口淘汰时，后续请求不再携带其任何信息', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     const blocks = prefix => Array.from({ length: 8 }, (_, index) => `${prefix}${index}段重点内容。`);
     const make = (title, prefix, count) => {
