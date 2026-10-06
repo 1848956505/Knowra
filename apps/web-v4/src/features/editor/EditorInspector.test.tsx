@@ -250,6 +250,36 @@ describe('EditorInspector', () => {
   });
 });
 
+describe('EditorInspector AI 助手提炼入口', () => {
+  async function openAiTab() { await userEvent.setup().click(screen.getByRole('tab', { name: 'AI' })); }
+  it('提供入口时显示说明与按钮，点击打开助手；没有提供时不显示', async () => {
+    const onExtract = vi.fn();
+    const view = renderInspector({ onExtractWithAssistant: onExtract });
+    await openAiTab();
+    expect(screen.getByRole('heading', { name: '让 AI 助手提炼知识点' })).toBeInTheDocument();
+    expect(screen.getByText(/候选只是提议，须在知识库逐条审核后才会入库/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: '让 AI 提炼知识点' }));
+    expect(onExtract).toHaveBeenCalledTimes(1);
+    view.unmount();
+    renderInspector();
+    await openAiTab();
+    expect(screen.queryByRole('button', { name: '让 AI 提炼知识点' })).not.toBeInTheDocument();
+  });
+  it('笔记不可写或知识写入被禁用时按钮不可用并说明原因', async () => {
+    const onExtract = vi.fn();
+    const view = renderInspector({ onExtractWithAssistant: onExtract, canWrite: false });
+    await openAiTab();
+    expect(screen.getByRole('button', { name: '让 AI 提炼知识点' })).toBeDisabled();
+    expect(screen.getByText('当前笔记不可写，无法提炼知识点。')).toBeInTheDocument();
+    view.unmount();
+    renderInspector({ onExtractWithAssistant: onExtract, knowledgeWriteDisabledReason: '知识写入暂不可用。' });
+    await openAiTab();
+    expect(screen.getByRole('button', { name: '让 AI 提炼知识点' })).toBeDisabled();
+    expect(screen.getByText('知识写入暂不可用。')).toBeInTheDocument();
+    expect(onExtract).not.toHaveBeenCalled();
+  });
+});
+
 function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0]> = {}) {
   return render(<EditorInspector
     note={note}

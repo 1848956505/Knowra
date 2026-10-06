@@ -141,6 +141,7 @@ export interface NoteEditorViewProps {
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
   onOpenKnowledgeItem?(itemId: string): void;
+  onExtractWithAssistant?(noteId: string): void;
   knowledgeWriteDisabledReason?: string;
   onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
@@ -217,6 +218,7 @@ export function NoteEditorView({
   onGetAnnotationKnowledgeLinks,
   onCreateKnowledgeCandidate,
   onOpenKnowledgeItem,
+  onExtractWithAssistant,
   knowledgeWriteDisabledReason,
   onPreviewAnalysisScope,
   onCreateAnalysisScope,
@@ -1126,6 +1128,19 @@ export function NoteEditorView({
             await onCreateKnowledgeCandidate(annotation);
           } : undefined}
           onOpenKnowledgeItem={onOpenKnowledgeItem}
+          onExtractWithAssistant={onExtractWithAssistant ? async () => {
+            // 助手读取的是已保存的版本：保存当前草稿，并在保存完成后重新核验——保存期间继续输入、切换笔记或写入状态变化都不能跳转，
+            // 否则助手会读到旧内容；保存失败同样留在编辑器。出错时抛出说明，由检查器显示并允许重试。
+            const before = analysisContext.current;
+            if (!before.canWrite || !before.noteId) throw new Error('当前笔记不可写，无法提炼知识点。');
+            const markdown = before.markdown();
+            await autosave.saveNow(markdown);
+            const now = analysisContext.current;
+            if (!annotationMountedRef.current || !now.canWrite || now.noteId !== before.noteId || now.spaceId !== before.spaceId || now.markdown() !== markdown) {
+              throw new Error('保存期间笔记或草稿已变化，请确认内容后重试。');
+            }
+            onExtractWithAssistant(before.noteId);
+          } : undefined}
           knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
           onPreviewAnalysisScope={onPreviewAnalysisScope ? previewSavedAnalysis : undefined}
           onCreateAnalysisScope={onCreateAnalysisScope}

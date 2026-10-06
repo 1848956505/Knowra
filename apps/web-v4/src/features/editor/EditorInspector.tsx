@@ -110,6 +110,8 @@ export interface EditorInspectorProps {
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
   onOpenKnowledgeItem?(itemId: string): void;
+  /** 打开 AI 助手并预填“提炼本篇知识点”的请求；助手读取已保存的内容，需用户先授权读取本篇。 */
+  onExtractWithAssistant?(): void | Promise<void>;
   knowledgeWriteDisabledReason?: string;
   onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
   onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
@@ -499,6 +501,17 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
     }
   }
 
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState('');
+  // 进入助手前由编辑器保存并核验草稿：失败或保存期间内容变化时留在这里显示原因，允许重试；进行中不重复触发。
+  async function startExtraction() {
+    if (extracting || !props.onExtractWithAssistant) return;
+    setExtracting(true); setExtractError('');
+    try { await props.onExtractWithAssistant(); }
+    catch (failure) { setExtractError(failure instanceof Error ? failure.message : '无法打开 AI 助手，请重试。'); }
+    finally { setExtracting(false); }
+  }
+
   const contextAnnotation = currentAnnotations.find(item => item.id === contextMenu?.id);
   function annotationActions(annotation: Annotation) {
     const pending = pendingId === annotation.id;
@@ -520,6 +533,13 @@ function AnnotationPanel(props: EditorInspectorProps & { analysisOnly?: boolean 
   return (
     <section className={`${styles.simplePanel} ${styles.annotationPanel}`} aria-label="正文标注">
       {props.analysisOnly ? <div className={styles.aiPanel}>
+        {props.onExtractWithAssistant ? <div className={styles.assistantEntry}>
+          <h3>让 AI 助手提炼知识点</h3>
+          <p>助手会读取本篇笔记和你标记的重点，提议知识候选。需要先授权读取本篇；候选只是提议，须在知识库逐条审核后才会入库。</p>
+          <Button variant="primary" isPending={extracting} isDisabled={!props.canWrite || Boolean(props.knowledgeWriteDisabledReason)} onPress={() => void startExtraction()}>让 AI 提炼知识点</Button>
+          {props.knowledgeWriteDisabledReason ? <p>{props.knowledgeWriteDisabledReason}</p> : !props.canWrite ? <p>当前笔记不可写，无法提炼知识点。</p> : null}
+          {extractError ? <p role="alert">{extractError}</p> : null}
+        </div> : null}
         <span className={styles.aiIcon}><SparkIcon size={26} /></span>
         <h3>整篇分析</h3>
         <ExtractionDemoNotice />

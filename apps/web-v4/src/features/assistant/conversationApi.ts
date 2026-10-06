@@ -59,6 +59,9 @@ export interface AccessPolicy {
   revision: number;
   spaceId: string;
   scope: { kind: 'library' } | { kind: 'folder'; folderId: string } | { kind: 'fixed'; noteIds: string[] };
+  /** 范围内被明确排除的笔记；排除项优先于范围，服务端读取时同样拒绝。 */
+  excludedNoteIds?: string[];
+  read?: boolean;
   egress: boolean;
   recipients: string[];
   expiresAt: string;

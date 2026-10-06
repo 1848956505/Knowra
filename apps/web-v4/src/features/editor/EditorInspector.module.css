@@ -380,6 +380,13 @@
   text-align: center;
 }
 .aiPanel h3 { margin: 0; font-size: var(--inspector-title-size); }
+.assistantEntry {
+  display: grid;
+  justify-items: center;
+  gap: var(--inspector-gap);
+  padding-bottom: var(--inspector-pad-wide);
+  border-bottom: 1px solid var(--ink-muted, currentColor);
+}
 .aiIcon {
   width: 52px;
   height: 52px;
