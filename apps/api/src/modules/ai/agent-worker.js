@@ -19,16 +19,19 @@ const PROPOSAL_TOOLS = 14;
 // 推理模型的推理 token 计入完成量；1024 在真实验收中 5 次里有 3 次在写出回答前被截断。上限只在真正用到时才产生费用。
 const MAX_OUTPUT_TOKENS = 4096;
 // 提炼知识点回合的行为指引：把“读后提交候选”说清楚，避免模型只在回答里罗列或反复读取同一份重点。
-const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具，重点未读完时用 offset 翻页。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文；引文只需给 noteId 和逐字摘自 sources 的 quote，不要自己数字符偏移。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
+const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具；重点很多、sources 放不下时分批处理：读一页重点、提交一批候选，再用 offset 翻到下一页。随后调用 knowledge_propose 一次性提交候选，不要只在回答里罗列知识点。每条候选只依据所引原文；引文只需给 noteId 和逐字摘自 sources 的 quote，不要自己数字符偏移。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
 // 工具结果只以来源片段回到模型，看不到“已成功”。提炼回合另用一句话说明已完成的步骤，避免模型因看不到结果而反复调用、迟迟不提交。
 // 说明只能描述“本轮真的会随请求发出的来源”：按当前 sources 窗口（sourceRefs，发送前会逐条重新核验权限与版本）过滤，
 // 窗口外（被淘汰）的笔记不再提及；不含笔记标题，避免经说明文字绕过发送清单与授权复核。
+// 重点数量可能超过 sources 窗口容量，所以按“批”推进：把重点分成 未读 / 已读待提交（在窗口内或已移出）/ 已提交 三类，
+// 先提交窗口内待提交的，再翻页读下一批；一次成功保存即视为此前已读的重点已处理（重复陈述会被保存阶段拒绝）。
 export function proposalProgress(calls, sourceRefs = []) {
   const live = (noteId, start, end) => sourceRefs.some(ref => ref.noteId === noteId && ref.start <= start && end <= ref.end);
   const done = calls.filter(call => call.status === 'succeeded' && call.resultJson && typeof call.resultJson === 'object');
   const notes = new Map();
-  const noteOf = id => notes.get(id) ?? notes.set(id, { total: 0, seen: new Map(), nextOffset: 0, read: false, listed: false }).get(id);
-  for (const call of done) {
+  const noteOf = id => notes.get(id) ?? notes.set(id, { total: 0, seen: new Map(), handled: new Set(), nextOffset: 0, read: false, listed: false }).get(id);
+  let saved = 0;
+  for (const call of done) { // 按发生顺序处理：保存只覆盖它之前已读到的重点
     const result = call.resultJson;
     if (call.toolName === 'annotations_list' && typeof result.noteId === 'string' && Number.isSafeInteger(result.total)) {
       const note = noteOf(result.noteId);
@@ -37,32 +40,42 @@ export function proposalProgress(calls, sourceRefs = []) {
       if (Number.isSafeInteger(result.offset)) note.nextOffset = Math.max(note.nextOffset, result.offset + (result.annotations?.length ?? 0));
     } else if (call.toolName === 'notes_read' && typeof result.noteId === 'string'
       && (call.sourceRefs ?? []).some(ref => ref.noteId === result.noteId && live(ref.noteId, ref.start, ref.end))) noteOf(result.noteId).read = true;
+    else if (call.toolName === 'knowledge_propose' && result.saved === true) {
+      saved += result.candidates?.length ?? 0;
+      for (const note of notes.values()) for (const id of note.seen.keys()) note.handled.add(id);
+    }
   }
-  const steps = []; let incomplete = false;
+  const steps = []; let needPropose = false, needPage = false, needReread = false;
   for (const [noteId, note] of notes) {
-    const items = [...note.seen.values()].filter(item => live(noteId, item.start, item.end));
+    const inWindow = [...note.seen.values()].filter(item => live(noteId, item.start, item.end));
+    const pending = inWindow.filter(item => !note.handled.has(item.annotationId));
+    const dropped = [...note.seen.values()].filter(item => !live(noteId, item.start, item.end) && !note.handled.has(item.annotationId)).length;
+    const unread = note.total - note.seen.size;
     if (note.total) {
-      if (!items.length && !note.read) continue; // 来源窗口已淘汰该笔记：不再提及，需要时模型可重新读取
+      if (!inWindow.length && !note.read) continue; // 来源窗口已淘汰该笔记：不再提及，需要时模型可重新读取
       const counts = new Map();
-      for (const item of items) counts.set(item.importance, (counts.get(item.importance) ?? 0) + 1);
+      for (const item of pending) counts.set(item.importance, (counts.get(item.importance) ?? 0) + 1);
       const detail = [...counts].map(([level, count]) => `${level}×${count}`).join('、');
-      const unread = note.total - note.seen.size, dropped = note.seen.size - items.length;
-      if (unread > 0 || dropped > 0) incomplete = true;
-      // 明确“重点原文就是哪几个 source、各自重要度”：sources 的编号即其在 sourceRefs 中的顺序（与 prepareRequest 一致）。
-      const labels = items.map(item => ({ item, index: sourceRefs.findIndex(ref => ref.noteId === noteId && ref.start === item.start && ref.end === item.end) }))
+      // 明确“待提交的重点原文就是哪几个 source、各自重要度”：sources 的编号即其在 sourceRefs 中的顺序（与 prepareRequest 一致）。
+      const labels = pending.map(item => ({ item, index: sourceRefs.findIndex(ref => ref.noteId === noteId && ref.start === item.start && ref.end === item.end) }))
         .filter(entry => entry.index >= 0).map(entry => `S${entry.index + 1}（${entry.item.importance}）`);
-      steps.push(`annotations_list 已读取一篇笔记的 ${note.seen.size}/${note.total} 处重点，其中 ${items.length} 处原文在当前 sources 中${detail ? `（${detail}）` : ''}`
-        + `${labels.length ? `；重点原文即 ${labels.join('、')}，其余 source 只是上下文` : ''}`
-        + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}${dropped > 0 ? `；${dropped} 处原文已不在 sources 中，需要时重新读取` : ''}`);
+      if (pending.length) needPropose = true;
+      if (unread > 0) needPage = true;
+      if (dropped > 0) needReread = true;
+      steps.push(`annotations_list 已读取一篇笔记 ${note.total} 处重点中的 ${note.seen.size} 处，其中 ${note.handled.size} 处已提交`
+        + `${pending.length ? `；${pending.length} 处待提交且原文在当前 sources 中（${detail}），即 ${labels.join('、')}，其余 source 只是上下文` : ''}`
+        + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}`
+        + `${dropped > 0 ? `；${dropped} 处已读但原文已移出 sources 且尚未提交` : ''}`);
     } else if (note.listed && !note.seen.size && sourceRefs.some(ref => ref.noteId === noteId)) steps.push('annotations_list 显示一篇笔记没有可用重点，可读取正文后提炼');
     if (note.read) steps.push('notes_read 已读取一篇笔记的原文片段，已在 sources 中');
   }
-  const saved = done.filter(call => call.toolName === 'knowledge_propose' && call.resultJson.saved === true)
-    .reduce((sum, call) => sum + (call.resultJson.candidates?.length ?? 0), 0);
-  if (saved) steps.push(`knowledge_propose 已保存 ${saved} 条待审核候选，不要重复提交`);
+  if (saved) steps.push(`knowledge_propose 已保存 ${saved} 条待审核候选（同一陈述不要重复提交）`);
   if (!steps.length) return '';
-  const next = saved ? '请用一两句话告知用户。' : incomplete
-    ? '重点尚未读完或部分原文已不在 sources 中：先按上面的提示继续读取（可换分页参数或片段），读完后再调用 knowledge_propose。'
+  const batch = needPage ? '；提交后再翻页读取剩余重点，读一批提交一批' : needReread ? '；提交后再用 annotations_list 重新读取被移出的重点，读一批提交一批' : '';
+  const next = needPropose ? `sources 放不下全部重点，不必等读完：现在就对上面待提交的重点调用 knowledge_propose${batch}。`
+    : needPage ? '先别重复读取已读的页：继续用 annotations_list 翻页读取剩余重点，读到一批就提交一批。'
+    : needReread ? '用 annotations_list 重新读取被移出 sources 的重点（读一批提交一批）。'
+    : saved ? '重点已全部处理，请用一两句话告知用户。'
     : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。';
   return `\n已完成：${steps.join('；')}。${next}`;
 }
