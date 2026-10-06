@@ -7,6 +7,8 @@ import { createPersistentAppContext } from '../src/app.factory.js';
 import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
 import { buildKnowledgeProposalPlan, proposeKnowledge } from '../src/modules/ai/knowledge-propose-tool.js';
 import { requestsKnowledgeProposal } from '../src/modules/ai/assistant-tools.js';
+import { proposalProgress } from '../src/modules/ai/agent-worker.js';
+import { anchorForBlock, projectMarkdown } from '@study-accelerator/content-anchor';
 import { createAgentKnowledgeCommitService } from '../src/modules/ai/agent-knowledge-commit.js';
 import { createCoreOperationReceipt, validateCoreOperationReceipt } from '../src/infrastructure/core-operation-contract.js';
 
@@ -112,9 +114,15 @@ export const aiKnowledgePropose = [
     const turn = await submit('提炼这篇笔记的知识点', 'ok', p.policyId);
     await runtime.agent.run(turn.turnId);
     assert(requests[0].tools.some(item => item.name === 'knowledge_propose'));
+    assert(JSON.stringify(requests[0].messages).includes('这是提炼知识点请求'), '提炼回合必须带“读后提交候选”的行为指引');
+    assert.equal(requests[0].maxTokens, 4096);
+    assert(!JSON.stringify(requests[0].messages).includes('已完成：'), '尚无工具结果时不得声称已完成');
+    assert(JSON.stringify(requests[1].messages).includes('已完成：notes_read 已读取一篇笔记的原文片段'), '读取成功后必须明确告知模型，避免重复读取');
+    assert(!JSON.stringify(requests[1].messages).includes('没有可用重点'), '只读过正文不得被说成没有重点');
     const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
     assert.equal(call.status, 'succeeded'); assert.equal(call.resultJson.status, 'saved'); assert.equal(call.resultJson.saved, true);
     assert.equal(call.resultJson.candidates.length, 1); assert.equal(call.resultJson.candidates[0].title, '数据增强');
+    assert.deepEqual(call.resultJson.citedRanges, [{ noteId: note.id, start: 0, end: Q1.length }], '结果必须带已保存引文的绝对位置，供进度判断覆盖了哪些重点');
     const [saved] = items();
     assert.equal(saved.id, call.resultJson.candidates[0].candidateId); assert.equal(saved.reviewStatus, 'candidate'); assert.equal(saved.sourceMode, 'ai');
     assert.equal(items().filter(item => item.reviewStatus === 'confirmed').length, 0);
@@ -256,12 +264,201 @@ export const aiKnowledgePropose = [
       assert.equal(requestsKnowledgeProposal(text), false, text);
     }
   } },
+  { name: '知识提议：已完成说明只描述当前 sources 窗口内的来源，区分未读/待提交/已提交，不含笔记标题', run() {
+    const call = (toolName, resultJson, sourceRefs = [], status = 'succeeded') => ({ toolName, status, resultJson, sourceRefs, callId: `${toolName}-${Math.random()}` });
+    const ref = (noteId, start, end) => ({ noteId, start, end });
+    const item = (id, importance, start, end) => ({ annotationId: id, importance, start, end });
+    const refsOf = items => items.map(entry => ref('n', entry.start, entry.end));
+    assert.equal(proposalProgress([], []), '');
+    assert.equal(proposalProgress([call('notes_search', { hits: [] }), call('notes_read', { noteId: 'n' }, [ref('n', 0, 9)], 'failed')], [ref('n', 0, 9)]), '');
+    // 读完且都在窗口内：点明重点对应的 source，提示现在提交
+    const full = [item('a1', 'core', 0, 5), item('a2', 'important', 6, 9), item('a3', 'important', 10, 14)];
+    const complete = proposalProgress([call('annotations_list', { noteId: 'n', title: '绝密标题', total: 3, offset: 0, annotations: full }, refsOf(full))], refsOf(full));
+    assert(complete.includes('3 处重点中的 3 处，其中 0 处已提交；3 处待提交且原文在当前 sources 中（core×1、important×2），即 S1（core）、S2（important）、S3（important）'), complete);
+    assert(complete.includes('现在就对上面待提交的重点调用 knowledge_propose') && !complete.includes('绝密标题') && !complete.includes('翻页读取'), complete);
+    // 分页未读完：先提交窗口内的，再翻页（读一批提交一批）；不得声称已全部读取
+    const page = Array.from({ length: 8 }, (_, index) => item(`p${index}`, 'important', index * 10, index * 10 + 5));
+    const paged = proposalProgress([call('annotations_list', { noteId: 'n', total: 10, offset: 0, annotations: page }, refsOf(page))], refsOf(page));
+    assert(paged.includes('10 处重点中的 8 处') && paged.includes('还有 2 处未读') && paged.includes('offset=8') && paged.includes('现在就对上面待提交的重点调用 knowledge_propose'), paged);
+    assert(paged.includes('读一批提交一批') && !paged.includes('信息已足够'), paged);
+    // 评审场景：13 处重点按 8+5 读完，窗口只放得下 12 条——已提交的不再算待处理，不要求补读，直接提交剩余
+    const second = Array.from({ length: 5 }, (_, index) => item(`q${index}`, 'important', 100 + index * 10, 105 + index * 10));
+    const saveOf = items => call('knowledge_propose', { saved: true, candidates: new Array(items.length).fill({}), citedRanges: refsOf(items) });
+    const overflow = [call('annotations_list', { noteId: 'n', total: 13, offset: 0, annotations: page }, refsOf(page)),
+      saveOf(page),
+      call('annotations_list', { noteId: 'n', total: 13, offset: 8, annotations: second }, refsOf(second))];
+    const window = [...refsOf(page).slice(-7), ...refsOf(second)];            // 12 条窗口：最早的 1 处已被挤出
+    const afterSave = proposalProgress(overflow, window);
+    assert(afterSave.includes('13 处重点中的 13 处，其中 8 处已提交；5 处待提交'), afterSave);
+    assert(!afterSave.includes('已读但原文已移出') && !afterSave.includes('重新读取') && afterSave.includes('现在就对上面待提交的重点调用 knowledge_propose'), afterSave);
+    // 全部提交完：只提示告知用户，不再要求读取或提交
+    const finished = proposalProgress([...overflow, saveOf(second)], window);
+    assert(finished.includes('13 处已提交') && finished.includes('重点已全部处理，请用一两句话告知用户') && !finished.includes('待提交'), finished);
+    // 部分保存后仍有未读：只提示继续翻页，不重复读取已读页
+    const midway = proposalProgress([overflow[0], overflow[1]], refsOf(page));
+    assert(midway.includes('先别重复读取已读的页') && midway.includes('offset=8') && !midway.includes('待提交'), midway);
+    // 评审：保存成功不等于所有已读重点都已提交——只算引文实际覆盖到的重点
+    const all13 = [...page, ...second];
+    const readAll = [call('annotations_list', { noteId: 'n', total: 13, offset: 0, annotations: page }, refsOf(page)),
+      call('annotations_list', { noteId: 'n', total: 13, offset: 8, annotations: second }, refsOf(second))];
+    // 读完 13 处，只保存了窗口内的 12 条（页 0 的第一处没被引用）：那一处仍待处理且需重新读取
+    const savedWindow = proposalProgress([...readAll, saveOf(all13.slice(1))], [...refsOf(page).slice(-7), ...refsOf(second)]);
+    assert(savedWindow.includes('13 处重点中的 13 处，其中 12 处已提交') && savedWindow.includes('1 处已读但原文已移出 sources 且尚未提交'), savedWindow);
+    assert(savedWindow.includes('重新读取被移出 sources 的重点') && !savedWindow.includes('重点已全部处理') && !savedWindow.includes('告知用户'), savedWindow);
+    // 读了 8 处只保存 1 条：其余 7 处仍在窗口内待提交，不得宣称全部完成
+    const oneOfEight = proposalProgress([call('annotations_list', { noteId: 'n', total: 8, offset: 0, annotations: page }, refsOf(page)), saveOf(page.slice(0, 1))], refsOf(page));
+    assert(oneOfEight.includes('其中 1 处已提交；7 处待提交') && oneOfEight.includes('现在就对上面待提交的重点调用 knowledge_propose'), oneOfEight);
+    assert(!oneOfEight.includes('重点已全部处理') && !oneOfEight.includes('告知用户'), oneOfEight);
+    // 用整篇原文当引文不会“顺带覆盖”所有重点；结果缺少 citedRanges（旧记录）也按未覆盖处理
+    const wholeCited = proposalProgress([call('annotations_list', { noteId: 'n', total: 8, offset: 0, annotations: page }, refsOf(page)),
+      call('knowledge_propose', { saved: true, candidates: [{}], citedRanges: [ref('n', 0, 1000)] })], refsOf(page));
+    assert(wholeCited.includes('其中 0 处已提交；8 处待提交'), wholeCited);
+    const legacy = proposalProgress([call('annotations_list', { noteId: 'n', total: 8, offset: 0, annotations: page }, refsOf(page)),
+      call('knowledge_propose', { saved: true, candidates: [{}] })], refsOf(page));
+    assert(legacy.includes('其中 0 处已提交；8 处待提交'), legacy);
+    // 已读但原文被挤出且尚未提交：要求重新读取（读一批提交一批），而非无限补读
+    const lost = proposalProgress([call('annotations_list', { noteId: 'n', total: 2, offset: 0, annotations: [item('k1', 'core', 0, 4), item('k2', 'core', 5, 9)] },
+      [ref('n', 0, 4), ref('n', 5, 9)])], [ref('n', 0, 4)]);
+    assert(lost.includes('1 处待提交') && lost.includes('1 处已读但原文已移出 sources 且尚未提交') && lost.includes('读一批提交一批'), lost);
+    // 来源窗口已淘汰该笔记：完全不提及，不泄露其标题或数量
+    assert.equal(proposalProgress([call('annotations_list', { noteId: 'a', title: '私密甲笔记', total: 9, offset: 0, annotations: [item('x', 'core', 0, 4)] }, [ref('a', 0, 4)]),
+      call('notes_read', { noteId: 'a', title: '私密甲笔记' }, [ref('a', 0, 50)])], [ref('b', 0, 4)]), '');
+    // 整篇原文排第一、重点片段随后：编号按 sourceRefs 顺序，重点不会与整篇混淆
+    const withWhole = proposalProgress([call('annotations_list', { noteId: 'n', total: 2, offset: 0, annotations: [item('w1', 'core', 16, 44), item('w2', 'important', 78, 112)] })],
+      [ref('n', 0, 201), ref('n', 16, 44), ref('n', 78, 112)]);
+    assert(withWhole.includes('即 S2（core）、S3（important）'), withWhole);
+    // 没有重点：仅当该笔记仍在 sources 窗口内才如实说明；窗口外不提及
+    const none = call('annotations_list', { noteId: 'n', total: 0, offset: 0, annotations: [] });
+    assert(proposalProgress([none], [ref('n', 0, 9)]).includes('没有可用重点'));
+    assert.equal(proposalProgress([none], [ref('x', 0, 9)]), '');
+    // 同一笔记重复读取只算一次；只读正文、未列重点时不说“没有重点”
+    const once = proposalProgress([call('notes_read', { noteId: 'n' }, [ref('n', 0, 9)]), call('notes_read', { noteId: 'n' }, [ref('n', 0, 9)])], [ref('n', 0, 9)]);
+    assert.equal(once.split('notes_read 已读取').length - 1, 1); assert(!once.includes('没有可用重点'));
+    const saved = proposalProgress([call('knowledge_propose', { saved: true, candidates: [{}, {}] })], []);
+    assert(saved.includes('已保存 2 条待审核候选') && saved.includes('告知用户') && !saved.includes('现在调用 knowledge_propose'), saved);
+  } },
+  { name: '知识提议：重点数超过来源窗口容量时按批提交——遵循指引的模型 13 处重点全部提交，不触发 AI_AGENT_LIMIT', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+    const sentences = Array.from({ length: 13 }, (_, index) => `第${index}条要点是独立的知识内容${index}。`);
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '十三要点', rawMarkdown: sentences.join('\n\n') });
+    for (let index = 0; index < 13; index++) {
+      const anchor = anchorForBlock(projectMarkdown(note.rawMarkdown), index);
+      app.modules.knowledge.contentAnnotationService.createAnnotation({ noteId: note.id, spaceId: note.spaceId, schemaVersion: 2, scopeType: 'blocks', anchor,
+        quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, noteContentHash: calculateContentHash(note.rawMarkdown),
+        anchorFingerprint: `b${index}`, idempotencyKey: `b${index}`, importance: 'important' });
+    }
+    const p = await policy(), proposed = new Set();
+    // 模拟“遵循指引”的模型：只看最近一条“已完成”说明和当前 sources 决定下一步。
+    respond(request => {
+      const user = JSON.parse(request.messages.at(-1).content), progress = user.question.match(/已完成：[^\n]*/)?.[0] ?? '';
+      const fresh = user.sources.filter(source => sentences.includes(source.text) && !proposed.has(source.text));
+      if (!progress) return tool('annotations_list', { noteId: note.id, limit: 8 }, 'first');
+      if (/现在就对上面待提交的重点调用 knowledge_propose/.test(progress) && fresh.length) {
+        fresh.forEach(source => proposed.add(source.text));
+        return tool('knowledge_propose', { candidates: fresh.map(source => ({ title: source.text.slice(0, 8), canonicalStatement: source.text, knowledgeType: 'concept',
+          citations: [{ noteId: note.id, quote: source.text }] })) }, `propose-${proposed.size}`);
+      }
+      const next = progress.match(/offset=(\d+)/);
+      if (next && /继续翻页|翻页读取/.test(progress)) return tool('annotations_list', { noteId: note.id, limit: 8, offset: Number(next[1]) }, `page-${next[1]}`);
+      if (/重新读取/.test(progress)) throw new Error(`不应要求重新读取：${progress}`);
+      return answer('已提交候选。', []);
+    });
+    const turn = await submit('提炼这篇笔记里标记的重点知识点', 'thirteen', p.policyId);
+    const outcome = await runtime.agent.run(turn.turnId).then(() => 'ok', error => error.code ?? error.message);
+    const calls = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.equal(outcome, 'ok', `${outcome}；请求数 ${requests.length}`);
+    assert.equal(items().length, 13, `候选数 ${items().length}`);
+    assert.deepEqual(calls.map(call => call.status), ['succeeded', 'succeeded']);
+    assert(requests.length <= 8, `模型请求 ${requests.length} 次`);
+  }) },
+  { name: '知识提议：笔记在进度说明之前被改为私密且已被来源窗口淘汰时，后续请求不再携带其任何信息', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
+    const blocks = prefix => Array.from({ length: 8 }, (_, index) => `${prefix}${index}段重点内容。`);
+    const make = (title, prefix, count) => {
+      const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title, rawMarkdown: blocks(prefix).join('\n\n') });
+      for (let index = 0; index < count; index++) {
+        const anchor = anchorForBlock(projectMarkdown(note.rawMarkdown), index);
+        app.modules.knowledge.contentAnnotationService.createAnnotation({ noteId: note.id, spaceId: note.spaceId, schemaVersion: 2, scopeType: 'blocks',
+          anchor, quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, noteContentHash: calculateContentHash(note.rawMarkdown),
+          anchorFingerprint: `${prefix}${index}`, idempotencyKey: `${prefix}${index}`, importance: 'important' });
+      }
+      return note;
+    };
+    const a = make('私密甲笔记', '甲', 1), b = make('乙笔记', '乙', 8), c = make('丙笔记', '丙', 8);
+    const p = await policy(); let round = 0;
+    respond(() => {
+      round++;
+      if (round === 1) return tool('annotations_list', { noteId: a.id }, 'a');
+      if (round === 2) return tool('annotations_list', { noteId: b.id }, 'b');
+      if (round === 3) { app.modules.knowledge.noteService.updateNote(a.id, { aiVisibility: 'private' }); return tool('annotations_list', { noteId: c.id }, 'c'); }
+      return answer('已看完。', []);
+    });
+    const turn = await submit('提炼这些笔记的知识点', 'evict', p.policyId);
+    await runtime.agent.run(turn.turnId).catch(() => {});
+    assert(requests.length >= 4, `应至少发出 4 次请求，实际 ${requests.length}`);
+    const sent = JSON.stringify(requests[3].messages);
+    assert(!sent.includes('私密甲笔记') && !sent.includes(a.id) && !sent.includes('甲0段重点'), '已私密且被窗口淘汰的笔记不得再出现在请求里');
+    assert(sent.includes('已完成：annotations_list'), '仍在窗口内的笔记应有进度说明');
+  }) },
+  { name: '知识提议：引文可省略偏移，服务端按 quote 在已读原文中唯一定位；多处、找不到或只给一半偏移均被拒绝并带提示', run: async () => {
+    const content = '甲乙丙。\n\n丁戊己。\n\n甲乙丙。', one = '丁戊己。', twice = '甲乙丙。';
+    const whole = refFor(content, 0, content.length), part = refFor(content, 6, 6 + one.length);
+    const quoteOnly = quote => ({ candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept', citations: [{ noteId: 'n1', quote }] }] });
+    // 唯一：整篇与重叠子片段指向同一绝对位置，只算一处；定位结果与显式偏移完全一致
+    const located = await plan(content, quoteOnly(one), [whole, part]);
+    const explicit = await plan(content, args(6, 6 + one.length, one), [whole, part]);
+    assert.deepEqual(located.candidates[0].provenance, explicit.candidates[0].provenance);
+    assert.equal(located.candidates[0].provenance[0].quoteText, one);
+    // 出现多次：拒绝并提示补偏移；补上偏移后通过
+    await assert.rejects(plan(content, quoteOnly(twice), [whole]), error => error.code === 'AI_PROPOSAL_CITATION_INVALID' && /多次|唯一/.test(error.message) && /start\/end/.test(error.hint));
+    assert.ok(await plan(content, args(content.lastIndexOf(twice), content.lastIndexOf(twice) + twice.length, twice), [whole]));
+    // 找不到或不在已读窗口内：拒绝并提示逐字摘自原文
+    await assert.rejects(plan(content, quoteOnly('不存在的句子'), [whole]), error => error.code === 'AI_PROPOSAL_CITATION_INVALID' && /逐字/.test(error.hint));
+    await assert.rejects(plan(content, quoteOnly(one), [refFor(content, 0, 4)]), { code: 'AI_PROPOSAL_CITATION_INVALID' });
+    await assert.rejects(plan(content, quoteOnly(''), [whole]), error => ['AI_PROPOSAL_CITATION_INVALID', 'AI_PROPOSAL_INVALID'].includes(error.code));
+    // 只给 start 或 end 之一、或多余字段：参数无效
+    for (const citation of [{ noteId: 'n1', start: 6, quote: one }, { noteId: 'n1', end: 9, quote: one }, { noteId: 'n1', quote: one, extra: 1 }]) {
+      await assert.rejects(plan(content, { candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept', citations: [citation] }] }, [whole]),
+        { code: 'AI_TOOL_ARGUMENTS_INVALID' });
+    }
+    // 其他笔记的同文引文不能借已读窗口定位
+    await assert.rejects(plan(content, { candidates: [{ title: '标题', canonicalStatement: '陈述', knowledgeType: 'concept', citations: [{ noteId: 'n2', quote: one }] }] }, [whole]),
+      { code: 'AI_PROPOSAL_CITATION_INVALID' });
+  } },
+  { name: '知识提议：Agent 提交只含 noteId 与 quote 的引文即可保存，偏移由服务端定位', run: () => fixture(async ({ app, runtime, space, submit, policy, items, respond }) => {
+    const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+    const p = await policy(); let round = 0;
+    const quoteOnly = { candidates: [{ title: '数据增强', canonicalStatement: Q1, knowledgeType: 'concept', citations: [{ noteId: note.id, quote: Q1 }] }] };
+    respond(() => ++round === 1 ? tool('notes_read', { noteId: note.id }) : round === 2 ? tool('knowledge_propose', quoteOnly)
+      : answer('已提交一条候选。', [{ sourceId: 'S1', quote: Q1 }]));
+    const turn = await submit('提炼这篇笔记的知识点', 'quote-only', p.policyId);
+    await runtime.agent.run(turn.turnId);
+    const [call] = await toolCalls(runtime, turn, 'knowledge_propose');
+    assert.equal(call.status, 'succeeded'); assert.equal(items().length, 1);
+    const evidence = app.modules.knowledge.repositories.knowledgeEvidenceRepository.list({ knowledgeItemId: items()[0].id });
+    assert.equal(evidence[0].quoteText, Q1); assert.equal(evidence[0].start ?? evidence[0].fromPosition ?? 0, 0);
+  }) },
+  { name: '助手回答：JSON 漏写 citations 等价于空引用，回合照常完成；给出的引用仍逐条严格校验', run: async () => {
+    for (const [content, ok] of [[JSON.stringify({ answer: '没有引用的回答。' }), true],
+      [JSON.stringify({ answer: '引用了不存在的原文。', citations: [{ sourceId: 'S1', quote: '原文里没有这句话' }] }), false],
+      [JSON.stringify({ answer: '引用字段类型错误。', citations: 'S1' }), false]]) {
+      await fixture(async ({ app, runtime, space, submit, policy, respond }) => {
+        app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+        const p = await policy(); respond(() => answer(content));
+        const turn = await submit('这篇笔记讲了什么', `cit-${ok}-${content.length}`, p.policyId);
+        const outcome = await runtime.agent.run(turn.turnId).then(() => 'ok', error => error.code);
+        const status = (await runtime.conversationStore.getTurn(turn.turnId)).status;
+        if (ok) { assert.equal(outcome, 'ok', content); assert.equal(status, 'succeeded'); }
+        else { assert.notEqual(status, 'succeeded', content); assert.notEqual(outcome, 'ok', content); }
+      });
+    }
+  } },
   { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); respond(() => answer('这篇笔记讲数据增强。', []));
     const turn = await submit('这篇笔记讲了什么', 'plain', p.policyId);
     await runtime.agent.run(turn.turnId);
     assert(requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')));
+    assert(requests.every(request => !JSON.stringify(request.messages).includes('这是提炼知识点请求')), '普通提问不得带提炼指引');
+    assert(requests.every(request => request.maxTokens === 4096), '所有对话回合统一使用 4096 输出上限');
   }) },
   { name: '知识提议：否定与解释类请求不开放该工具，也不会保存候选', run: async () => {
     for (const text of ['我不希望你生成知识点', '不要根据这篇笔记自动生成知识点', '请解释知识项如何提炼']) {
