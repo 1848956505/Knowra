@@ -22,13 +22,43 @@ const collections = {
   knowledgeArtifactProvenance: ['knowledgeArtifactProvenance', 'mapKnowledgeArtifactProvenance']
 };
 
+async function readCollection(db, collection, ids) {
+  const [model, mapper] = collections[collection];
+  const rows = await db[model].findMany({ ...(ids ? { where: { id: { in: ids } } } : {}), orderBy: { id: 'asc' },
+    ...(model === 'note' ? { include: { noteTags: { orderBy: { tagId: 'asc' } } } } : {}) });
+  return rows.map(row => mapper ? maps[mapper](row) : JSON.parse(JSON.stringify(row)));
+}
+
 async function snapshot(db) {
   const result = {};
-  for (const [collection, [model, mapper]] of Object.entries(collections)) {
-    const rows = await db[model].findMany({ orderBy: { id: 'asc' }, ...(model === 'note' ? { include: { noteTags: { orderBy: { tagId: 'asc' } } } } : {}) });
-    result[collection] = rows.map(row => mapper ? maps[mapper](row) : JSON.parse(JSON.stringify(row)));
+  for (const collection of Object.keys(collections)) result[collection] = await readCollection(db, collection);
+  return result;
+}
+
+// 批量写入只触及已知 ID：未触及的集合与行沿用事务开头的状态，仅按 ID 重读被写入的行。
+async function scopedSnapshot(db, before, touched) {
+  const result = {};
+  for (const collection of Object.keys(collections)) {
+    const ids = touched[collection];
+    if (!ids?.size) { result[collection] = [...before[collection]]; continue; }
+    const fresh = new Map((await readCollection(db, collection, [...ids])).map(item => [item.id, item]));
+    const kept = before[collection].flatMap(item => !ids.has(item.id) ? [item] : fresh.has(item.id) ? [fresh.get(item.id)] : []);
+    const known = new Set(before[collection].map(item => item.id));
+    result[collection] = [...kept, ...[...fresh.values()].filter(item => !known.has(item.id))];
   }
   return result;
+}
+
+// 校验开关：同时全表读取并与按 ID 重建的后像逐项比对，供测试证明两者等价。
+async function assertScopedMatchesFull(db, scoped) {
+  const full = await snapshot(db);
+  for (const collection of Object.keys(collections)) {
+    const left = new Map(scoped[collection].map(item => [item.id, JSON.stringify(item)]));
+    const right = new Map(full[collection].map(item => [item.id, JSON.stringify(item)]));
+    if (left.size !== right.size || [...right].some(([id, value]) => left.get(id) !== value)) {
+      throw new Error(`同步后像按 ID 重建与全表读取不一致：${collection}`);
+    }
+  }
 }
 
 // 维护世代重建只需主体身份；不读取正文/文件，也不改变业务表。
@@ -48,17 +78,21 @@ export function createPostgresSyncRuntime(client, ownerId) {
       await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(1266775634, 32)::text');
       const before = await snapshot(tx);
       const row = await tx.syncJournal.findUnique({ where: { ownerId } });
-      const context = { tx, before, journal: loadJournal(row?.payload, before) };
+      // version 随每次写入递增；after 仅在其后无写入时可复用，避免同一事务重复全表读取。
+      const context = { tx, before, journal: loadJournal(row?.payload, before), version: 0, after: null };
       return scope.run(context, async () => {
         const result = await operation(proxy);
-        const after = await snapshot(tx);
+        // 事务内没有任何写入时后像即前像；批量写入后的后像已由 preview 按 ID 重建。
+        const after = context.version === 0 ? before : context.after?.version === context.version ? context.after.state : await snapshot(tx);
         assertNoKnowledgeArtifactProvenanceDowngrade(before, after);
         // 整库导入删除日志行；用新世代重新建立基线。
         const exists = await tx.syncJournal.findUnique({ where: { ownerId } });
         const journal = exists?.payload?.epoch && exists.payload.epoch !== context.journal.epoch
           ? loadJournal(exists.payload, after)
           : row && !exists ? createJournal(after) : appendChanges(context.journal, before, after);
-        await tx.syncJournal.upsert({ where: { ownerId }, create: { ownerId, payload: journal }, update: { payload: journal } });
+        // 日志载荷可达数十 MB：Prisma 的 Json 参数序列化比文本 ::jsonb 慢一个数量级，故用原生 SQL 整体替换。
+        await tx.$executeRawUnsafe(`INSERT INTO "SyncJournal" ("ownerId", payload) VALUES ($1, $2::jsonb)
+          ON CONFLICT ("ownerId") DO UPDATE SET payload = EXCLUDED.payload`, ownerId, JSON.stringify(journal));
         return result;
       });
     }, { isolationLevel: 'ReadCommitted', maxWait: 10000, timeout: 60000 });
@@ -73,14 +107,22 @@ export function createPostgresSyncRuntime(client, ownerId) {
       };
       if (modelNames.has(key)) {
         if (!delegates.has(key)) delegates.set(key, new Proxy({}, { get: (_model, method) => (...args) => {
-          const invoke = () => (scope.getStore()?.tx ?? client)[key][method](...args);
+          const invoke = () => {
+            const context = scope.getStore();
+            if (context && mutations.has(method)) context.version++;
+            return (context?.tx ?? client)[key][method](...args);
+          };
           return mutations.has(method) && !scope.getStore() ? transaction(invoke) : invoke();
         } }));
         return delegates.get(key);
       }
-      const target = scope.getStore()?.tx ?? client;
+      const context = scope.getStore();
+      const target = context?.tx ?? client;
       const value = target[key];
-      return typeof value === 'function' ? value.bind(target) : value;
+      if (typeof value !== 'function') return value;
+      // 原生 SQL 可能写入任意表：保守视为有写入，后像回到全表读取。
+      if (context && typeof key === 'string' && /^\$(execute|query)Raw/.test(key)) return (...args) => { context.version++; return value.apply(target, args); };
+      return value.bind(target);
     }
   });
   return {
@@ -110,11 +152,24 @@ export function createPostgresSyncRuntime(client, ownerId) {
         },
         preview: async () => {
           const context = scope.getStore();
-          const state = await snapshot(context.tx);
+          let state = context.after?.version === context.version ? context.after.state : null;
+          if (!state && context.touched && context.touchedVersion === context.version) {
+            state = await scopedSnapshot(context.tx, context.before, context.touched);
+            if (process.env.KNOWRA_SYNC_VERIFY_SCOPED_AFTER === '1') await assertScopedMatchesFull(context.tx, state);
+          }
+          state ??= await snapshot(context.tx);
+          context.after = { version: context.version, state };
           return { state, journal: appendChanges(structuredClone(context.journal), context.before, state) };
         },
         applyNote: (operation, current) => applyNoteOperation(noteService, operation, current),
-        applyState: async next => applyPostgresState(scope.getStore().tx, await snapshot(scope.getStore().tx), next)
+        // 批量写入前事务内尚无其他写入，事务开头读取的状态即当前状态。
+        applyState: async next => {
+          const context = scope.getStore();
+          if (context.version) throw new Error('同步批量写入必须发生在事务内其他写入之前。');
+          context.version++;
+          context.touched = await applyPostgresState(context.tx, context.before, next);
+          context.touchedVersion = context.version;
+        }
       };
       return { ...createSyncService(provider, ownerId), ...createBatchSyncService(provider, ownerId, transfer) };
     }
