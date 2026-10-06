@@ -499,10 +499,13 @@ it.each([
   expect(conversationApi.send).not.toHaveBeenCalled();
 });
 
-it('提炼入口不选用已撤销、已过期、外发关闭或不覆盖本篇的授权', async () => {
+it('提炼入口不选用已撤销、已过期、外发关闭、不覆盖本篇、排除了本篇、关闭读取或接收方不含 DeepSeek 的授权', async () => {
   vi.mocked(conversationApi.policies).mockResolvedValue([
     policyOf({ policyId: 'revoked', revokedAt: '2026-09-28T00:00:00.000Z' }), policyOf({ policyId: 'expired', expiresAt: '2020-01-01T00:00:00.000Z' }),
-    policyOf({ policyId: 'no-egress', egress: false }), policyOf({ policyId: 'other', scope: { kind: 'fixed', noteIds: ['note-2'] } })]);
+    policyOf({ policyId: 'no-egress', egress: false }), policyOf({ policyId: 'other', scope: { kind: 'fixed', noteIds: ['note-2'] } }),
+    policyOf({ policyId: 'excluded-library', excludedNoteIds: ['note-1'] }), policyOf({ policyId: 'excluded-fixed', scope: { kind: 'fixed', noteIds: ['note-1'] }, excludedNoteIds: ['note-1'] }),
+    policyOf({ policyId: 'excluded-folder', scope: { kind: 'folder', folderId: 'folder-1' }, excludedNoteIds: ['note-1'] }),
+    policyOf({ policyId: 'no-read', read: false }), policyOf({ policyId: 'other-recipient', recipients: ['someone-else'] })]);
   render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
   expect(await screen.findByRole('dialog', { name: '授权助手读取资料' })).toBeInTheDocument();
   expect(screen.queryByText(/已选用现有读取授权/)).not.toBeInTheDocument();
@@ -543,4 +546,29 @@ it('执行记录：重点读取与知识候选提交有各自的标签和摘要�
   expect(screen.queryByText(/0 个来源片段/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '在知识库审核候选' }));
   expect(fixture.navigate).toHaveBeenCalledWith('/knowledge');
+});
+
+it('提炼入口：授权只排除了其他笔记时仍然覆盖本篇，直接选用', async () => {
+  vi.mocked(conversationApi.policies).mockResolvedValue([policyOf({ excludedNoteIds: ['note-2'] })]);
+  render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(/已选用现有读取授权/)).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: '授权助手读取资料' })).not.toBeInTheDocument();
+});
+
+it('提炼入口：目录授权按祖先目录覆盖本篇；同一目录授权若排除了本篇则不选用并打开授权对话框', async () => {
+  const state = fixture.state.serverData as { notes: Record<string, unknown>[]; folderTree: Record<string, unknown>[] };
+  const previous = { notes: state.notes, folderTree: state.folderTree };
+  state.notes = [{ id: 'note-1', title: '笔记 A', spaceId: 'space-1', folderId: 'folder-child', deleted: false }];
+  state.folderTree = [{ id: 'folder-root', name: '根', parentId: null, spaceId: 'space-1', children: [] }, { id: 'folder-child', name: '子', parentId: 'folder-root', spaceId: 'space-1', children: [] }];
+  try {
+    vi.mocked(conversationApi.policies).mockResolvedValue([policyOf({ scope: { kind: 'folder', folderId: 'folder-root' } })]);
+    const covered = render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
+    expect(await screen.findByText(/已选用现有读取授权/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '授权助手读取资料' })).not.toBeInTheDocument();
+    covered.unmount();
+    vi.mocked(conversationApi.policies).mockResolvedValue([policyOf({ scope: { kind: 'folder', folderId: 'folder-root' }, excludedNoteIds: ['note-1'] })]);
+    render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
+    expect(await screen.findByRole('dialog', { name: '授权助手读取资料' })).toBeInTheDocument();
+    expect(screen.queryByText(/已选用现有读取授权/)).not.toBeInTheDocument();
+  } finally { Object.assign(state, previous); }
 });

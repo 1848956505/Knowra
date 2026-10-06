@@ -158,6 +158,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     setDraft(current => current.trim() ? current : `请根据我在笔记《${title}》（noteId: ${extractNote.id}）里标记的重点，提炼知识点。`);
     pendingSend.current = null;
     const covers = (policy: AccessPolicy) => {
+      // 先排除“不允许读取本篇”的策略（排除项优先于任何范围，服务端读取时同样拒绝），再判断范围。
+      if (policy.excludedNoteIds?.includes(extractNote.id) || policy.read === false || !policy.recipients.includes('deepseek')) return false;
       if (policy.scope.kind === 'library') return true;
       if (policy.scope.kind === 'fixed') return policy.scope.noteIds.includes(extractNote.id);
       const seen = new Set<string>();
