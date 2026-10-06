@@ -33,16 +33,36 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
   fs.mkdirSync(pairingFiles, { recursive: true, mode: 0o700 });
   fs.chmodSync(directory, 0o700); fs.chmodSync(pairingFiles, 0o700);
 
-  const load = () => {
+  const validRow = row => row && typeof row === 'object' && ['pairingId', 'verifier', 'policyId', 'spaceId'].every(key => typeof row[key] === 'string')
+    && Number.isFinite(Date.parse(row.expiresAt)) && Number.isFinite(Date.parse(row.createdAt));
+  /**
+   * 区分“文件不存在”（首次使用，空列表）与“读取/校验失败”（记录损坏、权限异常、结构无效）。
+   * 失败时整个配对能力停用并保留所有原文件：不清扫、不写入（写入会覆盖尚可人工修复的记录）；记录恢复后下次访问自动重新加载。
+   */
+  let rows = [];
+  let loaded = false;
+  function tryLoad() {
     try {
-      const rows = JSON.parse(fs.readFileSync(recordsFile, 'utf8'));
-      return Array.isArray(rows) ? rows : [];
-    } catch { return []; }
+      const parsed = JSON.parse(fs.readFileSync(recordsFile, 'utf8'));
+      if (!Array.isArray(parsed) || !parsed.every(validRow)) return false;
+      rows = parsed;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') return false;
+      rows = [];
+    }
+    return true;
+  }
+  const ensure = () => {
+    if (!loaded) {
+      loaded = tryLoad();
+      if (loaded) sweep();
+    }
+    if (!loaded) throw mcpError('MCP_STORE_UNAVAILABLE', '配对记录无法读取，外部客户端配对已暂停；原文件已保留，请修复或备份后重试。', { status: 503 });
   };
-  let rows = load();
   const isExpired = row => Date.parse(row.expiresAt) <= now().getTime();
   /** 已撤销、已过期的配对不应留下原始令牌：删除其配对文件；也清理没有对应记录的孤儿文件。 */
   function sweep() {
+    if (!loaded) return;
     const live = new Set(rows.filter(row => !row.revokedAt && !isExpired(row)).map(row => row.pairingId));
     let names = [];
     try { names = fs.readdirSync(pairingFiles); } catch { /* 目录刚创建 */ }
@@ -51,7 +71,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
       if (!live.has(id)) fs.rmSync(path.join(pairingFiles, name), { force: true });
     }
   }
-  sweep();
+  try { ensure(); } catch { /* 记录损坏：保持停用，不清扫 */ }
   const save = () => writeAtomic(recordsFile, JSON.stringify(rows));
   const fileFor = id => path.join(pairingFiles, `${id}.json`);
   const publicView = row => ({ pairingId: row.pairingId, label: row.label, spaceId: row.spaceId, scope: row.scope,
@@ -62,10 +82,11 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
 
   return {
     pairingFile: fileFor,
-    sweep,
-    list: () => { sweep(); return rows.map(publicView); },
-    get: id => rows.find(row => row.pairingId === id) ?? null,
+    sweep: () => { ensure(); sweep(); },
+    list: () => { ensure(); sweep(); return rows.map(publicView); },
+    get: id => { ensure(); return rows.find(row => row.pairingId === id) ?? null; },
     create({ label, spaceId, scope, excludedNoteIds, policyId, policyRevision, expiresInDays, socketPath, dataDirectory }) {
+      ensure();
       const pairingId = randomUUID();
       const token = `knp1.${pairingId}.${randomBytes(32).toString('hex')}`;
       const createdAt = now().toISOString();
@@ -80,6 +101,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     },
     /** 令牌格式、记录存在与哈希匹配；撤销与过期由调用方区分错误码。 */
     authenticate(token) {
+      ensure();
       const parsed = parseToken(token);
       const row = parsed && rows.find(item => item.pairingId === parsed.pairingId);
       if (!row || !equalHex(row.verifier, tokenVerifier(token))) throw mcpError('MCP_TOKEN_INVALID', '配对令牌无效。', { status: 401 });
@@ -89,9 +111,10 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
       if (row.revokedAt) throw mcpError('MCP_PAIRING_REVOKED', '配对已撤销。', { status: 401 });
       if (isExpired(row)) { fs.rmSync(fileFor(row.pairingId), { force: true }); throw mcpError('MCP_PAIRING_EXPIRED', '配对已过期，请重新创建。', { status: 401 }); }
     },
-    verifierOf: id => rows.find(row => row.pairingId === id)?.verifier ?? null,
+    verifierOf: id => { ensure(); return rows.find(row => row.pairingId === id)?.verifier ?? null; },
     /** 计数与最近使用时间；每日计数以 UTC 日期换算。 */
     recordUse(row) {
+      ensure();
       const day = now().toISOString().slice(0, 10);
       row.dayCalls = row.dayKey === day ? row.dayCalls + 1 : 1; row.dayKey = day;
       row.calls += 1; row.lastUsedAt = now().toISOString();
@@ -99,6 +122,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     },
     dayCalls(row) { return row.dayKey === now().toISOString().slice(0, 10) ? row.dayCalls : 0; },
     revoke(id) {
+      ensure();
       const row = rows.find(item => item.pairingId === id);
       if (!row) throw mcpError('MCP_PAIRING_NOT_FOUND', '配对不存在。', { status: 404 });
       if (!row.revokedAt) { row.revokedAt = now().toISOString(); save(); }

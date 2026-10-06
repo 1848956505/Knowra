@@ -207,6 +207,38 @@ test('限流与大小：超限返回稳定错误与重试时间，不静默截�
   assert.deepEqual(ledger(), ledgerBefore, '外部调用不产生用量/任务记录');
 });
 
+test('配对记录损坏：停用配对能力并保留原文件，不误删有效令牌文件；记录恢复后自动恢复', async t => {
+  const first = await setup(t);
+  const target = await first.note('记录损坏');
+  const created = (await first.pair()).data;
+  const records = path.join(first.data, 'mcp', 'pairings.json');
+  const good = fs.readFileSync(records, 'utf8');
+  await first.stop();
+  for (const broken of ['{ 不是 json', '{}', '[{"pairingId":1}]']) {
+    fs.writeFileSync(records, broken);
+    const second = await setup(t, { dataDirectory: first.data });
+    assert.equal(fs.existsSync(created.pairingFile), true, `损坏记录（${broken}）时不清扫有效配对文件`);
+    assert.equal((await second.call('/api/local-runtime/mcp/pairings')).error.code, 'MCP_STORE_UNAVAILABLE');
+    assert.equal((await second.pair()).error.code, 'MCP_STORE_UNAVAILABLE');
+    await rejects(connectMcpRuntime({ pairingFile: created.pairingFile }).call('read_slice', { noteId: target.id }), 'MCP_STORE_UNAVAILABLE');
+    assert.equal(fs.readFileSync(records, 'utf8'), broken, '损坏的记录没有被覆盖');
+    const saved = await second.call('/api/knowledge/notes', 'POST', { spaceId: second.space.id, title: `核心仍可保存 ${broken.length}`, rawMarkdown: '正文' });
+    assert.equal(saved.status, 201, JSON.stringify(saved));
+    // 修复记录后无需重启即可恢复。
+    fs.writeFileSync(records, good);
+    const restored = (await second.call('/api/local-runtime/mcp/pairings')).data.items;
+    assert.equal(restored.find(item => item.pairingId === created.pairingId).status, 'active');
+    assert.equal(fs.existsSync(created.pairingFile), true);
+    assert.equal((await connectMcpRuntime({ pairingFile: created.pairingFile }).call('read_slice', { noteId: target.id })).fragments.length, 1);
+    await second.stop();
+  }
+  // 记录文件不存在是首次使用：空列表，孤儿文件才会被清扫。
+  fs.rmSync(records);
+  const third = await setup(t, { dataDirectory: first.data });
+  assert.deepEqual((await third.call('/api/local-runtime/mcp/pairings')).data.items, []);
+  assert.equal(fs.existsSync(created.pairingFile), false, '记录确实不存在时，无记录的文件按孤儿清理');
+});
+
 test('大小上限按最终序列化响应计：JSON 转义、标题与偏移都算在内', async t => {
   const env = await setup(t);
   const quotes = await env.note('转义', { rawMarkdown: '"'.repeat(40_000) });

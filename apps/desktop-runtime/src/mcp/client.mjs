@@ -63,6 +63,8 @@ export function connectMcpRuntime({ pairingFile }) {
       assertTrustedSocket(pairing.socketPath);
       const nonce = randomBytes(24).toString('hex');
       const hello = await request(pairing.socketPath, '/mcp/v1/handshake', { body: { pairingId: pairing.pairingId, nonce } });
+      // 对端自称配对记录不可用：只是拒绝服务，没有发送令牌，直接如实报告。
+      if (hello.status === 503 && hello.body?.error?.code === 'MCP_STORE_UNAVAILABLE') throw mcpError('MCP_STORE_UNAVAILABLE', hello.body.error.message, { status: 503 });
       const proof = hello.body?.data?.proof;
       const expected = serverProof(tokenVerifier(pairing.token), pairing.pairingId, nonce);
       if (hello.status !== 200 || typeof proof !== 'string' || proof.length !== expected.length
