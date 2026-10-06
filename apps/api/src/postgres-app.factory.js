@@ -47,6 +47,7 @@ import {
 } from './infrastructure/postgres-advisory-lock.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createOptionalAiRuntime } from './modules/ai/runtime.js';
+import { createAiFeatureSettings } from './modules/ai/feature-settings.js';
 import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import { createPostgresAiRepository } from './modules/ai/postgres-record-repository.js';
@@ -148,6 +149,7 @@ export async function createPostgresAppContext({
   });
 
   const modelSettings = createModelSettingsService();
+  const aiFeatures = createAiFeatureSettings({ filePath: path.join(storageRootDir, 'ai-features.json') });
   const aiRepository = createPostgresAiRepository({ client: db, ownerId: normalizedOwnerId });
   const aiAccessStore = createPostgresAiAccessStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId });
   const aiConversationStore = createPostgresAiConversationStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId });
@@ -156,6 +158,7 @@ export async function createPostgresAppContext({
     conversationStore: aiConversationStore, actionStore: createPostgresActionStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId }),
     coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }), knowledge: { ...knowledge, repositories }, asyncDomain: true, maintenanceGate, budgetAuthority: aiBudget,
     priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
+    knowledgeProposals: async () => (await aiFeatures.get()).knowledgeProposals,
     contextSources: { ...repositories, spaceRepository: repositories.knowledgeSpaceRepository, ownerId: normalizedOwnerId } });
   const extractionContext = tx => createPostgresKnowledgeExtractionContext(tx, normalizedOwnerId);
   const extractionReceipts = createPostgresKnowledgeExtractionCommitStore({ client: db, ownerId: normalizedOwnerId });
@@ -186,6 +189,7 @@ export async function createPostgresAppContext({
     repositories,
     http: {
       modelSettings,
+      aiFeatures,
       aiBudget,
       sync: wrapHandlersWithMaintenanceGate(syncRuntime.service(knowledge.noteService, createAttachmentTransfer({ uploadsDir, storageRootDir })), maintenanceGate, {
         getAccess: name => ['push', 'pushBatch', 'uploadBlob', 'bootstrap'].includes(name) ? 'mutation' : 'read'

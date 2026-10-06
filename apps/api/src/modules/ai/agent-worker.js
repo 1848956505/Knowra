@@ -263,7 +263,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     return { resultJson: { noteId: note.id, title: note.title, text }, sourceRefs: [ref] };
   }
 
-  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null) {
+  const proposalsEnabled = async () => {
+    try { return Boolean(typeof knowledgeProposals === 'function' ? await knowledgeProposals() : knowledgeProposals); } catch { return false; }
+  };
+
+  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null, proposalsOn = false) {
     await currentTurn(turn.turnId, generation, signal);
     const writeCall = proposalNames.has(call.name) && (!turn.writeIntent || call.name === turn.writeIntent.toolName);
     if (!writeCall && call.name !== 'web_search' && (!grantId || !access)) fail('AI_SCOPE_FORBIDDEN', '当前会话没有笔记读取授权。');
@@ -271,7 +275,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const callId = hashRecord({ turnId: turn.turnId, providerCallId: call.id });
     const persisted = await store.appendToolCall(turn.turnId, generation, { callId,
       toolName: call.name, argumentsJson: call.arguments,
-      maxCalls: knowledgeProposals && !turn.writeIntent && requestsKnowledgeProposal(userMessage) ? PROPOSAL_TOOLS : 6 });
+      maxCalls: proposalsOn && !turn.writeIntent && requestsKnowledgeProposal(userMessage) ? PROPOSAL_TOOLS : 6 });
     if (persisted.status !== 'requested') {
       for (const ref of persisted.sourceRefs) await verifyRef(grantId, ref);
       if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs });
@@ -305,7 +309,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       } else if (call.name === 'notes_read') outcome = await readTool(grantId, call.arguments);
       else if (call.name === 'annotations_list' && annotations && !turn.writeIntent) {
         outcome = await listAnnotatedRanges({ access, repository: annotations, grantId, args: call.arguments });
-      } else if (call.name === 'knowledge_propose' && knowledgeProposals && !turn.writeIntent && requestsKnowledgeProposal(userMessage)) {
+      } else if (call.name === 'knowledge_propose' && proposalsOn && !turn.writeIntent && requestsKnowledgeProposal(userMessage)) {
         outcome = await proposeKnowledge({ access, grantId, args: call.arguments, sourceRefs, turnId: turn.turnId, callId,
           commit: knowledgeCommit ? (() => {
             const origin = { conversationId: turn.conversationId, turnId: turn.turnId, toolCallId: callId };
@@ -408,7 +412,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const user = (await store.listMessages(turn.conversationId, 0, 100_000)).find(row => row.messageId === turn.userMessageId);
     if (!user || user.content.length > 4000) fail('AI_INPUT_TOO_LARGE', '单次提问不能超过 4000 字符。');
     let artifactRequested = requestsAssistantArtifact(user.content);
-    const proposalRequested = knowledgeProposals && !turn.writeIntent && requestsKnowledgeProposal(user.content);
+    // 开关在回合开始时读取一次并固定下来：回合中途切换不影响本回合；读取失败按关闭处理。
+    const proposalsOn = knowledgeCommit ? await proposalsEnabled() : false;
+    const proposalRequested = proposalsOn && !turn.writeIntent && requestsKnowledgeProposal(user.content);
     const maxRounds = proposalRequested ? PROPOSAL_ROUNDS : MAX_ROUNDS, maxTools = proposalRequested ? PROPOSAL_TOOLS : MAX_TOOLS;
     const reference = await modelSettings.credentialReference();
     if (!reference || reference.modelId !== priceProfile.modelId) fail('AI_NOT_CONFIGURED', '请先配置已核价的 deepseek-flash 模型。');
@@ -550,7 +556,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         let proposalSaved = false;
         for (const call of result.toolCalls) {
           const planSources = uniqueRefs([...sourceRefs, ...(manifest?.historySources ?? [])]);
-          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId);
+          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId, proposalsOn);
           totalTools = (await store.listToolCalls(turn.turnId)).length;
           proposalSaved ||= outcome.progress === true;
           if (outcome.actionId) {

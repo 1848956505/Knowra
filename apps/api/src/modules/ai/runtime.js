@@ -30,12 +30,13 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   const actionService = actionStore && coreOperationStore && knowledge ? createNoteActionService({ store: actionStore, core: coreOperationStore, knowledge,
     ownerId: contextSources.ownerId, conversationStore, accessStore, access, asyncDomain }) : null;
   const actions = actionService && maintenanceGate ? wrapHandlersWithMaintenanceGate(actionService, maintenanceGate, { getAccess: () => 'read' }) : actionService;
+  // knowledgeProposals 可以是布尔值或返回布尔值的函数（读取运行时开关）；函数形式让开关切换无需重启。
   const knowledgeCommit = knowledgeProposals && coreOperationStore && knowledge && conversationStore && accessStore
     ? createAgentKnowledgeCommitService({ core: coreOperationStore, knowledge, ownerId: contextSources?.ownerId, conversationStore, accessStore, asyncDomain }) : null;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
       gateway, priceProfile, allowExternal, retrievalCandidates, actions, webSearchAdapter,
-      annotations: knowledge?.repositories?.contentAnnotationRepository ?? null, knowledgeProposals: Boolean(knowledgeCommit), knowledgeCommit,
+      annotations: knowledge?.repositories?.contentAnnotationRepository ?? null, knowledgeProposals: knowledgeCommit ? knowledgeProposals : false, knowledgeCommit,
       authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) }) : null;
   const conversation = conversationStore && repository && contextSources
     ? createAiConversationService({ store: conversationStore, legacyRepository: repository,

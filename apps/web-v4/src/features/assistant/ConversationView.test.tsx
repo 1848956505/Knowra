@@ -6,6 +6,7 @@ import { conversationAttachmentApi } from './conversationAttachmentApi';
 import type { ConversationAttachment } from './ConversationAttachmentPicker';
 import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
 import { noteActionApi, type NoteAction } from './noteActionApi';
+import { aiFeatures } from '../settings/aiFeatures';
 
 const fixture = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('../../app/router', async importOriginal => ({
 }));
 
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStoreApi: () => ({ getState: () => fixture.state }), useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
+vi.mock('../settings/aiFeatures', () => ({ aiFeatures: { get: vi.fn(), set: vi.fn() } }));
 vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn() } }));
 vi.mock('./conversationAttachmentApi', () => ({ conversationAttachmentApi: {
   list: vi.fn(), upload: vi.fn(), preview: vi.fn(), content: vi.fn(), remove: vi.fn()
@@ -39,6 +41,7 @@ const succeeded: ConversationTurn = { turnId: 'turn-1', conversationId: 'convers
 beforeEach(() => {
   vi.resetAllMocks();
   fixture.state.serverData.currentSpaceId = 'space-1';
+  vi.mocked(aiFeatures.get).mockResolvedValue({ knowledgeProposals: true });
   vi.mocked(conversationApi.list).mockResolvedValue([]);
   vi.mocked(noteActionApi.inbox).mockResolvedValue([]);
   vi.mocked(conversationAttachmentApi.list).mockResolvedValue([]);
@@ -543,4 +546,36 @@ it('执行记录：重点读取与知识候选提交有各自的标签和摘要�
   expect(screen.queryByText(/0 个来源片段/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '在知识库审核候选' }));
   expect(fixture.navigate).toHaveBeenCalledWith('/knowledge');
+});
+
+it('提炼知识点功能未开启：入口仍可进入，预填请求但不选用也不弹出授权，只说明“该功能未开启，可在设置中开启”并可前往设置', async () => {
+  vi.mocked(aiFeatures.get).mockResolvedValue({ knowledgeProposals: false });
+  vi.mocked(conversationApi.policies).mockResolvedValue([policyOf()]);
+  render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText('该功能未开启，可在设置中开启。')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('textbox', { name: '消息' })).toHaveValue('请根据我在笔记《笔记 A》（noteId: note-1）里标记的重点，提炼知识点。'));
+  expect(screen.queryByRole('dialog', { name: '授权助手读取资料' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/已选用现有读取授权/)).not.toBeInTheDocument();
+  expect(conversationApi.createPolicy).not.toHaveBeenCalled(); expect(conversationApi.send).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '前往设置' }));
+  expect(fixture.navigate).toHaveBeenCalledWith('/settings');
+});
+
+it('无法读取功能开关时按未开启处理并提示在设置中查看，不弹出授权', async () => {
+  vi.mocked(aiFeatures.get).mockRejectedValue(new Error('offline'));
+  render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(/无法确认“AI 提炼知识点”是否已开启/)).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: '授权助手读取资料' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '前往设置' })).toBeEnabled();
+});
+
+it('功能已开启或不是提炼入口时不显示未开启提示，也不读取开关', async () => {
+  render(<AssistantView pathname="/assistant?new=1&noteId=note-1&intent=extract" onOpenNote={vi.fn()} />);
+  expect(await screen.findByRole('dialog', { name: '授权助手读取资料' })).toBeInTheDocument();
+  expect(screen.queryByText('该功能未开启，可在设置中开启。')).not.toBeInTheDocument();
+  expect(aiFeatures.get).toHaveBeenCalledTimes(1);
+  vi.mocked(aiFeatures.get).mockClear();
+  render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  await waitFor(() => expect(conversationApi.policies).toHaveBeenCalled());
+  expect(aiFeatures.get).not.toHaveBeenCalled();
 });

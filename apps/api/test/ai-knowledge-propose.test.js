@@ -522,6 +522,55 @@ export const aiKnowledgePropose = [
       });
     }
   } },
+  { name: '知识提议开关：关闭时模型拿不到 knowledge_propose，开启后同一会话的新回合立即可用（无需重启）', run: () => {
+    let on = false, reads = 0;
+    return fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+      const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+      const p = await policy(); let round = 0;
+      respond(() => answer('已回答。', []));
+      const off = await submit('提炼这篇笔记的知识点', 'switch-off', p.policyId);
+      await runtime.agent.run(off.turnId);
+      assert(requests.length && requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')), '关闭时不得开放工具');
+      assert.equal(items().length, 0); assert.equal(reads, 1, '每个回合开始时读取一次开关');
+      on = true; requests.length = 0;
+      respond(() => ++round === 1 ? tool('notes_read', { noteId: note.id }) : round === 2 ? tool('knowledge_propose', proposal(note.id)) : answer('已提交。', [{ sourceId: 'S1', quote: Q1 }]));
+      const enabled = await submit('提炼这篇笔记的知识点', 'switch-on', p.policyId);
+      await runtime.agent.run(enabled.turnId);
+      assert(requests.every(request => request.tools.some(item => item.name === 'knowledge_propose')), '开启后新回合开放工具');
+      assert.equal(items().length, 1); assert.equal(reads, 2);
+    }, { knowledgeProposals: async () => { reads++; return on; } });
+  } },
+  { name: '知识提议开关：回合开始时读取并固定，回合中途切换不影响本回合（开→关与关→开）；读取失败按关闭处理', run: async () => {
+    for (const startOn of [true, false]) {
+      let on = startOn, flipped = false;
+      await fixture(async ({ app, runtime, space, requests, submit, policy, items, respond }) => {
+        const note = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+        const p = await policy(); let round = 0;
+        respond(() => {
+          round++;
+          if (round === 1) { on = !startOn; flipped = true; return tool('notes_read', { noteId: note.id }); }   // 第一轮模型调用期间切换开关
+          if (round === 2 && startOn) return tool('knowledge_propose', proposal(note.id));
+          return answer(startOn ? '已提交。' : '已回答。', startOn ? [{ sourceId: 'S1', quote: Q1 }] : []);
+        });
+        const turn = await submit('提炼这篇笔记的知识点', `mid-${startOn}`, p.policyId);
+        await runtime.agent.run(turn.turnId);
+        assert(flipped);
+        assert(requests.every(request => request.tools.some(item => item.name === 'knowledge_propose') === startOn), `本回合沿用开始时的开关（${startOn}）`);
+        assert.equal(items().length, startOn ? 1 : 0, '开→关：本回合仍可保存；关→开：本回合不开放');
+        requests.length = 0; round = 10;
+        const next = await submit('提炼这篇笔记的知识点', `mid-next-${startOn}`, p.policyId);
+        await runtime.agent.run(next.turnId);
+        assert(requests.every(request => request.tools.some(item => item.name === 'knowledge_propose') === !startOn), '下一个回合读取新的开关值');
+      }, { knowledgeProposals: async () => on });
+    }
+    await fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
+      app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
+      const p = await policy(); respond(() => answer('已回答。', []));
+      const turn = await submit('提炼这篇笔记的知识点', 'gate-throws', p.policyId);
+      await runtime.agent.run(turn.turnId);
+      assert(requests.length && requests.every(request => !request.tools.some(item => item.name === 'knowledge_propose')), '读取失败按关闭处理');
+    }, { knowledgeProposals: async () => { throw new Error('读取开关失败'); } });
+  } },
   { name: '知识提议：普通提问不开放该工具，即使已启用', run: () => fixture(async ({ app, runtime, space, requests, submit, policy, respond }) => {
     app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '笔记', rawMarkdown: MARKDOWN });
     const p = await policy(); respond(() => answer('这篇笔记讲数据增强。', []));

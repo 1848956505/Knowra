@@ -34,6 +34,7 @@ import { createNoteDeletionCoordinator } from './modules/knowledge/application/n
 import { createStorageConfig } from './config/storage.config.js';
 import { createLocalSyncService } from './modules/sync/local-provider.js';
 import { createModelSettingsService } from './modules/ai/model-settings.js';
+import { createAiFeatureSettings } from './modules/ai/feature-settings.js';
 import { createOptionalAiRuntime } from './modules/ai/runtime.js';
 import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
@@ -229,6 +230,7 @@ export function createPersistentAppContext({
   const dataStore = createFileDataStore(dataFilePath);
   const context = createAppContext({ dataStore, uploadsDir, storageRootDir, ownerId });
   context.http.modelSettings = createModelSettingsService();
+  context.http.aiFeatures = createAiFeatureSettings({ filePath: path.join(storageRootDir, 'ai-features.json') });
   context.http.aiBudget = dataStore.aiBudgetAuthority;
   context.ai = createOptionalAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
     uploadsDir,
@@ -236,6 +238,8 @@ export function createPersistentAppContext({
     conversationStore: dataStore.aiConversationStore, actionStore: dataStore.aiActionStore,
     coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
     budgetAuthority: dataStore.aiBudgetAuthority, priceProfile: reviewedDeepSeekPriceProfile,
+    // 每个提炼回合开始时读取当前开关；关闭（默认）时模型拿不到 knowledge_propose。
+    knowledgeProposals: async () => (await context.http.aiFeatures.get()).knowledgeProposals,
     allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0', contextSources: {
       ...context.modules.knowledge.repositories, ownerId: resolveOwnerId(ownerId, dataStore.state.spaces),
       spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository

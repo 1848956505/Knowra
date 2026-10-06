@@ -10,6 +10,7 @@ import { createOptionalAiRuntime, createUnavailableAiRuntime } from '../../api/s
 import { aiRuntimeLifecycle } from '../../api/src/modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
 import { createRemoteBudgetAuthority } from '../../api/src/modules/ai/remote-budget-authority.js';
+import { createAiFeatureSettings } from '../../api/src/modules/ai/feature-settings.js';
 
 /** 每次切换资料库都重建应用服务，避免 repository 留存旧 SQLite/内存引用。 */
 export function createRuntimeServices({ dataDirectory, logger = console, syncOptions = {}, credentialSource = null,
@@ -58,6 +59,9 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       store.flush(); return { ...attachment, cleanup: 'retained-local' };
     });
     const sync = createSyncEngine(store, { ...syncOptions, noteService, entityTransfer });
+    // AI 功能开关保存在本机数据目录，与钥匙串里的模型凭据分开；每个提炼回合开始时读取当前值，切换无需重启。
+    const aiFeatures = createAiFeatureSettings({ filePath: path.join(dataDirectory, 'ai-features.json') });
+    context.http.aiFeatures = aiFeatures;
     const modelSettings = credentialSource ?? {
       credentialReference: async () => null,
       resolveCredential: async () => { throw new Error('请先在 Mac 应用设置中配置模型。'); }
@@ -72,6 +76,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
       budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
+      knowledgeProposals: async () => (await aiFeatures.get()).knowledgeProposals,
       contextSources: { ...context.modules.knowledge.repositories,
         spaceRepository: context.modules.knowledge.repositories.knowledgeSpaceRepository, ownerId: 'demo' } },
       { enabled: true, unavailableReason: aiUnavailableReason, logger });
