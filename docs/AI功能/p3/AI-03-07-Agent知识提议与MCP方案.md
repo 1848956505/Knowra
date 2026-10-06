@@ -109,7 +109,8 @@
 - **身份验证**：适配器侧的 `client.mjs`（M2 的适配器直接复用）每次调用先检查配对文件（普通文件、当前用户、无组/他人权限）和 socket（socket、当前用户、无组/他人权限、目录同样），再发 nonce，运行端以 verifier 为密钥返回 HMAC，通过后才发令牌。运行端启动时在已持有数据目录锁的前提下清理旧 socket；非 socket 文件占用路径则拒绝启动。
 - **授权**：创建配对时生成一条 `read: true, egress: false, recipients: []` 的访问策略（复用内置助手的范围、排除项、私密笔记、资料集代际与撤销规则）；外发许可记在配对上（创建必须 `egressConfirmed: true`）。每个配对有一条运行授权（工具集仅 `notes_search`/`notes_read`，预算 0），到期前 60 秒内续发。
 - **统一外发出口**（`mcp-gate.mjs`）：工具只返回 `{ fragments: [{ noteId, title, start, end, text }], meta }`。出口逐条用 `verifyRead` 对照授权范围内笔记的**当前正文**，要求标题一致且 `text` 与 `content.slice(start, end)` 逐字相同，才生成响应与片段清单；`meta` 只允许数字与布尔值。工具无法返回授权外或改写过的内容。执行前后各复核一次配对状态、AI 总开关与 `allowExternal`，执行中撤销或关闭外发则不返回正文。
-- **限流默认值**：每配对每分钟 30 次、每日 1000 次（按 UTC 日历日）、并发 2、单次结果 64 KiB、单次最多 50 个片段、工具超时 15 秒；超限返回 `MCP_RATE_LIMITED`（含 `retryAfterSeconds`）或 `MCP_RESULT_TOO_LARGE`，不截断。实测出口加协议开销 p95 约 2.6–3.1 ms（含 60 KB 返回、60 万字节笔记），所以这些数值是为保护用户资料与客户端额度而设，不是容量上限，可在 M4 真实验收后调整。
+- **限流默认值**：每配对每分钟 30 次、每日 1000 次（按 UTC 日历日）、并发 2、单次响应 64 KiB（按最终序列化的响应计，含 JSON 转义、标题与偏移）、单次最多 50 个片段、工具超时 15 秒；超限返回 `MCP_RATE_LIMITED`（含 `retryAfterSeconds`）或 `MCP_RESULT_TOO_LARGE`，不截断。实测出口加协议开销 p95 约 2.6–3.1 ms（含 60 KB 返回、60 万字节笔记），所以这些数值是为保护用户资料与客户端额度而设，不是容量上限，可在 M4 真实验收后调整。
+- **过期与撤销清理**：配对过期或撤销后，含原始令牌的配对文件立即删除；运行端启动与列出配对时再清扫一次（含没有对应记录的孤儿文件），所以崩溃或重启后也不会残留。
 - **审计**：`mcp/audit.jsonl`（0600，超过 1 MiB 轮转一代），只记事件、配对 ID、工具名、状态、错误码、片段数、字节数与片段清单（笔记 ID、版本 ID、偏移、字节数）。
 - **稳定错误码**：`MCP_TOKEN_INVALID`、`MCP_PAIRING_REVOKED`、`MCP_PAIRING_EXPIRED`、`MCP_AI_DISABLED`、`MCP_EGRESS_DISABLED`、`MCP_ACCESS_REVOKED`、`MCP_RATE_LIMITED`、`MCP_RESULT_TOO_LARGE`、`MCP_RESULT_INVALID`、`MCP_TOOL_UNKNOWN`、`MCP_REQUEST_INVALID`、`MCP_TIMEOUT`、`MCP_RUNTIME_UNAVAILABLE`、`MCP_RUNTIME_UNTRUSTED`、`MCP_PAIRING_FILE_MISSING`/`UNSAFE`。
 - **尚未做**：M1 的生产装配里工具表为空（`mcpTools` 仅测试注入），所以暂时任何调用都返回 `MCP_TOOL_UNKNOWN`；工具在 M2 注册。网页版服务端不提供该入口。Windows 命名管道与权限未设计。

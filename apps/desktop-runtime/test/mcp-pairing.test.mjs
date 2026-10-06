@@ -15,13 +15,13 @@ const SECRET_BODY = '这是只允许授权范围内读取的合成正文，用�
 /** 测试专用工具：按偏移返回正文片段；M2 的真实工具走同一个出口。 */
 function testTools(extra = {}) {
   return {
-    read_slice: async ({ input, grantId, access }) => {
+    read_slice: { metaKeys: ['total'], run: async ({ input, grantId, access }) => {
       const { note, version } = await access.verifyRead({ grantId, noteId: input.noteId, tool: 'notes_read' });
       const end = input.end ?? version.content.length;
       return { fragments: [{ noteId: note.id, title: note.title, start: input.start ?? 0, end, text: version.content.slice(input.start ?? 0, end) }], meta: { total: version.content.length } };
-    },
+    } },
     // 绕过授权校验直接读仓库的恶意/有缺陷工具：必须被出口拦住。
-    raw: async ({ input }) => input.result,
+    raw: { metaKeys: ['count'], run: async ({ input }) => input.result },
     ...extra
   };
 }
@@ -112,6 +112,10 @@ test('越权与伪造：范围外、被排除、私密、正文不一致、版�
   await rejects(client.call('raw', { result: { fragments: [{ noteId: outside.id, title: '范围外', start: 0, end: 4, text: SECRET_BODY.slice(0, 4) }] } }), 'MCP_ACCESS_REVOKED');
   await rejects(client.call('raw', { result: { fragments: [{ noteId: inside.id, title: '范围内', start: 0, end: 9999, text: SECRET_BODY }] } }), 'MCP_RESULT_INVALID');
   await rejects(client.call('raw', { result: { fragments: [], meta: { leak: SECRET_BODY } } }), 'MCP_RESULT_INVALID');
+  // 未声明的键即使值是布尔值也不放行：它会绕开片段清单。
+  await rejects(client.call('raw', { result: { fragments: [], meta: { 未授权正文: true } } }), 'MCP_RESULT_INVALID');
+  await rejects(client.call('raw', { result: { fragments: [], meta: { count: '1' } } }), 'MCP_RESULT_INVALID');
+  assert.deepEqual((await client.call('raw', { result: { fragments: [], meta: { count: 2 } } })).meta, { count: 2 });
   await rejects(client.call('raw', { result: 'plain text' }), 'MCP_RESULT_INVALID');
   // 笔记在授权后改为私密：下一次调用即被拒。
   assert.equal((await env.call(`/api/knowledge/notes/${inside.id}`, 'PATCH', { aiVisibility: 'private' })).status, 200);
@@ -138,7 +142,7 @@ test('撤销与过期：立即拒绝，进行中的调用在校验点终止且�
   let release;
   const gate = new Promise(resolve => { release = resolve; });
   const env = await setup(t, { now: () => new Date(current), tools: testTools({
-    slow: async ({ input, grantId, access }) => { await gate; return testTools().read_slice({ input, grantId, access }); } }) });
+    slow: async ({ input, grantId, access }) => { await gate; return testTools().read_slice.run({ input, grantId, access }); } }) });
   const target = await env.note('撤销');
   const first = (await env.pair()).data;
   const saved = JSON.parse(fs.readFileSync(first.pairingFile, 'utf8'));
@@ -166,12 +170,13 @@ test('撤销与过期：立即拒绝，进行中的调用在校验点终止且�
   assert.equal((await expClient.call('read_slice', { noteId: target.id })).fragments.length, 1);
   current += 2 * 86_400_000;
   await rejects(expClient.call('read_slice', { noteId: target.id }), 'MCP_PAIRING_EXPIRED');
+  assert.equal(fs.existsSync(expiring.pairingFile), false, '过期后删除含原始令牌的配对文件');
   assert.equal((await env.call('/api/local-runtime/mcp/pairings')).data.items.find(item => item.pairingId === expiring.pairingId).status, 'expired');
 });
 
 test('工具执行期间外发被紧急关闭：返回前复核，不返回正文', async t => {
   let release; const hold = new Promise(resolve => { release = resolve; });
-  const env = await setup(t, { tools: testTools({ slow: async args => { await hold; return testTools().read_slice(args); } }) });
+  const env = await setup(t, { tools: testTools({ slow: async args => { await hold; return testTools().read_slice.run(args); } }) });
   const target = await env.note('执行中关闭外发');
   const client = connectMcpRuntime({ pairingFile: (await env.pair()).data.pairingFile });
   await withEnv('KNOWRA_AI_EGRESS_ENABLED', '1', async () => {
@@ -185,8 +190,8 @@ test('工具执行期间外发被紧急关闭：返回前复核，不返回正�
 
 test('限流与大小：超限返回稳定错误与重试时间，不静默截断，且不进入 AI 预算账本', async t => {
   let current = Date.parse('2026-10-06T10:00:00Z');
-  const env = await setup(t, { limits: { perMinute: 3, perDay: 5, concurrent: 1, maxResultBytes: 40 }, now: () => new Date(current) });
-  const target = await env.note('限流');
+  const env = await setup(t, { limits: { perMinute: 3, perDay: 5, concurrent: 1, maxResultBytes: 700 }, now: () => new Date(current) });
+  const target = await env.note('限流', { rawMarkdown: '限'.repeat(400) });
   const ledger = () => env.runtime.store.readSync(db => ['ai_usage_records', 'ai_jobs', 'ai_job_attempts'].map(table => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n));
   const ledgerBefore = ledger();
   const client = connectMcpRuntime({ pairingFile: (await env.pair()).data.pairingFile });
@@ -200,6 +205,32 @@ test('限流与大小：超限返回稳定错误与重试时间，不静默截�
   const day = await client.call('read_slice', { noteId: target.id, start: 0, end: 3 }).catch(error => error);
   assert.equal(day.code, 'MCP_RATE_LIMITED'); assert(day.retryAfterSeconds > 60, '每日上限的重试时间指向次日');
   assert.deepEqual(ledger(), ledgerBefore, '外部调用不产生用量/任务记录');
+});
+
+test('大小上限按最终序列化响应计：JSON 转义、标题与偏移都算在内', async t => {
+  const env = await setup(t);
+  const quotes = await env.note('转义', { rawMarkdown: '"'.repeat(40_000) });
+  const client = connectMcpRuntime({ pairingFile: (await env.pair()).data.pairingFile });
+  // 正文只有 40,000 字节，但转义后的响应超过 64 KiB。
+  await rejects(client.call('read_slice', { noteId: quotes.id }), 'MCP_RESULT_TOO_LARGE');
+  assert.equal((await client.call('read_slice', { noteId: quotes.id, start: 0, end: 20_000 })).fragments[0].text.length, 20_000);
+});
+
+test('过期配对重启后清理：原始令牌文件与孤儿文件都被删除', async t => {
+  let current = Date.now();
+  const first = await setup(t, { now: () => new Date(current) });
+  const created = (await first.pair({ expiresInDays: 1 })).data;
+  const keep = (await first.pair({ expiresInDays: 30 })).data;
+  const orphan = path.join(path.dirname(created.pairingFile), `${'0'.repeat(8)}-0000-0000-0000-${'0'.repeat(12)}.json`);
+  fs.writeFileSync(orphan, '{}', { mode: 0o600 });
+  await first.stop();
+  assert.equal(fs.existsSync(created.pairingFile), true, '重启前文件仍在（尚未过期）');
+  current += 2 * 86_400_000;
+  const second = await setup(t, { now: () => new Date(current), dataDirectory: first.data });
+  assert.equal(fs.existsSync(created.pairingFile), false, '启动即清理过期配对的令牌文件');
+  assert.equal(fs.existsSync(orphan), false, '孤儿文件被清理');
+  assert.equal(fs.existsSync(keep.pairingFile), true, '有效配对不受影响');
+  assert.equal((await second.call('/api/local-runtime/mcp/pairings')).data.items.find(item => item.pairingId === created.pairingId).status, 'expired');
 });
 
 test('并发上限：第二个并发调用被限流', async t => {

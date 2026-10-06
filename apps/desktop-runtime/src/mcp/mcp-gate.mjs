@@ -56,13 +56,15 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     return grant.grantId;
   }
   /** 逐条核对片段：来自授权范围内、未被排除、非私密笔记的当前正文，标题与偏移文本必须逐字一致。 */
-  async function verifyFragments(access, grantId, result) {
+  async function verifyFragments(access, grantId, result, metaKeys) {
     if (!isPlainObject(result) || !Array.isArray(result.fragments) || result.fragments.length > limit.maxFragments) {
       throw mcpError('MCP_RESULT_INVALID', '工具返回格式无效。', { status: 500 });
     }
     const meta = result.meta ?? {};
-    if (!isPlainObject(meta) || Object.values(meta).some(value => typeof value !== 'number' && typeof value !== 'boolean' || typeof value === 'number' && !Number.isFinite(value))) {
-      throw mcpError('MCP_RESULT_INVALID', '工具返回的附加信息只允许数字与布尔值。', { status: 500 });
+    // 附加信息只允许工具声明过的键，且值只能是数字或布尔值；其余内容一律只能走带偏移的片段。
+    if (!isPlainObject(meta) || Object.entries(meta).some(([key, value]) => !metaKeys.includes(key)
+      || typeof value !== 'number' && typeof value !== 'boolean' || typeof value === 'number' && !Number.isFinite(value))) {
+      throw mcpError('MCP_RESULT_INVALID', '工具返回了未声明的附加信息。', { status: 500 });
     }
     const verified = new Map();
     const fragments = [], manifest = [];
@@ -80,7 +82,13 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
       fragments.push({ noteId: note.id, title: note.title, noteVersionId: version.id, contentHash, start: item.start, end: item.end, text: item.text });
       manifest.push({ noteId: note.id, noteVersionId: version.id, start: item.start, end: item.end, bytes: size });
     }
-    if (bytes > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
+    // 返回前对全部来源做一次批量复核（同一次仓库快照），逐篇校验期间被改为私密或改动的来源在此拦下。
+    if (fragments.length) {
+      await access.assertSearchSources({ grantId, sourceRefs: [...verified.values()].map(({ note, contentHash }) => ({ noteId: note.id, contentHash })) });
+    }
+    // 上限按最终序列化的响应计（含 JSON 转义、标题、偏移等全部字段），不是只数正文字节。
+    const serialized = Buffer.byteLength(JSON.stringify({ data: { fragments, meta } }), 'utf8');
+    if (serialized > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
     return { fragments, manifest, bytes, meta };
   }
 
@@ -92,7 +100,9 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     try {
       pairings.assertActive(row);
       assertFlags();
-      const handler = Object.hasOwn(tools, tool) ? tools[tool] : null;
+      const entry = Object.hasOwn(tools, tool) ? tools[tool] : null;
+      const handler = typeof entry === 'function' ? entry : entry?.run ?? null;
+      const metaKeys = Array.isArray(entry?.metaKeys) ? entry.metaKeys : [];
       if (!handler) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
       if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
       admit(row); admitted = true;
@@ -106,7 +116,7 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
           .finally(() => clearTimeout(timer));
         // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
         pairings.assertActive(row); assertFlags(); await access.assertSearchGrant({ grantId });
-        return verifyFragments(access, grantId, raw);
+        return verifyFragments(access, grantId, raw, metaKeys);
       })().catch(error => { pairings.assertActive(row); throw mapAccess(error); });
       pairings.assertActive(row); assertFlags();
       audit.append({ ...base, status: 'ok', fragments: outcome.fragments.length, bytes: outcome.bytes, manifest: outcome.manifest });

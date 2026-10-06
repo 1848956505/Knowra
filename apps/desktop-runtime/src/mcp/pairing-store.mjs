@@ -40,6 +40,18 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     } catch { return []; }
   };
   let rows = load();
+  const isExpired = row => Date.parse(row.expiresAt) <= now().getTime();
+  /** 已撤销、已过期的配对不应留下原始令牌：删除其配对文件；也清理没有对应记录的孤儿文件。 */
+  function sweep() {
+    const live = new Set(rows.filter(row => !row.revokedAt && !isExpired(row)).map(row => row.pairingId));
+    let names = [];
+    try { names = fs.readdirSync(pairingFiles); } catch { /* 目录刚创建 */ }
+    for (const name of names) {
+      const id = name.replace(/\.json$/, '');
+      if (!live.has(id)) fs.rmSync(path.join(pairingFiles, name), { force: true });
+    }
+  }
+  sweep();
   const save = () => writeAtomic(recordsFile, JSON.stringify(rows));
   const fileFor = id => path.join(pairingFiles, `${id}.json`);
   const publicView = row => ({ pairingId: row.pairingId, label: row.label, spaceId: row.spaceId, scope: row.scope,
@@ -50,7 +62,8 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
 
   return {
     pairingFile: fileFor,
-    list: () => rows.map(publicView),
+    sweep,
+    list: () => { sweep(); return rows.map(publicView); },
     get: id => rows.find(row => row.pairingId === id) ?? null,
     create({ label, spaceId, scope, excludedNoteIds, policyId, policyRevision, expiresInDays, socketPath, dataDirectory }) {
       const pairingId = randomUUID();
@@ -74,7 +87,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     },
     assertActive(row) {
       if (row.revokedAt) throw mcpError('MCP_PAIRING_REVOKED', '配对已撤销。', { status: 401 });
-      if (Date.parse(row.expiresAt) <= now().getTime()) throw mcpError('MCP_PAIRING_EXPIRED', '配对已过期，请重新创建。', { status: 401 });
+      if (isExpired(row)) { fs.rmSync(fileFor(row.pairingId), { force: true }); throw mcpError('MCP_PAIRING_EXPIRED', '配对已过期，请重新创建。', { status: 401 }); }
     },
     verifierOf: id => rows.find(row => row.pairingId === id)?.verifier ?? null,
     /** 计数与最近使用时间；每日计数以 UTC 日期换算。 */
