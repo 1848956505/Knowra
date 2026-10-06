@@ -1,11 +1,29 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { LOCAL_DATA_COLLECTIONS } from '../../infrastructure/local-data-schema.js';
 import { createAppError } from '../../errors/app-error.js';
+import { cloneJsonData } from '../../infrastructure/json-clone.js';
 
 export const syncKey = (collection, id) => JSON.stringify([collection, id]);
 export const syncError = (code, message, status = 409) => createAppError(code, message, status);
 export const requestHash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export const thenResult = (value, callback) => value && typeof value.then === 'function' ? value.then(callback) : callback(value);
+
+const baselineHash = Symbol('syncBaselineHash');
+
+// 仅保留比较摘要和删除事实所需字段；来源防降级仍保留完整记录。
+export function createSyncBaseline(state) {
+  return Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, state[collection].map(item => ({
+    ...(collection === 'knowledgeArtifactProvenance' ? structuredClone(item)
+      : { id: item.id, updatedAt: item.updatedAt, spaceId: item.spaceId }),
+    [baselineHash]: requestHash(item)
+  }))]));
+}
+
+// appendChanges 只替换映射项、追加/裁剪事务组，不改写已提交的组和快照内容。
+export function cloneJournalForChanges(journal) {
+  return { ...journal, revisions: { ...journal.revisions }, tombstones: { ...journal.tombstones },
+    changes: [...journal.changes], snapshots: { ...journal.snapshots } };
+}
 
 export function createJournal(state) {
   const revisions = {};
@@ -18,7 +36,7 @@ export function loadJournal(value, state) {
   if (!value || value.version !== 1 || typeof value.epoch !== 'string'
     || !Number.isSafeInteger(value.head) || !Array.isArray(value.changes)
     || !value.revisions || !value.receipts || !value.snapshots) throw syncError('SYNC_STORAGE_INVALID', '同步日志格式无效，已停止加载。', 500);
-  const journal = structuredClone(value);
+  const journal = cloneJsonData(value);
   journal.tombstones ??= {};
   if (LOCAL_DATA_COLLECTIONS.every(collection => Array.isArray(state[collection]))) {
     const present = new Set(LOCAL_DATA_COLLECTIONS.flatMap(collection => state[collection].map(item => syncKey(collection, item.id))));
@@ -70,7 +88,10 @@ export function appendChanges(journal, before, after) {
     const next = new Map((after[collection] ?? []).map(item => [item.id, item]));
     for (const id of new Set([...old.keys(), ...next.keys()])) {
       const value = next.get(id) ?? null;
-      if (JSON.stringify(old.get(id) ?? null) === JSON.stringify(value)) continue;
+      const previous = old.get(id) ?? null;
+      if (previous?.[baselineHash] !== undefined
+        ? value !== null && previous[baselineHash] === requestHash(value)
+        : JSON.stringify(previous) === JSON.stringify(value)) continue;
       const key = syncKey(collection, id);
       const revision = (journal.revisions[key] ?? 0) + 1;
       journal.revisions[key] = revision;

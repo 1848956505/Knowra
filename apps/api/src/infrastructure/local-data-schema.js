@@ -1,4 +1,5 @@
 import { createAppError } from '../errors/app-error.js';
+import { cloneJsonData } from './json-clone.js';
 import {
   normalizeLegacyNoteReferences,
   reconcileSyncedSourceStates,
@@ -104,7 +105,7 @@ export function cloneLocalState(state) {
   return Object.fromEntries(
     LOCAL_DATA_COLLECTIONS.map((collectionName) => [
       collectionName,
-      structuredClone(state[collectionName])
+      cloneJsonData(state[collectionName])
     ])
   );
 }
@@ -129,7 +130,7 @@ function validateCollections(input, { allowMissingOptionalCollections }) {
     value.forEach((item, index) => {
       validateEntity(collectionName, item, index);
     });
-    state[collectionName] = structuredClone(value);
+    state[collectionName] = cloneJsonData(value);
   }
 
   return state;

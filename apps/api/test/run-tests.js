@@ -46,6 +46,7 @@ import { noteRepositoryTests } from './note-repository.test.js';
 import { noteDtoTests } from './note-dto.test.js';
 import { markdownPreviewTests } from './markdown-preview.test.js';
 import { fileDataStoreTests } from './file-data-store.test.js';
+import { syncMemoryTests } from './sync-memory.test.js';
 import { localAttachmentStoreTests } from './local-attachment-store.test.js';
 import { folderDtoTests } from './folder-dto.test.js';
 import { folderRepositoryTests } from './folder-repository.test.js';
@@ -150,6 +151,7 @@ const tests = [
   ...noteDtoTests,
   ...markdownPreviewTests,
   ...fileDataStoreTests,
+  ...syncMemoryTests,
   ...localAttachmentStoreTests,
   ...noteRepositoryTests,
   ...folderDtoTests,

@@ -49,7 +49,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
         if (!transfer) throw syncError('SYNC_UNAVAILABLE', '此服务未配置附件传输。', 503);
         prepared[entry.id] = transfer.verify(entry.value);
       }
-      return provider.mutate((state, journal) => {
+      return (provider.mutateBatch ?? provider.mutate)((state, journal) => {
         if (journal.epoch !== op.datasetEpoch) throw syncError('DATASET_CHANGED', '云端资料库已变化。');
         if (journal.receipts[key]) {
           if (journal.receipts[key].hash !== hash) throw syncError('OPERATION_REUSED', '同一操作 ID 的内容不能改变。', 422);

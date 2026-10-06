@@ -20,6 +20,7 @@ export function createLocalSyncService(dataStore, noteService, ownerId, transfer
       : dataStore.runSyncTransaction(() => callback(dataStore.state, dataStore.getSyncJournal())),
     read: callback => callback(dataStore.state, dataStore.getSyncJournal()),
     mutate: callback => dataStore.runSyncTransaction(() => callback(dataStore.state, dataStore.getSyncJournal())),
+    mutateBatch: callback => (dataStore.runSyncBatchTransaction ?? dataStore.runSyncTransaction)(() => callback(dataStore.state, dataStore.getSyncJournal())),
     preview: () => ({ state: dataStore.state, journal: dataStore.previewSyncJournal() }),
     applyState: next => { for (const [collection, items] of Object.entries(next)) dataStore.state[collection].splice(0, dataStore.state[collection].length, ...items); },
     applyNote: (operation, current) => applyNoteOperation(noteService, operation, current)
