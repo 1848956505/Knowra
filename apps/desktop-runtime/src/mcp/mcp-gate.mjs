@@ -41,9 +41,27 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     inflight.set(row.pairingId, (inflight.get(row.pairingId) ?? 0) + 1);
     pairings.recordUse(row);
   }
-  const mapAccess = error => error?.code?.startsWith?.('AI_')
-    ? mcpError('MCP_ACCESS_REVOKED', error.code === 'AI_SCOPE_FORBIDDEN' ? '来源不在授权范围。' : '授权已撤销、过期、资料集已切换或来源已变化。', { status: 403 })
-    : error;
+  const mapAccess = error => {
+    if (!error?.code?.startsWith?.('AI_')) return error;
+    if (['AI_TOOL_ARGUMENTS_INVALID', 'AI_SEARCH_INVALID'].includes(error.code)) return mcpError('MCP_REQUEST_INVALID', '工具参数无效。', { status: 400 });
+    if (error.code === 'AI_SOURCE_STALE') return mcpError('MCP_SOURCE_CHANGED', '读取期间笔记已变化，请重试。', { status: 409 });
+    return mcpError('MCP_ACCESS_REVOKED', error.code === 'AI_SCOPE_FORBIDDEN' ? '来源不在授权范围。' : '授权已撤销、过期、资料集已切换或来源已变化。', { status: 403 });
+  };
+  const normalize = entry => typeof entry === 'function' ? { run: entry, metaKeys: [], fragmentAttrs: {} }
+    : { run: entry?.run, metaKeys: Array.isArray(entry?.metaKeys) ? entry.metaKeys : [], fragmentAttrs: entry?.fragmentAttrs ?? {},
+      description: entry?.description, inputSchema: entry?.inputSchema };
+  /** 片段附加字段只允许工具声明过的键，且值限于枚举、布尔值或受限格式的标识符，不能夹带自由文本。 */
+  function checkAttrs(attrs, spec) {
+    if (attrs === undefined) return undefined;
+    if (!isPlainObject(attrs)) throw mcpError('MCP_RESULT_INVALID', '片段附加字段无效。', { status: 500 });
+    for (const [key, value] of Object.entries(attrs)) {
+      const rule = Object.hasOwn(spec, key) ? spec[key] : null;
+      const ok = rule && (rule.enum ? rule.enum.includes(value) : rule.boolean ? typeof value === 'boolean'
+        : rule.pattern ? typeof value === 'string' && new RegExp(rule.pattern).test(value) : false);
+      if (!ok) throw mcpError('MCP_RESULT_INVALID', '工具返回了未声明的片段附加字段。', { status: 500 });
+    }
+    return attrs;
+  }
   async function ensureGrant(access, row) {
     const cached = grants.get(row.pairingId);
     if (cached && cached.expiresAt - now().getTime() > MIN_GRANT_LEFT_MS) {
@@ -56,7 +74,7 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     return grant.grantId;
   }
   /** 逐条核对片段：来自授权范围内、未被排除、非私密笔记的当前正文，标题与偏移文本必须逐字一致。 */
-  async function verifyFragments(access, grantId, result, metaKeys) {
+  async function verifyFragments(access, grantId, result, { metaKeys, fragmentAttrs }) {
     if (!isPlainObject(result) || !Array.isArray(result.fragments) || result.fragments.length > limit.maxFragments) {
       throw mcpError('MCP_RESULT_INVALID', '工具返回格式无效。', { status: 500 });
     }
@@ -79,7 +97,8 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
       }
       const size = Buffer.byteLength(item.text, 'utf8');
       bytes += size;
-      fragments.push({ noteId: note.id, title: note.title, noteVersionId: version.id, contentHash, start: item.start, end: item.end, text: item.text });
+      const attrs = checkAttrs(item.attrs, fragmentAttrs);
+      fragments.push({ noteId: note.id, title: note.title, noteVersionId: version.id, contentHash, start: item.start, end: item.end, text: item.text, ...(attrs ? { attrs } : {}) });
       manifest.push({ noteId: note.id, noteVersionId: version.id, start: item.start, end: item.end, bytes: size });
     }
     // 返回前对全部来源做一次批量复核（同一次仓库快照），逐篇校验期间被改为私密或改动的来源在此拦下。
@@ -100,9 +119,8 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     try {
       pairings.assertActive(row);
       assertFlags();
-      const entry = Object.hasOwn(tools, tool) ? tools[tool] : null;
-      const handler = typeof entry === 'function' ? entry : entry?.run ?? null;
-      const metaKeys = Array.isArray(entry?.metaKeys) ? entry.metaKeys : [];
+      const entry = Object.hasOwn(tools, tool) ? normalize(tools[tool]) : null;
+      const handler = entry?.run ?? null;
       if (!handler) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
       if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
       admit(row); admitted = true;
@@ -116,7 +134,7 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
           .finally(() => clearTimeout(timer));
         // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
         pairings.assertActive(row); assertFlags(); await access.assertSearchGrant({ grantId });
-        return verifyFragments(access, grantId, raw, metaKeys);
+        return verifyFragments(access, grantId, raw, entry);
       })().catch(error => { pairings.assertActive(row); throw mapAccess(error); });
       pairings.assertActive(row); assertFlags();
       audit.append({ ...base, status: 'ok', fragments: outcome.fragments.length, bytes: outcome.bytes, manifest: outcome.manifest });
@@ -129,5 +147,14 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
       if (admitted) inflight.set(row.pairingId, Math.max(0, (inflight.get(row.pairingId) ?? 1) - 1));
     }
   }
-  return { call, limits: limit, forgetGrant: id => grants.delete(id) };
+  /** 工具清单：只有有效配对能看到；描述与参数结构由运行端统一定义，适配器不自带工具表。 */
+  function describeTools({ token }) {
+    const row = pairings.authenticate(token);
+    pairings.assertActive(row);
+    return Object.entries(tools).map(([name, raw]) => {
+      const entry = normalize(raw);
+      return { name, description: entry.description ?? '', inputSchema: entry.inputSchema ?? { type: 'object', properties: {}, additionalProperties: false } };
+    });
+  }
+  return { call, describeTools, limits: limit, forgetGrant: id => grants.delete(id) };
 }
