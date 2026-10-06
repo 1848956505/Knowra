@@ -152,7 +152,7 @@ for (const stage of ['fetch', 'receipt']) test(`上传${stage === 'fetch' ? '等
   const requests = [];
   const a = f.device(`timeout-${stage}`, async (url, options) => {
     const upload = url.endsWith('/batch');
-    requests.push({ upload, budget: budgets.get(options.signal), ...(upload ? { operation: JSON.parse(options.body) } : {}) });
+    requests.push({ upload, bootstrap: url.endsWith('/bootstrap'), budget: budgets.get(options.signal), ...(upload ? { operation: JSON.parse(options.body) } : {}) });
     const response = await fetch(url, options);
     if (armed && upload && !lost) {
       lost = true; await response.arrayBuffer();
@@ -178,7 +178,42 @@ for (const stage of ['fetch', 'receipt']) test(`上传${stage === 'fetch' ? '等
   assert.equal(retries.length, 2);
   assert.deepEqual(retries[0].operation, retries[1].operation);
   assert(requests.filter(item => item.upload).every(item => item.budget === 90000));
-  assert(requests.filter(item => !item.upload).every(item => item.budget === 15000));
+  assert(requests.filter(item => item.bootstrap).every(item => item.budget === 90000));
+  assert(requests.filter(item => !item.upload && !item.bootstrap).every(item => item.budget === 15000));
+});
+
+for (const stage of ['fetch', 'receipt']) test(`初始化快照${stage === 'fetch' ? '等待响应' : '下载响应'}超时保留本机修改，重启后使用90秒预算完成同步`, async t => {
+  const originalTimeout = AbortSignal.timeout;
+  const budgets = new WeakMap();
+  AbortSignal.timeout = ms => { const signal = originalTimeout(ms); budgets.set(signal, ms); return signal; };
+  t.after(() => { AbortSignal.timeout = originalTimeout; });
+  const f = await fixture(t); let lost = false;
+  const requests = [];
+  const a = f.device(`bootstrap-timeout-${stage}`, async (url, options) => {
+    requests.push({ bootstrap: url.endsWith('/bootstrap'), upload: url.endsWith('/batch'), budget: budgets.get(options.signal) });
+    const response = await fetch(url, options);
+    if (url.endsWith('/bootstrap') && !lost) {
+      lost = true; await response.arrayBuffer();
+      const failure = new DOMException('snapshot timed out', 'TimeoutError');
+      if (stage === 'fetch') throw failure;
+      return { ok: true, status: 200, headers: response.headers, json: async () => { throw failure; } };
+    }
+    return response;
+  });
+  const note = a.knowledge.noteService.createNote({ title: '初始化前的本机笔记', rawMarkdown: '尚未上传的正文', spaceId: f.space.id });
+  await a.connect();
+  assert.equal(a.engine.status().error.code, 'SYNC_BOOTSTRAP_TIMEOUT');
+  assert.match(a.engine.status().error.message, /本地资料已保留/);
+  assert(a.engine.status().pendingEntities > 0);
+  assert.equal(a.store.state.notes.find(item => item.id === note.id).rawMarkdown, '尚未上传的正文');
+  await a.restart(); await a.connect();
+  assert.equal(a.engine.status().error, null);
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.equal(f.cloud.state.notes.find(item => item.id === note.id).rawMarkdown, '尚未上传的正文');
+  assert(requests.some(item => item.bootstrap));
+  assert(requests.filter(item => item.bootstrap).every(item => item.budget === 90000));
+  assert(requests.filter(item => item.upload).every(item => item.budget === 90000));
+  assert(requests.filter(item => !item.bootstrap && !item.upload).every(item => item.budget === 15000));
 });
 
 test('升级前的1000条冻结请求不按新软目标拆改，超时重启仍原样重放，后续历史采用小批次', async t => {
