@@ -16,6 +16,8 @@ const MUTATIONS = [
   ['POST', /^\/api\/ai\/conversations\/[^/]+\/turns\/[^/]+\/(?:cancel|retry|resume)$/],
   ['POST', /^\/api\/ai\/access-policies$/],
   ['PATCH', /^\/api\/ai\/access-policies\/[^/]+$/],
+  // AI 功能开关只写本机数据目录里的一个布尔文件，不触发 AI，也不读写模型凭据。
+  ['PUT', /^\/api\/ai\/features$/],
   ['POST', /^\/api\/ai\/assistant\/preview$/],
   ['POST', /^\/api\/ai\/assistant\/jobs$/],
   ['POST', /^\/api\/ai\/assistant\/jobs\/[^/]+\/cancel$/],

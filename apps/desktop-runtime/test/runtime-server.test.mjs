@@ -245,3 +245,35 @@ test('P2 真实本地入口受信预览、确认、提交、草稿及撤销，�
   assert.equal((await call(`/api/ai/actions/${undo.actionId}/apply`,'POST',{},headers)).data.status,'applied');
   assert.equal(runtime.store.state.notes[0].deleted,true);
 });
+
+test('桌面端 AI 功能开关：默认关闭，经本地接口开启后保存在数据目录，重启保留；运行时每次读取当前值，且不碰模型凭据', async t => {
+  const root = temporaryDirectory(t), distRoot = path.join(root, 'dist'), dataDirectory = path.join(root, 'data');
+  fs.mkdirSync(distRoot); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head><body>Knowra</body></html>');
+  const gates = [];
+  const start = async () => {
+    const runtime = await startLocalRuntime({ dataDirectory, distRoot, syncOptions: { autoSync: false },
+      aiRuntimeFactory(options) { gates.push(options.knowledgeProposals); return { ...options, unavailableReason: '测试' }; } });
+    const cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
+    const call = async (method, body, headers = {}) => {
+      const response = await fetch(`${runtime.origin}/api/ai/features`, { method, headers: { Cookie: cookie, 'Content-Type': 'application/json',
+        'X-Knowra-Dataset': runtime.store.getStatus().datasetId, ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      return { status: response.status, ...(await response.json()) };
+    };
+    return { runtime, call };
+  };
+  const first = await start();
+  assert.deepEqual((await first.call('GET')).data, { knowledgeProposals: false });
+  assert.equal(typeof gates.at(-1), 'function'); assert.equal(await gates.at(-1)(), false);
+  assert.equal((await first.call('PUT', { knowledgeProposals: true })).status, 403);
+  assert.equal(await gates.at(-1)(), false, '缺少请求头的写入不生效');
+  assert.deepEqual((await first.call('PUT', { knowledgeProposals: true }, { 'X-Knowra-AI-Features': '1' })).data, { knowledgeProposals: true });
+  assert.equal(await gates.at(-1)(), true, '无需重启，运行时读取到新值');
+  assert.equal((await first.call('PUT', { knowledgeProposals: 'yes' }, { 'X-Knowra-AI-Features': '1' })).error.code, 'AI_FEATURES_INVALID');
+  assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-features.json')), true);
+  assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-provider.json')), false, '不写模型凭据文件');
+  await first.runtime.close();
+  const second = await start();
+  t.after(() => second.runtime.close());
+  assert.deepEqual((await second.call('GET')).data, { knowledgeProposals: true });
+  assert.equal(await gates.at(-1)(), true);
+});

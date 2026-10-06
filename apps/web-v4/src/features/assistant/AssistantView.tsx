@@ -22,6 +22,7 @@ import type { NoteAction } from './noteActionApi';
 import { isCurrentReviewTarget } from './reviewTarget';
 import { LegacyAssistantView } from './LegacyAssistantView';
 import { readConversationSnapshot } from './conversationSnapshot';
+import { aiFeatures } from '../settings/aiFeatures';
 import { ReadableMarkdown } from './ReadableMarkdown';
 import styles from './ConversationView.module.css';
 
@@ -149,14 +150,25 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   // 否则打开授权对话框（预设为仅本篇）——读取与外发必须由用户明确授权，这里不自动授权、不自动发送。
   const extractNote = newConversation && params.get('intent') === 'extract' && initialNoteId ? notes.find(note => note.id === initialNoteId) ?? null : null;
   const extractApplied = useRef<string | null>(null);
+  // “AI 提炼知识点”功能开关：关闭时入口仍然可用，但进入助手后只说明未开启，不再引导授权（授权对读取与外发是另一道门）。
+  const [proposalsFlag, setProposalsFlag] = useState<'loading' | 'on' | 'off' | 'unknown'>('loading');
   useEffect(() => {
-    if (!extractNote || !policiesReady || !spaceId) return;
+    if (!extractNote) return;
+    let cancelled = false;
+    setProposalsFlag('loading');
+    aiFeatures.get().then(value => { if (!cancelled) setProposalsFlag(value.knowledgeProposals ? 'on' : 'off'); })
+      .catch(() => { if (!cancelled) setProposalsFlag('unknown'); });
+    return () => { cancelled = true; };
+  }, [extractNote?.id, spaceId]);
+  useEffect(() => {
+    if (!extractNote || !policiesReady || !spaceId || proposalsFlag === 'loading') return;
     const key = `${spaceId}:${extractNote.id}`;
     if (extractApplied.current === key) return;
     extractApplied.current = key;
     const title = (extractNote.title || '未命名笔记').replace(/\s+/g, ' ').slice(0, 60);
     setDraft(current => current.trim() ? current : `请根据我在笔记《${title}》（noteId: ${extractNote.id}）里标记的重点，提炼知识点。`);
     pendingSend.current = null;
+    if (proposalsFlag !== 'on') return;
     const covers = (policy: AccessPolicy) => {
       // 先排除“不允许读取本篇”的策略（排除项优先于任何范围，服务端读取时同样拒绝），再判断范围。
       if (policy.excludedNoteIds?.includes(extractNote.id) || policy.read === false || !policy.recipients.includes('deepseek')) return false;
@@ -172,7 +184,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     const covering = activePolicies.find(covers);
     if (covering) { scopeRevision.current++; setScopeChoice(covering.policyId); setNotice(`已选用现有读取授权：${scopeName(covering)}。确认请求后发送。`); }
     else { setGrantKind('fixed'); setGrantNoteId(extractNote.id); setGrantFolderId(folders[0]?.id ?? ''); setGrantOpen(true); }
-  }, [extractNote?.id, policiesReady, spaceId]);
+  }, [extractNote?.id, policiesReady, spaceId, proposalsFlag]);
 
   async function refreshConversation(id: string, initializeScope = false) {
     if (selection.current !== id) return;
@@ -540,6 +552,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
               <Button variant="accent" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
             </div> : <>
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
+              {extractNote && (proposalsFlag === 'off' || proposalsFlag === 'unknown') ? <p className={styles.composerHint} role="status">
+                {proposalsFlag === 'off' ? '该功能未开启，可在设置中开启。' : '无法确认“AI 提炼知识点”是否已开启，可在设置中查看。'}
+                <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>前往设置</Button></p> : null}
               <div className={styles.composerCard} data-conversation-composer="true">
           <TextAreaField label="消息" presentation="composer" value={draft}
                   onChange={value => { setDraft(value); pendingSend.current = null; }}

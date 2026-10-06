@@ -23,6 +23,6 @@ test('设置分类提供关于入口，切换后显示构建信息', async () =>
   await user.click(screen.getByRole('button', { name: /关于知境/ }));
   expect(screen.getByRole('heading', { name: '关于知境·Knowra' })).toBeVisible();
   expect(screen.getByText('完整提交 SHA')).toBeVisible();
-  expect(screen.getByText('显示 1 / 5 项设置')).toBeVisible();
+  expect(screen.getByText('显示 1 / 6 项设置')).toBeVisible();
   expect(screen.queryByText('模型接入测试')).not.toBeInTheDocument();
 });

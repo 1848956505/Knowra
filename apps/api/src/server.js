@@ -8,6 +8,7 @@ import { handleKnowledgeRoute } from './modules/knowledge/http/knowledge-routes.
 import { AppError } from './errors/app-error.js';
 import { handleSyncRoute } from './modules/sync/routes.js';
 import { handleModelSettingsRoute } from './modules/ai/model-settings-routes.js';
+import { handleAiFeatureRoute } from './modules/ai/feature-settings-routes.js';
 import { handleBudgetRoute } from './modules/ai/budget-routes.js';
 import { createAiAssistantService } from './modules/ai/assistant-service.js';
 import { handleAssistantRoute } from './modules/ai/assistant-routes.js';
@@ -70,6 +71,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
       if (await handleSyncRoute({ request, response, url, sync: appContext.http.sync })) return;
 
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
+      if (await handleAiFeatureRoute({ request, response, url, features: appContext.http.aiFeatures })) return;
       if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
       if (await handleAiJobRoute({ request, response, url, extraction })) return;
       if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;

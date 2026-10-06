@@ -4,8 +4,12 @@ const note = (rawMarkdown: string, contentLoaded: boolean) => ({ id: 'note-1', s
   tagIds: [], internalLinks: [], rawMarkdown, contentLoaded, favorite: false, deleted: false, status: 'draft', sourceType: 'manual',
   createdAt: '2026-08-12T13:14:00.000Z', updatedAt: '2026-08-31T02:32:00.000Z' });
 
-async function mockWorkspace(page: Page, policies: unknown[], created: Record<string, unknown>[], saved: string[]) {
+async function mockWorkspace(page: Page, policies: unknown[], created: Record<string, unknown>[], saved: string[], features = { knowledgeProposals: true }, featureWrites: unknown[] = []) {
   let markdown = '过拟合指模型在训练集上表现很好，但在新数据上泛化能力差。';
+  await page.route('**/api/ai/features', async route => {
+    if (route.request().method() === 'PUT') { const body = route.request().postDataJSON() as typeof features; featureWrites.push(body); features = { ...features, ...body }; }
+    await route.fulfill({ json: { data: features } });
+  });
   await page.route('**/api/ai/actions**', route => route.fulfill({ json: { data: [] } }));
   await page.route('**/api/ai/inbox**', route => route.fulfill({ json: { data: [] } }));
   await page.route('**/api/ai/actions/drafts', route => route.fulfill({ json: { data: { accepted: true } } }));
@@ -82,4 +86,34 @@ test('编辑器“让 AI 提炼知识点”：已有覆盖本篇的授权时直�
   await expect(page.getByText(/已选用现有读取授权/)).toBeVisible();
   await expect(page.getByRole('dialog', { name: '授权助手读取资料' })).toBeHidden();
   expect(created).toEqual([]);
+});
+
+test('功能未开启时入口仍可进入助手：预填请求并提示“该功能未开启，可在设置中开启”，不弹出授权，可前往设置开启', async ({ page }) => {
+  const created: Record<string, unknown>[] = [], writes: unknown[] = [];
+  await mockWorkspace(page, [], created, [], { knowledgeProposals: false }, writes);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#/materials/notes/note-1');
+  await page.getByRole('button', { name: '切换检查器', exact: true }).click();
+  await page.getByRole('tab', { name: 'AI', exact: true }).click();
+  await page.getByRole('button', { name: '让 AI 提炼知识点' }).click();
+  await expect(page.getByRole('textbox', { name: '消息' })).toHaveValue(extractRequest);
+  await expect(page.getByText('该功能未开启，可在设置中开启。')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '授权助手读取资料' })).toBeHidden();
+  await test.info().attach('功能未开启', { body: await page.screenshot(), contentType: 'image/png' });
+  expect(created).toEqual([]);
+  await page.getByRole('button', { name: '前往设置' }).click();
+  await expect(page).toHaveURL(/#\/settings/);
+  const toggle = page.getByRole('checkbox', { name: 'AI 提炼知识点' });
+  await expect(toggle).not.toBeChecked();
+  await toggle.locator('xpath=ancestor::label').click();
+  const dialog = page.getByRole('dialog', { name: '开启“AI 提炼知识点”？' });
+  await expect(dialog).toContainText('相关笔记片段会被发送到外部服务');
+  await test.info().attach('开启确认', { body: await page.screenshot(), contentType: 'image/png' });
+  expect(writes).toEqual([]);
+  await dialog.getByRole('button', { name: '确认开启' }).click();
+  await expect.poll(() => writes).toEqual([{ knowledgeProposals: true }]);
+  await expect(toggle).toBeChecked();
+  await toggle.locator('xpath=ancestor::label').click();
+  await expect.poll(() => writes).toEqual([{ knowledgeProposals: true }, { knowledgeProposals: false }]);
+  await expect(page.getByRole('dialog')).toBeHidden();
 });
