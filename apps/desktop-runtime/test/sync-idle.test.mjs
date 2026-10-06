@@ -69,6 +69,24 @@ for (const count of [3600, 7200]) test(`${count * 2 + 1} 条基线：预热后�
   } finally { Object.assign(f.store.state, original); f.store.readSync = read; }
 });
 
+test('空闲同步仅请求状态；游标落后才拉取，有待传修改时才校准设备序号', async t => {
+  const f = fixture(t); const urls = [];
+  const engine = createSyncEngine(f.store, { autoSync: false, entityTransfer: {}, fetcher: async url => {
+    urls.push(new URL(url).pathname.replace('/api/sync/', ''));
+    const data = url.endsWith('/status') ? { protocolVersion: 1, scope: 'notes', ...syncContract(), ownerId: 'demo', datasetEpoch: 'epoch', cursor: head }
+      : url.includes('/device?') ? { sequence: 0 } : { ...syncContract(), ownerId: 'demo', groups: [], cursor: head, datasetEpoch: 'epoch', hasMore: false };
+    return new Response(JSON.stringify({ data }));
+  } });
+  t.after(() => engine.close());
+  let head = 'cursor';
+  await engine.sync(); assert.deepEqual(urls.splice(0), ['status']);
+  head = 'cursor-2';
+  await engine.sync(); assert.deepEqual(urls.splice(0), ['status', 'changes']);
+  f.knowledge.noteService.updateNote(f.note.id, { title: '待上传修改' });
+  await engine.sync();
+  assert.deepEqual(urls.splice(0).slice(0, 3), ['status', 'device', 'batch']);
+});
+
 test('空页只推进游标，重复实体与仅基线修订变化不刷新资料', t => {
   const f = fixture(t); const { store, note } = f;
   const generation = () => store.readSync(db => readMeta(db, 'generation'));

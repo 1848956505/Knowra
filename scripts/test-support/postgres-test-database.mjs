@@ -30,6 +30,8 @@ export async function createPostgresTestDatabase({
       || allowWrites !== '1') {
     throw new Error('只能显式允许写入回环 Knowra 测试数据库（KNOWRA_SYNC_TEST_ALLOW_WRITES=1）。');
   }
+  // 测试中始终校验：批量写入后像按 ID 重建的结果必须与全表读取一致。
+  process.env.KNOWRA_SYNC_VERIFY_SCOPED_AFTER ??= '1';
   const schema = `knowra_test_${randomUUID().replaceAll('-', '')}`;
   const admin = await createClient(url.toString());
   let created = false;
