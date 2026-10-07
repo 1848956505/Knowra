@@ -36,3 +36,22 @@
   .modelContent { padding: 16px; }
   .modelFields { grid-template-columns: minmax(0, 1fr); }
 }
+
+.clientList { list-style: none; margin: 0; padding: 0; }
+.clientRow { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 16px 20px; }
+.clientRow + .clientRow { border-top: 1px solid var(--ink-panel); }
+.clientTitle { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.clientTitle h4 { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.5; }
+.clientMeta { margin: 4px 0 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.6; }
+.clientActions { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.clientAudit { margin: 10px 0 0; padding: 0; list-style: none; color: var(--ink-secondary); font: 500 11px/1.7 var(--font-mono); }
+.snippet { margin: 8px 0 0; padding: 12px; overflow: auto; border: 1px solid var(--ink-panel); background: var(--ink-bg); font: 500 11px/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.snippetHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.snippetHead h5 { margin: 0; color: var(--ink); font-size: 12px; }
+.dialogFields { display: grid; gap: 14px; }
+.dialogNote { margin: 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.7; }
+.warning { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--ink-panel); color: var(--ink); font-size: 12px; line-height: 1.6; }
+@media (max-width: 760px) {
+  .clientRow { flex-wrap: wrap; padding: 16px; }
+  .clientActions { width: 100%; }
+}

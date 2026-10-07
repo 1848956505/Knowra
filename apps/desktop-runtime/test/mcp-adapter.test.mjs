@@ -224,3 +224,21 @@ test('大小上限对最终消息生效：转义后超限被拒，成功响应�
     assert(Buffer.byteLength(line) <= limit, `完整消息 ${Buffer.byteLength(line)} 字节超过上限 ${limit}`);
   }
 });
+
+test('随应用打包的单文件适配器（esbuild）无需 node_modules 即可运行：握手、列工具、读取', async t => {
+  const { build } = await import('esbuild');
+  const env = await setup(t);
+  const bundle = path.join(env.root, 'bundle', 'mcp-adapter.mjs');
+  await build({ entryPoints: [ADAPTER], outfile: bundle, bundle: true, platform: 'node', format: 'esm', target: 'node24',
+    banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
+  const note = await env.note('打包验证');
+  const pairing = await env.pair();
+  // 在没有 node_modules 的目录里运行打包文件，确认依赖都已内联。
+  const transport = new StdioClientTransport({ command: process.execPath, args: [bundle, '--pairing-file', pairing.pairingFile], cwd: env.root });
+  const client = new Client({ name: 'bundle', version: '0' });
+  await client.connect(transport);
+  t.after(() => client.close());
+  assert.equal((await client.listTools()).tools.length, 3);
+  const read = await client.callTool({ name: 'notes_read', arguments: { noteId: note.id, start: 0, end: 6 } });
+  assert.equal(JSON.parse(read.content[0].text).fragments[0].text, BODY.slice(0, 6));
+});

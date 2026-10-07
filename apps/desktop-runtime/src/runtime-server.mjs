@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { resolveAssetPath, serveV4Asset } from '../../web-v4/server/static-assets.mjs';
@@ -18,7 +19,7 @@ import { createReadOnlyTools } from './mcp/tools.mjs';
 import { handleMcpPairingRoute } from './mcp/pairing-routes.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
-  aiRuntimeFactory, mcpTools = null, mcpLimits, mcpNow } = {}) {
+  aiRuntimeFactory, mcpTools = null, mcpLimits, mcpNow, mcpAdapter } = {}) {
   if (!path.isAbsolute(dataDirectory ?? '')) throw new Error('本地数据目录必须是绝对路径。');
   if (!fs.existsSync(path.join(distRoot, 'index.html'))) throw new Error('缺少前端构建，请先运行 npm run build:web。');
   const release = lockDataDirectory(dataDirectory);
@@ -215,6 +216,8 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     // 外部 AI 客户端入口只在本机 socket 上；装配失败不能影响本地笔记，只是该入口不可用。
     try {
       mcp = await startMcpRuntime({ dataDirectory, logger, tools: mcpTools ?? createReadOnlyTools({ getAnnotations: () => getAnnotations?.() }), limits: mcpLimits, now: mcpNow,
+        // 适配器启动方式由装配方给出：开发时是 node 加源码路径，Mac 应用里是应用自带的可执行文件加打包后的脚本。
+        adapter: mcpAdapter === undefined ? { command: process.execPath, args: [fileURLToPath(new URL('./mcp/adapter.mjs', import.meta.url))], env: {} } : mcpAdapter,
         getAccess: () => getAi?.()?.access ?? null,
         flags: () => ({ aiEnabled: Boolean(getAi?.()?.access) && process.env.KNOWRA_AI_ENABLED !== '0',
           allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0' }) });

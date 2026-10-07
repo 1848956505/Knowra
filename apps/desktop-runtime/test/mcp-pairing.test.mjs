@@ -370,3 +370,25 @@ test('审计日志：只收白名单字段并按大小轮转', t => {
   assert(fs.statSync(path.join(directory, 'audit.jsonl')).size < 600);
   assert(log.recent({ limit: 5 }).length === 5);
 });
+
+test('设置页概览：返回 AI 开关、外发开关与适配器启动方式（不含令牌）；装配方可置空', async t => {
+  const env = await setup(t);
+  const created = (await env.pair()).data;
+  const first = (await env.call('/api/local-runtime/mcp/pairings')).data;
+  assert.equal(first.aiEnabled, true); assert.equal(first.egressEnabled, true);
+  assert.equal(first.adapter.command, process.execPath);
+  assert.match(first.adapter.args[0], /mcp[\\/]adapter\.mjs$/); assert.deepEqual(first.adapter.env, {});
+  assert.equal(first.items[0].pairingFile, created.pairingFile);
+  const token = JSON.parse(fs.readFileSync(created.pairingFile, 'utf8')).token;
+  assert(!JSON.stringify(first).includes(token));
+  await withEnv('KNOWRA_AI_EGRESS_ENABLED', '0', async () => assert.equal((await env.call('/api/local-runtime/mcp/pairings')).data.egressEnabled, false));
+  await withEnv('KNOWRA_AI_ENABLED', '0', async () => assert.equal((await env.call('/api/local-runtime/mcp/pairings')).data.aiEnabled, false));
+  await env.stop();
+  const root = temporaryDirectory(t), distRoot = path.join(root, 'dist');
+  fs.mkdirSync(distRoot); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head></html>');
+  const runtime = await startLocalRuntime({ dataDirectory: path.join(root, 'data'), distRoot, syncOptions: { autoSync: false }, mcpAdapter: null });
+  t.after(() => runtime.close());
+  const cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
+  const overview = await (await fetch(`${runtime.origin}/api/local-runtime/mcp/pairings`, { headers: { Cookie: cookie } })).json();
+  assert.equal(overview.data.adapter, null);
+});
