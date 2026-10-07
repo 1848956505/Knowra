@@ -58,7 +58,11 @@ test('账本损坏或不一致时一律拒绝付费调用并保留原文件，�
   await reserve(good, 1, 1_000_000);
   const valid = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   const inconsistent = JSON.stringify({ ...valid, budgetDays: valid.budgetDays.map(row => ({ ...row, heldMicrounits: 0 })) });
-  for (const broken of ['{ 不是 json', '[]', inconsistent]) {
+  const days = JSON.stringify(valid.budgetDays), reservations = JSON.stringify(valid.budgetReservations);
+  // 不完整的账本（缺集合、集合为 null、空对象）不能被共享校验函数“补全”成满额空账本。
+  const incomplete = ['{}', '{"budgetDays":null,"budgetReservations":null}', `{"budgetDays":${days}}`, `{"budgetReservations":${reservations}}`,
+    `{"budgetDays":${days},"budgetReservations":null}`, `{"budgetDays":{},"budgetReservations":${reservations}}`];
+  for (const broken of ['{ 不是 json', '[]', inconsistent, ...incomplete]) {
     fs.writeFileSync(filePath, broken, { mode: 0o600 });
     const authority = createLocalBudgetAuthority({ filePath });
     assert.equal(await code(authority.status(ACCOUNT)), 'AI_BUDGET_UNAVAILABLE', broken.slice(0, 20));

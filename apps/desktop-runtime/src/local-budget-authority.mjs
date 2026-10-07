@@ -27,7 +27,9 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
       const parsed = JSON.parse(raw);
       // 顶层必须是普通对象：数组、null 等会被校验函数“补全”成看似合法的空账本，等于清零预算。
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
-        || Object.keys(parsed).some(key => !['budgetDays', 'budgetReservations'].includes(key))) throw new Error('预算账本结构无效。');
+        || Object.keys(parsed).some(key => !['budgetDays', 'budgetReservations'].includes(key))
+        // 两个集合必须都存在且是数组：共享校验函数会把缺失或 null 补成空数组，等于额度清零并在下次写盘时覆盖原文件。
+        || !Array.isArray(parsed.budgetDays) || !Array.isArray(parsed.budgetReservations)) throw new Error('预算账本结构无效。');
       state = validateBudgetState(parsed);
     }
     catch (error) { failure = unavailable('本机预算账本已损坏，已阻止模型调用；原文件已保留，请修复或备份后重试。', error); }
