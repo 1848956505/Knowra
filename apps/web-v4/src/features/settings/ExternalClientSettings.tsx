@@ -19,8 +19,21 @@ export function ExternalClientSettings() { return isDesktopRuntime() ? <External
 function ExternalClientPanel() {
   const serverData = useAppStore(state => state.serverData);
   const spaceId = serverData.currentSpaceId;
+  const loadWorkspace = useAppStore(state => state.loadWorkspace);
+  // 直接打开或刷新设置页时工作区尚未加载（只有笔记、助手等页面会加载），这里补加载以获得当前知识空间与目录。
+  useEffect(() => { if (!spaceId) void loadWorkspace().catch(() => undefined); }, [spaceId, loadWorkspace]);
   const notes = useMemo(() => serverData.notes.filter(note => !note.deleted && (!note.spaceId || note.spaceId === spaceId)), [serverData.notes, spaceId]);
-  const folders = useMemo(() => serverData.folderTree.filter(folder => !folder.deletedAt && (!folder.spaceId || folder.spaceId === spaceId)), [serverData.folderTree, spaceId]);
+  // 目录是嵌套树：用扁平索引取全部层级，并以“父 / 子”路径区分同名目录。
+  const folders = useMemo(() => {
+    const byId = serverData.foldersById;
+    const live = Object.values(byId).filter(folder => !folder.deletedAt && (!folder.spaceId || folder.spaceId === spaceId));
+    const pathOf = (id: string) => {
+      const names: string[] = []; const seen = new Set<string>();
+      for (let cursor: string | null | undefined = id; cursor && byId[cursor] && !seen.has(cursor); cursor = byId[cursor].parentId) { seen.add(cursor); names.unshift(byId[cursor].name); }
+      return names.join(' / ');
+    };
+    return live.map(folder => ({ id: folder.id, name: pathOf(folder.id) })).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  }, [serverData.foldersById, spaceId]);
   const [overview, setOverview] = useState<McpOverview | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -103,6 +116,7 @@ function ExternalClientPanel() {
           <h4>外部 AI 客户端（MCP）</h4>
           <p>让 Claude Code、Codex 等本机 AI 客户端只读访问你选定范围内的笔记。每个客户端单独配对，可随时撤销，到期自动失效。</p>
           {blocked ? <p role="status">{blocked}</p> : null}
+          {!blocked && overview && !spaceId ? <p role="status">正在加载知识空间，加载完成后即可添加。</p> : null}
         </div>
         <div className={styles.settingControl}>
           <Button variant="primary" size="compact" isDisabled={loading || !overview || Boolean(blocked) || !spaceId} onPress={openCreate}>添加外部客户端</Button>

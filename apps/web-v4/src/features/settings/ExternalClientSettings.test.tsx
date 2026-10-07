@@ -5,9 +5,15 @@ import { claudeCodeSnippet, codexSnippet, externalClients, type McpOverview, typ
 
 vi.mock('./externalClients', async importOriginal => ({ ...(await importOriginal<typeof import('./externalClients')>()),
   externalClients: { overview: vi.fn(), create: vi.fn(), revoke: vi.fn(), audit: vi.fn() } }));
-vi.mock('../../store/AppStoreProvider', () => ({ useAppStore: (selector: (state: unknown) => unknown) => selector({
-  serverData: { currentSpaceId: 'space-1', notes: [{ id: 'note-1', title: '细胞', spaceId: 'space-1', deleted: false }],
-    folderTree: [{ id: 'folder-1', name: '生物', spaceId: 'space-1' }] } }) }));
+const storeState = vi.hoisted(() => ({ current: null as null | Record<string, unknown> }));
+vi.mock('../../store/AppStoreProvider', () => ({ useAppStore: (selector: (state: unknown) => unknown) => selector(storeState.current) }));
+const loadWorkspace = vi.fn();
+const workspace = (overrides: Record<string, unknown> = {}) => ({ loadWorkspace, serverData: { currentSpaceId: 'space-1',
+  notes: [{ id: 'note-1', title: '细胞', spaceId: 'space-1', deleted: false }],
+  foldersById: { 'folder-1': { id: 'folder-1', name: '生物', parentId: null, spaceId: 'space-1' },
+    'folder-2': { id: 'folder-2', name: '细胞结构', parentId: 'folder-1', spaceId: 'space-1' },
+    'folder-3': { id: 'folder-3', name: '已删除', parentId: null, spaceId: 'space-1', deletedAt: '2026-01-01' },
+    'folder-4': { id: 'folder-4', name: '别的空间', parentId: null, spaceId: 'space-2' } } }, ...overrides });
 
 const adapter = { command: '/Applications/知境·Knowra.app/Contents/MacOS/Knowra', args: ['/Applications/知境·Knowra.app/Contents/Resources/app/mcp-adapter.mjs'], env: { ELECTRON_RUN_AS_NODE: '1' } };
 const pairing = (overrides: Partial<McpPairing> = {}): McpPairing => ({ pairingId: 'p-1', label: 'Claude Code', spaceId: 'space-1', scope: { kind: 'library' }, excludedNoteIds: [],
@@ -17,6 +23,8 @@ const overview = (overrides: Partial<McpOverview> = {}): McpOverview => ({ items
 
 beforeEach(() => {
   vi.resetAllMocks();
+  loadWorkspace.mockResolvedValue(undefined);
+  storeState.current = workspace();
   (globalThis as { knowraRuntime?: unknown }).knowraRuntime = { persistenceMode: 'desktop-local' };
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 });
@@ -163,4 +171,37 @@ it('桌面本地运行端的设置页多一项并在“模型接入”分类里�
   render(view);
   expect(screen.getByText('显示 6 / 6 项设置')).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: '外部 AI 客户端' })).not.toBeInTheDocument();
+});
+
+it('子目录也能选为授权范围：目录以“父 / 子”路径显示，已删除与其他空间的目录不出现', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview());
+  vi.mocked(externalClients.create).mockResolvedValue(pairing({ scope: { kind: 'folder', folderId: 'folder-2' } }));
+  render(<ExternalClientSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '添加外部客户端' }));
+  const dialog = await screen.findByRole('dialog', { name: '允许外部 AI 客户端读取笔记？' });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /客户端名称/ }), { target: { value: '子目录' } });
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我了解/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /授权范围/ }));
+  fireEvent.click(await screen.findByRole('option', { name: '一个目录' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /生物/ }));
+  const options = (await screen.findAllByRole('option')).map(option => option.textContent);
+  expect(options).toEqual(['生物', '生物 / 细胞结构']);
+  fireEvent.click(screen.getByRole('option', { name: '生物 / 细胞结构' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '创建配对' }));
+  await waitFor(() => expect(externalClients.create).toHaveBeenCalledExactlyOnceWith({ label: '子目录', spaceId: 'space-1',
+    scope: { kind: 'folder', folderId: 'folder-2' }, expiresInDays: 7, egressConfirmed: true }));
+});
+
+it('直接打开或刷新设置页时工作区尚未加载：补加载，加载完成前提示并禁用添加，完成后可添加', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview());
+  storeState.current = workspace({ serverData: { currentSpaceId: null, notes: [], foldersById: {} } });
+  const view = render(<ExternalClientSettings />);
+  await waitFor(() => expect(loadWorkspace).toHaveBeenCalledTimes(1));
+  expect(await screen.findByText('正在加载知识空间，加载完成后即可添加。')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '添加外部客户端' })).toBeDisabled();
+  storeState.current = workspace();
+  view.rerender(<ExternalClientSettings />);
+  await waitFor(() => expect(screen.getByRole('button', { name: '添加外部客户端' })).toBeEnabled());
+  expect(screen.queryByText('正在加载知识空间，加载完成后即可添加。')).not.toBeInTheDocument();
+  expect(loadWorkspace).toHaveBeenCalledTimes(1);
 });
