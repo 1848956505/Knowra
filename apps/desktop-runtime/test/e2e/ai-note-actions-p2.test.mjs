@@ -68,7 +68,7 @@ for(const driver of ['json','sqlite','postgres'])test(`P2 ${driver} 生产页面
   await dialog.getByRole('button',{name:'确认并保存',exact:true}).click();await expect(dialog.getByText('已保存',{exact:true})).toBeVisible();
   const saved=await post(`/api/knowledge/notes/${action.plan.items[0].after.id}/restore`,{});assert.equal(saved.deleted,false);
   await dialog.getByRole('button',{name:'关闭',exact:true}).click();
-  await page.goto(`${fixture.origin}/#/materials`);await page.reload();
+  await page.goto('about:blank');await page.goto(`${fixture.origin}/#/materials`);
   const index=page.getByRole('article',{name:'笔记索引',exact:true});
   await index.getByRole('button',{name:'合成 AI 记录的笔记操作',exact:true}).click();await page.getByRole('menuitem',{name:'AI 隐私：普通',exact:true}).click();
   const privacy=page.getByRole('dialog',{name:'笔记 AI 隐私',exact:true});await expect(privacy.getByText(/已经发送的内容无法收回/)).toBeVisible();
