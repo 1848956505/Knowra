@@ -186,7 +186,7 @@ test('本地 HTTP 闭环：单实例、会话、跨源隔离、笔记保存及�
   assert.equal((await request('/api/local-runtime/status')).body.data.pendingOperations, status.pendingOperations, JSON.stringify(runtime.store.readOutbox().at(-1)));
 });
 
-test('桌面助手路由放行受信预览，预算离线时禁止生成且所有助手请求绑定资料集', async t => {
+test('桌面助手路由放行受信预览；预算账本在本机，未连接云端也可用，且所有助手请求绑定资料集', async t => {
   const root = temporaryDirectory(t);
   const distRoot = path.join(root, 'dist');
   fs.mkdirSync(distRoot);
@@ -211,7 +211,8 @@ test('桌面助手路由放行受信预览，预算离线时禁止生成且所�
   const status = (await call('/api/ai/assistant/status')).payload.data;
   assert.equal(status.executionLocation, 'local');
   assert.equal(status.configured, true);
-  assert.equal(status.generationAvailable, false);
+  assert.equal(status.generationAvailable, true, '没有连接任何云端：预算账本在本机，不再因云端不可用而禁止生成');
+  assert.equal(status.budget.limitMicrounits, 20_000_000); assert.equal(status.budget.availableMicrounits, 20_000_000);
   assert.deepEqual(status.capabilities.readScopes, ['note', 'folder']);
   assert.equal(status.capabilities.writeTools, true);
   const space = (await call('/api/knowledge/spaces/default', 'POST', {})).payload.data;
@@ -222,10 +223,7 @@ test('桌面助手路由放行受信预览，预算离线时禁止生成且所�
   { 'X-Knowra-AI-Assistant': '1' });
   assert.equal(preview.status, 200, JSON.stringify(preview.payload));
   assert.deepEqual(preview.payload.data.sources.map(source => source.text), ['alpha 正文']);
-  assert.equal((await call('/api/ai/assistant/jobs', 'POST', { previewId: preview.payload.data.previewId,
-    scopeHash: preview.payload.data.scopeHash, payloadHash: preview.payload.data.payloadHash,
-    idempotencyKey: 'synthetic-01' }, dataset, { 'X-Knowra-AI-Assistant': '1' })).payload.error.code,
-  'AI_GENERATION_UNAVAILABLE');
+  // 这里只验证预览与状态；真正发起生成会读取模型凭据并调用供应商，合成验收不执行。
   assert.equal((await call('/api/ai/assistant/jobs', 'GET')).status, 422);
   assert.equal((await runtime.store.aiRepository.list('aiJob')).length, 0);
 });

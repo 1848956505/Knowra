@@ -105,7 +105,7 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     budget.status = budgetFailure; budget.reserve = budgetFailure;
     try {
       await page.reload();
-      await expect(page.getByText('云端预算服务不可用，已阻止模型调用。', { exact: true })).toBeVisible();
+      await expect(page.getByText(driver === 'sqlite' ? '本机预算账本不可用，已阻止模型调用。' : '云端预算服务不可用，已阻止模型调用。', { exact: true })).toBeVisible();
       await page.getByRole('textbox', { name: '消息', exact: true }).fill('预算故障不发送');
       await expect(page.getByRole('button', { name: '发送消息', exact: true })).toBeDisabled();
       const beforeCalls = fixture.adapter.calls.length;

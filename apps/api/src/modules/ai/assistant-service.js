@@ -58,7 +58,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
           limitMicrounits: budget.limitMicrounits, availableMicrounits: 0,
           spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits } };
     } catch {
-      return { ready: false, reason: '云端预算服务不可用，已阻止模型调用。', budget: null };
+      return { ready: false, reason: location === 'local' ? '本机预算账本不可用，已阻止模型调用。' : '云端预算服务不可用，已阻止模型调用。', budget: null };
     }
   }
 
