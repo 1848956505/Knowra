@@ -53,6 +53,8 @@ function ExternalClientPanel() {
   const [noteId, setNoteId] = useState('');
   const [days, setDays] = useState('7');
   const [understood, setUnderstood] = useState(false);
+  const [allowPropose, setAllowPropose] = useState(false);
+  const [proposeUnderstood, setProposeUnderstood] = useState(false);
 
   const refresh = useCallback(async () => {
     try { setOverview(await externalClients.overview()); setError(''); setUnsupported(false); }
@@ -69,17 +71,18 @@ function ExternalClientPanel() {
 
   const scope: PairingScope | null = kind === 'library' ? { kind: 'library' } : kind === 'folder' && folderId ? { kind: 'folder', folderId }
     : kind === 'fixed' && noteId ? { kind: 'fixed', noteIds: [noteId] } : null;
-  const canCreate = Boolean(spaceId && scope && label.trim() && understood && !busy);
+  const canCreate = Boolean(spaceId && scope && label.trim() && understood && (!allowPropose || proposeUnderstood) && !busy);
 
   function openCreate() {
-    setLabel(''); setKind('library'); setFolderId(folders[0]?.id ?? ''); setNoteId(notes[0]?.id ?? ''); setDays('7'); setUnderstood(false);
+    setLabel(''); setKind('library'); setFolderId(folders[0]?.id ?? ''); setNoteId(notes[0]?.id ?? ''); setDays('7'); setUnderstood(false); setAllowPropose(false); setProposeUnderstood(false);
     setError(''); setNotice(''); setCreateOpen(true);
   }
   async function create() {
     if (!canCreate || !spaceId || !scope) return;
     setBusy(true); setError('');
     try {
-      const pairing = await externalClients.create({ label: label.trim(), spaceId, scope, expiresInDays: Number(days), egressConfirmed: true });
+      const pairing = await externalClients.create({ label: label.trim(), spaceId, scope, expiresInDays: Number(days), egressConfirmed: true,
+        ...(allowPropose ? { allowPropose: true as const, proposeConfirmed: true as const } : {}) });
       setCreateOpen(false); setNotice(`已创建配对“${pairing.label}”。请按下面的连接方式配置客户端。`);
       await refresh(); setConnection(pairing);
     } catch (failure) { setError(message(failure, '创建配对失败。')); }
@@ -125,8 +128,10 @@ function ExternalClientPanel() {
       {overview?.items.length ? <ul className={styles.clientList} aria-label="已配对的外部客户端">
         {overview.items.map(pairing => <li key={pairing.pairingId} className={styles.clientRow}>
           <div className={styles.settingCopy}>
-            <div className={styles.clientTitle}><h4>{pairing.label}</h4><Badge tone={statusBadge[pairing.status].tone}>{statusBadge[pairing.status].text}</Badge></div>
+            <div className={styles.clientTitle}><h4>{pairing.label}</h4><Badge tone={statusBadge[pairing.status].tone}>{statusBadge[pairing.status].text}</Badge>
+              {pairing.allowPropose ? <Badge tone="accent">可提交候选</Badge> : null}</div>
             <p className={styles.clientMeta}>{scopeText(pairing)} · 到期 {time(pairing.expiresAt)} · {pairing.lastUsedAt ? `最近使用 ${time(pairing.lastUsedAt)}` : '从未使用'} · 共调用 {pairing.calls} 次</p>
+            {pairing.status === 'active' && pairing.allowPropose && overview && !overview.proposalsEnabled ? <p className={styles.clientMeta} role="status">“AI 提炼知识点”未开启，暂不能提交</p> : null}
             {audit?.pairingId === pairing.pairingId ? (audit.items.length
               ? <ul className={styles.clientAudit} aria-label={`${pairing.label}最近调用`}>{audit.items.map((entry, index) => <li key={`${entry.at}-${index}`}>
                 {time(entry.at)} · {entry.event === 'call' ? entry.tool : entry.event === 'created' ? '创建配对' : entry.event === 'revoked' ? '撤销配对' : '被拒绝'} · {entry.status === 'ok' ? `成功，返回 ${entry.fragments ?? 0} 个片段` : entry.code ?? entry.status ?? ''}</li>)}</ul>
@@ -160,6 +165,11 @@ function ExternalClientPanel() {
             options={[{ id: '1', label: '1 天' }, { id: '7', label: '7 天（默认）' }, { id: '30', label: '30 天' }, { id: '90', label: '90 天' }]} />
           <p className={styles.dialogNote}>被读取的笔记片段会发送给该客户端所属的厂商（如 Anthropic、OpenAI），费用由客户端自己的订阅承担，不计入知境预算。只读取你选定范围内的笔记，不含标记为私密的笔记，不会修改或创建任何内容。可随时撤销，到期自动失效。</p>
           <Checkbox isSelected={understood} onChange={setUnderstood}>我了解所选范围内的笔记片段会发给该客户端所属的厂商</Checkbox>
+          <Checkbox isSelected={allowPropose} onChange={value => { setAllowPropose(value); if (!value) setProposeUnderstood(false); }}>同时允许该客户端提交待审核的知识候选（默认不允许）</Checkbox>
+          {allowPropose ? <>
+            <p className={styles.dialogNote}>开启后，该客户端可以把它从你笔记里提炼的内容作为待审核的知识候选提交到知境。候选不会自动入库，也不会被确认，需要你在知识库逐条审核；它只能引用自己已读取过的原文，每天最多提交 200 条。仍需要“AI 提炼知识点”开关处于开启状态。</p>
+            <Checkbox isSelected={proposeUnderstood} onChange={setProposeUnderstood}>我了解提交的候选由客户端的模型生成，可能有误，我会在知识库逐条审核</Checkbox>
+          </> : null}
           {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
         </div>
       </DialogBody>

@@ -62,6 +62,8 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
     gateway,
     readContext,
     access,
+    // 受信宿主（本机 MCP）保存知识候选的入口；模型与 HTTP 都拿不到。开关未开启或存储不全时为 null。
+    knowledgeCommit,
     conversationStore,
     conversation,
     agent,
@@ -79,7 +81,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
 export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。') {
   return { actions: null, attachments: null, unavailableReason: reason, generationAvailable: () => false,
     credentialReference: async () => null, repository: null, budgetAuthority: null,
-    readContext: null, accessStore: null, access: null, conversationStore: null, conversation: null,
+    readContext: null, accessStore: null, access: null, knowledgeCommit: null, conversationStore: null, conversation: null,
     agent: null, worker: null, gateway: null, priceProfile: null };
 }
 

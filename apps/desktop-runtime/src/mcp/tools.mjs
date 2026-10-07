@@ -1,5 +1,7 @@
 import { createAuthorizedKeywordSearch } from '../../../api/src/modules/ai/keyword-search.js';
 import { listAnnotatedRanges } from '../../../api/src/modules/ai/annotation-read-tool.js';
+import { calculateContentHash } from '@study-accelerator/content-anchor';
+import { KNOWLEDGE_PROPOSE_TOOL, buildKnowledgeProposalPlan } from '../../../api/src/modules/ai/knowledge-propose-tool.js';
 import { mcpError } from './mcp-error.mjs';
 
 const MAX_READ_UNITS = 1000;
@@ -11,11 +13,11 @@ const onlyKeys = (value, keys) => value && typeof value === 'object' && !Array.i
 const noteId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 
 /**
- * 外部客户端的三个只读工具。它们复用内置助手的检索、读取与重点列表实现，
+ * 外部客户端的工具：三个只读工具，加上需要在配对时单独开启的 knowledge_propose。它们复用内置助手的检索、读取与重点列表实现，
  * 但返回值一律改成带偏移的正文片段，由统一外发出口逐字复核后才离开运行端。
  * getAnnotations 每次调用时读取，资料库恢复后自动使用新的实例。
  */
-export function createReadOnlyTools({ getAnnotations }) {
+export function createMcpTools({ getAnnotations, getAi = () => null }) {
   const searches = new WeakMap();
   const searchFor = access => {
     if (!searches.has(access)) searches.set(access, createAuthorizedKeywordSearch({ access }));
@@ -68,6 +70,47 @@ export function createReadOnlyTools({ getAnnotations }) {
         return { fragments: resultJson.annotations.map(item => ({ noteId: resultJson.noteId, title: resultJson.title, start: item.start, end: item.end, text: item.text,
           attrs: { importance: item.importance, truncated: item.truncated, annotationId: item.annotationId } })),
         meta: { total: resultJson.total, offset: resultJson.offset, hasMore: resultJson.hasMore, unavailableCount: resultJson.unavailableCount } };
+      }
+    },
+    knowledge_propose: {
+      write: true,
+      description: '把从用户笔记中提炼出的知识点作为待审核候选提交。只能引用本配对已经通过 notes_read、notes_search 或 annotations_list 读到的原文；每个候选至少一条引文：给出 noteId 与逐字摘自原文的 quote 即可，服务端会在已读原文中定位（quote 须在已读原文里唯一；出现多次时再补充该笔记内的绝对 start/end 偏移）。陈述只能依据所引原文，不添加背景知识；没有可提炼内容时不要调用。提交只是提议，不会成为正式知识，必须由用户在知境里逐条审核；重复提交相同内容或使用相同的 idempotencyKey 会返回同一结果，不会重复创建。',
+      inputSchema: { ...KNOWLEDGE_PROPOSE_TOOL.parameters, properties: { ...KNOWLEDGE_PROPOSE_TOOL.parameters.properties,
+        idempotencyKey: { type: 'string', minLength: 8, maxLength: 128 } } },
+      metaKeys: ['saved', 'candidates', 'reused'],
+      async run({ input, grantId, access, pairing, readRanges, guard, quota }) {
+        const ai = getAi();
+        if (!ai?.knowledgeCommit || !ai.accessStore) throw mcpError('MCP_TOOL_UNAVAILABLE', '知识候选保存服务当前不可用。', { status: 503 });
+        const key = input.idempotencyKey ?? `auto-${calculateContentHash(JSON.stringify(input.candidates)).slice(0, 32)}`;
+        const origin = { pairingId: pairing.pairingId, callId: key };
+        const identity = await ai.accessStore.identity();
+        const receipt = result => ({ fragments: [], meta: { saved: true, candidates: result.candidates.length, reused: true } });
+        // 同一幂等键已提交：按回执返回，不重新校验也不重复创建（响应丢失后重试安全）。
+        const existing = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' });
+        if (existing) return receipt(existing);
+        if (input.candidates.length > quota.remaining()) {
+          throw mcpError('MCP_RATE_LIMITED', '今日提交的候选数量已达上限。', { status: 429, retryAfterSeconds: quota.resetsInSeconds() });
+        }
+        // 已读记录里可能留有笔记旧版本的片段：只保留仍是当前版本且仍可读的；一个都不剩时按原因报错（变了、或已不可读）。
+        const versions = new Map(), current = [];
+        let firstFailure = null;
+        for (const ref of readRanges()) {
+          if (!versions.has(ref.noteId)) versions.set(ref.noteId, await access.verifyRead({ grantId, noteId: ref.noteId }).catch(error => { firstFailure ??= error; return null; }));
+          const live = versions.get(ref.noteId);
+          if (live && live.version.id === ref.noteVersionId && live.contentHash === ref.contentHash) current.push(ref);
+        }
+        if (!current.length && readRanges().length) throw firstFailure ?? Object.assign(new Error('已读原文已经变化'), { code: 'AI_PROPOSAL_SOURCE_STALE' });
+        const plan = await buildKnowledgeProposalPlan({ access, grantId, args: { candidates: input.candidates }, sourceRefs: current,
+          turnId: `mcp-${pairing.pairingId}`, callId: key });
+        try { await ai.knowledgeCommit.commit({ plan, origin, identity, grantId, mode: 'mcp', guard }); }
+        catch (error) {
+          // 提交可能已成功但响应丢失：以回执为准。
+          const landed = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' }).catch(() => null);
+          if (!landed) throw error;
+          return receipt(landed);
+        }
+        quota.consume(plan.candidates.length);
+        return { fragments: [], meta: { saved: true, candidates: plan.candidates.length, reused: false } };
       }
     }
   };
