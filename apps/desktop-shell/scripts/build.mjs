@@ -25,6 +25,10 @@ for (const name of ['worker-child', 'provider-child']) {
     outfile: path.join(staging, `${name}.js`), bundle: true, platform: 'node', format: 'esm', target: 'node24',
     banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 }
+// 外部 AI 客户端（MCP）的 stdio 适配器：打成单文件（含官方 SDK），放在 runtime.mjs 旁边。
+await build({ entryPoints: [path.join(repo, 'apps/desktop-runtime/src/mcp/adapter.mjs')],
+  outfile: path.join(staging, 'mcp-adapter.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24',
+  banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 fs.cpSync(path.join(repo, 'apps/web-v4/dist'), path.join(staging, 'web'), { recursive: true });
 const version = buildInfo.version;
 fs.writeFileSync(path.join(staging, 'build-info.json'), `${JSON.stringify(buildInfo, null, 2)}\n`);

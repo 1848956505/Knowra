@@ -3,7 +3,7 @@ import { mcpError } from './mcp-error.mjs';
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 /** 创建/撤销配对：创建一条只读、不带外发的授权策略；外部外发许可记在配对上，由统一外发出口逐调用复核。 */
-export function createMcpPairingService({ pairings, getAccess, audit, gate, socketPath, dataDirectory, now = () => new Date() }) {
+export function createMcpPairingService({ pairings, getAccess, audit, gate, socketPath, dataDirectory, now = () => new Date(), flags, adapter = null }) {
   const accessOrThrow = () => {
     const access = getAccess();
     if (!access) throw mcpError('MCP_AI_DISABLED', 'AI 功能未开启，不能创建外部客户端配对。', { status: 409 });
@@ -15,6 +15,8 @@ export function createMcpPairingService({ pairings, getAccess, audit, gate, sock
   };
   return {
     list: () => pairings.list(),
+    /** 设置页用：AI 总开关、紧急外发开关与适配器启动方式（命令与脚本路径；不含令牌，配对文件路径由各配对给出）。 */
+    status: () => ({ aiEnabled: Boolean(flags().aiEnabled), egressEnabled: Boolean(flags().allowExternal), adapter }),
     recentAudit: options => audit.recent(options),
     async create(input) {
       if (!isPlainObject(input) || Object.keys(input).some(key => !['label', 'spaceId', 'scope', 'excludedNoteIds', 'expiresInDays', 'egressConfirmed'].includes(key))) {

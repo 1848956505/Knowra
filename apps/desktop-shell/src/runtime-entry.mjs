@@ -1,10 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { startLocalRuntime } from '../../desktop-runtime/src/runtime-server.mjs';
 import { createAiCredentialBridge } from './ai-credential-bridge.mjs';
 const [dataDirectory, distRoot] = process.argv.slice(2);
 let runtime;
+// 外部 AI 客户端（MCP）适配器随应用打包在 runtime.mjs 旁边；用应用自带的 Electron 可执行文件以 Node 模式运行，用户不需要另装 Node。
+// 找不到打包的适配器（例如未带该文件的旧构建）时传 null，设置页会如实提示。
+const resources = path.dirname(fileURLToPath(import.meta.url));
+const adapterScript = path.join(resources, 'mcp-adapter.mjs');
+const appExecutable = path.resolve(resources, '../../MacOS/Knowra');
+const mcpAdapter = fs.existsSync(adapterScript) && fs.existsSync(appExecutable)
+  ? { command: appExecutable, args: [adapterScript], env: { ELECTRON_RUN_AS_NODE: '1' } } : null;
 const credentials = createAiCredentialBridge(process.parentPort);
 try {
-  runtime = await startLocalRuntime({ dataDirectory, distRoot, credentialSource: credentials, logger: {
+  runtime = await startLocalRuntime({ dataDirectory, distRoot, credentialSource: credentials, mcpAdapter, logger: {
     error(_message, error) {
       process.parentPort.postMessage({ type: 'diagnostic', code: error?.code ?? 'INTERNAL_SERVER_ERROR',
         // 排除异常首行及请求参数，只记录错误码和代码栈位置。

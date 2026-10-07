@@ -13,6 +13,8 @@ import { SettingsIcon } from '../../components/icons/knowra';
 import type { AppPreferences, NoteFontSize } from './preferences';
 import { ModelConnectionSettings } from './ModelConnectionSettings';
 import { AiFeatureSettings } from './AiFeatureSettings';
+import { ExternalClientSettings } from './ExternalClientSettings';
+import { isDesktopRuntime } from './externalClients';
 import { BuildInformation } from './BuildInformation';
 import styles from './SettingsView.module.css';
 
@@ -25,12 +27,13 @@ interface SettingsViewProps {
 
 type SettingsCategory = 'all' | 'workspace' | 'reading' | 'accessibility' | 'model' | 'about';
 
-const categories: { id: SettingsCategory; label: string; count: number }[] = [
-  { id: 'all', label: '全部设置', count: 6 },
+/** “外部 AI 客户端”只在 Mac 应用的本地运行端出现，计数随之增加。 */
+const buildCategories = (extra: number): { id: SettingsCategory; label: string; count: number }[] => [
+  { id: 'all', label: '全部设置', count: 6 + extra },
   { id: 'workspace', label: '工作区', count: 1 },
   { id: 'reading', label: '阅读与编辑', count: 1 },
   { id: 'accessibility', label: '辅助体验', count: 1 },
-  { id: 'model', label: '模型接入', count: 2 },
+  { id: 'model', label: '模型接入', count: 2 + extra },
   { id: 'about', label: '关于知境', count: 1 }
 ];
 
@@ -43,6 +46,7 @@ const fontSizes: { value: NoteFontSize; label: string }[] = [
 export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, onSidebarOpenChange }: SettingsViewProps) {
   const [category, setCategory] = useState<SettingsCategory>('all');
   const detailsRef = useRef<HTMLDivElement>(null);
+  const categories = buildCategories(isDesktopRuntime() ? 1 : 0);
   const selectedCategory = categories.find((item) => item.id === category) ?? categories[0];
 
   function selectCategory(next: SettingsCategory) {
@@ -135,11 +139,12 @@ export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, on
 
         {category === 'all' || category === 'model' ? <ModelConnectionSettings /> : null}
         {category === 'all' || category === 'model' ? <AiFeatureSettings /> : null}
+        {category === 'all' || category === 'model' ? <ExternalClientSettings /> : null}
         {category === 'all' || category === 'about' ? <BuildInformation /> : null}
       </div>
     </WorkspacePanelBody>
     <WorkspacePanelFooter>
-      <span>显示 {selectedCategory.count} / 6 项设置</span>
+      <span>显示 {selectedCategory.count} / {categories[0].count} 项设置</span>
       <span>个人偏好即时保存 · 模型配置手动保存</span>
     </WorkspacePanelFooter>
   </WorkspacePanel>;
