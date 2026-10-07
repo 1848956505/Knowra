@@ -35,7 +35,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let mcp = null;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
     // AI 恢复在后台进行，不能延迟本地笔记服务启动。
     void recoverAi;
     const secret = randomBytes(32).toString('hex');
@@ -107,7 +107,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   // 两个后台 owner 都已排空；此处重新读取，不沿用 prepare 时的快照。
                   finalizeRestoredDirectory(restoredDirectory, readRestoreContext(store));
                   const protectionDirectory = createRuntimeBackup(store, activeDirectory, { backupRoot: dataDirectory, purpose: 'before-restore', recoveryDrafts: input.recoveryDrafts });
-                  replacement = createRuntimeServices({ dataDirectory: restoredDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory });
+                  replacement = createRuntimeServices({ dataDirectory: restoredDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory });
                   void replacement.recoverAi;
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
@@ -120,7 +120,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.closeAi(); await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
                   void recoverAi;
                   throw failure;
                 }

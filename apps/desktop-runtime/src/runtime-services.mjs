@@ -9,11 +9,11 @@ import { createSyncEngine } from './sync-engine.mjs';
 import { createOptionalAiRuntime, createUnavailableAiRuntime } from '../../api/src/modules/ai/runtime.js';
 import { aiRuntimeLifecycle } from '../../api/src/modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
-import { createRemoteBudgetAuthority } from '../../api/src/modules/ai/remote-budget-authority.js';
+import { createLocalBudgetAuthority } from './local-budget-authority.mjs';
 import { createAiFeatureSettings } from '../../api/src/modules/ai/feature-settings.js';
 
 /** 每次切换资料库都重建应用服务，避免 repository 留存旧 SQLite/内存引用。 */
-export function createRuntimeServices({ dataDirectory, logger = console, syncOptions = {}, credentialSource = null,
+export function createRuntimeServices({ dataDirectory, budgetDirectory = dataDirectory, logger = console, syncOptions = {}, credentialSource = null,
   aiRuntimeFactory = createOptionalAiRuntime }) {
     const store = createSqliteDataStore(path.join(dataDirectory, 'local.sqlite'));
     try {
@@ -74,7 +74,8 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
       uploadsDir: path.join(dataDirectory, 'uploads'),
       conversationStore: store.aiConversationStore, actionStore: store.aiActionStore,
       coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
-      budgetAuthority: createRemoteBudgetAuthority((route, body) => sync.budgetRequest(route, body)),
+      // 预算账本在本机：不依赖云端，断网或未连接云端也可调用模型；放在数据目录根下，不随恢复备份切换的资料目录重置。
+      budgetAuthority: createLocalBudgetAuthority({ filePath: path.join(budgetDirectory, 'ai-budget.json') }),
       priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',
       knowledgeProposals: async () => (await aiFeatures.get()).knowledgeProposals,
       contextSources: { ...context.modules.knowledge.repositories,
@@ -104,7 +105,7 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
     const recoverAi = Promise.allSettled(['attachments', 'conversation', 'agent', 'worker'].map(stage => aiLifecycle.recover([stage])))
       .then(results => {
         const failed = results.find(result => result.status === 'rejected');
-        if (failed) logger.warn?.('AI task recovery deferred until cloud budget is available',
+        if (failed) logger.warn?.('AI task recovery deferred',
           { code: failed.reason?.code ?? 'AI_BUDGET_UNAVAILABLE' });
       });
     return { store, sync, handleApi, recoverAi, closeAi: aiLifecycle.close, getAi: () => context.ai, getAiFeatures: () => aiFeatures,
