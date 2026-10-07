@@ -24,9 +24,13 @@ async function setup(t, { limits, dataDirectory, proposals = true, hooks = {} } 
       const original = ai.knowledgeCommit.commit.bind(ai.knowledgeCommit);
       ai.knowledgeCommit.commit = args => hooks.commit(original, args);
     }
+    if (ai.knowledgeCommit && hooks.find) {
+      const original = ai.knowledgeCommit.findCommitted.bind(ai.knowledgeCommit);
+      ai.knowledgeCommit.findCommitted = args => hooks.find(original, args);
+    }
     return ai;
   };
-  const start = () => startLocalRuntime({ dataDirectory: data, distRoot, syncOptions: { autoSync: false }, mcpLimits: limits, aiRuntimeFactory, logger: { warn() {}, error() {} } });
+  const start = () => startLocalRuntime({ dataDirectory: data, distRoot, syncOptions: { autoSync: false }, mcpLimits: limits, mcpNow: hooks.now, aiRuntimeFactory, logger: { warn() {}, error() {} } });
   let runtime = await start();
   t.after(() => runtime?.close());
   const env = { data, root };
@@ -282,4 +286,69 @@ test('调用超时后迟到的写入被事务内复核拦下，预留的配额�
   // 预留的配额已归还：每日上限只有 1，之后同样大小的提交仍能成功。
   assert.equal((await propose(client, note.id, P2, { idempotencyKey: 'timeout-0002' })).meta.saved, true);
   assert.equal((await env.items()).length, 1);
+});
+
+test('回执读不出来不等于没提交：结果未知时保留预留，同一幂等键重试再对账', async t => {
+  // 场景一：提交成功，但回执查询暂时失败。
+  let finds = 0, failAt = 2;
+  const committed = await setup(t, { limits: { maxCandidatesPerDay: 1 }, hooks: { find: async (original, args) => {
+    finds += 1; if (finds === failAt) throw new Error('回执暂时读不出来'); return original(args);
+  }, commit: async (original, args) => { const result = await original(args); throw new Error('响应丢失'); } } });
+  const note = await committed.note('结果未知');
+  const client = committed.client((await committed.pair()).data);
+  await readAll(client, note.id);
+  await rejects(propose(client, note.id, P1, { idempotencyKey: 'unknown-001' }), 'MCP_COMMIT_UNKNOWN');
+  assert.equal((await committed.items()).length, 1, '候选其实已经保存');
+  await rejects(propose(client, note.id, P2, { idempotencyKey: 'unknown-002' }), 'MCP_RATE_LIMITED');
+  assert.equal((await propose(client, note.id, P1, { idempotencyKey: 'unknown-001' })).meta.reused, true);
+  await rejects(propose(client, note.id, P2, { idempotencyKey: 'unknown-003' }), 'MCP_RATE_LIMITED');
+  assert.equal((await committed.items()).length, 1, '全程配额只计一次');
+
+  // 场景二：提交没有落库、回执也读不出来；之后确认没有提交，重试时归还上次预留再重新预留，只计一次。
+  let attempts = 0; finds = 0; failAt = 2;
+  const failed = await setup(t, { limits: { maxCandidatesPerDay: 1 }, hooks: { find: async (original, args) => {
+    finds += 1; if (finds === failAt) throw new Error('回执暂时读不出来'); return original(args);
+  }, commit: async (original, args) => { attempts += 1; if (attempts === 1) throw new Error('保存失败'); return original(args); } } });
+  const second = await failed.note('确实没提交');
+  const retryClient = failed.client((await failed.pair()).data);
+  await readAll(retryClient, second.id);
+  await rejects(propose(retryClient, second.id, P1, { idempotencyKey: 'unknown-101' }), 'MCP_COMMIT_UNKNOWN');
+  assert.equal((await failed.items()).length, 0);
+  assert.equal((await propose(retryClient, second.id, P1, { idempotencyKey: 'unknown-101' })).meta.reused, false, '确认上次没有提交后重新提交成功');
+  assert.equal((await failed.items()).length, 1);
+  await rejects(propose(retryClient, second.id, P2, { idempotencyKey: 'unknown-102' }), 'MCP_RATE_LIMITED');
+});
+
+test('跨 UTC 日期归还配额：只归还原预留所在日期，不扣新一天的计数', async t => {
+  let current = Date.parse('2026-10-07T23:59:59.000Z'), calls = 0, releaseFirst;
+  const gate = new Promise(resolve => { releaseFirst = resolve; });
+  const env = await setup(t, { limits: { maxCandidatesPerDay: 1 }, hooks: { now: () => new Date(current), commit: async (original, args) => {
+    calls += 1;
+    if (calls === 1) { await gate; throw new Error('保存失败'); }
+    return original(args);
+  } } });
+  const note = await env.note('跨日');
+  const client = env.client((await env.pair()).data);
+  await readAll(client, note.id);
+  const first = propose(client, note.id, P1, { idempotencyKey: 'cross-day-01' }).then(() => 'saved', error => error.code);
+  await wait(200);
+  current = Date.parse('2026-10-08T00:00:05.000Z');
+  assert.equal((await propose(client, note.id, P2, { idempotencyKey: 'cross-day-02' })).meta.saved, true, '新一天的第一条');
+  releaseFirst();
+  assert.equal(await first, 'MCP_INTERNAL');
+  // 前一天的失败请求归还的是前一天的预留；新一天的计数不能被它扣掉，每日上限 1 的第二条必须被限流。
+  await rejects(propose(client, note.id, P3, { idempotencyKey: 'cross-day-03' }), 'MCP_RATE_LIMITED');
+  assert.equal((await env.items()).length, 1);
+});
+
+test('同一幂等键并发重试只预留、结算一次', async t => {
+  const env = await setup(t, { limits: { maxCandidatesPerDay: 2 }, hooks: { commit: async (original, args) => { await wait(100); return original(args); } } });
+  const note = await env.note('并发同键');
+  const client = env.client((await env.pair()).data);
+  await readAll(client, note.id);
+  const outcomes = await Promise.all([1, 2].map(() => propose(client, note.id, P1, { idempotencyKey: 'same-key-001' })));
+  assert.deepEqual(outcomes.map(item => item.meta.reused).sort(), [false, true]);
+  assert.equal((await env.items()).length, 1);
+  assert.equal((await propose(client, note.id, P2, { idempotencyKey: 'same-key-002' })).meta.saved, true, '只占用了一个名额');
+  await rejects(propose(client, note.id, P3, { idempotencyKey: 'same-key-003' }), 'MCP_RATE_LIMITED');
 });

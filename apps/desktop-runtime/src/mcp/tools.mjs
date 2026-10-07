@@ -18,6 +18,8 @@ const noteId = value => typeof value === 'string' && value.length > 0 && value.l
  * getAnnotations 每次调用时读取，资料库恢复后自动使用新的实例。
  */
 export function createMcpTools({ getAnnotations, getAi = () => null }) {
+  // 结果未知（提交可能已成功，但回执暂时读不出来）的预留：保留到同一幂等键下一次对账；进程重启后丢失，偏保守地继续计入。
+  const unsettled = new Map();
   const searches = new WeakMap();
   const searchFor = access => {
     if (!searches.has(access)) searches.set(access, createAuthorizedKeywordSearch({ access }));
@@ -78,39 +80,50 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
       inputSchema: { ...KNOWLEDGE_PROPOSE_TOOL.parameters, properties: { ...KNOWLEDGE_PROPOSE_TOOL.parameters.properties,
         idempotencyKey: { type: 'string', minLength: 8, maxLength: 128 } } },
       metaKeys: ['saved', 'candidates', 'reused'],
-      async run({ input, grantId, access, pairing, readRanges, guard, quota, signal }) {
+      async run({ input, grantId, access, pairing, readRanges, guard, quota, serialize }) {
         guard(); // 开始就复核一次：已超时、开关已关、配对已撤销都不再往下做。
         const ai = getAi();
         if (!ai?.knowledgeCommit || !ai.accessStore) throw mcpError('MCP_TOOL_UNAVAILABLE', '知识候选保存服务当前不可用。', { status: 503 });
         const key = input.idempotencyKey ?? `auto-${calculateContentHash(JSON.stringify(input.candidates)).slice(0, 32)}`;
         const origin = { pairingId: pairing.pairingId, callId: key };
-        const identity = await ai.accessStore.identity();
-        const receipt = result => ({ fragments: [], meta: { saved: true, candidates: result.candidates.length, reused: true } });
-        // 同一幂等键已提交：按回执返回，不重新校验也不重复创建（响应丢失后重试安全）。
-        const existing = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' });
-        if (existing) return receipt(existing);
-        // 已读记录里可能留有笔记旧版本的片段：只保留仍是当前版本且仍可读的；一个都不剩时按原因报错（变了、或已不可读）。
-        const versions = new Map(), current = [];
-        let firstFailure = null;
-        for (const ref of readRanges()) {
-          if (!versions.has(ref.noteId)) versions.set(ref.noteId, await access.verifyRead({ grantId, noteId: ref.noteId }).catch(error => { firstFailure ??= error; return null; }));
-          const live = versions.get(ref.noteId);
-          if (live && live.version.id === ref.noteVersionId && live.contentHash === ref.contentHash) current.push(ref);
-        }
-        if (!current.length && readRanges().length) throw firstFailure ?? Object.assign(new Error('已读原文已经变化'), { code: 'AI_PROPOSAL_SOURCE_STALE' });
-        const plan = await buildKnowledgeProposalPlan({ access, grantId, args: { candidates: input.candidates }, sourceRefs: current,
-          turnId: `mcp-${pairing.pairingId}`, callId: key });
-        // 先预留配额（同步检查并扣减，并发不会同时通过），再提交；确定没有提交时归还。
-        quota.reserve(plan.candidates.length);
-        try { await ai.knowledgeCommit.commit({ plan, origin, identity, grantId, mode: 'mcp', guard }); }
-        catch (error) {
-          // 提交可能已成功但响应丢失：以回执为准，预留的配额保持（只计一次）。
-          const landed = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' }).catch(() => null);
-          if (landed) return receipt(landed);
-          quota.release(plan.candidates.length);
-          throw error;
-        }
-        return { fragments: [], meta: { saved: true, candidates: plan.candidates.length, reused: false } };
+        const slot = `${pairing.pairingId}:${key}`;
+        // 同一幂等键的并发重试依次执行，只预留、结算一次。
+        return serialize(key, async () => {
+          const identity = await ai.accessStore.identity();
+          const receipt = result => ({ fragments: [], meta: { saved: true, candidates: result.candidates.length, reused: true } });
+          // 同一幂等键已提交：按回执返回，不重新校验也不重复创建（响应丢失后重试安全）。
+          const existing = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' });
+          if (existing) { unsettled.delete(slot); return receipt(existing); }
+          // 上一次尝试结果未知，现在确认它没有提交：归还当时的预留，再按新的尝试重新预留。
+          if (unsettled.has(slot)) { quota.release(unsettled.get(slot)); unsettled.delete(slot); }
+          // 已读记录里可能留有笔记旧版本的片段：只保留仍是当前版本且仍可读的；一个都不剩时按原因报错（变了、或已不可读）。
+          const versions = new Map(), current = [];
+          let firstFailure = null;
+          for (const ref of readRanges()) {
+            if (!versions.has(ref.noteId)) versions.set(ref.noteId, await access.verifyRead({ grantId, noteId: ref.noteId }).catch(error => { firstFailure ??= error; return null; }));
+            const live = versions.get(ref.noteId);
+            if (live && live.version.id === ref.noteVersionId && live.contentHash === ref.contentHash) current.push(ref);
+          }
+          if (!current.length && readRanges().length) throw firstFailure ?? Object.assign(new Error('已读原文已经变化'), { code: 'AI_PROPOSAL_SOURCE_STALE' });
+          const plan = await buildKnowledgeProposalPlan({ access, grantId, args: { candidates: input.candidates }, sourceRefs: current,
+            turnId: `mcp-${pairing.pairingId}`, callId: key });
+          // 先预留配额（同步检查并扣减，并发不会同时通过；凭据带日期），再提交；只有确认没有提交才归还。
+          const handle = quota.reserve(plan.candidates.length);
+          try { await ai.knowledgeCommit.commit({ plan, origin, identity, grantId, mode: 'mcp', guard }); }
+          catch (error) {
+            // 提交可能已成功但响应丢失：以回执为准，预留的配额保持（只计一次）。“读不到回执”与“没有回执”不同：前者结果未知，不能归还。
+            let landed = null, lookupFailed = false;
+            try { landed = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' }); } catch { lookupFailed = true; }
+            if (landed) return receipt(landed);
+            if (lookupFailed) {
+              unsettled.set(slot, handle);
+              throw mcpError('MCP_COMMIT_UNKNOWN', '提交结果暂时无法确认，请稍后用同一个 idempotencyKey 重试，不会重复创建。', { status: 503 });
+            }
+            quota.release(handle);
+            throw error;
+          }
+          return { fragments: [], meta: { saved: true, candidates: plan.candidates.length, reused: false } };
+        });
       }
     }
   };

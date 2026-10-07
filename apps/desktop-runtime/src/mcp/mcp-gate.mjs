@@ -53,6 +53,14 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
   const grants = new Map();
   // 配对内“已读片段”记录：只记录出口复核通过的读取结果（笔记、版本、偏移、原文哈希），不含正文；运行端重启或撤销后清空。
   const ledgers = new Map();
+  const tails = new Map();
+  function serialize(key, task) {
+    const run = (tails.get(key) ?? Promise.resolve()).catch(() => undefined).then(task);
+    const tail = run.catch(() => undefined);
+    tails.set(key, tail);
+    tail.then(() => { if (tails.get(key) === tail) tails.delete(key); });
+    return run;
+  }
 
   function assertFlags() {
     const { aiEnabled, allowExternal } = flags();
@@ -208,8 +216,10 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
               const midnight = Date.parse(`${now().toISOString().slice(0, 10)}T00:00:00Z`) + 86_400_000;
               throw mcpError('MCP_RATE_LIMITED', '今日提交的候选数量已达上限。', { status: 429, retryAfterSeconds: Math.max(1, Math.ceil((midnight - now().getTime()) / 1000)) });
             }
-            pairings.recordCandidates(row, count);
-          }, release: count => pairings.recordCandidates(row, -count) } };
+            return pairings.reserveCandidates(row, count);
+          }, release: handle => pairings.releaseCandidates(row, handle) },
+          // 同一配对、同一幂等键的调用依次执行：并发重试不会各自预留各自提交，第二个等第一个结束后按回执对账。
+          serialize: (key, task) => serialize(`${row.pairingId}:${key}`, task) };
         const raw = await Promise.race([handler(context),
           new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(timedOut()); }, limit.toolTimeoutMs); })])
           .finally(() => clearTimeout(timer));

@@ -123,10 +123,18 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
       save();
     },
     candidatesToday(row) { return row.candidateDayKey === now().toISOString().slice(0, 10) ? row.candidateDayCount : 0; },
-    recordCandidates(row, count) {
+    /** 预留候选配额，返回带日期的凭据；归还只作用于原预留所在的日期，跨日后不会误扣新一天的计数。 */
+    reserveCandidates(row, count) {
       ensure();
       const day = now().toISOString().slice(0, 10);
-      row.candidateDayCount = Math.max(0, (row.candidateDayKey === day ? row.candidateDayCount : 0) + count); row.candidateDayKey = day;
+      row.candidateDayCount = (row.candidateDayKey === day ? row.candidateDayCount : 0) + count; row.candidateDayKey = day;
+      save();
+      return { day, count };
+    },
+    releaseCandidates(row, handle) {
+      ensure();
+      if (row.candidateDayKey !== handle.day) return;
+      row.candidateDayCount = Math.max(0, row.candidateDayCount - handle.count);
       save();
     },
     dayCalls(row) { return row.dayKey === now().toISOString().slice(0, 10) ? row.dayCalls : 0; },
