@@ -9,5 +9,6 @@
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "test:e2e": "node --test --test-concurrency=1 test/e2e/*.test.mjs"
   },
+  "dependencies": { "@modelcontextprotocol/sdk": "1.32.1" },
   "devDependencies": { "@playwright/test": "1.62.1" }
 }

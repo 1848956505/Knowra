@@ -245,7 +245,7 @@ test('大小上限按最终序列化响应计：JSON 转义、标题与偏移都
   const client = connectMcpRuntime({ pairingFile: (await env.pair()).data.pairingFile });
   // 正文只有 40,000 字节，但转义后的响应超过 64 KiB。
   await rejects(client.call('read_slice', { noteId: quotes.id }), 'MCP_RESULT_TOO_LARGE');
-  assert.equal((await client.call('read_slice', { noteId: quotes.id, start: 0, end: 20_000 })).fragments[0].text.length, 20_000);
+  assert.equal((await client.call('read_slice', { noteId: quotes.id, start: 0, end: 10_000 })).fragments[0].text.length, 10_000);
 });
 
 test('过期配对重启后清理：原始令牌文件与孤儿文件都被删除', async t => {

@@ -32,7 +32,7 @@ const rankOf = annotation => IMPORTANCE_RANK[annotation.importance ?? 'normal'];
 export async function listAnnotatedRanges({ access, repository, grantId, args }) {
   if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(key => !ARGUMENT_KEYS.has(key))
     || typeof args.noteId !== 'string' || !args.noteId || args.noteId.length > 128
-    || args.minImportance !== undefined && !IMPORTANCE_RANK[args.minImportance]
+    || args.minImportance !== undefined && (typeof args.minImportance !== 'string' || !Object.hasOwn(IMPORTANCE_RANK, args.minImportance))
     || args.limit !== undefined && (!Number.isSafeInteger(args.limit) || args.limit < 1 || args.limit > MAX_LIMIT)
     || args.offset !== undefined && (!Number.isSafeInteger(args.offset) || args.offset < 0)) {
     throw invalid();

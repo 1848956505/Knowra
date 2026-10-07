@@ -28,6 +28,11 @@ export async function startMcpSocketServer({ socketPath, pairings, gate, logger 
         if (!verifier || typeof body.nonce !== 'string' || !/^[0-9a-f]{32,64}$/.test(body.nonce)) throw new McpError('MCP_TOKEN_INVALID', '配对无效。', { status: 401 });
         return send(response, 200, { data: { proof: serverProof(verifier, body.pairingId, body.nonce) } });
       }
+      if (request.url === '/mcp/v1/tools') {
+        const match = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '');
+        await parseBody(request, { limitBytes: 1024 });
+        return send(response, 200, { data: { tools: gate.describeTools({ token: match?.[1] }) } });
+      }
       if (request.url === '/mcp/v1/call') {
         const match = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '');
         const body = await parseBody(request, { limitBytes: 16_384 });

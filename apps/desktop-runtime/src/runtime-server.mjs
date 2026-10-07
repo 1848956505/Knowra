@@ -14,10 +14,11 @@ import { parseBody } from '../../api/src/http/request.js';
 import { exportRuntimeBackup, importRuntimeBackup } from './backup-transfers.mjs';
 import { authoritativePurgeRoute } from './authoritative-purge.mjs';
 import { startMcpRuntime } from './mcp/index.mjs';
+import { createReadOnlyTools } from './mcp/tools.mjs';
 import { handleMcpPairingRoute } from './mcp/pairing-routes.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
-  aiRuntimeFactory, mcpTools = {}, mcpLimits, mcpNow } = {}) {
+  aiRuntimeFactory, mcpTools = null, mcpLimits, mcpNow } = {}) {
   if (!path.isAbsolute(dataDirectory ?? '')) throw new Error('本地数据目录必须是绝对路径。');
   if (!fs.existsSync(path.join(distRoot, 'index.html'))) throw new Error('缺少前端构建，请先运行 npm run build:web。');
   const release = lockDataDirectory(dataDirectory);
@@ -28,10 +29,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let recoverAi;
   let closeAi;
   let getAi;
+  let getAnnotations;
   let mcp = null;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi, recoverAi, closeAi, getAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
     // AI 恢复在后台进行，不能延迟本地笔记服务启动。
     void recoverAi;
     const secret = randomBytes(32).toString('hex');
@@ -108,7 +110,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
                   const previousStore = store;
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi } = replacement);
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations } = replacement);
                   activeDirectory = restoredDirectory;
                   try { previousStore.close(); } catch (failure) { logger.error?.('Previous local store close failed', failure); }
                   result = { ...record, datasetId: store.getStatus().datasetId, directory: restoredDirectory, syncPaused: true };
@@ -116,7 +118,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.closeAi(); await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
                   void recoverAi;
                   throw failure;
                 }
@@ -212,7 +214,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     origin = `http://127.0.0.1:${server.address().port}`;
     // 外部 AI 客户端入口只在本机 socket 上；装配失败不能影响本地笔记，只是该入口不可用。
     try {
-      mcp = await startMcpRuntime({ dataDirectory, logger, tools: mcpTools, limits: mcpLimits, now: mcpNow,
+      mcp = await startMcpRuntime({ dataDirectory, logger, tools: mcpTools ?? createReadOnlyTools({ getAnnotations: () => getAnnotations?.() }), limits: mcpLimits, now: mcpNow,
         getAccess: () => getAi?.()?.access ?? null,
         flags: () => ({ aiEnabled: Boolean(getAi?.()?.access) && process.env.KNOWRA_AI_ENABLED !== '0',
           allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0' }) });

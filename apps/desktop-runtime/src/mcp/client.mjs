@@ -57,26 +57,27 @@ function request(socketPath, route, { body, token } = {}) {
  * 每次调用都重新验证，避免连接中途被替换。
  */
 export function connectMcpRuntime({ pairingFile }) {
-  return {
-    async call(tool, input = {}) {
-      const pairing = readPairingFile(pairingFile);
-      assertTrustedSocket(pairing.socketPath);
-      const nonce = randomBytes(24).toString('hex');
-      const hello = await request(pairing.socketPath, '/mcp/v1/handshake', { body: { pairingId: pairing.pairingId, nonce } });
-      // 对端自称配对记录不可用：只是拒绝服务，没有发送令牌，直接如实报告。
-      if (hello.status === 503 && hello.body?.error?.code === 'MCP_STORE_UNAVAILABLE') throw mcpError('MCP_STORE_UNAVAILABLE', hello.body.error.message, { status: 503 });
-      const proof = hello.body?.data?.proof;
-      const expected = serverProof(tokenVerifier(pairing.token), pairing.pairingId, nonce);
-      if (hello.status !== 200 || typeof proof !== 'string' || proof.length !== expected.length
-        || !timingSafeEqual(Buffer.from(proof), Buffer.from(expected))) {
-        throw mcpError('MCP_RUNTIME_UNTRUSTED', '无法确认对端是知境运行端，已拒绝发送配对令牌。', { status: 403 });
-      }
-      const result = await request(pairing.socketPath, '/mcp/v1/call', { body: { tool, input }, token: pairing.token });
-      if (result.status !== 200) {
-        const error = mcpError(result.body?.error?.code ?? 'MCP_INTERNAL', result.body?.error?.message ?? '外部调用失败。', { status: result.status, retryAfterSeconds: result.body?.error?.retryAfterSeconds });
-        throw error;
-      }
-      return result.body.data;
+  async function authorized(route, body) {
+    const pairing = readPairingFile(pairingFile);
+    assertTrustedSocket(pairing.socketPath);
+    const nonce = randomBytes(24).toString('hex');
+    const hello = await request(pairing.socketPath, '/mcp/v1/handshake', { body: { pairingId: pairing.pairingId, nonce } });
+    // 对端自称配对记录不可用：只是拒绝服务，没有发送令牌，直接如实报告。
+    if (hello.status === 503 && hello.body?.error?.code === 'MCP_STORE_UNAVAILABLE') throw mcpError('MCP_STORE_UNAVAILABLE', hello.body.error.message, { status: 503 });
+    const proof = hello.body?.data?.proof;
+    const expected = serverProof(tokenVerifier(pairing.token), pairing.pairingId, nonce);
+    if (hello.status !== 200 || typeof proof !== 'string' || proof.length !== expected.length
+      || !timingSafeEqual(Buffer.from(proof), Buffer.from(expected))) {
+      throw mcpError('MCP_RUNTIME_UNTRUSTED', '无法确认对端是知境运行端，已拒绝发送配对令牌。', { status: 403 });
     }
+    const result = await request(pairing.socketPath, route, { body, token: pairing.token });
+    if (result.status !== 200) {
+      throw mcpError(result.body?.error?.code ?? 'MCP_INTERNAL', result.body?.error?.message ?? '外部调用失败。', { status: result.status, retryAfterSeconds: result.body?.error?.retryAfterSeconds });
+    }
+    return result.body.data;
+  }
+  return {
+    call: (tool, input = {}) => authorized('/mcp/v1/call', { tool, input }),
+    async listTools() { return (await authorized('/mcp/v1/tools', {})).tools; }
   };
 }
