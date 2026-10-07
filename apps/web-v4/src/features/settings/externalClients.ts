@@ -4,14 +4,14 @@ export type PairingScope = { kind: 'library' } | { kind: 'folder'; folderId: str
 
 export interface McpPairing {
   pairingId: string; label: string; spaceId: string; scope: PairingScope; excludedNoteIds: string[];
-  createdAt: string; expiresAt: string; revokedAt: string | null; lastUsedAt: string | null; calls: number;
+  createdAt: string; expiresAt: string; revokedAt: string | null; lastUsedAt: string | null; calls: number; allowPropose: boolean;
   status: 'active' | 'expired' | 'revoked'; pairingFile: string;
 }
 /** 适配器启动方式：命令、脚本路径与环境变量；不含令牌，配对文件路径由各配对给出。 */
 export interface McpAdapter { command: string; args: string[]; env: Record<string, string> }
-export interface McpOverview { items: McpPairing[]; aiEnabled: boolean; egressEnabled: boolean; adapter: McpAdapter | null }
+export interface McpOverview { items: McpPairing[]; aiEnabled: boolean; egressEnabled: boolean; proposalsEnabled: boolean; adapter: McpAdapter | null }
 export interface McpAuditEntry { at: string; event: string; tool?: string; status?: string; code?: string; fragments?: number; retryAfterSeconds?: number }
-export interface CreatePairingInput { label: string; spaceId: string; scope: PairingScope; expiresInDays: number; egressConfirmed: true }
+export interface CreatePairingInput { label: string; spaceId: string; scope: PairingScope; expiresInDays: number; egressConfirmed: true; allowPropose?: true; proposeConfirmed?: true }
 
 const HEADERS = { 'X-Knowra-MCP-Pairing': '1' };
 const base = '/api/local-runtime/mcp';

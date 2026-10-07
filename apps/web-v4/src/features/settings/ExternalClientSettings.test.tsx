@@ -17,9 +17,9 @@ const workspace = (overrides: Record<string, unknown> = {}) => ({ loadWorkspace,
 
 const adapter = { command: '/Applications/知境·Knowra.app/Contents/MacOS/Knowra', args: ['/Applications/知境·Knowra.app/Contents/Resources/app/mcp-adapter.mjs'], env: { ELECTRON_RUN_AS_NODE: '1' } };
 const pairing = (overrides: Partial<McpPairing> = {}): McpPairing => ({ pairingId: 'p-1', label: 'Claude Code', spaceId: 'space-1', scope: { kind: 'library' }, excludedNoteIds: [],
-  createdAt: '2026-10-06T00:00:00Z', expiresAt: '2026-10-13T00:00:00Z', revokedAt: null, lastUsedAt: null, calls: 0, status: 'active',
+  createdAt: '2026-10-06T00:00:00Z', expiresAt: '2026-10-13T00:00:00Z', revokedAt: null, lastUsedAt: null, calls: 0, allowPropose: false, status: 'active',
   pairingFile: '/data/mcp/pairings/p-1.json', ...overrides });
-const overview = (overrides: Partial<McpOverview> = {}): McpOverview => ({ items: [], aiEnabled: true, egressEnabled: true, adapter, ...overrides });
+const overview = (overrides: Partial<McpOverview> = {}): McpOverview => ({ items: [], aiEnabled: true, egressEnabled: true, proposalsEnabled: true, adapter, ...overrides });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -204,4 +204,50 @@ it('直接打开或刷新设置页时工作区尚未加载：补加载，加载�
   await waitFor(() => expect(screen.getByRole('button', { name: '添加外部客户端' })).toBeEnabled());
   expect(screen.queryByText('正在加载知识空间，加载完成后即可添加。')).not.toBeInTheDocument();
   expect(loadWorkspace).toHaveBeenCalledTimes(1);
+});
+
+it('允许提交候选：默认关闭；勾选后显示说明并要求额外确认，创建请求带上两个确认；列表显示标签', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview());
+  vi.mocked(externalClients.create).mockResolvedValue(pairing({ allowPropose: true }));
+  render(<ExternalClientSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '添加外部客户端' }));
+  const dialog = await screen.findByRole('dialog', { name: '允许外部 AI 客户端读取笔记？' });
+  const option = within(dialog).getByRole('checkbox', { name: '同时允许该客户端提交待审核的知识候选（默认不允许）' });
+  expect(option).not.toBeChecked();
+  expect(dialog).not.toHaveTextContent('每天最多提交 200 条');
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /客户端名称/ }), { target: { value: 'Claude Code' } });
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我了解所选范围内的笔记片段会发给/ }));
+  fireEvent.click(option);
+  expect(dialog).toHaveTextContent('开启后，该客户端可以把它从你笔记里提炼的内容作为待审核的知识候选提交到知境。候选不会自动入库，也不会被确认，需要你在知识库逐条审核；它只能引用自己已读取过的原文，每天最多提交 200 条。仍需要“AI 提炼知识点”开关处于开启状态。');
+  const create = within(dialog).getByRole('button', { name: '创建配对' });
+  expect(create).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: '我了解提交的候选由客户端的模型生成，可能有误，我会在知识库逐条审核' }));
+  await waitFor(() => expect(create).toBeEnabled());
+  // 取消勾选提交选项后，额外确认随之清空，不会带着旧的确认提交。
+  fireEvent.click(option); fireEvent.click(option);
+  expect(within(dialog).getByRole('checkbox', { name: /我了解提交的候选/ })).not.toBeChecked();
+  expect(create).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我了解提交的候选/ }));
+  await waitFor(() => expect(create).toBeEnabled());
+  fireEvent.click(create);
+  await waitFor(() => expect(externalClients.create).toHaveBeenCalledExactlyOnceWith({ label: 'Claude Code', spaceId: 'space-1', scope: { kind: 'library' },
+    expiresInDays: 7, egressConfirmed: true, allowPropose: true, proposeConfirmed: true }));
+});
+
+it('只读配对不显示“可提交候选”；开启提交的配对显示标签，全局“AI 提炼知识点”未开启时提示暂不能提交', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview({ proposalsEnabled: false, items: [
+    pairing({ label: '只读', pairingId: 'p-ro' }), pairing({ label: '可提交', pairingId: 'p-rw', allowPropose: true }),
+    pairing({ label: '已撤销可提交', pairingId: 'p-old', allowPropose: true, status: 'revoked' })] }));
+  render(<ExternalClientSettings />);
+  const rows = within(await screen.findByRole('list', { name: '已配对的外部客户端' })).getAllByRole('listitem');
+  expect(rows[0]).not.toHaveTextContent('可提交候选'); expect(rows[0]).not.toHaveTextContent('暂不能提交');
+  expect(rows[1]).toHaveTextContent('可提交候选'); expect(rows[1]).toHaveTextContent('“AI 提炼知识点”未开启，暂不能提交');
+  expect(rows[2]).not.toHaveTextContent('暂不能提交');
+});
+
+it('“AI 提炼知识点”已开启时不显示暂不能提交的提示', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview({ items: [pairing({ allowPropose: true })] }));
+  render(<ExternalClientSettings />);
+  const row = within(await screen.findByRole('list', { name: '已配对的外部客户端' })).getByRole('listitem');
+  expect(row).toHaveTextContent('可提交候选'); expect(row).not.toHaveTextContent('暂不能提交');
 });

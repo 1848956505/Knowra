@@ -15,7 +15,7 @@ import { parseBody } from '../../api/src/http/request.js';
 import { exportRuntimeBackup, importRuntimeBackup } from './backup-transfers.mjs';
 import { authoritativePurgeRoute } from './authoritative-purge.mjs';
 import { startMcpRuntime } from './mcp/index.mjs';
-import { createReadOnlyTools } from './mcp/tools.mjs';
+import { createMcpTools } from './mcp/tools.mjs';
 import { handleMcpPairingRoute } from './mcp/pairing-routes.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
@@ -31,10 +31,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let closeAi;
   let getAi;
   let getAnnotations;
+  let getAiFeatures;
   let mcp = null;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
     // AI 恢复在后台进行，不能延迟本地笔记服务启动。
     void recoverAi;
     const secret = randomBytes(32).toString('hex');
@@ -111,7 +112,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
                   const previousStore = store;
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations } = replacement);
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = replacement);
                   activeDirectory = restoredDirectory;
                   try { previousStore.close(); } catch (failure) { logger.error?.('Previous local store close failed', failure); }
                   result = { ...record, datasetId: store.getStatus().datasetId, directory: restoredDirectory, syncPaused: true };
@@ -119,7 +120,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.closeAi(); await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
                   void recoverAi;
                   throw failure;
                 }
@@ -215,7 +216,9 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     origin = `http://127.0.0.1:${server.address().port}`;
     // 外部 AI 客户端入口只在本机 socket 上；装配失败不能影响本地笔记，只是该入口不可用。
     try {
-      mcp = await startMcpRuntime({ dataDirectory, logger, tools: mcpTools ?? createReadOnlyTools({ getAnnotations: () => getAnnotations?.() }), limits: mcpLimits, now: mcpNow,
+      mcp = await startMcpRuntime({ dataDirectory, logger, proposalsEnabled: async () => Boolean((await getAiFeatures?.()?.get())?.knowledgeProposals),
+        proposalsNow: () => Boolean(getAiFeatures?.()?.peek().knowledgeProposals),
+        tools: mcpTools ?? createMcpTools({ getAnnotations: () => getAnnotations?.(), getAi: () => getAi?.() }), limits: mcpLimits, now: mcpNow,
         // 适配器启动方式由装配方给出：开发时是 node 加源码路径，Mac 应用里是应用自带的可执行文件加打包后的脚本。
         adapter: mcpAdapter === undefined ? { command: process.execPath, args: [fileURLToPath(new URL('./mcp/adapter.mjs', import.meta.url))], env: {} } : mcpAdapter,
         getAccess: () => getAi?.()?.access ?? null,

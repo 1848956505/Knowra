@@ -126,7 +126,8 @@ test('越权、私密、被排除、非法与伪造参数：工具错误且不�
     assert.equal(errorCode(await call(tool, args)), 'MCP_REQUEST_INVALID', `${tool} ${JSON.stringify(args)}`);
   }
   assert.equal(errorCode(await call('notes_write', { noteId: inside.id })), 'MCP_TOOL_UNKNOWN');
-  assert.equal(errorCode(await call('knowledge_propose', {})), 'MCP_TOOL_UNKNOWN');
+  // 提交候选需要配对时单独开启：没有开启的配对看不到该工具，直接调用也被明确拒绝。
+  assert.equal(errorCode(await call('knowledge_propose', {})), 'MCP_PROPOSE_NOT_ALLOWED');
   // 笔记在授权后改为私密：立即不可读。
   assert.equal((await env.call(`/api/knowledge/notes/${inside.id}`, 'PATCH', { aiVisibility: 'private' })).status, 200);
   assert.equal(errorCode(await call('notes_read', { noteId: inside.id })), 'MCP_ACCESS_REVOKED');

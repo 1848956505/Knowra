@@ -14,6 +14,10 @@ const KEYS = Object.keys(DEFAULTS);
 export function createAiFeatureSettings({ filePath }) {
   if (typeof filePath !== 'string' || !filePath) throw new TypeError('AI 功能开关需要存储路径。');
   let writing = Promise.resolve();
+  // 同步可读的最近值：事务内复核等不能 await 的位置使用。读取与写入成功后更新；从未读取过时按关闭处理（fail closed）。
+  let cached = null;
+  // 写入代数：较早开始的读取在写入完成之后才返回时，结果已过时，不得覆盖较新的缓存。
+  let generation = 0;
 
   function normalize(value) {
     const result = { ...DEFAULTS };
@@ -24,8 +28,13 @@ export function createAiFeatureSettings({ filePath }) {
   }
 
   async function get() {
-    try { return normalize(JSON.parse(await fs.readFile(filePath, 'utf8'))); }
-    catch { return { ...DEFAULTS }; }
+    const started = generation;
+    let read;
+    try { read = normalize(JSON.parse(await fs.readFile(filePath, 'utf8'))); }
+    catch { read = { ...DEFAULTS }; }
+    if (started === generation) cached = read;
+    // 读取期间发生过写入：读到的值可能已过时，以写入后的最新缓存为准。
+    return { ...(started === generation ? read : (cached ?? read)) };
   }
 
   async function set(input) {
@@ -40,6 +49,7 @@ export function createAiFeatureSettings({ filePath }) {
       try {
         await fs.writeFile(temp, JSON.stringify(next), { mode: 0o600, flag: 'wx' });
         await fs.rename(temp, filePath);
+        cached = { ...next }; generation += 1;
       } finally { await fs.rm(temp, { force: true }); }
       return next;
     });
@@ -47,5 +57,5 @@ export function createAiFeatureSettings({ filePath }) {
     return run;
   }
 
-  return { get, set };
+  return { get, set, peek: () => ({ ...(cached ?? DEFAULTS) }) };
 }

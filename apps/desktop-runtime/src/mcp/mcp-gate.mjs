@@ -1,8 +1,13 @@
+import { calculateContentHash } from '@study-accelerator/content-anchor';
+import { randomUUID } from 'node:crypto';
 import { mcpError } from './mcp-error.mjs';
 
 export const DEFAULT_MCP_LIMITS = Object.freeze({
-  perMinute: 30, perDay: 1000, concurrent: 2, maxResultBytes: 65_536, maxFragments: 50, toolTimeoutMs: 15_000
+  perMinute: 30, perDay: 1000, concurrent: 2, maxResultBytes: 65_536, maxFragments: 50, toolTimeoutMs: 15_000,
+  // 每个配对每天最多提交的候选条数：保护知识候选区不被一个客户端刷满。
+  maxCandidatesPerDay: 200
 });
+const READ_LEDGER_LIMIT = 500;
 const GRANT_TOOLS = ['notes_search', 'notes_read'];
 const MIN_GRANT_LEFT_MS = 60_000;
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -10,21 +15,30 @@ const isInt = value => Number.isSafeInteger(value) && value >= 0;
 // 响应封装（socket 的 data 外壳与 JSON-RPC 信封）的预留字节数；上限对最终发给客户端的消息生效。
 const ENVELOPE_ALLOWANCE = 256;
 
-/** 严格按工具公布的 inputSchema 校验：类型、枚举、范围、长度、必填与多余字段；公布的与实际接受的必须一致。 */
+/** 严格按工具公布的 inputSchema 递归校验：类型、枚举、范围、长度、数组条数、必填与多余字段；公布的与实际接受的必须一致。 */
 export function validateInput(schema, input) {
   const bad = () => mcpError('MCP_REQUEST_INVALID', '工具参数不符合公布的参数结构。', { status: 400 });
-  if (!isPlainObject(input)) throw bad();
-  const properties = schema.properties ?? {};
-  for (const key of Object.keys(input)) if (!Object.hasOwn(properties, key)) throw bad();
-  for (const key of schema.required ?? []) if (!Object.hasOwn(input, key)) throw bad();
-  for (const [key, value] of Object.entries(input)) {
-    const rule = properties[key];
+  const check = (rule, value) => {
+    if (rule.type === 'object') {
+      if (!isPlainObject(value)) throw bad();
+      const properties = rule.properties ?? {};
+      for (const key of Object.keys(value)) if (!Object.hasOwn(properties, key)) throw bad();
+      for (const key of rule.required ?? []) if (!Object.hasOwn(value, key)) throw bad();
+      for (const [key, inner] of Object.entries(value)) check(properties[key], inner);
+      return;
+    }
+    if (rule.type === 'array') {
+      if (!Array.isArray(value) || rule.minItems !== undefined && value.length < rule.minItems || rule.maxItems !== undefined && value.length > rule.maxItems) throw bad();
+      for (const inner of value) check(rule.items, inner);
+      return;
+    }
     const typeOk = rule.type === 'string' ? typeof value === 'string' : rule.type === 'integer' ? Number.isSafeInteger(value)
       : rule.type === 'boolean' ? typeof value === 'boolean' : false;
     if (!typeOk || rule.enum && !rule.enum.includes(value)
       || rule.minimum !== undefined && value < rule.minimum || rule.maximum !== undefined && value > rule.maximum
       || rule.minLength !== undefined && value.length < rule.minLength || rule.maxLength !== undefined && value.length > rule.maxLength) throw bad();
-  }
+  };
+  check({ ...schema, type: 'object' }, input);
 }
 
 /**
@@ -32,11 +46,21 @@ export function validateInput(schema, input) {
  * 工具只能返回“正文片段 + 偏移”，由本出口逐条对照授权范围内笔记的当前正文复核，再生成响应与片段清单，
  * 因此响应内容与清单来自同一处，工具实现无法绕过。
  */
-export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
+export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
   const limit = { ...DEFAULT_MCP_LIMITS, ...limits };
   const windows = new Map();
   const inflight = new Map();
   const grants = new Map();
+  // 配对内“已读片段”记录：只记录出口复核通过的读取结果（笔记、版本、偏移、原文哈希），不含正文；运行端重启或撤销后清空。
+  const ledgers = new Map();
+  const tails = new Map();
+  function serialize(key, task) {
+    const run = (tails.get(key) ?? Promise.resolve()).catch(() => undefined).then(task);
+    const tail = run.catch(() => undefined);
+    tails.set(key, tail);
+    tail.then(() => { if (tails.get(key) === tail) tails.delete(key); });
+    return run;
+  }
 
   function assertFlags() {
     const { aiEnabled, allowExternal } = flags();
@@ -63,12 +87,17 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
   const mapAccess = error => {
     if (!error?.code?.startsWith?.('AI_')) return error;
     if (['AI_TOOL_ARGUMENTS_INVALID', 'AI_SEARCH_INVALID'].includes(error.code)) return mcpError('MCP_REQUEST_INVALID', '工具参数无效。', { status: 400 });
-    if (error.code === 'AI_SOURCE_STALE') return mcpError('MCP_SOURCE_CHANGED', '读取期间笔记已变化，请重试。', { status: 409 });
+    if (error.code === 'AI_SOURCE_STALE' || error.code === 'AI_PROPOSAL_SOURCE_STALE') return mcpError('MCP_SOURCE_CHANGED', '读取期间笔记已变化，请重新读取后重试。', { status: 409 });
+    if (error.code === 'AI_PROPOSAL_NOT_READ') return mcpError('MCP_PROPOSAL_NOT_READ', '请先用 notes_read、notes_search 或 annotations_list 读取要引用的原文，再提交知识候选。', { status: 409 });
+    if (['AI_PROPOSAL_CITATION_INVALID', 'AI_PROPOSAL_INVALID', 'AI_PROPOSAL_DUPLICATE'].includes(error.code)) {
+      // 这些错误的说明与提示只含通用文字和候选序号，不含笔记原文。
+      return mcpError(error.code === 'AI_PROPOSAL_DUPLICATE' ? 'MCP_PROPOSAL_DUPLICATE' : 'MCP_PROPOSAL_INVALID', `${error.message}${error.hint ? ` ${error.hint}` : ''}`, { status: 422 });
+    }
     return mcpError('MCP_ACCESS_REVOKED', error.code === 'AI_SCOPE_FORBIDDEN' ? '来源不在授权范围。' : '授权已撤销、过期、资料集已切换或来源已变化。', { status: 403 });
   };
-  const normalize = entry => typeof entry === 'function' ? { run: entry, metaKeys: [], fragmentAttrs: {} }
+  const normalize = entry => typeof entry === 'function' ? { run: entry, metaKeys: [], fragmentAttrs: {}, write: false }
     : { run: entry?.run, metaKeys: Array.isArray(entry?.metaKeys) ? entry.metaKeys : [], fragmentAttrs: entry?.fragmentAttrs ?? {},
-      description: entry?.description, inputSchema: entry?.inputSchema };
+      description: entry?.description, inputSchema: entry?.inputSchema, write: entry?.write === true };
   /** 片段附加字段只允许工具声明过的键，且值限于枚举、布尔值或受限格式的标识符，不能夹带自由文本。 */
   function checkAttrs(attrs, spec) {
     if (attrs === undefined) return undefined;
@@ -128,7 +157,21 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
     // 再加封装预留。这样转义、标题、偏移与信封开销都算在内，不会出现运行端放行而最终消息超限的情况。
     const finalSize = Buffer.byteLength(JSON.stringify(JSON.stringify({ fragments, meta })), 'utf8') + ENVELOPE_ALLOWANCE;
     if (finalSize > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
-    return { fragments, manifest, bytes, meta };
+    const reads = fragments.map(item => ({ noteId: item.noteId, noteVersionId: item.noteVersionId, contentHash: item.contentHash,
+      start: item.start, end: item.end, quoteHash: calculateContentHash(item.text) }));
+    return { fragments, manifest, bytes, meta, reads };
+  }
+  function recordReads(pairingId, reads) {
+    if (!reads.length) return;
+    const ledger = ledgers.get(pairingId) ?? new Map();
+    for (const read of reads) {
+      // 笔记有了新版本：旧版本的已读记录不再可引用。
+      for (const [key, old] of ledger) if (old.noteId === read.noteId && old.noteVersionId !== read.noteVersionId) ledger.delete(key);
+      const key = `${read.noteId}:${read.noteVersionId}:${read.start}:${read.end}`;
+      ledger.delete(key); ledger.set(key, read);
+    }
+    while (ledger.size > READ_LEDGER_LIMIT) ledger.delete(ledger.keys().next().value);
+    ledgers.set(pairingId, ledger);
   }
 
   async function call({ token, tool, input = {} }) {
@@ -143,6 +186,11 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
       const handler = entry?.run ?? null;
       if (!handler) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
       if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
+      if (entry.write) {
+        // 提交候选需要三层都开：配对创建时单独开启、全局“AI 提炼知识点”开关、以及与读取相同的 AI/外发开关。权限检查先于参数校验。
+        if (!row.allowPropose) throw mcpError('MCP_PROPOSE_NOT_ALLOWED', '该配对没有提交知识候选的权限，请在知境设置里重新创建并单独开启。', { status: 403 });
+        if (!(await proposalsEnabled())) throw mcpError('MCP_PROPOSALS_DISABLED', '“AI 提炼知识点”未开启，暂不能提交知识候选。', { status: 403 });
+      }
       if (entry.inputSchema) validateInput(entry.inputSchema, input);
       admit(row); admitted = true;
       const access = getAccess();
@@ -150,12 +198,37 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
       let timer;
       const outcome = await (async () => {
         const grantId = await ensureGrant(access, row);
-        const raw = await Promise.race([handler({ input, grantId, access }),
-          new Promise((_, reject) => { timer = setTimeout(() => reject(mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 })), limit.toolTimeoutMs); })])
+        const controller = new AbortController();
+        const timedOut = () => mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 });
+        const context = { input, grantId, access, pairing: { pairingId: row.pairingId }, callId: randomUUID(), signal: controller.signal,
+          readRanges: () => [...(ledgers.get(row.pairingId)?.values() ?? [])],
+          // 事务内复核：保存候选的同一个事务里再次确认——调用没有超时、配对仍有效、读取/外发开关仍开启、配对仍允许提交、
+          // 全局“AI 提炼知识点”开关仍开启（用同步可读的最近值：关闭开关的写入完成后立即生效）。超时后迟到的写入因此不会落库。
+          guard: () => {
+            if (controller.signal.aborted) throw timedOut();
+            pairings.assertActive(row); assertFlags();
+            if (!row.allowPropose) throw mcpError('MCP_PROPOSE_NOT_ALLOWED', '该配对没有提交知识候选的权限。', { status: 403 });
+            if (!proposalsNow()) throw mcpError('MCP_PROPOSALS_DISABLED', '“AI 提炼知识点”未开启，暂不能提交知识候选。', { status: 403 });
+          },
+          // 配额先预留再提交：检查与预留在同一个同步步骤里完成，并发调用不会同时通过；提交确定失败时归还，成功（含确认丢失后按回执恢复）只计一次。
+          quota: { reserve: count => {
+            if (count > Math.max(0, limit.maxCandidatesPerDay - pairings.candidatesToday(row))) {
+              const midnight = Date.parse(`${now().toISOString().slice(0, 10)}T00:00:00Z`) + 86_400_000;
+              throw mcpError('MCP_RATE_LIMITED', '今日提交的候选数量已达上限。', { status: 429, retryAfterSeconds: Math.max(1, Math.ceil((midnight - now().getTime()) / 1000)) });
+            }
+            return pairings.reserveCandidates(row, count);
+          }, release: handle => pairings.releaseCandidates(row, handle) },
+          // 同一配对、同一幂等键的调用依次执行：并发重试不会各自预留各自提交，第二个等第一个结束后按回执对账。
+          serialize: (key, task) => serialize(`${row.pairingId}:${key}`, task) };
+        const raw = await Promise.race([handler(context),
+          new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(timedOut()); }, limit.toolTimeoutMs); })])
           .finally(() => clearTimeout(timer));
         // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
         pairings.assertActive(row); assertFlags(); await access.assertSearchGrant({ grantId });
-        return verifyFragments(access, grantId, raw, entry);
+        const verified = await verifyFragments(access, grantId, raw, entry);
+        // 只有读取工具的结果才进入已读记录；写工具返回的是回执，不产生可引用的原文。
+        if (!entry.write) recordReads(row.pairingId, verified.reads);
+        return verified;
       })().catch(error => { pairings.assertActive(row); throw mapAccess(error); });
       pairings.assertActive(row); assertFlags();
       audit.append({ ...base, status: 'ok', fragments: outcome.fragments.length, bytes: outcome.bytes, manifest: outcome.manifest });
@@ -172,10 +245,10 @@ export function createMcpGate({ pairings, getAccess, flags, tools = {}, audit, l
   function describeTools({ token }) {
     const row = pairings.authenticate(token);
     pairings.assertActive(row);
-    return Object.entries(tools).map(([name, raw]) => {
+    return Object.entries(tools).filter(([, raw]) => !normalize(raw).write || row.allowPropose).map(([name, raw]) => {
       const entry = normalize(raw);
       return { name, description: entry.description ?? '', inputSchema: entry.inputSchema ?? { type: 'object', properties: {}, additionalProperties: false } };
     });
   }
-  return { call, describeTools, limits: limit, forgetGrant: id => grants.delete(id) };
+  return { call, describeTools, limits: limit, forgetGrant: id => { grants.delete(id); ledgers.delete(id); } };
 }

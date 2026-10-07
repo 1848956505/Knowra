@@ -15,7 +15,7 @@ export async function handleMcpPairingRoute({ request, response, url, mcp, parse
       throw new McpError('MCP_REQUEST_REJECTED', '配对请求无效。', { status: 403 });
     }
     if (request.method === 'GET' && url.pathname === '/api/local-runtime/mcp/pairings') {
-      json(response, 200, { data: { items: service.list(), ...service.status() } }); return true;
+      json(response, 200, { data: { items: service.list(), ...(await service.status()) } }); return true;
     }
     if (request.method === 'GET' && url.pathname === '/api/local-runtime/mcp/audit') {
       json(response, 200, { data: { items: service.recentAudit({ pairingId: url.searchParams.get('pairingId') || undefined,

@@ -141,7 +141,13 @@ export interface AgentKnowledgeProvenance extends RecordedKnowledgeProvenanceBas
   origin: { conversationId: string; turnId: string; toolCallId: string; requestId: string; spaceId: string; receiptHash: string };
 }
 
-export type RecordedKnowledgeProvenance = MockKnowledgeProvenance | AgentKnowledgeProvenance;
+export interface McpKnowledgeProvenance extends RecordedKnowledgeProvenanceBase {
+  executionMode: 'mcp';
+  provider: 'external-client';
+  origin: { pairingId: string; callId: string; requestId: string; spaceId: string; receiptHash: string };
+}
+
+export type RecordedKnowledgeProvenance = MockKnowledgeProvenance | AgentKnowledgeProvenance | McpKnowledgeProvenance;
 
 export interface ResolvedKnowledgeProvenanceSource {
   evidenceId: string;

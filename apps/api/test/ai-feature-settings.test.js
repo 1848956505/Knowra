@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
@@ -11,6 +12,41 @@ import { createPersistentAppContext } from '../src/app.factory.js';
 const temporary = () => fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-features-'));
 
 export const aiFeatureSettingsTests = [
+  { name: 'AI 功能开关 peek：同步读取最近值；从未读取时按关闭处理，写入成功后立即生效，写入失败不改变', async run() {
+    const directory = temporary(), filePath = path.join(directory, 'ai-features.json');
+    fs.writeFileSync(filePath, '{"knowledgeProposals":true}', { mode: 0o600 });
+    const settings = createAiFeatureSettings({ filePath });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: false }, '尚未读取过：fail closed，即使文件里是开启');
+    assert.deepEqual(await settings.get(), { knowledgeProposals: true });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: true });
+    await settings.set({ knowledgeProposals: false });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: false }, '写入完成即生效，不需要再读文件');
+    { const copy = settings.peek(); copy.knowledgeProposals = true; assert.deepEqual(settings.peek(), { knowledgeProposals: false }, "返回的是副本"); }
+    await assert.rejects(settings.set({ knowledgeProposals: 'yes' }), { code: 'AI_FEATURES_INVALID' });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: false });
+  } },
+  { name: 'AI 功能开关 peek：较早开始、延迟返回的读取不能覆盖已完成写入后的缓存', async run() {
+    const directory = temporary(), filePath = path.join(directory, 'ai-features.json');
+    fs.writeFileSync(filePath, '{"knowledgeProposals":true}', { mode: 0o600 });
+    const settings = createAiFeatureSettings({ filePath });
+    const real = fsp.readFile;
+    let delayed = false;
+    fsp.readFile = async (...args) => {
+      const data = await real(...args);   // 先读到磁盘上的旧值（开启）
+      if (!delayed) { delayed = true; await new Promise(resolve => setTimeout(resolve, 150)); }   // 再延迟返回
+      return data;
+    };
+    try {
+      const slowRead = settings.get();
+      await new Promise(resolve => setTimeout(resolve, 30));
+      delayed = true; // 写入内部的读取不再延迟
+      await settings.set({ knowledgeProposals: false });
+      assert.deepEqual(settings.peek(), { knowledgeProposals: false });
+      assert.deepEqual(await slowRead, { knowledgeProposals: false }, '过时的读取以写入后的最新值为准');
+      assert.deepEqual(settings.peek(), { knowledgeProposals: false }, '过时的读取没有把缓存改回开启');
+      assert.deepEqual(JSON.parse(fs.readFileSync(filePath, 'utf8')), { knowledgeProposals: false });
+    } finally { fsp.readFile = real; }
+  } },
   { name: 'AI 功能开关：默认关闭；读写持久化；文件损坏或字段错误一律按关闭处理', async run() {
     const directory = temporary(), filePath = path.join(directory, 'nested', 'ai-features.json');
     const settings = createAiFeatureSettings({ filePath });

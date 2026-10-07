@@ -12,7 +12,9 @@ const SOURCE = ['evidenceId', 'sourceId', 'noteId', 'originNoteVersionId', 'cont
   'start', 'end', 'quoteText', 'quoteHash', 'annotationRevisions'];
 const ORIGIN_KEYS = Object.freeze({
   mock: ['jobId', 'requestId', 'scopeId', 'spaceId', 'receiptHash'],
-  agent: ['conversationId', 'turnId', 'toolCallId', 'requestId', 'spaceId', 'receiptHash']
+  agent: ['conversationId', 'turnId', 'toolCallId', 'requestId', 'spaceId', 'receiptHash'],
+  // 外部 AI 客户端（本机 MCP）：配对 ID 与调用 ID（客户端给的幂等键或由提议内容派生），不含对话内容与客户端自述信息。
+  mcp: ['pairingId', 'callId', 'requestId', 'spaceId', 'receiptHash']
 });
 const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const sha256 = value => createHash('sha256').update(value, 'utf8').digest('hex');
@@ -108,10 +110,12 @@ export function validateKnowledgeArtifactProvenance(record) {
     || !identifier(record.artifactId) || record.id !== knowledgeArtifactProvenanceId(record.artifactId)
     || !digest(record.provenanceHash)) invalid();
   if (record.state === 'recorded') {
-    // mock：受信宿主的模拟验收；agent：笔记助手经受控工具提议并由核心事务保存的候选。
-    // 两种模式的 provider 互斥，origin 字段各自固定，既有 mock 记录与其哈希保持不变。
-    if (!['mock', 'agent'].includes(record.executionMode)
-      || (record.executionMode === 'mock' ? record.provider !== 'mock' : !identifier(record.provider) || record.provider === 'mock')
+    // mock：受信宿主的模拟验收；agent：笔记助手经受控工具提议并由核心事务保存的候选；mcp：外部 AI 客户端经本机 MCP 提议的候选。
+    // 三种模式的 provider 互斥，origin 字段各自固定，既有 mock/agent 记录与其哈希保持不变。
+    const providerOk = record.executionMode === 'mock' ? record.provider === 'mock'
+      : record.executionMode === 'mcp' ? record.provider === 'external-client'
+        : identifier(record.provider) && record.provider !== 'mock' && record.provider !== 'external-client';
+    if (!['mock', 'agent', 'mcp'].includes(record.executionMode) || !providerOk
       || ['modelId', 'promptVersion', 'resultSchemaVersion'].some(key => !identifier(record[key]))
       || !digest(record.inputHash) || !digest(record.outputHash)
       || typeof record.committedAt !== 'string'
