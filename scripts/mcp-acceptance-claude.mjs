@@ -92,7 +92,7 @@ const listAfterRevoke = { connected: /knowra:.*✔ Connected/.test(listedAfter.o
 // 撤销后新启动的客户端会在连接阶段就被明确拒绝（取不到工具清单），模型无法调用，所以这里只检查它没有读到任何正文。
 const afterRevoke = loggedIn ? await runClaude('请用 knowra 的 notes_search 搜索“线粒体”，如实说明你能否使用这个工具以及结果是什么。') : null;
 
-const checks = evaluate({ health, first, afterRevoke, sameConnection, listAfterRevoke, audit, canaries: { private: CANARY_PRIVATE, outside: CANARY_OUTSIDE } });
+const checks = evaluate({ health, first, afterRevoke, sameConnection, listAfterRevoke, audit, canaries: { private: CANARY_PRIVATE, outside: CANARY_OUTSIDE }, target: { noteId: mito.id, opening: '线粒体是细胞的能量工厂' } });
 if (!loggedIn) {
   // 未登录时模型驱动的检查没有意义：只保留不需要登录的三项，避免把“没跑”当成“通过”或“失败”。
   for (const key of Object.keys(checks)) if (!/add-json|同一连接|mcp list 不再/.test(key)) delete checks[key];

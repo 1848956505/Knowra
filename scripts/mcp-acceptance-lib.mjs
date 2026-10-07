@@ -25,18 +25,29 @@ export function canaryProbe(calls, canary) {
     leaked: calls.some(call => call.result?.text.includes(canary)) };
 }
 
+const parseJson = text => { try { return JSON.parse(text); } catch { return null; } };
+/** 某个工具是否有一次“对目标笔记成功”的调用：同一调用的参数与结果一起核对，失败（工具错误、权限错误）的调用不算。 */
+function succeeded(calls, name, accept) {
+  return calls.some(call => {
+    if (call.name !== `${TOOL_PREFIX}${name}` || !call.result || call.result.isError) return false;
+    const body = parseJson(call.result.text);
+    return Array.isArray(body?.fragments) && accept(call.input, body.fragments);
+  });
+}
+
 /** 全部检查项。未执行的探测不能通过：executed 必须为真，且结果为空。 */
-export function evaluate({ health, first, afterRevoke, sameConnection, listAfterRevoke, audit, canaries }) {
-  const calls = first.calls, results = calls.map(call => call.result).filter(Boolean);
-  const used = name => calls.some(call => call.name === `${TOOL_PREFIX}${name}`);
+export function evaluate({ health, first, afterRevoke, sameConnection, listAfterRevoke, audit, canaries, target }) {
+  const calls = first.calls;
   const privateProbe = canaryProbe(calls, canaries.private), outsideProbe = canaryProbe(calls, canaries.outside);
   return {
     '设置页生成的 add-json 片段被真实 Claude Code 接受，mcp list 显示已连接': health.addJsonExit === 0 && health.connected,
-    '客户端调用了 notes_search': used('notes_search'),
-    '客户端调用了 notes_read': used('notes_read'),
-    '客户端调用了 annotations_list': used('annotations_list'),
-    '读到授权范围内的正文': results.some(item => !item.isError && item.text.includes('能量工厂')),
-    '重点带重要度返回（core）': results.some(item => item.text.includes('"importance":"core"')),
+    // 以下三项必须是“同一次调用的参数与成功结果”都对：失败的调用（如 MCP_ACCESS_REVOKED）、对别的笔记的调用、别的工具的结果都不能满足。
+    '检索成功：搜索“线粒体”并命中目标笔记': succeeded(calls, 'notes_search', (input, fragments) => String(input.query ?? '').includes('线粒体')
+      && fragments.some(item => item.noteId === target.noteId && String(item.text).includes('线粒体'))),
+    '读取成功：notes_read 读取目标笔记开头并拿到正文': succeeded(calls, 'notes_read', (input, fragments) => input.noteId === target.noteId && (input.start ?? 0) === 0
+      && fragments.length > 0 && fragments.every(item => item.noteId === target.noteId && item.start === 0) && String(fragments[0].text).startsWith(target.opening)),
+    '重点列表成功：annotations_list 返回目标笔记的 core 重点': succeeded(calls, 'annotations_list', (input, fragments) => input.noteId === target.noteId
+      && fragments.some(item => item.noteId === target.noteId && item.attrs?.importance === 'core' && String(item.text).startsWith(target.opening))),
     '客户端确实搜索了私密笔记暗号，且得到成功的空结果': privateProbe.executed && privateProbe.empty,
     '客户端确实搜索了范围外笔记暗号，且得到成功的空结果': outsideProbe.executed && outsideProbe.empty,
     '私密笔记暗号没有出现在任何工具结果里': !privateProbe.leaked,
