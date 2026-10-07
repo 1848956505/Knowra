@@ -32,8 +32,8 @@ test('真实页面：历史摘要分页、差异对比、恢复和另存后持�
   assert.equal(summary.total, 24);
   assert(summary.items.every(item => !Object.hasOwn(item, 'content')));
   assert.notEqual(summary.currentVersionId, summary.items[0].id);
+  await page.goto('about:blank');
   await page.goto(`${runtime.origin}/#/materials/notes/${note.id}`);
-  await page.reload();
   const editor = page.locator('.ProseMirror');
   await expect(editor).toContainText('历史第5版');
   if (!await page.getByRole('tab', { name: '记录', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
