@@ -8,6 +8,18 @@ import { chromium, expect } from '@playwright/test';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
 import { extractNoteLinks } from '@study-accelerator/content-anchor';
 
+// 偶发失败的真实原因：goto(仅 hash 不同的地址) 是同文档导航，紧接着 reload() 在浏览器进程里可能仍按旧的已提交历史项（首页 '/'）重载，
+// 重载后地址里的 hash 丢失、页面停在首页，等不到 data-editor-ready。机器越快越容易出现。
+// 所以需要“全新加载某个 hash 路由”时，用先到 about:blank 再整页导航，不依赖 goto 加 reload 的先后。
+async function openFresh(page, url) { await page.goto('about:blank'); await page.goto(url); }
+async function editorReady(page) {
+  try { await expect(page.locator('[data-editor-ready="true"]')).toBeVisible(); }
+  catch (error) {
+    const state = await page.evaluate(() => ({ hash: location.hash, title: document.title, text: document.body.innerText.slice(0, 200), readyState: document.readyState })).catch(failure => ({ evaluateFailed: String(failure) }));
+    throw new Error(`编辑器未就绪：${page.url()} ${JSON.stringify(state)}`, { cause: error });
+  }
+}
+
 test('真实SQLite页面：恢复冲突来源草稿时不在不同版本中定位引用', { timeout: 45000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-link-draft-version-'));
   const runtime = await startLocalRuntime({ dataDirectory: directory, distRoot: fileURLToPath(new URL('../../../web-v4/dist/', import.meta.url)) });
@@ -24,8 +36,8 @@ test('真实SQLite页面：恢复冲突来源草稿时不在不同版本中定�
   const remote = `Remote version [Display](${url})`;
   const local = `Local recovered version [Display](${url})`;
   const source = await post('/api/knowledge/notes', { id: 'version-source', spaceId: space.id, title: '版本来源', rawMarkdown: remote });
-  await page.goto(`${runtime.origin}/#/materials/notes/${target.id}`); await page.reload();
-  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await openFresh(page, `${runtime.origin}/#/materials/notes/${target.id}`);
+  await editorReady(page);
   await page.evaluate(({ spaceId, sourceId, local, url }) => {
     sessionStorage.setItem(`knowra:note-draft:v1:${JSON.stringify([spaceId, sourceId])}`, JSON.stringify({
       markdown: local, baseMarkdown: `Base version [Display](${url})`, baseUpdatedAt: '2020-01-01T00:00:00.000Z', conflict: '合成恢复草稿冲突'
@@ -35,7 +47,7 @@ test('真实SQLite页面：恢复冲突来源草稿时不在不同版本中定�
   await page.getByRole('tab', { name: '链接', exact: true }).click();
   await page.getByRole('button', { name: 'Remote versionDisplay', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`notes/${source.id}$`));
-  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await editorReady(page);
   await expect(page.locator('.ProseMirror')).toContainText('Local recovered version');
   assert.notEqual(await page.evaluate(() => window.getSelection()?.toString()), 'Display');
   await expect(page.getByText('引用位置或来源版本已变化，已打开来源笔记', { exact: true })).toBeVisible();
@@ -59,8 +71,8 @@ test('真实页面：已移除或重复引用位置安全回退；保存冲突�
   const duplicateUrl = 'knowra://note/fallback-target#ref=ref-duplicate';
   const source = await post('/api/knowledge/notes', { id: 'fallback-source', spaceId: space.id, title: '移除来源', rawMarkdown: `[原引用](${firstUrl}) 已移除位置` });
   const duplicate = await post('/api/knowledge/notes', { id: 'fallback-duplicate', spaceId: space.id, title: '重复来源', rawMarkdown: `[相同文字](${duplicateUrl}) 第一副本\n\n[相同文字](${duplicateUrl}) 第二副本` });
-  await page.goto(`${runtime.origin}/#/materials/notes/${target.id}`); await page.reload();
-  const ready = async () => { await expect(page.locator('[data-editor-ready="true"]')).toBeVisible(); };
+  await openFresh(page, `${runtime.origin}/#/materials/notes/${target.id}`);
+  const ready = () => editorReady(page);
   await ready();
   if (!await page.getByRole('tab', { name: '链接', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
   await page.getByRole('tab', { name: '链接', exact: true }).click();
@@ -111,10 +123,9 @@ test('真实SQLite生产页面：选字搜索创建、取消、重开、正文�
   const target = await post('/api/knowledge/notes', { id: 'page-link-target', spaceId: space.id, title: '合成链接目标', rawMarkdown: '目标正文', aiVisibility: 'private' });
   const source = await post('/api/knowledge/notes', { id: 'page-link-source', spaceId: space.id, title: '合成引用来源', rawMarkdown: '第一处文字\n\n第二处文字\n\n取消处文字' });
   const noteContent = async () => (await (await api.get(`${runtime.origin}/api/knowledge/notes/${source.id}`)).json()).data.rawMarkdown;
-  await page.goto(`${runtime.origin}/#/materials/notes/${source.id}`);
-  await page.reload();
+  await openFresh(page, `${runtime.origin}/#/materials/notes/${source.id}`);
   const editor = () => page.locator('.ProseMirror');
-  const ready = async () => { await expect(page.locator('[data-editor-ready="true"]')).toBeVisible(); };
+  const ready = () => editorReady(page);
   const selectParagraph = async label => {
     await ready();
     await editor().locator('p').filter({ hasText: label }).evaluate(element => {
