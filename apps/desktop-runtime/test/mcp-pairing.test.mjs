@@ -294,7 +294,10 @@ test('身份隔离：浏览器会话与配对令牌互不通用，socket 不提�
   assert.equal((await viaSocket('/mcp/v1/call', { Authorization: 'Bearer knp1.not-a-token' })).body.error.code, 'MCP_TOKEN_INVALID');
   assert.equal((await viaSocket('/api/knowledge/notes', { Authorization: `Bearer ${token}` })).status, 404);
   assert.equal((await viaSocket('/mcp/v1/call', { Authorization: `Bearer ${token}` }, 'GET')).status, 400);
-  assert.equal((await viaSocket('/mcp/v1/call', { Authorization: `Bearer ${token.slice(0, -1)}0` })).body.error.code, 'MCP_TOKEN_INVALID');
+  // 末位必须换成不同的字符：原末位恰好是 0 时固定替换成 0 会得到原令牌，测试就会随机失败。
+  const flipped = `${token.slice(0, -1)}${token.endsWith('0') ? '1' : '0'}`;
+  assert.notEqual(flipped, token);
+  assert.equal((await viaSocket('/mcp/v1/call', { Authorization: `Bearer ${flipped}` })).body.error.code, 'MCP_TOKEN_INVALID');
 });
 
 test('运行端身份：旧 socket、伪造 socket、权限异常时适配器不发送令牌', async t => {
