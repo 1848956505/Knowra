@@ -107,6 +107,6 @@ export function createRuntimeServices({ dataDirectory, logger = console, syncOpt
         if (failed) logger.warn?.('AI task recovery deferred until cloud budget is available',
           { code: failed.reason?.code ?? 'AI_BUDGET_UNAVAILABLE' });
       });
-    return { store, sync, handleApi, recoverAi, closeAi: aiLifecycle.close };
+    return { store, sync, handleApi, recoverAi, closeAi: aiLifecycle.close, getAi: () => context.ai };
     } catch (error) { store.close(); throw error; }
 }

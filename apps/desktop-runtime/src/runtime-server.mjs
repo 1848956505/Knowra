@@ -13,9 +13,11 @@ import { permitsLocalRoute, sendRuntimeError } from './runtime-policy.mjs';
 import { parseBody } from '../../api/src/http/request.js';
 import { exportRuntimeBackup, importRuntimeBackup } from './backup-transfers.mjs';
 import { authoritativePurgeRoute } from './authoritative-purge.mjs';
+import { startMcpRuntime } from './mcp/index.mjs';
+import { handleMcpPairingRoute } from './mcp/pairing-routes.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
-  aiRuntimeFactory } = {}) {
+  aiRuntimeFactory, mcpTools = {}, mcpLimits, mcpNow } = {}) {
   if (!path.isAbsolute(dataDirectory ?? '')) throw new Error('本地数据目录必须是绝对路径。');
   if (!fs.existsSync(path.join(distRoot, 'index.html'))) throw new Error('缺少前端构建，请先运行 npm run build:web。');
   const release = lockDataDirectory(dataDirectory);
@@ -25,9 +27,11 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let handleApi;
   let recoverAi;
   let closeAi;
+  let getAi;
+  let mcp = null;
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi, recoverAi, closeAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+    ({ store, sync, handleApi, recoverAi, closeAi, getAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
     // AI 恢复在后台进行，不能延迟本地笔记服务启动。
     void recoverAi;
     const secret = randomBytes(32).toString('hex');
@@ -104,7 +108,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
                   const previousStore = store;
-                  ({ store, sync, handleApi, recoverAi, closeAi } = replacement);
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi } = replacement);
                   activeDirectory = restoredDirectory;
                   try { previousStore.close(); } catch (failure) { logger.error?.('Previous local store close failed', failure); }
                   result = { ...record, datasetId: store.getStatus().datasetId, directory: restoredDirectory, syncPaused: true };
@@ -112,7 +116,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.closeAi(); await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi, recoverAi, closeAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi } = createRuntimeServices({ dataDirectory: activeDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
                   void recoverAi;
                   throw failure;
                 }
@@ -140,6 +144,10 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
           } catch (failure) {
             return sendRuntimeError(response, failure.status ?? 409, failure.code ?? 'LOCAL_PURGE_FAILED', failure.message ?? '清理未完成，原件已保留。');
           }
+        }
+        if (url.pathname.startsWith('/api/local-runtime/mcp/')) {
+          const handled = await handleMcpPairingRoute({ request, response, url, mcp, parseBody });
+          if (handled) return;
         }
         if (url.pathname.startsWith('/api/local-runtime/sync')) {
           try {
@@ -202,6 +210,13 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
       server.listen(port, '127.0.0.1', resolve);
     });
     origin = `http://127.0.0.1:${server.address().port}`;
+    // 外部 AI 客户端入口只在本机 socket 上；装配失败不能影响本地笔记，只是该入口不可用。
+    try {
+      mcp = await startMcpRuntime({ dataDirectory, logger, tools: mcpTools, limits: mcpLimits, now: mcpNow,
+        getAccess: () => getAi?.()?.access ?? null,
+        flags: () => ({ aiEnabled: Boolean(getAi?.()?.access) && process.env.KNOWRA_AI_ENABLED !== '0',
+          allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0' }) });
+    } catch (failure) { logger.warn?.('MCP runtime unavailable', { code: failure?.code ?? 'MCP_START_FAILED' }); }
     return {
       origin, launchUrl: `${origin}/local-session/${secret}`, get store() { return store; },
       // 仅程序装配的私有 IPC 调用；HTTP 不接收本机路径。
@@ -219,6 +234,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
         if (closing) return closing;
         closed = true;
         closing = (async () => {
+          await mcp?.close();
           await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
           await sync.close();
           await closeAi();
@@ -229,6 +245,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
       }
     };
   } catch (error) {
+    await mcp?.close().catch(() => {});
     if (server) await new Promise(resolve => server.close(resolve));
     const results = await Promise.allSettled([sync?.close(), closeAi?.()]);
     const failed = results.find(result => result.status === 'rejected');
