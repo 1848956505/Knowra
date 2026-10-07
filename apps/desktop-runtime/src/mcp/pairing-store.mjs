@@ -126,7 +126,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     recordCandidates(row, count) {
       ensure();
       const day = now().toISOString().slice(0, 10);
-      row.candidateDayCount = (row.candidateDayKey === day ? row.candidateDayCount : 0) + count; row.candidateDayKey = day;
+      row.candidateDayCount = Math.max(0, (row.candidateDayKey === day ? row.candidateDayCount : 0) + count); row.candidateDayKey = day;
       save();
     },
     dayCalls(row) { return row.dayKey === now().toISOString().slice(0, 10) ? row.dayCalls : 0; },

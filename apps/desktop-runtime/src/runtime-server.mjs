@@ -217,6 +217,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     // 外部 AI 客户端入口只在本机 socket 上；装配失败不能影响本地笔记，只是该入口不可用。
     try {
       mcp = await startMcpRuntime({ dataDirectory, logger, proposalsEnabled: async () => Boolean((await getAiFeatures?.()?.get())?.knowledgeProposals),
+        proposalsNow: () => Boolean(getAiFeatures?.()?.peek().knowledgeProposals),
         tools: mcpTools ?? createMcpTools({ getAnnotations: () => getAnnotations?.(), getAi: () => getAi?.() }), limits: mcpLimits, now: mcpNow,
         // 适配器启动方式由装配方给出：开发时是 node 加源码路径，Mac 应用里是应用自带的可执行文件加打包后的脚本。
         adapter: mcpAdapter === undefined ? { command: process.execPath, args: [fileURLToPath(new URL('./mcp/adapter.mjs', import.meta.url))], env: {} } : mcpAdapter,

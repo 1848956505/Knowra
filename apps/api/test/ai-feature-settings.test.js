@@ -11,6 +11,19 @@ import { createPersistentAppContext } from '../src/app.factory.js';
 const temporary = () => fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-features-'));
 
 export const aiFeatureSettingsTests = [
+  { name: 'AI 功能开关 peek：同步读取最近值；从未读取时按关闭处理，写入成功后立即生效，写入失败不改变', async run() {
+    const directory = temporary(), filePath = path.join(directory, 'ai-features.json');
+    fs.writeFileSync(filePath, '{"knowledgeProposals":true}', { mode: 0o600 });
+    const settings = createAiFeatureSettings({ filePath });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: false }, '尚未读取过：fail closed，即使文件里是开启');
+    assert.deepEqual(await settings.get(), { knowledgeProposals: true });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: true });
+    await settings.set({ knowledgeProposals: false });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: false }, '写入完成即生效，不需要再读文件');
+    { const copy = settings.peek(); copy.knowledgeProposals = true; assert.deepEqual(settings.peek(), { knowledgeProposals: false }, "返回的是副本"); }
+    await assert.rejects(settings.set({ knowledgeProposals: 'yes' }), { code: 'AI_FEATURES_INVALID' });
+    assert.deepEqual(settings.peek(), { knowledgeProposals: false });
+  } },
   { name: 'AI 功能开关：默认关闭；读写持久化；文件损坏或字段错误一律按关闭处理', async run() {
     const directory = temporary(), filePath = path.join(directory, 'nested', 'ai-features.json');
     const settings = createAiFeatureSettings({ filePath });

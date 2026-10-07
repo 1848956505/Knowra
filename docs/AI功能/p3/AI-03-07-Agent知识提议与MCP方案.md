@@ -171,10 +171,12 @@ node scripts/mcp-acceptance-claude.mjs
 - **工具** `knowledge_propose`（`mcp/tools.mjs`）：参数结构沿用内置助手的 `knowledge_propose`，外加可选 `idempotencyKey`；校验与保存复用 S2 的 `buildKnowledgeProposalPlan` 与 S3 的 `createAgentKnowledgeCommitService`（核心账本原子提交候选、证据与来源摘要，任一失败整体回滚，重复陈述整批拒绝），只创建 candidate，不提供也不暴露任何确认/修改/删除能力。返回只有回执：`meta: { saved, candidates, reused }`，不含候选与笔记内容。
 - **配对内已读约束**：出口把每次通过复核的读取（`notes_search`、`notes_read`、`annotations_list`）记入该配对的已读记录（笔记、版本、偏移、原文哈希，不含正文，最多 500 条）。提交时只允许引用该配对自己读过、且仍是当前版本的片段：没读过返回 `MCP_PROPOSAL_NOT_READ`，引文不在已读范围返回 `MCP_PROPOSAL_INVALID`，读后笔记被改返回 `MCP_SOURCE_CHANGED`（一篇笔记变了不影响引用另一篇仍然有效的已读原文），别的配对读过的不算。已读记录只在内存里：运行端重启或撤销配对后清空，需要重新读取才能提交（比持久化更保守）。
 - **幂等**：幂等键是“配对 ID + 调用 ID”，调用 ID 是客户端给的 `idempotencyKey`，没给就由候选内容派生；同一键重试返回同一回执（`reused: true`），不重复创建。设计稿里的“客户端会话”没有采用：没有可信来源，配对 ID 已足够标识客户端。
-- **每日上限**：每个配对每天最多提交 200 条候选（`maxCandidatesPerDay`，UTC 日历日），超限返回 `MCP_RATE_LIMITED` 与重试秒数，保护知识候选区。
+- **每日上限**：每个配对每天最多提交 200 条候选（`maxCandidatesPerDay`，UTC 日历日），超限返回 `MCP_RATE_LIMITED` 与重试秒数，保护知识候选区；原子性见下文“配额原子”。
 - **来源摘要新执行方式 `mcp`**：`provider` 固定 `external-client`、`modelId` 固定 `unreported`（客户端不报告可信的模型信息）、`origin` 只有 `pairingId`、`callId`、`requestId`、`spaceId`、`receiptHash`，不含对话内容与客户端自述；契约把 `mcp` 与 `mock`、`agent` 的 provider 与 origin 形状互斥，既有记录与哈希不变；`web-core` 新增 `McpKnowledgeProvenance`。
 - **同步能力门禁**：新增必需能力 `knowledge-provenance-mcp-v1`，缺失的旧端（含云端）在握手阶段被拒绝（`SYNC_CLIENT_UPGRADE_REQUIRED`），本地待同步修改完整保留；增量与逐页 bootstrap、桌面 SQLite 本地保存后推送、两台设备收敛都有测试。
-- **事务内复核**：保存候选的同一个事务里再次确认配对仍有效、AI 与外发开关仍开启、配对仍允许提交，授权与范围检查与内置助手路径完全相同（`guard` 抛错则整体回滚）。
+- **事务内复核**：保存候选的同一个事务里再次确认：调用没有超时、配对仍有效、AI 与外发开关仍开启、配对仍允许提交、全局“AI 提炼知识点”开关仍开启（用同步可读的最近值 `peek()`，关闭开关的写入完成即生效；从未读取过按关闭处理），授权与范围检查与内置助手路径完全相同；并对照**当前正文**核对全部来源，计划生成后笔记被改写则整批拒绝（`MCP_SOURCE_CHANGED`，内置助手路径同样受益）。`guard` 抛错则整体回滚。
+- **配额原子**：先预留再提交——检查与扣减在同一个同步步骤里完成，并发调用不会同时通过；提交确定失败或超时后归还；提交成功但确认丢失时按回执恢复，预留保持，只计一次；幂等重试不再计数。
+- **超时**：超时时发出取消信号，迟到的写入会被事务内复核拦下，不会在客户端收到 `MCP_TIMEOUT` 之后才落库；已经提交的操作通过回执对账（同一幂等键重试返回 `reused: true`）。
 - **设置页**：创建弹窗按已确认的文案新增选项与额外确认；已开启提交的配对显示“可提交候选”标签；“AI 提炼知识点”未开启时在该行提示“暂不能提交”。概览接口新增 `proposalsEnabled`。
 - **范围**：仍只在桌面本地运行端；`knowledge_search` 继续推后；Windows 与网页版未设计。
 

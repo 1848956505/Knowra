@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { startLocalRuntime } from '../src/runtime-server.mjs';
+import { createOptionalAiRuntime } from '../../api/src/modules/ai/runtime.js';
 import { connectMcpRuntime } from '../src/mcp/client.mjs';
 import { temporaryDirectory } from './helpers.mjs';
 
@@ -12,11 +13,20 @@ const P3 = '叶绿体负责光合作用，不属于动物细胞。';
 const BODY = `${P1}\n\n${P2}\n\n${P3}`;
 const HEADERS = { 'X-Knowra-MCP-Pairing': '1' };
 
-async function setup(t, { limits, dataDirectory, proposals = true } = {}) {
+async function setup(t, { limits, dataDirectory, proposals = true, hooks = {} } = {}) {
   const root = temporaryDirectory(t), distRoot = path.join(root, 'dist');
   fs.mkdirSync(distRoot, { recursive: true }); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head></html>');
   const data = dataDirectory ?? path.join(root, 'data');
-  const start = () => startLocalRuntime({ dataDirectory: data, distRoot, syncOptions: { autoSync: false }, mcpLimits: limits, logger: { warn() {}, error() {} } });
+  // 在“保存候选”这个提交边界注入暂停或故障，用来复现处理中的竞态与响应丢失。
+  const aiRuntimeFactory = (options, meta) => {
+    const ai = createOptionalAiRuntime(options, meta);
+    if (ai.knowledgeCommit && hooks.commit) {
+      const original = ai.knowledgeCommit.commit.bind(ai.knowledgeCommit);
+      ai.knowledgeCommit.commit = args => hooks.commit(original, args);
+    }
+    return ai;
+  };
+  const start = () => startLocalRuntime({ dataDirectory: data, distRoot, syncOptions: { autoSync: false }, mcpLimits: limits, aiRuntimeFactory, logger: { warn() {}, error() {} } });
   let runtime = await start();
   t.after(() => runtime?.close());
   const env = { data, root };
@@ -198,4 +208,78 @@ test('一篇笔记读后被改动，不影响引用另一篇仍然有效的已�
   assert.equal((await env.call(`/api/knowledge/notes/${changed.id}`, 'PATCH', { rawMarkdown: `${BODY}\n\n新增`, expectedUpdatedAt: fresh.updatedAt })).status, 200);
   assert.equal((await propose(client, stable.id, P1)).meta.saved, true, '被改动那篇的旧已读记录不能拖累其他笔记的提议');
   await rejects(propose(client, changed.id, P2), 'MCP_PROPOSAL_INVALID');
+});
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+test('处理中关闭“AI 提炼知识点”：事务内复核最近的开关值，候选不会保存', async t => {
+  let release; const hold = new Promise(resolve => { release = resolve; });
+  const env = await setup(t, { hooks: { commit: async (original, args) => { await hold; return original(args); } } });
+  const note = await env.note('处理中关开关');
+  const client = env.client((await env.pair()).data);
+  await readAll(client, note.id);
+  const inflight = propose(client, note.id, P1).then(() => 'saved', error => error.code);
+  await wait(200);
+  assert.equal((await env.setProposals(false)).status, 200);
+  release();
+  assert.equal(await inflight, 'MCP_PROPOSALS_DISABLED');
+  assert.equal((await env.items()).length, 0);
+});
+
+test('每日配额与保存原子：并发提交只有一个通过；确认丢失后按回执恢复只计一次', async t => {
+  const env = await setup(t, { limits: { maxCandidatesPerDay: 1 }, hooks: { commit: async (original, args) => { await wait(100); return original(args); } } });
+  const note = await env.note('并发配额');
+  const client = env.client((await env.pair()).data);
+  await readAll(client, note.id);
+  const outcomes = await Promise.all([propose(client, note.id, P1, { idempotencyKey: 'concurrent-a' }), propose(client, note.id, P2, { idempotencyKey: 'concurrent-b' })]
+    .map(call => call.then(() => 'saved', error => error.code)));
+  assert.deepEqual(outcomes.sort(), ['MCP_RATE_LIMITED', 'saved']);
+  assert.equal((await env.items()).length, 1);
+
+  // 提交成功但响应丢失：回执恢复分支同样计入配额，下一次不同的提交必须被限流。
+  let lose = true;
+  const lost = await setup(t, { limits: { maxCandidatesPerDay: 1 }, hooks: { commit: async (original, args) => {
+    const result = await original(args);
+    if (lose) { lose = false; throw new Error('响应丢失'); }
+    return result;
+  } } });
+  const other = await lost.note('确认丢失');
+  const second = lost.client((await lost.pair()).data);
+  await readAll(second, other.id);
+  assert.deepEqual((await propose(second, other.id, P1, { idempotencyKey: 'lost-ack-001' })).meta, { saved: true, candidates: 1, reused: true });
+  await rejects(propose(second, other.id, P2, { idempotencyKey: 'lost-ack-002' }), 'MCP_RATE_LIMITED');
+  assert.equal((await lost.items()).length, 1);
+  assert.equal((await propose(second, other.id, P1, { idempotencyKey: 'lost-ack-001' })).meta.reused, true, '幂等重试不再计数');
+});
+
+test('计划生成后、保存前笔记被改写：事务内对照当前正文，整批拒绝', async t => {
+  let env;
+  env = await setup(t, { hooks: { commit: async (original, args) => {
+    const fresh = (await env.call(`/api/knowledge/notes/${env.target}`)).data;
+    await env.call(`/api/knowledge/notes/${env.target}`, 'PATCH', { rawMarkdown: '整篇被替换的新正文', expectedUpdatedAt: fresh.updatedAt });
+    return original(args);
+  } } });
+  const note = await env.note('改写');
+  env.target = note.id;
+  const client = env.client((await env.pair()).data);
+  await readAll(client, note.id);
+  await rejects(propose(client, note.id, P1), 'MCP_SOURCE_CHANGED');
+  assert.equal((await env.items()).length, 0, '没有保存一开始就是 stale 的候选');
+});
+
+test('调用超时后迟到的写入被事务内复核拦下，预留的配额归还', async t => {
+  let slow = true;
+  const env = await setup(t, { limits: { toolTimeoutMs: 250, maxCandidatesPerDay: 1 }, hooks: { commit: async (original, args) => {
+    if (slow) { slow = false; await wait(600); }
+    return original(args);
+  } } });
+  const note = await env.note('超时');
+  const client = env.client((await env.pair()).data);
+  await readAll(client, note.id);
+  await rejects(propose(client, note.id, P1, { idempotencyKey: 'timeout-0001' }), 'MCP_TIMEOUT');
+  await wait(900);
+  assert.equal((await env.items()).length, 0, '客户端已收到超时，之后不能再有候选落库');
+  // 预留的配额已归还：每日上限只有 1，之后同样大小的提交仍能成功。
+  assert.equal((await propose(client, note.id, P2, { idempotencyKey: 'timeout-0002' })).meta.saved, true);
+  assert.equal((await env.items()).length, 1);
 });

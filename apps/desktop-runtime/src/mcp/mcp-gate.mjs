@@ -46,7 +46,7 @@ export function validateInput(schema, input) {
  * 工具只能返回“正文片段 + 偏移”，由本出口逐条对照授权范围内笔记的当前正文复核，再生成响应与片段清单，
  * 因此响应内容与清单来自同一处，工具实现无法绕过。
  */
-export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = async () => false, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
+export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
   const limit = { ...DEFAULT_MCP_LIMITS, ...limits };
   const windows = new Map();
   const inflight = new Map();
@@ -190,15 +190,28 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
       let timer;
       const outcome = await (async () => {
         const grantId = await ensureGrant(access, row);
-        const context = { input, grantId, access, pairing: { pairingId: row.pairingId }, callId: randomUUID(),
+        const controller = new AbortController();
+        const timedOut = () => mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 });
+        const context = { input, grantId, access, pairing: { pairingId: row.pairingId }, callId: randomUUID(), signal: controller.signal,
           readRanges: () => [...(ledgers.get(row.pairingId)?.values() ?? [])],
-          // 事务内复核：保存候选的同一个事务里再次确认配对仍有效、读取/外发开关仍开启。
-          guard: () => { pairings.assertActive(row); assertFlags(); if (!row.allowPropose) throw mcpError('MCP_PROPOSE_NOT_ALLOWED', '该配对没有提交知识候选的权限。', { status: 403 }); },
-          quota: { remaining: () => Math.max(0, limit.maxCandidatesPerDay - pairings.candidatesToday(row)),
-            resetsInSeconds: () => Math.max(1, Math.ceil((Date.parse(`${now().toISOString().slice(0, 10)}T00:00:00Z`) + 86_400_000 - now().getTime()) / 1000)),
-            consume: count => pairings.recordCandidates(row, count) } };
+          // 事务内复核：保存候选的同一个事务里再次确认——调用没有超时、配对仍有效、读取/外发开关仍开启、配对仍允许提交、
+          // 全局“AI 提炼知识点”开关仍开启（用同步可读的最近值：关闭开关的写入完成后立即生效）。超时后迟到的写入因此不会落库。
+          guard: () => {
+            if (controller.signal.aborted) throw timedOut();
+            pairings.assertActive(row); assertFlags();
+            if (!row.allowPropose) throw mcpError('MCP_PROPOSE_NOT_ALLOWED', '该配对没有提交知识候选的权限。', { status: 403 });
+            if (!proposalsNow()) throw mcpError('MCP_PROPOSALS_DISABLED', '“AI 提炼知识点”未开启，暂不能提交知识候选。', { status: 403 });
+          },
+          // 配额先预留再提交：检查与预留在同一个同步步骤里完成，并发调用不会同时通过；提交确定失败时归还，成功（含确认丢失后按回执恢复）只计一次。
+          quota: { reserve: count => {
+            if (count > Math.max(0, limit.maxCandidatesPerDay - pairings.candidatesToday(row))) {
+              const midnight = Date.parse(`${now().toISOString().slice(0, 10)}T00:00:00Z`) + 86_400_000;
+              throw mcpError('MCP_RATE_LIMITED', '今日提交的候选数量已达上限。', { status: 429, retryAfterSeconds: Math.max(1, Math.ceil((midnight - now().getTime()) / 1000)) });
+            }
+            pairings.recordCandidates(row, count);
+          }, release: count => pairings.recordCandidates(row, -count) } };
         const raw = await Promise.race([handler(context),
-          new Promise((_, reject) => { timer = setTimeout(() => reject(mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 })), limit.toolTimeoutMs); })])
+          new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(timedOut()); }, limit.toolTimeoutMs); })])
           .finally(() => clearTimeout(timer));
         // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
         pairings.assertActive(row); assertFlags(); await access.assertSearchGrant({ grantId });

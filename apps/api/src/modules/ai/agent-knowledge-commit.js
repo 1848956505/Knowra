@@ -1,3 +1,4 @@
+import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../errors/app-error.js';
 import { hashRecord } from './record-contract.js';
 import { runAsync, runSync } from './action-plan.js';
@@ -66,8 +67,14 @@ export function createAgentKnowledgeCommitService({ core, knowledge, ownerId, co
   function* verifySources(plan) {
     const sources = plan.candidates.flatMap(candidate => candidate.provenance);
     yield* verifyExtractionSourcePrivacy(repos, sources, plan.spaceId);
-    const versions = new Map();
+    const versions = new Map(), notes = new Map();
     for (const source of sources) {
+      // 提议计划生成之后、保存之前笔记可能被改写：事务内对照当前正文，来源版本已不是当前正文就整批拒绝，不保存一开始就是 stale 的候选。
+      if (!notes.has(source.noteId)) notes.set(source.noteId, yield repos.noteRepository.findById(source.noteId));
+      const current = notes.get(source.noteId);
+      if (!current || calculateContentHash(current.rawMarkdown) !== source.contentHash) {
+        refuse('AI_PROPOSAL_SOURCE_STALE', '来源笔记已变化，未保存任何候选。请重新读取后再提交。');
+      }
       if (!versions.has(source.noteVersionId)) versions.set(source.noteVersionId, yield repos.noteVersionRepository.findById(source.noteVersionId));
       const version = versions.get(source.noteVersionId);
       if (!version || version.noteId !== source.noteId || version.contentHash !== source.contentHash

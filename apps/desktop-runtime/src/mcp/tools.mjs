@@ -78,7 +78,8 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
       inputSchema: { ...KNOWLEDGE_PROPOSE_TOOL.parameters, properties: { ...KNOWLEDGE_PROPOSE_TOOL.parameters.properties,
         idempotencyKey: { type: 'string', minLength: 8, maxLength: 128 } } },
       metaKeys: ['saved', 'candidates', 'reused'],
-      async run({ input, grantId, access, pairing, readRanges, guard, quota }) {
+      async run({ input, grantId, access, pairing, readRanges, guard, quota, signal }) {
+        guard(); // 开始就复核一次：已超时、开关已关、配对已撤销都不再往下做。
         const ai = getAi();
         if (!ai?.knowledgeCommit || !ai.accessStore) throw mcpError('MCP_TOOL_UNAVAILABLE', '知识候选保存服务当前不可用。', { status: 503 });
         const key = input.idempotencyKey ?? `auto-${calculateContentHash(JSON.stringify(input.candidates)).slice(0, 32)}`;
@@ -88,9 +89,6 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
         // 同一幂等键已提交：按回执返回，不重新校验也不重复创建（响应丢失后重试安全）。
         const existing = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' });
         if (existing) return receipt(existing);
-        if (input.candidates.length > quota.remaining()) {
-          throw mcpError('MCP_RATE_LIMITED', '今日提交的候选数量已达上限。', { status: 429, retryAfterSeconds: quota.resetsInSeconds() });
-        }
         // 已读记录里可能留有笔记旧版本的片段：只保留仍是当前版本且仍可读的；一个都不剩时按原因报错（变了、或已不可读）。
         const versions = new Map(), current = [];
         let firstFailure = null;
@@ -102,14 +100,16 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
         if (!current.length && readRanges().length) throw firstFailure ?? Object.assign(new Error('已读原文已经变化'), { code: 'AI_PROPOSAL_SOURCE_STALE' });
         const plan = await buildKnowledgeProposalPlan({ access, grantId, args: { candidates: input.candidates }, sourceRefs: current,
           turnId: `mcp-${pairing.pairingId}`, callId: key });
+        // 先预留配额（同步检查并扣减，并发不会同时通过），再提交；确定没有提交时归还。
+        quota.reserve(plan.candidates.length);
         try { await ai.knowledgeCommit.commit({ plan, origin, identity, grantId, mode: 'mcp', guard }); }
         catch (error) {
-          // 提交可能已成功但响应丢失：以回执为准。
+          // 提交可能已成功但响应丢失：以回执为准，预留的配额保持（只计一次）。
           const landed = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' }).catch(() => null);
-          if (!landed) throw error;
-          return receipt(landed);
+          if (landed) return receipt(landed);
+          quota.release(plan.candidates.length);
+          throw error;
         }
-        quota.consume(plan.candidates.length);
         return { fragments: [], meta: { saved: true, candidates: plan.candidates.length, reused: false } };
       }
     }
