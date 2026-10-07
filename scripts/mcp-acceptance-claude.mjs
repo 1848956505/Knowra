@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { evaluate, parseClaudeStream } from './mcp-acceptance-lib.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const reportPath = path.resolve(process.argv[2] ?? path.join(os.tmpdir(), `knowra-mcp-claude-acceptance-${Date.now()}.json`));
@@ -57,62 +58,54 @@ const added = await run('sh', ['-c', claudeCodeSnippet(adapter, pairing.pairingF
 const listed = await run('claude', ['mcp', 'list'], { cwd: work, env: cliEnv });
 const health = { addJsonExit: added.status, addJsonOutput: added.out.trim(), mcpListExit: listed.status, connected: /knowra:.*✔ Connected/.test(listed.out.replaceAll('\n', ' ')) };
 
-const runClaude = (prompt, label) => new Promise(resolve => {
+const runClaude = (prompt) => new Promise(resolve => {
   const args = ['-p', prompt, '--mcp-config', mcpConfig, '--strict-mcp-config', '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
     '--model', 'haiku', '--max-turns', '10', '--permission-mode', 'dontAsk',
     '--allowedTools', 'mcp__knowra__notes_search', 'mcp__knowra__notes_read', 'mcp__knowra__annotations_list',
     '--disallowedTools', 'Bash', 'Read', 'Edit', 'Write', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Task', 'NotebookEdit'];
-  const child = spawn('claude', args, { cwd: root, env: { ...process.env, CLAUDECODE: '' } });
+  const child = spawn('claude', args, { cwd: root, env: { ...process.env, CLAUDECODE: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '', err = '';
   child.stdout.on('data', chunk => { out += chunk; }); child.stderr.on('data', chunk => { err += chunk; });
   const timer = setTimeout(() => child.kill('SIGKILL'), 240_000);
-  child.on('exit', code => {
-    clearTimeout(timer);
-    const events = out.split('\n').filter(Boolean).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
-    const tools = [], results = [];
-    for (const event of events) for (const part of event.message?.content ?? []) {
-      if (part.type === 'tool_use') tools.push({ name: part.name, input: part.input });
-      if (part.type === 'tool_result') results.push({ isError: part.is_error === true, text: (Array.isArray(part.content) ? part.content.map(item => item.text ?? '').join('') : String(part.content ?? '')) });
-    }
-    const final = events.findLast(event => event.type === 'result');
-    const init = events.find(event => event.type === 'system' && event.subtype === 'init');
-    resolve({ label, code, tools, results, answer: final?.result ?? '', isError: final?.is_error ?? null, turns: final?.num_turns ?? null, cost: final?.total_cost_usd ?? null,
-      mcpServers: init?.mcp_servers ?? null, err: err.slice(0, 500) });
-  });
+  child.on('exit', code => { clearTimeout(timer); resolve({ ...parseClaudeStream(out), code, err: err.slice(0, 500) }); });
 });
 
-const findings = [];
-const first = await runClaude(`你只能使用 knowra 提供的笔记工具（notes_search、notes_read、annotations_list）。请完成：1) 搜索“线粒体”；2) 读取《线粒体与能量》这篇笔记的前 60 个字符；3) 列出这篇笔记的重点及其重要度；4) 再搜索“${CANARY_PRIVATE}”和“${CANARY_OUTSIDE}”，如实说明是否找到。最后用中文简要汇报你实际看到的内容，不要编造。`, '授权范围内');
-findings.push(first);
+// 同一连接的撤销检查：撤销前先用 SDK 客户端连上并成功调用一次，撤销后在这同一个连接上再调用。
+const { Client } = await import(pathToFileURL(path.join(repo, 'node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js')));
+const { StdioClientTransport } = await import(pathToFileURL(path.join(repo, 'node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js')));
+const sdk = new Client({ name: 'knowra-acceptance', version: '0' });
+await sdk.connect(new StdioClientTransport({ command: adapter.command, args: [...adapter.args, '--pairing-file', pairing.pairingFile], env: { ...process.env, ...adapter.env } }));
+const beforeRevoke = await sdk.callTool({ name: 'notes_search', arguments: { query: '线粒体' } });
+if (beforeRevoke.isError) throw new Error(`撤销前的同一连接调用失败：${beforeRevoke.content?.[0]?.text}`);
+
+const prompt1 = `你只能使用 knowra 提供的笔记工具（notes_search、notes_read、annotations_list）。请依次完成：1) 搜索“线粒体”；2) 读取《线粒体与能量》这篇笔记的前 60 个字符；3) 列出这篇笔记的重点及其重要度；4) 用 notes_search 搜索“${CANARY_PRIVATE}”；5) 用 notes_search 搜索“${CANARY_OUTSIDE}”。最后用中文简要汇报你实际看到的内容与每次搜索是否有结果，不要编造。`;
+const first = await runClaude(prompt1);
 const loggedIn = !/Not logged in|\/login/.test(first.answer);
 const audit = (await call(`/api/local-runtime/mcp/audit?pairingId=${pairing.pairingId}&limit=50`)).data.items;
-await call(`/api/local-runtime/mcp/pairings/${pairing.pairingId}/revoke`, 'POST', {}, { 'X-Knowra-MCP-Pairing': '1' });
-const second = loggedIn ? await runClaude('请用 knowra 的 notes_search 搜索“线粒体”，如实说明工具返回了什么（成功还是错误，错误信息是什么）。', '撤销后') : { tools: [], results: [], answer: '', code: null, err: '' };
-findings.push(second);
 
-const allText = JSON.stringify(findings);
-const checks = {
-  '设置页生成的 add-json 片段被真实 Claude Code 接受，mcp list 显示已连接': health.addJsonExit === 0 && health.connected,
-};
-if (loggedIn) Object.assign(checks, {
-  '子进程被客户端识别为 knowra 服务且已连接': Boolean(first.mcpServers?.some(server => server.name === 'knowra' && server.status === 'connected')),
-  '客户端调用了 notes_search': first.tools.some(tool => tool.name === 'mcp__knowra__notes_search'),
-  '客户端调用了 notes_read': first.tools.some(tool => tool.name === 'mcp__knowra__notes_read'),
-  '客户端调用了 annotations_list': first.tools.some(tool => tool.name === 'mcp__knowra__annotations_list'),
-  '读到授权范围内的正文': first.results.some(item => !item.isError && item.text.includes('能量工厂')),
-  '重点带重要度返回（core）': first.results.some(item => item.text.includes('"importance":"core"')),
-  '私密笔记暗号没有出现在任何工具结果里': first.results.every(item => !item.text.includes(CANARY_PRIVATE)),
-  '范围外笔记暗号没有出现在任何工具结果里': first.results.every(item => !item.text.includes(CANARY_OUTSIDE)),
-  '审计记录了调用且不含正文': audit.filter(item => item.event === 'call').length >= 3 && !JSON.stringify(audit).includes('能量工厂'),
-  '撤销后客户端的调用失败（工具错误）': second.results.some(item => item.isError || /MCP_|撤销|revoked|REVOKED|FILE_MISSING/.test(item.text)),
-  '撤销后没有读到正文': second.results.every(item => !item.text.includes('能量工厂'))
-});
-else console.log('提示：本终端里的 claude 未登录，只完成了不需要登录的连接健康检查；请在已登录的终端重新运行以完成工具调用验收。');
-const report = { health, at: new Date().toISOString(), claudeVersion: (await new Promise(r => { const c = spawn('claude', ['--version']); let o = ''; c.stdout.on('data', d => { o += d; }); c.on('exit', () => r(o.trim())); })),
-  checks, first: { tools: first.tools, results: first.results.map(item => ({ isError: item.isError, text: item.text.slice(0, 400) })), answer: first.answer, turns: first.turns, cost: first.cost, mcpServers: first.mcpServers, code: first.code, err: first.err },
-  second: { tools: second.tools, results: second.results.map(item => ({ isError: item.isError, text: item.text.slice(0, 300) })), answer: second.answer, code: second.code, err: second.err },
-  audit: audit.map(({ at, event, tool, status, code, fragments }) => ({ at, event, tool, status, code, fragments })) };
-fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+await call(`/api/local-runtime/mcp/pairings/${pairing.pairingId}/revoke`, 'POST', {}, { 'X-Knowra-MCP-Pairing': '1' });
+const afterSame = await sdk.callTool({ name: 'notes_search', arguments: { query: '线粒体' } });
+await sdk.close().catch(() => undefined);
+const sameConnection = { isError: afterSame.isError === true, text: afterSame.content?.[0]?.text ?? '' };
+const listedAfter = await run('claude', ['mcp', 'list'], { cwd: work, env: cliEnv });
+const listAfterRevoke = { connected: /knowra:.*✔ Connected/.test(listedAfter.out.replaceAll('\n', ' ')), output: listedAfter.out.trim().slice(0, 400) };
+// 撤销后新启动的客户端会在连接阶段就被明确拒绝（取不到工具清单），模型无法调用，所以这里只检查它没有读到任何正文。
+const afterRevoke = loggedIn ? await runClaude('请用 knowra 的 notes_search 搜索“线粒体”，如实说明你能否使用这个工具以及结果是什么。') : null;
+
+const checks = evaluate({ health, first, afterRevoke, sameConnection, listAfterRevoke, audit, canaries: { private: CANARY_PRIVATE, outside: CANARY_OUTSIDE } });
+if (!loggedIn) {
+  // 未登录时模型驱动的检查没有意义：只保留不需要登录的三项，避免把“没跑”当成“通过”或“失败”。
+  for (const key of Object.keys(checks)) if (!/add-json|同一连接|mcp list 不再/.test(key)) delete checks[key];
+  console.log('提示：本终端里的 claude 未登录，只完成了不需要登录的检查；请在已登录的终端重新运行以完成工具调用验收。');
+}
+const claudeVersion = (await run('claude', ['--version'])).out.trim();
+const brief = item => ({ name: item.name, input: item.input, result: item.result && { isError: item.result.isError, text: item.result.text.slice(0, 300) } });
+fs.writeFileSync(reportPath, JSON.stringify({ at: new Date().toISOString(), claudeVersion, health, checks, loggedIn, sameConnection, listAfterRevoke,
+  first: { calls: first.calls.map(brief), answer: first.answer, turns: first.turns, cost: first.cost, mcpServers: first.mcpServers, code: first.code, err: first.err },
+  afterRevoke: afterRevoke && { calls: afterRevoke.calls.map(brief), answer: afterRevoke.answer, mcpServers: afterRevoke.mcpServers },
+  audit: audit.map(({ at, event, tool, status, code, fragments }) => ({ at, event, tool, status, code, fragments })) }, null, 2));
 await runtime.close();
 fs.rmSync(root, { recursive: true, force: true });
-console.log(JSON.stringify({ checks, cost: first.cost, turns: first.turns }, null, 2));
+const failed = Object.entries(checks).filter(([, value]) => !value).map(([key]) => key);
+console.log(JSON.stringify({ checks, report: reportPath, cost: first.cost, turns: first.turns }, null, 2));
+if (failed.length) { console.log(`\n未通过：\n- ${failed.join('\n- ')}`); process.exitCode = 1; }
