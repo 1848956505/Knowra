@@ -175,3 +175,21 @@ it('暂停状态文件损坏时显示阻止提示，重置后通知助手视图'
     await waitFor(() => expect(screen.queryByRole('region')).not.toBeInTheDocument());
   } finally { window.removeEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed); }
 });
+
+it('暂停到期或跨日恢复后通知助手视图刷新状态（首次读取不通知）', async () => {
+  const changed = vi.fn();
+  window.addEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed);
+  try {
+    vi.mocked(assistantApi.alerts)
+      .mockImplementationOnce(async () => state([], [], [{ rule: 'daily', period: '2026-10-08' }]))
+      .mockImplementation(async () => ({ ...state([]), day: '2026-10-09' })); // 跨日后暂停已不再生效
+    render(<BudgetAlertBanner />);
+    expect(await screen.findByText(/AI 已暂停至明天/)).toBeInTheDocument();
+    expect(changed).not.toHaveBeenCalled(); // 首次读取只是建立基准
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    await waitFor(() => expect(screen.queryByText(/AI 已暂停至明天/)).not.toBeInTheDocument());
+    expect(changed).toHaveBeenCalledTimes(1);
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    expect(changed).toHaveBeenCalledTimes(1); // 状态没再变化，不重复通知
+  } finally { window.removeEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed); }
+});
