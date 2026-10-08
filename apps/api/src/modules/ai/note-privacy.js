@@ -46,7 +46,8 @@ export async function assertAiSourcesReadable(noteRepository, sourceRefs, spaceI
       error.code = 'AI_SCOPE_FORBIDDEN';
       throw error;
     }
-    if (requireCurrentVersion && sourceRefs.some(ref => ref.noteId === id
+    // 没有 contentHash 的引用（目录条目只含标题等元数据）只检查可读性，不比较正文版本。
+    if (requireCurrentVersion && sourceRefs.some(ref => ref.noteId === id && ref.contentHash !== undefined
       && ref.contentHash !== calculateContentHash(note.rawMarkdown))) {
       const error = new Error('发送前来源当前版本已变化。');
       error.code = 'AI_SOURCE_STALE';

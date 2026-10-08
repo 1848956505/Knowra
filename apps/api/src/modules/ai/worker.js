@@ -30,8 +30,8 @@ export function quoteWorstCase({ request, priceProfile, now = new Date(), writeT
   }
   if (!request || !Array.isArray(request.messages) || !Number.isSafeInteger(request.maxTokens)
     || request.maxTokens < 1 || request.maxTokens > MAX_OUTPUT_TOKENS
-    || !Array.isArray(request.tools) || request.tools.length > 9
-    || request.tools.some(tool => !allowedTools.has(tool.name) && !(assistantTools && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize','web_search','annotations_list','knowledge_propose'].includes(tool.name)) && !(tool.name === writeToolName && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize'].includes(writeToolName)))) fail('AI_REQUEST_LIMIT', '模型调用超过 P1 边界。');
+    || !Array.isArray(request.tools) || request.tools.length > 11
+    || request.tools.some(tool => !allowedTools.has(tool.name) && !(assistantTools && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize','web_search','annotations_list','knowledge_propose','folders_list','notes_list'].includes(tool.name)) && !(tool.name === writeToolName && ['notes_create','notes_append','notes_propose_patch','notes_propose_organize'].includes(writeToolName)))) fail('AI_REQUEST_LIMIT', '模型调用超过 P1 边界。');
   if (priceProfile.modelId && request.modelId !== priceProfile.modelId) {
     fail('AI_PRICE_UNAVAILABLE', '当前模型没有经过核价，已阻止付费调用。');
   }
