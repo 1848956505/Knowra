@@ -109,5 +109,24 @@ export const aiBalanceTests = [
       assert.equal(fs.existsSync(path.join(directory, 'ai-balance.json')), false);
       assert.equal((await service.view()).latest, null);
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
+  { name: '凭据检查之后、写盘期间换 Key：保存成功与保存失败两条路径都不返回旧账户余额', async run() {
+    for (const failSave of [false, true]) {
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-balance-late-'));
+      try {
+        let calls = 0;
+        if (failSave) fs.chmodSync(directory, 0o500); // 目录只读：写快照失败
+        const service = createBalanceService({ filePath: path.join(directory, 'ai-balance.json'),
+          // 前两次（读取前、响应后检查）是账户 A；写盘结束后的第三次已变成账户 B。
+          credentialReference: async () => ({ credentialRef: ++calls <= 2 ? 'ref-A' : 'ref-B' }),
+          resolveCredential: async () => ({ apiKey: 'sk-test' }),
+          fetchImpl: async () => reply(body('100.00')) });
+        await assert.rejects(service.refresh(), { code: 'AI_BALANCE_STALE' }, failSave ? '保存失败路径' : '保存成功路径');
+        if (failSave) fs.chmodSync(directory, 0o700);
+        const view = await service.view(); // 此后 credentialReference 一直是 B
+        assert.equal(view.latest, null, '页面不会拿到 A 的余额');
+        if (!failSave) assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'ai-balance.json'), 'utf8')).snapshots[0].credentialRef, 'ref-A', 'A 的快照仍绑定 A，不混入 B');
+      } finally { fs.chmodSync(directory, 0o700); fs.rmSync(directory, { recursive: true, force: true }); }
+    }
   } }
 ];
