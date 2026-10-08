@@ -95,10 +95,10 @@ test('Linux 发布要求清单、前端和四个应用版本对应同一提交',
   assert.throws(() => assertLinuxRelease(root, commit), /标识缺失/);
 });
 
-test('正式应用和 lockfile 的版本保持 2.27.2 一致', () => {
+test('正式应用和 lockfile 的发布版本保持一致', () => {
   const root = path.resolve(import.meta.dirname, '../..');
   const version = readReleaseVersion(root);
   const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
-  assert.equal(version, '2.27.2'); assert.equal(lock.version, version);
+  assert.match(version, /^\d+\.\d+\.\d+$/); assert.equal(lock.version, version);
   for (const entry of ['', 'apps/api', 'apps/web', 'apps/web-v4']) assert.equal(lock.packages[entry].version, version);
 });
