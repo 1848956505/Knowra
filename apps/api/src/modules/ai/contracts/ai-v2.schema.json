@@ -66,7 +66,7 @@
           "omissions": { "type": "array", "items": { "type": "string", "pattern": "^[a-zA-Z0-9_.:-]{1,128}$" }, "maxItems": 128 },
           "catalog": { "type": "array", "maxItems": 3, "items": { "type": "object", "properties": {
             "kind": { "enum": ["folders", "notes"] }, "parentId": { "type": ["string", "null"] }, "folderId": { "type": ["string", "null"] },
-            "titleQuery": { "type": ["string", "null"] }, "recursive": { "type": "boolean" },
+            "titleQuery": { "type": ["string", "null"] }, "recursive": { "type": "boolean" }, "sortBy": { "enum": ["updated", "annotations"] },
             "offset": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1 },
             "resultHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
             "required": ["kind", "offset", "limit", "resultHash"], "additionalProperties": false } },

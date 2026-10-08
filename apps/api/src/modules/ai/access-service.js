@@ -27,7 +27,7 @@ function safeBoundary(text, position) {
 
 /** v2 授权不读取 v1 grant；服务只接收受信应用层调用，模型没有写策略入口。 */
 export function createAiAccessService({ store, noteRepository, noteVersionRepository, folderRepository,
-  spaceRepository, ownerId, now = () => new Date() } = {}) {
+  spaceRepository, annotationRepository = null, ownerId, now = () => new Date() } = {}) {
   if (!store || !noteRepository || !noteVersionRepository || !folderRepository || !spaceRepository || !validId(ownerId)) {
     throw new TypeError('AI v2 access service requires private and domain repositories');
   }
@@ -280,16 +280,42 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     }
     if (spec.folderId !== null && !inScopeFolder(spec.folderId)) folderHidden();
     const needle = spec.titleQuery?.normalize('NFKC').toLowerCase() ?? null;
+    if (spec.sortBy === 'annotations' && !annotationRepository) fail('AI_SCOPE_FORBIDDEN', '当前运行端不提供重点统计。');
     const matched = notes.filter(note => (spec.folderId === null
       || (spec.recursive ? withinFolder(note.folderId, spec.folderId, byId) : note.folderId === spec.folderId))
       && (needle === null || note.title.normalize('NFKC').toLowerCase().includes(needle)))
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)) || a.id.localeCompare(b.id));
+    // 重点数与 annotations_list 同口径：仅计当前版本上仍然有效（已定位、未归档）的重点；只对有重点的笔记计算正文哈希。
+    let counts = new Map();
+    if (annotationRepository) {
+      const byNote = new Map();
+      for (const annotation of await read(annotationRepository.list({ spaceId: policy.spaceId }))) {
+        if (annotation.lifecycleStatus !== 'active' || annotation.anchorStatus !== 'resolved') continue;
+        (byNote.get(annotation.noteId) ?? byNote.set(annotation.noteId, []).get(annotation.noteId)).push(annotation);
+      }
+      const matchedById = new Map(matched.map(note => [note.id, note]));
+      for (const [noteId, list] of byNote) {
+        const note = matchedById.get(noteId);
+        if (!note) continue;
+        const hash = calculateContentHash(note.rawMarkdown);
+        const usable = list.filter(item => item.noteContentHash === hash);
+        counts.set(noteId, { highlightCount: usable.length,
+          importantCount: usable.filter(item => ['important', 'core'].includes(item.importance)).length });
+      }
+    }
+    const countOf = note => counts.get(note.id) ?? { highlightCount: 0, importantCount: 0 };
+    if (spec.sortBy === 'annotations') {
+      matched.sort((a, b) => countOf(b).highlightCount - countOf(a).highlightCount
+        || countOf(b).importantCount - countOf(a).importantCount
+        || String(b.updatedAt).localeCompare(String(a.updatedAt)) || a.id.localeCompare(b.id));
+    }
     const page = matched.slice(spec.offset, spec.offset + spec.limit);
     await assertAiSourcesReadable(noteRepository, page.map(note => ({ noteId: note.id })), policy.spaceId, { requireCurrentVersion: false });
     return { kind: 'notes', folderId: spec.folderId, titleQuery: spec.titleQuery, recursive: spec.recursive,
-      offset: spec.offset, total: matched.length, hasMore: spec.offset + page.length < matched.length,
+      sortBy: spec.sortBy, offset: spec.offset, total: matched.length, hasMore: spec.offset + page.length < matched.length,
       notes: page.map(note => ({ noteId: note.id, title: note.title.slice(0, 80), folderId: note.folderId ?? null,
-        updatedAt: typeof note.updatedAt === 'string' ? note.updatedAt.slice(0, 10) : null })) };
+        updatedAt: typeof note.updatedAt === 'string' ? note.updatedAt.slice(0, 10) : null,
+        ...(annotationRepository ? countOf(note) : {}) })) };
   }
   /** 工具执行时的校验入口：与发送前重建 catalog 使用同一套授权和范围判断。 */
   async function listCatalog({ grantId, toolName, args }) {

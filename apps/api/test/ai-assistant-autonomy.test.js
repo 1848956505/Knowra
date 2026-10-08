@@ -3,6 +3,7 @@ import { aiAssistantCrashgapTests } from './ai-assistant-crashgap.test.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { anchorForBlock, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 import { createPersistentAppContext } from '../src/app.factory.js';
 import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
 import { createAssistantWebSearch } from '../src/modules/ai/assistant-tools.js';
@@ -134,6 +135,43 @@ export const aiAssistantAutonomyTests = [
     const other = await submit('我有哪些目录', 'catalog-prefetch-top', p.policyId); await runtime.agent.run(other.turnId);
     respond(request => { assert.equal(JSON.parse(request.messages.at(-1).content).catalog, undefined); return answer('好的。', []); });
     const none = await submit('随便聊聊', 'catalog-prefetch-none', p.policyId); await runtime.agent.run(none.turnId);
+  }) },
+  { name: '自主助手：问“哪篇重点最多”时预取按重点数排序的笔记列表，第一轮即可作答', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { noteService, contentAnnotationService } = app.modules.knowledge;
+    const annotate = (note, blockIndex, importance, key) => {
+      const anchor = anchorForBlock(projectMarkdown(note.rawMarkdown), blockIndex);
+      return contentAnnotationService.createAnnotation({ noteId: note.id, spaceId: note.spaceId, schemaVersion: 2, scopeType: 'blocks', anchor,
+        quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, noteContentHash: calculateContentHash(note.rawMarkdown),
+        anchorFingerprint: key, idempotencyKey: key, importance });
+    };
+    const few = noteService.createNote({ spaceId: space.id, title: '重点少', rawMarkdown: '段一\n\n段二' });
+    const many = noteService.createNote({ spaceId: space.id, title: '重点多', rawMarkdown: '段一\n\n段二\n\n段三' });
+    noteService.createNote({ spaceId: space.id, title: '没重点', rawMarkdown: '无' });
+    annotate(few, 0, 'important', 'few-0');
+    annotate(many, 0, 'normal', 'many-0'); annotate(many, 1, 'core', 'many-1'); annotate(many, 2, 'important', 'many-2');
+    const p = await policy();
+    respond(request => {
+      const [entry] = JSON.parse(request.messages.at(-1).content).catalog;
+      assert.deepEqual(entry.notes.map(note => [note.title, note.highlightCount, note.importantCount]), [['重点多', 3, 2], ['重点少', 1, 1], ['没重点', 0, 0]]);
+      return answer('「重点多」重点最多（3 处）。', []);
+    });
+    const turn = await submit('你帮我看一下我的笔记中哪一篇笔记的重点最多呢?', 'rank-highlights', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal(requests.length, 1);
+    assert.equal((await runtime.conversationStore.listMessages(turn.conversationId)).at(-1).content, '「重点多」重点最多（3 处）。');
+  }) },
+  { name: '自主助手：引文无法核对时先让模型修正一次；仍不合格才整轮失败', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '光合作用', rawMarkdown: '光合作用需要阳光和水。' });
+    const p = await policy(); let round = 0;
+    respond(() => ++round === 1 ? answer('光合作用需要二氧化碳。', [{ sourceId: 'S1', quote: '笔记里并没有的原文' }])
+      : answer('光合作用需要阳光和水。', [{ sourceId: 'S1', quote: '光合作用需要阳光和水' }]));
+    const turn = await submit('根据我的笔记解释光合作用', 'citation-repair', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal(requests.length, 2);
+    assert.match(requests[1].messages.at(-1).content, /无法在 sources 中逐字核对/);
+    const last = (await runtime.conversationStore.listMessages(turn.conversationId)).at(-1);
+    assert.equal(last.content, '光合作用需要阳光和水。'); assert.equal(last.citations.length, 1);
+    respond(() => answer('无依据。', [{ sourceId: 'S1', quote: '永远对不上' }]));
+    const bad = await submit('根据我的笔记再解释一次光合作用', 'citation-repair-fail', p.policyId);
+    await assert.rejects(runtime.agent.run(bad.turnId), { code: 'AI_CITATION_INVALID' });
   }) },
   { name: '自主助手：按时间检索周总结新稿，不要求预选写入模式', run: () => fixture(async ({ app, runtime, space, policy, submit, respond }) => {
     const repo = app.modules.knowledge.repositories.noteRepository;

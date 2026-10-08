@@ -113,7 +113,7 @@ const TOOLS = Object.freeze([
     parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 300 }, limit: { type: 'integer', minimum: 1, maximum: 5 },
         createdFrom: { type: 'string', description: '按创建时间筛选，开始 ISO 时间；时间查询同时提供 createdBefore，query 可省略。' },
         createdBefore: { type: 'string', description: '不包含的结束 ISO 时间；明确用户时区，不能猜测周起止。' } }, additionalProperties: false } },
-  { name: 'notes_read', description: '读取当前授权笔记的一个片段，最多 1000 个 UTF-16 单位；只能使用搜索所得或用户明确提供的笔记 ID。',
+  { name: 'notes_read', description: '读取当前授权笔记的一个片段，最多 1000 个 UTF-16 单位；只能使用搜索所得或用户明确提供的笔记 ID。读不完用 start=上段 end 续读。',
     parameters: { type: 'object', properties: { noteId: { type: 'string' }, start: { type: 'integer', minimum: 0 },
       end: { type: 'integer', minimum: 1 } }, required: ['noteId'], additionalProperties: false } }
 ]);
@@ -452,7 +452,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     let totalTools = Math.max(checkpoint.totalTools, (await store.listToolCalls(turn.turnId)).length);
     let forceAnswer = checkpoint.forceAnswer;
     let budgetCapacity = null, proposalNudges = 0, proposalNudge = ''; // 本轮运行内的临时状态：请求预算容量、已提醒次数、一次性提醒
-    let noProgressRounds = checkpoint.noProgressRounds;
+    let noProgressRounds = checkpoint.noProgressRounds, citationRepairs = 0;
     let handledAttemptOrdinal = checkpoint.handledAttemptOrdinal;
     let nextRound = checkpoint.nextRound;
     let initialSearchDone = checkpoint.initialSearchDone;
@@ -461,9 +461,13 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       forceAnswer, noProgressRounds, handledAttemptOrdinal, externalContext, toolFeedback });
     // 用户提到文件夹/目录时，像首轮自动检索一样先在服务端预取目录清单：命中目录名则直接列出该目录的笔记，否则列出顶层目录。
     // 模型自己连续调用两次目录工具并不稳定，预取让第一轮就能依据真实目录作答；失败只跳过预取，不让回合失败。
-    if (!initialSearchDone && grant && !turn.writeIntent && /(文件夹|目录|分类|夹下|夹里|夹中)/.test(user.content)) {
+    // 问“哪篇笔记重点最多”这类排名问题时，直接预取按重点数排序的笔记列表（可限定在提到的目录内）。
+    const rankHighlights = /(重点|标注|划线).{0,8}(最多|最少|多少|排名|排行)|(最多|最少).{0,6}(重点|标注|划线)/.test(user.content);
+    if (!initialSearchDone && grant && !turn.writeIntent && (rankHighlights || /(文件夹|目录|分类|夹下|夹里|夹中)/.test(user.content))) {
       const matched = await access.matchCatalogFolders({ grantId: grant.grantId, text: user.content }).catch(() => []);
-      const plans = matched.length ? matched.map(item => ['notes_list', { folderId: item.folderId }]) : [['folders_list', {}]];
+      const ranked = rankHighlights ? { sortBy: 'annotations', limit: 10 } : {};
+      const plans = matched.length ? matched.map(item => ['notes_list', { folderId: item.folderId, ...(rankHighlights ? { ...ranked, recursive: true } : {}) }])
+        : rankHighlights ? [['notes_list', ranked]] : [['folders_list', {}]];
       for (const [toolName, args] of plans) {
         const callId = hashRecord({ turnId: turn.turnId, initialCatalog: toolName, args });
         const prefetch = await store.appendToolCall(turn.turnId, generation, { callId, toolName, argumentsJson: args, maxCalls: maxTools });
@@ -637,6 +641,15 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         if (!answer.content) fail('AI_OUTPUT_INVALID', '模型返回空回答。');
       } catch (error) {
         if (['AI_CITATION_INVALID', 'AI_OUTPUT_INVALID'].includes(error.code)) await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, error.code);
+        // 引文无法逐字核对时先让模型修正一次，而不是整轮失败；已展示的引用仍然逐条严格校验。
+        if (error.code === 'AI_CITATION_INVALID' && citationRepairs < 1 && round < maxRounds - 1) {
+          citationRepairs++;
+          toolFeedback = '\n注意：上一条回答的引用无法在 sources 中逐字核对。请重新作答：quote 必须逐字摘自 sources 的 text 且 sourceId 对应；不确定时 citations 留空数组。';
+          nextRound = round + 1;
+          handledAttemptOrdinal = attemptOrdinal;
+          await save();
+          continue;
+        }
         throw error;
       }
       if (externalContext) answer.content += '\n\n外部检索来源（合成验收，非真实联网）：' + renderExternalSources(externalContext);

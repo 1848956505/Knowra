@@ -5,15 +5,16 @@ export const CATALOG_TOOL_NAMES = Object.freeze(['folders_list', 'notes_list']);
 export const MAX_CATALOG_SPECS = 3;
 
 export const FOLDERS_LIST_TOOL = Object.freeze({ name: 'folders_list',
-  description: '列出授权范围内的目录及各目录的笔记数。不传 parentId 时返回最上层目录，传入某目录 ID 则返回它的子目录；结果以 catalog 提供。只能看到授权范围内的目录。',
+  description: '列出授权范围内的目录（名称、ID、笔记数），结果在 catalog 中。不传 parentId 为顶层目录，传目录 ID 为其子目录。',
   parameters: { type: 'object', properties: { parentId: { type: 'string', maxLength: 128 },
     limit: { type: 'integer', minimum: 1, maximum: FOLDER_LIMIT }, offset: { type: 'integer', minimum: 0 } },
   additionalProperties: false } });
 
 export const NOTES_LIST_TOOL = Object.freeze({ name: 'notes_list',
-  description: '列出授权范围内的笔记标题、ID 和更新时间（不含正文），结果以 catalog 提供。可按 folderId 限定目录（默认只含该目录直接包含的笔记，recursive=true 含子目录），或用 titleQuery 按标题关键词查找；需要正文时再用 notes_read。',
+  description: '列出授权范围内笔记的标题、ID、重点数（不含正文），结果在 catalog 中。folderId 限定目录（recursive=true 含子目录），titleQuery 按标题查找，sortBy=annotations 按重点数排序；正文用 notes_read。',
   parameters: { type: 'object', properties: { folderId: { type: 'string', maxLength: 128 },
     titleQuery: { type: 'string', maxLength: 100 }, recursive: { type: 'boolean' },
+    sortBy: { type: 'string', enum: ['updated', 'annotations'] },
     limit: { type: 'integer', minimum: 1, maximum: NOTE_LIMIT }, offset: { type: 'integer', minimum: 0 } },
   additionalProperties: false } });
 
@@ -27,7 +28,7 @@ const validId = value => typeof value === 'string' && value.length > 0 && value.
 /** 工具参数 → 固定形状的规格；既用于执行校验，也用于重建发送给模型的 catalog 和清单记录。 */
 export function normalizeCatalogSpec(toolName, args) {
   const allowed = toolName === 'folders_list' ? ['parentId', 'limit', 'offset']
-    : toolName === 'notes_list' ? ['folderId', 'titleQuery', 'recursive', 'limit', 'offset'] : null;
+    : toolName === 'notes_list' ? ['folderId', 'titleQuery', 'recursive', 'sortBy', 'limit', 'offset'] : null;
   if (!allowed || !args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(key => !allowed.includes(key))) throw invalid();
   const maxLimit = toolName === 'folders_list' ? FOLDER_LIMIT : NOTE_LIMIT;
   const limit = args.limit ?? maxLimit, offset = args.offset ?? 0;
@@ -39,8 +40,9 @@ export function normalizeCatalogSpec(toolName, args) {
   if (args.folderId !== undefined && !validId(args.folderId)) throw invalid();
   if (args.titleQuery !== undefined && (typeof args.titleQuery !== 'string' || !args.titleQuery.trim() || args.titleQuery.length > 100)) throw invalid();
   if (args.recursive !== undefined && typeof args.recursive !== 'boolean') throw invalid();
+  if (args.sortBy !== undefined && !['updated', 'annotations'].includes(args.sortBy)) throw invalid();
   return { kind: 'notes', folderId: args.folderId ?? null, titleQuery: args.titleQuery?.trim() ?? null,
-    recursive: args.recursive ?? false, offset, limit };
+    recursive: args.recursive ?? false, sortBy: args.sortBy ?? 'updated', offset, limit };
 }
 
 /** 只取本回合最近几次成功的目录调用，按参数去重；过多的目录结果会挤占来源预算。 */
