@@ -1,4 +1,5 @@
 import { RecoveryDraftNotice } from '../features/editor/RecoveryDraftNotice';
+import { BudgetAlertBanner } from '../features/assistant/BudgetAlertBanner';
 import { useMaterialsRoute } from './useMaterialsRoute';
 import { LocalSyncControl } from '../features/sync/LocalSyncControl';
 import { buildIndexPath, indexRoute } from '../features/notes/notesIndexNavigation';
@@ -333,6 +334,7 @@ export function App() {
     >
       <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
         <RecoveryDraftNotice onOpenNote={openNote} />
+        <BudgetAlertBanner />
         <AppRoutes
           pathname={location.pathname}
           routeDomain={routeDomain}

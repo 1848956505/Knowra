@@ -27,6 +27,7 @@ const draftOf = (settings: BudgetSettings): Draft => Object.fromEntries(RULES.ma
 export function BudgetLimitsSettings() {
   const [saved, setSaved] = useState<BudgetSettings | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [thresholds, setThresholds] = useState('50, 80, 100');
   const [customPrice, setCustomPrice] = useState(false);
   const [prices, setPrices] = useState({ input: '', hit: '', output: '' });
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ export function BudgetLimitsSettings() {
 
   function apply(settings: BudgetSettings) {
     setSaved(settings); setDraft(draftOf(settings));
+    setThresholds(settings.alerts.thresholds.join(', '));
     setCustomPrice(Boolean(settings.price));
     setPrices({ input: toYuan(settings.price?.inputMicrounitsPerMillion ?? null), hit: toYuan(settings.price?.inputCacheHitMicrounitsPerMillion ?? null),
       output: toYuan(settings.price?.outputMicrounitsPerMillion ?? null) });
@@ -51,7 +53,7 @@ export function BudgetLimitsSettings() {
     return () => { active = false; };
   }, [attempt]);
 
-  function build(): Pick<BudgetSettings, 'rules' | 'price'> | string {
+  function build(): Pick<BudgetSettings, 'rules' | 'price' | 'alerts'> | string {
     if (!draft) return '设置尚未读取。';
     const rules = {} as BudgetSettings['rules'];
     for (const { name, label } of RULES) {
@@ -61,11 +63,16 @@ export function BudgetLimitsSettings() {
       if (micro === null) return `请填写“${label}”的金额（元，最多六位小数）。`;
       rules[name] = { mode, limitMicrounits: micro };
     }
-    if (!customPrice) return { rules, price: null };
+    const parsed = thresholds.split(/[,，\s]+/).filter(Boolean).map(Number);
+    if (!parsed.length || parsed.length > 6 || !parsed.every(value => Number.isInteger(value) && value >= 1 && value <= 100)) {
+      return '提醒阈值请填写 1–100 的整数百分比，用逗号分隔，最多 6 个。';
+    }
+    const alerts = { thresholds: [...new Set(parsed)].sort((a, b) => a - b) };
+    if (!customPrice) return { rules, price: null, alerts };
     const input = toPrice(prices.input), output = toPrice(prices.output), hit = prices.hit.trim() ? toPrice(prices.hit) : null;
     if (input === null || output === null || (prices.hit.trim() && hit === null)) return '请填写有效的单价（元 / 百万 token）。';
     if (hit !== null && hit > input) return '缓存命中单价不能高于未命中单价。';
-    return { rules, price: { inputMicrounitsPerMillion: input, inputCacheHitMicrounitsPerMillion: hit, outputMicrounitsPerMillion: output } };
+    return { rules, alerts, price: { inputMicrounitsPerMillion: input, inputCacheHitMicrounitsPerMillion: hit, outputMicrounitsPerMillion: output } };
   }
   const newlyOff = () => Boolean(saved && draft && RULES.some(({ name }) => draft[name].mode === 'off' && saved.rules[name].mode !== 'off'));
 
@@ -87,7 +94,7 @@ export function BudgetLimitsSettings() {
         <div className={styles.settingCopy}>
           <h4>用量上限</h4>
           <p>{saved?.location === 'local' ? '这是本机的设置，只约束本机发出的请求。' : saved ? '这是云端的设置，约束网页版发出的请求。' : '决定知境何时拦截模型调用。'}
-            默认每日 20 元、单次回合 2 元，均为“达到即停”。“仅提醒”暂时不拦截也不弹出提醒，提醒功能将在后续版本提供，请在用量面板留意花费。</p>
+            默认每日 20 元、单次回合 2 元，均为“达到即停”。“仅提醒”只在达到阈值时提醒，不拦截请求。</p>
         </div>
         {loading ? <p className={styles.modelState}>正在读取预算设置…</p> : null}
         {failed ? <div>
@@ -102,6 +109,10 @@ export function BudgetLimitsSettings() {
               <TextField label={`${label}金额（元）`} value={draft[name].yuan} isDisabled={busy || draft[name].mode === 'off'}
                 onChange={yuan => setDraft({ ...draft, [name]: { ...draft[name], yuan } })} />
             </div>)}
+          </div>
+          <div className={styles.budgetPrice}>
+            <TextField label="提醒阈值（占上限的百分比）" description="每日、每月两条规则用到上限的这些比例时提醒，每个周期每个阈值只提醒一次；界面横幅之外，Mac 版还会发系统通知。"
+              value={thresholds} isDisabled={busy} onChange={setThresholds} />
           </div>
           <div className={styles.budgetPrice}>
             <Select label="计费单价" description={saved?.basePrice ? `默认使用已核对的价格档案（${saved.basePrice.version}，输入 ¥${toYuan(saved.basePrice.inputMicrounitsPerMillion)}、输出 ¥${toYuan(saved.basePrice.outputMicrounitsPerMillion)} / 百万 token，核对至 ${new Date(saved.basePrice.reviewedUntil).toLocaleDateString('zh-CN')}）。` : undefined}

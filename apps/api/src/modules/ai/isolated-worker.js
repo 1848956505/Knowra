@@ -158,6 +158,8 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
         || (method === 'budget.reserve' && args[0]?.jobId !== jobId)) {
         throw failure('AI_BRIDGE_REJECTED', '预算尝试不属于当前任务。');
       }
+      // 预留之前再复核一次暂停状态：任务排队、等待余额刷新期间用户可能已暂停。
+      if (method === 'budget.reserve' && policy) await policy.assertRunnable();
       // 上限由父进程按用户设置决定，子进程传来的 limits 一律以父进程的快照覆盖，子进程无法放宽。
       const input = method === 'budget.reserve' ? { ...args[0], limits: plans.get(jobId)?.limits } : args[0];
       if (input.limits === undefined) delete input.limits;
@@ -175,6 +177,7 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
         || reservedAttempts.get(attempt.attemptId) !== jobId) {
         throw failure('AI_BRIDGE_REJECTED', '凭据读取未通过任务边界。');
       }
+      if (policy) await policy.assertRunnable(); // 解析密钥之后就是真正发送，最后一次复核暂停状态
       return modelSettings.resolveCredential(args[0]);
     }
     if (method === 'source.verify' || method === 'result.validate') {

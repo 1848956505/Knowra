@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { hashRecord, manifestHash } from './record-contract.js';
+import { beijingDay } from './budget-ledger.js';
+import { evaluateAlerts, periodOf } from './budget-alerts.js';
 
 const PREVIEW_TTL_MS = 5 * 60_000;
 const MAX_PREVIEWS = 32;
@@ -57,6 +59,9 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       const view = { day: budget.day, limitMicrounits: budget.limitMicrounits, availableMicrounits: budget.availableMicrounits,
         spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits };
       const yuan = value => `${+(value / 1_000_000).toFixed(2)}`;
+      if (plan?.paused?.length) {
+        return { ready: false, reason: `AI 已按您的操作暂停至${plan.paused.includes('monthly') ? '下月' : '明天'}，可在费用提醒处恢复。`, budget: view };
+      }
       if (!unlimited && budget.availableMicrounits === 0) return { ready: false, reason: `北京时间当日 ${yuan(expected)} 元预算已用完。`, budget: view };
       if (plan?.limits.monthly != null && budget.monthAvailableMicrounits === 0) {
         return { ready: false, reason: `本月 ${yuan(plan.limits.monthly)} 元预算已用完。`, budget: view };
@@ -66,7 +71,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       }
       return { ready: true, reason: null, budget: view };
     } catch (error) {
-      if (error?.code === 'AI_BUDGET_SETTINGS_INVALID') return { ready: false, reason: error.message, budget: null };
+      if (['AI_BUDGET_SETTINGS_INVALID', 'AI_BUDGET_ALERTS_INVALID'].includes(error?.code)) return { ready: false, reason: error.message, budget: null };
       return { ready: false, reason: location === 'local' ? '本机预算账本不可用，已阻止模型调用。' : '云端预算服务不可用，已阻止模型调用。', budget: null };
     }
   }
@@ -123,6 +128,49 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算设置。');
     await store.set(input);
     return budgetSettings();
+  }
+
+  /** 提醒：当前周期已越过的阈值（含是否已通知/已关闭）与生效中的放行。只读，不联网。 */
+  async function budgetAlerts() {
+    const ai = runtime();
+    if (!ai?.budgetSettings || !ai.budgetAlerts || !ai.budgetAuthority) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const settings = await ai.budgetSettings.get();
+    const day = beijingDay(now());
+    // 评估提醒需要“配置的上限”而不是“实际拦截的上限”，所以仅提醒的规则也要算出用量。
+    const limits = { daily: settings.rules.daily.limitMicrounits, monthly: settings.rules.monthly.limitMicrounits, turn: null };
+    const status = await ai.budgetAuthority.status('deepseek-primary', day, limits);
+    const { marks, overrides, pauses, invalid } = await ai.budgetAlerts.get();
+    // 状态文件损坏时如实告知（AI 已被阻止），由用户在界面重置，而不是当作“没有暂停”。
+    if (invalid) return { day, alerts: [], rules: [], overrides: [], pauses: [], stateInvalid: true, location };
+    return { ...evaluateAlerts({ settings, status, marks, overrides, pauses, day }), stateInvalid: false, location };
+  }
+  async function markAlerts({ ids, kind } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    await store.mark(ids, kind, beijingDay(now()));
+    return budgetAlerts();
+  }
+  async function allowRule({ rule } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const day = beijingDay(now());
+    await store.allow(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
+    return budgetAlerts();
+  }
+
+  async function pauseRule({ rule } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const day = beijingDay(now());
+    await store.pause(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
+    return budgetAlerts();
+  }
+  async function resumeRule({ rule } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const day = beijingDay(now());
+    await store.resume(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
+    return budgetAlerts();
   }
 
   /** 账户余额：refresh=false 只读已保存的快照；true 才联网读取。读取失败不影响任何 AI 调用。 */
@@ -237,5 +285,5 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return view(await runtime().worker.cancel(jobId), true);
   }
 
-  return { status, usage, balance, budgetSettings, saveBudgetSettings, list, get, preview, start, cancel };
+  return { status, usage, balance, budgetSettings, saveBudgetSettings, budgetAlerts, markAlerts, allowRule, pauseRule, resumeRule, list, get, preview, start, cancel };
 }

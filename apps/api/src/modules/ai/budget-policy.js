@@ -1,4 +1,6 @@
 import { effectivePriceProfile, enforcedLimits } from './budget-settings.js';
+import { beijingDay } from './budget-ledger.js';
+import { periodOf } from './budget-alerts.js';
 
 const FRESH_MS = 5 * 60_000;
 const STALE_BLOCK_MS = 60 * 60_000;
@@ -9,7 +11,7 @@ const fail = (code, message) => Object.assign(new Error(message), { code });
  * 并在“余额下限”为“达到即停”时核对账户余额。设置损坏时抛错，调用被拒绝（fail closed）。
  * 每次调用取一份快照，同一次调用内的预留、发送、结算使用同一份价格，不受中途修改影响。
  */
-export function createBudgetPolicy({ settings, balance = null, basePriceProfile, now = () => new Date() }) {
+export function createBudgetPolicy({ settings, balance = null, alerts = null, basePriceProfile, now = () => new Date() }) {
   if (!settings || !basePriceProfile) throw new TypeError('预算策略需要设置存储和价格档案。');
 
   async function assertBalance(current) {
@@ -32,17 +34,42 @@ export function createBudgetPolicy({ settings, balance = null, basePriceProfile,
     if (cny.totalMicrounits < rule.limitMicrounits) throw fail('AI_BALANCE_BELOW_FLOOR', '账户余额低于设定的下限，已暂停模型调用。可在设置中调整下限。');
   }
 
+  // 用户对当前周期的放行与暂停：放行使该规则本周期内不再限制预留；暂停使本周期内不再发起付费调用。周期结束自动失效。
+  async function limitsFor(current) {
+    const limits = enforcedLimits(current);
+    if (!alerts) return { limits, paused: [] };
+    const { overrides, pauses, invalid } = await alerts.get();
+    if (invalid) throw fail('AI_BUDGET_ALERTS_INVALID', '预算暂停/提醒状态文件已损坏，已阻止模型调用；可在费用提醒处重置后恢复。');
+    const day = beijingDay(now());
+    for (const rule of ['daily', 'monthly']) if (overrides[rule] === periodOf(rule, day)) limits[rule] = null;
+    const paused = ['daily', 'monthly'].filter(rule => pauses?.[rule] === periodOf(rule, day));
+    return { limits, paused };
+  }
+
+  const pausedGuard = paused => {
+    if (paused.length) throw fail('AI_PAUSED_BY_USER', `AI 已按您的操作暂停至${paused.includes('monthly') ? '下月' : '明天'}，可在费用提醒处恢复。`);
+  };
+
   return {
     /** 一次付费调用前取快照：设置、价格档案、账本上限；余额下限不满足时抛错。 */
     async snapshot() {
       const current = await settings.get();
+      // 余额检查可能联网等待较久：先等完，再读暂停/放行状态，这样等待期间用户点了暂停也能拦住这次调用。
       await assertBalance(current);
-      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: enforcedLimits(current) };
+      const { limits, paused } = await limitsFor(current);
+      pausedGuard(paused);
+      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits };
+    },
+    /** 发送前最后复核：不联网，只看暂停状态与状态文件是否完好。执行器在标记“已发送”之前调用。 */
+    async assertRunnable() {
+      const { paused } = await limitsFor(await settings.get());
+      pausedGuard(paused);
     },
     /** 只读视图，不联网：供状态接口使用。 */
     async view() {
       const current = await settings.get();
-      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: enforcedLimits(current) };
+      const { limits, paused } = await limitsFor(current);
+      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits, paused };
     },
     /** 状态接口用：仅凭已保存的余额快照判断是否已低于下限，不联网。 */
     async balanceBelowFloor(current) {

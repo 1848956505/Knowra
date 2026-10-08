@@ -26,6 +26,67 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '预算提醒接口：越过阈值只提醒一次，标记后保留；达到即停时可放行当日，放行后状态恢复可用', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-alerts-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      await withServer(context, async origin => {
+        const get = async route => (await (await fetch(`${origin}/api/ai/assistant${route}`)).json()).data;
+        assert.deepEqual((await get('/alerts')).alerts, []);
+        const initial = await get('/budget-settings');
+        await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'stop', limitMicrounits: 2_000_000 } }, price: null, alerts: { thresholds: [50, 100] } });
+        const authority = context.ai.budgetAuthority;
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: 'job-1', attemptId: 'attempt-1', priceVersion: 'p1', reservedMicrounits: 1_200_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 1_100_000 });
+        const first = await get('/alerts');
+        assert.deepEqual(first.alerts.map(item => [item.threshold, item.notified, item.dismissed]), [[50, false, false]]);
+        const marked = await call(origin, '/alerts/mark', { ids: [first.alerts[0].id], kind: 'notified' });
+        assert.equal(marked.payload.data.alerts[0].notified, true);
+        assert.equal((await call(origin, '/alerts/mark', { ids: ['nope'], kind: 'notified' })).status, 422);
+        assert.equal((await call(origin, '/alerts/mark', { ids: [first.alerts[0].id], kind: 'notified' }, '0')).status, 403);
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: 'job-2', attemptId: 'attempt-2', priceVersion: 'p1', reservedMicrounits: 900_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 900_000 });
+        const full = await get('/alerts');
+        assert.deepEqual(full.alerts.map(item => item.threshold), [50, 100]);
+        assert.equal(full.alerts[0].notified, true, '已通知的阈值不会再次变成未通知');
+        assert.equal(full.alerts[1].notified, false);
+        const blocked = await get('/status');
+        assert.equal(blocked.generationAvailable, false);
+        assert.match(blocked.unavailableReason, /预算已用完/);
+        assert.equal((await call(origin, '/alerts/allow', { rule: 'turn' })).status, 422);
+        const allowed = await call(origin, '/alerts/allow', { rule: 'daily' });
+        assert.equal(allowed.status, 200);
+        assert.equal(allowed.payload.data.overrides[0].rule, 'daily');
+        const after = await get('/status');
+        assert.equal(after.budget.limitMicrounits, null);
+        assert.equal(after.budget.availableMicrounits, null);
+        // 暂停：状态立即不可用且不改预算设置；恢复后可用
+        const settingsBefore = JSON.stringify(await get('/budget-settings'));
+        const paused = await call(origin, '/alerts/pause', { rule: 'daily' });
+        assert.equal(paused.payload.data.pauses[0].rule, 'daily');
+        assert.deepEqual(paused.payload.data.overrides, [], '暂停取消同周期的放行');
+        const pausedStatus = await get('/status');
+        assert.equal(pausedStatus.generationAvailable, false);
+        assert.match(pausedStatus.unavailableReason, /暂停至明天/);
+        assert.equal(JSON.stringify(await get('/budget-settings')), settingsBefore);
+        assert.equal((await call(origin, '/alerts/pause', { rule: 'turn' })).status, 422);
+        const resumed = await call(origin, '/alerts/resume', { rule: 'daily' });
+        assert.deepEqual(resumed.payload.data.pauses, []);
+        // 状态文件损坏：AI 被阻止并如实告知，关闭横幅不能覆盖文件，显式重置后恢复
+        fs.writeFileSync(path.join(directory, 'ai-budget-alerts.json'), '{"pauses":null}');
+        const broken = await get('/alerts');
+        assert.equal(broken.stateInvalid, true);
+        const brokenStatus = await get('/status');
+        assert.equal(brokenStatus.generationAvailable, false);
+        assert.match(brokenStatus.unavailableReason, /已损坏/);
+        assert.equal((await call(origin, '/alerts/mark', { ids: ['daily:2026-10-08:50'], kind: 'dismissed' })).status, 409);
+        assert.equal((await call(origin, '/alerts/resume', { rule: 'daily' })).status, 200);
+        assert.equal((await get('/alerts')).stateInvalid, false);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '云端预算接口按服务端保存的上限执行：客户端传来的 limits 被忽略，状态也反映保存的规则', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-route-'));
     try {

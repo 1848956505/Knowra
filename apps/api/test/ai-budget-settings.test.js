@@ -6,6 +6,7 @@ import { budgetStatus, reserveBudget, settleBudget } from '../src/modules/ai/bud
 import { createBudgetPolicy } from '../src/modules/ai/budget-policy.js';
 import { createBudgetSettingsStore, DEFAULT_BUDGET_SETTINGS, effectivePriceProfile, enforcedLimits, normalizeBudgetSettings } from '../src/modules/ai/budget-settings.js';
 import { actualCostMicrounits } from '../src/modules/ai/worker.js';
+import { createBudgetAlertStore, evaluateAlerts } from '../src/modules/ai/budget-alerts.js';
 import { createIsolatedAiWorker } from '../src/modules/ai/isolated-worker.js';
 
 const account = 'deepseek-primary';
@@ -116,6 +117,62 @@ export const aiBudgetSettingsTests = [
       await assert.rejects(policy.snapshot(), { code: 'AI_BUDGET_SETTINGS_INVALID' });
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } },
+  { name: '提醒阈值：默认 50/80/100，去重排序，非法值被拒；旧设置缺省阈值时用默认', run() {
+    assert.deepEqual(normalizeBudgetSettings(settings()).alerts.thresholds, [50, 80, 100]);
+    assert.deepEqual(normalizeBudgetSettings({ ...settings(), alerts: { thresholds: [90, 30, 90] } }).alerts.thresholds, [30, 90]);
+    for (const bad of [[0], [101], [1.5], ['50'], [1, 2, 3, 4, 5, 6, 7], 'x']) {
+      assert.throws(() => normalizeBudgetSettings({ ...settings(), alerts: { thresholds: bad } }), { code: 'AI_BUDGET_SETTINGS_INVALID' });
+    }
+    assert.throws(() => normalizeBudgetSettings({ ...settings(), alerts: { thresholds: [50], extra: 1 } }), { code: 'AI_BUDGET_SETTINGS_INVALID' });
+  } },
+  { name: '提醒评估：只看每日/每月且规则未关闭，已用含占用的预留，整数比较；每个周期每个阈值一个标识', run() {
+    const cfg = normalizeBudgetSettings(settings({ daily: { mode: 'warn', limitMicrounits: 10_000_000 }, monthly: { mode: 'stop', limitMicrounits: 100_000_000 } }));
+    const status = { spentMicrounits: 4_000_000, heldMicrounits: 1_000_000, monthSpentMicrounits: 79_000_000, monthHeldMicrounits: 0 };
+    const result = evaluateAlerts({ settings: cfg, status, day: '2026-10-08' });
+    assert.deepEqual(result.alerts.map(item => item.id), ['daily:2026-10-08:50', 'monthly:2026-10:50']);
+    const hundred = evaluateAlerts({ settings: cfg, status: { ...status, spentMicrounits: 10_000_000, heldMicrounits: 0 }, day: '2026-10-08' });
+    assert.deepEqual(hundred.alerts.filter(item => item.rule === 'daily').map(item => item.threshold), [50, 80, 100]);
+    const off = normalizeBudgetSettings(settings({ daily: { mode: 'off', limitMicrounits: null } }));
+    assert.equal(evaluateAlerts({ settings: off, status, day: '2026-10-08' }).alerts.some(item => item.rule === 'daily'), false);
+  } },
+  { name: '提醒状态：标记通知/关闭只记一次，放行只在当月/当日有效，无效输入被拒，损坏文件按无记录处理', async run() {
+    const dir = temp();
+    try {
+      const file = path.join(dir, 'a.json');
+      const store = createBudgetAlertStore({ filePath: file });
+      await store.mark(['daily:2026-10-08:80'], 'notified', '2026-10-08');
+      await store.mark(['daily:2026-10-08:80'], 'dismissed', '2026-10-08');
+      assert.deepEqual((await store.get()).marks['daily:2026-10-08:80'], { notified: true, dismissed: true });
+      for (const bad of [[], ['x'], ['daily:2026-10-08:80'], Array(25).fill('daily:2026-10-08:80')]) {
+        if (Array.isArray(bad) && bad.length === 1 && bad[0] === 'daily:2026-10-08:80') await assert.rejects(store.mark(bad, 'seen', '2026-10-08'), { code: 'AI_BUDGET_ALERT_INVALID' });
+        else await assert.rejects(store.mark(bad, 'notified', '2026-10-08'), { code: 'AI_BUDGET_ALERT_INVALID' });
+      }
+      await assert.rejects(store.allow('daily', '2026-10-07', '2026-10-08'), { code: 'AI_BUDGET_ALERT_INVALID' });
+      await assert.rejects(store.allow('turn', '2026-10-08', '2026-10-08'), { code: 'AI_BUDGET_ALERT_INVALID' });
+      await store.allow('monthly', '2026-10', '2026-10-08');
+      const cfg = normalizeBudgetSettings(settings());
+      const status = { spentMicrounits: 0, heldMicrounits: 0, monthSpentMicrounits: 0, monthHeldMicrounits: 0 };
+      assert.deepEqual(evaluateAlerts({ settings: cfg, status, overrides: (await store.get()).overrides, day: '2026-10-20' }).overrides, [{ rule: 'monthly', period: '2026-10' }]);
+      assert.deepEqual(evaluateAlerts({ settings: cfg, status, overrides: (await store.get()).overrides, day: '2026-11-01' }).overrides, [], '下个月放行自动失效');
+      fs.writeFileSync(file, 'garbage');
+      assert.deepEqual(await store.get(), { marks: {}, overrides: {}, pauses: {}, invalid: true }, '损坏必须被识别，不能当作没有记录');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '放行让“达到即停”的规则在当前周期内不再限制预留，周期之外不影响', async run() {
+    const dir = temp();
+    try {
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      const alerts = createBudgetAlertStore({ filePath: path.join(dir, 'a.json') });
+      let clock = Date.parse('2026-10-08T04:00:00.000Z');
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, basePriceProfile: base, now: () => new Date(clock) });
+      assert.equal((await policy.snapshot()).limits.daily, 20_000_000);
+      await alerts.allow('daily', '2026-10-08', '2026-10-08');
+      assert.equal((await policy.snapshot()).limits.daily, null);
+      assert.equal((await policy.view()).limits.turn, 2_000_000, '单次回合上限不受放行影响');
+      clock += 24 * 3600_000;
+      assert.equal((await policy.snapshot()).limits.daily, 20_000_000, '第二天恢复拦截');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
   { name: '余额下限状态判断只凭新鲜快照：过期的低余额快照不封锁助手，调用前检查才联网刷新', async run() {
     const dir = temp();
     try {
@@ -150,5 +207,100 @@ export const aiBudgetSettingsTests = [
     release();
     await assert.rejects(running, { code: 'AI_GENERATION_UNAVAILABLE' });
     assert.equal(spawned, 0);
+  } },
+  { name: '暂停只在当前周期有效且不改写设置：暂停后付费调用被拒，放行或恢复可解除，次日自动恢复', async run() {
+    const dir = temp();
+    try {
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      const alerts = createBudgetAlertStore({ filePath: path.join(dir, 'a.json') });
+      let clock = Date.parse('2026-10-08T04:00:00.000Z');
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, basePriceProfile: base, now: () => new Date(clock) });
+      const before = JSON.stringify(await settingsStore.get());
+      await policy.snapshot();
+      await alerts.pause('daily', '2026-10-08', '2026-10-08');
+      await assert.rejects(policy.snapshot(), { code: 'AI_PAUSED_BY_USER' });
+      assert.deepEqual((await policy.view()).paused, ['daily']);
+      assert.equal(JSON.stringify(await settingsStore.get()), before, '暂停不改写预算设置');
+      await assert.rejects(alerts.pause('daily', '2026-10-07', '2026-10-08'), { code: 'AI_BUDGET_ALERT_INVALID' });
+      await alerts.resume('daily', '2026-10-08', '2026-10-08');
+      await policy.snapshot();
+      await alerts.pause('daily', '2026-10-08', '2026-10-08');
+      await alerts.allow('daily', '2026-10-08', '2026-10-08'); // 放行同时解除暂停
+      assert.equal((await policy.snapshot()).limits.daily, null);
+      await alerts.pause('daily', '2026-10-08', '2026-10-08'); // 再次暂停会取消放行
+      assert.deepEqual((await alerts.get()).overrides, {});
+      clock += 24 * 3600_000;
+      await policy.snapshot(); // 第二天自动恢复
+      const status = { spentMicrounits: 0, heldMicrounits: 0, monthSpentMicrounits: 0, monthHeldMicrounits: 0 };
+      assert.deepEqual(evaluateAlerts({ settings: normalizeBudgetSettings(settings()), status, pauses: { daily: '2026-10-08' }, day: '2026-10-08' }).pauses, [{ rule: 'daily', period: '2026-10-08' }]);
+      assert.deepEqual(evaluateAlerts({ settings: normalizeBudgetSettings(settings()), status, pauses: { daily: '2026-10-08' }, day: '2026-10-09' }).pauses, []);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '暂停状态文件损坏时 fail closed：不能被当作“没有暂停”，只有显式重置才恢复；旧版文件缺 pauses 仍有效', async run() {
+    const dir = temp();
+    try {
+      const file = path.join(dir, 'a.json');
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      const alerts = createBudgetAlertStore({ filePath: file });
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, basePriceProfile: base, now: () => new Date('2026-10-08T04:00:00.000Z') });
+      assert.equal((await alerts.get()).invalid, false, '文件不存在是正常的空状态');
+      fs.writeFileSync(file, JSON.stringify({ marks: {}, overrides: {} })); // 旧版本没有 pauses 字段
+      assert.equal((await alerts.get()).invalid, false);
+      await policy.snapshot();
+      for (const bad of ['{not json', '{"marks":{},"overrides":{},"pauses":null}', '{"pauses":{"daily":5}}', '{"overrides":[]}', '[]', 'null', '{"marks":{"a":1}}']) {
+        fs.writeFileSync(file, bad);
+        assert.equal((await alerts.get()).invalid, true, bad);
+        await assert.rejects(policy.snapshot(), { code: 'AI_BUDGET_ALERTS_INVALID' }, `${bad} 时付费调用被拒`);
+        await assert.rejects(alerts.mark(['daily:2026-10-08:50'], 'dismissed', '2026-10-08'), { code: 'AI_BUDGET_ALERTS_INVALID' }, '不能借关闭横幅覆盖损坏的文件');
+        assert.equal(fs.readFileSync(file, 'utf8'), bad, '拒绝时保留原文件');
+      }
+      fs.writeFileSync(file, '{"pauses":{"daily":"2026-10-08"}}');
+      await assert.rejects(policy.snapshot(), { code: 'AI_PAUSED_BY_USER' });
+      fs.writeFileSync(file, '{not json');
+      await alerts.resume('daily', '2026-10-08', '2026-10-08'); // 显式重置
+      assert.equal((await alerts.get()).invalid, false);
+      await policy.snapshot();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '规则拦截状态独立于提醒阈值：阈值不含 100% 或为空时，用量达到“达到即停”的上限仍标记为已拦截；仅提醒、关闭、已放行不算拦截', run() {
+    const rulesOf = (config, status, extra = {}) => evaluateAlerts({ settings: normalizeBudgetSettings(config), status, day: '2026-10-08', ...extra });
+    const full = { spentMicrounits: 20_000_000, heldMicrounits: 0, monthSpentMicrounits: 30_000_000, monthHeldMicrounits: 0 };
+    const only80 = { ...settings({ monthly: { mode: 'stop', limitMicrounits: 100_000_000 } }), alerts: { thresholds: [80] } };
+    const a = rulesOf(only80, full);
+    assert.deepEqual(a.alerts.map(item => item.threshold), [80], '提醒只有 80%');
+    assert.deepEqual(a.rules.map(item => [item.rule, item.blocked, item.usedMicrounits, item.limitMicrounits]),
+      [['daily', true, 20_000_000, 20_000_000], ['monthly', false, 30_000_000, 100_000_000]]);
+    assert.equal(rulesOf({ ...settings(), alerts: { thresholds: [] } }, full).rules[0].blocked, true, '阈值为空也如实显示已拦截');
+    assert.equal(rulesOf(settings({ daily: { mode: 'warn', limitMicrounits: 20_000_000 } }), full).rules.find(item => item.rule === 'daily').blocked, false, '仅提醒不拦截');
+    assert.equal(rulesOf(settings({ daily: { mode: 'off', limitMicrounits: null } }), full).rules.some(item => item.rule === 'daily'), false, '关闭的规则不出现');
+    assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-08' } }).rules[0].blocked, false, '当日已放行');
+    assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-07' } }).rules[0].blocked, true, '昨天的放行不算数');
+    assert.equal(rulesOf(settings(), { ...full, spentMicrounits: 19_999_999 }).rules[0].blocked, false);
+  } },
+  { name: '等待余额刷新期间用户点了暂停：这次调用不能继续；发送前最后复核同样拦截', async run() {
+    const dir = temp();
+    try {
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      await settingsStore.set(settings({ balanceFloor: { mode: 'stop', limitMicrounits: 10_000_000 } }));
+      const alerts = createBudgetAlertStore({ filePath: path.join(dir, 'a.json') });
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      const stale = new Date('2026-10-08T01:00:00.000Z').toISOString();
+      const fresh = { checkedAt: '2026-10-08T05:00:00.000Z', latest: { at: '2026-10-08T05:00:00.000Z', isAvailable: true,
+        balances: [{ currency: 'CNY', totalMicrounits: 50_000_000, grantedMicrounits: 0, toppedUpMicrounits: 50_000_000 }] } };
+      const balance = { view: async () => ({ checkedAt: stale, latest: null }), refresh: async () => { await gate; return fresh; } };
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, balance, basePriceProfile: base, now: () => new Date('2026-10-08T05:00:00.000Z') });
+      const waiting = policy.snapshot(); // 余额过期，正在联网刷新
+      await new Promise(resolve => setTimeout(resolve, 10));
+      await alerts.pause('daily', '2026-10-08', '2026-10-08'); // 等待期间用户暂停
+      release();
+      await assert.rejects(waiting, { code: 'AI_PAUSED_BY_USER' }, '等待结束后必须重新读取暂停状态');
+      await alerts.resume('daily', '2026-10-08', '2026-10-08');
+      await policy.assertRunnable();
+      await alerts.pause('daily', '2026-10-08', '2026-10-08');
+      await assert.rejects(policy.assertRunnable(), { code: 'AI_PAUSED_BY_USER' });
+      fs.writeFileSync(path.join(dir, 'a.json'), '{bad');
+      await assert.rejects(policy.assertRunnable(), { code: 'AI_BUDGET_ALERTS_INVALID' });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } }
 ];

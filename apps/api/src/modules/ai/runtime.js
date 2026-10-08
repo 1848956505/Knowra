@@ -14,13 +14,14 @@ import { createConversationAttachmentService } from './conversation-attachments.
 import { createBalanceService } from './balance-service.js';
 import { createBudgetSettingsStore } from './budget-settings.js';
 import { createBudgetPolicy } from './budget-policy.js';
+import { createBudgetAlertStore } from './budget-alerts.js';
 
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
   actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
   verifySources = null, knowledgeProposals = false, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null,
-  uploadsDir = null, balanceFile = null, budgetSettingsFile = null } = {}) {
+  uploadsDir = null, balanceFile = null, budgetSettingsFile = null, budgetAlertsFile = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
   const gateway = createAiGateway({
@@ -42,7 +43,8 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
       resolveCredential: reference => modelSettings.resolveCredential(reference), filePath: balanceFile, fetchImpl }) : null;
   // 用户的预算设置（限额模式、自定义单价）；没有设置文件路径的运行端沿用写死的默认规则。
   const budgetSettings = budgetSettingsFile ? createBudgetSettingsStore({ filePath: budgetSettingsFile }) : null;
-  const policy = budgetSettings && priceProfile ? createBudgetPolicy({ settings: budgetSettings, balance, basePriceProfile: priceProfile }) : null;
+  const budgetAlerts = budgetAlertsFile ? createBudgetAlertStore({ filePath: budgetAlertsFile }) : null;
+  const policy = budgetSettings && priceProfile ? createBudgetPolicy({ settings: budgetSettings, balance, alerts: budgetAlerts, basePriceProfile: priceProfile }) : null;
   const agent = conversationStore && access && budgetAuthority && priceProfile
     ? createAiAgentWorker({ store: conversationStore, access, modelSettings, budget: budgetAuthority,
       gateway, priceProfile, policy, allowExternal, retrievalCandidates, actions, webSearchAdapter,
@@ -84,14 +86,14 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
         authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) })
       : createIsolatedAiWorker({ repository, budget: budgetAuthority, gateway, modelSettings,
         readContext, priceProfile, policy, allowExternal })) : null,
-    balance, budgetSettings, budgetPolicy: policy,
+    balance, budgetSettings, budgetAlerts, budgetPolicy: policy,
     credentialReference: () => modelSettings.credentialReference()
   };
 }
 
 export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。') {
   return { actions: null, attachments: null, unavailableReason: reason, generationAvailable: () => false,
-    credentialReference: async () => null, repository: null, budgetAuthority: null, balance: null, budgetSettings: null, budgetPolicy: null,
+    credentialReference: async () => null, repository: null, budgetAuthority: null, balance: null, budgetSettings: null, budgetAlerts: null, budgetPolicy: null,
     readContext: null, accessStore: null, access: null, knowledgeCommit: null, conversationStore: null, conversation: null,
     agent: null, worker: null, gateway: null, priceProfile: null };
 }

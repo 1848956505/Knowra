@@ -4,7 +4,7 @@ import { assistantApi, type BudgetSettings } from '../assistant/assistantApi';
 
 vi.mock('../assistant/assistantApi', () => ({ assistantApi: { budgetSettings: vi.fn(), saveBudgetSettings: vi.fn() } }));
 
-const defaults = (): BudgetSettings => ({ location: 'local', price: null,
+const defaults = (): BudgetSettings => ({ location: 'local', price: null, alerts: { thresholds: [50, 80, 100] },
   basePrice: { version: 'v1', inputMicrounitsPerMillion: 2_000_000, outputMicrounitsPerMillion: 8_000_000, reviewedUntil: '2026-10-09T00:00:00.000Z' },
   rules: { daily: { mode: 'stop', limitMicrounits: 20_000_000 }, monthly: { mode: 'off', limitMicrounits: null },
     turn: { mode: 'stop', limitMicrounits: 2_000_000 }, balanceFloor: { mode: 'off', limitMicrounits: null } } });

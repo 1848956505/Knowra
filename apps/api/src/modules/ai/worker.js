@@ -180,6 +180,8 @@ export function createAiWorker({ repository, budget, gateway, priceProfile: base
       if (beforeSend.status !== 'running' || controller.signal.aborted) fail('AI_CANCELLED', '任务已取消，未发送模型请求。');
       if (beijingDay(now()) !== reservationDay) fail('AI_BUDGET_DAY_CHANGED', '预算日期已切换，请重新预览后重试。');
       quoteWorstCase({ request, priceProfile, now: now() });
+      // 快照之后到真正发送之间用户可能点了暂停：在标记“已发送”前再复核一次（此时抛错会释放预留）。
+      if (policy) await policy.assertRunnable();
       attempt = await replace('aiJobAttempt', attempt, { status: 'sent' });
       sent = true;
       await recordEvent(jobId, 'providerRequestStarted', { attemptId: attempt.attemptId,

@@ -54,8 +54,24 @@ export interface CustomPrice {
 export interface BudgetSettings {
   rules: Record<BudgetRuleName, BudgetRule>;
   price: CustomPrice | null;
+  alerts: { thresholds: number[] };
   basePrice?: { version: string; inputMicrounitsPerMillion: number; outputMicrounitsPerMillion: number; reviewedUntil: string } | null;
   location?: 'local' | 'server';
+}
+
+export interface BudgetAlert {
+  id: string; rule: 'daily' | 'monthly'; threshold: number; period: string; mode: BudgetMode;
+  usedMicrounits: number; limitMicrounits: number; notified: boolean; dismissed: boolean;
+}
+export interface BudgetAlerts {
+  day: string; location: 'local' | 'server'; alerts: BudgetAlert[];
+  /** 每条规则的实际拦截状态，与提醒阈值无关（阈值不含 100% 时也要能看到已被拦截）。 */
+  rules: Array<{ rule: 'daily' | 'monthly'; mode: BudgetMode; period: string; usedMicrounits: number; limitMicrounits: number; blocked: boolean }>;
+  overrides: Array<{ rule: 'daily' | 'monthly'; period: string }>;
+  /** 用户在当前周期暂停了 AI（周期结束自动恢复，不改预算设置）。 */
+  pauses: Array<{ rule: 'daily' | 'monthly'; period: string }>;
+  /** 暂停/提醒状态文件损坏：AI 已被阻止，需要用户重置。 */
+  stateInvalid?: boolean;
 }
 
 export interface AssistantSource {
@@ -103,8 +119,17 @@ const data = async <T>(url: string, options?: Parameters<typeof apiClient.reques
 export const assistantApi = {
   usage: () => data<AssistantUsage>('/api/ai/assistant/usage'),
   budgetSettings: () => data<BudgetSettings>('/api/ai/assistant/budget-settings'),
-  saveBudgetSettings: (value: Pick<BudgetSettings, 'rules' | 'price'>) => data<BudgetSettings>('/api/ai/assistant/budget-settings', {
+  saveBudgetSettings: (value: Pick<BudgetSettings, 'rules' | 'price' | 'alerts'>) => data<BudgetSettings>('/api/ai/assistant/budget-settings', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
+  alerts: () => data<BudgetAlerts>('/api/ai/assistant/alerts'),
+  markAlerts: (ids: string[], kind: 'notified' | 'dismissed') => data<BudgetAlerts>('/api/ai/assistant/alerts/mark', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, kind }) }),
+  pauseRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/pause', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
+  resumeRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/resume', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
+  allowRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/allow', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
   balance: () => data<AssistantBalance>('/api/ai/assistant/balance'),
   refreshBalance: () => data<AssistantBalance>('/api/ai/assistant/balance/refresh', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1' } }),
