@@ -129,10 +129,13 @@ export function createBalanceService({ credentialReference, resolveCredential, f
       const snapshots = all.filter(item => item.credentialRef === ref);
       const { apiKey } = await resolveCredential(reference.credentialRef);
       const live = await fetchDeepSeekBalance({ apiKey, fetchImpl });
-      // 读取期间若已更换 Key，这份响应属于旧账户：丢弃，不保存也不展示，请用户重新读取。
-      if ((await credentialReference())?.credentialRef !== ref) {
-        throw failure('AI_BALANCE_STALE', '账户凭据在读取期间已变更，已丢弃过期的余额响应，请重新读取。');
-      }
+      // 读取期间若已更换 Key，这份响应属于旧账户：丢弃，不展示，请用户重新读取。保存之后返回之前还要再核对一次。
+      const assertCurrent = async () => {
+        if ((await credentialReference())?.credentialRef !== ref) {
+          throw failure('AI_BALANCE_STALE', '账户凭据在读取期间已变更，已丢弃过期的余额响应，请重新读取。');
+        }
+      };
+      await assertCurrent();
       const at = now();
       const entry = { at: at.toISOString(), credentialRef: ref, ...live };
       const last = snapshots.at(-1);
@@ -140,8 +143,11 @@ export function createBalanceService({ credentialReference, resolveCredential, f
       if (same && at.getTime() - Date.parse(last.at) < DEDUPE_MS) return view(all, ref, entry);
       // 其他凭据代际的旧快照随期限自然清理，不参与当前账户的推算。
       const kept = [...all, entry].filter(item => at.getTime() - Date.parse(item.at) <= KEEP_MS).slice(-MAX_SNAPSHOTS);
-      try { await save(kept); } catch { return { ...view(all, ref, entry), saved: false }; }
-      return view(kept, ref);
+      let saved = true;
+      try { await save(kept); } catch { saved = false; }
+      // 异步写盘期间也可能换 Key；快照本身带着 A 的代际标记，不会混入 B，但返回给页面的视图必须属于当前账户。
+      await assertCurrent();
+      return saved ? view(kept, ref) : { ...view(all, ref, entry), saved: false };
     })
   };
 }
