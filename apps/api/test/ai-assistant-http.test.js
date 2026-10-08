@@ -26,7 +26,7 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
-  { name: '核价模型、过期价格与预算故障均阻止真实生成并返回具体能力状态', async run() {
+  { name: '未核价模型与预算故障阻止真实生成、价格过期仅提示并返回具体能力状态', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-readiness-'));
     try {
       const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
@@ -47,10 +47,10 @@ export const aiAssistantHttpTests = [
       assert.throws(() => quoteWorstCase({ request: { modelId: 'other-model', messages: [
         { role: 'system', content: 'JSON' }], maxTokens: 10, tools: [] }, priceProfile: reviewedDeepSeekPriceProfile }),
       error => error.code === 'AI_PRICE_UNAVAILABLE');
-      assert.throws(() => quoteWorstCase({ request: { modelId: 'deepseek-flash', messages: [
+      // 价格档案超过复核日期不再阻止调用，只标记为估算。
+      assert.equal(quoteWorstCase({ request: { modelId: 'deepseek-flash', messages: [
         { role: 'system', content: 'JSON' }], maxTokens: 10, tools: [] },
-      priceProfile: reviewedDeepSeekPriceProfile, now: new Date(reviewedDeepSeekPriceProfile.expiresAt) }),
-      error => error.code === 'AI_PRICE_UNAVAILABLE');
+      priceProfile: reviewedDeepSeekPriceProfile, now: new Date(reviewedDeepSeekPriceProfile.expiresAt) }).priceStale, true);
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },
   { name: '助手 HTTP 预览、确认、回答持久恢复与来源回读', async run() {

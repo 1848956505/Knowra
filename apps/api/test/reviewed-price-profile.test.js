@@ -57,13 +57,16 @@ function agentFixture(now, usage) {
 }
 
 export const reviewedPriceProfileTests = [
-  { name: '正式核价覆盖原截止日，新复核截止前可报价，到期及之后拒绝', run() {
+  { name: '正式核价覆盖原截止日；超过复核日期仍可报价，只标记 priceStale 提示费用为估算', run() {
     assert(quote(previousCutoff).reservedMicrounits > 0);
     assert(quote('2026-10-08T23:59:59.999Z').reservedMicrounits > 0);
     assert.equal(profile.version, priceVersion);
     assert.equal(profile.expiresAt, reviewCutoff);
-    for (const time of [reviewCutoff, '2026-10-09T00:00:00.001Z']) {
-      assert.throws(() => quote(time), { code: 'AI_PRICE_UNAVAILABLE' });
+    assert.equal(quote('2026-10-08T23:59:59.999Z').priceStale, false);
+    for (const time of [reviewCutoff, '2026-10-09T00:00:00.001Z', '2027-01-01T00:00:00.000Z']) {
+      const stale = quote(time);
+      assert.equal(stale.priceStale, true);
+      assert.equal(stale.reservedMicrounits, quote(reviewedAt).reservedMicrounits);
     }
   } },
   { name: '正式核价只适用 deepseek-flash，其他模型、缺失或无效档案均拒绝', run() {
@@ -91,33 +94,15 @@ export const reviewedPriceProfileTests = [
       messages: [{ role: 'user', content: 'x'.repeat(100_000) }] }), { code: 'AI_REQUEST_LIMIT' });
     assert.throws(() => quote(reviewedAt, { ...request, maxTokens: 20_001 }), { code: 'AI_REQUEST_LIMIT' });
   } },
-  { name: 'Worker 到期先于预留阻断，预留期间到期则不发送且释放额度', async run() {
-    for (const duringReserve of [false, true]) await withWorkerStore(async (store, records) => {
-      let instant = new Date(duringReserve ? '2026-10-08T23:59:59.999Z' : reviewCutoff);
+  { name: 'Worker 价格档案超过复核日期仍可调用模型并按估算结算，不再阻断', async run() {
+    await withWorkerStore(async (store, records) => {
       let calls = 0;
-      const reservations = [], settlements = [];
-      const budget = {
-        async reserve(input) {
-          reservations.push(input);
-          const reserved = store.aiBudgetAuthority.reserve(input);
-          instant = new Date(reviewCutoff);
-          return reserved;
-        },
-        async settle(input) { settlements.push(input); return store.aiBudgetAuthority.settle(input); }
-      };
-      const worker = createAiWorker({ repository: store.aiRepository, budget, priceProfile: profile,
-        now: () => instant, gateway: { capabilities: () => ({ provider: 'mock' }), async complete() {
-          calls++; throw new Error('到期任务不得进入模型调用入口');
+      const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority, priceProfile: profile,
+        now: () => new Date('2026-12-01T00:00:00.000Z'), gateway: { capabilities: () => ({ provider: 'mock' }), async complete() {
+          calls++; throw new Error('合成上游失败');
         } } });
-      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_PRICE_UNAVAILABLE' });
-      assert.equal(calls, 0);
-      assert.equal(reservations.length, duringReserve ? 1 : 0);
-      assert.equal(store.aiRepository.list('aiJobAttempt').length, duringReserve ? 1 : 0);
-      assert.deepEqual(settlements.map(item => item.disposition), duringReserve ? ['released'] : []);
-      const status = store.aiBudgetAuthority.status(accountRef, beijingDay(instant));
-      assert.equal(status.heldMicrounits, 0);
-      assert.equal(status.spentMicrounits, 0);
-      if (duringReserve) assert.equal(reservations[0].priceVersion, priceVersion);
+      await assert.rejects(worker.run(records.job.jobId, request), error => error.code !== 'AI_PRICE_UNAVAILABLE');
+      assert.equal(calls, 1);
     });
   } },
   { name: 'Worker 未知用量按新档案占额，重启保留且日预算与任务上限不退化', async run() {
@@ -199,31 +184,18 @@ export const reviewedPriceProfileTests = [
       assert.equal(budget.status(accountRef, day).heldMicrounits, 20_000_000);
     });
   } },
-  { name: 'Agent 共用正式核价：旧截止日可执行，到期及预留中到期均不发送', async run() {
-    for (const mode of ['valid', 'expired', 'duringReserve']) {
-      let instant = new Date(mode === 'valid' ? previousCutoff
-        : mode === 'expired' ? reviewCutoff : '2026-10-08T23:59:59.999Z');
+  { name: 'Agent 共用正式核价：超过复核日期仍可执行并正常结算，只记一次提示', async run() {
+    for (const mode of ['valid', 'stale']) {
+      const instant = new Date(mode === 'valid' ? previousCutoff : '2026-12-01T00:00:00.000Z');
       const fixture = agentFixture(() => instant, { inputTokens: 10, outputTokens: 5, unknown: false });
-      if (mode === 'duringReserve') {
-        const reserve = fixture.budget.reserve;
-        fixture.budget.reserve = async input => {
-          const reserved = await reserve(input);
-          instant = new Date(reviewCutoff); return reserved;
-        };
-      }
       const conversation = await fixture.store.createConversation({ ownerId: 'demo', actorId: 'demo', spaceId: 'space-1' });
       const turn = await fixture.store.submitTurn({ ownerId: 'demo', conversationId: conversation.conversationId,
         content: '合成提问', idempotencyKey: `price-${mode}` });
-      if (mode === 'valid') await fixture.agent.run(turn.turnId);
-      else await assert.rejects(fixture.agent.run(turn.turnId), { code: 'AI_PRICE_UNAVAILABLE' });
-      assert.equal(fixture.calls.gateway, mode === 'valid' ? 1 : 0);
-      assert.equal(fixture.calls.reservations.length, mode === 'expired' ? 0 : 1);
-      assert.deepEqual(fixture.calls.settlements.map(item => item.disposition),
-        mode === 'valid' ? ['settled'] : mode === 'expired' ? [] : ['released']);
-      const status = fixture.authority.status(accountRef, beijingDay(instant));
-      assert.equal(status.spentMicrounits, mode === 'valid' ? 60 : 0);
-      assert.equal(status.heldMicrounits, 0);
-      if (mode !== 'expired') assert.equal(fixture.state.budgetReservations[0].priceVersion, priceVersion);
+      await fixture.agent.run(turn.turnId);
+      assert.equal(fixture.calls.gateway, 1);
+      assert.deepEqual(fixture.calls.settlements.map(item => item.disposition), ['settled']);
+      assert.equal(fixture.authority.status(accountRef, beijingDay(instant)).spentMicrounits, 60);
+      assert.equal(fixture.state.budgetReservations[0].priceVersion, priceVersion);
       await fixture.agent.close();
     }
   } },

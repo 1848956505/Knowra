@@ -126,7 +126,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
   const active = new Map();
-  let closed = false;
+  let closed = false, priceStaleWarned = false;
   const recovery = createAiRecoveryScope();
   const search = access ? createAuthorizedRetrieval({ access, candidateSource: retrievalCandidates }) : null;
   const provider = gateway.capabilities?.().provider;
@@ -157,6 +157,10 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     if (provider !== 'mock' && !allowExternal) fail('AI_EGRESS_NOT_READY', '当前运行端未启用模型外发。');
     if ((await store.listModelAttempts(turn.turnId)).length >= MAX_ATTEMPTS) fail('AI_ATTEMPT_LIMIT', '模型调用次数已达到上限。');
     const quote = quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent });
+    if (quote.priceStale && !priceStaleWarned) {
+      priceStaleWarned = true;
+      logger.warn?.('AI price profile is past its review date; costs are estimates', { version: priceProfile.version });
+    }
     if (manifest && manifest.payloadHash !== quote.payloadHash) fail('AI_PAYLOAD_STALE', '实际请求与发送清单不一致。');
     const attemptId = randomUUID(), day = beijingDay(now());
     const attempt = await store.createModelAttempt(turn.turnId, generation, { attemptId, modelId: request.modelId,

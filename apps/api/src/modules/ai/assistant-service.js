@@ -37,8 +37,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     if (!available(reference)) {
       const profile = runtime()?.priceProfile;
       const reason = profile?.modelId !== reference.modelId ? '当前模型尚未核价，请在设置中选择 deepseek-flash。'
-        : profile?.expiresAt && Date.parse(profile.expiresAt) <= now().getTime() ? '模型价格档案已过期，请更新服务后重试。'
-          : '当前运行端尚未启用真实模型调用。';
+        : '当前运行端尚未启用真实模型调用。';
       return { ready: false, reason, budget: null };
     }
     try {
@@ -78,10 +77,14 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       ? { ready: false, reason: storageReason, budget: null }
       : await readiness(reference);
     const provider = ai?.gateway?.capabilities?.();
+    const profile = ai?.priceProfile;
+    // 价格档案超过复核日期只提示费用为估算，不阻止使用。
+    const priceNotice = profile?.expiresAt && Date.parse(profile.expiresAt) <= now().getTime()
+      ? '价格档案已超过复核日期，显示的费用为估算，可能与实际账单有差异。' : null;
     const simulation = provider?.provider === 'mock';
     return { provider: simulation ? 'mock' : 'deepseek', simulation, modelId: reference?.modelId ?? null, configured: Boolean(reference),
       executionLocation: location, generationAvailable: state.ready, unavailableReason: state.reason,
-      budget: state.budget,
+      budget: state.budget, priceNotice,
       capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel', ...(ai?.actions ? ['note-plan', 'note-confirm', 'note-undo-preview'] : [])],
         responseMode: 'polling', writeTools: Boolean(ai?.actions),
         providerAdvertised: provider?.advertised ?? null, providerVerified: !simulation && provider?.verified === true } };

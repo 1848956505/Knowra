@@ -15,7 +15,8 @@ const nonnegative = value => Number.isSafeInteger(value) && value >= 0;
 
 /** 价格配置由受信部署代码提供；过期或缺失时拒绝付费调用。 */
 export function quoteWorstCase({ request, priceProfile, now = new Date(), writeToolName = null, assistantTools = false }) {
-  if (!priceProfile?.version || !Number.isFinite(Date.parse(priceProfile.expiresAt)) || Date.parse(priceProfile.expiresAt) <= now.getTime()
+  // expiresAt 是“建议复核日期”：过期只标记 priceStale 提示费用可能不准，不再阻止调用；档案缺失或数值无效仍拒绝。
+  if (!priceProfile?.version || !Number.isFinite(Date.parse(priceProfile.expiresAt))
     || !nonnegative(priceProfile.inputMicrounitsPerMillion) || !nonnegative(priceProfile.outputMicrounitsPerMillion)) {
     fail('AI_PRICE_UNAVAILABLE', '当前价格配置不可用，已阻止模型调用。');
   }
@@ -37,7 +38,8 @@ export function quoteWorstCase({ request, priceProfile, now = new Date(), writeT
   // 两倍预留缓冲供应商 token 计数与价格差异；仍受 2 元任务上限限制。
   const reservedMicrounits = Math.max(1, estimate * 2);
   if (reservedMicrounits > 2_000_000) fail('AI_JOB_BUDGET_EXCEEDED', '最坏费用超过任务预留上限。');
-  return { reservedMicrounits, inputUpperBound, payloadHash: outboundPayloadHash(outbound) };
+  return { reservedMicrounits, inputUpperBound, payloadHash: outboundPayloadHash(outbound),
+    priceStale: Date.parse(priceProfile.expiresAt) <= now.getTime() };
 }
 
 export function createAiWorker({ repository, budget, gateway, priceProfile, accountRef = 'deepseek-primary',
