@@ -1,3 +1,4 @@
+import { cloneJsonData } from '../../infrastructure/json-clone.js';
 import { assertSyncContract } from './protocol-contract.js';
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
 import { WRITABLE_COLLECTIONS, changeReferencesFor, sameEntity } from './entity-contract.js';
@@ -64,7 +65,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
           const revision = journal.revisions[syncKey(entry.collection, entry.id)] ?? null;
           const current = state[entry.collection].find(item => item.id === entry.id) ?? null;
           if (entry.value && !current && revision !== null) throw syncError('ENTITY_DELETED', '对象已永久删除，不能恢复旧 ID。');
-          if (revision !== entry.baseRevision && !(Object.hasOwn(entry, 'value') && sameEntity(entry.collection, current, entry.value))) conflicts.push({ collection: entry.collection, id: entry.id, revision, value: structuredClone(current) });
+          if (revision !== entry.baseRevision && !(Object.hasOwn(entry, 'value') && sameEntity(entry.collection, current, entry.value))) conflicts.push({ collection: entry.collection, id: entry.id, revision, value: cloneJsonData(current) });
         }
         if (conflicts.length) {
           const result = { status: 'conflict', conflicts };
@@ -86,7 +87,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
         return thenResult(provider.applyState(next), () => thenResult(provider.preview(), ({ state: applied, journal: preview }) => {
           const entries = op.changes.map(entry => {
             const id = entry.collection === 'noteVersions' ? aliases[entry.id] ?? entry.id : entry.id;
-            return { collection: entry.collection, id, revision: preview.revisions[syncKey(entry.collection, id)] ?? null, value: structuredClone(applied[entry.collection].find(item => item.id === id) ?? null) };
+            return { collection: entry.collection, id, revision: preview.revisions[syncKey(entry.collection, id)] ?? null, value: cloneJsonData(applied[entry.collection].find(item => item.id === id) ?? null) };
           });
           const result = { status: 'accepted', entries, aliases };
           rememberBatchReceipt(journal, key, hash, result, op); return result;
