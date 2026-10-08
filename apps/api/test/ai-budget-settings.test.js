@@ -9,6 +9,7 @@ import { createBudgetSettingsStore, DEFAULT_BUDGET_SETTINGS, effectivePriceProfi
 import { actualCostMicrounits } from '../src/modules/ai/worker.js';
 import { createBudgetAlertStore, evaluateAlerts } from '../src/modules/ai/budget-alerts.js';
 import { createIsolatedAiWorker } from '../src/modules/ai/isolated-worker.js';
+import { createPostgresBudgetAuthority } from '../src/modules/ai/postgres-budget-authority.js';
 
 const account = 'deepseek-primary';
 const reserve = (state, n, amount, extra = {}) => reserveBudget(state, { accountRef: account, jobId: `job-${extra.job ?? n}`, attemptId: `a-${n}`,
@@ -416,5 +417,31 @@ export const aiBudgetSettingsTests = [
       fs.writeFileSync(path.join(dir, 'a.json'), '{bad');
       await assert.rejects(policy.assertRunnable(), { code: 'AI_BUDGET_ALERTS_INVALID' });
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: 'PostgreSQL 适配器的用量汇总、导出与状态在只给预留记录时可用（不依赖日账本或月汇总），损坏的明细按未记录处理', async run() {
+    // 假的 Prisma 客户端：按 SQL 里的表名返回列名与真实表一致的行；真实数据库测试需要 KNOWRA_SYNC_TEST_DATABASE_URL。
+    const reservation = (n, status, actual, usage) => ({ reservation_id: `r-${n}`, account_ref: account, beijing_day: '2026-10-08', job_id: `job-${n}`,
+      attempt_id: `a-${n}`, price_version: 'p1', reserved_microunits: 1_000_000n, actual_microunits: actual === null ? null : BigInt(actual),
+      status, created_at: `2026-10-08T0${n}:00:00.000Z`, settled_at: `2026-10-08T0${n}:00:01.000Z`, usage_detail: usage });
+    const rows = [reservation(1, 'settled', 300_000, JSON.stringify({ modelId: 'deepseek-flash', inputTokens: 100, outputTokens: 10, cacheHitTokens: 40, conversationId: '会话/已导入' })),
+      reservation(2, 'unknown', null, '{损坏'), reservation(3, 'settled', 100_000, null)];
+    const client = { $transaction: async () => { throw new Error('unused'); },
+      $queryRawUnsafe: async sql => sql.includes('ai_budget_reservations') ? rows
+        : [{ beijing_day: '2026-10-08', spent_microunits: 400_000n, held_microunits: 1_000_000n }] };
+    const authority = createPostgresBudgetAuthority(client);
+    const summary = await authority.usage(account, '2026-10-08');
+    assert.deepEqual([summary.today.requests, summary.today.spentMicrounits, summary.today.unknownRequests, summary.total.inputTokens, summary.total.cacheHitTokens], [3, 400_000, 1, 100, 40]);
+    assert.deepEqual(summary.archive, []);
+    assert.equal(summary.recent.find(row => row.attemptId === 'a-1').conversationId, '会话/已导入');
+    assert.equal(summary.recent.find(row => row.attemptId === 'a-2').modelId, null, '损坏的明细按未记录处理');
+    assert.deepEqual(summary.unknown.map(row => row.attemptId), ['a-2']);
+    const exported = await authority.usageRows(account);
+    assert.equal(exported.rows.length, 3);
+    assert.deepEqual(exported.months, []);
+    assert.equal(usageCsv(exported).includes('NaN'), false);
+    const status = await authority.status(account, '2026-10-08');
+    assert.deepEqual([status.spentMicrounits, status.heldMicrounits, status.monthSpentMicrounits], [400_000, 1_000_000, 400_000]);
+    // 纯函数本身也不能假定日账本一定存在
+    assert.doesNotThrow(() => usageSummary({ budgetReservations: [] }, account, '2026-10-08'));
   } }
 ];

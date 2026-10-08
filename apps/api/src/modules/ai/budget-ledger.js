@@ -245,7 +245,8 @@ export function usageSummary(state, accountRef, date = beijingDay(), limit = REC
     }
   }
   // 当天已折叠的部分只剩金额（明细已不在）：计入今日已花费，与预算统计一致。
-  periods.today.spentMicrounits += state.budgetDays.find(row => row.accountRef === accountRef && row.day === date)?.archivedSpentMicrounits ?? 0;
+  // 适配器可能只提供预留记录（如 PostgreSQL 的用量查询），日账本缺失时按没有折叠处理。
+  periods.today.spentMicrounits += (state.budgetDays ?? []).find(row => row.accountRef === accountRef && row.day === date)?.archivedSpentMicrounits ?? 0;
   // 先倒序再稳定排序：同一毫秒内结算的请求，后写入的排前面。
   const view = row => ({ attemptId: row.attemptId, day: row.day, at: row.settledAt ?? row.createdAt, status: row.status,
     costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits,
