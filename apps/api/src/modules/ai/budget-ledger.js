@@ -43,6 +43,7 @@ export function validateBudgetState(state) {
   const keys = new Set();
   for (const row of state.budgetDays) {
     if (!row.accountRef || !day(row.day) || !amount(row.spentMicrounits) || !amount(row.heldMicrounits)
+      || row.archivedSpentMicrounits !== undefined && !amount(row.archivedSpentMicrounits)
       || keys.has(`${row.accountRef}:${row.day}`)) fail('AI_BUDGET_INVALID', '预算日账本无效。');
     keys.add(`${row.accountRef}:${row.day}`);
   }
@@ -64,7 +65,8 @@ export function validateBudgetState(state) {
   for (const row of state.budgetDays) {
     const entries = state.budgetReservations.filter(item => item.accountRef === row.accountRef && item.day === row.day);
     if (row.heldMicrounits !== entries.filter(item => ['held', 'unknown'].includes(item.status)).reduce((sum, item) => sum + item.reservedMicrounits, 0)
-      || row.spentMicrounits !== entries.filter(item => item.status === 'settled').reduce((sum, item) => sum + item.actualMicrounits, 0)) {
+      // 日已花费 = 已折叠进月汇总的部分 + 仍保留明细的已结算请求；折叠只丢明细，不改日账本的金额。
+      || row.spentMicrounits !== (row.archivedSpentMicrounits ?? 0) + entries.filter(item => item.status === 'settled').reduce((sum, item) => sum + item.actualMicrounits, 0)) {
       fail('AI_BUDGET_INVALID', '预算日账本与预留记录不一致。');
     }
   }
@@ -83,15 +85,11 @@ function checkLimits(limits) {
   return limits;
 }
 
-// 当月合计 = 日账本 + 已折叠进月汇总的部分：折叠后的金额仍须计入预算统计，不能因折叠而“消失”。
-const monthTotals = (state, accountRef, date) => {
-  const month = date.slice(0, 7);
-  const days = state.budgetDays.filter(row => row.accountRef === accountRef && row.day.startsWith(month))
-    .reduce((sum, row) => ({ spent: sum.spent + row.spentMicrounits, held: sum.held + row.heldMicrounits }), { spent: 0, held: 0 });
-  const archived = (state.budgetMonths ?? []).filter(row => row.accountRef === accountRef && row.month === month)
-    .reduce((sum, row) => sum + row.spentMicrounits, 0);
-  return { spent: days.spent + archived, held: days.held };
-};
+// 预算统计只看日账本：折叠只丢请求明细，日账本（含折叠进月汇总的金额 archivedSpentMicrounits）永久保留，
+// 所以无论系统时钟怎样，某一天、某个月的已花费都是准确的，不依赖明细是否还在。
+const monthTotals = (state, accountRef, date) => state.budgetDays
+  .filter(row => row.accountRef === accountRef && row.day.startsWith(date.slice(0, 7)))
+  .reduce((sum, row) => ({ spent: sum.spent + row.spentMicrounits, held: sum.held + row.heldMicrounits }), { spent: 0, held: 0 });
 
 /** limitMicrounits / availableMicrounits 为 null 表示当日规则不是“达到即停”，不限制调用。 */
 export function budgetStatus(state, accountRef, date = beijingDay(), limits) {
@@ -172,8 +170,10 @@ const shiftDay = (value, days) => new Date(Date.parse(`${value}T00:00:00Z`) + da
 
 /**
  * 用量明细只保留 90 天：更早已结算的请求折叠进“月汇总”（笔数、费用、token），保证累计不变；
- * 未结算（占用中、结果未知）的预留永远不裁剪，因为它们仍占用额度。
- * 基准日取“今天”与“账本中最新一天”的较早者：系统时钟被误调到未来时不会误删明细。
+ * 未结算（占用中、结果未知）的预留永远不裁剪，因为它们仍占用额度。日账本永久保留（每天一行，很小），
+ * 所以裁剪只影响请求明细的保留，预算统计与上限判断不受系统时钟影响。
+ * 基准日取“今天”与“账本中最新一天”的较早者，并对明显的时间跳变不裁剪（尽力而为：连续两天都错的时钟无法识别，
+ * 此时最多提前丢失请求明细，金额统计不受影响）。
  * 返回被折叠的请求数。
  */
 export function pruneBudgetState(state, accountRef, today = beijingDay()) {
@@ -201,14 +201,12 @@ export function pruneBudgetState(state, accountRef, today = beijingDay()) {
       entry.inputTokens += detail?.inputTokens ?? 0;
       entry.outputTokens += detail?.outputTokens ?? 0;
       entry.cacheHitTokens += detail?.cacheHitTokens ?? 0;
-      daily.spentMicrounits -= row.actualMicrounits;
+      daily.archivedSpentMicrounits = (daily.archivedSpentMicrounits ?? 0) + row.actualMicrounits;
       folded += 1;
     }
   }
   const gone = new Set(old);
   state.budgetReservations = state.budgetReservations.filter(row => !gone.has(row));
-  state.budgetDays = state.budgetDays.filter(row => row.accountRef !== accountRef || row.day >= cutoff
-    || row.heldMicrounits > 0 || state.budgetReservations.some(item => item.accountRef === accountRef && item.day === row.day));
   return folded;
 }
 const emptyTotals = () => ({ requests: 0, spentMicrounits: 0, unknownRequests: 0, unknownMicrounits: 0,
@@ -246,6 +244,8 @@ export function usageSummary(state, accountRef, date = beijingDay(), limit = REC
       totals.cacheHitTokens += detail?.cacheHitTokens ?? 0;
     }
   }
+  // 当天已折叠的部分只剩金额（明细已不在）：计入今日已花费，与预算统计一致。
+  periods.today.spentMicrounits += state.budgetDays.find(row => row.accountRef === accountRef && row.day === date)?.archivedSpentMicrounits ?? 0;
   // 先倒序再稳定排序：同一毫秒内结算的请求，后写入的排前面。
   const view = row => ({ attemptId: row.attemptId, day: row.day, at: row.settledAt ?? row.createdAt, status: row.status,
     costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits,

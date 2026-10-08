@@ -196,7 +196,8 @@ export const aiBudgetSettingsTests = [
     assert.deepEqual(state.budgetMonths, [{ accountRef: account, month: '2026-05', requests: 2, spentMicrounits: 500_000, inputTokens: 150, outputTokens: 15, cacheHitTokens: 40 }]);
     assert.equal(state.budgetReservations.some(row => row.attemptId === 'a-3'), true, '结果未知的请求保留');
     assert.equal(state.budgetReservations.some(row => row.attemptId === 'a-4'), false, '已释放的早期请求直接丢弃');
-    assert.equal(state.budgetDays.some(row => row.day === '2026-05-02'), false);
+    assert.equal(state.budgetDays.find(row => row.day === '2026-05-02').archivedSpentMicrounits, 300_000, '日账本保留，折叠的金额记在 archivedSpentMicrounits');
+    assert.equal(budgetStatus(state, account, '2026-05-02').spentMicrounits, 300_000, '折叠不改变某一天的已花费');
     assert.equal(state.budgetDays.some(row => row.day === '2026-05-21'), true, '仍有未知预留的日账本保留');
     const after = usageSummary(state, account, '2026-10-08');
     assert.equal(after.total.spentMicrounits, before.total.spentMicrounits, '折叠不改变累计费用');
@@ -368,15 +369,18 @@ export const aiBudgetSettingsTests = [
     // 时钟恢复正确：基准取今天，同样不裁剪，预算统计保持。
     assert.equal(pruneBudgetState(state, account, '2026-10-09'), 0);
     assert.equal(budgetStatus(state, account, '2026-10-08').monthSpentMicrounits, 500_000);
-    // 时间确实持续推进（出现更晚的日期）后才折叠，且折叠的金额仍计入对应月份的预算统计。
+    // 时间确实持续推进（出现更晚的日期）后才折叠：只丢请求明细，日账本与月汇总金额都在。
     call(5, '2030-01-02', 10);
     assert.equal(pruneBudgetState(state, account, '2030-01-02'), 2);
     validateBudgetState(state);
     assert.equal(state.budgetMonths.find(row => row.month === '2026-10').spentMicrounits, 500_000);
-    assert.equal(budgetStatus(state, account, '2026-10-20', { daily: null, monthly: 1_000_000, turn: null }).monthSpentMicrounits, 500_000, '折叠后的金额仍参与当月预算判断');
-    assert.equal(budgetStatus(state, account, '2026-10-20', { daily: null, monthly: 1_000_000, turn: null }).monthAvailableMicrounits, 500_000);
+    assert.equal(budgetStatus(state, account, '2026-10-20', { daily: null, monthly: 1_000_000, turn: null }).monthSpentMicrounits, 500_000, '折叠后当月预算统计不变（也不重复计入）');
     assert.throws(() => reserve(state, 6, 600_000, { day: '2026-10-20', limits: { daily: null, monthly: 1_000_000, turn: null } }), { code: 'AI_MONTHLY_BUDGET_EXCEEDED' });
     assert.equal(usageSummary(state, account, '2026-10-20').month.spentMicrounits, 500_000, '用量汇总与预算统计一致');
+    // 复审场景：连续两个错误日期绕过了跳变保护、近期明细被折叠；时钟恢复后当日已花费仍然准确，日上限不会被突破。
+    assert.equal(budgetStatus(state, account, '2026-10-08').spentMicrounits, 200_000, '恢复时钟后某天的已花费仍是 ¥0.20，而不是 0');
+    assert.throws(() => reserve(state, 7, 200_000, { day: '2026-10-08', limits: { daily: 300_000, monthly: null, turn: null } }), { code: 'AI_DAILY_BUDGET_EXCEEDED' });
+    assert.equal(usageSummary(state, account, '2026-10-08').today.spentMicrounits, 200_000, '今日用量汇总同样包含已折叠的金额');
   } },
   { name: '月汇总损坏不会被静默清空：显式 null 或非数组报错，只有字段缺失（旧账本）才补空', run() {
     for (const bad of [null, {}, 'x', 0]) {
