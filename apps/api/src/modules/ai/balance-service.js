@@ -74,13 +74,14 @@ export function inferConsumption(snapshots) {
 }
 
 function validSnapshots(value) {
-  return Array.isArray(value) && value.every(item => item && typeof item.at === 'string' && Number.isFinite(Date.parse(item.at))
+  return Array.isArray(value) && value.every(item => item && typeof item.at === 'string' && typeof item.credentialRef === 'string' && item.credentialRef.length > 0 && Number.isFinite(Date.parse(item.at))
     && typeof item.isAvailable === 'boolean' && Array.isArray(item.balances) && item.balances.every(row => CURRENCIES.has(row.currency)
       && [row.totalMicrounits, row.grantedMicrounits, row.toppedUpMicrounits].every(n => Number.isSafeInteger(n) && n >= 0)));
 }
 
 /**
- * 余额读取 + 快照。快照文件只含时间和金额，不含密钥或对话内容；读取失败不影响任何 AI 调用。
+ * 余额读取 + 快照。快照文件只含时间、金额和凭据代际（随机 ID，不含密钥或对话内容）；读取失败不影响任何 AI 调用。
+ * 每条快照绑定保存时的凭据代际：更换账户（换 API Key）后旧快照不再参与展示与推算，避免把 A 账户的余额当成 B 账户的。
  * 文件损坏时拒绝推算并保留原文件，由用户处理，而不是静默重置历史。
  */
 export function createBalanceService({ credentialReference, resolveCredential, filePath, fetchImpl = fetch, now = () => new Date() }) {
@@ -110,29 +111,33 @@ export function createBalanceService({ credentialReference, resolveCredential, f
   }
   const serial = work => { const run = queue.then(work); queue = run.catch(() => undefined); return run; };
 
-  const view = (snapshots, live = null) => {
+  const view = (all, ref, live = null) => {
+    const snapshots = all.filter(item => item.credentialRef === ref);
     const latest = snapshots.at(-1) ?? null;
     return { latest: live ?? latest, checkedAt: latest?.at ?? null, inferred: inferConsumption(snapshots) };
   };
 
   return {
     /** 只读已保存的快照，不联网。 */
-    view: () => serial(async () => view(await load())),
+    view: () => serial(async () => view(await load(), (await credentialReference())?.credentialRef ?? null)),
     /** 联网读取实时余额并追加快照；快照写入失败时仍返回实时余额，但标明未保存。 */
     refresh: () => serial(async () => {
-      const snapshots = await load();
+      const all = await load();
       const reference = await credentialReference();
       if (!reference) throw failure('AI_NOT_CONFIGURED', '请先在设置中配置模型。');
+      const ref = reference.credentialRef;
+      const snapshots = all.filter(item => item.credentialRef === ref);
       const { apiKey } = await resolveCredential(reference.credentialRef);
       const live = await fetchDeepSeekBalance({ apiKey, fetchImpl });
       const at = now();
-      const entry = { at: at.toISOString(), ...live };
+      const entry = { at: at.toISOString(), credentialRef: ref, ...live };
       const last = snapshots.at(-1);
       const same = last && last.isAvailable === live.isAvailable && JSON.stringify(last.balances) === JSON.stringify(live.balances);
-      if (same && at.getTime() - Date.parse(last.at) < DEDUPE_MS) return view(snapshots, entry);
-      const kept = [...snapshots, entry].filter(item => at.getTime() - Date.parse(item.at) <= KEEP_MS).slice(-MAX_SNAPSHOTS);
-      try { await save(kept); } catch { return { ...view(snapshots, entry), saved: false }; }
-      return view(kept);
+      if (same && at.getTime() - Date.parse(last.at) < DEDUPE_MS) return view(all, ref, entry);
+      // 其他凭据代际的旧快照随期限自然清理，不参与当前账户的推算。
+      const kept = [...all, entry].filter(item => at.getTime() - Date.parse(item.at) <= KEEP_MS).slice(-MAX_SNAPSHOTS);
+      try { await save(kept); } catch { return { ...view(all, ref, entry), saved: false }; }
+      return view(kept, ref);
     })
   };
 }

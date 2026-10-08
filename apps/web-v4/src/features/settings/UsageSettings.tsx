@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
 import { TextField } from '../../components/ui/input/Input';
 import { downloadTextFile } from '../../browser/downloadFile';
-import { ApiRequestError } from '@study-accelerator/web-core';
 import { assistantApi, type AssistantBalance, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
 import styles from './SettingsView.module.css';
 
@@ -31,8 +30,8 @@ function BalanceBlock() {
     setBusy(true); setError('');
     try { setBalance(await assistantApi.refreshBalance()); }
     catch (failure) {
-      setError(failure instanceof ApiRequestError && failure.status === 503 ? '当前运行端不支持读取账户余额。'
-        : failure instanceof Error && failure.message ? failure.message : '读取余额失败，请稍后重试。');
+      // 如实显示服务端给出的原因（不支持、网络故障、限流、密钥被拒等），不统一解释成“不支持”。
+      setError(failure instanceof Error && failure.message ? failure.message : '读取余额失败，请稍后重试。');
     } finally { setBusy(false); }
   }
   useEffect(() => {
@@ -175,7 +174,7 @@ export function UsageSettings() {
                 <td>{time(row.at)}</td><td>{row.modelId ?? '—'}</td>
                 <td>{tokens(row.inputTokens)}</td><td>{tokens(row.outputTokens)}</td>
                 <td>{row.status === 'settled' ? yuan(row.costMicrounits) : `≤ ${yuan(row.costMicrounits)}`}</td>
-                <td>{row.status === 'settled' ? '成功' : '结果未知'}</td>
+                <td>{row.status === 'settled' ? '已结算' : '结果未知'}</td>
               </tr>)}</tbody>
             </table>
           </div>}

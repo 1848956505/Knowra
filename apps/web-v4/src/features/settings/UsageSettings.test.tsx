@@ -29,6 +29,8 @@ it('显示今日/本月/累计、未知请求占用与最近请求，并标明�
   expect(screen.getByText(/这是本机记录的数据/)).toBeInTheDocument();
   expect(screen.getByText(/1 次请求结果未知，按最坏情况共占用 ¥1\.00/)).toBeInTheDocument();
   expect(screen.getByRole('table', { name: '最近请求' })).toHaveTextContent('deepseek-flash');
+  expect(screen.getByRole('table', { name: '最近请求' })).toHaveTextContent('已结算');
+  expect(screen.getByRole('table', { name: '最近请求' })).not.toHaveTextContent('成功');
 });
 
 it('读取失败时给出重试，不显示为零用量', async () => {
