@@ -430,6 +430,25 @@ export const aiAccessV2Tests = [
     await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
       catalog: [specOf('f-a'), specOf('f-b')] }), { code: 'AI_SCOPE_FORBIDDEN' });
   }) },
+  { name: 'AI v2 目录工具：最终快照同时验证私密与授权范围，目录重建期间笔记被移出授权目录仍被拦截', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    for (const id of ['f-a', 'f-b']) folderRepository.save({ id, spaceId: 'space-1', parentId: null, name: id, deletedAt: null });
+    addNote('moved', 'x', 'space-1', 'f-a');
+    const policy = await service.createPolicy(policyInput({ kind: 'folder', folderId: 'f-a' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-snapshot' });
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'notes', folderId: 'f-a', titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 }] });
+    await service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' });
+    // 重建期间的最后一次批量读取之前，把笔记移到授权目录之外：目录项仍可读、同空间，只有范围判断能发现。
+    const original = noteRepository.findByIds.bind(noteRepository);
+    let calls = 0;
+    noteRepository.findByIds = async ids => {
+      if (++calls === 2) noteRepository.save({ ...noteRepository.findById('moved'), folderId: 'f-b' });
+      return original(ids);
+    };
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' }),
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    assert(calls >= 2);
+  }) },
   { name: 'AI v2 HTTP 设置入口仅接受受信操作和服务端 owner，错误不回显资料', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-v2-http-'));
     const appContext = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });

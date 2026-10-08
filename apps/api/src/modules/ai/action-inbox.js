@@ -37,6 +37,10 @@ export function createActionInboxMethods({ service, store, ownerId, now, run, ro
         if (latest.datasetId !== identity.datasetId || latest.datasetEpoch !== identity.datasetEpoch) actionError('AI_DATASET_STALE', '资料集已变化。');
         const previousPlan = latest.plan;
         latest.plan = nextPlan;
+        if (origin?.catalogDeps && (origin.catalogDeps.noteIds?.length || origin.catalogDeps.folderIds?.length)) {
+          latest.grant.catalogDeps = { noteIds: [...new Set([...(latest.grant.catalogDeps?.noteIds ?? []), ...(origin.catalogDeps.noteIds ?? [])])],
+            folderIds: [...new Set([...(latest.grant.catalogDeps?.folderIds ?? []), ...(origin.catalogDeps.folderIds ?? [])])] };
+        }
         if (origin?.sourceRefs) latest.grant.sourceRefs = [...new Map([...(latest.grant.sourceRefs ?? []), ...origin.sourceRefs].map(ref => [hashRecord(ref), structuredClone(ref)])).values()];
         latest.expiresAt = new Date(now().getTime() + 30 * 60000).toISOString();
         latest.grant.expiresAt = latest.expiresAt;

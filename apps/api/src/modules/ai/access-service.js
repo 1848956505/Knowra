@@ -6,7 +6,7 @@ import { outboundPayloadHash, serializedDeepSeekPayload } from './outbound-paylo
 import { normalizeAiRequest } from './gateway.js';
 import { normalizeCatalogSpec, MAX_CATALOG_SPECS } from './catalog-tool.js';
 const MIN_CATALOG_ITEMS = 5;
-import { isAiReadableNote, assertAiNoteUnchanged, assertAiSourcesReadable } from './note-privacy.js';
+import { isAiReadableNote, assertAiReadableNote, assertAiNoteUnchanged, assertAiSourcesReadable } from './note-privacy.js';
 
 const read = value => Promise.resolve(value);
 const validId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
@@ -339,50 +339,57 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
         && (policy.scope.kind === 'library' || withinFolder(folder.id, policy.scope.folderId, byId));
     }).sort((a, b) => b.name.length - a.name.length || sortFolders(a, b)).slice(0, 2).map(folder => ({ folderId: folder.id }));
   }
-  /** 目录条目逐项复核当前授权范围（私密、排除、移出目录、换授权策略都会失败）；只做范围判断，批量可读性检查由调用方放在最后统一做。 */
-  async function assertCatalogScope(policy, items) {
-    const noteIds = [...new Set(items.flatMap(item => item.noteIds ?? []))];
-    const folderIds = [...new Set(items.flatMap(item => item.folderIds ?? []))];
-    for (const noteId of noteIds) await noteInScope(policy, noteId);
-    if (!folderIds.length) return;
+  const emptyDeps = () => ({ noteIds: [], folderIds: [] });
+  const mergeDeps = (...parts) => ({
+    noteIds: [...new Set(parts.flatMap(part => part?.noteIds ?? []))],
+    folderIds: [...new Set(parts.flatMap(part => part?.folderIds ?? []))] });
+  const hasDeps = deps => deps.noteIds.length > 0 || deps.folderIds.length > 0;
+  /** 发送清单里目录依赖的完整集合：本次列出的（catalog）加上从历史回答与待审稿继承的（historyCatalog）。 */
+  const manifestDeps = manifest => mergeDeps(...(manifest?.catalog ?? []), manifest?.historyCatalog);
+  /**
+   * 统一的最终屏障：目录、历史与成果依赖的笔记和目录名，以及正文来源，在同一次仓库快照里一并复核——
+   * 笔记可读（私密/已删）、同一知识空间、未被排除、仍在授权范围（目录授权的子树、固定授权的名单），
+   * 目录名仍在授权可见范围；带 contentHash 的来源还要求版本未变。读取全部结束后才做判断，
+   * 不再分成“先逐条查范围、后批量查可读”两步，两步之间移出目录或切私密都会漏掉。
+   */
+  async function assertSnapshot(policy, { sourceRefs = [], noteIds = [], folderIds = [] } = {}) {
     const byId = await folders(policy.spaceId);
     const scope = policy.scope;
-    let holders = null;
-    if (scope.kind === 'fixed') {
-      holders = new Set();
-      for (const noteId of scope.noteIds) { const note = await read(noteRepository.findById(noteId)); if (note?.folderId) holders.add(note.folderId); }
+    const wanted = [...new Set([...sourceRefs.map(ref => ref.noteId), ...noteIds, ...(scope.kind === 'fixed' && folderIds.length ? scope.noteIds : [])])];
+    if (!noteRepository.findByIds && wanted.length > 1) {
+      const error = new Error('当前仓库未提供批量来源权限检查，已阻止读取。');
+      error.code = 'AI_CONTEXT_NOT_READY';
+      throw error;
     }
+    const rows = !wanted.length ? [] : noteRepository.findByIds ? await noteRepository.findByIds(wanted) : [await noteRepository.findById(wanted[0])];
+    const notes = new Map(rows.filter(Boolean).map(note => [note.id, note]));
+    const forbidden = () => fail('AI_SCOPE_FORBIDDEN', '来源不在当前授权范围。');
+    const used = new Set([...sourceRefs.map(ref => ref.noteId), ...noteIds]);
+    for (const id of used) {
+      const note = assertAiReadableNote(notes.get(id));
+      if (note.spaceId !== policy.spaceId || policy.excludedNoteIds.includes(id)
+        || scope.kind === 'fixed' && !scope.noteIds.includes(id)
+        || scope.kind === 'folder' && !withinFolder(note.folderId, scope.folderId, byId)) forbidden();
+    }
+    for (const ref of sourceRefs) {
+      if (ref.contentHash !== undefined && ref.contentHash !== calculateContentHash(notes.get(ref.noteId).rawMarkdown)) {
+        fail('AI_SOURCE_STALE', '发送前来源当前版本已变化。');
+      }
+    }
+    if (!folderIds.length) return;
+    const holders = scope.kind === 'fixed'
+      ? new Set(scope.noteIds.map(id => notes.get(id)).filter(note => note && isAiReadableNote(note) && note.spaceId === policy.spaceId
+        && !policy.excludedNoteIds.includes(note.id)).map(note => note.folderId).filter(Boolean)) : null;
     for (const id of folderIds) {
       const visible = byId.has(id) && (scope.kind === 'library' || scope.kind === 'folder' && withinFolder(id, scope.folderId, byId)
         || scope.kind === 'fixed' && holders.has(id));
       if (!visible) folderHidden();
     }
   }
-  const emptyDeps = () => ({ noteIds: [], folderIds: [] });
-  const mergeDeps = (...parts) => ({
-    noteIds: [...new Set(parts.flatMap(part => part?.noteIds ?? []))],
-    folderIds: [...new Set(parts.flatMap(part => part?.folderIds ?? []))] });
-  const hasDeps = deps => deps.noteIds.length > 0 || deps.folderIds.length > 0;
-  /** 发送清单里目录依赖的完整集合：本次列出的（catalog）加上从历史回答继承的（historyCatalog）。 */
-  const manifestDeps = manifest => mergeDeps(...(manifest?.catalog ?? []), manifest?.historyCatalog);
-  async function assertDepsAuthorized(policy, deps) {
-    await assertCatalogScope(policy, [deps]);
-    await assertAiSourcesReadable(noteRepository, deps.noteIds.map(noteId => ({ noteId })), policy.spaceId, { requireCurrentVersion: false });
-  }
-  /** 成果依赖的目录笔记：每篇取开头一个字符作为可校验片段（只进成果授权记录，不进模型请求）；空正文笔记无片段可取，跳过。 */
-  async function trackingRefs({ grantId, deps }) {
+  /** 成果（待审稿）与续改依赖的目录资料：按当前运行授权复核。 */
+  async function assertCatalogDeps({ grantId, deps }) {
     const { policy } = await activeGrant(grantId, 'notes_search');
-    if (deps.noteIds.length > 60) fail('AI_ACTION_SOURCE_INVALID', '成果依赖的目录笔记过多，请缩小范围后重试。');
-    const refs = [];
-    for (const noteId of deps.noteIds) {
-      const note = await noteInScope(policy, noteId);
-      const { version, contentHash } = await currentVersion(note);
-      if (!version.content.length) continue;
-      const end = safeBoundary(version.content, 1) ? 1 : 2;
-      refs.push({ noteId: note.id, noteVersionId: version.id, contentHash, start: 0, end, quoteHash: calculateContentHash(version.content.slice(0, end)) });
-    }
-    await assertAiSourcesReadable(noteRepository, deps.noteIds.map(noteId => ({ noteId })), policy.spaceId, { requireCurrentVersion: false });
-    return refs;
+    await assertSnapshot(policy, { noteIds: deps.noteIds, folderIds: deps.folderIds });
   }
   /** 恢复已落盘的模型结果时，原请求清单里的目录依赖必须仍然有效，并继承到新清单。 */
   async function catalogDependencies({ grantId, manifestId }) {
@@ -392,10 +399,9 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     if (!manifest || manifest.ownerId !== ownerId || manifest.datasetId !== policy.datasetId || manifest.datasetEpoch !== policy.datasetEpoch
       || manifest.spaceId !== policy.spaceId || manifest.policyId !== policy.policyId) fail('AI_SCOPE_FORBIDDEN', '原请求清单与当前授权不匹配。');
     const deps = manifestDeps(manifest);
-    if (hasDeps(deps)) await assertDepsAuthorized(policy, deps);
+    if (hasDeps(deps)) await assertSnapshot(policy, deps);
     return deps;
   }
-  const catalogNoteRefs = items => [...new Set(items.flatMap(item => item.noteIds ?? []))].map(noteId => ({ noteId }));
   async function buildCatalog(policy, specs) {
     if (!Array.isArray(specs) || specs.length > MAX_CATALOG_SPECS) fail('AI_CONTEXT_INVALID', '目录请求无效。');
     const entries = [];
@@ -555,7 +561,7 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
         // 这样标题被后续回答转述、原回答退出历史窗口后，依赖链依然在。
         const deps = manifestDeps(prior);
         if (hasDeps(deps)) {
-          try { await assertDepsAuthorized(policy, deps); }
+          try { await assertSnapshot(policy, deps); }
           catch (error) {
             if (!['AI_SCOPE_FORBIDDEN', 'AI_SOURCE_STALE'].includes(error.code)) throw error;
             if (!historyOmissions.includes('history_catalog_revoked')) historyOmissions.push('history_catalog_revoked');
@@ -612,8 +618,7 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     await activeGrant(grantId);
     await store.insert('aiRequestManifest', manifest);
     // 所有异步读取结束后统一复核：目录条目仍在授权范围内，且来源与目录里的笔记在同一次仓库快照里都仍可读。
-    await assertCatalogScope(policy, [...catalog, historyDeps]);
-    await assertAiSourcesReadable(noteRepository, [...manifest.sources, ...manifest.historySources, ...catalogNoteRefs([...catalog, historyDeps])], policy.spaceId);
+    await assertSnapshot(policy, { sourceRefs: [...manifest.sources, ...manifest.historySources], ...mergeDeps(...catalog, historyDeps) });
     return { request, manifest };
   }
   async function assertRequest({ grantId, manifestId, request, recipient }) {
@@ -632,11 +637,8 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
         fail('AI_SOURCE_STALE', '目录或笔记标题已变化，请重新提问。');
       }
     }
-    const deps = manifestDeps(manifest);
-    await assertCatalogScope(policy, [deps]);
-    // 最后一道屏障：目录重建等异步读取都结束后，再用一次仓库快照复核来源，以及目录与历史回答依赖的全部笔记。
-    await assertAiSourcesReadable(noteRepository, [...manifest.sources, ...manifest.historySources,
-      ...catalogNoteRefs([deps])], policy.spaceId);
+    // 最后一道屏障：目录重建等异步读取都结束后，用同一次仓库快照复核来源，以及目录与历史依赖的全部笔记和目录。
+    await assertSnapshot(policy, { sourceRefs: [...manifest.sources, ...manifest.historySources], ...manifestDeps(manifest) });
     return manifest;
   }
   async function withAuthorizedRequest(input, send) {
@@ -644,7 +646,7 @@ export function createAiAccessService({ store, noteRepository, noteVersionReposi
     await assertRequest(input);
     return send(input.request);
   }
-  return { createPolicy, listPolicies, narrowPolicy, createRunGrant, verifyRead, listAuthorizedNotes, listCatalog, matchCatalogFolders, trackingRefs, catalogDependencies,
+  return { createPolicy, listPolicies, narrowPolicy, createRunGrant, verifyRead, listAuthorizedNotes, listCatalog, matchCatalogFolders, assertCatalogDeps, catalogDependencies,
     findAuthorizedSearchCandidates, assertSearchGrant, assertSearchSources,
     prepareRequest, assertRequest, withAuthorizedRequest };
 }

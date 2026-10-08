@@ -281,11 +281,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const persisted = await store.appendToolCall(turn.turnId, generation, { callId,
       toolName: call.name, argumentsJson: call.arguments,
       maxCalls: proposalsOn && !turn.writeIntent && requestsKnowledgeProposal(userMessage) ? PROPOSAL_TOOLS : 6 });
-    // 成果依赖的目录笔记（只在创建/续改成果时验证，不能当作“已读取”来满足改写已有笔记前必须先读的保护）。
-    const depRefs = async () => catalogDeps && grantId && access ? access.trackingRefs({ grantId, deps: catalogDeps }) : [];
     if (persisted.status !== 'requested') {
       for (const ref of persisted.sourceRefs) await verifyRef(grantId, ref);
-      if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs: [...sourceRefs, ...await depRefs()] });
+      if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs, catalogDeps });
       return toolOutcome(persisted);
     }
     let receiptPending = false;
@@ -302,11 +300,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           }
         }
         if (!actions) fail('AI_ACTION_UNAVAILABLE', '写入计划服务不可用。');
-        const planRefs = [...sourceRefs, ...await depRefs()];
-        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs: planRefs, grantId })
-          : await actions.planForAssistantTurn(turn, call, { sourceRefs: planRefs, grantId });
+        // 目录依赖是独立元数据，不借用正文片段表达，也不影响“改写已有笔记前必须先读”的判断。
+        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs, grantId, catalogDeps })
+          : await actions.planForAssistantTurn(turn, call, { sourceRefs, grantId, catalogDeps });
         receiptPending = true;
-        await actions.resumeForTurn(action.actionId, turn, { sourceRefs: planRefs, grantId });
+        await actions.resumeForTurn(action.actionId, turn, { sourceRefs, grantId, catalogDeps });
         outcome = { resultJson: { actionId: action.actionId, planHash: action.plan.planHash, status: action.status }, sourceRefs: [] };
       } else if (call.name === 'notes_search') {
         const found = await searchAssistantNotes({ search, access, grantId, args: call.arguments });
@@ -381,6 +379,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       || action.datasetId !== turn.datasetId || action.datasetEpoch !== turn.datasetEpoch
       || !['awaitingApproval', 'authorized'].includes(action.status) || action.grant.revoked) return '';
     for (const ref of action.grant.sourceRefs ?? []) await verifyRef(grantId, ref);
+    // 待审稿里的目录标题、目录名依赖：按本轮授权复核；没有读取授权就不能续改含这些资料的草稿。
+    const catalogDeps = action.grant.catalogDeps ?? null;
+    if (catalogDeps && (catalogDeps.noteIds.length || catalogDeps.folderIds.length)) {
+      if (!grantId || !access) fail('AI_SCOPE_FORBIDDEN', '续改含目录资料的待审稿需要当前读取授权。');
+      await access.assertCatalogDeps({ grantId, deps: catalogDeps });
+    }
     for (const item of action.plan.items) if (item.before) {
       if (!grantId) return '';
       await access.verifyRead({ grantId, noteId: item.after.id });
@@ -388,9 +392,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const drafts = action.plan.items.map(item => ({ noteId: item.after.id, title: item.after.title, rawMarkdown: item.after.rawMarkdown }));
     const context = JSON.stringify({ actionId, toolName: action.plan.toolName, drafts });
     if (context.length > 2400) fail('AI_DRAFT_CONTEXT_LIMIT', '待审稿超出本轮续改上下文，请在收件箱明确局部修改内容。');
-    // 开头 1~2 个字符的片段是目录标题依赖的授权记录（上面已逐条复核），不是读过的原文，不再作为来源发给模型。
     return { content: `\n本会话用户正在继续修改的待审稿（仅本会话上下文，不是正式笔记；修改时复用 actionId）：${context}`,
-      sourceRefs: (action.grant.sourceRefs ?? []).filter(ref => !(ref.start === 0 && ref.end <= 2)) };
+      sourceRefs: action.grant.sourceRefs ?? [], catalogDeps };
   }
 
   function citedResult(result, request, manifest) {
@@ -523,9 +526,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       // 已落盘的模型结果（恢复场景）可能含有原请求清单里的目录标题：先确认这些依赖仍被授权，并继承到新清单，
       // 否则新清单只重建当前目录，旧标题就脱离了依赖链。依赖已失效则丢弃该结果，由用户显式重试重新生成。
       const pending = (await store.listModelAttempts(turn.turnId)).find(attempt => attempt.ordinal > handledAttemptOrdinal && attempt.modelResult);
-      let inheritedCatalog = null;
+      let inheritedCatalog = draft?.catalogDeps ?? null;
       if (grant && pending?.manifestId) {
-        try { inheritedCatalog = await access.catalogDependencies({ grantId: grant.grantId, manifestId: pending.manifestId }); }
+        try {
+          const resumed = await access.catalogDependencies({ grantId: grant.grantId, manifestId: pending.manifestId });
+          inheritedCatalog = { noteIds: [...new Set([...(inheritedCatalog?.noteIds ?? []), ...resumed.noteIds])], folderIds: [...new Set([...(inheritedCatalog?.folderIds ?? []), ...resumed.folderIds])] };
+        }
         catch (error) {
           if (!['AI_SCOPE_FORBIDDEN', 'AI_SOURCE_STALE'].includes(error?.code)) throw error;
           await store.rejectModelResult(turn.turnId, generation, pending.ordinal, 'AI_OUTPUT_INVALID');
