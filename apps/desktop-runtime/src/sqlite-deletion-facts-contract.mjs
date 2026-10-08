@@ -34,10 +34,13 @@ export function validateFact(record, scope) {
     keys(source, ['kind', 'datasetId', 'operationId']);
     check(text(source.datasetId) && text(source.operationId) && record.deletedAt === record.observedAt);
   } else {
-    keys(source, ['kind', 'serverOrigin', 'ownerId', 'epoch', 'revision']);
-    check(['remote-delete', 'legacy-remote-base', 'legacy-remote-conflict'].includes(source.kind));
+    const alias = source.kind === 'remote-version-alias';
+    keys(source, ['kind', 'serverOrigin', 'ownerId', 'epoch', 'revision', ...(alias ? ['canonicalVersionId', 'noteId', 'contentHash'] : [])]);
+    check(['remote-delete', 'remote-version-alias', 'legacy-remote-base', 'legacy-remote-conflict'].includes(source.kind));
+    if (alias) check(record.collection === 'noteVersions' && entityId(source.canonicalVersionId)
+      && source.canonicalVersionId !== record.entityId && entityId(source.noteId) && typeof source.contentHash === 'string' && /^[a-f0-9]{64}$/.test(source.contentHash));
     check(serverOrigin(source.serverOrigin) && text(source.ownerId) && Number.isSafeInteger(source.revision) && source.revision > 0);
-    check((source.epoch === null || text(source.epoch)) && (source.kind !== 'remote-delete' || source.epoch !== null) && record.deletedAt === null);
+    check((source.epoch === null || text(source.epoch)) && (!['remote-delete', 'remote-version-alias'].includes(source.kind) || source.epoch !== null) && record.deletedAt === null);
   }
   check(record.observationId === factHash([record.scopeId, record.collection, record.entityId, source]));
   return record;

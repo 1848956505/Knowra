@@ -179,18 +179,10 @@ export function createPostgresKnowledgeModule({
             annotation?.anchorStatus === 'missing' ? 'insufficient' : 'stale'));
         }
         await formalServices.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
-        const versions = await transaction.noteVersionRepository.list({ noteId: note.id });
-        const directEvidence = [];
-        for (const oldVersion of versions.filter((candidate) => candidate.id !== version.id)) {
-          directEvidence.push(...await formalServices.knowledgeItemService.markEvidenceByNoteVersionId(oldVersion.id, 'stale', 'noteVersion'));
-        }
+        const oldVersionIds = (await transaction.noteVersionRepository.listIds({ noteId: note.id })).filter((id) => id !== version.id);
+        const directEvidence = await formalServices.knowledgeItemService.markEvidenceByNoteVersionIds(oldVersionIds, 'stale', 'noteVersion');
         await formalServices.questionService.markSourcesStale('knowledgeEvidence', directEvidence.map((record) => record.id));
-        await formalServices.questionService.markSourcesStale(
-          'noteVersion',
-          versions
-            .filter((candidate) => candidate.id !== version.id)
-            .map((candidate) => candidate.id)
-        );
+        await formalServices.questionService.markSourcesStale('noteVersion', oldVersionIds);
       },
       onNoteDeleted: async (noteId) => {
         const changed = await formalServices.knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid');

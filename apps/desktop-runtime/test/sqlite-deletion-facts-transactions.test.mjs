@@ -149,3 +149,34 @@ for (const [name, id, viaImport] of [
   assert.equal(store.deletionFacts.has('tags', id), true);
   assert.throws(() => store.prepareImport(saved), { code: 'LOCAL_DELETION_FACT_CONFLICT' });
 });
+
+test('版本别名删除事实仅从同 epoch 已确认基线推导，并校验规范版本身份', async t => {
+  const { factHash, validateFact } = await import('../src/sqlite-deletion-facts-contract.mjs');
+  for (const baseline of ['confirmed', 'different-epoch', 'unconfirmed', 'missing']) {
+    const w = openWorkspace(temporaryDirectory(t)); t.after(() => w.store.close());
+    const note = createNote(w), version = w.store.state.noteVersions.find(item => item.noteId === note.id);
+    const alias = { ...version, id: `alias-${baseline}` };
+    w.store.runTransaction(() => w.store.state.noteVersions.push(alias));
+    w.store.metadataTransaction(db => {
+      for (const [key, value] of Object.entries({ serverUrl: 'https://synthetic.example', ownerId: 'demo', serverEpoch: 'epoch',
+        epoch: baseline === 'different-epoch' ? 'old-epoch' : 'epoch' })) {
+        db.prepare('INSERT OR REPLACE INTO metadata VALUES (?,?)').run(`sync:${key}`, JSON.stringify(value));
+      }
+      if (baseline !== 'missing') db.prepare('INSERT INTO sync_base VALUES (?,?,?,?)')
+        .run('noteVersions', version.id, baseline === 'unconfirmed' ? null : 1, JSON.stringify(version));
+      observeRemoteDeletionFacts(db, [{ collection: 'noteVersions', id: version.id, revision: 2, value: null }], {
+        epoch: 'epoch', versions: w.store.state.noteVersions
+      });
+    });
+    const record = w.store.deletionFacts.list().find(item => item.entityId === alias.id);
+    assert.equal(Boolean(record), baseline === 'confirmed', `${baseline} 不得猜测别名删除事实`);
+    if (!record) continue;
+    assert.equal(record.source.canonicalVersionId, version.id);
+    const scope = w.store.readSync(db => JSON.parse(db.prepare("SELECT value FROM metadata WHERE key='deletionFactsScope'").get().value));
+    for (const invalid of [{ canonicalVersionId: alias.id }, { noteId: '' }, { epoch: null }, { contentHash: [version.contentHash] }]) {
+      const changed = { ...record, source: { ...record.source, ...invalid } };
+      changed.observationId = factHash([changed.scopeId, changed.collection, changed.entityId, changed.source]);
+      assert.throws(() => validateFact(changed, scope), { code: 'LOCAL_DELETION_FACT_INVALID' });
+    }
+  }
+});

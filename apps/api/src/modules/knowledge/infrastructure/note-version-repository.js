@@ -3,6 +3,8 @@ import { versionPage } from '../domain/note-version-page.js';
 
 export function createInMemoryNoteVersionRepository(options = {}) {
   const records = options.records ?? [];
+  const canReuse = options.canReuse ?? (() => true);
+  const findReusable = (noteId, contentHash) => records.find(item => item.noteId === noteId && item.contentHash === contentHash && canReuse(item)) ?? null;
   const persist = () => options.onChange?.(records);
 
   return {
@@ -14,9 +16,8 @@ export function createInMemoryNoteVersionRepository(options = {}) {
         }
         return existing;
       }
-      if (records.some((item) => item.noteId === version.noteId && item.contentHash === version.contentHash)) {
-        return records.find((item) => item.noteId === version.noteId && item.contentHash === version.contentHash);
-      }
+      const reusable = findReusable(version.noteId, version.contentHash);
+      if (reusable) return reusable;
       records.push(version);
       persist();
       return version;
@@ -25,12 +26,15 @@ export function createInMemoryNoteVersionRepository(options = {}) {
       return records.find((item) => item.id === id) ?? null;
     },
     findByNoteIdAndContentHash(noteId, contentHash) {
-      return records.find((item) => item.noteId === noteId && item.contentHash === contentHash) ?? null;
+      return findReusable(noteId, contentHash);
     },
     list({ noteId } = {}) {
       return records
         .filter((item) => !noteId || item.noteId === noteId)
         .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+    },
+    listIds({ noteId } = {}) {
+      return records.filter((item) => !noteId || item.noteId === noteId).map((item) => item.id);
     },
     listPage({ noteId, limit, after, currentContentHash }) {
       const hashes = new Set();
@@ -46,6 +50,13 @@ export function createInMemoryNoteVersionRepository(options = {}) {
       return versionPage(items.slice(0, limit + 1), {
         limit, total: ordered.length, currentVersionId: ordered.find((item) => item.contentHash === currentContentHash)?.id ?? null
       });
+    },
+    deleteById(id) {
+      const index = records.findIndex((item) => item.id === id);
+      if (index < 0) return null;
+      const [deleted] = records.splice(index, 1);
+      persist();
+      return deleted;
     },
     deleteByNoteIds(noteIds) {
       const ids = new Set(noteIds);

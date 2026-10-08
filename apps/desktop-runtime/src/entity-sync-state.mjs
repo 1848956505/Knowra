@@ -1,5 +1,5 @@
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
-import { observeRemoteDeletionFacts } from './sqlite-deletion-facts.mjs';
+import { observeRemoteDeletionFacts, hasDeletionFact } from './sqlite-deletion-facts.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { selectEntityBatch } from './entity-batches.mjs';
 import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
@@ -9,6 +9,8 @@ import { WRITABLE_COLLECTIONS, sameEntity, syncReferencesFor, changeReferencesFo
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
+import { createNoteVersionReferenceIndex } from '../../api/src/modules/knowledge/domain/note-version-references.js';
+import { referencedByPrivateRecords } from './note-version-discard-gate.mjs';
 import { createEntityConflictCopy } from './entity-conflict-copy.mjs';
 import {
   readKnowledgeLifecycleBoundaries, firstKnowledgeLifecycleBoundaries, consumeKnowledgeLifecycleBoundaries,
@@ -41,14 +43,18 @@ function snapshot(store) {
     const conflict = readMeta(db, 'entityConflict');
     const boundaries = readKnowledgeLifecycleBoundaries(db);
     const reviews = readExamFocusReviewBoundaries(db);
-    return { key, base, boundaries, reviews, dirty: cloneJsonData(dirtyEntries(state, base, boundaries, reviews)), epoch: readMeta(db, 'epoch'), conflict,
+    return { key, base, boundaries, reviews, dirty: cloneJsonData(dirtyEntries(db, state, base, boundaries, reviews)), epoch: readMeta(db, 'epoch'), conflict,
       remote: conflict ? new Map(conflict.remote.map(entry => [syncKey(entry.collection, entry.id), entry])) : base };
   });
   if (key !== null) snapshots.set(store, value);
   return value;
 }
-function dirtyEntries(state, base, boundaries = [], reviews = []) {
+function retiredNoteVersionIds(db) {
+  return new Set(Array.from(db.prepare("SELECT entity_id FROM deletion_facts WHERE collection='noteVersions'").iterate(), row => row.entity_id));
+}
+function dirtyEntries(db, state, base, boundaries = [], reviews = []) {
   const changes = [];
+  const retiredVersions = retiredNoteVersionIds(db);
   const versionHashes = new Set([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => `${entry.value.noteId}:${entry.value.contentHash}`));
   for (const collection of WRITABLE_COLLECTIONS) {
     const current = new Map(state[collection].map(item => [item.id, item]));
@@ -58,6 +64,8 @@ function dirtyEntries(state, base, boundaries = [], reviews = []) {
       const value = current.get(id) ?? null;
       // 云端版本去重后的本地历史副本仅供恢复，不再上传。
       if (collection === 'noteVersions' && value && versionHashes.has(`${value.noteId}:${value.contentHash}`)) continue;
+      // 云端按保留策略清理过的版本：仍被本机引用而保留的副本只供恢复，不能再作为新建上传。
+      if (collection === 'noteVersions' && value && (previous?.value === null || retiredVersions.has(id))) continue;
       if (!sameEntity(collection, value, previous?.value)) {
         const old = previous?.value;
         const lifecycleAction = ['knowledgeItems', 'analysisScopeSnapshots', 'folders', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions'].includes(collection) && old && value
@@ -142,14 +150,14 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
   if (!reset && previousEpoch === epoch && unchanged && (reconciled || (!previousConflict && !cached.dirty.length))) {
     const unseenDelete = entries.some(entry => entry.value === null && Number.isSafeInteger(entry.revision) && entry.revision > 0 && !store.deletionFacts.has(entry.collection, entry.id));
     if (unseenDelete || (!previousConflict && store.readSync(db => readMeta(db, 'cursor')) !== cursor)) store.metadataTransaction(db => {
-      observeRemoteDeletionFacts(db, entries, { epoch });
+      observeRemoteDeletionFacts(db, entries, { epoch, versions: store.state.noteVersions });
       if (!previousConflict) writeMeta(db, 'cursor', cursor);
     });
     if (previousConflict) reconciledConflicts.set(store, store.getEntityCacheKey());
     return !previousConflict;
   }
   const result = store.syncTransaction((db, state) => {
-    observeRemoteDeletionFacts(db, entries, { epoch });
+    observeRemoteDeletionFacts(db, entries, { epoch, versions: store.state.noteVersions });
     const base = bases(db);
     const previousEpoch = readMeta(db, 'epoch');
     const changedEpoch = previousEpoch && previousEpoch !== epoch;
@@ -165,7 +173,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     canonicalizeVersions(local, base);
     canonicalizeVersions(local, remote);
     const boundaries = readKnowledgeLifecycleBoundaries(db);
-    const dirty = dirtyEntries(local, base, boundaries);
+    const dirty = dirtyEntries(db, local, base, boundaries);
     const firstBoundaries = firstKnowledgeLifecycleBoundaries(boundaries);
     const conflicts = dirty.filter(entry => {
       const old = base.get(syncKey(entry.collection, entry.id));
@@ -189,7 +197,16 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     // 未修改的历史别名仍可在本地按稳定 ID 读取。
     const versionIds = new Set(merged.noteVersions.map(item => item.id));
     const noteIds = new Set(merged.notes.map(item => item.id));
-    for (const version of local.noteVersions) if (!versionIds.has(version.id) && noteIds.has(version.noteId)) merged.noteVersions.push(version);
+    let isReferenced = null;
+    for (const version of local.noteVersions) {
+      if (versionIds.has(version.id) || !noteIds.has(version.noteId)) continue;
+      // 云端已按保留策略清理且本机无任何引用的版本，随基线一起释放。
+      if (remote.get(syncKey('noteVersions', version.id))?.value === null || hasDeletionFact(db, 'noteVersions', version.id)) {
+        isReferenced ??= createNoteVersionReferenceIndex(Object.fromEntries(['contentAnnotations', 'annotationRevisions', 'annotationExclusions', 'knowledgeEvidence', 'knowledgeArtifactProvenance', 'questionSources', 'analysisScopeSnapshots'].map(name => [name, merged[name]])));
+        if (!isReferenced(version) && !referencedByPrivateRecords(db, version)) continue;
+      }
+      merged.noteVersions.push(version);
+    }
     let valid;
     try { valid = validatePersistedLocalState(createPersistedLocalDocument(reconcileSyncedSourceStates(merged))); assertNoKnowledgeArtifactProvenanceDowngrade(state, valid); }
     catch (error) { valid = undefined; conflicts.push({ collection: 'dependencies', id: 'references', message: error.message }); }
@@ -233,7 +250,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
 }
 
 function settle(db, state) {
-  if (!dirtyEntries(state, bases(db), readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
+  if (!dirtyEntries(db, state, bases(db), readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
 }
 
 export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
@@ -336,7 +353,14 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
     operationId: randomUUID(), sequence: (readMeta(db, 'entitySequence') ?? 0) + 1 }));
   // 本地恢复副本可保留原版本 ID；传输依赖使用基线中已经确认的同正文版本。
   const canonicalVersions = new Map([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => [`${entry.value.noteId}:${entry.value.contentHash}`, entry.value]));
-  for (const version of store.state.noteVersions) if (!canonicalVersions.has(`${version.noteId}:${version.contentHash}`)) canonicalVersions.set(`${version.noteId}:${version.contentHash}`, version);
+  const retiredVersions = store.readSync(retiredNoteVersionIds);
+  for (const version of store.state.noteVersions) {
+    const key = `${version.noteId}:${version.contentHash}`;
+    if (canonicalVersions.has(key)) continue;
+    // 已清理的恢复副本不能抢占同正文新版本的传输依赖；删除 ID 批量读取，不逐版本查询 SQLite。
+    if (base.get(syncKey('noteVersions', version.id))?.value === null || retiredVersions.has(version.id)) continue;
+    canonicalVersions.set(key, version);
+  }
   const referenceState = cloneJsonData({ ...store.state, noteVersions: [...canonicalVersions.values()] });
   for (const entry of eligible) replace(referenceState, entry);
   // 临时旧题目投影使用同一旧子图，不能把尚未交付的新关系误当作依赖。
@@ -376,12 +400,12 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
 
 export function acknowledgeEntityUpload(store, operation, result) {
   store.syncTransaction((db, state) => {
-    observeRemoteDeletionFacts(db, [...(result.entries ?? []), ...(result.conflicts ?? []), ...(result.current ? [result.current] : [])], { epoch: operation.datasetEpoch });
+    observeRemoteDeletionFacts(db, [...(result.entries ?? []), ...(result.conflicts ?? []), ...(result.current ? [result.current] : [])], { epoch: operation.datasetEpoch, versions: state.noteVersions });
     if (result.status === 'accepted') {
       const previous = cloneJsonData(state);
       const base = bases(db);
       const previousBase = new Map(base);
-      const pending = new Set(dirtyEntries(state, base, readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).map(entry => syncKey(entry.collection, entry.id)));
+      const pending = new Set(dirtyEntries(db, state, base, readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).map(entry => syncKey(entry.collection, entry.id)));
       for (const entry of result.entries) {
         const submitted = operation.changes.find(item => item.collection === entry.collection && (item.id === entry.id || result.aliases?.[item.id] === entry.id));
         const local = state[entry.collection].find(item => item.id === (submitted?.id ?? entry.id)) ?? null;
@@ -429,7 +453,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
     if (!conflict || conflict.id !== conflictId) throw new Error('冲突已变化，请重新查看。');
     if (!['remote', 'local', 'manual', 'copy'].includes(choice)) throw new Error('请选择有效的冲突处理方式。');
     const boundaries = readKnowledgeLifecycleBoundaries(db);
-    const allDirty = dirtyEntries(state, bases(db), boundaries, readExamFocusReviewBoundaries(db));
+    const allDirty = dirtyEntries(db, state, bases(db), boundaries, readExamFocusReviewBoundaries(db));
     const blocked = new Set(conflict.blocked ?? allDirty.map(entry => syncKey(entry.collection, entry.id)));
     const dirty = allDirty.filter(entry => blocked.has(syncKey(entry.collection, entry.id)));
     if (['copy', 'manual'].includes(choice) && dirty.some(entry => KNOWLEDGE_COLLECTIONS.includes(entry.collection) || TRAINING_COLLECTIONS.includes(entry.collection))) {
