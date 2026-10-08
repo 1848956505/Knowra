@@ -336,5 +336,20 @@ export const aiBudgetSettingsTests = [
       assert.equal((await alerts.get()).invalid, false);
       await policy.snapshot();
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '规则拦截状态独立于提醒阈值：阈值不含 100% 或为空时，用量达到“达到即停”的上限仍标记为已拦截；仅提醒、关闭、已放行不算拦截', run() {
+    const rulesOf = (config, status, extra = {}) => evaluateAlerts({ settings: normalizeBudgetSettings(config), status, day: '2026-10-08', ...extra });
+    const full = { spentMicrounits: 20_000_000, heldMicrounits: 0, monthSpentMicrounits: 30_000_000, monthHeldMicrounits: 0 };
+    const only80 = { ...settings({ monthly: { mode: 'stop', limitMicrounits: 100_000_000 } }), alerts: { thresholds: [80] } };
+    const a = rulesOf(only80, full);
+    assert.deepEqual(a.alerts.map(item => item.threshold), [80], '提醒只有 80%');
+    assert.deepEqual(a.rules.map(item => [item.rule, item.blocked, item.usedMicrounits, item.limitMicrounits]),
+      [['daily', true, 20_000_000, 20_000_000], ['monthly', false, 30_000_000, 100_000_000]]);
+    assert.equal(rulesOf({ ...settings(), alerts: { thresholds: [] } }, full).rules[0].blocked, true, '阈值为空也如实显示已拦截');
+    assert.equal(rulesOf(settings({ daily: { mode: 'warn', limitMicrounits: 20_000_000 } }), full).rules.find(item => item.rule === 'daily').blocked, false, '仅提醒不拦截');
+    assert.equal(rulesOf(settings({ daily: { mode: 'off', limitMicrounits: null } }), full).rules.some(item => item.rule === 'daily'), false, '关闭的规则不出现');
+    assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-08' } }).rules[0].blocked, false, '当日已放行');
+    assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-07' } }).rules[0].blocked, true, '昨天的放行不算数');
+    assert.equal(rulesOf(settings(), { ...full, spentMicrounits: 19_999_999 }).rules[0].blocked, false);
   } }
 ];

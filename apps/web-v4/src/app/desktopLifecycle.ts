@@ -17,6 +17,8 @@ interface DesktopBridge {
   openSavedAttachment?(token: string): Promise<void>;
   transferBackup?(input: import('../features/sync/backupApi').BackupTransferRequest): Promise<import('../features/sync/backupApi').BackupTransferResult | null>;
   modelSettings?(action: 'status' | 'save' | 'remove' | 'check', value?: { modelId: string; apiKey: string }): Promise<import('../features/settings/modelSettings').ModelSettingsStatus>;
+  /** 由主进程发系统通知；返回 false 表示未能交给系统通知中心。 */
+  notify?(input: { title: string; body: string }): Promise<boolean>;
   readRecoveryDrafts?(): Record<string, unknown>;
   writeRecoveryDraft?(key: string, draft: unknown): Promise<void>;
   onPrepareClose(callback: (mode?: DesktopCloseMode) => Promise<void>): void;

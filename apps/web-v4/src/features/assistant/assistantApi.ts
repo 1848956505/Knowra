@@ -69,6 +69,8 @@ export interface BudgetAlert {
 }
 export interface BudgetAlerts {
   day: string; location: 'local' | 'server'; alerts: BudgetAlert[];
+  /** 每条规则的实际拦截状态，与提醒阈值无关（阈值不含 100% 时也要能看到已被拦截）。 */
+  rules: Array<{ rule: 'daily' | 'monthly'; mode: BudgetMode; period: string; usedMicrounits: number; limitMicrounits: number; blocked: boolean }>;
   overrides: Array<{ rule: 'daily' | 'monthly'; period: string }>;
   /** 用户在当前周期暂停了 AI（周期结束自动恢复，不改预算设置）。 */
   pauses: Array<{ rule: 'daily' | 'monthly'; period: string }>;

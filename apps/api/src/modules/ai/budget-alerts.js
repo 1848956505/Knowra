@@ -28,9 +28,16 @@ export function evaluateAlerts({ settings, status, marks = {}, overrides = {}, p
         limitMicrounits: config.limitMicrounits, notified: Boolean(marks[id]?.notified), dismissed: Boolean(marks[id]?.dismissed) });
     }
   }
+  // 每条规则的实际拦截状态，独立于提醒阈值：只要“达到即停”且已用额不低于上限（且未放行），就是已被拦截。
+  const rules = ALERT_RULES.filter(rule => settings.rules[rule].mode !== 'off').map(rule => {
+    const config = settings.rules[rule];
+    const allowedNow = overrides[rule] === periodOf(rule, day);
+    return { rule, mode: config.mode, period: periodOf(rule, day), usedMicrounits: rows[rule].used, limitMicrounits: config.limitMicrounits,
+      blocked: config.mode === 'stop' && !allowedNow && rows[rule].used >= config.limitMicrounits };
+  });
   const allowed = ALERT_RULES.filter(rule => overrides[rule] === periodOf(rule, day)).map(rule => ({ rule, period: overrides[rule] }));
   const paused = ALERT_RULES.filter(rule => pauses[rule] === periodOf(rule, day)).map(rule => ({ rule, period: pauses[rule] }));
-  return { day, alerts, overrides: allowed, pauses: paused };
+  return { day, alerts, rules, overrides: allowed, pauses: paused };
 }
 
 /**

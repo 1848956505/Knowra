@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('knowraDesktop', {
   openSavedAttachment(token) { return ipcRenderer.invoke('attachment-open-saved', token); },
   readRecoveryDrafts() { const result = ipcRenderer.sendSync('read-recovery-drafts'); if (result.error) throw new Error(result.error); return result.drafts; },
   writeRecoveryDraft(key, draft) { return ipcRenderer.invoke('write-recovery-draft', key, draft); },
+  notify(input) { return ipcRenderer.invoke('system-notify', input); },
   modelSettings(action, value) { return ipcRenderer.invoke('model-settings', action, value); },
   onCancelClose(callback) { if (typeof callback === 'function') ipcRenderer.on('cancel-close', () => callback()); },
   onPrepareClose(callback) {
