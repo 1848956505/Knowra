@@ -90,5 +90,24 @@ export const aiBalanceTests = [
       assert.equal(back.inferred[0].snapshots, 2, '换回 A 后只和 A 的历史比较');
       assert.equal(back.inferred[0].consumedMicrounits, 10_000_000, 'A 的 100→90 是消费 10 元');
     } finally { f.cleanup(); }
+  } },
+  { name: '读取期间更换 Key：旧账户的迟到响应被丢弃，不保存也不显示', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-balance-race-'));
+    try {
+      const credential = { ref: 'ref-A' };
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      const service = createBalanceService({ filePath: path.join(directory, 'ai-balance.json'),
+        credentialReference: async () => ({ credentialRef: credential.ref }),
+        resolveCredential: async () => ({ apiKey: 'sk-test' }),
+        fetchImpl: async () => { await gate; return reply(body('100.00')); } });
+      const pending = service.refresh();
+      await new Promise(resolve => setTimeout(resolve, 20));
+      credential.ref = 'ref-B'; // 响应返回前保存了新账户的 Key
+      release();
+      await assert.rejects(pending, { code: 'AI_BALANCE_STALE' });
+      assert.equal(fs.existsSync(path.join(directory, 'ai-balance.json')), false);
+      assert.equal((await service.view()).latest, null);
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } }
 ];

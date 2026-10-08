@@ -185,9 +185,9 @@ export function pruneBudgetState(state, accountRef, today = beijingDay()) {
       if (!entry) { entry = { accountRef, month, requests: 0, spentMicrounits: 0, inputTokens: 0, outputTokens: 0, cacheHitTokens: 0 }; state.budgetMonths.push(entry); }
       entry.requests += 1;
       entry.spentMicrounits += row.actualMicrounits;
-      entry.inputTokens += row.usage?.inputTokens ?? 0;
-      entry.outputTokens += row.usage?.outputTokens ?? 0;
-      entry.cacheHitTokens += row.usage?.cacheHitTokens ?? 0;
+      entry.inputTokens += normalizeUsage(row.usage)?.inputTokens ?? 0;
+      entry.outputTokens += normalizeUsage(row.usage)?.outputTokens ?? 0;
+      entry.cacheHitTokens += normalizeUsage(row.usage)?.cacheHitTokens ?? 0;
       daily.spentMicrounits -= row.actualMicrounits;
       folded += 1;
     }
@@ -219,6 +219,8 @@ export function usageSummary(state, accountRef, date = beijingDay(), limit = REC
   }
   const rows = state.budgetReservations.filter(row => row.accountRef === accountRef && row.status !== 'held' && row.status !== 'released');
   for (const row of rows) {
+    // 读取时统一清洗：账本里已有的明细字段可能被损坏或旧版写入，汇总与展示不能因此出现字符串拼接、NaN 或崩溃。
+    const detail = normalizeUsage(row.usage);
     const targets = [periods.total];
     if (row.day === date) targets.push(periods.today);
     if (row.day.startsWith(month)) targets.push(periods.month);
@@ -226,17 +228,17 @@ export function usageSummary(state, accountRef, date = beijingDay(), limit = REC
       totals.requests += 1;
       if (row.status === 'settled') totals.spentMicrounits += row.actualMicrounits;
       else { totals.unknownRequests += 1; totals.unknownMicrounits += row.reservedMicrounits; }
-      totals.inputTokens += row.usage?.inputTokens ?? 0;
-      totals.outputTokens += row.usage?.outputTokens ?? 0;
-      totals.cacheHitTokens += row.usage?.cacheHitTokens ?? 0;
+      totals.inputTokens += detail?.inputTokens ?? 0;
+      totals.outputTokens += detail?.outputTokens ?? 0;
+      totals.cacheHitTokens += detail?.cacheHitTokens ?? 0;
     }
   }
   // 先倒序再稳定排序：同一毫秒内结算的请求，后写入的排前面。
   const view = row => ({ attemptId: row.attemptId, day: row.day, at: row.settledAt ?? row.createdAt, status: row.status,
     costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits,
-    modelId: row.usage?.modelId ?? null, inputTokens: row.usage?.inputTokens ?? null,
-    outputTokens: row.usage?.outputTokens ?? null, cacheHitTokens: row.usage?.cacheHitTokens ?? null,
-    conversationId: row.usage?.conversationId ?? null, priceVersion: row.priceVersion });
+    modelId: normalizeUsage(row.usage)?.modelId ?? null, inputTokens: normalizeUsage(row.usage)?.inputTokens ?? null,
+    outputTokens: normalizeUsage(row.usage)?.outputTokens ?? null, cacheHitTokens: normalizeUsage(row.usage)?.cacheHitTokens ?? null,
+    conversationId: normalizeUsage(row.usage)?.conversationId ?? null, priceVersion: row.priceVersion });
   const unknown = rows.filter(row => row.status === 'unknown').toSorted((a, b) => (a.settledAt ?? a.createdAt).localeCompare(b.settledAt ?? b.createdAt))
     .slice(0, UNKNOWN_LIMIT).map(row => ({ ...view(row), reservedMicrounits: row.reservedMicrounits }));
   const recent = rows.toReversed().toSorted((a, b) => (b.settledAt ?? b.createdAt).localeCompare(a.settledAt ?? a.createdAt)).slice(0, limit).map(view);
@@ -248,9 +250,9 @@ export function usageRows(state, accountRef) {
   const rows = state.budgetReservations.filter(row => row.accountRef === accountRef && ['settled', 'unknown'].includes(row.status))
     .toSorted((a, b) => (a.settledAt ?? a.createdAt).localeCompare(b.settledAt ?? b.createdAt));
   return { rows: rows.map(row => ({ at: row.settledAt ?? row.createdAt, day: row.day, status: row.status,
-    costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits, modelId: row.usage?.modelId ?? null,
-    inputTokens: row.usage?.inputTokens ?? null, outputTokens: row.usage?.outputTokens ?? null, cacheHitTokens: row.usage?.cacheHitTokens ?? null,
-    conversationId: row.usage?.conversationId ?? null, priceVersion: row.priceVersion, attemptId: row.attemptId })),
+    costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits, modelId: normalizeUsage(row.usage)?.modelId ?? null,
+    inputTokens: normalizeUsage(row.usage)?.inputTokens ?? null, outputTokens: normalizeUsage(row.usage)?.outputTokens ?? null, cacheHitTokens: normalizeUsage(row.usage)?.cacheHitTokens ?? null,
+    conversationId: normalizeUsage(row.usage)?.conversationId ?? null, priceVersion: row.priceVersion, attemptId: row.attemptId })),
   months: (state.budgetMonths ?? []).filter(row => row.accountRef === accountRef).toSorted((a, b) => a.month.localeCompare(b.month)) };
 }
 
