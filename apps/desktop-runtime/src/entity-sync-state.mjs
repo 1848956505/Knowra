@@ -349,7 +349,12 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
     operationId: randomUUID(), sequence: (readMeta(db, 'entitySequence') ?? 0) + 1 }));
   // 本地恢复副本可保留原版本 ID；传输依赖使用基线中已经确认的同正文版本。
   const canonicalVersions = new Map([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => [`${entry.value.noteId}:${entry.value.contentHash}`, entry.value]));
-  for (const version of store.state.noteVersions) if (!canonicalVersions.has(`${version.noteId}:${version.contentHash}`)) canonicalVersions.set(`${version.noteId}:${version.contentHash}`, version);
+  for (const version of store.state.noteVersions) {
+    // 已清理的恢复副本不能抢占同正文新版本的传输依赖。
+    if (base.get(syncKey('noteVersions', version.id))?.value === null) continue;
+    const key = `${version.noteId}:${version.contentHash}`;
+    if (!canonicalVersions.has(key)) canonicalVersions.set(key, version);
+  }
   const referenceState = cloneJsonData({ ...store.state, noteVersions: [...canonicalVersions.values()] });
   for (const entry of eligible) replace(referenceState, entry);
   // 临时旧题目投影使用同一旧子图，不能把尚未交付的新关系误当作依赖。

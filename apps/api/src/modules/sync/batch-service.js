@@ -85,7 +85,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
         let next, aliases;
         try { ({ state: next, aliases } = prepareBatchState(state, op.changes, ownerId, prepared)); }
         catch (failure) { if (failure.statusCode) throw failure; throw syncError('SYNC_ENTITY_INVALID', '同步实体字段无效，请导出恢复记录并核对资料。', 422); }
-        next = pruneTouchedNoteVersions(next, op.changes);
+        next = pruneTouchedNoteVersions(next, op.changes, Date.now(), aliases);
         return thenResult(provider.applyState(next), () => thenResult(provider.preview(), ({ state: applied, journal: preview }) => {
           const entries = op.changes.map(entry => {
             const id = entry.collection === 'noteVersions' ? aliases[entry.id] ?? entry.id : entry.id;

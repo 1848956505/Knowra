@@ -7,7 +7,7 @@ import { createNoteVersionReferenceIndex } from '../knowledge/domain/note-versio
  * 删除与批次同属一个事务，日志里自然产生墓碑，设备经普通拉取收到。
  * 本批提交的版本、当前正文版本和任何被引用的版本都不会删除。
  */
-export function pruneTouchedNoteVersions(state, changes, now = Date.now()) {
+export function pruneTouchedNoteVersions(state, changes, now = Date.now(), aliases = {}) {
   const touchedNotes = new Set();
   for (const entry of changes) {
     const value = entry.value;
@@ -15,7 +15,8 @@ export function pruneTouchedNoteVersions(state, changes, now = Date.now()) {
     if (entry.collection === 'noteVersions' && value) touchedNotes.add(value.noteId);
   }
   if (!touchedNotes.size) return state;
-  const submitted = new Set(changes.filter(entry => entry.collection === 'noteVersions').map(entry => entry.id));
+  // prepareBatchState 已去重；保护后像中的规范 ID，而非设备提交的别名。
+  const submitted = new Set(changes.filter(entry => entry.collection === 'noteVersions').map(entry => aliases[entry.id] ?? entry.id));
   let isReferenced = null;
   const removed = new Set();
   for (const noteId of touchedNotes) {

@@ -119,7 +119,11 @@ export function createAppContext(options = {}) {
       ? createInMemoryAnalysisScopeRepository({ records: dataStore.state.analysisScopeSnapshots, onChange: dataStore.flush })
       : undefined),
     noteVersionRepository: options.noteVersionRepository ?? (dataStore
-      ? createInMemoryNoteVersionRepository({ records: dataStore.state.noteVersions, onChange: dataStore.flush })
+      ? createInMemoryNoteVersionRepository({
+        records: dataStore.state.noteVersions, onChange: dataStore.flush,
+        // 已删除的本机恢复副本仍按 ID 可读，但重新保存同正文必须使用新 ID。
+        canReuse: version => !dataStore.deletionFacts?.has('noteVersions', version.id)
+      })
       : undefined),
     knowledgeItemRepository: options.knowledgeItemRepository ?? (dataStore
       ? createInMemoryKnowledgeItemRepository({ records: dataStore.state.knowledgeItems, onChange: dataStore.flush })
