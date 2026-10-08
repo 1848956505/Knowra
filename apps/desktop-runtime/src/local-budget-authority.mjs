@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { budgetStatus, reserveBudget, settleBudget, usageSummary, validateBudgetState } from '../../api/src/modules/ai/budget-ledger.js';
+import { budgetStatus, pruneBudgetState, reserveBudget, settleBudget, usageRows, usageSummary, validateBudgetState } from '../../api/src/modules/ai/budget-ledger.js';
 
 const unavailable = (message, cause) => Object.assign(new Error(message), { code: 'AI_BUDGET_UNAVAILABLE', ...(cause ? { cause } : {}) });
 
@@ -20,14 +20,14 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
     let raw;
     try { raw = fs.readFileSync(filePath, 'utf8'); }
     catch (error) {
-      if (error?.code === 'ENOENT') { state = { budgetDays: [], budgetReservations: [] }; return; }
+      if (error?.code === 'ENOENT') { state = { budgetDays: [], budgetReservations: [], budgetMonths: [] }; return; }
       failure = unavailable('本机预算账本无法读取，已阻止模型调用；原文件已保留。', error); return;
     }
     try {
       const parsed = JSON.parse(raw);
       // 顶层必须是普通对象：数组、null 等会被校验函数“补全”成看似合法的空账本，等于清零预算。
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
-        || Object.keys(parsed).some(key => !['budgetDays', 'budgetReservations'].includes(key))
+        || Object.keys(parsed).some(key => !['budgetDays', 'budgetReservations', 'budgetMonths'].includes(key))
         // 两个集合必须都存在且是数组：共享校验函数会把缺失或 null 补成空数组，等于额度清零并在下次写盘时覆盖原文件。
         || !Array.isArray(parsed.budgetDays) || !Array.isArray(parsed.budgetReservations)) throw new Error('预算账本结构无效。');
       state = validateBudgetState(parsed);
@@ -39,7 +39,7 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
     const temp = `${filePath}.${randomUUID()}.tmp`;
     try {
       const fd = fs.openSync(temp, 'wx', 0o600);
-      try { fs.writeFileSync(fd, JSON.stringify({ budgetDays: next.budgetDays, budgetReservations: next.budgetReservations })); fs.fsyncSync(fd); }
+      try { fs.writeFileSync(fd, JSON.stringify({ budgetDays: next.budgetDays, budgetReservations: next.budgetReservations, budgetMonths: next.budgetMonths })); fs.fsyncSync(fd); }
       finally { fs.closeSync(fd); }
       fs.renameSync(temp, filePath);
     } finally { fs.rmSync(temp, { force: true }); }
@@ -70,6 +70,11 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
       return usageSummary(state, accountRef, date);
     },
     reserve: input => transact(draft => reserveBudget(draft, input)),
-    settle: input => transact(draft => settleBudget(draft, input))
+    async usageRows(accountRef) {
+      await queue; load();
+      if (failure) throw failure;
+      return usageRows(state, accountRef);
+    },
+    settle: input => transact(draft => { const result = settleBudget(draft, input); pruneBudgetState(draft, input.accountRef); return result; })
   };
 }

@@ -35,7 +35,14 @@ function validUsage(usage) {
 export function validateBudgetState(state) {
   state.budgetDays ??= [];
   state.budgetReservations ??= [];
-  if (!Array.isArray(state.budgetDays) || !Array.isArray(state.budgetReservations)) fail('AI_BUDGET_INVALID', '预算账本结构无效。');
+  state.budgetMonths ??= [];
+  if (!Array.isArray(state.budgetDays) || !Array.isArray(state.budgetReservations) || !Array.isArray(state.budgetMonths)) fail('AI_BUDGET_INVALID', '预算账本结构无效。');
+  const monthKeys = new Set();
+  for (const row of state.budgetMonths) {
+    if (!row.accountRef || !/^\d{4}-\d{2}$/.test(row.month) || ![row.requests, row.spentMicrounits, row.inputTokens, row.outputTokens, row.cacheHitTokens].every(amount)
+      || monthKeys.has(`${row.accountRef}:${row.month}`)) fail('AI_BUDGET_INVALID', '预算月汇总无效。');
+    monthKeys.add(`${row.accountRef}:${row.month}`);
+  }
   const keys = new Set();
   for (const row of state.budgetDays) {
     if (!row.accountRef || !day(row.day) || !amount(row.spentMicrounits) || !amount(row.heldMicrounits)
@@ -155,6 +162,47 @@ export function settleBudget(state, { accountRef, attemptId, actualMicrounits = 
 }
 
 const RECENT_LIMIT = 50;
+const DETAIL_KEEP_DAYS = 90;
+const UNKNOWN_LIMIT = 100;
+
+const shiftDay = (value, days) => new Date(Date.parse(`${value}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * 用量明细只保留 90 天：更早已结算的请求折叠进“月汇总”（笔数、费用、token），保证累计不变；
+ * 未结算（占用中、结果未知）的预留永远不裁剪，因为它们仍占用额度。
+ * 基准日取“今天”与“账本中最新一天”的较早者：系统时钟被误调到未来时不会误删明细。
+ * 返回被折叠的请求数。
+ */
+export function pruneBudgetState(state, accountRef, today = beijingDay()) {
+  const days = state.budgetDays.filter(row => row.accountRef === accountRef).map(row => row.day);
+  if (days.length === 0) return 0;
+  const newest = days.reduce((a, b) => a > b ? a : b);
+  const cutoff = shiftDay(newest < today ? newest : today, -DETAIL_KEEP_DAYS);
+  const old = state.budgetReservations.filter(row => row.accountRef === accountRef && row.day < cutoff && ['settled', 'released'].includes(row.status));
+  if (old.length === 0) return 0;
+  state.budgetMonths ??= [];
+  let folded = 0;
+  for (const row of old) {
+    const daily = state.budgetDays.find(item => item.accountRef === accountRef && item.day === row.day);
+    if (row.status === 'settled') {
+      const month = row.day.slice(0, 7);
+      let entry = state.budgetMonths.find(item => item.accountRef === accountRef && item.month === month);
+      if (!entry) { entry = { accountRef, month, requests: 0, spentMicrounits: 0, inputTokens: 0, outputTokens: 0, cacheHitTokens: 0 }; state.budgetMonths.push(entry); }
+      entry.requests += 1;
+      entry.spentMicrounits += row.actualMicrounits;
+      entry.inputTokens += row.usage?.inputTokens ?? 0;
+      entry.outputTokens += row.usage?.outputTokens ?? 0;
+      entry.cacheHitTokens += row.usage?.cacheHitTokens ?? 0;
+      daily.spentMicrounits -= row.actualMicrounits;
+      folded += 1;
+    }
+  }
+  const gone = new Set(old);
+  state.budgetReservations = state.budgetReservations.filter(row => !gone.has(row));
+  state.budgetDays = state.budgetDays.filter(row => row.accountRef !== accountRef || row.day >= cutoff
+    || row.heldMicrounits > 0 || state.budgetReservations.some(item => item.accountRef === accountRef && item.day === row.day));
+  return folded;
+}
 const emptyTotals = () => ({ requests: 0, spentMicrounits: 0, unknownRequests: 0, unknownMicrounits: 0,
   inputTokens: 0, outputTokens: 0, cacheHitTokens: 0 });
 
@@ -165,6 +213,15 @@ const emptyTotals = () => ({ requests: 0, spentMicrounits: 0, unknownRequests: 0
 export function usageSummary(state, accountRef, date = beijingDay(), limit = RECENT_LIMIT) {
   const month = date.slice(0, 7);
   const periods = { today: emptyTotals(), month: emptyTotals(), total: emptyTotals() };
+  // 已折叠的月汇总只计入累计（以及仍落在当前月内的部分）。
+  const archive = (state.budgetMonths ?? []).filter(row => row.accountRef === accountRef);
+  for (const row of archive) {
+    const targets = [periods.total, ...(row.month === month ? [periods.month] : [])];
+    for (const totals of targets) {
+      totals.requests += row.requests; totals.spentMicrounits += row.spentMicrounits;
+      totals.inputTokens += row.inputTokens; totals.outputTokens += row.outputTokens; totals.cacheHitTokens += row.cacheHitTokens;
+    }
+  }
   const rows = state.budgetReservations.filter(row => row.accountRef === accountRef && row.status !== 'held' && row.status !== 'released');
   for (const row of rows) {
     const targets = [periods.total];
@@ -180,20 +237,38 @@ export function usageSummary(state, accountRef, date = beijingDay(), limit = REC
     }
   }
   // 先倒序再稳定排序：同一毫秒内结算的请求，后写入的排前面。
-  const recent = rows.toReversed().toSorted((a, b) => (b.settledAt ?? b.createdAt).localeCompare(a.settledAt ?? a.createdAt)).slice(0, limit)
-    .map(row => ({ attemptId: row.attemptId, day: row.day, at: row.settledAt ?? row.createdAt, status: row.status,
-      costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits,
-      modelId: row.usage?.modelId ?? null, inputTokens: row.usage?.inputTokens ?? null,
-      outputTokens: row.usage?.outputTokens ?? null, cacheHitTokens: row.usage?.cacheHitTokens ?? null,
-      conversationId: row.usage?.conversationId ?? null, priceVersion: row.priceVersion }));
-  return { accountRef, currency: 'CNY', day: date, ...periods, recent };
+  const view = row => ({ attemptId: row.attemptId, day: row.day, at: row.settledAt ?? row.createdAt, status: row.status,
+    costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits,
+    modelId: row.usage?.modelId ?? null, inputTokens: row.usage?.inputTokens ?? null,
+    outputTokens: row.usage?.outputTokens ?? null, cacheHitTokens: row.usage?.cacheHitTokens ?? null,
+    conversationId: row.usage?.conversationId ?? null, priceVersion: row.priceVersion });
+  const unknown = rows.filter(row => row.status === 'unknown').toSorted((a, b) => (a.settledAt ?? a.createdAt).localeCompare(b.settledAt ?? b.createdAt))
+    .slice(0, UNKNOWN_LIMIT).map(row => ({ ...view(row), reservedMicrounits: row.reservedMicrounits }));
+  const recent = rows.toReversed().toSorted((a, b) => (b.settledAt ?? b.createdAt).localeCompare(a.settledAt ?? a.createdAt)).slice(0, limit).map(view);
+  return { accountRef, currency: 'CNY', day: date, ...periods, recent, unknown, archive: archive.map(({ month, requests, spentMicrounits }) => ({ month, requests, spentMicrounits })) };
+}
+
+/** 导出用的全部明细（升序）与月汇总。 */
+export function usageRows(state, accountRef) {
+  const rows = state.budgetReservations.filter(row => row.accountRef === accountRef && ['settled', 'unknown'].includes(row.status))
+    .toSorted((a, b) => (a.settledAt ?? a.createdAt).localeCompare(b.settledAt ?? b.createdAt));
+  return { rows: rows.map(row => ({ at: row.settledAt ?? row.createdAt, day: row.day, status: row.status,
+    costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits, modelId: row.usage?.modelId ?? null,
+    inputTokens: row.usage?.inputTokens ?? null, outputTokens: row.usage?.outputTokens ?? null, cacheHitTokens: row.usage?.cacheHitTokens ?? null,
+    conversationId: row.usage?.conversationId ?? null, priceVersion: row.priceVersion, attemptId: row.attemptId })),
+  months: (state.budgetMonths ?? []).filter(row => row.accountRef === accountRef).toSorted((a, b) => a.month.localeCompare(b.month)) };
 }
 
 export function createJsonBudgetAuthority({ getState, runTransaction, onChange }) {
   return {
     status: (accountRef, date, limits) => budgetStatus(getState(), accountRef, date, limits),
     usage: (accountRef, date) => usageSummary(getState(), accountRef, date),
+    usageRows: accountRef => usageRows(getState(), accountRef),
     reserve: input => runTransaction(() => { const result = reserveBudget(getState(), input); onChange(); return result; }),
-    settle: input => runTransaction(() => { const result = settleBudget(getState(), input); onChange(); return result; })
+    settle: input => runTransaction(() => {
+      const result = settleBudget(getState(), input);
+      pruneBudgetState(getState(), input.accountRef);
+      onChange(); return result;
+    })
   };
 }

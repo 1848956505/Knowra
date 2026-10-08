@@ -29,6 +29,10 @@ export interface UsageRecord {
 export interface AssistantUsage {
   currency: 'CNY'; day: string; location: 'local' | 'server';
   today: UsageTotals; month: UsageTotals; total: UsageTotals; recent: UsageRecord[];
+  /** 全部结果未知的请求（最多 100 条），含按最坏情况占用的预留额。 */
+  unknown: Array<UsageRecord & { reservedMicrounits: number }>;
+  /** 90 天前的明细已折叠成月汇总，累计金额不变。 */
+  archive: Array<{ month: string; requests: number; spentMicrounits: number }>;
 }
 
 export interface BalanceRow {
@@ -110,6 +114,13 @@ const data = async <T>(url: string, options?: Parameters<typeof apiClient.reques
 
 export const assistantApi = {
   usage: () => data<AssistantUsage>('/api/ai/assistant/usage'),
+  resolveUnknown: (value: { attemptId: string; disposition: 'released' | 'settled'; actualMicrounits?: number }) => data<AssistantUsage>('/api/ai/assistant/usage/resolve', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
+  exportUsage: async () => {
+    const response = await fetch('/api/ai/assistant/usage/export');
+    if (!response.ok) throw new Error('导出失败，请稍后重试。');
+    return response.text();
+  },
   budgetSettings: () => data<BudgetSettings>('/api/ai/assistant/budget-settings'),
   saveBudgetSettings: (value: Pick<BudgetSettings, 'rules' | 'price' | 'alerts'>) => data<BudgetSettings>('/api/ai/assistant/budget-settings', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),

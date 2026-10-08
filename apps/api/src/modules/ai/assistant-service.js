@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { hashRecord, manifestHash } from './record-contract.js';
 import { beijingDay } from './budget-ledger.js';
 import { evaluateAlerts, periodOf } from './budget-alerts.js';
+import { usageCsv } from './usage-export.js';
 
 const PREVIEW_TTL_MS = 5 * 60_000;
 const MAX_PREVIEWS = 32;
@@ -160,6 +161,32 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return { ...(await (refresh ? service.refresh() : service.view())), location };
   }
 
+  /** 导出全部用量明细（CSV 文本）。 */
+  async function usageExport() {
+    const authority = runtime()?.budgetAuthority;
+    if (typeof authority?.usageRows !== 'function') fail('AI_BUDGET_UNAVAILABLE', location === 'local' ? '本机预算账本不可用。' : '云端预算服务不可用。');
+    try { return usageCsv(await authority.usageRows('deepseek-primary')); }
+    catch { fail('AI_BUDGET_UNAVAILABLE', location === 'local' ? '本机预算账本不可用。' : '云端预算服务不可用。'); }
+  }
+
+  /**
+   * 手动处理“结果未知”的请求：用户对照 DeepSeek 余额或账单后，选择“释放”（确认没有产生费用）
+   * 或“按实际金额结算”。只对状态为 unknown 的请求有效，已结算的不能改。
+   */
+  async function resolveUnknown({ attemptId, disposition, actualMicrounits } = {}) {
+    const authority = runtime()?.budgetAuthority;
+    if (!authority) fail('AI_BUDGET_UNAVAILABLE', location === 'local' ? '本机预算账本不可用。' : '云端预算服务不可用。');
+    if (typeof attemptId !== 'string' || !/^[a-zA-Z0-9_.:-]{1,128}$/.test(attemptId) || !['released', 'settled'].includes(disposition)
+      || disposition === 'settled' && !(Number.isSafeInteger(actualMicrounits) && actualMicrounits >= 0)
+      || disposition === 'released' && actualMicrounits !== undefined && actualMicrounits !== null) {
+      fail('AI_BUDGET_SETTLEMENT_INVALID', '处理请求无效。');
+    }
+    const summary = await authority.usage('deepseek-primary');
+    if (!summary.unknown.some(row => row.attemptId === attemptId)) fail('AI_BUDGET_NOT_FOUND', '没有找到这条结果未知的请求，可能已被处理。');
+    await authority.settle({ accountRef: 'deepseek-primary', attemptId, disposition, ...(disposition === 'settled' ? { actualMicrounits } : {}) });
+    return usage();
+  }
+
   async function assertJob(jobId) {
     const ai = runtime();
     const current = await identity();
@@ -265,5 +292,5 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return view(await runtime().worker.cancel(jobId), true);
   }
 
-  return { status, usage, balance, budgetSettings, saveBudgetSettings, budgetAlerts, markAlerts, allowRule, list, get, preview, start, cancel };
+  return { status, usage, usageExport, resolveUnknown, balance, budgetSettings, saveBudgetSettings, budgetAlerts, markAlerts, allowRule, list, get, preview, start, cancel };
 }

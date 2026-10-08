@@ -20,7 +20,7 @@ export function createEmptyAiState({ datasetId = randomUUID(), datasetEpoch = ra
     ...Object.fromEntries(collections.map(name => [name, []])),
     ...Object.fromEntries(accessCollections.map(name => [name, []])),
     ...emptyConversationState(), actionLedger: emptyActionState(),
-    events: [], budgetDays: [], budgetReservations: []
+    events: [], budgetDays: [], budgetReservations: [], budgetMonths: []
   };
 }
 
@@ -30,7 +30,7 @@ export function validateAiState(input) {
     || ![1, 2, 3, 4, 5, AI_PRIVATE_STATE_VERSION].includes(input.version)
     || typeof input.datasetId !== 'string' || !input.datasetId
     || typeof input.datasetEpoch !== 'string' || !input.datasetEpoch
-    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', 'actionLedger', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
+    || Object.keys(input).some(key => !['version', 'datasetId', 'datasetEpoch', 'events', 'budgetDays', 'budgetReservations', 'budgetMonths', 'actionLedger', ...collections, ...accessCollections, ...conversationCollections].includes(key))) {
     throw new Error('AI 私有存储版本或结构无效，已停止加载。');
   }
   const state = structuredClone(input);

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { budgetStatus, reserveBudget, settleBudget } from '../src/modules/ai/budget-ledger.js';
+import { budgetStatus, pruneBudgetState, reserveBudget, settleBudget, usageRows, usageSummary, validateBudgetState } from '../src/modules/ai/budget-ledger.js';
+import { usageCsv } from '../src/modules/ai/usage-export.js';
 import { createBudgetPolicy } from '../src/modules/ai/budget-policy.js';
 import { createBudgetSettingsStore, DEFAULT_BUDGET_SETTINGS, effectivePriceProfile, enforcedLimits, normalizeBudgetSettings } from '../src/modules/ai/budget-settings.js';
 import { actualCostMicrounits } from '../src/modules/ai/worker.js';
@@ -171,5 +172,65 @@ export const aiBudgetSettingsTests = [
       clock += 24 * 3600_000;
       assert.equal((await policy.snapshot()).limits.daily, 20_000_000, '第二天恢复拦截');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '明细保留 90 天：更早已结算的折叠为月汇总且累计不变；未知请求永不裁剪；基准取今天与账本最新日的较早者', run() {
+    const state = { budgetDays: [], budgetReservations: [], budgetMonths: [] };
+    const call = (n, day, disposition, actual, usage) => {
+      reserve(state, n, 1_000_000, { day });
+      settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition, actualMicrounits: actual, usage });
+    };
+    call(1, '2026-05-02', 'settled', 300_000, { modelId: 'deepseek-flash', inputTokens: 100, outputTokens: 10, cacheHitTokens: 40 });
+    call(2, '2026-05-20', 'settled', 200_000, { inputTokens: 50, outputTokens: 5 });
+    call(3, '2026-05-21', 'unknown', null, { modelId: 'deepseek-flash' });
+    call(4, '2026-06-01', 'released', null);
+    call(5, '2026-09-30', 'settled', 400_000);
+    call(6, '2026-10-08', 'settled', 100_000);
+    const before = usageSummary(state, account, '2026-10-08');
+    // 时钟被误调到很远的未来：基准取账本最新日，不会把 90 天内的明细折叠掉。
+    assert.equal(pruneBudgetState(structuredClone(state), account, '2030-01-01'), 2, '基准是账本最新日 2026-10-08，只折叠 5 月的两条');
+    assert.equal(pruneBudgetState(structuredClone(state), account, '2026-06-10'), 0, '今天比账本最新日更早时以今天为基准，五月数据仍在 90 天内');
+    const folded = pruneBudgetState(state, account, '2026-10-08');
+    assert.equal(folded, 2);
+    validateBudgetState(state);
+    assert.deepEqual(state.budgetMonths, [{ accountRef: account, month: '2026-05', requests: 2, spentMicrounits: 500_000, inputTokens: 150, outputTokens: 15, cacheHitTokens: 40 }]);
+    assert.equal(state.budgetReservations.some(row => row.attemptId === 'a-3'), true, '结果未知的请求保留');
+    assert.equal(state.budgetReservations.some(row => row.attemptId === 'a-4'), false, '已释放的早期请求直接丢弃');
+    assert.equal(state.budgetDays.some(row => row.day === '2026-05-02'), false);
+    assert.equal(state.budgetDays.some(row => row.day === '2026-05-21'), true, '仍有未知预留的日账本保留');
+    const after = usageSummary(state, account, '2026-10-08');
+    assert.equal(after.total.spentMicrounits, before.total.spentMicrounits, '折叠不改变累计费用');
+    assert.equal(after.total.requests, before.total.requests);
+    assert.equal(after.total.inputTokens, before.total.inputTokens);
+    assert.equal(after.unknown.length, 1);
+    assert.deepEqual(after.archive, [{ month: '2026-05', requests: 2, spentMicrounits: 500_000 }]);
+    assert.equal(pruneBudgetState(state, account, '2026-10-08'), 0, '重复裁剪无变化');
+  } },
+  { name: '手动处理未知请求：释放后不再占用额度，按金额结算计入花费，已处理的不能再改；超过预留额被拒', run() {
+    const state = { budgetDays: [], budgetReservations: [] };
+    for (const n of [1, 2, 3]) { reserve(state, n, 1_000_000); settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition: 'unknown' }); }
+    assert.equal(budgetStatus(state, account, '2026-10-08').heldMicrounits, 3_000_000);
+    settleBudget(state, { accountRef: account, attemptId: 'a-1', disposition: 'released' });
+    settleBudget(state, { accountRef: account, attemptId: 'a-2', disposition: 'settled', actualMicrounits: 250_000 });
+    assert.throws(() => settleBudget(state, { accountRef: account, attemptId: 'a-3', disposition: 'settled', actualMicrounits: 1_000_001 }), { code: 'AI_BUDGET_SETTLEMENT_INVALID' });
+    const status = budgetStatus(state, account, '2026-10-08');
+    assert.deepEqual([status.heldMicrounits, status.spentMicrounits], [1_000_000, 250_000]);
+    assert.throws(() => settleBudget(state, { accountRef: account, attemptId: 'a-2', disposition: 'released' }), { code: 'AI_BUDGET_CONFLICT' });
+    validateBudgetState(state);
+  } },
+  { name: 'CSV 导出：含 BOM 与表头，只含数字和 ID；以公式符号开头的值加前缀；月汇总行附在末尾', run() {
+    const state = { budgetDays: [], budgetReservations: [], budgetMonths: [{ accountRef: account, month: '2026-05', requests: 2, spentMicrounits: 500_000, inputTokens: 150, outputTokens: 15, cacheHitTokens: 40 }] };
+    reserve(state, 1, 1_000_000);
+    settleBudget(state, { accountRef: account, attemptId: 'a-1', disposition: 'settled', actualMicrounits: 123_456, usage: { modelId: 'deepseek-flash', inputTokens: 10, outputTokens: 2, cacheHitTokens: 4, conversationId: '-evil' } });
+    reserve(state, 2, 1_000_000);
+    settleBudget(state, { accountRef: account, attemptId: 'a-2', disposition: 'unknown' });
+    const csv = usageCsv(usageRows(state, account));
+    assert.equal(csv.charCodeAt(0), 0xFEFF);
+    const lines = csv.slice(1).trimEnd().split('\r\n');
+    assert.equal(lines.length, 4);
+    assert.match(lines[0], /^时间,北京日期,状态,模型/);
+    assert.match(lines[1], /,已结算,deepseek-flash,10,2,4,0\.123456,'-evil,/);
+    assert.match(lines[2], /结果未知\(按预留占用\)/);
+    assert.match(lines[2], /1\.000000/);
+    assert.match(lines[3], /^2026-05 月汇总\(明细已折叠\),2026-05,2 次请求,,150,15,40,0\.500000/);
   } }
 ];

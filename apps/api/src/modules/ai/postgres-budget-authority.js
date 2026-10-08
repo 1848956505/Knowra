@@ -1,4 +1,4 @@
-import { beijingDay, budgetStatus, reserveBudget, settleBudget, usageSummary } from './budget-ledger.js';
+import { beijingDay, budgetStatus, reserveBudget, settleBudget, usageRows, usageSummary } from './budget-ledger.js';
 
 const retryable = error => ['P2034', '23505', '40001'].includes(error?.code) || ['23505', '40001'].includes(error?.meta?.code);
 const read = (db, sql, ...values) => db.$queryRawUnsafe(sql, ...values);
@@ -59,6 +59,11 @@ export function createPostgresBudgetAuthority(client) {
       const reservations = await read(client, `SELECT * FROM ai_budget_reservations WHERE account_ref = $1
         AND status IN ('settled','unknown') ORDER BY created_at DESC`, accountRef);
       return usageSummary({ budgetReservations: reservations.map(convert) }, accountRef, day);
+    },
+    async usageRows(accountRef) {
+      const reservations = await read(client, `SELECT * FROM ai_budget_reservations WHERE account_ref = $1
+        AND status IN ('settled','unknown') ORDER BY created_at ASC`, accountRef);
+      return usageRows({ budgetReservations: reservations.map(convert) }, accountRef);
     },
     reserve: input => transact(input.accountRef, state => reserveBudget(state, { ...input, day: beijingDay() })),
     settle: input => transact(input.accountRef, state => settleBudget(state, input))

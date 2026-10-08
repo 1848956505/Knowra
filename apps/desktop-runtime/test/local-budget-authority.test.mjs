@@ -114,3 +114,31 @@ test('用量明细随结算落盘，新实例可查询汇总', async t => {
   assert.equal(summary.recent[0].conversationId, 'conv-1');
   assert.equal(await code(first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 250_000, usage: { bogus: 1 } })), 'AI_BUDGET_SETTLEMENT_INVALID');
 });
+
+test('本机账本裁剪 90 天前的明细为月汇总并落盘，旧账本缺少月汇总字段仍可读，未知请求可手动释放', async t => {
+  const filePath = path.join(temporaryDirectory(t), 'ai-budget.json');
+  const first = createLocalBudgetAuthority({ filePath });
+  const at = (n, day, amount) => first.reserve({ accountRef: ACCOUNT, jobId: `job-${n}`, attemptId: `attempt-${n}`, priceVersion: 'price-v1', reservedMicrounits: amount, day });
+  // reserve 的 day 由调用方给出（云端路径以服务端日期覆盖）；本机账本沿用共享逻辑。
+  await at(1, '2026-05-02', 1_000_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 400_000, usage: { inputTokens: 10, outputTokens: 1 } });
+  await at(2, '2026-10-08', 1_000_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'unknown' });
+  await at(3, '2026-10-08', 500_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-3', disposition: 'settled', actualMicrounits: 100_000 });
+  const saved = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  assert.equal(saved.budgetMonths.length, 1);
+  assert.equal(saved.budgetMonths[0].spentMicrounits, 400_000);
+  assert.equal(saved.budgetReservations.some(row => row.attemptId === 'attempt-1'), false);
+  const second = createLocalBudgetAuthority({ filePath });
+  const summary = await second.usage(ACCOUNT, '2026-10-08');
+  assert.equal(summary.total.spentMicrounits, 500_000);
+  assert.deepEqual(summary.unknown.map(row => row.attemptId), ['attempt-2']);
+  assert.equal((await second.usageRows(ACCOUNT)).months[0].month, '2026-05');
+  await second.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'released' });
+  assert.equal((await second.status(ACCOUNT, '2026-10-08')).heldMicrounits, 0);
+  // 旧版账本文件没有 budgetMonths 字段。
+  const legacy = path.join(path.dirname(filePath), 'legacy.json');
+  fs.writeFileSync(legacy, JSON.stringify({ budgetDays: [], budgetReservations: [] }));
+  assert.deepEqual((await createLocalBudgetAuthority({ filePath: legacy }).usage(ACCOUNT)).archive, []);
+});

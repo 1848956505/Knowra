@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
+import { TextField } from '../../components/ui/input/Input';
+import { downloadTextFile } from '../../browser/downloadFile';
 import { ApiRequestError } from '@study-accelerator/web-core';
 import { assistantApi, type AssistantBalance, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
 import styles from './SettingsView.module.css';
@@ -71,11 +73,62 @@ function BalanceBlock() {
   </div>;
 }
 
+/** 结果未知的请求：用户对照 DeepSeek 余额或账单后，释放占用或按实际金额结算。 */
+function UnknownRequests({ usage, onChange }: { usage: AssistantUsage; onChange(next: AssistantUsage): void }) {
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState<string | null>(null);
+  if (usage.unknown.length === 0) return null;
+
+  async function resolve(attemptId: string, disposition: 'released' | 'settled', actualMicrounits?: number) {
+    setBusy(attemptId); setError('');
+    try { onChange(await assistantApi.resolveUnknown({ attemptId, disposition, ...(actualMicrounits === undefined ? {} : { actualMicrounits }) })); setConfirming(null); }
+    catch (failure) { setError(failure instanceof Error && failure.message ? failure.message : '处理失败，请重试。'); }
+    finally { setBusy(''); }
+  }
+  function settle(row: AssistantUsage['unknown'][number]) {
+    const text = (amounts[row.attemptId] ?? '').trim();
+    const micro = /^\d{1,6}(\.\d{1,6})?$/.test(text) ? Math.round(Number(text) * 1_000_000) : null;
+    if (micro === null || micro > row.reservedMicrounits) { setError(`请填写不超过 ${yuan(row.reservedMicrounits)} 的实际金额（元）。`); return; }
+    void resolve(row.attemptId, 'settled', micro);
+  }
+
+  return <div className={styles.usageUnknown}>
+    <div className={styles.settingCopy}>
+      <h4>结果未知的请求（{usage.unknown.length}）</h4>
+      <p>这些请求已发出但没收到用量，按最坏情况占用额度。请先对照 DeepSeek 平台的余额或账单：确认没有扣费就“释放占用”，确认扣了多少就“按金额结算”。处理后不能再修改。</p>
+    </div>
+    <ul className={styles.usageUnknownList}>{usage.unknown.map(row => <li key={row.attemptId}>
+      <span>{time(row.at)} · {row.modelId ?? '未知模型'} · 占用 {yuan(row.reservedMicrounits)}</span>
+      <div className={styles.usageUnknownActions}>
+        <TextField label="实际金额（元）" value={amounts[row.attemptId] ?? ''} isDisabled={busy !== ''}
+          onChange={value => setAmounts({ ...amounts, [row.attemptId]: value })} />
+        <Button size="compact" isDisabled={busy !== ''} onPress={() => settle(row)}>按金额结算</Button>
+        {confirming === row.attemptId
+          ? <><Button size="compact" variant="danger" isDisabled={busy !== ''} onPress={() => void resolve(row.attemptId, 'released')}>确认没有扣费，释放</Button>
+            <Button size="compact" variant="ghost" onPress={() => setConfirming(null)}>取消</Button></>
+          : <Button size="compact" isDisabled={busy !== ''} onPress={() => setConfirming(row.attemptId)}>释放占用</Button>}
+      </div>
+    </li>)}</ul>
+    {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
+  </div>;
+}
+
 export function UsageSettings() {
   const [usage, setUsage] = useState<AssistantUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  async function exportCsv() {
+    setExporting(true); setExportError('');
+    try { downloadTextFile('knowra-ai-usage.csv', await assistantApi.exportUsage(), 'text/csv;charset=utf-8'); }
+    catch (failure) { setExportError(failure instanceof Error && failure.message ? failure.message : '导出失败，请稍后重试。'); }
+    finally { setExporting(false); }
+  }
 
   useEffect(() => {
     let active = true;
@@ -107,7 +160,13 @@ export function UsageSettings() {
           </div>
           {usage.total.unknownRequests > 0
             ? <p className={styles.modelHint}>{usage.total.unknownRequests} 次请求结果未知，按最坏情况共占用 {yuan(usage.total.unknownMicrounits)} 额度，未计入上方已花费金额。</p> : null}
+          <UnknownRequests usage={usage} onChange={setUsage} />
           <p className={styles.modelHint}>累计 token：输入 {tokens(usage.total.inputTokens)}（其中缓存命中 {tokens(usage.total.cacheHitTokens)}），输出 {tokens(usage.total.outputTokens)}。</p>
+          {usage.archive.length > 0 ? <p className={styles.modelHint}>明细保留 90 天；更早的已折叠为月汇总（{usage.archive.map(row => `${row.month}：${yuan(row.spentMicrounits)} / ${row.requests} 次`).join('；')}），累计金额不变。</p> : null}
+          <div className={styles.modelActions}>
+            <Button size="compact" isDisabled={exporting} onPress={() => void exportCsv()}>{exporting ? '正在导出…' : '导出 CSV'}</Button>
+          </div>
+          {exportError ? <p role="alert" className={styles.modelError}>{exportError}</p> : null}
           {usage.recent.length === 0 ? <p className={styles.modelState}>还没有请求记录。</p> : <div className={styles.usageTableWrap}>
             <table className={styles.usageTable}>
               <caption>最近请求</caption>
