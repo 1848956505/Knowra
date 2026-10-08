@@ -8,6 +8,8 @@ export interface AssistantStatus {
   executionLocation: 'local' | 'server';
   generationAvailable: boolean;
   unavailableReason: string | null;
+  /** 价格档案超过复核日期时的提示：仍可使用，但显示的费用为估算。 */
+  priceNotice?: string | null;
   budget: { day: string; limitMicrounits: number | null; availableMicrounits: number | null;
     spentMicrounits: number; heldMicrounits: number } | null;
   capabilities: { readScopes: Array<'note' | 'folder'>; actions: Array<'answer' | 'cancel'>;

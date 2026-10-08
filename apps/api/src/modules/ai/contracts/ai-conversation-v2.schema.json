@@ -75,7 +75,7 @@
           "kind": { "const": "aiConversationToolCall" }, "callId": { "$ref": "#/$defs/id" },
           "conversationId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
           "ordinal": { "type": "integer", "minimum": 1 },
-          "toolName": { "enum": ["notes_search", "notes_read", "notes_create", "notes_append", "notes_propose_patch", "notes_propose_organize", "web_search", "annotations_list", "knowledge_propose"] },
+          "toolName": { "enum": ["notes_search", "notes_read", "notes_create", "notes_append", "notes_propose_patch", "notes_propose_organize", "web_search", "annotations_list", "knowledge_propose", "folders_list", "notes_list"] },
           "argumentsJson": { "type": "object" }, "resultJson": { "oneOf": [{ "type": "object" }, { "type": "null" }] },
           "provenanceManifestId": { "$ref": "#/$defs/nullableId" },
           "status": { "enum": ["requested", "succeeded", "failed"] },

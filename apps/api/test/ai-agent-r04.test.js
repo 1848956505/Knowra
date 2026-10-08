@@ -61,21 +61,22 @@ export const aiAgentR04Tests = [
     let deliveries = 0;
     const agent = worker({ capabilities: () => ({ provider: 'mock' }), async complete() {
       deliveries++;
-      return deliveries === 1 ? answer('', { answer: '无效回答', citations: [{ sourceId: 'S1', quote: '不存在的来源句子' }] })
+      // 回合内会先让模型修正一次引文，所以前两次都无效才会持久拒绝。
+      return deliveries <= 2 ? answer('', { answer: '无效回答', citations: [{ sourceId: 'S1', quote: '不存在的来源句子' }] })
         : answer('', { answer: '光合作用需要阳光。', citations: [] });
     } });
     await assert.rejects(agent.run(turn.turnId), { code: 'AI_CITATION_INVALID' });
     assert.equal((await data.aiConversationStore.listModelAttempts(turn.turnId))[0].responseRejectedCode, 'AI_CITATION_INVALID');
     await assert.rejects(agent.run(turn.turnId), { code: 'AI_RESPONSE_REJECTED' });
-    assert.equal(deliveries, 1);
+    assert.equal(deliveries, 2);
     const claimed = await data.aiConversationStore.claimTurn(turn.turnId, 60000, { mode: 'retry' });
     await data.aiConversationStore.failTurn(turn.turnId, claimed.leaseGeneration, 'AI_TASK_INTERRUPTED');
     await agent.run(turn.turnId);
-    assert.equal(deliveries, 2);
-    assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).checkpoint.nextRound, 1);
+    assert.equal(deliveries, 3);
+    assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).checkpoint.nextRound, 2);
     assert.equal((await data.aiConversationStore.getTurn(turn.turnId)).status, 'succeeded');
     const attempts = await data.aiConversationStore.listModelAttempts(turn.turnId);
-    assert.equal(attempts.length, 2);
+    assert.equal(attempts.length, 3);
     assert.equal(attempts[0].actualMicrounits, attempts[1].actualMicrounits);
   }) },
   { name: 'R04 v3 私有状态仅补逐次模型尝试空集合', async run() {
