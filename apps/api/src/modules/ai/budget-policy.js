@@ -46,16 +46,24 @@ export function createBudgetPolicy({ settings, balance = null, alerts = null, ba
     return { limits, paused };
   }
 
+  const pausedGuard = paused => {
+    if (paused.length) throw fail('AI_PAUSED_BY_USER', `AI 已按您的操作暂停至${paused.includes('monthly') ? '下月' : '明天'}，可在费用提醒处恢复。`);
+  };
+
   return {
     /** 一次付费调用前取快照：设置、价格档案、账本上限；余额下限不满足时抛错。 */
     async snapshot() {
       const current = await settings.get();
-      const { limits, paused } = await limitsFor(current);
-      if (paused.length) {
-        throw fail('AI_PAUSED_BY_USER', `AI 已按您的操作暂停至${paused.includes('monthly') ? '下月' : '明天'}，可在费用提醒处恢复。`);
-      }
+      // 余额检查可能联网等待较久：先等完，再读暂停/放行状态，这样等待期间用户点了暂停也能拦住这次调用。
       await assertBalance(current);
+      const { limits, paused } = await limitsFor(current);
+      pausedGuard(paused);
       return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits };
+    },
+    /** 发送前最后复核：不联网，只看暂停状态与状态文件是否完好。执行器在标记“已发送”之前调用。 */
+    async assertRunnable() {
+      const { paused } = await limitsFor(await settings.get());
+      pausedGuard(paused);
     },
     /** 只读视图，不联网：供状态接口使用。 */
     async view() {

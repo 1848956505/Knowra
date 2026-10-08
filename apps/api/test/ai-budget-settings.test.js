@@ -276,5 +276,31 @@ export const aiBudgetSettingsTests = [
     assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-08' } }).rules[0].blocked, false, '当日已放行');
     assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-07' } }).rules[0].blocked, true, '昨天的放行不算数');
     assert.equal(rulesOf(settings(), { ...full, spentMicrounits: 19_999_999 }).rules[0].blocked, false);
+  } },
+  { name: '等待余额刷新期间用户点了暂停：这次调用不能继续；发送前最后复核同样拦截', async run() {
+    const dir = temp();
+    try {
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      await settingsStore.set(settings({ balanceFloor: { mode: 'stop', limitMicrounits: 10_000_000 } }));
+      const alerts = createBudgetAlertStore({ filePath: path.join(dir, 'a.json') });
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      const stale = new Date('2026-10-08T01:00:00.000Z').toISOString();
+      const fresh = { checkedAt: '2026-10-08T05:00:00.000Z', latest: { at: '2026-10-08T05:00:00.000Z', isAvailable: true,
+        balances: [{ currency: 'CNY', totalMicrounits: 50_000_000, grantedMicrounits: 0, toppedUpMicrounits: 50_000_000 }] } };
+      const balance = { view: async () => ({ checkedAt: stale, latest: null }), refresh: async () => { await gate; return fresh; } };
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, balance, basePriceProfile: base, now: () => new Date('2026-10-08T05:00:00.000Z') });
+      const waiting = policy.snapshot(); // 余额过期，正在联网刷新
+      await new Promise(resolve => setTimeout(resolve, 10));
+      await alerts.pause('daily', '2026-10-08', '2026-10-08'); // 等待期间用户暂停
+      release();
+      await assert.rejects(waiting, { code: 'AI_PAUSED_BY_USER' }, '等待结束后必须重新读取暂停状态');
+      await alerts.resume('daily', '2026-10-08', '2026-10-08');
+      await policy.assertRunnable();
+      await alerts.pause('daily', '2026-10-08', '2026-10-08');
+      await assert.rejects(policy.assertRunnable(), { code: 'AI_PAUSED_BY_USER' });
+      fs.writeFileSync(path.join(dir, 'a.json'), '{bad');
+      await assert.rejects(policy.assertRunnable(), { code: 'AI_BUDGET_ALERTS_INVALID' });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } }
 ];

@@ -39,9 +39,18 @@ export function BudgetAlertBanner() {
   // 已被用户在本次会话中关闭的“已拦截”提示（刷新页面后会再次出现，因为拦截是持续的状态）。
   const [hiddenBlocked, setHiddenBlocked] = useState<string[]>([]);
   const notifying = useRef(new Set<string>());
+  // 影响“助手能否发起调用”的状态指纹：暂停、拦截、状态文件损坏任一变化（包括暂停到期、跨日恢复）都要让助手视图刷新。
+  const gateKey = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
-    try { setData(await assistantApi.alerts()); }
+    try {
+      const next = await assistantApi.alerts();
+      const key = JSON.stringify([next.pauses, next.rules.map(item => [item.rule, item.blocked]), next.overrides, Boolean(next.stateInvalid)]);
+      const changed = gateKey.current !== null && gateKey.current !== key;
+      gateKey.current = key;
+      setData(next);
+      if (changed) notifyAssistantStatusChanged();
+    }
     catch { /* 未启用 AI 或暂时读不到时不打扰用户。 */ }
   }, []);
 
@@ -74,7 +83,11 @@ export function BudgetAlertBanner() {
     setBusy(true); setError('');
     try {
       const next = await action();
-      if (next) setData(next); else await refresh();
+      if (next) {
+        // 操作结果就是新的基准，避免随后一次轮询把同一变化再通知一遍。
+        gateKey.current = JSON.stringify([next.pauses, next.rules.map(item => [item.rule, item.blocked]), next.overrides, Boolean(next.stateInvalid)]);
+        setData(next);
+      } else await refresh();
       if (statusChanged) notifyAssistantStatusChanged();
     }
     catch (failure) { setError(failure instanceof Error && failure.message ? failure.message : '操作失败，请重试。'); }

@@ -129,6 +129,24 @@ export const aiBudgetWorkerTests = [
       assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').spentMicrounits, 0);
     });
   } },
+  { name: '快照之后、发送之前用户暂停：Worker 不发送，并释放已预留的额度', async run() {
+    await withStore(async store => {
+      const records = aiRecords(store.aiRepository.identity());
+      for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
+        ['aiGrant', records.grant], ['aiJob', records.job]]) store.aiRepository.insert(kind, record);
+      let calls = 0, snapshots = 0;
+      const paused = Object.assign(new Error('AI 已暂停'), { code: 'AI_PAUSED_BY_USER' });
+      const policy = { snapshot: async () => { snapshots += 1; return { profile, limits: { daily: 20_000_000, monthly: null, turn: 2_000_000 } }; },
+        assertRunnable: async () => { throw paused; } }; // 快照通过之后用户点了暂停
+      const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority,
+        gateway: { capabilities: () => ({ provider: 'mock' }), async complete() { calls++; return {}; } },
+        priceProfile: profile, policy, now: at });
+      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_PAUSED_BY_USER' });
+      assert.equal(snapshots, 1);
+      assert.equal(calls, 0, '没有发送任何模型请求');
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits, 0, '预留已释放');
+    });
+  } },
   { name: '远端预算回执日期或账户不匹配时不读取密钥且释放预留', async run() {
     await withStore(async store => {
       const records = aiRecords(store.aiRepository.identity());

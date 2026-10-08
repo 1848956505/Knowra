@@ -194,6 +194,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       if (beijingDay(now()) !== day) fail('AI_BUDGET_DAY_CHANGED', '预算日期已切换。');
       if (manifest) await access.assertRequest({ grantId, manifestId: manifest.manifestId, request, recipient: 'deepseek' });
       quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent });
+      // 快照之后到真正发送之间用户可能点了暂停：在标记“已发送”前再复核一次（此时抛错会释放预留）。
+      if (policy) await policy.assertRunnable();
       await store.advanceModelAttempt(attemptId, 'sent', { generation });
       sent = true;
       authorizeAttempt(attemptId);
