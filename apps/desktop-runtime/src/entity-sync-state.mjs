@@ -1,3 +1,4 @@
+import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
 import { observeRemoteDeletionFacts, hasDeletionFact } from './sqlite-deletion-facts.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
@@ -249,8 +250,13 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
   return result;
 }
 
+function acknowledgeOutbox(db) {
+  db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
+  compactAcknowledgedOutbox(db);
+}
+
 function settle(db, state) {
-  if (!dirtyEntries(db, state, bases(db), readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).length && !readMeta(db, 'entityUpload')) db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run();
+  if (!dirtyEntries(db, state, bases(db), readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).length && !readMeta(db, 'entityUpload')) acknowledgeOutbox(db);
 }
 
 export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
@@ -346,7 +352,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   }
   eligible = deferBindings(reviewPlan.changes);
   if (!eligible.length) {
-    if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
+    if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => acknowledgeOutbox(db));
     return null;
   }
   const envelope = store.readSync(db => ({ protocolVersion: 2, ...syncContract(), datasetEpoch: readMeta(db, 'epoch'), deviceId: store.getStatus().deviceId,
@@ -382,7 +388,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
     measureBytes: entries => Buffer.byteLength(JSON.stringify(makeOperation(entries)))
   }) : [];
   if (!changes.length) {
-    if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => db.prepare("UPDATE sync_outbox SET state = 'acknowledged' WHERE state != 'acknowledged'").run());
+    if (!dirty.length && store.getStatus().pendingOperations) store.metadataTransaction(db => acknowledgeOutbox(db));
     return null;
   }
   return store.metadataTransaction(db => {

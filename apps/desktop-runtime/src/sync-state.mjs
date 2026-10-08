@@ -1,4 +1,5 @@
 import { observeRemoteDeletionFacts } from './sqlite-deletion-facts.mjs';
+import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
 import { randomUUID } from 'node:crypto';
 import { noteContent, syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS } from '../../api/src/infrastructure/local-data-schema.js';
@@ -47,6 +48,7 @@ function settleOutbox(db, state) {
     else if (notes.some(change => db.prepare('SELECT note_id FROM sync_uploads WHERE note_id = ?').get(change.entityId))) status = 'sending';
     db.prepare('UPDATE sync_outbox SET state = ? WHERE operation_id = ?').run(status, row.operation_id);
   }
+  compactAcknowledgedOutbox(db);
 }
 
 export function applyRemote(store, entries, cursor, epoch, { reset = false } = {}) {

@@ -1,3 +1,4 @@
+import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
 import {
   validateSqliteDeletionFacts, initializeDeletionFacts, assertNoDeletedEntities,
@@ -76,6 +77,15 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   } catch (error) { db.close(); throw error; }
   const readMeta = key => db.prepare('SELECT value FROM metadata WHERE key = ?').get(key)?.value;
   const deviceId = readMeta('deviceId');
+  try {
+    db.exec('BEGIN IMMEDIATE');
+    compactAcknowledgedOutbox(db);
+    db.exec('COMMIT');
+  } catch (error) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    db.close();
+    throw error;
+  }
   let aiRepository = null;
   let aiAccessStore = null;
   let aiConversationStore = null;
