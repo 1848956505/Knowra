@@ -50,6 +50,8 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
     if (policy) {
       try { plan = await policy.snapshot(); }
       catch (error) { release(); inFlight.delete(jobId); throw error; }
+      // 等待策略期间执行器可能已被关闭：不能再启动子进程。
+      if (closed) { release(); inFlight.delete(jobId); throw failure('AI_GENERATION_UNAVAILABLE', 'AI 功能已关闭。'); }
     }
     plans.set(jobId, plan);
     return new Promise((resolve, reject) => {
