@@ -39,7 +39,14 @@ export function validateActionState(value) {
       if (row.grant.autonomousOrigin !== undefined && row.grant.autonomousOrigin !== true) invalid();
       if (row.grant.policyId === null ? row.grant.policyRevision !== null || row.plan.toolName !== 'notes_create'
         : typeof row.grant.policyId !== 'string' || !row.grant.policyId || !Number.isSafeInteger(row.grant.policyRevision) || row.grant.policyRevision < 1) invalid();
-    } else if (['originGeneration', 'policyId', 'policyRevision', 'autonomousOrigin', 'sourceRefs'].some(key => key in row.grant)) invalid();
+    } else if (['originGeneration', 'policyId', 'policyRevision', 'autonomousOrigin', 'sourceRefs', 'catalogDeps'].some(key => key in row.grant)) invalid();
+    // 目录依赖：成果里可能含目录与笔记标题（空正文笔记、纯目录名也要覆盖），作为独立元数据贯穿采纳、续改与恢复。
+    if (row.grant.catalogDeps !== undefined) {
+      const deps = row.grant.catalogDeps;
+      const ids = (list, limit) => Array.isArray(list) && list.length <= limit && list.every(id => typeof id === 'string' && id && id.length <= 128);
+      if (!row.grant.originTurnId || !deps || typeof deps !== 'object' || Object.keys(deps).some(key => !['noteIds', 'folderIds'].includes(key))
+        || !ids(deps.noteIds, 200) || !ids(deps.folderIds, 100)) invalid();
+    }
     if (row.grant.sourceRefs !== undefined && (!row.grant.originTurnId || !Array.isArray(row.grant.sourceRefs) || row.grant.sourceRefs.length > 128
       || row.grant.sourceRefs.some(ref => !ref || typeof ref.noteId !== 'string' || !ref.noteId || typeof ref.noteVersionId !== 'string' || !ref.noteVersionId
         || !/^[a-f0-9]{64}$/.test(ref.contentHash) || !/^[a-f0-9]{64}$/.test(ref.quoteHash)

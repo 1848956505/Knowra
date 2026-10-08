@@ -287,6 +287,168 @@ export const aiAccessV2Tests = [
     await assert.rejects(service.verifyRead({ grantId: grant.grantId, noteId: 'private-note' }),
       { code: 'AI_SCOPE_FORBIDDEN' });
   }) },
+  { name: 'AI v2 目录工具：目录授权只暴露授权目录子树，上级、兄弟目录与不存在目录同样不可见', run: () => withContext(async ({ service, folderRepository, addNote }) => {
+    for (const [id, parentId, name] of [['f-parent', null, '上级秘密目录'], ['f-root', 'f-parent', '深度学习'], ['f-child', 'f-root', '卷积'], ['f-side', 'f-parent', '兄弟私房目录']]) {
+      folderRepository.save({ id, spaceId: 'space-1', parentId, name, deletedAt: null });
+    }
+    addNote('n-root', 'a', 'space-1', 'f-root'); addNote('n-child', 'b', 'space-1', 'f-child');
+    addNote('n-side', 'c', 'space-1', 'f-side'); addNote('n-parent', 'd', 'space-1', 'f-parent');
+    const policy = await service.createPolicy(policyInput({ kind: 'folder', folderId: 'f-root' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-folder' });
+    const call = (toolName, args) => service.listCatalog({ grantId: grant.grantId, toolName, args });
+    assert.deepEqual(await call('folders_list', {}), { spec: { kind: 'folders', parentId: null, offset: 0, limit: 30 }, total: 1, returned: 1 });
+    for (const parentId of ['f-parent', 'f-side', 'f-missing']) {
+      await assert.rejects(call('folders_list', { parentId }), { code: 'AI_SCOPE_FORBIDDEN', message: '目录不存在或不在授权范围内。' });
+      await assert.rejects(call('notes_list', { folderId: parentId }), { code: 'AI_SCOPE_FORBIDDEN', message: '目录不存在或不在授权范围内。' });
+    }
+    assert.equal((await call('folders_list', { parentId: 'f-root' })).returned, 1);
+    assert.equal((await call('notes_list', { folderId: 'f-root' })).total, 1);
+    assert.equal((await call('notes_list', { folderId: 'f-root', recursive: true })).total, 2);
+    assert.equal((await call('notes_list', {})).total, 2);
+    assert.equal((await call('notes_list', { titleQuery: 'N-CHILD' })).total, 1);
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'folders', parentId: null, offset: 0, limit: 30 }, { kind: 'notes', folderId: 'f-root', titleQuery: null, recursive: true, offset: 0, limit: 20 }] });
+    const payload = prepared.request.messages.at(-1).content;
+    assert.match(payload, /深度学习/); assert.match(payload, /n-child/);
+    for (const hidden of ['上级秘密目录', '兄弟私房目录', 'n-side', 'n-parent']) assert.equal(payload.includes(hidden), false);
+    assert.equal(prepared.manifest.catalog.length, 2);
+  }) },
+  { name: 'AI v2 目录工具：库授权不列私密与排除笔记，固定笔记授权只给扁平目录', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A 目录', deletedAt: null });
+    folderRepository.save({ id: 'f-b', spaceId: 'space-1', parentId: 'f-a', name: 'B 子目录', deletedAt: null });
+    folderRepository.save({ id: 'f-gone', spaceId: 'space-1', parentId: null, name: '已删除目录', deletedAt: instant.toISOString() });
+    addNote('open', 'x', 'space-1', 'f-a'); addNote('secret', 'y', 'space-1', 'f-a'); addNote('skip', 'z', 'space-1', 'f-b');
+    noteRepository.save({ ...noteRepository.findById('secret'), title: '绝密标题', aiVisibility: 'private' });
+    const library = await service.createPolicy({ ...policyInput({ kind: 'library' }), excludedNoteIds: ['skip'] });
+    const libGrant = await service.createRunGrant({ policyId: library.policyId, conversationId: 'catalog-lib' });
+    const lib = (toolName, args) => service.listCatalog({ grantId: libGrant.grantId, toolName, args });
+    assert.equal((await lib('folders_list', {})).total, 1);
+    assert.equal((await lib('folders_list', { parentId: 'f-a' })).total, 1);
+    await assert.rejects(lib('folders_list', { parentId: 'f-gone' }), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal((await lib('notes_list', { recursive: true })).total, 1);
+    const prepared = await service.prepareRequest({ ...requestInput(libGrant.grantId), assistantTools: true,
+      catalog: [{ kind: 'notes', folderId: null, titleQuery: null, recursive: false, offset: 0, limit: 20 }] });
+    assert.equal(prepared.request.messages.at(-1).content.includes('绝密标题'), false);
+    const fixed = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['skip'] }));
+    const fixedGrant = await service.createRunGrant({ policyId: fixed.policyId, conversationId: 'catalog-fixed' });
+    const fx = (toolName, args) => service.listCatalog({ grantId: fixedGrant.grantId, toolName, args });
+    assert.equal((await fx('folders_list', {})).total, 1);
+    await assert.rejects(fx('folders_list', { parentId: 'f-a' }), { code: 'AI_SCOPE_FORBIDDEN' });
+    await assert.rejects(fx('notes_list', { folderId: 'f-a' }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: 'AI v2 目录工具：清单记录目录结果摘要，发送前标题变化、撤销或参数越界均被拒绝', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A', deletedAt: null });
+    addNote('n1', 'x', 'space-1', 'f-a');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-stale' });
+    for (const [toolName, args] of [['notes_list', { limit: 21 }], ['folders_list', { limit: 31 }], ['notes_list', { offset: -1 }],
+      ['notes_list', { titleQuery: ' ' }], ['notes_list', { extra: 1 }], ['folders_list', { parentId: 7 }]]) {
+      await assert.rejects(service.listCatalog({ grantId: grant.grantId, toolName, args }), { code: 'AI_TOOL_ARGUMENTS_INVALID' });
+    }
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'notes', folderId: null, titleQuery: null, recursive: false, offset: 0, limit: 20 }] });
+    assert.match(prepared.manifest.catalog[0].resultHash, /^[a-f0-9]{64}$/);
+    await service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' });
+    noteRepository.save({ ...noteRepository.findById('n1'), title: '改名后' });
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' }),
+      { code: 'AI_SOURCE_STALE' });
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: Array.from({ length: 4 }, () => ({ kind: 'notes', folderId: null, titleQuery: null, recursive: false, offset: 0, limit: 20 })) }), { code: 'AI_CONTEXT_INVALID' });
+  }) },
+  { name: 'AI v2 目录工具：只含目录标题的旧回答进入历史时按当前授权复核，失效的整条排除并记录；准备后切私密发送前拦截；依赖经转述回答继承', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A', deletedAt: null });
+    addNote('listed', 'x', 'space-1', 'f-a'); addNote('other', 'y', 'space-1', null);
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-history' });
+    const answerOf = (manifest, content) => { const entry = { role: 'assistant', content, sourceRefs: [], sourceFree: true, provenanceManifestId: manifest.manifestId };
+      entry.provenanceHash = hashRecord(entry); return entry; };
+    const first = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'notes', folderId: 'f-a', titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 }] });
+    const a = answerOf(first.manifest, '该目录下有 listed。');
+    // 有效时进入历史，并把依赖继承到新清单（historyCatalog）。
+    const second = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, history: [a] });
+    assert(second.request.messages.some(message => message.content === '该目录下有 listed。'));
+    assert.deepEqual(second.manifest.historyCatalog.noteIds, ['listed']);
+    // 转述：第二个回答没有再列目录，但依赖已继承；原回答退出历史窗口后依赖链仍在。
+    const b = answerOf(second.manifest, '刚才提到的笔记是 listed。');
+    const third = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, history: [b] });
+    assert.deepEqual(third.manifest.historyCatalog.noteIds, ['listed']);
+    // 准备完成后切私密：发送前的清单复核拦截（依赖在清单里，不只在准备时检查）。
+    noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'private' });
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: third.manifest.manifestId, request: third.request, recipient: 'deepseek' }),
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    // 之后的请求：含失效依赖的旧回答（包括只转述的）整条排除，不外发，并记录原因。
+    const after = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, history: [a, b] });
+    assert.equal(JSON.stringify(after.request.messages).includes('listed'), false);
+    assert(after.manifest.omissions.includes('history_catalog_revoked'));
+    assert.equal(after.manifest.historyCatalog, undefined);
+    // 换成只授权另一篇笔记的策略：同样排除。
+    noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'normal' });
+    const fixed = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['other'] }));
+    const fixedGrant = await service.createRunGrant({ policyId: fixed.policyId, conversationId: 'catalog-history-fixed' });
+    const viaFixed = await service.prepareRequest({ ...requestInput(fixedGrant.grantId), assistantTools: true, history: [a] });
+    assert.equal(JSON.stringify(viaFixed.request.messages).includes('listed'), false);
+    // 恢复场景：原清单的目录依赖失效时，catalogDependencies 拒绝；仍有效时返回依赖供继承。
+    assert.deepEqual((await service.catalogDependencies({ grantId: grant.grantId, manifestId: first.manifest.manifestId })).noteIds, ['listed']);
+    noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'private' });
+    await assert.rejects(service.catalogDependencies({ grantId: grant.grantId, manifestId: first.manifest.manifestId }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: 'AI v2 目录工具：固定笔记授权下 folders_list 给出的目录 ID 可传给 notes_list，只含授权笔记', run: () => withContext(async ({ service, folderRepository, addNote }) => {
+    folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A', deletedAt: null });
+    folderRepository.save({ id: 'f-b', spaceId: 'space-1', parentId: null, name: 'B', deletedAt: null });
+    addNote('pick', 'x', 'space-1', 'f-a'); addNote('not-picked', 'y', 'space-1', 'f-a'); addNote('elsewhere', 'z', 'space-1', 'f-b');
+    const fixed = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['pick'] }));
+    const grant = await service.createRunGrant({ policyId: fixed.policyId, conversationId: 'catalog-fixed-chain' });
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'folders', parentId: null, offset: 0, limit: 30 }] });
+    const folderId = JSON.parse(prepared.request.messages.at(-1).content).catalog[0].folders[0].folderId;
+    assert.equal(folderId, 'f-a');
+    const listed = await service.listCatalog({ grantId: grant.grantId, toolName: 'notes_list', args: { folderId } });
+    assert.equal(listed.total, 1);
+    await assert.rejects(service.listCatalog({ grantId: grant.grantId, toolName: 'notes_list', args: { folderId: 'f-b' } }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: 'AI v2 目录工具：目录重建与多目录结果之间切私密，发送前最终屏障仍拦截（来源正文与标题都不外发）', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    for (const id of ['f-a', 'f-b']) folderRepository.save({ id, spaceId: 'space-1', parentId: null, name: id, deletedAt: null });
+    addNote('src', '来源正文', 'space-1', 'f-a'); addNote('t-a', 'x', 'space-1', 'f-a'); addNote('t-b', 'y', 'space-1', 'f-b');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-barrier' });
+    const specOf = folderId => ({ kind: 'notes', folderId, titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 });
+    const priv = id => noteRepository.save({ ...noteRepository.findById(id), aiVisibility: 'private' });
+    // 发送前复核：来源 src 在目录重建的异步读取期间切私密（目录里没有它，哈希不变），必须被最后的屏障拦住。
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId, [{ noteId: 'src', start: 0, end: 4 }]),
+      assistantTools: true, catalog: [specOf('f-b')] });
+    const originalList = noteRepository.list.bind(noteRepository);
+    let armed = true;
+    noteRepository.list = (...args) => { const rows = originalList(...args); if (armed) { armed = false; priv('src'); } return rows; };
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId,
+      request: prepared.request, recipient: 'deepseek' }), { code: 'AI_SCOPE_FORBIDDEN' });
+    noteRepository.list = originalList;
+    noteRepository.save({ ...noteRepository.findById('src'), aiVisibility: 'normal' });
+    // 准备请求：第二个目录结果读取期间，第一个目录结果里的笔记切私密，标题不得进入请求。
+    let calls = 0;
+    noteRepository.list = (...args) => { const rows = originalList(...args); if (++calls === 2) priv('t-a'); return rows; };
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [specOf('f-a'), specOf('f-b')] }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: 'AI v2 目录工具：最终快照同时验证私密与授权范围，目录重建期间笔记被移出授权目录仍被拦截', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    for (const id of ['f-a', 'f-b']) folderRepository.save({ id, spaceId: 'space-1', parentId: null, name: id, deletedAt: null });
+    addNote('moved', 'x', 'space-1', 'f-a');
+    const policy = await service.createPolicy(policyInput({ kind: 'folder', folderId: 'f-a' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-snapshot' });
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'notes', folderId: 'f-a', titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 }] });
+    await service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' });
+    // 重建期间的最后一次批量读取之前，把笔记移到授权目录之外：目录项仍可读、同空间，只有范围判断能发现。
+    const original = noteRepository.findByIds.bind(noteRepository);
+    let calls = 0;
+    noteRepository.findByIds = async ids => {
+      if (++calls === 2) noteRepository.save({ ...noteRepository.findById('moved'), folderId: 'f-b' });
+      return original(ids);
+    };
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId, request: prepared.request, recipient: 'deepseek' }),
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    assert(calls >= 2);
+  }) },
   { name: 'AI v2 HTTP 设置入口仅接受受信操作和服务端 owner，错误不回显资料', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-v2-http-'));
     const appContext = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });

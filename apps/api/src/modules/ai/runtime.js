@@ -26,7 +26,8 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
     authorizePaidCall: authorizePaidCall ?? (request => activeAttempts.delete(request.budgetAttemptId))
   });
   const readContext = repository && contextSources ? createAiReadContextService({ repository, ...contextSources }) : null;
-  const access = accessStore && contextSources ? createAiAccessService({ store: accessStore, ...contextSources }) : null;
+  const access = accessStore && contextSources ? createAiAccessService({ store: accessStore, ...contextSources,
+    annotationRepository: knowledge?.repositories?.contentAnnotationRepository ?? null }) : null;
   const actionService = actionStore && coreOperationStore && knowledge ? createNoteActionService({ store: actionStore, core: coreOperationStore, knowledge,
     ownerId: contextSources.ownerId, conversationStore, accessStore, access, asyncDomain }) : null;
   const actions = actionService && maintenanceGate ? wrapHandlersWithMaintenanceGate(actionService, maintenanceGate, { getAccess: () => 'read' }) : actionService;
