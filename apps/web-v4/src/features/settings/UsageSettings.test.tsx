@@ -1,5 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { UsageSettings } from './UsageSettings';
+import { notifyCredentialChanged } from './credentialEvents';
+import { ApiRequestError } from '@study-accelerator/web-core';
 import { assistantApi, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
 
 vi.mock('../assistant/assistantApi', () => ({ assistantApi: { usage: vi.fn(), balance: vi.fn(), refreshBalance: vi.fn() } }));
@@ -56,4 +58,45 @@ it('读取余额后显示余额与推算消耗，并提示这是推算值；失�
   expect(await screen.findByText('¥188.50')).toBeInTheDocument();
   expect(screen.getByText(/推算消耗 ¥11\.50（共 4 个快照/)).toBeInTheDocument();
   expect(screen.getByText('可调用')).toBeInTheDocument();
+});
+
+const accountA = { location: 'local' as const, checkedAt: '2026-10-08T03:00:00.000Z',
+  latest: { at: '2026-10-08T03:00:00.000Z', isAvailable: true,
+    balances: [{ currency: 'CNY' as const, totalMicrounits: 100_000_000, grantedMicrounits: 0, toppedUpMicrounits: 100_000_000 }] },
+  inferred: [{ currency: 'CNY' as const, sinceAt: '2026-10-01T00:00:00.000Z', snapshots: 3, consumedMicrounits: 5_000_000, addedMicrounits: 0, currentMicrounits: 100_000_000 }] };
+const empty = { location: 'local' as const, checkedAt: null, latest: null, inferred: [] };
+
+it('更换 Key 后清空旧账户的余额与推算，重新读取服务端按新凭据过滤的快照', async () => {
+  vi.mocked(assistantApi.usage).mockResolvedValue(usage);
+  vi.mocked(assistantApi.balance).mockResolvedValueOnce(accountA).mockResolvedValue(empty);
+  render(<UsageSettings />);
+  expect(await screen.findByText('¥100.00')).toBeInTheDocument();
+  expect(screen.getByText(/推算消耗 ¥5\.00/)).toBeInTheDocument();
+  act(() => notifyCredentialChanged());
+  await waitFor(() => expect(screen.queryByText('¥100.00')).not.toBeInTheDocument());
+  expect(await screen.findByText('尚未读取余额。')).toBeInTheDocument();
+  expect(screen.queryByText(/自 .* 起推算消耗/)).not.toBeInTheDocument();
+});
+
+it('更换 Key 前发出的读取结果被丢弃，不会把旧账户余额显示成当前余额', async () => {
+  vi.mocked(assistantApi.usage).mockResolvedValue(usage);
+  let resolveRefresh!: (value: typeof accountA) => void;
+  vi.mocked(assistantApi.refreshBalance).mockReturnValue(new Promise(resolve => { resolveRefresh = resolve; }));
+  render(<UsageSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '读取余额' }));
+  act(() => notifyCredentialChanged()); // 请求在途时换了 Key
+  await act(async () => { resolveRefresh(accountA); });
+  expect(screen.queryByText('¥100.00')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '读取余额' })).toBeEnabled();
+});
+
+it('收到凭据已变更的错误时清除已显示的旧余额并给出原因', async () => {
+  vi.mocked(assistantApi.usage).mockResolvedValue(usage);
+  vi.mocked(assistantApi.balance).mockResolvedValueOnce(accountA).mockResolvedValue(empty);
+  vi.mocked(assistantApi.refreshBalance).mockRejectedValue(new ApiRequestError('账户凭据在读取期间已变更，已丢弃过期的余额响应，请重新读取。', { status: 409, code: 'AI_BALANCE_STALE' }));
+  render(<UsageSettings />);
+  expect(await screen.findByText('¥100.00')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '读取余额' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('已丢弃过期的余额响应');
+  await waitFor(() => expect(screen.queryByText('¥100.00')).not.toBeInTheDocument());
 });
