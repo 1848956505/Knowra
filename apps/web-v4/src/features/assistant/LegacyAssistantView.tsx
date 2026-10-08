@@ -210,6 +210,7 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
           {status?.budget ? <span>北京时间 {status.budget.day} · {status.budget.availableMicrounits === null ? '未设每日上限' : `可用 ${yuan(status.budget.availableMicrounits)} 元`}
             {status.budget.heldMicrounits > 0 ? ` · 待核对预留 ${yuan(status.budget.heldMicrounits)} 元` : ''}
             {status.budget.spentMicrounits > 0 ? ` · 已结算 ${yuan(status.budget.spentMicrounits)} 元` : ''}</span> : null}
+          {status?.priceNotice ? <span>{status.priceNotice}</span> : null}
           {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
           {!status && error ? <Button variant="ghost" size="compact" onPress={() => void reloadStatus()}>重试读取状态</Button> : null}
         </div>
