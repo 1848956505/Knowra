@@ -47,7 +47,7 @@ export async function handleAssistantRoute({ request, response, url, assistant }
       const status = ['AI_JOB_NOT_FOUND'].includes(error.code) ? 404
         : error.code === 'AI_PRIVATE_STORAGE_UNAVAILABLE' ? 503
         : ['AI_GENERATION_UNAVAILABLE', 'AI_PREVIEW_EXPIRED', 'AI_APPROVAL_STALE', 'AI_CREDENTIAL_STALE',
-          'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED'].includes(error.code) ? 409 : ['AI_BUDGET_UNAVAILABLE', 'AI_BALANCE_UNSUPPORTED'].includes(error.code) ? 503 : error.code === 'AI_BALANCE_UNAVAILABLE' ? 502 : error.code === 'AI_BALANCE_STORAGE_INVALID' ? 500 : 422;
+          'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED', 'AI_BALANCE_STALE'].includes(error.code) ? 409 : ['AI_BUDGET_UNAVAILABLE', 'AI_BALANCE_UNSUPPORTED'].includes(error.code) ? 503 : error.code === 'AI_BALANCE_UNAVAILABLE' ? 502 : error.code === 'AI_BALANCE_STORAGE_INVALID' ? 500 : 422;
       throw createAppError(error.code, error.message, status);
     }
     throw error;

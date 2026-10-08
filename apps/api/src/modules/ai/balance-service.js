@@ -129,6 +129,10 @@ export function createBalanceService({ credentialReference, resolveCredential, f
       const snapshots = all.filter(item => item.credentialRef === ref);
       const { apiKey } = await resolveCredential(reference.credentialRef);
       const live = await fetchDeepSeekBalance({ apiKey, fetchImpl });
+      // 读取期间若已更换 Key，这份响应属于旧账户：丢弃，不保存也不展示，请用户重新读取。
+      if ((await credentialReference())?.credentialRef !== ref) {
+        throw failure('AI_BALANCE_STALE', '账户凭据在读取期间已变更，已丢弃过期的余额响应，请重新读取。');
+      }
       const at = now();
       const entry = { at: at.toISOString(), credentialRef: ref, ...live };
       const last = snapshots.at(-1);

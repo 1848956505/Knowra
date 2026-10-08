@@ -353,5 +353,23 @@ export const aiBudgetWorkerTests = [
       assert.equal(await worker.recover(), 0);
       assert.equal(store.aiRepository.get('aiJob', stale.job.jobId).status, 'running');
     });
+  } },
+  { name: '读取用量汇总时清洗已有明细：token 被写成字符串、负数或超限时按未记录处理，不产生 NaN 或字符串拼接', run() {
+    const state = { budgetDays: [], budgetReservations: [] };
+    const account = 'deepseek-primary';
+    for (const n of [1, 2]) {
+      reserveBudget(state, { accountRef: account, jobId: `job-${n}`, attemptId: `a-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000, day: '2026-10-08' });
+      settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition: 'settled', actualMicrounits: 1000, usage: { inputTokens: 10, outputTokens: 1 } });
+    }
+    // 模拟账本里已存在的损坏明细（旧版本或手工改动）：仍是对象，所以通过账本校验。
+    state.budgetReservations[0].usage = { inputTokens: '10', outputTokens: -3, cacheHitTokens: { x: 1 }, modelId: 42, conversationId: ['a'] };
+    state.budgetReservations[1].usage = { inputTokens: 5, outputTokens: 2, cacheHitTokens: 99 };
+    validateBudgetState(state);
+    const summary = usageSummary(state, account, '2026-10-08');
+    assert.deepEqual([summary.total.inputTokens, summary.total.outputTokens, summary.total.cacheHitTokens], [5, 2, 0]);
+    for (const value of Object.values(summary.total)) assert.equal(typeof value, 'number');
+    const bad = summary.recent.find(row => row.attemptId === 'a-1');
+    assert.deepEqual([bad.inputTokens, bad.outputTokens, bad.cacheHitTokens, bad.modelId, bad.conversationId], [null, null, null, null, null]);
+    assert.equal(summary.recent.find(row => row.attemptId === 'a-2').cacheHitTokens, null, '命中数超过输入数时视为未记录');
   } }
 ];
