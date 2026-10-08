@@ -6,30 +6,25 @@ export const JOB_LIMIT_MICROUNITS = 2_000_000;
 function fail(code, message) { const error = new Error(message); error.code = code; throw error; }
 function amount(value) { return Number.isSafeInteger(value) && value >= 0; }
 function day(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
-const tokenCount = value => value === null || amount(value);
-const ID_PATTERN = /^[a-zA-Z0-9_.:-]{1,128}$/;
+const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
+// 模型名与会话 ID 只做长度和控制字符检查：会话 ID 可能含中文等字符（如“会话/已导入”），不能因此拒绝结算。
+const label = value => typeof value === 'string' && value.length >= 1 && value.length <= 128 && !/[\u0000-\u001f\u007f]/.test(value) ? value : null;
 
-/** 用量明细只含模型名、token 数和所属对话 ID，不含任何对话内容；旧账本没有该字段，视为未记录。 */
+/**
+ * 用量明细只含模型名、token 数和所属对话 ID，不含任何对话内容；旧账本没有该字段，视为未记录。
+ * 明细只用于展示，所以这里只清洗、不拒绝：付费调用已经发生，明细异常绝不能让结算失败而继续占用预算。
+ */
 export function normalizeUsage(usage) {
-  if (usage === undefined || usage === null) return null;
-  const { modelId = null, inputTokens = null, outputTokens = null, cacheHitTokens = null, conversationId = null } = usage;
-  if (typeof usage !== 'object' || Array.isArray(usage)
-    || Object.keys(usage).some(key => !['modelId', 'inputTokens', 'outputTokens', 'cacheHitTokens', 'conversationId'].includes(key))
-    || modelId !== null && !(typeof modelId === 'string' && ID_PATTERN.test(modelId))
-    || conversationId !== null && !(typeof conversationId === 'string' && ID_PATTERN.test(conversationId))
-    || ![inputTokens, outputTokens, cacheHitTokens].every(tokenCount)
-    || cacheHitTokens !== null && inputTokens !== null && cacheHitTokens > inputTokens) {
-    fail('AI_BUDGET_SETTLEMENT_INVALID', '用量明细无效。');
-  }
-  return { modelId, inputTokens, outputTokens, cacheHitTokens, conversationId };
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return null;
+  const inputTokens = count(usage.inputTokens);
+  const cacheHitTokens = count(usage.cacheHitTokens);
+  return { modelId: label(usage.modelId), inputTokens, outputTokens: count(usage.outputTokens),
+    cacheHitTokens: cacheHitTokens !== null && inputTokens !== null && cacheHitTokens > inputTokens ? null : cacheHitTokens,
+    conversationId: label(usage.conversationId) };
 }
 
 export function beijingDay(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-}
-
-function validUsage(usage) {
-  try { normalizeUsage(usage); return true; } catch { return false; }
 }
 
 export function validateBudgetState(state) {
@@ -49,7 +44,7 @@ export function validateBudgetState(state) {
       || !amount(row.reservedMicrounits) || !['held', 'settled', 'unknown', 'released'].includes(row.status)
       || row.status === 'settled' && (!amount(row.actualMicrounits) || row.actualMicrounits > row.reservedMicrounits)
       || row.status !== 'settled' && row.actualMicrounits !== null
-      || row.usage !== undefined && row.usage !== null && !validUsage(row.usage)
+      || row.usage !== undefined && row.usage !== null && (typeof row.usage !== 'object' || Array.isArray(row.usage))
       || !keys.has(`${row.accountRef}:${row.day}`)
       || attempts.has(`${row.accountRef}:${row.attemptId}`) || reservationIds.has(row.reservationId)) {
       fail('AI_BUDGET_INVALID', '预算预留记录无效。');

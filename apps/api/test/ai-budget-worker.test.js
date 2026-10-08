@@ -51,9 +51,12 @@ export const aiBudgetWorkerTests = [
     assert.deepEqual(Object.keys(summary.recent[2]).sort(), ['at', 'attemptId', 'cacheHitTokens', 'conversationId', 'costMicrounits', 'day',
       'inputTokens', 'modelId', 'outputTokens', 'priceVersion', 'status']);
     assert.equal(summary.recent.find(row => row.attemptId === 'a-2').modelId, null, '未带明细的结算仍计入汇总');
-    assert.throws(() => settleBudget(state, { accountRef: account, attemptId: 'a-5', disposition: 'released', usage: { inputTokens: -1 } }), { code: 'AI_BUDGET_SETTLEMENT_INVALID' });
-    assert.throws(() => settleBudget(state, { accountRef: account, attemptId: 'a-5', disposition: 'released', usage: { content: '对话内容' } }), { code: 'AI_BUDGET_SETTLEMENT_INVALID' });
-    assert.throws(() => validateBudgetState({ ...structuredClone(state), budgetReservations: state.budgetReservations.map(row => ({ ...row, usage: { inputTokens: 'x' } })) }), { code: 'AI_BUDGET_INVALID' });
+    // 用量明细只清洗不拒绝：异常明细不能让结算失败；多余字段（如对话内容）被丢弃；会话 ID 可含中文。
+    const odd = settleBudget(state, { accountRef: account, attemptId: 'a-5', disposition: 'released',
+      usage: { inputTokens: -1, outputTokens: 7, content: '对话内容', conversationId: '会话/已导入', modelId: 'x'.repeat(200) } });
+    assert.deepEqual(odd.usage, { modelId: null, inputTokens: null, outputTokens: 7, cacheHitTokens: null, conversationId: '会话/已导入' });
+    assert.equal(JSON.stringify(odd).includes('对话内容'), false);
+    assert.throws(() => validateBudgetState({ ...structuredClone(state), budgetReservations: state.budgetReservations.map(row => ({ ...row, usage: 'x' })) }), { code: 'AI_BUDGET_INVALID' });
   } },
   { name: '预算预留覆盖完整外发体，工具定义过大与已确认 payload 变化均拒绝', async run() {
     const plain = quoteWorstCase({ request, priceProfile: profile, now: at() });

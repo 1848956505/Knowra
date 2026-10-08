@@ -73,6 +73,15 @@ export const aiAssistantHttpTests = [
         context.ai.balance = null;
         assert.equal((await fetch(`${origin}/api/ai/assistant/balance`)).status, 503);
         context.ai.balance = { view: async () => ({ latest: null, checkedAt: null, inferred: [] }),
+          refresh: async () => { throw Object.assign(new Error('无法连接 DeepSeek，请检查网络后重试。'), { code: 'AI_BALANCE_UNAVAILABLE' }); } };
+        const offline = await call(origin, '/balance/refresh', {});
+        assert.equal(offline.status, 502, '网络故障不应冒充“不支持”的 503');
+        assert.equal(offline.payload.error.code, 'AI_BALANCE_UNAVAILABLE');
+        assert.match(offline.payload.error.message, /无法连接 DeepSeek/);
+        context.ai.balance = null;
+        const unsupported = await call(origin, '/balance/refresh', {});
+        assert.equal(unsupported.payload.error.code, 'AI_BALANCE_UNSUPPORTED');
+        context.ai.balance = { view: async () => ({ latest: null, checkedAt: null, inferred: [] }),
           refresh: async () => { throw Object.assign(new Error('DeepSeek 拒绝了 API Key，无法读取余额。'), { code: 'AI_BALANCE_REJECTED' }); } };
         const refused = await call(origin, '/balance/refresh', {});
         assert.equal(refused.status, 422);
