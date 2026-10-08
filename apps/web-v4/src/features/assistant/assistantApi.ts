@@ -31,6 +31,17 @@ export interface AssistantUsage {
   today: UsageTotals; month: UsageTotals; total: UsageTotals; recent: UsageRecord[];
 }
 
+export interface BalanceRow {
+  currency: 'CNY' | 'USD'; totalMicrounits: number; grantedMicrounits: number; toppedUpMicrounits: number;
+}
+
+export interface AssistantBalance {
+  location: 'local' | 'server'; checkedAt: string | null; saved?: boolean;
+  latest: { at: string; isAvailable: boolean; balances: BalanceRow[] } | null;
+  inferred: Array<{ currency: 'CNY' | 'USD'; sinceAt: string; snapshots: number; consumedMicrounits: number;
+    addedMicrounits: number; currentMicrounits: number }>;
+}
+
 export interface AssistantSource {
   sourceId: string;
   noteId: string;
@@ -75,6 +86,9 @@ const data = async <T>(url: string, options?: Parameters<typeof apiClient.reques
 
 export const assistantApi = {
   usage: () => data<AssistantUsage>('/api/ai/assistant/usage'),
+  balance: () => data<AssistantBalance>('/api/ai/assistant/balance'),
+  refreshBalance: () => data<AssistantBalance>('/api/ai/assistant/balance/refresh', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1' } }),
   status: () => data<AssistantStatus>(`${root}/status`),
   list: (spaceId: string) => data<AssistantJob[]>(`${root}/jobs?spaceId=${encodeURIComponent(spaceId)}`),
   get: (jobId: string) => data<AssistantJob>(`${root}/jobs/${encodeURIComponent(jobId)}`),

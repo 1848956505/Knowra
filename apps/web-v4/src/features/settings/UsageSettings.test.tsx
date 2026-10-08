@@ -2,9 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { UsageSettings } from './UsageSettings';
 import { assistantApi, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
 
-vi.mock('../assistant/assistantApi', () => ({ assistantApi: { usage: vi.fn() } }));
+vi.mock('../assistant/assistantApi', () => ({ assistantApi: { usage: vi.fn(), balance: vi.fn(), refreshBalance: vi.fn() } }));
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(assistantApi.balance).mockResolvedValue({ location: 'local', checkedAt: null, latest: null, inferred: [] });
+});
 
 const totals = (over: Partial<UsageTotals> = {}): UsageTotals => ({ requests: 0, spentMicrounits: 0, unknownRequests: 0,
   unknownMicrounits: 0, inputTokens: 0, outputTokens: 0, cacheHitTokens: 0, ...over });
@@ -32,4 +35,23 @@ it('读取失败时给出重试，不显示为零用量', async () => {
   expect(screen.queryByText('¥0.00')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '重试读取' }));
   await waitFor(() => expect(screen.getByText('¥0.80')).toBeInTheDocument());
+});
+
+it('读取余额后显示余额与推算消耗，并提示这是推算值；失败时给出原因', async () => {
+  vi.mocked(assistantApi.usage).mockResolvedValue(usage);
+  vi.mocked(assistantApi.balance).mockResolvedValue({ location: 'local', checkedAt: null, latest: null, inferred: [] });
+  vi.mocked(assistantApi.refreshBalance)
+    .mockRejectedValueOnce(new Error('DeepSeek 拒绝了 API Key，无法读取余额。'))
+    .mockResolvedValueOnce({ location: 'local', checkedAt: '2026-10-08T03:00:00.000Z',
+      latest: { at: '2026-10-08T03:00:00.000Z', isAvailable: true,
+        balances: [{ currency: 'CNY', totalMicrounits: 188_500_000, grantedMicrounits: 8_500_000, toppedUpMicrounits: 180_000_000 }] },
+      inferred: [{ currency: 'CNY', sinceAt: '2026-10-01T00:00:00.000Z', snapshots: 4, consumedMicrounits: 11_500_000, addedMicrounits: 100_000_000, currentMicrounits: 188_500_000 }] });
+  render(<UsageSettings />);
+  expect(await screen.findByText('尚未读取余额。')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '读取余额' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('DeepSeek 拒绝了 API Key');
+  fireEvent.click(screen.getByRole('button', { name: '读取余额' }));
+  expect(await screen.findByText('¥188.50')).toBeInTheDocument();
+  expect(screen.getByText(/推算消耗 ¥11\.50（共 4 个快照/)).toBeInTheDocument();
+  expect(screen.getByText('可调用')).toBeInTheDocument();
 });

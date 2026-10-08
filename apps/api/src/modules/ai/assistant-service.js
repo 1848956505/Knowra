@@ -98,6 +98,13 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     catch (error) { fail('AI_BUDGET_UNAVAILABLE', location === 'local' ? '本机预算账本不可用。' : '云端预算服务不可用。', error); }
   }
 
+  /** 账户余额：refresh=false 只读已保存的快照；true 才联网读取。读取失败不影响任何 AI 调用。 */
+  async function balance({ refresh = false } = {}) {
+    const service = runtime()?.balance;
+    if (!service) fail('AI_BALANCE_UNAVAILABLE', '当前运行端未提供余额读取。');
+    return { ...(await (refresh ? service.refresh() : service.view())), location };
+  }
+
   async function assertJob(jobId) {
     const ai = runtime();
     const current = await identity();
@@ -203,5 +210,5 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return view(await runtime().worker.cancel(jobId), true);
   }
 
-  return { status, usage, list, get, preview, start, cancel };
+  return { status, usage, balance, list, get, preview, start, cancel };
 }

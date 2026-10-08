@@ -26,6 +26,7 @@
 .usageCell span { color: var(--ink-secondary); font-size: 12px; }
 .usageCell strong { color: var(--ink); font: 750 18px/1.4 var(--font-mono); }
 .usageCell small { color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
+.usageBalance { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ink-panel); }
 .usageTableWrap { margin-top: 16px; overflow-x: auto; }
 .usageTable { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.6; }
 .usageTable caption { padding-bottom: 8px; color: var(--ink); font-weight: 650; text-align: left; }

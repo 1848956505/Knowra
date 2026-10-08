@@ -154,7 +154,7 @@ export async function createPostgresAppContext({
   const aiAccessStore = createPostgresAiAccessStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId });
   const aiConversationStore = createPostgresAiConversationStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId });
   const ai = createOptionalAiRuntime({ modelSettings, repository: aiRepository, accessStore: aiAccessStore,
-    uploadsDir,
+    uploadsDir, balanceFile: path.join(storageRootDir, 'ai-balance.json'),
     conversationStore: aiConversationStore, actionStore: createPostgresActionStore({ client: db, repository: aiRepository, ownerId: normalizedOwnerId }),
     coreOperationStore: createPostgresCoreOperationStore({ client: db, ownerId: normalizedOwnerId }), knowledge: { ...knowledge, repositories }, asyncDomain: true, maintenanceGate, budgetAuthority: aiBudget,
     priceProfile: reviewedDeepSeekPriceProfile, allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0',

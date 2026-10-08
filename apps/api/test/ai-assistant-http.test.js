@@ -26,6 +26,32 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '用量与余额接口：用量只读汇总；余额读取需助手请求头，未启用时 503，失败不影响用量', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-usage-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      await withServer(context, async origin => {
+        const usage = await (await fetch(`${origin}/api/ai/assistant/usage`)).json();
+        assert.equal(usage.data.location, 'server');
+        assert.equal(usage.data.total.requests, 0);
+        assert.deepEqual(usage.data.recent, []);
+        const cached = await (await fetch(`${origin}/api/ai/assistant/balance`)).json();
+        assert.deepEqual(cached.data.inferred, []);
+        assert.equal(cached.data.latest, null);
+        const rejected = await call(origin, '/balance/refresh', {}, '0');
+        assert.equal(rejected.status, 403);
+        context.ai.balance = null;
+        assert.equal((await fetch(`${origin}/api/ai/assistant/balance`)).status, 503);
+        context.ai.balance = { view: async () => ({ latest: null, checkedAt: null, inferred: [] }),
+          refresh: async () => { throw Object.assign(new Error('DeepSeek 拒绝了 API Key，无法读取余额。'), { code: 'AI_BALANCE_REJECTED' }); } };
+        const refused = await call(origin, '/balance/refresh', {});
+        assert.equal(refused.status, 422);
+        assert.equal(refused.payload.error.code, 'AI_BALANCE_REJECTED');
+        assert.equal((await fetch(`${origin}/api/ai/assistant/usage`)).status, 200);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '未核价模型与预算故障阻止真实生成、价格过期仅提示并返回具体能力状态', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-readiness-'));
     try {

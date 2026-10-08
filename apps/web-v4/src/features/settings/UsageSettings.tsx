@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
-import { assistantApi, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
+import { ApiRequestError } from '@study-accelerator/web-core';
+import { assistantApi, type AssistantBalance, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
 import styles from './SettingsView.module.css';
 
 const yuan = (microunits: number) => `¥${(microunits / 1_000_000).toFixed(microunits > 0 && microunits < 10_000 ? 4 : 2)}`;
@@ -12,6 +13,61 @@ function Summary({ label, totals }: { label: string; totals: UsageTotals }) {
     <span>{label}</span>
     <strong>{yuan(totals.spentMicrounits)}</strong>
     <small>{totals.requests} 次请求{totals.unknownRequests > 0 ? `，其中 ${totals.unknownRequests} 次结果未知` : ''}</small>
+  </div>;
+}
+
+const symbol = (currency: string) => currency === 'USD' ? '$' : '¥';
+const money = (currency: string, microunits: number) => `${symbol(currency)}${(microunits / 1_000_000).toFixed(2)}`;
+const day = (iso: string) => new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+function BalanceBlock() {
+  const [balance, setBalance] = useState<AssistantBalance | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function refresh() {
+    setBusy(true); setError('');
+    try { setBalance(await assistantApi.refreshBalance()); }
+    catch (failure) {
+      setError(failure instanceof ApiRequestError && failure.status === 503 ? '当前运行端不支持读取账户余额。'
+        : failure instanceof Error && failure.message ? failure.message : '读取余额失败，请稍后重试。');
+    } finally { setBusy(false); }
+  }
+  useEffect(() => {
+    let active = true;
+    assistantApi.balance().then(value => { if (active) setBalance(value); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  return <div className={styles.usageBalance}>
+    <div className={styles.settingCopy}>
+      <h4>DeepSeek 账户余额</h4>
+      <p>点击读取时才会联网，请求只带 API Key，不包含任何笔记或对话。DeepSeek 不提供累计消费接口，下方“推算消耗”由余额的变化推算。</p>
+    </div>
+    <div className={styles.modelActions}>
+      <Button size="compact" isDisabled={busy} onPress={() => void refresh()}>{busy ? '正在读取…' : '读取余额'}</Button>
+    </div>
+    {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
+    {balance?.saved === false ? <p className={styles.modelHint}>本次余额未能保存为快照，推算可能不完整。</p> : null}
+    {balance?.latest ? <>
+      <div className={styles.usageSummary}>
+        {balance.latest.balances.map(row => <div key={row.currency} className={styles.usageCell}>
+          <span>当前余额（{row.currency}）</span>
+          <strong>{money(row.currency, row.totalMicrounits)}</strong>
+          <small>充值 {money(row.currency, row.toppedUpMicrounits)}，赠送 {money(row.currency, row.grantedMicrounits)}</small>
+        </div>)}
+        <div className={styles.usageCell}>
+          <span>账户状态</span>
+          <strong>{balance.latest.isAvailable ? '可调用' : '余额不足'}</strong>
+          <small>读取于 {time(balance.latest.at)}</small>
+        </div>
+      </div>
+      {balance.inferred.map(row => <p key={row.currency} className={styles.modelHint}>
+        {row.snapshots < 2
+          ? `${row.currency}：余额快照不足两次，暂无法推算消耗；之后每次读取都会增加一个快照。`
+          : `${row.currency}：自 ${day(row.sinceAt)} 起推算消耗 ${money(row.currency, row.consumedMicrounits)}（共 ${row.snapshots} 个快照，余额增加 ${money(row.currency, row.addedMicrounits)} 视为充值）。这是由余额变化推算的，同一 Key 在别处的用量也会计入，两次读取之间同时充值会使消耗偏低。`}
+      </p>)}
+    </> : <p className={styles.modelState}>尚未读取余额。</p>}
   </div>;
 }
 
@@ -65,6 +121,7 @@ export function UsageSettings() {
             </table>
           </div>}
         </> : null}
+        <BalanceBlock />
       </div>
     </div>
   </section>;
