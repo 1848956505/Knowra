@@ -101,3 +101,19 @@ test('桌面运行端：没有连接任何云端也能使用预算，账本在�
   t.after(() => runtime.close());
   assert.equal((await captured.budgetAuthority.status(ACCOUNT)).heldMicrounits, 1_500_000);
 });
+
+test('用量明细随结算落盘，新实例可查询汇总', async t => {
+  const filePath = path.join(temporaryDirectory(t), 'ai-budget.json');
+  const first = createLocalBudgetAuthority({ filePath });
+  await reserve(first, 1, 1_000_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 250_000,
+    usage: { modelId: 'deepseek-flash', inputTokens: 500, outputTokens: 40, cacheHitTokens: 100, conversationId: 'conv-1' } });
+  const summary = await createLocalBudgetAuthority({ filePath }).usage(ACCOUNT);
+  assert.equal(summary.total.spentMicrounits, 250_000);
+  assert.equal(summary.total.cacheHitTokens, 100);
+  assert.equal(summary.recent[0].conversationId, 'conv-1');
+  assert.equal(await code(first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 250_000, usage: { bogus: 1 } })), 'ok', '同参数重复结算幂等；多余的明细字段被忽略');
+  await reserve(first, 2, 1_000_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 1, usage: { conversationId: '会话/已导入', inputTokens: 'x' } });
+  assert.equal((await first.usage(ACCOUNT)).recent[0].conversationId, '会话/已导入', '含中文的会话 ID 照常结算并记录');
+});

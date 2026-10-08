@@ -11,13 +11,14 @@ import { createAiConversationService } from './conversation-service.js';
 import { createAiAgentWorker } from './agent-worker.js';
 import { createAgentKnowledgeCommitService } from './agent-knowledge-commit.js';
 import { createConversationAttachmentService } from './conversation-attachments.js';
+import { createBalanceService } from './balance-service.js';
 
 /** 生成入口由 AI-01-04 的预算服务注入 authorizePaidCall 后才可启用。 */
 export function createAiRuntime({ modelSettings, repository = null, accessStore = null, conversationStore = null, budgetAuthority = null, priceProfile = null,
   actionStore = null, coreOperationStore = null, knowledge = null, asyncDomain = false, maintenanceGate = null,
   authorizePaidCall, fetchImpl, allowExternal = false, contextSources = null,
   verifySources = null, knowledgeProposals = false, validateResult = null, providerAdapter = null, retrievalCandidates = null, webSearchAdapter = null,
-  uploadsDir = null } = {}) {
+  uploadsDir = null, balanceFile = null } = {}) {
   if (!modelSettings || typeof modelSettings.resolveCredential !== 'function') throw new TypeError('Model settings service is required');
   const activeAttempts = new Set();
   const gateway = createAiGateway({
@@ -75,13 +76,17 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
         authorizeAttempt: id => activeAttempts.add(id), revokeAttempt: id => activeAttempts.delete(id) })
       : createIsolatedAiWorker({ repository, budget: budgetAuthority, gateway, modelSettings,
         readContext, priceProfile, allowExternal })) : null,
+    // 账户余额读取与快照；只在显式提供快照文件路径的运行端启用。
+    balance: balanceFile && typeof modelSettings.credentialReference === 'function'
+      ? createBalanceService({ credentialReference: () => modelSettings.credentialReference(),
+        resolveCredential: reference => modelSettings.resolveCredential(reference), filePath: balanceFile, fetchImpl }) : null,
     credentialReference: () => modelSettings.credentialReference()
   };
 }
 
 export function createUnavailableAiRuntime(reason = 'AI 功能当前不可用。') {
   return { actions: null, attachments: null, unavailableReason: reason, generationAvailable: () => false,
-    credentialReference: async () => null, repository: null, budgetAuthority: null,
+    credentialReference: async () => null, repository: null, budgetAuthority: null, balance: null,
     readContext: null, accessStore: null, access: null, knowledgeCommit: null, conversationStore: null, conversation: null,
     agent: null, worker: null, gateway: null, priceProfile: null };
 }

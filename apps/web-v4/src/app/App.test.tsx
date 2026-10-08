@@ -280,7 +280,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(screen.queryByText('个人偏好')).not.toBeInTheDocument();
     expect(screen.queryByText('分类 / CATEGORIES')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '全部设置' })).not.toBeInTheDocument();
-    expect(screen.getByText('显示 6 / 6 项设置')).toBeInTheDocument();
+    expect(screen.getByText('显示 7 / 7 项设置')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '大（19 像素）' }));
     expect(document.documentElement.style.getPropertyValue('--note-font-size')).toBe('19px');
     fireEvent.click(screen.getByRole('checkbox', { name: '减少界面动效' }));
@@ -290,7 +290,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(localStorage.getItem('knowra:notes-sidebar-open')).toBe('false');
     fireEvent.click(within(screen.getByRole('navigation', { name: '设置分类' })).getByRole('button', { name: /辅助体验/ }));
     expect(screen.queryByRole('heading', { name: '笔记正文字号' })).not.toBeInTheDocument();
-    expect(screen.getByText('显示 1 / 6 项设置')).toBeInTheDocument();
+    expect(screen.getByText('显示 1 / 7 项设置')).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
 

@@ -3,6 +3,7 @@ import { ApiRequestError } from '@study-accelerator/web-core';
 import { Button } from '../../components/ui/button/Button';
 import { TextField } from '../../components/ui/input/Input';
 import { modelSettings, type ModelSettingsStatus } from './modelSettings';
+import { notifyCredentialChanged } from './credentialEvents';
 import styles from './SettingsView.module.css';
 
 export function ModelConnectionSettings() {
@@ -37,6 +38,7 @@ export function ModelConnectionSettings() {
         ? await modelSettings.save({ modelId, apiKey })
         : action === 'check' ? await modelSettings.check() : await modelSettings.remove();
       setStatus(next);
+      if (action === 'save' || action === 'remove') notifyCredentialChanged();
       setModelId(next.modelId);
       setApiKey('');
       setNotice(action === 'save' ? '配置已保存。请使用“检查连接”确认密钥及模型可见。'
