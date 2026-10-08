@@ -62,6 +62,18 @@ export const aiAssistantHttpTests = [
         const after = await get('/status');
         assert.equal(after.budget.limitMicrounits, null);
         assert.equal(after.budget.availableMicrounits, null);
+        // 暂停：状态立即不可用且不改预算设置；恢复后可用
+        const settingsBefore = JSON.stringify(await get('/budget-settings'));
+        const paused = await call(origin, '/alerts/pause', { rule: 'daily' });
+        assert.equal(paused.payload.data.pauses[0].rule, 'daily');
+        assert.deepEqual(paused.payload.data.overrides, [], '暂停取消同周期的放行');
+        const pausedStatus = await get('/status');
+        assert.equal(pausedStatus.generationAvailable, false);
+        assert.match(pausedStatus.unavailableReason, /暂停至明天/);
+        assert.equal(JSON.stringify(await get('/budget-settings')), settingsBefore);
+        assert.equal((await call(origin, '/alerts/pause', { rule: 'turn' })).status, 422);
+        const resumed = await call(origin, '/alerts/resume', { rule: 'daily' });
+        assert.deepEqual(resumed.payload.data.pauses, []);
       });
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },

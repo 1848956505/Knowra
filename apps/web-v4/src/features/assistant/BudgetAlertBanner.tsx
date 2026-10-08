@@ -69,19 +69,23 @@ export function BudgetAlertBanner() {
     finally { setBusy(false); }
   }
   const dismiss = (ids: string[]) => run(() => assistantApi.markAlerts(ids, 'dismissed'));
-  async function pause(item: BudgetAlert, ids: string[]) {
-    await run(async () => {
-      const settings = await assistantApi.budgetSettings();
-      // 以当前已用额作为上限：本周期内不再发起新的付费请求，周期结束后自动恢复。
-      await assistantApi.saveBudgetSettings({ rules: { ...settings.rules, [item.rule]: { mode: 'stop', limitMicrounits: Math.max(item.usedMicrounits, 1) } },
-        price: settings.price, alerts: settings.alerts });
-      return assistantApi.markAlerts(ids, 'dismissed');
-    });
-  }
+  // 暂停只记录“本周期暂停”，不改写预算设置；周期结束自动恢复，也可随时提前恢复。
+  const pause = (item: BudgetAlert, ids: string[]) => run(async () => {
+    await assistantApi.pauseRule(item.rule);
+    return assistantApi.markAlerts(ids, 'dismissed');
+  });
 
-  const items = data ? visible(data) : [];
-  if (!items.length) return null;
+  const items = data ? visible(data).filter(({ top }) => !data.pauses.some(item => item.rule === top.rule)) : [];
+  const pauses = data?.pauses ?? [];
+  if (!items.length && !pauses.length) return null;
   return <div className={styles.stack} role="region" aria-label="AI 费用提醒">
+    {pauses.map(item => <div key={`pause:${item.rule}`} className={`${styles.banner} ${styles.blocked}`} role="status">
+      <p>AI 已暂停至{item.rule === 'daily' ? '明天' : '下月'}<span>（按您的操作暂停，周期结束自动恢复）</span></p>
+      <div className={styles.actions}>
+        <Button size="compact" variant="primary" isDisabled={busy} onPress={() => void run(() => assistantApi.resumeRule(item.rule))}>立即恢复</Button>
+      </div>
+      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+    </div>)}
     {items.map(({ top, ids, allowed }) => {
       const blocked = top.threshold >= 100 && top.mode === 'stop' && !allowed;
       const name = RULE_LABEL[top.rule];

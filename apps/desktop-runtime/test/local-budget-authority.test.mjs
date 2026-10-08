@@ -4,6 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { createLocalBudgetAuthority } from '../src/local-budget-authority.mjs';
 import { startLocalRuntime } from '../src/runtime-server.mjs';
+import { createOptionalAiRuntime } from '../../api/src/modules/ai/runtime.js';
 import { temporaryDirectory } from './helpers.mjs';
 
 const ACCOUNT = 'deepseek-primary';
@@ -94,6 +95,9 @@ test('桌面运行端：没有连接任何云端也能使用预算，账本在�
   let runtime = await start();
   assert.equal(runtime.store.getStatus().datasetId.length > 0, true);
   assert.equal((await captured.budgetAuthority.status(ACCOUNT)).availableMicrounits, 20_000_000, '未配置云端，状态正常');
+  // 余额快照、预算设置、提醒状态都要真正传给 AI 运行实例，并与预算账本同在数据目录根。
+  assert.deepEqual([captured.balanceFile, captured.budgetSettingsFile, captured.budgetAlertsFile],
+    ['ai-balance.json', 'ai-budget-settings.json', 'ai-budget-alerts.json'].map(name => path.join(dataDirectory, name)));
   await reserve(captured.budgetAuthority, 1, 1_500_000);
   assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-budget.json')), true);
   await runtime.close();
@@ -116,4 +120,44 @@ test('用量明细随结算落盘，新实例可查询汇总', async t => {
   await reserve(first, 2, 1_000_000);
   await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 1, usage: { conversationId: '会话/已导入', inputTokens: 'x' } });
   assert.equal((await first.usage(ACCOUNT)).recent[0].conversationId, '会话/已导入', '含中文的会话 ID 照常结算并记录');
+});
+
+test('桌面运行端用真实 AI 运行实例：用量、余额、预算设置、提醒接口都可用（不再返回 503）', async t => {
+  const root = temporaryDirectory(t), distRoot = path.join(root, 'dist'), dataDirectory = path.join(root, 'data');
+  fs.mkdirSync(distRoot); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head></html>');
+  const runtime = await startLocalRuntime({ dataDirectory, distRoot, syncOptions: { autoSync: false }, logger: { warn() {}, error() {} },
+    aiRuntimeFactory: options => createOptionalAiRuntime({ ...options, allowExternal: false }) });
+  t.after(() => runtime.close());
+  const cookie = (await fetch(runtime.launchUrl, { redirect: 'manual' })).headers.get('set-cookie').split(';')[0];
+  const call = async (route, body) => {
+    const response = await fetch(`${runtime.origin}/api/ai/assistant${route}`, { method: body === undefined ? 'GET' : 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', 'X-Knowra-Dataset': runtime.store.getStatus().datasetId, 'X-Knowra-AI-Assistant': '1' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    return { status: response.status, ...(await response.json()) };
+  };
+  assert.equal((await call('/usage')).status, 200);
+  const settings = await call('/budget-settings');
+  assert.equal(settings.status, 200);
+  assert.equal(settings.data.rules.daily.limitMicrounits, 20_000_000);
+  assert.equal(settings.data.location, 'local');
+  const saved = await call('/budget-settings', { rules: { ...settings.data.rules, monthly: { mode: 'warn', limitMicrounits: 50_000_000 } }, price: null, alerts: { thresholds: [60, 100] } });
+  assert.equal(saved.status, 200, JSON.stringify(saved));
+  assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-budget-settings.json')), true, '设置落在数据目录根');
+  const alerts = await call('/alerts');
+  assert.equal(alerts.status, 200);
+  assert.deepEqual(alerts.data.alerts, []);
+  assert.equal((await call('/balance')).status, 200);
+  assert.equal((await call('/alerts/allow', { rule: 'daily' })).status, 200);
+  // Mac 本地路由白名单也必须放行这些写操作（此前返回 LOCAL_FEATURE_UNAVAILABLE）。
+  assert.equal((await call('/alerts/mark', { ids: ['daily:2026-10-08:80'], kind: 'dismissed' })).status, 200);
+  const paused = await call('/alerts/pause', { rule: 'daily' });
+  assert.equal(paused.status, 200);
+  assert.equal(paused.data.pauses[0].rule, 'daily');
+  assert.equal((await call('/status')).data.generationAvailable, false);
+  assert.equal((await call('/alerts/resume', { rule: 'daily' })).status, 200);
+  const refresh = await call('/balance/refresh', {});
+  assert.notEqual(refresh.error?.code, 'LOCAL_FEATURE_UNAVAILABLE', '余额读取未被本地路由白名单拦截（未配置密钥时应报未配置）');
+  const resolve = await call('/usage/resolve', { attemptId: 'nope', disposition: 'released' });
+  assert.notEqual(resolve.error?.code, 'LOCAL_FEATURE_UNAVAILABLE');
+  assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-budget-alerts.json')), true, '提醒状态落在数据目录根');
 });
