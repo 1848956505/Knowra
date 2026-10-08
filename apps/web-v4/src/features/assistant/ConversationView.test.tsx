@@ -240,6 +240,21 @@ it('初次会话快照也不能覆盖加载期间用户新选择的授权', asyn
   await waitFor(() => expect(conversationApi.send).toHaveBeenCalledWith('conversation-1', expect.objectContaining({ requestedPolicyId: 'policy-2' })));
 });
 
+it('价格档案超过复核日期时，状态面板在预算金额旁提示费用为估算，生成仍可用', async () => {
+  vi.mocked(assistantApi.status).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash',
+    configured: true, executionLocation: 'server', generationAvailable: true, unavailableReason: null,
+    priceNotice: '价格档案已超过复核日期，显示的费用为估算，可能与实际账单有差异。',
+    budget: { day: '2026-10-10', limitMicrounits: 20_000_000, availableMicrounits: 19_000_000, heldMicrounits: 0, spentMicrounits: 1_000_000 },
+    capabilities: { readScopes: ['note', 'folder'], actions: ['answer', 'cancel'], responseMode: 'polling',
+      writeTools: false, providerAdvertised: null, providerVerified: false } });
+  render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  const statusButton = await screen.findByRole('button', { name: /服务器执行/ });
+  expect(screen.getByRole('textbox', { name: '消息' })).toBeEnabled();
+  fireEvent.click(statusButton);
+  expect(await screen.findByText('今日可用 19.00 元')).toBeInTheDocument();
+  expect(screen.getByText('价格档案已超过复核日期，显示的费用为估算，可能与实际账单有差异。')).toBeInTheDocument();
+});
+
 it('没有笔记选择时可直接创建普通聊天，发送请求不带读取授权', async () => {
   vi.mocked(conversationApi.create).mockImplementation(async (_space, id) => ({ ...conversation, conversationId: id }));
   vi.mocked(conversationApi.send).mockResolvedValue({ ...succeeded, status: 'running', phase: 'generating' });
