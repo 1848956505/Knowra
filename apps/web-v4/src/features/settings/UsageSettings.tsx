@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
 import { assistantApi, type AssistantBalance, type AssistantUsage, type UsageTotals } from '../assistant/assistantApi';
+import { CREDENTIAL_CHANGED_EVENT } from './credentialEvents';
 import styles from './SettingsView.module.css';
 
 const yuan = (microunits: number) => `¥${(microunits / 1_000_000).toFixed(microunits > 0 && microunits < 10_000 ? 4 : 2)}`;
@@ -23,20 +24,35 @@ function BalanceBlock() {
   const [balance, setBalance] = useState<AssistantBalance | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // 账户代际：更换 Key 后加一，更早发出的读取结果一律丢弃，不能把旧账户的余额显示成当前余额。
+  const epoch = useRef(0);
+
+  /** 只读已保存的快照（服务端按当前凭据过滤，换账户后为空）。 */
+  const loadCached = useCallback(() => {
+    const mine = epoch.current;
+    assistantApi.balance().then(value => { if (mine === epoch.current) setBalance(value); })
+      .catch(() => { if (mine === epoch.current) setBalance(null); });
+  }, []);
 
   async function refresh() {
+    const mine = epoch.current;
     setBusy(true); setError('');
-    try { setBalance(await assistantApi.refreshBalance()); }
-    catch (failure) {
+    try {
+      const value = await assistantApi.refreshBalance();
+      if (mine === epoch.current) setBalance(value);
+    } catch (failure) {
+      if (mine !== epoch.current) return;
+      if ((failure as { code?: string | null })?.code === 'AI_BALANCE_STALE') { setBalance(null); loadCached(); }
       // 如实显示服务端给出的原因（不支持、网络故障、限流、密钥被拒等），不统一解释成“不支持”。
       setError(failure instanceof Error && failure.message ? failure.message : '读取余额失败，请稍后重试。');
-    } finally { setBusy(false); }
+    } finally { if (mine === epoch.current) setBusy(false); }
   }
   useEffect(() => {
-    let active = true;
-    assistantApi.balance().then(value => { if (active) setBalance(value); }).catch(() => undefined);
-    return () => { active = false; };
-  }, []);
+    loadCached();
+    const onCredentialChanged = () => { epoch.current += 1; setBalance(null); setError(''); setBusy(false); loadCached(); };
+    window.addEventListener(CREDENTIAL_CHANGED_EVENT, onCredentialChanged);
+    return () => { epoch.current += 1; window.removeEventListener(CREDENTIAL_CHANGED_EVENT, onCredentialChanged); };
+  }, [loadCached]);
 
   return <div className={styles.usageBalance}>
     <div className={styles.settingCopy}>

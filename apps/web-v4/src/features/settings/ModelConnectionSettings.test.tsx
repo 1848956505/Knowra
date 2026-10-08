@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ApiRequestError } from '@study-accelerator/web-core';
 import { ModelConnectionSettings } from './ModelConnectionSettings';
 import { modelSettings } from './modelSettings';
+import { CREDENTIAL_CHANGED_EVENT } from './credentialEvents';
 
 vi.mock('./modelSettings', () => ({ modelSettings: {
   status: vi.fn(), save: vi.fn(), check: vi.fn(), remove: vi.fn()
@@ -39,4 +40,25 @@ it('状态接口 404 时结束加载并允许保留已输入的密钥重试', as
   expect(await screen.findByText('尚未配置')).toBeInTheDocument();
   expect(screen.getByLabelText('API Key')).toHaveValue('test-secret');
   expect(screen.getByRole('button', { name: '保存配置' })).toBeEnabled();
+});
+
+it('保存或移除配置后通知依赖账户的展示，检查连接不触发', async () => {
+  vi.mocked(modelSettings.status).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash', configured: true });
+  vi.mocked(modelSettings.save).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash', configured: true });
+  vi.mocked(modelSettings.check).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash', configured: true, connected: true, modelAvailable: true });
+  vi.mocked(modelSettings.remove).mockResolvedValue({ provider: 'deepseek', modelId: 'deepseek-flash', configured: false });
+  const changed = vi.fn();
+  window.addEventListener(CREDENTIAL_CHANGED_EVENT, changed);
+  try {
+    render(<ModelConnectionSettings />);
+    await screen.findByText(/已配置/);
+    fireEvent.click(screen.getByRole('button', { name: '检查连接' }));
+    await screen.findByText(/连接成功/);
+    expect(changed).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('API Key'), { target: { value: 'test-secret-b' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存配置' }));
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: '移除配置' }));
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(2));
+  } finally { window.removeEventListener(CREDENTIAL_CHANGED_EVENT, changed); }
 });
