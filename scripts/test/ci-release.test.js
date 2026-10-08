@@ -29,6 +29,11 @@ test('CI 发布包切换后保留运行数据和旧页面资源', { skip: !suppo
     assert.match(readFileSync(fixture.calls, 'utf8'), /pm2 start .*\.deploy-releases\/candidate\/deploy\/ecosystem\.config\.cjs --update-env/);
     assert.equal(readFileSync(fixture.pm2State, 'utf8'), release);
     assert.match(readFileSync(fixture.calls, 'utf8'), /git merge --ff-only /);
+    const checks = readFileSync(fixture.calls, 'utf8').split('\n').filter(line => line.startsWith('attachment-check '))
+      .map(line => JSON.parse(line.slice('attachment-check '.length)));
+    assert.equal(checks.length, 2);
+    assert.deepEqual(checks.map(check => check.cwd), [fixture.root, fixture.stage]);
+    assert(checks.every(check => check.script === path.join(fixture.stage, 'scripts/check-attachments.mjs') && check.args.includes('--attachments-only')));
   } finally {
     fixture.cleanup();
   }
@@ -101,7 +106,9 @@ function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) 
     mkdirSync(path.join(directory, 'scripts'), { recursive: true });
     mkdirSync(path.join(directory, 'deploy'), { recursive: true });
     mkdirSync(path.join(directory, 'apps', 'api', 'src'), { recursive: true });
-    writeFileSync(path.join(directory, 'scripts', 'check-attachments.mjs'), 'console.log("ready")\n');
+    writeFileSync(path.join(directory, 'scripts', 'check-attachments.mjs'), directory === root
+      ? 'throw new Error("旧检查器不支持轻量参数")\n'
+      : 'import fs from "node:fs"; fs.appendFileSync(process.env.CI_RELEASE_TEST_CALLS, "attachment-check " + JSON.stringify({script:process.argv[1],cwd:process.cwd(),args:process.argv.slice(2)}) + "\\n"); console.log("ready")\n');
     writeFileSync(path.join(directory, 'deploy', 'ecosystem.config.cjs'), 'module.exports = {}\n');
     writeFileSync(path.join(directory, 'apps', 'api', 'src', 'main.js'), '');
     writeFileSync(path.join(directory, 'apps', 'web-v4', 'server.mjs'), '');

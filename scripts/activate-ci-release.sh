@@ -119,14 +119,15 @@ tar -C "$root" -czf "$backup_dir/storage.tar.gz" storage/data storage/uploads
 echo '校验当前服务器附件...'
 (
   cd "$root"
-  node scripts/check-attachments.mjs --driver local-json --report "$backup_dir/attachments-before.json" >/dev/null
+  # 首次发布也使用候选包的轻量检查器；旧运行版本可能还没有这个参数。
+  node "$stage/scripts/check-attachments.mjs" --driver local-json --attachments-only --report "$backup_dir/attachments-before.json" >/dev/null
 )
 
 ln -s "$root/storage" "$stage/storage"
 echo '校验新版本读取当前服务器附件...'
 (
   cd "$stage"
-  node scripts/check-attachments.mjs --driver local-json --report "$backup_dir/attachments-candidate.json" >/dev/null
+  node scripts/check-attachments.mjs --driver local-json --attachments-only --report "$backup_dir/attachments-candidate.json" >/dev/null
 )
 mv -- "$stage" "$release_dir"
 

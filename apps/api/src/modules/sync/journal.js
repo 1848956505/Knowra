@@ -99,7 +99,7 @@ export function appendChanges(journal, before, after) {
         journal.tombstones ??= {};
         journal.tombstones[key] = { collection, id, revision, eventId: randomUUID(), deletedAt: new Date().toISOString(), previousUpdatedAt: old.get(id)?.updatedAt ?? null, spaceId: old.get(id)?.spaceId ?? null };
       }
-      items.push({ collection, id, revision, value: structuredClone(value) });
+      items.push({ collection, id, revision, value: cloneJsonData(value) });
     }
   }
   if (items.length) journal.changes.push({ sequence: ++journal.head, items });

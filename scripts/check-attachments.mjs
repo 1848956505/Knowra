@@ -7,10 +7,9 @@ import {
 } from '../apps/api/src/infrastructure/attachment-integrity.js';
 import { createLocalAttachmentFileManager } from '../apps/api/src/infrastructure/local-attachment-file-manager.js';
 import { createFileDataStore } from '../apps/api/src/infrastructure/file-data-store.js';
-import {
-  loadJsonMigrationSource
-} from '../apps/api/src/infrastructure/migration/json-to-postgres.js';
 import { validatePersistedLocalState } from '../apps/api/src/infrastructure/local-data-schema.js';
+import { readJsonFileSync } from '../apps/api/src/infrastructure/json-file-reader.js';
+import { readAttachmentInspectionSource } from '../apps/api/src/infrastructure/attachment-inspection-source.js';
 
 const options = parseArgs(process.argv.slice(2));
 
@@ -24,7 +23,7 @@ try {
   process.exitCode = 1;
 }
 
-async function run({ driver, sourcePath, storageRootDir, reportPath, repair }) {
+async function run({ driver, sourcePath, storageRootDir, reportPath, repair, attachmentsOnly }) {
   const generatedAt = new Date().toISOString();
   const fileManager = createLocalAttachmentFileManager({
     uploadsDir: resolvePath(process.env.STORAGE_UPLOADS_DIR || 'storage/uploads', storageRootDir),
@@ -36,6 +35,8 @@ async function run({ driver, sourcePath, storageRootDir, reportPath, repair }) {
     storageRootDir,
     reportPath: reportPath ?? null,
     repair,
+    attachmentsOnly,
+    validationScope: attachmentsOnly ? 'attachment-integrity' : 'complete-library',
     generatedAt
   };
 
@@ -45,9 +46,11 @@ async function run({ driver, sourcePath, storageRootDir, reportPath, repair }) {
   return runPostgresInspection({ ...context, fileManager });
 }
 
-function runLocalInspection({ sourcePath, fileManager, generatedAt, repair, ...context }) {
-  const source = loadJsonMigrationSource(sourcePath);
-  const state = validatePersistedLocalState(source.parsed?.data ?? source.parsed);
+function runLocalInspection({ sourcePath, fileManager, generatedAt, repair, attachmentsOnly, ...context }) {
+  const absolutePath = path.resolve(sourcePath);
+  const parsed = attachmentsOnly ? null : readJsonFileSync(absolutePath);
+  const state = attachmentsOnly ? readAttachmentInspectionSource(absolutePath)
+    : validatePersistedLocalState(parsed?.data ?? parsed);
   let result = inspectAttachmentIntegrity({
     attachments: state.attachments,
     fileManager,
@@ -56,7 +59,7 @@ function runLocalInspection({ sourcePath, fileManager, generatedAt, repair, ...c
   const repairs = buildAttachmentRepairs(state.attachments, result, generatedAt);
 
   if (repair && repairs.length > 0) {
-    const dataStore = createFileDataStore(source.absolutePath);
+    const dataStore = createFileDataStore(absolutePath);
     dataStore.state.attachments.splice(
       0,
       dataStore.state.attachments.length,
@@ -145,12 +148,15 @@ function parseArgs(args) {
     sourcePath: 'storage/data/knowledge-base.json',
     storageRootDir: process.cwd(),
     reportPath: null,
-    repair: false
+    repair: false,
+    attachmentsOnly: false
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--repair') {
       parsed.repair = true;
+    } else if (arg === '--attachments-only') {
+      parsed.attachmentsOnly = true;
     } else if (arg.startsWith('--driver=')) {
       parsed.driver = arg.slice('--driver='.length);
     } else if (arg === '--driver') {
@@ -173,6 +179,9 @@ function parseArgs(args) {
   }
   if (!['local-json', 'postgres'].includes(parsed.driver)) {
     throw new Error(`Unsupported attachment check driver: ${parsed.driver}`);
+  }
+  if (parsed.attachmentsOnly && (parsed.repair || parsed.driver !== 'local-json')) {
+    throw new Error('--attachments-only 仅用于 local-json 的只读附件检查');
   }
   parsed.sourcePath = path.resolve(parsed.sourcePath);
   parsed.storageRootDir = path.resolve(parsed.storageRootDir);

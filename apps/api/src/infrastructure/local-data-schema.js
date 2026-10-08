@@ -49,11 +49,21 @@ export function createEmptyLocalState() {
 }
 
 export function validatePersistedLocalState(input) {
+  return validatePersistedDocument(input);
+}
+
+// 写盘前的只读断言不向业务暴露共享记录；所有字段、哈希和跨记录引用仍完整校验。
+export function assertPersistedLocalState(input) {
+  validatePersistedDocument(input, true);
+}
+
+function validatePersistedDocument(input, reuseImmutableHistory = false) {
   const document = assertRecord(input, 'Local data file');
   assertSchemaVersion(document.schemaVersion);
   assertProvenanceSchemaVersion(document, document.schemaVersion);
   const state = validateCollections(document, {
-    allowMissingOptionalCollections: true
+    allowMissingOptionalCollections: true,
+    reuseImmutableHistory: reuseImmutableHistory && document.schemaVersion === LOCAL_DATA_SCHEMA_VERSION
   });
   if ((document.schemaVersion ?? 1) < 7) migrateLegacyKnowledgeArtifactProvenance(state);
   normalizeLegacyNoteReferences(state, {
@@ -110,7 +120,7 @@ export function cloneLocalState(state) {
   );
 }
 
-function validateCollections(input, { allowMissingOptionalCollections }) {
+function validateCollections(input, { allowMissingOptionalCollections, reuseImmutableHistory = false }) {
   for (const collectionName of REQUIRED_COLLECTIONS) {
     if (!Array.isArray(input[collectionName])) {
       invalidSnapshot(`${collectionName} must be an array`);
@@ -130,7 +140,8 @@ function validateCollections(input, { allowMissingOptionalCollections }) {
     value.forEach((item, index) => {
       validateEntity(collectionName, item, index);
     });
-    state[collectionName] = cloneJsonData(value);
+    state[collectionName] = reuseImmutableHistory && ['noteVersions', 'annotationRevisions'].includes(collectionName)
+      ? value : cloneJsonData(value);
   }
 
   return state;

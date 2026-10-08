@@ -18,6 +18,7 @@ import { createInMemoryNoteRepository } from '../knowledge/infrastructure/note-r
 import { createInMemoryNoteVersionRepository } from '../knowledge/infrastructure/note-version-repository.js';
 import { createInMemoryAnnotationRevisionRepository } from '../knowledge/infrastructure/annotation-support-repositories.js';
 import { validatePersistedLocalState, LOCAL_DATA_SCHEMA_VERSION } from '../../infrastructure/local-data-schema.js';
+import { cloneJsonData } from '../../infrastructure/json-clone.js';
 import { assertNoInsecureImageUrls } from '../knowledge/application/note-content-policy.js';
 import { inspectAttachmentDeletion } from '../../infrastructure/attachment-deletion-preflight.js';
 import { calculateContentHash, resolveAnchor } from '@study-accelerator/content-anchor';
@@ -39,7 +40,7 @@ const replace = (state, collection, id, value) => {
 export function prepareBatchState(before, changes, ownerId, preparedAttachments = {}) {
   // 不可变历史只复制集合；领域流程不修改旧版本/修订，最终校验仍返回独立副本。
   let state = Object.fromEntries(Object.entries(before).map(([collection, items]) => [collection,
-    ['noteVersions', 'annotationRevisions'].includes(collection) ? [...items] : structuredClone(items)]));
+    ['noteVersions', 'annotationRevisions'].includes(collection) ? [...items] : cloneJsonData(items)]));
   const aliases = {};
   const now = new Date().toISOString();
   for (const change of changes) {
@@ -68,7 +69,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
         throw syncError('SYNC_NOTE_DELETE_PACKAGE_REQUIRED', '笔记删除缺少子标注状态快照，请升级应用后重试。', 422);
       }
     }
-    let value = structuredClone(change.value);
+    let value = cloneJsonData(change.value);
     value = normalizeKnowledgeChange(collection, value, old);
     value = normalizeTrainingChange({ ...change, value }, old, changes);
     if (collection === 'knowledgeArtifactProvenance') {
