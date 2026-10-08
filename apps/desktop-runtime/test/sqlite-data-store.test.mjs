@@ -146,3 +146,24 @@ test('离线目录与笔记的跨实体依赖持久保存', t => {
   assert(workspace.store.readOutbox().at(-1).dependencies.includes(folderOperation.operationId));
   workspace.store.close();
 });
+
+test('历史深层对象在提交、失败回滚和导出之间保持隔离', t => {
+  const root = temporaryDirectory(t);
+  const workspace = openWorkspace(root);
+  const { store } = workspace;
+  t.after(() => store.close());
+  createNote(workspace);
+  store.runTransaction(() => { store.state.noteVersions[0].extra = { paths: [[1, 2]] }; });
+  const exported = store.exportSnapshot();
+  exported.data.noteVersions[0].extra.paths[0][0] = 99;
+  assert.equal(store.state.noteVersions[0].extra.paths[0][0], 1);
+  for (const run of [operation => store.runTransaction(operation), operation => store.syncTransaction((_db, state) => operation(state))]) {
+    assert.throws(() => run(() => {
+      store.state.noteVersions[0].extra.paths[0][0] = 42;
+      throw new Error('回滚历史修改');
+    }), /回滚历史修改/);
+    assert.deepEqual(store.state.noteVersions[0].extra.paths, [[1, 2]]);
+  }
+  const persisted = store.readSync(db => JSON.parse(db.prepare("SELECT payload FROM entities WHERE collection = 'noteVersions' LIMIT 1").get().payload));
+  assert.deepEqual(persisted.extra.paths, [[1, 2]]);
+});

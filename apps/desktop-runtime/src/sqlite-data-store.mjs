@@ -1,3 +1,4 @@
+import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
 import {
   validateSqliteDeletionFacts, initializeDeletionFacts, assertNoDeletedEntities,
   recordLocalDeletions, hasDeletionFact, deletionFactsReader
@@ -10,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import {
   LOCAL_DATA_COLLECTIONS, LOCAL_DATA_SCHEMA_VERSION, LOCAL_SNAPSHOT_VERSION,
-  cloneLocalState, createEmptyLocalState, createPersistedLocalDocument,
+  cloneLocalState, createEmptyLocalState,
   validateLocalSnapshot, validatePersistedLocalState
 } from '../../api/src/infrastructure/local-data-schema.js';
 import { initializeDatabase, SYNC_PROTOCOL_VERSION } from './sqlite-schema.mjs';
@@ -54,7 +55,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     initializeDeletionFacts(db, { newStore, filePath });
     db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON;');
     const initial = createEmptyLocalState();
-    for (const row of db.prepare('SELECT collection, payload FROM entities ORDER BY rowid').all()) {
+    for (const row of db.prepare('SELECT collection, payload FROM entities ORDER BY rowid').iterate()) {
       if (!LOCAL_DATA_COLLECTIONS.includes(row.collection)) throw new Error('本地实体类型未知，请升级应用。');
       initial[row.collection].push(JSON.parse(row.payload));
     }
@@ -91,7 +92,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   }
 
   function restore(snapshot) {
-    for (const collection of LOCAL_DATA_COLLECTIONS) state[collection].splice(0, state[collection].length, ...structuredClone(snapshot[collection]));
+    for (const collection of LOCAL_DATA_COLLECTIONS) state[collection].splice(0, state[collection].length, ...cloneJsonData(snapshot[collection]));
   }
 
   const totalChanges = () => db.prepare('SELECT total_changes() AS count').get().count;
@@ -108,7 +109,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   }
 
   function persist({ origin = 'local-business' } = {}) {
-    const valid = validatePersistedLocalState(createPersistedLocalDocument(state));
+    const valid = validatePersistedLocalState({ ...state, schemaVersion: LOCAL_DATA_SCHEMA_VERSION });
     assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
     const changes = collectChanges(committed, valid);
     pendingDataChange = changes.length > 0;
@@ -273,7 +274,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         let dataChanged;
         if (local) { valid = persist({ origin }); dataChanged = pendingDataChange; }
         else {
-          valid = validatePersistedLocalState(createPersistedLocalDocument(state));
+          valid = validatePersistedLocalState({ ...state, schemaVersion: LOCAL_DATA_SCHEMA_VERSION });
           assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
           assertNoDeletedEntities(db, valid, committed);
           const changes = collectChanges(committed, valid);
