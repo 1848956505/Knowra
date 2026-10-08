@@ -12,6 +12,12 @@ export async function handleAssistantRoute({ request, response, url, assistant }
     if (request.method === 'GET' && url.pathname === `${root}/status`) {
       sendJson(response, 200, { data: await assistant.status() }); return true;
     }
+    if (request.method === 'GET' && url.pathname === `${root}/usage/export`) {
+      const csv = await assistant.usageExport();
+      response.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="knowra-ai-usage.csv"',
+        'X-Content-Type-Options': 'nosniff' });
+      response.end(csv); return true;
+    }
     if (request.method === 'GET' && url.pathname === `${root}/usage`) {
       sendJson(response, 200, { data: await assistant.usage() }); return true;
     }
@@ -36,6 +42,9 @@ export async function handleAssistantRoute({ request, response, url, assistant }
       }
       if (url.pathname === `${root}/budget-settings`) {
         sendJson(response, 200, { data: await assistant.saveBudgetSettings(await parseBody(request, { limitBytes: 2048 })) }); return true;
+      }
+      if (url.pathname === `${root}/usage/resolve`) {
+        sendJson(response, 200, { data: await assistant.resolveUnknown(await parseBody(request, { limitBytes: 512 })) }); return true;
       }
       if (url.pathname === `${root}/alerts/mark`) {
         sendJson(response, 200, { data: await assistant.markAlerts(await parseBody(request, { limitBytes: 2048 })) }); return true;
@@ -68,7 +77,7 @@ export async function handleAssistantRoute({ request, response, url, assistant }
       const status = ['AI_JOB_NOT_FOUND'].includes(error.code) ? 404
         : error.code === 'AI_PRIVATE_STORAGE_UNAVAILABLE' ? 503
         : ['AI_GENERATION_UNAVAILABLE', 'AI_PREVIEW_EXPIRED', 'AI_APPROVAL_STALE', 'AI_CREDENTIAL_STALE',
-          'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED', 'AI_BALANCE_STALE', 'AI_PAUSED_BY_USER', 'AI_BUDGET_ALERTS_INVALID'].includes(error.code) ? 409 : ['AI_BUDGET_UNAVAILABLE', 'AI_BALANCE_UNSUPPORTED', 'AI_BUDGET_SETTINGS_UNAVAILABLE'].includes(error.code) ? 503 : error.code === 'AI_BALANCE_UNAVAILABLE' ? 502 : error.code === 'AI_BALANCE_STORAGE_INVALID' ? 500 : 422;
+          'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED', 'AI_BALANCE_STALE', 'AI_PAUSED_BY_USER', 'AI_BUDGET_ALERTS_INVALID'].includes(error.code) ? 409 : ['AI_BUDGET_UNAVAILABLE', 'AI_BALANCE_UNSUPPORTED', 'AI_BUDGET_SETTINGS_UNAVAILABLE'].includes(error.code) ? 503 : error.code === 'AI_BALANCE_UNAVAILABLE' ? 502 : error.code === 'AI_BALANCE_STORAGE_INVALID' ? 500 : error.code === 'AI_BUDGET_NOT_FOUND' ? 404 : error.code === 'AI_BUDGET_CONFLICT' ? 409 : 422;
       throw createAppError(error.code, error.message, status);
     }
     throw error;

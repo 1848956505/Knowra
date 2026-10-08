@@ -122,6 +122,36 @@ test('用量明细随结算落盘，新实例可查询汇总', async t => {
   assert.equal((await first.usage(ACCOUNT)).recent[0].conversationId, '会话/已导入', '含中文的会话 ID 照常结算并记录');
 });
 
+test('本机账本裁剪 90 天前的明细为月汇总并落盘，旧账本缺少月汇总字段仍可读，未知请求可手动释放', async t => {
+  const filePath = path.join(temporaryDirectory(t), 'ai-budget.json');
+  const first = createLocalBudgetAuthority({ filePath });
+  const at = (n, day, amount) => first.reserve({ accountRef: ACCOUNT, jobId: `job-${n}`, attemptId: `attempt-${n}`, priceVersion: 'price-v1', reservedMicrounits: amount, day });
+  // reserve 的 day 由调用方给出（云端路径以服务端日期覆盖）；本机账本沿用共享逻辑。
+  await at(1, '2026-05-02', 1_000_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 400_000, usage: { inputTokens: 10, outputTokens: 1 } });
+  await at(4, '2026-10-07', 100_000); // 与 10-08 连续，时间推进可信，之后才折叠 5 月明细
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-4', disposition: 'settled', actualMicrounits: 1 });
+  await at(2, '2026-10-08', 1_000_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'unknown' });
+  await at(3, '2026-10-08', 500_000);
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-3', disposition: 'settled', actualMicrounits: 100_000 });
+  const saved = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  assert.equal(saved.budgetMonths.length, 1);
+  assert.equal(saved.budgetMonths[0].spentMicrounits, 400_000);
+  assert.equal(saved.budgetReservations.some(row => row.attemptId === 'attempt-1'), false);
+  const second = createLocalBudgetAuthority({ filePath });
+  const summary = await second.usage(ACCOUNT, '2026-10-08');
+  assert.equal(summary.total.spentMicrounits, 500_001);
+  assert.deepEqual(summary.unknown.map(row => row.attemptId), ['attempt-2']);
+  assert.equal((await second.usageRows(ACCOUNT)).months[0].month, '2026-05');
+  await second.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'released' });
+  assert.equal((await second.status(ACCOUNT, '2026-10-08')).heldMicrounits, 0);
+  // 旧版账本文件没有 budgetMonths 字段。
+  const legacy = path.join(path.dirname(filePath), 'legacy.json');
+  fs.writeFileSync(legacy, JSON.stringify({ budgetDays: [], budgetReservations: [] }));
+  assert.deepEqual((await createLocalBudgetAuthority({ filePath: legacy }).usage(ACCOUNT)).archive, []);
+});
+
 test('桌面运行端用真实 AI 运行实例：用量、余额、预算设置、提醒接口都可用（不再返回 503）', async t => {
   const root = temporaryDirectory(t), distRoot = path.join(root, 'dist'), dataDirectory = path.join(root, 'data');
   fs.mkdirSync(distRoot); fs.writeFileSync(path.join(distRoot, 'index.html'), '<html><head></head></html>');
@@ -160,4 +190,18 @@ test('桌面运行端用真实 AI 运行实例：用量、余额、预算设置�
   const resolve = await call('/usage/resolve', { attemptId: 'nope', disposition: 'released' });
   assert.notEqual(resolve.error?.code, 'LOCAL_FEATURE_UNAVAILABLE');
   assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-budget-alerts.json')), true, '提醒状态落在数据目录根');
+});
+
+test('本机账本的月汇总字段为 null 或非数组时按损坏处理：拒绝调用并保留原文件，不静默清空', async t => {
+  const dir = temporaryDirectory(t), filePath = path.join(dir, 'ai-budget.json');
+  const raw = JSON.stringify({ budgetDays: [], budgetReservations: [], budgetMonths: null });
+  fs.writeFileSync(filePath, raw);
+  const authority = createLocalBudgetAuthority({ filePath });
+  assert.equal(await code(authority.status(ACCOUNT)), 'AI_BUDGET_UNAVAILABLE');
+  assert.equal(await code(reserve(authority, 1)), 'AI_BUDGET_UNAVAILABLE');
+  assert.equal(fs.readFileSync(filePath, 'utf8'), raw, '原文件保留');
+  fs.writeFileSync(filePath, JSON.stringify({ budgetDays: [], budgetReservations: [], budgetMonths: {} }));
+  assert.equal(await code(createLocalBudgetAuthority({ filePath }).status(ACCOUNT)), 'AI_BUDGET_UNAVAILABLE');
+  fs.writeFileSync(filePath, JSON.stringify({ budgetDays: [], budgetReservations: [] })); // 旧版本文件缺少该字段仍可读
+  assert.equal((await createLocalBudgetAuthority({ filePath }).status(ACCOUNT)).availableMicrounits, 20_000_000);
 });

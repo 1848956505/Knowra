@@ -26,6 +26,41 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '用量导出与未知请求处理接口：CSV 下载头、释放与按金额结算、重复处理和无效输入被拒', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-resolve-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      const authority = context.ai.budgetAuthority;
+      for (const n of [1, 2]) {
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: `job-${n}`, attemptId: `attempt-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: `attempt-${n}`, disposition: 'unknown', usage: { modelId: 'deepseek-flash' } });
+      }
+      await withServer(context, async origin => {
+        const usage = async () => (await (await fetch(`${origin}/api/ai/assistant/usage`)).json()).data;
+        const before = await usage();
+        assert.deepEqual(before.unknown.map(row => [row.attemptId, row.reservedMicrounits]), [['attempt-1', 1_000_000], ['attempt-2', 1_000_000]]);
+        const exported = await fetch(`${origin}/api/ai/assistant/usage/export`);
+        assert.equal(exported.status, 200);
+        assert.match(exported.headers.get('content-type'), /text\/csv/);
+        assert.match(exported.headers.get('content-disposition'), /attachment; filename="knowra-ai-usage\.csv"/);
+        assert.match(await exported.text(), /结果未知/);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'released' }, '0')).status, 403);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'settled' })).status, 422);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'bogus' })).status, 422);
+        const released = await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'released' });
+        assert.equal(released.status, 200);
+        assert.deepEqual(released.payload.data.unknown.map(row => row.attemptId), ['attempt-2']);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'released' })).status, 404, '已处理的请求不能再改');
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 2_000_000 })).status, 422, '超过预留额');
+        const settled = await call(origin, '/usage/resolve', { attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 300_000 });
+        assert.equal(settled.payload.data.total.spentMicrounits, 300_000);
+        assert.deepEqual(settled.payload.data.unknown, []);
+        const status = (await (await fetch(`${origin}/api/ai/assistant/status`)).json()).data;
+        if (status.budget) assert.equal(status.budget.heldMicrounits, 0);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '预算提醒接口：越过阈值只提醒一次，标记后保留；达到即停时可放行当日，放行后状态恢复可用', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-alerts-http-'));
     try {

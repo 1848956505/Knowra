@@ -1,13 +1,18 @@
-import { beijingDay, budgetStatus, reserveBudget, settleBudget, usageSummary } from './budget-ledger.js';
+import { beijingDay, budgetStatus, reserveBudget, settleBudget, usageRows, usageSummary } from './budget-ledger.js';
 
 const retryable = error => ['P2034', '23505', '40001'].includes(error?.code) || ['23505', '40001'].includes(error?.meta?.code);
 const read = (db, sql, ...values) => db.$queryRawUnsafe(sql, ...values);
 const write = (db, sql, ...values) => db.$executeRawUnsafe(sql, ...values);
+// 明细损坏（无法解析）按未记录处理，不能让用量查询或结算整体失败。
+function parseUsage(text) {
+  if (!text) return null;
+  try { const value = JSON.parse(text); return value && typeof value === 'object' && !Array.isArray(value) ? value : null; } catch { return null; }
+}
 const convert = row => ({ reservationId: row.reservation_id, accountRef: row.account_ref, day: row.beijing_day,
   jobId: row.job_id, attemptId: row.attempt_id, priceVersion: row.price_version,
   reservedMicrounits: Number(row.reserved_microunits), actualMicrounits: row.actual_microunits === null ? null : Number(row.actual_microunits),
   status: row.status, createdAt: row.created_at, settledAt: row.settled_at,
-  ...(row.usage_detail ? { usage: JSON.parse(row.usage_detail) } : {}) });
+  ...(parseUsage(row.usage_detail) ? { usage: parseUsage(row.usage_detail) } : {}) });
 
 /** 计费账户全局串行化；同一账户跨 owner、资料集及设备共用日额度。 */
 export function createPostgresBudgetAuthority(client) {
@@ -58,7 +63,13 @@ export function createPostgresBudgetAuthority(client) {
     async usage(accountRef, day = beijingDay()) {
       const reservations = await read(client, `SELECT * FROM ai_budget_reservations WHERE account_ref = $1
         AND status IN ('settled','unknown') ORDER BY created_at DESC`, accountRef);
-      return usageSummary({ budgetReservations: reservations.map(convert) }, accountRef, day);
+      // PostgreSQL 目前不折叠明细，所以没有月汇总，日账本也无需读取。
+      return usageSummary({ budgetDays: [], budgetReservations: reservations.map(convert), budgetMonths: [] }, accountRef, day);
+    },
+    async usageRows(accountRef) {
+      const reservations = await read(client, `SELECT * FROM ai_budget_reservations WHERE account_ref = $1
+        AND status IN ('settled','unknown') ORDER BY created_at ASC`, accountRef);
+      return usageRows({ budgetDays: [], budgetReservations: reservations.map(convert), budgetMonths: [] }, accountRef);
     },
     reserve: input => transact(input.accountRef, state => reserveBudget(state, { ...input, day: beijingDay() })),
     settle: input => transact(input.accountRef, state => settleBudget(state, input))
