@@ -74,7 +74,7 @@ export const aiGatewayTests = [
       assert.equal(calls[0].url, 'https://api.deepseek.com/chat/completions');
       assert.equal(calls[0].options.redirect, 'error');
       assert.equal(calls[0].options.headers.Authorization, 'Bearer synthetic-secret');
-      assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)).sort(), ['max_tokens', 'messages', 'model', 'stream']);
+      assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)).sort(), ['max_tokens', 'messages', 'model', 'stream', 'thinking']);
       assert.equal(JSON.stringify(result).includes('synthetic-secret'), false);
       assert.equal((await gateway.capabilities()).verified, false);
     }

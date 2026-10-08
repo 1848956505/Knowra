@@ -122,7 +122,7 @@ function normalize(raw, request, provider) {
   const refused = finishReason === 'content_filter' || typeof choice.message.refusal === 'string' && Boolean(choice.message.refusal);
   let json = null;
   if (request.format === 'json' && !truncated && !refused && finishReason === 'stop') {
-    try { json = JSON.parse(content); } catch { throw new AiGatewayError('AI_JSON_INVALID', '模型未返回有效 JSON。'); }
+    try { json = parseJsonContent(content); } catch { throw new AiGatewayError('AI_JSON_INVALID', '模型未返回有效 JSON。'); }
     if (!json || typeof json !== 'object' || Array.isArray(json)) throw new AiGatewayError('AI_JSON_INVALID', '模型 JSON 结果无效。');
   }
   const usage = raw.usage && Number.isSafeInteger(raw.usage.prompt_tokens) && raw.usage.prompt_tokens >= 0
@@ -133,4 +133,13 @@ function normalize(raw, request, provider) {
     provider, modelId: raw.model ?? null, requestId: raw.id ?? null,
     content: content ?? '', json, toolCalls, finishReason, truncated, refused, usage
   };
+}
+
+/** JSON 模式偶尔带 ```json 围栏或前后说明文字；先严格解析，失败再截取最外层对象。 */
+function parseJsonContent(content) {
+  try { return JSON.parse(content); } catch (error) {
+    const start = content?.indexOf('{') ?? -1, end = content?.lastIndexOf('}') ?? -1;
+    if (start < 0 || end <= start) throw error;
+    return JSON.parse(content.slice(start, end + 1));
+  }
 }
