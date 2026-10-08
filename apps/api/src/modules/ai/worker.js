@@ -13,6 +13,14 @@ function fail(code, message) { const error = new Error(message); error.code = co
 function later(now, previous) { return new Date(Math.max(now.getTime(), Date.parse(previous) + 1)).toISOString(); }
 const nonnegative = value => Number.isSafeInteger(value) && value >= 0;
 
+/** 实际费用：自定义单价带缓存命中价时，命中部分按命中价；否则全部按未命中价（与预留口径一致）。 */
+export function actualCostMicrounits(usage, profile) {
+  const hitPrice = profile.inputCacheHitMicrounitsPerMillion;
+  const hit = Number.isSafeInteger(hitPrice) && Number.isSafeInteger(usage.cacheHitTokens) ? Math.min(usage.cacheHitTokens, usage.inputTokens) : 0;
+  return Math.ceil(((usage.inputTokens - hit) * profile.inputMicrounitsPerMillion + hit * (hit ? hitPrice : 0)
+    + usage.outputTokens * profile.outputMicrounitsPerMillion) / 1_000_000);
+}
+
 /** 价格配置由受信部署代码提供；过期或缺失时拒绝付费调用。 */
 export function quoteWorstCase({ request, priceProfile, now = new Date(), writeToolName = null, assistantTools = false }) {
   // expiresAt 是“建议复核日期”：过期只标记 priceStale 提示费用可能不准，不再阻止调用；档案缺失或数值无效仍拒绝。
@@ -42,10 +50,10 @@ export function quoteWorstCase({ request, priceProfile, now = new Date(), writeT
     priceStale: Date.parse(priceProfile.expiresAt) <= now.getTime() };
 }
 
-export function createAiWorker({ repository, budget, gateway, priceProfile, accountRef = 'deepseek-primary',
+export function createAiWorker({ repository, budget, gateway, priceProfile: baseProfile, accountRef = 'deepseek-primary',
   workerId = randomUUID(), now = () => new Date(), allowExternal = false,
   authorizeAttempt = () => {}, revokeAttempt = () => {}, verifySources = null, validateResult = null,
-  logger = console } = {}) {
+  logger = console, policy = null, limits: fixedLimits = undefined } = {}) {
   if (!repository || !budget || !gateway) throw new TypeError('AI Worker needs repository, budget and gateway');
   const controllers = new Map();
 
@@ -111,6 +119,10 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     return changed;
   }
   async function run(jobId, request) {
+    // 每次执行取一份预算快照；隔离进程内没有 policy，由父进程随消息传入价格档案与上限。
+    const plan = policy ? await policy.snapshot() : null;
+    const priceProfile = plan?.profile ?? baseProfile;
+    const limits = plan ? plan.limits : fixedLimits;
     let job = await repository.get('aiJob', jobId);
     if (!job) fail('AI_JOB_NOT_FOUND', '任务不存在。');
     const provider = gateway.capabilities?.().provider;
@@ -152,7 +164,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
     const reservationDay = beijingDay(now());
     try {
       const reservation = await budget.reserve({ accountRef, jobId, attemptId: attempt.attemptId, priceVersion: priceProfile.version,
-        reservedMicrounits: quote.reservedMicrounits, day: reservationDay });
+        reservedMicrounits: quote.reservedMicrounits, day: reservationDay, ...(limits ? { limits } : {}) });
       reserved = true;
       await recordEvent(jobId, 'budgetReserved', { attemptId: attempt.attemptId,
         reservedMicrounits: quote.reservedMicrounits });
@@ -168,6 +180,8 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       if (beforeSend.status !== 'running' || controller.signal.aborted) fail('AI_CANCELLED', '任务已取消，未发送模型请求。');
       if (beijingDay(now()) !== reservationDay) fail('AI_BUDGET_DAY_CHANGED', '预算日期已切换，请重新预览后重试。');
       quoteWorstCase({ request, priceProfile, now: now() });
+      // 快照之后到真正发送之间用户可能点了暂停：在标记“已发送”前再复核一次（此时抛错会释放预留）。
+      if (policy) await policy.assertRunnable();
       attempt = await replace('aiJobAttempt', attempt, { status: 'sent' });
       sent = true;
       await recordEvent(jobId, 'providerRequestStarted', { attemptId: attempt.attemptId,
@@ -196,12 +210,13 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       stage = 'budgetSettlement';
       const usage = result.usage;
       const actual = usage?.unknown === false && nonnegative(usage.inputTokens) && nonnegative(usage.outputTokens)
-        ? Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
-          + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000) : null;
+        ? actualCostMicrounits(usage, priceProfile) : null;
       if (usage?.unknown === false && actual === null) fail('AI_USAGE_LIMIT', '供应商用量无效。');
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > MAX_INPUT_TOKENS
         || usage.outputTokens > MAX_OUTPUT_TOKENS)) fail('AI_USAGE_LIMIT', '供应商用量超过预留或任务边界。');
-      await budget.settle({ accountRef, attemptId: attempt.attemptId, disposition: actual === null ? 'unknown' : 'settled', actualMicrounits: actual });
+      await budget.settle({ accountRef, attemptId: attempt.attemptId, disposition: actual === null ? 'unknown' : 'settled', actualMicrounits: actual,
+        usage: { modelId: request.modelId, ...(usage?.unknown === false ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens,
+          cacheHitTokens: usage.cacheHitTokens ?? null } : {}) } });
       budgetDisposition = actual === null ? 'unknown' : 'settled';
       await recordEvent(jobId, 'budgetSettled', { attemptId: attempt.attemptId,
         budgetDisposition,
@@ -224,7 +239,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       return result;
     } catch (error) {
       if (reserved && budgetDisposition === 'unconfirmed') await Promise.resolve().then(() => budget.settle({ accountRef, attemptId: attempt.attemptId,
-        disposition: sent ? 'unknown' : 'released' })).then(() => {
+        disposition: sent ? 'unknown' : 'released', ...(sent ? { usage: { modelId: request.modelId } } : {}) })).then(() => {
         budgetDisposition = sent ? 'unknown' : 'released';
       }).catch(() => undefined);
       await recordEvent(jobId, 'attemptFailed', { attemptId: attempt.attemptId,

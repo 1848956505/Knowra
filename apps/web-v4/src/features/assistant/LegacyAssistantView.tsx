@@ -207,7 +207,7 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
           <strong>{!status ? '正在读取模型状态' : status.modelId ? `${status.simulation ? '离线模拟' : 'DeepSeek'} · ${status.modelId}` : '模型未配置'}</strong>
           <span>{readOnly ? '旧版任务只读回看。新提问请返回对话主页面。' : status?.unavailableReason ?? (status ? '当前可在确认来源范围后创建只读问答任务。' : '请稍候…')}</span>
           {readOnly ? <Button variant="ghost" size="compact" onPress={() => navigate('/assistant')}>返回对话</Button> : null}
-          {status?.budget ? <span>北京时间 {status.budget.day} · 可用 {yuan(status.budget.availableMicrounits)} 元
+          {status?.budget ? <span>北京时间 {status.budget.day} · {status.budget.availableMicrounits === null ? '未设每日上限' : `可用 ${yuan(status.budget.availableMicrounits)} 元`}
             {status.budget.heldMicrounits > 0 ? ` · 待核对预留 ${yuan(status.budget.heldMicrounits)} 元` : ''}
             {status.budget.spentMicrounits > 0 ? ` · 已结算 ${yuan(status.budget.spentMicrounits)} 元` : ''}</span> : null}
           {status?.priceNotice ? <span>{status.priceNotice}</span> : null}

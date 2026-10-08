@@ -162,14 +162,14 @@ it('桌面本地运行端的设置页多一项并在“模型接入”分类里�
   vi.mocked(externalClients.overview).mockResolvedValue(overview());
   const view = <SettingsView preferences={defaultAppPreferences} sidebarOpen onPreferencesChange={() => {}} onSidebarOpenChange={() => {}} />;
   const desktop = render(view);
-  expect(screen.getByText('显示 7 / 7 项设置')).toBeInTheDocument();
+  expect(screen.getByText('显示 9 / 9 项设置')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /模型接入/ }));
-  expect(screen.getByText('显示 3 / 7 项设置')).toBeInTheDocument();
+  expect(screen.getByText('显示 5 / 9 项设置')).toBeInTheDocument();
   expect(await screen.findByRole('heading', { name: '外部 AI 客户端' })).toBeInTheDocument();
   desktop.unmount();
   delete (globalThis as { knowraRuntime?: unknown }).knowraRuntime;
   render(view);
-  expect(screen.getByText('显示 6 / 6 项设置')).toBeInTheDocument();
+  expect(screen.getByText('显示 8 / 8 项设置')).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: '外部 AI 客户端' })).not.toBeInTheDocument();
 });
 

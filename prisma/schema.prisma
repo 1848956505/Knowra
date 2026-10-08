@@ -701,6 +701,7 @@ model ai_budget_reservations {
   status               String
   created_at           String
   settled_at           String?
+  usage_detail         String?
   day                  ai_budget_days @relation(fields: [account_ref, beijing_day], references: [account_ref, beijing_day])
 
   @@unique([account_ref, attempt_id])

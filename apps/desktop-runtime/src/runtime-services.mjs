@@ -75,6 +75,9 @@ export function createRuntimeServices({ dataDirectory, budgetDirectory = dataDir
     else try {
     context.ai = aiRuntimeFactory({ modelSettings, repository: store.aiRepository, accessStore: store.aiAccessStore,
       uploadsDir: path.join(dataDirectory, 'uploads'),
+      // 余额快照、预算设置、提醒状态与预算账本一样放在数据目录根，不随恢复备份切换的资料目录重置。
+      balanceFile: path.join(budgetDirectory, 'ai-balance.json'), budgetSettingsFile: path.join(budgetDirectory, 'ai-budget-settings.json'),
+      budgetAlertsFile: path.join(budgetDirectory, 'ai-budget-alerts.json'),
       conversationStore: store.aiConversationStore, actionStore: store.aiActionStore,
       coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,
       // 预算账本在本机：不依赖云端，断网或未连接云端也可调用模型；放在数据目录根下，不随恢复备份切换的资料目录重置。

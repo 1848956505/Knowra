@@ -2,7 +2,7 @@ import { toolsForWriteIntent, toolsForAssistant } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
 import { beijingDay } from './budget-ledger.js';
-import { quoteWorstCase } from './worker.js';
+import { actualCostMicrounits, quoteWorstCase } from './worker.js';
 import { hashRecord } from './record-contract.js';
 import { createAuthorizedRetrieval } from './retrieval.js';
 import { createAiRecoveryScope } from './recovery-scope.js';
@@ -122,10 +122,11 @@ const TOOLS = Object.freeze([
 ]);
 
 /** 有界自主助手：读取受授权约束，写工具只生成待审稿，网络仍由隔离 adapter 处理。 */
-export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
+export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile: baseProfile, policy = null,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
   accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
   retrievalCandidates = null, actions = null, webSearchAdapter = null, annotations = null, knowledgeProposals = false, knowledgeCommit = null } = {}) {
+  const priceProfile = baseProfile; // 外层只用于模型名等不随自定义单价变化的字段
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
@@ -148,10 +149,15 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     return turn;
   }
 
-  async function settleOnFailure(attemptId, reserved, sent, error) {
+  // 用量明细只含模型名、token 数和对话 ID；结果未知时 token 为空，仍记录这次请求发生过。
+  const usageDetail = (turn, request, usage) => ({ modelId: request.modelId, conversationId: turn.conversationId,
+    ...(usage?.unknown === false ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens,
+      cacheHitTokens: usage.cacheHitTokens ?? null } : {}) });
+
+  async function settleOnFailure(attemptId, reserved, sent, error, detail) {
     if (!reserved) return;
     const disposition = sent ? 'unknown' : 'released';
-    try { await budget.settle({ accountRef, attemptId, disposition }); }
+    try { await budget.settle({ accountRef, attemptId, disposition, ...(sent ? { usage: detail } : {}) }); }
     catch (fault) { logger.warn?.('Agent budget settlement deferred', { code: safeCode(fault?.code) }); return; }
     try { await store.advanceModelAttempt(attemptId, disposition, { errorCode: safeCode(error?.code) }); }
     catch (fault) { logger.warn?.('Agent attempt settlement deferred', { code: safeCode(fault?.code) }); }
@@ -160,6 +166,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   async function paidCall(turn, generation, request, manifest, grantId, credentialRef, signal) {
     if (provider !== 'mock' && !allowExternal) fail('AI_EGRESS_NOT_READY', '当前运行端未启用模型外发。');
     if ((await store.listModelAttempts(turn.turnId)).length >= MAX_ATTEMPTS) fail('AI_ATTEMPT_LIMIT', '模型调用次数已达到上限。');
+    const plan = policy ? await policy.snapshot() : null;
+    const priceProfile = plan?.profile ?? baseProfile;
     const quote = quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent });
     if (quote.priceStale && !priceStaleWarned) {
       priceStaleWarned = true;
@@ -173,7 +181,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     let reserved = false, sent = false, settled = false;
     try {
       const reservation = await budget.reserve({ accountRef, jobId: turn.turnId, attemptId,
-        priceVersion: priceProfile.version, reservedMicrounits: quote.reservedMicrounits, day });
+        priceVersion: priceProfile.version, reservedMicrounits: quote.reservedMicrounits, day,
+        ...(plan ? { limits: plan.limits } : {}) });
       reserved = true;
       if (reservation?.accountRef !== accountRef || reservation.jobId !== turn.turnId
         || reservation.attemptId !== attemptId || reservation.priceVersion !== priceProfile.version
@@ -185,6 +194,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       if (beijingDay(now()) !== day) fail('AI_BUDGET_DAY_CHANGED', '预算日期已切换。');
       if (manifest) await access.assertRequest({ grantId, manifestId: manifest.manifestId, request, recipient: 'deepseek' });
       quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent });
+      // 快照之后到真正发送之间用户可能点了暂停：在标记“已发送”前再复核一次（此时抛错会释放预留）。
+      if (policy) await policy.assertRunnable();
       await store.advanceModelAttempt(attemptId, 'sent', { generation });
       sent = true;
       authorizeAttempt(attemptId);
@@ -196,12 +207,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       const usage = result.usage;
       const actual = usage?.unknown === false && Number.isSafeInteger(usage.inputTokens) && usage.inputTokens >= 0
         && Number.isSafeInteger(usage.outputTokens) && usage.outputTokens >= 0
-        ? Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
-          + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000) : null;
+        ? actualCostMicrounits(usage, priceProfile) : null;
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > 100_000
         || usage.outputTokens > 20_000)) fail('AI_USAGE_LIMIT', '模型用量超过预留或单次上限。');
       const disposition = actual === null ? 'unknown' : 'settled';
-      await budget.settle({ accountRef, attemptId, disposition, actualMicrounits: actual });
+      await budget.settle({ accountRef, attemptId, disposition, actualMicrounits: actual, usage: usageDetail(turn, request, usage) });
       settled = true;
       try { await currentTurn(turn.turnId, generation, signal); }
       catch (error) {
@@ -211,7 +221,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       await store.advanceModelAttempt(attemptId, disposition, { generation, actualMicrounits: actual, modelResult: result });
       return { result, attemptOrdinal: attempt.ordinal };
     } catch (error) {
-      if (!settled) await settleOnFailure(attemptId, reserved, sent, error);
+      if (!settled) await settleOnFailure(attemptId, reserved, sent, error, usageDetail(turn, request, null));
       throw error;
     } finally { revokeAttempt(attemptId); }
   }

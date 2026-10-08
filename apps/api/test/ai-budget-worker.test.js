@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createFileDataStore } from '../src/infrastructure/file-data-store.js';
-import { beijingDay } from '../src/modules/ai/budget-ledger.js';
+import { beijingDay, reserveBudget, settleBudget, usageSummary, validateBudgetState } from '../src/modules/ai/budget-ledger.js';
 import { createAiWorker, quoteWorstCase } from '../src/modules/ai/worker.js';
 import { createServer } from '../src/server.js';
 import { createRemoteBudgetAuthority } from '../src/modules/ai/remote-budget-authority.js';
@@ -29,6 +29,35 @@ const request = { credentialRef: 'credential-reference', modelId: 'deepseek-flas
 
 export const aiBudgetWorkerTests = [
   ...reviewedPriceProfileTests,
+  { name: '用量汇总：今日/本月/累计分开统计，未知请求单独计数，明细只含数字与 ID，旧账本无明细仍可读', async run() {
+    const state = { budgetDays: [], budgetReservations: [] };
+    const account = 'deepseek-primary';
+    const call = (n, day, disposition, actual, usage) => {
+      reserveBudget(state, { accountRef: account, jobId: `job-${n}`, attemptId: `a-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000, day });
+      return settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition, actualMicrounits: actual, usage });
+    };
+    call(1, '2026-09-30', 'settled', 400_000, { modelId: 'deepseek-flash', inputTokens: 1000, outputTokens: 50, cacheHitTokens: 600, conversationId: 'c-1' });
+    call(2, '2026-10-02', 'settled', 100_000);
+    call(3, '2026-10-08', 'settled', 300_000, { modelId: 'deepseek-flash', inputTokens: 200, outputTokens: 20, cacheHitTokens: null, conversationId: 'c-2' });
+    call(4, '2026-10-08', 'unknown', null, { modelId: 'deepseek-flash' });
+    reserveBudget(state, { accountRef: account, jobId: 'job-5', attemptId: 'a-5', priceVersion: 'p1', reservedMicrounits: 1_000_000, day: '2026-10-08' });
+    validateBudgetState(state);
+    const summary = usageSummary(state, account, '2026-10-08');
+    assert.deepEqual([summary.today.requests, summary.today.spentMicrounits, summary.today.unknownRequests, summary.today.unknownMicrounits], [2, 300_000, 1, 1_000_000]);
+    assert.deepEqual([summary.month.requests, summary.month.spentMicrounits], [3, 400_000]);
+    assert.deepEqual([summary.total.requests, summary.total.spentMicrounits, summary.total.inputTokens, summary.total.cacheHitTokens], [4, 800_000, 1200, 600]);
+    assert.equal(summary.recent.length, 4, '进行中的预留不算作已发生的用量');
+    assert.equal(summary.recent[0].attemptId, 'a-4');
+    assert.deepEqual(Object.keys(summary.recent[2]).sort(), ['at', 'attemptId', 'cacheHitTokens', 'conversationId', 'costMicrounits', 'day',
+      'inputTokens', 'modelId', 'outputTokens', 'priceVersion', 'status']);
+    assert.equal(summary.recent.find(row => row.attemptId === 'a-2').modelId, null, '未带明细的结算仍计入汇总');
+    // 用量明细只清洗不拒绝：异常明细不能让结算失败；多余字段（如对话内容）被丢弃；会话 ID 可含中文。
+    const odd = settleBudget(state, { accountRef: account, attemptId: 'a-5', disposition: 'released',
+      usage: { inputTokens: -1, outputTokens: 7, content: '对话内容', conversationId: '会话/已导入', modelId: 'x'.repeat(200) } });
+    assert.deepEqual(odd.usage, { modelId: null, inputTokens: null, outputTokens: 7, cacheHitTokens: null, conversationId: '会话/已导入' });
+    assert.equal(JSON.stringify(odd).includes('对话内容'), false);
+    assert.throws(() => validateBudgetState({ ...structuredClone(state), budgetReservations: state.budgetReservations.map(row => ({ ...row, usage: 'x' })) }), { code: 'AI_BUDGET_INVALID' });
+  } },
   { name: '预算预留覆盖完整外发体，工具定义过大与已确认 payload 变化均拒绝', async run() {
     const plain = quoteWorstCase({ request, priceProfile: profile, now: at() });
     const withTool = quoteWorstCase({ request: { ...request, tools: [{ name: 'notes_read',
@@ -98,6 +127,24 @@ export const aiBudgetWorkerTests = [
       assert.equal(calls, 0);
       assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-25').heldMicrounits, 0);
       assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').spentMicrounits, 0);
+    });
+  } },
+  { name: '快照之后、发送之前用户暂停：Worker 不发送，并释放已预留的额度', async run() {
+    await withStore(async store => {
+      const records = aiRecords(store.aiRepository.identity());
+      for (const [kind, record] of [['scopeSnapshot', records.scope], ['contextManifest', records.manifest],
+        ['aiGrant', records.grant], ['aiJob', records.job]]) store.aiRepository.insert(kind, record);
+      let calls = 0, snapshots = 0;
+      const paused = Object.assign(new Error('AI 已暂停'), { code: 'AI_PAUSED_BY_USER' });
+      const policy = { snapshot: async () => { snapshots += 1; return { profile, limits: { daily: 20_000_000, monthly: null, turn: 2_000_000 } }; },
+        assertRunnable: async () => { throw paused; } }; // 快照通过之后用户点了暂停
+      const worker = createAiWorker({ repository: store.aiRepository, budget: store.aiBudgetAuthority,
+        gateway: { capabilities: () => ({ provider: 'mock' }), async complete() { calls++; return {}; } },
+        priceProfile: profile, policy, now: at });
+      await assert.rejects(worker.run(records.job.jobId, request), { code: 'AI_PAUSED_BY_USER' });
+      assert.equal(snapshots, 1);
+      assert.equal(calls, 0, '没有发送任何模型请求');
+      assert.equal(store.aiBudgetAuthority.status('deepseek-primary', '2026-09-26').heldMicrounits, 0, '预留已释放');
     });
   } },
   { name: '远端预算回执日期或账户不匹配时不读取密钥且释放预留', async run() {
@@ -324,5 +371,23 @@ export const aiBudgetWorkerTests = [
       assert.equal(await worker.recover(), 0);
       assert.equal(store.aiRepository.get('aiJob', stale.job.jobId).status, 'running');
     });
+  } },
+  { name: '读取用量汇总时清洗已有明细：token 被写成字符串、负数或超限时按未记录处理，不产生 NaN 或字符串拼接', run() {
+    const state = { budgetDays: [], budgetReservations: [] };
+    const account = 'deepseek-primary';
+    for (const n of [1, 2]) {
+      reserveBudget(state, { accountRef: account, jobId: `job-${n}`, attemptId: `a-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000, day: '2026-10-08' });
+      settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition: 'settled', actualMicrounits: 1000, usage: { inputTokens: 10, outputTokens: 1 } });
+    }
+    // 模拟账本里已存在的损坏明细（旧版本或手工改动）：仍是对象，所以通过账本校验。
+    state.budgetReservations[0].usage = { inputTokens: '10', outputTokens: -3, cacheHitTokens: { x: 1 }, modelId: 42, conversationId: ['a'] };
+    state.budgetReservations[1].usage = { inputTokens: 5, outputTokens: 2, cacheHitTokens: 99 };
+    validateBudgetState(state);
+    const summary = usageSummary(state, account, '2026-10-08');
+    assert.deepEqual([summary.total.inputTokens, summary.total.outputTokens, summary.total.cacheHitTokens], [5, 2, 0]);
+    for (const value of Object.values(summary.total)) assert.equal(typeof value, 'number');
+    const bad = summary.recent.find(row => row.attemptId === 'a-1');
+    assert.deepEqual([bad.inputTokens, bad.outputTokens, bad.cacheHitTokens, bad.modelId, bad.conversationId], [null, null, null, null, null]);
+    assert.equal(summary.recent.find(row => row.attemptId === 'a-2').cacheHitTokens, null, '命中数超过输入数时视为未记录');
   } }
 ];

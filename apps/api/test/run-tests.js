@@ -94,6 +94,8 @@ import { aiGatewayTests } from './ai-gateway.test.js';
 import { aiRecordRepositoryTests } from './ai-record-repository.test.js';
 import { aiPostgresRepositoryTests, aiPostgresBudgetTests } from './ai-postgres-repository.test.js';
 import { aiBudgetWorkerTests } from './ai-budget-worker.test.js';
+import { aiBalanceTests } from './ai-balance.test.js';
+import { aiBudgetSettingsTests } from './ai-budget-settings.test.js';
 import { aiReadContextTests } from './ai-read-context.test.js';
 import { aiAssistantHttpTests } from './ai-assistant-http.test.js';
 import { aiPluginIsolationTests } from './ai-plugin-isolation.test.js';
@@ -213,6 +215,8 @@ const tests = [
   ...aiPostgresRepositoryTests,
   ...aiPostgresBudgetTests,
   ...aiBudgetWorkerTests,
+  ...aiBalanceTests,
+  ...aiBudgetSettingsTests,
   ...aiReadContextTests,
   ...aiAssistantHttpTests,
   ...aiPluginIsolationTests,

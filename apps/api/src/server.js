@@ -72,7 +72,7 @@ export function createServer({ appContext, cors = {}, logger = console }) {
 
       if (await handleModelSettingsRoute({ request, response, url, modelSettings: appContext.http.modelSettings })) return;
       if (await handleAiFeatureRoute({ request, response, url, features: appContext.http.aiFeatures })) return;
-      if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget })) return;
+      if (await handleBudgetRoute({ request, response, url, authority: appContext.http.aiBudget, policy: appContext.ai?.budgetPolicy ?? null })) return;
       if (await handleAiJobRoute({ request, response, url, extraction })) return;
       if (await handleAiAccessRoute({ request, response, url, access: appContext.ai?.access })) return;
       if (await handleActionRoute({ request, response, url, actions: appContext.ai?.actions })) return;

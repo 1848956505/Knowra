@@ -51,7 +51,7 @@ process.on('message', async message => {
         return allowed;
       }
     });
-    worker = createAiWorker({ repository, budget, gateway, priceProfile: message.priceProfile,
+    worker = createAiWorker({ repository, budget, gateway, priceProfile: message.priceProfile, limits: message.budgetLimits,
       allowExternal: message.allowExternal,
       verifySources: (job, request) => rpc('source.verify', [job.jobId, request]),
       validateResult: (job, result) => rpc('result.validate', [job.jobId, result]),

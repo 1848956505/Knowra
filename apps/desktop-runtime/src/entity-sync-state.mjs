@@ -1,3 +1,4 @@
+import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
 import { observeRemoteDeletionFacts } from './sqlite-deletion-facts.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { selectEntityBatch } from './entity-batches.mjs';
@@ -22,10 +23,14 @@ import { readExamFocusReviewBoundaries, prepareExamFocusReviewChanges, bindExamF
 const replace = (state, entry) => {
   const index = state[entry.collection].findIndex(item => item.id === entry.id);
   if (index >= 0) state[entry.collection].splice(index, 1);
-  if (entry.value) state[entry.collection].push(structuredClone(entry.value));
+  if (entry.value) state[entry.collection].push(cloneJsonData(entry.value));
 };
 function bases(db) {
-  return new Map(db.prepare('SELECT * FROM sync_base').all().map(row => [syncKey(row.collection, row.id), { collection: row.collection, id: row.id, revision: row.server_revision, value: JSON.parse(row.payload) }]));
+  const result = new Map();
+  for (const row of db.prepare('SELECT * FROM sync_base').iterate()) {
+    result.set(syncKey(row.collection, row.id), { collection: row.collection, id: row.id, revision: row.server_revision, value: JSON.parse(row.payload) });
+  }
+  return result;
 }
 const snapshots = new WeakMap();
 const reconciledConflicts = new WeakMap();
@@ -38,7 +43,7 @@ function snapshot(store) {
     const conflict = readMeta(db, 'entityConflict');
     const boundaries = readKnowledgeLifecycleBoundaries(db);
     const reviews = readExamFocusReviewBoundaries(db);
-    return { key, base, boundaries, reviews, dirty: structuredClone(dirtyEntries(state, base, boundaries, reviews)), epoch: readMeta(db, 'epoch'), conflict,
+    return { key, base, boundaries, reviews, dirty: cloneJsonData(dirtyEntries(state, base, boundaries, reviews)), epoch: readMeta(db, 'epoch'), conflict,
       remote: conflict ? new Map(conflict.remote.map(entry => [syncKey(entry.collection, entry.id), entry])) : base };
   });
   if (key !== null) snapshots.set(store, value);
@@ -92,7 +97,7 @@ function dirtyEntries(state, base, boundaries = [], reviews = []) {
 }
 function stateFromBase(base) {
   const state = createEmptyLocalState();
-  for (const entry of base.values()) if (entry.value) state[entry.collection].push(structuredClone(entry.value));
+  for (const entry of base.values()) if (entry.value) state[entry.collection].push(cloneJsonData(entry.value));
   return state;
 }
 function setState(target, next) { for (const collection of LOCAL_DATA_COLLECTIONS) target[collection].splice(0, target[collection].length, ...next[collection]); }
@@ -160,7 +165,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
       if (reset || !remote.has(key) || (remote.get(key).revision ?? 0) <= (entry.revision ?? 0)) remote.set(key, entry);
     }
     // 规范化本地版本引用后再比较，避免相同正文版本造成虚假冲突。
-    const local = structuredClone(state);
+    const local = cloneJsonData(state);
     canonicalizeVersions(local, base);
     canonicalizeVersions(local, remote);
     const boundaries = readKnowledgeLifecycleBoundaries(db);
@@ -290,7 +295,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
     const previous = base.get(syncKey(entry.collection, entry.id))?.value;
     // 新建后离线回收时先发布合法创建前像，不能让新关联绑定到临时回收站父对象。
     const createBeforeTrash = !previous && boundary.action === 'trash' && (TRAINING_COLLECTIONS.includes(entry.collection) || needsActiveKnowledge(entry.id));
-    const value = createBeforeTrash ? structuredClone(boundary.before) : { ...entry.value, deletedAt: boundary.value.deletedAt };
+    const value = createBeforeTrash ? cloneJsonData(boundary.before) : { ...entry.value, deletedAt: boundary.value.deletedAt };
     if (!previous && boundary.action === 'trash' && entry.collection === 'questions') value.reviewStatus = 'draft';
     if (!previous && boundary.action === 'trash' && entry.collection === 'examFocuses') value.reviewStatus = 'candidate';
     const lifecycleAction = previous && (!previous.deletedAt && value.deletedAt ? 'trash' : previous.deletedAt && !value.deletedAt ? 'restore' : null);
@@ -319,7 +324,7 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   if (trashedParents.size) {
     for (const entry of eligible) if (entry.collection === 'learningObjectives' && entry.value?.reviewStatus === 'confirmed'
       && trashedParents.has(syncKey('knowledgeItems', entry.value.knowledgeItemId))) entry.value = { ...entry.value, reviewStatus: 'candidate' };
-    const projection = structuredClone(store.state);
+    const projection = cloneJsonData(store.state);
     for (const entry of eligible) replace(projection, entry);
     for (const entry of eligible) if (entry.collection === 'questions' && entry.value?.reviewStatus === 'confirmed'
       && (syncReferencesFor('questions', entry.value, projection).some(ref => trashedParents.has(syncKey(ref.collection, ref.id)))
@@ -345,12 +350,12 @@ export function nextEntityUpload(store, { knowledgeSupported = true } = {}) {
   // 本地恢复副本可保留原版本 ID；传输依赖使用基线中已经确认的同正文版本。
   const canonicalVersions = new Map([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => [`${entry.value.noteId}:${entry.value.contentHash}`, entry.value]));
   for (const version of store.state.noteVersions) if (!canonicalVersions.has(`${version.noteId}:${version.contentHash}`)) canonicalVersions.set(`${version.noteId}:${version.contentHash}`, version);
-  const referenceState = structuredClone({ ...store.state, noteVersions: [...canonicalVersions.values()] });
+  const referenceState = cloneJsonData({ ...store.state, noteVersions: [...canonicalVersions.values()] });
   for (const entry of eligible) replace(referenceState, entry);
   // 临时旧题目投影使用同一旧子图，不能把尚未交付的新关系误当作依赖。
   for (const collection of ['questionObjectives', 'questionSources']) {
     referenceState[collection] = referenceState[collection].filter(child => !deferredQuestions.has(child.questionId));
-    referenceState[collection].push(...[...base.values()].filter(entry => entry.collection === collection && entry.value && deferredQuestions.has(entry.value.questionId)).map(entry => structuredClone(entry.value)));
+    referenceState[collection].push(...[...base.values()].filter(entry => entry.collection === collection && entry.value && deferredQuestions.has(entry.value.questionId)).map(entry => cloneJsonData(entry.value)));
   }
   const before = stateFromBase(base);
   const makeOperation = changes => {
@@ -386,7 +391,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
   store.syncTransaction((db, state) => {
     observeRemoteDeletionFacts(db, [...(result.entries ?? []), ...(result.conflicts ?? []), ...(result.current ? [result.current] : [])], { epoch: operation.datasetEpoch });
     if (result.status === 'accepted') {
-      const previous = structuredClone(state);
+      const previous = cloneJsonData(state);
       const base = bases(db);
       const previousBase = new Map(base);
       const pending = new Set(dirtyEntries(state, base, readKnowledgeLifecycleBoundaries(db), readExamFocusReviewBoundaries(db)).map(entry => syncKey(entry.collection, entry.id)));
@@ -444,7 +449,7 @@ export function resolveEntityConflict(store, { conflictId, choice, rawMarkdown }
       throw new Error('包含知识或来源、训练资产的关联冲突请采用本地或云端；正文合并与保留两篇不能安全处理关联来源。');
     }
     db.prepare('INSERT INTO sync_recovery VALUES (?, ?)').run(randomUUID(), JSON.stringify({
-      kind: 'entity-conflict', choice, local: structuredClone(state), base: [...bases(db).values()], remote: conflict.remote, resolvedAt: new Date().toISOString()
+      kind: 'entity-conflict', choice, local: cloneJsonData(state), base: [...bases(db).values()], remote: conflict.remote, resolvedAt: new Date().toISOString()
     }));
     const remote = new Map(conflict.remote.map(entry => [syncKey(entry.collection, entry.id), entry]));
     // 只保留冲突形成后已确认的更新；失败合并时旧基线不能覆盖远端墓碑。

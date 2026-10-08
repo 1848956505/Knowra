@@ -3,6 +3,7 @@ import { ApiRequestError } from '@study-accelerator/web-core';
 import { Button } from '../../components/ui/button/Button';
 import { TextField } from '../../components/ui/input/Input';
 import { modelSettings, type ModelSettingsStatus } from './modelSettings';
+import { notifyCredentialChanged } from './credentialEvents';
 import styles from './SettingsView.module.css';
 
 export function ModelConnectionSettings() {
@@ -37,6 +38,7 @@ export function ModelConnectionSettings() {
         ? await modelSettings.save({ modelId, apiKey })
         : action === 'check' ? await modelSettings.check() : await modelSettings.remove();
       setStatus(next);
+      if (action === 'save' || action === 'remove') notifyCredentialChanged();
       setModelId(next.modelId);
       setApiKey('');
       setNotice(action === 'save' ? '配置已保存。请使用“检查连接”确认密钥及模型可见。'
@@ -69,7 +71,7 @@ export function ModelConnectionSettings() {
         </div>
         {notice ? <p role="status" className={styles.modelNotice}>{notice}</p> : null}
         {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
-        <p className={styles.modelHint}>连接检查仅读取 DeepSeek 的账号模型列表，不发送笔记，也不执行生成。每日预算为 20 元，超出后助手暂停。</p>
+        <p className={styles.modelHint}>连接检查仅读取 DeepSeek 的账号模型列表，不发送笔记，也不执行生成。费用上限可在下方“预算与价格”中调整，默认每日 20 元。</p>
       </div>
     </div>
   </section>;

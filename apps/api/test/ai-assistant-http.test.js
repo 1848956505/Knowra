@@ -26,6 +26,194 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '用量导出与未知请求处理接口：CSV 下载头、释放与按金额结算、重复处理和无效输入被拒', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-resolve-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      const authority = context.ai.budgetAuthority;
+      for (const n of [1, 2]) {
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: `job-${n}`, attemptId: `attempt-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: `attempt-${n}`, disposition: 'unknown', usage: { modelId: 'deepseek-flash' } });
+      }
+      await withServer(context, async origin => {
+        const usage = async () => (await (await fetch(`${origin}/api/ai/assistant/usage`)).json()).data;
+        const before = await usage();
+        assert.deepEqual(before.unknown.map(row => [row.attemptId, row.reservedMicrounits]), [['attempt-1', 1_000_000], ['attempt-2', 1_000_000]]);
+        const exported = await fetch(`${origin}/api/ai/assistant/usage/export`);
+        assert.equal(exported.status, 200);
+        assert.match(exported.headers.get('content-type'), /text\/csv/);
+        assert.match(exported.headers.get('content-disposition'), /attachment; filename="knowra-ai-usage\.csv"/);
+        assert.match(await exported.text(), /结果未知/);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'released' }, '0')).status, 403);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'settled' })).status, 422);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'bogus' })).status, 422);
+        const released = await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'released' });
+        assert.equal(released.status, 200);
+        assert.deepEqual(released.payload.data.unknown.map(row => row.attemptId), ['attempt-2']);
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-1', disposition: 'released' })).status, 404, '已处理的请求不能再改');
+        assert.equal((await call(origin, '/usage/resolve', { attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 2_000_000 })).status, 422, '超过预留额');
+        const settled = await call(origin, '/usage/resolve', { attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 300_000 });
+        assert.equal(settled.payload.data.total.spentMicrounits, 300_000);
+        assert.deepEqual(settled.payload.data.unknown, []);
+        const status = (await (await fetch(`${origin}/api/ai/assistant/status`)).json()).data;
+        if (status.budget) assert.equal(status.budget.heldMicrounits, 0);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
+  { name: '预算提醒接口：越过阈值只提醒一次，标记后保留；达到即停时可放行当日，放行后状态恢复可用', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-alerts-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      await withServer(context, async origin => {
+        const get = async route => (await (await fetch(`${origin}/api/ai/assistant${route}`)).json()).data;
+        assert.deepEqual((await get('/alerts')).alerts, []);
+        const initial = await get('/budget-settings');
+        await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'stop', limitMicrounits: 2_000_000 } }, price: null, alerts: { thresholds: [50, 100] } });
+        const authority = context.ai.budgetAuthority;
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: 'job-1', attemptId: 'attempt-1', priceVersion: 'p1', reservedMicrounits: 1_200_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 1_100_000 });
+        const first = await get('/alerts');
+        assert.deepEqual(first.alerts.map(item => [item.threshold, item.notified, item.dismissed]), [[50, false, false]]);
+        const marked = await call(origin, '/alerts/mark', { ids: [first.alerts[0].id], kind: 'notified' });
+        assert.equal(marked.payload.data.alerts[0].notified, true);
+        assert.equal((await call(origin, '/alerts/mark', { ids: ['nope'], kind: 'notified' })).status, 422);
+        assert.equal((await call(origin, '/alerts/mark', { ids: [first.alerts[0].id], kind: 'notified' }, '0')).status, 403);
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: 'job-2', attemptId: 'attempt-2', priceVersion: 'p1', reservedMicrounits: 900_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 900_000 });
+        const full = await get('/alerts');
+        assert.deepEqual(full.alerts.map(item => item.threshold), [50, 100]);
+        assert.equal(full.alerts[0].notified, true, '已通知的阈值不会再次变成未通知');
+        assert.equal(full.alerts[1].notified, false);
+        const blocked = await get('/status');
+        assert.equal(blocked.generationAvailable, false);
+        assert.match(blocked.unavailableReason, /预算已用完/);
+        assert.equal((await call(origin, '/alerts/allow', { rule: 'turn' })).status, 422);
+        const allowed = await call(origin, '/alerts/allow', { rule: 'daily' });
+        assert.equal(allowed.status, 200);
+        assert.equal(allowed.payload.data.overrides[0].rule, 'daily');
+        const after = await get('/status');
+        assert.equal(after.budget.limitMicrounits, null);
+        assert.equal(after.budget.availableMicrounits, null);
+        // 暂停：状态立即不可用且不改预算设置；恢复后可用
+        const settingsBefore = JSON.stringify(await get('/budget-settings'));
+        const paused = await call(origin, '/alerts/pause', { rule: 'daily' });
+        assert.equal(paused.payload.data.pauses[0].rule, 'daily');
+        assert.deepEqual(paused.payload.data.overrides, [], '暂停取消同周期的放行');
+        const pausedStatus = await get('/status');
+        assert.equal(pausedStatus.generationAvailable, false);
+        assert.match(pausedStatus.unavailableReason, /暂停至明天/);
+        assert.equal(JSON.stringify(await get('/budget-settings')), settingsBefore);
+        assert.equal((await call(origin, '/alerts/pause', { rule: 'turn' })).status, 422);
+        const resumed = await call(origin, '/alerts/resume', { rule: 'daily' });
+        assert.deepEqual(resumed.payload.data.pauses, []);
+        // 状态文件损坏：AI 被阻止并如实告知，关闭横幅不能覆盖文件，显式重置后恢复
+        fs.writeFileSync(path.join(directory, 'ai-budget-alerts.json'), '{"pauses":null}');
+        const broken = await get('/alerts');
+        assert.equal(broken.stateInvalid, true);
+        const brokenStatus = await get('/status');
+        assert.equal(brokenStatus.generationAvailable, false);
+        assert.match(brokenStatus.unavailableReason, /已损坏/);
+        assert.equal((await call(origin, '/alerts/mark', { ids: ['daily:2026-10-08:50'], kind: 'dismissed' })).status, 409);
+        assert.equal((await call(origin, '/alerts/resume', { rule: 'daily' })).status, 200);
+        assert.equal((await get('/alerts')).stateInvalid, false);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
+  { name: '云端预算接口按服务端保存的上限执行：客户端传来的 limits 被忽略，状态也反映保存的规则', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-route-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      const settings = await context.ai.budgetSettings.get();
+      await context.ai.budgetSettings.set({ ...settings, rules: { ...settings.rules,
+        daily: { mode: 'stop', limitMicrounits: 10_000 }, monthly: { mode: 'stop', limitMicrounits: 10_000 } } });
+      await withServer(context, async origin => {
+        const post = async (route, body) => {
+          const response = await fetch(`${origin}/api/ai/budget/${route}`, { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Knowra-AI-Budget': '1' }, body: JSON.stringify(body) });
+          return { status: response.status, payload: await response.json() };
+        };
+        const reserve = (n, extra = {}) => post('reserve', { jobId: `job-${n}`, attemptId: `attempt-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000, ...extra });
+        const blocked = await reserve(1);
+        assert.equal(blocked.status, 409, '保存的每日上限 ¥0.01 生效，¥1 的预留被拒');
+        assert.equal(blocked.payload.error.code, 'AI_DAILY_BUDGET_EXCEEDED');
+        const forged = await reserve(2, { limits: { daily: null, monthly: null, turn: null } });
+        assert.equal(forged.status, 409, '客户端无法用 limits 放宽上限');
+        const status = await (await fetch(`${origin}/api/ai/budget/status`, { headers: { 'X-Knowra-AI-Budget': '1' } })).json();
+        assert.equal(status.data.limitMicrounits, 10_000);
+        assert.equal(status.data.monthLimitMicrounits, 10_000);
+        await context.ai.budgetSettings.set({ ...settings, rules: { ...settings.rules, daily: { mode: 'off', limitMicrounits: null } } });
+        assert.equal((await reserve(3)).status, 200, '关闭每日上限后通过');
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
+  { name: '预算设置接口：默认值、保存需助手请求头与合法金额；每日上限改为仅提醒后状态不再受 20 元限制，设置损坏时阻止调用', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-settings-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      await withServer(context, async origin => {
+        const read = async () => (await (await fetch(`${origin}/api/ai/assistant/budget-settings`)).json()).data;
+        const initial = await read();
+        assert.deepEqual(initial.rules.daily, { mode: 'stop', limitMicrounits: 20_000_000 });
+        assert.deepEqual(initial.rules.turn, { mode: 'stop', limitMicrounits: 2_000_000 });
+        assert.equal(initial.price, null);
+        assert.equal(initial.basePrice.version, reviewedDeepSeekPriceProfile.version);
+        assert.equal((await call(origin, '/budget-settings', { rules: initial.rules, price: null }, '0')).status, 403);
+        const bad = await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'stop', limitMicrounits: -1 } }, price: null });
+        assert.equal(bad.status, 422);
+        assert.equal(bad.payload.error.code, 'AI_BUDGET_SETTINGS_INVALID');
+        const saved = await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'warn', limitMicrounits: 5_000_000 } }, price: null });
+        assert.equal(saved.status, 200);
+        assert.equal(saved.payload.data.rules.daily.mode, 'warn');
+        const status = (await (await fetch(`${origin}/api/ai/assistant/status`)).json()).data;
+        if (status.budget) { assert.equal(status.budget.limitMicrounits, null); assert.equal(status.budget.availableMicrounits, null); }
+        fs.writeFileSync(path.join(directory, 'ai-budget-settings.json'), '{broken');
+        const blocked = (await (await fetch(`${origin}/api/ai/assistant/status`)).json()).data;
+        assert.equal(blocked.generationAvailable, false);
+        assert.match(blocked.unavailableReason, /预算设置/);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
+  { name: '用量与余额接口：用量只读汇总；余额读取需助手请求头，未启用时 503，失败不影响用量', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-usage-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      await withServer(context, async origin => {
+        const usage = await (await fetch(`${origin}/api/ai/assistant/usage`)).json();
+        assert.equal(usage.data.location, 'server');
+        assert.equal(usage.data.total.requests, 0);
+        assert.deepEqual(usage.data.recent, []);
+        const cached = await (await fetch(`${origin}/api/ai/assistant/balance`)).json();
+        assert.deepEqual(cached.data.inferred, []);
+        assert.equal(cached.data.latest, null);
+        const rejected = await call(origin, '/balance/refresh', {}, '0');
+        assert.equal(rejected.status, 403);
+        context.ai.balance = null;
+        assert.equal((await fetch(`${origin}/api/ai/assistant/balance`)).status, 503);
+        context.ai.balance = { view: async () => ({ latest: null, checkedAt: null, inferred: [] }),
+          refresh: async () => { throw Object.assign(new Error('无法连接 DeepSeek，请检查网络后重试。'), { code: 'AI_BALANCE_UNAVAILABLE' }); } };
+        const offline = await call(origin, '/balance/refresh', {});
+        assert.equal(offline.status, 502, '网络故障不应冒充“不支持”的 503');
+        assert.equal(offline.payload.error.code, 'AI_BALANCE_UNAVAILABLE');
+        assert.match(offline.payload.error.message, /无法连接 DeepSeek/);
+        context.ai.balance = null;
+        const unsupported = await call(origin, '/balance/refresh', {});
+        assert.equal(unsupported.payload.error.code, 'AI_BALANCE_UNSUPPORTED');
+        context.ai.balance = { view: async () => ({ latest: null, checkedAt: null, inferred: [] }),
+          refresh: async () => { throw Object.assign(new Error('DeepSeek 拒绝了 API Key，无法读取余额。'), { code: 'AI_BALANCE_REJECTED' }); } };
+        const refused = await call(origin, '/balance/refresh', {});
+        assert.equal(refused.status, 422);
+        assert.equal(refused.payload.error.code, 'AI_BALANCE_REJECTED');
+        assert.equal((await fetch(`${origin}/api/ai/assistant/usage`)).status, 200);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '未核价模型与预算故障阻止真实生成、价格过期仅提示并返回具体能力状态', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-readiness-'));
     try {
