@@ -26,6 +26,45 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '预算提醒接口：越过阈值只提醒一次，标记后保留；达到即停时可放行当日，放行后状态恢复可用', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-alerts-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      await withServer(context, async origin => {
+        const get = async route => (await (await fetch(`${origin}/api/ai/assistant${route}`)).json()).data;
+        assert.deepEqual((await get('/alerts')).alerts, []);
+        const initial = await get('/budget-settings');
+        await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'stop', limitMicrounits: 2_000_000 } }, price: null, alerts: { thresholds: [50, 100] } });
+        const authority = context.ai.budgetAuthority;
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: 'job-1', attemptId: 'attempt-1', priceVersion: 'p1', reservedMicrounits: 1_200_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 1_100_000 });
+        const first = await get('/alerts');
+        assert.deepEqual(first.alerts.map(item => [item.threshold, item.notified, item.dismissed]), [[50, false, false]]);
+        const marked = await call(origin, '/alerts/mark', { ids: [first.alerts[0].id], kind: 'notified' });
+        assert.equal(marked.payload.data.alerts[0].notified, true);
+        assert.equal((await call(origin, '/alerts/mark', { ids: ['nope'], kind: 'notified' })).status, 422);
+        assert.equal((await call(origin, '/alerts/mark', { ids: [first.alerts[0].id], kind: 'notified' }, '0')).status, 403);
+        await authority.reserve({ accountRef: 'deepseek-primary', jobId: 'job-2', attemptId: 'attempt-2', priceVersion: 'p1', reservedMicrounits: 900_000 });
+        await authority.settle({ accountRef: 'deepseek-primary', attemptId: 'attempt-2', disposition: 'settled', actualMicrounits: 900_000 });
+        const full = await get('/alerts');
+        assert.deepEqual(full.alerts.map(item => item.threshold), [50, 100]);
+        assert.equal(full.alerts[0].notified, true, '已通知的阈值不会再次变成未通知');
+        assert.equal(full.alerts[1].notified, false);
+        const blocked = await get('/status');
+        assert.equal(blocked.generationAvailable, false);
+        assert.match(blocked.unavailableReason, /预算已用完/);
+        assert.equal((await call(origin, '/alerts/allow', { rule: 'turn' })).status, 422);
+        const allowed = await call(origin, '/alerts/allow', { rule: 'daily' });
+        assert.equal(allowed.status, 200);
+        assert.equal(allowed.payload.data.overrides[0].rule, 'daily');
+        const after = await get('/status');
+        assert.equal(after.budget.limitMicrounits, null);
+        assert.equal(after.budget.availableMicrounits, null);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '预算设置接口：默认值、保存需助手请求头与合法金额；每日上限改为仅提醒后状态不再受 20 元限制，设置损坏时阻止调用', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-settings-http-'));
     try {

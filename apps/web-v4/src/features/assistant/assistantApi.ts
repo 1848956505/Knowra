@@ -52,8 +52,18 @@ export interface CustomPrice {
 export interface BudgetSettings {
   rules: Record<BudgetRuleName, BudgetRule>;
   price: CustomPrice | null;
+  alerts: { thresholds: number[] };
   basePrice?: { version: string; inputMicrounitsPerMillion: number; outputMicrounitsPerMillion: number; reviewedUntil: string } | null;
   location?: 'local' | 'server';
+}
+
+export interface BudgetAlert {
+  id: string; rule: 'daily' | 'monthly'; threshold: number; period: string; mode: BudgetMode;
+  usedMicrounits: number; limitMicrounits: number; notified: boolean; dismissed: boolean;
+}
+export interface BudgetAlerts {
+  day: string; location: 'local' | 'server'; alerts: BudgetAlert[];
+  overrides: Array<{ rule: 'daily' | 'monthly'; period: string }>;
 }
 
 export interface AssistantSource {
@@ -101,8 +111,13 @@ const data = async <T>(url: string, options?: Parameters<typeof apiClient.reques
 export const assistantApi = {
   usage: () => data<AssistantUsage>('/api/ai/assistant/usage'),
   budgetSettings: () => data<BudgetSettings>('/api/ai/assistant/budget-settings'),
-  saveBudgetSettings: (value: Pick<BudgetSettings, 'rules' | 'price'>) => data<BudgetSettings>('/api/ai/assistant/budget-settings', {
+  saveBudgetSettings: (value: Pick<BudgetSettings, 'rules' | 'price' | 'alerts'>) => data<BudgetSettings>('/api/ai/assistant/budget-settings', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
+  alerts: () => data<BudgetAlerts>('/api/ai/assistant/alerts'),
+  markAlerts: (ids: string[], kind: 'notified' | 'dismissed') => data<BudgetAlerts>('/api/ai/assistant/alerts/mark', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, kind }) }),
+  allowRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/allow', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
   balance: () => data<AssistantBalance>('/api/ai/assistant/balance'),
   refreshBalance: () => data<AssistantBalance>('/api/ai/assistant/balance/refresh', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1' } }),

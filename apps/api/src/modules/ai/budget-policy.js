@@ -1,4 +1,6 @@
 import { effectivePriceProfile, enforcedLimits } from './budget-settings.js';
+import { beijingDay } from './budget-ledger.js';
+import { periodOf } from './budget-alerts.js';
 
 const FRESH_MS = 5 * 60_000;
 const STALE_BLOCK_MS = 60 * 60_000;
@@ -9,7 +11,7 @@ const fail = (code, message) => Object.assign(new Error(message), { code });
  * 并在“余额下限”为“达到即停”时核对账户余额。设置损坏时抛错，调用被拒绝（fail closed）。
  * 每次调用取一份快照，同一次调用内的预留、发送、结算使用同一份价格，不受中途修改影响。
  */
-export function createBudgetPolicy({ settings, balance = null, basePriceProfile, now = () => new Date() }) {
+export function createBudgetPolicy({ settings, balance = null, alerts = null, basePriceProfile, now = () => new Date() }) {
   if (!settings || !basePriceProfile) throw new TypeError('预算策略需要设置存储和价格档案。');
 
   async function assertBalance(current) {
@@ -32,17 +34,27 @@ export function createBudgetPolicy({ settings, balance = null, basePriceProfile,
     if (cny.totalMicrounits < rule.limitMicrounits) throw fail('AI_BALANCE_BELOW_FLOOR', '账户余额低于设定的下限，已暂停模型调用。可在设置中调整下限。');
   }
 
+  // 用户对当前周期的放行：该规则本周期内不再限制预留，周期结束自动失效。
+  async function limitsFor(current) {
+    const limits = enforcedLimits(current);
+    if (!alerts) return limits;
+    const { overrides } = await alerts.get();
+    const day = beijingDay(now());
+    for (const rule of ['daily', 'monthly']) if (overrides[rule] === periodOf(rule, day)) limits[rule] = null;
+    return limits;
+  }
+
   return {
     /** 一次付费调用前取快照：设置、价格档案、账本上限；余额下限不满足时抛错。 */
     async snapshot() {
       const current = await settings.get();
       await assertBalance(current);
-      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: enforcedLimits(current) };
+      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: await limitsFor(current) };
     },
     /** 只读视图，不联网：供状态接口使用。 */
     async view() {
       const current = await settings.get();
-      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: enforcedLimits(current) };
+      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: await limitsFor(current) };
     },
     /** 状态接口用：仅凭已保存的余额快照判断是否已低于下限，不联网。 */
     async balanceBelowFloor(current) {

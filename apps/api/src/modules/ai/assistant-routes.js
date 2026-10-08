@@ -18,6 +18,9 @@ export async function handleAssistantRoute({ request, response, url, assistant }
     if (request.method === 'GET' && url.pathname === `${root}/budget-settings`) {
       sendJson(response, 200, { data: await assistant.budgetSettings() }); return true;
     }
+    if (request.method === 'GET' && url.pathname === `${root}/alerts`) {
+      sendJson(response, 200, { data: await assistant.budgetAlerts() }); return true;
+    }
     if (request.method === 'GET' && url.pathname === `${root}/balance`) {
       sendJson(response, 200, { data: await assistant.balance() }); return true;
     }
@@ -33,6 +36,12 @@ export async function handleAssistantRoute({ request, response, url, assistant }
       }
       if (url.pathname === `${root}/budget-settings`) {
         sendJson(response, 200, { data: await assistant.saveBudgetSettings(await parseBody(request, { limitBytes: 2048 })) }); return true;
+      }
+      if (url.pathname === `${root}/alerts/mark`) {
+        sendJson(response, 200, { data: await assistant.markAlerts(await parseBody(request, { limitBytes: 2048 })) }); return true;
+      }
+      if (url.pathname === `${root}/alerts/allow`) {
+        sendJson(response, 200, { data: await assistant.allowRule(await parseBody(request, { limitBytes: 256 })) }); return true;
       }
       if (url.pathname === `${root}/balance/refresh`) {
         sendJson(response, 200, { data: await assistant.balance({ refresh: true }) }); return true;

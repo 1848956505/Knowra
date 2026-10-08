@@ -1,0 +1,7 @@
+.stack { position: fixed; right: 16px; bottom: 44px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(420px, calc(100vw - 32px)); }
+.banner { padding: 12px 14px; border: 1px solid var(--ink-shell); background: var(--ink-surface); color: var(--ink); box-shadow: var(--shadow-2, var(--shadow-1)); font-size: 12px; line-height: 1.6; }
+.blocked { border-color: #a32929; }
+.banner p { margin: 0 0 10px; }
+.banner p span { color: var(--ink-secondary); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.banner .error { margin: 10px 0 0; color: #a32929; }

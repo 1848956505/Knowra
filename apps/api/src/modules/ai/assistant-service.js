@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { hashRecord, manifestHash } from './record-contract.js';
+import { beijingDay } from './budget-ledger.js';
+import { evaluateAlerts, periodOf } from './budget-alerts.js';
 
 const PREVIEW_TTL_MS = 5 * 60_000;
 const MAX_PREVIEWS = 32;
@@ -125,6 +127,32 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return budgetSettings();
   }
 
+  /** 提醒：当前周期已越过的阈值（含是否已通知/已关闭）与生效中的放行。只读，不联网。 */
+  async function budgetAlerts() {
+    const ai = runtime();
+    if (!ai?.budgetSettings || !ai.budgetAlerts || !ai.budgetAuthority) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const settings = await ai.budgetSettings.get();
+    const day = beijingDay(now());
+    // 评估提醒需要“配置的上限”而不是“实际拦截的上限”，所以仅提醒的规则也要算出用量。
+    const limits = { daily: settings.rules.daily.limitMicrounits, monthly: settings.rules.monthly.limitMicrounits, turn: null };
+    const status = await ai.budgetAuthority.status('deepseek-primary', day, limits);
+    const { marks, overrides } = await ai.budgetAlerts.get();
+    return { ...evaluateAlerts({ settings, status, marks, overrides, day }), location };
+  }
+  async function markAlerts({ ids, kind } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    await store.mark(ids, kind, beijingDay(now()));
+    return budgetAlerts();
+  }
+  async function allowRule({ rule } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const day = beijingDay(now());
+    await store.allow(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
+    return budgetAlerts();
+  }
+
   /** 账户余额：refresh=false 只读已保存的快照；true 才联网读取。读取失败不影响任何 AI 调用。 */
   async function balance({ refresh = false } = {}) {
     const service = runtime()?.balance;
@@ -237,5 +265,5 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return view(await runtime().worker.cancel(jobId), true);
   }
 
-  return { status, usage, balance, budgetSettings, saveBudgetSettings, list, get, preview, start, cancel };
+  return { status, usage, balance, budgetSettings, saveBudgetSettings, budgetAlerts, markAlerts, allowRule, list, get, preview, start, cancel };
 }

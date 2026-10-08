@@ -323,6 +323,11 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     finally { setPending(false); }
   }
 
+  async function allowBudget(rule: 'daily' | 'monthly') {
+    try { await assistantApi.allowRule(rule); setNotice(`${rule === 'daily' ? '今日' : '本月'}已放行，可重试本轮；周期结束后自动恢复拦截。`); setStatus(await assistantApi.status()); }
+    catch (cause) { setError(errorText(cause, '放行失败。')); }
+  }
+
   async function actOnTurn(action: 'cancel' | 'retry' | 'resume', confirmed = false) {
     if (!selectedId || !latestTurn || pending) return;
     if (action === 'retry' && deliveryUncertain && !confirmed) { setRetryConfirmOpen(true); return; }
@@ -532,6 +537,12 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             <span>{latestTurn.status === 'running' ? phaseName[latestTurn.phase] : latestTurn.errorCode ?? ''}</span>
             {isActive(latestTurn) ? <Button variant="ghost" size="compact" isDisabled={pending}
               onPress={() => void actOnTurn('cancel')}>停止生成</Button> : null}
+            {budgetBlock(latestTurn.errorCode) ? <>
+              <span>费用上限已拦截本轮，可调整后继续：</span>
+              <Button variant="default" size="compact" onPress={() => navigate('/settings')}>提高上限</Button>
+              {budgetBlock(latestTurn.errorCode) !== 'turn' ? <Button variant="default" size="compact" isDisabled={pending}
+                onPress={() => void allowBudget(budgetBlock(latestTurn.errorCode) as 'daily' | 'monthly')}>{budgetBlock(latestTurn.errorCode) === 'daily' ? '今日放行' : '本月放行'}</Button> : null}
+            </> : null}
             {['failed', 'interrupted', 'staged'].includes(latestTurn.status) ? <>
               <Button variant="default" size="compact" isDisabled={pending || !status?.generationAvailable || selected?.readOnly || deliveryUncertain}
                 onPress={() => void actOnTurn('resume')}>从检查点继续</Button>
@@ -633,6 +644,11 @@ const toolLabel = (call: ToolCall) => call.toolName === 'notes_search' ? call.ar
     : call.toolName === 'knowledge_propose' ? '提交知识候选（待审核）' : '生成笔记计划（尚未写入）';
 
 /** 每个工具调用结果的一句话摘要；提议工具没有来源片段，不能显示“0 个来源片段”。 */
+/** 费用上限造成的失败码对应的规则；其余错误返回 null。 */
+function budgetBlock(code: string | null): 'daily' | 'monthly' | 'turn' | null {
+  return code === 'AI_DAILY_BUDGET_EXCEEDED' ? 'daily' : code === 'AI_MONTHLY_BUDGET_EXCEEDED' ? 'monthly' : code === 'AI_JOB_BUDGET_EXCEEDED' ? 'turn' : null;
+}
+
 function toolSummary(call: ToolCall, turn: ConversationTurn) {
   if (call.status === 'failed') return `失败：${call.errorCode ?? '未知原因'}`;
   if (call.status !== 'succeeded') return turn.status === 'running' ? '执行中' : '执行未完成';

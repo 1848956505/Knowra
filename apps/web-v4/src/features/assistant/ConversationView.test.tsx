@@ -22,7 +22,7 @@ vi.mock('../../app/router', async importOriginal => ({
 
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStoreApi: () => ({ getState: () => fixture.state }), useAppStore: (selector: (value: typeof fixture.state) => unknown) => selector(fixture.state) }));
 vi.mock('../settings/aiFeatures', () => ({ aiFeatures: { get: vi.fn(), set: vi.fn() } }));
-vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn() } }));
+vi.mock('./assistantApi', () => ({ assistantApi: { status: vi.fn(), listLegacy: vi.fn(), getLegacy: vi.fn(), allowRule: vi.fn() } }));
 vi.mock('./conversationAttachmentApi', () => ({ conversationAttachmentApi: {
   list: vi.fn(), upload: vi.fn(), preview: vi.fn(), content: vi.fn(), remove: vi.fn()
 } }));
@@ -327,6 +327,26 @@ it('中断轮次可重试，模型不可用时仍可回看消息且不能发送'
   expect(screen.getByText('模型服务暂时不可用。')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '重试本轮' })).toBeDisabled();
   expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled();
+});
+
+it('每日预算拦截本轮时给出“提高上限 / 今日放行”出口，放行后刷新状态', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([{ messageId: 'message-1', turnId: 'turn-1', sequence: 1,
+    role: 'user', content: '被拦截的问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }]);
+  vi.mocked(conversationApi.turn).mockResolvedValue({ ...succeeded, status: 'failed', phase: 'finished', errorCode: 'AI_DAILY_BUDGET_EXCEEDED' });
+  const status = { provider: 'deepseek' as const, modelId: 'deepseek-flash', configured: true, executionLocation: 'server' as const,
+    generationAvailable: true, unavailableReason: null, budget: null,
+    capabilities: { readScopes: ['note' as const, 'folder' as const], actions: ['answer' as const, 'cancel' as const], responseMode: 'polling' as const,
+      writeTools: false as const, providerAdvertised: null, providerVerified: false } };
+  vi.mocked(assistantApi.status).mockResolvedValue(status);
+  vi.mocked(assistantApi.allowRule).mockResolvedValue({ day: '2026-10-08', location: 'server', alerts: [], overrides: [{ rule: 'daily', period: '2026-10-08' }] });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText('费用上限已拦截本轮，可调整后继续：')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '提高上限' }));
+  expect(fixture.navigate).toHaveBeenCalledWith('/settings');
+  fireEvent.click(screen.getByRole('button', { name: '今日放行' }));
+  await waitFor(() => expect(assistantApi.allowRule).toHaveBeenCalledWith('daily'));
+  expect(await screen.findByText(/今日已放行/)).toBeInTheDocument();
 });
 
 it('首次授权明确的知识空间范围后，提问使用该授权并可撤销', async () => {

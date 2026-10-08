@@ -15,7 +15,8 @@ export const DEFAULT_BUDGET_SETTINGS = Object.freeze({
     turn: Object.freeze({ mode: 'stop', limitMicrounits: 2_000_000 }),
     balanceFloor: Object.freeze({ mode: 'off', limitMicrounits: null })
   }),
-  price: null
+  price: null,
+  alerts: Object.freeze({ thresholds: Object.freeze([50, 80, 100]) })
 });
 
 const invalid = message => Object.assign(new Error(message), { code: 'AI_BUDGET_SETTINGS_INVALID' });
@@ -25,7 +26,7 @@ const price = value => Number.isSafeInteger(value) && value >= 0 && value <= MAX
 /** 校验并规范化；未知字段、非法模式或金额一律拒绝。 */
 export function normalizeBudgetSettings(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)
-    || Object.keys(input).some(key => !['rules', 'price'].includes(key)) || !input.rules || typeof input.rules !== 'object') {
+    || Object.keys(input).some(key => !['rules', 'price', 'alerts'].includes(key)) || !input.rules || typeof input.rules !== 'object') {
     throw invalid('预算设置格式无效。');
   }
   const rules = {};
@@ -49,7 +50,17 @@ export function normalizeBudgetSettings(input) {
     custom = { inputMicrounitsPerMillion, inputCacheHitMicrounitsPerMillion, outputMicrounitsPerMillion,
       updatedAt: updatedAt ?? null };
   }
-  return { rules, price: custom };
+  // 提醒阈值：1–100 的整数百分比，去重排序，最多 6 个；缺省（旧文件、旧客户端）用默认值。
+  let thresholds = [...DEFAULT_BUDGET_SETTINGS.alerts.thresholds];
+  if (input.alerts !== undefined) {
+    const list = input.alerts?.thresholds;
+    if (!input.alerts || typeof input.alerts !== 'object' || Object.keys(input.alerts).some(key => key !== 'thresholds')
+      || !Array.isArray(list) || list.length > 6 || !list.every(value => Number.isInteger(value) && value >= 1 && value <= 100)) {
+      throw invalid('提醒阈值无效。');
+    }
+    thresholds = [...new Set(list)].sort((a, b) => a - b);
+  }
+  return { rules, price: custom, alerts: { thresholds } };
 }
 
 /** 把用户单价叠加到已核对的价格档案上；版本号带自定义标记，使账本能区分。 */
