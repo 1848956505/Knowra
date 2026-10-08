@@ -72,6 +72,8 @@ export interface BudgetAlerts {
   overrides: Array<{ rule: 'daily' | 'monthly'; period: string }>;
   /** 用户在当前周期暂停了 AI（周期结束自动恢复，不改预算设置）。 */
   pauses: Array<{ rule: 'daily' | 'monthly'; period: string }>;
+  /** 暂停/提醒状态文件损坏：AI 已被阻止，需要用户重置。 */
+  stateInvalid?: boolean;
 }
 
 export interface AssistantSource {

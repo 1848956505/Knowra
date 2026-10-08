@@ -2,6 +2,7 @@ vi.mock('./noteActionApi', () => ({ noteActionApi: { list: vi.fn(async () => [])
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AssistantView } from './AssistantView';
 import { assistantApi } from './assistantApi';
+import { notifyAssistantStatusChanged } from './assistantEvents';
 import { conversationAttachmentApi } from './conversationAttachmentApi';
 import type { ConversationAttachment } from './ConversationAttachmentPicker';
 import { conversationApi, type Conversation, type ConversationTurn, type ConversationMessage } from './conversationApi';
@@ -362,6 +363,20 @@ it('每日预算拦截本轮时给出“提高上限 / 今日放行”出口，�
   fireEvent.click(screen.getByRole('button', { name: '今日放行' }));
   await waitFor(() => expect(assistantApi.allowRule).toHaveBeenCalledWith('daily'));
   expect(await screen.findByText(/今日已放行/)).toBeInTheDocument();
+});
+
+it('费用提醒里解除暂停后，助手状态立即刷新为可发送，不必手动重读', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([]);
+  const base = { provider: 'deepseek' as const, modelId: 'deepseek-flash', configured: true, executionLocation: 'server' as const, budget: null,
+    capabilities: { readScopes: ['note' as const, 'folder' as const], actions: ['answer' as const, 'cancel' as const], responseMode: 'polling' as const,
+      writeTools: false as const, providerAdvertised: null, providerVerified: false } };
+  vi.mocked(assistantApi.status).mockResolvedValueOnce({ ...base, generationAvailable: false, unavailableReason: 'AI 已按您的操作暂停至明天，可在费用提醒处恢复。' })
+    .mockResolvedValue({ ...base, generationAvailable: true, unavailableReason: null });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  expect(await screen.findByText(/暂停至明天/)).toBeInTheDocument();
+  act(() => notifyAssistantStatusChanged());
+  await waitFor(() => expect(screen.queryByText(/暂停至明天/)).not.toBeInTheDocument());
 });
 
 it('首次授权明确的知识空间范围后，提问使用该授权并可撤销', async () => {

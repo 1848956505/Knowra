@@ -72,7 +72,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       }
       return { ready: true, reason: null, budget: view };
     } catch (error) {
-      if (error?.code === 'AI_BUDGET_SETTINGS_INVALID') return { ready: false, reason: error.message, budget: null };
+      if (['AI_BUDGET_SETTINGS_INVALID', 'AI_BUDGET_ALERTS_INVALID'].includes(error?.code)) return { ready: false, reason: error.message, budget: null };
       return { ready: false, reason: location === 'local' ? '本机预算账本不可用，已阻止模型调用。' : '云端预算服务不可用，已阻止模型调用。', budget: null };
     }
   }
@@ -140,8 +140,10 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     // 评估提醒需要“配置的上限”而不是“实际拦截的上限”，所以仅提醒的规则也要算出用量。
     const limits = { daily: settings.rules.daily.limitMicrounits, monthly: settings.rules.monthly.limitMicrounits, turn: null };
     const status = await ai.budgetAuthority.status('deepseek-primary', day, limits);
-    const { marks, overrides, pauses } = await ai.budgetAlerts.get();
-    return { ...evaluateAlerts({ settings, status, marks, overrides, pauses, day }), location };
+    const { marks, overrides, pauses, invalid } = await ai.budgetAlerts.get();
+    // 状态文件损坏时如实告知（AI 已被阻止），由用户在界面重置，而不是当作“没有暂停”。
+    if (invalid) return { day, alerts: [], overrides: [], pauses: [], stateInvalid: true, location };
+    return { ...evaluateAlerts({ settings, status, marks, overrides, pauses, day }), stateInvalid: false, location };
   }
   async function markAlerts({ ids, kind } = {}) {
     const store = runtime()?.budgetAlerts;

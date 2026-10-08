@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BudgetAlertBanner } from './BudgetAlertBanner';
 import { assistantApi, type BudgetAlert, type BudgetAlerts } from './assistantApi';
+import { ASSISTANT_STATUS_CHANGED_EVENT } from './assistantEvents';
 
 const navigate = vi.fn();
 vi.mock('../../app/router', () => ({ useNavigate: () => navigate }));
@@ -84,4 +85,45 @@ it('读取提醒失败时不显示任何横幅', async () => {
   render(<BudgetAlertBanner />);
   await waitFor(() => expect(assistantApi.alerts).toHaveBeenCalled());
   expect(screen.queryByRole('region')).not.toBeInTheDocument();
+});
+
+it('放行后通知助手视图刷新状态', async () => {
+  const changed = vi.fn();
+  window.addEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed);
+  try {
+    vi.mocked(assistantApi.alerts).mockResolvedValue(state([alert(100)]));
+    vi.mocked(assistantApi.allowRule).mockResolvedValue(state([alert(100)], [{ rule: 'daily', period: '2026-10-08' }]));
+    render(<BudgetAlertBanner />);
+    fireEvent.click(await screen.findByRole('button', { name: '今日放行' }));
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+  } finally { window.removeEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed); }
+});
+
+it('仅关闭横幅不改变助手能否调用，不通知', async () => {
+  const changed = vi.fn();
+  window.addEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed);
+  try {
+    vi.mocked(assistantApi.alerts).mockResolvedValue(state([alert(100)]));
+    vi.mocked(assistantApi.markAlerts).mockResolvedValue(state([alert(100, { dismissed: true })]));
+    render(<BudgetAlertBanner />);
+    fireEvent.click(await screen.findByRole('button', { name: '关闭提示' }));
+    await waitFor(() => expect(assistantApi.markAlerts).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole('region')).not.toBeInTheDocument());
+    expect(changed).not.toHaveBeenCalled();
+  } finally { window.removeEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed); }
+});
+
+it('暂停状态文件损坏时显示阻止提示，重置后通知助手视图', async () => {
+  const changed = vi.fn();
+  window.addEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed);
+  try {
+    vi.mocked(assistantApi.alerts).mockResolvedValue({ ...state([]), stateInvalid: true });
+    vi.mocked(assistantApi.resumeRule).mockResolvedValue(state([]));
+    render(<BudgetAlertBanner />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('暂停/提醒状态文件已损坏，AI 已被阻止');
+    fireEvent.click(screen.getByRole('button', { name: '重置并恢复' }));
+    await waitFor(() => expect(assistantApi.resumeRule).toHaveBeenCalledWith('daily'));
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole('region')).not.toBeInTheDocument());
+  } finally { window.removeEventListener(ASSISTANT_STATUS_CHANGED_EVENT, changed); }
 });
