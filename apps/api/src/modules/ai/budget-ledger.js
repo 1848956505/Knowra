@@ -28,9 +28,11 @@ export function beijingDay(now = new Date()) {
 }
 
 export function validateBudgetState(state) {
-  state.budgetDays ??= [];
-  state.budgetReservations ??= [];
-  state.budgetMonths ??= [];
+  // 只有“字段不存在”（旧版本账本）才补空集合；显式的 null 或其他类型是损坏，必须报错，
+  // 否则损坏的月汇总会被静默清空，累计费用随之丢失，下一次写盘还会覆盖原文件。
+  if (state.budgetDays === undefined) state.budgetDays = [];
+  if (state.budgetReservations === undefined) state.budgetReservations = [];
+  if (state.budgetMonths === undefined) state.budgetMonths = [];
   if (!Array.isArray(state.budgetDays) || !Array.isArray(state.budgetReservations) || !Array.isArray(state.budgetMonths)) fail('AI_BUDGET_INVALID', '预算账本结构无效。');
   const monthKeys = new Set();
   for (const row of state.budgetMonths) {
@@ -81,9 +83,15 @@ function checkLimits(limits) {
   return limits;
 }
 
-const monthTotals = (state, accountRef, date) => state.budgetDays
-  .filter(row => row.accountRef === accountRef && row.day.startsWith(date.slice(0, 7)))
-  .reduce((sum, row) => ({ spent: sum.spent + row.spentMicrounits, held: sum.held + row.heldMicrounits }), { spent: 0, held: 0 });
+// 当月合计 = 日账本 + 已折叠进月汇总的部分：折叠后的金额仍须计入预算统计，不能因折叠而“消失”。
+const monthTotals = (state, accountRef, date) => {
+  const month = date.slice(0, 7);
+  const days = state.budgetDays.filter(row => row.accountRef === accountRef && row.day.startsWith(month))
+    .reduce((sum, row) => ({ spent: sum.spent + row.spentMicrounits, held: sum.held + row.heldMicrounits }), { spent: 0, held: 0 });
+  const archived = (state.budgetMonths ?? []).filter(row => row.accountRef === accountRef && row.month === month)
+    .reduce((sum, row) => sum + row.spentMicrounits, 0);
+  return { spent: days.spent + archived, held: days.held };
+};
 
 /** limitMicrounits / availableMicrounits 为 null 表示当日规则不是“达到即停”，不限制调用。 */
 export function budgetStatus(state, accountRef, date = beijingDay(), limits) {
@@ -172,6 +180,10 @@ export function pruneBudgetState(state, accountRef, today = beijingDay()) {
   const days = state.budgetDays.filter(row => row.accountRef === accountRef).map(row => row.day);
   if (days.length === 0) return 0;
   const newest = days.reduce((a, b) => a > b ? a : b);
+  // 时间跳变保护：账本最新日同样来自系统时钟。若最新一天比此前的最新一天晚出 90 天以上，视为可能的时钟异常，
+  // 这一次不裁剪；只有之后又出现更晚的日期（说明时间确实在持续推进）才继续折叠。
+  const previous = days.filter(day => day < newest).reduce((a, b) => a > b ? a : b, '');
+  if (previous && shiftDay(previous, DETAIL_KEEP_DAYS) < newest) return 0;
   const cutoff = shiftDay(newest < today ? newest : today, -DETAIL_KEEP_DAYS);
   const old = state.budgetReservations.filter(row => row.accountRef === accountRef && row.day < cutoff && ['settled', 'released'].includes(row.status));
   if (old.length === 0) return 0;

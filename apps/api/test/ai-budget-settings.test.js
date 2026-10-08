@@ -236,7 +236,7 @@ export const aiBudgetSettingsTests = [
   } },
   { name: '已有损坏的用量明细：折叠进月汇总与 CSV 导出前同样清洗，不产生 NaN 或字符串拼接', run() {
     const state = { budgetDays: [], budgetReservations: [], budgetMonths: [] };
-    for (const [n, day] of [[1, '2026-05-02'], [2, '2026-10-08']]) {
+    for (const [n, day] of [[1, '2026-05-02'], [3, '2026-10-07'], [2, '2026-10-08']]) { // 10-07 与 10-08 连续，时间推进可信
       reserve(state, n, 1_000_000, { day });
       settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition: 'settled', actualMicrounits: 1000, usage: { inputTokens: 10, outputTokens: 1 } });
     }
@@ -351,5 +351,40 @@ export const aiBudgetSettingsTests = [
     assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-08' } }).rules[0].blocked, false, '当日已放行');
     assert.equal(rulesOf(settings(), full, { overrides: { daily: '2026-10-07' } }).rules[0].blocked, true, '昨天的放行不算数');
     assert.equal(rulesOf(settings(), { ...full, spentMicrounits: 19_999_999 }).rules[0].blocked, false);
+  } },
+  { name: '时钟跳到未来后结算：不立即折叠近期明细；月汇总金额仍计入预算统计；时间持续推进后才折叠', run() {
+    const state = { budgetDays: [], budgetReservations: [], budgetMonths: [] };
+    const call = (n, day, actual) => {
+      reserve(state, n, 1_000_000, { day });
+      settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition: 'settled', actualMicrounits: actual });
+    };
+    call(1, '2026-10-07', 300_000); call(2, '2026-10-08', 200_000);
+    // 系统时钟被误调到 2030 年，随后发生了一次结算。
+    call(3, '2030-01-01', 10);
+    assert.equal(pruneBudgetState(state, account, '2030-01-01'), 0, '最新日比此前最新日晚出 90 天以上：疑似时钟异常，不裁剪');
+    assert.equal(state.budgetReservations.length, 3);
+    call(4, '2030-01-01', 10);
+    assert.equal(pruneBudgetState(state, account, '2030-01-01'), 0, '同一异常日内再次结算仍不裁剪');
+    // 时钟恢复正确：基准取今天，同样不裁剪，预算统计保持。
+    assert.equal(pruneBudgetState(state, account, '2026-10-09'), 0);
+    assert.equal(budgetStatus(state, account, '2026-10-08').monthSpentMicrounits, 500_000);
+    // 时间确实持续推进（出现更晚的日期）后才折叠，且折叠的金额仍计入对应月份的预算统计。
+    call(5, '2030-01-02', 10);
+    assert.equal(pruneBudgetState(state, account, '2030-01-02'), 2);
+    validateBudgetState(state);
+    assert.equal(state.budgetMonths.find(row => row.month === '2026-10').spentMicrounits, 500_000);
+    assert.equal(budgetStatus(state, account, '2026-10-20', { daily: null, monthly: 1_000_000, turn: null }).monthSpentMicrounits, 500_000, '折叠后的金额仍参与当月预算判断');
+    assert.equal(budgetStatus(state, account, '2026-10-20', { daily: null, monthly: 1_000_000, turn: null }).monthAvailableMicrounits, 500_000);
+    assert.throws(() => reserve(state, 6, 600_000, { day: '2026-10-20', limits: { daily: null, monthly: 1_000_000, turn: null } }), { code: 'AI_MONTHLY_BUDGET_EXCEEDED' });
+    assert.equal(usageSummary(state, account, '2026-10-20').month.spentMicrounits, 500_000, '用量汇总与预算统计一致');
+  } },
+  { name: '月汇总损坏不会被静默清空：显式 null 或非数组报错，只有字段缺失（旧账本）才补空', run() {
+    for (const bad of [null, {}, 'x', 0]) {
+      assert.throws(() => validateBudgetState({ budgetDays: [], budgetReservations: [], budgetMonths: bad }), { code: 'AI_BUDGET_INVALID' }, String(bad));
+    }
+    assert.throws(() => validateBudgetState({ budgetDays: null, budgetReservations: [], budgetMonths: [] }), { code: 'AI_BUDGET_INVALID' });
+    const legacy = validateBudgetState({ budgetDays: [], budgetReservations: [] });
+    assert.deepEqual(legacy.budgetMonths, []);
+    assert.throws(() => validateBudgetState({ budgetDays: [], budgetReservations: [], budgetMonths: [{ accountRef: account, month: '2026-05', requests: 1, spentMicrounits: -1, inputTokens: 0, outputTokens: 0, cacheHitTokens: 0 }] }), { code: 'AI_BUDGET_INVALID' });
   } }
 ];

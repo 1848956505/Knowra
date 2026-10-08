@@ -29,7 +29,9 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
         || Object.keys(parsed).some(key => !['budgetDays', 'budgetReservations', 'budgetMonths'].includes(key))
         // 两个集合必须都存在且是数组：共享校验函数会把缺失或 null 补成空数组，等于额度清零并在下次写盘时覆盖原文件。
-        || !Array.isArray(parsed.budgetDays) || !Array.isArray(parsed.budgetReservations)) throw new Error('预算账本结构无效。');
+        || !Array.isArray(parsed.budgetDays) || !Array.isArray(parsed.budgetReservations)
+        // 月汇总是折叠后历史费用的唯一记录：只有字段缺失（旧版本文件）才视为空，显式 null 或其他类型是损坏。
+        || parsed.budgetMonths !== undefined && !Array.isArray(parsed.budgetMonths)) throw new Error('预算账本结构无效。');
       state = validateBudgetState(parsed);
     }
     catch (error) { failure = unavailable('本机预算账本已损坏，已阻止模型调用；原文件已保留，请修复或备份后重试。', error); }

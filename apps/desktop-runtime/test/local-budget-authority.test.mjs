@@ -129,6 +129,8 @@ test('本机账本裁剪 90 天前的明细为月汇总并落盘，旧账本缺�
   // reserve 的 day 由调用方给出（云端路径以服务端日期覆盖）；本机账本沿用共享逻辑。
   await at(1, '2026-05-02', 1_000_000);
   await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-1', disposition: 'settled', actualMicrounits: 400_000, usage: { inputTokens: 10, outputTokens: 1 } });
+  await at(4, '2026-10-07', 100_000); // 与 10-08 连续，时间推进可信，之后才折叠 5 月明细
+  await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-4', disposition: 'settled', actualMicrounits: 1 });
   await at(2, '2026-10-08', 1_000_000);
   await first.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'unknown' });
   await at(3, '2026-10-08', 500_000);
@@ -139,7 +141,7 @@ test('本机账本裁剪 90 天前的明细为月汇总并落盘，旧账本缺�
   assert.equal(saved.budgetReservations.some(row => row.attemptId === 'attempt-1'), false);
   const second = createLocalBudgetAuthority({ filePath });
   const summary = await second.usage(ACCOUNT, '2026-10-08');
-  assert.equal(summary.total.spentMicrounits, 500_000);
+  assert.equal(summary.total.spentMicrounits, 500_001);
   assert.deepEqual(summary.unknown.map(row => row.attemptId), ['attempt-2']);
   assert.equal((await second.usageRows(ACCOUNT)).months[0].month, '2026-05');
   await second.settle({ accountRef: ACCOUNT, attemptId: 'attempt-2', disposition: 'released' });
@@ -188,4 +190,18 @@ test('桌面运行端用真实 AI 运行实例：用量、余额、预算设置�
   const resolve = await call('/usage/resolve', { attemptId: 'nope', disposition: 'released' });
   assert.notEqual(resolve.error?.code, 'LOCAL_FEATURE_UNAVAILABLE');
   assert.equal(fs.existsSync(path.join(dataDirectory, 'ai-budget-alerts.json')), true, '提醒状态落在数据目录根');
+});
+
+test('本机账本的月汇总字段为 null 或非数组时按损坏处理：拒绝调用并保留原文件，不静默清空', async t => {
+  const dir = temporaryDirectory(t), filePath = path.join(dir, 'ai-budget.json');
+  const raw = JSON.stringify({ budgetDays: [], budgetReservations: [], budgetMonths: null });
+  fs.writeFileSync(filePath, raw);
+  const authority = createLocalBudgetAuthority({ filePath });
+  assert.equal(await code(authority.status(ACCOUNT)), 'AI_BUDGET_UNAVAILABLE');
+  assert.equal(await code(reserve(authority, 1)), 'AI_BUDGET_UNAVAILABLE');
+  assert.equal(fs.readFileSync(filePath, 'utf8'), raw, '原文件保留');
+  fs.writeFileSync(filePath, JSON.stringify({ budgetDays: [], budgetReservations: [], budgetMonths: {} }));
+  assert.equal(await code(createLocalBudgetAuthority({ filePath }).status(ACCOUNT)), 'AI_BUDGET_UNAVAILABLE');
+  fs.writeFileSync(filePath, JSON.stringify({ budgetDays: [], budgetReservations: [] })); // 旧版本文件缺少该字段仍可读
+  assert.equal((await createLocalBudgetAuthority({ filePath }).status(ACCOUNT)).availableMicrounits, 20_000_000);
 });
