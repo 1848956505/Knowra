@@ -156,7 +156,8 @@ export function createAppContext(options = {}) {
       : undefined,
     readPurgeTaskState: createLocalPurgeTaskReader(dataStore),
     getPurgeDatasetEpoch: dataStore?.getSyncJournal ? () => dataStore.getSyncJournal().epoch : undefined,
-    enforceReferences: options.enforceReferences ?? true
+    enforceReferences: options.enforceReferences ?? true,
+    noteVersionCoalescing: options.noteVersionCoalescing
   });
   const noteDeletionCoordinator = createNoteDeletionCoordinator({
     noteService: knowledge.noteService,

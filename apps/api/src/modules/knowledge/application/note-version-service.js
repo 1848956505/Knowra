@@ -35,6 +35,9 @@ export function createNoteVersionService({ repository } = {}) {
     listVersions(options = {}) {
       return repository.list(options);
     },
+    listVersionIds(options = {}) {
+      return repository.listIds(options);
+    },
     listVersionPage(note, query = {}) {
       return repository.listPage({ ...parseVersionPageQuery(query), noteId: note.id, currentContentHash: calculateContentHash(note.rawMarkdown) });
     }
@@ -66,6 +69,9 @@ export function createAsyncNoteVersionService({ repository } = {}) {
     },
     listVersions(options = {}) {
       return repository.list(options);
+    },
+    listVersionIds(options = {}) {
+      return repository.listIds(options);
     },
     listVersionPage(note, query = {}) {
       return repository.listPage({ ...parseVersionPageQuery(query), noteId: note.id, currentContentHash: calculateContentHash(note.rawMarkdown) });

@@ -31,6 +31,7 @@ import { createInMemoryQuestionObjectiveRepository } from './infrastructure/ques
 import { createInMemoryQuestionSourceRepository } from './infrastructure/question-source-repository.js';
 import { createNoteVersionService } from './application/note-version-service.js';
 import { buildNoteVersionPrunePreview } from './application/note-version-prune-preview.js';
+import { NOTE_VERSION_COALESCE_WINDOW_MS, selectCoalescibleVersion } from './application/note-version-coalescing.js';
 import { inspectSpaceDeletion, assertSpaceDeletionAllowed } from './application/space-deletion-preflight.js';
 import { inspectSpaceMigration, assertSpaceMigrationAllowed } from './application/space-migration.js';
 import { buildDefaultTagGroups } from './domain/default-tag-groups.js';
@@ -308,6 +309,34 @@ export function createKnowledgeModule(options = {}) {
     evidenceRepository: knowledgeEvidenceRepository,
     knowledgeItemRepository
   });
+  // 仅在调用方提供 canDiscard（桌面端用它确认版本尚未同步、未被 AI 等外部记录引用）时启用。
+  const versionCoalescing = options.noteVersionCoalescing ?? null;
+  function isNoteVersionReferenced(version, noteId) {
+    const mentions = (record) => {
+      const text = JSON.stringify(record);
+      return text.includes(version.id) || text.includes(version.contentHash);
+    };
+    const annotations = contentAnnotationRepository.list({ noteId, includeDeleted: true });
+    const annotationIds = new Set(annotations.map((item) => item.id));
+    return annotations.some(mentions)
+      || annotationRevisionRepository.list().some((item) => annotationIds.has(item.annotationId) && mentions(item))
+      || annotationExclusionRepository.list({ includeDeleted: true }).some(mentions)
+      || knowledgeEvidenceRepository.list({ noteId }).some(mentions)
+      || knowledgeEvidenceRepository.list({ noteVersionId: version.id }).length > 0
+      || knowledgeArtifactProvenanceRepository.list().some(mentions)
+      || questionSourceRepository.list().some(mentions)
+      || analysisScopeRepository.list({ includeDeleted: true }).some(mentions);
+  }
+  function coalescePreviousVersion(note, version) {
+    if (!versionCoalescing?.canDiscard) return;
+    const previous = selectCoalescibleVersion({
+      versions: noteVersionRepository.list({ noteId: note.id }),
+      current: version,
+      windowMs: versionCoalescing.windowMs ?? NOTE_VERSION_COALESCE_WINDOW_MS
+    });
+    if (!previous || isNoteVersionReferenced(previous, note.id) || !versionCoalescing.canDiscard(previous)) return;
+    noteVersionRepository.deleteById(previous.id);
+  }
   const noteService = createNoteService({
     repository: noteRepository,
     annotationRepository: contentAnnotationRepository,
@@ -322,12 +351,11 @@ export function createKnowledgeModule(options = {}) {
           contentAnnotationRepository.findById(annotationId)?.anchorStatus === 'missing' ? 'insufficient' : 'stale')
       ));
       questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
-      const oldVersionIds = noteVersionService.listVersions({ noteId: note.id })
-        .filter((candidate) => candidate.id !== version.id)
-        .map((candidate) => candidate.id);
-      const directEvidence = oldVersionIds.flatMap((id) => knowledgeItemService.markEvidenceByNoteVersionId(id, 'stale', 'noteVersion'));
+      const oldVersionIds = noteVersionService.listVersionIds({ noteId: note.id }).filter((id) => id !== version.id);
+      const directEvidence = knowledgeItemService.markEvidenceByNoteVersionIds(oldVersionIds, 'stale', 'noteVersion');
       questionService.markSourcesStale('knowledgeEvidence', directEvidence.map((record) => record.id));
       questionService.markSourcesStale('noteVersion', oldVersionIds);
+      coalescePreviousVersion(note, version);
     },
     onNoteDeleted: (noteId) => {
       const changed = knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid');

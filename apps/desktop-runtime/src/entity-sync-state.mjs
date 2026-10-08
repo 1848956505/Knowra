@@ -8,6 +8,8 @@ import { WRITABLE_COLLECTIONS, sameEntity, syncReferencesFor, changeReferencesFo
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
+import { createNoteVersionReferenceIndex } from '../../api/src/modules/knowledge/domain/note-version-references.js';
+import { referencedByPrivateRecords } from './note-version-discard-gate.mjs';
 import { createEntityConflictCopy } from './entity-conflict-copy.mjs';
 import {
   readKnowledgeLifecycleBoundaries, firstKnowledgeLifecycleBoundaries, consumeKnowledgeLifecycleBoundaries,
@@ -53,6 +55,8 @@ function dirtyEntries(state, base, boundaries = [], reviews = []) {
       const value = current.get(id) ?? null;
       // 云端版本去重后的本地历史副本仅供恢复，不再上传。
       if (collection === 'noteVersions' && value && versionHashes.has(`${value.noteId}:${value.contentHash}`)) continue;
+      // 云端按保留策略清理过的版本：仍被本机引用而保留的副本只供恢复，不能再作为新建上传。
+      if (collection === 'noteVersions' && value && previous && previous.value === null) continue;
       if (!sameEntity(collection, value, previous?.value)) {
         const old = previous?.value;
         const lifecycleAction = ['knowledgeItems', 'analysisScopeSnapshots', 'folders', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions'].includes(collection) && old && value
@@ -184,7 +188,16 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     // 未修改的历史别名仍可在本地按稳定 ID 读取。
     const versionIds = new Set(merged.noteVersions.map(item => item.id));
     const noteIds = new Set(merged.notes.map(item => item.id));
-    for (const version of local.noteVersions) if (!versionIds.has(version.id) && noteIds.has(version.noteId)) merged.noteVersions.push(version);
+    let isReferenced = null;
+    for (const version of local.noteVersions) {
+      if (versionIds.has(version.id) || !noteIds.has(version.noteId)) continue;
+      // 云端已按保留策略清理且本机无任何引用的版本，随基线一起释放。
+      if (remote.get(syncKey('noteVersions', version.id))?.value === null) {
+        isReferenced ??= createNoteVersionReferenceIndex(Object.fromEntries(['contentAnnotations', 'annotationRevisions', 'annotationExclusions', 'knowledgeEvidence', 'knowledgeArtifactProvenance', 'questionSources', 'analysisScopeSnapshots'].map(name => [name, merged[name]])));
+        if (!isReferenced(version) && !referencedByPrivateRecords(db, version)) continue;
+      }
+      merged.noteVersions.push(version);
+    }
     let valid;
     try { valid = validatePersistedLocalState(createPersistedLocalDocument(reconcileSyncedSourceStates(merged))); assertNoKnowledgeArtifactProvenanceDowngrade(state, valid); }
     catch (error) { valid = undefined; conflicts.push({ collection: 'dependencies', id: 'references', message: error.message }); }

@@ -32,6 +32,9 @@ export function createInMemoryNoteVersionRepository(options = {}) {
         .filter((item) => !noteId || item.noteId === noteId)
         .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
     },
+    listIds({ noteId } = {}) {
+      return records.filter((item) => !noteId || item.noteId === noteId).map((item) => item.id);
+    },
     listPage({ noteId, limit, after, currentContentHash }) {
       const hashes = new Set();
       const ordered = records.filter((item) => item.noteId === noteId)
@@ -46,6 +49,13 @@ export function createInMemoryNoteVersionRepository(options = {}) {
       return versionPage(items.slice(0, limit + 1), {
         limit, total: ordered.length, currentVersionId: ordered.find((item) => item.contentHash === currentContentHash)?.id ?? null
       });
+    },
+    deleteById(id) {
+      const index = records.findIndex((item) => item.id === id);
+      if (index < 0) return null;
+      const [deleted] = records.splice(index, 1);
+      persist();
+      return deleted;
     },
     deleteByNoteIds(noteIds) {
       const ids = new Set(noteIds);

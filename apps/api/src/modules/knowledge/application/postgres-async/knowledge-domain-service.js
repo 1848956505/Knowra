@@ -331,6 +331,9 @@ export function createAsyncKnowledgeItemService({
     },
     markEvidenceByNoteVersionId(noteVersionId, status = 'stale', sourceType = null) {
       return markEvidenceAndReconcile(() => evidenceRepository.markByNoteVersionId(noteVersionId, status, sourceType));
+    },
+    markEvidenceByNoteVersionIds(noteVersionIds, status = 'stale', sourceType = null) {
+      return markEvidenceAndReconcile(() => evidenceRepository.markByNoteVersionIds(noteVersionIds, status, sourceType));
     }
   };
 

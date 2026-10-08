@@ -60,6 +60,10 @@ export function createInMemoryKnowledgeEvidenceRepository(options = {}) {
     },
     markByNoteVersionId(noteVersionId, status, sourceType = null) {
       return updateStatus((item) => item.noteVersionId === noteVersionId && (!sourceType || item.sourceType === sourceType), status);
+    },
+    markByNoteVersionIds(noteVersionIds, status, sourceType = null) {
+      const ids = new Set(noteVersionIds);
+      return updateStatus((item) => ids.has(item.noteVersionId) && (!sourceType || item.sourceType === sourceType), status);
     }
   };
 }

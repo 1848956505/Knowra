@@ -32,6 +32,13 @@ export function createPostgresNoteVersionRepository({ db }) {
         orderBy: { createdAt: 'desc' }
       }).then((rows) => rows.map(mapNoteVersion)));
     },
+    // 只取 ID：保存正文时只需要旧版本标识，不能把每个历史版本的全文都读出来。
+    listIds({ noteId } = {}) {
+      return withRepositoryErrors(() => db.noteVersion.findMany({
+        where: noteId ? { noteId } : {},
+        select: { id: true }
+      }).then((rows) => rows.map((row) => row.id)));
+    },
     listPage({ noteId, limit, after, currentContentHash }) {
       return withRepositoryErrors(async () => {
         const [items, total, current] = await Promise.all([

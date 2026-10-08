@@ -6,6 +6,7 @@ import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
 import { createSqliteDataStore } from './sqlite-data-store.mjs';
 import { createSyncEngine } from './sync-engine.mjs';
+import { createNoteVersionDiscardGate } from './note-version-discard-gate.mjs';
 import { createOptionalAiRuntime, createUnavailableAiRuntime } from '../../api/src/modules/ai/runtime.js';
 import { aiRuntimeLifecycle } from '../../api/src/modules/ai/runtime-lifecycle.js';
 import { reviewedDeepSeekPriceProfile } from '../../api/src/modules/ai/reviewed-price-profile.js';
@@ -19,7 +20,9 @@ export function createRuntimeServices({ dataDirectory, budgetDirectory = dataDir
     try {
     const context = createAppContext({
       dataStore: store, storageRootDir: dataDirectory,
-      uploadsDir: path.join(dataDirectory, 'uploads'), ownerId: 'demo'
+      uploadsDir: path.join(dataDirectory, 'uploads'), ownerId: 'demo',
+      // 连续自动保存只保留检查点，避免历史版本随编辑时长无限增长。
+      noteVersionCoalescing: { canDiscard: createNoteVersionDiscardGate(store) }
     });
     // 复用业务规则，但本地更新时间不能在同一毫秒内重复。
     const noteService = context.modules.knowledge.noteService;

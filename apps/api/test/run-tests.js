@@ -36,6 +36,9 @@ import { storageConfigTests } from './storage.config.test.js';
 import { localBusinessTransactionTests } from './local-business-transactions.test.js';
 import { noteDomainTests } from './note.domain.test.js';
 import { noteServiceTests } from './note-service.test.js';
+import { noteVersionSaveCostTests } from './note-version-save-cost.test.js';
+import { noteVersionCoalescingTests } from './note-version-coalescing.test.js';
+import { noteVersionRetentionTests } from './note-version-retention.test.js';
 import { folderServiceTests } from './folder-service.test.js';
 import { tagServiceTests } from './tag-service.test.js';
 import { tagSystemTests } from './tag-system.test.js';
@@ -165,6 +168,9 @@ const tests = [
   ...knowledgeSpaceDtoTests,
   ...knowledgeSpaceRepositoryTests,
   ...noteServiceTests,
+  ...noteVersionSaveCostTests,
+  ...noteVersionCoalescingTests,
+  ...noteVersionRetentionTests,
   ...folderServiceTests,
   ...tagServiceTests,
   ...tagSystemTests,

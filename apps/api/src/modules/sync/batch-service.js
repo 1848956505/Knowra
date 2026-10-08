@@ -3,6 +3,7 @@ import { assertSyncContract } from './protocol-contract.js';
 import { assertSyncDeviceEnabled } from './rollout-policy.js';
 import { WRITABLE_COLLECTIONS, changeReferencesFor, sameEntity } from './entity-contract.js';
 import { prepareBatchState } from './batch-domain.js';
+import { pruneTouchedNoteVersions } from './version-retention.js';
 import { syncError, syncKey, requestHash, thenResult, rememberBatchReceipt } from './journal.js';
 
 export function createBatchSyncService(provider, ownerId, transfer) {
@@ -84,6 +85,7 @@ export function createBatchSyncService(provider, ownerId, transfer) {
         let next, aliases;
         try { ({ state: next, aliases } = prepareBatchState(state, op.changes, ownerId, prepared)); }
         catch (failure) { if (failure.statusCode) throw failure; throw syncError('SYNC_ENTITY_INVALID', '同步实体字段无效，请导出恢复记录并核对资料。', 422); }
+        next = pruneTouchedNoteVersions(next, op.changes);
         return thenResult(provider.applyState(next), () => thenResult(provider.preview(), ({ state: applied, journal: preview }) => {
           const entries = op.changes.map(entry => {
             const id = entry.collection === 'noteVersions' ? aliases[entry.id] ?? entry.id : entry.id;
