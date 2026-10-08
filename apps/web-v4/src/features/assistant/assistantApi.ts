@@ -70,6 +70,8 @@ export interface BudgetAlert {
 export interface BudgetAlerts {
   day: string; location: 'local' | 'server'; alerts: BudgetAlert[];
   overrides: Array<{ rule: 'daily' | 'monthly'; period: string }>;
+  /** 用户在当前周期暂停了 AI（周期结束自动恢复，不改预算设置）。 */
+  pauses: Array<{ rule: 'daily' | 'monthly'; period: string }>;
 }
 
 export interface AssistantSource {
@@ -129,6 +131,10 @@ export const assistantApi = {
   alerts: () => data<BudgetAlerts>('/api/ai/assistant/alerts'),
   markAlerts: (ids: string[], kind: 'notified' | 'dismissed') => data<BudgetAlerts>('/api/ai/assistant/alerts/mark', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, kind }) }),
+  pauseRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/pause', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
+  resumeRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/resume', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
   allowRule: (rule: 'daily' | 'monthly') => data<BudgetAlerts>('/api/ai/assistant/alerts/allow', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ rule }) }),
   balance: () => data<AssistantBalance>('/api/ai/assistant/balance'),

@@ -156,7 +156,7 @@ export const aiBudgetSettingsTests = [
       assert.deepEqual(evaluateAlerts({ settings: cfg, status, overrides: (await store.get()).overrides, day: '2026-10-20' }).overrides, [{ rule: 'monthly', period: '2026-10' }]);
       assert.deepEqual(evaluateAlerts({ settings: cfg, status, overrides: (await store.get()).overrides, day: '2026-11-01' }).overrides, [], '下个月放行自动失效');
       fs.writeFileSync(file, 'garbage');
-      assert.deepEqual(await store.get(), { marks: {}, overrides: {} });
+      assert.deepEqual(await store.get(), { marks: {}, overrides: {}, pauses: {} });
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } },
   { name: '放行让“达到即停”的规则在当前周期内不再限制预留，周期之外不影响', async run() {
@@ -282,5 +282,33 @@ export const aiBudgetSettingsTests = [
     release();
     await assert.rejects(running, { code: 'AI_GENERATION_UNAVAILABLE' });
     assert.equal(spawned, 0);
+  } },
+  { name: '暂停只在当前周期有效且不改写设置：暂停后付费调用被拒，放行或恢复可解除，次日自动恢复', async run() {
+    const dir = temp();
+    try {
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      const alerts = createBudgetAlertStore({ filePath: path.join(dir, 'a.json') });
+      let clock = Date.parse('2026-10-08T04:00:00.000Z');
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, basePriceProfile: base, now: () => new Date(clock) });
+      const before = JSON.stringify(await settingsStore.get());
+      await policy.snapshot();
+      await alerts.pause('daily', '2026-10-08', '2026-10-08');
+      await assert.rejects(policy.snapshot(), { code: 'AI_PAUSED_BY_USER' });
+      assert.deepEqual((await policy.view()).paused, ['daily']);
+      assert.equal(JSON.stringify(await settingsStore.get()), before, '暂停不改写预算设置');
+      await assert.rejects(alerts.pause('daily', '2026-10-07', '2026-10-08'), { code: 'AI_BUDGET_ALERT_INVALID' });
+      await alerts.resume('daily', '2026-10-08', '2026-10-08');
+      await policy.snapshot();
+      await alerts.pause('daily', '2026-10-08', '2026-10-08');
+      await alerts.allow('daily', '2026-10-08', '2026-10-08'); // 放行同时解除暂停
+      assert.equal((await policy.snapshot()).limits.daily, null);
+      await alerts.pause('daily', '2026-10-08', '2026-10-08'); // 再次暂停会取消放行
+      assert.deepEqual((await alerts.get()).overrides, {});
+      clock += 24 * 3600_000;
+      await policy.snapshot(); // 第二天自动恢复
+      const status = { spentMicrounits: 0, heldMicrounits: 0, monthSpentMicrounits: 0, monthHeldMicrounits: 0 };
+      assert.deepEqual(evaluateAlerts({ settings: normalizeBudgetSettings(settings()), status, pauses: { daily: '2026-10-08' }, day: '2026-10-08' }).pauses, [{ rule: 'daily', period: '2026-10-08' }]);
+      assert.deepEqual(evaluateAlerts({ settings: normalizeBudgetSettings(settings()), status, pauses: { daily: '2026-10-08' }, day: '2026-10-09' }).pauses, []);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } }
 ];

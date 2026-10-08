@@ -4,11 +4,11 @@ import { assistantApi, type BudgetAlert, type BudgetAlerts } from './assistantAp
 
 const navigate = vi.fn();
 vi.mock('../../app/router', () => ({ useNavigate: () => navigate }));
-vi.mock('./assistantApi', () => ({ assistantApi: { alerts: vi.fn(), markAlerts: vi.fn(), allowRule: vi.fn(), budgetSettings: vi.fn(), saveBudgetSettings: vi.fn() } }));
+vi.mock('./assistantApi', () => ({ assistantApi: { alerts: vi.fn(), markAlerts: vi.fn(), allowRule: vi.fn(), pauseRule: vi.fn(), resumeRule: vi.fn() } }));
 
 const alert = (threshold: number, over: Partial<BudgetAlert> = {}): BudgetAlert => ({ id: `daily:2026-10-08:${threshold}`, rule: 'daily', threshold,
   period: '2026-10-08', mode: 'stop', usedMicrounits: threshold * 200_000, limitMicrounits: 20_000_000, notified: true, dismissed: false, ...over });
-const state = (alerts: BudgetAlert[], overrides: BudgetAlerts['overrides'] = []): BudgetAlerts => ({ day: '2026-10-08', location: 'local', alerts, overrides });
+const state = (alerts: BudgetAlert[], overrides: BudgetAlerts['overrides'] = [], pauses: BudgetAlerts['pauses'] = []): BudgetAlerts => ({ day: '2026-10-08', location: 'local', alerts, overrides, pauses });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -40,19 +40,20 @@ it('达到即停并 100% 时显示已暂停，可放行当日或去提高上限'
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
-it('“暂停 AI”把该规则改为达到即停，上限等于当前已用额', async () => {
-  vi.mocked(assistantApi.alerts).mockResolvedValue(state([alert(50, { mode: 'warn' }), alert(80, { mode: 'warn' })]));
-  const rules = { daily: { mode: 'warn', limitMicrounits: 20_000_000 }, monthly: { mode: 'off', limitMicrounits: null },
-    turn: { mode: 'stop', limitMicrounits: 2_000_000 }, balanceFloor: { mode: 'off', limitMicrounits: null } } as const;
-  vi.mocked(assistantApi.budgetSettings).mockResolvedValue({ rules, price: null, alerts: { thresholds: [50, 80, 100] } });
-  vi.mocked(assistantApi.saveBudgetSettings).mockResolvedValue({ rules, price: null, alerts: { thresholds: [50, 80, 100] } });
-  vi.mocked(assistantApi.markAlerts).mockResolvedValue(state([]));
+it('“暂停 AI”只记录本周期暂停，不改写预算设置；暂停后显示恢复入口，可提前恢复', async () => {
+  const alerts = [alert(50, { mode: 'warn' }), alert(80, { mode: 'warn' })];
+  vi.mocked(assistantApi.alerts).mockResolvedValue(state(alerts));
+  vi.mocked(assistantApi.pauseRule).mockResolvedValue(state(alerts, [], [{ rule: 'daily', period: '2026-10-08' }]));
+  vi.mocked(assistantApi.markAlerts).mockResolvedValue(state(alerts.map(item => ({ ...item, dismissed: true })), [], [{ rule: 'daily', period: '2026-10-08' }]));
+  vi.mocked(assistantApi.resumeRule).mockResolvedValue(state([]));
   render(<BudgetAlertBanner />);
   fireEvent.click(await screen.findByRole('button', { name: '暂停 AI 至明天' }));
-  await waitFor(() => expect(assistantApi.saveBudgetSettings).toHaveBeenCalled());
-  const sent = vi.mocked(assistantApi.saveBudgetSettings).mock.calls[0][0];
-  expect(sent.rules.daily).toEqual({ mode: 'stop', limitMicrounits: 16_000_000 });
-  expect(sent.rules.turn).toEqual({ mode: 'stop', limitMicrounits: 2_000_000 });
+  await waitFor(() => expect(assistantApi.pauseRule).toHaveBeenCalledWith('daily'));
+  expect(await screen.findByText(/AI 已暂停至明天/)).toBeInTheDocument();
+  expect(screen.queryByText(/的 80%/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '立即恢复' }));
+  await waitFor(() => expect(assistantApi.resumeRule).toHaveBeenCalledWith('daily'));
+  await waitFor(() => expect(screen.queryByRole('region')).not.toBeInTheDocument());
 });
 
 it('Mac 版对每条规则只发一次系统通知并记为已通知；网页版不发系统通知', async () => {

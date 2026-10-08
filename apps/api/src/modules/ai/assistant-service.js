@@ -60,6 +60,9 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       const view = { day: budget.day, limitMicrounits: budget.limitMicrounits, availableMicrounits: budget.availableMicrounits,
         spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits };
       const yuan = value => `${+(value / 1_000_000).toFixed(2)}`;
+      if (plan?.paused?.length) {
+        return { ready: false, reason: `AI 已按您的操作暂停至${plan.paused.includes('monthly') ? '下月' : '明天'}，可在费用提醒处恢复。`, budget: view };
+      }
       if (!unlimited && budget.availableMicrounits === 0) return { ready: false, reason: `北京时间当日 ${yuan(expected)} 元预算已用完。`, budget: view };
       if (plan?.limits.monthly != null && budget.monthAvailableMicrounits === 0) {
         return { ready: false, reason: `本月 ${yuan(plan.limits.monthly)} 元预算已用完。`, budget: view };
@@ -137,8 +140,8 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     // 评估提醒需要“配置的上限”而不是“实际拦截的上限”，所以仅提醒的规则也要算出用量。
     const limits = { daily: settings.rules.daily.limitMicrounits, monthly: settings.rules.monthly.limitMicrounits, turn: null };
     const status = await ai.budgetAuthority.status('deepseek-primary', day, limits);
-    const { marks, overrides } = await ai.budgetAlerts.get();
-    return { ...evaluateAlerts({ settings, status, marks, overrides, day }), location };
+    const { marks, overrides, pauses } = await ai.budgetAlerts.get();
+    return { ...evaluateAlerts({ settings, status, marks, overrides, pauses, day }), location };
   }
   async function markAlerts({ ids, kind } = {}) {
     const store = runtime()?.budgetAlerts;
@@ -151,6 +154,21 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
     const day = beijingDay(now());
     await store.allow(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
+    return budgetAlerts();
+  }
+
+  async function pauseRule({ rule } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const day = beijingDay(now());
+    await store.pause(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
+    return budgetAlerts();
+  }
+  async function resumeRule({ rule } = {}) {
+    const store = runtime()?.budgetAlerts;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算提醒。');
+    const day = beijingDay(now());
+    await store.resume(rule, periodOf(rule === 'monthly' ? 'monthly' : 'daily', day), day);
     return budgetAlerts();
   }
 
@@ -292,5 +310,5 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return view(await runtime().worker.cancel(jobId), true);
   }
 
-  return { status, usage, usageExport, resolveUnknown, balance, budgetSettings, saveBudgetSettings, budgetAlerts, markAlerts, allowRule, list, get, preview, start, cancel };
+  return { status, usage, usageExport, resolveUnknown, balance, budgetSettings, saveBudgetSettings, budgetAlerts, markAlerts, allowRule, pauseRule, resumeRule, list, get, preview, start, cancel };
 }

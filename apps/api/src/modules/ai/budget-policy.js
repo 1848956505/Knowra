@@ -34,27 +34,33 @@ export function createBudgetPolicy({ settings, balance = null, alerts = null, ba
     if (cny.totalMicrounits < rule.limitMicrounits) throw fail('AI_BALANCE_BELOW_FLOOR', '账户余额低于设定的下限，已暂停模型调用。可在设置中调整下限。');
   }
 
-  // 用户对当前周期的放行：该规则本周期内不再限制预留，周期结束自动失效。
+  // 用户对当前周期的放行与暂停：放行使该规则本周期内不再限制预留；暂停使本周期内不再发起付费调用。周期结束自动失效。
   async function limitsFor(current) {
     const limits = enforcedLimits(current);
-    if (!alerts) return limits;
-    const { overrides } = await alerts.get();
+    if (!alerts) return { limits, paused: [] };
+    const { overrides, pauses } = await alerts.get();
     const day = beijingDay(now());
     for (const rule of ['daily', 'monthly']) if (overrides[rule] === periodOf(rule, day)) limits[rule] = null;
-    return limits;
+    const paused = ['daily', 'monthly'].filter(rule => pauses?.[rule] === periodOf(rule, day));
+    return { limits, paused };
   }
 
   return {
     /** 一次付费调用前取快照：设置、价格档案、账本上限；余额下限不满足时抛错。 */
     async snapshot() {
       const current = await settings.get();
+      const { limits, paused } = await limitsFor(current);
+      if (paused.length) {
+        throw fail('AI_PAUSED_BY_USER', `AI 已按您的操作暂停至${paused.includes('monthly') ? '下月' : '明天'}，可在费用提醒处恢复。`);
+      }
       await assertBalance(current);
-      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: await limitsFor(current) };
+      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits };
     },
     /** 只读视图，不联网：供状态接口使用。 */
     async view() {
       const current = await settings.get();
-      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits: await limitsFor(current) };
+      const { limits, paused } = await limitsFor(current);
+      return { settings: current, profile: effectivePriceProfile(basePriceProfile, current.price), limits, paused };
     },
     /** 状态接口用：仅凭已保存的余额快照判断是否已低于下限，不联网。 */
     async balanceBelowFloor(current) {

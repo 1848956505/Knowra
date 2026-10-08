@@ -24,7 +24,7 @@ export async function handleBudgetRoute({ request, response, url, authority, pol
       sendJson(response, 200, { data: await authority.settle({ ...input, accountRef }) }); return true;
     }
   } catch (error) {
-    if (error.code?.startsWith('AI_BALANCE_')) throw createAppError(error.code, error.message, 409);
+    if (error.code?.startsWith('AI_BALANCE_') || error.code === 'AI_PAUSED_BY_USER') throw createAppError(error.code, error.message, 409);
     if (error.code?.startsWith('AI_BUDGET_') || error.code?.startsWith('AI_DAILY_') || error.code?.startsWith('AI_MONTHLY_') || error.code?.startsWith('AI_JOB_')) {
       throw createAppError(error.code, error.message, error.code.endsWith('EXCEEDED') || error.code.endsWith('CONFLICT') ? 409 : 422);
     }
