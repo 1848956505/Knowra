@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import { packager } from '@electron/packager';
 import { execFileSync } from 'node:child_process';
 import { readBuildInfo, resolveBuildInfo } from '../../../scripts/build-info.mjs';
+import { SHELL_FILES } from './shell-files.mjs';
 import { assertDesktopBuild, sha256 } from '../../../scripts/release-artifact.mjs';
 
 await import('./create-icon.mjs');
@@ -18,7 +19,7 @@ const staging = path.join(repo, 'dist/mac-staging');
 const output = path.join(repo, 'dist/mac');
 fs.rmSync(staging, { recursive: true, force: true });
 fs.mkdirSync(staging, { recursive: true });
-for (const name of ['main.cjs', 'preload.cjs', 'draft-store.cjs', 'model-settings.cjs', 'ai-credential-handler.cjs', 'attachment-downloads.cjs', 'backup-transfers.cjs']) fs.copyFileSync(path.join(repo, 'apps/desktop-shell/src', name), path.join(staging, name));
+for (const name of SHELL_FILES) fs.copyFileSync(path.join(repo, 'apps/desktop-shell/src', name), path.join(staging, name));
 await build({ entryPoints: [path.join(repo, 'apps/desktop-shell/src/runtime-entry.mjs')], outfile: path.join(staging, 'runtime.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', external: ['@prisma/client'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 for (const name of ['worker-child', 'provider-child']) {
   await build({ entryPoints: [path.join(repo, 'apps/api/src/modules/ai', `${name}.js`)],
