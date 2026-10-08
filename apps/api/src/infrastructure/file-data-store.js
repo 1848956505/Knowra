@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
 import { cloneJsonData } from './json-clone.js';
+import { readJsonFileSync } from './json-file-reader.js';
 import { coreOperationKey, validateCoreOperationState } from './core-operation-contract.js';
 import { createSyncCoreOperationStore } from './core-operation-store.js';
 import { backfillKnowledgeArtifactProvenance, legacyKnowledgeExtractionReceipts } from './migration/knowledge-artifact-provenance-backfill.js';
@@ -23,6 +24,7 @@ import {
   createEmptyLocalState,
   createPersistedLocalDocument,
   validateLocalSnapshot,
+  assertPersistedLocalState,
   validatePersistedLocalState
 } from './local-data-schema.js';
 
@@ -45,7 +47,7 @@ export function createFileDataStore(filePath, {
     writeJson(filePath, createPersistedLocalDocument(createEmptyLocalState()));
   }
 
-  const parsed = parsePersistedState(fs.readFileSync(filePath, 'utf8'));
+  const parsed = parsePersistedState(filePath);
   const state = validatePersistedLocalState(parsed);
   let coreOperations = parsed.coreOperations;
   let coreOperationStoreError = null;
@@ -80,7 +82,7 @@ export function createFileDataStore(filePath, {
   let committed = createSyncBaseline(state);
   let transaction = null;
   if (parsed.schemaVersion !== LOCAL_DATA_SCHEMA_VERSION || ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
-    const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, structuredClone(parsed[collection] ?? [])]));
+    const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, cloneJsonData(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
     writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations, knowledgeExtractionCommits,
       aiKnowledgeExtractionTasks: extractionTasks });
@@ -104,10 +106,10 @@ export function createFileDataStore(filePath, {
     }
 
     const previousState = cloneLocalState(state);
-    const previousAiRuntime = structuredClone(aiRuntime);
-    const previousCoreOperations = structuredClone(coreOperations);
-    const previousExtractionCommits = structuredClone(knowledgeExtractionCommits);
-    const previousExtractionTasks = structuredClone(extractionTasks);
+    const previousAiRuntime = cloneJsonData(aiRuntime);
+    const previousCoreOperations = cloneJsonData(coreOperations);
+    const previousExtractionCommits = cloneJsonData(knowledgeExtractionCommits);
+    const previousExtractionTasks = cloneJsonData(extractionTasks);
     const previousJournal = cloneJsonData(journal);
     transaction = { dirty: false };
 
@@ -217,8 +219,8 @@ export function createFileDataStore(filePath, {
 
   function persistState(nextState) {
     try {
-      // 校验器自身返回独立副本，不先复制一次完整历史库。
-      validatePersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });
+      // 只用于断言；不可变历史在校验期间只读，不再产生随即丢弃的整库历史副本。
+      assertPersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });
       assertNoKnowledgeArtifactProvenanceDowngrade(committed, nextState);
       const nextJournal = appendChanges(cloneJournalForChanges(journal), committed, nextState);
       const nextCommitted = createSyncBaseline(nextState);
@@ -321,13 +323,10 @@ function assertNoInterruptedReplacement(filePath) {
   }
 }
 
-function parsePersistedState(raw) {
-  if (!raw.trim()) {
-    return createEmptyLocalState();
-  }
-
+function parsePersistedState(filePath) {
   try {
-    return JSON.parse(raw);
+    const parsed = readJsonFileSync(filePath, { allowEmpty: true });
+    return parsed === undefined ? createEmptyLocalState() : parsed;
   } catch (error) {
     throw createAppError(
       'STORAGE_DATA_INVALID',
