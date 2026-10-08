@@ -156,7 +156,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
   /** 账户余额：refresh=false 只读已保存的快照；true 才联网读取。读取失败不影响任何 AI 调用。 */
   async function balance({ refresh = false } = {}) {
     const service = runtime()?.balance;
-    if (!service) fail('AI_BALANCE_UNAVAILABLE', '当前运行端未提供余额读取。');
+    if (!service) fail('AI_BALANCE_UNSUPPORTED', '当前运行端未提供余额读取。');
     return { ...(await (refresh ? service.refresh() : service.view())), location };
   }
 

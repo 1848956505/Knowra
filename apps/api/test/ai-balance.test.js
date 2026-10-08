@@ -12,14 +12,15 @@ function fixture(responses) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-balance-'));
   const calls = [];
   let clock = Date.parse('2026-10-08T00:00:00.000Z');
+  const credential = { ref: 'ref-1' };
   const service = createBalanceService({
     filePath: path.join(directory, 'ai-balance.json'),
-    credentialReference: async () => ({ credentialRef: 'ref-1' }),
-    resolveCredential: async reference => { assert.equal(reference, 'ref-1'); return { apiKey: 'sk-test' }; },
+    credentialReference: async () => credential.ref ? { credentialRef: credential.ref } : null,
+    resolveCredential: async reference => { assert.equal(reference, credential.ref); return { apiKey: 'sk-test' }; },
     fetchImpl: async (url, init) => { calls.push({ url, init }); const next = responses.shift(); if (next instanceof Error) throw next; return next; },
     now: () => new Date(clock)
   });
-  return { service, calls, directory, file: path.join(directory, 'ai-balance.json'), advance: ms => { clock += ms; },
+  return { service, calls, credential, directory, file: path.join(directory, 'ai-balance.json'), advance: ms => { clock += ms; },
     cleanup: () => fs.rmSync(directory, { recursive: true, force: true }) };
 }
 
@@ -69,6 +70,25 @@ export const aiBalanceTests = [
       fs.writeFileSync(f.file, '{"snapshots":[{"at":"bad"}]}');
       await assert.rejects(f.service.view(), { code: 'AI_BALANCE_STORAGE_INVALID' });
       assert.equal(fs.readFileSync(f.file, 'utf8'), '{"snapshots":[{"at":"bad"}]}');
+    } finally { f.cleanup(); }
+  } },
+  { name: '更换账户（换 API Key）后旧快照不参与展示与推算，换回后历史仍在', async run() {
+    const f = fixture([reply(body('100.00')), reply(body('10.00')), reply(body('9.00')), reply(body('90.00'))]);
+    try {
+      await f.service.refresh();
+      assert.equal((await f.service.view()).latest.balances[0].totalMicrounits, 100_000_000);
+      f.credential.ref = 'ref-2'; // 换成账户 B
+      assert.equal((await f.service.view()).latest, null, '刷新前不显示 A 账户的余额');
+      f.advance(3_600_000);
+      const b = await f.service.refresh();
+      assert.deepEqual([b.latest.balances[0].totalMicrounits, b.inferred[0].consumedMicrounits, b.inferred[0].snapshots], [10_000_000, 0, 1], '不把 100→10 当成消费了 90 元');
+      f.advance(3_600_000);
+      assert.equal((await f.service.refresh()).inferred[0].consumedMicrounits, 1_000_000);
+      f.credential.ref = 'ref-1';
+      f.advance(3_600_000);
+      const back = await f.service.refresh();
+      assert.equal(back.inferred[0].snapshots, 2, '换回 A 后只和 A 的历史比较');
+      assert.equal(back.inferred[0].consumedMicrounits, 10_000_000, 'A 的 100→90 是消费 10 元');
     } finally { f.cleanup(); }
   } }
 ];
