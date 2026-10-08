@@ -102,6 +102,9 @@ const deterministicWriteFailure = code => typeof code === 'string'
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 const safeCode = value => typeof value === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(value)
   ? value : 'AI_TASK_FAILED';
+const manifestCatalogDeps = manifest => ({
+  noteIds: [...new Set([...(manifest.catalog ?? []).flatMap(item => item.noteIds ?? []), ...(manifest.historyCatalog?.noteIds ?? [])])],
+  folderIds: [...new Set([...(manifest.catalog ?? []).flatMap(item => item.folderIds ?? []), ...(manifest.historyCatalog?.folderIds ?? [])])] });
 const refRange = ref => ({ noteId: ref.noteId, start: ref.start, end: ref.end });
 const uniqueRefs = refs => [...new Map(refs.map(ref => [hashRecord(ref), ref])).values()];
 const boundary = (content, position) => position <= 0 || position >= content.length
@@ -269,7 +272,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     try { return Boolean(typeof knowledgeProposals === 'function' ? await knowledgeProposals() : knowledgeProposals); } catch { return false; }
   };
 
-  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null, proposalsOn = false) {
+  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null, proposalsOn = false, catalogDeps = null) {
     await currentTurn(turn.turnId, generation, signal);
     const writeCall = proposalNames.has(call.name) && (!turn.writeIntent || call.name === turn.writeIntent.toolName);
     if (!writeCall && call.name !== 'web_search' && (!grantId || !access)) fail('AI_SCOPE_FORBIDDEN', '当前会话没有笔记读取授权。');
@@ -278,9 +281,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const persisted = await store.appendToolCall(turn.turnId, generation, { callId,
       toolName: call.name, argumentsJson: call.arguments,
       maxCalls: proposalsOn && !turn.writeIntent && requestsKnowledgeProposal(userMessage) ? PROPOSAL_TOOLS : 6 });
+    // 成果依赖的目录笔记（只在创建/续改成果时验证，不能当作“已读取”来满足改写已有笔记前必须先读的保护）。
+    const depRefs = async () => catalogDeps && grantId && access ? access.trackingRefs({ grantId, deps: catalogDeps }) : [];
     if (persisted.status !== 'requested') {
       for (const ref of persisted.sourceRefs) await verifyRef(grantId, ref);
-      if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs });
+      if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs: [...sourceRefs, ...await depRefs()] });
       return toolOutcome(persisted);
     }
     let receiptPending = false;
@@ -297,10 +302,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           }
         }
         if (!actions) fail('AI_ACTION_UNAVAILABLE', '写入计划服务不可用。');
-        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs, grantId })
-          : await actions.planForAssistantTurn(turn, call, { sourceRefs, grantId });
+        const planRefs = [...sourceRefs, ...await depRefs()];
+        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs: planRefs, grantId })
+          : await actions.planForAssistantTurn(turn, call, { sourceRefs: planRefs, grantId });
         receiptPending = true;
-        await actions.resumeForTurn(action.actionId, turn, { sourceRefs, grantId });
+        await actions.resumeForTurn(action.actionId, turn, { sourceRefs: planRefs, grantId });
         outcome = { resultJson: { actionId: action.actionId, planHash: action.plan.planHash, status: action.status }, sourceRefs: [] };
       } else if (call.name === 'notes_search') {
         const found = await searchAssistantNotes({ search, access, grantId, args: call.arguments });
@@ -382,8 +388,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const drafts = action.plan.items.map(item => ({ noteId: item.after.id, title: item.after.title, rawMarkdown: item.after.rawMarkdown }));
     const context = JSON.stringify({ actionId, toolName: action.plan.toolName, drafts });
     if (context.length > 2400) fail('AI_DRAFT_CONTEXT_LIMIT', '待审稿超出本轮续改上下文，请在收件箱明确局部修改内容。');
+    // 开头 1~2 个字符的片段是目录标题依赖的授权记录（上面已逐条复核），不是读过的原文，不再作为来源发给模型。
     return { content: `\n本会话用户正在继续修改的待审稿（仅本会话上下文，不是正式笔记；修改时复用 actionId）：${context}`,
-      sourceRefs: action.grant.sourceRefs ?? [] };
+      sourceRefs: (action.grant.sourceRefs ?? []).filter(ref => !(ref.start === 0 && ref.end <= 2)) };
   }
 
   function citedResult(result, request, manifest) {
@@ -513,6 +520,18 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       await store.renewLease(turn.turnId, generation);
       await store.setPhase(turn.turnId, generation, sourceRefs.length ? 'retrieving' : 'generating');
       let request, manifest = null;
+      // 已落盘的模型结果（恢复场景）可能含有原请求清单里的目录标题：先确认这些依赖仍被授权，并继承到新清单，
+      // 否则新清单只重建当前目录，旧标题就脱离了依赖链。依赖已失效则丢弃该结果，由用户显式重试重新生成。
+      const pending = (await store.listModelAttempts(turn.turnId)).find(attempt => attempt.ordinal > handledAttemptOrdinal && attempt.modelResult);
+      let inheritedCatalog = null;
+      if (grant && pending?.manifestId) {
+        try { inheritedCatalog = await access.catalogDependencies({ grantId: grant.grantId, manifestId: pending.manifestId }); }
+        catch (error) {
+          if (!['AI_SCOPE_FORBIDDEN', 'AI_SOURCE_STALE'].includes(error?.code)) throw error;
+          await store.rejectModelResult(turn.turnId, generation, pending.ordinal, 'AI_OUTPUT_INVALID');
+          fail('AI_SOURCE_STALE', '恢复的回答依赖的目录或笔记已不在授权范围内，请重试本轮。');
+        }
+      }
       if (grant) {
         const finalOnly = forceAnswer || round === maxRounds - 1 || totalTools >= maxTools;
         const roundGuidance = round ? finalOnly
@@ -535,7 +554,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
               omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
                 ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
               writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
-              catalog: catalogSpecsFromCalls(await store.listToolCalls(turn.turnId)),
+              catalog: catalogSpecsFromCalls(await store.listToolCalls(turn.turnId)), inheritedCatalog,
               tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
             break;
           } catch (error) {
@@ -563,7 +582,6 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         if (turn.writeIntent) request.messages[0].content += '用户已明确请求生成笔记计划，只调用所开放的写入计划工具；不得宣称已保存。';
       }
       await save();
-      const pending = (await store.listModelAttempts(turn.turnId)).find(attempt => attempt.ordinal > handledAttemptOrdinal && attempt.modelResult);
       if (pending?.modelId && pending.modelId !== reference.modelId) fail('AI_MODEL_CHANGED', '恢复前模型配置已变化。');
       const delivery = pending ? { result: pending.modelResult, attemptOrdinal: pending.ordinal }
         : await paidCall(turn, generation, request, manifest, grant?.grantId ?? null, reference.credentialRef, signal);
@@ -588,7 +606,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         let proposalSaved = false;
         for (const call of result.toolCalls) {
           const planSources = uniqueRefs([...sourceRefs, ...(manifest?.historySources ?? [])]);
-          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId, proposalsOn);
+          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId, proposalsOn, manifest ? manifestCatalogDeps(manifest) : null);
           totalTools = (await store.listToolCalls(turn.turnId)).length;
           proposalSaved ||= outcome.progress === true || outcome.catalog === true;
           if (outcome.actionId) {

@@ -71,7 +71,10 @@
             "resultHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
             "noteIds": { "type": "array", "maxItems": 30, "items": { "$ref": "#/$defs/id" } },
             "folderIds": { "type": "array", "maxItems": 30, "items": { "$ref": "#/$defs/id" } } },
-            "required": ["kind", "offset", "limit", "resultHash", "noteIds", "folderIds"], "additionalProperties": false } },
+            "required": ["kind", "offset", "limit", "resultHash"], "additionalProperties": false } },
+          "historyCatalog": { "type": "object", "additionalProperties": false, "required": ["noteIds", "folderIds"], "properties": {
+            "noteIds": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/id" } },
+            "folderIds": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/id" } } } },
           "estimatedInputTokens": { "type": "integer", "minimum": 0 },
           "payloadHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
           "createdAt": { "$ref": "#/$defs/date" }

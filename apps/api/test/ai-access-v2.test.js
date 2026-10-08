@@ -355,22 +355,57 @@ export const aiAccessV2Tests = [
     await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
       catalog: Array.from({ length: 4 }, () => ({ kind: 'notes', folderId: null, titleQuery: null, recursive: false, offset: 0, limit: 20 })) }), { code: 'AI_CONTEXT_INVALID' });
   }) },
-  { name: 'AI v2 目录工具：只含目录标题的旧回答进入历史时仍按当前授权复核，切私密或换授权策略均拒绝', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+  { name: 'AI v2 目录工具：只含目录标题的旧回答进入历史时按当前授权复核，失效的整条排除并记录；准备后切私密发送前拦截；依赖经转述回答继承', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
     folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A', deletedAt: null });
     addNote('listed', 'x', 'space-1', 'f-a'); addNote('other', 'y', 'space-1', null);
     const policy = await service.createPolicy(policyInput({ kind: 'library' }));
     const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-history' });
+    const answerOf = (manifest, content) => { const entry = { role: 'assistant', content, sourceRefs: [], sourceFree: true, provenanceManifestId: manifest.manifestId };
+      entry.provenanceHash = hashRecord(entry); return entry; };
     const first = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
       catalog: [{ kind: 'notes', folderId: 'f-a', titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 }] });
-    const entry = { role: 'assistant', content: '该目录下有 listed。', sourceRefs: [], sourceFree: true, provenanceManifestId: first.manifest.manifestId };
-    entry.provenanceHash = hashRecord(entry);
-    const next = (grantId) => service.prepareRequest({ ...requestInput(grantId), assistantTools: true, history: [entry] });
-    await next(grant.grantId);
+    const a = answerOf(first.manifest, '该目录下有 listed。');
+    // 有效时进入历史，并把依赖继承到新清单（historyCatalog）。
+    const second = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, history: [a] });
+    assert(second.request.messages.some(message => message.content === '该目录下有 listed。'));
+    assert.deepEqual(second.manifest.historyCatalog.noteIds, ['listed']);
+    // 转述：第二个回答没有再列目录，但依赖已继承；原回答退出历史窗口后依赖链仍在。
+    const b = answerOf(second.manifest, '刚才提到的笔记是 listed。');
+    const third = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, history: [b] });
+    assert.deepEqual(third.manifest.historyCatalog.noteIds, ['listed']);
+    // 准备完成后切私密：发送前的清单复核拦截（依赖在清单里，不只在准备时检查）。
+    noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'private' });
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: third.manifest.manifestId, request: third.request, recipient: 'deepseek' }),
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    // 之后的请求：含失效依赖的旧回答（包括只转述的）整条排除，不外发，并记录原因。
+    const after = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, history: [a, b] });
+    assert.equal(JSON.stringify(after.request.messages).includes('listed'), false);
+    assert(after.manifest.omissions.includes('history_catalog_revoked'));
+    assert.equal(after.manifest.historyCatalog, undefined);
+    // 换成只授权另一篇笔记的策略：同样排除。
+    noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'normal' });
     const fixed = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['other'] }));
     const fixedGrant = await service.createRunGrant({ policyId: fixed.policyId, conversationId: 'catalog-history-fixed' });
-    await assert.rejects(next(fixedGrant.grantId), { code: 'AI_HISTORY_UNVERIFIED' });
+    const viaFixed = await service.prepareRequest({ ...requestInput(fixedGrant.grantId), assistantTools: true, history: [a] });
+    assert.equal(JSON.stringify(viaFixed.request.messages).includes('listed'), false);
+    // 恢复场景：原清单的目录依赖失效时，catalogDependencies 拒绝；仍有效时返回依赖供继承。
+    assert.deepEqual((await service.catalogDependencies({ grantId: grant.grantId, manifestId: first.manifest.manifestId })).noteIds, ['listed']);
     noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'private' });
-    await assert.rejects(next(grant.grantId), { code: 'AI_HISTORY_UNVERIFIED' });
+    await assert.rejects(service.catalogDependencies({ grantId: grant.grantId, manifestId: first.manifest.manifestId }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
+  { name: 'AI v2 目录工具：固定笔记授权下 folders_list 给出的目录 ID 可传给 notes_list，只含授权笔记', run: () => withContext(async ({ service, folderRepository, addNote }) => {
+    folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A', deletedAt: null });
+    folderRepository.save({ id: 'f-b', spaceId: 'space-1', parentId: null, name: 'B', deletedAt: null });
+    addNote('pick', 'x', 'space-1', 'f-a'); addNote('not-picked', 'y', 'space-1', 'f-a'); addNote('elsewhere', 'z', 'space-1', 'f-b');
+    const fixed = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['pick'] }));
+    const grant = await service.createRunGrant({ policyId: fixed.policyId, conversationId: 'catalog-fixed-chain' });
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'folders', parentId: null, offset: 0, limit: 30 }] });
+    const folderId = JSON.parse(prepared.request.messages.at(-1).content).catalog[0].folders[0].folderId;
+    assert.equal(folderId, 'f-a');
+    const listed = await service.listCatalog({ grantId: grant.grantId, toolName: 'notes_list', args: { folderId } });
+    assert.equal(listed.total, 1);
+    await assert.rejects(service.listCatalog({ grantId: grant.grantId, toolName: 'notes_list', args: { folderId: 'f-b' } }), { code: 'AI_SCOPE_FORBIDDEN' });
   }) },
   { name: 'AI v2 目录工具：目录重建与多目录结果之间切私密，发送前最终屏障仍拦截（来源正文与标题都不外发）', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
     for (const id of ['f-a', 'f-b']) folderRepository.save({ id, spaceId: 'space-1', parentId: null, name: id, deletedAt: null });

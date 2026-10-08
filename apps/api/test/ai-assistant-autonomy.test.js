@@ -189,6 +189,55 @@ export const aiAssistantAutonomyTests = [
     assert.equal((await runtime.conversationStore.getTurn(turn.turnId)).status, 'succeeded');
     assert(Buffer.byteLength(JSON.stringify(requests[0].messages), 'utf8') < 12_000);
   }) },
+  { name: '自主助手：目录标题生成的新稿记录依赖笔记，切私密后续改与采纳均被拒绝', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const first = noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '引言', rawMarkdown: '引言正文' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '反向传播', rawMarkdown: '反向传播正文' });
+    const p = await policy();
+    respond(() => tool('notes_create', { title: '深度学习目录', rawMarkdown: '- 引言\n- 反向传播' }));
+    const turn = await submit('把深度学习文件夹里的笔记标题整理成一份新目录笔记', 'catalog-artifact', p.policyId); await runtime.agent.run(turn.turnId);
+    const [draft] = await runtime.actions.listInbox(space.id);
+    assert.equal(draft.grant.sourceRefs.length, 2);
+    assert(draft.grant.sourceRefs.some(ref => ref.noteId === first.id));
+    assert(draft.grant.sourceRefs.every(ref => ref.start === 0 && ref.end <= 2));
+    noteService.updateNote(first.id, { aiVisibility: 'private' });
+    // 续改：成果依赖的笔记已不可读，不再把含旧标题的草稿发给模型。
+    const before = requests.length;
+    respond(() => answer('已精简。', []));
+    const follow = await submit('精简一下', 'catalog-artifact-follow', p.policyId);
+    await assert.rejects(runtime.agent.run(follow.turnId), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(requests.length, before);
+    // 采纳：同样被拒绝。
+    await assert.rejects(async () => { await runtime.actions.approve(draft.actionId, { planHash: draft.plan.planHash }); await runtime.actions.apply(draft.actionId); },
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(app.dataStore.state.notes.length, 2);
+  }) },
+  { name: '自主助手：模型结果落盘后回合完成前故障，恢复时依赖笔记已切私密则丢弃旧结果，重试后标题不再外发', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const secret = noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '待私密的标题', rawMarkdown: '正文' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '公开标题', rawMarkdown: '正文二' });
+    const p = await policy(); let calls = 0;
+    respond(request => { calls++; const titles = JSON.parse(request.messages.at(-1).content).catalog[0].notes.map(note => note.title).sort();
+      return answer(`目录下有：${titles.join('、')}`, []); });
+    const complete = runtime.conversationStore.completeTurn; let faulted = false;
+    runtime.conversationStore.completeTurn = async (...args) => {
+      if (!faulted) { faulted = true; throw Object.assign(new Error('synthetic fault after durable model result'), { code: 'AI_SYNTHETIC_IO_FAULT' }); }
+      return complete(...args);
+    };
+    const turn = await submit('深度学习文件夹里有什么', 'catalog-resume', p.policyId);
+    await assert.rejects(runtime.agent.run(turn.turnId), { code: 'AI_SYNTHETIC_IO_FAULT' });
+    assert.equal(calls, 1);
+    noteService.updateNote(secret.id, { aiVisibility: 'private' });
+    await assert.rejects(runtime.agent.run(turn.turnId), { code: 'AI_SOURCE_STALE' });
+    assert.equal(calls, 1); // 没有复用含旧标题的结果，也没有悄悄重发
+    await runtime.agent.retry(turn.turnId);
+    assert.equal(calls, 2);
+    assert.equal(JSON.stringify(requests.at(-1).messages).includes('待私密的标题'), false);
+    const last = (await runtime.conversationStore.listMessages(turn.conversationId)).at(-1);
+    assert.equal(last.content.includes('待私密的标题'), false);
+  }) },
   { name: '自主助手：按时间检索周总结新稿，不要求预选写入模式', run: () => fixture(async ({ app, runtime, space, policy, submit, respond }) => {
     const repo = app.modules.knowledge.repositories.noteRepository;
     const first = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '学习甲', rawMarkdown: '合成学习记录甲' });

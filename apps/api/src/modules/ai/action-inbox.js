@@ -121,8 +121,9 @@ export function createAssistantMessageSourceGuard({ conversationStore, accessSto
       if (!boundary(policy, scope) || policy.actorId !== ownerId || policy.revokedAt || policy.read !== true
         || policy.revision !== source.policyRevision || Date.parse(policy.expiresAt) <= now().getTime()) denied();
     } else if (source.policyRevision !== null || source.sourceRefs.length || source.provenanceManifestId) denied();
+    let manifest = null;
     if (source.provenanceManifestId) {
-      const manifest = yield accessStore?.peek('aiRequestManifest', source.provenanceManifestId);
+      manifest = yield accessStore?.peek('aiRequestManifest', source.provenanceManifestId);
       const grant = manifest ? yield accessStore?.peek('aiRunGrant', manifest.grantId) : null;
       if (!boundary(manifest, scope) || !boundary(grant, scope) || grant.actorId !== ownerId
         || grant.conversationId !== source.conversationId || manifest.policyId !== source.policyId
@@ -130,7 +131,9 @@ export function createAssistantMessageSourceGuard({ conversationStore, accessSto
         || grant.policyRevision !== source.policyRevision || hashRecord(manifest) !== source.manifestHash
         || refsHash([...manifest.sources, ...manifest.historySources]) !== refsHash(source.sourceRefs)) denied();
     } else if (source.manifestHash !== null || !source.sourceFree || source.sourceRefs.length) denied();
-    for (const ref of source.sourceRefs) {
+    // 回答里引用的目录标题（含继承自更早回答的）与正文来源同样要在当前授权下可读，才能记录为成果。
+    const catalogIds = manifest ? [...new Set([...(manifest.catalog ?? []).flatMap(item => item.noteIds ?? []), ...(manifest.historyCatalog?.noteIds ?? [])])] : [];
+    for (const ref of [...source.sourceRefs, ...catalogIds.map(noteId => ({ noteId }))]) {
       const note = yield repos.noteRepository.findById(ref.noteId);
       try { assertAiReadableNote(note); } catch (error) {
         if (error.code === 'AI_SCOPE_FORBIDDEN') actionError(error.code, error.message, 403);
