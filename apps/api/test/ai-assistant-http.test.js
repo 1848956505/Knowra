@@ -74,6 +74,16 @@ export const aiAssistantHttpTests = [
         assert.equal((await call(origin, '/alerts/pause', { rule: 'turn' })).status, 422);
         const resumed = await call(origin, '/alerts/resume', { rule: 'daily' });
         assert.deepEqual(resumed.payload.data.pauses, []);
+        // 状态文件损坏：AI 被阻止并如实告知，关闭横幅不能覆盖文件，显式重置后恢复
+        fs.writeFileSync(path.join(directory, 'ai-budget-alerts.json'), '{"pauses":null}');
+        const broken = await get('/alerts');
+        assert.equal(broken.stateInvalid, true);
+        const brokenStatus = await get('/status');
+        assert.equal(brokenStatus.generationAvailable, false);
+        assert.match(brokenStatus.unavailableReason, /已损坏/);
+        assert.equal((await call(origin, '/alerts/mark', { ids: ['daily:2026-10-08:50'], kind: 'dismissed' })).status, 409);
+        assert.equal((await call(origin, '/alerts/resume', { rule: 'daily' })).status, 200);
+        assert.equal((await get('/alerts')).stateInvalid, false);
       });
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },

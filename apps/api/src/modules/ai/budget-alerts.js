@@ -41,14 +41,26 @@ export function evaluateAlerts({ settings, status, marks = {}, overrides = {}, p
 export function createBudgetAlertStore({ filePath }) {
   if (!path.isAbsolute(filePath ?? '')) throw new TypeError('预算提醒需要绝对路径。');
   let queue = Promise.resolve();
+  const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const periodValue = value => typeof value === 'string' && /^\d{4}-\d{2}(-\d{2})?$/.test(value);
+  // 严格读取：缺文件按空状态；无法读取、无法解析或结构不对记为 invalid（并给出空状态），而不是悄悄当作“没有暂停”。
+  // 暂停状态承担拦截职责，损坏时调用方必须阻止付费调用；只有明确的“暂停/恢复/放行”操作才会重置它。
   async function load() {
+    const empty = { marks: {}, overrides: {}, pauses: {}, invalid: false };
+    let raw;
+    try { raw = await fs.readFile(filePath, 'utf8'); }
+    catch (error) { return error?.code === 'ENOENT' ? empty : { ...empty, invalid: true }; }
     try {
-      const parsed = JSON.parse(await fs.readFile(filePath, 'utf8'));
-      const marks = parsed?.marks && typeof parsed.marks === 'object' && !Array.isArray(parsed.marks) ? parsed.marks : {};
-      const overrides = parsed?.overrides && typeof parsed.overrides === 'object' && !Array.isArray(parsed.overrides) ? parsed.overrides : {};
-      const pauses = parsed?.pauses && typeof parsed.pauses === 'object' && !Array.isArray(parsed.pauses) ? parsed.pauses : {};
-      return { marks, overrides, pauses };
-    } catch { return { marks: {}, overrides: {}, pauses: {} }; }
+      const parsed = JSON.parse(raw);
+      if (!plain(parsed)) throw new Error('invalid');
+      // 只有“字段不存在”按空处理（旧版本文件没有 pauses）；null、数组等一律视为损坏。
+      const part = key => parsed[key] === undefined ? {} : parsed[key];
+      const [marks, overrides, pauses] = [part('marks'), part('overrides'), part('pauses')];
+      if (!plain(marks) || !plain(overrides) || !plain(pauses)
+        || !Object.values(overrides).every(periodValue) || !Object.values(pauses).every(periodValue)
+        || !Object.values(marks).every(plain)) throw new Error('invalid');
+      return { marks, overrides, pauses, invalid: false };
+    } catch { return { ...empty, invalid: true }; }
   }
   async function save(state, today) {
     // 只保留近期周期的标记，避免文件无限增长。
@@ -72,6 +84,8 @@ export function createBudgetAlertStore({ filePath }) {
       if (!Array.isArray(ids) || ids.length === 0 || ids.length > 24 || !ids.every(id => typeof id === 'string' && ID_PATTERN.test(id))
         || !['notified', 'dismissed'].includes(kind)) throw invalid('提醒标记无效。');
       const state = await load();
+      // 状态损坏时不能借“关闭横幅”之名悄悄覆盖文件（会同时抹掉暂停）；必须先显式重置。
+      if (state.invalid) throw Object.assign(new Error('预算提醒状态文件已损坏，请先在费用提醒处重置。'), { code: 'AI_BUDGET_ALERTS_INVALID' });
       for (const id of ids) state.marks[id] = { ...state.marks[id], [kind]: true };
       await save(state, today);
     }),

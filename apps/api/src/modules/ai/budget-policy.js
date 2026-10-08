@@ -38,7 +38,8 @@ export function createBudgetPolicy({ settings, balance = null, alerts = null, ba
   async function limitsFor(current) {
     const limits = enforcedLimits(current);
     if (!alerts) return { limits, paused: [] };
-    const { overrides, pauses } = await alerts.get();
+    const { overrides, pauses, invalid } = await alerts.get();
+    if (invalid) throw fail('AI_BUDGET_ALERTS_INVALID', '预算暂停/提醒状态文件已损坏，已阻止模型调用；可在费用提醒处重置后恢复。');
     const day = beijingDay(now());
     for (const rule of ['daily', 'monthly']) if (overrides[rule] === periodOf(rule, day)) limits[rule] = null;
     const paused = ['daily', 'monthly'].filter(rule => pauses?.[rule] === periodOf(rule, day));

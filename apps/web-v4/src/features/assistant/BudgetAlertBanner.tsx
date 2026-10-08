@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
 import { useNavigate } from '../../app/router';
 import { assistantApi, type BudgetAlert, type BudgetAlerts } from './assistantApi';
+import { notifyAssistantStatusChanged } from './assistantEvents';
 import styles from './BudgetAlertBanner.module.css';
 
 const POLL_MS = 60_000;
@@ -62,9 +63,14 @@ export function BudgetAlertBanner() {
     void assistantApi.markAlerts(fresh.map(item => item.id), 'notified').then(setData).catch(() => undefined);
   }, [data]);
 
-  async function run(action: () => Promise<BudgetAlerts | void>) {
+  /** statusChanged：该操作改变了助手能否发起调用（暂停/恢复/放行/重置），需要通知助手视图重新读取状态。 */
+  async function run(action: () => Promise<BudgetAlerts | void>, statusChanged = false) {
     setBusy(true); setError('');
-    try { const next = await action(); if (next) setData(next); else await refresh(); }
+    try {
+      const next = await action();
+      if (next) setData(next); else await refresh();
+      if (statusChanged) notifyAssistantStatusChanged();
+    }
     catch (failure) { setError(failure instanceof Error && failure.message ? failure.message : '操作失败，请重试。'); }
     finally { setBusy(false); }
   }
@@ -73,16 +79,23 @@ export function BudgetAlertBanner() {
   const pause = (item: BudgetAlert, ids: string[]) => run(async () => {
     await assistantApi.pauseRule(item.rule);
     return assistantApi.markAlerts(ids, 'dismissed');
-  });
+  }, true);
 
   const items = data ? visible(data).filter(({ top }) => !data.pauses.some(item => item.rule === top.rule)) : [];
   const pauses = data?.pauses ?? [];
-  if (!items.length && !pauses.length) return null;
+  if (!items.length && !pauses.length && !data?.stateInvalid) return null;
   return <div className={styles.stack} role="region" aria-label="AI 费用提醒">
+    {data?.stateInvalid ? <div className={`${styles.banner} ${styles.blocked}`} role="alert">
+      <p>暂停/提醒状态文件已损坏，AI 已被阻止<span>（为避免误放行，不会自动忽略；重置后恢复正常）</span></p>
+      <div className={styles.actions}>
+        <Button size="compact" variant="primary" isDisabled={busy} onPress={() => void run(() => assistantApi.resumeRule('daily'), true)}>重置并恢复</Button>
+      </div>
+      {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+    </div> : null}
     {pauses.map(item => <div key={`pause:${item.rule}`} className={`${styles.banner} ${styles.blocked}`} role="status">
       <p>AI 已暂停至{item.rule === 'daily' ? '明天' : '下月'}<span>（按您的操作暂停，周期结束自动恢复）</span></p>
       <div className={styles.actions}>
-        <Button size="compact" variant="primary" isDisabled={busy} onPress={() => void run(() => assistantApi.resumeRule(item.rule))}>立即恢复</Button>
+        <Button size="compact" variant="primary" isDisabled={busy} onPress={() => void run(() => assistantApi.resumeRule(item.rule), true)}>立即恢复</Button>
       </div>
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     </div>)}
@@ -94,7 +107,7 @@ export function BudgetAlertBanner() {
           <span>（已用 {yuan(top.usedMicrounits)} / {yuan(top.limitMicrounits)}{allowed ? `，${name}已放行` : ''}）</span></p>
         <div className={styles.actions}>
           {blocked ? <Button size="compact" variant="primary" isDisabled={busy}
-            onPress={() => void run(() => assistantApi.allowRule(top.rule))}>{name}放行</Button> : null}
+            onPress={() => void run(() => assistantApi.allowRule(top.rule), true)}>{name}放行</Button> : null}
           <Button size="compact" isDisabled={busy} onPress={() => navigate('/settings')}>提高上限</Button>
           {!blocked && !allowed
             ? <Button size="compact" isDisabled={busy} onPress={() => void pause(top, ids)}>暂停 AI 至{top.rule === 'daily' ? '明天' : '下月'}</Button> : null}

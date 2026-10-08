@@ -16,6 +16,7 @@ import { useAppStore } from '../../store/AppStoreProvider';
 import { BookIcon, NoteIcon, SparkIcon } from '../../shell/icons';
 import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantStatus } from './assistantApi';
+import { ASSISTANT_STATUS_CHANGED_EVENT } from './assistantEvents';
 import { conversationApi, type ToolCall, type AccessPolicy, type Conversation, type ConversationMessage,
   type ConversationTurn, type SourceRef } from './conversationApi';
 import type { NoteAction } from './noteActionApi';
@@ -322,6 +323,14 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     } catch (cause) { if (space.current === spaceId) setError(`${errorText(cause, '发送失败。')} 可使用同一请求重试。`); }
     finally { setPending(false); }
   }
+
+  // 费用提醒横幅里暂停/恢复/放行后，助手状态要立刻刷新，不能停在“暂停”的旧状态。
+  useEffect(() => {
+    let active = true;
+    const refreshStatus = () => { void assistantApi.status().then(next => { if (active) setStatus(next); }).catch(() => undefined); };
+    window.addEventListener(ASSISTANT_STATUS_CHANGED_EVENT, refreshStatus);
+    return () => { active = false; window.removeEventListener(ASSISTANT_STATUS_CHANGED_EVENT, refreshStatus); };
+  }, []);
 
   async function allowBudget(rule: 'daily' | 'monthly') {
     try { await assistantApi.allowRule(rule); setNotice(`${rule === 'daily' ? '今日' : '本月'}已放行，可重试本轮；周期结束后自动恢复拦截。`); setStatus(await assistantApi.status()); }

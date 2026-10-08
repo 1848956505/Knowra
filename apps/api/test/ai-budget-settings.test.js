@@ -155,7 +155,7 @@ export const aiBudgetSettingsTests = [
       assert.deepEqual(evaluateAlerts({ settings: cfg, status, overrides: (await store.get()).overrides, day: '2026-10-20' }).overrides, [{ rule: 'monthly', period: '2026-10' }]);
       assert.deepEqual(evaluateAlerts({ settings: cfg, status, overrides: (await store.get()).overrides, day: '2026-11-01' }).overrides, [], '下个月放行自动失效');
       fs.writeFileSync(file, 'garbage');
-      assert.deepEqual(await store.get(), { marks: {}, overrides: {}, pauses: {} });
+      assert.deepEqual(await store.get(), { marks: {}, overrides: {}, pauses: {}, invalid: true }, '损坏必须被识别，不能当作没有记录');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } },
   { name: '放行让“达到即停”的规则在当前周期内不再限制预留，周期之外不影响', async run() {
@@ -234,6 +234,32 @@ export const aiBudgetSettingsTests = [
       const status = { spentMicrounits: 0, heldMicrounits: 0, monthSpentMicrounits: 0, monthHeldMicrounits: 0 };
       assert.deepEqual(evaluateAlerts({ settings: normalizeBudgetSettings(settings()), status, pauses: { daily: '2026-10-08' }, day: '2026-10-08' }).pauses, [{ rule: 'daily', period: '2026-10-08' }]);
       assert.deepEqual(evaluateAlerts({ settings: normalizeBudgetSettings(settings()), status, pauses: { daily: '2026-10-08' }, day: '2026-10-09' }).pauses, []);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '暂停状态文件损坏时 fail closed：不能被当作“没有暂停”，只有显式重置才恢复；旧版文件缺 pauses 仍有效', async run() {
+    const dir = temp();
+    try {
+      const file = path.join(dir, 'a.json');
+      const settingsStore = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      const alerts = createBudgetAlertStore({ filePath: file });
+      const policy = createBudgetPolicy({ settings: settingsStore, alerts, basePriceProfile: base, now: () => new Date('2026-10-08T04:00:00.000Z') });
+      assert.equal((await alerts.get()).invalid, false, '文件不存在是正常的空状态');
+      fs.writeFileSync(file, JSON.stringify({ marks: {}, overrides: {} })); // 旧版本没有 pauses 字段
+      assert.equal((await alerts.get()).invalid, false);
+      await policy.snapshot();
+      for (const bad of ['{not json', '{"marks":{},"overrides":{},"pauses":null}', '{"pauses":{"daily":5}}', '{"overrides":[]}', '[]', 'null', '{"marks":{"a":1}}']) {
+        fs.writeFileSync(file, bad);
+        assert.equal((await alerts.get()).invalid, true, bad);
+        await assert.rejects(policy.snapshot(), { code: 'AI_BUDGET_ALERTS_INVALID' }, `${bad} 时付费调用被拒`);
+        await assert.rejects(alerts.mark(['daily:2026-10-08:50'], 'dismissed', '2026-10-08'), { code: 'AI_BUDGET_ALERTS_INVALID' }, '不能借关闭横幅覆盖损坏的文件');
+        assert.equal(fs.readFileSync(file, 'utf8'), bad, '拒绝时保留原文件');
+      }
+      fs.writeFileSync(file, '{"pauses":{"daily":"2026-10-08"}}');
+      await assert.rejects(policy.snapshot(), { code: 'AI_PAUSED_BY_USER' });
+      fs.writeFileSync(file, '{not json');
+      await alerts.resume('daily', '2026-10-08', '2026-10-08'); // 显式重置
+      assert.equal((await alerts.get()).invalid, false);
+      await policy.snapshot();
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } }
 ];
