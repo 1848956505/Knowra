@@ -60,7 +60,11 @@ export function createBudgetPolicy({ settings, balance = null, alerts = null, ba
     async balanceBelowFloor(current) {
       const rule = current.rules.balanceFloor;
       if (rule.mode !== 'stop' || !balance) return false;
-      const cny = (await balance.view().catch(() => null))?.latest?.balances.find(row => row.currency === 'CNY');
+      const view = await balance.view().catch(() => null);
+      // 只凭新鲜的快照判断：过期的低余额快照不能成为持续封锁的依据（用户可能已充值），
+      // 过期时放行到调用前检查，那里会联网刷新真实余额。
+      if (!view?.checkedAt || now().getTime() - Date.parse(view.checkedAt) > FRESH_MS) return false;
+      const cny = view.latest?.balances.find(row => row.currency === 'CNY');
       return Boolean(cny) && cny.totalMicrounits < rule.limitMicrounits;
     }
   };

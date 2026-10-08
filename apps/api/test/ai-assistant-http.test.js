@@ -65,6 +65,34 @@ export const aiAssistantHttpTests = [
       });
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   } },
+  { name: '云端预算接口按服务端保存的上限执行：客户端传来的 limits 被忽略，状态也反映保存的规则', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-route-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      const settings = await context.ai.budgetSettings.get();
+      await context.ai.budgetSettings.set({ ...settings, rules: { ...settings.rules,
+        daily: { mode: 'stop', limitMicrounits: 10_000 }, monthly: { mode: 'stop', limitMicrounits: 10_000 } } });
+      await withServer(context, async origin => {
+        const post = async (route, body) => {
+          const response = await fetch(`${origin}/api/ai/budget/${route}`, { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Knowra-AI-Budget': '1' }, body: JSON.stringify(body) });
+          return { status: response.status, payload: await response.json() };
+        };
+        const reserve = (n, extra = {}) => post('reserve', { jobId: `job-${n}`, attemptId: `attempt-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000, ...extra });
+        const blocked = await reserve(1);
+        assert.equal(blocked.status, 409, '保存的每日上限 ¥0.01 生效，¥1 的预留被拒');
+        assert.equal(blocked.payload.error.code, 'AI_DAILY_BUDGET_EXCEEDED');
+        const forged = await reserve(2, { limits: { daily: null, monthly: null, turn: null } });
+        assert.equal(forged.status, 409, '客户端无法用 limits 放宽上限');
+        const status = await (await fetch(`${origin}/api/ai/budget/status`, { headers: { 'X-Knowra-AI-Budget': '1' } })).json();
+        assert.equal(status.data.limitMicrounits, 10_000);
+        assert.equal(status.data.monthLimitMicrounits, 10_000);
+        await context.ai.budgetSettings.set({ ...settings, rules: { ...settings.rules, daily: { mode: 'off', limitMicrounits: null } } });
+        assert.equal((await reserve(3)).status, 200, '关闭每日上限后通过');
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '预算设置接口：默认值、保存需助手请求头与合法金额；每日上限改为仅提醒后状态不再受 20 元限制，设置损坏时阻止调用', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-settings-http-'));
     try {

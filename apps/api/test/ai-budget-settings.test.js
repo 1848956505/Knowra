@@ -7,6 +7,7 @@ import { createBudgetPolicy } from '../src/modules/ai/budget-policy.js';
 import { createBudgetSettingsStore, DEFAULT_BUDGET_SETTINGS, effectivePriceProfile, enforcedLimits, normalizeBudgetSettings } from '../src/modules/ai/budget-settings.js';
 import { actualCostMicrounits } from '../src/modules/ai/worker.js';
 import { createBudgetAlertStore, evaluateAlerts } from '../src/modules/ai/budget-alerts.js';
+import { createIsolatedAiWorker } from '../src/modules/ai/isolated-worker.js';
 
 const account = 'deepseek-primary';
 const reserve = (state, n, amount, extra = {}) => reserveBudget(state, { accountRef: account, jobId: `job-${extra.job ?? n}`, attemptId: `a-${n}`,
@@ -171,5 +172,40 @@ export const aiBudgetSettingsTests = [
       clock += 24 * 3600_000;
       assert.equal((await policy.snapshot()).limits.daily, 20_000_000, '第二天恢复拦截');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '余额下限状态判断只凭新鲜快照：过期的低余额快照不封锁助手，调用前检查才联网刷新', async run() {
+    const dir = temp();
+    try {
+      const store = createBudgetSettingsStore({ filePath: path.join(dir, 's.json') });
+      await store.set(settings({ balanceFloor: { mode: 'stop', limitMicrounits: 10_000_000 } }));
+      let clock = Date.parse('2026-10-08T05:00:00.000Z');
+      const at = ms => new Date(clock - ms).toISOString();
+      const view = (total, checkedAt) => ({ checkedAt, latest: { at: checkedAt, isAvailable: true,
+        balances: [{ currency: 'CNY', totalMicrounits: total, grantedMicrounits: 0, toppedUpMicrounits: total }] } });
+      let live = view(9_000_000, at(2 * 3600_000)); // 两小时前的低余额，其后用户可能已充值
+      let refreshed = 0;
+      const balance = { view: async () => live, refresh: async () => { refreshed += 1; live = view(50_000_000, at(0)); return live; } };
+      const policy = createBudgetPolicy({ settings: store, balance, basePriceProfile: base, now: () => new Date(clock) });
+      const current = await store.get();
+      assert.equal(await policy.balanceBelowFloor(current), false, '过期快照不作为封锁依据');
+      await policy.snapshot(); // 调用前检查联网刷新到 ¥50，放行
+      assert.equal(refreshed, 1);
+      live = view(9_000_000, at(60_000));
+      assert.equal(await policy.balanceBelowFloor(current), true, '新鲜的低余额快照仍如实提示');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } },
+  { name: '执行器在等待预算策略期间被关闭：不再启动任务进程', async run() {
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let spawned = 0;
+    const worker = createIsolatedAiWorker({ repository: {}, budget: {}, gateway: {}, modelSettings: {}, readContext: null,
+      priceProfile: base, allowExternal: true, policy: { snapshot: async () => { await gate; return { profile: base, limits: { daily: 1, monthly: null, turn: null } }; } },
+      spawn: () => { spawned += 1; throw new Error('must not spawn'); } });
+    const running = worker.run('job-1', { mode: 'hang' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    await worker.close();
+    release();
+    await assert.rejects(running, { code: 'AI_GENERATION_UNAVAILABLE' });
+    assert.equal(spawned, 0);
   } }
 ];
