@@ -10,7 +10,7 @@ export interface AssistantStatus {
   unavailableReason: string | null;
   /** 价格档案超过复核日期时的提示：仍可使用，但显示的费用为估算。 */
   priceNotice?: string | null;
-  budget: { day: string; limitMicrounits: number; availableMicrounits: number;
+  budget: { day: string; limitMicrounits: number | null; availableMicrounits: number | null;
     spentMicrounits: number; heldMicrounits: number } | null;
   capabilities: { readScopes: Array<'note' | 'folder'>; actions: Array<'answer' | 'cancel'>;
     responseMode: 'polling'; writeTools: false; providerAdvertised: Record<string, boolean> | null;
@@ -42,6 +42,20 @@ export interface AssistantBalance {
   latest: { at: string; isAvailable: boolean; balances: BalanceRow[] } | null;
   inferred: Array<{ currency: 'CNY' | 'USD'; sinceAt: string; snapshots: number; consumedMicrounits: number;
     addedMicrounits: number; currentMicrounits: number }>;
+}
+
+export type BudgetMode = 'off' | 'warn' | 'stop';
+export type BudgetRuleName = 'daily' | 'monthly' | 'turn' | 'balanceFloor';
+export interface BudgetRule { mode: BudgetMode; limitMicrounits: number | null }
+export interface CustomPrice {
+  inputMicrounitsPerMillion: number; inputCacheHitMicrounitsPerMillion: number | null;
+  outputMicrounitsPerMillion: number; updatedAt?: string | null;
+}
+export interface BudgetSettings {
+  rules: Record<BudgetRuleName, BudgetRule>;
+  price: CustomPrice | null;
+  basePrice?: { version: string; inputMicrounitsPerMillion: number; outputMicrounitsPerMillion: number; reviewedUntil: string } | null;
+  location?: 'local' | 'server';
 }
 
 export interface AssistantSource {
@@ -88,6 +102,9 @@ const data = async <T>(url: string, options?: Parameters<typeof apiClient.reques
 
 export const assistantApi = {
   usage: () => data<AssistantUsage>('/api/ai/assistant/usage'),
+  budgetSettings: () => data<BudgetSettings>('/api/ai/assistant/budget-settings'),
+  saveBudgetSettings: (value: Pick<BudgetSettings, 'rules' | 'price'>) => data<BudgetSettings>('/api/ai/assistant/budget-settings', {
+    method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
   balance: () => data<AssistantBalance>('/api/ai/assistant/balance'),
   refreshBalance: () => data<AssistantBalance>('/api/ai/assistant/balance/refresh', {
     method: 'POST', headers: { 'X-Knowra-AI-Assistant': '1' } }),

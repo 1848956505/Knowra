@@ -233,7 +233,7 @@ export function createPersistentAppContext({
   context.http.aiFeatures = createAiFeatureSettings({ filePath: path.join(storageRootDir, 'ai-features.json') });
   context.http.aiBudget = dataStore.aiBudgetAuthority;
   context.ai = createOptionalAiRuntime({ modelSettings: context.http.modelSettings, repository: dataStore.aiRepository,
-    uploadsDir, balanceFile: path.join(storageRootDir, 'ai-balance.json'),
+    uploadsDir, balanceFile: path.join(storageRootDir, 'ai-balance.json'), budgetSettingsFile: path.join(storageRootDir, 'ai-budget-settings.json'),
     accessStore: dataStore.aiAccessStore,
     conversationStore: dataStore.aiConversationStore, actionStore: dataStore.aiActionStore,
     coreOperationStore: context.coreOperationStore, knowledge: context.modules.knowledge,

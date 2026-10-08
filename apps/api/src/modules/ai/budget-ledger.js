@@ -62,19 +62,41 @@ export function validateBudgetState(state) {
   return state;
 }
 
-export function budgetStatus(state, accountRef, date = beijingDay()) {
+/** 未传 limits 时沿用改造前的默认：每日 20 元、单回合 2 元、无月上限；传入的 null 表示该规则不限制预留。 */
+export const DEFAULT_LIMITS = Object.freeze({ daily: DAILY_LIMIT_MICROUNITS, monthly: null, turn: JOB_LIMIT_MICROUNITS });
+
+function checkLimits(limits) {
+  if (limits === undefined) return DEFAULT_LIMITS;
+  if (!limits || typeof limits !== 'object' || Object.keys(limits).some(key => !['daily', 'monthly', 'turn'].includes(key))
+    || !['daily', 'monthly', 'turn'].every(key => limits[key] === null || Number.isSafeInteger(limits[key]) && limits[key] >= 1)) {
+    fail('AI_BUDGET_REQUEST_INVALID', '预算上限参数无效。');
+  }
+  return limits;
+}
+
+const monthTotals = (state, accountRef, date) => state.budgetDays
+  .filter(row => row.accountRef === accountRef && row.day.startsWith(date.slice(0, 7)))
+  .reduce((sum, row) => ({ spent: sum.spent + row.spentMicrounits, held: sum.held + row.heldMicrounits }), { spent: 0, held: 0 });
+
+/** limitMicrounits / availableMicrounits 为 null 表示当日规则不是“达到即停”，不限制调用。 */
+export function budgetStatus(state, accountRef, date = beijingDay(), limits) {
+  const { daily, monthly } = checkLimits(limits);
   const row = state.budgetDays.find(item => item.accountRef === accountRef && item.day === date);
   const spentMicrounits = row?.spentMicrounits ?? 0;
   const heldMicrounits = row?.heldMicrounits ?? 0;
-  return { accountRef, day: date, limitMicrounits: DAILY_LIMIT_MICROUNITS, spentMicrounits, heldMicrounits,
-    availableMicrounits: Math.max(0, DAILY_LIMIT_MICROUNITS - spentMicrounits - heldMicrounits) };
+  const month = monthTotals(state, accountRef, date);
+  return { accountRef, day: date, limitMicrounits: daily, spentMicrounits, heldMicrounits,
+    availableMicrounits: daily === null ? null : Math.max(0, daily - spentMicrounits - heldMicrounits),
+    monthLimitMicrounits: monthly, monthSpentMicrounits: month.spent, monthHeldMicrounits: month.held,
+    monthAvailableMicrounits: monthly === null ? null : Math.max(0, monthly - month.spent - month.held) };
 }
 
 export function reserveBudget(state, input) {
   const { accountRef, jobId, attemptId, priceVersion, reservedMicrounits } = input ?? {};
+  const { daily: dailyLimit, monthly: monthlyLimit, turn: turnLimit } = checkLimits(input?.limits);
   const date = input?.day ?? beijingDay();
   if (![accountRef, jobId, attemptId, priceVersion].every(value => typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,128}$/.test(value))
-    || !day(date) || !amount(reservedMicrounits) || reservedMicrounits < 1 || reservedMicrounits > JOB_LIMIT_MICROUNITS) {
+    || !day(date) || !amount(reservedMicrounits) || reservedMicrounits < 1 || reservedMicrounits > JOB_LIMIT_MICROUNITS) { // 单次请求最坏费用上限是始终保留的技术护栏
     fail('AI_BUDGET_REQUEST_INVALID', '预算预留参数无效。');
   }
   const existing = state.budgetReservations.find(row => row.accountRef === accountRef && row.attemptId === attemptId);
@@ -86,11 +108,15 @@ export function reserveBudget(state, input) {
   }
   const jobTotal = state.budgetReservations.filter(row => row.accountRef === accountRef && row.jobId === jobId)
     .reduce((sum, row) => sum + row.reservedMicrounits, 0);
-  if (jobTotal + reservedMicrounits > JOB_LIMIT_MICROUNITS) fail('AI_JOB_BUDGET_EXCEEDED', '任务预留超过 2 元。');
+  if (turnLimit !== null && jobTotal + reservedMicrounits > turnLimit) fail('AI_JOB_BUDGET_EXCEEDED', `单次回合预留超过 ${(turnLimit / 1_000_000).toFixed(2)} 元上限。`);
   let daily = state.budgetDays.find(row => row.accountRef === accountRef && row.day === date);
   if (!daily) { daily = { accountRef, day: date, spentMicrounits: 0, heldMicrounits: 0 }; state.budgetDays.push(daily); }
-  if (daily.spentMicrounits + daily.heldMicrounits + reservedMicrounits > DAILY_LIMIT_MICROUNITS) {
+  if (dailyLimit !== null && daily.spentMicrounits + daily.heldMicrounits + reservedMicrounits > dailyLimit) {
     fail('AI_DAILY_BUDGET_EXCEEDED', '北京时间当日预算不足。');
+  }
+  if (monthlyLimit !== null) {
+    const month = monthTotals(state, accountRef, date);
+    if (month.spent + month.held + reservedMicrounits > monthlyLimit) fail('AI_MONTHLY_BUDGET_EXCEEDED', '本月预算不足。');
   }
   daily.heldMicrounits += reservedMicrounits;
   const record = { reservationId: randomUUID(), accountRef, day: date, jobId, attemptId, priceVersion,
@@ -165,7 +191,7 @@ export function usageSummary(state, accountRef, date = beijingDay(), limit = REC
 
 export function createJsonBudgetAuthority({ getState, runTransaction, onChange }) {
   return {
-    status: (accountRef, date) => budgetStatus(getState(), accountRef, date),
+    status: (accountRef, date, limits) => budgetStatus(getState(), accountRef, date, limits),
     usage: (accountRef, date) => usageSummary(getState(), accountRef, date),
     reserve: input => runTransaction(() => { const result = reserveBudget(getState(), input); onChange(); return result; }),
     settle: input => runTransaction(() => { const result = settleBudget(getState(), input); onChange(); return result; })

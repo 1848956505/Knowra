@@ -27,6 +27,11 @@
 .usageCell strong { color: var(--ink); font: 750 18px/1.4 var(--font-mono); }
 .usageCell small { color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
 .usageBalance { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ink-panel); }
+.budgetRules { display: grid; gap: 16px; margin-top: 20px; }
+.budgetRule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.budgetPrice { margin-top: 20px; }
+.budgetConfirm { margin-top: 16px; padding: 14px 16px; border: 1px solid #a32929; }
+.budgetConfirm p { margin: 0 0 12px; color: var(--ink); font-size: 12px; line-height: 1.6; }
 .usageTableWrap { margin-top: 16px; overflow-x: auto; }
 .usageTable { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.6; }
 .usageTable caption { padding-bottom: 8px; color: var(--ink); font-weight: 650; text-align: left; }
@@ -48,6 +53,7 @@
   .modelContent { padding: 16px; }
   .modelFields { grid-template-columns: minmax(0, 1fr); }
   .usageSummary { grid-template-columns: minmax(0, 1fr); }
+  .budgetRule { grid-template-columns: minmax(0, 1fr); }
 }
 
 .clientList { list-style: none; margin: 0; padding: 0; }
