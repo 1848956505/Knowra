@@ -191,7 +191,8 @@ verify_pm2_release "$release_dir" || {
 api_port="${KNOWRA_API_PORT:-3001}"
 web_port="${KNOWRA_WEB_PORT:-3000}"
 healthy=0
-for _ in {1..20}; do
+# 大资料库启动需要完成历史引用校验；保留有界等待，避免就绪前误回滚。
+for _ in {1..120}; do
   if curl -fsS --max-time 2 "http://127.0.0.1:$api_port/api/health" >/dev/null \
     && curl -fsSI --max-time 2 "http://127.0.0.1:$web_port/" >/dev/null; then
     healthy=1

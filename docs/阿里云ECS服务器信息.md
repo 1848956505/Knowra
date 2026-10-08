@@ -397,6 +397,8 @@ scripts/activate-ci-release.sh
 scripts/post-deploy.sh
 ```
 
+激活脚本最多等待 120 轮健康检查，以容纳大历史库启动时的引用校验；超时仍自动回滚。
+
 常规发布使用 GitHub CI 生成的带提交清单与校验文件的 Linux 发布包；服务器只拉取 GitHub `main` 用于校验目标提交和更新备份所记录的版本。
 
 ## 安全组

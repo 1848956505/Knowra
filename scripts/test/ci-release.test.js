@@ -39,6 +39,16 @@ test('CI 发布包切换后保留运行数据和旧页面资源', { skip: !suppo
   }
 });
 
+test('大资料库超过旧 20 轮窗口后就绪仍能发布成功', { skip: !supported }, () => {
+  const fixture = createFixture({ healthDelay: 25 });
+  try {
+    const result = run(fixture);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(fixture.gitState, 'utf8'), nextCommit);
+    assert.equal(Number(readFileSync(`${fixture.calls}.health`, 'utf8')), 27);
+  } finally { fixture.cleanup(); }
+});
+
 test('健康检查失败后恢复首次发布前的进程和 Git 提交', { skip: !supported }, () => {
   const fixture = createFixture({ healthFails: true });
   try {
@@ -87,7 +97,7 @@ test('同版本旧前端 SHA 或 dirty 构建在备份/进程切换前被拒绝'
   }
 });
 
-function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) {
+function createFixture({ healthFails = false, healthDelay = 0, pm2StaysOnOldPath = false } = {}) {
   const base = mkdtempSync(path.join(tmpdir(), 'knowra-ci-release-'));
   const root = path.join(base, 'root');
   const stage = path.join(root, '.deploy-incoming', 'candidate', 'stage');
@@ -159,10 +169,13 @@ function createFixture({ healthFails = false, pm2StaysOnOldPath = false } = {}) 
   writeExecutable(path.join(bin, 'curl'), [
     '#!/usr/bin/env bash',
     '[[ "$CI_RELEASE_TEST_HEALTH_FAILS" == 1 ]] && exit 22',
+    'count=0; [[ -f "$CI_RELEASE_TEST_CALLS.health" ]] && count=$(cat "$CI_RELEASE_TEST_CALLS.health")',
+    'count=$((count + 1)); printf %s "$count" > "$CI_RELEASE_TEST_CALLS.health"',
+    '(( count <= CI_RELEASE_TEST_HEALTH_DELAY )) && exit 22',
     'exit 0'
   ]);
   writeExecutable(path.join(bin, 'sleep'), ['#!/usr/bin/env bash', 'exit 0']);
-  return { root, stage, backupRoot, bin, calls, gitState, pm2State, healthFails, pm2StaysOnOldPath, cleanup: () => rmSync(base, { recursive: true, force: true }) };
+  return { root, stage, backupRoot, bin, calls, gitState, pm2State, healthFails, healthDelay, pm2StaysOnOldPath, cleanup: () => rmSync(base, { recursive: true, force: true }) };
 }
 
 function writeExecutable(filePath, lines) {
@@ -185,7 +198,8 @@ function run(fixture) {
       CI_RELEASE_TEST_PM2_STICKY: fixture.pm2StaysOnOldPath ? '1' : '0',
       CI_RELEASE_TEST_OLD: oldCommit,
       CI_RELEASE_TEST_NEXT: nextCommit,
-      CI_RELEASE_TEST_HEALTH_FAILS: fixture.healthFails ? '1' : '0'
+      CI_RELEASE_TEST_HEALTH_FAILS: fixture.healthFails ? '1' : '0',
+      CI_RELEASE_TEST_HEALTH_DELAY: String(fixture.healthDelay)
     }
   });
 }
