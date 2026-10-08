@@ -9,7 +9,8 @@ export function deepSeekPayload(request, { stream = false } = {}) {
     stream,
     // V4 默认开启思考，推理 token 会占用 max_tokens，导致 JSON/工具回合被截断；知境的回合不依赖推理内容。
     thinking: { type: 'disabled' },
-    ...(request.format === 'json' ? { response_format: { type: 'json_object' } } : {}),
+    // 强制 JSON 输出时 DeepSeek 不会发起工具调用（只在 JSON 回答里口头说要调用），所以带工具的请求靠提示词约束 JSON，由网关兜底解析。
+    ...(request.format === 'json' && !request.tools.length ? { response_format: { type: 'json_object' } } : {}),
     ...(request.tools.length ? { tools: request.tools.map(tool => ({ type: 'function', function: tool })), tool_choice: 'auto' } : {}),
     ...(stream ? { stream_options: { include_usage: true } } : {})
   };

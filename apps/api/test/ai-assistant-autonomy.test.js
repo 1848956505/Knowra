@@ -81,6 +81,60 @@ export const aiAssistantAutonomyTests = [
     assert.equal((await runtime.actions.list(space.id)).length, 0);
     assert(!requests[0].tools.some(item => item.name === 'notes_create'));
   }) },
+  { name: '自主助手：先列目录再列笔记，标题经 catalog 回到模型，授权外目录不出现', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const other = folderService.createFolder({ spaceId: space.id, name: '烹饪' });
+    for (const title of ['引言', '反向传播']) noteService.createNote({ spaceId: space.id, folderId: dl.id, title, rawMarkdown: `${title}正文` });
+    noteService.createNote({ spaceId: space.id, folderId: other.id, title: '红烧肉', rawMarkdown: '食谱' });
+    const narrow = await runtime.access.createPolicy({ spaceId: space.id, scope: { kind: 'folder', folderId: dl.id }, excludedNoteIds: [],
+      includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
+    const catalogOf = request => JSON.parse(request.messages.at(-1).content).catalog ?? [];
+    let round = 0;
+    respond(request => {
+      round++;
+      if (round === 1) return tool('folders_list', {}, 'c1');
+      if (round === 2) {
+        const [entry] = catalogOf(request);
+        assert.deepEqual(entry.folders.map(folder => folder.name), ['深度学习']);
+        return tool('notes_list', { folderId: entry.folders[0].folderId }, 'c2');
+      }
+      assert.deepEqual(catalogOf(request).map(entry => entry.kind), ['folders', 'notes']);
+      assert.deepEqual(catalogOf(request)[1].notes.map(note => note.title).sort(), ['反向传播', '引言']);
+      return answer('该目录下有《引言》和《反向传播》两篇笔记。', []);
+    });
+    const turn = await submit('深度学习那一块下面有什么', 'catalog-flow', narrow.policyId); await runtime.agent.run(turn.turnId);
+    assert(requests[0].tools.some(item => item.name === 'folders_list') && requests[0].tools.some(item => item.name === 'notes_list'));
+    assert.equal(requests.length, 3);
+    for (const request of requests) { const text = JSON.stringify(request.messages); assert.equal(text.includes('烹饪'), false); assert.equal(text.includes('红烧肉'), false); }
+    const messages = await runtime.conversationStore.listMessages(turn.conversationId);
+    assert.equal(messages.at(-1).content, '该目录下有《引言》和《反向传播》两篇笔记。');
+    // 授权回合的回答含标题，不能作为“无来源”普通历史进入此后的无授权聊天。
+    const plain = await submit('谢谢，再见', 'catalog-after-plain'); respond(() => answer('不客气'));
+    await runtime.agent.run(plain.turnId);
+    assert.equal(JSON.stringify(requests.at(-1).messages).includes('反向传播'), false);
+  }) },
+  { name: '自主助手：提到文件夹名时回合开始自动预取该目录的笔记标题，第一轮请求即带 catalog', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '引言', rawMarkdown: '正文' });
+    const p = await policy();
+    respond(request => {
+      const catalog = JSON.parse(request.messages.at(-1).content).catalog;
+      assert.deepEqual(catalog.map(entry => entry.kind), ['notes']);
+      assert.deepEqual(catalog[0].notes.map(note => note.title), ['引言']);
+      return answer('有《引言》。', []);
+    });
+    const turn = await submit('深度学习文件夹里有什么', 'catalog-prefetch', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal(requests.length, 1);
+    const calls = await runtime.conversationStore.listToolCalls(turn.turnId);
+    assert.deepEqual(calls.map(call => [call.toolName, call.status]), [['notes_list', 'succeeded']]);
+    // 没有命中目录名时预取顶层目录；不含目录词的问题不预取。
+    respond(request => { assert.equal(JSON.parse(request.messages.at(-1).content).catalog[0].kind, 'folders'); return answer('一个目录。', []); });
+    const other = await submit('我有哪些目录', 'catalog-prefetch-top', p.policyId); await runtime.agent.run(other.turnId);
+    respond(request => { assert.equal(JSON.parse(request.messages.at(-1).content).catalog, undefined); return answer('好的。', []); });
+    const none = await submit('随便聊聊', 'catalog-prefetch-none', p.policyId); await runtime.agent.run(none.turnId);
+  }) },
   { name: '自主助手：按时间检索周总结新稿，不要求预选写入模式', run: () => fixture(async ({ app, runtime, space, policy, submit, respond }) => {
     const repo = app.modules.knowledge.repositories.noteRepository;
     const first = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '学习甲', rawMarkdown: '合成学习记录甲' });
