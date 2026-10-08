@@ -1,4 +1,4 @@
-import { beijingDay, budgetStatus, reserveBudget, settleBudget } from './budget-ledger.js';
+import { beijingDay, budgetStatus, reserveBudget, settleBudget, usageSummary } from './budget-ledger.js';
 
 const retryable = error => ['P2034', '23505', '40001'].includes(error?.code) || ['23505', '40001'].includes(error?.meta?.code);
 const read = (db, sql, ...values) => db.$queryRawUnsafe(sql, ...values);
@@ -6,7 +6,8 @@ const write = (db, sql, ...values) => db.$executeRawUnsafe(sql, ...values);
 const convert = row => ({ reservationId: row.reservation_id, accountRef: row.account_ref, day: row.beijing_day,
   jobId: row.job_id, attemptId: row.attempt_id, priceVersion: row.price_version,
   reservedMicrounits: Number(row.reserved_microunits), actualMicrounits: row.actual_microunits === null ? null : Number(row.actual_microunits),
-  status: row.status, createdAt: row.created_at, settledAt: row.settled_at });
+  status: row.status, createdAt: row.created_at, settledAt: row.settled_at,
+  ...(row.usage_detail ? { usage: JSON.parse(row.usage_detail) } : {}) });
 
 /** 计费账户全局串行化；同一账户跨 owner、资料集及设备共用日额度。 */
 export function createPostgresBudgetAuthority(client) {
@@ -38,8 +39,9 @@ export function createPostgresBudgetAuthority(client) {
             else {
               const previous = reservations.find(item => item.reservation_id === row.reservationId);
               if (previous.status !== row.status) await write(db, `UPDATE ai_budget_reservations
-                SET status = $1, actual_microunits = $2, settled_at = $3 WHERE reservation_id = $4`,
-              row.status, row.actualMicrounits === null ? null : BigInt(row.actualMicrounits), row.settledAt, row.reservationId);
+                SET status = $1, actual_microunits = $2, settled_at = $3, usage_detail = $4 WHERE reservation_id = $5`,
+              row.status, row.actualMicrounits === null ? null : BigInt(row.actualMicrounits), row.settledAt,
+              row.usage ? JSON.stringify(row.usage) : null, row.reservationId);
             }
           }
           return result;
@@ -51,6 +53,11 @@ export function createPostgresBudgetAuthority(client) {
     async status(accountRef, day = beijingDay()) {
       const [row] = await read(client, 'SELECT spent_microunits, held_microunits FROM ai_budget_days WHERE account_ref = $1 AND beijing_day = $2', accountRef, day);
       return budgetStatus({ budgetDays: row ? [{ accountRef, day, spentMicrounits: Number(row.spent_microunits), heldMicrounits: Number(row.held_microunits) }] : [] }, accountRef, day);
+    },
+    async usage(accountRef, day = beijingDay()) {
+      const reservations = await read(client, `SELECT * FROM ai_budget_reservations WHERE account_ref = $1
+        AND status IN ('settled','unknown') ORDER BY created_at DESC`, accountRef);
+      return usageSummary({ budgetReservations: reservations.map(convert) }, accountRef, day);
     },
     reserve: input => transact(input.accountRef, state => reserveBudget(state, { ...input, day: beijingDay() })),
     settle: input => transact(input.accountRef, state => settleBudget(state, input))

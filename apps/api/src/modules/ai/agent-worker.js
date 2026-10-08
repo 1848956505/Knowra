@@ -144,10 +144,15 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     return turn;
   }
 
-  async function settleOnFailure(attemptId, reserved, sent, error) {
+  // 用量明细只含模型名、token 数和对话 ID；结果未知时 token 为空，仍记录这次请求发生过。
+  const usageDetail = (turn, request, usage) => ({ modelId: request.modelId, conversationId: turn.conversationId,
+    ...(usage?.unknown === false ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens,
+      cacheHitTokens: usage.cacheHitTokens ?? null } : {}) });
+
+  async function settleOnFailure(attemptId, reserved, sent, error, detail) {
     if (!reserved) return;
     const disposition = sent ? 'unknown' : 'released';
-    try { await budget.settle({ accountRef, attemptId, disposition }); }
+    try { await budget.settle({ accountRef, attemptId, disposition, ...(sent ? { usage: detail } : {}) }); }
     catch (fault) { logger.warn?.('Agent budget settlement deferred', { code: safeCode(fault?.code) }); return; }
     try { await store.advanceModelAttempt(attemptId, disposition, { errorCode: safeCode(error?.code) }); }
     catch (fault) { logger.warn?.('Agent attempt settlement deferred', { code: safeCode(fault?.code) }); }
@@ -197,7 +202,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > 100_000
         || usage.outputTokens > 20_000)) fail('AI_USAGE_LIMIT', '模型用量超过预留或单次上限。');
       const disposition = actual === null ? 'unknown' : 'settled';
-      await budget.settle({ accountRef, attemptId, disposition, actualMicrounits: actual });
+      await budget.settle({ accountRef, attemptId, disposition, actualMicrounits: actual, usage: usageDetail(turn, request, usage) });
       settled = true;
       try { await currentTurn(turn.turnId, generation, signal); }
       catch (error) {
@@ -207,7 +212,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       await store.advanceModelAttempt(attemptId, disposition, { generation, actualMicrounits: actual, modelResult: result });
       return { result, attemptOrdinal: attempt.ordinal };
     } catch (error) {
-      if (!settled) await settleOnFailure(attemptId, reserved, sent, error);
+      if (!settled) await settleOnFailure(attemptId, reserved, sent, error, usageDetail(turn, request, null));
       throw error;
     } finally { revokeAttempt(attemptId); }
   }

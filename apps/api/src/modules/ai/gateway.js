@@ -127,7 +127,10 @@ function normalize(raw, request, provider) {
   }
   const usage = raw.usage && Number.isSafeInteger(raw.usage.prompt_tokens) && raw.usage.prompt_tokens >= 0
     && Number.isSafeInteger(raw.usage.completion_tokens) && raw.usage.completion_tokens >= 0
-    ? { inputTokens: raw.usage.prompt_tokens, outputTokens: raw.usage.completion_tokens, unknown: false }
+    ? { inputTokens: raw.usage.prompt_tokens, outputTokens: raw.usage.completion_tokens, unknown: false,
+      // DeepSeek 额外返回的缓存命中数，仅用于用量展示；缺失或越界时记为未知，不影响计费口径。
+      cacheHitTokens: Number.isSafeInteger(raw.usage.prompt_cache_hit_tokens) && raw.usage.prompt_cache_hit_tokens >= 0
+        && raw.usage.prompt_cache_hit_tokens <= raw.usage.prompt_tokens ? raw.usage.prompt_cache_hit_tokens : null }
     : { inputTokens: null, outputTokens: null, unknown: true };
   return {
     provider, modelId: raw.model ?? null, requestId: raw.id ?? null,

@@ -15,6 +15,22 @@ export interface AssistantStatus {
     providerVerified: boolean };
 }
 
+export interface UsageTotals {
+  requests: number; spentMicrounits: number; unknownRequests: number; unknownMicrounits: number;
+  inputTokens: number; outputTokens: number; cacheHitTokens: number;
+}
+
+export interface UsageRecord {
+  attemptId: string; day: string; at: string; status: 'settled' | 'unknown';
+  costMicrounits: number; modelId: string | null; inputTokens: number | null; outputTokens: number | null;
+  cacheHitTokens: number | null; conversationId: string | null; priceVersion: string;
+}
+
+export interface AssistantUsage {
+  currency: 'CNY'; day: string; location: 'local' | 'server';
+  today: UsageTotals; month: UsageTotals; total: UsageTotals; recent: UsageRecord[];
+}
+
 export interface AssistantSource {
   sourceId: string;
   noteId: string;
@@ -58,6 +74,7 @@ const data = async <T>(url: string, options?: Parameters<typeof apiClient.reques
   await apiClient.requestJson<{ data: T }>(url, options)).data;
 
 export const assistantApi = {
+  usage: () => data<AssistantUsage>('/api/ai/assistant/usage'),
   status: () => data<AssistantStatus>(`${root}/status`),
   list: (spaceId: string) => data<AssistantJob[]>(`${root}/jobs?spaceId=${encodeURIComponent(spaceId)}`),
   get: (jobId: string) => data<AssistantJob>(`${root}/jobs/${encodeURIComponent(jobId)}`),

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { budgetStatus, reserveBudget, settleBudget, validateBudgetState } from '../../api/src/modules/ai/budget-ledger.js';
+import { budgetStatus, reserveBudget, settleBudget, usageSummary, validateBudgetState } from '../../api/src/modules/ai/budget-ledger.js';
 
 const unavailable = (message, cause) => Object.assign(new Error(message), { code: 'AI_BUDGET_UNAVAILABLE', ...(cause ? { cause } : {}) });
 
@@ -63,6 +63,11 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
       await queue; load();
       if (failure) throw failure;
       return budgetStatus(state, accountRef, date);
+    },
+    async usage(accountRef, date) {
+      await queue; load();
+      if (failure) throw failure;
+      return usageSummary(state, accountRef, date);
     },
     reserve: input => transact(draft => reserveBudget(draft, input)),
     settle: input => transact(draft => settleBudget(draft, input))

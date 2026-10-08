@@ -201,7 +201,9 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       if (usage?.unknown === false && actual === null) fail('AI_USAGE_LIMIT', '供应商用量无效。');
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > MAX_INPUT_TOKENS
         || usage.outputTokens > MAX_OUTPUT_TOKENS)) fail('AI_USAGE_LIMIT', '供应商用量超过预留或任务边界。');
-      await budget.settle({ accountRef, attemptId: attempt.attemptId, disposition: actual === null ? 'unknown' : 'settled', actualMicrounits: actual });
+      await budget.settle({ accountRef, attemptId: attempt.attemptId, disposition: actual === null ? 'unknown' : 'settled', actualMicrounits: actual,
+        usage: { modelId: request.modelId, ...(usage?.unknown === false ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens,
+          cacheHitTokens: usage.cacheHitTokens ?? null } : {}) } });
       budgetDisposition = actual === null ? 'unknown' : 'settled';
       await recordEvent(jobId, 'budgetSettled', { attemptId: attempt.attemptId,
         budgetDisposition,
@@ -224,7 +226,7 @@ export function createAiWorker({ repository, budget, gateway, priceProfile, acco
       return result;
     } catch (error) {
       if (reserved && budgetDisposition === 'unconfirmed') await Promise.resolve().then(() => budget.settle({ accountRef, attemptId: attempt.attemptId,
-        disposition: sent ? 'unknown' : 'released' })).then(() => {
+        disposition: sent ? 'unknown' : 'released', ...(sent ? { usage: { modelId: request.modelId } } : {}) })).then(() => {
         budgetDisposition = sent ? 'unknown' : 'released';
       }).catch(() => undefined);
       await recordEvent(jobId, 'attemptFailed', { attemptId: attempt.attemptId,

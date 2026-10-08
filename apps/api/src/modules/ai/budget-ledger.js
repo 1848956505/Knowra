@@ -6,9 +6,30 @@ export const JOB_LIMIT_MICROUNITS = 2_000_000;
 function fail(code, message) { const error = new Error(message); error.code = code; throw error; }
 function amount(value) { return Number.isSafeInteger(value) && value >= 0; }
 function day(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
+const tokenCount = value => value === null || amount(value);
+const ID_PATTERN = /^[a-zA-Z0-9_.:-]{1,128}$/;
+
+/** 用量明细只含模型名、token 数和所属对话 ID，不含任何对话内容；旧账本没有该字段，视为未记录。 */
+export function normalizeUsage(usage) {
+  if (usage === undefined || usage === null) return null;
+  const { modelId = null, inputTokens = null, outputTokens = null, cacheHitTokens = null, conversationId = null } = usage;
+  if (typeof usage !== 'object' || Array.isArray(usage)
+    || Object.keys(usage).some(key => !['modelId', 'inputTokens', 'outputTokens', 'cacheHitTokens', 'conversationId'].includes(key))
+    || modelId !== null && !(typeof modelId === 'string' && ID_PATTERN.test(modelId))
+    || conversationId !== null && !(typeof conversationId === 'string' && ID_PATTERN.test(conversationId))
+    || ![inputTokens, outputTokens, cacheHitTokens].every(tokenCount)
+    || cacheHitTokens !== null && inputTokens !== null && cacheHitTokens > inputTokens) {
+    fail('AI_BUDGET_SETTLEMENT_INVALID', '用量明细无效。');
+  }
+  return { modelId, inputTokens, outputTokens, cacheHitTokens, conversationId };
+}
 
 export function beijingDay(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
+function validUsage(usage) {
+  try { normalizeUsage(usage); return true; } catch { return false; }
 }
 
 export function validateBudgetState(state) {
@@ -28,6 +49,7 @@ export function validateBudgetState(state) {
       || !amount(row.reservedMicrounits) || !['held', 'settled', 'unknown', 'released'].includes(row.status)
       || row.status === 'settled' && (!amount(row.actualMicrounits) || row.actualMicrounits > row.reservedMicrounits)
       || row.status !== 'settled' && row.actualMicrounits !== null
+      || row.usage !== undefined && row.usage !== null && !validUsage(row.usage)
       || !keys.has(`${row.accountRef}:${row.day}`)
       || attempts.has(`${row.accountRef}:${row.attemptId}`) || reservationIds.has(row.reservationId)) {
       fail('AI_BUDGET_INVALID', '预算预留记录无效。');
@@ -82,7 +104,8 @@ export function reserveBudget(state, input) {
   return structuredClone(record);
 }
 
-export function settleBudget(state, { accountRef, attemptId, actualMicrounits = null, disposition = 'unknown' } = {}) {
+export function settleBudget(state, { accountRef, attemptId, actualMicrounits = null, disposition = 'unknown', usage } = {}) {
+  const detail = normalizeUsage(usage);
   const row = state.budgetReservations.find(item => item.accountRef === accountRef && item.attemptId === attemptId);
   if (!row) fail('AI_BUDGET_NOT_FOUND', '预算预留不存在。');
   if (row.status !== 'held' && !(row.status === 'unknown' && ['settled', 'released'].includes(disposition))) {
@@ -100,13 +123,50 @@ export function settleBudget(state, { accountRef, attemptId, actualMicrounits = 
   if (disposition === 'settled') daily.spentMicrounits += actualMicrounits;
   row.status = disposition;
   row.actualMicrounits = actualMicrounits;
+  if (detail) row.usage = detail;
   row.settledAt = new Date().toISOString();
   return structuredClone(row);
+}
+
+const RECENT_LIMIT = 50;
+const emptyTotals = () => ({ requests: 0, spentMicrounits: 0, unknownRequests: 0, unknownMicrounits: 0,
+  inputTokens: 0, outputTokens: 0, cacheHitTokens: 0 });
+
+/**
+ * 用量汇总：只读，不拦截任何请求。今日/本月按北京时间自然日归属，累计覆盖账本内全部记录。
+ * 已结算的请求按实际费用计入；结果未知的请求单独计数，其预留额仍占用额度，不计入“已花费”。
+ */
+export function usageSummary(state, accountRef, date = beijingDay(), limit = RECENT_LIMIT) {
+  const month = date.slice(0, 7);
+  const periods = { today: emptyTotals(), month: emptyTotals(), total: emptyTotals() };
+  const rows = state.budgetReservations.filter(row => row.accountRef === accountRef && row.status !== 'held' && row.status !== 'released');
+  for (const row of rows) {
+    const targets = [periods.total];
+    if (row.day === date) targets.push(periods.today);
+    if (row.day.startsWith(month)) targets.push(periods.month);
+    for (const totals of targets) {
+      totals.requests += 1;
+      if (row.status === 'settled') totals.spentMicrounits += row.actualMicrounits;
+      else { totals.unknownRequests += 1; totals.unknownMicrounits += row.reservedMicrounits; }
+      totals.inputTokens += row.usage?.inputTokens ?? 0;
+      totals.outputTokens += row.usage?.outputTokens ?? 0;
+      totals.cacheHitTokens += row.usage?.cacheHitTokens ?? 0;
+    }
+  }
+  // 先倒序再稳定排序：同一毫秒内结算的请求，后写入的排前面。
+  const recent = rows.toReversed().toSorted((a, b) => (b.settledAt ?? b.createdAt).localeCompare(a.settledAt ?? a.createdAt)).slice(0, limit)
+    .map(row => ({ attemptId: row.attemptId, day: row.day, at: row.settledAt ?? row.createdAt, status: row.status,
+      costMicrounits: row.status === 'settled' ? row.actualMicrounits : row.reservedMicrounits,
+      modelId: row.usage?.modelId ?? null, inputTokens: row.usage?.inputTokens ?? null,
+      outputTokens: row.usage?.outputTokens ?? null, cacheHitTokens: row.usage?.cacheHitTokens ?? null,
+      conversationId: row.usage?.conversationId ?? null, priceVersion: row.priceVersion }));
+  return { accountRef, currency: 'CNY', day: date, ...periods, recent };
 }
 
 export function createJsonBudgetAuthority({ getState, runTransaction, onChange }) {
   return {
     status: (accountRef, date) => budgetStatus(getState(), accountRef, date),
+    usage: (accountRef, date) => usageSummary(getState(), accountRef, date),
     reserve: input => runTransaction(() => { const result = reserveBudget(getState(), input); onChange(); return result; }),
     settle: input => runTransaction(() => { const result = settleBudget(getState(), input); onChange(); return result; })
   };

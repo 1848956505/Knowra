@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createFileDataStore } from '../src/infrastructure/file-data-store.js';
-import { beijingDay } from '../src/modules/ai/budget-ledger.js';
+import { beijingDay, reserveBudget, settleBudget, usageSummary, validateBudgetState } from '../src/modules/ai/budget-ledger.js';
 import { createAiWorker, quoteWorstCase } from '../src/modules/ai/worker.js';
 import { createServer } from '../src/server.js';
 import { createRemoteBudgetAuthority } from '../src/modules/ai/remote-budget-authority.js';
@@ -29,6 +29,32 @@ const request = { credentialRef: 'credential-reference', modelId: 'deepseek-flas
 
 export const aiBudgetWorkerTests = [
   ...reviewedPriceProfileTests,
+  { name: '用量汇总：今日/本月/累计分开统计，未知请求单独计数，明细只含数字与 ID，旧账本无明细仍可读', async run() {
+    const state = { budgetDays: [], budgetReservations: [] };
+    const account = 'deepseek-primary';
+    const call = (n, day, disposition, actual, usage) => {
+      reserveBudget(state, { accountRef: account, jobId: `job-${n}`, attemptId: `a-${n}`, priceVersion: 'p1', reservedMicrounits: 1_000_000, day });
+      return settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition, actualMicrounits: actual, usage });
+    };
+    call(1, '2026-09-30', 'settled', 400_000, { modelId: 'deepseek-flash', inputTokens: 1000, outputTokens: 50, cacheHitTokens: 600, conversationId: 'c-1' });
+    call(2, '2026-10-02', 'settled', 100_000);
+    call(3, '2026-10-08', 'settled', 300_000, { modelId: 'deepseek-flash', inputTokens: 200, outputTokens: 20, cacheHitTokens: null, conversationId: 'c-2' });
+    call(4, '2026-10-08', 'unknown', null, { modelId: 'deepseek-flash' });
+    reserveBudget(state, { accountRef: account, jobId: 'job-5', attemptId: 'a-5', priceVersion: 'p1', reservedMicrounits: 1_000_000, day: '2026-10-08' });
+    validateBudgetState(state);
+    const summary = usageSummary(state, account, '2026-10-08');
+    assert.deepEqual([summary.today.requests, summary.today.spentMicrounits, summary.today.unknownRequests, summary.today.unknownMicrounits], [2, 300_000, 1, 1_000_000]);
+    assert.deepEqual([summary.month.requests, summary.month.spentMicrounits], [3, 400_000]);
+    assert.deepEqual([summary.total.requests, summary.total.spentMicrounits, summary.total.inputTokens, summary.total.cacheHitTokens], [4, 800_000, 1200, 600]);
+    assert.equal(summary.recent.length, 4, '进行中的预留不算作已发生的用量');
+    assert.equal(summary.recent[0].attemptId, 'a-4');
+    assert.deepEqual(Object.keys(summary.recent[2]).sort(), ['at', 'attemptId', 'cacheHitTokens', 'conversationId', 'costMicrounits', 'day',
+      'inputTokens', 'modelId', 'outputTokens', 'priceVersion', 'status']);
+    assert.equal(summary.recent.find(row => row.attemptId === 'a-2').modelId, null, '未带明细的结算仍计入汇总');
+    assert.throws(() => settleBudget(state, { accountRef: account, attemptId: 'a-5', disposition: 'released', usage: { inputTokens: -1 } }), { code: 'AI_BUDGET_SETTLEMENT_INVALID' });
+    assert.throws(() => settleBudget(state, { accountRef: account, attemptId: 'a-5', disposition: 'released', usage: { content: '对话内容' } }), { code: 'AI_BUDGET_SETTLEMENT_INVALID' });
+    assert.throws(() => validateBudgetState({ ...structuredClone(state), budgetReservations: state.budgetReservations.map(row => ({ ...row, usage: { inputTokens: 'x' } })) }), { code: 'AI_BUDGET_INVALID' });
+  } },
   { name: '预算预留覆盖完整外发体，工具定义过大与已确认 payload 变化均拒绝', async run() {
     const plain = quoteWorstCase({ request, priceProfile: profile, now: at() });
     const withTool = quoteWorstCase({ request: { ...request, tools: [{ name: 'notes_read',

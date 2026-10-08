@@ -21,6 +21,17 @@
 .modelNotice { color: var(--ink); }
 .modelError { color: #a32929; }
 .modelHint { color: var(--ink-secondary); }
+.usageSummary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.usageCell { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--ink-panel); }
+.usageCell span { color: var(--ink-secondary); font-size: 12px; }
+.usageCell strong { color: var(--ink); font: 750 18px/1.4 var(--font-mono); }
+.usageCell small { color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
+.usageTableWrap { margin-top: 16px; overflow-x: auto; }
+.usageTable { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.6; }
+.usageTable caption { padding-bottom: 8px; color: var(--ink); font-weight: 650; text-align: left; }
+.usageTable th, .usageTable td { padding: 6px 10px; border-top: 1px solid var(--ink-panel); text-align: left; white-space: nowrap; }
+.usageTable th { color: var(--ink-secondary); font-weight: 500; }
+.usageTable td { color: var(--ink); font-variant-numeric: tabular-nums; }
 .buildInformation { margin: 0; padding: 20px; border: 1px solid var(--ink-shell); background: var(--ink-surface); box-shadow: var(--shadow-1); }
 .buildInformation > div { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: 12px; padding: 8px 0; font-size: 12px; line-height: 1.6; }
 .buildInformation dt { color: var(--ink-secondary); }
@@ -35,6 +46,7 @@
   .settingControl { width: 100%; justify-content: space-between; }
   .modelContent { padding: 16px; }
   .modelFields { grid-template-columns: minmax(0, 1fr); }
+  .usageSummary { grid-template-columns: minmax(0, 1fr); }
 }
 
 .clientList { list-style: none; margin: 0; padding: 0; }

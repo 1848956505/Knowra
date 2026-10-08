@@ -12,6 +12,9 @@ export async function handleAssistantRoute({ request, response, url, assistant }
     if (request.method === 'GET' && url.pathname === `${root}/status`) {
       sendJson(response, 200, { data: await assistant.status() }); return true;
     }
+    if (request.method === 'GET' && url.pathname === `${root}/usage`) {
+      sendJson(response, 200, { data: await assistant.usage() }); return true;
+    }
     if (request.method === 'GET' && url.pathname === `${root}/jobs`) {
       sendJson(response, 200, { data: await assistant.list(url.searchParams.get('spaceId')) }); return true;
     }
@@ -38,7 +41,7 @@ export async function handleAssistantRoute({ request, response, url, assistant }
       const status = ['AI_JOB_NOT_FOUND'].includes(error.code) ? 404
         : error.code === 'AI_PRIVATE_STORAGE_UNAVAILABLE' ? 503
         : ['AI_GENERATION_UNAVAILABLE', 'AI_PREVIEW_EXPIRED', 'AI_APPROVAL_STALE', 'AI_CREDENTIAL_STALE',
-          'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED'].includes(error.code) ? 409 : 422;
+          'AI_SOURCE_STALE', 'AI_NOT_CONFIGURED'].includes(error.code) ? 409 : error.code === 'AI_BUDGET_UNAVAILABLE' ? 503 : 422;
       throw createAppError(error.code, error.message, status);
     }
     throw error;
