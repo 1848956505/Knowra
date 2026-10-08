@@ -355,7 +355,7 @@ it('每日预算拦截本轮时给出“提高上限 / 今日放行”出口，�
     capabilities: { readScopes: ['note' as const, 'folder' as const], actions: ['answer' as const, 'cancel' as const], responseMode: 'polling' as const,
       writeTools: false as const, providerAdvertised: null, providerVerified: false } };
   vi.mocked(assistantApi.status).mockResolvedValue(status);
-  vi.mocked(assistantApi.allowRule).mockResolvedValue({ day: '2026-10-08', location: 'server', alerts: [], overrides: [{ rule: 'daily', period: '2026-10-08' }], pauses: [] });
+  vi.mocked(assistantApi.allowRule).mockResolvedValue({ day: '2026-10-08', location: 'server', alerts: [], rules: [], overrides: [{ rule: 'daily', period: '2026-10-08' }], pauses: [] });
   render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
   expect(await screen.findByText('费用上限已拦截本轮，可调整后继续：')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '提高上限' }));

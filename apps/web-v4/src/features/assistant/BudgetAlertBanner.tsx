@@ -7,33 +7,37 @@ import styles from './BudgetAlertBanner.module.css';
 
 const POLL_MS = 60_000;
 const RULE_LABEL = { daily: '今日', monthly: '本月' } as const;
+type Rule = keyof typeof RULE_LABEL;
 const yuan = (microunits: number) => `¥${(microunits / 1_000_000).toFixed(2)}`;
 
 /** 每条规则只展示已越过的最高阈值；同规则更低的阈值一并视为已看过。 */
-function visible(data: BudgetAlerts): Array<{ top: BudgetAlert; ids: string[]; allowed: boolean }> {
-  const result: Array<{ top: BudgetAlert; ids: string[]; allowed: boolean }> = [];
-  for (const rule of ['daily', 'monthly'] as const) {
-    const list = data.alerts.filter(item => item.rule === rule).sort((a, b) => a.threshold - b.threshold);
-    const top = list.at(-1);
-    if (top && !top.dismissed) result.push({ top, ids: list.map(item => item.id), allowed: data.overrides.some(item => item.rule === rule) });
-  }
-  return result;
+function crossed(data: BudgetAlerts, rule: Rule): { top: BudgetAlert; ids: string[] } | null {
+  const list = data.alerts.filter(item => item.rule === rule).sort((a, b) => a.threshold - b.threshold);
+  const top = list.at(-1);
+  return top ? { top, ids: list.map(item => item.id) } : null;
 }
 
-function systemNotify(alert: BudgetAlert) {
+/** 由 Mac 主进程发系统通知（窗口会话不授予渲染进程通知权限）；只有确实交给系统时才返回 true。 */
+async function systemNotify(alert: BudgetAlert, blocked: boolean): Promise<boolean> {
   try {
-    if (!window.knowraDesktop || typeof Notification === 'undefined' || Notification.permission === 'denied') return;
-    const blocked = alert.threshold >= 100 && alert.mode === 'stop';
-    new Notification(blocked ? `知境 AI 已达${RULE_LABEL[alert.rule]}上限` : `知境 AI 用量已达${RULE_LABEL[alert.rule]}上限的 ${alert.threshold}%`, {
-      body: `${RULE_LABEL[alert.rule]}已用 ${yuan(alert.usedMicrounits)} / ${yuan(alert.limitMicrounits)}。` });
-  } catch { /* 系统通知不可用时仍有界面横幅。 */ }
+    if (typeof window.knowraDesktop?.notify !== 'function') return false;
+    return (await window.knowraDesktop.notify({
+      title: blocked ? `知境 AI 已达${RULE_LABEL[alert.rule]}上限` : `知境 AI 用量已达${RULE_LABEL[alert.rule]}上限的 ${alert.threshold}%`,
+      body: `${RULE_LABEL[alert.rule]}已用 ${yuan(alert.usedMicrounits)} / ${yuan(alert.limitMicrounits)}。` })) === true;
+  } catch { return false; }
 }
+
+type Card =
+  | { kind: 'blocked'; rule: Rule; key: string; used: number; limit: number }
+  | { kind: 'warning'; rule: Rule; key: string; top: BudgetAlert; ids: string[]; allowed: boolean };
 
 export function BudgetAlertBanner() {
   const navigate = useNavigate();
   const [data, setData] = useState<BudgetAlerts | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // 已被用户在本次会话中关闭的“已拦截”提示（刷新页面后会再次出现，因为拦截是持续的状态）。
+  const [hiddenBlocked, setHiddenBlocked] = useState<string[]>([]);
   const notifying = useRef(new Set<string>());
 
   const refresh = useCallback(async () => {
@@ -49,18 +53,20 @@ export function BudgetAlertBanner() {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus); };
   }, [refresh]);
 
-  // Mac 版：每个新越过的阈值发一次系统通知，然后记为已通知，不会重复。
+  // Mac 版：每条规则对新越过的最高阈值发一次系统通知。只有主进程确认已交给系统，才记为已通知；
+  // 被系统拒绝或不可用时不记，之后（下次打开应用）还有机会补发；同一次会话内不重复尝试。
   useEffect(() => {
-    if (!data || !window.knowraDesktop) return;
-    const fresh = data.alerts.filter(item => !item.notified && !notifying.current.has(item.id));
-    if (!fresh.length) return;
-    fresh.forEach(item => notifying.current.add(item.id));
-    // 同一规则一次只通知最高的阈值，较低的直接记为已通知。
+    if (!data || typeof window.knowraDesktop?.notify !== 'function') return;
     for (const rule of ['daily', 'monthly'] as const) {
-      const top = fresh.filter(item => item.rule === rule).sort((a, b) => b.threshold - a.threshold)[0];
-      if (top) systemNotify(top);
+      const fresh = data.alerts.filter(item => item.rule === rule && !item.notified && !notifying.current.has(item.id));
+      if (!fresh.length) continue;
+      fresh.forEach(item => notifying.current.add(item.id));
+      const top = [...fresh].sort((a, b) => b.threshold - a.threshold)[0];
+      const blocked = data.rules.some(item => item.rule === rule && item.blocked);
+      void systemNotify(top, blocked).then(shown => {
+        if (shown) return assistantApi.markAlerts(fresh.map(item => item.id), 'notified').then(setData);
+      }).catch(() => undefined);
     }
-    void assistantApi.markAlerts(fresh.map(item => item.id), 'notified').then(setData).catch(() => undefined);
   }, [data]);
 
   /** statusChanged：该操作改变了助手能否发起调用（暂停/恢复/放行/重置），需要通知助手视图重新读取状态。 */
@@ -81,9 +87,23 @@ export function BudgetAlertBanner() {
     return assistantApi.markAlerts(ids, 'dismissed');
   }, true);
 
-  const items = data ? visible(data).filter(({ top }) => !data.pauses.some(item => item.rule === top.rule)) : [];
+  const pausedRules = data?.pauses.map(item => item.rule) ?? [];
+  const cards: Card[] = !data ? [] : (['daily', 'monthly'] as const).filter(rule => !pausedRules.includes(rule)).flatMap((rule): Card[] => {
+    const state = data.rules.find(item => item.rule === rule);
+    const found = crossed(data, rule);
+    // 已拦截由实际用量与上限决定，独立于提醒阈值；阈值只决定“接近上限”的提醒。
+    if (state?.blocked) {
+      const key = `${rule}:${state.period}`;
+      return hiddenBlocked.includes(key) ? [] : [{ kind: 'blocked', rule, key, used: state.usedMicrounits, limit: state.limitMicrounits }];
+    }
+    if (found && !found.top.dismissed) {
+      return [{ kind: 'warning', rule, key: found.top.id, top: found.top, ids: found.ids,
+        allowed: data.overrides.some(item => item.rule === rule) }];
+    }
+    return [];
+  });
   const pauses = data?.pauses ?? [];
-  if (!items.length && !pauses.length && !data?.stateInvalid) return null;
+  if (!cards.length && !pauses.length && !data?.stateInvalid) return null;
   return <div className={styles.stack} role="region" aria-label="AI 费用提醒">
     {data?.stateInvalid ? <div className={`${styles.banner} ${styles.blocked}`} role="alert">
       <p>暂停/提醒状态文件已损坏，AI 已被阻止<span>（为避免误放行，不会自动忽略；重置后恢复正常）</span></p>
@@ -99,19 +119,26 @@ export function BudgetAlertBanner() {
       </div>
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     </div>)}
-    {items.map(({ top, ids, allowed }) => {
-      const blocked = top.threshold >= 100 && top.mode === 'stop' && !allowed;
-      const name = RULE_LABEL[top.rule];
-      return <div key={top.id} className={`${styles.banner} ${blocked ? styles.blocked : ''}`} role={blocked ? 'alert' : 'status'}>
-        <p>{blocked ? `${name}费用已达上限，AI 已暂停` : `${name} AI 费用已达上限的 ${top.threshold}%`}
-          <span>（已用 {yuan(top.usedMicrounits)} / {yuan(top.limitMicrounits)}{allowed ? `，${name}已放行` : ''}）</span></p>
+    {cards.map(card => {
+      const name = RULE_LABEL[card.rule];
+      if (card.kind === 'blocked') {
+        return <div key={card.key} className={`${styles.banner} ${styles.blocked}`} role="alert">
+          <p>{name}费用已达上限，AI 已暂停<span>（已用 {yuan(card.used)} / {yuan(card.limit)}）</span></p>
+          <div className={styles.actions}>
+            <Button size="compact" variant="primary" isDisabled={busy} onPress={() => void run(() => assistantApi.allowRule(card.rule), true)}>{name}放行</Button>
+            <Button size="compact" isDisabled={busy} onPress={() => navigate('/settings')}>提高上限</Button>
+            <Button size="compact" variant="ghost" isDisabled={busy} onPress={() => setHiddenBlocked([...hiddenBlocked, card.key])}>关闭提示</Button>
+          </div>
+          {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+        </div>;
+      }
+      return <div key={card.key} className={styles.banner} role="status">
+        <p>{name} AI 费用已达上限的 {card.top.threshold}%
+          <span>（已用 {yuan(card.top.usedMicrounits)} / {yuan(card.top.limitMicrounits)}{card.allowed ? `，${name}已放行` : ''}）</span></p>
         <div className={styles.actions}>
-          {blocked ? <Button size="compact" variant="primary" isDisabled={busy}
-            onPress={() => void run(() => assistantApi.allowRule(top.rule), true)}>{name}放行</Button> : null}
           <Button size="compact" isDisabled={busy} onPress={() => navigate('/settings')}>提高上限</Button>
-          {!blocked && !allowed
-            ? <Button size="compact" isDisabled={busy} onPress={() => void pause(top, ids)}>暂停 AI 至{top.rule === 'daily' ? '明天' : '下月'}</Button> : null}
-          <Button size="compact" variant="ghost" isDisabled={busy} onPress={() => void dismiss(ids)}>{blocked ? '关闭提示' : '继续'}</Button>
+          {!card.allowed ? <Button size="compact" isDisabled={busy} onPress={() => void pause(card.top, card.ids)}>暂停 AI 至{card.rule === 'daily' ? '明天' : '下月'}</Button> : null}
+          <Button size="compact" variant="ghost" isDisabled={busy} onPress={() => void dismiss(card.ids)}>继续</Button>
         </div>
         {error ? <p role="alert" className={styles.error}>{error}</p> : null}
       </div>;

@@ -1,10 +1,11 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell, utilityProcess, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell, utilityProcess, safeStorage, Notification } = require('electron');
 const path = require('node:path');
 const { createAttachmentDownloads } = require('./attachment-downloads.cjs');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
 const { createDraftStore } = require('./draft-store.cjs');
 const { createModelSettings } = require('./model-settings.cjs');
+const { createSystemNotifications } = require('./system-notifications.cjs');
 const { handleAiCredentialRequest } = require('./ai-credential-handler.cjs');
 const { createBackupRpc, createBackupTransfers } = require('./backup-transfers.cjs');
 
@@ -84,6 +85,11 @@ else {
   ipcMain.handle('write-recovery-draft', (event, key, draft) => {
     if (!trusted(event)) throw new Error('无效的草稿请求');
     drafts.write(key, draft);
+  });
+  const systemNotifications = createSystemNotifications({ Notification });
+  ipcMain.handle('system-notify', (event, input) => {
+    if (!trusted(event)) throw new Error('无效的通知请求。');
+    return systemNotifications.notify(input);
   });
   ipcMain.handle('model-settings', async (event, action, value) => {
     if (!trusted(event)) throw new Error('无效的模型设置请求。');

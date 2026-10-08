@@ -141,7 +141,7 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     const status = await ai.budgetAuthority.status('deepseek-primary', day, limits);
     const { marks, overrides, pauses, invalid } = await ai.budgetAlerts.get();
     // 状态文件损坏时如实告知（AI 已被阻止），由用户在界面重置，而不是当作“没有暂停”。
-    if (invalid) return { day, alerts: [], overrides: [], pauses: [], stateInvalid: true, location };
+    if (invalid) return { day, alerts: [], rules: [], overrides: [], pauses: [], stateInvalid: true, location };
     return { ...evaluateAlerts({ settings, status, marks, overrides, pauses, day }), stateInvalid: false, location };
   }
   async function markAlerts({ ids, kind } = {}) {
