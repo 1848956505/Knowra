@@ -173,6 +173,22 @@ export const aiAssistantAutonomyTests = [
     const bad = await submit('根据我的笔记再解释一次光合作用', 'citation-repair-fail', p.policyId);
     await assert.rejects(runtime.agent.run(bad.turnId), { code: 'AI_CITATION_INVALID' });
   }) },
+  { name: '自主助手：目录有 20 篇长标题笔记时预取按预算缩小分页并提示还有更多，不因 AI_CONTEXT_BUDGET 失败', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    for (let index = 0; index < 20; index++) noteService.createNote({ spaceId: space.id, folderId: dl.id,
+      title: `${String(index).padStart(2, '0')}${'标'.repeat(78)}`, rawMarkdown: `正文${index}` });
+    const p = await policy();
+    respond(request => {
+      const [entry] = JSON.parse(request.messages.at(-1).content).catalog;
+      assert(entry.notes.length >= 5 && entry.notes.length < 20, `缩小后的条数 ${entry.notes.length}`);
+      assert.equal(entry.hasMore, true); assert.equal(entry.total, 20);
+      return answer('列出了一部分，还有更多。', []);
+    });
+    const turn = await submit('深度学习文件夹里有哪些笔记', 'catalog-budget', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal((await runtime.conversationStore.getTurn(turn.turnId)).status, 'succeeded');
+    assert(Buffer.byteLength(JSON.stringify(requests[0].messages), 'utf8') < 12_000);
+  }) },
   { name: '自主助手：按时间检索周总结新稿，不要求预选写入模式', run: () => fixture(async ({ app, runtime, space, policy, submit, respond }) => {
     const repo = app.modules.knowledge.repositories.noteRepository;
     const first = app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '学习甲', rawMarkdown: '合成学习记录甲' });

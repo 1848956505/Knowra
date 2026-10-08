@@ -355,6 +355,46 @@ export const aiAccessV2Tests = [
     await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
       catalog: Array.from({ length: 4 }, () => ({ kind: 'notes', folderId: null, titleQuery: null, recursive: false, offset: 0, limit: 20 })) }), { code: 'AI_CONTEXT_INVALID' });
   }) },
+  { name: 'AI v2 目录工具：只含目录标题的旧回答进入历史时仍按当前授权复核，切私密或换授权策略均拒绝', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    folderRepository.save({ id: 'f-a', spaceId: 'space-1', parentId: null, name: 'A', deletedAt: null });
+    addNote('listed', 'x', 'space-1', 'f-a'); addNote('other', 'y', 'space-1', null);
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-history' });
+    const first = await service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [{ kind: 'notes', folderId: 'f-a', titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 }] });
+    const entry = { role: 'assistant', content: '该目录下有 listed。', sourceRefs: [], sourceFree: true, provenanceManifestId: first.manifest.manifestId };
+    entry.provenanceHash = hashRecord(entry);
+    const next = (grantId) => service.prepareRequest({ ...requestInput(grantId), assistantTools: true, history: [entry] });
+    await next(grant.grantId);
+    const fixed = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['other'] }));
+    const fixedGrant = await service.createRunGrant({ policyId: fixed.policyId, conversationId: 'catalog-history-fixed' });
+    await assert.rejects(next(fixedGrant.grantId), { code: 'AI_HISTORY_UNVERIFIED' });
+    noteRepository.save({ ...noteRepository.findById('listed'), aiVisibility: 'private' });
+    await assert.rejects(next(grant.grantId), { code: 'AI_HISTORY_UNVERIFIED' });
+  }) },
+  { name: 'AI v2 目录工具：目录重建与多目录结果之间切私密，发送前最终屏障仍拦截（来源正文与标题都不外发）', run: () => withContext(async ({ service, folderRepository, addNote, noteRepository }) => {
+    for (const id of ['f-a', 'f-b']) folderRepository.save({ id, spaceId: 'space-1', parentId: null, name: id, deletedAt: null });
+    addNote('src', '来源正文', 'space-1', 'f-a'); addNote('t-a', 'x', 'space-1', 'f-a'); addNote('t-b', 'y', 'space-1', 'f-b');
+    const policy = await service.createPolicy(policyInput({ kind: 'library' }));
+    const grant = await service.createRunGrant({ policyId: policy.policyId, conversationId: 'catalog-barrier' });
+    const specOf = folderId => ({ kind: 'notes', folderId, titleQuery: null, recursive: false, sortBy: 'updated', offset: 0, limit: 20 });
+    const priv = id => noteRepository.save({ ...noteRepository.findById(id), aiVisibility: 'private' });
+    // 发送前复核：来源 src 在目录重建的异步读取期间切私密（目录里没有它，哈希不变），必须被最后的屏障拦住。
+    const prepared = await service.prepareRequest({ ...requestInput(grant.grantId, [{ noteId: 'src', start: 0, end: 4 }]),
+      assistantTools: true, catalog: [specOf('f-b')] });
+    const originalList = noteRepository.list.bind(noteRepository);
+    let armed = true;
+    noteRepository.list = (...args) => { const rows = originalList(...args); if (armed) { armed = false; priv('src'); } return rows; };
+    await assert.rejects(service.assertRequest({ grantId: grant.grantId, manifestId: prepared.manifest.manifestId,
+      request: prepared.request, recipient: 'deepseek' }), { code: 'AI_SCOPE_FORBIDDEN' });
+    noteRepository.list = originalList;
+    noteRepository.save({ ...noteRepository.findById('src'), aiVisibility: 'normal' });
+    // 准备请求：第二个目录结果读取期间，第一个目录结果里的笔记切私密，标题不得进入请求。
+    let calls = 0;
+    noteRepository.list = (...args) => { const rows = originalList(...args); if (++calls === 2) priv('t-a'); return rows; };
+    await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true,
+      catalog: [specOf('f-a'), specOf('f-b')] }), { code: 'AI_SCOPE_FORBIDDEN' });
+  }) },
   { name: 'AI v2 HTTP 设置入口仅接受受信操作和服务端 owner，错误不回显资料', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-v2-http-'));
     const appContext = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
