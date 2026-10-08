@@ -93,6 +93,9 @@ test('真实选区工具：普通、重点、核心直接创建，重开保留�
     });
     await page.getByRole('button', { name: `标记重点（${label}）`, exact: true }).click();
     await expect.poll(() => annotations().find(item => item.quoteText === label + '摘录')?.importance).toBe(importance);
+    // 服务端落库早于 onCreate 完成；等标注与 pending 状态更新后才开始下一次选区。
+    await expect(paragraph.locator(`[data-importance="${importance}"]`)).toHaveText(label + '摘录');
+    await expect.poll(() => page.getByRole('toolbar', { name: '选区工具', exact: true }).locator('button:disabled').count()).toBe(0);
   }
   await page.reload();
   assert.deepEqual(annotations().map(item => item.importance).sort(), ['core', 'important', 'normal']);

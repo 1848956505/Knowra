@@ -22,14 +22,34 @@ function insert(db, collection, entityId, source, { observedAt = new Date().toIS
   db.prepare('INSERT INTO deletion_facts VALUES (?,?,?,?) ON CONFLICT(collection,entity_id) DO NOTHING')
     .run(collection, entityId, factHash(record), JSON.stringify(record));
 }
-export function observeRemoteDeletionFacts(db, entries, { epoch, kind = 'remote-delete' } = {}) {
+export function observeRemoteDeletionFacts(db, entries, { epoch, kind = 'remote-delete', versions = [] } = {}) {
   const bound = binding(db);
   if (!bound) return;
   if (kind === 'remote-delete' && (!epoch || meta(db, 'serverEpoch') !== epoch)) return;
+  let aliasesByHash;
   for (const entry of entries) {
     if (entry?.value !== null || entry.revision === null || entry.revision === undefined) continue;
     if (!Number.isSafeInteger(entry.revision) || entry.revision < 1) throw invalidFacts('远端删除修订无效，已停止提交。');
     insert(db, entry.collection, entry.id, { kind, ...bound, epoch: epoch ?? null, revision: entry.revision });
+    if (kind !== 'remote-delete' || entry.collection !== 'noteVersions' || !versions.length || meta(db, 'epoch') !== epoch) continue;
+    // 墓碑没有正文哈希：只使用尚未覆盖的已确认基线关联别名，不凭空猜测删除范围。
+    const row = db.prepare("SELECT payload, server_revision FROM sync_base WHERE collection='noteVersions' AND id=?").get(entry.id);
+    const canonical = row ? JSON.parse(row.payload) : null;
+    if (!canonical || canonical.id !== entry.id || !Number.isSafeInteger(row.server_revision)
+      || row.server_revision < 1 || row.server_revision >= entry.revision) continue;
+    if (!aliasesByHash) {
+      aliasesByHash = new Map();
+      for (const version of versions) {
+        const key = JSON.stringify([version.noteId, version.contentHash]);
+        if (!aliasesByHash.has(key)) aliasesByHash.set(key, []);
+        aliasesByHash.get(key).push(version);
+      }
+    }
+    for (const alias of aliasesByHash.get(JSON.stringify([canonical.noteId, canonical.contentHash])) ?? []) {
+      if (alias.id === canonical.id) continue;
+      insert(db, 'noteVersions', alias.id, { kind: 'remote-version-alias', ...bound, epoch, revision: entry.revision,
+        canonicalVersionId: canonical.id, noteId: canonical.noteId, contentHash: canonical.contentHash });
+    }
   }
 }
 /** 仅用来源库自身完整绑定投影可补录的旧观察；不接受恢复目标补来的绑定。 */

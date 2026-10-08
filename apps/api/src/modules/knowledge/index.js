@@ -327,14 +327,19 @@ export function createKnowledgeModule(options = {}) {
       || questionSourceRepository.list().some(mentions)
       || analysisScopeRepository.list({ includeDeleted: true }).some(mentions);
   }
-  function coalescePreviousVersion(note, version) {
+  function coalescePreviousVersion(note, version, annotationChange) {
     if (!versionCoalescing?.canDiscard) return;
+    const versions = noteVersionRepository.list({ noteId: note.id });
+    // 恢复已清理的私有副本时会生成同正文新 ID，也不能合并恢复前的正文。
+    if (versions.some(item => item.id !== version.id && item.contentHash === version.contentHash)) return;
     const previous = selectCoalescibleVersion({
-      versions: noteVersionRepository.list({ noteId: note.id }),
+      versions,
       current: version,
       windowMs: versionCoalescing.windowMs ?? NOTE_VERSION_COALESCE_WINDOW_MS
     });
-    if (!previous || isNoteVersionReferenced(previous, note.id) || !versionCoalescing.canDiscard(previous)) return;
+    // 只合并本次编辑的直接前像。A→B→恢复A→C 时，B 是恢复检查点而非 C 的前像；
+    // 该边界由持久版本和当前正文推导，重启后仍有效。
+    if (!previous || previous.content !== annotationChange?.before || isNoteVersionReferenced(previous, note.id) || !versionCoalescing.canDiscard(previous)) return;
     noteVersionRepository.deleteById(previous.id);
   }
   const noteService = createNoteService({
@@ -355,7 +360,7 @@ export function createKnowledgeModule(options = {}) {
       const directEvidence = knowledgeItemService.markEvidenceByNoteVersionIds(oldVersionIds, 'stale', 'noteVersion');
       questionService.markSourcesStale('knowledgeEvidence', directEvidence.map((record) => record.id));
       questionService.markSourcesStale('noteVersion', oldVersionIds);
-      coalescePreviousVersion(note, version);
+      coalescePreviousVersion(note, version, annotationChange);
     },
     onNoteDeleted: (noteId) => {
       const changed = knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid');

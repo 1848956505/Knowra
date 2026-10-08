@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
+import { NoteVersion } from '../../../api/src/modules/knowledge/domain/note-version.js';
 import { startLocalRuntime } from '../../src/runtime-server.mjs';
 
 test('真实 V4 附件缺失核验、原文件恢复、删除预检与本机保留反馈', { timeout: 60000 }, async t => {
@@ -48,10 +49,17 @@ test('真实 V4 附件缺失核验、原文件恢复、删除预检与本机保�
   if (output) await page.screenshot({ animations: 'disabled', path: path.join(output, 'attachment-retained-local.png') });
   const historical = (await (await context.request.post(`${runtime.origin}/api/storage/attachments`, { data: { noteId: note.id, fileName: '历史附件.txt', contentBase64: Buffer.from('history').toString('base64') } })).json()).data;
   let baseline = (await (await context.request.get(`${runtime.origin}/api/knowledge/notes/${note.id}`)).json()).data;
-  const first = await context.request.patch(`${runtime.origin}/api/knowledge/notes/${note.id}`, { data: { expectedUpdatedAt: baseline.updatedAt, rawMarkdown: `[历史附件](/api/storage/attachments/${historical.id.replace(/^a/, '%61')}/content#attachment=wrong)` } });
+  // 使用已导入的历史检查点，而非会被合并的瞬时自动保存中间版本。
+  const historicalContent = `[历史附件](/api/storage/attachments/${historical.id.replace(/^a/, '%61')}/content#attachment=wrong)`;
+  runtime.store.runTransaction(() => runtime.store.state.noteVersions.push(new NoteVersion({
+    id: 'attachment-history-fixture', noteId: note.id, content: historicalContent,
+    createdAt: new Date(Date.now() - 60000).toISOString(), createdBy: 'import'
+  })));
+  const first = await context.request.patch(`${runtime.origin}/api/knowledge/notes/${note.id}`, { data: { expectedUpdatedAt: baseline.updatedAt, rawMarkdown: historicalContent } });
   assert.equal(first.status(), 200); baseline = (await first.json()).data;
   const second = await context.request.patch(`${runtime.origin}/api/knowledge/notes/${note.id}`, { data: { expectedUpdatedAt: baseline.updatedAt, rawMarkdown: '已移除正文引用，历史仍保留' } });
   assert.equal(second.status(), 200);
+  assert(runtime.store.state.noteVersions.some(version => version.noteId === note.id && version.content.includes(historical.id.replace(/^a/, '%61'))), '先确认历史引用样本仍然存在');
   await page.reload();
   if (!await page.getByRole('button', { name: '上传附件', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
   await expect(page.getByRole('button', { name: '打开附件 历史附件.txt' })).toBeVisible();

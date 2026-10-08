@@ -18,7 +18,7 @@ function workspace(t) {
   const start = Date.parse(note.updatedAt);
   const edit = index => knowledge.noteService.updateNote(note.id, { rawMarkdown: `v${index}`, updatedAt: new Date(start + index * 1000).toISOString() });
   const contents = () => store.state.noteVersions.filter(item => item.noteId === note.id).map(item => item.content).sort();
-  return { store, edit, contents, note };
+  return { store, edit, contents, note, knowledge, root };
 }
 
 test('本机未同步的连续自动保存合并为基线与最新版本', t => {
@@ -52,4 +52,25 @@ test('被 AI 私有记录引用的版本不会被合并删除', t => {
   w.store.metadataTransaction(db => db.prepare('INSERT INTO ai_citation_probe VALUES (?)').run(JSON.stringify({ noteVersionId: cited.id })));
   w.edit(2); w.edit(3);
   assert.deepEqual(w.contents(), ['v0', 'v1', 'v3']);
+});
+
+
+test('恢复旧正文后跨分支编辑不合并恢复前检查点，重启仍保留', t => {
+  const root = temporaryDirectory(t), file = path.join(root, 'local.sqlite');
+  let store = createSqliteDataStore(file);
+  t.after(() => store.close());
+  const context = () => createAppContext({ dataStore: store, storageRootDir: root,
+    noteVersionCoalescing: { canDiscard: createNoteVersionDiscardGate(store) } }).modules.knowledge;
+  let knowledge = context();
+  const space = knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+  const note = knowledge.noteService.createNote({ spaceId: space.id, title: '恢复检查点', rawMarkdown: 'v0' });
+  const start = Date.parse(note.updatedAt);
+  const edit = (content, seconds) => knowledge.noteService.updateNote(note.id, { rawMarkdown: content, updatedAt: new Date(start + seconds * 1000).toISOString() });
+  edit('v1', 1);
+  const beforeRestore = store.state.noteVersions.find(item => item.content === 'v1');
+  edit('v0', 2);
+  store.close(); store = createSqliteDataStore(file); knowledge = context();
+  for (let i = 3; i <= 5; i++) edit(`v${i}`, i);
+  assert.ok(store.state.noteVersions.some(item => item.id === beforeRestore.id), '恢复前 v1 保持稳定 ID');
+  assert.deepEqual(store.state.noteVersions.map(item => item.content).sort(), ['v0', 'v1', 'v5']);
 });

@@ -110,3 +110,62 @@ for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件�
   assert.deepEqual(b.store.state.noteVersions.filter(item => item.noteId === note.id).map(item => item.id).sort(), finalVersions.map(item => item.id).sort());
   assert.equal(b.knowledge.noteService.getNote(note.id).rawMarkdown, oldVersion.content);
 });
+
+
+for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件云端'}：规范版本墓碑关联本地别名，私有副本保留且重启不再上传`, {
+  skip: postgres && !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000
+}, async t => {
+  const f = await fixture(t, postgres);
+  let failAlias = false, a;
+  a = f.device('alias-device', { beforeCommit: () => {
+    if (failAlias && a.store.deletionFacts.has('noteVersions', 'private-alias')) throw new Error('alias deletion rollback');
+  } });
+  await a.connect();
+  const note = a.knowledge.noteService.createNote({ title: '别名清理', rawMarkdown: '当前正文', spaceId: f.space.id });
+  const oldWeek = Math.floor((Date.now() - 70 * DAY) / (7 * DAY)) * 7 * DAY + 3 * DAY;
+  const versions = [0, 1, 2].map(i => new NoteVersion({ id: `canonical-${i}`, noteId: note.id,
+    content: `旧正文${i}`, createdAt: new Date(oldWeek - i * 3600000).toISOString() }));
+  a.store.runTransaction(() => a.store.state.noteVersions.push(...versions));
+  await a.engine.sync();
+  const other = a.knowledge.noteService.createNote({ title: '同正文另一笔记', rawMarkdown: versions[1].content, spaceId: f.space.id });
+  await a.engine.sync();
+  const otherVersion = a.store.state.noteVersions.find(item => item.noteId === other.id);
+  const privateAlias = { ...versions[1], id: 'private-alias' };
+  const unusedAlias = { ...versions[2], id: 'unused-alias' };
+  a.store.runTransaction(() => a.store.state.noteVersions.push(privateAlias, unusedAlias));
+  a.store.metadataTransaction(db => {
+    db.exec('CREATE TABLE ai_alias_probe (payload TEXT)');
+    db.prepare('INSERT INTO ai_alias_probe VALUES (?)').run(JSON.stringify({ noteVersionId: privateAlias.id }));
+  });
+  assert.equal(a.engine.status().pendingEntities, 0, '同正文规范基线抑制别名上传');
+  a.knowledge.noteService.updateNote(note.id, { rawMarkdown: '触发云端清理' });
+  failAlias = true;
+  await a.engine.sync();
+  assert.ok(a.engine.status().error, '确认执行了别名墓碑事务失败注入');
+  assert.equal(a.store.deletionFacts.has('noteVersions', privateAlias.id), false, '失败不留下部分别名删除事实');
+  assert.ok(a.store.state.noteVersions.some(item => item.id === unusedAlias.id), '失败不删除本地别名');
+  failAlias = false;
+  await a.engine.sync(); await a.engine.sync();
+  assert.equal(a.engine.status().error, null, JSON.stringify(a.engine.status()));
+  assert.equal(a.engine.status().pendingEntities, 0, '墓碑之后也不重新上传别名');
+  assert.ok(!(await f.versions(note.id)).some(item => item.content === privateAlias.content || item.content === unusedAlias.content));
+  assert.deepEqual(a.knowledge.noteVersionService.getVersion(privateAlias.id, note.id), privateAlias);
+  assert.ok(!a.store.state.noteVersions.some(item => item.id === unusedAlias.id), '无引用别名释放');
+  const fact = a.store.deletionFacts.list().find(item => item.entityId === privateAlias.id);
+  assert.equal(fact?.source.canonicalVersionId, versions[1].id);
+  assert.equal(fact.source.kind, 'remote-version-alias');
+  assert.equal(a.store.deletionFacts.has('noteVersions', otherVersion.id), false, '同正文不同笔记不关联删除');
+  assert.ok(a.store.state.noteVersions.some(item => item.id === otherVersion.id));
+  await a.restart();
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.equal(nextEntityUpload(a.store), null);
+  assert.deepEqual(a.store.deletionFacts.list().find(item => item.entityId === privateAlias.id), fact);
+  a.knowledge.noteService.updateNote(note.id, { rawMarkdown: privateAlias.content });
+  const restored = a.knowledge.repositories.noteVersionRepository.findByNoteIdAndContentHash(note.id, privateAlias.contentHash);
+  assert.notEqual(restored.id, privateAlias.id, '恢复私有别名正文创建新 ID');
+  await a.engine.sync(); await a.engine.sync();
+  assert.equal(a.engine.status().error, null, JSON.stringify(a.engine.status()));
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.ok((await f.versions(note.id)).some(item => item.id === restored.id));
+  assert.deepEqual(a.knowledge.noteVersionService.getVersion(privateAlias.id, note.id), privateAlias);
+});

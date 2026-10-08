@@ -29,8 +29,9 @@ for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件�
   const { syncKey } = await import('../../api/src/modules/sync/journal.js');
   const f = await fixture(t, postgres);
   const note = await f.context.modules.knowledge.noteService.createNote({ title: '别名保护', rawMarkdown: '当前', spaceId: f.space.id });
+  const oldWeek = Math.floor((Date.now() - 70 * DAY) / (7 * DAY)) * 7 * DAY + 3 * DAY;
   const versions = [0, 1].map(i => new NoteVersion({ id: `old-${i}`, noteId: note.id, content: `旧正文${i}`,
-    createdAt: new Date(Date.now() - 70 * DAY - i * 3600000).toISOString() }));
+    createdAt: new Date(oldWeek - i * 3600000).toISOString() }));
   for (const version of versions) await f.context.modules.knowledge.repositories.noteVersionRepository.save(version);
   await f.context.http.sync.status();
   const journal = postgres ? (await f.context.prisma.syncJournal.findUnique({ where: { ownerId: 'demo' } })).payload : f.cloud.getSyncJournal();
