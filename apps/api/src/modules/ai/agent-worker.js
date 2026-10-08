@@ -2,7 +2,7 @@ import { toolsForWriteIntent, toolsForAssistant } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
 import { beijingDay } from './budget-ledger.js';
-import { quoteWorstCase } from './worker.js';
+import { actualCostMicrounits, quoteWorstCase } from './worker.js';
 import { hashRecord } from './record-contract.js';
 import { createAuthorizedRetrieval } from './retrieval.js';
 import { createAiRecoveryScope } from './recovery-scope.js';
@@ -118,10 +118,11 @@ const TOOLS = Object.freeze([
 ]);
 
 /** 有界自主助手：读取受授权约束，写工具只生成待审稿，网络仍由隔离 adapter 处理。 */
-export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile,
+export function createAiAgentWorker({ store, access, modelSettings, budget, gateway, priceProfile: baseProfile, policy = null,
   allowExternal = false, authorizeAttempt = () => {}, revokeAttempt = () => {},
   accountRef = 'deepseek-primary', now = () => new Date(), logger = console,
   retrievalCandidates = null, actions = null, webSearchAdapter = null, annotations = null, knowledgeProposals = false, knowledgeCommit = null } = {}) {
+  const priceProfile = baseProfile; // 外层只用于模型名等不随自定义单价变化的字段
   if (!store || !modelSettings || !budget || !gateway || !priceProfile) {
     throw new TypeError('AI Agent needs conversation store, model settings, budget and gateway');
   }
@@ -161,6 +162,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   async function paidCall(turn, generation, request, manifest, grantId, credentialRef, signal) {
     if (provider !== 'mock' && !allowExternal) fail('AI_EGRESS_NOT_READY', '当前运行端未启用模型外发。');
     if ((await store.listModelAttempts(turn.turnId)).length >= MAX_ATTEMPTS) fail('AI_ATTEMPT_LIMIT', '模型调用次数已达到上限。');
+    const plan = policy ? await policy.snapshot() : null;
+    const priceProfile = plan?.profile ?? baseProfile;
     const quote = quoteWorstCase({ request, priceProfile, now: now(), writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent });
     if (quote.priceStale && !priceStaleWarned) {
       priceStaleWarned = true;
@@ -174,7 +177,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     let reserved = false, sent = false, settled = false;
     try {
       const reservation = await budget.reserve({ accountRef, jobId: turn.turnId, attemptId,
-        priceVersion: priceProfile.version, reservedMicrounits: quote.reservedMicrounits, day });
+        priceVersion: priceProfile.version, reservedMicrounits: quote.reservedMicrounits, day,
+        ...(plan ? { limits: plan.limits } : {}) });
       reserved = true;
       if (reservation?.accountRef !== accountRef || reservation.jobId !== turn.turnId
         || reservation.attemptId !== attemptId || reservation.priceVersion !== priceProfile.version
@@ -197,8 +201,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       const usage = result.usage;
       const actual = usage?.unknown === false && Number.isSafeInteger(usage.inputTokens) && usage.inputTokens >= 0
         && Number.isSafeInteger(usage.outputTokens) && usage.outputTokens >= 0
-        ? Math.ceil((usage.inputTokens * priceProfile.inputMicrounitsPerMillion
-          + usage.outputTokens * priceProfile.outputMicrounitsPerMillion) / 1_000_000) : null;
+        ? actualCostMicrounits(usage, priceProfile) : null;
       if (actual !== null && (actual > quote.reservedMicrounits || usage.inputTokens > 100_000
         || usage.outputTokens > 20_000)) fail('AI_USAGE_LIMIT', '模型用量超过预留或单次上限。');
       const disposition = actual === null ? 'unknown' : 'settled';

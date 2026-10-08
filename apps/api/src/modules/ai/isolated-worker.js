@@ -12,11 +12,12 @@ const failure = (name, message) => Object.assign(new Error(message), { code: nam
 
 /** 每个执行任务有独立进程；子进程只能访问白名单 RPC，不能持有领域服务。 */
 export function createIsolatedAiWorker({ repository, budget, gateway, modelSettings, readContext,
-  priceProfile, allowExternal, logger = console, limits = AI_PROCESS_LIMITS,
+  priceProfile, allowExternal, policy = null, logger = console, limits = AI_PROCESS_LIMITS,
   childUrl = new URL('./worker-child.js', import.meta.url), spawn = fork }) {
   const active = new Map();
   const inFlight = new Set();
   const reservedAttempts = new Map();
+  const plans = new Map();
   const waiting = [];
   let occupied = 0;
   let closed = false;
@@ -45,6 +46,12 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
     if (requestBytes > limits.requestBytes) {
       release(); inFlight.delete(jobId); throw failure('AI_REQUEST_LIMIT', '模型请求超过进程传输上限。');
     }
+    let plan = null;
+    if (policy) {
+      try { plan = await policy.snapshot(); }
+      catch (error) { release(); inFlight.delete(jobId); throw error; }
+    }
+    plans.set(jobId, plan);
     return new Promise((resolve, reject) => {
       let child;
       try {
@@ -52,7 +59,7 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
           env: { NODE_ENV: 'production', ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) },
           stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
       } catch {
-        release(); inFlight.delete(jobId); reject(failure('AI_PROCESS_FAILED', 'AI 执行进程启动失败。')); return;
+        release(); inFlight.delete(jobId); plans.delete(jobId); reject(failure('AI_PROCESS_FAILED', 'AI 执行进程启动失败。')); return;
       }
       let finished = false;
       const guard = watchChildResources(child, limits, () => {
@@ -65,6 +72,7 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
         guard.close();
         active.delete(jobId);
         inFlight.delete(jobId);
+        plans.delete(jobId);
         for (const [attemptId, ownerJobId] of reservedAttempts) {
           if (ownerJobId === jobId) reservedAttempts.delete(attemptId);
         }
@@ -97,7 +105,7 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
           }
         }
       });
-      child.send({ type: 'run', jobId, request, priceProfile, allowExternal }, error => {
+      child.send({ type: 'run', jobId, request, priceProfile: plan?.profile ?? priceProfile, budgetLimits: plan?.limits, allowExternal }, error => {
         if (error) void stop(failure('AI_PROCESS_FAILED', 'AI 任务无法发送至执行进程。'));
       });
     });
@@ -148,7 +156,10 @@ export function createIsolatedAiWorker({ repository, budget, gateway, modelSetti
         || (method === 'budget.reserve' && args[0]?.jobId !== jobId)) {
         throw failure('AI_BRIDGE_REJECTED', '预算尝试不属于当前任务。');
       }
-      const result = await budget[method.slice('budget.'.length)](...args);
+      // 上限由父进程按用户设置决定，子进程传来的 limits 一律以父进程的快照覆盖，子进程无法放宽。
+      const input = method === 'budget.reserve' ? { ...args[0], limits: plans.get(jobId)?.limits } : args[0];
+      if (input.limits === undefined) delete input.limits;
+      const result = await budget[method.slice('budget.'.length)](input, ...args.slice(1));
       if (method === 'budget.reserve') reservedAttempts.set(args[0].attemptId, jobId);
       else reservedAttempts.delete(args[0].attemptId);
       return result;

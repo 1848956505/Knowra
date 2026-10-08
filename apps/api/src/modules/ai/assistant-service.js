@@ -41,22 +41,32 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
       return { ready: false, reason, budget: null };
     }
     try {
-      const budget = await runtime().budgetAuthority?.status('deepseek-primary');
+      const policy = runtime().budgetPolicy;
+      const plan = policy ? await policy.view() : null;
+      const budget = await runtime().budgetAuthority?.status('deepseek-primary', undefined, plan?.limits);
+      const expected = plan ? plan.limits.daily : 20_000_000;
+      const unlimited = expected === null;
       if (!budget || budget.accountRef !== 'deepseek-primary' || !/^\d{4}-\d{2}-\d{2}$/.test(budget.day)
-        || budget.limitMicrounits !== 20_000_000 || !Number.isSafeInteger(budget.availableMicrounits)
+        || budget.limitMicrounits !== expected
         || !Number.isSafeInteger(budget.spentMicrounits) || budget.spentMicrounits < 0
         || !Number.isSafeInteger(budget.heldMicrounits) || budget.heldMicrounits < 0
-        || budget.availableMicrounits < 0 || budget.availableMicrounits > budget.limitMicrounits) {
+        || (unlimited ? budget.availableMicrounits !== null
+          : !Number.isSafeInteger(budget.availableMicrounits) || budget.availableMicrounits < 0 || budget.availableMicrounits > budget.limitMicrounits)) {
         return { ready: false, reason: '预算状态无效，已阻止模型调用。', budget: null };
       }
-      return budget.availableMicrounits > 0
-        ? { ready: true, reason: null, budget: { day: budget.day, limitMicrounits: budget.limitMicrounits,
-          availableMicrounits: budget.availableMicrounits, spentMicrounits: budget.spentMicrounits,
-          heldMicrounits: budget.heldMicrounits } }
-        : { ready: false, reason: '北京时间当日 20 元预算已用完。', budget: { day: budget.day,
-          limitMicrounits: budget.limitMicrounits, availableMicrounits: 0,
-          spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits } };
-    } catch {
+      const view = { day: budget.day, limitMicrounits: budget.limitMicrounits, availableMicrounits: budget.availableMicrounits,
+        spentMicrounits: budget.spentMicrounits, heldMicrounits: budget.heldMicrounits };
+      const yuan = value => `${+(value / 1_000_000).toFixed(2)}`;
+      if (!unlimited && budget.availableMicrounits === 0) return { ready: false, reason: `北京时间当日 ${yuan(expected)} 元预算已用完。`, budget: view };
+      if (plan?.limits.monthly != null && budget.monthAvailableMicrounits === 0) {
+        return { ready: false, reason: `本月 ${yuan(plan.limits.monthly)} 元预算已用完。`, budget: view };
+      }
+      if (policy && await policy.balanceBelowFloor(plan.settings)) {
+        return { ready: false, reason: '账户余额低于设定的下限，已暂停模型调用。', budget: view };
+      }
+      return { ready: true, reason: null, budget: view };
+    } catch (error) {
+      if (error?.code === 'AI_BUDGET_SETTINGS_INVALID') return { ready: false, reason: error.message, budget: null };
       return { ready: false, reason: location === 'local' ? '本机预算账本不可用，已阻止模型调用。' : '云端预算服务不可用，已阻止模型调用。', budget: null };
     }
   }
@@ -96,6 +106,23 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     if (typeof authority?.usage !== 'function') fail('AI_BUDGET_UNAVAILABLE', location === 'local' ? '本机预算账本不可用。' : '云端预算服务不可用。');
     try { return { ...(await authority.usage('deepseek-primary')), location }; }
     catch (error) { fail('AI_BUDGET_UNAVAILABLE', location === 'local' ? '本机预算账本不可用。' : '云端预算服务不可用。', error); }
+  }
+
+  /** 预算设置：读取与保存。保存会校验模式与金额；损坏的设置文件如实报错，不静默回到默认值。 */
+  async function budgetSettings() {
+    const store = runtime()?.budgetSettings;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算设置。');
+    const [settings, policy] = [await store.get(), runtime().budgetPolicy];
+    return { ...settings, basePrice: policy ? { version: runtime().priceProfile.version,
+      inputMicrounitsPerMillion: runtime().priceProfile.inputMicrounitsPerMillion,
+      outputMicrounitsPerMillion: runtime().priceProfile.outputMicrounitsPerMillion,
+      reviewedUntil: runtime().priceProfile.expiresAt } : null, location };
+  }
+  async function saveBudgetSettings(input) {
+    const store = runtime()?.budgetSettings;
+    if (!store) fail('AI_BUDGET_SETTINGS_UNAVAILABLE', '当前运行端不支持预算设置。');
+    await store.set(input);
+    return budgetSettings();
   }
 
   /** 账户余额：refresh=false 只读已保存的快照；true 才联网读取。读取失败不影响任何 AI 调用。 */
@@ -210,5 +237,5 @@ export function createAiAssistantService({ getRuntime, ownerId, location = 'serv
     return view(await runtime().worker.cancel(jobId), true);
   }
 
-  return { status, usage, balance, list, get, preview, start, cancel };
+  return { status, usage, balance, budgetSettings, saveBudgetSettings, list, get, preview, start, cancel };
 }

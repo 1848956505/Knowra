@@ -13,6 +13,7 @@ import { SettingsIcon } from '../../components/icons/knowra';
 import type { AppPreferences, NoteFontSize } from './preferences';
 import { ModelConnectionSettings } from './ModelConnectionSettings';
 import { UsageSettings } from './UsageSettings';
+import { BudgetLimitsSettings } from './BudgetLimitsSettings';
 import { AiFeatureSettings } from './AiFeatureSettings';
 import { ExternalClientSettings } from './ExternalClientSettings';
 import { isDesktopRuntime } from './externalClients';
@@ -30,11 +31,11 @@ type SettingsCategory = 'all' | 'workspace' | 'reading' | 'accessibility' | 'mod
 
 /** “外部 AI 客户端”只在 Mac 应用的本地运行端出现，计数随之增加。 */
 const buildCategories = (extra: number): { id: SettingsCategory; label: string; count: number }[] => [
-  { id: 'all', label: '全部设置', count: 7 + extra },
+  { id: 'all', label: '全部设置', count: 8 + extra },
   { id: 'workspace', label: '工作区', count: 1 },
   { id: 'reading', label: '阅读与编辑', count: 1 },
   { id: 'accessibility', label: '辅助体验', count: 1 },
-  { id: 'model', label: '模型接入', count: 3 + extra },
+  { id: 'model', label: '模型接入', count: 4 + extra },
   { id: 'about', label: '关于知境', count: 1 }
 ];
 
@@ -140,6 +141,7 @@ export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, on
 
         {category === 'all' || category === 'model' ? <ModelConnectionSettings /> : null}
         {category === 'all' || category === 'model' ? <UsageSettings /> : null}
+        {category === 'all' || category === 'model' ? <BudgetLimitsSettings /> : null}
         {category === 'all' || category === 'model' ? <AiFeatureSettings /> : null}
         {category === 'all' || category === 'model' ? <ExternalClientSettings /> : null}
         {category === 'all' || category === 'about' ? <BuildInformation /> : null}

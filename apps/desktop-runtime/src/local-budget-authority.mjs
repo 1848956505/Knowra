@@ -59,10 +59,10 @@ export function createLocalBudgetAuthority({ filePath } = {}) {
     return run;
   }
   return {
-    async status(accountRef, date) {
+    async status(accountRef, date, limits) {
       await queue; load();
       if (failure) throw failure;
-      return budgetStatus(state, accountRef, date);
+      return budgetStatus(state, accountRef, date, limits);
     },
     async usage(accountRef, date) {
       await queue; load();

@@ -69,7 +69,7 @@ export function ModelConnectionSettings() {
         </div>
         {notice ? <p role="status" className={styles.modelNotice}>{notice}</p> : null}
         {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
-        <p className={styles.modelHint}>连接检查仅读取 DeepSeek 的账号模型列表，不发送笔记，也不执行生成。每日预算为 20 元，超出后助手暂停。</p>
+        <p className={styles.modelHint}>连接检查仅读取 DeepSeek 的账号模型列表，不发送笔记，也不执行生成。费用上限可在下方“预算与价格”中调整，默认每日 20 元。</p>
       </div>
     </div>
   </section>;

@@ -50,9 +50,10 @@ export function createPostgresBudgetAuthority(client) {
     }
   }
   return {
-    async status(accountRef, day = beijingDay()) {
-      const [row] = await read(client, 'SELECT spent_microunits, held_microunits FROM ai_budget_days WHERE account_ref = $1 AND beijing_day = $2', accountRef, day);
-      return budgetStatus({ budgetDays: row ? [{ accountRef, day, spentMicrounits: Number(row.spent_microunits), heldMicrounits: Number(row.held_microunits) }] : [] }, accountRef, day);
+    async status(accountRef, day = beijingDay(), limits) {
+      const rows = await read(client, 'SELECT beijing_day, spent_microunits, held_microunits FROM ai_budget_days WHERE account_ref = $1 AND beijing_day LIKE $2', accountRef, `${day.slice(0, 7)}-%`);
+      return budgetStatus({ budgetDays: rows.map(row => ({ accountRef, day: row.beijing_day,
+        spentMicrounits: Number(row.spent_microunits), heldMicrounits: Number(row.held_microunits) })) }, accountRef, day, limits);
     },
     async usage(accountRef, day = beijingDay()) {
       const reservations = await read(client, `SELECT * FROM ai_budget_reservations WHERE account_ref = $1

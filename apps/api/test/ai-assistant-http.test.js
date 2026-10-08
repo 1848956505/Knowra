@@ -26,6 +26,35 @@ async function call(origin, route, body, header = '1') {
 }
 
 export const aiAssistantHttpTests = [
+  { name: '预算设置接口：默认值、保存需助手请求头与合法金额；每日上限改为仅提醒后状态不再受 20 元限制，设置损坏时阻止调用', async run() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-budget-settings-http-'));
+    try {
+      const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo',
+        persistenceDriver: 'local-json', databaseUrl: null, uploadsDir: path.join(directory, 'uploads') });
+      context.ai.credentialReference = async () => ({ provider: 'deepseek', modelId: 'deepseek-flash', credentialRef: 'synthetic-ref' });
+      await withServer(context, async origin => {
+        const read = async () => (await (await fetch(`${origin}/api/ai/assistant/budget-settings`)).json()).data;
+        const initial = await read();
+        assert.deepEqual(initial.rules.daily, { mode: 'stop', limitMicrounits: 20_000_000 });
+        assert.deepEqual(initial.rules.turn, { mode: 'stop', limitMicrounits: 2_000_000 });
+        assert.equal(initial.price, null);
+        assert.equal(initial.basePrice.version, reviewedDeepSeekPriceProfile.version);
+        assert.equal((await call(origin, '/budget-settings', { rules: initial.rules, price: null }, '0')).status, 403);
+        const bad = await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'stop', limitMicrounits: -1 } }, price: null });
+        assert.equal(bad.status, 422);
+        assert.equal(bad.payload.error.code, 'AI_BUDGET_SETTINGS_INVALID');
+        const saved = await call(origin, '/budget-settings', { rules: { ...initial.rules, daily: { mode: 'warn', limitMicrounits: 5_000_000 } }, price: null });
+        assert.equal(saved.status, 200);
+        assert.equal(saved.payload.data.rules.daily.mode, 'warn');
+        const status = (await (await fetch(`${origin}/api/ai/assistant/status`)).json()).data;
+        if (status.budget) { assert.equal(status.budget.limitMicrounits, null); assert.equal(status.budget.availableMicrounits, null); }
+        fs.writeFileSync(path.join(directory, 'ai-budget-settings.json'), '{broken');
+        const blocked = (await (await fetch(`${origin}/api/ai/assistant/status`)).json()).data;
+        assert.equal(blocked.generationAvailable, false);
+        assert.match(blocked.unavailableReason, /预算设置/);
+      });
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  } },
   { name: '用量与余额接口：用量只读汇总；余额读取需助手请求头，未启用时 503，失败不影响用量', async run() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-usage-http-'));
     try {

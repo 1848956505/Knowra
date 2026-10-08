@@ -15,14 +15,14 @@ export async function handleBudgetRoute({ request, response, url, authority }) {
     }
     if (request.method === 'POST' && url.pathname === '/api/ai/budget/reserve') {
       const input = await parseBody(request, { limitBytes: 2048 });
-      sendJson(response, 200, { data: await authority.reserve({ ...input, day: undefined, accountRef }) }); return true;
+      sendJson(response, 200, { data: await authority.reserve({ ...input, day: undefined, limits: undefined, accountRef }) }); return true;
     }
     if (request.method === 'POST' && url.pathname === '/api/ai/budget/settle') {
       const input = await parseBody(request, { limitBytes: 2048 });
       sendJson(response, 200, { data: await authority.settle({ ...input, accountRef }) }); return true;
     }
   } catch (error) {
-    if (error.code?.startsWith('AI_BUDGET_') || error.code?.startsWith('AI_DAILY_') || error.code?.startsWith('AI_JOB_')) {
+    if (error.code?.startsWith('AI_BUDGET_') || error.code?.startsWith('AI_DAILY_') || error.code?.startsWith('AI_MONTHLY_') || error.code?.startsWith('AI_JOB_')) {
       throw createAppError(error.code, error.message, error.code.endsWith('EXCEEDED') || error.code.endsWith('CONFLICT') ? 409 : 422);
     }
     throw error;
