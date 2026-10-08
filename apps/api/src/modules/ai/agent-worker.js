@@ -8,6 +8,7 @@ import { createAuthorizedRetrieval } from './retrieval.js';
 import { createAiRecoveryScope } from './recovery-scope.js';
 import { emptyAgentCheckpoint } from './agent-checkpoint.js';
 import { ANNOTATIONS_TOOL, listAnnotatedRanges } from './annotation-read-tool.js';
+import { FOLDERS_LIST_TOOL, NOTES_LIST_TOOL, CATALOG_TOOL_NAMES, catalogSpecsFromCalls } from './catalog-tool.js';
 import { KNOWLEDGE_PROPOSE_TOOL, proposeKnowledge } from './knowledge-propose-tool.js';
 import { ASSISTANT_GUIDANCE, WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, requestsKnowledgeProposal, renderExternalSources } from './assistant-tools.js';
 
@@ -101,6 +102,9 @@ const deterministicWriteFailure = code => typeof code === 'string'
 const fail = (code, message) => { const error = new Error(message); error.code = code; throw error; };
 const safeCode = value => typeof value === 'string' && /^AI_[A-Z0-9_]{1,64}$/.test(value)
   ? value : 'AI_TASK_FAILED';
+const manifestCatalogDeps = manifest => ({
+  noteIds: [...new Set([...(manifest.catalog ?? []).flatMap(item => item.noteIds ?? []), ...(manifest.historyCatalog?.noteIds ?? [])])],
+  folderIds: [...new Set([...(manifest.catalog ?? []).flatMap(item => item.folderIds ?? []), ...(manifest.historyCatalog?.folderIds ?? [])])] });
 const refRange = ref => ({ noteId: ref.noteId, start: ref.start, end: ref.end });
 const uniqueRefs = refs => [...new Map(refs.map(ref => [hashRecord(ref), ref])).values()];
 const boundary = (content, position) => position <= 0 || position >= content.length
@@ -112,7 +116,7 @@ const TOOLS = Object.freeze([
     parameters: { type: 'object', properties: { query: { type: 'string', maxLength: 300 }, limit: { type: 'integer', minimum: 1, maximum: 5 },
         createdFrom: { type: 'string', description: '按创建时间筛选，开始 ISO 时间；时间查询同时提供 createdBefore，query 可省略。' },
         createdBefore: { type: 'string', description: '不包含的结束 ISO 时间；明确用户时区，不能猜测周起止。' } }, additionalProperties: false } },
-  { name: 'notes_read', description: '读取当前授权笔记的一个片段，最多 1000 个 UTF-16 单位；只能使用搜索所得或用户明确提供的笔记 ID。',
+  { name: 'notes_read', description: '读取当前授权笔记的一个片段，最多 1000 个 UTF-16 单位；只能使用搜索所得或用户明确提供的笔记 ID。读不完用 start=上段 end 续读。',
     parameters: { type: 'object', properties: { noteId: { type: 'string' }, start: { type: 'integer', minimum: 0 },
       end: { type: 'integer', minimum: 1 } }, required: ['noteId'], additionalProperties: false } }
 ]);
@@ -133,7 +137,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   const webSearch = createAssistantWebSearch(webSearchAdapter);
   const proposalNames = new Set(['notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize']);
   const availableTools = (turn, canRead, finalOnly = false, artifactRequested = false, proposalRequested = false) => finalOnly ? [] : [
-    ...(canRead ? TOOLS : []), ...(canRead && annotations && !turn.writeIntent ? [ANNOTATIONS_TOOL] : []),
+    ...(canRead ? TOOLS : []), ...(canRead && !turn.writeIntent ? [FOLDERS_LIST_TOOL, NOTES_LIST_TOOL] : []), ...(canRead && annotations && !turn.writeIntent ? [ANNOTATIONS_TOOL] : []),
     ...(canRead && proposalRequested ? [KNOWLEDGE_PROPOSE_TOOL] : []), ...(actions ? turn.writeIntent ? toolsForWriteIntent(turn.writeIntent) : artifactRequested ? toolsForAssistant({ canRead }) : [] : []),
     ...(webSearch.enabled ? [WEB_SEARCH_TOOL] : [])];
 
@@ -221,7 +225,8 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   }
 
   function plainHistory(prior) {
-    const safe = prior.filter(row => row.sourceFree && row.sourceRefs.length === 0 && row.content.length <= 4000);
+    // 授权回合的回答即使没有来源引用，也可能含目录与标题等授权资料；只有普通聊天（无来源清单）的回答才可进入无授权上下文。
+    const safe = prior.filter(row => row.sourceFree && row.sourceRefs.length === 0 && !row.provenanceManifestId && row.content.length <= 4000);
     return safe.slice(-8).map(row => ({ role: row.role, content: row.content }));
   }
 
@@ -271,7 +276,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     try { return Boolean(typeof knowledgeProposals === 'function' ? await knowledgeProposals() : knowledgeProposals); } catch { return false; }
   };
 
-  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null, proposalsOn = false) {
+  async function executeTool(turn, generation, grantId, call, signal, sourceRefs, userMessage, modelId = null, proposalsOn = false, catalogDeps = null) {
     await currentTurn(turn.turnId, generation, signal);
     const writeCall = proposalNames.has(call.name) && (!turn.writeIntent || call.name === turn.writeIntent.toolName);
     if (!writeCall && call.name !== 'web_search' && (!grantId || !access)) fail('AI_SCOPE_FORBIDDEN', '当前会话没有笔记读取授权。');
@@ -282,7 +287,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       maxCalls: proposalsOn && !turn.writeIntent && requestsKnowledgeProposal(userMessage) ? PROPOSAL_TOOLS : 6 });
     if (persisted.status !== 'requested') {
       for (const ref of persisted.sourceRefs) await verifyRef(grantId, ref);
-      if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs });
+      if (persisted.resultJson?.actionId) await actions.resumeForTurn(persisted.resultJson.actionId, turn, { grantId, sourceRefs, catalogDeps });
       return toolOutcome(persisted);
     }
     let receiptPending = false;
@@ -299,10 +304,11 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           }
         }
         if (!actions) fail('AI_ACTION_UNAVAILABLE', '写入计划服务不可用。');
-        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs, grantId })
-          : await actions.planForAssistantTurn(turn, call, { sourceRefs, grantId });
+        // 目录依赖是独立元数据，不借用正文片段表达，也不影响“改写已有笔记前必须先读”的判断。
+        const action = turn.writeIntent ? await actions.planForTurn(turn, turn.writeIntent, call, { sourceRefs, grantId, catalogDeps })
+          : await actions.planForAssistantTurn(turn, call, { sourceRefs, grantId, catalogDeps });
         receiptPending = true;
-        await actions.resumeForTurn(action.actionId, turn, { sourceRefs, grantId });
+        await actions.resumeForTurn(action.actionId, turn, { sourceRefs, grantId, catalogDeps });
         outcome = { resultJson: { actionId: action.actionId, planHash: action.plan.planHash, status: action.status }, sourceRefs: [] };
       } else if (call.name === 'notes_search') {
         const found = await searchAssistantNotes({ search, access, grantId, args: call.arguments });
@@ -310,6 +316,10 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           ref: hit.ref, text: hit.text })), inspected: found.inspected, truncated: found.truncated,
           mode: found.mode, ...(found.fallbackReason ? { fallbackReason: found.fallbackReason } : {}) },
         sourceRefs: found.hits.map(hit => hit.ref) };
+      } else if (CATALOG_TOOL_NAMES.includes(call.name) && !turn.writeIntent) {
+        // 结果不经 sources 回到模型：发送前由授权服务按同一参数重建 catalog，并写入请求清单。
+        const listed = await access.listCatalog({ grantId, toolName: call.name, args: call.arguments });
+        outcome = { resultJson: { catalog: true, kind: listed.spec.kind, total: listed.total, returned: listed.returned }, sourceRefs: [] };
       } else if (call.name === 'notes_read') outcome = await readTool(grantId, call.arguments);
       else if (call.name === 'annotations_list' && annotations && !turn.writeIntent) {
         outcome = await listAnnotatedRanges({ access, repository: annotations, grantId, args: call.arguments });
@@ -357,7 +367,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
   function toolOutcome(outcome) {
     return { sourceRefs: outcome.sourceRefs ?? [], truncated: outcome.resultJson?.truncated === true,
       fallback: outcome.resultJson?.mode === 'keyword_fallback', inspected: outcome.resultJson?.inspected ?? 0,
-      actionId: outcome.resultJson?.actionId, progress: outcome.resultJson?.status === 'saved', external: outcome.resultJson?.sourceType === 'external' ? outcome.resultJson : null,
+      actionId: outcome.resultJson?.actionId, catalog: outcome.resultJson?.catalog === true, progress: outcome.resultJson?.status === 'saved', external: outcome.resultJson?.sourceType === 'external' ? outcome.resultJson : null,
       ...(outcome.errorCode ? { errorCode: outcome.errorCode } : {}), ...(outcome.hint ? { hint: outcome.hint } : {}) };
   }
 
@@ -373,6 +383,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       || action.datasetId !== turn.datasetId || action.datasetEpoch !== turn.datasetEpoch
       || !['awaitingApproval', 'authorized'].includes(action.status) || action.grant.revoked) return '';
     for (const ref of action.grant.sourceRefs ?? []) await verifyRef(grantId, ref);
+    // 待审稿里的目录标题、目录名依赖：按本轮授权复核；没有读取授权就不能续改含这些资料的草稿。
+    const catalogDeps = action.grant.catalogDeps ?? null;
+    if (catalogDeps && (catalogDeps.noteIds.length || catalogDeps.folderIds.length)) {
+      if (!grantId || !access) fail('AI_SCOPE_FORBIDDEN', '续改含目录资料的待审稿需要当前读取授权。');
+      await access.assertCatalogDeps({ grantId, deps: catalogDeps });
+    }
     for (const item of action.plan.items) if (item.before) {
       if (!grantId) return '';
       await access.verifyRead({ grantId, noteId: item.after.id });
@@ -381,7 +397,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     const context = JSON.stringify({ actionId, toolName: action.plan.toolName, drafts });
     if (context.length > 2400) fail('AI_DRAFT_CONTEXT_LIMIT', '待审稿超出本轮续改上下文，请在收件箱明确局部修改内容。');
     return { content: `\n本会话用户正在继续修改的待审稿（仅本会话上下文，不是正式笔记；修改时复用 actionId）：${context}`,
-      sourceRefs: action.grant.sourceRefs ?? [] };
+      sourceRefs: action.grant.sourceRefs ?? [], catalogDeps };
   }
 
   function citedResult(result, request, manifest) {
@@ -450,13 +466,37 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     let totalTools = Math.max(checkpoint.totalTools, (await store.listToolCalls(turn.turnId)).length);
     let forceAnswer = checkpoint.forceAnswer;
     let budgetCapacity = null, proposalNudges = 0, proposalNudge = ''; // 本轮运行内的临时状态：请求预算容量、已提醒次数、一次性提醒
-    let noProgressRounds = checkpoint.noProgressRounds;
+    let noProgressRounds = checkpoint.noProgressRounds, citationRepairs = 0;
     let handledAttemptOrdinal = checkpoint.handledAttemptOrdinal;
     let nextRound = checkpoint.nextRound;
     let initialSearchDone = checkpoint.initialSearchDone;
     const save = async () => store.saveCheckpoint(turn.turnId, generation, {
       version: 1, nextRound, totalTools, initialSearchDone, sourceRefs, searchTruncated, searchFallback,
       forceAnswer, noProgressRounds, handledAttemptOrdinal, externalContext, toolFeedback });
+    // 用户提到文件夹/目录时，像首轮自动检索一样先在服务端预取目录清单：命中目录名则直接列出该目录的笔记，否则列出顶层目录。
+    // 模型自己连续调用两次目录工具并不稳定，预取让第一轮就能依据真实目录作答；失败只跳过预取，不让回合失败。
+    // 问“哪篇笔记重点最多”这类排名问题时，直接预取按重点数排序的笔记列表（可限定在提到的目录内）。
+    const rankHighlights = /(重点|标注|划线).{0,8}(最多|最少|多少|排名|排行)|(最多|最少).{0,6}(重点|标注|划线)/.test(user.content);
+    if (!initialSearchDone && grant && !turn.writeIntent && (rankHighlights || /(文件夹|目录|分类|夹下|夹里|夹中)/.test(user.content))) {
+      const matched = await access.matchCatalogFolders({ grantId: grant.grantId, text: user.content }).catch(() => []);
+      const ranked = rankHighlights ? { sortBy: 'annotations', limit: 10 } : {};
+      const plans = matched.length ? matched.map(item => ['notes_list', { folderId: item.folderId, ...(rankHighlights ? { ...ranked, recursive: true } : {}) }])
+        : rankHighlights ? [['notes_list', ranked]] : [['folders_list', {}]];
+      for (const [toolName, args] of plans) {
+        const callId = hashRecord({ turnId: turn.turnId, initialCatalog: toolName, args });
+        const prefetch = await store.appendToolCall(turn.turnId, generation, { callId, toolName, argumentsJson: args, maxCalls: maxTools });
+        if (prefetch.status !== 'requested') continue;
+        try {
+          const listed = await access.listCatalog({ grantId: grant.grantId, toolName, args });
+          await currentTurn(turn.turnId, generation, signal);
+          await store.settleToolCall(turn.turnId, generation, callId, { resultJson: { catalog: true, kind: listed.spec.kind,
+            total: listed.total, returned: listed.returned }, sourceRefs: [] });
+        } catch (error) {
+          await store.settleToolCall(turn.turnId, generation, callId, { errorCode: safeCode(error?.code) }).catch(() => undefined);
+          if (error?.code === 'AI_CANCELLED') throw error;
+        }
+      }
+    }
     if (!initialSearchDone && grant && /(我的|我记|笔记|资料|文档|记录|之前|根据|比较|总结|引用)/.test(user.content)) {
       initialTools++;
       const callId = hashRecord({ turnId: turn.turnId, initialSearch: true });
@@ -487,11 +527,26 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       await store.renewLease(turn.turnId, generation);
       await store.setPhase(turn.turnId, generation, sourceRefs.length ? 'retrieving' : 'generating');
       let request, manifest = null;
+      // 已落盘的模型结果（恢复场景）可能含有原请求清单里的目录标题：先确认这些依赖仍被授权，并继承到新清单，
+      // 否则新清单只重建当前目录，旧标题就脱离了依赖链。依赖已失效则丢弃该结果，由用户显式重试重新生成。
+      const pending = (await store.listModelAttempts(turn.turnId)).find(attempt => attempt.ordinal > handledAttemptOrdinal && attempt.modelResult);
+      let inheritedCatalog = draft?.catalogDeps ?? null;
+      if (grant && pending?.manifestId) {
+        try {
+          const resumed = await access.catalogDependencies({ grantId: grant.grantId, manifestId: pending.manifestId });
+          inheritedCatalog = { noteIds: [...new Set([...(inheritedCatalog?.noteIds ?? []), ...resumed.noteIds])], folderIds: [...new Set([...(inheritedCatalog?.folderIds ?? []), ...resumed.folderIds])] };
+        }
+        catch (error) {
+          if (!['AI_SCOPE_FORBIDDEN', 'AI_SOURCE_STALE'].includes(error?.code)) throw error;
+          await store.rejectModelResult(turn.turnId, generation, pending.ordinal, 'AI_OUTPUT_INVALID');
+          fail('AI_SOURCE_STALE', '恢复的回答依赖的目录或笔记已不在授权范围内，请重试本轮。');
+        }
+      }
       if (grant) {
         const finalOnly = forceAnswer || round === maxRounds - 1 || totalTools >= maxTools;
         const roundGuidance = round ? finalOnly
-            ? '\n工具结果已写入当前 sources。请直接依据这些来源作答；不足之处明确说明。'
-            : '\n工具结果已写入当前 sources。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
+            ? '\n工具结果已写入当前 sources 或 catalog。请直接依据这些来源作答；不足之处明确说明。'
+            : '\n工具结果已写入当前 sources 或 catalog。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
         const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
         let prepared;
         for (;;) {
@@ -509,12 +564,14 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
               omissions: [...(sourceRefs.length ? [] : ['no_source_match']), ...(searchTruncated ? ['candidate_cap'] : []),
                 ...(searchFallback ? ['retrieval_fallback'] : [])], maxTokens: MAX_OUTPUT_TOKENS,
               writeToolName: turn.writeIntent?.toolName ?? null, assistantTools: !turn.writeIntent,
+              catalog: catalogSpecsFromCalls(await store.listToolCalls(turn.turnId)), inheritedCatalog,
               tools: availableTools(turn, true, finalOnly, artifactRequested, proposalRequested), format: 'json' });
             break;
           } catch (error) {
             // 提炼回合：来源体积超过请求预算（固定开销约 7KB，每条来源再加数百字节）时不让回合失败，
             // 从最旧的来源起移出窗口直到装得下；说明文字随后按移出后的真实窗口重算，并提示被移出重点的重新读取位置。
-            if (!proposalRequested || error?.code !== 'AI_CONTEXT_BUDGET' || sourceRefs.length <= 1) throw error;
+            if (error?.code !== 'AI_CONTEXT_BUDGET' || sourceRefs.length <= 1
+              || !proposalRequested && !(await store.listToolCalls(turn.turnId)).some(call => CATALOG_TOOL_NAMES.includes(call.toolName))) throw error;
             sourceRefs = sourceRefs.slice(1);
             budgetCapacity = Math.min(budgetCapacity ?? Infinity, sourceRefs.length);
           }
@@ -535,7 +592,6 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         if (turn.writeIntent) request.messages[0].content += '用户已明确请求生成笔记计划，只调用所开放的写入计划工具；不得宣称已保存。';
       }
       await save();
-      const pending = (await store.listModelAttempts(turn.turnId)).find(attempt => attempt.ordinal > handledAttemptOrdinal && attempt.modelResult);
       if (pending?.modelId && pending.modelId !== reference.modelId) fail('AI_MODEL_CHANGED', '恢复前模型配置已变化。');
       const delivery = pending ? { result: pending.modelResult, attemptOrdinal: pending.ordinal }
         : await paidCall(turn, generation, request, manifest, grant?.grantId ?? null, reference.credentialRef, signal);
@@ -560,9 +616,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         let proposalSaved = false;
         for (const call of result.toolCalls) {
           const planSources = uniqueRefs([...sourceRefs, ...(manifest?.historySources ?? [])]);
-          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId, proposalsOn);
+          const outcome = await executeTool(turn, generation, grant?.grantId ?? null, call, signal, planSources, user.content, reference.modelId, proposalsOn, manifest ? manifestCatalogDeps(manifest) : null);
           totalTools = (await store.listToolCalls(turn.turnId)).length;
-          proposalSaved ||= outcome.progress === true;
+          proposalSaved ||= outcome.progress === true || outcome.catalog === true;
           if (outcome.actionId) {
             await currentTurn(turn.turnId, generation, signal);
             await store.completeTurn(turn.turnId, generation, { content: turn.writeIntent
@@ -572,6 +628,7 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
           }
           if (outcome.external) externalContext = `\n外部来源（合成验收，非真实联网；不得当作个人笔记引用）：${JSON.stringify(outcome.external.hits)}`;
           if (outcome.errorCode?.startsWith('AI_PROPOSAL_')) toolFeedback = `\n最近工具结果：${outcome.errorCode}。${outcome.hint ?? '知识候选的引文必须与本次已读原文逐字一致并落在已读范围内；请先读取原文再修正，或向用户说明无法提议。'}`;
+          else if (outcome.errorCode === 'AI_SCOPE_FORBIDDEN') toolFeedback = '\n最近工具结果：AI_SCOPE_FORBIDDEN。该目录或笔记不存在或不在授权范围内；只使用 catalog 中出现过的 ID，不要猜测，也不要向用户暗示其他目录存在。';
           else if (outcome.errorCode) toolFeedback = `\n最近工具结果：${outcome.errorCode}。请调整参数，缺少公开关键词时只问关键问题。`;
           sourceRefs = uniqueRefs([...sourceRefs, ...outcome.sourceRefs]).slice(-12);
           searchTruncated ||= outcome.truncated;
@@ -612,6 +669,15 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         if (!answer.content) fail('AI_OUTPUT_INVALID', '模型返回空回答。');
       } catch (error) {
         if (['AI_CITATION_INVALID', 'AI_OUTPUT_INVALID'].includes(error.code)) await store.rejectModelResult(turn.turnId, generation, attemptOrdinal, error.code);
+        // 引文无法逐字核对时先让模型修正一次，而不是整轮失败；已展示的引用仍然逐条严格校验。
+        if (error.code === 'AI_CITATION_INVALID' && citationRepairs < 1 && round < maxRounds - 1) {
+          citationRepairs++;
+          toolFeedback = '\n注意：上一条回答的引用无法在 sources 中逐字核对。请重新作答：quote 必须逐字摘自 sources 的 text 且 sourceId 对应；不确定时 citations 留空数组。';
+          nextRound = round + 1;
+          handledAttemptOrdinal = attemptOrdinal;
+          await save();
+          continue;
+        }
         throw error;
       }
       if (externalContext) answer.content += '\n\n外部检索来源（合成验收，非真实联网）：' + renderExternalSources(externalContext);

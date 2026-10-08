@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createAiGateway, AiGatewayError } from '../src/modules/ai/gateway.js';
 import { createMockAiAdapter } from '../src/modules/ai/infrastructure/providers/mock-adapter.js';
 import { createDeepSeekAdapter } from '../src/modules/ai/infrastructure/providers/deepseek-adapter.js';
+import { deepSeekPayload } from '../src/modules/ai/outbound-payload.js';
 import { runCapabilityProbe } from '../src/modules/ai/capability-probe.js';
 
 const messages = [{ role: 'user', content: '请总结这段合成文字。' }];
@@ -13,6 +14,27 @@ const completion = (content, finish_reason = 'stop', extra = {}) => ({
 const tool = { name: 'notes_read', description: '读取获准笔记', parameters: { type: 'object', properties: { noteIds: { type: 'array' } } } };
 
 export const aiGatewayTests = [
+  {
+    name: 'AI Gateway：JSON 解析容忍围栏与说明文字，带工具时不强制 json_object 且纯文本回答按无引用处理',
+    async run() {
+      const jsonMessages = [{ role: 'system', content: '返回 JSON' }, ...messages];
+      const adapter = createMockAiAdapter({ steps: [
+        { response: completion('```json\n{"answer":"围栏","citations":[]}\n```') },
+        { response: completion('结果如下：{"answer":"夹带说明","citations":[]} 以上。') },
+        { response: completion('我直接用文字回答。') },
+        { response: completion('我直接用文字回答。') }
+      ] });
+      const gateway = createAiGateway({ adapter });
+      assert.equal((await gateway.complete({ messages: jsonMessages, format: 'json' })).json.answer, '围栏');
+      assert.equal((await gateway.complete({ messages: jsonMessages, format: 'json' })).json.answer, '夹带说明');
+      assert.deepEqual((await gateway.complete({ messages: jsonMessages, format: 'json', tools: [tool] })).json, { answer: '我直接用文字回答。', citations: [] });
+      await assert.rejects(gateway.complete({ messages: jsonMessages, format: 'json' }), { code: 'AI_JSON_INVALID' });
+      const request = { messages: jsonMessages, format: 'json', maxTokens: 64, tools: [], modelId: 'm' };
+      assert.deepEqual(deepSeekPayload(request).response_format, { type: 'json_object' });
+      assert.equal(deepSeekPayload({ ...request, tools: [tool] }).response_format, undefined);
+      assert.deepEqual(deepSeekPayload(request).thinking, { type: 'disabled' });
+    }
+  },
   {
     name: 'AI Gateway：Mock 文本、JSON、流式、拒答与截断状态不混淆',
     async run() {
@@ -74,7 +96,7 @@ export const aiGatewayTests = [
       assert.equal(calls[0].url, 'https://api.deepseek.com/chat/completions');
       assert.equal(calls[0].options.redirect, 'error');
       assert.equal(calls[0].options.headers.Authorization, 'Bearer synthetic-secret');
-      assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)).sort(), ['max_tokens', 'messages', 'model', 'stream']);
+      assert.deepEqual(Object.keys(JSON.parse(calls[0].options.body)).sort(), ['max_tokens', 'messages', 'model', 'stream', 'thinking']);
       assert.equal(JSON.stringify(result).includes('synthetic-secret'), false);
       assert.equal((await gateway.capabilities()).verified, false);
     }

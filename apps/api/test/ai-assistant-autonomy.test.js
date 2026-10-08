@@ -3,6 +3,7 @@ import { aiAssistantCrashgapTests } from './ai-assistant-crashgap.test.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { anchorForBlock, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 import { createPersistentAppContext } from '../src/app.factory.js';
 import { createOptionalAiRuntime } from '../src/modules/ai/runtime.js';
 import { createAssistantWebSearch } from '../src/modules/ai/assistant-tools.js';
@@ -80,6 +81,194 @@ export const aiAssistantAutonomyTests = [
     assert.equal((await runtime.conversationStore.listMessages(turn.conversationId)).at(-1).citations[0].noteId, note.id);
     assert.equal((await runtime.actions.list(space.id)).length, 0);
     assert(!requests[0].tools.some(item => item.name === 'notes_create'));
+  }) },
+  { name: '自主助手：先列目录再列笔记，标题经 catalog 回到模型，授权外目录不出现', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const other = folderService.createFolder({ spaceId: space.id, name: '烹饪' });
+    for (const title of ['引言', '反向传播']) noteService.createNote({ spaceId: space.id, folderId: dl.id, title, rawMarkdown: `${title}正文` });
+    noteService.createNote({ spaceId: space.id, folderId: other.id, title: '红烧肉', rawMarkdown: '食谱' });
+    const narrow = await runtime.access.createPolicy({ spaceId: space.id, scope: { kind: 'folder', folderId: dl.id }, excludedNoteIds: [],
+      includeAttachments: false, read: true, egress: true, recipients: ['deepseek'], expiresAt: new Date(Date.now() + 86400000).toISOString() });
+    const catalogOf = request => JSON.parse(request.messages.at(-1).content).catalog ?? [];
+    let round = 0;
+    respond(request => {
+      round++;
+      if (round === 1) return tool('folders_list', {}, 'c1');
+      if (round === 2) {
+        const [entry] = catalogOf(request);
+        assert.deepEqual(entry.folders.map(folder => folder.name), ['深度学习']);
+        return tool('notes_list', { folderId: entry.folders[0].folderId }, 'c2');
+      }
+      assert.deepEqual(catalogOf(request).map(entry => entry.kind), ['folders', 'notes']);
+      assert.deepEqual(catalogOf(request)[1].notes.map(note => note.title).sort(), ['反向传播', '引言']);
+      return answer('该目录下有《引言》和《反向传播》两篇笔记。', []);
+    });
+    const turn = await submit('深度学习那一块下面有什么', 'catalog-flow', narrow.policyId); await runtime.agent.run(turn.turnId);
+    assert(requests[0].tools.some(item => item.name === 'folders_list') && requests[0].tools.some(item => item.name === 'notes_list'));
+    assert.equal(requests.length, 3);
+    for (const request of requests) { const text = JSON.stringify(request.messages); assert.equal(text.includes('烹饪'), false); assert.equal(text.includes('红烧肉'), false); }
+    const messages = await runtime.conversationStore.listMessages(turn.conversationId);
+    assert.equal(messages.at(-1).content, '该目录下有《引言》和《反向传播》两篇笔记。');
+    // 授权回合的回答含标题，不能作为“无来源”普通历史进入此后的无授权聊天。
+    const plain = await submit('谢谢，再见', 'catalog-after-plain'); respond(() => answer('不客气'));
+    await runtime.agent.run(plain.turnId);
+    assert.equal(JSON.stringify(requests.at(-1).messages).includes('反向传播'), false);
+  }) },
+  { name: '自主助手：提到文件夹名时回合开始自动预取该目录的笔记标题，第一轮请求即带 catalog', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '引言', rawMarkdown: '正文' });
+    const p = await policy();
+    respond(request => {
+      const catalog = JSON.parse(request.messages.at(-1).content).catalog;
+      assert.deepEqual(catalog.map(entry => entry.kind), ['notes']);
+      assert.deepEqual(catalog[0].notes.map(note => note.title), ['引言']);
+      return answer('有《引言》。', []);
+    });
+    const turn = await submit('深度学习文件夹里有什么', 'catalog-prefetch', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal(requests.length, 1);
+    const calls = await runtime.conversationStore.listToolCalls(turn.turnId);
+    assert.deepEqual(calls.map(call => [call.toolName, call.status]), [['notes_list', 'succeeded']]);
+    // 没有命中目录名时预取顶层目录；不含目录词的问题不预取。
+    respond(request => { assert.equal(JSON.parse(request.messages.at(-1).content).catalog[0].kind, 'folders'); return answer('一个目录。', []); });
+    const other = await submit('我有哪些目录', 'catalog-prefetch-top', p.policyId); await runtime.agent.run(other.turnId);
+    respond(request => { assert.equal(JSON.parse(request.messages.at(-1).content).catalog, undefined); return answer('好的。', []); });
+    const none = await submit('随便聊聊', 'catalog-prefetch-none', p.policyId); await runtime.agent.run(none.turnId);
+  }) },
+  { name: '自主助手：问“哪篇重点最多”时预取按重点数排序的笔记列表，第一轮即可作答', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { noteService, contentAnnotationService } = app.modules.knowledge;
+    const annotate = (note, blockIndex, importance, key) => {
+      const anchor = anchorForBlock(projectMarkdown(note.rawMarkdown), blockIndex);
+      return contentAnnotationService.createAnnotation({ noteId: note.id, spaceId: note.spaceId, schemaVersion: 2, scopeType: 'blocks', anchor,
+        quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, noteContentHash: calculateContentHash(note.rawMarkdown),
+        anchorFingerprint: key, idempotencyKey: key, importance });
+    };
+    const few = noteService.createNote({ spaceId: space.id, title: '重点少', rawMarkdown: '段一\n\n段二' });
+    const many = noteService.createNote({ spaceId: space.id, title: '重点多', rawMarkdown: '段一\n\n段二\n\n段三' });
+    noteService.createNote({ spaceId: space.id, title: '没重点', rawMarkdown: '无' });
+    annotate(few, 0, 'important', 'few-0');
+    annotate(many, 0, 'normal', 'many-0'); annotate(many, 1, 'core', 'many-1'); annotate(many, 2, 'important', 'many-2');
+    const p = await policy();
+    respond(request => {
+      const [entry] = JSON.parse(request.messages.at(-1).content).catalog;
+      assert.deepEqual(entry.notes.map(note => [note.title, note.highlightCount, note.importantCount]), [['重点多', 3, 2], ['重点少', 1, 1], ['没重点', 0, 0]]);
+      return answer('「重点多」重点最多（3 处）。', []);
+    });
+    const turn = await submit('你帮我看一下我的笔记中哪一篇笔记的重点最多呢?', 'rank-highlights', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal(requests.length, 1);
+    assert.equal((await runtime.conversationStore.listMessages(turn.conversationId)).at(-1).content, '「重点多」重点最多（3 处）。');
+  }) },
+  { name: '自主助手：引文无法核对时先让模型修正一次；仍不合格才整轮失败', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    app.modules.knowledge.noteService.createNote({ spaceId: space.id, title: '光合作用', rawMarkdown: '光合作用需要阳光和水。' });
+    const p = await policy(); let round = 0;
+    respond(() => ++round === 1 ? answer('光合作用需要二氧化碳。', [{ sourceId: 'S1', quote: '笔记里并没有的原文' }])
+      : answer('光合作用需要阳光和水。', [{ sourceId: 'S1', quote: '光合作用需要阳光和水' }]));
+    const turn = await submit('根据我的笔记解释光合作用', 'citation-repair', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal(requests.length, 2);
+    assert.match(requests[1].messages.at(-1).content, /无法在 sources 中逐字核对/);
+    const last = (await runtime.conversationStore.listMessages(turn.conversationId)).at(-1);
+    assert.equal(last.content, '光合作用需要阳光和水。'); assert.equal(last.citations.length, 1);
+    respond(() => answer('无依据。', [{ sourceId: 'S1', quote: '永远对不上' }]));
+    const bad = await submit('根据我的笔记再解释一次光合作用', 'citation-repair-fail', p.policyId);
+    await assert.rejects(runtime.agent.run(bad.turnId), { code: 'AI_CITATION_INVALID' });
+  }) },
+  { name: '自主助手：目录有 20 篇长标题笔记时预取按预算缩小分页并提示还有更多，不因 AI_CONTEXT_BUDGET 失败', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    for (let index = 0; index < 20; index++) noteService.createNote({ spaceId: space.id, folderId: dl.id,
+      title: `${String(index).padStart(2, '0')}${'标'.repeat(78)}`, rawMarkdown: `正文${index}` });
+    const p = await policy();
+    respond(request => {
+      const [entry] = JSON.parse(request.messages.at(-1).content).catalog;
+      assert(entry.notes.length >= 5 && entry.notes.length < 20, `缩小后的条数 ${entry.notes.length}`);
+      assert.equal(entry.hasMore, true); assert.equal(entry.total, 20);
+      return answer('列出了一部分，还有更多。', []);
+    });
+    const turn = await submit('深度学习文件夹里有哪些笔记', 'catalog-budget', p.policyId); await runtime.agent.run(turn.turnId);
+    assert.equal((await runtime.conversationStore.getTurn(turn.turnId)).status, 'succeeded');
+    assert(Buffer.byteLength(JSON.stringify(requests[0].messages), 'utf8') < 12_000);
+  }) },
+  { name: '自主助手：目录标题生成的新稿以独立元数据记录依赖（含空正文笔记），切私密后续改与采纳均被拒绝', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const first = noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '引言', rawMarkdown: '引言正文' });
+    const blank = noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '空白笔记', rawMarkdown: ' ' });
+    noteService.updateNote(blank.id, { rawMarkdown: '' });
+    const p = await policy();
+    respond(() => tool('notes_create', { title: '深度学习目录', rawMarkdown: '- 引言\n- 空白笔记' }));
+    const turn = await submit('把深度学习文件夹里的笔记标题整理成一份新目录笔记', 'catalog-artifact', p.policyId); await runtime.agent.run(turn.turnId);
+    const [draft] = await runtime.actions.listInbox(space.id);
+    assert.deepEqual(draft.grant.sourceRefs, []);
+    assert.deepEqual([...draft.grant.catalogDeps.noteIds].sort(), [first.id, blank.id].sort());
+    // 续改（授权有效）时，依赖继承到新请求的清单，之后的回答也在依赖链上。
+    respond(() => answer('已精简。', []));
+    const follow = await submit('精简一下', 'catalog-artifact-follow', p.policyId); await runtime.agent.run(follow.turnId);
+    const manifests = await app.dataStore.aiAccessStore.list('aiRequestManifest');
+    assert(manifests.some(manifest => manifest.historyCatalog?.noteIds.includes(blank.id) && manifest.historyCatalog.noteIds.includes(first.id)));
+    // 空正文笔记切私密：没有可取的正文片段也照样拦截采纳；已转述过标题的后续回答依赖失效，整条排除、不再发给模型。
+    noteService.updateNote(blank.id, { aiVisibility: 'private' });
+    await assert.rejects(async () => { await runtime.actions.approve(draft.actionId, { planHash: draft.plan.planHash }); await runtime.actions.apply(draft.actionId); },
+      { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(app.dataStore.state.notes.length, 2);
+    respond(() => answer('不客气。', []));
+    const plain = await submit('好的，谢谢', 'catalog-artifact-plain', p.policyId); await runtime.agent.run(plain.turnId);
+    assert.equal(JSON.stringify(requests.at(-1).messages).includes('已精简。'), false);
+  }) },
+  { name: '自主助手：目录标题新稿的依赖笔记切私密后，紧接着的续改被拒绝且不向模型发送草稿', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const first = noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '引言', rawMarkdown: '引言正文' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '反向传播', rawMarkdown: '反向传播正文' });
+    const p = await policy();
+    respond(() => tool('notes_create', { title: '深度学习目录', rawMarkdown: '- 引言\n- 反向传播' }));
+    const turn = await submit('把深度学习文件夹里的笔记标题整理成一份新目录笔记', 'catalog-artifact-2', p.policyId); await runtime.agent.run(turn.turnId);
+    noteService.updateNote(first.id, { aiVisibility: 'private' });
+    const before = requests.length;
+    respond(() => answer('已精简。', []));
+    const follow = await submit('精简一下', 'catalog-artifact-2-follow', p.policyId);
+    await assert.rejects(runtime.agent.run(follow.turnId), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(requests.length, before);
+  }) },
+  { name: '自主助手：只含目录名的新稿也记录依赖，没有读取授权时不能续改', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '引言', rawMarkdown: '正文' });
+    const p = await policy();
+    respond(() => tool('notes_create', { title: '目录清单', rawMarkdown: '- 深度学习' }));
+    const turn = await submit('我有哪些文件夹，整理成一份新清单笔记', 'catalog-folders-only', p.policyId); await runtime.agent.run(turn.turnId);
+    const [draft] = await runtime.actions.listInbox(space.id);
+    assert.deepEqual(draft.grant.catalogDeps.folderIds, [dl.id]);
+    const before = requests.length;
+    respond(() => answer('已精简。', []));
+    const noPolicy = await submit('精简一下', 'catalog-folders-only-follow');
+    await assert.rejects(runtime.agent.run(noPolicy.turnId), { code: 'AI_SCOPE_FORBIDDEN' });
+    assert.equal(requests.length, before);
+  }) },
+  { name: '自主助手：模型结果落盘后回合完成前故障，恢复时依赖笔记已切私密则丢弃旧结果，重试后标题不再外发', run: () => fixture(async ({ app, runtime, space, policy, submit, respond, requests }) => {
+    const { folderService, noteService } = app.modules.knowledge;
+    const dl = folderService.createFolder({ spaceId: space.id, name: '深度学习' });
+    const secret = noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '待私密的标题', rawMarkdown: '正文' });
+    noteService.createNote({ spaceId: space.id, folderId: dl.id, title: '公开标题', rawMarkdown: '正文二' });
+    const p = await policy(); let calls = 0;
+    respond(request => { calls++; const titles = JSON.parse(request.messages.at(-1).content).catalog[0].notes.map(note => note.title).sort();
+      return answer(`目录下有：${titles.join('、')}`, []); });
+    const complete = runtime.conversationStore.completeTurn; let faulted = false;
+    runtime.conversationStore.completeTurn = async (...args) => {
+      if (!faulted) { faulted = true; throw Object.assign(new Error('synthetic fault after durable model result'), { code: 'AI_SYNTHETIC_IO_FAULT' }); }
+      return complete(...args);
+    };
+    const turn = await submit('深度学习文件夹里有什么', 'catalog-resume', p.policyId);
+    await assert.rejects(runtime.agent.run(turn.turnId), { code: 'AI_SYNTHETIC_IO_FAULT' });
+    assert.equal(calls, 1);
+    noteService.updateNote(secret.id, { aiVisibility: 'private' });
+    await assert.rejects(runtime.agent.run(turn.turnId), { code: 'AI_SOURCE_STALE' });
+    assert.equal(calls, 1); // 没有复用含旧标题的结果，也没有悄悄重发
+    await runtime.agent.retry(turn.turnId);
+    assert.equal(calls, 2);
+    assert.equal(JSON.stringify(requests.at(-1).messages).includes('待私密的标题'), false);
+    const last = (await runtime.conversationStore.listMessages(turn.conversationId)).at(-1);
+    assert.equal(last.content.includes('待私密的标题'), false);
   }) },
   { name: '自主助手：按时间检索周总结新稿，不要求预选写入模式', run: () => fixture(async ({ app, runtime, space, policy, submit, respond }) => {
     const repo = app.modules.knowledge.repositories.noteRepository;
