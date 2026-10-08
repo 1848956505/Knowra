@@ -55,7 +55,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
   return {
     actions, actionStore, attachments,
     generationAvailable: modelId => Boolean(allowExternal && priceProfile?.version
-      && priceProfile.modelId === modelId && Date.parse(priceProfile.expiresAt) > Date.now()),
+      && priceProfile.modelId === modelId && Number.isFinite(Date.parse(priceProfile.expiresAt))),
     priceProfile,
     repository,
     accessStore,

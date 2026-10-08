@@ -419,6 +419,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
               <span>{status?.modelId ? `${status.simulation ? '离线模拟' : 'DeepSeek'} · ${status.modelId}` : status ? '模型未配置' : ''}</span>
               {status?.simulation ? <span>离线模拟响应，未调用真实供应商。</span> : null}
               {status?.budget ? <span>今日可用 {(status.budget.availableMicrounits / 1_000_000).toFixed(2)} 元</span> : null}
+              {status?.priceNotice ? <span>{status.priceNotice}</span> : null}
               {status && !status.generationAvailable ? <span>{status.unavailableReason ?? '当前无法生成回答。'}</span> : null}
               {status && !status.configured ? <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>打开模型设置</Button> : null}
               {!status?.generationAvailable ? <Button variant="ghost" size="compact" onPress={() => void reloadPage()}>重试读取状态</Button> : null}
