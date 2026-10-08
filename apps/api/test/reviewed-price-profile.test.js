@@ -82,14 +82,14 @@ export const reviewedPriceProfileTests = [
     assert.equal(profile.inputMicrounitsPerMillion, 2_000_000);
     assert.equal(profile.outputMicrounitsPerMillion, 8_000_000);
     for (const time of ['2026-10-02T02:00:00.000Z', '2026-10-02T15:00:00.000Z', previousCutoff]) {
-      // 固定合成外发体为 112 字节；输入 224、输出 800 微元，再按两倍预留。
-      assert.equal(quote(time).inputUpperBound, 112);
-      assert.equal(quote(time).reservedMicrounits, 2048);
+      // 固定合成外发体为 143 字节；输入 286、输出 800 微元，再按两倍预留。
+      assert.equal(quote(time).inputUpperBound, 143);
+      assert.equal(quote(time).reservedMicrounits, 2172);
     }
     const larger = quote(reviewedAt, { ...request, tools: [{ name: 'notes_read',
       parameters: { type: 'object', description: 'x'.repeat(1000) } }] });
-    assert(larger.inputUpperBound > 112);
-    assert(larger.reservedMicrounits > 2048);
+    assert(larger.inputUpperBound > 143);
+    assert(larger.reservedMicrounits > 2172);
     assert.throws(() => quote(reviewedAt, { ...request,
       messages: [{ role: 'user', content: 'x'.repeat(100_000) }] }), { code: 'AI_REQUEST_LIMIT' });
     assert.throws(() => quote(reviewedAt, { ...request, maxTokens: 20_001 }), { code: 'AI_REQUEST_LIMIT' });
@@ -117,14 +117,14 @@ export const reviewedPriceProfileTests = [
       assert.equal(usage.priceVersion, priceVersion);
       assert.equal(usage.usageUnknown, true);
       assert.equal(usage.actualMicrounits, null);
-      assert.equal(usage.reservedMicrounits, 2048);
+      assert.equal(usage.reservedMicrounits, 2172);
       const reopened = createFileDataStore(file);
       const authority = reopened.aiBudgetAuthority;
       const day = beijingDay(new Date(reviewedAt));
       const held = authority.status(accountRef, day);
       assert.equal(held.spentMicrounits, 0);
-      assert.equal(held.heldMicrounits, 2048);
-      assert.equal(held.availableMicrounits, 20_000_000 - 2048);
+      assert.equal(held.heldMicrounits, 2172);
+      assert.equal(held.availableMicrounits, 20_000_000 - 2172);
       assert.equal(reopened.aiRepository.list('aiUsageRecord')[0].actualMicrounits, null);
       assert.throws(() => authority.reserve({ accountRef, day, jobId: records.job.jobId,
         attemptId: 'same-job-over-limit', priceVersion, reservedMicrounits: 2_000_000 }),
@@ -151,7 +151,7 @@ export const reviewedPriceProfileTests = [
       else await worker.run(records.job.jobId, request);
       const status = store.aiBudgetAuthority.status(accountRef, beijingDay(new Date(reviewedAt)));
       assert.equal(status.spentMicrounits, exceeded ? 0 : 60);
-      assert.equal(status.heldMicrounits, exceeded ? 2048 : 0);
+      assert.equal(status.heldMicrounits, exceeded ? 2172 : 0);
       const usage = store.aiRepository.list('aiUsageRecord');
       assert.equal(usage.length, exceeded ? 0 : 1);
       if (!exceeded) {

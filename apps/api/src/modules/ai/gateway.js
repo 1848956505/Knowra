@@ -1,6 +1,7 @@
 const TOOL_NAMES = new Set([
   'notes_search', 'notes_read', 'folders_list', 'tags_list', 'web_search',
-  'notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize', 'annotations_list', 'knowledge_propose'
+  'notes_create', 'notes_append', 'notes_propose_patch', 'notes_propose_organize', 'annotations_list', 'knowledge_propose',
+  'notes_list'
 ]);
 
 export class AiGatewayError extends Error {
@@ -86,7 +87,7 @@ export function normalizeAiRequest(value) {
     throw new AiGatewayError('AI_REQUEST_INVALID', 'JSON 输出请求需在提示词中明确指定 JSON。');
   }
   const tools = value.tools ?? [];
-  if (!Array.isArray(tools) || tools.length > 8 || tools.some(tool =>
+  if (!Array.isArray(tools) || tools.length > 12 || tools.some(tool =>
     !tool || !TOOL_NAMES.has(tool.name) || !tool.parameters || typeof tool.parameters !== 'object' || Array.isArray(tool.parameters))) {
     throw new AiGatewayError('AI_REQUEST_INVALID', '模型工具定义无效。');
   }
@@ -122,7 +123,11 @@ function normalize(raw, request, provider) {
   const refused = finishReason === 'content_filter' || typeof choice.message.refusal === 'string' && Boolean(choice.message.refusal);
   let json = null;
   if (request.format === 'json' && !truncated && !refused && finishReason === 'stop') {
-    try { json = JSON.parse(content); } catch { throw new AiGatewayError('AI_JSON_INVALID', '模型未返回有效 JSON。'); }
+    try { json = parseJsonContent(content); } catch {
+      // 带工具的请求没有强制 JSON 模式；模型直接用自然语言作答时，按无引用的回答处理，而不是让整轮失败。
+      if (!request.tools.length || typeof content !== 'string' || !content.trim()) throw new AiGatewayError('AI_JSON_INVALID', '模型未返回有效 JSON。');
+      json = { answer: content.trim(), citations: [] };
+    }
     if (!json || typeof json !== 'object' || Array.isArray(json)) throw new AiGatewayError('AI_JSON_INVALID', '模型 JSON 结果无效。');
   }
   const usage = raw.usage && Number.isSafeInteger(raw.usage.prompt_tokens) && raw.usage.prompt_tokens >= 0
@@ -136,4 +141,13 @@ function normalize(raw, request, provider) {
     provider, modelId: raw.model ?? null, requestId: raw.id ?? null,
     content: content ?? '', json, toolCalls, finishReason, truncated, refused, usage
   };
+}
+
+/** JSON 模式偶尔带 ```json 围栏或前后说明文字；先严格解析，失败再截取最外层对象。 */
+function parseJsonContent(content) {
+  try { return JSON.parse(content); } catch (error) {
+    const start = content?.indexOf('{') ?? -1, end = content?.lastIndexOf('}') ?? -1;
+    if (start < 0 || end <= start) throw error;
+    return JSON.parse(content.slice(start, end + 1));
+  }
 }
