@@ -185,9 +185,10 @@ export function pruneBudgetState(state, accountRef, today = beijingDay()) {
       if (!entry) { entry = { accountRef, month, requests: 0, spentMicrounits: 0, inputTokens: 0, outputTokens: 0, cacheHitTokens: 0 }; state.budgetMonths.push(entry); }
       entry.requests += 1;
       entry.spentMicrounits += row.actualMicrounits;
-      entry.inputTokens += normalizeUsage(row.usage)?.inputTokens ?? 0;
-      entry.outputTokens += normalizeUsage(row.usage)?.outputTokens ?? 0;
-      entry.cacheHitTokens += normalizeUsage(row.usage)?.cacheHitTokens ?? 0;
+      const detail = normalizeUsage(row.usage); // 折叠进月汇总前同样清洗，损坏的明细不会污染累计
+      entry.inputTokens += detail?.inputTokens ?? 0;
+      entry.outputTokens += detail?.outputTokens ?? 0;
+      entry.cacheHitTokens += detail?.cacheHitTokens ?? 0;
       daily.spentMicrounits -= row.actualMicrounits;
       folded += 1;
     }

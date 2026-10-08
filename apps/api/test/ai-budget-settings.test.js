@@ -232,5 +232,19 @@ export const aiBudgetSettingsTests = [
     assert.match(lines[2], /结果未知\(按预留占用\)/);
     assert.match(lines[2], /1\.000000/);
     assert.match(lines[3], /^2026-05 月汇总\(明细已折叠\),2026-05,2 次请求,,150,15,40,0\.500000/);
+  } },
+  { name: '已有损坏的用量明细：折叠进月汇总与 CSV 导出前同样清洗，不产生 NaN 或字符串拼接', run() {
+    const state = { budgetDays: [], budgetReservations: [], budgetMonths: [] };
+    for (const [n, day] of [[1, '2026-05-02'], [2, '2026-10-08']]) {
+      reserve(state, n, 1_000_000, { day });
+      settleBudget(state, { accountRef: account, attemptId: `a-${n}`, disposition: 'settled', actualMicrounits: 1000, usage: { inputTokens: 10, outputTokens: 1 } });
+    }
+    state.budgetReservations[0].usage = { inputTokens: '10', outputTokens: { x: 1 }, cacheHitTokens: -1 };
+    state.budgetReservations[1].usage = { inputTokens: 'x', modelId: 7 };
+    assert.equal(pruneBudgetState(state, account, '2026-10-08'), 1);
+    assert.deepEqual([state.budgetMonths[0].inputTokens, state.budgetMonths[0].outputTokens, state.budgetMonths[0].cacheHitTokens], [0, 0, 0]);
+    const csv = usageCsv(usageRows(state, account));
+    assert.equal(/NaN|undefined|\[object/.test(csv), false);
+    validateBudgetState(state);
   } }
 ];
