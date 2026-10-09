@@ -64,15 +64,17 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
     await capture('05-editor-bottom');
     await scroll.evaluate(element => { element.scrollTop = 0; });
-    const inspector = page.getByRole('button', { name: /^(打开|切换)文档检查器$/ });
-    if (await inspector.isVisible()) {
+    const compactInspector = page.getByRole('button', { name: '打开文档检查器', exact: true });
+    const inspector = await compactInspector.isVisible() ? compactInspector
+      : page.getByRole('button', { name: '切换文档检查器', exact: true });
+    await expect(inspector).toBeVisible();
+    {
       if (await inspector.getAttribute('aria-pressed') !== 'true') await inspector.click();
       await expect(page.getByRole('complementary', { name: '文档检查器', exact: true })).toBeVisible();
       await capture('06-inspector');
       await page.getByRole('button', { name: '关闭文档检查器', exact: true }).click();
       await expect(page.getByRole('complementary', { name: '文档检查器', exact: true })).toBeHidden();
     }
-    else await capture('06-inspector', '当前视口未显示检查器入口。');
     await page.goto('/#/assistant?new=1');
     const composer = page.getByRole('textbox', { name: '消息', exact: true });
     await expect(composer).toBeVisible();
