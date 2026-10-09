@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 import { inspectRuntimeBackup } from '../../desktop-runtime/src/backup.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -28,9 +29,9 @@ test('真实打包 APP 从第一合成根完整导出，第二独立根导入、
   [first, second, external].forEach(directory => fs.mkdirSync(directory));
   const attachmentBytes = Buffer.from('独立恢复合成附件\0\xff\n', 'utf8');
   let app, page;
-  t.after(async () => { await app?.close().catch(() => {}); if (!evidenceBase) fs.rmSync(run, { recursive: true, force: true }); });
+  t.after(async () => { await closeTestApplication(app); if (!evidenceBase) fs.rmSync(run, { recursive: true, force: true }); });
   const launch = async directory => {
-    app = await electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+    app = await launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
     page = await app.firstWindow(); await page.waitForLoadState('domcontentloaded');
   };
   const quit = async () => { const closed = app.waitForEvent('close'); await app.evaluate(({ app }) => app.quit()); await closed; app = null; };

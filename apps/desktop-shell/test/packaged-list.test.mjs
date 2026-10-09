@@ -5,12 +5,13 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 test('Mac 打包应用：列表子树标记、系统剪贴板粘贴、真实退出重开继续跟随', { timeout: 90000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-packaged-list-'));
   let app;
-  t.after(async () => { if (app) await app.close().catch(() => {}); fs.rmSync(directory, { recursive: true, force: true }); });
-  const launch = () => electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  t.after(async () => { await closeTestApplication(app); fs.rmSync(directory, { recursive: true, force: true }); });
+  const launch = () => launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   const quit = async () => {
     const closed = app.waitForEvent('close');
     await app.evaluate(({ app: nativeApp }) => nativeApp.quit());

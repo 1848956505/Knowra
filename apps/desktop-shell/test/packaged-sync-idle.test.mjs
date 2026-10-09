@@ -13,6 +13,7 @@ import { Note } from '../../api/src/modules/knowledge/domain/note.js';
 import { openWorkspace } from '../../desktop-runtime/test/helpers.mjs';
 import { writeMeta } from '../../desktop-runtime/src/sync-state.mjs';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 test('打包 Mac 应用：7201 条基线稳定空闲不写库、不刷新资料并记录后台能耗', {
   skip: process.env.KNOWRA_SYNC_ENERGY_CHECK !== '1', timeout: 120000
@@ -29,7 +30,7 @@ test('打包 Mac 应用：7201 条基线稳定空闲不写库、不刷新资料�
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(async () => {
-    db?.close(); await app?.close().catch(() => {});
+    db?.close(); await closeTestApplication(app);
     await new Promise(resolve => server.close(resolve)); fs.rmSync(directory, { recursive: true, force: true });
   });
   const { store, space } = openWorkspace(path.join(directory, 'offline'));
@@ -47,7 +48,7 @@ test('打包 Mac 应用：7201 条基线稳定空闲不写库、不刷新资料�
     database.prepare("UPDATE sync_outbox SET state = 'acknowledged'").run();
   });
   store.close();
-  app = await electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  app = await launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   const page = await app.firstWindow(); await page.waitForLoadState('domcontentloaded');
   await expect(page.getByRole('contentinfo').getByRole('button', { name: '本地资料已同步' })).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('AVAILABLE · 3600 ITEMS', { exact: true })).toBeVisible({ timeout: 20000 });

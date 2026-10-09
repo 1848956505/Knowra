@@ -6,12 +6,13 @@ import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 test('打包应用独立启动，隔离资料库正文在立即退出后落盘并可重启', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-mac-smoke-'));
   let app;
-  t.after(async () => { if (app) await app.close().catch(() => {}); fs.rmSync(directory, { recursive: true, force: true }); });
-  const launch = async () => electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  t.after(async () => { await closeTestApplication(app); fs.rmSync(directory, { recursive: true, force: true }); });
+  const launch = async () => launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   app = await launch();
   let page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
@@ -59,8 +60,8 @@ test('打包应用独立启动，隔离资料库正文在立即退出后落盘�
 test('保存失败时草稿落盘后才能退出，重启可恢复并再次正常保存', { timeout: 90000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-recovery-smoke-'));
   let app;
-  t.after(async () => { if (app) await app.close().catch(() => {}); fs.rmSync(directory, { recursive: true, force: true }); });
-  const launch = () => electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  t.after(async () => { await closeTestApplication(app); fs.rmSync(directory, { recursive: true, force: true }); });
+  const launch = () => launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   app = await launch();
   let page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');

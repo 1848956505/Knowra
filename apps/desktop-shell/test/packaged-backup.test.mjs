@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 const expectedVersion = JSON.parse(fs.readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')).version;
 
@@ -25,8 +26,8 @@ test('打包应用备份恢复隔离原生旧草稿，退出及重启均不会�
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-packaged-backup-'));
   const recoveryPath = path.join(directory, 'offline/recovery-drafts.json');
   let app;
-  t.after(async () => { if (app) await app.close().catch(() => {}); fs.rmSync(directory, { recursive: true, force: true }); });
-  const launch = () => electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  t.after(async () => { await closeTestApplication(app); fs.rmSync(directory, { recursive: true, force: true }); });
+  const launch = () => launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   const quit = async () => {
     const closed = app.waitForEvent('close');
     await app.evaluate(({ app: nativeApp }) => nativeApp.quit());

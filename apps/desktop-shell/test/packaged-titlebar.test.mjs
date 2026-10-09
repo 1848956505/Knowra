@@ -5,16 +5,17 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-titlebar-'));
-  const app = await electron.launch({
+  const app = await launchTestApplication(electron, {
     executablePath,
     env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory },
     timeout: 20000
   });
   t.after(async () => {
-    await app.close().catch(() => {});
+    await closeTestApplication(app);
     fs.rmSync(directory, { recursive: true, force: true });
   });
   const page = await app.firstWindow();
