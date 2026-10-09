@@ -1,4 +1,5 @@
 import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
+import { reclaimFreeSpace } from './sqlite-space-reclaim.mjs';
 import { readPrivateHistoryReferences, createUnsyncedHistoryDiscardGate } from './note-version-discard-gate.mjs';
 import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds } from '../../api/src/modules/knowledge/domain/history-retention.js';
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
@@ -269,6 +270,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   try { knowledgeExtractionTaskStore = createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransaction); }
   catch (error) { knowledgeExtractionTaskStoreError = error; }
   historyReady = true;
+  // 历史清理与队列压缩只释放页不缩小文件；启动时一次性整理，失败不影响使用。
+  reclaimFreeSpace(db, filePath);
 
   return {
     getHistoryRetentionReferences: () => aiRuntimeError || coreOperationStoreError || knowledgeExtractionCommitStoreError || knowledgeExtractionTaskStoreError
