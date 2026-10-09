@@ -33,8 +33,15 @@ jobs:
         run: |
           export KNOWRA_EVIDENCE_SHA="$(git rev-parse HEAD)"
           export KNOWRA_BASE_PRODUCTION_EQUIVALENT=false
-          if ! git diff --name-only "$KNOWRA_EVIDENCE_BASE" HEAD | grep -Ev '^(.github/workflows/mobile-evidence.yml|apps/web-v4/playwright.mobile-evidence.config.ts|apps/web-v4/e2e/mobile-evidence.(spec|fixture).ts)$'; then
+          if git diff --quiet "$KNOWRA_EVIDENCE_BASE" HEAD -- . \
+            ':(exclude).github/workflows/mobile-evidence.yml' \
+            ':(exclude)apps/web-v4/playwright.mobile-evidence.config.ts' \
+            ':(exclude)apps/web-v4/e2e/mobile-evidence.spec.ts' \
+            ':(exclude)apps/web-v4/e2e/mobile-evidence.fixture.ts'; then
             export KNOWRA_BASE_PRODUCTION_EQUIVALENT=true
+          else
+            status=$?
+            if [ "$status" -ne 1 ]; then exit "$status"; fi
           fi
           npm run test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts
       - uses: actions/upload-artifact@v4
