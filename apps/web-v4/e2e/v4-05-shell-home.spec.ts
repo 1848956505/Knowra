@@ -41,6 +41,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
 
     await trigger.click();
     await input.fill('设计复盘');
+    await expect(dialog.getByRole('option', { name: /设计复盘/ })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status')).toContainText('设计复盘');
