@@ -293,6 +293,20 @@ export function createAiConversationStore(adapter, { now = () => new Date() } = 
         state.conversations.push(record); return record;
       });
     },
+    /** 归档只改变可见性与只读状态；轮次、费用和来源记录原样保留。 */
+    async setConversationArchived({ ownerId, conversationId, archived }) {
+      return write(state => {
+        const conversation = state.conversations.find(row => row.conversationId === conversationId);
+        if (!conversation || conversation.ownerId !== ownerId) conversationError('AI_CONVERSATION_NOT_FOUND', '会话不存在。');
+        if (Boolean(conversation.archivedAt) === archived) return conversation;
+        if (archived && state.conversationTurns.some(row => row.conversationId === conversationId
+          && ['staged', 'running'].includes(row.status))) {
+          conversationError('AI_TURN_ACTIVE', '会话仍在生成回答，请停止后再归档。');
+        }
+        conversation.archivedAt = archived ? stamp() : null;
+        return conversation;
+      });
+    },
     async submitTurn({ ownerId, conversationId, content, idempotencyKey, requestedPolicyId = null, writeIntent = undefined }) {
       return write((state, identity) => {
         const conversation = state.conversations.find(row => row.conversationId === conversationId);

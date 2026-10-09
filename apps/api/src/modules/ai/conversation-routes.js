@@ -31,6 +31,9 @@ export async function handleConversationRoute({ request, response, url, conversa
         throw createAppError('AI_REQUEST_REJECTED', '会话请求无效。', 403);
       }
       if (!parts.length) { sendJson(response, 201, { data: await conversation.create(await parseBody(request, { limitBytes: 2048 })) }); return true; }
+      if (parts.length === 2 && (parts[1] === 'archive' || parts[1] === 'unarchive')) {
+        sendJson(response, 200, { data: await conversation.setArchived(parts[0], parts[1] === 'archive') }); return true;
+      }
       if (parts.length === 2 && parts[1] === 'messages') {
         sendJson(response, 202, { data: await conversation.submit(parts[0], await parseBody(request, { limitBytes: 125000 })) }); return true;
       }

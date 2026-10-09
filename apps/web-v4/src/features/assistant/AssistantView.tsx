@@ -6,7 +6,8 @@ import { Button } from '../../components/ui/button/Button';
 import { SegmentedButton, SegmentedControl } from '../../components/ui/button/SegmentedControl';
 import { Badge } from '../../components/ui/status/Badge';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay/Menu';
-import { ArrowRightIcon, CheckIcon, ChevronDownIcon, CopyIcon, EditIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
+import { PointMenu } from '../../components/ui/overlay/PointMenu';
+import { ArrowRightIcon, CheckIcon, ChevronDownIcon, CopyIcon, EditIcon, MoreHorizontalIcon, PinIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
 import { Select, TextAreaField } from '../../components/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '../../components/ui/overlay/Dialog';
 import { Popover, PopoverDialog, PopoverTrigger } from '../../components/ui/overlay/Popover';
@@ -97,6 +98,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const [focusedActionId, setFocusedActionId] = useState<string | null>(null);
   const [reviewedAction, setReviewedAction] = useState<NoteAction | null>(null);
   const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const [rowMenu, setRowMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [pinned, setPinned] = useState<string[]>([]);
   const inboxTrigger = useRef<HTMLButtonElement>(null);
   const inboxOpener = useRef<HTMLElement | null>(null);
   const mobileMenu = useRef<HTMLDetailsElement>(null);
@@ -109,8 +113,10 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const space = useRef(spaceId);
   space.current = spaceId;
 
+  const visibleConversations = useMemo(() => conversations.filter(item => !item.archivedAt), [conversations]);
+  const archivedConversations = useMemo(() => conversations.filter(item => item.archivedAt), [conversations]);
   const selected = newConversation ? null : conversations.find(item => item.conversationId === requestedId)
-    ?? conversations[0] ?? null;
+    ?? visibleConversations[0] ?? null;
   const selectedId = selected?.conversationId ?? null;
   selection.current = selectedId;
   const latestTurn = messages.length ? turns[messages[messages.length - 1].turnId] ?? null : null;
@@ -123,7 +129,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const chosenPolicy = activePolicies.find(item => item.policyId === scopeChoice);
   const pendingArtifacts = artifacts.filter(action => activeActionStatuses.includes(action.status)).length;
   const conversationTitle = selected ? (titles[selected.conversationId] ?? `会话 · ${formatTime(selected.createdAt)}`) : '新对话';
-  const historyGroups = ['今天', '昨天', '更早'].map(label => ({ label, items: conversations.filter(item => dayGroup(item.createdAt) === label) })).filter(group => group.items.length);
+  const pinnedConversations = visibleConversations.filter(item => pinned.includes(item.conversationId));
+  const historyGroups = ['今天', '昨天', '更早'].map(label => ({ label, items: visibleConversations.filter(item => !pinned.includes(item.conversationId) && dayGroup(item.createdAt) === label) })).filter(group => group.items.length);
   const noteName = (id: string) => notes.find(note => note.id === id)?.title || '已移除的笔记';
   const scopeName = (policy: AccessPolicy) => {
     const scope = policy.scope;
@@ -262,6 +269,59 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     pendingSend.current = null; setDraft(''); setError(null); setNotice(null);
     mobileMenu.current?.removeAttribute('open');
     navigate(`/assistant?conversationId=${encodeURIComponent(id)}`);
+  }
+
+  const pinKey = `knowra:assistant:pinned:${spaceId ?? ''}`;
+  useEffect(() => {
+    try { const raw = JSON.parse(localStorage.getItem(pinKey) ?? '[]'); setPinned(Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []); }
+    catch { setPinned([]); }
+  }, [pinKey]);
+  function togglePin(id: string) {
+    setPinned(previous => {
+      const next = previous.includes(id) ? previous.filter(item => item !== id) : [id, ...previous];
+      try { localStorage.setItem(pinKey, JSON.stringify(next)); } catch { /* 固定仅为本机便利，存储不可用时本次会话内仍生效 */ }
+      return next;
+    });
+  }
+  const conversationName = (item: Conversation) => titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`;
+  function runRowAction(key: string, id: string) {
+    if (key === 'pin') togglePin(id); else void archiveConversation(id, true);
+  }
+  const rowMenuItems = (id: string) => <>
+    <MenuItem id="pin">{pinned.includes(id) ? '取消固定' : '固定对话'}</MenuItem>
+    <MenuItem id="archive">归档对话</MenuItem>
+  </>;
+  const renderRow = (item: Conversation, trailing: string, dateTime: boolean) => <div key={item.conversationId} className={styles.historyRow}
+    data-pinned={pinned.includes(item.conversationId) || undefined}
+    onContextMenu={event => { event.preventDefault(); setRowMenu({ id: item.conversationId, x: event.clientX, y: event.clientY }); }}>
+    <button type="button" className={styles.historyItem} aria-current={item.conversationId === selectedId && !inboxOpen ? 'true' : undefined}
+      onClick={() => { setInboxOpen(false); chooseConversation(item.conversationId); }}>
+      <span>{conversationName(item)}</span>
+      {item.readOnly ? <small>只读</small> : dateTime ? <time dateTime={item.createdAt}>{trailing}</time> : null}
+    </button>
+    <span className={styles.historyActions}>
+      <MenuTrigger>
+        <Button variant="ghost" size="mini" iconOnly aria-label={`对话操作：${conversationName(item)}`}><MoreHorizontalIcon size={14} /></Button>
+        <MenuPopover placement="bottom end"><Menu ariaLabel="对话操作" onAction={key => runRowAction(String(key), item.conversationId)}>
+          {rowMenuItems(item.conversationId)}
+        </Menu></MenuPopover>
+      </MenuTrigger>
+      <Button className={styles.pinButton} variant="ghost" size="mini" iconOnly aria-pressed={pinned.includes(item.conversationId)}
+        aria-label={`${pinned.includes(item.conversationId) ? '取消固定' : '固定'}：${conversationName(item)}`}
+        onPress={() => togglePin(item.conversationId)}><PinIcon size={14} /></Button>
+    </span>
+  </div>;
+
+  async function archiveConversation(id: string, archived: boolean) {
+    const capturedSpace = space.current;
+    setError(null); setNotice(null);
+    try {
+      const updated = await conversationApi.setArchived(id, archived);
+      if (space.current !== capturedSpace) return;
+      setConversations(previous => previous.map(item => item.conversationId === id ? updated : item));
+      setNotice(archived ? '对话已归档，可在“已归档”中恢复。' : '对话已恢复。');
+      if (archived && selection.current === id) { pendingSend.current = null; setDraft(''); navigate('/assistant?new=1'); }
+    } catch (cause) { setError(errorText(cause, archived ? '归档失败。' : '恢复失败。')); }
   }
 
   function switchSpace(id: string) {
@@ -466,7 +526,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           <summary>菜单</summary>
           <div className={styles.mobileMenuBody}>
             <strong>最近对话</strong>
-            {conversations.map(item => <button key={item.conversationId} type="button" onClick={() => chooseConversation(item.conversationId)}>
+            {visibleConversations.map(item => <button key={item.conversationId} type="button" onClick={() => chooseConversation(item.conversationId)}>
               {titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</button>)}
             <Select label="知识空间" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
               options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} />
@@ -474,15 +534,34 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
         </details>
         <div className={styles.spaceSwitch}><Select label="知识空间" presentation="toolbar" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
           options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} /></div>
-        <div className={styles.historyList}>{conversations.length ? historyGroups.map(group => <section key={group.label} className={styles.historyGroup}>
-          <h2>{group.label}</h2>
-          {group.items.map(item => <button key={item.conversationId} type="button"
-            className={styles.historyItem} aria-current={item.conversationId === selectedId && !inboxOpen ? 'true' : undefined}
-            onClick={() => { setInboxOpen(false); chooseConversation(item.conversationId); }}>
-            <span>{titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</span>
-            {item.readOnly ? <small>只读</small> : <time dateTime={item.createdAt}>{group.label === '今天' ? formatClock(item.createdAt) : formatDay(item.createdAt)}</time>}
-          </button>)}
-        </section>) : <p className={styles.muted}>还没有会话。</p>}</div>
+        <div className={styles.historyList}>{visibleConversations.length ? <>
+          {pinnedConversations.length ? <section className={styles.historyGroup}>
+            <h2>已固定</h2>
+            {pinnedConversations.map(item => renderRow(item, formatDay(item.createdAt), true))}
+          </section> : null}
+          {historyGroups.map(group => <section key={group.label} className={styles.historyGroup}>
+            <h2>{group.label}</h2>
+            {group.items.map(item => renderRow(item, group.label === '今天' ? formatClock(item.createdAt) : formatDay(item.createdAt), true))}
+          </section>)}
+        </> : <p className={styles.muted}>{conversations.length ? '没有进行中的对话。' : '还没有会话。'}</p>}
+          {archivedConversations.length ? <section className={styles.historyGroup}>
+            <button type="button" className={styles.archivedToggle} aria-expanded={archivedOpen} onClick={() => setArchivedOpen(open => !open)}>
+              已归档 · {archivedConversations.length}<ChevronDownIcon size={12} />
+            </button>
+            {archivedOpen ? archivedConversations.map(item => <div key={item.conversationId} className={styles.historyRow}>
+              <button type="button" className={styles.historyItem} aria-current={item.conversationId === selectedId && !inboxOpen ? 'true' : undefined}
+                onClick={() => { setInboxOpen(false); chooseConversation(item.conversationId); }}>
+                <span>{titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</span><small>只读</small>
+              </button>
+              <Button className={styles.restoreButton} variant="ghost" size="mini" aria-label={`恢复对话：${titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}`}
+                onPress={() => void archiveConversation(item.conversationId, false)}>恢复</Button>
+            </div>) : null}
+          </section> : null}</div>
+        <PointMenu point={rowMenu} onOpenChange={open => { if (!open) setRowMenu(null); }}>
+          <Menu ariaLabel="对话操作" onAction={key => { if (rowMenu) runRowAction(String(key), rowMenu.id); setRowMenu(null); }}>
+            {rowMenu ? rowMenuItems(rowMenu.id) : <MenuItem id="pin">固定对话</MenuItem>}
+          </Menu>
+        </PointMenu>
       </aside>
       <div className={styles.content}>
         {status && !status.generationAvailable ? <p className={styles.statusWarning} role="status">{status.unavailableReason ?? '当前无法生成回答。'}</p> : null}
@@ -562,17 +641,16 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             </> : null}
           </div> : null}
         </div>
-        {error ? <div className={styles.error} role="alert">{error} <Button variant="ghost" size="compact"
-          onPress={() => void reloadPage()}>重新加载助手</Button></div> : null}
-        {notice ? <p className={styles.muted} role="status">{notice}</p> : null}
-        {reviewingOtherDraft ? <p className={styles.reviewWarning} role="status">当前审阅成果不能作为此轮聊天的修改目标；右侧选稿不会改变实际目标。关闭审阅后可继续普通对话。</p> : null}
         <div className={styles.composer} aria-label="提问区">
           <div className={styles.composerInner}>
+            {error ? <div className={styles.composerNote} data-tone="error" role="alert"><span>{error}</span><Button variant="ghost" size="compact"
+              onPress={() => void reloadPage()}>重新加载助手</Button></div> : null}
+            {notice ? <p className={styles.composerNote} role="status">{notice}</p> : null}
+            {reviewingOtherDraft ? <p className={styles.composerNote} data-tone="error" role="status">当前审阅成果不能作为此轮聊天的修改目标；右侧选稿不会改变实际目标。关闭审阅后可继续普通对话。</p> : null}
             {selected?.readOnly ? <div className={styles.readOnlyComposer}>
               <span>这是历史会话，只能回看。</span>
               <Button variant="accent" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
             </div> : <>
-              {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               {extractNote && (proposalsFlag === 'off' || proposalsFlag === 'unknown') ? <p className={styles.composerHint} role="status">
                 {proposalsFlag === 'off' ? '该功能未开启，可在设置中开启。' : '无法确认“AI 提炼知识点”是否已开启，可在设置中查看。'}
                 <Button variant="ghost" size="compact" onPress={() => navigate('/settings')}>前往设置</Button></p> : null}
@@ -608,7 +686,10 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                     onPress={() => void send()}><span className={styles.sendIcon}><ArrowRightIcon size={16} /></span></Button>
                 </div>
               </div>
-              <p className={styles.composerHint}>{chosenPolicy ? '仅相关且获授权的笔记片段可能发送给 DeepSeek。' : '附件仅存于当前对话，尚不能用于内容问答；需授权后才能读取笔记。'}</p>
+              <p className={styles.composerHint}>
+                {initialNoteId && notes.some(note => note.id === initialNoteId) ? <span>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</span> : null}
+                <span>{chosenPolicy ? '仅相关且获授权的笔记片段可能发送给 DeepSeek。' : '附件仅存于当前对话，尚不能用于内容问答；需授权后才能读取笔记。'}</span>
+              </p>
               {draft.length > 3800 ? <p className={styles.composerError} role="alert">问题超过 3800 字符。</p> : null}
             </>}
           </div>

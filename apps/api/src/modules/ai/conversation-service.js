@@ -51,6 +51,10 @@ export function createAiConversationService({ store, legacyRepository, accessSto
       return Promise.all(conversations.map(viewConversation));
     },
     async get(id) { return viewConversation(await ownedConversation(id)); },
+    async setArchived(id, archived) {
+      await ownedConversation(id);
+      return viewConversation(await store.setConversationArchived({ ownerId, conversationId: id, archived }));
+    },
     async messages(id, afterSequence = 0, limit = 50) {
       await ownedConversation(id);
       if (!Number.isSafeInteger(afterSequence) || afterSequence < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {

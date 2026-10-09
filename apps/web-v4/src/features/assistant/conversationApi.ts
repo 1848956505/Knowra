@@ -7,6 +7,7 @@ export interface Conversation {
   updatedAt: string;
   historicalDataset: boolean;
   readOnly: boolean;
+  archivedAt?: string | null;
 }
 
 export interface SourceRef {
@@ -80,6 +81,9 @@ export const conversationApi = {
   list: (spaceId: string) => data<Conversation[]>(`${root}?spaceId=${encodeURIComponent(spaceId)}`),
   create: (spaceId: string, conversationId: string) => data<Conversation>(root, {
     method: 'POST', headers: conversationHeaders, body: JSON.stringify({ spaceId, conversationId })
+  }),
+  setArchived: (id: string, archived: boolean) => data<Conversation>(`${path(id)}/${archived ? 'archive' : 'unarchive'}`, {
+    method: 'POST', headers: conversationHeaders
   }),
   messages: (id: string, afterSequence = 0) => data<ConversationMessage[]>(
     `${path(id)}/messages?afterSequence=${afterSequence}&limit=100`),
