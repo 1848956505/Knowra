@@ -124,6 +124,14 @@ export interface EditorInspectorProps {
 
 export function EditorInspector(props: EditorInspectorProps) {
   const [selectedTab, setSelectedTab] = useState('info');
+  const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 1100px), (any-pointer: coarse)').matches ?? false);
+  useEffect(() => {
+    const query = window.matchMedia?.('(max-width: 1100px), (any-pointer: coarse)');
+    if (!query) return;
+    const update = () => setCompact(query.matches);
+    update(); query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const tags = useMemo(() => resolveNoteTags(props.note, props.tags), [props.note, props.tags]);
@@ -150,7 +158,7 @@ export function EditorInspector(props: EditorInspectorProps) {
     if (props.overlappingAnnotationIds?.length) setSelectedTab('annotations');
   }, [props.overlappingAnnotationIds]);
 
-  return (
+  const inspector = (
     <aside
       className={styles.inspector}
       data-open={props.open || undefined}
@@ -159,7 +167,7 @@ export function EditorInspector(props: EditorInspectorProps) {
     >
       <header className={styles.header}>
         <h2>文档检查器</h2>
-        <GhostIconButton aria-label="关闭文档检查器" onPress={props.onClose}>
+        <GhostIconButton autoFocus={compact} aria-label="关闭文档检查器" onPress={props.onClose}>
           <CloseIcon size={18} />
         </GhostIconButton>
       </header>
@@ -235,6 +243,12 @@ export function EditorInspector(props: EditorInspectorProps) {
       />
     </aside>
   );
+  return compact ? (
+    <Dialog title="文档检查器" presentation="panel" className={styles.inspectorDialog}
+      isOpen={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}>
+      {inspector}
+    </Dialog>
+  ) : inspector;
 }
 
 function InfoPanel(props: EditorInspectorProps & {

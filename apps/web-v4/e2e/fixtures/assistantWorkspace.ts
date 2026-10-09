@@ -17,6 +17,7 @@ export async function mockAssistantWorkspace(page: Page) {
     parseStatus: 'not_parsed', errorCode: 'AI_ATTACHMENT_NOT_PARSED', parserVersion: null,
     parsedTextHash: null, imageMetadata: null, removedAt: null, createdAt, updatedAt: createdAt };
   const attachments = [attachment];
+  const uploads: Record<string, unknown>[] = [];
   const action = { actionId: 'action-1', requestId: 'synthetic-request', status: 'awaitingApproval', reviewRequired: true,
     errorCode: null, expiresAt: '2030-01-01T00:00:00Z', receipt: null, revision: 1,
     plan: { planHash: 'synthetic-hash', toolName: 'notes_create', items: [{ before: null, after: {
@@ -40,11 +41,15 @@ export async function mockAssistantWorkspace(page: Page) {
     } else if (pathname.endsWith('/messages')) data = messages;
     else if (pathname.includes('/turns/')) data = turn;
     else if (pathname.endsWith('/preview')) data = { attachment, segments: [], imageMetadata: null };
-    else if (pathname.endsWith('/attachments')) data = { attachments };
+    else if (pathname.endsWith('/attachments') && request.method() === 'POST') {
+      const input = request.postDataJSON(); uploads.push(input);
+      const row = { ...attachment, attachmentId: `upload-${uploads.length}`, fileName: input.fileName, mimeType: input.mimeType };
+      attachments.push(row); data = { attachment: row };
+    } else if (pathname.endsWith('/attachments')) data = { attachments };
     else if (request.method() === 'POST') data = conversation;
     await route.fulfill({ json: { data } });
   });
   await page.route('**/api/ai/inbox**', route => route.fulfill({ json: { data: [action] } }));
   await page.route('**/api/ai/actions**', route => route.fulfill({ json: { data: [] } }));
-  return { messages, submitted, action };
+  return { messages, submitted, action, uploads };
 }

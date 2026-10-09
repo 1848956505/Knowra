@@ -1223,7 +1223,8 @@ test('V4-07 围栏输入支持语言符号且长代码随宽度软换行', async
   await expect(editor.locator(':scope > p')).toHaveText('after');
 });
 
-test('V4-07 代码块内 ⌘A 仅选当前代码，正文 ⌘A 仍选整篇笔记', async ({ page }) => {
+for (const modifier of ['Control', 'Meta']) {
+test(`V4-07 代码块 ${modifier}+A 选当前代码，正文平台全选选整篇`, async ({ page }) => {
   const codeText = 'first line\nsecond line';
   await mockEditorWorkspace(page, [], [], `正文之前\n\n\`\`\`python\n${codeText}\n\`\`\`\n\n正文之后\n\n\`\`\`js\nother block\n\`\`\``);
   await page.goto('/#/materials/notes/note-1');
@@ -1240,22 +1241,23 @@ test('V4-07 代码块内 ⌘A 仅选当前代码，正文 ⌘A 仍选整篇笔�
   });
   const selectedText = () => page.evaluate(() => window.getSelection()?.toString() ?? '');
   await expect.poll(selectedText).toBe('rst');
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe(codeText);
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe(codeText);
   await editor.locator('pre[data-code-block] > code').last().click();
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe('other block');
   await page.getByRole('button', { name: '编辑', exact: true }).click();
   await page.getByRole('menuitem', { name: '全选', exact: true }).click();
   await expect.poll(selectedText).toBe('other block');
   await editor.locator(':scope > p').first().click();
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press('ControlOrMeta+a');
   await expect.poll(selectedText).toContain('正文之前');
   await expect.poll(selectedText).toContain('正文之后');
   await expect.poll(selectedText).toContain('other block');
 });
+}
 
 test('V4-07 参考样式代码块支持空块删除与非空行插入', async ({ page }) => {
   const saved: string[] = [];

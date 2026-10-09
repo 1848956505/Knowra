@@ -72,6 +72,19 @@ for (const viewport of viewports) {
       await activate(inspectorTrigger);
       const inspector = page.getByRole('complementary', { name: '文档检查器', exact: true });
       await expect(inspector).toBeVisible();
+      if (compact) {
+        const modal = page.getByRole('dialog', { name: '文档检查器', exact: true });
+        await expect(inspector.getByRole('button', { name: '关闭文档检查器' })).toBeFocused();
+        for (let i = 0; i < 15; i++) {
+          await page.keyboard.press('Tab');
+          expect(await modal.evaluate(element => element.contains(document.activeElement))).toBe(true);
+        }
+        await page.keyboard.press('Escape'); await expect(modal).toBeHidden();
+        await expect(inspectorTrigger).toBeFocused();
+        await activate(inspectorTrigger); await page.mouse.click(2, 2);
+        await expect(modal).toBeHidden(); await expect(inspectorTrigger).toBeFocused();
+        await activate(inspectorTrigger);
+      }
       await expectInViewport(page, inspector.getByRole('button', { name: '关闭文档检查器' }));
       await activate(inspector.getByRole('tab', { name: '信息', exact: true }));
       await attachScreenshot(page, '文档检查器');
@@ -168,3 +181,22 @@ test('390px 键盘压缩视口保留消息输入、发送与导航', async ({ pa
   await expectInViewport(page, input); await expectInViewport(page, page.getByRole('button', { name: '发送消息' }));
   await expectShellContained(page); await attachScreenshot(page, '缩短视口模拟键盘');
 });
+
+for (const target of ['消息输入区', '附件弹层']) {
+  test(`390px ${target}粘贴图片仅保存一次`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 843 });
+    await mockEditorWorkspace(page, [], [], markdown); const mock = await mockAssistantWorkspace(page);
+    await page.goto('/#/assistant?conversationId=conversation-1');
+    await expect(page.getByRole('button', { name: '附件（1）' })).toBeVisible();
+    if (target === '附件弹层') await page.getByRole('button', { name: '附件（1）' }).click();
+    const element = target === '附件弹层' ? page.getByRole('dialog', { name: '对话附件管理' }) : page.getByRole('textbox', { name: '消息', exact: true });
+    await element.evaluate(node => {
+      const clipboardData = new DataTransfer();
+      clipboardData.items.add(new File(['synthetic image'], 'clipboard.png', { type: 'image/png' }));
+      node.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData }));
+    });
+    await expect(page.getByRole('button', { name: '预览 粘贴图片.png' })).toBeVisible();
+    expect(mock.uploads).toEqual([expect.objectContaining({ fileName: '粘贴图片.png', mimeType: 'image/png' })]);
+    expect(mock.submitted).toHaveLength(0);
+  });
+}

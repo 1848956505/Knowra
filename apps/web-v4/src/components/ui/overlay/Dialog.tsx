@@ -49,6 +49,8 @@ export interface DialogProps extends Omit<RADialogProps, 'className' | 'children
   /** 描述（同时给 aria-describedby）。 */
   description?: string;
   size?: 'sm' | 'md';
+  /** 独立滚动面板，自带可见标题与关闭按钮。 */
+  presentation?: 'dialog' | 'panel';
   /** 受控打开状态；与 DialogTrigger 不可同时使用。 */
   isOpen?: boolean;
   /** 受控状态变更回调（关闭、背景点击、Esc）。 */
@@ -56,10 +58,10 @@ export interface DialogProps extends Omit<RADialogProps, 'className' | 'children
 }
 
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
-  { title, children, className, isDismissable = true, isPending, description, isOpen, onOpenChange, size = 'sm', ...rest },
+  { title, children, className, isDismissable = true, isPending, description, isOpen, onOpenChange, size = 'sm', presentation = 'dialog', ...rest },
   ref
 ) {
-  const sizeClass = size === 'md' ? styles.sizeMd : styles.sizeSm;
+  const sizeClass = presentation === 'panel' ? styles.panelSize : size === 'md' ? styles.sizeMd : styles.sizeSm;
   return (
     <ModalShell
       isDismissable={Boolean(isDismissable)}
@@ -76,12 +78,12 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
       >
         {({ close }) => (
           <DialogCloseContext.Provider value={{ close }}>
-            <header className={styles.header}>
+            {presentation !== 'panel' ? <header className={styles.header}>
               <RAHeading slot="title" className={styles.title}>{title}</RAHeading>
               {isDismissable ? (
                 <DialogClose aria-label="关闭对话框" />
               ) : null}
-            </header>
+            </header> : null}
             {description ? (
               <p className={styles.description}>{description}</p>
             ) : null}

@@ -189,3 +189,17 @@ it('文件缺失保留附件信息与移除入口，禁止正文或图片预览'
   expect(screen.getByRole('button', { name: '预览 资料.txt' })).toBeDisabled();
   expect(screen.getByRole('button', { name: '移除 资料.txt' })).toBeEnabled(); expect(api.content).not.toHaveBeenCalled();
 });
+
+it.each(['弹层', '消息输入区'])('%s粘贴图片仅上传一次', async (target) => {
+  const image = { ...attachment, fileName: '粘贴图片.png', mimeType: 'image/png' };
+  vi.mocked(api.upload).mockResolvedValueOnce(image);
+  await open();
+  const composer = document.createElement('textarea');
+  composer.setAttribute('data-conversation-composer', ''); document.body.append(composer);
+  const element = target === '弹层' ? screen.getByRole('dialog', { name: '对话附件管理' }) : composer;
+  fireEvent.paste(element, { clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => new File(['png'], 'clipboard', { type: 'image/png' }) }] } });
+  await screen.findByRole('button', { name: '预览 粘贴图片.png' });
+  expect(api.upload).toHaveBeenCalledOnce();
+  expect(api.upload).toHaveBeenCalledWith('conversation', expect.objectContaining({ fileName: '粘贴图片.png', mimeType: 'image/png' }));
+  composer.remove();
+});

@@ -122,7 +122,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     if (task.valid) void sendFile(task);
   }
   function paste(event: ClipboardEvent) {
-    if (!(event.target instanceof Element) || !event.target.closest('[data-conversation-composer], [aria-label="对话附件"]')) return;
+    if (!(event.target instanceof Element) || !event.target.closest('[data-conversation-composer], [data-conversation-attachments]')) return;
     const image = Array.from(event.clipboardData?.items ?? []).find(item => item.kind === 'file' && ['image/png', 'image/jpeg'].includes(item.type));
     if (!image || loading || busy || uploadTask.current) return;
     const file = image.getAsFile(); if (!file) return;
@@ -144,11 +144,11 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     catch (cause) { if (mounted.current && generation.current === captured) setError(errorText(cause)); }
     finally { if (mounted.current && generation.current === captured) setBusy(false); }
   }
-  return <section className={styles.picker} aria-label="对话附件" tabIndex={0}>
+  return <section className={styles.picker} data-conversation-attachments aria-label="对话附件" tabIndex={0}>
     <PopoverTrigger isOpen={open} onOpenChange={setOpen}>
       <Button variant="ghost" size="compact">附件（{attachments.length}）</Button>
       <Popover placement="top start" className={styles.popover}>
-      <PopoverDialog ref={dialogRef} className={styles.dialog} aria-label="对话附件管理">
+      <PopoverDialog ref={dialogRef} className={styles.dialog} data-conversation-attachments aria-label="对话附件管理">
       <div className={styles.header}><strong>对话附件</strong><Button variant="ghost" size="compact" onPress={() => setOpen(false)}>关闭附件</Button></div>
       <p>附件仅保存到此对话。{unparsedNotice}</p>
       <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"
