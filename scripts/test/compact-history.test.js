@@ -231,3 +231,61 @@ test('多个进程竞争原子发布的写锁，任意时刻只允许一个持�
   assert.equal(fs.existsSync(`${f.file}.write-lock`), false);
   assert.equal(fs.existsSync(marker), false);
 });
+
+test('临时锁文件清理一次 EACCES 不丢失公开锁句柄，同进程连续保存可成功', t => {
+  const f = fixture(t), target = `${f.file}.write-lock`;
+  const remove = fs.rmSync, warn = console.warn;
+  let prepared, injected = 0;
+  const warnings = [];
+  fs.rmSync = (file, ...args) => {
+    if (!injected && String(file).startsWith(`${target}.`) && String(file).endsWith('.tmp')) {
+      assert.equal(JSON.parse(fs.readFileSync(target, 'utf8')).pid, process.pid, '删除失败发生在公开锁已取得之后');
+      prepared = file; injected++;
+      throw Object.assign(new Error('injected cleanup EACCES'), { code: 'EACCES' });
+    }
+    return remove(file, ...args);
+  };
+  console.warn = (...args) => warnings.push(args);
+  try {
+    f.store.runTransaction(() => { f.store.state.notes[0].title = '清理失败时仍完成保存'; f.store.flush(); });
+  } finally { fs.rmSync = remove; console.warn = warn; }
+  assert.equal(injected, 1);
+  assert.equal(fs.existsSync(prepared), true, '未删掉的独立临时文件不影响互斥锁');
+  assert.equal(fs.existsSync(target), false, '保存结束必须释放公开锁');
+  assert.equal(createFileDataStore(f.file).state.notes[0].title, '清理失败时仍完成保存');
+  assert.equal(warnings.length, 1);
+  for (let retry = 0; retry < 2; retry++) {
+    f.store.runTransaction(() => { f.store.state.notes[0].title = `同进程再次保存${retry}`; f.store.flush(); });
+    assert.equal(createFileDataStore(f.file).state.notes[0].title, `同进程再次保存${retry}`);
+    assert.equal(fs.existsSync(target), false);
+  }
+});
+
+test('获取锁失败且临时文件清理也失败时，保留原始异常及其他持有者的锁', t => {
+  const f = fixture(t), target = `${f.file}.write-lock`;
+  for (const mode of ['busy', 'publish-error']) {
+    const held = mode === 'busy' ? acquireDataFileWriteLock(f.file) : null;
+    const remove = fs.rmSync, link = fs.linkSync, warn = console.warn;
+    const publishError = Object.assign(new Error('injected publication failure'), { code: 'EIO' });
+    let injected = 0;
+    fs.rmSync = (file, ...args) => {
+      if (String(file).startsWith(`${target}.`) && String(file).endsWith('.tmp')) {
+        injected++;
+        throw Object.assign(new Error('injected cleanup EACCES'), { code: 'EACCES' });
+      }
+      return remove(file, ...args);
+    };
+    if (mode === 'publish-error') fs.linkSync = () => { throw publishError; };
+    console.warn = () => {};
+    try {
+      assert.throws(() => acquireDataFileWriteLock(f.file), error => mode === 'busy'
+        ? error.code === 'STORAGE_MAINTENANCE_BUSY' : error === publishError);
+      assert.equal(injected, 1);
+      if (held) assert.equal(JSON.parse(fs.readFileSync(target, 'utf8')).token, held.token);
+      else assert.equal(fs.existsSync(target), false);
+    } finally { fs.rmSync = remove; fs.linkSync = link; console.warn = warn; held?.release(); }
+    const next = acquireDataFileWriteLock(f.file);
+    next.release();
+    assert.equal(fs.existsSync(target), false);
+  }
+});

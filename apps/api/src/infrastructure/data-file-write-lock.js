@@ -14,7 +14,11 @@ export function acquireDataFileWriteLock(file) {
   try {
     fs.writeFileSync(prepared, JSON.stringify({ token, pid: process.pid }), { flag: 'wx', mode: 0o600 });
     return publishLock();
-  } finally { fs.rmSync(prepared, { force: true }); }
+  } finally {
+    // 公开锁可能已取得；临时文件清理失败不能覆盖锁句柄或原始获取异常。
+    try { fs.rmSync(prepared, { force: true }); }
+    catch (error) { console.warn('资料库写锁临时文件清理失败：', error.code); }
+  }
 
   function publishLock() {
     for (let attempt = 0; attempt < 2; attempt++) {
