@@ -19,8 +19,10 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     const headers = driver === 'sqlite' ? { 'X-Knowra-Dataset': (await fixture.store.identity()).datasetId } : {};
     const space = await page.request.post(`${fixture.origin}/api/knowledge/spaces/default`, { headers, data: {} }); assert(space.ok());
     await page.goto(`${fixture.origin}/#/assistant?new=1`);
-    const picker = page.getByRole('region', { name: '对话附件', exact: true });
-    await picker.locator('summary').click();
+    const picker = page.getByRole('dialog', { name: '对话附件管理', exact: true });
+    const attachmentTrigger = page.getByRole('button', { name: /^附件（\d+）$/ });
+    await attachmentTrigger.click();
+    await expect(picker).toBeVisible();
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '合成资料.txt', mimeType: 'text/plain', buffer: Buffer.from('附件合成文本，尚未传入模型。') });
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(1);
     await picker.getByRole('button', { name: '预览 合成资料.txt', exact: true }).click();
@@ -44,11 +46,15 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '旧版资料.doc', mimeType: 'application/msword', buffer: Buffer.from('unsupported') });
     await expect(picker.getByRole('alert')).toContainText('旧版 DOC 暂不支持');
     await picker.getByRole('button', { name: '移除待上传文件', exact: true }).click();
+    await picker.getByRole('button', { name: '关闭附件', exact: true }).click();
+    await expect(picker).toBeHidden();
+    await expect(attachmentTrigger).toBeFocused();
     const messageBox=page.getByRole('textbox',{name:'消息',exact:true});await messageBox.focus();
     await messageBox.evaluate((element, bytes) => {
       const transfer = new DataTransfer(); transfer.items.add(new File([new Uint8Array(bytes)], 'clipboard.png', { type: 'image/png' }));
       element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }));
     }, Array.from(png));
+    await expect(picker).toBeVisible();
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(3);
     await expect(picker.getByText('当前模型尚不支持图片理解。', { exact: true })).toBeVisible();
     await picker.getByRole('button', { name: '预览 粘贴图片.png', exact: true }).click();
@@ -71,7 +77,8 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
     assert.equal((await fixture.store.listMessages(conversationId, 0, 100)).length, 0, '附件不得暗中成为聊天消息');
     await page.goto(await fixture.restart());
     await page.goto(`${fixture.origin}/#/assistant?conversationId=${encodeURIComponent(conversationId)}`);
-    await picker.locator('summary').click();
+    await attachmentTrigger.click();
+    await expect(picker).toBeVisible();
     await expect(picker.getByText('已保存到此对话；尚未发送给 AI', { exact: true })).toHaveCount(4);
     await expect(picker.getByRole('button', { name: '预览 丢响应资料.txt', exact: true })).toBeVisible();
     await picker.getByRole('button', { name: '预览 合成资料.txt', exact: true }).click();

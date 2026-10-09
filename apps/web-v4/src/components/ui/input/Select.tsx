@@ -21,6 +21,7 @@ import { ChevronDownIcon } from '../../icons/knowra';
 import overlayStyles from '../overlay/Overlay.module.css';
 import collectionStyles from '../collection/Collection.module.css';
 import styles from './Input.module.css';
+import { NestedOverlay } from '../overlay/ResponsivePanel';
 
 export interface SelectOption {
   id: string;
@@ -89,7 +90,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         <ChevronDownIcon className={styles.selectChevron} size={12} />
       </RAButton>
       <RAPopover className={overlayStyles.popover} offset={4} placement="bottom start">
-        {asRAListBox(options)}
+        <NestedOverlay>{asRAListBox(options)}</NestedOverlay>
       </RAPopover>
       {errorMessage ? <div className={styles.error} role="alert">{errorMessage}</div> : null}
     </RASelect>

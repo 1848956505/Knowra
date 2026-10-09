@@ -104,7 +104,15 @@ test('真实 Web Mock 提炼：关闭和刷新不取消，候选对照、个人�
     assert.equal(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
     await expect(dialog.getByRole('button', { name: '停止任务', exact: true })).toBeVisible();
     await screenshot(page, 'running-390');
+    await page.keyboard.press('Tab');
+    assert.equal(await dialog.evaluate(element => element.contains(document.activeElement)), true);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(dialog.getByRole('button', { name: '停止任务', exact: true })).toBeEnabled();
+    await page.setViewportSize({ width: 390, height: 843 });
+    await expect(dialog.getByRole('button', { name: '停止任务', exact: true })).toBeEnabled();
+    assert.equal(starts.length, 1);
     await closeTasksWithEscape(page);
+    await expect(page.getByRole('dialog', { name: '文档检查器', exact: true })).toBeVisible();
     assert.equal((await host.app.knowledgeExtractionTasks.get(id)).status, 'running');
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.reload();

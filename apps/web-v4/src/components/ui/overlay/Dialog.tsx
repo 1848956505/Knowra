@@ -20,6 +20,7 @@ import { DialogCloseIcon } from '../../icons/knowra';
 import { cx } from '../classnames';
 import type { ButtonVariant } from '../tokens';
 import styles from './Overlay.module.css';
+import { NestedOverlay } from './ResponsivePanel';
 
 interface DialogCloseContextValue {
   close(): void;
@@ -77,7 +78,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
         {...rest}
       >
         {({ close }) => (
-          <DialogCloseContext.Provider value={{ close }}>
+          <NestedOverlay><DialogCloseContext.Provider value={{ close }}>
             {presentation !== 'panel' ? <header className={styles.header}>
               <RAHeading slot="title" className={styles.title}>{title}</RAHeading>
               {isDismissable ? (
@@ -96,7 +97,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
                 </div>
               </div>
             ) : null}
-          </DialogCloseContext.Provider>
+          </DialogCloseContext.Provider></NestedOverlay>
         )}
       </RADialog>
     </ModalShell>

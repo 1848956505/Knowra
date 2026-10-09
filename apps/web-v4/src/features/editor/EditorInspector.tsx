@@ -30,6 +30,7 @@ import {
   type InspectorRelations
 } from './editorInspectorModel';
 import styles from './EditorInspector.module.css';
+import { ResponsivePanel } from '../../components/ui/overlay/ResponsivePanel';
 import { AnalysisScopeDialog, type AnalysisIntent } from './AnalysisScopeDialog';
 import { KnowledgeExtractionTaskPanel } from './KnowledgeExtractionTaskPanel';
 import { useKnowledgeExtractionTasks } from './useKnowledgeExtractionTasks';
@@ -171,7 +172,7 @@ export function EditorInspector(props: EditorInspectorProps) {
     >
       <header className={styles.header}>
         <h2>文档检查器</h2>
-        <GhostIconButton autoFocus={modal} aria-label="关闭文档检查器" onPress={props.onClose}>
+        <GhostIconButton aria-label="关闭文档检查器" onPress={props.onClose}>
           <CloseIcon size={18} />
         </GhostIconButton>
       </header>
@@ -247,12 +248,10 @@ export function EditorInspector(props: EditorInspectorProps) {
       />
     </aside>
   );
-  return modal ? (
-    <Dialog title="文档检查器" presentation="panel" className={styles.inspectorDialog}
-      isOpen={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}>
-      {inspector}
-    </Dialog>
-  ) : inspector;
+  return <ResponsivePanel title="文档检查器" modal={modal} className={styles.inspectorDialog}
+    isOpen={props.open} onClose={props.onClose}>
+    {inspector}
+  </ResponsivePanel>;
 }
 
 function InfoPanel(props: EditorInspectorProps & {

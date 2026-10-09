@@ -247,11 +247,9 @@
 }
 
 .toolbar[data-pinned] {
-  border-top: 0;
-  border-left-width: 1px;
-  border-right-width: 1px;
-  border-bottom-width: 1px;
+  /* 保持吸顶前后相同的盒高，避免短横屏的滚动锚定使吸顶状态来回抖动。 */
   border-color: var(--ink-panel);
+  border-top-color: transparent;
   margin-inline: calc(-1 * (var(--paper-pad-x) + 1px));
   box-shadow: none;
 }

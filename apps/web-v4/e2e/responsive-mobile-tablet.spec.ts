@@ -124,7 +124,21 @@ for (const viewport of viewports) {
       await expect(inspector).toBeHidden();
       const editor = page.locator('.ProseMirror');
       await editor.locator('p').first().click({ clickCount: 3 });
-      await activate(toolbar.getByRole('button', { name: '加粗', exact: true }));
+      const bold = toolbar.getByRole('button', { name: '加粗', exact: true });
+      if (viewport.height === 390) {
+        // 短横屏的选区滚动会跨越吸顶临界点；按钮必须连续保持稳定，不能跳过 tap 的可操作性检查。
+        const positions = await bold.evaluate(async element => {
+          const samples: { x: number; y: number; width: number; height: number }[] = [];
+          for (let frame = 0; frame < 12; frame += 1) {
+            await new Promise(requestAnimationFrame);
+            const { x, y, width, height } = element.getBoundingClientRect();
+            samples.push({ x, y, width, height });
+          }
+          return samples;
+        });
+        expect(positions.slice(-6)).toEqual(Array(6).fill(positions.at(-1)));
+      }
+      await activate(bold);
       await expect(editor.locator('strong')).toContainText('合成资料');
       await expect.poll(() => saved.at(-1) ?? '').toContain('**');
       await activate(editor.locator('p').last());
@@ -247,3 +261,80 @@ for (const target of ['消息输入区', '附件弹层']) {
     expect(mock.submitted).toHaveLength(0);
   });
 }
+
+test('检查器跨断点保留标签草稿与嵌套 Select，Escape 逐层关闭并回焦', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], markdown);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const opener = page.getByRole('button', { name: '切换文档检查器', exact: true });
+  await opener.click();
+  const inspector = page.getByRole('complementary', { name: '文档检查器', exact: true });
+  await inspector.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.getByRole('button', { name: '新建标签', exact: true }).click();
+  const draft = page.getByRole('textbox', { name: '标签名称', exact: true });
+  await draft.fill('跨断点未保存草稿');
+  const child = page.getByRole('dialog', { name: '新建标签', exact: true });
+  for (const width of [390, 1280, 390]) {
+    await page.setViewportSize({ width, height: 843 });
+    await expect(child).toBeVisible(); await expect(draft).toHaveValue('跨断点未保存草稿');
+    await page.keyboard.press('Tab');
+    expect(await child.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    expect(await child.evaluate(element => element.closest('[inert]') === null)).toBe(true);
+    expect(await page.locator('.ProseMirror').evaluate(element => element.closest('[inert], [aria-hidden="true"]') !== null)).toBe(true);
+  }
+  await page.keyboard.press('Escape'); await expect(child).toBeHidden();
+  await expect(inspector.getByRole('button', { name: '编辑', exact: true })).toBeFocused();
+  await expect(page.getByRole('dialog', { name: '文档检查器', exact: true })).toBeVisible();
+  await inspector.getByRole('button', { name: '整理', exact: true }).click();
+  const organize = page.getByRole('dialog', { name: '整理笔记', exact: true });
+  await organize.getByRole('button', { name: /状态/ }).click();
+  const listbox = page.getByRole('listbox');
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 843 });
+    await expect(listbox).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    expect(await listbox.evaluate(element => element.closest('[inert]') === null)).toBe(true);
+  }
+  await page.keyboard.press('Escape'); await expect(listbox).toBeHidden(); await expect(organize).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(organize).toBeHidden();
+  await expect(inspector.getByRole('button', { name: '整理', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape'); await expect(inspector).toBeHidden();
+  await expect(opener).toBeFocused();
+  await expectShellContained(page);
+});
+
+test('检查器的重点 Popover 与 Menu 跨断点不被父层遮蔽', async ({ page }) => {
+  await mockEditorWorkspace(page, [], [], markdown);
+  const annotations = [{ id: 'a-1', spaceId: 'space-1', noteId: 'note-1', noteVersionId: null,
+    kind: 'important', importance: 'normal', sourceMode: 'manual', scopeType: 'selection', quoteText: '合成资料',
+    headingPath: ['手机与平板阅读'], fromPosition: 11, toPosition: 15, prefixText: '', suffixText: '',
+    anchorFingerprint: 'a-1', noteContentHash: 'synthetic', idempotencyKey: 'a-1',
+    status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved', revision: 1 }];
+  await page.route('**/api/knowledge/annotations**', route => route.fulfill({ json: { data: annotations } }));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const opener = page.getByRole('button', { name: '切换文档检查器', exact: true });
+  await opener.click();
+  const inspector = page.getByRole('complementary', { name: '文档检查器', exact: true });
+  await inspector.getByRole('tab', { name: '标注', exact: true }).click();
+  for (const name of ['排序重点', '重点 1 更多操作']) {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const trigger = inspector.getByRole('button', { name, exact: true });
+    await trigger.click();
+    const child = name === '排序重点' ? page.getByRole('dialog', { name, exact: true }) : page.getByRole('menu');
+    for (const width of [390, 1280, 390]) {
+      await page.setViewportSize({ width, height: 843 });
+      await expect(child).toBeVisible();
+      await page.keyboard.press(name === '排序重点' ? 'Tab' : 'ArrowDown');
+      expect(await child.evaluate(element => element.contains(document.activeElement))).toBe(true);
+      expect(await child.evaluate(element => element.closest('[inert]') === null)).toBe(true);
+    expect(await page.locator('.ProseMirror').evaluate(element => element.closest('[inert], [aria-hidden="true"]') !== null)).toBe(true);
+    }
+    await page.keyboard.press('Escape'); await expect(child).toBeHidden(); await expect(trigger).toBeFocused();
+    await expect(page.getByRole('dialog', { name: '文档检查器', exact: true })).toBeVisible();
+  }
+  await page.keyboard.press('Escape'); await expect(inspector).toBeHidden();
+  await expect(opener).toBeFocused();
+});
