@@ -22,7 +22,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install --with-deps chromium
+      # 使用 runner 预装且受系统 AppArmor profile 支持的 Chrome，保留浏览器沙箱。
+      - run: google-chrome --version
       - run: npm run build:web
       - name: Capture synthetic viewports
         env:
