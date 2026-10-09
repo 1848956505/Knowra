@@ -53,7 +53,7 @@ test('真实 V4 附件缺失核验、原文件恢复、删除预检与本机保�
   const historicalContent = `[历史附件](/api/storage/attachments/${historical.id.replace(/^a/, '%61')}/content#attachment=wrong)`;
   runtime.store.runTransaction(() => runtime.store.state.noteVersions.push(new NoteVersion({
     id: 'attachment-history-fixture', noteId: note.id, content: historicalContent,
-    createdAt: new Date(Date.now() - 60000).toISOString(), createdBy: 'import'
+    createdAt: new Date(Date.now() - 20 * 60000).toISOString(), createdBy: 'import'
   })));
   const first = await context.request.patch(`${runtime.origin}/api/knowledge/notes/${note.id}`, { data: { expectedUpdatedAt: baseline.updatedAt, rawMarkdown: historicalContent } });
   assert.equal(first.status(), 200); baseline = (await first.json()).data;
