@@ -6,9 +6,11 @@ import { packager } from '@electron/packager';
 import { execFileSync } from 'node:child_process';
 import { readBuildInfo, resolveBuildInfo } from '../../../scripts/build-info.mjs';
 import { SHELL_FILES } from './shell-files.mjs';
+import { CANDIDATE_DISTRIBUTION } from './verify-distribution.mjs';
 import { assertDesktopBuild, sha256 } from '../../../scripts/release-artifact.mjs';
 
-await import('./create-icon.mjs');
+// 纯构建只读取已提交图标；需要更新图标时显式运行 create-icon.mjs，审查并提交后再构建。
+if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('Mac APP 构建需要 Apple Silicon macOS。');
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const expected = resolveBuildInfo(repo);
@@ -48,6 +50,6 @@ for (const directory of apps) {
   const archive = path.join(output, '知境·Knowra-Mac-arm64.zip');
   fs.rmSync(archive, { force: true });
   execFileSync('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', application, archive]);
-  fs.writeFileSync(`${archive}.build-info.json`, `${JSON.stringify({ platform: 'darwin-arm64', archive: path.basename(archive), sha256: sha256(archive), buildInfo }, null, 2)}\n`);
+  fs.writeFileSync(`${archive}.build-info.json`, `${JSON.stringify({ platform: 'darwin-arm64', distribution: CANDIDATE_DISTRIBUTION, archive: path.basename(archive), sha256: sha256(archive), buildInfo }, null, 2)}\n`);
   console.log(`应用已生成：${application}\n压缩包：${archive}`);
 }

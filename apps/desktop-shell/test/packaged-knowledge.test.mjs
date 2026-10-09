@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 
 test('打包应用知识草稿退出后恢复原候选 id；旧 CAS 冲突不会覆盖新知识且可再次恢复', { timeout: 90000 }, async t => {
@@ -13,8 +14,8 @@ test('打包应用知识草稿退出后恢复原候选 id；旧 CAS 冲突不会
   const recoveryPath = path.join(directory, 'offline/recovery-drafts.json');
   let app;
   // 仅失败清理使用测试专属子进程；成功路径始终走真实退出握手。
-  t.after(() => { if (app) app.process().kill('SIGKILL'); fs.rmSync(directory, { recursive: true, force: true }); });
-  const launch = () => electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  t.after(async () => { await closeTestApplication(app); fs.rmSync(directory, { recursive: true, force: true }); });
+  const launch = () => launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   const quit = async (recovery = false) => {
     if (recovery) await app.evaluate(({ dialog }) => { dialog.showMessageBox = async () => ({ response: 2 }); });
     const closed = app.waitForEvent('close');

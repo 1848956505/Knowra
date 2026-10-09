@@ -5,12 +5,13 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
+import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
 test('打包 APP 的附件下载复用会话，原生保存后可主动打开，正文链接使用相同路径', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-packaged-attachment-'));
   let app;
-  t.after(async () => { await app?.close().catch(() => {}); fs.rmSync(directory, { recursive: true, force: true }); });
-  app = await electron.launch({ executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
+  t.after(async () => { await closeTestApplication(app); fs.rmSync(directory, { recursive: true, force: true }); });
+  app = await launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   const page = await app.firstWindow(); await page.waitForLoadState('domcontentloaded');
   const result = await page.evaluate(async () => {
     const send = async (route, method, data) => (await (await fetch(route, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })).json()).data;
