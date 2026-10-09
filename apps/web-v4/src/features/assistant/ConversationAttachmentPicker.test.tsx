@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ConversationAttachmentPicker, type ConversationAttachment, type ConversationAttachmentApi } from './ConversationAttachmentPicker';
 const attachment: ConversationAttachment = {
   attachmentId: 'attachment', conversationId: 'conversation', revision: 2, fileName: '资料.txt', mimeType: 'text/plain', size: 6,
@@ -23,9 +23,26 @@ afterEach(() => { vi.unstubAllGlobals(); });
 function choose(file: File) { fireEvent.change(screen.getByLabelText('添加对话附件'), { target: { files: [file] } }); }
 async function open(conversationId: string | null = 'conversation', ensureConversation = vi.fn(async () => 'conversation')) {
   const view = render(<ConversationAttachmentPicker conversationId={conversationId} ensureConversation={ensureConversation} api={api} />);
-  fireEvent.click(screen.getByText('附件（0）')); await waitFor(() => expect(screen.queryByText('正在恢复附件…')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByText('附件（0）'));
+  const dialog = await screen.findByRole('dialog', { name: '对话附件管理' });
+  // 弹层尚未挂载时，恢复提示同样不存在；正向等待可交互状态后再上传或粘贴。
+  await waitFor(() => expect(within(dialog).getByLabelText('添加对话附件')).toBeEnabled());
   return { view, ensureConversation };
 }
+it('打开附件等待弹层挂载和附件恢复完成', async () => {
+  let release!: (rows: ConversationAttachment[]) => void;
+  const delayed = new Promise<ConversationAttachment[]>(resolve => { release = resolve; });
+  vi.mocked(api.list).mockReturnValueOnce(delayed);
+  let opened = false;
+  const opening = open().then(result => { opened = true; return result; });
+  await screen.findByRole('dialog', { name: '对话附件管理' });
+  expect(screen.getByText('正在恢复附件…')).toBeInTheDocument();
+  expect(screen.getByLabelText('添加对话附件')).toBeDisabled();
+  expect(opened).toBe(false);
+  await act(async () => { release([]); await delayed; });
+  await opening;
+  expect(screen.getByLabelText('添加对话附件')).toBeEnabled();
+});
 it('上传只保存会话附件，信息预览无正文且移除使用原revision', async () => {
   await open(); choose(new File(['合成内容'], '资料.txt', { type: 'text/plain' }));
   await screen.findByText('已保存到此对话；尚未发送给 AI');
