@@ -1,6 +1,7 @@
+import { test } from './fixtures/syntheticTest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { mockEditorWorkspace } from './fixtures/editorWorkspace';
 import { mockAssistantWorkspace } from './fixtures/assistantWorkspace';
 
@@ -10,13 +11,13 @@ const viewports = [
   { width: 1366, height: 1024 }, { width: 843, height: 390 }, { width: 1440, height: 900 }
 ];
 // 每个交互截图附带最终执行源码和结果，不能以旧截图替代当前断言。
-test.afterEach(async ({ page }, info) => {
+test.afterEach(async ({ page, browser, syntheticNetwork }, info) => {
   const screenshotNames = fs.existsSync(info.outputDir) ? fs.readdirSync(info.outputDir).filter(name => name.endsWith('.png')) : [];
   const manifest = { schema: 1, sourcePRHead: process.env.KNOWRA_EVIDENCE_PR_HEAD ?? null,
     builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
     sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE ?? null,
     baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, test: info.title, status: info.status,
-    viewport: page.viewportSize(), syntheticData: true, screenshots: screenshotNames,
+    viewport: page.viewportSize(), syntheticData: true, browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, blockedRequests: syntheticNetwork, screenshots: screenshotNames,
     limitations: ['CSS 触摸视口模拟，不是真实 vivo/OriginOS、实体平板或系统输入法验收'] };
   const output = info.outputPath('scenario-manifest.json');
   fs.writeFileSync(output, JSON.stringify(manifest, null, 2));
@@ -170,7 +171,7 @@ for (const viewport of viewports) {
       expect(await dialog.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
       expect(await dialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
       await expectShellContained(page);
-      await expectInViewport(page, dialog.getByRole('button', { name: '关闭附件' }));
+      await expectInViewport(page, dialog.getByRole('button', { name: '关闭附件', exact: true }));
       await attachScreenshot(page, '对话附件预览');
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden(); await expect(attachmentTrigger).toBeFocused();

@@ -1,4 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { test } from './fixtures/syntheticTest';
+import { expect } from '@playwright/test';
+import { mockShellServices } from './fixtures/shellServices';
+
+test.beforeEach(async ({ page }) => { await mockShellServices(page); });
 
 test('对话主页面可不选笔记直接提问，并在刷新和移动端恢复消息', async ({ page }) => {
   let submitted: Record<string, unknown> | null = null;

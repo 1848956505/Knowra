@@ -97,4 +97,3 @@ export function createNote(
     updatedAt: '2026-08-31T02:32:00.000Z'
   };
 }
-

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { test } from './fixtures/syntheticTest';
+import { expect, type Page } from '@playwright/test';
 import { mockShellServices } from './fixtures/shellServices';
 
 test.describe('V4-05 公共 Shell 与主页', () => {
