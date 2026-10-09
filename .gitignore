@@ -41,3 +41,10 @@ apps/web-v4/playwright-report/
 
 # 本机验收证据含运行环境信息，不随公开源码发布
 docs/离线编辑与同步/验收证据/
+
+# Android 本机 SDK、构建缓存与签名材料（不得提交凭据）
+apps/android/.gradle/
+apps/android/local.properties
+apps/android/**/build/
+*.keystore
+*.jks

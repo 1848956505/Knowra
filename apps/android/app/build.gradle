@@ -1,0 +1,33 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'app.knowra.android'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+    defaultConfig {
+        applicationId 'app.knowra.android.preview'
+        minSdk 28
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-preview'
+    }
+    buildTypes {
+        release {
+            // 预览阶段只输出未签名 APK；不创建或选择签名凭据。
+            signingConfig null
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions { unitTests.includeAndroidResources = true }
+    lint { abortOnError true }
+}
+
+dependencies {
+    implementation 'androidx.browser:browser:1.8.0'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}

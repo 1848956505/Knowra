@@ -11,6 +11,7 @@
 | API + V4 开发 | `npm run dev:all` |
 | 单独启动 API / V4 | `npm run dev:api` / `npm run dev:web` |
 | V4 构建 / 生产启动 | `npm run build:web` / `npm run start:web` |
+| Android 无 SDK 策略检查 | `node --test scripts/test/android-preview.test.js` |
 | 个人 Mac 纯构建（Apple Silicon，不安装） | `npm run build:mac` |
 | Mac 产物核验 / 隔离验收 / 显式安装 | `npm run verify:mac` / `npm run test:mac` / `npm run install:mac` |
 | API 测试 | `npm run test:api` |
