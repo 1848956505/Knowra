@@ -52,6 +52,12 @@ export function validatePersistedLocalState(input) {
   return validatePersistedDocument(input);
 }
 
+// 批量同步已隔离可变实体；旧历史只读，新历史也经过完整字段、哈希和引用校验。
+// 保留不可变记录，避免每个小批次再复制整库版本与标注修订。
+export function validateSyncBatchState(input) {
+  return validatePersistedDocument(input, true);
+}
+
 // 写盘前的只读断言不向业务暴露共享记录；所有字段、哈希和跨记录引用仍完整校验。
 export function assertPersistedLocalState(input) {
   validatePersistedDocument(input, true);

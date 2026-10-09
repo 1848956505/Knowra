@@ -17,7 +17,7 @@ import { createInMemoryContentAnnotationRepository } from '../knowledge/infrastr
 import { createInMemoryNoteRepository } from '../knowledge/infrastructure/note-repository.js';
 import { createInMemoryNoteVersionRepository } from '../knowledge/infrastructure/note-version-repository.js';
 import { createInMemoryAnnotationRevisionRepository } from '../knowledge/infrastructure/annotation-support-repositories.js';
-import { validatePersistedLocalState, LOCAL_DATA_SCHEMA_VERSION } from '../../infrastructure/local-data-schema.js';
+import { validateSyncBatchState, LOCAL_DATA_SCHEMA_VERSION } from '../../infrastructure/local-data-schema.js';
 import { cloneJsonData } from '../../infrastructure/json-clone.js';
 import { assertNoInsecureImageUrls } from '../knowledge/application/note-content-policy.js';
 import { inspectAttachmentDeletion } from '../../infrastructure/attachment-deletion-preflight.js';
@@ -38,7 +38,7 @@ const replace = (state, collection, id, value) => {
 
 /** 只在内存中构造并校验完整事务后像；不做文件或网络 IO。 */
 export function prepareBatchState(before, changes, ownerId, preparedAttachments = {}) {
-  // 不可变历史只复制集合；领域流程不修改旧版本/修订，最终校验仍返回独立副本。
+  // 不可变历史只复制集合；领域流程与最终校验均不修改旧版本/修订。
   let state = Object.fromEntries(Object.entries(before).map(([collection, items]) => [collection,
     ['noteVersions', 'annotationRevisions'].includes(collection) ? [...items] : cloneJsonData(items)]));
   const aliases = {};
@@ -121,9 +121,16 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     byHash.set(key, version.id); return true;
   });
   function remap(value) {
-    if (Array.isArray(value)) return value.map(remap);
     if (!value || typeof value !== 'object') return value;
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, (key === 'noteVersionId' || (key === 'sourceId' && value.sourceType === 'noteVersion')) && aliases[child] ? aliases[child] : remap(child)]));
+    let result = value;
+    for (const [key, child] of Object.entries(value)) {
+      const next = (key === 'noteVersionId' || (key === 'sourceId' && value.sourceType === 'noteVersion')) && aliases[child]
+        ? aliases[child] : remap(child);
+      if (next === child) continue;
+      if (result === value) result = Array.isArray(value) ? [...value] : { ...value };
+      Object.defineProperty(result, key, { value: next, enumerable: true, configurable: true, writable: true });
+    }
+    return result;
   }
   if (Object.keys(aliases).length) {
     for (const collection of ['contentAnnotations', 'annotationExclusions', 'annotationRevisions', 'knowledgeEvidence', 'questionSources']) state[collection] = state[collection].map(remap);
@@ -225,6 +232,6 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
   state = reconcileSyncedSourceStates(reconcileTrainingChanges(before, state, changes));
   validateKnowledgeBatch(before, state, changes);
   validateTrainingBatch(before, state, changes);
-  state = validatePersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...state });
+  state = validateSyncBatchState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...state });
   return { state, aliases };
 }
