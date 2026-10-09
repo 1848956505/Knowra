@@ -271,7 +271,7 @@ test('检查器跨断点保留标签草稿与嵌套 Select，Escape 逐层关闭
   await opener.click();
   const inspector = page.getByRole('complementary', { name: '文档检查器', exact: true });
   await inspector.getByRole('button', { name: '编辑', exact: true }).click();
-  await page.getByRole('button', { name: '新建标签', exact: true }).click();
+  await page.getByRole('dialog', { name: '编辑笔记标签', exact: true }).getByRole('button', { name: '新建标签', exact: true }).click();
   const draft = page.getByRole('textbox', { name: '标签名称', exact: true });
   await draft.fill('跨断点未保存草稿');
   const child = page.getByRole('dialog', { name: '新建标签', exact: true });
@@ -330,7 +330,7 @@ test('检查器的重点 Popover 与 Menu 跨断点不被父层遮蔽', async ({
       await page.keyboard.press(name === '排序重点' ? 'Tab' : 'ArrowDown');
       expect(await child.evaluate(element => element.contains(document.activeElement))).toBe(true);
       expect(await child.evaluate(element => element.closest('[inert]') === null)).toBe(true);
-    expect(await page.locator('.ProseMirror').evaluate(element => element.closest('[inert], [aria-hidden="true"]') !== null)).toBe(true);
+      expect(await page.locator('.ProseMirror').evaluate(element => element.closest('[inert], [aria-hidden="true"]') !== null)).toBe(true);
     }
     await page.keyboard.press('Escape'); await expect(child).toBeHidden(); await expect(trigger).toBeFocused();
     await expect(page.getByRole('dialog', { name: '文档检查器', exact: true })).toBeVisible();
