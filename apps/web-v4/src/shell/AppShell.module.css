@@ -222,14 +222,16 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .stage {
+  .stage,
+  .shellWithSidebar .stage {
     grid-column: 1;
     grid-row: 1;
     align-items: start;
     padding: 18px 14px;
   }
 
-  .workspaceStage {
+  .workspaceStage,
+  .shellWithSidebar .workspaceStage {
     align-items: stretch;
     padding: 0;
   }

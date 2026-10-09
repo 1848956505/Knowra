@@ -242,6 +242,7 @@ function NoteEditorStage({ noteId, editorView, canWrite, onEditorViewAction, onO
         onToggleInspector={() => onEditorViewAction('toggle-right-sidebar')}
         onViewAction={onEditorViewAction}
         onOpenNote={onOpenNote}
+        onReturnToList={() => navigate('/materials')}
         onCloseNote={(closingNoteId) => {
           const nextNoteId = closeNoteTab(closingNoteId);
           if (closingNoteId !== note?.id) return;

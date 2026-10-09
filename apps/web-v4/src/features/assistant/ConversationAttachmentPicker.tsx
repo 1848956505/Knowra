@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
+import { Popover, PopoverDialog, PopoverTrigger } from '../../components/ui/overlay/Popover';
 import { FileDropField } from '../../components/ui/file/FileDropField';
 import { conversationAttachmentApi } from './conversationAttachmentApi';
 import styles from './ConversationAttachmentPicker.module.css';
@@ -60,7 +61,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   const currentConversation = useRef(conversationId); currentConversation.current = conversationId;
   const previousConversation = useRef(conversationId);
   const uploadTask = useRef<UploadTask | null>(null);
-  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
   const mounted = useRef(true);
   const generation = useRef(0);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
@@ -109,7 +110,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   }
   function select(file: File) {
     if (busy || uploadTask.current) return;
-    detailsRef.current?.setAttribute('open', '');
+    setOpen(true);
     const extension = file.name.split('.').at(-1)?.toLowerCase() ?? '';
     const mimeType = types[extension];
     const validation = !mimeType ? extension === 'doc' ? '旧版 DOC 暂不支持，请另存为 DOCX 后上传。' : '不支持此文件类型，请选择 TXT、Markdown、PDF、DOCX、PNG 或 JPEG。'
@@ -140,7 +141,11 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     finally { if (mounted.current && generation.current === captured) setBusy(false); }
   }
   return <section className={styles.picker} aria-label="对话附件" tabIndex={0}>
-    <details ref={detailsRef}><summary>附件（{attachments.length}）</summary><div className={styles.popover}>
+    <PopoverTrigger isOpen={open} onOpenChange={setOpen}>
+      <Button variant="ghost" size="compact">附件（{attachments.length}）</Button>
+      <Popover placement="top start" className={styles.popover}>
+      <PopoverDialog aria-label="对话附件管理">
+      <div className={styles.header}><strong>对话附件</strong><Button variant="ghost" size="compact" onPress={() => setOpen(false)}>关闭附件</Button></div>
       <p>附件仅保存到此对话。{unparsedNotice}</p>
       <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"
         description="TXT、Markdown、PDF、DOCX、PNG、JPEG；单个最多 5 MB。也可在消息输入区粘贴 PNG 或 JPEG。"
@@ -185,7 +190,9 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
         {preview.url ? <p>当前模型尚不支持图片理解。</p> : null}
         <Button variant="ghost" size="compact" onPress={() => setPreview(null)}>关闭附件预览</Button>
       </section> : null}
-    </div></details>
+      </PopoverDialog>
+      </Popover>
+    </PopoverTrigger>
   </section>;
 }
 

@@ -73,9 +73,10 @@ test('对话主页面可不选笔记直接提问，并在刷新和移动端恢�
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.getByText('菜单', { exact: true }).click();
-  const history = page.getByRole('complementary', { name: '会话历史' });
+  const history = page.getByRole('dialog', { name: '最近对话' });
   await expect(history.getByText('最近对话')).toBeVisible();
   await expect(history.getByRole('button', { name: '解释梯度下降' })).toBeVisible();
+  await history.getByRole('button', { name: '关闭菜单' }).click();
   await expect(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: '资料' })).toBeVisible();
   expect(submitted).not.toHaveProperty('writeIntent');
   await expect(page.getByRole('button', { name: '资料范围：普通聊天' })).toBeVisible();

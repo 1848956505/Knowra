@@ -1,6 +1,6 @@
 .inspector {
   grid-column: 2;
-  grid-row: var(--inspector-grid-row, 1 / 3);
+  grid-row: var(--inspector-grid-row, 1 / -1);
   --inspector-control: 44px;
   --inspector-pad: 16px;
   --inspector-pad-wide: 20px;

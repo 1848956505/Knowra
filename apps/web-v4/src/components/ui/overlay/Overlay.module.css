@@ -368,3 +368,7 @@
     animation: none !important;
   }
 }
+
+@media (max-width: 767px), (any-pointer: coarse) {
+  .item { min-height: 44px; }
+}

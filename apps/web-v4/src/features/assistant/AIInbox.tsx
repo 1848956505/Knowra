@@ -44,7 +44,7 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
   const heading = useRef<HTMLHeadingElement>(null);
   const moreActions = useRef<HTMLDetailsElement>(null);
   const mounted = useRef(true);
-  useEffect(() => { if (open) heading.current?.focus(); }, [open]);
+  useEffect(() => { if (open) heading.current?.focus({ preventScroll: true }); }, [open]);
   useEffect(() => {
     if (open) return;
     generation.current++; listSequence.current++; selectedRef.current = null; busyRef.current = false; editingRef.current = false; refreshAfterBusy.current = false;

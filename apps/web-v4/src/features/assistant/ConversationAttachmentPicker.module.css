@@ -1,9 +1,7 @@
 .picker { position: relative; min-width: 0; color: var(--ink); font-size: 12px; }
-.picker summary { display: inline-flex; align-items: center; min-height: var(--index-size-29, 29px); padding: 0 10px; border: 1px solid var(--ink-shell); border-radius: 0; background: var(--ink-bg); color: var(--ink-secondary); font: 750 11px/1 var(--font-ui); cursor: pointer; list-style: none; white-space: nowrap; }
-.picker summary::-webkit-details-marker { display: none; }
-.picker summary:hover { background: var(--ink-sunken); color: var(--ink); }
-.picker summary:focus-visible { outline: 2px solid var(--ink-accent); }
-.popover { position: absolute; z-index: 7; bottom: calc(100% + 9px); left: 0; width: min(430px, calc(100vw - 36px)); max-height: min(55dvh, 440px); overflow: auto; padding: 16px; border: 1px solid var(--ink-panel); border-radius: 13px; background: var(--ink-surface); box-shadow: var(--shadow-1); }
+.popover { width: min(430px, calc(100vw - 24px)); max-height: min(65dvh, 520px); overflow: auto; overscroll-behavior: contain; padding: 16px; }
+.popover > div { outline: 0; }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .picker p { margin: 6px 0; color: var(--ink-secondary); line-height: 1.5; }
 .row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--ink-panel); overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }

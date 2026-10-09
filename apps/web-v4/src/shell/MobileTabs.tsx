@@ -1,9 +1,9 @@
 // V4-05 MobileTabs
 //
-// ≤767px 时替代左侧 ModuleRail：底部 Tab 行（4 个工作域 + 我的 + 全局搜索）。
+// ≤767px 时替代左侧 ModuleRail：工作域、助手、设置与搜索保持同一行。
 // 选中态顶部 4px 蓝条 + 蓝字 + 白底。
 
-import { forwardRef } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS, type RailItem } from './ModuleRail';
 import { SearchIcon, SettingsIcon, SparkIcon } from '../components/icons/knowra';
 import type { WorkDomain } from '../store/types';
@@ -26,7 +26,7 @@ export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function Mobi
   ref
 ) {
   return (
-    <nav ref={ref} className={styles.mobileTabs} aria-label="移动端模块导航">
+    <nav ref={ref} className={styles.mobileTabs} style={{ '--mobile-tab-count': ALL_ITEMS.length + 3 } as CSSProperties} aria-label="移动端模块导航">
       {ALL_ITEMS.map((item) => {
         if (!item.available) {
           return (
