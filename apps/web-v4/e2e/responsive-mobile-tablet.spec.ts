@@ -9,6 +9,20 @@ const viewports = [
   { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1024, height: 1366 },
   { width: 1366, height: 1024 }, { width: 843, height: 390 }, { width: 1440, height: 900 }
 ];
+// 每个交互截图附带最终执行源码和结果，不能以旧截图替代当前断言。
+test.afterEach(async ({ page }, info) => {
+  const screenshotNames = fs.existsSync(info.outputDir) ? fs.readdirSync(info.outputDir).filter(name => name.endsWith('.png')) : [];
+  const manifest = { schema: 1, sourcePRHead: process.env.KNOWRA_EVIDENCE_PR_HEAD ?? null,
+    builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
+    sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE ?? null,
+    baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, test: info.title, status: info.status,
+    viewport: page.viewportSize(), syntheticData: true, screenshots: screenshotNames,
+    limitations: ['CSS 触摸视口模拟，不是真实 vivo/OriginOS、实体平板或系统输入法验收'] };
+  const output = info.outputPath('scenario-manifest.json');
+  fs.writeFileSync(output, JSON.stringify(manifest, null, 2));
+  await info.attach('scenario-manifest', { path: output, contentType: 'application/json' });
+});
+
 const markdown = '# 手机与平板阅读\n\n合成资料：编辑、保存、返回与长文滚动。\n\n## 重点回顾\n\n' +
   Array.from({ length: 40 }, (_, i) => `第 ${i + 1} 段：保持内容可读，面板独立滚动，核心操作可以触达。`).join('\n\n');
 
@@ -40,7 +54,7 @@ async function attachScreenshot(page: Page, name: string) {
   const viewport = page.viewportSize()!;
   if (evidenceDir) fs.mkdirSync(evidenceDir, { recursive: true });
   await test.info().attach(name, { body: await page.screenshot({
-    ...(evidenceDir ? { path: path.join(evidenceDir, `${state}-${viewport.width}x${viewport.height}.png`) } : {})
+    path: evidenceDir ? path.join(evidenceDir, `${state}-${viewport.width}x${viewport.height}.png`) : test.info().outputPath(`${state}-${viewport.width}x${viewport.height}.png`)
   }), contentType: 'image/png' });
 }
 
@@ -134,6 +148,14 @@ for (const viewport of viewports) {
       await expectShellContained(page);
       const input = page.getByRole('textbox', { name: '消息', exact: true });
       await expectInViewport(page, input);
+      if (touch) {
+        for (const name of ['发送消息', '更多操作']) {
+          const button = page.getByRole('button', { name, exact: true });
+          await expectTouchTarget(button); await expectInViewport(page, button);
+        }
+        const rows = page.getByRole('complementary', { name: '会话历史' }).locator('button[aria-current]');
+        for (const row of await rows.all()) if (await row.isVisible()) await expectTouchTarget(row);
+      }
       const messages = page.locator('[aria-live="polite"]').filter({ has: page.getByText('先阅读笔记，再整理重点。') });
       expect((await messages.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 120 : 250);
       await attachScreenshot(page, 'AI 长回答');
@@ -142,7 +164,13 @@ for (const viewport of viewports) {
       const dialog = page.getByRole('dialog', { name: '对话附件管理' });
       await expect(dialog).toBeVisible(); await expectInViewport(page, dialog);
       await activate(dialog.getByRole('button', { name: '预览 合成资料.txt' }));
-      await expect(dialog.getByRole('region', { name: '附件预览' })).toBeVisible();
+      const preview = dialog.getByRole('region', { name: '附件预览' });
+      await expect(preview).toBeVisible(); await expect(preview).toBeFocused();
+      await expectInViewport(page, dialog);
+      expect(await dialog.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      expect(await dialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      await expectShellContained(page);
+      await expectInViewport(page, dialog.getByRole('button', { name: '关闭附件' }));
       await attachScreenshot(page, '对话附件预览');
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden(); await expect(attachmentTrigger).toBeFocused();
@@ -173,6 +201,7 @@ for (const viewport of viewports) {
         await activate(page.getByRole('button', { name: '菜单', exact: true }));
         const recent = page.getByRole('dialog', { name: '最近对话' });
         await expect(recent).toBeVisible(); await expectInViewport(page, recent);
+        for (const row of await recent.getByRole('button').all()) await expectTouchTarget(row);
         await page.keyboard.press('Escape'); await expect(recent).toBeHidden();
         await activate(page.getByRole('navigation', { name: '移动端模块导航' }).getByRole('button', { name: '资料', exact: true }));
         await expect(page).toHaveURL(/#\/materials$/);

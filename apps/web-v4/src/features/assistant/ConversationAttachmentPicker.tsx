@@ -63,6 +63,15 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   const uploadTask = useRef<UploadTask | null>(null);
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const previewElementRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current, element = previewElementRef.current;
+    if (!open || !preview || !dialog || !element) return;
+    // 只滚动附件内部，避免 scrollIntoView 连带移动应用外壳和输入区。
+    element.focus({ preventScroll: true });
+    const headerHeight = dialog.firstElementChild?.getBoundingClientRect().height ?? 0;
+    dialog.scrollTop += element.getBoundingClientRect().top - dialog.getBoundingClientRect().top - headerHeight - 8;
+  }, [open, preview]);
   const mounted = useRef(true);
   const generation = useRef(0);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
@@ -182,7 +191,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
             setPreview(previous => previous?.attachmentId === attachment.attachmentId ? null : previous);
           })}>移除 {attachment.fileName}</Button></div>
       </div>)}
-      {preview ? <section className={styles.preview} aria-label="附件预览">
+      {preview ? <section ref={previewElementRef} className={styles.preview} aria-label="附件预览" tabIndex={-1}>
         <strong>{preview.detail.attachment.fileName}</strong>
         {preview.url ? <img src={preview.url} alt={`附件预览：${preview.detail.attachment.fileName}`} onError={() => {
           if (previewRef.current?.url !== preview.url) return;

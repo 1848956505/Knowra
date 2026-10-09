@@ -159,3 +159,7 @@
 .mobileMenuBody > button { height: auto; min-height: 44px; white-space: normal; text-align: left; justify-content: flex-start; overflow-wrap: anywhere; }
 .mobileMenuHeader { position: sticky; top: 0; z-index: 1; background: var(--ink-surface); display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .mobileMenuHeader strong { font-size: 12px; }
+
+@media (max-width: 767px), (any-pointer: coarse) {
+  .historyItem { min-height: 44px; }
+}

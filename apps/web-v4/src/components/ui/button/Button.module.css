@@ -181,7 +181,8 @@
   .btn {
     min-height: 44px;
   }
-  .icon {
+  .icon,
+  .iconOnly {
     min-width: 44px;
     width: 44px;
   }
