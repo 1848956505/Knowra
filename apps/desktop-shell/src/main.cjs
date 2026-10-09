@@ -5,7 +5,7 @@ const { createAttachmentDownloads } = require('./attachment-downloads.cjs');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
 const { createDraftStore } = require('./draft-store.cjs');
-const { createModelSettings } = require('./model-settings.cjs');
+const { createModelSettings, safeModelSettingsMessage } = require('./model-settings.cjs');
 const { createSystemNotifications } = require('./system-notifications.cjs');
 const { handleAiCredentialRequest } = require('./ai-credential-handler.cjs');
 const { createBackupRpc, createBackupTransfers } = require('./backup-transfers.cjs');
@@ -101,7 +101,7 @@ else {
       if (action === 'check') return await modelSettings.check();
     } catch (error) {
       // IPC 错误只返回经过控制的中文消息，不包含请求体或供应商响应。
-      throw new Error(error.message === '模型 ID 格式无效。' || error.message === 'API Key 格式无效。' || error.message.startsWith('DeepSeek') || error.message.startsWith('连接成功') || error.message.startsWith('无法连接') || error.message.startsWith('系统钥匙串') || error.message.startsWith('请先保存') ? error.message : '模型设置操作失败，请检查本机凭据存储。');
+      throw new Error(safeModelSettingsMessage(error));
     }
     throw new Error('未知的模型设置操作。');
   });
