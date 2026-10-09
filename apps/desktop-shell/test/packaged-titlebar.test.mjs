@@ -9,7 +9,7 @@ import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs
 
 test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-titlebar-'));
-  const app = await launchTestApplication(electron, {
+  let app = await launchTestApplication(electron, {
     executablePath,
     env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory },
     timeout: 20000
@@ -126,4 +126,9 @@ test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', {
   await tabs.getByRole('button', { name: '关闭标题栏验收笔记' }).click();
   await expect(titlebar.getByRole('tablist', { name: '打开的笔记' })).toHaveCount(0);
   await expect(titlebar).toContainText('知境·Knowra');
+  // 与已合并的原生菜单验收相同：显式触发正常退出，并验证保存握手完成。
+  const closed = app.waitForEvent('close', { timeout: 45000 });
+  await app.evaluate(({ app: nativeApp }) => nativeApp.quit());
+  await closed;
+  app = null;
 });

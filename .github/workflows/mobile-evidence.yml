@@ -28,8 +28,8 @@ jobs:
       - run: npx playwright install-deps chromium
       - name: Verify Chinese font availability
         run: |
-          fc-list :lang=zh family | sort -u | tee chinese-fonts.txt
-          test -s chinese-fonts.txt
+          fc-list :lang=zh family | sort -u | tee "$RUNNER_TEMP/knowra-chinese-fonts.txt"
+          test -s "$RUNNER_TEMP/knowra-chinese-fonts.txt"
           echo "KNOWRA_EVIDENCE_CJK_FONT=$(fc-match -f '%{family}' 'sans-serif:lang=zh-cn')" >> "$GITHUB_ENV"
       - run: npm run build:web
       - name: Capture synthetic viewports
@@ -39,7 +39,7 @@ jobs:
           KNOWRA_EVIDENCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
           KNOWRA_EVIDENCE_BASE_REF: ${{ github.base_ref || github.ref_name }}
         run: |
-          cp chinese-fonts.txt apps/web-v4/dist/chinese-fonts.txt
+          cp "$RUNNER_TEMP/knowra-chinese-fonts.txt" apps/web-v4/dist/chinese-fonts.txt
           export KNOWRA_EVIDENCE_SHA="$(git rev-parse HEAD)"
           export KNOWRA_EVIDENCE_SOURCE_TREE="$(git rev-parse HEAD:apps/web-v4/src)"
           export KNOWRA_BASE_PRODUCTION_EQUIVALENT=false

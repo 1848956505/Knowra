@@ -17,6 +17,7 @@ test.afterEach(async ({ page, browser, syntheticNetwork }, info) => {
     builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
     sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE ?? null,
     baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, test: info.title, status: info.status,
+    touchTargets: info.annotations.filter(item => item.type === 'touch-target').map(item => JSON.parse(item.description!)),
     viewport: page.viewportSize(), syntheticData: true, browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, chineseFont: process.env.KNOWRA_EVIDENCE_CJK_FONT ?? null, blockedRequests: syntheticNetwork, screenshots: screenshotNames,
     limitations: ['CSS 触摸视口模拟，不是真实 vivo/OriginOS、实体平板或系统输入法验收'] };
   const output = info.outputPath('scenario-manifest.json');
@@ -37,8 +38,13 @@ async function expectShellContained(page: Page) {
 }
 async function expectTouchTarget(locator: Locator) {
   const rect = (await locator.boundingBox())!;
-  expect(rect.width).toBeGreaterThanOrEqual(44);
-  expect(rect.height).toBeGreaterThanOrEqual(44);
+  test.info().annotations.push({ type: 'touch-target', description: JSON.stringify({
+    label: await locator.getAttribute('aria-label') ?? (await locator.textContent())?.trim(),
+    rawWidth: rect.width, rawHeight: rect.height, precision: '0.001 CSS px'
+  }) });
+  // Chromium 的矩形相减可能返回 43.999984741；只消除千分之一像素内的浮点噪声。
+  expect(Number(rect.width.toFixed(3))).toBeGreaterThanOrEqual(44);
+  expect(Number(rect.height.toFixed(3))).toBeGreaterThanOrEqual(44);
 }
 async function expectInViewport(page: Page, locator: Locator) {
   const rect = (await locator.boundingBox())!;
