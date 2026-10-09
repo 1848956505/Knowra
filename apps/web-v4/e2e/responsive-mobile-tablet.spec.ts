@@ -7,7 +7,7 @@ import { mockAssistantWorkspace } from './fixtures/assistantWorkspace';
 
 const viewports = [
   { width: 360, height: 800 }, { width: 390, height: 843 }, { width: 412, height: 915 },
-  { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1024, height: 1366 },
+  { width: 768, height: 1024 }, { width: 960, height: 700 }, { width: 1024, height: 768 }, { width: 1024, height: 1366 },
   { width: 1366, height: 1024 }, { width: 843, height: 390 }, { width: 1440, height: 900 }
 ];
 // 每个交互截图附带最终执行源码和结果，不能以旧截图替代当前断言。
@@ -17,7 +17,7 @@ test.afterEach(async ({ page, browser, syntheticNetwork }, info) => {
     builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
     sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE ?? null,
     baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, test: info.title, status: info.status,
-    viewport: page.viewportSize(), syntheticData: true, browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, blockedRequests: syntheticNetwork, screenshots: screenshotNames,
+    viewport: page.viewportSize(), syntheticData: true, browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, chineseFont: process.env.KNOWRA_EVIDENCE_CJK_FONT ?? null, blockedRequests: syntheticNetwork, screenshots: screenshotNames,
     limitations: ['CSS 触摸视口模拟，不是真实 vivo/OriginOS、实体平板或系统输入法验收'] };
   const output = info.outputPath('scenario-manifest.json');
   fs.writeFileSync(output, JSON.stringify(manifest, null, 2));
@@ -108,6 +108,8 @@ for (const viewport of viewports) {
         await activate(inspectorTrigger); await page.mouse.click(2, 2);
         await expect(modal).toBeHidden(); await expect(inspectorTrigger).toBeFocused();
         await activate(inspectorTrigger);
+      } else {
+        await expect(page.getByRole('dialog', { name: '文档检查器', exact: true })).toHaveCount(0);
       }
       await expectInViewport(page, inspector.getByRole('button', { name: '关闭文档检查器' }));
       await activate(inspector.getByRole('tab', { name: '信息', exact: true }));

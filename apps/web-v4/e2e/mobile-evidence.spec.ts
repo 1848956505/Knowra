@@ -98,7 +98,7 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
       baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, baseRef: process.env.KNOWRA_EVIDENCE_BASE_REF ?? null,
       productionEquivalentToBase: process.env.KNOWRA_BASE_PRODUCTION_EQUIVALENT === 'true',
       buildKind: process.env.GITHUB_EVENT_NAME === 'pull_request' ? 'PR synthetic merge checkout' : 'explicit checkout',
-      viewport, syntheticData: true, browser: 'Playwright / installed Chrome', browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true,
+      viewport, syntheticData: true, browser: 'Playwright / installed Chrome', browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, chineseFont: process.env.KNOWRA_EVIDENCE_CJK_FONT ?? null,
       limitations: ['CSS 视口模拟，不是真实 vivo/OriginOS 或软键盘测试', '几何、焦点和滚动指标仅观察记录，未将现有 UI 缺陷伪装成测试失败或通过'],
       scenarios, blockedRequests: network.blocked, apiRequests: network.requests, pageErrors: errors };
     const path = info.outputPath('scenario-manifest.json');

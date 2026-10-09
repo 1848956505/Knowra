@@ -1026,6 +1026,7 @@ export function NoteEditorView({
         </div>
       </div>
       <EditorInspector
+          nativeTitlebar={desktopTitlebar.enabled}
           note={note}
           folder={folder}
           foldersById={foldersById}

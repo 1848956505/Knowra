@@ -52,6 +52,8 @@ const inspectorTabs: TabsItem[] = [
 ];
 
 export interface EditorInspectorProps {
+  /** 原生标题栏需要保持可操作；由现有桌面能力显式传入。 */
+  nativeTitlebar?: boolean;
   note: Note;
   folder: Folder | null;
   foldersById: Record<string, Folder>;
@@ -132,6 +134,7 @@ export function EditorInspector(props: EditorInspectorProps) {
     update(); query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
+  const modal = compact && !props.nativeTitlebar;
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const tags = useMemo(() => resolveNoteTags(props.note, props.tags), [props.note, props.tags]);
@@ -162,12 +165,13 @@ export function EditorInspector(props: EditorInspectorProps) {
     <aside
       className={styles.inspector}
       data-open={props.open || undefined}
+      data-native-titlebar={props.nativeTitlebar || undefined}
       aria-label="文档检查器"
       aria-hidden={!props.open}
     >
       <header className={styles.header}>
         <h2>文档检查器</h2>
-        <GhostIconButton autoFocus={compact} aria-label="关闭文档检查器" onPress={props.onClose}>
+        <GhostIconButton autoFocus={modal} aria-label="关闭文档检查器" onPress={props.onClose}>
           <CloseIcon size={18} />
         </GhostIconButton>
       </header>
@@ -243,7 +247,7 @@ export function EditorInspector(props: EditorInspectorProps) {
       />
     </aside>
   );
-  return compact ? (
+  return modal ? (
     <Dialog title="文档检查器" presentation="panel" className={styles.inspectorDialog}
       isOpen={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}>
       {inspector}

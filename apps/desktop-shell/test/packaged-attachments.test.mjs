@@ -32,22 +32,17 @@ test('打包 APP 的附件下载复用会话，原生保存后可主动打开，
   const inspectorTrigger = page.getByRole('button', { name: '切换文档检查器', exact: true });
   if (!await page.getByRole('button', { name: '上传附件', exact: true }).isVisible()) await inspectorTrigger.click();
   const inspectorDialog = page.getByRole('dialog', { name: '文档检查器', exact: true });
-  const layout = await page.evaluate(() => ({ width: innerWidth, height: innerHeight,
+  const layout = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, coarsePointer: matchMedia('(any-pointer: coarse)').matches,
     compact: matchMedia('(max-width: 1100px), (any-pointer: coarse)').matches }));
   t.diagnostic(`检查器布局：${JSON.stringify(layout)}`);
-  if (layout.compact) await expect(inspectorDialog).toBeVisible();
-  else await expect(inspectorDialog).toHaveCount(0);
+  // 原生标题栏环境无论窗口宽度都保留非模态检查器。
+  await expect(inspectorDialog).toHaveCount(0);
   await page.getByRole('button', { name: '打开附件 下载.txt', exact: true }).click();
   await expect(page.getByRole('button', { name: '打开已保存文件', exact: true })).toBeVisible();
   assert.equal(fs.readFileSync(destination, 'utf8'), 'original');
   await page.getByRole('button', { name: '打开已保存文件', exact: true }).click();
   await expect.poll(() => app.evaluate(() => globalThis.attachmentOpened)).toBe(destination);
   fs.unlinkSync(destination);
-  if (await inspectorDialog.isVisible()) {
-    await inspectorDialog.getByRole('button', { name: '关闭文档检查器', exact: true }).click();
-    await expect(inspectorDialog).toBeHidden();
-    await expect(inspectorTrigger).toBeFocused();
-  }
   await page.locator('.ProseMirror a').filter({ hasText: '正文附件' }).click();
   await expect(page.getByRole('button', { name: '打开已保存附件', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '打开已保存附件', exact: true }).click();

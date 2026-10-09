@@ -398,7 +398,7 @@
   box-shadow: var(--shadow-2);
 }
 
-@media (max-width: 1100px), (any-pointer: coarse) {
+@media (max-width: 900px) {
   .inspector[data-open] {
     position: absolute;
     grid-column: 1 / -1;
@@ -435,7 +435,7 @@
 }
 
 @media (max-width: 1100px), (any-pointer: coarse) {
-  .header { height: 48px; flex-basis: 48px; }
+  .inspector:not([data-native-titlebar]) .header { height: 48px; flex-basis: 48px; }
 }
 
 .inspectorDialog .inspector[data-open] {
