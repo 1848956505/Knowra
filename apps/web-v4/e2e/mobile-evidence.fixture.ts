@@ -22,7 +22,8 @@ export async function mockMobileEvidence(page: Page) {
   let messages: unknown[] = [];
   const turn = { turnId: 'turn-1', conversationId: conversation.conversationId, requestedPolicyId: null,
     status: 'succeeded', phase: 'finished', errorCode: null, toolCalls: [], modelAttempts: [] };
-  await page.route('**/*', async route => {
+  await page.context().routeWebSocket('**/*', socket => { blocked.push(`WEBSOCKET ${socket.url()}`); socket.close(); });
+  await page.context().route('**/*', async route => {
     const request = route.request(); const url = new URL(request.url());
     if (url.origin !== 'http://127.0.0.1:5173') {
       blocked.push(`${request.method()} ${url.origin}${url.pathname}`); await route.abort('blockedbyclient'); return;
@@ -43,6 +44,10 @@ export async function mockMobileEvidence(page: Page) {
     else if (/^\/api\/knowledge\/(tag-groups|annotations|sources|items|knowledge-points|question-types|questions|search\/notes)$/.test(path)) data = [];
     else if (/^\/api\/knowledge\/notes\/note-\d+\/links$/.test(path)) data = [];
     else if (path === '/api/ai/assistant/alerts') data = [];
+    else if (path === '/api/storage/attachments') data = [];
+    else if (path === '/api/ai/capabilities') data = { contractVersion: 1, knowledgeExtraction: {
+      available: false, executionMode: 'unavailable', executionLocation: 'server', canStart: false,
+      canReadJobs: false, reasonCode: 'SYNTHETIC_BASELINE', message: '合成截图不执行提炼任务。' } };
     else if (path === '/api/ai/features') data = { knowledgeProposals: true };
     else if (path === '/api/ai/actions/drafts') data = { accepted: true };
     else if (path === '/api/ai/inbox' || path === '/api/ai/actions') data = [action];

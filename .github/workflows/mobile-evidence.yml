@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -26,16 +27,34 @@ jobs:
       - name: Capture synthetic viewports
         env:
           KNOWRA_MOBILE_EVIDENCE: '1'
+          KNOWRA_EVIDENCE_PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          KNOWRA_EVIDENCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+          KNOWRA_EVIDENCE_BASE_REF: ${{ github.base_ref || github.ref_name }}
         run: |
           export KNOWRA_EVIDENCE_SHA="$(git rev-parse HEAD)"
+          export KNOWRA_BASE_PRODUCTION_EQUIVALENT=false
+          if ! git diff --name-only "$KNOWRA_EVIDENCE_BASE" HEAD | grep -Ev '^(.github/workflows/mobile-evidence.yml|apps/web-v4/playwright.mobile-evidence.config.ts|apps/web-v4/e2e/mobile-evidence.(spec|fixture).ts)$'; then
+            export KNOWRA_BASE_PRODUCTION_EQUIVALENT=true
+          fi
           npm run test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: mobile-evidence-${{ github.sha }}
           path: |
-            apps/web-v4/mobile-evidence-results
-            apps/web-v4/mobile-evidence-report
+            apps/web-v4/test-results/mobile-evidence
+            apps/web-v4/playwright-report/mobile-evidence
+            apps/web-v4/dist/build-info.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload compact screenshots and measurements
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-screenshots-${{ github.sha }}
+          path: |
+            apps/web-v4/test-results/mobile-evidence/*/*.png
+            apps/web-v4/test-results/mobile-evidence/*/scenario-manifest.json
             apps/web-v4/dist/build-info.json
           if-no-files-found: error
           retention-days: 14

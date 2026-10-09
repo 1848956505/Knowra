@@ -49,7 +49,10 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
     await capture('01-note-list');
     const sidebar = page.getByRole('button', { name: '切换侧栏', exact: true });
-    if (await sidebar.isVisible()) { await sidebar.click(); await capture('02-navigation'); await sidebar.click(); }
+    if (await sidebar.isVisible()) {
+      if (await sidebar.getAttribute('aria-pressed') !== 'true') await sidebar.click();
+      await capture('02-navigation');
+    }
     else await capture('02-navigation', '当前视口未显示侧栏切换按钮；保留实际导航布局。');
     await page.goto('/#/materials/notes/note-1');
     await expect(page.locator('.ProseMirror')).toContainText('合成验收笔记');
@@ -62,7 +65,11 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     await capture('05-editor-bottom');
     await scroll.evaluate(element => { element.scrollTop = 0; });
     const inspector = page.getByRole('button', { name: '切换文档检查器', exact: true });
-    if (await inspector.isVisible()) { await inspector.click(); await capture('06-inspector'); }
+    if (await inspector.isVisible()) {
+      if (await inspector.getAttribute('aria-pressed') !== 'true') await inspector.click();
+      await expect(page.getByLabel('文档检查器', { exact: true })).toBeVisible();
+      await capture('06-inspector');
+    }
     else await capture('06-inspector', '当前视口未显示检查器入口。');
     await page.goto('/#/assistant?new=1');
     const composer = page.getByRole('textbox', { name: '消息', exact: true });
@@ -83,6 +90,10 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     expect(errors, '脚本错误不是可接受的截图基线').toEqual([]);
   } finally {
     const manifest = { schema: 1, builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
+      sourcePRHead: process.env.KNOWRA_EVIDENCE_PR_HEAD ?? null,
+      baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, baseRef: process.env.KNOWRA_EVIDENCE_BASE_REF ?? null,
+      productionEquivalentToBase: process.env.KNOWRA_BASE_PRODUCTION_EQUIVALENT === 'true',
+      buildKind: process.env.GITHUB_EVENT_NAME === 'pull_request' ? 'PR synthetic merge checkout' : 'explicit checkout',
       viewport, syntheticData: true, browser: 'Playwright Chromium',
       limitations: ['CSS 视口模拟，不是真实 vivo/OriginOS 或软键盘测试', '几何、焦点和滚动指标仅观察记录，未将现有 UI 缺陷伪装成测试失败或通过'],
       scenarios, blockedRequests: network.blocked, apiRequests: network.requests, pageErrors: errors };
