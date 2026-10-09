@@ -1,0 +1,45 @@
+name: Mac 候选构建（不发布）
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    # macos-15 的标准托管 runner 为 Apple Silicon；运行前再次断言架构。
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 确认 Apple Silicon 构建环境
+        run: test "$(uname -m)" = arm64
+      - name: 安装依赖（不运行安装脚本）
+        run: npm ci --ignore-scripts
+      - name: 生成显式 Prisma 客户端（不连接数据库）
+        run: npm run prisma:generate
+      - name: 纯构建候选 APP（不安装）
+        run: npm run build:mac
+      - name: 校验 zip 解压后的身份、哈希、签名和隔离合成数据测试
+        run: npm run test:mac
+      - name: 保存候选产物（ad-hoc 签名，未公证；不是稳定 Release）
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowra-mac-arm64-candidate-${{ github.sha }}
+          path: |
+            dist/mac/知境·Knowra-Mac-arm64.zip
+            dist/mac/知境·Knowra-Mac-arm64.zip.build-info.json
+          if-no-files-found: error
+          retention-days: 14

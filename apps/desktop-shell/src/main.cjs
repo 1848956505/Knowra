@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, utilityProcess, safeStorage, Notification } = require('electron');
 const path = require('node:path');
+const { createReleaseUpdates } = require('./release-updates.cjs');
 const { createAttachmentDownloads } = require('./attachment-downloads.cjs');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
@@ -115,8 +116,9 @@ else {
     app.setAboutPanelOptions({ applicationName: '知境·Knowra', applicationVersion: buildInfo.version,
       version: `${buildInfo.commit || 'unknown'} · ${buildInfo.state}`,
       copyright: `构建时间（UTC）：${buildInfo.builtAt}\n标识来源：${buildInfo.source}` });
+    const releaseUpdates = createReleaseUpdates({ dialog, shell, getWindow: () => window, buildInfo, isClosing: () => shuttingDown || finished });
     Menu.setApplicationMenu(Menu.buildFromTemplate([
-      { label: '知境·Knowra', submenu: [{ role: 'about', label: '关于知境·Knowra' }, { type: 'separator' }, { label: '打开本机资料目录', click: () => { void shell.openPath(dataDirectory); } }, { type: 'separator' }, { role: 'hide', label: '隐藏知境·Knowra' }, { role: 'hideOthers', label: '隐藏其他应用' }, { role: 'unhide', label: '显示全部' }, { type: 'separator' }, { label: '退出知境·Knowra', accelerator: 'Command+Q', click: () => { void quitSafely(); } }] },
+      { label: '知境·Knowra', submenu: [{ role: 'about', label: '关于知境·Knowra' }, { label: '检查更新…', click: () => { void releaseUpdates.check(); } }, { type: 'separator' }, { label: '打开本机资料目录', click: () => { void shell.openPath(dataDirectory); } }, { type: 'separator' }, { role: 'hide', label: '隐藏知境·Knowra' }, { role: 'hideOthers', label: '隐藏其他应用' }, { role: 'unhide', label: '显示全部' }, { type: 'separator' }, { label: '退出知境·Knowra', accelerator: 'Command+Q', click: () => { void quitSafely(); } }] },
       { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' }, { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
       { label: '窗口', submenu: [{ role: 'minimize', label: '最小化' }, { role: 'zoom', label: '缩放' }, { role: 'togglefullscreen', label: '全屏' }, { type: 'separator' }, { label: '关闭并保存', accelerator: 'Command+W', click: () => { void quitSafely(); } }] }
     ]));
