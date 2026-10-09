@@ -70,6 +70,20 @@ export async function compactHistory({ file, apply = false, preview, backupDirec
   } finally { lock?.release(); }
 }
 
+// 按真实文件身份识别硬链接、目录别名和大小写别名；报告不能覆盖资料库或预览。
+function validateReportPath(report, inputs) {
+  let output;
+  try { output = fs.lstatSync(report, { bigint: true }); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (output?.isSymbolicLink()) throw new Error('输出报告不能使用符号链接。');
+  if (output && !output.isFile()) throw new Error('输出报告必须是普通文件。');
+  for (const input of inputs.filter(Boolean)) {
+    const identity = fs.statSync(input, { bigint: true });
+    if ((output && output.dev === identity.dev && output.ino === identity.ino)
+      || path.resolve(report) === fs.realpathSync(input)) throw new Error('必须指定独立的资料库、预览和输出报告路径。');
+  }
+}
+
 function options(args) {
   const result = {};
   for (let i = 0; i < args.length; i++) {
@@ -78,16 +92,21 @@ function options(args) {
     if (!key || !args[i + 1] || args[i + 1].startsWith('--')) throw new Error('用法：compact-history.mjs --file <资料库.json> --report <报告.json> [--apply --preview <预览.json> --backup-dir <目录>]');
     result[key] = args[++i];
   }
-  if (!result.file || !result.report || path.resolve(result.file) === path.resolve(result.report)
-    || result.preview && path.resolve(result.preview) === path.resolve(result.report)) throw new Error('必须指定独立的资料库、预览和输出报告路径。');
+  if (!result.file || !result.report) throw new Error('必须指定独立的资料库、预览和输出报告路径。');
+  result.report = path.resolve(result.report);
+  validateReportPath(result.report, [result.file, result.preview]);
+  fs.mkdirSync(path.dirname(result.report), { recursive: true });
+  result.report = path.join(fs.realpathSync(path.dirname(result.report)), path.basename(result.report));
+  validateReportPath(result.report, [result.file, result.preview]);
   return result;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const config = options(process.argv.slice(2));
     const report = await compactHistory(config);
-    fs.mkdirSync(path.dirname(path.resolve(config.report)), { recursive: true });
-    fs.writeFileSync(config.report, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
+    validateReportPath(config.report, [config.file, config.preview]);
+    // 独占创建临时文件再替换目录项，校验后出现的链接也不会被跟随写入。
+    writeJsonFileAtomically(config.report, report);
     console.log(JSON.stringify(report, null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
