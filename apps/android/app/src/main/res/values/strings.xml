@@ -4,8 +4,7 @@
     <string name="heading">知境 · Android 在线预览</string>
     <string name="subheading">打开自己的知境服务</string>
     <string name="introduction">填写已运行的 HTTPS 知境 V4 地址。应用会打开系统浏览器安全标签页，内容和操作将发送到此服务。认证、证书校验及网页功能由浏览器负责。</string>
-    <string name="service_label">服务地址</string>
-    <string name="service_hint">https://你的知境服务域名</string>
+    <string name="service_label">服务地址（HTTPS）</string>
     <string name="open_service">用安全浏览器标签页打开</string>
     <string name="forget_service">忘记服务地址</string>
     <string name="forget_title">忘记本机保存的服务地址？</string>

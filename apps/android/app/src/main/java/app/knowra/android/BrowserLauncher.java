@@ -35,6 +35,8 @@ final class BrowserLauncher {
         // 限定已识别的浏览器 provider，避免目标域名被普通 deep-link Activity 接走。
         // 不隐藏地址栏，不传 Authorization、Cookie、token、JS 或 postMessage 通道。
         tab.intent.setPackage(provider);
+        // AndroidX 会自动放入 Accept-Language bundle；本应用不传任何附加请求头。
+        tab.intent.removeExtra(android.provider.Browser.EXTRA_HEADERS);
         return tab;
     }
 }

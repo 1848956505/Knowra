@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -60,6 +60,8 @@ jobs:
           grep -q 'DOES NOT VERIFY' apps/android/app/build/signature-status.txt
           sha256sum "$apk" > "$apk.sha256"
           printf '%s\n' "$GITHUB_SHA" > apps/android/app/build/source-commit.txt
+          git rev-parse HEAD^{tree} > apps/android/app/build/source-tree.txt
+          printf '%s\n' '${{ github.event.pull_request.head.sha || github.sha }}' > apps/android/app/build/pr-head.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,5 +73,7 @@ jobs:
             apps/android/app/build/apk-*.txt
             apps/android/app/build/signature-status.txt
             apps/android/app/build/source-commit.txt
+            apps/android/app/build/source-tree.txt
+            apps/android/app/build/pr-head.txt
           if-no-files-found: error
           retention-days: 14

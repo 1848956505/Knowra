@@ -29,6 +29,19 @@ public class BrowserLauncherTest {
     }
     @Test public void launchesHttpsIntoDetectedBrowserWithoutHeaders() {
         var activity = org.robolectric.Robolectric.buildActivity(MainActivity.class).setup().get();
+        registerBrowser(activity);
+        assertEquals(BrowserLauncher.Result.OPENED, BrowserLauncher.open(activity, ServiceOrigin.parse("https://knowra.test:8443")));
+        Intent launched = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals("https://knowra.test:8443/", launched.getDataString());
+        assertEquals("test.trusted.browser", launched.getPackage());
+        assertFalse(launched.hasExtra("com.android.browser.headers"));
+    }
+    @Test public void absentBrowserIsExplicitAndDoesNotSendGenericDeepLink() {
+        assertEquals(BrowserLauncher.Result.MISSING_BROWSER,
+                BrowserLauncher.open(RuntimeEnvironment.getApplication(), ServiceOrigin.parse("https://knowra.test")));
+        assertNull(org.robolectric.Shadows.shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
+    }
+    static void registerBrowser(android.app.Activity activity) {
         var pm = Shadows.shadowOf(activity.getPackageManager());
         ResolveInfo browser = new ResolveInfo();
         browser.activityInfo = new ActivityInfo();
@@ -42,15 +55,5 @@ public class BrowserLauncherTest {
         service.serviceInfo.packageName = "test.trusted.browser";
         service.serviceInfo.name = "CustomTabsService";
         pm.addResolveInfoForIntent(new Intent(CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION).setPackage("test.trusted.browser"), service);
-        assertEquals(BrowserLauncher.Result.OPENED, BrowserLauncher.open(activity, ServiceOrigin.parse("https://knowra.test:8443")));
-        Intent launched = Shadows.shadowOf(activity).getNextStartedActivity();
-        assertEquals("https://knowra.test:8443/", launched.getDataString());
-        assertEquals("test.trusted.browser", launched.getPackage());
-        assertFalse(launched.hasExtra("com.android.browser.headers"));
-    }
-    @Test public void absentBrowserIsExplicitAndDoesNotSendGenericDeepLink() {
-        assertEquals(BrowserLauncher.Result.MISSING_BROWSER,
-                BrowserLauncher.open(RuntimeEnvironment.getApplication(), ServiceOrigin.parse("https://knowra.test")));
-        assertNull(org.robolectric.Shadows.shadowOf(RuntimeEnvironment.getApplication()).getNextStartedActivity());
     }
 }

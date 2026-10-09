@@ -47,16 +47,12 @@ public class ServiceOriginSmoke {
   public static void main(String[] args) {
     var origin = ServiceOrigin.parse(" HTTPS://Example.COM:443/ ");
     check(origin.url().equals("https://example.com/"));
-    check(origin.contains("https://example.com/api/health"));
-    check(origin.contains("https://example.com:443/#/notes"));
-    for (String value : new String[]{"http://example.com", "https://example.com:8443", "https://example.com.evil.test", "https://u:p@example.com", "file:///x", "intent://x"}) check(!origin.contains(value));
     for (String value : new String[]{"http://example.com", "https://u:p@example.com", "https://example.com/path", "https://example.com?key=x", "https://example.com/#x", "https://example.com:0", "https://example.com:65536"}) {
       boolean rejected = false;
       try { ServiceOrigin.parse(value); } catch (IllegalArgumentException expected) { rejected = true; }
       check(rejected);
     }
-    check(!ServiceOrigin.externalHttps("https://u:p@example.com"));
-    check(ServiceOrigin.externalHttps("https://other.test/help"));
+    check(ServiceOrigin.parse("https://example.com:8443").display().equals("example.com:8443"));
   }
 }`);
     execFileSync(compiler[0], [...compiler.slice(1), '-d', dir, join(root, java, 'ServiceOrigin.java'), join(dir, 'ServiceOriginSmoke.java')], { stdio: 'pipe' });

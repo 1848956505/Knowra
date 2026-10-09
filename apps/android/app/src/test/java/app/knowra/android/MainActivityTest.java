@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Looper;
 import android.widget.EditText;
 import android.widget.TextView;
 import org.junit.Test;
@@ -50,12 +51,15 @@ public class MainActivityTest {
         address.setText("https://second.test");
         activity.findViewById(R.id.open_service).performClick();
         ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
         assertEquals("https://first.test/", activity.getPreferences(0).getString("service_origin", ""));
         activity.findViewById(R.id.forget_service).performClick();
         ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
         assertEquals("https://first.test/", activity.getPreferences(0).getString("service_origin", ""));
         activity.findViewById(R.id.forget_service).performClick();
         ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
         assertTrue(activity.getPreferences(0).getAll().isEmpty());
         assertEquals("", address.getText().toString());
     }
@@ -67,7 +71,38 @@ public class MainActivityTest {
         address.setText("https://second.test:8443");
         activity.findViewById(R.id.open_service).performClick();
         ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
         assertEquals("https://second.test:8443/", activity.getPreferences(0).getString("service_origin", ""));
         assertEquals(1, activity.getPreferences(0).getAll().size());
+    }
+    @Test public void successfulLaunchBlocksRepeatedClickUntilReturningFromBrowser() {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        MainActivity activity = controller.get();
+        BrowserLauncherTest.registerBrowser(activity);
+        ((EditText) activity.findViewById(R.id.service_address)).setText("https://knowra.test");
+        activity.findViewById(R.id.open_service).performClick();
+        activity.findViewById(R.id.open_service).performClick();
+        assertEquals("https://knowra.test/", Shadows.shadowOf(activity).getNextStartedActivity().getDataString());
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+        controller.pause().stop().restart().start().resume();
+        activity.findViewById(R.id.open_service).performClick();
+        assertEquals("https://knowra.test/", Shadows.shadowOf(activity).getNextStartedActivity().getDataString());
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+    }
+    @Test public void cancelledSwitchAfterSuccessfulSessionDoesNotLaunchAnotherOrigin() {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        MainActivity activity = controller.get();
+        BrowserLauncherTest.registerBrowser(activity);
+        EditText address = activity.findViewById(R.id.service_address);
+        address.setText("https://first.test");
+        activity.findViewById(R.id.open_service).performClick();
+        assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
+        controller.pause().stop().restart().start().resume();
+        address.setText("https://second.test");
+        activity.findViewById(R.id.open_service).performClick();
+        ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+        assertEquals("https://first.test/", activity.getPreferences(0).getString("service_origin", ""));
     }
 }

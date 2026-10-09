@@ -32,29 +32,5 @@ public final class ServiceOrigin {
     }
 
     public String url() { return uri.toASCIIString(); }
-    public String host() { return uri.getHost(); }
     public String display() { return uri.getRawAuthority(); }
-
-    public boolean contains(String value) {
-        try {
-            URI target = new URI(value);
-            return "https".equalsIgnoreCase(target.getScheme()) && target.getRawUserInfo() == null
-                    && uri.getHost().equalsIgnoreCase(target.getHost())
-                    && port(uri) == port(target);
-        } catch (URISyntaxException | NullPointerException error) {
-            return false;
-        }
-    }
-
-    public static boolean externalHttps(String value) {
-        try {
-            URI target = new URI(value);
-            return "https".equalsIgnoreCase(target.getScheme()) && target.getHost() != null
-                    && target.getRawUserInfo() == null && target.getPort() != 0 && target.getPort() <= 65535;
-        } catch (URISyntaxException | NullPointerException error) {
-            return false;
-        }
-    }
-
-    private static int port(URI uri) { return uri.getPort() == -1 ? 443 : uri.getPort(); }
 }
