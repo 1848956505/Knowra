@@ -1,0 +1,39 @@
+name: Mobile synthetic evidence
+on:
+  pull_request:
+    paths:
+      - 'apps/web-v4/**'
+      - 'packages/web-core/**'
+      - '.github/workflows/mobile-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:web
+      - name: Capture synthetic viewports
+        env:
+          KNOWRA_MOBILE_EVIDENCE: '1'
+        run: |
+          export KNOWRA_EVIDENCE_SHA="$(git rev-parse HEAD)"
+          npm run test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-evidence-${{ github.sha }}
+          path: |
+            apps/web-v4/mobile-evidence-results
+            apps/web-v4/mobile-evidence-report
+            apps/web-v4/dist/build-info.json
+          if-no-files-found: error
+          retention-days: 14
