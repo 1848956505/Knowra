@@ -61,7 +61,7 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
     await capture('05-editor-bottom');
     await scroll.evaluate(element => { element.scrollTop = 0; });
-    const inspector = page.getByRole('button', { name: '切换检查器', exact: true });
+    const inspector = page.getByRole('button', { name: '切换文档检查器', exact: true });
     if (await inspector.isVisible()) { await inspector.click(); await capture('06-inspector'); }
     else await capture('06-inspector', '当前视口未显示检查器入口。');
     await page.goto('/#/assistant?new=1');

@@ -29,15 +29,20 @@ export async function mockMobileEvidence(page: Page) {
     }
     if (!url.pathname.startsWith('/api/')) { await route.continue(); return; }
     const path = url.pathname; requests.push(`${request.method()} ${path}`);
+    const method = request.method();
+    const conversationRoot = `/api/ai/conversations/${conversation.conversationId}`;
+    const allowedWrite = method === 'POST' && (path === '/api/ai/conversations' || path === `${conversationRoot}/messages` || path === '/api/ai/actions/drafts' || path === '/api/storage/attachments/cleanup');
+    if (method !== 'GET' && !allowedWrite) { blocked.push(`${method} ${path}`); await route.abort('blockedbyclient'); return; }
     let data: unknown;
     if (path === '/api/knowledge/spaces') data = [{ id: 'space-1', name: '合成验收空间' }];
     else if (path === '/api/knowledge/folders/tree') data = [{ id: 'folder-1', name: '学习资料', parentId: null, children: [] }];
     else if (path === '/api/knowledge/notes') data = Array.from({ length: 18 }, (_, i) => note(`note-${i + 1}`));
     else if (/^\/api\/knowledge\/notes\/note-\d+$/.test(path)) data = note(path.split('/').at(-1), true);
-    else if (path.endsWith('/link-relations')) data = { noteId: 'note-1', spaceId: 'space-1', contentHash: 'a'.repeat(64), outgoing: [], backlinks: [] };
+    else if (/^\/api\/knowledge\/notes\/note-\d+\/link-relations$/.test(path)) data = { noteId: 'note-1', spaceId: 'space-1', contentHash: 'a'.repeat(64), outgoing: [], backlinks: [] };
     else if (path === '/api/knowledge/tags') data = [{ id: 'tag-study', name: '学习' }];
-    else if (/^\/api\/knowledge\/(annotations|sources|knowledge-points|question-types|questions|search\/notes)$/.test(path)) data = [];
-    else if (path.endsWith('/links')) data = [];
+    else if (/^\/api\/knowledge\/(tag-groups|annotations|sources|items|knowledge-points|question-types|questions|search\/notes)$/.test(path)) data = [];
+    else if (/^\/api\/knowledge\/notes\/note-\d+\/links$/.test(path)) data = [];
+    else if (path === '/api/ai/assistant/alerts') data = [];
     else if (path === '/api/ai/features') data = { knowledgeProposals: true };
     else if (path === '/api/ai/actions/drafts') data = { accepted: true };
     else if (path === '/api/ai/inbox' || path === '/api/ai/actions') data = [action];
@@ -46,13 +51,13 @@ export async function mockMobileEvidence(page: Page) {
     else if (path === '/api/ai/assistant/status') data = { provider: 'deepseek', modelId: 'deepseek-flash', configured: true,
       executionLocation: 'server', generationAvailable: true, unavailableReason: null, budget: null };
     else if (path === '/api/ai/access-policies') data = [];
-    else if (path.startsWith('/api/ai/conversations')) {
+    else if ([ '/api/ai/conversations', `${conversationRoot}/messages`, `${conversationRoot}/attachments`, `${conversationRoot}/turns/turn-1` ].includes(path)) {
       if (path.endsWith('/messages') && request.method() === 'POST') {
         messages = [{ messageId: 'message-1', turnId: 'turn-1', sequence: 1, role: 'user', content: '请解释梯度下降并给出学习建议。', sourceRefs: [], sourceFree: true, createdAt: date },
           { messageId: 'message-2', turnId: 'turn-1', sequence: 2, role: 'assistant', content: '梯度下降是一种优化方法。\n\n1. 计算当前梯度。\n2. 沿负梯度方向更新参数。\n3. 观察损失是否下降。\n\n这段回答来自合成测试，不调用外部模型。', sourceRefs: [], citations: [], sourceFree: true, createdAt: date }]; data = turn;
       } else if (path.endsWith('/messages')) data = messages;
       else if (path.endsWith('/attachments')) data = { attachments: [] };
-      else if (path.includes('/turns/')) data = turn;
+      else if (path === `${conversationRoot}/turns/turn-1`) data = turn;
       else if (request.method() === 'POST') { conversation.conversationId = request.postDataJSON().conversationId; turn.conversationId = conversation.conversationId; data = conversation; }
       else data = messages.length ? [conversation] : [];
     } else { blocked.push(`${request.method()} ${path}`); await route.abort('blockedbyclient'); return; }
