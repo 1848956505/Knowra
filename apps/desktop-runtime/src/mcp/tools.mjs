@@ -13,7 +13,7 @@ const onlyKeys = (value, keys) => value && typeof value === 'object' && !Array.i
 const noteId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 
 /**
- * 外部客户端的工具：三个只读工具，加上需要在配对时单独开启的 knowledge_propose。它们复用内置助手的检索、读取与重点列表实现，
+ * 外部客户端的工具：授权读取工具，加上需要在配对时单独开启的 knowledge_propose。它们复用内置助手的检索、读取与重点列表实现，
  * 但返回值一律改成带偏移的正文片段，由统一外发出口逐字复核后才离开运行端。
  * getAnnotations 每次调用时读取，资料库恢复后自动使用新的实例。
  */
@@ -26,6 +26,36 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
     return searches.get(access);
   };
   return {
+    knowledge_search: {
+      knowledgeRead: true,
+      description: '检索本配对单独获准读取的知识内容；先过滤所有已知私密/越权/断裂来源，再匹配关键词。默认仅正式知识 confirmed，可用 reviewStatus 查看候选等状态；返回知识与来源版本，不代表原文或完整派生依赖追踪。用 nextCursor 翻页。',
+      inputSchema: { type: 'object', properties: { query: { type: 'string', minLength: 1, maxLength: 300 },
+        reviewStatus: { type: 'string', enum: ['candidate', 'confirmed', 'needsRevision', 'archived', 'all'] },
+        limit: { type: 'integer', minimum: 1, maximum: 10 }, cursor: { type: 'string', minLength: 1, maxLength: 2048 } }, required: ['query'], additionalProperties: false },
+      async run() { return { fragments: [], meta: {}, entity: true }; }
+    },
+    knowledge_read: {
+      knowledgeRead: true,
+      description: '读取单条知识的当前标题、陈述、解释、审核状态和可验证的已知来源版本。须先独立开启本配对的知识读取授权；不确认或修改知识。无来源的手写/旧记录依靠该独立授权，不声称有完整生成来源。',
+      inputSchema: { type: 'object', properties: { knowledgeId: { type: 'string', minLength: 1, maxLength: 128 } }, required: ['knowledgeId'], additionalProperties: false },
+      async run() { return { fragments: [], meta: {}, entity: true }; }
+    },
+    workspace_describe: {
+      description: '描述本配对可见的笔记范围和能力边界；数量只统计当前授权笔记，不代表整个资料库。',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      async run() { return { fragments: [], meta: {}, entity: true }; }
+    },
+    notes_list: {
+      description: '按稳定 ID 顺序列出当前授权笔记标题与版本，不含正文。用 nextCursor 翻页；授权或笔记快照变化后须从首页重试。',
+      inputSchema: { type: 'object', properties: { titleQuery: { type: 'string', minLength: 1, maxLength: 100 },
+        limit: { type: 'integer', minimum: 1, maximum: 20 }, cursor: { type: 'string', minLength: 1, maxLength: 2048 } }, additionalProperties: false },
+      async run() { return { fragments: [], meta: {}, entity: true }; }
+    },
+    proposals_get: {
+      description: '按 knowledge_propose 返回的 requestId 查看本配对提交的候选当前状态；只读回执，不确认、不修改知识。其他配对或来源不再可读时不返回记录。',
+      inputSchema: { type: 'object', properties: { requestId: { type: 'string', minLength: 1, maxLength: 128 } }, required: ['requestId'], additionalProperties: false },
+      async run() { return { fragments: [], meta: {}, entity: true }; }
+    },
     notes_search: {
       description: '在已授权的笔记范围内按关键词检索，返回匹配的原文片段（带笔记 ID 与字符偏移）。没有结果时可换关键词再试。',
       inputSchema: { type: 'object', properties: { query: { type: 'string', minLength: 1, maxLength: 300 }, limit: { type: 'integer', minimum: 1, maximum: 5 } },
@@ -90,7 +120,7 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
         // 同一幂等键的并发重试依次执行，只预留、结算一次。
         return serialize(key, async () => {
           const identity = await ai.accessStore.identity();
-          const receipt = result => ({ fragments: [], meta: { saved: true, candidates: result.candidates.length, reused: true } });
+          const receipt = result => ({ fragments: [], meta: { saved: true, candidates: result.candidates.length, reused: true }, entity: true });
           // 同一幂等键已提交：按回执返回，不重新校验也不重复创建（响应丢失后重试安全）。
           const existing = await ai.knowledgeCommit.findCommitted({ origin, identity, mode: 'mcp' });
           if (existing) { unsettled.delete(slot); return receipt(existing); }
@@ -122,7 +152,7 @@ export function createMcpTools({ getAnnotations, getAi = () => null }) {
             quota.release(handle);
             throw error;
           }
-          return { fragments: [], meta: { saved: true, candidates: plan.candidates.length, reused: false } };
+          return { fragments: [], meta: { saved: true, candidates: plan.candidates.length, reused: false }, entity: true };
         });
       }
     }

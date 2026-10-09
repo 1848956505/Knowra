@@ -24,6 +24,10 @@ export async function handleMcpPairingRoute({ request, response, url, mcp, parse
     if (request.method === 'POST' && url.pathname === '/api/local-runtime/mcp/pairings') {
       json(response, 201, { data: await service.create(await parseBody(request, { limitBytes: 8192 })) }); return true;
     }
+    const knowledgeRead = url.pathname.match(/^\/api\/local-runtime\/mcp\/pairings\/([^/]+)\/knowledge-read$/);
+    if (request.method === 'POST' && knowledgeRead) {
+      json(response, 200, { data: await service.setKnowledgeRead(decodeURIComponent(knowledgeRead[1]), await parseBody(request, { limitBytes: 8192 })) }); return true;
+    }
     const revoke = url.pathname.match(/^\/api\/local-runtime\/mcp\/pairings\/([^/]+)\/revoke$/);
     if (request.method === 'POST' && revoke) { json(response, 200, { data: await service.revoke(decodeURIComponent(revoke[1])) }); return true; }
   } catch (error) {

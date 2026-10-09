@@ -71,9 +71,54 @@ test('配对：必须确认外发；响应与记录不含令牌，配对文件�
   assert.match(records, /"verifier":"[0-9a-f]{64}"/);
   assert.deepEqual(pairing.socketPath, path.join(env.data, 'mcp', 'runtime.sock').length <= 100 ? path.join(env.data, 'mcp', 'runtime.sock') : pairing.socketPath);
   assert.equal(created.data.status, 'active');
+  assert.equal(created.data.allowKnowledgeRead, false, '新配对默认不允许知识读取');
+  assert.equal(created.data.knowledgeReadConfirmedAt, null);
   assert.equal((await env.call('/api/local-runtime/mcp/pairings')).data.items.length, 1);
   assert(!JSON.stringify((await env.call('/api/local-runtime/mcp/pairings')).data).includes(pairing.token));
   assert.equal(fs.statSync(pairing.socketPath).mode & 0o777, 0o600, 'socket 权限 0600');
+});
+
+test('知识读取总开关：独立确认、真实接口持久化、CSRF 保护；不扩大提交候选权限', async t => {
+  const env = await setup(t);
+  const headers = { 'X-Knowra-MCP-Pairing': '1' };
+  assert.equal((await env.pair({ allowKnowledgeRead: true })).error.code, 'MCP_KNOWLEDGE_READ_UNCONFIRMED');
+  assert.equal((await env.pair({ allowKnowledgeRead: true, allowPropose: true, proposeConfirmed: true })).error.code, 'MCP_KNOWLEDGE_READ_UNCONFIRMED', '候选质量确认不能替代知识外发确认');
+  assert.equal((await env.pair({ allowKnowledgeRead: true, knowledgeReadConfirmed: 'yes' })).error.code, 'MCP_REQUEST_INVALID');
+  assert.equal((await env.pair({ allowKnowledgeRead: 'true', knowledgeReadConfirmed: true })).error.code, 'MCP_REQUEST_INVALID');
+  const created = (await env.pair({ allowKnowledgeRead: true, knowledgeReadConfirmed: true })).data;
+  assert.equal(created.allowKnowledgeRead, true); assert.equal(created.allowPropose, false);
+  assert(Number.isFinite(Date.parse(created.knowledgeReadConfirmedAt)));
+  const token = JSON.parse(fs.readFileSync(created.pairingFile, 'utf8')).token;
+  assert(!JSON.stringify(created).includes(token));
+  const endpoint = `/api/local-runtime/mcp/pairings/${created.pairingId}/knowledge-read`;
+  assert.equal((await env.call(endpoint, 'POST', { allowKnowledgeRead: false })).status, 403);
+  assert.equal((await env.call('/api/local-runtime/mcp/pairings')).data.items[0].allowKnowledgeRead, true, '缺少防 CSRF 头不能关闭');
+  const disabled = await env.call(endpoint, 'POST', { allowKnowledgeRead: false }, headers);
+  assert.equal(disabled.status, 200); assert.equal(disabled.data.allowKnowledgeRead, false);
+  assert.equal(disabled.data.knowledgeReadConfirmedAt, null);
+  assert.equal((await env.call(endpoint, 'POST', { allowKnowledgeRead: true }, headers)).error.code, 'MCP_KNOWLEDGE_READ_UNCONFIRMED');
+  assert.equal((await env.call(endpoint, 'POST', { allowKnowledgeRead: true, proposeConfirmed: true }, headers)).error.code, 'MCP_REQUEST_INVALID');
+  for (const invalid of [{}, [], null, { allowKnowledgeRead: 'true' }, { allowKnowledgeRead: false, scope: { kind: 'library' } }]) {
+    assert.equal((await env.call(endpoint, 'POST', invalid, headers)).error.code, 'MCP_REQUEST_INVALID');
+  }
+  const enabled = await env.call(endpoint, 'POST', { allowKnowledgeRead: true, knowledgeReadConfirmed: true }, headers);
+  assert.equal(enabled.status, 200); assert.equal(enabled.data.allowKnowledgeRead, true); assert.equal(enabled.data.allowPropose, false);
+  const records = JSON.parse(fs.readFileSync(path.join(env.data, 'mcp', 'pairings.json'), 'utf8'));
+  assert.equal(records[0].allowKnowledgeRead, true);
+  assert.equal(records[0].knowledgeReadConfirmedAt, enabled.data.knowledgeReadConfirmedAt);
+  assert(!JSON.stringify(enabled).includes(token));
+  const events = (await env.call('/api/local-runtime/mcp/audit')).data.items.map(row => row.event);
+  assert(events.includes('knowledge_read_enabled')); assert(events.includes('knowledge_read_disabled'));
+  await env.stop();
+  const restarted = await setup(t, { dataDirectory: env.data });
+  assert.equal((await restarted.call('/api/local-runtime/mcp/pairings')).data.items[0].allowKnowledgeRead, true, '重启保留授权');
+  assert.equal((await restarted.call(endpoint, 'POST', { allowKnowledgeRead: false }, headers)).data.allowKnowledgeRead, false);
+  await restarted.stop();
+  const third = await setup(t, { dataDirectory: env.data });
+  assert.equal((await third.call('/api/local-runtime/mcp/pairings')).data.items[0].allowKnowledgeRead, false, '重启也保留关闭状态');
+  await third.call(`/api/local-runtime/mcp/pairings/${created.pairingId}/revoke`, 'POST', {}, headers);
+  assert.equal((await third.call(endpoint, 'POST', { allowKnowledgeRead: true, knowledgeReadConfirmed: true }, headers)).error.code, 'MCP_PAIRING_REVOKED');
+  assert.equal((await third.call('/api/local-runtime/mcp/pairings/not-found/knowledge-read', 'POST', { allowKnowledgeRead: false }, headers)).error.code, 'MCP_PAIRING_NOT_FOUND');
 });
 
 test('读取经统一外发出口：返回逐字正文与片段清单，审计无正文/标题/令牌', async t => {

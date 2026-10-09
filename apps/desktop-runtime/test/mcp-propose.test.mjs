@@ -83,7 +83,7 @@ test('提交候选：读取后提交成功，只成为待审核候选；来源�
   assert.equal(audit.status, 'ok'); assert(!JSON.stringify(audit).includes('依据原文整理'));
   // 外部客户端无法确认：调用结果与可用工具里都没有确认能力，候选保持 candidate。
   const tools = (await client.listTools()).map(tool => tool.name).sort();
-  assert.deepEqual(tools, ['annotations_list', 'knowledge_propose', 'notes_read', 'notes_search']);
+  assert.deepEqual(tools, ['annotations_list', 'knowledge_propose', 'notes_list', 'notes_read', 'notes_search', 'proposals_get', 'workspace_describe']);
   await rejects(propose(client, note.id, P1, { reviewStatus: 'confirmed' }), 'MCP_REQUEST_INVALID');
   await rejects(client.call('knowledge_propose', { candidates: [{ title: 't', canonicalStatement: '陈述', knowledgeType: 'concept', reviewStatus: 'confirmed', citations: [{ noteId: note.id, quote: P1 }] }] }), 'MCP_REQUEST_INVALID');
   assert.equal((await env.items())[0].reviewStatus, 'candidate');
@@ -109,7 +109,7 @@ test('三层开关：没有开启的配对看不到也调不了；全局“AI �
   const readOnly = (await env.pair({ allowPropose: false, proposeConfirmed: undefined })).data;
   assert.equal(readOnly.allowPropose, false);
   const readClient = env.client(readOnly);
-  assert.deepEqual((await readClient.listTools()).map(tool => tool.name).sort(), ['annotations_list', 'notes_read', 'notes_search']);
+  assert.deepEqual((await readClient.listTools()).map(tool => tool.name).sort(), ['annotations_list', 'notes_list', 'notes_read', 'notes_search', 'proposals_get', 'workspace_describe']);
   await rejects(propose(readClient, note.id, P1), 'MCP_PROPOSE_NOT_ALLOWED');
   // 开启提交必须单独确认。
   assert.equal((await env.pair({ proposeConfirmed: undefined })).error.code, 'MCP_PROPOSE_UNCONFIRMED');
@@ -351,4 +351,79 @@ test('同一幂等键并发重试只预留、结算一次', async t => {
   assert.equal((await env.items()).length, 1);
   assert.equal((await propose(client, note.id, P2, { idempotencyKey: 'same-key-002' })).meta.saved, true, '只占用了一个名额');
   await rejects(propose(client, note.id, P3, { idempotencyKey: 'same-key-003' }), 'MCP_RATE_LIMITED');
+});
+
+test('回执稳定 ID 跨重试和重启，状态查询只限本配对且不含知识自由文本', async t => {
+  const env = await setup(t), note = await env.note('回执来源');
+  const pairing = (await env.pair()).data, client = env.client(pairing);
+  await readAll(client, note.id);
+  const saved = await propose(client, note.id, P1, { idempotencyKey: 'receipt-stable-001' });
+  assert.equal(saved.data.saved, true);
+  assert.equal(saved.data.candidateIds.length, 1);
+  const { requestId, candidateIds: [candidateId] } = saved.data;
+  const retry = await propose(client, note.id, P1, { idempotencyKey: 'receipt-stable-001' });
+  assert.equal(retry.data.requestId, requestId);
+  assert.deepEqual(retry.data.candidateIds, [candidateId]);
+  let status = await client.call('proposals_get', { requestId });
+  assert.deepEqual(status.data, { requestId, candidateIds: [candidateId], candidates: [{ candidateId, reviewStatus: 'candidate' }] });
+  assert(!JSON.stringify(status).includes('依据原文整理'));
+  const other = env.client((await env.pair()).data);
+  await rejects(other.call('proposals_get', { requestId }), 'MCP_ENTITY_UNAVAILABLE');
+  await rejects(client.call('proposals_get', { requestId: 'does-not-exist' }), 'MCP_ENTITY_UNAVAILABLE');
+  await env.restart();
+  status = await client.call('proposals_get', { requestId });
+  assert.equal(status.data.candidates[0].reviewStatus, 'candidate');
+  const item = (await env.items()).find(row => row.id === candidateId);
+  const confirmed = await env.call(`/api/knowledge/items/${candidateId}/confirm`, 'POST', { expectedUpdatedAt: item.updatedAt });
+  assert.equal(confirmed.status, 200);
+  assert.equal((await client.call('proposals_get', { requestId })).data.candidates[0].reviewStatus, 'confirmed');
+  assert.equal((await env.call(`/api/knowledge/notes/${note.id}`, 'PATCH', { aiVisibility: 'private' })).status, 200);
+  await rejects(client.call('proposals_get', { requestId }), 'MCP_ENTITY_UNAVAILABLE');
+});
+
+test('导航只包含本配对可读笔记，空正文也可发现，元数据不计入已读引文', async t => {
+  const env = await setup(t);
+  const first = await env.note('可见一'), second = await env.note('可见二');
+  const empty = await env.note('空笔记', { rawMarkdown: '' });
+  await env.note('不应暴露的私密标题', { aiVisibility: 'private' });
+  const client = env.client((await env.pair({ scope: { kind: 'fixed', noteIds: [first.id, second.id, empty.id] } })).data);
+  const summary = await client.call('workspace_describe', {});
+  assert.equal(summary.data.noteCount, 3);
+  const found = [], cursors = new Set();
+  let cursor;
+  do {
+    const page = await client.call('notes_list', { limit: 1, ...(cursor ? { cursor } : {}) });
+    found.push(...page.data.notes);
+    assert(!JSON.stringify(page).includes('不应暴露'));
+    cursor = page.data.nextCursor;
+    if (cursor) { assert(!cursors.has(cursor)); cursors.add(cursor); }
+  } while (cursor);
+  assert.deepEqual(found.map(row => row.noteId).sort(), [first.id, second.id, empty.id].sort());
+  await rejects(propose(client, first.id, P1), 'MCP_PROPOSAL_NOT_READ');
+});
+
+test('知识读取总开关独立授权改写/手工正文，状态过滤、私密来源和关闭在途保护', async t => {
+  const env = await setup(t), note = await env.note('知识来源');
+  const pairing = (await env.pair({ allowKnowledgeRead: true, knowledgeReadConfirmed: true })).data;
+  const client = env.client(pairing);
+  assert((await client.listTools()).some(tool => tool.name === 'knowledge_read'));
+  await readAll(client, note.id);
+  const receipt = await propose(client, note.id, P1);
+  const knowledgeId = receipt.data.candidateIds[0];
+  const result = await client.call('knowledge_read', { knowledgeId });
+  assert.equal(result.data.canonicalStatement, `依据原文整理：${P1}`);
+  assert.equal(result.data.reviewStatus, 'candidate');
+  assert.equal(result.data.sources[0].noteId, note.id);
+  assert.equal((await client.call('knowledge_search', { query: '依据原文整理' })).data.items.length, 0);
+  assert.equal((await client.call('knowledge_search', { query: '依据原文整理', reviewStatus: 'candidate' })).data.items[0].knowledgeId, knowledgeId);
+  const manual = await env.call('/api/knowledge/items', 'POST', { title: '独立手写知识', canonicalStatement: '手工知识不要求字面来自笔记。', userExplanation: '全知识独立许可覆盖这个解释。', sourceMode: 'manual', knowledgeType: 'concept' });
+  assert.equal(manual.status, 201);
+  const manualId = manual.data.item?.id ?? manual.data.id;
+  assert.equal((await client.call('knowledge_read', { knowledgeId: manualId })).data.userExplanation, '全知识独立许可覆盖这个解释。');
+  await env.call(`/api/knowledge/notes/${note.id}`, 'PATCH', { aiVisibility: 'private' });
+  await rejects(client.call('knowledge_read', { knowledgeId }), 'MCP_ENTITY_UNAVAILABLE');
+  assert.equal((await client.call('knowledge_search', { query: '依据原文整理', reviewStatus: 'all' })).data.items.length, 0);
+  assert.equal((await env.call(`/api/local-runtime/mcp/pairings/${pairing.pairingId}/knowledge-read`, 'POST', { allowKnowledgeRead: false }, HEADERS)).status, 200);
+  assert(!(await client.listTools()).some(tool => tool.name === 'knowledge_read'));
+  await rejects(client.call('knowledge_read', { knowledgeId: manualId }), 'MCP_KNOWLEDGE_READ_NOT_ALLOWED');
 });

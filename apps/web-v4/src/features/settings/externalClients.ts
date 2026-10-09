@@ -5,13 +5,15 @@ export type PairingScope = { kind: 'library' } | { kind: 'folder'; folderId: str
 export interface McpPairing {
   pairingId: string; label: string; spaceId: string; scope: PairingScope; excludedNoteIds: string[];
   createdAt: string; expiresAt: string; revokedAt: string | null; lastUsedAt: string | null; calls: number; allowPropose: boolean;
+  allowKnowledgeRead: boolean; knowledgeReadConfirmedAt: string | null;
   status: 'active' | 'expired' | 'revoked'; pairingFile: string;
 }
 /** 适配器启动方式：命令、脚本路径与环境变量；不含令牌，配对文件路径由各配对给出。 */
 export interface McpAdapter { command: string; args: string[]; env: Record<string, string> }
 export interface McpOverview { items: McpPairing[]; aiEnabled: boolean; egressEnabled: boolean; proposalsEnabled: boolean; adapter: McpAdapter | null }
 export interface McpAuditEntry { at: string; event: string; tool?: string; status?: string; code?: string; fragments?: number; retryAfterSeconds?: number }
-export interface CreatePairingInput { label: string; spaceId: string; scope: PairingScope; expiresInDays: number; egressConfirmed: true; allowPropose?: true; proposeConfirmed?: true }
+export interface CreatePairingInput { label: string; spaceId: string; scope: PairingScope; expiresInDays: number; egressConfirmed: true; allowPropose?: true; proposeConfirmed?: true; allowKnowledgeRead?: true; knowledgeReadConfirmed?: true }
+export type KnowledgeReadInput = { allowKnowledgeRead: false } | { allowKnowledgeRead: true; knowledgeReadConfirmed: true };
 
 const HEADERS = { 'X-Knowra-MCP-Pairing': '1' };
 const base = '/api/local-runtime/mcp';
@@ -24,6 +26,9 @@ export const externalClients = {
   },
   async revoke(pairingId: string): Promise<McpPairing> {
     return (await apiClient.requestJson<{ data: McpPairing }>(`${base}/pairings/${encodeURIComponent(pairingId)}/revoke`, { method: 'POST', headers: HEADERS, body: '{}' })).data;
+  },
+  async setKnowledgeRead(pairingId: string, input: KnowledgeReadInput): Promise<McpPairing> {
+    return (await apiClient.requestJson<{ data: McpPairing }>(`${base}/pairings/${encodeURIComponent(pairingId)}/knowledge-read`, { method: 'POST', headers: HEADERS, body: JSON.stringify(input) })).data;
   },
   async audit(pairingId: string, limit = 10): Promise<McpAuditEntry[]> {
     return (await apiClient.requestJson<{ data: { items: McpAuditEntry[] } }>(`${base}/audit?pairingId=${encodeURIComponent(pairingId)}&limit=${limit}`)).data.items;

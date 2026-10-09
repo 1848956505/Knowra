@@ -1,3 +1,4 @@
+import { createMcpKnowledgeReadService } from './mcp-knowledge-read.js';
 import { wrapHandlersWithMaintenanceGate } from '../../infrastructure/maintenance-gate.js';
 import { createNoteActionService } from './action-service.js';
 import { createAiGateway } from './gateway.js';
@@ -76,6 +77,7 @@ export function createAiRuntime({ modelSettings, repository = null, accessStore 
     access,
     // 受信宿主（本机 MCP）保存知识候选的入口；模型与 HTTP 都拿不到。开关未开启或存储不全时为 null。
     knowledgeCommit,
+    mcpKnowledgeRead: knowledge && accessStore ? createMcpKnowledgeReadService({ knowledge, ownerId: contextSources?.ownerId, accessStore, knowledgeCommit }) : null,
     conversationStore,
     conversation,
     agent,

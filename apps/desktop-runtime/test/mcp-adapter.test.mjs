@@ -68,7 +68,7 @@ test('真实 stdio 子进程：initialize、列工具、检索、读取、重点
   const { client, call } = await connect(t, pairing.pairingFile);
   assert.equal(client.getServerVersion().name, 'knowra');
   const tools = (await client.listTools()).tools;
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['annotations_list', 'notes_read', 'notes_search']);
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['annotations_list', 'notes_list', 'notes_read', 'notes_search', 'proposals_get', 'workspace_describe']);
   for (const tool of tools) { assert(tool.description.length > 10); assert.equal(tool.inputSchema.type, 'object'); assert.equal(tool.inputSchema.additionalProperties, false); }
 
   const found = await call('notes_search', { query: '线粒体' });
@@ -177,7 +177,7 @@ test('协议健壮性：非法行、未知方法不使进程崩溃，stdout 只�
   send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'nope', arguments: {} } });
   assert.match((await waitFor(item => item.id === 3)).result.content[0].text, /MCP_TOOL_UNKNOWN/);
   send({ jsonrpc: '2.0', id: 4, method: 'tools/list' });
-  assert.equal((await waitFor(item => item.id === 4)).result.tools.length, 3);
+  assert.deepEqual((await waitFor(item => item.id === 4)).result.tools.map(tool => tool.name).sort(), ['annotations_list', 'notes_list', 'notes_read', 'notes_search', 'proposals_get', 'workspace_describe']);
   assert(lines.every(line => { try { JSON.parse(line); return true; } catch { return false; } }), `stdout 出现非 JSON-RPC 内容：${lines}`);
   assert.equal(child.exitCode, null, '进程仍在运行');
 });
@@ -239,7 +239,7 @@ test('随应用打包的单文件适配器（esbuild）无需 node_modules 即�
   const client = new Client({ name: 'bundle', version: '0' });
   await client.connect(transport);
   t.after(() => client.close());
-  assert.equal((await client.listTools()).tools.length, 3);
+  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name).sort(), ['annotations_list', 'notes_list', 'notes_read', 'notes_search', 'proposals_get', 'workspace_describe']);
   const read = await client.callTool({ name: 'notes_read', arguments: { noteId: note.id, start: 0, end: 6 } });
   assert.equal(JSON.parse(read.content[0].text).fragments[0].text, BODY.slice(0, 6));
 });

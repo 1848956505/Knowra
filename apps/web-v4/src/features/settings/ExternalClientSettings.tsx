@@ -6,6 +6,7 @@ import { Checkbox } from '../../components/ui/input/Checkbox';
 import { Select, TextField } from '../../components/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '../../components/ui/overlay/Dialog';
 import { useAppStore } from '../../store/AppStoreProvider';
+import { KnowledgeReadConsent } from './KnowledgeReadConsent';
 import { claudeCodeSnippet, codexSnippet, externalClients, isDesktopRuntime, type McpAuditEntry, type McpOverview, type McpPairing, type PairingScope } from './externalClients';
 import styles from './SettingsView.module.css';
 
@@ -43,6 +44,8 @@ function ExternalClientPanel() {
   const [createOpen, setCreateOpen] = useState(false);
   const [connection, setConnection] = useState<McpPairing | null>(null);
   const [revoking, setRevoking] = useState<McpPairing | null>(null);
+  const [knowledgePairing, setKnowledgePairing] = useState<McpPairing | null>(null);
+  const [knowledgeUnderstood, setKnowledgeUnderstood] = useState(false);
   const [busy, setBusy] = useState(false);
   const [audit, setAudit] = useState<{ pairingId: string; items: McpAuditEntry[] } | null>(null);
   const [copied, setCopied] = useState('');
@@ -55,6 +58,8 @@ function ExternalClientPanel() {
   const [understood, setUnderstood] = useState(false);
   const [allowPropose, setAllowPropose] = useState(false);
   const [proposeUnderstood, setProposeUnderstood] = useState(false);
+  const [allowKnowledgeRead, setAllowKnowledgeRead] = useState(false);
+  const [createKnowledgeUnderstood, setCreateKnowledgeUnderstood] = useState(false);
 
   const refresh = useCallback(async () => {
     try { setOverview(await externalClients.overview()); setError(''); setUnsupported(false); }
@@ -71,10 +76,12 @@ function ExternalClientPanel() {
 
   const scope: PairingScope | null = kind === 'library' ? { kind: 'library' } : kind === 'folder' && folderId ? { kind: 'folder', folderId }
     : kind === 'fixed' && noteId ? { kind: 'fixed', noteIds: [noteId] } : null;
-  const canCreate = Boolean(spaceId && scope && label.trim() && understood && (!allowPropose || proposeUnderstood) && !busy);
+  const canCreate = Boolean(spaceId && scope && label.trim() && understood && (!allowPropose || proposeUnderstood)
+    && (!allowKnowledgeRead || createKnowledgeUnderstood) && !busy);
 
   function openCreate() {
     setLabel(''); setKind('library'); setFolderId(folders[0]?.id ?? ''); setNoteId(notes[0]?.id ?? ''); setDays('7'); setUnderstood(false); setAllowPropose(false); setProposeUnderstood(false);
+    setAllowKnowledgeRead(false); setCreateKnowledgeUnderstood(false);
     setError(''); setNotice(''); setCreateOpen(true);
   }
   async function create() {
@@ -82,7 +89,8 @@ function ExternalClientPanel() {
     setBusy(true); setError('');
     try {
       const pairing = await externalClients.create({ label: label.trim(), spaceId, scope, expiresInDays: Number(days), egressConfirmed: true,
-        ...(allowPropose ? { allowPropose: true as const, proposeConfirmed: true as const } : {}) });
+        ...(allowPropose ? { allowPropose: true as const, proposeConfirmed: true as const } : {}),
+        ...(allowKnowledgeRead ? { allowKnowledgeRead: true as const, knowledgeReadConfirmed: true as const } : {}) });
       setCreateOpen(false); setNotice(`已创建配对“${pairing.label}”。请按下面的连接方式配置客户端。`);
       await refresh(); setConnection(pairing);
     } catch (failure) { setError(message(failure, '创建配对失败。')); }
@@ -95,6 +103,19 @@ function ExternalClientPanel() {
       setRevoking(null); setConnection(current => current?.pairingId === pairing.pairingId ? null : current);
       setNotice(`已撤销“${pairing.label}”，该客户端立即无法读取。`); await refresh();
     } catch (failure) { setError(message(failure, '撤销失败，请重试。')); }
+    finally { setBusy(false); }
+  }
+  async function setKnowledgeRead(pairing: McpPairing, enabled: boolean) {
+    if (busy || enabled && !knowledgeUnderstood) return;
+    setBusy(true); setError('');
+    try {
+      const updated = await externalClients.setKnowledgeRead(pairing.pairingId, enabled
+        ? { allowKnowledgeRead: true, knowledgeReadConfirmed: true } : { allowKnowledgeRead: false });
+      setOverview(current => current ? { ...current, items: current.items.map(item => item.pairingId === updated.pairingId ? updated : item) } : current);
+      setConnection(current => current?.pairingId === updated.pairingId ? updated : current);
+      setKnowledgePairing(null); setKnowledgeUnderstood(false);
+      setNotice(`已${updated.allowKnowledgeRead ? '开启' : '关闭'}“${updated.label}”的知识点读取。`);
+    } catch (failure) { setError(message(failure, '保存知识读取设置失败，请重试。')); }
     finally { setBusy(false); }
   }
   async function toggleAudit(pairing: McpPairing) {
@@ -117,7 +138,7 @@ function ExternalClientPanel() {
       <div className={styles.settingRow}>
         <div className={styles.settingCopy}>
           <h4>外部 AI 客户端（MCP）</h4>
-          <p>让 Claude Code、Codex 等本机 AI 客户端只读访问你选定范围内的笔记。每个客户端单独配对，可随时撤销，到期自动失效。</p>
+          <p>让 Claude Code、Codex 等本机 AI 客户端只读访问你选定范围内的笔记。知识点读取由每个客户端的独立总开关控制，默认关闭。每个客户端单独配对，可随时撤销，到期自动失效。</p>
           {blocked ? <p role="status">{blocked}</p> : null}
           {!blocked && overview && !spaceId ? <p role="status">正在加载知识空间，加载完成后即可添加。</p> : null}
         </div>
@@ -129,15 +150,22 @@ function ExternalClientPanel() {
         {overview.items.map(pairing => <li key={pairing.pairingId} className={styles.clientRow}>
           <div className={styles.settingCopy}>
             <div className={styles.clientTitle}><h4>{pairing.label}</h4><Badge tone={statusBadge[pairing.status].tone}>{statusBadge[pairing.status].text}</Badge>
-              {pairing.allowPropose ? <Badge tone="accent">可提交候选</Badge> : null}</div>
+              {pairing.allowPropose ? <Badge tone="accent">可提交候选</Badge> : null}
+              {pairing.allowKnowledgeRead ? <Badge tone="accent">可读取知识点</Badge> : null}</div>
             <p className={styles.clientMeta}>{scopeText(pairing)} · 到期 {time(pairing.expiresAt)} · {pairing.lastUsedAt ? `最近使用 ${time(pairing.lastUsedAt)}` : '从未使用'} · 共调用 {pairing.calls} 次</p>
             {pairing.status === 'active' && pairing.allowPropose && overview && !overview.proposalsEnabled ? <p className={styles.clientMeta} role="status">“AI 提炼知识点”未开启，暂不能提交</p> : null}
             {audit?.pairingId === pairing.pairingId ? (audit.items.length
               ? <ul className={styles.clientAudit} aria-label={`${pairing.label}最近调用`}>{audit.items.map((entry, index) => <li key={`${entry.at}-${index}`}>
-                {time(entry.at)} · {entry.event === 'call' ? entry.tool : entry.event === 'created' ? '创建配对' : entry.event === 'revoked' ? '撤销配对' : '被拒绝'} · {entry.status === 'ok' ? `成功，返回 ${entry.fragments ?? 0} 个片段` : entry.code ?? entry.status ?? ''}</li>)}</ul>
+                {time(entry.at)} · {entry.event === 'call' ? entry.tool : entry.event === 'created' ? '创建配对' : entry.event === 'revoked' ? '撤销配对'
+                  : entry.event === 'knowledge_read_enabled' ? '开启知识点读取' : entry.event === 'knowledge_read_disabled' ? '关闭知识点读取' : '被拒绝'} · {entry.status === 'ok' ? `成功，返回 ${entry.fragments ?? 0} 个片段` : entry.code ?? entry.status ?? ''}</li>)}</ul>
               : <p className={styles.clientMeta}>还没有调用记录。</p>) : null}
           </div>
           <div className={styles.clientActions}>
+            {pairing.status === 'active' ? <Button size="compact" isDisabled={busy} aria-label={`${pairing.allowKnowledgeRead ? '关闭' : '开启'}知识点读取：${pairing.label}`}
+              onPress={() => {
+                if (pairing.allowKnowledgeRead) void setKnowledgeRead(pairing, false);
+                else { setKnowledgeUnderstood(false); setError(''); setNotice(''); setKnowledgePairing(pairing); }
+              }}>{pairing.allowKnowledgeRead ? '关闭知识点读取' : '开启知识点读取'}</Button> : null}
             {pairing.status === 'active' ? <Button size="compact" aria-label={`查看连接方式：${pairing.label}`} onPress={() => { setCopied(''); setConnection(pairing); }}>查看连接方式</Button> : null}
             <Button size="compact" variant="ghost" aria-label={`最近调用：${pairing.label}`} onPress={() => void toggleAudit(pairing)}>最近调用</Button>
             {pairing.status === 'active' ? <Button size="compact" variant="ghost" aria-label={`撤销：${pairing.label}`} onPress={() => setRevoking(pairing)}>撤销</Button> : null}
@@ -148,7 +176,7 @@ function ExternalClientPanel() {
     {loading ? <p className={styles.modelHint}>读取中</p> : null}
     {!loading && overview && !overview.items.length ? <p className={styles.modelHint}>还没有配对的外部客户端。</p> : null}
     {notice ? <p role="status" className={styles.modelNotice}>{notice}</p> : null}
-    {error && !createOpen && !revoking ? <p role="alert" className={styles.modelError}>{error}</p> : null}
+    {error && !createOpen && !revoking && !knowledgePairing ? <p role="alert" className={styles.modelError}>{error}</p> : null}
     {!loading && !overview && !unsupported ? <Button size="compact" onPress={() => setAttempt(value => value + 1)}>重试读取</Button> : null}
 
     <Dialog title="允许外部 AI 客户端读取笔记？" isOpen={createOpen} onOpenChange={open => { if (!busy) setCreateOpen(open); }} isPending={busy} size="md">
@@ -163,8 +191,10 @@ function ExternalClientPanel() {
             options={notes.map(note => ({ id: note.id, label: note.title || '无标题笔记' }))} /> : null}
           <Select label="有效期" selectedKey={days} onSelectionChange={key => setDays(String(key))}
             options={[{ id: '1', label: '1 天' }, { id: '7', label: '7 天（默认）' }, { id: '30', label: '30 天' }, { id: '90', label: '90 天' }]} />
-          <p className={styles.dialogNote}>被读取的笔记片段会发送给该客户端所属的厂商（如 Anthropic、OpenAI），费用由客户端自己的订阅承担，不计入知境预算。只读取你选定范围内的笔记，不含标记为私密的笔记，不会修改或创建任何内容。可随时撤销，到期自动失效。</p>
+          <p className={styles.dialogNote}>被读取的笔记片段会发送给该客户端所属的厂商（如 Anthropic、OpenAI），费用由客户端自己的订阅承担，不计入知境预算。笔记读取仅限你选定的范围，不含标记为私密的笔记。下方“允许读取知识点”单独授权当前资料库中的全部知识点；提交候选也需单独开启。可随时关闭或撤销，到期自动失效。</p>
           <Checkbox isSelected={understood} onChange={setUnderstood}>我了解所选范围内的笔记片段会发给该客户端所属的厂商</Checkbox>
+          <Checkbox isSelected={allowKnowledgeRead} onChange={value => { setAllowKnowledgeRead(value); if (!value) setCreateKnowledgeUnderstood(false); }}>允许读取知识点（全部开放，默认关闭）</Checkbox>
+          {allowKnowledgeRead ? <KnowledgeReadConsent label={label} isSelected={createKnowledgeUnderstood} onChange={setCreateKnowledgeUnderstood} isDisabled={busy} /> : null}
           <Checkbox isSelected={allowPropose} onChange={value => { setAllowPropose(value); if (!value) setProposeUnderstood(false); }}>同时允许该客户端提交待审核的知识候选（默认不允许）</Checkbox>
           {allowPropose ? <>
             <p className={styles.dialogNote}>开启后，该客户端可以把它从你笔记里提炼的内容作为待审核的知识候选提交到知境。候选不会自动入库，也不会被确认，需要你在知识库逐条审核；它只能引用自己已读取过的原文，每天最多提交 200 条。仍需要“AI 提炼知识点”开关处于开启状态。</p>
@@ -176,6 +206,18 @@ function ExternalClientPanel() {
       <DialogFooter>
         <Button variant="ghost" isDisabled={busy} onPress={() => setCreateOpen(false)}>取消</Button>
         <Button variant="primary" isPending={busy} isDisabled={!canCreate} onPress={() => void create()}>创建配对</Button>
+      </DialogFooter>
+    </Dialog>
+
+    <Dialog title={knowledgePairing ? `允许“${knowledgePairing.label}”读取全部知识点？` : '允许读取知识点'} isOpen={Boolean(knowledgePairing)}
+      onOpenChange={open => { if (!open && !busy) { setKnowledgePairing(null); setKnowledgeUnderstood(false); setError(''); } }} isPending={busy} size="md">
+      <DialogBody>
+        <KnowledgeReadConsent label={knowledgePairing?.label ?? ''} isSelected={knowledgeUnderstood} onChange={setKnowledgeUnderstood} isDisabled={busy} />
+        {error ? <p role="alert" className={styles.modelError}>{error}</p> : null}
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="ghost" isDisabled={busy} onPress={() => { setKnowledgePairing(null); setKnowledgeUnderstood(false); setError(''); }}>取消</Button>
+        <Button variant="primary" isPending={busy} isDisabled={!knowledgeUnderstood || busy} onPress={() => knowledgePairing && void setKnowledgeRead(knowledgePairing, true)}>确认开启</Button>
       </DialogFooter>
     </Dialog>
 

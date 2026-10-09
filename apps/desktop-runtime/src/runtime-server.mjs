@@ -16,6 +16,7 @@ import { exportRuntimeBackup, importRuntimeBackup } from './backup-transfers.mjs
 import { authoritativePurgeRoute } from './authoritative-purge.mjs';
 import { startMcpRuntime } from './mcp/index.mjs';
 import { createMcpTools } from './mcp/tools.mjs';
+import { createMcpEntityOutput } from './mcp/entity-output.mjs';
 import { handleMcpPairingRoute } from './mcp/pairing-routes.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
@@ -222,6 +223,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
         // 适配器启动方式由装配方给出：开发时是 node 加源码路径，Mac 应用里是应用自带的可执行文件加打包后的脚本。
         adapter: mcpAdapter === undefined ? { command: process.execPath, args: [fileURLToPath(new URL('./mcp/adapter.mjs', import.meta.url))], env: {} } : mcpAdapter,
         getAccess: () => getAi?.()?.access ?? null,
+        getEntityResult: createMcpEntityOutput({ getAi: () => getAi?.() }),
         flags: () => ({ aiEnabled: Boolean(getAi?.()?.access) && process.env.KNOWRA_AI_ENABLED !== '0',
           allowExternal: process.env.KNOWRA_AI_EGRESS_ENABLED !== '0' }) });
     } catch (failure) { logger.warn?.('MCP runtime unavailable', { code: failure?.code ?? 'MCP_START_FAILED' }); }

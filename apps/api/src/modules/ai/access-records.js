@@ -94,6 +94,12 @@ export function createAiAccessStore(adapter) {
       const validate = value => value ? validateAccessRecord(kind, value) : null;
       return row?.then ? row.then(validate) : validate(row);
     },
+    // 本机 MCP 最后一个 await 之后同步复核资料集边界；异步后端不伪装成原子快照。
+    peekIdentity() {
+      const identity = adapter.identity();
+      if (identity?.then) throw new TypeError('同步授权快照不支持异步资料集存储。');
+      return structuredClone(identity);
+    },
     async identity() { return structuredClone(await adapter.identity()); },
     async get(kind, id) {
       if (!ACCESS_KINDS[kind]) accessError('AI_RECORD_INVALID', '未知的 v2 AI 记录。');
