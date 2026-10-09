@@ -11,17 +11,18 @@ const DISK_MARGIN_BYTES = 64 * 1024 * 1024;
  */
 export function reclaimFreeSpace(db, filePath, { minFreeBytes = RECLAIM_MIN_FREE_BYTES, minFreeRatio = RECLAIM_MIN_FREE_RATIO,
   availableBytes = () => { const stats = fs.statfsSync(filePath); return stats.bavail * stats.bsize; } } = {}) {
-  if (db.isTransaction) return { reclaimed: false, reason: 'in-transaction' };
-  const pageSize = db.prepare('PRAGMA page_size').get().page_size;
-  const pageCount = db.prepare('PRAGMA page_count').get().page_count;
-  const freeBytes = db.prepare('PRAGMA freelist_count').get().freelist_count * pageSize;
-  const fileBytes = pageCount * pageSize;
-  if (freeBytes < minFreeBytes || freeBytes < fileBytes * minFreeRatio) return { reclaimed: false, reason: 'below-threshold', freeBytes, fileBytes };
-  // VACUUM 需要写入一份不超过当前文件大小的新库；余量不足时宁可不整理。
-  if (availableBytes() < fileBytes + DISK_MARGIN_BYTES) return { reclaimed: false, reason: 'low-disk-space', freeBytes, fileBytes };
+  let freeBytes, fileBytes;
   try {
+    if (db.isTransaction) return { reclaimed: false, reason: 'in-transaction' };
+    const pageSize = db.prepare('PRAGMA page_size').get().page_size;
+    const pageCount = db.prepare('PRAGMA page_count').get().page_count;
+    freeBytes = db.prepare('PRAGMA freelist_count').get().freelist_count * pageSize;
+    fileBytes = pageCount * pageSize;
+    if (freeBytes < minFreeBytes || freeBytes < fileBytes * minFreeRatio) return { reclaimed: false, reason: 'below-threshold', freeBytes, fileBytes };
+    // 空间查询、整理及结果查询都属于可选维护，失败不能阻止资料库启动。
+    if (availableBytes() < fileBytes + DISK_MARGIN_BYTES) return { reclaimed: false, reason: 'low-disk-space', freeBytes, fileBytes };
     db.exec('VACUUM');
     db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    return { reclaimed: true, freeBytes, fileBytes, afterBytes: db.prepare('PRAGMA page_count').get().page_count * pageSize };
   } catch (error) { return { reclaimed: false, reason: 'failed', error, freeBytes, fileBytes }; }
-  return { reclaimed: true, freeBytes, fileBytes, afterBytes: db.prepare('PRAGMA page_count').get().page_count * pageSize };
 }
