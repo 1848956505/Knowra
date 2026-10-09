@@ -35,11 +35,15 @@ export const annotationDynamicPostgresTests = process.env.KNOWRA_SYNC_TEST_DATAB
       // A database trigger fails the annotation revision after the note update: the entire transaction must roll back.
       await app.prisma.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION fail_annotation_revision() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected annotation revision failure'; END $$`);
       await app.prisma.$executeRawUnsafe(`CREATE TRIGGER annotation_revision_failure BEFORE INSERT ON "AnnotationRevision" FOR EACH ROW EXECUTE FUNCTION fail_annotation_revision()`);
+      // 跨过自动历史采样窗口，确保本次保存实际触发待验证的 INSERT 故障。
+      const realNow = Date.now;
+      Date.now = () => realNow() + 10 * 60 * 1000;
       try {
         await assert.rejects(k.noteService.updateNote(note.id,{rawMarkdown:boundary+'\n\n回滚',expectedUpdatedAt:changed.updatedAt}));
         assert.equal((await k.noteService.getNote(note.id)).rawMarkdown,boundary);
         assert.equal((await k.contentAnnotationService.getAnnotation(annotation.id)).revision,confirmed.revision+1);
-      } finally { await app.prisma.$executeRawUnsafe('DROP TRIGGER annotation_revision_failure ON "AnnotationRevision"');await app.prisma.$executeRawUnsafe('DROP FUNCTION fail_annotation_revision()'); }
+      } finally {
+        Date.now = realNow; await app.prisma.$executeRawUnsafe('DROP TRIGGER annotation_revision_failure ON "AnnotationRevision"');await app.prisma.$executeRawUnsafe('DROP FUNCTION fail_annotation_revision()'); }
       await k.noteService.updateNote(note.id,{rawMarkdown:boundary.replace('新增',''),expectedUpdatedAt:changed.updatedAt});
       await assert.rejects(k.annotationScopeService.previewAnalysisScope({spaceId:space.id,mode:'marked',annotationIds:[annotation.id]}),{code:'ANNOTATION_EXCLUSION_CONFLICT'});
     } finally {

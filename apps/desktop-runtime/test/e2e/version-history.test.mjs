@@ -20,13 +20,13 @@ test('真实页面：历史摘要分页、差异对比、恢复和另存后持�
   await page.goto(runtime.launchUrl);
   const api = page.request;
   const space = (await (await api.post(`${runtime.origin}/api/knowledge/spaces/default`, { data: {} })).json()).data;
-  const historyStart = Date.now() - 60000;
+  const historyStart = Date.now() - 22 * 11 * 60000;
   const note = (await (await api.post(`${runtime.origin}/api/knowledge/notes`, { data: { spaceId: space.id, title: '版本历史验收', rawMarkdown: '历史第0版', createdAt: new Date(historyStart).toISOString(), updatedAt: new Date(historyStart).toISOString() } })).json()).data;
-  // 模拟已有资料库中保留下来的历史；快速自动保存现在会合并，不能再用它制造分页夹具。
+  // 每 11 分钟一个恢复点：20 个普通点加创建基线和当前版本，仍可验证跨页访问。
   runtime.store.runTransaction(() => {
-    for (let index = 1; index <= 23; index++) runtime.store.state.noteVersions.push(new NoteVersion({
+    for (let index = 1; index <= 21; index++) runtime.store.state.noteVersions.push(new NoteVersion({
       id: `history-fixture-${index}`, noteId: note.id, content: `历史第${index}版`,
-      createdAt: new Date(historyStart + index * 1000).toISOString()
+      createdAt: new Date(historyStart + index * 11 * 60000).toISOString()
     }));
   });
   const restored = await api.patch(`${runtime.origin}/api/knowledge/notes/${note.id}`, { data: {
@@ -35,7 +35,7 @@ test('真实页面：历史摘要分页、差异对比、恢复和另存后持�
   assert.equal(restored.status(), 200);
   const summary = (await (await api.get(`${runtime.origin}/api/knowledge/notes/${note.id}/versions?limit=20`)).json()).data;
   assert.equal(summary.items.length, 20);
-  assert.equal(summary.total, 24);
+  assert.equal(summary.total, 22);
   assert(summary.items.every(item => !Object.hasOwn(item, 'content')));
   assert.notEqual(summary.currentVersionId, summary.items[0].id);
   await page.goto('about:blank');
@@ -45,16 +45,14 @@ test('真实页面：历史摘要分页、差异对比、恢复和另存后持�
   if (!await page.getByRole('tab', { name: '记录', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
   await page.getByRole('tab', { name: '记录', exact: true }).click();
   const panel = page.getByRole('region', { name: '历史记录', exact: true });
-  await expect(panel).toContainText('24 条历史记录');
+  await expect(panel).toContainText('22 条历史记录');
   await panel.getByRole('button', { name: '加载更早记录' }).click();
   await expect(panel.getByRole('button', { name: '加载更早记录' })).toHaveCount(0);
-  await panel.locator('summary').first().click();
   await expect(panel.getByRole('button', { name: /^当前正文/ })).toBeVisible();
   await panel.getByRole('button', { name: /^历史正文/ }).first().click();
-  await expect(panel.getByRole('article', { name: '版本正文预览' })).toContainText('历史第23版');
-  await panel.locator('summary').first().click();
+  await expect(panel.getByRole('article', { name: '版本正文预览' })).toContainText('历史第21版');
   await panel.getByRole('button', { name: '与当前正文对比' }).click();
-  await expect(panel.locator('[data-diff="removed"]')).toContainText('历史第23版');
+  await expect(panel.locator('[data-diff="removed"]')).toContainText('历史第21版');
   await expect(panel.locator('[data-diff="added"]')).toContainText('历史第5版');
   if (process.env.KNOWRA_E2E_OUTPUT) {
     fs.mkdirSync(process.env.KNOWRA_E2E_OUTPUT, { recursive: true });
@@ -62,15 +60,15 @@ test('真实页面：历史摘要分页、差异对比、恢复和另存后持�
   }
   await panel.getByRole('button', { name: '恢复此版本' }).click();
   await page.getByRole('dialog', { name: '恢复历史正文' }).getByRole('button', { name: '确认恢复' }).click();
-  await expect(editor).toContainText('历史第23版');
-  await expect.poll(async () => (await (await api.get(`${runtime.origin}/api/knowledge/notes/${note.id}`)).json()).data.rawMarkdown.trim()).toBe('历史第23版');
+  await expect(editor).toContainText('历史第21版');
+  await expect.poll(async () => (await (await api.get(`${runtime.origin}/api/knowledge/notes/${note.id}`)).json()).data.rawMarkdown.trim()).toBe('历史第21版');
   await panel.getByRole('button', { name: '另存为新笔记' }).click();
   await expect.poll(() => runtime.store.state.notes.length).toBe(2);
   const savedCopy = runtime.store.state.notes.find(item => item.id !== note.id);
-  assert.equal(savedCopy.rawMarkdown.trim(), '历史第23版');
+  assert.equal(savedCopy.rawMarkdown.trim(), '历史第21版');
   assert.equal(savedCopy.folderId, note.folderId);
   await page.reload();
-  await expect(editor).toContainText('历史第23版');
+  await expect(editor).toContainText('历史第21版');
   const retained = (await (await api.get(`${runtime.origin}/api/knowledge/notes/${note.id}/versions`)).json()).data;
   assert(retained.some(item => item.content === '历史第5版'));
   assert.deepEqual(errors, []);

@@ -78,7 +78,7 @@ for (const existing of [false, true]) test(`长时间编辑${existing ? '已有'
     annotation.revision = 1105;
     annotation.comment = '离线最终备注';
     for (let i = 0; i < 80; i++) a.store.state.noteVersions.push(new NoteVersion({ id: `long-version-${i}`, noteId: ids.noteId, content: `历史正文 ${i}` }));
-  });
+  }, { origin: 'migration' });
   const revisions = structuredClone(a.store.state.annotationRevisions);
   const versions = structuredClone(a.store.state.noteVersions);
   armed = true;
@@ -89,15 +89,23 @@ for (const existing of [false, true]) test(`长时间编辑${existing ? '已有'
   const frozen = a.store.readSync(db => JSON.parse(db.prepare("SELECT value FROM metadata WHERE key='sync:entityUpload'").get().value));
   await a.restart(); await a.connect();
   assert.equal(a.engine.status().error, null, JSON.stringify(a.engine.status()));
-  assert(sent.filter(operation => operation.operationId === frozen.operationId).length >= 2, '重启重发固定请求');
+  const retries = sent.filter(operation => operation.operationId === frozen.operationId);
+  assert(retries.length >= 2, '重启重发固定请求');
+  for (const retry of retries) assert.deepEqual(retry, frozen);
   assert.equal(a.engine.status().pendingEntities, 0);
   assert.equal(a.store.getStatus().pendingOperations, 0);
   await b.connect(); assert.equal(b.engine.status().error, null);
   for (const store of [a.store, b.store, f.cloud]) {
     assert.equal(store.state.notes.find(item => item.id === ids.noteId).rawMarkdown, final.rawMarkdown);
     assert.equal(store.state.contentAnnotations.find(item => item.id === ids.annotationId).revision, 1105);
-    for (const revision of revisions) assert.deepEqual(store.state.annotationRevisions.find(item => item.id === revision.id), revision);
-    for (const version of versions) assert.deepEqual(store.state.noteVersions.find(item => item.id === version.id), version);
+    for (const [collection, originals] of [['annotationRevisions', revisions], ['noteVersions', versions]]) {
+      assert.deepEqual(store.state[collection], f.cloud.state[collection], '设备与云端保留历史一致');
+      for (const original of originals) {
+        const present = store.state[collection].find(item => item.id === original.id);
+        if (present) assert.deepEqual(present, original);
+        else assert.ok(f.cloud.getSyncJournal().tombstones[JSON.stringify([collection, original.id])], '旧历史必须有已提交的删除事实');
+      }
+    }
   }
   assert(sent.every(operation => operation.changes.length <= 250 && Buffer.byteLength(JSON.stringify(operation)) <= 1024 * 1024));
 });
@@ -236,7 +244,8 @@ test('升级前的1000条冻结请求不按新软目标拆改，超时重启仍�
     for (let i = annotation.revision + 1; i <= 1105; i++) a.store.state.annotationRevisions.push({
       ...structuredClone(template), id: `legacy-revision-${i}`, revision: i, operation: 'comment' });
     annotation.revision = 1105;
-  });
+  }, { origin: 'migration' });
+  const originalRevisions = structuredClone(a.store.state.annotationRevisions);
   const legacy = nextEntityUpload(a.store);
   const own = new Set(legacy.changes.map(entry => entry.id));
   legacy.changes.push(...a.store.state.annotationRevisions.filter(item => !own.has(item.id)).slice(0, 1000 - legacy.changes.length)
@@ -251,7 +260,13 @@ test('升级前的1000条冻结请求不按新软目标拆改，超时重启仍�
   assert.deepEqual(replayed[0], legacy); assert.deepEqual(replayed[1], legacy);
   assert(sent.filter(operation => operation.operationId !== legacy.operationId).every(operation => operation.changes.length <= 250));
   assert.equal(a.engine.status().pendingEntities, 0);
-  assert.equal(f.cloud.state.annotationRevisions.length, 1105);
+  assert.equal(f.cloud.state.contentAnnotations.find(item => item.id === ids.annotationId).revision, 1105);
+  for (const original of originalRevisions) {
+    const present = f.cloud.state.annotationRevisions.find(item => item.id === original.id);
+    if (present) assert.deepEqual(present, original);
+    else assert.ok(f.cloud.getSyncJournal().tombstones[JSON.stringify(['annotationRevisions', original.id])]);
+  }
+  assert.deepEqual(a.store.state.annotationRevisions, f.cloud.state.annotationRevisions);
 });
 
 test('真正超大的当前正文组明确阻塞，正文、历史、outbox和冻结元数据原样保留', t => {

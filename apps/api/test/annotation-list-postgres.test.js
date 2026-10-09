@@ -40,12 +40,16 @@ export const annotationListPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE
       const baseline = await k.contentAnnotationService.getAnnotation(annotation.id);
       await app.prisma.$executeRawUnsafe(`CREATE FUNCTION fail_list_revision() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected list revision failure'; END $$`);
       await app.prisma.$executeRawUnsafe(`CREATE TRIGGER list_revision_failure BEFORE INSERT ON "AnnotationRevision" FOR EACH ROW EXECUTE FUNCTION fail_list_revision()`);
+      // 跨过自动历史采样窗口，确保本次保存实际触发待验证的 INSERT 故障。
+      const realNow = Date.now;
+      Date.now = () => realNow() + 10 * 60 * 1000;
       try {
         await assert.rejects(save('- 父项补充更新\n  - 相邻'));
         assert.equal((await k.noteService.getNote(note.id)).rawMarkdown, note.rawMarkdown);
         assert.deepEqual((await k.noteService.getNote(note.id)).annotationStructure, note.annotationStructure);
         assert.deepEqual(await k.contentAnnotationService.getAnnotation(annotation.id), baseline);
       } finally {
+        Date.now = realNow;
         await app.prisma.$executeRawUnsafe('DROP TRIGGER list_revision_failure ON "AnnotationRevision"');
         await app.prisma.$executeRawUnsafe('DROP FUNCTION fail_list_revision()');
       }

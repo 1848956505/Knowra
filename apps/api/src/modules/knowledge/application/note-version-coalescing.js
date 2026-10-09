@@ -1,5 +1,5 @@
 /** 连续自动保存在窗口内只保留一个检查点；超过窗口后上一个版本成为永久保留的检查点。 */
-export const NOTE_VERSION_COALESCE_WINDOW_MS = 5 * 60 * 1000;
+export const NOTE_VERSION_COALESCE_WINDOW_MS = 10 * 60 * 1000;
 
 const time = (value) => Date.parse(value);
 

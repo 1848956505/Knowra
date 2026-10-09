@@ -1,4 +1,5 @@
 import { createJsonActionStore } from '../modules/ai/action-state.js';
+import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds, historyRetentionBasis } from '../modules/knowledge/domain/history-retention.js';
 import { extractionPageRows } from '../modules/ai/knowledge-extraction-task-page.js';
 import { taskKey, validateExtractionTask, validateExtractionTaskState } from '../modules/ai/knowledge-extraction-task-contract.js';
 import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
@@ -7,6 +8,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createAppError } from '../errors/app-error.js';
 import { writeJsonFileAtomically } from './atomic-json-file.js';
+import { withDataFileWriteLock } from './data-file-write-lock.js';
 import { cloneJsonData } from './json-clone.js';
 import { readJsonFileSync } from './json-file-reader.js';
 import { coreOperationKey, validateCoreOperationState } from './core-operation-contract.js';
@@ -38,9 +40,21 @@ function replaceCollection(target, source) {
 }
 
 export function createFileDataStore(filePath, {
-  writeJson = writeJsonFileAtomically
+  writeJson = writeJsonFileAtomically, maintenanceToken = null
 } = {}) {
   ensureParentDirectory(filePath);
+  const identity = () => {
+    try { const stat = fs.statSync(filePath, { bigint: true }); return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}`; }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  };
+  let diskIdentity = identity();
+  const write = writeJson;
+  writeJson = (...args) => withDataFileWriteLock(filePath, maintenanceToken, () => {
+    if (identity() !== diskIdentity) throw createAppError('STORAGE_EXTERNAL_CHANGE', '资料库已由另一进程修改，请重新加载后再保存；未覆盖新数据。', 409);
+    const result = write(...args);
+    diskIdentity = identity();
+    return result;
+  });
 
   if (!fs.existsSync(filePath)) {
     assertNoInterruptedReplacement(filePath);
@@ -80,6 +94,7 @@ export function createFileDataStore(filePath, {
     }
   }
   let committed = createSyncBaseline(state);
+  let historyBasis = historyRetentionBasis(state);
   let transaction = null;
   if (parsed.schemaVersion !== LOCAL_DATA_SCHEMA_VERSION || ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, cloneJsonData(parsed[collection] ?? [])]));
@@ -151,7 +166,7 @@ export function createFileDataStore(filePath, {
     const previousState = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, [...state[collection]]]));
     const previousJournal = journal;
     journal = { ...cloneJournalForChanges(journal), receipts: { ...journal.receipts }, deviceSequences: { ...journal.deviceSequences } };
-    transaction = { dirty: true };
+    transaction = { dirty: true, skipHistoryRetention: true };
     try {
       const result = operation();
       if (result && typeof result.then === 'function') throw new TypeError('批量同步事务必须同步。');
@@ -219,6 +234,12 @@ export function createFileDataStore(filePath, {
 
   function persistState(nextState) {
     try {
+      const noteIds = changedHistoryNoteIds(historyBasis, nextState);
+      const references = getHistoryRetentionReferences();
+      if (!transaction?.skipHistoryRetention && noteIds.size && references !== null) {
+        const retained = applyHistoryRetentionPlan(nextState, planHistoryRetention(nextState, { noteIds, externalReferences: references }));
+        for (const name of ['noteVersions', 'annotationRevisions']) replaceCollection(nextState[name], retained[name]);
+      }
       // 只用于断言；不可变历史在校验期间只读，不再产生随即丢弃的整库历史副本。
       assertPersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });
       assertNoKnowledgeArtifactProvenanceDowngrade(committed, nextState);
@@ -233,6 +254,7 @@ export function createFileDataStore(filePath, {
         aiKnowledgeExtractionTasks: knowledgeExtractionTaskStoreError ? extractionTasks : validateExtractionTaskState(extractionTasks) });
       journal = nextJournal;
       committed = nextCommitted;
+      historyBasis = historyRetentionBasis(nextState);
     } catch (error) {
       throw createAppError(
         'STORAGE_WRITE_FAILED',
@@ -243,7 +265,13 @@ export function createFileDataStore(filePath, {
     }
   }
 
+  function getHistoryRetentionReferences() {
+    if (aiRuntimeError || coreOperationStoreError || knowledgeExtractionTaskStoreError || knowledgeExtractionCommitStoreError) return null;
+    return [aiRuntime, coreOperations, knowledgeExtractionCommits, extractionTasks];
+  }
+
   return {
+    getHistoryRetentionReferences,
     provenanceMigration,
     // Internal, synchronous snapshot of every retained dataset; never hide unreadable private records.
     getPurgeTaskState() {

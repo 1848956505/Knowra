@@ -13,6 +13,7 @@ export function applyNoteOperation(service, operation, current) {
 export function createLocalSyncService(dataStore, noteService, ownerId, transfer) {
   if (!dataStore.getSyncJournal) return null;
   const provider = {
+    historyReferences: () => dataStore.getHistoryRetentionReferences ? dataStore.getHistoryRetentionReferences() : [],
     snapshotEntries: compactSnapshotEntries,
     readSnapshotEntries: readCompactSnapshot,
     mutateJournal: callback => dataStore.runSyncJournalTransaction

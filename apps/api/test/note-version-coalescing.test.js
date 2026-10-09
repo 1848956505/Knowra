@@ -23,8 +23,8 @@ export const noteVersionCoalescingTests = [
       assert.equal(selectCoalescibleVersion({ versions: [version('v1', 0), version('v2', minute), current], current }).id, 'v2');
       assert.equal(selectCoalescibleVersion({ versions: [version('v2', minute), current], current }), null, '首个版本是基线');
       assert.equal(selectCoalescibleVersion({ versions: [version('v1', 0), version('v2', minute, 'ai'), current], current }), null);
-      const late = version('v4', 6 * minute);
-      assert.equal(selectCoalescibleVersion({ versions: [version('v1', 0), version('v3', 5 * minute), late], current: late }), null, '窗口已过，上一个版本成为检查点');
+      const late = version('v4', 11 * minute);
+      assert.equal(selectCoalescibleVersion({ versions: [version('v1', 0), version('v3', 10 * minute), late], current: late }), null, '窗口已过，上一个版本成为检查点');
     }
   },
   {
@@ -32,11 +32,11 @@ export const noteVersionCoalescingTests = [
     run() {
       const { edit, versions } = moduleWith(() => true);
       for (let index = 1; index <= 8; index++) edit(index, index * 30 * 1000);
-      // 基线 v0 之后 5 分钟窗口内的连续保存只剩最新的 v8。
+      // 基线 v0 之后 10 分钟窗口内的连续保存只剩最新的 v8。
       assert.deepEqual(versions().map((item) => item.content).sort(), ['v0', 'v8']);
       // 距基线已超过窗口：v8 成为检查点保留，随后的保存再次合并到最新版本。
-      edit(9, 6 * minute);
-      edit(10, 6 * minute + 30 * 1000);
+      edit(9, 11 * minute);
+      edit(10, 11 * minute + 30 * 1000);
       assert.deepEqual(versions().map((item) => item.content).sort(), ['v0', 'v10', 'v8']);
     }
   },

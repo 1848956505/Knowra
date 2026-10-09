@@ -1,6 +1,6 @@
 import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
-import { observeRemoteDeletionFacts, hasDeletionFact } from './sqlite-deletion-facts.mjs';
+import { observeRemoteDeletionFacts } from './sqlite-deletion-facts.mjs';
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../../api/src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { selectEntityBatch } from './entity-batches.mjs';
 import { syncContract } from '../../api/src/modules/sync/protocol-contract.js';
@@ -10,8 +10,7 @@ import { WRITABLE_COLLECTIONS, sameEntity, syncReferencesFor, changeReferencesFo
 import { syncKey } from '../../api/src/modules/sync/journal.js';
 import { LOCAL_DATA_COLLECTIONS, createEmptyLocalState, validatePersistedLocalState, createPersistedLocalDocument } from '../../api/src/infrastructure/local-data-schema.js';
 import { readMeta, writeMeta } from './sync-state.mjs';
-import { createNoteVersionReferenceIndex } from '../../api/src/modules/knowledge/domain/note-version-references.js';
-import { referencedByPrivateRecords } from './note-version-discard-gate.mjs';
+import { preserveLocalHistoryCopies } from './history-sync-retention.mjs';
 import { createEntityConflictCopy } from './entity-conflict-copy.mjs';
 import {
   readKnowledgeLifecycleBoundaries, firstKnowledgeLifecycleBoundaries, consumeKnowledgeLifecycleBoundaries,
@@ -56,6 +55,7 @@ function retiredNoteVersionIds(db) {
 function dirtyEntries(db, state, base, boundaries = [], reviews = []) {
   const changes = [];
   const retiredVersions = retiredNoteVersionIds(db);
+  const retiredRevisions = new Set(Array.from(db.prepare("SELECT entity_id FROM deletion_facts WHERE collection='annotationRevisions'").iterate(), row => row.entity_id));
   const versionHashes = new Set([...base.values()].filter(entry => entry.collection === 'noteVersions' && entry.value).map(entry => `${entry.value.noteId}:${entry.value.contentHash}`));
   for (const collection of WRITABLE_COLLECTIONS) {
     const current = new Map(state[collection].map(item => [item.id, item]));
@@ -67,6 +67,7 @@ function dirtyEntries(db, state, base, boundaries = [], reviews = []) {
       if (collection === 'noteVersions' && value && versionHashes.has(`${value.noteId}:${value.contentHash}`)) continue;
       // 云端按保留策略清理过的版本：仍被本机引用而保留的副本只供恢复，不能再作为新建上传。
       if (collection === 'noteVersions' && value && (previous?.value === null || retiredVersions.has(id))) continue;
+      if (collection === 'annotationRevisions' && value && (previous?.value === null || retiredRevisions.has(id))) continue;
       if (!sameEntity(collection, value, previous?.value)) {
         const old = previous?.value;
         const lifecycleAction = ['knowledgeItems', 'analysisScopeSnapshots', 'folders', 'learningObjectives', 'examProfiles', 'examFocuses', 'questions'].includes(collection) && old && value
@@ -195,19 +196,7 @@ export function applyEntityRemote(store, entries, cursor, epoch, { reset = false
     preserveRemoteNotePrivacy(merged, remote);
     preserveKnowledgeLifecycleInvalidations(merged, local, boundaries);
     preserveAttachmentHealth(merged, state);
-    // 未修改的历史别名仍可在本地按稳定 ID 读取。
-    const versionIds = new Set(merged.noteVersions.map(item => item.id));
-    const noteIds = new Set(merged.notes.map(item => item.id));
-    let isReferenced = null;
-    for (const version of local.noteVersions) {
-      if (versionIds.has(version.id) || !noteIds.has(version.noteId)) continue;
-      // 云端已按保留策略清理且本机无任何引用的版本，随基线一起释放。
-      if (remote.get(syncKey('noteVersions', version.id))?.value === null || hasDeletionFact(db, 'noteVersions', version.id)) {
-        isReferenced ??= createNoteVersionReferenceIndex(Object.fromEntries(['contentAnnotations', 'annotationRevisions', 'annotationExclusions', 'knowledgeEvidence', 'knowledgeArtifactProvenance', 'questionSources', 'analysisScopeSnapshots'].map(name => [name, merged[name]])));
-        if (!isReferenced(version) && !referencedByPrivateRecords(db, version)) continue;
-      }
-      merged.noteVersions.push(version);
-    }
+    preserveLocalHistoryCopies(db, local, merged, remote);
     let valid;
     try { valid = validatePersistedLocalState(createPersistedLocalDocument(reconcileSyncedSourceStates(merged))); assertNoKnowledgeArtifactProvenanceDowngrade(state, valid); }
     catch (error) { valid = undefined; conflicts.push({ collection: 'dependencies', id: 'references', message: error.message }); }
@@ -420,6 +409,7 @@ export function acknowledgeEntityUpload(store, operation, result) {
         base.set(syncKey(entry.collection, entry.id), entry);
       }
       canonicalizeVersions(state, base);
+      preserveLocalHistoryCopies(db, previous, state, base);
       assertNoKnowledgeArtifactProvenanceDowngrade(previous, state);
       persistBases(db, base, previousBase);
     }

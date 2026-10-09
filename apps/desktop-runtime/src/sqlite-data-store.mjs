@@ -1,4 +1,6 @@
 import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
+import { readPrivateHistoryReferences, createUnsyncedHistoryDiscardGate } from './note-version-discard-gate.mjs';
+import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds } from '../../api/src/modules/knowledge/domain/history-retention.js';
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
 import {
   validateSqliteDeletionFacts, initializeDeletionFacts, assertNoDeletedEntities,
@@ -46,6 +48,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let pendingLocalChange = false;
   let pendingDataChange = false;
   let statusCache;
+  let historyReady = false;
   const localCommitListeners = new Set();
   let aiRuntimeError = null;
   try {
@@ -119,6 +122,14 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   }
 
   function persist({ origin = 'local-business' } = {}) {
+    const noteIds = changedHistoryNoteIds(committed, state);
+    if (origin === 'local-business' && noteIds.size && historyReady && !aiRuntimeError
+      && !coreOperationStoreError && !knowledgeExtractionCommitStoreError && !knowledgeExtractionTaskStoreError) {
+      const retained = applyHistoryRetentionPlan(state, planHistoryRetention(state, {
+        noteIds, externalReferences: readPrivateHistoryReferences(db), canDiscard: createUnsyncedHistoryDiscardGate(db)
+      }));
+      for (const name of ['noteVersions', 'annotationRevisions']) state[name].splice(0, state[name].length, ...retained[name]);
+    }
     const valid = validatePersistedLocalState({ ...state, schemaVersion: LOCAL_DATA_SCHEMA_VERSION });
     assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);
     const changes = collectChanges(committed, valid);
@@ -257,8 +268,11 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let knowledgeExtractionTaskStore = null, knowledgeExtractionTaskStoreError = null;
   try { knowledgeExtractionTaskStore = createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransaction); }
   catch (error) { knowledgeExtractionTaskStoreError = error; }
+  historyReady = true;
 
   return {
+    getHistoryRetentionReferences: () => aiRuntimeError || coreOperationStoreError || knowledgeExtractionCommitStoreError || knowledgeExtractionTaskStoreError
+      ? null : readPrivateHistoryReferences(db),
     deletionFacts: deletionFactsReader(db),
     provenanceMigration,
     knowledgeExtractionTaskStore,
