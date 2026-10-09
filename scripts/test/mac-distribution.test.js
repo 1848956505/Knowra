@@ -121,3 +121,45 @@ test('build:mac 是纯构建，测试和安装都有显式命令', () => {
   assert.match(workflow, /npm run test:mac/);
   assert.doesNotMatch(workflow, /npm run install:mac|gh release create|contents: write/);
 });
+
+
+test('原生测试逐文件串行，有界且只清理当前 spawn 的进程组', async () => {
+  const { runPackagedTests } = await import('../../apps/desktop-shell/scripts/verify-distribution.mjs');
+  const repo = fileURLToPath(new URL('../../', import.meta.url));
+  const calls = [], killed = [];
+  runPackagedTests(repo, '/tmp/synthetic.app', { now: () => 0, run: (...args) => { calls.push(args); return { status: 0 }; }, kill: pid => killed.push(pid) });
+  assert(calls.length > 10);
+  for (const [, args, options] of calls) {
+    assert.equal(args.at(-1).endsWith('.test.mjs'), true);
+    assert.equal(options.timeout, 180000); assert.equal(options.detached, true);
+    assert.equal(options.env.KNOWRA_DESKTOP_TEST_APP, '/tmp/synthetic.app');
+  }
+  assert.deepEqual(killed, []);
+  let attempts = 0;
+  assert.throws(() => runPackagedTests(repo, '/tmp/synthetic.app', { now: () => 0,
+    run: () => { attempts++; return { status: null, pid: 12345, error: Object.assign(new Error('deadline'), { code: 'ETIMEDOUT' }) }; },
+    kill: (pid, signal) => killed.push([pid, signal]) }), /deadline/);
+  assert.equal(attempts, 1); assert.deepEqual(killed, [[-12345, 'SIGKILL']]);
+  let ticks = 0;
+  assert.throws(() => runPackagedTests(repo, '/tmp/synthetic.app', { now: () => ticks++ ? 1200001 : 0, run: () => assert.fail('超预算不得启动进程') }), /总预算/);
+});
+
+
+test('外层超时清理验证登记 PID、进程组和当前测试 APP 路径，不误杀其他应用', async t => {
+  const { terminateRegisteredApps } = await import('../../apps/desktop-shell/scripts/verify-distribution.mjs');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-test-registry-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const registry = path.join(directory, 'processes.jsonl');
+  fs.writeFileSync(registry, JSON.stringify({ pid: 4321, state: 'launched' }) + '\n');
+  const killed = [];
+  const options = { inspect: () => '4321 /tmp/test.app/Contents/MacOS/Knowra --inspect=123', kill: (...args) => killed.push(args) };
+  terminateRegisteredApps(registry, '/tmp/test.app', options);
+  assert.deepEqual(killed, [[-4321, 'SIGKILL']]);
+  for (const command of ['4321 /Applications/Other.app/Contents/MacOS/Knowra', '999 /tmp/test.app/Contents/MacOS/Knowra']) {
+    assert.throws(() => terminateRegisteredApps(registry, '/tmp/test.app', { ...options, inspect: () => command }), /拒绝清理/);
+  }
+  fs.appendFileSync(registry, JSON.stringify({ pid: 4321, state: 'exited' }) + '\n');
+  terminateRegisteredApps(registry, '/tmp/test.app', { inspect: () => assert.fail('退出 PID 不再查询'), kill: () => assert.fail() });
+  fs.writeFileSync(registry, JSON.stringify({ pid: -1, state: 'launched' }) + '\n');
+  assert.throws(() => terminateRegisteredApps(registry, '/tmp/test.app'), /登记无效/);
+});

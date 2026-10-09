@@ -39,6 +39,7 @@ export function verifyDistribution(archive, expected, { inspectApplication } = {
   assertBuildInfo(manifest.buildInfo, expected);
   if (manifest.archive !== path.basename(archive) || manifest.sha256 !== sha256(archive)) throw new Error('Mac 分发包校验和不符。');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-distribution-'));
+  let verified = false;
   try {
     execFileSync('/usr/bin/ditto', ['-x', '-k', archive, directory]);
     const application = path.join(directory, APPLICATION_NAME);
@@ -49,10 +50,71 @@ export function verifyDistribution(archive, expected, { inspectApplication } = {
     const signature = spawnSync('/usr/bin/codesign', ['-d', '--verbose=4', application], { encoding: 'utf8' });
     if (signature.status !== 0 || !/^Signature=adhoc$/m.test(signature.stderr)) throw new Error('候选包实际签名与 ad-hoc 声明不符。');
     inspectApplication?.(application);
+    verified = true;
     return info;
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    if (verified) fs.rmSync(directory, { recursive: true, force: true });
+    else console.error(`[Mac 验收] 失败现场保留在 ${directory}；不删除可能仍被测试进程使用的 APP。`);
   }
+}
+
+export function terminateRegisteredApps(registry, application, { inspect = execFileSync, kill = process.kill } = {}) {
+  if (!fs.existsSync(registry)) return;
+  const active = new Set();
+  for (const line of fs.readFileSync(registry, 'utf8').trim().split('\n').filter(Boolean)) {
+    const entry = JSON.parse(line);
+    if (!Number.isSafeInteger(entry.pid) || entry.pid <= 1) throw new Error('测试进程登记无效，拒绝清理。');
+    if (entry.state === 'launched') active.add(entry.pid);
+    else if (entry.state === 'exited') active.delete(entry.pid);
+    else throw new Error('未知测试进程状态。');
+  }
+  const executable = path.join(application, 'Contents/MacOS/Knowra');
+  for (const pid of active) {
+    let output;
+    try { output = inspect('/bin/ps', ['-p', String(pid), '-o', 'pgid=', '-o', 'command='], { encoding: 'utf8' }).trim(); }
+    catch (error) { if (error.status === 1) continue; throw error; }
+    const match = /^(\d+)\s+(.+)$/.exec(output);
+    if (!match || Number(match[1]) !== pid || !(match[2] === executable || match[2].startsWith(`${executable} `))) {
+      throw new Error(`测试进程 ${pid} 归属或命令变化，拒绝清理。`);
+    }
+    console.error(`[Mac 验收] 清理已登记且核对命令的 APP 进程组 ${pid}`);
+    try { kill(-pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
+}
+
+export function runPackagedTests(repo, application, { run = spawnSync, kill = process.kill, now = Date.now } = {}) {
+    const tests = fs.readdirSync(path.join(repo, 'apps/desktop-shell/test'))
+      .filter(name => name.endsWith('.test.mjs')).sort()
+      .map(name => path.join(repo, 'apps/desktop-shell/test', name));
+    const started = now();
+    const budgetMs = 20 * 60 * 1000;
+    for (const file of tests) {
+      const remaining = budgetMs - (now() - started);
+      if (remaining <= 0) throw new Error('Mac 隔离验收超过 20 分钟总预算，拒绝交付候选包。');
+      const label = path.basename(file);
+      const registryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-test-processes-'));
+      const registry = path.join(registryDirectory, 'processes.jsonl');
+      console.log(`[Mac 验收] 开始 ${label}`);
+      try {
+        const result = run(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=spec', file], {
+          cwd: repo, stdio: 'inherit', env: { ...process.env, KNOWRA_DESKTOP_TEST_APP: application, KNOWRA_TEST_PROCESS_REGISTRY: registry },
+          detached: true, timeout: Math.min(180000, remaining), killSignal: 'SIGKILL'
+        });
+        if (result.error || result.status !== 0) {
+          // Electron 自有独立组；先按登记并核对命令清理 APP，再清理本次 node 测试组。
+          terminateRegisteredApps(registry, application);
+          if (result.pid) {
+            try { kill(-result.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+          }
+          throw result.error || new Error(`测试进程失败：${result.signal || result.status}`);
+        }
+      } catch (error) {
+        console.error(`[Mac 验收] 失败 ${label}；${error.code || error.signal || error.status || '测试失败'}；不上传候选包。`);
+        throw error;
+      }
+      fs.rmSync(registryDirectory, { recursive: true, force: true });
+      console.log(`[Mac 验收] 完成 ${label}`);
+    }
 }
 
 if (isDirectExecution(import.meta.url)) {
@@ -61,12 +123,7 @@ if (isDirectExecution(import.meta.url)) {
   const info = verifyDistribution(path.join(repo, 'dist/mac', ARCHIVE_NAME), {
     version: expected.version, commit: expected.commit, state: 'clean', requireClean: true
   }, { inspectApplication: process.argv.includes('--test') ? application => {
-    const tests = fs.readdirSync(path.join(repo, 'apps/desktop-shell/test'))
-      .filter(name => name.endsWith('.test.mjs')).sort()
-      .map(name => path.join(repo, 'apps/desktop-shell/test', name));
-    execFileSync(process.execPath, ['--test', '--test-concurrency=1', ...tests], {
-      cwd: repo, stdio: 'inherit', env: { ...process.env, KNOWRA_DESKTOP_TEST_APP: application }
-    });
+    runPackagedTests(repo, application);
   } : undefined });
   console.log(`候选分发包已校验：v${info.version}，${info.commit}（ad-hoc 签名，未公证；不是正式发布）。`);
 }
