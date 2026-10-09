@@ -68,7 +68,7 @@ test('真实 stdio 子进程：initialize、列工具、检索、读取、重点
   const { client, call } = await connect(t, pairing.pairingFile);
   assert.equal(client.getServerVersion().name, 'knowra');
   const tools = (await client.listTools()).tools;
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['annotations_list', 'notes_read', 'notes_search']);
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['annotations_list', 'notes_list', 'notes_read', 'notes_search', 'proposals_get', 'workspace_describe']);
   for (const tool of tools) { assert(tool.description.length > 10); assert.equal(tool.inputSchema.type, 'object'); assert.equal(tool.inputSchema.additionalProperties, false); }
 
   const found = await call('notes_search', { query: '线粒体' });

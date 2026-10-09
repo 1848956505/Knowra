@@ -4,7 +4,7 @@ import { ExternalClientSettings } from './ExternalClientSettings';
 import { claudeCodeSnippet, codexSnippet, externalClients, type McpOverview, type McpPairing } from './externalClients';
 
 vi.mock('./externalClients', async importOriginal => ({ ...(await importOriginal<typeof import('./externalClients')>()),
-  externalClients: { overview: vi.fn(), create: vi.fn(), revoke: vi.fn(), audit: vi.fn() } }));
+  externalClients: { overview: vi.fn(), create: vi.fn(), revoke: vi.fn(), audit: vi.fn(), setKnowledgeRead: vi.fn() } }));
 const storeState = vi.hoisted(() => ({ current: null as null | Record<string, unknown> }));
 vi.mock('../../store/AppStoreProvider', () => ({ useAppStore: (selector: (state: unknown) => unknown) => selector(storeState.current) }));
 const loadWorkspace = vi.fn();
@@ -18,6 +18,7 @@ const workspace = (overrides: Record<string, unknown> = {}) => ({ loadWorkspace,
 const adapter = { command: '/Applications/知境·Knowra.app/Contents/MacOS/Knowra', args: ['/Applications/知境·Knowra.app/Contents/Resources/app/mcp-adapter.mjs'], env: { ELECTRON_RUN_AS_NODE: '1' } };
 const pairing = (overrides: Partial<McpPairing> = {}): McpPairing => ({ pairingId: 'p-1', label: 'Claude Code', spaceId: 'space-1', scope: { kind: 'library' }, excludedNoteIds: [],
   createdAt: '2026-10-06T00:00:00Z', expiresAt: '2026-10-13T00:00:00Z', revokedAt: null, lastUsedAt: null, calls: 0, allowPropose: false, status: 'active',
+  allowKnowledgeRead: false, knowledgeReadConfirmedAt: null,
   pairingFile: '/data/mcp/pairings/p-1.json', ...overrides });
 const overview = (overrides: Partial<McpOverview> = {}): McpOverview => ({ items: [], aiEnabled: true, egressEnabled: true, proposalsEnabled: true, adapter, ...overrides });
 
@@ -61,7 +62,7 @@ it('创建：弹窗按确认文案展示，未勾选确认不能创建；创建�
   render(<ExternalClientSettings />);
   fireEvent.click(await screen.findByRole('button', { name: '添加外部客户端' }));
   const dialog = await screen.findByRole('dialog', { name: '允许外部 AI 客户端读取笔记？' });
-  expect(dialog).toHaveTextContent('被读取的笔记片段会发送给该客户端所属的厂商（如 Anthropic、OpenAI），费用由客户端自己的订阅承担，不计入知境预算。只读取你选定范围内的笔记，不含标记为私密的笔记，不会修改或创建任何内容。可随时撤销，到期自动失效。');
+  expect(dialog).toHaveTextContent('被读取的笔记片段会发送给该客户端所属的厂商（如 Anthropic、OpenAI），费用由客户端自己的订阅承担，不计入知境预算。笔记读取仅限你选定的范围，不含标记为私密的笔记。下方“允许读取知识点”单独授权当前资料库中的全部知识点；提交候选也需单独开启。可随时关闭或撤销，到期自动失效。');
   const create = within(dialog).getByRole('button', { name: '创建配对' });
   expect(create).toBeDisabled();
   fireEvent.change(within(dialog).getByRole('textbox', { name: /客户端名称/ }), { target: { value: 'Claude Code' } });
@@ -250,4 +251,96 @@ it('“AI 提炼知识点”已开启时不显示暂不能提交的提示', asyn
   render(<ExternalClientSettings />);
   const row = within(await screen.findByRole('list', { name: '已配对的外部客户端' })).getByRole('listitem');
   expect(row).toHaveTextContent('可提交候选'); expect(row).not.toHaveTextContent('暂不能提交');
+});
+
+it('知识点读取默认关闭：全部知识与后续变化单独授权，不能用候选质量确认替代', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview());
+  vi.mocked(externalClients.create).mockResolvedValue(pairing({ allowKnowledgeRead: true, allowPropose: true }));
+  render(<ExternalClientSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '添加外部客户端' }));
+  const dialog = await screen.findByRole('dialog', { name: '允许外部 AI 客户端读取笔记？' });
+  const option = within(dialog).getByRole('checkbox', { name: '允许读取知识点（全部开放，默认关闭）' });
+  expect(option).not.toBeChecked();
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /客户端名称/ }), { target: { value: 'Codex' } });
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我了解所选范围内的笔记片段/ }));
+  fireEvent.click(option);
+  expect(dialog).toHaveTextContent('“Codex”及其所属厂商可读取当前资料库中的全部知识点');
+  expect(dialog).toHaveTextContent('没有来源记录的手工或旧知识不受所选笔记范围进一步缩小');
+  expect(dialog).toHaveTextContent('包括归纳、改写、手写内容、没有来源记录的旧知识，以及开启期间新建或编辑的知识');
+  expect(dialog).toHaveTextContent('可随时关闭');
+  expect(dialog).toHaveTextContent('已知来源仍受笔记授权范围、排除项和私密标记限制');
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /同时允许该客户端提交/ }));
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我了解提交的候选/ }));
+  const create = within(dialog).getByRole('button', { name: '创建配对' });
+  expect(create).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我允许“Codex”及其所属厂商/ }));
+  expect(create).toBeEnabled();
+  // 关闭再开启必须重新确认，旧确认不能暗中复用。
+  fireEvent.click(option); fireEvent.click(option);
+  expect(within(dialog).getByRole('checkbox', { name: /我允许“Codex”及其所属厂商/ })).not.toBeChecked();
+  expect(create).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我允许“Codex”及其所属厂商/ }));
+  fireEvent.click(create);
+  await waitFor(() => expect(externalClients.create).toHaveBeenCalledExactlyOnceWith({ label: 'Codex', spaceId: 'space-1', scope: { kind: 'library' },
+    expiresInDays: 7, egressConfirmed: true, allowPropose: true, proposeConfirmed: true, allowKnowledgeRead: true, knowledgeReadConfirmed: true }));
+});
+
+it('已有配对：开启需独立确认，取消和重新打开清空确认；成功立即反映状态，关闭无需重复外发确认', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview({ items: [pairing()] }));
+  vi.mocked(externalClients.setKnowledgeRead).mockResolvedValueOnce(pairing({ allowKnowledgeRead: true }))
+    .mockResolvedValueOnce(pairing());
+  render(<ExternalClientSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '开启知识点读取：Claude Code' }));
+  let dialog = await screen.findByRole('dialog', { name: '允许“Claude Code”读取全部知识点？' });
+  expect(within(dialog).getByRole('button', { name: '确认开启' })).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: /我允许“Claude Code”及其所属厂商/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+  expect(externalClients.setKnowledgeRead).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '开启知识点读取：Claude Code' }));
+  dialog = await screen.findByRole('dialog', { name: '允许“Claude Code”读取全部知识点？' });
+  expect(within(dialog).getByRole('checkbox')).not.toBeChecked();
+  fireEvent.click(within(dialog).getByRole('checkbox'));
+  fireEvent.click(within(dialog).getByRole('button', { name: '确认开启' }));
+  await waitFor(() => expect(externalClients.setKnowledgeRead).toHaveBeenCalledExactlyOnceWith('p-1', { allowKnowledgeRead: true, knowledgeReadConfirmed: true }));
+  expect(await screen.findByText('可读取知识点')).toBeInTheDocument();
+  expect(screen.queryByText('可提交候选')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '关闭知识点读取：Claude Code' }));
+  await waitFor(() => expect(externalClients.setKnowledgeRead).toHaveBeenLastCalledWith('p-1', { allowKnowledgeRead: false }));
+  expect(await screen.findByRole('button', { name: '开启知识点读取：Claude Code' })).toBeInTheDocument();
+  expect(screen.queryByText('可读取知识点')).not.toBeInTheDocument();
+});
+
+it('知识开关保存失败保留弹窗和真实状态，可重试；待保存时重复点击不会重复提交', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview({ items: [pairing()] }));
+  let finish!: (value: McpPairing) => void;
+  vi.mocked(externalClients.setKnowledgeRead).mockRejectedValueOnce(new Error('保存失败'))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<ExternalClientSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '开启知识点读取：Claude Code' }));
+  const dialog = await screen.findByRole('dialog', { name: '允许“Claude Code”读取全部知识点？' });
+  fireEvent.click(within(dialog).getByRole('checkbox'));
+  fireEvent.click(within(dialog).getByRole('button', { name: '确认开启' }));
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('保存失败');
+  expect(screen.queryByText('可读取知识点')).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('button', { name: '确认开启' }));
+  const submit = within(dialog).getByRole('button', { name: '确认开启' });
+  expect(submit).toBeDisabled();
+  expect(within(dialog).getByRole('button', { name: '取消' })).toBeDisabled();
+  fireEvent.click(submit);
+  expect(externalClients.setKnowledgeRead).toHaveBeenCalledTimes(2);
+  finish(pairing({ allowKnowledgeRead: true }));
+  expect(await screen.findByText('可读取知识点')).toBeInTheDocument();
+});
+
+it('已撤销和已过期配对没有知识开关；关闭失败时保留开启状态', async () => {
+  vi.mocked(externalClients.overview).mockResolvedValue(overview({ items: [pairing({ allowKnowledgeRead: true }),
+    pairing({ pairingId: 'p-old', label: '过期客户端', status: 'expired' }), pairing({ pairingId: 'p-revoked', label: '撤销客户端', status: 'revoked' })] }));
+  vi.mocked(externalClients.setKnowledgeRead).mockRejectedValue(new Error('不能保存'));
+  render(<ExternalClientSettings />);
+  fireEvent.click(await screen.findByRole('button', { name: '关闭知识点读取：Claude Code' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('不能保存');
+  expect(screen.getByText('可读取知识点')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '关闭知识点读取：Claude Code' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: /知识点读取：过期客户端/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /知识点读取：撤销客户端/ })).not.toBeInTheDocument();
 });

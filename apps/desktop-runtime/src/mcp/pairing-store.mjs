@@ -45,7 +45,9 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     try {
       const parsed = JSON.parse(fs.readFileSync(recordsFile, 'utf8'));
       if (!Array.isArray(parsed) || !parsed.every(validRow)) return false;
-      rows = parsed;
+      // 旧配对没有知识外发授权；任何非 true 值都按关闭处理，升级不会扩大权限。
+      rows = parsed.map(row => ({ ...row, allowKnowledgeRead: row.allowKnowledgeRead === true,
+        knowledgeReadConfirmedAt: row.allowKnowledgeRead === true ? row.knowledgeReadConfirmedAt ?? null : null }));
     } catch (error) {
       if (error?.code !== 'ENOENT') return false;
       rows = [];
@@ -77,6 +79,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
   const publicView = row => ({ pairingId: row.pairingId, label: row.label, spaceId: row.spaceId, scope: row.scope,
     excludedNoteIds: row.excludedNoteIds, createdAt: row.createdAt, expiresAt: row.expiresAt, revokedAt: row.revokedAt,
     egressConfirmedAt: row.egressConfirmedAt, lastUsedAt: row.lastUsedAt, calls: row.calls, allowPropose: row.allowPropose === true,
+    allowKnowledgeRead: row.allowKnowledgeRead === true, knowledgeReadConfirmedAt: row.knowledgeReadConfirmedAt ?? null,
     status: row.revokedAt ? 'revoked' : Date.parse(row.expiresAt) <= now().getTime() ? 'expired' : 'active',
     pairingFile: fileFor(row.pairingId) });
 
@@ -85,7 +88,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     sweep: () => { ensure(); sweep(); },
     list: () => { ensure(); sweep(); return rows.map(publicView); },
     get: id => { ensure(); return rows.find(row => row.pairingId === id) ?? null; },
-    create({ label, spaceId, scope, excludedNoteIds, policyId, policyRevision, expiresInDays, socketPath, dataDirectory, allowPropose = false }) {
+    create({ label, spaceId, scope, excludedNoteIds, policyId, policyRevision, expiresInDays, socketPath, dataDirectory, allowPropose = false, allowKnowledgeRead = false }) {
       ensure();
       const pairingId = randomUUID();
       const token = `knp1.${pairingId}.${randomBytes(32).toString('hex')}`;
@@ -94,7 +97,8 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
         verifier: tokenVerifier(token), createdAt, expiresAt: new Date(now().getTime() + expiresInDays * DAY_MS).toISOString(),
         revokedAt: null, egressConfirmedAt: createdAt, lastUsedAt: null, calls: 0, dayKey: null, dayCalls: 0,
         // 是否允许该客户端提交待审核的知识候选：创建时单独确认，默认关闭；候选数量按日计，保护知识候选区不被刷满。
-        allowPropose: allowPropose === true, proposeConfirmedAt: allowPropose === true ? createdAt : null, candidateDayKey: null, candidateDayCount: 0 };
+        allowPropose: allowPropose === true, proposeConfirmedAt: allowPropose === true ? createdAt : null, candidateDayKey: null, candidateDayCount: 0,
+        allowKnowledgeRead: allowKnowledgeRead === true, knowledgeReadConfirmedAt: allowKnowledgeRead === true ? createdAt : null };
       // 先写配对文件再写记录：中途失败只留下一个无记录、令牌永远不匹配的文件，随后清理。
       writeAtomic(fileFor(pairingId), JSON.stringify({ version: 1, pairingId, token, socketPath, dataDirectory }));
       rows = [...rows, row];
@@ -138,6 +142,19 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
       save();
     },
     dayCalls(row) { return row.dayKey === now().toISOString().slice(0, 10) ? row.dayCalls : 0; },
+    /** 原位更新：已认证和进行中的调用持有同一行引用，返回前复核即可看到关闭。失败时回滚，不声称已保存。 */
+    setKnowledgeRead(id, allowKnowledgeRead) {
+      ensure();
+      const row = rows.find(item => item.pairingId === id);
+      if (!row) throw mcpError('MCP_PAIRING_NOT_FOUND', '配对不存在。', { status: 404 });
+      if (typeof allowKnowledgeRead !== 'boolean') throw mcpError('MCP_REQUEST_INVALID', '知识读取设置无效。', { status: 400 });
+      this.assertActive(row);
+      const previous = { allowKnowledgeRead: row.allowKnowledgeRead, knowledgeReadConfirmedAt: row.knowledgeReadConfirmedAt };
+      row.allowKnowledgeRead = allowKnowledgeRead;
+      row.knowledgeReadConfirmedAt = allowKnowledgeRead ? now().toISOString() : null;
+      try { save(); } catch (error) { Object.assign(row, previous); throw error; }
+      return publicView(row);
+    },
     revoke(id) {
       ensure();
       const row = rows.find(item => item.pairingId === id);

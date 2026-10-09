@@ -46,7 +46,7 @@ export function validateInput(schema, input) {
  * 工具只能返回“正文片段 + 偏移”，由本出口逐条对照授权范围内笔记的当前正文复核，再生成响应与片段清单，
  * 因此响应内容与清单来自同一处，工具实现无法绕过。
  */
-export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
+export function createMcpGate({ pairings, getAccess, getEntityResult = null, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
   const limit = { ...DEFAULT_MCP_LIMITS, ...limits };
   const windows = new Map();
   const inflight = new Map();
@@ -97,7 +97,7 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
   };
   const normalize = entry => typeof entry === 'function' ? { run: entry, metaKeys: [], fragmentAttrs: {}, write: false }
     : { run: entry?.run, metaKeys: Array.isArray(entry?.metaKeys) ? entry.metaKeys : [], fragmentAttrs: entry?.fragmentAttrs ?? {},
-      description: entry?.description, inputSchema: entry?.inputSchema, write: entry?.write === true };
+      description: entry?.description, inputSchema: entry?.inputSchema, write: entry?.write === true, knowledgeRead: entry?.knowledgeRead === true };
   /** 片段附加字段只允许工具声明过的键，且值限于枚举、布尔值或受限格式的标识符，不能夹带自由文本。 */
   function checkAttrs(attrs, spec) {
     if (attrs === undefined) return undefined;
@@ -123,7 +123,7 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
   }
   /** 逐条核对片段：来自授权范围内、未被排除、非私密笔记的当前正文，标题与偏移文本必须逐字一致。 */
   async function verifyFragments(access, grantId, result, { metaKeys, fragmentAttrs }) {
-    if (!isPlainObject(result) || !Array.isArray(result.fragments) || result.fragments.length > limit.maxFragments) {
+    if (!isPlainObject(result) || Object.keys(result).some(key => !['fragments', 'meta', 'entity'].includes(key)) || !Array.isArray(result.fragments) || result.fragments.length > limit.maxFragments) {
       throw mcpError('MCP_RESULT_INVALID', '工具返回格式无效。', { status: 500 });
     }
     const meta = result.meta ?? {};
@@ -191,21 +191,28 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
         if (!row.allowPropose) throw mcpError('MCP_PROPOSE_NOT_ALLOWED', '该配对没有提交知识候选的权限，请在知境设置里重新创建并单独开启。', { status: 403 });
         if (!(await proposalsEnabled())) throw mcpError('MCP_PROPOSALS_DISABLED', '“AI 提炼知识点”未开启，暂不能提交知识候选。', { status: 403 });
       }
+      const assertKnowledgeRead = () => {
+        if ((entry.knowledgeRead || ['knowledge_search', 'knowledge_read'].includes(tool)) && row.allowKnowledgeRead !== true) {
+          throw mcpError('MCP_KNOWLEDGE_READ_NOT_ALLOWED', '该配对尚未获准读取知识点，请由用户在配对设置中单独开启。', { status: 403 });
+        }
+      };
+      assertKnowledgeRead();
       if (entry.inputSchema) validateInput(entry.inputSchema, input);
       admit(row); admitted = true;
       const access = getAccess();
       if (!access) throw mcpError('MCP_AI_DISABLED', 'AI 功能未开启，外部客户端暂不可读取。', { status: 403 });
       let timer;
+      const startedAt = Date.now();
       const outcome = await (async () => {
         const grantId = await ensureGrant(access, row);
         const controller = new AbortController();
         const timedOut = () => mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 });
-        const context = { input, grantId, access, pairing: { pairingId: row.pairingId }, callId: randomUUID(), signal: controller.signal,
+        const context = { input, grantId, access, pairing: { pairingId: row.pairingId, allowKnowledgeRead: row.allowKnowledgeRead === true }, callId: randomUUID(), signal: controller.signal,
           readRanges: () => [...(ledgers.get(row.pairingId)?.values() ?? [])],
           // 事务内复核：保存候选的同一个事务里再次确认——调用没有超时、配对仍有效、读取/外发开关仍开启、配对仍允许提交、
           // 全局“AI 提炼知识点”开关仍开启（用同步可读的最近值：关闭开关的写入完成后立即生效）。超时后迟到的写入因此不会落库。
           guard: () => {
-            if (controller.signal.aborted) throw timedOut();
+            if (controller.signal.aborted || Date.now() - startedAt >= limit.toolTimeoutMs) throw timedOut();
             pairings.assertActive(row); assertFlags();
             if (!row.allowPropose) throw mcpError('MCP_PROPOSE_NOT_ALLOWED', '该配对没有提交知识候选的权限。', { status: 403 });
             if (!proposalsNow()) throw mcpError('MCP_PROPOSALS_DISABLED', '“AI 提炼知识点”未开启，暂不能提交知识候选。', { status: 403 });
@@ -220,19 +227,41 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
           }, release: handle => pairings.releaseCandidates(row, handle) },
           // 同一配对、同一幂等键的调用依次执行：并发重试不会各自预留各自提交，第二个等第一个结束后按回执对账。
           serialize: (key, task) => serialize(`${row.pairingId}:${key}`, task) };
-        const raw = await Promise.race([handler(context),
-          new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(timedOut()); }, limit.toolTimeoutMs); })])
+        const verified = await Promise.race([(async () => {
+          const raw = await handler(context);
+          // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
+          pairings.assertActive(row); assertFlags(); assertKnowledgeRead(); await access.assertSearchGrant({ grantId });
+          const verified = await verifyFragments(access, grantId, raw, entry);
+          if (raw.entity !== undefined) {
+            // 实体出口由宿主单独装配，并按调用工具和原始参数从授权仓库生成 DTO。
+            // 工具不能提供任意自由文本 data，普通 meta 的数字/布尔限制保持不变。
+            if (raw.entity !== true || typeof getEntityResult !== 'function' || raw.fragments.length) {
+              throw mcpError('MCP_RESULT_INVALID', '实体结果格式无效。', { status: 500 });
+            }
+            verified.data = await getEntityResult({ ...context, tool, reused: raw.meta?.reused === true });
+            verified.bytes += Buffer.byteLength(JSON.stringify(verified.data), 'utf8');
+            const entities = tool === 'knowledge_read' ? [verified.data] : tool === 'knowledge_search' ? (verified.data.items ?? []) : [];
+            const refs = tool === 'notes_list' ? (verified.data.notes ?? []) : entities.flatMap(item => item.sources ?? []);
+            verified.manifest.push(...refs.map(ref => ({ noteId: ref.noteId, noteVersionId: ref.noteVersionId, contentHash: ref.contentHash })));
+            const finalSize = Buffer.byteLength(JSON.stringify(JSON.stringify({ fragments: verified.fragments, meta: verified.meta, data: verified.data })), 'utf8') + ENVELOPE_ALLOWANCE;
+            if (finalSize > limit.maxResultBytes) throw mcpError('MCP_RESULT_TOO_LARGE', '结果超过单次大小上限，请缩小范围后重试。', { status: 413 });
+          }
+          if (controller.signal.aborted || Date.now() - startedAt >= limit.toolTimeoutMs) throw timedOut();
+          pairings.assertActive(row); assertFlags(); assertKnowledgeRead(); await access.assertSearchGrant({ grantId });
+          return verified;
+        })(), new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(timedOut()); }, limit.toolTimeoutMs); })])
           .finally(() => clearTimeout(timer));
-        // 校验点：工具执行期间撤销、过期或关闭外发，都不返回任何正文。
-        pairings.assertActive(row); assertFlags(); await access.assertSearchGrant({ grantId });
-        const verified = await verifyFragments(access, grantId, raw, entry);
         // 只有读取工具的结果才进入已读记录；写工具返回的是回执，不产生可引用的原文。
         if (!entry.write) recordReads(row.pairingId, verified.reads);
         return verified;
       })().catch(error => { pairings.assertActive(row); throw mapAccess(error); });
       pairings.assertActive(row); assertFlags();
+      assertKnowledgeRead();
+      // 最后一个 await 后同步检查完整实体与授权快照，期间不再让出事件循环。
+      if (outcome.data !== undefined) getEntityResult.assertCurrent?.(outcome.data);
+      if (Date.now() - startedAt >= limit.toolTimeoutMs) throw mcpError('MCP_TIMEOUT', '工具执行超时。', { status: 504 });
       audit.append({ ...base, status: 'ok', fragments: outcome.fragments.length, bytes: outcome.bytes, manifest: outcome.manifest });
-      return { fragments: outcome.fragments, meta: outcome.meta };
+      return { fragments: outcome.fragments, meta: outcome.meta, ...(outcome.data === undefined ? {} : { data: outcome.data }) };
     } catch (error) {
       const failure = error.code?.startsWith?.('MCP_') ? error : mcpError('MCP_INTERNAL', '外部调用失败。', { status: 500 });
       audit.append({ ...base, status: 'error', code: failure.code, retryAfterSeconds: failure.retryAfterSeconds });
@@ -245,7 +274,8 @@ export function createMcpGate({ pairings, getAccess, flags, proposalsEnabled = a
   function describeTools({ token }) {
     const row = pairings.authenticate(token);
     pairings.assertActive(row);
-    return Object.entries(tools).filter(([, raw]) => !normalize(raw).write || row.allowPropose).map(([name, raw]) => {
+    return Object.entries(tools).filter(([name, raw]) => (!normalize(raw).write || row.allowPropose)
+      && (!(normalize(raw).knowledgeRead || ['knowledge_search', 'knowledge_read'].includes(name)) || row.allowKnowledgeRead === true)).map(([name, raw]) => {
       const entry = normalize(raw);
       return { name, description: entry.description ?? '', inputSchema: entry.inputSchema ?? { type: 'object', properties: {}, additionalProperties: false } };
     });
