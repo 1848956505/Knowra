@@ -398,7 +398,7 @@
   box-shadow: var(--shadow-2);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px), (any-pointer: coarse) {
   .inspector[data-open] {
     position: absolute;
     grid-column: 1 / -1;
@@ -432,4 +432,8 @@
   height: auto;
   text-align: start;
   justify-content: flex-start;
+}
+
+@media (max-width: 1100px), (any-pointer: coarse) {
+  .header { height: 48px; flex-basis: 48px; }
 }

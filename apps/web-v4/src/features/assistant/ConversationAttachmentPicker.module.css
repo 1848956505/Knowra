@@ -1,8 +1,8 @@
 .picker { position: relative; min-width: 0; color: var(--ink); font-size: 12px; }
-.popover { width: min(430px, calc(100vw - 24px)); max-height: min(65dvh, 520px); overflow: auto; overscroll-behavior: contain; padding: 16px; }
-.popover > div { outline: 0; }
-.header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.picker p { margin: 6px 0; color: var(--ink-secondary); line-height: 1.5; }
+.popover { width: min(430px, calc(100vw - 24px)); max-height: min(65dvh, 520px); overflow: hidden; padding: 16px; }
+.dialog { max-height: calc(min(65dvh, 520px, var(--available-height, 100dvh)) - 32px); overflow: auto; overscroll-behavior: contain; outline: 0; }
+.header { position: sticky; top: 0; z-index: 1; background: var(--ink-surface); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dialog p { margin: 6px 0; color: var(--ink-secondary); line-height: 1.5; }
 .row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--ink-panel); overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .preview { display: grid; gap: 8px; margin-top: 12px; }

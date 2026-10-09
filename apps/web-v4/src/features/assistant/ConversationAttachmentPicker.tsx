@@ -62,6 +62,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   const previousConversation = useRef(conversationId);
   const uploadTask = useRef<UploadTask | null>(null);
   const [open, setOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
   const generation = useRef(0);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
@@ -86,6 +87,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
 
   async function sendFile(task: UploadTask) {
     if (busy || !task.valid) return;
+    dialogRef.current?.focus({ preventScroll: true });
     uploadTask.current = task; setUpload(task); setBusy(true); setError(null);
     const isCurrent = () => mounted.current && uploadTask.current === task
       && (currentConversation.current === null || currentConversation.current === task.conversationId);
@@ -134,6 +136,8 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   });
   async function perform(work: (id: string, assertCurrent: () => void) => Promise<void>) {
     if (!conversationId || busy) return;
+    // 禁用当前按钮前留住弹层焦点，避免浏览器把焦点丢到 body 后 Escape 失效。
+    dialogRef.current?.focus({ preventScroll: true });
     const captured = generation.current, id = conversationId; setBusy(true); setError(null);
     const assertCurrent = () => { if (!mounted.current || generation.current !== captured || currentConversation.current !== id) throw new Error('对话已变化，请重新操作附件。'); };
     try { await work(id, assertCurrent); }
@@ -144,7 +148,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     <PopoverTrigger isOpen={open} onOpenChange={setOpen}>
       <Button variant="ghost" size="compact">附件（{attachments.length}）</Button>
       <Popover placement="top start" className={styles.popover}>
-      <PopoverDialog aria-label="对话附件管理">
+      <PopoverDialog ref={dialogRef} className={styles.dialog} aria-label="对话附件管理">
       <div className={styles.header}><strong>对话附件</strong><Button variant="ghost" size="compact" onPress={() => setOpen(false)}>关闭附件</Button></div>
       <p>附件仅保存到此对话。{unparsedNotice}</p>
       <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"

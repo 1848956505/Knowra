@@ -407,7 +407,7 @@
 .compactControls { display: none; }
 .backArrow { display: inline-flex; transform: rotate(180deg); }
 .toolbarTools { display: contents; }
-@media (max-width: 1100px) {
+@media (max-width: 1100px), (any-pointer: coarse) {
   .editor:not([data-window-tabs]) { grid-template-rows: 48px 48px minmax(0, 1fr); }
   .editor:not([data-window-tabs]) .workspace { grid-row: 3; }
   .compactControls { grid-column: 1; grid-row: 2; display: flex; align-items: center; justify-content: space-between; padding-inline: 8px; border-bottom: 1px solid var(--ink-panel); background: var(--ink-bg); }

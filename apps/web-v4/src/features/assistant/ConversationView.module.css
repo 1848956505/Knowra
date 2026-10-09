@@ -154,8 +154,8 @@
   .composer { padding-inline: 12px; }
 }
 
-.mobileMenuPopover { width: min(300px, calc(100vw - 24px)); max-height: 65dvh; overflow: auto; overscroll-behavior: contain; }
-.mobileMenuBody { display: grid; gap: 6px; outline: 0; }
+.mobileMenuPopover { width: min(300px, calc(100vw - 24px)); max-height: 65dvh; overflow: hidden; overscroll-behavior: contain; }
+.mobileMenuBody { display: grid; gap: 6px; max-height: calc(min(65dvh, var(--available-height, 100dvh)) - 24px); overflow: auto; overscroll-behavior: contain; outline: 0; }
 .mobileMenuBody > button { height: auto; min-height: 44px; white-space: normal; text-align: left; justify-content: flex-start; overflow-wrap: anywhere; }
-.mobileMenuHeader { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.mobileMenuHeader { position: sticky; top: 0; z-index: 1; background: var(--ink-surface); display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .mobileMenuHeader strong { font-size: 12px; }
