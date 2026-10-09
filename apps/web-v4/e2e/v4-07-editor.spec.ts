@@ -1025,14 +1025,21 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await expect(screenshotInspector).toBeVisible();
   await page.screenshot({ path: 'e2e/visual-baseline/screenshots/v4-07-editor-inspector-1280.png', fullPage: false });
   await page.setViewportSize({ width: 390, height: 760 });
-  await expect.poll(async () => (await screenshotInspector.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(389);
+  const modal = page.getByRole('dialog', { name: '文档检查器', exact: true });
+  await expect(modal).toBeVisible();
+  await expect(screenshotInspector.getByRole('button', { name: '关闭文档检查器' })).toBeFocused();
   await expect.poll(async () => {
-    const [inspectorBox, editorBox] = await Promise.all([
-      screenshotInspector.boundingBox(),
-      page.getByRole('region', { name: '笔记编辑页面骨架' }).boundingBox()
-    ]);
-    return inspectorBox && editorBox ? Math.abs(inspectorBox.y - editorBox.y) : Infinity;
-  }).toBeLessThanOrEqual(1);
+    const rect = (await screenshotInspector.boundingBox())!;
+    return rect.y + rect.height;
+  }).toBeLessThanOrEqual(744);
+  const bounds = (await screenshotInspector.boundingBox())!;
+  expect(bounds.width).toBeGreaterThanOrEqual(362);
+  expect(bounds.x).toBeGreaterThanOrEqual(12);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(378);
+  expect(bounds.y).toBeGreaterThanOrEqual(16);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(744);
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden();
 });
 
 test('V4-07 宽屏打开检查器不缩小纸张', async ({ page }) => {
@@ -1561,7 +1568,8 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(editor).toContainText('需要标记的正文内容');
   await editor.locator('p').first().click({ clickCount: 3 });
   const selectionTools = page.getByRole('toolbar', { name: '选区工具' });
-  await expect(selectionTools.getByRole('button')).toHaveCount(6);
+  await expect(selectionTools.getByRole('button')).toHaveCount(7);
+  await expect(selectionTools.getByRole('button', { name: '内部链接', exact: true })).toBeVisible();
   await selectionTools.getByRole('button', { name: '加粗', exact: true }).click();
   await expect(editor.locator('strong')).toContainText('需要标记的正文内容');
   expect(Number(await editor.locator('strong').first().evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);

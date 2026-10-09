@@ -213,6 +213,7 @@ async function mockWorkspace(page: Page): Promise<void> {
     } else if (url.pathname.endsWith('/notes')) {
       data = [{
         id: 'note-1',
+        spaceId: 'space-1',
         title: '设计复盘',
         folderId: 'folder-1',
         tagIds: ['tag-1'],
@@ -224,6 +225,11 @@ async function mockWorkspace(page: Page): Promise<void> {
         createdAt: '2026-08-18T08:00:00.000Z',
         updatedAt: '2026-08-20T08:00:00.000Z'
       }];
+    } else if (url.pathname.endsWith('/notes/note-1')) {
+      data = { id: 'note-1', title: '设计复盘', spaceId: 'space-1', folderId: 'folder-1',
+        tagIds: ['tag-1'], internalLinks: [], rawMarkdown: '合成设计复盘正文', contentLoaded: true,
+        sourceType: 'note', status: 'draft', favorite: true, deleted: false,
+        createdAt: '2026-08-18T08:00:00.000Z', updatedAt: '2026-08-20T08:00:00.000Z' };
     } else if (url.pathname.endsWith('/tags')) {
       data = [{ id: 'tag-1', name: '设计' }];
     }
