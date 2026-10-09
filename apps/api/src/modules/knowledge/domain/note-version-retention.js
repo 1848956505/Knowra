@@ -4,35 +4,36 @@ const DAY = 24 * HOUR;
 export const NOTE_VERSION_RETENTION = Object.freeze({
   recentMs: DAY,
   dailyUntilMs: 30 * DAY,
-  maxPerNote: 100
+  maxAgeMs: 30 * DAY,
+  sampleMs: 10 * 60 * 1000,
+  maxPerNote: 20,
+  maxBytesPerNote: 2 * 1024 * 1024
 });
 
 const bucketOf = (age, createdAt, policy) => {
   const time = Date.parse(createdAt);
-  return age <= policy.dailyUntilMs ? `d${Math.floor(time / DAY)}` : `w${Math.floor(time / (7 * DAY))}`;
+  if (age <= policy.recentMs) return `m${Math.floor(time / policy.sampleMs)}`;
+  return `d${Math.floor(time / DAY)}`;
 };
 
 /**
- * 分层稀疏化：24 小时内全留；其后 30 天内每天留最后一个；更早每周留最后一个；
- * 每篇笔记总数不超过上限（从最旧的未受保护版本开始删）。受保护版本永远保留且计入总数。
+ * 恢复点有数量、年龄和字节上限：24 小时内每 10 分钟一个，其后每天一个，最长 30 天。
+ * 当前正文和来源凭证是保留根，不属于可淘汰恢复点配额；不能为满足配额截断引用。
  * 返回应删除的版本 ID。
  */
 export function selectVersionsToPrune({ versions, now = Date.now(), protectedIds = new Set(), policy = NOTE_VERSION_RETENTION }) {
   const ordered = [...versions].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt) || right.id.localeCompare(left.id));
   const kept = new Set();
   const seen = new Set();
+  let count = 0, bytes = 0;
   for (const version of ordered) {
     const age = now - Date.parse(version.createdAt);
-    if (protectedIds.has(version.id) || age <= policy.recentMs) { kept.add(version.id); continue; }
+    if (protectedIds.has(version.id) || !Number.isFinite(age)) { kept.add(version.id); continue; }
+    const length = Buffer.byteLength(JSON.stringify(version));
+    if (age > policy.maxAgeMs || count >= policy.maxPerNote || bytes + length > policy.maxBytesPerNote) continue;
     const bucket = bucketOf(age, version.createdAt, policy);
     if (seen.has(bucket)) continue;
-    seen.add(bucket); kept.add(version.id);
-  }
-  // 上限：保留列表按新到旧，超出部分从最旧的未受保护版本删除。
-  let overflow = kept.size - policy.maxPerNote;
-  for (let index = ordered.length - 1; overflow > 0 && index >= 0; index--) {
-    const version = ordered[index];
-    if (kept.has(version.id) && !protectedIds.has(version.id)) { kept.delete(version.id); overflow--; }
+    seen.add(bucket); kept.add(version.id); count++; bytes += length;
   }
   return ordered.filter((version) => !kept.has(version.id)).map((version) => version.id);
 }

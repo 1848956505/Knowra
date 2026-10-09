@@ -1,37 +1,22 @@
-import { calculateContentHash } from '../knowledge/domain/note-version.js';
-import { selectVersionsToPrune } from '../knowledge/domain/note-version-retention.js';
-import { createNoteVersionReferenceIndex } from '../knowledge/domain/note-version-references.js';
+import { planHistoryRetention, applyHistoryRetentionPlan } from '../knowledge/domain/history-retention.js';
 
-/**
- * 云端在处理同步批次时，顺带稀疏化本批触及笔记的旧版本。
- * 删除与批次同属一个事务，日志里自然产生墓碑，设备经普通拉取收到。
- * 本批提交的版本、当前正文版本和任何被引用的版本都不会删除。
- */
-export function pruneTouchedNoteVersions(state, changes, now = Date.now(), aliases = {}) {
-  const touchedNotes = new Set();
+/** 云端是已同步历史的淘汰权威；删除与批次一起提交，设备经普通拉取收到墓碑。 */
+export function pruneTouchedNoteVersions(state, changes, now = Date.now(), aliases = {}, externalReferences = []) {
+  // 私有来源不能读取时只停用自动淘汰，不影响核心保存。
+  if (externalReferences === null) return state;
+  const noteIds = new Set();
+  const annotations = new Map(state.contentAnnotations.map(item => [item.id, item]));
   for (const entry of changes) {
     const value = entry.value;
-    if (entry.collection === 'notes' && value) touchedNotes.add(entry.id);
-    if (entry.collection === 'noteVersions' && value) touchedNotes.add(value.noteId);
+    if (entry.collection === 'notes' && value) noteIds.add(entry.id);
+    if (['noteVersions', 'contentAnnotations'].includes(entry.collection) && value) noteIds.add(value.noteId);
+    if (entry.collection === 'annotationRevisions' && value) noteIds.add(annotations.get(value.annotationId)?.noteId);
   }
-  if (!touchedNotes.size) return state;
-  // prepareBatchState 已去重；保护后像中的规范 ID，而非设备提交的别名。
-  const submitted = new Set(changes.filter(entry => entry.collection === 'noteVersions').map(entry => aliases[entry.id] ?? entry.id));
-  let isReferenced = null;
-  const removed = new Set();
-  for (const noteId of touchedNotes) {
-    const note = state.notes.find(item => item.id === noteId);
-    const versions = state.noteVersions.filter(item => item.noteId === noteId);
-    if (!note || versions.length < 2) continue;
-    isReferenced ??= createNoteVersionReferenceIndex({
-      contentAnnotations: state.contentAnnotations, annotationRevisions: state.annotationRevisions, annotationExclusions: state.annotationExclusions,
-      knowledgeEvidence: state.knowledgeEvidence, knowledgeArtifactProvenance: state.knowledgeArtifactProvenance,
-      questionSources: state.questionSources, analysisScopeSnapshots: state.analysisScopeSnapshots
-    });
-    const currentHash = calculateContentHash(note.rawMarkdown);
-    const protectedIds = new Set(versions.filter(version => submitted.has(version.id) || version.contentHash === currentHash || isReferenced(version)).map(version => version.id));
-    for (const id of selectVersionsToPrune({ versions, now, protectedIds })) removed.add(id);
-  }
-  if (!removed.size) return state;
-  return { ...state, noteVersions: state.noteVersions.filter(version => !removed.has(version.id)) };
+  noteIds.delete(undefined);
+  if (!noteIds.size) return state;
+  // 回执中的本批输入仍然存在；后续批次/维护再按同一策略淘汰。
+  const protectedVersionIds = new Set(changes.filter(entry => entry.collection === 'noteVersions').map(entry => aliases[entry.id] ?? entry.id));
+  const protectedRevisionIds = new Set(changes.filter(entry => entry.collection === 'annotationRevisions').map(entry => entry.id));
+  const plan = planHistoryRetention(state, { noteIds, now, externalReferences, protectedVersionIds, protectedRevisionIds });
+  return applyHistoryRetentionPlan(state, plan);
 }

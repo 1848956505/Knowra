@@ -9,14 +9,14 @@ const version = (id, ageMs, noteId = 'n1', content = id) => ({ id, noteId, conte
 
 export const noteVersionRetentionTests = [
   {
-    name: '保留策略：24 小时内全留，30 天内每天留最后一个，更早每周留一个',
+    name: '保留策略：24 小时内按十分钟采样，之后按天采样，三十天前过期',
     run() {
       const versions = [
-        version('r1', HOUR), version('r2', 2 * HOUR), version('r3', 3 * HOUR),
+        version('r1', HOUR + 500), version('r1-duplicate', HOUR + 1000), version('r2', 2 * HOUR), version('r3', 3 * HOUR),
         version('d-new', 2 * DAY + HOUR), version('d-old', 2 * DAY + 2 * HOUR),
         version('w-new', 60 * DAY + HOUR), version('w-old', 60 * DAY + 2 * HOUR)
       ];
-      assert.deepEqual(selectVersionsToPrune({ versions, now }).sort(), ['d-old', 'w-old']);
+      assert.deepEqual(selectVersionsToPrune({ versions, now }).sort(), ['d-old', 'r1-duplicate', 'w-new', 'w-old']);
     }
   },
   {
@@ -24,8 +24,8 @@ export const noteVersionRetentionTests = [
     run() {
       const versions = Array.from({ length: 150 }, (_, index) => version(`v${index}`, index * 20 * 60 * 1000 + HOUR / 2));
       const removed = selectVersionsToPrune({ versions, now: now - 2 * DAY + 0, policy: { ...NOTE_VERSION_RETENTION, recentMs: 365 * DAY } });
-      assert.equal(removed.length, 50);
-      assert.ok(removed.every(id => Number(id.slice(1)) >= 100), '删除的是最旧的 50 个');
+      assert.equal(removed.length, 130);
+      assert.ok(removed.every(id => Number(id.slice(1)) >= 20), '删除的是最旧的 130 个');
       const protectedId = 'v149';
       const withProtected = selectVersionsToPrune({ versions, now, policy: { ...NOTE_VERSION_RETENTION, recentMs: 365 * DAY }, protectedIds: new Set([protectedId]) });
       assert.ok(!withProtected.includes(protectedId));
@@ -48,7 +48,7 @@ export const noteVersionRetentionTests = [
       const result = pruneTouchedNoteVersions(state, [{ collection: 'notes', id: 'n1', value: state.notes[0] }], now);
       const ids = result.noteVersions.map(item => item.id).sort();
       assert.ok(ids.includes('cur') && ids.includes(cited.id), '当前版本与被引用版本保留');
-      assert.equal(ids.filter(id => id.startsWith('old-')).length, 2, '同一周内未被引用的旧版本被合并为一个');
+      assert.equal(ids.filter(id => id.startsWith('old-')).length, 1, '三十天前只保留被引用的版本');
       assert.ok(ids.includes('other-old') && ids.includes('other-old-b'), '未触及的笔记不动');
       const submitted = pruneTouchedNoteVersions(state, [{ collection: 'noteVersions', id: 'old-c', value: old[2] }], now);
       assert.ok(submitted.noteVersions.some(item => item.id === 'old-c'), '本批提交的版本不会被删除');

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { once } from 'node:events';
 import { test } from 'node:test';
+import { anchorFromProjectedRange, projectMarkdown, calculateContentHash } from '@study-accelerator/content-anchor';
 import { createFileDataStore } from '../../api/src/infrastructure/file-data-store.js';
 import { createAppContext } from '../../api/src/app.factory.js';
 import { createServer } from '../../api/src/server.js';
@@ -46,8 +47,71 @@ async function fixture(t, postgres) {
     } };
     return result;
   }
-  return { space, device, versions: noteId => context.modules.knowledge.noteVersionService.listVersions({ noteId }) };
+  return { space, device, knowledge: context.modules.knowledge, versions: noteId => context.modules.knowledge.noteVersionService.listVersions({ noteId }) };
 }
+
+for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件云端'}：标注历史清理保留私有任务副本，失败回滚及重启后不再上传`, {
+  skip: postgres && !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000
+}, async t => {
+  const f = await fixture(t, postgres);
+  let fail = false, a;
+  a = f.device('history-a', { beforeCommit() {
+    if (fail && a.store.deletionFacts.has('annotationRevisions', 'old-revision-5')) throw new Error('history deletion rollback');
+  } });
+  const b = f.device('history-b');
+  await a.connect();
+  const note = a.knowledge.noteService.createNote({ title: '标注历史', rawMarkdown: '重点内容\n\n当前正文', spaceId: f.space.id });
+  const anchor = anchorFromProjectedRange(projectMarkdown(note.rawMarkdown), 0, 4);
+  const annotation = a.knowledge.contentAnnotationService.createAnnotation({ spaceId: note.spaceId, noteId: note.id,
+    schemaVersion: 2, scopeType: anchor.scopeType, kind: 'important', sourceMode: 'manual', quoteText: anchor.quoteText,
+    fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, prefixText: '', suffixText: '', headingPath: [], anchor,
+    anchorFingerprint: 'client', noteContentHash: calculateContentHash(note.rawMarkdown), idempotencyKey: 'history-mark' });
+  a.store.runTransaction(() => {
+    a.store.state.contentAnnotations.find(item => item.id === annotation.id).revision = 31;
+    for (let i = 2; i <= 30; i++) {
+      const version = new NoteVersion({ id: `old-version-${i}`, noteId: note.id, content: `${note.rawMarkdown}\n旧正文 ${i}`,
+        createdAt: new Date(Date.now() - (40 + i) * DAY).toISOString() });
+      a.store.state.noteVersions.push(version);
+      a.store.state.annotationRevisions.push({ id: `old-revision-${i}`, annotationId: annotation.id, revision: i,
+        operation: 'sourceReconciled', oldAnchor: null, newAnchor: { ...annotation.anchor, noteVersionId: version.id },
+        rangeSummary: { scopeType: annotation.scopeType, quoteText: annotation.quoteText }, reason: null, createdAt: version.createdAt });
+    }
+  }, { origin: 'migration' });
+  a.store.metadataTransaction(db => {
+    db.exec('CREATE TABLE ai_history_probe (payload TEXT)');
+    db.prepare('INSERT INTO ai_history_probe VALUES (?)').run(JSON.stringify({ annotationRevisions: [{ annotationId: annotation.id, revision: 5 }] }));
+  });
+  await a.engine.sync();
+  assert.equal(a.engine.status().error, null, JSON.stringify(a.engine.status()));
+  await b.connect();
+  assert.ok(b.store.state.annotationRevisions.some(item => item.id === 'old-revision-5'), '两设备实际收到清理前的历史');
+  await f.knowledge.noteService.updateNote(note.id, { title: '云端清理后', updatedAt: new Date(Date.now() + 1000).toISOString() });
+  assert.ok(!(await f.knowledge.repositories.annotationRevisionRepository.list()).some(item => item.id === 'old-revision-5'));
+  fail = true;
+  await a.engine.sync();
+  assert.ok(a.engine.status().error);
+  assert.equal(a.store.deletionFacts.has('annotationRevisions', 'old-revision-5'), false);
+  fail = false;
+  await a.engine.sync(); await b.engine.sync();
+  for (const device of [a, b]) {
+    assert.equal(device.engine.status().error, null, JSON.stringify(device.engine.status()));
+    assert.equal(device.engine.status().pendingEntities, 0);
+  }
+  assert.ok(a.store.state.annotationRevisions.some(item => item.id === 'old-revision-5'));
+  assert.ok(a.store.state.noteVersions.some(item => item.id === 'old-version-5'));
+  assert.ok(!a.store.state.annotationRevisions.some(item => item.id === 'old-revision-6'));
+  assert.ok(!b.store.state.annotationRevisions.some(item => item.id === 'old-revision-5'));
+  assert.ok(!b.store.state.noteVersions.some(item => item.id === 'old-version-5'));
+  await a.restart();
+  assert.equal(nextEntityUpload(a.store), null);
+  assert.equal(a.engine.status().pendingEntities, 0);
+  assert.ok(a.store.state.annotationRevisions.some(item => item.id === 'old-revision-5'));
+  const current = a.knowledge.contentAnnotationService.getAnnotation(annotation.id);
+  a.knowledge.contentAnnotationService.updateAnnotation(annotation.id, { expectedRevision: current.revision, comment: '清理后继续使用' });
+  await a.engine.sync();
+  assert.equal(a.engine.status().error, null, JSON.stringify(a.engine.status()));
+  assert.equal(a.engine.status().pendingEntities, 0);
+});
 
 for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件云端'}：清理、恢复私有引用正文、失败回滚及冻结上传重启后两设备收敛`, {
   skip: postgres && !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000

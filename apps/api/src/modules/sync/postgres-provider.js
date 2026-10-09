@@ -1,4 +1,6 @@
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../knowledge/domain/knowledge-artifact-provenance-state.js';
+import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds } from '../knowledge/domain/history-retention.js';
+import { readPostgresHistoryRetentionReferences } from '../../infrastructure/history-retention-references.js';
 import { assertSnapshotBinding, snapshotBinding } from './protocol-contract.js';
 import { createBatchSyncService } from './batch-service.js';
 import { applyPostgresState } from './postgres-batch.js';
@@ -72,6 +74,10 @@ export function createPostgresSyncRuntime(client, ownerId) {
   const scope = new AsyncLocalStorage();
   const modelNames = new Set([...Object.values(collections).map(([model]) => model), 'noteTag', 'user']);
   const mutations = new Set(['create', 'createMany', 'update', 'updateMany', 'upsert', 'delete', 'deleteMany']);
+  async function historyReferences(tx) {
+    try { return await readPostgresHistoryRetentionReferences(tx, ownerId); }
+    catch { return null; } // 私有扩展异常时停止淘汰，核心保存仍可继续。
+  }
   async function transaction(operation) {
     if (scope.getStore()) return operation(proxy);
     return client.$transaction(async tx => {
@@ -83,7 +89,18 @@ export function createPostgresSyncRuntime(client, ownerId) {
       return scope.run(context, async () => {
         const result = await operation(proxy);
         // 事务内没有任何写入时后像即前像；批量写入后的后像已由 preview 按 ID 重建。
-        const after = context.version === 0 ? before : context.after?.version === context.version ? context.after.state : await snapshot(tx);
+        let after = context.version === 0 ? before : context.after?.version === context.version ? context.after.state : await snapshot(tx);
+        const noteIds = changedHistoryNoteIds(before, after);
+        if (!context.touched && noteIds.size) {
+          const references = await historyReferences(tx);
+          if (references !== null) {
+            const retained = applyHistoryRetentionPlan(after, planHistoryRetention(after, { noteIds, externalReferences: references }));
+            if (retained.noteVersions.length !== after.noteVersions.length || retained.annotationRevisions.length !== after.annotationRevisions.length) {
+              await applyPostgresState(tx, after, retained);
+              after = retained;
+            }
+          }
+        }
         assertNoKnowledgeArtifactProvenanceDowngrade(before, after);
         // 整库导入删除日志行；用新世代重新建立基线。
         const exists = await tx.syncJournal.findUnique({ where: { ownerId } });
@@ -134,6 +151,7 @@ export function createPostgresSyncRuntime(client, ownerId) {
         return row ? callback(null, loadJournal(row.payload, {})) : access(callback);
       };
       const provider = {
+        historyReferences: () => historyReferences(scope.getStore().tx),
         read, mutate: access,
         snapshotPage: async ({ snapshotId, start, size, contract, ownerId: requestedOwner }) => {
           const [row] = await client.$queryRawUnsafe(`SELECT

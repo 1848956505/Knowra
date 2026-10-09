@@ -39,6 +39,7 @@ import { noteServiceTests } from './note-service.test.js';
 import { noteVersionSaveCostTests } from './note-version-save-cost.test.js';
 import { noteVersionCoalescingTests } from './note-version-coalescing.test.js';
 import { noteVersionRetentionTests } from './note-version-retention.test.js';
+import { historyRetentionTests } from './history-retention.test.js';
 import { folderServiceTests } from './folder-service.test.js';
 import { tagServiceTests } from './tag-service.test.js';
 import { tagSystemTests } from './tag-system.test.js';
@@ -173,6 +174,7 @@ const tests = [
   ...noteVersionSaveCostTests,
   ...noteVersionCoalescingTests,
   ...noteVersionRetentionTests,
+  ...historyRetentionTests,
   ...folderServiceTests,
   ...tagServiceTests,
   ...tagSystemTests,

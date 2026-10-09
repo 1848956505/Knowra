@@ -14,11 +14,44 @@ function externalTextColumns(db) {
   return columns;
 }
 
+/** 一次读取私有引用供批量规划使用，避免对数万条历史逐一执行全表文本查询。 */
+export function readPrivateHistoryReferences(db) {
+  const columns = columnsFor(db);
+  const values = [];
+  for (const { table, column } of columns) {
+    for (const row of db.prepare(`SELECT "${column}" AS value FROM "${table}" WHERE "${column}" IS NOT NULL`).iterate()) {
+      if (typeof row.value === 'string') values.push(row.value);
+    }
+  }
+  return values;
+}
+
+export function createUnsyncedHistoryDiscardGate(db) {
+  if (readMeta(db, 'entityUpload') || readMeta(db, 'entityConflict') || db.prepare('SELECT 1 FROM sync_uploads LIMIT 1').get()) return () => false;
+  const synced = new Set(), versionHashes = new Set();
+  for (const row of db.prepare("SELECT collection,id,payload FROM sync_base WHERE collection IN ('noteVersions','annotationRevisions') AND payload != 'null'").iterate()) {
+    synced.add(JSON.stringify([row.collection, row.id]));
+    if (row.collection === 'noteVersions') {
+      const version = JSON.parse(row.payload);
+      versionHashes.add(JSON.stringify([version.noteId, version.contentHash]));
+    }
+  }
+  return (collection, record) => !synced.has(JSON.stringify([collection, record.id]))
+    && (collection !== 'noteVersions' || !versionHashes.has(JSON.stringify([record.noteId, record.contentHash])));
+}
+
 const columnCache = new WeakMap();
+function columnsFor(db) {
+  const version = db.prepare('PRAGMA schema_version').get().schema_version;
+  const cached = columnCache.get(db);
+  if (cached?.version === version) return cached.columns;
+  const columns = externalTextColumns(db);
+  columnCache.set(db, { version, columns });
+  return columns;
+}
 /** AI 对话、任务、清单等私有记录按 ID 或正文哈希引用版本；云端和业务实体检查看不到它们。 */
 export function referencedByPrivateRecords(db, version) {
-  let columns = columnCache.get(db);
-  if (!columns) { columns = externalTextColumns(db); columnCache.set(db, columns); }
+  const columns = columnsFor(db);
   return columns.some(({ table, column }) => db.prepare(`SELECT 1 FROM "${table}" WHERE instr("${column}", ?) > 0 OR instr("${column}", ?) > 0 LIMIT 1`)
     .get(version.id, version.contentHash));
 }

@@ -39,7 +39,7 @@ async function withContext(run) {
         deleted: false, favorite: false, createdAt: instant.toISOString(), updatedAt: instant.toISOString() });
       noteVersionRepository.save(new NoteVersion({ id: `version-${id}`, noteId: id, content }));
     };
-    await run({ directory, file, store, service, noteRepository, noteVersionRepository, folderRepository, addNote });
+    await run({ directory, file, store, service, noteRepository, noteVersionRepository, folderRepository, spaceRepository, addNote });
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 }
 
@@ -166,7 +166,7 @@ export const aiAccessV2Tests = [
     await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, tools: [tool('notes_read')] }), { code: 'AI_CONTEXT_INVALID' });
     await assert.rejects(service.prepareRequest({ ...requestInput(grant.grantId), assistantTools: true, tools: [tool('arbitrary')] }), { code: 'AI_CONTEXT_INVALID' });
   }) },
-  { name: 'AI v1 私有记录升级只增加 v2 空集合，旧授权不转换成持续策略', run: () => withContext(async ({ file, store, service, addNote }) => {
+  { name: 'AI v1 私有记录升级只增加 v2 空集合，旧授权不转换成持续策略', run: () => withContext(async ({ file, store, addNote, noteRepository, noteVersionRepository, folderRepository, spaceRepository }) => {
     const old = aiRecords(store.aiRepository.identity());
     insertAiRecords(store.aiRepository, old);
     const persisted = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -180,13 +180,15 @@ export const aiAccessV2Tests = [
     assert.equal((await upgraded.aiAccessStore.list('aiAccessPolicy')).length, 0);
     assert.equal(upgraded.aiRepository.get('aiGrant', old.grant.grantId).grantId, old.grant.grantId);
     assert.equal(upgraded.aiRepository.get('aiJob', old.job.jobId).status, old.job.status);
+    const service = createAiAccessService({ store: upgraded.aiAccessStore, noteRepository, noteVersionRepository,
+      folderRepository, spaceRepository, ownerId: 'demo', now: () => instant });
     addNote('note-1', 'alpha');
     const policy = await service.createPolicy(policyInput({ kind: 'fixed', noteIds: ['note-1'] }));
-    assert.equal((await store.aiAccessStore.get('aiAccessPolicy', policy.policyId)).revision, 1);
-    assert.equal(JSON.stringify(store.exportSnapshot()).includes(policy.policyId), false);
+    assert.equal((await upgraded.aiAccessStore.get('aiAccessPolicy', policy.policyId)).revision, 1);
+    assert.equal(JSON.stringify(upgraded.exportSnapshot()).includes(policy.policyId), false);
     const reopened = createFileDataStore(file);
     assert.equal((await reopened.aiAccessStore.get('aiAccessPolicy', policy.policyId)).scope.kind, 'fixed');
-    store.importSnapshot(store.exportSnapshot());
+    upgraded.importSnapshot(upgraded.exportSnapshot());
     await assert.rejects(service.createRunGrant({ policyId: policy.policyId, conversationId: 'conversation-1' }),
       { code: 'AI_ACCESS_REVOKED' });
   }) },
