@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">知境在线预览</string>
+    <string name="heading">知境 · Android 在线预览</string>
+    <string name="subheading">打开自己的知境服务</string>
+    <string name="introduction">填写已运行的 HTTPS 知境 V4 地址。应用会打开系统浏览器安全标签页，内容和操作将发送到此服务。认证、证书校验及网页功能由浏览器负责。</string>
+    <string name="service_label">服务地址</string>
+    <string name="service_hint">https://你的知境服务域名</string>
+    <string name="open_service">用安全浏览器标签页打开</string>
+    <string name="forget_service">忘记服务地址</string>
+    <string name="forget_title">忘记本机保存的服务地址？</string>
+    <string name="forget_message">只清除这个应用保存的地址，不删除服务内容，也不会退出浏览器登录或清除浏览器缓存。退出登录请在浏览器或服务中完成。</string>
+    <string name="forget_confirm">忘记地址</string>
+    <string name="cancel">取消</string>
+    <string name="forgotten">已忘记本机保存的服务地址。</string>
+    <string name="scope">这是在线启动器预览，不是完整独立客户端。没有内置服务器、离线数据库或同步。页面版本取决于远端服务。返回此页可重试或修改地址。</string>
+    <string name="privacy">只保存服务地址，不读取或保存账号密码。浏览器可能沿用自己的登录状态。请只打开你信任的服务，并在浏览器地址栏确认域名；遇到证书警告请停止访问。</string>
+    <string name="opened">已交给系统浏览器打开。这不代表服务连接成功或编辑已保存，请查看浏览器中的结果。返回后可重新打开。</string>
+    <string name="missing_browser">默认浏览器不可用或不支持安全标签页。请启用支持 Custom Tabs 的可信默认浏览器，再点击重试。应用没有连接服务。</string>
+    <string name="browser_failed">浏览器未能打开。请检查系统浏览器是否可用后重试。应用没有确认服务连接。</string>
+    <string name="switch_title">改用新的知境服务？</string>
+    <string name="switch_message">将打开 %1$s，并替换此应用保存的地址。原服务内容和浏览器登录状态不会清除。</string>
+    <string name="switch_confirm">打开新服务</string>
+</resources>

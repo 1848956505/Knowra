@@ -1,0 +1,75 @@
+name: Android unsigned preview
+on:
+  pull_request:
+    paths:
+      - 'apps/android/**'
+      - 'scripts/test/android-preview.test.js'
+      - '.github/workflows/android-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unsigned:
+    name: Android · unsigned APK, lint and JVM tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-read-only: true
+      - name: Require runner's existing Android SDK
+        shell: bash
+        run: |
+          test -n "$ANDROID_HOME"
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+          # 禁止 sdkmanager --licenses、SDK 自动下载和调试/生产签名。
+          test ! -e "$HOME/.android/debug.keystore"
+      - name: Check preview security contract without Android runtime
+        run: node --test scripts/test/android-preview.test.js
+      - name: Build unsigned release and run Android JVM tests
+        working-directory: apps/android
+        run: gradle --no-daemon -Pandroid.builder.sdkDownload=false :app:assembleRelease :app:lintRelease :app:testReleaseUnitTest
+      - name: Verify manifest and unsigned artifact
+        shell: bash
+        run: |
+          apk=apps/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$apk"
+          test ! -e "$HOME/.android/debug.keystore"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | tee apps/android/app/build/apk-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$apk" | tee apps/android/app/build/apk-permissions.txt
+          grep -q "name='app.knowra.android.preview'" apps/android/app/build/apk-badging.txt
+          # AndroidX 可以声明 signature 级内部 receiver 权限；不允许系统权限。
+          if grep 'uses-permission' apps/android/app/build/apk-permissions.txt | grep -v "app.knowra.android.preview.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"; then
+            echo 'Unexpected application permission'; exit 1
+          fi
+          if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$apk" > apps/android/app/build/signature-status.txt 2>&1; then
+            echo 'Unexpected signed APK'; exit 1
+          fi
+          grep -q 'DOES NOT VERIFY' apps/android/app/build/signature-status.txt
+          sha256sum "$apk" > "$apk.sha256"
+          printf '%s\n' "$GITHUB_SHA" > apps/android/app/build/source-commit.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: knowra-android-unsigned-${{ github.sha }}
+          path: |
+            apps/android/app/build/outputs/apk/release/*
+            apps/android/app/build/reports/
+            apps/android/app/build/test-results/
+            apps/android/app/build/apk-*.txt
+            apps/android/app/build/signature-status.txt
+            apps/android/app/build/source-commit.txt
+          if-no-files-found: error
+          retention-days: 14
