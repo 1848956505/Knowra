@@ -21,6 +21,7 @@ import {
 } from 'react-aria-components';
 import { cx } from '../classnames';
 import styles from './Overlay.module.css';
+import { NestedOverlay } from './ResponsivePanel';
 
 export type MenuItemProps = Omit<RAMenuItemProps, 'className' | 'children'> & {
   icon?: ReactNode;
@@ -131,7 +132,7 @@ export const MenuPopover = forwardRef<
         className={cx(styles.menuPopover, className)}
         {...rest}
       >
-        {children}
+        <NestedOverlay>{children}</NestedOverlay>
       </RAPopover>
     );
   }

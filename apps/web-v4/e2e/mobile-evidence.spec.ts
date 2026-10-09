@@ -32,7 +32,7 @@ async function measure(page: Page) {
   });
 }
 
-for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, async ({ page }, info: TestInfo) => {
+for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, async ({ page, browser }, info: TestInfo) => {
   const network = await mockMobileEvidence(page);
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize(viewport);
@@ -64,13 +64,17 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
     await capture('05-editor-bottom');
     await scroll.evaluate(element => { element.scrollTop = 0; });
-    const inspector = page.getByRole('button', { name: '切换文档检查器', exact: true });
-    if (await inspector.isVisible()) {
+    const compactInspector = page.getByRole('button', { name: '打开文档检查器', exact: true });
+    const inspector = await compactInspector.isVisible() ? compactInspector
+      : page.getByRole('button', { name: '切换文档检查器', exact: true });
+    await expect(inspector).toBeVisible();
+    {
       if (await inspector.getAttribute('aria-pressed') !== 'true') await inspector.click();
-      await expect(page.getByLabel('文档检查器', { exact: true })).toBeVisible();
+      await expect(page.getByRole('complementary', { name: '文档检查器', exact: true })).toBeVisible();
       await capture('06-inspector');
+      await page.getByRole('button', { name: '关闭文档检查器', exact: true }).click();
+      await expect(page.getByRole('complementary', { name: '文档检查器', exact: true })).toBeHidden();
     }
-    else await capture('06-inspector', '当前视口未显示检查器入口。');
     await page.goto('/#/assistant?new=1');
     const composer = page.getByRole('textbox', { name: '消息', exact: true });
     await expect(composer).toBeVisible();
@@ -89,12 +93,12 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
     expect(network.blocked, '未建模 API 或外部请求必须阻断并显式修复测试夹具').toEqual([]);
     expect(errors, '脚本错误不是可接受的截图基线').toEqual([]);
   } finally {
-    const manifest = { schema: 1, builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
+    const manifest = { schema: 1, sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE ?? null, builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
       sourcePRHead: process.env.KNOWRA_EVIDENCE_PR_HEAD ?? null,
       baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, baseRef: process.env.KNOWRA_EVIDENCE_BASE_REF ?? null,
       productionEquivalentToBase: process.env.KNOWRA_BASE_PRODUCTION_EQUIVALENT === 'true',
       buildKind: process.env.GITHUB_EVENT_NAME === 'pull_request' ? 'PR synthetic merge checkout' : 'explicit checkout',
-      viewport, syntheticData: true, browser: 'Playwright Chromium',
+      viewport, syntheticData: true, browser: 'Playwright / installed Chrome', browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, chineseFont: process.env.KNOWRA_EVIDENCE_CJK_FONT ?? null,
       limitations: ['CSS 视口模拟，不是真实 vivo/OriginOS 或软键盘测试', '几何、焦点和滚动指标仅观察记录，未将现有 UI 缺陷伪装成测试失败或通过'],
       scenarios, blockedRequests: network.blocked, apiRequests: network.requests, pageErrors: errors };
     const path = info.outputPath('scenario-manifest.json');

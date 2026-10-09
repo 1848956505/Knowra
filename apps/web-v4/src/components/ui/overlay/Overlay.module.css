@@ -368,3 +368,18 @@
     animation: none !important;
   }
 }
+
+@media (max-width: 767px), (any-pointer: coarse) {
+  .item { min-height: 44px; }
+}
+
+/* 业务面板保留自己的标题与内部滚动，模态交互由统一 Dialog 负责。 */
+.panelSize {
+  width: min(440px, calc(100vw - 24px));
+  height: min(760px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+}
+.panelSize > .overlay { height: 100%; overflow: hidden; }
+
+/* 不引入布局盒，桌面检查器仍是原来的 grid item。 */
+.inlinePanel { display: contents; }

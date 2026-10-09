@@ -10,8 +10,9 @@
     grid-row: 3;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    padding-bottom: env(safe-area-inset-bottom);
+    grid-template-columns: repeat(var(--mobile-tab-count, 8), minmax(0, 1fr));
+    min-height: 54px;
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     border-top: 1px solid var(--ink-shell);
     background: var(--ink-bg);
   }

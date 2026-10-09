@@ -1,0 +1,7 @@
+{
+  "sourceRoot": "/workspace/Knowra-baseline",
+  "commit": "8584bb3b3677ce3ebc487d55392c4d9652ae45ec",
+  "baseURL": "http://127.0.0.1:5176",
+  "browser": "Chromium 151",
+  "sandbox": true
+}

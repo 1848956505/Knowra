@@ -247,11 +247,9 @@
 }
 
 .toolbar[data-pinned] {
-  border-top: 0;
-  border-left-width: 1px;
-  border-right-width: 1px;
-  border-bottom-width: 1px;
+  /* 保持吸顶前后相同的盒高，避免短横屏的滚动锚定使吸顶状态来回抖动。 */
   border-color: var(--ink-panel);
+  border-top-color: transparent;
   margin-inline: calc(-1 * (var(--paper-pad-x) + 1px));
   box-shadow: none;
 }
@@ -381,7 +379,7 @@
 @media (max-width: 1100px) {
   .editor { --doc-gutter: 44px; --doc-width: min(780px, calc(100% - var(--doc-gutter))); --paper-pad-x: clamp(36px, 6vw, 64px); }
   .editor[data-inspector-open] { --doc-gutter: 24px; }
-  .optionalTool { display: none !important; }
+
 }
 
 @media (max-width: 767px) {
@@ -402,3 +400,28 @@
 
 .attachmentDownloadNotice { position: absolute; z-index: 4; left: 12px; bottom: 12px; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 8px; padding: 4px 12px; color: var(--ink-secondary); background: var(--ink-surface); }
 .linkNotice { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-secondary); padding: 8px 16px; font-size: 13px; }
+
+/* 窄屏导航常驻，格式菜单与快捷操作分别拥有可见的滚动边界。 */
+.compactControls { display: none; }
+.backArrow { display: inline-flex; transform: rotate(180deg); }
+.toolbarTools { display: contents; }
+@media (max-width: 1100px), (any-pointer: coarse) {
+  .editor:not([data-window-tabs]) { grid-template-rows: 48px 48px minmax(0, 1fr); }
+  .editor:not([data-window-tabs]) .workspace { grid-row: 3; }
+  .compactControls { grid-column: 1; grid-row: 2; display: flex; align-items: center; justify-content: space-between; padding-inline: 8px; border-bottom: 1px solid var(--ink-panel); background: var(--ink-bg); }
+  .tabs { padding-top: 0; align-items: center; }
+  .tabItem { height: 46px; grid-template-columns: minmax(0, 1fr) 44px; }
+  .tabClose, .tabAction { width: 44px; height: 44px; min-width: 44px; }
+  .tabItem .tabClose { display: grid; }
+  .toolbar { flex-wrap: wrap; overflow: visible; padding: 0 4px; }
+  .toolbarMenus { width: 100%; gap: 0; }
+  .toolbarMenus > button { flex: 1; min-width: 44px; height: 44px; padding-inline: 4px; }
+  .toolbarTools { width: 100%; min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-block: 2px; border-top: 1px solid var(--ink-panel); }
+  .toolbarTools button { min-width: 44px; height: 44px; }
+  .documentStage { overscroll-behavior: contain; scroll-padding-top: 104px; }
+}
+@media (max-width: 767px) {
+  .editor { --paper-pad-x: 20px; }
+  .paper { padding-top: 24px; }
+  .toolbar { margin-block: 22px 16px; }
+}

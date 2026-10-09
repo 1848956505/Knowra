@@ -1,0 +1,10 @@
+{
+  "sourceRoot": "/workspace/Knowra",
+  "commit": "6619712b4e6c646a2894674c3b5ebbe53608dc4b",
+  "sourceTree": "aaca144ab28241385c93f27095ab4a835a74bee7",
+  "fixtureCommit": "6619712b4e6c646a2894674c3b5ebbe53608dc4b",
+  "baseURL": "http://127.0.0.1:5177",
+  "browser": "151.0.7922.173",
+  "capturedAt": "2026-10-09T17:17:59.643Z",
+  "sandbox": true
+}

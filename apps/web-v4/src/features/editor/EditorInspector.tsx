@@ -30,6 +30,7 @@ import {
   type InspectorRelations
 } from './editorInspectorModel';
 import styles from './EditorInspector.module.css';
+import { ResponsivePanel } from '../../components/ui/overlay/ResponsivePanel';
 import { AnalysisScopeDialog, type AnalysisIntent } from './AnalysisScopeDialog';
 import { KnowledgeExtractionTaskPanel } from './KnowledgeExtractionTaskPanel';
 import { useKnowledgeExtractionTasks } from './useKnowledgeExtractionTasks';
@@ -52,6 +53,8 @@ const inspectorTabs: TabsItem[] = [
 ];
 
 export interface EditorInspectorProps {
+  /** 原生标题栏需要保持可操作；由现有桌面能力显式传入。 */
+  nativeTitlebar?: boolean;
   note: Note;
   folder: Folder | null;
   foldersById: Record<string, Folder>;
@@ -124,6 +127,15 @@ export interface EditorInspectorProps {
 
 export function EditorInspector(props: EditorInspectorProps) {
   const [selectedTab, setSelectedTab] = useState('info');
+  const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 1100px), (any-pointer: coarse)').matches ?? false);
+  useEffect(() => {
+    const query = window.matchMedia?.('(max-width: 1100px), (any-pointer: coarse)');
+    if (!query) return;
+    const update = () => setCompact(query.matches);
+    update(); query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  const modal = compact && !props.nativeTitlebar;
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const tags = useMemo(() => resolveNoteTags(props.note, props.tags), [props.note, props.tags]);
@@ -150,10 +162,11 @@ export function EditorInspector(props: EditorInspectorProps) {
     if (props.overlappingAnnotationIds?.length) setSelectedTab('annotations');
   }, [props.overlappingAnnotationIds]);
 
-  return (
+  const inspector = (
     <aside
       className={styles.inspector}
       data-open={props.open || undefined}
+      data-native-titlebar={props.nativeTitlebar || undefined}
       aria-label="文档检查器"
       aria-hidden={!props.open}
     >
@@ -235,6 +248,10 @@ export function EditorInspector(props: EditorInspectorProps) {
       />
     </aside>
   );
+  return <ResponsivePanel title="文档检查器" modal={modal} className={styles.inspectorDialog}
+    isOpen={props.open} onClose={props.onClose}>
+    {inspector}
+  </ResponsivePanel>;
 }
 
 function InfoPanel(props: EditorInspectorProps & {

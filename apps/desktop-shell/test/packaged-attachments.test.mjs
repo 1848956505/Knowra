@@ -29,7 +29,14 @@ test('打包 APP 的附件下载复用会话，原生保存后可主动打开，
   }, destination);
   await page.goto(`${new URL(page.url()).origin}/#/materials/notes/${result.note.id}`); await page.reload();
   await expect(page.locator('.ProseMirror')).toContainText('正文附件');
-  if (!await page.getByRole('button', { name: '上传附件', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
+  const inspectorTrigger = page.getByRole('button', { name: '切换文档检查器', exact: true });
+  if (!await page.getByRole('button', { name: '上传附件', exact: true }).isVisible()) await inspectorTrigger.click();
+  const inspectorDialog = page.getByRole('dialog', { name: '文档检查器', exact: true });
+  const layout = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, coarsePointer: matchMedia('(any-pointer: coarse)').matches,
+    compact: matchMedia('(max-width: 1100px), (any-pointer: coarse)').matches }));
+  t.diagnostic(`检查器布局：${JSON.stringify(layout)}`);
+  // 原生标题栏环境无论窗口宽度都保留非模态检查器。
+  await expect(inspectorDialog).toHaveCount(0);
   await page.getByRole('button', { name: '打开附件 下载.txt', exact: true }).click();
   await expect(page.getByRole('button', { name: '打开已保存文件', exact: true })).toBeVisible();
   assert.equal(fs.readFileSync(destination, 'utf8'), 'original');

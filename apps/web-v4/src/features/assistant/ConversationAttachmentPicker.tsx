@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
+import { Popover, PopoverDialog, PopoverTrigger } from '../../components/ui/overlay/Popover';
 import { FileDropField } from '../../components/ui/file/FileDropField';
 import { conversationAttachmentApi } from './conversationAttachmentApi';
 import styles from './ConversationAttachmentPicker.module.css';
@@ -60,7 +61,17 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   const currentConversation = useRef(conversationId); currentConversation.current = conversationId;
   const previousConversation = useRef(conversationId);
   const uploadTask = useRef<UploadTask | null>(null);
-  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previewElementRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current, element = previewElementRef.current;
+    if (!open || !preview || !dialog || !element) return;
+    // 只滚动附件内部，避免 scrollIntoView 连带移动应用外壳和输入区。
+    element.focus({ preventScroll: true });
+    const headerHeight = dialog.firstElementChild?.getBoundingClientRect().height ?? 0;
+    dialog.scrollTop += element.getBoundingClientRect().top - dialog.getBoundingClientRect().top - headerHeight - 8;
+  }, [open, preview]);
   const mounted = useRef(true);
   const generation = useRef(0);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
@@ -85,6 +96,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
 
   async function sendFile(task: UploadTask) {
     if (busy || !task.valid) return;
+    dialogRef.current?.focus({ preventScroll: true });
     uploadTask.current = task; setUpload(task); setBusy(true); setError(null);
     const isCurrent = () => mounted.current && uploadTask.current === task
       && (currentConversation.current === null || currentConversation.current === task.conversationId);
@@ -109,7 +121,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   }
   function select(file: File) {
     if (busy || uploadTask.current) return;
-    detailsRef.current?.setAttribute('open', '');
+    setOpen(true);
     const extension = file.name.split('.').at(-1)?.toLowerCase() ?? '';
     const mimeType = types[extension];
     const validation = !mimeType ? extension === 'doc' ? '旧版 DOC 暂不支持，请另存为 DOCX 后上传。' : '不支持此文件类型，请选择 TXT、Markdown、PDF、DOCX、PNG 或 JPEG。'
@@ -119,7 +131,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     if (task.valid) void sendFile(task);
   }
   function paste(event: ClipboardEvent) {
-    if (!(event.target instanceof Element) || !event.target.closest('[data-conversation-composer], [aria-label="对话附件"]')) return;
+    if (!(event.target instanceof Element) || !event.target.closest('[data-conversation-composer], [data-conversation-attachments]')) return;
     const image = Array.from(event.clipboardData?.items ?? []).find(item => item.kind === 'file' && ['image/png', 'image/jpeg'].includes(item.type));
     if (!image || loading || busy || uploadTask.current) return;
     const file = image.getAsFile(); if (!file) return;
@@ -133,14 +145,20 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   });
   async function perform(work: (id: string, assertCurrent: () => void) => Promise<void>) {
     if (!conversationId || busy) return;
+    // 禁用当前按钮前留住弹层焦点，避免浏览器把焦点丢到 body 后 Escape 失效。
+    dialogRef.current?.focus({ preventScroll: true });
     const captured = generation.current, id = conversationId; setBusy(true); setError(null);
     const assertCurrent = () => { if (!mounted.current || generation.current !== captured || currentConversation.current !== id) throw new Error('对话已变化，请重新操作附件。'); };
     try { await work(id, assertCurrent); }
     catch (cause) { if (mounted.current && generation.current === captured) setError(errorText(cause)); }
     finally { if (mounted.current && generation.current === captured) setBusy(false); }
   }
-  return <section className={styles.picker} aria-label="对话附件" tabIndex={0}>
-    <details ref={detailsRef}><summary>附件（{attachments.length}）</summary><div className={styles.popover}>
+  return <section className={styles.picker} data-conversation-attachments aria-label="对话附件" tabIndex={0}>
+    <PopoverTrigger isOpen={open} onOpenChange={setOpen}>
+      <Button variant="ghost" size="compact">附件（{attachments.length}）</Button>
+      <Popover placement="top start" className={styles.popover}>
+      <PopoverDialog ref={dialogRef} className={styles.dialog} data-conversation-attachments aria-label="对话附件管理">
+      <div className={styles.header}><strong>对话附件</strong><Button variant="ghost" size="compact" onPress={() => setOpen(false)}>关闭附件</Button></div>
       <p>附件仅保存到此对话。{unparsedNotice}</p>
       <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"
         description="TXT、Markdown、PDF、DOCX、PNG、JPEG；单个最多 5 MB。也可在消息输入区粘贴 PNG 或 JPEG。"
@@ -173,7 +191,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
             setPreview(previous => previous?.attachmentId === attachment.attachmentId ? null : previous);
           })}>移除 {attachment.fileName}</Button></div>
       </div>)}
-      {preview ? <section className={styles.preview} aria-label="附件预览">
+      {preview ? <section ref={previewElementRef} className={styles.preview} aria-label="附件预览" tabIndex={-1}>
         <strong>{preview.detail.attachment.fileName}</strong>
         {preview.url ? <img src={preview.url} alt={`附件预览：${preview.detail.attachment.fileName}`} onError={() => {
           if (previewRef.current?.url !== preview.url) return;
@@ -185,7 +203,9 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
         {preview.url ? <p>当前模型尚不支持图片理解。</p> : null}
         <Button variant="ghost" size="compact" onPress={() => setPreview(null)}>关闭附件预览</Button>
       </section> : null}
-    </div></details>
+      </PopoverDialog>
+      </Popover>
+    </PopoverTrigger>
   </section>;
 }
 

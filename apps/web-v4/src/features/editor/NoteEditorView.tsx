@@ -34,7 +34,7 @@ import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { exportElementToPdf } from '../../browser/exportPdf';
 import { Button, Dialog, DialogBody, DialogFooter, DialogClose } from '../../components/ui';
-import { NoteIcon } from '../../components/icons/knowra';
+import { ChevronRightIcon, NoteIcon, PanelIcon } from '../../components/icons/knowra';
 import { EditorDocumentHeader, type EditorDocumentHeaderHandle } from './EditorDocumentHeader';
 import { EditorContextMenu } from './EditorContextMenu';
 import { EditorDocumentRepairDialog } from './EditorDocumentRepairDialog';
@@ -101,6 +101,7 @@ export interface NoteEditorViewProps {
   onReorderNotes(sourceNoteId: string, targetNoteId: string): void;
   onCopyTabPath(note: Note): void;
   onCreateNote(): void;
+  onReturnToList?(): void;
   onCreateFolder(): void;
   onImportMarkdown(): void;
   onRenameNote(title: string): Promise<void>;
@@ -178,6 +179,7 @@ export function NoteEditorView({
   onReorderNotes,
   onCopyTabPath,
   onCreateNote,
+  onReturnToList,
   onCreateFolder,
   onImportMarkdown,
   onRenameNote,
@@ -815,6 +817,15 @@ export function NoteEditorView({
       {desktopTitlebar.enabled
         ? desktopTitlebar.host && tabs ? createPortal(tabs, desktopTitlebar.host) : null
         : tabs}
+      {!desktopTitlebar.enabled ? <div className={styles.compactControls} role="group" aria-label="笔记导航与检查器">
+        <Button variant="ghost" size="compact" onPress={() => {
+          saveCurrentScrollPosition();
+          if (!canWrite) { onReturnToList?.(); return; }
+          void saveImmediately().then(() => onReturnToList?.())
+            .catch(error => onFileStatus(error instanceof Error ? error.message : '返回前保存失败'));
+        }}><span className={styles.backArrow}><ChevronRightIcon size={16} /></span>笔记列表</Button>
+        <Button variant="ghost" size="compact" aria-label="打开文档检查器" aria-pressed={inspectorOpen} onPress={onToggleInspector}><PanelIcon size={16} />检查器</Button>
+      </div> : null}
       {bodySavedToken ? <div className={styles.attachmentDownloadNotice} role="status"><span>附件已保存</span><Button size="compact" onPress={() => void trackDesktopTask(async () => { await window.knowraDesktop?.openSavedAttachment?.(bodySavedToken); }).catch(error => onFileStatus(String(error)))}>打开已保存附件</Button><Button variant="ghost" size="mini" onPress={() => setBodySavedToken(null)}>关闭</Button></div> : null}
       {bodyPreview ? <Dialog title={bodyPreview.name} isOpen onOpenChange={open => { if (!open) setBodyPreview(null); }}><DialogBody><img src={bodyPreview.url} alt={bodyPreview.name} className={styles.attachmentPreviewImage} /></DialogBody></Dialog> : null}
       <div className={styles.workspace}>
@@ -1015,6 +1026,7 @@ export function NoteEditorView({
         </div>
       </div>
       <EditorInspector
+          nativeTitlebar={desktopTitlebar.enabled}
           note={note}
           folder={folder}
           foldersById={foldersById}

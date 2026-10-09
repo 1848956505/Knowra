@@ -22,7 +22,15 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install --with-deps chromium
+      # 使用 runner 预装且受系统 AppArmor profile 支持的 Chrome，保留浏览器沙箱。
+      - run: google-chrome --version
+      # 保留中文验收所需的系统字体；不改浏览器/内核安全配置。
+      - run: npx playwright install-deps chromium
+      - name: Verify Chinese font availability
+        run: |
+          fc-list :lang=zh family | sort -u | tee "$RUNNER_TEMP/knowra-chinese-fonts.txt"
+          test -s "$RUNNER_TEMP/knowra-chinese-fonts.txt"
+          echo "KNOWRA_EVIDENCE_CJK_FONT=$(fc-match -f '%{family}' 'sans-serif:lang=zh-cn')" >> "$GITHUB_ENV"
       - run: npm run build:web
       - name: Capture synthetic viewports
         env:
@@ -31,7 +39,9 @@ jobs:
           KNOWRA_EVIDENCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
           KNOWRA_EVIDENCE_BASE_REF: ${{ github.base_ref || github.ref_name }}
         run: |
+          cp "$RUNNER_TEMP/knowra-chinese-fonts.txt" apps/web-v4/dist/chinese-fonts.txt
           export KNOWRA_EVIDENCE_SHA="$(git rev-parse HEAD)"
+          export KNOWRA_EVIDENCE_SOURCE_TREE="$(git rev-parse HEAD:apps/web-v4/src)"
           export KNOWRA_BASE_PRODUCTION_EQUIVALENT=false
           if git diff --quiet "$KNOWRA_EVIDENCE_BASE" HEAD -- . \
             ':(exclude).github/workflows/mobile-evidence.yml' \
@@ -52,6 +62,7 @@ jobs:
             apps/web-v4/test-results/mobile-evidence
             apps/web-v4/playwright-report/mobile-evidence
             apps/web-v4/dist/build-info.json
+            apps/web-v4/dist/chinese-fonts.txt
           if-no-files-found: error
           retention-days: 14
       - name: Upload compact screenshots and measurements
@@ -63,5 +74,6 @@ jobs:
             apps/web-v4/test-results/mobile-evidence/*/*.png
             apps/web-v4/test-results/mobile-evidence/*/scenario-manifest.json
             apps/web-v4/dist/build-info.json
+            apps/web-v4/dist/chinese-fonts.txt
           if-no-files-found: error
           retention-days: 14

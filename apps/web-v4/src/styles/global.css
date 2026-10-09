@@ -69,8 +69,8 @@ body {
 }
 
 /* 移动端最小心智目标：所有 button / role=button 至少 36×36，移动端 44×44。 */
-@media (max-width: 767px) {
-  :where(button, [role="button"]) {
+@media (max-width: 767px), (any-pointer: coarse) {
+  :where(button, [role="button"], summary, [role="tab"]) {
     min-height: 44px;
   }
 }

@@ -1,4 +1,6 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { test } from './fixtures/syntheticTest';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { mockEditorWorkspace, createNote } from './fixtures/editorWorkspace';
 
 for (const key of ['Backspace', 'Delete']) {
   test(`V4-07 ${key} 删除文首空行时保留后续标题`, async ({ page }) => {
@@ -1024,14 +1026,21 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await expect(screenshotInspector).toBeVisible();
   await page.screenshot({ path: 'e2e/visual-baseline/screenshots/v4-07-editor-inspector-1280.png', fullPage: false });
   await page.setViewportSize({ width: 390, height: 760 });
-  await expect.poll(async () => (await screenshotInspector.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(389);
+  const modal = page.getByRole('dialog', { name: '文档检查器', exact: true });
+  await expect(modal).toBeVisible();
+  await expect(screenshotInspector.getByRole('button', { name: '关闭文档检查器' })).toBeFocused();
   await expect.poll(async () => {
-    const [inspectorBox, editorBox] = await Promise.all([
-      screenshotInspector.boundingBox(),
-      page.getByRole('region', { name: '笔记编辑页面骨架' }).boundingBox()
-    ]);
-    return inspectorBox && editorBox ? Math.abs(inspectorBox.y - editorBox.y) : Infinity;
-  }).toBeLessThanOrEqual(1);
+    const rect = (await screenshotInspector.boundingBox())!;
+    return rect.y + rect.height;
+  }).toBeLessThanOrEqual(744);
+  const bounds = (await screenshotInspector.boundingBox())!;
+  expect(bounds.width).toBeGreaterThanOrEqual(362);
+  expect(bounds.x).toBeGreaterThanOrEqual(12);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(378);
+  expect(bounds.y).toBeGreaterThanOrEqual(16);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(744);
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden();
 });
 
 test('V4-07 宽屏打开检查器不缩小纸张', async ({ page }) => {
@@ -1222,7 +1231,8 @@ test('V4-07 围栏输入支持语言符号且长代码随宽度软换行', async
   await expect(editor.locator(':scope > p')).toHaveText('after');
 });
 
-test('V4-07 代码块内 ⌘A 仅选当前代码，正文 ⌘A 仍选整篇笔记', async ({ page }) => {
+for (const modifier of ['Control', 'Meta']) {
+test(`V4-07 代码块 ${modifier}+A 选当前代码，正文平台全选选整篇`, async ({ page }) => {
   const codeText = 'first line\nsecond line';
   await mockEditorWorkspace(page, [], [], `正文之前\n\n\`\`\`python\n${codeText}\n\`\`\`\n\n正文之后\n\n\`\`\`js\nother block\n\`\`\``);
   await page.goto('/#/materials/notes/note-1');
@@ -1239,22 +1249,23 @@ test('V4-07 代码块内 ⌘A 仅选当前代码，正文 ⌘A 仍选整篇笔�
   });
   const selectedText = () => page.evaluate(() => window.getSelection()?.toString() ?? '');
   await expect.poll(selectedText).toBe('rst');
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe(codeText);
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe(codeText);
   await editor.locator('pre[data-code-block] > code').last().click();
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe('other block');
   await page.getByRole('button', { name: '编辑', exact: true }).click();
   await page.getByRole('menuitem', { name: '全选', exact: true }).click();
   await expect.poll(selectedText).toBe('other block');
   await editor.locator(':scope > p').first().click();
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press('ControlOrMeta+a');
   await expect.poll(selectedText).toContain('正文之前');
   await expect.poll(selectedText).toContain('正文之后');
   await expect.poll(selectedText).toContain('other block');
 });
+}
 
 test('V4-07 参考样式代码块支持空块删除与非空行插入', async ({ page }) => {
   const saved: string[] = [];
@@ -1399,77 +1410,6 @@ test('V4-07 代码块输入法结束后仍等待编辑器完成组合输入再�
   await expect(code).toHaveCount(0);
 });
 
-async function mockEditorWorkspace(
-  page: Page,
-  savedMarkdown: string[],
-  savedRequests: Array<{ noteId: string; markdown: string }> = [],
-  initialMarkdown?: string
-): Promise<void> {
-  await page.route('**/api/ai/actions/drafts', route => route.fulfill({ json: { data: { accepted: true } } }));
-  await page.route('**/api/storage/attachments/cleanup', route => route.fulfill({ json: { data: { items: [], pending: 0 } } }));
-  let sourceMarkdown = initialMarkdown
-    ?? ['已有正文', ...Array.from({ length: 64 }, (_, index) => `验收段落 ${index + 1}`)].join('\n\n');
-  let relatedMarkdown = '第二篇正文';
-  let copiedNote: ReturnType<typeof createNote> | null = null;
-  let importedNotes: ReturnType<typeof createNote>[] = [];
-  await page.route('**/api/knowledge/**', async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    let data: unknown = [];
-    if (url.pathname.endsWith('/search/notes') && url.searchParams.get('result') === 'command') data = [{ id: 'note-2', title: '关联验收笔记', folderId: 'folder-1', snippet: '合成内容' }];
-    else if (url.pathname.endsWith('/link-relations')) data = { noteId: url.pathname.split('/').at(-2), spaceId: 'space-1', contentHash: 'a'.repeat(64), outgoing: [], backlinks: [] };
-    else if (url.pathname.endsWith('/notes/note-1/links')) data = [createNote(relatedMarkdown, true, 'note-2', '关联验收笔记')];
-    else if (url.pathname.endsWith('/spaces')) data = [{ id: 'space-1', name: '主空间' }];
-    else if (url.pathname.endsWith('/folders/tree')) data = [{ id: 'folder-1', name: '工作', parentId: null, children: [] }];
-    else if (url.pathname.endsWith('/notes/note-1')) {
-      if (request.method() === 'PATCH') {
-        sourceMarkdown = String((request.postDataJSON() as { rawMarkdown?: string }).rawMarkdown ?? '');
-        savedMarkdown.push(sourceMarkdown);
-        savedRequests.push({ noteId: 'note-1', markdown: sourceMarkdown });
-      }
-      data = createNote(sourceMarkdown, true);
-    } else if (url.pathname.endsWith('/notes/note-2')) {
-      if (request.method() === 'PATCH') {
-        relatedMarkdown = String((request.postDataJSON() as { rawMarkdown?: string }).rawMarkdown ?? '');
-        savedRequests.push({ noteId: 'note-2', markdown: relatedMarkdown });
-      }
-      data = createNote(relatedMarkdown, true, 'note-2', '关联验收笔记');
-    } else if (url.pathname.endsWith('/notes/note-copy')) {
-      data = copiedNote;
-    } else if (url.pathname.includes('/notes/note-import-')) {
-      data = importedNotes.find((note) => url.pathname.endsWith(note.id)) ?? null;
-    } else if (url.pathname.endsWith('/notes/import-markdown-batch')) {
-      const items = (request.postDataJSON() as { items: Array<{ title: string; rawMarkdown: string; folderId: string | null }> }).items;
-      importedNotes = items.map((item, index) => createNote(
-        item.rawMarkdown,
-        true,
-        `note-import-${index + 1}`,
-        item.title,
-        item.folderId
-      ));
-      data = importedNotes;
-    } else if (url.pathname.endsWith('/notes')) {
-      if (request.method() === 'POST') {
-        const input = request.postDataJSON() as { title: string; rawMarkdown: string; folderId: string | null };
-        copiedNote = createNote(input.rawMarkdown, true, 'note-copy', input.title, input.folderId);
-        data = copiedNote;
-      } else {
-        data = [
-          createNote('', false),
-          createNote('', false, 'note-2', '关联验收笔记'),
-          ...(copiedNote ? [{ ...copiedNote, rawMarkdown: '', contentLoaded: false }] : []),
-          ...importedNotes.map((note) => ({ ...note, rawMarkdown: '', contentLoaded: false }))
-        ];
-      }
-    }
-    else if (url.pathname.endsWith('/tags')) data = [
-      { id: 'tag-study', name: '学习' },
-      { id: 'tag-ai', name: 'AI' }
-    ];
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
-  });
-}
-
 async function dispatchPaste(page: Page, content: { html?: string; text: string }): Promise<void> {
   await page.locator('.ProseMirror').evaluate((editor, pasted) => {
     const clipboardData = new DataTransfer();
@@ -1503,31 +1443,6 @@ async function pinEditorToolbar(page: Page): Promise<void> {
 async function replaceEditorParagraph(page: Page, editor: Locator, text: string): Promise<void> {
   await editor.locator(':scope > p').first().click({ clickCount: 3 });
   await page.keyboard.type(text);
-}
-
-function createNote(
-  rawMarkdown: string,
-  contentLoaded: boolean,
-  id = 'note-1',
-  title = '编辑器验收笔记',
-  folderId: string | null = 'folder-1'
-) {
-  return {
-    id,
-    spaceId: 'space-1',
-    title,
-    folderId,
-    tagIds: id === 'note-1' ? ['tag-study', 'tag-ai'] : [],
-    internalLinks: id === 'note-1' ? ['note-2'] : [],
-    rawMarkdown,
-    contentLoaded,
-    favorite: false,
-    deleted: false,
-    status: 'draft',
-    sourceType: 'manual',
-    createdAt: '2026-08-12T13:14:00.000Z',
-    updatedAt: '2026-08-31T02:32:00.000Z'
-  };
 }
 
 test('V4-07 重点标记内的粗体保持醒目', async ({ page }) => {
@@ -1654,7 +1569,8 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(editor).toContainText('需要标记的正文内容');
   await editor.locator('p').first().click({ clickCount: 3 });
   const selectionTools = page.getByRole('toolbar', { name: '选区工具' });
-  await expect(selectionTools.getByRole('button')).toHaveCount(6);
+  await expect(selectionTools.getByRole('button')).toHaveCount(7);
+  await expect(selectionTools.getByRole('button', { name: '内部链接', exact: true })).toBeVisible();
   await selectionTools.getByRole('button', { name: '加粗', exact: true }).click();
   await expect(editor.locator('strong')).toContainText('需要标记的正文内容');
   expect(Number(await editor.locator('strong').first().evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);

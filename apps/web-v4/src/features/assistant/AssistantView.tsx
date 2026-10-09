@@ -99,7 +99,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const [retryConfirmOpen, setRetryConfirmOpen] = useState(false);
   const inboxTrigger = useRef<HTMLButtonElement>(null);
   const inboxOpener = useRef<HTMLElement | null>(null);
-  const mobileMenu = useRef<HTMLDetailsElement>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sourceView, setSourceView] = useState<{ ref: SourceRef; text: string; messageId: string } | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const pendingSend = useRef<PendingSend | null>(null);
@@ -260,14 +260,14 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
 
   function chooseConversation(id: string) {
     pendingSend.current = null; setDraft(''); setError(null); setNotice(null);
-    mobileMenu.current?.removeAttribute('open');
+    setMobileMenuOpen(false);
     navigate(`/assistant?conversationId=${encodeURIComponent(id)}`);
   }
 
   function switchSpace(id: string) {
     if (!id || id === spaceId) return;
     pendingSend.current = null;
-    setInboxOpen(false); setFocusedActionId(null); mobileMenu.current?.removeAttribute('open');
+    setInboxOpen(false); setFocusedActionId(null); setMobileMenuOpen(false);
     void selectKnowledgeSpace(id).then(() => navigate('/assistant?new=1'))
       .catch(cause => setError(errorText(cause, '无法切换知识空间。')));
   }
@@ -416,8 +416,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     } catch (cause) { setError(errorText(cause, '无法读取检索记录。')); }
   }
 
-  return <WorkspacePanel as="main" aria-labelledby="assistant-title">
-    <WorkspacePanelHeader title="AI 助手" code={inboxOpen ? 'INBOX' : 'CHAT'} titleId="assistant-title" icon={<SparkIcon size={14} />}
+  return <WorkspacePanel as="main" className={styles.assistantPanel} aria-labelledby="assistant-title">
+    <WorkspacePanelHeader className={styles.assistantHeader} title="AI 助手" code={inboxOpen ? 'INBOX' : 'CHAT'} titleId="assistant-title" icon={<SparkIcon size={14} />}
       breadcrumb={<PathTrail path={[{ id: 'assistant', label: 'AI 助手' }, { id: 'assistant-area', label: inboxOpen ? '成果收件箱' : '对话' },
         ...(inboxOpen ? [] : [{ id: 'assistant-conversation', label: conversationTitle, current: true }])]} variant="top" />}
       breadcrumbTitle={inboxOpen ? 'AI 助手 / 成果收件箱' : `AI 助手 / 对话 / ${conversationTitle}`}
@@ -462,16 +462,20 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           <SegmentedButton aria-pressed={!inboxOpen} onPress={() => setInboxOpen(false)}>对话</SegmentedButton>
           <SegmentedButton ref={inboxTrigger} aria-label="AI 成果收件箱" aria-pressed={inboxOpen} count={pendingArtifacts || undefined} onPress={() => openInbox()}>成果</SegmentedButton>
         </SegmentedControl>
-        <details className={styles.mobileMenu} ref={mobileMenu}>
-          <summary>菜单</summary>
-          <div className={styles.mobileMenuBody}>
-            <strong>最近对话</strong>
-            {conversations.map(item => <button key={item.conversationId} type="button" onClick={() => chooseConversation(item.conversationId)}>
-              {titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</button>)}
-            <Select label="知识空间" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
-              options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} />
-          </div>
-        </details>
+        <div className={styles.mobileMenu}>
+          <PopoverTrigger isOpen={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <Button variant="ghost" size="compact">菜单</Button>
+            <Popover placement="bottom end" className={styles.mobileMenuPopover}>
+              <PopoverDialog aria-label="最近对话" className={styles.mobileMenuBody}>
+                <div className={styles.mobileMenuHeader}><strong>最近对话</strong><Button variant="ghost" size="compact" onPress={() => setMobileMenuOpen(false)}>关闭菜单</Button></div>
+                {conversations.map(item => <Button variant="ghost" key={item.conversationId} onPress={() => chooseConversation(item.conversationId)}>
+                  {titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</Button>)}
+                <Select label="知识空间" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
+                  options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} />
+              </PopoverDialog>
+            </Popover>
+          </PopoverTrigger>
+        </div>
         <div className={styles.spaceSwitch}><Select label="知识空间" presentation="toolbar" selectedKey={spaceId} onSelectionChange={key => switchSpace(String(key))}
           options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} /></div>
         <div className={styles.historyList}>{conversations.length ? historyGroups.map(group => <section key={group.label} className={styles.historyGroup}>
@@ -617,7 +621,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
       {spaceId ? <AIInbox key={spaceId} spaceId={spaceId} isOpen={inboxOpen} focusActionId={focusedActionId} selectedMismatch={reviewingOtherDraft}
         onSelectedActionChange={setReviewedAction} onRowsChange={setArtifacts} onOpenChange={next => {
         setInboxOpen(next); if (!next && inboxOpen) { const opener = inboxOpener.current ?? inboxTrigger.current;
-          window.requestAnimationFrame(() => opener?.focus()); setFocusedActionId(null); }
+          window.requestAnimationFrame(() => opener?.focus({ preventScroll: true })); setFocusedActionId(null); }
       }} refreshKey={`${messages.at(-1)?.messageId ?? ''}:${latestTurn?.status ?? ''}`} onOpenNote={onOpenNote} /> : null}
   </WorkspacePanelBody>
     <Dialog title="确认重新调用模型" isOpen={retryConfirmOpen} onOpenChange={setRetryConfirmOpen} size="sm">

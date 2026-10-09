@@ -63,10 +63,11 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     if (driver === 'json' && process.env.KNOWRA_UI_SCREENSHOT_DIR) {
       await page.setViewportSize({ width: 1487, height: 1058 });
       await page.screenshot({ path: `${process.env.KNOWRA_UI_SCREENSHOT_DIR}/cited-answer-desktop.png` });
-      const picker=page.getByRole('region',{name:'对话附件',exact:true});await picker.locator('summary').click();
+      const picker=page.getByRole('dialog',{name:'对话附件管理',exact:true});await page.getByRole('button',{name:/^附件（\d+）$/}).click();
       await picker.getByLabel('添加对话附件').setInputFiles({name:'课堂练习.txt',mimeType:'text/plain',buffer:Buffer.from('合成附件，未解析。')});
       await expect(picker.getByText('已保存到此对话；尚未发送给 AI',{exact:true})).toBeVisible();
-      await picker.locator('summary').click();
+      await picker.getByRole('button',{name:'关闭附件',exact:true}).click();
+      await expect(picker).toBeHidden();
       await page.screenshot({path:`${process.env.KNOWRA_UI_SCREENSHOT_DIR}/cited-answer-attachment-desktop.png`});
     }
     assert(!JSON.stringify(fixture.adapter.calls).includes('范围外秘密绝不能进入模型。'));

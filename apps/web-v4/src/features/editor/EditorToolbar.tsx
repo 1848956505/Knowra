@@ -56,6 +56,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         </ToolbarMenu>
         <ToolbarMenu label="视图">{renderEditorViewMenu({ view: props.view, onAction: props.onViewAction })}</ToolbarMenu>
       </div>
+      <div className={styles.toolbarTools}>
       <span className={styles.separator} aria-hidden="true" />
       <FormatButton label="一级标题" disabled={!props.canEditContent} onPress={command('heading-1')}><strong>H1</strong></FormatButton>
       <FormatButton label="二级标题" disabled={!props.canEditContent} onPress={command('heading-2')}><strong>H2</strong></FormatButton>
@@ -78,6 +79,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       </MenuTrigger>
       <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
       <button type="button" className={styles.plainButton} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
+      </div>
     </div>
   );
 }

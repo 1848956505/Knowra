@@ -178,10 +178,11 @@ it('附件创建会话期间暂停消息发送，迟到创建不会覆盖用户�
   const view = render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
   await screen.findByText('服务器执行');
   fireEvent.change(screen.getByRole('textbox', { name: '消息' }), { target: { value: '独立问题' } });
-  const fileInput = document.querySelector('input[type=file]')!;
+  fireEvent.click(screen.getByRole('button', { name: '附件（0）' }));
+  const fileInput = await screen.findByLabelText('添加对话附件');
   fireEvent.change(fileInput, { target: { files: [new File(['资料'], '资料.txt', { type: 'text/plain' })] } });
   await waitFor(() => expect(conversationApi.create).toHaveBeenCalledOnce());
-  expect(screen.getByRole('button', { name: '处理中…' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '处理中…', hidden: true })).toBeDisabled();
   view.rerender(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
   await act(async () => { release({ ...conversation, conversationId: 'late-conversation' }); await delayed; });
   expect(conversationAttachmentApi.upload).not.toHaveBeenCalled();

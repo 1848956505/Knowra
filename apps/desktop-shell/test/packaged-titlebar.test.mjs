@@ -9,7 +9,7 @@ import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs
 
 test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-titlebar-'));
-  const app = await launchTestApplication(electron, {
+  let app = await launchTestApplication(electron, {
     executablePath,
     env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory },
     timeout: 20000
@@ -81,7 +81,11 @@ test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', {
   await page.getByRole('button', { name: '切换检查器' }).click();
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
   await expect(inspector).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '文档检查器', exact: true })).toHaveCount(0);
+  t.diagnostic(`原生窄窗检查器：${JSON.stringify(await page.evaluate(() => ({ width: innerWidth, height: innerHeight, coarsePointer: matchMedia('(any-pointer: coarse)').matches })))}`);
   assert((await inspector.boundingBox()).y >= (await titlebar.boundingBox()).height);
+  const editorRegion = await page.locator('[data-editor-scroll-root]').boundingBox();
+  assert(editorRegion.x + editorRegion.width <= (await inspector.boundingBox()).x + 1, '960px 原生编辑区与检查器保持并排');
   await page.getByRole('button', { name: '切换专注模式' }).click();
   await expect(tabs).toBeVisible();
   await expect(page.getByRole('navigation', { name: '工作域导航' })).toHaveCount(0);
@@ -122,4 +126,9 @@ test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', {
   await tabs.getByRole('button', { name: '关闭标题栏验收笔记' }).click();
   await expect(titlebar.getByRole('tablist', { name: '打开的笔记' })).toHaveCount(0);
   await expect(titlebar).toContainText('知境·Knowra');
+  // 与已合并的原生菜单验收相同：显式触发正常退出，并验证保存握手完成。
+  const closed = app.waitForEvent('close', { timeout: 45000 });
+  await app.evaluate(({ app: nativeApp }) => nativeApp.quit());
+  await closed;
+  app = null;
 });

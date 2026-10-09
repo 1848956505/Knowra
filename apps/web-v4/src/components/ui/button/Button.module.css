@@ -177,11 +177,12 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (any-pointer: coarse) {
   .btn {
     min-height: 44px;
   }
-  .icon {
+  .icon,
+  .iconOnly {
     min-width: 44px;
     width: 44px;
   }

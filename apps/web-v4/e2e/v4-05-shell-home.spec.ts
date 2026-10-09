@@ -1,4 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { test } from './fixtures/syntheticTest';
+import { expect, type Page } from '@playwright/test';
+import { mockShellServices } from './fixtures/shellServices';
 
 test.describe('V4-05 公共 Shell 与主页', () => {
   test.beforeEach(async ({ page }) => {
@@ -40,6 +42,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
 
     await trigger.click();
     await input.fill('设计复盘');
+    await expect(dialog.getByRole('option', { name: /设计复盘/ })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status')).toContainText('设计复盘');
@@ -80,7 +83,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(selectedCategory).toHaveAttribute('aria-pressed', 'true');
     expect(await selectedCategory.evaluate((element) => getComputedStyle(element).borderLeftWidth)).toBe('0px');
     expect(await selectedCategory.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(244, 241, 234)');
-    await expect(page.getByText('显示 4 / 4 项设置')).toBeVisible();
+    await expect(page.getByText('显示 8 / 8 项设置')).toBeVisible();
     await expect(page.getByRole('heading', { name: '模型接入' })).toBeVisible();
     await expect(page.getByText('尚未配置')).toBeVisible();
     await page.getByLabel('API Key').fill('synthetic-no-save');
@@ -191,6 +194,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
 }
 
 async function mockWorkspace(page: Page): Promise<void> {
+  await mockShellServices(page);
   await page.route('**/api/ai/model-settings', async (route) => {
     await route.fulfill({
       status: 200,
@@ -201,13 +205,16 @@ async function mockWorkspace(page: Page): Promise<void> {
   await page.route('**/api/knowledge/**', async (route) => {
     const url = new URL(route.request().url());
     let data: unknown = [];
-    if (url.pathname.endsWith('/spaces')) {
+    if (url.pathname.endsWith('/search/notes') && url.searchParams.get('result') === 'command') {
+      data = [{ id: 'note-1', title: '设计复盘', folderId: 'folder-1', snippet: '合成内容' }];
+    } else if (url.pathname.endsWith('/spaces')) {
       data = [{ id: 'space-1', name: '主空间' }];
     } else if (url.pathname.endsWith('/folders/tree')) {
       data = [{ id: 'folder-1', name: '工作', parentId: null, children: [] }];
     } else if (url.pathname.endsWith('/notes')) {
       data = [{
         id: 'note-1',
+        spaceId: 'space-1',
         title: '设计复盘',
         folderId: 'folder-1',
         tagIds: ['tag-1'],
@@ -219,6 +226,11 @@ async function mockWorkspace(page: Page): Promise<void> {
         createdAt: '2026-08-18T08:00:00.000Z',
         updatedAt: '2026-08-20T08:00:00.000Z'
       }];
+    } else if (url.pathname.endsWith('/notes/note-1')) {
+      data = { id: 'note-1', title: '设计复盘', spaceId: 'space-1', folderId: 'folder-1',
+        tagIds: ['tag-1'], internalLinks: [], rawMarkdown: '合成设计复盘正文', contentLoaded: true,
+        sourceType: 'note', status: 'draft', favorite: true, deleted: false,
+        createdAt: '2026-08-18T08:00:00.000Z', updatedAt: '2026-08-20T08:00:00.000Z' };
     } else if (url.pathname.endsWith('/tags')) {
       data = [{ id: 'tag-1', name: '设计' }];
     }
