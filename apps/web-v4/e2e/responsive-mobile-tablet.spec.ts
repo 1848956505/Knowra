@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockEditorWorkspace } from './fixtures/editorWorkspace';
 import { mockAssistantWorkspace } from './fixtures/assistantWorkspace';
@@ -32,7 +34,14 @@ async function expectInViewport(page: Page, locator: Locator) {
   expect(rect.y + rect.height).toBeLessThanOrEqual(size.height + 1);
 }
 async function attachScreenshot(page: Page, name: string) {
-  await test.info().attach(name, { body: await page.screenshot(), contentType: 'image/png' });
+  const evidenceDir = process.env.V4_EVIDENCE_DIR;
+  const state = { '编辑页初始态': 'editor', '文档检查器': 'inspector', 'AI 长回答': 'conversation',
+    '对话附件预览': 'attachment', '成果预览独立滚动': 'artifact', '缩短视口模拟键盘': 'keyboard' }[name] ?? 'state';
+  const viewport = page.viewportSize()!;
+  if (evidenceDir) fs.mkdirSync(evidenceDir, { recursive: true });
+  await test.info().attach(name, { body: await page.screenshot({
+    ...(evidenceDir ? { path: path.join(evidenceDir, `${state}-${viewport.width}x${viewport.height}.png`) } : {})
+  }), contentType: 'image/png' });
 }
 
 for (const viewport of viewports) {
