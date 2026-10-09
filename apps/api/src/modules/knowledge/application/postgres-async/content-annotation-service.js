@@ -1,5 +1,4 @@
 import { assertRangeConfirmation } from '../annotation-range-preview.js';
-import { shouldRecordAnnotationRevision } from '../../domain/annotation-history-sampling.js';
 import { reconcileAnnotationSource, reconciledAnnotationFields } from '../reconcile-annotation-source.js';
 import { resolveStoredAnnotation } from '../resolve-stored-annotation.js';
 import crypto from 'node:crypto';
@@ -49,14 +48,12 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       boundaryFingerprint: anchor.list?.memberFingerprint ?? dto.anchor.section?.memberFingerprint ?? null
     };
   }
-  async function recordRevision(annotation, operation, oldAnchor = null, reason = null, previous = null) {
-    if (!shouldRecordAnnotationRevision({ operation, annotation, previous,
-      revisions: operation === 'sourceReconciled' ? await revisionRepository?.list({ annotationId: annotation.id }) ?? [] : [] })) return;
+  async function recordRevision(annotation, operation, oldAnchor = null, reason = null) {
     await revisionRepository?.save({ id: `annotation-revision-${crypto.randomUUID()}`, annotationId: annotation.id, revision: annotation.revision, operation, oldAnchor: oldAnchor ? structuredClone(oldAnchor) : null, newAnchor: annotation.anchor ? structuredClone(annotation.anchor) : null, rangeSummary: { scopeType: annotation.scopeType, quoteText: annotation.quoteText }, reason, createdAt: new Date().toISOString() });
   }
   async function saveUpdated(annotation, changes, operation, reason = null) {
     const updated = await repository.save(new ContentAnnotation({ ...annotation, ...changes, revision: annotation.revision + 1, updatedAt: new Date().toISOString() }));
-    await recordRevision(updated, operation, annotation.anchor, reason, annotation);
+    await recordRevision(updated, operation, annotation.anchor, reason);
     if (updated.quoteText !== annotation.quoteText || updated.anchorStatus !== 'resolved') await onSourceChanged?.(updated);
     return updated;
   }

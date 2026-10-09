@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { planHistoryRetention, applyHistoryRetentionPlan, selectAnnotationRevisionsToPrune, ANNOTATION_REVISION_RETENTION } from '../src/modules/knowledge/domain/history-retention.js';
-import { shouldRecordAnnotationRevision } from '../src/modules/knowledge/domain/annotation-history-sampling.js';
 import { createEmptyLocalState } from '../src/infrastructure/local-data-schema.js';
 import { calculateContentHash } from '../src/modules/knowledge/domain/note-version.js';
 import { selectVersionsToPrune, NOTE_VERSION_RETENTION } from '../src/modules/knowledge/domain/note-version-retention.js';
@@ -63,14 +62,5 @@ export const historyRetentionTests = [
       policy: { ...NOTE_VERSION_RETENTION, maxBytesPerNote: 512 } }), [large.id]);
     assert.deepEqual(selectVersionsToPrune({ versions: [small, large], now, protectedIds: new Set([large.id]),
       policy: { ...NOTE_VERSION_RETENTION, maxBytesPerNote: 512 } }), []);
-  } },
-  { name: '自动跟随只采样历史，人工修改、定位失效和恢复立即留下边界', run() {
-    const previous = { anchorStatus: 'resolved', anchorReason: null }, annotation = { ...previous };
-    const input = { operation: 'sourceReconciled', previous, annotation, revisions: [revision(5, 1000)], now };
-    assert.equal(shouldRecordAnnotationRevision(input), false);
-    assert.equal(shouldRecordAnnotationRevision({ ...input, now: now + 10 * 60000 }), true);
-    assert.equal(shouldRecordAnnotationRevision({ ...input, annotation: { anchorStatus: 'needsReview', anchorReason: 'boundaryChanged' } }), true);
-    assert.equal(shouldRecordAnnotationRevision({ ...input, previous: { anchorStatus: 'needsReview', anchorReason: 'boundaryChanged' } }), true);
-    assert.equal(shouldRecordAnnotationRevision({ ...input, operation: 'metadataUpdated' }), true);
   } }
 ];

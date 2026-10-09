@@ -233,3 +233,29 @@ for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件�
   assert.ok((await f.versions(note.id)).some(item => item.id === restored.id));
   assert.deepEqual(a.knowledge.noteVersionService.getVersion(privateAlias.id, note.id), privateAlias);
 });
+
+for (const postgres of [false, true]) test(`${postgres ? 'PostgreSQL' : '文件云端'}：采样窗口内绑定知识后继续编辑，离线来源见证仍能同步`, {
+  skip: postgres && !process.env.KNOWRA_SYNC_TEST_DATABASE_URL, timeout: 60000
+}, async t => {
+  const f = await fixture(t, postgres), a = f.device('sampled-source'), b = f.device('sampled-reader');
+  await a.connect();
+  const note = a.knowledge.noteService.createNote({ title: '采样来源', rawMarkdown: '重点内容\n\n其它 0', spaceId: f.space.id });
+  const anchor = anchorFromProjectedRange(projectMarkdown(note.rawMarkdown), 0, 4);
+  const annotation = a.knowledge.contentAnnotationService.createAnnotation({ spaceId: note.spaceId, noteId: note.id,
+    schemaVersion: 2, scopeType: anchor.scopeType, kind: 'important', sourceMode: 'manual', quoteText: anchor.quoteText,
+    fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, prefixText: '', suffixText: '', headingPath: [], anchor,
+    anchorFingerprint: 'client', noteContentHash: calculateContentHash(note.rawMarkdown), idempotencyKey: 'sample-source' });
+  for (let i = 1; i <= 2; i++) a.knowledge.noteService.updateNote(note.id, { rawMarkdown: `重点内容\n\n其它 ${i}` });
+  const source = a.knowledge.contentAnnotationService.getAnnotation(annotation.id);
+  assert.ok(a.store.state.annotationRevisions.some(record => record.annotationId === source.id && record.revision === source.revision), '当前修订不能因采样缺少来源见证');
+  const { item, evidence } = a.knowledge.knowledgeItemService.createCandidate({ title: '采样后知识', canonicalStatement: '来源必须留证', sourceMode: 'annotation',
+    evidence: [{ sourceType: 'annotation', annotationId: source.id, expectedAnnotationRevision: source.revision }] });
+  a.knowledge.noteService.updateNote(note.id, { rawMarkdown: '重点内容\n\n其它 3' });
+  await a.engine.sync();
+  assert.equal(a.engine.status().error, null, JSON.stringify(a.engine.status()));
+  assert.equal(a.engine.status().pendingEntities, 0);
+  await b.connect();
+  assert.equal(b.engine.status().error, null);
+  assert.equal(b.knowledge.knowledgeItemService.listEvidence(item.id)[0].quoteText, evidence[0].quoteText);
+  assert.equal(b.knowledge.knowledgeItemService.listEvidence(item.id)[0].noteVersionId, evidence[0].noteVersionId);
+});

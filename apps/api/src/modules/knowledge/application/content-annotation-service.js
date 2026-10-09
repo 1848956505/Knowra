@@ -1,5 +1,4 @@
 import { assertRangeConfirmation } from './annotation-range-preview.js';
-import { shouldRecordAnnotationRevision } from '../domain/annotation-history-sampling.js';
 import { reconcileAnnotationSource, reconciledAnnotationFields } from './reconcile-annotation-source.js';
 import { resolveStoredAnnotation } from './resolve-stored-annotation.js';
 import crypto from 'node:crypto';
@@ -59,9 +58,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       boundaryFingerprint: anchor.list?.memberFingerprint ?? dto.anchor.section?.memberFingerprint ?? null
     };
   }
-  function recordRevision(annotation, operation, oldAnchor = null, reason = null, previous = null) {
-    if (!shouldRecordAnnotationRevision({ operation, annotation, previous,
-      revisions: operation === 'sourceReconciled' ? revisionRepository?.list({ annotationId: annotation.id }) ?? [] : [] })) return;
+  function recordRevision(annotation, operation, oldAnchor = null, reason = null) {
     revisionRepository?.save({
       id: `annotation-revision-${crypto.randomUUID()}`,
       annotationId: annotation.id,
@@ -81,7 +78,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       revision: annotation.revision + 1,
       updatedAt: new Date().toISOString()
     }));
-    recordRevision(updated, operation, annotation.anchor, reason, annotation);
+    recordRevision(updated, operation, annotation.anchor, reason);
     if (updated.quoteText !== annotation.quoteText || updated.anchorStatus !== 'resolved') onSourceChanged?.(updated);
     return updated;
   }

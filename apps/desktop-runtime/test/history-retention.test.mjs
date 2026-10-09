@@ -33,11 +33,12 @@ for (const sqlite of [false, true]) test(`${sqlite ? 'SQLite 离线' : 'JSON 在
     rawMarkdown: markdown.replace('其它 0', `其它 ${i}`), updatedAt: new Date(start + i * 1000).toISOString()
   });
   const current = knowledge.contentAnnotationService.getAnnotation(annotation.id);
+  assert.ok(store.state.annotationRevisions.some(record => record.annotationId === current.id && record.revision === current.revision), '当前修订始终有来源见证');
   assert.equal(current.revision, 101, '并发控制仍逐次推进，不能用降低修订号假装压缩');
   assert.equal(current.anchorStatus, 'resolved');
   assert.equal(current.quoteText, '重点内容');
   assert.equal(knowledge.noteVersionService.getVersion(current.noteVersionId).content, markdown.replace('其它 0', '其它 100'));
-  assert.equal(store.state.annotationRevisions.filter(record => record.operation === 'sourceReconciled').length, 1);
+  assert.equal(store.state.annotationRevisions.filter(record => record.operation === 'sourceReconciled').length, 2);
   assert.ok(store.state.noteVersions.length <= 6, `连续编辑只保留少量恢复点和必要锚点：${store.state.noteVersions.length}`);
   knowledge.noteService.updateNote(note.id, { rawMarkdown: markdown, updatedAt: new Date(start + 101000).toISOString() });
   assert.equal(knowledge.contentAnnotationService.getAnnotation(annotation.id).anchorStatus, 'resolved');
