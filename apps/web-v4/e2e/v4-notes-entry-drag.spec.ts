@@ -1,5 +1,5 @@
-import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures/syntheticTest';
+import { expect, type Page } from '@playwright/test';
+import { test } from './fixtures/syntheticTest';
 import { mockShellServices } from './fixtures/shellServices';
 
 test('笔记和文件夹可在索引、侧栏及根目录之间拖动', async ({ page }) => {
