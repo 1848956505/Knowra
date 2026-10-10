@@ -115,7 +115,7 @@ export function NotesContextSidebar({
         <span className={styles.title}>笔记</span>
         <MenuTrigger>
           <GhostIconButton aria-label="笔记更多操作" title="更多操作">
-            <MoreHorizontalIcon size={20} />
+            <MoreHorizontalIcon size={16} />
           </GhostIconButton>
           <MenuPopover>
             <Menu
@@ -136,7 +136,7 @@ export function NotesContextSidebar({
           </MenuPopover>
         </MenuTrigger>
         <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, selectedFolderId)}>
-          <GhostIconButton aria-label="新建" title="新建" disabled={!canWrite}><PlusIcon size={20} /></GhostIconButton>
+          <GhostIconButton aria-label="新建" title="新建" disabled={!canWrite}><PlusIcon size={16} /></GhostIconButton>
         </CreateEntryMenu>
       </header>
 
@@ -231,24 +231,25 @@ export function NotesContextSidebar({
                 onContextMenu={(event) => { event.preventDefault(); setTagMenu({ tagId: tag.id, x: event.clientX, y: event.clientY }); }}
               />
             ) : null)}
-            {serverData.tags.length === 0 ? <div className={styles.tagEmpty}><span className={styles.emptyInline}>暂无标签</span>{canWrite ? <button type="button" onClick={() => setCreateTagOpen(true)}>新建标签</button> : null}</div> : null}
-            {serverData.tags.length > visibleTags.length ? <button className={styles.allTags} type="button" onClick={() => navigate('/materials/tags')}>全部标签·{serverData.tags.length}</button> : null}
+            {serverData.tags.length === 0 ? <div className={styles.tagEmpty}><span className={styles.emptyInline}>暂无标签</span>{canWrite ? <Button variant="ghost" size="compact" onPress={() => setCreateTagOpen(true)}>新建标签</Button> : null}</div> : null}
+            {serverData.tags.length > visibleTags.length ? <Button className={styles.allTags} variant="ghost" size="compact" onPress={() => navigate('/materials/tags')}>全部标签·{serverData.tags.length}</Button> : null}
           </div>
         </SidebarSection>
       </div>
 
-      <SideNavItem
-        className={styles.recycle}
-        density="compact"
-        icon={<RefreshIcon size={16} />}
-        label="回收站"
-        count={trashCount}
-        aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}
-        onPress={() => {
-          selectNotesScope('trash');
-          onOpenIndex?.();
-        }}
-      />
+      <footer className={styles.footer}>
+        <SideNavItem
+          density="compact"
+          icon={<RefreshIcon size={16} />}
+          label="回收站"
+          count={trashCount}
+          aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}
+          onPress={() => {
+            selectNotesScope('trash');
+            onOpenIndex?.();
+          }}
+        />
+      </footer>
 
       {treeOperations.dialogs}
       <EmptyRecycleDialog

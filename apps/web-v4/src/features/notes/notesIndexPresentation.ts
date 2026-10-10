@@ -13,12 +13,6 @@ export function statusClassName(status: string): string {
   return /草稿|待整理|文稿/.test(status) ? styles.statusDraft : styles.statusActive;
 }
 
-export function documentToneClass(status: string): string {
-  if (/完成|已完成/.test(status)) return styles.documentGreen;
-  if (/草稿|待整理|文稿/.test(status)) return styles.documentOrange;
-  return /进行|活跃/.test(status) ? styles.documentBlue : styles.documentPurple;
-}
-
 export function sortNotes(notes: Note[], sort: SortMode): Note[] {
   if (sort === 'name-asc') return [...notes].sort((left, right) => left.title.localeCompare(right.title, 'zh-CN'));
   const direction = sort === 'updated-desc' ? -1 : 1;

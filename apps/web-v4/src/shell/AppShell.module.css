@@ -1,238 +1,44 @@
-/* V4-05 AppShell —— 印格外壳 CSS Grid 布局。 */
-
+/* V5：全局外壳、磨砂上下文侧栏、不透明内容面板，独立滚动。 */
 .shell {
-  width: 100%;
-  height: 100dvh;
-  min-height: 0;
+  --shell-content-row: 2;
+  width: 100%; height: 100dvh; min-height: 0;
   display: grid;
   grid-template-columns: var(--rail-size) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) var(--status-size);
-  background: var(--ink-surface);
+  grid-template-rows: var(--topbar-size) minmax(0, 1fr);
+  background: var(--surface-chrome);
+  padding-bottom: var(--shell-gap);
 }
-
-.shellWithSidebar {
-  grid-template-columns: var(--rail-size) var(--sidebar-size) minmax(0, 1fr);
+.shellWithSidebar { grid-template-columns: var(--rail-size) calc(var(--sidebar-size) + var(--shell-gap)) minmax(0, 1fr); }
+.desktopShell { --shell-content-row: 2; }
+.desktopTitlebar { grid-column: 1 / -1; grid-row: 1; min-width: 0; display: flex; background: var(--surface-chrome); }
+.desktopShell .desktopTitlebar { padding-left: max(var(--window-controls-clearance), env(titlebar-area-x, 0px)); -webkit-app-region: drag; app-region: drag; }
+.desktopTitlebarHost { display: flex; align-items: stretch; min-width: 0; flex: 1 1 auto; height: 100%; }
+.desktopTitle { align-self: center; padding-inline: var(--space-2); color: var(--text-on-chrome); font: 500 var(--font-size-ui)/1 var(--font-ui); }
+.focusShell { grid-template-columns: minmax(0, 1fr); }
+.focusShell .stage { grid-column: 1; margin-left: var(--shell-gap); }
+.skipLink { position: fixed; left: var(--space-3); top: var(--space-2); z-index: 100; padding: var(--space-2) var(--space-3); border-radius: var(--radius-control); background: var(--surface-raised); color: var(--text-primary); box-shadow: var(--shadow-control); transform: translateY(-160%); }
+.skipLink:focus { transform: translateY(0); outline: 2px solid var(--accent-text); }
+.desktopShell .skipLink:focus { top: calc(var(--topbar-size) + var(--space-2)); }
+.stage { grid-column: 2; grid-row: var(--shell-content-row); min-width: 0; min-height: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; justify-items: stretch; padding: var(--space-6); margin-right: var(--shell-gap); border-radius: var(--radius-panel); overflow: auto; background: var(--surface-page); box-shadow: var(--shadow-page); outline: 0; }
+.stage:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+.shellWithSidebar .stage { grid-column: 3; }
+.workspaceStage { align-items: stretch; padding: 0; overflow: hidden; }
+.contextSidebar { grid-column: 2; grid-row: var(--shell-content-row); min-width: 0; min-height: 0; margin-right: var(--shell-gap); overflow: hidden; overscroll-behavior: contain; border-radius: var(--radius-panel); background: var(--surface-sidebar-solid); box-shadow: var(--shadow-sidebar); }
+.contextSidebar:not([data-open]) { display: none; }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .contextSidebar { background: var(--surface-sidebar); backdrop-filter: blur(var(--sidebar-blur)) saturate(var(--sidebar-saturation)); -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(var(--sidebar-saturation)); }
 }
-
-.desktopShell {
-  --shell-content-row: 2;
-  --status-grid-row: 3;
-  grid-template-rows: var(--window-titlebar-size) minmax(0, 1fr) var(--status-size);
-}
-
-.desktopTitlebar {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  min-width: 0;
-  display: flex;
-  border-bottom: 1px solid var(--ink-shell);
-  background: var(--ink-bg);
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-
-.desktopTitlebarHost {
-  min-width: 0;
-  width: calc(100% - max(var(--window-controls-clearance), env(titlebar-area-x, 0px)));
-  margin-left: max(var(--window-controls-clearance), env(titlebar-area-x, 0px));
-  display: flex;
-  align-items: stretch;
-}
-
-.desktopTitle {
-  align-self: center;
-  padding-left: 8px;
-  color: var(--ink-secondary);
-  font: 700 13px/1 var(--font-ui);
-}
-
-.focusShell {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.focusShell .stage {
-  grid-column: 1;
-}
-
-.skipLink {
-  position: fixed;
-  left: 12px;
-  top: 10px;
-  z-index: 100;
-  padding: 8px 12px;
-  border: 2px solid var(--ink);
-  background: var(--ink-surface);
-  color: var(--ink);
-  font-weight: 800;
-  font-size: 12px;
-  box-shadow: var(--shadow-1);
-  transform: translateY(-160%);
-  transition: transform var(--motion-fast) var(--motion-ease);
-}
-
-.skipLink:focus {
-  transform: translateY(0);
-  outline: 0;
-}
-
-.desktopShell .skipLink {
-  top: -100px;
-  transform: none;
-}
-
-.desktopShell .skipLink:focus {
-  top: calc(var(--window-titlebar-size) + 8px);
-}
-
-.stage {
-  grid-column: 2;
-  grid-row: var(--shell-content-row, 1);
-  min-width: 0;
-  min-height: 0;
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  justify-items: stretch;
-  padding: 40px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background-color: var(--ink-bg);
-  background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
-  background-size: 20px 20px;
-  outline: 0;
-}
-
-.shellWithSidebar .stage {
-  grid-column: 3;
-}
-
-.workspaceStage {
-  align-items: stretch;
-  padding: 0;
-  overflow: hidden;
-}
-
-.workspaceStage::before,
-.workspaceStage::after {
-  display: none;
-}
-
-.contextSidebar {
-  grid-column: 2;
-  grid-row: var(--shell-content-row, 1);
-  min-width: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  overscroll-behavior: contain;
-  border-right: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
-  scrollbar-color: var(--ink-shell) transparent;
-  scrollbar-width: thin;
-}
-
-/* 笔记编辑页：让侧栏头部与标签栏相连，下方仍保留工作区分隔线。 */
-.mergedContextTabs .contextSidebar {
-  position: relative;
-  border-right: 0;
-}
-
-.mergedContextTabs .contextSidebar::after {
-  content: '';
-  position: absolute;
-  top: var(--tab-size);
-  right: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--ink-panel);
-  pointer-events: none;
-}
-
-.stage::before,
-.stage::after {
-  content: '';
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-.stage::before {
-  top: 28px;
-  left: 28px;
-  border-top: 1px solid var(--ink-panel);
-  border-left: 1px solid var(--ink-panel);
-}
-
-.stage::after {
-  right: 28px;
-  bottom: 28px;
-  border-right: 1px solid var(--ink-panel);
-  border-bottom: 1px solid var(--ink-panel);
-}
-
-.liveRegion {
-  position: fixed;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-@media (max-width: 920px) {
-  .stage {
-    padding: 24px;
-  }
-
-  .shellWithSidebar {
-    grid-template-columns: var(--rail-size) minmax(0, 1fr);
-  }
-
-  .shellWithSidebar .contextSidebar {
-    display: none;
-  }
-
-  .shellWithSidebar .stage {
-    grid-column: 2;
-  }
-
-  .workspaceStage {
-    padding: 0;
-  }
-}
-
+.contextSidebar[data-compact] { display: contents; }
+.contextSidebar[data-compact]:not([data-open]) { display: none; }
+.sidebarDialog { height: min(85dvh, 760px); max-width: min(360px, calc(100vw - 32px)); padding: 0; background: var(--surface-sidebar-solid); display: flex; flex-direction: column; }
+.sidebarClose { display: flex; justify-content: flex-end; padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--border-subtle); flex: 0 0 auto; }
+.liveRegion { position: fixed; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 920px) { .stage { padding: var(--space-5); } .workspaceStage { padding: 0; } }
 @media (max-width: 767px) {
-  :root {
-    --mobile-tabs-size: calc(54px + env(safe-area-inset-bottom));
-  }
-
-  .shell {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) var(--status-size) var(--mobile-tabs-size);
-  }
-
-  .focusShell {
-    grid-template-rows: minmax(0, 1fr) var(--status-size);
-  }
-
-  .shellWithSidebar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .stage,
-  .shellWithSidebar .stage {
-    grid-column: 1;
-    grid-row: 1;
-    align-items: start;
-    padding: 18px 14px;
-  }
-
-  .workspaceStage,
-  .shellWithSidebar .workspaceStage {
-    align-items: stretch;
-    padding: 0;
-  }
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--topbar-size) minmax(0, 1fr) var(--mobile-tabs-size); padding-bottom: 0; }
+  .focusShell { grid-template-rows: var(--topbar-size) minmax(0, 1fr); padding-bottom: var(--shell-gap); }
+  .stage, .shellWithSidebar .stage { grid-column: 1; grid-row: 2; margin: 0 var(--shell-gap) var(--shell-gap); padding: var(--space-4); }
+  .workspaceStage, .shellWithSidebar .workspaceStage { padding: 0; align-items: stretch; }
 }
+
+.sidebarDialog > :last-child { flex: 1 1 auto; min-height: 0; height: auto; }

@@ -6,18 +6,18 @@
   --inspector-pad-wide: 20px;
   --inspector-gap: 10px;
   --inspector-section-gap: 14px;
-  --inspector-title-size: 16px;
+  --inspector-title-size: 15px;
   --inspector-copy-size: 12px;
-  --inspector-meta-size: 11px;
-  --inspector-shadow: -3px 0 0 var(--ink);
+  --inspector-meta-size: 12px;
+  --inspector-shadow: none;
   width: var(--inspector-size);
   min-width: 0;
   min-height: 0;
   display: none;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  border-left: 1px solid var(--border-subtle);
+  background: var(--surface-page);
   box-shadow: var(--inspector-shadow);
 }
 
@@ -30,8 +30,8 @@
   align-items: center;
   gap: var(--inspector-gap);
   padding: 0 12px 0 var(--inspector-pad);
-  border-bottom: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-page);
 }
 
 .header h2 {
@@ -45,9 +45,11 @@
 
 .tabs { min-height: 0; flex: 1; }
 .tabs > [role='tablist'] {
-  flex: 0 0 var(--inspector-control);
-  border-bottom: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-page);
 }
 .tabs [role='tab'] {
   min-width: 0;
@@ -55,28 +57,28 @@
   flex: 1 1 0;
   justify-content: center;
   padding-inline: 4px;
-  margin-bottom: -1px;
-  border-bottom-width: 3px;
+  margin: 0;
+  border: 0;
+  border-radius: var(--radius-control);
   background: transparent;
 }
-.tabs [role='tab'][data-selected] { background: var(--ink-bg); }
+.tabs [role='tab'][data-selected] { background: var(--surface-hover); color: var(--text-primary); box-shadow: none; }
 .tabs > :last-child { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
 .tabs [role='tabpanel'] { padding: 0; }
 
-.panel { min-height: 100%; background: var(--ink-bg); }
+.panel { min-height: 100%; background: var(--surface-page); }
 
 .noteHeading {
   padding: var(--inspector-pad-wide) var(--inspector-pad) var(--inspector-pad);
-  border-bottom: 1px solid var(--ink-panel);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .noteHeading > span,
 .panelKicker {
   display: block;
   margin-bottom: 8px;
-  color: var(--ink-accent);
-  font: 800 10px/1.4 var(--font-mono);
-  letter-spacing: .12em;
+  color: var(--text-secondary);
+  font: 500 var(--font-size-meta)/1.4 var(--font-ui);
 }
 
 .noteHeading h3 {
@@ -88,23 +90,23 @@
 
 .section {
   padding: var(--inspector-section-gap) var(--inspector-pad);
-  border-bottom: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-page);
 }
 
 .section > h3 {
   min-height: 20px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 0 0 12px;
   font-size: var(--inspector-copy-size);
   line-height: 1.3;
 }
 
-.section > h3 svg { flex: 0 0 auto; color: var(--ink-secondary); }
+.section > h3 svg { flex: 0 0 auto; color: var(--text-secondary); }
 .section > h3 span { flex: 1; }
-.section > h3 small { color: var(--ink-secondary); font: 800 var(--inspector-meta-size)/1 var(--font-mono); }
+.section > h3 small { color: var(--text-secondary); font: 500 var(--inspector-meta-size)/1 var(--font-ui); }
 
 .metadata { display: grid; gap: var(--inspector-gap); margin: 0; }
 .metadata > div {
@@ -116,24 +118,25 @@
   font-size: var(--inspector-copy-size);
   line-height: 1.55;
 }
-.metadata dt { color: var(--ink-secondary); }
+.metadata dt { color: var(--text-secondary); }
 .metadata dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-.status { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-warning); font-weight: 800; }
-.status i { width: var(--status-dot-size); height: var(--status-dot-size); background: var(--ink-warning); }
+.status { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-weight: 500; }
+.status i { width: var(--status-dot-size); height: var(--status-dot-size); border-radius: 50%; background: var(--text-muted); }
 
-.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .tags > span {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--ink-accent);
-  background: var(--ink-accent-soft);
-  color: var(--ink-accent-hover);
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent-on-tint);
   font-size: var(--inspector-meta-size);
-  font-weight: 800;
+  font-weight: 600;
 }
 .tags > span:nth-child(even) { border-color: var(--ink-success); background: var(--ink-success-soft); color: var(--ink-success); }
 
@@ -148,22 +151,22 @@
   padding: 7px 8px;
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--text-primary);
   text-decoration: none;
   text-align: left;
   font-size: var(--inspector-copy-size);
 }
 .noteLinks a:hover,
-.outline button:hover { background: var(--ink-sunken); color: var(--ink-accent); }
+.outline button:hover { background: var(--surface-hover); color: var(--accent-on-tint); }
 .noteLinks a:hover { text-decoration: none; }
 .noteLinks a:focus-visible,
-.outline button:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: -2px; }
+.outline button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
 .noteLinks a span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.noteLinks svg { flex: 0 0 auto; color: var(--ink-secondary); }
+.noteLinks svg { flex: 0 0 auto; color: var(--text-secondary); }
 
 .emptyInline,
 .emptyPanel,
-.aiPanel p { margin: 0; color: var(--ink-secondary); font-size: var(--inspector-meta-size); line-height: 1.65; }
+.aiPanel p { margin: 0; color: var(--text-secondary); font-size: var(--inspector-meta-size); line-height: 1.65; }
 
 .simplePanel { padding: var(--inspector-pad-wide) var(--inspector-pad); }
 .simplePanel h3 { margin: 0 0 var(--inspector-section-gap); font-size: var(--inspector-title-size); }
@@ -172,16 +175,15 @@
   display: grid;
   gap: 3px;
   padding-left: 8px;
-  border-left: 1px solid var(--ink-panel);
+  border-left: 1px solid var(--border-subtle);
 }
 .outline button {
   position: relative;
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr);
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 38px;
   padding: 6px 8px;
-  border-left: 2px solid transparent;
   line-height: 1.45;
 }
 .outline button::before {
@@ -191,132 +193,131 @@
   position: absolute;
   top: 50%;
   left: -9px;
-  background: var(--ink-panel);
+  background: var(--border-subtle);
 }
 .outline button[data-level='2'] { margin-left: 12px; }
 .outline button[data-level='3'] { margin-left: 24px; }
 .outline button[data-level='4'] { margin-left: 36px; }
-.outline button[data-level='1'] .outlineText { font-weight: 800; }
-.outline button[data-level='2'] .outlineText { font-weight: 700; }
+.outline button[data-level='1'] .outlineText { font-weight: 600; }
+.outline button[data-level='2'] .outlineText { font-weight: 600; }
 .outline button[data-level='3'] .outlineText,
-.outline button[data-level='4'] .outlineText { color: var(--ink-secondary); font-size: 11px; }
-.outline button:hover { border-left-color: var(--ink-accent); }
+.outline button[data-level='4'] .outlineText { color: var(--text-secondary); font-size: var(--font-size-meta); }
+
 .outlineLevel {
   align-self: start;
   padding-top: 3px;
-  color: var(--ink-muted);
-  font: 800 9px/1 var(--font-mono);
-  letter-spacing: .04em;
+  color: var(--text-secondary);
+  font: 500 var(--font-size-meta)/1 var(--font-ui);
 }
 .outlineText { min-width: 0; overflow-wrap: anywhere; }
-.emptyPanel { padding: var(--inspector-pad); border: 1px dashed var(--ink-panel); background: var(--ink-surface); }
+.emptyPanel { padding: var(--inspector-pad); border: 1px dashed var(--border-subtle); background: var(--surface-page); }
 
 .linksPanel .section:first-child { padding-top: var(--inspector-pad-wide); }
-.panelStatus { margin: 0; padding: 10px var(--inspector-pad); border-bottom: 1px solid var(--ink-panel); color: var(--ink-secondary); font-size: 10px; }
+.panelStatus { margin: 0; padding: 10px var(--inspector-pad); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: var(--font-size-meta); }
 
 .panel[data-panel='annotations'] { height: 100%; min-height: 0; }
 .tabs [role='tabpanel']:has(.annotationPanel) { height: 100%; }
 .annotationPanel { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 0; box-sizing: border-box; padding: 16px 12px 0; }
-.annotationHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px 12px; }
+.annotationHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 2px 12px; }
 .annotationTitle { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.annotationTitle strong { font-size: 13px; letter-spacing: .02em; }
-.annotationTitle > span { color: var(--ink-secondary); font: 11px/1 var(--font-mono); padding-left: 2px; }
-.annotationHeaderActions { display: flex; align-items: center; gap: 4px; flex: none; }
-.annotationFilterActive { color: var(--ink-accent); background: var(--ink-accent-soft); }
+.annotationTitle strong { font-size: var(--font-size-ui); letter-spacing: .02em; }
+.annotationTitle > span { color: var(--text-secondary); font: var(--font-size-meta)/1 var(--font-mono); padding-left: 2px; }
+.annotationHeaderActions { display: flex; align-items: center; gap: var(--space-1); flex: none; }
+.annotationFilterActive { color: var(--accent-on-tint); background: var(--accent-soft); }
 .annotationScopeFilters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 12px; }
 .annotationSortPopover { width: min(180px, calc(100vw - 24px)); padding: 0; }
-.annotationSortOptions { display: grid; gap: 5px; padding: 12px; outline: none; }
-.annotationSortOptions strong { margin-bottom: 4px; color: var(--ink-secondary); font-size: 11px; }
-.annotationSortOptions button { min-height: 30px; padding: 5px 8px; border: 1px solid transparent; background: transparent; color: var(--ink); text-align: left; font-size: 11px; }
-.annotationSortOptions button:hover { background: var(--ink-sunken); }
-.annotationSortOptions button[aria-pressed='true'] { border-color: var(--ink-accent); background: var(--ink-accent-soft); color: var(--ink-accent); }
-.annotationSortOptions button:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+.annotationSortOptions { display: grid; gap: 5px; padding: var(--space-3); outline: none; }
+.annotationSortOptions strong { margin-bottom: 4px; color: var(--text-secondary); font-size: var(--font-size-meta); }
+.annotationSortOptions button { min-height: 30px; padding: 5px 8px; border: 1px solid transparent; background: transparent; color: var(--text-primary); text-align: left; font-size: var(--font-size-meta); }
+.annotationSortOptions button:hover { background: var(--surface-hover); }
+.annotationSortOptions button[aria-pressed='true'] { border-color: var(--accent-on-tint); background: var(--accent-soft); color: var(--accent-on-tint); }
+.annotationSortOptions button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .annotationFilterPopover { width: min(260px, calc(100vw - 24px)); padding: 0; }
-.annotationFilters { display: grid; gap: 16px; padding: 14px; outline: none; }
-.annotationFilters > header, .annotationFilters > footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.annotationFilters > header strong { font-size: 12px; }
+.annotationFilters { display: grid; gap: var(--space-4); padding: 14px; outline: none; }
+.annotationFilters > header, .annotationFilters > footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.annotationFilters > header strong { font-size: var(--font-size-meta); }
 .annotationFilters > * { min-width: 0; }
-.annotationFilters label, .annotationFilters legend { color: var(--ink-secondary); font-size: 11px; font-weight: 500; }
-.annotationFilters [data-input-shadow-owner] { min-height: 34px; height: 34px; padding: 0 9px; font-size: 12px; border: 1px solid var(--ink-panel); box-shadow: none; }
+.annotationFilters label, .annotationFilters legend { color: var(--text-secondary); font-size: var(--font-size-meta); font-weight: 500; }
+.annotationFilters [data-input-shadow-owner] { min-height: 34px; height: 34px; padding: 0 9px; font-size: var(--font-size-meta); border: 1px solid var(--border-subtle); box-shadow: none; }
 .annotationFilters fieldset { margin: 0; padding: 0; border: 0; }
 .annotationFilters legend { margin-bottom: 8px; }
 .annotationStatusOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-.annotationStatusOptions button { min-height: 30px; padding: 5px; border: 1px solid var(--ink-panel); background: var(--ink-bg); color: var(--ink-secondary); font-size: 11px; }
-.annotationStatusOptions button[aria-pressed='true'] { background: var(--ink-accent-soft); color: var(--ink-accent); border-color: var(--ink-accent); }
-.annotationFilters > footer { border-top: 1px solid var(--ink-panel); padding-top: 12px; }
-.annotationFilters > footer > button:first-child, .annotationFilterSummary button { padding: 0; border: 0; background: transparent; color: var(--ink-secondary); font-size: 11px; min-height: 28px; }
-.annotationFilters > footer > button:last-child { min-height: 30px; height: 30px; font-size: 11px; padding: 0 12px; box-shadow: none; }
-.annotationFilterSummary { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 8px; background: var(--ink-accent-soft); color: var(--ink-accent); font-size: 10px; }
-.annotationOverlapSummary { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; padding: 7px 8px; background: var(--ink-accent-soft); color: var(--ink-accent); font-size: 10px; line-height: 1.5; }
-.annotationOverlapSummary button { flex: none; padding: 0; border: 0; background: transparent; color: var(--ink-accent); text-decoration: underline; font-size: 10px; cursor: pointer; }
+.annotationStatusOptions button { min-height: 30px; padding: 5px; border: 1px solid var(--border-subtle); background: var(--surface-page); color: var(--text-secondary); font-size: var(--font-size-meta); }
+.annotationStatusOptions button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent-on-tint); border-color: var(--accent-on-tint); }
+.annotationFilters > footer { border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+.annotationFilters > footer > button:first-child, .annotationFilterSummary button { padding: 0; border: 0; background: transparent; color: var(--text-secondary); font-size: var(--font-size-meta); min-height: 28px; }
+.annotationFilters > footer > button:last-child { min-height: 30px; height: 30px; font-size: var(--font-size-meta); padding: 0 12px; box-shadow: none; }
+.annotationFilterSummary { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 8px; background: var(--accent-soft); color: var(--accent-on-tint); font-size: var(--font-size-meta); }
+.annotationOverlapSummary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: 10px; padding: 7px 8px; background: var(--accent-soft); color: var(--accent-on-tint); font-size: var(--font-size-meta); line-height: 1.5; }
+.annotationOverlapSummary button { flex: none; padding: 0; border: 0; background: transparent; color: var(--accent-on-tint); text-decoration: underline; font-size: var(--font-size-meta); cursor: pointer; }
 .annotationList { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1px 2px 12px; }
-.annotationList article { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr) 20px; align-items: start; gap: 7px; padding: 11px 9px; margin-bottom: 8px; border: 1px solid var(--ink-panel); background: var(--ink-surface); }
-.annotationList article[data-importance='normal'] { --annotation-grade-color: var(--ink-accent); --annotation-grade-bg: var(--ink-accent-soft); }
+.annotationList article { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr) 20px; align-items: start; gap: 7px; padding: 11px 9px; margin-bottom: 8px; border: 1px solid var(--border-subtle); background: var(--surface-page); }
+.annotationList article[data-importance='normal'] { --annotation-grade-color: var(--accent-on-tint); --annotation-grade-bg: var(--accent-soft); }
 .annotationList article[data-importance='important'] { --annotation-grade-color: var(--ink-importance-important); --annotation-grade-bg: var(--ink-warning-soft); }
 .annotationList article[data-importance='core'] { --annotation-grade-color: var(--ink-violet); --annotation-grade-bg: var(--ink-violet-soft); }
-.annotationList article[data-importance] { box-shadow: inset 3px 0 0 var(--annotation-grade-color); }
-.annotationList article:hover { border-color: var(--ink-muted); }
-.annotationList article[data-focused] { border-left: 2px solid var(--ink-accent); padding-left: 8px; }
-.annotationList article[data-selected] { border-color: var(--ink-accent); background: var(--ink-accent-soft); }
-.annotationList article[data-overlap-focused] { border-left: 2px solid var(--ink-accent); padding-left: 8px; }
-.annotationList article.annotationNested { border-left: 2px solid var(--ink-panel); }
+.annotationList article[data-importance] { border-color: color-mix(in srgb, var(--annotation-grade-color) 22%, var(--border-subtle)); }
+.annotationList article:hover { border-color: var(--border-strong); }
+.annotationList article[data-focused] { box-shadow: 0 0 0 1px var(--accent); }
+.annotationList article[data-selected] { border-color: var(--accent-on-tint); background: var(--accent-soft); }
+.annotationList article[data-overlap-focused] { box-shadow: 0 0 0 1px var(--accent); }
+.annotationList article.annotationNested { background: var(--surface-hover); }
 .annotationList article[data-archived] { background: transparent; }
 .annotationList article > button:last-child { width: 20px; height: 22px; margin-top: -3px; }
-.annotationTarget { min-width: 0; display: grid; gap: 9px; padding: 0; border: 0; background: transparent; text-align: left; color: var(--ink); cursor: pointer; }
+.annotationTarget { min-width: 0; display: grid; gap: 9px; padding: 0; border: 0; background: transparent; text-align: left; color: var(--text-primary); cursor: pointer; }
 .annotationTarget:disabled { cursor: default; }
-.annotationItemHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--ink-secondary); font-size: 10px; line-height: 1.5; }
-.annotationItemHeading strong { padding: 0 4px; background: var(--ink-warning-soft); color: var(--ink-warning); font-size: 9px; font-weight: 500; white-space: nowrap; }
-.annotationImportance { padding: 1px 5px; background: var(--annotation-grade-bg); color: var(--annotation-grade-color); font-size: 10px; font-weight: 700; }
-.annotationUnrated { padding: 0 4px; background: var(--ink-sunken); color: var(--ink-secondary); font-size: 9px; }
-.annotationRelation { color: var(--ink-accent); font-size: 10px; line-height: 1.5; }
-.annotationList article[data-archived] .annotationItemHeading strong { background: var(--ink-sunken); color: var(--ink-secondary); }
-.annotationList article[data-archived] .annotationQuote { color: var(--ink-secondary); }
-.annotationQuote { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; }
-.annotationTarget small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); font-size: 10px; line-height: 1.5; }
-.annotationAnalysisActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-inline: -12px; padding: 12px; border-top: 1px solid var(--ink-panel); background: var(--ink-surface); color: var(--ink-secondary); font-size: 11px; }
-.annotationAnalysisActions button { min-height: 30px; height: 30px; padding: 0 10px; font-size: 11px; box-shadow: none; }
-.annotationTarget:focus-visible, .annotationScopeFilters button:focus-visible, .annotationFilters button:focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
-.annotationDetailFields, .annotationScopePreview { display: grid; gap: 12px; }
-.annotationDetailFields pre, .annotationScopePreview pre { max-height: 180px; margin: 0; overflow: auto; padding: 9px; border: 1px solid var(--ink-panel); background: var(--ink-sunken); white-space: pre-wrap; overflow-wrap: anywhere; }
-.annotationDetailFields p, .annotationScopePreview p { margin: 0; color: var(--ink-secondary); font-size: 11px; line-height: 1.5; }
+.annotationItemHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.5; }
+.annotationItemHeading strong { padding: 0 4px; background: var(--ink-warning-soft); color: var(--ink-warning); font-size: var(--font-size-meta); font-weight: 500; white-space: nowrap; }
+.annotationImportance { padding: 1px 5px; background: var(--annotation-grade-bg); color: var(--annotation-grade-color); font-size: var(--font-size-meta); font-weight: 600; }
+.annotationUnrated { padding: 0 4px; background: var(--surface-hover); color: var(--text-secondary); font-size: var(--font-size-meta); }
+.annotationRelation { color: var(--accent-on-tint); font-size: var(--font-size-meta); line-height: 1.5; }
+.annotationList article[data-archived] .annotationItemHeading strong { background: var(--surface-hover); color: var(--text-secondary); }
+.annotationList article[data-archived] .annotationQuote { color: var(--text-secondary); }
+.annotationQuote { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: var(--font-size-meta); line-height: 1.7; }
+.annotationTarget small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: var(--font-size-meta); line-height: 1.5; }
+.annotationAnalysisActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-inline: -12px; padding: var(--space-3); border-top: 1px solid var(--border-subtle); background: var(--surface-page); color: var(--text-secondary); font-size: var(--font-size-meta); }
+.annotationAnalysisActions button { min-height: 30px; height: 30px; padding: 0 10px; font-size: var(--font-size-meta); box-shadow: none; }
+.annotationTarget:focus-visible, .annotationScopeFilters button:focus-visible, .annotationFilters button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.annotationDetailFields, .annotationScopePreview { display: grid; gap: var(--space-3); }
+.annotationDetailFields pre, .annotationScopePreview pre { max-height: 180px; margin: 0; overflow: auto; padding: 9px; border: 1px solid var(--border-subtle); background: var(--surface-hover); white-space: pre-wrap; overflow-wrap: anywhere; }
+.annotationDetailFields p, .annotationScopePreview p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.5; }
 
-.versionPanel { display: grid; gap: 12px; }
-.versionGroup { display: grid; gap: 4px; }
+.versionPanel { display: grid; gap: var(--space-3); }
+.versionGroup { display: grid; gap: var(--space-1); }
 .versionGroup details { display: grid; padding-left: 8px; }
-.versionGroup summary { padding: 6px 0; color: var(--ink-secondary); font-size: 11px; cursor: pointer; }
+.versionGroup summary { padding: 6px 0; color: var(--text-secondary); font-size: var(--font-size-meta); cursor: pointer; }
 .versionActions { display: flex; flex-wrap: wrap; gap: 6px; }
 .versionSummary { display: grid; gap: 3px; }
-.versionSummary strong { font-size: 12px; }
+.versionSummary strong { font-size: var(--font-size-meta); }
 .versionSummary span,
-.tagSelectionCount { margin: 0; color: var(--ink-secondary); font-size: 10px; line-height: 1.5; }
-.versionList { display: grid; gap: 4px; max-height: min(32vh, 260px); overflow: auto; }
+.tagSelectionCount { margin: 0; color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.5; }
+.versionList { display: grid; gap: var(--space-1); max-height: min(32vh, 260px); overflow: auto; }
 .versionList button {
   min-height: 42px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
   padding: 7px 8px;
-  border: 1px solid var(--ink-panel);
-  background: var(--ink-surface);
-  color: var(--ink);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  color: var(--text-primary);
   text-align: left;
 }
-.versionList button:hover { border-color: var(--ink); background: var(--ink-sunken); }
-.versionList button[aria-pressed='true'] { border-color: var(--ink-accent); background: var(--ink-accent-soft); box-shadow: inset 3px 0 0 var(--ink-accent); }
-.versionList button:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.versionList button span { min-width: 0; overflow: hidden; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-.versionList time { color: var(--ink-secondary); font: 9px/1.4 var(--font-mono); font-variant-numeric: tabular-nums; }
-.versionPreview { border: 1px solid var(--ink); background: var(--ink-surface); box-shadow: var(--shadow-card); }
-.versionPreview > header { display: flex; justify-content: space-between; gap: 8px; padding: 8px 9px; border-bottom: 1px solid var(--ink-panel); background: var(--ink-sunken); }
-.versionPreview > header strong { font-size: 10px; }
-.versionPreview > header span { color: var(--ink-secondary); font: 9px/1.4 var(--font-mono); }
-.versionPreview pre { max-height: 260px; margin: 0; padding: 10px; overflow: auto; color: var(--ink); font: 10px/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.versionError { margin: 0; padding: 9px; border-left: 3px solid var(--ink-danger); background: var(--ink-danger-soft); color: var(--ink-danger); font-size: 11px; line-height: 1.5; }
-.tagOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.tagOptions label { min-width: 0; min-height: 34px; padding: 7px 8px; border: 1px solid var(--ink-panel); background: var(--ink-bg); }
-.tagOptions label:hover { border-color: var(--ink); background: var(--ink-sunken); }
-.tagOptions label:focus-within { box-shadow: var(--shadow-focus); }
+.versionList button:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.versionList button[aria-pressed='true'] { border-color: var(--accent-on-tint); background: var(--accent-soft); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent); }
+.versionList button:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
+.versionList button span { min-width: 0; overflow: hidden; font-size: var(--font-size-meta); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.versionList time { color: var(--text-secondary); font: var(--font-size-meta)/1.4 var(--font-mono); font-variant-numeric: tabular-nums; }
+.versionPreview { border: 1px solid var(--border-strong); background: var(--surface-page); box-shadow: var(--shadow-control); }
+.versionPreview > header { display: flex; justify-content: space-between; gap: var(--space-2); padding: 8px 9px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-hover); }
+.versionPreview > header strong { font-size: var(--font-size-meta); }
+.versionPreview > header span { color: var(--text-secondary); font: var(--font-size-meta)/1.4 var(--font-mono); }
+.versionPreview pre { max-height: 260px; margin: 0; padding: 10px; overflow: auto; color: var(--text-primary); font: var(--font-size-meta)/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.versionError { margin: 0; padding: 9px; border: 1px solid color-mix(in srgb, var(--ink-danger) 24%, transparent); border-radius: var(--radius-control); background: var(--ink-danger-soft); color: var(--ink-danger); font-size: var(--font-size-meta); line-height: 1.5; }
+.tagOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.tagOptions label { min-width: 0; min-height: 34px; padding: 7px 8px; border: 1px solid var(--border-subtle); background: var(--surface-page); }
+.tagOptions label:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.tagOptions label:focus-within { box-shadow: var(--focus-ring); }
 .tagOptions label > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .organizeFields { display: grid; gap: 14px; }
@@ -338,35 +339,35 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 4px;
-  border: 1px solid var(--ink-panel);
-  background: var(--ink-surface);
+  gap: var(--space-1);
+  min-height: var(--touch-target);
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
 }
 .attachmentTarget {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 4px;
+  padding: var(--space-1);
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--text-primary);
   text-align: left;
 }
-.attachmentTarget:hover { color: var(--ink-accent); }
-.attachmentTarget:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.attachmentTarget svg { flex: 0 0 auto; color: var(--ink-secondary); }
+.attachmentTarget:hover { color: var(--accent-on-tint); }
+.attachmentTarget:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
+.attachmentTarget svg { flex: 0 0 auto; color: var(--text-secondary); }
 .attachmentTarget span { min-width: 0; display: grid; gap: 2px; }
-.attachmentTarget strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.attachmentTarget small { color: var(--ink-secondary); font: 9px/1.2 var(--font-mono); }
+.attachmentTarget strong { overflow: hidden; font-size: var(--font-size-meta); text-overflow: ellipsis; white-space: nowrap; }
+.attachmentTarget small { color: var(--text-secondary); font: var(--font-size-meta)/1.2 var(--font-mono); }
 .referenceBadge {
   padding: 3px 5px;
-  border: 1px solid var(--ink-accent);
-  background: var(--ink-accent-soft);
-  color: var(--ink-accent-hover);
-  font: 800 8px/1 var(--font-mono);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent-on-tint);
+  font: 500 var(--font-size-meta)/1 var(--font-mono);
   white-space: nowrap;
 }
 
@@ -385,21 +386,23 @@
   justify-items: center;
   gap: var(--inspector-gap);
   padding-bottom: var(--inspector-pad-wide);
-  border-bottom: 1px solid var(--ink-muted, currentColor);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .aiIcon {
   width: 52px;
   height: 52px;
   display: grid;
   place-items: center;
-  border: 2px solid var(--ink);
-  background: var(--ink-surface);
-  color: var(--ink-accent);
-  box-shadow: var(--shadow-2);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--surface-page);
+  color: var(--accent-on-tint);
+  box-shadow: 0 0 0 1px var(--border-subtle);
 }
 
 @media (max-width: 900px) {
   .inspector[data-open] {
+    --inspector-shadow: var(--shadow-popover);
     position: absolute;
     grid-column: 1 / -1;
     grid-row: 1 / -1;
@@ -417,14 +420,14 @@
   }
 }
 
-.attachmentControls { display: flex; align-items: center; gap: 4px; }
-.attachmentRecoveryActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.attachmentRecoveryActions small { color: var(--ink-secondary); }
+.attachmentControls { display: flex; align-items: center; gap: var(--space-1); }
+.attachmentRecoveryActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.attachmentRecoveryActions small { color: var(--text-secondary); }
 .attachmentPreviewImage { display: block; max-width: 100%; max-height: 65vh; margin-inline: auto; }
 .noteLinkGroup {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   margin-block: 8px;
 }
 .noteLinkGroup button {
@@ -444,4 +447,43 @@
   height: 100%;
   border: 0;
   box-shadow: none;
+}
+
+/* 业务卡片保持中性的细边、圆角，交互按钮沿用组件库。 */
+.noteLinks a,
+.outline button,
+.annotationSortOptions button,
+.annotationStatusOptions button,
+.versionList button,
+.tagOptions label { border-radius: var(--radius-control); }
+.annotationList article,
+.emptyPanel,
+.versionPreview,
+.attachmentRow,
+.annotationDetailFields pre,
+.annotationScopePreview pre { border-radius: var(--radius-popover); }
+.annotationImportance,
+.annotationItemHeading strong,
+.annotationUnrated,
+.referenceBadge { border-radius: 999px; }
+.annotationFilterSummary,
+.annotationOverlapSummary { border-radius: var(--radius-control); }
+.versionPreview { overflow: hidden; }
+
+@media (max-width: 767px), (any-pointer: coarse) {
+  .annotationList article { grid-template-columns: 20px minmax(0, 1fr) 44px; }
+  .annotationList article > button:last-child,
+  .annotationSortOptions button,
+  .annotationStatusOptions button,
+  .annotationAnalysisActions button,
+  .annotationFilters > footer > button,
+  .annotationFilterSummary button,
+  .annotationOverlapSummary button,
+  .versionList button,
+  .outline button,
+  .attachmentTarget,
+  .attachmentPanel > button,
+  .tagOptions label,
+  .versionGroup summary { min-height: var(--touch-target); }
+  .annotationList article > button:last-child { width: var(--touch-target); height: var(--touch-target); }
 }

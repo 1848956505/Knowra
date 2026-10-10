@@ -1,41 +1,33 @@
-.milkdownEditor { width: 100%; max-width: 42em; min-height: 280px; }
+.milkdownEditor { width: 100%; min-width: 0; min-height: 280px; }
 .milkdownEditor :global(.milkdown) { min-height: inherit; }
 .milkdownEditor :global(.ProseMirror) {
   min-height: 280px;
   padding: 0;
   outline: none;
-  caret-color: var(--ink-accent);
+  caret-color: var(--accent);
   white-space: pre-wrap;
-  color: var(--ink);
-  font: 400 var(--note-font-size, 17px)/1.78 var(--font-note);
+  color: var(--text-secondary);
+  font: 400 var(--note-font-size, var(--font-size-note))/1.75 var(--font-ui);
+  letter-spacing: .01em;
 }
 
-/* 正文以高对比插入光标反馈编辑焦点，不绘制覆盖整张正文的容器焦点框。 */
+/* 文档键盘焦点只显示细轮廓，不使用表单控件的强调色光圈。 */
 .milkdownEditor :global(.ProseMirror:focus-visible) {
-  outline: 0;
+  outline: 1px solid var(--border-strong);
+  outline-offset: 8px;
+  border-radius: 4px;
   box-shadow: none;
 }
 .milkdownEditor[data-readonly] :global(.ProseMirror) { cursor: default; }
 .milkdownEditor :global(.ProseMirror) > :first-child { margin-top: 0; }
 .milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4) { scroll-margin-top: calc(var(--docbar-size) + var(--tab-size) + 8px); }
-.milkdownEditor :global(.ProseMirror) h1 { margin: 1.35em 0 .5em; font-size: 1.82em; line-height: 1.35; font-weight: 700; }
-.milkdownEditor :global(.ProseMirror) h1::before {
-  content: '';
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 10px;
-  background: var(--ink-accent);
-  transform: translateY(-2px);
-}
-.milkdownEditor :global(.ProseMirror) h2 { margin: 1.3em 0 .48em; font-size: 1.47em; line-height: 1.4; font-weight: 700; }
-.milkdownEditor :global(.ProseMirror) h3 { margin: 1.25em 0 .4em; font-size: 1.24em; line-height: 1.45; font-weight: 700; }
-.milkdownEditor :global(.ProseMirror) h4 { margin: 1.15em 0 .35em; font-size: 1.06em; line-height: 1.5; font-weight: 700; }
-.milkdownEditor :global(.ProseMirror) p { margin: .68em 0; }
-.milkdownEditor :global(.ProseMirror) strong {
-  font-weight: 700;
-  -webkit-text-stroke: .4px currentColor;
-}
+.milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4, h5, h6) { color: var(--text-primary); font-family: var(--font-ui); letter-spacing: -.3px; }
+.milkdownEditor :global(.ProseMirror) h1 { margin: 1.5em 0 .6em; font-size: 1.6em; line-height: 1.35; font-weight: 700; }
+.milkdownEditor :global(.ProseMirror) h2 { margin: 1.58em 0 .63em; font-size: 1.267em; line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h3 { margin: 1.4em 0 .6em; font-size: 1.13em; line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h4 { margin: 1.3em 0 .5em; font-size: 1em; line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) p { margin: 0 0 1.067em; }
+.milkdownEditor :global(.ProseMirror) strong { color: var(--text-primary); font-weight: 600; }
 .milkdownEditor :global(.ProseMirror) ul,
 .milkdownEditor :global(.ProseMirror) ol { margin: .75em 0 1.3em; padding-left: 0; }
 .milkdownEditor :global(.ProseMirror) ul { list-style: none; }
@@ -49,39 +41,41 @@
   position: absolute;
   left: 4px;
   top: .8em;
-  width: 7px;
-  height: 7px;
-  background: var(--ink-accent);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
   transform: translateY(-50%);
 }
 .milkdownEditor :global(.ProseMirror) ol > li:not([data-item-type='task']) {
   position: relative;
-  padding-left: 42px;
+  padding-left: 28px;
   counter-increment: knowra-ordered-item;
 }
 .milkdownEditor :global(.ProseMirror) ol > li:not([data-item-type='task'])::before {
-  content: counter(knowra-ordered-item, decimal-leading-zero);
+  content: counter(knowra-ordered-item) '.';
   position: absolute;
   left: 0;
   top: 1px;
-  color: var(--ink-accent);
-  font: 800 12px/1.8 var(--font-mono);
-  letter-spacing: .06em;
+  color: var(--accent-text);
+  font: 500 .87em/1.8 var(--font-ui);
+  font-variant-numeric: tabular-nums;
 }
-.milkdownEditor :global(.ProseMirror) blockquote { margin: 1em 0; padding-left: 18px; border-left: 3px solid var(--ink-accent); color: var(--ink-secondary); }
+.milkdownEditor :global(.ProseMirror) blockquote { margin: 26px 0; padding: 14px 16px; border: 0; border-radius: var(--radius-popover); background: var(--surface-hover); box-shadow: 0 0 0 1px var(--border-subtle); color: var(--text-secondary); }
+.milkdownEditor :global(.ProseMirror) blockquote > :last-child { margin-bottom: 0; }
 .milkdownEditor :global(.ProseMirror) code {
   padding: 2px 6px;
-  border: 1px solid #b8c9f6;
-  border-radius: 2px;
-  background: #f3f6ff;
-  color: #184fbf;
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface-hover);
+  color: var(--accent-text);
   font: 400 .9em/1.5 var(--font-mono);
   box-decoration-break: clone;
 }
 .milkdownEditor :global(.ProseMirror) del {
-  color: var(--ink-secondary);
-  text-decoration-color: var(--ink-warning);
-  text-decoration-thickness: 2px;
+  color: var(--text-secondary);
+  text-decoration-color: var(--text-muted);
+  text-decoration-thickness: 1px;
 }
 .milkdownEditor :global(.ProseMirror) mark {
   padding-inline: .14em;
@@ -90,14 +84,14 @@
   box-decoration-break: clone;
 }
 .milkdownEditor :global(.ProseMirror) [data-internal-link] {
-  color: var(--ink-accent);
+  color: var(--accent-text);
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 3px;
 }
 
 .milkdownEditor :global(.ProseMirror) [data-note-link-deleted] {
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   font-size: 0.85em;
 }
 /* Safari IME inserts an inline cursor separator. Keep the global img reset from
@@ -111,16 +105,16 @@
 .milkdownEditor :global(.ProseMirror) pre {
   position: relative;
   margin: 1.1em 0;
-  padding: 20px 22px;
+  padding: 16px 18px;
   overflow: auto;
-  border: 1px solid var(--ink-shell);
-  border-left: 6px solid var(--ink-accent);
-  background: var(--ink-sunken);
-  color: var(--ink);
-  font: 13px/1.75 var(--font-mono);
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font: 12.5px/1.8 var(--font-mono);
   white-space: pre;
   tab-size: 2;
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 0 0 1px var(--border-subtle);
 }
 .milkdownEditor :global(.ProseMirror) pre code {
   padding: 0;
@@ -134,19 +128,20 @@
   outline: 1px solid var(--ink-warning);
 }
 .milkdownEditor :global(.editor-find-match-active) {
-  background: var(--ink-accent-soft);
-  outline: 2px solid var(--ink-accent);
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent-text);
 }
 .milkdownEditor :global(.editor-annotation) {
-  color: var(--ink-accent);
+  color: var(--accent-text);
   cursor: pointer;
 }
+.milkdownEditor :global(.editor-annotation) strong { color: inherit; }
 .milkdownEditor :global(.editor-annotation-stale) {
-  color: var(--ink-accent);
+  color: var(--accent-text);
 }
 .milkdownEditor :global(.editor-annotation[data-importance='important']) { color: var(--ink-importance-important); }
 .milkdownEditor :global(.editor-annotation[data-importance='core']) { color: var(--ink-violet); }
-.milkdownEditor :global(.ProseMirror) hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--ink-panel); }
+.milkdownEditor :global(.ProseMirror) hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--border-subtle); }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { position: relative; list-style: none; padding-left: 27px; }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task']::before {
   content: '';
@@ -156,13 +151,14 @@
   width: 17px;
   height: 17px;
   box-sizing: border-box;
-  border: 1.5px solid var(--ink);
-  background: var(--ink-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface-page);
   cursor: pointer;
   transition: background var(--motion-fast), border-color var(--motion-fast);
 }
-.milkdownEditor :global(.ProseMirror) li[data-item-type='task']:hover::before { border-color: var(--ink-accent); }
-.milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true']::before { border-color: var(--ink-accent); background: var(--ink-accent); }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task']:hover::before { border-color: var(--accent-text); }
+.milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true']::before { border-color: var(--accent-solid); background: var(--accent-solid); }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true']::after {
   content: '';
   position: absolute;
@@ -170,34 +166,34 @@
   top: 10px;
   width: 8px;
   height: 4px;
-  border-left: 2px solid var(--ink-surface);
-  border-bottom: 2px solid var(--ink-surface);
+  border-left: 2px solid var(--surface-page);
+  border-bottom: 2px solid var(--surface-page);
   transform: rotate(-45deg);
 }
 .milkdownEditor :global(.ProseMirror) li[data-item-type='task'][data-checked='true'] > p:first-child {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   text-decoration: line-through;
 }
 .milkdownEditor :global(.ProseMirror) table {
   width: 100%;
   margin: 1em 0;
   border-collapse: collapse;
-  background: var(--ink-surface);
+  background: var(--surface-page);
   font-size: .88em;
   line-height: 1.55;
 }
 .milkdownEditor :global(.ProseMirror) th,
 .milkdownEditor :global(.ProseMirror) td {
-  height: 44px;
+  height: var(--touch-target);
   padding: 10px 14px;
-  border: 1px solid #dce0e4;
+  border: 1px solid var(--border-strong);
   text-align: left;
   vertical-align: middle;
 }
-.milkdownEditor :global(.ProseMirror) th { background: #f7f7f7; font-weight: 700; }
-.milkdownEditor :global(.ProseMirror) tbody tr:nth-child(odd) { background: #f7f7f7; }
+.milkdownEditor :global(.ProseMirror) th { background: var(--surface-hover); color: var(--text-primary); font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) tbody tr:nth-child(odd) { background: var(--surface-hover); }
 .milkdownEditor :global(.ProseMirror) :is(th, td) p { margin: 0; }
-.milkdownEditor :global(.ProseMirror) .ProseMirror-selectednode { outline: 2px solid var(--ink-accent); }
+.milkdownEditor :global(.ProseMirror) .ProseMirror-selectednode { outline: 2px solid var(--accent-text); }
 
 .milkdownEditor :global(.ProseMirror) pre[data-code-block] {
   margin: 28px 0;
@@ -205,32 +201,32 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  border: 1.5px solid #232323;
-  border-radius: 0;
-  background: #F9F6F1;
-  font: 13px/1.72 var(--font-mono);
-  box-shadow: 4px 4px 0 #d6d2c8;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  font: 12.5px/1.8 var(--font-mono);
+  box-shadow: 0 0 0 1px var(--border-subtle);
 }
 .milkdownEditor :global([data-code-toolbar]) {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 38px;
   padding: 4px 12px 4px 14px;
-  border-bottom: 1px solid #d8d5cb;
-  background: #fffefd;
-  font: 11px/1.4 var(--font-mono);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  font: var(--font-size-meta)/1.4 var(--font-ui);
   white-space: normal;
   user-select: none;
 }
 .milkdownEditor :global([data-code-toolbar]) :is(input, button) {
   min-height: 26px;
   padding: 3px 8px;
-  border: 1px solid #d8d5cb;
-  border-radius: 0;
-  background: #fffefd;
-  color: var(--ink-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-page);
+  color: var(--text-secondary);
   font: inherit;
 }
 .milkdownEditor :global([data-code-toolbar]) input {
@@ -238,24 +234,22 @@
   max-width: 100%;
   margin-right: auto;
   border-color: transparent;
-  color: var(--ink-accent);
-  font-weight: 900;
-  letter-spacing: .12em;
-  text-transform: uppercase;
+  color: var(--accent-text);
+  font-weight: 500;
 }
 .milkdownEditor :global([data-code-toolbar]) button { cursor: pointer; }
 .milkdownEditor :global([data-code-toolbar]) button:first-of-type {
   border-color: transparent;
   background: transparent;
 }
-.milkdownEditor :global([data-code-toolbar]) input::placeholder { color: var(--ink-muted); }
+.milkdownEditor :global([data-code-toolbar]) input::placeholder { color: var(--text-muted); }
 .milkdownEditor :global([data-code-toolbar]) :is(input, button):hover:not(:disabled),
 .milkdownEditor :global([data-code-toolbar]) input:focus {
-  border-color: var(--ink-accent);
-  color: var(--ink-accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 .milkdownEditor :global([data-code-toolbar]) :disabled { opacity: .6; cursor: default; }
-.milkdownEditor :global([data-code-toolbar]) :focus-visible { outline: 2px solid var(--ink-accent); outline-offset: 2px; }
+.milkdownEditor :global([data-code-toolbar]) :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .milkdownEditor :global(.ProseMirror) pre[data-code-block] > code {
   display: block;
   min-height: 3.5em;
@@ -268,4 +262,9 @@
 
 .milkdownEditor :global(li.editor-list-annotation)::marker { color: var(--ink-violet); }
 
-.operationStatus { margin: 8px 0; color: var(--ink-secondary); font-size: 12px; line-height: 1.5; }
+.operationStatus { margin: 8px 0; color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.5; }
+
+@media (max-width: 767px), (any-pointer: coarse) {
+  .milkdownEditor :global([data-code-toolbar]) :is(input, button) { min-height: var(--touch-target); }
+  .milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { min-height: var(--touch-target); }
+}

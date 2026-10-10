@@ -140,3 +140,10 @@
     display: none;
   }
 }
+
+/* 顶栏状态弹层中的完整信息，手机也不隐藏保存结果。 */
+.detail { display: flex; flex-direction: column; align-items: flex-start; width: min(320px, 75vw); height: auto; padding: var(--space-4); gap: var(--space-3); border: 0; background: transparent; white-space: normal; }
+.detail .itemSaved, .detail .itemCount { display: inline-flex; flex-wrap: wrap; }
+.detail .spacer { display: none; }
+.detail .context { width: 100%; font-weight: 500; }
+.detail .contextDot, .detail .square { border-radius: var(--radius-pill); }

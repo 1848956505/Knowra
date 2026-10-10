@@ -1,21 +1,24 @@
-// V4-05 AppShell
-//
-// 冻结主页外壳：左侧 64px ModuleRail + 点阵 FeatureStage + 底部 StatusBar。
-// 主页的标题、动作和工作域入口都属于冻结主页本身，不再由一个额外 TopBar 注入。
+// V5 全局外壳：常驻标签/操作顶栏、模块轨道、上下文侧栏与内容面板。
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ModuleRail } from './ModuleRail';
-import { StatusBar, type PathSegment, type StatusPanel } from './StatusBar';
+import { type PathSegment, type StatusPanel } from './StatusBar';
 import { MobileTabs } from './MobileTabs';
 import { DesktopTitlebarContext } from './DesktopTitlebarContext';
 import { cx } from '../components/ui/classnames';
 import type { WorkDomain } from '../store/types';
 import styles from './AppShell.module.css';
+import { ShellToolbar } from './ShellToolbar';
+import { ResponsivePanel } from '../components/ui/overlay/ResponsivePanel';
+import { GhostIconButton } from '../components/ui/button';
+import { CloseIcon } from '../components/icons/knowra';
 
 export interface AppShellProps {
   children: ReactNode;
   /** 当前工作域的上下文导航；与主工作区并列，拥有独立滚动边界。 */
   contextSidebar?: ReactNode;
+  contextSidebarOpen?: boolean;
+  navigationKey?: string;
   /** 当前激活的工作域（用于 Rail / MobileTabs 的 aria-current）；组件展台没有业务工作域时传 null。 */
   activeDomain: WorkDomain | null;
   onSelectDomain(domain: WorkDomain): void;
@@ -51,8 +54,6 @@ export interface AppShellProps {
   liveAnnouncement?: string;
   /** 编辑器等沉浸式页面由自身管理内边距和滚动边界。 */
   stageMode?: 'default' | 'workspace';
-  /** 笔记标签栏与上下文侧栏在顶端连成一体，保留下方工作区分隔线。 */
-  mergeContextSidebarTabs?: boolean;
   /** Mac 应用的笔记页将标签栏放入原生窗口标题栏。 */
   desktopTitlebarEditor?: boolean;
   /** Mac 应用其他页面继续显示已打开的笔记标签。 */
@@ -64,6 +65,8 @@ export interface AppShellProps {
 export function AppShell({
   children,
   contextSidebar,
+  contextSidebarOpen = true,
+  navigationKey,
   activeDomain,
   onSelectDomain,
   onReturnHome,
@@ -80,31 +83,43 @@ export function AppShell({
   mobileTabs,
   liveAnnouncement,
   stageMode = 'default',
-  mergeContextSidebarTabs = false,
   desktopTitlebarEditor = false,
   desktopTitlebarTabs,
   focusMode = false
 }: AppShellProps) {
   const desktop = typeof window !== 'undefined' && Boolean(window.knowraDesktop);
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(max-width: 920px)').matches ?? false));
+  const [sidebarOverlayOpen, setSidebarOverlayOpen] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 920px)');
+    if (!media) return;
+    const update = () => setCompact(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => { setSidebarOverlayOpen(false); }, [navigationKey]);
+  const sidebarVisible = compact ? sidebarOverlayOpen : contextSidebarOpen;
+  const toolbarStatus = { ...statusbar, panels: statusbar.panels?.map(panel => panel.id === 'sidebar' && compact ? { ...panel, active: sidebarOverlayOpen, onToggle: () => setSidebarOverlayOpen(open => !open) } : panel) };
   const [titlebarHost, setTitlebarHost] = useState<HTMLDivElement | null>(null);
   return (
     <DesktopTitlebarContext.Provider value={{ enabled: desktop, host: titlebarHost }}>
     <div className={cx(
       styles.shell,
       desktop ? styles.desktopShell : undefined,
-      contextSidebar && !focusMode ? styles.shellWithSidebar : undefined,
-      contextSidebar && !focusMode && mergeContextSidebarTabs && !desktop ? styles.mergedContextTabs : undefined,
+      contextSidebar && sidebarVisible && !focusMode && !compact ? styles.shellWithSidebar : undefined,
       focusMode ? styles.focusShell : undefined
     )} data-desktop={desktop || undefined}>
       <a href="#feature-stage" className={styles.skipLink}>
         跳到主内容
       </a>
 
-      {desktop ? <div className={styles.desktopTitlebar} aria-label="Mac 窗口标题栏">
-        <div ref={setTitlebarHost} className={styles.desktopTitlebarHost}>
-          {!desktopTitlebarEditor ? desktopTitlebarTabs ?? <span className={styles.desktopTitle}>知境·Knowra</span> : null}
-        </div>
-      </div> : null}
+      <header className={styles.desktopTitlebar} aria-label={desktop ? 'Mac 窗口标题栏' : '全局顶栏'}>
+        <ShellToolbar status={toolbarStatus}>
+          <div ref={setTitlebarHost} className={styles.desktopTitlebarHost}>
+            {!desktopTitlebarEditor ? desktopTitlebarTabs ?? <span className={styles.desktopTitle}>知境</span> : null}
+          </div>
+        </ShellToolbar>
+      </header>
 
       {!focusMode ? <ModuleRail
         activeDomain={activeDomain}
@@ -122,8 +137,11 @@ export function AppShell({
       /> : null}
 
       {contextSidebar && !focusMode ? (
-        <aside className={styles.contextSidebar} aria-label="笔记上下文导航">
-          {contextSidebar}
+        <aside className={styles.contextSidebar} hidden={!sidebarVisible} aria-label="笔记上下文导航" data-compact={compact || undefined} data-open={sidebarVisible || undefined}>
+          <ResponsivePanel title="笔记导航" modal={compact} isOpen={sidebarVisible} onClose={() => setSidebarOverlayOpen(false)} className={styles.sidebarDialog}>
+            {compact && sidebarVisible ? <div className={styles.sidebarClose}><GhostIconButton aria-label="关闭笔记导航" onPress={() => setSidebarOverlayOpen(false)}><CloseIcon size={18} /></GhostIconButton></div> : null}
+            {contextSidebar}
+          </ResponsivePanel>
         </aside>
       ) : null}
 
@@ -135,18 +153,6 @@ export function AppShell({
         {children}
       </main>
 
-      <StatusBar
-        path={statusbar.path}
-        charCount={statusbar.charCount}
-        savedAt={statusbar.savedAt}
-        saveState={statusbar.saveState}
-        saveError={statusbar.saveError}
-        dataMode={statusbar.dataMode}
-        showDataMode={statusbar.showDataMode}
-        persistenceMode={statusbar.persistenceMode}
-        dataModeNote={statusbar.dataModeNote}
-        panels={statusbar.panels}
-      />
 
       {mobileTabs && !focusMode ? (
         <MobileTabs

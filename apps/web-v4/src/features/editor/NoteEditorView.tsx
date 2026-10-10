@@ -785,7 +785,7 @@ export function NoteEditorView({
     notes={openNotes.length > 0 ? openNotes : [note]}
     activeNoteId={note.id}
     canWrite={canWrite}
-    windowTitlebar={desktopTitlebar.enabled}
+    windowTitlebar={Boolean(desktopTitlebar.host)}
     onOpenNote={openNoteSafely}
     onCloseNote={(closingNoteId) => {
       if (closingNoteId !== note.id || !canWrite) {
@@ -810,13 +810,11 @@ export function NoteEditorView({
       data-view-mode={view.mode}
       data-content-mode={view.contentMode}
       data-inspector-open={inspectorOpen || undefined}
-      data-window-tabs={desktopTitlebar.enabled || undefined}
+      data-window-tabs={Boolean(desktopTitlebar.host) || undefined}
       aria-label="笔记编辑页面骨架"
       style={documentEdge === null ? undefined : { '--doc-edge': `${documentEdge}px` } as CSSProperties}
     >
-      {desktopTitlebar.enabled
-        ? desktopTitlebar.host && tabs ? createPortal(tabs, desktopTitlebar.host) : null
-        : tabs}
+      {desktopTitlebar.host && tabs ? createPortal(tabs, desktopTitlebar.host) : tabs}
       {!desktopTitlebar.enabled ? <div className={styles.compactControls} role="group" aria-label="笔记导航与检查器">
         <Button variant="ghost" size="compact" onPress={() => {
           saveCurrentScrollPosition();

@@ -1,8 +1,8 @@
-import { useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import type { Note } from '@study-accelerator/web-core';
 import { GhostIconButton, PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay';
-import { CloseIcon, MoreVerticalIcon, PlusIcon } from '../../components/icons/knowra';
+import { CloseIcon, MoreVerticalIcon, PlusIcon, NoteIcon } from '../../components/icons/knowra';
 import { cx } from '../../components/ui/classnames';
 import styles from './NoteEditorView.module.css';
 
@@ -21,8 +21,33 @@ export interface EditorTabsProps {
 
 export function EditorTabs(props: EditorTabsProps) {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const pendingClose = useRef<{ id: string; index: number } | null>(null);
+  useLayoutEffect(() => {
+    const pending = pendingClose.current;
+    if (pending && !props.notes.some(note => note.id === pending.id)) {
+      const tabs = tabsRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+      const next = tabs?.[Math.min(pending.index, (tabs?.length ?? 1) - 1)];
+      (next ?? tabsRef.current?.querySelector<HTMLButtonElement>('[aria-label="新建笔记"]'))?.focus({ preventScroll: true });
+      pendingClose.current = null;
+    }
+  }, [props.notes]);
+  useLayoutEffect(() => {
+    tabsRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [props.activeNoteId]);
+
+  function closeNote(noteId: string) {
+    pendingClose.current = { id: noteId, index: props.notes.findIndex(note => note.id === noteId) };
+    props.onCloseNote(noteId);
+  }
+
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Delete' && (event.target as HTMLElement).getAttribute('role') === 'tab') {
+      const noteId = (event.target as HTMLElement).dataset.noteId;
+      if (noteId) { event.preventDefault(); closeNote(noteId); }
+      return;
+    }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
     if (tabs.length === 0) return;
@@ -42,7 +67,7 @@ export function EditorTabs(props: EditorTabsProps) {
   }
 
   return (
-    <div className={cx(styles.tabs, props.windowTitlebar ? styles.windowTabs : undefined)} role="tablist" aria-label="打开的笔记" onKeyDown={handleKeyDown}>
+    <div ref={tabsRef} className={cx(styles.tabs, props.windowTitlebar ? styles.windowTabs : undefined)} role="tablist" aria-label="打开的笔记" onKeyDown={handleKeyDown}>
       <div className={styles.tabScroller}>
         {props.notes.map((note, index) => {
           const selected = note.id === props.activeNoteId;
@@ -61,10 +86,11 @@ export function EditorTabs(props: EditorTabsProps) {
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => handleDrop(event, note.id)}
             >
-              <TabContextMenu note={note} noteIndex={index} {...props}>
+              <TabContextMenu note={note} noteIndex={index} {...props} onCloseNote={closeNote}>
                 <PressableButton
                   type="button"
                   role="tab"
+                  data-note-id={note.id}
                   aria-selected={selected}
                   aria-label={note.title || '无标题笔记'}
                   tabIndex={selected || (!props.activeNoteId && index === 0) ? 0 : -1}
@@ -72,11 +98,11 @@ export function EditorTabs(props: EditorTabsProps) {
                   title={`${String(index + 1).padStart(2, '0')} · ${note.title || '无标题笔记'}`}
                   onPress={() => props.onOpenNote(note.id)}
                 >
-                  <span className={styles.tabNumber}>{String(index + 1).padStart(2, '0')}</span>
+                  <span className={styles.tabNumber}><NoteIcon size={14} /></span>
                   <span className={styles.tabLabel}>{note.title || '无标题笔记'}</span>
                 </PressableButton>
               </TabContextMenu>
-              <button type="button" className={styles.tabClose} aria-label={`关闭${note.title || '无标题笔记'}`} onClick={() => props.onCloseNote(note.id)}>
+              <button type="button" className={styles.tabClose} aria-label={`关闭${note.title || '无标题笔记'}`} onClick={() => closeNote(note.id)}>
                 <CloseIcon size={12} />
               </button>
             </div>

@@ -37,3 +37,10 @@
 .conflict h3, .conflict h4 { margin: 0 0 6px; font-size: 14px; }
 .conflict pre { margin: 0; max-height: 220px; overflow: auto; padding: 10px; background: var(--ink-sunken); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .columns { grid-template-columns: 1fr; } }
+
+/* 同步控制常驻顶栏：只收敛表现，不卸载后台状态监听。 */
+.compact { width: var(--control-size); height: var(--control-size); justify-content: center; border-radius: var(--radius-control); }
+.compact .main, .compact .detail { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.compact .marker { width: 10px; height: 10px; flex-basis: 10px; border-radius: var(--radius-pill); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sync-tone) 12%, transparent); }
+.compact:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
+@media (max-width: 767px), (any-pointer: coarse) { .compact { min-width: var(--touch-target); min-height: var(--touch-target); } }
