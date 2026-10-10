@@ -59,6 +59,27 @@ describe('命令搜索交互', () => {
     expect(view.input).toHaveAttribute('maxlength', '200');
   });
 
+  it('键盘高亮离屏时只滚动结果区，保留输入焦点且不触发选择', () => {
+    const view = setup();
+    const scrollport = document.getElementById('search-command-results')!;
+    const options = screen.getAllByRole('option');
+    Object.defineProperty(scrollport, 'clientHeight', { configurable: true, value: 100 });
+    vi.spyOn(scrollport, 'getBoundingClientRect').mockReturnValue({ top: 10, bottom: 110 } as DOMRect);
+    vi.spyOn(options[2], 'getBoundingClientRect').mockReturnValue({ top: 150, bottom: 190 } as DOMRect);
+    vi.spyOn(options[0], 'getBoundingClientRect').mockReturnValue({ top: -70, bottom: -30 } as DOMRect);
+    view.input.focus();
+    fireEvent.keyDown(view.input, { key: 'ArrowUp' });
+    expect(scrollport.scrollTop).toBe(80);
+    expect(view.input).toHaveFocus();
+    expect(view.input).toHaveAttribute('aria-activedescendant', 'search-hit-tag:test');
+    expect(view.onTag).not.toHaveBeenCalled();
+    fireEvent.keyDown(view.input, { key: 'ArrowDown' });
+    expect(scrollport.scrollTop).toBe(0);
+    expect(view.input).toHaveFocus();
+    expect(view.onHome).not.toHaveBeenCalled();
+    expect(view.onOpenChange).not.toHaveBeenCalled();
+  });
+
   it('180ms 防抖合并输入，正文命中不经过标题二次过滤并可 Enter 打开', async () => {
     const note = bodyHit('body', '…完整正文中出现中文深处命中…');
     const search = vi.fn().mockResolvedValue([note]);
