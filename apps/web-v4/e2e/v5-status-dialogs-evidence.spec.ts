@@ -25,7 +25,7 @@ for (const viewport of viewports) test(`V5 同步备份状态与设置边界合�
   test.setTimeout(120_000);
   const network = await mockV5StatusDialogEvidence(page);
   const errors: string[] = [], focusChecks: string[] = [], readonlyChecks: string[] = [];
-  const scenarios: unknown[] = [];
+  const scenarios: unknown[] = [], layoutChecks: unknown[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize(viewport);
   const capture = async (name: string, surface?: Locator) => {
@@ -92,9 +92,18 @@ for (const viewport of viewports) test(`V5 同步备份状态与设置边界合�
     await entityDetails.locator('summary').click();
     await expect(entityDetails).not.toHaveAttribute('open', '');
 
-    await note.getByRole('heading').scrollIntoViewIfNeeded();
-    await capture('04-note-conflict-comparison', sync);
     const comparison = note.getByRole('button', { name: /正文比较/ });
+    const diff = note.getByRole('region', { name: '本机与云端的正文差异', exact: true });
+    const diffContent = diff.getByLabel('正文差异内容', { exact: true });
+    // 标题刚进入视口不等于正文比较已入镜；正常滚动到比较控件，并核对实际差异区。
+    await comparison.evaluate(element => element.scrollIntoView({ block: 'start', inline: 'nearest' }));
+    await expect(comparison).toBeInViewport({ ratio: 1 });
+    await expect(diffContent).toBeInViewport({ ratio: 0.95 });
+    await expect(diff).toContainText('本机修改：');
+    await expect(diff).toContainText('云端修改：');
+    layoutChecks.push({ name: 'note-comparison-visible', comparisonBounds: await comparison.boundingBox(),
+      diffContentBounds: await diffContent.boundingBox(), minimumVisibleRatio: 0.95 });
+    await capture('04-note-conflict-comparison', sync);
     await comparison.click();
     await page.getByRole('option', { name: '共同基线 → 本机', exact: true }).click();
     await expect(comparison).toContainText('共同基线 → 本机');
@@ -184,6 +193,32 @@ for (const viewport of viewports) test(`V5 同步备份状态与设置边界合�
     const clients = page.getByRole('list', { name: '已配对的外部客户端', exact: true });
     await expect(clients).toContainText(syntheticClientName);
     await clients.scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.fonts.ready);
+    const clientHeading = clients.getByRole('heading', { name: syntheticClientName, level: 4, exact: true });
+    const clientLayout = await clientHeading.evaluate(heading => {
+      const copy = heading.parentElement?.parentElement, row = heading.closest('li');
+      if (!copy || !row) throw new Error('合成客户端标题必须位于文案块和列表卡片内');
+      const rowStyle = getComputedStyle(row), headingStyle = getComputedStyle(heading);
+      const rowBox = row.getBoundingClientRect(), copyBox = copy.getBoundingClientRect(), titleBox = heading.getBoundingClientRect();
+      const lineHeight = Number.parseFloat(headingStyle.lineHeight);
+      const range = document.createRange(); range.selectNodeContents(heading);
+      const lineTops = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0)
+        .map(rect => Math.round(rect.top));
+      return { rowWidth: rowBox.width, rowHeight: rowBox.height, copyWidth: copyBox.width,
+        rowContentWidth: row.clientWidth - Number.parseFloat(rowStyle.paddingLeft) - Number.parseFloat(rowStyle.paddingRight),
+        titleWidth: titleBox.width, titleHeight: titleBox.height, titleLineHeight: lineHeight,
+        titleLineCount: new Set(lineTops).size, titleHeightInLines: titleBox.height / lineHeight };
+    });
+    const minCopyWidth = Math.min(240, clientLayout.rowContentWidth);
+    layoutChecks.push({ name: 'external-client-readable-card', ...clientLayout,
+      minimumCopyWidth: minCopyWidth, maximumTitleLines: 6, maximumRowHeight: 360 });
+    // 无横向溢出仍可能被按钮挤成逐字竖排；同时约束文案宽度、真实文字行数和整卡高度。
+    expect(clientLayout.rowContentWidth).toBeGreaterThan(0);
+    expect(clientLayout.copyWidth, '客户端文案块不能被操作按钮挤窄').toBeGreaterThanOrEqual(minCopyWidth - 2);
+    expect(clientLayout.titleLineCount).toBeGreaterThan(0);
+    expect(clientLayout.titleLineCount, '合成客户端名称应正常换行，不能逐字竖排').toBeLessThanOrEqual(6);
+    expect(clientLayout.titleHeightInLines).toBeLessThanOrEqual(6.1);
+    expect(clientLayout.rowHeight, '单个合成客户端卡片不能异常拉长').toBeLessThanOrEqual(360);
     await capture('12-external-client-long-name');
     const connectionTrigger = clients.getByRole('button', { name: `查看连接方式：${syntheticClientName}`, exact: true });
     await connectionTrigger.click();
@@ -223,7 +258,7 @@ for (const viewport of viewports) test(`V5 同步备份状态与设置边界合�
     await writeFile(path, JSON.stringify({ schema: 1, sourcePRHead: process.env.KNOWRA_EVIDENCE_PR_HEAD,
       builtCommit: process.env.KNOWRA_EVIDENCE_SHA, sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE,
       viewport, syntheticData: true, syntheticRuntimeOnly: true, desktopBridgeInstalled: false,
-      chromiumSandbox: true, browserVersion: browser.version(), scenarios, focusChecks, readonlyChecks,
+      chromiumSandbox: true, browserVersion: browser.version(), scenarios, focusChecks, readonlyChecks, layoutChecks,
       pageErrors: errors, apiRequests: network.requests, blockedRequests: network.blocked,
       blockedAutomaticWakeRequests: network.blockedWakeRequests, syntheticInspections: network.syntheticInspections,
       limitations: ['CSS 视口合成验收，不是真实手机软键盘/OriginOS 或原生桌面应用验收',

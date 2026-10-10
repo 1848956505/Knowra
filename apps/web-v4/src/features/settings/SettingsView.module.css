@@ -52,12 +52,14 @@
 .buildInformation dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; user-select: text; }
 .buildInformation code { font-family: var(--font-mono); }
 .clientList { list-style: none; margin: 0; padding: 0; }
-.clientRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--space-4) var(--space-5); }
+.clientRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--space-4) var(--space-5); }
+/* 按实际内容宽度换行：768px 平板仍有分类侧栏，不能只依赖手机断点。 */
+.clientRow > .settingCopy { flex: 1 1 240px; }
 .clientRow + .clientRow { border-top: 1px solid var(--border-subtle); }
 .clientTitle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .clientTitle h4 { margin: 0; color: var(--text-primary); font-size: var(--font-size-ui); font-weight: 600; line-height: 1.5; }
 .clientMeta { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.7; }
-.clientActions { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.clientActions { flex: 0 1 auto; min-width: 0; max-width: 100%; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .clientAudit { margin: var(--space-2) 0 0; padding: 0; list-style: none; color: var(--text-secondary); font: var(--font-size-meta)/1.7 var(--font-ui); font-variant-numeric: tabular-nums; }
 .snippet { margin: var(--space-2) 0 0; padding: var(--space-3); overflow: auto; border-radius: var(--radius-tab); background: var(--surface-sidebar-solid); box-shadow: inset 0 0 0 1px var(--border-subtle); color: var(--text-primary); font: var(--font-size-meta)/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .snippetHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); }
