@@ -26,6 +26,8 @@ jobs:
       - run: google-chrome --version
       # 保留中文验收所需的系统字体；不改浏览器/内核安全配置。
       - run: npx playwright install-deps chromium
+      - name: Install explicit CJK sans-serif fallback
+        run: sudo apt-get install -y fonts-noto-cjk
       - name: Verify Chinese font availability
         run: |
           fc-list :lang=zh family | sort -u | tee "$RUNNER_TEMP/knowra-chinese-fonts.txt"

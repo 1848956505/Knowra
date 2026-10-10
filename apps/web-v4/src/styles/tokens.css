@@ -64,7 +64,7 @@
   --mobile-tabs-size: calc(54px + env(safe-area-inset-bottom));
   --control-size: 32px;
   --touch-target: 44px;
-  --font-ui: "Inter", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-ui: "Inter", "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", "WenQuanYi Zen Hei", system-ui, sans-serif;
   --font-note: var(--font-ui);
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --font-size-ui: 13px;

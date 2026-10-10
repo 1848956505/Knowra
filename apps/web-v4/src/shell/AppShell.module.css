@@ -20,7 +20,8 @@
 .skipLink:focus { transform: translateY(0); outline: 2px solid var(--accent-text); }
 .desktopShell .skipLink:focus { top: calc(var(--topbar-size) + var(--space-2)); }
 .stage { grid-column: 2; grid-row: var(--shell-content-row); min-width: 0; min-height: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; justify-items: stretch; padding: var(--space-6); margin-right: var(--shell-gap); border-radius: var(--radius-panel); overflow: auto; background: var(--surface-page); box-shadow: var(--shadow-page); outline: 0; }
-.stage:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+.stage:focus-visible { outline: 0; box-shadow: var(--shadow-page); }
+.stage[data-skip-focused]:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
 .shellWithSidebar .stage { grid-column: 3; }
 .workspaceStage { align-items: stretch; padding: 0; overflow: hidden; }
 .contextSidebar { grid-column: 2; grid-row: var(--shell-content-row); min-width: 0; min-height: 0; margin-right: var(--shell-gap); overflow: hidden; overscroll-behavior: contain; border-radius: var(--radius-panel); background: var(--surface-sidebar-solid); box-shadow: var(--shadow-sidebar); }

@@ -37,12 +37,24 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize(viewport);
   const scenarios: unknown[] = [];
+  const fontSession = await page.context().newCDPSession(page);
+  await fontSession.send('DOM.enable');
+  await fontSession.send('CSS.enable');
+  const renderedFonts = async () => {
+    const { root } = await fontSession.send('DOM.getDocument');
+    const samples = [];
+    for (const selector of ['h1', '.ProseMirror p']) {
+      const { nodeId } = await fontSession.send('DOM.querySelector', { nodeId: root.nodeId, selector });
+      if (nodeId) samples.push({ selector, ...(await fontSession.send('CSS.getPlatformFontsForNode', { nodeId })) });
+    }
+    return samples;
+  };
   const capture = async (name: string, observation?: string) => {
     await page.evaluate(() => document.fonts.ready);
     const path = info.outputPath(`${name}.png`);
     await page.screenshot({ path, fullPage: false, animations: 'disabled' });
     await info.attach(name, { path, contentType: 'image/png' });
-    scenarios.push({ name, screenshot: `${name}.png`, observation, measurements: await measure(page) });
+    scenarios.push({ name, screenshot: `${name}.png`, observation, measurements: await measure(page), renderedFonts: await renderedFonts() });
   };
   try {
     await page.goto('/#/materials');

@@ -11,11 +11,9 @@
   letter-spacing: .01em;
 }
 
-/* 文档键盘焦点只显示细轮廓，不使用表单控件的强调色光圈。 */
+/* 正文通过插入光标反馈编辑焦点，避免将整篇文档绘制成输入框。 */
 .milkdownEditor :global(.ProseMirror:focus-visible) {
-  outline: 1px solid var(--border-strong);
-  outline-offset: 8px;
-  border-radius: 4px;
+  outline: none;
   box-shadow: none;
 }
 .milkdownEditor[data-readonly] :global(.ProseMirror) { cursor: default; }

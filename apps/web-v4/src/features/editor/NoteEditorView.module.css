@@ -218,8 +218,8 @@
   caret-color: var(--accent);
   box-shadow: none;
 }
-/* 文档字段保留轻量的键盘焦点提示，不套用普通输入框光圈。 */
-.titleInput:focus-visible { outline: 1px solid var(--border-strong); outline-offset: 6px; border-radius: 4px; }
+/* 标题与正文以插入光标反馈焦点，不套用输入框轮廓；工具栏仍保留键盘焦点环。 */
+.titleInput:focus-visible { outline: none; box-shadow: none; }
 .titleInput:read-only { cursor: default; }
 .titleInput[aria-invalid='true'] { outline: 1px solid var(--ink-danger); outline-offset: 6px; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; color: var(--text-secondary); font: 400 var(--font-size-meta)/1.5 var(--font-ui); }

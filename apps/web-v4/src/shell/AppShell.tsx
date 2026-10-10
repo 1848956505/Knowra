@@ -90,6 +90,7 @@ export function AppShell({
   const desktop = typeof window !== 'undefined' && Boolean(window.knowraDesktop);
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(max-width: 920px)').matches ?? false));
   const [sidebarOverlayOpen, setSidebarOverlayOpen] = useState(false);
+  const [skipFocused, setSkipFocused] = useState(false);
   useEffect(() => {
     const media = window.matchMedia?.('(max-width: 920px)');
     if (!media) return;
@@ -97,7 +98,7 @@ export function AppShell({
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
-  useEffect(() => { setSidebarOverlayOpen(false); }, [navigationKey]);
+  useEffect(() => { setSidebarOverlayOpen(false); setSkipFocused(false); }, [navigationKey]);
   useEffect(() => { if (focusMode) setSidebarOverlayOpen(false); }, [focusMode]);
   const sidebarVisible = !focusMode && (compact ? sidebarOverlayOpen : contextSidebarOpen);
   const toolbarStatus = { ...statusbar, panels: statusbar.panels?.filter(panel => !focusMode || panel.id !== 'sidebar').map(panel => panel.id === 'sidebar' && compact ? { ...panel, active: sidebarOverlayOpen, onToggle: () => setSidebarOverlayOpen(open => !open) } : panel) };
@@ -110,7 +111,11 @@ export function AppShell({
       contextSidebar && sidebarVisible && !focusMode && !compact ? styles.shellWithSidebar : undefined,
       focusMode ? styles.focusShell : undefined
     )} data-desktop={desktop || undefined}>
-      <a href="#feature-stage" className={styles.skipLink}>
+      <a href="#feature-stage" className={styles.skipLink} onClick={event => {
+        event.preventDefault();
+        setSkipFocused(true);
+        document.getElementById('feature-stage')?.focus({ preventScroll: true });
+      }}>
         跳到主内容
       </a>
 
@@ -148,6 +153,8 @@ export function AppShell({
 
       <main
         id="feature-stage"
+        data-skip-focused={skipFocused || undefined}
+        onBlur={() => setSkipFocused(false)}
         className={cx(styles.stage, stageMode === 'workspace' ? styles.workspaceStage : undefined)}
         tabIndex={-1}
       >

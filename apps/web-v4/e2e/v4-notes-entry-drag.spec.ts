@@ -43,7 +43,7 @@ test('从侧栏移走笔记后，当前文件夹的服务端索引立即刷新',
   const indexContent = page.getByTestId('notes-index-scroll');
   await expect(indexContent.getByText('待移动笔记')).toBeVisible();
 
-  await page.locator('[data-note-id="note-1"]').dragTo(page.locator('[class*="libraryRow"]'));
+  await page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]').dragTo(page.locator('[class*="libraryRow"]'));
   await expect.poll(() => workspace.notes[0].folderId).toBeNull();
   await expect(indexContent.getByText('待移动笔记')).toHaveCount(0);
 });
@@ -76,7 +76,7 @@ test('悬停文件夹会展开目录，空白区域可接收移动到当前文�
   if (await page.getByRole('button', { name: '展开甲目录' }).count()) {
     await page.getByRole('button', { name: '展开甲目录' }).click();
   }
-  const noteSource = page.locator('[data-note-id="note-1"]');
+  const noteSource = page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]');
   await noteSource.dragTo(page.getByTestId('notes-index-scroll'), { targetPosition: { x: 400, y: 300 } });
   await expect.poll(() => workspace.notes[0].folderId).toBe('folder-b');
   await expect(page.getByTestId('notes-index-scroll').getByText('待移动笔记')).toBeVisible();
@@ -113,7 +113,7 @@ test('全部笔记空白处不代表根目录，笔记库页面空白处可移�
   if (await page.getByRole('button', { name: '展开甲目录' }).count()) {
     await page.getByRole('button', { name: '展开甲目录' }).click();
   }
-  await page.locator('[data-note-id="note-1"]').dragTo(content, { targetPosition: { x: 400, y: 300 } });
+  await page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]').dragTo(content, { targetPosition: { x: 400, y: 300 } });
   await expect.poll(() => workspace.notes[0].folderId).toBeNull();
   await expect(content.getByText('待移动笔记')).toBeVisible();
 });
@@ -124,7 +124,7 @@ test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚�
   const index = page.getByRole('article', { name: '笔记索引' });
   await expect(index).toBeVisible();
   await expect(index.getByText('INDEX', { exact: true })).toHaveCount(0);
-  await expect(index.locator('[data-art-kind] > svg')).toHaveCount(4);
+  await expect(index.locator('[data-art-kind] > svg')).toHaveCount(3);
   const content = page.getByTestId('notes-index-scroll');
   await expect(content).toHaveCSS('background-image', 'none');
   await expect(content).toHaveCSS('overflow-y', 'auto');
@@ -136,7 +136,7 @@ test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚�
   await expect(tile).not.toHaveCSS('box-shadow', 'none');
 
   await page.getByRole('button', { name: '展开甲目录' }).click();
-  const note = page.locator('[data-note-id="note-1"]');
+  const note = page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]');
   await note.click();
   await expect(note).toHaveAttribute('aria-current', 'page');
   await expect(note).toHaveCSS('color', 'rgb(23, 24, 27)');
@@ -157,7 +157,7 @@ test('V5 窄屏目录展开按钮和笔记触点至少44px', async ({ page }) =>
   expect(toggleBox?.width).toBeGreaterThanOrEqual(44);
   expect(toggleBox?.height).toBeGreaterThanOrEqual(44);
   await toggle.click();
-  const noteBox = await page.locator('[data-note-id="note-1"]').boundingBox();
+  const noteBox = await page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]').boundingBox();
   expect(noteBox?.height).toBeGreaterThanOrEqual(44);
 });
 

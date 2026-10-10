@@ -51,7 +51,7 @@
   flex-direction: column;
   justify-content: center;
   gap: 3px;
-  padding: 5px 2px;
+  padding: 4px 2px;
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   border-radius: var(--radius-control);

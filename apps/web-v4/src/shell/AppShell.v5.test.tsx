@@ -23,6 +23,22 @@ function Shell({ navigationKey = '/materials', focusMode = false }: { navigation
 afterEach(() => vi.unstubAllGlobals());
 
 describe('V5 分层外壳', () => {
+  it('仅跳转链接强调主区焦点，不改变 hash 路由，进入正文后清除提示', () => {
+    mockViewport(); const rendered = render(<Shell />);
+    const stage = screen.getByRole('main');
+    act(() => stage.focus());
+    expect(stage).not.toHaveAttribute('data-skip-focused');
+    const hash = window.location.hash;
+    fireEvent.click(screen.getByRole('link', { name: '跳到主内容' }));
+    expect(stage).toHaveFocus();
+    expect(stage).toHaveAttribute('data-skip-focused', 'true');
+    expect(window.location.hash).toBe(hash);
+    act(() => screen.getByRole('button', { name: '正文操作' }).focus());
+    expect(stage).not.toHaveAttribute('data-skip-focused');
+    fireEvent.click(screen.getByRole('link', { name: '跳到主内容' }));
+    rendered.rerender(<Shell navigationKey='/materials/notes/n1' />);
+    expect(stage).not.toHaveAttribute('data-skip-focused');
+  });
   it('窄屏专注模式隐藏侧栏开关，退出不会重开陈旧导航弹层', () => {
     mockViewport(true); const rendered = render(<Shell />);
     fireEvent.click(screen.getByRole('button', { name: '切换侧栏' }));
