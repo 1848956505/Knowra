@@ -1,3 +1,4 @@
+/* V5 路径文字；省略投影、路由与可访问路径语义保持原样。 */
 .trail {
   display: inline-flex;
   align-items: center;
@@ -12,8 +13,8 @@
 
 .top {
   flex: 0 1 auto;
-  color: var(--ink-secondary);
-  font: 700 12px/1.4 var(--font-mono);
+  color: var(--text-secondary);
+  font: 500 var(--font-size-meta)/1.4 var(--font-ui);
 }
 
 .fragment {
@@ -27,7 +28,7 @@
 .separator {
   flex: 0 0 auto;
   padding: 0 1px;
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-weight: 400;
   user-select: none;
 }
@@ -59,16 +60,16 @@
 }
 
 .link:focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-  border-radius: 2px;
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
+  border-radius: var(--radius-control);
 }
 
 .current {
-  color: var(--ink);
+  color: var(--text-primary);
   font-weight: inherit;
 }
 
 .top .link {
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
 }

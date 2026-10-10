@@ -120,7 +120,7 @@
 }
 .metadata dt { color: var(--text-secondary); }
 .metadata dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-ui); font-variant-numeric: tabular-nums; }
 
 .status { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-weight: 500; }
 .status i { width: var(--status-dot-size); height: var(--status-dot-size); border-radius: 50%; background: var(--text-muted); }
@@ -221,7 +221,7 @@
 .annotationHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 2px 12px; }
 .annotationTitle { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .annotationTitle strong { font-size: var(--font-size-ui); letter-spacing: .02em; }
-.annotationTitle > span { color: var(--text-secondary); font: var(--font-size-meta)/1 var(--font-mono); padding-left: 2px; }
+.annotationTitle > span { color: var(--text-secondary); font: var(--font-size-meta)/1 var(--font-ui); padding-left: 2px; }
 .annotationHeaderActions { display: flex; align-items: center; gap: var(--space-1); flex: none; }
 .annotationFilterActive { color: var(--accent-on-tint); background: var(--accent-soft); }
 .annotationScopeFilters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 12px; }
@@ -307,11 +307,11 @@
 .versionList button[aria-pressed='true'] { border-color: var(--accent-on-tint); background: var(--accent-soft); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent); }
 .versionList button:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .versionList button span { min-width: 0; overflow: hidden; font-size: var(--font-size-meta); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.versionList time { color: var(--text-secondary); font: var(--font-size-meta)/1.4 var(--font-mono); font-variant-numeric: tabular-nums; }
+.versionList time { color: var(--text-secondary); font: var(--font-size-meta)/1.4 var(--font-ui); font-variant-numeric: tabular-nums; }
 .versionPreview { border: 1px solid var(--border-strong); background: var(--surface-page); box-shadow: var(--shadow-control); }
 .versionPreview > header { display: flex; justify-content: space-between; gap: var(--space-2); padding: 8px 9px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-hover); }
 .versionPreview > header strong { font-size: var(--font-size-meta); }
-.versionPreview > header span { color: var(--text-secondary); font: var(--font-size-meta)/1.4 var(--font-mono); }
+.versionPreview > header span { color: var(--text-secondary); font: var(--font-size-meta)/1.4 var(--font-ui); }
 .versionPreview pre { max-height: 260px; margin: 0; padding: 10px; overflow: auto; color: var(--text-primary); font: var(--font-size-meta)/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .versionError { margin: 0; padding: 9px; border: 1px solid color-mix(in srgb, var(--ink-danger) 24%, transparent); border-radius: var(--radius-control); background: var(--ink-danger-soft); color: var(--ink-danger); font-size: var(--font-size-meta); line-height: 1.5; }
 .tagOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
@@ -361,13 +361,13 @@
 .attachmentTarget svg { flex: 0 0 auto; color: var(--text-secondary); }
 .attachmentTarget span { min-width: 0; display: grid; gap: 2px; }
 .attachmentTarget strong { overflow: hidden; font-size: var(--font-size-meta); text-overflow: ellipsis; white-space: nowrap; }
-.attachmentTarget small { color: var(--text-secondary); font: var(--font-size-meta)/1.2 var(--font-mono); }
+.attachmentTarget small { color: var(--text-secondary); font: var(--font-size-meta)/1.2 var(--font-ui); }
 .referenceBadge {
   padding: 3px 5px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   background: var(--accent-soft);
   color: var(--accent-on-tint);
-  font: 500 var(--font-size-meta)/1 var(--font-mono);
+  font: 500 var(--font-size-meta)/1 var(--font-ui);
   white-space: nowrap;
 }
 
