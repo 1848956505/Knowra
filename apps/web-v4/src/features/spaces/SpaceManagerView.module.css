@@ -1,15 +1,24 @@
-.body { display: grid; align-content: start; gap: 20px; padding: 24px; overflow: auto; }
-.section { border: 1px solid var(--ink-panel); background: var(--ink-surface); padding: 20px; }
-.section h2 { margin: 0 0 12px; font-size: 18px; }
-.section p { color: var(--ink-secondary); }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-.card { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 16px; border: 1px solid var(--ink-panel); }
-.card h3 { margin: 0; font-size: 16px; }
-.card p { margin: 6px 0 0; font-size: 13px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.migrationFields { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-.migrationFields > * { min-width: 160px; }
-.preview { margin-top: 16px; padding: 16px; border: 1px solid var(--ink-panel); }
-.error { color: var(--ink-danger); }
-.notice { color: var(--ink-success); }
-@media (max-width: 700px) { .body { padding: 12px; } .card { align-items: start; flex-direction: column; } }
+/* V5 空间管理：留白分层，迁移/删除继续使用独立危险语义。 */
+.body { min-width: 0; display: grid; align-content: start; gap: var(--space-5); padding: var(--space-5); overflow: auto; overscroll-behavior: contain; scroll-padding: var(--space-3); scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.section { min-width: 0; border-radius: var(--radius-panel); background: var(--surface-raised); box-shadow: var(--shadow-control); padding: var(--space-5); }
+.section h2 { margin: 0 0 var(--space-3); color: var(--text-primary); font-size: var(--font-size-note-heading); font-weight: 600; letter-spacing: -.02em; line-height: 1.5; }
+.section p { color: var(--text-secondary); font-size: var(--font-size-ui); line-height: 1.7; overflow-wrap: anywhere; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: var(--space-3); }
+.card { min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-4); align-items: center; padding: var(--space-4); border-radius: var(--radius-popover); background: var(--surface-page); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.card > div { min-width: 0; }
+.card h3 { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.card p { margin: var(--space-1) 0 0; font-size: var(--font-size-meta); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.migrationFields { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; }
+.migrationFields > * { min-width: min(160px, 100%); max-width: 100%; }
+.preview { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius-popover); background: var(--surface-sidebar-solid); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.preview [role='alert'] { color: var(--color-danger); }
+.error, .notice { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-popover); font-size: var(--font-size-ui); line-height: 1.7; overflow-wrap: anywhere; }
+.error { color: var(--color-danger); background: var(--color-danger-soft); }
+.notice { color: var(--color-success); background: var(--color-success-soft); }
+@media (max-width: 700px) {
+  .body { gap: var(--space-4); padding: var(--space-3); }
+  .section { padding: var(--space-4); }
+  .card { align-items: start; flex-direction: column; }
+  .migrationFields > * { width: 100%; }
+}
