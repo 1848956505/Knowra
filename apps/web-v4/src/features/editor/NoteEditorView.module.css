@@ -219,7 +219,7 @@
   box-shadow: none;
 }
 /* 标题与正文以插入光标反馈焦点，不套用输入框轮廓；工具栏仍保留键盘焦点环。 */
-.titleInput:focus-visible { outline: none; box-shadow: none; }
+.titleInput:focus-visible { outline: 0; box-shadow: none; }
 .titleInput:read-only { cursor: default; }
 .titleInput[aria-invalid='true'] { outline: 1px solid var(--ink-danger); outline-offset: 6px; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; color: var(--text-secondary); font: 400 var(--font-size-meta)/1.5 var(--font-ui); }

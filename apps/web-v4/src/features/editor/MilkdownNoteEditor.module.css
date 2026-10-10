@@ -3,7 +3,7 @@
 .milkdownEditor :global(.ProseMirror) {
   min-height: 280px;
   padding: 0;
-  outline: none;
+  outline: 0;
   caret-color: var(--accent);
   white-space: pre-wrap;
   color: var(--text-secondary);
@@ -13,7 +13,7 @@
 
 /* 正文通过插入光标反馈编辑焦点，避免将整篇文档绘制成输入框。 */
 .milkdownEditor :global(.ProseMirror:focus-visible) {
-  outline: none;
+  outline: 0;
   box-shadow: none;
 }
 .milkdownEditor[data-readonly] :global(.ProseMirror) { cursor: default; }

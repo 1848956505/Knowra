@@ -82,7 +82,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page.getByRole('navigation', { name: '设置分类' })).toBeVisible();
     const selectedCategory = page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: /全部设置/ });
     await expect(selectedCategory).toHaveAttribute('aria-pressed', 'true');
-    expect(await selectedCategory.evaluate((element) => { const style = getComputedStyle(element); return style.borderLeftWidth === style.borderRightWidth && style.borderLeftColor === style.borderRightColor; })).toBe(true);
+    expect(await selectedCategory.evaluate((element) => { const style = getComputedStyle(element); return Number.parseFloat(style.borderLeftWidth) <= 1 && style.borderLeftWidth === style.borderRightWidth && style.borderLeftColor === style.borderRightColor; })).toBe(true);
     expect(await selectedCategory.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
     await expect(page.getByText('显示 8 / 8 项设置')).toBeVisible();
     await expect(page.getByRole('heading', { name: '模型接入' })).toBeVisible();

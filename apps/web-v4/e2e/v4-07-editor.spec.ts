@@ -533,8 +533,9 @@ test('V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底�
   expect(await contextMenu.evaluate(element => Number.parseFloat(getComputedStyle(element).borderTopWidth))).toBeLessThanOrEqual(1);
   await expect(contextMenu).toHaveCSS('border-radius', '10px');
   const quickButtonBox = await contextMenu.getByRole('menuitem', { name: '剪切', exact: true }).boundingBox();
-  expect(quickButtonBox?.height).toBeGreaterThanOrEqual(44);
-  expect(quickButtonBox?.height).toBeLessThanOrEqual(44);
+  // Chromium 的浮点坐标可能为 43.999984；CSS 最小触点与百分之一像素取整共同验证44px。
+  await expect(contextMenu.getByRole('menuitem', { name: '剪切', exact: true })).toHaveCSS('min-height', '44px');
+  expect(Math.round(quickButtonBox!.height * 100) / 100).toBe(44);
   expect((await contextMenu.boundingBox())?.width).toBeLessThanOrEqual(280);
   for (const label of ['剪切', '复制', '粘贴', '删除', '加粗', '斜体', '高亮', '行内代码', '有序', '无序', '任务']) {
     await expect(contextMenu.getByRole('menuitem', { name: label, exact: true })).toBeEnabled();

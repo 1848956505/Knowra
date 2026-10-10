@@ -43,9 +43,9 @@ for (const viewport of viewports) test(`合成移动证据 ${viewport.name}`, as
   const renderedFonts = async () => {
     const { root } = await fontSession.send('DOM.getDocument');
     const samples = [];
-    for (const selector of ['h1', '.ProseMirror p']) {
+    for (const selector of ['h1', '.ProseMirror h1', '.ProseMirror h2', '.ProseMirror > p']) {
       const { nodeId } = await fontSession.send('DOM.querySelector', { nodeId: root.nodeId, selector });
-      if (nodeId) samples.push({ selector, ...(await fontSession.send('CSS.getPlatformFontsForNode', { nodeId })) });
+      if (nodeId) samples.push({ selector, text: (await page.locator(selector).first().textContent())?.slice(0, 120), ...(await fontSession.send('CSS.getPlatformFontsForNode', { nodeId })) });
     }
     return samples;
   };
