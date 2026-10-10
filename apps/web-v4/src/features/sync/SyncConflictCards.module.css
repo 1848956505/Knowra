@@ -1,19 +1,23 @@
-.conflict { padding: 14px; border: 1px solid var(--ink-panel); display: grid; gap: 12px; overflow-wrap: anywhere; min-width: 0; }
-.conflict h3 { margin: 0; font-size: 14px; }
+/* 冲突、删除、恢复提示保留语义颜色；对比表只在自己的容器内横向滚动。 */
+.conflict { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-popover); background: var(--surface-raised); display: grid; gap: var(--space-3); overflow-wrap: anywhere; min-width: 0; }
+.conflict h3 { margin: 0; font-size: var(--font-size-note); font-weight: 600; }
 .conflict p { margin: 0; line-height: 1.6; }
-.comparison { display: grid; gap: 10px; min-width: 0; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.merge { display: grid; gap: 10px; }
-.merge > * { width: 100%; }
-.hint { font-size: 12px; color: var(--ink-secondary); }
-.notice { padding: 8px; background: var(--ink-warning-soft); }
-.entity { min-width: 0; border-top: 1px solid var(--ink-panel); padding-top: 10px; }
-.entity summary { cursor: pointer; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
-.tableWrap { max-height: 360px; overflow: auto; }
-.fields { width: 100%; min-width: 420px; table-layout: fixed; border-collapse: collapse; font-size: 12px; line-height: 1.6; }
-.fields th, .fields td { border: 1px solid var(--ink-panel); padding: 7px; text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
-.fields th { background: var(--ink-sunken); font-weight: 600; }
+.comparison { display: grid; gap: var(--space-3); min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.merge { display: grid; gap: var(--space-3); min-width: 0; }
+.merge > * { width: 100%; min-width: 0; }
+.hint { font-size: var(--font-size-meta); color: var(--text-secondary); }
+.notice { padding: var(--space-3); border-radius: var(--radius-control); background: var(--color-warning-soft); color: var(--color-warning); }
+.entity { min-width: 0; border-top: 1px solid var(--border-subtle); padding-top: var(--space-3); }
+.entity summary { cursor: pointer; font-size: var(--font-size-ui); font-weight: 600; margin-bottom: var(--space-3); }
+.entity summary:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; border-radius: var(--radius-control); }
+.tableWrap { min-width: 0; max-height: 360px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+.tableWrap:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.fields { width: 100%; min-width: 420px; table-layout: fixed; border-collapse: collapse; font-size: var(--font-size-meta); line-height: 1.6; }
+.fields th, .fields td { border: 1px solid var(--border-subtle); padding: var(--space-2); text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fields th { background: var(--surface-sidebar-solid); font-weight: 600; }
 .fields th:first-child { width: 72px; }
-.changed { background: var(--ink-accent-soft); }
-.changeLabel { display: block; font-size: 10px; color: var(--ink-accent); margin-bottom: 2px; }
-.reasons { font-size: 12px; margin: 0; padding-left: 18px; }
+.changed { background: var(--accent-soft); }
+.changeLabel { display: block; font-size: var(--font-size-meta); color: var(--accent-on-tint); margin-bottom: 2px; }
+.reasons { font-size: var(--font-size-meta); margin: 0; padding-left: var(--space-4); line-height: 1.6; }
+@media (max-width: 430px) { .conflict { padding: var(--space-3); } }
