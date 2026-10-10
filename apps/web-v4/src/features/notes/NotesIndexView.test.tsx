@@ -26,6 +26,7 @@ describe('Notes index skeleton', () => {
     expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();
     expect(screen.queryByText(/个文件夹/)).not.toBeInTheDocument();
     expect(screen.queryByText('INDEX / LIST')).not.toBeInTheDocument();
+    expect(screen.queryByText('INDEX')).not.toBeInTheDocument();
     expect(screen.queryByText('QUICK LOOK')).not.toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
@@ -97,18 +98,20 @@ describe('Notes index skeleton', () => {
     expect(onOpenNote).toHaveBeenCalledWith('note-1');
   });
 
-  it('matches the demo artwork in list and icon views', async () => {
+  it('uses the shared line icons in list and icon views', async () => {
     renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
 
     const iconView = screen.getByLabelText('笔记图标视图');
     expect(iconView).toBeInTheDocument();
     expect(iconView.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
     expect(iconView.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
+    expect(iconView.querySelectorAll('[data-art-kind] > svg')).toHaveLength(6);
+    expect(iconView.querySelectorAll('[data-art-kind][aria-hidden="true"]')).toHaveLength(6);
 
     await userEvent.click(screen.getByRole('button', { name: '列表视图' }));
     const table = screen.getByRole('table');
     expect(table.querySelector('[data-art-kind="folder"]')).toBeInTheDocument();
-    expect(table.querySelector('[data-art-kind="document"]')).toBeInTheDocument();
+    expect(table.querySelector('[data-art-kind="document"] > svg')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '图标视图' }));
     const iconViewAfterToggle = screen.getByLabelText('笔记图标视图');

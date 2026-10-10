@@ -5,23 +5,17 @@
   z-index: 90;
   max-width: min(420px, calc(100vw - 32px));
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   padding: 12px 14px;
-  border: 1px solid var(--ink-danger);
-  background: var(--ink-surface);
-  box-shadow: 4px 4px 0 var(--ink-shadow);
+  border: 0;
+  border-radius: var(--radius-popover);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-popover);
   color: var(--ink-danger);
-  font: 600 13px/1.5 var(--font-ui);
+  font: 400 13px/1.5 var(--font-ui);
 }
 
-.moveError button {
-  flex: 0 0 auto;
-  padding: 0 2px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
+.moveError button { flex: 0 0 auto; }
+
+@media (max-width: 767px) { .moveError { right: 16px; } }

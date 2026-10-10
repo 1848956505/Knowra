@@ -1,3 +1,4 @@
+import { openLocalSync, closeLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -44,11 +45,11 @@ async function fixture(t, title, withSource = false) {
     return (await response.json()).data;
   }
   async function openSync() {
-    await page.getByRole('contentinfo').getByRole('button', { name: /本地资料|云端|同步|需要核对/ }).click();
+    await openLocalSync(page, /本地资料|云端|同步|需要核对/);
     return page.getByRole('dialog', { name: '云端同步', exact: true });
   }
   await page.goto(runtime.launchUrl);
-  // 首次资料加载会从 loading 切换为 api 并重挂载状态栏同步控件。
+  // 首次资料加载会从 loading 切换为 api；状态详情内的同步入口依赖真实资料模式。
   // 先等待真实本地工作区可写，避免在初始化期间点开随后被重挂载的面板。
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
   await expect(page.getByRole('button', { name: '新建知识候选', exact: true })).toBeEnabled();
@@ -56,7 +57,7 @@ async function fixture(t, title, withSource = false) {
   await sync.getByLabel(/云端服务地址/).fill(origin);
   await sync.getByRole('button', { name: '连接并比较资料', exact: true }).click();
   await expect(sync.locator('p[role="status"]')).toContainText('云端已同步');
-  await sync.getByRole('button', { name: '关闭对话框', exact: true }).click();
+  await closeLocalSync(page);
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
   await page.getByRole('button', { name: new RegExp(title) }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
@@ -151,7 +152,7 @@ test('生产页面：云端回收站与离线旧编辑冲突跨重启保全，�
   const recovery = await f.syncRequest('/recovery');
   assert(recovery.some(record => record.local?.knowledgeItems.some(row => row.id === item.id && row.canonicalStatement === '需要保全的离线编辑')));
   assert(f.runtime.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt);
-  await reopened.getByRole('button', { name: '关闭对话框', exact: true }).click();
+  await closeLocalSync(page);
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
   await page.getByRole('toolbar', { name: '知识库工具栏' }).getByRole('button', { name: /^回收站/ }).click();
   await page.getByRole('button', { name: /知识删除冲突验收/ }).click();

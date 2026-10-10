@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
 import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
+import { openLocalSync } from '../../desktop-runtime/test/e2e/helpers/workspace-status.mjs';
 import { inspectRuntimeBackup } from '../../desktop-runtime/src/backup.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -42,7 +43,7 @@ test('真实打包 APP 从第一合成根完整导出，第二独立根导入、
   const openBackup = async () => {
     const draftNotice = page.getByRole('dialog', { name: '恢复草稿', exact: true });
     if (await draftNotice.isVisible()) await draftNotice.getByRole('button', { name: '收起提示', exact: true }).click();
-    await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
+    await openLocalSync(page, /本地资料.*连接云端/);
     await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
   };
   const drafts = (spaceId, noteId, markdown) => ({ version: 1, drafts: { [`knowra:note-draft:v1:${JSON.stringify([spaceId, noteId])}`]: { markdown, baseMarkdown: '草稿基线' } } });

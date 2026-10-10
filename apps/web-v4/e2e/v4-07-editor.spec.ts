@@ -49,22 +49,31 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   const editor = page.locator('.ProseMirror');
   await expect(editor).toContainText('已有正文');
   expect(savedMarkdown).toEqual([]);
-  const cover = page.locator('[data-editor-cover]');
-  await expect(cover).toHaveCSS('width', '72px');
-  await expect(cover).toHaveCSS('height', '98px');
-  await expect(cover).toHaveCSS('top', '-12px');
-  await expect.poll(() => cover.evaluate((element) => getComputedStyle(element).boxShadow))
-    .toContain('rgb(56, 189, 248) 5px 5px');
+  await expect(page.locator('[data-editor-cover]')).toHaveCount(0);
+  await expect(page.getByLabel('笔记位置')).toContainText('工作');
+  const documentPaper = page.locator('article[data-pdf-document]');
+  await expect(documentPaper).toHaveCSS('background-color', await tokenColor(page, '--surface-page'));
+  await expect(documentPaper).toHaveCSS('border-width', '0px');
+  await expect(documentPaper).toHaveCSS('box-shadow', 'none');
+  await expect(page.locator('[data-editor-scroll-root]')).toHaveCSS('background-image', 'none');
+  const titleInput = page.getByRole('textbox', { name: '笔记标题' });
+  await expect(titleInput).toHaveCSS('font-size', '34px');
+  await titleInput.focus();
+  await expect(titleInput).toHaveCSS('outline-width', '0px');
+  await expect(titleInput).toHaveCSS('box-shadow', 'none');
+  await expect(editor).toHaveCSS('font-size', '15px');
+  await expect(editor).toHaveCSS('line-height', '26.25px');
+  await expect(editor).toHaveCSS('color', await tokenColor(page, '--text-secondary'));
+  expect(await editor.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Inter');
   const floatingToolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
   await expect(floatingToolbar).toHaveCSS('margin-top', '24px');
   for (const name of ['文件', '段落', '编辑', '格式', '视图']) {
     await expect(floatingToolbar.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await editor.click();
-  expect(await editor.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return { outline: style.outlineStyle, boxShadow: style.boxShadow };
-  })).toEqual({ outline: 'none', boxShadow: 'none' });
+  // 文档写作通过光标反馈焦点，不绘制输入框轮廓。
+  await expect(editor).toHaveCSS('box-shadow', 'none');
+  await expect(editor).toHaveCSS('outline-width', '0px');
   await page.keyboard.press('End');
   await page.keyboard.type(' 新增内容');
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('新增内容');
@@ -334,10 +343,10 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
 
   const selectFirstParagraph = async () => {
     await editor.locator('p').first().click({ clickCount: 3 });
-    await pinEditorToolbar(page);
+    await showEditorToolbar(page);
   };
   const chooseParagraphAction = async (name: string) => {
-    await pinEditorToolbar(page);
+    await showEditorToolbar(page);
     await page.getByRole('button', { name: '段落', exact: true }).click();
     await page.getByRole('menuitem', { name, exact: true }).click();
   };
@@ -356,12 +365,12 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
     selection?.removeAllRanges();
     selection?.addRange(range);
   });
-  await pinEditorToolbar(page);
+  await showEditorToolbar(page);
   await page.getByRole('button', { name: '格式', exact: true }).click();
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^`缩进验收已有正文`/);
-  await expect(editor.locator('p code').first()).toHaveCSS('background-color', 'rgb(243, 246, 255)');
-  await pinEditorToolbar(page);
+  await expect(editor.locator('p code').first()).toHaveCSS('background-color', await tokenColor(page, '--surface-hover'));
+  await showEditorToolbar(page);
   await page.getByRole('button', { name: '格式', exact: true }).click();
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').not.toMatch(/^`缩进验收已有正文`/);
@@ -397,7 +406,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('代码验收\n\n```');
   await expect(editor.locator('pre code').first()).toHaveText('');
   await expect(editor.locator('pre').first()).toHaveCSS('display', 'block');
-  await expect(editor.locator('pre').first()).toHaveCSS('background-color', 'rgb(249, 246, 241)');
+  await expect(editor.locator('pre').first()).toHaveCSS('background-color', await tokenColor(page, '--surface-sunken'));
   await expect(editor.locator('pre code').first()).toHaveCSS('padding', '18px 20px');
 
   await replaceEditorParagraph(page, editor, '分割线验收');
@@ -446,7 +455,7 @@ test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ pa
     });
   };
   const openFormatMenu = async () => {
-    await pinEditorToolbar(page);
+    await showEditorToolbar(page);
     await page.getByRole('button', { name: '格式', exact: true }).click();
     await expect(page.getByRole('menu', { name: '格式', exact: true })).toBeVisible();
   };
@@ -521,9 +530,12 @@ test('V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底�
 
   const contextMenu = page.getByRole('menu', { name: '编辑器右键快捷功能' });
   await expect(contextMenu).toBeVisible();
-  await expect(contextMenu).toHaveCSS('border-top-width', '4px');
+  expect(await contextMenu.evaluate(element => Number.parseFloat(getComputedStyle(element).borderTopWidth))).toBeLessThanOrEqual(1);
+  await expect(contextMenu).toHaveCSS('border-radius', '10px');
   const quickButtonBox = await contextMenu.getByRole('menuitem', { name: '剪切', exact: true }).boundingBox();
-  expect(quickButtonBox?.height).toBeLessThanOrEqual(44);
+  // Chromium 的浮点坐标可能为 43.999984；CSS 最小触点与百分之一像素取整共同验证44px。
+  await expect(contextMenu.getByRole('menuitem', { name: '剪切', exact: true })).toHaveCSS('min-height', '44px');
+  expect(Math.round(quickButtonBox!.height * 100) / 100).toBe(44);
   expect((await contextMenu.boundingBox())?.width).toBeLessThanOrEqual(280);
   for (const label of ['剪切', '复制', '粘贴', '删除', '加粗', '斜体', '高亮', '行内代码', '有序', '无序', '任务']) {
     await expect(contextMenu.getByRole('menuitem', { name: label, exact: true })).toBeEnabled();
@@ -610,7 +622,7 @@ test('V4-07 编辑菜单完成剪贴板、查找替换与历史命令闭环', as
 
   const editor = page.locator('.ProseMirror');
   const openEditMenu = async () => {
-    await pinEditorToolbar(page);
+    await showEditorToolbar(page);
     await page.getByRole('button', { name: '编辑', exact: true }).click();
     await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
   };
@@ -740,7 +752,7 @@ test('V4-07 异常格式修复读取原始草稿并可一次撤销', async ({ pa
   await page.goto('/#/materials/notes/note-1');
 
   const openEditMenu = async () => {
-    await pinEditorToolbar(page);
+    await showEditorToolbar(page);
     await page.getByRole('button', { name: '编辑', exact: true }).click();
     await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
   };
@@ -889,7 +901,7 @@ test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源�
   await editor.locator(':scope > p').first().click();
   await page.keyboard.press('End');
   const openViewMenu = async () => {
-    await pinEditorToolbar(page);
+    await showEditorToolbar(page);
     await page.getByRole('button', { name: '视图', exact: true }).click();
     await expect(page.getByRole('menu', { name: '视图', exact: true })).toBeVisible();
   };
@@ -969,7 +981,7 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
     rail: (await moduleRail.boundingBox())?.width ?? 0,
     context: (await contextSidebar.boundingBox())?.width ?? 0,
     tabs: closedTabsWidth - ((await noteTabs.boundingBox())?.width ?? 0)
-  })).toEqual({ inspector: 288, rail: 64, context: 224, tabs: 288 });
+  })).toEqual({ inspector: 288, rail: 56, context: 240, tabs: 0 });
   await expect.poll(async () => {
     const [inspectorBox, tabsBox, contextBox] = await Promise.all([
       inspector.boundingBox(),
@@ -979,19 +991,19 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
     if (!inspectorBox || !tabsBox || !contextBox) return null;
     return {
       alignedTop: Math.abs(inspectorBox.y - contextBox.y) <= 1,
-      adjacentTabs: Math.abs(inspectorBox.x - (tabsBox.x + tabsBox.width)) <= 1
+      belowTabs: inspectorBox.y >= tabsBox.y + tabsBox.height - 1
     };
-  }).toEqual({ alignedTop: true, adjacentTabs: true });
+  }).toEqual({ alignedTop: true, belowTabs: true });
   await expect.poll(async () => ({
     inspector: await inspector.evaluate((element) => getComputedStyle(element).backgroundColor),
     header: await inspector.locator('header').evaluate((element) => getComputedStyle(element).backgroundColor)
-  })).toEqual({ inspector: 'rgb(249, 247, 242)', header: 'rgb(249, 247, 242)' });
+  })).toEqual({ inspector: await tokenColor(page, '--surface-page'), header: await tokenColor(page, '--surface-page') });
   await expect(inspector.getByRole('tablist', { name: '检查器视图' })).toBeVisible();
   for (const name of ['信息', '大纲', '链接', '记录', 'AI']) {
     await expect(inspector.getByRole('tab', { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByRole('tablist', { name: '打开的笔记' })).toHaveCSS('background-color', 'rgb(249, 247, 242)');
-  await expect(contextSidebar).toHaveCSS('background-color', 'rgb(249, 247, 242)');
+  await expect(page.getByLabel('全局顶栏')).toHaveCSS('background-color', await tokenColor(page, '--surface-chrome'));
+  await expect(contextSidebar).toHaveCSS('background-color', await tokenColor(page, '--surface-sidebar'));
   expect(await page.locator('article[data-pdf-document]').evaluate((paper) => {
     const stage = paper.parentElement;
     if (!stage) return Infinity;
@@ -1043,6 +1055,25 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   await expect(modal).toBeHidden();
 });
 
+test('V4-07 长文档滚动时格式工具栏吸顶且回到顶部后恢复', async ({ page }) => {
+  const markdown = Array.from({ length: 60 }, (_, index) => `正文段落 ${index + 1}`).join('\n\n');
+  await mockEditorWorkspace(page, [], [], markdown);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  const stage = page.locator('[data-editor-scroll-root]');
+  const toolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
+  await expect.poll(async () => {
+    await stage.evaluate(element => { element.scrollTop = 600; });
+    return toolbar.getAttribute('data-pinned');
+  }).toBe('true');
+  await expect(toolbar).toBeInViewport();
+  expect(Math.abs((await toolbar.boundingBox())!.y - (await stage.boundingBox())!.y)).toBeLessThanOrEqual(1);
+  await stage.evaluate(element => { element.scrollTop = 0; });
+  await expect(toolbar).not.toHaveAttribute('data-pinned');
+  await expect(toolbar).toHaveCSS('margin-top', '24px');
+});
+
 test('V4-07 宽屏打开检查器不缩小纸张', async ({ page }) => {
   await mockEditorWorkspace(page, []);
   await page.setViewportSize({ width: 1920, height: 900 });
@@ -1053,7 +1084,7 @@ test('V4-07 宽屏打开检查器不缩小纸张', async ({ page }) => {
   await page.getByRole('button', { name: '切换文档检查器' }).click();
   await expect(page.getByRole('complementary', { name: '文档检查器' })).toBeVisible();
   const after = (await paper.boundingBox())?.width;
-  expect(before).toBe(960);
+  expect(before).toBe(860);
   expect(after).toBe(before);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
 });
@@ -1164,7 +1195,7 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await page.keyboard.press('ControlOrMeta+v');
   await expect(code).toContainText('# literal\n```js\n**text**');
   await page.evaluate(() => navigator.clipboard.writeText('\n# 菜单粘贴\n    raw'));
-  await pinEditorToolbar(page);
+  await showEditorToolbar(page);
   await page.getByRole('button', { name: '编辑', exact: true }).click();
   await page.getByRole('menuitem', { name: '粘贴', exact: true }).click();
   await expect(code).toContainText('\n# 菜单粘贴\n    raw');
@@ -1180,7 +1211,7 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await expect(code).toHaveText(expected!);
   await expect(language).toHaveValue('c++');
   await expect(editor.locator(':scope > p')).toHaveText('正文继续');
-  await pinEditorToolbar(page);
+  await showEditorToolbar(page);
   await page.getByRole('button', { name: '视图', exact: true }).click();
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(language).toBeDisabled();
@@ -1279,11 +1310,12 @@ test('V4-07 参考样式代码块支持空块删除与非空行插入', async ({
   const block = editor.locator('pre');
   await expect(editor.locator('p').first()).toHaveText('保留当前行');
   await expect(block.locator('code')).toHaveText('');
-  await expect(block).toHaveCSS('border-left-color', 'rgb(35, 35, 35)');
-  await expect(block).toHaveCSS('background-color', 'rgb(249, 246, 241)');
-  await expect.poll(() => block.evaluate(el => getComputedStyle(el).boxShadow)).toContain('4px 4px 0px');
+  await expect(block).toHaveCSS('border-left-width', '0px');
+  await expect(block).toHaveCSS('border-radius', '8px');
+  await expect(block).toHaveCSS('background-color', await tokenColor(page, '--surface-sunken'));
+  await expect.poll(() => block.evaluate(el => getComputedStyle(el).boxShadow)).toContain('0px 0px 0px 1px');
   await expect(block.locator('[data-code-toolbar]')).toHaveCSS('border-bottom-width', '1px');
-  await expect(page.getByRole('textbox', { name: '代码语言', exact: true })).toHaveCSS('background-color', 'rgb(255, 254, 253)');
+  await expect(page.getByRole('textbox', { name: '代码语言', exact: true })).toHaveCSS('background-color', await tokenColor(page, '--surface-page'));
   await block.screenshot({ path: '/tmp/knowra-code-block-inset.png' });
   await page.keyboard.press('Backspace');
   await expect(block).toHaveCount(0);
@@ -1423,20 +1455,14 @@ async function dispatchPaste(page: Page, content: { html?: string; text: string 
   }, content);
 }
 
-async function pinEditorToolbar(page: Page): Promise<void> {
+async function showEditorToolbar(page: Page): Promise<void> {
   const editor = page.locator('.ProseMirror');
   await expect(editor.locator('xpath=ancestor::*[@data-editor-ready][1]')).toHaveAttribute('data-editor-ready', 'true');
   const toolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
-  // 编辑器就绪会恢复滚动位置；在恢复结束后重试真实滚动，不与初始化抢时序。
-  await expect.poll(async () => {
-    await toolbar.evaluate((toolbarElement) => {
-      const stage = toolbarElement.closest('article')?.parentElement;
-      if (!stage) return;
-      stage.scrollTop = stage.scrollHeight;
-      stage.dispatchEvent(new Event('scroll'));
-    });
-    return toolbar.getAttribute('data-pinned');
-  }).toBe('true');
+  // 短文档不一定能滚到吸顶阈值；命令测试只要求工具栏可操作。
+  // 吸顶行为由独立长文档用例验证，不能靠增加空白强行制造滚动距离。
+  await toolbar.scrollIntoViewIfNeeded();
+  await expect(toolbar).toBeInViewport();
   await expect(toolbar.getByRole('button', { name: '段落', exact: true })).toBeVisible();
 }
 
@@ -1464,7 +1490,7 @@ test('V4-07 重点标记内的粗体保持醒目', async ({ page }) => {
   await editor.locator('p').first().click({ clickCount: 3 });
   await page.getByRole('toolbar', { name: '选区工具' }).getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
-  await expect(editor.locator('.editor-annotation')).toHaveCSS('color', 'rgb(37, 99, 235)');
+  await expect(editor.locator('.editor-annotation')).toHaveCSS('color', await tokenColor(page, '--accent-text'));
   expect(Number(await strong.evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);
   await editor.locator('p').first().screenshot({ path: '/tmp/knowra-bold-annotation.png' });
 });
@@ -1490,22 +1516,26 @@ test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
   await inspector.getByRole('tab', { name: '标注' }).click();
   const editor = page.locator('.ProseMirror');
-  for (const [id, label, color] of [
-    ['normal', '普通', 'rgb(37, 99, 235)'],
-    ['important', '重点', 'rgb(194, 65, 12)'],
-    ['core', '核心', 'rgb(124, 58, 237)']
+  for (const [id, label, textToken, badgeToken] of [
+    ['normal', '普通', '--accent-text', '--accent-on-tint'],
+    ['important', '重点', '--ink-importance-important', '--ink-importance-important'],
+    ['core', '核心', '--ink-violet', '--ink-violet']
   ]) {
+    // 彩色底上的徽章用高对比令牌；纸面正文使用对应等级的文字令牌。
+    const color = await tokenColor(page, textToken);
     const card = inspector.locator(`article[data-annotation-card-id="${id}"]`);
     await expect(card).toHaveAttribute('data-importance', id);
-    await expect(card.getByText(label, { exact: true })).toHaveCSS('color', color);
-    expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).toContain(color);
+    await expect(card.getByText(label, { exact: true })).toHaveCSS('color', await tokenColor(page, badgeToken));
+    await expect(card).toHaveCSS('border-left-width', '1px');
+    await expect(card).toHaveCSS('border-radius', '10px');
+    expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).not.toContain('inset');
     const mark = editor.locator(`[data-annotation-id="${id}"]`);
     await expect(mark).toHaveAttribute('data-importance', id);
     await expect(mark).toHaveCSS('color', color);
   }
   await expect(inspector.locator('article[data-annotation-card-id="unrated"]')).not.toHaveAttribute('data-importance');
   await expect(inspector.getByText('待评级')).toHaveCount(0);
-  await expect(editor.locator('[data-annotation-id="unrated"]')).toHaveCSS('color', 'rgb(37, 99, 235)');
+  await expect(editor.locator('[data-annotation-id="unrated"]')).toHaveCSS('color', await tokenColor(page, '--accent-text'));
   await inspector.screenshot({ path: '/tmp/knowra-importance-colors.png' });
 });
 
@@ -1583,7 +1613,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await selectionTools.getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
   const highlight = editor.locator('.editor-annotation').first();
-  await expect(highlight).toHaveCSS('color', 'rgb(37, 99, 235)');
+  await expect(highlight).toHaveCSS('color', await tokenColor(page, '--accent-text'));
   await expect(highlight).toHaveCSS('border-bottom-style', 'none');
   await expect(highlight).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(highlight).toHaveCSS('outline-style', 'none');
@@ -1690,16 +1720,19 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await expect(inspector.getByRole('button', { name: '筛选重点' })).toBeFocused();
 });
 
-test('V4-07 浏览器保留编辑区内的原标签行', async ({ page }) => {
+test('V5 浏览器将笔记标签放入全局独立顶栏', async ({ page }) => {
   await mockEditorWorkspace(page, [], [], '浏览器正文');
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/#/materials/notes/note-1');
   const editor = page.getByLabel('笔记编辑页面骨架');
-  const tabs = editor.getByRole('tablist', { name: '打开的笔记' });
+  const titlebar = page.getByLabel('全局顶栏');
+  const tabs = titlebar.getByRole('tablist', { name: '打开的笔记' });
   await expect(tabs.getByRole('tab', { name: '编辑器验收笔记' })).toBeVisible();
   await expect(page.getByLabel('Mac 窗口标题栏')).toHaveCount(0);
-  await expect(editor).not.toHaveAttribute('data-window-tabs', 'true');
-  expect(Math.round((await tabs.boundingBox())!.height)).toBe(36);
+  await expect(editor).toHaveAttribute('data-window-tabs', 'true');
+  await expect(editor.getByRole('tablist', { name: '打开的笔记' })).toHaveCount(0);
+  expect(Math.round((await titlebar.boundingBox())!.height)).toBe(46);
+  await expect(tabs.getByRole('tab', { name: '编辑器验收笔记' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.ProseMirror')).toContainText('浏览器正文');
 });
 
@@ -2018,3 +2051,16 @@ test('V4-07 表格删列后复用图片节点仍按局部容器宽度等比调�
   await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(originalWidth + 10);
   await expect.poll(() => image.evaluate(node => Math.abs(node.getBoundingClientRect().width - node.parentElement!.clientWidth * 0.4))).toBeLessThan(1);
 });
+
+/** 用真实主题令牌校验颜色，避免回归测试重新固定旧主题色。 */
+async function tokenColor(page: Page, token: string): Promise<string> {
+  return page.evaluate(name => {
+    const probe = document.createElement('span');
+    probe.style.color = `var(${name})`;
+    probe.hidden = true;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, token);
+}

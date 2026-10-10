@@ -38,7 +38,7 @@ function syncIssue(failure: unknown): SyncIssue {
     : { code: 'SYNC_ACTION_FAILED', message: '同步操作失败。' };
 }
 
-export function LocalSyncControl() {
+export function LocalSyncControl({ compact = false }: { compact?: boolean }) {
   const store = useAppStoreApi();
   const hasDraft = useAppStore(state => state.editorHasLocalChanges || state.saveState === 'saving');
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -130,7 +130,7 @@ export function LocalSyncControl() {
   const presentation = describeLocalSyncStatus(status, !status?.serverUrl || error?.code?.startsWith('LOCAL_RUNTIME_') ? error : null);
   const displayedError = error ?? status?.error;
   return <>
-    <button type="button" className={styles.trigger} data-tone={presentation.tone} onClick={() => { setServerUrl(status?.serverUrl ?? serverUrl); setOpen(true); }}>
+    <button type="button" className={`${styles.trigger} ${compact ? styles.compact : ''}`} data-tone={presentation.tone} aria-label={compact ? `${presentation.main}${presentation.tone !== 'success' ? ` ${presentation.detail}` : ''}` : undefined} title={compact ? `${presentation.main} · ${presentation.detail}` : undefined} onClick={() => { setServerUrl(status?.serverUrl ?? serverUrl); setOpen(true); }}>
       <span className={styles.marker} aria-hidden="true" />
       <span className={styles.main}>{presentation.main}</span>
       {presentation.tone !== 'success' ? <span className={styles.detail}>{presentation.detail}</span> : null}

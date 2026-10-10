@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
 import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
+import { openLocalSync } from '../../desktop-runtime/test/e2e/helpers/workspace-status.mjs';
 
 const expectedVersion = JSON.parse(fs.readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')).version;
 
@@ -48,7 +49,7 @@ test('打包应用备份恢复隔离原生旧草稿，退出及重启均不会�
     return post('/api/knowledge/notes', { spaceId: space.id, title: '打包备份隔离检查', rawMarkdown: '备份中的正文\n' });
   });
   await page.reload();
-  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
+  await openLocalSync(page, /本地资料.*连接云端/);
   await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
   await page.getByRole('button', { name: '创建本机备份', exact: true }).click();
   await expect(page.getByText(/备份已保存：/)).toBeVisible();

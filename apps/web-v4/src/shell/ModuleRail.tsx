@@ -22,7 +22,6 @@ import {
 } from '../components/icons/knowra';
 import type { WorkDomain } from '../store/types';
 import { cx } from '../components/ui/classnames';
-import brandMark from '../assets/knowra-brand-mark.svg';
 import styles from './ModuleRail.module.css';
 
 export interface RailItem {
@@ -121,7 +120,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
         title="知境工作区"
         onClick={onReturnHome}
       >
-        <img className={styles.brandMark} src={brandMark} alt="" aria-hidden="true" />
+        <HomeIcon size={20} />
       </button>
 
       <div className={cx(styles.railGroup, styles.railGroupGlobal)} role="group" aria-label="全局操作">

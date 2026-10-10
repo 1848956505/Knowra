@@ -1,4 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './fixtures/syntheticTest';
+import { mockShellServices } from './fixtures/shellServices';
 
 test('笔记和文件夹可在索引、侧栏及根目录之间拖动', async ({ page }) => {
   const workspace = await mockMoveWorkspace(page);
@@ -41,7 +43,7 @@ test('从侧栏移走笔记后，当前文件夹的服务端索引立即刷新',
   const indexContent = page.getByTestId('notes-index-scroll');
   await expect(indexContent.getByText('待移动笔记')).toBeVisible();
 
-  await page.locator('[data-note-id="note-1"]').dragTo(page.locator('[class*="libraryRow"]'));
+  await page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]').dragTo(page.locator('[class*="libraryRow"]'));
   await expect.poll(() => workspace.notes[0].folderId).toBeNull();
   await expect(indexContent.getByText('待移动笔记')).toHaveCount(0);
 });
@@ -74,7 +76,7 @@ test('悬停文件夹会展开目录，空白区域可接收移动到当前文�
   if (await page.getByRole('button', { name: '展开甲目录' }).count()) {
     await page.getByRole('button', { name: '展开甲目录' }).click();
   }
-  const noteSource = page.locator('[data-note-id="note-1"]');
+  const noteSource = page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]');
   await noteSource.dragTo(page.getByTestId('notes-index-scroll'), { targetPosition: { x: 400, y: 300 } });
   await expect.poll(() => workspace.notes[0].folderId).toBe('folder-b');
   await expect(page.getByTestId('notes-index-scroll').getByText('待移动笔记')).toBeVisible();
@@ -111,12 +113,56 @@ test('全部笔记空白处不代表根目录，笔记库页面空白处可移�
   if (await page.getByRole('button', { name: '展开甲目录' }).count()) {
     await page.getByRole('button', { name: '展开甲目录' }).click();
   }
-  await page.locator('[data-note-id="note-1"]').dragTo(content, { targetPosition: { x: 400, y: 300 } });
+  await page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]').dragTo(content, { targetPosition: { x: 400, y: 300 } });
   await expect.poll(() => workspace.notes[0].folderId).toBeNull();
   await expect(content.getByText('待移动笔记')).toBeVisible();
 });
 
+test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚动', async ({ page }) => {
+  await mockMoveWorkspace(page);
+  await page.goto('/#/materials');
+  const index = page.getByRole('article', { name: '笔记索引' });
+  await expect(index).toBeVisible();
+  await expect(index.getByText('INDEX', { exact: true })).toHaveCount(0);
+  await expect(index.locator('[data-art-kind] > svg')).toHaveCount(3);
+  const content = page.getByTestId('notes-index-scroll');
+  await expect(content).toHaveCSS('background-image', 'none');
+  await expect(content).toHaveCSS('overflow-y', 'auto');
+  const tile = index.locator('[data-entry-item]').filter({ hasText: '待移动笔记' }).locator('button[draggable="true"]');
+  await expect(tile).toHaveCSS('border-radius', '12px');
+  await expect(tile).toHaveCSS('transform', 'none');
+  await tile.focus();
+  await expect(tile).toBeFocused();
+  await expect(tile).not.toHaveCSS('box-shadow', 'none');
+
+  await page.getByRole('button', { name: '展开甲目录' }).click();
+  const note = page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]');
+  await note.click();
+  await expect(note).toHaveAttribute('aria-current', 'page');
+  await expect(note).toHaveCSS('color', 'rgb(23, 24, 27)');
+  await expect(note).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.075)');
+  await expect(note).toHaveCSS('border-left-width', '0px');
+  await expect(note.locator('svg path').last()).toHaveCSS('stroke', 'rgb(104, 109, 118)');
+});
+
+test('V5 窄屏目录展开按钮和笔记触点至少44px', async ({ page }) => {
+  await mockMoveWorkspace(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/materials');
+  const sidebar = page.getByRole('complementary', { name: '笔记上下文导航' });
+  if (!(await sidebar.isVisible())) await page.getByRole('button', { name: '切换侧栏' }).click();
+  const toggle = page.getByRole('button', { name: '展开甲目录' });
+  await expect(toggle).toBeVisible();
+  const toggleBox = await toggle.boundingBox();
+  expect(toggleBox?.width).toBeGreaterThanOrEqual(44);
+  expect(toggleBox?.height).toBeGreaterThanOrEqual(44);
+  await toggle.click();
+  const noteBox = await page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]').boundingBox();
+  expect(noteBox?.height).toBeGreaterThanOrEqual(44);
+});
+
 async function mockMoveWorkspace(page: Page) {
+  await mockShellServices(page);
   const folders = [
     { id: 'folder-a', name: '甲目录', parentId: null as string | null },
     { id: 'folder-child', name: '子目录', parentId: 'folder-a' as string | null },
@@ -161,6 +207,8 @@ async function mockMoveWorkspace(page: Page) {
       data = [{ id: 'space-1', name: '主空间' }];
     } else if (path.endsWith('/folders/tree')) {
       data = tree(null);
+    } else if (/\/notes\/[^/]+$/.test(path)) {
+      data = notes.find(note => note.id === path.split('/').pop()) ?? null;
     } else if (path.endsWith('/notes')) {
       data = notes.filter((note) => {
         if (url.searchParams.get('folderId') && note.folderId !== url.searchParams.get('folderId')) return false;

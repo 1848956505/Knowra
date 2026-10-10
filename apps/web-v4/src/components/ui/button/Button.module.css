@@ -1,10 +1,6 @@
-/* V4-04 Button
- *
- * 转译自印格-demo-状态板.html .btn* 系列。hover 抬升 1px / active 塌入 1px / focus 蓝色实阴影。
- * 颜色与阴影全部通过 token 引用，禁止硬编码。
- */
-
+/* V5 共享按钮：细边、柔影和静止的状态反馈，保留 React Aria 交互语义。 */
 .btn {
+  --knowra-icon-accent: currentColor;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -13,18 +9,17 @@
   min-width: 36px;
   padding: 0 14px;
   font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  border-radius: 0;
-  box-shadow: var(--shadow-1);
+  color: var(--text-primary);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-control);
   transition:
-    transform var(--motion-fast) var(--motion-ease),
     box-shadow var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
     color var(--motion-fast) var(--motion-ease);
   cursor: pointer;
@@ -33,41 +28,17 @@
 }
 
 .btn[data-hovered]:not([data-disabled]):not([data-pending]) {
-  transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-button-hover);
-  background: var(--ink-surface);
-  color: var(--ink-accent-hover);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .btn[data-pressed]:not([data-disabled]):not([data-pending]) {
-  transform: translate(1px, 1px);
+  background: var(--surface-pressed);
   box-shadow: none;
 }
 
-.btn[data-focus-visible] {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-  border-color: var(--ink-accent);
-}
-
-.btn[data-disabled],
-.btn[disabled] {
-  --knowra-icon-accent: currentColor;
-  color: var(--ink-muted);
-  background: var(--ink-sunken);
-  border-color: var(--ink-panel);
-  box-shadow: none;
-  transform: none;
-  cursor: not-allowed;
-  opacity: 0.85;
-}
-
-.btn[data-pending] {
-  cursor: progress;
-  opacity: 0.85;
-}
-
-/* 尺寸变体：页面只负责排列，按钮外观在此统一维护。 */
+/* 页面只负责排列，按钮外观及尺寸在此统一维护。 */
 .workspace,
 .compact,
 .mini {
@@ -76,78 +47,56 @@
   min-height: var(--index-size-28);
   padding: 0 var(--index-size-12);
   gap: var(--index-size-7);
-  border-color: var(--ink-shell);
-  background: var(--ink-bg);
-  color: var(--ink-secondary);
-  font-size: var(--index-size-11);
-  font-weight: 750;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .compact { min-height: 29px; padding-inline: 10px; }
-.pill { border-radius: 999px; box-shadow: none; }
-.pill[data-hovered]:not([data-disabled]):not([data-pending]) { box-shadow: var(--shadow-1); }
-.mini { min-height: 27px; padding-inline: 6px; font-size: 10px; box-shadow: none; }
+.pill { border-radius: 999px; }
+.mini { min-height: 27px; padding-inline: 6px; font-size: 11px; box-shadow: none; }
 .iconOnly { min-width: var(--index-size-30); min-height: var(--index-size-30); padding: 0; justify-content: center; }
-.soft { border-color: var(--ink-accent); background: var(--index-blue-wash); color: var(--ink-accent-hover); }
-.soft[data-hovered]:not([data-disabled]):not([data-pending]) { background: var(--ink-accent-soft); }
-.workspace[aria-pressed='true'],
-.workspace[aria-current='page'],
-.workspace[aria-expanded='true'] { --knowra-icon-accent: currentColor; background: var(--ink-accent); border-color: var(--ink-accent-hover); color: var(--ink-surface); }
-.workspace[aria-pressed='true'][data-hovered],
-.workspace[aria-current='page'][data-hovered],
-.workspace[aria-expanded='true'][data-hovered] { background: var(--ink-accent-hover); color: var(--ink-surface); }
-
-/* Variants */
 
 .primary {
-  background: var(--ink);
-  color: var(--ink-surface);
+  --knowra-icon-accent: currentColor;
+  background: var(--text-primary);
+  border-color: transparent;
+  color: var(--surface-page);
 }
 
 .primary[data-hovered]:not([data-disabled]):not([data-pending]) {
-  background: var(--ink-accent-hover);
-  border-color: var(--ink-accent-hover);
-  color: var(--ink-surface);
+  background: var(--text-secondary);
+  border-color: transparent;
+  color: var(--surface-page);
 }
 
-.primary[data-disabled],
-.primary[disabled] {
-  background: var(--ink-muted);
-  color: var(--ink-surface);
-  opacity: 0.65;
+.primary[data-pressed]:not([data-disabled]):not([data-pending]) {
+  background: var(--text-primary);
 }
 
 .accent {
   --knowra-icon-accent: currentColor;
-  background: var(--ink-accent);
-  color: var(--ink-surface);
-  border-color: var(--ink-accent);
+  background: var(--accent-solid);
+  color: var(--surface-page);
+  border-color: transparent;
 }
 
-.workspace.accent { border-color: var(--ink-accent-hover); }
-
-.accent[data-hovered]:not([data-disabled]):not([data-pending]) {
-  background: var(--ink-accent-hover);
-  border-color: var(--ink-accent-hover);
-  color: var(--ink-surface);
-}
-
-.accent[data-disabled],
-.accent[disabled] {
-  background: var(--ink-muted);
-  border-color: var(--ink-muted);
-  color: var(--ink-surface);
-  opacity: 0.65;
+.accent[data-hovered]:not([data-disabled]):not([data-pending]),
+.accent[data-pressed]:not([data-disabled]):not([data-pending]) {
+  background: var(--accent-hover);
+  border-color: transparent;
+  color: var(--surface-page);
 }
 
 .danger {
-  background: var(--ink-surface);
+  --knowra-icon-accent: currentColor;
   color: var(--ink-danger);
-  border-color: var(--ink-danger);
+  border-color: color-mix(in srgb, var(--ink-danger) 24%, transparent);
 }
 
-.danger[data-hovered]:not([data-disabled]):not([data-pending]) {
+.danger[data-hovered]:not([data-disabled]):not([data-pending]),
+.danger[data-pressed]:not([data-disabled]):not([data-pending]) {
   background: var(--ink-danger-soft);
+  border-color: var(--ink-danger);
   color: var(--ink-danger);
 }
 
@@ -157,33 +106,70 @@
   background: transparent;
 }
 
-.ghost[data-hovered]:not([data-disabled]):not([data-pending]) {
-  box-shadow: var(--shadow-1);
-  background: var(--ink-sunken);
+.ghost[data-hovered]:not([data-disabled]):not([data-pending]),
+.ghost[data-pressed]:not([data-disabled]):not([data-pending]) {
+  border-color: transparent;
+  box-shadow: none;
 }
 
-/* Icon-only button */
-
-.icon {
-  min-width: 36px;
-  width: 36px;
-  padding: 0 9px;
-  gap: 0;
+.soft {
+  --knowra-icon-accent: currentColor;
+  border-color: var(--accent-border, var(--border-subtle));
+  background: var(--accent-soft, var(--ink-accent-soft));
+  color: var(--accent-on-tint);
+  box-shadow: none;
 }
 
-.icon > svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
+.soft[data-hovered]:not([data-disabled]):not([data-pending]),
+.soft[data-pressed]:not([data-disabled]):not([data-pending]) {
+  background: var(--accent-soft, var(--ink-accent-soft));
+  border-color: var(--accent);
+  color: var(--accent-on-tint);
 }
+
+.workspace[aria-pressed='true'],
+.workspace[aria-current='page'],
+.workspace[aria-expanded='true'] {
+  --knowra-icon-accent: var(--accent);
+  background: var(--surface-page);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-control);
+}
+
+.workspace[aria-pressed='true'][data-hovered],
+.workspace[aria-current='page'][data-hovered],
+.workspace[aria-expanded='true'][data-hovered] {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* 状态放在语义变体之后，避免选中或悬停覆盖焦点及禁用反馈。 */
+.btn[data-focus-visible],
+.btn[data-focus-visible]:not([data-disabled]):not([data-pending]) {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+  border-color: var(--accent);
+}
+
+.btn[data-disabled],
+.btn[disabled] {
+  --knowra-icon-accent: currentColor;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  border-color: var(--border-subtle);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.btn[data-pending] { cursor: progress; opacity: 0.75; }
+
+.icon { min-width: 36px; width: 36px; padding: 0 9px; gap: 0; }
+.icon > svg { width: 14px; height: 14px; flex: 0 0 auto; }
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .btn {
-    min-height: 44px;
-  }
-  .icon,
-  .iconOnly {
-    min-width: 44px;
-    width: 44px;
-  }
+  .btn { min-height: 44px; }
+  .icon, .iconOnly { min-width: 44px; width: 44px; }
 }

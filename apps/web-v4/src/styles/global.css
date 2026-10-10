@@ -8,11 +8,8 @@
  */
 
 body {
-  background-color: var(--ink-bg);
-  background-image: radial-gradient(var(--ink-dot) 1px, transparent 1px);
-  background-size: 8px 8px;
-  background-position: 0 0;
-  background-attachment: fixed;
+  background: var(--surface-chrome);
+  -moz-osx-font-smoothing: grayscale;
 }
 
 :where(button, a, [role="button"]) {
@@ -33,8 +30,9 @@ body {
  * 输入控件的焦点反馈由可见外壳（TextField/SearchField/业务 search shell）接管；
  * 原生控件这里只清除浏览器默认环，避免和外壳形成双重阴影。 */
 :where(button, [role="button"], a, [tabindex]):focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
   border-color: var(--ink-accent);
 }
 

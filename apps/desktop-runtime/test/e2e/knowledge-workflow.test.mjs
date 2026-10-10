@@ -1,3 +1,4 @@
+import { openLocalSync, closeLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -97,11 +98,11 @@ test('真实页面：标注来源审核与过期保护；桌面离线新建、�
   assert.equal(runtime.store.state.knowledgeItems[0].canonicalStatement, '没有云端连接也能保存知识候选。');
   assert(runtime.store.getStatus().pendingOperations > 0);
   const offlineId = runtime.store.state.knowledgeItems[0].id;
-  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
+  await openLocalSync(page, /本地资料.*连接云端/);
   await page.getByLabel(/云端服务地址/).fill(origin);
   await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '云端同步', exact: true })).toContainText('云端已同步');
-  await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
+  await closeLocalSync(page);
   assert.equal(dataStore.state.knowledgeItems.find(item => item.id === offlineId).reviewStatus, 'confirmed');
   await expect(page.getByRole('button', { name: /注意力加权/ })).toBeVisible();
   const cloudOffline = dataStore.state.knowledgeItems.find(item => item.id === offlineId);

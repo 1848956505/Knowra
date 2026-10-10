@@ -1,9 +1,10 @@
 .panel {
   margin: 12px 0 20px;
-  padding: 12px;
-  border: 1px solid var(--ink);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-1);
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-popover);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-control);
 }
 
 .head,
@@ -11,15 +12,15 @@
 .statusRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .head { justify-content: space-between; margin-bottom: 12px; }
 .head h2 { margin: 0; font-size: 14px; }
-.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .fields[data-find-only] { grid-template-columns: minmax(0, 1fr); }
 .statusRow { justify-content: space-between; min-height: 32px; margin-top: 10px; }
-.status { margin: 0; color: var(--ink-secondary); font: 11px/1.5 var(--font-mono); }
+.status { margin: 0; color: var(--text-secondary); font: var(--font-size-meta)/1.5 var(--font-ui); }
 .actions { justify-content: flex-end; flex-wrap: wrap; }
 .actions button { min-height: 32px; }
 
@@ -28,5 +29,7 @@
   .fields { grid-template-columns: 1fr; }
   .statusRow { align-items: stretch; flex-direction: column; }
   .actions { justify-content: stretch; }
-  .actions button { min-height: 44px; flex: 1; }
+  .actions button { min-height: var(--touch-target); flex: 1; }
 }
+
+@media (any-pointer: coarse) { .actions button { min-height: var(--touch-target); } }
