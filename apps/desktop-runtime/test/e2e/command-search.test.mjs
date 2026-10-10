@@ -1,3 +1,4 @@
+import { withWorkspaceStatus } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -152,7 +153,7 @@ test('真实生产页面 CmdK：SQLite 未预载长中文正文的可见命中�
     await expect(page).toHaveURL(editorUrl);
     await expect(page.getByRole('heading', { name: note.title, exact: true })).toBeVisible();
     await expect(page.locator('.ProseMirror')).toContainText(query);
-    await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText(note.title);
+    await withWorkspaceStatus(page, status => expect(status).toContainText(note.title));
     assert.equal(detailRequestCount, 1);
     assert.deepEqual(browserProblems, []);
     fs.writeFileSync(path.join(evidenceRoot, 'result.json'), `${JSON.stringify({ driver: 'real-sqlite', browser: 'chromium',

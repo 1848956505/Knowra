@@ -98,8 +98,9 @@ export function AppShell({
     return () => media.removeEventListener('change', update);
   }, []);
   useEffect(() => { setSidebarOverlayOpen(false); }, [navigationKey]);
-  const sidebarVisible = compact ? sidebarOverlayOpen : contextSidebarOpen;
-  const toolbarStatus = { ...statusbar, panels: statusbar.panels?.map(panel => panel.id === 'sidebar' && compact ? { ...panel, active: sidebarOverlayOpen, onToggle: () => setSidebarOverlayOpen(open => !open) } : panel) };
+  useEffect(() => { if (focusMode) setSidebarOverlayOpen(false); }, [focusMode]);
+  const sidebarVisible = !focusMode && (compact ? sidebarOverlayOpen : contextSidebarOpen);
+  const toolbarStatus = { ...statusbar, panels: statusbar.panels?.filter(panel => !focusMode || panel.id !== 'sidebar').map(panel => panel.id === 'sidebar' && compact ? { ...panel, active: sidebarOverlayOpen, onToggle: () => setSidebarOverlayOpen(open => !open) } : panel) };
   const [titlebarHost, setTitlebarHost] = useState<HTMLDivElement | null>(null);
   return (
     <DesktopTitlebarContext.Provider value={{ enabled: desktop, host: titlebarHost }}>

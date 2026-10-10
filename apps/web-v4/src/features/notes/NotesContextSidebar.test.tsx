@@ -197,6 +197,28 @@ describe('NotesContextSidebar', () => {
     expect(onOpenNote).toHaveBeenCalledWith('note-1');
   });
 
+  it('keeps note selection and section toggles accessible from the keyboard', async () => {
+    const user = userEvent.setup();
+    const onOpenNote = vi.fn();
+    renderSidebar({ onOpenNote });
+    const folderToggle = screen.getByRole('button', { name: '展开产品设计' });
+    folderToggle.focus();
+    await user.keyboard('{Enter}');
+    const note = screen.getByRole('button', { name: '规划草案' });
+    note.focus();
+    await user.keyboard('{Enter}');
+    expect(note).toHaveAttribute('aria-current', 'page');
+    expect(note).toHaveFocus();
+    expect(onOpenNote).toHaveBeenCalledWith('note-1');
+
+    const tagsToggle = screen.getByRole('button', { name: '标签' });
+    tagsToggle.focus();
+    await user.keyboard(' ');
+    expect(tagsToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(tagsToggle).toHaveFocus();
+    expect(screen.getByRole('button', { name: /回收站1/ }).closest('footer')).not.toBeNull();
+  });
+
   it('renames and confirms deletion for notes without native browser dialogs', async () => {
     const { api } = renderSidebar();
     await userEvent.click(screen.getByRole('button', { name: '展开产品设计' }));

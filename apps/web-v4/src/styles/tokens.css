@@ -10,6 +10,8 @@
   --surface-sunken: #eaedf0;
   --surface-hover: rgb(24 30 48 / 5.5%);
   --surface-pressed: rgb(24 30 48 / 8.5%);
+  --surface-nav-selected: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, transparent), color-mix(in srgb, var(--surface-raised) 40%, transparent));
+  --highlight-nav-selected: inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 85%, transparent);
   --surface-selected: rgb(24 30 48 / 7.5%);
   --text-primary: #17181b;
   --text-secondary: #686d76;

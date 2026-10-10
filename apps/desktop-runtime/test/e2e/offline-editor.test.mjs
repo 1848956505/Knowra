@@ -1,3 +1,4 @@
+import { withWorkspaceStatus } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -46,12 +47,33 @@ test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务�
   const editor = page.locator('.ProseMirror');
   await expect(editor).toContainText('原始内容');
   await expect(page.getByRole('button', { name: '插入图片', exact: true })).toBeEnabled();
+  // 仅延后首个真实 PATCH 的放行，不替换响应，给弹层留出确定的“保存中”验收窗口。
+  const noteUrl = `${runtime.origin}/api/knowledge/notes/${note.id}`;
+  let releaseSave, reportSaveStarted;
+  const saveBarrier = new Promise(resolve => { releaseSave = resolve; });
+  const saveStarted = new Promise(resolve => { reportSaveStarted = resolve; });
+  const holdSave = async route => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    reportSaveStarted();
+    await saveBarrier;
+    await route.continue();
+  };
+  await page.route(noteUrl, holdSave);
   await editor.click();
   await page.keyboard.press('End');
   await page.keyboard.insertText(' 离线新增中文正文');
-  await expect(page.getByRole('contentinfo')).toContainText('保存中');
-  await expect(page.getByRole('contentinfo')).toContainText('已保存到本机');
-  await expect(page.getByRole('contentinfo')).toContainText('连接云端');
+  await saveStarted;
+  try {
+    await withWorkspaceStatus(page, async status => {
+      await expect(status).toContainText('保存中');
+      releaseSave();
+      await expect(status).toContainText('已保存到本机');
+    });
+  } finally {
+    releaseSave();
+    await page.unroute(noteUrl, holdSave);
+  }
+  await expect(page.getByRole('button', { name: /本地资料.*连接云端/ })).toBeVisible();
   await editor.press('ControlOrMeta+a');
   await page.getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(async () => (await (await request.get(`${runtime.origin}/api/knowledge/annotations?noteId=${note.id}`)).json()).data.length).toBe(1);
@@ -62,7 +84,7 @@ test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务�
   ]);
   await chooser.setFiles({ name: '离线图片.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') });
   await expect(editor.getByRole('img', { name: '离线图片.png', exact: true })).toBeVisible();
-  await expect(page.getByRole('contentinfo')).toContainText('已保存到本机');
+  await withWorkspaceStatus(page, status => expect(status).toContainText('已保存到本机'));
   await expect.poll(async () => (await (await request.get(`${runtime.origin}/api/knowledge/notes/${note.id}`)).json()).data.rawMarkdown).toContain('/api/storage/attachments/');
   const saved = (await (await request.get(`${runtime.origin}/api/knowledge/notes/${note.id}`)).json()).data;
   assert(saved.rawMarkdown.includes('离线新增中文正文'));

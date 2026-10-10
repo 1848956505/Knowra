@@ -34,7 +34,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(rail).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '早安，创造者。' })).toBeInTheDocument();
     // 状态栏
-    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '工作区状态' })).toBeInTheDocument();
 
     // 冻结左轨搜索触发器
     expect(within(rail).getByRole('button', { name: '全局搜索' })).toBeInTheDocument();
@@ -414,7 +415,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     );
 
     expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
-    const toggle = within(screen.getByRole('contentinfo', { name: '状态栏' })).getByRole('button', { name: '切换侧栏' });
+    const toggle = within(screen.getByRole('banner', { name: '全局顶栏' })).getByRole('button', { name: '切换侧栏' });
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
 
@@ -483,7 +484,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(screen.getByRole('tablist', { name: '打开的笔记' })).toBeInTheDocument();
     expect(screen.getByRole('toolbar', { name: '笔记格式工具栏' })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '笔记上下文导航' })).toBeInTheDocument();
-    expect(within(screen.getByLabelText('工作区位置')).getByText('Note')).toHaveAttribute('aria-current', 'location');
+    fireEvent.click(screen.getByRole('button', { name: '工作区状态' }));
+    expect(within(await screen.findByLabelText('工作区位置')).getByText('Note')).toHaveAttribute('aria-current', 'location');
   });
 
   it('moves editor tabs into the Mac titlebar while keeping the browser layout intact', async () => {
@@ -510,8 +512,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     }
   });
 
-  it('keeps open Mac note tabs on other pages and restores the app title after closing them', async () => {
-    window.knowraDesktop = { onPrepareClose() {}, onCancelClose() {} };
+  it.each([false, true])('keeps cross-module note tabs and restores title (native=%s)', async native => {
+    if (native) window.knowraDesktop = { onPrepareClose() {}, onCancelClose() {} };
     try {
       const store = createAppStore({
         api: createWorkspaceApiStub(),
@@ -527,7 +529,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       await screen.findByRole('heading', { name: '笔记工作台' });
       act(() => store.getState().selectNote('note-1'));
 
-      const titlebar = screen.getByLabelText('Mac 窗口标题栏');
+      const titlebar = screen.getByLabelText(native ? 'Mac 窗口标题栏' : '全局顶栏');
       const tabs = within(titlebar).getByRole('tablist', { name: '打开的笔记' });
       const tab = within(tabs).getByRole('tab', { name: 'Note' });
       expect(tab).toHaveAttribute('aria-selected', 'false');
@@ -537,7 +539,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
 
       fireEvent.click(within(tabs).getByRole('button', { name: '关闭Note' }));
       expect(within(titlebar).queryByRole('tablist', { name: '打开的笔记' })).not.toBeInTheDocument();
-      expect(titlebar).toHaveTextContent('知境·Knowra');
+      expect(titlebar).toHaveTextContent('知境');
     } finally {
       delete window.knowraDesktop;
     }
@@ -599,7 +601,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     render(<AppProviders store={store}><App /></AppProviders>);
     await screen.findByRole('heading', { name: '笔记工作台' });
 
-    const breadcrumb = screen.getByLabelText('工作区位置');
+    fireEvent.click(screen.getByRole('button', { name: '工作区状态' }));
+    const breadcrumb = await screen.findByLabelText('工作区位置');
     const current = within(breadcrumb).getByText('主页');
     expect(current).toHaveAttribute('aria-current', 'location');
     // 末段不可点
@@ -622,12 +625,15 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     // 等到 NotesIndexView 出现（即使 notes 为空）
     expect(await screen.findByRole('article', { name: '笔记索引' })).toBeInTheDocument();
 
-    const breadcrumb = screen.getByLabelText('工作区位置');
+    fireEvent.click(screen.getByRole('button', { name: '工作区状态' }));
+    const breadcrumb = await screen.findByLabelText('工作区位置');
     // 笔记库模块内不重复显示全局主页层级。
     expect(within(breadcrumb).queryByText('主页')).not.toBeInTheDocument();
     expect(within(breadcrumb).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
     expect(within(breadcrumb).getByText('全部笔记')).toHaveAttribute('aria-current', 'location');
 
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '工作区状态' }), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '工作区状态' })).not.toBeInTheDocument());
     const topLocation = screen.getByRole('navigation', { name: '当前位置' });
     expect(topLocation).not.toHaveTextContent('主页');
     expect(within(topLocation).getByRole('button', { name: '跳转到「笔记库」' })).toBeInTheDocument();
@@ -656,7 +662,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
       store.getState().selectNote('note-1');
     });
 
-    const breadcrumb = screen.getByLabelText('工作区位置');
+    fireEvent.click(screen.getByRole('button', { name: '工作区状态' }));
+    const breadcrumb = await screen.findByLabelText('工作区位置');
     // /materials 只表达当前索引 surface，不被 latent selection 污染。
     const separators = within(breadcrumb).getAllByText('/', { exact: true });
     expect(separators).toHaveLength(1);
@@ -665,6 +672,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(breadcrumb).queryByText('Note')).not.toBeInTheDocument();
     expect(within(breadcrumb).queryByText('M4-02')).not.toBeInTheDocument();
 
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '工作区状态' }), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '工作区状态' })).not.toBeInTheDocument());
     const topLocation = screen.getByRole('navigation', { name: '当前位置' });
     expect(within(topLocation).getByText('全部笔记')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('article', { name: '笔记索引' })).toBeInTheDocument();

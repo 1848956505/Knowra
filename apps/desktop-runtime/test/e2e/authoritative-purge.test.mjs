@@ -1,3 +1,4 @@
+import { openLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -171,7 +172,7 @@ for (const type of ['knowledgeItem', 'question']) test(`生产页面：${type ==
   assert.equal(after.authoritativePurge.result.localState, 'recovery-required');
   const pending = (await (await context.request.get(`${f.runtime.origin}/api/local-runtime/sync/recovery`)).json()).data;
   assert(pending.some(record => record.kind === 'pending-local-data' && record.snapshot[collection].some(row => row.id === asset.id && row[field] === text)));
-  await page.getByRole('contentinfo').getByRole('button', { name: /资料待核对/ }).click();
+  await openLocalSync(page, /资料待核对/);
   const sync = page.getByRole('dialog', { name: '云端同步', exact: true });
   await expect(sync).toContainText(text);
   await expect(sync.getByRole('button', { name: '采用本地', exact: true })).toBeDisabled();
