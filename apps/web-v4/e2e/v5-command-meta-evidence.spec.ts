@@ -156,13 +156,29 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     await capture('07-reopened-query-cleared', dialog);
     focusChecks.push('错误后更换查询可恢复空结果；关闭按钮归还焦点；重开清空查询和错误；Tab/Shift+Tab 留在弹窗');
 
+    // 异步结果进入鼠标下方也会触发 onMouseEnter；把指针移出结果区后再验证纯键盘路径。
+    await page.mouse.move(1, 1);
+    await input.focus();
     await input.fill(longListQuery);
     await expect(dialog.getByRole('option')).toHaveCount(12);
+    const firstLongResult = dialog.getByRole('option').first();
+    await expect(firstLongResult).toHaveAttribute('aria-selected', 'true');
+    await expect(input).toBeFocused();
+    const ancestorScrollPositions = () => resultList.evaluate(element => {
+      const positions: Array<{ scrollTop: number; scrollLeft: number }> = [];
+      for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        positions.push({ scrollTop: ancestor.scrollTop, scrollLeft: ancestor.scrollLeft });
+      }
+      return { windowX: scrollX, windowY: scrollY, positions };
+    });
+    const ancestorScrollBefore = await ancestorScrollPositions();
+    const listScrollBefore = await resultList.evaluate(element => element.scrollTop);
     await page.keyboard.press('ArrowUp');
     const last = dialog.getByRole('option').last();
     await expect(last).toHaveAttribute('aria-selected', 'true');
-    // 单独记录既有长列表键盘边界，不把 aria 选中误记成实际可见，也不借助滚动来改变观察结果。
-    const boundary = await last.evaluate(element => {
+    await expect(input).toHaveAttribute('aria-activedescendant', 'search-hit-note:synthetic-long-hit-12');
+    // 不调用 scrollIntoView；必须由应用的键盘选择自行滚动结果容器，输入仍持有焦点。
+    const readBoundary = () => last.evaluate(element => {
       const list = document.getElementById('search-command-results')!, row = element.getBoundingClientRect(), clip = list.getBoundingClientRect();
       const activeInViewport = row.top >= clip.top - 2 && row.bottom <= clip.bottom + 2 && row.left >= clip.left - 2
         && row.right <= clip.right + 2 && row.top >= 0 && row.bottom <= innerHeight;
@@ -170,10 +186,24 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
         scrollport: { x: clip.x, y: clip.y, width: clip.width, height: clip.height }, scrollTop: list.scrollTop,
         activeInViewport };
     });
+    await expect.poll(async () => (await readBoundary()).activeInViewport, '键盘选中末项必须真实进入结果容器和视口').toBe(true);
+    await expect(last).toBeInViewport({ ratio: 0.95 });
+    await expect(input).toBeFocused();
+    const boundary = await readBoundary();
+    expect(boundary.scrollTop, '只滚动结果列表到末项').toBeGreaterThan(listScrollBefore);
+    const ancestorScrollAfter = await ancestorScrollPositions();
+    expect(ancestorScrollAfter, '结果列表滚动不能牵动弹窗祖先或背景页面').toEqual(ancestorScrollBefore);
     boundaryObservations.push({ name: 'long-list-keyboard-last-option', ...boundary,
-      classification: boundary.activeInViewport ? 'visible' : 'existing-keyboard-scroll-gap',
-      assertionScope: '前两项键盘选择断言实际可见；12 项末项边界单列观察，不属于 CSS 修改所保证的滚动行为' });
+      listScrollBefore, ancestorScrollBefore, ancestorScrollAfter, classification: 'visible-and-list-scoped',
+      assertionScope: '12 项末项实际可见、输入保留焦点、只滚动结果列表；无测试辅助滚动' });
     await capture('08-long-list-keyboard-boundary', dialog);
+    await page.keyboard.press('ArrowDown');
+    await expect(firstLongResult).toHaveAttribute('aria-selected', 'true');
+    await expect(firstLongResult).toBeInViewport({ ratio: 0.95 });
+    await expect(input).toBeFocused();
+    await expect.poll(() => resultList.evaluate(element => element.scrollTop)).toBeLessThan(boundary.scrollTop);
+    expect(await ancestorScrollPositions()).toEqual(ancestorScrollBefore);
+    focusChecks.push('12 项结果首尾键盘循环时高亮实际入镜；仅结果容器滚动，背景与弹窗祖先不滚动，输入持续获焦');
     await closeSearch(trigger);
 
     await openSearch(); await input.fill(bodyQuery);
@@ -189,8 +219,8 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     const location = status.getByLabel('工作区位置', { exact: true });
     await expect(location.locator('[aria-current="location"]')).toHaveText(bodyTitle);
     await checkUiFont('status-path-current', location.locator('[aria-current="location"]'));
-    await checkUiFont('status-character-count', status.getByText(/^\d[\d,]*$/).first());
-    await capture('09-status-path-and-count', status);
+    await capture('09-status-current-path', status);
+    readonlyChecks.push('真实状态入口只显示当前路径和同步状态；App 未传入状态栏字数，数字元信息在检查器验证');
     await page.keyboard.press('Escape'); await expect(statusTrigger).toBeFocused();
 
     const compactTrigger = page.getByRole('button', { name: '打开文档检查器', exact: true });
@@ -287,7 +317,7 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
       apiRequests: network.requests, blockedRequests: network.blocked, attemptedMutations: network.mutations, searchRequests: network.searchRequests,
       limitations: ['CSS 视口合成验收，不代表真实手机软键盘/OriginOS 或原生桌面应用验收',
         '全部 API 仅由 context 夹具返回合成 GET；未知 API、外网、WebSocket 和所有非 GET 请求均阻断',
-        '前两项与正文命中断言键盘选中后实际可见；12 项长列表末项滚动是独立边界观察，不以 aria-selected 代替可见性',
+        '前两项、正文命中及 12 项首尾键盘循环均断言实际可见；长列表额外验证滚动范围和输入焦点',
         '仅查看元信息、标注和版本，不进行正文编辑、附件文件访问、恢复、保存、配置修改或模型调用'] }, null, 2));
     await info.attach('scenario-manifest', { path, contentType: 'application/json' });
   }

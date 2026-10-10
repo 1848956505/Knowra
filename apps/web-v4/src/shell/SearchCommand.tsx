@@ -1,7 +1,7 @@
 // V4-05 SearchCommand
 //
 // 全局搜索 + 跳转面板（Cmd/Ctrl+K 触发）。
-// 1. 视觉：印格 Dialog 风格，1px 墨边 + 硬阴影 + 暖纸底；命令式键盘导航。
+// 1. 视觉：V5 共享 Dialog 与语义结果卡片；命令式键盘导航。
 // 2. 数据源：当前空间的资料标题、正文片段、标签与动作。
 // 3. 键盘：↑↓ 移动高亮、Enter 跳转、Esc 关闭、focus 由 Dialog 焦点陷阱接管。
 
@@ -185,8 +185,22 @@ interface SearchResultsProps {
 }
 
 function SearchResults({ hits, activeIndex, onActiveChange, onSelect }: SearchResultsProps) {
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    const scrollport = list?.parentElement;
+    const active = list?.children.item(activeIndex);
+    if (!scrollport || !(active instanceof HTMLElement)) return;
+    // 只滚动结果区，不能移动对话框/页面，也不从 combobox 抢走键盘焦点。
+    const row = active.getBoundingClientRect();
+    const viewport = scrollport.getBoundingClientRect();
+    const top = viewport.top + scrollport.clientTop;
+    const bottom = top + scrollport.clientHeight;
+    if (row.top < top) scrollport.scrollTop += row.top - top;
+    else if (row.bottom > bottom) scrollport.scrollTop += row.bottom - bottom;
+  }, [activeIndex, hits]);
   return (
-    <ul className={styles.resultList} role="listbox">
+    <ul ref={listRef} className={styles.resultList} role="listbox">
       {hits.map((hit, index) => {
         const isActive = index === activeIndex;
         return (
