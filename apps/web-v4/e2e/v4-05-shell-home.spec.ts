@@ -117,7 +117,11 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page.getByText('1 / 75')).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 843 });
-    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(2);
+    // viewport 更新先于浏览器 resize/media-query 布局提交；在连续渲染帧后验证相同溢出上限。
+    await expect.poll(async () => {
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      return horizontalOverflow(page);
+    }).toBeLessThanOrEqual(2);
   });
 
   test('移动端与 200% 缩放保留核心入口且无横向滚动', async ({ page }) => {
