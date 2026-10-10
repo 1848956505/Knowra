@@ -11,8 +11,8 @@ const shortAnswer = { id: 'detail-question', stem: '解释导数，并计算 f(x
   reviewStatus: 'candidate', sourceMode: 'manual', version: 2, updatedAt: date, learningObjectiveIds: objectives.map(value => value.id), deletedAt: null,
   sources: [{ id: 'detail-source', sourceType: 'noteVersion', sourceId: 'detail-version', quote: '编题时的原始摘录。', locator: { noteId: 'detail-note' }, status: 'stale' }] };
 
-async function fixture(page: Page, options: { readOnly?: boolean; missingLocator?: boolean; failVersionOnce?: boolean; numericChoice?: boolean; directKnowledgeSource?: boolean } = {}) {
-  if (options.readOnly) await page.addInitScript(() => { Object.assign(window, { knowraRuntime: { persistenceMode: 'desktop-local', datasetId: 'synthetic-training-details' } }); });
+async function fixture(page: Page, options: { desktopLocal?: boolean; missingLocator?: boolean; failVersionOnce?: boolean; numericChoice?: boolean; directKnowledgeSource?: boolean } = {}) {
+  if (options.desktopLocal) await page.addInitScript(() => { Object.assign(window, { knowraRuntime: { persistenceMode: 'desktop-local', datasetId: 'synthetic-training-details' } }); });
   const sourceItem = { ...item, id: 'detail-source-knowledge', title: '独立的来源知识' };
   let question = { ...shortAnswer, questionType: options.numericChoice ? 'singleChoice' : shortAnswer.questionType,
     referenceAnswer: options.numericChoice ? 1 : shortAnswer.referenceAnswer,
@@ -71,17 +71,18 @@ test('完整详情和历史来源对照保留多目标、答案、评分标准�
   await expect(detail.getByRole('button', { name: '对照来源' })).toBeFocused();
 });
 
-test('窄屏只读模式能查看判断题 false 和评分空状态，详情不会横向溢出', async ({ page }) => {
+test('窄屏桌面本地模式可查看判断题 false 和评分空状态，查看详情不写入', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const state = await fixture(page, { readOnly: true });
+  const state = await fixture(page, { desktopLocal: true });
   await page.goto('/#/training');
   const row = page.getByRole('region', { name: '题目列表' }).getByRole('article').filter({ has: page.getByRole('heading', { name: '导数一定大于零。', exact: true }) });
   await row.getByRole('button', { name: '查看详情' }).click();
   const detail = page.getByRole('article', { name: '题目详情' });
   await expect(detail.getByRole('region', { name: '参考答案' })).toContainText('错误');
   await expect(detail.getByRole('region', { name: '评分标准' })).toContainText('尚未填写评分标准');
-  await expect(page.getByRole('button', { name: '新建题目' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '编辑', exact: true })).toHaveCount(0);
+  // 本地训练写入已由现行能力契约支持；只读查看流程仍不得自行提交资料。
+  await expect(page.getByRole('button', { name: '新建题目' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '编辑', exact: true }).first()).toBeEnabled();
   expect(await detail.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   expect(state.writes).toEqual([]);
 });

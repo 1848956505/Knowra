@@ -289,7 +289,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       <div className={styles.layout}>
       <section className={styles.listPanel} aria-label="知识列表">
         <header className={styles.columnHeader}><strong>知识条目 <span>{visible.length}</span></strong><small>从笔记中整理候选</small></header>
-        <div className={styles.listScroll} aria-busy={listLoading}>
+        <div className={styles.listScroll} role="region" aria-label="知识列表内容" tabIndex={0} aria-busy={listLoading}>
           {listError ? <p role="alert" className={styles.error}>{listError} <Button variant="ghost" onPress={() => setRefresh(value => value + 1)}>重试加载列表</Button></p> : null}
           {listLoading && items.length === 0 ? <p className={styles.empty} role="status">正在加载知识…</p> : null}
           {!listLoading && !listError && visible.length === 0 ? <p className={styles.empty}>{items.length === 0 ? '还没有知识。可从笔记标注创建候选，或手动新建。' : '没有符合条件的知识。'}</p> : null}
@@ -299,7 +299,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
           </button></li>)}</ul>
         </div>
       </section>
-      <section className={styles.detailPanel} aria-label="知识详情面板" aria-busy={detailLoading || pending}>
+      <section className={styles.detailPanel} tabIndex={0} aria-label="知识详情面板" aria-busy={detailLoading || pending}>
         {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
         {purgeAwaitingId && !purgePreview ? <Button isDisabled={pending} onPress={() => void checkPurgeResult()}>核对清理结果</Button> : null}
         {detailError ? <p role="alert" className={styles.error}>{detailError} {!archiveItem ? <Button variant="ghost" onPress={() => setRefresh(value => value + 1)}>重新加载知识</Button> : null}</p> : null}
