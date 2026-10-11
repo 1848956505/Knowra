@@ -29,6 +29,9 @@ async function workspace(page: Page) {
     }
     await route.fallback();
   });
+  // 应用会持久化恢复草稿；精确模拟既有端点，不开放其它 AI 写请求。
+  await page.route(url => url.pathname === '/api/ai/actions/drafts', route => route.request().method() === 'POST'
+    ? route.fulfill({ json: { data: { accepted: true } } }) : route.fallback());
   await page.route(url => url.pathname === '/api/knowledge/notes/note-1', async route => {
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON() as { rawMarkdown: string };
@@ -97,6 +100,9 @@ for (const action of ['restore', 'saveAs'] as const) {
       await expect.poll(() => state.events).toEqual([
         { kind: 'save-request', markdown: '历史操作之前必须保存的合成源码' },
         { kind: 'save-complete', markdown: '历史操作之前必须保存的合成源码' },
+        // 已有自动保存挂起时，显式保存按 autosave 合同再次排队；两笔都须先于历史动作确认。
+        { kind: 'save-request', markdown: '历史操作之前必须保存的合成源码' },
+        { kind: 'save-complete', markdown: '历史操作之前必须保存的合成源码' },
         { kind: 'save-request', markdown: historicalMarkdown },
         { kind: 'save-complete', markdown: historicalMarkdown }
       ]);
@@ -104,6 +110,9 @@ for (const action of ['restore', 'saveAs'] as const) {
       await expect(page).toHaveURL(/#\/materials\/notes\/note-copy$/);
       expect(state.copies()).toBe(1);
       expect(state.events).toEqual([
+        { kind: 'save-request', markdown: '历史操作之前必须保存的合成源码' },
+        { kind: 'save-complete', markdown: '历史操作之前必须保存的合成源码' },
+        // 已有自动保存挂起时，显式保存按 autosave 合同再次排队；两笔都须先于历史动作确认。
         { kind: 'save-request', markdown: '历史操作之前必须保存的合成源码' },
         { kind: 'save-complete', markdown: '历史操作之前必须保存的合成源码' },
         { kind: 'copy', markdown: historicalMarkdown }
