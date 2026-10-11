@@ -17,11 +17,12 @@ import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantStatus } from './assistantApi';
 import { ASSISTANT_STATUS_CHANGED_EVENT } from './assistantEvents';
 import { conversationApi, type ToolCall, type AccessPolicy, type Conversation, type ConversationMessage,
-  type ConversationTurn, type SourceRef } from './conversationApi';
+  type ConversationTurn } from './conversationApi';
 import type { NoteAction } from './noteActionApi';
 import { isCurrentReviewTarget } from './reviewTarget';
 import { LegacyAssistantView } from './LegacyAssistantView';
 import { readConversationSnapshot } from './conversationSnapshot';
+import { useConversationSourcePreview } from './useConversationSourcePreview';
 import { aiFeatures } from '../settings/aiFeatures';
 import { ReadableMarkdown } from './ReadableMarkdown';
 import styles from './ConversationView.module.css';
@@ -99,7 +100,6 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   const inboxTrigger = useRef<HTMLButtonElement>(null);
   const inboxOpener = useRef<HTMLElement | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sourceView, setSourceView] = useState<{ ref: SourceRef; text: string; messageId: string } | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const pendingSend = useRef<PendingSend | null>(null);
   const selection = useRef<string | null>(null);
@@ -112,6 +112,9 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     ?? conversations[0] ?? null;
   const selectedId = selected?.conversationId ?? null;
   selection.current = selectedId;
+  const { sourceView, openSource, closeSource } = useConversationSourcePreview({
+    spaceId, conversationId: selectedId, getNoteVersion, onError: setError
+  });
   const latestTurn = messages.length ? turns[messages[messages.length - 1].turnId] ?? null : null;
   const reviewingOtherDraft = Boolean(inboxOpen && reviewedAction
     && !isCurrentReviewTarget(reviewedAction, selectedId, messages, latestTurn));
@@ -135,7 +138,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     if (!spaceId) return;
     let cancelled = false;
     setConversations([]); setPolicies([]); setPoliciesReady(false); setMessages([]); setTurns({}); setTitles({}); setArtifacts([]); setReviewedAction(null);
-    setStatus(null); scopeRevision.current++; setScopeChoice('plain'); setError(null); setNotice(null); setSourceView(null);
+    setStatus(null); scopeRevision.current++; setScopeChoice('plain'); setError(null); setNotice(null);
     pendingSend.current = null; setRecordMessage(null); setManagementOpen(false);
     void conversationApi.list(spaceId).then(rows => { if (!cancelled) setConversations(rows); })
       .catch(cause => { if (!cancelled) setError(errorText(cause, '无法加载会话历史。')); });
@@ -211,7 +214,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   useEffect(() => {
     refreshSequence.current++;
     scopeRevision.current++; setScopeChoice('plain');
-    setMessages([]); setTurns({}); setSourceView(null); setError(null); setRetryConfirmOpen(false);
+    setMessages([]); setTurns({}); setError(null); setRetryConfirmOpen(false);
     if (!selectedId) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
@@ -387,26 +390,6 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
     finally { setPending(false); }
   }
 
-  async function openSource(ref: SourceRef, messageId: string) {
-    setError(null);
-    const id = selectedId;
-    try {
-      const version = await getNoteVersion(ref.noteId, ref.noteVersionId);
-      if (version.contentHash !== ref.contentHash || ref.start < 0 || ref.end > version.content.length || ref.end <= ref.start) {
-        throw new Error('历史原文与引用范围不一致。');
-      }
-      if (globalThis.crypto?.subtle) {
-        const digest = async (text: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))))
-          .map(byte => byte.toString(16).padStart(2, '0')).join('');
-        if (await digest(version.content) !== ref.contentHash
-          || await digest(version.content.slice(ref.start, ref.end)) !== ref.quoteHash) {
-          throw new Error('引用原文校验失败。');
-        }
-      }
-      if (selection.current === id) setSourceView({ ref, text: version.content, messageId });
-    } catch (cause) { setError(errorText(cause, '无法读取引用原文。')); }
-  }
-
   async function showTrace(turnId: string) {
     if (!selectedId || turns[turnId]) return;
     try {
@@ -541,7 +524,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                   {sourceView.text.slice(sourceView.ref.end, sourceView.ref.end + 80)}</p>
                 {notes.some(note => note.id === sourceView.ref.noteId) ? <Button variant="default" size="compact"
                   onPress={() => onOpenNote(sourceView.ref.noteId)}>打开当前笔记</Button> : null}
-                <Button variant="ghost" size="compact" onPress={() => setSourceView(null)}>关闭原文</Button>
+                <Button variant="ghost" size="compact" onPress={closeSource}>关闭原文</Button>
               </section> : null}
             </article>;
           })}

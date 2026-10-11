@@ -103,3 +103,58 @@ test('助手模块加载失败只影响助手页面，仍可返回笔记', async
   await expect(page).toHaveURL(/#\/materials$/);
   await expect(page.getByRole('navigation', { name: '工作域导航' })).toBeVisible();
 });
+
+for (const close of [false, true]) {
+  test(`引用原文校验迟到不会${close ? '在关闭后重开预览' : '覆盖后选来源'}`, async ({ page }) => {
+    // 延迟第一份真实 SHA-256，按完成计数等候，不靠时间碰撞复现乱序。
+    await page.addInitScript(() => {
+      const digest = crypto.subtle.digest.bind(crypto.subtle);
+      const state = { release: null as (() => void) | null, started: 0, completed: 0 };
+      Object.assign(window, { sourceDigest: state });
+      crypto.subtle.digest = async (...args: Parameters<SubtleCrypto['digest']>) => {
+        if (++state.started === 1) await new Promise<void>(resolve => { state.release = resolve; });
+        const result = await digest(...args);
+        state.completed++;
+        return result;
+      };
+    });
+    const conversation = { conversationId: 'source-conversation', spaceId: 'space-1',
+      createdAt: '2026-09-27T00:00:00.000Z', updatedAt: '2026-09-27T00:00:00.000Z', historicalDataset: false, readOnly: false };
+    const version = { id: 'version-1', noteId: 'note-1', content: '前文 alpha 后文',
+      contentHash: 'e1ad18f75b0295b8a3845a76fc8e148b8eef2107f58336fe9bca6a23ebb608d6' };
+    const first = { noteId: 'note-1', noteVersionId: version.id, contentHash: version.contentHash,
+      start: 3, end: 8, quoteHash: '8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8' };
+    const second = { ...first, start: 9, end: 11, quoteHash: '30bc60d288a5cf9c0e04bfd90351fa771abf3520b8f812a8123da21e19f39a0d' };
+    await page.route('**/api/ai/inbox**', route => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/ai/access-policies**', route => route.fulfill({ json: { data: [] } }));
+    await page.route('**/api/ai/conversations**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      const data = path.endsWith('/messages') ? [{ messageId: 'answer', turnId: 'turn', sequence: 1,
+        role: 'assistant', content: '合成引用回答', citations: [first, second], sourceRefs: [], sourceFree: false, createdAt: conversation.createdAt }]
+        : path.includes('/turns/') ? { turnId: 'turn', conversationId: conversation.conversationId, status: 'succeeded', phase: 'finished',
+          requestedPolicyId: null, errorCode: null, toolCalls: [], modelAttempts: [] }
+          : path.endsWith('/attachments') ? { attachments: [] } : [conversation];
+      await route.fulfill({ json: { data } });
+    });
+    await page.route('**/api/knowledge/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      const data = path.endsWith('/spaces') ? [{ id: 'space-1', name: '合成空间' }]
+        : path.endsWith('/versions/version-1') ? version
+          : path.endsWith('/notes') ? [{ id: 'note-1', title: '笔记 A', spaceId: 'space-1', folderId: null, tagIds: [],
+            internalLinks: [], rawMarkdown: '', contentLoaded: false, favorite: false, deleted: false }] : [];
+      await route.fulfill({ json: { data } });
+    });
+    await page.goto('/#/assistant?conversationId=source-conversation');
+    await page.getByRole('button', { name: /来源 1 · 笔记 A/ }).click();
+    await page.waitForFunction(() => Boolean((window as unknown as { sourceDigest: { release: unknown } }).sourceDigest.release));
+    await page.getByRole('button', { name: /来源 2 · 笔记 A/ }).click();
+    const preview = page.getByRole('region', { name: '引用原文定位' });
+    await expect(preview.locator('mark')).toHaveText('后文');
+    if (close) await page.getByRole('button', { name: '关闭原文' }).click();
+    await page.evaluate(() => (window as unknown as { sourceDigest: { release(): void } }).sourceDigest.release());
+    await page.waitForFunction(() => (window as unknown as { sourceDigest: { completed: number } }).sourceDigest.completed === 4);
+    if (close) await expect(preview).toHaveCount(0);
+    else await expect(preview.locator('mark')).toHaveText('后文');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+}
