@@ -46,7 +46,8 @@ export function updateWorkspaceNoteInStore(
     ...nextState.navigation
   }));
 }
-export async function loadWorkspaceState(dependencies: WorkspaceDependencies, set: SetStore, preferredSpaceId: string | null = null): Promise<void> {
+export async function loadWorkspaceState(dependencies: WorkspaceDependencies, set: SetStore, preferredSpaceId: string | null, isCurrent: () => boolean): Promise<void> {
+  if (!isCurrent()) return;
   const cachedSnapshot = readWorkspaceCache(dependencies.storage, dependencies.cacheKey);
   if (cachedSnapshot) {
     applyWorkspaceSnapshot(set, cachedSnapshot, 'cache', 'loading', null, '正在刷新最近一次资料缓存…');
@@ -56,12 +57,15 @@ export async function loadWorkspaceState(dependencies: WorkspaceDependencies, se
 
   try {
     let spaces = await dependencies.api.listKnowledgeSpaces();
+    if (!isCurrent()) return;
     if (spaces.length === 0) spaces = [await dependencies.api.createDefaultKnowledgeSpace()];
+    if (!isCurrent()) return;
     const currentSpaceId = spaces.find(space => space.id === preferredSpaceId)?.id
       ?? spaces.find(space => space.id === cachedSnapshot?.currentSpaceId)?.id
       ?? spaces.find(space => space.defaultFlag)?.id ?? spaces[0]?.id ?? null;
     if (!currentSpaceId) throw new Error('资料服务未返回可用知识空间。');
     const resources = await dependencies.api.loadWorkspaceResources(currentSpaceId);
+    if (!isCurrent()) return;
     const liveSnapshot = createBackendSnapshot({
       spaces,
       currentSpaceId,
@@ -73,8 +77,9 @@ export async function loadWorkspaceState(dependencies: WorkspaceDependencies, se
     const mergedSnapshot = mergeWorkspaceSnapshots(liveSnapshot, cachedSnapshot) ?? liveSnapshot;
     applyWorkspaceSnapshot(set, mergedSnapshot, 'api', 'ready', null, dependencies.persistenceMode === 'desktop-local'
       ? '本地资料库已就绪' : '知识库已连接到后端数据');
-    writeWorkspaceCache(dependencies.storage, dependencies.cacheKey, mergedSnapshot);
+    if (isCurrent()) writeWorkspaceCache(dependencies.storage, dependencies.cacheKey, mergedSnapshot);
   } catch (error) {
+    if (!isCurrent()) return;
     const message = error instanceof Error ? error.message : '资料加载失败。';
     if (cachedSnapshot) {
       applyWorkspaceSnapshot(set, cachedSnapshot, 'cache', 'error', message, '后端暂时不可用，当前显示只读缓存');

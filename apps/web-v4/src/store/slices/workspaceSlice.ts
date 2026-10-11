@@ -6,10 +6,10 @@ import {
 } from '@study-accelerator/web-core';
 import type { WorkspaceDependencies, WorkspaceSlice } from '../types';
 import { workspaceCapabilities, LOCAL_PERMANENT_DELETE_REASON, LOCAL_ANALYSIS_SCOPE_REASON } from '../workspaceCapabilities';
+import { createWorkspaceLoadController } from '../workspaceLoadController';
 import { createCommandNoteLoader } from '../commandNoteOpening';
 import {
   EMPTY_WORKSPACE_SERVER_DATA,
-  loadWorkspaceState,
   updateWorkspaceNoteInStore,
   type GetStore,
   type SetStore
@@ -21,16 +21,9 @@ export function createWorkspaceSlice(
   get: GetStore,
   dependencies: WorkspaceDependencies
 ): WorkspaceSlice {
-  let activeLoad: Promise<void> | null = null;
+  const loading = createWorkspaceLoadController(set, get, dependencies);
+  const runLoad = loading.load;
   const noteSaveQueues = new Map<string, Promise<Note>>();
-
-  const runLoad = async (force = false): Promise<void> => {
-    if (activeLoad && !force) return activeLoad;
-    activeLoad = loadWorkspaceState(dependencies, set, get().serverData.currentSpaceId).finally(() => {
-      activeLoad = null;
-    });
-    return activeLoad;
-  };
 
   return {
     knowledgeExtraction: dependencies.api.knowledgeExtraction,
@@ -45,7 +38,8 @@ export function createWorkspaceSlice(
     retryWorkspace: () => runLoad(true),
     async refreshLocalWorkspace() {
       const before = get();
-      if (before.persistenceMode !== 'desktop-local' || before.editorHasLocalChanges || before.saveState === 'saving' || activeLoad) return false;
+      if (before.persistenceMode !== 'desktop-local' || before.editorHasLocalChanges || before.saveState === 'saving' || loading.isLoading()) return false;
+      const generation = loading.generation();
       const spaces = await dependencies.api.listKnowledgeSpaces();
       const currentSpaceId = spaces.find(space => space.id === before.serverData.currentSpaceId)?.id
         ?? spaces.find(space => space.defaultFlag)?.id ?? spaces[0]?.id;
@@ -57,20 +51,13 @@ export function createWorkspaceSlice(
           notes[index] = { ...notes[index], ...await dependencies.api.getNote(notes[index].id), contentLoaded: true };
         }
       }
-      if (get().editorHasLocalChanges || get().saveState === 'saving' || get().serverData !== before.serverData) return false;
+      if (loading.generation() !== generation || loading.isLoading() || get().editorHasLocalChanges || get().saveState === 'saving' || get().serverData !== before.serverData) return false;
       const folderTree = normalizeFolderTree(resources.folderTree);
       set({ knowledgeGeneration: get().knowledgeGeneration + 1, serverData: { spaces, currentSpaceId, folderTree, foldersById: flattenFolderTree(folderTree), notes, tags: resources.tags, tagGroups: resources.tagGroups ?? [] } });
       return true;
     },
     canWriteWorkspace: () => get().dataMode === 'api',
-    async selectKnowledgeSpace(id) {
-      const before = get();
-      if (!before.serverData.spaces.some(space => space.id === id)) throw new Error('目标空间不存在。');
-      const resources = await dependencies.api.loadWorkspaceResources(id);
-      const folderTree = normalizeFolderTree(resources.folderTree);
-      set({ serverData: { ...get().serverData, currentSpaceId: id, folderTree, foldersById: flattenFolderTree(folderTree), notes: normalizeNotes(resources.notes), tags: resources.tags, tagGroups: resources.tagGroups ?? [] } });
-      await runLoad(true);
-    },
+    selectKnowledgeSpace: loading.select,
     async createKnowledgeSpace(name) {
       if (!dependencies.api.createKnowledgeSpace) throw new Error('当前服务尚不支持空间管理。');
       const space = await dependencies.api.createKnowledgeSpace({ name });
