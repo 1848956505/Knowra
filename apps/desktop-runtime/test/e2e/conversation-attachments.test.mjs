@@ -15,12 +15,21 @@ for (const driver of ['json', 'sqlite', 'postgres']) test(`对话附件 ${driver
   page.on('pageerror', error => errors.push(error.message));
   await withPageFailureDiagnostics(page, async () => {
     await page.route('**/*', route => new URL(route.request().url()).origin === fixture.origin ? route.continue() : route.abort());
+    // 确定性模拟知识空间慢加载，不能在 no-space 实例中先接收附件再重挂载丢失。
+    let releaseSpaces;
+    const spacesReady = new Promise(resolve => { releaseSpaces = resolve; });
+    await page.route('**/api/knowledge/spaces', async route => {
+      await spacesReady;
+      await route.continue();
+    });
     await page.goto(fixture.launchUrl);
     const headers = driver === 'sqlite' ? { 'X-Knowra-Dataset': (await fixture.store.identity()).datasetId } : {};
     const space = await page.request.post(`${fixture.origin}/api/knowledge/spaces/default`, { headers, data: {} }); assert(space.ok());
     await page.goto(`${fixture.origin}/#/assistant?new=1`);
     const picker = page.getByRole('dialog', { name: '对话附件管理', exact: true });
     const attachmentTrigger = page.getByRole('button', { name: /^附件（\d+）$/ });
+    try { await expect(attachmentTrigger).toBeDisabled(); }
+    finally { releaseSpaces(); }
     await attachmentTrigger.click();
     await expect(picker).toBeVisible();
     await picker.getByLabel('添加对话附件').setInputFiles({ name: '合成资料.txt', mimeType: 'text/plain', buffer: Buffer.from('附件合成文本，尚未传入模型。') });

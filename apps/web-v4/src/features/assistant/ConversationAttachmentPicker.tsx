@@ -48,8 +48,8 @@ const errorText = (cause: unknown) => {
 };
 interface UploadTask { file: File; uploadKey: string; conversationId: string | null; mimeType: string; error: string | null; valid: boolean; contentBase64?: string }
 
-export function ConversationAttachmentPicker({ conversationId, ensureConversation, api = conversationAttachmentApi }: {
-  conversationId: string | null; ensureConversation(): Promise<string>; api?: ConversationAttachmentApi;
+export function ConversationAttachmentPicker({ conversationId, ensureConversation, isDisabled = false, api = conversationAttachmentApi }: {
+  conversationId: string | null; ensureConversation(): Promise<string>; isDisabled?: boolean; api?: ConversationAttachmentApi;
 }) {
   const [attachments, setAttachments] = useState<ConversationAttachment[]>([]);
   const [upload, setUpload] = useState<UploadTask | null>(null);
@@ -95,7 +95,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   }, [conversationId, api]);
 
   async function sendFile(task: UploadTask) {
-    if (busy || !task.valid) return;
+    if (isDisabled || busy || !task.valid) return;
     dialogRef.current?.focus({ preventScroll: true });
     uploadTask.current = task; setUpload(task); setBusy(true); setError(null);
     const isCurrent = () => mounted.current && uploadTask.current === task
@@ -120,7 +120,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
     } finally { if (mounted.current && (uploadTask.current === task || uploadTask.current === null) && (currentConversation.current === null || currentConversation.current === task.conversationId)) setBusy(false); }
   }
   function select(file: File) {
-    if (busy || uploadTask.current) return;
+    if (isDisabled || busy || uploadTask.current) return;
     setOpen(true);
     const extension = file.name.split('.').at(-1)?.toLowerCase() ?? '';
     const mimeType = types[extension];
@@ -133,7 +133,7 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   function paste(event: ClipboardEvent) {
     if (!(event.target instanceof Element) || !event.target.closest('[data-conversation-composer], [data-conversation-attachments]')) return;
     const image = Array.from(event.clipboardData?.items ?? []).find(item => item.kind === 'file' && ['image/png', 'image/jpeg'].includes(item.type));
-    if (!image || loading || busy || uploadTask.current) return;
+    if (isDisabled || !image || loading || busy || uploadTask.current) return;
     const file = image.getAsFile(); if (!file) return;
     event.preventDefault();
     const name = `粘贴图片.${image.type === 'image/png' ? 'png' : 'jpg'}`;
@@ -155,12 +155,12 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
   }
   return <section className={styles.picker} data-conversation-attachments aria-label="对话附件" tabIndex={0}>
     <PopoverTrigger isOpen={open} onOpenChange={setOpen}>
-      <Button variant="ghost" size="compact">附件（{attachments.length}）</Button>
+      <Button variant="ghost" size="compact" isDisabled={isDisabled}>附件（{attachments.length}）</Button>
       <Popover placement="top start" className={styles.popover}>
       <PopoverDialog ref={dialogRef} className={styles.dialog} data-conversation-attachments aria-label="对话附件管理">
       <div className={styles.header}><strong>对话附件</strong><Button variant="ghost" size="compact" onPress={() => setOpen(false)}>关闭附件</Button></div>
       <p>附件仅保存到此对话。{unparsedNotice}</p>
-      <FileDropField accept={accepted} isDisabled={loading || busy || Boolean(upload)} label="添加对话附件"
+      <FileDropField accept={accepted} isDisabled={isDisabled || loading || busy || Boolean(upload)} label="添加对话附件"
         description="TXT、Markdown、PDF、DOCX、PNG、JPEG；单个最多 5 MB。也可在消息输入区粘贴 PNG 或 JPEG。"
         onSelect={files => { if (files[0]) select(files[0]); }} />
       {conversationId ? <Button variant="ghost" size="compact" isDisabled={loading || busy} onPress={() => void perform(async (id, assertCurrent) => {

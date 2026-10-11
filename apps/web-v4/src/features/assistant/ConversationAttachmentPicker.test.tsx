@@ -220,3 +220,23 @@ it.each(['弹层', '消息输入区'])('%s粘贴图片仅上传一次', async (t
   expect(api.upload).toHaveBeenCalledWith('conversation', expect.objectContaining({ fileName: '粘贴图片.png', mimeType: 'image/png' }));
   composer.remove();
 });
+
+
+it('禁用状态阻止已打开弹层的文件选择和图片粘贴，恢复后保留上传能力', async () => {
+  const ensureConversation = vi.fn(async () => 'conversation');
+  const view = render(<ConversationAttachmentPicker conversationId={null} ensureConversation={ensureConversation} api={api} />);
+  fireEvent.click(screen.getByRole('button', { name: '附件（0）' }));
+  const input = await screen.findByLabelText('添加对话附件');
+  view.rerender(<ConversationAttachmentPicker conversationId={null} ensureConversation={ensureConversation} api={api} isDisabled />);
+  expect(input).toBeDisabled();
+  fireEvent.change(input, { target: { files: [new File(['合成资料'], '资料.txt', { type: 'text/plain' })] } });
+  const dialog = screen.getByRole('dialog', { name: '对话附件管理' });
+  fireEvent.paste(dialog, { clipboardData: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => new File(['png'], 'clipboard.png', { type: 'image/png' }) }] } });
+  expect(ensureConversation).not.toHaveBeenCalled();
+  expect(api.upload).not.toHaveBeenCalled();
+  view.rerender(<ConversationAttachmentPicker conversationId={null} ensureConversation={ensureConversation} api={api} />);
+  expect(input).toBeEnabled();
+  fireEvent.change(input, { target: { files: [new File(['合成资料'], '资料.txt', { type: 'text/plain' })] } });
+  await screen.findByRole('button', { name: '预览 资料.txt' });
+  expect(api.upload).toHaveBeenCalledOnce();
+});
