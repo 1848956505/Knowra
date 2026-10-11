@@ -1,4 +1,5 @@
 import { NoteActions } from './NoteActions';
+import { ConversationTrace } from './ConversationTrace';
 import { ConversationAttachmentPicker } from './ConversationAttachmentPicker';
 import { AIInbox } from './AIInbox';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,7 +17,7 @@ import { useAppStore } from '../../store/AppStoreProvider';
 import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantStatus } from './assistantApi';
 import { ASSISTANT_STATUS_CHANGED_EVENT } from './assistantEvents';
-import { conversationApi, type ToolCall, type AccessPolicy, type Conversation, type ConversationMessage,
+import { conversationApi, type AccessPolicy, type Conversation, type ConversationMessage,
   type ConversationTurn } from './conversationApi';
 import type { NoteAction } from './noteActionApi';
 import { isCurrentReviewTarget } from './reviewTarget';
@@ -506,10 +507,8 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                 <div className={styles.messageActions}>
                   <Button variant="ghost" size="compact" iconOnly aria-label="复制回答" onPress={() => { void navigator.clipboard?.writeText(message.content).then(() => setNotice('已复制回答。'), () => setNotice('浏览器不允许复制，请手动选择文字。')); }}><CopyIcon size={15} /></Button>
                   {!selected?.readOnly ? <Button variant="ghost" size="compact" onPress={() => setRecordMessage(message)}><NoteIcon size={15} />记录为笔记</Button> : null}
-                <details className={styles.trace} onToggle={event => { if (event.currentTarget.open) void showTrace(message.turnId); }}>
-                  <summary><SearchIcon size={13} />检索与调用记录</summary>
-                  {turn ? <Trace turn={turn} onReviewCandidates={() => navigate('/knowledge')} /> : <p>正在读取记录…</p>}
-                </details>
+                <ConversationTrace turnId={message.turnId} turn={turn} turnStatusLabel={turn ? statusName[turn.status] : undefined}
+                  onLoad={showTrace} onReviewCandidates={() => navigate('/knowledge')} />
                 </div>
                 {artifacts.filter(action => action.requestId === message.turnId).map(action => <button
                   key={action.actionId} type="button" className={styles.artifactCard} onClick={() => openInbox(action.actionId)}>
@@ -635,44 +634,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
   </WorkspacePanel>;
 }
 
-const toolLabel = (call: ToolCall) => call.toolName === 'notes_search' ? call.argumentsJson.origin === 'automatic' ? '自动检索笔记' : '检索笔记'
-  : call.toolName === 'notes_read' ? '阅读笔记' : call.toolName === 'annotations_list' ? '读取重点标记'
-    : call.toolName === 'knowledge_propose' ? '提交知识候选（待审核）' : '生成笔记计划（尚未写入）';
-
-/** 每个工具调用结果的一句话摘要；提议工具没有来源片段，不能显示“0 个来源片段”。 */
 /** 费用上限造成的失败码对应的规则；其余错误返回 null。 */
 function budgetBlock(code: string | null): 'daily' | 'monthly' | 'turn' | null {
   return code === 'AI_DAILY_BUDGET_EXCEEDED' ? 'daily' : code === 'AI_MONTHLY_BUDGET_EXCEEDED' ? 'monthly' : code === 'AI_JOB_BUDGET_EXCEEDED' ? 'turn' : null;
-}
-
-function toolSummary(call: ToolCall, turn: ConversationTurn) {
-  if (call.status === 'failed') return `失败：${call.errorCode ?? '未知原因'}`;
-  if (call.status !== 'succeeded') return turn.status === 'running' ? '执行中' : '执行未完成';
-  const result = call.resultJson;
-  if (call.toolName === 'knowledge_propose') {
-    const saved = Array.isArray(result?.candidates) ? result.candidates.length : 0;
-    return result?.saved === true ? `已保存 ${saved} 条候选，尚未入库，需在知识库审核` : `已校验 ${saved} 条候选（未保存）`;
-  }
-  if (call.toolName === 'annotations_list') {
-    const shown = Array.isArray(result?.annotations) ? result.annotations.length : 0;
-    return `${typeof result?.total === 'number' ? `共 ${result.total} 处重点，本页 ${shown} 处` : `${shown} 处重点`} · ${call.sourceRefs.length} 个来源片段`;
-  }
-  return `${call.sourceRefs.length} 个来源片段`;
-}
-
-function Trace({ turn, onReviewCandidates }: { turn: ConversationTurn; onReviewCandidates?: () => void }) {
-  const calls = turn.toolCalls ?? [];
-  const savedCandidates = calls.some(call => call.toolName === 'knowledge_propose' && call.status === 'succeeded' && call.resultJson?.saved === true);
-  return <div className={styles.traceBody}>
-    <p>本轮：{statusName[turn.status]}{turn.errorCode ? ` · ${turn.errorCode}` : ''} · 模型尝试 {turn.modelAttempts?.length ?? 0} 次</p>
-    {calls.length ? <ol>{calls.map(call => <li key={call.callId}>
-      <strong>{toolLabel(call)}</strong>
-      {typeof call.argumentsJson.query === 'string' ? ` · ${call.argumentsJson.query}` : null}
-      <span> · {toolSummary(call, turn)}</span>
-      {call.resultJson?.mode === 'keyword_fallback' ? <span> · 索引无可用结果，已改用关键词检索</span>
-        : call.resultJson?.mode === 'keyword' ? <span> · 关键词检索</span> : null}
-      {call.resultJson?.truncated === true ? <span> · 检索范围受限</span> : null}
-    </li>)}</ol> : <p>本轮没有检索或阅读工具记录。</p>}
-    {savedCandidates && onReviewCandidates ? <Button variant="default" size="compact" onPress={onReviewCandidates}>在知识库审核候选</Button> : null}
-  </div>;
 }
