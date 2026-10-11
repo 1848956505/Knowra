@@ -8,10 +8,30 @@ for (const key of ['Backspace', 'Delete']) {
     await mockEditorWorkspace(page, saved, [], '# 1.0\n\n后续正文');
     await page.goto('/#/materials/notes/note-1');
     const editor = page.locator('.ProseMirror');
-    const firstParagraph = editor.locator(':scope > p').first();
-    await editor.locator(':scope > h1').first().click();
+    const firstHeading = editor.locator(':scope > h1').first();
+    await firstHeading.click();
+    // 删除用例先建立可核验的文首光标，避免把标题后的空行当作文首空行。
+    await firstHeading.evaluate((heading) => {
+      (heading.closest('[contenteditable]') as HTMLElement).focus();
+      const range = document.createRange();
+      range.selectNodeContents(heading);
+      range.collapse(true);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
     await page.keyboard.press('Home');
+    await expect.poll(() => firstHeading.evaluate((heading) => {
+      const selection = window.getSelection();
+      if (!selection?.isCollapsed || !selection.anchorNode || !heading.contains(selection.anchorNode)) return false;
+      const beforeCaret = document.createRange();
+      beforeCaret.selectNodeContents(heading);
+      beforeCaret.setEnd(selection.anchorNode, selection.anchorOffset);
+      return beforeCaret.toString() === '';
+    })).toBe(true);
     await page.keyboard.press('Enter');
+    const firstParagraph = editor.locator(':scope > p:first-child');
+    await expect(firstParagraph).toHaveCount(1);
     await expect(firstParagraph).toBeEmpty();
     await firstParagraph.evaluate((paragraph) => {
       (paragraph.closest('[contenteditable]') as HTMLElement).focus();
