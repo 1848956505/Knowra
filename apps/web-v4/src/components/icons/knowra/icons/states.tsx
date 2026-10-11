@@ -1,4 +1,3 @@
-import { ACCENT } from "../IconBase";
 import { createIcon } from "../createIcon";
 
 export const DropdownArrowIcon = createIcon("DropdownArrowIcon", (
@@ -9,48 +8,48 @@ export const DropdownArrowIcon = createIcon("DropdownArrowIcon", (
 
 export const TreeExpandIcon = createIcon("TreeExpandIcon", (
   <>
-    <path d="m9 5 7 7-7 7"/>
+    <path d="m9 18 6-6-6-6"/>
   </>
 ));
 
 export const SearchClearIcon = createIcon("SearchClearIcon", (
   <>
-    <circle cx="10" cy="10" r="5.5"/><path d="m14.2 14.2 4.5 4.5"/><path d="m17 6 4 4M21 6l-4 4" stroke={ACCENT}/>
+    <circle cx="12" cy="12" r="9.5"/><path d="m15 9-6 6M9 9l6 6"/>
   </>
 ));
 
 export const DialogCloseIcon = createIcon("DialogCloseIcon", (
   <>
-    <path d="M6 6l12 12M18 6 6 18"/>
+    <path d="M18 6 6 18M6 6l12 12"/>
   </>
 ));
 
 export const CheckboxCheckedIcon = createIcon("CheckboxCheckedIcon", (
   <>
-    <rect x="4" y="4" width="16" height="16"/><path d="m7.5 12 3 3 6-7" stroke={ACCENT} strokeWidth="2.2"/>
+    <rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/>
   </>
 ));
 
 export const CheckboxIndeterminateIcon = createIcon("CheckboxIndeterminateIcon", (
   <>
-    <rect x="4" y="4" width="16" height="16"/><path d="M8 12h8" stroke={ACCENT} strokeWidth="2.2"/>
+    <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8"/>
   </>
 ));
 
 export const TagSelectedCheckIcon = createIcon("TagSelectedCheckIcon", (
   <>
-    <path d="M4 9V4h5l10 10-5 5z"/><path d="m9 12 2 2 4-4" stroke={ACCENT} strokeWidth="2"/>
+    <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="m8.8 12 2.2 2.2 4-4"/>
   </>
 ));
 
 export const TagRemoveIcon = createIcon("TagRemoveIcon", (
   <>
-    <path d="M4 9V4h5l10 10-5 5z"/><path d="m11.5 10.5 4 4M15.5 10.5l-4 4" stroke={ACCENT}/>
+    <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/>
   </>
 ));
 
 export const StatusDotIcon = createIcon("StatusDotIcon", (
   <>
-    <circle cx="12" cy="12" r="4" fill={ACCENT} stroke="none"/>
+    <circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/>
   </>
 ));

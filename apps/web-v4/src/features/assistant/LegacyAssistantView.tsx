@@ -4,7 +4,7 @@ import { Select, TextAreaField } from '../../components/ui/input';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelHeader } from '../../components/workspace/WorkspacePanel';
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
-import { SparkIcon } from '../../shell/icons';
+import { SparkIcon } from '../../components/icons/knowra';
 import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantJob, type AssistantPreview, type AssistantStatus, type AssistantSource } from './assistantApi';
 import styles from './AssistantView.module.css';

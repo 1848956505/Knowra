@@ -1,68 +1,67 @@
-import { ACCENT } from "../IconBase";
 import { createIcon } from "../createIcon";
 
 export const ExpandedFolderIcon = createIcon("ExpandedFolderIcon", (
   <>
-    <path d="M3 7h7l2 2h9v2"/><path d="M4 11h17l-2 9H3z"/><path d="m16 14 2 2 2-2" stroke={ACCENT}/>
+    <path d="M5 19a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 3h7a2 2 0 0 1 2 2v2"/><path d="m3 19 2.6-8a1.8 1.8 0 0 1 1.7-1.2H21a1 1 0 0 1 1 1.3L19.8 18.3a2 2 0 0 1-1.9 1.7H5a2 2 0 0 1-2-1Z"/>
   </>
 ));
 
 export const MarkdownFileIcon = createIcon("MarkdownFileIcon", (
   <>
-    <path d="M6 3.5h8l4 4V20.5H6z"/><path d="M14 3.5v4h4"/><path d="M8.5 14v-4l2 2 2-2v4M15 10v4M13.8 12.8 15 14l1.2-1.2" stroke={ACCENT}/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.8 17.5v-5l2.7 3 2.7-3v5"/>
   </>
 ));
 
 export const PdfFileIcon = createIcon("PdfFileIcon", (
   <>
-    <path d="M6 3.5h8l4 4V20.5H6z"/><path d="M14 3.5v4h4"/><path d="M8.5 15c2.5-4.5 4.2-6.5 5.2-5.2 1.2 1.5-1.9 5.8-4.2 4.3-1.2-.8 1.4-2 5-1.5 1.5.2 2.3.7 2.7 1.1" stroke={ACCENT}/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 18v-6h2.6a1.9 1.9 0 0 1 0 3.8H9"/>
   </>
 ));
 
 export const ResourceFileIcon = createIcon("ResourceFileIcon", (
   <>
-    <path d="M6 3.5h8l4 4V20.5H6z"/><path d="M14 3.5v4h4"/><path d="M9 12h2M13 12h2M9 16h6"/><path d="m10 8.5 1.5 1.5L14 7.5" stroke={ACCENT}/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.5 13h7M8.5 17h7"/>
   </>
 ));
 
 export const DuplicateIcon = createIcon("DuplicateIcon", (
   <>
-    <rect x="7" y="5" width="12" height="15"/><path d="M5 17H3V3h12v2"/><path d="M11 9h4M13 7v4" stroke={ACCENT}/>
+    <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><path d="M15.5 12.5v6M12.5 15.5h6"/>
   </>
 ));
 
 export const DownloadIcon = createIcon("DownloadIcon", (
   <>
-    <path d="M12 4v12M8 12l4 4 4-4" stroke={ACCENT}/><path d="M5 18v2h14v-2"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>
   </>
 ));
 
 export const ExportIcon = createIcon("ExportIcon", (
   <>
-    <path d="M13 5H5v14h14v-8"/><path d="M12 12 20 4M15 4h5v5" stroke={ACCENT}/>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/>
   </>
 ));
 
 export const BackupIcon = createIcon("BackupIcon", (
   <>
-    <ellipse cx="10" cy="6" rx="5" ry="2.5"/><path d="M5 6v8c0 1.4 2.2 2.5 5 2.5.7 0 1.4-.1 2-.2M15 6v5"/><circle cx="17" cy="16" r="4"/><path d="M17 13.5V16l1.8 1.1" stroke={ACCENT}/>
+    <ellipse cx="10" cy="5" rx="7" ry="3"/><path d="M3 5v14c0 1.7 3.1 3 7 3M17 5v4M3 12c0 1.7 3.1 3 7 3"/><circle cx="18" cy="17" r="4.5"/><path d="M18 14.8V17l1.6 1"/>
   </>
 ));
 
 export const RestoreIcon = createIcon("RestoreIcon", (
   <>
-    <path d="M6 8a7 7 0 1 1-1 7"/><path d="M6 4v4h4" stroke={ACCENT}/><path d="M12 8v4l-3 2"/>
+    <path d="M1 4v6h6"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/><path d="M12 8v4l3 2"/>
   </>
 ));
 
 export const UndoIcon = createIcon("UndoIcon", (
   <>
-    <path d="M9 7 4 12l5 5" stroke={ACCENT}/><path d="M5 12h7c4 0 7 2 7 6"/>
+    <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
   </>
 ));
 
 export const RedoIcon = createIcon("RedoIcon", (
   <>
-    <path d="m15 7 5 5-5 5" stroke={ACCENT}/><path d="M19 12h-7c-4 0-7 2-7 6"/>
+    <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/>
   </>
 ));
