@@ -2052,6 +2052,62 @@ test('V4-07 表格删列后复用图片节点仍按局部容器宽度等比调�
   await expect.poll(() => image.evaluate(node => Math.abs(node.getBoundingClientRect().width - node.parentElement!.clientWidth * 0.4))).toBeLessThan(1);
 });
 
+test('V4-07 公式源码、代码粘贴、退出和保存保留各自语义', async ({ page }) => {
+  const saved: string[] = [];
+  await mockEditorWorkspace(page, saved, [], '普通 \\$x\\$ 与 $a$\n\n`代码`\n\n尾声');
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  const inline = editor.locator('[data-math-inline]');
+  await expect(inline).toHaveCount(1);
+  await inline.locator('[data-math-preview]').click();
+  await page.keyboard.type('+1');
+  await expect(inline.locator('[data-math-source]')).toHaveText('a+1');
+  await page.keyboard.press('Enter');
+  await expect(inline).not.toHaveClass(/math-editing/);
+  await expect.poll(() => saved.at(-1) ?? '').toContain('普通 \\$x\\$ 与 $a+1$');
+
+  const paragraph = editor.locator(':scope > p').last();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('ControlOrMeta+Shift+m');
+  const block = editor.locator('[data-math-block]');
+  await expect(block).toHaveCount(1);
+  await page.keyboard.type('\\frac{1}{2}');
+  await expect(block.locator('.katex')).toHaveCount(1);
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(block).not.toHaveClass(/math-editing/);
+  await expect.poll(() => saved.at(-1) ?? '').toContain('$$\n\\frac{1}{2}\n$$');
+
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await expect(block.locator('.katex')).toHaveCount(1);
+  await editor.locator(':scope > p').last().click();
+  await editor.evaluate(element => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '```tex\n\\(code\\)\n```\n\n正文 \\(z\\)');
+    element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+  });
+  await expect(editor.locator('[data-code-block] code')).toContainText('\\(code\\)');
+  await expect(inline).toHaveCount(2);
+  await expect.poll(() => saved.at(-1) ?? '').toContain('$z$');
+});
+
+test('V4-07 窄屏长公式与错误预览不撑开页面', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockEditorWorkspace(page, [], [], `前 $${'a+'.repeat(120)}b$ 后\n\n$$\n\\rule{100000em}{1em}\n$$\n\n$\\bad{<img src=x>}$`);
+  await page.goto('/#/materials/notes/note-1');
+  const editor = page.locator('.ProseMirror');
+  await expect(editor.locator('[data-math-preview] .katex')).toHaveCount(2);
+  await expect(editor.locator('.math-error')).toHaveCount(1);
+  await expect(editor.locator('.math-error img')).toHaveCount(0);
+  const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(await overflow()).toBeLessThanOrEqual(2);
+  await editor.locator('[data-math-inline] [data-math-preview]').first().click();
+  await expect(editor.locator('[data-math-inline]').first()).toHaveClass(/math-editing/);
+  expect(await overflow()).toBeLessThanOrEqual(2);
+  await page.screenshot({ path: 'test-results/mobile-evidence/formula-390.png', fullPage: false });
+});
+
 /** 用真实主题令牌校验颜色，避免回归测试重新固定旧主题色。 */
 async function tokenColor(page: Page, token: string): Promise<string> {
   return page.evaluate(name => {
