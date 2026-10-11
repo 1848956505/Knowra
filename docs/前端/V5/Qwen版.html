@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Notes - Dual Theme</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* --- 1. Design Tokens (CSS Variables) --- */
+        :root {
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --radius-md: 6px;
+            --transition-speed: 0.3s;
+        }
+
+        /* Dark Theme (Default) */
+        [data-theme="dark"] {
+            --bg-body: #0E0E10;
+            --bg-sidebar: #161618;
+            --bg-hover: #252529;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-active: rgba(255, 255, 255, 0.2);
+            
+            --text-main: #EDEDEF;
+            --text-secondary: #8A8F98;
+            --text-dim: #5D6068;
+            --text-code: #a0a0a0;
+            
+            --accent-primary: #5E6AD2;
+            --accent-glow: rgba(94, 106, 210, 0.15);
+            --ambient-glow: radial-gradient(circle, rgba(94, 106, 210, 0.08) 0%, rgba(0,0,0,0) 70%);
+            
+            --tag-bg: rgba(255,255,255,0.05);
+            --code-bg: #121214;
+            --shadow-color: rgba(0,0,0,0.3);
+            --icon-btn-hover: rgba(255,255,255,0.1);
+        }
+
+        /* Light Theme */
+        [data-theme="light"] {
+            --bg-body: #F4F5F7;
+            --bg-sidebar: #FAFAFB;
+            --bg-hover: #EFEFF1;
+            --border-subtle: rgba(0, 0, 0, 0.06);
+            --border-active: rgba(0, 0, 0, 0.12);
+            
+            --text-main: #17181B;
+            --text-secondary: #6E7178;
+            --text-dim: #9DA1A9;
+            --text-code: #4A4D55;
+            
+            --accent-primary: #5E6AD2;
+            --accent-glow: rgba(94, 106, 210, 0.08);
+            --ambient-glow: radial-gradient(circle, rgba(94, 106, 210, 0.06) 0%, rgba(255,255,255,0) 70%);
+            
+            --tag-bg: #FFFFFF;
+            --code-bg: #F0F1F3;
+            --shadow-color: rgba(0,0,0,0.06);
+            --icon-btn-hover: rgba(0,0,0,0.05);
+        }
+
+        /* --- 2. Global Reset & Base --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+            /* 关键：让所有颜色变化都有平滑过渡 */
+            transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+        }
+
+        /* Ambient Background Glow */
+        .ambient-glow {
+            position: absolute;
+            top: -20%;
+            left: 20%;
+            width: 600px;
+            height: 600px;
+            background: var(--ambient-glow);
+            pointer-events: none;
+            z-index: 0;
+            transition: background var(--transition-speed) ease;
+        }
+        [data-theme="light"] .ambient-glow { top: -10%; right: 10%; left: auto; width: 800px; }
+
+        /* --- 3. Sidebar --- */
+        .sidebar {
+            width: 240px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            z-index: 10;
+            flex-shrink: 0;
+            transition: background-color var(--transition-speed), border-color var(--transition-speed);
+        }
+
+        .workspace-switcher {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            margin-bottom: 16px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-main);
+            transition: background 0.2s;
+        }
+        .workspace-switcher:hover { background: var(--bg-hover); }
+
+        .workspace-icon {
+            width: 20px; height: 20px;
+            background: linear-gradient(135deg, #5E6AD2, #8B95E8);
+            border-radius: 4px;
+        }
+
+        .nav-section { margin-bottom: 20px; }
+        .nav-label {
+            font-size: 11px; font-weight: 600; color: var(--text-dim);
+            padding: 0 8px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+            transition: color var(--transition-speed);
+        }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 8px; color: var(--text-secondary);
+            border-radius: var(--radius-md); cursor: pointer;
+            position: relative; transition: all 0.15s ease;
+        }
+        .nav-item:hover { background: var(--bg-hover); color: var(--text-main); }
+        .nav-item.active { background: var(--bg-hover); color: var(--text-main); font-weight: 600; }
+        
+        .nav-item.active::before {
+            content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+            height: 12px; width: 2px; background: var(--accent-primary); border-radius: 2px;
+        }
+        .nav-item i { font-size: 16px; opacity: 0.7; }
+
+        /* --- 4. Main Content --- */
+        .main-content {
+            flex: 1; display: flex; flex-direction: column;
+            position: relative; z-index: 5; overflow: hidden;
+        }
+
+        .top-bar {
+            height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
+        }
+
+        .breadcrumbs {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--text-secondary); font-size: 12px;
+            transition: color var(--transition-speed);
+        }
+        .breadcrumbs span.current { color: var(--text-main); font-weight: 500; }
+
+        .actions { display: flex; gap: 12px; align-items: center; }
+
+        .icon-btn {
+            color: var(--text-secondary); cursor: pointer; padding: 6px;
+            border-radius: 4px; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+        }
+        .icon-btn:hover { background: var(--icon-btn-hover); color: var(--text-main); }
+
+        /* Editor Area */
+        .editor-container {
+            flex: 1; overflow-y: auto; padding: 40px 10%; max-width: 900px; margin: 0 auto; width: 100%;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
+
+        .note-title {
+            font-size: 32px; font-weight: 700; color: var(--text-main);
+            margin-bottom: 12px; border: none; background: transparent; width: 100%;
+            letter-spacing: -0.5px; transition: color var(--transition-speed);
+        }
+        
+        .note-meta {
+            display: flex; gap: 16px; margin-bottom: 32px; font-size: 12px; color: var(--text-dim);
+            transition: color var(--transition-speed);
+        }
+
+        .tag {
+            background: var(--tag-bg); padding: 2px 8px; border-radius: 10px;
+            border: 1px solid var(--border-subtle); color: var(--text-secondary);
+            transition: all var(--transition-speed);
+        }
+        [data-theme="light"] .tag { box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+
+        .editor-content {
+            font-size: 15px; line-height: 1.7; color: var(--text-secondary); min-height: 300px;
+            transition: color var(--transition-speed);
+        }
+        .editor-content p { margin-bottom: 16px; }
+        .editor-content h3 { 
+            color: var(--text-main); margin: 24px 0 12px 0; font-size: 18px; 
+            transition: color var(--transition-speed);
+        }
+        
+        .code-block {
+            background: var(--code-bg); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md); padding: 16px;
+            font-family: 'JetBrains Mono', monospace; font-size: 12px;
+            color: var(--text-code); margin: 20px 0;
+            transition: all var(--transition-speed);
+        }
+        [data-theme="light"] .code-block { box-shadow: inset 0 1px 3px rgba(0,0,0,0.02); }
+
+        /* Floating Hint */
+        .command-hint {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--bg-sidebar); border: 1px solid var(--border-subtle);
+            padding: 8px 12px; border-radius: 6px; font-size: 11px;
+            color: var(--text-secondary); display: flex; align-items: center; gap: 8px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            transition: all var(--transition-speed);
+        }
+
+        .kbd {
+            background: var(--bg-hover); padding: 2px 4px; border-radius: 3px;
+            font-family: monospace; color: var(--text-main); border: 1px solid var(--border-subtle);
+            transition: all var(--transition-speed);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="ambient-glow"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="workspace-switcher">
+            <div class="workspace-icon"></div>
+            <span>My Notes</span>
+            <i class="ph ph-caret-down" style="margin-left: auto; font-size: 12px;"></i>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-item"><i class="ph ph-house"></i> Home</div>
+            <div class="nav-item">
+                <i class="ph ph-inbox"></i> Inbox
+                <span style="margin-left:auto; font-size:11px; background:var(--accent-primary); color:white; padding:1px 5px; border-radius:8px;">3</span>
+            </div>
+            <div class="nav-item active"><i class="ph ph-files"></i> All Notes</div>
+            <div class="nav-item"><i class="ph ph-star"></i> Favorites</div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">Collections</div>
+            <div class="nav-item"><i class="ph ph-hash" style="color: #5E6AD2;"></i> Product Design</div>
+            <div class="nav-item"><i class="ph ph-hash" style="color: #E58F65;"></i> Engineering</div>
+            <div class="nav-item"><i class="ph ph-hash" style="color: #6AB7FF;"></i> Personal</div>
+            <div class="nav-item" style="opacity: 0.5; border: 1px dashed var(--border-subtle); justify-content: center; margin-top: 8px;">
+                <i class="ph ph-plus"></i> Add Collection
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="breadcrumbs">
+                <span>All Notes</span>
+                <i class="ph ph-caret-right" style="font-size: 10px;"></i>
+                <span class="current">Project Alpha Specs</span>
+            </div>
+            <div class="actions">
+                <!-- Theme Toggle Button -->
+                <div class="icon-btn" id="theme-toggle" title="Toggle Theme">
+                    <i class="ph ph-moon" id="theme-icon"></i>
+                </div>
+                <div style="width:1px; height:16px; background:var(--border-subtle); margin:0 4px;"></div>
+                <i class="ph ph-share-network icon-btn"></i>
+                <i class="ph ph-dots-three icon-btn"></i>
+            </div>
+        </header>
+
+        <div class="editor-container">
+            <input type="text" class="note-title" value="Project Alpha Specs" placeholder="Untitled">
+            
+            <div class="note-meta">
+                <span>Created Oct 10, 2026</span>
+                <span>•</span>
+                <span class="tag">#Engineering</span>
+                <span class="tag">Status: In Progress</span>
+            </div>
+
+            <div class="editor-content" contenteditable="true">
+                <p>This demo now supports <strong>dual themes</strong>. Click the moon/sun icon in the top right corner to switch between Dark and Light modes seamlessly.</p>
+                
+                <h3>Implementation Details</h3>
+                <ul style="padding-left: 20px; margin-bottom: 20px;">
+                    <li style="margin-bottom: 8px;">CSS Variables for instant token swapping</li>
+                    <li style="margin-bottom: 8px;">Smooth transitions on all color properties</li>
+                    <li style="margin-bottom: 8px;">Adaptive shadows and glows per theme</li>
+                </ul>
+
+                <div class="code-block">
+                    // Theme switching logic<br>
+                    const toggle = () => {<br>
+                    &nbsp;&nbsp;const next = current === 'dark' ? 'light' : 'dark';<br>
+                    &nbsp;&nbsp;document.documentElement.setAttribute('data-theme', next);<br>
+                    };
+                </div>
+
+                <p>The light mode uses a cool grey palette (#F4F5F7) instead of pure white to maintain that premium Linear aesthetic while reducing eye strain.</p>
+            </div>
+        </div>
+
+        <div class="command-hint">
+            Press <span class="kbd">⌘</span> + <span class="kbd">K</span> for commands
+        </div>
+    </main>
+
+    <script>
+        const toggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const html = document.documentElement;
+
+        toggleBtn.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            
+            // Switch icon: Moon for dark mode, Sun for light mode
+            if (newTheme === 'light') {
+                themeIcon.classList.remove('ph-moon');
+                themeIcon.classList.add('ph-sun');
+            } else {
+                themeIcon.classList.remove('ph-sun');
+                themeIcon.classList.add('ph-moon');
+            }
+        });
+    </script>
+</body>
+</html>

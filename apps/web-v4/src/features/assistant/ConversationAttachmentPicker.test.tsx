@@ -256,8 +256,10 @@ it.each(['列表不再包含附件', '已移除', '带移除时间', '文件缺�
     removedAt: reason === '带移除时间' ? '2026-10-04T01:00:00Z' : null }];
   vi.mocked(api.list).mockResolvedValueOnce(refreshed);
   fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
-  await waitFor(() => expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument());
-  expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  await waitFor(() => {
+    expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument();
+    expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  });
   expect(api.preview).toHaveBeenCalledOnce(); expect(api.content).toHaveBeenCalledOnce();
 });
 
@@ -287,8 +289,10 @@ it('刷新失败保留现有图片预览，重试成功后才关闭失效预览'
   expect(screen.getByRole('img')).toBe(displayed); expect(revokeObjectURL).not.toHaveBeenCalled();
   vi.mocked(api.list).mockResolvedValueOnce([]);
   fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
-  await waitFor(() => expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument());
-  expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  await waitFor(() => {
+    expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument();
+    expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  });
 });
 
 it.each(['关闭预览', '切换对话', '卸载组件'])('刷新待决时%s，迟到结果不会重开预览或重复释放URL', async action => {

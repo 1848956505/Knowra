@@ -6,6 +6,7 @@ import { createTagGroupService } from './application/tag-group-service.js';
 import { createKnowledgeSpaceService } from './application/knowledge-space-service.js';
 import { createSearchService } from './application/search-service.js';
 import { createContentAnnotationService } from './application/content-annotation-service.js';
+import { createAnnotationIdentityShadow } from './application/annotation-identity-shadow.js';
 import { createInMemoryNoteRepository } from './infrastructure/note-repository.js';
 import { createInMemoryFolderRepository } from './infrastructure/folder-repository.js';
 import { createInMemoryTagRepository } from './infrastructure/tag-repository.js';
@@ -342,6 +343,11 @@ export function createKnowledgeModule(options = {}) {
     if (!previous || previous.content !== annotationChange?.before || isNoteVersionReferenced(previous, note.id) || !versionCoalescing.canDiscard(previous)) return;
     noteVersionRepository.deleteById(previous.id);
   }
+  const annotationIdentityShadow = createAnnotationIdentityShadow({
+    listAnnotations: (noteId) => contentAnnotationRepository.list({ noteId, includeDeleted: true }),
+    sink: options.annotationShadowSink ?? null,
+    afterCommit: options.afterCommit
+  });
   const noteService = createNoteService({
     repository: noteRepository,
     annotationRepository: contentAnnotationRepository,
@@ -351,6 +357,7 @@ export function createKnowledgeModule(options = {}) {
     runTransaction,
     onNoteContentChanged: (note, version, annotationChange) => {
       const reconciliation = contentAnnotationService.reconcileForNote(note.id, version.contentHash, annotationChange);
+      annotationIdentityShadow.observe(note, annotationChange);
       const changed = reconciliation.contentChangedAnnotationIds.flatMap((annotationId) => (
         knowledgeItemService.markEvidenceByAnnotationId(annotationId,
           contentAnnotationRepository.findById(annotationId)?.anchorStatus === 'missing' ? 'insufficient' : 'stale')

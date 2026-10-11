@@ -38,7 +38,7 @@ export interface NoteAutosaveController {
   hasLocalChanges: boolean;
   hasConflict: boolean;
   saveError: string | null;
-  updateDraft(markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
+  updateDraft(markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent; identity?: import('./annotationShadow').AnnotationIdentitySnapshot }): void;
   saveNow(markdown?: string): Promise<void>;
   getLatestMarkdown(): string;
   discardRecoveredDraft(): void;
@@ -109,9 +109,10 @@ export function useNoteAutosave({
     timerByNoteRef.current.delete(targetNoteId);
     await session.flush(targetNoteId, fallback, retryConflict);
   }, [session]);
-  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent }) => {
+  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent; identity?: import('./annotationShadow').AnnotationIdentitySnapshot }) => {
     const before = state.markdown;
     state.edits = appendEdit(state.edits, before, markdown, options?.editIntent);
+    state.identity = options?.identity;
     scheduleCurrentDraft({ noteId, markdown }, options?.immediate);
     if (!optionsRef.current.canWrite) return;
     state.localRevision += 1;
