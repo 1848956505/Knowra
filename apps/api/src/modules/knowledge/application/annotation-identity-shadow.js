@@ -2,12 +2,14 @@ import { compareIdentityShadow } from '@study-accelerator/content-anchor';
 
 /**
  * 稳定身份迁移 S2a：保存后把编辑器身份视角与旧链路的跟随结果比较，结论交给 sink 记录。
+ * 比较在事务内进行（读取跟随后的最终状态），记录经 `afterCommit` 推迟到提交成功后；回滚的保存不留样本。
  * 只做诊断：任何异常都被吞掉，不能影响保存、版本或重点状态。
  */
-export function createAnnotationIdentityShadow({ listAnnotations, sink = null, now = () => new Date().toISOString() }) {
+export function createAnnotationIdentityShadow({ listAnnotations, sink = null, afterCommit = (callback) => callback(), now = () => new Date().toISOString() }) {
   function record(note, annotations, editorState) {
     const result = compareIdentityShadow({ markdown: note.rawMarkdown, editorState, annotations });
-    sink({ at: now(), noteId: note.id, ...result });
+    const entry = { at: now(), noteId: note.id, ...result };
+    afterCommit(() => sink(entry));
     return result;
   }
   return {

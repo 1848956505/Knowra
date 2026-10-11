@@ -21,20 +21,26 @@ export interface NoteSaveState {
   generation: number;
 }
 
-/** 影子快照上限；服务端请求体上限为 8 MiB，正文与编辑日志之外为诊断数据保留的余量。 */
+/** 服务端 JSON 请求体上限，与 `packages/shared/src/http-limits.js` 的 DEFAULT_JSON_BODY_LIMIT_BYTES 一致（测试校验）。 */
+export const SAVE_REQUEST_LIMIT_BYTES = 8 * 1024 * 1024;
+/** 影子快照自身上限，以及为请求中其他字段与编码差异保留的余量。 */
 export const IDENTITY_SNAPSHOT_MAX_BYTES = 1024 * 1024;
-const SAVE_REQUEST_BUDGET_BYTES = 6 * 1024 * 1024;
+const SAVE_REQUEST_HEADROOM_BYTES = 16 * 1024;
 
-/** 影子比对只是诊断：生成失败、快照过大或会让请求逼近上限时省略快照，保存照常进行。 */
-export function withIdentity(mapping: ReturnType<typeof buildEditMapping>, identity: NoteSaveState['identity'], markdown: string) {
+/**
+ * 影子比对只是诊断：生成失败、快照过大，或附带后最终序列化的请求 JSON（UTF-8 字节，含转义）
+ * 会逼近服务端上限时，省略快照，保存照常进行。
+ */
+export function withIdentity(mapping: ReturnType<typeof buildEditMapping>, identity: NoteSaveState['identity'], markdown: string, expectedUpdatedAt?: string) {
   if (!mapping || identity?.markdown !== markdown) return mapping;
   try {
     const editorState = identity.build();
     const encoder = new TextEncoder();
-    const snapshotBytes = encoder.encode(JSON.stringify(editorState)).byteLength;
-    if (snapshotBytes > IDENTITY_SNAPSHOT_MAX_BYTES) return mapping;
-    const requestBytes = encoder.encode(markdown).byteLength + encoder.encode(JSON.stringify(mapping)).byteLength + snapshotBytes;
-    return requestBytes > SAVE_REQUEST_BUDGET_BYTES ? mapping : { ...mapping, editorState };
+    if (encoder.encode(JSON.stringify(editorState)).byteLength > IDENTITY_SNAPSHOT_MAX_BYTES) return mapping;
+    const withState = { ...mapping, editorState };
+    // 与 workspaceSlice.saveNoteContent 发送的请求体同形状。
+    const body = JSON.stringify({ rawMarkdown: markdown, annotationMapping: withState, expectedUpdatedAt: expectedUpdatedAt ?? '' });
+    return encoder.encode(body).byteLength + SAVE_REQUEST_HEADROOM_BYTES > SAVE_REQUEST_LIMIT_BYTES ? mapping : withState;
   } catch { return mapping; }
 }
 
@@ -106,7 +112,7 @@ export function createNoteAutosaveSession(options: SessionOptions) {
         const expectedUpdatedAt = state.baseUpdatedAt;
         const pendingEdits = new Set(state.edits.map(edit => edit.sequence));
         const batch = capturedEdits.filter(edit => pendingEdits.has(edit.sequence));
-        const mapping = withIdentity(buildEditMapping(state.serverMarkdown, markdown, batch), capturedIdentity, markdown);
+        const mapping = withIdentity(buildEditMapping(state.serverMarkdown, markdown, batch), capturedIdentity, markdown, expectedUpdatedAt);
         const saved = mapping
           ? await options.save(noteId, markdown, expectedUpdatedAt, state.serverMarkdown, mapping)
           : await options.save(noteId, markdown, expectedUpdatedAt, state.serverMarkdown);

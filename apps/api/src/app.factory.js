@@ -164,6 +164,7 @@ export function createAppContext(options = {}) {
     enforceReferences: options.enforceReferences ?? true,
     noteVersionCoalescing: options.noteVersionCoalescing,
     // 稳定身份迁移 S2a：本地持久化时记录影子比对结论（只含 ID 与结论）。
+    afterCommit: dataStore?.afterCommit,
     annotationShadowSink: options.annotationShadowSink ?? (dataStore
       ? createJsonlShadowSink(resolveStoragePath('storage/runtime/annotation-shadow.jsonl', options.storageRootDir ?? workspaceRoot))
       : null)

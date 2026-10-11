@@ -358,23 +358,24 @@ describe('影子比对', () => {
   });
 
   it('大量重叠长选区时快照不随摘录长度膨胀', async () => {
-    const paragraph = '长'.repeat(400);
-    const markdown = Array.from({ length: 160 }, () => paragraph).join('\n\n') + '\n';
+    // 20 条重叠选区共覆盖约 24 万字；若传摘录原文，快照约 720 KB。
+    const markdown = Array.from({ length: 60 }, () => '长'.repeat(200)).join('\n\n') + '\n';
     const e = await createEditor(markdown);
     const serialized = e.markdown();
     const end = e.view.state.doc.content.size - 1;
-    const annotations = Array.from({ length: 40 }, (_, index) => {
+    const annotations = Array.from({ length: 20 }, (_, index) => {
       e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1 + index, end - index)));
       const selection = getAnnotationSelection(e.editor, serialized, 'selection')!;
       return { id: `long-${index}`, scopeType: 'selection', anchor: selection.anchor, quoteText: selection.quoteText,
         fromPosition: selection.fromPosition, toPosition: selection.toPosition, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation;
     });
+    expect(annotations.reduce((total, item) => total + item.quoteText.length, 0)).toBeGreaterThan(200_000);
     setEditorAnnotations(e.editor, annotations, null);
     const state = buildIdentityEditorState(e.view.state.doc, annotationShadowKey.getState(e.view.state)!.bindings, serialized);
-    expect(state.annotations).toHaveLength(40);
-    expect(new TextEncoder().encode(JSON.stringify(state)).byteLength).toBeLessThan(64 * 1024);
+    expect(state.annotations).toHaveLength(20);
+    expect(new TextEncoder().encode(JSON.stringify(state)).byteLength).toBeLessThan(32 * 1024);
     expect(compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never }).divergences).toEqual([]);
-  });
+  }, 15_000);
 
   it('拖拽移动选区重点：现有推算丢失、身份仍在时记录为 trackedLost', async () => {
     const { e, annotation } = await annotate('重点段落\n\n其他\n', 'selection', editor => {

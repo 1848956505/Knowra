@@ -55,5 +55,37 @@ export const annotationIdentityShadowTests = [
     const saved = save(failing.module, failing.note, after, editorState(after, []));
     assert.equal(saved.rawMarkdown, after);
     assert.ok(second.rawMarkdown.endsWith('一'));
+  } },
+  { name: '身份影子：保存所在事务回滚时不记录样本', run() {
+    const entries = [];
+    let queue = null;
+    let failCommit = false;
+    // 与本地存储一致：嵌套调用直接执行，只有最外层负责提交或回滚。
+    const runTransaction = (operation) => {
+      if (queue) return operation();
+      queue = [];
+      let callbacks = [];
+      try {
+        const result = operation();
+        if (failCommit) throw new Error('提交失败');
+        callbacks = queue;
+        return result;
+      } finally {
+        queue = null;
+        callbacks.forEach(callback => callback());
+      }
+    };
+    const afterCommit = (callback) => (queue ? queue.push(callback) : callback());
+    const module = createKnowledgeModule({ annotationShadowSink: entry => entries.push(entry), runTransaction, afterCommit });
+    const note = module.noteService.createNote({ id: 'rollback-note', spaceId: 'space', title: '回滚', rawMarkdown: '甲' });
+    failCommit = true;
+    assert.throws(() => save(module, note, '甲乙', editorState('甲乙', [])), /提交失败/);
+    assert.equal(entries.length, 0);
+    failCommit = false;
+    // 内存仓库不会真正回滚，第二次保存以当前记录为基线；真实存储的回滚由桌面 SQLite 测试覆盖。
+    const current = module.noteService.getNote(note.id);
+    const after = `${current.rawMarkdown}丙`;
+    save(module, current, after, editorState(after, []));
+    assert.equal(entries.length, 1);
   } }
 ];

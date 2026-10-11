@@ -345,7 +345,8 @@ export function createKnowledgeModule(options = {}) {
   }
   const annotationIdentityShadow = createAnnotationIdentityShadow({
     listAnnotations: (noteId) => contentAnnotationRepository.list({ noteId, includeDeleted: true }),
-    sink: options.annotationShadowSink ?? null
+    sink: options.annotationShadowSink ?? null,
+    afterCommit: options.afterCommit
   });
   const noteService = createNoteService({
     repository: noteRepository,

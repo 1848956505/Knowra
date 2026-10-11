@@ -167,3 +167,41 @@ test('历史深层对象在提交、失败回滚和导出之间保持隔离', t 
   const persisted = store.readSync(db => JSON.parse(db.prepare("SELECT payload FROM entities WHERE collection = 'noteVersions' LIMIT 1").get().payload));
   assert.deepEqual(persisted.extra.paths, [[1, 2]]);
 });
+
+test('影子比对日志只在提交成功后写入，提交故障回滚时不留样本', async t => {
+  const { calculateContentHash, sourceEdit } = await import('@study-accelerator/content-anchor');
+  const root = temporaryDirectory(t);
+  let fail = false;
+  const workspace = openWorkspace(root, { beforeCommit: () => { if (fail) throw new Error('模拟磁盘写入失败'); } });
+  const note = createNote(workspace, '甲');
+  const log = path.join(root, 'storage', 'runtime', 'annotation-shadow.jsonl');
+  const save = (current, after) => workspace.knowledge.noteService.updateNote(current.id, { rawMarkdown: after,
+    annotationMapping: { formatVersion: 1, operationId: `op-${after}`, baseContentHash: calculateContentHash(current.rawMarkdown), targetContentHash: calculateContentHash(after),
+      edits: [sourceEdit(current.rawMarkdown, after)],
+      editorState: { formatVersion: 2, targetContentHash: calculateContentHash(after), blocks: [{ id: 'p', type: 'paragraph', empty: false }], annotations: [] } } });
+  fail = true;
+  assert.throws(() => save(note, '甲乙'), /模拟磁盘/);
+  assert.equal(fs.existsSync(log), false);
+  fail = false;
+  save(note, '甲丙');
+  const entries = fs.readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.deepEqual(entries.map(entry => [entry.noteId, entry.status]), [[note.id, 'compared']]);
+  workspace.store.close();
+});
+
+test('afterCommit：嵌套事务推迟到最外层提交，回滚丢弃，事务外立即执行', t => {
+  const root = temporaryDirectory(t);
+  const store = createSqliteDataStore(path.join(root, 'local.sqlite'));
+  const calls = [];
+  store.runTransaction(() => {
+    store.runTransaction(() => store.afterCommit(() => calls.push('inner')));
+    store.afterCommit(() => calls.push('outer'));
+    assert.deepEqual(calls, []);
+  });
+  assert.deepEqual(calls, ['inner', 'outer']);
+  assert.throws(() => store.runTransaction(() => { store.afterCommit(() => calls.push('rolled-back')); throw new Error('回滚'); }), /回滚/);
+  store.runTransaction(() => {});
+  store.afterCommit(() => calls.push('immediate'));
+  assert.deepEqual(calls, ['inner', 'outer', 'immediate']);
+  store.close();
+});
