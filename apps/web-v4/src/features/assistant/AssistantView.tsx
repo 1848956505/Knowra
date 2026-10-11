@@ -603,7 +603,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                       <MenuItem id="revoke" isDisabled={!chosenPolicy || pending} isDanger>撤销此授权</MenuItem>
                     </Menu></MenuPopover>
                   </MenuTrigger>
-                  <ConversationAttachmentPicker key={spaceId ?? 'no-space'} conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
+                  <ConversationAttachmentPicker key={spaceId ?? 'no-space'} isDisabled={!spaceId} conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
                   <span className={styles.composerSpacer} />
                   {draft.length > 3000 ? <span className={styles.charCount} data-over={draft.length > 3800 || undefined}>{draft.length} / 3800</span> : null}
                   <Button variant="accent" size="compact" iconOnly aria-label={pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}

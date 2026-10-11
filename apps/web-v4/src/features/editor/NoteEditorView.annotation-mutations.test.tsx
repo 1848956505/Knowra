@@ -84,19 +84,63 @@ describe('标注变更等待真实 autosave 后的上下文与 revision', () => 
     expect(props.onSaveMarkdown).toHaveBeenCalledOnce();
     expect(mutate).toHaveBeenCalledWith(annotation.id, expect.objectContaining({ expectedRevision: 2 }));
   });
-  it.each(['note', 'readonly', 'selection', 'document'])('保存期间 %s 改变则取消标注写入', async change => {
+  it.each(['note', 'note-roundtrip', 'readonly', 'source', 'read-mode', 'selection', 'document', 'unmount'])('保存期间 %s 改变则取消标注写入', async change => {
     const props = fixture(); let finish!: () => void;
     vi.mocked(props.onSaveMarkdown).mockImplementation(() => new Promise(resolve => { finish = () => resolve({ ...props.note!, updatedAt: 'v2' }); }));
-    const { rerender } = render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
+    const { rerender, unmount } = render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
     let pending!: Promise<void>;
     act(() => { pending = state.inspector.onReanchorAnnotation(annotation); });
     await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledOnce());
     if (change === 'note') rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
     if (change === 'readonly') rerender(<NoteEditorView {...props} canWrite={false} />);
+    if (change === 'note-roundtrip') {
+      rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
+      rerender(<NoteEditorView {...props} />);
+    }
+    if (change === 'source') rerender(<NoteEditorView {...props} view={{ ...props.view, showSourceEditor: true }} />);
+    if (change === 'read-mode') rerender(<NoteEditorView {...props} view={{ ...props.view, contentMode: 'read' }} />);
+    if (change === 'unmount') unmount();
+
     if (change === 'selection') state.selection = { ...state.selection, quoteText: '另一选区' };
     if (change === 'document') state.markdown = '继续输入';
     await act(async () => { finish(); await expect(pending).rejects.toThrow(); });
     expect(props.onUpdateAnnotationAnchor).not.toHaveBeenCalled();
+  });
+  it.each(['onReanchorAnnotation', 'onCreateAnnotationExclusion'].flatMap(action => ['note', 'readonly', 'unmount'].map(change => [action, change])))('%s 已提交后 %s 不发布迟到回执', async (action, change) => {
+    const props = fixture();
+    const { rerender, unmount } = render(<NoteEditorView {...props} />);
+    await screen.findByTestId('mutation-editor');
+    let finish!: () => void;
+    const updated = { ...annotation, revision: 3, quoteText: '迟到结果' };
+    if (action === 'onReanchorAnnotation') vi.mocked(props.onUpdateAnnotationAnchor).mockImplementation(() => new Promise(resolve => { finish = () => resolve(updated); }));
+    else vi.mocked(props.onCreateAnnotationExclusion!).mockImplementation(() => new Promise(resolve => { finish = () => resolve({ annotation: updated }); }));
+    let pending!: Promise<void>;
+    act(() => { pending = state.inspector[action](annotation); });
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    vi.mocked(props.onListAnnotations).mockResolvedValue([]);
+    if (change === 'note') {
+      rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
+      await waitFor(() => expect(state.inspector.annotations).toEqual([]));
+    }
+    if (change === 'readonly') rerender(<NoteEditorView {...props} canWrite={false} />);
+    if (change === 'unmount') unmount();
+    const before = state.inspector.annotations;
+    vi.mocked(props.onFileStatus).mockClear();
+    await act(async () => { finish(); await pending; });
+    expect(state.inspector.annotations).toEqual(before);
+    expect(state.inspector.focusedAnnotationId).toBeNull();
+    expect(props.onFileStatus).not.toHaveBeenCalled();
+  });
+  it('笔记缺失后重新加载仍保持固定 hook 顺序并可写入', async () => {
+    const props = fixture();
+    const { rerender } = render(<NoteEditorView {...props} />);
+    await screen.findByTestId('mutation-editor');
+    rerender(<NoteEditorView {...props} note={null} />);
+    expect(screen.getByText('未找到这篇笔记')).toBeVisible();
+    rerender(<NoteEditorView {...props} />);
+    await screen.findByTestId('mutation-editor');
+    await act(async () => { await state.inspector.onReanchorAnnotation(annotation); });
+    expect(props.onUpdateAnnotationAnchor).toHaveBeenCalledWith(annotation.id, expect.objectContaining({ expectedRevision: 2 }));
   });
   it('StrictMode 重放挂载后仍可正常写入最新修订', async () => {
     const props = fixture(); render(<StrictMode><NoteEditorView {...props} /></StrictMode>); await screen.findByTestId('mutation-editor');
