@@ -17,7 +17,8 @@ test.describe('V4-05 公共 Shell 与主页', () => {
         document.documentElement.scrollWidth - document.documentElement.clientWidth
       ));
       expect(overflow, `${width}px 视口出现横向滚动`).toBeLessThanOrEqual(2);
-      await expect(page.getByRole('contentinfo', { name: '状态栏' })).toBeVisible();
+      await expect(page.getByRole('button', { name: '工作区状态' })).toBeVisible();
+      await expect(page.getByRole('contentinfo', { name: '状态栏' })).toHaveCount(0);
     }
   });
 
@@ -81,8 +82,8 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page.getByRole('navigation', { name: '设置分类' })).toBeVisible();
     const selectedCategory = page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: /全部设置/ });
     await expect(selectedCategory).toHaveAttribute('aria-pressed', 'true');
-    expect(await selectedCategory.evaluate((element) => getComputedStyle(element).borderLeftWidth)).toBe('0px');
-    expect(await selectedCategory.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(244, 241, 234)');
+    expect(await selectedCategory.evaluate((element) => { const style = getComputedStyle(element); return Number.parseFloat(style.borderLeftWidth) <= 1 && style.borderLeftWidth === style.borderRightWidth && style.borderLeftColor === style.borderRightColor; })).toBe(true);
+    expect(await selectedCategory.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
     await expect(page.getByText('显示 8 / 8 项设置')).toBeVisible();
     await expect(page.getByRole('heading', { name: '模型接入' })).toBeVisible();
     await expect(page.getByText('尚未配置')).toBeVisible();
@@ -107,14 +108,20 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await page.getByRole('link', { name: '浏览完整图标库 →' }).click();
     await expect(page).toHaveURL(/#\/showcase\/icons$/);
     await expect(page.getByText('75 / 75')).toBeVisible();
+    await page.getByRole('button', { name: '工作区状态' }).click();
     await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText('图标库');
     await expect(page.getByRole('contentinfo', { name: '状态栏' })).not.toContainText('加载中');
+    await page.keyboard.press('Escape');
     await page.getByRole('searchbox', { name: /搜索图标/ }).fill('Backup');
     await expect(page.getByText('BackupIcon')).toBeVisible();
     await expect(page.getByText('1 / 75')).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 843 });
-    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(2);
+    // viewport 更新先于浏览器 resize/media-query 布局提交；在连续渲染帧后验证相同溢出上限。
+    await expect.poll(async () => {
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      return horizontalOverflow(page);
+    }).toBeLessThanOrEqual(2);
   });
 
   test('移动端与 200% 缩放保留核心入口且无横向滚动', async ({ page }) => {

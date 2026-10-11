@@ -32,7 +32,7 @@ export function QuestionDetailPanel({ question, objectives, knowledgeItems, onCl
         const knowledge = knowledgeItems.find(item => item.id === objective?.knowledgeItemId);
         return <li key={`${id}-${index}`}>
           {objective ? <><p className={styles.prose}>{objective.objective || '未填写目标内容'}</p><div className={styles.meta}><span>{reviewLabel(objective)}</span><span>{VERBS[textValue(objective.actionVerb)] ?? textValue(objective.actionVerb)}</span><span>{LEVELS[textValue(objective.cognitiveLevel)] ?? textValue(objective.cognitiveLevel)}</span></div>
-            <div className={styles.actions}><Button variant="ghost" size="mini" onPress={() => onOpenObjective(objective)}>查看学习目标</Button>{knowledge && !knowledge.deletedAt ? <Button variant="ghost" size="mini" onPress={() => onOpenKnowledge(knowledge.id)}>查看知识：{knowledge.title}</Button> : objective.knowledgeItemId ? <span className={styles.hint}>关联知识不可用</span> : null}</div>
+            <div className={styles.actions}><Button variant="ghost" size="mini" onPress={() => onOpenObjective(objective)}>查看学习目标</Button>{knowledge && !knowledge.deletedAt ? <Button className={styles.contentLink} variant="ghost" size="mini" onPress={() => onOpenKnowledge(knowledge.id)}>查看知识：{knowledge.title}</Button> : objective.knowledgeItemId ? <span className={styles.hint}>关联知识不可用</span> : null}</div>
           </> : <><p className={styles.notice}>关联目标不可用，仍保留原关联标识。</p><code className={styles.identifier}>{id}</code></>}
         </li>;
       })}</ol>}

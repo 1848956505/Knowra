@@ -74,18 +74,7 @@ function buildObjectiveEntries(snapshot, itemById) {
 }
 
 function buildQuestionEntries(snapshot, objectiveById) {
-  const linksByQuestion = new Map();
-  snapshot.questionObjectives.forEach((link) => {
-    const links = linksByQuestion.get(link.questionId) ?? [];
-    links.push(link);
-    linksByQuestion.set(link.questionId, links);
-  });
-  const sourcesByQuestion = new Map();
-  snapshot.questionSources.forEach((source) => {
-    const sources = sourcesByQuestion.get(source.questionId) ?? [];
-    sources.push(source);
-    sourcesByQuestion.set(source.questionId, sources);
-  });
+  const { linksByQuestion, sourcesByQuestion } = snapshot.indexes;
   return snapshot.questions
     .filter((question) => question.reviewStatus !== 'archived')
     .flatMap((question) => {

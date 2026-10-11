@@ -528,3 +528,4 @@ export { sourceEdits } from './source-diff.js';
 
 export { anchorForListItem, followListAnchor, listTracking } from './list-anchor.js';
 export { followListAnchorChanges } from './list-follow.js';
+export { IDENTITY_SHADOW_FORMAT, EDITOR_TO_MARKDOWN_BLOCK, parseIdentityBlocks, alignIdentityBlocks, validIdentityEditorState, compareIdentityShadow, identityQuoteHash } from './identity-shadow.js';

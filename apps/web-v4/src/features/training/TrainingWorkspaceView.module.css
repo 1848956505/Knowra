@@ -1,29 +1,43 @@
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.toolbar > :nth-child(2) { flex: 1 1 220px; min-width: 160px; }
-.body { padding: 28px; min-height: 0; overflow: auto; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; align-content: start; }
-.card { border: 1px solid var(--color-border, #d5d0c7); box-shadow: 4px 4px 0 #d5d0c7; background: #fff; padding: 20px; min-width: 0; }
-.cardTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.cardTop h2 { font-size: 20px; line-height: 1.4; margin: 0; overflow-wrap: anywhere; }
-.cardTop span { color: #2458cc; font-size: 13px; white-space: nowrap; }
-.meta { color: #676767; font-size: 13px; overflow-wrap: anywhere; min-height: 35px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid #e2ded6; padding-top: 14px; }
-.empty, .gate { padding: 40px; }
-.info { color: #345daa; }
-.error { color: #b72525; }
-.form, .dialogContent { display: grid; gap: 14px; }
+/* 控件外观由共享组件负责，业务面板使用不透明的中性表面。 */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-width: 0; }
+.toolbar > * { min-width: 0; max-width: 100%; }
+.toolbar > :nth-child(2) { flex: 1 1 220px; }
+.filterGroup { flex-wrap: wrap; }
+.body { padding: var(--space-5); min-height: 0; min-width: 0; overflow: auto; background: var(--surface-page); color: var(--text-primary); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: var(--space-4); align-content: start; }
+.card { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); box-shadow: var(--shadow-control); background: var(--surface-raised); padding: 20px; min-width: 0; }
+.cardTop { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+.cardTop h2 { flex: 1 1 160px; min-width: 0; font: 600 18px/1.5 var(--font-ui); letter-spacing: -.2px; margin: 0; overflow-wrap: anywhere; }
+.cardTop span { color: var(--text-secondary); background: var(--surface-sidebar-solid); border-radius: var(--radius-pill); padding: 3px var(--space-2); font: 500 12px/1.5 var(--font-ui); overflow-wrap: anywhere; }
+.meta { color: var(--text-secondary); font: 13px/1.7 var(--font-ui); overflow-wrap: anywhere; min-height: 35px; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); border-top: 1px solid var(--border-subtle); padding-top: 14px; }
+.empty, .gate { padding: clamp(20px, 4vw, 40px); overflow-wrap: anywhere; color: var(--text-secondary); font: 14px/1.8 var(--font-ui); }
+.gate h1 { color: var(--text-primary); font-weight: 600; }
+.info { margin: 0; padding: var(--space-3) 14px; color: var(--text-secondary); background: var(--surface-sidebar-solid); border: 1px solid var(--border-subtle); border-radius: var(--radius-popover); font: 13px/1.7 var(--font-ui); overflow-wrap: anywhere; }
+.error { color: var(--color-danger); font: 13px/1.7 var(--font-ui); overflow-wrap: anywhere; }
+.form, .dialogContent { display: grid; gap: var(--space-4); min-width: 0; color: var(--text-primary); font: 14px/1.75 var(--font-ui); overflow-wrap: anywhere; }
+.form > *, .dialogContent > * { min-width: 0; }
+.form p, .dialogContent p { margin-block: 0; }
+.dialogContent h3 { font: 600 15px/1.6 var(--font-ui); }
 .objectiveFooter { flex-wrap: wrap; justify-content: flex-end; }
 .dialogContent ul { max-height: 180px; overflow: auto; padding-left: 22px; overflow-wrap: anywhere; }
-@media (max-width: 680px) { .body { padding: 16px; } .cards { grid-template-columns: 1fr; } }
-.questionBody { display: flex; flex-direction: column; overflow: hidden; padding: 20px; gap: 12px; }
-.questionLayout { flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(280px, 32%) minmax(0, 1fr); gap: 20px; }
-.questionList, .detailPanel { min-height: 0; min-width: 0; overflow: auto; border: 1px solid var(--ink-panel); background: var(--ink-surface); overscroll-behavior: contain; }
-.questionRows { display: grid; align-content: start; }
-.questionRows .card { border: 0; border-bottom: 1px solid var(--ink-panel); border-left: 3px solid transparent; box-shadow: none; padding: 18px 16px; background: var(--ink-surface); }
-.questionRows .selected { border-left-color: var(--ink-accent); background: var(--index-blue-wash); }
+.questionBody { display: flex; flex-direction: column; overflow: hidden; padding: 20px; gap: var(--space-3); }
+.questionLayout { flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(280px, 32%) minmax(0, 1fr); gap: var(--space-4); }
+.questionList, .detailPanel { min-height: 0; min-width: 0; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); box-shadow: var(--shadow-control); background: var(--surface-raised); overscroll-behavior: contain; }
+.questionRows { display: grid; align-content: start; gap: var(--space-1); padding: var(--space-2); }
+.questionRows .card { border: 1px solid transparent; border-radius: var(--radius-tab); box-shadow: none; padding: var(--space-4) var(--space-3); background: var(--surface-raised); }
+.questionRows .card + .card { border-top-color: var(--border-subtle); }
+.questionRows .selected { border-color: var(--border-strong); background: color-mix(in srgb, var(--surface-selected), var(--surface-raised)); }
 .questionRows h2 { font-size: 15px; }
-.questionRows .meta { min-height: 0; margin-block: 10px; color: var(--ink-secondary); }
-.emptyDetail { display: grid; align-content: center; min-height: 100%; padding: 28px; text-align: center; color: var(--ink-secondary); }
-.emptyDetail h2 { font: 800 18px/1.5 var(--font-ui); color: var(--ink); }
-.emptyDetail p { font: 13px/1.8 var(--font-ui); }
-@media (max-width: 760px) { .questionBody { overflow: auto; padding: 14px; } .questionLayout { display: flex; flex-direction: column; flex: 0 0 auto; gap: 14px; } .questionList { max-height: 260px; flex: 0 0 auto; } .detailPanel { min-height: 360px; overflow: visible; } }
+.questionRows .meta { min-height: 0; margin-block: 10px; }
+.emptyDetail { display: grid; align-content: center; min-height: 100%; padding: 28px; text-align: center; color: var(--text-secondary); overflow-wrap: anywhere; }
+.emptyDetail h2 { margin: 0 0 var(--space-2); font: 600 18px/1.5 var(--font-ui); color: var(--text-primary); }
+.emptyDetail p { margin: 0; font: 13px/1.8 var(--font-ui); }
+@media (max-width: 760px) {
+  .body { padding: var(--space-4); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .questionBody { overflow: auto; padding: 14px; }
+  .questionLayout { display: flex; flex-direction: column; flex: 0 0 auto; gap: 14px; }
+  .questionList { max-height: 260px; flex: 0 0 auto; }
+  .detailPanel { min-height: 360px; overflow: visible; }
+}

@@ -1,600 +1,106 @@
-/* V4-04 Collection
- *
- * Tabs / GridList / TagGroup / Tree 共用 1px 墨边 + 暖纸底，0 圆角。
- * Tab 激活：底部 2px 蓝（--ink-accent）；GridList 行：左侧 4px 蓝（selected）。
- * Tree 行：左侧缩进，每层 14px。
- *
- * 全部阴影、颜色、字号、圆角、动效都通过 token 引用，禁硬编码。
- */
+/* V5 集合控件：中性选中底、圆角标签与细分隔线。 */
+.tabs { display: flex; flex-direction: column; gap: 0; }
+.tabList { display: flex; align-items: stretch; gap: 4px; padding: 4px; border-bottom: 1px solid var(--border-subtle); background: transparent; }
+.tab { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; font-size: 13px; font-weight: 450; color: var(--text-secondary); background: transparent; border: 0; border-radius: var(--radius-tab); cursor: pointer; position: relative; user-select: none; transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease); }
+.tab[data-hovered]:not([data-selected]):not([data-disabled]) { color: var(--text-primary); background: var(--surface-hover); }
+.tab[data-selected] { --knowra-icon-accent: var(--accent); color: var(--text-primary); background: var(--surface-raised); box-shadow: var(--shadow-control); font-weight: 500; }
+.tab[data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
+.tab[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); z-index: 1; }
+.tabBadge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text-secondary); background: var(--surface-hover); border-radius: 999px; }
+.tabPanel { padding: 14px 0 4px; outline: 0; }
+.tabPanel:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); border-radius: var(--radius-control); }
 
-.tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+/* Select 的 React Aria 选项没有业务 class，按标准 role 限定在共享 listbox 中。 */
+.listbox { display: block; outline: 0; max-height: 280px; overflow: auto; padding: 3px; }
+.listboxItem, .listbox [role='option'] { display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 6px 10px; border-radius: var(--radius-control); font-size: 13px; font-weight: 400; color: var(--text-primary); cursor: pointer; outline: 0; }
+.listboxItem[data-focused], .listbox [role='option'][data-focused] { background: var(--surface-hover); }
+.listboxItem[data-selected], .listbox [role='option'][data-selected] { color: var(--accent-text); background: var(--accent-soft); font-weight: 500; }
+.listboxItem[data-focus-visible], .listbox [role='option'][data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); }
+.listboxItem[data-disabled], .listbox [role='option'][data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
 
-.tabList {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  border-bottom: 2px solid var(--ink);
-  background: var(--ink-surface);
-}
+/* 桌面使用传入的 grid 模板，窄屏按内容重排；容器不产生横向滚动。 */
+.gridList { display: block; background: var(--surface-page); border: 1px solid var(--border-subtle); border-radius: var(--radius-popover); outline: 0; overflow: hidden; }
+.gridRow { display: grid; border-bottom: 1px solid var(--border-subtle); background: var(--surface-page); position: relative; cursor: pointer; font-size: 13px; color: var(--text-primary); min-width: 0; }
+.gridRow:last-child { border-bottom: 0; }
+.gridRow[data-hovered]:not([data-disabled]) { background: var(--surface-hover); }
+.gridRow[data-selected] { background: var(--surface-pressed); }
+.gridRow[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); z-index: 1; }
+.gridRow[data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
+.gridCell { padding: 8px 12px; display: flex; align-items: center; gap: 6px; min-width: 0; border-right: 1px solid var(--border-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gridCell:last-child { border-right: 0; }
+.gridCell[data-col-title='true'] { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; overflow-wrap: anywhere; }
+.gridCell > * { min-width: 0; }
 
-.tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 14px;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--ink-secondary);
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  cursor: pointer;
-  position: relative;
-  user-select: none;
-}
-
-.tab[data-hovered]:not([data-selected]):not([data-disabled]) {
-  color: var(--ink);
-  background: var(--ink-sunken);
-}
-
-.tab[data-selected] {
-  color: var(--ink);
-  background: var(--ink-surface);
-  border-bottom-color: var(--ink-accent);
-}
-
-.tab[data-disabled] {
-  color: var(--ink-muted);
-  cursor: not-allowed;
-}
-
-.tab[data-focus-visible] {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
-.tabBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--ink);
-  background: var(--ink-accent-soft);
-  border: 1px solid var(--ink);
-}
-
-.tabPanel {
-  padding: 14px 0 4px;
-  outline: 0;
-}
-
-/* Listbox / Popover 下拉内容 */
-.listbox {
-  display: block;
-  outline: 0;
-  max-height: 280px;
-  overflow: auto;
-  padding: 4px 0;
-}
-
-.listboxItem {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  cursor: pointer;
-  outline: 0;
-}
-
-.listboxItem[data-focused] {
-  background: var(--ink-sunken);
-}
-
-.listboxItem[data-selected] {
-  color: var(--ink-accent);
-  background: var(--ink-accent-soft);
-}
-
-.listboxItem[data-disabled] {
-  color: var(--ink-muted);
-  cursor: not-allowed;
-}
-
-/* GridList — 桌面 grid + 移动两行紧凑列表 */
-.gridList {
-  display: block;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  outline: 0;
-  /* 关键：禁止组件内部横向滚动；移动端由 columns 重排为两行紧凑 */
-  overflow: hidden;
-}
-
-.gridRow {
-  display: grid;
-  border-bottom: 1px solid var(--ink-panel);
-  background: var(--ink-surface);
-  position: relative;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--ink);
-  /* 桌面 grid 模板由组件传入 gridTemplateColumns 覆盖 */
-  min-width: 0;
-}
-
-.gridRow:last-child {
-  border-bottom: 0;
-}
-
-.gridRow[data-hovered] {
-  background: var(--ink-sunken);
-}
-
-.gridRow[data-selected] {
-  background: var(--ink-accent-soft);
-}
-
-.gridRow[data-focus-visible] {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
-.gridCell {
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  border-right: 1px solid var(--ink-panel);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.gridCell:last-child {
-  border-right: 0;
-}
-
-.gridCell[data-col-title='true'] {
-  /* 标题列允许两行省略 */
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-.gridCell > * {
-  min-width: 0;
-}
-
-/* ≤767 移动布局：两行紧凑列表，不复用桌面 grid */
-@media (max-width: 767px) {
-  .gridList {
-    /* 让 grid template 被覆盖，列变成两行 */
-    display: block;
-  }
-
-  .gridRow {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 8px;
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--ink-panel);
-  }
-
-  .gridRow:last-child {
-    border-bottom: 0;
-  }
-
-  .gridCell {
-    border-right: 0;
-    padding: 0;
-    min-width: 0;
-  }
-
-  .gridCell[data-col-title='true'] {
-    flex: 1 0 100%;
-    -webkit-line-clamp: 2;
-  }
-
-  .gridCell:not([data-col-title='true']) {
-    display: none;
-  }
-
-  /* 任何"非标题且非隐藏"列折叠到下一行，并允许在窄屏自然换行。 */
-  .gridCell[data-col='status'],
-  .gridCell[data-col='folder'],
-  .gridCell[data-col='updated'],
-  .gridCell[data-col='location'] {
-    display: inline-flex;
-    flex: 0 1 auto;
-    border: 0;
-    padding: 0;
-  }
-
-  .gridCell[data-col='folder'],
-  .gridCell[data-col='location'] {
-    flex-grow: 1;
-  }
-}
-
-/* TagGroup — V4-04 复审增强
- *
- * - 26px 高、11px 字号、10px 横向内边距；
- * - 默认 neutral tone（黑边白底），tone 决定色相；
- * - hover 浮起 1px 出现 1px 硬阴影（与 Panel 一致的"印章"语言）；
- * - selected 反向"压入"（translate +1px，阴影消失，填色翻转）；
- * - 可选前导方点、可选计数小角标；
- * - 可见的组标签头（与 Panel 头部同质，但更轻）。 */
-
-.tagGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.tagGroupHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.tagGroupLabel {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
-.tagGroupTrailing {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--ink-muted);
-  letter-spacing: 0.04em;
-}
-
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  outline: 0;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
+/* TagGroup：保留 tone 含义，颜色仅用于轻底、圆点与标签文字。 */
+.tagGroup { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tagGroupHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tagGroupLabel { font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.tagGroupTrailing { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-ui); font-size: 11px; font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tagList { display: flex; flex-wrap: wrap; gap: 6px; outline: 0; padding: 3px; margin: -3px; list-style: none; }
 .tag {
-  /* CSS 变量在每个 tone 下被覆盖；未设 tone 时落到中性黑。 */
-  --tag-edge: var(--ink);
-  --tag-ink: var(--ink);
-  --tag-fill: var(--ink-surface);
-  --tag-soft: var(--ink-sunken);
-
+  --tag-edge: var(--border-strong);
+  --tag-ink: var(--text-secondary);
+  --tag-fill: var(--surface-page);
+  --tag-soft: var(--surface-hover);
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 26px;
   padding: 0 10px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 450;
   line-height: 1;
   color: var(--tag-ink);
   background: var(--tag-fill);
   border: 1px solid var(--tag-edge);
+  border-radius: 999px;
   box-shadow: none;
   cursor: default;
   user-select: none;
-  /* 浮起 / 压入 / 阴影过渡 */
-  transition:
-    transform var(--motion-fast) var(--motion-ease),
-    box-shadow var(--motion-fast) var(--motion-ease),
-    background-color var(--motion-fast) var(--motion-ease),
-    color var(--motion-fast) var(--motion-ease);
+  transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
   position: relative;
 }
+.tag[data-allows-removing] { cursor: pointer; }
+.tag[data-hovered]:not([data-disabled]):not([data-selected]) { background: var(--tag-soft); }
+.tag[data-selected] { background: var(--tag-soft); color: var(--tag-ink); box-shadow: inset 0 0 0 1px var(--tag-edge); font-weight: 600; }
+.tag[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.tag[data-disabled] { cursor: not-allowed; opacity: 0.5; }
+.tagDot { width: 6px; height: 6px; border-radius: 50%; background: var(--tag-ink); flex: 0 0 auto; }
+.tagLabel { white-space: nowrap; }
+.tagCount { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 14px; padding: 0 3px; border-radius: 999px; font-family: var(--font-ui); font-size: 10px; font-weight: 450; font-variant-numeric: tabular-nums; color: var(--tag-ink); background: var(--surface-page); line-height: 1; }
+.tagRemove { width: 24px; height: 24px; margin: 0 -7px 0 1px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: currentColor; cursor: pointer; padding: 0; transition: background var(--motion-fast) var(--motion-ease); }
+.tagRemove::before { content: ''; width: 10px; height: 10px; background: linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%), linear-gradient(-45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%); display: block; }
+.tagRemove:hover { background: var(--surface-hover); }
+.tagRemove[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); }
+.toneNeutral { --tag-edge: var(--border-strong); --tag-ink: var(--text-secondary); --tag-fill: var(--surface-page); --tag-soft: var(--surface-hover); }
+.toneAccent { --tag-edge: var(--accent-border); --tag-ink: var(--accent-text); --tag-fill: var(--accent-soft); --tag-soft: var(--accent-soft); }
+.toneSuccess { --tag-edge: color-mix(in srgb, var(--ink-success) 24%, transparent); --tag-ink: var(--ink-success); --tag-fill: var(--ink-success-soft); --tag-soft: var(--ink-success-soft); }
+.toneWarning { --tag-edge: color-mix(in srgb, var(--ink-warning) 24%, transparent); --tag-ink: var(--ink-warning); --tag-fill: var(--ink-warning-soft); --tag-soft: var(--ink-warning-soft); }
+.toneDanger { --tag-edge: color-mix(in srgb, var(--ink-danger) 24%, transparent); --tag-ink: var(--ink-danger); --tag-fill: var(--ink-danger-soft); --tag-soft: var(--ink-danger-soft); }
 
-.tag::before {
-  /* tone 模式下，背景透出更柔和的底色（默认 0% 透明，tone-accent 等会露出）。 */
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--tag-soft);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--motion-fast) var(--motion-ease);
-}
+/* Tree：缩进表达层级，选中行保持中性，不使用左侧强调条。 */
+.tree { display: block; outline: 0; font-size: 13px; color: var(--text-primary); background: var(--surface-page); border: 1px solid var(--border-subtle); border-radius: var(--radius-popover); padding: 4px; max-height: 360px; overflow: auto; }
+.treeRow { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px 4px var(--indent, 10px); cursor: pointer; position: relative; border: 0; border-radius: var(--radius-control); background: transparent; color: inherit; font: inherit; text-align: left; width: 100%; }
+.treeRow[data-hovered]:not([data-disabled]) { background: var(--surface-hover); }
+.treeRow[data-selected] { background: var(--surface-selected); color: var(--text-primary); font-weight: 550; }
+.treeRow[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); }
+.treeRow[data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
+.treeChevron { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); flex: 0 0 auto; background: transparent !important; border: 0 !important; border-radius: var(--radius-control); box-shadow: none !important; padding: 0; cursor: pointer; }
+.treeChevron:hover { background: var(--surface-hover) !important; color: var(--text-primary); }
+.treeChevron:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring) !important; }
+.treeLabel { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.treeCount { font-family: var(--font-ui); font-size: 11px; font-weight: 450; font-variant-numeric: tabular-nums; color: var(--text-muted); padding: 0 4px; }
+.treeEmpty { padding: 18px 12px; text-align: center; font-size: 12px; color: var(--text-muted); }
 
-.tag > * {
-  position: relative;
-  z-index: 1;
-}
-
-.tag[data-allows-removing] {
-  cursor: pointer;
-}
-
-.tag[data-hovered]:not([data-disabled]):not([data-selected]) {
-  /* 浮起 1px 出现 1px 硬阴影：印格印章的视觉签名。 */
-  transform: translate(-1px, -1px);
-  box-shadow: 1px 1px 0 var(--tag-edge);
-}
-
-.tag[data-focus-visible] {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
-.tag[data-selected] {
-  /* 选中 = 压入：反向平移 + 阴影消失 + 填色翻转。 */
-  background: var(--tag-edge);
-  color: var(--ink-surface);
-  transform: translate(1px, 1px);
-  box-shadow: none;
-}
-
-.tag[data-selected]::before {
-  opacity: 0;
-}
-
-.tag[data-disabled] {
-  cursor: not-allowed;
-  opacity: 0.5;
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-
-.tag:hover[data-disabled] {
-  transform: none;
-  box-shadow: none;
-}
-
-/* 前导方点（与 Badge 同源）。 */
-.tagDot {
-  width: 6px;
-  height: 6px;
-  background: var(--tag-edge);
-  flex: 0 0 auto;
-  transition: background-color var(--motion-fast) var(--motion-ease);
-}
-
-.tag[data-selected] .tagDot {
-  background: var(--ink-surface);
-}
-
-/* 标签文字本身。 */
-.tagLabel {
-  white-space: nowrap;
-  /* 选中文本时把划线去掉，避免与 disabled 的 line-through 视觉混淆。 */
-}
-
-.tagCount {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 14px;
-  padding: 0 3px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--tag-edge);
-  background: var(--ink-surface);
-  border: 1px solid var(--tag-edge);
-  line-height: 1;
-}
-
-.tag[data-selected] .tagCount {
-  color: var(--ink-surface);
-  background: var(--tag-edge);
-  border-color: var(--ink-surface);
-}
-
-/* 移除按钮：24px 命中区 + 内嵌 X 图标，满足紧凑控件最小指针目标。 */
-.tagRemove {
-  width: 24px;
-  height: 24px;
-  margin: 0 -7px 0 1px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: currentColor;
-  cursor: pointer;
-  padding: 0;
-  position: relative;
-  z-index: 1;
-  transition: background-color var(--motion-fast) var(--motion-ease);
-}
-
-.tagRemove::before {
-  content: "";
-  width: 10px;
-  height: 10px;
-  background:
-    linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%),
-    linear-gradient(-45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%);
-  display: block;
-}
-
-.tagRemove:hover {
-  background: var(--ink-sunken);
-}
-
-.tag[data-selected] .tagRemove:hover {
-  color: var(--tag-edge);
-  background: var(--tag-fill);
-}
-
-.tagRemove[data-focus-visible] {
-  outline: 2px solid currentColor;
-  outline-offset: -2px;
-}
-
-/* Tone variants —— 与 Badge tone 同源，色相决定 --tag-edge / --tag-ink / --tag-fill / --tag-soft。 */
-.toneNeutral {
-  --tag-edge: var(--ink);
-  --tag-ink: var(--ink);
-  --tag-fill: var(--ink-surface);
-  --tag-soft: var(--ink-sunken);
-}
-
-.toneAccent {
-  --tag-edge: var(--ink-accent);
-  --tag-ink: var(--ink-accent);
-  --tag-fill: var(--ink-accent-soft);
-  --tag-soft: var(--ink-accent-soft);
-}
-
-.toneSuccess {
-  --tag-edge: var(--ink-success);
-  --tag-ink: var(--ink-success);
-  --tag-fill: var(--ink-success-soft);
-  --tag-soft: var(--ink-success-soft);
-}
-
-.toneWarning {
-  --tag-edge: var(--ink-warning);
-  --tag-ink: var(--ink-warning);
-  --tag-fill: var(--ink-warning-soft);
-  --tag-soft: var(--ink-warning-soft);
-}
-
-.toneDanger {
-  --tag-edge: var(--ink-danger);
-  --tag-ink: var(--ink-danger);
-  --tag-fill: var(--ink-danger-soft);
-  --tag-soft: var(--ink-danger-soft);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tag,
-  .tagDot,
-  .tag::before,
-  .tagRemove {
-    transition: none !important;
-  }
-
-  .tag[data-hovered]:not([data-disabled]):not([data-selected]),
-  .tag[data-selected] {
-    transform: none !important;
-  }
-}
-
-/* Tree */
-.tree {
-  display: block;
-  outline: 0;
-  font-size: 12px;
-  color: var(--ink);
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  padding: 4px 0;
-  max-height: 360px;
-  overflow: auto;
-}
-
-.treeRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 4px 12px 4px var(--indent, 12px);
-  cursor: pointer;
-  position: relative;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
-}
-
-.treeRow[data-hovered]:not([data-disabled]) {
-  background: var(--ink-sunken);
-}
-
-.treeRow[data-selected] {
-  background: var(--ink-accent-soft);
-  color: var(--ink-accent);
-}
-
-.treeRow[data-focus-visible] {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
-.treeChevron {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-secondary);
-  flex: 0 0 auto;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  padding: 0;
-  cursor: pointer;
-  transform: none;
-}
-
-.treeChevron:hover {
-  background: var(--ink-sunken) !important;
-  color: var(--ink);
-}
-
-.treeChevron:focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus) !important;
-}
-
-.treeLabel {
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.treeCount {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--ink-muted);
-  background: var(--ink-sunken);
-  padding: 0 4px;
-  border: 1px solid var(--ink-panel);
-}
-
-.treeEmpty {
-  padding: 18px 12px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--ink-muted);
+@media (prefers-reduced-motion: reduce) { .tab, .tag, .tagRemove { transition: none !important; } }
+@media (max-width: 767px), (any-pointer: coarse) { .tab, .treeRow, .listboxItem, .listbox [role='option'] { min-height: 44px; } }
+@media (max-width: 767px) {
+  .gridList { display: block; }
+  .gridRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); }
+  .gridRow:last-child { border-bottom: 0; }
+  .gridCell { border-right: 0; padding: 0; min-width: 0; }
+  .gridCell[data-col-title='true'] { flex: 1 0 100%; -webkit-line-clamp: 2; }
+  .gridCell:not([data-col-title='true']) { display: none; }
+  .gridCell[data-col='status'], .gridCell[data-col='folder'], .gridCell[data-col='updated'], .gridCell[data-col='location'] { display: inline-flex; flex: 0 1 auto; border: 0; padding: 0; }
+  .gridCell[data-col='folder'], .gridCell[data-col='location'] { flex-grow: 1; }
 }

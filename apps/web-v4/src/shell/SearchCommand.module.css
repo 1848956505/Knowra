@@ -1,91 +1,16 @@
-/* V4-05 SearchCommand —— 全局命令面板。 */
-
-.commandPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0;
-}
-
-.hitList {
-  max-height: 50vh;
-  overflow-y: auto;
-  border-top: 1px solid var(--ink-panel);
-}
-
-.resultList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.hit {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-bottom: 1px solid var(--ink-panel);
-  background: var(--ink-surface);
-  color: var(--ink);
-  cursor: pointer;
-  user-select: none;
-}
-
-.hit:last-child {
-  border-bottom: 0;
-}
-
-.hitActive {
-  background: var(--ink-sunken);
-  border-color: var(--ink);
-  box-shadow: var(--shadow-card);
-}
-
-.hitGroup {
-  font: 800 10px/1 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-secondary);
-  padding: 2px 6px;
-  border: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
-}
-
-.hitActive .hitGroup {
-  color: var(--ink-accent);
-  border-color: var(--ink-accent);
-}
-
-.hitBody {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.hitPrimary {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hitSecondary {
-  color: var(--ink-secondary);
-  font-size: 11px;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.hitHint {
-  color: var(--ink-muted);
-  font: 800 10px/1 var(--font-mono);
-  letter-spacing: 0.04em;
+/* V5 命令面板：中性结果卡片与语义选中态；查询、键盘选择由现有逻辑负责。 */
+.commandPanel { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: 0; }
+.hitList { max-height: 50vh; min-width: 0; overflow: auto; overscroll-behavior: contain; padding: var(--space-1); border-top: 1px solid var(--border-subtle); }
+.resultList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.hit { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); min-width: 0; padding: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--text-primary); cursor: pointer; user-select: none; }
+.hitActive { background: var(--surface-selected); border-color: var(--border-subtle); }
+.hitGroup { font: 500 var(--font-size-meta)/1.4 var(--font-ui); color: var(--text-secondary); padding: 2px 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); background: var(--surface-page); white-space: nowrap; }
+.hitActive .hitGroup { color: var(--accent-on-tint); border-color: var(--accent-border); background: var(--accent-soft); }
+.hitBody { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.hitPrimary { font-size: var(--font-size-ui); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hitSecondary { color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.6; overflow-wrap: anywhere; white-space: normal; }
+.hitHint { color: var(--text-muted); font: 400 var(--font-size-meta)/1.4 var(--font-ui); white-space: nowrap; }
+@media (max-width: 430px) {
+  .hit { grid-template-columns: auto minmax(0, 1fr); padding: var(--space-2); }
+  .hitHint { grid-column: 2; justify-self: start; }
 }

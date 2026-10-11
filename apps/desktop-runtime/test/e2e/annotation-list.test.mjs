@@ -1,3 +1,4 @@
+import { withWorkspaceStatus } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -118,7 +119,7 @@ test('真实页面：创建响应丢失后重试复用幂等键，慢保存期�
   });
   await mark(page, editor.locator('p').filter({ hasText: /^父项$/ }).first());
   await expect.poll(() => annotations().length).toBe(1);
-  await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText('保存失败');
+  await withWorkspaceStatus(page, status => expect(status).toContainText('保存失败'));
   await mark(page, editor.locator('p').filter({ hasText: /^父项$/ }).first());
   await expect.poll(() => requests.length).toBe(2);
   assert.equal(requests[0].idempotencyKey, requests[1].idempotencyKey);
@@ -159,7 +160,7 @@ test('真实页面：响应丢失重试期间续输入恢复原幂等请求，�
   const child = editor.locator('p').filter({ hasText: /^子项$/ }).first();
   await mark(page, child);
   await expect.poll(() => annotations().length).toBe(1);
-  await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText('保存失败');
+  await withWorkspaceStatus(page, status => expect(status).toContainText('保存失败'));
   let release, intercepted;
   const arrived = new Promise(resolve => { intercepted = resolve; });
   const barrier = new Promise(resolve => { release = resolve; });

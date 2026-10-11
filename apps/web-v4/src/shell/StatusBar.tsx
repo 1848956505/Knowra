@@ -24,6 +24,7 @@ export interface StatusPanel {
 export interface StatusBarProps {
   /** 当前位置的 breadcrumb；至少 1 段，第 0 段约定为"主页"或工作域根。 */
   path: PathSegment[];
+  presentation?: 'bar' | 'detail';
   charCount?: number;
   savedAt?: string | null;
   saveState?: 'idle' | 'saving' | 'saved' | 'error';
@@ -37,14 +38,14 @@ export interface StatusBarProps {
 }
 
 export const StatusBar = forwardRef<HTMLElement, StatusBarProps>(function StatusBar(
-  { path, charCount, savedAt, saveState, saveError, dataMode, showDataMode = true, persistenceMode, dataModeNote, panels = [] },
+  { path, charCount, savedAt, saveState, saveError, dataMode, showDataMode = true, persistenceMode, dataModeNote, panels = [], presentation = 'bar' },
   ref
 ) {
   const modeMeta = persistenceMode === 'desktop-local' && dataMode === 'api'
     ? { label: dataModeNote ? '本地资料' : '本地资料 · 云端同步未启用', squareClass: styles.squareWarning }
     : describeDataMode(dataMode);
   return (
-    <footer ref={ref} className={styles.statusbar} role="contentinfo" aria-label="状态栏">
+    <footer ref={ref} className={cx(styles.statusbar, presentation === 'detail' && styles.detail)} role="contentinfo" aria-label="状态栏">
       {path.length > 0 ? (
         <span className={styles.context} aria-label="工作区位置">
           <span className={styles.contextDot} aria-hidden="true" />

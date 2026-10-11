@@ -8,21 +8,22 @@
 }
 
 .hero {
+  border-radius: var(--radius-panel);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
   padding: 22px 24px;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  box-shadow: var(--shadow-2);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-control);
   flex-wrap: wrap;
 }
 
 .heroTitle {
   margin: 0;
   font-size: 28px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.01em;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -30,7 +31,7 @@
 
 .heroSubtitle {
   margin: 6px 0 0;
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   font-size: 13px;
   max-width: 56ch;
   word-break: break-word;
@@ -39,6 +40,7 @@
 
 @media (max-width: 767px) {
   .hero {
+  border-radius: var(--radius-panel);
     flex-direction: column;
     align-items: flex-start;
     gap: 14px;
@@ -56,36 +58,35 @@
 }
 
 .sectionLead {
+  border-radius: var(--radius-control);
   margin: 0;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--ink-secondary);
-  background: var(--ink-sunken);
-  border: 1px solid var(--ink-panel);
+  color: var(--text-secondary);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
   padding: 10px 14px;
   max-width: 80ch;
 }
 
 .sectionLead strong {
-  color: var(--ink);
+  color: var(--text-primary);
 }
 
 .sectionLead code {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--ink);
-  background: var(--ink-surface);
-  border: 1px solid var(--ink-panel);
+  color: var(--text-primary);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
   padding: 1px 4px;
 }
 
 .sectionTitle {
   margin: 0;
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-secondary);
+  font-weight: 500;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -95,11 +96,11 @@
   content: "";
   flex: 1 1 auto;
   height: 1px;
-  background: var(--ink-panel);
+  background: var(--border-subtle);
 }
 
-.catalogLink { align-self: flex-start; color: var(--ink-accent); font: 750 12px/1.4 var(--font-ui); text-decoration: underline; text-underline-offset: 3px; }
-.catalogLink:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
+.catalogLink { align-self: flex-start; color: var(--accent-text); font: 500 12px/1.4 var(--font-ui); text-decoration: underline; text-underline-offset: 3px; }
+.catalogLink:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
 
 .grid {
   display: grid;
@@ -108,22 +109,21 @@
 }
 
 .example {
+  border-radius: var(--radius-panel);
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink-panel);
-  box-shadow: var(--shadow-card);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-control);
 }
 
 .exampleLabel {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 10px;
-  font-weight: 800;
-  color: var(--ink-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .row {
@@ -146,18 +146,20 @@
 }
 
 .colorCard {
+  border-radius: var(--radius-panel);
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink-panel);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
 }
 
 .colorSwatch {
+  border-radius: var(--radius-control);
   width: 28px;
   height: 28px;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--border-subtle);
   flex: 0 0 auto;
 }
 
@@ -165,11 +167,11 @@
   display: flex;
   flex-direction: column;
   font-size: 11px;
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
 }
 
 .colorName {
-  font-family: var(--font-mono);
-  color: var(--ink);
-  font-weight: 800;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  font-weight: 500;
 }

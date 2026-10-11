@@ -1,0 +1,6 @@
+.toolbar { min-width: 0; width: 100%; display: flex; align-items: center; gap: var(--space-1); padding-inline: var(--space-2); }
+.actions { display: flex; align-items: center; gap: var(--space-1); flex: 0 0 auto; -webkit-app-region: no-drag; app-region: no-drag; }
+.toolbar > button { flex: 0 0 auto; -webkit-app-region: no-drag; app-region: no-drag; }
+.statusIndicator[data-error] { color: var(--ink-danger); }
+.announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 767px) { .toolbar { padding-inline: 0; gap: 0; } .actions { gap: 0; } }

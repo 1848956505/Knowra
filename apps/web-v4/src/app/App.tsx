@@ -240,12 +240,13 @@ export function App() {
   return (
     <EntryDragDropProvider>
       <AppShell
+      navigationKey={location.pathname}
       activeDomain={activeDomain}
-      contextSidebar={showNotesContextSidebar ? (
+      contextSidebarOpen={showNotesContextSidebar}
+      contextSidebar={isNotesIndex || isNoteEditor ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
       ) : undefined}
       stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
-      mergeContextSidebarTabs={isNoteEditor}
       desktopTitlebarEditor={isNoteEditor && Boolean(editorNote)}
       desktopTitlebarTabs={openNoteTabs.length > 0 ? <EditorTabs
         notes={openNoteTabs}
@@ -284,10 +285,10 @@ export function App() {
         savedAt: editorNote?.updatedAt,
         dataMode,
         showDataMode: !isSettingsActive && !isAssistantActive && !isShowcaseActive,
-        dataModeNote: persistenceMode === 'desktop-local' ? <LocalSyncControl /> : workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
-        panels: isSettingsActive || isAssistantActive || isShowcaseActive ? [] : [
+        dataModeNote: persistenceMode === 'desktop-local' ? <LocalSyncControl compact /> : workspaceError && dataMode !== 'api' ? <span>请稍后重试</span> : undefined,
+        panels: !isNoteEditor && !isNotesIndex ? [] : [
           {
-            id: 'sidebar',
+            id: 'sidebar' as const,
             label: '侧栏',
             active: (isNotesIndex && editorView.showLeftSidebar) || (isNoteEditor && effectiveEditorView.showLeftSidebar),
             onToggle: () => {
@@ -304,7 +305,7 @@ export function App() {
             }
           },
           {
-            id: 'inspector',
+            id: 'inspector' as const,
             label: '检查器',
             active: isNoteEditor && effectiveEditorView.showRightSidebar,
             onToggle: () => {
@@ -316,7 +317,7 @@ export function App() {
             }
           },
           {
-            id: 'focus',
+            id: 'focus' as const,
             label: '专注模式',
             active: isNoteEditor && effectiveEditorView.mode === 'focus',
             onToggle: () => {
@@ -327,7 +328,7 @@ export function App() {
               handleEditorViewAction('toggle-focus');
             }
           }
-        ]
+        ].filter(panel => isNoteEditor || panel.id === 'sidebar')
       }}
       mobileTabs
       liveAnnouncement={liveAnnouncement}

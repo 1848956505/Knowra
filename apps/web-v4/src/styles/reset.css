@@ -20,7 +20,7 @@ body,
 
 body {
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: var(--font-size-ui);
   line-height: 1.5;
   color: var(--ink);
   background: var(--ink-bg);
@@ -79,6 +79,6 @@ video {
 }
 
 ::selection {
-  background: var(--ink-accent);
-  color: var(--ink-surface);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: inherit;
 }

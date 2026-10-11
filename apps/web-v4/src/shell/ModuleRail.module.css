@@ -1,129 +1,17 @@
-/* V4-05 ModuleRail —— 印格 64px 桌面轨道。 */
-
-.rail {
-  grid-column: 1;
-  grid-row: var(--shell-content-row, 1);
-  z-index: 20;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 10px 0 12px;
-  border-right: 1px solid var(--ink-shell);
-  background: var(--ink-bg);
-  /* 冻结 demo 的柔和右投影：让轨道从点阵工作区轻轻浮起。 */
-  box-shadow: 8px 0 16px rgb(26 26 26 / 9%);
-  scrollbar-width: none;
-}
-
-.rail::-webkit-scrollbar {
-  display: none;
-}
-
-.brand {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 44px;
-  margin: 0 auto 7px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.brand:focus-visible {
-  outline: 2px solid var(--ink-surface);
-  outline-offset: 1px;
-  box-shadow: var(--shadow-focus);
-}
-
-.brandMark {
-  display: block;
-  width: 40px;
-  height: 40px;
-}
-
-.railGroup {
-  display: grid;
-  gap: 1px;
-}
-
-.railGroupPrimary {
-  margin-top: 5px;
-}
-
-.railGroupGlobal {
-  margin-top: 6px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--ink-panel);
-}
-
-.railGroupUtility {
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--ink-panel);
-}
-
-.railItem {
-  width: 100%;
-  min-height: 46px;
-  display: grid;
-  place-items: center;
-  padding: 3px 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.railItem:focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
-}
-
-.railIcon {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  color: var(--ink);
-  transition:
-    color var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-
-.railItem:hover .railIcon {
-  color: var(--ink);
-}
-
-.railItem:active .railIcon {
-  transform: translate(2px, 2px);
-}
-
-.railItem[aria-current="page"] .railIcon {
-  color: var(--ink-accent);
-}
-
-.railItem[aria-current="page"] .railIcon svg {
-  fill: currentColor;
-  stroke: currentColor;
-}
-
-.railItem[disabled] {
-  color: var(--ink-muted);
-  cursor: not-allowed;
-}
-
-.railItem[disabled]:hover .railIcon {
-  background: transparent;
-}
-
-@media (max-width: 767px) {
-  .rail {
-    display: none;
-  }
-}
+.rail { grid-column: 1; grid-row: var(--shell-content-row, 2); z-index: 20; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding: var(--space-1) 0 var(--space-2); background: var(--surface-chrome); scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.brand { width: var(--touch-target); height: var(--touch-target); display: grid; place-items: center; flex: 0 0 var(--touch-target); margin: 0 auto var(--space-1); border-radius: var(--radius-popover); color: var(--text-secondary); }
+.brand:hover { background: var(--surface-hover); color: var(--text-primary); }
+.brandMark { width: 20px; height: 20px; }
+.railGroup { display: grid; gap: var(--space-1); }
+.railGroupPrimary { margin-top: var(--space-2); }
+.railGroupGlobal { padding-bottom: var(--space-2); }
+.railGroupUtility { margin-top: auto; padding-top: var(--space-3); }
+.railItem { width: var(--touch-target); min-height: var(--touch-target); margin-inline: auto; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-popover); background: transparent; color: var(--text-secondary); }
+.railItem:focus-visible, .brand:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); }
+.railIcon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--radius-popover); color: inherit; transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease); }
+.railItem:hover:not(:disabled) .railIcon { background: var(--surface-hover); color: var(--text-primary); }
+.railItem:active:not(:disabled) .railIcon { background: var(--surface-pressed); }
+.railItem[aria-current='page'] .railIcon { background: var(--surface-raised); color: var(--accent-text); box-shadow: var(--shadow-control); }
+.railItem:disabled { color: var(--text-muted); opacity: .5; cursor: not-allowed; }
+@media (max-width: 767px) { .rail { display: none; } }

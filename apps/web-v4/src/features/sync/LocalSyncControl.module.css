@@ -1,39 +1,45 @@
+/* 状态监听常驻顶栏；样式只控制入口和弹窗内容，不改变同步生命周期。 */
 .trigger {
-  --sync-tone: var(--ink-secondary);
+  --sync-tone: var(--text-secondary);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   min-width: 0;
   height: 100%;
   border: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--sync-tone);
   cursor: pointer;
   font: inherit;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   white-space: nowrap;
 }
-.trigger[data-tone='active'] { --sync-tone: var(--ink-accent); }
-.trigger[data-tone='success'] { --sync-tone: var(--ink-success); }
-.trigger[data-tone='warning'] { --sync-tone: var(--ink-warning); }
-.trigger[data-tone='danger'] { --sync-tone: var(--ink-danger); }
-.trigger:hover { background: var(--ink-sunken); }
-.trigger:focus-visible { outline: 0; box-shadow: var(--shadow-focus); }
-.marker { width: 8px; height: 8px; flex: 0 0 8px; background: var(--sync-tone); }
-.main { color: color-mix(in srgb, var(--sync-tone) 70%, var(--ink)); font-weight: 600; }
-.detail { color: color-mix(in srgb, var(--sync-tone) 70%, var(--ink)); font-size: 11px; }
+.trigger[data-tone='active'] { --sync-tone: var(--accent-text); }
+.trigger[data-tone='success'] { --sync-tone: var(--color-success); }
+.trigger[data-tone='warning'] { --sync-tone: var(--color-warning); }
+.trigger[data-tone='danger'] { --sync-tone: var(--color-danger); }
+.trigger:hover { background: var(--surface-hover); }
+.trigger:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.marker { width: 8px; height: 8px; flex: 0 0 8px; border-radius: var(--radius-pill); background: var(--sync-tone); }
+.main { color: var(--sync-tone); font-weight: 600; }
+.detail { color: var(--text-secondary); font-size: var(--font-size-meta); }
 .trigger[data-tone='active'] .marker { animation: syncPulse 1.3s ease-in-out infinite; }
 @keyframes syncPulse { 50% { opacity: 0.4; } }
-@media (prefers-reduced-motion: reduce) { .trigger[data-tone='active'] .marker { animation: none; } }
-.body { display: grid; gap: 16px; text-align: left; white-space: normal; }
+.body { display: grid; gap: var(--space-4); min-width: 0; color: var(--text-primary); text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .body p { margin: 0; line-height: 1.6; }
-.form { display: grid; gap: 12px; }
-.form > * { width: 100%; }
-.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.hint { color: var(--ink-secondary); font-size: 12px; }
-.error { color: var(--ink-danger); }
-.conflict { padding: 14px; border: 1px solid var(--ink-panel); display: grid; gap: 12px; overflow-wrap: anywhere; }
-.conflict h3, .conflict h4 { margin: 0 0 6px; font-size: 14px; }
-.conflict pre { margin: 0; max-height: 220px; overflow: auto; padding: 10px; background: var(--ink-sunken); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.body details { min-width: 0; padding: var(--space-3); border-radius: var(--radius-control); background: var(--surface-hover); }
+.body summary { cursor: pointer; font-size: var(--font-size-ui); font-weight: 500; }
+.body summary:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; border-radius: var(--radius-control); }
+.form { display: grid; gap: var(--space-3); min-width: 0; }
+.form > * { width: 100%; min-width: 0; }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.hint { color: var(--text-secondary); font-size: var(--font-size-meta); }
+.error { padding: var(--space-3); border-radius: var(--radius-control); background: var(--color-danger-soft); color: var(--color-danger); }
+.compact { width: var(--control-size); height: var(--control-size); justify-content: center; }
+.compact .main, .compact .detail { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.compact .marker { width: 10px; height: 10px; flex-basis: 10px; }
 @media (max-width: 600px) { .columns { grid-template-columns: 1fr; } }
+@media (max-width: 767px), (any-pointer: coarse) { .compact { min-width: var(--touch-target); min-height: var(--touch-target); } }
+@media (prefers-reduced-motion: reduce) { .trigger[data-tone='active'] .marker { animation: none; } }

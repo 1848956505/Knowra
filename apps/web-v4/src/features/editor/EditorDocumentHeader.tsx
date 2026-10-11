@@ -7,6 +7,8 @@ import {
   type KeyboardEvent
 } from 'react';
 import type { Folder, Note } from '@study-accelerator/web-core';
+import { FolderIcon } from '../../components/icons/knowra';
+import { getStatusLabel } from './editorInspectorModel';
 import styles from './NoteEditorView.module.css';
 
 export interface EditorDocumentHeaderProps {
@@ -81,11 +83,13 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
   const titleErrorId = `note-title-error-${note.id}`;
   return (
     <header>
-      <div className={styles.kicker}>
-        <span aria-hidden="true" /> NOTE · {(note.status || 'draft').toUpperCase()}
+      <div className={styles.breadcrumb} aria-label="笔记位置">
+        <FolderIcon size={13} aria-hidden="true" />
+        <span>笔记</span>
+        <span aria-hidden="true">/</span>
+        <span>{folder?.name || '未整理'}</span>
       </div>
       <div className={styles.documentHead}>
-        <span className={styles.cover} data-editor-cover="true" aria-hidden="true" />
         <div className={styles.documentTitles}>
           <h1
             id="note-editor-title"
@@ -121,8 +125,7 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
             />
           </h1>
           <p className={styles.meta}>
-            <span>{note.status || '文稿'}</span>
-            <span>{folder?.name || '未整理'}</span>
+            <span className={styles.statusBadge}>{getStatusLabel(note.status)}</span>
             <span>{note.updatedAt ? `更新于 ${formatDate(note.updatedAt)}` : '尚未记录更新时间'}</span>
             {pending ? <span className={styles.titlePending}>保存标题中…</span> : null}
           </p>

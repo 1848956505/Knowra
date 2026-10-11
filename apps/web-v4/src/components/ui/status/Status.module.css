@@ -1,9 +1,4 @@
-/* V4-04 Status
- *
- * Badge / EmptyState / LoadingState / Panel。
- * Badge 视觉：22–24px 高、方点 6–7px、状态色填充；按 tone 区分。
- * Loading：脉冲 1.4s（来自 §6 状态契约），不阻塞输入。
- */
+/* V5 状态组件：轻色胶囊、圆点、细线和中性面板。 */
 
 .badge {
   display: inline-flex;
@@ -11,39 +6,37 @@
   gap: 6px;
   height: 22px;
   padding: 0 9px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border: 1px solid var(--badge-edge-color, var(--ink));
-  box-shadow: var(--shadow-badge);
-  color: var(--ink);
-  background: var(--ink-surface);
+  border: 1px solid var(--badge-edge-color, var(--border-subtle));
+  border-radius: 999px;
+  box-shadow: none;
+  color: var(--text-primary);
+  background: var(--surface-page);
 }
 
 .badgeDot {
+  border-radius: 50%;
   width: 7px;
   height: 7px;
-  background: var(--ink-muted);
+  background: var(--text-muted);
   flex: 0 0 auto;
 }
 
 .toneAccent {
-  color: var(--ink-accent);
-  background: var(--ink-accent-soft);
-  --badge-edge-color: var(--ink-accent);
-  --badge-shadow: var(--ink-accent);
+  color: var(--accent-on-tint);
+  background: var(--accent-soft);
+  --badge-edge-color: var(--accent-border);
 }
 
-.toneAccent .badgeDot { background: var(--ink-accent); }
+.toneAccent .badgeDot { background: var(--accent); }
 
 .toneSuccess {
   color: var(--ink-success);
   background: var(--ink-success-soft);
-  --badge-edge-color: var(--ink-success);
-  --badge-shadow: var(--ink-success);
+  --badge-edge-color: color-mix(in srgb, var(--ink-success) 24%, transparent);
 }
 
 .toneSuccess .badgeDot { background: var(--ink-success); }
@@ -51,8 +44,7 @@
 .toneWarning {
   color: var(--ink-warning);
   background: var(--ink-warning-soft);
-  --badge-edge-color: var(--ink-warning);
-  --badge-shadow: var(--ink-warning);
+  --badge-edge-color: color-mix(in srgb, var(--ink-warning) 24%, transparent);
 }
 
 .toneWarning .badgeDot { background: var(--ink-warning); }
@@ -60,52 +52,53 @@
 .toneDanger {
   color: var(--ink-danger);
   background: var(--ink-danger-soft);
-  --badge-edge-color: var(--ink-danger);
-  --badge-shadow: var(--ink-danger);
+  --badge-edge-color: color-mix(in srgb, var(--ink-danger) 24%, transparent);
 }
 
 .toneDanger .badgeDot { background: var(--ink-danger); }
 
 .toneNeutral {
-  color: var(--ink);
-  background: var(--ink-surface);
+  color: var(--text-primary);
+  background: var(--surface-page);
 }
 
-.toneNeutral .badgeDot { background: var(--ink); }
+.toneNeutral .badgeDot { background: var(--text-primary); }
 
 /* EmptyState */
 .empty {
+  border-radius: var(--radius-panel);
   display: grid;
   place-items: center;
   gap: 14px;
   padding: 28px 22px;
   text-align: center;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink-panel);
-  color: var(--ink);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .emptyIcon {
+  border-radius: var(--radius-control);
   width: 40px;
   height: 40px;
   display: grid;
   place-items: center;
-  background: var(--ink-sunken);
-  border: 1px solid var(--ink);
-  box-shadow: var(--shadow-1);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-control);
 }
 
 .emptyTitle {
   margin: 0;
   font-size: 14px;
-  font-weight: 800;
-  color: var(--ink);
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .emptyDescription {
   margin: 0;
   font-size: 12px;
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   max-width: 320px;
 }
 
@@ -122,9 +115,9 @@
   align-items: center;
   gap: 10px;
   padding: 14px;
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .loadingSkeleton {
@@ -142,9 +135,10 @@
 }
 
 .skeletonBar {
+  border-radius: var(--radius-control);
   display: block;
   height: 12px;
-  background: var(--ink-panel);
+  background: var(--border-subtle);
   animation: skeletonPulse 1.4s ease-in-out infinite;
 }
 
@@ -159,11 +153,12 @@
 }
 
 .loadingBar {
+  border-radius: var(--radius-control);
   position: relative;
   width: 100%;
   height: 4px;
-  background: var(--ink-sunken);
-  border: 1px solid var(--ink-panel);
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
 }
 
@@ -171,7 +166,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--ink-accent);
+  background: var(--accent);
   animation: loadingSweep 1.4s var(--motion-ease) infinite;
 }
 
@@ -187,9 +182,10 @@
 }
 
 .loadingDot {
+  border-radius: 50%;
   width: 8px;
   height: 8px;
-  background: var(--ink-accent);
+  background: var(--accent);
   animation: loadingPulse 1.4s var(--motion-ease) infinite;
 }
 
@@ -205,37 +201,39 @@
   .skeletonBar,
   .loadingBar::after,
   .loadingDot {
+  border-radius: 50%;
     animation: none !important;
   }
   .loadingDot {
-    background: var(--ink-accent);
+  border-radius: 50%;
+    background: var(--accent);
     opacity: 0.65;
   }
 }
 
 /* Panel */
 .panel {
+  border-radius: var(--radius-panel);
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  box-shadow: var(--shadow-1);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-control);
 }
 
 .panelHeader {
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sidebar);
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-secondary);
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .panelTitle {
@@ -243,10 +241,8 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink);
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .panelBody {
@@ -257,9 +253,10 @@
 }
 
 .panelFooter {
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
   padding: 8px 12px;
-  border-top: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-sidebar);
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -1,8 +1,4 @@
-/* V4-04 Overlay
- *
- * Dialog / Popover / Menu 共用外观：白纸、墨边、硬阴影、零圆角、Ink Mono 标题。
- * Popover/Menu 默认顶对齐、向右、距触发器 4px；靠近视口底/右时由 React Aria 自动翻转。
- */
+/* V5 弹层：不透明页面底、柔和分层阴影，交互与动画继续由 React Aria 管理。 */
 
 .overlay {
   outline: 0;
@@ -39,14 +35,16 @@
 }
 
 .dialog {
+  border-radius: var(--radius-panel);
+  overflow: hidden;
   position: relative;
   width: min(440px, calc(100vw - 32px));
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--ink);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-dialog);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-popover);
   outline: 0;
   overscroll-behavior: contain;
 }
@@ -89,17 +87,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 14px 18px 4px;
-  background: var(--ink-surface);
+  padding: 16px 18px 12px;
+  background: var(--surface-page);
   flex: 0 0 auto;
-  border-bottom: 1px solid var(--ink-panel);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .title {
   margin: 0;
-  color: var(--ink);
+  color: var(--text-primary);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -107,7 +105,7 @@
   flex: 0 0 auto;
   margin: 0;
   padding: 6px 22px 0;
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -120,26 +118,27 @@
   place-items: center;
   border: 0;
   background: transparent;
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
-  border-radius: 0;
+  border-radius: var(--radius-control);
 }
 
 .close:hover {
-  background: var(--ink-sunken);
-  color: var(--ink);
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .close:focus-visible {
-  outline: 0;
-  box-shadow: var(--shadow-focus);
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 
 .body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 14px 22px 6px;
+  padding: 18px 22px;
   display: grid;
   gap: 14px;
 }
@@ -148,12 +147,13 @@
   display: flex;
   gap: 8px;
   padding: 14px 18px 16px;
-  border-top: 1px solid var(--ink-panel);
-  background: var(--ink-bg);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-sidebar);
   flex: 0 0 auto;
 }
 
 .busyOverlay {
+  border-radius: inherit;
   position: absolute;
   inset: 0;
   background: var(--scrim-busy);
@@ -164,20 +164,21 @@
 }
 
 .busyContent {
+  border-radius: var(--radius-popover);
   display: grid;
   justify-items: stretch;
   gap: 10px;
   width: min(220px, calc(100% - 32px));
   padding: 14px;
-  border: 1px solid var(--ink-panel);
-  background: var(--ink-surface);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-control);
 }
 
 .busyLabel {
-  color: var(--ink-secondary);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .busySkeleton {
@@ -185,12 +186,13 @@
 }
 
 .popover {
+  border-radius: var(--radius-popover);
   min-width: 200px;
   max-width: 320px;
   outline: 0;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  box-shadow: var(--shadow-floating-panel);
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-popover);
   padding: 6px;
 }
 
@@ -229,30 +231,30 @@
 }
 
 .menu {
+  border-radius: var(--radius-popover);
   outline: 0;
   min-width: 200px;
   max-width: 320px;
-  background: var(--ink-surface);
-  border: 1px solid var(--ink);
-  box-shadow: var(--shadow-floating-panel);
-  padding: 4px 0;
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-popover);
+  padding: 5px;
   overflow: auto;
 }
 
 .menu:focus-visible {
-  border-color: var(--ink);
-  box-shadow: var(--shadow-floating-panel);
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-popover), var(--focus-ring);
 }
 
 .menuHead {
   padding: 8px 12px 4px;
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .item {
@@ -260,20 +262,26 @@
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border: 0;
   background: transparent;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 450;
   text-align: left;
   cursor: pointer;
-  border-radius: 0;
+  border-radius: var(--radius-control);
 }
 
 .item[data-focused] {
-  background: var(--ink-sunken);
+  background: var(--surface-hover);
   outline: 0;
+}
+
+.item[data-focus-visible] {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
 }
 
 .item[data-has-submenu]::after {
@@ -287,8 +295,8 @@
 }
 
 .item[data-has-submenu][data-open] {
-  background: var(--ink-accent);
-  color: var(--ink-surface);
+  background: var(--surface-pressed);
+  color: var(--text-primary);
 }
 
 .item[data-danger] {
@@ -296,57 +304,65 @@
 }
 
 .item[data-danger][data-focused] {
-  background: var(--ink-danger);
-  color: var(--ink-surface);
+  background: var(--ink-danger-soft);
+  color: var(--ink-danger);
+}
+
+.item[data-danger][data-focus-visible] {
+  outline-color: var(--ink-danger);
+  box-shadow: var(--focus-ring-danger);
 }
 
 .item[data-disabled] {
-  color: var(--ink-muted);
+  color: var(--text-muted);
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .itemKbd {
   margin-left: auto;
-  color: var(--ink-muted);
+  color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1;
 }
 
 .itemIcon {
-  color: var(--ink-secondary);
+  --knowra-icon-accent: currentColor;
+  color: var(--text-secondary);
   width: 14px;
   height: 14px;
   flex: 0 0 auto;
 }
 
 .item[data-danger] .itemIcon {
+  --knowra-icon-accent: currentColor;
   color: var(--ink-danger);
 }
 
 .item[data-danger][data-focused] .itemIcon {
-  color: var(--ink-surface);
+  --knowra-icon-accent: currentColor;
+  color: var(--ink-danger);
 }
 
 .separator {
   height: 1px;
   margin: 4px 0;
-  background: var(--ink-panel);
+  background: var(--border-subtle);
   border: 0;
 }
 
 /* Tooltip */
 .tooltip {
+  border-radius: var(--radius-control);
   outline: 0;
-  background: var(--ink);
-  color: var(--ink-surface);
-  border: 1px solid var(--ink);
-  box-shadow: var(--shadow-1);
+  background: var(--text-primary);
+  color: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-control);
   padding: 6px 10px;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 500;
   max-width: 240px;
 }
 

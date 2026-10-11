@@ -3,7 +3,8 @@ import {
   countBy,
   matchesText,
   paginateWorkspaceItems,
-  parseWorkspaceQuery
+  parseWorkspaceQuery,
+  summarizeEvidenceStatus
 } from './workspace-query-utils.js';
 
 export function createKnowledgeWorkspaceQuery({ snapshotReader } = {}) {
@@ -29,11 +30,11 @@ export function createKnowledgeWorkspaceQuery({ snapshotReader } = {}) {
   async function listLearningObjectives(input = {}) {
     const query = parseWorkspaceQuery(input);
     const snapshot = await snapshotReader.load();
-    const itemById = new Map(snapshot.knowledgeItems.map((item) => [item.id, buildKnowledgeItemDto(snapshot, item)]));
+    const getKnowledgeItemSummary = createKnowledgeItemSummaryReader(snapshot);
     const objectives = snapshot.objectives
       .filter((objective) => query.includeArchived || objective.reviewStatus !== 'archived')
       .map((objective) => toLearningObjectiveWorkspaceDto(objective, {
-        knowledgeItem: itemById.get(objective.knowledgeItemId) ?? null,
+        knowledgeItem: getKnowledgeItemSummary(objective.knowledgeItemId),
         questions: activeQuestions(snapshot.indexes.questionsByObjective.get(objective.id) ?? [], query.includeArchived)
       }))
       .filter((objective) => matchesObjective(objective, query));
@@ -77,6 +78,24 @@ export function createKnowledgeWorkspaceQuery({ snapshotReader } = {}) {
         }))
     };
   }
+}
+
+// 目标 DTO 只需要四个知识字段；不为它构造证据明细或其他目标的题目聚合。
+function createKnowledgeItemSummaryReader(snapshot) {
+  const itemById = new Map(snapshot.knowledgeItems.map((item) => [item.id, item]));
+  const summaries = new Map();
+  return (id) => {
+    if (summaries.has(id)) return summaries.get(id);
+    const item = itemById.get(id);
+    const summary = item ? {
+      id: item.id,
+      title: item.title,
+      reviewStatus: item.reviewStatus,
+      evidenceStatus: summarizeEvidenceStatus(snapshot.indexes.evidenceByItem.get(item.id) ?? [])
+    } : null;
+    summaries.set(id, summary);
+    return summary;
+  };
 }
 
 function buildKnowledgeItemDto(snapshot, item) {

@@ -10,24 +10,25 @@
     grid-row: 3;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(var(--mobile-tab-count, 8), minmax(0, 1fr));
+    grid-template-columns: repeat(var(--mobile-tab-count, 8), minmax(var(--touch-target), 1fr));
+    overflow-x: auto;
     min-height: 54px;
     padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     border-top: 1px solid var(--ink-shell);
-    background: var(--ink-bg);
+    background: var(--surface-chrome);
   }
 
   .mobileTab {
-    min-width: 0;
+    min-width: var(--touch-target);
     display: grid;
     place-items: center;
     gap: 1px;
     padding: 4px 2px 3px;
     border: 0;
-    border-top: 4px solid transparent;
+    border-radius: var(--radius-control);
     background: transparent;
     color: var(--ink-secondary);
-    font: 700 10px/1 var(--font-ui);
+    font: 500 10px/1 var(--font-ui);
     cursor: pointer;
     transition:
       color var(--motion-fast) var(--motion-ease),
@@ -46,10 +47,10 @@
   }
 
   .mobileTab[aria-current="page"] {
-    border-top-color: var(--ink-accent);
+    box-shadow: var(--shadow-control);
     background: var(--ink-surface);
     color: var(--ink-accent);
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .mobileTab:hover:not(:disabled) {

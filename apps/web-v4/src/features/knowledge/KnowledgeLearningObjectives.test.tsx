@@ -1,7 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { KnowledgeItem, TrainingAssetRecord } from '@study-accelerator/web-core';
+import { createEmptyWorkspaceSnapshot, type KnowledgeItem, type TrainingAssetRecord, type WorkspaceApi } from '@study-accelerator/web-core';
+import { createAppStore } from '../../store/createAppStore';
 import type { AppStore } from '../../store/types';
 import { KnowledgeLearningObjectives } from './KnowledgeLearningObjectives';
 const mocked = vi.hoisted(() => ({ state: null as unknown as AppStore }));
@@ -12,6 +13,54 @@ function setup(list: AppStore['listTrainingAssets'], overrides: Partial<AppStore
   mocked.state = { dataMode: 'api', persistenceMode: 'remote', canWriteWorkspace: () => true, knowledgeGeneration: 0, listTrainingAssets: list, getKnowledgeItem: vi.fn().mockResolvedValue(knowledge), ...overrides } as unknown as AppStore;
 }
 describe('知识详情关联学习目标', () => {
+  it.each(['missing-method', 'disconnected'] as const)('真实 slice 同步拒绝 %s 时保留错误和重试入口', async failure => {
+    const read = vi.fn().mockResolvedValue([objective]);
+    const api = (failure === 'missing-method' ? {} : { listTrainingAssets: read }) as WorkspaceApi;
+    const store = createAppStore({ api, cacheKey: `objective-read-${failure}`, mockSnapshot: createEmptyWorkspaceSnapshot(), persistenceMode: 'remote' });
+    store.setState({ dataMode: failure === 'disconnected' ? 'cache' : 'api' });
+    // 组件已渲染的连接状态可能滞后于真实 slice 的即时检查。
+    setup(store.getState().listTrainingAssets);
+    render(<KnowledgeLearningObjectives item={knowledge} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(failure === 'missing-method' ? '当前服务尚未接通训练工作域' : '资料库尚未连接');
+    expect(screen.queryByText('尚无关联学习目标。')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建学习目标候选' })).toBeDisabled();
+    expect(read).not.toHaveBeenCalled();
+    api.listTrainingAssets = read;
+    store.setState({ dataMode: 'api' });
+    await userEvent.click(screen.getByRole('button', { name: '重试读取学习目标' }));
+    expect(await screen.findByText('计算变化率')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(read).toHaveBeenCalledExactlyOnceWith('learningObjective', { includeArchived: true, includeDeleted: true });
+  });
+  it('切换知识后旧读取失败不覆盖当前目标或错误状态', async () => {
+    let reject!: (cause: Error) => void;
+    const list = vi.fn().mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }))
+      .mockResolvedValue([{ ...objective, knowledgeItemId: 'k2', objective: '新知识目标' }]);
+    setup(list);
+    const view = render(<KnowledgeLearningObjectives item={knowledge} />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    view.rerender(<KnowledgeLearningObjectives item={{ ...knowledge, id: 'k2' }} />);
+    await screen.findByText('新知识目标');
+    await act(async () => reject(new Error('旧读取失败')));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('新知识目标')).toBeInTheDocument();
+  });
+  it.each(['resolve', 'reject'] as const)('卸载后旧请求 %s 不影响新挂载的目标状态', async outcome => {
+    let resolve!: (rows: TrainingAssetRecord[]) => void;
+    let reject!: (cause: Error) => void;
+    const list = vi.fn().mockImplementationOnce(() => new Promise((done, fail) => { resolve = done; reject = fail; }))
+      .mockResolvedValue([{ ...objective, knowledgeItemId: 'k2', objective: '重新打开的目标' }]);
+    setup(list);
+    const oldView = render(<KnowledgeLearningObjectives item={knowledge} />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    oldView.unmount();
+    render(<KnowledgeLearningObjectives item={{ ...knowledge, id: 'k2' }} />);
+    await screen.findByText('重新打开的目标');
+    await act(async () => { if (outcome === 'resolve') resolve([objective]); else reject(new Error('已卸载的读取失败')); });
+    expect(screen.getByText('重新打开的目标')).toBeInTheDocument();
+    expect(screen.queryByText('计算变化率')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it('读失败不冒充空列表；重试后显示真实关联四状态和动作层级', async () => {
     const list = vi.fn().mockRejectedValueOnce(new Error('目标读取失败')).mockResolvedValue([
       objective, { ...objective, id: 'o2', objective: '已确认目标', reviewStatus: 'confirmed' },

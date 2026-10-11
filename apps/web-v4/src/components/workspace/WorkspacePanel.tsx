@@ -11,7 +11,7 @@ export function WorkspacePanel({ as: Element = 'article', className, children, .
   return <Element className={classNames(styles.panel, className)} {...props}>{children}</Element>;
 }
 
-export function WorkspacePanelHeader({ title, code, titleId, icon, history, breadcrumb, breadcrumbTitle, actions, actionsLabel, className }: {
+export function WorkspacePanelHeader({ title, titleId, icon, history, breadcrumb, breadcrumbTitle, actions, actionsLabel, className }: {
   title: string;
   code: string;
   titleId?: string;
@@ -24,14 +24,13 @@ export function WorkspacePanelHeader({ title, code, titleId, icon, history, brea
   className?: string;
 }) {
   return <header className={classNames(styles.header, className)}>
-    <div className={styles.badge}>
-      {icon ?? <span className={styles.badgeMark} aria-hidden="true" />}
+    <div className={styles.title}>
+      {icon}
       {titleId ? <h1 id={titleId}>{title}</h1> : <span>{title}</span>}
-      <small>{code}</small>
     </div>
     {history}
     <nav className={styles.breadcrumb} aria-label="当前位置" title={breadcrumbTitle}>
-      <span className={styles.marker} aria-hidden="true" />{breadcrumb}
+      {breadcrumb}
     </nav>
     <div className={styles.actions} aria-label={actionsLabel}>{actions}</div>
   </header>;

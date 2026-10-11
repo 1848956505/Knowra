@@ -12,7 +12,7 @@ import { aiFeatures } from '../settings/aiFeatures';
 const fixture = vi.hoisted(() => ({
   navigate: vi.fn(),
   state: {
-    serverData: { currentSpaceId: 'space-1', notes: [{ id: 'note-1', title: '笔记 A', spaceId: 'space-1', deleted: false }], folderTree: [] },
+    serverData: { currentSpaceId: 'space-1' as string | null, notes: [{ id: 'note-1', title: '笔记 A', spaceId: 'space-1', deleted: false }], folderTree: [] },
     getNoteVersion: vi.fn(async () => ({ content: '前文 alpha 后文', contentHash: 'e1ad18f75b0295b8a3845a76fc8e148b8eef2107f58336fe9bca6a23ebb608d6' }))
   }
 }));
@@ -657,4 +657,37 @@ it('提炼入口：目录授权按祖先目录覆盖本篇；同一目录授权�
     expect(await screen.findByRole('dialog', { name: '授权助手读取资料' })).toBeInTheDocument();
     expect(screen.queryByText(/已选用现有读取授权/)).not.toBeInTheDocument();
   } finally { Object.assign(state, previous); }
+});
+
+
+it('知识空间延迟初始化时阻止附件入口和粘贴，加载完成后可正常上传', async () => {
+  fixture.state.serverData.currentSpaceId = null;
+  vi.mocked(conversationApi.create).mockResolvedValue(conversation);
+  vi.mocked(conversationAttachmentApi.upload).mockResolvedValue({
+    attachmentId: 'attachment', conversationId: conversation.conversationId, revision: 1,
+    fileName: '初始化后.txt', mimeType: 'text/plain', size: 6, sha256: 'a'.repeat(64), storageStatus: 'ready',
+    parseStatus: 'not_parsed', errorCode: 'AI_ATTACHMENT_NOT_PARSED', parserVersion: null, parsedTextHash: null,
+    imageMetadata: null, removedAt: null, createdAt: conversation.createdAt, updatedAt: conversation.updatedAt
+  });
+  const view = render(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  expect(screen.getByRole('button', { name: '附件（0）' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '附件（0）' }));
+  const paste = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, 'clipboardData', { value: { items: [{ kind: 'file', type: 'image/png',
+    getAsFile: () => new File(['png'], 'clipboard.png', { type: 'image/png' }) }] } });
+  fireEvent(screen.getByRole('textbox', { name: '消息' }), paste);
+  expect(paste.defaultPrevented).toBe(false);
+  expect(screen.queryByRole('dialog', { name: '对话附件管理' })).not.toBeInTheDocument();
+  expect(conversationApi.create).not.toHaveBeenCalled();
+  expect(conversationAttachmentApi.upload).not.toHaveBeenCalled();
+  fixture.state.serverData.currentSpaceId = 'space-1';
+  view.rerender(<AssistantView pathname="/assistant?new=1" onOpenNote={vi.fn()} />);
+  expect(screen.getByRole('button', { name: '附件（0）' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '附件（0）' }));
+  fireEvent.change(await screen.findByLabelText('添加对话附件'), {
+    target: { files: [new File(['合成文本'], '初始化后.txt', { type: 'text/plain' })] }
+  });
+  await screen.findByRole('button', { name: '预览 初始化后.txt' });
+  expect(conversationApi.create).toHaveBeenCalledWith('space-1', expect.any(String));
+  expect(conversationAttachmentApi.upload).toHaveBeenCalledOnce();
 });

@@ -8,7 +8,7 @@ export interface AppPreferences {
 const PREFERENCES_KEY = 'knowra:preferences:v1';
 
 export const defaultAppPreferences: AppPreferences = {
-  noteFontSize: 17,
+  noteFontSize: 15,
   reduceMotion: false
 };
 
@@ -16,7 +16,7 @@ export function readAppPreferences(): AppPreferences {
   try {
     const stored = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? 'null') as Partial<AppPreferences> | null;
     return {
-      noteFontSize: stored?.noteFontSize === 15 || stored?.noteFontSize === 19 ? stored.noteFontSize : 17,
+      noteFontSize: stored?.noteFontSize === 15 || stored?.noteFontSize === 17 || stored?.noteFontSize === 19 ? stored.noteFontSize : 15,
       reduceMotion: stored?.reduceMotion === true
     };
   } catch {

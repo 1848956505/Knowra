@@ -1,7 +1,8 @@
-import { type Editor, editorViewCtx, parserCtx } from '@milkdown/kit/core';
+import { type Editor, editorViewCtx, parserCtx, remarkCtx } from '@milkdown/kit/core';
 import { AllSelection } from '@milkdown/kit/prose/state';
 import { readClipboardText, runDocumentCommand, writeClipboardText } from '../../browser/clipboard';
 import type { EditorClipboardAction, EditorEditResult } from './editorCommands';
+import { convertTexMathDelimiters, shouldPasteAsSource } from './editorMathPaste';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { selectCodeBlockContents } from './editorCodeCommands';
 
@@ -41,12 +42,13 @@ async function pasteClipboardText(editor: Editor): Promise<EditorEditResult> {
   }
   if (!clipboard.text) return { ok: false, reason: 'clipboard-empty' };
   const view = editor.ctx.get(editorViewCtx);
-  if (view.state.selection.$from.parent.type.spec.code) {
+  if (shouldPasteAsSource(view.state)) {
     view.dispatch(view.state.tr.insertText(clipboard.text.replace(/\r\n?/g, '\n')).scrollIntoView());
     view.focus();
     return { ok: true };
   }
-  const slice = parseMarkdownSlice(editor.ctx.get(parserCtx), clipboard.text);
+  const markdown = convertTexMathDelimiters(clipboard.text, source => editor.ctx.get(remarkCtx).parse(source));
+  const slice = parseMarkdownSlice(editor.ctx.get(parserCtx), markdown);
   if (!slice) return { ok: false, reason: 'unsupported' };
   view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
   view.focus();

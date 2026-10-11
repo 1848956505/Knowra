@@ -1,7 +1,13 @@
+import { noteVersionPreviewIndexesTests } from './note-version-preview-indexes.test.js';
+import { objectiveQueryProjectionTests } from './objective-query-projection.test.js';
+import { trainingQueryIndexesTests } from './training-query-indexes.test.js';
+import { aiConversationRecordsTests } from './ai-conversation-records.test.js';
+import { aiAgentRequestContextTests } from './ai-agent-request-context.test.js';
 import { annotationWhitespaceTests } from './annotation-whitespace.test.js';
 import { noteLinkTests, noteLinkPostgresTests } from './note-links.test.js';
 import { aiAssistantAutonomyTests } from './ai-assistant-autonomy.test.js';
 import { aiAnnotationsListTests } from './ai-annotations-list.test.js';
+import { aiProposalProgressTests } from './ai-proposal-progress.test.js';
 import { aiKnowledgePropose } from './ai-knowledge-propose.test.js';
 import { aiFeatureSettingsTests } from './ai-feature-settings.test.js';
 import { aiKnowledgeProposePostgresTests } from './ai-knowledge-propose-postgres.test.js';
@@ -22,6 +28,7 @@ import { aiNoteActionTests } from './ai-note-actions.test.js';
 import { attachmentRecoveryTests } from './attachment-recovery.test.js';
 import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.test.js';
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
+import { annotationIdentityShadowTests } from './annotation-identity-shadow.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
 import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
 import { aiKnowledgeExtractionGatewayTests } from './ai-knowledge-extraction-gateway.test.js';
@@ -115,6 +122,11 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...noteVersionPreviewIndexesTests,
+  ...objectiveQueryProjectionTests,
+  ...trainingQueryIndexesTests,
+  ...aiConversationRecordsTests,
+  ...aiAgentRequestContextTests,
   ...aiConversationAttachmentHttpTests,
   ...aiConversationAttachmentTests,
   ...aiConversationAttachmentPostgresTests,
@@ -124,6 +136,7 @@ const tests = [
   ...aiAssistantAutonomyTests,
   ...aiAnnotationsListTests,
   ...aiKnowledgePropose,
+  ...aiProposalProgressTests,
   ...aiFeatureSettingsTests,
   ...aiKnowledgeProposePostgresTests,
   ...knowledgeArtifactProvenancePersistenceTests,
@@ -191,6 +204,7 @@ const tests = [
   ...contentAnnotationServiceTests,
   ...annotationScopeServiceTests,
   ...annotationDynamicTests,
+  ...annotationIdentityShadowTests,
   ...annotationDynamicPostgresTests,
   ...serverHttpTests,
   ...knowledgeBaseSnapshotServiceTests,

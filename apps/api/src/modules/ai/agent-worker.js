@@ -1,3 +1,7 @@
+import { authorizedHistory, authorizedQuestion, plainMessages } from './agent-request-context.js';
+import { analyzeProposal, proposalProgress } from './proposal-progress.js';
+// 保留既有调用方的进度文本入口，纯规则统一在 proposal-progress.js 维护。
+export { proposalProgress } from './proposal-progress.js';
 import { toolsForWriteIntent, toolsForAssistant } from './note-write-intent.js';
 import { randomUUID } from 'node:crypto';
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
@@ -10,7 +14,7 @@ import { emptyAgentCheckpoint } from './agent-checkpoint.js';
 import { ANNOTATIONS_TOOL, listAnnotatedRanges } from './annotation-read-tool.js';
 import { FOLDERS_LIST_TOOL, NOTES_LIST_TOOL, CATALOG_TOOL_NAMES, catalogSpecsFromCalls } from './catalog-tool.js';
 import { KNOWLEDGE_PROPOSE_TOOL, proposeKnowledge } from './knowledge-propose-tool.js';
-import { ASSISTANT_GUIDANCE, WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, requestsKnowledgeProposal, renderExternalSources } from './assistant-tools.js';
+import { WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, requestsKnowledgeProposal, renderExternalSources } from './assistant-tools.js';
 
 const MAX_ROUNDS = 4;
 const MAX_TOOLS = 6;
@@ -19,79 +23,6 @@ const PROPOSAL_ROUNDS = 8;
 const PROPOSAL_TOOLS = 14;
 // 推理模型的推理 token 计入完成量；1024 在真实验收中 5 次里有 3 次在写出回答前被截断。上限只在真正用到时才产生费用。
 const MAX_OUTPUT_TOKENS = 4096;
-// 提炼知识点回合的行为指引：把“读后提交候选”说清楚，避免模型只在回答里罗列或反复读取同一份重点。
-const PROPOSAL_GUIDANCE = '\n这是提炼知识点请求：先用 annotations_list 取得重点（需要时用 notes_read 读上下文）；“已完成”说明会告诉你哪些步骤已成功、重点是否读完；不要用相同参数重复调用同一个工具；重点很多、sources 放不下时分批处理：读一页重点、提交一批候选，再用 offset 翻到下一页。随后调用 knowledge_propose 一次性提交候选，只有调用 knowledge_propose 才算提交，在回答里声称已提交或罗列知识点都无效。每条候选只依据所引原文；引文只需给 noteId 和逐字摘自 sources 的 quote，不要自己数字符偏移。提交成功后用一两句话说明已提交几条待用户审核的候选，不要重复列出内容。';
-// 工具结果只以来源片段回到模型，看不到“已成功”。提炼回合另用一句话说明已完成的步骤，避免模型因看不到结果而反复调用、迟迟不提交。
-// 说明只能描述“本轮真的会随请求发出的来源”：按当前 sources 窗口（sourceRefs，发送前会逐条重新核验权限与版本）过滤，
-// 窗口外（被淘汰）的笔记不再提及；不含笔记标题，避免经说明文字绕过发送清单与授权复核。
-// 重点数量可能超过 sources 窗口容量，所以按“批”推进：把重点分成 未读 / 已读待提交（在窗口内或已移出）/ 已提交 三类，
-// 先提交窗口内待提交的，再翻页读下一批；只有被已保存候选引文实际覆盖的重点才算已提交，其余仍待处理。
-function analyzeProposal(calls, sourceRefs = [], capacity = null) {
-  const live = (noteId, start, end) => sourceRefs.some(ref => ref.noteId === noteId && ref.start <= start && end <= ref.end);
-  const done = calls.filter(call => call.status === 'succeeded' && call.resultJson && typeof call.resultJson === 'object');
-  const notes = new Map();
-  const noteOf = id => notes.get(id) ?? notes.set(id, { total: 0, seen: new Map(), handled: new Set(), nextOffset: 0, read: false, listed: false }).get(id);
-  let saved = 0; const cited = [];
-  for (const call of done) {
-    const result = call.resultJson;
-    if (call.toolName === 'annotations_list' && typeof result.noteId === 'string' && Number.isSafeInteger(result.total)) {
-      const note = noteOf(result.noteId);
-      note.total = result.total; note.listed = true;
-      (result.annotations ?? []).forEach((item, position) => note.seen.set(item.annotationId, { ...item, index: (Number.isSafeInteger(result.offset) ? result.offset : 0) + position }));
-      if (Number.isSafeInteger(result.offset)) note.nextOffset = Math.max(note.nextOffset, result.offset + (result.annotations?.length ?? 0));
-    } else if (call.toolName === 'notes_read' && typeof result.noteId === 'string'
-      && (call.sourceRefs ?? []).some(ref => ref.noteId === result.noteId && live(ref.noteId, ref.start, ref.end))) noteOf(result.noteId).read = true;
-    else if (call.toolName === 'knowledge_propose' && result.saved === true) {
-      saved += result.candidates?.length ?? 0;
-      for (const range of result.citedRanges ?? []) {
-        if (typeof range?.noteId === 'string' && Number.isSafeInteger(range.start) && Number.isSafeInteger(range.end) && range.start < range.end) cited.push(range);
-      }
-    }
-  }
-  // 只把“被已保存候选的引文实际覆盖”的重点算作已提交：引文与重点原文相交，且引文不超过重点长度的 3 倍
-  // （排除用整篇原文当引文而“顺带覆盖”所有重点的情形）。保存成功本身不代表此前读到的重点都已处理。
-  for (const [noteId, note] of notes) {
-    for (const item of note.seen.values()) {
-      if (cited.some(range => range.noteId === noteId && range.start < item.end && item.start < range.end
-        && range.end - range.start <= 3 * (item.end - item.start))) note.handled.add(item.annotationId);
-    }
-  }
-  const steps = []; let needPropose = false, needPage = false, needReread = false;
-  for (const [noteId, note] of notes) {
-    const inWindow = [...note.seen.values()].filter(item => live(noteId, item.start, item.end));
-    const pending = inWindow.filter(item => !note.handled.has(item.annotationId));
-    const lost = [...note.seen.values()].filter(item => !live(noteId, item.start, item.end) && !note.handled.has(item.annotationId));
-    const dropped = lost.length, lostFrom = Math.min(...lost.map(item => item.index));
-    const unread = note.total - note.seen.size;
-    if (note.total) {
-      if (!inWindow.length && !note.read) continue; // 来源窗口已淘汰该笔记：不再提及，需要时模型可重新读取
-      const counts = new Map();
-      for (const item of pending) counts.set(item.importance, (counts.get(item.importance) ?? 0) + 1);
-      const detail = [...counts].map(([level, count]) => `${level}×${count}`).join('、');
-      // 明确“待提交的重点原文就是哪几个 source、各自重要度”：sources 的编号即其在 sourceRefs 中的顺序（与 prepareRequest 一致）。
-      const labels = pending.map(item => ({ item, index: sourceRefs.findIndex(ref => ref.noteId === noteId && ref.start === item.start && ref.end === item.end) }))
-        .filter(entry => entry.index >= 0).map(entry => `S${entry.index + 1}（${entry.item.importance}）`);
-      if (pending.length) needPropose = true;
-      if (unread > 0) needPage = true;
-      if (dropped > 0) needReread = true;
-      steps.push(`annotations_list 已读取一篇笔记 ${note.total} 处重点中的 ${note.seen.size} 处，其中 ${note.handled.size} 处已提交`
-        + `${pending.length ? `；${pending.length} 处待提交且原文在当前 sources 中（${detail}），即 ${labels.join('、')}，其余 source 只是上下文` : ''}`
-        + `${unread > 0 ? `；还有 ${unread} 处未读，可用 offset=${note.nextOffset} 继续翻页` : ''}`
-        + `${dropped > 0 ? `；${dropped} 处已读但原文已移出 sources 且尚未提交（${capacity ? `sources 一次约容纳 ${capacity} 条，` : ''}可从 offset=${lostFrom} 起用 limit=${capacity ? Math.max(1, capacity) : '较小值'} 重新读取）` : ''}`);
-    } else if (note.listed && !note.seen.size && sourceRefs.some(ref => ref.noteId === noteId)) steps.push('annotations_list 显示一篇笔记没有可用重点，可读取正文后提炼');
-    if (note.read) steps.push('notes_read 已读取一篇笔记的原文片段，已在 sources 中');
-  }
-  if (saved) steps.push(`knowledge_propose 已保存 ${saved} 条待审核候选（同一陈述不要重复提交）`);
-  if (!steps.length) return { text: '', needPropose };
-  const batch = needPage ? '；提交后再翻页读取剩余重点，读一批提交一批' : needReread ? '；提交后再用 annotations_list 重新读取被移出的重点，读一批提交一批' : '';
-  const next = needPropose ? `sources 放不下全部重点，不必等读完：现在就对上面待提交的重点调用 knowledge_propose${batch}。`
-    : needPage ? '先别重复读取已读的页：继续用 annotations_list 翻页读取剩余重点，读到一批就提交一批。'
-    : needReread ? '用 annotations_list 按上面给出的 offset 和 limit 重新读取被移出 sources 的重点（读一批提交一批；limit 不要超过 sources 的容量）。'
-    : saved ? '重点已全部处理，请用一两句话告知用户。'
-    : '这些步骤不要重复；信息已足够时现在调用 knowledge_propose 提交候选。';
-  return { text: `\n已完成：${steps.join('；')}。${next}`, needPropose };
-}
-export const proposalProgress = (calls, sourceRefs = [], capacity = null) => analyzeProposal(calls, sourceRefs, capacity).text;
 const MAX_ATTEMPTS = 8;
 const MAX_RUN_MS = 10 * 60_000;
 const deterministicWriteFailure = code => typeof code === 'string'
@@ -232,33 +163,6 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     if (!current) fail('AI_INPUT_INVALID', '当前提问未找到。');
     const prior = messages.filter(item => item.sequence < current.sequence);
     return prior.slice(-12);
-  }
-
-  function plainHistory(prior) {
-    // 授权回合的回答即使没有来源引用，也可能含目录与标题等授权资料；只有普通聊天（无来源清单）的回答才可进入无授权上下文。
-    const safe = prior.filter(row => row.sourceFree && row.sourceRefs.length === 0 && !row.provenanceManifestId && row.content.length <= 4000);
-    return safe.slice(-8).map(row => ({ role: row.role, content: row.content }));
-  }
-
-  function authorizedHistory(prior) {
-    const entries = [], plainContext = [];
-    for (const row of prior.slice(-8)) {
-      if (row.role === 'assistant' && !row.provenanceManifestId) {
-        if (row.sourceFree && !row.sourceRefs.length) plainContext.push(`助手：${row.content.slice(0, 500)}`);
-        continue;
-      }
-      if (row.role === 'user' && !row.provenanceManifestId) {
-        // 用户消息可以由 R02 验证为无来源历史。
-      }
-      if (row.content.length > 12000) continue;
-      const item = { role: row.role, content: row.content, sourceRefs: row.sourceRefs,
-        sourceFree: row.sourceFree, provenanceManifestId: row.provenanceManifestId };
-      item.provenanceHash = hashRecord({ role: item.role, content: item.content,
-        sourceRefs: item.sourceRefs, sourceFree: item.sourceFree,
-        provenanceManifestId: item.provenanceManifestId });
-      entries.push(item);
-    }
-    return { entries, plainContext: plainContext.slice(-4).join('\n').slice(0, 1600) };
   }
 
   async function readTool(grantId, args) {
@@ -554,19 +458,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       }
       if (grant) {
         const finalOnly = forceAnswer || round === maxRounds - 1 || totalTools >= maxTools;
-        const roundGuidance = round ? finalOnly
-            ? '\n工具结果已写入当前 sources 或 catalog。请直接依据这些来源作答；不足之处明确说明。'
-            : '\n工具结果已写入当前 sources 或 catalog。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
-        const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
         let prepared;
         for (;;) {
           const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs, budgetCapacity) : '';
-          const coverage = `${draftContext}${toolFeedback}${progress}${proposalNudge}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
-          const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
-          if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
-          const context = plainContext && contextRoom >= 8
-            ? `先前普通聊天：${plainContext}\n`.slice(0, contextRoom) : '';
-          const boundedQuestion = `${context}${user.content}${guidance}${coverage}`;
+          const boundedQuestion = authorizedQuestion({ userContent: user.content, round, finalOnly, proposalRequested,
+            draftContext, toolFeedback, progress, proposalNudge, externalContext, webSearchEnabled: webSearch.enabled,
+            searchFallback, searchTruncated, plainContext });
           try {
             prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
               modelId: reference.modelId, credentialRef: reference.credentialRef,
@@ -596,10 +493,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         }
       } else {
         request = { credentialRef: reference.credentialRef, modelId: reference.modelId,
-          messages: [{ role: 'system', content: `${ASSISTANT_GUIDANCE} 此会话没有笔记读取授权；不得声称读过用户资料或编造笔记引用。${webSearch.enabled ? '联网工具仅返回合成验收资料。' : '真实联网尚未配置；需要最新信息或核实时明确说明不可用，不能假称已联网。'}` },
-            ...plainHistory(prior), { role: 'user', content: `${user.content}${draftContext}${toolFeedback}${externalContext}` }], maxTokens: MAX_OUTPUT_TOKENS,
+          messages: plainMessages({ prior, userContent: user.content, draftContext, toolFeedback, externalContext,
+            webSearchEnabled: webSearch.enabled, writeIntent: turn.writeIntent }), maxTokens: MAX_OUTPUT_TOKENS,
           format: 'text', tools: availableTools(turn, false, forceAnswer || round === maxRounds - 1 || totalTools >= maxTools, artifactRequested, proposalRequested) };
-        if (turn.writeIntent) request.messages[0].content += '用户已明确请求生成笔记计划，只调用所开放的写入计划工具；不得宣称已保存。';
       }
       await save();
       if (pending?.modelId && pending.modelId !== reference.modelId) fail('AI_MODEL_CHANGED', '恢复前模型配置已变化。');

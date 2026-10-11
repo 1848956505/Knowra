@@ -47,6 +47,10 @@ describe('editorShortcuts', () => {
     })).toBe('code-block');
   });
 
+  it('routes Mod+Shift+M to the math block like Typora', () => {
+    expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'M', code: 'KeyM', shiftKey: true })).toBe('math-block');
+  });
+
   it('uses the physical C key when macOS Option changes the typed character', () => {
     expect(resolveEditorShortcutCommand({ ...baseShortcut, key: 'ç', code: 'KeyC', ctrlKey: false, metaKey: true, altKey: true })).toBe('code-block');
   });

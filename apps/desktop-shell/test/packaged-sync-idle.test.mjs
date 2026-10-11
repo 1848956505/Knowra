@@ -50,7 +50,7 @@ test('打包 Mac 应用：7201 条基线稳定空闲不写库、不刷新资料�
   store.close();
   app = await launchTestApplication(electron, { executablePath, env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory }, timeout: 20000 });
   const page = await app.firstWindow(); await page.waitForLoadState('domcontentloaded');
-  await expect(page.getByRole('contentinfo').getByRole('button', { name: '本地资料已同步' })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole('button', { name: '本地资料已同步', exact: true })).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('AVAILABLE · 3600 ITEMS', { exact: true })).toBeVisible({ timeout: 20000 });
   await page.waitForLoadState('networkidle');
   const syncStatus = () => page.evaluate(async () => (await (await fetch('/api/local-runtime/sync')).json()).data);

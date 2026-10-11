@@ -20,6 +20,25 @@ function props(overrides: Partial<KnowledgeWorkspaceViewProps> = {}): KnowledgeW
 }
 
 describe('KnowledgeWorkspaceView', () => {
+  it('列表与详情滚动区支持键盘聚焦，选中条目仍独立标识', async () => {
+    const user = userEvent.setup();
+    const input = props();
+    render(<KnowledgeWorkspaceView {...input} />);
+    const list = screen.getByRole('region', { name: '知识列表内容' });
+    const detail = screen.getByRole('region', { name: '知识详情面板' });
+    const selected = await within(list).findByRole('button', { name: /数据增强/ });
+    await screen.findByRole('heading', { name: '数据增强' });
+    expect(list).toHaveAttribute('tabindex', '0');
+    expect(detail).toHaveAttribute('tabindex', '0');
+    expect(selected).toHaveAttribute('aria-current', 'true');
+    act(() => list.focus());
+    expect(list).toHaveFocus();
+    await user.tab();
+    expect(selected).toHaveFocus();
+    await user.tab();
+    expect(detail).toHaveFocus();
+    expect(input.onSelectItem).not.toHaveBeenCalled();
+  });
   const trashed = { ...candidate, sourceMode: 'manual' as const, deletedAt: candidate.updatedAt };
   const purgePreview = { asset: { type: 'knowledgeItem' as const, id: 'k1' }, decision: 'can-purge-no-history' as const, expectedUpdatedAt: candidate.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token', exclusiveRecords: { knowledgeEvidenceIds: [], knowledgeArtifactProvenanceIds: [] }, references: [], coverage: { persistedCurrentAndHistory: true, runningTasks: 'verified', offlineDevices: 'pending', backups: 'retained' } };
   it('联网知识清理使用原预检凭据，云端已清理但本地恢复分支不会假称消失', async () => {

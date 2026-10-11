@@ -7,7 +7,7 @@ import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
 import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
-test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', { timeout: 60000 }, async t => {
+test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-titlebar-'));
   let app = await launchTestApplication(electron, {
     executablePath,
@@ -39,15 +39,22 @@ test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', {
 
   const titlebar = page.getByLabel('Mac 窗口标题栏');
   const tabs = titlebar.getByRole('tablist', { name: '打开的笔记' });
+  const assertNativeTitlebar = async () => {
+    await expect(titlebar).toBeVisible();
+    assert.equal(Math.round((await titlebar.boundingBox()).height), 46);
+    assert(await titlebar.evaluate(element => parseFloat(getComputedStyle(element).paddingLeft) >= 92), '顶栏为原生窗口按钮保留至少 92px 空间');
+    assert.equal(await titlebar.evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'drag');
+    assert.equal(await titlebar.locator('[aria-label="工作区操作"]').evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
+  };
   await expect(tabs.getByRole('tab', { name: '标题栏验收笔记' })).toBeVisible();
   await expect(page.getByLabel('笔记编辑页面骨架')).toHaveAttribute('data-window-tabs', 'true');
-  assert.equal(Math.round((await titlebar.boundingBox()).height), 34);
+  await assertNativeTitlebar();
   const skipLink = page.getByRole('link', { name: '跳到主内容' });
   assert(await skipLink.evaluate(element => element.getBoundingClientRect().bottom <= 0));
   await skipLink.focus();
-  assert((await skipLink.boundingBox()).y >= 34);
+  const titlebarBounds = await titlebar.boundingBox();
+  assert((await skipLink.boundingBox()).y >= titlebarBounds.y + titlebarBounds.height);
   assert((await tabs.boundingBox()).x >= 92);
-  assert.equal(await titlebar.evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'drag');
   assert.equal(await tabs.getByRole('tab', { name: '标题栏验收笔记' }).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
   await tabs.getByRole('button', { name: '查看全部标签页' }).click();
   await expect(page.getByRole('menu', { name: '全部标签页' })).toBeVisible();
@@ -110,12 +117,21 @@ test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', {
   assert(saved.includes('关闭前保存'));
 
   await page.getByRole('button', { name: '知境工作区' }).click();
+  await assertNativeTitlebar();
+  await expect(tabs).toBeVisible();
   await expect(tabs.getByRole('tab')).toHaveCount(6);
-  await expect(tabs.getByRole('tab', { name: '标题栏验收笔记' })).toHaveAttribute('aria-selected', 'false');
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveCount(0);
   await page.getByRole('button', { name: '知识', exact: true }).click();
+  await assertNativeTitlebar();
+  await expect(tabs).toBeVisible();
   await expect(tabs.getByRole('tab')).toHaveCount(6);
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveCount(0);
   await page.getByRole('button', { name: '设置', exact: true }).click();
+  await assertNativeTitlebar();
+  await expect(tabs).toBeVisible();
   await expect(tabs.getByRole('tab')).toHaveCount(6);
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveCount(0);
+  assert.equal(await tabs.getByRole('tab', { name: '标题栏验收笔记' }).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
   await tabs.getByRole('tab', { name: '标题栏验收笔记' }).click();
   await expect(page.getByLabel('笔记编辑页面骨架')).toBeVisible();
   await page.getByRole('button', { name: '知境工作区' }).click();
@@ -125,7 +141,8 @@ test('Mac 标题栏承载笔记标签，其他页面保留窗口拖动区域', {
   await tabs.locator('[draggable="true"]').hover();
   await tabs.getByRole('button', { name: '关闭标题栏验收笔记' }).click();
   await expect(titlebar.getByRole('tablist', { name: '打开的笔记' })).toHaveCount(0);
-  await expect(titlebar).toContainText('知境·Knowra');
+  await expect(titlebar.getByText('知境', { exact: true })).toBeVisible();
+  await assertNativeTitlebar();
   // 与已合并的原生菜单验收相同：显式触发正常退出，并验证保存握手完成。
   const closed = app.waitForEvent('close', { timeout: 45000 });
   await app.evaluate(({ app: nativeApp }) => nativeApp.quit());

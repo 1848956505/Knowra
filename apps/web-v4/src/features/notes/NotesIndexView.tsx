@@ -250,7 +250,7 @@ export function NotesIndexView({
       {remoteLoading ? <div className={styles.loadState} role="status">正在从服务端加载筛选结果…</div> : null}
       {remoteError ? <div className={styles.loadError} role="alert">
         <span>{remoteError}，已显示本地缓存结果。</span>
-        <button type="button" onClick={() => setRemoteRevision((current) => current + 1)}>重新加载</button>
+        <Button variant="ghost" size="compact" onPress={() => setRemoteRevision((current) => current + 1)}>重新加载</Button>
       </div> : null}
 
       <WorkspacePanelBody grid={view === 'grid'} ref={contentRef} className={styles.content} data-testid="notes-index-scroll" data-entry-scroll data-drop-active={backgroundDrop.isOver || undefined} aria-label="索引内容" tabIndex={0}

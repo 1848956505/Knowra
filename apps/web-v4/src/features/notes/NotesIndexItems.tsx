@@ -1,9 +1,10 @@
 import type { Folder, Note } from '@study-accelerator/web-core';
 import { Checkbox } from '../../components/ui';
+import { FolderIcon, NoteIcon } from '../../components/icons/knowra';
 import type { SidebarTreeAction } from './SidebarFolderTree';
 import { countFolderNotes, formatUpdatedAt } from './notesIndexModel';
 import { folderLocation, displayNoteStatus } from './notesIndexNavigation';
-import { itemKey, statusClassName, documentToneClass, type IndexItem } from './notesIndexPresentation';
+import { itemKey, statusClassName, type IndexItem } from './notesIndexPresentation';
 import { IndexItemActions, RecycleNoteActions, openIndexItemMenu } from './IndexItemActions';
 import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
 import styles from './NotesIndexItems.module.css';
@@ -74,7 +75,7 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
         else if (isFolder) onSelectFolder(id);
         else onSelectNote(id);
       }}>
-        <span className={`${styles.miniFile} ${isFolder ? styles.miniFolder : documentToneClass(status)}`} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true"><span className={styles.fileLines} /></span>
+        <span className={styles.entryIcon} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true">{isFolder ? <FolderIcon size={18} /> : <NoteIcon size={18} />}</span>
         <strong title={name || '未命名笔记'}>{name || '未命名笔记'}</strong>
       </button>
     </td>
@@ -109,7 +110,7 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
   const isFolder = item.kind === 'folder';
   const entity = isFolder ? item.folder : item.note;
   const count = isFolder ? countFolderNotes(item.folder, notes) : 0;
-  const status = isFolder ? '文件夹' : displayNoteStatus(item.note.status);
+  const status = isFolder ? '文件夹' : item.note.deleted ? '回收站' : displayNoteStatus(item.note.status);
   const dragDrop = useEntryDragDrop();
   const folderDrop = useEntryDropTarget(isFolder && !isRecycleView && !selectionMode ? entity.id : undefined);
   return (
@@ -138,14 +139,14 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
       >
       <span className={styles.tileArt}>
         {isFolder ? (
-          <span className={styles.folderArt} data-art-kind="folder" data-count={String(count).padStart(2, '0')} aria-hidden="true" />
+          <span data-art-kind="folder" aria-hidden="true"><FolderIcon size={44} /></span>
         ) : (
-          <span className={`${styles.documentArt} ${documentToneClass(status)}`} data-art-kind="document" aria-hidden="true" />
+          <span data-art-kind="document" aria-hidden="true"><NoteIcon size={40} /></span>
         )}
       </span>
       <span className={styles.tileCopy}>
         <strong title={isFolder ? item.folder.name : item.note.title || '未命名笔记'}>{isFolder ? item.folder.name : item.note.title || '未命名笔记'}</strong>
-        <small>{isFolder ? `${count} 项` : formatUpdatedAt(entity.updatedAt)}</small>
+        <small title={isFolder ? undefined : status}>{!isFolder ? <span className={`${styles.statusDot} ${statusClassName(status)}`} aria-hidden="true" /> : null}{isFolder ? `${count} 项` : formatUpdatedAt(entity.updatedAt)}</small>
       </span>
       </button>
       {!isFolder && isRecycleView ? (

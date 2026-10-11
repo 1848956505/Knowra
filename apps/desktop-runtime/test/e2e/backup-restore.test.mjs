@@ -1,3 +1,4 @@
+import { openLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,7 +22,7 @@ test('真实页面：备份选择、完整性检查、确认恢复、重新加�
   const draftKey = `knowra:note-draft:v1:${JSON.stringify([space.id, note.id])}`;
   await page.evaluate(key => sessionStorage.setItem(key, JSON.stringify({ markdown: '旧资料库未保存草稿', baseMarkdown: '备份中的正文' })), draftKey);
   await page.reload();
-  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
+  await openLocalSync(page, /本地资料.*连接云端/);
   await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '本机备份与恢复' })).toBeVisible();
   await expect(page.getByText('还没有本机备份。先创建一个备份，再从这里检查和恢复。')).toBeVisible();
@@ -59,7 +60,7 @@ test('真实页面：备份选择、完整性检查、确认恢复、重新加�
   await runtime.close(); runtime = await startLocalRuntime(options);
   await page.goto(runtime.launchUrl);
   assert.equal(runtime.store.getStatus().datasetId, datasetId);
-  await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
+  await openLocalSync(page, /本地资料.*连接云端/);
   await page.getByRole('button', { name: '本机备份与恢复', exact: true }).click();
   await expect(page.getByRole('button', { name: /选择备份/ })).toBeVisible();
   await page.getByRole('button', { name: /选择备份/ }).click();

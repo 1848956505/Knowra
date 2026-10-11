@@ -1,12 +1,11 @@
-import { appendEdit, buildEditMapping, type EditEntry } from './annotationEditJournal';
-import { readRuntimeConfig } from '../../app/runtimeConfig';
-import { registerDesktopSave, type DesktopCloseMode } from '../../app/desktopLifecycle';
+import { appendEdit } from './annotationEditJournal';
+import { createNoteAutosaveSession, noteHasLocalWork } from './noteAutosaveSession';
+import { useNoteSaveLifecycle } from './useNoteSaveLifecycle';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { noteDraftRecovery, type RecoveredNoteDraft } from './noteDraftRecovery';
+import { noteDraftRecovery } from './noteDraftRecovery';
 
 const DEFAULT_AUTOSAVE_DELAY_MS = 700;
 const DEFAULT_DRAFT_RENDER_DELAY_MS = 80;
-const NOTE_UPDATE_CONFLICT = 'NOTE_UPDATE_CONFLICT';
 
 interface DraftState {
   noteId: string;
@@ -39,7 +38,7 @@ export interface NoteAutosaveController {
   hasLocalChanges: boolean;
   hasConflict: boolean;
   saveError: string | null;
-  updateDraft(markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
+  updateDraft(markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent; identity?: import('./annotationShadow').AnnotationIdentitySnapshot }): void;
   saveNow(markdown?: string): Promise<void>;
   getLatestMarkdown(): string;
   discardRecoveredDraft(): void;
@@ -63,58 +62,30 @@ export function useNoteAutosave({
   const [draft, setDraft] = useState<DraftState>({ noteId, markdown: remoteMarkdown });
   const [, publishStateChange] = useReducer((version: number) => version + 1, 0);
   const currentNoteIdRef = useRef(noteId);
-  const draftByNoteRef = useRef(new Map<string, string>([[noteId, remoteMarkdown]]));
-  const editsByNoteRef = useRef(new Map<string, EditEntry[]>());
-  const pendingByNoteRef = useRef(new Map<string, string>());
   const timerByNoteRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const renderTimerByNoteRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const inFlightByNoteRef = useRef(new Map<string, Promise<void>>());
-  const serverMarkdownByNoteRef = useRef(new Map<string, string>([[noteId, remoteMarkdown]]));
-  const baseUpdatedAtByNoteRef = useRef(new Map<string, string | undefined>([[noteId, remoteUpdatedAt]]));
-  const localRevisionByNoteRef = useRef(new Map<string, number>([[noteId, 0]]));
-  const syncedRevisionByNoteRef = useRef(new Map<string, number>([[noteId, 0]]));
-  const conflictByNoteRef = useRef(new Map<string, string>());
-  const errorByNoteRef = useRef(new Map<string, string>());
-  const recoveryByNoteRef = useRef(new Map<string, { scope: string; draft: RecoveredNoteDraft }>());
-  const restoredByNoteRef = useRef(new Set<string>());
-  const retainDraft = useCallback((targetNoteId: string, markdown: string, scope?: string) => {
-    const owned = recoveryByNoteRef.current.get(targetNoteId);
-    const targetScope = scope ?? owned?.scope;
-    if (targetScope === undefined) return;
-    // An earlier unmounted editor must not replace a newer editor's recovery record.
-    if (owned && recoveryStore.read(targetScope, targetNoteId) !== owned.draft) return;
-    const next = {
-      markdown,
-      baseMarkdown: serverMarkdownByNoteRef.current.get(targetNoteId) ?? '',
-      baseUpdatedAt: baseUpdatedAtByNoteRef.current.get(targetNoteId),
-      annotationEdits: editsByNoteRef.current.get(targetNoteId),
-      conflict: conflictByNoteRef.current.get(targetNoteId)
-    };
-    recoveryStore.write(targetScope, targetNoteId, next);
-    recoveryByNoteRef.current.set(targetNoteId, { scope: targetScope, draft: next });
-  }, [recoveryStore]);
-  const clearRecovery = useCallback((targetNoteId: string) => {
-    const owned = recoveryByNoteRef.current.get(targetNoteId);
-    if (owned) recoveryStore.remove(owned.scope, targetNoteId, owned.draft);
-    recoveryByNoteRef.current.delete(targetNoteId);
-  }, [recoveryStore]);
-  const onSaveRef = useRef(onSave);
-  const canWriteRef = useRef(canWrite);
-  onSaveRef.current = onSave;
-  canWriteRef.current = canWrite;
+  const optionsRef = useRef({ onSave, canWrite, recoveryStore });
+  optionsRef.current = { onSave, canWrite, recoveryStore };
   currentNoteIdRef.current = noteId;
-  const publishFor = useCallback((targetNoteId: string) => {
-    if (currentNoteIdRef.current === targetNoteId) publishStateChange();
-  }, []);
+  const sessionRef = useRef<ReturnType<typeof createNoteAutosaveSession> | null>(null);
+  if (!sessionRef.current) sessionRef.current = createNoteAutosaveSession({
+    canWrite: () => optionsRef.current.canWrite,
+    save: (...args) => optionsRef.current.onSave(...args),
+    recoveryStore: () => optionsRef.current.recoveryStore,
+    publish: (id) => { if (currentNoteIdRef.current === id) publishStateChange(); }
+  });
+  const session = sessionRef.current;
+  const state = session.get(noteId, remoteMarkdown, remoteUpdatedAt);
+  const { retainDraft, clearRecovery } = session;
   const setCurrentDraft = useCallback((next: DraftState) => {
     const renderTimer = renderTimerByNoteRef.current.get(next.noteId);
     if (renderTimer) clearTimeout(renderTimer);
     renderTimerByNoteRef.current.delete(next.noteId);
-    draftByNoteRef.current.set(next.noteId, next.markdown);
+    session.get(next.noteId).markdown = next.markdown;
     setDraft(next);
-  }, []);
+  }, [session]);
   const scheduleCurrentDraft = useCallback((next: DraftState, immediate = false) => {
-    draftByNoteRef.current.set(next.noteId, next.markdown);
+    session.get(next.noteId).markdown = next.markdown;
     const previousTimer = renderTimerByNoteRef.current.get(next.noteId);
     if (previousTimer) clearTimeout(previousTimer);
     if (immediate || renderDelayMs <= 0) {
@@ -127,143 +98,75 @@ export function useNoteAutosave({
       if (currentNoteIdRef.current !== next.noteId) return;
       setDraft({
         noteId: next.noteId,
-        markdown: draftByNoteRef.current.get(next.noteId) ?? next.markdown
+        markdown: session.get(next.noteId).markdown
       });
     }, renderDelayMs);
     renderTimerByNoteRef.current.set(next.noteId, timer);
-  }, [renderDelayMs]);
-  const persist = useCallback(async (targetNoteId: string, markdown: string, retryConflict = false) => {
-    if (!canWriteRef.current) return;
-    const capturedEdits = [...(editsByNoteRef.current.get(targetNoteId) ?? [])];
-    const previous = inFlightByNoteRef.current.get(targetNoteId) ?? Promise.resolve();
-    const request = previous
-      .catch(() => undefined)
-      .then(async () => {
-        const conflictMessage = conflictByNoteRef.current.get(targetNoteId);
-        if (conflictMessage && !retryConflict) throw new Error(conflictMessage);
-        const expectedUpdatedAt = baseUpdatedAtByNoteRef.current.get(targetNoteId);
-        const revision = localRevisionByNoteRef.current.get(targetNoteId) ?? 0;
-        try {
-          const pendingEdits = new Set((editsByNoteRef.current.get(targetNoteId) ?? []).map(edit => edit.sequence));
-          const batch = capturedEdits.filter(edit => pendingEdits.has(edit.sequence));
-          const mapping = buildEditMapping(serverMarkdownByNoteRef.current.get(targetNoteId) ?? '', markdown, batch);
-          const saved = mapping
-            ? await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt, serverMarkdownByNoteRef.current.get(targetNoteId), mapping)
-            : await onSaveRef.current(targetNoteId, markdown, expectedUpdatedAt, serverMarkdownByNoteRef.current.get(targetNoteId));
-          const acknowledged = new Set(batch.map(edit => edit.sequence));
-          editsByNoteRef.current.set(targetNoteId, (editsByNoteRef.current.get(targetNoteId) ?? []).filter(edit => !acknowledged.has(edit.sequence)));
-          const savedMarkdown = saved?.rawMarkdown ?? markdown;
-          serverMarkdownByNoteRef.current.set(targetNoteId, savedMarkdown);
-          baseUpdatedAtByNoteRef.current.set(targetNoteId, saved?.updatedAt ?? expectedUpdatedAt);
-          syncedRevisionByNoteRef.current.set(targetNoteId, revision);
-          errorByNoteRef.current.delete(targetNoteId);
-          conflictByNoteRef.current.delete(targetNoteId);
-          const latest = draftByNoteRef.current.get(targetNoteId) ?? markdown;
-          if (latest === markdown) clearRecovery(targetNoteId);
-          else retainDraft(targetNoteId, latest);
-          if (pendingByNoteRef.current.get(targetNoteId) === markdown) {
-            pendingByNoteRef.current.delete(targetNoteId);
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : '正文保存失败';
-          errorByNoteRef.current.set(targetNoteId, message);
-          if (isUpdateConflict(error)) conflictByNoteRef.current.set(targetNoteId, message);
-          retainDraft(targetNoteId, draftByNoteRef.current.get(targetNoteId) ?? markdown);
-          if (!pendingByNoteRef.current.has(targetNoteId)) {
-            pendingByNoteRef.current.set(targetNoteId, markdown);
-          }
-          throw error;
-        } finally {
-          publishFor(targetNoteId);
-        }
-      });
-    inFlightByNoteRef.current.set(targetNoteId, request);
-    publishFor(targetNoteId);
-    try {
-      await request;
-    } finally {
-      if (inFlightByNoteRef.current.get(targetNoteId) === request) {
-        inFlightByNoteRef.current.delete(targetNoteId);
-        publishFor(targetNoteId);
-      }
-    }
-  }, [clearRecovery, publishFor, retainDraft]);
+  }, [renderDelayMs, session]);
   const flushNote = useCallback(async (targetNoteId: string, fallback?: string, retryConflict = false) => {
     const timer = timerByNoteRef.current.get(targetNoteId);
     if (timer) clearTimeout(timer);
     timerByNoteRef.current.delete(targetNoteId);
-    const markdown = pendingByNoteRef.current.get(targetNoteId) ?? fallback;
-    if (markdown === undefined || !canWriteRef.current) return;
-    const serverMarkdown = serverMarkdownByNoteRef.current.get(targetNoteId);
-    if (!editsByNoteRef.current.get(targetNoteId)?.length && !conflictByNoteRef.current.has(targetNoteId) && !inFlightByNoteRef.current.has(targetNoteId) && markdown === serverMarkdown) {
-      pendingByNoteRef.current.delete(targetNoteId);
-      clearRecovery(targetNoteId);
-      syncedRevisionByNoteRef.current.set(
-        targetNoteId,
-        localRevisionByNoteRef.current.get(targetNoteId) ?? 0
-      );
-      publishFor(targetNoteId);
-      return;
-    }
-    await persist(targetNoteId, markdown, retryConflict);
-  }, [clearRecovery, persist, publishFor]);
-  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent }) => {
-    const before = draftByNoteRef.current.get(noteId) ?? remoteMarkdown;
-    editsByNoteRef.current.set(noteId, appendEdit(editsByNoteRef.current.get(noteId) ?? [], before, markdown, options?.editIntent));
+    await session.flush(targetNoteId, fallback, retryConflict);
+  }, [session]);
+  const updateDraft = useCallback((markdown: string, options?: { immediate?: boolean; editIntent?: import('./annotationEditJournal').AnnotationEditIntent; identity?: import('./annotationShadow').AnnotationIdentitySnapshot }) => {
+    const before = state.markdown;
+    state.edits = appendEdit(state.edits, before, markdown, options?.editIntent);
+    state.identity = options?.identity;
     scheduleCurrentDraft({ noteId, markdown }, options?.immediate);
-    if (!canWriteRef.current) return;
-    localRevisionByNoteRef.current.set(noteId, (localRevisionByNoteRef.current.get(noteId) ?? 0) + 1);
-    pendingByNoteRef.current.set(noteId, markdown);
+    if (!optionsRef.current.canWrite) return;
+    state.localRevision += 1;
+    state.pending = markdown;
     retainDraft(noteId, markdown, draftScope);
-    errorByNoteRef.current.delete(noteId);
+    state.error = undefined;
     const previousTimer = timerByNoteRef.current.get(noteId);
     if (previousTimer) clearTimeout(previousTimer);
-    if (!conflictByNoteRef.current.has(noteId)) {
+    if (!state.conflict) {
       const timer = setTimeout(() => {
         timerByNoteRef.current.delete(noteId);
         void flushNote(noteId).catch(() => undefined);
       }, delayMs);
       timerByNoteRef.current.set(noteId, timer);
     }
-  }, [delayMs, draftScope, flushNote, noteId, retainDraft, scheduleCurrentDraft]);
+  }, [delayMs, draftScope, flushNote, noteId, retainDraft, scheduleCurrentDraft, state]);
   const saveNow = useCallback(async (markdown?: string) => {
-    const latest = markdown ?? draftByNoteRef.current.get(noteId) ?? remoteMarkdown;
-    draftByNoteRef.current.set(noteId, latest);
-    if (latest !== serverMarkdownByNoteRef.current.get(noteId)) {
-      pendingByNoteRef.current.set(noteId, latest);
+    const latest = markdown ?? state.markdown;
+    state.markdown = latest;
+    if (latest !== state.serverMarkdown) {
+      state.pending = latest;
       retainDraft(noteId, latest, draftScope);
     }
     await flushNote(noteId, latest, true);
-  }, [draftScope, flushNote, noteId, remoteMarkdown, retainDraft]);
+  }, [draftScope, flushNote, noteId, retainDraft, state]);
   useEffect(() => {
-    if (draftScope !== undefined && !restoredByNoteRef.current.has(noteId)) {
-      restoredByNoteRef.current.add(noteId);
+    if (draftScope !== undefined && !state.restored) {
+      state.restored = true;
       const recovered = recoveryStore.read(draftScope, noteId);
       if (recovered) {
-        recoveryByNoteRef.current.set(noteId, { scope: draftScope, draft: recovered });
-        editsByNoteRef.current.set(noteId, recovered.annotationEdits ?? []);
-        serverMarkdownByNoteRef.current.set(noteId, recovered.baseMarkdown);
-        baseUpdatedAtByNoteRef.current.set(noteId, recovered.baseUpdatedAt);
-        pendingByNoteRef.current.set(noteId, recovered.markdown);
-        localRevisionByNoteRef.current.set(noteId, 1);
-        syncedRevisionByNoteRef.current.set(noteId, 0);
+        state.recovery = { scope: draftScope, draft: recovered };
+        state.edits = recovered.annotationEdits ?? [];
+        state.serverMarkdown = recovered.baseMarkdown;
+        state.baseUpdatedAt = recovered.baseUpdatedAt;
+        state.pending = recovered.markdown;
+        state.localRevision = 1;
+        state.syncedRevision = 0;
         if (recovered.markdown === remoteMarkdown) {
-          pendingByNoteRef.current.delete(noteId);
+          state.pending = undefined;
           clearRecovery(noteId);
-          serverMarkdownByNoteRef.current.set(noteId, remoteMarkdown);
-          baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
-          syncedRevisionByNoteRef.current.set(noteId, 1);
+          state.serverMarkdown = remoteMarkdown;
+          state.baseUpdatedAt = remoteUpdatedAt;
+          state.syncedRevision = 1;
         } else if (recovered.baseMarkdown === remoteMarkdown) {
           // 已重新读取正文且内容未变：时间戳变化不构成正文冲突。
-          baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
+          state.baseUpdatedAt = remoteUpdatedAt;
           retainDraft(noteId, recovered.markdown, draftScope);
         } else {
           const message = recovered.conflict ?? '远端正文已更新，已恢复本地草稿，请导出草稿后核对。';
-          conflictByNoteRef.current.set(noteId, message);
-          errorByNoteRef.current.set(noteId, message);
+          state.conflict = message;
+          state.error = message;
         }
         setCurrentDraft({ noteId, markdown: recovered.markdown });
-        if (pendingByNoteRef.current.has(noteId) && !conflictByNoteRef.current.has(noteId) && canWriteRef.current) {
+        if (state.pending !== undefined && !state.conflict && optionsRef.current.canWrite) {
           timerByNoteRef.current.set(noteId, setTimeout(() => {
             timerByNoteRef.current.delete(noteId);
             void flushNote(noteId).catch(() => undefined);
@@ -272,139 +175,48 @@ export function useNoteAutosave({
         return;
       }
     }
-    const knownNote = serverMarkdownByNoteRef.current.has(noteId);
-    if (!knownNote) {
-      serverMarkdownByNoteRef.current.set(noteId, remoteMarkdown);
-      baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
-      localRevisionByNoteRef.current.set(noteId, 0);
-      syncedRevisionByNoteRef.current.set(noteId, 0);
-      setCurrentDraft({ noteId, markdown: remoteMarkdown });
-      return;
-    }
-    const hasLocalWork = noteHasLocalWork(noteId, {
-      pending: pendingByNoteRef.current,
-      inFlight: inFlightByNoteRef.current,
-      conflicts: conflictByNoteRef.current,
-      localRevisions: localRevisionByNoteRef.current,
-      syncedRevisions: syncedRevisionByNoteRef.current
-    });
+    const hasLocalWork = noteHasLocalWork(state);
     if (!hasLocalWork) {
-      editsByNoteRef.current.delete(noteId);
-      serverMarkdownByNoteRef.current.set(noteId, remoteMarkdown);
-      baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
+      state.edits = [];
+      state.serverMarkdown = remoteMarkdown;
+      state.baseUpdatedAt = remoteUpdatedAt;
       if (draft.noteId !== noteId || draft.markdown !== remoteMarkdown) {
         setCurrentDraft({ noteId, markdown: remoteMarkdown });
       }
       return;
     }
-    const localDraft = draftByNoteRef.current.get(noteId) ?? remoteMarkdown;
+    const localDraft = state.markdown;
     if (draft.noteId !== noteId || draft.markdown !== localDraft) {
       setCurrentDraft({ noteId, markdown: localDraft });
     }
-  }, [clearRecovery, delayMs, flushNote, draft.markdown, draft.noteId, draftScope, noteId, recoveryStore, remoteMarkdown, remoteUpdatedAt, retainDraft, setCurrentDraft]);
-  useEffect(() => () => {
-    const renderTimer = renderTimerByNoteRef.current.get(noteId);
-    if (renderTimer) clearTimeout(renderTimer);
-    renderTimerByNoteRef.current.delete(noteId);
-    const timer = timerByNoteRef.current.get(noteId);
-    if (timer) clearTimeout(timer);
-    timerByNoteRef.current.delete(noteId);
-    const pending = pendingByNoteRef.current.get(noteId);
-    if (pending !== undefined && canWriteRef.current && !conflictByNoteRef.current.has(noteId)) {
-      void persist(noteId, pending).catch(() => undefined);
-    }
-  }, [noteId, persist]);
-  useEffect(() => {
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (pendingByNoteRef.current.size === 0 && inFlightByNoteRef.current.size === 0) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warnBeforeUnload);
-    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
-  }, []);
-  useEffect(() => {
-    if (!window.knowraDesktop && readRuntimeConfig().persistenceMode !== 'desktop-local') return;
-    const flushAll = async (mode: DesktopCloseMode = 'save') => {
-      for (const timer of timerByNoteRef.current.values()) clearTimeout(timer);
-      timerByNoteRef.current.clear();
-      await Promise.allSettled([...inFlightByNoteRef.current.values()]);
-      // 旧编辑器卸载后，重新打开的编辑器可能已经保存或处理了恢复草稿。
-      for (const [id, owned] of recoveryByNoteRef.current) {
-        if (recoveryStore.read(owned.scope, id) !== owned.draft) {
-          pendingByNoteRef.current.delete(id);
-          conflictByNoteRef.current.delete(id);
-          errorByNoteRef.current.delete(id);
-        }
-      }
-      if (mode === 'recovery') {
-        for (const [id, markdown] of pendingByNoteRef.current) {
-          const owned = recoveryByNoteRef.current.get(id);
-          if (!owned) throw new Error('正文缺少恢复草稿，请返回笔记导出后退出。');
-          retainDraft(id, draftByNoteRef.current.get(id) ?? markdown);
-        }
-        await recoveryStore.flush();
-        return;
-      }
-      if (!canWriteRef.current && pendingByNoteRef.current.size) throw new Error('当前正文尚未保存，请先处理只读或加载状态。');
-      for (const id of [...pendingByNoteRef.current.keys()]) await flushNote(id, undefined, true);
-      if (conflictByNoteRef.current.size) throw new Error('正文有未解决的保存冲突，请处理后退出。');
-      await recoveryStore.flush();
-    };
-    const remove = registerDesktopSave(flushAll);
-    return () => {
-      // 切换路由后仍保留失败草稿的退出保护，成功落盘才注销。
-      void flushAll().then(remove).catch(() => undefined);
-    };
-  }, [flushNote, recoveryStore, retainDraft]);
-  const hasLocalChanges = noteHasLocalWork(noteId, {
-    pending: pendingByNoteRef.current,
-    inFlight: inFlightByNoteRef.current,
-    conflicts: conflictByNoteRef.current,
-    localRevisions: localRevisionByNoteRef.current,
-    syncedRevisions: syncedRevisionByNoteRef.current
-  });
+  }, [clearRecovery, delayMs, flushNote, draft.markdown, draft.noteId, draftScope, noteId, recoveryStore, remoteMarkdown, remoteUpdatedAt, retainDraft, setCurrentDraft, state]);
+  useNoteSaveLifecycle(noteId, session, timerByNoteRef.current, renderTimerByNoteRef.current, recoveryStore, flushNote);
+  const hasLocalChanges = noteHasLocalWork(state);
   const localDraft = draft.noteId === noteId
     ? draft.markdown
-    : draftByNoteRef.current.get(noteId) ?? remoteMarkdown;
+    : state.markdown;
   return {
     draftMarkdown: hasLocalChanges ? localDraft : remoteMarkdown,
     hasLocalChanges,
-    hasConflict: conflictByNoteRef.current.has(noteId),
-    saveError: errorByNoteRef.current.get(noteId) ?? null,
+    hasConflict: Boolean(state.conflict),
+    saveError: state.error ?? null,
     updateDraft,
     saveNow,
     discardRecoveredDraft: () => {
+      state.generation += 1;
+      state.edits = [];
       const timer = timerByNoteRef.current.get(noteId);
       if (timer) clearTimeout(timer);
       timerByNoteRef.current.delete(noteId);
-      pendingByNoteRef.current.delete(noteId);
+      state.pending = undefined;
       clearRecovery(noteId);
-      conflictByNoteRef.current.delete(noteId);
-      errorByNoteRef.current.delete(noteId);
-      syncedRevisionByNoteRef.current.set(noteId, localRevisionByNoteRef.current.get(noteId) ?? 0);
-      serverMarkdownByNoteRef.current.set(noteId, remoteMarkdown);
-      baseUpdatedAtByNoteRef.current.set(noteId, remoteUpdatedAt);
+      state.conflict = undefined;
+      state.error = undefined;
+      state.syncedRevision = state.localRevision;
+      state.serverMarkdown = remoteMarkdown;
+      state.baseUpdatedAt = remoteUpdatedAt;
       setCurrentDraft({ noteId, markdown: remoteMarkdown });
     },
-    getLatestMarkdown: () => draftByNoteRef.current.get(noteId) ?? remoteMarkdown
+    getLatestMarkdown: () => state.markdown
   };
-}
-interface LocalWorkMaps {
-  pending: Map<string, string>;
-  inFlight: Map<string, Promise<void>>;
-  conflicts: Map<string, string>;
-  localRevisions: Map<string, number>;
-  syncedRevisions: Map<string, number>;
-}
-
-function noteHasLocalWork(noteId: string, maps: LocalWorkMaps): boolean {
-  return maps.pending.has(noteId)
-    || maps.inFlight.has(noteId)
-    || maps.conflicts.has(noteId)
-    || (maps.localRevisions.get(noteId) ?? 0) !== (maps.syncedRevisions.get(noteId) ?? 0);
-}
-
-function isUpdateConflict(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === NOTE_UPDATE_CONFLICT;
 }

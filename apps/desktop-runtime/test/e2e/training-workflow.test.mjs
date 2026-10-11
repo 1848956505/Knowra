@@ -1,3 +1,4 @@
+import { openLocalSync, closeLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -199,11 +200,11 @@ test('桌面人工训练：目标候选重启审阅、配置考点题目保存�
     assert.equal(relationIds.length, 1); assert.equal(sourceIds.length, 1);
     await screenshot(page, 'training-question-confirmed.png');
 
-    await page.getByRole('contentinfo').getByRole('button', { name: /本地资料.*连接云端/ }).click();
+    await openLocalSync(page, /本地资料.*连接云端/);
     await page.getByLabel(/云端服务地址/).fill(cloudOrigin);
     await page.getByRole('button', { name: '连接并比较资料', exact: true }).click();
     await expect(page.getByRole('dialog', { name: '云端同步', exact: true })).toContainText('云端已同步');
-    await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
+    await closeLocalSync(page);
     await second.goto(b.launchUrl);
     await post(second, b, '/api/local-runtime/sync/configure', { serverUrl: cloudOrigin });
     await sync(second, b);

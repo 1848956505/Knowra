@@ -15,8 +15,8 @@ export function NotesIndexHeader({ path, canWrite, isRecycleView, selectionMode,
   return <WorkspacePanelHeader title="笔记索引" code="INDEX" breadcrumb={<PathTrail path={path} variant="top" />}
     breadcrumbTitle={path.map(segment => segment.label).join(' / ')} actionsLabel="笔记操作"
     history={<div className={styles.history} role="group" aria-label="浏览历史">
-      <Button size="workspace" aria-label="后退" isDisabled={!history.canGoBack} onPress={history.back}><span className={styles.backArrow}><ChevronRightIcon size={16} /></span></Button>
-      <Button size="workspace" aria-label="前进" isDisabled={!history.canGoForward} onPress={history.forward}><ChevronRightIcon size={16} /></Button>
+      <Button variant="ghost" size="workspace" iconOnly aria-label="后退" isDisabled={!history.canGoBack} onPress={history.back}><span className={styles.backArrow}><ChevronRightIcon size={16} /></span></Button>
+      <Button variant="ghost" size="workspace" iconOnly aria-label="前进" isDisabled={!history.canGoForward} onPress={history.forward}><ChevronRightIcon size={16} /></Button>
     </div>}
     actions={<>
       <TooltipTrigger>

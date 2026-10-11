@@ -11,7 +11,7 @@ export function selectCodeBlockContentsAt(
 ): boolean {
   const $from = state.doc.resolve(from);
   const $to = state.doc.resolve(to);
-  if (!$from.parent.type.spec.code || !$from.sameParent($to)) return false;
+  if (!$from.parent.isBlock || !$from.parent.type.spec.code || !$from.sameParent($to)) return false;
   dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())).scrollIntoView());
   return true;
 }
@@ -22,7 +22,7 @@ export const selectCodeBlockContents: Command = (state, dispatch) => (
 
 export const indentCode: (outdent?: boolean) => Command = (outdent = false) => (state, dispatch) => {
   const { $from, $to, empty } = state.selection;
-  if (!$from.parent.type.spec.code || !$from.sameParent($to)) return false;
+  if (!$from.parent.isBlock || !$from.parent.type.spec.code || !$from.sameParent($to)) return false;
   if (empty && !outdent) {
     dispatch?.(state.tr.insertText('    ').scrollIntoView());
     return true;
@@ -47,7 +47,7 @@ export const indentCode: (outdent?: boolean) => Command = (outdent = false) => (
 
 export const newlineInCode: Command = (state, dispatch) => {
   const { $from, $to } = state.selection;
-  if (!$from.parent.type.spec.code || !$from.sameParent($to)) return false;
+  if (!$from.parent.isBlock || !$from.parent.type.spec.code || !$from.sameParent($to)) return false;
   const prefix = $from.parent.textContent.slice(0, $from.parentOffset);
   const line = prefix.slice(prefix.lastIndexOf('\n') + 1);
   const indentation = line.match(/^[\t ]*/)?.[0] ?? '';
@@ -57,7 +57,7 @@ export const newlineInCode: Command = (state, dispatch) => {
 
 export const moveToCodeLineBoundary: (end: boolean, extend: boolean) => Command = (end, extend) => (state, dispatch) => {
   const { $head, anchor } = state.selection;
-  if (!$head.parent.type.spec.code) return false;
+  if (!$head.parent.isBlock || !$head.parent.type.spec.code) return false;
   const text = $head.parent.textContent;
   const offset = $head.parentOffset;
   const next = text.indexOf('\n', offset);
@@ -68,7 +68,7 @@ export const moveToCodeLineBoundary: (end: boolean, extend: boolean) => Command 
 
 export const leaveCode: Command = (state, dispatch, view) => {
   const { $from, $to } = state.selection;
-  if (!$from.parent.type.spec.code || !$from.sameParent($to)) return false;
+  if (!$from.parent.isBlock || !$from.parent.type.spec.code || !$from.sameParent($to)) return false;
   const after = $from.after();
   const next = state.doc.nodeAt(after);
   if (next?.type.name === 'paragraph' && next.content.size === 0) {
@@ -92,7 +92,7 @@ export const createCodeFromFence: Command = (state, dispatch) => {
 /** Empty code blocks return to an editable paragraph, including the only block in a note. */
 export const removeEmptyCode: Command = (state, dispatch) => {
   const { $from, $to } = state.selection;
-  if (!$from.parent.type.spec.code || !$from.sameParent($to) || $from.parent.textContent.trim()) return false;
+  if (!$from.parent.isBlock || !$from.parent.type.spec.code || !$from.sameParent($to) || $from.parent.textContent.trim()) return false;
   const paragraph = state.schema.nodes.paragraph;
   if (!paragraph) return false;
   return setBlockType(paragraph)(state, dispatch ? (tr) => {
@@ -107,7 +107,7 @@ export const unwrapCodeLines: Command = (state, dispatch) => {
   const { $from, $to, anchor, head, empty } = state.selection;
   const code = $from.parent;
   const paragraph = state.schema.nodes.paragraph;
-  if (!code.type.spec.code || !$from.sameParent($to) || !paragraph) return false;
+  if (!code.isBlock || !code.type.spec.code || !$from.sameParent($to) || !paragraph) return false;
   const text = code.textContent;
   const lines = text.split('\n');
   const lineAt = (offset: number) => text.slice(0, offset).split('\n').length - 1;

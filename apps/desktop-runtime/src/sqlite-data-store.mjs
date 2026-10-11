@@ -43,6 +43,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let migrateProvenance = false;
   let provenanceMigration;
   let inTransaction = false;
+  // 提交后回调：只有成功 COMMIT 后才执行；任何回滚路径都立即清空，避免之后的独立提交补执行。
+  let afterCommitQueue = [];
   let dataRevision = 0;
   let syncRevision = 0;
   let baselineRevision = 0;
@@ -87,6 +89,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     db.exec('COMMIT');
   } catch (error) {
     if (db.isTransaction) db.exec('ROLLBACK');
+    afterCommitQueue = [];
     db.close();
     throw error;
   }
@@ -120,6 +123,16 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         try { listener(); } catch { /* 同步调度失败不能撤销已经完成的本地保存。 */ }
       }
     }
+    const callbacks = afterCommitQueue;
+    afterCommitQueue = [];
+    for (const callback of callbacks) {
+      try { callback(); } catch { /* 提交后回调失败不能撤销已经完成的提交。 */ }
+    }
+  }
+
+  function afterCommit(callback) {
+    if (inTransaction) { afterCommitQueue.push(callback); return; }
+    try { callback(); } catch { /* 同上 */ }
   }
 
   function persist({ origin = 'local-business' } = {}) {
@@ -179,6 +192,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       return valid;
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      afterCommitQueue = [];
       pendingLocalChange = false;
       throw error;
     }
@@ -187,6 +201,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   function runTransaction(operation, { origin = 'local-business' } = {}) {
     if (inTransaction) return operation();
     inTransaction = true;
+    afterCommitQueue = [];
     try {
       db.exec('BEGIN IMMEDIATE');
       const result = operation();
@@ -201,6 +216,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       return result;
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      afterCommitQueue = [];
       restore(committed);
       pendingLocalChange = false;
       throw error;
@@ -239,6 +255,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       return exportSnapshot();
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      afterCommitQueue = [];
       restore(committed);
       pendingLocalChange = false;
       throw error;
@@ -293,6 +310,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       if (inTransaction) throw new Error('同步事务不能嵌入本地业务事务。');
       db.exec('BEGIN IMMEDIATE');
       inTransaction = true;
+    afterCommitQueue = [];
       const beforeChanges = totalChanges();
       try {
         const result = operation(db, state);
@@ -326,6 +344,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         return result;
       } catch (error) {
         if (db.isTransaction) db.exec('ROLLBACK');
+        afterCommitQueue = [];
         restore(committed);
         pendingLocalChange = false;
         throw error;
@@ -336,6 +355,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       const beforeChanges = totalChanges();
       db.exec('BEGIN IMMEDIATE');
       inTransaction = true;
+    afterCommitQueue = [];
       try {
         const result = operation(db);
         if (result?.then) throw new TypeError('同步元数据事务不能包含异步操作。');
@@ -345,6 +365,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         return result;
       } catch (error) {
         if (db.isTransaction) db.exec('ROLLBACK');
+        afterCommitQueue = [];
         throw error;
       } finally { inTransaction = false; }
     },
@@ -352,7 +373,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     getEntityCacheKey: () => inTransaction ? null : `${dataRevision}:${baselineRevision}`,
     onLocalCommit(listener) { localCommitListeners.add(listener); return () => localCommitListeners.delete(listener); },
     readSync: operation => operation(db, state),
-    state, flush, runTransaction, exportSnapshot, prepareImport,
+    state, flush, runTransaction, afterCommit, exportSnapshot, prepareImport,
     commitImport, importSnapshot: commitImport,
     getStatus() {
       const revision = totalChanges();

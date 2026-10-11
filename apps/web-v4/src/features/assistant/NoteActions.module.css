@@ -1,8 +1,8 @@
-.panel { padding: 12px; border-top: 1px solid var(--ink-panel); }
-.toolbar, .record { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.form { display: grid; gap: 12px; }
-.form fieldset { display: flex; flex-wrap: wrap; gap: 8px; }
-.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.columns pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; font: inherit; }
-.diff { border: 1px solid var(--ink-panel); padding: 12px; }
+.panel { padding: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.toolbar, .record { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.form { min-width: 0; overflow-wrap: anywhere; display: grid; gap: var(--space-3); }
+.form fieldset { min-width: 0; margin: 0; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.columns pre { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; font: inherit; }
+.diff { min-width: 0; border-radius: var(--radius-popover); background: var(--surface-sidebar-solid); border: 1px solid var(--border-subtle); padding: var(--space-3); }
 @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }

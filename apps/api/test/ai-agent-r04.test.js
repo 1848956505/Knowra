@@ -54,6 +54,21 @@ async function withFixture(run) {
 }
 
 export const aiAgentR04Tests = [
+  { name: 'Agent 请求上下文：mock 捕获普通历史转授权问题的逐字文本与历史字段', run: () => withFixture(async ({ addNote, policy, submit, worker }) => {
+    addNote('context-note', '合成资料');
+    const selected = await policy(['context-note']);
+    const requests = [];
+    const agent = worker({ capabilities: () => ({ provider: 'mock' }), async complete(request) {
+      requests.push(request);
+      return requests.length === 1 ? answer('前轮普通回答') : answer('', { answer: '授权回答', citations: [] });
+    } });
+    await agent.run((await submit('你好', 'context-plain')).turnId);
+    assert.equal(requests[0].messages.at(-1).content, '你好');
+    await agent.run((await submit('接着讨论', 'context-authorized', selected.policyId)).turnId);
+    const body = JSON.parse(requests[1].messages.at(-1).content);
+    assert.equal(body.question, '先前普通聊天：助手：前轮普通回答\n接着讨论\n真实联网尚未配置，核实时不能假称已联网。');
+    assert.deepEqual(requests[1].messages.slice(1, -1), [{ role: 'user', content: '你好' }]);
+  }) },
   { name: 'Agent 无效引用响应持久拒绝后显式重试生成有效回答，领取后崩溃不重复回放旧响应', run: () => withFixture(async ({ data, addNote, policy, submit, worker }) => {
     addNote('rejected-citation-note', '光合作用需要阳光');
     const selected = await policy(['rejected-citation-note']);
