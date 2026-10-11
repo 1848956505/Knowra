@@ -1,110 +1,109 @@
-import { ACCENT } from "../IconBase";
 import { createIcon } from "../createIcon";
 
 export const SearchIcon = createIcon("SearchIcon", (
   <>
-    <circle cx="10.5" cy="10.5" r="6.2"/><path d="m15.2 15.2 5 5" stroke={ACCENT} strokeWidth="2.1"/>
+    <circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3"/>
   </>
 ));
 
 export const PlusIcon = createIcon("PlusIcon", (
   <>
-    <path d="M12 4v16M4 12h16"/>
+    <path d="M12 5v14M5 12h14"/>
   </>
 ));
 
 export const FilterIcon = createIcon("FilterIcon", (
   <>
-    <path d="M4 5h16l-6.3 7.2V19l-3.4 1v-7.8z"/><path d="M6.5 7h11" stroke={ACCENT}/>
+    <path d="M22 3H2l8 9.5V19l4 2v-8.5Z"/>
   </>
 ));
 
 export const SettingsIcon = createIcon("SettingsIcon", (
   <>
-    <circle cx="12" cy="12" r="3" fill={ACCENT}/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/><circle cx="12" cy="12" r="7.1"/>
+    <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 16V3M1 14h6M9 8h6M17 16h6"/>
   </>
 ));
 
 export const ArrowRightIcon = createIcon("ArrowRightIcon", (
   <>
-    <path d="M4 12h15M14 7l5 5-5 5"/>
+    <path d="M5 12h14M12 5l7 7-7 7"/>
   </>
 ));
 
 export const ChevronRightIcon = createIcon("ChevronRightIcon", (
   <>
-    <path d="m9 5 7 7-7 7"/>
+    <path d="m9 18 6-6-6-6"/>
   </>
 ));
 
 export const ChevronDownIcon = createIcon("ChevronDownIcon", (
   <>
-    <path d="m5 9 7 7 7-7"/>
+    <path d="m6 9 6 6 6-6"/>
   </>
 ));
 
 export const CloseIcon = createIcon("CloseIcon", (
   <>
-    <path d="M5 5l14 14M19 5 5 19"/>
+    <path d="M18 6 6 18M6 6l12 12"/>
   </>
 ));
 
 export const ArrowUpRightIcon = createIcon("ArrowUpRightIcon", (
   <>
-    <path d="M7 17 17 7M10 7h7v7"/>
+    <path d="M7 17 17 7M7 7h10v10"/>
   </>
 ));
 
 export const RefreshIcon = createIcon("RefreshIcon", (
   <>
-    <path d="M19 8a7.5 7.5 0 0 0-12.7-2L4 8"/><path d="M4 4v4h4" stroke={ACCENT}/><path d="M5 16a7.5 7.5 0 0 0 12.7 2L20 16"/><path d="M20 20v-4h-4" stroke={ACCENT}/>
+    <path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/>
   </>
 ));
 
 export const UploadIcon = createIcon("UploadIcon", (
   <>
-    <path d="M12 16V4M8 8l4-4 4 4" stroke={ACCENT}/><path d="M5 14v6h14v-6"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/>
   </>
 ));
 
 export const SortArrowsIcon = createIcon("SortArrowsIcon", (
   <>
-    <path d="M8 5v14M5 8l3-3 3 3"/><path d="M16 19V5M13 16l3 3 3-3" stroke={ACCENT}/>
+    <path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>
   </>
 ));
 
 export const SidebarIcon = createIcon("SidebarIcon", (
   <>
-    <rect x="3.5" y="4" width="17" height="16"/><path d="M8.5 4v16"/><path d="M5.5 8h1" stroke={ACCENT} strokeWidth="2"/>
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
   </>
 ));
 
 export const PanelIcon = createIcon("PanelIcon", (
   <>
-    <rect x="3.5" y="4" width="17" height="16"/><path d="M15.5 4v16"/><path d="M17.5 8h1" stroke={ACCENT} strokeWidth="2"/>
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>
   </>
 ));
 
 export const FocusIcon = createIcon("FocusIcon", (
   <>
-    <path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4"/><circle cx="12" cy="12" r="2" fill={ACCENT} stroke="none"/>
+    <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
   </>
 ));
 
 export const ComponentLibraryIcon = createIcon("ComponentLibraryIcon", (
   <>
-    <rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6" fill={ACCENT} stroke={ACCENT}/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>
+    <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
   </>
 ));
 
 export const MoreHorizontalIcon = createIcon("MoreHorizontalIcon", (
   <>
-    <circle cx="6" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+    <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/>
   </>
 ));
 
 export const MoreVerticalIcon = createIcon("MoreVerticalIcon", (
   <>
-    <circle cx="12" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/>
   </>
 ));

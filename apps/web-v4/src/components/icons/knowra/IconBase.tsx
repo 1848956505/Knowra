@@ -6,7 +6,7 @@ export const ACCENT = "var(--knowra-icon-accent, currentColor)";
 type IconBaseProps = KnowraIconProps & { children: ReactNode };
 
 export const IconBase = forwardRef<SVGSVGElement, IconBaseProps>(function IconBase(
-  { size = 24, title, decorative, strokeWidth = 1.75, children, ...props },
+  { size = 24, title, decorative, strokeWidth = 1.6, children, ...props },
   ref,
 ) {
   const labelled = Boolean(title || props["aria-label"]);
@@ -23,7 +23,6 @@ export const IconBase = forwardRef<SVGSVGElement, IconBaseProps>(function IconBa
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      vectorEffect="non-scaling-stroke"
       focusable="false"
       aria-hidden={ariaHidden ? true : undefined}
       role={ariaHidden ? undefined : "img"}

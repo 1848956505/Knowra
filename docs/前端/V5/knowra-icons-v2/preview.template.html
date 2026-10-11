@@ -1,0 +1,111 @@
+<title>知境图标 V2 对比</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;650&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 预览页沿用 V5 视觉规范：外壳 #E1E4EA · 页面 #FBFCFD · 强调色橙 */
+:root{
+  --chrome:#e1e4ea; --page:#fbfcfd; --side:#f7f9fa;
+  --ink:#17181b; --ink-2:#686d76; --ink-3:#8a8f99; --line:rgba(24,30,48,.075); --line-2:rgba(24,30,48,.12);
+  --hover:rgba(24,30,48,.055); --accent:#f26b1d;
+  --sw:1.6; --size:24px;
+  --ui:"Inter","PingFang SC","Noto Sans SC",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--chrome);color:var(--ink);font:400 13px/1.5 var(--ui);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.panel{background:var(--page);border-radius:12px;box-shadow:0 0 0 1px rgba(24,30,48,.07),0 1px 2px rgba(24,30,48,.05),0 6px 18px -6px rgba(24,30,48,.10),0 22px 48px -18px rgba(24,30,48,.14);padding:28px 32px 40px;min-width:0}
+h1{margin:0 0 6px;font:700 28px/1.3 var(--ui);letter-spacing:-.5px}
+.sub{color:var(--ink-2);max-width:62ch;margin:0 0 22px;line-height:1.75}
+.bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;padding:10px 14px;margin:0 -14px 22px;border-radius:10px;background:rgba(251,252,253,.88);backdrop-filter:blur(14px);box-shadow:0 0 0 1px var(--line-2)}
+.bar label{display:flex;align-items:center;gap:8px;color:var(--ink-2);font-size:12.5px}
+.seg{display:inline-flex;padding:2px;border-radius:8px;background:rgba(24,30,48,.06)}
+.seg button{height:24px;padding:0 10px;border:0;border-radius:6px;background:none;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:500;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(24,30,48,.08)}
+input[type=range]{accent-color:var(--accent);width:120px}
+output{font:500 12px var(--mono);color:var(--ink);min-width:3ch}
+h2{margin:34px 0 12px;font:600 16px/1.4 var(--ui);letter-spacing:-.2px}
+h2 small{margin-left:8px;font:400 12px var(--ui);color:var(--ink-3)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.cell{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 8px 12px;border-radius:10px;background:#fff;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.03);color:var(--ink);transition:box-shadow .12s}
+.cell:hover{box-shadow:0 0 0 1px var(--line-2),0 4px 12px -4px rgba(24,30,48,.12)}
+.cell.sel{color:var(--accent)}
+.pair{display:flex;align-items:center;justify-content:center;gap:14px;min-height:calc(var(--size) + 4px)}
+svg.ic{width:var(--size);height:var(--size);fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:calc(var(--sw) * var(--k,1));flex:none}
+svg.old{color:#6b7280;stroke-width:1.75}
+.old-only{display:none}
+body.cmp .old-only{display:inline-flex}
+body.cmp .pair{gap:0}
+body.cmp .pair span.new,body.cmp .pair span.old{padding:0 14px}
+body.cmp .pair span.old{border-left:1px solid var(--line-2);margin-left:0}
+.nm{font:400 10.5px var(--mono);color:var(--ink-3);text-align:center;word-break:break-all;line-height:1.3}
+.zh{font-size:12px;color:var(--ink-2)}
+.legend{display:none;color:var(--ink-3);font-size:12px;margin:-4px 0 14px}
+body.cmp .legend{display:block}
+/* 实际场景 */
+.demo{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;margin-top:8px}
+.side{padding:10px;border-radius:12px;background:var(--side);box-shadow:0 0 0 1px rgba(54,60,74,.13),inset 1px 1px 0 #ffffffc7}
+.nv{display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border-radius:7px;color:var(--ink-2);border:1px solid transparent}
+.nv svg.ic{width:16px;height:16px;color:#777d87}
+.nv.on{background:linear-gradient(#ffffffb0,#ffffff65);border-color:#dfe2e9;box-shadow:0 1px 2px #21273506,inset 0 1px #fff;color:#283344;font-weight:600}
+.nv.on svg.ic{color:var(--accent)}
+.nv .n{margin-left:auto;font-size:11px;color:var(--ink-3)}
+.tool{display:flex;flex-wrap:wrap;gap:2px;padding:4px;border-radius:9px;background:#fff;box-shadow:0 0 0 1px var(--line-2),0 4px 14px -4px rgba(24,30,48,.1);width:fit-content;max-width:100%}
+.tool span{width:30px;height:28px;border-radius:6px;display:grid;place-items:center;color:var(--ink-2)}
+.tool span:hover{background:var(--hover);color:var(--ink)}
+.tool span.on{background:rgba(24,30,48,.075);color:var(--ink)}
+.tool svg.ic{width:17px;height:17px}
+.demo-r{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rb{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--ink-3)}
+.rb.on{background:rgba(255,255,255,.9);color:var(--accent);box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(24,30,48,.07)}
+.rb svg.ic{width:18px;height:18px}
+.rail{display:flex;gap:6px;padding:8px;border-radius:12px;background:var(--chrome);width:fit-content}
+@media(max-width:700px){.demo{grid-template-columns:minmax(0,1fr)}.panel{padding:20px 16px 32px}}
+</style>
+
+<div class="wrap"><div class="panel">
+<h1>知境图标 V2</h1>
+<p class="sub">75 个线性图标，第二稿：完全按原型里的图标语言重画，名字与旧版一一对应，可直接替换。单色、1.6 描边、圆角端点和转角；强调色只留给 AI 星光。可以调大小和描边，也能叠加旧版对比。</p>
+
+<div class="bar">
+  <label>尺寸 <span class="seg" id="size"><button data-v="16">16</button><button data-v="20">20</button><button data-v="24" aria-pressed="true">24</button><button data-v="32">32</button></span></label>
+  <label>描边 <input type="range" id="sw" min="1" max="2.25" step="0.05" value="1.6" aria-label="描边宽度"><output id="swo">1.6</output></label>
+  <label>颜色 <span class="seg" id="col"><button data-v="def" aria-pressed="true">默认</button><button data-v="sel">选中</button></span></label>
+  <label>对比旧版 <span class="seg" id="cmp"><button data-v="off" aria-pressed="true">关</button><button data-v="on">开</button></span></label>
+</div>
+<div class="legend">每格左侧是新版，右侧是旧版（蓝色强调线）。</div>
+
+<div id="groups"></div>
+
+<h2>实际场景<small>16px 侧栏、17px 编辑器工具条、18px 图标栏</small></h2>
+<div class="demo">
+  <div class="side" id="demoSide"></div>
+  <div class="demo-r">
+    <div class="tool" id="demoTool"></div>
+    <div class="rail" id="demoRail"></div>
+  </div>
+</div>
+</div></div>
+
+<script>
+var DATA=/*__DATA__*/[];
+var $=function(s){return document.querySelector(s)};
+var map={};DATA.forEach(function(g){g.items.forEach(function(i){map[i.n]=i})});
+function svg(i,cls){return '<svg class="ic '+(cls||'')+'" viewBox="0 0 24 24" style="--k:'+(i.sw/1.6)+'" aria-hidden="true">'+i.svg+'</svg>'}
+function oldSvg(i){return '<svg class="ic old" viewBox="0 0 24 24" aria-hidden="true">'+i.old+'</svg>'}
+$('#groups').innerHTML=DATA.map(function(g){
+  return '<h2>'+g.zh+'<small>'+g.items.length+' 个</small></h2><div class="grid">'+g.items.map(function(i){
+    return '<div class="cell"><div class="pair"><span class="new">'+svg(i)+'</span><span class="old old-only">'+oldSvg(i)+'</span></div><div class="zh">'+i.label+'</div><div class="nm">'+i.n.replace('Icon','')+'</div></div>'}).join('')+'</div>'}).join('');
+function seg(id,fn){var el=$(id);el.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;el.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});fn(b.dataset.v)})}
+seg('#size',function(v){document.documentElement.style.setProperty('--size',v+'px')});
+seg('#col',function(v){document.querySelectorAll('.cell').forEach(function(c){c.classList.toggle('sel',v==='sel')})});
+seg('#cmp',function(v){document.body.classList.toggle('cmp',v==='on')});
+$('#sw').addEventListener('input',function(){document.documentElement.style.setProperty('--sw',this.value);$('#swo').textContent=(+this.value).toFixed(2).replace(/0$/,'')});
+// 场景
+var nav=[['NoteIcon','全部笔记','3',1],['ClockIcon','最近编辑'],['StarIcon','收藏','1'],['FolderIcon','工作','2'],['TagIcon','学习'],['SparkIcon','助手'],['DeleteIcon','回收站']];
+$('#demoSide').innerHTML=nav.map(function(n){return '<div class="nv'+(n[3]?' on':'')+'">'+svg(map[n[0]])+n[1]+(n[2]?'<span class="n">'+n[2]+'</span>':'')+'</div>'}).join('');
+var tools=['BoldIcon','ItalicIcon','StrikethroughIcon','HighlightIcon','CodeIcon','ListIcon','OrderedListIcon','TaskListIcon','QuoteIcon','TableIcon','ImageIcon','LinkIcon','UndoIcon','RedoIcon'];
+$('#demoTool').innerHTML=tools.map(function(n,i){return '<span'+(i===0?' class="on"':'')+'>'+svg(map[n])+'</span>'}).join('');
+var rail=['NoteIcon','NodesIcon','SparkIcon','SettingsIcon'];
+$('#demoRail').innerHTML=rail.map(function(n,i){return '<div class="rb'+(i===0?' on':'')+'">'+svg(map[n])+'</div>'}).join('');
+</script>

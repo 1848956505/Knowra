@@ -3,102 +3,102 @@ import { createIcon } from "../createIcon";
 
 export const NoteIcon = createIcon("NoteIcon", (
   <>
-    <path d="M6 3.5h8l4 4V20.5H6z"/><path d="M14 3.5v4h4"/><path d="M9 12h6M9 15h6M9 18h4"/><path d="M19.5 8.5v12H8" stroke={ACCENT}/>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>
   </>
 ));
 
 export const BookIcon = createIcon("BookIcon", (
   <>
-    <path d="M4 5.5c2.8-.8 5.5-.4 8 1.2v13c-2.5-1.6-5.2-2-8-1.2z"/><path d="M20 5.5c-2.8-.8-5.5-.4-8 1.2v13c2.5-1.6 5.2-2 8-1.2z"/><path d="M12 6.7v13" stroke={ACCENT}/>
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2ZM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7Z"/>
   </>
 ));
 
 export const QuestionIcon = createIcon("QuestionIcon", (
   <>
-    <path d="M5 4.5h14v11H11l-4 3v-3H5z"/><path d="M10 8.5a2.2 2.2 0 1 1 3.3 1.9c-.8.5-1.3.9-1.3 1.9"/><path d="M12 14.1h.01" stroke={ACCENT} strokeWidth="2.5"/>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M9.6 8.6a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1 .9-1 1.6"/><path d="M12 15.2h.01" strokeWidth="2.2"/>
   </>
 ));
 
 export const FolderIcon = createIcon("FolderIcon", (
   <>
-    <path d="M3 6h7l2 2h9v11H3z"/><path d="M3 8h18"/><path d="M7 19h11" stroke={ACCENT}/>
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2Z"/>
   </>
 ));
 
 export const TagIcon = createIcon("TagIcon", (
   <>
-    <path d="M4 9V4h5l10 10-5 5z"/><circle cx="7.5" cy="7.5" r="1.2" fill={ACCENT} stroke="none"/>
+    <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="M7 7h.01" strokeWidth="2.2"/>
   </>
 ));
 
 export const LinkIcon = createIcon("LinkIcon", (
   <>
-    <path d="M9.5 14.5 8 16a3.5 3.5 0 0 1-5-5l3-3a3.5 3.5 0 0 1 5 0"/><path d="m14.5 9.5 1.5-1.5a3.5 3.5 0 0 1 5 5l-3 3a3.5 3.5 0 0 1-5 0"/><path d="m9 15 6-6" stroke={ACCENT}/>
+    <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>
   </>
 ));
 
 export const PaperclipIcon = createIcon("PaperclipIcon", (
   <>
-    <path d="m8 12.5 6.8-6.8a3 3 0 1 1 4.2 4.2l-8.5 8.5a4.5 4.5 0 0 1-6.4-6.4l8.2-8.2"/><path d="m9.5 13.8 6.6-6.6" stroke={ACCENT}/>
+    <path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>
   </>
 ));
 
 export const StarIcon = createIcon("StarIcon", (
   <>
-    <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/><path d="m12 7.5 1.4 2.8 3.1.5-2.2 2.2.5 3.1-2.8-1.5-2.8 1.5.5-3.1-2.2-2.2 3.1-.5z" stroke={ACCENT}/>
+    <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1Z"/>
   </>
 ));
 
 export const SparkIcon = createIcon("SparkIcon", (
   <>
-    <path d="M12 3c.6 4 2.6 6 6.5 6.5C14.6 10 12.6 12 12 16c-.6-4-2.6-6-6.5-6.5C9.4 9 11.4 7 12 3Z" fill={ACCENT} stroke="none"/><path d="M19 15c.2 1.7 1.1 2.6 2.8 2.8-1.7.2-2.6 1.1-2.8 2.8-.2-1.7-1.1-2.6-2.8-2.8 1.7-.2 2.6-1.1 2.8-2.8Z" fill="currentColor" stroke="none"/>
+    <path d="m11 3 1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9Z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7Z" fill={ACCENT} stroke={ACCENT} strokeWidth="1"/>
   </>
 ));
 
 export const NodesIcon = createIcon("NodesIcon", (
   <>
-    <circle cx="12" cy="5" r="2.2" fill={ACCENT}/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M10.9 6.9 6.2 16M13.1 6.9l4.7 9.1M7.2 18h9.6"/>
+    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>
   </>
 ));
 
 export const TargetIcon = createIcon("TargetIcon", (
   <>
-    <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.8" fill={ACCENT} stroke={ACCENT}/>
+    <circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
   </>
 ));
 
 export const ClockIcon = createIcon("ClockIcon", (
   <>
-    <circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.7 2.2" stroke={ACCENT}/>
+    <circle cx="12" cy="12" r="9.5"/><path d="M12 6v6l4 2"/>
   </>
 ));
 
 export const CalendarIcon = createIcon("CalendarIcon", (
   <>
-    <path d="M4 6.5h16v13H4z"/><path d="M7 3.5v6M17 3.5v6M4 10h16"/><rect x="7" y="13" width="3" height="3" fill={ACCENT} stroke="none"/><rect x="12" y="13" width="3" height="3" fill={ACCENT} stroke="none"/>
+    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
   </>
 ));
 
 export const CheckIcon = createIcon("CheckIcon", (
   <>
-    <circle cx="12" cy="12" r="8.5"/><path d="m8 12.2 2.6 2.6 5.6-6" stroke={ACCENT} strokeWidth="2.2"/>
+    <circle cx="12" cy="12" r="9.5"/><path d="m7.8 12.3 3 3 5.4-6"/>
   </>
 ));
 
 export const UserIcon = createIcon("UserIcon", (
   <>
-    <circle cx="12" cy="8" r="3.2" fill={ACCENT}/><path d="M5.5 20c.4-4.2 2.7-6.3 6.5-6.3s6.1 2.1 6.5 6.3"/>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
   </>
 ));
 
 export const HomeIcon = createIcon("HomeIcon", (
   <>
-    <path d="m3.5 11 8.5-7 8.5 7v9H3.5z"/><path d="M9.5 20v-6h5v6" stroke={ACCENT}/>
+    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>
   </>
 ));
 
 export const BellIcon = createIcon("BellIcon", (
   <>
-    <path d="M6 17h12l-1.4-2.2V10a4.6 4.6 0 0 0-9.2 0v4.8z"/><path d="M10 20h4"/><circle cx="18.5" cy="6" r="1.7" fill={ACCENT} stroke="none"/>
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>
   </>
 ));

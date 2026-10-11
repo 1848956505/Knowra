@@ -6,14 +6,13 @@ import { Button } from '../../components/ui/button/Button';
 import { SegmentedButton, SegmentedControl } from '../../components/ui/button/SegmentedControl';
 import { Badge } from '../../components/ui/status/Badge';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay/Menu';
-import { ArrowRightIcon, CheckIcon, ChevronDownIcon, CopyIcon, EditIcon, MoreHorizontalIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
+import { ArrowRightIcon, BookIcon, CheckIcon, ChevronDownIcon, CopyIcon, EditIcon, MoreHorizontalIcon, NoteIcon, PlusIcon, SearchIcon, SparkIcon } from '../../components/icons/knowra';
 import { Select, TextAreaField } from '../../components/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '../../components/ui/overlay/Dialog';
 import { Popover, PopoverDialog, PopoverTrigger } from '../../components/ui/overlay/Popover';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelHeader } from '../../components/workspace/WorkspacePanel';
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
-import { BookIcon, NoteIcon, SparkIcon } from '../../shell/icons';
 import { PathTrail } from '../../shell/PathTrail';
 import { assistantApi, type AssistantStatus } from './assistantApi';
 import { ASSISTANT_STATUS_CHANGED_EVENT } from './assistantEvents';
@@ -493,7 +492,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
         {spaceId && (recordMessage || managementOpen) ? <NoteActions key={`${spaceId}:${recordMessage?.messageId ?? 'management'}`} spaceId={spaceId} refreshKey={messages.at(-1)?.messageId} conversationId={selectedId ?? undefined} message={recordMessage ?? undefined} onCloseSource={() => { setRecordMessage(null); setManagementOpen(false); }} onOpenNote={onOpenNote} /> : null}
         <div className={styles.messages} aria-live="polite">
           {!selected ? <div className={styles.welcome}>
-            <span className={styles.welcomeMark}><BookIcon size={48} accent /><SparkIcon size={22} /></span>
+            <span className={styles.welcomeMark}><BookIcon size={48} /><SparkIcon size={22} /></span>
             <h2>和你的笔记聊聊</h2>
             <p>{activePolicies.length ? '助手可以检索你已授权的笔记，回答附带来源，整理结果先放进成果等你确认。'
               : '现在是普通聊天，不会读取任何笔记。授权后，助手可以检索、引用并整理你的笔记。'}</p>
@@ -514,7 +513,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             const turn = turns[message.turnId];
             const citations = message.citations ?? [];
             return <article key={message.messageId} className={`${styles.message} ${message.role === 'user' ? styles.user : styles.assistant}`}>
-              {message.role === 'assistant' ? <div className={styles.messageMeta}><BookIcon size={18} accent /><strong>Knowra</strong><time dateTime={message.createdAt}>{formatClock(message.createdAt)}</time></div> : null}
+              {message.role === 'assistant' ? <div className={styles.messageMeta}><BookIcon size={18} /><strong>Knowra</strong><time dateTime={message.createdAt}>{formatClock(message.createdAt)}</time></div> : null}
               <div className={styles.messageText}><ReadableMarkdown text={message.content} /></div>
               {message.role === 'assistant' ? <>
                 {citations.length ? <div className={styles.sources} aria-label="回答来源">
