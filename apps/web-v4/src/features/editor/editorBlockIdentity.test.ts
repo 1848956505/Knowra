@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Editor, defaultValueCtx, editorViewCtx, rootCtx, serializerCtx } from '@milkdown/kit/core';
+import { Editor, defaultValueCtx, editorViewCtx, parserCtx, rootCtx, serializerCtx } from '@milkdown/kit/core';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
@@ -19,7 +19,7 @@ import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, setEditorAnnotations } from './editorAnnotations';
 import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
-  createBlockIdentityBehavior, stripIdentityFromHtml
+  createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
 import { annotationShadowBehavior, getAnnotationShadowReport } from './annotationShadow';
 
@@ -233,6 +233,16 @@ describe('重点 mark', () => {
     const after = child(e.view.state.doc, 1);
     e.view.dispatch(e.view.state.tr.insertText('X', after.end));
     expect(marksIn(e.view.state.doc, after.end, after.end + 1)).toEqual([]);
+  });
+
+  it('与重新解析的 Markdown 比较正文时忽略块 ID 与重点 mark', async () => {
+    const markdown = '第一处文字\n\n第二处文字\n';
+    const e = await createEditor(markdown);
+    addMark(e, 1, 6, 'a1');
+    const parsed = e.editor.ctx.get(parserCtx)(markdown) as ProseNode;
+    expect(e.view.state.doc.eq(parsed)).toBe(false);
+    expect(withoutIdentity(e.view.state.doc).eq(parsed)).toBe(true);
+    expect(withoutIdentity(e.view.state.doc).eq(e.editor.ctx.get(parserCtx)('第一处文字\n\n第三处文字\n') as ProseNode)).toBe(false);
   });
 
   it('只改身份的事务不触发正文变更回调', async () => {

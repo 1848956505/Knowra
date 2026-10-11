@@ -169,6 +169,15 @@ export function stripAnnotationMarks(doc: ProseNode): ProseNode {
   return found ? new Transform(doc).removeMark(0, doc.content.size, type).doc : doc;
 }
 
+/** 去掉块 ID 与重点 mark 后的文档，用于和重新解析的 Markdown 比较"正文是否一致"。 */
+export function withoutIdentity(doc: ProseNode): ProseNode {
+  const tr = new Transform(stripAnnotationMarks(doc));
+  tr.doc.descendants((node, position) => {
+    if (node.attrs.blockId) tr.setNodeAttribute(position, 'blockId', null);
+  });
+  return tr.doc;
+}
+
 /**
  * 所有 Markdown 序列化（自动保存、getMarkdown、复制为 Markdown）都先剥离重点 mark。
  * mark 会把文本拆成多个节点，Milkdown 的代码块、行内代码和软换行序列化对此不安全。

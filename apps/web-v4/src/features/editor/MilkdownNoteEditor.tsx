@@ -62,7 +62,7 @@ import {
   internalLinkSchema
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
-import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml } from './editorBlockIdentity';
+import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml, withoutIdentity } from './editorBlockIdentity';
 import { annotationShadowBehavior } from './annotationShadow';
 import type { Annotation } from '@study-accelerator/web-core';
 import {
@@ -272,7 +272,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       matchesMarkdownDocument(markdown) {
         const editor = editorRef.current;
         if (!editor || !readyRef.current) return false;
-        try { return editor.ctx.get(editorViewCtx).state.doc.eq(editor.ctx.get(parserCtx)(markdown)); }
+        // 编辑器文档带块 ID 与重点 mark，重新解析的文档没有；比较正文时忽略身份信息。
+        try { return withoutIdentity(editor.ctx.get(editorViewCtx).state.doc).eq(editor.ctx.get(parserCtx)(markdown)); }
         catch { return false; }
       },
       async runEdit(action) {
