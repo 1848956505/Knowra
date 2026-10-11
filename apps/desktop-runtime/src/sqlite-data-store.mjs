@@ -43,7 +43,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let migrateProvenance = false;
   let provenanceMigration;
   let inTransaction = false;
-  // 提交后回调：每次开始事务时重置，只有成功 COMMIT 后才执行，回滚即丢弃。
+  // 提交后回调：只有成功 COMMIT 后才执行；任何回滚路径都立即清空，避免之后的独立提交补执行。
   let afterCommitQueue = [];
   let dataRevision = 0;
   let syncRevision = 0;
@@ -89,6 +89,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
     db.exec('COMMIT');
   } catch (error) {
     if (db.isTransaction) db.exec('ROLLBACK');
+    afterCommitQueue = [];
     db.close();
     throw error;
   }
@@ -191,6 +192,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       return valid;
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      afterCommitQueue = [];
       pendingLocalChange = false;
       throw error;
     }
@@ -214,6 +216,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       return result;
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      afterCommitQueue = [];
       restore(committed);
       pendingLocalChange = false;
       throw error;
@@ -252,6 +255,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       return exportSnapshot();
     } catch (error) {
       if (db.isTransaction) db.exec('ROLLBACK');
+      afterCommitQueue = [];
       restore(committed);
       pendingLocalChange = false;
       throw error;
@@ -340,6 +344,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         return result;
       } catch (error) {
         if (db.isTransaction) db.exec('ROLLBACK');
+        afterCommitQueue = [];
         restore(committed);
         pendingLocalChange = false;
         throw error;
@@ -360,6 +365,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
         return result;
       } catch (error) {
         if (db.isTransaction) db.exec('ROLLBACK');
+        afterCommitQueue = [];
         throw error;
       } finally { inTransaction = false; }
     },
