@@ -251,5 +251,13 @@ export interface AnnotationMapping {
   targetContentHash: string;
   baseStructureRevision?: number;
   edits: Array<{ from: number; to: number; text: string; history?: boolean; moveId?: string; moveKind?: 'cut' | 'paste'; preserveEmptyBlock?: boolean; deletedEmptyAnnotationIds?: string[] }>;
+  /** 稳定身份迁移影子阶段：编辑器身份视角快照，服务端只用于比对诊断。 */
+  editorState?: AnnotationIdentityEditorState;
+}
+export interface AnnotationIdentityEditorState {
+  formatVersion: 2;
+  targetContentHash: string;
+  blocks: Array<{ id: string; type: string; empty: boolean }>;
+  annotations: Array<{ id: string; scopeType: 'selection' | 'blocks' | 'section' | 'list'; present: boolean; rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteText?: string }>;
 }
 export interface ConfirmAnnotationRangeInput { expectedRevision: number; noteContentHash: string; candidateHash: string }

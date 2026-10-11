@@ -63,7 +63,7 @@ import {
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
 import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml, withoutIdentity } from './editorBlockIdentity';
-import { annotationShadowBehavior } from './annotationShadow';
+import { annotationShadowBehavior, captureIdentitySnapshot, type AnnotationIdentitySnapshot } from './annotationShadow';
 import type { Annotation } from '@study-accelerator/web-core';
 import {
   annotationPluginKey,
@@ -97,7 +97,7 @@ export interface MilkdownNoteEditorProps {
   annotations?: Annotation[];
   focusedAnnotationId?: string | null;
   onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section' | 'list', importance?: 'normal' | 'important' | 'core'): Promise<void>;
-  onChange(markdown: string, options?: { editIntent?: import('./annotationEditJournal').AnnotationEditIntent }): void;
+  onChange(markdown: string, options?: { editIntent?: import('./annotationEditJournal').AnnotationEditIntent; identity?: AnnotationIdentitySnapshot }): void;
   onSelectAnnotation?(annotationIds: string[]): void;
   onStatus?(message: string): void;
   onReady?(): void | Promise<void>;
@@ -242,7 +242,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         if (nextMarkdown === emittedMarkdownRef.current) return;
         emittedMarkdownRef.current = nextMarkdown;
         latestLocalMarkdownRef.current = nextMarkdown;
-        onChangeRef.current(nextMarkdown);
+        onChangeRef.current(nextMarkdown, { identity: captureIdentitySnapshot(editor.ctx.get(editorViewCtx).state, nextMarkdown) });
       }, 30);
     };
 
@@ -488,12 +488,12 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         ))
         .use(clipboard)
         .use(findHighlightBehavior)
-        .use(createAnnotationHighlightBehavior((annotationIds) => onSelectAnnotationRef.current?.(annotationIds), (nextMarkdown, editIntent) => {
+        .use(createAnnotationHighlightBehavior((annotationIds) => onSelectAnnotationRef.current?.(annotationIds), (nextMarkdown, editIntent, state) => {
           if (applyingRemoteRef.current || !readyRef.current || composingRef.current || (nextMarkdown === editorMarkdownRef.current && !editIntent.deletedEmptyAnnotationIds?.length && !editIntent.preserveEmptyBlock)) return;
           editorMarkdownRef.current = nextMarkdown;
           emittedMarkdownRef.current = nextMarkdown;
           latestLocalMarkdownRef.current = nextMarkdown;
-          onChangeRef.current(nextMarkdown, { editIntent });
+          onChangeRef.current(nextMarkdown, { editIntent, identity: captureIdentitySnapshot(state, nextMarkdown) });
         }, (selection) => { lastSelectionRef.current = selection; }))
         .use(annotationMarkSchema)
         .use(createBlockIdentityBehavior((state) => new Set(annotationPluginKey.getState(state)?.annotations.map((annotation) => annotation.id) ?? [])))

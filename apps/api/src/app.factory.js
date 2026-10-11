@@ -37,6 +37,7 @@ import { createModelSettingsService } from './modules/ai/model-settings.js';
 import { createAiFeatureSettings } from './modules/ai/feature-settings.js';
 import { createOptionalAiRuntime } from './modules/ai/runtime.js';
 import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
+import { createJsonlShadowSink } from './infrastructure/annotation-shadow-log.js';
 import { reviewedDeepSeekPriceProfile } from './modules/ai/reviewed-price-profile.js';
 import {
   assertSpacesOwnedBy,
@@ -161,7 +162,11 @@ export function createAppContext(options = {}) {
     readPurgeTaskState: createLocalPurgeTaskReader(dataStore),
     getPurgeDatasetEpoch: dataStore?.getSyncJournal ? () => dataStore.getSyncJournal().epoch : undefined,
     enforceReferences: options.enforceReferences ?? true,
-    noteVersionCoalescing: options.noteVersionCoalescing
+    noteVersionCoalescing: options.noteVersionCoalescing,
+    // 稳定身份迁移 S2a：本地持久化时记录影子比对结论（只含 ID 与结论）。
+    annotationShadowSink: options.annotationShadowSink ?? (dataStore
+      ? createJsonlShadowSink(resolveStoragePath('storage/runtime/annotation-shadow.jsonl', options.storageRootDir ?? workspaceRoot))
+      : null)
   });
   const noteDeletionCoordinator = createNoteDeletionCoordinator({
     noteService: knowledge.noteService,

@@ -23,6 +23,24 @@ describe('useNoteAutosave', () => {
     expect(result.current.hasLocalChanges).toBe(false);
   });
 
+  it('附带与待保存正文一致的身份快照；正文不一致或生成失败时照常保存', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useNoteAutosave({
+      noteId: 'note-identity', remoteMarkdown: 'A', remoteUpdatedAt: 'v1', canWrite: true, onSave
+    }));
+    const editorState = { formatVersion: 2 as const, targetContentHash: 'h', blocks: [], annotations: [] };
+    act(() => result.current.updateDraft('A-1', { identity: { markdown: 'A-1', build: () => editorState } }));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(onSave).toHaveBeenLastCalledWith('note-identity', 'A-1', 'v1', 'A', expect.objectContaining({ editorState }));
+    act(() => result.current.updateDraft('A-2', { identity: { markdown: 'A-stale', build: () => editorState } }));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(onSave.mock.lastCall?.[4]).not.toHaveProperty('editorState');
+    act(() => result.current.updateDraft('A-3', { identity: { markdown: 'A-3', build: () => { throw new Error('诊断失败'); } } }));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(onSave).toHaveBeenLastCalledWith('note-identity', 'A-3', 'v1', expect.any(String), expect.not.objectContaining({ editorState: expect.anything() }));
+  });
+
   it('coalesces long-document UI publication while keeping the latest draft synchronously readable', async () => {
     vi.useFakeTimers();
     const onSave = vi.fn().mockResolvedValue(undefined);

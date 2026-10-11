@@ -5,6 +5,8 @@ import { annotationPluginKey } from './editorAnnotations';
 import type { TrackedAnnotationRange } from './annotationTransactionRanges';
 import { listItemAt } from './editorListAnnotations';
 import { ANNOTATION_MARK, IDENTITY_META } from './editorBlockIdentity';
+import { calculateContentHash, EDITOR_TO_MARKDOWN_BLOCK } from '@study-accelerator/content-anchor';
+import type { AnnotationIdentityEditorState } from '@study-accelerator/web-core';
 
 /**
  * 稳定身份迁移 S1（影子阶段）：为已定位的重点建立编辑器内身份，并与现有位置推算逐事务比对。
@@ -171,3 +173,44 @@ export const annotationShadowBehavior = $prose(() => new Plugin<ShadowState>({
       .setMeta(IDENTITY_META, true).setMeta('addToHistory', false);
   }
 }));
+
+/** 保存时随正文提交的身份快照；捕获不可变文档与绑定，到真正保存时才计算。 */
+export interface AnnotationIdentitySnapshot { markdown: string; build(): AnnotationIdentityEditorState }
+
+function editorIdentityBlocks(doc: ProseNode): AnnotationIdentityEditorState['blocks'] {
+  const blocks: AnnotationIdentityEditorState['blocks'] = [];
+  doc.descendants(node => {
+    const type = EDITOR_TO_MARKDOWN_BLOCK[node.type.name];
+    if (type && node.attrs.blockId) blocks.push({ id: node.attrs.blockId, type, empty: node.type.name === 'paragraph' && node.content.size === 0 });
+    // 与服务端一致：表格整体参与对齐，单元格内部不展开。
+    return node.type.name !== 'table';
+  });
+  return blocks;
+}
+
+export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<string, AnnotationIdentityBinding>, markdown: string): AnnotationIdentityEditorState {
+  const annotations: AnnotationIdentityEditorState['annotations'] = [];
+  for (const [id, binding] of bindings) {
+    const derived = deriveIdentityRange(doc, id, binding);
+    const item: AnnotationIdentityEditorState['annotations'][number] = { id, scopeType: binding.scopeType, present: Boolean(derived) };
+    if (binding.scopeType === 'selection') {
+      if (derived) {
+        item.startBlockId = textblockIdAt(doc, derived.from, 1) ?? undefined;
+        item.endBlockId = textblockIdAt(doc, derived.to, -1) ?? undefined;
+        item.quoteText = doc.textBetween(derived.from, derived.to, '\n', '￼');
+      }
+    } else if (binding.scopeType === 'blocks') {
+      item.startBlockId = binding.startBlockId;
+      item.endBlockId = binding.endBlockId;
+    } else item.rootBlockId = binding.rootBlockId;
+    annotations.push(item);
+  }
+  return { formatVersion: 2, targetContentHash: calculateContentHash(markdown), blocks: editorIdentityBlocks(doc), annotations };
+}
+
+export function captureIdentitySnapshot(state: EditorState, markdown: string): AnnotationIdentitySnapshot | undefined {
+  const bindings = annotationShadowKey.getState(state)?.bindings;
+  if (!bindings?.size) return undefined;
+  const doc = state.doc;
+  return { markdown, build: () => buildIdentityEditorState(doc, bindings, markdown) };
+}

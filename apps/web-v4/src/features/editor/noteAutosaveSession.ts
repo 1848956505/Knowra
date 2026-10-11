@@ -8,6 +8,8 @@ export interface NoteSaveState {
   serverMarkdown: string;
   baseUpdatedAt?: string;
   edits: EditEntry[];
+  /** 最近一次正文变化时的身份快照（影子比对用），只在与待保存正文一致时随保存提交。 */
+  identity?: import('./annotationShadow').AnnotationIdentitySnapshot;
   pending?: string;
   inFlight?: Promise<void>;
   localRevision: number;
@@ -17,6 +19,12 @@ export interface NoteSaveState {
   recovery?: { scope: string; draft: RecoveredNoteDraft };
   restored: boolean;
   generation: number;
+}
+
+/** 影子比对诊断失败不能阻断保存。 */
+function withIdentity(mapping: ReturnType<typeof buildEditMapping>, identity: NoteSaveState['identity'], markdown: string) {
+  if (!mapping || identity?.markdown !== markdown) return mapping;
+  try { return { ...mapping, editorState: identity.build() }; } catch { return mapping; }
 }
 
 export function noteHasLocalWork(state: NoteSaveState): boolean {
@@ -68,6 +76,7 @@ export function createNoteAutosaveSession(options: SessionOptions) {
     if (!options.canWrite()) return;
     const state = get(noteId);
     const capturedEdits = [...state.edits];
+    const capturedIdentity = state.identity;
     const revision = state.localRevision;
     const generation = state.generation;
     const previous = state.inFlight ?? Promise.resolve();
@@ -86,7 +95,7 @@ export function createNoteAutosaveSession(options: SessionOptions) {
         const expectedUpdatedAt = state.baseUpdatedAt;
         const pendingEdits = new Set(state.edits.map(edit => edit.sequence));
         const batch = capturedEdits.filter(edit => pendingEdits.has(edit.sequence));
-        const mapping = buildEditMapping(state.serverMarkdown, markdown, batch);
+        const mapping = withIdentity(buildEditMapping(state.serverMarkdown, markdown, batch), capturedIdentity, markdown);
         const saved = mapping
           ? await options.save(noteId, markdown, expectedUpdatedAt, state.serverMarkdown, mapping)
           : await options.save(noteId, markdown, expectedUpdatedAt, state.serverMarkdown);

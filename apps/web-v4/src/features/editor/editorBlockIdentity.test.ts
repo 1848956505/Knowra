@@ -21,7 +21,8 @@ import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
-import { annotationShadowBehavior, getAnnotationShadowReport } from './annotationShadow';
+import { annotationShadowBehavior, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
+import { compareIdentityShadow } from '@study-accelerator/content-anchor';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ClipboardEvent ??= class extends Event {
@@ -297,6 +298,39 @@ describe('影子比对', () => {
       e.view.dispatch(e.view.state.tr.insertText('改', range.from + 1));
       expect(getAnnotationShadowReport(e.view.state).divergences, scopeType).toEqual([]);
     }
+  });
+
+  it('身份快照与服务端解析对齐，并在复杂文档上与旧链路结论一致', async () => {
+    const markdown = '# 标题\n\n前文重点内容后文\n\n<br />\n\n* 甲\n  * 乙\n\n$$\nx^2\n$$\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n```js\ncode\n```\n\n> 引用\n\n***\n\n## 二\n\n尾段\n';
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const annotations: Annotation[] = [];
+    const select = (scopeType: Annotation['scopeType'], from: number, to = from) => {
+      e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, from, to)));
+      const selection = getAnnotationSelection(e.editor, serialized, scopeType)!;
+      expect(selection, scopeType).not.toBeNull();
+      annotations.push({ id: `${scopeType}-${annotations.length}`, scopeType, anchor: selection.anchor, quoteText: selection.quoteText,
+        fromPosition: selection.fromPosition, toPosition: selection.toPosition, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation);
+    };
+    let paragraph = 0, heading2 = 0, listItem = 0;
+    e.view.state.doc.descendants((node, pos) => {
+      if (!paragraph && node.type.name === 'paragraph' && node.textContent.startsWith('前文')) paragraph = pos;
+      if (node.type.name === 'heading' && node.textContent === '二') heading2 = pos;
+      if (!listItem && node.type.name === 'list_item') listItem = pos;
+    });
+    select('selection', paragraph + 3, paragraph + 7);
+    select('blocks', paragraph + 2);
+    select('section', heading2 + 1);
+    select('list', listItem + 2);
+    setEditorAnnotations(e.editor, annotations, null);
+    const bindings = annotationShadowKey.getState(e.view.state)!.bindings;
+    expect(bindings.size).toBe(4);
+    const state = buildIdentityEditorState(e.view.state.doc, bindings, serialized);
+    expect(state.blocks.some(block => block.type === 'math')).toBe(true);
+    expect(state.blocks.some(block => block.empty)).toBe(true);
+    const result = compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never });
+    expect(result).toEqual({ status: 'compared', compared: 4, divergences: [] });
+    expect(captureIdentitySnapshot(e.view.state, serialized)?.build()).toEqual(state);
   });
 
   it('拖拽移动选区重点：现有推算丢失、身份仍在时记录为 trackedLost', async () => {

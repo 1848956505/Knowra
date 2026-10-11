@@ -8,5 +8,7 @@ export function prepareAnnotationChange(current, markdown, mapping) {
   }
   const edits = verifiedSourceEdits(current.rawMarkdown, markdown, mapping);
   return { before: current.rawMarkdown, previousStructure: current.annotationStructure, edits, invalidMapping: Boolean(mapping && !edits),
+    // 影子比对用的编辑器身份快照；由 compareIdentityShadow 校验，不参与旧链路。
+    editorState: mapping?.editorState ?? null,
     structure: updateStructure(current.rawMarkdown, markdown, current.annotationStructure, edits) };
 }
