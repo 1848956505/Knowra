@@ -23,7 +23,7 @@ export function KnowledgeLearningObjectives({ item }: { item: KnowledgeItem }) {
     let active = true;
     setLoading(true); setError(''); setRecords([]);
     if (!list || dataMode !== 'api') { setLoading(false); setError('当前服务无法读取关联学习目标，请连接资料库后重试。'); return; }
-    void list('learningObjective').then(result => { if (active) setRecords(result.filter(record => record.knowledgeItemId === item.id)); })
+    void Promise.resolve().then(() => list('learningObjective')).then(result => { if (active) setRecords(result.filter(record => record.knowledgeItemId === item.id)); })
       .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : '学习目标读取失败，请重试。'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
