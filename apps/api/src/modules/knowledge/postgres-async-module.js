@@ -1,3 +1,4 @@
+import { createAsyncNoteDependencyLifecycle } from './application/postgres-async/note-dependency-lifecycle.js';
 import { createAsyncSpaceAssetLifecycle } from './application/postgres-async/space-asset-lifecycle.js';
 import { createAsyncNavigationReferencePolicy } from './application/postgres-async/navigation-reference-policy.js';
 import { asyncTaskCoverage, supplementPurgePreview, assertPurgeDatasetEpoch, assertManualPurgeScope } from './application/asset-purge-guard.js';
@@ -168,54 +169,16 @@ export function createPostgresKnowledgeModule({
       noteRepository: transaction.noteRepository,
       annotationRepository: transaction.contentAnnotationRepository,
       noteVersionService: createAsyncNoteVersionService({ repository: transaction.noteVersionRepository }),
-      onNoteContentChanged: async (note, version, annotationChange) => {
-        const transactionAnnotationService = buildTransactionAnnotationServices(transaction).annotationService;
-        const reconciliation = await transactionAnnotationService.reconcileForNote(note.id, version.contentHash, annotationChange);
-        const changed = [];
-        for (const annotationId of reconciliation.contentChangedAnnotationIds) {
-          const annotation = await transaction.contentAnnotationRepository.findById(annotationId);
-          changed.push(...await formalServices.knowledgeItemService.markEvidenceByAnnotationId(annotationId,
-            annotation?.anchorStatus === 'missing' ? 'insufficient' : 'stale'));
-        }
-        await formalServices.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
-        const oldVersionIds = (await transaction.noteVersionRepository.listIds({ noteId: note.id })).filter((id) => id !== version.id);
-        const directEvidence = await formalServices.knowledgeItemService.markEvidenceByNoteVersionIds(oldVersionIds, 'stale', 'noteVersion');
-        await formalServices.questionService.markSourcesStale('knowledgeEvidence', directEvidence.map((record) => record.id));
-        await formalServices.questionService.markSourcesStale('noteVersion', oldVersionIds);
-      },
-      onNoteDeleted: async (noteId) => {
-        const changed = await formalServices.knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid');
-        await formalServices.questionService.markSourcesStale('knowledgeEvidence', changed.map((evidence) => evidence.id));
-        const versions = await transaction.noteVersionRepository.list({ noteId });
-        await formalServices.questionService.markSourcesStale(
-          'noteVersion',
-          versions.map((version) => version.id)
-        );
-      },
-      onBeforePermanentDelete: async (noteId) => {
-        if ((await transaction.knowledgeEvidenceRepository.list({ noteId })).length > 0) {
-          throw conflictError(
-            'NOTE_HAS_KNOWLEDGE_EVIDENCE',
-            'Note has formal knowledge evidence and cannot be permanently deleted'
-          );
-        }
-        const versions = await transaction.noteVersionRepository.list({ noteId });
-        const versionIds = new Set(versions.map((version) => version.id));
-        const sources = await transaction.questionSourceRepository.list();
-        if (sources.some((source) => (
-          source.sourceType === 'noteVersion'
-          && versionIds.has(source.sourceId)
-        ))) {
-          throw conflictError(
-            'NOTE_HAS_QUESTION_SOURCE',
-            'Note has a formal question source and cannot be permanently deleted'
-          );
-        }
-        const snapshots = await transaction.analysisScopeRepository.list();
-        if (snapshots.some((snapshot) => snapshot.noteVersions?.some((version) => (version.noteId === noteId || versionIds.has(version.noteVersionId))))) {
-          throw conflictError('NOTE_HAS_ANALYSIS_SCOPE', 'NoteVersion is referenced by an analysis scope snapshot and cannot be deleted');
-        }
-      }
+      ...createAsyncNoteDependencyLifecycle({
+        createAnnotationService: () => buildTransactionAnnotationServices(transaction).annotationService,
+        contentAnnotationRepository: transaction.contentAnnotationRepository,
+        noteVersionRepository: transaction.noteVersionRepository,
+        knowledgeEvidenceRepository: transaction.knowledgeEvidenceRepository,
+        questionSourceRepository: transaction.questionSourceRepository,
+        analysisScopeRepository: transaction.analysisScopeRepository,
+        knowledgeItemService: formalServices.knowledgeItemService,
+        questionService: formalServices.questionService
+      })
     };
   }
   const runTransaction = client?.$transaction

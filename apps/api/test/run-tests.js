@@ -1,3 +1,4 @@
+import { noteDependencyLifecycleTests } from './note-dependency-lifecycle.test.js';
 import { spaceAssetLifecyclePostgresTests } from './space-asset-lifecycle-postgres.test.js';
 import { spaceAssetLifecycleTests } from './space-asset-lifecycle.test.js';
 import { navigationReferencePolicyTests } from './navigation-reference-policy.test.js';
@@ -126,6 +127,7 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...noteDependencyLifecycleTests,
   ...spaceAssetLifecycleTests,
   ...spaceAssetLifecyclePostgresTests,
   ...navigationReferencePolicyTests,
