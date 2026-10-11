@@ -4,7 +4,8 @@ import { AI_RECORD_KINDS, validateAiEvent, validateAiRecord } from './record-con
 import { createAiRecordRepository } from './record-repository.js';
 import { validateBudgetState } from './budget-ledger.js';
 import { ACCESS_KINDS, createJsonAiAccessStore, validateAccessRecord, validateAccessRelationships } from './access-records.js';
-import { CONVERSATION_KINDS, createJsonAiConversationStore, emptyConversationState, validateConversationState } from './conversation-store.js';
+import { CONVERSATION_KINDS, emptyConversationState, validateConversationState } from './conversation-records.js';
+import { createJsonAiConversationStore } from './conversation-store.js';
 
 export const AI_PRIVATE_STATE_VERSION = 6;
 const collections = Object.values(AI_RECORD_KINDS).map(value => value.collection);

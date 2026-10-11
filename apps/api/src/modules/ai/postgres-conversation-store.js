@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { CONVERSATION_KINDS, createAiConversationStore, emptyConversationState,
-  conversationError, validateConversationRecord, validateConversationState } from './conversation-store.js';
+import { CONVERSATION_KINDS, emptyConversationState,
+  conversationError, validateConversationRecord, validateConversationState } from './conversation-records.js';
+import { createAiConversationStore } from './conversation-store.js';
 import { hashRecord } from './record-contract.js';
 
 const retryable = error => ['P2034', '23505', '40001'].includes(error?.code)

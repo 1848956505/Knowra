@@ -1,5 +1,5 @@
 import { validateWriteIntent } from './note-write-intent.js';
-import { conversationError } from './conversation-store.js';
+import { conversationError } from './conversation-records.js';
 import { assertResumableAttempts } from './agent-checkpoint.js';
 
 const validId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
