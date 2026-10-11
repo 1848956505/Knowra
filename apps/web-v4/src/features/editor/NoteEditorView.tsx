@@ -30,7 +30,6 @@ import {
   type AnalysisScopePreview,
   type UploadAttachmentInput
 } from '@study-accelerator/web-core';
-import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { exportElementToPdf } from '../../browser/exportPdf';
 import { Button, Dialog, DialogBody, DialogFooter, DialogClose } from '../../components/ui';
@@ -67,11 +66,8 @@ import {
 } from './attachmentFiles';
 import styles from './NoteEditorView.module.css';
 import { EditorNoteLinkDialog } from './EditorNoteLinkDialog';
-import { useNoteLinkRelations } from './useNoteLinkRelations';
-import { requestNoteLinkNavigation, takeNoteLinkNavigation } from './editorLinkNavigation';
+import { useEditorNoteLinks } from './useEditorNoteLinks';
 import { buildFolderPath } from './editorInspectorModel';
-import type { NoteLinkEditSession } from './editorNoteLinks';
-import type { NoteLinkLocator } from '@study-accelerator/content-anchor';
 
 const MilkdownNoteEditor = lazy(async () => {
   const module = await import('./MilkdownNoteEditor');
@@ -287,16 +283,11 @@ export function NoteEditorView({
   }
   const draftMarkdown = autosave.draftMarkdown;
   const canEditContent = canWrite && view.contentMode === 'edit' && !view.showSourceEditor;
-  const [linkEdit, setLinkEdit] = useState<{ noteId: string; scope: string | undefined; session: NoteLinkEditSession } | null>(null);
-  const [linkNavigationNotice, setLinkNavigationNotice] = useState<{ noteId: string; scope: string | undefined } | null>(null);
-  const linkScope = getNoteDraftScope(note?.spaceId);
-  const linkContext = useRef({ noteId: note?.id, scope: linkScope, canEditContent });
-  if (linkContext.current.noteId !== note?.id || linkContext.current.scope !== linkScope || linkContext.current.canEditContent !== canEditContent) {
-    linkContext.current = { noteId: note?.id, scope: linkScope, canEditContent };
-  }
-  const relationRefreshKey = notes;
-  const noteLinks = useNoteLinkRelations(note?.id, note?.spaceId, relationRefreshKey, onGetNoteLinkRelations);
-  const noteLinkStatuses = Object.fromEntries((noteLinks.relations?.outgoing ?? []).map(item => [item.id, item.status]));
+  const noteLinks = useEditorNoteLinks({
+    note, canWrite, canEditContent, refreshKey: notes, editorRef, autosave,
+    onGetNoteLinkRelations, onOpenNote, onFileStatus,
+    saveCurrentScrollPosition, restoreCurrentScrollPosition
+  });
   useEffect(() => {
     onDraftStateChange?.(autosave.hasLocalChanges, autosave.saveError);
   }, [autosave.hasLocalChanges, autosave.saveError, onDraftStateChange]);
@@ -425,25 +416,6 @@ export function NoteEditorView({
     void saveImmediately()
       .then(() => onOpenNote(targetNoteId))
       .catch((error) => onFileStatus(error instanceof Error ? error.message : '切换前保存失败'));
-  };
-  const openLinkedNote = async (targetNoteId: string, locator?: NoteLinkLocator) => {
-    if (!note || !onGetNoteLinkRelations) return;
-    const before = linkContext.current;
-    const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-    try {
-      if (!canWrite && autosave.hasLocalChanges) throw new Error('当前正文尚未保存，请先处理草稿');
-      await saveImmediately();
-      if (!editorMountedRef.current) return;
-      if (linkContext.current !== before || (editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown()) !== markdown) throw new Error('保存期间来源已变化，请重试');
-      const relations = await onGetNoteLinkRelations(locator ? targetNoteId : note.id);
-      if (!editorMountedRef.current) return;
-      if (linkContext.current !== before || (editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown()) !== markdown) throw new Error('跳转期间来源已变化，请重试');
-      if (relations.noteId !== (locator ? targetNoteId : note.id) || relations.spaceId !== note.spaceId) throw new Error('引用查询已失效');
-      if (!locator && !relations.outgoing.some(item => item.id === targetNoteId && item.status === 'active')) throw new Error('目标已删除或链接已移除');
-      saveCurrentScrollPosition();
-      if (locator) requestNoteLinkNavigation(targetNoteId, linkScope, locator, relations.contentHash);
-      onOpenNote(targetNoteId);
-    } catch (cause) { if (editorMountedRef.current) onFileStatus(cause instanceof Error ? cause.message : '跳转失败'); }
   };
   const handleFileAction = async (action: EditorFileAction) => {
     switch (action) {
@@ -640,21 +612,16 @@ export function NoteEditorView({
               onClose={() => setEditPanelMode(null)}
               onStatus={onFileStatus}
             />
-            {linkNavigationNotice?.noteId === note.id && linkNavigationNotice.scope === linkScope ? <div className={styles.linkNotice} role="status">
+            {noteLinks.navigationNotice ? <div className={styles.linkNotice} role="status">
               <span>引用位置或来源版本已变化，已打开来源笔记</span>
-              <Button variant="ghost" size="mini" onPress={() => setLinkNavigationNotice(null)}>关闭提示</Button>
+              <Button variant="ghost" size="mini" onPress={() => noteLinks.dismissNavigationNotice()}>关闭提示</Button>
             </div> : null}
-            {linkEdit?.noteId === note.id && linkEdit.scope === linkScope ? <EditorNoteLinkDialog
-              session={linkEdit.session} spaceId={note.spaceId ?? ''} search={onSearchLinkNotes}
+            {noteLinks.editSession ? <EditorNoteLinkDialog
+              session={noteLinks.editSession} spaceId={note.spaceId ?? ''} search={onSearchLinkNotes}
               folderPath={id => buildFolderPath(id ? foldersById[id] ?? null : null, foldersById)}
               canWrite={canEditContent}
-              onClose={() => { setLinkEdit(null); window.requestAnimationFrame(() => editorRef.current?.focus()); }}
-              onApply={async (targetId, label) => {
-                if (!canEditContent || linkEdit.noteId !== note.id || linkEdit.scope !== linkScope) throw new Error('笔记或编辑状态已变化，请重新选择');
-                if (linkContext.current.noteId !== linkEdit.noteId || linkContext.current.scope !== linkEdit.scope || !linkContext.current.canEditContent
-                  || !editorRef.current?.applyNoteLinkEdit?.(linkEdit.session, targetId, label)) throw new Error('正文或选区已变化，请重新选择');
-                await saveImmediately();
-              }}
+              onClose={noteLinks.closeLink}
+              onApply={noteLinks.applyLink}
             /> : null}
             <EditorDocumentRepairDialog
               markdown={draftMarkdown}
@@ -751,21 +718,10 @@ export function NoteEditorView({
                           }
                         }}
                         onStatus={onFileStatus}
-                        onRequestNoteLink={session => setLinkEdit({ noteId: note.id, scope: linkScope, session })}
-                        onOpenNoteLink={locator => { void openLinkedNote(locator.targetNoteId); }}
-                        noteLinkStatuses={noteLinkStatuses}
-                        onReady={async () => {
-                          const readyContext = linkContext.current;
-                          await restoreCurrentScrollPosition();
-                          if (!editorMountedRef.current || linkContext.current !== readyContext || readyContext.noteId !== note.id) return;
-                          const navigation = takeNoteLinkNavigation(note.id, linkScope);
-                          if (navigation) {
-                            const located = calculateContentHash(note.rawMarkdown) === navigation.contentHash
-                              && editorRef.current?.matchesMarkdownDocument?.(note.rawMarkdown)
-                              && editorRef.current?.selectNoteLinkOccurrence?.(navigation.locator);
-                            setLinkNavigationNotice(located ? null : { noteId: note.id, scope: linkScope });
-                          }
-                        }}
+                        onRequestNoteLink={noteLinks.requestLink}
+                        onOpenNoteLink={locator => { void noteLinks.openLinkedNote(locator.targetNoteId); }}
+                        noteLinkStatuses={noteLinks.statuses}
+                        onReady={noteLinks.onReady}
                         onUploadImage={async (file) => {
                           if (!extendedWritesEnabled) throw new Error('离线附件上传尚未开放，请先保留原文件。');
                           const attachment = await uploadAttachmentFile(file);
@@ -816,11 +772,11 @@ export function NoteEditorView({
           attachmentsLoading={attachmentsLoading}
           linkedNotes={linkedNotes}
           linkedNotesLoading={linkedNotesLoading}
-          noteLinkRelations={noteLinks.relations}
-          noteLinkRelationsLoading={noteLinks.loading}
-          noteLinkRelationsError={noteLinks.error}
-          onOpenLinkedOccurrence={(sourceId, locator) => { void openLinkedNote(sourceId, locator); }}
-          onOpenLinkedNote={id => { void openLinkedNote(id); }}
+          noteLinkRelations={noteLinks.relations.relations}
+          noteLinkRelationsLoading={noteLinks.relations.loading}
+          noteLinkRelationsError={noteLinks.relations.error}
+          onOpenLinkedOccurrence={(sourceId, locator) => { void noteLinks.openLinkedNote(sourceId, locator); }}
+          onOpenLinkedNote={id => { void noteLinks.openLinkedNote(id); }}
           annotations={annotations}
           annotationsLoading={annotationsLoading}
           focusedAnnotationId={focusedAnnotationId}
