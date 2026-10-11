@@ -165,6 +165,10 @@ export function ConversationAttachmentPicker({ conversationId, ensureConversatio
         onSelect={files => { if (files[0]) select(files[0]); }} />
       {conversationId ? <Button variant="ghost" size="compact" isDisabled={loading || busy} onPress={() => void perform(async (id, assertCurrent) => {
         const rows = await api.list(id); assertCurrent(); setAttachments(rows.filter(row => row.storageStatus !== 'removed'));
+        // 列表刷新只保留仍可读取的同版本预览，失效图片沿用现有 effect 释放 URL。
+        setPreview(previous => previous && rows.some(row => row.attachmentId === previous.attachmentId
+          && row.revision === previous.detail.attachment.revision && row.storageStatus === 'ready' && !row.removedAt)
+          ? previous : null);
       })}>刷新附件</Button> : null}
       {loading ? <p role="status">正在恢复附件…</p> : null}
       {error ? <p role="alert">{error}</p> : null}
