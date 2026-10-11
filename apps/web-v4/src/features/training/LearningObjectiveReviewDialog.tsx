@@ -49,7 +49,11 @@ export function LearningObjectiveReviewDialog({ record, knowledge, knowledgeItem
     let active = true;
     setLoading(true); setLatest(null);
     if (!knowledgeId) { setLoading(false); setParent(null); return; }
-    void Promise.all([getKnowledge(knowledgeId), record ? list('learningObjective') : Promise.resolve([])])
+    // 每支读取独立进入 Promise，避免同步拒绝跳过聚合并遗留另一支异步错误。
+    void Promise.all([
+      Promise.resolve().then(() => getKnowledge(knowledgeId)),
+      Promise.resolve().then(() => record ? list('learningObjective') : [])
+    ])
       .then(([item, objectives]) => {
         if (!active) return;
         const objective = record ? objectives.find(row => row.id === record.id) : undefined;
