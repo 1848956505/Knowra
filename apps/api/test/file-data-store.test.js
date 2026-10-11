@@ -5,6 +5,28 @@ import path from 'node:path';
 
 export const fileDataStoreTests = [
   {
+    name: 'afterCommit 在最外层事务写入后执行，嵌套推迟、回滚丢弃、事务外立即执行',
+    async run() {
+      const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-after-commit-'));
+      try {
+        const store = createFileDataStore(path.join(dir, 'data.json'));
+        const calls = [];
+        store.runTransaction(() => {
+          store.runTransaction(() => store.afterCommit(() => calls.push('inner')));
+          store.afterCommit(() => calls.push('outer'));
+          assert.deepEqual(calls, []);
+        });
+        assert.deepEqual(calls, ['inner', 'outer']);
+        assert.throws(() => store.runTransaction(() => { store.afterCommit(() => calls.push('rolled-back')); throw new Error('回滚'); }), /回滚/);
+        store.afterCommit(() => calls.push('immediate'));
+        assert.deepEqual(calls, ['inner', 'outer', 'immediate']);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  },
+  {
     name: 'missing local data with interrupted replacement files refuses empty initialization',
     async run() {
       const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');

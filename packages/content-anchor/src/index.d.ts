@@ -45,7 +45,28 @@ export function followSectionAnchor(markdown: string, anchor: ContentAnchor): Re
 export function headingPathForSourceOffset(projection: MarkdownProjection, sourceOffset: number): string[];
 
 export interface SourceEdit { from: number; to: number; text: string; history?: boolean; moveId?: string; moveKind?: 'cut' | 'paste'; preserveEmptyBlock?: boolean; deletedEmptyAnnotationIds?: string[] }
-export interface AnnotationMapping { formatVersion: 1; operationId: string; baseContentHash: string; targetContentHash: string; baseStructureRevision?: number; edits: SourceEdit[] }
+export interface AnnotationMapping { formatVersion: 1; operationId: string; baseContentHash: string; targetContentHash: string; baseStructureRevision?: number; edits: SourceEdit[]; editorState?: IdentityEditorState }
+
+/** 稳定身份迁移影子阶段：编辑器在保存时上报的身份视角快照。 */
+export interface IdentityEditorBlock { id: string; type: string; empty: boolean }
+export interface IdentityEditorAnnotation {
+  id: string; scopeType: AnnotationScopeType; present: boolean;
+  rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteHash?: string;
+}
+export interface IdentityEditorState { formatVersion: 2; targetContentHash: string; blocks: IdentityEditorBlock[]; annotations: IdentityEditorAnnotation[] }
+export type IdentityShadowDivergenceKind = 'trackedLost' | 'oldNeedsReview' | 'identityLost' | 'blockMismatch' | 'quoteMismatch';
+export interface IdentityShadowDivergence { annotationId: string; scopeType: AnnotationScopeType; kind: IdentityShadowDivergenceKind; oldStatus: string | null; oldReason: string | null }
+export interface IdentityShadowResult {
+  status: 'compared' | 'invalidState' | 'stateMismatch' | 'alignFailed'; compared: number; divergences: IdentityShadowDivergence[];
+  alignment?: { editorIndex: number; markdownIndex: number; editorType: string | null; markdownType: string | null };
+}
+export const IDENTITY_SHADOW_FORMAT: 2;
+export const EDITOR_TO_MARKDOWN_BLOCK: Readonly<Record<string, string>>;
+export function parseIdentityBlocks(markdown: string): Array<{ type: string; depth: number; sourceStart: number; sourceEnd: number; br: boolean }>;
+export function alignIdentityBlocks(markdownBlocks: ReturnType<typeof parseIdentityBlocks>, editorBlocks: IdentityEditorBlock[]): { aligned: true; pairs: Map<number, number> } | { aligned: false; editorIndex: number; markdownIndex: number; editorType: string | null; markdownType: string | null };
+export function validIdentityEditorState(state: unknown): state is IdentityEditorState;
+export function identityQuoteHash(value: string | null | undefined): string;
+export function compareIdentityShadow(input: { markdown: string; editorState: unknown; annotations: Array<Record<string, any>> }): IdentityShadowResult;
 export interface AnnotationStructure { formatVersion: 1; revision: number; contentHash: string; nodes: Array<{ id: string; path: string; type: string; sourceStart: number; sourceEnd: number }> }
 export function sourceEdit(before: string, after: string): SourceEdit;
 export function applySourceEdit(source: string, edit: SourceEdit): string;

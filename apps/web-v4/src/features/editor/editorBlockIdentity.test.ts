@@ -21,7 +21,8 @@ import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
-import { annotationShadowBehavior, getAnnotationShadowReport } from './annotationShadow';
+import { annotationShadowBehavior, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
+import { compareIdentityShadow } from '@study-accelerator/content-anchor';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ClipboardEvent ??= class extends Event {
@@ -298,6 +299,83 @@ describe('影子比对', () => {
       expect(getAnnotationShadowReport(e.view.state).divergences, scopeType).toEqual([]);
     }
   });
+
+  it('身份快照与服务端解析对齐，并在复杂文档上与旧链路结论一致', async () => {
+    const markdown = '# 标题\n\n前文重点内容后文\n\n<br />\n\n* 甲\n  * 乙\n\n$$\nx^2\n$$\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n```js\ncode\n```\n\n> 引用\n\n***\n\n## 二\n\n尾段\n';
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const annotations: Annotation[] = [];
+    const select = (scopeType: Annotation['scopeType'], from: number, to = from) => {
+      e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, from, to)));
+      const selection = getAnnotationSelection(e.editor, serialized, scopeType)!;
+      expect(selection, scopeType).not.toBeNull();
+      annotations.push({ id: `${scopeType}-${annotations.length}`, scopeType, anchor: selection.anchor, quoteText: selection.quoteText,
+        fromPosition: selection.fromPosition, toPosition: selection.toPosition, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation);
+    };
+    let paragraph = 0, heading2 = 0, listItem = 0;
+    e.view.state.doc.descendants((node, pos) => {
+      if (!paragraph && node.type.name === 'paragraph' && node.textContent.startsWith('前文')) paragraph = pos;
+      if (node.type.name === 'heading' && node.textContent === '二') heading2 = pos;
+      if (!listItem && node.type.name === 'list_item') listItem = pos;
+    });
+    select('selection', paragraph + 3, paragraph + 7);
+    select('blocks', paragraph + 2);
+    select('section', heading2 + 1);
+    select('list', listItem + 2);
+    setEditorAnnotations(e.editor, annotations, null);
+    const bindings = annotationShadowKey.getState(e.view.state)!.bindings;
+    expect(bindings.size).toBe(4);
+    const state = buildIdentityEditorState(e.view.state.doc, bindings, serialized);
+    expect(state.blocks.some(block => block.type === 'math')).toBe(true);
+    expect(state.blocks.some(block => block.empty)).toBe(true);
+    const result = compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never });
+    expect(result).toEqual({ status: 'compared', compared: 4, divergences: [] });
+    expect(captureIdentitySnapshot(e.view.state, serialized)?.build()).toEqual(state);
+  });
+
+  it('表格单元格内的选区与块重点按表格整体对齐，两边结论一致', async () => {
+    const markdown = '前文\n\n| 名称 | 说明 |\n| - | - |\n| 卷积 | 提取局部特征 |\n\n后文\n';
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    let cell = 0;
+    e.view.state.doc.descendants((node, pos) => { if (!cell && node.isText && node.text === '提取局部特征') cell = pos; });
+    const annotations: Annotation[] = [];
+    for (const [scopeType, from, to] of [['selection', cell + 2, cell + 4], ['blocks', cell + 1, cell + 1]] as const) {
+      e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, from, to)));
+      const selection = getAnnotationSelection(e.editor, serialized, scopeType);
+      if (!selection) continue;
+      annotations.push({ id: `${scopeType}-table`, scopeType, anchor: selection.anchor, quoteText: selection.quoteText,
+        fromPosition: selection.fromPosition, toPosition: selection.toPosition, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation);
+    }
+    expect(annotations.map(item => item.scopeType)).toContain('selection');
+    setEditorAnnotations(e.editor, annotations, null);
+    const state = buildIdentityEditorState(e.view.state.doc, annotationShadowKey.getState(e.view.state)!.bindings, serialized);
+    const tableId = state.blocks.find(block => block.type === 'table')!.id;
+    expect(state.annotations.find(item => item.id === 'selection-table')).toMatchObject({ startBlockId: tableId, endBlockId: tableId });
+    // 旧链路未能在编辑器内定位的重点不会建立绑定，也就不参与比对。
+    expect(compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never }))
+      .toEqual({ status: 'compared', compared: state.annotations.length, divergences: [] });
+  });
+
+  it('大量重叠长选区时快照不随摘录长度膨胀', async () => {
+    // 20 条重叠选区共覆盖约 24 万字；若传摘录原文，快照约 720 KB。
+    const markdown = Array.from({ length: 60 }, () => '长'.repeat(200)).join('\n\n') + '\n';
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const end = e.view.state.doc.content.size - 1;
+    const annotations = Array.from({ length: 20 }, (_, index) => {
+      e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1 + index, end - index)));
+      const selection = getAnnotationSelection(e.editor, serialized, 'selection')!;
+      return { id: `long-${index}`, scopeType: 'selection', anchor: selection.anchor, quoteText: selection.quoteText,
+        fromPosition: selection.fromPosition, toPosition: selection.toPosition, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation;
+    });
+    expect(annotations.reduce((total, item) => total + item.quoteText.length, 0)).toBeGreaterThan(200_000);
+    setEditorAnnotations(e.editor, annotations, null);
+    const state = buildIdentityEditorState(e.view.state.doc, annotationShadowKey.getState(e.view.state)!.bindings, serialized);
+    expect(state.annotations).toHaveLength(20);
+    expect(new TextEncoder().encode(JSON.stringify(state)).byteLength).toBeLessThan(32 * 1024);
+    expect(compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never }).divergences).toEqual([]);
+  }, 15_000);
 
   it('拖拽移动选区重点：现有推算丢失、身份仍在时记录为 trackedLost', async () => {
     const { e, annotation } = await annotate('重点段落\n\n其他\n', 'selection', editor => {

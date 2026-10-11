@@ -126,7 +126,8 @@ export function createFileDataStore(filePath, {
     const previousExtractionCommits = cloneJsonData(knowledgeExtractionCommits);
     const previousExtractionTasks = cloneJsonData(extractionTasks);
     const previousJournal = cloneJsonData(journal);
-    transaction = { dirty: false };
+    transaction = { dirty: false, afterCommit: [] };
+    let committedCallbacks = [];
 
     try {
       const result = operation();
@@ -136,6 +137,7 @@ export function createFileDataStore(filePath, {
       if (transaction.dirty) {
         persistState(state);
       }
+      committedCallbacks = transaction.afterCommit;
       return result;
     } catch (error) {
       replaceState(state, previousState);
@@ -147,7 +149,16 @@ export function createFileDataStore(filePath, {
       throw error;
     } finally {
       transaction = null;
+      for (const callback of committedCallbacks) {
+        try { callback(); } catch { /* 提交后回调失败不能撤销已经完成的写入。 */ }
+      }
     }
+  }
+
+  /** 在最外层事务成功写入后执行；回滚时丢弃，不在事务中则立即执行。 */
+  function afterCommit(callback) {
+    if (transaction) { transaction.afterCommit.push(callback); return; }
+    try { callback(); } catch { /* 同上 */ }
   }
 
   function exportSnapshot() {
@@ -330,6 +341,7 @@ export function createFileDataStore(filePath, {
     state,
     flush,
     runTransaction,
+    afterCommit,
     exportSnapshot,
     prepareImport,
     commitImport,

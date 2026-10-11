@@ -7,7 +7,7 @@ import { mapAnnotationRange, type TrackedAnnotationRange } from './annotationTra
 import { editorViewCtx, type Editor } from '@milkdown/kit/core';
 import type { Annotation } from '@study-accelerator/web-core';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
-import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
+import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 import { $prose } from '@milkdown/kit/utils';
 import type { AnnotationSelection } from './annotationPayloads';
@@ -28,7 +28,7 @@ interface AnnotationPluginState {
 
 export const annotationPluginKey = new PluginKey<AnnotationPluginState>('KNOWRA_V4_ANNOTATIONS');
 
-export function createAnnotationHighlightBehavior(onSelect: (annotationIds: string[]) => void, onDocumentChange?: (markdown: string, intent: AnnotationEditIntent) => void,
+export function createAnnotationHighlightBehavior(onSelect: (annotationIds: string[]) => void, onDocumentChange?: (markdown: string, intent: AnnotationEditIntent, state: EditorState) => void,
   onSelectionChange?: (selection: { from: number; to: number }) => void) {
   let pendingIntent: AnnotationEditIntent = {};
   let cut: { id: string; text: string; ranges: Array<{ id: string; range: TrackedAnnotationRange; quote: string }> } | null = null;
@@ -123,7 +123,7 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
         if (onDocumentChange && annotationPluginKey.getState(view.state)?.contentRevision !== annotationPluginKey.getState(previousState)?.contentRevision) {
           const intent = annotationPluginKey.getState(view.state)?.editIntent ?? pendingIntent;
           pendingIntent = {};
-          onDocumentChange(ctx.get(serializerCtx)(view.state.doc), intent);
+          onDocumentChange(ctx.get(serializerCtx)(view.state.doc), intent, view.state);
         }
       }
     }),
