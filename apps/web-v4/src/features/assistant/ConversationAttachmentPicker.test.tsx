@@ -174,6 +174,9 @@ it('切换对话后迟到图片blob不会创建或泄漏objectURL', async () => 
   const delayed = new Promise<Blob>(resolve => { release = resolve; }); vi.mocked(api.content).mockReturnValueOnce(delayed);
   const { view, ensureConversation } = await open(); fireEvent.click(screen.getByRole('button', { name: '预览 图片.png' }));
   await waitFor(() => expect(api.content).toHaveBeenCalled());
+  expect(screen.getByRole('button', { name: '刷新附件' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
+  expect(api.list).toHaveBeenCalledOnce();
   view.rerender(<ConversationAttachmentPicker conversationId="other" ensureConversation={ensureConversation} api={api} />);
   await act(async () => { release(new Blob(['png'])); await delayed; });
   expect(createObjectURL).not.toHaveBeenCalled(); expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -239,4 +242,76 @@ it('禁用状态阻止已打开弹层的文件选择和图片粘贴，恢复后�
   fireEvent.change(input, { target: { files: [new File(['合成资料'], '资料.txt', { type: 'text/plain' })] } });
   await screen.findByRole('button', { name: '预览 资料.txt' });
   expect(api.upload).toHaveBeenCalledOnce();
+});
+
+it.each(['列表不再包含附件', '已移除', '带移除时间', '文件缺失', '仍在保存', '版本变化'])('刷新发现%s时关闭旧图片预览并释放URL', async reason => {
+  const image = { ...attachment, fileName: '图片.png', mimeType: 'image/png' };
+  vi.mocked(api.list).mockResolvedValueOnce([image]);
+  vi.mocked(api.preview).mockResolvedValueOnce({ attachment: image, segments: [], imageMetadata: null });
+  await open(); fireEvent.click(screen.getByRole('button', { name: '预览 图片.png' }));
+  await screen.findByRole('img');
+  const refreshed: ConversationAttachment[] = reason === '列表不再包含附件' ? [] : [{ ...image,
+    storageStatus: reason === '已移除' ? 'removed' : reason === '文件缺失' ? 'missing' : reason === '仍在保存' ? 'pending' : 'ready',
+    revision: reason === '版本变化' ? image.revision + 1 : image.revision,
+    removedAt: reason === '带移除时间' ? '2026-10-04T01:00:00Z' : null }];
+  vi.mocked(api.list).mockResolvedValueOnce(refreshed);
+  fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
+  await waitFor(() => {
+    expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument();
+    expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  });
+  expect(api.preview).toHaveBeenCalledOnce(); expect(api.content).toHaveBeenCalledOnce();
+});
+
+it('刷新返回同版本的新对象时保留原图片预览与URL', async () => {
+  const image = { ...attachment, fileName: '图片.png', mimeType: 'image/png' };
+  vi.mocked(api.list).mockResolvedValueOnce([image]);
+  vi.mocked(api.preview).mockResolvedValueOnce({ attachment: image, segments: [], imageMetadata: null });
+  await open(); fireEvent.click(screen.getByRole('button', { name: '预览 图片.png' }));
+  const displayed = await screen.findByRole('img');
+  vi.mocked(api.list).mockResolvedValueOnce([{ ...image }]);
+  fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新附件' })).toBeEnabled());
+  expect(api.list).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('img')).toBe(displayed); expect(revokeObjectURL).not.toHaveBeenCalled();
+  expect(api.content).toHaveBeenCalledOnce();
+});
+
+it('刷新失败保留现有图片预览，重试成功后才关闭失效预览', async () => {
+  const image = { ...attachment, fileName: '图片.png', mimeType: 'image/png' };
+  vi.mocked(api.list).mockResolvedValueOnce([image]);
+  vi.mocked(api.preview).mockResolvedValueOnce({ attachment: image, segments: [], imageMetadata: null });
+  await open(); fireEvent.click(screen.getByRole('button', { name: '预览 图片.png' }));
+  const displayed = await screen.findByRole('img');
+  vi.mocked(api.list).mockRejectedValueOnce(new Error('刷新暂时失败'));
+  fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('刷新暂时失败');
+  expect(screen.getByRole('img')).toBe(displayed); expect(revokeObjectURL).not.toHaveBeenCalled();
+  vi.mocked(api.list).mockResolvedValueOnce([]);
+  fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
+  await waitFor(() => {
+    expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument();
+    expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  });
+});
+
+it.each(['关闭预览', '切换对话', '卸载组件'])('刷新待决时%s，迟到结果不会重开预览或重复释放URL', async action => {
+  const image = { ...attachment, fileName: '图片.png', mimeType: 'image/png' };
+  vi.mocked(api.list).mockResolvedValueOnce([image]);
+  vi.mocked(api.preview).mockResolvedValueOnce({ attachment: image, segments: [], imageMetadata: null });
+  const { view, ensureConversation } = await open();
+  fireEvent.click(screen.getByRole('button', { name: '预览 图片.png' })); await screen.findByRole('img');
+  let release!: (rows: ConversationAttachment[]) => void;
+  const delayed = new Promise<ConversationAttachment[]>(resolve => { release = resolve; });
+  vi.mocked(api.list).mockReturnValueOnce(delayed);
+  fireEvent.click(screen.getByRole('button', { name: '刷新附件' }));
+  await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));
+  if (action === '关闭预览') fireEvent.click(screen.getByRole('button', { name: '关闭附件预览' }));
+  else if (action === '切换对话') view.rerender(<ConversationAttachmentPicker conversationId="other" ensureConversation={ensureConversation} api={api} />);
+  else view.unmount();
+  await act(async () => { release([{ ...image }]); await delayed; });
+  expect(screen.queryByLabelText('附件预览')).not.toBeInTheDocument();
+  expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:owned-image');
+  expect(createObjectURL).toHaveBeenCalledOnce();
+  if (action === '切换对话') expect(screen.queryByRole('button', { name: '预览 图片.png' })).not.toBeInTheDocument();
 });
