@@ -1,3 +1,4 @@
+import { navigationReferencePolicyTests } from './navigation-reference-policy.test.js';
 import { localTagNormalizationTests } from './local-tag-normalization.test.js';
 import { noteVersionPreviewIndexesTests } from './note-version-preview-indexes.test.js';
 import { objectiveQueryProjectionTests } from './objective-query-projection.test.js';
@@ -123,6 +124,7 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...navigationReferencePolicyTests,
   ...localTagNormalizationTests,
   ...noteVersionPreviewIndexesTests,
   ...objectiveQueryProjectionTests,
