@@ -190,4 +190,3 @@ export function validateConversationState(input) {
   }
   return state;
 }
-
