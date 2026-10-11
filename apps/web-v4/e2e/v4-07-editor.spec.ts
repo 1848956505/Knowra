@@ -1737,6 +1737,82 @@ test('V5 浏览器将笔记标签放入全局独立顶栏', async ({ page }) => 
 });
 
 
+for (const width of [1280, 390]) {
+  test(`V4-07 ${width}px 正文附件图片链接可预览、关闭并重复打开`, async ({ page }) => {
+    const saved: string[] = [];
+    const browserErrors: string[] = [];
+    const downloads: string[] = [];
+    page.on('pageerror', error => browserErrors.push(error.message));
+    page.on('download', download => downloads.push(download.suggestedFilename()));
+    // 800 × 400 的合成 PNG，验证真实 Blob 解码与窄屏缩放，不读取附件存储。
+    const imageBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAyAAAAGQAQMAAABs65Z3AAAABlBMVEXb6v4lY+uezWxWAAAAdElEQVR4nO3NQREAAAgDoPUvrSV2foQCJAAAAAAAAAAAAAAAAAAAAAAAAABQNAckEolEIpFIJBKJRCKRSCQSiUQikUgkEolEIpFIJBKJRCKRSCQSiUQikUgkEolEIpFIJBKJRCKRSCQSiUQikUgkEolE8iZZx2DWZDKjWeYAAAAASUVORK5CYII=', 'base64');
+    const attachment = {
+      id: 'body-preview-image', noteId: 'note-1', fileName: '正文预览.png',
+      mimeType: 'image/png', size: imageBytes.length, status: 'ready'
+    };
+    const contentPath = `/api/storage/attachments/${attachment.id}/content`;
+    const referenceUrl = `${contentPath}#attachment=${attachment.id}`;
+    await mockEditorWorkspace(page, saved, [], `预览之前\n\n[正文图片附件](${referenceUrl})\n\n预览之后`);
+    await page.route(url => url.pathname === '/api/storage/attachments', async route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const noteId = new URL(route.request().url()).searchParams.get('noteId');
+      await route.fulfill({ json: { data: !noteId || noteId === attachment.noteId ? [attachment] : [] } });
+    });
+    let contentRequests = 0;
+    await page.route(url => url.pathname === contentPath, async route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      contentRequests++;
+      await route.fulfill({ contentType: attachment.mimeType, body: imageBytes });
+    });
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/#/materials/notes/note-1');
+    await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+    const editor = page.locator('.ProseMirror');
+    const link = editor.getByRole('link', { name: '正文图片附件', exact: true });
+    const previewDialog = page.getByRole('dialog', { name: attachment.fileName, exact: true });
+    const previewImage = previewDialog.getByRole('img', { name: attachment.fileName, exact: true });
+    await expect(link).toHaveAttribute('href', referenceUrl);
+    await expect(editor.locator('img:not(.ProseMirror-separator)')).toHaveCount(0);
+    await expect(previewDialog).toHaveCount(0);
+    expect(contentRequests).toBe(0);
+    const originalUrl = page.url();
+    const originalText = await editor.textContent() ?? '';
+    const previewUrls: string[] = [];
+
+    for (const dismissal of ['Escape', 'close-button']) {
+      await link.click();
+      await expect(previewDialog).toBeVisible();
+      await expect(previewImage).toBeVisible();
+      await expect(previewImage).toHaveAttribute('src', /^blob:/);
+      await expect.poll(() => previewImage.evaluate(image => {
+        const element = image as HTMLImageElement;
+        return element.complete && element.naturalWidth === 800 && element.naturalHeight === 400;
+      })).toBe(true);
+      await expect(previewImage).toBeInViewport({ ratio: 1 });
+      await expect(previewDialog.getByRole('button', { name: '关闭对话框', exact: true })).toBeInViewport({ ratio: 1 });
+      expect(await previewDialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(2);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
+      previewUrls.push((await previewImage.getAttribute('src'))!);
+      await expect.poll(() => contentRequests).toBe(previewUrls.length);
+      await page.screenshot({ path: `test-results/mobile-evidence/editor-attachment-${width}/${dismissal === 'Escape' ? 'preview' : 'reopened'}.png`, fullPage: false });
+
+      if (dismissal === 'Escape') await page.keyboard.press('Escape');
+      else await previewDialog.getByRole('button', { name: '关闭对话框', exact: true }).click();
+      await expect(previewDialog).toHaveCount(0);
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('href', referenceUrl);
+      await expect(editor).toHaveText(originalText);
+      await expect(page).toHaveURL(originalUrl);
+    }
+
+    expect(previewUrls[1]).not.toBe(previewUrls[0]);
+    expect(page.context().pages()).toHaveLength(1);
+    expect(downloads).toEqual([]);
+    expect(saved).toEqual([]);
+    expect(browserErrors).toEqual([]);
+  });
+}
+
 for (const stale of [false, true]) {
   test(`V4-07 图片上传${stale ? '过期选区不覆盖正文且保留附件' : '正常插入可撤销并保留附件'}`, async ({ page }) => {
     const saved: string[] = [];
