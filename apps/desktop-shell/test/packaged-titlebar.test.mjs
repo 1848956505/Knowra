@@ -2,20 +2,27 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createExitDiagnostics, prepareExitDiagnostics } from './exit-diagnostics.mjs';
 import { test } from 'node:test';
 import { _electron as electron, expect } from '@playwright/test';
 import { executablePath } from './packaged-app-path.mjs';
 import { closeTestApplication, launchTestApplication } from './app-lifecycle.mjs';
 
-test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { timeout: 60000 }, async t => {
+// 诊断额外调用各自有界；总测试预算预留采集时间，正常退出仍严格等待45秒。
+test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { timeout: 75000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-titlebar-'));
   let app = await launchTestApplication(electron, {
     executablePath,
     env: { ...process.env, KNOWRA_DESKTOP_SMOKE_DIR: directory },
     timeout: 20000
   });
+  let diagnostics;
   t.after(async () => {
-    await closeTestApplication(app);
+    try { await closeTestApplication(app); }
+    finally {
+      try { diagnostics?.afterCleanup(); } catch { console.error('[Mac 诊断] 清理后诊断不可用；保留原测试结果。'); }
+    }
     fs.rmSync(directory, { recursive: true, force: true });
   });
   const page = await app.firstWindow();
@@ -144,8 +151,15 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   await expect(titlebar.getByText('知境', { exact: true })).toBeVisible();
   await assertNativeTitlebar();
   // 与已合并的原生菜单验收相同：显式触发正常退出，并验证保存握手完成。
+  diagnostics = await prepareExitDiagnostics(() => createExitDiagnostics(app, page, directory,
+    fileURLToPath(new URL('../../../test-results/mac-titlebar-exit/', import.meta.url))));
   const closed = app.waitForEvent('close', { timeout: 45000 });
-  await app.evaluate(({ app: nativeApp }) => nativeApp.quit());
-  await closed;
+  try {
+    await app.evaluate(({ app: nativeApp }) => nativeApp.quit());
+    await closed;
+  } catch (error) {
+    try { await diagnostics?.onFailure(); } catch { console.error('[Mac 诊断] 退出失败现场采集未完成；保留原退出错误。'); }
+    throw error;
+  }
   app = null;
 });

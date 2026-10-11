@@ -34,6 +34,17 @@ jobs:
         run: npm run build:mac
       - name: 校验 zip 解压后的身份、哈希、签名和隔离合成数据测试
         run: npm run test:mac
+      - name: 保存合成退出诊断（不包含资料库或凭据）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-titlebar-exit-diagnostics-${{ github.sha }}
+          path: |
+            test-results/mac-titlebar-exit/exit-state.json
+            test-results/mac-titlebar-exit/desktop.log
+            test-results/mac-titlebar-exit/synthetic-renderer.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: 保存候选产物（ad-hoc 签名，未公证；不是稳定 Release）
         uses: actions/upload-artifact@v4
         with:
