@@ -1,4 +1,5 @@
-import { PROPOSAL_GUIDANCE, analyzeProposal, proposalProgress } from './proposal-progress.js';
+import { authorizedHistory, authorizedQuestion, plainMessages } from './agent-request-context.js';
+import { analyzeProposal, proposalProgress } from './proposal-progress.js';
 // 保留既有调用方的进度文本入口，纯规则统一在 proposal-progress.js 维护。
 export { proposalProgress } from './proposal-progress.js';
 import { toolsForWriteIntent, toolsForAssistant } from './note-write-intent.js';
@@ -13,7 +14,7 @@ import { emptyAgentCheckpoint } from './agent-checkpoint.js';
 import { ANNOTATIONS_TOOL, listAnnotatedRanges } from './annotation-read-tool.js';
 import { FOLDERS_LIST_TOOL, NOTES_LIST_TOOL, CATALOG_TOOL_NAMES, catalogSpecsFromCalls } from './catalog-tool.js';
 import { KNOWLEDGE_PROPOSE_TOOL, proposeKnowledge } from './knowledge-propose-tool.js';
-import { ASSISTANT_GUIDANCE, WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, requestsKnowledgeProposal, renderExternalSources } from './assistant-tools.js';
+import { WEB_SEARCH_TOOL, createAssistantWebSearch, searchAssistantNotes, requestsAssistantArtifact, requestsKnowledgeProposal, renderExternalSources } from './assistant-tools.js';
 
 const MAX_ROUNDS = 4;
 const MAX_TOOLS = 6;
@@ -162,33 +163,6 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
     if (!current) fail('AI_INPUT_INVALID', '当前提问未找到。');
     const prior = messages.filter(item => item.sequence < current.sequence);
     return prior.slice(-12);
-  }
-
-  function plainHistory(prior) {
-    // 授权回合的回答即使没有来源引用，也可能含目录与标题等授权资料；只有普通聊天（无来源清单）的回答才可进入无授权上下文。
-    const safe = prior.filter(row => row.sourceFree && row.sourceRefs.length === 0 && !row.provenanceManifestId && row.content.length <= 4000);
-    return safe.slice(-8).map(row => ({ role: row.role, content: row.content }));
-  }
-
-  function authorizedHistory(prior) {
-    const entries = [], plainContext = [];
-    for (const row of prior.slice(-8)) {
-      if (row.role === 'assistant' && !row.provenanceManifestId) {
-        if (row.sourceFree && !row.sourceRefs.length) plainContext.push(`助手：${row.content.slice(0, 500)}`);
-        continue;
-      }
-      if (row.role === 'user' && !row.provenanceManifestId) {
-        // 用户消息可以由 R02 验证为无来源历史。
-      }
-      if (row.content.length > 12000) continue;
-      const item = { role: row.role, content: row.content, sourceRefs: row.sourceRefs,
-        sourceFree: row.sourceFree, provenanceManifestId: row.provenanceManifestId };
-      item.provenanceHash = hashRecord({ role: item.role, content: item.content,
-        sourceRefs: item.sourceRefs, sourceFree: item.sourceFree,
-        provenanceManifestId: item.provenanceManifestId });
-      entries.push(item);
-    }
-    return { entries, plainContext: plainContext.slice(-4).join('\n').slice(0, 1600) };
   }
 
   async function readTool(grantId, args) {
@@ -484,19 +458,12 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
       }
       if (grant) {
         const finalOnly = forceAnswer || round === maxRounds - 1 || totalTools >= maxTools;
-        const roundGuidance = round ? finalOnly
-            ? '\n工具结果已写入当前 sources 或 catalog。请直接依据这些来源作答；不足之处明确说明。'
-            : '\n工具结果已写入当前 sources 或 catalog。若已足够，请直接回答；只有缺少关键来源时才继续搜索或阅读。' : '';
-        const guidance = proposalRequested && !finalOnly ? `${roundGuidance}${PROPOSAL_GUIDANCE}` : roundGuidance;
         let prepared;
         for (;;) {
           const progress = proposalRequested ? proposalProgress(await store.listToolCalls(turn.turnId), sourceRefs, budgetCapacity) : '';
-          const coverage = `${draftContext}${toolFeedback}${progress}${proposalNudge}${externalContext}${webSearch.enabled ? '\n联网工具仅返回合成验收资料。' : '\n真实联网尚未配置，核实时不能假称已联网。'}${searchFallback ? '\n候选索引未提供可用结果，已使用关键词检索；关键词未命中不等于授权资料没有答案。' : ''}${searchTruncated ? '\n检索受到本次处理上限限制，不得声称已检查完整授权范围。' : ''}`;
-          const contextRoom = 4000 - user.content.length - guidance.length - coverage.length;
-          if (contextRoom < 0) fail('AI_INPUT_TOO_LARGE', '提问与必要的检索说明超过上限。');
-          const context = plainContext && contextRoom >= 8
-            ? `先前普通聊天：${plainContext}\n`.slice(0, contextRoom) : '';
-          const boundedQuestion = `${context}${user.content}${guidance}${coverage}`;
+          const boundedQuestion = authorizedQuestion({ userContent: user.content, round, finalOnly, proposalRequested,
+            draftContext, toolFeedback, progress, proposalNudge, externalContext, webSearchEnabled: webSearch.enabled,
+            searchFallback, searchTruncated, plainContext });
           try {
             prepared = await access.prepareRequest({ grantId: grant.grantId, recipient: 'deepseek',
               modelId: reference.modelId, credentialRef: reference.credentialRef,
@@ -526,10 +493,9 @@ export function createAiAgentWorker({ store, access, modelSettings, budget, gate
         }
       } else {
         request = { credentialRef: reference.credentialRef, modelId: reference.modelId,
-          messages: [{ role: 'system', content: `${ASSISTANT_GUIDANCE} 此会话没有笔记读取授权；不得声称读过用户资料或编造笔记引用。${webSearch.enabled ? '联网工具仅返回合成验收资料。' : '真实联网尚未配置；需要最新信息或核实时明确说明不可用，不能假称已联网。'}` },
-            ...plainHistory(prior), { role: 'user', content: `${user.content}${draftContext}${toolFeedback}${externalContext}` }], maxTokens: MAX_OUTPUT_TOKENS,
+          messages: plainMessages({ prior, userContent: user.content, draftContext, toolFeedback, externalContext,
+            webSearchEnabled: webSearch.enabled, writeIntent: turn.writeIntent }), maxTokens: MAX_OUTPUT_TOKENS,
           format: 'text', tools: availableTools(turn, false, forceAnswer || round === maxRounds - 1 || totalTools >= maxTools, artifactRequested, proposalRequested) };
-        if (turn.writeIntent) request.messages[0].content += '用户已明确请求生成笔记计划，只调用所开放的写入计划工具；不得宣称已保存。';
       }
       await save();
       if (pending?.modelId && pending.modelId !== reference.modelId) fail('AI_MODEL_CHANGED', '恢复前模型配置已变化。');
