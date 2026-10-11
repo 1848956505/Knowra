@@ -62,8 +62,11 @@ import {
   internalLinkSchema
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
+import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml } from './editorBlockIdentity';
+import { annotationShadowBehavior } from './annotationShadow';
 import type { Annotation } from '@study-accelerator/web-core';
 import {
+  annotationPluginKey,
   createAnnotationHighlightBehavior,
   getAnnotationSelection,
   selectEditorAnnotation,
@@ -394,7 +397,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       },
       getHtml() {
         const editor = editorRef.current;
-        return editor ? imageHtmlWithRenderedSizes(editor.action(getHTML()), editor.ctx.get(editorViewCtx)) : '';
+        return editor ? stripIdentityFromHtml(imageHtmlWithRenderedSizes(editor.action(getHTML()), editor.ctx.get(editorViewCtx))) : '';
       }
     }), []);
 
@@ -491,11 +494,16 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           latestLocalMarkdownRef.current = nextMarkdown;
           onChangeRef.current(nextMarkdown, { editIntent });
         }, (selection) => { lastSelectionRef.current = selection; }))
+        .use(annotationMarkSchema)
+        .use(createBlockIdentityBehavior((state) => new Set(annotationPluginKey.getState(state)?.annotations.map((annotation) => annotation.id) ?? [])))
+        .use(annotationShadowBehavior)
+        .use(annotationSerializerGuard)
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
         .use(editorInputBehavior)
         .use(history)
-        .use(listener);
+        .use(listener)
+        .config(configureBlockIdentitySchema);
       void editor.create().then(async () => {
         if (cancelled) return void editor.destroy();
         editorRef.current = editor;
@@ -506,6 +514,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           editorMarkdownRef.current = incomingMarkdown;
           editor.action(replaceAllMarkdown(incomingMarkdown, true));
         }
+        const identityView = editor.ctx.get(editorViewCtx);
+        identityView.dispatch(identityView.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
         readyRef.current = true;
         setEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
         const selection = editor.ctx.get(editorViewCtx).state.selection;

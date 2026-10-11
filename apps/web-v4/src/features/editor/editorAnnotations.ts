@@ -1,5 +1,6 @@
 import { listItemAt, editorListAnchor, resolveEditorListRange } from './editorListAnnotations';
 import type { AnnotationEditIntent } from './annotationEditJournal';
+import { IDENTITY_META } from './editorBlockIdentity';
 import { isHistoryTransaction } from '@milkdown/kit/prose/history';
 import { serializerCtx } from '@milkdown/kit/core';
 import { mapAnnotationRange, type TrackedAnnotationRange } from './annotationTransactionRanges';
@@ -21,6 +22,8 @@ interface AnnotationPluginState {
   ranges: Map<string, TrackedAnnotationRange>;
   editIntent: AnnotationEditIntent;
   snapshots: Array<{ doc: ProseNode; ranges: Map<string, TrackedAnnotationRange> }>;
+  /** 正文修订号；只改块 ID 或重点 mark 的身份事务不递增，不触发保存。 */
+  contentRevision: number;
 }
 
 export const annotationPluginKey = new PluginKey<AnnotationPluginState>('KNOWRA_V4_ANNOTATIONS');
@@ -33,7 +36,7 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
   return $prose((ctx) => new Plugin<AnnotationPluginState>({
     key: annotationPluginKey,
     state: {
-      init: () => ({ annotations: [], focusedId: null, decorations: DecorationSet.empty, ranges: new Map(), snapshots: [], editIntent: {} }),
+      init: () => ({ annotations: [], focusedId: null, decorations: DecorationSet.empty, ranges: new Map(), snapshots: [], editIntent: {}, contentRevision: 0 }),
       apply(transaction, previous) {
         const meta = transaction.getMeta(annotationPluginKey) as {
           annotations?: Annotation[];
@@ -82,12 +85,14 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
             else if (!ranges.has(annotation.id)) ranges.set(annotation.id, { from: 0, to: 0, scopeType: annotation.scopeType ?? 'selection', missing: true });
           }
         }
+        const contentChanged = transaction.docChanged && !transaction.getMeta(IDENTITY_META);
         return {
-          editIntent: transaction.docChanged ? {
+          contentRevision: previous.contentRevision + (contentChanged ? 1 : 0),
+          editIntent: contentChanged ? {
             ...pendingIntent,
             preserveEmptyBlock: [...ranges.values()].some(range => range.scopeType === 'blocks' && !range.missing && !transaction.doc.textBetween(range.from, range.to).trim()),
             deletedEmptyAnnotationIds: [...previous.ranges].filter(([id, range]) => range.scopeType === 'blocks' && !range.missing && range.from === range.to && ranges.get(id)?.missing).map(([id]) => id)
-          } : {},
+          } : transaction.docChanged ? previous.editIntent : {},
           actionTarget, ranges, snapshots: snapshots.slice(-200),
           annotations,
           focusedId,
@@ -115,7 +120,7 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
     view: () => ({
       update(view, previousState) {
         onSelectionChange?.({ from: view.state.selection.from, to: view.state.selection.to });
-        if (onDocumentChange && !view.state.doc.eq(previousState.doc)) {
+        if (onDocumentChange && annotationPluginKey.getState(view.state)?.contentRevision !== annotationPluginKey.getState(previousState)?.contentRevision) {
           const intent = annotationPluginKey.getState(view.state)?.editIntent ?? pendingIntent;
           pendingIntent = {};
           onDocumentChange(ctx.get(serializerCtx)(view.state.doc), intent);
