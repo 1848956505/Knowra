@@ -17,6 +17,8 @@ export async function exportElementToPdf(element: HTMLElement, title: string): P
     backgroundColor,
     onclone(clonedDocument) {
       clonedDocument.querySelectorAll('[data-pdf-exclude]').forEach((node) => node.remove());
+      // 正在编辑的公式只导出渲染结果，不带出 LaTeX 源码框。
+      clonedDocument.querySelectorAll('.math-editing').forEach((node) => node.classList.remove('math-editing'));
       const clonedPaper = clonedDocument.querySelector<HTMLElement>('[data-pdf-document]');
       if (clonedPaper) {
         clonedPaper.style.margin = '0';

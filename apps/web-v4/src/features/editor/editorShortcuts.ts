@@ -22,6 +22,7 @@ const shortcutLabels: Partial<Record<EditorCommand, string>> = {
   'task-list': 'Mod+Shift+X',
   blockquote: 'Mod+Alt+Q',
   'code-block': 'Mod+Alt+C',
+  'math-block': 'Mod+Shift+M',
   'horizontal-rule': 'Mod+Alt+R',
   table: 'Mod+Alt+T',
   bold: 'Mod+B',
@@ -92,6 +93,7 @@ export function resolveEditorShortcutCommand(input: EditorShortcutInput): Editor
   }
 
   if (input.key.toLowerCase() === 'x') return 'task-list';
+  if (input.key.toLowerCase() === 'm' || input.code === 'KeyM') return 'math-block';
   if (input.key.toLowerCase() === 'h' || input.code === 'KeyH') return 'highlight';
   if (input.code === 'Backquote') return 'inline-code';
   if (input.code === 'BracketLeft' || input.key === '{') return 'ordered-list';

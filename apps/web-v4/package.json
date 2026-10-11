@@ -19,11 +19,14 @@
     "check": "npm run typecheck && npm run check:boundaries && npm run test"
   },
   "dependencies": {
-    "@study-accelerator/content-anchor": "1.0.0",
     "@milkdown/kit": "^7.21.2",
+    "@study-accelerator/content-anchor": "1.0.0",
     "@study-accelerator/web-core": "2.14.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "katex": "^0.16.22",
+    "mdast-util-math": "^3.0.0",
+    "micromark-extension-math": "^3.1.0",
     "react": "19.2.8",
     "react-aria": "3.51.0",
     "react-aria-components": "1.20.0",

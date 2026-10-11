@@ -15,6 +15,8 @@ export type EditorCommand =
   | 'task-list'
   | 'blockquote'
   | 'code-block'
+  | 'math-block'
+  | 'math-inline'
   | 'horizontal-rule'
   | 'table'
   | 'delete-selection'

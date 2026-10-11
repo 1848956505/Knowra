@@ -170,6 +170,7 @@ export function EditorContextMenu({
                   <MenuItem id="table" icon={<TableIcon size={15} />} isDisabled={!canEdit}>表格</MenuItem>
                   <MenuItem id="horizontal-rule" icon={<HorizontalRuleIcon size={15} />} isDisabled={!canEdit}>水平分割线</MenuItem>
                   <MenuItem id="code-block" icon={<CodeIcon size={15} />} isDisabled={!canEdit}>代码块</MenuItem>
+                  <MenuItem id="math-block" kbd={getEditorShortcutLabel('math-block')} isDisabled={!canEdit}>公式块</MenuItem>
                   <MenuItem id="blockquote" icon={<QuoteIcon size={15} />} isDisabled={!canEdit}>引用</MenuItem>
                   <MenuItem id="image" icon={<ImageIcon size={15} />} isDisabled={!canEdit || !extendedWritesEnabled} onAction={onInsertImage}>图片</MenuItem>
                   <MenuSeparator />
