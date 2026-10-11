@@ -71,6 +71,8 @@ import {
 } from './editorAnnotations';
 import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode, selectCodeBlockContentsAt } from './editorCodeCommands';
 import { createCodeBlockBehavior } from './editorCodeBlock';
+import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
+import { createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema, mathInlineGuardRemark, mathRemark } from './editorMathBlock';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
 import { EditorTableControls } from './EditorTableControls';
@@ -174,7 +176,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       }
       if (readOnlyRef.current) return;
       userInteractionRef.current = true;
-      if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && createCodeFromFence(view.state, view.dispatch)) {
+      if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (createCodeFromFence(view.state, view.dispatch) || createMathFromFence(view.state, view.dispatch))) {
         event.preventDefault(); event.stopPropagation(); return;
       }
       if (view.state.selection.$from.parent.type.spec.code) {
@@ -456,6 +458,13 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(noteLinkDomBehavior(() => noteLinkCallbacks.current.noteLinkStatuses))
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
         .use(gfm)
+        .use(mathRemark)
+        .use(mathInlineGuardRemark)
+        .use(mathBlockSchema)
+        .use(mathBlockBehavior)
+        .use(mathInlineSchema)
+        .use(mathInlineBehavior)
+        .use(mathInlineInputRule)
         .use(editorTableBehavior)
         .use(editorImageBehavior)
         .use(highlightRemark)
@@ -622,6 +631,14 @@ const commandResolvers: Record<EditorCommand, (editor: Editor) => boolean> = {
   'task-list': (editor) => Boolean(editor.action(callCommand(turnIntoTaskListCommand.key))),
   blockquote: (editor) => Boolean(editor.action(callCommand(wrapInBlockquoteCommand.key))),
   'code-block': runCodeBlockCommand,
+  'math-block': (editor) => {
+    const view = editor.ctx.get(editorViewCtx);
+    return insertMathBlock(view.state, view.dispatch);
+  },
+  'math-inline': (editor) => {
+    const view = editor.ctx.get(editorViewCtx);
+    return insertMathInline(view.state, view.dispatch);
+  },
   'horizontal-rule': (editor) => Boolean(editor.action(callCommand(insertHrCommand.key))),
   table: (editor) => Boolean(editor.action(callCommand(insertTableCommand.key, { row: 3, col: 3 }))),
   'delete-selection': runDeleteSelectionCommand,

@@ -24,6 +24,7 @@ const listItems: Array<{ command: EditorCommand; label: string }> = [
 const insertItems: Array<{ command: EditorCommand; label: string }> = [
   { command: 'blockquote', label: '引用块' },
   { command: 'code-block', label: '代码块' },
+  { command: 'math-block', label: '公式块' },
   { command: 'horizontal-rule', label: '分割线' },
   { command: 'table', label: '表格' }
 ];

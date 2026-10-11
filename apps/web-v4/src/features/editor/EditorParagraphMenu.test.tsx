@@ -28,7 +28,7 @@ describe('EditorParagraphMenu', () => {
     for (const label of [
       '正文', 'H1', 'H2', 'H3', 'H4',
       '无序列表', '有序列表', '任务列表',
-      '引用块', '代码块', '分割线', '表格'
+      '引用块', '代码块', '公式块', '分割线', '表格'
     ]) {
       expect(screen.getByRole('menuitem', { name: label })).toBeEnabled();
     }

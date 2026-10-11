@@ -266,3 +266,109 @@
   .milkdownEditor :global([data-code-toolbar]) :is(input, button) { min-height: var(--touch-target); }
   .milkdownEditor :global(.ProseMirror) li[data-item-type='task'] { min-height: var(--touch-target); }
 }
+
+.milkdownEditor :global(.ProseMirror) [data-math-block] {
+  position: relative;
+  margin: 20px 0;
+  border-radius: 8px;
+}
+/* 未编辑时源码保持可被光标进入，但不占视觉空间。 */
+.milkdownEditor :global(.ProseMirror) [data-math-block] > [data-math-source] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+.milkdownEditor :global(.ProseMirror) [data-math-block]:global(.math-editing) > [data-math-source] {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: visible;
+  opacity: 1;
+  border-radius: 8px 8px 0 0;
+  background: var(--surface-sunken);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  font: 12.5px/1.8 var(--font-mono);
+}
+.milkdownEditor :global(.ProseMirror) [data-math-source] > code {
+  display: block;
+  min-height: 1.8em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.milkdownEditor :global(.ProseMirror) [data-math-block] > [data-math-preview] {
+  min-height: 2.4em;
+  padding: 8px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+  user-select: none;
+}
+.milkdownEditor :global(.ProseMirror) [data-math-block]:global(.math-editing) > [data-math-preview] {
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.milkdownEditor :global(.ProseMirror) [data-math-block]:not(:global(.math-editing)) > [data-math-preview] { cursor: pointer; }
+.milkdownEditor :global(.ProseMirror) [data-math-block]:not(:global(.math-editing)) > [data-math-preview]:hover { background: var(--surface-sunken); }
+.milkdownEditor :global(.ProseMirror) [data-math-block] > [data-math-preview][data-empty]::before {
+  content: '空公式，点击输入 LaTeX';
+  color: var(--text-muted);
+  font: var(--font-size-meta)/2.4 var(--font-ui);
+}
+.milkdownEditor :global(.ProseMirror) [data-math-preview]:global(.math-error) {
+  color: var(--color-danger);
+  font: 12.5px/1.6 var(--font-mono);
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.milkdownEditor :global(.ProseMirror) [data-math-inline] {
+  position: relative;
+  display: inline;
+  border-radius: 4px;
+}
+.milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-source] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+.milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview] { cursor: pointer; user-select: none; }
+.milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview][data-empty]::before {
+  content: '公式';
+  color: var(--text-muted);
+}
+.milkdownEditor :global(.ProseMirror) [data-math-inline]:global(.math-editing) { background: var(--surface-sunken); box-shadow: 0 0 0 1px var(--border-subtle); }
+.milkdownEditor :global(.ProseMirror) [data-math-inline]:global(.math-editing) > [data-math-source] {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  opacity: 1;
+  padding: 0 4px;
+  font: 0.9em/1.6 var(--font-mono);
+}
+/* 编辑态下渲染结果以浮层显示在下方，不挤动正文。 */
+.milkdownEditor :global(.ProseMirror) [data-math-inline]:global(.math-editing) > [data-math-preview] {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--surface-page);
+  box-shadow: 0 0 0 1px var(--border-subtle), var(--shadow-popover, 0 4px 14px rgb(0 0 0 / 12%));
+  white-space: nowrap;
+}
+.milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview]:global(.math-error) {
+  color: var(--color-danger);
+  font: 12px/1.5 var(--font-mono);
+}

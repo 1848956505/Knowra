@@ -18,6 +18,7 @@ export function renderEditorFormatMenu({ onCommand, onInsertImage, canInsertImag
       <MenuItem id="strikethrough" aria-label="删除线" kbd={getEditorShortcutLabel('strikethrough')} onAction={command('strikethrough')}>删除线</MenuItem>
       <MenuItem id="inline-code" kbd={getEditorShortcutLabel('inline-code')} onAction={command('inline-code')}>行内代码</MenuItem>
       <MenuItem id="highlight" kbd={getEditorShortcutLabel('highlight')} onAction={command('highlight')}>高亮</MenuItem>
+      <MenuItem id="math-inline" onAction={command('math-inline')}>行内公式</MenuItem>
     </>
   );
 }
