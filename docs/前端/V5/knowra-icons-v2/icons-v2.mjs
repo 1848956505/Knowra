@@ -28,6 +28,7 @@ export const GROUPS = [
     ['CheckIcon', '完成', '<circle cx="12" cy="12" r="9.5"/><path d="m7.8 12.3 3 3 5.4-6"/>'],
     ['UserIcon', '用户', '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
     ['HomeIcon', '主页', '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>'],
+    ['InboxIcon', '收件箱', '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>'],
     ['BellIcon', '通知', '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'],
   ]],
   ['navigation', '导航与操作', [

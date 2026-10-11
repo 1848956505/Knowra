@@ -24,14 +24,11 @@ for (const f of fs.readdirSync(oldDir)) {
 }
 oldIcons.ParagraphAddIcon = `<path d="M5 5h8a4 4 0 0 1 0 8H9V5M9 5v14"/><path d="M16 17h5M18.5 14.5v5" stroke="${OLD_ACCENT}"/>`;
 
+// 新增图标在旧版中不存在，预览里旧版一栏留空
+// 旧图标代码已被 V2 替换，解析不到的图标在预览里旧版一栏留空（该对比仅对历史版本有意义）。
+for (const n of GROUPS.flatMap(([, , items]) => items.map((i) => i[0]))) oldIcons[n] ??= '';
 const names = GROUPS.flatMap(([, , items]) => items.map((i) => i[0]));
-const missing = names.filter((n) => !oldIcons[n]);
-const extra = Object.keys(oldIcons).filter((n) => !names.includes(n));
-if (missing.length || extra.length) {
-  console.error('名称不一致', { missing, extra });
-  process.exit(1);
-}
-console.log(`ok: ${names.length} icons, old=${Object.keys(oldIcons).length}`);
+console.log(`ok: ${names.length} icons`);
 
 const data = GROUPS.map(([id, zh, items]) => ({
   id, zh,
