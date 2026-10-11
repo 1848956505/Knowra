@@ -21,9 +21,10 @@ export function createTrainingWorkspaceQuery({ snapshotReader } = {}) {
   async function listQuestions(input = {}) {
     const query = parseWorkspaceQuery(input);
     const snapshot = await snapshotReader.load();
+    const context = buildQuestionContext(snapshot);
     const questions = snapshot.questions
       .filter((question) => query.includeArchived || question.reviewStatus !== 'archived')
-      .map((question) => buildQuestionDto(snapshot, question))
+      .map((question) => buildQuestionDto(snapshot, question, context))
       .filter((question) => matchesQuestion(question, query));
     return paginateWorkspaceItems(questions, query);
   }
@@ -45,9 +46,10 @@ export function createTrainingWorkspaceQuery({ snapshotReader } = {}) {
 
   async function getTrainingOverview() {
     const snapshot = await snapshotReader.load();
+    const context = buildQuestionContext(snapshot);
     const questions = snapshot.questions
       .filter((question) => question.reviewStatus !== 'archived')
-      .map((question) => buildQuestionDto(snapshot, question));
+      .map((question) => buildQuestionDto(snapshot, question, context));
     const profiles = snapshot.profiles.filter((profile) => !profile.archivedAt);
     return {
       generatedAt: new Date().toISOString(),
@@ -85,9 +87,15 @@ export function createTrainingWorkspaceQuery({ snapshotReader } = {}) {
   }
 }
 
-function buildQuestionDto(snapshot, question) {
-  const objectiveById = new Map(snapshot.objectives.map((objective) => [objective.id, objective]));
-  const itemById = new Map(snapshot.knowledgeItems.map((item) => [item.id, item]));
+function buildQuestionContext(snapshot) {
+  return {
+    objectiveById: new Map(snapshot.objectives.map((objective) => [objective.id, objective])),
+    itemById: new Map(snapshot.knowledgeItems.map((item) => [item.id, item])),
+    sourceLabels: buildSourceLabels(snapshot)
+  };
+}
+
+function buildQuestionDto(snapshot, question, { objectiveById, itemById, sourceLabels }) {
   const links = (snapshot.indexes.linksByQuestion.get(question.id) ?? []).map((link) => {
     const objective = objectiveById.get(link.learningObjectiveId);
     const item = objective ? itemById.get(objective.knowledgeItemId) : null;
@@ -105,7 +113,7 @@ function buildQuestionDto(snapshot, question) {
   return toQuestionWorkspaceDto(question, {
     objectives: links,
     sources,
-    sourceLabels: buildSourceLabels(snapshot)
+    sourceLabels
   });
 }
 
