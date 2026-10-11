@@ -330,7 +330,9 @@
 
 .milkdownEditor :global(.ProseMirror) [data-math-inline] {
   position: relative;
-  display: inline;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
   border-radius: 4px;
 }
 .milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-source] {
@@ -340,7 +342,14 @@
   overflow: hidden;
   opacity: 0;
 }
-.milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview] { cursor: pointer; user-select: none; }
+.milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview] {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+}
 .milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview][data-empty]::before {
   content: '公式';
   color: var(--text-muted);
@@ -353,6 +362,7 @@
   overflow: visible;
   opacity: 1;
   padding: 0 4px;
+  overflow-wrap: anywhere;
   font: 0.9em/1.6 var(--font-mono);
 }
 /* 编辑态下渲染结果以浮层显示在下方，不挤动正文。 */
@@ -367,8 +377,11 @@
   background: var(--surface-page);
   box-shadow: 0 0 0 1px var(--border-subtle), var(--shadow-popover, 0 4px 14px rgb(0 0 0 / 12%));
   white-space: nowrap;
+  max-width: min(32rem, calc(100vw - 64px));
 }
 .milkdownEditor :global(.ProseMirror) [data-math-inline] > [data-math-preview]:global(.math-error) {
   color: var(--color-danger);
   font: 12px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

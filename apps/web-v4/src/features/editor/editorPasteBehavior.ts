@@ -1,9 +1,9 @@
-import { convertTexMathDelimiters } from './editorMathBlock';
+import { convertTexMathDelimiters, shouldPasteAsSource } from './editorMathPaste';
 import { Fragment, Slice } from '@milkdown/kit/prose/model';
 import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import { $prose } from '@milkdown/kit/utils';
-import { parserCtx } from '@milkdown/kit/core';
+import { parserCtx, remarkCtx } from '@milkdown/kit/core';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { assertInlineImageFile } from './attachmentFiles';
 
@@ -73,7 +73,15 @@ export function createEditorPasteBehavior(
       transformPastedHTML: stripPastedInlineStyles,
       handlePaste(view, event, preProcessedSlice) {
         const clipboardData = event.clipboardData;
-        if (!clipboardData || view.state.selection.$from.parent.type.spec.code) return false;
+        if (!clipboardData) return false;
+        if (shouldPasteAsSource(view.state)) {
+          const source = clipboardData.getData('text/plain');
+          if (!source) return false;
+          event.preventDefault();
+          view.dispatch(view.state.tr.insertText(source.replace(/\r\n?/g, '\n')).scrollIntoView());
+          return true;
+        }
+        if (view.state.selection.$from.parent.type.spec.code) return false;
 
         const imageFiles = Array.from(clipboardData.items ?? []).filter((item) => (
           item.kind === 'file' && item.type.startsWith('image/')
@@ -101,7 +109,9 @@ export function createEditorPasteBehavior(
           return true;
         }
 
-        const texConverted = convertTexMathDelimiters(text);
+        const vscodeData = clipboardData.getData('vscode-editor-data');
+        const htmlHasCode = Boolean(html && new DOMParser().parseFromString(html, 'text/html').querySelector('pre, code'));
+        const texConverted = vscodeData || htmlHasCode ? text : convertTexMathDelimiters(text, source => ctx.get(remarkCtx).parse(source));
         if (text && texConverted !== text) {
           const slice = parseMarkdownSlice(ctx.get(parserCtx), texConverted);
           if (slice) {
@@ -114,7 +124,7 @@ export function createEditorPasteBehavior(
         if (shouldPreferPlainMarkdown({
           text,
           html,
-          vscodeData: clipboardData.getData('vscode-editor-data')
+          vscodeData
         })) {
           const slice = parseMarkdownSlice(ctx.get(parserCtx), text);
           if (!slice) return false;

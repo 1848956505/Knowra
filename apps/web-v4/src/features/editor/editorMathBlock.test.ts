@@ -9,12 +9,9 @@ import {
   insertMathBlock,
   mathBlockBehavior,
   mathBlockSchema,
-  mathInlineGuardRemark,
-  mathRemark,
-  renderMath,
-  convertTexMathDelimiters,
-  stripTexDelimiters
 } from './editorMathBlock';
+import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
+import { renderMath, stripTexDelimiters } from './editorMathRender';
 import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
 
 async function create(markdown: string) {
@@ -114,9 +111,4 @@ describe('TeX delimiters', () => {
     expect(el.querySelector('.katex')).not.toBeNull();
   });
 
-  it('converts pasted \\[ \\] and \\( \\) into Markdown math', () => {
-    expect(convertTexMathDelimiters('复习：\n\n\\[ a=b \\]')).toBe('复习：\n\n\n\n$$\na=b\n$$\n\n');
-    expect(convertTexMathDelimiters('其中 \\( x_1 \\) 为')).toBe('其中 $x_1$ 为');
-    expect(convertTexMathDelimiters('无公式')).toBe('无公式');
-  });
 });

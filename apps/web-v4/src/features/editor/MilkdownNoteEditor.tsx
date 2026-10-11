@@ -72,7 +72,8 @@ import {
 import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode, selectCodeBlockContentsAt } from './editorCodeCommands';
 import { createCodeBlockBehavior } from './editorCodeBlock';
 import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
-import { createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema, mathInlineGuardRemark, mathRemark } from './editorMathBlock';
+import { createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema } from './editorMathBlock';
+import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
 import { EditorTableControls } from './EditorTableControls';
@@ -179,7 +180,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (createCodeFromFence(view.state, view.dispatch) || createMathFromFence(view.state, view.dispatch))) {
         event.preventDefault(); event.stopPropagation(); return;
       }
-      if (view.state.selection.$from.parent.type.spec.code) {
+      if (view.state.selection.$from.parent.isBlock && view.state.selection.$from.parent.type.spec.code) {
         let handled = false;
         if (['Backspace', 'Delete'].includes(event.key) && !event.altKey && !event.ctrlKey && !event.metaKey) handled = removeEmptyCode(view.state, view.dispatch);
         else if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) handled = indentCode(event.shiftKey)(view.state, view.dispatch);
