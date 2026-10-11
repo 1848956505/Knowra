@@ -1,0 +1,444 @@
+<title>知境 分层外壳方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;650&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 布局：外壳层(顶栏+图标栏+间隙，淡冷灰) 之上悬着两块面板：上下文侧栏(半透明) 与 功能页面(最亮、阴影最深) */
+:root{
+  --chrome:#e1e4ea;            /* 全局独立栏背景，比页面淡、比页面低 */
+  --chrome-2:#dfe3ea;
+  --page:#fbfcfd;               /* 笔记页面底色：必须比侧栏 #F7F9FA 更白，但不用纯白。候选：#FDFDFE / #FBFCFD / #F9FBFC */
+  /* 文字三级灰阶（见 笔记页面设计.md）：Primary 标题/焦点 · Secondary 正文 · Tertiary 元数据。拒绝纯黑 */
+  --ink:#17181b; --ink-2:#686d76; --ink-3:#8a8f99; --ink-4:#b4b9c6;
+  --line:rgba(24,30,48,.075); --line-2:rgba(24,30,48,.12);
+  --hover:rgba(24,30,48,.055); --press:rgba(24,30,48,.085);
+  --accent:#f26b1d;
+  --accent-ink:#c4510c;
+  --accent-soft:color-mix(in srgb,var(--accent) 9%,#fff);
+  --accent-line:color-mix(in srgb,var(--accent) 24%,#fff);
+  --hl:inset 0 1px 0 rgba(255,255,255,.85);
+  --sh-side:0 0 0 1px rgba(24,30,48,.06),0 1px 2px rgba(24,30,48,.04),inset 0 1px 0 rgba(255,255,255,.7);
+  --sh-page:0 0 0 1px rgba(24,30,48,.07),0 1px 2px rgba(24,30,48,.05),0 6px 18px -6px rgba(24,30,48,.10),0 22px 48px -18px rgba(24,30,48,.14);
+  --sh-pop:0 0 0 1px rgba(24,30,48,.08),0 4px 10px rgba(24,30,48,.06),0 24px 64px -12px rgba(24,30,48,.28);
+  --ui:"Inter","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--chrome);color:var(--ink);font:400 13px/1.5 var(--ui);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;font-feature-settings:"calt","kern"}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;transition:background .12s var(--ease),color .12s var(--ease),box-shadow .12s var(--ease)}
+svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+::selection{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+
+.app{height:100%;display:grid;grid-template-columns:56px auto minmax(0,1fr);grid-template-rows:46px minmax(0,1fr);
+  /* 外壳层带有极淡的色彩渐变，磨砂面板才有东西可以透出来 */
+  background:
+    radial-gradient(460px 320px at 6% 4%,rgba(255,255,255,.32),transparent 70%),
+    radial-gradient(640px 560px at -4% 104%,color-mix(in srgb,var(--accent) 11%,transparent),transparent 66%),
+        var(--chrome)}
+/* 页面光晕：none / sheen(顶部白色高光) / cool(淡冷蓝) / warm(淡强调色，原方案，右上角会发脏) */
+.app,.app[data-glow=sheen]{--glow:radial-gradient(900px 320px at 50% -8%,rgba(255,255,255,.95),transparent 72%)}
+.app[data-glow=none]{--glow:linear-gradient(transparent,transparent)}
+.app[data-glow=cool]{--glow:radial-gradient(760px 420px at 80% -12%,rgba(112,138,230,.07),transparent 70%)}
+.app[data-glow=warm]{--glow:radial-gradient(720px 420px at 80% -10%,color-mix(in srgb,var(--accent) 6%,transparent),transparent 70%)}
+/* 玻璃范围对比：side / both / page / none */
+.app[data-glass=page] .ctx,.app[data-glass=none] .ctx{background:#f7f9fa;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 1px 2px rgba(24,30,48,.05)}
+.app[data-glass=both] .page,.app[data-glass=page] .page{
+  background:var(--glow),linear-gradient(130deg,color-mix(in srgb,var(--page) 92%,transparent),color-mix(in srgb,var(--page) 82%,transparent));
+  backdrop-filter:blur(28px) saturate(125%);-webkit-backdrop-filter:blur(28px) saturate(125%);
+  box-shadow:inset 1px 1px 0 #ffffffd0,0 0 0 1px rgba(54,60,74,.12),0 1px 2px rgba(24,30,48,.05),0 8px 22px -8px rgba(24,30,48,.10),0 22px 48px -18px rgba(24,30,48,.14)}
+.seg{display:inline-flex;padding:2px;border-radius:8px;background:rgba(24,30,48,.06)}
+.seg button{height:22px;padding:0 8px;border-radius:6px;font-size:12px;color:var(--ink-2)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);font-weight:500;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(24,30,48,.08)}
+
+/* ===== 顶栏（外壳层）===== */
+.top{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:0 10px 0 12px;min-width:0}
+.ib{width:28px;height:28px;border-radius:7px;display:inline-grid;place-items:center;color:var(--ink-3);flex:none}
+.ib:hover{background:var(--hover);color:var(--ink)}
+.ib:disabled{opacity:.4;cursor:default;background:none}
+.ib[aria-pressed=true]{background:var(--press);color:var(--ink)}
+/* 横向滚动会裁掉标签自己的描边和阴影，所以内外各留 8px/4px 余量 */
+.tabs{display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none;padding:8px 4px;margin:-8px -4px -8px 2px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{display:inline-flex;align-items:center;gap:7px;height:30px;max-width:190px;padding:0 6px 0 10px;border-radius:8px;color:var(--ink-2);font-size:12.5px;font-weight:450;flex:none;position:relative}
+.tab .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab .i{width:14px;height:14px;color:var(--ink-3)}
+.tab:hover{background:var(--hover)}
+.tab[aria-selected=true]{background:#fff;color:var(--ink);font-weight:500;box-shadow:0 0 0 1px rgba(24,30,48,.08),0 1px 2px rgba(24,30,48,.06),0 3px 8px -3px rgba(24,30,48,.10)}
+.tab[aria-selected=true] .i{color:var(--accent)}
+.tab .x{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--ink-3);opacity:0}
+.tab:hover .x,.tab[aria-selected=true] .x{opacity:1}
+.tab .x:hover{background:var(--press);color:var(--ink)}
+.tab .x .i{width:11px;height:11px;color:inherit}
+.top .grow{flex:1;min-width:8px}
+.sep{width:1px;height:14px;background:var(--line-2);margin:0 4px;flex:none}
+.pill{font-size:11px;color:var(--ink-3);padding:2px 8px;border-radius:999px;box-shadow:0 0 0 1px var(--line-2);background:rgba(255,255,255,.4);white-space:nowrap}
+
+/* ===== 图标栏（外壳层）===== */
+.rail{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 10px}
+.rail .rb{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--ink-3);position:relative}
+.rail .rb:hover{background:var(--hover);color:var(--ink)}
+.rail .rb[aria-current=page]{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,255,255,.86));color:var(--accent);box-shadow:0 0 0 1px rgba(24,30,48,.08),0 1px 2px rgba(24,30,48,.06),0 6px 12px -6px color-mix(in srgb,var(--accent) 35%,transparent),inset 0 1px 0 #fff}
+.rail .rb .i{width:18px;height:18px}
+.rail .mid{flex:1}
+.avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#000));color:#fff;font:600 11px/26px var(--ui);text-align:center;margin-top:4px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+
+/* ===== 上下文侧栏（悬浮面板）===== */
+.ctx{width:240px;margin:0 8px 8px 0;border-radius:12px;
+  /* 材质取自参考图 2：斜向冷灰渐变 + 28px 磨砂 + 左上内高光 + 细边 */
+  /* 上下文侧栏底色 = #F7F9FA（用户指定，2026-10-11 定稿）。
+     用 92% 不透明度保留一点点磨砂透出；要严格等于色值时改为 #f7f9fa。
+     「仅页面 / 关」两档的实色版本在下方 .app[data-glass] 规则里同样是 #f7f9fa。 */
+  background:rgba(247,249,250,.92);
+  backdrop-filter:blur(28px) saturate(125%);-webkit-backdrop-filter:blur(28px) saturate(125%);
+  border:1px solid rgba(54,60,74,.13);
+  box-shadow:inset 1px 1px 0 #ffffffc7,0 1px 2px rgba(24,30,48,.05),0 12px 28px -16px rgba(24,30,48,.16);
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ctx-h{display:flex;align-items:center;gap:6px;height:48px;padding:0 8px 0 14px}
+.ctx-h strong{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.ctx-h .i.chev{width:12px;height:12px;color:var(--ink-3);margin-left:-2px}
+.ctx-scroll{flex:1;min-height:0;overflow:auto;padding:0 8px 8px;scrollbar-width:thin;scrollbar-color:rgba(24,30,48,.15) transparent}
+.nv{width:100%;height:30px;display:flex;align-items:center;gap:9px;padding:0 8px;border-radius:7px;color:var(--ink-2);text-align:left;font-weight:450;position:relative}
+.nv .i{color:var(--ink-3);width:15px;height:15px}
+.nv:hover{background:var(--hover);color:var(--ink)}
+.nv{border:1px solid transparent}
+.nv[aria-current=page]{background:linear-gradient(#ffffffb0,#ffffff65);border-color:#dfe2e9;box-shadow:0 1px 2px #21273506,inset 0 1px #fff;color:#283344;font-weight:600}
+.nv[aria-current=page] .i{color:var(--accent)}
+.nv .n{margin-left:auto;font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.lbl{display:flex;align-items:center;gap:4px;margin:14px 4px 6px;padding:14px 4px 0;border-top:1px solid var(--line);font-size:11px;font-weight:500;color:var(--ink-3)}
+.lbl.first{margin-top:2px;padding-top:0;border-top:0}
+.lbl .i{width:11px;height:11px}
+.sub{margin:1px 0 4px 15px;padding-left:8px;border-left:1px solid var(--line-2)}
+.nl{display:block;width:100%;text-align:left;height:26px;padding:0 8px;border-radius:6px;font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nl:hover{background:var(--hover);color:var(--ink)}
+.nl[aria-current=page]{background:rgba(24,30,48,.075);color:var(--ink);font-weight:550}
+.ctx-f{padding:6px 8px 8px;border-top:1px solid var(--line)}
+.local{display:flex;align-items:center;gap:6px;padding:6px 8px 0;font-size:11px;color:var(--ink-3)}
+.local i{width:6px;height:6px;border-radius:50%;background:#2fb26b;box-shadow:0 0 0 3px rgba(47,178,107,.16)}
+
+/* ===== 功能页面（最上层）===== */
+.page{margin:0 8px 8px 0;border-radius:12px;background:var(--glow),var(--page);box-shadow:var(--sh-page);display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) 30px;min-width:0;overflow:hidden;position:relative}
+.page-scroll{overflow:auto;min-height:0;scrollbar-width:thin;scrollbar-color:rgba(24,30,48,.14) transparent}
+.doc{max-width:860px;margin:0 auto;padding:44px 64px 96px}
+.crumb{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-3);margin-bottom:18px}
+.crumb .i{width:13px;height:13px}
+.crumb b{font-weight:450;color:var(--ink-2)}
+.doc h1{margin:0 0 14px;font:700 34px/1.3 var(--ui);letter-spacing:-.6px;color:var(--ink);text-wrap:balance;border:0;background:transparent;outline:0;min-height:1.3em}
+.doc h1:empty::before{content:'无标题';color:var(--ink-4)}
+.meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--ink-3);font-size:12px;margin-bottom:36px}
+.tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;color:var(--ink-2);background:#fff;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.04)}
+.tag.ac{color:var(--accent-ink);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent-line)}
+.tb{display:none;align-items:center;gap:2px;padding:4px;margin:-14px 0 28px;border-radius:9px;background:#fff;box-shadow:0 0 0 1px var(--line-2),0 4px 14px -4px rgba(24,30,48,.1);width:fit-content;max-width:100%;flex-wrap:wrap}
+.doc.editing .tb{display:flex}
+.tb .ib{width:30px;height:28px;font-size:12px;color:var(--ink-2)}
+.tb .sep{margin:0 4px}
+.reading{font-size:15px;line-height:1.75;letter-spacing:.01em;color:var(--ink-2);outline:0}
+.reading .lead{font-size:16px;line-height:1.8;color:var(--ink-2);margin:0 0 28px}
+.reading h2{margin:30px 0 12px;font:600 19px/1.5 var(--ui);letter-spacing:-.3px;color:var(--ink)}
+.reading p{margin:0 0 16px}
+.reading strong{color:var(--ink);font-weight:600}
+.reading ul{padding-left:20px;margin:0 0 20px}.reading li{margin:0 0 8px;padding-left:4px}.reading li::marker{color:var(--accent)}
+.callout{display:flex;gap:12px;margin:26px 0;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,.62);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.03);color:var(--ink-2);font-size:13.5px;line-height:1.75}
+.callout .i{color:var(--accent);margin-top:4px}
+.callout strong{color:var(--ink)}
+.note-code{margin:20px 0;padding:16px 18px;border-radius:8px;background:#eaedf0;box-shadow:0 0 0 1px var(--line),inset 0 1px 3px rgba(0,0,0,.025);font:400 12.5px/1.8 var(--mono);color:#4a4d55;overflow:auto;tab-size:2}
+.code-comment{color:var(--ink-3)}.code-key{color:var(--accent-ink);font-weight:500}
+.checklist{margin:14px 0 20px}
+.cr{display:flex;align-items:flex-start;gap:10px;padding:7px 0;font-size:14px;cursor:pointer}
+.cr input{accent-color:var(--accent);width:15px;height:15px;margin:5px 0 0}
+.cr:has(:checked) span{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-4)}
+.rel{margin-top:36px;padding-top:18px;border-top:1px solid var(--line)}
+.rel-l{font-size:11px;color:var(--ink-3);font-weight:500;margin-bottom:6px}
+.rl{display:flex;align-items:center;gap:8px;color:var(--accent-ink);font-size:13px;padding:6px 0}
+.rl:hover{text-decoration:underline;text-underline-offset:3px}
+.rl .i{width:14px;height:14px}
+.reading[contenteditable=true],.doc h1[contenteditable=true]{outline:0;caret-color:var(--accent)}
+.reading ::selection,.doc h1::selection{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.page-scroll::-webkit-scrollbar{width:6px}.page-scroll::-webkit-scrollbar-track{background:transparent}.page-scroll::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}.page-scroll::-webkit-scrollbar-thumb:hover{background:rgba(24,30,48,.22)}
+
+.coll-t{font-size:12px;color:var(--ink-3);margin:0 0 10px}
+.crow{display:block;width:100%;text-align:left;padding:14px 12px;margin:0 -12px;border-radius:10px;width:calc(100% + 24px)}
+.crow:hover{background:var(--hover)}
+.crow strong{display:block;font-size:15px;font-weight:550;color:var(--ink)}
+.crow span{display:block;font-size:12.5px;color:var(--ink-3);margin-top:4px;line-height:1.7}
+.quiet{padding:20px;border-radius:10px;background:#fff;box-shadow:0 0 0 1px var(--line-2);color:var(--ink-2);line-height:1.9;font-size:13px}
+
+.insp{width:216px;border-left:1px solid var(--line);padding:24px 18px;overflow:auto;background:linear-gradient(180deg,rgba(24,30,48,.018),transparent 200px)}
+.insp[hidden]{display:none}
+.insp h3{margin:0 0 12px;font-size:11px;font-weight:500;color:var(--ink-3)}
+.pr{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:12px;color:var(--ink-3)}
+.pr span:last-child{color:var(--ink-2)}
+.ol{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.ol a{display:block;padding:5px 0;font-size:12px;color:var(--ink-3);text-decoration:none;cursor:pointer}
+.ol a:hover{color:var(--accent-ink)}
+
+.foot{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:0 16px;border-top:1px solid var(--line);font-size:11px;color:var(--ink-3);background:rgba(24,30,48,.014)}
+.foot .r{margin-left:auto}
+
+/* 辅助浮层 */
+.hint{position:absolute;right:16px;bottom:44px;display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-radius:10px;background:rgba(255,255,255,.78);backdrop-filter:blur(16px);box-shadow:0 0 0 1px var(--line-2),0 6px 20px -6px rgba(24,30,48,.16),var(--hl);color:var(--ink-3);font-size:12px}
+.hint:hover{color:var(--ink-2)}
+kbd{font:500 10.5px var(--mono);padding:1px 5px;border-radius:4px;background:#fff;box-shadow:0 0 0 1px var(--line-2),0 1px 0 var(--line-2);color:var(--ink-2)}
+.acc{position:absolute;left:16px;bottom:44px;display:flex;flex-wrap:wrap;max-width:calc(100% - 200px);align-items:center;gap:8px;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.78);backdrop-filter:blur(16px);box-shadow:0 0 0 1px var(--line-2),0 6px 20px -6px rgba(24,30,48,.16),var(--hl);font-size:12px;color:var(--ink-3)}
+.acc button{width:18px;height:18px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.35)}
+.acc button[aria-pressed=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--c)}
+.acc button[data-p]{box-shadow:inset 0 0 0 1px rgba(24,30,48,.22)}
+.acc button[data-p][aria-pressed=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}
+.toast{position:fixed;bottom:48px;left:50%;transform:translate(-50%,8px);background:#262b3a;color:#fff;padding:9px 14px;border-radius:9px;font-size:12px;box-shadow:var(--sh-pop);opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:20}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+dialog.pal{padding:0;border:0;border-radius:14px;width:min(520px,calc(100vw - 32px));margin-top:16vh;background:rgba(252,252,254,.94);backdrop-filter:blur(28px);box-shadow:var(--sh-pop);color:var(--ink)}
+dialog.pal::backdrop{background:rgba(30,36,56,.22);backdrop-filter:blur(3px)}
+.si{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.si .i{color:var(--ink-3)}
+.si input{all:unset;flex:1;min-width:0;font-size:14px}
+.si input::placeholder{color:var(--ink-3)}
+.sr{padding:6px;max-height:300px;overflow:auto}
+.rs{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px;border-radius:8px;font-size:13px}
+.rs .i{color:var(--ink-3)}.rs small{margin-left:auto;color:var(--ink-3);font-size:11px}
+.rs:hover,.rs:focus{background:var(--accent-soft);outline:0}
+.rs:hover .i,.rs:focus .i{color:var(--accent)}
+.sh{padding:9px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--ink-3)}
+.empty{padding:26px;text-align:center;color:var(--ink-3)}
+.btn{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;font-weight:500;font-size:12.5px;background:var(--accent);color:#fff;box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 80%,#000),0 1px 2px rgba(24,30,48,.2),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn:hover{filter:brightness(1.06)}
+
+@media (max-width:900px){
+  .app{grid-template-columns:56px minmax(0,1fr)}
+  .ctx{position:fixed;left:56px;top:46px;bottom:0;z-index:12;margin:0 0 8px 0;box-shadow:var(--sh-pop);background:rgba(246,247,250,.96)}
+  .app.sb-off .ctx{display:none}
+  .page{grid-column:2}
+  .insp{position:absolute;right:0;top:0;bottom:30px;background:#fbfbfd;box-shadow:-10px 0 24px -10px rgba(24,30,48,.14);z-index:4}
+  .doc{padding:36px 36px 90px}
+  .pill{display:none}
+}
+@media (max-width:640px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{display:none}
+  .ctx{left:0}
+  .page{grid-column:1;margin:0 6px 6px}
+  .doc{padding:28px 22px 90px}.doc h1{font-size:26px}
+  .reading{font-size:14.5px}
+  .acc{display:none}.hint{right:10px}
+}
+@media (min-width:901px){.app.sb-off{grid-template-columns:56px 0 minmax(0,1fr)}.app.sb-off .ctx{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<svg aria-hidden="true" style="position:absolute;width:0;height:0"><defs>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="m16 3 5 5-9 9-5 1 1-5z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/></symbol>
+<symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 6v6l4 2"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1z"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7 7h.01"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6m4 0V3h6v3"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 16V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-pl" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></symbol>
+<symbol id="i-pr" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M15 3v18"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+<symbol id="i-fwd" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</defs></svg>
+
+<div class="app" id="app" data-glass="side" data-glow="none">
+  <header class="top">
+    <button class="ib" id="sbtoggle" aria-label="收起或展开侧栏" aria-pressed="true"><svg class="i"><use href="#i-pl"/></svg></button>
+    <button class="ib" id="back" aria-label="后退" disabled><svg class="i"><use href="#i-back"/></svg></button>
+    <button class="ib" id="fwd" aria-label="前进" disabled><svg class="i"><use href="#i-fwd"/></svg></button>
+    <div class="tabs" id="tabs" role="tablist" aria-label="已打开的笔记"></div>
+    <button class="ib" id="newtab" aria-label="新建笔记" title="新建笔记"><svg class="i"><use href="#i-plus"/></svg></button>
+    <span class="grow"></span>
+    <span class="pill" id="state">交互原型</span>
+    <button class="ib" id="edit" aria-label="编辑当前笔记" aria-pressed="false" title="编辑"><svg class="i"><use href="#i-edit"/></svg></button>
+    <button class="ib" id="fav" aria-label="收藏" aria-pressed="false" title="收藏"><svg class="i"><use href="#i-star"/></svg></button>
+    <button class="ib" id="itog" aria-label="笔记详情" aria-pressed="false" title="笔记详情"><svg class="i"><use href="#i-pr"/></svg></button>
+    <button class="ib" id="more" aria-label="关于原型" title="关于"><svg class="i"><use href="#i-more"/></svg></button>
+  </header>
+
+  <nav class="rail" aria-label="全局导航">
+    <button class="rb" data-view="notes" aria-current="page" title="笔记" aria-label="笔记"><svg class="i"><use href="#i-file"/></svg></button>
+    <button class="rb" data-view="knowledge" title="知识库" aria-label="知识库"><svg class="i"><use href="#i-layers"/></svg></button>
+    <button class="rb" data-view="ai" title="助手" aria-label="助手"><svg class="i"><use href="#i-zap"/></svg></button>
+    <span class="mid"></span>
+    <button class="rb" data-view="settings" title="设置" aria-label="设置"><svg class="i"><use href="#i-sliders"/></svg></button>
+    <div class="avatar" aria-hidden="true">WQ</div>
+  </nav>
+
+  <aside class="ctx" aria-label="笔记导航">
+    <div class="ctx-h"><strong>笔记</strong><svg class="i chev"><use href="#i-chev"/></svg><span style="flex:1"></span>
+      <button class="ib" data-search aria-label="搜索" title="搜索 ⌘K"><svg class="i"><use href="#i-search"/></svg></button>
+      <button class="ib" id="newnote" aria-label="新建笔记" title="新建笔记"><svg class="i"><use href="#i-edit"/></svg></button></div>
+    <div class="ctx-scroll">
+      <div class="lbl first">快捷入口</div>
+      <button class="nv" data-view="all"><svg class="i"><use href="#i-file"/></svg>全部笔记<span class="n" id="cnt">3</span></button>
+      <button class="nv" data-view="recent"><svg class="i"><use href="#i-clock"/></svg>最近编辑</button>
+      <button class="nv" data-view="favorites"><svg class="i"><use href="#i-star"/></svg>收藏<span class="n" id="favcnt">1</span></button>
+      <button class="nv" data-view="inbox"><svg class="i"><use href="#i-inbox"/></svg>未整理</button>
+      <div class="lbl">文件夹<svg class="i"><use href="#i-chev"/></svg></div>
+      <button class="nv" data-view="work"><svg class="i"><use href="#i-folder"/></svg>工作<span class="n">2</span></button>
+      <div class="sub" id="links"></div>
+      <button class="nv" data-view="study"><svg class="i"><use href="#i-folder"/></svg>学习资料<span class="n">1</span></button>
+      <div class="lbl">标签<svg class="i"><use href="#i-chev"/></svg></div>
+      <button class="nv" data-view="learning"><svg class="i"><use href="#i-tag"/></svg>学习</button>
+      <button class="nv" data-view="aitag"><svg class="i"><use href="#i-tag"/></svg>AI</button>
+    </div>
+    <div class="ctx-f"><button class="nv" data-view="trash"><svg class="i"><use href="#i-trash"/></svg>回收站</button><div class="local"><i></i>本地已同步</div></div>
+  </aside>
+
+  <main class="page">
+    <div class="page-scroll" id="scroll"><article class="doc" id="doc">
+      <div class="crumb"><svg class="i"><use href="#i-file"/></svg><span id="cfolder">工作</span><span>/</span><b id="ctitle"></b></div>
+      <h1 id="title" spellcheck="false"></h1>
+      <div class="meta" id="meta"><span id="date">2026年10月10日</span><span class="sep"></span><span class="tag ac" id="mtag"></span><span class="tag">示例笔记</span><span id="rt">约 2 分钟阅读</span></div>
+      <div class="tb" id="tb"><button class="ib" data-f="h2" aria-label="标题">H₂</button><button class="ib" data-f="bold" aria-label="加粗"><b>B</b></button><button class="ib" data-f="italic" aria-label="斜体"><i>I</i></button><span class="sep"></span><button class="ib" data-f="insertUnorderedList" aria-label="列表"><svg class="i"><use href="#i-list"/></svg></button><button class="ib" data-f="blockquote" aria-label="引用">❞</button><button class="ib" data-f="code" aria-label="代码"><svg class="i"><use href="#i-code"/></svg></button></div>
+      <div class="reading" id="content"></div>
+    </article></div>
+    <aside class="insp" id="insp" hidden aria-label="笔记详情"><h3>笔记详情</h3>
+      <div class="pr"><span>位置</span><span id="pf"></span></div><div class="pr"><span>状态</span><span>示例内容</span></div><div class="pr"><span>标签</span><span id="pt"></span></div>
+      <div class="ol"><h3>目录</h3><div id="outline"></div></div></aside>
+    <div class="foot"><svg class="i" style="width:12px;height:12px"><use href="#i-file"/></svg><span id="wc"></span><span class="r">离线演示 · 修改不会保存</span></div>
+    <div class="acc" role="group" aria-label="强调色">强调色
+      <button style="--c:#f26b1d" data-c="#f26b1d" aria-label="橙色" aria-pressed="true"></button>
+      <button style="--c:#f59e0b" data-c="#f59e0b" aria-label="琥珀" aria-pressed="false"></button>
+      <button style="--c:#e5484d" data-c="#e5484d" aria-label="珊瑚红" aria-pressed="false"></button>
+      <button style="--c:#5b5bf0" data-c="#5b5bf0" aria-label="靛蓝" aria-pressed="false"></button>
+      <span class="sep"></span>页面底色
+      <button style="--c:#fdfdfe" data-p="#fdfdfe" aria-label="#FDFDFE" aria-pressed="false"></button>
+      <button style="--c:#fbfcfd" data-p="#fbfcfd" aria-label="#FBFCFD" aria-pressed="true"></button>
+      <button style="--c:#f9fbfc" data-p="#f9fbfc" aria-label="#F9FBFC" aria-pressed="false"></button>
+      <span class="sep"></span>光晕
+      <span class="seg" role="group" aria-label="页面光晕">
+        <button data-w="sheen" aria-pressed="false">顶部白光</button><button data-w="cool" aria-pressed="false">冷蓝</button><button data-w="warm" aria-pressed="false">橙（原）</button><button data-w="none" aria-pressed="true">无</button>
+      </span>
+      <span class="sep"></span>玻璃
+      <span class="seg" role="group" aria-label="玻璃范围">
+        <button data-g="side" aria-pressed="true">仅侧栏</button><button data-g="both" aria-pressed="false">两块</button><button data-g="page" aria-pressed="false">仅页面</button><button data-g="none" aria-pressed="false">关</button>
+      </span>
+    </div>
+    <button class="hint" data-search aria-label="搜索笔记">搜索笔记 <kbd>⌘</kbd><kbd>K</kbd></button>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<dialog class="pal" id="pal" aria-label="搜索笔记"><div class="si"><svg class="i"><use href="#i-search"/></svg><input id="q" autocomplete="off" placeholder="搜索笔记、标签或关键词" aria-label="搜索"><kbd>ESC</kbd></div><div class="sr" id="sr"></div><div class="sh">↑ ↓ 选择 · ↵ 打开 · 仅搜索示例内容</div></dialog>
+<dialog class="pal" id="about" aria-label="关于原型"><div style="padding:22px"><h3 style="margin:0 0 12px;font-size:16px;letter-spacing:-.01em">知境 · 分层外壳方案</h3><p style="margin:0 0 10px;font-size:13px;line-height:1.8;color:var(--ink-2)">顶栏、图标栏和面板之间的间隙是同一层“外壳”。上下文侧栏与功能页面悬浮在它之上，页面最亮、阴影最深。所有内容均为示例。</p><p style="margin:0 0 16px;font-size:13px;line-height:1.8;color:var(--ink-2)">可点标签页切换笔记，⌘ / Ctrl K 搜索，左下角可试不同强调色。</p><button class="btn" id="aboutx">知道了</button></div></dialog>
+
+<script>
+'use strict';
+var $=function(s){return document.querySelector(s)},$$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+var ic=function(n){return '<svg class="i"><use href="#i-'+n+'"/></svg>'};
+var esc=function(t){return t.replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var notes=[
+{id:'design',title:'设计中的秩序与留白',folder:'工作',tags:['设计','学习'],fav:false,summary:'层级、留白与材质，是界面安静而清晰的基础。',body:'<p class="lead">好的界面不急着表达一切。它先建立秩序，再让重要的内容自然浮现。</p><h2 id="s0">先有层级，再有细节</h2><p>把界面分成三个层次：<strong>导航、工具与内容</strong>。导航保持稳定，工具适度退后，内容拥有最清晰的对比和最充足的呼吸空间。</p><div class="callout">'+ic('info')+'<div><strong>一个值得保留的原则</strong><br>减少同时争夺注意力的元素，比增加装饰更有效。</div></div><h2 id="s1">让留白成为结构</h2><p>留白不是剩余的空间，而是信息之间的关系。相关内容靠近，新的段落拉开距离，阅读便有了自然的节奏。</p><ul><li><strong>靠近：</strong>把相关的信息放在一起，减少来回寻找。</li><li><strong>停顿：</strong>在段落之间留一点距离，让视线自然休息。</li><li><strong>对比：</strong>用少量的色彩和字重，标记真正重要的内容。</li></ul><pre class="note-code"><code><span class="code-comment">// 给想法建立一个轻盈的结构</span>\n<span class="code-key">观察</span> → 记录值得注意的细节\n<span class="code-key">理解</span> → 连接已有的知识\n<span class="code-key">行动</span> → 找到可以尝试的下一步</code></pre><h2 id="s2">材质应当克制</h2><p>一条细边线、顶部的一点高光、选中项下方极浅的阴影，就足以交代界面的层次。透明感停留在侧栏，正文保持干净。</p><div class="rel"><div class="rel-l">相关笔记</div><button class="rl" data-note="reading">'+ic('link')+'建立自己的阅读系统'+ic('arrow')+'</button></div>'},
+{id:'reading',title:'建立自己的阅读系统',folder:'学习资料',tags:['学习'],fav:true,summary:'从收藏到理解，再把理解变成可以调用的知识。',body:'<p class="lead">阅读的价值，不只在于读完多少页，也在于能留下多少真正有用的想法。</p><h2 id="s0">记录问题，而不只是摘录</h2><p>开始阅读前，写下一个你希望回答的问题。问题会成为筛选信息的标准，也会让笔记更有方向。</p><div class="callout">'+ic('book')+'<div><strong>每条笔记，只保留一个核心想法</strong><br>用自己的语言解释，再补上来源与可以应用的情境。</div></div><h2 id="s1">建立回看的节奏</h2><p>每周选出三条最有价值的笔记。尝试把它们连到正在进行的工作，让知识有机会被使用。</p><div class="checklist"><label class="cr"><input type="checkbox"><span>写下本周最想理解的问题</span></label><label class="cr"><input type="checkbox"><span>用一句话概括一篇文章</span></label><label class="cr"><input type="checkbox"><span>找到两个想法之间的联系</span></label></div>'},
+{id:'ai',title:'AI 时代的知识整理',folder:'工作',tags:['AI','学习'],fav:false,summary:'让工具协助整理，把判断留给自己。',body:'<p class="lead">当信息变得容易获取，真正稀缺的是清晰的问题和可靠的判断。</p><h2 id="s0">从一个具体问题开始</h2><p>先描述目标、背景和约束，再请工具协助梳理。模糊的输入往往只会得到更多模糊的信息。</p><h2 id="s1">给结论保留出处</h2><p>摘要可以帮助理解，但不能替代来源。将关键结论与原文放在一起，并标记仍需要核实的部分。</p><div class="callout">'+ic('info')+'<div><strong>这里展示的是示例笔记</strong><br>此原型没有连接 AI 服务，也不会发送任何输入。</div></div><h2 id="s2">把整理变成行动</h2><p>一条可执行的下一步，往往比一份很长的总结更有帮助。</p>'}
+];
+var cur=notes[0],open=['design','reading'],hist=[],hpos=-1,editing=false,tt,lastFocus=null;
+function toast(t){var e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){e.classList.remove('show')},2200)}
+function byId(id){return notes.filter(function(n){return n.id===id})[0]}
+function stopEdit(){if(editing&&cur)cur.body=$('#content').innerHTML;editing=false;$('#doc').classList.remove('editing');$('#edit').setAttribute('aria-pressed','false');$('#content').contentEditable='false';$('#title').contentEditable='false'}
+function renderTabs(active){
+  $('#tabs').innerHTML=open.map(function(id){var n=byId(id);return '<div class="tab" role="tab" tabindex="0" data-tab="'+id+'" aria-selected="'+(id===active)+'">'+ic('file')+'<span class="tt">'+esc(n.title)+'</span><button class="x" data-close="'+id+'" aria-label="关闭 '+esc(n.title)+'">'+ic('x')+'</button></div>'}).join('');
+}
+function renderSide(){
+  $('#links').innerHTML=notes.filter(function(n){return n.folder==='工作'}).map(function(n){return '<button class="nl" data-note="'+n.id+'" '+(cur&&n===cur&&$('#app').dataset.v==='note'?'aria-current="page"':'')+'>'+esc(n.title)+'</button>'}).join('');
+  $('#favcnt').textContent=notes.filter(function(n){return n.fav}).length;$('#cnt').textContent=notes.length;
+}
+function mark(view,rail){
+  $$('.ctx [data-view]').forEach(function(b){if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  $$('.rail [data-view]').forEach(function(b){if(b.dataset.view===rail)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+}
+function showNote(id,fromHist){
+  stopEdit();cur=byId(id)||notes[0];if(open.indexOf(cur.id)<0)open.push(cur.id);
+  if(!fromHist){hist=hist.slice(0,hpos+1);hist.push(cur.id);hpos=hist.length-1}
+  $('#app').dataset.v='note';
+  $('#title').textContent=cur.title;$('#ctitle').textContent=cur.title;$('#cfolder').textContent=cur.folder;
+  $('#meta').hidden=false;$('#mtag').textContent='#'+cur.tags[0];$('#content').innerHTML=cur.body;
+  $('#pf').textContent=cur.folder;$('#pt').textContent=cur.tags.join(' · ');
+  $('#fav').disabled=false;$('#edit').disabled=false;$('#fav').setAttribute('aria-pressed',String(cur.fav));favIcon();
+  $('#outline').innerHTML=$$('#content h2').map(function(h){return '<a data-go="'+h.id+'">'+h.textContent+'</a>'}).join('');
+  $('#wc').textContent=$('#content').textContent.replace(/\s/g,'').length+' 字';
+  $('.crumb').style.display='';$('#state').textContent='交互原型';
+  renderTabs(cur.id);renderSide();mark(cur.folder==='工作'?'work':'study','notes');navBtns();
+  $('#scroll').scrollTop=0;if($('#pal').open)$('#pal').close();narrowClose();
+}
+function collection(view){
+  stopEdit();$('#app').dataset.v='coll';
+  var T={all:'全部笔记',recent:'最近编辑',favorites:'收藏',work:'工作',study:'学习资料',learning:'学习',aitag:'AI',knowledge:'知识库',inbox:'未整理',trash:'回收站',settings:'设置',ai:'助手'};
+  var list=notes.filter(function(n){return view==='favorites'?n.fav:view==='study'?n.folder==='学习资料':view==='work'?n.folder==='工作':view==='aitag'?n.tags.indexOf('AI')>-1:view==='learning'?n.tags.indexOf('学习')>-1:true});
+  $('#title').textContent=T[view]||'笔记';$('.crumb').style.display='none';$('#meta').hidden=true;
+  $('#fav').disabled=true;$('#edit').disabled=true;$('#outline').innerHTML='';$('#pf').textContent='工作区';$('#pt').textContent='—';
+  $('#wc').textContent='离线工作区';$('#state').textContent='示例集合';
+  var h='';
+  if(view==='inbox'||view==='trash')h='<div class="quiet">这里还没有笔记。<br>当前原型只包含示例内容。</div>';
+  else if(view==='settings')h='<div class="quiet"><strong>外观</strong><br>外壳层 #E6E9EF · 页面 #FBFBFD · 强调色可在左下角切换。<br><br><strong>快捷键</strong><br>⌘ / Ctrl K 搜索，Esc 关闭弹窗。</div>';
+  else if(view==='ai')h='<div class="quiet"><strong>助手预览</strong><br>正式产品中，这里连接笔记、整理线索、辅助思考。当前原型不连接任何模型。<br><button class="rl" data-note="ai">打开 AI 主题示例笔记'+ic('arrow')+'</button></div>';
+  else if(view==='knowledge')h='<div class="quiet"><strong>知识库预览</strong><br>知识条目会在这里按状态分组：候选、已确认、待修订、已归档。<br><button class="rl" data-note="design">从示例笔记开始'+ic('arrow')+'</button></div>';
+  else h='<p class="coll-t">'+list.length+' 条示例笔记</p>'+(list.length?list.map(function(n){return '<button class="crow" data-note="'+n.id+'"><strong>'+esc(n.title)+'</strong><span>'+esc(n.summary)+'<br>'+n.folder+' · '+n.tags.join(' · ')+'</span></button>'}).join(''):'<div class="quiet">暂无内容。</div>');
+  $('#content').innerHTML=h;renderTabs(null);renderSide();
+  mark(view,view==='knowledge'||view==='ai'||view==='settings'?view:'notes');$('#scroll').scrollTop=0;narrowClose();
+}
+function navBtns(){$('#back').disabled=hpos<=0;$('#fwd').disabled=hpos>=hist.length-1}
+function favIcon(){var s=$('#fav svg');var on=cur.fav;s.style.fill=on?'#f5b301':'none';s.style.stroke=on?'#e0a000':'currentColor'}
+function search(){var q=$('#q').value.trim().toLowerCase();var r=notes.filter(function(n){return (n.title+n.tags.join('')+n.summary+n.body.replace(/<[^>]*>/g,'')).toLowerCase().indexOf(q)>-1});
+  $('#sr').innerHTML=r.length?r.map(function(n){return '<button class="rs" data-note="'+n.id+'">'+ic('file')+'<span>'+esc(n.title)+'</span><small>'+n.folder+'</small></button>'}).join(''):'<div class="empty">没有找到相关笔记，换个关键词试试。</div>'}
+function openSearch(){lastFocus=document.activeElement;$('#q').value='';search();$('#pal').showModal();$('#q').focus()}
+function narrowClose(){if(matchMedia('(max-width:900px)').matches)$('#app').classList.add('sb-off')}
+function setSb(on){$('#app').classList.toggle('sb-off',!on);$('#sbtoggle').setAttribute('aria-pressed',String(on))}
+
+document.addEventListener('click',function(e){
+  var t=e.target;
+  var cl=t.closest('[data-close]');if(cl){e.stopPropagation();var id=cl.dataset.close;var i=open.indexOf(id);open.splice(i,1);if(cur&&cur.id===id&&$('#app').dataset.v==='note'){if(open.length)showNote(open[Math.max(0,i-1)]);else collection('all')}else renderTabs($('#app').dataset.v==='note'?cur.id:null);return}
+  var tab=t.closest('[data-tab]');if(tab){showNote(tab.dataset.tab);return}
+  var n=t.closest('[data-note]');if(n){showNote(n.dataset.note);return}
+  var v=t.closest('[data-view]');if(v){var w=v.dataset.view;w==='notes'?showNote(cur.id):collection(w);return}
+  if(t.closest('[data-search]')){openSearch();return}
+  var g=t.closest('[data-go]');if(g){var el=document.getElementById(g.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
+  var f=t.closest('[data-f]');if(f){if(!editing){$('#edit').click();return}$('#content').focus();var c=f.dataset.f;if(c==='h2'||c==='blockquote'||c==='code')document.execCommand('formatBlock',false,c==='code'?'pre':c);else document.execCommand(c,false,null);return}
+  var pg=t.closest('[data-p]');if(pg){document.documentElement.style.setProperty('--page',pg.dataset.p);$$('[data-p]').forEach(function(b){b.setAttribute('aria-pressed',String(b===pg))});return}
+  var a=t.closest('[data-c]');if(a){document.documentElement.style.setProperty('--accent',a.dataset.c);document.documentElement.style.setProperty('--accent-ink','color-mix(in srgb,'+a.dataset.c+' 86%,#000)');$$('[data-c]').forEach(function(b){b.setAttribute('aria-pressed',String(b===a))});return}
+});
+document.addEventListener('mousedown',function(e){if(e.target.closest('[data-f]'))e.preventDefault()});
+document.addEventListener('keydown',function(e){
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!$('#pal').open)openSearch()}
+  if(e.key==='Escape'&&editing){stopEdit();toast('已结束临时编辑')}
+  if(e.target.matches&&e.target.matches('[data-tab]')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();showNote(e.target.dataset.tab)}
+});
+$('#pal').addEventListener('keydown',function(e){var it=$$('.rs'),i=it.indexOf(document.activeElement);if(e.key==='ArrowDown'){e.preventDefault();(it[i+1]||it[0])&&(it[i+1]||it[0]).focus()}if(e.key==='ArrowUp'){e.preventDefault();var p=it[i-1]||it[it.length-1];p&&p.focus()}if(e.key==='Enter'&&document.activeElement===$('#q')){e.preventDefault();it[0]&&it[0].click()}});
+$('#pal').addEventListener('close',function(){lastFocus&&lastFocus.focus()});
+$('#q').addEventListener('input',search);
+$$('dialog').forEach(function(d){d.addEventListener('click',function(e){if(e.target===d){var r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()}})});
+$('#more').onclick=function(){$('#about').showModal()};$('#aboutx').onclick=function(){$('#about').close()};
+$('#sbtoggle').onclick=function(){setSb($('#app').classList.contains('sb-off'))};
+$('#itog').onclick=function(){var h=$('#insp').hidden;$('#insp').hidden=!h;$('#itog').setAttribute('aria-pressed',String(h))};
+$('#fav').onclick=function(){cur.fav=!cur.fav;$('#fav').setAttribute('aria-pressed',String(cur.fav));favIcon();renderSide();toast(cur.fav?'已加入收藏':'已取消收藏')};
+$('#edit').onclick=function(){if(editing){stopEdit();toast('临时修改已保留，刷新后重置')}else{editing=true;$('#doc').classList.add('editing');$('#edit').setAttribute('aria-pressed','true');$('#content').contentEditable='true';$('#title').contentEditable='true';$('#content').focus();toast('可以直接编辑标题和正文，Esc 结束')}};
+$('#title').addEventListener('input',function(){if(!editing||!cur)return;cur.title=this.textContent;$('#ctitle').textContent=cur.title||'无标题';var t=document.querySelector('[data-tab="'+cur.id+'"] .tt');if(t)t.textContent=cur.title||'无标题'});
+$('#content').addEventListener('input',function(){$('#wc').textContent=$('#content').textContent.replace(/\s/g,'').length+' 字'});
+$('#content').addEventListener('change',function(e){if(e.target.type==='checkbox'){e.target.toggleAttribute('checked',e.target.checked);cur.body=$('#content').innerHTML}});
+function newNote(){stopEdit();var n={id:'n'+Date.now(),title:'新的想法',folder:'工作',tags:['未设置'],fav:false,summary:'一条仅在当前会话保留的示例笔记。',body:'<p class="lead">从一个值得记录的想法开始。</p><p>点右上角的编辑按钮，写下你的内容。</p>'};notes.push(n);showNote(n.id);toast('已新建临时笔记')}
+$$('[data-w]').forEach(function(b){b.onclick=function(){$('#app').dataset.glow=b.dataset.w;$$('[data-w]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))})}});
+$$('[data-g]').forEach(function(b){b.onclick=function(){$('#app').dataset.glass=b.dataset.g;$$('[data-g]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))})}});
+$('#newnote').onclick=newNote;$('#newtab').onclick=newNote;
+$('#back').onclick=function(){if(hpos>0){hpos--;showNote(hist[hpos],true)}};$('#fwd').onclick=function(){if(hpos<hist.length-1){hpos++;showNote(hist[hpos],true)}};
+if(matchMedia('(max-width:900px)').matches)setSb(false);
+showNote('design');
+</script>
