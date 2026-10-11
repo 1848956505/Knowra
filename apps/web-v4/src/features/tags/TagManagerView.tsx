@@ -4,6 +4,7 @@ import { Button, Dialog, DialogBody, DialogClose, DialogFooter, SearchBox, Segme
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { TagChip, normalizeTagColor } from './TagChip';
+import { countTagUsage } from './tagUsage';
 import { PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../components/icons/knowra';
 import { PathTrail } from '../../shell/PathTrail';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
@@ -35,8 +36,8 @@ export function TagManagerView() {
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [draggedTagId, setDraggedTagId] = useState('');
-  const usage = useMemo(() => new Map(data.tags.map((tag) => [tag.id, data.notes.filter((note) => !note.deleted && note.tagIds.includes(tag.id)).length])), [data.notes, data.tags]);
-  const unusedCount = [...usage.values()].filter((count) => count === 0).length;
+  const usage = useMemo(() => countTagUsage(data.tags, data.notes), [data.notes, data.tags]);
+  const unusedCount = Object.values(usage).filter((count) => count === 0).length;
 
   const sections = data.tagGroups
     .slice().sort((a, b) => a.sortOrder - b.sortOrder)
@@ -44,11 +45,11 @@ export function TagManagerView() {
     .map((group) => {
       const items = data.tags.filter((tag) => tag.groupId === group.id && tag.id !== pendingDeletion?.tag.id)
         .filter((tag) => (tag.name ?? '').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
-        .filter((tag) => !unusedOnly || (usage.get(tag.id) ?? 0) === 0)
+        .filter((tag) => !unusedOnly || (usage[tag.id] ?? 0) === 0)
         .sort((a, b) => sort === 'name'
           ? (a.name ?? '').localeCompare(b.name ?? '', 'zh-CN')
           : sort === 'usage'
-            ? (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0)
+            ? (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
             : (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       return { group, items };
     }).filter(({ items }) => items.length > 0 || (!query && !unusedOnly));
@@ -115,7 +116,7 @@ export function TagManagerView() {
           <div className={styles.cardTop}><span className={styles.cardNumber}>{String(index + 1).padStart(2, '0')}</span><span className={styles.handle} aria-hidden="true">⋮⋮</span></div>
           <div className={styles.cardMain}>
             <TagChip tag={tag} className={styles.tagChip} />
-            <div className={styles.cardInfo}><span className={styles.usage}><strong>{usage.get(tag.id) ?? 0}</strong> 篇笔记</span><span className={styles.color} data-color={normalizeTagColor(tag.color)}><i aria-hidden="true" />{colorLabel(normalizeTagColor(tag.color))}</span></div>
+            <div className={styles.cardInfo}><span className={styles.usage}><strong>{usage[tag.id] ?? 0}</strong> 篇笔记</span><span className={styles.color} data-color={normalizeTagColor(tag.color)}><i aria-hidden="true" />{colorLabel(normalizeTagColor(tag.color))}</span></div>
           </div>
           <div className={styles.cardActions} aria-label={`${tag.name ?? '未命名标签'}的操作`}>
             <Button size="compact" emphasis="soft" className={styles.viewNotes} onPress={() => navigate(`/materials?tags=${encodeURIComponent(tag.id)}&match=all`)}>查看笔记</Button>
@@ -132,7 +133,7 @@ export function TagManagerView() {
     </WorkspacePanelBody>
     <WorkspacePanelFooter><span>显示 {visibleTagCount} / {data.tags.length} 个标签</span><span>{data.tagGroups.length} 个分组 · {unusedCount} 个未使用</span></WorkspacePanelFooter>
     <TagEditDialog target={editTarget} groups={data.tagGroups} canWrite={canWrite} onOpenChange={(open) => { if (!open) setEditTarget(null); }} onCreateTag={createTag} onUpdateTag={updateTag} onCreateGroup={createTagGroup} onUpdateGroup={updateTagGroup} />
-    <TagDeleteDialog tag={deleteTarget} usageCount={deleteTarget ? usage.get(deleteTarget.id) ?? 0 : 0} candidates={data.tags.filter((tag) => tag.id !== deleteTarget?.id)} mergeTargetId={mergeTargetId} onMergeTargetChange={setMergeTargetId} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }} onDelete={async () => { if (deleteTarget) scheduleDeletion(deleteTarget, mergeTargetId); }} />
+    <TagDeleteDialog tag={deleteTarget} usageCount={deleteTarget && Object.hasOwn(usage, deleteTarget.id) ? usage[deleteTarget.id] : 0} candidates={data.tags.filter((tag) => tag.id !== deleteTarget?.id)} mergeTargetId={mergeTargetId} onMergeTargetChange={setMergeTargetId} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }} onDelete={async () => { if (deleteTarget) scheduleDeletion(deleteTarget, mergeTargetId); }} />
   </WorkspacePanel>;
 }
 

@@ -9,7 +9,7 @@ import { OrganizeNoteDialog } from './OrganizeNoteDialog';
 import { TagPickerDialog } from '../tags';
 import { InfoPanel, OutlinePanel, LinksPanel } from './inspector/InspectorReadPanels';
 import { AnnotationPanel } from './inspector/AnnotationPanel';
-import { countInspectorTagUsage } from './inspector/tagUsage';
+import { countTagUsage } from '../tags/tagUsage';
 import type { EditorInspectorProps } from './inspector/types';
 export type { EditorInspectorProps } from './inspector/types';
 import styles from './EditorInspector.module.css';
@@ -36,7 +36,7 @@ export function EditorInspector(props: EditorInspectorProps) {
   const modal = compact && !props.nativeTitlebar;
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
-  const usageCounts = useMemo(() => countInspectorTagUsage(props.tags, props.notes), [props.tags, props.notes]);
+  const usageCounts = useMemo(() => countTagUsage(props.tags, props.notes), [props.tags, props.notes]);
   const tags = useMemo(() => resolveNoteTags(props.note, props.tags), [props.note, props.tags]);
   const relations = useMemo(() => {
     const local = resolveInspectorRelations(props.note, props.notes);

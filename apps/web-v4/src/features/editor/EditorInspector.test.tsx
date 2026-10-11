@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Annotation } from '@study-accelerator/web-core';
@@ -74,6 +74,52 @@ describe('EditorInspector', () => {
     await user.click(screen.getByRole('button', { name: '移除标签 AI' }));
     await user.click(screen.getByRole('button', { name: '保存到笔记' }));
     expect(onSetTags).toHaveBeenCalledWith(['tag-study']);
+  });
+
+  it('通过真实标签编辑器显示传入笔记范围的使用量，并随笔记和标签更新', async () => {
+    const user = userEvent.setup();
+    const tagGroups: NonNullable<Parameters<typeof EditorInspector>[0]['tagGroups']> = [
+      { id: 'group-ordinary', spaceId: 'space-1', name: '普通标签', selectionMode: 'multiple', sortOrder: 0, isSystem: false }
+    ];
+    const tags = [
+      { id: 'tag-study', name: '学习', groupId: 'group-ordinary' },
+      { id: 'tag-ai', name: 'AI', groupId: 'group-ordinary' },
+      { id: 'tag-unused', name: '未使用', groupId: 'group-ordinary' },
+      { id: 'tag-deleted', name: '仅回收站', groupId: 'group-ordinary' }
+    ];
+    const view = renderInspector({ tags, tagGroups, notes: [
+      { ...related, tagIds: ['tag-study', 'tag-study', 'tag-study', 'tag-ai'] },
+      { ...backlink, tagIds: ['tag-study'] },
+      { ...note, id: 'note-deleted', deleted: true, tagIds: ['tag-ai', 'tag-deleted'] }
+    ] });
+
+    await user.click(screen.getByRole('button', { name: '编辑' }));
+    expect(screen.getByRole('dialog', { name: '编辑笔记标签' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '管理标签库' }));
+    const expectUsage = (name: string, count: number) => {
+      const dialog = screen.getByRole('dialog', { name: '管理标签库' });
+      expect(within(dialog).getByText(name).closest('article')).toHaveTextContent(`${count} 篇笔记`);
+    };
+    // 当前编辑笔记不在传入 notes 中；统计只使用调用方给定的范围。
+    expectUsage('学习', 2);
+    expectUsage('AI', 1);
+    expectUsage('未使用', 0);
+    expectUsage('仅回收站', 0);
+
+    const updatedNotes = [{ ...related, tagIds: ['tag-ai', 'tag-new', 'tag-new'] }];
+    view.rerenderInspector({ notes: updatedNotes });
+    expectUsage('学习', 0);
+    expectUsage('AI', 1);
+    expectUsage('仅回收站', 0);
+
+    view.rerenderInspector({ notes: updatedNotes, tags: [...tags, { id: 'tag-new', name: '新标签', groupId: 'group-ordinary' }] });
+    expectUsage('新标签', 1);
+    expectUsage('未使用', 0);
+    const dialog = screen.getByRole('dialog', { name: '管理标签库' });
+    const newTagRow = within(dialog).getByText('新标签').closest('article')!;
+    await user.click(within(newTagRow).getByRole('button', { name: '删除' }));
+    expect(screen.getByRole('dialog', { name: '删除标签' })).toHaveTextContent('这个标签正在被 1 篇笔记使用。');
+    expect(screen.getByRole('button', { name: '从 1 篇笔记移除并删除' })).toBeInTheDocument();
   });
 
   it('loads version history on demand and previews the selected snapshot', async () => {
@@ -281,7 +327,15 @@ describe('EditorInspector AI 助手提炼入口', () => {
 });
 
 function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0]> = {}) {
-  return render(<EditorInspector
+  const view = render(createInspector(overrides));
+  return {
+    ...view,
+    rerenderInspector: (nextOverrides: Partial<Parameters<typeof EditorInspector>[0]>) => view.rerender(createInspector({ ...overrides, ...nextOverrides }))
+  };
+}
+
+function createInspector(overrides: Partial<Parameters<typeof EditorInspector>[0]>) {
+  return <EditorInspector
     note={note}
     folder={folder}
     foldersById={{ [root.id]: root, [folder.id]: folder }}
@@ -314,5 +368,5 @@ function renderInspector(overrides: Partial<Parameters<typeof EditorInspector>[0
     onSelectAnnotation={overrides.onSelectAnnotation ?? vi.fn()}
     onDeleteAnnotation={overrides.onDeleteAnnotation ?? vi.fn().mockResolvedValue(undefined)}
     onReanchorAnnotation={overrides.onReanchorAnnotation ?? vi.fn().mockResolvedValue(undefined)}
-  />);
+  />;
 }

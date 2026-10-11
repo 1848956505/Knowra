@@ -1,10 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createEmptyWorkspaceSnapshot, type WorkspaceApi } from '@study-accelerator/web-core';
-import { describe, expect, it, vi } from 'vitest';
+import { createEmptyWorkspaceSnapshot, type Note, type Tag, type WorkspaceApi } from '@study-accelerator/web-core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppStoreProvider } from '../../store/AppStoreProvider';
 import { createAppStore } from '../../store/createAppStore';
 import { NotesContextSidebar } from './NotesContextSidebar';
+
+beforeEach(() => { localStorage.removeItem('knowra:pinned-tags'); });
+afterEach(() => { localStorage.removeItem('knowra:pinned-tags'); });
 
 describe('NotesContextSidebar', () => {
   it('derives counts from workspace data and switches quick filters', async () => {
@@ -90,6 +93,53 @@ describe('NotesContextSidebar', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '标签' }));
     expect(screen.getByRole('button', { name: '设计' })).toBeInTheDocument();
+  });
+
+  it('按存活笔记使用量稳定排序，重复引用只计一次，并保留零使用标签与八项上限', () => {
+    const tags = [
+      { id: 'tag-zero', name: '未使用' },
+      { id: 'tag-tie-first', name: '同量在前' },
+      { id: 'tag-popular', name: '常用' },
+      { id: 'tag-repeated', name: '重复引用' },
+      { id: 'tag-deleted', name: '仅回收站' },
+      { id: 'tag-tie-last', name: '同量在后' },
+      { id: 'tag-zero-two', name: '空标签二' },
+      { id: 'tag-zero-three', name: '空标签三' },
+      { id: 'tag-zero-four', name: '空标签四' }
+    ];
+    const { store } = renderSidebar({ tags, notes: [
+      createNote('live-1', '存活一', null, { tagIds: ['tag-popular', 'tag-tie-first', 'tag-repeated', 'tag-repeated', 'tag-repeated', 'tag-tie-last'] }),
+      createNote('live-2', '存活二', null, { tagIds: ['tag-popular'] }),
+      createNote('deleted-1', '已删除一', null, { deleted: true, tagIds: ['tag-repeated', 'tag-deleted'] }),
+      createNote('deleted-2', '已删除二', null, { deleted: true, tagIds: ['tag-repeated', 'tag-deleted'] })
+    ] });
+    const tagButtons = () => within(screen.getByLabelText('标签筛选')).getAllByRole('button')
+      .filter((button) => !button.textContent?.startsWith('全部标签'))
+      .map((button) => button.textContent);
+
+    expect(tagButtons()).toEqual(['常用', '同量在前', '重复引用', '同量在后', '未使用', '仅回收站', '空标签二', '空标签三']);
+    expect(screen.queryByRole('button', { name: '空标签四' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '全部标签·9' })).toBeInTheDocument();
+
+    act(() => store.setState((state) => ({ serverData: { ...state.serverData, notes: [
+      createNote('live-3', '新存活笔记', null, { tagIds: ['tag-zero-four', 'tag-zero-four'] })
+    ] } })));
+    expect(tagButtons()).toEqual(['空标签四', '未使用', '同量在前', '常用', '重复引用', '仅回收站', '同量在后', '空标签二']);
+  });
+
+  it('固定标签优先于使用量，保留固定顺序并忽略已经不存在的标签', () => {
+    localStorage.setItem('knowra:pinned-tags', JSON.stringify(['tag-zero', 'tag-missing', 'tag-low']));
+    renderSidebar({
+      tags: [{ id: 'tag-popular', name: '常用' }, { id: 'tag-low', name: '较少使用' }, { id: 'tag-zero', name: '未使用' }],
+      notes: [
+        createNote('live-1', '存活一', null, { tagIds: ['tag-popular', 'tag-low'] }),
+        createNote('live-2', '存活二', null, { tagIds: ['tag-popular'] })
+      ]
+    });
+
+    expect(within(screen.getByLabelText('标签筛选')).getAllByRole('button').map((button) => button.textContent))
+      .toEqual(['未使用', '较少使用', '全部标签·3']);
+    expect(screen.queryByRole('button', { name: '常用' })).not.toBeInTheDocument();
   });
 
   it('uses the shared menu for tag context actions and closes it with Escape', async () => {
@@ -242,10 +292,14 @@ describe('NotesContextSidebar', () => {
 
 function renderSidebar({
   empty = false,
+  notes,
+  tags,
   onOpenNote,
   onOpenIndex
 }: {
   empty?: boolean;
+  notes?: Note[];
+  tags?: Tag[];
   onOpenNote?(noteId: string): void;
   onOpenIndex?(): void;
 } = {}) {
@@ -260,13 +314,13 @@ function renderSidebar({
       currentSpaceId: 'space-1',
       folderTree: empty ? [] : [folder],
       foldersById: empty ? {} : { [folder.id]: folder },
-      notes: empty ? [] : [
+      notes: notes ?? (empty ? [] : [
         createNote('note-1', '规划草案', 'folder-1', { favorite: true, tagIds: ['tag-1'] }),
         createNote('note-2', '设计复盘', 'folder-1'),
         createNote('note-3', '收件箱', null),
         createNote('note-4', '已删除', null, { deleted: true })
-      ],
-      tags: empty ? [] : [{ id: 'tag-1', name: '设计' }],
+      ]),
+      tags: tags ?? (empty ? [] : [{ id: 'tag-1', name: '设计' }]),
       tagGroups: []
     }
   });

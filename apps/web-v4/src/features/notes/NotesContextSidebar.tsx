@@ -30,6 +30,7 @@ import { Button, Dialog, DialogBody, DialogClose, DialogFooter, TextField } from
 import { useAppStore } from '../../store/AppStoreProvider';
 import { useLocation, useNavigate } from '../../app/router';
 import { TagChip } from '../tags';
+import { countTagUsage } from '../tags/tagUsage';
 import type { NotesIndexScope } from '../../store/types';
 import { NOTES_SEARCH_DEBOUNCE_MS, getScopeCount } from './notesIndexModel';
 import { EmptyRecycleDialog } from './EmptyRecycleDialog';
@@ -90,9 +91,9 @@ export function NotesContextSidebar({
   const rootCount = serverData.folderTree.length + getScopeCount('root', serverData.notes);
   const activeTagIds = (new URLSearchParams(location.pathname.split('?')[1] ?? '').get('tags') ?? '').split(',').filter(Boolean);
   const visibleTags = useMemo(() => {
-    const usage = new Map(serverData.tags.map((tag) => [tag.id, serverData.notes.filter((note) => !note.deleted && note.tagIds.includes(tag.id)).length]));
+    const usage = countTagUsage(serverData.tags, serverData.notes);
     const pinned = pinnedTagIds.map((id) => serverData.tags.find((tag) => tag.id === id)).filter(Boolean);
-    return (pinned.length ? pinned : serverData.tags.slice().sort((a, b) => (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0))).slice(0, 8);
+    return (pinned.length ? pinned : serverData.tags.slice().sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0))).slice(0, 8);
   }, [pinnedTagIds, serverData.notes, serverData.tags]);
   const contextTag = serverData.tags.find((tag) => tag.id === tagMenu?.tagId);
 
