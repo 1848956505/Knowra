@@ -18,6 +18,8 @@
   --text-muted: #6c727c;
   --text-placeholder: #6c727c;
   --text-on-chrome: #60656e;
+  /* 图标栏未选中图标：比文字更浅一档，贴近原型的轻盈感（在 #E1E4EA 上对比度约 3.1） */
+  --icon-on-chrome: #7b818b;
   --accent-on-tint: #b5480a;
   --text-on-accent: #fff;
   --accent: #f26b1d;

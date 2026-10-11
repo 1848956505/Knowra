@@ -28,7 +28,8 @@
 .clearIcon:active, .clearText:active { background: var(--surface-pressed); }
 .clearIcon:focus-visible, .clearText:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
 .shell[data-size='toolbar'] { flex: 1 1 auto; min-width: var(--index-size-120); height: var(--index-size-34); gap: var(--index-size-9); padding: 0 var(--index-size-12); }
-.shell[data-size='sidebar'] { flex: 0 0 34px; height: 34px; margin: 10px 12px; padding: 0 10px; }
+/* 侧栏搜索：半透明白底 + 发丝线，不用灰色实底，避免压住磨砂侧栏的通透感 */
+.shell[data-size='sidebar'] { flex: 0 0 32px; height: 32px; margin: 8px 12px 10px; padding: 0 10px; background: color-mix(in srgb, var(--surface-raised) 62%, transparent); border-color: var(--border-subtle); }
 .shell[data-size='command'] { gap: 10px; padding: 12px 14px; }
 .shell[data-size='command'] .input { font-size: 14px; }
 .shell[data-size='field'] { width: 100%; height: 36px; padding: 0 10px; }

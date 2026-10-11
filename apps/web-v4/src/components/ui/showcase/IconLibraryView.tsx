@@ -19,7 +19,7 @@ export const iconGroups: readonly IconGroup[] = [
     names: [
       'NoteIcon', 'BookIcon', 'QuestionIcon', 'FolderIcon', 'TagIcon', 'LinkIcon',
       'PaperclipIcon', 'StarIcon', 'SparkIcon', 'NodesIcon', 'TargetIcon', 'ClockIcon',
-      'CalendarIcon', 'CheckIcon', 'UserIcon', 'HomeIcon', 'BellIcon'
+      'CalendarIcon', 'CheckIcon', 'UserIcon', 'HomeIcon', 'BellIcon', 'InboxIcon'
     ]
   },
   {

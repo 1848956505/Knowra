@@ -5,14 +5,16 @@ import {
   BookIcon,
   ChevronRightIcon,
   ClockIcon,
+  DeleteIcon,
   FolderIcon,
+  InboxIcon,
   MoreHorizontalIcon,
   MoreVerticalIcon,
   NoteIcon,
   PlusIcon,
   RefreshIcon,
   SearchIcon,
-  TagIcon
+  StarIcon
 } from '../../components/icons/knowra';
 import {
   GhostIconButton, SideNavItem,
@@ -46,8 +48,8 @@ interface NavEntry {
 const QUICK_ENTRIES: readonly NavEntry[] = [
   { scope: 'all', label: '全部笔记', Icon: NoteIcon },
   { scope: 'recent', label: '最近编辑', Icon: ClockIcon },
-  { scope: 'favorites', label: '收藏', Icon: TagIcon },
-  { scope: 'unfiled', label: '未整理', Icon: RefreshIcon }
+  { scope: 'favorites', label: '收藏', Icon: StarIcon },
+  { scope: 'unfiled', label: '未整理', Icon: InboxIcon }
 ];
 
 export function NotesContextSidebar({
@@ -155,7 +157,7 @@ export function NotesContextSidebar({
               <SideNavItem
                 key={entry.scope}
                 density="compact"
-                icon={<entry.Icon size={16} />}
+                icon={<entry.Icon size={15} />}
                 label={entry.label}
                 count={getScopeCount(entry.scope, serverData.notes)}
                 aria-current={current ? 'page' : undefined}
@@ -192,7 +194,7 @@ export function NotesContextSidebar({
           <SideNavItem
             className={styles.libraryRow}
             density="compact"
-            icon={<BookIcon size={16} />}
+            icon={<BookIcon size={15} />}
             label="笔记库"
             count={rootCount}
             data-drop-active={rootDrop.isOver || undefined}
@@ -240,7 +242,7 @@ export function NotesContextSidebar({
       <footer className={styles.footer}>
         <SideNavItem
           density="compact"
-          icon={<RefreshIcon size={16} />}
+          icon={<DeleteIcon size={15} />}
           label="回收站"
           count={trashCount}
           aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}

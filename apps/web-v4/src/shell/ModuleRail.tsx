@@ -120,7 +120,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
         title="知境工作区"
         onClick={onReturnHome}
       >
-        <HomeIcon size={20} />
+        <HomeIcon size={18} />
       </button>
 
       <div className={cx(styles.railGroup, styles.railGroupGlobal)} role="group" aria-label="全局操作">
@@ -153,7 +153,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
         <button type="button" className={styles.railItem} onClick={onOpenAssistant}
           aria-label="AI 助手" title="AI 助手" aria-current={isAssistantActive ? 'page' : undefined}
           disabled={!onOpenAssistant}>
-          <span className={styles.railIcon}><SparkIcon size={20} /></span>
+          <span className={styles.railIcon}><SparkIcon size={18} /></span>
         </button>
         <RailActionButton
           label="通知"
@@ -171,7 +171,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
           disabled={!onOpenSettings}
         >
           <span className={styles.railIcon}>
-            <SettingsIcon size={20} />
+            <SettingsIcon size={18} />
           </span>
         </button>
         {onOpenShowcase ? (
@@ -185,7 +185,7 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
             title="组件库：V4-04 公共组件展台"
           >
             <span className={styles.railIcon}>
-              <ComponentLibraryIcon size={20} />
+              <ComponentLibraryIcon size={18} />
             </span>
           </button>
         ) : null}
@@ -222,7 +222,7 @@ function RailButton({ item, isActive, onClick }: RailButtonProps) {
         title={`${label}：${description}`}
       >
         <span className={styles.railIcon}>
-          <Icon size={20} />
+          <Icon size={18} />
         </span>
       </button>
     );
@@ -238,7 +238,7 @@ function RailButton({ item, isActive, onClick }: RailButtonProps) {
       title={`${label}：${description}`}
     >
       <span className={styles.railIcon}>
-        <Icon size={20} />
+        <Icon size={18} />
       </span>
     </button>
   );
@@ -262,7 +262,7 @@ function RailActionButton({ label, title, Icon, onClick }: RailActionButtonProps
       disabled={!onClick}
     >
       <span className={styles.railIcon}>
-        <Icon size={20} />
+        <Icon size={18} />
       </span>
     </button>
   );
