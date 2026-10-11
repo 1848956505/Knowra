@@ -1,10 +1,11 @@
-import type { AttachmentDeleteResult, AttachmentDeletionPreflight, AttachmentCleanupStatus } from '../workspace/types.js';
+import { createAttachmentApi, type AttachmentApi } from './attachment-api.js';
+export type { UploadAttachmentInput } from './attachment-api.js';
 import type { CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeCandidateResult, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgeItemQuery, KnowledgeMutationInput, KnowledgeProvenance, RetireKnowledgeEvidenceInput, UpdateKnowledgeItemInput } from '../workspace/knowledge-types.js';
 import { asArray, asItems, getData } from './response.js';
 import type { RequestJson } from './client.js';
 import { createKnowledgeExtractionApi, type KnowledgeExtractionApi } from './knowledge-extraction-api.js';
 import { requestCommandNoteSearch, type CommandNoteSearcher } from './command-note-search.js';
-import type { Annotation, Attachment, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, Tag, TagColor, TagGroup } from '../workspace/types.js';
+import type { Annotation, ContentAnchor, Folder, KnowledgeSpace, Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, Tag, TagColor, TagGroup } from '../workspace/types.js';
 
 export interface WorkspaceResources {
   folderTree: Folder[];
@@ -57,13 +58,6 @@ export interface UpdateNoteInput {
   status?: string;
   rawMarkdown?: string;
   expectedUpdatedAt?: string;
-}
-
-export interface UploadAttachmentInput {
-  noteId: string;
-  fileName: string;
-  mimeType: string;
-  contentBase64: string;
 }
 
 export interface NoteQueryInput {
@@ -269,7 +263,7 @@ export interface TrainingPurgePreview extends PurgeConfirmationInput {
   coverage: Record<string, unknown>;
 }
 
-export interface WorkspaceApi {
+export interface WorkspaceApi extends AttachmentApi {
   knowledgeExtraction?: KnowledgeExtractionApi;
   listTrainingAssets?(kind: TrainingAssetKind, query?: { includeArchived?: boolean; includeDeleted?: boolean }): Promise<TrainingAssetRecord[]>;
   createTrainingAsset?(kind: TrainingAssetKind, input: Record<string, unknown>): Promise<TrainingAssetRecord>;
@@ -348,15 +342,6 @@ export interface WorkspaceApi {
   listNoteVersionPage?(noteId: string, options?: NoteVersionPageOptions): Promise<NoteVersionPage>;
   previewNoteVersionPrune?(noteId: string): Promise<NoteVersionPrunePreview>;
   getNoteVersion(noteId: string, versionId: string): Promise<NoteVersion>;
-  listNoteAttachments(noteId: string): Promise<Attachment[]>;
-  uploadNoteAttachment(input: UploadAttachmentInput): Promise<Attachment>;
-  renameNoteAttachment(attachmentId: string, fileName: string): Promise<Attachment>;
-  deleteNoteAttachment(attachmentId: string): Promise<AttachmentDeleteResult>;
-  inspectAttachmentDeletion(attachmentId: string): Promise<AttachmentDeletionPreflight>;
-  verifyNoteAttachment(attachmentId: string): Promise<Attachment>;
-  restoreNoteAttachment(attachmentId: string, contentBase64: string): Promise<Attachment>;
-  listAttachmentCleanup(): Promise<AttachmentCleanupStatus>;
-  retryAttachmentCleanup(): Promise<{ completed: number; pending: number }>;
   updateFolder(folderId: string, input: UpdateFolderInput): Promise<Folder>;
   deleteFolder(folderId: string, input: { mode: 'keep' | 'with-content'; destinationId?: string | null }): Promise<{ folders: Folder[]; deletionPackage: Folder['deletionPackage'] }>;
   restoreFolder?(folderId: string): Promise<{ folders: Folder[] }>;
@@ -809,50 +794,7 @@ export function createWorkspaceApi({ requestJson }: { requestJson: RequestJson }
       if (!version?.id) throw new Error('Note version response is invalid.');
       return version;
     },
-    async listNoteAttachments(noteId) {
-      return asArray<Attachment>(getData(await requestJson(
-        `/api/storage/attachments?noteId=${encodeURIComponent(noteId)}`
-      )));
-    },
-    async uploadNoteAttachment(input) {
-      const attachment = getData<Attachment>(await requestJson('/api/storage/attachments', {
-        method: 'POST',
-        body: JSON.stringify(input)
-      }));
-      if (!attachment?.id) throw new Error('Upload attachment response is invalid.');
-      return attachment;
-    },
-    async renameNoteAttachment(attachmentId, fileName) {
-      const attachment = getData<Attachment>(await requestJson(
-        `/api/storage/attachments/${encodeURIComponent(attachmentId)}`,
-        { method: 'PATCH', body: JSON.stringify({ fileName }) }
-      ));
-      if (!attachment?.id) throw new Error('Rename attachment response is invalid.');
-      return attachment;
-    },
-    async inspectAttachmentDeletion(id) {
-      return getData<AttachmentDeletionPreflight>(await requestJson(`/api/storage/attachments/${encodeURIComponent(id)}/deletion-preflight`))!;
-    },
-    async verifyNoteAttachment(id) {
-      return getData<Attachment>(await requestJson(`/api/storage/attachments/${encodeURIComponent(id)}/verify`, { method: 'POST' }))!;
-    },
-    async restoreNoteAttachment(id, contentBase64) {
-      return getData<Attachment>(await requestJson(`/api/storage/attachments/${encodeURIComponent(id)}/restore`, { method: 'POST', body: JSON.stringify({ contentBase64 }) }))!;
-    },
-    async listAttachmentCleanup() {
-      return getData<AttachmentCleanupStatus>(await requestJson('/api/storage/attachments/cleanup'))!;
-    },
-    async retryAttachmentCleanup() {
-      return getData<{ completed: number; pending: number }>(await requestJson('/api/storage/attachments/cleanup/retry', { method: 'POST' }))!;
-    },
-    async deleteNoteAttachment(attachmentId) {
-      const attachment = getData<AttachmentDeleteResult>(await requestJson(
-        `/api/storage/attachments/${encodeURIComponent(attachmentId)}`,
-        { method: 'DELETE' }
-      ));
-      if (!attachment?.id) throw new Error('Delete attachment response is invalid.');
-      return attachment;
-    },
+    ...createAttachmentApi(requestJson),
     async updateFolder(folderId, input) {
       const folder = getData<Folder>(await requestJson(
         `/api/knowledge/folders/${encodeURIComponent(folderId)}`,
