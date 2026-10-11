@@ -27,7 +27,7 @@ export interface GhostIconButtonProps
    * （HTML 原生 aria-label 是 string|undefined，这里收紧为 string 强制填写。）
    */
   'aria-label': string;
-  /** 必填：图标 SVG。业务代码统一从 `shell/icons` 选择。 */
+  /** 必填：图标 SVG。业务代码统一从 `components/icons/knowra` 选择。 */
   children: ReactNode;
   /**
    * 容器尺寸（px），决定方块边长。常见值：
