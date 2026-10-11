@@ -39,6 +39,11 @@ describe('useNoteAutosave', () => {
     act(() => result.current.updateDraft('A-3', { identity: { markdown: 'A-3', build: () => { throw new Error('诊断失败'); } } }));
     await act(async () => vi.advanceTimersByTimeAsync(700));
     expect(onSave).toHaveBeenLastCalledWith('note-identity', 'A-3', 'v1', expect.any(String), expect.not.objectContaining({ editorState: expect.anything() }));
+    const oversized = { ...editorState, blocks: Array.from({ length: 30000 }, (_, index) => ({ id: `block-${index}-${'x'.repeat(20)}`, type: 'paragraph', empty: false })) };
+    act(() => result.current.updateDraft('A-4', { identity: { markdown: 'A-4', build: () => oversized } }));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(onSave).toHaveBeenLastCalledWith('note-identity', 'A-4', 'v1', expect.any(String), expect.objectContaining({ formatVersion: 1 }));
+    expect(onSave.mock.lastCall?.[4]).not.toHaveProperty('editorState');
   });
 
   it('coalesces long-document UI publication while keeping the latest draft synchronously readable', async () => {

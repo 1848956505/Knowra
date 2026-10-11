@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { alignIdentityBlocks, calculateContentHash, compareIdentityShadow, parseIdentityBlocks, validIdentityEditorState } from '../src/index.js';
+import { alignIdentityBlocks, calculateContentHash, compareIdentityShadow, identityQuoteHash, parseIdentityBlocks, validIdentityEditorState } from '../src/index.js';
 
 const markdown = '# 标题\n\n第一段重点内容\n\n<br />\n\n* 甲\n  * 乙\n\n$$\nx^2\n$$\n\n## 二\n\n尾段\n';
 const editorBlocks = [
@@ -42,7 +42,7 @@ test('两边一致时没有分歧：选区、块、章节、列表', () => {
   const result = compareIdentityShadow({
     markdown,
     editorState: state([
-      { id: 's', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteText: '重点' },
+      { id: 's', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteHash: identityQuoteHash('重点') },
       { id: 'b', scopeType: 'blocks', present: true, startBlockId: 'p1', endBlockId: 'p1' },
       { id: 'sec', scopeType: 'section', present: true, rootBlockId: 'h2' },
       { id: 'l', scopeType: 'list', present: true, rootBlockId: 'li1' }
@@ -61,10 +61,10 @@ test('记录各类分歧，且不包含正文', () => {
   const result = compareIdentityShadow({
     markdown,
     editorState: state([
-      { id: 'lost', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteText: '重点' },
+      { id: 'lost', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteHash: identityQuoteHash('重点') },
       { id: 'gone', scopeType: 'selection', present: false },
       { id: 'moved', scopeType: 'section', present: true, rootBlockId: 'h1' },
-      { id: 'quote', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteText: '第一' },
+      { id: 'quote', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteHash: identityQuoteHash('第一') },
       { id: 'review', scopeType: 'list', present: true, rootBlockId: 'li1' },
       { id: 'archived', scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1' }
     ]),
@@ -84,6 +84,11 @@ test('记录各类分歧，且不包含正文', () => {
   assert.equal(JSON.stringify(result).includes('重点'), false);
 });
 
+test('摘录哈希忽略空白与原子占位符差异', () => {
+  assert.equal(identityQuoteHash('甲 乙\n丙\uFFFC'), identityQuoteHash('甲乙丙'));
+  assert.notEqual(identityQuoteHash('甲乙'), identityQuoteHash('甲丙'));
+});
+
 test('状态不合法、正文不一致或无法对齐时整体跳过', () => {
   assert.equal(compareIdentityShadow({ markdown, editorState: { formatVersion: 1 }, annotations: [] }).status, 'invalidState');
   assert.equal(compareIdentityShadow({ markdown: markdown + 'x', editorState: state([]), annotations: [] }).status, 'stateMismatch');
@@ -91,4 +96,5 @@ test('状态不合法、正文不一致或无法对齐时整体跳过', () => {
   assert.equal(compareIdentityShadow({ markdown, editorState: misaligned, annotations: [] }).status, 'alignFailed');
   assert.equal(validIdentityEditorState({ ...state([]), blocks: [{ id: 'x'.repeat(200), type: 'paragraph', empty: false }] }), false);
   assert.equal(validIdentityEditorState({ ...state([{ id: 'a', scopeType: 'other', present: true }]) }), false);
+  assert.equal(validIdentityEditorState({ ...state([{ id: 'a', scopeType: 'selection', present: true, quoteHash: 'x'.repeat(200) }]) }), false);
 });

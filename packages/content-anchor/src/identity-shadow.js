@@ -18,7 +18,7 @@ export const EDITOR_TO_MARKDOWN_BLOCK = Object.freeze({
 });
 const MARKDOWN_BLOCKS = new Set(Object.values(EDITOR_TO_MARKDOWN_BLOCK));
 const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code', 'math', 'html', 'thematicBreak', 'table']);
-const LIMITS = { blocks: 50000, annotations: 5000, id: 128, quote: 20000 };
+const LIMITS = { blocks: 50000, annotations: 5000, id: 128 };
 const BR_HTML = /^\s*<br\s*\/?>\s*$/i;
 
 /** 与编辑器相同的块解析：gfm + 公式（单美元行内公式）。 */
@@ -73,7 +73,7 @@ export function validIdentityEditorState(state) {
   return blocksOk && state.annotations.every(item => item && text(item.id, LIMITS.id) && typeof item.present === 'boolean'
     && ['selection', 'blocks', 'section', 'list'].includes(item.scopeType)
     && optionalId(item.rootBlockId) && optionalId(item.startBlockId) && optionalId(item.endBlockId)
-    && (item.quoteText === undefined || text(item.quoteText, LIMITS.quote)));
+    && (item.quoteHash === undefined || text(item.quoteHash, 128)));
 }
 
 function deepestContaining(blocks, offset, types) {
@@ -100,7 +100,12 @@ function oldTargets(annotation, blocks, idByMarkdownIndex) {
   };
 }
 
-const normalizeQuote = value => String(value ?? '').replace(/[\s￼]+/g, '');
+const normalizeQuote = value => String(value ?? '').replace(/[\s\uFFFC]+/g, '');
+
+/** 摘录只以归一化哈希参与比较：快照大小不随选区长度增长，也不在请求中重复正文。 */
+export function identityQuoteHash(value) {
+  return calculateContentHash(normalizeQuote(value));
+}
 
 /**
  * 比较一次保存后的两边结论。`annotations` 是旧链路完成跟随后的仓库记录。
@@ -132,7 +137,7 @@ export function compareIdentityShadow({ markdown, editorState, annotations }) {
     const targets = oldTargets(old, blocks, idByMarkdownIndex);
     const keys = identity.scopeType === 'section' || identity.scopeType === 'list' ? ['rootBlockId'] : ['startBlockId', 'endBlockId'];
     if (!targets || keys.some(key => targets[key] !== identity[key])) { divergences.push({ ...base, kind: 'blockMismatch' }); continue; }
-    if (identity.scopeType === 'selection' && normalizeQuote(identity.quoteText) !== normalizeQuote(old.quoteText ?? old.anchor?.quoteText)) {
+    if (identity.scopeType === 'selection' && identity.quoteHash !== identityQuoteHash(old.quoteText ?? old.anchor?.quoteText)) {
       divergences.push({ ...base, kind: 'quoteMismatch' });
     }
   }

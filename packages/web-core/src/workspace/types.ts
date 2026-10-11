@@ -258,6 +258,6 @@ export interface AnnotationIdentityEditorState {
   formatVersion: 2;
   targetContentHash: string;
   blocks: Array<{ id: string; type: string; empty: boolean }>;
-  annotations: Array<{ id: string; scopeType: 'selection' | 'blocks' | 'section' | 'list'; present: boolean; rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteText?: string }>;
+  annotations: Array<{ id: string; scopeType: 'selection' | 'blocks' | 'section' | 'list'; present: boolean; rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteHash?: string }>;
 }
 export interface ConfirmAnnotationRangeInput { expectedRevision: number; noteContentHash: string; candidateHash: string }

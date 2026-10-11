@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { anchorFromProjectedRange, projectMarkdown, calculateContentHash, sourceEdit } from '@study-accelerator/content-anchor';
+import { anchorFromProjectedRange, projectMarkdown, calculateContentHash, identityQuoteHash, sourceEdit } from '@study-accelerator/content-anchor';
 import { createKnowledgeModule } from '../src/modules/knowledge/index.js';
 
 function fixture(sink) {
@@ -27,7 +27,7 @@ export const annotationIdentityShadowTests = [
     const entries = [];
     const { module, note, annotation } = fixture(entry => entries.push(entry));
     const after = note.rawMarkdown.replace('重要文字', '重要的文字');
-    save(module, note, after, editorState(after, [{ id: annotation.id, scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteText: '重要的文字' }]));
+    save(module, note, after, editorState(after, [{ id: annotation.id, scopeType: 'selection', present: true, startBlockId: 'p1', endBlockId: 'p1', quoteHash: identityQuoteHash('重要的文字') }]));
     assert.equal(entries.length, 1);
     assert.equal(entries[0].noteId, note.id);
     assert.equal(entries[0].status, 'compared');
@@ -39,7 +39,7 @@ export const annotationIdentityShadowTests = [
     const entries = [];
     const { module, note, annotation } = fixture(entry => entries.push(entry));
     const after = note.rawMarkdown.replace('尾段', '尾段补充');
-    save(module, note, after, editorState(after, [{ id: annotation.id, scopeType: 'selection', present: true, startBlockId: 'p2', endBlockId: 'p2', quoteText: '重要文字' }]));
+    save(module, note, after, editorState(after, [{ id: annotation.id, scopeType: 'selection', present: true, startBlockId: 'p2', endBlockId: 'p2', quoteHash: identityQuoteHash('重要文字') }]));
     assert.deepEqual(entries[0].divergences.map(item => item.kind), ['blockMismatch']);
     assert.equal(module.contentAnnotationService.getAnnotation(annotation.id).anchorStatus, 'resolved');
   } },

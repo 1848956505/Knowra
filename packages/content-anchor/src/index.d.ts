@@ -51,7 +51,7 @@ export interface AnnotationMapping { formatVersion: 1; operationId: string; base
 export interface IdentityEditorBlock { id: string; type: string; empty: boolean }
 export interface IdentityEditorAnnotation {
   id: string; scopeType: AnnotationScopeType; present: boolean;
-  rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteText?: string;
+  rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteHash?: string;
 }
 export interface IdentityEditorState { formatVersion: 2; targetContentHash: string; blocks: IdentityEditorBlock[]; annotations: IdentityEditorAnnotation[] }
 export type IdentityShadowDivergenceKind = 'trackedLost' | 'oldNeedsReview' | 'identityLost' | 'blockMismatch' | 'quoteMismatch';
@@ -65,6 +65,7 @@ export const EDITOR_TO_MARKDOWN_BLOCK: Readonly<Record<string, string>>;
 export function parseIdentityBlocks(markdown: string): Array<{ type: string; depth: number; sourceStart: number; sourceEnd: number; br: boolean }>;
 export function alignIdentityBlocks(markdownBlocks: ReturnType<typeof parseIdentityBlocks>, editorBlocks: IdentityEditorBlock[]): { aligned: true; pairs: Map<number, number> } | { aligned: false; editorIndex: number; markdownIndex: number; editorType: string | null; markdownType: string | null };
 export function validIdentityEditorState(state: unknown): state is IdentityEditorState;
+export function identityQuoteHash(value: string | null | undefined): string;
 export function compareIdentityShadow(input: { markdown: string; editorState: unknown; annotations: Array<Record<string, any>> }): IdentityShadowResult;
 export interface AnnotationStructure { formatVersion: 1; revision: number; contentHash: string; nodes: Array<{ id: string; path: string; type: string; sourceStart: number; sourceEnd: number }> }
 export function sourceEdit(before: string, after: string): SourceEdit;

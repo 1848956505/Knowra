@@ -21,10 +21,21 @@ export interface NoteSaveState {
   generation: number;
 }
 
-/** 影子比对诊断失败不能阻断保存。 */
-function withIdentity(mapping: ReturnType<typeof buildEditMapping>, identity: NoteSaveState['identity'], markdown: string) {
+/** 影子快照上限；服务端请求体上限为 8 MiB，正文与编辑日志之外为诊断数据保留的余量。 */
+export const IDENTITY_SNAPSHOT_MAX_BYTES = 1024 * 1024;
+const SAVE_REQUEST_BUDGET_BYTES = 6 * 1024 * 1024;
+
+/** 影子比对只是诊断：生成失败、快照过大或会让请求逼近上限时省略快照，保存照常进行。 */
+export function withIdentity(mapping: ReturnType<typeof buildEditMapping>, identity: NoteSaveState['identity'], markdown: string) {
   if (!mapping || identity?.markdown !== markdown) return mapping;
-  try { return { ...mapping, editorState: identity.build() }; } catch { return mapping; }
+  try {
+    const editorState = identity.build();
+    const encoder = new TextEncoder();
+    const snapshotBytes = encoder.encode(JSON.stringify(editorState)).byteLength;
+    if (snapshotBytes > IDENTITY_SNAPSHOT_MAX_BYTES) return mapping;
+    const requestBytes = encoder.encode(markdown).byteLength + encoder.encode(JSON.stringify(mapping)).byteLength + snapshotBytes;
+    return requestBytes > SAVE_REQUEST_BUDGET_BYTES ? mapping : { ...mapping, editorState };
+  } catch { return mapping; }
 }
 
 export function noteHasLocalWork(state: NoteSaveState): boolean {

@@ -5,7 +5,7 @@ import { annotationPluginKey } from './editorAnnotations';
 import type { TrackedAnnotationRange } from './annotationTransactionRanges';
 import { listItemAt } from './editorListAnnotations';
 import { ANNOTATION_MARK, IDENTITY_META } from './editorBlockIdentity';
-import { calculateContentHash, EDITOR_TO_MARKDOWN_BLOCK } from '@study-accelerator/content-anchor';
+import { calculateContentHash, EDITOR_TO_MARKDOWN_BLOCK, identityQuoteHash } from '@study-accelerator/content-anchor';
 import type { AnnotationIdentityEditorState } from '@study-accelerator/web-core';
 
 /**
@@ -188,6 +188,19 @@ function editorIdentityBlocks(doc: ProseNode): AnnotationIdentityEditorState['bl
   return blocks;
 }
 
+/** 服务端把表格作为整体对齐：单元格内的块统一报告为所在表格的 ID。 */
+function alignedBlockId(doc: ProseNode, blockId: string | null): string | undefined {
+  if (!blockId) return undefined;
+  const found = blockPosition(doc, blockId);
+  if (!found) return blockId;
+  const resolved = doc.resolve(found.position);
+  for (let depth = 1; depth <= resolved.depth; depth++) {
+    const ancestor = resolved.node(depth);
+    if (ancestor.type.name === 'table') return ancestor.attrs.blockId ?? blockId;
+  }
+  return blockId;
+}
+
 export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<string, AnnotationIdentityBinding>, markdown: string): AnnotationIdentityEditorState {
   const annotations: AnnotationIdentityEditorState['annotations'] = [];
   for (const [id, binding] of bindings) {
@@ -195,13 +208,13 @@ export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<s
     const item: AnnotationIdentityEditorState['annotations'][number] = { id, scopeType: binding.scopeType, present: Boolean(derived) };
     if (binding.scopeType === 'selection') {
       if (derived) {
-        item.startBlockId = textblockIdAt(doc, derived.from, 1) ?? undefined;
-        item.endBlockId = textblockIdAt(doc, derived.to, -1) ?? undefined;
-        item.quoteText = doc.textBetween(derived.from, derived.to, '\n', '￼');
+        item.startBlockId = alignedBlockId(doc, textblockIdAt(doc, derived.from, 1));
+        item.endBlockId = alignedBlockId(doc, textblockIdAt(doc, derived.to, -1));
+        item.quoteHash = identityQuoteHash(doc.textBetween(derived.from, derived.to, '\n', '\uFFFC'));
       }
     } else if (binding.scopeType === 'blocks') {
-      item.startBlockId = binding.startBlockId;
-      item.endBlockId = binding.endBlockId;
+      item.startBlockId = alignedBlockId(doc, binding.startBlockId ?? null);
+      item.endBlockId = alignedBlockId(doc, binding.endBlockId ?? null);
     } else item.rootBlockId = binding.rootBlockId;
     annotations.push(item);
   }
