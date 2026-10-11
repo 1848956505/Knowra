@@ -110,6 +110,38 @@ test('同步连接错误区分网络、超时与登录失败，恢复后清除�
   assert.equal(device.engine.status().error, null);
 });
 
+test('同步传输接线在首次失败、重新配置和断开后读取当前连接凭据', async t => {
+  const cloud = await fixture(t);
+  const requests = [];
+  let rejectConnection = true;
+  const device = cloud.device('transport-connection', async (url, options) => {
+    requests.push({ url, authorization: options.headers.Authorization, redirect: options.redirect });
+    if (rejectConnection) return new Response(null, { status: 401 });
+    return fetch(url, options);
+  });
+  const first = { serverUrl: cloud.origin, username: 'synthetic-user', password: 'first-synthetic-value' };
+  await assert.rejects(device.engine.configure(first), error => error.code === 'AUTH_REQUIRED');
+  assert.equal(requests[0].url, `${cloud.origin}/api/sync/status`);
+  assert.equal(requests[0].authorization, `Basic ${Buffer.from('synthetic-user:first-synthetic-value').toString('base64')}`);
+  assert.equal(device.store.readSync(db => readMeta(db, 'serverUrl')), null);
+  rejectConnection = false;
+  requests.length = 0;
+  await device.engine.configure({ ...first, password: 'second-synthetic-value' });
+  assert(requests.length > 1, '首次连接后的同步循环也应使用新凭据');
+  for (const request of requests) {
+    assert.equal(request.authorization, `Basic ${Buffer.from('synthetic-user:second-synthetic-value').toString('base64')}`);
+    assert.equal(request.redirect, 'error');
+  }
+  await device.engine.disconnect();
+  requests.length = 0;
+  await device.engine.sync();
+  assert.equal(requests.length, 0, '断开时不发起同步');
+  await device.engine.configure({ serverUrl: cloud.origin });
+  assert(requests.length > 1);
+  assert(requests.every(request => request.authorization === undefined), '无用户名重新连接不能复用旧认证值');
+  assert.equal(device.engine.status().phase, 'synced');
+});
+
 test('丢失成功响应后原 ID 重试；发送期间的新编辑不会被旧确认清除', async t => {
   const cloud = await fixture(t);
   let lose = true; let edited = false; const ids = [];
