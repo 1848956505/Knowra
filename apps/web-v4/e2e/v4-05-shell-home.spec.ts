@@ -107,14 +107,17 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await page.goto('/#/showcase');
     await page.getByRole('link', { name: '浏览完整图标库 →' }).click();
     await expect(page).toHaveURL(/#\/showcase\/icons$/);
-    await expect(page.getByText('75 / 75')).toBeVisible();
+    // V5 图标目录已加入 InboxIcon；固定总数保留目录完整性断言。
+    await expect(page.getByText('76 / 76')).toBeVisible();
+    await expect(page.getByRole('figure')).toHaveCount(76);
     await page.getByRole('button', { name: '工作区状态' }).click();
     await expect(page.getByRole('contentinfo', { name: '状态栏' })).toContainText('图标库');
     await expect(page.getByRole('contentinfo', { name: '状态栏' })).not.toContainText('加载中');
     await page.keyboard.press('Escape');
     await page.getByRole('searchbox', { name: /搜索图标/ }).fill('Backup');
     await expect(page.getByText('BackupIcon')).toBeVisible();
-    await expect(page.getByText('1 / 75')).toBeVisible();
+    await expect(page.getByText('1 / 76')).toBeVisible();
+    await expect(page.getByRole('figure')).toHaveCount(1);
 
     await page.setViewportSize({ width: 390, height: 843 });
     // viewport 更新先于浏览器 resize/media-query 布局提交；在连续渲染帧后验证相同溢出上限。
