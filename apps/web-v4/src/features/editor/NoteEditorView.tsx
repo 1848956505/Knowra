@@ -2,7 +2,7 @@ import { useExtractionEnvironment } from './ExtractionEnvironment';
 import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
 import type { AttachmentActions } from './EditorAttachmentPanel';
 import { registerDesktopSave } from '../../app/desktopLifecycle';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useDesktopTitlebar } from '../../shell/DesktopTitlebarContext';
 import {
@@ -48,6 +48,7 @@ import type {
 } from './editorCommands';
 import type { EditorViewAction, EffectiveEditorViewState } from './editorViewState';
 import { useEditorViewport } from './useEditorViewport';
+import { useEditorSavedActions } from './useEditorSavedActions';
 import { noteDraftRecovery } from './noteDraftRecovery';
 import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
@@ -219,13 +220,6 @@ export function NoteEditorView({
     saveCurrentScrollPosition, restoreCurrentScrollPosition
   } = useEditorViewport(note?.id);
   const editorRef = useRef<EditorCommandTarget>(null);
-  const versionWriteStateRef = useRef({ noteId: note?.id, canWrite });
-  versionWriteStateRef.current = { noteId: note?.id, canWrite };
-  const editorMountedRef = useRef(true);
-  useLayoutEffect(() => {
-    editorMountedRef.current = true;
-    return () => { editorMountedRef.current = false; };
-  }, []);
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
@@ -252,23 +246,11 @@ export function NoteEditorView({
   }, 0), [autosave, note?.rawMarkdown, view.showSourceEditor]);
 
   const extractionEnvironment = useExtractionEnvironment();
-  const analysisContext = useRef({ noteId: note?.id, spaceId: note?.spaceId, canWrite, scope: extractionEnvironment.scopeKey,
-    markdown: () => view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown() });
-  analysisContext.current = { noteId: note?.id, spaceId: note?.spaceId, canWrite, scope: extractionEnvironment.scopeKey,
-    markdown: () => view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown() };
-  async function previewSavedAnalysis(input: AnalysisScopeInput) {
-    const before = analysisContext.current;
-    const markdown = before.markdown();
-    if (!before.canWrite || !before.noteId || input.spaceId !== before.spaceId || !onPreviewAnalysisScope) throw new Error('当前笔记无法预览分析范围。');
-    const stillCurrent = () => editorMountedRef.current && analysisContext.current.canWrite
-      && analysisContext.current.noteId === before.noteId && analysisContext.current.spaceId === before.spaceId
-      && analysisContext.current.scope === before.scope && analysisContext.current.markdown() === markdown;
-    await autosave.saveNow(markdown);
-    if (!stillCurrent()) throw new Error('保存期间笔记或草稿已变化，请重新预览。');
-    const preview = await onPreviewAnalysisScope(input);
-    if (!stillCurrent()) throw new Error('预览期间笔记或草稿已变化，请重新预览。');
-    return preview;
-  }
+  const savedActions = useEditorSavedActions({
+    note, canWrite, showSourceEditor: view.showSourceEditor, extractionScope: extractionEnvironment.scopeKey,
+    editorRef, autosave, onPreviewAnalysisScope, onCreateKnowledgeCandidate,
+    onExtractWithAssistant, onSaveVersionAs, onFileStatus
+  });
   const draftMarkdown = autosave.draftMarkdown;
   const canEditContent = canWrite && view.contentMode === 'edit' && !view.showSourceEditor;
   const noteLinks = useEditorNoteLinks({
@@ -719,24 +701,8 @@ export function NoteEditorView({
           onListVersions={onListVersions}
           onListVersionPage={onListVersionPage}
           onPreviewVersionPrune={onPreviewVersionPrune}
-          onRestoreVersion={async (version) => {
-            if (!canWrite || version.noteId !== note.id) throw new Error('当前状态无法恢复此历史记录');
-            const current = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-            await autosave.saveNow(current);
-            if (!versionWriteStateRef.current.canWrite || versionWriteStateRef.current.noteId !== note.id) throw new Error('笔记或写入状态已改变，请重新打开历史记录');
-            const latest = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-            if (latest !== current) throw new Error('保存期间正文又有修改，请重新检查差异后恢复');
-            autosave.updateDraft(version.content, { immediate: true });
-            editorRef.current?.setMarkdown(version.content);
-            await autosave.saveNow(version.content);
-            onFileStatus('已恢复历史正文；恢复前的正文已保留在历史记录中');
-          }}
-          onSaveVersionAs={onSaveVersionAs ? async (version) => {
-            if (!canWrite || version.noteId !== note.id) throw new Error('当前状态无法另存此历史记录');
-            await saveImmediately();
-            if (!versionWriteStateRef.current.canWrite || versionWriteStateRef.current.noteId !== note.id) throw new Error('笔记或写入状态已改变，请重新打开历史记录');
-            await onSaveVersionAs(version);
-          } : undefined}
+          onRestoreVersion={savedActions.restoreVersion}
+          onSaveVersionAs={savedActions.saveVersionAs}
           onGetVersion={onGetVersion}
           onOrganizeNote={onOrganizeNote}
           onUploadAttachment={editorAttachments.uploadAttachmentFile}
@@ -757,28 +723,11 @@ export function NoteEditorView({
           onConfirmAnnotationRange={onConfirmAnnotationRange ? async (id, input) => replaceAnnotation(await onConfirmAnnotationRange(id, input)) : undefined}
           onPreviewAnnotation={onPreviewAnnotation}
           onGetAnnotationKnowledgeLinks={onGetAnnotationKnowledgeLinks}
-          onCreateKnowledgeCandidate={onCreateKnowledgeCandidate ? async annotation => {
-            const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-            await autosave.saveNow(markdown);
-            if (!versionWriteStateRef.current.canWrite || versionWriteStateRef.current.noteId !== annotation.noteId) throw new Error('已切换笔记或写入状态，请在当前笔记重新创建候选。');
-            await onCreateKnowledgeCandidate(annotation);
-          } : undefined}
+          onCreateKnowledgeCandidate={savedActions.createKnowledgeCandidate}
           onOpenKnowledgeItem={onOpenKnowledgeItem}
-          onExtractWithAssistant={onExtractWithAssistant ? async () => {
-            // 助手读取的是已保存的版本：保存当前草稿，并在保存完成后重新核验——保存期间继续输入、切换笔记或写入状态变化都不能跳转，
-            // 否则助手会读到旧内容；保存失败同样留在编辑器。出错时抛出说明，由检查器显示并允许重试。
-            const before = analysisContext.current;
-            if (!before.canWrite || !before.noteId) throw new Error('当前笔记不可写，无法提炼知识点。');
-            const markdown = before.markdown();
-            await autosave.saveNow(markdown);
-            const now = analysisContext.current;
-            if (!editorMountedRef.current || !now.canWrite || now.noteId !== before.noteId || now.spaceId !== before.spaceId || now.markdown() !== markdown) {
-              throw new Error('保存期间笔记或草稿已变化，请确认内容后重试。');
-            }
-            onExtractWithAssistant(before.noteId);
-          } : undefined}
+          onExtractWithAssistant={savedActions.extractWithAssistant}
           knowledgeWriteDisabledReason={knowledgeWriteDisabledReason}
-          onPreviewAnalysisScope={onPreviewAnalysisScope ? previewSavedAnalysis : undefined}
+          onPreviewAnalysisScope={savedActions.previewAnalysis}
           onCreateAnalysisScope={onCreateAnalysisScope}
           onListAnalysisScopes={onListAnalysisScopes}
           onTrashAnalysisScope={onTrashAnalysisScope}

@@ -69,3 +69,22 @@ it('正文保存失败时不创建知识候选，并保留未保存正文', asyn
   expect(props.onCreateKnowledgeCandidate).not.toHaveBeenCalled();
   expect(source).toHaveValue('不能丢失的来源草稿');
 });
+
+it('保存期间继续输入时不以旧正文创建候选，保留最新草稿供重试', async () => {
+  const props = makeProps('knowledge-keeps-typing');
+  let completeSave!: (saved: Note) => void;
+  props.onSaveMarkdown = vi.fn(() => new Promise<Note>(resolve => { completeSave = resolve; }));
+  render(<NoteEditorView {...props} />);
+  const source = screen.getByRole('textbox', { name: 'Markdown 源码编辑器' });
+  fireEvent.change(source, { target: { value: '草稿 A' } });
+  let result!: Promise<unknown>;
+  act(() => { result = inspector.createCandidate!({ id: 'typing-source', noteId: props.note!.id } as Annotation).catch(error => error); });
+  await waitFor(() => expect(props.onSaveMarkdown).toHaveBeenCalledOnce());
+  fireEvent.change(source, { target: { value: '草稿 A 后继续输入 B' } });
+  await act(async () => {
+    completeSave({ ...props.note!, rawMarkdown: '草稿 A', updatedAt: '2026-09-21T01:00:01.000Z' });
+    expect(await result).toEqual(expect.objectContaining({ message: '保存期间正文又有修改，请确认内容后重新创建候选。' }));
+  });
+  expect(props.onCreateKnowledgeCandidate).not.toHaveBeenCalled();
+  expect(source).toHaveValue('草稿 A 后继续输入 B');
+});
