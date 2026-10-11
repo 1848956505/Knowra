@@ -13,11 +13,11 @@ import { buildIndexPath, indexRoute } from '../features/notes/notesIndexNavigati
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from './router';
-import { canNavigate } from './navigationGuard';
+import { useAppCommandSearch } from './useAppCommandSearch';
 import { useAppStore, useAppStoreApi } from '../store/AppStoreProvider';
 import { AppShell } from '../shell/AppShell';
 import { deriveStatusPath } from '../shell/statusPath';
-import { SearchCommand, type SearchHit } from '../shell/SearchCommand';
+import { SearchCommand } from '../shell/SearchCommand';
 import { useGlobalShortcuts } from '../shell/useGlobalShortcuts';
 import { NotesContextSidebar } from '../features/notes';
 import { EntryDragDropProvider } from '../features/notes/EntryDragDrop';
@@ -54,12 +54,6 @@ export function App() {
   const editorHasLocalChanges = useAppStore((state) => state.editorHasLocalChanges);
   const workspaceError = useAppStore((state) => state.workspaceError);
   const notes = useAppStore((state) => state.serverData.notes);
-  const currentSpaceId = useAppStore((state) => state.serverData.currentSpaceId);
-  const searchCommandNotes = useAppStore((state) => state.searchCommandNotes);
-  const commandSpaces = useAppStore((state) => state.serverData.spaces);
-  const commandGeneration = useAppStore((state) => state.knowledgeGeneration);
-  const workspaceLoadState = useAppStore((state) => state.workspaceLoadState);
-  const commandScopeKey = useMemo(() => ({}), [currentSpaceId, commandSpaces, commandGeneration, dataMode, workspaceLoadState]);
   const openNoteTabIds = useAppStore((state) => state.navigation.openNoteTabs);
   const storeApi = useAppStoreApi();
   const indexScope = useAppStore(state => state.notesIndex.scope);
@@ -75,8 +69,6 @@ export function App() {
     showLeftSidebar: readNotesSidebarPreference()
   }));
   const previousPathRef = useRef(location.pathname);
-  const commandPathRef = useRef(location.pathname);
-  commandPathRef.current = location.pathname;
 
   useEffect(() => {
     writeNotesSidebarPreference(editorView.showLeftSidebar);
@@ -148,8 +140,9 @@ export function App() {
 
   // SearchCommand 数据源：每个命中项决定自己的目标路径。
   // - 动作（action:home）→ 主页（/）；
-  // - 笔记 → 编辑页；标签 → 笔记索引页，由 useSearchHits 同步索引筛选与选中项。
-  const searchHits = useSearchHits({
+  // - 笔记 → 编辑页；标签 → 笔记索引页，由应用搜索适配同步索引筛选与选中项。
+  const { hits: searchHits, commandSearch } = useAppCommandSearch({
+    pathname: location.pathname,
     onSelect: (announcement, path) => {
       navigate(path);
       setLiveAnnouncement(announcement);
@@ -361,36 +354,7 @@ export function App() {
         isOpen={searchOpen}
         onOpenChange={setSearchOpen}
         hits={searchHits}
-        commandSearch={searchCommandNotes ? {
-          spaceId: currentSpaceId,
-          search: searchCommandNotes,
-          scopeKey: commandScopeKey,
-          onSelect: async (hit, context) => {
-            const before = storeApi.getState();
-            const originPath = location.pathname;
-            const isCurrent = () => context.isCurrent() && commandPathRef.current === originPath
-              && storeApi.getState().navigation === before.navigation;
-            if (!currentSpaceId || before.serverData.currentSpaceId !== currentSpaceId || !isCurrent()) return false;
-            if (!canNavigate()) throw new Error('请先保存或放弃当前更改，再打开笔记。');
-            const loaded = await before.loadCommandNote({ noteId: hit.id, spaceId: currentSpaceId, isCurrent });
-            if (!loaded || !isCurrent()) return false;
-            const state = storeApi.getState();
-            if (state.serverData !== loaded.snapshot || state.serverData.currentSpaceId !== currentSpaceId
-              || state.dataMode !== before.dataMode || state.workspaceLoadState !== before.workspaceLoadState
-              || state.knowledgeGeneration !== before.knowledgeGeneration) return false;
-            const note = loaded.note;
-            if (note.id !== hit.id || note.spaceId !== currentSpaceId || note.deleted || !state.serverData.notes.includes(note)) {
-              throw new Error('笔记已变化，请重新搜索。');
-            }
-            if (!canNavigate()) throw new Error('请先保存或放弃当前更改，再打开笔记。');
-            state.setActiveWorkDomain('materials');
-            state.selectNotesFolder(note.folderId);
-            state.selectNote(note.id);
-            navigate(`/materials/notes/${encodeURIComponent(note.id)}`);
-            setLiveAnnouncement(`已打开笔记“${note.title || '无标题'}”`);
-            return true;
-          }
-        } : undefined}
+        commandSearch={commandSearch}
       />
       <CreateEntryDialog
         mode={createNoteOpen ? 'note' : null}
@@ -406,72 +370,6 @@ export function App() {
       </AppShell>
     </EntryDragDropProvider>
   );
-}
-
-function useSearchHits({
-  onSelect
-}: {
-  /** 由每个命中项决定目标路径与宣告文案；调用方负责 navigate + setLiveAnnouncement。 */
-  onSelect(announcement: string, path: string): void;
-}): SearchHit[] {
-  const notes = useAppStore((s) => s.serverData.notes);
-  const tags = useAppStore((s) => s.serverData.tags);
-  const spaceId = useAppStore((s) => s.serverData.currentSpaceId);
-  const selectNote = useAppStore((s) => s.selectNote);
-  const setActiveWorkDomain = useAppStore((s) => s.setActiveWorkDomain);
-  const selectNotesFolder = useAppStore((s) => s.selectNotesFolder);
-  const selectNotesTag = useAppStore((s) => s.selectNotesTag);
-
-  return useMemo(() => {
-    const hits: SearchHit[] = [];
-    hits.push({
-      id: 'action:home',
-      primary: '返回主页',
-      secondary: '回到早安页',
-      hint: '跳转',
-      group: '动作',
-      onSelect: () => {
-        // 主页（/）由左上角 Logo 与全局快捷键 ⌘/ 触达；
-        // 这里保留 SearchCommand 里的"动作"入口，文案与跳转路径必须和 logo 一致。
-        onSelect('已返回主页', '/');
-      }
-    });
-    for (const note of notes) {
-      if (note.deleted || note.spaceId !== spaceId) continue;
-      hits.push({
-        id: `note:${note.id}`,
-        primary: note.title || '（无标题）',
-        secondary: note.folderId ? `目录 ${note.folderId}` : '未分类',
-        hint: '资料',
-        group: '资料',
-        onSelect: () => {
-          setActiveWorkDomain('materials');
-          selectNotesFolder(note.folderId);
-          selectNote(note.id);
-          onSelect(
-            `已打开笔记“${note.title || '无标题'}”`,
-            `/materials/notes/${encodeURIComponent(note.id)}`
-          );
-        }
-      });
-    }
-    for (const tag of tags) {
-      if (!tag.name || tag.spaceId !== spaceId) continue;
-      hits.push({
-        id: `tag:${tag.id}`,
-        primary: `#${tag.name}`,
-        secondary: '按标签筛选',
-        hint: '标签',
-        group: '标签',
-        onSelect: () => {
-          setActiveWorkDomain('materials');
-          selectNotesTag(tag.id);
-          onSelect(`已按标签“${tag.name}”筛选笔记`, '/materials');
-        }
-      });
-    }
-    return hits;
-  }, [notes, tags, spaceId, selectNote, setActiveWorkDomain, selectNotesFolder, selectNotesTag, onSelect]);
 }
 
 export function AppRoot() {
