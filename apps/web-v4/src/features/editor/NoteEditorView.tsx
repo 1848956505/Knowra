@@ -51,12 +51,7 @@ import type {
   EditorFindMode
 } from './editorCommands';
 import type { EditorViewAction, EffectiveEditorViewState } from './editorViewState';
-import {
-  captureEditorScrollPosition,
-  getEditorScrollTop,
-  readEditorScrollPositions,
-  writeEditorScrollPositions
-} from './editorScrollPosition';
+import { useEditorViewport } from './useEditorViewport';
 import { noteDraftRecovery } from './noteDraftRecovery';
 import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
@@ -157,10 +152,6 @@ export interface NoteEditorViewProps {
   onToggleInspector(): void;
 }
 
-function nextAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
-}
-
 export function NoteEditorView({
   note,
   folder,
@@ -235,10 +226,10 @@ export function NoteEditorView({
   onToggleInspector
 }: NoteEditorViewProps) {
   const desktopTitlebar = useDesktopTitlebar();
-  const documentStageRef = useRef<HTMLDivElement>(null);
-  const paperRef = useRef<HTMLElement>(null);
-  const toolbarAnchorRef = useRef<HTMLDivElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
+  const {
+    documentStageRef, paperRef, toolbarAnchorRef, toolbarRef, toolbarPinned, documentEdge,
+    saveCurrentScrollPosition, restoreCurrentScrollPosition
+  } = useEditorViewport(note?.id);
   const editorRef = useRef<EditorCommandTarget>(null);
   const annotationCreateInputsRef = useRef(new Map<string, { markdown: string; selection: AnnotationSelection; input: CreateAnnotationInput }>());
   const annotationCreatePendingRef = useRef(false);
@@ -256,22 +247,15 @@ export function NoteEditorView({
   }, []);
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const pendingScrollRestoreRef = useRef<string | null>(null);
-  const restoringScrollRef = useRef(false);
-  const scrollRestoreAttemptRef = useRef(false);
-  const retryScrollRestoreRef = useRef<() => void>(() => undefined);
   const [bodySavedToken, setBodySavedToken] = useState<string | null>(null);
   const [bodyPreview, setBodyPreview] = useState<{ name: string; url: string } | null>(null);
   useEffect(() => () => { if (bodyPreview) URL.revokeObjectURL(bodyPreview.url); }, [bodyPreview]);
   useEffect(() => { setBodyPreview(null); setBodySavedToken(null); }, [note?.id]);
-  const [toolbarPinned, setToolbarPinned] = useState(false);
-  const [documentEdge, setDocumentEdge] = useState<number | null>(null);
   const [editPanelMode, setEditPanelMode] = useState<EditorFindMode | null>(null);
   const [repairDialogOpen, setRepairDialogOpen] = useState(false);
   const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
   const [overlappingAnnotationIds, setOverlappingAnnotationIds] = useState<string[]>([]);
   useEffect(() => setOverlappingAnnotationIds([]), [note?.id]);
-  const [scrollPositions] = useState(readEditorScrollPositions);
   const autosave = useNoteAutosave({
     noteId: note?.id ?? 'missing-note',
     draftScope: getNoteDraftScope(note?.spaceId),
@@ -340,91 +324,9 @@ export function NoteEditorView({
   });
 
   useEffect(() => {
-    const stage = documentStageRef.current;
-    const toolbarAnchor = toolbarAnchorRef.current;
-    const toolbar = toolbarRef.current;
-    if (!stage || !toolbarAnchor || !toolbar) return;
-    const syncPinned = () => {
-      if (!restoringScrollRef.current) {
-        if (pendingScrollRestoreRef.current === note?.id) {
-          pendingScrollRestoreRef.current = null;
-        }
-        captureEditorScrollPosition(scrollPositions, note?.id, stage.scrollTop);
-      }
-      const marginTop = Number.parseFloat(window.getComputedStyle(toolbar).marginTop) || 0;
-      const pinned = toolbarAnchor.getBoundingClientRect().top + marginTop <= stage.getBoundingClientRect().top + 1;
-      setToolbarPinned((current) => current === pinned ? current : pinned);
-    };
-    const syncDocumentEdge = () => {
-      const paper = toolbar.closest('article');
-      if (paper) {
-        const edge = Math.max(0, (stage.clientWidth - paper.offsetWidth) / 2);
-        setDocumentEdge((current) => current === edge ? current : edge);
-      }
-    };
-    const syncLayout = () => {
-      syncPinned();
-      syncDocumentEdge();
-    };
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncDocumentEdge);
-    observer?.observe(stage);
-    stage.addEventListener('scroll', syncPinned, { passive: true });
-    window.addEventListener('resize', syncLayout);
-    syncLayout();
-    return () => {
-      observer?.disconnect();
-      stage.removeEventListener('scroll', syncPinned);
-      window.removeEventListener('resize', syncLayout);
-    };
-  }, [note?.id, scrollPositions]);
-
-  useLayoutEffect(() => {
-    const stage = documentStageRef.current;
-    pendingScrollRestoreRef.current = note?.id ?? null;
-    if (!stage) return;
-    restoringScrollRef.current = true;
-    stage.scrollTop = 0;
-    window.requestAnimationFrame(() => {
-      restoringScrollRef.current = false;
-    });
-  }, [note?.id]);
-
-  useEffect(() => {
-    const paper = paperRef.current;
-    if (!paper || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => retryScrollRestoreRef.current());
-    observer.observe(paper);
-    return () => observer.disconnect();
-  }, [note?.id]);
-
-  useEffect(() => {
-    const stage = documentStageRef.current;
-    if (!stage) return;
-    const cancelPendingRestore = () => {
-      pendingScrollRestoreRef.current = null;
-    };
-    stage.addEventListener('pointerdown', cancelPendingRestore, { capture: true });
-    stage.addEventListener('wheel', cancelPendingRestore, { capture: true, passive: true });
-    stage.addEventListener('touchstart', cancelPendingRestore, { capture: true, passive: true });
-    stage.addEventListener('keydown', cancelPendingRestore, { capture: true });
-    return () => {
-      stage.removeEventListener('pointerdown', cancelPendingRestore, { capture: true });
-      stage.removeEventListener('wheel', cancelPendingRestore, { capture: true });
-      stage.removeEventListener('touchstart', cancelPendingRestore, { capture: true });
-      stage.removeEventListener('keydown', cancelPendingRestore, { capture: true });
-    };
-  }, [note?.id]);
-
-  useEffect(() => () => {
-    writeEditorScrollPositions(scrollPositions);
-  }, [note?.id, scrollPositions]);
-
-  useEffect(() => {
     setEditPanelMode(null);
     setRepairDialogOpen(false);
   }, [note?.id]);
-
-  retryScrollRestoreRef.current = () => undefined;
 
   if (!note) {
     return (
@@ -461,52 +363,6 @@ export function NoteEditorView({
       : editorRef.current?.insertLink(url, attachment.fileName);
     if (!inserted) throw new Error('当前编辑状态无法插入附件，请切换到正文编辑模式后重试');
     onFileStatus(isInlineImageAttachment(attachment) ? '图片已插入正文' : '附件链接已插入正文');
-  };
-  const saveCurrentScrollPosition = () => {
-    const stage = documentStageRef.current;
-    if (!stage) return;
-    captureEditorScrollPosition(scrollPositions, note.id, stage.scrollTop);
-    writeEditorScrollPositions(scrollPositions);
-  };
-  const restoreCurrentScrollPosition = async () => {
-    const stage = documentStageRef.current;
-    if (
-      !stage
-      || pendingScrollRestoreRef.current !== note.id
-      || scrollRestoreAttemptRef.current
-    ) return;
-    scrollRestoreAttemptRef.current = true;
-    try {
-      await nextAnimationFrame();
-      await nextAnimationFrame();
-      if (documentStageRef.current !== stage || pendingScrollRestoreRef.current !== note.id) return;
-      const scrollTop = getEditorScrollTop(scrollPositions, note.id);
-      for (let frame = 0; frame < 30 && stage.scrollHeight - stage.clientHeight < scrollTop; frame += 1) {
-        await nextAnimationFrame();
-        if (documentStageRef.current !== stage || pendingScrollRestoreRef.current !== note.id) return;
-      }
-      if (stage.scrollHeight - stage.clientHeight < scrollTop) return;
-      restoringScrollRef.current = true;
-      const stabilizationFrames = scrollTop > 0 ? 30 : 1;
-      for (let frame = 0; frame < stabilizationFrames; frame += 1) {
-        stage.scrollTop = scrollTop;
-        await nextAnimationFrame();
-        if (documentStageRef.current !== stage || pendingScrollRestoreRef.current !== note.id) {
-          restoringScrollRef.current = false;
-          return;
-        }
-      }
-      stage.scrollTop = scrollTop;
-      pendingScrollRestoreRef.current = null;
-      window.requestAnimationFrame(() => {
-        restoringScrollRef.current = false;
-      });
-    } finally {
-      scrollRestoreAttemptRef.current = false;
-    }
-  };
-  retryScrollRestoreRef.current = () => {
-    void restoreCurrentScrollPosition();
   };
   const runCommand = (command: EditorCommand) => {
     if (!editorRef.current?.run(command)) return;
