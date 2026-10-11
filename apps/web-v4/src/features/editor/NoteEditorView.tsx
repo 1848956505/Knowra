@@ -1,6 +1,6 @@
 import { useExtractionEnvironment } from './ExtractionEnvironment';
 import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
-import { attachmentIdsInText, ApiRequestError } from '@study-accelerator/web-core';
+import { attachmentIdsInText } from '@study-accelerator/web-core';
 import type { AttachmentActions } from './EditorAttachmentPanel';
 import { downloadAttachment, fetchAttachmentBlob } from './attachmentAccess';
 import { isAttachmentReferenced } from './attachmentFiles';
@@ -56,7 +56,7 @@ import { noteDraftRecovery } from './noteDraftRecovery';
 import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
 import { useEditorInspectorData } from './useEditorInspectorData';
-import { buildCreateAnnotationInput, buildUpdateAnnotationAnchorInput, canContinueListAnnotation, type AnnotationSelection } from './annotationPayloads';
+import { useEditorAnnotationWrites } from './useEditorAnnotationWrites';
 import {
   INLINE_IMAGE_ACCEPT,
   assertInlineImageFile,
@@ -231,19 +231,12 @@ export function NoteEditorView({
     saveCurrentScrollPosition, restoreCurrentScrollPosition
   } = useEditorViewport(note?.id);
   const editorRef = useRef<EditorCommandTarget>(null);
-  const annotationCreateInputsRef = useRef(new Map<string, { markdown: string; selection: AnnotationSelection; input: CreateAnnotationInput }>());
-  const annotationCreatePendingRef = useRef(false);
   const versionWriteStateRef = useRef({ noteId: note?.id, canWrite });
   versionWriteStateRef.current = { noteId: note?.id, canWrite };
-  const annotationWriteStateRef = useRef({ noteId: note?.id, editable: false });
-  const annotationEditable = Boolean(note && canWrite && view.contentMode === 'edit' && !view.showSourceEditor);
-  if (annotationWriteStateRef.current.noteId !== note?.id || annotationWriteStateRef.current.editable !== annotationEditable) {
-    annotationWriteStateRef.current = { noteId: note?.id, editable: annotationEditable };
-  }
-  const annotationMountedRef = useRef(true);
+  const editorMountedRef = useRef(true);
   useLayoutEffect(() => {
-    annotationMountedRef.current = true;
-    return () => { annotationMountedRef.current = false; };
+    editorMountedRef.current = true;
+    return () => { editorMountedRef.current = false; };
   }, []);
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -283,7 +276,7 @@ export function NoteEditorView({
     const before = analysisContext.current;
     const markdown = before.markdown();
     if (!before.canWrite || !before.noteId || input.spaceId !== before.spaceId || !onPreviewAnalysisScope) throw new Error('当前笔记无法预览分析范围。');
-    const stillCurrent = () => annotationMountedRef.current && analysisContext.current.canWrite
+    const stillCurrent = () => editorMountedRef.current && analysisContext.current.canWrite
       && analysisContext.current.noteId === before.noteId && analysisContext.current.spaceId === before.spaceId
       && analysisContext.current.scope === before.scope && analysisContext.current.markdown() === markdown;
     await autosave.saveNow(markdown);
@@ -321,6 +314,19 @@ export function NoteEditorView({
     onGetLinkedNotes,
     onListAnnotations,
     onError: onFileStatus
+  });
+
+  const { createCurrentAnnotation, reanchorAnnotation, excludeCurrentBlock } = useEditorAnnotationWrites({
+    note, canEditContent, editorRef, autosave, onListAnnotations, onCreateAnnotation,
+    onUpdateAnnotationAnchor, onCreateAnnotationExclusion, onFileStatus,
+    onCreated: created => {
+      setAnnotations(current => [...current.filter(item => item.id !== created.id), created]);
+      setFocusedAnnotationId(created.id);
+    },
+    onUpdated: (updated, focus) => {
+      setAnnotations(current => current.map(item => item.id === updated.id ? updated : item));
+      if (focus) setFocusedAnnotationId(updated.id);
+    }
   });
 
   useEffect(() => {
@@ -402,64 +408,6 @@ export function NoteEditorView({
     const markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
     await autosave.saveNow(markdown);
   };
-  const createCurrentAnnotation = async (scopeType: 'selection' | 'blocks' | 'section' | 'list' = 'selection', importance: 'normal' | 'important' | 'core' = 'normal') => {
-    if (!canEditContent) throw new Error('阅读模式下无法创建标注');
-    if (annotationCreatePendingRef.current) return;
-    const context = annotationWriteStateRef.current;
-    const editor = editorRef.current;
-    let selection = editor?.getAnnotationSelection(scopeType);
-    if (!selection) throw new Error(scopeType === 'list' ? '请先将光标放在非空的普通列表项内' : scopeType === 'section' ? '请先将光标放在标题章节内' : '请先在正文中选中要标记的内容');
-    let markdown = editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown();
-    let selectionSignature = JSON.stringify(selection);
-    const assertCurrent = () => {
-      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
-        || editor?.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scopeType, { restoreSelection: false })) !== selectionSignature) {
-        throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
-      }
-    };
-    const initialSignature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor, importance]);
-    const unresolved = [...annotationCreateInputsRef.current.entries()].find(([signature, request]) =>
-      signature === initialSignature || request.input.noteId === note.id && request.input.importance === importance
-        && canContinueListAnnotation(request.markdown, markdown, request.selection, selection ?? null));
-    annotationCreatePendingRef.current = true;
-    try {
-      // 最多跟进三轮原列表项内的继续输入，避免持续打字时无限等待。
-      for (let attempt = 0; ; attempt++) {
-        assertCurrent();
-        await autosave.saveNow(markdown);
-        if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor) {
-          throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
-        }
-        const latestMarkdown = editor!.getMarkdown();
-        if (latestMarkdown === markdown) { assertCurrent(); break; }
-        const latestSelection = editor!.getAnnotationSelection(scopeType, { restoreSelection: false });
-        if (attempt >= 2 || !canContinueListAnnotation(markdown, latestMarkdown, selection, latestSelection)) {
-          throw new Error('正文、选区或编辑状态已变化，请重新选择章节或内容');
-        }
-        markdown = latestMarkdown;
-        selection = latestSelection;
-        selectionSignature = JSON.stringify(selection);
-      }
-      const signature = JSON.stringify([note.id, calculateContentHash(markdown), scopeType, selection.anchor, importance]);
-      // 未确认的请求须保持原 payload/key，服务端会先恢复幂等结果，再校验正文版本。
-      const requestKey = unresolved?.[0] ?? signature;
-      const request = unresolved?.[1] ?? { markdown, selection, input: await buildCreateAnnotationInput(note, markdown, selection, importance) };
-      assertCurrent();
-      annotationCreateInputsRef.current.set(requestKey, request);
-      let created: Annotation;
-      try { created = await onCreateAnnotation(request.input); }
-      catch (error) {
-        // 该明确冲突在服务端幂等查询之后抛出，证明旧请求未创建，下一次显式操作可用最新正文。
-        if (error instanceof ApiRequestError && error.code === 'ANNOTATION_CONTENT_CONFLICT') annotationCreateInputsRef.current.delete(requestKey);
-        throw error;
-      }
-      annotationCreateInputsRef.current.delete(requestKey);
-      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context) return;
-      setAnnotations((current) => [...current.filter((item) => item.id !== created.id), created]);
-      setFocusedAnnotationId(created.id);
-      onFileStatus('已标为重点');
-    } finally { annotationCreatePendingRef.current = false; }
-  };
   const replaceAnnotation = (updated: Annotation) => {
     setAnnotations((current) => current.map((item) => item.id === updated.id ? updated : item));
   };
@@ -467,50 +415,6 @@ export function NoteEditorView({
     setOverlappingAnnotationIds([]);
     setFocusedAnnotationId(annotationId);
     if (!editorRef.current?.selectAnnotation(annotationId)) onFileStatus('原文位置已变化，请重新选择来源');
-  };
-  const prepareAnnotationWrite = async (annotation: Annotation, scope: 'selection' | 'blocks' | 'section' | 'list') => {
-    const context = annotationWriteStateRef.current;
-    const editor = editorRef.current;
-    if (!annotationMountedRef.current || !context.editable || context.noteId !== annotation.noteId || !editor) throw new Error('笔记或编辑状态已变化，请重新选择');
-    const selection = editor.getAnnotationSelection(scope);
-    if (!selection) throw new Error('请先在正文中选择对应内容');
-    const markdown = editor.getMarkdown();
-    const signature = JSON.stringify(selection);
-    const assertCurrent = () => {
-      if (!annotationMountedRef.current || annotationWriteStateRef.current !== context || editorRef.current !== editor
-        || editor.getMarkdown() !== markdown || JSON.stringify(editor.getAnnotationSelection(scope, { restoreSelection: false })) !== signature) {
-        throw new Error('正文、选区或编辑状态已变化，请重新选择');
-      }
-    };
-    await autosave.saveNow(markdown);
-    assertCurrent();
-    const items = await onListAnnotations(annotation.noteId);
-    assertCurrent();
-    const latest = items.find(item => item.id === annotation.id && item.noteId === annotation.noteId);
-    if (!latest || latest.deletedAt || latest.lifecycleStatus && latest.lifecycleStatus !== 'active') throw new Error('标注状态已变化，请刷新后重试');
-    return { markdown, selection, revision: latest.revision ?? 1, assertCurrent,
-      isCurrentNote: () => annotationMountedRef.current && annotationWriteStateRef.current === context };
-  };
-  const reanchorAnnotation = async (annotation: Annotation) => {
-    const prepared = await prepareAnnotationWrite(annotation, annotation.scopeType ?? 'selection');
-    const input = await buildUpdateAnnotationAnchorInput(prepared.markdown, prepared.selection, prepared.revision);
-    prepared.assertCurrent();
-    const updated = await onUpdateAnnotationAnchor(
-      annotation.id,
-      input
-    );
-    if (prepared.isCurrentNote()) { replaceAnnotation(updated); setFocusedAnnotationId(updated.id); }
-  };
-  const excludeCurrentBlock = async (annotation: Annotation) => {
-    if (!onCreateAnnotationExclusion) throw new Error('当前环境不支持局部排除');
-    const prepared = await prepareAnnotationWrite(annotation, 'blocks');
-    prepared.assertCurrent();
-    const result = await onCreateAnnotationExclusion(annotation.id, {
-      expectedRevision: prepared.revision,
-      noteContentHash: calculateContentHash(prepared.markdown),
-      anchor: prepared.selection.anchor
-    });
-    if (prepared.isCurrentNote()) { replaceAnnotation(result.annotation); onFileStatus('已从所属重点中排除当前内容块'); }
   };
   const openNoteSafely = (targetNoteId: string) => {
     saveCurrentScrollPosition();
@@ -529,17 +433,17 @@ export function NoteEditorView({
     try {
       if (!canWrite && autosave.hasLocalChanges) throw new Error('当前正文尚未保存，请先处理草稿');
       await saveImmediately();
-      if (!annotationMountedRef.current) return;
+      if (!editorMountedRef.current) return;
       if (linkContext.current !== before || (editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown()) !== markdown) throw new Error('保存期间来源已变化，请重试');
       const relations = await onGetNoteLinkRelations(locator ? targetNoteId : note.id);
-      if (!annotationMountedRef.current) return;
+      if (!editorMountedRef.current) return;
       if (linkContext.current !== before || (editorRef.current?.getMarkdown() ?? autosave.getLatestMarkdown()) !== markdown) throw new Error('跳转期间来源已变化，请重试');
       if (relations.noteId !== (locator ? targetNoteId : note.id) || relations.spaceId !== note.spaceId) throw new Error('引用查询已失效');
       if (!locator && !relations.outgoing.some(item => item.id === targetNoteId && item.status === 'active')) throw new Error('目标已删除或链接已移除');
       saveCurrentScrollPosition();
       if (locator) requestNoteLinkNavigation(targetNoteId, linkScope, locator, relations.contentHash);
       onOpenNote(targetNoteId);
-    } catch (cause) { if (annotationMountedRef.current) onFileStatus(cause instanceof Error ? cause.message : '跳转失败'); }
+    } catch (cause) { if (editorMountedRef.current) onFileStatus(cause instanceof Error ? cause.message : '跳转失败'); }
   };
   const handleFileAction = async (action: EditorFileAction) => {
     switch (action) {
@@ -853,7 +757,7 @@ export function NoteEditorView({
                         onReady={async () => {
                           const readyContext = linkContext.current;
                           await restoreCurrentScrollPosition();
-                          if (!annotationMountedRef.current || linkContext.current !== readyContext || readyContext.noteId !== note.id) return;
+                          if (!editorMountedRef.current || linkContext.current !== readyContext || readyContext.noteId !== note.id) return;
                           const navigation = takeNoteLinkNavigation(note.id, linkScope);
                           if (navigation) {
                             const located = calculateContentHash(note.rawMarkdown) === navigation.contentHash
@@ -1002,7 +906,7 @@ export function NoteEditorView({
             const markdown = before.markdown();
             await autosave.saveNow(markdown);
             const now = analysisContext.current;
-            if (!annotationMountedRef.current || !now.canWrite || now.noteId !== before.noteId || now.spaceId !== before.spaceId || now.markdown() !== markdown) {
+            if (!editorMountedRef.current || !now.canWrite || now.noteId !== before.noteId || now.spaceId !== before.spaceId || now.markdown() !== markdown) {
               throw new Error('保存期间笔记或草稿已变化，请确认内容后重试。');
             }
             onExtractWithAssistant(before.noteId);
