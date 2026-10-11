@@ -158,11 +158,17 @@ function validateTags(tagItems, spaces, tagGroups) {
 
 function normalizeTagSystem(state) {
   state.tagGroups ??= [];
+  // 与原 find 保持首次匹配语义；索引仅属于本次归一化，不跨快照复用。
+  const groupsById = new Map();
+  for (const group of state.tagGroups) {
+    if (!groupsById.has(group.id)) groupsById.set(group.id, group);
+  }
   const colors = { slate: 'neutral', cyan: 'blue', amber: 'orange', mastery: 'green', importance: 'orange', purpose: 'blue', '#3c68ff': 'blue' };
   for (const space of state.spaces) {
     buildDefaultTagGroups(space.id).forEach((group) => {
-      if (!state.tagGroups.some((current) => current.id === group.id)) {
+      if (!groupsById.has(group.id)) {
         state.tagGroups.push(group);
+        groupsById.set(group.id, group);
       }
     });
   }
@@ -172,13 +178,16 @@ function normalizeTagSystem(state) {
     tag.sortOrder = Number(tag.sortOrder) || index + 1;
     if (!tag.groupId) tag.groupId = `tag-group-${tag.spaceId}-ordinary`;
   });
-  const tagIds = new Set(state.tags.map((tag) => tag.id));
+  const tagsById = new Map();
+  for (const tag of state.tags) {
+    if (!tagsById.has(tag.id)) tagsById.set(tag.id, tag);
+  }
   state.notes.forEach((note) => {
     const normalizedIds = [];
     const singleIndexes = new Map();
-    [...new Set((note.tagIds ?? []).filter((id) => tagIds.has(id)))].forEach((tagId) => {
-      const tag = state.tags.find((item) => item.id === tagId);
-      const group = state.tagGroups.find((item) => item.id === tag?.groupId);
+    [...new Set((note.tagIds ?? []).filter((id) => tagsById.has(id)))].forEach((tagId) => {
+      const tag = tagsById.get(tagId);
+      const group = groupsById.get(tag?.groupId);
       if (group?.selectionMode === 'single') {
         const previous = singleIndexes.get(group.id);
         if (previous !== undefined) normalizedIds[previous] = null;
