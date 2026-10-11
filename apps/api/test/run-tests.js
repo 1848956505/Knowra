@@ -1,3 +1,4 @@
+import { aiConversationRecordsTests } from './ai-conversation-records.test.js';
 import { aiAgentRequestContextTests } from './ai-agent-request-context.test.js';
 import { annotationWhitespaceTests } from './annotation-whitespace.test.js';
 import { noteLinkTests, noteLinkPostgresTests } from './note-links.test.js';
@@ -117,6 +118,7 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...aiConversationRecordsTests,
   ...aiAgentRequestContextTests,
   ...aiConversationAttachmentHttpTests,
   ...aiConversationAttachmentTests,

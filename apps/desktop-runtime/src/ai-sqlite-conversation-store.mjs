@@ -1,5 +1,6 @@
-import { CONVERSATION_KINDS, createAiConversationStore, emptyConversationState,
-  validateConversationRecord, validateConversationState } from '../../api/src/modules/ai/conversation-store.js';
+import { CONVERSATION_KINDS, emptyConversationState,
+  validateConversationRecord, validateConversationState } from '../../api/src/modules/ai/conversation-records.js';
+import { createAiConversationStore } from '../../api/src/modules/ai/conversation-store.js';
 import { hashRecord } from '../../api/src/modules/ai/record-contract.js';
 
 function loadRows(db) {
