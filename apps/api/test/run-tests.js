@@ -1,3 +1,4 @@
+import { objectiveQueryProjectionTests } from './objective-query-projection.test.js';
 import { trainingQueryIndexesTests } from './training-query-indexes.test.js';
 import { aiConversationRecordsTests } from './ai-conversation-records.test.js';
 import { aiAgentRequestContextTests } from './ai-agent-request-context.test.js';
@@ -119,6 +120,7 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...objectiveQueryProjectionTests,
   ...trainingQueryIndexesTests,
   ...aiConversationRecordsTests,
   ...aiAgentRequestContextTests,
