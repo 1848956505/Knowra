@@ -21,7 +21,6 @@ import { Slice } from '@milkdown/kit/prose/model';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { selectTextblockEnd, selectTextblockStart } from '@milkdown/kit/prose/commands';
 import {
-  commonmark,
   insertHrCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
@@ -56,6 +55,7 @@ import { scrollEditorSelectionIntoView } from './editorSelectionScroll';
 import { editorInputBehavior } from './editorInputBehavior';
 import { createEditorPasteBehavior } from './editorPasteBehavior';
 import { highlightRemark, highlightSchema, toggleHighlightCommand } from './editorHighlight';
+import { commonmarkPreset } from './editorHardbreakMarks';
 import {
   insertInternalLinkCommand,
   internalLinkRemark,
@@ -454,7 +454,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           // Document transactions publish synchronously through the annotation plugin.
           // A debounced Markdown listener can replay an older document over a newer draft.
         })
-        .use(commonmark)
+        .use(commonmarkPreset)
         .use(noteLinkSchema)
         .use(noteLinkDomBehavior(() => noteLinkCallbacks.current.noteLinkStatuses))
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
