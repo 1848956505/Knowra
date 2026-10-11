@@ -2,8 +2,7 @@ import { useExtractionEnvironment } from './ExtractionEnvironment';
 import type { AttachmentDeleteResult } from '@study-accelerator/web-core';
 import type { AttachmentActions } from './EditorAttachmentPanel';
 import { registerDesktopSave } from '../../app/desktopLifecycle';
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useDesktopTitlebar } from '../../shell/DesktopTitlebarContext';
 import {
   buildExportFileName,
@@ -29,14 +28,15 @@ import {
 } from '@study-accelerator/web-core';
 import { downloadTextFile } from '../../browser/downloadFile';
 import { exportElementToPdf } from '../../browser/exportPdf';
-import { Button, Dialog, DialogBody, DialogFooter, DialogClose } from '../../components/ui';
-import { ChevronRightIcon, NoteIcon, PanelIcon } from '../../components/icons/knowra';
+import { Button } from '../../components/ui';
+import { NoteIcon } from '../../components/icons/knowra';
 import { EditorDocumentHeader, type EditorDocumentHeaderHandle } from './EditorDocumentHeader';
-import { EditorContextMenu } from './EditorContextMenu';
+import { EditorContentPanes } from './EditorContentPanes';
+import { EditorPageLayout } from './EditorPageLayout';
+import { EditorSaveConflictFeedback } from './EditorSaveConflictFeedback';
 import { EditorDocumentRepairDialog } from './EditorDocumentRepairDialog';
 import { EditorFindReplacePanel } from './EditorFindReplacePanel';
 import { EditorInspector } from './EditorInspector';
-import { EditorSourcePane } from './EditorSourcePane';
 import { EditorTabs } from './EditorTabs';
 import { EditorToolbar } from './EditorToolbar';
 import type {
@@ -61,11 +61,6 @@ import styles from './NoteEditorView.module.css';
 import { EditorNoteLinkDialog } from './EditorNoteLinkDialog';
 import { useEditorNoteLinks } from './useEditorNoteLinks';
 import { buildFolderPath } from './editorInspectorModel';
-
-const MilkdownNoteEditor = lazy(async () => {
-  const module = await import('./MilkdownNoteEditor');
-  return { default: module.MilkdownNoteEditor };
-});
 
 export interface NoteEditorViewProps {
   note: Note | null;
@@ -460,208 +455,34 @@ export function NoteEditorView({
   /> : null;
 
   return (
-    <section
-      className={styles.editor}
+    <EditorPageLayout
+      view={view}
+      inspectorOpen={inspectorOpen}
+      titlebar={desktopTitlebar}
+      documentEdge={documentEdge}
+      documentStageRef={documentStageRef}
+      paperRef={paperRef}
       onKeyDownCapture={handleEditorPageKeyDown}
-      data-view-mode={view.mode}
-      data-content-mode={view.contentMode}
-      data-inspector-open={inspectorOpen || undefined}
-      data-window-tabs={Boolean(desktopTitlebar.host) || undefined}
-      aria-label="笔记编辑页面骨架"
-      style={documentEdge === null ? undefined : { '--doc-edge': `${documentEdge}px` } as CSSProperties}
-    >
-      {desktopTitlebar.host && tabs ? createPortal(tabs, desktopTitlebar.host) : tabs}
-      {!desktopTitlebar.enabled ? <div className={styles.compactControls} role="group" aria-label="笔记导航与检查器">
-        <Button variant="ghost" size="compact" onPress={() => {
-          saveCurrentScrollPosition();
-          if (!canWrite) { onReturnToList?.(); return; }
-          void saveImmediately().then(() => onReturnToList?.())
-            .catch(error => onFileStatus(error instanceof Error ? error.message : '返回前保存失败'));
-        }}><span className={styles.backArrow}><ChevronRightIcon size={16} /></span>笔记列表</Button>
-        <Button variant="ghost" size="compact" aria-label="打开文档检查器" aria-pressed={inspectorOpen} onPress={onToggleInspector}><PanelIcon size={16} />检查器</Button>
-      </div> : null}
-      <EditorAttachmentFeedback
-        preview={editorAttachments.bodyPreview}
-        savedToken={editorAttachments.bodySavedToken}
-        onClosePreview={editorAttachments.closePreview}
-        onDismissDownload={editorAttachments.dismissDownload}
-        onOpenSavedAttachment={editorAttachments.openSavedAttachment}
-      />
-      <div className={styles.workspace}>
-        <div ref={documentStageRef} className={styles.documentStage} data-editor-scroll-root onClickCapture={editorAttachments.handleAttachmentLink} onAuxClickCapture={editorAttachments.handleAttachmentLink}>
-          <article ref={paperRef} className={styles.paper} data-pdf-document="true" aria-labelledby="note-editor-title">
-            <EditorDocumentHeader
-              ref={documentHeaderRef}
-              note={note}
-              folder={folder}
-              canWrite={canEditContent}
-              onRenameNote={onRenameNote}
-            />
-            <div ref={toolbarAnchorRef} className={styles.toolbarAnchor} aria-hidden="true" />
-            <EditorToolbar
-              toolbarRef={toolbarRef}
-              pinned={toolbarPinned}
-              favorite={note.favorite}
-              favoritePending={favoritePending}
-              canWrite={canWrite}
-              canEditContent={canEditContent}
-              canInsertImage={extendedWritesEnabled}
-              inspectorOpen={inspectorOpen}
-              view={view}
-              onRunCommand={runCommand}
-              onEditAction={(action) => { void handleEditAction(action); }}
-              onViewAction={onViewAction}
-              onFileAction={(action) => {
-                void handleFileAction(action).catch((error) => {
-                  onFileStatus(error instanceof Error ? error.message : '文件操作失败');
-                });
-              }}
-              onToggleFavorite={onToggleFavorite}
-              onToggleInspector={onToggleInspector}
-              onInsertImage={() => imageInputRef.current?.click()}
-            />
-            <input
-              ref={imageInputRef}
-              className={styles.nativeFileInput}
-              type="file"
-              accept={INLINE_IMAGE_ACCEPT}
-              aria-label="选择要插入的图片"
-              disabled={!canEditContent || !extendedWritesEnabled}
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                event.currentTarget.value = '';
-                if (file) void editorAttachments.insertImageFile(file).catch((error) => {
-                  onFileStatus(error instanceof Error ? error.message : '图片上传失败');
-                });
-              }}
-            />
-            <EditorFindReplacePanel
-              mode={editPanelMode}
-              editor={editorRef.current}
-              onClose={() => setEditPanelMode(null)}
-              onStatus={onFileStatus}
-            />
-            {noteLinks.navigationNotice ? <div className={styles.linkNotice} role="status">
-              <span>引用位置或来源版本已变化，已打开来源笔记</span>
-              <Button variant="ghost" size="mini" onPress={() => noteLinks.dismissNavigationNotice()}>关闭提示</Button>
-            </div> : null}
-            {noteLinks.editSession ? <EditorNoteLinkDialog
-              session={noteLinks.editSession} spaceId={note.spaceId ?? ''} search={onSearchLinkNotes}
-              folderPath={id => buildFolderPath(id ? foldersById[id] ?? null : null, foldersById)}
-              canWrite={canEditContent}
-              onClose={noteLinks.closeLink}
-              onApply={noteLinks.applyLink}
-            /> : null}
-            <EditorDocumentRepairDialog
-              markdown={draftMarkdown}
-              open={repairDialogOpen}
-              onOpenChange={setRepairDialogOpen}
-              onApply={(markdown, report) => {
-                if (!editorRef.current?.replaceMarkdown(markdown)) {
-                  onFileStatus('文档内容未变更');
-                  return;
-                }
-                onFileStatus(`已修复 ${report.total} 处异常格式，可使用撤销恢复`);
-              }}
-            />
-            {autosave.saveError || autosave.hasConflict ? (
-              <div className={styles.saveConflict} role="alert">
-                <div>
-                  <strong>正文尚未保存</strong>
-                  <p>{autosave.saveError ?? '请重试保存或导出草稿核对，系统不会自动覆盖冲突版本。'}</p>
-                </div>
-                <Button variant="default" onPress={() => { void autosave.saveNow().catch(error => onFileStatus(error instanceof Error ? error.message : '保存失败')); }}>重试保存</Button>
-                <Button
-                  variant="default"
-                  onPress={() => {
-                    const fileName = buildExportFileName(`${note.title}-冲突草稿`, 'md');
-                    downloadTextFile(fileName, autosave.getLatestMarkdown(), 'text/markdown;charset=utf-8');
-                    onFileStatus(`已导出本地冲突草稿：${fileName}`);
-                  }}
-                >
-                  导出本地草稿
-                </Button>
-                <Button
-                  variant="default"
-                  onPress={() => {
-                    void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(error instanceof Error ? error.message : '草稿写入失败'));
-                  }}
-                >
-                  保留草稿并重新加载
-                </Button>
-                <Button variant="ghost" onPress={() => setDiscardDraftOpen(true)}>放弃草稿…</Button>
-                <Dialog title="放弃本地草稿？" isOpen={discardDraftOpen} onOpenChange={setDiscardDraftOpen}>
-                  <DialogBody>请先确认需要保留的正文已经另存。继续会删除此笔记的恢复草稿，并加载最新已保存正文。</DialogBody>
-                  <DialogFooter><DialogClose variant="ghost">取消</DialogClose>
-                    <Button onPress={() => { autosave.discardRecoveredDraft(); void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(String(error))); }}>确认放弃并加载</Button>
-                  </DialogFooter>
-                </Dialog>
-              </div>
-            ) : null}
-            <div className={styles.editorPanes} data-source-open={view.showSourceEditor || undefined}>
-              {view.showSourceEditor ? (
-                <EditorSourcePane
-                  markdown={draftMarkdown}
-                  readOnly={!canWrite}
-                  onChange={(markdown) => {
-                    autosave.updateDraft(markdown, { immediate: true });
-                    editorRef.current?.setMarkdown(markdown);
-                  }}
-                  onSave={() => {
-                    void saveImmediately()
-                      .then(() => onFileStatus('源码已保存'))
-                      .catch((error) => onFileStatus(error instanceof Error ? error.message : '源码保存失败'));
-                  }}
-                />
-              ) : null}
-              <EditorContextMenu
-                enabled={note.contentLoaded && !view.showSourceEditor}
-                canEdit={canEditContent}
-                extendedWritesEnabled={extendedWritesEnabled}
-                onRunCommand={runCommand}
-                onEditAction={(action) => { void handleEditAction(action); }}
-                onInsertImage={() => imageInputRef.current?.click()}
-                onCreateAnnotation={() => { void createCurrentAnnotation('selection').catch((error) => onFileStatus(error instanceof Error ? error.message : '创建标注失败')); }}
-              >
-                <div className={styles.content} aria-label={view.contentMode === 'read' ? '笔记正文阅读区' : '笔记正文编辑器'}>
-                  {note.contentLoaded ? (
-                    <Suspense fallback={<div className={styles.emptyBody}><p>正在启动编辑器…</p></div>}>
-                      <MilkdownNoteEditor
-                        key={note.id}
-                        ref={editorRef}
-                        noteId={note.id}
-                        markdown={draftMarkdown}
-                        readOnly={!canEditContent}
-                        allowExternalSync={!autosave.hasLocalChanges}
-                        onCreateAnnotation={extendedWritesEnabled ? createCurrentAnnotation : undefined}
-                        annotations={annotations}
-                        focusedAnnotationId={focusedAnnotationId}
-                        onChange={autosave.updateDraft}
-                        onSelectAnnotation={(ids) => {
-                          if (ids.length === 1) {
-                            setOverlappingAnnotationIds([]);
-                            setFocusedAnnotationId(ids[0]);
-                          } else {
-                            setOverlappingAnnotationIds(ids);
-                            if (!inspectorOpen) onToggleInspector();
-                          }
-                        }}
-                        onStatus={onFileStatus}
-                        onRequestNoteLink={noteLinks.requestLink}
-                        onOpenNoteLink={locator => { void noteLinks.openLinkedNote(locator.targetNoteId); }}
-                        noteLinkStatuses={noteLinks.statuses}
-                        onReady={noteLinks.onReady}
-                        onUploadImage={editorAttachments.uploadEditorImage}
-                      />
-                    </Suspense>
-                  ) : <div className={styles.emptyBody}><h2>正在加载正文…</h2><p>标题与标签页可以先使用，正文会在详情接口返回后启用。</p></div>}
-                </div>
-              </EditorContextMenu>
-            </div>
-          </article>
-        </div>
-      </div>
-      <EditorInspector
+      onAttachmentLink={editorAttachments.handleAttachmentLink}
+      tabs={tabs}
+      onReturnToList={() => {
+        saveCurrentScrollPosition();
+        if (!canWrite) { onReturnToList?.(); return; }
+        void saveImmediately().then(() => onReturnToList?.())
+          .catch(error => onFileStatus(error instanceof Error ? error.message : '返回前保存失败'));
+      }}
+      onToggleInspector={onToggleInspector}
+      feedback={
+        <EditorAttachmentFeedback
+          preview={editorAttachments.bodyPreview}
+          savedToken={editorAttachments.bodySavedToken}
+          onClosePreview={editorAttachments.closePreview}
+          onDismissDownload={editorAttachments.dismissDownload}
+          onOpenSavedAttachment={editorAttachments.openSavedAttachment}
+        />
+      }
+      inspector={
+        <EditorInspector
           nativeTitlebar={desktopTitlebar.enabled}
           note={note}
           folder={folder}
@@ -753,6 +574,154 @@ export function NoteEditorView({
             }
           }}
         />
-    </section>
+      }
+    >
+      <EditorDocumentHeader
+        ref={documentHeaderRef}
+        note={note}
+        folder={folder}
+        canWrite={canEditContent}
+        onRenameNote={onRenameNote}
+      />
+      <div ref={toolbarAnchorRef} className={styles.toolbarAnchor} aria-hidden="true" />
+      <EditorToolbar
+        toolbarRef={toolbarRef}
+        pinned={toolbarPinned}
+        favorite={note.favorite}
+        favoritePending={favoritePending}
+        canWrite={canWrite}
+        canEditContent={canEditContent}
+        canInsertImage={extendedWritesEnabled}
+        inspectorOpen={inspectorOpen}
+        view={view}
+        onRunCommand={runCommand}
+        onEditAction={(action) => { void handleEditAction(action); }}
+        onViewAction={onViewAction}
+        onFileAction={(action) => {
+          void handleFileAction(action).catch((error) => {
+            onFileStatus(error instanceof Error ? error.message : '文件操作失败');
+          });
+        }}
+        onToggleFavorite={onToggleFavorite}
+        onToggleInspector={onToggleInspector}
+        onInsertImage={() => imageInputRef.current?.click()}
+      />
+      <input
+        ref={imageInputRef}
+        className={styles.nativeFileInput}
+        type="file"
+        accept={INLINE_IMAGE_ACCEPT}
+        aria-label="选择要插入的图片"
+        disabled={!canEditContent || !extendedWritesEnabled}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = '';
+          if (file) void editorAttachments.insertImageFile(file).catch((error) => {
+            onFileStatus(error instanceof Error ? error.message : '图片上传失败');
+          });
+        }}
+      />
+      <EditorFindReplacePanel
+        mode={editPanelMode}
+        editor={editorRef.current}
+        onClose={() => setEditPanelMode(null)}
+        onStatus={onFileStatus}
+      />
+      {noteLinks.navigationNotice ? <div className={styles.linkNotice} role="status">
+        <span>引用位置或来源版本已变化，已打开来源笔记</span>
+        <Button variant="ghost" size="mini" onPress={() => noteLinks.dismissNavigationNotice()}>关闭提示</Button>
+      </div> : null}
+      {noteLinks.editSession ? <EditorNoteLinkDialog
+        session={noteLinks.editSession} spaceId={note.spaceId ?? ''} search={onSearchLinkNotes}
+        folderPath={id => buildFolderPath(id ? foldersById[id] ?? null : null, foldersById)}
+        canWrite={canEditContent}
+        onClose={noteLinks.closeLink}
+        onApply={noteLinks.applyLink}
+      /> : null}
+      <EditorDocumentRepairDialog
+        markdown={draftMarkdown}
+        open={repairDialogOpen}
+        onOpenChange={setRepairDialogOpen}
+        onApply={(markdown, report) => {
+          if (!editorRef.current?.replaceMarkdown(markdown)) {
+            onFileStatus('文档内容未变更');
+            return;
+          }
+          onFileStatus(`已修复 ${report.total} 处异常格式，可使用撤销恢复`);
+        }}
+      />
+      <EditorSaveConflictFeedback
+        visible={Boolean(autosave.saveError || autosave.hasConflict)}
+        error={autosave.saveError}
+        discardOpen={discardDraftOpen}
+        onDiscardOpenChange={setDiscardDraftOpen}
+        onRetry={() => { void autosave.saveNow().catch(error => onFileStatus(error instanceof Error ? error.message : '保存失败')); }}
+        onExport={() => {
+          const fileName = buildExportFileName(`${note.title}-冲突草稿`, 'md');
+          downloadTextFile(fileName, autosave.getLatestMarkdown(), 'text/markdown;charset=utf-8');
+          onFileStatus(`已导出本地冲突草稿：${fileName}`);
+        }}
+        onReload={() => {
+          void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(error instanceof Error ? error.message : '草稿写入失败'));
+        }}
+        onDiscard={() => {
+          autosave.discardRecoveredDraft();
+          void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(String(error)));
+        }}
+      />
+      <EditorContentPanes
+        showSourceEditor={view.showSourceEditor}
+        contentMode={view.contentMode}
+        contentLoaded={note.contentLoaded}
+        sourceProps={{
+          markdown: draftMarkdown,
+          readOnly: !canWrite,
+          onChange: (markdown) => {
+            autosave.updateDraft(markdown, { immediate: true });
+            editorRef.current?.setMarkdown(markdown);
+          },
+          onSave: () => {
+            void saveImmediately()
+              .then(() => onFileStatus('源码已保存'))
+              .catch((error) => onFileStatus(error instanceof Error ? error.message : '源码保存失败'));
+          },
+        }}
+        contextMenuProps={{
+          enabled: note.contentLoaded && !view.showSourceEditor,
+          canEdit: canEditContent,
+          extendedWritesEnabled,
+          onRunCommand: runCommand,
+          onEditAction: (action) => { void handleEditAction(action); },
+          onInsertImage: () => imageInputRef.current?.click(),
+          onCreateAnnotation: () => { void createCurrentAnnotation('selection').catch((error) => onFileStatus(error instanceof Error ? error.message : '创建标注失败')); },
+        }}
+        editorProps={{
+          ref: editorRef,
+          noteId: note.id,
+          markdown: draftMarkdown,
+          readOnly: !canEditContent,
+          allowExternalSync: !autosave.hasLocalChanges,
+          onCreateAnnotation: extendedWritesEnabled ? createCurrentAnnotation : undefined,
+          annotations,
+          focusedAnnotationId,
+          onChange: autosave.updateDraft,
+          onSelectAnnotation: (ids) => {
+            if (ids.length === 1) {
+              setOverlappingAnnotationIds([]);
+              setFocusedAnnotationId(ids[0]);
+            } else {
+              setOverlappingAnnotationIds(ids);
+              if (!inspectorOpen) onToggleInspector();
+            }
+          },
+          onStatus: onFileStatus,
+          onRequestNoteLink: noteLinks.requestLink,
+          onOpenNoteLink: locator => { void noteLinks.openLinkedNote(locator.targetNoteId); },
+          noteLinkStatuses: noteLinks.statuses,
+          onReady: noteLinks.onReady,
+          onUploadImage: editorAttachments.uploadEditorImage,
+        }}
+      />
+    </EditorPageLayout>
   );
 }
