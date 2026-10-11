@@ -11,7 +11,9 @@ import {
   mathBlockSchema,
   mathInlineGuardRemark,
   mathRemark,
-  renderMath
+  renderMath,
+  convertTexMathDelimiters,
+  stripTexDelimiters
 } from './editorMathBlock';
 import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
 
@@ -98,5 +100,23 @@ describe('math inline input rule', () => {
     expect(para.child(1).textContent).toBe('\\alpha^2');
     expect(view.state.selection.$from.parent.type.name).toBe('math_inline');
     expect(editor.action(getMarkdown())).toBe('设 $\\alpha^2$\n');
+  });
+});
+
+describe('TeX delimiters', () => {
+  it('strips the outer \\[ \\] wrapper when rendering', () => {
+    expect(stripTexDelimiters('\\[\na(q,k)=w_v^\\top\n\\]')).toBe('\na(q,k)=w_v^\\top\n');
+    expect(stripTexDelimiters('\\( x^2 \\)')).toBe(' x^2 ');
+    expect(stripTexDelimiters('x^2')).toBe('x^2');
+    const el = document.createElement('div');
+    renderMath(el, '\\[\na(q,k)=w_v^\\top\\tanh(W_qq)\n\\]');
+    expect(el.classList.contains('math-error')).toBe(false);
+    expect(el.querySelector('.katex')).not.toBeNull();
+  });
+
+  it('converts pasted \\[ \\] and \\( \\) into Markdown math', () => {
+    expect(convertTexMathDelimiters('复习：\n\n\\[ a=b \\]')).toBe('复习：\n\n\n\n$$\na=b\n$$\n\n');
+    expect(convertTexMathDelimiters('其中 \\( x_1 \\) 为')).toBe('其中 $x_1$ 为');
+    expect(convertTexMathDelimiters('无公式')).toBe('无公式');
   });
 });

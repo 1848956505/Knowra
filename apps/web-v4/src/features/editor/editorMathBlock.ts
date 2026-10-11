@@ -116,8 +116,22 @@ export const insertMathBlock: Command = (state, dispatch) => {
   return true;
 };
 
+/** 去掉从 LaTeX 文档/AI 回答复制来的最外层 `\[ \]` 或 `\( \)`，公式块本身已是行间环境。 */
+export function stripTexDelimiters(source: string): string {
+  const match = /^\s*(?:\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\))\s*$/.exec(source);
+  return match ? (match[1] ?? match[2] ?? '') : source;
+}
+
+/** 粘贴文本里的 `\[…\]` / `\(…\)` 转为 `$$` 块与 `$…$` 行内公式。 */
+export function convertTexMathDelimiters(text: string): string {
+  return text
+    .replace(/\\\[([\s\S]+?)\\\]/g, (all, body: string) => (body.trim() ? `\n\n$$\n${body.trim()}\n$$\n\n` : all))
+    .replace(/\\\(([\s\S]+?)\\\)/g, (all, body: string) => (body.trim() ? `$${body.trim()}$` : all));
+}
+
 export function renderMath(target: HTMLElement, source: string, displayMode = true): void {
   target.classList.remove('math-error');
+  source = stripTexDelimiters(source);
   if (!source.trim()) {
     target.textContent = '';
     target.dataset.empty = '';

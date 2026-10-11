@@ -1,3 +1,4 @@
+import { convertTexMathDelimiters } from './editorMathBlock';
 import { Fragment, Slice } from '@milkdown/kit/prose/model';
 import { Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
@@ -98,6 +99,16 @@ export function createEditorPasteBehavior(
           event.preventDefault();
           onStatus('已阻止不安全的 HTTP 图片链接，请改用 HTTPS 或本地附件');
           return true;
+        }
+
+        const texConverted = convertTexMathDelimiters(text);
+        if (text && texConverted !== text) {
+          const slice = parseMarkdownSlice(ctx.get(parserCtx), texConverted);
+          if (slice) {
+            event.preventDefault();
+            view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+            return true;
+          }
         }
 
         if (shouldPreferPlainMarkdown({
