@@ -329,6 +329,39 @@ it('恢复历史消息与引用，来源打开历史版本，检索记录按需�
   expect(screen.getByText(/索引无可用结果，已改用关键词检索/)).toBeInTheDocument();
 });
 
+it('旧轮检索记录只在展开时读取，失败可重开恢复，已载记录不重复请求', async () => {
+  vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
+  vi.mocked(conversationApi.messages).mockResolvedValue([
+    { messageId: 'old-answer', turnId: 'old-turn', sequence: 1, role: 'assistant', content: '旧轮回答', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt },
+    { messageId: 'latest-question', turnId: 'turn-1', sequence: 2, role: 'user', content: '本轮问题', sourceRefs: [], sourceFree: true, createdAt: conversation.createdAt }
+  ]);
+  let attempts = 0;
+  vi.mocked(conversationApi.turn).mockImplementation(async (_id, turnId) => {
+    if (turnId !== 'old-turn') return { ...succeeded, status: 'failed', errorCode: 'AI_TEST_STOPPED' };
+    if (++attempts === 1) throw new Error('检索记录读取失败');
+    return { ...succeeded, turnId: 'old-turn' };
+  });
+  render(<AssistantView pathname="/assistant?conversationId=conversation-1" onOpenNote={vi.fn()} />);
+  await screen.findByText('旧轮回答');
+  expect(attempts).toBe(0);
+  const summary = screen.getByText('检索与调用记录');
+  const details = summary.closest('details')!;
+  fireEvent.click(summary);
+  expect(await screen.findByRole('alert')).toHaveTextContent('检索记录读取失败');
+  fireEvent.click(summary);
+  await waitFor(() => expect(details.open).toBe(false));
+  fireEvent.click(summary);
+  await screen.findByText('本轮没有检索或阅读工具记录。');
+  expect(attempts).toBe(2);
+  expect(screen.getByText('检索与调用记录').closest('details')).toBe(details);
+  expect(details.open).toBe(true);
+  fireEvent.click(summary);
+  await waitFor(() => expect(details.open).toBe(false));
+  fireEvent.click(summary);
+  await waitFor(() => expect(details.open).toBe(true));
+  expect(attempts).toBe(2);
+});
+
 it('中断轮次可重试，模型不可用时仍可回看消息且不能发送', async () => {
   vi.mocked(conversationApi.list).mockResolvedValue([conversation]);
   vi.mocked(conversationApi.messages).mockResolvedValue([{ messageId: 'message-1', turnId: 'turn-1', sequence: 1,
