@@ -46,7 +46,7 @@ import {
   MoreHorizontalIcon,
   PlusIcon,
   SearchIcon
-} from '../../../shell/icons';
+} from '../../icons/knowra';
 import collectionStyles from '../collection/Collection.module.css';
 import styles from './Showcase.module.css';
 

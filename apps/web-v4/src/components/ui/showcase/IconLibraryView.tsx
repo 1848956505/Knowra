@@ -1,9 +1,9 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { SearchField } from '../input/SearchField';
-import * as icons from '../../../shell/icons';
+import * as icons from '../../icons/knowra';
 import styles from './IconLibraryView.module.css';
 
-type IconName = keyof typeof icons;
+type IconName = Exclude<keyof typeof icons, 'IconBase' | 'ACCENT'>;
 
 interface IconGroup {
   id: string;
@@ -108,7 +108,7 @@ export function IconLibraryView() {
           {group.names.map((name) => {
             const Icon = icons[name];
             return <figure key={name} className={styles.iconCard}>
-              <div className={styles.iconStage} aria-hidden="true"><Icon size={56} strokeWidth={1.25} accent /></div>
+              <div className={styles.iconStage} aria-hidden="true"><Icon size={56} strokeWidth={1.25} /></div>
               <figcaption>{name}</figcaption>
             </figure>;
           })}
