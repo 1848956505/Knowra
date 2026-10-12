@@ -244,8 +244,8 @@ export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<s
 }
 
 export function captureIdentitySnapshot(state: EditorState, markdown: string): AnnotationIdentitySnapshot | undefined {
-  const bindings = annotationShadowKey.getState(state)?.bindings;
-  if (!bindings?.size) return undefined;
+  // 没有重点时也要捕获：块身份表（S2b）随每次保存持久化，不依赖笔记里是否有重点。
+  const bindings = annotationShadowKey.getState(state)?.bindings ?? new Map<string, AnnotationIdentityBinding>();
   const doc = state.doc;
   return { markdown, build: () => buildIdentityEditorState(doc, bindings, markdown) };
 }

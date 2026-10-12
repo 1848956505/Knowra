@@ -411,6 +411,16 @@ describe('块身份表（S2b）', () => {
     expect(second.markdown()).toBe(serialized);
   });
 
+  it('没有任何重点时也捕获身份快照，保证块身份随保存持久化', async () => {
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const snapshot = captureIdentitySnapshot(e.view.state, serialized);
+    expect(snapshot?.markdown).toBe(serialized);
+    const state = snapshot!.build();
+    expect(state.annotations).toEqual([]);
+    expect(identityFromEditorState(serialized, state)).not.toBeNull();
+  });
+
   it('身份表与正文不对应时不沿用，保留编辑器自己的 ID', async () => {
     const first = await createEditor(markdown);
     const identity = tableFrom(first);
