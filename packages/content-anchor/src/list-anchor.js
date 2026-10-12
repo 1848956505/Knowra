@@ -1,4 +1,5 @@
-import { anchorForSourceRange, calculateContentHash, projectMarkdown, MARKDOWN_PROJECTION_VERSION } from './index.js';
+import { anchorForSourceRange, projectMarkdown, MARKDOWN_PROJECTION_VERSION } from './projection.js';
+import { calculateContentHash } from './hash.js';
 
 const failure = message => Object.assign(new RangeError(message), { code: 'ANNOTATION_RANGE_INVALID' });
 

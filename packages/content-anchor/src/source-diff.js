@@ -1,4 +1,4 @@
-import { sourceEdit } from './dynamic.js';
+import { sourceEdit } from './source-edit.js';
 
 /** Separate distant serialization changes (e.g. final newline) from the user's edit. */
 export function sourceEdits(before, after) {
