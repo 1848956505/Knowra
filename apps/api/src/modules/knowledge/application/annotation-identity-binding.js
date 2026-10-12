@@ -46,3 +46,25 @@ export function initialIdentityBinding(note, annotation) {
     return bindingFromAnchor(note?.rawMarkdown ?? '', note?.annotationStructure?.identity, { ...annotation, anchorStatus: 'resolved' });
   } catch { return null; }
 }
+
+/**
+ * 在笔记依赖级联之后刷新绑定：包住级联返回的 onNoteContentChanged，级联本身（及其冻结的调用序列）保持不变。
+ * 绑定依赖旧链路跟随后的最终状态，因此必须在级联完成后执行。
+ */
+export function withIdentityBindingRefresh(lifecycle, repository) {
+  const refresh = (note, annotationChange) => {
+    const annotations = repository.list({ noteId: note.id, includeDeleted: true });
+    return annotations && typeof annotations.then === 'function'
+      ? annotations.then(list => applyIdentityBindings(repository, note, list, annotationChange?.editorState))
+      : applyIdentityBindings(repository, note, annotations, annotationChange?.editorState);
+  };
+  return {
+    ...lifecycle,
+    onNoteContentChanged: (note, version, annotationChange) => {
+      const result = lifecycle.onNoteContentChanged(note, version, annotationChange);
+      if (result && typeof result.then === 'function') return result.then(async value => { await refresh(note, annotationChange); return value; });
+      refresh(note, annotationChange);
+      return result;
+    }
+  };
+}

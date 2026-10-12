@@ -1,5 +1,4 @@
 import { conflictError } from '../knowledge-errors.js';
-import { applyIdentityBindings } from '../annotation-identity-binding.js';
 
 /** 只使用调用者装配的事务内依赖；标注服务仍在正文变更时惰性创建。 */
 export function createAsyncNoteDependencyLifecycle({
@@ -11,7 +10,6 @@ export function createAsyncNoteDependencyLifecycle({
     onNoteContentChanged: async (note, version, annotationChange) => {
       const transactionAnnotationService = createAnnotationService();
       const reconciliation = await transactionAnnotationService.reconcileForNote(note.id, version.contentHash, annotationChange);
-      await applyIdentityBindings(contentAnnotationRepository, note, await contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);
       const changed = [];
       for (const annotationId of reconciliation.contentChangedAnnotationIds) {
         const annotation = await contentAnnotationRepository.findById(annotationId);
