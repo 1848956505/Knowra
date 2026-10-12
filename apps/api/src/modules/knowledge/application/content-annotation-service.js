@@ -1,5 +1,6 @@
 import { assertRangeConfirmation } from './annotation-range-preview.js';
 import { reconcileAnnotationSource, reconciledAnnotationFields } from './reconcile-annotation-source.js';
+import { initialIdentityBinding } from './annotation-identity-binding.js';
 import { resolveStoredAnnotation } from './resolve-stored-annotation.js';
 import crypto from 'node:crypto';
 import {
@@ -108,6 +109,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       } : null;
       const created = repository.save(new ContentAnnotation({
         ...dto, ...source, anchor, originSnapshot,
+        identityBinding: anchor ? initialIdentityBinding(note, { scopeType: dto.scopeType, anchor }) : null,
         noteVersionId: version?.id ?? null,
         lifecycleStatus: 'active', anchorStatus: 'resolved', anchorReason: null,
         requestHash: hashedRequest, id: nextId()

@@ -267,6 +267,8 @@ export interface AnnotationIdentityEditorState {
   formatVersion: 2;
   targetContentHash: string;
   blocks: Array<{ id: string; type: string; empty: boolean }>;
-  annotations: Array<{ id: string; scopeType: 'selection' | 'blocks' | 'section' | 'list'; present: boolean; rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteHash?: string }>;
+  annotations: Array<{ id: string; scopeType: 'selection' | 'blocks' | 'section' | 'list'; present: boolean; rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteHash?: string;
+    /** 选区起止的块内位置（S2b-2）；表格内附带单元格 [行, 列]。 */
+    start?: { blockId: string; offset: number; cell?: [number, number] }; end?: { blockId: string; offset: number; cell?: [number, number] } }>;
 }
 export interface ConfirmAnnotationRangeInput { expectedRevision: number; noteContentHash: string; candidateHash: string }

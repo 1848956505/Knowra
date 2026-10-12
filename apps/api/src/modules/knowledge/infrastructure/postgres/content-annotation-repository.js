@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { mapAnnotation, toDate } from './mappers.js';
 import { withRepositoryErrors } from './repository-utils.js';
 
@@ -35,6 +36,7 @@ export function createPostgresContentAnnotationRepository({ db }) {
         revision: annotation.revision,
         anchor: annotation.anchor,
         originSnapshot: annotation.originSnapshot,
+        identityBinding: annotation.identityBinding ?? Prisma.DbNull,
         resolvedContentHash: annotation.resolvedContentHash,
         boundaryFingerprint: annotation.boundaryFingerprint,
         requestHash: annotation.requestHash,

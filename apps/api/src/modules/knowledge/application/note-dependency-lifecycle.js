@@ -1,4 +1,5 @@
 import { conflictError } from './knowledge-errors.js';
+import { applyIdentityBindings } from './annotation-identity-binding.js';
 
 /** 笔记变更的同步依赖级联；由原笔记服务的事务包裹，不另开事务。 */
 export function createNoteDependencyLifecycle({
@@ -11,6 +12,7 @@ export function createNoteDependencyLifecycle({
     onNoteContentChanged: (note, version, annotationChange) => {
       const reconciliation = contentAnnotationService.reconcileForNote(note.id, version.contentHash, annotationChange);
       annotationIdentityShadow.observe(note, annotationChange);
+      applyIdentityBindings(contentAnnotationRepository, note, contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);
       const changed = reconciliation.contentChangedAnnotationIds.flatMap((annotationId) => (
         knowledgeItemService.markEvidenceByAnnotationId(annotationId,
           contentAnnotationRepository.findById(annotationId)?.anchorStatus === 'missing' ? 'insufficient' : 'stale')

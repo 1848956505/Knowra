@@ -228,5 +228,14 @@ test('块身份表随正文保存进 SQLite，重新打开后仍可用', async t
   const saved = reopened.knowledge.noteService.getNote(note.id);
   assert.deepEqual(saved.annotationStructure.identity.blocks, [{ id: 'h', type: 'heading' }, { id: 'p', type: 'paragraph' }]);
   assert.equal(validIdentityTable(saved.rawMarkdown, saved.annotationStructure.identity), true);
+  // S2b-2：已有身份表时新建的重点带绑定，重新打开后仍在。
+  const { projectMarkdown, anchorForSection } = await import('@study-accelerator/content-anchor');
+  const section = anchorForSection(projectMarkdown(saved.rawMarkdown), 0);
+  const annotation = reopened.knowledge.contentAnnotationService.createAnnotation({ spaceId: saved.spaceId, noteId: saved.id, schemaVersion: 2, scopeType: 'section', anchor: section,
+    quoteText: section.quoteText, fromPosition: section.sourceStart, toPosition: section.sourceEnd, anchorFingerprint: 'fixture', noteContentHash: calculateContentHash(saved.rawMarkdown), idempotencyKey: 'binding' });
+  assert.equal(annotation.identityBinding.rootBlockId, 'h');
   reopened.store.close();
+  const again = openWorkspace(root);
+  assert.deepEqual(again.knowledge.contentAnnotationService.getAnnotation(annotation.id).identityBinding, annotation.identityBinding);
+  again.store.close();
 });

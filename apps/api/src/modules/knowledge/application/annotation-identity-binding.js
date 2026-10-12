@@ -1,0 +1,48 @@
+import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable } from '@study-accelerator/content-anchor';
+
+/**
+ * 稳定身份迁移 S2b-2：保存或创建后刷新重点绑定。影子阶段只记录，不改变重点状态、修订号或旧链路字段。
+ * 规则：编辑器上报且与当前正文一致 → 采用；否则由旧链路已定位锚点推出；仍不可得时保留仍有效的旧绑定，否则清空。
+ * 身份表不可用时不做任何改动（绑定引用的块可能仍可在之后恢复）。
+ */
+export function nextIdentityBindings(note, annotations, editorState = null) {
+  const identity = note?.annotationStructure?.identity;
+  if (!validIdentityTable(note?.rawMarkdown ?? '', identity)) return [];
+  const reportedById = new Map((Array.isArray(editorState?.annotations) ? editorState.annotations : []).map(item => [item?.id, item]));
+  const changes = [];
+  for (const annotation of annotations) {
+    if ((annotation.lifecycleStatus ?? 'active') !== 'active') continue;
+    const reported = reportedById.get(annotation.id);
+    const previous = annotation.identityBinding ?? null;
+    const next = (reported?.scopeType === annotation.scopeType ? bindingFromEditor(note.rawMarkdown, identity, reported) : null)
+      ?? bindingFromAnchor(note.rawMarkdown, identity, annotation)
+      ?? (previous && validBinding(note.rawMarkdown, identity, previous) ? previous : null);
+    if (JSON.stringify(next) !== JSON.stringify(previous)) changes.push({ annotation, identityBinding: next });
+  }
+  return changes;
+}
+
+/** 写入绑定变化；同步与异步仓储共用。诊断数据的计算失败不能影响保存。 */
+export function applyIdentityBindings(repository, note, annotations, editorState) {
+  let changes;
+  try { changes = nextIdentityBindings(note, annotations, editorState); } catch { return []; }
+  // 异步仓储（PostgreSQL 事务）逐条顺序写入，不在同一事务内并发查询。
+  const saved = [];
+  const step = (index) => {
+    for (let i = index; i < changes.length; i += 1) {
+      const { annotation, identityBinding } = changes[i];
+      const result = repository.save({ ...annotation, identityBinding });
+      if (result && typeof result.then === 'function') return result.then(item => { saved.push(item); return step(i + 1); });
+      saved.push(result);
+    }
+    return saved;
+  };
+  return step(0);
+}
+
+/** 新建重点时由已确认的锚点推出初始绑定；不可得或出错时为 null。 */
+export function initialIdentityBinding(note, annotation) {
+  try {
+    return bindingFromAnchor(note?.rawMarkdown ?? '', note?.annotationStructure?.identity, { ...annotation, anchorStatus: 'resolved' });
+  } catch { return null; }
+}

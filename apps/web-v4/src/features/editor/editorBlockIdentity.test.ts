@@ -22,7 +22,7 @@ import {
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
 import { annotationShadowBehavior, applyBlockIdentity, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
-import { calculateContentHash, compareIdentityShadow, identityFromEditorState } from '@study-accelerator/content-anchor';
+import { bindingFromAnchor, bindingFromEditor, calculateContentHash, compareIdentityShadow, identityFromEditorState } from '@study-accelerator/content-anchor';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ClipboardEvent ??= class extends Event {
@@ -331,6 +331,15 @@ describe('影子比对', () => {
     const result = compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never });
     expect(result).toEqual({ status: 'compared', compared: 4, divergences: [] });
     expect(captureIdentitySnapshot(e.view.state, serialized)?.build()).toEqual(state);
+    // S2b-2：编辑器上报的绑定与服务端由旧链路锚点推出的绑定完全一致。
+    const identity = identityFromEditorState(serialized, state)!;
+    for (const annotation of annotations) {
+      const reported = state.annotations.find(item => item.id === annotation.id)!;
+      const fromEditor = bindingFromEditor(serialized, identity, reported);
+      const fromAnchor = bindingFromAnchor(serialized, identity, annotation);
+      expect(fromEditor, annotation.scopeType).not.toBeNull();
+      expect(fromEditor, annotation.scopeType).toEqual(fromAnchor);
+    }
   });
 
   it('表格单元格内的选区与块重点按表格整体对齐，两边结论一致', async () => {
@@ -355,6 +364,11 @@ describe('影子比对', () => {
     // 旧链路未能在编辑器内定位的重点不会建立绑定，也就不参与比对。
     expect(compareIdentityShadow({ markdown: serialized, editorState: state, annotations: annotations as never }))
       .toEqual({ status: 'compared', compared: state.annotations.length, divergences: [] });
+    const identity = identityFromEditorState(serialized, state)!;
+    const selection = annotations.find(item => item.scopeType === 'selection')!;
+    const reported = state.annotations.find(item => item.id === selection.id)!;
+    expect(reported.start).toMatchObject({ blockId: tableId, cell: [1, 1] });
+    expect(bindingFromEditor(serialized, identity, reported)).toEqual(bindingFromAnchor(serialized, identity, selection));
   });
 
   it('大量重叠长选区时快照不随摘录长度膨胀', async () => {

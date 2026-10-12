@@ -39,6 +39,7 @@ export class ContentAnnotation {
     revision = 1,
     anchor = null,
     originSnapshot = null,
+    identityBinding = null,
     resolvedContentHash = null,
     boundaryFingerprint = null,
     requestHash = null,
@@ -65,6 +66,8 @@ export class ContentAnnotation {
       schemaVersion, scopeType, importance, comment, lifecycleStatus, anchorStatus,
       anchorReason, revision, anchor: anchor ? structuredClone(anchor) : null,
       originSnapshot: originSnapshot ? structuredClone(originSnapshot) : null,
+      // 稳定身份迁移 S2b-2：以块身份表 ID 描述的重点位置；影子阶段只记录，不参与状态判断。
+      identityBinding: identityBinding ? structuredClone(identityBinding) : null,
       resolvedContentHash, boundaryFingerprint, requestHash,
       status: projectLegacyAnnotationStatus({ lifecycleStatus, anchorStatus }),
       createdAt, updatedAt, deletedAt

@@ -104,6 +104,7 @@ export function dbAnnotation(annotation) {
     revision: annotation.revision ?? 1,
     anchor: annotation.anchor ?? null,
     originSnapshot: annotation.originSnapshot ?? null,
+    identityBinding: annotation.identityBinding ?? undefined,
     resolvedContentHash: annotation.resolvedContentHash ?? null,
     boundaryFingerprint: annotation.boundaryFingerprint ?? null,
     requestHash: annotation.requestHash ?? null,

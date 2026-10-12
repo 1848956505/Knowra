@@ -160,6 +160,7 @@ export function mapAnnotation(row) {
     revision: Number(row.revision ?? 1),
     anchor: row.anchor ?? null,
     originSnapshot: row.originSnapshot ?? null,
+    identityBinding: row.identityBinding ?? null,
     resolvedContentHash: row.resolvedContentHash ?? null,
     boundaryFingerprint: row.boundaryFingerprint ?? null,
     requestHash: row.requestHash ?? null,

@@ -1,3 +1,4 @@
+import { applyIdentityBindings } from './application/annotation-identity-binding.js';
 import { createAsyncNoteDependencyLifecycle } from './application/postgres-async/note-dependency-lifecycle.js';
 import { createAsyncSpaceAssetLifecycle } from './application/postgres-async/space-asset-lifecycle.js';
 import { createAsyncNavigationReferencePolicy } from './application/postgres-async/navigation-reference-policy.js';
@@ -415,6 +416,7 @@ export function createPostgresKnowledgeModule({
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
     onNoteContentChanged: async (note, version, annotationChange) => {
       const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash, annotationChange);
+      await applyIdentityBindings(contentAnnotationRepository, note, await contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);
       for (const annotationId of reconciliation.contentChangedAnnotationIds) {
         await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale');
       }

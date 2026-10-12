@@ -49,9 +49,12 @@ export interface AnnotationMapping { formatVersion: 1; operationId: string; base
 
 /** 稳定身份迁移影子阶段：编辑器在保存时上报的身份视角快照。 */
 export interface IdentityEditorBlock { id: string; type: string; empty: boolean }
+/** 块内位置：offset 为编辑器内容偏移；表格内附带单元格 [行, 列]。 */
+export interface IdentityPoint { blockId: string; offset: number; cell?: [number, number] }
 export interface IdentityEditorAnnotation {
   id: string; scopeType: AnnotationScopeType; present: boolean;
   rootBlockId?: string; startBlockId?: string; endBlockId?: string; quoteHash?: string;
+  start?: IdentityPoint; end?: IdentityPoint;
 }
 export interface IdentityEditorState { formatVersion: 2; targetContentHash: string; blocks: IdentityEditorBlock[]; annotations: IdentityEditorAnnotation[] }
 export type IdentityShadowDivergenceKind = 'trackedLost' | 'oldNeedsReview' | 'identityLost' | 'blockMismatch' | 'quoteMismatch';
@@ -84,3 +87,21 @@ export function anchorForListItem(projection: MarkdownProjection, itemPath: stri
 export function followListAnchor(markdown: string, anchor: ContentAnchor): ReturnType<typeof resolveAnchor>;
 export function listTracking(projection: MarkdownProjection, anchor: ContentAnchor, structure?: AnnotationStructure | null): NonNullable<ContentAnchor['tracking']>;
 export function followListAnchorChanges(before: string, after: string, anchor: ContentAnchor, edits?: SourceEdit[] | null, structures?: { before?: AnnotationStructure | null; after?: AnnotationStructure | null }): ReturnType<typeof resolveAnchor>;
+
+/** 块内偏移模型：与 parseIdentityBlocks 同序，非文本块为 null。 */
+export interface InlineOffsetModel { size: number; start: Array<number | null>; end: Array<number | null> }
+export type IdentityBlockModel = InlineOffsetModel | { kind: 'table'; rows: Array<Array<(InlineOffsetModel & { from: number; to: number }) | null>> } | null;
+export function identityBlockModels(markdown: string): IdentityBlockModel[];
+export function blockOffsetToSource(model: IdentityBlockModel, point: { offset: number; cell?: [number, number] }, edge: 'start' | 'end'): number | null;
+export function sourceToBlockOffset(model: IdentityBlockModel, sourceOffset: number, edge: 'start' | 'end', cell?: [number, number]): number | null;
+
+/** 重点绑定：以块身份表中的 ID 描述重点位置。 */
+export type IdentityBinding = { formatVersion: 2; contentHash: string } & (
+  | { scopeType: 'selection'; start: IdentityPoint; end: IdentityPoint }
+  | { scopeType: 'blocks'; startBlockId: string; endBlockId: string }
+  | { scopeType: 'section' | 'list'; rootBlockId: string });
+export const IDENTITY_BINDING_FORMAT: 2;
+export function bindingFromAnchor(markdown: string, identity: unknown, annotation: Record<string, any>): IdentityBinding | null;
+export function bindingFromEditor(markdown: string, identity: unknown, reported: IdentityEditorAnnotation): IdentityBinding | null;
+export function validBinding(markdown: string, identity: unknown, binding: unknown): binding is IdentityBinding;
+export function bindingSourceRange(markdown: string, identity: unknown, binding: unknown): { sourceStart: number; sourceEnd: number } | null;

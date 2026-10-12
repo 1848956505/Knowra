@@ -10,3 +10,5 @@ export { sourceEdits } from './source-diff.js';
 export { anchorForListItem, followListAnchor, listTracking } from './list-anchor.js';
 export { followListAnchorChanges } from './list-follow.js';
 export { IDENTITY_SHADOW_FORMAT, EDITOR_TO_MARKDOWN_BLOCK, parseIdentityBlocks, alignIdentityBlocks, validIdentityEditorState, compareIdentityShadow, identityQuoteHash, identityFromEditorState, validIdentityTable, adoptIdentityIds } from './identity-shadow.js';
+export { identityBlockModels, blockOffsetToSource, sourceToBlockOffset } from './block-offsets.js';
+export { IDENTITY_BINDING_FORMAT, bindingFromAnchor, bindingFromEditor, bindingSourceRange, validBinding } from './identity-binding.js';

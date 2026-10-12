@@ -15,6 +15,8 @@ import * as sourceDiff from '../src/source-diff.js';
 import * as listAnchor from '../src/list-anchor.js';
 import * as listFollow from '../src/list-follow.js';
 import * as identity from '../src/identity-shadow.js';
+import * as blockOffsets from '../src/block-offsets.js';
+import * as identityBinding from '../src/identity-binding.js';
 import * as links from '../src/internal-links.js';
 import { BASELINE_COMMIT, publicCompatibilityCases } from './fixtures/public-compatibility-cases.js';
 
@@ -31,7 +33,7 @@ test('公共导出集合、类型及包入口与冻结旧版本一致，不泄�
 });
 
 test('公共入口与全部实现模块保持同一函数或常量引用，兼容 dynamic 的原导出', () => {
-  const modules = { projection, hash, resolution, sourceEdit, dynamic, sourceDiff, listAnchor, listFollow, identity, links };
+  const modules = { projection, hash, resolution, sourceEdit, dynamic, sourceDiff, listAnchor, listFollow, identity, blockOffsets, identityBinding, links };
   const covered = new Set();
   for (const [moduleName, implementation] of Object.entries(modules)) {
     for (const name of Object.keys(implementation).filter(name => Object.hasOwn(fixture.publicExports, name))) {
@@ -52,7 +54,7 @@ for (const [name, expected] of Object.entries(fixture.cases)) {
   test(`冻结旧输出：${name}`, () => assert.deepEqual(actual[name], expected));
 }
 
-for (const first of ['dynamic', 'list-follow', 'identity-shadow', 'index']) {
+for (const first of ['dynamic', 'list-follow', 'identity-shadow', 'identity-binding', 'index']) {
   test(`独立进程冷加载 ${first} → 公共入口，无 TDZ 或重复实例`, () => {
     const script = `
       import assert from 'node:assert/strict';
@@ -61,7 +63,7 @@ for (const first of ['dynamic', 'list-follow', 'identity-shadow', 'index']) {
       const api = await import('@study-accelerator/content-anchor');
       const entry = await import(${JSON.stringify(new URL('../src/index.js', import.meta.url).href)});
       assert.strictEqual(api, entry);
-      for (const name of ['projection', 'hash', 'anchor-resolution', 'source-edit', 'dynamic', 'source-diff', 'list-anchor', 'list-follow', 'identity-shadow', 'internal-links']) {
+      for (const name of ['projection', 'hash', 'anchor-resolution', 'source-edit', 'dynamic', 'source-diff', 'list-anchor', 'list-follow', 'identity-shadow', 'block-offsets', 'identity-binding', 'internal-links']) {
         const module = await import(new URL(name + '.js', ${JSON.stringify(new URL('../src/', import.meta.url).href)}));
         for (const key of Object.keys(module).filter(key => Object.hasOwn(api, key))) assert.strictEqual(api[key], module[key]);
       }
