@@ -70,12 +70,22 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     if (allowEllipsis) expect(result.textOverflow).toBe('ellipsis');
     else expect(result.overflowX, `${name} 应换行而非横向裁掉正文`).toBeLessThanOrEqual(2);
   };
-  const searchTrigger = () => page.locator('button[aria-label="全局搜索"]:visible, button[aria-label="打开全局搜索"]:visible').first();
+  const searchTrigger = () => page.getByRole('button', {
+    name: viewport.width < 768 ? '打开全局搜索' : '搜索笔记', exact: true
+  });
   const dialog = page.getByRole('dialog', { name: '全局搜索', exact: true });
   const input = dialog.getByRole('combobox', { name: '搜索关键字', exact: true });
   const resultList = dialog.locator('#search-command-results');
   const openSearch = async (keyboard = false) => {
-    const trigger = searchTrigger();
+    // 首页没有笔记侧栏；快捷键应从普通顶栏控件的焦点直接打开搜索。
+    const search = searchTrigger();
+    // 平板的笔记导航默认折叠，先通过真实侧栏开关到达搜索入口。
+    if (!keyboard && !await search.isVisible()) {
+      await page.getByRole('button', { name: '切换侧栏', exact: true }).click();
+      await expect(search).toBeVisible();
+    }
+    const trigger = keyboard && !await search.isVisible()
+      ? page.getByRole('button', { name: '工作区状态', exact: true }) : search;
     await trigger.scrollIntoViewIfNeeded(); await trigger.focus();
     if (keyboard) await page.keyboard.press('ControlOrMeta+K'); else await trigger.click();
     await expect(dialog).toBeVisible(); await expect(input).toBeFocused(); await expect(input).toHaveValue('');
@@ -113,7 +123,7 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     await input.focus(); await page.keyboard.press('Enter');
     await expect(dialog).toBeHidden(); await expect(page).toHaveURL(/#\/materials\/notes\/note-2$/);
     await expect(page.getByRole('textbox', { name: '笔记标题', exact: true })).toHaveValue(secondTitle);
-    focusChecks.push('真实 Cmd/Ctrl+K 打开并聚焦输入；上下选择的前两项实际可见；Enter 跳转标题命中');
+    focusChecks.push('首页真实 Cmd/Ctrl+K 打开并聚焦输入，无笔记侧栏时从顶栏普通控件获焦触发；上下选择的前两项实际可见；Enter 跳转标题命中');
 
     trigger = await openSearch();
     await input.fill(bodyQuery);

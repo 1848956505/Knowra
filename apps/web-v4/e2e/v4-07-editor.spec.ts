@@ -1022,7 +1022,12 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   for (const name of ['信息', '大纲', '链接', '记录', 'AI']) {
     await expect(inspector.getByRole('tab', { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByLabel('全局顶栏')).toHaveCSS('background-color', await tokenColor(page, '--surface-chrome'));
+  const titlebar = page.getByLabel('全局顶栏');
+  const shell = titlebar.locator('..');
+  await expect(titlebar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(moduleRail).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(shell).toHaveCSS('background-color', await tokenColor(page, '--surface-chrome'));
+  expect(await shell.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('radial-gradient');
   await expect(contextSidebar).toHaveCSS('background-color', await tokenColor(page, '--surface-sidebar'));
   expect(await page.locator('article[data-pdf-document]').evaluate((paper) => {
     const stage = paper.parentElement;
