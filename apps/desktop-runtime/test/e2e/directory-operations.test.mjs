@@ -37,7 +37,7 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   await page.getByRole('button', { name: '创建', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await root.click();
-  // 图标视图空白背景菜单。
+  // 索引空白背景菜单。
   const content = page.getByTestId('notes-index-scroll');
   await content.click({ button: 'right', position: { x: 5, y: 5 } });
   await page.getByRole('menuitem', { name: '新建笔记', exact: true }).click();
@@ -45,7 +45,9 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   await page.getByRole('button', { name: '创建', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   // 右上新建下拉可选择文件夹。
-  await page.getByRole('main').getByRole('button', { name: '新建', exact: true }).click();
+  const index = page.getByRole('article', { name: '笔记索引', exact: true });
+  await expect(index.getByRole('button', { name: '新建笔记', exact: true })).toBeVisible();
+  await index.getByRole('button', { name: '更多新建选项', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: '新建文件夹', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
@@ -55,7 +57,7 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
   for (const [name, kind] of [['待移动笔记', '笔记'], ['根目录创建', '文件夹']]) {
-    await content.getByRole('button').filter({ hasText: name }).click({ button: 'right' });
+    await content.getByRole('button', { name, exact: true }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: '移动到…', exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: /目标目录/ }).click();
     if (kind === '文件夹') await expect(page.getByRole('option', { name: /根目录创建/ })).toHaveCount(0);
@@ -72,8 +74,8 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   const cycle = await page.request.patch(`${runtime.origin}/api/knowledge/folders/${parent.id}`, { data: { parentId: moved.id } });
   assert.equal(cycle.status(), 409);
   // 根目录菜单即使当前进入子目录也必须创建在根目录。
-  await content.getByRole('button').filter({ hasText: '目标目录' }).click();
-  await content.getByRole('button').filter({ hasText: '待移动笔记' }).click({ button: 'right' });
+  await content.getByRole('button', { name: '目标目录', exact: true }).click();
+  await content.getByRole('button', { name: '待移动笔记', exact: true }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: '移动到…', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /目标目录/ }).click();
   await page.getByRole('option', { name: '笔记库（根目录）', exact: true }).click();
