@@ -41,6 +41,15 @@ describe('V5 shared control styles', () => {
     assert.match(declarations(index, '.heading strong'), /text-overflow:\s*ellipsis/);
   });
 
+  it('reserves an independently reachable notes body in short viewports', () => {
+    const index = readFileSync(join(directory, '../../features/notes/NotesIndexView.module.css'), 'utf8');
+    assert.match(index, /@media \(max-height: 560px\)/);
+    assert.match(declarations(index, '.panel'), /overflow-y:\s*auto/);
+    assert.match(declarations(index, '.indexWrap'), /min-height:\s*220px/);
+    assert.match(declarations(index, '.content'), /min-height:\s*140px/);
+    assert.match(declarations(index, '.toolbar'), /overflow-x:\s*auto/);
+  });
+
   it('keeps interactive controls stationary and removes the old ink borders', () => {
     for (const source of [css.button, css.ghost, css.segmented, css.collection]) {
       assert.doesNotMatch(source, /transform\s*:\s*translate/);
