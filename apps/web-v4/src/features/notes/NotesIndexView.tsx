@@ -15,7 +15,7 @@ import { scrollEntryContainer } from './EntryDragDrop';
 import { itemKey } from './notesIndexPresentation';
 import { FILTER_LABELS, NOTE_STATUS_LABELS } from './notesIndexFilters';
 import { useNotesIndexController } from './useNotesIndexController';
-import { useNotesIndexAppearance } from './notesIndexAppearance';
+import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
 import styles from './NotesIndexView.module.css';
 import itemStyles from './NotesIndexItems.module.css';

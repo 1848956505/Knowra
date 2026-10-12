@@ -2,7 +2,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotesIndexAppearanceControls, notesIndexAppearanceProps } from './NotesIndexAppearance';
-import { DEFAULT_NOTES_INDEX_APPEARANCE, NOTES_INDEX_APPEARANCE_KEY, parseNotesIndexAppearance, setNotesIndexAppearance, useNotesIndexAppearance } from './notesIndexAppearance';
+import { DEFAULT_NOTES_INDEX_APPEARANCE, NOTES_INDEX_APPEARANCE_KEY, parseNotesIndexAppearance, setNotesIndexAppearance, useNotesIndexAppearance } from './notesIndexAppearanceModel';
 
 function Surface() { const appearance = useNotesIndexAppearance(); return <div data-testid="surface" {...notesIndexAppearanceProps(appearance)} />; }
 beforeEach(() => { localStorage.clear(); act(() => setNotesIndexAppearance(DEFAULT_NOTES_INDEX_APPEARANCE)); });

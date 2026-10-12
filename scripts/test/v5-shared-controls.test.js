@@ -26,6 +26,21 @@ function declarations(source, selector) {
 
 /* 只锁定 V5 共享视觉契约；点击、校验与键盘导航由各组件行为测试覆盖。 */
 describe('V5 shared control styles', () => {
+  it('keeps notes button shapes scoped through the shared semantic radius', () => {
+    const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
+    assert.ok(declarations(theme, '.theme').includes('--radius-control: var(--ni-control-radius)'));
+    assert.ok(declarations(theme, '.theme').includes('--ni-control-radius: 999px'));
+    assert.match(declarations(theme, '.theme[data-ni-shape="rounded"]'), /--ni-control-radius:\s*7px/);
+    assert.doesNotMatch(css.button, /--(?:ni-|button-radius)/);
+  });
+
+  it('keeps the notes path visible in compact containers', () => {
+    const index = readFileSync(join(directory, '../../features/notes/NotesIndexView.module.css'), 'utf8');
+    assert.doesNotMatch(declarations(index, '.breadcrumb'), /display:\s*none/);
+    assert.match(declarations(index, '.breadcrumb'), /flex:\s*1 1 100%/);
+    assert.match(declarations(index, '.heading strong'), /text-overflow:\s*ellipsis/);
+  });
+
   it('keeps interactive controls stationary and removes the old ink borders', () => {
     for (const source of [css.button, css.ghost, css.segmented, css.collection]) {
       assert.doesNotMatch(source, /transform\s*:\s*translate/);

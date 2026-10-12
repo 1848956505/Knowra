@@ -8,6 +8,20 @@ const v4Source = path.join(v4Root, 'src');
 const webCoreSource = path.join(workspaceRoot, 'packages', 'web-core', 'src');
 const violations = [];
 
+// Extensionless imports must resolve consistently on case-insensitive filesystems.
+for (const root of [v4Source, webCoreSource]) {
+  const modules = new Map();
+  for (const filePath of collectSourceFiles(root)) {
+    const stem = filePath.replace(/\.[cm]?[jt]sx?$/, '').toLowerCase();
+    const previous = modules.get(stem);
+    if (previous) {
+      violations.push(`Case-insensitive module collision: ${toWorkspacePath(previous)} and ${toWorkspacePath(filePath)}`);
+    } else {
+      modules.set(stem, filePath);
+    }
+  }
+}
+
 for (const filePath of collectSourceFiles(v4Source)) {
   const source = fs.readFileSync(filePath, 'utf8');
   const relativeFile = toWorkspacePath(filePath);

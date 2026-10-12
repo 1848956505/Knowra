@@ -181,6 +181,8 @@ color-scheme:dark;
   --shadow-input-focus: var(--focus-ring);
   --ink-danger: var(--ni-danger);
   --ink-danger-soft: var(--ni-danger-soft);
+  --radius-control: var(--ni-control-radius);
+  --radius-tab: var(--ni-control-radius);
   --ni-control-radius: 999px;
   --ni-icon-radius: 50%;
   font-family: var(--ni-ui);
@@ -191,8 +193,6 @@ color-scheme:dark;
 .controls {
   --index-size-28: 20px;
   --index-size-9: 7px;
-  --radius-tab: var(--ni-control-radius);
-  --radius-control: var(--ni-control-radius);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -219,8 +219,8 @@ color-scheme:dark;
   --ink-violet: var(--ni-ink-2); --ink-violet-soft: var(--ni-fill-2);
 }
 
-/* 独立形状令牌只作用于控件，不将树节点或内容面板变成胶囊。 */
-.theme { --button-radius:var(--ni-control-radius); --segmented-radius:var(--ni-control-radius); --search-radius:var(--ni-control-radius); --icon-button-radius:var(--ni-icon-radius); }
+/* 特定控件的形状令牌与局部语义圆角一致；图标按钮保留圆形比例。 */
+.theme { --segmented-radius:var(--ni-control-radius); --search-radius:var(--ni-control-radius); --icon-button-radius:var(--ni-icon-radius); }
 .theme[data-ni-deco="full"] { --surface-chrome-glow:var(--ni-grain),radial-gradient(460px 320px at 6% 4%,var(--ni-sheen),transparent 70%),radial-gradient(640px 560px at -4% 104%,var(--ni-ambient),transparent 66%); }
 .controls { -webkit-app-region:no-drag; app-region:no-drag; }
 @media (max-width:767px) { .controls { gap:2px; max-width:50vw; overflow-x:auto; scrollbar-width:none; } .controls > :first-child { display:none; } }

@@ -3,7 +3,7 @@ import { Button, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../componen
 import { ChevronDownIcon, ChevronRightIcon } from '../../components/icons/knowra';
 import { WorkspacePanelFooter } from '../../components/workspace/WorkspacePanel';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
-import { useNotesIndexAppearance } from './notesIndexAppearance';
+import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 
 const PAGE_SIZES = [5, 10, 20, 50];
 export function NotesIndexPagination({ page, pageCount, total, pageSize, loading, hasMore, onLoadMore, onPageChange, onPageSizeChange }: {

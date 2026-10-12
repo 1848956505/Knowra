@@ -1,5 +1,5 @@
 import { GhostIconButton, SegmentedButton, SegmentedControl } from '../../components/ui';
-import { useNotesIndexAppearance, setNotesIndexAppearance, type NotesIndexAppearance } from './notesIndexAppearance';
+import { useNotesIndexAppearance, setNotesIndexAppearance, type NotesIndexAppearance } from './notesIndexAppearanceModel';
 import styles from './NotesIndexTheme.module.css';
 
 /** Apply only to the index shell, index content, or the notes context sidebar. */

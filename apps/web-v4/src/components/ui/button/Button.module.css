@@ -15,7 +15,7 @@
   color: var(--text-primary);
   background: var(--surface-page);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--button-radius, var(--radius-control));
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-control);
   transition:
     box-shadow var(--motion-fast) var(--motion-ease),

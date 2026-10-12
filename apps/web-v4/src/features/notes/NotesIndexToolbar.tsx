@@ -5,7 +5,7 @@ import { WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel
 import { SORT_LABELS, GROUP_LABELS, type GroupMode, type SortMode, type IndexDisplayProperties } from './notesIndexPresentation';
 import { FILTER_LABELS, NOTE_STATUS_LABELS, type UpdatedWithin } from './notesIndexFilters';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
-import { useNotesIndexAppearance } from './notesIndexAppearance';
+import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import type { NotesIndexController } from './useNotesIndexController';
 import styles from './NotesIndexView.module.css';
 

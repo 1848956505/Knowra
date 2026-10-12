@@ -40,7 +40,7 @@ import { useSidebarTreeOperations } from './useSidebarTreeOperations';
 import type { Folder } from '@study-accelerator/web-core';
 import { scrollEntryContainer, useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
 import styles from './NotesContextSidebar.module.css';
-import { useNotesIndexAppearance } from './notesIndexAppearance';
+import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
 import { NotesUpdateDistribution, NotesTrashDecoration } from './NotesSidebarDecoration';
 

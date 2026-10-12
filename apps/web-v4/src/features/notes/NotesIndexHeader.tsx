@@ -4,7 +4,7 @@ import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
 import { UploadIcon, PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon, NoteIcon, ChevronDownIcon } from '../../components/icons/knowra';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
-import { useNotesIndexAppearance } from './notesIndexAppearance';
+import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import styles from './NotesIndexView.module.css';
 
 export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selectionMode, onToggleSelection, onImport, onCreate, onOpenSpaces }: {

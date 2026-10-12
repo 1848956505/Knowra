@@ -1,6 +1,6 @@
 import { ScopedAppearanceProvider } from '../components/ui/overlay';
 import { NotesIndexAppearanceControls, NotesIndexTitleTab, notesIndexAppearanceProps } from '../features/notes/NotesIndexAppearance';
-import { useNotesIndexAppearance } from '../features/notes/notesIndexAppearance';
+import { useNotesIndexAppearance } from '../features/notes/notesIndexAppearanceModel';
 import { RecoveryDraftNotice } from '../features/editor/RecoveryDraftNotice';
 import { BudgetAlertBanner } from '../features/assistant/BudgetAlertBanner';
 import { useMaterialsRoute } from './useMaterialsRoute';

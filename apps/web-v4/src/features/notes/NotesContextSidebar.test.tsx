@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppStoreProvider } from '../../store/AppStoreProvider';
 import { createAppStore } from '../../store/createAppStore';
 import { NotesContextSidebar } from './NotesContextSidebar';
-import { DEFAULT_NOTES_INDEX_APPEARANCE, setNotesIndexAppearance } from './notesIndexAppearance';
+import { DEFAULT_NOTES_INDEX_APPEARANCE, setNotesIndexAppearance } from './notesIndexAppearanceModel';
 
 beforeEach(() => { localStorage.removeItem('knowra:pinned-tags'); act(() => setNotesIndexAppearance(DEFAULT_NOTES_INDEX_APPEARANCE)); });
 afterEach(() => { localStorage.removeItem('knowra:pinned-tags'); });

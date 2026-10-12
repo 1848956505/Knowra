@@ -95,10 +95,16 @@ test.describe('V4-05 公共 Shell 与主页', () => {
       return { background: style.backgroundImage, color: style.color, shadow: style.boxShadow, transform: style.transform };
     });
     await home.hover();
-    await expect(home).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.055)');
+    // 索引原稿使用局部 .045 悬停令牌；Chromium 的 alpha 会量化至 8 bit。
+    expect(await home.evaluate(element => {
+      const style = getComputedStyle(element);
+      return style.getPropertyValue('--surface-hover').trim() === style.getPropertyValue('--ni-hover').trim();
+    })).toBe(true);
+    await expect(home).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.043)');
     const resting = await appearance();
     expect(resting.background).toContain('linear-gradient');
-    expect(resting.shadow).toContain('6px 12px -6px');
+    expect(resting.shadow).toContain('0px 1px 2px');
+    expect(resting.shadow).toContain('inset');
     await selected.hover();
     await expect.poll(appearance).toEqual(resting);
     await page.waitForTimeout(150); // 等待原型的 120ms 状态过渡结束，再确认没有悬停变化。
@@ -111,6 +117,11 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(rail).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await page.mouse.move(1000, 20);
     await page.screenshot({ path: testInfo.outputPath('V5-外栏光晕与紧凑按钮.png') });
+    await home.click();
+    await expect(page).toHaveURL(/#\/$/);
+    const other = rail.getByRole('button', { name: '资料', exact: true });
+    await other.hover();
+    await expect(other).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.055)');
   });
 
   test('上下文侧栏开关对齐模块轨道，展开与折叠显示对应视觉状态', async ({ page }, testInfo) => {
