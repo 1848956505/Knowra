@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { anchorFromProjectedRange, projectMarkdown, calculateContentHash, identityQuoteHash, sourceEdit } from '@study-accelerator/content-anchor';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { anchorFromProjectedRange, projectMarkdown, calculateContentHash, identityQuoteHash, sourceEdit, updateStructure } from '@study-accelerator/content-anchor';
 import { createKnowledgeModule } from '../src/modules/knowledge/index.js';
 
 function fixture(sink) {
@@ -87,5 +90,60 @@ export const annotationIdentityShadowTests = [
     const after = `${current.rawMarkdown}丙`;
     save(module, current, after, editorState(after, []));
     assert.equal(entries.length, 1);
+  } },
+  { name: '块身份表：对齐的编辑器快照写入 annotationStructure.identity，旧链路节点不变', run() {
+    const { module, note } = fixture(() => {});
+    const after = note.rawMarkdown.replace('尾段', '尾段补充');
+    const saved = save(module, note, after, editorState(after, []));
+    assert.deepEqual(saved.annotationStructure.identity.blocks, [{ id: 'h', type: 'heading' }, { id: 'p1', type: 'paragraph' }, { id: 'p2', type: 'paragraph' }]);
+    assert.equal(saved.annotationStructure.identity.contentHash, calculateContentHash(after));
+    assert.ok(saved.annotationStructure.nodes.every(node => node.id.startsWith('block-')));
+  } },
+  { name: '块身份表：正文不变时沿用，外部改写或快照无法对齐时失效', run() {
+    const { module, note } = fixture(() => {});
+    const after = note.rawMarkdown + '\n\n追加';
+    const first = save(module, note, after, { ...editorState(after, []), blocks: [...editorState(after, []).blocks, { id: 'p3', type: 'paragraph', empty: false }] });
+    assert.deepEqual(first.annotationStructure.identity.blocks.map(block => block.id), ['h', 'p1', 'p2', 'p3']);
+    const same = module.noteService.updateNote(note.id, { rawMarkdown: after, expectedUpdatedAt: first.updatedAt });
+    assert.deepEqual(same.annotationStructure.identity, first.annotationStructure.identity);
+    const external = module.noteService.updateNote(note.id, { rawMarkdown: `${after}改`, expectedUpdatedAt: same.updatedAt });
+    assert.equal(external.annotationStructure.identity, undefined);
+    const misaligned = save(module, external, `${external.rawMarkdown}再改`, editorState(`${external.rawMarkdown}再改`, []));
+    assert.equal(misaligned.annotationStructure.identity, undefined);
+  } },
+  { name: '块身份表：JSON 存储重启后保留并通过本地数据校验', async run() {
+    const { createFileDataStore } = await import('../src/infrastructure/file-data-store.js');
+    const { createAppContext } = await import('../src/app.factory.js');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-identity-'));
+    try {
+      const open = () => createAppContext({ dataStore: createFileDataStore(path.join(dir, 'data.json')), storageRootDir: dir, uploadsDir: path.join(dir, 'uploads'), ownerId: 'demo', annotationShadowSink: () => {} });
+      const context = open();
+      const knowledge = context.modules.knowledge;
+      const space = knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+      const note = knowledge.noteService.createNote({ title: '身份', rawMarkdown: '## A\n\n重要文字\n\n尾段', spaceId: space.id });
+      const after = note.rawMarkdown + '补充';
+      save(knowledge, note, after, editorState(after, []));
+      const reopened = open().modules.knowledge.noteService.getNote(note.id);
+      assert.deepEqual(reopened.annotationStructure.identity.blocks.map(block => block.id), ['h', 'p1', 'p2']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  } },
+  { name: '块身份表：同步批次保留合法表，丢弃与正文不对应的表而不拒绝批次', async run() {
+    const { createEmptyLocalState } = await import('../src/infrastructure/local-data-schema.js');
+    const { prepareBatchState } = await import('../src/modules/sync/batch-domain.js');
+    const before = createEmptyLocalState();
+    before.spaces.push({ id: 'space-sync', userId: 'demo', name: '空间', createdAt: '2026-10-12T00:00:00.000Z', updatedAt: '2026-10-12T00:00:00.000Z' });
+    const markdown = '## A\n\n重要文字\n\n尾段';
+    const identity = { formatVersion: 2, contentHash: calculateContentHash(markdown), blocks: [{ id: 'h', type: 'heading' }, { id: 'p1', type: 'paragraph' }, { id: 'p2', type: 'paragraph' }] };
+    const note = (id, table) => ({ collection: 'notes', id, value: { id, title: id, rawMarkdown: markdown, spaceId: 'space-sync', folderId: null, tagIds: [],
+      annotationStructure: { ...updateStructure('', markdown), identity: table } } });
+    const { createHash } = await import('node:crypto');
+    for (const id of ['kept', 'dropped']) {
+      before.noteVersions.push({ id: `version-${id}`, noteId: id, content: markdown, contentHash: createHash('sha256').update(markdown).digest('hex'), createdAt: '2026-10-12T00:00:00.000Z', createdBy: 'demo' });
+    }
+    const { state } = prepareBatchState(before, [note('kept', identity), note('dropped', { ...identity, blocks: identity.blocks.slice(1) })], 'demo');
+    assert.deepEqual(state.notes.find(item => item.id === 'kept').annotationStructure.identity, identity);
+    assert.equal(state.notes.find(item => item.id === 'dropped').annotationStructure.identity, undefined);
   } }
 ];

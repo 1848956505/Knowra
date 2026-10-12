@@ -21,8 +21,8 @@ import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
-import { annotationShadowBehavior, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
-import { compareIdentityShadow } from '@study-accelerator/content-anchor';
+import { annotationShadowBehavior, applyBlockIdentity, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
+import { calculateContentHash, compareIdentityShadow, identityFromEditorState } from '@study-accelerator/content-anchor';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ClipboardEvent ??= class extends Event {
@@ -388,5 +388,63 @@ describe('影子比对', () => {
     if (tracked(e, annotation.id).missing) expect(divergence).toMatchObject({ annotationId: annotation.id, kind: 'trackedLost' });
     else expect(divergence).toBeUndefined();
     expect(marksIn(e.view.state.doc, 0, e.view.state.doc.content.size)).toEqual([annotation.id]);
+  });
+});
+
+describe('块身份表（S2b）', () => {
+  const markdown = '# 标题\n\n第一段\n\n<br />\n\n* 甲\n  * 乙\n\n$$\nx^2\n$$\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n## 二\n\n尾段\n';
+  const tableFrom = (e: TestEditor) => identityFromEditorState(e.markdown(), buildIdentityEditorState(e.view.state.doc, new Map(), e.markdown()))!;
+
+  it('保存时生成的身份表在下次打开时交回编辑器，块 ID 跨会话不变', async () => {
+    const first = await createEditor(markdown);
+    const serialized = first.markdown();
+    const identity = tableFrom(first);
+    expect(identity).not.toBeNull();
+    const second = await createEditor(serialized);
+    const before = blockIds(second.view.state.doc);
+    expect(applyBlockIdentity(second.view, serialized, identity)).toBe(true);
+    const adopted = blockIds(second.view.state.doc);
+    expect(adopted).not.toEqual(before);
+    const editorIds = buildIdentityEditorState(second.view.state.doc, new Map(), serialized).blocks.map(block => block.id);
+    expect(identity.blocks.map(block => block.id).every(id => editorIds.includes(id))).toBe(true);
+    expect(tableFrom(second)).toEqual(identity);
+    expect(second.markdown()).toBe(serialized);
+  });
+
+  it('身份表与正文不对应时不沿用，保留编辑器自己的 ID', async () => {
+    const first = await createEditor(markdown);
+    const identity = tableFrom(first);
+    const changed = first.markdown().replace('尾段', '尾段改');
+    const second = await createEditor(changed);
+    const before = blockIds(second.view.state.doc);
+    expect(applyBlockIdentity(second.view, changed, identity)).toBe(false);
+    expect(blockIds(second.view.state.doc)).toEqual(before);
+  });
+
+  it('整篇替换正文后重置影子绑定，按新块 ID 重新绑定且不记录虚假分歧', async () => {
+    const source = '## 一\n\n正文\n\n## 二\n\n其他\n';
+    const e = await createEditor(source);
+    const serialized = e.markdown();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1)));
+    const selection = getAnnotationSelection(e.editor, serialized, 'section')!;
+    setEditorAnnotations(e.editor, [{ id: 'sec', scopeType: 'section', anchor: selection.anchor, quoteText: selection.quoteText, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation], null);
+    const oldRoot = getAnnotationShadowReport(e.view.state).bindings.get('sec')!.rootBlockId;
+    const remote = serialized.replace('正文', '远端改过的正文');
+    const parsed = e.editor.ctx.get(parserCtx)(remote) as ProseNode;
+    e.view.dispatch(e.view.state.tr.replaceWith(0, e.view.state.doc.content.size, parsed.content));
+    applyBlockIdentity(e.view, remote, null);
+    // 旧绑定已清空，不会拿失效的旧 ID 去比较。
+    expect(getAnnotationShadowReport(e.view.state).bindings.has('sec')).toBe(false);
+    e.view.dispatch(e.view.state.tr.insertText('改', e.view.state.doc.content.size - 1));
+    expect(getAnnotationShadowReport(e.view.state).divergences).toEqual([]);
+    // 重点按新正文重新解析后，以新块 ID 重新绑定。
+    const current = e.markdown();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1)));
+    const relocated = getAnnotationSelection(e.editor, current, 'section')!;
+    setEditorAnnotations(e.editor, [{ id: 'sec', scopeType: 'section', anchor: relocated.anchor, quoteText: relocated.quoteText, anchorStatus: 'resolved', lifecycleStatus: 'active', noteContentHash: calculateContentHash(current) } as Annotation], null);
+    const rebound = getAnnotationShadowReport(e.view.state).bindings.get('sec');
+    expect(rebound?.scopeType).toBe('section');
+    expect(rebound?.rootBlockId).not.toBe(oldRoot);
+    expect(blockIds(e.view.state.doc)).toContain(rebound!.rootBlockId);
   });
 });

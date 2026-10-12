@@ -212,3 +212,21 @@ test('afterCommit：嵌套事务推迟到最外层提交，回滚丢弃，事务
   assert.deepEqual(calls, ['inner', 'outer', 'immediate']);
   store.close();
 });
+
+test('块身份表随正文保存进 SQLite，重新打开后仍可用', async t => {
+  const { calculateContentHash, sourceEdit, validIdentityTable } = await import('@study-accelerator/content-anchor');
+  const root = temporaryDirectory(t);
+  const workspace = openWorkspace(root);
+  const note = createNote(workspace, '## A\n\n正文');
+  const after = '## A\n\n正文补充';
+  workspace.knowledge.noteService.updateNote(note.id, { rawMarkdown: after,
+    annotationMapping: { formatVersion: 1, operationId: 'op-identity', baseContentHash: calculateContentHash(note.rawMarkdown), targetContentHash: calculateContentHash(after),
+      edits: [sourceEdit(note.rawMarkdown, after)],
+      editorState: { formatVersion: 2, targetContentHash: calculateContentHash(after), blocks: [{ id: 'h', type: 'heading', empty: false }, { id: 'p', type: 'paragraph', empty: false }], annotations: [] } } });
+  workspace.store.close();
+  const reopened = openWorkspace(root);
+  const saved = reopened.knowledge.noteService.getNote(note.id);
+  assert.deepEqual(saved.annotationStructure.identity.blocks, [{ id: 'h', type: 'heading' }, { id: 'p', type: 'paragraph' }]);
+  assert.equal(validIdentityTable(saved.rawMarkdown, saved.annotationStructure.identity), true);
+  reopened.store.close();
+});

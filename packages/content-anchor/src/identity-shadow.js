@@ -143,3 +143,39 @@ export function compareIdentityShadow({ markdown, editorState, annotations }) {
   }
   return { status: 'compared', compared, divergences };
 }
+
+/**
+ * 块身份表（S2b）：按 `parseIdentityBlocks` 的顺序为每个 Markdown 块记录编辑器 ID，
+ * 随笔记存放在 `annotationStructure.identity`。旧链路使用的 `annotationStructure.nodes` 不受影响。
+ */
+export function identityFromEditorState(markdown, editorState) {
+  if (!validIdentityEditorState(editorState) || editorState.targetContentHash !== calculateContentHash(markdown)) return null;
+  const blocks = parseIdentityBlocks(markdown);
+  const alignment = alignIdentityBlocks(blocks, editorState.blocks);
+  if (!alignment.aligned) return null;
+  const idByMarkdownIndex = new Map([...alignment.pairs].map(([editorIndex, markdownIndex]) => [markdownIndex, editorState.blocks[editorIndex].id]));
+  const ids = blocks.map((_, index) => idByMarkdownIndex.get(index));
+  if (ids.some(id => !id) || new Set(ids).size !== ids.length) return null;
+  return { formatVersion: IDENTITY_SHADOW_FORMAT, contentHash: calculateContentHash(markdown), blocks: blocks.map((block, index) => ({ id: ids[index], type: block.type })) };
+}
+
+/** 身份表只在与当前正文完全对应时可用；不合法时视为不存在，不能让数据加载失败。 */
+export function validIdentityTable(markdown, identity) {
+  if (!identity || identity.formatVersion !== IDENTITY_SHADOW_FORMAT || identity.contentHash !== calculateContentHash(markdown) || !Array.isArray(identity.blocks)) return false;
+  const blocks = parseIdentityBlocks(markdown);
+  if (blocks.length !== identity.blocks.length) return false;
+  const ids = new Set();
+  return identity.blocks.every((block, index) => {
+    const ok = block && text(block.id, LIMITS.id) && !ids.has(block.id) && block.type === blocks[index].type;
+    ids.add(block?.id);
+    return ok;
+  });
+}
+
+/** 编辑器加载时沿用身份表：返回 editorIndex → 块 ID；身份表无效或无法对齐时返回 null。 */
+export function adoptIdentityIds(markdown, identity, editorBlocks) {
+  if (!validIdentityTable(markdown, identity)) return null;
+  const alignment = alignIdentityBlocks(parseIdentityBlocks(markdown), editorBlocks);
+  if (!alignment.aligned) return null;
+  return new Map([...alignment.pairs].map(([editorIndex, markdownIndex]) => [editorIndex, identity.blocks[markdownIndex].id]));
+}

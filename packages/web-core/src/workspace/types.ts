@@ -41,6 +41,15 @@ export interface Note extends EntityBase {
   contentLoaded: boolean;
   favorite: boolean;
   deleted: boolean;
+  /** 服务端标注结构；前端只读取其中可选的块身份表（稳定身份迁移 S2b）。 */
+  annotationStructure?: { identity?: AnnotationIdentityTable } | null;
+}
+
+/** 块身份表：按 Markdown 块顺序记录编辑器块 ID，正文哈希不一致时无效。 */
+export interface AnnotationIdentityTable {
+  formatVersion: 2;
+  contentHash: string;
+  blocks: Array<{ id: string; type: string }>;
 }
 
 export interface NoteVersion extends EntityBase {
