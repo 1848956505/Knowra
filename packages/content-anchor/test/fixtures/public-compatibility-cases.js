@@ -1,5 +1,5 @@
 // 固定重构前版本；只保存输入与结果，不能从当前实现重建「旧行为」。
-export const BASELINE_COMMIT = 'dd09fe729f48a5d1014fc2a26730272d1ac27874';
+export const BASELINE_COMMIT = '7aec31a462c580d4fe8055e84d6c1b91eb49ee88';
 
 // 保留 undefined、Map 与非有限数字，避免 JSON 悄悄改变返回值形状。
 export function encodeCompatibilityValue(value) {

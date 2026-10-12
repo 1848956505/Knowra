@@ -1,6 +1,6 @@
 {
-  "baselineCommit": "dd09fe729f48a5d1014fc2a26730272d1ac27874",
-  "declarationsSha256": "3091cf6b8eaf0683201089525e437cc4a0aced5c67b7cb12547479ad01d8df6a",
+  "baselineCommit": "7aec31a462c580d4fe8055e84d6c1b91eb49ee88",
+  "declarationsSha256": "cc0cd498e5ec1c859f36a84b6255f55665d5b4ad2dc096107021419d149fae3b",
   "packageContract": {
     "name": "@study-accelerator/content-anchor",
     "type": "module",
@@ -11,6 +11,7 @@
   },
   "publicExports": {
     "EDITOR_TO_MARKDOWN_BLOCK": "object",
+    "IDENTITY_BINDING_FORMAT": "number",
     "IDENTITY_SHADOW_FORMAT": "number",
     "MARKDOWN_PROJECTION_VERSION": "number",
     "adoptIdentityIds": "function",
@@ -21,6 +22,10 @@
     "anchorForSourceRange": "function",
     "anchorFromProjectedRange": "function",
     "applySourceEdit": "function",
+    "bindingFromAnchor": "function",
+    "bindingFromEditor": "function",
+    "bindingSourceRange": "function",
+    "blockOffsetToSource": "function",
     "calculateContentHash": "function",
     "compareIdentityShadow": "function",
     "createNoteLinkUrl": "function",
@@ -30,6 +35,7 @@
     "followListAnchorChanges": "function",
     "followSectionAnchor": "function",
     "headingPathForSourceOffset": "function",
+    "identityBlockModels": "function",
     "identityFromEditorState": "function",
     "identityQuoteHash": "function",
     "listTracking": "function",
@@ -41,7 +47,9 @@
     "resolveNoteLinkOccurrence": "function",
     "sourceEdit": "function",
     "sourceEdits": "function",
+    "sourceToBlockOffset": "function",
     "updateStructure": "function",
+    "validBinding": "function",
     "validIdentityEditorState": "function",
     "validIdentityTable": "function",
     "verifiedSourceEdits": "function"
@@ -59,8 +67,7 @@
           "hr": "thematicBreak",
           "list_item": "listItem",
           "table": "table",
-          "math_block": "math",
-          "html": "html"
+          "math_block": "math"
         },
         "editorTypesFrozen": true,
         "hashes": [
