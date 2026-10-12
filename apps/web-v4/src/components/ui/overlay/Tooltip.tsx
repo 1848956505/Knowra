@@ -12,6 +12,7 @@ import {
 } from 'react-aria-components';
 import { cx } from '../classnames';
 import styles from './Overlay.module.css';
+import { useScopedAppearance } from './ScopedAppearance';
 
 export interface TooltipProps extends Omit<RATooltipProps, 'className' | 'children'> {
   children: ReactNode;
@@ -22,8 +23,9 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(function Tooltip
   { children, className, ...rest },
   ref
 ) {
+  const appearance = useScopedAppearance();
   return (
-    <RATooltip ref={ref} className={cx(styles.tooltip, className)} offset={6} {...rest}>
+    <RATooltip ref={ref} offset={6} {...appearance} {...rest} className={cx(styles.tooltip, appearance?.className, className)}>
       {children}
     </RATooltip>
   );

@@ -21,6 +21,7 @@ import {
 } from 'react-aria-components';
 import { cx } from '../classnames';
 import styles from './Overlay.module.css';
+import { useScopedAppearance } from './ScopedAppearance';
 import { NestedOverlay } from './ResponsivePanel';
 
 export type MenuItemProps = Omit<RAMenuItemProps, 'className' | 'children'> & {
@@ -124,13 +125,15 @@ export const MenuPopover = forwardRef<
   Omit<RAPopoverProps, 'children' | 'className'> & { children: ReactNode; className?: string }
 >(
   function MenuPopover({ children, className, ...rest }, ref) {
+    const appearance = useScopedAppearance();
     return (
       <RAPopover
         ref={ref}
         offset={4}
         placement="bottom start"
-        className={cx(styles.menuPopover, className)}
+        {...appearance}
         {...rest}
+        className={cx(styles.menuPopover, appearance?.className, className)}
       >
         <NestedOverlay>{children}</NestedOverlay>
       </RAPopover>

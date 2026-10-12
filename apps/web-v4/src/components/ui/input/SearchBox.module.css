@@ -4,7 +4,7 @@
   align-items: center;
   gap: 8px;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  border-radius: var(--search-radius, var(--radius-control));
   background: var(--surface-hover);
   color: var(--text-muted);
   box-shadow: none;

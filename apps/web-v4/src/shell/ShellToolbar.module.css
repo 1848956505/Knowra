@@ -8,3 +8,5 @@
 .statusIndicator[data-error] { color: var(--ink-danger); }
 .announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 767px) { .toolbar { padding-inline: 0; gap: 0; } .actions { gap: 0; } }
+
+@media (max-width:767px) { .toolbar:has([aria-label="笔记索引外观"]) .history { display:none; } }

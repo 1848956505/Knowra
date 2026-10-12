@@ -14,6 +14,7 @@ import {
 } from 'react-aria-components';
 import { cx } from '../classnames';
 import styles from './Overlay.module.css';
+import { useScopedAppearance } from './ScopedAppearance';
 import { NestedOverlay } from './ResponsivePanel';
 
 export interface PopoverProps extends Omit<RAPopoverProps, 'className' | 'children'> {
@@ -25,8 +26,9 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   { children, className, ...rest },
   ref
 ) {
+  const appearance = useScopedAppearance();
   return (
-    <RAPopover ref={ref} className={cx(styles.popover, className)} {...rest}>
+    <RAPopover ref={ref} {...appearance} {...rest} className={cx(styles.popover, appearance?.className, className)}>
       <NestedOverlay>{children}</NestedOverlay>
     </RAPopover>
   );

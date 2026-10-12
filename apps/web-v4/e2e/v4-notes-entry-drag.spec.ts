@@ -118,7 +118,7 @@ test('全部笔记空白处不代表根目录，笔记库页面空白处可移�
   await expect(content.getByText('待移动笔记')).toBeVisible();
 });
 
-test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚动', async ({ page }) => {
+test('V5 笔记选中使用中性底色，索引保留独立滚动和图标焦点', async ({ page }) => {
   await mockMoveWorkspace(page);
   await page.goto('/#/materials');
   const index = page.getByRole('article', { name: '笔记索引' });
@@ -128,12 +128,13 @@ test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚�
   const content = page.getByTestId('notes-index-scroll');
   await expect(content).toHaveCSS('background-image', 'none');
   await expect(content).toHaveCSS('overflow-y', 'auto');
+  await page.getByRole('button', { name: '图标视图' }).click();
   const tile = index.locator('[data-entry-item]').filter({ hasText: '待移动笔记' }).locator('button[draggable="true"]');
-  await expect(tile).toHaveCSS('border-radius', '12px');
+  await expect(tile).toHaveCSS('border-radius', '10px');
   await expect(tile).toHaveCSS('transform', 'none');
   await tile.focus();
   await expect(tile).toBeFocused();
-  await expect(tile).not.toHaveCSS('box-shadow', 'none');
+  await expect(tile).not.toHaveCSS('outline-style', 'none');
 
   await page.getByRole('button', { name: '展开甲目录' }).click();
   const note = page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]');

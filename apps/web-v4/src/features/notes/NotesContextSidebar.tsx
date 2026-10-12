@@ -1,3 +1,4 @@
+import { ScopedAppearanceProvider } from '../../components/ui/overlay';
 import { CreateEntryMenu } from './CreateEntryMenu';
 import { workspaceCapabilities } from '../../store/workspaceCapabilities';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -39,6 +40,9 @@ import { useSidebarTreeOperations } from './useSidebarTreeOperations';
 import type { Folder } from '@study-accelerator/web-core';
 import { scrollEntryContainer, useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
 import styles from './NotesContextSidebar.module.css';
+import { useNotesIndexAppearance } from './notesIndexAppearance';
+import { notesIndexAppearanceProps } from './NotesIndexAppearance';
+import { NotesUpdateDistribution, NotesTrashDecoration } from './NotesSidebarDecoration';
 
 interface NavEntry {
   scope: Exclude<NotesIndexScope, 'root' | 'trash'>;
@@ -56,12 +60,16 @@ const QUICK_ENTRIES: readonly NavEntry[] = [
 export function NotesContextSidebar({
   onOpenNote,
   onOpenIndex,
-  onOpenSearch
+  onOpenSearch,
+  appearanceActive = true
 }: {
   onOpenNote?(noteId: string): void;
   onOpenIndex?(): void;
   onOpenSearch?(): void;
+  appearanceActive?: boolean;
 }) {
+  const appearance = useNotesIndexAppearance();
+  const appearanceProps = appearanceActive ? notesIndexAppearanceProps(appearance) : undefined;
   const serverData = useAppStore((state) => state.serverData);
   const notesIndex = useAppStore((state) => state.notesIndex);
   const selectedFolderId = useAppStore((state) => state.navigation.selectedFolderId);
@@ -114,7 +122,7 @@ export function NotesContextSidebar({
   }, [notesIndex.query, searchNotes]);
 
   return (
-    <div className={styles.sidebarContent}>
+    <ScopedAppearanceProvider value={appearanceProps ?? null}><div {...appearanceProps} className={`${appearanceProps?.className ?? ''} ${styles.sidebarContent}`} data-index-appearance={appearanceActive || undefined}>
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
         <MenuTrigger>
@@ -241,9 +249,10 @@ export function NotesContextSidebar({
       </div>
 
       <footer className={styles.footer}>
+        {appearanceActive && appearance.deco === 'full' ? <NotesUpdateDistribution notes={serverData.notes} /> : null}
         <SideNavItem
           density="compact"
-          icon={<DeleteIcon size={15} />}
+          icon={appearanceActive && appearance.deco === 'full' ? <NotesTrashDecoration full={trashCount > 0} /> : <DeleteIcon size={15} />}
           label="回收站"
           count={trashCount}
           aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}
@@ -286,7 +295,7 @@ export function NotesContextSidebar({
           <MenuItem id="manage">进入标签管理</MenuItem>
         </Menu>
       </PointMenu>
-    </div>
+    </div></ScopedAppearanceProvider>
   );
 }
 

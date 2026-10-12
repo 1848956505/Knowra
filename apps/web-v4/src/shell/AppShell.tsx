@@ -1,6 +1,6 @@
 // V5 全局外壳：常驻标签/操作顶栏、模块轨道、上下文侧栏与内容面板。
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type HTMLAttributes } from 'react';
 import { ModuleRail } from './ModuleRail';
 import { type PathSegment, type StatusPanel } from './StatusBar';
 import { MobileTabs } from './MobileTabs';
@@ -15,6 +15,8 @@ import { CloseIcon } from '../components/icons/knowra';
 
 export interface AppShellProps {
   children: ReactNode;
+  appearance?: HTMLAttributes<HTMLDivElement>;
+  toolbarAccessories?: ReactNode;
   /** 当前工作域的上下文导航；与主工作区并列，拥有独立滚动边界。 */
   contextSidebar?: ReactNode;
   contextSidebarOpen?: boolean;
@@ -59,6 +61,8 @@ export interface AppShellProps {
 
 export function AppShell({
   children,
+  appearance,
+  toolbarAccessories,
   contextSidebar,
   contextSidebarOpen = true,
   navigationKey,
@@ -97,8 +101,9 @@ export function AppShell({
   const [titlebarHost, setTitlebarHost] = useState<HTMLDivElement | null>(null);
   return (
     <DesktopTitlebarContext.Provider value={{ enabled: desktop, host: titlebarHost }}>
-    <div className={cx(
+    <div {...appearance} className={cx(
       styles.shell,
+      appearance?.className,
       desktop ? styles.desktopShell : undefined,
       contextSidebar && sidebarVisible && !focusMode && !compact ? styles.shellWithSidebar : undefined,
       focusMode ? styles.focusShell : undefined
@@ -116,6 +121,7 @@ export function AppShell({
           <div ref={setTitlebarHost} className={styles.desktopTitlebarHost}>
             {!desktopTitlebarEditor ? desktopTitlebarTabs ?? <span className={styles.desktopTitle}>知境</span> : null}
           </div>
+          {toolbarAccessories}
         </ShellToolbar>
       </header>
 

@@ -8,3 +8,5 @@ export { Popover, PopoverTrigger, PopoverDialog } from './Popover';
 export type { PopoverProps, PopoverTriggerProps } from './Popover';
 export { Tooltip, TooltipTrigger } from './Tooltip';
 export type { TooltipProps, TooltipTriggerProps } from './Tooltip';
+export { ScopedAppearanceProvider, useScopedAppearance } from './ScopedAppearance';
+export type { ScopedAppearance } from './ScopedAppearance';

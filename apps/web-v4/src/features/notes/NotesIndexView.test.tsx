@@ -46,7 +46,7 @@ describe('Notes index skeleton', () => {
   it('keeps the content scroll area between fixed controls and pagination', () => {
     renderWithStore(<NotesIndexView path={[]} />);
     const content = screen.getByTestId('notes-index-scroll');
-    expect(within(content).getByLabelText('笔记图标视图')).toBeInTheDocument();
+    expect(within(content).getAllByRole('table').length).toBeGreaterThan(0);
     expect(screen.getByRole('navigation', { name: '笔记分页' })).toBeInTheDocument();
     expect(within(content).queryByRole('toolbar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '后退' })).not.toBeInTheDocument();
@@ -98,10 +98,11 @@ describe('Notes index skeleton', () => {
     expect(onOpenNote).toHaveBeenCalledWith('note-1');
   });
 
-  it('uses the shared line icons in list and icon views', async () => {
+  it('uses line icons in lists and decorative paper icons in icon views', async () => {
     renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
 
-    const iconView = screen.getByLabelText('笔记图标视图');
+    await userEvent.click(screen.getByRole('button', { name: '图标视图' }));
+    const iconView = screen.getByTestId('notes-index-scroll');
     expect(iconView).toBeInTheDocument();
     expect(iconView.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
     expect(iconView.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
@@ -109,12 +110,12 @@ describe('Notes index skeleton', () => {
     expect(iconView.querySelectorAll('[data-art-kind][aria-hidden="true"]')).toHaveLength(6);
 
     await userEvent.click(screen.getByRole('button', { name: '列表视图' }));
-    const table = screen.getByRole('table');
+    const table = screen.getByTestId('notes-index-scroll');
     expect(table.querySelector('[data-art-kind="folder"]')).toBeInTheDocument();
     expect(table.querySelector('[data-art-kind="document"] > svg')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '图标视图' }));
-    const iconViewAfterToggle = screen.getByLabelText('笔记图标视图');
+    const iconViewAfterToggle = screen.getByTestId('notes-index-scroll');
     expect(iconViewAfterToggle.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
     expect(iconViewAfterToggle.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
     expect(screen.getByRole('button', { name: '排序：最近更新' })).toBeInTheDocument();
@@ -138,7 +139,8 @@ describe('Notes index skeleton', () => {
     const user = userEvent.setup();
     renderWithStore(<NotesIndexView path={[{ id: 'materials:index', label: '全部笔记', current: true }]} />);
 
-    const noteTile = screen.getByRole('button', { name: /规划草案8\/23/ }).parentElement;
+    await user.click(screen.getByRole('button', { name: '图标视图' }));
+    const noteTile = within(screen.getByTestId('notes-index-scroll')).getByText('规划草案', { exact: true }).closest('[data-entry-item]');
     expect(noteTile).not.toBeNull();
     fireEvent.contextMenu(noteTile as HTMLElement, { clientX: 360, clientY: 300 });
     expect(await screen.findByRole('menu')).toHaveAttribute('aria-label', '规划草案笔记操作');
@@ -184,18 +186,20 @@ describe('Notes index skeleton', () => {
     renderWithStore(<NotesIndexView path={[]} />);
     await user.click(screen.getByRole('button', { name: '列表视图' }));
     await vi.waitFor(() => expect(screen.queryByText('正在从服务端加载筛选结果…')).not.toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: '每页 5 条' }));
-    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(6);
+    await user.click(screen.getByRole('button', { name: '每页条数' }));
+    await user.click(screen.getByRole('menuitemradio', { name: '每页 5 条' }));
+    expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(5);
     expect(screen.getByText('第 1 / 2 页 · 共 6 条')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '第 2 页' }));
-    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2);
+    expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(1);
     expect(screen.getByRole('button', { name: '全部' })).toHaveTextContent('6');
     await user.click(screen.getByRole('button', { name: '文件夹' }));
     expect(screen.getByText('第 1 / 1 页 · 共 3 条')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '文稿' })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: '笔记' })).toHaveTextContent('3');
     await user.click(screen.getByRole('button', { name: '全部' }));
-    await user.click(screen.getByRole('button', { name: '每页 20 条' }));
-    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(7);
+    await user.click(screen.getByRole('button', { name: '每页条数' }));
+    await user.click(screen.getByRole('menuitemradio', { name: '每页 20 条' }));
+    expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(6);
   });
 
   it('explains unavailable desktop deletion before an action and still permits restoring', async () => {
@@ -219,21 +223,22 @@ describe('Notes index skeleton', () => {
     const { api } = renderWithStore(<NotesIndexView path={[]} />, { extraNotes: 35 });
     await vi.waitFor(() => expect(api.queryNotes).toHaveBeenCalledWith(expect.objectContaining({ offset: 0, limit: 30 })));
     expect(api.queryNotes).not.toHaveBeenCalledWith(expect.objectContaining({ offset: 30 }));
+    await user.click(screen.getByRole('button', { name: '图标视图' }));
     await vi.waitFor(() => {
-      expect(screen.getByLabelText('笔记图标视图').children).toHaveLength(10);
-      expect(screen.getByText('第 1 / 4 页 · 已载入 33 条')).toBeInTheDocument();
+      expect(screen.getByTestId('notes-index-scroll').querySelectorAll('[data-entry-item]')).toHaveLength(20);
+      expect(screen.getByText('第 1 / 2 页 · 已载入 33 条')).toBeInTheDocument();
     });
     await user.click(screen.getByRole('button', { name: '加载更多' }));
     await vi.waitFor(() => expect(api.queryNotes).toHaveBeenCalledWith(expect.objectContaining({ offset: 30 })));
-    await vi.waitFor(() => expect(screen.getByText('第 1 / 5 页 · 共 41 条')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: '第 5 页' }));
-    expect(screen.getByLabelText('笔记图标视图').children).toHaveLength(1);
+    await vi.waitFor(() => expect(screen.getByText('第 1 / 3 页 · 共 41 条')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: '第 3 页' }));
+    expect(screen.getByTestId('notes-index-scroll').querySelectorAll('[data-entry-item]')).toHaveLength(1);
   });
 
-  it('focuses index search with Mod+K and selects sorting from a menu', async () => {
+  it('focuses index search with slash without intercepting global Mod+K and selects sorting from a menu', async () => {
     const user = userEvent.setup();
     const { api } = renderWithStore(<NotesIndexView path={[]} />);
-    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    fireEvent.keyDown(window, { key: '/' });
     expect(screen.getByRole('searchbox', { name: '搜索笔记索引' })).toHaveFocus();
     await user.click(screen.getByRole('button', { name: '排序：最近更新' }));
     await user.click(screen.getByRole('menuitemradio', { name: '最早更新' }));
