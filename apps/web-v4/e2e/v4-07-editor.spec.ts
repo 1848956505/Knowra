@@ -1022,7 +1022,12 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   for (const name of ['信息', '大纲', '链接', '记录', 'AI']) {
     await expect(inspector.getByRole('tab', { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByLabel('全局顶栏')).toHaveCSS('background-color', await tokenColor(page, '--surface-chrome'));
+  const titlebar = page.getByLabel('全局顶栏');
+  const shell = titlebar.locator('..');
+  await expect(titlebar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(moduleRail).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(shell).toHaveCSS('background-color', await tokenColor(page, '--surface-chrome'));
+  expect(await shell.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('radial-gradient');
   await expect(contextSidebar).toHaveCSS('background-color', await tokenColor(page, '--surface-sidebar'));
   expect(await page.locator('article[data-pdf-document]').evaluate((paper) => {
     const stage = paper.parentElement;
@@ -1920,7 +1925,8 @@ test('V4-07 章节重点保存等待后不抢走搜索框焦点', async ({ page 
   await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).hover();
   await page.getByRole('menuitem', { name: '普通', exact: true }).click();
   await expect.poll(() => Boolean(finishSave)).toBe(true);
-  const search = page.getByRole('searchbox', { name: '搜索笔记目录' });
+  await page.getByRole('button', { name: '搜索笔记', exact: true }).click();
+  const search = page.getByRole('dialog', { name: '全局搜索' }).getByRole('combobox');
   await search.fill('查找');
   await finishSave!();
   await expect.poll(() => created.length).toBe(1);

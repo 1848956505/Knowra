@@ -10,6 +10,16 @@ beforeEach(() => { localStorage.removeItem('knowra:pinned-tags'); });
 afterEach(() => { localStorage.removeItem('knowra:pinned-tags'); });
 
 describe('NotesContextSidebar', () => {
+  it('uses a header search action without a permanent search field', async () => {
+    const onOpenSearch = vi.fn();
+    renderSidebar({ onOpenSearch });
+    expect(screen.queryByRole('searchbox', { name: '搜索笔记目录' })).not.toBeInTheDocument();
+    const search = screen.getByRole('button', { name: '搜索笔记' });
+    const create = screen.getByRole('button', { name: '新建' });
+    expect(search.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(search);
+    expect(onOpenSearch).toHaveBeenCalledOnce();
+  });
   it('derives counts from workspace data and switches quick filters', async () => {
     const onOpenIndex = vi.fn();
     const { store } = renderSidebar({ onOpenIndex });
@@ -70,9 +80,7 @@ describe('NotesContextSidebar', () => {
     expect(store.getState().notesIndex.selectedTagId).toBe('tag-1');
     expect(store.getState().navigation.selectedFolderId).toBeNull();
 
-    fireEvent.change(screen.getByRole('searchbox', { name: '搜索笔记目录' }), {
-      target: { value: '正文关键词' }
-    });
+    act(() => store.getState().setNotesQuery('正文关键词'));
     await waitFor(() => expect(api.searchNoteIds).toHaveBeenCalledWith({
       query: '正文关键词',
       spaceId: 'space-1'
@@ -295,13 +303,15 @@ function renderSidebar({
   notes,
   tags,
   onOpenNote,
-  onOpenIndex
+  onOpenIndex,
+  onOpenSearch
 }: {
   empty?: boolean;
   notes?: Note[];
   tags?: Tag[];
   onOpenNote?(noteId: string): void;
   onOpenIndex?(): void;
+  onOpenSearch?(): void;
 } = {}) {
   const api = createApi();
   const store = createAppStore({ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
@@ -329,7 +339,7 @@ function renderSidebar({
       store={store}
       dependencies={{ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() }}
     >
-      <NotesContextSidebar onOpenNote={onOpenNote} onOpenIndex={onOpenIndex} />
+      <NotesContextSidebar onOpenNote={onOpenNote} onOpenIndex={onOpenIndex} onOpenSearch={onOpenSearch} />
     </AppStoreProvider>
   );
   return { api, store };

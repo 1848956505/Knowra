@@ -24,16 +24,11 @@ export interface AppShellProps {
   onSelectDomain(domain: WorkDomain): void;
   onReturnHome(): void;
   onOpenSearch?(): void;
-  onOpenCreate?(): void;
   onOpenNotifications?(): void;
   onOpenSettings?(): void;
   onOpenAssistant?(): void;
   isSettingsActive?: boolean;
   isAssistantActive?: boolean;
-  /** 打开组件展台（/showcase）。仅传入时，Rail 才会渲染该入口。 */
-  onOpenShowcase?(): void;
-  /** /showcase 路由激活态：仅用于 Rail 上组件库按钮的 aria-current。 */
-  isShowcaseActive?: boolean;
   /** StatusBar 数据。 */
   statusbar: {
     /** 当前位置 breadcrumb；至少 1 段。 */
@@ -71,14 +66,11 @@ export function AppShell({
   onSelectDomain,
   onReturnHome,
   onOpenSearch,
-  onOpenCreate,
   onOpenNotifications,
   onOpenSettings,
   onOpenAssistant,
   isSettingsActive,
   isAssistantActive,
-  onOpenShowcase,
-  isShowcaseActive,
   statusbar,
   mobileTabs,
   liveAnnouncement,
@@ -101,7 +93,7 @@ export function AppShell({
   useEffect(() => { setSidebarOverlayOpen(false); setSkipFocused(false); }, [navigationKey]);
   useEffect(() => { if (focusMode) setSidebarOverlayOpen(false); }, [focusMode]);
   const sidebarVisible = !focusMode && (compact ? sidebarOverlayOpen : contextSidebarOpen);
-  const toolbarStatus = { ...statusbar, panels: statusbar.panels?.filter(panel => !focusMode || panel.id !== 'sidebar').map(panel => panel.id === 'sidebar' && compact ? { ...panel, active: sidebarOverlayOpen, onToggle: () => setSidebarOverlayOpen(open => !open) } : panel) };
+  const toolbarStatus = { ...statusbar, panels: statusbar.panels?.filter(panel => !focusMode || panel.id !== 'sidebar').map(panel => panel.id === 'sidebar' ? { ...panel, active: sidebarVisible, onToggle: compact ? () => setSidebarOverlayOpen(open => !open) : panel.onToggle } : panel) };
   const [titlebarHost, setTitlebarHost] = useState<HTMLDivElement | null>(null);
   return (
     <DesktopTitlebarContext.Provider value={{ enabled: desktop, host: titlebarHost }}>
@@ -131,15 +123,11 @@ export function AppShell({
         activeDomain={activeDomain}
         onSelect={onSelectDomain}
         onReturnHome={onReturnHome}
-        onOpenSearch={onOpenSearch}
-        onOpenCreate={onOpenCreate}
         onOpenNotifications={onOpenNotifications}
         onOpenSettings={onOpenSettings}
         onOpenAssistant={onOpenAssistant}
         isSettingsActive={isSettingsActive}
         isAssistantActive={isAssistantActive}
-        onOpenShowcase={onOpenShowcase}
-        isShowcaseActive={isShowcaseActive}
       /> : null}
 
       {contextSidebar && !focusMode ? (

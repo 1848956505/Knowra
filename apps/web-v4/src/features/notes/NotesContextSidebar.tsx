@@ -6,6 +6,7 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DeleteIcon,
+  EditIcon,
   FolderIcon,
   InboxIcon,
   MoreHorizontalIcon,
@@ -23,8 +24,7 @@ import {
   MenuPopover,
   MenuSeparator,
   MenuTrigger,
-  PointMenu,
-  SearchBox
+  PointMenu
 } from '../../components/ui';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter, TextField } from '../../components/ui';
 import { useAppStore } from '../../store/AppStoreProvider';
@@ -55,17 +55,18 @@ const QUICK_ENTRIES: readonly NavEntry[] = [
 
 export function NotesContextSidebar({
   onOpenNote,
-  onOpenIndex
+  onOpenIndex,
+  onOpenSearch
 }: {
   onOpenNote?(noteId: string): void;
   onOpenIndex?(): void;
+  onOpenSearch?(): void;
 }) {
   const serverData = useAppStore((state) => state.serverData);
   const notesIndex = useAppStore((state) => state.notesIndex);
   const selectedFolderId = useAppStore((state) => state.navigation.selectedFolderId);
   const selectNotesScope = useAppStore((state) => state.selectNotesScope);
   const selectNotesTag = useAppStore((state) => state.selectNotesTag);
-  const setNotesQuery = useAppStore((state) => state.setNotesQuery);
   const searchNotes = useAppStore((state) => state.searchNotes);
   const retryWorkspace = useAppStore((state) => state.retryWorkspace);
   const canWrite = useAppStore((state) => state.canWriteWorkspace());
@@ -138,14 +139,13 @@ export function NotesContextSidebar({
             </Menu>
           </MenuPopover>
         </MenuTrigger>
+        <GhostIconButton aria-label="搜索笔记" title="搜索笔记" onPress={onOpenSearch} disabled={!onOpenSearch}>
+          <SearchIcon size={16} />
+        </GhostIconButton>
         <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, selectedFolderId)}>
-          <GhostIconButton aria-label="新建" title="新建" disabled={!canWrite}><PlusIcon size={16} /></GhostIconButton>
+          <GhostIconButton variant="glass" aria-label="新建" title="新建" disabled={!canWrite}><EditIcon size={16} /></GhostIconButton>
         </CreateEntryMenu>
       </header>
-
-      <SearchBox size="sidebar" label="搜索笔记目录" icon={<SearchIcon size={16} />}
-        name="notes-sidebar-search" autoComplete="off" value={notesIndex.query}
-        onChange={(event) => setNotesQuery(event.target.value)} placeholder="搜索标题、正文或标签…" />
 
       <div className={styles.scrollBody} data-entry-scroll
         onDragOver={event => { if (entryDragDrop?.isInternal(event)) scrollEntryContainer(event); }}>

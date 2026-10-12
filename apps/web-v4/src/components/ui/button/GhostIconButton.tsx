@@ -1,19 +1,5 @@
-// V4-06 GhostIconButton
-//
-// 概念：纯图标无文字按钮（"ghost icon"）。
-// 视觉语言与左轨 ModuleRail 图标一致——30×30（侧栏头部）/ 40×40（rail）
-// 透明方块，无边框、无硬阴影；hover 沉底加深、active translate(2px, 2px)
-// 模拟按压、focus 接 --shadow-focus。
-//
-// 适用场景：
-// - 侧栏头部"更多 / 新建"操作入口；
-// - 工具条、Tab 区段尾部的纯图标操作；
-// - 任何"只有图标、无文字"的次要操作入口。
-//
-// 与 Button/IconButton 的区别：
-// - Button / IconButton 是带变体的"操作按钮"（primary/accent/ghost 等等），
-//   ghost variant 是弱化的"有文字操作"；
-// - GhostIconButton 是**纯图标**专用组件，**没有变体**——视觉与左轨图标对齐。
+// V5 纯图标按钮：默认透明方块；glass 变体提供圆形透明高光。
+// 通过背景与光影反馈状态，不移动控件；保留键盘焦点与触屏点击区域。
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { Button as RAButton, type ButtonProps as RAButtonProps } from 'react-aria-components';
@@ -32,11 +18,13 @@ export interface GhostIconButtonProps
   /**
    * 容器尺寸（px），决定方块边长。常见值：
    * - 30：侧栏头部、Tab 端点；
+   * - 28：顶部浏览历史；
    * - 40：与左轨 ModuleRail 内部网格对齐；
    * - 24：紧凑列表行内嵌。
    * @default 30
    */
-  size?: 24 | 30 | 40;
+  size?: 24 | 28 | 30 | 40;
+  variant?: 'ghost' | 'glass';
   /** 兼容原生按钮调用方式；内部映射为 React Aria 的 isDisabled。 */
   disabled?: boolean;
   className?: string;
@@ -49,6 +37,7 @@ export const GhostIconButton = forwardRef<HTMLButtonElement, GhostIconButtonProp
       'aria-label': ariaLabel,
       children,
       size = 30,
+      variant = 'ghost',
       disabled,
       className,
       title,
@@ -68,7 +57,7 @@ export const GhostIconButton = forwardRef<HTMLButtonElement, GhostIconButtonProp
       <RAButton
         ref={buttonRef}
         type={type ?? 'button'}
-        className={cx(styles.ghost, styles[`size${size}`], className)}
+        className={cx(styles.ghost, styles[`size${size}`], variant === 'glass' && styles.glass, className)}
         isDisabled={disabled}
         aria-label={ariaLabel}
         {...rest}

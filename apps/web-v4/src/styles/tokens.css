@@ -3,6 +3,7 @@
  * --ink-* 是逐步迁移期间的兼容别名，不引入另一套主题。 */
 :root {
   --surface-chrome: #e1e4ea;
+  --surface-chrome-glow: radial-gradient(460px 320px at 6% 4%, rgb(255 255 255 / 32%), transparent 70%), radial-gradient(640px 560px at -4% 104%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 66%);
   --surface-page: #fbfcfd;
   --surface-sidebar-solid: #f7f9fa;
   --surface-sidebar: rgb(247 249 250 / 92%);
@@ -11,6 +12,9 @@
   --surface-hover: rgb(24 30 48 / 5.5%);
   --surface-pressed: rgb(24 30 48 / 8.5%);
   --surface-nav-selected: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, transparent), color-mix(in srgb, var(--surface-raised) 40%, transparent));
+  --surface-rail-selected: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 98%, transparent), color-mix(in srgb, var(--surface-raised) 86%, transparent));
+  --surface-action-glass: linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 78%, transparent), color-mix(in srgb, var(--surface-raised) 24%, transparent));
+  --surface-action-glass-hover: linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 94%, transparent), color-mix(in srgb, var(--surface-raised) 48%, transparent));
   --highlight-nav-selected: inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 85%, transparent);
   --surface-selected: rgb(24 30 48 / 7.5%);
   --text-primary: #17181b;
@@ -37,6 +41,9 @@
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
   --focus-ring-danger: 0 0 0 3px color-mix(in srgb, var(--ink-danger) 28%, transparent);
   --shadow-control: 0 0 0 1px var(--border-subtle), 0 1px 2px rgb(24 30 48 / 5%);
+  --shadow-rail-selected: 0 0 0 1px rgb(24 30 48 / 8%), 0 1px 2px rgb(24 30 48 / 6%), 0 6px 12px -6px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 var(--surface-raised);
+  --shadow-action-glass: inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 94%, transparent), 0 1px 3px rgb(24 30 48 / 6%);
+  --shadow-action-glass-hover: inset 0 1px 0 var(--surface-raised), 0 4px 12px -6px color-mix(in srgb, var(--accent) 25%, transparent);
   --shadow-sidebar: var(--sidebar-highlight), 0 0 0 1px rgb(54 60 74 / 13%), 0 1px 2px rgb(24 30 48 / 5%), 0 12px 28px -16px rgb(24 30 48 / 16%);
   --shadow-page: 0 0 0 1px rgb(24 30 48 / 7%), 0 1px 2px rgb(24 30 48 / 5%), 0 6px 18px -6px rgb(24 30 48 / 10%), 0 22px 48px -18px rgb(24 30 48 / 14%);
   --shadow-popover: 0 0 0 1px rgb(24 30 48 / 8%), 0 4px 10px rgb(24 30 48 / 6%), 0 24px 64px -12px rgb(24 30 48 / 28%);
@@ -55,6 +62,7 @@
   --shell-gap: 8px;
   --topbar-size: 46px;
   --rail-size: 56px;
+  --rail-button-size: 36px;
   --sidebar-size: 240px;
   --sidebar-size-narrow: 240px;
   --inspector-size: 288px;
@@ -75,6 +83,7 @@
   --font-size-note-title: 34px;
   --font-size-note-heading: 19px;
   --motion-fast: 130ms;
+  --motion-rail: 120ms;
   --motion-mid: 200ms;
   --motion-ease: cubic-bezier(.4, 0, .2, 1);
 

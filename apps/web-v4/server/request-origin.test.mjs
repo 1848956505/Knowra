@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import http from 'node:http';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { createV4WebServer } from './app.mjs';
 import { createServer } from '../../api/src/server.js';
 
@@ -69,7 +70,7 @@ test('实际 Vite 开发代理保留 Host，同源 JSON POST 与 API 来源检�
   const previous = process.env.API_PORT; process.env.API_PORT = String(api.address().port);
   let vite;
   try {
-    vite = await createViteServer({ root: new URL('../', import.meta.url).pathname, configFile: new URL('../vite.config.ts', import.meta.url).pathname, server: { port: 0 } });
+    vite = await createViteServer({ root: fileURLToPath(new URL('../', import.meta.url)), configFile: fileURLToPath(new URL('../vite.config.ts', import.meta.url)), server: { port: 0 } });
   } finally { if (previous === undefined) delete process.env.API_PORT; else process.env.API_PORT = previous; }
   t.after(() => vite.close()); await vite.listen();
   const origin = `http://127.0.0.1:${vite.httpServer.address().port}`;

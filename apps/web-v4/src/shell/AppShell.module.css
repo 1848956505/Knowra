@@ -5,12 +5,12 @@
   display: grid;
   grid-template-columns: var(--rail-size) minmax(0, 1fr);
   grid-template-rows: var(--topbar-size) minmax(0, 1fr);
-  background: var(--surface-chrome);
+  background: var(--surface-chrome-glow), var(--surface-chrome);
   padding-bottom: var(--shell-gap);
 }
 .shellWithSidebar { grid-template-columns: var(--rail-size) calc(var(--sidebar-size) + var(--shell-gap)) minmax(0, 1fr); }
 .desktopShell { --shell-content-row: 2; }
-.desktopTitlebar { grid-column: 1 / -1; grid-row: 1; min-width: 0; display: flex; background: var(--surface-chrome); }
+.desktopTitlebar { grid-column: 1 / -1; grid-row: 1; min-width: 0; display: flex; background: transparent; }
 .desktopShell .desktopTitlebar { padding-left: max(var(--window-controls-clearance), env(titlebar-area-x, 0px)); -webkit-app-region: drag; app-region: drag; }
 .desktopTitlebarHost { display: flex; align-items: stretch; min-width: 0; flex: 1 1 auto; height: 100%; }
 .desktopTitle { align-self: center; padding-inline: var(--space-2); color: var(--text-on-chrome); font: 500 var(--font-size-ui)/1 var(--font-ui); }

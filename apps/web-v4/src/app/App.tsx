@@ -214,11 +214,6 @@ export function App() {
     setLiveAnnouncement('已打开笔记索引');
   }
 
-  function handleOpenShowcase() {
-    navigate('/showcase');
-    setLiveAnnouncement('已打开组件展台');
-  }
-
   function handleEditorViewAction(action: EditorViewAction) {
     if (!isNoteEditor) {
       setLiveAnnouncement('视图功能仅在笔记编辑页面可用');
@@ -237,7 +232,7 @@ export function App() {
       activeDomain={activeDomain}
       contextSidebarOpen={showNotesContextSidebar}
       contextSidebar={isNotesIndex || isNoteEditor ? (
-        <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} />
+        <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} onOpenSearch={() => setSearchOpen(true)} />
       ) : undefined}
       stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
       desktopTitlebarEditor={isNoteEditor && Boolean(editorNote)}
@@ -263,13 +258,10 @@ export function App() {
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
       onOpenSearch={() => setSearchOpen(true)}
-      onOpenCreate={canWrite ? () => setCreateNoteOpen(true) : undefined}
-      onOpenShowcase={handleOpenShowcase}
       onOpenSettings={() => { navigate('/settings'); setLiveAnnouncement('已打开设置'); }}
       onOpenAssistant={() => { navigate(isNoteEditor && editorNoteId ? `/assistant?noteId=${encodeURIComponent(editorNoteId)}` : '/assistant'); setLiveAnnouncement('已打开 AI 助手'); }}
       isSettingsActive={isSettingsActive}
       isAssistantActive={isAssistantActive}
-      isShowcaseActive={isShowcaseActive}
       statusbar={{
         path: statusPath,
         saveState: isSettingsActive || isAssistantActive || isShowcaseActive ? 'idle' : editorSaveError ? 'error' : editorHasLocalChanges && saveState !== 'error' ? 'saving' : saveState,
