@@ -1,4 +1,7 @@
-import { projectMarkdown, updateStructure, sourceEdits, applySourceEdit } from './index.js';
+import { projectMarkdown } from './projection.js';
+import { updateStructure } from './dynamic.js';
+import { sourceEdits } from './source-diff.js';
+import { applySourceEdit } from './source-edit.js';
 import { anchorForListItem, listTracking } from './list-anchor.js';
 
 const result = (projection, anchor, status = 'resolved', reason = null) => ({ projection, anchor, status, reason,

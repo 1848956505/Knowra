@@ -3,7 +3,7 @@ import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { mathFromMarkdown } from 'mdast-util-math';
 import { gfm } from 'micromark-extension-gfm';
 import { math } from 'micromark-extension-math';
-import { calculateContentHash } from './index.js';
+import { calculateContentHash } from './hash.js';
 
 /**
  * 稳定身份迁移（S2a 影子阶段）：编辑器块序列与 Markdown 块对齐，并把编辑器身份视角下的重点位置

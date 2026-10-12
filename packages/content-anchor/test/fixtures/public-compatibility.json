@@ -1,0 +1,5195 @@
+{
+  "baselineCommit": "8b40b35426fed3405947b1c2c5f7c25952eb2958",
+  "declarationsSha256": "0a93b567f4e110ea530abc3c112923ac3424e46cbea81f201ba5cdb566ba4a9d",
+  "packageContract": {
+    "name": "@study-accelerator/content-anchor",
+    "type": "module",
+    "exports": {
+      ".": "./src/index.js"
+    },
+    "types": "./src/index.d.ts"
+  },
+  "publicExports": {
+    "EDITOR_TO_MARKDOWN_BLOCK": "object",
+    "IDENTITY_SHADOW_FORMAT": "number",
+    "MARKDOWN_PROJECTION_VERSION": "number",
+    "alignIdentityBlocks": "function",
+    "anchorForBlock": "function",
+    "anchorForListItem": "function",
+    "anchorForSection": "function",
+    "anchorForSourceRange": "function",
+    "anchorFromProjectedRange": "function",
+    "applySourceEdit": "function",
+    "calculateContentHash": "function",
+    "compareIdentityShadow": "function",
+    "createNoteLinkUrl": "function",
+    "extractNoteLinks": "function",
+    "followAnchorChanges": "function",
+    "followListAnchor": "function",
+    "followListAnchorChanges": "function",
+    "followSectionAnchor": "function",
+    "headingPathForSourceOffset": "function",
+    "identityQuoteHash": "function",
+    "listTracking": "function",
+    "parseIdentityBlocks": "function",
+    "parseNoteLinkUrl": "function",
+    "projectMarkdown": "function",
+    "relocateAnchor": "function",
+    "resolveAnchor": "function",
+    "resolveNoteLinkOccurrence": "function",
+    "sourceEdit": "function",
+    "sourceEdits": "function",
+    "updateStructure": "function",
+    "validIdentityEditorState": "function",
+    "verifiedSourceEdits": "function"
+  },
+  "cases": {
+    "constants-and-hashes": {
+      "returned": {
+        "projectionVersion": 1,
+        "identityFormat": 2,
+        "editorTypes": {
+          "paragraph": "paragraph",
+          "heading": "heading",
+          "blockquote": "blockquote",
+          "code_block": "code",
+          "hr": "thematicBreak",
+          "list_item": "listItem",
+          "table": "table",
+          "math_block": "math",
+          "html": "html"
+        },
+        "editorTypesFrozen": true,
+        "hashes": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          "aaa697b842c3524351ee913227e6ffe0911a5648b10e41070cd672243bf7b19d",
+          "04c26261370ee7541549d16dee320c723e3fd14671e66a099afe0a377c16888e",
+          "7ce100971f64e7001e8fe5a51973ecdfe1ced42befe7ee8d5fd6219506b5393c",
+          "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049"
+        ],
+        "quoteHashes": [
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "2f4be7790292444c5c8c79462d208fa139dba32b55f63b6db4130a4f009deec2",
+          "2f4be7790292444c5c8c79462d208fa139dba32b55f63b6db4130a4f009deec2",
+          "b49651bf5e17028688fe8b32f189312a1a5d663e419fa3964dede975c714285c"
+        ]
+      }
+    },
+    "projection-complex-offsets": {
+      "returned": {
+        "version": 1,
+        "source": "# 标题\r\n\r\n中😀 **重点** &amp; \\*转义\\* [链接](https://example.test) ![图](asset:x)\r\n\r\n- 父 `code`\r\n  - 子\r\n\r\n> 引用\r\n\r\n```js\r\na()\r\n```\r\n\r\n| A | B |\r\n| - | - |\r\n| 值 | $x$ |\r\n\r\n## 尾\r\n<br />",
+        "contentHash": "337c3593173bca6cbca017ca31ef322884930092815d040398571844cc4eac1a",
+        "text": "标题\n中😀 重点 & *转义* 链接 ￼\n父 code\n子\n引用\na()\nA\nB\n值\n$x$\n尾",
+        "units": [
+          {
+            "text": "标",
+            "sourceStart": 2,
+            "sourceEnd": 3,
+            "path": "0.0",
+            "projectedStart": 0,
+            "projectedEnd": 1
+          },
+          {
+            "text": "题",
+            "sourceStart": 3,
+            "sourceEnd": 4,
+            "path": "0.0",
+            "projectedStart": 1,
+            "projectedEnd": 2
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 2,
+            "projectedEnd": 3
+          },
+          {
+            "text": "中",
+            "sourceStart": 8,
+            "sourceEnd": 9,
+            "path": "1.0",
+            "projectedStart": 3,
+            "projectedEnd": 4
+          },
+          {
+            "text": "😀",
+            "sourceStart": 9,
+            "sourceEnd": 11,
+            "path": "1.0",
+            "projectedStart": 4,
+            "projectedEnd": 6
+          },
+          {
+            "text": " ",
+            "sourceStart": 11,
+            "sourceEnd": 12,
+            "path": "1.0",
+            "projectedStart": 6,
+            "projectedEnd": 7
+          },
+          {
+            "text": "重",
+            "sourceStart": 14,
+            "sourceEnd": 15,
+            "path": "1.1.0",
+            "projectedStart": 7,
+            "projectedEnd": 8
+          },
+          {
+            "text": "点",
+            "sourceStart": 15,
+            "sourceEnd": 16,
+            "path": "1.1.0",
+            "projectedStart": 8,
+            "projectedEnd": 9
+          },
+          {
+            "text": " ",
+            "sourceStart": 18,
+            "sourceEnd": 19,
+            "path": "1.2",
+            "projectedStart": 9,
+            "projectedEnd": 10
+          },
+          {
+            "text": "&",
+            "sourceStart": 19,
+            "sourceEnd": 20,
+            "path": "1.2",
+            "projectedStart": 10,
+            "projectedEnd": 11
+          },
+          {
+            "text": " ",
+            "sourceStart": 24,
+            "sourceEnd": 25,
+            "path": "1.2",
+            "projectedStart": 11,
+            "projectedEnd": 12
+          },
+          {
+            "text": "*",
+            "sourceStart": 26,
+            "sourceEnd": 27,
+            "path": "1.2",
+            "projectedStart": 12,
+            "projectedEnd": 13
+          },
+          {
+            "text": "转",
+            "sourceStart": 27,
+            "sourceEnd": 28,
+            "path": "1.2",
+            "projectedStart": 13,
+            "projectedEnd": 14
+          },
+          {
+            "text": "义",
+            "sourceStart": 28,
+            "sourceEnd": 29,
+            "path": "1.2",
+            "projectedStart": 14,
+            "projectedEnd": 15
+          },
+          {
+            "text": "*",
+            "sourceStart": 30,
+            "sourceEnd": 31,
+            "path": "1.2",
+            "projectedStart": 15,
+            "projectedEnd": 16
+          },
+          {
+            "text": " ",
+            "sourceStart": 31,
+            "sourceEnd": 32,
+            "path": "1.2",
+            "projectedStart": 16,
+            "projectedEnd": 17
+          },
+          {
+            "text": "链",
+            "sourceStart": 33,
+            "sourceEnd": 34,
+            "path": "1.3.0",
+            "projectedStart": 17,
+            "projectedEnd": 18
+          },
+          {
+            "text": "接",
+            "sourceStart": 34,
+            "sourceEnd": 35,
+            "path": "1.3.0",
+            "projectedStart": 18,
+            "projectedEnd": 19
+          },
+          {
+            "text": " ",
+            "sourceStart": 58,
+            "sourceEnd": 59,
+            "path": "1.4",
+            "projectedStart": 19,
+            "projectedEnd": 20
+          },
+          {
+            "text": "￼",
+            "sourceStart": 59,
+            "sourceEnd": 72,
+            "path": "1.5",
+            "atomic": true,
+            "projectedStart": 20,
+            "projectedEnd": 21
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 21,
+            "projectedEnd": 22
+          },
+          {
+            "text": "父",
+            "sourceStart": 78,
+            "sourceEnd": 79,
+            "path": "2.0.0.0",
+            "projectedStart": 22,
+            "projectedEnd": 23
+          },
+          {
+            "text": " ",
+            "sourceStart": 79,
+            "sourceEnd": 80,
+            "path": "2.0.0.0",
+            "projectedStart": 23,
+            "projectedEnd": 24
+          },
+          {
+            "text": "c",
+            "sourceStart": 81,
+            "sourceEnd": 82,
+            "path": "2.0.0.1",
+            "projectedStart": 24,
+            "projectedEnd": 25
+          },
+          {
+            "text": "o",
+            "sourceStart": 82,
+            "sourceEnd": 83,
+            "path": "2.0.0.1",
+            "projectedStart": 25,
+            "projectedEnd": 26
+          },
+          {
+            "text": "d",
+            "sourceStart": 83,
+            "sourceEnd": 84,
+            "path": "2.0.0.1",
+            "projectedStart": 26,
+            "projectedEnd": 27
+          },
+          {
+            "text": "e",
+            "sourceStart": 84,
+            "sourceEnd": 85,
+            "path": "2.0.0.1",
+            "projectedStart": 27,
+            "projectedEnd": 28
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 28,
+            "projectedEnd": 29
+          },
+          {
+            "text": "子",
+            "sourceStart": 92,
+            "sourceEnd": 93,
+            "path": "2.0.1.0.0.0",
+            "projectedStart": 29,
+            "projectedEnd": 30
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 30,
+            "projectedEnd": 31
+          },
+          {
+            "text": "引",
+            "sourceStart": 99,
+            "sourceEnd": 100,
+            "path": "3.0.0",
+            "projectedStart": 31,
+            "projectedEnd": 32
+          },
+          {
+            "text": "用",
+            "sourceStart": 100,
+            "sourceEnd": 101,
+            "path": "3.0.0",
+            "projectedStart": 32,
+            "projectedEnd": 33
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 33,
+            "projectedEnd": 34
+          },
+          {
+            "text": "a",
+            "sourceStart": 112,
+            "sourceEnd": 113,
+            "path": "4",
+            "projectedStart": 34,
+            "projectedEnd": 35
+          },
+          {
+            "text": "(",
+            "sourceStart": 113,
+            "sourceEnd": 114,
+            "path": "4",
+            "projectedStart": 35,
+            "projectedEnd": 36
+          },
+          {
+            "text": ")",
+            "sourceStart": 114,
+            "sourceEnd": 115,
+            "path": "4",
+            "projectedStart": 36,
+            "projectedEnd": 37
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 37,
+            "projectedEnd": 38
+          },
+          {
+            "text": "A",
+            "sourceStart": 126,
+            "sourceEnd": 127,
+            "path": "5.0.0.0",
+            "projectedStart": 38,
+            "projectedEnd": 39
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 39,
+            "projectedEnd": 40
+          },
+          {
+            "text": "B",
+            "sourceStart": 130,
+            "sourceEnd": 131,
+            "path": "5.0.1.0",
+            "projectedStart": 40,
+            "projectedEnd": 41
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 41,
+            "projectedEnd": 42
+          },
+          {
+            "text": "值",
+            "sourceStart": 148,
+            "sourceEnd": 149,
+            "path": "5.1.0.0",
+            "projectedStart": 42,
+            "projectedEnd": 43
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 43,
+            "projectedEnd": 44
+          },
+          {
+            "text": "$",
+            "sourceStart": 152,
+            "sourceEnd": 153,
+            "path": "5.1.1.0",
+            "projectedStart": 44,
+            "projectedEnd": 45
+          },
+          {
+            "text": "x",
+            "sourceStart": 153,
+            "sourceEnd": 154,
+            "path": "5.1.1.0",
+            "projectedStart": 45,
+            "projectedEnd": 46
+          },
+          {
+            "text": "$",
+            "sourceStart": 154,
+            "sourceEnd": 155,
+            "path": "5.1.1.0",
+            "projectedStart": 46,
+            "projectedEnd": 47
+          },
+          {
+            "text": "\n",
+            "sourceStart": null,
+            "sourceEnd": null,
+            "path": "separator",
+            "projectedStart": 47,
+            "projectedEnd": 48
+          },
+          {
+            "text": "尾",
+            "sourceStart": 164,
+            "sourceEnd": 165,
+            "path": "6.0",
+            "projectedStart": 48,
+            "projectedEnd": 49
+          }
+        ],
+        "blocks": [
+          {
+            "type": "heading",
+            "path": "0",
+            "sourceStart": 0,
+            "sourceEnd": 4
+          },
+          {
+            "type": "paragraph",
+            "path": "1",
+            "sourceStart": 8,
+            "sourceEnd": 72
+          },
+          {
+            "type": "listItem",
+            "path": "2.0",
+            "sourceStart": 76,
+            "sourceEnd": 93
+          },
+          {
+            "type": "paragraph",
+            "path": "2.0.0",
+            "sourceStart": 78,
+            "sourceEnd": 86
+          },
+          {
+            "type": "listItem",
+            "path": "2.0.1.0",
+            "sourceStart": 90,
+            "sourceEnd": 93
+          },
+          {
+            "type": "paragraph",
+            "path": "2.0.1.0.0",
+            "sourceStart": 92,
+            "sourceEnd": 93
+          },
+          {
+            "type": "blockquote",
+            "path": "3",
+            "sourceStart": 97,
+            "sourceEnd": 101
+          },
+          {
+            "type": "paragraph",
+            "path": "3.0",
+            "sourceStart": 99,
+            "sourceEnd": 101
+          },
+          {
+            "type": "code",
+            "path": "4",
+            "sourceStart": 105,
+            "sourceEnd": 120
+          },
+          {
+            "type": "table",
+            "path": "5",
+            "sourceStart": 124,
+            "sourceEnd": 157
+          },
+          {
+            "type": "heading",
+            "path": "6",
+            "sourceStart": 161,
+            "sourceEnd": 165
+          },
+          {
+            "type": "html",
+            "path": "7",
+            "sourceStart": 167,
+            "sourceEnd": 173
+          }
+        ],
+        "headings": [
+          {
+            "type": "heading",
+            "path": "0",
+            "sourceStart": 0,
+            "sourceEnd": 4,
+            "level": 1,
+            "title": "标题"
+          },
+          {
+            "type": "heading",
+            "path": "6",
+            "sourceStart": 161,
+            "sourceEnd": 165,
+            "level": 2,
+            "title": "尾"
+          }
+        ],
+        "sections": [
+          {
+            "type": "heading",
+            "path": "0",
+            "sourceStart": 0,
+            "sourceEnd": 173,
+            "level": 1,
+            "title": "标题",
+            "endBoundaryPath": null,
+            "endBoundaryLevel": null,
+            "endBoundaryTitle": null,
+            "memberFingerprint": "aedc7666f29cc48e95df6df6ad34228022a3d8b53964fb217198fb42d23245db"
+          },
+          {
+            "type": "heading",
+            "path": "6",
+            "sourceStart": 161,
+            "sourceEnd": 173,
+            "level": 2,
+            "title": "尾",
+            "endBoundaryPath": null,
+            "endBoundaryLevel": null,
+            "endBoundaryTitle": null,
+            "memberFingerprint": "146e6a0e1be3a72e912f84e4903926f8e52100fd7e660b9f342a3e80fd32a57e"
+          }
+        ],
+        "listItems": [
+          {
+            "path": "2.0",
+            "parentListPath": "2",
+            "parentItemPath": null,
+            "depth": 0,
+            "ordered": false,
+            "task": false,
+            "sourceStart": 76,
+            "sourceEnd": 93
+          },
+          {
+            "path": "2.0.1.0",
+            "parentListPath": "2.0.1",
+            "parentItemPath": "2.0",
+            "depth": 1,
+            "ordered": false,
+            "task": false,
+            "sourceStart": 90,
+            "sourceEnd": 93
+          }
+        ]
+      }
+    },
+    "projection-coercion": {
+      "returned": [
+        {
+          "version": 1,
+          "source": "",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": "",
+          "units": [],
+          "blocks": [],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        {
+          "version": 1,
+          "source": "",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": "",
+          "units": [],
+          "blocks": [],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        {
+          "version": 1,
+          "source": "42",
+          "contentHash": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+          "text": "42",
+          "units": [
+            {
+              "text": "4",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "2",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 2
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        {
+          "version": 1,
+          "source": "",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": "",
+          "units": [],
+          "blocks": [],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        }
+      ]
+    },
+    "anchor-create-ranges-blocks-section": {
+      "returned": {
+        "selection": {
+          "projectionVersion": 1,
+          "scopeType": "selection",
+          "segments": [
+            {
+              "start": 14,
+              "end": 16,
+              "path": "1.1.0"
+            }
+          ],
+          "structurePath": "1.1.0",
+          "quoteText": "重点",
+          "prefixText": "",
+          "suffixText": " & *转义* 链接 ￼\n父 code\n子\n引用\na()\nA\nB\n值\n$x$\n尾",
+          "sourceStart": 14,
+          "sourceEnd": 16,
+          "projectedStart": 7,
+          "projectedEnd": 9
+        },
+        "source": {
+          "projectionVersion": 1,
+          "scopeType": "selection",
+          "segments": [
+            {
+              "start": 14,
+              "end": 16,
+              "path": "1.1.0"
+            }
+          ],
+          "structurePath": "1.1.0",
+          "quoteText": "重点",
+          "prefixText": "标题\n中😀 ",
+          "suffixText": " & *转义* 链接 ￼\n父 code\n子\n引用\na()\nA\nB\n值\n$x$\n尾",
+          "sourceStart": 14,
+          "sourceEnd": 16,
+          "projectedStart": 7,
+          "projectedEnd": 9
+        },
+        "block": {
+          "projectionVersion": 1,
+          "scopeType": "blocks",
+          "segments": [
+            {
+              "start": 8,
+              "end": 12,
+              "path": "1.0"
+            },
+            {
+              "start": 14,
+              "end": 16,
+              "path": "1.1.0"
+            },
+            {
+              "start": 18,
+              "end": 20,
+              "path": "1.2"
+            },
+            {
+              "start": 24,
+              "end": 25,
+              "path": "1.2"
+            },
+            {
+              "start": 26,
+              "end": 29,
+              "path": "1.2"
+            },
+            {
+              "start": 30,
+              "end": 32,
+              "path": "1.2"
+            },
+            {
+              "start": 33,
+              "end": 35,
+              "path": "1.3.0"
+            },
+            {
+              "start": 58,
+              "end": 59,
+              "path": "1.4"
+            },
+            {
+              "start": 59,
+              "end": 72,
+              "path": "1.5"
+            }
+          ],
+          "structurePath": "1",
+          "quoteText": "中😀 重点 & *转义* 链接 ￼",
+          "prefixText": "标题\n",
+          "suffixText": "\n父 code\n子\n引用\na()\nA\nB\n值\n$x$\n尾",
+          "sourceStart": 8,
+          "sourceEnd": 72,
+          "projectedStart": 3,
+          "projectedEnd": 21
+        },
+        "section": {
+          "projectionVersion": 1,
+          "scopeType": "section",
+          "segments": [
+            {
+              "start": 2,
+              "end": 4,
+              "path": "0.0"
+            },
+            {
+              "start": 8,
+              "end": 12,
+              "path": "1.0"
+            },
+            {
+              "start": 14,
+              "end": 16,
+              "path": "1.1.0"
+            },
+            {
+              "start": 18,
+              "end": 20,
+              "path": "1.2"
+            },
+            {
+              "start": 24,
+              "end": 25,
+              "path": "1.2"
+            },
+            {
+              "start": 26,
+              "end": 29,
+              "path": "1.2"
+            },
+            {
+              "start": 30,
+              "end": 32,
+              "path": "1.2"
+            },
+            {
+              "start": 33,
+              "end": 35,
+              "path": "1.3.0"
+            },
+            {
+              "start": 58,
+              "end": 59,
+              "path": "1.4"
+            },
+            {
+              "start": 59,
+              "end": 72,
+              "path": "1.5"
+            },
+            {
+              "start": 78,
+              "end": 80,
+              "path": "2.0.0.0"
+            },
+            {
+              "start": 81,
+              "end": 85,
+              "path": "2.0.0.1"
+            },
+            {
+              "start": 92,
+              "end": 93,
+              "path": "2.0.1.0.0.0"
+            },
+            {
+              "start": 99,
+              "end": 101,
+              "path": "3.0.0"
+            },
+            {
+              "start": 112,
+              "end": 115,
+              "path": "4"
+            },
+            {
+              "start": 126,
+              "end": 127,
+              "path": "5.0.0.0"
+            },
+            {
+              "start": 130,
+              "end": 131,
+              "path": "5.0.1.0"
+            },
+            {
+              "start": 148,
+              "end": 149,
+              "path": "5.1.0.0"
+            },
+            {
+              "start": 152,
+              "end": 155,
+              "path": "5.1.1.0"
+            },
+            {
+              "start": 164,
+              "end": 165,
+              "path": "6.0"
+            }
+          ],
+          "structurePath": "0",
+          "quoteText": "标题\n中😀 重点 & *转义* 链接 ￼\n父 code\n子\n引用\na()\nA\nB\n值\n$x$\n尾",
+          "prefixText": "",
+          "suffixText": "",
+          "sourceStart": 2,
+          "sourceEnd": 165,
+          "projectedStart": 0,
+          "projectedEnd": 49,
+          "section": {
+            "headingLevel": 1,
+            "title": "标题",
+            "sourceStart": 0,
+            "sourceEnd": 173,
+            "endBoundaryPath": null,
+            "endBoundaryLevel": null,
+            "endBoundaryTitle": null,
+            "memberFingerprint": "aedc7666f29cc48e95df6df6ad34228022a3d8b53964fb217198fb42d23245db"
+          }
+        },
+        "headingPaths": [
+          [],
+          [
+            "标题"
+          ],
+          [
+            "标题",
+            "尾"
+          ],
+          [
+            "标题",
+            "尾"
+          ]
+        ]
+      }
+    },
+    "anchor-resolve-exact": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "前重要文字后",
+          "contentHash": "400ddc3c611a24530b3b13d1b7567f35932c3b87aef6a0742a4852a8c0d32bda",
+          "text": "前重要文字后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "重",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "要",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "字",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "后",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "0.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 6
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "quoteText": "重要文字",
+        "segments": [
+          {
+            "start": 1,
+            "end": 5,
+            "path": "0.0"
+          }
+        ]
+      }
+    },
+    "anchor-resolve-content-changed": {
+      "returned": {
+        "status": "needsReview",
+        "reason": "contentChanged",
+        "projection": {
+          "version": 1,
+          "source": "前重要内容后",
+          "contentHash": "52b4e4bde3e0eed463c4acbb8348e7ef81ccf02a9606796f91c7829fd8ede8d9",
+          "text": "前重要内容后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "重",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "要",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "内",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "容",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "后",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "0.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 6
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "quoteText": "重要内容",
+        "segments": [
+          {
+            "start": 1,
+            "end": 5,
+            "path": "0.0"
+          }
+        ]
+      }
+    },
+    "anchor-resolve-version-mismatch": {
+      "returned": {
+        "status": "needsReview",
+        "reason": "projectionVersionMismatch",
+        "projection": {
+          "version": 1,
+          "source": "前重要文字后",
+          "contentHash": "400ddc3c611a24530b3b13d1b7567f35932c3b87aef6a0742a4852a8c0d32bda",
+          "text": "前重要文字后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "重",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "要",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "字",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "后",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "0.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 6
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        }
+      }
+    },
+    "anchor-resolve-deleted": {
+      "returned": {
+        "status": "missing",
+        "reason": "sourceDeleted",
+        "projection": {
+          "version": 1,
+          "source": "",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": "",
+          "units": [],
+          "blocks": [],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        }
+      }
+    },
+    "anchor-relocate-unique": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "重要文字后",
+          "contentHash": "af68b26d867269e137097b2a40b2344fc025ee0946960c40a1250a648ebf4581",
+          "text": "重要文字后",
+          "units": [
+            {
+              "text": "重",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "要",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "文",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "字",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "后",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 5
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "quoteText": "重要文字",
+        "segments": [
+          {
+            "start": 0,
+            "end": 4,
+            "path": "0.0"
+          }
+        ],
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "selection",
+          "segments": [
+            {
+              "start": 0,
+              "end": 4,
+              "path": "0.0"
+            }
+          ],
+          "structurePath": "0.0",
+          "quoteText": "重要文字",
+          "prefixText": "",
+          "suffixText": "后",
+          "sourceStart": 0,
+          "sourceEnd": 4,
+          "projectedStart": 0,
+          "projectedEnd": 4
+        }
+      }
+    },
+    "anchor-relocate-ambiguous": {
+      "returned": {
+        "status": "needsReview",
+        "reason": "ambiguousMatch",
+        "projection": {
+          "version": 1,
+          "source": "xx重要文字yy重要文字",
+          "contentHash": "4c1a16e3c26bf833355c0cbf2fd0c06fccd18ab5e2f60e9eb7226aa636044f71",
+          "text": "xx重要文字yy重要文字",
+          "units": [
+            {
+              "text": "x",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "x",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "重",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "要",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "文",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "字",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "0.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "y",
+              "sourceStart": 6,
+              "sourceEnd": 7,
+              "path": "0.0",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "y",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "0.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            },
+            {
+              "text": "重",
+              "sourceStart": 8,
+              "sourceEnd": 9,
+              "path": "0.0",
+              "projectedStart": 8,
+              "projectedEnd": 9
+            },
+            {
+              "text": "要",
+              "sourceStart": 9,
+              "sourceEnd": 10,
+              "path": "0.0",
+              "projectedStart": 9,
+              "projectedEnd": 10
+            },
+            {
+              "text": "文",
+              "sourceStart": 10,
+              "sourceEnd": 11,
+              "path": "0.0",
+              "projectedStart": 10,
+              "projectedEnd": 11
+            },
+            {
+              "text": "字",
+              "sourceStart": 11,
+              "sourceEnd": 12,
+              "path": "0.0",
+              "projectedStart": 11,
+              "projectedEnd": 12
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 12
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "quoteText": "x重要文",
+        "segments": [
+          {
+            "start": 1,
+            "end": 5,
+            "path": "0.0"
+          }
+        ],
+        "candidates": [
+          {
+            "projectionVersion": 1,
+            "scopeType": "selection",
+            "segments": [
+              {
+                "start": 2,
+                "end": 6,
+                "path": "0.0"
+              }
+            ],
+            "structurePath": "0.0",
+            "quoteText": "重要文字",
+            "prefixText": "",
+            "suffixText": "yy重要文字",
+            "sourceStart": 2,
+            "sourceEnd": 6,
+            "projectedStart": 2,
+            "projectedEnd": 6
+          },
+          {
+            "projectionVersion": 1,
+            "scopeType": "selection",
+            "segments": [
+              {
+                "start": 8,
+                "end": 12,
+                "path": "0.0"
+              }
+            ],
+            "structurePath": "0.0",
+            "quoteText": "重要文字",
+            "prefixText": "",
+            "suffixText": "",
+            "sourceStart": 8,
+            "sourceEnd": 12,
+            "projectedStart": 8,
+            "projectedEnd": 12
+          }
+        ]
+      }
+    },
+    "anchor-relocate-missing": {
+      "returned": {
+        "status": "missing",
+        "reason": "sourceDeleted",
+        "projection": {
+          "version": 1,
+          "source": "",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": "",
+          "units": [],
+          "blocks": [],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "candidates": []
+      }
+    },
+    "section-follow-body": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "## A\n\n正文\n\n新增\n\n## B\n\n尾",
+          "contentHash": "7608186b5ce25d9a89efd5d0a8a8d5477d42963741b0fc3bf3ad9417b9bce148",
+          "text": "A\n正文\n新增\nB\n尾",
+          "units": [
+            {
+              "text": "A",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "正",
+              "sourceStart": 6,
+              "sourceEnd": 7,
+              "path": "1.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "新",
+              "sourceStart": 10,
+              "sourceEnd": 11,
+              "path": "2.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "增",
+              "sourceStart": 11,
+              "sourceEnd": 12,
+              "path": "2.0",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            },
+            {
+              "text": "B",
+              "sourceStart": 17,
+              "sourceEnd": 18,
+              "path": "3.0",
+              "projectedStart": 8,
+              "projectedEnd": 9
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 9,
+              "projectedEnd": 10
+            },
+            {
+              "text": "尾",
+              "sourceStart": 20,
+              "sourceEnd": 21,
+              "path": "4.0",
+              "projectedStart": 10,
+              "projectedEnd": 11
+            }
+          ],
+          "blocks": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 4
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 6,
+              "sourceEnd": 8
+            },
+            {
+              "type": "paragraph",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 12
+            },
+            {
+              "type": "heading",
+              "path": "3",
+              "sourceStart": 14,
+              "sourceEnd": 18
+            },
+            {
+              "type": "paragraph",
+              "path": "4",
+              "sourceStart": 20,
+              "sourceEnd": 21
+            }
+          ],
+          "headings": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 4,
+              "level": 2,
+              "title": "A"
+            },
+            {
+              "type": "heading",
+              "path": "3",
+              "sourceStart": 14,
+              "sourceEnd": 18,
+              "level": 2,
+              "title": "B"
+            }
+          ],
+          "sections": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 14,
+              "level": 2,
+              "title": "A",
+              "endBoundaryPath": "3",
+              "endBoundaryLevel": 2,
+              "endBoundaryTitle": "B",
+              "memberFingerprint": "73e03e23c23cca26e8b1bd2bc82226680da7d258bbd7e015480051b2abf38934"
+            },
+            {
+              "type": "heading",
+              "path": "3",
+              "sourceStart": 14,
+              "sourceEnd": 21,
+              "level": 2,
+              "title": "B",
+              "endBoundaryPath": null,
+              "endBoundaryLevel": null,
+              "endBoundaryTitle": null,
+              "memberFingerprint": "37685f8349a3efb156f4e9fbf0d8a0f834fb24246c123653202acb13f2ce11ab"
+            }
+          ],
+          "listItems": []
+        },
+        "quoteText": "A\n正文\n新增",
+        "segments": [
+          {
+            "start": 3,
+            "end": 4,
+            "path": "0.0"
+          },
+          {
+            "start": 6,
+            "end": 8,
+            "path": "1.0"
+          },
+          {
+            "start": 10,
+            "end": 12,
+            "path": "2.0"
+          }
+        ],
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "section",
+          "segments": [
+            {
+              "start": 3,
+              "end": 4,
+              "path": "0.0"
+            },
+            {
+              "start": 6,
+              "end": 8,
+              "path": "1.0"
+            },
+            {
+              "start": 10,
+              "end": 12,
+              "path": "2.0"
+            }
+          ],
+          "structurePath": "0",
+          "quoteText": "A\n正文\n新增",
+          "prefixText": "",
+          "suffixText": "\nB\n尾",
+          "sourceStart": 3,
+          "sourceEnd": 12,
+          "projectedStart": 0,
+          "projectedEnd": 7,
+          "section": {
+            "headingLevel": 2,
+            "title": "A",
+            "sourceStart": 0,
+            "sourceEnd": 14,
+            "endBoundaryPath": "3",
+            "endBoundaryLevel": 2,
+            "endBoundaryTitle": "B",
+            "memberFingerprint": "73e03e23c23cca26e8b1bd2bc82226680da7d258bbd7e015480051b2abf38934"
+          }
+        },
+        "section": {
+          "type": "heading",
+          "path": "0",
+          "sourceStart": 0,
+          "sourceEnd": 14,
+          "level": 2,
+          "title": "A",
+          "endBoundaryPath": "3",
+          "endBoundaryLevel": 2,
+          "endBoundaryTitle": "B",
+          "memberFingerprint": "73e03e23c23cca26e8b1bd2bc82226680da7d258bbd7e015480051b2abf38934"
+        }
+      }
+    },
+    "section-follow-boundary": {
+      "returned": {
+        "status": "needsReview",
+        "reason": "boundaryChanged",
+        "projection": {
+          "version": 1,
+          "source": "## A\n\n正文\n\n# B\n\n尾",
+          "contentHash": "6e9051b2fbc564db7157910d5671dbc02fdb05e9474886fd1cfe090bd3c52140",
+          "text": "A\n正文\nB\n尾",
+          "units": [
+            {
+              "text": "A",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "正",
+              "sourceStart": 6,
+              "sourceEnd": 7,
+              "path": "1.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "B",
+              "sourceStart": 12,
+              "sourceEnd": 13,
+              "path": "2.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "尾",
+              "sourceStart": 15,
+              "sourceEnd": 16,
+              "path": "3.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            }
+          ],
+          "blocks": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 4
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 6,
+              "sourceEnd": 8
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 13
+            },
+            {
+              "type": "paragraph",
+              "path": "3",
+              "sourceStart": 15,
+              "sourceEnd": 16
+            }
+          ],
+          "headings": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 4,
+              "level": 2,
+              "title": "A"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 13,
+              "level": 1,
+              "title": "B"
+            }
+          ],
+          "sections": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 10,
+              "level": 2,
+              "title": "A",
+              "endBoundaryPath": "2",
+              "endBoundaryLevel": 1,
+              "endBoundaryTitle": "B",
+              "memberFingerprint": "c6b11e95593f47223512187c428406cea4840df9a46f4a6f352c709bc4656375"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 16,
+              "level": 1,
+              "title": "B",
+              "endBoundaryPath": null,
+              "endBoundaryLevel": null,
+              "endBoundaryTitle": null,
+              "memberFingerprint": "c94a3055c6662b0f44d0a0fb4aa26bb77f91c2b85add480d85b0cd4fad22e8b6"
+            }
+          ],
+          "listItems": []
+        },
+        "quoteText": "A\n正文",
+        "segments": [
+          {
+            "start": 3,
+            "end": 4,
+            "path": "0.0"
+          },
+          {
+            "start": 6,
+            "end": 8,
+            "path": "1.0"
+          }
+        ],
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "section",
+          "segments": [
+            {
+              "start": 3,
+              "end": 4,
+              "path": "0.0"
+            },
+            {
+              "start": 6,
+              "end": 8,
+              "path": "1.0"
+            }
+          ],
+          "structurePath": "0",
+          "quoteText": "A\n正文",
+          "prefixText": "",
+          "suffixText": "\nB\n尾",
+          "sourceStart": 3,
+          "sourceEnd": 8,
+          "projectedStart": 0,
+          "projectedEnd": 4,
+          "section": {
+            "headingLevel": 2,
+            "title": "A",
+            "sourceStart": 0,
+            "sourceEnd": 10,
+            "endBoundaryPath": "2",
+            "endBoundaryLevel": 1,
+            "endBoundaryTitle": "B",
+            "memberFingerprint": "c6b11e95593f47223512187c428406cea4840df9a46f4a6f352c709bc4656375"
+          }
+        },
+        "section": {
+          "type": "heading",
+          "path": "0",
+          "sourceStart": 0,
+          "sourceEnd": 10,
+          "level": 2,
+          "title": "A",
+          "endBoundaryPath": "2",
+          "endBoundaryLevel": 1,
+          "endBoundaryTitle": "B",
+          "memberFingerprint": "c6b11e95593f47223512187c428406cea4840df9a46f4a6f352c709bc4656375"
+        }
+      }
+    },
+    "section-follow-missing-identity": {
+      "returned": {
+        "status": "needsReview",
+        "reason": "sectionIdentityMissing",
+        "projection": {
+          "version": 1,
+          "source": "## A\n\n正文\n\n## B\n\n尾",
+          "contentHash": "bf9e2011d0f677a1444fb07564eb5853f37a9c394aff053ea0e3b3db2db78b0d",
+          "text": "A\n正文\nB\n尾",
+          "units": [
+            {
+              "text": "A",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "正",
+              "sourceStart": 6,
+              "sourceEnd": 7,
+              "path": "1.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "B",
+              "sourceStart": 13,
+              "sourceEnd": 14,
+              "path": "2.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "尾",
+              "sourceStart": 16,
+              "sourceEnd": 17,
+              "path": "3.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            }
+          ],
+          "blocks": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 4
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 6,
+              "sourceEnd": 8
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 14
+            },
+            {
+              "type": "paragraph",
+              "path": "3",
+              "sourceStart": 16,
+              "sourceEnd": 17
+            }
+          ],
+          "headings": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 4,
+              "level": 2,
+              "title": "A"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 14,
+              "level": 2,
+              "title": "B"
+            }
+          ],
+          "sections": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 10,
+              "level": 2,
+              "title": "A",
+              "endBoundaryPath": "2",
+              "endBoundaryLevel": 2,
+              "endBoundaryTitle": "B",
+              "memberFingerprint": "c6b11e95593f47223512187c428406cea4840df9a46f4a6f352c709bc4656375"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 10,
+              "sourceEnd": 17,
+              "level": 2,
+              "title": "B",
+              "endBoundaryPath": null,
+              "endBoundaryLevel": null,
+              "endBoundaryTitle": null,
+              "memberFingerprint": "c94a3055c6662b0f44d0a0fb4aa26bb77f91c2b85add480d85b0cd4fad22e8b6"
+            }
+          ],
+          "listItems": []
+        }
+      }
+    },
+    "section-follow-deleted": {
+      "returned": {
+        "status": "missing",
+        "reason": "sectionDeleted",
+        "projection": {
+          "version": 1,
+          "source": "",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": "",
+          "units": [],
+          "blocks": [],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        }
+      }
+    },
+    "source-edit-replay-and-verification": {
+      "returned": {
+        "edit": {
+          "from": 1,
+          "to": 6,
+          "text": "新增重要文字后\n"
+        },
+        "edits": [
+          {
+            "from": 1,
+            "to": 1,
+            "text": "新增"
+          },
+          {
+            "from": 8,
+            "to": 8,
+            "text": "\n"
+          }
+        ],
+        "replayed": "前新增重要文字后\n",
+        "noChange": {
+          "from": 6,
+          "to": 6,
+          "text": ""
+        },
+        "noChanges": [],
+        "verified": [
+          {
+            "from": 1,
+            "to": 1,
+            "text": "新增"
+          },
+          {
+            "from": 8,
+            "to": 8,
+            "text": "\n"
+          }
+        ],
+        "absent": null,
+        "forged": null,
+        "wrongVersion": null,
+        "malformed": null
+      }
+    },
+    "source-edits-multiple-unicode": {
+      "returned": [
+        {
+          "from": 0,
+          "to": 0,
+          "text": "首"
+        },
+        {
+          "from": 8,
+          "to": 8,
+          "text": "新"
+        },
+        {
+          "from": 12,
+          "to": 12,
+          "text": "\n"
+        }
+      ]
+    },
+    "dynamic-selection-rewrite": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "前新结论后",
+          "contentHash": "83126cd7f5813d58e71a7ccf47f9946ae3a415f1b7dd941861ec7138e5ba2e1e",
+          "text": "前新结论后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "新",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "结",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "论",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "后",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 5
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "selection",
+          "segments": [
+            {
+              "start": 1,
+              "end": 4,
+              "path": "0.0"
+            }
+          ],
+          "structurePath": "0.0",
+          "quoteText": "新结论",
+          "prefixText": "前",
+          "suffixText": "后",
+          "sourceStart": 1,
+          "sourceEnd": 4,
+          "projectedStart": 1,
+          "projectedEnd": 4,
+          "tracking": {
+            "$type": "undefined"
+          }
+        },
+        "quoteText": "新结论",
+        "segments": [
+          {
+            "start": 1,
+            "end": 4,
+            "path": "0.0"
+          }
+        ]
+      }
+    },
+    "dynamic-selection-deletion": {
+      "returned": {
+        "status": "missing",
+        "reason": "sourceDeleted",
+        "projection": {
+          "version": 1,
+          "source": "前后",
+          "contentHash": "7f23611ba74c03e088c7b917aeeb1295dc6edfd37f922d35eee9cc191943adc7",
+          "text": "前后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "后",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 2
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": null,
+        "quoteText": {
+          "$type": "undefined"
+        },
+        "segments": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "dynamic-selection-no-revival": {
+      "returned": {
+        "status": "missing",
+        "reason": "sourceDeleted",
+        "projection": {
+          "version": 1,
+          "source": "前重要文字后",
+          "contentHash": "400ddc3c611a24530b3b13d1b7567f35932c3b87aef6a0742a4852a8c0d32bda",
+          "text": "前重要文字后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "重",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "要",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "字",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "后",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "0.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 6
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": null,
+        "quoteText": {
+          "$type": "undefined"
+        },
+        "segments": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "dynamic-selection-history": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "前重要文字后",
+          "contentHash": "400ddc3c611a24530b3b13d1b7567f35932c3b87aef6a0742a4852a8c0d32bda",
+          "text": "前重要文字后",
+          "units": [
+            {
+              "text": "前",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "重",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "要",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "字",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "后",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "0.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 6
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "selection",
+          "segments": [
+            {
+              "start": 1,
+              "end": 5,
+              "path": "0.0"
+            }
+          ],
+          "structurePath": "0.0",
+          "quoteText": "重要文字",
+          "prefixText": "",
+          "suffixText": "后",
+          "sourceStart": 1,
+          "sourceEnd": 5,
+          "projectedStart": 1,
+          "projectedEnd": 5
+        },
+        "quoteText": "重要文字",
+        "segments": [
+          {
+            "start": 1,
+            "end": 5,
+            "path": "0.0"
+          }
+        ]
+      }
+    },
+    "dynamic-section-boundary": {
+      "returned": {
+        "status": "needsReview",
+        "reason": "boundaryChanged",
+        "projection": {
+          "version": 1,
+          "source": "### A\n\n正文\n\n## B\n\n尾",
+          "contentHash": "7c2113612dfa86c99fb09eb434af76b83a8e3a7fda5afa891a6e6a840c84217c",
+          "text": "A\n正文\nB\n尾",
+          "units": [
+            {
+              "text": "A",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "正",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "1.0",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "文",
+              "sourceStart": 8,
+              "sourceEnd": 9,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "B",
+              "sourceStart": 14,
+              "sourceEnd": 15,
+              "path": "2.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "尾",
+              "sourceStart": 17,
+              "sourceEnd": 18,
+              "path": "3.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            }
+          ],
+          "blocks": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 5
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 7,
+              "sourceEnd": 9
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 11,
+              "sourceEnd": 15
+            },
+            {
+              "type": "paragraph",
+              "path": "3",
+              "sourceStart": 17,
+              "sourceEnd": 18
+            }
+          ],
+          "headings": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 5,
+              "level": 3,
+              "title": "A"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 11,
+              "sourceEnd": 15,
+              "level": 2,
+              "title": "B"
+            }
+          ],
+          "sections": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 11,
+              "level": 3,
+              "title": "A",
+              "endBoundaryPath": "2",
+              "endBoundaryLevel": 2,
+              "endBoundaryTitle": "B",
+              "memberFingerprint": "c6b11e95593f47223512187c428406cea4840df9a46f4a6f352c709bc4656375"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 11,
+              "sourceEnd": 18,
+              "level": 2,
+              "title": "B",
+              "endBoundaryPath": null,
+              "endBoundaryLevel": null,
+              "endBoundaryTitle": null,
+              "memberFingerprint": "c94a3055c6662b0f44d0a0fb4aa26bb77f91c2b85add480d85b0cd4fad22e8b6"
+            }
+          ],
+          "listItems": []
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "section",
+          "segments": [
+            {
+              "start": 4,
+              "end": 5,
+              "path": "0.0"
+            },
+            {
+              "start": 7,
+              "end": 9,
+              "path": "1.0"
+            }
+          ],
+          "structurePath": "0",
+          "quoteText": "A\n正文",
+          "prefixText": "",
+          "suffixText": "\nB\n尾",
+          "sourceStart": 4,
+          "sourceEnd": 9,
+          "projectedStart": 0,
+          "projectedEnd": 4,
+          "section": {
+            "headingLevel": 3,
+            "title": "A",
+            "sourceStart": 0,
+            "sourceEnd": 11,
+            "endBoundaryPath": "2",
+            "endBoundaryLevel": 2,
+            "endBoundaryTitle": "B",
+            "memberFingerprint": "c6b11e95593f47223512187c428406cea4840df9a46f4a6f352c709bc4656375"
+          }
+        },
+        "quoteText": "A\n正文",
+        "segments": [
+          {
+            "start": 4,
+            "end": 5,
+            "path": "0.0"
+          },
+          {
+            "start": 7,
+            "end": 9,
+            "path": "1.0"
+          }
+        ]
+      }
+    },
+    "dynamic-block-split": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "首段\n\n重要\n\n文字\n\n尾段",
+          "contentHash": "fb82c93af7d98cd2a9c8a17c3c64374000479a20a3880db38a896fd7c4419a20",
+          "text": "首段\n重要\n文字\n尾段",
+          "units": [
+            {
+              "text": "首",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "段",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "重",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "要",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "1.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "文",
+              "sourceStart": 8,
+              "sourceEnd": 9,
+              "path": "2.0",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "字",
+              "sourceStart": 9,
+              "sourceEnd": 10,
+              "path": "2.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 8,
+              "projectedEnd": 9
+            },
+            {
+              "text": "尾",
+              "sourceStart": 12,
+              "sourceEnd": 13,
+              "path": "3.0",
+              "projectedStart": 9,
+              "projectedEnd": 10
+            },
+            {
+              "text": "段",
+              "sourceStart": 13,
+              "sourceEnd": 14,
+              "path": "3.0",
+              "projectedStart": 10,
+              "projectedEnd": 11
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 2
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 4,
+              "sourceEnd": 6
+            },
+            {
+              "type": "paragraph",
+              "path": "2",
+              "sourceStart": 8,
+              "sourceEnd": 10
+            },
+            {
+              "type": "paragraph",
+              "path": "3",
+              "sourceStart": 12,
+              "sourceEnd": 14
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "blocks",
+          "segments": [
+            {
+              "start": 4,
+              "end": 6,
+              "path": "1.0"
+            },
+            {
+              "start": 8,
+              "end": 10,
+              "path": "2.0"
+            }
+          ],
+          "structurePath": "1",
+          "quoteText": "重要\n文字",
+          "prefixText": "首段\n",
+          "suffixText": "\n尾段",
+          "sourceStart": 4,
+          "sourceEnd": 10,
+          "projectedStart": 3,
+          "projectedEnd": 8,
+          "tracking": {
+            "$type": "undefined"
+          }
+        },
+        "quoteText": "重要\n文字",
+        "segments": [
+          {
+            "start": 4,
+            "end": 6,
+            "path": "1.0"
+          },
+          {
+            "start": 8,
+            "end": 10,
+            "path": "2.0"
+          }
+        ]
+      }
+    },
+    "dynamic-block-merge": {
+      "returned": {
+        "status": "resolved",
+        "reason": "convertedToSelection",
+        "projection": {
+          "version": 1,
+          "source": "首段\n\n重要文字尾段",
+          "contentHash": "63f9e537b38849328ea0f4b4a7e8175711d0a77e3eabfc712c9d772a1a92a02d",
+          "text": "首段\n重要文字尾段",
+          "units": [
+            {
+              "text": "首",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "段",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "重",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "要",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "1.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "文",
+              "sourceStart": 6,
+              "sourceEnd": 7,
+              "path": "1.0",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "字",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "1.0",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "尾",
+              "sourceStart": 8,
+              "sourceEnd": 9,
+              "path": "1.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            },
+            {
+              "text": "段",
+              "sourceStart": 9,
+              "sourceEnd": 10,
+              "path": "1.0",
+              "projectedStart": 8,
+              "projectedEnd": 9
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 2
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 4,
+              "sourceEnd": 10
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "selection",
+          "segments": [
+            {
+              "start": 4,
+              "end": 8,
+              "path": "1.0"
+            }
+          ],
+          "structurePath": "1.0",
+          "quoteText": "重要文字",
+          "prefixText": "首段\n",
+          "suffixText": "尾段",
+          "sourceStart": 4,
+          "sourceEnd": 8,
+          "projectedStart": 3,
+          "projectedEnd": 7,
+          "tracking": {
+            "$type": "undefined"
+          }
+        },
+        "quoteText": "重要文字",
+        "segments": [
+          {
+            "start": 4,
+            "end": 8,
+            "path": "1.0"
+          }
+        ]
+      }
+    },
+    "dynamic-empty-block-and-retype": {
+      "returned": {
+        "cleared": {
+          "status": "resolved",
+          "reason": null,
+          "projection": {
+            "version": 1,
+            "source": "",
+            "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "text": "",
+            "units": [],
+            "blocks": [],
+            "headings": [],
+            "sections": [],
+            "listItems": []
+          },
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "blocks",
+            "segments": [],
+            "structurePath": "0",
+            "quoteText": "",
+            "prefixText": "",
+            "suffixText": "",
+            "sourceStart": 0,
+            "sourceEnd": 0,
+            "projectedStart": 0,
+            "projectedEnd": 4,
+            "tracking": {
+              "empty": true,
+              "emptyPosition": 0,
+              "emptyType": "paragraph"
+            }
+          },
+          "quoteText": "",
+          "segments": []
+        },
+        "resolved": {
+          "status": "resolved",
+          "reason": null,
+          "projection": {
+            "version": 1,
+            "source": "",
+            "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "text": "",
+            "units": [],
+            "blocks": [],
+            "headings": [],
+            "sections": [],
+            "listItems": []
+          },
+          "quoteText": "",
+          "segments": [],
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "blocks",
+            "segments": [],
+            "structurePath": "0",
+            "quoteText": "",
+            "prefixText": "",
+            "suffixText": "",
+            "sourceStart": 0,
+            "sourceEnd": 0,
+            "projectedStart": 0,
+            "projectedEnd": 4,
+            "tracking": {
+              "empty": true,
+              "emptyPosition": 0,
+              "emptyType": "paragraph"
+            }
+          }
+        },
+        "retyped": {
+          "status": "resolved",
+          "reason": null,
+          "projection": {
+            "version": 1,
+            "source": "新内容",
+            "contentHash": "bf7a7211f5382769602451d61401d7d8fa7979d4bb04616aa8c322b23a8be69d",
+            "text": "新内容",
+            "units": [
+              {
+                "text": "新",
+                "sourceStart": 0,
+                "sourceEnd": 1,
+                "path": "0.0",
+                "projectedStart": 0,
+                "projectedEnd": 1
+              },
+              {
+                "text": "内",
+                "sourceStart": 1,
+                "sourceEnd": 2,
+                "path": "0.0",
+                "projectedStart": 1,
+                "projectedEnd": 2
+              },
+              {
+                "text": "容",
+                "sourceStart": 2,
+                "sourceEnd": 3,
+                "path": "0.0",
+                "projectedStart": 2,
+                "projectedEnd": 3
+              }
+            ],
+            "blocks": [
+              {
+                "type": "paragraph",
+                "path": "0",
+                "sourceStart": 0,
+                "sourceEnd": 3
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": []
+          },
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "blocks",
+            "segments": [
+              {
+                "start": 0,
+                "end": 3,
+                "path": "0.0"
+              }
+            ],
+            "structurePath": "0",
+            "quoteText": "新内容",
+            "prefixText": "",
+            "suffixText": "",
+            "sourceStart": 0,
+            "sourceEnd": 3,
+            "projectedStart": 0,
+            "projectedEnd": 3,
+            "tracking": {
+              "empty": false,
+              "emptyPosition": 0,
+              "emptyType": "paragraph"
+            }
+          },
+          "quoteText": "新内容",
+          "segments": [
+            {
+              "start": 0,
+              "end": 3,
+              "path": "0.0"
+            }
+          ]
+        }
+      }
+    },
+    "dynamic-block-cut-and-paste": {
+      "returned": {
+        "status": "resolved",
+        "reason": null,
+        "projection": {
+          "version": 1,
+          "source": "其他\n\n重点",
+          "contentHash": "9cb316eb705bfc5ae0a9dc3c9b79fe1de66e5a75060c6374331f34fbc851c2b4",
+          "text": "其他\n重点",
+          "units": [
+            {
+              "text": "其",
+              "sourceStart": 0,
+              "sourceEnd": 1,
+              "path": "0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "他",
+              "sourceStart": 1,
+              "sourceEnd": 2,
+              "path": "0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "重",
+              "sourceStart": 4,
+              "sourceEnd": 5,
+              "path": "1.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "点",
+              "sourceStart": 5,
+              "sourceEnd": 6,
+              "path": "1.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            }
+          ],
+          "blocks": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 2
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 4,
+              "sourceEnd": 6
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": []
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "blocks",
+          "segments": [
+            {
+              "start": 4,
+              "end": 6,
+              "path": "1.0"
+            }
+          ],
+          "structurePath": "1.0",
+          "quoteText": "重点",
+          "prefixText": "其他\n",
+          "suffixText": "",
+          "sourceStart": 4,
+          "sourceEnd": 6,
+          "projectedStart": 3,
+          "projectedEnd": 5,
+          "tracking": {
+            "cut": null
+          }
+        },
+        "quoteText": "重点",
+        "segments": [
+          {
+            "start": 4,
+            "end": 6,
+            "path": "1.0"
+          }
+        ]
+      }
+    },
+    "structure-identities-revisions-and-copy": {
+      "returned": {
+        "initial": {
+          "formatVersion": 1,
+          "revision": 1,
+          "contentHash": "20fefc3a11e65ecc2dfe9ca013be79d62746d5e34a8bf5b998832b26deb06e3f",
+          "nodes": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 3,
+              "id": "block-8284e188eaf0da7aa54012e9"
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 5,
+              "sourceEnd": 7,
+              "id": "block-58a854a8847a0007609d60c8"
+            }
+          ],
+          "cuts": []
+        },
+        "inserted": {
+          "formatVersion": 1,
+          "revision": 2,
+          "contentHash": "561f0d4a45794e95827d3de7635faf08d889b6797f5474812d7395c6ca82483c",
+          "nodes": [
+            {
+              "type": "paragraph",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 2,
+              "id": "block-47aaa4810854156721237aa0"
+            },
+            {
+              "type": "heading",
+              "path": "1",
+              "sourceStart": 4,
+              "sourceEnd": 7,
+              "id": "block-8284e188eaf0da7aa54012e9"
+            },
+            {
+              "type": "paragraph",
+              "path": "2",
+              "sourceStart": 9,
+              "sourceEnd": 11,
+              "id": "block-58a854a8847a0007609d60c8"
+            }
+          ],
+          "cuts": []
+        },
+        "copied": {
+          "formatVersion": 1,
+          "revision": 2,
+          "contentHash": "c9f8b6dc01799f239db1efa90cba29f1f17b5bde971ed714a27ca358d2044448",
+          "nodes": [
+            {
+              "type": "heading",
+              "path": "0",
+              "sourceStart": 0,
+              "sourceEnd": 3,
+              "id": "block-8284e188eaf0da7aa54012e9"
+            },
+            {
+              "type": "paragraph",
+              "path": "1",
+              "sourceStart": 5,
+              "sourceEnd": 7,
+              "id": "block-58a854a8847a0007609d60c8"
+            },
+            {
+              "type": "heading",
+              "path": "2",
+              "sourceStart": 9,
+              "sourceEnd": 12,
+              "id": "block-b014ee8195f708fefcb1013d"
+            },
+            {
+              "type": "paragraph",
+              "path": "3",
+              "sourceStart": 14,
+              "sourceEnd": 16,
+              "id": "block-f616a2c10f28af43f52f0893"
+            }
+          ],
+          "cuts": []
+        }
+      }
+    },
+    "list-anchor-and-tracking": {
+      "returned": {
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "list",
+          "segments": [
+            {
+              "start": 2,
+              "end": 4,
+              "path": "0.0.0.0"
+            },
+            {
+              "start": 9,
+              "end": 11,
+              "path": "0.0.1.0.0.0"
+            }
+          ],
+          "structurePath": "0.0",
+          "quoteText": "父项\n子项",
+          "prefixText": "",
+          "suffixText": "\n相邻",
+          "sourceStart": 0,
+          "sourceEnd": 11,
+          "projectedStart": 0,
+          "projectedEnd": 5,
+          "list": {
+            "itemPath": "0.0",
+            "parentItemPath": null,
+            "depth": 0,
+            "ordered": false,
+            "childCount": 1,
+            "memberFingerprint": "4fe39dc2204b6e1f7d5cbcd634fc748a215c62a1da2c47c45e0064ced7754165"
+          },
+          "tracking": {
+            "formatVersion": 1,
+            "structureRevision": 1,
+            "rootId": "block-114b06ae9b44187608582ea3",
+            "ancestorItemIds": [],
+            "memberIds": [
+              "block-114b06ae9b44187608582ea3",
+              "block-5a66d209e5ac78e72cdfd2af",
+              "block-0670fc4617e8a3fdad7fcaa8",
+              "block-24e150ff0f90ff9873c8d108"
+            ]
+          }
+        },
+        "noStructure": {
+          "formatVersion": 1,
+          "structureRevision": 0,
+          "rootId": null,
+          "ancestorItemIds": [],
+          "memberIds": []
+        },
+        "childTracking": {
+          "formatVersion": 1,
+          "structureRevision": 1,
+          "rootId": "block-0670fc4617e8a3fdad7fcaa8",
+          "ancestorItemIds": [
+            "block-114b06ae9b44187608582ea3"
+          ],
+          "memberIds": [
+            "block-0670fc4617e8a3fdad7fcaa8",
+            "block-24e150ff0f90ff9873c8d108"
+          ]
+        }
+      }
+    },
+    "list-resolve-and-follow": {
+      "returned": {
+        "resolve": {
+          "status": "resolved",
+          "reason": null,
+          "projection": {
+            "version": 1,
+            "source": "- 父项\n  - 子项\n- 相邻",
+            "contentHash": "16600b3760ef463d4ebb3762b561ae6770ee57b63a60db4e640bb3c751ba0a3d",
+            "text": "父项\n子项\n相邻",
+            "units": [
+              {
+                "text": "父",
+                "sourceStart": 2,
+                "sourceEnd": 3,
+                "path": "0.0.0.0",
+                "projectedStart": 0,
+                "projectedEnd": 1
+              },
+              {
+                "text": "项",
+                "sourceStart": 3,
+                "sourceEnd": 4,
+                "path": "0.0.0.0",
+                "projectedStart": 1,
+                "projectedEnd": 2
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 2,
+                "projectedEnd": 3
+              },
+              {
+                "text": "子",
+                "sourceStart": 9,
+                "sourceEnd": 10,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 3,
+                "projectedEnd": 4
+              },
+              {
+                "text": "项",
+                "sourceStart": 10,
+                "sourceEnd": 11,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 4,
+                "projectedEnd": 5
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 5,
+                "projectedEnd": 6
+              },
+              {
+                "text": "相",
+                "sourceStart": 14,
+                "sourceEnd": 15,
+                "path": "0.1.0.0",
+                "projectedStart": 6,
+                "projectedEnd": 7
+              },
+              {
+                "text": "邻",
+                "sourceStart": 15,
+                "sourceEnd": 16,
+                "path": "0.1.0.0",
+                "projectedStart": 7,
+                "projectedEnd": 8
+              }
+            ],
+            "blocks": [
+              {
+                "type": "listItem",
+                "path": "0.0",
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.0",
+                "sourceStart": 2,
+                "sourceEnd": 4
+              },
+              {
+                "type": "listItem",
+                "path": "0.0.1.0",
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.1.0.0",
+                "sourceStart": 9,
+                "sourceEnd": 11
+              },
+              {
+                "type": "listItem",
+                "path": "0.1",
+                "sourceStart": 12,
+                "sourceEnd": 16
+              },
+              {
+                "type": "paragraph",
+                "path": "0.1.0",
+                "sourceStart": 14,
+                "sourceEnd": 16
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": [
+              {
+                "path": "0.0",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.0.1.0",
+                "parentListPath": "0.0.1",
+                "parentItemPath": "0.0",
+                "depth": 1,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.1",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 12,
+                "sourceEnd": 16
+              }
+            ]
+          },
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "list",
+            "segments": [
+              {
+                "start": 2,
+                "end": 4,
+                "path": "0.0.0.0"
+              },
+              {
+                "start": 9,
+                "end": 11,
+                "path": "0.0.1.0.0.0"
+              }
+            ],
+            "structurePath": "0.0",
+            "quoteText": "父项\n子项",
+            "prefixText": "",
+            "suffixText": "\n相邻",
+            "sourceStart": 0,
+            "sourceEnd": 11,
+            "projectedStart": 0,
+            "projectedEnd": 5,
+            "list": {
+              "itemPath": "0.0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "childCount": 1,
+              "memberFingerprint": "4fe39dc2204b6e1f7d5cbcd634fc748a215c62a1da2c47c45e0064ced7754165"
+            },
+            "tracking": {
+              "formatVersion": 1,
+              "structureRevision": 1,
+              "rootId": "block-114b06ae9b44187608582ea3",
+              "ancestorItemIds": [],
+              "memberIds": [
+                "block-114b06ae9b44187608582ea3",
+                "block-5a66d209e5ac78e72cdfd2af",
+                "block-0670fc4617e8a3fdad7fcaa8",
+                "block-24e150ff0f90ff9873c8d108"
+              ]
+            }
+          },
+          "quoteText": "父项\n子项",
+          "segments": [
+            {
+              "start": 2,
+              "end": 4,
+              "path": "0.0.0.0"
+            },
+            {
+              "start": 9,
+              "end": 11,
+              "path": "0.0.1.0.0.0"
+            }
+          ]
+        },
+        "follow": {
+          "status": "resolved",
+          "reason": null,
+          "projection": {
+            "version": 1,
+            "source": "- 父项\n  - 子项\n- 相邻",
+            "contentHash": "16600b3760ef463d4ebb3762b561ae6770ee57b63a60db4e640bb3c751ba0a3d",
+            "text": "父项\n子项\n相邻",
+            "units": [
+              {
+                "text": "父",
+                "sourceStart": 2,
+                "sourceEnd": 3,
+                "path": "0.0.0.0",
+                "projectedStart": 0,
+                "projectedEnd": 1
+              },
+              {
+                "text": "项",
+                "sourceStart": 3,
+                "sourceEnd": 4,
+                "path": "0.0.0.0",
+                "projectedStart": 1,
+                "projectedEnd": 2
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 2,
+                "projectedEnd": 3
+              },
+              {
+                "text": "子",
+                "sourceStart": 9,
+                "sourceEnd": 10,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 3,
+                "projectedEnd": 4
+              },
+              {
+                "text": "项",
+                "sourceStart": 10,
+                "sourceEnd": 11,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 4,
+                "projectedEnd": 5
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 5,
+                "projectedEnd": 6
+              },
+              {
+                "text": "相",
+                "sourceStart": 14,
+                "sourceEnd": 15,
+                "path": "0.1.0.0",
+                "projectedStart": 6,
+                "projectedEnd": 7
+              },
+              {
+                "text": "邻",
+                "sourceStart": 15,
+                "sourceEnd": 16,
+                "path": "0.1.0.0",
+                "projectedStart": 7,
+                "projectedEnd": 8
+              }
+            ],
+            "blocks": [
+              {
+                "type": "listItem",
+                "path": "0.0",
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.0",
+                "sourceStart": 2,
+                "sourceEnd": 4
+              },
+              {
+                "type": "listItem",
+                "path": "0.0.1.0",
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.1.0.0",
+                "sourceStart": 9,
+                "sourceEnd": 11
+              },
+              {
+                "type": "listItem",
+                "path": "0.1",
+                "sourceStart": 12,
+                "sourceEnd": 16
+              },
+              {
+                "type": "paragraph",
+                "path": "0.1.0",
+                "sourceStart": 14,
+                "sourceEnd": 16
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": [
+              {
+                "path": "0.0",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.0.1.0",
+                "parentListPath": "0.0.1",
+                "parentItemPath": "0.0",
+                "depth": 1,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.1",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 12,
+                "sourceEnd": 16
+              }
+            ]
+          },
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "list",
+            "segments": [
+              {
+                "start": 2,
+                "end": 4,
+                "path": "0.0.0.0"
+              },
+              {
+                "start": 9,
+                "end": 11,
+                "path": "0.0.1.0.0.0"
+              }
+            ],
+            "structurePath": "0.0",
+            "quoteText": "父项\n子项",
+            "prefixText": "",
+            "suffixText": "\n相邻",
+            "sourceStart": 0,
+            "sourceEnd": 11,
+            "projectedStart": 0,
+            "projectedEnd": 5,
+            "list": {
+              "itemPath": "0.0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "childCount": 1,
+              "memberFingerprint": "4fe39dc2204b6e1f7d5cbcd634fc748a215c62a1da2c47c45e0064ced7754165"
+            },
+            "tracking": {
+              "formatVersion": 1,
+              "structureRevision": 1,
+              "rootId": "block-114b06ae9b44187608582ea3",
+              "ancestorItemIds": [],
+              "memberIds": [
+                "block-114b06ae9b44187608582ea3",
+                "block-5a66d209e5ac78e72cdfd2af",
+                "block-0670fc4617e8a3fdad7fcaa8",
+                "block-24e150ff0f90ff9873c8d108"
+              ]
+            }
+          },
+          "quoteText": "父项\n子项",
+          "segments": [
+            {
+              "start": 2,
+              "end": 4,
+              "path": "0.0.0.0"
+            },
+            {
+              "start": 9,
+              "end": 11,
+              "path": "0.0.1.0.0.0"
+            }
+          ]
+        }
+      }
+    },
+    "list-stale-range-and-version": {
+      "returned": {
+        "stale": {
+          "status": "needsReview",
+          "reason": "listRangeChanged",
+          "projection": {
+            "version": 1,
+            "source": "- 父项\n  - 子项\n- 相邻",
+            "contentHash": "16600b3760ef463d4ebb3762b561ae6770ee57b63a60db4e640bb3c751ba0a3d",
+            "text": "父项\n子项\n相邻",
+            "units": [
+              {
+                "text": "父",
+                "sourceStart": 2,
+                "sourceEnd": 3,
+                "path": "0.0.0.0",
+                "projectedStart": 0,
+                "projectedEnd": 1
+              },
+              {
+                "text": "项",
+                "sourceStart": 3,
+                "sourceEnd": 4,
+                "path": "0.0.0.0",
+                "projectedStart": 1,
+                "projectedEnd": 2
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 2,
+                "projectedEnd": 3
+              },
+              {
+                "text": "子",
+                "sourceStart": 9,
+                "sourceEnd": 10,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 3,
+                "projectedEnd": 4
+              },
+              {
+                "text": "项",
+                "sourceStart": 10,
+                "sourceEnd": 11,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 4,
+                "projectedEnd": 5
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 5,
+                "projectedEnd": 6
+              },
+              {
+                "text": "相",
+                "sourceStart": 14,
+                "sourceEnd": 15,
+                "path": "0.1.0.0",
+                "projectedStart": 6,
+                "projectedEnd": 7
+              },
+              {
+                "text": "邻",
+                "sourceStart": 15,
+                "sourceEnd": 16,
+                "path": "0.1.0.0",
+                "projectedStart": 7,
+                "projectedEnd": 8
+              }
+            ],
+            "blocks": [
+              {
+                "type": "listItem",
+                "path": "0.0",
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.0",
+                "sourceStart": 2,
+                "sourceEnd": 4
+              },
+              {
+                "type": "listItem",
+                "path": "0.0.1.0",
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.1.0.0",
+                "sourceStart": 9,
+                "sourceEnd": 11
+              },
+              {
+                "type": "listItem",
+                "path": "0.1",
+                "sourceStart": 12,
+                "sourceEnd": 16
+              },
+              {
+                "type": "paragraph",
+                "path": "0.1.0",
+                "sourceStart": 14,
+                "sourceEnd": 16
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": [
+              {
+                "path": "0.0",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.0.1.0",
+                "parentListPath": "0.0.1",
+                "parentItemPath": "0.0",
+                "depth": 1,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.1",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 12,
+                "sourceEnd": 16
+              }
+            ]
+          }
+        },
+        "version": {
+          "status": "needsReview",
+          "reason": "projectionVersionMismatch",
+          "projection": {
+            "version": 1,
+            "source": "- 父项\n  - 子项\n- 相邻",
+            "contentHash": "16600b3760ef463d4ebb3762b561ae6770ee57b63a60db4e640bb3c751ba0a3d",
+            "text": "父项\n子项\n相邻",
+            "units": [
+              {
+                "text": "父",
+                "sourceStart": 2,
+                "sourceEnd": 3,
+                "path": "0.0.0.0",
+                "projectedStart": 0,
+                "projectedEnd": 1
+              },
+              {
+                "text": "项",
+                "sourceStart": 3,
+                "sourceEnd": 4,
+                "path": "0.0.0.0",
+                "projectedStart": 1,
+                "projectedEnd": 2
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 2,
+                "projectedEnd": 3
+              },
+              {
+                "text": "子",
+                "sourceStart": 9,
+                "sourceEnd": 10,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 3,
+                "projectedEnd": 4
+              },
+              {
+                "text": "项",
+                "sourceStart": 10,
+                "sourceEnd": 11,
+                "path": "0.0.1.0.0.0",
+                "projectedStart": 4,
+                "projectedEnd": 5
+              },
+              {
+                "text": "\n",
+                "sourceStart": null,
+                "sourceEnd": null,
+                "path": "separator",
+                "projectedStart": 5,
+                "projectedEnd": 6
+              },
+              {
+                "text": "相",
+                "sourceStart": 14,
+                "sourceEnd": 15,
+                "path": "0.1.0.0",
+                "projectedStart": 6,
+                "projectedEnd": 7
+              },
+              {
+                "text": "邻",
+                "sourceStart": 15,
+                "sourceEnd": 16,
+                "path": "0.1.0.0",
+                "projectedStart": 7,
+                "projectedEnd": 8
+              }
+            ],
+            "blocks": [
+              {
+                "type": "listItem",
+                "path": "0.0",
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.0",
+                "sourceStart": 2,
+                "sourceEnd": 4
+              },
+              {
+                "type": "listItem",
+                "path": "0.0.1.0",
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.1.0.0",
+                "sourceStart": 9,
+                "sourceEnd": 11
+              },
+              {
+                "type": "listItem",
+                "path": "0.1",
+                "sourceStart": 12,
+                "sourceEnd": 16
+              },
+              {
+                "type": "paragraph",
+                "path": "0.1.0",
+                "sourceStart": 14,
+                "sourceEnd": 16
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": [
+              {
+                "path": "0.0",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 0,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.0.1.0",
+                "parentListPath": "0.0.1",
+                "parentItemPath": "0.0",
+                "depth": 1,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 7,
+                "sourceEnd": 11
+              },
+              {
+                "path": "0.1",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 12,
+                "sourceEnd": 16
+              }
+            ]
+          }
+        }
+      }
+    },
+    "list-follow-new-child": {
+      "returned": {
+        "projection": {
+          "version": 1,
+          "source": "- 父项\n  - 子项\n  - 新项\n- 相邻",
+          "contentHash": "bb37311a6623778607da526891ef2b842111ab391eeb97b0a614d0df05e56048",
+          "text": "父项\n子项\n新项\n相邻",
+          "units": [
+            {
+              "text": "父",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0.0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "项",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0.0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "子",
+              "sourceStart": 9,
+              "sourceEnd": 10,
+              "path": "0.0.1.0.0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "项",
+              "sourceStart": 10,
+              "sourceEnd": 11,
+              "path": "0.0.1.0.0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "新",
+              "sourceStart": 16,
+              "sourceEnd": 17,
+              "path": "0.0.1.1.0.0",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "项",
+              "sourceStart": 17,
+              "sourceEnd": 18,
+              "path": "0.0.1.1.0.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 8,
+              "projectedEnd": 9
+            },
+            {
+              "text": "相",
+              "sourceStart": 21,
+              "sourceEnd": 22,
+              "path": "0.1.0.0",
+              "projectedStart": 9,
+              "projectedEnd": 10
+            },
+            {
+              "text": "邻",
+              "sourceStart": 22,
+              "sourceEnd": 23,
+              "path": "0.1.0.0",
+              "projectedStart": 10,
+              "projectedEnd": 11
+            }
+          ],
+          "blocks": [
+            {
+              "type": "listItem",
+              "path": "0.0",
+              "sourceStart": 0,
+              "sourceEnd": 18
+            },
+            {
+              "type": "paragraph",
+              "path": "0.0.0",
+              "sourceStart": 2,
+              "sourceEnd": 4
+            },
+            {
+              "type": "listItem",
+              "path": "0.0.1.0",
+              "sourceStart": 7,
+              "sourceEnd": 11
+            },
+            {
+              "type": "paragraph",
+              "path": "0.0.1.0.0",
+              "sourceStart": 9,
+              "sourceEnd": 11
+            },
+            {
+              "type": "listItem",
+              "path": "0.0.1.1",
+              "sourceStart": 14,
+              "sourceEnd": 18
+            },
+            {
+              "type": "paragraph",
+              "path": "0.0.1.1.0",
+              "sourceStart": 16,
+              "sourceEnd": 18
+            },
+            {
+              "type": "listItem",
+              "path": "0.1",
+              "sourceStart": 19,
+              "sourceEnd": 23
+            },
+            {
+              "type": "paragraph",
+              "path": "0.1.0",
+              "sourceStart": 21,
+              "sourceEnd": 23
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": [
+            {
+              "path": "0.0",
+              "parentListPath": "0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 0,
+              "sourceEnd": 18
+            },
+            {
+              "path": "0.0.1.0",
+              "parentListPath": "0.0.1",
+              "parentItemPath": "0.0",
+              "depth": 1,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 7,
+              "sourceEnd": 11
+            },
+            {
+              "path": "0.0.1.1",
+              "parentListPath": "0.0.1",
+              "parentItemPath": "0.0",
+              "depth": 1,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 14,
+              "sourceEnd": 18
+            },
+            {
+              "path": "0.1",
+              "parentListPath": "0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 19,
+              "sourceEnd": 23
+            }
+          ]
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "list",
+          "segments": [
+            {
+              "start": 2,
+              "end": 4,
+              "path": "0.0.0.0"
+            },
+            {
+              "start": 9,
+              "end": 11,
+              "path": "0.0.1.0.0.0"
+            },
+            {
+              "start": 16,
+              "end": 18,
+              "path": "0.0.1.1.0.0"
+            }
+          ],
+          "structurePath": "0.0",
+          "quoteText": "父项\n子项\n新项",
+          "prefixText": "",
+          "suffixText": "\n相邻",
+          "sourceStart": 0,
+          "sourceEnd": 18,
+          "projectedStart": 0,
+          "projectedEnd": 8,
+          "list": {
+            "itemPath": "0.0",
+            "parentItemPath": null,
+            "depth": 0,
+            "ordered": false,
+            "childCount": 2,
+            "memberFingerprint": "aa3962f53ca03f51c4a9fc9494fe3f1740b40e5a80e9d24dd167600dd95d2f27"
+          },
+          "tracking": {
+            "formatVersion": 1,
+            "structureRevision": 2,
+            "rootId": "block-114b06ae9b44187608582ea3",
+            "ancestorItemIds": [],
+            "memberIds": [
+              "block-114b06ae9b44187608582ea3",
+              "block-5a66d209e5ac78e72cdfd2af",
+              "block-0670fc4617e8a3fdad7fcaa8",
+              "block-24e150ff0f90ff9873c8d108",
+              "block-9a4f3aae6ea5df5d7a689b78",
+              "block-ff3802ea5817d7989de3a056"
+            ],
+            "cut": null,
+            "empty": false
+          }
+        },
+        "status": "resolved",
+        "reason": null,
+        "quoteText": "父项\n子项\n新项",
+        "segments": [
+          {
+            "start": 2,
+            "end": 4,
+            "path": "0.0.0.0"
+          },
+          {
+            "start": 9,
+            "end": 11,
+            "path": "0.0.1.0.0.0"
+          },
+          {
+            "start": 16,
+            "end": 18,
+            "path": "0.0.1.1.0.0"
+          }
+        ]
+      }
+    },
+    "list-follow-boundary": {
+      "returned": {
+        "projection": {
+          "version": 1,
+          "source": "- 父项\n- 子项\n- 相邻",
+          "contentHash": "2deb4ed8222d8ddfd7c54202b704ea87d0fc318231bc20b10a85d844bc05cf81",
+          "text": "父项\n子项\n相邻",
+          "units": [
+            {
+              "text": "父",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0.0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "项",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0.0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 2,
+              "projectedEnd": 3
+            },
+            {
+              "text": "子",
+              "sourceStart": 7,
+              "sourceEnd": 8,
+              "path": "0.1.0.0",
+              "projectedStart": 3,
+              "projectedEnd": 4
+            },
+            {
+              "text": "项",
+              "sourceStart": 8,
+              "sourceEnd": 9,
+              "path": "0.1.0.0",
+              "projectedStart": 4,
+              "projectedEnd": 5
+            },
+            {
+              "text": "\n",
+              "sourceStart": null,
+              "sourceEnd": null,
+              "path": "separator",
+              "projectedStart": 5,
+              "projectedEnd": 6
+            },
+            {
+              "text": "相",
+              "sourceStart": 12,
+              "sourceEnd": 13,
+              "path": "0.2.0.0",
+              "projectedStart": 6,
+              "projectedEnd": 7
+            },
+            {
+              "text": "邻",
+              "sourceStart": 13,
+              "sourceEnd": 14,
+              "path": "0.2.0.0",
+              "projectedStart": 7,
+              "projectedEnd": 8
+            }
+          ],
+          "blocks": [
+            {
+              "type": "listItem",
+              "path": "0.0",
+              "sourceStart": 0,
+              "sourceEnd": 4
+            },
+            {
+              "type": "paragraph",
+              "path": "0.0.0",
+              "sourceStart": 2,
+              "sourceEnd": 4
+            },
+            {
+              "type": "listItem",
+              "path": "0.1",
+              "sourceStart": 5,
+              "sourceEnd": 9
+            },
+            {
+              "type": "paragraph",
+              "path": "0.1.0",
+              "sourceStart": 7,
+              "sourceEnd": 9
+            },
+            {
+              "type": "listItem",
+              "path": "0.2",
+              "sourceStart": 10,
+              "sourceEnd": 14
+            },
+            {
+              "type": "paragraph",
+              "path": "0.2.0",
+              "sourceStart": 12,
+              "sourceEnd": 14
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": [
+            {
+              "path": "0.0",
+              "parentListPath": "0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 0,
+              "sourceEnd": 4
+            },
+            {
+              "path": "0.1",
+              "parentListPath": "0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 5,
+              "sourceEnd": 9
+            },
+            {
+              "path": "0.2",
+              "parentListPath": "0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 10,
+              "sourceEnd": 14
+            }
+          ]
+        },
+        "anchor": {
+          "projectionVersion": 1,
+          "scopeType": "list",
+          "segments": [
+            {
+              "start": 2,
+              "end": 4,
+              "path": "0.0.0.0"
+            }
+          ],
+          "structurePath": "0.0",
+          "quoteText": "父项",
+          "prefixText": "",
+          "suffixText": "\n子项\n相邻",
+          "sourceStart": 0,
+          "sourceEnd": 4,
+          "projectedStart": 0,
+          "projectedEnd": 2,
+          "list": {
+            "itemPath": "0.0",
+            "parentItemPath": null,
+            "depth": 0,
+            "ordered": false,
+            "childCount": 0,
+            "memberFingerprint": "4c616cd550c51def3d48fe860e1a2d6d509b10a18171a7cfb59ec5c85605cfdb"
+          },
+          "tracking": {
+            "formatVersion": 1,
+            "structureRevision": 2,
+            "rootId": "block-114b06ae9b44187608582ea3",
+            "ancestorItemIds": [],
+            "memberIds": [
+              "block-114b06ae9b44187608582ea3",
+              "block-5a66d209e5ac78e72cdfd2af"
+            ],
+            "cut": null,
+            "empty": false
+          }
+        },
+        "status": "needsReview",
+        "reason": "boundaryChanged",
+        "quoteText": "父项",
+        "segments": [
+          {
+            "start": 2,
+            "end": 4,
+            "path": "0.0.0.0"
+          }
+        ]
+      }
+    },
+    "list-follow-deleted": {
+      "returned": {
+        "projection": {
+          "version": 1,
+          "source": "- 相邻",
+          "contentHash": "73d82beea56824640bdc2f7e2a86346019666eeeb2ac8940070e1ebd3b45de43",
+          "text": "相邻",
+          "units": [
+            {
+              "text": "相",
+              "sourceStart": 2,
+              "sourceEnd": 3,
+              "path": "0.0.0.0",
+              "projectedStart": 0,
+              "projectedEnd": 1
+            },
+            {
+              "text": "邻",
+              "sourceStart": 3,
+              "sourceEnd": 4,
+              "path": "0.0.0.0",
+              "projectedStart": 1,
+              "projectedEnd": 2
+            }
+          ],
+          "blocks": [
+            {
+              "type": "listItem",
+              "path": "0.0",
+              "sourceStart": 0,
+              "sourceEnd": 4
+            },
+            {
+              "type": "paragraph",
+              "path": "0.0.0",
+              "sourceStart": 2,
+              "sourceEnd": 4
+            }
+          ],
+          "headings": [],
+          "sections": [],
+          "listItems": [
+            {
+              "path": "0.0",
+              "parentListPath": "0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "task": false,
+              "sourceStart": 0,
+              "sourceEnd": 4
+            }
+          ]
+        },
+        "anchor": null,
+        "status": "missing",
+        "reason": "sourceDeleted",
+        "quoteText": {
+          "$type": "undefined"
+        },
+        "segments": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "list-empty-and-retype": {
+      "returned": {
+        "empty": {
+          "projectionVersion": 1,
+          "scopeType": "list",
+          "structurePath": "0.0",
+          "segments": [],
+          "quoteText": "",
+          "prefixText": "",
+          "suffixText": "",
+          "projectedStart": 0,
+          "projectedEnd": 0,
+          "tracking": {
+            "empty": true,
+            "emptyType": "listItem"
+          },
+          "sourceStart": 0,
+          "sourceEnd": 2,
+          "list": {
+            "itemPath": "0.0",
+            "parentItemPath": null,
+            "depth": 0,
+            "ordered": false,
+            "childCount": 0,
+            "memberFingerprint": "91627381868688510ae825c1ab81245dac23cf862f0e797cf8fd92aa3fa3897d"
+          }
+        },
+        "emptied": {
+          "projection": {
+            "version": 1,
+            "source": "- ",
+            "contentHash": "e86dd77a7ee765ea10ff34e3886eac5b21673b5809c242e96b376ed76c28e48c",
+            "text": "",
+            "units": [],
+            "blocks": [
+              {
+                "type": "listItem",
+                "path": "0.0",
+                "sourceStart": 0,
+                "sourceEnd": 2
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": [
+              {
+                "path": "0.0",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 0,
+                "sourceEnd": 2
+              }
+            ]
+          },
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "list",
+            "structurePath": "0.0",
+            "segments": [],
+            "quoteText": "",
+            "prefixText": "",
+            "suffixText": "",
+            "projectedStart": 0,
+            "projectedEnd": 0,
+            "tracking": {
+              "formatVersion": 1,
+              "structureRevision": 2,
+              "rootId": "block-f8fe7e885de556da104756f4",
+              "ancestorItemIds": [],
+              "memberIds": [
+                "block-f8fe7e885de556da104756f4"
+              ],
+              "cut": null,
+              "empty": true
+            },
+            "sourceStart": 0,
+            "sourceEnd": 2,
+            "list": {
+              "itemPath": "0.0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "childCount": 0,
+              "memberFingerprint": "91627381868688510ae825c1ab81245dac23cf862f0e797cf8fd92aa3fa3897d"
+            }
+          },
+          "status": "resolved",
+          "reason": null,
+          "quoteText": "",
+          "segments": []
+        },
+        "retyped": {
+          "projection": {
+            "version": 1,
+            "source": "- 新",
+            "contentHash": "e861721f907b96df17d49a4921eb9fbbb78eaed7edc06239379bcbb8d386eb45",
+            "text": "新",
+            "units": [
+              {
+                "text": "新",
+                "sourceStart": 2,
+                "sourceEnd": 3,
+                "path": "0.0.0.0",
+                "projectedStart": 0,
+                "projectedEnd": 1
+              }
+            ],
+            "blocks": [
+              {
+                "type": "listItem",
+                "path": "0.0",
+                "sourceStart": 0,
+                "sourceEnd": 3
+              },
+              {
+                "type": "paragraph",
+                "path": "0.0.0",
+                "sourceStart": 2,
+                "sourceEnd": 3
+              }
+            ],
+            "headings": [],
+            "sections": [],
+            "listItems": [
+              {
+                "path": "0.0",
+                "parentListPath": "0",
+                "parentItemPath": null,
+                "depth": 0,
+                "ordered": false,
+                "task": false,
+                "sourceStart": 0,
+                "sourceEnd": 3
+              }
+            ]
+          },
+          "anchor": {
+            "projectionVersion": 1,
+            "scopeType": "list",
+            "segments": [
+              {
+                "start": 2,
+                "end": 3,
+                "path": "0.0.0.0"
+              }
+            ],
+            "structurePath": "0.0",
+            "quoteText": "新",
+            "prefixText": "",
+            "suffixText": "",
+            "sourceStart": 0,
+            "sourceEnd": 3,
+            "projectedStart": 0,
+            "projectedEnd": 1,
+            "list": {
+              "itemPath": "0.0",
+              "parentItemPath": null,
+              "depth": 0,
+              "ordered": false,
+              "childCount": 0,
+              "memberFingerprint": "4c616cd550c51def3d48fe860e1a2d6d509b10a18171a7cfb59ec5c85605cfdb"
+            },
+            "tracking": {
+              "formatVersion": 1,
+              "structureRevision": 3,
+              "rootId": "block-f8fe7e885de556da104756f4",
+              "ancestorItemIds": [],
+              "memberIds": [
+                "block-f8fe7e885de556da104756f4",
+                "block-e91fbf6f6b0bdb11702caf22"
+              ],
+              "cut": null,
+              "empty": false
+            }
+          },
+          "status": "resolved",
+          "reason": null,
+          "quoteText": "新",
+          "segments": [
+            {
+              "start": 2,
+              "end": 3,
+              "path": "0.0.0.0"
+            }
+          ]
+        }
+      }
+    },
+    "identity-block-types-offsets-map": {
+      "returned": {
+        "blocks": [
+          {
+            "type": "heading",
+            "depth": 0,
+            "sourceStart": 0,
+            "sourceEnd": 4,
+            "br": false
+          },
+          {
+            "type": "paragraph",
+            "depth": 0,
+            "sourceStart": 6,
+            "sourceEnd": 8,
+            "br": false
+          },
+          {
+            "type": "html",
+            "depth": 0,
+            "sourceStart": 10,
+            "sourceEnd": 16,
+            "br": true
+          },
+          {
+            "type": "listItem",
+            "depth": 0,
+            "sourceStart": 18,
+            "sourceEnd": 27,
+            "br": false
+          },
+          {
+            "type": "paragraph",
+            "depth": 1,
+            "sourceStart": 20,
+            "sourceEnd": 21,
+            "br": false
+          },
+          {
+            "type": "listItem",
+            "depth": 1,
+            "sourceStart": 24,
+            "sourceEnd": 27,
+            "br": false
+          },
+          {
+            "type": "paragraph",
+            "depth": 2,
+            "sourceStart": 26,
+            "sourceEnd": 27,
+            "br": false
+          },
+          {
+            "type": "math",
+            "depth": 0,
+            "sourceStart": 29,
+            "sourceEnd": 38,
+            "br": false
+          },
+          {
+            "type": "table",
+            "depth": 0,
+            "sourceStart": 40,
+            "sourceEnd": 57,
+            "br": false
+          }
+        ],
+        "alignment": {
+          "aligned": true,
+          "pairs": {
+            "$type": "Map",
+            "entries": [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                3,
+                3
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                5,
+                5
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                7,
+                7
+              ],
+              [
+                8,
+                8
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "identity-validation": {
+      "returned": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    "identity-compare-guard-results": {
+      "returned": {
+        "valid": {
+          "status": "compared",
+          "compared": 0,
+          "divergences": []
+        },
+        "invalid": {
+          "status": "invalidState",
+          "compared": 0,
+          "divergences": []
+        },
+        "mismatch": {
+          "status": "stateMismatch",
+          "compared": 0,
+          "divergences": []
+        },
+        "alignment": {
+          "status": "alignFailed",
+          "compared": 0,
+          "divergences": [],
+          "alignment": {
+            "editorIndex": 0,
+            "markdownIndex": 0,
+            "editorType": "code",
+            "markdownType": "heading"
+          }
+        }
+      }
+    },
+    "identity-compare-all-scopes": {
+      "returned": {
+        "status": "compared",
+        "compared": 4,
+        "divergences": []
+      }
+    },
+    "identity-compare-all-divergences": {
+      "returned": {
+        "status": "compared",
+        "compared": 6,
+        "divergences": [
+          {
+            "annotationId": "lost",
+            "scopeType": "selection",
+            "oldStatus": "missing",
+            "oldReason": "sourceDeleted",
+            "kind": "trackedLost"
+          },
+          {
+            "annotationId": "gone",
+            "scopeType": "selection",
+            "oldStatus": "resolved",
+            "oldReason": null,
+            "kind": "identityLost"
+          },
+          {
+            "annotationId": "block",
+            "scopeType": "selection",
+            "oldStatus": "resolved",
+            "oldReason": null,
+            "kind": "blockMismatch"
+          },
+          {
+            "annotationId": "quote",
+            "scopeType": "selection",
+            "oldStatus": "resolved",
+            "oldReason": null,
+            "kind": "quoteMismatch"
+          },
+          {
+            "annotationId": "review",
+            "scopeType": "selection",
+            "oldStatus": "needsReview",
+            "oldReason": "boundaryChanged",
+            "kind": "oldNeedsReview"
+          }
+        ]
+      }
+    },
+    "note-link-format-extraction-resolution": {
+      "returned": {
+        "url": "knowra://note/%E7%9B%AE%E6%A0%87%2F%E7%AC%94%E8%AE%B0#ref=occ-first",
+        "locator": {
+          "targetNoteId": "目标/笔记",
+          "occurrenceId": "occ-first"
+        },
+        "extracted": {
+          "targetIds": [
+            "目标/笔记",
+            "legacy-id"
+          ],
+          "occurrences": [
+            {
+              "targetNoteId": "目标/笔记",
+              "occurrenceId": "occ-first",
+              "url": "knowra://note/%E7%9B%AE%E6%A0%87%2F%E7%AC%94%E8%AE%B0#ref=occ-first",
+              "sourceStart": 0,
+              "sourceEnd": 76,
+              "label": "甲",
+              "context": "甲乙"
+            },
+            {
+              "targetNoteId": "目标/笔记",
+              "occurrenceId": "occ-second",
+              "url": "knowra://note/%E7%9B%AE%E6%A0%87%2F%E7%AC%94%E8%AE%B0#ref=occ-second",
+              "sourceStart": 77,
+              "sourceEnd": 85,
+              "label": "乙",
+              "context": "甲乙"
+            }
+          ]
+        },
+        "resolved": {
+          "targetNoteId": "目标/笔记",
+          "occurrenceId": "occ-first",
+          "url": "knowra://note/%E7%9B%AE%E6%A0%87%2F%E7%AC%94%E8%AE%B0#ref=occ-first",
+          "sourceStart": 0,
+          "sourceEnd": 76,
+          "label": "甲",
+          "context": "甲乙"
+        },
+        "duplicate": null,
+        "invalid": [
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    },
+    "error-projected-range-negative": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Projected range is invalid",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-projected-range-empty": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Projected range is invalid",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-projection-version": {
+      "threw": {
+        "name": "TypeError",
+        "message": "Markdown projection is invalid",
+        "code": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "error-source-range-invalid": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Source range is invalid",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-block-missing": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Markdown block does not exist",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-section-missing": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Markdown heading does not exist",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-anchor-null": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Anchor segments are required",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-anchor-source-range": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Anchor source range is invalid",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-source-edit-null": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Invalid source edit",
+        "code": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "error-source-edit-invalid": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Invalid source edit",
+        "code": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "error-source-edit-text-type": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Invalid source edit",
+        "code": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "error-list-missing": {
+      "threw": {
+        "name": "RangeError",
+        "message": "普通列表项不存在",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-list-task": {
+      "threw": {
+        "name": "RangeError",
+        "message": "普通列表项不存在",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-list-empty": {
+      "threw": {
+        "name": "RangeError",
+        "message": "Source range has no projected content",
+        "code": "ANNOTATION_RANGE_INVALID"
+      }
+    },
+    "error-note-link-identity": {
+      "threw": {
+        "name": "TypeError",
+        "message": "Invalid note link identity",
+        "code": {
+          "$type": "undefined"
+        }
+      }
+    },
+    "error-identity-alignment-type": {
+      "threw": {
+        "name": "TypeError",
+        "message": "Cannot read properties of null (reading 'length')",
+        "code": {
+          "$type": "undefined"
+        }
+      }
+    }
+  }
+}
